@@ -86,16 +86,19 @@ async function main() {
   console.log(`Total benchmarks: ${specs.length}\n`);
 
   try {
-    // Validate correctness before benchmarking (skip BigInt benchmarks)
-    const nonBigIntSpecs = specs.filter((spec) => spec.category !== 'bigint');
-    if (nonBigIntSpecs.length > 0) {
+    // Validate correctness before benchmarking (skip BigInt and IO benchmarks)
+    const validatableSpecs = specs.filter(
+      (spec) => spec.category !== 'bigint' && spec.category !== 'io'
+    );
+    if (validatableSpecs.length > 0) {
       console.log('Validating correctness against NumPy...');
-      await validateBenchmarks(nonBigIntSpecs);
+      await validateBenchmarks(validatableSpecs);
       console.log('');
     }
-    if (specs.length > nonBigIntSpecs.length) {
+    const skippedCount = specs.length - validatableSpecs.length;
+    if (skippedCount > 0) {
       console.log(
-        `⚠️  Skipping validation for ${specs.length - nonBigIntSpecs.length} BigInt benchmarks (BigInt values cannot be serialized to JSON)\n`
+        `⚠️  Skipping validation for ${skippedCount} benchmarks (BigInt/IO cannot be validated against Python)\n`
       );
     }
 
@@ -203,6 +206,8 @@ Categories:
   linalg               Linear algebra (matmul, transpose)
   reductions           Reductions (sum, mean, max, min)
   reshape              Reshape operations (reshape, flatten, ravel)
+  io                   IO operations (parseNpy, serializeNpy, etc.)
+  bigint               BigInt (int64/uint64) operations
 
 Examples:
   npm run bench                           # Run standard benchmarks

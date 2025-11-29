@@ -682,6 +682,114 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   }
 
   // ========================================
+  // IO Benchmarks (NPY/NPZ parsing and serialization)
+  // ========================================
+
+  if (Array.isArray(sizes.medium)) {
+    const [m, n] = sizes.medium;
+    const ioSize = m! * n!; // Total elements for IO benchmarks
+
+    // NPY serialization
+    specs.push({
+      name: `serializeNpy [${m}x${n}] float64`,
+      category: 'io',
+      operation: 'serializeNpy',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `serializeNpy [${m}x${n}] int32`,
+      category: 'io',
+      operation: 'serializeNpy',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'int32' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // NPY parsing (uses pre-serialized bytes)
+    specs.push({
+      name: `parseNpy [${m}x${n}] float64`,
+      category: 'io',
+      operation: 'parseNpy',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `parseNpy [${m}x${n}] int32`,
+      category: 'io',
+      operation: 'parseNpy',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'int32' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // NPZ serialization (sync, no compression)
+    specs.push({
+      name: `serializeNpzSync {a, b} [${m}x${n}]`,
+      category: 'io',
+      operation: 'serializeNpzSync',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
+        b: { shape: [m!, n!], fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // NPZ parsing (sync, no compression)
+    specs.push({
+      name: `parseNpzSync {a, b} [${m}x${n}]`,
+      category: 'io',
+      operation: 'parseNpzSync',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
+        b: { shape: [m!, n!], fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+  }
+
+  // Larger IO benchmarks for non-quick mode
+  if (mode !== 'quick' && Array.isArray(sizes.large)) {
+    const [m, n] = sizes.large;
+
+    specs.push({
+      name: `serializeNpy [${m}x${n}] float64`,
+      category: 'io',
+      operation: 'serializeNpy',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
+      },
+      iterations: Math.floor(iterations / 2),
+      warmup: Math.floor(warmup / 2),
+    });
+
+    specs.push({
+      name: `parseNpy [${m}x${n}] float64`,
+      category: 'io',
+      operation: 'parseNpy',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
+      },
+      iterations: Math.floor(iterations / 2),
+      warmup: Math.floor(warmup / 2),
+    });
+  }
+
+  // ========================================
   // BigInt (64-bit) Benchmarks
   // ========================================
   // Tests representative operations with int64/uint64 dtypes

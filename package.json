@@ -23,10 +23,18 @@
     },
     "./node": {
       "types": "./dist/types/node.d.ts",
-      "default": "./dist/numpy-ts.node.cjs"
+      "import": "./dist/numpy-ts.node-io.mjs",
+      "require": "./dist/numpy-ts.node-io.cjs",
+      "default": "./dist/numpy-ts.node-io.cjs"
+    },
+    "./io": {
+      "types": "./dist/types/io/index.d.ts",
+      "node": "./dist/numpy-ts.node.cjs",
+      "browser": "./dist/numpy-ts.browser.js",
+      "default": "./dist/numpy-ts.esm.js"
     },
     "./browser": {
-      "types": "./dist/types/browser.d.ts",
+      "types": "./dist/types/index.d.ts",
       "default": "./dist/numpy-ts.browser.js"
     }
   },

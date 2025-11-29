@@ -24,6 +24,11 @@ export default [
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
+        // Web APIs available in Node.js 18+ and modern browsers
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        CompressionStream: 'readonly',
+        DecompressionStream: 'readonly',
       },
     },
     plugins: {
@@ -61,6 +66,14 @@ export default [
     },
     rules: {
       '@typescript-eslint/ban-ts-comment': 'off',
+    },
+  },
+  // Special rules for Node.js entry point with dynamic imports
+  {
+    files: ['src/node.ts'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
     },
   },
 ];

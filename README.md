@@ -137,6 +137,7 @@ Built from scratch for correctness and NumPy compatibility.
   - Full dtype preservation across operations
   - NumPy-compatible type promotion
   - BigInt support for int64/uint64
+- **NPY/NPZ I/O**: Read and write `.npy` and `.npz` files (v1/v2/v3 compatible) for all supported dtypes
 - **View tracking**: `base` attribute tracks view relationships
 - **Memory flags**: `C_CONTIGUOUS`, `F_CONTIGUOUS`, `OWNDATA`
 - **Comparisons**: `greater`, `less`, `equal`, `isclose`, `allclose`

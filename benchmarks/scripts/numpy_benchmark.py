@@ -22,8 +22,9 @@ MIN_SAMPLE_TIME_MS = 100  # Minimum time per sample (reduces noise)
 TARGET_SAMPLES = 5  # Number of samples to collect for statistics
 
 
-def setup_arrays(setup: Dict[str, Any]) -> Dict[str, np.ndarray]:
+def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.ndarray]:
     """Create arrays based on setup specification"""
+    import io
     arrays = {}
 
     for key, spec in setup.items():
@@ -50,6 +51,22 @@ def setup_arrays(setup: Dict[str, Any]) -> Dict[str, np.ndarray]:
             arrays[key] = np.random.randn(*shape).astype(dtype)
         elif fill_type == "arange":
             arrays[key] = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+
+    # Pre-serialize data for parsing benchmarks
+    if operation == "parseNpy" and "a" in arrays:
+        buffer = io.BytesIO()
+        np.save(buffer, arrays["a"])
+        arrays["_npyBytes"] = buffer.getvalue()
+    elif operation == "serializeNpzSync" and "a" in arrays:
+        # Create dict of arrays for NPZ serialization
+        npz_arrays = {k: v for k, v in arrays.items() if isinstance(v, np.ndarray)}
+        arrays["_npzArrays"] = npz_arrays
+    elif operation == "parseNpzSync" and "a" in arrays:
+        # Create and pre-serialize NPZ
+        npz_arrays = {k: v for k, v in arrays.items() if isinstance(v, np.ndarray)}
+        buffer = io.BytesIO()
+        np.savez(buffer, **npz_arrays)
+        arrays["_npzBytes"] = buffer.getvalue()
 
     return arrays
 
@@ -184,6 +201,28 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "slice":
         return arrays["a"][:100, :100]
 
+    # IO operations (NPY/NPZ)
+    elif operation == "serializeNpy":
+        import io
+        buffer = io.BytesIO()
+        np.save(buffer, arrays["a"])
+        return buffer.getvalue()
+    elif operation == "parseNpy":
+        import io
+        # arrays["_npyBytes"] should be pre-serialized
+        buffer = io.BytesIO(arrays["_npyBytes"])
+        return np.load(buffer)
+    elif operation == "serializeNpzSync":
+        import io
+        buffer = io.BytesIO()
+        np.savez(buffer, **arrays["_npzArrays"])
+        return buffer.getvalue()
+    elif operation == "parseNpzSync":
+        import io
+        # arrays["_npzBytes"] should be pre-serialized
+        buffer = io.BytesIO(arrays["_npzBytes"])
+        return np.load(buffer)
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 
@@ -240,8 +279,8 @@ def run_benchmark(spec: Dict[str, Any]) -> Dict[str, Any]:
     setup = spec["setup"]
     warmup = spec["warmup"]
 
-    # Setup arrays
-    arrays = setup_arrays(setup)
+    # Setup arrays (pass operation for IO benchmarks that need pre-serialized data)
+    arrays = setup_arrays(setup, operation)
 
     # Warmup phase - run several times to stabilize JIT/caching
     for _ in range(warmup):

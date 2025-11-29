@@ -10,6 +10,7 @@
 
 import { performance } from 'perf_hooks';
 import * as np from '../../src/index';
+import { serializeNpy, parseNpy, serializeNpzSync, parseNpzSync } from '../../src/io';
 import type { BenchmarkCase, BenchmarkTiming, BenchmarkSetup } from './types';
 
 // Benchmark configuration - can be overridden
@@ -37,7 +38,7 @@ function std(arr: number[]): number {
   return Math.sqrt(variance);
 }
 
-function setupArrays(setup: BenchmarkSetup): Record<string, any> {
+function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, any> {
   const arrays: Record<string, any> = {};
 
   for (const [key, spec] of Object.entries(setup)) {
@@ -75,6 +76,29 @@ function setupArrays(setup: BenchmarkSetup): Record<string, any> {
       const flat = np.arange(0, size, 1, dtype);
       arrays[key] = flat.reshape(...shape);
     }
+  }
+
+  // Pre-serialize data for parsing benchmarks
+  if (operation === 'parseNpy' && arrays['a']) {
+    arrays['_npyBytes'] = serializeNpy(arrays['a']);
+  } else if (operation === 'serializeNpzSync' && arrays['a']) {
+    // Create object for NPZ serialization
+    const npzArrays: Record<string, any> = {};
+    for (const [key, val] of Object.entries(arrays)) {
+      if (val && val.shape !== undefined) {
+        npzArrays[key] = val;
+      }
+    }
+    arrays['_npzArrays'] = npzArrays;
+  } else if (operation === 'parseNpzSync' && arrays['a']) {
+    // Create and pre-serialize NPZ
+    const npzArrays: Record<string, any> = {};
+    for (const [key, val] of Object.entries(arrays)) {
+      if (val && val.shape !== undefined) {
+        npzArrays[key] = val;
+      }
+    }
+    arrays['_npzBytes'] = serializeNpzSync(npzArrays);
   }
 
   return arrays;
@@ -216,6 +240,20 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].slice('0:100', '0:100');
   }
 
+  // IO operations
+  else if (operation === 'serializeNpy') {
+    return serializeNpy(arrays['a']);
+  } else if (operation === 'parseNpy') {
+    // arrays['_npyBytes'] is pre-serialized in setupArrays
+    return parseNpy(arrays['_npyBytes']);
+  } else if (operation === 'serializeNpzSync') {
+    // arrays['_npzArrays'] contains the object {a, b} for serialization
+    return serializeNpzSync(arrays['_npzArrays']);
+  } else if (operation === 'parseNpzSync') {
+    // arrays['_npzBytes'] is pre-serialized in setupArrays
+    return parseNpzSync(arrays['_npzBytes']);
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 
@@ -271,8 +309,8 @@ function calibrateOpsPerSample(
 export async function runBenchmark(spec: BenchmarkCase): Promise<BenchmarkTiming> {
   const { name, operation, setup, warmup } = spec;
 
-  // Setup arrays
-  const arrays = setupArrays(setup);
+  // Setup arrays (pass operation for IO benchmarks that need pre-serialized data)
+  const arrays = setupArrays(setup, operation);
 
   // Warmup phase - run several times to stabilize JIT
   for (let i = 0; i < warmup; i++) {

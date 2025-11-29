@@ -325,10 +325,16 @@ All operations preserve dtype or follow NumPy promotion rules:
 ## I/O
 
 ### NumPy Files
-- [ ] `load(file)` - Load array from .npy file
-- [ ] `save(file, arr)` - Save array to .npy file
-- [ ] `savez(file, *arrays, **kwds)` - Save multiple arrays (.npz)
-- [ ] `savez_compressed(file, *arrays, **kwds)` - Compressed .npz
+- [x] `load(file)` - Load array from .npy/.npz file _(supports v1/v2/v3 format, all dtypes)_
+- [x] `save(file, arr)` - Save array to .npy file _(writes v3 format)_
+- [x] `savez(file, *arrays, **kwds)` - Save multiple arrays (.npz) _(supports positional and named arrays)_
+- [x] `savez_compressed(file, *arrays, **kwds)` - Compressed .npz _(uses DEFLATE compression)_
+
+### In-Memory Parsing/Serialization (Browser-compatible)
+- [x] `parseNpy(buffer)` - Parse NPY bytes to NDArray
+- [x] `serializeNpy(arr)` - Serialize NDArray to NPY bytes
+- [x] `parseNpz(buffer)` / `parseNpzSync(buffer)` - Parse NPZ bytes
+- [x] `serializeNpz(arrays)` / `serializeNpzSync(arrays)` - Serialize to NPZ bytes
 
 ### Text Files
 - [ ] `loadtxt(fname, dtype?)` - Load from text
@@ -396,4 +402,4 @@ All operations preserve dtype or follow NumPy promotion rules:
 
 ---
 
-**Last Updated**: 2025-10-23
+**Last Updated**: 2025-11-29
