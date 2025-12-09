@@ -2994,8 +2994,13 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
  * For general matrices, uses iterative methods.
  * For symmetric matrices, use eigh for better performance.
  *
+ * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
+ * this function returns only the real parts of eigenvalues. If your matrix has
+ * complex eigenvalues (e.g., rotation matrices), results will be incorrect.
+ * Use eigh() for symmetric matrices where eigenvalues are guaranteed to be real.
+ *
  * @param a - Input square matrix
- * @returns { w, v } - Eigenvalues (possibly complex) and eigenvector matrix
+ * @returns { w, v } - Eigenvalues (real only) and eigenvector matrix
  */
 export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
   if (a.ndim !== 2) {
@@ -3021,7 +3026,8 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
   }
 
   if (isSymmetric) {
-    // Use symmetric eigendecomposition
+    // Use symmetric eigendecomposition (Jacobi method)
+    // Symmetric matrices always have real eigenvalues, so this is exact
     const { values, vectors } = eigSymmetric(a);
 
     const w = ArrayStorage.zeros([size], 'float64');
@@ -3036,6 +3042,13 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
 
     return { w, v };
   }
+
+  // WARNING: Non-symmetric matrices may have complex eigenvalues which we cannot represent.
+  // This implementation returns only real approximations and may be inaccurate.
+  console.warn(
+    'numpy-ts: eig() called on non-symmetric matrix. Complex eigenvalues are not supported; ' +
+      'results may be inaccurate. For symmetric matrices, use eigh() instead.'
+  );
 
   // For non-symmetric matrices, use QR iteration (simplified)
   // This is a basic implementation that may not converge for all matrices
@@ -3124,9 +3137,13 @@ function qrEigendecomposition(a: ArrayStorage): { values: number[]; vectors: num
 }
 
 /**
- * Compute eigenvalues and eigenvectors of a Hermitian (symmetric) matrix.
+ * Compute eigenvalues and eigenvectors of a real symmetric matrix.
  *
- * @param a - Hermitian (symmetric) matrix
+ * Note: Named "Hermitian" for NumPy compatibility, but only real symmetric
+ * matrices are supported (complex Hermitian matrices require complex dtype support).
+ * Symmetric matrices always have real eigenvalues, so results are exact.
+ *
+ * @param a - Real symmetric matrix
  * @param UPLO - 'L' or 'U' to use lower or upper triangle (default: 'L')
  * @returns { w, v } - Eigenvalues (sorted ascending) and eigenvector matrix
  */
@@ -3183,8 +3200,12 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
 /**
  * Compute eigenvalues of a general square matrix.
  *
+ * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
+ * this function returns only real approximations. Use eigvalsh() for symmetric
+ * matrices where eigenvalues are guaranteed to be real.
+ *
  * @param a - Input square matrix
- * @returns Array of eigenvalues
+ * @returns Array of eigenvalues (real only)
  */
 export function eigvals(a: ArrayStorage): ArrayStorage {
   const { w } = eig(a);
@@ -3192,9 +3213,13 @@ export function eigvals(a: ArrayStorage): ArrayStorage {
 }
 
 /**
- * Compute eigenvalues of a Hermitian (symmetric) matrix.
+ * Compute eigenvalues of a real symmetric matrix.
  *
- * @param a - Hermitian (symmetric) matrix
+ * Note: Named "Hermitian" for NumPy compatibility, but only real symmetric
+ * matrices are supported (complex Hermitian matrices require complex dtype support).
+ * Symmetric matrices always have real eigenvalues, so results are exact.
+ *
+ * @param a - Real symmetric matrix
  * @param UPLO - 'L' or 'U' to use lower or upper triangle
  * @returns Array of eigenvalues (sorted ascending)
  */
