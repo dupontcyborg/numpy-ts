@@ -226,6 +226,16 @@ export {
   ediff1d,
   gradient,
   cross,
+  // Statistics functions
+  bincount,
+  digitize,
+  histogram,
+  histogram2d,
+  histogramdd,
+  correlate,
+  convolve,
+  cov,
+  corrcoef,
 } from './core/ndarray';
 
 // IO functions (environment-agnostic parsing/serialization)

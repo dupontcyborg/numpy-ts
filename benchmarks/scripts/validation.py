@@ -429,6 +429,24 @@ def run_operation(spec):
     elif operation == "count_nonzero":
         result = np.count_nonzero(arrays["a"])
 
+    # Statistics operations
+    elif operation == "bincount":
+        result = np.bincount(arrays["a"].flatten().astype(int))
+    elif operation == "digitize":
+        result = np.digitize(arrays["a"].flatten(), arrays["b"].flatten())
+    elif operation == "histogram":
+        result, _ = np.histogram(arrays["a"].flatten(), bins=10)
+    elif operation == "histogram2d":
+        result, _, _ = np.histogram2d(arrays["a"].flatten(), arrays["b"].flatten(), bins=10)
+    elif operation == "correlate":
+        result = np.correlate(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
+    elif operation == "convolve":
+        result = np.convolve(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
+    elif operation == "cov":
+        result = np.cov(arrays["a"])
+    elif operation == "corrcoef":
+        result = np.corrcoef(arrays["a"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

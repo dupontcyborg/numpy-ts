@@ -27,6 +27,7 @@ import * as sortingOps from '../ops/sorting';
 import * as roundingOps from '../ops/rounding';
 import * as setOps from '../ops/sets';
 import * as gradientOps from '../ops/gradient';
+import * as statisticsOps from '../ops/statistics';
 
 export class NDArray {
   // Internal storage
@@ -5409,4 +5410,191 @@ export function cross(
   axisc: number = -1
 ): NDArray {
   return NDArray._fromStorage(gradientOps.cross(a.storage, b.storage, axisa, axisb, axisc));
+}
+
+// ============================================================================
+// Statistics functions
+// ============================================================================
+
+/**
+ * Count number of occurrences of each value in array of non-negative ints.
+ *
+ * @param x - Input array (must contain non-negative integers)
+ * @param weights - Optional weights, same shape as x
+ * @param minlength - Minimum number of bins for output (default: 0)
+ * @returns Array of bin counts
+ */
+export function bincount(x: NDArray, weights?: NDArray, minlength: number = 0): NDArray {
+  return NDArray._fromStorage(statisticsOps.bincount(x.storage, weights?.storage, minlength));
+}
+
+/**
+ * Return the indices of the bins to which each value in input array belongs.
+ *
+ * @param x - Input array to be binned
+ * @param bins - Array of bins (monotonically increasing or decreasing)
+ * @param right - If true, intervals are closed on the right (default: false)
+ * @returns Array of bin indices
+ */
+export function digitize(x: NDArray, bins: NDArray, right: boolean = false): NDArray {
+  return NDArray._fromStorage(statisticsOps.digitize(x.storage, bins.storage, right));
+}
+
+/**
+ * Compute the histogram of a set of data.
+ *
+ * @param a - Input data (flattened if not 1D)
+ * @param bins - Number of bins (default: 10) or array of bin edges
+ * @param range - Lower and upper range of bins
+ * @param density - If true, return probability density function (default: false)
+ * @param weights - Optional weights for each data point
+ * @returns Tuple of [hist, bin_edges]
+ */
+export function histogram(
+  a: NDArray,
+  bins: number | NDArray = 10,
+  range?: [number, number],
+  density: boolean = false,
+  weights?: NDArray
+): [NDArray, NDArray] {
+  const result = statisticsOps.histogram(
+    a.storage,
+    typeof bins === 'number' ? bins : bins.storage,
+    range,
+    density,
+    weights?.storage
+  );
+  return [NDArray._fromStorage(result.hist), NDArray._fromStorage(result.bin_edges)];
+}
+
+/**
+ * Compute the bi-dimensional histogram of two data samples.
+ *
+ * @param x - Array of x coordinates
+ * @param y - Array of y coordinates (must have same length as x)
+ * @param bins - Number of bins or [nx, ny] or [x_edges, y_edges]
+ * @param range - [[xmin, xmax], [ymin, ymax]]
+ * @param density - If true, return probability density function
+ * @param weights - Optional weights for each data point
+ * @returns Tuple of [hist, x_edges, y_edges]
+ */
+export function histogram2d(
+  x: NDArray,
+  y: NDArray,
+  bins: number | [number, number] | [NDArray, NDArray] = 10,
+  range?: [[number, number], [number, number]],
+  density: boolean = false,
+  weights?: NDArray
+): [NDArray, NDArray, NDArray] {
+  let binsArg: number | [number, number] | [any, any];
+  if (typeof bins === 'number') {
+    binsArg = bins;
+  } else if (Array.isArray(bins) && bins.length === 2) {
+    if (typeof bins[0] === 'number') {
+      binsArg = bins as [number, number];
+    } else {
+      binsArg = [(bins[0] as NDArray).storage, (bins[1] as NDArray).storage];
+    }
+  } else {
+    binsArg = 10;
+  }
+
+  const result = statisticsOps.histogram2d(
+    x.storage,
+    y.storage,
+    binsArg,
+    range,
+    density,
+    weights?.storage
+  );
+  return [
+    NDArray._fromStorage(result.hist),
+    NDArray._fromStorage(result.x_edges),
+    NDArray._fromStorage(result.y_edges),
+  ];
+}
+
+/**
+ * Compute the multidimensional histogram of some data.
+ *
+ * @param sample - Array of shape (N, D) where N is number of samples and D is number of dimensions
+ * @param bins - Number of bins for all axes, or array of bin counts per axis
+ * @param range - Array of [min, max] for each dimension
+ * @param density - If true, return probability density function
+ * @param weights - Optional weights for each sample
+ * @returns Tuple of [hist, edges (array of edge arrays)]
+ */
+export function histogramdd(
+  sample: NDArray,
+  bins: number | number[] = 10,
+  range?: [number, number][],
+  density: boolean = false,
+  weights?: NDArray
+): [NDArray, NDArray[]] {
+  const result = statisticsOps.histogramdd(sample.storage, bins, range, density, weights?.storage);
+  return [NDArray._fromStorage(result.hist), result.edges.map((e) => NDArray._fromStorage(e))];
+}
+
+/**
+ * Cross-correlation of two 1-dimensional sequences.
+ *
+ * @param a - First input sequence
+ * @param v - Second input sequence
+ * @param mode - 'full', 'same', or 'valid' (default: 'full')
+ * @returns Cross-correlation of a and v
+ */
+export function correlate(
+  a: NDArray,
+  v: NDArray,
+  mode: 'full' | 'same' | 'valid' = 'full'
+): NDArray {
+  return NDArray._fromStorage(statisticsOps.correlate(a.storage, v.storage, mode));
+}
+
+/**
+ * Discrete, linear convolution of two one-dimensional sequences.
+ *
+ * @param a - First input sequence
+ * @param v - Second input sequence
+ * @param mode - 'full', 'same', or 'valid' (default: 'full')
+ * @returns Convolution of a and v
+ */
+export function convolve(
+  a: NDArray,
+  v: NDArray,
+  mode: 'full' | 'same' | 'valid' = 'full'
+): NDArray {
+  return NDArray._fromStorage(statisticsOps.convolve(a.storage, v.storage, mode));
+}
+
+/**
+ * Estimate a covariance matrix.
+ *
+ * @param m - Input array (1D or 2D). Each row represents a variable, columns are observations.
+ * @param y - Optional second array (for 2 variable case)
+ * @param rowvar - If true, each row is a variable (default: true)
+ * @param bias - If true, use N for normalization; if false, use N-1 (default: false)
+ * @param ddof - Delta degrees of freedom (overrides bias if provided)
+ * @returns Covariance matrix
+ */
+export function cov(
+  m: NDArray,
+  y?: NDArray,
+  rowvar: boolean = true,
+  bias: boolean = false,
+  ddof?: number
+): NDArray {
+  return NDArray._fromStorage(statisticsOps.cov(m.storage, y?.storage, rowvar, bias, ddof));
+}
+
+/**
+ * Return Pearson product-moment correlation coefficients.
+ *
+ * @param x - Input array (1D or 2D)
+ * @param y - Optional second array (for 2 variable case)
+ * @param rowvar - If true, each row is a variable (default: true)
+ * @returns Correlation coefficient matrix
+ */
+export function corrcoef(x: NDArray, y?: NDArray, rowvar: boolean = true): NDArray {
+  return NDArray._fromStorage(statisticsOps.corrcoef(x.storage, y?.storage, rowvar));
 }

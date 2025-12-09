@@ -520,6 +520,25 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.count_nonzero(arrays['a']);
   }
 
+  // Statistics operations
+  else if (operation === 'bincount') {
+    return np.bincount(arrays['a']);
+  } else if (operation === 'digitize') {
+    return np.digitize(arrays['a'], arrays['b']);
+  } else if (operation === 'histogram') {
+    return np.histogram(arrays['a'], 10);
+  } else if (operation === 'histogram2d') {
+    return np.histogram2d(arrays['a'], arrays['b'], 10);
+  } else if (operation === 'correlate') {
+    return np.correlate(arrays['a'], arrays['b'], 'full');
+  } else if (operation === 'convolve') {
+    return np.convolve(arrays['a'], arrays['b'], 'full');
+  } else if (operation === 'cov') {
+    return np.cov(arrays['a']);
+  } else if (operation === 'corrcoef') {
+    return np.corrcoef(arrays['a']);
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 
