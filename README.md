@@ -100,7 +100,7 @@ NumPy-compatible type system with automatic promotion:
 | **Floating Point** ||||
 | `float64` | ✅ | ✅ | Default dtype |
 | `float32` | ✅ | ✅ | |
-| `float16` | ✅ | ⚠️ | Planned (half-precision) |
+| `float16` | ✅ | ⚠️ | Planned (waiting for [this](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float16Array)) |
 | **Signed Integers** ||||
 | `int64` | ✅ | ✅ | Uses BigInt |
 | `int32` | ✅ | ✅ | |
@@ -195,7 +195,7 @@ const arr = np.parseNpy(await response.arrayBuffer());
 const bytes = np.serializeNpy(arr);
 ```
 
-> **Why separate imports?** The `/node` entry includes Node.js `fs` usage. Keeping it separate ensures browser bundles stay clean.
+*Why separate imports?* The `/node` entry includes Node.js `fs` usage. Keeping it separate ensures browser bundles stay clean.
 
 ## Examples
 
@@ -242,7 +242,7 @@ arr.sum();  // Type: number
 | NumPy Validated | ✅ 1365+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |
 | Broadcasting | ✅ Full | Limited | Limited | ✅ Full |
-| Bundle Size | ~50kb | ~20kb | ~5kb | ~500kb |
+| Bundle Size | <50kb | ~60kb | ~5kb | >100kb |
 
 ## Contributing
 
