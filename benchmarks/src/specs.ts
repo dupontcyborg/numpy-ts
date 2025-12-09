@@ -2018,6 +2018,114 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    // ========================================
+    // Logic Benchmarks
+    // ========================================
+
+    specs.push({
+      name: `logical_and [${sizes.medium.join('x')}] & scalar`,
+      category: 'logic',
+      operation: 'logical_and',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+        scalar: { shape: [1], value: 1 },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `logical_and [${sizes.medium.join('x')}] & [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'logical_and',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+        b: { shape: sizes.medium, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `logical_or [${sizes.medium.join('x')}] | scalar`,
+      category: 'logic',
+      operation: 'logical_or',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+        scalar: { shape: [1], value: 0 },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `logical_not [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'logical_not',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `logical_xor [${sizes.medium.join('x')}] ^ scalar`,
+      category: 'logic',
+      operation: 'logical_xor',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+        scalar: { shape: [1], value: 1 },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isfinite [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isfinite',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isnan [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isnan',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `signbit [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'signbit',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: -50 },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `copysign [${sizes.medium.join('x')}] scalar`,
+      category: 'logic',
+      operation: 'copysign',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+        scalar: { shape: [1], value: -1 },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   return specs;

@@ -569,6 +569,42 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'count_nonzero':
       return np.count_nonzero(arrays.a);
 
+    // Logic operations
+    case 'logical_and':
+      if (arrays.b) {
+        return np.logical_and(arrays.a, arrays.b);
+      } else {
+        return np.logical_and(arrays.a, arrays.scalar);
+      }
+    case 'logical_or':
+      if (arrays.b) {
+        return np.logical_or(arrays.a, arrays.b);
+      } else {
+        return np.logical_or(arrays.a, arrays.scalar);
+      }
+    case 'logical_not':
+      return np.logical_not(arrays.a);
+    case 'logical_xor':
+      if (arrays.b) {
+        return np.logical_xor(arrays.a, arrays.b);
+      } else {
+        return np.logical_xor(arrays.a, arrays.scalar);
+      }
+    case 'isfinite':
+      return np.isfinite(arrays.a);
+    case 'isinf':
+      return np.isinf(arrays.a);
+    case 'isnan':
+      return np.isnan(arrays.a);
+    case 'signbit':
+      return np.signbit(arrays.a);
+    case 'copysign':
+      if (arrays.b) {
+        return np.copysign(arrays.a, arrays.b);
+      } else {
+        return np.copysign(arrays.a, arrays.scalar);
+      }
+
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);
   }

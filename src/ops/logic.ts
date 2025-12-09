@@ -1,0 +1,724 @@
+/**
+ * Logic operations
+ *
+ * Pure functions for element-wise logical operations:
+ * logical_and, logical_or, logical_not, logical_xor,
+ * isfinite, isinf, isnan, isnat, copysign, signbit, nextafter, spacing
+ *
+ * These operations convert values to boolean (non-zero = true, zero = false)
+ * and return boolean arrays (dtype: 'bool').
+ */
+
+import { ArrayStorage } from '../core/storage';
+import { isBigIntDType } from '../core/dtype';
+import { elementwiseComparisonOp } from '../internal/compute';
+import { broadcastShapes } from '../internal/compute';
+
+/**
+ * Helper: Convert value to boolean (0 = false, non-zero = true)
+ */
+function toBool(val: number | bigint): boolean {
+  return val !== 0 && val !== 0n;
+}
+
+/**
+ * Helper: Check if two arrays can use the fast path
+ * (both C-contiguous with same shape, no broadcasting needed)
+ */
+function canUseFastPath(a: ArrayStorage, b: ArrayStorage): boolean {
+  return (
+    a.isCContiguous &&
+    b.isCContiguous &&
+    a.shape.length === b.shape.length &&
+    a.shape.every((dim, i) => dim === b.shape[i])
+  );
+}
+
+// ============================================================
+// Logical Binary Operations
+// ============================================================
+
+/**
+ * Logical AND of two arrays or array and scalar
+ *
+ * Returns a boolean array where each element is the logical AND
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param a - First array storage
+ * @param b - Second array storage or scalar
+ * @returns Boolean result storage
+ */
+export function logical_and(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  if (typeof b === 'number') {
+    return logicalAndScalar(a, b);
+  }
+
+  // Fast path: both contiguous, same shape
+  if (canUseFastPath(a, b)) {
+    return logicalAndArraysFast(a, b);
+  }
+
+  // Slow path: broadcasting or non-contiguous
+  return elementwiseComparisonOp(a, b, (x, y) => toBool(x) && toBool(y));
+}
+
+/**
+ * Fast path for logical AND of two contiguous arrays
+ * @private
+ */
+function logicalAndArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const aData = a.data;
+  const bData = b.data;
+  const size = a.size;
+
+  const aIsBigInt = isBigIntDType(a.dtype);
+  const bIsBigInt = isBigIntDType(b.dtype);
+
+  if (aIsBigInt || bIsBigInt) {
+    for (let i = 0; i < size; i++) {
+      const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
+      const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
+      data[i] = aVal && bVal ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      data[i] = (aData[i] as number) !== 0 && (bData[i] as number) !== 0 ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Logical AND with scalar (optimized path)
+ * @private
+ */
+function logicalAndScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
+  const data = new Uint8Array(storage.size);
+  const thisData = storage.data;
+  const scalarBool = scalar !== 0;
+  const size = storage.size;
+
+  if (isBigIntDType(storage.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = typedData[i] !== 0n && scalarBool ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      data[i] = (thisData[i] as number) !== 0 && scalarBool ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+}
+
+/**
+ * Logical OR of two arrays or array and scalar
+ *
+ * Returns a boolean array where each element is the logical OR
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param a - First array storage
+ * @param b - Second array storage or scalar
+ * @returns Boolean result storage
+ */
+export function logical_or(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  if (typeof b === 'number') {
+    return logicalOrScalar(a, b);
+  }
+
+  // Fast path: both contiguous, same shape
+  if (canUseFastPath(a, b)) {
+    return logicalOrArraysFast(a, b);
+  }
+
+  // Slow path: broadcasting or non-contiguous
+  return elementwiseComparisonOp(a, b, (x, y) => toBool(x) || toBool(y));
+}
+
+/**
+ * Fast path for logical OR of two contiguous arrays
+ * @private
+ */
+function logicalOrArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const aData = a.data;
+  const bData = b.data;
+  const size = a.size;
+
+  const aIsBigInt = isBigIntDType(a.dtype);
+  const bIsBigInt = isBigIntDType(b.dtype);
+
+  if (aIsBigInt || bIsBigInt) {
+    for (let i = 0; i < size; i++) {
+      const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
+      const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
+      data[i] = aVal || bVal ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      data[i] = (aData[i] as number) !== 0 || (bData[i] as number) !== 0 ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Logical OR with scalar (optimized path)
+ * @private
+ */
+function logicalOrScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
+  const data = new Uint8Array(storage.size);
+  const thisData = storage.data;
+  const scalarBool = scalar !== 0;
+  const size = storage.size;
+
+  if (isBigIntDType(storage.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = typedData[i] !== 0n || scalarBool ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      data[i] = (thisData[i] as number) !== 0 || scalarBool ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+}
+
+/**
+ * Logical NOT of an array
+ *
+ * Returns a boolean array where each element is the logical NOT
+ * of the input (non-zero = false, zero = true).
+ *
+ * @param a - Input array storage
+ * @returns Boolean result storage
+ */
+export function logical_not(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = typedData[i] === 0n ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      data[i] = (thisData[i] as number) === 0 ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Logical XOR of two arrays or array and scalar
+ *
+ * Returns a boolean array where each element is the logical XOR
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param a - First array storage
+ * @param b - Second array storage or scalar
+ * @returns Boolean result storage
+ */
+export function logical_xor(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  if (typeof b === 'number') {
+    return logicalXorScalar(a, b);
+  }
+
+  // Fast path: both contiguous, same shape
+  if (canUseFastPath(a, b)) {
+    return logicalXorArraysFast(a, b);
+  }
+
+  // Slow path: broadcasting or non-contiguous
+  return elementwiseComparisonOp(a, b, (x, y) => toBool(x) !== toBool(y));
+}
+
+/**
+ * Fast path for logical XOR of two contiguous arrays
+ * @private
+ */
+function logicalXorArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const aData = a.data;
+  const bData = b.data;
+  const size = a.size;
+
+  const aIsBigInt = isBigIntDType(a.dtype);
+  const bIsBigInt = isBigIntDType(b.dtype);
+
+  if (aIsBigInt || bIsBigInt) {
+    for (let i = 0; i < size; i++) {
+      const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
+      const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
+      data[i] = aVal !== bVal ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const aVal = (aData[i] as number) !== 0;
+      const bVal = (bData[i] as number) !== 0;
+      data[i] = aVal !== bVal ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Logical XOR with scalar (optimized path)
+ * @private
+ */
+function logicalXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
+  const data = new Uint8Array(storage.size);
+  const thisData = storage.data;
+  const scalarBool = scalar !== 0;
+  const size = storage.size;
+
+  if (isBigIntDType(storage.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      const valBool = typedData[i] !== 0n;
+      data[i] = valBool !== scalarBool ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const valBool = (thisData[i] as number) !== 0;
+      data[i] = valBool !== scalarBool ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+}
+
+// ============================================================
+// Floating-point Testing Functions
+// ============================================================
+
+/**
+ * Test element-wise for finiteness (not infinity and not NaN)
+ *
+ * @param a - Input array storage
+ * @returns Boolean result storage
+ */
+export function isfinite(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    // BigInt values are always finite
+    for (let i = 0; i < size; i++) {
+      data[i] = 1;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = thisData[i] as number;
+      data[i] = Number.isFinite(val) ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Test element-wise for positive or negative infinity
+ *
+ * @param a - Input array storage
+ * @returns Boolean result storage
+ */
+export function isinf(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    // BigInt values are never infinite
+    for (let i = 0; i < size; i++) {
+      data[i] = 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = thisData[i] as number;
+      data[i] = !Number.isFinite(val) && !Number.isNaN(val) ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Test element-wise for NaN (Not a Number)
+ *
+ * @param a - Input array storage
+ * @returns Boolean result storage
+ */
+export function isnan(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    // BigInt values are never NaN
+    for (let i = 0; i < size; i++) {
+      data[i] = 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      data[i] = Number.isNaN(thisData[i] as number) ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Test element-wise for NaT (Not a Time)
+ *
+ * In NumPy, NaT is the datetime equivalent of NaN.
+ * Since we don't have datetime support, this always returns false.
+ *
+ * @param a - Input array storage
+ * @returns Boolean result storage (all false)
+ */
+export function isnat(a: ArrayStorage): ArrayStorage {
+  // Without datetime support, nothing is NaT
+  const data = new Uint8Array(a.size);
+  // All zeros (false) by default
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+// ============================================================
+// Floating-point Manipulation Functions
+// ============================================================
+
+/**
+ * Change the sign of x1 to that of x2, element-wise
+ *
+ * Returns a value with the magnitude of x1 and the sign of x2.
+ *
+ * @param x1 - Values to change sign of (magnitude source)
+ * @param x2 - Values whose sign is used (sign source)
+ * @returns Array with magnitude from x1 and sign from x2
+ */
+export function copysign(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (typeof x2 === 'number') {
+    return copysignScalar(x1, x2);
+  }
+
+  // Fast path: both contiguous, same shape
+  if (canUseFastPath(x1, x2)) {
+    return copysignArraysFast(x1, x2);
+  }
+
+  // Slow path: broadcasting
+  const outputShape = broadcastShapes(x1.shape, x2.shape);
+  const size = outputShape.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(outputShape, 'float64');
+  const resultData = result.data as Float64Array;
+
+  // Create broadcast views using the helper function
+  const x1Broadcast = broadcastToStorage(x1, outputShape);
+  const x2Broadcast = broadcastToStorage(x2, outputShape);
+
+  for (let i = 0; i < size; i++) {
+    const val1 = Number(x1Broadcast.iget(i));
+    const val2 = Number(x2Broadcast.iget(i));
+    resultData[i] = Math.sign(val2) * Math.abs(val1);
+  }
+
+  return result;
+}
+
+/**
+ * Fast path for copysign of two contiguous arrays
+ * @private
+ */
+function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
+  const resultData = result.data as Float64Array;
+  const size = x1.size;
+  const x1Data = x1.data;
+  const x2Data = x2.data;
+
+  const x1IsBigInt = isBigIntDType(x1.dtype);
+  const x2IsBigInt = isBigIntDType(x2.dtype);
+
+  for (let i = 0; i < size; i++) {
+    const val1 = x1IsBigInt ? Number(x1Data[i] as bigint) : (x1Data[i] as number);
+    const val2 = x2IsBigInt ? Number(x2Data[i] as bigint) : (x2Data[i] as number);
+    resultData[i] = Math.sign(val2) * Math.abs(val1);
+  }
+
+  return result;
+}
+
+/**
+ * Copysign with scalar (optimized path)
+ * @private
+ */
+function copysignScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
+  const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
+  const resultData = result.data as Float64Array;
+  const thisData = storage.data;
+  const size = storage.size;
+  const signVal = Math.sign(scalar);
+
+  if (isBigIntDType(storage.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = signVal * Math.abs(Number(typedData[i]));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = signVal * Math.abs(thisData[i] as number);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Returns element-wise True where signbit is set (less than zero)
+ *
+ * @param a - Input array storage
+ * @returns Boolean result storage
+ */
+export function signbit(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = typedData[i]! < 0n ? 1 : 0;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = thisData[i] as number;
+      // Handle -0.0 case: Object.is distinguishes -0 from +0
+      data[i] = val < 0 || Object.is(val, -0) ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Return the next floating-point value after x1 towards x2, element-wise
+ *
+ * @param x1 - Values to find the next representable value of
+ * @param x2 - Direction to look in for the next representable value
+ * @returns Array of next representable values
+ */
+export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (typeof x2 === 'number') {
+    return nextafterScalar(x1, x2);
+  }
+
+  // Fast path: both contiguous, same shape
+  if (canUseFastPath(x1, x2)) {
+    return nextafterArraysFast(x1, x2);
+  }
+
+  // Slow path: broadcasting
+  const outputShape = broadcastShapes(x1.shape, x2.shape);
+  const size = outputShape.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(outputShape, 'float64');
+  const resultData = result.data as Float64Array;
+
+  // Create broadcast views
+  const x1Broadcast = broadcastToStorage(x1, outputShape);
+  const x2Broadcast = broadcastToStorage(x2, outputShape);
+
+  for (let i = 0; i < size; i++) {
+    const val1 = Number(x1Broadcast.iget(i));
+    const val2 = Number(x2Broadcast.iget(i));
+    resultData[i] = nextafterSingle(val1, val2);
+  }
+
+  return result;
+}
+
+/**
+ * Fast path for nextafter of two contiguous arrays
+ * @private
+ */
+function nextafterArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
+  const resultData = result.data as Float64Array;
+  const size = x1.size;
+  const x1Data = x1.data;
+  const x2Data = x2.data;
+
+  const x1IsBigInt = isBigIntDType(x1.dtype);
+  const x2IsBigInt = isBigIntDType(x2.dtype);
+
+  for (let i = 0; i < size; i++) {
+    const val1 = x1IsBigInt ? Number(x1Data[i] as bigint) : (x1Data[i] as number);
+    const val2 = x2IsBigInt ? Number(x2Data[i] as bigint) : (x2Data[i] as number);
+    resultData[i] = nextafterSingle(val1, val2);
+  }
+
+  return result;
+}
+
+/**
+ * Nextafter with scalar (optimized path)
+ * @private
+ */
+function nextafterScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
+  const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
+  const resultData = result.data as Float64Array;
+  const thisData = storage.data;
+  const size = storage.size;
+
+  if (isBigIntDType(storage.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = nextafterSingle(Number(typedData[i]), scalar);
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = nextafterSingle(thisData[i] as number, scalar);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compute nextafter for a single pair of values
+ * @private
+ */
+function nextafterSingle(x: number, y: number): number {
+  // Handle NaN
+  if (Number.isNaN(x) || Number.isNaN(y)) {
+    return NaN;
+  }
+
+  // Handle equality
+  if (x === y) {
+    return y;
+  }
+
+  // Handle zero special case
+  if (x === 0) {
+    // Return smallest denormalized number with appropriate sign
+    return y > 0 ? Number.MIN_VALUE : -Number.MIN_VALUE;
+  }
+
+  // Get the bits of x
+  const buffer = new ArrayBuffer(8);
+  const float64View = new Float64Array(buffer);
+  const int64View = new BigInt64Array(buffer);
+
+  float64View[0] = x;
+  let bits = int64View[0]!;
+
+  // Determine if we need to increment or decrement
+  const shouldIncrement = (x > 0 && y > x) || (x < 0 && y > x);
+
+  if (shouldIncrement) {
+    bits = bits + 1n;
+  } else {
+    bits = bits - 1n;
+  }
+
+  int64View[0] = bits;
+  return float64View[0]!;
+}
+
+/**
+ * Return the distance between x and the nearest adjacent number
+ *
+ * This is the difference between x and the next representable floating-point value.
+ *
+ * @param a - Input array storage
+ * @returns Array of spacing values
+ */
+export function spacing(a: ArrayStorage): ArrayStorage {
+  const result = ArrayStorage.zeros(Array.from(a.shape), 'float64');
+  const resultData = result.data as Float64Array;
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    const typedData = thisData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = spacingSingle(Number(typedData[i]));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = spacingSingle(thisData[i] as number);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compute spacing for a single value
+ * @private
+ */
+function spacingSingle(x: number): number {
+  // Handle special cases
+  if (Number.isNaN(x)) {
+    return NaN;
+  }
+  if (!Number.isFinite(x)) {
+    return NaN;
+  }
+
+  const absX = Math.abs(x);
+
+  // For zero, return the smallest positive denormalized number
+  if (absX === 0) {
+    return Number.MIN_VALUE;
+  }
+
+  // The spacing is the absolute difference between x and the next float
+  const next = nextafterSingle(x, Infinity);
+  return Math.abs(next - x);
+}
+
+/**
+ * Helper: Create broadcast view of storage to target shape
+ * @private
+ */
+function broadcastToStorage(storage: ArrayStorage, targetShape: readonly number[]): ArrayStorage {
+  const ndim = storage.shape.length;
+  const targetNdim = targetShape.length;
+  const newStrides = new Array(targetNdim).fill(0);
+
+  // Align dimensions from the right
+  for (let i = 0; i < ndim; i++) {
+    const targetIdx = targetNdim - ndim + i;
+    const dim = storage.shape[i]!;
+    const targetDim = targetShape[targetIdx]!;
+
+    if (dim === targetDim) {
+      newStrides[targetIdx] = storage.strides[i]!;
+    } else if (dim === 1) {
+      newStrides[targetIdx] = 0; // Broadcast this dimension
+    } else {
+      throw new Error('Invalid broadcast');
+    }
+  }
+
+  return ArrayStorage.fromData(
+    storage.data,
+    Array.from(targetShape),
+    storage.dtype,
+    newStrides,
+    storage.offset
+  );
+}

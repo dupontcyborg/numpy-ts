@@ -23,6 +23,7 @@ import * as trigOps from '../ops/trig';
 import * as hyperbolicOps from '../ops/hyperbolic';
 import * as advancedOps from '../ops/advanced';
 import * as bitwiseOps from '../ops/bitwise';
+import * as logicOps from '../ops/logic';
 import * as sortingOps from '../ops/sorting';
 import * as roundingOps from '../ops/rounding';
 import * as setOps from '../ops/sets';
@@ -901,6 +902,125 @@ export class NDArray {
   right_shift(shift: NDArray | number): NDArray {
     const shiftStorage = typeof shift === 'number' ? shift : shift._storage;
     const resultStorage = bitwiseOps.right_shift(this._storage, shiftStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  // Logic operations
+  /**
+   * Logical AND element-wise
+   * @param other - Array or scalar for AND operation
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_and(other: NDArray | number): NDArray {
+    const otherStorage = typeof other === 'number' ? other : other._storage;
+    const resultStorage = logicOps.logical_and(this._storage, otherStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logical OR element-wise
+   * @param other - Array or scalar for OR operation
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_or(other: NDArray | number): NDArray {
+    const otherStorage = typeof other === 'number' ? other : other._storage;
+    const resultStorage = logicOps.logical_or(this._storage, otherStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logical NOT element-wise
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_not(): NDArray {
+    const resultStorage = logicOps.logical_not(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logical XOR element-wise
+   * @param other - Array or scalar for XOR operation
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_xor(other: NDArray | number): NDArray {
+    const otherStorage = typeof other === 'number' ? other : other._storage;
+    const resultStorage = logicOps.logical_xor(this._storage, otherStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for finiteness (not infinity and not NaN)
+   * @returns Boolean array
+   */
+  isfinite(): NDArray {
+    const resultStorage = logicOps.isfinite(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for positive or negative infinity
+   * @returns Boolean array
+   */
+  isinf(): NDArray {
+    const resultStorage = logicOps.isinf(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for NaN (Not a Number)
+   * @returns Boolean array
+   */
+  isnan(): NDArray {
+    const resultStorage = logicOps.isnan(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for NaT (Not a Time)
+   * @returns Boolean array (always false without datetime support)
+   */
+  isnat(): NDArray {
+    const resultStorage = logicOps.isnat(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Change the sign of x1 to that of x2, element-wise
+   * @param x2 - Values whose sign is used
+   * @returns Array with magnitude from this and sign from x2
+   */
+  copysign(x2: NDArray | number): NDArray {
+    const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
+    const resultStorage = logicOps.copysign(this._storage, x2Storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Returns element-wise True where signbit is set (less than zero)
+   * @returns Boolean array
+   */
+  signbit(): NDArray {
+    const resultStorage = logicOps.signbit(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the next floating-point value after x1 towards x2, element-wise
+   * @param x2 - Direction to look for the next representable value
+   * @returns Array of next representable values
+   */
+  nextafter(x2: NDArray | number): NDArray {
+    const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
+    const resultStorage = logicOps.nextafter(this._storage, x2Storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the distance between x and the nearest adjacent number
+   * @returns Array of spacing values
+   */
+  spacing(): NDArray {
+    const resultStorage = logicOps.spacing(this._storage);
     return NDArray._fromStorage(resultStorage);
   }
 
@@ -4540,6 +4660,149 @@ export function unpackbits(
 ): NDArray {
   const resultStorage = bitwiseOps.unpackbits(a.storage, axis, count, bitorder);
   return NDArray._fromStorage(resultStorage);
+}
+
+// ========================================
+// Logic Functions
+// ========================================
+
+/**
+ * Logical AND element-wise
+ *
+ * Returns a boolean array where each element is the logical AND
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Boolean result array
+ */
+export function logical_and(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logical_and(x2);
+}
+
+/**
+ * Logical OR element-wise
+ *
+ * Returns a boolean array where each element is the logical OR
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Boolean result array
+ */
+export function logical_or(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logical_or(x2);
+}
+
+/**
+ * Logical NOT element-wise
+ *
+ * Returns a boolean array where each element is the logical NOT
+ * of the input (non-zero = false, zero = true).
+ *
+ * @param x - Input array
+ * @returns Boolean result array
+ */
+export function logical_not(x: NDArray): NDArray {
+  return x.logical_not();
+}
+
+/**
+ * Logical XOR element-wise
+ *
+ * Returns a boolean array where each element is the logical XOR
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Boolean result array
+ */
+export function logical_xor(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logical_xor(x2);
+}
+
+/**
+ * Test element-wise for finiteness (not infinity and not NaN)
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means finite
+ */
+export function isfinite(x: NDArray): NDArray {
+  return x.isfinite();
+}
+
+/**
+ * Test element-wise for positive or negative infinity
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means infinite
+ */
+export function isinf(x: NDArray): NDArray {
+  return x.isinf();
+}
+
+/**
+ * Test element-wise for NaN (Not a Number)
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means NaN
+ */
+export function isnan(x: NDArray): NDArray {
+  return x.isnan();
+}
+
+/**
+ * Test element-wise for NaT (Not a Time)
+ *
+ * @param x - Input array
+ * @returns Boolean array (always false without datetime support)
+ */
+export function isnat(x: NDArray): NDArray {
+  return x.isnat();
+}
+
+/**
+ * Change the sign of x1 to that of x2, element-wise
+ *
+ * Returns a value with the magnitude of x1 and the sign of x2.
+ *
+ * @param x1 - Values to change sign of (magnitude source)
+ * @param x2 - Values whose sign is used (sign source)
+ * @returns Array with magnitude from x1 and sign from x2
+ */
+export function copysign(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.copysign(x2);
+}
+
+/**
+ * Returns element-wise True where signbit is set (less than zero)
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means signbit is set
+ */
+export function signbit(x: NDArray): NDArray {
+  return x.signbit();
+}
+
+/**
+ * Return the next floating-point value after x1 towards x2, element-wise
+ *
+ * @param x1 - Values to find the next representable value of
+ * @param x2 - Direction to look for the next representable value
+ * @returns Array of next representable values
+ */
+export function nextafter(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.nextafter(x2);
+}
+
+/**
+ * Return the distance between x and the nearest adjacent number
+ *
+ * @param x - Input array
+ * @returns Array of spacing values
+ */
+export function spacing(x: NDArray): NDArray {
+  return x.spacing();
 }
 
 // ========================================

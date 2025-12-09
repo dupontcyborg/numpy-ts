@@ -520,6 +520,43 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.count_nonzero(arrays['a']);
   }
 
+  // Logic operations
+  else if (operation === 'logical_and') {
+    if (arrays['b']) {
+      return arrays['a'].logical_and(arrays['b']);
+    } else {
+      return arrays['a'].logical_and(arrays['scalar']);
+    }
+  } else if (operation === 'logical_or') {
+    if (arrays['b']) {
+      return arrays['a'].logical_or(arrays['b']);
+    } else {
+      return arrays['a'].logical_or(arrays['scalar']);
+    }
+  } else if (operation === 'logical_not') {
+    return arrays['a'].logical_not();
+  } else if (operation === 'logical_xor') {
+    if (arrays['b']) {
+      return arrays['a'].logical_xor(arrays['b']);
+    } else {
+      return arrays['a'].logical_xor(arrays['scalar']);
+    }
+  } else if (operation === 'isfinite') {
+    return arrays['a'].isfinite();
+  } else if (operation === 'isinf') {
+    return arrays['a'].isinf();
+  } else if (operation === 'isnan') {
+    return arrays['a'].isnan();
+  } else if (operation === 'signbit') {
+    return arrays['a'].signbit();
+  } else if (operation === 'copysign') {
+    if (arrays['b']) {
+      return arrays['a'].copysign(arrays['b']);
+    } else {
+      return arrays['a'].copysign(arrays['scalar']);
+    }
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 
