@@ -213,6 +213,36 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].tanh();
   }
 
+  // Exponential operations
+  else if (operation === 'exp') {
+    return arrays['a'].exp();
+  } else if (operation === 'exp2') {
+    return arrays['a'].exp2();
+  } else if (operation === 'expm1') {
+    return arrays['a'].expm1();
+  } else if (operation === 'log') {
+    return arrays['a'].log();
+  } else if (operation === 'log2') {
+    return arrays['a'].log2();
+  } else if (operation === 'log10') {
+    return arrays['a'].log10();
+  } else if (operation === 'log1p') {
+    return arrays['a'].log1p();
+  } else if (operation === 'logaddexp') {
+    return arrays['a'].logaddexp(arrays['b']);
+  } else if (operation === 'logaddexp2') {
+    return arrays['a'].logaddexp2(arrays['b']);
+  }
+
+  // Gradient operations
+  else if (operation === 'diff') {
+    return np.diff(arrays['a']);
+  } else if (operation === 'gradient') {
+    return np.gradient(arrays['a']);
+  } else if (operation === 'cross') {
+    return np.cross(arrays['a'], arrays['b']);
+  }
+
   // Linear algebra
   else if (operation === 'dot') {
     return arrays['a'].dot(arrays['b']);

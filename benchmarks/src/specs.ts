@@ -477,6 +477,109 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    // Exponential functions
+    specs.push({
+      name: `exp [${sizes.medium.join('x')}]`,
+      category: 'math',
+      operation: 'exp',
+      setup: {
+        a: { shape: sizes.medium, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `exp2 [${sizes.medium.join('x')}]`,
+      category: 'math',
+      operation: 'exp2',
+      setup: {
+        a: { shape: sizes.medium, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `log [${sizes.medium.join('x')}]`,
+      category: 'math',
+      operation: 'log',
+      setup: {
+        a: { shape: sizes.medium, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `log2 [${sizes.medium.join('x')}]`,
+      category: 'math',
+      operation: 'log2',
+      setup: {
+        a: { shape: sizes.medium, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `log10 [${sizes.medium.join('x')}]`,
+      category: 'math',
+      operation: 'log10',
+      setup: {
+        a: { shape: sizes.medium, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `logaddexp [${sizes.medium.join('x')}]`,
+      category: 'math',
+      operation: 'logaddexp',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+        b: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // Gradient functions
+    specs.push({
+      name: `diff [${sizes.medium.join('x')}]`,
+      category: 'gradient',
+      operation: 'diff',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `gradient [${sizes.small}]`,
+      category: 'gradient',
+      operation: 'gradient',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `cross [${sizes.small}x3]`,
+      category: 'gradient',
+      operation: 'cross',
+      setup: {
+        a: { shape: [sizes.small, 3], fill: 'arange' },
+        b: { shape: [sizes.small, 3], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   // ========================================

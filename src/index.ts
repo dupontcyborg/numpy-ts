@@ -43,6 +43,16 @@ export {
   // Math functions
   sqrt,
   power,
+  // Exponential functions
+  exp,
+  exp2,
+  expm1,
+  log,
+  log2,
+  log10,
+  log1p,
+  logaddexp,
+  logaddexp2,
   absolute,
   negative,
   sign,
@@ -193,6 +203,11 @@ export {
   searchsorted,
   extract,
   count_nonzero,
+  // Gradient functions
+  diff,
+  ediff1d,
+  gradient,
+  cross,
 } from './core/ndarray';
 
 // IO functions (environment-agnostic parsing/serialization)

@@ -147,6 +147,38 @@ def run_operation(spec):
     elif operation == "tanh":
         result = np.tanh(arrays["a"])
 
+    # Exponential
+    elif operation == "exp":
+        result = np.exp(arrays["a"])
+    elif operation == "exp2":
+        result = np.exp2(arrays["a"])
+    elif operation == "expm1":
+        result = np.expm1(arrays["a"])
+    elif operation == "log":
+        result = np.log(arrays["a"])
+    elif operation == "log2":
+        result = np.log2(arrays["a"])
+    elif operation == "log10":
+        result = np.log10(arrays["a"])
+    elif operation == "log1p":
+        result = np.log1p(arrays["a"])
+    elif operation == "logaddexp":
+        result = np.logaddexp(arrays["a"], arrays["b"])
+    elif operation == "logaddexp2":
+        result = np.logaddexp2(arrays["a"], arrays["b"])
+
+    # Gradient
+    elif operation == "diff":
+        result = np.diff(arrays["a"])
+    elif operation == "ediff1d":
+        result = np.ediff1d(arrays["a"])
+    elif operation == "gradient":
+        # np.gradient can return list of arrays for multi-dimensional input
+        # For simplicity, when input is 1D, it returns single array
+        result = np.gradient(arrays["a"])
+    elif operation == "cross":
+        result = np.cross(arrays["a"], arrays["b"])
+
     # Linalg
     elif operation == "dot":
         result = np.dot(arrays["a"], arrays["b"])
