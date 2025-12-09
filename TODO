@@ -1,0 +1,10 @@
+1. [ ] Achieve 100% NumPy API coverage
+2. [ ] Reach 100% branch & statement coverage via validation tests
+3. [ ] Reach 100% function coverage with unit tests
+4. [ ] Add CodeCov to pipelines
+5. [ ] Add coverage checks to benchmarks
+6. [ ] Modularize `ndarray.ts` and remove standalone re-exports from there (make individual function 'families' export straight to `index.ts`)
+7. [ ] Consider reorganizing repo layout (nested folders instead of each file in `ops/`, multiple files per category instead of large ones like `reductions.ts`)
+8. [ ] Fix regression testing in benchmarks for PRs & tags
+9. [ ] Validate that benchmarks are testing the right array sizes & dimensionalities
+10. [ ] Begin aggressive performance optimizations, starting with slowest functions compared to Python NumPy

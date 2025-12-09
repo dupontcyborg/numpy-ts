@@ -2483,28 +2483,32 @@ export function det(a: ArrayStorage): number {
     return 1; // Empty matrix has determinant 1
   }
 
+  const aData = a.data;
+
   if (size === 1) {
-    return Number(a.get(0, 0));
+    return Number(aData[0]);
   }
 
   if (size === 2) {
-    return Number(a.get(0, 0)) * Number(a.get(1, 1)) - Number(a.get(0, 1)) * Number(a.get(1, 0));
+    return Number(aData[0]) * Number(aData[3]) - Number(aData[1]) * Number(aData[2]);
   }
 
   // LU decomposition with partial pivoting
   const { lu, sign } = luDecomposition(a);
 
   // Determinant is product of diagonal of U times sign from pivoting
+  // Use direct array access for speed
+  const luData = lu.data as Float64Array;
   let result = sign;
   for (let i = 0; i < size; i++) {
-    result *= Number(lu.get(i, i));
+    result *= luData[i * size + i]!;
   }
 
   return result;
 }
 
 /**
- * LU decomposition with partial pivoting.
+ * LU decomposition with partial pivoting - optimized with direct array access.
  *
  * @param a - Input matrix
  * @returns { lu, piv, sign } - Combined L\U matrix, pivot indices, and sign from pivoting
@@ -2512,37 +2516,40 @@ export function det(a: ArrayStorage): number {
 function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; sign: number } {
   const [m, n] = a.shape;
   const size = m!;
+  const cols = n!;
 
-  // Copy matrix
-  const lu = ArrayStorage.zeros([size, n!], 'float64');
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < n!; j++) {
-      lu.set([i, j], Number(a.get(i, j)));
-    }
+  // Copy matrix - use direct array access for speed
+  const lu = ArrayStorage.zeros([size, cols], 'float64');
+  const luData = lu.data as Float64Array;
+  const aData = a.data;
+
+  // Fast copy
+  for (let i = 0; i < size * cols; i++) {
+    luData[i] = Number(aData[i]);
   }
 
   const piv: number[] = Array.from({ length: size }, (_, i) => i);
   let sign = 1;
 
-  for (let k = 0; k < Math.min(size, n!); k++) {
-    // Find pivot
-    let maxVal = Math.abs(Number(lu.get(k, k)));
+  for (let k = 0; k < Math.min(size, cols); k++) {
+    // Find pivot - direct array access
+    let maxVal = Math.abs(luData[k * cols + k]!);
     let maxRow = k;
 
     for (let i = k + 1; i < size; i++) {
-      const val = Math.abs(Number(lu.get(i, k)));
+      const val = Math.abs(luData[i * cols + k]!);
       if (val > maxVal) {
         maxVal = val;
         maxRow = i;
       }
     }
 
-    // Swap rows
+    // Swap rows - direct array access
     if (maxRow !== k) {
-      for (let j = 0; j < n!; j++) {
-        const temp = Number(lu.get(k, j));
-        lu.set([k, j], Number(lu.get(maxRow, j)));
-        lu.set([maxRow, j], temp);
+      for (let j = 0; j < cols; j++) {
+        const temp = luData[k * cols + j]!;
+        luData[k * cols + j] = luData[maxRow * cols + j]!;
+        luData[maxRow * cols + j] = temp;
       }
       const tempPiv = piv[k]!;
       piv[k] = piv[maxRow]!;
@@ -2550,14 +2557,14 @@ function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; si
       sign = -sign;
     }
 
-    // Eliminate
-    const pivot = Number(lu.get(k, k));
+    // Eliminate - direct array access
+    const pivot = luData[k * cols + k]!;
     if (Math.abs(pivot) > 1e-15) {
       for (let i = k + 1; i < size; i++) {
-        const factor = Number(lu.get(i, k)) / pivot;
-        lu.set([i, k], factor);
-        for (let j = k + 1; j < n!; j++) {
-          lu.set([i, j], Number(lu.get(i, j)) - factor * Number(lu.get(k, j)));
+        const factor = luData[i * cols + k]! / pivot;
+        luData[i * cols + k] = factor;
+        for (let j = k + 1; j < cols; j++) {
+          luData[i * cols + j] = luData[i * cols + j]! - factor * luData[k * cols + j]!;
         }
       }
     }
@@ -2567,7 +2574,7 @@ function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; si
 }
 
 /**
- * Compute the matrix inverse.
+ * Compute the matrix inverse - optimized to do LU decomposition once.
  *
  * @param a - Square matrix
  * @returns Inverse matrix
@@ -2584,20 +2591,38 @@ export function inv(a: ArrayStorage): ArrayStorage {
 
   const size = m!;
 
-  // Solve A @ X = I for each column of I
+  // Do LU decomposition once
+  const { lu, piv } = luDecomposition(a);
+  const luData = lu.data as Float64Array;
+
+  // Solve A @ X = I for all columns at once
   const result = ArrayStorage.zeros([size, size], 'float64');
+  const resultData = result.data as Float64Array;
 
-  for (let j = 0; j < size; j++) {
-    // Create j-th column of identity
-    const b = ArrayStorage.zeros([size], 'float64');
-    b.set([j], 1);
-
-    // Solve A @ x = b
-    const x = solveVector(a, b);
-
-    // Copy to result column
+  // Process each column of the identity matrix
+  for (let col = 0; col < size; col++) {
+    // Forward substitution for column col (L @ y = P @ e_col)
+    const y = new Float64Array(size);
     for (let i = 0; i < size; i++) {
-      result.set([i, j], Number(x.get(i)));
+      // e_col[piv[i]] is 1 if piv[i] === col, else 0
+      let sum = piv[i] === col ? 1 : 0;
+      for (let j = 0; j < i; j++) {
+        sum -= luData[i * size + j]! * y[j]!;
+      }
+      y[i] = sum;
+    }
+
+    // Back substitution (U @ x = y)
+    for (let i = size - 1; i >= 0; i--) {
+      let sum = y[i]!;
+      for (let j = i + 1; j < size; j++) {
+        sum -= luData[i * size + j]! * resultData[j * size + col]!;
+      }
+      const diag = luData[i * size + i]!;
+      if (Math.abs(diag) < 1e-15) {
+        throw new Error('inv: singular matrix');
+      }
+      resultData[i * size + col] = sum / diag;
     }
   }
 
@@ -2605,7 +2630,7 @@ export function inv(a: ArrayStorage): ArrayStorage {
 }
 
 /**
- * Solve a linear system A @ x = b for a vector b.
+ * Solve a linear system A @ x = b for a vector b - optimized with direct array access.
  *
  * @param a - Coefficient matrix
  * @param b - Right-hand side vector
@@ -2617,35 +2642,38 @@ function solveVector(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   // LU decomposition
   const { lu, piv } = luDecomposition(a);
+  const luData = lu.data as Float64Array;
+  const bData = b.data;
 
-  // Apply permutation to b
-  const pb = ArrayStorage.zeros([size], 'float64');
+  // Apply permutation to b - direct array access
+  const pb = new Float64Array(size);
   for (let i = 0; i < size; i++) {
-    pb.set([i], Number(b.get(piv[i]!)));
+    pb[i] = Number(bData[piv[i]!]);
   }
 
-  // Forward substitution (L @ y = Pb)
-  const y = ArrayStorage.zeros([size], 'float64');
+  // Forward substitution (L @ y = Pb) - direct array access
+  const y = new Float64Array(size);
   for (let i = 0; i < size; i++) {
-    let sum = Number(pb.get(i));
+    let sum = pb[i]!;
     for (let j = 0; j < i; j++) {
-      sum -= Number(lu.get(i, j)) * Number(y.get(j));
+      sum -= luData[i * size + j]! * y[j]!;
     }
-    y.set([i], sum);
+    y[i] = sum;
   }
 
-  // Back substitution (U @ x = y)
+  // Back substitution (U @ x = y) - direct array access
   const x = ArrayStorage.zeros([size], 'float64');
+  const xData = x.data as Float64Array;
   for (let i = size - 1; i >= 0; i--) {
-    let sum = Number(y.get(i));
+    let sum = y[i]!;
     for (let j = i + 1; j < size; j++) {
-      sum -= Number(lu.get(i, j)) * Number(x.get(j));
+      sum -= luData[i * size + j]! * xData[j]!;
     }
-    const diag = Number(lu.get(i, i));
+    const diag = luData[i * size + i]!;
     if (Math.abs(diag) < 1e-15) {
       throw new Error('solve: singular matrix');
     }
-    x.set([i], sum / diag);
+    xData[i] = sum / diag;
   }
 
   return x;
