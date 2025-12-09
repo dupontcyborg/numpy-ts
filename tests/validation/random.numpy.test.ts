@@ -399,6 +399,128 @@ result = np.random.binomial(10, 0.5, (2, 3))
     });
   });
 
+  // ============================================================
+  // EXACT MATCH TESTS - NumPy compatibility validation
+  // These tests verify that seeded random functions produce
+  // identical output to NumPy's implementations
+  // ============================================================
+
+  describe('EXACT MATCH: MT19937 Legacy Functions', () => {
+    it('random.random() matches NumPy exactly with seed', () => {
+      random.seed(42);
+      const jsResult = random.random(5) as any;
+      const jsValues = jsResult.toArray() as number[];
+
+      const pyResult = runNumPy(`
+np.random.seed(42)
+result = np.random.random(5)
+      `);
+
+      // Exact match within floating point precision
+      for (let i = 0; i < 5; i++) {
+        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
+      }
+    });
+
+    it('random.rand() matches NumPy exactly with seed', () => {
+      random.seed(123);
+      const jsResult = random.rand(3, 2) as any;
+      const jsFlat = jsResult.flatten().toArray() as number[];
+
+      const pyResult = runNumPy(`
+np.random.seed(123)
+result = np.random.rand(3, 2).flatten()
+      `);
+
+      for (let i = 0; i < jsFlat.length; i++) {
+        expect(jsFlat[i]).toBeCloseTo(pyResult.value[i], 14);
+      }
+    });
+
+    it('random.uniform() matches NumPy exactly with seed', () => {
+      random.seed(999);
+      const jsResult = random.uniform(-10, 10, 5) as any;
+      const jsValues = jsResult.toArray() as number[];
+
+      const pyResult = runNumPy(`
+np.random.seed(999)
+result = np.random.uniform(-10, 10, 5)
+      `);
+
+      for (let i = 0; i < 5; i++) {
+        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 13);
+      }
+    });
+  });
+
+  describe('EXACT MATCH: PCG64 Generator (NumPy 2.0+)', () => {
+    it('default_rng().random() matches NumPy exactly', () => {
+      const rng = random.default_rng(42);
+      const jsResult = rng.random(5) as any;
+      const jsValues = Array.from(jsResult.data as Float64Array);
+
+      const pyResult = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.random(5)
+      `);
+
+      // Exact match within floating point precision
+      for (let i = 0; i < 5; i++) {
+        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
+      }
+    });
+
+    it('default_rng().random() with different seeds matches NumPy', () => {
+      for (const seed of [0, 1, 12345, 99999]) {
+        const rng = random.default_rng(seed);
+        const jsResult = rng.random(3) as any;
+        const jsValues = Array.from(jsResult.data as Float64Array);
+
+        const pyResult = runNumPy(`
+rng = np.random.default_rng(${seed})
+result = rng.random(3)
+        `);
+
+        for (let i = 0; i < 3; i++) {
+          expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
+        }
+      }
+    });
+
+    it('default_rng().integers() produces values in correct range', () => {
+      // Note: integers() uses bounded random which may differ from NumPy's
+      // exact algorithm, so we test range and statistical properties
+      const rng = random.default_rng(42);
+      const jsResult = rng.integers(0, 100, 1000) as any;
+      const jsValues = Array.from(jsResult.data as BigInt64Array).map(Number);
+
+      // All values should be in [0, 100)
+      for (const val of jsValues) {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThan(100);
+      }
+
+      // Mean should be close to 49.5
+      const mean = jsValues.reduce((a, b) => a + b, 0) / jsValues.length;
+      expect(Math.abs(mean - 49.5)).toBeLessThan(5);
+    });
+
+    it('default_rng().uniform() matches NumPy exactly', () => {
+      const rng = random.default_rng(42);
+      const jsResult = rng.uniform(-5, 5, 5) as any;
+      const jsValues = Array.from(jsResult.data as Float64Array);
+
+      const pyResult = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.uniform(-5, 5, 5)
+      `);
+
+      for (let i = 0; i < 5; i++) {
+        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 13);
+      }
+    });
+  });
+
   describe('random.get_state and set_state', () => {
     it('allows state restoration', () => {
       random.seed(42);
