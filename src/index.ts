@@ -255,6 +255,50 @@ export {
   type NpzSerializeOptions,
 } from './io';
 
+// Random functions (np.random namespace)
+import * as randomOps from './ops/random';
+import { ArrayStorage } from './core/storage';
+import { NDArray as NDArrayClass } from './core/ndarray';
+
+// Helper to wrap ArrayStorage results in NDArray
+function wrapResult<T>(result: T): any {
+  if (result && typeof result === 'object' && '_data' in result && '_shape' in result) {
+    return NDArrayClass._fromStorage(result as ArrayStorage);
+  }
+  return result;
+}
+
+export const random = {
+  seed: randomOps.seed,
+  random: (size?: number | number[]) => wrapResult(randomOps.random(size)),
+  rand: (...shape: number[]) => wrapResult(randomOps.rand(...shape)),
+  randn: (...shape: number[]) => wrapResult(randomOps.randn(...shape)),
+  randint: (low: number, high?: number | null, size?: number | number[], dtype?: any) =>
+    wrapResult(randomOps.randint(low, high, size, dtype)),
+  uniform: (low?: number, high?: number, size?: number | number[]) =>
+    wrapResult(randomOps.uniform(low, high, size)),
+  normal: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.normal(loc, scale, size)),
+  standard_normal: (size?: number | number[]) => wrapResult(randomOps.standard_normal(size)),
+  exponential: (scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.exponential(scale, size)),
+  poisson: (lam?: number, size?: number | number[]) => wrapResult(randomOps.poisson(lam, size)),
+  binomial: (n: number, p: number, size?: number | number[]) =>
+    wrapResult(randomOps.binomial(n, p, size)),
+  choice: (
+    a: number | ArrayStorage,
+    size?: number | number[],
+    replace?: boolean,
+    p?: ArrayStorage | number[]
+  ) => wrapResult(randomOps.choice(a, size, replace, p)),
+  permutation: (x: number | ArrayStorage) => wrapResult(randomOps.permutation(x)),
+  shuffle: randomOps.shuffle,
+  get_state: randomOps.get_state,
+  set_state: randomOps.set_state,
+  default_rng: randomOps.default_rng,
+  Generator: randomOps.Generator,
+};
+
 // Version (replaced at build time from package.json)
 // In development/tests, use package.json directly; in production, use the replaced value
 declare const __VERSION_PLACEHOLDER__: string;

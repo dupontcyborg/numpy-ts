@@ -520,6 +520,35 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.count_nonzero(arrays['a']);
   }
 
+  // Random operations
+  else if (operation === 'random_random') {
+    return np.random.random(arrays['shape']);
+  } else if (operation === 'random_rand') {
+    const shape = arrays['shape'];
+    return np.random.rand(...shape);
+  } else if (operation === 'random_randn') {
+    const shape = arrays['shape'];
+    return np.random.randn(...shape);
+  } else if (operation === 'random_randint') {
+    return np.random.randint(0, 100, arrays['shape']);
+  } else if (operation === 'random_uniform') {
+    return np.random.uniform(0, 1, arrays['shape']);
+  } else if (operation === 'random_normal') {
+    return np.random.normal(0, 1, arrays['shape']);
+  } else if (operation === 'random_standard_normal') {
+    return np.random.standard_normal(arrays['shape']);
+  } else if (operation === 'random_exponential') {
+    return np.random.exponential(1, arrays['shape']);
+  } else if (operation === 'random_poisson') {
+    return np.random.poisson(5, arrays['shape']);
+  } else if (operation === 'random_binomial') {
+    return np.random.binomial(10, 0.5, arrays['shape']);
+  } else if (operation === 'random_choice') {
+    return np.random.choice(arrays['n'], 100);
+  } else if (operation === 'random_permutation') {
+    return np.random.permutation(arrays['n']);
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 

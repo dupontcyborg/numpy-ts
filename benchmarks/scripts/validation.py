@@ -429,6 +429,33 @@ def run_operation(spec):
     elif operation == "count_nonzero":
         result = np.count_nonzero(arrays["a"])
 
+    # Random operations - return placeholder with correct shape
+    # (actual values will differ between NumPy and numpy-ts)
+    elif operation == "random_random":
+        result = np.random.random(tuple(arrays["shape"]))
+    elif operation == "random_rand":
+        result = np.random.rand(*arrays["shape"])
+    elif operation == "random_randn":
+        result = np.random.randn(*arrays["shape"])
+    elif operation == "random_randint":
+        result = np.random.randint(0, 100, tuple(arrays["shape"]))
+    elif operation == "random_uniform":
+        result = np.random.uniform(0, 1, tuple(arrays["shape"]))
+    elif operation == "random_normal":
+        result = np.random.normal(0, 1, tuple(arrays["shape"]))
+    elif operation == "random_standard_normal":
+        result = np.random.standard_normal(tuple(arrays["shape"]))
+    elif operation == "random_exponential":
+        result = np.random.exponential(1, tuple(arrays["shape"]))
+    elif operation == "random_poisson":
+        result = np.random.poisson(5, tuple(arrays["shape"]))
+    elif operation == "random_binomial":
+        result = np.random.binomial(10, 0.5, tuple(arrays["shape"]))
+    elif operation == "random_choice":
+        result = np.random.choice(arrays["n"], 100)
+    elif operation == "random_permutation":
+        result = np.random.permutation(arrays["n"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

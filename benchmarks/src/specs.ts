@@ -2018,6 +2018,142 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    // ========================================
+    // Random Benchmarks
+    // ========================================
+
+    specs.push({
+      name: `random.random [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_random',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.rand [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_rand',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.randn [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_randn',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.randint [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_randint',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.uniform [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_uniform',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.normal [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_normal',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.standard_normal [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_standard_normal',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.exponential [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_exponential',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.poisson [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_poisson',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.binomial [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_binomial',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.choice [${sizes.small}]`,
+      category: 'random',
+      operation: 'random_choice',
+      setup: {
+        n: { shape: [sizes.small] },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.permutation [${sizes.small}]`,
+      category: 'random',
+      operation: 'random_permutation',
+      setup: {
+        n: { shape: [sizes.small] },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   return specs;
