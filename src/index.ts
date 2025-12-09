@@ -193,6 +193,22 @@ export {
   searchsorted,
   extract,
   count_nonzero,
+  // Rounding functions
+  around,
+  ceil,
+  fix,
+  floor,
+  rint,
+  round,
+  trunc,
+  // Set operations
+  unique,
+  in1d,
+  intersect1d,
+  isin,
+  setdiff1d,
+  setxor1d,
+  union1d,
 } from './core/ndarray';
 
 // IO functions (environment-agnostic parsing/serialization)

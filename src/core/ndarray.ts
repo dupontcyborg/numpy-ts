@@ -24,6 +24,8 @@ import * as hyperbolicOps from '../ops/hyperbolic';
 import * as advancedOps from '../ops/advanced';
 import * as bitwiseOps from '../ops/bitwise';
 import * as sortingOps from '../ops/sorting';
+import * as roundingOps from '../ops/rounding';
+import * as setOps from '../ops/sets';
 
 export class NDArray {
   // Internal storage
@@ -404,6 +406,71 @@ export class NDArray {
    */
   sign(): NDArray {
     const resultStorage = arithmeticOps.sign(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  // Rounding operations
+  /**
+   * Round an array to the given number of decimals
+   * @param decimals - Number of decimal places to round to (default: 0)
+   * @returns New array with rounded values
+   */
+  around(decimals: number = 0): NDArray {
+    const resultStorage = roundingOps.around(this._storage, decimals);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Round an array to the given number of decimals (alias for around)
+   * @param decimals - Number of decimal places to round to (default: 0)
+   * @returns New array with rounded values
+   */
+  round(decimals: number = 0): NDArray {
+    return this.around(decimals);
+  }
+
+  /**
+   * Return the ceiling of the input, element-wise
+   * @returns New array with ceiling values
+   */
+  ceil(): NDArray {
+    const resultStorage = roundingOps.ceil(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Round to nearest integer towards zero
+   * @returns New array with values truncated towards zero
+   */
+  fix(): NDArray {
+    const resultStorage = roundingOps.fix(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the floor of the input, element-wise
+   * @returns New array with floor values
+   */
+  floor(): NDArray {
+    const resultStorage = roundingOps.floor(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Round elements to the nearest integer
+   * @returns New array with rounded integer values
+   */
+  rint(): NDArray {
+    const resultStorage = roundingOps.rint(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the truncated value of the input, element-wise
+   * @returns New array with truncated values
+   */
+  trunc(): NDArray {
+    const resultStorage = roundingOps.trunc(this._storage);
     return NDArray._fromStorage(resultStorage);
   }
 
@@ -4686,4 +4753,168 @@ export function count_nonzero(a: NDArray, axis?: number): NDArray | number {
     return result;
   }
   return NDArray._fromStorage(result);
+}
+
+// ============================================================================
+// Rounding Functions
+// ============================================================================
+
+/**
+ * Round an array to the given number of decimals
+ * @param a - Input array
+ * @param decimals - Number of decimal places to round to (default: 0)
+ * @returns Rounded array
+ */
+export function around(a: NDArray, decimals: number = 0): NDArray {
+  return NDArray._fromStorage(roundingOps.around(a.storage, decimals));
+}
+
+/**
+ * Return the ceiling of the input, element-wise
+ * @param x - Input array
+ * @returns Element-wise ceiling
+ */
+export function ceil(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.ceil(x.storage));
+}
+
+/**
+ * Round to nearest integer towards zero
+ * @param x - Input array
+ * @returns Array with values truncated towards zero
+ */
+export function fix(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.fix(x.storage));
+}
+
+/**
+ * Return the floor of the input, element-wise
+ * @param x - Input array
+ * @returns Element-wise floor
+ */
+export function floor(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.floor(x.storage));
+}
+
+/**
+ * Round elements of the array to the nearest integer
+ * @param x - Input array
+ * @returns Array with rounded integer values
+ */
+export function rint(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.rint(x.storage));
+}
+
+/**
+ * Evenly round to the given number of decimals (alias for around)
+ * @param a - Input array
+ * @param decimals - Number of decimal places to round to (default: 0)
+ * @returns Rounded array
+ */
+export { around as round };
+
+/**
+ * Return the truncated value of the input, element-wise
+ * @param x - Input array
+ * @returns Element-wise truncated values
+ */
+export function trunc(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.trunc(x.storage));
+}
+
+// ============================================================================
+// Set Operations
+// ============================================================================
+
+/**
+ * Find the unique elements of an array
+ * @param ar - Input array
+ * @param returnIndex - If True, also return the indices of the first occurrences
+ * @param returnInverse - If True, also return the indices to reconstruct the original array
+ * @param returnCounts - If True, also return the number of times each unique value appears
+ * @returns Unique sorted values, and optionally indices/inverse/counts
+ */
+export function unique(
+  ar: NDArray,
+  returnIndex: boolean = false,
+  returnInverse: boolean = false,
+  returnCounts: boolean = false
+): NDArray | { values: NDArray; indices?: NDArray; inverse?: NDArray; counts?: NDArray } {
+  const result = setOps.unique(ar.storage, returnIndex, returnInverse, returnCounts);
+  if (result instanceof ArrayStorage) {
+    return NDArray._fromStorage(result);
+  }
+  const out: { values: NDArray; indices?: NDArray; inverse?: NDArray; counts?: NDArray } = {
+    values: NDArray._fromStorage(result.values),
+  };
+  if (result.indices) {
+    out.indices = NDArray._fromStorage(result.indices);
+  }
+  if (result.inverse) {
+    out.inverse = NDArray._fromStorage(result.inverse);
+  }
+  if (result.counts) {
+    out.counts = NDArray._fromStorage(result.counts);
+  }
+  return out;
+}
+
+/**
+ * Test whether each element of a 1-D array is also present in a second array
+ * @param ar1 - Input array
+ * @param ar2 - Test values
+ * @returns Boolean array indicating membership
+ */
+export function in1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.in1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Find the intersection of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of common and unique elements
+ */
+export function intersect1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.intersect1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Test whether each element of an ND array is also present in a second array
+ * @param element - Input array
+ * @param testElements - Test values
+ * @returns Boolean array indicating membership (same shape as element)
+ */
+export function isin(element: NDArray, testElements: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.isin(element.storage, testElements.storage));
+}
+
+/**
+ * Find the set difference of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of values in ar1 that are not in ar2
+ */
+export function setdiff1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.setdiff1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Find the set exclusive-or of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of values that are in only one array
+ */
+export function setxor1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.setxor1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Find the union of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of unique values from both arrays
+ */
+export function union1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.union1d(ar1.storage, ar2.storage));
 }
