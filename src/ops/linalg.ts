@@ -1472,3 +1472,1786 @@ export function kron(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   return result;
 }
+
+// ========================================
+// NUMPY.LINALG MODULE FUNCTIONS
+// ========================================
+
+/**
+ * Cross product of two vectors.
+ *
+ * For 3D vectors: returns the cross product vector
+ * For 2D vectors: returns the scalar z-component of the cross product
+ *
+ * @param a - First input array
+ * @param b - Second input array
+ * @param axisa - Axis of a that defines the vectors (default: -1)
+ * @param axisb - Axis of b that defines the vectors (default: -1)
+ * @param axisc - Axis of c containing the cross product vectors (default: -1)
+ * @param axis - If defined, the axis of a, b and c that defines the vectors
+ * @returns Cross product of a and b
+ */
+export function cross(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  axisa: number = -1,
+  axisb: number = -1,
+  axisc: number = -1,
+  axis?: number
+): ArrayStorage | number {
+  // If axis is specified, use it for all
+  if (axis !== undefined) {
+    axisa = axis;
+    axisb = axis;
+    axisc = axis;
+  }
+
+  // Normalize negative axes
+  const normalizeAxis = (ax: number, ndim: number) => (ax < 0 ? ndim + ax : ax);
+
+  const axisA = normalizeAxis(axisa, a.ndim);
+  const axisB = normalizeAxis(axisb, b.ndim);
+
+  // Simple case: both are 1D vectors
+  if (a.ndim === 1 && b.ndim === 1) {
+    const dimA = a.shape[0]!;
+    const dimB = b.shape[0]!;
+
+    if (dimA === 3 && dimB === 3) {
+      // 3D cross product
+      const a0 = Number(a.get(0));
+      const a1 = Number(a.get(1));
+      const a2 = Number(a.get(2));
+      const b0 = Number(b.get(0));
+      const b1 = Number(b.get(1));
+      const b2 = Number(b.get(2));
+
+      const result = ArrayStorage.zeros([3], 'float64');
+      result.set([0], a1 * b2 - a2 * b1);
+      result.set([1], a2 * b0 - a0 * b2);
+      result.set([2], a0 * b1 - a1 * b0);
+      return result;
+    } else if (dimA === 2 && dimB === 2) {
+      // 2D cross product (returns scalar)
+      const a0 = Number(a.get(0));
+      const a1 = Number(a.get(1));
+      const b0 = Number(b.get(0));
+      const b1 = Number(b.get(1));
+      return a0 * b1 - a1 * b0;
+    } else if ((dimA === 2 && dimB === 3) || (dimA === 3 && dimB === 2)) {
+      // Mixed 2D/3D - treat 2D as having z=0
+      const a0 = Number(a.get(0));
+      const a1 = Number(a.get(1));
+      const a2 = dimA === 3 ? Number(a.get(2)) : 0;
+      const b0 = Number(b.get(0));
+      const b1 = Number(b.get(1));
+      const b2 = dimB === 3 ? Number(b.get(2)) : 0;
+
+      const result = ArrayStorage.zeros([3], 'float64');
+      result.set([0], a1 * b2 - a2 * b1);
+      result.set([1], a2 * b0 - a0 * b2);
+      result.set([2], a0 * b1 - a1 * b0);
+      return result;
+    } else {
+      throw new Error(`cross: incompatible dimensions for cross product: ${dimA} and ${dimB}`);
+    }
+  }
+
+  // Handle higher dimensional arrays by iterating over all other axes
+  // For simplicity, we'll handle the case where the vector axis is last
+  const vectorDimA = a.shape[axisA]!;
+  const vectorDimB = b.shape[axisB]!;
+
+  if ((vectorDimA !== 2 && vectorDimA !== 3) || (vectorDimB !== 2 && vectorDimB !== 3)) {
+    throw new Error(
+      `cross: incompatible dimensions for cross product: ${vectorDimA} and ${vectorDimB}`
+    );
+  }
+
+  // Determine output shape and vector dimension
+  const outputVectorDim = vectorDimA === 2 && vectorDimB === 2 ? 0 : 3;
+
+  // Build output shape (broadcast the non-vector axes)
+  const aOtherShape = [...a.shape.slice(0, axisA), ...a.shape.slice(axisA + 1)];
+  const bOtherShape = [...b.shape.slice(0, axisB), ...b.shape.slice(axisB + 1)];
+
+  // For now, require same shapes for non-vector axes
+  if (aOtherShape.length !== bOtherShape.length) {
+    throw new Error('cross: incompatible shapes for cross product');
+  }
+  for (let i = 0; i < aOtherShape.length; i++) {
+    if (aOtherShape[i] !== bOtherShape[i]) {
+      throw new Error('cross: incompatible shapes for cross product');
+    }
+  }
+
+  const otherShape = aOtherShape;
+  const normalizedAxisC = axisc < 0 ? otherShape.length + 1 + axisc : axisc;
+
+  // Build result shape
+  let resultShape: number[];
+  if (outputVectorDim === 0) {
+    // Scalar output per position
+    resultShape = otherShape;
+  } else {
+    // Insert vector dimension at axisc
+    resultShape = [
+      ...otherShape.slice(0, normalizedAxisC),
+      outputVectorDim,
+      ...otherShape.slice(normalizedAxisC),
+    ];
+  }
+
+  if (resultShape.length === 0) {
+    // Both 2D vectors, scalar result (already handled above)
+    throw new Error('cross: unexpected scalar result from higher-dimensional input');
+  }
+
+  const result = ArrayStorage.zeros(resultShape, 'float64');
+
+  // Iterate over all "other" positions
+  const otherSize = otherShape.reduce((acc, d) => acc * d, 1);
+
+  for (let i = 0; i < otherSize; i++) {
+    // Convert flat index to multi-dim
+    let temp = i;
+    const otherIndices: number[] = [];
+    for (let j = otherShape.length - 1; j >= 0; j--) {
+      otherIndices[j] = temp % otherShape[j]!;
+      temp = Math.floor(temp / otherShape[j]!);
+    }
+
+    // Build indices for a and b (insert vector axis)
+    const aIndices = [...otherIndices.slice(0, axisA), 0, ...otherIndices.slice(axisA)];
+    const bIndices = [...otherIndices.slice(0, axisB), 0, ...otherIndices.slice(axisB)];
+
+    // Extract vector components
+    const getA = (idx: number) => {
+      aIndices[axisA] = idx;
+      return Number(a.get(...aIndices));
+    };
+    const getB = (idx: number) => {
+      bIndices[axisB] = idx;
+      return Number(b.get(...bIndices));
+    };
+
+    const a0 = getA(0);
+    const a1 = getA(1);
+    const a2 = vectorDimA === 3 ? getA(2) : 0;
+    const b0 = getB(0);
+    const b1 = getB(1);
+    const b2 = vectorDimB === 3 ? getB(2) : 0;
+
+    if (outputVectorDim === 0) {
+      // Scalar result
+      result.set(otherIndices, a0 * b1 - a1 * b0);
+    } else {
+      // Vector result
+      const c0 = a1 * b2 - a2 * b1;
+      const c1 = a2 * b0 - a0 * b2;
+      const c2 = a0 * b1 - a1 * b0;
+
+      const setResult = (idx: number, val: number) => {
+        const resultIndices = [
+          ...otherIndices.slice(0, normalizedAxisC),
+          idx,
+          ...otherIndices.slice(normalizedAxisC),
+        ];
+        result.set(resultIndices, val);
+      };
+
+      setResult(0, c0);
+      setResult(1, c1);
+      setResult(2, c2);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Vector norm.
+ *
+ * @param x - Input vector or array
+ * @param ord - Order of the norm (default: 2)
+ *              - Infinity: max(abs(x))
+ *              - -Infinity: min(abs(x))
+ *              - 0: sum(x != 0)
+ *              - Other: sum(abs(x)^ord)^(1/ord)
+ * @param axis - Axis along which to compute (flattened if not specified)
+ * @param keepdims - Keep reduced dimensions
+ * @returns Vector norm
+ */
+export function vector_norm(
+  x: ArrayStorage,
+  ord: number | 'fro' | 'nuc' = 2,
+  axis?: number | null,
+  keepdims: boolean = false
+): ArrayStorage | number {
+  // Handle numeric ord only for vector norm
+  if (typeof ord !== 'number') {
+    throw new Error('vector_norm: ord must be a number');
+  }
+
+  // If no axis specified, flatten and compute
+  if (axis === undefined || axis === null) {
+    const flat = x.ndim === 1 ? x : shapeOps.ravel(x);
+    const n = flat.size;
+
+    let result: number;
+    if (ord === Infinity) {
+      result = 0;
+      for (let i = 0; i < n; i++) {
+        result = Math.max(result, Math.abs(Number(flat.get(i))));
+      }
+    } else if (ord === -Infinity) {
+      result = Infinity;
+      for (let i = 0; i < n; i++) {
+        result = Math.min(result, Math.abs(Number(flat.get(i))));
+      }
+    } else if (ord === 0) {
+      result = 0;
+      for (let i = 0; i < n; i++) {
+        if (Number(flat.get(i)) !== 0) result++;
+      }
+    } else if (ord === 1) {
+      result = 0;
+      for (let i = 0; i < n; i++) {
+        result += Math.abs(Number(flat.get(i)));
+      }
+    } else if (ord === 2) {
+      result = 0;
+      for (let i = 0; i < n; i++) {
+        const val = Number(flat.get(i));
+        result += val * val;
+      }
+      result = Math.sqrt(result);
+    } else {
+      result = 0;
+      for (let i = 0; i < n; i++) {
+        result += Math.pow(Math.abs(Number(flat.get(i))), ord);
+      }
+      result = Math.pow(result, 1 / ord);
+    }
+
+    if (keepdims) {
+      const shape = new Array(x.ndim).fill(1);
+      const out = ArrayStorage.zeros(shape, 'float64');
+      out.set(new Array(x.ndim).fill(0), result);
+      return out;
+    }
+    return result;
+  }
+
+  // Compute along specified axis
+  const ax = axis < 0 ? x.ndim + axis : axis;
+  if (ax < 0 || ax >= x.ndim) {
+    throw new Error(`vector_norm: axis ${axis} out of bounds for array with ${x.ndim} dimensions`);
+  }
+
+  // Build output shape
+  const outShape = keepdims
+    ? [...x.shape.slice(0, ax), 1, ...x.shape.slice(ax + 1)]
+    : [...x.shape.slice(0, ax), ...x.shape.slice(ax + 1)];
+
+  if (outShape.length === 0) {
+    // Scalar result
+    return vector_norm(x, ord, null, false) as number;
+  }
+
+  const result = ArrayStorage.zeros(outShape, 'float64');
+  const axisLen = x.shape[ax]!;
+  const outSize = outShape.reduce((acc, d) => acc * d, 1);
+
+  for (let outIdx = 0; outIdx < outSize; outIdx++) {
+    // Convert flat index to multi-dim output index
+    let temp = outIdx;
+    const outIndices: number[] = [];
+    for (let i = outShape.length - 1; i >= 0; i--) {
+      outIndices[i] = temp % outShape[i]!;
+      temp = Math.floor(temp / outShape[i]!);
+    }
+
+    // Build input indices (insert axis dimension)
+    const inIndices = keepdims
+      ? [...outIndices.slice(0, ax), 0, ...outIndices.slice(ax + 1)]
+      : [...outIndices.slice(0, ax), 0, ...outIndices.slice(ax)];
+
+    // Compute norm along axis
+    let normVal: number;
+    if (ord === Infinity) {
+      normVal = 0;
+      for (let i = 0; i < axisLen; i++) {
+        inIndices[ax] = i;
+        normVal = Math.max(normVal, Math.abs(Number(x.get(...inIndices))));
+      }
+    } else if (ord === -Infinity) {
+      normVal = Infinity;
+      for (let i = 0; i < axisLen; i++) {
+        inIndices[ax] = i;
+        normVal = Math.min(normVal, Math.abs(Number(x.get(...inIndices))));
+      }
+    } else if (ord === 0) {
+      normVal = 0;
+      for (let i = 0; i < axisLen; i++) {
+        inIndices[ax] = i;
+        if (Number(x.get(...inIndices)) !== 0) normVal++;
+      }
+    } else if (ord === 1) {
+      normVal = 0;
+      for (let i = 0; i < axisLen; i++) {
+        inIndices[ax] = i;
+        normVal += Math.abs(Number(x.get(...inIndices)));
+      }
+    } else if (ord === 2) {
+      normVal = 0;
+      for (let i = 0; i < axisLen; i++) {
+        inIndices[ax] = i;
+        const val = Number(x.get(...inIndices));
+        normVal += val * val;
+      }
+      normVal = Math.sqrt(normVal);
+    } else {
+      normVal = 0;
+      for (let i = 0; i < axisLen; i++) {
+        inIndices[ax] = i;
+        normVal += Math.pow(Math.abs(Number(x.get(...inIndices))), ord);
+      }
+      normVal = Math.pow(normVal, 1 / ord);
+    }
+
+    result.set(outIndices, normVal);
+  }
+
+  return result;
+}
+
+/**
+ * Matrix norm.
+ *
+ * @param x - Input 2D array
+ * @param ord - Order of the norm:
+ *              - 'fro': Frobenius norm (default)
+ *              - 'nuc': Nuclear norm (sum of singular values)
+ *              - 1: Max column sum (max(sum(abs(x), axis=0)))
+ *              - -1: Min column sum (min(sum(abs(x), axis=0)))
+ *              - 2: Largest singular value
+ *              - -2: Smallest singular value
+ *              - Infinity: Max row sum (max(sum(abs(x), axis=1)))
+ *              - -Infinity: Min row sum (min(sum(abs(x), axis=1)))
+ * @param keepdims - Keep reduced dimensions
+ * @returns Matrix norm
+ */
+export function matrix_norm(
+  x: ArrayStorage,
+  ord: number | 'fro' | 'nuc' = 'fro',
+  keepdims: boolean = false
+): ArrayStorage | number {
+  if (x.ndim !== 2) {
+    throw new Error(`matrix_norm: input must be 2D, got ${x.ndim}D`);
+  }
+
+  const [m, n] = x.shape;
+  let result: number;
+
+  if (ord === 'fro') {
+    // Frobenius norm: sqrt(sum(abs(x)^2))
+    result = 0;
+    for (let i = 0; i < m!; i++) {
+      for (let j = 0; j < n!; j++) {
+        const val = Number(x.get(i, j));
+        result += val * val;
+      }
+    }
+    result = Math.sqrt(result);
+  } else if (ord === 'nuc') {
+    // Nuclear norm: sum of singular values
+    const { s } = svdFull(x);
+    result = 0;
+    for (let i = 0; i < s.size; i++) {
+      result += Number(s.get(i));
+    }
+  } else if (ord === 1) {
+    // Max column sum
+    result = 0;
+    for (let j = 0; j < n!; j++) {
+      let colSum = 0;
+      for (let i = 0; i < m!; i++) {
+        colSum += Math.abs(Number(x.get(i, j)));
+      }
+      result = Math.max(result, colSum);
+    }
+  } else if (ord === -1) {
+    // Min column sum
+    result = Infinity;
+    for (let j = 0; j < n!; j++) {
+      let colSum = 0;
+      for (let i = 0; i < m!; i++) {
+        colSum += Math.abs(Number(x.get(i, j)));
+      }
+      result = Math.min(result, colSum);
+    }
+  } else if (ord === Infinity) {
+    // Max row sum
+    result = 0;
+    for (let i = 0; i < m!; i++) {
+      let rowSum = 0;
+      for (let j = 0; j < n!; j++) {
+        rowSum += Math.abs(Number(x.get(i, j)));
+      }
+      result = Math.max(result, rowSum);
+    }
+  } else if (ord === -Infinity) {
+    // Min row sum
+    result = Infinity;
+    for (let i = 0; i < m!; i++) {
+      let rowSum = 0;
+      for (let j = 0; j < n!; j++) {
+        rowSum += Math.abs(Number(x.get(i, j)));
+      }
+      result = Math.min(result, rowSum);
+    }
+  } else if (ord === 2) {
+    // Largest singular value
+    const { s } = svdFull(x);
+    result = Number(s.get(0));
+  } else if (ord === -2) {
+    // Smallest singular value
+    const { s } = svdFull(x);
+    result = Number(s.get(s.size - 1));
+  } else {
+    throw new Error(`matrix_norm: invalid ord value: ${ord}`);
+  }
+
+  if (keepdims) {
+    const out = ArrayStorage.zeros([1, 1], 'float64');
+    out.set([0, 0], result);
+    return out;
+  }
+  return result;
+}
+
+/**
+ * General norm function (for both vectors and matrices).
+ *
+ * @param x - Input array
+ * @param ord - Order of the norm (default: 'fro' for 2D, 2 for 1D)
+ * @param axis - Axis or axes along which to compute
+ * @param keepdims - Keep reduced dimensions
+ * @returns Norm
+ */
+export function norm(
+  x: ArrayStorage,
+  ord: number | 'fro' | 'nuc' | null = null,
+  axis: number | [number, number] | null = null,
+  keepdims: boolean = false
+): ArrayStorage | number {
+  // Determine default ord based on axis
+  if (ord === null) {
+    if (axis === null) {
+      // Flatten and compute 2-norm
+      return vector_norm(x, 2, null, keepdims);
+    } else if (typeof axis === 'number') {
+      return vector_norm(x, 2, axis, keepdims);
+    } else {
+      // axis is [number, number] - matrix norm
+      return matrix_norm(x, 'fro', keepdims);
+    }
+  }
+
+  // If axis is specified as a tuple, compute matrix norm
+  if (Array.isArray(axis)) {
+    if (axis.length !== 2) {
+      throw new Error('norm: axis must be a 2-tuple for matrix norms');
+    }
+    // For now, only support the simple case where the matrix axes are (0, 1) or (-2, -1)
+    const ax0 = axis[0] < 0 ? x.ndim + axis[0] : axis[0];
+    const ax1 = axis[1] < 0 ? x.ndim + axis[1] : axis[1];
+
+    if (x.ndim !== 2 || (ax0 !== 0 && ax0 !== 1) || (ax1 !== 0 && ax1 !== 1) || ax0 === ax1) {
+      throw new Error('norm: complex axis specification not yet supported');
+    }
+
+    return matrix_norm(x, ord as 'fro' | 'nuc' | number, keepdims);
+  }
+
+  // Single axis or no axis - vector norm
+  if (x.ndim === 2 && axis === null && (ord === 'fro' || ord === 'nuc')) {
+    return matrix_norm(x, ord, keepdims);
+  }
+
+  if (typeof ord !== 'number' && ord !== null) {
+    throw new Error(`norm: ord '${ord}' not valid for vector norm`);
+  }
+
+  return vector_norm(x, ord ?? 2, axis, keepdims);
+}
+
+/**
+ * QR decomposition using Householder reflections.
+ *
+ * @param a - Input matrix (m x n)
+ * @param mode - 'reduced' (default), 'complete', 'r', or 'raw'
+ * @returns { q, r } where A = Q @ R
+ */
+export function qr(
+  a: ArrayStorage,
+  mode: 'reduced' | 'complete' | 'r' | 'raw' = 'reduced'
+): { q: ArrayStorage; r: ArrayStorage } | ArrayStorage | { h: ArrayStorage; tau: ArrayStorage } {
+  if (a.ndim !== 2) {
+    throw new Error(`qr: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  const k = Math.min(m!, n!);
+
+  // Copy input to working array (float64)
+  const R = ArrayStorage.zeros([m!, n!], 'float64');
+  for (let i = 0; i < m!; i++) {
+    for (let j = 0; j < n!; j++) {
+      R.set([i, j], Number(a.get(i, j)));
+    }
+  }
+
+  // Store Householder vectors for Q reconstruction
+  const householderVectors: number[][] = [];
+  const tau: number[] = [];
+
+  // Householder QR
+  for (let j = 0; j < k; j++) {
+    // Extract column j from row j onwards
+    const colLen = m! - j;
+    const col: number[] = [];
+    for (let i = j; i < m!; i++) {
+      col.push(Number(R.get(i, j)));
+    }
+
+    // Compute norm of column
+    let normCol = 0;
+    for (let i = 0; i < colLen; i++) {
+      normCol += col[i]! * col[i]!;
+    }
+    normCol = Math.sqrt(normCol);
+
+    if (normCol < 1e-15) {
+      householderVectors.push(col);
+      tau.push(0);
+      continue;
+    }
+
+    // Compute Householder vector
+    const sign = col[0]! >= 0 ? 1 : -1;
+    const u0 = col[0]! + sign * normCol;
+    const v: number[] = [1];
+    for (let i = 1; i < colLen; i++) {
+      v.push(col[i]! / u0);
+    }
+
+    const tauJ = (sign * u0) / normCol;
+    tau.push(tauJ);
+    householderVectors.push(v);
+
+    // Apply Householder reflection to R[:, j:]
+    // R = R - tau * v * (v^T @ R)
+    for (let jj = j; jj < n!; jj++) {
+      // Compute v^T @ R[:, jj]
+      let vTR = 0;
+      for (let i = 0; i < colLen; i++) {
+        vTR += v[i]! * Number(R.get(j + i, jj));
+      }
+      // Update R[:, jj]
+      for (let i = 0; i < colLen; i++) {
+        R.set([j + i, jj], Number(R.get(j + i, jj)) - tauJ * v[i]! * vTR);
+      }
+    }
+  }
+
+  if (mode === 'raw') {
+    // Return raw Householder representation
+    const h = ArrayStorage.zeros([m!, n!], 'float64');
+    for (let i = 0; i < m!; i++) {
+      for (let j = 0; j < n!; j++) {
+        h.set([i, j], Number(R.get(i, j)));
+      }
+    }
+    const tauArr = ArrayStorage.zeros([k], 'float64');
+    for (let i = 0; i < k; i++) {
+      tauArr.set([i], tau[i]!);
+    }
+    return { h, tau: tauArr };
+  }
+
+  if (mode === 'r') {
+    // Return only R (upper triangular)
+    const rResult = ArrayStorage.zeros([k, n!], 'float64');
+    for (let i = 0; i < k; i++) {
+      for (let j = i; j < n!; j++) {
+        rResult.set([i, j], Number(R.get(i, j)));
+      }
+    }
+    return rResult;
+  }
+
+  // Reconstruct Q from Householder vectors
+  const qRows = mode === 'complete' ? m! : k;
+  const Q = ArrayStorage.zeros([m!, qRows], 'float64');
+
+  // Initialize Q as identity
+  for (let i = 0; i < Math.min(m!, qRows); i++) {
+    Q.set([i, i], 1);
+  }
+
+  // Apply Householder reflections in reverse order
+  for (let j = k - 1; j >= 0; j--) {
+    const v = householderVectors[j]!;
+    const tauJ = tau[j]!;
+    const colLen = m! - j;
+
+    // Apply H_j to Q[j:, j:]
+    // Q = Q - tau * v * (v^T @ Q)
+    for (let jj = j; jj < qRows; jj++) {
+      let vTQ = 0;
+      for (let i = 0; i < colLen; i++) {
+        vTQ += v[i]! * Number(Q.get(j + i, jj));
+      }
+      for (let i = 0; i < colLen; i++) {
+        Q.set([j + i, jj], Number(Q.get(j + i, jj)) - tauJ * v[i]! * vTQ);
+      }
+    }
+  }
+
+  // Extract final Q and R
+  const qResult = ArrayStorage.zeros([m!, qRows], 'float64');
+  for (let i = 0; i < m!; i++) {
+    for (let j = 0; j < qRows; j++) {
+      qResult.set([i, j], Number(Q.get(i, j)));
+    }
+  }
+
+  const rRows = mode === 'complete' ? m! : k;
+  const rResult = ArrayStorage.zeros([rRows, n!], 'float64');
+  for (let i = 0; i < rRows; i++) {
+    for (let j = 0; j < n!; j++) {
+      if (j >= i) {
+        rResult.set([i, j], Number(R.get(i, j)));
+      }
+    }
+  }
+
+  return { q: qResult, r: rResult };
+}
+
+/**
+ * Cholesky decomposition.
+ *
+ * Returns the lower triangular matrix L such that A = L @ L^T
+ * for a symmetric positive-definite matrix A.
+ *
+ * @param a - Symmetric positive-definite matrix
+ * @param upper - If true, return upper triangular U such that A = U^T @ U
+ * @returns Lower (or upper) triangular Cholesky factor
+ */
+export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage {
+  if (a.ndim !== 2) {
+    throw new Error(`cholesky: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  if (m !== n) {
+    throw new Error(`cholesky: matrix must be square, got ${m}x${n}`);
+  }
+
+  const size = m!;
+  const L = ArrayStorage.zeros([size, size], 'float64');
+
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j <= i; j++) {
+      let sum = 0;
+
+      if (i === j) {
+        // Diagonal elements
+        for (let k = 0; k < j; k++) {
+          sum += Number(L.get(j, k)) ** 2;
+        }
+        const val = Number(a.get(j, j)) - sum;
+        if (val < 0) {
+          throw new Error('cholesky: matrix is not positive definite');
+        }
+        L.set([j, j], Math.sqrt(val));
+      } else {
+        // Off-diagonal elements
+        for (let k = 0; k < j; k++) {
+          sum += Number(L.get(i, k)) * Number(L.get(j, k));
+        }
+        const ljj = Number(L.get(j, j));
+        if (Math.abs(ljj) < 1e-15) {
+          throw new Error('cholesky: matrix is not positive definite');
+        }
+        L.set([i, j], (Number(a.get(i, j)) - sum) / ljj);
+      }
+    }
+  }
+
+  if (upper) {
+    // Return L^T (upper triangular)
+    const U = ArrayStorage.zeros([size, size], 'float64');
+    for (let i = 0; i < size; i++) {
+      for (let j = i; j < size; j++) {
+        U.set([i, j], Number(L.get(j, i)));
+      }
+    }
+    return U;
+  }
+
+  return L;
+}
+
+/**
+ * Singular Value Decomposition (full).
+ * Internal helper that returns all components.
+ *
+ * @param a - Input matrix
+ * @returns { u, s, vt } where A = U @ diag(S) @ V^T
+ */
+function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } {
+  if (a.ndim !== 2) {
+    throw new Error(`svd: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  const smaller = Math.min(m!, n!);
+
+  // For SVD, we use the approach: A^T @ A has eigenvalues sigma^2
+  // and A @ A^T also has eigenvalues sigma^2
+  // V are eigenvectors of A^T @ A
+  // U are eigenvectors of A @ A^T
+
+  // Compute A^T @ A
+  const ATA = ArrayStorage.zeros([n!, n!], 'float64');
+  for (let i = 0; i < n!; i++) {
+    for (let j = 0; j < n!; j++) {
+      let sum = 0;
+      for (let k = 0; k < m!; k++) {
+        sum += Number(a.get(k, i)) * Number(a.get(k, j));
+      }
+      ATA.set([i, j], sum);
+    }
+  }
+
+  // Get eigendecomposition of A^T @ A
+  const { values: eigVals, vectors: V } = eigSymmetric(ATA);
+
+  // Sort eigenvalues in descending order
+  const indices = Array.from({ length: n! }, (_, i) => i);
+  indices.sort((i, j) => eigVals[j]! - eigVals[i]!);
+
+  // Singular values are sqrt of eigenvalues
+  const s = ArrayStorage.zeros([smaller], 'float64');
+  for (let i = 0; i < smaller; i++) {
+    const eigVal = eigVals[indices[i]!]!;
+    s.set([i], Math.sqrt(Math.max(0, eigVal)));
+  }
+
+  // V^T (sorted)
+  const vt = ArrayStorage.zeros([n!, n!], 'float64');
+  for (let i = 0; i < n!; i++) {
+    for (let j = 0; j < n!; j++) {
+      vt.set([i, j], V[j]![indices[i]!]!);
+    }
+  }
+
+  // Compute U = A @ V @ S^-1
+  const u = ArrayStorage.zeros([m!, m!], 'float64');
+  for (let i = 0; i < m!; i++) {
+    for (let j = 0; j < smaller; j++) {
+      const sigma = Number(s.get(j));
+      if (sigma > 1e-10) {
+        let sum = 0;
+        for (let k = 0; k < n!; k++) {
+          sum += Number(a.get(i, k)) * Number(vt.get(j, k));
+        }
+        u.set([i, j], sum / sigma);
+      }
+    }
+  }
+
+  // Fill remaining columns of U with orthonormal vectors
+  if (m! > smaller) {
+    // Use Gram-Schmidt to complete U
+    for (let j = smaller; j < m!; j++) {
+      // Start with a standard basis vector
+      const col: number[] = new Array(m!).fill(0);
+      col[j] = 1;
+
+      // Orthogonalize against existing columns
+      for (let k = 0; k < j; k++) {
+        let dotProd = 0;
+        for (let i = 0; i < m!; i++) {
+          dotProd += col[i]! * Number(u.get(i, k));
+        }
+        for (let i = 0; i < m!; i++) {
+          col[i] = col[i]! - dotProd * Number(u.get(i, k));
+        }
+      }
+
+      // Normalize
+      let norm = 0;
+      for (let i = 0; i < m!; i++) {
+        norm += col[i]! * col[i]!;
+      }
+      norm = Math.sqrt(norm);
+      if (norm > 1e-10) {
+        for (let i = 0; i < m!; i++) {
+          u.set([i, j], col[i]! / norm);
+        }
+      }
+    }
+  }
+
+  return { u, s, vt };
+}
+
+/**
+ * Symmetric matrix eigendecomposition using Jacobi iteration.
+ * Returns eigenvalues and eigenvectors.
+ *
+ * @param a - Symmetric matrix
+ * @returns { values, vectors } - eigenvalues array and eigenvector matrix (columns are eigenvectors)
+ */
+function eigSymmetric(a: ArrayStorage): { values: number[]; vectors: number[][] } {
+  const n = a.shape[0]!;
+  const maxIter = 100 * n * n;
+  const tol = 1e-10;
+
+  // Copy matrix
+  const A: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    A.push([]);
+    for (let j = 0; j < n; j++) {
+      A[i]!.push(Number(a.get(i, j)));
+    }
+  }
+
+  // Initialize eigenvector matrix as identity
+  const V: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    V.push([]);
+    for (let j = 0; j < n; j++) {
+      V[i]!.push(i === j ? 1 : 0);
+    }
+  }
+
+  // Jacobi iteration
+  for (let iter = 0; iter < maxIter; iter++) {
+    // Find largest off-diagonal element
+    let maxVal = 0;
+    let p = 0;
+    let q = 1;
+
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (Math.abs(A[i]![j]!) > maxVal) {
+          maxVal = Math.abs(A[i]![j]!);
+          p = i;
+          q = j;
+        }
+      }
+    }
+
+    if (maxVal < tol) break;
+
+    // Compute rotation angle
+    const app = A[p]![p]!;
+    const aqq = A[q]![q]!;
+    const apq = A[p]![q]!;
+
+    let theta: number;
+    if (Math.abs(app - aqq) < 1e-15) {
+      theta = Math.PI / 4;
+    } else {
+      // Standard Jacobi rotation: tan(2θ) = 2*A[p,q] / (A[q,q] - A[p,p])
+      theta = 0.5 * Math.atan2(2 * apq, aqq - app);
+    }
+
+    const c = Math.cos(theta);
+    const s = Math.sin(theta);
+
+    // Apply rotation to A
+    const newApp = c * c * app + s * s * aqq - 2 * s * c * apq;
+    const newAqq = s * s * app + c * c * aqq + 2 * s * c * apq;
+
+    A[p]![p] = newApp;
+    A[q]![q] = newAqq;
+    A[p]![q] = 0;
+    A[q]![p] = 0;
+
+    for (let i = 0; i < n; i++) {
+      if (i !== p && i !== q) {
+        const aip = A[i]![p]!;
+        const aiq = A[i]![q]!;
+        A[i]![p] = c * aip - s * aiq;
+        A[p]![i] = A[i]![p]!;
+        A[i]![q] = s * aip + c * aiq;
+        A[q]![i] = A[i]![q]!;
+      }
+    }
+
+    // Apply rotation to V (eigenvector accumulation)
+    for (let i = 0; i < n; i++) {
+      const vip = V[i]![p]!;
+      const viq = V[i]![q]!;
+      V[i]![p] = c * vip - s * viq;
+      V[i]![q] = s * vip + c * viq;
+    }
+  }
+
+  // Extract eigenvalues from diagonal
+  const values: number[] = [];
+  for (let i = 0; i < n; i++) {
+    values.push(A[i]![i]!);
+  }
+
+  return { values, vectors: V };
+}
+
+/**
+ * Singular Value Decomposition.
+ *
+ * @param a - Input matrix (m x n)
+ * @param full_matrices - If true, return full U and V^T, otherwise reduced
+ * @param compute_uv - If true, return U, S, V^T; if false, return only S
+ * @returns { u, s, vt } or just s depending on compute_uv
+ */
+export function svd(
+  a: ArrayStorage,
+  full_matrices: boolean = true,
+  compute_uv: boolean = true
+): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } | ArrayStorage {
+  const result = svdFull(a);
+
+  if (!compute_uv) {
+    return result.s;
+  }
+
+  if (!full_matrices) {
+    const [m, n] = a.shape;
+    const k = Math.min(m!, n!);
+
+    // Reduced U: m x k
+    const uReduced = ArrayStorage.zeros([m!, k], 'float64');
+    for (let i = 0; i < m!; i++) {
+      for (let j = 0; j < k; j++) {
+        uReduced.set([i, j], Number(result.u.get(i, j)));
+      }
+    }
+
+    // Reduced V^T: k x n
+    const vtReduced = ArrayStorage.zeros([k, n!], 'float64');
+    for (let i = 0; i < k; i++) {
+      for (let j = 0; j < n!; j++) {
+        vtReduced.set([i, j], Number(result.vt.get(i, j)));
+      }
+    }
+
+    return { u: uReduced, s: result.s, vt: vtReduced };
+  }
+
+  return result;
+}
+
+/**
+ * Compute the determinant of a square matrix.
+ *
+ * Uses LU decomposition for numerical stability.
+ *
+ * @param a - Square matrix
+ * @returns Determinant
+ */
+export function det(a: ArrayStorage): number {
+  if (a.ndim !== 2) {
+    throw new Error(`det: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  if (m !== n) {
+    throw new Error(`det: matrix must be square, got ${m}x${n}`);
+  }
+
+  const size = m!;
+
+  if (size === 0) {
+    return 1; // Empty matrix has determinant 1
+  }
+
+  const aData = a.data;
+
+  if (size === 1) {
+    return Number(aData[0]);
+  }
+
+  if (size === 2) {
+    return Number(aData[0]) * Number(aData[3]) - Number(aData[1]) * Number(aData[2]);
+  }
+
+  // LU decomposition with partial pivoting
+  const { lu, sign } = luDecomposition(a);
+
+  // Determinant is product of diagonal of U times sign from pivoting
+  // Use direct array access for speed
+  const luData = lu.data as Float64Array;
+  let result = sign;
+  for (let i = 0; i < size; i++) {
+    result *= luData[i * size + i]!;
+  }
+
+  return result;
+}
+
+/**
+ * LU decomposition with partial pivoting - optimized with direct array access.
+ *
+ * @param a - Input matrix
+ * @returns { lu, piv, sign } - Combined L\U matrix, pivot indices, and sign from pivoting
+ */
+function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; sign: number } {
+  const [m, n] = a.shape;
+  const size = m!;
+  const cols = n!;
+
+  // Copy matrix - use direct array access for speed
+  const lu = ArrayStorage.zeros([size, cols], 'float64');
+  const luData = lu.data as Float64Array;
+  const aData = a.data;
+
+  // Fast copy
+  for (let i = 0; i < size * cols; i++) {
+    luData[i] = Number(aData[i]);
+  }
+
+  const piv: number[] = Array.from({ length: size }, (_, i) => i);
+  let sign = 1;
+
+  for (let k = 0; k < Math.min(size, cols); k++) {
+    // Find pivot - direct array access
+    let maxVal = Math.abs(luData[k * cols + k]!);
+    let maxRow = k;
+
+    for (let i = k + 1; i < size; i++) {
+      const val = Math.abs(luData[i * cols + k]!);
+      if (val > maxVal) {
+        maxVal = val;
+        maxRow = i;
+      }
+    }
+
+    // Swap rows - direct array access
+    if (maxRow !== k) {
+      for (let j = 0; j < cols; j++) {
+        const temp = luData[k * cols + j]!;
+        luData[k * cols + j] = luData[maxRow * cols + j]!;
+        luData[maxRow * cols + j] = temp;
+      }
+      const tempPiv = piv[k]!;
+      piv[k] = piv[maxRow]!;
+      piv[maxRow] = tempPiv;
+      sign = -sign;
+    }
+
+    // Eliminate - direct array access
+    const pivot = luData[k * cols + k]!;
+    if (Math.abs(pivot) > 1e-15) {
+      for (let i = k + 1; i < size; i++) {
+        const factor = luData[i * cols + k]! / pivot;
+        luData[i * cols + k] = factor;
+        for (let j = k + 1; j < cols; j++) {
+          luData[i * cols + j] = luData[i * cols + j]! - factor * luData[k * cols + j]!;
+        }
+      }
+    }
+  }
+
+  return { lu, piv, sign };
+}
+
+/**
+ * Compute the matrix inverse - optimized to do LU decomposition once.
+ *
+ * @param a - Square matrix
+ * @returns Inverse matrix
+ */
+export function inv(a: ArrayStorage): ArrayStorage {
+  if (a.ndim !== 2) {
+    throw new Error(`inv: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  if (m !== n) {
+    throw new Error(`inv: matrix must be square, got ${m}x${n}`);
+  }
+
+  const size = m!;
+
+  // Do LU decomposition once
+  const { lu, piv } = luDecomposition(a);
+  const luData = lu.data as Float64Array;
+
+  // Solve A @ X = I for all columns at once
+  const result = ArrayStorage.zeros([size, size], 'float64');
+  const resultData = result.data as Float64Array;
+
+  // Process each column of the identity matrix
+  for (let col = 0; col < size; col++) {
+    // Forward substitution for column col (L @ y = P @ e_col)
+    const y = new Float64Array(size);
+    for (let i = 0; i < size; i++) {
+      // e_col[piv[i]] is 1 if piv[i] === col, else 0
+      let sum = piv[i] === col ? 1 : 0;
+      for (let j = 0; j < i; j++) {
+        sum -= luData[i * size + j]! * y[j]!;
+      }
+      y[i] = sum;
+    }
+
+    // Back substitution (U @ x = y)
+    for (let i = size - 1; i >= 0; i--) {
+      let sum = y[i]!;
+      for (let j = i + 1; j < size; j++) {
+        sum -= luData[i * size + j]! * resultData[j * size + col]!;
+      }
+      const diag = luData[i * size + i]!;
+      if (Math.abs(diag) < 1e-15) {
+        throw new Error('inv: singular matrix');
+      }
+      resultData[i * size + col] = sum / diag;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Solve a linear system A @ x = b for a vector b - optimized with direct array access.
+ *
+ * @param a - Coefficient matrix
+ * @param b - Right-hand side vector
+ * @returns Solution vector x
+ */
+function solveVector(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  const [m] = a.shape;
+  const size = m!;
+
+  // LU decomposition
+  const { lu, piv } = luDecomposition(a);
+  const luData = lu.data as Float64Array;
+  const bData = b.data;
+
+  // Apply permutation to b - direct array access
+  const pb = new Float64Array(size);
+  for (let i = 0; i < size; i++) {
+    pb[i] = Number(bData[piv[i]!]);
+  }
+
+  // Forward substitution (L @ y = Pb) - direct array access
+  const y = new Float64Array(size);
+  for (let i = 0; i < size; i++) {
+    let sum = pb[i]!;
+    for (let j = 0; j < i; j++) {
+      sum -= luData[i * size + j]! * y[j]!;
+    }
+    y[i] = sum;
+  }
+
+  // Back substitution (U @ x = y) - direct array access
+  const x = ArrayStorage.zeros([size], 'float64');
+  const xData = x.data as Float64Array;
+  for (let i = size - 1; i >= 0; i--) {
+    let sum = y[i]!;
+    for (let j = i + 1; j < size; j++) {
+      sum -= luData[i * size + j]! * xData[j]!;
+    }
+    const diag = luData[i * size + i]!;
+    if (Math.abs(diag) < 1e-15) {
+      throw new Error('solve: singular matrix');
+    }
+    xData[i] = sum / diag;
+  }
+
+  return x;
+}
+
+/**
+ * Solve a linear system A @ x = b.
+ *
+ * @param a - Coefficient matrix (n x n)
+ * @param b - Right-hand side (n,) or (n, k)
+ * @returns Solution x with same shape as b
+ */
+export function solve(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  if (a.ndim !== 2) {
+    throw new Error(`solve: coefficient matrix must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  if (m !== n) {
+    throw new Error(`solve: coefficient matrix must be square, got ${m}x${n}`);
+  }
+
+  const size = m!;
+
+  if (b.ndim === 1) {
+    if (b.shape[0] !== size) {
+      throw new Error(`solve: incompatible shapes (${m},${n}) and (${b.shape[0]},)`);
+    }
+    return solveVector(a, b);
+  }
+
+  if (b.ndim === 2) {
+    if (b.shape[0] !== size) {
+      throw new Error(`solve: incompatible shapes (${m},${n}) and (${b.shape[0]},${b.shape[1]})`);
+    }
+
+    const k = b.shape[1]!;
+    const result = ArrayStorage.zeros([size, k], 'float64');
+
+    // Solve for each column
+    for (let j = 0; j < k; j++) {
+      // Extract column j of b
+      const bCol = ArrayStorage.zeros([size], 'float64');
+      for (let i = 0; i < size; i++) {
+        bCol.set([i], Number(b.get(i, j)));
+      }
+
+      // Solve
+      const xCol = solveVector(a, bCol);
+
+      // Copy to result
+      for (let i = 0; i < size; i++) {
+        result.set([i, j], Number(xCol.get(i)));
+      }
+    }
+
+    return result;
+  }
+
+  throw new Error(`solve: b must be 1D or 2D, got ${b.ndim}D`);
+}
+
+/**
+ * Compute the least-squares solution to a linear matrix equation.
+ *
+ * @param a - Coefficient matrix (m x n)
+ * @param b - Right-hand side (m,) or (m, k)
+ * @param rcond - Cutoff for small singular values (default: machine precision * max(m, n))
+ * @returns { x, residuals, rank, s } - Solution, residuals, effective rank, singular values
+ */
+export function lstsq(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  rcond: number | null = null
+): { x: ArrayStorage; residuals: ArrayStorage; rank: number; s: ArrayStorage } {
+  if (a.ndim !== 2) {
+    throw new Error(`lstsq: coefficient matrix must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+
+  // Use SVD to solve least squares
+  const { u, s, vt } = svdFull(a);
+  const k = Math.min(m!, n!);
+
+  // Determine rcond
+  const threshold = rcond ?? Math.max(m!, n!) * Number.EPSILON;
+  const maxSigma = Number(s.get(0));
+  const cutoff = maxSigma * threshold;
+
+  // Compute effective rank
+  let rank = 0;
+  for (let i = 0; i < k; i++) {
+    if (Number(s.get(i)) > cutoff) {
+      rank++;
+    }
+  }
+
+  // Handle 1D b
+  const b2D = b.ndim === 1 ? shapeOps.reshape(b, [b.size, 1]) : b;
+  const nrhs = b2D.shape[1]!;
+
+  if (b2D.shape[0] !== m) {
+    throw new Error(`lstsq: incompatible shapes (${m},${n}) and (${b.shape.join(',')})`);
+  }
+
+  // Compute x = V @ S^+ @ U^T @ b
+  // where S^+ is pseudoinverse of S (1/s for s > cutoff, 0 otherwise)
+  const x = ArrayStorage.zeros([n!, nrhs], 'float64');
+
+  for (let j = 0; j < nrhs; j++) {
+    // Compute U^T @ b[:, j]
+    const utb: number[] = new Array(m!).fill(0);
+    for (let i = 0; i < m!; i++) {
+      for (let l = 0; l < m!; l++) {
+        utb[i]! += Number(u.get(l, i)) * Number(b2D.get(l, j));
+      }
+    }
+
+    // Apply S^+ and V
+    for (let i = 0; i < n!; i++) {
+      let sum = 0;
+      for (let l = 0; l < k; l++) {
+        const sigma = Number(s.get(l));
+        if (sigma > cutoff) {
+          sum += (Number(vt.get(l, i)) * utb[l]!) / sigma;
+        }
+      }
+      x.set([i, j], sum);
+    }
+  }
+
+  // Compute residuals if m > n (overdetermined)
+  let residuals: ArrayStorage;
+  if (m! > n!) {
+    residuals = ArrayStorage.zeros([nrhs], 'float64');
+    for (let j = 0; j < nrhs; j++) {
+      // Compute ||A @ x[:, j] - b[:, j]||^2
+      let resSum = 0;
+      for (let i = 0; i < m!; i++) {
+        let axij = 0;
+        for (let l = 0; l < n!; l++) {
+          axij += Number(a.get(i, l)) * Number(x.get(l, j));
+        }
+        const diff = axij - Number(b2D.get(i, j));
+        resSum += diff * diff;
+      }
+      residuals.set([j], resSum);
+    }
+  } else {
+    residuals = ArrayStorage.zeros([0], 'float64');
+  }
+
+  // Reshape x if b was 1D
+  const xResult = b.ndim === 1 ? shapeOps.reshape(x, [n!]) : x;
+
+  return { x: xResult, residuals, rank, s };
+}
+
+/**
+ * Compute the condition number of a matrix.
+ *
+ * @param a - Input matrix
+ * @param p - Order of the norm (default: 2, -2, 'fro', or inf)
+ * @returns Condition number
+ */
+export function cond(a: ArrayStorage, p: number | 'fro' | 'nuc' = 2): number {
+  if (a.ndim !== 2) {
+    throw new Error(`cond: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+
+  if (p === 2 || p === -2) {
+    // Condition number from singular values
+    const { s } = svdFull(a);
+    const k = Math.min(m!, n!);
+    const maxS = Number(s.get(0));
+    const minS = Number(s.get(k - 1));
+
+    if (p === 2) {
+      return minS > 0 ? maxS / minS : Infinity;
+    } else {
+      return maxS > 0 ? minS / maxS : 0;
+    }
+  }
+
+  // For other norms, compute norm(A) * norm(inv(A))
+  if (m !== n) {
+    throw new Error(`cond: matrix must be square for p=${p}`);
+  }
+
+  const normA = matrix_norm(a, p as 'fro' | number) as number;
+  const invA = inv(a);
+  const normInvA = matrix_norm(invA, p as 'fro' | number) as number;
+
+  return normA * normInvA;
+}
+
+/**
+ * Compute the rank of a matrix using SVD.
+ *
+ * @param a - Input matrix
+ * @param tol - Threshold below which singular values are considered zero
+ * @returns Matrix rank
+ */
+export function matrix_rank(a: ArrayStorage, tol?: number): number {
+  if (a.ndim === 0) {
+    return Number(a.get()) !== 0 ? 1 : 0;
+  }
+
+  if (a.ndim === 1) {
+    for (let i = 0; i < a.size; i++) {
+      if (Number(a.get(i)) !== 0) return 1;
+    }
+    return 0;
+  }
+
+  if (a.ndim !== 2) {
+    throw new Error(`matrix_rank: input must be at most 2D, got ${a.ndim}D`);
+  }
+
+  const { s } = svdFull(a);
+  const maxS = Number(s.get(0));
+
+  // Default tolerance
+  const threshold = tol ?? maxS * Math.max(a.shape[0]!, a.shape[1]!) * Number.EPSILON;
+
+  let rank = 0;
+  for (let i = 0; i < s.size; i++) {
+    if (Number(s.get(i)) > threshold) {
+      rank++;
+    }
+  }
+
+  return rank;
+}
+
+/**
+ * Raise a square matrix to an integer power.
+ *
+ * @param a - Input square matrix
+ * @param n - Integer power (can be negative)
+ * @returns Matrix raised to power n
+ */
+export function matrix_power(a: ArrayStorage, n: number): ArrayStorage {
+  if (a.ndim !== 2) {
+    throw new Error(`matrix_power: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, k] = a.shape;
+  if (m !== k) {
+    throw new Error(`matrix_power: matrix must be square, got ${m}x${k}`);
+  }
+
+  const size = m!;
+
+  if (!Number.isInteger(n)) {
+    throw new Error('matrix_power: exponent must be an integer');
+  }
+
+  // Handle n = 0: return identity
+  if (n === 0) {
+    const result = ArrayStorage.zeros([size, size], 'float64');
+    for (let i = 0; i < size; i++) {
+      result.set([i, i], 1);
+    }
+    return result;
+  }
+
+  // Handle negative powers: A^-n = (A^-1)^n
+  let base = a;
+  let power = n;
+  if (n < 0) {
+    base = inv(a);
+    power = -n;
+  }
+
+  // Use binary exponentiation
+  let result = ArrayStorage.zeros([size, size], 'float64');
+  for (let i = 0; i < size; i++) {
+    result.set([i, i], 1);
+  }
+
+  let current = ArrayStorage.zeros([size, size], 'float64');
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      current.set([i, j], Number(base.get(i, j)));
+    }
+  }
+
+  while (power > 0) {
+    if (power & 1) {
+      result = matmul(result, current);
+    }
+    current = matmul(current, current);
+    power >>= 1;
+  }
+
+  return result;
+}
+
+/**
+ * Compute the Moore-Penrose pseudo-inverse using SVD.
+ *
+ * @param a - Input matrix
+ * @param rcond - Cutoff for small singular values
+ * @returns Pseudo-inverse of a
+ */
+export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
+  if (a.ndim !== 2) {
+    throw new Error(`pinv: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  const { u, s, vt } = svdFull(a);
+  const k = Math.min(m!, n!);
+
+  // Determine cutoff
+  const maxS = Number(s.get(0));
+  const cutoff = maxS * rcond;
+
+  // Compute V @ S^+ @ U^T
+  // S^+ has 1/s for s > cutoff, 0 otherwise
+  const result = ArrayStorage.zeros([n!, m!], 'float64');
+
+  for (let i = 0; i < n!; i++) {
+    for (let j = 0; j < m!; j++) {
+      let sum = 0;
+      for (let l = 0; l < k; l++) {
+        const sigma = Number(s.get(l));
+        if (sigma > cutoff) {
+          sum += (Number(vt.get(l, i)) * Number(u.get(j, l))) / sigma;
+        }
+      }
+      result.set([i, j], sum);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compute eigenvalues and right eigenvectors of a square matrix.
+ *
+ * For general matrices, uses iterative methods.
+ * For symmetric matrices, use eigh for better performance.
+ *
+ * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
+ * this function returns only the real parts of eigenvalues. If your matrix has
+ * complex eigenvalues (e.g., rotation matrices), results will be incorrect.
+ * Use eigh() for symmetric matrices where eigenvalues are guaranteed to be real.
+ *
+ * @param a - Input square matrix
+ * @returns { w, v } - Eigenvalues (real only) and eigenvector matrix
+ */
+export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
+  if (a.ndim !== 2) {
+    throw new Error(`eig: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  if (m !== n) {
+    throw new Error(`eig: matrix must be square, got ${m}x${n}`);
+  }
+
+  const size = m!;
+
+  // Check if symmetric
+  let isSymmetric = true;
+  outer: for (let i = 0; i < size; i++) {
+    for (let j = i + 1; j < size; j++) {
+      if (Math.abs(Number(a.get(i, j)) - Number(a.get(j, i))) > 1e-10) {
+        isSymmetric = false;
+        break outer;
+      }
+    }
+  }
+
+  if (isSymmetric) {
+    // Use symmetric eigendecomposition (Jacobi method)
+    // Symmetric matrices always have real eigenvalues, so this is exact
+    const { values, vectors } = eigSymmetric(a);
+
+    const w = ArrayStorage.zeros([size], 'float64');
+    const v = ArrayStorage.zeros([size, size], 'float64');
+
+    for (let i = 0; i < size; i++) {
+      w.set([i], values[i]!);
+      for (let j = 0; j < size; j++) {
+        v.set([j, i], vectors[j]![i]!);
+      }
+    }
+
+    return { w, v };
+  }
+
+  // WARNING: Non-symmetric matrices may have complex eigenvalues which we cannot represent.
+  // This implementation returns only real approximations and may be inaccurate.
+  console.warn(
+    'numpy-ts: eig() called on non-symmetric matrix. Complex eigenvalues are not supported; ' +
+      'results may be inaccurate. For symmetric matrices, use eigh() instead.'
+  );
+
+  // For non-symmetric matrices, use QR iteration (simplified)
+  // This is a basic implementation that may not converge for all matrices
+  const { values, vectors } = qrEigendecomposition(a);
+
+  const w = ArrayStorage.zeros([size], 'float64');
+  const v = ArrayStorage.zeros([size, size], 'float64');
+
+  for (let i = 0; i < size; i++) {
+    w.set([i], values[i]!);
+    for (let j = 0; j < size; j++) {
+      v.set([j, i], vectors[j]![i]!);
+    }
+  }
+
+  return { w, v };
+}
+
+/**
+ * QR algorithm for eigendecomposition.
+ * Simplified version for real matrices.
+ *
+ * @param a - Input matrix
+ * @returns { values, vectors }
+ */
+function qrEigendecomposition(a: ArrayStorage): { values: number[]; vectors: number[][] } {
+  const n = a.shape[0]!;
+  const maxIter = 1000;
+  const tol = 1e-10;
+
+  // Copy matrix
+  let A = ArrayStorage.zeros([n, n], 'float64');
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      A.set([i, j], Number(a.get(i, j)));
+    }
+  }
+
+  // Initialize eigenvector accumulator as identity
+  let V = ArrayStorage.zeros([n, n], 'float64');
+  for (let i = 0; i < n; i++) {
+    V.set([i, i], 1);
+  }
+
+  // QR iteration
+  for (let iter = 0; iter < maxIter; iter++) {
+    // Check for convergence (off-diagonal elements small)
+    let offDiagNorm = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (i !== j) {
+          offDiagNorm += Number(A.get(i, j)) ** 2;
+        }
+      }
+    }
+    if (Math.sqrt(offDiagNorm) < tol * n) break;
+
+    // QR decomposition
+    const qrResult = qr(A, 'reduced') as { q: ArrayStorage; r: ArrayStorage };
+    const Q = qrResult.q;
+    const R = qrResult.r;
+
+    // A = R @ Q
+    A = matmul(R, Q);
+
+    // V = V @ Q
+    V = matmul(V, Q);
+  }
+
+  // Extract eigenvalues from diagonal
+  const values: number[] = [];
+  for (let i = 0; i < n; i++) {
+    values.push(Number(A.get(i, i)));
+  }
+
+  // Convert V to 2D array
+  const vectors: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    vectors.push([]);
+    for (let j = 0; j < n; j++) {
+      vectors[i]!.push(Number(V.get(i, j)));
+    }
+  }
+
+  return { values, vectors };
+}
+
+/**
+ * Compute eigenvalues and eigenvectors of a real symmetric matrix.
+ *
+ * Note: Named "Hermitian" for NumPy compatibility, but only real symmetric
+ * matrices are supported (complex Hermitian matrices require complex dtype support).
+ * Symmetric matrices always have real eigenvalues, so results are exact.
+ *
+ * @param a - Real symmetric matrix
+ * @param UPLO - 'L' or 'U' to use lower or upper triangle (default: 'L')
+ * @returns { w, v } - Eigenvalues (sorted ascending) and eigenvector matrix
+ */
+export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage; v: ArrayStorage } {
+  if (a.ndim !== 2) {
+    throw new Error(`eigh: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  if (m !== n) {
+    throw new Error(`eigh: matrix must be square, got ${m}x${n}`);
+  }
+
+  const size = m!;
+
+  // Symmetrize the matrix using specified triangle
+  const sym = ArrayStorage.zeros([size, size], 'float64');
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      if (UPLO === 'L') {
+        if (i >= j) {
+          sym.set([i, j], Number(a.get(i, j)));
+          sym.set([j, i], Number(a.get(i, j)));
+        }
+      } else {
+        if (j >= i) {
+          sym.set([i, j], Number(a.get(i, j)));
+          sym.set([j, i], Number(a.get(i, j)));
+        }
+      }
+    }
+  }
+
+  // Use symmetric eigendecomposition
+  const { values, vectors } = eigSymmetric(sym);
+
+  // Sort by eigenvalue (ascending)
+  const indices = Array.from({ length: size }, (_, i) => i);
+  indices.sort((i, j) => values[i]! - values[j]!);
+
+  const w = ArrayStorage.zeros([size], 'float64');
+  const v = ArrayStorage.zeros([size, size], 'float64');
+
+  for (let i = 0; i < size; i++) {
+    w.set([i], values[indices[i]!]!);
+    for (let j = 0; j < size; j++) {
+      v.set([j, i], vectors[j]![indices[i]!]!);
+    }
+  }
+
+  return { w, v };
+}
+
+/**
+ * Compute eigenvalues of a general square matrix.
+ *
+ * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
+ * this function returns only real approximations. Use eigvalsh() for symmetric
+ * matrices where eigenvalues are guaranteed to be real.
+ *
+ * @param a - Input square matrix
+ * @returns Array of eigenvalues (real only)
+ */
+export function eigvals(a: ArrayStorage): ArrayStorage {
+  const { w } = eig(a);
+  return w;
+}
+
+/**
+ * Compute eigenvalues of a real symmetric matrix.
+ *
+ * Note: Named "Hermitian" for NumPy compatibility, but only real symmetric
+ * matrices are supported (complex Hermitian matrices require complex dtype support).
+ * Symmetric matrices always have real eigenvalues, so results are exact.
+ *
+ * @param a - Real symmetric matrix
+ * @param UPLO - 'L' or 'U' to use lower or upper triangle
+ * @returns Array of eigenvalues (sorted ascending)
+ */
+export function eigvalsh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): ArrayStorage {
+  const { w } = eigh(a, UPLO);
+  return w;
+}

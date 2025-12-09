@@ -75,6 +75,8 @@ export {
   outer,
   tensordot,
   einsum,
+  // Linear algebra module (numpy.linalg)
+  linalg,
   // Trigonometric functions
   sin,
   cos,
@@ -203,6 +205,22 @@ export {
   searchsorted,
   extract,
   count_nonzero,
+  // Rounding functions
+  around,
+  ceil,
+  fix,
+  floor,
+  rint,
+  round,
+  trunc,
+  // Set operations
+  unique,
+  in1d,
+  intersect1d,
+  isin,
+  setdiff1d,
+  setxor1d,
+  union1d,
   // Gradient functions
   diff,
   ediff1d,

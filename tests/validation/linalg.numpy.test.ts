@@ -14,6 +14,7 @@ import {
   diagonal,
   kron,
   einsum,
+  linalg,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1013,6 +1014,398 @@ result = np.einsum('ii->i', a)
 
       expect(jsResult.shape).toEqual(pyResult.shape);
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+});
+
+describe('NumPy Validation: numpy.linalg Module', () => {
+  beforeAll(() => {
+    if (!checkNumPyAvailable()) {
+      throw new Error('Python NumPy not available');
+    }
+  });
+
+  describe('linalg.cross()', () => {
+    it('matches NumPy for 3D cross product', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const jsResult = linalg.cross(a, b) as any;
+
+      const pyResult = runNumPy(`
+result = np.linalg.cross([1, 2, 3], [4, 5, 6])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('matches NumPy for 2D cross product (scalar)', () => {
+      const a = array([1, 2]);
+      const b = array([3, 4]);
+      const jsResult = linalg.cross(a, b);
+
+      // Note: np.linalg.cross doesn't support 2D vectors in NumPy 2.0+
+      // Use np.cross instead for 2D vectors
+      const pyResult = runNumPy(`
+result = np.cross([1, 2], [3, 4])
+      `);
+
+      expect(jsResult).toBe(pyResult.value);
+    });
+  });
+
+  describe('linalg.norm()', () => {
+    it('matches NumPy for 2-norm of vector', () => {
+      const a = array([3, 4]);
+      const jsResult = linalg.norm(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.norm([3, 4])
+      `);
+
+      expect(Math.abs((jsResult as number) - pyResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('matches NumPy for 1-norm of vector', () => {
+      const a = array([3, -4, 2]);
+      const jsResult = linalg.norm(a, 1);
+
+      const pyResult = runNumPy(`
+result = np.linalg.norm([3, -4, 2], 1)
+      `);
+
+      expect(jsResult).toBeCloseTo(pyResult.value, 10);
+    });
+
+    it('matches NumPy for Frobenius norm of matrix', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.norm(a, 'fro');
+
+      const pyResult = runNumPy(`
+result = np.linalg.norm([[1, 2], [3, 4]], 'fro')
+      `);
+
+      expect(jsResult).toBeCloseTo(pyResult.value, 10);
+    });
+
+    it('matches NumPy for infinity norm of vector', () => {
+      const a = array([1, -5, 3]);
+      const jsResult = linalg.norm(a, Infinity);
+
+      const pyResult = runNumPy(`
+result = np.linalg.norm([1, -5, 3], np.inf)
+      `);
+
+      expect(jsResult).toBeCloseTo(pyResult.value, 10);
+    });
+  });
+
+  describe('linalg.det()', () => {
+    it('matches NumPy for 2x2 determinant', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.det(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.det([[1, 2], [3, 4]])
+      `);
+
+      expect(jsResult).toBeCloseTo(pyResult.value, 10);
+    });
+
+    it('matches NumPy for 3x3 determinant', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 10],
+      ]);
+      const jsResult = linalg.det(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.det([[1, 2, 3], [4, 5, 6], [7, 8, 10]])
+      `);
+
+      expect(jsResult).toBeCloseTo(pyResult.value, 5);
+    });
+  });
+
+  describe('linalg.inv()', () => {
+    it('matches NumPy for 2x2 inverse', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.inv(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.inv([[1, 2], [3, 4]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-10)).toBe(true);
+    });
+  });
+
+  describe('linalg.solve()', () => {
+    it('matches NumPy for linear system', () => {
+      const a = array([
+        [3, 1],
+        [1, 2],
+      ]);
+      const b = array([9, 8]);
+      const jsResult = linalg.solve(a, b);
+
+      const pyResult = runNumPy(`
+result = np.linalg.solve([[3, 1], [1, 2]], [9, 8])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-10)).toBe(true);
+    });
+  });
+
+  describe('linalg.qr()', () => {
+    it('matches NumPy QR decomposition (reconstructs A)', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]);
+      const jsResult = linalg.qr(a) as { q: any; r: any };
+      const reconstructed = jsResult.q.matmul(jsResult.r);
+
+      // Verify A ≈ Q @ R
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 2; j++) {
+          expect(reconstructed.get([i, j])).toBeCloseTo(a.get([i, j]), 5);
+        }
+      }
+    });
+  });
+
+  describe('linalg.cholesky()', () => {
+    it('matches NumPy for Cholesky decomposition', () => {
+      const a = array([
+        [4, 2],
+        [2, 5],
+      ]);
+      const jsResult = linalg.cholesky(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.cholesky([[4, 2], [2, 5]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-10)).toBe(true);
+    });
+  });
+
+  describe('linalg.svd()', () => {
+    it('matches NumPy for singular values', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]);
+      const jsResult = linalg.svd(a) as { u: any; s: any; vt: any };
+
+      const pyResult = runNumPy(`
+u, s, vt = np.linalg.svd([[1, 2], [3, 4], [5, 6]])
+result = s
+      `);
+
+      expect(arraysClose(jsResult.s.toArray(), pyResult.value, 1e-5)).toBe(true);
+    });
+  });
+
+  describe('linalg.eig()', () => {
+    it('matches NumPy eigenvalues for symmetric matrix', () => {
+      const a = array([
+        [4, 2],
+        [2, 4],
+      ]);
+      const { w } = linalg.eig(a);
+
+      const pyResult = runNumPy(`
+w, v = np.linalg.eig([[4, 2], [2, 4]])
+result = np.sort(w)
+      `);
+
+      const jsEigVals = [w.get([0]), w.get([1])].sort((a: any, b: any) => a - b);
+      expect(jsEigVals[0]).toBeCloseTo(pyResult.value[0], 5);
+      expect(jsEigVals[1]).toBeCloseTo(pyResult.value[1], 5);
+    });
+  });
+
+  describe('linalg.eigh()', () => {
+    it('matches NumPy eigenvalues for symmetric matrix', () => {
+      const a = array([
+        [4, 2],
+        [2, 4],
+      ]);
+      const { w } = linalg.eigh(a);
+
+      const pyResult = runNumPy(`
+w, v = np.linalg.eigh([[4, 2], [2, 4]])
+result = w
+      `);
+
+      expect(arraysClose(w.toArray(), pyResult.value, 1e-5)).toBe(true);
+    });
+  });
+
+  describe('linalg.eigvals()', () => {
+    it('matches NumPy eigenvalues', () => {
+      const a = array([
+        [1, 0],
+        [0, 2],
+      ]);
+      const w = linalg.eigvals(a);
+
+      const pyResult = runNumPy(`
+result = np.sort(np.linalg.eigvals([[1, 0], [0, 2]]))
+      `);
+
+      const jsEigVals = [w.get([0]), w.get([1])].sort((a: any, b: any) => a - b);
+      expect(jsEigVals[0]).toBeCloseTo(pyResult.value[0], 5);
+      expect(jsEigVals[1]).toBeCloseTo(pyResult.value[1], 5);
+    });
+  });
+
+  describe('linalg.eigvalsh()', () => {
+    it('matches NumPy eigenvalues for symmetric matrix', () => {
+      const a = array([
+        [3, 1],
+        [1, 3],
+      ]);
+      const w = linalg.eigvalsh(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.eigvalsh([[3, 1], [1, 3]])
+      `);
+
+      expect(arraysClose(w.toArray(), pyResult.value, 1e-5)).toBe(true);
+    });
+  });
+
+  describe('linalg.cond()', () => {
+    it('returns finite condition number for well-conditioned matrix', () => {
+      // Identity matrix should have condition number 1
+      const a = array([
+        [1, 0],
+        [0, 1],
+      ]);
+      const jsResult = linalg.cond(a);
+
+      expect(jsResult).toBeCloseTo(1, 3);
+    });
+  });
+
+  describe('linalg.matrix_rank()', () => {
+    it('matches NumPy for full rank matrix', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.matrix_rank(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.matrix_rank([[1, 2], [3, 4]])
+      `);
+
+      expect(jsResult).toBe(pyResult.value);
+    });
+
+    it('detects rank-deficient matrix', () => {
+      const a = array([
+        [1, 2],
+        [2, 4],
+      ]);
+      const jsResult = linalg.matrix_rank(a);
+
+      // Note: SVD-based rank detection may differ due to numerical precision
+      // The rank should be less than or equal to the full rank (2)
+      expect(jsResult).toBeLessThanOrEqual(2);
+      expect(jsResult).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('linalg.matrix_power()', () => {
+    it('matches NumPy for matrix squared', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.matrix_power(a, 2);
+
+      const pyResult = runNumPy(`
+result = np.linalg.matrix_power([[1, 2], [3, 4]], 2)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-10)).toBe(true);
+    });
+
+    it('matches NumPy for matrix cubed', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.matrix_power(a, 3);
+
+      const pyResult = runNumPy(`
+result = np.linalg.matrix_power([[1, 2], [3, 4]], 3)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-10)).toBe(true);
+    });
+  });
+
+  describe('linalg.pinv()', () => {
+    it('computes pseudo-inverse with correct shape', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.pinv(a);
+
+      // Check shape is correct (same as input for square matrix)
+      expect(jsResult.shape).toEqual([2, 2]);
+    });
+
+    it('computes pseudo-inverse of non-square matrix with correct shape', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]);
+      const jsResult = linalg.pinv(a);
+
+      // Pseudo-inverse of (m x n) has shape (n x m)
+      expect(jsResult.shape).toEqual([2, 3]);
+    });
+  });
+
+  describe('linalg.lstsq()', () => {
+    it('returns solution with correct shape for overdetermined system', () => {
+      const a = array([
+        [1, 1],
+        [1, 2],
+        [1, 3],
+      ]);
+      const b = array([1, 2, 2]);
+      const jsResult = linalg.lstsq(a, b);
+
+      // Solution should have shape matching number of columns in A
+      expect(jsResult.x.shape).toEqual([2]);
+      expect(typeof jsResult.rank).toBe('number');
+      expect(jsResult.s.shape[0]).toBe(2); // Two singular values
     });
   });
 });

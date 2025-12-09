@@ -61,6 +61,12 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
             arrays[key] = np.random.randn(*shape).astype(dtype)
         elif fill_type == "arange":
             arrays[key] = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+        elif fill_type == "invertible":
+            # Create an invertible matrix: arange + n*I (diagonally dominant)
+            n = shape[0]
+            arange_matrix = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+            identity = np.eye(n, dtype=dtype)
+            arrays[key] = arange_matrix + identity * (n * n)
 
     # Pre-serialize data for parsing benchmarks
     if operation == "parseNpy" and "a" in arrays:
@@ -228,6 +234,45 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.deg2rad(arrays["a"])
     elif operation == "rad2deg":
         return np.rad2deg(arrays["a"])
+
+    # numpy.linalg module operations
+    elif operation == "linalg_det":
+        return np.linalg.det(arrays["a"])
+    elif operation == "linalg_inv":
+        return np.linalg.inv(arrays["a"])
+    elif operation == "linalg_solve":
+        return np.linalg.solve(arrays["a"], arrays["b"])
+    elif operation == "linalg_qr":
+        return np.linalg.qr(arrays["a"])
+    elif operation == "linalg_cholesky":
+        # Create positive definite matrix: A^T * A + n*I
+        a = arrays["a"]
+        n = a.shape[0]
+        posdef = a.T @ a + np.eye(n) * n
+        return np.linalg.cholesky(posdef)
+    elif operation == "linalg_svd":
+        return np.linalg.svd(arrays["a"])
+    elif operation == "linalg_eig":
+        return np.linalg.eig(arrays["a"])
+    elif operation == "linalg_eigh":
+        # Create symmetric matrix: (A + A^T) / 2
+        a = arrays["a"]
+        sym = (a + a.T) / 2
+        return np.linalg.eigh(sym)
+    elif operation == "linalg_norm":
+        return np.linalg.norm(arrays["a"])
+    elif operation == "linalg_matrix_rank":
+        return np.linalg.matrix_rank(arrays["a"])
+    elif operation == "linalg_pinv":
+        return np.linalg.pinv(arrays["a"])
+    elif operation == "linalg_cond":
+        return np.linalg.cond(arrays["a"])
+    elif operation == "linalg_matrix_power":
+        return np.linalg.matrix_power(arrays["a"], 3)
+    elif operation == "linalg_lstsq":
+        return np.linalg.lstsq(arrays["a"], arrays["b"], rcond=None)
+    elif operation == "linalg_cross":
+        return np.cross(arrays["a"], arrays["b"])
 
     # Reductions
     elif operation == "sum":

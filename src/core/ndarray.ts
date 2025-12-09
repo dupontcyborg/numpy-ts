@@ -24,6 +24,8 @@ import * as hyperbolicOps from '../ops/hyperbolic';
 import * as advancedOps from '../ops/advanced';
 import * as bitwiseOps from '../ops/bitwise';
 import * as sortingOps from '../ops/sorting';
+import * as roundingOps from '../ops/rounding';
+import * as setOps from '../ops/sets';
 import * as gradientOps from '../ops/gradient';
 
 export class NDArray {
@@ -503,6 +505,71 @@ export class NDArray {
    */
   sign(): NDArray {
     const resultStorage = arithmeticOps.sign(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  // Rounding operations
+  /**
+   * Round an array to the given number of decimals
+   * @param decimals - Number of decimal places to round to (default: 0)
+   * @returns New array with rounded values
+   */
+  around(decimals: number = 0): NDArray {
+    const resultStorage = roundingOps.around(this._storage, decimals);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Round an array to the given number of decimals (alias for around)
+   * @param decimals - Number of decimal places to round to (default: 0)
+   * @returns New array with rounded values
+   */
+  round(decimals: number = 0): NDArray {
+    return this.around(decimals);
+  }
+
+  /**
+   * Return the ceiling of the input, element-wise
+   * @returns New array with ceiling values
+   */
+  ceil(): NDArray {
+    const resultStorage = roundingOps.ceil(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Round to nearest integer towards zero
+   * @returns New array with values truncated towards zero
+   */
+  fix(): NDArray {
+    const resultStorage = roundingOps.fix(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the floor of the input, element-wise
+   * @returns New array with floor values
+   */
+  floor(): NDArray {
+    const resultStorage = roundingOps.floor(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Round elements to the nearest integer
+   * @returns New array with rounded integer values
+   */
+  rint(): NDArray {
+    const resultStorage = roundingOps.rint(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the truncated value of the input, element-wise
+   * @returns New array with truncated values
+   */
+  trunc(): NDArray {
+    const resultStorage = roundingOps.trunc(this._storage);
     return NDArray._fromStorage(resultStorage);
   }
 
@@ -4510,6 +4577,233 @@ export function einsum(subscripts: string, ...operands: NDArray[]): NDArray | nu
 }
 
 // ============================================================================
+// numpy.linalg Module
+// ============================================================================
+
+/**
+ * numpy.linalg module - Linear algebra functions
+ */
+export const linalg = {
+  /**
+   * Cross product of two vectors.
+   */
+  cross: (
+    a: NDArray,
+    b: NDArray,
+    axisa: number = -1,
+    axisb: number = -1,
+    axisc: number = -1,
+    axis?: number
+  ): NDArray | number => {
+    const result = linalgOps.cross(a.storage, b.storage, axisa, axisb, axisc, axis);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the norm of a vector or matrix.
+   */
+  norm: (
+    x: NDArray,
+    ord: number | 'fro' | 'nuc' | null = null,
+    axis: number | [number, number] | null = null,
+    keepdims: boolean = false
+  ): NDArray | number => {
+    const result = linalgOps.norm(x.storage, ord, axis, keepdims);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the vector norm.
+   */
+  vector_norm: (
+    x: NDArray,
+    ord: number = 2,
+    axis?: number | null,
+    keepdims: boolean = false
+  ): NDArray | number => {
+    const result = linalgOps.vector_norm(x.storage, ord, axis, keepdims);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the matrix norm.
+   */
+  matrix_norm: (
+    x: NDArray,
+    ord: number | 'fro' | 'nuc' = 'fro',
+    keepdims: boolean = false
+  ): NDArray | number => {
+    const result = linalgOps.matrix_norm(x.storage, ord, keepdims);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * QR decomposition.
+   */
+  qr: (
+    a: NDArray,
+    mode: 'reduced' | 'complete' | 'r' | 'raw' = 'reduced'
+  ): { q: NDArray; r: NDArray } | NDArray | { h: NDArray; tau: NDArray } => {
+    const result = linalgOps.qr(a.storage, mode);
+    if (result instanceof ArrayStorage) {
+      // 'r' mode returns just R
+      return NDArray._fromStorage(result);
+    } else if ('q' in result && 'r' in result) {
+      return {
+        q: NDArray._fromStorage(result.q),
+        r: NDArray._fromStorage(result.r),
+      };
+    } else {
+      // 'raw' mode returns h and tau
+      return {
+        h: NDArray._fromStorage(result.h),
+        tau: NDArray._fromStorage(result.tau),
+      };
+    }
+  },
+
+  /**
+   * Cholesky decomposition.
+   */
+  cholesky: (a: NDArray, upper: boolean = false): NDArray => {
+    return NDArray._fromStorage(linalgOps.cholesky(a.storage, upper));
+  },
+
+  /**
+   * Singular Value Decomposition.
+   */
+  svd: (
+    a: NDArray,
+    full_matrices: boolean = true,
+    compute_uv: boolean = true
+  ): { u: NDArray; s: NDArray; vt: NDArray } | NDArray => {
+    const result = linalgOps.svd(a.storage, full_matrices, compute_uv);
+    if ('u' in result) {
+      return {
+        u: NDArray._fromStorage(result.u),
+        s: NDArray._fromStorage(result.s),
+        vt: NDArray._fromStorage(result.vt),
+      };
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the determinant of a matrix.
+   */
+  det: (a: NDArray): number => {
+    return linalgOps.det(a.storage);
+  },
+
+  /**
+   * Compute the matrix inverse.
+   */
+  inv: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.inv(a.storage));
+  },
+
+  /**
+   * Solve a linear system.
+   */
+  solve: (a: NDArray, b: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.solve(a.storage, b.storage));
+  },
+
+  /**
+   * Least-squares solution to a linear matrix equation.
+   */
+  lstsq: (
+    a: NDArray,
+    b: NDArray,
+    rcond: number | null = null
+  ): { x: NDArray; residuals: NDArray; rank: number; s: NDArray } => {
+    const result = linalgOps.lstsq(a.storage, b.storage, rcond);
+    return {
+      x: NDArray._fromStorage(result.x),
+      residuals: NDArray._fromStorage(result.residuals),
+      rank: result.rank,
+      s: NDArray._fromStorage(result.s),
+    };
+  },
+
+  /**
+   * Compute the condition number.
+   */
+  cond: (a: NDArray, p: number | 'fro' | 'nuc' = 2): number => {
+    return linalgOps.cond(a.storage, p);
+  },
+
+  /**
+   * Compute the matrix rank.
+   */
+  matrix_rank: (a: NDArray, tol?: number): number => {
+    return linalgOps.matrix_rank(a.storage, tol);
+  },
+
+  /**
+   * Raise a square matrix to an integer power.
+   */
+  matrix_power: (a: NDArray, n: number): NDArray => {
+    return NDArray._fromStorage(linalgOps.matrix_power(a.storage, n));
+  },
+
+  /**
+   * Compute the Moore-Penrose pseudo-inverse.
+   */
+  pinv: (a: NDArray, rcond: number = 1e-15): NDArray => {
+    return NDArray._fromStorage(linalgOps.pinv(a.storage, rcond));
+  },
+
+  /**
+   * Compute eigenvalues and eigenvectors.
+   */
+  eig: (a: NDArray): { w: NDArray; v: NDArray } => {
+    const result = linalgOps.eig(a.storage);
+    return {
+      w: NDArray._fromStorage(result.w),
+      v: NDArray._fromStorage(result.v),
+    };
+  },
+
+  /**
+   * Compute eigenvalues and eigenvectors of a Hermitian matrix.
+   */
+  eigh: (a: NDArray, UPLO: 'L' | 'U' = 'L'): { w: NDArray; v: NDArray } => {
+    const result = linalgOps.eigh(a.storage, UPLO);
+    return {
+      w: NDArray._fromStorage(result.w),
+      v: NDArray._fromStorage(result.v),
+    };
+  },
+
+  /**
+   * Compute eigenvalues of a matrix.
+   */
+  eigvals: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.eigvals(a.storage));
+  },
+
+  /**
+   * Compute eigenvalues of a Hermitian matrix.
+   */
+  eigvalsh: (a: NDArray, UPLO: 'L' | 'U' = 'L'): NDArray => {
+    return NDArray._fromStorage(linalgOps.eigvalsh(a.storage, UPLO));
+  },
+};
+
+// ============================================================================
 // Indexing Functions
 // ============================================================================
 
@@ -4883,6 +5177,170 @@ export function count_nonzero(a: NDArray, axis?: number): NDArray | number {
     return result;
   }
   return NDArray._fromStorage(result);
+}
+
+// ============================================================================
+// Rounding Functions
+// ============================================================================
+
+/**
+ * Round an array to the given number of decimals
+ * @param a - Input array
+ * @param decimals - Number of decimal places to round to (default: 0)
+ * @returns Rounded array
+ */
+export function around(a: NDArray, decimals: number = 0): NDArray {
+  return NDArray._fromStorage(roundingOps.around(a.storage, decimals));
+}
+
+/**
+ * Return the ceiling of the input, element-wise
+ * @param x - Input array
+ * @returns Element-wise ceiling
+ */
+export function ceil(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.ceil(x.storage));
+}
+
+/**
+ * Round to nearest integer towards zero
+ * @param x - Input array
+ * @returns Array with values truncated towards zero
+ */
+export function fix(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.fix(x.storage));
+}
+
+/**
+ * Return the floor of the input, element-wise
+ * @param x - Input array
+ * @returns Element-wise floor
+ */
+export function floor(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.floor(x.storage));
+}
+
+/**
+ * Round elements of the array to the nearest integer
+ * @param x - Input array
+ * @returns Array with rounded integer values
+ */
+export function rint(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.rint(x.storage));
+}
+
+/**
+ * Evenly round to the given number of decimals (alias for around)
+ * @param a - Input array
+ * @param decimals - Number of decimal places to round to (default: 0)
+ * @returns Rounded array
+ */
+export { around as round };
+
+/**
+ * Return the truncated value of the input, element-wise
+ * @param x - Input array
+ * @returns Element-wise truncated values
+ */
+export function trunc(x: NDArray): NDArray {
+  return NDArray._fromStorage(roundingOps.trunc(x.storage));
+}
+
+// ============================================================================
+// Set Operations
+// ============================================================================
+
+/**
+ * Find the unique elements of an array
+ * @param ar - Input array
+ * @param returnIndex - If True, also return the indices of the first occurrences
+ * @param returnInverse - If True, also return the indices to reconstruct the original array
+ * @param returnCounts - If True, also return the number of times each unique value appears
+ * @returns Unique sorted values, and optionally indices/inverse/counts
+ */
+export function unique(
+  ar: NDArray,
+  returnIndex: boolean = false,
+  returnInverse: boolean = false,
+  returnCounts: boolean = false
+): NDArray | { values: NDArray; indices?: NDArray; inverse?: NDArray; counts?: NDArray } {
+  const result = setOps.unique(ar.storage, returnIndex, returnInverse, returnCounts);
+  if (result instanceof ArrayStorage) {
+    return NDArray._fromStorage(result);
+  }
+  const out: { values: NDArray; indices?: NDArray; inverse?: NDArray; counts?: NDArray } = {
+    values: NDArray._fromStorage(result.values),
+  };
+  if (result.indices) {
+    out.indices = NDArray._fromStorage(result.indices);
+  }
+  if (result.inverse) {
+    out.inverse = NDArray._fromStorage(result.inverse);
+  }
+  if (result.counts) {
+    out.counts = NDArray._fromStorage(result.counts);
+  }
+  return out;
+}
+
+/**
+ * Test whether each element of a 1-D array is also present in a second array
+ * @param ar1 - Input array
+ * @param ar2 - Test values
+ * @returns Boolean array indicating membership
+ */
+export function in1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.in1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Find the intersection of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of common and unique elements
+ */
+export function intersect1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.intersect1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Test whether each element of an ND array is also present in a second array
+ * @param element - Input array
+ * @param testElements - Test values
+ * @returns Boolean array indicating membership (same shape as element)
+ */
+export function isin(element: NDArray, testElements: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.isin(element.storage, testElements.storage));
+}
+
+/**
+ * Find the set difference of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of values in ar1 that are not in ar2
+ */
+export function setdiff1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.setdiff1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Find the set exclusive-or of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of values that are in only one array
+ */
+export function setxor1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.setxor1d(ar1.storage, ar2.storage));
+}
+
+/**
+ * Find the union of two arrays
+ * @param ar1 - First input array
+ * @param ar2 - Second input array
+ * @returns Sorted 1D array of unique values from both arrays
+ */
+export function union1d(ar1: NDArray, ar2: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.union1d(ar1.storage, ar2.storage));
 }
 
 // Gradient and difference functions
