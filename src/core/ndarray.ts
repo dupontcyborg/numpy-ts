@@ -26,6 +26,7 @@ import * as bitwiseOps from '../ops/bitwise';
 import * as sortingOps from '../ops/sorting';
 import * as roundingOps from '../ops/rounding';
 import * as setOps from '../ops/sets';
+import * as gradientOps from '../ops/gradient';
 
 export class NDArray {
   // Internal storage
@@ -379,6 +380,104 @@ export class NDArray {
   power(exponent: NDArray | number): NDArray {
     const exponentStorage = typeof exponent === 'number' ? exponent : exponent._storage;
     const resultStorage = exponentialOps.power(this._storage, exponentStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Natural exponential (e^x) of each element
+   * Promotes integer types to float64
+   * @returns New array with exp values
+   */
+  exp(): NDArray {
+    const resultStorage = exponentialOps.exp(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Base-2 exponential (2^x) of each element
+   * Promotes integer types to float64
+   * @returns New array with exp2 values
+   */
+  exp2(): NDArray {
+    const resultStorage = exponentialOps.exp2(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Exponential minus one (e^x - 1) of each element
+   * More accurate than exp(x) - 1 for small x
+   * Promotes integer types to float64
+   * @returns New array with expm1 values
+   */
+  expm1(): NDArray {
+    const resultStorage = exponentialOps.expm1(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Natural logarithm (ln) of each element
+   * Promotes integer types to float64
+   * @returns New array with log values
+   */
+  log(): NDArray {
+    const resultStorage = exponentialOps.log(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Base-2 logarithm of each element
+   * Promotes integer types to float64
+   * @returns New array with log2 values
+   */
+  log2(): NDArray {
+    const resultStorage = exponentialOps.log2(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Base-10 logarithm of each element
+   * Promotes integer types to float64
+   * @returns New array with log10 values
+   */
+  log10(): NDArray {
+    const resultStorage = exponentialOps.log10(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Natural logarithm of (1 + x) of each element
+   * More accurate than log(1 + x) for small x
+   * Promotes integer types to float64
+   * @returns New array with log1p values
+   */
+  log1p(): NDArray {
+    const resultStorage = exponentialOps.log1p(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logarithm of the sum of exponentials: log(exp(x1) + exp(x2))
+   * More numerically stable than computing the expression directly
+   * Promotes integer types to float64
+   * @param x2 - Second operand (array or scalar)
+   * @returns New array with logaddexp values
+   */
+  logaddexp(x2: NDArray | number): NDArray {
+    const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
+    const resultStorage = exponentialOps.logaddexp(this._storage, x2Storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logarithm base 2 of the sum of exponentials: log2(2^x1 + 2^x2)
+   * More numerically stable than computing the expression directly
+   * Promotes integer types to float64
+   * @param x2 - Second operand (array or scalar)
+   * @returns New array with logaddexp2 values
+   */
+  logaddexp2(x2: NDArray | number): NDArray {
+    const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
+    const resultStorage = exponentialOps.logaddexp2(this._storage, x2Storage);
     return NDArray._fromStorage(resultStorage);
   }
 
@@ -1191,6 +1290,17 @@ export class NDArray {
    */
   searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray {
     return NDArray._fromStorage(sortingOps.searchsorted(this._storage, v._storage, side));
+  }
+
+  // Gradient and difference operations
+  /**
+   * Calculate the n-th discrete difference along the given axis
+   * @param n - Number of times values are differenced (default: 1)
+   * @param axis - Axis along which to compute difference (default: -1)
+   * @returns Array of differences
+   */
+  diff(n: number = 1, axis: number = -1): NDArray {
+    return NDArray._fromStorage(gradientOps.diff(this._storage, n, axis));
   }
 
   // Shape manipulation
@@ -2695,6 +2805,93 @@ export function sqrt(x: NDArray): NDArray {
  */
 export function power(x: NDArray, exponent: NDArray | number): NDArray {
   return x.power(exponent);
+}
+
+/**
+ * Element-wise natural exponential (e^x)
+ * @param x - Input array
+ * @returns Array of e^x values
+ */
+export function exp(x: NDArray): NDArray {
+  return x.exp();
+}
+
+/**
+ * Element-wise base-2 exponential (2^x)
+ * @param x - Input array
+ * @returns Array of 2^x values
+ */
+export function exp2(x: NDArray): NDArray {
+  return x.exp2();
+}
+
+/**
+ * Element-wise exponential minus one (e^x - 1)
+ * More accurate than exp(x) - 1 for small x
+ * @param x - Input array
+ * @returns Array of expm1 values
+ */
+export function expm1(x: NDArray): NDArray {
+  return x.expm1();
+}
+
+/**
+ * Element-wise natural logarithm (ln)
+ * @param x - Input array
+ * @returns Array of log values
+ */
+export function log(x: NDArray): NDArray {
+  return x.log();
+}
+
+/**
+ * Element-wise base-2 logarithm
+ * @param x - Input array
+ * @returns Array of log2 values
+ */
+export function log2(x: NDArray): NDArray {
+  return x.log2();
+}
+
+/**
+ * Element-wise base-10 logarithm
+ * @param x - Input array
+ * @returns Array of log10 values
+ */
+export function log10(x: NDArray): NDArray {
+  return x.log10();
+}
+
+/**
+ * Element-wise natural logarithm of (1 + x)
+ * More accurate than log(1 + x) for small x
+ * @param x - Input array
+ * @returns Array of log1p values
+ */
+export function log1p(x: NDArray): NDArray {
+  return x.log1p();
+}
+
+/**
+ * Logarithm of the sum of exponentials: log(exp(x1) + exp(x2))
+ * More numerically stable than computing the expression directly
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Array of logaddexp values
+ */
+export function logaddexp(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logaddexp(x2);
+}
+
+/**
+ * Logarithm base 2 of the sum of exponentials: log2(2^x1 + 2^x2)
+ * More numerically stable than computing the expression directly
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Array of logaddexp2 values
+ */
+export function logaddexp2(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logaddexp2(x2);
 }
 
 /**
@@ -5144,4 +5341,72 @@ export function setxor1d(ar1: NDArray, ar2: NDArray): NDArray {
  */
 export function union1d(ar1: NDArray, ar2: NDArray): NDArray {
   return NDArray._fromStorage(setOps.union1d(ar1.storage, ar2.storage));
+}
+
+// Gradient and difference functions
+
+/**
+ * Calculate the n-th discrete difference along the given axis
+ * @param a - Input array
+ * @param n - Number of times values are differenced (default: 1)
+ * @param axis - Axis along which to compute difference (default: -1)
+ * @returns Array of differences
+ */
+export function diff(a: NDArray, n: number = 1, axis: number = -1): NDArray {
+  return NDArray._fromStorage(gradientOps.diff(a.storage, n, axis));
+}
+
+/**
+ * The differences between consecutive elements of a flattened array
+ * @param ary - Input array
+ * @param to_end - Number(s) to append at the end
+ * @param to_begin - Number(s) to prepend at the beginning
+ * @returns Array of differences
+ */
+export function ediff1d(
+  ary: NDArray,
+  to_end: number[] | null = null,
+  to_begin: number[] | null = null
+): NDArray {
+  return NDArray._fromStorage(gradientOps.ediff1d(ary.storage, to_end, to_begin));
+}
+
+/**
+ * Return the gradient of an N-dimensional array
+ * The gradient is computed using second order accurate central differences
+ * in the interior and first order accurate one-sided differences at the boundaries.
+ * @param f - Input array
+ * @param varargs - Spacing between values (scalar or array per dimension)
+ * @param axis - Axis or axes along which to compute gradient
+ * @returns Array of gradients (one per axis) or single gradient
+ */
+export function gradient(
+  f: NDArray,
+  varargs: number | number[] = 1,
+  axis: number | number[] | null = null
+): NDArray | NDArray[] {
+  const result = gradientOps.gradient(f.storage, varargs, axis);
+  if (Array.isArray(result)) {
+    return result.map((s) => NDArray._fromStorage(s));
+  }
+  return NDArray._fromStorage(result);
+}
+
+/**
+ * Return the cross product of two (arrays of) vectors
+ * @param a - First input array
+ * @param b - Second input array
+ * @param axisa - Axis of a that defines the vector(s) (default: -1)
+ * @param axisb - Axis of b that defines the vector(s) (default: -1)
+ * @param axisc - Axis of c containing the cross product (default: -1)
+ * @returns Cross product array
+ */
+export function cross(
+  a: NDArray,
+  b: NDArray,
+  axisa: number = -1,
+  axisb: number = -1,
+  axisc: number = -1
+): NDArray {
+  return NDArray._fromStorage(gradientOps.cross(a.storage, b.storage, axisa, axisb, axisc));
 }

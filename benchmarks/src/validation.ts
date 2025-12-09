@@ -269,6 +269,36 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'tanh':
       return np.tanh(arrays.a);
 
+    // Exponential
+    case 'exp':
+      return np.exp(arrays.a);
+    case 'exp2':
+      return np.exp2(arrays.a);
+    case 'expm1':
+      return np.expm1(arrays.a);
+    case 'log':
+      return np.log(arrays.a);
+    case 'log2':
+      return np.log2(arrays.a);
+    case 'log10':
+      return np.log10(arrays.a);
+    case 'log1p':
+      return np.log1p(arrays.a);
+    case 'logaddexp':
+      return np.logaddexp(arrays.a, arrays.b);
+    case 'logaddexp2':
+      return np.logaddexp2(arrays.a, arrays.b);
+
+    // Gradient
+    case 'diff':
+      return np.diff(arrays.a);
+    case 'ediff1d':
+      return np.ediff1d(arrays.a);
+    case 'gradient':
+      return np.gradient(arrays.a) as any; // May return array or array of arrays
+    case 'cross':
+      return np.cross(arrays.a, arrays.b);
+
     // Linalg
     case 'dot':
       return arrays.a.dot(arrays.b);

@@ -178,6 +178,36 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "tanh":
         return np.tanh(arrays["a"])
 
+    # Exponential
+    elif operation == "exp":
+        return np.exp(arrays["a"])
+    elif operation == "exp2":
+        return np.exp2(arrays["a"])
+    elif operation == "expm1":
+        return np.expm1(arrays["a"])
+    elif operation == "log":
+        return np.log(arrays["a"])
+    elif operation == "log2":
+        return np.log2(arrays["a"])
+    elif operation == "log10":
+        return np.log10(arrays["a"])
+    elif operation == "log1p":
+        return np.log1p(arrays["a"])
+    elif operation == "logaddexp":
+        return np.logaddexp(arrays["a"], arrays["b"])
+    elif operation == "logaddexp2":
+        return np.logaddexp2(arrays["a"], arrays["b"])
+
+    # Gradient
+    elif operation == "diff":
+        return np.diff(arrays["a"])
+    elif operation == "ediff1d":
+        return np.ediff1d(arrays["a"])
+    elif operation == "gradient":
+        return np.gradient(arrays["a"])
+    elif operation == "cross":
+        return np.cross(arrays["a"], arrays["b"])
+
     # Linear algebra
     elif operation == "dot":
         return np.dot(arrays["a"], arrays["b"])
