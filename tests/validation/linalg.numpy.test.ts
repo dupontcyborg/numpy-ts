@@ -1044,8 +1044,10 @@ result = np.linalg.cross([1, 2, 3], [4, 5, 6])
       const b = array([3, 4]);
       const jsResult = linalg.cross(a, b);
 
+      // Note: np.linalg.cross doesn't support 2D vectors in NumPy 2.0+
+      // Use np.cross instead for 2D vectors
       const pyResult = runNumPy(`
-result = np.linalg.cross([1, 2], [3, 4])
+result = np.cross([1, 2], [3, 4])
       `);
 
       expect(jsResult).toBe(pyResult.value);
@@ -1180,7 +1182,7 @@ result = np.linalg.solve([[3, 1], [1, 2]], [9, 8])
       // Verify A ≈ Q @ R
       for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 2; j++) {
-          expect(reconstructed.get(i, j)).toBeCloseTo(a.get(i, j), 5);
+          expect(reconstructed.get([i, j])).toBeCloseTo(a.get([i, j]), 5);
         }
       }
     });

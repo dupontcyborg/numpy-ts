@@ -2369,7 +2369,8 @@ function eigSymmetric(a: ArrayStorage): { values: number[]; vectors: number[][] 
     if (Math.abs(app - aqq) < 1e-15) {
       theta = Math.PI / 4;
     } else {
-      theta = 0.5 * Math.atan2(2 * apq, app - aqq);
+      // Standard Jacobi rotation: tan(2θ) = 2*A[p,q] / (A[q,q] - A[p,p])
+      theta = 0.5 * Math.atan2(2 * apq, aqq - app);
     }
 
     const c = Math.cos(theta);
