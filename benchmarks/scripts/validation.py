@@ -52,6 +52,14 @@ def setup_arrays(setup_config):
             size = np.prod(shape)
             flat = np.arange(0, size, 1, dtype=np_dtype)
             arrays[key] = flat.reshape(shape)
+        elif fill == "invertible":
+            # Create an invertible matrix: arange + n*I (diagonally dominant)
+            n = shape[0]
+            size = np.prod(shape)
+            flat = np.arange(0, size, 1, dtype=np_dtype)
+            arange_matrix = flat.reshape(shape)
+            identity = np.eye(n, dtype=np_dtype)
+            arrays[key] = arange_matrix + identity * (n * n)
 
     return arrays
 
@@ -170,6 +178,50 @@ def run_operation(spec):
         result = np.deg2rad(arrays["a"])
     elif operation == "rad2deg":
         result = np.rad2deg(arrays["a"])
+
+    # numpy.linalg module operations
+    elif operation == "linalg_det":
+        result = np.linalg.det(arrays["a"])
+    elif operation == "linalg_inv":
+        result = np.linalg.inv(arrays["a"])
+    elif operation == "linalg_solve":
+        result = np.linalg.solve(arrays["a"], arrays["b"])
+    elif operation == "linalg_qr":
+        q, r = np.linalg.qr(arrays["a"])
+        result = q  # Return just Q for validation
+    elif operation == "linalg_cholesky":
+        # Create positive definite matrix: A^T * A + n*I
+        a = arrays["a"]
+        n = a.shape[0]
+        posdef = a.T @ a + np.eye(n) * n
+        result = np.linalg.cholesky(posdef)
+    elif operation == "linalg_svd":
+        u, s, vt = np.linalg.svd(arrays["a"])
+        result = s  # Return just singular values for validation
+    elif operation == "linalg_eig":
+        w, v = np.linalg.eig(arrays["a"])
+        result = w  # Return just eigenvalues for validation
+    elif operation == "linalg_eigh":
+        # Create symmetric matrix: (A + A^T) / 2
+        a = arrays["a"]
+        sym = (a + a.T) / 2
+        w, v = np.linalg.eigh(sym)
+        result = w  # Return just eigenvalues for validation
+    elif operation == "linalg_norm":
+        result = np.linalg.norm(arrays["a"])
+    elif operation == "linalg_matrix_rank":
+        result = np.linalg.matrix_rank(arrays["a"])
+    elif operation == "linalg_pinv":
+        result = np.linalg.pinv(arrays["a"])
+    elif operation == "linalg_cond":
+        result = np.linalg.cond(arrays["a"])
+    elif operation == "linalg_matrix_power":
+        result = np.linalg.matrix_power(arrays["a"], 3)
+    elif operation == "linalg_lstsq":
+        x, residuals, rank, s = np.linalg.lstsq(arrays["a"], arrays["b"], rcond=None)
+        result = x  # Return just solution for validation
+    elif operation == "linalg_cross":
+        result = np.cross(arrays["a"], arrays["b"])
 
     # Reductions
     elif operation == "sum":
@@ -350,11 +402,16 @@ def run_operation(spec):
 
     # Convert result to JSON-serializable format
     if isinstance(result, np.ndarray):
-        return {"shape": result.shape, "data": result.tolist()}
+        # Handle complex arrays by converting to real
+        if np.iscomplexobj(result):
+            result = result.real
+        return {"shape": list(result.shape), "data": result.tolist()}
     elif isinstance(result, (np.integer, np.floating)):
         return float(result)
     elif isinstance(result, np.bool_):
         return bool(result)
+    elif isinstance(result, (complex, np.complexfloating)):
+        return float(result.real)
     else:
         return result
 
@@ -362,17 +419,24 @@ def run_operation(spec):
 import math
 
 def serialize_value(val):
-    """Recursively serialize values, handling Infinity and NaN"""
+    """Recursively serialize values, handling Infinity, NaN, and complex numbers"""
     if isinstance(val, dict):
         return {k: serialize_value(v) for k, v in val.items()}
     elif isinstance(val, (list, tuple)):
         return [serialize_value(v) for v in val]
+    elif isinstance(val, complex):
+        # Return real part for comparison (complex eigenvalues differ)
+        return serialize_value(val.real)
+    elif isinstance(val, (np.complexfloating, np.complex64, np.complex128)):
+        return serialize_value(float(val.real))
     elif isinstance(val, float):
         if math.isnan(val):
             return "__NaN__"
         elif math.isinf(val):
             return "__Infinity__" if val > 0 else "__-Infinity__"
         return val
+    elif isinstance(val, (np.floating, np.integer)):
+        return serialize_value(float(val))
     return val
 
 

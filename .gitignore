@@ -41,3 +41,6 @@ scripts/*.json
 
 # Python
 *__pycache__*
+
+# Local TODO file
+TODO

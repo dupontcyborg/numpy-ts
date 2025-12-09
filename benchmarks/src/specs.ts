@@ -1397,6 +1397,174 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
+    // ========================================
+    // numpy.linalg Module Benchmarks
+    // ========================================
+
+    // Use smaller sizes for O(n³) operations
+    // These benchmarks use special 'invertible' fill mode handled in runner
+    const linalgSize = [50, 50] as [number, number];
+    const linalgN = linalgSize[0]!;
+
+    specs.push({
+      name: `linalg.det [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_det',
+      setup: {
+        a: { shape: linalgSize, fill: 'invertible', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.inv [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_inv',
+      setup: {
+        a: { shape: linalgSize, fill: 'invertible', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.solve [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_solve',
+      setup: {
+        a: { shape: linalgSize, fill: 'invertible', dtype: 'float64' },
+        b: { shape: [linalgN], fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.qr [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_qr',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.cholesky [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_cholesky',
+      setup: {
+        // Setup will create a positive definite matrix in runner
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.svd [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_svd',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.eigh [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_eigh',
+      setup: {
+        // Will be made symmetric in runner (eigh is for symmetric matrices)
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.norm [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_norm',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.matrix_rank [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_matrix_rank',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.pinv [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_pinv',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.cond [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_cond',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.matrix_power [${linalgN}x${linalgN}] n=3`,
+      category: 'linalg',
+      operation: 'linalg_matrix_power',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.lstsq [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_lstsq',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        b: { shape: [linalgN], fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.cross [3]`,
+      category: 'linalg',
+      operation: 'linalg_cross',
+      setup: {
+        a: { shape: [3], fill: 'arange', dtype: 'float64' },
+        b: { shape: [3], fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
     // Indexing benchmarks
     specs.push({
       name: `take_along_axis [${sizes.medium.join('x')}]`,

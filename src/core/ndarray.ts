@@ -4313,6 +4313,233 @@ export function einsum(subscripts: string, ...operands: NDArray[]): NDArray | nu
 }
 
 // ============================================================================
+// numpy.linalg Module
+// ============================================================================
+
+/**
+ * numpy.linalg module - Linear algebra functions
+ */
+export const linalg = {
+  /**
+   * Cross product of two vectors.
+   */
+  cross: (
+    a: NDArray,
+    b: NDArray,
+    axisa: number = -1,
+    axisb: number = -1,
+    axisc: number = -1,
+    axis?: number
+  ): NDArray | number => {
+    const result = linalgOps.cross(a.storage, b.storage, axisa, axisb, axisc, axis);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the norm of a vector or matrix.
+   */
+  norm: (
+    x: NDArray,
+    ord: number | 'fro' | 'nuc' | null = null,
+    axis: number | [number, number] | null = null,
+    keepdims: boolean = false
+  ): NDArray | number => {
+    const result = linalgOps.norm(x.storage, ord, axis, keepdims);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the vector norm.
+   */
+  vector_norm: (
+    x: NDArray,
+    ord: number = 2,
+    axis?: number | null,
+    keepdims: boolean = false
+  ): NDArray | number => {
+    const result = linalgOps.vector_norm(x.storage, ord, axis, keepdims);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the matrix norm.
+   */
+  matrix_norm: (
+    x: NDArray,
+    ord: number | 'fro' | 'nuc' = 'fro',
+    keepdims: boolean = false
+  ): NDArray | number => {
+    const result = linalgOps.matrix_norm(x.storage, ord, keepdims);
+    if (typeof result === 'number') {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * QR decomposition.
+   */
+  qr: (
+    a: NDArray,
+    mode: 'reduced' | 'complete' | 'r' | 'raw' = 'reduced'
+  ): { q: NDArray; r: NDArray } | NDArray | { h: NDArray; tau: NDArray } => {
+    const result = linalgOps.qr(a.storage, mode);
+    if (result instanceof ArrayStorage) {
+      // 'r' mode returns just R
+      return NDArray._fromStorage(result);
+    } else if ('q' in result && 'r' in result) {
+      return {
+        q: NDArray._fromStorage(result.q),
+        r: NDArray._fromStorage(result.r),
+      };
+    } else {
+      // 'raw' mode returns h and tau
+      return {
+        h: NDArray._fromStorage(result.h),
+        tau: NDArray._fromStorage(result.tau),
+      };
+    }
+  },
+
+  /**
+   * Cholesky decomposition.
+   */
+  cholesky: (a: NDArray, upper: boolean = false): NDArray => {
+    return NDArray._fromStorage(linalgOps.cholesky(a.storage, upper));
+  },
+
+  /**
+   * Singular Value Decomposition.
+   */
+  svd: (
+    a: NDArray,
+    full_matrices: boolean = true,
+    compute_uv: boolean = true
+  ): { u: NDArray; s: NDArray; vt: NDArray } | NDArray => {
+    const result = linalgOps.svd(a.storage, full_matrices, compute_uv);
+    if ('u' in result) {
+      return {
+        u: NDArray._fromStorage(result.u),
+        s: NDArray._fromStorage(result.s),
+        vt: NDArray._fromStorage(result.vt),
+      };
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the determinant of a matrix.
+   */
+  det: (a: NDArray): number => {
+    return linalgOps.det(a.storage);
+  },
+
+  /**
+   * Compute the matrix inverse.
+   */
+  inv: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.inv(a.storage));
+  },
+
+  /**
+   * Solve a linear system.
+   */
+  solve: (a: NDArray, b: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.solve(a.storage, b.storage));
+  },
+
+  /**
+   * Least-squares solution to a linear matrix equation.
+   */
+  lstsq: (
+    a: NDArray,
+    b: NDArray,
+    rcond: number | null = null
+  ): { x: NDArray; residuals: NDArray; rank: number; s: NDArray } => {
+    const result = linalgOps.lstsq(a.storage, b.storage, rcond);
+    return {
+      x: NDArray._fromStorage(result.x),
+      residuals: NDArray._fromStorage(result.residuals),
+      rank: result.rank,
+      s: NDArray._fromStorage(result.s),
+    };
+  },
+
+  /**
+   * Compute the condition number.
+   */
+  cond: (a: NDArray, p: number | 'fro' | 'nuc' = 2): number => {
+    return linalgOps.cond(a.storage, p);
+  },
+
+  /**
+   * Compute the matrix rank.
+   */
+  matrix_rank: (a: NDArray, tol?: number): number => {
+    return linalgOps.matrix_rank(a.storage, tol);
+  },
+
+  /**
+   * Raise a square matrix to an integer power.
+   */
+  matrix_power: (a: NDArray, n: number): NDArray => {
+    return NDArray._fromStorage(linalgOps.matrix_power(a.storage, n));
+  },
+
+  /**
+   * Compute the Moore-Penrose pseudo-inverse.
+   */
+  pinv: (a: NDArray, rcond: number = 1e-15): NDArray => {
+    return NDArray._fromStorage(linalgOps.pinv(a.storage, rcond));
+  },
+
+  /**
+   * Compute eigenvalues and eigenvectors.
+   */
+  eig: (a: NDArray): { w: NDArray; v: NDArray } => {
+    const result = linalgOps.eig(a.storage);
+    return {
+      w: NDArray._fromStorage(result.w),
+      v: NDArray._fromStorage(result.v),
+    };
+  },
+
+  /**
+   * Compute eigenvalues and eigenvectors of a Hermitian matrix.
+   */
+  eigh: (a: NDArray, UPLO: 'L' | 'U' = 'L'): { w: NDArray; v: NDArray } => {
+    const result = linalgOps.eigh(a.storage, UPLO);
+    return {
+      w: NDArray._fromStorage(result.w),
+      v: NDArray._fromStorage(result.v),
+    };
+  },
+
+  /**
+   * Compute eigenvalues of a matrix.
+   */
+  eigvals: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.eigvals(a.storage));
+  },
+
+  /**
+   * Compute eigenvalues of a Hermitian matrix.
+   */
+  eigvalsh: (a: NDArray, UPLO: 'L' | 'U' = 'L'): NDArray => {
+    return NDArray._fromStorage(linalgOps.eigvalsh(a.storage, UPLO));
+  },
+};
+
+// ============================================================================
 // Indexing Functions
 // ============================================================================
 
