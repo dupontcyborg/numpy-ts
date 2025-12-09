@@ -90,6 +90,14 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
       const size = shape.reduce((a, b) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
       arrays[key] = flat.reshape(...shape);
+    } else if (fill === 'invertible') {
+      // Create an invertible matrix: arange + n*I (diagonally dominant)
+      const n = shape[0];
+      const size = shape.reduce((a, b) => a * b, 1);
+      const flat = np.arange(0, size, 1, dtype);
+      const arangeMatrix = flat.reshape(...shape);
+      const identity = np.eye(n, undefined, undefined, dtype);
+      arrays[key] = arangeMatrix.add(identity.multiply(n * n));
     }
   }
 
@@ -239,6 +247,49 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.deg2rad(arrays['a']);
   } else if (operation === 'rad2deg') {
     return np.rad2deg(arrays['a']);
+  }
+
+  // numpy.linalg module operations
+  else if (operation === 'linalg_det') {
+    return np.linalg.det(arrays['a']);
+  } else if (operation === 'linalg_inv') {
+    return np.linalg.inv(arrays['a']);
+  } else if (operation === 'linalg_solve') {
+    return np.linalg.solve(arrays['a'], arrays['b']);
+  } else if (operation === 'linalg_qr') {
+    return np.linalg.qr(arrays['a']);
+  } else if (operation === 'linalg_cholesky') {
+    // Create positive definite matrix: A^T * A + n*I
+    const a = arrays['a'];
+    const n = a.shape[0];
+    const aT = a.transpose();
+    const aTa = aT.matmul(a);
+    const posdef = aTa.add(np.eye(n).multiply(n));
+    return np.linalg.cholesky(posdef);
+  } else if (operation === 'linalg_svd') {
+    return np.linalg.svd(arrays['a']);
+  } else if (operation === 'linalg_eig') {
+    return np.linalg.eig(arrays['a']);
+  } else if (operation === 'linalg_eigh') {
+    // Create symmetric matrix: (A + A^T) / 2
+    const a = arrays['a'];
+    const aT = a.transpose();
+    const sym = a.add(aT).multiply(0.5);
+    return np.linalg.eigh(sym);
+  } else if (operation === 'linalg_norm') {
+    return np.linalg.norm(arrays['a']);
+  } else if (operation === 'linalg_matrix_rank') {
+    return np.linalg.matrix_rank(arrays['a']);
+  } else if (operation === 'linalg_pinv') {
+    return np.linalg.pinv(arrays['a']);
+  } else if (operation === 'linalg_cond') {
+    return np.linalg.cond(arrays['a']);
+  } else if (operation === 'linalg_matrix_power') {
+    return np.linalg.matrix_power(arrays['a'], 3);
+  } else if (operation === 'linalg_lstsq') {
+    return np.linalg.lstsq(arrays['a'], arrays['b']);
+  } else if (operation === 'linalg_cross') {
+    return np.linalg.cross(arrays['a'], arrays['b']);
   }
   // Bitwise operations
   else if (operation === 'bitwise_and') {

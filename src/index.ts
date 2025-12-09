@@ -65,6 +65,8 @@ export {
   outer,
   tensordot,
   einsum,
+  // Linear algebra module (numpy.linalg)
+  linalg,
   // Trigonometric functions
   sin,
   cos,

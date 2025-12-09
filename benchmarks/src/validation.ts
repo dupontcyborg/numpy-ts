@@ -184,6 +184,14 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       const size = shape.reduce((a, b) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
       arrays[key] = flat.reshape(...shape);
+    } else if (fill === 'invertible') {
+      // Create an invertible matrix: arange + n*I (diagonally dominant)
+      const n = shape[0];
+      const size = shape.reduce((a, b) => a * b, 1);
+      const flat = np.arange(0, size, 1, dtype);
+      const arangeMatrix = flat.reshape(...shape);
+      const identity = np.eye(n, undefined, undefined, dtype);
+      arrays[key] = arangeMatrix.add(identity.multiply(n * n));
     }
   }
 
@@ -397,6 +405,62 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     // Additional linalg
     case 'einsum':
       return np.einsum(arrays.subscripts, arrays.a, arrays.b);
+
+    // numpy.linalg module operations
+    case 'linalg_det':
+      return np.linalg.det(arrays.a);
+    case 'linalg_inv':
+      return np.linalg.inv(arrays.a);
+    case 'linalg_solve':
+      return np.linalg.solve(arrays.a, arrays.b);
+    case 'linalg_qr': {
+      const result = np.linalg.qr(arrays.a);
+      // Return just Q for validation (simpler)
+      return (result as { q: any }).q;
+    }
+    case 'linalg_cholesky': {
+      // Create positive definite matrix: A^T * A + n*I
+      const n = arrays.a.shape[0];
+      const aT = arrays.a.transpose();
+      const aTa = aT.matmul(arrays.a);
+      const posdef = aTa.add(np.eye(n).multiply(n));
+      return np.linalg.cholesky(posdef);
+    }
+    case 'linalg_svd': {
+      const result = np.linalg.svd(arrays.a);
+      // Return just S (singular values) for validation
+      return (result as { s: any }).s;
+    }
+    case 'linalg_eig': {
+      const result = np.linalg.eig(arrays.a);
+      // Return just eigenvalues for validation (eigenvectors can differ)
+      return (result as { w: any }).w;
+    }
+    case 'linalg_eigh': {
+      // Create symmetric matrix: (A + A^T) / 2
+      const aT = arrays.a.transpose();
+      const sym = arrays.a.add(aT).multiply(0.5);
+      const result = np.linalg.eigh(sym);
+      // Return just eigenvalues for validation
+      return (result as { w: any }).w;
+    }
+    case 'linalg_norm':
+      return np.linalg.norm(arrays.a);
+    case 'linalg_matrix_rank':
+      return np.linalg.matrix_rank(arrays.a);
+    case 'linalg_pinv':
+      return np.linalg.pinv(arrays.a);
+    case 'linalg_cond':
+      return np.linalg.cond(arrays.a);
+    case 'linalg_matrix_power':
+      return np.linalg.matrix_power(arrays.a, 3);
+    case 'linalg_lstsq': {
+      const result = np.linalg.lstsq(arrays.a, arrays.b);
+      // Return just x (solution) for validation
+      return (result as { x: any }).x;
+    }
+    case 'linalg_cross':
+      return np.linalg.cross(arrays.a, arrays.b);
 
     // Indexing functions
     case 'take_along_axis':
