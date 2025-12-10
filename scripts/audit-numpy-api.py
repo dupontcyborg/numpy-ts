@@ -24,6 +24,10 @@ def get_numpy_top_level_functions():
         if name.startswith('_'):
             continue
 
+        # Skip internal/test modules
+        if name in ['test', 'core', 'lib', 'f2py', 'distutils', 'testing', 'ma', 'matlib', 'rec', 'char', 'ctypeslib']:
+            continue
+
         try:
             obj = getattr(np, name)
             # Include functions and ufuncs (universal functions like add, multiply)
@@ -57,6 +61,10 @@ def get_numpy_submodule_functions():
     for mod_name, mod in submodules.items():
         for name in dir(mod):
             if name.startswith('_'):
+                continue
+
+            # Skip test modules
+            if name == 'test':
                 continue
 
             try:
@@ -112,7 +120,8 @@ def categorize_functions(functions):
             'eye', 'identity', 'zeros_like', 'ones_like', 'empty_like', 'full_like',
             'diag', 'diagflat', 'tri', 'tril', 'triu', 'vander', 'meshgrid', 'fromfunction',
             'frombuffer', 'fromfile', 'fromiter', 'fromstring', 'asarray', 'asanyarray',
-            'ascontiguousarray', 'asfortranarray', 'copy'
+            'ascontiguousarray', 'asfortranarray', 'copy',
+            'asarray_chkfinite', 'astype', 'require'
         ],
         'Array Manipulation': [
             'reshape', 'ravel', 'transpose', 'swapaxes', 'moveaxis', 'rollaxis',
@@ -120,19 +129,26 @@ def categorize_functions(functions):
             'split', 'array_split', 'hsplit', 'vsplit', 'dsplit',
             'tile', 'repeat', 'delete', 'insert', 'append', 'resize',
             'squeeze', 'expand_dims', 'atleast_1d', 'atleast_2d', 'atleast_3d',
-            'flip', 'fliplr', 'flipud', 'roll', 'rot90', 'pad'
+            'flip', 'fliplr', 'flipud', 'roll', 'rot90', 'pad',
+            'byteswap', 'fill', 'item', 'tobytes', 'tofile', 'tolist',
+            'flatten', 'block', 'concat', 'unstack', 'view'
         ],
         'Arithmetic': [
             'add', 'subtract', 'multiply', 'divide', 'power', 'mod', 'remainder', 'divmod',
             'floor_divide', 'negative', 'positive', 'absolute', 'fabs', 'sign', 'reciprocal',
-            'sqrt', 'square', 'cbrt', 'heaviside'
+            'sqrt', 'square', 'cbrt', 'heaviside',
+            'abs',  # alias for absolute
+            'float_power', 'fmod', 'gcd', 'lcm', 'modf', 'frexp', 'ldexp',
+            'pow', 'true_divide'  # aliases
         ],
         'Trigonometric': [
             'sin', 'cos', 'tan', 'arcsin', 'arccos', 'arctan', 'arctan2',
-            'hypot', 'degrees', 'radians', 'deg2rad', 'rad2deg'
+            'hypot', 'degrees', 'radians', 'deg2rad', 'rad2deg',
+            'acos', 'asin', 'atan', 'atan2'  # aliases
         ],
         'Hyperbolic': [
-            'sinh', 'cosh', 'tanh', 'arcsinh', 'arccosh', 'arctanh'
+            'sinh', 'cosh', 'tanh', 'arcsinh', 'arccosh', 'arctanh',
+            'acosh', 'asinh', 'atanh'  # aliases
         ],
         'Exponential': [
             'exp', 'exp2', 'expm1', 'log', 'log2', 'log10', 'log1p', 'logaddexp', 'logaddexp2'
@@ -142,7 +158,8 @@ def categorize_functions(functions):
         ],
         'Other Math': [
             'clip', 'maximum', 'minimum', 'fmax', 'fmin', 'nan_to_num',
-            'real', 'imag', 'conj', 'conjugate', 'angle'
+            'real', 'imag', 'conj', 'conjugate', 'angle',
+            'interp', 'unwrap', 'sinc', 'i0'  # Interpolation and special functions
         ],
         'Reductions': [
             'sum', 'prod', 'mean', 'std', 'var', 'min', 'max',
@@ -150,23 +167,33 @@ def categorize_functions(functions):
             'median', 'percentile', 'quantile', 'average',
             'cumsum', 'cumprod', 'nancumsum', 'nancumprod',
             'ptp', 'nanmin', 'nanmax', 'nanmean', 'nanstd', 'nanvar', 'nanmedian',
-            'nansum', 'nanprod'
+            'nansum', 'nanprod',
+            'amax', 'amin',  # aliases for max, min
+            'round_',  # alias for around/round
+            'cumulative_prod', 'cumulative_sum',  # aliases for cumprod, cumsum
+            'nanpercentile', 'nanquantile'
         ],
         'Linear Algebra': [
             'dot', 'matmul', 'inner', 'outer', 'tensordot', 'einsum', 'kron',
-            'trace', 'diagonal'
+            'trace', 'diagonal',
+            'vdot', 'vecdot', 'vecmat', 'matvec', 'matrix_transpose', 'permute_dims'
         ],
         'Linear Algebra (linalg)': [
             'linalg.norm', 'linalg.det', 'linalg.matrix_rank', 'linalg.matrix_power',
             'linalg.inv', 'linalg.pinv', 'linalg.solve', 'linalg.lstsq',
             'linalg.eig', 'linalg.eigh', 'linalg.eigvals', 'linalg.eigvalsh',
             'linalg.svd', 'linalg.qr', 'linalg.cholesky', 'linalg.cond',
-            'linalg.matrix_norm', 'linalg.vector_norm', 'linalg.cross'
+            'linalg.matrix_norm', 'linalg.vector_norm', 'linalg.cross',
+            'linalg.diagonal', 'linalg.matmul', 'linalg.matrix_transpose', 'linalg.multi_dot',
+            'linalg.outer', 'linalg.slogdet', 'linalg.svdvals', 'linalg.tensordot',
+            'linalg.tensorinv', 'linalg.tensorsolve', 'linalg.trace', 'linalg.vecdot'
         ],
         'Logic': [
             'logical_and', 'logical_or', 'logical_not', 'logical_xor',
             'isfinite', 'isinf', 'isnan', 'isnat',
-            'signbit', 'copysign', 'nextafter', 'spacing'
+            'signbit', 'copysign', 'nextafter', 'spacing',
+            'iscomplex', 'iscomplexobj', 'isfortran', 'isreal', 'isrealobj', 'isscalar',
+            'isdtype', 'isneginf', 'isposinf', 'iterable', 'promote_types', 'real_if_close'
         ],
         'Comparison': [
             'equal', 'not_equal', 'less', 'less_equal', 'greater', 'greater_equal',
@@ -174,22 +201,25 @@ def categorize_functions(functions):
         ],
         'Sorting': [
             'sort', 'argsort', 'lexsort', 'partition', 'argpartition',
-            'msort', 'sort_complex'
+            'sort_complex'
         ],
         'Searching': [
             'argmax', 'argmin', 'nonzero', 'where', 'searchsorted',
-            'extract', 'count_nonzero', 'flatnonzero'
+            'extract', 'count_nonzero', 'flatnonzero', 'argwhere'
         ],
         'Set Operations': [
-            'unique', 'in1d', 'isin', 'intersect1d', 'union1d', 'setdiff1d', 'setxor1d'
+            'unique', 'in1d', 'isin', 'intersect1d', 'union1d', 'setdiff1d', 'setxor1d',
+            'unique_all', 'unique_counts', 'unique_inverse', 'unique_values', 'trim_zeros'
         ],
         'Bit Operations': [
             'bitwise_and', 'bitwise_or', 'bitwise_xor', 'bitwise_not',
-            'left_shift', 'right_shift', 'invert', 'packbits', 'unpackbits'
+            'left_shift', 'right_shift', 'invert', 'packbits', 'unpackbits',
+            'bitwise_count', 'bitwise_invert', 'bitwise_left_shift', 'bitwise_right_shift'
         ],
         'Statistics': [
             'histogram', 'histogram2d', 'histogramdd', 'bincount', 'digitize',
-            'corrcoef', 'correlate', 'cov', 'convolve'
+            'corrcoef', 'correlate', 'cov', 'convolve', 'histogram_bin_edges',
+            'trapezoid', 'trapz'  # Numerical integration
         ],
         'Gradient': [
             'gradient', 'diff', 'ediff1d', 'cross'
@@ -199,7 +229,8 @@ def categorize_functions(functions):
             'choose', 'compress', 'select', 'place',
             'diag_indices', 'diag_indices_from', 'tril_indices', 'tril_indices_from',
             'triu_indices', 'triu_indices_from', 'mask_indices',
-            'indices', 'ix_', 'ravel_multi_index', 'unravel_index'
+            'indices', 'ix_', 'ravel_multi_index', 'unravel_index',
+            'fill_diagonal'
         ],
         'Broadcasting': [
             'broadcast_to', 'broadcast_arrays', 'broadcast_shapes'
@@ -220,7 +251,59 @@ def categorize_functions(functions):
             'random.exponential', 'random.poisson', 'random.binomial',
             'random.shuffle', 'random.permutation', 'random.choice',
             'random.seed', 'random.get_state', 'random.set_state',
-            'random.default_rng'
+            'random.default_rng',
+            # Additional distributions
+            'random.beta', 'random.chisquare', 'random.dirichlet', 'random.f', 'random.gamma',
+            'random.geometric', 'random.gumbel', 'random.hypergeometric', 'random.laplace',
+            'random.logistic', 'random.lognormal', 'random.logseries', 'random.multinomial',
+            'random.multivariate_normal', 'random.negative_binomial', 'random.noncentral_chisquare',
+            'random.noncentral_f', 'random.pareto', 'random.power', 'random.rayleigh',
+            'random.standard_cauchy', 'random.standard_exponential', 'random.standard_gamma',
+            'random.standard_t', 'random.triangular', 'random.vonmises', 'random.wald',
+            'random.weibull', 'random.zipf',
+            # Aliases and utilities
+            'random.bytes', 'random.get_bit_generator', 'random.set_bit_generator',
+            'random.random_integers', 'random.random_sample', 'random.ranf', 'random.sample'
+        ],
+        'String/Formatting': [
+            'array2string', 'array_repr', 'array_str',
+            'base_repr', 'binary_repr',
+            'format_float_positional', 'format_float_scientific',
+            'set_printoptions', 'get_printoptions', 'printoptions'
+        ],
+        'Type Checking': [
+            'can_cast', 'common_type', 'result_type', 'min_scalar_type',
+            'issubdtype', 'typename', 'mintypecode'
+            # Note: issctype, issubclass_, issubsctype, sctype2char are in np.core (deprecated)
+        ],
+        'Utilities': [
+            'apply_along_axis', 'apply_over_axes', 'copyto',
+            'may_share_memory', 'shares_memory', 'byte_bounds',
+            'ndim', 'shape', 'size',
+            'einsum_path', 'show_config', 'info', 'show_runtime',
+            'geterr', 'geterrcall', 'seterr', 'seterrcall', 'seterrobj', 'geterrobj'
+        ],
+        'Polynomials': [
+            'poly', 'polyadd', 'polyder', 'polydiv', 'polyfit', 'polyint',
+            'polymul', 'polysub', 'polyval', 'roots'
+        ],
+        'Unplanned': [
+            # Methods we won't implement
+            'dump', 'dumps', 'getfield', 'setfield', 'setflags', 'to_device',
+            # Datetime/business days (no datetime dtype support)
+            'busday_count', 'busday_offset', 'is_busday', 'datetime_as_string', 'datetime_data',
+            # Signal processing (out of scope)
+            'bartlett', 'blackman', 'hamming', 'hanning', 'kaiser',
+            # Deprecated/legacy/internal
+            'asmatrix', 'bmat', 'matrix', 'msort', 'getbuffer', 'newaxis',
+            'issctype', 'issubclass_', 'issubsctype', 'sctype2char',  # np.core (deprecated)
+            # Internal/meta
+            'get_include', 'get_array_wrap',
+            # Advanced/niche (DLPack, ufuncs, iterators)
+            'from_dlpack', 'frompyfunc', 'vectorize', 'piecewise',
+            'nested_iters', 'nditer', 'broadcast', 'ndindex', 'ndenumerate', 'flatiter',
+            # Buffer management
+            'getbufsize', 'setbufsize'
         ]
     }
 
@@ -290,9 +373,10 @@ def main():
     print(f"\n4. Total NumPy functions: {len(all_functions)}")
     print(f"   Total ndarray methods: {len(methods)}")
 
-    # Categorize
-    print("\n5. Categorizing functions...")
-    categorized, uncategorized = categorize_functions(all_functions)
+    # Categorize (include both functions and methods)
+    print("\n5. Categorizing functions and methods...")
+    all_apis = {**all_functions, **methods}
+    categorized, uncategorized = categorize_functions(all_apis)
 
     print(f"   Categorized: {sum(len(v) for v in categorized.values())}")
     print(f"   Uncategorized: {len(uncategorized)}")

@@ -43,6 +43,7 @@ export {
   // Math functions
   sqrt,
   power,
+  pow, // alias for power
   // Exponential functions
   exp,
   exp2,
@@ -54,9 +55,12 @@ export {
   logaddexp,
   logaddexp2,
   absolute,
+  abs, // alias for absolute
   negative,
   sign,
   mod,
+  divide,
+  true_divide, // alias for divide
   floor_divide,
   positive,
   reciprocal,
@@ -82,9 +86,13 @@ export {
   cos,
   tan,
   arcsin,
+  asin, // alias for arcsin
   arccos,
+  acos, // alias for arccos
   arctan,
+  atan, // alias for arctan
   arctan2,
+  atan2, // alias for arctan2
   hypot,
   degrees,
   radians,
@@ -95,8 +103,11 @@ export {
   cosh,
   tanh,
   arcsinh,
+  asinh, // alias for arcsinh
   arccosh,
+  acosh, // alias for arccosh
   arctanh,
+  atanh, // alias for arctanh
   // Array manipulation
   swapaxes,
   moveaxis,
@@ -162,7 +173,13 @@ export {
   unravel_index,
   // Reduction functions
   cumsum,
+  cumulative_sum, // alias for cumsum
   cumprod,
+  cumulative_prod, // alias for cumprod
+  max,
+  amax, // alias for max
+  min,
+  amin, // alias for min
   ptp,
   median,
   percentile,
@@ -220,6 +237,7 @@ export {
   count_nonzero,
   // Rounding functions
   around,
+  round_, // alias for around
   ceil,
   fix,
   floor,

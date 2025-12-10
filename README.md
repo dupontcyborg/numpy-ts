@@ -3,7 +3,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm version](https://img.shields.io/npm/v/numpy-ts)](https://www.npmjs.com/package/numpy-ts)
 ![bundle size](https://img.shields.io/bundlephobia/minzip/numpy-ts)
-![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-87%20%25-yellow)
+![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-61%20%25-yellow)
 
 ```
 ███╗   ██╗██╗   ██╗███╗   ███╗██████╗ ██╗   ██╗  ████████╗███████╗
@@ -24,7 +24,7 @@ npm install numpy-ts
 
 ## Why numpy-ts?
 
-- **📊 Extensive API** — **291 of 333 NumPy functions (87.4% coverage)**
+- **📊 Extensive API** — **308 of 507 NumPy functions (60.7% coverage)**
 - **✅ NumPy-validated** — 2000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
@@ -62,33 +62,38 @@ Progress toward complete NumPy API compatibility:
 
 | Category | Complete | Total | Status |
 |----------|----------|-------|--------|
-| **Arithmetic** | 19/19 | 100% | ✅ |
-| **Array Creation** | 32/32 | 100% | ✅ |
-| **Bit Operations** | 9/9 | 100% | ✅ |
 | **Broadcasting** | 3/3 | 100% | ✅ |
 | **Comparison** | 10/10 | 100% | ✅ |
 | **Exponential** | 9/9 | 100% | ✅ |
 | **Gradient** | 4/4 | 100% | ✅ |
-| **Hyperbolic** | 6/6 | 100% | ✅ |
+| **Hyperbolic** | 9/9 | 100% | ✅ |
 | **I/O** | 8/8 | 100% | ✅ |
-| **Indexing** | 20/20 | 100% | ✅ |
-| **Linear Algebra** | 9/9 | 100% | ✅ |
-| **Linear Algebra (linalg)** | 19/19 | 100% | ✅ |
-| **Logic** | 12/12 | 100% | ✅ |
-| **Random** | 17/17 | 100% | ✅ |
-| **Reductions** | 30/30 | 100% | ✅ |
 | **Rounding** | 7/7 | 100% | ✅ |
-| **Searching** | 6/6 | 100% | ✅ |
-| **Set Operations** | 7/7 | 100% | ✅ |
 | **Sorting** | 6/6 | 100% | ✅ |
-| **Statistics** | 9/9 | 100% | ✅ |
-| **Trigonometric** | 12/12 | 100% | ✅ |
-| **Array Manipulation** | 35/41 | 85% | 🟡 |
+| **Trigonometric** | 16/16 | 100% | ✅ |
+| **Indexing** | 20/21 | 95% | 🟡 |
+| **Reductions** | 34/36 | 94% | 🟡 |
+| **Array Creation** | 33/35 | 94% | 🟡 |
+| **Searching** | 6/7 | 86% | 🟡 |
+| **Array Manipulation** | 36/46 | 78% | 🟡 |
+| **Arithmetic** | 22/29 | 76% | 🟡 |
+| **Statistics** | 9/12 | 75% | 🟡 |
+| **Bit Operations** | 9/13 | 69% | 🟡 |
+| **NDArray Methods** | 33/53 | 62% | 🟡 |
+| **Linear Algebra (linalg)** | 19/31 | 61% | 🟡 |
+| **Linear Algebra** | 9/15 | 60% | 🟡 |
+| **Set Operations** | 7/12 | 58% | 🟡 |
+| **Logic** | 12/24 | 50% | 🟡 |
+| **Random** | 17/53 | 32% | 🔴 |
+| **Utilities** | 3/16 | 19% | 🔴 |
 | **FFT** | 0/18 | 0% | 🔴 |
-| **Other Math** | 0/11 | 0% | 🔴 |
-| **Unplanned** | 0/7 | 0% | 🔴 |
+| **Other Math** | 0/15 | 0% | 🔴 |
+| **Polynomials** | 0/10 | 0% | 🔴 |
+| **String/Formatting** | 0/10 | 0% | 🔴 |
+| **Type Checking** | 0/7 | 0% | 🔴 |
+| **Unplanned** | 0/25 | 0% | 🔴 |
 
-**Overall: 291/333 functions (87.4% complete)**
+**Overall: 308/507 functions (60.7% complete)**
 
 See the complete [API Reference](docs/API-REFERENCE.md) for detailed function list.
 
@@ -238,7 +243,7 @@ arr.sum();  // Type: number
 
 | Feature | numpy-ts | numjs | ndarray | TensorFlow.js |
 |---------|----------|-------|---------|---------------|
-| NumPy API Coverage | 291/333 (87%) | ~20% | Different | ML-focused |
+| NumPy API Coverage | 308/507 (61%) | ~20% | Different | ML-focused |
 | TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
 | NumPy Validated | ✅ 1365+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |

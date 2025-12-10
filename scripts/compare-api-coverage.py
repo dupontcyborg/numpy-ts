@@ -112,6 +112,22 @@ def analyze_coverage(verbose=False):
     numpy_audit = load_json('numpy-api-audit.json')
     numpyts_audit = load_json('numpyts-api-audit.json')
 
+    # Check for uncategorized functions - FAIL if any exist
+    uncategorized = numpy_audit.get('uncategorized', [])
+    if uncategorized:
+        print("\n" + "=" * 70)
+        print("ERROR: UNCATEGORIZED FUNCTIONS FOUND")
+        print("=" * 70)
+        print(f"\n{len(uncategorized)} functions are not categorized in audit-numpy-api.py:")
+        for i, func in enumerate(sorted(uncategorized)[:20], 1):
+            print(f"  {i:3d}. {func}")
+        if len(uncategorized) > 20:
+            print(f"  ... and {len(uncategorized) - 20} more")
+        print("\nAll NumPy functions must be categorized before compare-api can run.")
+        print("Please add these functions to categories in scripts/audit-numpy-api.py")
+        print("=" * 70)
+        sys.exit(1)
+
     # Get ALL NumPy top-level functions (from categorized)
     numpy_toplevel = set()
     for funcs in numpy_audit['categorized'].values():
@@ -160,15 +176,20 @@ def analyze_coverage(verbose=False):
 
     # Combined (for reference)
     # Total unique = union of all
-    numpy_total = len(numpy_toplevel | numpy_methods)
-    numpyts_total = len(numpyts_toplevel | numpyts_methods)
-    overall_coverage = 100 * numpyts_total / numpy_total if numpy_total else 0
+    numpy_all = numpy_toplevel | numpy_methods
+    numpyts_all = numpyts_toplevel | numpyts_methods
+
+    # Count how many of NumPy's APIs are implemented in numpy-ts (ignore extras)
+    implemented_apis = numpy_all & numpyts_all
+    numpy_total = len(numpy_all)
+    numpyts_implemented = len(implemented_apis)
+    overall_coverage = 100 * numpyts_implemented / numpy_total if numpy_total else 0
 
     print("\nCOMBINED UNIQUE (functions ∪ methods):")
     print(f"  NumPy total:             {numpy_total}")
-    print(f"  numpy-ts total:          {numpyts_total}")
+    print(f"  numpy-ts implemented:    {numpyts_implemented}")
     print(f"  Overall coverage:        "
-          f"{numpyts_total}/{numpy_total} ({overall_coverage:.1f}%)")
+          f"{numpyts_implemented}/{numpy_total} ({overall_coverage:.1f}%)")
 
     # Category breakdown
     print("\n" + "=" * 70)
@@ -176,12 +197,21 @@ def analyze_coverage(verbose=False):
     print("=" * 70)
 
     category_stats = {}
-    # Use union for implementation check (function OR method)
-    numpyts_all = numpyts_toplevel | numpyts_methods
+    # numpyts_all already defined above
 
-    for category, funcs in sorted(numpy_audit['categorized'].items()):
+    # Process all categories (including NDArray Methods)
+    # Add NDArray Methods as a special category
+    all_categories = {**numpy_audit['categorized'], 'NDArray Methods': sorted(numpy_methods)}
+
+    for category, funcs in sorted(all_categories.items()):
         numpy_cat = set(funcs)
-        implemented = numpy_cat & numpyts_all
+
+        # For NDArray Methods, check against numpyts_methods specifically
+        if category == 'NDArray Methods':
+            implemented = numpy_cat & numpyts_methods
+        else:
+            implemented = numpy_cat & numpyts_all
+
         pct = 100 * len(implemented) / len(numpy_cat) if numpy_cat else 0
 
         status = "✅" if pct == 100 else ("🟡" if pct >= 50 else "🔴")
@@ -189,7 +219,7 @@ def analyze_coverage(verbose=False):
         category_stats[category] = {
             'total': len(numpy_cat),
             'implemented': len(implemented),
-            'missing': numpy_cat - numpyts_all,
+            'missing': numpy_cat - (numpyts_methods if category == 'NDArray Methods' else numpyts_all),
             'percentage': pct,
             'status': status
         }
@@ -210,7 +240,7 @@ def analyze_coverage(verbose=False):
         'numpyts_methods': len(numpyts_methods),
         'methods_coverage': methods_coverage,
         'numpy_total': numpy_total,
-        'numpyts_total': numpyts_total,
+        'numpyts_implemented': numpyts_implemented,
         'overall_coverage': overall_coverage,
         'category_stats': category_stats,
         'numpy_audit': numpy_audit,
@@ -247,7 +277,7 @@ def update_readme(analysis):
     with open(readme_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    total_impl = analysis['numpyts_total']
+    total_impl = analysis['numpyts_implemented']
     total_numpy = analysis['numpy_total']
     coverage = analysis['overall_coverage']
 
@@ -318,6 +348,125 @@ def update_readme(analysis):
     print(f"\n✅ Updated {readme_path}")
 
 
+def update_api_reference(analysis):
+    """Update API-REFERENCE.md with complete function list."""
+    api_ref_path = Path(__file__).parent.parent / 'docs' / 'API-REFERENCE.md'
+
+    # Read existing file to preserve Notes section
+    notes_section = ""
+    if api_ref_path.exists():
+        with open(api_ref_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Extract everything from "## Notes" onwards
+            notes_match = re.search(r'^## Notes\n.*', content, re.MULTILINE | re.DOTALL)
+            if notes_match:
+                notes_section = "\n" + notes_match.group(0)
+
+    # Get current date
+    from datetime import date
+    today = date.today().strftime('%Y-%m-%d')
+
+    # Get data
+    numpy_audit = analysis['numpy_audit']
+    numpyts_audit = analysis['numpyts_audit']
+    category_stats = analysis['category_stats']
+
+    # Get implemented set
+    numpyts_all = set(numpyts_audit['all_functions'].keys()) | set(numpyts_audit['ndarray_methods'].keys())
+    numpyts_methods = set(numpyts_audit['ndarray_methods'].keys())
+    numpy_methods = set(numpy_audit['ndarray_methods'].keys())
+
+    # Build content
+    lines = []
+    lines.append("# API Reference")
+    lines.append("")
+    lines.append("Complete NumPy 2.0+ API compatibility checklist.")
+    lines.append("")
+    lines.append(f"**Last Updated**: {today}")
+    lines.append("")
+    lines.append("## Progress Summary")
+    lines.append("")
+    lines.append("Based on `npm run compare-api`:")
+    lines.append("")
+
+    # Stats
+    total_impl = analysis['numpyts_implemented']
+    total_numpy = analysis['numpy_total']
+    coverage = analysis['overall_coverage']
+
+    lines.append(f"- **Overall Coverage**: {total_impl}/{total_numpy} ({coverage:.1f}%)")
+    lines.append(f"- **Top-level Functions**: {analysis['numpyts_toplevel']}/{analysis['numpy_toplevel']} ({analysis['toplevel_coverage']:.1f}%)")
+    lines.append(f"- **NDArray Methods**: {len(analysis['numpyts_audit']['ndarray_methods'])}/{analysis['numpy_methods']} ({analysis['methods_coverage']:.1f}%)")
+    lines.append("")
+
+    # Completed categories
+    completed = [(cat, stats) for cat, stats in sorted(category_stats.items())
+                 if stats['percentage'] == 100]
+    incomplete = [(cat, stats) for cat, stats in sorted(category_stats.items())
+                  if stats['percentage'] < 100]
+
+    if completed:
+        lines.append("### Completed Categories (100%)")
+        for cat, stats in completed:
+            lines.append(f"- {cat} ({stats['implemented']}/{stats['total']})")
+        lines.append("")
+
+    if incomplete:
+        lines.append("### Incomplete Categories")
+        for cat, stats in incomplete:
+            lines.append(f"- {cat} ({stats['implemented']}/{stats['total']}) - {stats['percentage']:.1f}%")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("")
+
+    # Generate category sections (including NDArray Methods)
+    for category in sorted(list(numpy_audit['categorized'].keys()) + ['NDArray Methods']):
+        if category == 'NDArray Methods':
+            funcs = sorted(numpy_methods)
+            check_against = numpyts_methods
+        else:
+            funcs = sorted(numpy_audit['categorized'][category])
+            check_against = numpyts_all
+
+        lines.append(f"## {category}")
+        lines.append("")
+
+        for func in funcs:
+            is_impl = func in check_against
+            checkbox = "[x]" if is_impl else "[ ]"
+            lines.append(f"- {checkbox} `{func}` ")
+
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    # Add Extra NDArray Methods section
+    extra_methods = sorted(numpyts_methods - set(numpy_methods))
+
+    if extra_methods:
+        lines.append("## Extra NDArray Methods")
+        lines.append("")
+        lines.append("Methods in numpy-ts NDArray that don't exist in NumPy's ndarray.")
+        lines.append("These may be removed in future versions for strict NumPy compatibility:")
+        lines.append("")
+
+        for method in extra_methods:
+            lines.append(f"- `{method}()` ")
+
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    # Combine with notes section
+    full_content = "\n".join(lines) + notes_section
+
+    with open(api_ref_path, 'w', encoding='utf-8') as f:
+        f.write(full_content)
+
+    print(f"✅ Updated {api_ref_path}")
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -341,11 +490,14 @@ def main():
     # Update README
     update_readme(analysis)
 
+    # Update API-REFERENCE.md
+    update_api_reference(analysis)
+
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"\nTotal NumPy functions: {analysis['numpy_total']}")
-    print(f"Total numpy-ts functions: {analysis['numpyts_total']}")
+    print(f"\nTotal NumPy APIs: {analysis['numpy_total']}")
+    print(f"Implemented in numpy-ts: {analysis['numpyts_implemented']}")
     print(f"Overall coverage: {analysis['overall_coverage']:.1f}%")
 
     print(f"\nTop-level functions: "
