@@ -479,6 +479,58 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "count_nonzero":
         return np.count_nonzero(arrays["a"])
 
+    # Statistics operations
+    elif operation == "bincount":
+        return np.bincount(arrays["a"].flatten().astype(int))
+    elif operation == "digitize":
+        return np.digitize(arrays["a"].flatten(), arrays["b"].flatten())
+    elif operation == "histogram":
+        hist, _ = np.histogram(arrays["a"].flatten(), bins=10)
+        return hist
+    elif operation == "histogram2d":
+        hist, _, _ = np.histogram2d(arrays["a"].flatten(), arrays["b"].flatten(), bins=10)
+        return hist
+    elif operation == "correlate":
+        return np.correlate(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
+    elif operation == "convolve":
+        return np.convolve(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
+    elif operation == "cov":
+        return np.cov(arrays["a"])
+    elif operation == "corrcoef":
+        return np.corrcoef(arrays["a"])
+
+    # Logic operations
+    elif operation == "logical_and":
+        if "b" in arrays:
+            return np.logical_and(arrays["a"], arrays["b"])
+        else:
+            return np.logical_and(arrays["a"], arrays["scalar"])
+    elif operation == "logical_or":
+        if "b" in arrays:
+            return np.logical_or(arrays["a"], arrays["b"])
+        else:
+            return np.logical_or(arrays["a"], arrays["scalar"])
+    elif operation == "logical_not":
+        return np.logical_not(arrays["a"])
+    elif operation == "logical_xor":
+        if "b" in arrays:
+            return np.logical_xor(arrays["a"], arrays["b"])
+        else:
+            return np.logical_xor(arrays["a"], arrays["scalar"])
+    elif operation == "isfinite":
+        return np.isfinite(arrays["a"])
+    elif operation == "isinf":
+        return np.isinf(arrays["a"])
+    elif operation == "isnan":
+        return np.isnan(arrays["a"])
+    elif operation == "signbit":
+        return np.signbit(arrays["a"])
+    elif operation == "copysign":
+        if "b" in arrays:
+            return np.copysign(arrays["a"], arrays["b"])
+        else:
+            return np.copysign(arrays["a"], arrays["scalar"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

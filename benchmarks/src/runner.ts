@@ -520,6 +520,62 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.count_nonzero(arrays['a']);
   }
 
+  // Statistics operations
+  else if (operation === 'bincount') {
+    return np.bincount(arrays['a']);
+  } else if (operation === 'digitize') {
+    return np.digitize(arrays['a'], arrays['b']);
+  } else if (operation === 'histogram') {
+    return np.histogram(arrays['a'], 10);
+  } else if (operation === 'histogram2d') {
+    return np.histogram2d(arrays['a'], arrays['b'], 10);
+  } else if (operation === 'correlate') {
+    return np.correlate(arrays['a'], arrays['b'], 'full');
+  } else if (operation === 'convolve') {
+    return np.convolve(arrays['a'], arrays['b'], 'full');
+  } else if (operation === 'cov') {
+    return np.cov(arrays['a']);
+  } else if (operation === 'corrcoef') {
+    return np.corrcoef(arrays['a']);
+  }
+
+  // Logic operations
+  else if (operation === 'logical_and') {
+    if (arrays['b']) {
+      return arrays['a'].logical_and(arrays['b']);
+    } else {
+      return arrays['a'].logical_and(arrays['scalar']);
+    }
+  } else if (operation === 'logical_or') {
+    if (arrays['b']) {
+      return arrays['a'].logical_or(arrays['b']);
+    } else {
+      return arrays['a'].logical_or(arrays['scalar']);
+    }
+  } else if (operation === 'logical_not') {
+    return arrays['a'].logical_not();
+  } else if (operation === 'logical_xor') {
+    if (arrays['b']) {
+      return arrays['a'].logical_xor(arrays['b']);
+    } else {
+      return arrays['a'].logical_xor(arrays['scalar']);
+    }
+  } else if (operation === 'isfinite') {
+    return arrays['a'].isfinite();
+  } else if (operation === 'isinf') {
+    return arrays['a'].isinf();
+  } else if (operation === 'isnan') {
+    return arrays['a'].isnan();
+  } else if (operation === 'signbit') {
+    return arrays['a'].signbit();
+  } else if (operation === 'copysign') {
+    if (arrays['b']) {
+      return arrays['a'].copysign(arrays['b']);
+    } else {
+      return arrays['a'].copysign(arrays['scalar']);
+    }
+  }
+
   // Random operations
   else if (operation === 'random_random') {
     return np.random.random(arrays['shape']);

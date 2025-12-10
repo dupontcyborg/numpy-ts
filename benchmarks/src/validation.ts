@@ -588,6 +588,64 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'count_nonzero':
       return np.count_nonzero(arrays.a);
 
+    // Statistics operations
+    case 'bincount':
+      return np.bincount(arrays.a);
+    case 'digitize':
+      return np.digitize(arrays.a, arrays.b);
+    case 'histogram': {
+      const [hist] = np.histogram(arrays.a, 10);
+      return hist;
+    }
+    case 'histogram2d': {
+      const [hist] = np.histogram2d(arrays.a, arrays.b, 10);
+      return hist;
+    }
+    case 'correlate':
+      return np.correlate(arrays.a, arrays.b, 'full');
+    case 'convolve':
+      return np.convolve(arrays.a, arrays.b, 'full');
+    case 'cov':
+      return np.cov(arrays.a);
+    case 'corrcoef':
+      return np.corrcoef(arrays.a);
+
+    // Logic operations
+    case 'logical_and':
+      if (arrays.b) {
+        return np.logical_and(arrays.a, arrays.b);
+      } else {
+        return np.logical_and(arrays.a, arrays.scalar);
+      }
+    case 'logical_or':
+      if (arrays.b) {
+        return np.logical_or(arrays.a, arrays.b);
+      } else {
+        return np.logical_or(arrays.a, arrays.scalar);
+      }
+    case 'logical_not':
+      return np.logical_not(arrays.a);
+    case 'logical_xor':
+      if (arrays.b) {
+        return np.logical_xor(arrays.a, arrays.b);
+      } else {
+        return np.logical_xor(arrays.a, arrays.scalar);
+      }
+    case 'isfinite':
+      return np.isfinite(arrays.a);
+    case 'isinf':
+      return np.isinf(arrays.a);
+    case 'isnan':
+      return np.isnan(arrays.a);
+    case 'signbit':
+      return np.signbit(arrays.a);
+    case 'copysign':
+      if (arrays.b) {
+        return np.copysign(arrays.a, arrays.b);
+      } else {
+        return np.copysign(arrays.a, arrays.scalar);
+      }
+
     // Random operations - these are non-deterministic, so we just validate they run
     case 'random_random':
       return np.random.random(arrays.shape);

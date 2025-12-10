@@ -81,9 +81,9 @@ Progress toward complete NumPy API compatibility:
 | **Searching** | 6/6 | 100% | ✅ |
 | **Set Operations** | 7/7 | 100% | ✅ |
 | **Sorting** | 6/6 | 100% | ✅ |
+| **Statistics** | 9/9 | 100% | ✅ |
 | **Trigonometric** | 12/12 | 100% | ✅ |
 | **FFT** | 0/18 | 0% | 🔴 |
-| **Logic** | 0/12 | 0% | 🔴 |
 | **Other Math** | 0/11 | 0% | 🔴 |
 | **Statistics** | 0/9 | 0% | 🔴 |
 

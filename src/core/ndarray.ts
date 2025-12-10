@@ -23,10 +23,12 @@ import * as trigOps from '../ops/trig';
 import * as hyperbolicOps from '../ops/hyperbolic';
 import * as advancedOps from '../ops/advanced';
 import * as bitwiseOps from '../ops/bitwise';
+import * as logicOps from '../ops/logic';
 import * as sortingOps from '../ops/sorting';
 import * as roundingOps from '../ops/rounding';
 import * as setOps from '../ops/sets';
 import * as gradientOps from '../ops/gradient';
+import * as statisticsOps from '../ops/statistics';
 
 export class NDArray {
   // Internal storage
@@ -901,6 +903,125 @@ export class NDArray {
   right_shift(shift: NDArray | number): NDArray {
     const shiftStorage = typeof shift === 'number' ? shift : shift._storage;
     const resultStorage = bitwiseOps.right_shift(this._storage, shiftStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  // Logic operations
+  /**
+   * Logical AND element-wise
+   * @param other - Array or scalar for AND operation
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_and(other: NDArray | number): NDArray {
+    const otherStorage = typeof other === 'number' ? other : other._storage;
+    const resultStorage = logicOps.logical_and(this._storage, otherStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logical OR element-wise
+   * @param other - Array or scalar for OR operation
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_or(other: NDArray | number): NDArray {
+    const otherStorage = typeof other === 'number' ? other : other._storage;
+    const resultStorage = logicOps.logical_or(this._storage, otherStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logical NOT element-wise
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_not(): NDArray {
+    const resultStorage = logicOps.logical_not(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Logical XOR element-wise
+   * @param other - Array or scalar for XOR operation
+   * @returns Boolean array (1 = true, 0 = false)
+   */
+  logical_xor(other: NDArray | number): NDArray {
+    const otherStorage = typeof other === 'number' ? other : other._storage;
+    const resultStorage = logicOps.logical_xor(this._storage, otherStorage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for finiteness (not infinity and not NaN)
+   * @returns Boolean array
+   */
+  isfinite(): NDArray {
+    const resultStorage = logicOps.isfinite(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for positive or negative infinity
+   * @returns Boolean array
+   */
+  isinf(): NDArray {
+    const resultStorage = logicOps.isinf(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for NaN (Not a Number)
+   * @returns Boolean array
+   */
+  isnan(): NDArray {
+    const resultStorage = logicOps.isnan(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Test element-wise for NaT (Not a Time)
+   * @returns Boolean array (always false without datetime support)
+   */
+  isnat(): NDArray {
+    const resultStorage = logicOps.isnat(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Change the sign of x1 to that of x2, element-wise
+   * @param x2 - Values whose sign is used
+   * @returns Array with magnitude from this and sign from x2
+   */
+  copysign(x2: NDArray | number): NDArray {
+    const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
+    const resultStorage = logicOps.copysign(this._storage, x2Storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Returns element-wise True where signbit is set (less than zero)
+   * @returns Boolean array
+   */
+  signbit(): NDArray {
+    const resultStorage = logicOps.signbit(this._storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the next floating-point value after x1 towards x2, element-wise
+   * @param x2 - Direction to look for the next representable value
+   * @returns Array of next representable values
+   */
+  nextafter(x2: NDArray | number): NDArray {
+    const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
+    const resultStorage = logicOps.nextafter(this._storage, x2Storage);
+    return NDArray._fromStorage(resultStorage);
+  }
+
+  /**
+   * Return the distance between x and the nearest adjacent number
+   * @returns Array of spacing values
+   */
+  spacing(): NDArray {
+    const resultStorage = logicOps.spacing(this._storage);
     return NDArray._fromStorage(resultStorage);
   }
 
@@ -4543,6 +4664,149 @@ export function unpackbits(
 }
 
 // ========================================
+// Logic Functions
+// ========================================
+
+/**
+ * Logical AND element-wise
+ *
+ * Returns a boolean array where each element is the logical AND
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Boolean result array
+ */
+export function logical_and(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logical_and(x2);
+}
+
+/**
+ * Logical OR element-wise
+ *
+ * Returns a boolean array where each element is the logical OR
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Boolean result array
+ */
+export function logical_or(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logical_or(x2);
+}
+
+/**
+ * Logical NOT element-wise
+ *
+ * Returns a boolean array where each element is the logical NOT
+ * of the input (non-zero = false, zero = true).
+ *
+ * @param x - Input array
+ * @returns Boolean result array
+ */
+export function logical_not(x: NDArray): NDArray {
+  return x.logical_not();
+}
+
+/**
+ * Logical XOR element-wise
+ *
+ * Returns a boolean array where each element is the logical XOR
+ * of corresponding elements (non-zero = true, zero = false).
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Boolean result array
+ */
+export function logical_xor(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.logical_xor(x2);
+}
+
+/**
+ * Test element-wise for finiteness (not infinity and not NaN)
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means finite
+ */
+export function isfinite(x: NDArray): NDArray {
+  return x.isfinite();
+}
+
+/**
+ * Test element-wise for positive or negative infinity
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means infinite
+ */
+export function isinf(x: NDArray): NDArray {
+  return x.isinf();
+}
+
+/**
+ * Test element-wise for NaN (Not a Number)
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means NaN
+ */
+export function isnan(x: NDArray): NDArray {
+  return x.isnan();
+}
+
+/**
+ * Test element-wise for NaT (Not a Time)
+ *
+ * @param x - Input array
+ * @returns Boolean array (always false without datetime support)
+ */
+export function isnat(x: NDArray): NDArray {
+  return x.isnat();
+}
+
+/**
+ * Change the sign of x1 to that of x2, element-wise
+ *
+ * Returns a value with the magnitude of x1 and the sign of x2.
+ *
+ * @param x1 - Values to change sign of (magnitude source)
+ * @param x2 - Values whose sign is used (sign source)
+ * @returns Array with magnitude from x1 and sign from x2
+ */
+export function copysign(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.copysign(x2);
+}
+
+/**
+ * Returns element-wise True where signbit is set (less than zero)
+ *
+ * @param x - Input array
+ * @returns Boolean array where True means signbit is set
+ */
+export function signbit(x: NDArray): NDArray {
+  return x.signbit();
+}
+
+/**
+ * Return the next floating-point value after x1 towards x2, element-wise
+ *
+ * @param x1 - Values to find the next representable value of
+ * @param x2 - Direction to look for the next representable value
+ * @returns Array of next representable values
+ */
+export function nextafter(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.nextafter(x2);
+}
+
+/**
+ * Return the distance between x and the nearest adjacent number
+ *
+ * @param x - Input array
+ * @returns Array of spacing values
+ */
+export function spacing(x: NDArray): NDArray {
+  return x.spacing();
+}
+
+// ========================================
 // Linear Algebra Functions (Additional)
 // ========================================
 
@@ -5409,4 +5673,191 @@ export function cross(
   axisc: number = -1
 ): NDArray {
   return NDArray._fromStorage(gradientOps.cross(a.storage, b.storage, axisa, axisb, axisc));
+}
+
+// ============================================================================
+// Statistics functions
+// ============================================================================
+
+/**
+ * Count number of occurrences of each value in array of non-negative ints.
+ *
+ * @param x - Input array (must contain non-negative integers)
+ * @param weights - Optional weights, same shape as x
+ * @param minlength - Minimum number of bins for output (default: 0)
+ * @returns Array of bin counts
+ */
+export function bincount(x: NDArray, weights?: NDArray, minlength: number = 0): NDArray {
+  return NDArray._fromStorage(statisticsOps.bincount(x.storage, weights?.storage, minlength));
+}
+
+/**
+ * Return the indices of the bins to which each value in input array belongs.
+ *
+ * @param x - Input array to be binned
+ * @param bins - Array of bins (monotonically increasing or decreasing)
+ * @param right - If true, intervals are closed on the right (default: false)
+ * @returns Array of bin indices
+ */
+export function digitize(x: NDArray, bins: NDArray, right: boolean = false): NDArray {
+  return NDArray._fromStorage(statisticsOps.digitize(x.storage, bins.storage, right));
+}
+
+/**
+ * Compute the histogram of a set of data.
+ *
+ * @param a - Input data (flattened if not 1D)
+ * @param bins - Number of bins (default: 10) or array of bin edges
+ * @param range - Lower and upper range of bins
+ * @param density - If true, return probability density function (default: false)
+ * @param weights - Optional weights for each data point
+ * @returns Tuple of [hist, bin_edges]
+ */
+export function histogram(
+  a: NDArray,
+  bins: number | NDArray = 10,
+  range?: [number, number],
+  density: boolean = false,
+  weights?: NDArray
+): [NDArray, NDArray] {
+  const result = statisticsOps.histogram(
+    a.storage,
+    typeof bins === 'number' ? bins : bins.storage,
+    range,
+    density,
+    weights?.storage
+  );
+  return [NDArray._fromStorage(result.hist), NDArray._fromStorage(result.bin_edges)];
+}
+
+/**
+ * Compute the bi-dimensional histogram of two data samples.
+ *
+ * @param x - Array of x coordinates
+ * @param y - Array of y coordinates (must have same length as x)
+ * @param bins - Number of bins or [nx, ny] or [x_edges, y_edges]
+ * @param range - [[xmin, xmax], [ymin, ymax]]
+ * @param density - If true, return probability density function
+ * @param weights - Optional weights for each data point
+ * @returns Tuple of [hist, x_edges, y_edges]
+ */
+export function histogram2d(
+  x: NDArray,
+  y: NDArray,
+  bins: number | [number, number] | [NDArray, NDArray] = 10,
+  range?: [[number, number], [number, number]],
+  density: boolean = false,
+  weights?: NDArray
+): [NDArray, NDArray, NDArray] {
+  let binsArg: number | [number, number] | [any, any];
+  if (typeof bins === 'number') {
+    binsArg = bins;
+  } else if (Array.isArray(bins) && bins.length === 2) {
+    if (typeof bins[0] === 'number') {
+      binsArg = bins as [number, number];
+    } else {
+      binsArg = [(bins[0] as NDArray).storage, (bins[1] as NDArray).storage];
+    }
+  } else {
+    binsArg = 10;
+  }
+
+  const result = statisticsOps.histogram2d(
+    x.storage,
+    y.storage,
+    binsArg,
+    range,
+    density,
+    weights?.storage
+  );
+  return [
+    NDArray._fromStorage(result.hist),
+    NDArray._fromStorage(result.x_edges),
+    NDArray._fromStorage(result.y_edges),
+  ];
+}
+
+/**
+ * Compute the multidimensional histogram of some data.
+ *
+ * @param sample - Array of shape (N, D) where N is number of samples and D is number of dimensions
+ * @param bins - Number of bins for all axes, or array of bin counts per axis
+ * @param range - Array of [min, max] for each dimension
+ * @param density - If true, return probability density function
+ * @param weights - Optional weights for each sample
+ * @returns Tuple of [hist, edges (array of edge arrays)]
+ */
+export function histogramdd(
+  sample: NDArray,
+  bins: number | number[] = 10,
+  range?: [number, number][],
+  density: boolean = false,
+  weights?: NDArray
+): [NDArray, NDArray[]] {
+  const result = statisticsOps.histogramdd(sample.storage, bins, range, density, weights?.storage);
+  return [NDArray._fromStorage(result.hist), result.edges.map((e) => NDArray._fromStorage(e))];
+}
+
+/**
+ * Cross-correlation of two 1-dimensional sequences.
+ *
+ * @param a - First input sequence
+ * @param v - Second input sequence
+ * @param mode - 'full', 'same', or 'valid' (default: 'full')
+ * @returns Cross-correlation of a and v
+ */
+export function correlate(
+  a: NDArray,
+  v: NDArray,
+  mode: 'full' | 'same' | 'valid' = 'full'
+): NDArray {
+  return NDArray._fromStorage(statisticsOps.correlate(a.storage, v.storage, mode));
+}
+
+/**
+ * Discrete, linear convolution of two one-dimensional sequences.
+ *
+ * @param a - First input sequence
+ * @param v - Second input sequence
+ * @param mode - 'full', 'same', or 'valid' (default: 'full')
+ * @returns Convolution of a and v
+ */
+export function convolve(
+  a: NDArray,
+  v: NDArray,
+  mode: 'full' | 'same' | 'valid' = 'full'
+): NDArray {
+  return NDArray._fromStorage(statisticsOps.convolve(a.storage, v.storage, mode));
+}
+
+/**
+ * Estimate a covariance matrix.
+ *
+ * @param m - Input array (1D or 2D). Each row represents a variable, columns are observations.
+ * @param y - Optional second array (for 2 variable case)
+ * @param rowvar - If true, each row is a variable (default: true)
+ * @param bias - If true, use N for normalization; if false, use N-1 (default: false)
+ * @param ddof - Delta degrees of freedom (overrides bias if provided)
+ * @returns Covariance matrix
+ */
+export function cov(
+  m: NDArray,
+  y?: NDArray,
+  rowvar: boolean = true,
+  bias: boolean = false,
+  ddof?: number
+): NDArray {
+  return NDArray._fromStorage(statisticsOps.cov(m.storage, y?.storage, rowvar, bias, ddof));
+}
+
+/**
+ * Return Pearson product-moment correlation coefficients.
+ *
+ * @param x - Input array (1D or 2D)
+ * @param y - Optional second array (for 2 variable case)
+ * @param rowvar - If true, each row is a variable (default: true)
+ * @returns Correlation coefficient matrix
+ */
+export function corrcoef(x: NDArray, y?: NDArray, rowvar: boolean = true): NDArray {
+  return NDArray._fromStorage(statisticsOps.corrcoef(x.storage, y?.storage, rowvar));
 }
