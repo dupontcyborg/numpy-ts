@@ -6,6 +6,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
+import { TypedArray } from '../core/dtype';
 
 /**
  * Count number of occurrences of each value in array of non-negative ints.
@@ -132,7 +133,7 @@ export function digitize(
 }
 
 // Binary search helpers
-function lowerBound(arr: any, size: number, val: number): number {
+function lowerBound(arr: TypedArray | number[], size: number, val: number): number {
   let lo = 0;
   let hi = size;
   while (lo < hi) {
@@ -146,7 +147,7 @@ function lowerBound(arr: any, size: number, val: number): number {
   return lo;
 }
 
-function upperBound(arr: any, size: number, val: number): number {
+function upperBound(arr: TypedArray | number[], size: number, val: number): number {
   let lo = 0;
   let hi = size;
   while (lo < hi) {

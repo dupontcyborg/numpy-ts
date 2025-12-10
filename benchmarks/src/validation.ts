@@ -33,10 +33,29 @@ function deserializeValue(val: any): any {
 }
 
 /**
+ * Check if operation is a random operation (non-deterministic)
+ */
+function isRandomOperation(operation: string): boolean {
+  return operation.startsWith('random_');
+}
+
+/**
  * Compare two arrays or scalars for equality with tolerance
  * @param operation - The operation name (for special handling of non-deterministic operations)
  */
 function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string): boolean {
+  // For random operations, just check shapes match (values will differ)
+  if (operation && isRandomOperation(operation)) {
+    if (numpytsResult?.shape && numpyResult?.shape) {
+      return (
+        numpytsResult.shape.length === numpyResult.shape.length &&
+        numpytsResult.shape.every((dim: number, i: number) => dim === numpyResult.shape[i])
+      );
+    }
+    // If no shape, assume it's valid if it ran without error
+    return true;
+  }
+
   // Both scalars
   if (typeof numpytsResult === 'number' && typeof numpyResult === 'number') {
     return Math.abs(numpytsResult - numpyResult) < FLOAT_TOLERANCE;
@@ -626,6 +645,32 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       } else {
         return np.copysign(arrays.a, arrays.scalar);
       }
+
+    // Random operations - these are non-deterministic, so we just validate they run
+    case 'random_random':
+      return np.random.random(arrays.shape);
+    case 'random_rand':
+      return np.random.rand(...arrays.shape);
+    case 'random_randn':
+      return np.random.randn(...arrays.shape);
+    case 'random_randint':
+      return np.random.randint(0, 100, arrays.shape);
+    case 'random_uniform':
+      return np.random.uniform(0, 1, arrays.shape);
+    case 'random_normal':
+      return np.random.normal(0, 1, arrays.shape);
+    case 'random_standard_normal':
+      return np.random.standard_normal(arrays.shape);
+    case 'random_exponential':
+      return np.random.exponential(1, arrays.shape);
+    case 'random_poisson':
+      return np.random.poisson(5, arrays.shape);
+    case 'random_binomial':
+      return np.random.binomial(10, 0.5, arrays.shape);
+    case 'random_choice':
+      return np.random.choice(arrays.n, 100);
+    case 'random_permutation':
+      return np.random.permutation(arrays.n);
 
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);
