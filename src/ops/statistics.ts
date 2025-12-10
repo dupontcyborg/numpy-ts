@@ -47,7 +47,7 @@ export function bincount(
 
     for (let i = 0; i < size; i++) {
       const idx = Number(xData[i]);
-      resultData[idx] += Number(weightsData[i]);
+      resultData[idx]! += Number(weightsData[i]);
     }
 
     return ArrayStorage.fromData(resultData, [outputSize], 'float64');
@@ -57,7 +57,7 @@ export function bincount(
 
     for (let i = 0; i < size; i++) {
       const idx = Number(xData[i]);
-      resultData[idx]++;
+      resultData[idx]!++;
     }
 
     return ArrayStorage.fromData(resultData, [outputSize], 'float64');
@@ -246,19 +246,19 @@ export function histogram(
       }
     }
 
-    hist[binIdx] += w;
+    hist[binIdx]! += w;
   }
 
   // Apply density normalization if requested
   if (density) {
     let totalWeight = 0;
     for (let i = 0; i < numBins; i++) {
-      totalWeight += hist[i];
+      totalWeight += hist[i]!;
     }
 
     for (let i = 0; i < numBins; i++) {
       const binWidth = binEdges[i + 1]! - binEdges[i]!;
-      hist[i] = hist[i] / (totalWeight * binWidth);
+      hist[i]! = hist[i]! / (totalWeight * binWidth);
     }
   }
 
@@ -413,14 +413,14 @@ export function histogram2d(
       }
     }
 
-    hist[xIdx * ny + yIdx] += w;
+    hist[xIdx * ny + yIdx]! += w;
   }
 
   // Apply density normalization if requested
   if (density) {
     let totalWeight = 0;
     for (let i = 0; i < hist.length; i++) {
-      totalWeight += hist[i];
+      totalWeight += hist[i]!;
     }
 
     for (let i = 0; i < nx; i++) {
@@ -428,7 +428,7 @@ export function histogram2d(
         const xWidth = xEdges[i + 1]! - xEdges[i]!;
         const yWidth = yEdges[j + 1]! - yEdges[j]!;
         const area = xWidth * yWidth;
-        hist[i * ny + j] = hist[i * ny + j] / (totalWeight * area);
+        hist[i * ny + j]! = hist[i * ny + j]! / (totalWeight * area);
       }
     }
   }
@@ -491,7 +491,7 @@ export function histogramdd(
     let minVal: number, maxVal: number;
 
     if (range && range[d]) {
-      [minVal, maxVal] = range[d];
+      [minVal, maxVal] = range[d]!;
     } else {
       minVal = Infinity;
       maxVal = -Infinity;
@@ -555,7 +555,7 @@ export function histogramdd(
     }
 
     if (!outOfBounds) {
-      hist[histIdx] += w;
+      hist[histIdx]! += w;
     }
   }
 
@@ -563,7 +563,7 @@ export function histogramdd(
   if (density) {
     let totalWeight = 0;
     for (let i = 0; i < histSize; i++) {
-      totalWeight += hist[i];
+      totalWeight += hist[i]!;
     }
 
     // Compute volume of each bin
@@ -580,7 +580,7 @@ export function histogramdd(
     }
 
     for (let i = 0; i < histSize; i++) {
-      hist[i] = hist[i] / (totalWeight * binVolumes[i]!);
+      hist[i]! = hist[i]! / (totalWeight * binVolumes[i]!);
     }
   }
 
