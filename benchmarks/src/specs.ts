@@ -1961,6 +1961,17 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
+      name: `argwhere [${sizes.medium.join('x')}]`,
+      category: 'searching',
+      operation: 'argwhere',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
       name: `flatnonzero [${sizes.medium.join('x')}]`,
       category: 'searching',
       operation: 'flatnonzero',
@@ -2218,6 +2229,39 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
         scalar: { shape: [1], value: -1 },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isneginf [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isneginf',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isposinf [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isposinf',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isreal [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isreal',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
       },
       iterations,
       warmup,

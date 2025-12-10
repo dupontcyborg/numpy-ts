@@ -418,6 +418,8 @@ def run_operation(spec):
     elif operation == "nonzero":
         idx = np.nonzero(arrays["a"])
         result = np.stack(idx, axis=0)
+    elif operation == "argwhere":
+        result = np.argwhere(arrays["a"])
     elif operation == "flatnonzero":
         result = np.flatnonzero(arrays["a"])
     elif operation == "where":
@@ -471,6 +473,12 @@ def run_operation(spec):
         result = np.isinf(arrays["a"]).astype(np.uint8)
     elif operation == "isnan":
         result = np.isnan(arrays["a"]).astype(np.uint8)
+    elif operation == "isneginf":
+        result = np.isneginf(arrays["a"]).astype(np.uint8)
+    elif operation == "isposinf":
+        result = np.isposinf(arrays["a"]).astype(np.uint8)
+    elif operation == "isreal":
+        result = np.isreal(arrays["a"]).astype(np.uint8)
     elif operation == "signbit":
         result = np.signbit(arrays["a"]).astype(np.uint8)
     elif operation == "copysign":

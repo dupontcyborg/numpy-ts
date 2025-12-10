@@ -10,7 +10,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType } from '../core/dtype';
+import { isBigIntDType, type DType } from '../core/dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
 import { broadcastShapes } from '../internal/compute';
 
@@ -721,4 +721,194 @@ function broadcastToStorage(storage: ArrayStorage, targetShape: readonly number[
     newStrides,
     storage.offset
   );
+}
+
+// ============================================================
+// Additional Logic/Type Checking Operations
+// ============================================================
+
+/**
+ * Test element-wise for complex number
+ * Since numpy-ts doesn't support complex numbers, always returns false
+ * @param a - Input array storage
+ * @returns Boolean array (all false)
+ */
+export function iscomplex(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Check whether object is complex type array
+ * Since numpy-ts doesn't support complex numbers, always returns false
+ * @param _a - Input array storage (unused)
+ * @returns false
+ */
+export function iscomplexobj(_a: ArrayStorage): boolean {
+  return false;
+}
+
+/**
+ * Test element-wise for real number (not complex)
+ * Since numpy-ts doesn't support complex numbers, always returns true
+ * @param a - Input array storage
+ * @returns Boolean array (all true)
+ */
+export function isreal(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size).fill(1);
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Check whether object is real type array (not complex)
+ * Since numpy-ts doesn't support complex numbers, always returns true
+ * @param _a - Input array storage (unused)
+ * @returns true
+ */
+export function isrealobj(_a: ArrayStorage): boolean {
+  return true;
+}
+
+/**
+ * Test element-wise for negative infinity
+ * @param a - Input array storage
+ * @returns Boolean array
+ */
+export function isneginf(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    // BigInt cannot be -Infinity
+    // data is already zeros
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = thisData[i] as number;
+      data[i] = val === -Infinity ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Test element-wise for positive infinity
+ * @param a - Input array storage
+ * @returns Boolean array
+ */
+export function isposinf(a: ArrayStorage): ArrayStorage {
+  const data = new Uint8Array(a.size);
+  const thisData = a.data;
+  const size = a.size;
+
+  if (isBigIntDType(a.dtype)) {
+    // BigInt cannot be +Infinity
+    // data is already zeros
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = thisData[i] as number;
+      data[i] = val === Infinity ? 1 : 0;
+    }
+  }
+
+  return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
+}
+
+/**
+ * Check if array is Fortran contiguous (column-major order)
+ * @param a - Input array storage
+ * @returns true if F-contiguous
+ */
+export function isfortran(a: ArrayStorage): boolean {
+  return a.isFContiguous;
+}
+
+/**
+ * Returns complex array with complex parts close to zero set to real
+ * Since numpy-ts doesn't support complex numbers, returns copy
+ * @param a - Input array storage
+ * @param _tol - Tolerance (unused, for API compatibility)
+ * @returns Copy of input array
+ */
+export function real_if_close(a: ArrayStorage, _tol: number = 100): ArrayStorage {
+  // Since we don't have complex numbers, just return a copy
+  return a.copy();
+}
+
+/**
+ * Check if element is a scalar type
+ * @param val - Value to check
+ * @returns true if scalar
+ */
+export function isscalar(val: any): boolean {
+  return (
+    typeof val === 'number' ||
+    typeof val === 'bigint' ||
+    typeof val === 'boolean' ||
+    typeof val === 'string'
+  );
+}
+
+/**
+ * Check if object is iterable
+ * @param obj - Object to check
+ * @returns true if iterable
+ */
+export function iterable(obj: any): boolean {
+  if (obj === null || obj === undefined) {
+    return false;
+  }
+  return typeof obj[Symbol.iterator] === 'function';
+}
+
+/**
+ * Check if dtype meets specified criteria
+ * @param dtype - Dtype to check
+ * @param kind - Kind of dtype ('b' bool, 'i' int, 'u' uint, 'f' float)
+ * @returns true if dtype matches kind
+ */
+export function isdtype(dtype: DType, kind: string): boolean {
+  const kindMap: Record<string, DType[]> = {
+    b: ['bool'],
+    i: ['int8', 'int16', 'int32', 'int64'],
+    u: ['uint8', 'uint16', 'uint32', 'uint64'],
+    f: ['float32', 'float64'],
+  };
+
+  const matchingTypes = kindMap[kind];
+  if (!matchingTypes) {
+    return false;
+  }
+
+  return matchingTypes.includes(dtype);
+}
+
+/**
+ * Find the dtype that can represent both input dtypes
+ * @param dtype1 - First dtype
+ * @param dtype2 - Second dtype
+ * @returns Promoted dtype
+ */
+export function promote_types(dtype1: DType, dtype2: DType): DType {
+  // NumPy promotion hierarchy (from highest to lowest precedence)
+  const hierarchy: DType[] = [
+    'float64',
+    'float32',
+    'int64',
+    'int32',
+    'int16',
+    'int8',
+    'uint64',
+    'uint32',
+    'uint16',
+    'uint8',
+    'bool',
+  ];
+
+  const idx1 = hierarchy.indexOf(dtype1);
+  const idx2 = hierarchy.indexOf(dtype2);
+
+  // Return the one with higher precedence (lower index)
+  return idx1 <= idx2 ? dtype1 : dtype2;
 }

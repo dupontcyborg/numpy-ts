@@ -6,7 +6,17 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array } from '../../src/core/ndarray';
+import {
+  array,
+  isneginf,
+  isposinf,
+  isreal,
+  iscomplex,
+  iscomplexobj,
+  isrealobj,
+  isscalar,
+  promote_types,
+} from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Logic Operations', () => {
@@ -457,6 +467,105 @@ result = np.logical_and(a, b).astype(np.uint8)
 
       expect(result.shape).toEqual(npResult.shape);
       expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('Additional Logic Functions', () => {
+    it('validates isneginf()', () => {
+      const arr = array([-Infinity, -1, 0, 1, Infinity, NaN]);
+      const result = isneginf(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([-np.inf, -1, 0, 1, np.inf, np.nan])
+result = np.isneginf(arr).astype(np.uint8)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates isposinf()', () => {
+      const arr = array([-Infinity, -1, 0, 1, Infinity, NaN]);
+      const result = isposinf(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([-np.inf, -1, 0, 1, np.inf, np.nan])
+result = np.isposinf(arr).astype(np.uint8)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates isreal() always returns true', () => {
+      const arr = array([1, 2, 3, 4, 5]);
+      const result = isreal(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 2, 3, 4, 5])
+result = np.isreal(arr).astype(np.uint8)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates iscomplex() always returns false', () => {
+      const arr = array([1, 2, 3, 4, 5]);
+      const result = iscomplex(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 2, 3, 4, 5])
+result = np.iscomplex(arr).astype(np.uint8)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates iscomplexobj() returns false', () => {
+      const arr = array([1, 2, 3]);
+      const result = iscomplexobj(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 2, 3])
+result = np.iscomplexobj(arr)
+`);
+
+      expect(result).toBe(npResult.value);
+    });
+
+    it('validates isrealobj() returns true', () => {
+      const arr = array([1, 2, 3]);
+      const result = isrealobj(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 2, 3])
+result = np.isrealobj(arr)
+`);
+
+      expect(result).toBe(npResult.value);
+    });
+
+    it('validates isscalar() with scalars', () => {
+      expect(isscalar(5)).toBe(true);
+      expect(isscalar(3.14)).toBe(true);
+      expect(isscalar(true)).toBe(true);
+    });
+
+    it('validates isscalar() with non-scalars', () => {
+      expect(isscalar([1, 2, 3])).toBe(false);
+      expect(isscalar({ a: 1 })).toBe(false);
+    });
+
+    it('validates promote_types() for int and float', () => {
+      const result = promote_types('int32', 'float32');
+      expect(result).toBe('float32');
+    });
+
+    it('validates promote_types() for different precisions', () => {
+      const result = promote_types('int8', 'int32');
+      expect(result).toBe('int32');
     });
   });
 });

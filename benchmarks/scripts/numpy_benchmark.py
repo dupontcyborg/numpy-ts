@@ -468,6 +468,8 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     # Searching operations
     elif operation == "nonzero":
         return np.nonzero(arrays["a"])
+    elif operation == "argwhere":
+        return np.argwhere(arrays["a"])
     elif operation == "flatnonzero":
         return np.flatnonzero(arrays["a"])
     elif operation == "where":
@@ -523,6 +525,12 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.isinf(arrays["a"])
     elif operation == "isnan":
         return np.isnan(arrays["a"])
+    elif operation == "isneginf":
+        return np.isneginf(arrays["a"])
+    elif operation == "isposinf":
+        return np.isposinf(arrays["a"])
+    elif operation == "isreal":
+        return np.isreal(arrays["a"])
     elif operation == "signbit":
         return np.signbit(arrays["a"])
     elif operation == "copysign":

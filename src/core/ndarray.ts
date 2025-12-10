@@ -1404,6 +1404,15 @@ export class NDArray {
   }
 
   /**
+   * Find the indices of array elements that are non-zero, grouped by element
+   * Returns a 2D array where each row is the index of a non-zero element.
+   * @returns 2D array of shape (N, ndim) where N is number of non-zero elements
+   */
+  argwhere(): NDArray {
+    return NDArray._fromStorage(sortingOps.argwhere(this._storage));
+  }
+
+  /**
    * Find indices where elements should be inserted to maintain order
    * @param v - Values to insert
    * @param side - 'left' or 'right' side to insert
@@ -4880,6 +4889,122 @@ export function spacing(x: NDArray): NDArray {
   return x.spacing();
 }
 
+/**
+ * Test element-wise for complex number
+ * Since numpy-ts doesn't support complex numbers, always returns false
+ * @param x - Input array
+ * @returns Boolean array (all false)
+ */
+export function iscomplex(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.iscomplex(x.storage));
+}
+
+/**
+ * Check whether array is complex type
+ * Since numpy-ts doesn't support complex numbers, always returns false
+ * @param x - Input array
+ * @returns false
+ */
+export function iscomplexobj(x: NDArray): boolean {
+  return logicOps.iscomplexobj(x.storage);
+}
+
+/**
+ * Test element-wise for real number (not complex)
+ * Since numpy-ts doesn't support complex numbers, always returns true
+ * @param x - Input array
+ * @returns Boolean array (all true)
+ */
+export function isreal(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.isreal(x.storage));
+}
+
+/**
+ * Check whether array is real type (not complex)
+ * Since numpy-ts doesn't support complex numbers, always returns true
+ * @param x - Input array
+ * @returns true
+ */
+export function isrealobj(x: NDArray): boolean {
+  return logicOps.isrealobj(x.storage);
+}
+
+/**
+ * Test element-wise for negative infinity
+ * @param x - Input array
+ * @returns Boolean array
+ */
+export function isneginf(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.isneginf(x.storage));
+}
+
+/**
+ * Test element-wise for positive infinity
+ * @param x - Input array
+ * @returns Boolean array
+ */
+export function isposinf(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.isposinf(x.storage));
+}
+
+/**
+ * Check if array is Fortran contiguous (column-major order)
+ * @param x - Input array
+ * @returns true if F-contiguous
+ */
+export function isfortran(x: NDArray): boolean {
+  return logicOps.isfortran(x.storage);
+}
+
+/**
+ * Returns array with complex parts close to zero set to real
+ * Since numpy-ts doesn't support complex numbers, returns copy
+ * @param x - Input array
+ * @param tol - Tolerance
+ * @returns Copy of input array
+ */
+export function real_if_close(x: NDArray, tol: number = 100): NDArray {
+  return NDArray._fromStorage(logicOps.real_if_close(x.storage, tol));
+}
+
+/**
+ * Check if element is a scalar type
+ * @param val - Value to check
+ * @returns true if scalar
+ */
+export function isscalar(val: any): boolean {
+  return logicOps.isscalar(val);
+}
+
+/**
+ * Check if object is iterable
+ * @param obj - Object to check
+ * @returns true if iterable
+ */
+export function iterable(obj: any): boolean {
+  return logicOps.iterable(obj);
+}
+
+/**
+ * Check if dtype meets specified criteria
+ * @param dtype - Dtype to check
+ * @param kind - Kind of dtype ('b' bool, 'i' int, 'u' uint, 'f' float)
+ * @returns true if dtype matches kind
+ */
+export function isdtype(dtype: DType, kind: string): boolean {
+  return logicOps.isdtype(dtype, kind);
+}
+
+/**
+ * Find the dtype that can represent both input dtypes
+ * @param dtype1 - First dtype
+ * @param dtype2 - Second dtype
+ * @returns Promoted dtype
+ */
+export function promote_types(dtype1: DType, dtype2: DType): DType {
+  return logicOps.promote_types(dtype1, dtype2);
+}
+
 // ========================================
 // Linear Algebra Functions (Additional)
 // ========================================
@@ -5455,6 +5580,17 @@ export function sort_complex(a: NDArray): NDArray {
 export function nonzero(a: NDArray): NDArray[] {
   const storages = sortingOps.nonzero(a.storage);
   return storages.map((s) => NDArray._fromStorage(s));
+}
+
+/**
+ * Find the indices of array elements that are non-zero, grouped by element
+ * Returns a 2D array where each row is the index of a non-zero element.
+ * This is equivalent to transpose(nonzero(a)).
+ * @param a - Input array
+ * @returns 2D array of shape (N, ndim) where N is number of non-zero elements
+ */
+export function argwhere(a: NDArray): NDArray {
+  return NDArray._fromStorage(sortingOps.argwhere(a.storage));
 }
 
 /**

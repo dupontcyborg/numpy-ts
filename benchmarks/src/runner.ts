@@ -508,6 +508,8 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   // Searching operations
   else if (operation === 'nonzero') {
     return np.nonzero(arrays['a']);
+  } else if (operation === 'argwhere') {
+    return np.argwhere(arrays['a']);
   } else if (operation === 'flatnonzero') {
     return np.flatnonzero(arrays['a']);
   } else if (operation === 'where') {
@@ -566,6 +568,12 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].isinf();
   } else if (operation === 'isnan') {
     return arrays['a'].isnan();
+  } else if (operation === 'isneginf') {
+    return np.isneginf(arrays['a']);
+  } else if (operation === 'isposinf') {
+    return np.isposinf(arrays['a']);
+  } else if (operation === 'isreal') {
+    return np.isreal(arrays['a']);
   } else if (operation === 'signbit') {
     return arrays['a'].signbit();
   } else if (operation === 'copysign') {

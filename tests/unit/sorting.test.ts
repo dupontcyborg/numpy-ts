@@ -12,6 +12,7 @@ import {
   argpartition,
   sort_complex,
   nonzero,
+  argwhere,
   flatnonzero,
   where,
   searchsorted,
@@ -226,6 +227,69 @@ describe('Searching Functions', () => {
       const arr = array([1, 0, 2]);
       const result = arr.nonzero();
       expect(result[0]!.toArray()).toEqual([0, 2]);
+    });
+  });
+
+  describe('argwhere()', () => {
+    it('finds indices of non-zero elements in 1D array', () => {
+      const arr = array([1, 0, 2, 0, 3]);
+      const result = argwhere(arr);
+      expect(result.shape).toEqual([3, 1]);
+      expect(result.toArray()).toEqual([[0], [2], [4]]);
+    });
+
+    it('finds indices of non-zero elements in 2D array', () => {
+      const arr = array([
+        [1, 0],
+        [0, 2],
+      ]);
+      const result = argwhere(arr);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.toArray()).toEqual([
+        [0, 0],
+        [1, 1],
+      ]);
+    });
+
+    it('returns empty array for all-zero array', () => {
+      const arr = zeros([3, 3]);
+      const result = argwhere(arr);
+      expect(result.shape).toEqual([0, 2]);
+      expect(result.toArray()).toEqual([]);
+    });
+
+    it('works with 3D array', () => {
+      const arr = zeros([2, 2, 2]);
+      arr.set([0, 0, 0], 1);
+      arr.set([1, 1, 1], 2);
+      const result = argwhere(arr);
+      expect(result.shape).toEqual([2, 3]);
+      expect(result.toArray()).toEqual([
+        [0, 0, 0],
+        [1, 1, 1],
+      ]);
+    });
+
+    it('works with all non-zero elements', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = argwhere(arr);
+      expect(result.shape).toEqual([4, 2]);
+      expect(result.toArray()).toEqual([
+        [0, 0],
+        [0, 1],
+        [1, 0],
+        [1, 1],
+      ]);
+    });
+
+    it('uses method syntax', () => {
+      const arr = array([1, 0, 2]);
+      const result = arr.argwhere();
+      expect(result.shape).toEqual([2, 1]);
+      expect(result.toArray()).toEqual([[0], [2]]);
     });
   });
 

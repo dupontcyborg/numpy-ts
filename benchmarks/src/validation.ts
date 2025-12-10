@@ -577,6 +577,8 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       const idx = np.nonzero(arrays.a);
       return np.stack(idx, 0);
     }
+    case 'argwhere':
+      return np.argwhere(arrays.a);
     case 'flatnonzero':
       return np.flatnonzero(arrays.a);
     case 'where':
@@ -637,6 +639,12 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.isinf(arrays.a);
     case 'isnan':
       return np.isnan(arrays.a);
+    case 'isneginf':
+      return np.isneginf(arrays.a);
+    case 'isposinf':
+      return np.isposinf(arrays.a);
+    case 'isreal':
+      return np.isreal(arrays.a);
     case 'signbit':
       return np.signbit(arrays.a);
     case 'copysign':

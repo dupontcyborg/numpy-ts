@@ -2,15 +2,15 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-09
+**Last Updated**: 2025-12-10
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 308/507 (60.7%)
-- **Top-level Functions**: 297/507 (55.6%)
-- **NDArray Methods**: 152/53 (62.3%)
+- **Overall Coverage**: 321/507 (63.3%)
+- **Top-level Functions**: 310/507 (58.2%)
+- **NDArray Methods**: 153/53 (62.3%)
 
 ### Completed Categories (100%)
 - Broadcasting (3/3)
@@ -19,7 +19,9 @@ Based on `npm run compare-api`:
 - Gradient (4/4)
 - Hyperbolic (9/9)
 - I/O (8/8)
+- Logic (24/24)
 - Rounding (7/7)
+- Searching (7/7)
 - Sorting (6/6)
 - Trigonometric (16/16)
 
@@ -32,13 +34,11 @@ Based on `npm run compare-api`:
 - Indexing (20/21) - 95.2%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
-- Logic (12/24) - 50.0%
 - NDArray Methods (33/53) - 62.3%
 - Other Math (0/15) - 0.0%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
 - Reductions (34/36) - 94.4%
-- Searching (6/7) - 85.7%
 - Set Operations (7/12) - 58.3%
 - Statistics (9/12) - 75.0%
 - String/Formatting (0/10) - 0.0%
@@ -372,27 +372,27 @@ Based on `npm run compare-api`:
 ## Logic
 
 - [x] `copysign` 
-- [ ] `iscomplex` 
-- [ ] `iscomplexobj` 
-- [ ] `isdtype` 
+- [x] `iscomplex` 
+- [x] `iscomplexobj` 
+- [x] `isdtype` 
 - [x] `isfinite` 
-- [ ] `isfortran` 
+- [x] `isfortran` 
 - [x] `isinf` 
 - [x] `isnan` 
 - [x] `isnat` 
-- [ ] `isneginf` 
-- [ ] `isposinf` 
-- [ ] `isreal` 
-- [ ] `isrealobj` 
-- [ ] `isscalar` 
-- [ ] `iterable` 
+- [x] `isneginf` 
+- [x] `isposinf` 
+- [x] `isreal` 
+- [x] `isrealobj` 
+- [x] `isscalar` 
+- [x] `iterable` 
 - [x] `logical_and` 
 - [x] `logical_not` 
 - [x] `logical_or` 
 - [x] `logical_xor` 
 - [x] `nextafter` 
-- [ ] `promote_types` 
-- [ ] `real_if_close` 
+- [x] `promote_types` 
+- [x] `real_if_close` 
 - [x] `signbit` 
 - [x] `spacing` 
 
@@ -604,7 +604,7 @@ Based on `npm run compare-api`:
 
 ## Searching
 
-- [ ] `argwhere` 
+- [x] `argwhere` 
 - [x] `count_nonzero` 
 - [x] `extract` 
 - [x] `flatnonzero` 
@@ -773,6 +773,7 @@ These may be removed in future versions for strict NumPy compatibility:
 - `arctan()` 
 - `arctan2()` 
 - `arctanh()` 
+- `argwhere()` 
 - `around()` 
 - `average()` 
 - `base()` 
