@@ -81,11 +81,11 @@ Progress toward complete NumPy API compatibility:
 | **Searching** | 6/6 | 100% | ✅ |
 | **Set Operations** | 7/7 | 100% | ✅ |
 | **Sorting** | 6/6 | 100% | ✅ |
+| **Statistics** | 9/9 | 100% | ✅ |
 | **Trigonometric** | 12/12 | 100% | ✅ |
 | **FFT** | 0/18 | 0% | 🔴 |
 | **Other Math** | 0/11 | 0% | 🔴 |
 | **Random** | 0/17 | 0% | 🔴 |
-| **Statistics** | 0/9 | 0% | 🔴 |
 
 **Overall: 296/333 functions (88.9% complete)**
 

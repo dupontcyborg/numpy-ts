@@ -479,6 +479,26 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "count_nonzero":
         return np.count_nonzero(arrays["a"])
 
+    # Statistics operations
+    elif operation == "bincount":
+        return np.bincount(arrays["a"].flatten().astype(int))
+    elif operation == "digitize":
+        return np.digitize(arrays["a"].flatten(), arrays["b"].flatten())
+    elif operation == "histogram":
+        hist, _ = np.histogram(arrays["a"].flatten(), bins=10)
+        return hist
+    elif operation == "histogram2d":
+        hist, _, _ = np.histogram2d(arrays["a"].flatten(), arrays["b"].flatten(), bins=10)
+        return hist
+    elif operation == "correlate":
+        return np.correlate(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
+    elif operation == "convolve":
+        return np.convolve(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
+    elif operation == "cov":
+        return np.cov(arrays["a"])
+    elif operation == "corrcoef":
+        return np.corrcoef(arrays["a"])
+
     # Logic operations
     elif operation == "logical_and":
         if "b" in arrays:

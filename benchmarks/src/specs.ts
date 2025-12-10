@@ -2020,6 +2020,102 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     // ========================================
+    // Statistics Benchmarks
+    // ========================================
+
+    specs.push({
+      name: `bincount [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'bincount',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange', dtype: 'int32' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `digitize [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'digitize',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+        b: { shape: [100], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `histogram [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'histogram',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `histogram2d [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'histogram2d',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+        b: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `correlate [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'correlate',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+        b: { shape: [100], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `convolve [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'convolve',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+        b: { shape: [100], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `cov [${sizes.medium.join('x')}]`,
+      category: 'statistics',
+      operation: 'cov',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `corrcoef [${sizes.medium.join('x')}]`,
+      category: 'statistics',
+      operation: 'corrcoef',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // ========================================
     // Logic Benchmarks
     // ========================================
 
