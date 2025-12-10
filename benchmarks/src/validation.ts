@@ -569,6 +569,28 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'count_nonzero':
       return np.count_nonzero(arrays.a);
 
+    // Statistics operations
+    case 'bincount':
+      return np.bincount(arrays.a);
+    case 'digitize':
+      return np.digitize(arrays.a, arrays.b);
+    case 'histogram': {
+      const [hist] = np.histogram(arrays.a, 10);
+      return hist;
+    }
+    case 'histogram2d': {
+      const [hist] = np.histogram2d(arrays.a, arrays.b, 10);
+      return hist;
+    }
+    case 'correlate':
+      return np.correlate(arrays.a, arrays.b, 'full');
+    case 'convolve':
+      return np.convolve(arrays.a, arrays.b, 'full');
+    case 'cov':
+      return np.cov(arrays.a);
+    case 'corrcoef':
+      return np.corrcoef(arrays.a);
+
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);
   }
