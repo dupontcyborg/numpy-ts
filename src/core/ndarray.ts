@@ -2928,6 +2928,9 @@ export function power(x: NDArray, exponent: NDArray | number): NDArray {
   return x.power(exponent);
 }
 
+// Alias for power
+export { power as pow };
+
 /**
  * Element-wise natural exponential (e^x)
  * @param x - Input array
@@ -3024,6 +3027,9 @@ export function absolute(x: NDArray): NDArray {
   return x.absolute();
 }
 
+// Alias for absolute
+export { absolute as abs };
+
 /**
  * Element-wise negation
  * @param x - Input array
@@ -3058,6 +3064,19 @@ export function mod(x: NDArray, divisor: NDArray | number): NDArray {
  * @param divisor - Divisor (array or scalar)
  * @returns Floor of the quotient
  */
+/**
+ * Element-wise division
+ * @param x - Dividend array
+ * @param divisor - Divisor (array or scalar)
+ * @returns Array of quotients
+ */
+export function divide(x: NDArray, divisor: NDArray | number): NDArray {
+  return x.divide(divisor);
+}
+
+// Alias for divide
+export { divide as true_divide };
+
 export function floor_divide(x: NDArray, divisor: NDArray | number): NDArray {
   return x.floor_divide(divisor);
 }
@@ -3235,6 +3254,9 @@ export function arcsin(x: NDArray): NDArray {
   return x.arcsin();
 }
 
+// Alias for arcsin
+export { arcsin as asin };
+
 /**
  * Element-wise inverse cosine
  * @param x - Input array (values in range [-1, 1])
@@ -3243,6 +3265,9 @@ export function arcsin(x: NDArray): NDArray {
 export function arccos(x: NDArray): NDArray {
   return x.arccos();
 }
+
+// Alias for arccos
+export { arccos as acos };
 
 /**
  * Element-wise inverse tangent
@@ -3253,6 +3278,9 @@ export function arctan(x: NDArray): NDArray {
   return x.arctan();
 }
 
+// Alias for arctan
+export { arctan as atan };
+
 /**
  * Element-wise arc tangent of x1/x2 choosing the quadrant correctly
  * @param x1 - y-coordinates
@@ -3262,6 +3290,9 @@ export function arctan(x: NDArray): NDArray {
 export function arctan2(x1: NDArray, x2: NDArray | number): NDArray {
   return x1.arctan2(x2);
 }
+
+// Alias for arctan2
+export { arctan2 as atan2 };
 
 /**
  * Given the "legs" of a right triangle, return its hypotenuse
@@ -3348,6 +3379,9 @@ export function arcsinh(x: NDArray): NDArray {
   return x.arcsinh();
 }
 
+// Alias for arcsinh
+export { arcsinh as asinh };
+
 /**
  * Element-wise inverse hyperbolic cosine
  * @param x - Input array (values >= 1)
@@ -3357,6 +3391,9 @@ export function arccosh(x: NDArray): NDArray {
   return x.arccosh();
 }
 
+// Alias for arccosh
+export { arccosh as acosh };
+
 /**
  * Element-wise inverse hyperbolic tangent
  * @param x - Input array (values in range (-1, 1))
@@ -3365,6 +3402,9 @@ export function arccosh(x: NDArray): NDArray {
 export function arctanh(x: NDArray): NDArray {
   return x.arctanh();
 }
+
+// Alias for arctanh
+export { arctanh as atanh };
 
 // ========================================
 // Array Manipulation Functions
@@ -4233,6 +4273,9 @@ export function cumsum(a: NDArray, axis?: number): NDArray {
   return NDArray._fromStorage(reductionOps.cumsum(a.storage, axis));
 }
 
+// Alias for cumsum
+export { cumsum as cumulative_sum };
+
 /**
  * Return the cumulative product of the elements along a given axis.
  * @param a - Input array
@@ -4242,6 +4285,37 @@ export function cumsum(a: NDArray, axis?: number): NDArray {
 export function cumprod(a: NDArray, axis?: number): NDArray {
   return NDArray._fromStorage(reductionOps.cumprod(a.storage, axis));
 }
+
+// Alias for cumprod
+export { cumprod as cumulative_prod };
+
+/**
+ * Return the maximum along a given axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use all elements.
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Maximum value(s)
+ */
+export function max(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+  return a.max(axis, keepdims);
+}
+
+// Alias for max
+export { max as amax };
+
+/**
+ * Return the minimum along a given axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use all elements.
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Minimum value(s)
+ */
+export function min(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+  return a.min(axis, keepdims);
+}
+
+// Alias for min
+export { min as amin };
 
 /**
  * Peak to peak (maximum - minimum) value along a given axis.
@@ -5456,6 +5530,9 @@ export function count_nonzero(a: NDArray, axis?: number): NDArray | number {
 export function around(a: NDArray, decimals: number = 0): NDArray {
   return NDArray._fromStorage(roundingOps.around(a.storage, decimals));
 }
+
+// Alias for around
+export { around as round_ };
 
 /**
  * Return the ceiling of the input, element-wise

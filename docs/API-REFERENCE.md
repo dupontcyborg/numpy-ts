@@ -8,8 +8,8 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 294/507 (58.0%)
-- **Top-level Functions**: 279/507 (52.3%)
+- **Overall Coverage**: 308/507 (60.7%)
+- **Top-level Functions**: 297/507 (55.6%)
 - **NDArray Methods**: 152/53 (62.3%)
 
 ### Completed Categories (100%)
@@ -17,17 +17,18 @@ Based on `npm run compare-api`:
 - Comparison (10/10)
 - Exponential (9/9)
 - Gradient (4/4)
+- Hyperbolic (9/9)
 - I/O (8/8)
 - Rounding (7/7)
 - Sorting (6/6)
+- Trigonometric (16/16)
 
 ### Incomplete Categories
-- Arithmetic (19/29) - 65.5%
+- Arithmetic (22/29) - 75.9%
 - Array Creation (33/35) - 94.3%
 - Array Manipulation (36/46) - 78.3%
 - Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
-- Hyperbolic (6/9) - 66.7%
 - Indexing (20/21) - 95.2%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
@@ -36,12 +37,11 @@ Based on `npm run compare-api`:
 - Other Math (0/15) - 0.0%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Reductions (30/36) - 83.3%
+- Reductions (34/36) - 94.4%
 - Searching (6/7) - 85.7%
 - Set Operations (7/12) - 58.3%
 - Statistics (9/12) - 75.0%
 - String/Formatting (0/10) - 0.0%
-- Trigonometric (12/16) - 75.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
 - Utilities (3/16) - 18.8%
@@ -50,7 +50,7 @@ Based on `npm run compare-api`:
 
 ## Arithmetic
 
-- [ ] `abs` 
+- [x] `abs` 
 - [x] `absolute` 
 - [x] `add` 
 - [x] `cbrt` 
@@ -70,7 +70,7 @@ Based on `npm run compare-api`:
 - [x] `multiply` 
 - [x] `negative` 
 - [x] `positive` 
-- [ ] `pow` 
+- [x] `pow` 
 - [x] `power` 
 - [x] `reciprocal` 
 - [x] `remainder` 
@@ -78,7 +78,7 @@ Based on `npm run compare-api`:
 - [x] `sqrt` 
 - [x] `square` 
 - [x] `subtract` 
-- [ ] `true_divide` 
+- [x] `true_divide` 
 
 ---
 
@@ -262,12 +262,12 @@ Based on `npm run compare-api`:
 
 ## Hyperbolic
 
-- [ ] `acosh` 
+- [x] `acosh` 
 - [x] `arccosh` 
 - [x] `arcsinh` 
 - [x] `arctanh` 
-- [ ] `asinh` 
-- [ ] `atanh` 
+- [x] `asinh` 
+- [x] `atanh` 
 - [x] `cosh` 
 - [x] `sinh` 
 - [x] `tanh` 
@@ -552,16 +552,16 @@ Based on `npm run compare-api`:
 ## Reductions
 
 - [x] `all` 
-- [ ] `amax` 
-- [ ] `amin` 
+- [x] `amax` 
+- [x] `amin` 
 - [x] `any` 
 - [x] `argmax` 
 - [x] `argmin` 
 - [x] `average` 
 - [x] `cumprod` 
 - [x] `cumsum` 
-- [ ] `cumulative_prod` 
-- [ ] `cumulative_sum` 
+- [x] `cumulative_prod` 
+- [x] `cumulative_sum` 
 - [x] `max` 
 - [x] `mean` 
 - [x] `median` 
@@ -676,14 +676,14 @@ Based on `npm run compare-api`:
 
 ## Trigonometric
 
-- [ ] `acos` 
+- [x] `acos` 
 - [x] `arccos` 
 - [x] `arcsin` 
 - [x] `arctan` 
 - [x] `arctan2` 
-- [ ] `asin` 
-- [ ] `atan` 
-- [ ] `atan2` 
+- [x] `asin` 
+- [x] `atan` 
+- [x] `atan2` 
 - [x] `cos` 
 - [x] `deg2rad` 
 - [x] `degrees` 
