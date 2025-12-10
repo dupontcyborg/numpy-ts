@@ -531,6 +531,34 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         else:
             return np.copysign(arrays["a"], arrays["scalar"])
 
+    # Random operations
+    elif operation == "random_random":
+        return np.random.random(arrays["shape"])
+    elif operation == "random_rand":
+        shape = arrays["shape"]
+        return np.random.rand(*shape)
+    elif operation == "random_randn":
+        shape = arrays["shape"]
+        return np.random.randn(*shape)
+    elif operation == "random_randint":
+        return np.random.randint(0, 100, arrays["shape"])
+    elif operation == "random_uniform":
+        return np.random.uniform(0, 1, arrays["shape"])
+    elif operation == "random_normal":
+        return np.random.normal(0, 1, arrays["shape"])
+    elif operation == "random_standard_normal":
+        return np.random.standard_normal(arrays["shape"])
+    elif operation == "random_exponential":
+        return np.random.exponential(1, arrays["shape"])
+    elif operation == "random_poisson":
+        return np.random.poisson(5, arrays["shape"])
+    elif operation == "random_binomial":
+        return np.random.binomial(10, 0.5, arrays["shape"])
+    elif operation == "random_choice":
+        return np.random.choice(arrays["n"], 100)
+    elif operation == "random_permutation":
+        return np.random.permutation(arrays["n"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 
