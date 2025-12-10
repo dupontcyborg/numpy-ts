@@ -264,6 +264,21 @@ All operations preserve dtype or follow NumPy promotion rules:
 
 ## Random Sampling (numpy.random)
 
+### Random Module Compatibility
+
+The random module implements both NumPy's legacy API (MT19937) and modern Generator API (PCG64):
+
+| Functions | NumPy Match | Notes |
+|-----------|-------------|-------|
+| `random()`, `rand()`, `uniform()` | ✅ Exact | Same seed → identical output |
+| `default_rng().random()`, `.uniform()` | ✅ Exact | PCG64 with SeedSequence |
+| `randn()`, `normal()`, `standard_normal()` | Statistical | Uses Box-Muller (NumPy uses polar/Ziggurat) |
+| `randint()`, `integers()` | Statistical | Correct range, different sequence |
+| `exponential()`, `poisson()`, `binomial()` | Statistical | Correct distributions, different sequence |
+| `choice()`, `permutation()`, `shuffle()` | Statistical | Correct behavior, difference sequence |
+
+**Exact match** means `np.random.seed(42)` in Python and `random.seed(42)` in numpy-ts produce identical sequences. **Statistical match** means correct distributions but different sequences.
+
 ### Simple Random
 - [ ] `random.rand(...shape)` - Uniform [0, 1)
 - [ ] `random.randn(...shape)` - Standard normal

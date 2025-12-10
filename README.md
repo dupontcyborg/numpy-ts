@@ -75,7 +75,7 @@ Progress toward complete NumPy API compatibility:
 | **Indexing** | 20/20 | 100% | ✅ |
 | **Linear Algebra** | 9/9 | 100% | ✅ |
 | **Linear Algebra (linalg)** | 19/19 | 100% | ✅ |
-| **Random** | 17/17 | 100% | ✅ [details](#random-module-compatibility) |
+| **Random** | 17/17 | 100% | ✅ [notes](docs/API-REFERENCE.md#random-module-compatibility) |
 | **Reductions** | 30/30 | 100% | ✅ |
 | **Rounding** | 7/7 | 100% | ✅ |
 | **Searching** | 6/6 | 100% | ✅ |
@@ -90,21 +90,6 @@ Progress toward complete NumPy API compatibility:
 **Overall: 302/333 functions (90.7% complete)**
 
 See the complete [API Reference](docs/API-REFERENCE.md) for detailed function list.
-
-### Random Module Compatibility
-
-The random module implements both NumPy's legacy API (MT19937) and modern Generator API (PCG64):
-
-| Functions | NumPy Match | Notes |
-|-----------|-------------|-------|
-| `random()`, `rand()`, `uniform()` | ✅ Exact | Same seed → identical output |
-| `default_rng().random()`, `.uniform()` | ✅ Exact | PCG64 with SeedSequence |
-| `randn()`, `normal()`, `standard_normal()` | Statistical | Uses Box-Muller (NumPy uses polar/Ziggurat) |
-| `randint()`, `integers()` | Statistical | Correct range, different sequence |
-| `exponential()`, `poisson()`, `binomial()` | Statistical | Correct distributions |
-| `choice()`, `permutation()`, `shuffle()` | Statistical | Correct behavior |
-
-**Exact match** means `np.random.seed(42)` in Python and `random.seed(42)` in numpy-ts produce identical sequences. **Statistical match** means correct distributions but different sequences.
 
 ### Data Types (dtypes)
 
