@@ -447,6 +447,38 @@ def run_operation(spec):
     elif operation == "corrcoef":
         result = np.corrcoef(arrays["a"])
 
+    # Logic operations
+    elif operation == "logical_and":
+        if "b" in arrays:
+            result = np.logical_and(arrays["a"], arrays["b"]).astype(np.uint8)
+        else:
+            result = np.logical_and(arrays["a"], arrays["scalar"]).astype(np.uint8)
+    elif operation == "logical_or":
+        if "b" in arrays:
+            result = np.logical_or(arrays["a"], arrays["b"]).astype(np.uint8)
+        else:
+            result = np.logical_or(arrays["a"], arrays["scalar"]).astype(np.uint8)
+    elif operation == "logical_not":
+        result = np.logical_not(arrays["a"]).astype(np.uint8)
+    elif operation == "logical_xor":
+        if "b" in arrays:
+            result = np.logical_xor(arrays["a"], arrays["b"]).astype(np.uint8)
+        else:
+            result = np.logical_xor(arrays["a"], arrays["scalar"]).astype(np.uint8)
+    elif operation == "isfinite":
+        result = np.isfinite(arrays["a"]).astype(np.uint8)
+    elif operation == "isinf":
+        result = np.isinf(arrays["a"]).astype(np.uint8)
+    elif operation == "isnan":
+        result = np.isnan(arrays["a"]).astype(np.uint8)
+    elif operation == "signbit":
+        result = np.signbit(arrays["a"]).astype(np.uint8)
+    elif operation == "copysign":
+        if "b" in arrays:
+            result = np.copysign(arrays["a"], arrays["b"])
+        else:
+            result = np.copysign(arrays["a"], arrays["scalar"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 
