@@ -926,7 +926,10 @@ export function choice(
 /**
  * Implementation of permutation
  */
-function permutationImpl(x: number | ArrayStorage, rng: () => number = mtRandomFloat53): ArrayStorage {
+function permutationImpl(
+  x: number | ArrayStorage,
+  rng: () => number = mtRandomFloat53
+): ArrayStorage {
   let arr: ArrayStorage;
   if (typeof x === 'number') {
     const data = new Float64Array(x);

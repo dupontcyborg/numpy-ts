@@ -282,11 +282,12 @@ export {
 import * as randomOps from './ops/random';
 import { ArrayStorage } from './core/storage';
 import { NDArray as NDArrayClass } from './core/ndarray';
+import { DType } from './core/dtype';
 
 // Helper to wrap ArrayStorage results in NDArray
-function wrapResult<T>(result: T): any {
+function wrapResult<T>(result: T): T | NDArrayClass {
   if (result && typeof result === 'object' && '_data' in result && '_shape' in result) {
-    return NDArrayClass._fromStorage(result as ArrayStorage);
+    return NDArrayClass._fromStorage(result as unknown as ArrayStorage);
   }
   return result;
 }
@@ -296,7 +297,7 @@ export const random = {
   random: (size?: number | number[]) => wrapResult(randomOps.random(size)),
   rand: (...shape: number[]) => wrapResult(randomOps.rand(...shape)),
   randn: (...shape: number[]) => wrapResult(randomOps.randn(...shape)),
-  randint: (low: number, high?: number | null, size?: number | number[], dtype?: any) =>
+  randint: (low: number, high?: number | null, size?: number | number[], dtype?: DType) =>
     wrapResult(randomOps.randint(low, high, size, dtype)),
   uniform: (low?: number, high?: number, size?: number | number[]) =>
     wrapResult(randomOps.uniform(low, high, size)),

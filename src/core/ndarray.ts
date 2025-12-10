@@ -5749,7 +5749,7 @@ export function histogram2d(
   density: boolean = false,
   weights?: NDArray
 ): [NDArray, NDArray, NDArray] {
-  let binsArg: number | [number, number] | [any, any];
+  let binsArg: number | [number, number] | [ArrayStorage, ArrayStorage];
   if (typeof bins === 'number') {
     binsArg = bins;
   } else if (Array.isArray(bins) && bins.length === 2) {
