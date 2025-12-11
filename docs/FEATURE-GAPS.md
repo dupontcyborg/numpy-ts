@@ -10,7 +10,46 @@ numpy-ts implements core NumPy functionality but lacks several deeper features. 
 
 ## Major Feature Gaps
 
-### 1. Complex Number Data Types
+### 1. Universal Functions (ufuncs) System
+**Status: Not Implemented**
+**Scope: MAJOR - Foundational NumPy concept**
+
+NumPy's universal function (ufunc) system is **completely absent**. We have functions that perform similar operations, but none of the ufunc infrastructure.
+
+**What's Missing:**
+
+| Category | Missing Features |
+|----------|-----------------|
+| **ufunc objects** | No `np.ufunc` class, no ufunc instances |
+| **ufunc methods** | `.reduce()`, `.accumulate()`, `.reduceat()`, `.outer()`, `.at()` |
+| **ufunc creation** | `np.frompyfunc()`, `np.vectorize()` |
+| **ufunc parameters** | `out`, `where`, `dtype`, `casting`, `order`, `subok` |
+| **ufunc protocol** | `__array_ufunc__` for custom array types |
+
+**Current State:**
+- Operations like `add`, `multiply`, `sin`, etc. are plain functions
+- No way to pre-allocate output arrays (`out` parameter)
+- No conditional application (`where` parameter)
+- No control over output dtype in operations
+- No way to create custom vectorized functions
+- No `.reduce()` on operations (must use separate `sum()`, `prod()` etc.)
+
+**Impact:**
+- Memory inefficiency: Cannot reuse arrays, must allocate new arrays for every operation
+- Missing functionality: Cannot do `np.add.reduce()`, `np.multiply.outer()`, etc.
+- No extensibility: Cannot create custom ufuncs
+- No interoperability: Cannot implement `__array_ufunc__` protocol
+
+**Implementation Notes:**
+This would be a major architectural addition:
+- New `Ufunc` class with methods
+- Wrap all existing operations as ufunc instances
+- Add parameter handling to all operations (50+ functions)
+- Estimate: New subsystem, 1000+ lines, touches all operation files
+
+---
+
+### 2. Complex Number Data Types
 **Status: Not Supported**
 **Scope: MAJOR - Touches almost everything**
 
@@ -31,7 +70,7 @@ Missing:
 
 ---
 
-### 2. F-Order Memory Layout (Fortran Order)
+### 3. F-Order Memory Layout (Fortran Order)
 **Status: Not Truly Supported**
 **Scope: MAJOR - Fundamental architectural change**
 
@@ -51,7 +90,7 @@ Required Changes:
 
 ---
 
-### 3. Structured Arrays / Record Arrays
+### 4. Structured Arrays / Record Arrays
 **Status: Not Supported**
 **Scope: MAJOR - New subsystem**
 
@@ -68,7 +107,7 @@ Missing:
 
 ---
 
-### 4. Advanced Indexing (Fancy Indexing)
+### 5. Advanced Indexing (Fancy Indexing)
 **Status: Partially Missing**
 **Scope: MODERATE - Concentrated in indexing**
 
@@ -88,32 +127,7 @@ Required Changes:
 
 ## Moderate Feature Gaps
 
-### 5. ufunc `out` Parameter
-**Status: Not Supported**
-**Scope: MODERATE-LARGE - Touches all operations**
-
-Operations cannot write to pre-allocated output arrays. This impacts memory efficiency for large array operations.
-
-Required Changes:
-- compute.ts: Modify `elementwiseBinaryOp()` to accept optional output storage
-- All arithmetic ops (15+), comparison ops (10+), math ops (30+): Add `out?: NDArray` parameter
-- Validation for shape/dtype compatibility
-
-**Estimate:** Signature change to 50+ functions, logic change localized to compute.ts
-
----
-
-### 6. ufunc `where` Parameter
-**Status: Not Supported**
-**Scope: MODERATE-LARGE - Touches all operations**
-
-Cannot conditionally apply operations based on boolean mask.
-
-**Estimate:** Similar scope to `out` parameter - 50+ function signatures
-
----
-
-### 7. Tuple of Axes for Reductions
+### 6. Tuple of Axes for Reductions
 **Status: Not Supported**
 **Scope: SMALL-MODERATE - Localized to reductions**
 
@@ -127,19 +141,7 @@ Required Changes:
 
 ---
 
-### 8. Reduction Parameters (`dtype`, `initial`)
-**Status: Not Supported**
-**Scope: SMALL - Localized to reductions**
-
-Missing:
-- `dtype` parameter to control output type
-- `initial` parameter as starting value
-
-**Estimate:** 1 file, ~15-20 functions total
-
----
-
-### 9. Polynomial Module
+### 7. Polynomial Module
 **Status: Not Implemented**
 **Scope: MODERATE - New module**
 
@@ -149,7 +151,7 @@ Missing: `polyval`, `polyfit`, `polyder`, `polyint`, `poly1d` class, `roots`
 
 ---
 
-### 10. Error State Control
+### 8. Error State Control
 **Status: Not Implemented**
 **Scope: SMALL - New utility**
 
@@ -164,7 +166,7 @@ Missing:
 
 ## Large New Subsystems
 
-### 11. FFT Module
+### 9. FFT Module
 **Status: Not Implemented**
 **Scope: LARGE - New module**
 **Blocker: Requires complex number support**
@@ -175,7 +177,7 @@ Missing: `fft`, `ifft`, `fft2`, `ifft2`, `fftn`, `ifftn`, `rfft`, `irfft`, `fftf
 
 ---
 
-### 12. Masked Arrays (`np.ma`)
+### 10. Masked Arrays (`np.ma`)
 **Status: Not Implemented**
 **Scope: LARGE - New subsystem**
 
@@ -192,22 +194,20 @@ Missing:
 ## Priority Rankings
 
 ### High Impact (Core Functionality Gaps)
-1. **Complex numbers** - Blocks entire domains (signal processing, FFT)
-2. **F-order memory layout** - Interoperability with scientific libraries
-3. **Integer/boolean array indexing** - Basic NumPy usage pattern
-4. **ufunc `out` parameter** - Memory efficiency for large arrays
+1. **ufunc system** - Foundational NumPy concept, blocks memory efficiency and extensibility
+2. **Complex numbers** - Blocks entire domains (signal processing, FFT)
+3. **F-order memory layout** - Interoperability with scientific libraries
+4. **Integer/boolean array indexing** - Basic NumPy usage pattern
 5. **Tuple of axes** for reductions
 
 ### Medium Impact (Important Features)
-6. **ufunc `where` parameter**
-7. **Reduction `dtype`/`initial` parameters**
-8. **Polynomial module**
-9. **Error state control**
+6. **Polynomial module**
+7. **Error state control**
 
 ### Lower Impact (Advanced/Specialized)
-10. **Structured arrays**
-11. **FFT module** (blocked by complex)
-12. **Masked arrays**
+8. **Structured arrays**
+9. **FFT module** (blocked by complex)
+10. **Masked arrays**
 
 ---
 
@@ -216,16 +216,13 @@ Missing:
 | Feature | Scope | Files | Functions | Blockers |
 |---------|-------|-------|-----------|----------|
 | Tuple axes reductions | Small-Mod | 1 | 15 | None |
-| `initial` param | Small | 1 | 10 | None |
-| `dtype` param (reductions) | Small | 1 | 15 | None |
 | Error state | Small | 1-2 | 5 | None |
 | Polynomial module | Moderate | 1 new | 10-15 | None |
 | Fancy indexing | Moderate | 2-3 | 10-15 | None |
-| `out` parameter | Mod-Large | 10+ | 50+ | None |
-| `where` parameter | Mod-Large | 10+ | 50+ | None |
 | F-order | Major | 10+ | 30+ | None |
 | Complex numbers | Major | 15+ | 50+ | None |
 | Structured arrays | Major | 5+ | 20+ | None |
+| **ufunc system** | **Major** | **All ops** | **50+** | **None** |
 | FFT module | Large | 1 new | 15 | Complex |
 | Masked arrays | Large | 3+ new | 30+ | None |
 
