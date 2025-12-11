@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array } from '../../src/core/ndarray';
+import { array, float_power, fmod, frexp, gcd, lcm, ldexp, modf } from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Arithmetic Operations', () => {
@@ -334,6 +334,172 @@ result = np.mod([[10, 20], [15, 25]], 7)
 
       expect(jsRemainder.shape).toEqual(pyResult.shape);
       expect(arraysClose(jsRemainder.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('float_power()', () => {
+    it('validates float_power() with scalar', () => {
+      const arr = array([2, 3, 4]);
+      const result = float_power(arr, 2);
+
+      const npResult = runNumPy(`
+arr = np.array([2, 3, 4])
+result = np.float_power(arr, 2)
+`);
+
+      expect(result.dtype).toBe('float64');
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates float_power() with array', () => {
+      const base = array([2, 3, 4]);
+      const exp = array([1, 2, 3]);
+      const result = float_power(base, exp);
+
+      const npResult = runNumPy(`
+base = np.array([2, 3, 4])
+exp = np.array([1, 2, 3])
+result = np.float_power(base, exp)
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('fmod()', () => {
+    it('validates fmod() with scalar', () => {
+      const arr = array([7, 8, 9, -7, -8]);
+      const result = fmod(arr, 3);
+
+      const npResult = runNumPy(`
+arr = np.array([7, 8, 9, -7, -8])
+result = np.fmod(arr, 3)
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('frexp()', () => {
+    it('validates frexp()', () => {
+      const arr = array([8, 16, 32]);
+      const [mantissa, exponent] = frexp(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([8, 16, 32])
+mantissa, exponent = np.frexp(arr)
+result = {'mantissa': mantissa.tolist(), 'exponent': exponent.tolist()}
+`);
+
+      expect(mantissa.dtype).toBe('float64');
+      expect(exponent.dtype).toBe('int32');
+      expect(arraysClose(mantissa.toArray(), npResult.value.mantissa)).toBe(true);
+      expect(arraysClose(exponent.toArray(), npResult.value.exponent)).toBe(true);
+    });
+  });
+
+  describe('gcd()', () => {
+    it('validates gcd() with arrays', () => {
+      const a = array([12, 18, 24]);
+      const b = array([8, 12, 16]);
+      const result = gcd(a, b);
+
+      const npResult = runNumPy(`
+a = np.array([12, 18, 24])
+b = np.array([8, 12, 16])
+result = np.gcd(a, b)
+`);
+
+      expect(result.dtype).toBe('int32');
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates gcd() with scalar', () => {
+      const arr = array([12, 18, 24]);
+      const result = gcd(arr, 6);
+
+      const npResult = runNumPy(`
+arr = np.array([12, 18, 24])
+result = np.gcd(arr, 6)
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('lcm()', () => {
+    it('validates lcm() with arrays', () => {
+      const a = array([12, 18, 24]);
+      const b = array([8, 12, 16]);
+      const result = lcm(a, b);
+
+      const npResult = runNumPy(`
+a = np.array([12, 18, 24])
+b = np.array([8, 12, 16])
+result = np.lcm(a, b)
+`);
+
+      expect(result.dtype).toBe('int32');
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates lcm() with scalar', () => {
+      const arr = array([4, 6, 8]);
+      const result = lcm(arr, 3);
+
+      const npResult = runNumPy(`
+arr = np.array([4, 6, 8])
+result = np.lcm(arr, 3)
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('ldexp()', () => {
+    it('validates ldexp() with scalar', () => {
+      const arr = array([1, 2, 3]);
+      const result = ldexp(arr, 3);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 2, 3])
+result = np.ldexp(arr, 3)
+`);
+
+      expect(result.dtype).toBe('float64');
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates ldexp() with array', () => {
+      const base = array([1, 1, 1]);
+      const exp = array([1, 2, 3]);
+      const result = ldexp(base, exp);
+
+      const npResult = runNumPy(`
+base = np.array([1, 1, 1])
+exp = np.array([1, 2, 3])
+result = np.ldexp(base, exp)
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('modf()', () => {
+    it('validates modf()', () => {
+      const arr = array([1.5, 2.7, -3.2]);
+      const [fractional, integral] = modf(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([1.5, 2.7, -3.2])
+fractional, integral = np.modf(arr)
+result = {'fractional': fractional.tolist(), 'integral': integral.tolist()}
+`);
+
+      expect(fractional.dtype).toBe('float64');
+      expect(integral.dtype).toBe('float64');
+      expect(arraysClose(fractional.toArray(), npResult.value.fractional)).toBe(true);
+      expect(arraysClose(integral.toArray(), npResult.value.integral)).toBe(true);
     });
   });
 });

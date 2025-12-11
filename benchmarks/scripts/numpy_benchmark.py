@@ -145,6 +145,12 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "divmod":
         q, r = np.divmod(arrays["a"], arrays["b"])
         return q  # Just return quotient for benchmarking
+    elif operation == "gcd":
+        return np.gcd(arrays["a"], arrays["b"])
+    elif operation == "lcm":
+        return np.lcm(arrays["a"], arrays["b"])
+    elif operation == "float_power":
+        return np.float_power(arrays["a"], arrays["b"])
 
     # Mathematical operations
     elif operation == "sqrt":
@@ -468,6 +474,8 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     # Searching operations
     elif operation == "nonzero":
         return np.nonzero(arrays["a"])
+    elif operation == "argwhere":
+        return np.argwhere(arrays["a"])
     elif operation == "flatnonzero":
         return np.flatnonzero(arrays["a"])
     elif operation == "where":
@@ -523,6 +531,12 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.isinf(arrays["a"])
     elif operation == "isnan":
         return np.isnan(arrays["a"])
+    elif operation == "isneginf":
+        return np.isneginf(arrays["a"])
+    elif operation == "isposinf":
+        return np.isposinf(arrays["a"])
+    elif operation == "isreal":
+        return np.isreal(arrays["a"])
     elif operation == "signbit":
         return np.signbit(arrays["a"])
     elif operation == "copysign":

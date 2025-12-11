@@ -15,6 +15,7 @@ import {
   argpartition,
   sort_complex,
   nonzero,
+  argwhere,
   flatnonzero,
   where,
   searchsorted,
@@ -375,6 +376,91 @@ result = [x.tolist() for x in np.nonzero(arr)]
 
       expect(result[0]!.toArray()).toEqual(npResult.value[0]);
       expect(result[1]!.toArray()).toEqual(npResult.value[1]);
+    });
+  });
+
+  describe('argwhere()', () => {
+    it('validates argwhere() on 1D array', () => {
+      const arr = array([1, 0, 2, 0, 3]);
+      const result = argwhere(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 0, 2, 0, 3])
+result = np.argwhere(arr)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates argwhere() on 2D array', () => {
+      const arr = array([
+        [1, 0],
+        [0, 2],
+      ]);
+      const result = argwhere(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 0], [0, 2]])
+result = np.argwhere(arr)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates argwhere() on all-zero array', () => {
+      const arr = array([
+        [0, 0],
+        [0, 0],
+      ]);
+      const result = argwhere(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([[0, 0], [0, 0]])
+result = np.argwhere(arr)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect((result as any).toArray()).toEqual(npResult.value);
+    });
+
+    it('validates argwhere() on 3D array', () => {
+      const arr = array([
+        [
+          [1, 0],
+          [0, 2],
+        ],
+        [
+          [0, 3],
+          [4, 0],
+        ],
+      ]);
+      const result = argwhere(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([[[1, 0], [0, 2]], [[0, 3], [4, 0]]])
+result = np.argwhere(arr)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates argwhere() with all non-zero elements', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = argwhere(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2], [3, 4]])
+result = np.argwhere(arr)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
     });
   });
 

@@ -877,3 +877,231 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
 
   return result;
 }
+
+/**
+ * First array raised to power of second, always promoting to float
+ * @param x1 - Base values
+ * @param x2 - Exponent values
+ * @returns Result in float64
+ */
+export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (typeof x2 === 'number') {
+    const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
+    const resultData = result.data as Float64Array;
+    const x1Data = x1.data;
+    const size = x1.size;
+
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.pow(Number(x1Data[i]!), x2);
+    }
+
+    return result;
+  }
+
+  return elementwiseBinaryOp(x1, x2, (a, b) => Math.pow(a, b), 'float_power');
+}
+
+/**
+ * Element-wise remainder of division (fmod)
+ * Unlike mod/remainder, fmod matches C fmod behavior
+ * @param x1 - Dividend
+ * @param x2 - Divisor
+ * @returns Remainder
+ */
+export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (typeof x2 === 'number') {
+    const result = x1.copy();
+    const resultData = result.data;
+    const size = x1.size;
+
+    for (let i = 0; i < size; i++) {
+      const val = Number(resultData[i]!);
+      resultData[i] = val - Math.trunc(val / x2) * x2;
+    }
+
+    return result;
+  }
+
+  return elementwiseBinaryOp(x1, x2, (a, b) => a - Math.trunc(a / b) * b, 'fmod');
+}
+
+/**
+ * Decompose floating point numbers into mantissa and exponent
+ * Returns [mantissa, exponent] where x = mantissa * 2^exponent
+ * @param x - Input array
+ * @returns Tuple of [mantissa, exponent] arrays
+ */
+export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
+  const mantissa = ArrayStorage.zeros(Array.from(x.shape), 'float64');
+  const exponent = ArrayStorage.zeros(Array.from(x.shape), 'int32');
+  const mantissaData = mantissa.data as Float64Array;
+  const exponentData = exponent.data as Int32Array;
+  const xData = x.data;
+  const size = x.size;
+
+  for (let i = 0; i < size; i++) {
+    const val = Number(xData[i]!);
+
+    if (val === 0 || !isFinite(val)) {
+      mantissaData[i] = val;
+      exponentData[i] = 0;
+    } else {
+      const exp = Math.floor(Math.log2(Math.abs(val))) + 1;
+      const man = val / Math.pow(2, exp);
+      mantissaData[i] = man;
+      exponentData[i] = exp;
+    }
+  }
+
+  return [mantissa, exponent];
+}
+
+/**
+ * Greatest common divisor
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns GCD
+ */
+export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  const gcdSingle = (a: number, b: number): number => {
+    a = Math.abs(Math.trunc(a));
+    b = Math.abs(Math.trunc(b));
+    while (b !== 0) {
+      const temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
+  };
+
+  if (typeof x2 === 'number') {
+    const result = ArrayStorage.zeros(Array.from(x1.shape), 'int32');
+    const resultData = result.data as Int32Array;
+    const x1Data = x1.data;
+    const size = x1.size;
+    const x2Int = Math.abs(Math.trunc(x2));
+
+    for (let i = 0; i < size; i++) {
+      resultData[i] = gcdSingle(Number(x1Data[i]!), x2Int);
+    }
+
+    return result;
+  }
+
+  // Array case - use elementwiseBinaryOp then convert to int32
+  const tempResult = elementwiseBinaryOp(x1, x2, gcdSingle, 'gcd');
+
+  // Convert result to int32
+  const result = ArrayStorage.zeros(Array.from(tempResult.shape), 'int32');
+  const resultData = result.data as Int32Array;
+  const tempData = tempResult.data;
+  const size = tempResult.size;
+
+  for (let i = 0; i < size; i++) {
+    resultData[i] = Math.round(Number(tempData[i]!));
+  }
+
+  return result;
+}
+
+/**
+ * Least common multiple
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns LCM
+ */
+export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  const gcdSingle = (a: number, b: number): number => {
+    a = Math.abs(Math.trunc(a));
+    b = Math.abs(Math.trunc(b));
+    while (b !== 0) {
+      const temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
+  };
+
+  const lcmSingle = (a: number, b: number): number => {
+    a = Math.abs(Math.trunc(a));
+    b = Math.abs(Math.trunc(b));
+    if (a === 0 || b === 0) return 0;
+    return (a * b) / gcdSingle(a, b);
+  };
+
+  if (typeof x2 === 'number') {
+    const result = ArrayStorage.zeros(Array.from(x1.shape), 'int32');
+    const resultData = result.data as Int32Array;
+    const x1Data = x1.data;
+    const size = x1.size;
+    const x2Int = Math.abs(Math.trunc(x2));
+
+    for (let i = 0; i < size; i++) {
+      resultData[i] = lcmSingle(Number(x1Data[i]!), x2Int);
+    }
+
+    return result;
+  }
+
+  // Array case - use elementwiseBinaryOp then convert to int32
+  const tempResult = elementwiseBinaryOp(x1, x2, lcmSingle, 'lcm');
+
+  // Convert result to int32
+  const result = ArrayStorage.zeros(Array.from(tempResult.shape), 'int32');
+  const resultData = result.data as Int32Array;
+  const tempData = tempResult.data;
+  const size = tempResult.size;
+
+  for (let i = 0; i < size; i++) {
+    resultData[i] = Math.round(Number(tempData[i]!));
+  }
+
+  return result;
+}
+
+/**
+ * Returns x1 * 2^x2, element-wise
+ * @param x1 - Mantissa
+ * @param x2 - Exponent
+ * @returns Result
+ */
+export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (typeof x2 === 'number') {
+    const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
+    const resultData = result.data as Float64Array;
+    const x1Data = x1.data;
+    const size = x1.size;
+    const multiplier = Math.pow(2, x2);
+
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Number(x1Data[i]!) * multiplier;
+    }
+
+    return result;
+  }
+
+  return elementwiseBinaryOp(x1, x2, (a, b) => a * Math.pow(2, b), 'ldexp');
+}
+
+/**
+ * Return fractional and integral parts of array
+ * @param x - Input array
+ * @returns Tuple of [fractional, integral] arrays
+ */
+export function modf(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
+  const fractional = ArrayStorage.zeros(Array.from(x.shape), 'float64');
+  const integral = ArrayStorage.zeros(Array.from(x.shape), 'float64');
+  const fractionalData = fractional.data as Float64Array;
+  const integralData = integral.data as Float64Array;
+  const xData = x.data;
+  const size = x.size;
+
+  for (let i = 0; i < size; i++) {
+    const val = Number(xData[i]!);
+    const intPart = Math.trunc(val);
+    integralData[i] = intPart;
+    fractionalData[i] = val - intPart;
+  }
+
+  return [fractional, integral];
+}

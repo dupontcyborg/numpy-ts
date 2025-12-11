@@ -322,6 +322,42 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    specs.push({
+      name: `gcd [${sizes.medium.join('x')}] scalar`,
+      category: 'arithmetic',
+      operation: 'gcd',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        b: { shape: [1], value: 6, dtype: 'int32' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `lcm [${sizes.medium.join('x')}] scalar`,
+      category: 'arithmetic',
+      operation: 'lcm',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        b: { shape: [1], value: 6, dtype: 'int32' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `float_power [${sizes.medium.join('x')}] ** scalar`,
+      category: 'arithmetic',
+      operation: 'float_power',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        b: { shape: [1], value: 2 },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   // ========================================
@@ -1961,6 +1997,17 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
+      name: `argwhere [${sizes.medium.join('x')}]`,
+      category: 'searching',
+      operation: 'argwhere',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
       name: `flatnonzero [${sizes.medium.join('x')}]`,
       category: 'searching',
       operation: 'flatnonzero',
@@ -2218,6 +2265,39 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
         scalar: { shape: [1], value: -1 },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isneginf [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isneginf',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isposinf [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isposinf',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `isreal [${sizes.medium.join('x')}]`,
+      category: 'logic',
+      operation: 'isreal',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
       },
       iterations,
       warmup,

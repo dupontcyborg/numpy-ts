@@ -8,37 +8,37 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 310/507 (61.1%)
-- **Top-level Functions**: 298/507 (55.8%)
-- **NDArray Methods**: 156/53 (64.2%)
+- **Overall Coverage**: 331/507 (65.3%)
+- **Top-level Functions**: 319/507 (60.0%)
+- **NDArray Methods**: 157/53 (64.2%)
 
 ### Completed Categories (100%)
+- Arithmetic (29/29)
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
 - Gradient (4/4)
 - Hyperbolic (9/9)
 - I/O (8/8)
+- Indexing (21/21)
+- Logic (24/24)
 - Rounding (7/7)
+- Searching (7/7)
 - Sorting (6/6)
 - Trigonometric (16/16)
 
 ### Incomplete Categories
-- Arithmetic (22/29) - 75.9%
 - Array Creation (33/35) - 94.3%
 - Array Manipulation (37/46) - 80.4%
 - Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
-- Indexing (20/21) - 95.2%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
-- Logic (12/24) - 50.0%
 - NDArray Methods (34/53) - 64.2%
 - Other Math (0/15) - 0.0%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
 - Reductions (34/36) - 94.4%
-- Searching (6/7) - 85.7%
 - Set Operations (7/12) - 58.3%
 - Statistics (9/12) - 75.0%
 - String/Formatting (0/10) - 0.0%
@@ -57,16 +57,16 @@ Based on `npm run compare-api`:
 - [x] `divide` 
 - [x] `divmod` 
 - [x] `fabs` 
-- [ ] `float_power` 
+- [x] `float_power` 
 - [x] `floor_divide` 
-- [ ] `fmod` 
-- [ ] `frexp` 
-- [ ] `gcd` 
+- [x] `fmod` 
+- [x] `frexp` 
+- [x] `gcd` 
 - [x] `heaviside` 
-- [ ] `lcm` 
-- [ ] `ldexp` 
+- [x] `lcm` 
+- [x] `ldexp` 
 - [x] `mod` 
-- [ ] `modf` 
+- [x] `modf` 
 - [x] `multiply` 
 - [x] `negative` 
 - [x] `positive` 
@@ -293,7 +293,7 @@ Based on `npm run compare-api`:
 - [x] `compress` 
 - [x] `diag_indices` 
 - [x] `diag_indices_from` 
-- [ ] `fill_diagonal` 
+- [x] `fill_diagonal` 
 - [x] `indices` 
 - [x] `ix_` 
 - [x] `mask_indices` 
@@ -372,27 +372,27 @@ Based on `npm run compare-api`:
 ## Logic
 
 - [x] `copysign` 
-- [ ] `iscomplex` 
-- [ ] `iscomplexobj` 
-- [ ] `isdtype` 
+- [x] `iscomplex` 
+- [x] `iscomplexobj` 
+- [x] `isdtype` 
 - [x] `isfinite` 
-- [ ] `isfortran` 
+- [x] `isfortran` 
 - [x] `isinf` 
 - [x] `isnan` 
 - [x] `isnat` 
-- [ ] `isneginf` 
-- [ ] `isposinf` 
-- [ ] `isreal` 
-- [ ] `isrealobj` 
-- [ ] `isscalar` 
-- [ ] `iterable` 
+- [x] `isneginf` 
+- [x] `isposinf` 
+- [x] `isreal` 
+- [x] `isrealobj` 
+- [x] `isscalar` 
+- [x] `iterable` 
 - [x] `logical_and` 
 - [x] `logical_not` 
 - [x] `logical_or` 
 - [x] `logical_xor` 
 - [x] `nextafter` 
-- [ ] `promote_types` 
-- [ ] `real_if_close` 
+- [x] `promote_types` 
+- [x] `real_if_close` 
 - [x] `signbit` 
 - [x] `spacing` 
 
@@ -604,7 +604,7 @@ Based on `npm run compare-api`:
 
 ## Searching
 
-- [ ] `argwhere` 
+- [x] `argwhere` 
 - [x] `count_nonzero` 
 - [x] `extract` 
 - [x] `flatnonzero` 
@@ -774,6 +774,7 @@ These may be removed in future versions for strict NumPy compatibility:
 - `arctan()` 
 - `arctan2()` 
 - `arctanh()` 
+- `argwhere()` 
 - `around()` 
 - `average()` 
 - `base()` 

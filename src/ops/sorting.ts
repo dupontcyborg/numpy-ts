@@ -726,6 +726,62 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
 }
 
 /**
+ * Find the indices of array elements that are non-zero, grouped by element
+ * Returns a 2D array where each row is the index of a non-zero element.
+ * This is equivalent to transpose(nonzero(a)).
+ * @param storage - Input array storage
+ * @returns 2D array of shape (N, ndim) where N is number of non-zero elements
+ */
+export function argwhere(storage: ArrayStorage): ArrayStorage {
+  const shape = storage.shape;
+  const ndim = shape.length;
+  const data = storage.data;
+  const size = storage.size;
+
+  // Find all non-zero indices
+  const nonzeroIndices: number[][] = [];
+
+  // Calculate strides for index conversion
+  const strides: number[] = [];
+  let stride = 1;
+  for (let i = ndim - 1; i >= 0; i--) {
+    strides.unshift(stride);
+    stride *= shape[i]!;
+  }
+
+  // Find non-zero elements
+  for (let i = 0; i < size; i++) {
+    if (data[i]) {
+      // Convert linear index to multi-index
+      const indices: number[] = [];
+      let remaining = i;
+      for (let dim = 0; dim < ndim; dim++) {
+        const idx = Math.floor(remaining / strides[dim]!);
+        remaining = remaining % strides[dim]!;
+        indices.push(idx);
+      }
+      nonzeroIndices.push(indices);
+    }
+  }
+
+  // Create result array: shape is (numNonzero, ndim)
+  const numNonzero = nonzeroIndices.length;
+  const resultShape = ndim === 0 ? [numNonzero, 1] : [numNonzero, ndim];
+  const result = ArrayStorage.zeros(resultShape, 'int32');
+  const resultData = result.data as Int32Array;
+
+  // Fill result array
+  for (let i = 0; i < numNonzero; i++) {
+    const indices = nonzeroIndices[i]!;
+    for (let dim = 0; dim < (ndim === 0 ? 1 : ndim); dim++) {
+      resultData[i * (ndim === 0 ? 1 : ndim) + dim] = indices[dim] ?? 0;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Return indices of non-zero elements in flattened array
  * @param storage - Input array storage
  * @returns Array of indices

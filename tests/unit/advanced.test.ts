@@ -5,7 +5,17 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, broadcast_to, broadcast_arrays, take, put, choose, array_equal } from '../../src';
+import {
+  array,
+  zeros,
+  broadcast_to,
+  broadcast_arrays,
+  take,
+  put,
+  choose,
+  array_equal,
+  fill_diagonal,
+} from '../../src';
 
 describe('Advanced Functions', () => {
   // ========================================
@@ -352,7 +362,6 @@ import {
   ix_,
   ravel_multi_index,
   unravel_index,
-  zeros,
   tril,
 } from '../../src';
 
@@ -756,6 +765,59 @@ describe('Indexing Functions', () => {
       expect(result[0]!.toArray()).toEqual([0, 0, 1]);
       expect(result[1]!.toArray()).toEqual([0, 1, 2]);
       expect(result[2]!.toArray()).toEqual([0, 1, 3]);
+    });
+  });
+
+  describe('fill_diagonal', () => {
+    it('fills diagonal with scalar value', () => {
+      const arr = zeros([3, 3]);
+      fill_diagonal(arr, 5);
+      expect(arr.toArray()).toEqual([
+        [5, 0, 0],
+        [0, 5, 0],
+        [0, 0, 5],
+      ]);
+    });
+
+    it('fills diagonal with array values', () => {
+      const arr = zeros([3, 3]);
+      fill_diagonal(arr, array([1, 2, 3]));
+      expect(arr.toArray()).toEqual([
+        [1, 0, 0],
+        [0, 2, 0],
+        [0, 0, 3],
+      ]);
+    });
+
+    it('handles non-square matrices', () => {
+      const arr = zeros([3, 4]);
+      fill_diagonal(arr, 7);
+      expect(arr.toArray()).toEqual([
+        [7, 0, 0, 0],
+        [0, 7, 0, 0],
+        [0, 0, 7, 0],
+      ]);
+    });
+
+    it('handles tall matrices', () => {
+      const arr = zeros([4, 3]);
+      fill_diagonal(arr, 7);
+      expect(arr.toArray()).toEqual([
+        [7, 0, 0],
+        [0, 7, 0],
+        [0, 0, 7],
+        [0, 0, 0],
+      ]);
+    });
+
+    it('cycles through values if array is shorter', () => {
+      const arr = zeros([3, 3]);
+      fill_diagonal(arr, array([1, 2]));
+      expect(arr.toArray()).toEqual([
+        [1, 0, 0],
+        [0, 2, 0],
+        [0, 0, 1],
+      ]);
     });
   });
 });

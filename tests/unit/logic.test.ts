@@ -13,6 +13,18 @@ import {
   isinf,
   isnan,
   isnat,
+  iscomplex,
+  iscomplexobj,
+  isreal,
+  isrealobj,
+  isneginf,
+  isposinf,
+  isfortran,
+  real_if_close,
+  isscalar,
+  iterable,
+  isdtype,
+  promote_types,
   copysign,
   signbit,
   nextafter,
@@ -450,6 +462,251 @@ describe('Logic Operations', () => {
       ]);
       const b = array([1, 2, 3]);
       expect(() => a.logical_and(b)).toThrow(/broadcast/);
+    });
+  });
+});
+
+describe('Additional Logic Functions', () => {
+  describe('iscomplex()', () => {
+    it('returns all false for real arrays', () => {
+      const arr = array([1, 2, 3]);
+      const result = iscomplex(arr);
+      expect(result.toArray()).toEqual([0, 0, 0]);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('handles 2D arrays', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = iscomplex(arr);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.toArray()).toEqual([
+        [0, 0],
+        [0, 0],
+      ]);
+    });
+  });
+
+  describe('iscomplexobj()', () => {
+    it('returns false for real arrays', () => {
+      const arr = array([1, 2, 3]);
+      const result = iscomplexobj(arr);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isreal()', () => {
+    it('returns all true for real arrays', () => {
+      const arr = array([1, 2, 3]);
+      const result = isreal(arr);
+      expect(result.toArray()).toEqual([1, 1, 1]);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('handles 2D arrays', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = isreal(arr);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.toArray()).toEqual([
+        [1, 1],
+        [1, 1],
+      ]);
+    });
+  });
+
+  describe('isrealobj()', () => {
+    it('returns true for real arrays', () => {
+      const arr = array([1, 2, 3]);
+      const result = isrealobj(arr);
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('isneginf()', () => {
+    it('detects negative infinity', () => {
+      const arr = array([-Infinity, -1, 0, 1, Infinity]);
+      const result = isneginf(arr);
+      expect(result.toArray()).toEqual([1, 0, 0, 0, 0]);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('handles all finite values', () => {
+      const arr = array([1, 2, 3]);
+      const result = isneginf(arr);
+      expect(result.toArray()).toEqual([0, 0, 0]);
+    });
+
+    it('handles 2D arrays', () => {
+      const arr = array([
+        [-Infinity, 1],
+        [2, -Infinity],
+      ]);
+      const result = isneginf(arr);
+      expect(result.toArray()).toEqual([
+        [1, 0],
+        [0, 1],
+      ]);
+    });
+  });
+
+  describe('isposinf()', () => {
+    it('detects positive infinity', () => {
+      const arr = array([-Infinity, -1, 0, 1, Infinity]);
+      const result = isposinf(arr);
+      expect(result.toArray()).toEqual([0, 0, 0, 0, 1]);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('handles all finite values', () => {
+      const arr = array([1, 2, 3]);
+      const result = isposinf(arr);
+      expect(result.toArray()).toEqual([0, 0, 0]);
+    });
+
+    it('handles 2D arrays', () => {
+      const arr = array([
+        [Infinity, 1],
+        [2, Infinity],
+      ]);
+      const result = isposinf(arr);
+      expect(result.toArray()).toEqual([
+        [1, 0],
+        [0, 1],
+      ]);
+    });
+  });
+
+  describe('isfortran()', () => {
+    it('returns false for C-contiguous arrays', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = isfortran(arr);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('real_if_close()', () => {
+    it('returns copy of real array', () => {
+      const arr = array([1, 2, 3]);
+      const result = real_if_close(arr);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+      expect(result.base).toBe(null);
+    });
+
+    it('handles 2D arrays', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = real_if_close(arr);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.toArray()).toEqual([
+        [1, 2],
+        [3, 4],
+      ]);
+    });
+  });
+
+  describe('isscalar()', () => {
+    it('returns true for scalars', () => {
+      expect(isscalar(5)).toBe(true);
+      expect(isscalar(3.14)).toBe(true);
+      expect(isscalar(true)).toBe(true);
+      expect(isscalar('hello')).toBe(true);
+      expect(isscalar(BigInt(42))).toBe(true);
+    });
+
+    it('returns false for non-scalars', () => {
+      expect(isscalar([1, 2, 3])).toBe(false);
+      expect(isscalar({ a: 1 })).toBe(false);
+      expect(isscalar(null)).toBe(false);
+      expect(isscalar(undefined)).toBe(false);
+      expect(isscalar(array([1, 2, 3]))).toBe(false);
+    });
+  });
+
+  describe('iterable()', () => {
+    it('returns true for iterables', () => {
+      expect(iterable([1, 2, 3])).toBe(true);
+      expect(iterable('hello')).toBe(true);
+      expect(iterable(new Set([1, 2, 3]))).toBe(true);
+      expect(iterable(new Map())).toBe(true);
+    });
+
+    it('returns false for non-iterables', () => {
+      expect(iterable(5)).toBe(false);
+      expect(iterable(true)).toBe(false);
+      expect(iterable(null)).toBe(false);
+      expect(iterable(undefined)).toBe(false);
+      expect(iterable({ a: 1 })).toBe(false);
+    });
+  });
+
+  describe('isdtype()', () => {
+    it('checks for bool dtype', () => {
+      expect(isdtype('bool', 'b')).toBe(true);
+      expect(isdtype('int32', 'b')).toBe(false);
+    });
+
+    it('checks for int dtypes', () => {
+      expect(isdtype('int8', 'i')).toBe(true);
+      expect(isdtype('int16', 'i')).toBe(true);
+      expect(isdtype('int32', 'i')).toBe(true);
+      expect(isdtype('int64', 'i')).toBe(true);
+      expect(isdtype('uint32', 'i')).toBe(false);
+      expect(isdtype('float32', 'i')).toBe(false);
+    });
+
+    it('checks for uint dtypes', () => {
+      expect(isdtype('uint8', 'u')).toBe(true);
+      expect(isdtype('uint16', 'u')).toBe(true);
+      expect(isdtype('uint32', 'u')).toBe(true);
+      expect(isdtype('uint64', 'u')).toBe(true);
+      expect(isdtype('int32', 'u')).toBe(false);
+    });
+
+    it('checks for float dtypes', () => {
+      expect(isdtype('float32', 'f')).toBe(true);
+      expect(isdtype('float64', 'f')).toBe(true);
+      expect(isdtype('int32', 'f')).toBe(false);
+    });
+
+    it('returns false for unknown kind', () => {
+      expect(isdtype('float32', 'x')).toBe(false);
+    });
+  });
+
+  describe('promote_types()', () => {
+    it('promotes int to float', () => {
+      expect(promote_types('int32', 'float32')).toBe('float32');
+      expect(promote_types('float32', 'int32')).toBe('float32');
+    });
+
+    it('promotes to higher precision', () => {
+      expect(promote_types('int8', 'int32')).toBe('int32');
+      expect(promote_types('float32', 'float64')).toBe('float64');
+    });
+
+    it('handles same dtype', () => {
+      expect(promote_types('int32', 'int32')).toBe('int32');
+      expect(promote_types('float64', 'float64')).toBe('float64');
+    });
+
+    it('promotes signed and unsigned ints', () => {
+      expect(promote_types('int32', 'uint32')).toBe('int32');
+      expect(promote_types('uint8', 'int16')).toBe('int16');
+    });
+
+    it('promotes bool to any other type', () => {
+      expect(promote_types('bool', 'int32')).toBe('int32');
+      expect(promote_types('int32', 'bool')).toBe('int32');
     });
   });
 });

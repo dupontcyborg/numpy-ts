@@ -1475,6 +1475,15 @@ export class NDArray {
   }
 
   /**
+   * Find the indices of array elements that are non-zero, grouped by element
+   * Returns a 2D array where each row is the index of a non-zero element.
+   * @returns 2D array of shape (N, ndim) where N is number of non-zero elements
+   */
+  argwhere(): NDArray {
+    return NDArray._fromStorage(sortingOps.argwhere(this._storage));
+  }
+
+  /**
    * Find indices where elements should be inserted to maintain order
    * @param v - Values to insert
    * @param side - 'left' or 'right' side to insert
@@ -3130,12 +3139,6 @@ export function mod(x: NDArray, divisor: NDArray | number): NDArray {
 }
 
 /**
- * Element-wise floor division
- * @param x - Dividend array
- * @param divisor - Divisor (array or scalar)
- * @returns Floor of the quotient
- */
-/**
  * Element-wise division
  * @param x - Dividend array
  * @param divisor - Divisor (array or scalar)
@@ -3148,6 +3151,12 @@ export function divide(x: NDArray, divisor: NDArray | number): NDArray {
 // Alias for divide
 export { divide as true_divide };
 
+/**
+ * Element-wise floor division
+ * @param x - Dividend array
+ * @param divisor - Divisor (array or scalar)
+ * @returns Floor of the quotient
+ */
 export function floor_divide(x: NDArray, divisor: NDArray | number): NDArray {
   return x.floor_divide(divisor);
 }
@@ -4764,6 +4773,83 @@ export function heaviside(x1: NDArray, x2: NDArray | number): NDArray {
   return x1.heaviside(x2);
 }
 
+/**
+ * First array raised to power of second, always promoting to float
+ * @param x1 - Base values
+ * @param x2 - Exponent values
+ * @returns Result in float64
+ */
+export function float_power(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.float_power(x1.storage, x2Storage));
+}
+
+/**
+ * Element-wise remainder of division (fmod)
+ * Unlike mod/remainder, fmod matches C fmod behavior
+ * @param x1 - Dividend
+ * @param x2 - Divisor
+ * @returns Remainder
+ */
+export function fmod(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.fmod(x1.storage, x2Storage));
+}
+
+/**
+ * Decompose floating point numbers into mantissa and exponent
+ * Returns [mantissa, exponent] where x = mantissa * 2^exponent
+ * @param x - Input array
+ * @returns Tuple of [mantissa, exponent] arrays
+ */
+export function frexp(x: NDArray): [NDArray, NDArray] {
+  const [mantissa, exponent] = arithmeticOps.frexp(x.storage);
+  return [NDArray._fromStorage(mantissa), NDArray._fromStorage(exponent)];
+}
+
+/**
+ * Greatest common divisor
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns GCD
+ */
+export function gcd(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.gcd(x1.storage, x2Storage));
+}
+
+/**
+ * Least common multiple
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns LCM
+ */
+export function lcm(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.lcm(x1.storage, x2Storage));
+}
+
+/**
+ * Returns x1 * 2^x2, element-wise
+ * @param x1 - Mantissa
+ * @param x2 - Exponent
+ * @returns Result
+ */
+export function ldexp(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.ldexp(x1.storage, x2Storage));
+}
+
+/**
+ * Return fractional and integral parts of array
+ * @param x - Input array
+ * @returns Tuple of [fractional, integral] arrays
+ */
+export function modf(x: NDArray): [NDArray, NDArray] {
+  const [fractional, integral] = arithmeticOps.modf(x.storage);
+  return [NDArray._fromStorage(fractional), NDArray._fromStorage(integral)];
+}
+
 // ========================================
 // Bitwise Functions
 // ========================================
@@ -5025,6 +5111,122 @@ export function nextafter(x1: NDArray, x2: NDArray | number): NDArray {
  */
 export function spacing(x: NDArray): NDArray {
   return x.spacing();
+}
+
+/**
+ * Test element-wise for complex number
+ * Since numpy-ts doesn't support complex numbers, always returns false
+ * @param x - Input array
+ * @returns Boolean array (all false)
+ */
+export function iscomplex(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.iscomplex(x.storage));
+}
+
+/**
+ * Check whether array is complex type
+ * Since numpy-ts doesn't support complex numbers, always returns false
+ * @param x - Input array
+ * @returns false
+ */
+export function iscomplexobj(x: NDArray): boolean {
+  return logicOps.iscomplexobj(x.storage);
+}
+
+/**
+ * Test element-wise for real number (not complex)
+ * Since numpy-ts doesn't support complex numbers, always returns true
+ * @param x - Input array
+ * @returns Boolean array (all true)
+ */
+export function isreal(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.isreal(x.storage));
+}
+
+/**
+ * Check whether array is real type (not complex)
+ * Since numpy-ts doesn't support complex numbers, always returns true
+ * @param x - Input array
+ * @returns true
+ */
+export function isrealobj(x: NDArray): boolean {
+  return logicOps.isrealobj(x.storage);
+}
+
+/**
+ * Test element-wise for negative infinity
+ * @param x - Input array
+ * @returns Boolean array
+ */
+export function isneginf(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.isneginf(x.storage));
+}
+
+/**
+ * Test element-wise for positive infinity
+ * @param x - Input array
+ * @returns Boolean array
+ */
+export function isposinf(x: NDArray): NDArray {
+  return NDArray._fromStorage(logicOps.isposinf(x.storage));
+}
+
+/**
+ * Check if array is Fortran contiguous (column-major order)
+ * @param x - Input array
+ * @returns true if F-contiguous
+ */
+export function isfortran(x: NDArray): boolean {
+  return logicOps.isfortran(x.storage);
+}
+
+/**
+ * Returns array with complex parts close to zero set to real
+ * Since numpy-ts doesn't support complex numbers, returns copy
+ * @param x - Input array
+ * @param tol - Tolerance
+ * @returns Copy of input array
+ */
+export function real_if_close(x: NDArray, tol: number = 100): NDArray {
+  return NDArray._fromStorage(logicOps.real_if_close(x.storage, tol));
+}
+
+/**
+ * Check if element is a scalar type
+ * @param val - Value to check
+ * @returns true if scalar
+ */
+export function isscalar(val: unknown): boolean {
+  return logicOps.isscalar(val);
+}
+
+/**
+ * Check if object is iterable
+ * @param obj - Object to check
+ * @returns true if iterable
+ */
+export function iterable(obj: unknown): boolean {
+  return logicOps.iterable(obj);
+}
+
+/**
+ * Check if dtype meets specified criteria
+ * @param dtype - Dtype to check
+ * @param kind - Kind of dtype ('b' bool, 'i' int, 'u' uint, 'f' float)
+ * @returns true if dtype matches kind
+ */
+export function isdtype(dtype: DType, kind: string): boolean {
+  return logicOps.isdtype(dtype, kind);
+}
+
+/**
+ * Find the dtype that can represent both input dtypes
+ * @param dtype1 - First dtype
+ * @param dtype2 - Second dtype
+ * @returns Promoted dtype
+ */
+export function promote_types(dtype1: DType, dtype2: DType): DType {
+  return logicOps.promote_types(dtype1, dtype2);
 }
 
 // ========================================
@@ -5375,6 +5577,17 @@ export function place(arr: NDArray, mask: NDArray, vals: NDArray): void {
 }
 
 /**
+ * Fill the main diagonal of a given array (modifies in-place)
+ * @param a - Array (at least 2D)
+ * @param val - Value or array of values to fill diagonal with
+ * @param wrap - Whether to wrap for tall matrices
+ */
+export function fill_diagonal(a: NDArray, val: NDArray | number, wrap: boolean = false): void {
+  const valStorage = typeof val === 'number' ? val : val.storage;
+  advancedOps.fill_diagonal(a.storage, valStorage, wrap);
+}
+
+/**
  * Return the indices to access the main diagonal of an array.
  *
  * @param n - Size of arrays for which indices are returned
@@ -5602,6 +5815,17 @@ export function sort_complex(a: NDArray): NDArray {
 export function nonzero(a: NDArray): NDArray[] {
   const storages = sortingOps.nonzero(a.storage);
   return storages.map((s) => NDArray._fromStorage(s));
+}
+
+/**
+ * Find the indices of array elements that are non-zero, grouped by element
+ * Returns a 2D array where each row is the index of a non-zero element.
+ * This is equivalent to transpose(nonzero(a)).
+ * @param a - Input array
+ * @returns 2D array of shape (N, ndim) where N is number of non-zero elements
+ */
+export function argwhere(a: NDArray): NDArray {
+  return NDArray._fromStorage(sortingOps.argwhere(a.storage));
 }
 
 /**

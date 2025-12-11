@@ -1190,3 +1190,74 @@ export function unravel_index(
 
   return result;
 }
+
+/**
+ * Fill the main diagonal of a given array (modifies in-place)
+ * @param a - Array storage (at least 2D)
+ * @param val - Value or array of values to fill diagonal with
+ * @param wrap - Whether to wrap for tall matrices
+ */
+export function fill_diagonal(
+  a: ArrayStorage,
+  val: ArrayStorage | number,
+  wrap: boolean = false
+): void {
+  const shape = a.shape;
+  const ndim = shape.length;
+
+  if (ndim < 2) {
+    throw new Error('array must be at least 2-d');
+  }
+
+  // Determine the step size to move along diagonal
+  // For a 2D array [m, n], diagonal step is n + 1
+  // For higher dims, it's more complex
+  let step: number;
+  if (ndim === 2) {
+    step = shape[1]! + 1;
+  } else {
+    // For ND arrays, step is sum of products of remaining dimensions
+    step = 1;
+    for (let i = 1; i < ndim; i++) {
+      let prod = 1;
+      for (let j = i; j < ndim; j++) {
+        prod *= shape[j]!;
+      }
+      step += prod;
+    }
+  }
+
+  const data = a.data;
+  const size = a.size;
+
+  // Determine diagonal length
+  let diagLength = Math.min(...shape);
+  if (wrap && ndim === 2) {
+    // For tall matrices with wrap=True, diagonal can wrap around
+    diagLength = Math.max(shape[0]!, shape[1]!);
+  }
+
+  if (typeof val === 'number') {
+    // Fill with scalar
+    for (let i = 0; i < diagLength && i * step < size; i++) {
+      const idx = i * step;
+      if (idx < size) {
+        data[idx] = val;
+      } else {
+        break;
+      }
+    }
+  } else {
+    // Fill with array values
+    const valData = val.data;
+    const valSize = val.size;
+    for (let i = 0; i < diagLength && i * step < size; i++) {
+      const idx = i * step;
+      if (idx < size) {
+        data[idx] = valData[i % valSize]!;
+      } else {
+        break;
+      }
+    }
+  }
+}

@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { array, zeros } from '../../src/core/ndarray';
+import {
+  array,
+  zeros,
+  float_power,
+  fmod,
+  frexp,
+  gcd,
+  lcm,
+  ldexp,
+  modf,
+} from '../../src/core/ndarray';
 
 describe('Arithmetic Operations', () => {
   describe('add', () => {
@@ -367,6 +377,127 @@ describe('Reduction Operations', () => {
     it('handles negative numbers', () => {
       const arr = array([-5, -1, -10, -3]);
       expect(arr.min()).toBe(-10);
+    });
+  });
+
+  describe('float_power', () => {
+    it('raises array to power with float result', () => {
+      const arr = array([2, 3, 4]);
+      const result = float_power(arr, 2);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([4, 9, 16]);
+    });
+
+    it('works with array exponent', () => {
+      const base = array([2, 3, 4]);
+      const exp = array([1, 2, 3]);
+      const result = float_power(base, exp);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([2, 9, 64]);
+    });
+  });
+
+  describe('fmod', () => {
+    it('computes remainder with fmod semantics', () => {
+      const arr = array([7, 8, 9]);
+      const result = fmod(arr, 3);
+      expect(result.toArray()).toEqual([1, 2, 0]);
+    });
+
+    it('handles negative values', () => {
+      const arr = array([-7, 7]);
+      const result = fmod(arr, 3);
+      expect(result.toArray()).toEqual([-1, 1]);
+    });
+  });
+
+  describe('frexp', () => {
+    it('decomposes floats into mantissa and exponent', () => {
+      const arr = array([8, 16, 32]);
+      const [mantissa, exponent] = frexp(arr);
+      expect(mantissa.dtype).toBe('float64');
+      expect(exponent.dtype).toBe('int32');
+      // 8 = 0.5 * 2^4, 16 = 0.5 * 2^5, 32 = 0.5 * 2^6
+      expect(mantissa.shape).toEqual([3]);
+      expect(exponent.shape).toEqual([3]);
+    });
+
+    it('handles zero', () => {
+      const arr = array([0]);
+      const [mantissa, exponent] = frexp(arr);
+      expect(mantissa.toArray()).toEqual([0]);
+      expect(exponent.toArray()).toEqual([0]);
+    });
+  });
+
+  describe('gcd', () => {
+    it('computes greatest common divisor', () => {
+      const a = array([12, 18, 24]);
+      const b = array([8, 12, 16]);
+      const result = gcd(a, b);
+      expect(result.dtype).toBe('int32');
+      expect(result.toArray()).toEqual([4, 6, 8]);
+    });
+
+    it('works with scalar', () => {
+      const arr = array([12, 18, 24]);
+      const result = gcd(arr, 6);
+      expect(result.toArray()).toEqual([6, 6, 6]);
+    });
+  });
+
+  describe('lcm', () => {
+    it('computes least common multiple', () => {
+      const a = array([12, 18, 24]);
+      const b = array([8, 12, 16]);
+      const result = lcm(a, b);
+      expect(result.dtype).toBe('int32');
+      expect(result.toArray()).toEqual([24, 36, 48]);
+    });
+
+    it('works with scalar', () => {
+      const arr = array([4, 6, 8]);
+      const result = lcm(arr, 3);
+      expect(result.toArray()).toEqual([12, 6, 24]);
+    });
+
+    it('handles zero', () => {
+      const arr = array([0, 5, 10]);
+      const result = lcm(arr, 5);
+      expect(result.toArray()).toEqual([0, 5, 10]);
+    });
+  });
+
+  describe('ldexp', () => {
+    it('computes x * 2^y', () => {
+      const arr = array([1, 2, 3]);
+      const result = ldexp(arr, 3);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([8, 16, 24]);
+    });
+
+    it('works with array exponent', () => {
+      const base = array([1, 1, 1]);
+      const exp = array([1, 2, 3]);
+      const result = ldexp(base, exp);
+      expect(result.toArray()).toEqual([2, 4, 8]);
+    });
+  });
+
+  describe('modf', () => {
+    it('splits into fractional and integral parts', () => {
+      const arr = array([1.5, 2.7, -3.2]);
+      const [fractional, integral] = modf(arr);
+      expect(fractional.dtype).toBe('float64');
+      expect(integral.dtype).toBe('float64');
+      expect(fractional.shape).toEqual([3]);
+      expect(integral.shape).toEqual([3]);
+      const frac = fractional.toArray() as number[];
+      const integ = integral.toArray() as number[];
+      expect(integ).toEqual([1, 2, -3]);
+      expect(frac[0]).toBeCloseTo(0.5);
+      expect(frac[1]).toBeCloseTo(0.7);
+      expect(frac[2]).toBeCloseTo(-0.2);
     });
   });
 });
