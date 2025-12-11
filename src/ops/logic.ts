@@ -841,7 +841,7 @@ export function real_if_close(a: ArrayStorage, _tol: number = 100): ArrayStorage
  * @param val - Value to check
  * @returns true if scalar
  */
-export function isscalar(val: any): boolean {
+export function isscalar(val: unknown): boolean {
   return (
     typeof val === 'number' ||
     typeof val === 'bigint' ||
@@ -855,11 +855,11 @@ export function isscalar(val: any): boolean {
  * @param obj - Object to check
  * @returns true if iterable
  */
-export function iterable(obj: any): boolean {
+export function iterable(obj: unknown): boolean {
   if (obj === null || obj === undefined) {
     return false;
   }
-  return typeof obj[Symbol.iterator] === 'function';
+  return typeof (obj as Record<symbol, unknown>)[Symbol.iterator] === 'function';
 }
 
 /**

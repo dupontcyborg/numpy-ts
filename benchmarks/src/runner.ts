@@ -184,6 +184,18 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].fabs();
   } else if (operation === 'divmod') {
     return arrays['a'].divmod(arrays['b']);
+  } else if (operation === 'gcd') {
+    // Extract scalar if b is single-element array
+    const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
+    return np.gcd(arrays['a'], scalar);
+  } else if (operation === 'lcm') {
+    // Extract scalar if b is single-element array
+    const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
+    return np.lcm(arrays['a'], scalar);
+  } else if (operation === 'float_power') {
+    // Extract scalar if b is single-element array
+    const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
+    return np.float_power(arrays['a'], scalar);
   }
 
   // Mathematical operations

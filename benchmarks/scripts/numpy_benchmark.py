@@ -145,6 +145,12 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "divmod":
         q, r = np.divmod(arrays["a"], arrays["b"])
         return q  # Just return quotient for benchmarking
+    elif operation == "gcd":
+        return np.gcd(arrays["a"], arrays["b"])
+    elif operation == "lcm":
+        return np.lcm(arrays["a"], arrays["b"])
+    elif operation == "float_power":
+        return np.float_power(arrays["a"], arrays["b"])
 
     # Mathematical operations
     elif operation == "sqrt":

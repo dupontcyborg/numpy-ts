@@ -322,6 +322,42 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    specs.push({
+      name: `gcd [${sizes.medium.join('x')}] scalar`,
+      category: 'arithmetic',
+      operation: 'gcd',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        b: { shape: [1], value: 6, dtype: 'int32' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `lcm [${sizes.medium.join('x')}] scalar`,
+      category: 'arithmetic',
+      operation: 'lcm',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        b: { shape: [1], value: 6, dtype: 'int32' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `float_power [${sizes.medium.join('x')}] ** scalar`,
+      category: 'arithmetic',
+      operation: 'float_power',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        b: { shape: [1], value: 2 },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   // ========================================

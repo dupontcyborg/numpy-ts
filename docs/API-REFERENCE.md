@@ -2,23 +2,25 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-11
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 321/507 (63.3%)
-- **Top-level Functions**: 310/507 (58.2%)
+- **Overall Coverage**: 329/507 (64.9%)
+- **Top-level Functions**: 318/507 (59.8%)
 - **NDArray Methods**: 153/53 (62.3%)
 
 ### Completed Categories (100%)
+- Arithmetic (29/29)
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
 - Gradient (4/4)
 - Hyperbolic (9/9)
 - I/O (8/8)
+- Indexing (21/21)
 - Logic (24/24)
 - Rounding (7/7)
 - Searching (7/7)
@@ -26,12 +28,10 @@ Based on `npm run compare-api`:
 - Trigonometric (16/16)
 
 ### Incomplete Categories
-- Arithmetic (22/29) - 75.9%
 - Array Creation (33/35) - 94.3%
 - Array Manipulation (36/46) - 78.3%
 - Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
-- Indexing (20/21) - 95.2%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
 - NDArray Methods (33/53) - 62.3%
@@ -57,16 +57,16 @@ Based on `npm run compare-api`:
 - [x] `divide` 
 - [x] `divmod` 
 - [x] `fabs` 
-- [ ] `float_power` 
+- [x] `float_power` 
 - [x] `floor_divide` 
-- [ ] `fmod` 
-- [ ] `frexp` 
-- [ ] `gcd` 
+- [x] `fmod` 
+- [x] `frexp` 
+- [x] `gcd` 
 - [x] `heaviside` 
-- [ ] `lcm` 
-- [ ] `ldexp` 
+- [x] `lcm` 
+- [x] `ldexp` 
 - [x] `mod` 
-- [ ] `modf` 
+- [x] `modf` 
 - [x] `multiply` 
 - [x] `negative` 
 - [x] `positive` 
@@ -293,7 +293,7 @@ Based on `npm run compare-api`:
 - [x] `compress` 
 - [x] `diag_indices` 
 - [x] `diag_indices_from` 
-- [ ] `fill_diagonal` 
+- [x] `fill_diagonal` 
 - [x] `indices` 
 - [x] `ix_` 
 - [x] `mask_indices` 

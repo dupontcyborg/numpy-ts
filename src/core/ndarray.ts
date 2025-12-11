@@ -3068,12 +3068,6 @@ export function mod(x: NDArray, divisor: NDArray | number): NDArray {
 }
 
 /**
- * Element-wise floor division
- * @param x - Dividend array
- * @param divisor - Divisor (array or scalar)
- * @returns Floor of the quotient
- */
-/**
  * Element-wise division
  * @param x - Dividend array
  * @param divisor - Divisor (array or scalar)
@@ -3086,6 +3080,12 @@ export function divide(x: NDArray, divisor: NDArray | number): NDArray {
 // Alias for divide
 export { divide as true_divide };
 
+/**
+ * Element-wise floor division
+ * @param x - Dividend array
+ * @param divisor - Divisor (array or scalar)
+ * @returns Floor of the quotient
+ */
 export function floor_divide(x: NDArray, divisor: NDArray | number): NDArray {
   return x.floor_divide(divisor);
 }
@@ -4626,6 +4626,83 @@ export function heaviside(x1: NDArray, x2: NDArray | number): NDArray {
   return x1.heaviside(x2);
 }
 
+/**
+ * First array raised to power of second, always promoting to float
+ * @param x1 - Base values
+ * @param x2 - Exponent values
+ * @returns Result in float64
+ */
+export function float_power(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.float_power(x1.storage, x2Storage));
+}
+
+/**
+ * Element-wise remainder of division (fmod)
+ * Unlike mod/remainder, fmod matches C fmod behavior
+ * @param x1 - Dividend
+ * @param x2 - Divisor
+ * @returns Remainder
+ */
+export function fmod(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.fmod(x1.storage, x2Storage));
+}
+
+/**
+ * Decompose floating point numbers into mantissa and exponent
+ * Returns [mantissa, exponent] where x = mantissa * 2^exponent
+ * @param x - Input array
+ * @returns Tuple of [mantissa, exponent] arrays
+ */
+export function frexp(x: NDArray): [NDArray, NDArray] {
+  const [mantissa, exponent] = arithmeticOps.frexp(x.storage);
+  return [NDArray._fromStorage(mantissa), NDArray._fromStorage(exponent)];
+}
+
+/**
+ * Greatest common divisor
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns GCD
+ */
+export function gcd(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.gcd(x1.storage, x2Storage));
+}
+
+/**
+ * Least common multiple
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns LCM
+ */
+export function lcm(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.lcm(x1.storage, x2Storage));
+}
+
+/**
+ * Returns x1 * 2^x2, element-wise
+ * @param x1 - Mantissa
+ * @param x2 - Exponent
+ * @returns Result
+ */
+export function ldexp(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(arithmeticOps.ldexp(x1.storage, x2Storage));
+}
+
+/**
+ * Return fractional and integral parts of array
+ * @param x - Input array
+ * @returns Tuple of [fractional, integral] arrays
+ */
+export function modf(x: NDArray): [NDArray, NDArray] {
+  const [fractional, integral] = arithmeticOps.modf(x.storage);
+  return [NDArray._fromStorage(fractional), NDArray._fromStorage(integral)];
+}
+
 // ========================================
 // Bitwise Functions
 // ========================================
@@ -4972,7 +5049,7 @@ export function real_if_close(x: NDArray, tol: number = 100): NDArray {
  * @param val - Value to check
  * @returns true if scalar
  */
-export function isscalar(val: any): boolean {
+export function isscalar(val: unknown): boolean {
   return logicOps.isscalar(val);
 }
 
@@ -4981,7 +5058,7 @@ export function isscalar(val: any): boolean {
  * @param obj - Object to check
  * @returns true if iterable
  */
-export function iterable(obj: any): boolean {
+export function iterable(obj: unknown): boolean {
   return logicOps.iterable(obj);
 }
 
@@ -5350,6 +5427,17 @@ export function select(
  */
 export function place(arr: NDArray, mask: NDArray, vals: NDArray): void {
   advancedOps.place(arr.storage, mask.storage, vals.storage);
+}
+
+/**
+ * Fill the main diagonal of a given array (modifies in-place)
+ * @param a - Array (at least 2D)
+ * @param val - Value or array of values to fill diagonal with
+ * @param wrap - Whether to wrap for tall matrices
+ */
+export function fill_diagonal(a: NDArray, val: NDArray | number, wrap: boolean = false): void {
+  const valStorage = typeof val === 'number' ? val : val.storage;
+  advancedOps.fill_diagonal(a.storage, valStorage, wrap);
 }
 
 /**

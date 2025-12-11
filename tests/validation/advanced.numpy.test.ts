@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import {
   array,
+  zeros,
   broadcast_to,
   broadcast_arrays,
   take,
@@ -16,6 +17,7 @@ import {
   take_along_axis,
   compress,
   select,
+  fill_diagonal,
   diag_indices,
   tril_indices,
   triu_indices,
@@ -726,6 +728,47 @@ result = [np.array(r).tolist() for r in result]
       for (let i = 0; i < 3; i++) {
         expect(arraysClose(result[i]!.toArray(), npResult.value[i])).toBe(true);
       }
+    });
+  });
+
+  describe('fill_diagonal()', () => {
+    it('validates fill_diagonal() with scalar', () => {
+      const arr = zeros([3, 3]);
+      fill_diagonal(arr, 5);
+
+      const npArr = runNumPy(`
+arr = np.zeros((3, 3))
+np.fill_diagonal(arr, 5)
+result = arr
+`);
+
+      expect(arraysClose(arr.toArray(), npArr.value)).toBe(true);
+    });
+
+    it('validates fill_diagonal() with array', () => {
+      const arr = zeros([3, 3]);
+      fill_diagonal(arr, array([1, 2, 3]));
+
+      const npArr = runNumPy(`
+arr = np.zeros((3, 3))
+np.fill_diagonal(arr, [1, 2, 3])
+result = arr
+`);
+
+      expect(arraysClose(arr.toArray(), npArr.value)).toBe(true);
+    });
+
+    it('validates fill_diagonal() on non-square matrix', () => {
+      const arr = zeros([3, 4]);
+      fill_diagonal(arr, 7);
+
+      const npArr = runNumPy(`
+arr = np.zeros((3, 4))
+np.fill_diagonal(arr, 7)
+result = arr
+`);
+
+      expect(arraysClose(arr.toArray(), npArr.value)).toBe(true);
     });
   });
 });

@@ -122,6 +122,12 @@ def run_operation(spec):
         divisor = arrays.get("b") if "b" in arrays else arrays.get("scalar")
         q, r = np.divmod(arrays["a"], divisor)
         result = q  # Just return quotient for validation
+    elif operation == "gcd":
+        result = np.gcd(arrays["a"], arrays["b"])
+    elif operation == "lcm":
+        result = np.lcm(arrays["a"], arrays["b"])
+    elif operation == "float_power":
+        result = np.float_power(arrays["a"], arrays["b"])
 
     # Math
     elif operation == "sqrt":

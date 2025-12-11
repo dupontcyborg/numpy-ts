@@ -450,6 +450,12 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       const [quotient] = np.divmod(arrays.a, arrays.b);
       return quotient; // Just return quotient for validation
     }
+    case 'gcd':
+      return np.gcd(arrays.a, arrays.b);
+    case 'lcm':
+      return np.lcm(arrays.a, arrays.b);
+    case 'float_power':
+      return np.float_power(arrays.a, arrays.b);
 
     // Additional linalg
     case 'einsum':

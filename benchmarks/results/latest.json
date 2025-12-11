@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-12-10T20:06:01.802Z",
+  "timestamp": "2025-12-11T14:33:54.177Z",
   "environment": {
     "node_version": "v22.11.0",
     "python_version": "3.13.0",
@@ -8,335 +8,5276 @@
   },
   "results": [
     {
+      "name": "zeros [1000]",
+      "category": "creation",
+      "numpy": {
+        "name": "zeros [1000]",
+        "mean_ms": 0.00022435666993260385,
+        "median_ms": 0.00022435666993260385,
+        "min_ms": 0.00022435666993260385,
+        "max_ms": 0.00022435666993260385,
+        "std_ms": 0,
+        "ops_per_sec": 4457188.637629527,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "zeros [1000]",
+        "mean_ms": 0.00034292749999999955,
+        "median_ms": 0.00034292749999999955,
+        "min_ms": 0.00034292749999999955,
+        "max_ms": 0.00034292749999999955,
+        "std_ms": 0,
+        "ops_per_sec": 2916068.265158091,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 1.5284925565306977
+    },
+    {
+      "name": "zeros [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "zeros [100x100]",
+        "mean_ms": 0.0006731450000370387,
+        "median_ms": 0.0006731450000370387,
+        "min_ms": 0.0006731450000370387,
+        "max_ms": 0.0006731450000370387,
+        "std_ms": 0,
+        "ops_per_sec": 1485564.031441928,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "zeros [100x100]",
+        "mean_ms": 0.0010577184701715309,
+        "median_ms": 0.0010577184701715309,
+        "min_ms": 0.0010577184701715309,
+        "max_ms": 0.0010577184701715309,
+        "std_ms": 0,
+        "ops_per_sec": 945431.1598036379,
+        "total_ops": 50254,
+        "total_samples": 1
+      },
+      "ratio": 1.571308514678608
+    },
+    {
+      "name": "ones [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "ones [100x100]",
+        "mean_ms": 0.001214002150082758,
+        "median_ms": 0.001214002150082758,
+        "min_ms": 0.001214002150082758,
+        "max_ms": 0.001214002150082758,
+        "std_ms": 0,
+        "ops_per_sec": 823721.7701235788,
+        "total_ops": 76743,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "ones [100x100]",
+        "mean_ms": 0.0024267557008537765,
+        "median_ms": 0.0024267557008537765,
+        "min_ms": 0.0024267557008537765,
+        "max_ms": 0.0024267557008537765,
+        "std_ms": 0,
+        "ops_per_sec": 412072.7931732815,
+        "total_ops": 18506,
+        "total_samples": 1
+      },
+      "ratio": 1.9989715015647591
+    },
+    {
+      "name": "arange(1000)",
+      "category": "creation",
+      "numpy": {
+        "name": "arange(1000)",
+        "mean_ms": 0.0003301041699887719,
+        "median_ms": 0.0003301041699887719,
+        "min_ms": 0.0003301041699887719,
+        "max_ms": 0.0003301041699887719,
+        "std_ms": 0,
+        "ops_per_sec": 3029346.7666101092,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "arange(1000)",
+        "mean_ms": 0.0010868086563423146,
+        "median_ms": 0.0010868086563423146,
+        "min_ms": 0.0010868086563423146,
+        "max_ms": 0.0010868086563423146,
+        "std_ms": 0,
+        "ops_per_sec": 920125.1702995525,
+        "total_ops": 44684,
+        "total_samples": 1
+      },
+      "ratio": 3.292320289014468
+    },
+    {
+      "name": "linspace(0, 100, 1000)",
+      "category": "creation",
+      "numpy": {
+        "name": "linspace(0, 100, 1000)",
+        "mean_ms": 0.0025153763827389986,
+        "median_ms": 0.0025153763827389986,
+        "min_ms": 0.0025153763827389986,
+        "max_ms": 0.0025153763827389986,
+        "std_ms": 0,
+        "ops_per_sec": 397554.81798358064,
+        "total_ops": 40411,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linspace(0, 100, 1000)",
+        "mean_ms": 0.0008837094511508684,
+        "median_ms": 0.0008837094511508684,
+        "min_ms": 0.0008837094511508684,
+        "max_ms": 0.0008837094511508684,
+        "std_ms": 0,
+        "ops_per_sec": 1131593.6461895758,
+        "total_ops": 57739,
+        "total_samples": 1
+      },
+      "ratio": 0.3513229500026534
+    },
+    {
+      "name": "logspace(0, 3, 1000)",
+      "category": "creation",
+      "numpy": {
+        "name": "logspace(0, 3, 1000)",
+        "mean_ms": 0.007626963717841409,
+        "median_ms": 0.007626963717841409,
+        "min_ms": 0.007626963717841409,
+        "max_ms": 0.007626963717841409,
+        "std_ms": 0,
+        "ops_per_sec": 131113.7743661669,
+        "total_ops": 13092,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "logspace(0, 3, 1000)",
+        "mean_ms": 0.01811106579898769,
+        "median_ms": 0.01811106579898769,
+        "min_ms": 0.01811106579898769,
+        "max_ms": 0.01811106579898769,
+        "std_ms": 0,
+        "ops_per_sec": 55214.86206824418,
+        "total_ops": 2766,
+        "total_samples": 1
+      },
+      "ratio": 2.3746101946992746
+    },
+    {
+      "name": "geomspace(1, 1000, 1000)",
+      "category": "creation",
+      "numpy": {
+        "name": "geomspace(1, 1000, 1000)",
+        "mean_ms": 0.013435482800154438,
+        "median_ms": 0.013435482800154438,
+        "min_ms": 0.013435482800154438,
+        "max_ms": 0.013435482800154438,
+        "std_ms": 0,
+        "ops_per_sec": 74429.77784084583,
+        "total_ops": 7529,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "geomspace(1, 1000, 1000)",
+        "mean_ms": 0.003531303342816509,
+        "median_ms": 0.003531303342816509,
+        "min_ms": 0.003531303342816509,
+        "max_ms": 0.003531303342816509,
+        "std_ms": 0,
+        "ops_per_sec": 283181.56298700086,
+        "total_ops": 14060,
+        "total_samples": 1
+      },
+      "ratio": 0.262834123294469
+    },
+    {
+      "name": "eye(100)",
+      "category": "creation",
+      "numpy": {
+        "name": "eye(100)",
+        "mean_ms": 0.001808778943282861,
+        "median_ms": 0.001808778943282861,
+        "min_ms": 0.001808778943282861,
+        "max_ms": 0.001808778943282861,
+        "std_ms": 0,
+        "ops_per_sec": 552859.1560144107,
+        "total_ops": 55954,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "eye(100)",
+        "mean_ms": 0.0012974862772472,
+        "median_ms": 0.0012974862772472,
+        "min_ms": 0.0012974862772472,
+        "max_ms": 0.0012974862772472,
+        "std_ms": 0,
+        "ops_per_sec": 770721.0608204973,
+        "total_ops": 31517,
+        "total_samples": 1
+      },
+      "ratio": 0.7173271681791666
+    },
+    {
+      "name": "identity(100)",
+      "category": "creation",
+      "numpy": {
+        "name": "identity(100)",
+        "mean_ms": 0.002040196391532565,
+        "median_ms": 0.002040196391532565,
+        "min_ms": 0.002040196391532565,
+        "max_ms": 0.002040196391532565,
+        "std_ms": 0,
+        "ops_per_sec": 490148.89162156347,
+        "total_ops": 50104,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "identity(100)",
+        "mean_ms": 0.0012465869049138464,
+        "median_ms": 0.0012465869049138464,
+        "min_ms": 0.0012465869049138464,
+        "max_ms": 0.0012465869049138464,
+        "std_ms": 0,
+        "ops_per_sec": 802190.3615850285,
+        "total_ops": 39175,
+        "total_samples": 1
+      },
+      "ratio": 0.6110131897534772
+    },
+    {
+      "name": "empty [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "empty [100x100]",
+        "mean_ms": 0.00013912875001551584,
+        "median_ms": 0.00013912875001551584,
+        "min_ms": 0.00013912875001551584,
+        "max_ms": 0.00013912875001551584,
+        "std_ms": 0,
+        "ops_per_sec": 7187587.036385208,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "empty [100x100]",
+        "mean_ms": 0.0011404562759575446,
+        "median_ms": 0.0011404562759575446,
+        "min_ms": 0.0011404562759575446,
+        "max_ms": 0.0011404562759575446,
+        "std_ms": 0,
+        "ops_per_sec": 876842.0333873691,
+        "total_ops": 43340,
+        "total_samples": 1
+      },
+      "ratio": 8.197128744636599
+    },
+    {
+      "name": "full [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "full [100x100]",
+        "mean_ms": 0.0012159304474956432,
+        "median_ms": 0.0012159304474956432,
+        "min_ms": 0.0012159304474956432,
+        "max_ms": 0.0012159304474956432,
+        "std_ms": 0,
+        "ops_per_sec": 822415.461393883,
+        "total_ops": 82844,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "full [100x100]",
+        "mean_ms": 0.0012931151248625787,
+        "median_ms": 0.0012931151248625787,
+        "min_ms": 0.0012931151248625787,
+        "max_ms": 0.0012931151248625787,
+        "std_ms": 0,
+        "ops_per_sec": 773326.3502785737,
+        "total_ops": 38202,
+        "total_samples": 1
+      },
+      "ratio": 1.0634778720492661
+    },
+    {
+      "name": "copy [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "copy [100x100]",
+        "mean_ms": 0.0010350330852098573,
+        "median_ms": 0.0010350330852098573,
+        "min_ms": 0.0010350330852098573,
+        "max_ms": 0.0010350330852098573,
+        "std_ms": 0,
+        "ops_per_sec": 966152.6904690644,
+        "total_ops": 97264,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "copy [100x100]",
+        "mean_ms": 0.0017429657527159848,
+        "median_ms": 0.0017429657527159848,
+        "min_ms": 0.0017429657527159848,
+        "max_ms": 0.0017429657527159848,
+        "std_ms": 0,
+        "ops_per_sec": 573734.7382997888,
+        "total_ops": 28995,
+        "total_samples": 1
+      },
+      "ratio": 1.6839710513819868
+    },
+    {
+      "name": "zeros_like [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "zeros_like [100x100]",
+        "mean_ms": 0.0012419742597439506,
+        "median_ms": 0.0012419742597439506,
+        "min_ms": 0.0012419742597439506,
+        "max_ms": 0.0012419742597439506,
+        "std_ms": 0,
+        "ops_per_sec": 805169.6660816169,
+        "total_ops": 78243,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "zeros_like [100x100]",
+        "mean_ms": 0.00114257226242733,
+        "median_ms": 0.00114257226242733,
+        "min_ms": 0.00114257226242733,
+        "max_ms": 0.00114257226242733,
+        "std_ms": 0,
+        "ops_per_sec": 875218.1659613868,
+        "total_ops": 42145,
+        "total_samples": 1
+      },
+      "ratio": 0.9199645270127308
+    },
+    {
+      "name": "add [100x100] + scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "add [100x100] + scalar",
+        "mean_ms": 0.001313344451917963,
+        "median_ms": 0.001313344451917963,
+        "min_ms": 0.001313344451917963,
+        "max_ms": 0.001313344451917963,
+        "std_ms": 0,
+        "ops_per_sec": 761414.8737139251,
+        "total_ops": 75369,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "add [100x100] + scalar",
+        "mean_ms": 0.15409989751552808,
+        "median_ms": 0.15409989751552808,
+        "min_ms": 0.15409989751552808,
+        "max_ms": 0.15409989751552808,
+        "std_ms": 0,
+        "ops_per_sec": 6489.296982817485,
+        "total_ops": 322,
+        "total_samples": 1
+      },
+      "ratio": 117.33395400611461
+    },
+    {
+      "name": "add [100x100] + [100x100]",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "add [100x100] + [100x100]",
+        "mean_ms": 0.002223181271901845,
+        "median_ms": 0.002223181271901845,
+        "min_ms": 0.002223181271901845,
+        "max_ms": 0.002223181271901845,
+        "std_ms": 0,
+        "ops_per_sec": 449805.87621833413,
+        "total_ops": 44243,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "add [100x100] + [100x100]",
+        "mean_ms": 0.011378864208839103,
+        "median_ms": 0.011378864208839103,
+        "min_ms": 0.011378864208839103,
+        "max_ms": 0.011378864208839103,
+        "std_ms": 0,
+        "ops_per_sec": 87882.23337995367,
+        "total_ops": 4367,
+        "total_samples": 1
+      },
+      "ratio": 5.118279985826314
+    },
+    {
+      "name": "multiply [100x100] * scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "multiply [100x100] * scalar",
+        "mean_ms": 0.0013934827928429295,
+        "median_ms": 0.0013934827928429295,
+        "min_ms": 0.0013934827928429295,
+        "max_ms": 0.0013934827928429295,
+        "std_ms": 0,
+        "ops_per_sec": 717626.3712304899,
+        "total_ops": 71801,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "multiply [100x100] * scalar",
+        "mean_ms": 0.14198204225352218,
+        "median_ms": 0.14198204225352218,
+        "min_ms": 0.14198204225352218,
+        "max_ms": 0.14198204225352218,
+        "std_ms": 0,
+        "ops_per_sec": 7043.144218297739,
+        "total_ops": 355,
+        "total_samples": 1
+      },
+      "ratio": 101.89005776228922
+    },
+    {
+      "name": "multiply [100x100] * [100x100]",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "multiply [100x100] * [100x100]",
+        "mean_ms": 0.0022774216275476865,
+        "median_ms": 0.0022774216275476865,
+        "min_ms": 0.0022774216275476865,
+        "max_ms": 0.0022774216275476865,
+        "std_ms": 0,
+        "ops_per_sec": 439093.04623439175,
+        "total_ops": 44767,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "multiply [100x100] * [100x100]",
+        "mean_ms": 0.011463765844218677,
+        "median_ms": 0.011463765844218677,
+        "min_ms": 0.011463765844218677,
+        "max_ms": 0.011463765844218677,
+        "std_ms": 0,
+        "ops_per_sec": 87231.37000432653,
+        "total_ops": 4134,
+        "total_samples": 1
+      },
+      "ratio": 5.0336598658557525
+    },
+    {
+      "name": "mod [100x100] % scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "mod [100x100] % scalar",
+        "mean_ms": 0.07342376118720056,
+        "median_ms": 0.07342376118720056,
+        "min_ms": 0.07342376118720056,
+        "max_ms": 0.07342376118720056,
+        "std_ms": 0,
+        "ops_per_sec": 13619.569248848598,
+        "total_ops": 1386,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "mod [100x100] % scalar",
+        "mean_ms": 0.15834810126582283,
+        "median_ms": 0.15834810126582283,
+        "min_ms": 0.15834810126582283,
+        "max_ms": 0.15834810126582283,
+        "std_ms": 0,
+        "ops_per_sec": 6315.200447659777,
+        "total_ops": 316,
+        "total_samples": 1
+      },
+      "ratio": 2.156632930613564
+    },
+    {
+      "name": "floor_divide [100x100] // scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "floor_divide [100x100] // scalar",
+        "mean_ms": 0.07594049020268608,
+        "median_ms": 0.07594049020268608,
+        "min_ms": 0.07594049020268608,
+        "max_ms": 0.07594049020268608,
+        "std_ms": 0,
+        "ops_per_sec": 13168.205753360138,
+        "total_ops": 1275,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "floor_divide [100x100] // scalar",
+        "mean_ms": 0.16307706862745047,
+        "median_ms": 0.16307706862745047,
+        "min_ms": 0.16307706862745047,
+        "max_ms": 0.16307706862745047,
+        "std_ms": 0,
+        "ops_per_sec": 6132.0699986611835,
+        "total_ops": 306,
+        "total_samples": 1
+      },
+      "ratio": 2.1474323933410995
+    },
+    {
+      "name": "reciprocal [100x100]",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "reciprocal [100x100]",
+        "mean_ms": 0.0015477490147865658,
+        "median_ms": 0.0015477490147865658,
+        "min_ms": 0.0015477490147865658,
+        "max_ms": 0.0015477490147865658,
+        "std_ms": 0,
+        "ops_per_sec": 646099.5874953923,
+        "total_ops": 65223,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "reciprocal [100x100]",
+        "mean_ms": 0.01272447675833532,
+        "median_ms": 0.01272447675833532,
+        "min_ms": 0.01272447675833532,
+        "max_ms": 0.01272447675833532,
+        "std_ms": 0,
+        "ops_per_sec": 78588.69319282132,
+        "total_ops": 4109,
+        "total_samples": 1
+      },
+      "ratio": 8.221279184655156
+    },
+    {
+      "name": "cbrt [100x100]",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "cbrt [100x100]",
+        "mean_ms": 0.017859405501619206,
+        "median_ms": 0.017859405501619206,
+        "min_ms": 0.017859405501619206,
+        "max_ms": 0.017859405501619206,
+        "std_ms": 0,
+        "ops_per_sec": 55992.90524588492,
+        "total_ops": 5635,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "cbrt [100x100]",
+        "mean_ms": 0.029395102339181287,
+        "median_ms": 0.029395102339181287,
+        "min_ms": 0.029395102339181287,
+        "max_ms": 0.029395102339181287,
+        "std_ms": 0,
+        "ops_per_sec": 34019.27261423687,
+        "total_ops": 1710,
+        "total_samples": 1
+      },
+      "ratio": 1.6459171799708678
+    },
+    {
+      "name": "fabs [100x100]",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "fabs [100x100]",
+        "mean_ms": 0.007313246708564586,
+        "median_ms": 0.007313246708564586,
+        "min_ms": 0.007313246708564586,
+        "max_ms": 0.007313246708564586,
+        "std_ms": 0,
+        "ops_per_sec": 136738.17387137975,
+        "total_ops": 13672,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "fabs [100x100]",
+        "mean_ms": 0.012135188926663376,
+        "median_ms": 0.012135188926663376,
+        "min_ms": 0.012135188926663376,
+        "max_ms": 0.012135188926663376,
+        "std_ms": 0,
+        "ops_per_sec": 82404.97993424766,
+        "total_ops": 4118,
+        "total_samples": 1
+      },
+      "ratio": 1.6593435734161388
+    },
+    {
+      "name": "divmod [100x100] % scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "divmod [100x100] % scalar",
+        "mean_ms": 0.072152180650178,
+        "median_ms": 0.072152180650178,
+        "min_ms": 0.072152180650178,
+        "max_ms": 0.072152180650178,
+        "std_ms": 0,
+        "ops_per_sec": 13859.594969809592,
+        "total_ops": 1395,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "divmod [100x100] % scalar",
+        "mean_ms": 0.324460708860762,
+        "median_ms": 0.324460708860762,
+        "min_ms": 0.324460708860762,
+        "max_ms": 0.324460708860762,
+        "std_ms": 0,
+        "ops_per_sec": 3082.037278138157,
+        "total_ops": 158,
+        "total_samples": 1
+      },
+      "ratio": 4.496894008427471
+    },
+    {
+      "name": "gcd [100x100] scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "gcd [100x100] scalar",
+        "mean_ms": 0.0060095295536602015,
+        "median_ms": 0.0060095295536602015,
+        "min_ms": 0.0060095295536602015,
+        "max_ms": 0.0060095295536602015,
+        "std_ms": 0,
+        "ops_per_sec": 166402.37660382813,
+        "total_ops": 16580,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "gcd [100x100] scalar",
+        "mean_ms": 0.027690933295963994,
+        "median_ms": 0.027690933295963994,
+        "min_ms": 0.027690933295963994,
+        "max_ms": 0.027690933295963994,
+        "std_ms": 0,
+        "ops_per_sec": 36112.903429865684,
+        "total_ops": 1784,
+        "total_samples": 1
+      },
+      "ratio": 4.607837110826484
+    },
+    {
+      "name": "lcm [100x100] scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "lcm [100x100] scalar",
+        "mean_ms": 0.010428866386515965,
+        "median_ms": 0.010428866386515965,
+        "min_ms": 0.010428866386515965,
+        "max_ms": 0.010428866386515965,
+        "std_ms": 0,
+        "ops_per_sec": 95887.69890589,
+        "total_ops": 9505,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "lcm [100x100] scalar",
+        "mean_ms": 0.036083929235167955,
+        "median_ms": 0.036083929235167955,
+        "min_ms": 0.036083929235167955,
+        "max_ms": 0.036083929235167955,
+        "std_ms": 0,
+        "ops_per_sec": 27713.16819414956,
+        "total_ops": 1399,
+        "total_samples": 1
+      },
+      "ratio": 3.4600049418432266
+    },
+    {
+      "name": "float_power [100x100] ** scalar",
+      "category": "arithmetic",
+      "numpy": {
+        "name": "float_power [100x100] ** scalar",
+        "mean_ms": 0.014995088954570064,
+        "median_ms": 0.014995088954570064,
+        "min_ms": 0.014995088954570064,
+        "max_ms": 0.014995088954570064,
+        "std_ms": 0,
+        "ops_per_sec": 66688.50068376749,
+        "total_ops": 6745,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "float_power [100x100] ** scalar",
+        "mean_ms": 0.02342308153477219,
+        "median_ms": 0.02342308153477219,
+        "min_ms": 0.02342308153477219,
+        "max_ms": 0.02342308153477219,
+        "std_ms": 0,
+        "ops_per_sec": 42692.93083898774,
+        "total_ops": 2085,
+        "total_samples": 1
+      },
+      "ratio": 1.5620501889475968
+    },
+    {
+      "name": "sqrt [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "sqrt [100x100]",
+        "mean_ms": 0.002622406136224475,
+        "median_ms": 0.002622406136224475,
+        "min_ms": 0.002622406136224475,
+        "max_ms": 0.002622406136224475,
+        "std_ms": 0,
+        "ops_per_sec": 381329.1870342089,
+        "total_ops": 37187,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sqrt [100x100]",
+        "mean_ms": 0.041027421357616035,
+        "median_ms": 0.041027421357616035,
+        "min_ms": 0.041027421357616035,
+        "max_ms": 0.041027421357616035,
+        "std_ms": 0,
+        "ops_per_sec": 24373.942278348117,
+        "total_ops": 1208,
+        "total_samples": 1
+      },
+      "ratio": 15.644953232409662
+    },
+    {
+      "name": "power [100x100] ** 2",
+      "category": "math",
+      "numpy": {
+        "name": "power [100x100] ** 2",
+        "mean_ms": 0.006972232531755847,
+        "median_ms": 0.006972232531755847,
+        "min_ms": 0.006972232531755847,
+        "max_ms": 0.006972232531755847,
+        "std_ms": 0,
+        "ops_per_sec": 143426.0827425625,
+        "total_ops": 14755,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "power [100x100] ** 2",
+        "mean_ms": 0.16902768150684974,
+        "median_ms": 0.16902768150684974,
+        "min_ms": 0.16902768150684974,
+        "max_ms": 0.16902768150684974,
+        "std_ms": 0,
+        "ops_per_sec": 5916.1907155395465,
+        "total_ops": 292,
+        "total_samples": 1
+      },
+      "ratio": 24.242978233584928
+    },
+    {
+      "name": "absolute [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "absolute [100x100]",
+        "mean_ms": 0.0011470780471692515,
+        "median_ms": 0.0011470780471692515,
+        "min_ms": 0.0011470780471692515,
+        "max_ms": 0.0011470780471692515,
+        "std_ms": 0,
+        "ops_per_sec": 871780.2615678947,
+        "total_ops": 78632,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "absolute [100x100]",
+        "mean_ms": 0.012236902975743827,
+        "median_ms": 0.012236902975743827,
+        "min_ms": 0.012236902975743827,
+        "max_ms": 0.012236902975743827,
+        "std_ms": 0,
+        "ops_per_sec": 81720.02360255818,
+        "total_ops": 3999,
+        "total_samples": 1
+      },
+      "ratio": 10.667890476974904
+    },
+    {
+      "name": "negative [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "negative [100x100]",
+        "mean_ms": 0.0011710165598394651,
+        "median_ms": 0.0011710165598394651,
+        "min_ms": 0.0011710165598394651,
+        "max_ms": 0.0011710165598394651,
+        "std_ms": 0,
+        "ops_per_sec": 853958.8886233087,
+        "total_ops": 80979,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "negative [100x100]",
+        "mean_ms": 0.012085230053842428,
+        "median_ms": 0.012085230053842428,
+        "min_ms": 0.012085230053842428,
+        "max_ms": 0.012085230053842428,
+        "std_ms": 0,
+        "ops_per_sec": 82745.63211000322,
+        "total_ops": 4086,
+        "total_samples": 1
+      },
+      "ratio": 10.32028962553629
+    },
+    {
+      "name": "sign [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "sign [100x100]",
+        "mean_ms": 0.004724431349165348,
+        "median_ms": 0.004724431349165348,
+        "min_ms": 0.004724431349165348,
+        "max_ms": 0.004724431349165348,
+        "std_ms": 0,
+        "ops_per_sec": 211665.68547485978,
+        "total_ops": 21602,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sign [100x100]",
+        "mean_ms": 0.012123864995178297,
+        "median_ms": 0.012123864995178297,
+        "min_ms": 0.012123864995178297,
+        "max_ms": 0.012123864995178297,
+        "std_ms": 0,
+        "ops_per_sec": 82481.94782750413,
+        "total_ops": 4148,
+        "total_samples": 1
+      },
+      "ratio": 2.5662061948090718
+    },
+    {
+      "name": "sin [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "sin [100x100]",
+        "mean_ms": 0.02411729692353103,
+        "median_ms": 0.02411729692353103,
+        "min_ms": 0.02411729692353103,
+        "max_ms": 0.02411729692353103,
+        "std_ms": 0,
+        "ops_per_sec": 41464.01660064603,
+        "total_ops": 3900,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sin [100x100]",
+        "mean_ms": 0.12324797323600935,
+        "median_ms": 0.12324797323600935,
+        "min_ms": 0.12324797323600935,
+        "max_ms": 0.12324797323600935,
+        "std_ms": 0,
+        "ops_per_sec": 8113.72368846249,
+        "total_ops": 411,
+        "total_samples": 1
+      },
+      "ratio": 5.110356008253869
+    },
+    {
+      "name": "cos [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "cos [100x100]",
+        "mean_ms": 0.023861861052450875,
+        "median_ms": 0.023861861052450875,
+        "min_ms": 0.023861861052450875,
+        "max_ms": 0.023861861052450875,
+        "std_ms": 0,
+        "ops_per_sec": 41907.879599243955,
+        "total_ops": 4167,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "cos [100x100]",
+        "mean_ms": 0.13228568205128258,
+        "median_ms": 0.13228568205128258,
+        "min_ms": 0.13228568205128258,
+        "max_ms": 0.13228568205128258,
+        "std_ms": 0,
+        "ops_per_sec": 7559.39709039966,
+        "total_ops": 390,
+        "total_samples": 1
+      },
+      "ratio": 5.543812436109018
+    },
+    {
+      "name": "tan [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "tan [100x100]",
+        "mean_ms": 0.02791182197447768,
+        "median_ms": 0.02791182197447768,
+        "min_ms": 0.02791182197447768,
+        "max_ms": 0.02791182197447768,
+        "std_ms": 0,
+        "ops_per_sec": 35827.113003027574,
+        "total_ops": 3595,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "tan [100x100]",
+        "mean_ms": 0.14696659159159167,
+        "median_ms": 0.14696659159159167,
+        "min_ms": 0.14696659159159167,
+        "max_ms": 0.14696659159159167,
+        "std_ms": 0,
+        "ops_per_sec": 6804.267481271659,
+        "total_ops": 333,
+        "total_samples": 1
+      },
+      "ratio": 5.265388684621756
+    },
+    {
+      "name": "arctan2 [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "arctan2 [100x100]",
+        "mean_ms": 0.015037444325889295,
+        "median_ms": 0.015037444325889295,
+        "min_ms": 0.015037444325889295,
+        "max_ms": 0.015037444325889295,
+        "std_ms": 0,
+        "ops_per_sec": 66500.66183642288,
+        "total_ops": 6592,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "arctan2 [100x100]",
+        "mean_ms": 0.0607913697978605,
+        "median_ms": 0.0607913697978605,
+        "min_ms": 0.0607913697978605,
+        "max_ms": 0.0607913697978605,
+        "std_ms": 0,
+        "ops_per_sec": 16449.70335962382,
+        "total_ops": 841,
+        "total_samples": 1
+      },
+      "ratio": 4.042666325500452
+    },
+    {
+      "name": "hypot [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "hypot [100x100]",
+        "mean_ms": 0.015069276908431387,
+        "median_ms": 0.015069276908431387,
+        "min_ms": 0.015069276908431387,
+        "max_ms": 0.015069276908431387,
+        "std_ms": 0,
+        "ops_per_sec": 66360.18477041135,
+        "total_ops": 6634,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "hypot [100x100]",
+        "mean_ms": 0.11254947767857207,
+        "median_ms": 0.11254947767857207,
+        "min_ms": 0.11254947767857207,
+        "max_ms": 0.11254947767857207,
+        "std_ms": 0,
+        "ops_per_sec": 8884.981260027533,
+        "total_ops": 448,
+        "total_samples": 1
+      },
+      "ratio": 7.468804134563331
+    },
+    {
+      "name": "sinh [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "sinh [100x100]",
+        "mean_ms": 0.026429308376778454,
+        "median_ms": 0.026429308376778454,
+        "min_ms": 0.026429308376778454,
+        "max_ms": 0.026429308376778454,
+        "std_ms": 0,
+        "ops_per_sec": 37836.78277705627,
+        "total_ops": 3820,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sinh [100x100]",
+        "mean_ms": 0.09131640445268983,
+        "median_ms": 0.09131640445268983,
+        "min_ms": 0.09131640445268983,
+        "max_ms": 0.09131640445268983,
+        "std_ms": 0,
+        "ops_per_sec": 10950.9348949245,
+        "total_ops": 539,
+        "total_samples": 1
+      },
+      "ratio": 3.455118959258239
+    },
+    {
+      "name": "cosh [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "cosh [100x100]",
+        "mean_ms": 0.02597664829979496,
+        "median_ms": 0.02597664829979496,
+        "min_ms": 0.02597664829979496,
+        "max_ms": 0.02597664829979496,
+        "std_ms": 0,
+        "ops_per_sec": 38496.113450013225,
+        "total_ops": 3938,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "cosh [100x100]",
+        "mean_ms": 0.055792595317725416,
+        "median_ms": 0.055792595317725416,
+        "min_ms": 0.055792595317725416,
+        "max_ms": 0.055792595317725416,
+        "std_ms": 0,
+        "ops_per_sec": 17923.525412382063,
+        "total_ops": 897,
+        "total_samples": 1
+      },
+      "ratio": 2.1477980790218343
+    },
+    {
+      "name": "tanh [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "tanh [100x100]",
+        "mean_ms": 0.021215711732562884,
+        "median_ms": 0.021215711732562884,
+        "min_ms": 0.021215711732562884,
+        "max_ms": 0.021215711732562884,
+        "std_ms": 0,
+        "ops_per_sec": 47134.87874484797,
+        "total_ops": 4704,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "tanh [100x100]",
+        "mean_ms": 0.05084862610402311,
+        "median_ms": 0.05084862610402311,
+        "min_ms": 0.05084862610402311,
+        "max_ms": 0.05084862610402311,
+        "std_ms": 0,
+        "ops_per_sec": 19666.214736151556,
+        "total_ops": 1019,
+        "total_samples": 1
+      },
+      "ratio": 2.3967438257552405
+    },
+    {
+      "name": "exp [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "exp [100x100]",
+        "mean_ms": 0.015419537947066075,
+        "median_ms": 0.015419537947066075,
+        "min_ms": 0.015419537947066075,
+        "max_ms": 0.015419537947066075,
+        "std_ms": 0,
+        "ops_per_sec": 64852.786343722655,
+        "total_ops": 6443,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "exp [100x100]",
+        "mean_ms": 0.04633046837763493,
+        "median_ms": 0.04633046837763493,
+        "min_ms": 0.04633046837763493,
+        "max_ms": 0.04633046837763493,
+        "std_ms": 0,
+        "ops_per_sec": 21584.068433090335,
+        "total_ops": 1091,
+        "total_samples": 1
+      },
+      "ratio": 3.0046599668993568
+    },
+    {
+      "name": "exp2 [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "exp2 [100x100]",
+        "mean_ms": 0.01578291110323185,
+        "median_ms": 0.01578291110323185,
+        "min_ms": 0.01578291110323185,
+        "max_ms": 0.01578291110323185,
+        "std_ms": 0,
+        "ops_per_sec": 63359.6675200959,
+        "total_ops": 6277,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "exp2 [100x100]",
+        "mean_ms": 0.050622756729810585,
+        "median_ms": 0.050622756729810585,
+        "min_ms": 0.050622756729810585,
+        "max_ms": 0.050622756729810585,
+        "std_ms": 0,
+        "ops_per_sec": 19753.961747624915,
+        "total_ops": 1003,
+        "total_samples": 1
+      },
+      "ratio": 3.2074410353514957
+    },
+    {
+      "name": "log [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "log [100x100]",
+        "mean_ms": 0.01809601249331108,
+        "median_ms": 0.01809601249331108,
+        "min_ms": 0.01809601249331108,
+        "max_ms": 0.01809601249331108,
+        "std_ms": 0,
+        "ops_per_sec": 55260.79297135957,
+        "total_ops": 5603,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "log [100x100]",
+        "mean_ms": 0.05022615470171893,
+        "median_ms": 0.05022615470171893,
+        "min_ms": 0.05022615470171893,
+        "max_ms": 0.05022615470171893,
+        "std_ms": 0,
+        "ops_per_sec": 19909.94544453502,
+        "total_ops": 989,
+        "total_samples": 1
+      },
+      "ratio": 2.775537136719168
+    },
+    {
+      "name": "log2 [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "log2 [100x100]",
+        "mean_ms": 0.022675521070521416,
+        "median_ms": 0.022675521070521416,
+        "min_ms": 0.022675521070521416,
+        "max_ms": 0.022675521070521416,
+        "std_ms": 0,
+        "ops_per_sec": 44100.41987083675,
+        "total_ops": 4414,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "log2 [100x100]",
+        "mean_ms": 0.047584174311925895,
+        "median_ms": 0.047584174311925895,
+        "min_ms": 0.047584174311925895,
+        "max_ms": 0.047584174311925895,
+        "std_ms": 0,
+        "ops_per_sec": 21015.390399437332,
+        "total_ops": 1090,
+        "total_samples": 1
+      },
+      "ratio": 2.098482066363016
+    },
+    {
+      "name": "log10 [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "log10 [100x100]",
+        "mean_ms": 0.022994949930925834,
+        "median_ms": 0.022994949930925834,
+        "min_ms": 0.022994949930925834,
+        "max_ms": 0.022994949930925834,
+        "std_ms": 0,
+        "ops_per_sec": 43487.80941049597,
+        "total_ops": 4414,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "log10 [100x100]",
+        "mean_ms": 0.045890433962263735,
+        "median_ms": 0.045890433962263735,
+        "min_ms": 0.045890433962263735,
+        "max_ms": 0.045890433962263735,
+        "std_ms": 0,
+        "ops_per_sec": 21791.033852988014,
+        "total_ops": 1007,
+        "total_samples": 1
+      },
+      "ratio": 1.9956744459158764
+    },
+    {
+      "name": "logaddexp [100x100]",
+      "category": "math",
+      "numpy": {
+        "name": "logaddexp [100x100]",
+        "mean_ms": 0.019553328402288978,
+        "median_ms": 0.019553328402288978,
+        "min_ms": 0.019553328402288978,
+        "max_ms": 0.019553328402288978,
+        "std_ms": 0,
+        "ops_per_sec": 51142.18814444586,
+        "total_ops": 5070,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "logaddexp [100x100]",
+        "mean_ms": 0.17013192203389657,
+        "median_ms": 0.17013192203389657,
+        "min_ms": 0.17013192203389657,
+        "max_ms": 0.17013192203389657,
+        "std_ms": 0,
+        "ops_per_sec": 5877.791704491313,
+        "total_ops": 295,
+        "total_samples": 1
+      },
+      "ratio": 8.700918766033734
+    },
+    {
+      "name": "diff [100x100]",
+      "category": "gradient",
+      "numpy": {
+        "name": "diff [100x100]",
+        "mean_ms": 0.006527614410523242,
+        "median_ms": 0.006527614410523242,
+        "min_ms": 0.006527614410523242,
+        "max_ms": 0.006527614410523242,
+        "std_ms": 0,
+        "ops_per_sec": 153195.32330032982,
+        "total_ops": 15558,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "diff [100x100]",
+        "mean_ms": 0.20650370850202499,
+        "median_ms": 0.20650370850202499,
+        "min_ms": 0.20650370850202499,
+        "max_ms": 0.20650370850202499,
+        "std_ms": 0,
+        "ops_per_sec": 4842.528045883466,
+        "total_ops": 247,
+        "total_samples": 1
+      },
+      "ratio": 31.635402386684788
+    },
+    {
+      "name": "gradient [1000]",
+      "category": "gradient",
+      "numpy": {
+        "name": "gradient [1000]",
+        "mean_ms": 0.003809824347098098,
+        "median_ms": 0.003809824347098098,
+        "min_ms": 0.003809824347098098,
+        "max_ms": 0.003809824347098098,
+        "std_ms": 0,
+        "ops_per_sec": 262479.2927163923,
+        "total_ops": 25983,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "gradient [1000]",
+        "mean_ms": 0.02064128687127018,
+        "median_ms": 0.02064128687127018,
+        "min_ms": 0.02064128687127018,
+        "max_ms": 0.02064128687127018,
+        "std_ms": 0,
+        "ops_per_sec": 48446.591834923915,
+        "total_ops": 2346,
+        "total_samples": 1
+      },
+      "ratio": 5.417910378727152
+    },
+    {
+      "name": "cross [1000x3]",
+      "category": "gradient",
+      "numpy": {
+        "name": "cross [1000x3]",
+        "mean_ms": 0.011878595470297633,
+        "median_ms": 0.011878595470297633,
+        "min_ms": 0.011878595470297633,
+        "max_ms": 0.011878595470297633,
+        "std_ms": 0,
+        "ops_per_sec": 84185.0370694494,
+        "total_ops": 8390,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "cross [1000x3]",
+        "mean_ms": 0.034123821782178536,
+        "median_ms": 0.034123821782178536,
+        "min_ms": 0.034123821782178536,
+        "max_ms": 0.034123821782178536,
+        "std_ms": 0,
+        "ops_per_sec": 29305.041105397482,
+        "total_ops": 1414,
+        "total_samples": 1
+      },
+      "ratio": 2.872715201683985
+    },
+    {
+      "name": "dot 1D · 1D [1000]",
+      "category": "linalg",
+      "numpy": {
+        "name": "dot 1D · 1D [1000]",
+        "mean_ms": 0.0009625345800304785,
+        "median_ms": 0.0009625345800304785,
+        "min_ms": 0.0009625345800304785,
+        "max_ms": 0.0009625345800304785,
+        "std_ms": 0,
+        "ops_per_sec": 1038923.7132325523,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "dot 1D · 1D [1000]",
+        "mean_ms": 0.0044860990202939205,
+        "median_ms": 0.0044860990202939205,
+        "min_ms": 0.0044860990202939205,
+        "max_ms": 0.0044860990202939205,
+        "std_ms": 0,
+        "ops_per_sec": 222910.81750007425,
+        "total_ops": 11432,
+        "total_samples": 1
+      },
+      "ratio": 4.6607146520926745
+    },
+    {
+      "name": "dot 2D · 1D [100x100] · [100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "dot 2D · 1D [100x100] · [100]",
+        "mean_ms": 0.0012183439031767471,
+        "median_ms": 0.0012183439031767471,
+        "min_ms": 0.0012183439031767471,
+        "max_ms": 0.0012183439031767471,
+        "std_ms": 0,
+        "ops_per_sec": 820786.3127911334,
+        "total_ops": 81930,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "dot 2D · 1D [100x100] · [100]",
+        "mean_ms": 0.05360654180238944,
+        "median_ms": 0.05360654180238944,
+        "min_ms": 0.05360654180238944,
+        "max_ms": 0.05360654180238944,
+        "std_ms": 0,
+        "ops_per_sec": 18654.439670559506,
+        "total_ops": 921,
+        "total_samples": 1
+      },
+      "ratio": 43.99951578746699
+    },
+    {
+      "name": "dot 2D · 2D [100x100] · [100x100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "dot 2D · 2D [100x100] · [100x100]",
+        "mean_ms": 0.008243801482858004,
+        "median_ms": 0.008243801482858004,
+        "min_ms": 0.008243801482858004,
+        "max_ms": 0.008243801482858004,
+        "std_ms": 0,
+        "ops_per_sec": 121303.26064733363,
+        "total_ops": 12140,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "dot 2D · 2D [100x100] · [100x100]",
+        "mean_ms": 0.7174565217391305,
+        "median_ms": 0.7174565217391305,
+        "min_ms": 0.7174565217391305,
+        "max_ms": 0.7174565217391305,
+        "std_ms": 0,
+        "ops_per_sec": 1393.8126836954214,
+        "total_ops": 69,
+        "total_samples": 1
+      },
+      "ratio": 87.02981545965115
+    },
+    {
+      "name": "matmul [100x100] @ [100x100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "matmul [100x100] @ [100x100]",
+        "mean_ms": 0.008049171191274643,
+        "median_ms": 0.008049171191274643,
+        "min_ms": 0.008049171191274643,
+        "max_ms": 0.008049171191274643,
+        "std_ms": 0,
+        "ops_per_sec": 124236.39356608628,
+        "total_ops": 12448,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "matmul [100x100] @ [100x100]",
+        "mean_ms": 0.7588420298507524,
+        "median_ms": 0.7588420298507524,
+        "min_ms": 0.7588420298507524,
+        "max_ms": 0.7588420298507524,
+        "std_ms": 0,
+        "ops_per_sec": 1317.7973289074118,
+        "total_ops": 67,
+        "total_samples": 1
+      },
+      "ratio": 94.27579707502586
+    },
+    {
+      "name": "trace [100x100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "trace [100x100]",
+        "mean_ms": 0.0010191364086225719,
+        "median_ms": 0.0010191364086225719,
+        "min_ms": 0.0010191364086225719,
+        "max_ms": 0.0010191364086225719,
+        "std_ms": 0,
+        "ops_per_sec": 981222.9173046265,
+        "total_ops": 97186,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "trace [100x100]",
+        "mean_ms": 0.00027155416999999945,
+        "median_ms": 0.00027155416999999945,
+        "min_ms": 0.00027155416999999945,
+        "max_ms": 0.00027155416999999945,
+        "std_ms": 0,
+        "ops_per_sec": 3682506.5142619684,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.26645517489363596
+    },
+    {
+      "name": "inner 1D · 1D [1000]",
+      "category": "linalg",
+      "numpy": {
+        "name": "inner 1D · 1D [1000]",
+        "mean_ms": 0.001018427327283209,
+        "median_ms": 0.001018427327283209,
+        "min_ms": 0.001018427327283209,
+        "max_ms": 0.001018427327283209,
+        "std_ms": 0,
+        "ops_per_sec": 981906.0950255858,
+        "total_ops": 99205,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "inner 1D · 1D [1000]",
+        "mean_ms": 0.004476378946402351,
+        "median_ms": 0.004476378946402351,
+        "min_ms": 0.004476378946402351,
+        "max_ms": 0.004476378946402351,
+        "std_ms": 0,
+        "ops_per_sec": 223394.84926844639,
+        "total_ops": 10896,
+        "total_samples": 1
+      },
+      "ratio": 4.395383771116679
+    },
+    {
+      "name": "inner 2D · 2D [100x100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "inner 2D · 2D [100x100]",
+        "mean_ms": 0.009222462842225389,
+        "median_ms": 0.009222462842225389,
+        "min_ms": 0.009222462842225389,
+        "max_ms": 0.009222462842225389,
+        "std_ms": 0,
+        "ops_per_sec": 108430.90583368498,
+        "total_ops": 10967,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "inner 2D · 2D [100x100]",
+        "mean_ms": 1.3093607631578954,
+        "median_ms": 1.3093607631578954,
+        "min_ms": 1.3093607631578954,
+        "max_ms": 1.3093607631578954,
+        "std_ms": 0,
+        "ops_per_sec": 763.7314544146076,
+        "total_ops": 38,
+        "total_samples": 1
+      },
+      "ratio": 141.97517361229566
+    },
+    {
+      "name": "outer [1000] x [1000]",
+      "category": "linalg",
+      "numpy": {
+        "name": "outer [1000] x [1000]",
+        "mean_ms": 0.7363947917231902,
+        "median_ms": 0.7363947917231902,
+        "min_ms": 0.7363947917231902,
+        "max_ms": 0.7363947917231902,
+        "std_ms": 0,
+        "ops_per_sec": 1357.9672361070943,
+        "total_ops": 120,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "outer [1000] x [1000]",
+        "mean_ms": 6.856380124999987,
+        "median_ms": 6.856380124999987,
+        "min_ms": 6.856380124999987,
+        "max_ms": 6.856380124999987,
+        "std_ms": 0,
+        "ops_per_sec": 145.84955643777144,
+        "total_ops": 8,
+        "total_samples": 1
+      },
+      "ratio": 9.310739568045847
+    },
+    {
+      "name": "trace [100x100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "trace [100x100]",
+        "mean_ms": 0.001043448485743764,
+        "median_ms": 0.001043448485743764,
+        "min_ms": 0.001043448485743764,
+        "max_ms": 0.001043448485743764,
+        "std_ms": 0,
+        "ops_per_sec": 958360.6796718918,
+        "total_ops": 94964,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "trace [100x100]",
+        "mean_ms": 0.00031677583000000594,
+        "median_ms": 0.00031677583000000594,
+        "min_ms": 0.00031677583000000594,
+        "max_ms": 0.00031677583000000594,
+        "std_ms": 0,
+        "ops_per_sec": 3156806.5025667557,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.3035854997424334
+    },
+    {
+      "name": "transpose [100x100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "transpose [100x100]",
+        "mean_ms": 0.00034977167000761256,
+        "median_ms": 0.00034977167000761256,
+        "min_ms": 0.00034977167000761256,
+        "max_ms": 0.00034977167000761256,
+        "std_ms": 0,
+        "ops_per_sec": 2859007.992208848,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "transpose [100x100]",
+        "mean_ms": 0.00013536708999999973,
+        "median_ms": 0.00013536708999999973,
+        "min_ms": 0.00013536708999999973,
+        "max_ms": 0.00013536708999999973,
+        "std_ms": 0,
+        "ops_per_sec": 7387319.916532164,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.3870155921920536
+    },
+    {
+      "name": "sum [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "sum [100x100]",
+        "mean_ms": 0.0021042939200082104,
+        "median_ms": 0.0021042939200082104,
+        "min_ms": 0.0021042939200082104,
+        "max_ms": 0.0021042939200082104,
+        "std_ms": 0,
+        "ops_per_sec": 475218.7850241464,
+        "total_ops": 48782,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sum [100x100]",
+        "mean_ms": 0.006099430469862358,
+        "median_ms": 0.006099430469862358,
+        "min_ms": 0.006099430469862358,
+        "max_ms": 0.006099430469862358,
+        "std_ms": 0,
+        "ops_per_sec": 163949.7334941448,
+        "total_ops": 8428,
+        "total_samples": 1
+      },
+      "ratio": 2.898563937227248
+    },
+    {
+      "name": "sum [100x100] axis=0",
+      "category": "reductions",
+      "numpy": {
+        "name": "sum [100x100] axis=0",
+        "mean_ms": 0.002754357686746382,
+        "median_ms": 0.002754357686746382,
+        "min_ms": 0.002754357686746382,
+        "max_ms": 0.002754357686746382,
+        "std_ms": 0,
+        "ops_per_sec": 363061.0522416433,
+        "total_ops": 35464,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sum [100x100] axis=0",
+        "mean_ms": 0.21172880434782518,
+        "median_ms": 0.21172880434782518,
+        "min_ms": 0.21172880434782518,
+        "max_ms": 0.21172880434782518,
+        "std_ms": 0,
+        "ops_per_sec": 4723.022940030463,
+        "total_ops": 230,
+        "total_samples": 1
+      },
+      "ratio": 76.87048249638643
+    },
+    {
+      "name": "mean [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "mean [100x100]",
+        "mean_ms": 0.002868646674941399,
+        "median_ms": 0.002868646674941399,
+        "min_ms": 0.002868646674941399,
+        "max_ms": 0.002868646674941399,
+        "std_ms": 0,
+        "ops_per_sec": 348596.4335501262,
+        "total_ops": 34798,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "mean [100x100]",
+        "mean_ms": 0.005896786029850773,
+        "median_ms": 0.005896786029850773,
+        "min_ms": 0.005896786029850773,
+        "max_ms": 0.005896786029850773,
+        "std_ms": 0,
+        "ops_per_sec": 169583.90467922515,
+        "total_ops": 8375,
+        "total_samples": 1
+      },
+      "ratio": 2.0555985794141876
+    },
+    {
+      "name": "max [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "max [100x100]",
+        "mean_ms": 0.001476032535592914,
+        "median_ms": 0.001476032535592914,
+        "min_ms": 0.001476032535592914,
+        "max_ms": 0.001476032535592914,
+        "std_ms": 0,
+        "ops_per_sec": 677491.841057762,
+        "total_ops": 67649,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "max [100x100]",
+        "mean_ms": 0.006993551563636389,
+        "median_ms": 0.006993551563636389,
+        "min_ms": 0.006993551563636389,
+        "max_ms": 0.006993551563636389,
+        "std_ms": 0,
+        "ops_per_sec": 142988.8649423265,
+        "total_ops": 6875,
+        "total_samples": 1
+      },
+      "ratio": 4.738074124380408
+    },
+    {
+      "name": "min [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "min [100x100]",
+        "mean_ms": 0.0015090965112436016,
+        "median_ms": 0.0015090965112436016,
+        "min_ms": 0.0015090965112436016,
+        "max_ms": 0.0015090965112436016,
+        "std_ms": 0,
+        "ops_per_sec": 662648.1424809138,
+        "total_ops": 67961,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "min [100x100]",
+        "mean_ms": 0.005047408552031668,
+        "median_ms": 0.005047408552031668,
+        "min_ms": 0.005047408552031668,
+        "max_ms": 0.005047408552031668,
+        "std_ms": 0,
+        "ops_per_sec": 198121.4695999758,
+        "total_ops": 9869,
+        "total_samples": 1
+      },
+      "ratio": 3.3446559013460635
+    },
+    {
+      "name": "prod [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "prod [100x100]",
+        "mean_ms": 0.008564135739915709,
+        "median_ms": 0.008564135739915709,
+        "min_ms": 0.008564135739915709,
+        "max_ms": 0.008564135739915709,
+        "std_ms": 0,
+        "ops_per_sec": 116766.01473505396,
+        "total_ops": 11603,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "prod [100x100]",
+        "mean_ms": 0.008116293429935783,
+        "median_ms": 0.008116293429935783,
+        "min_ms": 0.008116293429935783,
+        "max_ms": 0.008116293429935783,
+        "std_ms": 0,
+        "ops_per_sec": 123208.95106030094,
+        "total_ops": 6073,
+        "total_samples": 1
+      },
+      "ratio": 0.9477072382339033
+    },
+    {
+      "name": "argmin [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "argmin [100x100]",
+        "mean_ms": 0.005832291984368889,
+        "median_ms": 0.005832291984368889,
+        "min_ms": 0.005832291984368889,
+        "max_ms": 0.005832291984368889,
+        "std_ms": 0,
+        "ops_per_sec": 171459.17980102805,
+        "total_ops": 16405,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "argmin [100x100]",
+        "mean_ms": 0.004881349114780233,
+        "median_ms": 0.004881349114780233,
+        "min_ms": 0.004881349114780233,
+        "max_ms": 0.004881349114780233,
+        "std_ms": 0,
+        "ops_per_sec": 204861.397225636,
+        "total_ops": 10054,
+        "total_samples": 1
+      },
+      "ratio": 0.8369521155426931
+    },
+    {
+      "name": "argmax [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "argmax [100x100]",
+        "mean_ms": 0.005645791972881098,
+        "median_ms": 0.005645791972881098,
+        "min_ms": 0.005645791972881098,
+        "max_ms": 0.005645791972881098,
+        "std_ms": 0,
+        "ops_per_sec": 177123.06879236485,
+        "total_ops": 17118,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "argmax [100x100]",
+        "mean_ms": 0.007102938280569258,
+        "median_ms": 0.007102938280569258,
+        "min_ms": 0.007102938280569258,
+        "max_ms": 0.007102938280569258,
+        "std_ms": 0,
+        "ops_per_sec": 140786.8068818213,
+        "total_ops": 6886,
+        "total_samples": 1
+      },
+      "ratio": 1.2580942256971903
+    },
+    {
+      "name": "var [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "var [100x100]",
+        "mean_ms": 0.00981679019369369,
+        "median_ms": 0.00981679019369369,
+        "min_ms": 0.00981679019369369,
+        "max_ms": 0.00981679019369369,
+        "std_ms": 0,
+        "ops_per_sec": 101866.29033208842,
+        "total_ops": 10319,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "var [100x100]",
+        "mean_ms": 0.012173980995248848,
+        "median_ms": 0.012173980995248848,
+        "min_ms": 0.012173980995248848,
+        "max_ms": 0.012173980995248848,
+        "std_ms": 0,
+        "ops_per_sec": 82142.39864431127,
+        "total_ops": 3999,
+        "total_samples": 1
+      },
+      "ratio": 1.240118282559346
+    },
+    {
+      "name": "std [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "std [100x100]",
+        "mean_ms": 0.010129678817248064,
+        "median_ms": 0.010129678817248064,
+        "min_ms": 0.010129678817248064,
+        "max_ms": 0.010129678817248064,
+        "std_ms": 0,
+        "ops_per_sec": 98719.81313931438,
+        "total_ops": 9876,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "std [100x100]",
+        "mean_ms": 0.012125487780040647,
+        "median_ms": 0.012125487780040647,
+        "min_ms": 0.012125487780040647,
+        "max_ms": 0.012125487780040647,
+        "std_ms": 0,
+        "ops_per_sec": 82470.9090586909,
+        "total_ops": 3928,
+        "total_samples": 1
+      },
+      "ratio": 1.1970258878686526
+    },
+    {
+      "name": "all [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "all [100x100]",
+        "mean_ms": 0.003942130084669646,
+        "median_ms": 0.003942130084669646,
+        "min_ms": 0.003942130084669646,
+        "max_ms": 0.003942130084669646,
+        "std_ms": 0,
+        "ops_per_sec": 253669.96484688582,
+        "total_ops": 25445,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "all [100x100]",
+        "mean_ms": 0.004970124181710067,
+        "median_ms": 0.004970124181710067,
+        "min_ms": 0.004970124181710067,
+        "max_ms": 0.004970124181710067,
+        "std_ms": 0,
+        "ops_per_sec": 201202.21616996513,
+        "total_ops": 10082,
+        "total_samples": 1
+      },
+      "ratio": 1.2607712264590498
+    },
+    {
+      "name": "any [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "any [100x100]",
+        "mean_ms": 0.0037839495187725813,
+        "median_ms": 0.0037839495187725813,
+        "min_ms": 0.0037839495187725813,
+        "max_ms": 0.0037839495187725813,
+        "std_ms": 0,
+        "ops_per_sec": 264274.13871112507,
+        "total_ops": 26386,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "any [100x100]",
+        "mean_ms": 0.005202994497395955,
+        "median_ms": 0.005202994497395955,
+        "min_ms": 0.005202994497395955,
+        "max_ms": 0.005202994497395955,
+        "std_ms": 0,
+        "ops_per_sec": 192197.01279724392,
+        "total_ops": 10177,
+        "total_samples": 1
+      },
+      "ratio": 1.375016889518039
+    },
+    {
+      "name": "cumsum [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "cumsum [100x100]",
+        "mean_ms": 0.019673962478977493,
+        "median_ms": 0.019673962478977493,
+        "min_ms": 0.019673962478977493,
+        "max_ms": 0.019673962478977493,
+        "std_ms": 0,
+        "ops_per_sec": 50828.60156252431,
+        "total_ops": 5117,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "cumsum [100x100]",
+        "mean_ms": 0.008255306426996822,
+        "median_ms": 0.008255306426996822,
+        "min_ms": 0.008255306426996822,
+        "max_ms": 0.008255306426996822,
+        "std_ms": 0,
+        "ops_per_sec": 121134.20729359741,
+        "total_ops": 5897,
+        "total_samples": 1
+      },
+      "ratio": 0.41960568115436764
+    },
+    {
+      "name": "cumprod [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "cumprod [100x100]",
+        "mean_ms": 0.020682808289432243,
+        "median_ms": 0.020682808289432243,
+        "min_ms": 0.020682808289432243,
+        "max_ms": 0.020682808289432243,
+        "std_ms": 0,
+        "ops_per_sec": 48349.33370778977,
+        "total_ops": 4778,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "cumprod [100x100]",
+        "mean_ms": 0.00922660777715454,
+        "median_ms": 0.00922660777715454,
+        "min_ms": 0.00922660777715454,
+        "max_ms": 0.00922660777715454,
+        "std_ms": 0,
+        "ops_per_sec": 108382.19464319716,
+        "total_ops": 5349,
+        "total_samples": 1
+      },
+      "ratio": 0.44610033840853325
+    },
+    {
+      "name": "ptp [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "ptp [100x100]",
+        "mean_ms": 0.0031786265416397516,
+        "median_ms": 0.0031786265416397516,
+        "min_ms": 0.0031786265416397516,
+        "max_ms": 0.0031786265416397516,
+        "std_ms": 0,
+        "ops_per_sec": 314601.28671930486,
+        "total_ops": 30571,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "ptp [100x100]",
+        "mean_ms": 0.012571849244875748,
+        "median_ms": 0.012571849244875748,
+        "min_ms": 0.012571849244875748,
+        "max_ms": 0.012571849244875748,
+        "std_ms": 0,
+        "ops_per_sec": 79542.79283197715,
+        "total_ops": 3708,
+        "total_samples": 1
+      },
+      "ratio": 3.9551199488790316
+    },
+    {
+      "name": "median [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "median [100x100]",
+        "mean_ms": 0.012412359375957749,
+        "median_ms": 0.012412359375957749,
+        "min_ms": 0.012412359375957749,
+        "max_ms": 0.012412359375957749,
+        "std_ms": 0,
+        "ops_per_sec": 80564.86037110403,
+        "total_ops": 8000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "median [100x100]",
+        "mean_ms": 0.10645956991525593,
+        "median_ms": 0.10645956991525593,
+        "min_ms": 0.10645956991525593,
+        "max_ms": 0.10645956991525593,
+        "std_ms": 0,
+        "ops_per_sec": 9393.237271163327,
+        "total_ops": 472,
+        "total_samples": 1
+      },
+      "ratio": 8.576900385390381
+    },
+    {
+      "name": "percentile [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "percentile [100x100]",
+        "mean_ms": 0.027870743357248897,
+        "median_ms": 0.027870743357248897,
+        "min_ms": 0.027870743357248897,
+        "max_ms": 0.027870743357248897,
+        "std_ms": 0,
+        "ops_per_sec": 35879.91849309287,
+        "total_ops": 3651,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "percentile [100x100]",
+        "mean_ms": 0.10981769631236558,
+        "median_ms": 0.10981769631236558,
+        "min_ms": 0.10981769631236558,
+        "max_ms": 0.10981769631236558,
+        "std_ms": 0,
+        "ops_per_sec": 9106.000522498658,
+        "total_ops": 461,
+        "total_samples": 1
+      },
+      "ratio": 3.9402499927869026
+    },
+    {
+      "name": "quantile [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "quantile [100x100]",
+        "mean_ms": 0.027909201862135365,
+        "median_ms": 0.027909201862135365,
+        "min_ms": 0.027909201862135365,
+        "max_ms": 0.027909201862135365,
+        "std_ms": 0,
+        "ops_per_sec": 35830.47644786675,
+        "total_ops": 3656,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "quantile [100x100]",
+        "mean_ms": 0.10830112663755773,
+        "median_ms": 0.10830112663755773,
+        "min_ms": 0.10830112663755773,
+        "max_ms": 0.10830112663755773,
+        "std_ms": 0,
+        "ops_per_sec": 9233.514286020458,
+        "total_ops": 458,
+        "total_samples": 1
+      },
+      "ratio": 3.8804809672644462
+    },
+    {
+      "name": "average [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "average [100x100]",
+        "mean_ms": 0.0034631465301232104,
+        "median_ms": 0.0034631465301232104,
+        "min_ms": 0.0034631465301232104,
+        "max_ms": 0.0034631465301232104,
+        "std_ms": 0,
+        "ops_per_sec": 288754.7469625614,
+        "total_ops": 29052,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "average [100x100]",
+        "mean_ms": 0.005890412809667698,
+        "median_ms": 0.005890412809667698,
+        "min_ms": 0.005890412809667698,
+        "max_ms": 0.005890412809667698,
+        "std_ms": 0,
+        "ops_per_sec": 169767.38851965353,
+        "total_ops": 8275,
+        "total_samples": 1
+      },
+      "ratio": 1.7008846603606262
+    },
+    {
+      "name": "nansum [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "nansum [100x100]",
+        "mean_ms": 0.008695912198377793,
+        "median_ms": 0.008695912198377793,
+        "min_ms": 0.008695912198377793,
+        "max_ms": 0.008695912198377793,
+        "std_ms": 0,
+        "ops_per_sec": 114996.5612792811,
+        "total_ops": 11412,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "nansum [100x100]",
+        "mean_ms": 0.018828823804386927,
+        "median_ms": 0.018828823804386927,
+        "min_ms": 0.018828823804386927,
+        "max_ms": 0.018828823804386927,
+        "std_ms": 0,
+        "ops_per_sec": 53110.062019222365,
+        "total_ops": 2781,
+        "total_samples": 1
+      },
+      "ratio": 2.165249990437968
+    },
+    {
+      "name": "nanmean [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "nanmean [100x100]",
+        "mean_ms": 0.02591667946537085,
+        "median_ms": 0.02591667946537085,
+        "min_ms": 0.02591667946537085,
+        "max_ms": 0.02591667946537085,
+        "std_ms": 0,
+        "ops_per_sec": 38585.18994827915,
+        "total_ops": 3229,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "nanmean [100x100]",
+        "mean_ms": 0.01643407704972028,
+        "median_ms": 0.01643407704972028,
+        "min_ms": 0.01643407704972028,
+        "max_ms": 0.01643407704972028,
+        "std_ms": 0,
+        "ops_per_sec": 60849.173152502706,
+        "total_ops": 3037,
+        "total_samples": 1
+      },
+      "ratio": 0.6341119845881119
+    },
+    {
+      "name": "nanmin [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "nanmin [100x100]",
+        "mean_ms": 0.003025134025123105,
+        "median_ms": 0.003025134025123105,
+        "min_ms": 0.003025134025123105,
+        "max_ms": 0.003025134025123105,
+        "std_ms": 0,
+        "ops_per_sec": 330563.8664916031,
+        "total_ops": 33643,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "nanmin [100x100]",
+        "mean_ms": 0.018784783857728814,
+        "median_ms": 0.018784783857728814,
+        "min_ms": 0.018784783857728814,
+        "max_ms": 0.018784783857728814,
+        "std_ms": 0,
+        "ops_per_sec": 53234.57579143557,
+        "total_ops": 2924,
+        "total_samples": 1
+      },
+      "ratio": 6.209570783219889
+    },
+    {
+      "name": "nanmax [100x100]",
+      "category": "reductions",
+      "numpy": {
+        "name": "nanmax [100x100]",
+        "mean_ms": 0.003008355558246505,
+        "median_ms": 0.003008355558246505,
+        "min_ms": 0.003008355558246505,
+        "max_ms": 0.003008355558246505,
+        "std_ms": 0,
+        "ops_per_sec": 332407.51654464507,
+        "total_ops": 33356,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "nanmax [100x100]",
+        "mean_ms": 0.0162713250249253,
+        "median_ms": 0.0162713250249253,
+        "min_ms": 0.0162713250249253,
+        "max_ms": 0.0162713250249253,
+        "std_ms": 0,
+        "ops_per_sec": 61457.80988752579,
+        "total_ops": 3009,
+        "total_samples": 1
+      },
+      "ratio": 5.4087107424261545
+    },
+    {
+      "name": "reshape [100x100] -> [100x100] (contiguous)",
+      "category": "reshape",
+      "numpy": {
+        "name": "reshape [100x100] -> [100x100] (contiguous)",
+        "mean_ms": 0.0006055200000992045,
+        "median_ms": 0.0006055200000992045,
+        "min_ms": 0.0006055200000992045,
+        "max_ms": 0.0006055200000992045,
+        "std_ms": 0,
+        "ops_per_sec": 1651473.1137471371,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "reshape [100x100] -> [100x100] (contiguous)",
+        "mean_ms": 0.00003376166000000012,
+        "median_ms": 0.00003376166000000012,
+        "min_ms": 0.00003376166000000012,
+        "max_ms": 0.00003376166000000012,
+        "std_ms": 0,
+        "ops_per_sec": 29619396.67658511,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.05575647376547236
+    },
+    {
+      "name": "flatten [100x100]",
+      "category": "reshape",
+      "numpy": {
+        "name": "flatten [100x100]",
+        "mean_ms": 0.001473476465104021,
+        "median_ms": 0.001473476465104021,
+        "min_ms": 0.001473476465104021,
+        "max_ms": 0.001473476465104021,
+        "std_ms": 0,
+        "ops_per_sec": 678667.1003458507,
+        "total_ops": 67283,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "flatten [100x100]",
+        "mean_ms": 0.002041060065067123,
+        "median_ms": 0.002041060065067123,
+        "min_ms": 0.002041060065067123,
+        "max_ms": 0.002041060065067123,
+        "std_ms": 0,
+        "ops_per_sec": 489941.48536589666,
+        "total_ops": 24590,
+        "total_samples": 1
+      },
+      "ratio": 1.3852003159908177
+    },
+    {
+      "name": "ravel [100x100]",
+      "category": "reshape",
+      "numpy": {
+        "name": "ravel [100x100]",
+        "mean_ms": 0.0005993241700343788,
+        "median_ms": 0.0005993241700343788,
+        "min_ms": 0.0005993241700343788,
+        "max_ms": 0.0005993241700343788,
+        "std_ms": 0,
+        "ops_per_sec": 1668546.089076697,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "ravel [100x100]",
+        "mean_ms": 0.000020878329999995912,
+        "median_ms": 0.000020878329999995912,
+        "min_ms": 0.000020878329999995912,
+        "max_ms": 0.000020878329999995912,
+        "std_ms": 0,
+        "ops_per_sec": 47896551.11305338,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.034836455867945856
+    },
+    {
+      "name": "swapaxes [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "swapaxes [100x100]",
+        "mean_ms": 0.0007870141700550449,
+        "median_ms": 0.0007870141700550449,
+        "min_ms": 0.0007870141700550449,
+        "max_ms": 0.0007870141700550449,
+        "std_ms": 0,
+        "ops_per_sec": 1270625.152695864,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "swapaxes [100x100]",
+        "mean_ms": 0.00003486875000000509,
+        "median_ms": 0.00003486875000000509,
+        "min_ms": 0.00003486875000000509,
+        "max_ms": 0.00003486875000000509,
+        "std_ms": 0,
+        "ops_per_sec": 28678974.726649333,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.044305110793070375
+    },
+    {
+      "name": "concatenate [100x100] + [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "concatenate [100x100] + [100x100]",
+        "mean_ms": 0.0030251602080848304,
+        "median_ms": 0.0030251602080848304,
+        "min_ms": 0.0030251602080848304,
+        "max_ms": 0.0030251602080848304,
+        "std_ms": 0,
+        "ops_per_sec": 330561.0054394707,
+        "total_ops": 32876,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "concatenate [100x100] + [100x100]",
+        "mean_ms": 0.003594974217161464,
+        "median_ms": 0.003594974217161464,
+        "min_ms": 0.003594974217161464,
+        "max_ms": 0.003594974217161464,
+        "std_ms": 0,
+        "ops_per_sec": 278166.11179748166,
+        "total_ops": 12295,
+        "total_samples": 1
+      },
+      "ratio": 1.1883582917538678
+    },
+    {
+      "name": "stack [100x100] + [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "stack [100x100] + [100x100]",
+        "mean_ms": 0.003839225031345793,
+        "median_ms": 0.003839225031345793,
+        "min_ms": 0.003839225031345793,
+        "max_ms": 0.003839225031345793,
+        "std_ms": 0,
+        "ops_per_sec": 260469.23320081143,
+        "total_ops": 26103,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "stack [100x100] + [100x100]",
+        "mean_ms": 0.0037372619520390305,
+        "median_ms": 0.0037372619520390305,
+        "min_ms": 0.0037372619520390305,
+        "max_ms": 0.0037372619520390305,
+        "std_ms": 0,
+        "ops_per_sec": 267575.57078770065,
+        "total_ops": 13094,
+        "total_samples": 1
+      },
+      "ratio": 0.973441754918174
+    },
+    {
+      "name": "vstack [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "vstack [100x100]",
+        "mean_ms": 0.003661309868450046,
+        "median_ms": 0.003661309868450046,
+        "min_ms": 0.003661309868450046,
+        "max_ms": 0.003661309868450046,
+        "std_ms": 0,
+        "ops_per_sec": 273126.29521394026,
+        "total_ops": 27815,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "vstack [100x100]",
+        "mean_ms": 0.003973538920144534,
+        "median_ms": 0.003973538920144534,
+        "min_ms": 0.003973538920144534,
+        "max_ms": 0.003973538920144534,
+        "std_ms": 0,
+        "ops_per_sec": 251664.83079612718,
+        "total_ops": 11909,
+        "total_samples": 1
+      },
+      "ratio": 1.0852779641474772
+    },
+    {
+      "name": "hstack [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "hstack [100x100]",
+        "mean_ms": 0.005142916729658043,
+        "median_ms": 0.005142916729658043,
+        "min_ms": 0.005142916729658043,
+        "max_ms": 0.005142916729658043,
+        "std_ms": 0,
+        "ops_per_sec": 194442.19157452523,
+        "total_ops": 18686,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "hstack [100x100]",
+        "mean_ms": 0.008841715540911644,
+        "median_ms": 0.008841715540911644,
+        "min_ms": 0.008841715540911644,
+        "max_ms": 0.008841715540911644,
+        "std_ms": 0,
+        "ops_per_sec": 113100.22307015918,
+        "total_ops": 5463,
+        "total_samples": 1
+      },
+      "ratio": 1.7192025470533987
+    },
+    {
+      "name": "tile [100x100] x [2,2]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "tile [100x100] x [2,2]",
+        "mean_ms": 0.008140275767604663,
+        "median_ms": 0.008140275767604663,
+        "min_ms": 0.008140275767604663,
+        "max_ms": 0.008140275767604663,
+        "std_ms": 0,
+        "ops_per_sec": 122845.96106432122,
+        "total_ops": 12438,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "tile [100x100] x [2,2]",
+        "mean_ms": 0.31468017241378876,
+        "median_ms": 0.31468017241378876,
+        "min_ms": 0.31468017241378876,
+        "max_ms": 0.31468017241378876,
+        "std_ms": 0,
+        "ops_per_sec": 3177.8297066808827,
+        "total_ops": 145,
+        "total_samples": 1
+      },
+      "ratio": 38.65718820805819
+    },
+    {
+      "name": "repeat [100x100] x 2",
+      "category": "manipulation",
+      "numpy": {
+        "name": "repeat [100x100] x 2",
+        "mean_ms": 0.006307873311922636,
+        "median_ms": 0.006307873311922636,
+        "min_ms": 0.006307873311922636,
+        "max_ms": 0.006307873311922636,
+        "std_ms": 0,
+        "ops_per_sec": 158532.0361634214,
+        "total_ops": 15850,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "repeat [100x100] x 2",
+        "mean_ms": 0.09727597087378687,
+        "median_ms": 0.09727597087378687,
+        "min_ms": 0.09727597087378687,
+        "max_ms": 0.09727597087378687,
+        "std_ms": 0,
+        "ops_per_sec": 10280.031039705324,
+        "total_ops": 515,
+        "total_samples": 1
+      },
+      "ratio": 15.421357732395107
+    },
+    {
+      "name": "broadcast_to [100] -> [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "broadcast_to [100] -> [100x100]",
+        "mean_ms": 0.0016171360604410434,
+        "median_ms": 0.0016171360604410434,
+        "min_ms": 0.0016171360604410434,
+        "max_ms": 0.0016171360604410434,
+        "std_ms": 0,
+        "ops_per_sec": 618377.157285868,
+        "total_ops": 61605,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "broadcast_to [100] -> [100x100]",
+        "mean_ms": 0.00007757749999998851,
+        "median_ms": 0.00007757749999998851,
+        "min_ms": 0.00007757749999998851,
+        "max_ms": 0.00007757749999998851,
+        "std_ms": 0,
+        "ops_per_sec": 12890335.470982542,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.04797215391933732
+    },
+    {
+      "name": "take [100x100] 100 indices",
+      "category": "manipulation",
+      "numpy": {
+        "name": "take [100x100] 100 indices",
+        "mean_ms": 0.0027670360381261356,
+        "median_ms": 0.0027670360381261356,
+        "min_ms": 0.0027670360381261356,
+        "max_ms": 0.0027670360381261356,
+        "std_ms": 0,
+        "ops_per_sec": 361397.533758617,
+        "total_ops": 36073,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "take [100x100] 100 indices",
+        "mean_ms": 0.0008352225320285011,
+        "median_ms": 0.0008352225320285011,
+        "min_ms": 0.0008352225320285011,
+        "max_ms": 0.0008352225320285011,
+        "std_ms": 0,
+        "ops_per_sec": 1197285.7072848654,
+        "total_ops": 54873,
+        "total_samples": 1
+      },
+      "ratio": 0.3018473632147278
+    },
+    {
+      "name": "serializeNpy [100x100] float64",
+      "category": "io",
+      "numpy": {
+        "name": "serializeNpy [100x100] float64",
+        "mean_ms": 0.008466571601255812,
+        "median_ms": 0.008466571601255812,
+        "min_ms": 0.008466571601255812,
+        "max_ms": 0.008466571601255812,
+        "std_ms": 0,
+        "ops_per_sec": 118111.56240049681,
+        "total_ops": 15684,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "serializeNpy [100x100] float64",
+        "mean_ms": 0.002274076672281705,
+        "median_ms": 0.002274076672281705,
+        "min_ms": 0.002274076672281705,
+        "max_ms": 0.002274076672281705,
+        "std_ms": 0,
+        "ops_per_sec": 439738.9112639925,
+        "total_ops": 18403,
+        "total_samples": 1
+      },
+      "ratio": 0.26859474878171474
+    },
+    {
+      "name": "serializeNpy [100x100] int32",
+      "category": "io",
+      "numpy": {
+        "name": "serializeNpy [100x100] int32",
+        "mean_ms": 0.0074683325578640495,
+        "median_ms": 0.0074683325578640495,
+        "min_ms": 0.0074683325578640495,
+        "max_ms": 0.0074683325578640495,
+        "std_ms": 0,
+        "ops_per_sec": 133898.69723289358,
+        "total_ops": 18914,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "serializeNpy [100x100] int32",
+        "mean_ms": 0.0017530621859296422,
+        "median_ms": 0.0017530621859296422,
+        "min_ms": 0.0017530621859296422,
+        "max_ms": 0.0017530621859296422,
+        "std_ms": 0,
+        "ops_per_sec": 570430.4205670285,
+        "total_ops": 28656,
+        "total_samples": 1
+      },
+      "ratio": 0.23473274286422774
+    },
+    {
+      "name": "parseNpy [100x100] float64",
+      "category": "io",
+      "numpy": {
+        "name": "parseNpy [100x100] float64",
+        "mean_ms": 0.02285919486899684,
+        "median_ms": 0.02285919486899684,
+        "min_ms": 0.02285919486899684,
+        "max_ms": 0.02285919486899684,
+        "std_ms": 0,
+        "ops_per_sec": 43746.0726736385,
+        "total_ops": 2689,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "parseNpy [100x100] float64",
+        "mean_ms": 0.002669965159428196,
+        "median_ms": 0.002669965159428196,
+        "min_ms": 0.002669965159428196,
+        "max_ms": 0.002669965159428196,
+        "std_ms": 0,
+        "ops_per_sec": 374536.7224994657,
+        "total_ops": 14552,
+        "total_samples": 1
+      },
+      "ratio": 0.11680048990042867
+    },
+    {
+      "name": "parseNpy [100x100] int32",
+      "category": "io",
+      "numpy": {
+        "name": "parseNpy [100x100] int32",
+        "mean_ms": 0.016016060340068784,
+        "median_ms": 0.016016060340068784,
+        "min_ms": 0.016016060340068784,
+        "max_ms": 0.016016060340068784,
+        "std_ms": 0,
+        "ops_per_sec": 62437.3272057556,
+        "total_ops": 6281,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "parseNpy [100x100] int32",
+        "mean_ms": 0.0019890587768070234,
+        "median_ms": 0.0019890587768070234,
+        "min_ms": 0.0019890587768070234,
+        "max_ms": 0.0019890587768070234,
+        "std_ms": 0,
+        "ops_per_sec": 502750.3519052716,
+        "total_ops": 25180,
+        "total_samples": 1
+      },
+      "ratio": 0.12419151367898011
+    },
+    {
+      "name": "serializeNpzSync {a, b} [100x100]",
+      "category": "io",
+      "numpy": {
+        "name": "serializeNpzSync {a, b} [100x100]",
+        "mean_ms": 0.027051058178256697,
+        "median_ms": 0.027051058178256697,
+        "min_ms": 0.027051058178256697,
+        "max_ms": 0.027051058178256697,
+        "std_ms": 0,
+        "ops_per_sec": 36967.13057989678,
+        "total_ops": 3008,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "serializeNpzSync {a, b} [100x100]",
+        "mean_ms": 0.28058527325581667,
+        "median_ms": 0.28058527325581667,
+        "min_ms": 0.28058527325581667,
+        "max_ms": 0.28058527325581667,
+        "std_ms": 0,
+        "ops_per_sec": 3563.9789230430306,
+        "total_ops": 172,
+        "total_samples": 1
+      },
+      "ratio": 10.372432435243795
+    },
+    {
+      "name": "parseNpzSync {a, b} [100x100]",
+      "category": "io",
+      "numpy": {
+        "name": "parseNpzSync {a, b} [100x100]",
+        "mean_ms": 0.00702122381212926,
+        "median_ms": 0.00702122381212926,
+        "min_ms": 0.00702122381212926,
+        "max_ms": 0.00702122381212926,
+        "std_ms": 0,
+        "ops_per_sec": 142425.31313023897,
+        "total_ops": 14673,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "parseNpzSync {a, b} [100x100]",
+        "mean_ms": 0.01061495901287555,
+        "median_ms": 0.01061495901287555,
+        "min_ms": 0.01061495901287555,
+        "max_ms": 0.01061495901287555,
+        "std_ms": 0,
+        "ops_per_sec": 94206.67557802505,
+        "total_ops": 4660,
+        "total_samples": 1
+      },
+      "ratio": 1.5118388612734526
+    },
+    {
+      "name": "zeros [100x100] (int64)",
+      "category": "bigint",
+      "numpy": {
+        "name": "zeros [100x100] (int64)",
+        "mean_ms": 0.0006605000000854489,
+        "median_ms": 0.0006605000000854489,
+        "min_ms": 0.0006605000000854489,
+        "max_ms": 0.0006605000000854489,
+        "std_ms": 0,
+        "ops_per_sec": 1514004.5418177594,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "zeros [100x100] (int64)",
+        "mean_ms": 0.0011660058963385818,
+        "median_ms": 0.0011660058963385818,
+        "min_ms": 0.0011660058963385818,
+        "max_ms": 0.0011660058963385818,
+        "std_ms": 0,
+        "ops_per_sec": 857628.5961675983,
+        "total_ops": 42060,
+        "total_samples": 1
+      },
+      "ratio": 1.7653382228429004
+    },
+    {
+      "name": "add [100x100] + [100x100] (int64)",
+      "category": "bigint",
+      "numpy": {
+        "name": "add [100x100] + [100x100] (int64)",
+        "mean_ms": 0.002252374736907052,
+        "median_ms": 0.002252374736907052,
+        "min_ms": 0.002252374736907052,
+        "max_ms": 0.002252374736907052,
+        "std_ms": 0,
+        "ops_per_sec": 443975.85517816374,
+        "total_ops": 43724,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "add [100x100] + [100x100] (int64)",
+        "mean_ms": 0.0066982842795367025,
+        "median_ms": 0.0066982842795367025,
+        "min_ms": 0.0066982842795367025,
+        "max_ms": 0.0066982842795367025,
+        "std_ms": 0,
+        "ops_per_sec": 149291.96168263652,
+        "total_ops": 7169,
+        "total_samples": 1
+      },
+      "ratio": 2.973876491233758
+    },
+    {
+      "name": "multiply [100x100] * scalar (int64)",
+      "category": "bigint",
+      "numpy": {
+        "name": "multiply [100x100] * scalar (int64)",
+        "mean_ms": 0.003002435181575628,
+        "median_ms": 0.003002435181575628,
+        "min_ms": 0.003002435181575628,
+        "max_ms": 0.003002435181575628,
+        "std_ms": 0,
+        "ops_per_sec": 333062.97705824795,
+        "total_ops": 33023,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "multiply [100x100] * scalar (int64)",
+        "mean_ms": 0.36816636496350974,
+        "median_ms": 0.36816636496350974,
+        "min_ms": 0.36816636496350974,
+        "max_ms": 0.36816636496350974,
+        "std_ms": 0,
+        "ops_per_sec": 2716.163384721778,
+        "total_ops": 137,
+        "total_samples": 1
+      },
+      "ratio": 122.62258556745999
+    },
+    {
+      "name": "absolute [100x100] (int64)",
+      "category": "bigint",
+      "numpy": {
+        "name": "absolute [100x100] (int64)",
+        "mean_ms": 0.0011686869113419172,
+        "median_ms": 0.0011686869113419172,
+        "min_ms": 0.0011686869113419172,
+        "max_ms": 0.0011686869113419172,
+        "std_ms": 0,
+        "ops_per_sec": 855661.1615096926,
+        "total_ops": 83117,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "absolute [100x100] (int64)",
+        "mean_ms": 0.03603720658682636,
+        "median_ms": 0.03603720658682636,
+        "min_ms": 0.03603720658682636,
+        "max_ms": 0.03603720658682636,
+        "std_ms": 0,
+        "ops_per_sec": 27749.09863201097,
+        "total_ops": 1336,
+        "total_samples": 1
+      },
+      "ratio": 30.835638045648587
+    },
+    {
+      "name": "sum [100x100] (int64)",
+      "category": "bigint",
+      "numpy": {
+        "name": "sum [100x100] (int64)",
+        "mean_ms": 0.0015346243223043699,
+        "median_ms": 0.0015346243223043699,
+        "min_ms": 0.0015346243223043699,
+        "max_ms": 0.0015346243223043699,
+        "std_ms": 0,
+        "ops_per_sec": 651625.2775783029,
+        "total_ops": 65479,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sum [100x100] (int64)",
+        "mean_ms": 0.015085955187231775,
+        "median_ms": 0.015085955187231775,
+        "min_ms": 0.015085955187231775,
+        "max_ms": 0.015085955187231775,
+        "std_ms": 0,
+        "ops_per_sec": 66286.82026354983,
+        "total_ops": 3258,
+        "total_samples": 1
+      },
+      "ratio": 9.830389736413744
+    },
+    {
+      "name": "max [100x100] (int64)",
+      "category": "bigint",
+      "numpy": {
+        "name": "max [100x100] (int64)",
+        "mean_ms": 0.001645309337302376,
+        "median_ms": 0.001645309337302376,
+        "min_ms": 0.001645309337302376,
+        "max_ms": 0.001645309337302376,
+        "std_ms": 0,
+        "ops_per_sec": 607788.442773676,
+        "total_ops": 60274,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "max [100x100] (int64)",
+        "mean_ms": 0.056703551136363536,
+        "median_ms": 0.056703551136363536,
+        "min_ms": 0.056703551136363536,
+        "max_ms": 0.056703551136363536,
+        "std_ms": 0,
+        "ops_per_sec": 17635.57978221064,
+        "total_ops": 880,
+        "total_samples": 1
+      },
+      "ratio": 34.4637630449079
+    },
+    {
+      "name": "add [100x100] + [100x100] (uint64)",
+      "category": "bigint",
+      "numpy": {
+        "name": "add [100x100] + [100x100] (uint64)",
+        "mean_ms": 0.0018443272154133883,
+        "median_ms": 0.0018443272154133883,
+        "min_ms": 0.0018443272154133883,
+        "max_ms": 0.0018443272154133883,
+        "std_ms": 0,
+        "ops_per_sec": 542203.1359960492,
+        "total_ops": 54212,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "add [100x100] + [100x100] (uint64)",
+        "mean_ms": 0.03995171187801004,
+        "median_ms": 0.03995171187801004,
+        "min_ms": 0.03995171187801004,
+        "max_ms": 0.03995171187801004,
+        "std_ms": 0,
+        "ops_per_sec": 25030.216553759576,
+        "total_ops": 1246,
+        "total_samples": 1
+      },
+      "ratio": 21.66194346866765
+    },
+    {
+      "name": "deg2rad [1000]",
+      "category": "trig",
+      "numpy": {
+        "name": "deg2rad [1000]",
+        "mean_ms": 0.0012195474066905615,
+        "median_ms": 0.0012195474066905615,
+        "min_ms": 0.0012195474066905615,
+        "max_ms": 0.0012195474066905615,
+        "std_ms": 0,
+        "ops_per_sec": 819976.3244248629,
+        "total_ops": 79725,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "deg2rad [1000]",
+        "mean_ms": 0.005005980224812676,
+        "median_ms": 0.005005980224812676,
+        "min_ms": 0.005005980224812676,
+        "max_ms": 0.005005980224812676,
+        "std_ms": 0,
+        "ops_per_sec": 199761.07677041815,
+        "total_ops": 9608,
+        "total_samples": 1
+      },
+      "ratio": 4.104785264885447
+    },
+    {
+      "name": "rad2deg [1000]",
+      "category": "trig",
+      "numpy": {
+        "name": "rad2deg [1000]",
+        "mean_ms": 0.0012483973874623188,
+        "median_ms": 0.0012483973874623188,
+        "min_ms": 0.0012483973874623188,
+        "max_ms": 0.0012483973874623188,
+        "std_ms": 0,
+        "ops_per_sec": 801026.98871611,
+        "total_ops": 80000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "rad2deg [1000]",
+        "mean_ms": 0.0049255590973487666,
+        "median_ms": 0.0049255590973487666,
+        "min_ms": 0.0049255590973487666,
+        "max_ms": 0.0049255590973487666,
+        "std_ms": 0,
+        "ops_per_sec": 203022.63768152948,
+        "total_ops": 9882,
+        "total_samples": 1
+      },
+      "ratio": 3.9455057714925235
+    },
+    {
+      "name": "diagonal [100x100]",
+      "category": "linalg",
+      "numpy": {
+        "name": "diagonal [100x100]",
+        "mean_ms": 0.0006226966599933803,
+        "median_ms": 0.0006226966599933803,
+        "min_ms": 0.0006226966599933803,
+        "max_ms": 0.0006226966599933803,
+        "std_ms": 0,
+        "ops_per_sec": 1605918.3616154785,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "diagonal [100x100]",
+        "mean_ms": 0.002557684026546495,
+        "median_ms": 0.002557684026546495,
+        "min_ms": 0.002557684026546495,
+        "max_ms": 0.002557684026546495,
+        "std_ms": 0,
+        "ops_per_sec": 390978.7094969064,
+        "total_ops": 19739,
+        "total_samples": 1
+      },
+      "ratio": 4.107431741441627
+    },
+    {
+      "name": "kron [10x10] ⊗ [10x10]",
+      "category": "linalg",
+      "numpy": {
+        "name": "kron [10x10] ⊗ [10x10]",
+        "mean_ms": 0.012447605694563038,
+        "median_ms": 0.012447605694563038,
+        "min_ms": 0.012447605694563038,
+        "max_ms": 0.012447605694563038,
+        "std_ms": 0,
+        "ops_per_sec": 80336.73499448877,
+        "total_ops": 6533,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "kron [10x10] ⊗ [10x10]",
+        "mean_ms": 0.4644093333333364,
+        "median_ms": 0.4644093333333364,
+        "min_ms": 0.4644093333333364,
+        "max_ms": 0.4644093333333364,
+        "std_ms": 0,
+        "ops_per_sec": 2153.2728311518144,
+        "total_ops": 108,
+        "total_samples": 1
+      },
+      "ratio": 37.30912954096744
+    },
+    {
+      "name": "diag [100]",
+      "category": "creation",
+      "numpy": {
+        "name": "diag [100]",
+        "mean_ms": 0.002272231949093744,
+        "median_ms": 0.002272231949093744,
+        "min_ms": 0.002272231949093744,
+        "max_ms": 0.002272231949093744,
+        "std_ms": 0,
+        "ops_per_sec": 440095.91555951827,
+        "total_ops": 44195,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "diag [100]",
+        "mean_ms": 0.006072224091520693,
+        "median_ms": 0.006072224091520693,
+        "min_ms": 0.006072224091520693,
+        "max_ms": 0.006072224091520693,
+        "std_ms": 0,
+        "ops_per_sec": 164684.30428916626,
+        "total_ops": 7430,
+        "total_samples": 1
+      },
+      "ratio": 2.672361021040363
+    },
+    {
+      "name": "tri [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "tri [100x100]",
+        "mean_ms": 0.0054893835549147995,
+        "median_ms": 0.0054893835549147995,
+        "min_ms": 0.0054893835549147995,
+        "max_ms": 0.0054893835549147995,
+        "std_ms": 0,
+        "ops_per_sec": 182169.8174296223,
+        "total_ops": 18352,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "tri [100x100]",
+        "mean_ms": 0.16969897068404236,
+        "median_ms": 0.16969897068404236,
+        "min_ms": 0.16969897068404236,
+        "max_ms": 0.16969897068404236,
+        "std_ms": 0,
+        "ops_per_sec": 5892.787657869011,
+        "total_ops": 307,
+        "total_samples": 1
+      },
+      "ratio": 30.914030507506823
+    },
+    {
+      "name": "tril [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "tril [100x100]",
+        "mean_ms": 0.006645698795224776,
+        "median_ms": 0.006645698795224776,
+        "min_ms": 0.006645698795224776,
+        "max_ms": 0.006645698795224776,
+        "std_ms": 0,
+        "ops_per_sec": 150473.26561332325,
+        "total_ops": 15023,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "tril [100x100]",
+        "mean_ms": 0.1902148773946346,
+        "median_ms": 0.1902148773946346,
+        "min_ms": 0.1902148773946346,
+        "max_ms": 0.1902148773946346,
+        "std_ms": 0,
+        "ops_per_sec": 5257.212336369053,
+        "total_ops": 261,
+        "total_samples": 1
+      },
+      "ratio": 28.62225376980857
+    },
+    {
+      "name": "triu [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "triu [100x100]",
+        "mean_ms": 0.006731741278334531,
+        "median_ms": 0.006731741278334531,
+        "min_ms": 0.006731741278334531,
+        "max_ms": 0.006731741278334531,
+        "std_ms": 0,
+        "ops_per_sec": 148549.975207515,
+        "total_ops": 14792,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "triu [100x100]",
+        "mean_ms": 0.19163282375478838,
+        "median_ms": 0.19163282375478838,
+        "min_ms": 0.19163282375478838,
+        "max_ms": 0.19163282375478838,
+        "std_ms": 0,
+        "ops_per_sec": 5218.312710768125,
+        "total_ops": 261,
+        "total_samples": 1
+      },
+      "ratio": 28.467051217719906
+    },
+    {
+      "name": "flip [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "flip [100x100]",
+        "mean_ms": 0.0009554579100222326,
+        "median_ms": 0.0009554579100222326,
+        "min_ms": 0.0009554579100222326,
+        "max_ms": 0.0009554579100222326,
+        "std_ms": 0,
+        "ops_per_sec": 1046618.5789144086,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "flip [100x100]",
+        "mean_ms": 0.012373295454545595,
+        "median_ms": 0.012373295454545595,
+        "min_ms": 0.012373295454545595,
+        "max_ms": 0.012373295454545595,
+        "std_ms": 0,
+        "ops_per_sec": 80819.21293107315,
+        "total_ops": 3960,
+        "total_samples": 1
+      },
+      "ratio": 12.950120905124622
+    },
+    {
+      "name": "rot90 [100x100]",
+      "category": "manipulation",
+      "numpy": {
+        "name": "rot90 [100x100]",
+        "mean_ms": 0.002822222212806202,
+        "median_ms": 0.002822222212806202,
+        "min_ms": 0.002822222212806202,
+        "max_ms": 0.002822222212806202,
+        "std_ms": 0,
+        "ops_per_sec": 354330.70984360104,
+        "total_ops": 34395,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "rot90 [100x100]",
+        "mean_ms": 0.44937120909091227,
+        "median_ms": 0.44937120909091227,
+        "min_ms": 0.44937120909091227,
+        "max_ms": 0.44937120909091227,
+        "std_ms": 0,
+        "ops_per_sec": 2225.3317074385377,
+        "total_ops": 110,
+        "total_samples": 1
+      },
+      "ratio": 159.2260195004602
+    },
+    {
+      "name": "roll [100x100] shift=10",
+      "category": "manipulation",
+      "numpy": {
+        "name": "roll [100x100] shift=10",
+        "mean_ms": 0.004311412258379288,
+        "median_ms": 0.004311412258379288,
+        "min_ms": 0.004311412258379288,
+        "max_ms": 0.004311412258379288,
+        "std_ms": 0,
+        "ops_per_sec": 231942.56082945594,
+        "total_ops": 23347,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "roll [100x100] shift=10",
+        "mean_ms": 0.13093805614973103,
+        "median_ms": 0.13093805614973103,
+        "min_ms": 0.13093805614973103,
+        "max_ms": 0.13093805614973103,
+        "std_ms": 0,
+        "ops_per_sec": 7637.199065002724,
+        "total_ops": 374,
+        "total_samples": 1
+      },
+      "ratio": 30.370108053399704
+    },
+    {
+      "name": "pad [100x100] width=2",
+      "category": "manipulation",
+      "numpy": {
+        "name": "pad [100x100] width=2",
+        "mean_ms": 0.009106674571072714,
+        "median_ms": 0.009106674571072714,
+        "min_ms": 0.009106674571072714,
+        "max_ms": 0.009106674571072714,
+        "std_ms": 0,
+        "ops_per_sec": 109809.567937839,
+        "total_ops": 11007,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "pad [100x100] width=2",
+        "mean_ms": 0.33720198095238413,
+        "median_ms": 0.33720198095238413,
+        "min_ms": 0.33720198095238413,
+        "max_ms": 0.33720198095238413,
+        "std_ms": 0,
+        "ops_per_sec": 2965.5816290747375,
+        "total_ops": 105,
+        "total_samples": 1
+      },
+      "ratio": 37.028003836164714
+    },
+    {
+      "name": "einsum matmul [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "einsum matmul [50x50]",
+        "mean_ms": 0.020417890006112802,
+        "median_ms": 0.020417890006112802,
+        "min_ms": 0.020417890006112802,
+        "max_ms": 0.020417890006112802,
+        "std_ms": 0,
+        "ops_per_sec": 48976.65722073218,
+        "total_ops": 4973,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "einsum matmul [50x50]",
+        "mean_ms": 0.15113420298507324,
+        "median_ms": 0.15113420298507324,
+        "min_ms": 0.15113420298507324,
+        "max_ms": 0.15113420298507324,
+        "std_ms": 0,
+        "ops_per_sec": 6616.635945066419,
+        "total_ops": 335,
+        "total_samples": 1
+      },
+      "ratio": 7.402048053928491
+    },
+    {
+      "name": "linalg.det [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.det [50x50]",
+        "mean_ms": 0.010220379750855354,
+        "median_ms": 0.010220379750855354,
+        "min_ms": 0.010220379750855354,
+        "max_ms": 0.010220379750855354,
+        "std_ms": 0,
+        "ops_per_sec": 97843.72248167286,
+        "total_ops": 9709,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.det [50x50]",
+        "mean_ms": 0.03906667993630441,
+        "median_ms": 0.03906667993630441,
+        "min_ms": 0.03906667993630441,
+        "max_ms": 0.03906667993630441,
+        "std_ms": 0,
+        "ops_per_sec": 25597.260930041473,
+        "total_ops": 1256,
+        "total_samples": 1
+      },
+      "ratio": 3.822429389968106
+    },
+    {
+      "name": "linalg.inv [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.inv [50x50]",
+        "mean_ms": 0.04104439125523419,
+        "median_ms": 0.04104439125523419,
+        "min_ms": 0.04104439125523419,
+        "max_ms": 0.04104439125523419,
+        "std_ms": 0,
+        "ops_per_sec": 24363.864816059977,
+        "total_ops": 2722,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.inv [50x50]",
+        "mean_ms": 0.16628699339934286,
+        "median_ms": 0.16628699339934286,
+        "min_ms": 0.16628699339934286,
+        "max_ms": 0.16628699339934286,
+        "std_ms": 0,
+        "ops_per_sec": 6013.699445503065,
+        "total_ops": 303,
+        "total_samples": 1
+      },
+      "ratio": 4.051393827850647
+    },
+    {
+      "name": "linalg.solve [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.solve [50x50]",
+        "mean_ms": 0.013539314831833632,
+        "median_ms": 0.013539314831833632,
+        "min_ms": 0.013539314831833632,
+        "max_ms": 0.013539314831833632,
+        "std_ms": 0,
+        "ops_per_sec": 73858.98122767634,
+        "total_ops": 7423,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.solve [50x50]",
+        "mean_ms": 0.04048958388704366,
+        "median_ms": 0.04048958388704366,
+        "min_ms": 0.04048958388704366,
+        "max_ms": 0.04048958388704366,
+        "std_ms": 0,
+        "ops_per_sec": 24697.709978688912,
+        "total_ops": 1204,
+        "total_samples": 1
+      },
+      "ratio": 2.990519416229584
+    },
+    {
+      "name": "linalg.qr [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.qr [50x50]",
+        "mean_ms": 0.05525484855039427,
+        "median_ms": 0.05525484855039427,
+        "min_ms": 0.05525484855039427,
+        "max_ms": 0.05525484855039427,
+        "std_ms": 0,
+        "ops_per_sec": 18097.959296512534,
+        "total_ops": 1796,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.qr [50x50]",
+        "mean_ms": 3.2192890625000246,
+        "median_ms": 3.2192890625000246,
+        "min_ms": 3.2192890625000246,
+        "max_ms": 3.2192890625000246,
+        "std_ms": 0,
+        "ops_per_sec": 310.6275890688186,
+        "total_ops": 16,
+        "total_samples": 1
+      },
+      "ratio": 58.26256241683344
+    },
+    {
+      "name": "linalg.cholesky [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.cholesky [50x50]",
+        "mean_ms": 0.014650791388010464,
+        "median_ms": 0.014650791388010464,
+        "min_ms": 0.014650791388010464,
+        "max_ms": 0.014650791388010464,
+        "std_ms": 0,
+        "ops_per_sec": 68255.69851594188,
+        "total_ops": 7013,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.cholesky [50x50]",
+        "mean_ms": 0.3939225234375101,
+        "median_ms": 0.3939225234375101,
+        "min_ms": 0.3939225234375101,
+        "max_ms": 0.3939225234375101,
+        "std_ms": 0,
+        "ops_per_sec": 2538.570253037676,
+        "total_ops": 128,
+        "total_samples": 1
+      },
+      "ratio": 26.88745699838974
+    },
+    {
+      "name": "linalg.svd [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.svd [50x50]",
+        "mean_ms": 0.1047451794048625,
+        "median_ms": 0.1047451794048625,
+        "min_ms": 0.1047451794048625,
+        "max_ms": 0.1047451794048625,
+        "std_ms": 0,
+        "ops_per_sec": 9546.978731448693,
+        "total_ops": 942,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.svd [50x50]",
+        "mean_ms": 4.356600750000022,
+        "median_ms": 4.356600750000022,
+        "min_ms": 4.356600750000022,
+        "max_ms": 4.356600750000022,
+        "std_ms": 0,
+        "ops_per_sec": 229.53675523284866,
+        "total_ops": 12,
+        "total_samples": 1
+      },
+      "ratio": 41.59237470166364
+    },
+    {
+      "name": "linalg.eigh [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.eigh [50x50]",
+        "mean_ms": 0.14738829868745418,
+        "median_ms": 0.14738829868745418,
+        "min_ms": 0.14738829868745418,
+        "max_ms": 0.14738829868745418,
+        "std_ms": 0,
+        "ops_per_sec": 6784.799125204373,
+        "total_ops": 683,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.eigh [50x50]",
+        "mean_ms": 0.5146432755102106,
+        "median_ms": 0.5146432755102106,
+        "min_ms": 0.5146432755102106,
+        "max_ms": 0.5146432755102106,
+        "std_ms": 0,
+        "ops_per_sec": 1943.0934932718455,
+        "total_ops": 98,
+        "total_samples": 1
+      },
+      "ratio": 3.4917512454739903
+    },
+    {
+      "name": "linalg.norm [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.norm [50x50]",
+        "mean_ms": 0.0015256690115342676,
+        "median_ms": 0.0015256690115342676,
+        "min_ms": 0.0015256690115342676,
+        "max_ms": 0.0015256690115342676,
+        "std_ms": 0,
+        "ops_per_sec": 655450.1614962764,
+        "total_ops": 65395,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.norm [50x50]",
+        "mean_ms": 0.007394937593311387,
+        "median_ms": 0.007394937593311387,
+        "min_ms": 0.007394937593311387,
+        "max_ms": 0.007394937593311387,
+        "std_ms": 0,
+        "ops_per_sec": 135227.64558614875,
+        "total_ops": 6698,
+        "total_samples": 1
+      },
+      "ratio": 4.847013039790833
+    },
+    {
+      "name": "linalg.matrix_rank [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.matrix_rank [50x50]",
+        "mean_ms": 0.07942212620662852,
+        "median_ms": 0.07942212620662852,
+        "min_ms": 0.07942212620662852,
+        "max_ms": 0.07942212620662852,
+        "std_ms": 0,
+        "ops_per_sec": 12590.949748667654,
+        "total_ops": 1244,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.matrix_rank [50x50]",
+        "mean_ms": 4.475022727272682,
+        "median_ms": 4.475022727272682,
+        "min_ms": 4.475022727272682,
+        "max_ms": 4.475022727272682,
+        "std_ms": 0,
+        "ops_per_sec": 223.4625522470706,
+        "total_ops": 11,
+        "total_samples": 1
+      },
+      "ratio": 56.34478628323602
+    },
+    {
+      "name": "linalg.pinv [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.pinv [50x50]",
+        "mean_ms": 0.1160902366904575,
+        "median_ms": 0.1160902366904575,
+        "min_ms": 0.1160902366904575,
+        "max_ms": 0.1160902366904575,
+        "std_ms": 0,
+        "ops_per_sec": 8613.988811706842,
+        "total_ops": 845,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.pinv [50x50]",
+        "mean_ms": 5.743064888889017,
+        "median_ms": 5.743064888889017,
+        "min_ms": 5.743064888889017,
+        "max_ms": 5.743064888889017,
+        "std_ms": 0,
+        "ops_per_sec": 174.1230543876804,
+        "total_ops": 9,
+        "total_samples": 1
+      },
+      "ratio": 49.47069669779639
+    },
+    {
+      "name": "linalg.cond [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.cond [50x50]",
+        "mean_ms": 0.07795998677140253,
+        "median_ms": 0.07795998677140253,
+        "min_ms": 0.07795998677140253,
+        "max_ms": 0.07795998677140253,
+        "std_ms": 0,
+        "ops_per_sec": 12827.092992360824,
+        "total_ops": 1285,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.cond [50x50]",
+        "mean_ms": 4.616897727272689,
+        "median_ms": 4.616897727272689,
+        "min_ms": 4.616897727272689,
+        "max_ms": 4.616897727272689,
+        "std_ms": 0,
+        "ops_per_sec": 216.5956577493268,
+        "total_ops": 11,
+        "total_samples": 1
+      },
+      "ratio": 59.22137648394612
+    },
+    {
+      "name": "linalg.matrix_power [50x50] n=3",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.matrix_power [50x50] n=3",
+        "mean_ms": 0.00545730685456167,
+        "median_ms": 0.00545730685456167,
+        "min_ms": 0.00545730685456167,
+        "max_ms": 0.00545730685456167,
+        "std_ms": 0,
+        "ops_per_sec": 183240.56657435655,
+        "total_ops": 18266,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.matrix_power [50x50] n=3",
+        "mean_ms": 0.67598222666665,
+        "median_ms": 0.67598222666665,
+        "min_ms": 0.67598222666665,
+        "max_ms": 0.67598222666665,
+        "std_ms": 0,
+        "ops_per_sec": 1479.3288352137909,
+        "total_ops": 75,
+        "total_samples": 1
+      },
+      "ratio": 123.86736620859205
+    },
+    {
+      "name": "linalg.lstsq [50x50]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.lstsq [50x50]",
+        "mean_ms": 0.06056584197557694,
+        "median_ms": 0.06056584197557694,
+        "min_ms": 0.06056584197557694,
+        "max_ms": 0.06056584197557694,
+        "std_ms": 0,
+        "ops_per_sec": 16510.95679315823,
+        "total_ops": 1658,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.lstsq [50x50]",
+        "mean_ms": 4.526356090908931,
+        "median_ms": 4.526356090908931,
+        "min_ms": 4.526356090908931,
+        "max_ms": 4.526356090908931,
+        "std_ms": 0,
+        "ops_per_sec": 220.928265455843,
+        "total_ops": 11,
+        "total_samples": 1
+      },
+      "ratio": 74.73446984744595
+    },
+    {
+      "name": "linalg.cross [3]",
+      "category": "linalg",
+      "numpy": {
+        "name": "linalg.cross [3]",
+        "mean_ms": 0.00776484640983293,
+        "median_ms": 0.00776484640983293,
+        "min_ms": 0.00776484640983293,
+        "max_ms": 0.00776484640983293,
+        "std_ms": 0,
+        "ops_per_sec": 128785.54799663014,
+        "total_ops": 12924,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "linalg.cross [3]",
+        "mean_ms": 0.00014598916999999345,
+        "median_ms": 0.00014598916999999345,
+        "min_ms": 0.00014598916999999345,
+        "max_ms": 0.00014598916999999345,
+        "std_ms": 0,
+        "ops_per_sec": 6849823.1752399495,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.018801295260022353
+    },
+    {
+      "name": "take_along_axis [100x100]",
+      "category": "indexing",
+      "numpy": {
+        "name": "take_along_axis [100x100]",
+        "mean_ms": 0.05053237442027234,
+        "median_ms": 0.05053237442027234,
+        "min_ms": 0.05053237442027234,
+        "max_ms": 0.05053237442027234,
+        "std_ms": 0,
+        "ops_per_sec": 19789.293724516232,
+        "total_ops": 1955,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "take_along_axis [100x100]",
+        "mean_ms": 0.6126778414634206,
+        "median_ms": 0.6126778414634206,
+        "min_ms": 0.6126778414634206,
+        "max_ms": 0.6126778414634206,
+        "std_ms": 0,
+        "ops_per_sec": 1632.1791524423918,
+        "total_ops": 82,
+        "total_samples": 1
+      },
+      "ratio": 12.12446176322222
+    },
+    {
+      "name": "compress [100x100]",
+      "category": "indexing",
+      "numpy": {
+        "name": "compress [100x100]",
+        "mean_ms": 0.0023482413424349125,
+        "median_ms": 0.0023482413424349125,
+        "min_ms": 0.0023482413424349125,
+        "max_ms": 0.0023482413424349125,
+        "std_ms": 0,
+        "ops_per_sec": 425850.6065492787,
+        "total_ops": 42044,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "compress [100x100]",
+        "mean_ms": 0.011414239105103533,
+        "median_ms": 0.011414239105103533,
+        "min_ms": 0.011414239105103533,
+        "max_ms": 0.011414239105103533,
+        "std_ms": 0,
+        "ops_per_sec": 87609.86963667865,
+        "total_ops": 4291,
+        "total_samples": 1
+      },
+      "ratio": 4.860760646206836
+    },
+    {
+      "name": "diag_indices n=100",
+      "category": "indexing",
+      "numpy": {
+        "name": "diag_indices n=100",
+        "mean_ms": 0.0008492504199966788,
+        "median_ms": 0.0008492504199966788,
+        "min_ms": 0.0008492504199966788,
+        "max_ms": 0.0008492504199966788,
+        "std_ms": 0,
+        "ops_per_sec": 1177508.984928039,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "diag_indices n=100",
+        "mean_ms": 0.0004595833300000049,
+        "median_ms": 0.0004595833300000049,
+        "min_ms": 0.0004595833300000049,
+        "max_ms": 0.0004595833300000049,
+        "std_ms": 0,
+        "ops_per_sec": 2175883.9686373943,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "ratio": 0.5411635003981538
+    },
+    {
+      "name": "tril_indices n=100",
+      "category": "indexing",
+      "numpy": {
+        "name": "tril_indices n=100",
+        "mean_ms": 0.015186938822718448,
+        "median_ms": 0.015186938822718448,
+        "min_ms": 0.015186938822718448,
+        "max_ms": 0.015186938822718448,
+        "std_ms": 0,
+        "ops_per_sec": 65846.0544072305,
+        "total_ops": 6571,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "tril_indices n=100",
+        "mean_ms": 0.021920608207342835,
+        "median_ms": 0.021920608207342835,
+        "min_ms": 0.021920608207342835,
+        "max_ms": 0.021920608207342835,
+        "std_ms": 0,
+        "ops_per_sec": 45619.17217538818,
+        "total_ops": 2315,
+        "total_samples": 1
+      },
+      "ratio": 1.4433855606602797
+    },
+    {
+      "name": "triu_indices n=100",
+      "category": "indexing",
+      "numpy": {
+        "name": "triu_indices n=100",
+        "mean_ms": 0.016383783782437218,
+        "median_ms": 0.016383783782437218,
+        "min_ms": 0.016383783782437218,
+        "max_ms": 0.016383783782437218,
+        "std_ms": 0,
+        "ops_per_sec": 61035.961733818855,
+        "total_ops": 6105,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "triu_indices n=100",
+        "mean_ms": 0.02149003018372704,
+        "median_ms": 0.02149003018372704,
+        "min_ms": 0.02149003018372704,
+        "max_ms": 0.02149003018372704,
+        "std_ms": 0,
+        "ops_per_sec": 46533.20593087082,
+        "total_ops": 2286,
+        "total_samples": 1
+      },
+      "ratio": 1.3116646599525759
+    },
+    {
+      "name": "indices [100x100]",
+      "category": "indexing",
+      "numpy": {
+        "name": "indices [100x100]",
+        "mean_ms": 0.004216841342179628,
+        "median_ms": 0.004216841342179628,
+        "min_ms": 0.004216841342179628,
+        "max_ms": 0.004216841342179628,
+        "std_ms": 0,
+        "ops_per_sec": 237144.32648848806,
+        "total_ops": 23806,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "indices [100x100]",
+        "mean_ms": 0.20516126720647418,
+        "median_ms": 0.20516126720647418,
+        "min_ms": 0.20516126720647418,
+        "max_ms": 0.20516126720647418,
+        "std_ms": 0,
+        "ops_per_sec": 4874.214385669594,
+        "total_ops": 247,
+        "total_samples": 1
+      },
+      "ratio": 48.65283053320405
+    },
+    {
+      "name": "ravel_multi_index [1000]",
+      "category": "indexing",
+      "numpy": {
+        "name": "ravel_multi_index [1000]",
+        "mean_ms": 0.004097739837773032,
+        "median_ms": 0.004097739837773032,
+        "min_ms": 0.004097739837773032,
+        "max_ms": 0.004097739837773032,
+        "std_ms": 0,
+        "ops_per_sec": 244036.96661803266,
+        "total_ops": 24231,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "ravel_multi_index [1000]",
+        "mean_ms": 0.021817366579177558,
+        "median_ms": 0.021817366579177558,
+        "min_ms": 0.021817366579177558,
+        "max_ms": 0.021817366579177558,
+        "std_ms": 0,
+        "ops_per_sec": 45835.04596537318,
+        "total_ops": 2286,
+        "total_samples": 1
+      },
+      "ratio": 5.324243959576135
+    },
+    {
+      "name": "unravel_index [1000]",
+      "category": "indexing",
+      "numpy": {
+        "name": "unravel_index [1000]",
+        "mean_ms": 0.0022379987289913006,
+        "median_ms": 0.0022379987289913006,
+        "min_ms": 0.0022379987289913006,
+        "max_ms": 0.0022379987289913006,
+        "std_ms": 0,
+        "ops_per_sec": 446827.7783386923,
+        "total_ops": 44846,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "unravel_index [1000]",
+        "mean_ms": 0.029749436138904458,
+        "median_ms": 0.029749436138904458,
+        "min_ms": 0.029749436138904458,
+        "max_ms": 0.029749436138904458,
+        "std_ms": 0,
+        "ops_per_sec": 33614.082476415824,
+        "total_ops": 1699,
+        "total_samples": 1
+      },
+      "ratio": 13.292874456775483
+    },
+    {
+      "name": "bitwise_and [100x100] & [100x100]",
+      "category": "bitwise",
+      "numpy": {
+        "name": "bitwise_and [100x100] & [100x100]",
+        "mean_ms": 0.0014604804880036524,
+        "median_ms": 0.0014604804880036524,
+        "min_ms": 0.0014604804880036524,
+        "max_ms": 0.0014604804880036524,
+        "std_ms": 0,
+        "ops_per_sec": 684706.1691093947,
+        "total_ops": 68676,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "bitwise_and [100x100] & [100x100]",
+        "mean_ms": 0.006442663348179399,
+        "median_ms": 0.006442663348179399,
+        "min_ms": 0.006442663348179399,
+        "max_ms": 0.006442663348179399,
+        "std_ms": 0,
+        "ops_per_sec": 155215.3117363466,
+        "total_ops": 7634,
+        "total_samples": 1
+      },
+      "ratio": 4.411331339993422
+    },
+    {
+      "name": "bitwise_or [100x100] | [100x100]",
+      "category": "bitwise",
+      "numpy": {
+        "name": "bitwise_or [100x100] | [100x100]",
+        "mean_ms": 0.0014753316537848384,
+        "median_ms": 0.0014753316537848384,
+        "min_ms": 0.0014753316537848384,
+        "max_ms": 0.0014753316537848384,
+        "std_ms": 0,
+        "ops_per_sec": 677813.6952695245,
+        "total_ops": 68068,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "bitwise_or [100x100] | [100x100]",
+        "mean_ms": 0.006406930606377378,
+        "median_ms": 0.006406930606377378,
+        "min_ms": 0.006406930606377378,
+        "max_ms": 0.006406930606377378,
+        "std_ms": 0,
+        "ops_per_sec": 156080.97877704693,
+        "total_ops": 7652,
+        "total_samples": 1
+      },
+      "ratio": 4.3427053096440655
+    },
+    {
+      "name": "bitwise_xor [100x100] ^ [100x100]",
+      "category": "bitwise",
+      "numpy": {
+        "name": "bitwise_xor [100x100] ^ [100x100]",
+        "mean_ms": 0.0015030545469204787,
+        "median_ms": 0.0015030545469204787,
+        "min_ms": 0.0015030545469204787,
+        "max_ms": 0.0015030545469204787,
+        "std_ms": 0,
+        "ops_per_sec": 665311.8491599936,
+        "total_ops": 66090,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "bitwise_xor [100x100] ^ [100x100]",
+        "mean_ms": 0.0065664842219804904,
+        "median_ms": 0.0065664842219804904,
+        "min_ms": 0.0065664842219804904,
+        "max_ms": 0.0065664842219804904,
+        "std_ms": 0,
+        "ops_per_sec": 152288.49505990194,
+        "total_ops": 7352,
+        "total_samples": 1
+      },
+      "ratio": 4.368759760205761
+    },
+    {
+      "name": "bitwise_not [100x100]",
+      "category": "bitwise",
+      "numpy": {
+        "name": "bitwise_not [100x100]",
+        "mean_ms": 0.0012952776000020095,
+        "median_ms": 0.0012952776000020095,
+        "min_ms": 0.0012952776000020095,
+        "max_ms": 0.0012952776000020095,
+        "std_ms": 0,
+        "ops_per_sec": 772035.2764522822,
+        "total_ops": 80000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "bitwise_not [100x100]",
+        "mean_ms": 0.006019967017453819,
+        "median_ms": 0.006019967017453819,
+        "min_ms": 0.006019967017453819,
+        "max_ms": 0.006019967017453819,
+        "std_ms": 0,
+        "ops_per_sec": 166113.86691998123,
+        "total_ops": 7792,
+        "total_samples": 1
+      },
+      "ratio": 4.64762690055358
+    },
+    {
+      "name": "invert [100x100]",
+      "category": "bitwise",
+      "numpy": {
+        "name": "invert [100x100]",
+        "mean_ms": 0.0014299458070520625,
+        "median_ms": 0.0014299458070520625,
+        "min_ms": 0.0014299458070520625,
+        "max_ms": 0.0014299458070520625,
+        "std_ms": 0,
+        "ops_per_sec": 699327.2018200277,
+        "total_ops": 72002,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "invert [100x100]",
+        "mean_ms": 0.00584652979582172,
+        "median_ms": 0.00584652979582172,
+        "min_ms": 0.00584652979582172,
+        "max_ms": 0.00584652979582172,
+        "std_ms": 0,
+        "ops_per_sec": 171041.6323739015,
+        "total_ops": 8424,
+        "total_samples": 1
+      },
+      "ratio": 4.08863732246942
+    },
+    {
+      "name": "left_shift [100x100] << 2",
+      "category": "bitwise",
+      "numpy": {
+        "name": "left_shift [100x100] << 2",
+        "mean_ms": 0.0015245856915006668,
+        "median_ms": 0.0015245856915006668,
+        "min_ms": 0.0015245856915006668,
+        "max_ms": 0.0015245856915006668,
+        "std_ms": 0,
+        "ops_per_sec": 655915.9026447957,
+        "total_ops": 66436,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "left_shift [100x100] << 2",
+        "mean_ms": 0.0060185727788281095,
+        "median_ms": 0.0060185727788281095,
+        "min_ms": 0.0060185727788281095,
+        "max_ms": 0.0060185727788281095,
+        "std_ms": 0,
+        "ops_per_sec": 166152.34819752607,
+        "total_ops": 7935,
+        "total_samples": 1
+      },
+      "ratio": 3.947677596858436
+    },
+    {
+      "name": "right_shift [100x100] >> 2",
+      "category": "bitwise",
+      "numpy": {
+        "name": "right_shift [100x100] >> 2",
+        "mean_ms": 0.0015224166856814467,
+        "median_ms": 0.0015224166856814467,
+        "min_ms": 0.0015224166856814467,
+        "max_ms": 0.0015224166856814467,
+        "std_ms": 0,
+        "ops_per_sec": 656850.3941168981,
+        "total_ops": 65565,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "right_shift [100x100] >> 2",
+        "mean_ms": 0.006051929392446523,
+        "median_ms": 0.006051929392446523,
+        "min_ms": 0.006051929392446523,
+        "max_ms": 0.006051929392446523,
+        "std_ms": 0,
+        "ops_per_sec": 165236.56096320465,
+        "total_ops": 7917,
+        "total_samples": 1
+      },
+      "ratio": 3.9752122065961384
+    },
+    {
+      "name": "packbits [1000]",
+      "category": "bitwise",
+      "numpy": {
+        "name": "packbits [1000]",
+        "mean_ms": 0.0010936949979461542,
+        "median_ms": 0.0010936949979461542,
+        "min_ms": 0.0010936949979461542,
+        "max_ms": 0.0010936949979461542,
+        "std_ms": 0,
+        "ops_per_sec": 914331.6938249661,
+        "total_ops": 91101,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "packbits [1000]",
+        "mean_ms": 0.0014273342707215814,
+        "median_ms": 0.0014273342707215814,
+        "min_ms": 0.0014273342707215814,
+        "max_ms": 0.0014273342707215814,
+        "std_ms": 0,
+        "ops_per_sec": 700606.7327833831,
+        "total_ops": 34493,
+        "total_samples": 1
+      },
+      "ratio": 1.3050569614032863
+    },
+    {
+      "name": "unpackbits [125]",
+      "category": "bitwise",
+      "numpy": {
+        "name": "unpackbits [125]",
+        "mean_ms": 0.001086321465838809,
+        "median_ms": 0.001086321465838809,
+        "min_ms": 0.001086321465838809,
+        "max_ms": 0.001086321465838809,
+        "std_ms": 0,
+        "ops_per_sec": 920537.8255393716,
+        "total_ops": 92268,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "unpackbits [125]",
+        "mean_ms": 0.0013938164147493824,
+        "median_ms": 0.0013938164147493824,
+        "min_ms": 0.0013938164147493824,
+        "max_ms": 0.0013938164147493824,
+        "std_ms": 0,
+        "ops_per_sec": 717454.6012071517,
+        "total_ops": 34469,
+        "total_samples": 1
+      },
+      "ratio": 1.2830607316344793
+    },
+    {
+      "name": "sort [100x100]",
+      "category": "sorting",
+      "numpy": {
+        "name": "sort [100x100]",
+        "mean_ms": 0.07384338276417166,
+        "median_ms": 0.07384338276417166,
+        "min_ms": 0.07384338276417166,
+        "max_ms": 0.07384338276417166,
+        "std_ms": 0,
+        "ops_per_sec": 13542.17483770521,
+        "total_ops": 1335,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sort [100x100]",
+        "mean_ms": 0.6904286575342778,
+        "median_ms": 0.6904286575342778,
+        "min_ms": 0.6904286575342778,
+        "max_ms": 0.6904286575342778,
+        "std_ms": 0,
+        "ops_per_sec": 1448.3755694198612,
+        "total_ops": 73,
+        "total_samples": 1
+      },
+      "ratio": 9.349905593291286
+    },
+    {
+      "name": "argsort [100x100]",
+      "category": "sorting",
+      "numpy": {
+        "name": "argsort [100x100]",
+        "mean_ms": 0.020374031264324726,
+        "median_ms": 0.020374031264324726,
+        "min_ms": 0.020374031264324726,
+        "max_ms": 0.020374031264324726,
+        "std_ms": 0,
+        "ops_per_sec": 49082.08822428858,
+        "total_ops": 5118,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "argsort [100x100]",
+        "mean_ms": 0.681780246575353,
+        "median_ms": 0.681780246575353,
+        "min_ms": 0.681780246575353,
+        "max_ms": 0.681780246575353,
+        "std_ms": 0,
+        "ops_per_sec": 1466.7482741295237,
+        "total_ops": 73,
+        "total_samples": 1
+      },
+      "ratio": 33.4631982119887
+    },
+    {
+      "name": "partition [100x100] kth=50",
+      "category": "sorting",
+      "numpy": {
+        "name": "partition [100x100] kth=50",
+        "mean_ms": 0.00962248329888098,
+        "median_ms": 0.00962248329888098,
+        "min_ms": 0.00962248329888098,
+        "max_ms": 0.00962248329888098,
+        "std_ms": 0,
+        "ops_per_sec": 103923.27728085454,
+        "total_ops": 10000,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "partition [100x100] kth=50",
+        "mean_ms": 0.5831996046511682,
+        "median_ms": 0.5831996046511682,
+        "min_ms": 0.5831996046511682,
+        "max_ms": 0.5831996046511682,
+        "std_ms": 0,
+        "ops_per_sec": 1714.6788029771292,
+        "total_ops": 86,
+        "total_samples": 1
+      },
+      "ratio": 60.608014224248095
+    },
+    {
+      "name": "argpartition [100x100] kth=50",
+      "category": "sorting",
+      "numpy": {
+        "name": "argpartition [100x100] kth=50",
+        "mean_ms": 0.011639561635915773,
+        "median_ms": 0.011639561635915773,
+        "min_ms": 0.011639561635915773,
+        "max_ms": 0.011639561635915773,
+        "std_ms": 0,
+        "ops_per_sec": 85913.88845043238,
+        "total_ops": 8753,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "argpartition [100x100] kth=50",
+        "mean_ms": 0.6298749999999927,
+        "median_ms": 0.6298749999999927,
+        "min_ms": 0.6298749999999927,
+        "max_ms": 0.6298749999999927,
+        "std_ms": 0,
+        "ops_per_sec": 1587.61659059339,
+        "total_ops": 80,
+        "total_samples": 1
+      },
+      "ratio": 54.11501048771547
+    },
+    {
+      "name": "lexsort [1000] x 2 keys",
+      "category": "sorting",
+      "numpy": {
+        "name": "lexsort [1000] x 2 keys",
+        "mean_ms": 0.0019416008186621467,
+        "median_ms": 0.0019416008186621467,
+        "min_ms": 0.0019416008186621467,
+        "max_ms": 0.0019416008186621467,
+        "std_ms": 0,
+        "ops_per_sec": 515038.9258122823,
+        "total_ops": 52520,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "lexsort [1000] x 2 keys",
+        "mean_ms": 0.011553147416051953,
+        "median_ms": 0.011553147416051953,
+        "min_ms": 0.011553147416051953,
+        "max_ms": 0.011553147416051953,
+        "std_ms": 0,
+        "ops_per_sec": 86556.49962629224,
+        "total_ops": 4199,
+        "total_samples": 1
+      },
+      "ratio": 5.950320634914343
+    },
+    {
+      "name": "sort_complex [1000]",
+      "category": "sorting",
+      "numpy": {
+        "name": "sort_complex [1000]",
+        "mean_ms": 0.013815480257066488,
+        "median_ms": 0.013815480257066488,
+        "min_ms": 0.013815480257066488,
+        "max_ms": 0.013815480257066488,
+        "std_ms": 0,
+        "ops_per_sec": 72382.57240377217,
+        "total_ops": 7319,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "sort_complex [1000]",
+        "mean_ms": 0.011855757931844239,
+        "median_ms": 0.011855757931844239,
+        "min_ms": 0.011855757931844239,
+        "max_ms": 0.011855757931844239,
+        "std_ms": 0,
+        "ops_per_sec": 84347.20122903552,
+        "total_ops": 4255,
+        "total_samples": 1
+      },
+      "ratio": 0.8581502569033118
+    },
+    {
+      "name": "nonzero [100x100]",
+      "category": "searching",
+      "numpy": {
+        "name": "nonzero [100x100]",
+        "mean_ms": 0.031497186684525176,
+        "median_ms": 0.031497186684525176,
+        "min_ms": 0.031497186684525176,
+        "max_ms": 0.031497186684525176,
+        "std_ms": 0,
+        "ops_per_sec": 31748.867288242862,
+        "total_ops": 3214,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "nonzero [100x100]",
+        "mean_ms": 0.1705806474576278,
+        "median_ms": 0.1705806474576278,
+        "min_ms": 0.1705806474576278,
+        "max_ms": 0.1705806474576278,
+        "std_ms": 0,
+        "ops_per_sec": 5862.329724410267,
+        "total_ops": 295,
+        "total_samples": 1
+      },
+      "ratio": 5.415742338074767
+    },
+    {
+      "name": "argwhere [100x100]",
+      "category": "searching",
+      "numpy": {
+        "name": "argwhere [100x100]",
+        "mean_ms": 0.040839657467349987,
+        "median_ms": 0.040839657467349987,
+        "min_ms": 0.040839657467349987,
+        "max_ms": 0.040839657467349987,
+        "std_ms": 0,
+        "ops_per_sec": 24486.00360567344,
+        "total_ops": 2464,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "argwhere [100x100]",
+        "mean_ms": 0.24034141791043703,
+        "median_ms": 0.24034141791043703,
+        "min_ms": 0.24034141791043703,
+        "max_ms": 0.24034141791043703,
+        "std_ms": 0,
+        "ops_per_sec": 4160.747692570611,
+        "total_ops": 201,
+        "total_samples": 1
+      },
+      "ratio": 5.885000825547628
+    },
+    {
+      "name": "flatnonzero [100x100]",
+      "category": "searching",
+      "numpy": {
+        "name": "flatnonzero [100x100]",
+        "mean_ms": 0.014358572043436477,
+        "median_ms": 0.014358572043436477,
+        "min_ms": 0.014358572043436477,
+        "max_ms": 0.014358572043436477,
+        "std_ms": 0,
+        "ops_per_sec": 69644.80847920496,
+        "total_ops": 6739,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "flatnonzero [100x100]",
+        "mean_ms": 0.022901145499999984,
+        "median_ms": 0.022901145499999984,
+        "min_ms": 0.022901145499999984,
+        "max_ms": 0.022901145499999984,
+        "std_ms": 0,
+        "ops_per_sec": 43665.93802043661,
+        "total_ops": 2000,
+        "total_samples": 1
+      },
+      "ratio": 1.5949458923019053
+    },
+    {
+      "name": "where [100x100] with x,y",
+      "category": "searching",
+      "numpy": {
+        "name": "where [100x100] with x,y",
+        "mean_ms": 0.004947324130745394,
+        "median_ms": 0.004947324130745394,
+        "min_ms": 0.004947324130745394,
+        "max_ms": 0.004947324130745394,
+        "std_ms": 0,
+        "ops_per_sec": 202129.46909733483,
+        "total_ops": 20464,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "where [100x100] with x,y",
+        "mean_ms": 0.05742272467222836,
+        "median_ms": 0.05742272467222836,
+        "min_ms": 0.05742272467222836,
+        "max_ms": 0.05742272467222836,
+        "std_ms": 0,
+        "ops_per_sec": 17414.7083007302,
+        "total_ops": 839,
+        "total_samples": 1
+      },
+      "ratio": 11.606824852119948
+    },
+    {
+      "name": "searchsorted [1000]",
+      "category": "searching",
+      "numpy": {
+        "name": "searchsorted [1000]",
+        "mean_ms": 0.0023098691262019347,
+        "median_ms": 0.0023098691262019347,
+        "min_ms": 0.0023098691262019347,
+        "max_ms": 0.0023098691262019347,
+        "std_ms": 0,
+        "ops_per_sec": 432924.96040426206,
+        "total_ops": 43989,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "searchsorted [1000]",
+        "mean_ms": 0.0030413310806197444,
+        "median_ms": 0.0030413310806197444,
+        "min_ms": 0.0030413310806197444,
+        "max_ms": 0.0030413310806197444,
+        "std_ms": 0,
+        "ops_per_sec": 328803.4000547635,
+        "total_ops": 14649,
+        "total_samples": 1
+      },
+      "ratio": 1.3166681376535543
+    },
+    {
+      "name": "extract [100x100]",
+      "category": "searching",
+      "numpy": {
+        "name": "extract [100x100]",
+        "mean_ms": 0.0335646500829103,
+        "median_ms": 0.0335646500829103,
+        "min_ms": 0.0335646500829103,
+        "max_ms": 0.0335646500829103,
+        "std_ms": 0,
+        "ops_per_sec": 29793.24966981133,
+        "total_ops": 2955,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "extract [100x100]",
+        "mean_ms": 0.01691807707774858,
+        "median_ms": 0.01691807707774858,
+        "min_ms": 0.01691807707774858,
+        "max_ms": 0.01691807707774858,
+        "std_ms": 0,
+        "ops_per_sec": 59108.37238797341,
+        "total_ops": 2984,
+        "total_samples": 1
+      },
+      "ratio": 0.5040444943104755
+    },
+    {
+      "name": "count_nonzero [100x100]",
+      "category": "searching",
+      "numpy": {
+        "name": "count_nonzero [100x100]",
+        "mean_ms": 0.003445955813406483,
+        "median_ms": 0.003445955813406483,
+        "min_ms": 0.003445955813406483,
+        "max_ms": 0.003445955813406483,
+        "std_ms": 0,
+        "ops_per_sec": 290195.24745775975,
+        "total_ops": 29149,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "count_nonzero [100x100]",
+        "mean_ms": 0.005067162175356254,
+        "median_ms": 0.005067162175356254,
+        "min_ms": 0.005067162175356254,
+        "max_ms": 0.005067162175356254,
+        "std_ms": 0,
+        "ops_per_sec": 197349.12074916836,
+        "total_ops": 10242,
+        "total_samples": 1
+      },
+      "ratio": 1.470466381386108
+    },
+    {
+      "name": "bincount [1000]",
+      "category": "statistics",
+      "numpy": {
+        "name": "bincount [1000]",
+        "mean_ms": 0.002523917945904082,
+        "median_ms": 0.002523917945904082,
+        "min_ms": 0.002523917945904082,
+        "max_ms": 0.002523917945904082,
+        "std_ms": 0,
+        "ops_per_sec": 396209.39405848796,
+        "total_ops": 40132,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "bincount [1000]",
+        "mean_ms": 0.0015999396135265263,
+        "median_ms": 0.0015999396135265263,
+        "min_ms": 0.0015999396135265263,
+        "max_ms": 0.0015999396135265263,
+        "std_ms": 0,
+        "ops_per_sec": 625023.5893564994,
+        "total_ops": 30636,
+        "total_samples": 1
+      },
+      "ratio": 0.6339111048055164
+    },
+    {
+      "name": "digitize [1000]",
+      "category": "statistics",
+      "numpy": {
+        "name": "digitize [1000]",
+        "mean_ms": 0.0033764279378269623,
+        "median_ms": 0.0033764279378269623,
+        "min_ms": 0.0033764279378269623,
+        "max_ms": 0.0033764279378269623,
+        "std_ms": 0,
+        "ops_per_sec": 296170.98851622187,
+        "total_ops": 29530,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "digitize [1000]",
+        "mean_ms": 0.006921215124256991,
+        "median_ms": 0.006921215124256991,
+        "min_ms": 0.006921215124256991,
+        "max_ms": 0.006921215124256991,
+        "std_ms": 0,
+        "ops_per_sec": 144483.2998320295,
+        "total_ops": 6559,
+        "total_samples": 1
+      },
+      "ratio": 2.0498631250846184
+    },
+    {
+      "name": "histogram [1000]",
+      "category": "statistics",
+      "numpy": {
+        "name": "histogram [1000]",
+        "mean_ms": 0.02515286358057674,
+        "median_ms": 0.02515286358057674,
+        "min_ms": 0.02515286358057674,
+        "max_ms": 0.02515286358057674,
+        "std_ms": 0,
+        "ops_per_sec": 39756.904687870556,
+        "total_ops": 4039,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "histogram [1000]",
+        "mean_ms": 0.004973863317429269,
+        "median_ms": 0.004973863317429269,
+        "min_ms": 0.004973863317429269,
+        "max_ms": 0.004973863317429269,
+        "std_ms": 0,
+        "ops_per_sec": 201050.96102979523,
+        "total_ops": 10689,
+        "total_samples": 1
+      },
+      "ratio": 0.1977454098415311
+    },
+    {
+      "name": "histogram2d [1000]",
+      "category": "statistics",
+      "numpy": {
+        "name": "histogram2d [1000]",
+        "mean_ms": 0.038972031063018595,
+        "median_ms": 0.038972031063018595,
+        "min_ms": 0.038972031063018595,
+        "max_ms": 0.038972031063018595,
+        "std_ms": 0,
+        "ops_per_sec": 25659.42735658244,
+        "total_ops": 2543,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "histogram2d [1000]",
+        "mean_ms": 0.0095404584912816,
+        "median_ms": 0.0095404584912816,
+        "min_ms": 0.0095404584912816,
+        "max_ms": 0.0095404584912816,
+        "std_ms": 0,
+        "ops_per_sec": 104816.76545355073,
+        "total_ops": 5276,
+        "total_samples": 1
+      },
+      "ratio": 0.24480270160553033
+    },
+    {
+      "name": "correlate [1000]",
+      "category": "statistics",
+      "numpy": {
+        "name": "correlate [1000]",
+        "mean_ms": 0.01248354560496867,
+        "median_ms": 0.01248354560496867,
+        "min_ms": 0.01248354560496867,
+        "max_ms": 0.01248354560496867,
+        "std_ms": 0,
+        "ops_per_sec": 80105.44693344033,
+        "total_ops": 7850,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "correlate [1000]",
+        "mean_ms": 0.6658723999999893,
+        "median_ms": 0.6658723999999893,
+        "min_ms": 0.6658723999999893,
+        "max_ms": 0.6658723999999893,
+        "std_ms": 0,
+        "ops_per_sec": 1501.7892316906605,
+        "total_ops": 80,
+        "total_samples": 1
+      },
+      "ratio": 53.340006202641696
+    },
+    {
+      "name": "convolve [1000]",
+      "category": "statistics",
+      "numpy": {
+        "name": "convolve [1000]",
+        "mean_ms": 0.012864890059862074,
+        "median_ms": 0.012864890059862074,
+        "min_ms": 0.012864890059862074,
+        "max_ms": 0.012864890059862074,
+        "std_ms": 0,
+        "ops_per_sec": 77730.94020600757,
+        "total_ops": 7777,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "convolve [1000]",
+        "mean_ms": 0.6192871445783096,
+        "median_ms": 0.6192871445783096,
+        "min_ms": 0.6192871445783096,
+        "max_ms": 0.6192871445783096,
+        "std_ms": 0,
+        "ops_per_sec": 1614.7598230557956,
+        "total_ops": 83,
+        "total_samples": 1
+      },
+      "ratio": 48.13777200556574
+    },
+    {
+      "name": "cov [100x100]",
+      "category": "statistics",
+      "numpy": {
+        "name": "cov [100x100]",
+        "mean_ms": 0.05577680540558355,
+        "median_ms": 0.05577680540558355,
+        "min_ms": 0.05577680540558355,
+        "max_ms": 0.05577680540558355,
+        "std_ms": 0,
+        "ops_per_sec": 17928.599401282576,
+        "total_ops": 1814,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "cov [100x100]",
+        "mean_ms": 0.922901509090893,
+        "median_ms": 0.922901509090893,
+        "min_ms": 0.922901509090893,
+        "max_ms": 0.922901509090893,
+        "std_ms": 0,
+        "ops_per_sec": 1083.5392402652512,
+        "total_ops": 55,
+        "total_samples": 1
+      },
+      "ratio": 16.54633144332977
+    },
+    {
+      "name": "corrcoef [100x100]",
+      "category": "statistics",
+      "numpy": {
+        "name": "corrcoef [100x100]",
+        "mean_ms": 0.06913707192113291,
+        "median_ms": 0.06913707192113291,
+        "min_ms": 0.06913707192113291,
+        "max_ms": 0.06913707192113291,
+        "std_ms": 0,
+        "ops_per_sec": 14464.020130050274,
+        "total_ops": 1460,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "corrcoef [100x100]",
+        "mean_ms": 0.9297415185184811,
+        "median_ms": 0.9297415185184811,
+        "min_ms": 0.9297415185184811,
+        "max_ms": 0.9297415185184811,
+        "std_ms": 0,
+        "ops_per_sec": 1075.5677573627927,
+        "total_ops": 54,
+        "total_samples": 1
+      },
+      "ratio": 13.447800039594819
+    },
+    {
       "name": "logical_and [100x100] & scalar",
       "category": "logic",
       "numpy": {
         "name": "logical_and [100x100] & scalar",
-        "mean_ms": 0.004708912619937838,
-        "median_ms": 0.004565414254338449,
-        "min_ms": 0.004437150151010007,
-        "max_ms": 0.005061797442739224,
-        "std_ms": 0.0002596093639745822,
-        "ops_per_sec": 212363.2525619473,
-        "total_ops": 111055,
-        "total_samples": 5
+        "mean_ms": 0.00456241093390631,
+        "median_ms": 0.00456241093390631,
+        "min_ms": 0.00456241093390631,
+        "max_ms": 0.00456241093390631,
+        "std_ms": 0,
+        "ops_per_sec": 219182.36092420673,
+        "total_ops": 23157,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "logical_and [100x100] & scalar",
-        "mean_ms": 0.1798118150684932,
-        "median_ms": 0.18060737842465757,
-        "min_ms": 0.17014419178082196,
-        "max_ms": 0.19238584417808222,
-        "std_ms": 0.008630220811592943,
-        "ops_per_sec": 5561.36981109436,
-        "total_ops": 2920,
-        "total_samples": 5
+        "mean_ms": 0.48258962264151467,
+        "median_ms": 0.48258962264151467,
+        "min_ms": 0.48258962264151467,
+        "max_ms": 0.48258962264151467,
+        "std_ms": 0,
+        "ops_per_sec": 2072.153964949298,
+        "total_ops": 106,
+        "total_samples": 1
       },
-      "ratio": 38.18542189701258
+      "ratio": 105.7751328480892
     },
     {
       "name": "logical_and [100x100] & [100x100]",
       "category": "logic",
       "numpy": {
         "name": "logical_and [100x100] & [100x100]",
-        "mean_ms": 0.004932580840031733,
-        "median_ms": 0.004969722950045252,
-        "min_ms": 0.0046477104002406126,
-        "max_ms": 0.005253568750049453,
-        "std_ms": 0.00021086148637890713,
-        "ops_per_sec": 202733.62615453184,
-        "total_ops": 100000,
-        "total_samples": 5
+        "mean_ms": 0.004279876504536166,
+        "median_ms": 0.004279876504536166,
+        "min_ms": 0.004279876504536166,
+        "max_ms": 0.004279876504536166,
+        "std_ms": 0,
+        "ops_per_sec": 233651.60161516754,
+        "total_ops": 23685,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "logical_and [100x100] & [100x100]",
-        "mean_ms": 0.011884602630971613,
-        "median_ms": 0.012220747749826906,
-        "min_ms": 0.010940601200092312,
-        "max_ms": 0.012437951880913902,
-        "std_ms": 0.0005828396257005846,
-        "ops_per_sec": 84142.4851171693,
-        "total_ops": 43330,
-        "total_samples": 5
+        "mean_ms": 0.009307697976026668,
+        "median_ms": 0.009307697976026668,
+        "min_ms": 0.009307697976026668,
+        "max_ms": 0.009307697976026668,
+        "std_ms": 0,
+        "ops_per_sec": 107437.9510997935,
+        "total_ops": 5089,
+        "total_samples": 1
       },
-      "ratio": 2.4094085867825643
+      "ratio": 2.1747585394488844
     },
     {
       "name": "logical_or [100x100] | scalar",
       "category": "logic",
       "numpy": {
         "name": "logical_or [100x100] | scalar",
-        "mean_ms": 0.004432831103383498,
-        "median_ms": 0.00453653194017359,
-        "min_ms": 0.004182072797142068,
-        "max_ms": 0.004626735699055323,
-        "std_ms": 0.00017569290921943425,
-        "ops_per_sec": 225589.46566602064,
-        "total_ops": 109345,
-        "total_samples": 5
+        "mean_ms": 0.0038626827461172206,
+        "median_ms": 0.0038626827461172206,
+        "min_ms": 0.0038626827461172206,
+        "max_ms": 0.0038626827461172206,
+        "std_ms": 0,
+        "ops_per_sec": 258887.42765768242,
+        "total_ops": 26017,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "logical_or [100x100] | scalar",
-        "mean_ms": 0.16714652800000002,
-        "median_ms": 0.16322201500000005,
-        "min_ms": 0.14452666666666686,
-        "max_ms": 0.18336027666666646,
-        "std_ms": 0.014338656496945214,
-        "ops_per_sec": 5982.774586858303,
-        "total_ops": 3000,
-        "total_samples": 5
+        "mean_ms": 0.4831426250000102,
+        "median_ms": 0.4831426250000102,
+        "min_ms": 0.4831426250000102,
+        "max_ms": 0.4831426250000102,
+        "std_ms": 0,
+        "ops_per_sec": 2069.7821890585183,
+        "total_ops": 104,
+        "total_samples": 1
       },
-      "ratio": 37.70649593945056
+      "ratio": 125.07955137803293
     },
     {
       "name": "logical_not [100x100]",
       "category": "logic",
       "numpy": {
         "name": "logical_not [100x100]",
-        "mean_ms": 0.003976854665189318,
-        "median_ms": 0.004020821071471798,
-        "min_ms": 0.0036535004198118173,
-        "max_ms": 0.004211671705522923,
-        "std_ms": 0.0002184389177728401,
-        "ops_per_sec": 251455.00255599487,
-        "total_ops": 119070,
-        "total_samples": 5
+        "mean_ms": 0.0034744623653584373,
+        "median_ms": 0.0034744623653584373,
+        "min_ms": 0.0034744623653584373,
+        "max_ms": 0.0034744623653584373,
+        "std_ms": 0,
+        "ops_per_sec": 287814.31336552603,
+        "total_ops": 28644,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "logical_not [100x100]",
-        "mean_ms": 0.008245304357522737,
-        "median_ms": 0.00806088814547949,
-        "min_ms": 0.00804309624292331,
-        "max_ms": 0.008948801252358921,
-        "std_ms": 0.00035276946635203203,
-        "ops_per_sec": 121281.15065729912,
-        "total_ops": 58290,
-        "total_samples": 5
+        "mean_ms": 0.006642048915917533,
+        "median_ms": 0.006642048915917533,
+        "min_ms": 0.006642048915917533,
+        "max_ms": 0.006642048915917533,
+        "std_ms": 0,
+        "ops_per_sec": 150555.9523362619,
+        "total_ops": 7564,
+        "total_samples": 1
       },
-      "ratio": 2.0733230282958353
+      "ratio": 1.9116767480750412
     },
     {
       "name": "logical_xor [100x100] ^ scalar",
       "category": "logic",
       "numpy": {
         "name": "logical_xor [100x100] ^ scalar",
-        "mean_ms": 0.005118668793255305,
-        "median_ms": 0.005092147161120031,
-        "min_ms": 0.004807251808574621,
-        "max_ms": 0.005431438726068303,
-        "std_ms": 0.00023087307244835933,
-        "ops_per_sec": 195363.29471398224,
-        "total_ops": 96085,
-        "total_samples": 5
+        "mean_ms": 0.0046400577058008895,
+        "median_ms": 0.0046400577058008895,
+        "min_ms": 0.0046400577058008895,
+        "max_ms": 0.0046400577058008895,
+        "std_ms": 0,
+        "ops_per_sec": 215514.56111199304,
+        "total_ops": 22043,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "logical_xor [100x100] ^ scalar",
-        "mean_ms": 0.1745238990825686,
-        "median_ms": 0.1733515284403672,
-        "min_ms": 0.1724266807339443,
-        "max_ms": 0.1807888385321098,
-        "std_ms": 0.003157613147281937,
-        "ops_per_sec": 5729.874276570525,
-        "total_ops": 2725,
-        "total_samples": 5
+        "mean_ms": 0.49939624999999066,
+        "median_ms": 0.49939624999999066,
+        "min_ms": 0.49939624999999066,
+        "max_ms": 0.49939624999999066,
+        "std_ms": 0,
+        "ops_per_sec": 2002.4179196380003,
+        "total_ops": 100,
+        "total_samples": 1
       },
-      "ratio": 34.09556393110115
+      "ratio": 107.62716363972314
     },
     {
       "name": "isfinite [100x100]",
       "category": "logic",
       "numpy": {
         "name": "isfinite [100x100]",
-        "mean_ms": 0.0022165477991510623,
-        "median_ms": 0.0021703027159391043,
-        "min_ms": 0.002122303484418618,
-        "max_ms": 0.0023731429291612154,
-        "std_ms": 0.00009308951113295389,
-        "ops_per_sec": 451152.01232429995,
-        "total_ops": 208215,
-        "total_samples": 5
+        "mean_ms": 0.001752711933369323,
+        "median_ms": 0.001752711933369323,
+        "min_ms": 0.001752711933369323,
+        "max_ms": 0.001752711933369323,
+        "std_ms": 0,
+        "ops_per_sec": 570544.4123254479,
+        "total_ops": 57754,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "isfinite [100x100]",
-        "mean_ms": 0.00828962812415655,
-        "median_ms": 0.007978782456140381,
-        "min_ms": 0.007967862438146674,
-        "max_ms": 0.008851983085919923,
-        "std_ms": 0.00039246361864594216,
-        "ops_per_sec": 120632.673145606,
-        "total_ops": 55575,
-        "total_samples": 5
+        "mean_ms": 0.006213396707173414,
+        "median_ms": 0.006213396707173414,
+        "min_ms": 0.006213396707173414,
+        "max_ms": 0.006213396707173414,
+        "std_ms": 0,
+        "ops_per_sec": 160942.5644503742,
+        "total_ops": 7653,
+        "total_samples": 1
       },
-      "ratio": 3.7398824096333394
+      "ratio": 3.545018772839129
     },
     {
       "name": "isnan [100x100]",
       "category": "logic",
       "numpy": {
         "name": "isnan [100x100]",
-        "mean_ms": 0.001945495442071555,
-        "median_ms": 0.0019569334796858315,
-        "min_ms": 0.0018505904174425682,
-        "max_ms": 0.002090246069904255,
-        "std_ms": 0.00008692772712680849,
-        "ops_per_sec": 514007.8863074613,
-        "total_ops": 252855,
-        "total_samples": 5
+        "mean_ms": 0.001754867371381295,
+        "median_ms": 0.001754867371381295,
+        "min_ms": 0.001754867371381295,
+        "max_ms": 0.001754867371381295,
+        "std_ms": 0,
+        "ops_per_sec": 569843.6339453264,
+        "total_ops": 57235,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "isnan [100x100]",
-        "mean_ms": 0.008167031734837788,
-        "median_ms": 0.008019955483074725,
-        "min_ms": 0.007940706540902622,
-        "max_ms": 0.008772331893511977,
-        "std_ms": 0.00030803172386726664,
-        "ops_per_sec": 122443.50609467318,
-        "total_ops": 56720,
-        "total_samples": 5
+        "mean_ms": 0.006523307047360084,
+        "median_ms": 0.006523307047360084,
+        "min_ms": 0.006523307047360084,
+        "max_ms": 0.006523307047360084,
+        "std_ms": 0,
+        "ops_per_sec": 153296.47872465083,
+        "total_ops": 8826,
+        "total_samples": 1
       },
-      "ratio": 4.19791871942993
+      "ratio": 3.7172649932088278
     },
     {
       "name": "signbit [100x100]",
       "category": "logic",
       "numpy": {
         "name": "signbit [100x100]",
-        "mean_ms": 0.001943550451043733,
-        "median_ms": 0.001949230833404274,
-        "min_ms": 0.0018354549798595041,
-        "max_ms": 0.002020223998360285,
-        "std_ms": 0.0000643782674001381,
-        "ops_per_sec": 514522.2751809587,
-        "total_ops": 269935,
-        "total_samples": 5
+        "mean_ms": 0.0017134000167551495,
+        "median_ms": 0.0017134000167551495,
+        "min_ms": 0.0017134000167551495,
+        "max_ms": 0.0017134000167551495,
+        "std_ms": 0,
+        "ops_per_sec": 583634.8723130095,
+        "total_ops": 60115,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "signbit [100x100]",
-        "mean_ms": 0.011296978722471799,
-        "median_ms": 0.011007724334392434,
-        "min_ms": 0.01100062539717328,
-        "max_ms": 0.012080009860852411,
-        "std_ms": 0.00041976606547288,
-        "ops_per_sec": 88519.24258393206,
-        "total_ops": 45635,
-        "total_samples": 5
+        "mean_ms": 0.02042860400000063,
+        "median_ms": 0.02042860400000063,
+        "min_ms": 0.02042860400000063,
+        "max_ms": 0.02042860400000063,
+        "std_ms": 0,
+        "ops_per_sec": 48950.97090334558,
+        "total_ops": 2000,
+        "total_samples": 1
       },
-      "ratio": 5.81254719495707
+      "ratio": 11.922845687073403
     },
     {
       "name": "copysign [100x100] scalar",
       "category": "logic",
       "numpy": {
         "name": "copysign [100x100] scalar",
-        "mean_ms": 0.004450527907257098,
-        "median_ms": 0.004616594881377966,
-        "min_ms": 0.004077509979805456,
-        "max_ms": 0.004774002653195167,
-        "std_ms": 0.0002920265910639741,
-        "ops_per_sec": 224692.44566905985,
-        "total_ops": 122495,
-        "total_samples": 5
+        "mean_ms": 0.003900462332979254,
+        "median_ms": 0.003900462332979254,
+        "min_ms": 0.003900462332979254,
+        "max_ms": 0.003900462332979254,
+        "std_ms": 0,
+        "ops_per_sec": 256379.8633676791,
+        "total_ops": 25181,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "copysign [100x100] scalar",
-        "mean_ms": 0.11654445081206508,
-        "median_ms": 0.11032574477958258,
-        "min_ms": 0.10998922041763338,
-        "max_ms": 0.13198158352668274,
-        "std_ms": 0.008681867621970898,
-        "ops_per_sec": 8580.417111515331,
-        "total_ops": 4310,
-        "total_samples": 5
+        "mean_ms": 0.3808841889763781,
+        "median_ms": 0.3808841889763781,
+        "min_ms": 0.3808841889763781,
+        "max_ms": 0.3808841889763781,
+        "std_ms": 0,
+        "ops_per_sec": 2625.4699694610285,
+        "total_ops": 127,
+        "total_samples": 1
       },
-      "ratio": 26.186657682120348
+      "ratio": 97.65103632867309
     },
     {
       "name": "isneginf [100x100]",
       "category": "logic",
       "numpy": {
         "name": "isneginf [100x100]",
-        "mean_ms": 0.003646134310499612,
-        "median_ms": 0.0035485628635904386,
-        "min_ms": 0.003457003211046924,
-        "max_ms": 0.0038585190782394726,
-        "std_ms": 0.00016429558576100197,
-        "ops_per_sec": 274263.0728441199,
-        "total_ops": 132350,
-        "total_samples": 5
+        "mean_ms": 0.003247197996305823,
+        "median_ms": 0.003247197996305823,
+        "min_ms": 0.003247197996305823,
+        "max_ms": 0.003247197996305823,
+        "std_ms": 0,
+        "ops_per_sec": 307957.81505705864,
+        "total_ops": 30945,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "isneginf [100x100]",
-        "mean_ms": 0.008403507386074868,
-        "median_ms": 0.008141305268507542,
-        "min_ms": 0.008077012451295933,
-        "max_ms": 0.00934208944604438,
-        "std_ms": 0.0004761327374018899,
-        "ops_per_sec": 118997.93194173447,
-        "total_ops": 59030,
-        "total_samples": 5
+        "mean_ms": 0.00613274335845818,
+        "median_ms": 0.00613274335845818,
+        "min_ms": 0.00613274335845818,
+        "max_ms": 0.00613274335845818,
+        "std_ms": 0,
+        "ops_per_sec": 163059.1631754517,
+        "total_ops": 8093,
+        "total_samples": 1
       },
-      "ratio": 2.304771758373151
+      "ratio": 1.888626244976469
     },
     {
       "name": "isposinf [100x100]",
       "category": "logic",
       "numpy": {
         "name": "isposinf [100x100]",
-        "mean_ms": 0.003948488969082717,
-        "median_ms": 0.003877072413125618,
-        "min_ms": 0.003833153756341073,
-        "max_ms": 0.0043066265580744825,
-        "std_ms": 0.00017991004355893733,
-        "ops_per_sec": 253261.439459539,
-        "total_ops": 128775,
-        "total_samples": 5
+        "mean_ms": 0.0036503246562206476,
+        "median_ms": 0.0036503246562206476,
+        "min_ms": 0.0036503246562206476,
+        "max_ms": 0.0036503246562206476,
+        "std_ms": 0,
+        "ops_per_sec": 273948.2358907076,
+        "total_ops": 28082,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "isposinf [100x100]",
-        "mean_ms": 0.008424817050538538,
-        "median_ms": 0.008215306545153239,
-        "min_ms": 0.008043786246893185,
-        "max_ms": 0.00921916603148301,
-        "std_ms": 0.0004313495101661369,
-        "ops_per_sec": 118696.93953010852,
-        "total_ops": 60350,
-        "total_samples": 5
+        "mean_ms": 0.00640924254232747,
+        "median_ms": 0.00640924254232747,
+        "min_ms": 0.00640924254232747,
+        "max_ms": 0.00640924254232747,
+        "std_ms": 0,
+        "ops_per_sec": 156024.67739297898,
+        "total_ops": 7442,
+        "total_samples": 1
       },
-      "ratio": 2.133681293402658
+      "ratio": 1.7558006878662842
     },
     {
       "name": "isreal [100x100]",
       "category": "logic",
       "numpy": {
         "name": "isreal [100x100]",
-        "mean_ms": 0.0049349661429800625,
-        "median_ms": 0.004819108266963192,
-        "min_ms": 0.004782672200606386,
-        "max_ms": 0.005340770917883749,
-        "std_ms": 0.00020892215023180004,
-        "ops_per_sec": 202635.63538779077,
-        "total_ops": 90055,
-        "total_samples": 5
+        "mean_ms": 0.004456795356385263,
+        "median_ms": 0.004456795356385263,
+        "min_ms": 0.004456795356385263,
+        "max_ms": 0.004456795356385263,
+        "std_ms": 0,
+        "ops_per_sec": 224376.4678508959,
+        "total_ops": 22053,
+        "total_samples": 1
       },
       "numpyjs": {
         "name": "isreal [100x100]",
-        "mean_ms": 0.0006071242500000007,
-        "median_ms": 0.0006090133400000013,
-        "min_ms": 0.0005901037499999984,
-        "max_ms": 0.0006359870800000044,
-        "std_ms": 0.000016815599268885486,
-        "ops_per_sec": 1647109.302585095,
-        "total_ops": 500000,
-        "total_samples": 5
+        "mean_ms": 0.00047979041999999026,
+        "median_ms": 0.00047979041999999026,
+        "min_ms": 0.00047979041999999026,
+        "max_ms": 0.00047979041999999026,
+        "std_ms": 0,
+        "ops_per_sec": 2084243.366093096,
+        "total_ops": 100000,
+        "total_samples": 1
       },
-      "ratio": 0.12302500815808608
+      "ratio": 0.10765367974829565
+    },
+    {
+      "name": "random.random [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.random [100x100]",
+        "mean_ms": 0.018667948238124732,
+        "median_ms": 0.018667948238124732,
+        "min_ms": 0.018667948238124732,
+        "max_ms": 0.018667948238124732,
+        "std_ms": 0,
+        "ops_per_sec": 53567.75084461311,
+        "total_ops": 5332,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.random [100x100]",
+        "mean_ms": 0.12357998241205866,
+        "median_ms": 0.12357998241205866,
+        "min_ms": 0.12357998241205866,
+        "max_ms": 0.12357998241205866,
+        "std_ms": 0,
+        "ops_per_sec": 8091.925411234095,
+        "total_ops": 398,
+        "total_samples": 1
+      },
+      "ratio": 6.619901707230829
+    },
+    {
+      "name": "random.rand [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.rand [100x100]",
+        "mean_ms": 0.018955595708482938,
+        "median_ms": 0.018955595708482938,
+        "min_ms": 0.018955595708482938,
+        "max_ms": 0.018955595708482938,
+        "std_ms": 0,
+        "ops_per_sec": 52754.8706661054,
+        "total_ops": 5266,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.rand [100x100]",
+        "mean_ms": 0.12318520750000062,
+        "median_ms": 0.12318520750000062,
+        "min_ms": 0.12318520750000062,
+        "max_ms": 0.12318520750000062,
+        "std_ms": 0,
+        "ops_per_sec": 8117.857819900941,
+        "total_ops": 400,
+        "total_samples": 1
+      },
+      "ratio": 6.49861968963989
+    },
+    {
+      "name": "random.randn [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.randn [100x100]",
+        "mean_ms": 0.09486791784404597,
+        "median_ms": 0.09486791784404597,
+        "min_ms": 0.09486791784404597,
+        "max_ms": 0.09486791784404597,
+        "std_ms": 0,
+        "ops_per_sec": 10540.971307538413,
+        "total_ops": 1059,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.randn [100x100]",
+        "mean_ms": 0.29625099404763333,
+        "median_ms": 0.29625099404763333,
+        "min_ms": 0.29625099404763333,
+        "max_ms": 0.29625099404763333,
+        "std_ms": 0,
+        "ops_per_sec": 3375.516099835307,
+        "total_ops": 168,
+        "total_samples": 1
+      },
+      "ratio": 3.122773228085836
+    },
+    {
+      "name": "random.randint [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.randint [100x100]",
+        "mean_ms": 0.03869370702664618,
+        "median_ms": 0.03869370702664618,
+        "min_ms": 0.03869370702664618,
+        "max_ms": 0.03869370702664618,
+        "std_ms": 0,
+        "ops_per_sec": 25843.995751333834,
+        "total_ops": 2618,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.randint [100x100]",
+        "mean_ms": 0.21730502136751267,
+        "median_ms": 0.21730502136751267,
+        "min_ms": 0.21730502136751267,
+        "max_ms": 0.21730502136751267,
+        "std_ms": 0,
+        "ops_per_sec": 4601.826472793606,
+        "total_ops": 234,
+        "total_samples": 1
+      },
+      "ratio": 5.616030048965506
+    },
+    {
+      "name": "random.uniform [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.uniform [100x100]",
+        "mean_ms": 0.025416739338655354,
+        "median_ms": 0.025416739338655354,
+        "min_ms": 0.025416739338655354,
+        "max_ms": 0.025416739338655354,
+        "std_ms": 0,
+        "ops_per_sec": 39344.14980127439,
+        "total_ops": 4009,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.uniform [100x100]",
+        "mean_ms": 0.12388477283950326,
+        "median_ms": 0.12388477283950326,
+        "min_ms": 0.12388477283950326,
+        "max_ms": 0.12388477283950326,
+        "std_ms": 0,
+        "ops_per_sec": 8072.017061334345,
+        "total_ops": 405,
+        "total_samples": 1
+      },
+      "ratio": 4.8741410606942654
+    },
+    {
+      "name": "random.normal [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.normal [100x100]",
+        "mean_ms": 0.09535238095503744,
+        "median_ms": 0.09535238095503744,
+        "min_ms": 0.09535238095503744,
+        "max_ms": 0.09535238095503744,
+        "std_ms": 0,
+        "ops_per_sec": 10487.415101585571,
+        "total_ops": 1050,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.normal [100x100]",
+        "mean_ms": 0.30514418787879,
+        "median_ms": 0.30514418787879,
+        "min_ms": 0.30514418787879,
+        "max_ms": 0.30514418787879,
+        "std_ms": 0,
+        "ops_per_sec": 3277.1392663628976,
+        "total_ops": 165,
+        "total_samples": 1
+      },
+      "ratio": 3.200173764121087
+    },
+    {
+      "name": "random.standard_normal [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.standard_normal [100x100]",
+        "mean_ms": 0.09423437040651605,
+        "median_ms": 0.09423437040651605,
+        "min_ms": 0.09423437040651605,
+        "max_ms": 0.09423437040651605,
+        "std_ms": 0,
+        "ops_per_sec": 10611.839349975142,
+        "total_ops": 1061,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.standard_normal [100x100]",
+        "mean_ms": 0.2967334337349438,
+        "median_ms": 0.2967334337349438,
+        "min_ms": 0.2967334337349438,
+        "max_ms": 0.2967334337349438,
+        "std_ms": 0,
+        "ops_per_sec": 3370.0280666493645,
+        "total_ops": 166,
+        "total_samples": 1
+      },
+      "ratio": 3.1488875285617177
+    },
+    {
+      "name": "random.exponential [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.exponential [100x100]",
+        "mean_ms": 0.08046876603192016,
+        "median_ms": 0.08046876603192016,
+        "min_ms": 0.08046876603192016,
+        "max_ms": 0.08046876603192016,
+        "std_ms": 0,
+        "ops_per_sec": 12427.181990131703,
+        "total_ops": 1278,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.exponential [100x100]",
+        "mean_ms": 0.19315060305344206,
+        "median_ms": 0.19315060305344206,
+        "min_ms": 0.19315060305344206,
+        "max_ms": 0.19315060305344206,
+        "std_ms": 0,
+        "ops_per_sec": 5177.307159239435,
+        "total_ops": 262,
+        "total_samples": 1
+      },
+      "ratio": 2.400317695648813
+    },
+    {
+      "name": "random.poisson [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.poisson [100x100]",
+        "mean_ms": 0.3140035942501832,
+        "median_ms": 0.3140035942501832,
+        "min_ms": 0.3140035942501832,
+        "max_ms": 0.3140035942501832,
+        "std_ms": 0,
+        "ops_per_sec": 3184.676921892962,
+        "total_ops": 313,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.poisson [100x100]",
+        "mean_ms": 0.9632716346153617,
+        "median_ms": 0.9632716346153617,
+        "min_ms": 0.9632716346153617,
+        "max_ms": 0.9632716346153617,
+        "std_ms": 0,
+        "ops_per_sec": 1038.128772886896,
+        "total_ops": 52,
+        "total_samples": 1
+      },
+      "ratio": 3.067708944273652
+    },
+    {
+      "name": "random.binomial [100x100]",
+      "category": "random",
+      "numpy": {
+        "name": "random.binomial [100x100]",
+        "mean_ms": 0.2736164850029937,
+        "median_ms": 0.2736164850029937,
+        "min_ms": 0.2736164850029937,
+        "max_ms": 0.2736164850029937,
+        "std_ms": 0,
+        "ops_per_sec": 3654.750553458279,
+        "total_ops": 367,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.binomial [100x100]",
+        "mean_ms": 1.3336282051281252,
+        "median_ms": 1.3336282051281252,
+        "min_ms": 1.3336282051281252,
+        "max_ms": 1.3336282051281252,
+        "std_ms": 0,
+        "ops_per_sec": 749.8341712890868,
+        "total_ops": 39,
+        "total_samples": 1
+      },
+      "ratio": 4.874078420799586
+    },
+    {
+      "name": "random.choice [1000]",
+      "category": "random",
+      "numpy": {
+        "name": "random.choice [1000]",
+        "mean_ms": 0.0042743842467604055,
+        "median_ms": 0.0042743842467604055,
+        "min_ms": 0.0042743842467604055,
+        "max_ms": 0.0042743842467604055,
+        "std_ms": 0,
+        "ops_per_sec": 233951.8261040544,
+        "total_ops": 23157,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.choice [1000]",
+        "mean_ms": 0.022930588345865942,
+        "median_ms": 0.022930588345865942,
+        "min_ms": 0.022930588345865942,
+        "max_ms": 0.022930588345865942,
+        "std_ms": 0,
+        "ops_per_sec": 43609.87101232776,
+        "total_ops": 2128,
+        "total_samples": 1
+      },
+      "ratio": 5.364653017155685
+    },
+    {
+      "name": "random.permutation [1000]",
+      "category": "random",
+      "numpy": {
+        "name": "random.permutation [1000]",
+        "mean_ms": 0.007524224902709176,
+        "median_ms": 0.007524224902709176,
+        "min_ms": 0.007524224902709176,
+        "max_ms": 0.007524224902709176,
+        "std_ms": 0,
+        "ops_per_sec": 132904.054959859,
+        "total_ops": 13139,
+        "total_samples": 1
+      },
+      "numpyjs": {
+        "name": "random.permutation [1000]",
+        "mean_ms": 0.048274011299434864,
+        "median_ms": 0.048274011299434864,
+        "min_ms": 0.048274011299434864,
+        "max_ms": 0.048274011299434864,
+        "std_ms": 0,
+        "ops_per_sec": 20715.07987594366,
+        "total_ops": 1062,
+        "total_samples": 1
+      },
+      "ratio": 6.415811850872945
     }
   ],
   "summary": {
-    "avg_slowdown": 13.247391454059773,
-    "median_slowdown": 3.968900564531635,
-    "best_case": 0.12302500815808608,
-    "worst_case": 38.18542189701258,
-    "total_benchmarks": 12
+    "avg_slowdown": 16.030196906877286,
+    "median_slowdown": 3.947677596858436,
+    "best_case": 0.018801295260022353,
+    "worst_case": 159.2260195004602,
+    "total_benchmarks": 195
   }
 }
