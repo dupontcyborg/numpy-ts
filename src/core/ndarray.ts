@@ -10,9 +10,11 @@ import {
   type TypedArray,
   DEFAULT_DTYPE,
   getTypedArrayConstructor,
+  getDTypeSize,
   isBigIntDType,
 } from './dtype';
 import { ArrayStorage } from './storage';
+import { computeBroadcastShape } from './broadcasting';
 import * as arithmeticOps from '../ops/arithmetic';
 import * as comparisonOps from '../ops/comparison';
 import * as reductionOps from '../ops/reduction';
@@ -104,6 +106,75 @@ export class NDArray {
    */
   get base(): NDArray | null {
     return this._base ?? null;
+  }
+
+  /**
+   * Transpose of the array (shorthand for transpose())
+   * Returns a view with axes reversed
+   */
+  get T(): NDArray {
+    return this.transpose();
+  }
+
+  /**
+   * Size of one array element in bytes
+   */
+  get itemsize(): number {
+    return getDTypeSize(this._storage.dtype);
+  }
+
+  /**
+   * Total bytes consumed by the elements of the array
+   */
+  get nbytes(): number {
+    return this.size * this.itemsize;
+  }
+
+  /**
+   * Fill the array with a scalar value (in-place)
+   * @param value - Value to fill with
+   */
+  fill(value: number | bigint): void {
+    const dtype = this._storage.dtype;
+    const size = this.size;
+
+    if (isBigIntDType(dtype)) {
+      const bigintValue = typeof value === 'bigint' ? value : BigInt(Math.round(Number(value)));
+      for (let i = 0; i < size; i++) {
+        this._storage.iset(i, bigintValue);
+      }
+    } else if (dtype === 'bool') {
+      const boolValue = value ? 1 : 0;
+      for (let i = 0; i < size; i++) {
+        this._storage.iset(i, boolValue);
+      }
+    } else {
+      const numValue = Number(value);
+      for (let i = 0; i < size; i++) {
+        this._storage.iset(i, numValue);
+      }
+    }
+  }
+
+  /**
+   * Iterator protocol - iterate over the first axis
+   * For 1D arrays, yields elements; for ND arrays, yields (N-1)D subarrays
+   */
+  *[Symbol.iterator](): Iterator<NDArray | number | bigint> {
+    if (this.ndim === 0) {
+      // 0D array: yield the single element
+      yield this._storage.iget(0);
+    } else if (this.ndim === 1) {
+      // 1D array: yield elements
+      for (let i = 0; i < this.shape[0]!; i++) {
+        yield this._storage.iget(i);
+      }
+    } else {
+      // ND array: yield slices along first axis
+      for (let i = 0; i < this.shape[0]!; i++) {
+        yield this.slice(String(i));
+      }
+    }
   }
 
   /**
@@ -4220,6 +4291,82 @@ export function take(a: NDArray, indices: number[], axis?: number): NDArray {
  */
 export function put(a: NDArray, indices: number[], values: NDArray | number | bigint): void {
   a.put(indices, values);
+}
+
+/**
+ * Copy values from one array to another, broadcasting as necessary.
+ *
+ * @param dst - Destination array (modified in-place)
+ * @param src - Source array or scalar
+ * @param where - Optional boolean array. Only copy where True (not yet implemented)
+ * @throws Error if shapes are not broadcastable
+ *
+ * @example
+ * ```typescript
+ * const dst = np.zeros([3, 3]);
+ * const src = np.array([1, 2, 3]);
+ * np.copyto(dst, src);  // Each row of dst becomes [1, 2, 3]
+ * ```
+ */
+export function copyto(dst: NDArray, src: NDArray | number | bigint, where?: NDArray): void {
+  if (where !== undefined) {
+    throw new Error('copyto with where parameter is not yet implemented');
+  }
+
+  const dstStorage = dst.storage;
+  const dstShape = dst.shape;
+  const dstSize = dst.size;
+  const dstDtype = dst.dtype as DType;
+
+  // Handle scalar source
+  if (typeof src === 'number' || typeof src === 'bigint') {
+    dst.fill(src);
+    return;
+  }
+
+  const srcStorage = src.storage;
+  const srcShape = src.shape;
+
+  // Check if shapes are broadcastable
+  // dst shape must be broadcastable FROM src shape
+  const broadcastShape = computeBroadcastShape([srcShape as number[], dstShape as number[]]);
+  if (!broadcastShape) {
+    throw new Error(
+      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`
+    );
+  }
+
+  // Verify broadcast shape matches dst shape
+  if (
+    broadcastShape.length !== dstShape.length ||
+    !broadcastShape.every((d, i) => d === dstShape[i])
+  ) {
+    throw new Error(
+      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`
+    );
+  }
+
+  // Broadcast src to dst shape
+  const broadcastedSrc = advancedOps.broadcast_to(srcStorage, dstShape as number[]);
+
+  // Copy values
+  if (isBigIntDType(dstDtype)) {
+    for (let i = 0; i < dstSize; i++) {
+      const val = broadcastedSrc.iget(i);
+      const bigintVal = typeof val === 'bigint' ? val : BigInt(Math.round(Number(val)));
+      dstStorage.iset(i, bigintVal);
+    }
+  } else if (dstDtype === 'bool') {
+    for (let i = 0; i < dstSize; i++) {
+      const val = broadcastedSrc.iget(i);
+      dstStorage.iset(i, val ? 1 : 0);
+    }
+  } else {
+    for (let i = 0; i < dstSize; i++) {
+      const val = broadcastedSrc.iget(i);
+      dstStorage.iset(i, Number(val));
+    }
+  }
 }
 
 /**
