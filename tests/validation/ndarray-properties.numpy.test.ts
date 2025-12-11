@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { zeros, ones, array, arange, copyto } from '../../src/core/ndarray';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { zeros, array, arange, copyto } from '../../src/core/ndarray';
+import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: NDArray Properties', () => {
   beforeAll(() => {
@@ -292,6 +292,7 @@ result = [row.tolist() for row in arr]
     it('validates iteration count matches first dimension', () => {
       const jsArr = zeros([5, 3, 2]);
       let count = 0;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       for (const _ of jsArr) count++;
 
       const pyResult = runNumPy(`

@@ -2,15 +2,15 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-09
+**Last Updated**: 2025-12-11
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 308/507 (60.7%)
-- **Top-level Functions**: 297/507 (55.6%)
-- **NDArray Methods**: 152/53 (62.3%)
+- **Overall Coverage**: 310/507 (61.1%)
+- **Top-level Functions**: 298/507 (55.8%)
+- **NDArray Methods**: 156/53 (64.2%)
 
 ### Completed Categories (100%)
 - Broadcasting (3/3)
@@ -26,14 +26,14 @@ Based on `npm run compare-api`:
 ### Incomplete Categories
 - Arithmetic (22/29) - 75.9%
 - Array Creation (33/35) - 94.3%
-- Array Manipulation (36/46) - 78.3%
+- Array Manipulation (37/46) - 80.4%
 - Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
 - Indexing (20/21) - 95.2%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
 - Logic (12/24) - 50.0%
-- NDArray Methods (33/53) - 62.3%
+- NDArray Methods (34/53) - 64.2%
 - Other Math (0/15) - 0.0%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
@@ -44,7 +44,7 @@ Based on `npm run compare-api`:
 - String/Formatting (0/10) - 0.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
-- Utilities (3/16) - 18.8%
+- Utilities (4/16) - 25.0%
 
 ---
 
@@ -138,7 +138,7 @@ Based on `npm run compare-api`:
 - [x] `dsplit` 
 - [x] `dstack` 
 - [x] `expand_dims` 
-- [ ] `fill` 
+- [x] `fill` 
 - [x] `flatten` 
 - [x] `flip` 
 - [x] `fliplr` 
@@ -420,7 +420,7 @@ Based on `npm run compare-api`:
 - [x] `dot` 
 - [ ] `dump` 
 - [ ] `dumps` 
-- [ ] `fill` 
+- [x] `fill` 
 - [x] `flatten` 
 - [ ] `getfield` 
 - [ ] `item` 
@@ -741,7 +741,7 @@ Based on `npm run compare-api`:
 
 - [ ] `apply_along_axis` 
 - [ ] `apply_over_axes` 
-- [ ] `copyto` 
+- [x] `copyto` 
 - [ ] `einsum_path` 
 - [ ] `geterr` 
 - [ ] `geterrcall` 
@@ -763,6 +763,7 @@ Based on `npm run compare-api`:
 Methods in numpy-ts NDArray that don't exist in NumPy's ndarray.
 These may be removed in future versions for strict NumPy compatibility:
 
+- `T()` 
 - `absolute()` 
 - `add()` 
 - `allclose()` 
@@ -815,6 +816,7 @@ These may be removed in future versions for strict NumPy compatibility:
 - `isinf()` 
 - `isnan()` 
 - `isnat()` 
+- `itemsize()` 
 - `left_shift()` 
 - `less()` 
 - `less_equal()` 
@@ -845,6 +847,7 @@ These may be removed in future versions for strict NumPy compatibility:
 - `nanstd()` 
 - `nansum()` 
 - `nanvar()` 
+- `nbytes()` 
 - `ndim()` 
 - `negative()` 
 - `nextafter()` 

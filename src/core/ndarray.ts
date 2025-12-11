@@ -4308,11 +4308,7 @@ export function put(a: NDArray, indices: number[], values: NDArray | number | bi
  * np.copyto(dst, src);  // Each row of dst becomes [1, 2, 3]
  * ```
  */
-export function copyto(
-  dst: NDArray,
-  src: NDArray | number | bigint,
-  where?: NDArray
-): void {
+export function copyto(dst: NDArray, src: NDArray | number | bigint, where?: NDArray): void {
   if (where !== undefined) {
     throw new Error('copyto with where parameter is not yet implemented');
   }
@@ -4341,8 +4337,10 @@ export function copyto(
   }
 
   // Verify broadcast shape matches dst shape
-  if (broadcastShape.length !== dstShape.length ||
-      !broadcastShape.every((d, i) => d === dstShape[i])) {
+  if (
+    broadcastShape.length !== dstShape.length ||
+    !broadcastShape.every((d, i) => d === dstShape[i])
+  ) {
     throw new Error(
       `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`
     );
