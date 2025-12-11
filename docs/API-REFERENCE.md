@@ -8,9 +8,9 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 329/507 (64.9%)
-- **Top-level Functions**: 318/507 (59.8%)
-- **NDArray Methods**: 153/53 (62.3%)
+- **Overall Coverage**: 331/507 (65.3%)
+- **Top-level Functions**: 319/507 (60.0%)
+- **NDArray Methods**: 157/53 (64.2%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
@@ -34,7 +34,7 @@ Based on `npm run compare-api`:
 - FFT (0/18) - 0.0%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
-- NDArray Methods (33/53) - 62.3%
+- NDArray Methods (34/53) - 64.2%
 - Other Math (0/15) - 0.0%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
