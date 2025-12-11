@@ -80,12 +80,12 @@ Progress toward complete NumPy API compatibility:
 | **Array Manipulation** | 36/46 | 78% | 🟡 |
 | **Statistics** | 9/12 | 75% | 🟡 |
 | **Bit Operations** | 9/13 | 69% | 🟡 |
-| **NDArray Methods** | 33/53 | 62% | 🟡 |
+| **NDArray Methods** | 34/53 | 64% | 🟡 |
 | **Linear Algebra (linalg)** | 19/31 | 61% | 🟡 |
 | **Linear Algebra** | 9/15 | 60% | 🟡 |
 | **Set Operations** | 7/12 | 58% | 🟡 |
 | **Random** | 17/53 | 32% | 🔴 |
-| **Utilities** | 3/16 | 19% | 🔴 |
+| **Utilities** | 4/16 | 25% | 🔴 |
 | **FFT** | 0/18 | 0% | 🔴 |
 | **Other Math** | 0/15 | 0% | 🔴 |
 | **Polynomials** | 0/10 | 0% | 🔴 |

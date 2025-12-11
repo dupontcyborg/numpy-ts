@@ -157,6 +157,7 @@ export {
   broadcast_shapes,
   take,
   put,
+  copyto,
   choose,
   array_equal,
   array_equiv,
