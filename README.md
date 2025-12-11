@@ -25,7 +25,7 @@ npm install numpy-ts
 ## Why numpy-ts?
 
 - **📊 Extensive API** — **331 of 507 NumPy functions (65.3% coverage)**
-- **✅ NumPy-validated** — 2000+ test cases cross-validated against Python NumPy
+- **✅ NumPy-validated** — 3000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
 - **🎯 Zero dependencies** — Pure TypeScript, no heavy external libraries
