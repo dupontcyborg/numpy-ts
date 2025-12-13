@@ -157,6 +157,8 @@ export {
   broadcast_shapes,
   take,
   put,
+  iindex,
+  bindex,
   copyto,
   choose,
   array_equal,

@@ -70,27 +70,7 @@ Missing:
 
 ---
 
-### 3. F-Order Memory Layout (Fortran Order)
-**Status: Not Truly Supported**
-**Scope: MAJOR - Fundamental architectural change**
-
-Current State:
-- Arrays are always stored in C-order (row-major)
-- `asfortranarray()` exists but just returns a C-order copy
-- `isCContiguous` / `isFContiguous` flags exist but F-contiguous arrays cannot be created
-- No `order` parameter on array creation functions
-
-Required Changes:
-- storage.ts: Add `computeStridesF()`, modify `zeros()`, `ones()`, `copy()` to accept order
-- ndarray.ts: Add `order` parameter to ~15 creation functions
-- shape.ts: `reshape()`, `ravel()`, `flatten()` need order-aware logic
-- All operations: Need to respect/preserve order in outputs
-
-**Impact:** Cannot efficiently interface with column-major libraries, cannot preserve memory layout from external sources.
-
----
-
-### 4. Structured Arrays / Record Arrays
+### 3. Structured Arrays / Record Arrays
 **Status: Not Supported**
 **Scope: MAJOR - New subsystem**
 
@@ -107,27 +87,21 @@ Missing:
 
 ---
 
-### 5. Advanced Indexing (Fancy Indexing)
-**Status: Partially Missing**
+### 4. Advanced Indexing (Fancy Indexing)
+**Status: ✅ Implemented**
 **Scope: MODERATE - Concentrated in indexing**
 
-Current State:
-- Boolean indexing: Partially supported via `where()`, `compress()`, `extract()`
-- Integer array indexing: Not supported (cannot do `arr[[0, 2, 4]]`)
-- Slicing only supports string-based syntax
+Implemented via two new methods:
+- `iindex(indices, axis?)` - Integer array indexing (NumPy's `arr[[0, 2, 4]]`)
+- `bindex(mask, axis?)` - Boolean array indexing (NumPy's `arr[arr > 5]`)
 
-Required Changes:
-- slicing.ts: Extend to accept NDArray indices
-- ndarray.ts: Modify `slice()` to detect array arguments
-- New internal: `fancyIndex()` function
-
-**Estimate:** 2-3 files, 10-15 functions
+Both methods support axis specification and work with existing `take()` and `compress()` internally.
 
 ---
 
 ## Moderate Feature Gaps
 
-### 6. Tuple of Axes for Reductions
+### 5. Tuple of Axes for Reductions
 **Status: Not Supported**
 **Scope: SMALL-MODERATE - Localized to reductions**
 
@@ -141,7 +115,7 @@ Required Changes:
 
 ---
 
-### 7. Polynomial Module
+### 6. Polynomial Module
 **Status: Not Implemented**
 **Scope: MODERATE - New module**
 
@@ -151,7 +125,7 @@ Missing: `polyval`, `polyfit`, `polyder`, `polyint`, `poly1d` class, `roots`
 
 ---
 
-### 8. Error State Control
+### 7. Error State Control
 **Status: Not Implemented**
 **Scope: SMALL - New utility**
 
@@ -166,7 +140,7 @@ Missing:
 
 ## Large New Subsystems
 
-### 9. FFT Module
+### 8. FFT Module
 **Status: Not Implemented**
 **Scope: LARGE - New module**
 **Blocker: Requires complex number support**
@@ -177,7 +151,7 @@ Missing: `fft`, `ifft`, `fft2`, `ifft2`, `fftn`, `ifftn`, `rfft`, `irfft`, `fftf
 
 ---
 
-### 10. Masked Arrays (`np.ma`)
+### 9. Masked Arrays (`np.ma`)
 **Status: Not Implemented**
 **Scope: LARGE - New subsystem**
 
@@ -196,18 +170,17 @@ Missing:
 ### High Impact (Core Functionality Gaps)
 1. **ufunc system** - Foundational NumPy concept, blocks memory efficiency and extensibility
 2. **Complex numbers** - Blocks entire domains (signal processing, FFT)
-3. **F-order memory layout** - Interoperability with scientific libraries
-4. **Integer/boolean array indexing** - Basic NumPy usage pattern
-5. **Tuple of axes** for reductions
+3. ~~**Integer/boolean array indexing**~~ ✅ Implemented via `iindex()` and `bindex()`
+4. **Tuple of axes** for reductions
 
 ### Medium Impact (Important Features)
-6. **Polynomial module**
-7. **Error state control**
+5. **Polynomial module**
+6. **Error state control**
 
 ### Lower Impact (Advanced/Specialized)
-8. **Structured arrays**
-9. **FFT module** (blocked by complex)
-10. **Masked arrays**
+7. **Structured arrays**
+8. **FFT module** (blocked by complex)
+9. **Masked arrays**
 
 ---
 
@@ -218,8 +191,7 @@ Missing:
 | Tuple axes reductions | Small-Mod | 1 | 15 | None |
 | Error state | Small | 1-2 | 5 | None |
 | Polynomial module | Moderate | 1 new | 10-15 | None |
-| Fancy indexing | Moderate | 2-3 | 10-15 | None |
-| F-order | Major | 10+ | 30+ | None |
+| ~~Fancy indexing~~ | ~~Moderate~~ | ~~2-3~~ | ~~10-15~~ | ✅ Done |
 | Complex numbers | Major | 15+ | 50+ | None |
 | Structured arrays | Major | 5+ | 20+ | None |
 | **ufunc system** | **Major** | **All ops** | **50+** | **None** |
@@ -232,9 +204,10 @@ Missing:
 
 The following NumPy features are not planned for numpy-ts:
 
-- **Datetime/Timedelta dtypes** (`datetime64`, `timedelta64`)
-- **String/Unicode dtypes** (`str_`, `bytes_`, `U`, `S`)
-- **Object dtype** (heterogeneous data)
-- **Memory mapping** (`memmap`, `mmap_mode`)
+- **F-order memory layout** (Fortran order) — exists in NumPy for Fortran/BLAS interop, which doesn't exist in JS
+- **Datetime/Timedelta dtypes** (`datetime64`, `timedelta64`) — JS has native `Date` and better libraries for time math
+- **String/Unicode dtypes** (`str_`, `bytes_`, `U`, `S`) — JS strings are first-class citizens
+- **Object dtype** (heterogeneous data) — defeats typed array purpose; use regular JS arrays
+- **Memory mapping** (`memmap`, `mmap_mode`) — browser security model doesn't support this
 - **Matrix class** (deprecated in NumPy)
 - **Chararray** (deprecated in NumPy)
