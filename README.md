@@ -125,10 +125,23 @@ NumPy-compatible type system with automatic promotion:
 | `str_` | ✅ | ❌ | Not planned |
 | `bytes_` | ✅ | ❌ | Not planned |
 | `object_` | ✅ | ❌ | Not planned |
-| `datetime64` | ✅ | ❌ | Future consideration |
-| `timedelta64` | ✅ | ❌ | Future consideration |
+| `datetime64` | ✅ | ❌ | Not planned |
+| `timedelta64` | ✅ | ❌ | Not planned |
 
-**Supported: 11/20 numeric dtypes** • Complex and temporal types planned for future releases
+**Supported: 11/20 numeric dtypes** • Complex types planned for future releases
+
+### Intentional Divergences from NumPy
+
+numpy-ts focuses on numeric array computing. The following NumPy features are **not planned**:
+
+| Feature | Why Not Included |
+|---------|------------------|
+| **Datetime/Timedelta** (`datetime64`, `timedelta64`) | JS has native `Date`; libraries like [date-fns](https://date-fns.org/) handle time math better |
+| **String/Bytes dtypes** (`str_`, `bytes_`, `U`, `S`) | JS strings are first-class; no need for fixed-width string arrays |
+| **Object dtype** (`object_`) | Defeats the purpose of typed arrays; use regular JS arrays instead |
+| **F-order memory layout** | Exists in NumPy for Fortran/BLAS interop, which doesn't exist in JS |
+
+These omissions keep the library focused and the bundle small. For string manipulation, datetime math, or heterogeneous data, use native JS/TS constructs alongside numpy-ts.
 
 ### NumPy Memory Model
 
