@@ -145,13 +145,13 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   atanh: 'not_implemented', // alias
 
   // Exponential/logarithmic (need complex formulas)
-  exp: 'not_implemented',
-  exp2: 'not_implemented',
-  expm1: 'not_implemented',
-  log: 'not_implemented',
-  log2: 'not_implemented',
-  log10: 'not_implemented',
-  log1p: 'not_implemented',
+  exp: 'supported',
+  exp2: 'supported',
+  expm1: 'supported',
+  log: 'supported',
+  log2: 'supported',
+  log10: 'supported',
+  log1p: 'supported',
   logaddexp: 'not_implemented',
   logaddexp2: 'not_implemented',
 

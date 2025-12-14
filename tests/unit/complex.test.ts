@@ -20,6 +20,13 @@ import {
   isrealobj,
   sqrt,
   power,
+  exp,
+  exp2,
+  expm1,
+  log,
+  log2,
+  log10,
+  log1p,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -755,6 +762,277 @@ describe('Complex Number Support', () => {
         expect(values[0].im).toBe(0);
         expect(values[1].re).toBe(8);
         expect(values[1].im).toBe(0);
+      });
+    });
+  });
+
+  describe('Complex exponential and logarithmic operations', () => {
+    describe('exp()', () => {
+      it('computes exp of purely imaginary number', () => {
+        // exp(i*pi) = -1 + 0i (Euler's identity)
+        const a = array([new Complex(0, Math.PI)]);
+        const result = exp(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(-1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes exp of purely real number', () => {
+        // exp(1 + 0i) = e + 0i
+        const a = array([new Complex(1, 0)]);
+        const result = exp(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.E);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes exp of complex number', () => {
+        // exp(1 + i*pi/2) = e * (cos(pi/2) + i*sin(pi/2)) = e * (0 + i) = 0 + e*i
+        const a = array([new Complex(1, Math.PI / 2)]);
+        const result = exp(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.E);
+      });
+
+      it('computes exp of zero', () => {
+        // exp(0) = 1
+        const a = array([new Complex(0, 0)]);
+        const result = exp(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+    });
+
+    describe('log()', () => {
+      it('computes log of positive real number', () => {
+        // log(e + 0i) = 1 + 0i
+        const a = array([new Complex(Math.E, 0)]);
+        const result = log(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes log of negative real number', () => {
+        // log(-1 + 0i) = 0 + i*pi (principal branch)
+        const a = array([new Complex(-1, 0)]);
+        const result = log(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.PI);
+      });
+
+      it('computes log of purely imaginary number', () => {
+        // log(i) = log(|1|) + i*pi/2 = 0 + i*pi/2
+        const a = array([new Complex(0, 1)]);
+        const result = log(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.PI / 2);
+      });
+
+      it('computes log of complex number', () => {
+        // log(1+i) = log(sqrt(2)) + i*pi/4
+        const a = array([new Complex(1, 1)]);
+        const result = log(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.log(Math.SQRT2));
+        expect(values[0].im).toBeCloseTo(Math.PI / 4);
+      });
+    });
+
+    describe('exp2()', () => {
+      it('computes 2^z for complex z', () => {
+        // 2^(0+0i) = 1
+        const a = array([new Complex(0, 0)]);
+        const result = exp2(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes 2^1 = 2', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = exp2(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes 2^i', () => {
+        // 2^i = exp(i*ln(2)) = cos(ln2) + i*sin(ln2)
+        const a = array([new Complex(0, 1)]);
+        const result = exp2(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.cos(Math.LN2));
+        expect(values[0].im).toBeCloseTo(Math.sin(Math.LN2));
+      });
+    });
+
+    describe('expm1()', () => {
+      it('computes exp(z) - 1', () => {
+        // expm1(0) = 0
+        const a = array([new Complex(0, 0)]);
+        const result = expm1(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes expm1(i*pi) = -2', () => {
+        // exp(i*pi) - 1 = -1 - 1 = -2
+        const a = array([new Complex(0, Math.PI)]);
+        const result = expm1(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(-2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+    });
+
+    describe('log2()', () => {
+      it('computes log base 2 of complex number', () => {
+        // log2(2 + 0i) = 1 + 0i
+        const a = array([new Complex(2, 0)]);
+        const result = log2(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes log2(4) = 2', () => {
+        const a = array([new Complex(4, 0)]);
+        const result = log2(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes log2(-1)', () => {
+        // log2(-1) = log(-1) / ln(2) = (0 + i*pi) / ln(2)
+        const a = array([new Complex(-1, 0)]);
+        const result = log2(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.PI / Math.LN2);
+      });
+    });
+
+    describe('log10()', () => {
+      it('computes log base 10 of complex number', () => {
+        // log10(10 + 0i) = 1 + 0i
+        const a = array([new Complex(10, 0)]);
+        const result = log10(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes log10(100) = 2', () => {
+        const a = array([new Complex(100, 0)]);
+        const result = log10(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes log10(-1)', () => {
+        // log10(-1) = log(-1) / ln(10) = (0 + i*pi) / ln(10)
+        const a = array([new Complex(-1, 0)]);
+        const result = log10(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.PI / Math.LN10);
+      });
+    });
+
+    describe('log1p()', () => {
+      it('computes log(1 + z)', () => {
+        // log1p(0) = log(1) = 0
+        const a = array([new Complex(0, 0)]);
+        const result = log1p(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes log1p(e-1) = 1', () => {
+        // log(1 + (e-1)) = log(e) = 1
+        const a = array([new Complex(Math.E - 1, 0)]);
+        const result = log1p(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes log1p(i)', () => {
+        // log1p(i) = log(1 + i) = log(sqrt(2)) + i*pi/4
+        const a = array([new Complex(0, 1)]);
+        const result = log1p(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.log(Math.SQRT2));
+        expect(values[0].im).toBeCloseTo(Math.PI / 4);
+      });
+
+      it('computes log1p(-2) = log(-1)', () => {
+        // log(1 + (-2)) = log(-1) = 0 + i*pi
+        const a = array([new Complex(-2, 0)]);
+        const result = log1p(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.PI);
+      });
+    });
+
+    describe('exp and log are inverse operations', () => {
+      it('exp(log(z)) = z', () => {
+        const z = array([new Complex(3, 4)]);
+        const result = exp(log(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(3);
+        expect(values[0].im).toBeCloseTo(4);
+      });
+
+      it('log(exp(z)) = z for small imaginary part', () => {
+        // For principal branch, this works when -pi < im(z) <= pi
+        const z = array([new Complex(1, 0.5)]);
+        const result = log(exp(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0.5);
       });
     });
   });

@@ -15,6 +15,13 @@ import {
   abs,
   sqrt,
   power,
+  exp,
+  exp2,
+  expm1,
+  log,
+  log2,
+  log10,
+  log1p,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -371,6 +378,207 @@ result = np.array([3+0j, 3+1j]) == 3
       // Convert 0/1 to false/true for comparison
       const jsAsBool = jsResult.toArray().map((v: number) => v === 1);
       expect(jsAsBool).toEqual(pyResult.value);
+    });
+  });
+
+  describe('exp()', () => {
+    it('computes exp of purely imaginary number matching NumPy', () => {
+      // exp(i*pi) = -1 (Euler's identity)
+      const jsResult = exp(array([new Complex(0, Math.PI)]));
+      const pyResult = runNumPy(`
+import cmath
+result = np.exp(np.array([0+1j*cmath.pi]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes exp of real number matching NumPy', () => {
+      const jsResult = exp(array([new Complex(1, 0), new Complex(0, 0), new Complex(-1, 0)]));
+      const pyResult = runNumPy(`
+result = np.exp(np.array([1+0j, 0+0j, -1+0j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes exp of complex number matching NumPy', () => {
+      const jsResult = exp(array([new Complex(1, 1), new Complex(2, 0.5), new Complex(-1, 2)]));
+      const pyResult = runNumPy(`
+result = np.exp(np.array([1+1j, 2+0.5j, -1+2j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('log()', () => {
+    it('computes log of positive real matching NumPy', () => {
+      const jsResult = log(array([new Complex(1, 0), new Complex(Math.E, 0), new Complex(10, 0)]));
+      const pyResult = runNumPy(`
+import math
+result = np.log(np.array([1+0j, math.e+0j, 10+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes log of negative real matching NumPy', () => {
+      const jsResult = log(array([new Complex(-1, 0), new Complex(-Math.E, 0)]));
+      const pyResult = runNumPy(`
+import math
+result = np.log(np.array([-1+0j, -math.e+0j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes log of complex number matching NumPy', () => {
+      const jsResult = log(array([new Complex(1, 1), new Complex(3, 4), new Complex(-1, 1)]));
+      const pyResult = runNumPy(`
+result = np.log(np.array([1+1j, 3+4j, -1+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('exp2()', () => {
+    it('computes 2^z matching NumPy', () => {
+      const jsResult = exp2(array([new Complex(0, 0), new Complex(1, 0), new Complex(3, 0)]));
+      const pyResult = runNumPy(`
+result = np.exp2(np.array([0+0j, 1+0j, 3+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes 2^(complex) matching NumPy', () => {
+      const jsResult = exp2(array([new Complex(1, 1), new Complex(0, 1)]));
+      const pyResult = runNumPy(`
+result = np.exp2(np.array([1+1j, 0+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('expm1()', () => {
+    it('computes exp(z)-1 matching NumPy', () => {
+      const jsResult = expm1(array([new Complex(0, 0), new Complex(1, 0)]));
+      const pyResult = runNumPy(`
+result = np.expm1(np.array([0+0j, 1+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes expm1 of complex matching NumPy', () => {
+      const jsResult = expm1(array([new Complex(0, Math.PI), new Complex(1, 0.5)]));
+      const pyResult = runNumPy(`
+import cmath
+result = np.expm1(np.array([0+1j*cmath.pi, 1+0.5j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('log2()', () => {
+    it('computes log2 of positive real matching NumPy', () => {
+      const jsResult = log2(array([new Complex(1, 0), new Complex(2, 0), new Complex(8, 0)]));
+      const pyResult = runNumPy(`
+result = np.log2(np.array([1+0j, 2+0j, 8+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes log2 of complex matching NumPy', () => {
+      const jsResult = log2(array([new Complex(-1, 0), new Complex(1, 1)]));
+      const pyResult = runNumPy(`
+result = np.log2(np.array([-1+0j, 1+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('log10()', () => {
+    it('computes log10 of positive real matching NumPy', () => {
+      const jsResult = log10(array([new Complex(1, 0), new Complex(10, 0), new Complex(100, 0)]));
+      const pyResult = runNumPy(`
+result = np.log10(np.array([1+0j, 10+0j, 100+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes log10 of complex matching NumPy', () => {
+      const jsResult = log10(array([new Complex(-1, 0), new Complex(3, 4)]));
+      const pyResult = runNumPy(`
+result = np.log10(np.array([-1+0j, 3+4j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('log1p()', () => {
+    it('computes log(1+z) matching NumPy', () => {
+      const jsResult = log1p(array([new Complex(0, 0), new Complex(Math.E - 1, 0)]));
+      const pyResult = runNumPy(`
+import math
+result = np.log1p(np.array([0+0j, (math.e-1)+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes log1p of complex matching NumPy', () => {
+      const jsResult = log1p(array([new Complex(0, 1), new Complex(-2, 0), new Complex(1, 1)]));
+      const pyResult = runNumPy(`
+result = np.log1p(np.array([0+1j, -2+0j, 1+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('exp and log inverse relationship', () => {
+    it('exp(log(z)) = z matching NumPy', () => {
+      const z = array([new Complex(3, 4), new Complex(1, 2), new Complex(5, -3)]);
+      const jsResult = exp(log(z));
+      const pyResult = runNumPy(`
+result = np.exp(np.log(np.array([3+4j, 1+2j, 5-3j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('log(exp(z)) = z for principal branch matching NumPy', () => {
+      // For principal branch, this works when -pi < im(z) <= pi
+      const z = array([new Complex(1, 0.5), new Complex(2, -1), new Complex(0.5, 1)]);
+      const jsResult = log(exp(z));
+      const pyResult = runNumPy(`
+result = np.log(np.exp(np.array([1+0.5j, 2-1j, 0.5+1j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
   });
 });

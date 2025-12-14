@@ -210,24 +210,73 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
 /**
  * Natural exponential function (e^x) for each element
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: exp(a+bi) = e^a * (cos(b) + i*sin(b))
  *
  * @param a - Input array storage
  * @returns Result storage with exp applied
  */
 export function exp(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'exp');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // exp(a+bi) = e^a * (cos(b) + i*sin(b))
+      const expRe = Math.exp(re);
+      dstData[i * 2] = expRe * Math.cos(im);
+      dstData[i * 2 + 1] = expRe * Math.sin(im);
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.exp, false);
 }
 
 /**
  * Base-2 exponential function (2^x) for each element
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: 2^z = exp(z * ln(2))
  *
  * @param a - Input array storage
  * @returns Result storage with 2^x applied
  */
 export function exp2(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'exp2');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+    const ln2 = Math.LN2;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // 2^z = exp(z * ln(2)) = exp((re + im*i) * ln(2))
+      // = exp(re*ln(2) + im*ln(2)*i)
+      const expRe = Math.exp(re * ln2);
+      const angle = im * ln2;
+      dstData[i * 2] = expRe * Math.cos(angle);
+      dstData[i * 2 + 1] = expRe * Math.sin(angle);
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, (x) => Math.pow(2, x), false);
 }
 
@@ -235,48 +284,145 @@ export function exp2(a: ArrayStorage): ArrayStorage {
  * Exponential minus one (e^x - 1) for each element
  * More accurate than exp(x) - 1 for small x
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: expm1(z) = exp(z) - 1
  *
  * @param a - Input array storage
  * @returns Result storage with expm1 applied
  */
 export function expm1(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'expm1');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // expm1(z) = exp(z) - 1 = e^re * (cos(im) + i*sin(im)) - 1
+      const expRe = Math.exp(re);
+      dstData[i * 2] = expRe * Math.cos(im) - 1;
+      dstData[i * 2 + 1] = expRe * Math.sin(im);
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.expm1, false);
 }
 
 /**
  * Natural logarithm (ln) for each element
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: log(a+bi) = ln|z| + i*arg(z) = ln(sqrt(a²+b²)) + i*atan2(b,a)
  *
  * @param a - Input array storage
  * @returns Result storage with log applied
  */
 export function log(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'log');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // log(a+bi) = ln|z| + i*arg(z)
+      const mag = Math.sqrt(re * re + im * im);
+      const arg = Math.atan2(im, re);
+      dstData[i * 2] = Math.log(mag);
+      dstData[i * 2 + 1] = arg;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.log, false);
 }
 
 /**
  * Base-2 logarithm for each element
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: log2(z) = log(z) / ln(2)
  *
  * @param a - Input array storage
  * @returns Result storage with log2 applied
  */
 export function log2(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'log2');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+    const invLn2 = 1 / Math.LN2;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // log2(z) = log(z) / ln(2)
+      const mag = Math.sqrt(re * re + im * im);
+      const arg = Math.atan2(im, re);
+      dstData[i * 2] = Math.log(mag) * invLn2;
+      dstData[i * 2 + 1] = arg * invLn2;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.log2, false);
 }
 
 /**
  * Base-10 logarithm for each element
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: log10(z) = log(z) / ln(10)
  *
  * @param a - Input array storage
  * @returns Result storage with log10 applied
  */
 export function log10(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'log10');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+    const invLn10 = 1 / Math.LN10;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // log10(z) = log(z) / ln(10)
+      const mag = Math.sqrt(re * re + im * im);
+      const arg = Math.atan2(im, re);
+      dstData[i * 2] = Math.log(mag) * invLn10;
+      dstData[i * 2 + 1] = arg * invLn10;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.log10, false);
 }
 
@@ -284,12 +430,37 @@ export function log10(a: ArrayStorage): ArrayStorage {
  * Natural logarithm of (1 + x) for each element
  * More accurate than log(1 + x) for small x
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: log1p(z) = log(1 + z)
  *
  * @param a - Input array storage
  * @returns Result storage with log1p applied
  */
 export function log1p(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'log1p');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // log1p(z) = log(1 + z) = log((1 + re) + im*i)
+      const newRe = 1 + re;
+      const mag = Math.sqrt(newRe * newRe + im * im);
+      const arg = Math.atan2(im, newRe);
+      dstData[i * 2] = Math.log(mag);
+      dstData[i * 2 + 1] = arg;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.log1p, false);
 }
 
