@@ -34,6 +34,9 @@ import {
   arcsinh,
   arccosh,
   arctanh,
+  positive,
+  reciprocal,
+  square,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1045,6 +1048,76 @@ result = cosh_result**2 - sinh_result**2
       });
 
       expect(arraysClose(diffVals, pyResult.value)).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Arithmetic Functions
+  // ==========================================================================
+
+  describe('positive()', () => {
+    it('returns copy of complex array matching NumPy', () => {
+      const jsResult = positive(array([new Complex(3, 4), new Complex(-1, 2), new Complex(0, 0)]));
+      const pyResult = runNumPy(`
+result = np.positive(np.array([3+4j, -1+2j, 0+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('preserves negative complex values matching NumPy', () => {
+      const jsResult = positive(array([new Complex(-5, -3), new Complex(-2, 4)]));
+      const pyResult = runNumPy(`
+result = np.positive(np.array([-5-3j, -2+4j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('reciprocal()', () => {
+    it('computes 1/z matching NumPy', () => {
+      const jsResult = reciprocal(array([new Complex(1, 0), new Complex(3, 4), new Complex(0, 1)]));
+      const pyResult = runNumPy(`
+result = np.reciprocal(np.array([1+0j, 3+4j, 0+1j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes reciprocal of various complex values matching NumPy', () => {
+      const jsResult = reciprocal(array([new Complex(2, 3), new Complex(0, 2), new Complex(1, 1)]));
+      const pyResult = runNumPy(`
+result = np.reciprocal(np.array([2+3j, 0+2j, 1+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('square()', () => {
+    it('computes z² matching NumPy', () => {
+      const jsResult = square(array([new Complex(1, 0), new Complex(0, 1), new Complex(3, 4)]));
+      const pyResult = runNumPy(`
+result = np.square(np.array([1+0j, 0+1j, 3+4j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes square of various complex values matching NumPy', () => {
+      const jsResult = square(array([new Complex(1, 1), new Complex(-2, -3), new Complex(0, 0)]));
+      const pyResult = runNumPy(`
+result = np.square(np.array([1+1j, -2-3j, 0+0j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
   });
 });

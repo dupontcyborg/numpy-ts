@@ -155,12 +155,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   logaddexp: 'not_implemented',
   logaddexp2: 'not_implemented',
 
-  // Remaining arithmetic
-  positive: 'not_implemented',
-  reciprocal: 'not_implemented',
+  // Remaining arithmetic (complex formulas implemented)
+  positive: 'supported',
+  reciprocal: 'supported',
   cbrt: 'not_implemented',
   fabs: 'not_implemented', // should use absolute for complex
-  square: 'not_implemented',
+  square: 'supported',
   float_power: 'not_implemented',
 
   // Reductions that need ordering (should throw unsupported)

@@ -826,9 +826,19 @@ export function positive(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  // Copy data
-  for (let i = 0; i < size; i++) {
-    resultData[i] = data[i]!;
+  if (isComplexDType(dtype)) {
+    // Complex: copy both real and imaginary parts
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      dstData[i * 2] = srcData[i * 2]!;
+      dstData[i * 2 + 1] = srcData[i * 2 + 1]!;
+    }
+  } else {
+    // Non-complex: simple copy
+    for (let i = 0; i < size; i++) {
+      resultData[i] = data[i]!;
+    }
   }
 
   return result;
@@ -837,6 +847,7 @@ export function positive(a: ArrayStorage): ArrayStorage {
 /**
  * Reciprocal (1/x) of each element
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: 1/z = z̄/|z|² = (re - i*im) / (re² + im²)
  *
  * @param a - Input array storage
  * @returns Result storage with reciprocal values
@@ -846,6 +857,24 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+
+  // Handle complex types
+  if (isComplexDType(dtype)) {
+    const result = ArrayStorage.zeros(shape, dtype);
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+      // 1/z = z̄/|z|² = (re - i*im) / (re² + im²)
+      const magSq = re * re + im * im;
+      dstData[i * 2] = re / magSq;
+      dstData[i * 2 + 1] = -im / magSq;
+    }
+
+    return result;
+  }
 
   // NumPy behavior: reciprocal always promotes integers to float64
   const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
@@ -941,6 +970,7 @@ export function divmod(a: ArrayStorage, b: ArrayStorage | number): [ArrayStorage
 /**
  * Element-wise square of each element
  * NumPy behavior: x**2
+ * For complex: z² = (re + i*im)² = (re² - im²) + i*(2*re*im)
  *
  * @param a - Input array storage
  * @returns Result storage with squared values
@@ -954,7 +984,17 @@ export function square(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: z² = (re + i*im)² = (re² - im²) + i*(2*re*im)
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+      dstData[i * 2] = re * re - im * im;
+      dstData[i * 2 + 1] = 2 * re * im;
+    }
+  } else if (isBigIntDType(dtype)) {
     const bigData = data as BigInt64Array | BigUint64Array;
     const bigResultData = resultData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {

@@ -39,6 +39,9 @@ import {
   arcsinh,
   arccosh,
   arctanh,
+  positive,
+  reciprocal,
+  square,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -1714,6 +1717,172 @@ describe('Complex Number Support', () => {
 
         expect(coshVals[0].re).toBeCloseTo(cosVals[0].re);
         expect(coshVals[0].im).toBeCloseTo(cosVals[0].im);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Complex Arithmetic Operations
+  // ==========================================================================
+  describe('Complex arithmetic operations', () => {
+    describe('positive()', () => {
+      it('returns a copy of the complex array', () => {
+        const a = array([new Complex(3, 4), new Complex(-1, 2)]);
+        const result = positive(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(3);
+        expect(values[0].im).toBe(4);
+        expect(values[1].re).toBe(-1);
+        expect(values[1].im).toBe(2);
+      });
+
+      it('preserves zeros', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = positive(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(0);
+        expect(values[0].im).toBe(0);
+      });
+
+      it('preserves negative values', () => {
+        const a = array([new Complex(-5, -3)]);
+        const result = positive(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(-5);
+        expect(values[0].im).toBe(-3);
+      });
+    });
+
+    describe('reciprocal()', () => {
+      it('computes 1/z for complex numbers', () => {
+        // 1/(3+4i) = (3-4i)/(9+16) = (3-4i)/25
+        const a = array([new Complex(3, 4)]);
+        const result = reciprocal(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(3 / 25);
+        expect(values[0].im).toBeCloseTo(-4 / 25);
+      });
+
+      it('computes 1/1 = 1', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = reciprocal(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes 1/i = -i', () => {
+        const a = array([new Complex(0, 1)]);
+        const result = reciprocal(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(-1);
+      });
+
+      it('z * reciprocal(z) = 1', () => {
+        const z = array([new Complex(2, 3)]);
+        const recip = reciprocal(z);
+
+        // Manually compute z * recip
+        const zVals = z.toArray();
+        const recipVals = recip.toArray();
+
+        // (a + bi) * (c + di) = (ac - bd) + (ad + bc)i
+        const prodRe =
+          zVals[0].re * recipVals[0].re - zVals[0].im * recipVals[0].im;
+        const prodIm =
+          zVals[0].re * recipVals[0].im + zVals[0].im * recipVals[0].re;
+
+        expect(prodRe).toBeCloseTo(1);
+        expect(prodIm).toBeCloseTo(0);
+      });
+
+      it('computes reciprocal of purely imaginary number', () => {
+        // 1/(2i) = -i/2
+        const a = array([new Complex(0, 2)]);
+        const result = reciprocal(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(-0.5);
+      });
+    });
+
+    describe('square()', () => {
+      it('computes z² for complex numbers', () => {
+        // (3+4i)² = 9 + 24i - 16 = -7 + 24i
+        const a = array([new Complex(3, 4)]);
+        const result = square(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(-7);
+        expect(values[0].im).toBeCloseTo(24);
+      });
+
+      it('computes 1² = 1', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = square(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes i² = -1', () => {
+        const a = array([new Complex(0, 1)]);
+        const result = square(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(-1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes 0² = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = square(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(0);
+        expect(values[0].im).toBe(0);
+      });
+
+      it('computes (1+i)² = 2i', () => {
+        // (1+i)² = 1 + 2i - 1 = 2i
+        const a = array([new Complex(1, 1)]);
+        const result = square(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(2);
+      });
+
+      it('computes square of negative numbers', () => {
+        // (-2 - 3i)² = 4 + 12i - 9 = -5 + 12i
+        const a = array([new Complex(-2, -3)]);
+        const result = square(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(-5);
+        expect(values[0].im).toBeCloseTo(12);
+      });
+
+      it('sqrt(square(z)) = |z| for real positive z', () => {
+        const z = array([new Complex(5, 0)]);
+        const sq = square(z);
+        const result = sqrt(sq);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(5);
+        expect(values[0].im).toBeCloseTo(0);
       });
     });
   });
