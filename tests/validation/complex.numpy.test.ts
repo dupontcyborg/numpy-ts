@@ -28,6 +28,12 @@ import {
   arcsin,
   arccos,
   arctan,
+  sinh,
+  cosh,
+  tanh,
+  arcsinh,
+  arccosh,
+  arctanh,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -819,6 +825,226 @@ result = sin_result**2 + cos_result**2
       });
 
       expect(arraysClose(sumVals, pyResult.value)).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Hyperbolic Functions
+  // ==========================================================================
+
+  describe('sinh()', () => {
+    it('computes sinh of real values matching NumPy', () => {
+      const jsResult = sinh(array([new Complex(0, 0), new Complex(1, 0), new Complex(2, 0)]));
+      const pyResult = runNumPy(`
+result = np.sinh(np.array([0+0j, 1+0j, 2+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes sinh of complex matching NumPy', () => {
+      const jsResult = sinh(array([new Complex(0, 1), new Complex(1, 1), new Complex(0.5, 2)]));
+      const pyResult = runNumPy(`
+result = np.sinh(np.array([0+1j, 1+1j, 0.5+2j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('cosh()', () => {
+    it('computes cosh of real values matching NumPy', () => {
+      const jsResult = cosh(array([new Complex(0, 0), new Complex(1, 0), new Complex(2, 0)]));
+      const pyResult = runNumPy(`
+result = np.cosh(np.array([0+0j, 1+0j, 2+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes cosh of complex matching NumPy', () => {
+      const jsResult = cosh(array([new Complex(0, 1), new Complex(1, 1), new Complex(0.5, 2)]));
+      const pyResult = runNumPy(`
+result = np.cosh(np.array([0+1j, 1+1j, 0.5+2j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('tanh()', () => {
+    it('computes tanh of real values matching NumPy', () => {
+      const jsResult = tanh(array([new Complex(0, 0), new Complex(1, 0), new Complex(0.5, 0)]));
+      const pyResult = runNumPy(`
+result = np.tanh(np.array([0+0j, 1+0j, 0.5+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes tanh of complex matching NumPy', () => {
+      const jsResult = tanh(array([new Complex(0, 1), new Complex(0.5, 0.5), new Complex(1, 0.3)]));
+      const pyResult = runNumPy(`
+result = np.tanh(np.array([0+1j, 0.5+0.5j, 1+0.3j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('arcsinh()', () => {
+    it('computes arcsinh of real values matching NumPy', () => {
+      const jsResult = arcsinh(array([new Complex(0, 0), new Complex(1, 0), new Complex(2, 0)]));
+      const pyResult = runNumPy(`
+result = np.arcsinh(np.array([0+0j, 1+0j, 2+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes arcsinh of complex matching NumPy', () => {
+      const jsResult = arcsinh(array([new Complex(0.3, 0.4), new Complex(1, 1), new Complex(0, 1)]));
+      const pyResult = runNumPy(`
+result = np.arcsinh(np.array([0.3+0.4j, 1+1j, 0+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('arccosh()', () => {
+    it('computes arccosh of real values >= 1 matching NumPy', () => {
+      const jsResult = arccosh(array([new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)]));
+      const pyResult = runNumPy(`
+result = np.arccosh(np.array([1+0j, 2+0j, 3+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes arccosh of complex matching NumPy', () => {
+      const jsResult = arccosh(array([new Complex(0.5, 0.3), new Complex(2, 0.5), new Complex(0, 1)]));
+      const pyResult = runNumPy(`
+result = np.arccosh(np.array([0.5+0.3j, 2+0.5j, 0+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('arctanh()', () => {
+    it('computes arctanh of real values in (-1, 1) matching NumPy', () => {
+      const jsResult = arctanh(array([new Complex(0, 0), new Complex(0.5, 0), new Complex(-0.5, 0)]));
+      const pyResult = runNumPy(`
+result = np.arctanh(np.array([0+0j, 0.5+0j, -0.5+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes arctanh of complex matching NumPy', () => {
+      const jsResult = arctanh(array([new Complex(0.3, 0.2), new Complex(0.5, 0.5), new Complex(0, 0.5)]));
+      const pyResult = runNumPy(`
+result = np.arctanh(np.array([0.3+0.2j, 0.5+0.5j, 0+0.5j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('sinh/arcsinh inverse relationship', () => {
+    it('arcsinh(sinh(z)) = z matching NumPy', () => {
+      const z = array([new Complex(0.3, 0.4), new Complex(0.5, 0.5), new Complex(0.2, 0.1)]);
+      const jsResult = arcsinh(sinh(z));
+      const pyResult = runNumPy(`
+result = np.arcsinh(np.sinh(np.array([0.3+0.4j, 0.5+0.5j, 0.2+0.1j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('sinh(arcsinh(z)) = z matching NumPy', () => {
+      const z = array([new Complex(1.5, 0.5), new Complex(0.8, 0.3), new Complex(2, 0.5)]);
+      const jsResult = sinh(arcsinh(z));
+      const pyResult = runNumPy(`
+result = np.sinh(np.arcsinh(np.array([1.5+0.5j, 0.8+0.3j, 2+0.5j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('cosh/arccosh inverse relationship', () => {
+    it('cosh(arccosh(z)) = z matching NumPy', () => {
+      const z = array([new Complex(2, 0.5), new Complex(1.5, 0.3), new Complex(3, 0.2)]);
+      const jsResult = cosh(arccosh(z));
+      const pyResult = runNumPy(`
+result = np.cosh(np.arccosh(np.array([2+0.5j, 1.5+0.3j, 3+0.2j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('tanh/arctanh inverse relationship', () => {
+    it('arctanh(tanh(z)) = z for small z matching NumPy', () => {
+      const z = array([new Complex(0.3, 0.2), new Complex(0.5, 0.3), new Complex(0.2, 0.1)]);
+      const jsResult = arctanh(tanh(z));
+      const pyResult = runNumPy(`
+result = np.arctanh(np.tanh(np.array([0.3+0.2j, 0.5+0.3j, 0.2+0.1j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('tanh(arctanh(z)) = z matching NumPy', () => {
+      const z = array([new Complex(0.5, 0.5), new Complex(0.3, 0.2), new Complex(0.7, 0.3)]);
+      const jsResult = tanh(arctanh(z));
+      const pyResult = runNumPy(`
+result = np.tanh(np.arctanh(np.array([0.5+0.5j, 0.3+0.2j, 0.7+0.3j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('Hyperbolic identity', () => {
+    it('cosh²(z) - sinh²(z) = 1 matching NumPy', () => {
+      const z = array([new Complex(1.2, 0.8), new Complex(0.5, 1.5), new Complex(2, 0.3)]);
+      const sinhResult = sinh(z);
+      const coshResult = cosh(z);
+      const pyResult = runNumPy(`
+z = np.array([1.2+0.8j, 0.5+1.5j, 2+0.3j])
+sinh_result = np.sinh(z)
+cosh_result = np.cosh(z)
+result = cosh_result**2 - sinh_result**2
+      `);
+
+      // Compute cosh²(z) - sinh²(z) in JS
+      const sinhVals = sinhResult.toArray();
+      const coshVals = coshResult.toArray();
+      const diffVals = sinhVals.map((s, i) => {
+        const c = coshVals[i];
+        const sinh2Re = s.re * s.re - s.im * s.im;
+        const sinh2Im = 2 * s.re * s.im;
+        const cosh2Re = c.re * c.re - c.im * c.im;
+        const cosh2Im = 2 * c.re * c.im;
+        return new Complex(cosh2Re - sinh2Re, cosh2Im - sinh2Im);
+      });
+
+      expect(arraysClose(diffVals, pyResult.value)).toBe(true);
     });
   });
 });

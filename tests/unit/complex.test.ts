@@ -33,6 +33,12 @@ import {
   arcsin,
   arccos,
   arctan,
+  sinh,
+  cosh,
+  tanh,
+  arcsinh,
+  arccosh,
+  arctanh,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -1391,6 +1397,323 @@ describe('Complex Number Support', () => {
         // sin² + cos² should equal 1
         expect(sin2Re + cos2Re).toBeCloseTo(1);
         expect(sin2Im + cos2Im).toBeCloseTo(0);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Complex Hyperbolic Operations
+  // ==========================================================================
+  describe('Complex hyperbolic operations', () => {
+    describe('sinh()', () => {
+      it('computes sinh(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = sinh(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes sinh(1) for real input', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = sinh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.sinh(1));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes sinh(i) = i*sin(1)', () => {
+        // sinh(0 + i) = sinh(0)cos(1) + i*cosh(0)sin(1) = 0 + i*sin(1)
+        const a = array([new Complex(0, 1)]);
+        const result = sinh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.sin(1));
+      });
+
+      it('computes sinh(a+bi) using correct formula', () => {
+        // sinh(a+bi) = sinh(a)cos(b) + i*cosh(a)sin(b)
+        const a = 1;
+        const b = 2;
+        const z = array([new Complex(a, b)]);
+        const result = sinh(z);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.sinh(a) * Math.cos(b));
+        expect(values[0].im).toBeCloseTo(Math.cosh(a) * Math.sin(b));
+      });
+    });
+
+    describe('cosh()', () => {
+      it('computes cosh(0) = 1', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = cosh(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes cosh(1) for real input', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = cosh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.cosh(1));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes cosh(i) = cos(1)', () => {
+        // cosh(0 + i) = cosh(0)cos(1) + i*sinh(0)sin(1) = cos(1) + 0
+        const a = array([new Complex(0, 1)]);
+        const result = cosh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.cos(1));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes cosh(a+bi) using correct formula', () => {
+        // cosh(a+bi) = cosh(a)cos(b) + i*sinh(a)sin(b)
+        const a = 1;
+        const b = 2;
+        const z = array([new Complex(a, b)]);
+        const result = cosh(z);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.cosh(a) * Math.cos(b));
+        expect(values[0].im).toBeCloseTo(Math.sinh(a) * Math.sin(b));
+      });
+    });
+
+    describe('tanh()', () => {
+      it('computes tanh(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = tanh(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes tanh(1) for real input', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = tanh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.tanh(1));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes tanh(i) = i*tan(1)', () => {
+        // tanh(z) = (sinh(2a) + i*sin(2b)) / (cosh(2a) + cos(2b))
+        // For z = i: a=0, b=1
+        // = (sinh(0) + i*sin(2)) / (cosh(0) + cos(2))
+        // = i*sin(2) / (1 + cos(2))
+        // = i * tan(1)
+        const a = array([new Complex(0, 1)]);
+        const result = tanh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.tan(1));
+      });
+
+      it('computes tanh(a+bi) using correct formula', () => {
+        // tanh(z) = (sinh(2a) + i*sin(2b)) / (cosh(2a) + cos(2b))
+        const a = 0.5;
+        const b = 0.3;
+        const z = array([new Complex(a, b)]);
+        const result = tanh(z);
+
+        const denom = Math.cosh(2 * a) + Math.cos(2 * b);
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.sinh(2 * a) / denom);
+        expect(values[0].im).toBeCloseTo(Math.sin(2 * b) / denom);
+      });
+    });
+
+    describe('arcsinh()', () => {
+      it('computes arcsinh(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = arcsinh(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes arcsinh(1) for real input', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = arcsinh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.asinh(1));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('arcsinh is inverse of sinh for small values', () => {
+        const z = array([new Complex(0.3, 0.4)]);
+        const result = arcsinh(sinh(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.3);
+        expect(values[0].im).toBeCloseTo(0.4);
+      });
+
+      it('sinh(arcsinh(z)) = z', () => {
+        const z = array([new Complex(1.5, 0.5)]);
+        const result = sinh(arcsinh(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1.5);
+        expect(values[0].im).toBeCloseTo(0.5);
+      });
+    });
+
+    describe('arccosh()', () => {
+      it('computes arccosh(1) = 0', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = arccosh(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes arccosh(2) for real input', () => {
+        const a = array([new Complex(2, 0)]);
+        const result = arccosh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.acosh(2));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('cosh(arccosh(z)) = z', () => {
+        const z = array([new Complex(2, 0.5)]);
+        const result = cosh(arccosh(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2);
+        expect(values[0].im).toBeCloseTo(0.5);
+      });
+
+      it('computes arccosh of complex value', () => {
+        const z = array([new Complex(0.5, 0.3)]);
+        const result = arccosh(z);
+
+        // Verify by checking cosh(result) = z
+        const check = cosh(result);
+        const checkValues = check.toArray();
+        expect(checkValues[0].re).toBeCloseTo(0.5);
+        expect(checkValues[0].im).toBeCloseTo(0.3);
+      });
+    });
+
+    describe('arctanh()', () => {
+      it('computes arctanh(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = arctanh(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes arctanh(0.5) for real input', () => {
+        const a = array([new Complex(0.5, 0)]);
+        const result = arctanh(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.atanh(0.5));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('arctanh is inverse of tanh for small values', () => {
+        const z = array([new Complex(0.3, 0.2)]);
+        const result = arctanh(tanh(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.3);
+        expect(values[0].im).toBeCloseTo(0.2);
+      });
+
+      it('tanh(arctanh(z)) = z', () => {
+        const z = array([new Complex(0.5, 0.5)]);
+        const result = tanh(arctanh(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.5);
+        expect(values[0].im).toBeCloseTo(0.5);
+      });
+    });
+
+    describe('Hyperbolic identity', () => {
+      it('cosh²(z) - sinh²(z) = 1 for complex z', () => {
+        const z = array([new Complex(1.2, 0.8)]);
+        const sinhZ = sinh(z);
+        const coshZ = cosh(z);
+
+        // Compute cosh²(z) - sinh²(z)
+        const sinhVals = sinhZ.toArray();
+        const coshVals = coshZ.toArray();
+
+        // sinh²(z) = (a + bi)² = a² - b² + 2abi
+        const sinh2Re =
+          sinhVals[0].re * sinhVals[0].re - sinhVals[0].im * sinhVals[0].im;
+        const sinh2Im = 2 * sinhVals[0].re * sinhVals[0].im;
+
+        // cosh²(z) = (c + di)² = c² - d² + 2cdi
+        const cosh2Re =
+          coshVals[0].re * coshVals[0].re - coshVals[0].im * coshVals[0].im;
+        const cosh2Im = 2 * coshVals[0].re * coshVals[0].im;
+
+        // cosh² - sinh² should equal 1
+        expect(cosh2Re - sinh2Re).toBeCloseTo(1);
+        expect(cosh2Im - sinh2Im).toBeCloseTo(0);
+      });
+    });
+
+    describe('Relationship between trig and hyperbolic', () => {
+      it('sinh(iz) = i*sin(z)', () => {
+        const z = array([new Complex(0.5, 0.3)]);
+        // iz = -0.3 + 0.5i
+        const iz = array([new Complex(-0.3, 0.5)]);
+
+        const sinhIz = sinh(iz);
+        const sinZ = sin(z);
+
+        const sinhVals = sinhIz.toArray();
+        const sinVals = sinZ.toArray();
+
+        // i * sin(z) = i * (a + bi) = -b + ai
+        expect(sinhVals[0].re).toBeCloseTo(-sinVals[0].im);
+        expect(sinhVals[0].im).toBeCloseTo(sinVals[0].re);
+      });
+
+      it('cosh(iz) = cos(z)', () => {
+        const z = array([new Complex(0.5, 0.3)]);
+        // iz = -0.3 + 0.5i
+        const iz = array([new Complex(-0.3, 0.5)]);
+
+        const coshIz = cosh(iz);
+        const cosZ = cos(z);
+
+        const coshVals = coshIz.toArray();
+        const cosVals = cosZ.toArray();
+
+        expect(coshVals[0].re).toBeCloseTo(cosVals[0].re);
+        expect(coshVals[0].im).toBeCloseTo(cosVals[0].im);
       });
     });
   });

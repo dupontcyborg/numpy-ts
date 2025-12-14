@@ -133,16 +133,16 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   deg2rad: 'not_implemented',
   rad2deg: 'not_implemented',
 
-  // Hyperbolic (need complex formulas)
-  sinh: 'not_implemented',
-  cosh: 'not_implemented',
-  tanh: 'not_implemented',
-  arcsinh: 'not_implemented',
-  asinh: 'not_implemented', // alias
-  arccosh: 'not_implemented',
-  acosh: 'not_implemented', // alias
-  arctanh: 'not_implemented',
-  atanh: 'not_implemented', // alias
+  // Hyperbolic (complex formulas implemented)
+  sinh: 'supported',
+  cosh: 'supported',
+  tanh: 'supported',
+  arcsinh: 'supported',
+  asinh: 'supported', // alias
+  arccosh: 'supported',
+  acosh: 'supported', // alias
+  arctanh: 'supported',
+  atanh: 'supported', // alias
 
   // Exponential/logarithmic (need complex formulas)
   exp: 'supported',
