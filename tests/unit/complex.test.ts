@@ -64,6 +64,10 @@ import {
   where,
   extract,
   count_nonzero,
+  logical_and,
+  logical_or,
+  logical_not,
+  logical_xor,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -2536,6 +2540,84 @@ describe('Complex Number Support', () => {
         const result = count_nonzero(a);
 
         expect(result).toBe(0);
+      });
+    });
+  });
+
+  describe('Logical Operations', () => {
+    describe('logical_and()', () => {
+      it('computes logical AND of complex arrays', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(1, 0), new Complex(0, 0)]);
+        const result = logical_and(a, b);
+
+        expect(result.toArray()).toEqual([1, 0, 1, 0]);
+      });
+
+      it('computes logical AND with scalar', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1)]);
+        const result = logical_and(a, 1);
+
+        expect(result.toArray()).toEqual([1, 0, 1]);
+      });
+
+      it('treats complex as truthy if either part is non-zero', () => {
+        const a = array([new Complex(0, 1), new Complex(1, 0), new Complex(0.5, 0.5)]);
+        const b = array([new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const result = logical_and(a, b);
+
+        expect(result.toArray()).toEqual([1, 1, 0]);
+      });
+    });
+
+    describe('logical_or()', () => {
+      it('computes logical OR of complex arrays', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const b = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const result = logical_or(a, b);
+
+        expect(result.toArray()).toEqual([1, 1, 1, 0]);
+      });
+
+      it('computes logical OR with scalar', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1)]);
+        const result = logical_or(a, 0);
+
+        expect(result.toArray()).toEqual([1, 0, 1]);
+      });
+    });
+
+    describe('logical_not()', () => {
+      it('computes logical NOT of complex array', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const result = logical_not(a);
+
+        expect(result.toArray()).toEqual([0, 1, 0, 1]);
+      });
+
+      it('returns true only when both parts are zero', () => {
+        const a = array([new Complex(0, 0), new Complex(0.001, 0), new Complex(0, 0.001)]);
+        const result = logical_not(a);
+
+        expect(result.toArray()).toEqual([1, 0, 0]);
+      });
+    });
+
+    describe('logical_xor()', () => {
+      it('computes logical XOR of complex arrays', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const result = logical_xor(a, b);
+
+        // XOR: true if exactly one is truthy
+        expect(result.toArray()).toEqual([0, 1, 1, 0]);
+      });
+
+      it('computes logical XOR with scalar', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1)]);
+        const result = logical_xor(a, 1);
+
+        expect(result.toArray()).toEqual([0, 1, 0]);
       });
     });
   });

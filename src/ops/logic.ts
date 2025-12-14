@@ -22,6 +22,16 @@ function toBool(val: number | bigint): boolean {
 }
 
 /**
+ * Helper: Check if a complex value at index i is truthy (non-zero)
+ * For complex arrays, a value is truthy if either real or imag part is non-zero
+ */
+function isComplexTruthy(data: Float64Array | Float32Array, index: number): boolean {
+  const re = data[index * 2]!;
+  const im = data[index * 2 + 1]!;
+  return re !== 0 || im !== 0;
+}
+
+/**
  * Helper: Check if two arrays can use the fast path
  * (both C-contiguous with same shape, no broadcasting needed)
  */
@@ -74,8 +84,20 @@ function logicalAndArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   const aIsBigInt = isBigIntDType(a.dtype);
   const bIsBigInt = isBigIntDType(b.dtype);
+  const aIsComplex = isComplexDType(a.dtype);
+  const bIsComplex = isComplexDType(b.dtype);
 
-  if (aIsBigInt || bIsBigInt) {
+  if (aIsComplex || bIsComplex) {
+    for (let i = 0; i < size; i++) {
+      const aVal = aIsComplex
+        ? isComplexTruthy(aData as Float64Array | Float32Array, i)
+        : (aData[i] as number) !== 0;
+      const bVal = bIsComplex
+        ? isComplexTruthy(bData as Float64Array | Float32Array, i)
+        : (bData[i] as number) !== 0;
+      data[i] = aVal && bVal ? 1 : 0;
+    }
+  } else if (aIsBigInt || bIsBigInt) {
     for (let i = 0; i < size; i++) {
       const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
       const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
@@ -100,7 +122,12 @@ function logicalAndScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const scalarBool = scalar !== 0;
   const size = storage.size;
 
-  if (isBigIntDType(storage.dtype)) {
+  if (isComplexDType(storage.dtype)) {
+    const typedData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = isComplexTruthy(typedData, i) && scalarBool ? 1 : 0;
+    }
+  } else if (isBigIntDType(storage.dtype)) {
     const typedData = thisData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
       data[i] = typedData[i] !== 0n && scalarBool ? 1 : 0;
@@ -150,8 +177,20 @@ function logicalOrArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   const aIsBigInt = isBigIntDType(a.dtype);
   const bIsBigInt = isBigIntDType(b.dtype);
+  const aIsComplex = isComplexDType(a.dtype);
+  const bIsComplex = isComplexDType(b.dtype);
 
-  if (aIsBigInt || bIsBigInt) {
+  if (aIsComplex || bIsComplex) {
+    for (let i = 0; i < size; i++) {
+      const aVal = aIsComplex
+        ? isComplexTruthy(aData as Float64Array | Float32Array, i)
+        : (aData[i] as number) !== 0;
+      const bVal = bIsComplex
+        ? isComplexTruthy(bData as Float64Array | Float32Array, i)
+        : (bData[i] as number) !== 0;
+      data[i] = aVal || bVal ? 1 : 0;
+    }
+  } else if (aIsBigInt || bIsBigInt) {
     for (let i = 0; i < size; i++) {
       const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
       const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
@@ -176,7 +215,12 @@ function logicalOrScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const scalarBool = scalar !== 0;
   const size = storage.size;
 
-  if (isBigIntDType(storage.dtype)) {
+  if (isComplexDType(storage.dtype)) {
+    const typedData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = isComplexTruthy(typedData, i) || scalarBool ? 1 : 0;
+    }
+  } else if (isBigIntDType(storage.dtype)) {
     const typedData = thisData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
       data[i] = typedData[i] !== 0n || scalarBool ? 1 : 0;
@@ -204,7 +248,13 @@ export function logical_not(a: ArrayStorage): ArrayStorage {
   const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
+  if (isComplexDType(a.dtype)) {
+    const typedData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      // NOT of complex: true if both real and imag are zero
+      data[i] = !isComplexTruthy(typedData, i) ? 1 : 0;
+    }
+  } else if (isBigIntDType(a.dtype)) {
     const typedData = thisData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
       data[i] = typedData[i] === 0n ? 1 : 0;
@@ -254,8 +304,20 @@ function logicalXorArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   const aIsBigInt = isBigIntDType(a.dtype);
   const bIsBigInt = isBigIntDType(b.dtype);
+  const aIsComplex = isComplexDType(a.dtype);
+  const bIsComplex = isComplexDType(b.dtype);
 
-  if (aIsBigInt || bIsBigInt) {
+  if (aIsComplex || bIsComplex) {
+    for (let i = 0; i < size; i++) {
+      const aVal = aIsComplex
+        ? isComplexTruthy(aData as Float64Array | Float32Array, i)
+        : (aData[i] as number) !== 0;
+      const bVal = bIsComplex
+        ? isComplexTruthy(bData as Float64Array | Float32Array, i)
+        : (bData[i] as number) !== 0;
+      data[i] = aVal !== bVal ? 1 : 0;
+    }
+  } else if (aIsBigInt || bIsBigInt) {
     for (let i = 0; i < size; i++) {
       const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
       const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
@@ -282,7 +344,13 @@ function logicalXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const scalarBool = scalar !== 0;
   const size = storage.size;
 
-  if (isBigIntDType(storage.dtype)) {
+  if (isComplexDType(storage.dtype)) {
+    const typedData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const valBool = isComplexTruthy(typedData, i);
+      data[i] = valBool !== scalarBool ? 1 : 0;
+    }
+  } else if (isBigIntDType(storage.dtype)) {
     const typedData = thisData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
       const valBool = typedData[i] !== 0n;

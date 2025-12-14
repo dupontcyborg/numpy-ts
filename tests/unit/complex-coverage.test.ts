@@ -204,11 +204,11 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   sort_complex: 'not_implemented',
   searchsorted: 'not_implemented',
 
-  // Logic operations (need truth value definition)
-  logical_and: 'not_implemented',
-  logical_or: 'not_implemented',
-  logical_not: 'not_implemented',
-  logical_xor: 'not_implemented',
+  // Logic operations (complex truthy = either part non-zero)
+  logical_and: 'supported',
+  logical_or: 'supported',
+  logical_not: 'supported',
+  logical_xor: 'supported',
   isfinite: 'supported', // True if both real and imag parts are finite
   isinf: 'supported', // True if either part is infinite
   isnan: 'supported', // True if either part is NaN

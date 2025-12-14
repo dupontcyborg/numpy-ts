@@ -55,6 +55,10 @@ import {
   where,
   extract,
   count_nonzero,
+  logical_and,
+  logical_or,
+  logical_not,
+  logical_xor,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1589,6 +1593,59 @@ result = np.count_nonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
         `);
 
         expect(jsResult).toBe(pyResult.value);
+      });
+    });
+  });
+
+  describe('Logical Operations', () => {
+    describe('logical_and()', () => {
+      it('computes logical AND of complex arrays matching NumPy', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(1, 0), new Complex(0, 0)]);
+        const jsResult = logical_and(a, b);
+        const pyResult = runNumPy(`
+result = np.logical_and(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([1+0j, 1+0j, 1+0j, 0+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
+      });
+    });
+
+    describe('logical_or()', () => {
+      it('computes logical OR of complex arrays matching NumPy', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const b = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const jsResult = logical_or(a, b);
+        const pyResult = runNumPy(`
+result = np.logical_or(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([0+0j, 1+0j, 0+0j, 0+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
+      });
+    });
+
+    describe('logical_not()', () => {
+      it('computes logical NOT of complex array matching NumPy', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const jsResult = logical_not(a);
+        const pyResult = runNumPy(`
+result = np.logical_not(np.array([1+0j, 0+0j, 0+1j, 0+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
+      });
+    });
+
+    describe('logical_xor()', () => {
+      it('computes logical XOR of complex arrays matching NumPy', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const jsResult = logical_xor(a, b);
+        const pyResult = runNumPy(`
+result = np.logical_xor(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([1+0j, 1+0j, 0+0j, 0+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
       });
     });
   });
