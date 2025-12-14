@@ -58,6 +58,12 @@ import {
   isnan,
   isneginf,
   isposinf,
+  nonzero,
+  argwhere,
+  flatnonzero,
+  where,
+  extract,
+  count_nonzero,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -2400,6 +2406,136 @@ describe('Complex Number Support', () => {
         const result = isposinf(a);
 
         expect(result.toArray()).toEqual([0, 0]);
+      });
+    });
+  });
+
+  describe('Searching/Indexing Operations', () => {
+    describe('nonzero()', () => {
+      it('finds indices of non-zero complex numbers', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const result = nonzero(a);
+
+        expect(result.length).toBe(1); // 1D array returns tuple with 1 element
+        expect(result[0].toArray()).toEqual([1, 2]); // indices 1 and 2 are nonzero
+      });
+
+      it('treats zero real but nonzero imag as nonzero', () => {
+        const a = array([new Complex(0, 0), new Complex(0, 1)]);
+        const result = nonzero(a);
+
+        expect(result[0].toArray()).toEqual([1]);
+      });
+
+      it('treats nonzero real but zero imag as nonzero', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 0)]);
+        const result = nonzero(a);
+
+        expect(result[0].toArray()).toEqual([1]);
+      });
+    });
+
+    describe('argwhere()', () => {
+      it('finds indices of non-zero complex numbers', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 2), new Complex(0, 0), new Complex(3, 0)]);
+        const result = argwhere(a);
+
+        expect(result.shape).toEqual([2, 1]); // 2 nonzero elements, 1D array
+        expect(result.toArray()).toEqual([[1], [3]]);
+      });
+    });
+
+    describe('flatnonzero()', () => {
+      it('finds flat indices of non-zero complex numbers', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const result = flatnonzero(a);
+
+        expect(result.toArray()).toEqual([1, 2]);
+      });
+
+      it('returns empty array for all zeros', () => {
+        const a = array([new Complex(0, 0), new Complex(0, 0)]);
+        const result = flatnonzero(a);
+
+        expect(result.toArray()).toEqual([]);
+      });
+    });
+
+    describe('where()', () => {
+      it('returns nonzero indices when only condition given', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 2), new Complex(0, 0)]);
+        const result = where(a) as ReturnType<typeof nonzero>;
+
+        expect(result[0].toArray()).toEqual([1]);
+      });
+
+      it('selects from x or y based on complex condition', () => {
+        const cond = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1)]);
+        const x = array([new Complex(10, 10), new Complex(20, 20), new Complex(30, 30)]);
+        const y = array([new Complex(100, 100), new Complex(200, 200), new Complex(300, 300)]);
+        const result = where(cond, x, y);
+
+        const values = (result as ReturnType<typeof array>).toArray() as Complex[];
+        // First: cond is (1,0) which is truthy -> x[0] = (10,10)
+        expect(values[0].re).toBe(10);
+        expect(values[0].im).toBe(10);
+        // Second: cond is (0,0) which is falsy -> y[1] = (200,200)
+        expect(values[1].re).toBe(200);
+        expect(values[1].im).toBe(200);
+        // Third: cond is (0,1) which is truthy -> x[2] = (30,30)
+        expect(values[2].re).toBe(30);
+        expect(values[2].im).toBe(30);
+      });
+    });
+
+    describe('extract()', () => {
+      it('extracts complex values where condition is true', () => {
+        const cond = array([1, 0, 1, 0]);
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6), new Complex(7, 8)]);
+        const result = extract(cond, a);
+
+        const values = result.toArray() as Complex[];
+        expect(values.length).toBe(2);
+        expect(values[0].re).toBe(1);
+        expect(values[0].im).toBe(2);
+        expect(values[1].re).toBe(5);
+        expect(values[1].im).toBe(6);
+      });
+
+      it('extracts using complex condition', () => {
+        const cond = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1)]);
+        const a = array([new Complex(10, 20), new Complex(30, 40), new Complex(50, 60)]);
+        const result = extract(cond, a);
+
+        const values = result.toArray() as Complex[];
+        expect(values.length).toBe(2);
+        expect(values[0].re).toBe(10);
+        expect(values[0].im).toBe(20);
+        expect(values[1].re).toBe(50);
+        expect(values[1].im).toBe(60);
+      });
+    });
+
+    describe('count_nonzero()', () => {
+      it('counts non-zero complex numbers', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const result = count_nonzero(a);
+
+        expect(result).toBe(2);
+      });
+
+      it('counts zero only when both parts are zero', () => {
+        const a = array([new Complex(0, 0), new Complex(0, 0.001), new Complex(0.001, 0)]);
+        const result = count_nonzero(a);
+
+        expect(result).toBe(2);
+      });
+
+      it('returns 0 for all-zero array', () => {
+        const a = array([new Complex(0, 0), new Complex(0, 0)]);
+        const result = count_nonzero(a);
+
+        expect(result).toBe(0);
       });
     });
   });

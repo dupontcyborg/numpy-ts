@@ -6,8 +6,25 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
 import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
+
+/**
+ * Check if a value at index i is non-zero (truthy)
+ * For complex arrays, checks if either real or imag part is non-zero
+ */
+function isNonZero(
+  data: ArrayStorage['data'],
+  index: number,
+  isComplex: boolean
+): boolean {
+  if (isComplex) {
+    const re = (data as Float64Array | Float32Array)[index * 2]!;
+    const im = (data as Float64Array | Float32Array)[index * 2 + 1]!;
+    return re !== 0 || im !== 0;
+  }
+  return Boolean(data[index]);
+}
 
 /**
  * Return a sorted copy of an array
@@ -681,6 +698,7 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
   const ndim = shape.length;
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Find all non-zero indices
   const nonzeroIndices: number[][] = [];
@@ -698,7 +716,7 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
 
   // Find non-zero elements
   for (let i = 0; i < size; i++) {
-    if (data[i]) {
+    if (isNonZero(data, i, isComplex)) {
       // Convert linear index to multi-index
       let remaining = i;
       for (let dim = 0; dim < ndim; dim++) {
@@ -737,6 +755,7 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
   const ndim = shape.length;
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Find all non-zero indices
   const nonzeroIndices: number[][] = [];
@@ -751,7 +770,7 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
 
   // Find non-zero elements
   for (let i = 0; i < size; i++) {
-    if (data[i]) {
+    if (isNonZero(data, i, isComplex)) {
       // Convert linear index to multi-index
       const indices: number[] = [];
       let remaining = i;
@@ -789,11 +808,12 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
 export function flatnonzero(storage: ArrayStorage): ArrayStorage {
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Find all non-zero indices
   const indices: number[] = [];
   for (let i = 0; i < size; i++) {
-    if (data[i]) {
+    if (isNonZero(data, i, isComplex)) {
       indices.push(i);
     }
   }
@@ -906,6 +926,8 @@ export function where(
   }
 
   const totalSize = resultShape.reduce((a, b) => a * b, 1);
+  const isCondComplex = isComplexDType(condition.dtype);
+  const isResultComplex = isComplexDType(resultDtype);
 
   // Iterate over all elements
   for (let i = 0; i < totalSize; i++) {
@@ -924,10 +946,22 @@ export function where(
       yIdx += idx * yStrides[dim]!;
     }
 
-    if (condData[condIdx]) {
-      resultData[i] = xData[xIdx]!;
+    if (isNonZero(condData, condIdx, isCondComplex)) {
+      if (isResultComplex) {
+        // Copy both real and imaginary parts
+        (resultData as Float64Array | Float32Array)[i * 2] = (xData as Float64Array | Float32Array)[xIdx * 2]!;
+        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (xData as Float64Array | Float32Array)[xIdx * 2 + 1]!;
+      } else {
+        resultData[i] = xData[xIdx]!;
+      }
     } else {
-      resultData[i] = yData[yIdx]!;
+      if (isResultComplex) {
+        // Copy both real and imaginary parts
+        (resultData as Float64Array | Float32Array)[i * 2] = (yData as Float64Array | Float32Array)[yIdx * 2]!;
+        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (yData as Float64Array | Float32Array)[yIdx * 2 + 1]!;
+      } else {
+        resultData[i] = yData[yIdx]!;
+      }
     }
   }
 
@@ -1004,6 +1038,8 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
   const condData = condition.data;
   const data = storage.data;
   const dtype = storage.dtype;
+  const isCondComplex = isComplexDType(condition.dtype);
+  const isDataComplex = isComplexDType(dtype);
 
   // Both arrays should have same size
   const size = Math.min(condition.size, storage.size);
@@ -1011,7 +1047,7 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
   // Count number of true values
   let count = 0;
   for (let i = 0; i < size; i++) {
-    if (condData[i]) {
+    if (isNonZero(condData, i, isCondComplex)) {
       count++;
     }
   }
@@ -1026,13 +1062,24 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
     const typedData = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
-      if (condData[i]) {
+      if (isNonZero(condData, i, isCondComplex)) {
         resultTyped[idx++] = typedData[i]!;
+      }
+    }
+  } else if (isDataComplex) {
+    // Complex data: copy both real and imaginary parts
+    const typedData = data as Float64Array | Float32Array;
+    const resultTyped = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      if (isNonZero(condData, i, isCondComplex)) {
+        resultTyped[idx * 2] = typedData[i * 2]!;
+        resultTyped[idx * 2 + 1] = typedData[i * 2 + 1]!;
+        idx++;
       }
     }
   } else {
     for (let i = 0; i < size; i++) {
-      if (condData[i]) {
+      if (isNonZero(condData, i, isCondComplex)) {
         resultData[idx++] = data[i]!;
       }
     }
@@ -1052,12 +1099,13 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
   const ndim = shape.length;
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   if (axis === undefined) {
     // Count all non-zero elements
     let count = 0;
     for (let i = 0; i < size; i++) {
-      if (data[i]) {
+      if (isNonZero(data, i, isComplex)) {
         count++;
       }
     }
@@ -1091,7 +1139,7 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
       const linearIdx = multiIndexToLinear(inputIndices, shape);
-      if (data[linearIdx]) {
+      if (isNonZero(data, linearIdx, isComplex)) {
         count++;
       }
     }

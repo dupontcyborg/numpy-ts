@@ -253,12 +253,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   union1d: 'not_implemented',
 
   // Searching
-  nonzero: 'not_implemented',
-  argwhere: 'not_implemented',
-  flatnonzero: 'not_implemented',
-  where: 'not_implemented',
-  extract: 'not_implemented',
-  count_nonzero: 'not_implemented',
+  nonzero: 'supported',
+  argwhere: 'supported',
+  flatnonzero: 'supported',
+  where: 'supported',
+  extract: 'supported',
+  count_nonzero: 'supported',
 
   // Float-specific (need guards or implementation)
   signbit: 'not_implemented',
@@ -505,6 +505,7 @@ function testComplexBehavior(fn: Function, fnName: string): ComplexBehavior | 'e
       'convolve',
       'float_power',
       'divmod', // binary op that returns tuple
+      'extract', // takes (condition, array)
     ];
 
     // Functions that return tuples (unary)
@@ -513,12 +514,18 @@ function testComplexBehavior(fn: Function, fnName: string): ComplexBehavior | 'e
     // Functions that require 2D input
     const require2D = ['trace', 'diagonal'];
 
+    // Functions that require 3 arguments
+    const ternaryOps = ['where'];
+
     if (binaryOps.includes(fnName)) {
       result = fn(z1, z2);
     } else if (tupleOps.includes(fnName)) {
       result = fn(z1);
     } else if (require2D.includes(fnName)) {
       result = fn(z2d);
+    } else if (ternaryOps.includes(fnName)) {
+      // where(cond, x, y) - use z1 as condition, z1 as x, z2 as y
+      result = fn(z1, z1, z2);
     } else {
       result = fn(z1);
     }

@@ -49,6 +49,12 @@ import {
   isfinite,
   isinf,
   isnan,
+  nonzero,
+  argwhere,
+  flatnonzero,
+  where,
+  extract,
+  count_nonzero,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1508,5 +1514,82 @@ result = np.isnan(np.array([1+2j, np.nan+0j, 0+np.nan*1j, np.inf+0j]))
     // Note: NumPy doesn't support isneginf/isposinf for complex types
     // (considers them ambiguous), so we skip validation tests for those.
     // Our implementation checks if either part is ±infinity.
+  });
+
+  describe('Searching/Indexing Operations', () => {
+    describe('nonzero()', () => {
+      it('finds nonzero indices in complex array matching NumPy', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const jsResult = nonzero(a);
+        const pyResult = runNumPy(`
+result = [arr.tolist() for arr in np.nonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))]
+        `);
+
+        expect(jsResult[0].toArray()).toEqual(pyResult.value[0]);
+      });
+    });
+
+    describe('argwhere()', () => {
+      it('finds argwhere indices in complex array matching NumPy', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 2), new Complex(0, 0), new Complex(3, 0)]);
+        const jsResult = argwhere(a);
+        const pyResult = runNumPy(`
+result = np.argwhere(np.array([0+0j, 1+2j, 0+0j, 3+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value);
+      });
+    });
+
+    describe('flatnonzero()', () => {
+      it('finds flatnonzero indices in complex array matching NumPy', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const jsResult = flatnonzero(a);
+        const pyResult = runNumPy(`
+result = np.flatnonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value);
+      });
+    });
+
+    describe('where()', () => {
+      it('selects from complex arrays based on condition matching NumPy', () => {
+        const cond = array([1, 0, 1]);
+        const x = array([new Complex(10, 10), new Complex(20, 20), new Complex(30, 30)]);
+        const y = array([new Complex(100, 100), new Complex(200, 200), new Complex(300, 300)]);
+        const jsResult = where(cond, x, y);
+        const pyResult = runNumPy(`
+result = np.where(np.array([1, 0, 1]), np.array([10+10j, 20+20j, 30+30j]), np.array([100+100j, 200+200j, 300+300j]))
+        `);
+
+        expect(arraysClose((jsResult as ReturnType<typeof array>).toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('extract()', () => {
+      it('extracts complex values matching NumPy', () => {
+        const cond = array([1, 0, 1, 0]);
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6), new Complex(7, 8)]);
+        const jsResult = extract(cond, a);
+        const pyResult = runNumPy(`
+result = np.extract(np.array([1, 0, 1, 0]), np.array([1+2j, 3+4j, 5+6j, 7+8j]))
+        `);
+
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('count_nonzero()', () => {
+      it('counts nonzero complex values matching NumPy', () => {
+        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const jsResult = count_nonzero(a);
+        const pyResult = runNumPy(`
+result = np.count_nonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
+        `);
+
+        expect(jsResult).toBe(pyResult.value);
+      });
+    });
   });
 });
