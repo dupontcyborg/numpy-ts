@@ -1664,11 +1664,11 @@ export class NDArray {
   /**
    * Dot product (matching NumPy behavior)
    * @param other - Array to dot with
-   * @returns Result of dot product (scalar or array depending on dimensions)
+   * @returns Result of dot product (scalar or array depending on dimensions, Complex for complex arrays)
    */
-  dot(other: NDArray): NDArray | number | bigint {
+  dot(other: NDArray): NDArray | number | bigint | Complex {
     const result = linalgOps.dot(this._storage, other._storage);
-    if (typeof result === 'number' || typeof result === 'bigint') {
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
     return NDArray._fromStorage(result);
@@ -1676,20 +1676,20 @@ export class NDArray {
 
   /**
    * Sum of diagonal elements (trace)
-   * @returns Sum of diagonal elements
+   * @returns Sum of diagonal elements (Complex for complex arrays)
    */
-  trace(): number | bigint {
+  trace(): number | bigint | Complex {
     return linalgOps.trace(this._storage);
   }
 
   /**
    * Inner product (contracts over last axes of both arrays)
    * @param other - Array to compute inner product with
-   * @returns Inner product result
+   * @returns Inner product result (Complex for complex arrays)
    */
-  inner(other: NDArray): NDArray | number | bigint {
+  inner(other: NDArray): NDArray | number | bigint | Complex {
     const result = linalgOps.inner(this._storage, other._storage);
-    if (typeof result === 'number' || typeof result === 'bigint') {
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
     return NDArray._fromStorage(result);
@@ -3257,9 +3257,9 @@ export function reciprocal(x: NDArray): NDArray {
  *
  * @param a - First array
  * @param b - Second array
- * @returns Result of dot product
+ * @returns Result of dot product (Complex for complex arrays)
  */
-export function dot(a: NDArray, b: NDArray): NDArray | number | bigint {
+export function dot(a: NDArray, b: NDArray): NDArray | number | bigint | Complex {
   return a.dot(b);
 }
 
@@ -3267,9 +3267,9 @@ export function dot(a: NDArray, b: NDArray): NDArray | number | bigint {
  * Sum of diagonal elements
  *
  * @param a - Input 2D array
- * @returns Sum of diagonal elements
+ * @returns Sum of diagonal elements (Complex for complex arrays)
  */
-export function trace(a: NDArray): number | bigint {
+export function trace(a: NDArray): number | bigint | Complex {
   return a.trace();
 }
 
@@ -3323,9 +3323,9 @@ export function transpose(a: NDArray, axes?: number[]): NDArray {
  *
  * @param a - First array
  * @param b - Second array
- * @returns Inner product result
+ * @returns Inner product result (Complex for complex arrays)
  */
-export function inner(a: NDArray, b: NDArray): NDArray | number | bigint {
+export function inner(a: NDArray, b: NDArray): NDArray | number | bigint | Complex {
   return a.inner(b);
 }
 

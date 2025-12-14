@@ -46,6 +46,13 @@ import {
   cumulative_sum,
   cumprod,
   cumulative_prod,
+  dot,
+  trace,
+  diagonal,
+  transpose,
+  inner,
+  outer,
+  kron,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -2055,6 +2062,187 @@ describe('Complex Number Support', () => {
         expect(values[0].im).toBeCloseTo(4);
         expect(values[1].re).toBeCloseTo(3);
         expect(values[1].im).toBeCloseTo(4);
+      });
+    });
+  });
+
+  describe('Linear Algebra Operations', () => {
+    describe('dot()', () => {
+      it('computes dot product of two complex 1D arrays', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const b = array([new Complex(5, 6), new Complex(7, 8)]);
+        const result = dot(a, b);
+
+        // (1+2i)(5+6i) + (3+4i)(7+8i)
+        // = (5-12 + i(6+10)) + (21-32 + i(24+28))
+        // = (-7 + 16i) + (-11 + 52i)
+        // = -18 + 68i
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBeCloseTo(-18);
+        expect((result as Complex).im).toBeCloseTo(68);
+      });
+
+      it('computes 2D x 1D dot product (matrix-vector)', () => {
+        const A = array([
+          [new Complex(1, 0), new Complex(0, 1)],
+          [new Complex(0, -1), new Complex(1, 0)],
+        ]);
+        const v = array([new Complex(1, 0), new Complex(0, 1)]);
+        const result = dot(A, v);
+
+        // First row: (1+0i)(1+0i) + (0+i)(0+i) = 1 + (-1) = 0
+        // Second row: (0-i)(1+0i) + (1+0i)(0+i) = -i + i = 0
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+        expect(values[1].re).toBeCloseTo(0);
+        expect(values[1].im).toBeCloseTo(0);
+      });
+
+      it('computes 2D x 2D dot product (matrix multiplication)', () => {
+        const A = array([
+          [new Complex(1, 1), new Complex(0, 0)],
+          [new Complex(0, 0), new Complex(1, -1)],
+        ]);
+        const B = array([
+          [new Complex(2, 0), new Complex(0, 0)],
+          [new Complex(0, 0), new Complex(2, 0)],
+        ]);
+        const result = dot(A, B);
+
+        // Diagonal matrix times scalar matrix
+        const values = result.toArray();
+        expect(values[0][0].re).toBeCloseTo(2);
+        expect(values[0][0].im).toBeCloseTo(2);
+        expect(values[1][1].re).toBeCloseTo(2);
+        expect(values[1][1].im).toBeCloseTo(-2);
+      });
+    });
+
+    describe('trace()', () => {
+      it('computes trace of complex matrix', () => {
+        const A = array([
+          [new Complex(1, 2), new Complex(3, 4)],
+          [new Complex(5, 6), new Complex(7, 8)],
+        ]);
+        const result = trace(A);
+
+        // Trace = (1+2i) + (7+8i) = 8 + 10i
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBeCloseTo(8);
+        expect((result as Complex).im).toBeCloseTo(10);
+      });
+
+      it('computes trace of identity-like complex matrix', () => {
+        const I = array([
+          [new Complex(1, 0), new Complex(0, 0)],
+          [new Complex(0, 0), new Complex(1, 0)],
+        ]);
+        const result = trace(I);
+
+        expect((result as Complex).re).toBeCloseTo(2);
+        expect((result as Complex).im).toBeCloseTo(0);
+      });
+    });
+
+    describe('diagonal()', () => {
+      it('extracts diagonal from complex matrix', () => {
+        const A = array([
+          [new Complex(1, 2), new Complex(3, 4)],
+          [new Complex(5, 6), new Complex(7, 8)],
+        ]);
+        const result = diagonal(A);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(2);
+        expect(values[1].re).toBeCloseTo(7);
+        expect(values[1].im).toBeCloseTo(8);
+      });
+
+      it('extracts off-diagonal from complex matrix', () => {
+        const A = array([
+          [new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
+          [new Complex(4, 0), new Complex(5, 0), new Complex(6, 0)],
+          [new Complex(7, 0), new Complex(8, 0), new Complex(9, 0)],
+        ]);
+        const result = diagonal(A, 1); // k=1 is superdiagonal
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2);
+        expect(values[1].re).toBeCloseTo(6);
+      });
+    });
+
+    describe('transpose()', () => {
+      it('transposes complex matrix', () => {
+        const A = array([
+          [new Complex(1, 2), new Complex(3, 4)],
+          [new Complex(5, 6), new Complex(7, 8)],
+        ]);
+        const result = transpose(A);
+
+        const values = result.toArray();
+        // Transposed: [[1+2i, 5+6i], [3+4i, 7+8i]]
+        expect(values[0][0].re).toBeCloseTo(1);
+        expect(values[0][0].im).toBeCloseTo(2);
+        expect(values[0][1].re).toBeCloseTo(5);
+        expect(values[0][1].im).toBeCloseTo(6);
+        expect(values[1][0].re).toBeCloseTo(3);
+        expect(values[1][0].im).toBeCloseTo(4);
+        expect(values[1][1].re).toBeCloseTo(7);
+        expect(values[1][1].im).toBeCloseTo(8);
+      });
+    });
+
+    describe('inner()', () => {
+      it('computes inner product of complex 1D arrays', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const b = array([new Complex(5, 6), new Complex(7, 8)]);
+        const result = inner(a, b);
+
+        // Same as dot for 1D: -18 + 68i
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBeCloseTo(-18);
+        expect((result as Complex).im).toBeCloseTo(68);
+      });
+    });
+
+    describe('outer()', () => {
+      it('computes outer product of complex arrays', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 1)]);
+        const b = array([new Complex(1, 0), new Complex(0, 1)]);
+        const result = outer(a, b);
+
+        // [[1*1, 1*i], [i*1, i*i]] = [[1, i], [i, -1]]
+        const values = result.toArray();
+        expect(values[0][0].re).toBeCloseTo(1);
+        expect(values[0][0].im).toBeCloseTo(0);
+        expect(values[0][1].re).toBeCloseTo(0);
+        expect(values[0][1].im).toBeCloseTo(1);
+        expect(values[1][0].re).toBeCloseTo(0);
+        expect(values[1][0].im).toBeCloseTo(1);
+        expect(values[1][1].re).toBeCloseTo(-1);
+        expect(values[1][1].im).toBeCloseTo(0);
+      });
+    });
+
+    describe('kron()', () => {
+      it('computes Kronecker product of complex matrices', () => {
+        const A = array([[new Complex(1, 0), new Complex(0, 1)]]);
+        const B = array([[new Complex(1, 0)], [new Complex(0, 1)]]);
+        const result = kron(A, B);
+
+        // kron([[1, i]], [[1], [i]]) = [[1, i], [i, -1]]
+        const values = result.toArray();
+        expect(values[0][0].re).toBeCloseTo(1);
+        expect(values[0][0].im).toBeCloseTo(0);
+        expect(values[0][1].re).toBeCloseTo(0);
+        expect(values[0][1].im).toBeCloseTo(1);
+        expect(values[1][0].re).toBeCloseTo(0);
+        expect(values[1][0].im).toBeCloseTo(1);
+        expect(values[1][1].re).toBeCloseTo(-1);
+        expect(values[1][1].im).toBeCloseTo(0);
       });
     });
   });

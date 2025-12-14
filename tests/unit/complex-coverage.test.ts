@@ -216,13 +216,13 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   isposinf: 'not_implemented',
 
   // Linear algebra
-  dot: 'not_implemented',
-  trace: 'not_implemented',
-  diagonal: 'not_implemented',
-  kron: 'not_implemented',
-  transpose: 'not_implemented',
-  inner: 'not_implemented',
-  outer: 'not_implemented',
+  dot: 'supported', // complex dot product returns Complex
+  trace: 'supported', // complex trace returns Complex sum of diagonal
+  diagonal: 'supported', // extracts complex diagonal elements
+  kron: 'supported', // Kronecker product with complex multiplication
+  transpose: 'supported', // permutes dimensions (works naturally)
+  inner: 'supported', // complex inner product
+  outer: 'supported', // complex outer product
   tensordot: 'not_implemented',
   einsum: 'not_implemented',
 
@@ -443,12 +443,23 @@ function createComplexArray2() {
 }
 
 /**
+ * Create a 2D complex array for functions that require 2D input (trace, diagonal)
+ */
+function createComplex2DArray() {
+  return np.array([
+    [new np.Complex(1, 2), new np.Complex(3, 4)],
+    [new np.Complex(5, 6), new np.Complex(7, 8)],
+  ]);
+}
+
+/**
  * Attempt to call a function with complex input
  * Returns: 'supported' | 'unsupported' | 'not_implemented' | 'error'
  */
 function testComplexBehavior(fn: Function, fnName: string): ComplexBehavior | 'error' {
   const z1 = createComplexArray();
   const z2 = createComplexArray2();
+  const z2d = createComplex2DArray();
 
   try {
     // Try to call the function with appropriate arguments
@@ -499,10 +510,15 @@ function testComplexBehavior(fn: Function, fnName: string): ComplexBehavior | 'e
     // Functions that return tuples (unary)
     const tupleOps = ['frexp', 'modf'];
 
+    // Functions that require 2D input
+    const require2D = ['trace', 'diagonal'];
+
     if (binaryOps.includes(fnName)) {
       result = fn(z1, z2);
     } else if (tupleOps.includes(fnName)) {
       result = fn(z1);
+    } else if (require2D.includes(fnName)) {
+      result = fn(z2d);
     } else {
       result = fn(z1);
     }

@@ -39,6 +39,13 @@ import {
   square,
   cumsum,
   cumprod,
+  dot,
+  trace,
+  diagonal,
+  transpose,
+  inner,
+  outer,
+  kron,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1240,6 +1247,203 @@ result = np.cumprod(np.array([1+1j, 2+0j, 1+1j]))
       const jsResult = cumprod(array([new Complex(1, 0), new Complex(0, 1), new Complex(2, 1)]));
       const pyResult = runNumPy(`
 result = np.cumprod(np.array([1+0j, 0+1j, 2+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('dot()', () => {
+    it('computes dot product of complex 1D arrays matching NumPy', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4)]);
+      const b = array([new Complex(5, 6), new Complex(7, 8)]);
+      const jsResult = dot(a, b);
+      const pyResult = runNumPy(`
+result = np.dot(np.array([1+2j, 3+4j]), np.array([5+6j, 7+8j]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+
+    it('computes matrix-vector dot product matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 0), new Complex(0, 1)],
+        [new Complex(0, -1), new Complex(1, 0)],
+      ]);
+      const v = array([new Complex(2, 1), new Complex(1, 2)]);
+      const jsResult = dot(A, v);
+      const pyResult = runNumPy(`
+A = np.array([[1+0j, 0+1j], [0-1j, 1+0j]])
+v = np.array([2+1j, 1+2j])
+result = np.dot(A, v)
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes matrix multiplication via dot matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 1), new Complex(2, 0)],
+        [new Complex(0, 1), new Complex(1, -1)],
+      ]);
+      const B = array([
+        [new Complex(1, 0), new Complex(0, 1)],
+        [new Complex(2, 1), new Complex(1, 0)],
+      ]);
+      const jsResult = dot(A, B);
+      const pyResult = runNumPy(`
+A = np.array([[1+1j, 2+0j], [0+1j, 1-1j]])
+B = np.array([[1+0j, 0+1j], [2+1j, 1+0j]])
+result = np.dot(A, B)
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('trace()', () => {
+    it('computes trace of complex matrix matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 2), new Complex(3, 4)],
+        [new Complex(5, 6), new Complex(7, 8)],
+      ]);
+      const jsResult = trace(A);
+      const pyResult = runNumPy(`
+result = np.trace(np.array([[1+2j, 3+4j], [5+6j, 7+8j]]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+
+    it('computes trace of larger complex matrix matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
+        [new Complex(4, 0), new Complex(5, 1), new Complex(6, 0)],
+        [new Complex(7, 0), new Complex(8, 0), new Complex(9, -1)],
+      ]);
+      const jsResult = trace(A);
+      const pyResult = runNumPy(`
+result = np.trace(np.array([[1+0j, 2+0j, 3+0j], [4+0j, 5+1j, 6+0j], [7+0j, 8+0j, 9-1j]]))
+      `);
+
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+  });
+
+  describe('diagonal()', () => {
+    it('extracts diagonal from complex matrix matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 2), new Complex(3, 4)],
+        [new Complex(5, 6), new Complex(7, 8)],
+      ]);
+      const jsResult = diagonal(A);
+      const pyResult = runNumPy(`
+result = np.diagonal(np.array([[1+2j, 3+4j], [5+6j, 7+8j]]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('extracts superdiagonal from complex matrix matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 0), new Complex(2, 1), new Complex(3, 0)],
+        [new Complex(4, 0), new Complex(5, 0), new Complex(6, 1)],
+        [new Complex(7, 0), new Complex(8, 0), new Complex(9, 0)],
+      ]);
+      const jsResult = diagonal(A, 1);
+      const pyResult = runNumPy(`
+result = np.diagonal(np.array([[1+0j, 2+1j, 3+0j], [4+0j, 5+0j, 6+1j], [7+0j, 8+0j, 9+0j]]), offset=1)
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('transpose()', () => {
+    it('transposes complex matrix matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 2), new Complex(3, 4)],
+        [new Complex(5, 6), new Complex(7, 8)],
+      ]);
+      const jsResult = transpose(A);
+      const pyResult = runNumPy(`
+result = np.transpose(np.array([[1+2j, 3+4j], [5+6j, 7+8j]]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('inner()', () => {
+    it('computes inner product of complex 1D arrays matching NumPy', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4)]);
+      const b = array([new Complex(5, 6), new Complex(7, 8)]);
+      const jsResult = inner(a, b);
+      const pyResult = runNumPy(`
+result = np.inner(np.array([1+2j, 3+4j]), np.array([5+6j, 7+8j]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+  });
+
+  describe('outer()', () => {
+    it('computes outer product of complex arrays matching NumPy', () => {
+      const a = array([new Complex(1, 0), new Complex(0, 1)]);
+      const b = array([new Complex(1, 0), new Complex(0, 1)]);
+      const jsResult = outer(a, b);
+      const pyResult = runNumPy(`
+result = np.outer(np.array([1+0j, 0+1j]), np.array([1+0j, 0+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes outer product of larger complex arrays matching NumPy', () => {
+      const a = array([new Complex(1, 1), new Complex(2, -1), new Complex(0, 3)]);
+      const b = array([new Complex(2, 0), new Complex(0, 2)]);
+      const jsResult = outer(a, b);
+      const pyResult = runNumPy(`
+result = np.outer(np.array([1+1j, 2-1j, 0+3j]), np.array([2+0j, 0+2j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('kron()', () => {
+    it('computes Kronecker product of complex matrices matching NumPy', () => {
+      const A = array([[new Complex(1, 0), new Complex(0, 1)]]);
+      const B = array([[new Complex(1, 0)], [new Complex(0, 1)]]);
+      const jsResult = kron(A, B);
+      const pyResult = runNumPy(`
+result = np.kron(np.array([[1+0j, 0+1j]]), np.array([[1+0j], [0+1j]]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes Kronecker product of 2x2 complex matrices matching NumPy', () => {
+      const A = array([
+        [new Complex(1, 1), new Complex(0, 0)],
+        [new Complex(0, 0), new Complex(1, -1)],
+      ]);
+      const B = array([
+        [new Complex(1, 0), new Complex(0, 1)],
+        [new Complex(0, -1), new Complex(1, 0)],
+      ]);
+      const jsResult = kron(A, B);
+      const pyResult = runNumPy(`
+A = np.array([[1+1j, 0+0j], [0+0j, 1-1j]])
+B = np.array([[1+0j, 0+1j], [0-1j, 1+0j]])
+result = np.kron(A, B)
       `);
 
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
