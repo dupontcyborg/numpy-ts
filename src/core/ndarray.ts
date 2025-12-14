@@ -1323,9 +1323,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Sum of array elements ignoring NaNs
    */
-  nansum(axis?: number, keepdims: boolean = false): NDArray | number {
+  nansum(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nansum(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1334,9 +1337,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Product of array elements ignoring NaNs
    */
-  nanprod(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanprod(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanprod(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1345,9 +1351,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Mean of array elements ignoring NaNs
    */
-  nanmean(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanmean(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanmean(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -4628,9 +4637,12 @@ export function average(
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Sum value(s)
  */
-export function nansum(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nansum(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   const result = reductionOps.nansum(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4640,9 +4652,12 @@ export function nansum(a: NDArray, axis?: number, keepdims: boolean = false): ND
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Product value(s)
  */
-export function nanprod(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanprod(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   const result = reductionOps.nanprod(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4652,9 +4667,12 @@ export function nanprod(a: NDArray, axis?: number, keepdims: boolean = false): N
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Mean value(s)
  */
-export function nanmean(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanmean(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   const result = reductionOps.nanmean(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**

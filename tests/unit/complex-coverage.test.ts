@@ -182,9 +182,9 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   average: 'not_implemented',
 
   // NaN-aware reductions
-  nansum: 'not_implemented',
-  nanprod: 'not_implemented',
-  nanmean: 'not_implemented',
+  nansum: 'supported',
+  nanprod: 'supported',
+  nanmean: 'supported',
   nanvar: 'not_implemented',
   nanstd: 'not_implemented',
   nanmin: 'not_implemented',

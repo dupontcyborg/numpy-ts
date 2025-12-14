@@ -1602,17 +1602,40 @@ export function average(
 /**
  * Return sum of elements, treating NaNs as zero
  */
+/**
+ * Check if a complex number is NaN (either part is NaN)
+ */
+function complexIsNaN(re: number, im: number): boolean {
+  return isNaN(re) || isNaN(im);
+}
+
 export function nansum(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  throwIfComplexNotImplemented(storage.dtype, 'nansum');
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype;
+  const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
   if (axis === undefined) {
+    if (isComplex) {
+      const complexData = data as Float64Array | Float32Array;
+      let totalRe = 0;
+      let totalIm = 0;
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          totalRe += re;
+          totalIm += im;
+        }
+      }
+      return new Complex(totalRe, totalIm);
+    }
+
     let total = 0;
     for (let i = 0; i < storage.size; i++) {
       const val = Number(data[i]);
@@ -1639,6 +1662,36 @@ export function nansum(
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
+
+  if (isComplex) {
+    const complexData = data as Float64Array | Float32Array;
+    const resultData = new Float64Array(outerSize * 2);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let totalRe = 0;
+      let totalIm = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          totalRe += re;
+          totalIm += im;
+        }
+      }
+      resultData[outerIdx * 2] = totalRe;
+      resultData[outerIdx * 2 + 1] = totalIm;
+    }
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+    return ArrayStorage.fromData(resultData, outputShape, dtype);
+  }
+
   const resultData = new Float64Array(outerSize);
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -1672,13 +1725,32 @@ export function nanprod(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  throwIfComplexNotImplemented(storage.dtype, 'nanprod');
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype;
+  const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
   if (axis === undefined) {
+    if (isComplex) {
+      const complexData = data as Float64Array | Float32Array;
+      let totalRe = 1;
+      let totalIm = 0;
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          // Complex multiplication: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+          const newRe = totalRe * re - totalIm * im;
+          const newIm = totalRe * im + totalIm * re;
+          totalRe = newRe;
+          totalIm = newIm;
+        }
+      }
+      return new Complex(totalRe, totalIm);
+    }
+
     let total = 1;
     for (let i = 0; i < storage.size; i++) {
       const val = Number(data[i]);
@@ -1705,6 +1777,38 @@ export function nanprod(
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
+
+  if (isComplex) {
+    const complexData = data as Float64Array | Float32Array;
+    const resultData = new Float64Array(outerSize * 2);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let totalRe = 1;
+      let totalIm = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          const newRe = totalRe * re - totalIm * im;
+          const newIm = totalRe * im + totalIm * re;
+          totalRe = newRe;
+          totalIm = newIm;
+        }
+      }
+      resultData[outerIdx * 2] = totalRe;
+      resultData[outerIdx * 2 + 1] = totalIm;
+    }
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+    return ArrayStorage.fromData(resultData, outputShape, dtype);
+  }
+
   const resultData = new Float64Array(outerSize);
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -1738,13 +1842,31 @@ export function nanmean(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  throwIfComplexNotImplemented(storage.dtype, 'nanmean');
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype;
+  const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
   if (axis === undefined) {
+    if (isComplex) {
+      const complexData = data as Float64Array | Float32Array;
+      let totalRe = 0;
+      let totalIm = 0;
+      let count = 0;
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          totalRe += re;
+          totalIm += im;
+          count++;
+        }
+      }
+      return count === 0 ? new Complex(NaN, NaN) : new Complex(totalRe / count, totalIm / count);
+    }
+
     let total = 0;
     let count = 0;
     for (let i = 0; i < storage.size; i++) {
@@ -1773,6 +1895,43 @@ export function nanmean(
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
+
+  if (isComplex) {
+    const complexData = data as Float64Array | Float32Array;
+    const resultData = new Float64Array(outerSize * 2);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let totalRe = 0;
+      let totalIm = 0;
+      let count = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          totalRe += re;
+          totalIm += im;
+          count++;
+        }
+      }
+      if (count === 0) {
+        resultData[outerIdx * 2] = NaN;
+        resultData[outerIdx * 2 + 1] = NaN;
+      } else {
+        resultData[outerIdx * 2] = totalRe / count;
+        resultData[outerIdx * 2 + 1] = totalIm / count;
+      }
+    }
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+    return ArrayStorage.fromData(resultData, outputShape, dtype);
+  }
+
   const resultData = new Float64Array(outerSize);
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {

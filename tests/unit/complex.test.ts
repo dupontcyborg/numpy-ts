@@ -2689,6 +2689,93 @@ describe('Complex Number Support', () => {
   });
 
   // ==========================================================================
+  // Complex NaN-aware Reduction Operations
+  // ==========================================================================
+  describe('NaN-aware Reduction Operations', () => {
+    describe('nansum()', () => {
+      it('computes sum of complex array ignoring NaN values', () => {
+        // Create array with NaN values
+        const a = array([
+          new Complex(1, 2),
+          new Complex(NaN, 3), // Will be skipped
+          new Complex(4, 5),
+        ]);
+        const result = a.nansum();
+
+        // Only (1+2i) + (4+5i) = 5+7i
+        expect((result as Complex).re).toBe(5);
+        expect((result as Complex).im).toBe(7);
+      });
+
+      it('skips values where imaginary part is NaN', () => {
+        const a = array([
+          new Complex(1, 2),
+          new Complex(3, NaN), // Will be skipped
+          new Complex(4, 5),
+        ]);
+        const result = a.nansum();
+
+        expect((result as Complex).re).toBe(5);
+        expect((result as Complex).im).toBe(7);
+      });
+
+      it('returns 0+0i for all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = a.nansum();
+
+        expect((result as Complex).re).toBe(0);
+        expect((result as Complex).im).toBe(0);
+      });
+    });
+
+    describe('nanprod()', () => {
+      it('computes product of complex array ignoring NaN values', () => {
+        const a = array([
+          new Complex(1, 1),
+          new Complex(NaN, 2), // Will be skipped
+          new Complex(2, 0),
+        ]);
+        const result = a.nanprod();
+
+        // Only (1+i) * (2+0i) = 2+2i
+        expect((result as Complex).re).toBeCloseTo(2);
+        expect((result as Complex).im).toBeCloseTo(2);
+      });
+
+      it('returns 1+0i for all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = a.nanprod();
+
+        expect((result as Complex).re).toBe(1);
+        expect((result as Complex).im).toBe(0);
+      });
+    });
+
+    describe('nanmean()', () => {
+      it('computes mean of complex array ignoring NaN values', () => {
+        const a = array([
+          new Complex(2, 4),
+          new Complex(NaN, 2), // Will be skipped
+          new Complex(4, 8),
+        ]);
+        const result = a.nanmean();
+
+        // Mean of (2+4i), (4+8i) = (3+6i)
+        expect((result as Complex).re).toBeCloseTo(3);
+        expect((result as Complex).im).toBeCloseTo(6);
+      });
+
+      it('returns NaN+NaNi for all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = a.nanmean();
+
+        expect(isNaN((result as Complex).re)).toBe(true);
+        expect(isNaN((result as Complex).im)).toBe(true);
+      });
+    });
+  });
+
+  // ==========================================================================
   // Complex argmin/argmax Operations
   // ==========================================================================
   describe('Argmin/Argmax Operations', () => {
