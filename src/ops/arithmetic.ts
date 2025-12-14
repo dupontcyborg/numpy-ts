@@ -14,6 +14,7 @@ import {
   isComplexDType,
   getComplexComponentDType,
   promoteDTypes,
+  throwIfComplex,
 } from '../core/dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 
@@ -670,6 +671,7 @@ export function negative(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with signs
  */
 export function sign(a: ArrayStorage): ArrayStorage {
+  throwIfComplex(a.dtype, 'sign', 'Sign is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const data = a.data;
@@ -708,6 +710,10 @@ export function sign(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with modulo values
  */
 export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(a.dtype, 'mod', 'Modulo is not defined for complex numbers.');
+  if (typeof b !== 'number') {
+    throwIfComplex(b.dtype, 'mod', 'Modulo is not defined for complex numbers.');
+  }
   if (typeof b === 'number') {
     return modScalar(a, b);
   }
@@ -761,6 +767,10 @@ function modScalar(storage: ArrayStorage, divisor: number): ArrayStorage {
  * @returns Result storage with floor division values
  */
 export function floorDivide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(a.dtype, 'floor_divide', 'Floor division is not defined for complex numbers.');
+  if (typeof b !== 'number') {
+    throwIfComplex(b.dtype, 'floor_divide', 'Floor division is not defined for complex numbers.');
+  }
   if (typeof b === 'number') {
     return floorDivideScalar(a, b);
   }
@@ -984,6 +994,10 @@ export function remainder(a: ArrayStorage, b: ArrayStorage | number): ArrayStora
  * @returns Result storage with heaviside values
  */
 export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'heaviside', 'Heaviside step function is not defined for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'heaviside', 'Heaviside step function is not defined for complex numbers.');
+  }
   const dtype = x1.dtype;
   const shape = Array.from(x1.shape);
   const size = x1.size;
@@ -1073,6 +1087,10 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
  * @returns Remainder
  */
 export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'fmod', 'fmod is not defined for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'fmod', 'fmod is not defined for complex numbers.');
+  }
   if (typeof x2 === 'number') {
     const result = x1.copy();
     const resultData = result.data;
@@ -1096,6 +1114,7 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
  * @returns Tuple of [mantissa, exponent] arrays
  */
 export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
+  throwIfComplex(x.dtype, 'frexp', 'frexp is not defined for complex numbers.');
   const mantissa = ArrayStorage.zeros(Array.from(x.shape), 'float64');
   const exponent = ArrayStorage.zeros(Array.from(x.shape), 'int32');
   const mantissaData = mantissa.data as Float64Array;
@@ -1127,6 +1146,10 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
  * @returns GCD
  */
 export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'gcd', 'GCD is only defined for integers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'gcd', 'GCD is only defined for integers.');
+  }
   const gcdSingle = (a: number, b: number): number => {
     a = Math.abs(Math.trunc(a));
     b = Math.abs(Math.trunc(b));
@@ -1175,6 +1198,10 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  * @returns LCM
  */
 export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'lcm', 'LCM is only defined for integers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'lcm', 'LCM is only defined for integers.');
+  }
   const gcdSingle = (a: number, b: number): number => {
     a = Math.abs(Math.trunc(a));
     b = Math.abs(Math.trunc(b));
@@ -1230,6 +1257,10 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  * @returns Result
  */
 export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'ldexp', 'ldexp is not defined for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'ldexp', 'ldexp is not defined for complex numbers.');
+  }
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
     const resultData = result.data as Float64Array;
@@ -1253,6 +1284,7 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
  * @returns Tuple of [fractional, integral] arrays
  */
 export function modf(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
+  throwIfComplex(x.dtype, 'modf', 'modf is not defined for complex numbers.');
   const fractional = ArrayStorage.zeros(Array.from(x.shape), 'float64');
   const integral = ArrayStorage.zeros(Array.from(x.shape), 'float64');
   const fractionalData = fractional.data as Float64Array;

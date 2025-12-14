@@ -165,6 +165,57 @@ export function isComplexDType(dtype: DType): boolean {
 }
 
 /**
+ * Throw a TypeError if the dtype is complex.
+ * Use this at the start of functions that don't support complex numbers.
+ *
+ * @param dtype - The dtype to check
+ * @param functionName - The name of the function (for error message)
+ * @param reason - Optional reason why complex is not supported
+ * @throws TypeError if dtype is complex
+ *
+ * @example
+ * ```typescript
+ * export function floor(storage: ArrayStorage): ArrayStorage {
+ *   throwIfComplex(storage.dtype, 'floor', 'rounding is not defined for complex numbers');
+ *   // ... rest of implementation
+ * }
+ * ```
+ */
+export function throwIfComplex(dtype: DType, functionName: string, reason?: string): void {
+  if (isComplexDType(dtype)) {
+    const reasonStr = reason ? ` ${reason}` : '';
+    throw new TypeError(
+      `ufunc '${functionName}' not supported for complex dtype '${dtype}'.${reasonStr}`
+    );
+  }
+}
+
+/**
+ * Throw an error if the dtype is complex and the function doesn't yet support it.
+ * Use this for functions that SHOULD support complex but haven't been implemented yet.
+ *
+ * @param dtype - The dtype to check
+ * @param functionName - The name of the function (for error message)
+ * @throws Error if dtype is complex
+ *
+ * @example
+ * ```typescript
+ * export function sin(storage: ArrayStorage): ArrayStorage {
+ *   throwIfComplexNotImplemented(storage.dtype, 'sin');
+ *   // ... existing real-only implementation
+ * }
+ * ```
+ */
+export function throwIfComplexNotImplemented(dtype: DType, functionName: string): void {
+  if (isComplexDType(dtype)) {
+    throw new Error(
+      `'${functionName}' does not yet support complex dtype '${dtype}'. ` +
+        `Complex support is planned but not yet implemented.`
+    );
+  }
+}
+
+/**
  * Get the underlying float dtype for a complex dtype.
  * complex128 -> float64, complex64 -> float32
  */
