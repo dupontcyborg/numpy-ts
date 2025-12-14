@@ -53,6 +53,11 @@ import {
   inner,
   outer,
   kron,
+  isfinite,
+  isinf,
+  isnan,
+  isneginf,
+  isposinf,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -2243,6 +2248,158 @@ describe('Complex Number Support', () => {
         expect(values[1][0].im).toBeCloseTo(1);
         expect(values[1][1].re).toBeCloseTo(-1);
         expect(values[1][1].im).toBeCloseTo(0);
+      });
+    });
+  });
+
+  describe('Logic/Checking Operations', () => {
+    describe('isfinite()', () => {
+      it('returns true for finite complex numbers', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = isfinite(a);
+
+        expect(result.toArray()).toEqual([1, 1]);
+      });
+
+      it('returns false when real part is infinite', () => {
+        const a = array([new Complex(Infinity, 0), new Complex(1, 2)]);
+        const result = isfinite(a);
+
+        expect(result.toArray()).toEqual([0, 1]);
+      });
+
+      it('returns false when imaginary part is infinite', () => {
+        const a = array([new Complex(1, Infinity), new Complex(1, 2)]);
+        const result = isfinite(a);
+
+        expect(result.toArray()).toEqual([0, 1]);
+      });
+
+      it('returns false for NaN in complex', () => {
+        const a = array([new Complex(NaN, 0), new Complex(0, NaN)]);
+        const result = isfinite(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+    });
+
+    describe('isinf()', () => {
+      it('returns false for finite complex numbers', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = isinf(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+
+      it('returns true when real part is infinite', () => {
+        const a = array([new Complex(Infinity, 0), new Complex(-Infinity, 1)]);
+        const result = isinf(a);
+
+        expect(result.toArray()).toEqual([1, 1]);
+      });
+
+      it('returns true when imaginary part is infinite', () => {
+        const a = array([new Complex(1, Infinity), new Complex(0, -Infinity)]);
+        const result = isinf(a);
+
+        expect(result.toArray()).toEqual([1, 1]);
+      });
+
+      it('returns false for NaN (NaN is not infinity)', () => {
+        const a = array([new Complex(NaN, 0), new Complex(0, NaN)]);
+        const result = isinf(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+    });
+
+    describe('isnan()', () => {
+      it('returns false for finite complex numbers', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = isnan(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+
+      it('returns true when real part is NaN', () => {
+        const a = array([new Complex(NaN, 0), new Complex(1, 2)]);
+        const result = isnan(a);
+
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+
+      it('returns true when imaginary part is NaN', () => {
+        const a = array([new Complex(0, NaN), new Complex(1, 2)]);
+        const result = isnan(a);
+
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+
+      it('returns false for infinity (infinity is not NaN)', () => {
+        const a = array([new Complex(Infinity, 0), new Complex(0, -Infinity)]);
+        const result = isnan(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+    });
+
+    describe('isneginf()', () => {
+      it('returns false for finite complex numbers', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = isneginf(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+
+      it('returns true when real part is -Infinity', () => {
+        const a = array([new Complex(-Infinity, 0), new Complex(1, 2)]);
+        const result = isneginf(a);
+
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+
+      it('returns true when imaginary part is -Infinity', () => {
+        const a = array([new Complex(0, -Infinity), new Complex(1, 2)]);
+        const result = isneginf(a);
+
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+
+      it('returns false for +Infinity', () => {
+        const a = array([new Complex(Infinity, 0), new Complex(0, Infinity)]);
+        const result = isneginf(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+    });
+
+    describe('isposinf()', () => {
+      it('returns false for finite complex numbers', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = isposinf(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
+      });
+
+      it('returns true when real part is +Infinity', () => {
+        const a = array([new Complex(Infinity, 0), new Complex(1, 2)]);
+        const result = isposinf(a);
+
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+
+      it('returns true when imaginary part is +Infinity', () => {
+        const a = array([new Complex(0, Infinity), new Complex(1, 2)]);
+        const result = isposinf(a);
+
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+
+      it('returns false for -Infinity', () => {
+        const a = array([new Complex(-Infinity, 0), new Complex(0, -Infinity)]);
+        const result = isposinf(a);
+
+        expect(result.toArray()).toEqual([0, 0]);
       });
     });
   });

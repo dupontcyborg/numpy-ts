@@ -209,11 +209,11 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   logical_or: 'not_implemented',
   logical_not: 'not_implemented',
   logical_xor: 'not_implemented',
-  isfinite: 'not_implemented',
-  isinf: 'not_implemented',
-  isnan: 'not_implemented',
-  isneginf: 'not_implemented',
-  isposinf: 'not_implemented',
+  isfinite: 'supported', // True if both real and imag parts are finite
+  isinf: 'supported', // True if either part is infinite
+  isnan: 'supported', // True if either part is NaN
+  isneginf: 'supported', // True if either part is -Infinity
+  isposinf: 'supported', // True if either part is +Infinity
 
   // Linear algebra
   dot: 'supported', // complex dot product returns Complex

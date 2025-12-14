@@ -46,6 +46,9 @@ import {
   inner,
   outer,
   kron,
+  isfinite,
+  isinf,
+  isnan,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1448,5 +1451,62 @@ result = np.kron(A, B)
 
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
+  });
+
+  describe('Logic/Checking Operations', () => {
+    describe('isfinite()', () => {
+      it('checks finite for complex numbers matching NumPy', () => {
+        const a = array([
+          new Complex(1, 2),
+          new Complex(Infinity, 0),
+          new Complex(0, Infinity),
+          new Complex(NaN, 0),
+        ]);
+        const jsResult = isfinite(a);
+        const pyResult = runNumPy(`
+result = np.isfinite(np.array([1+2j, np.inf+0j, 0+np.inf*1j, np.nan+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
+      });
+    });
+
+    describe('isinf()', () => {
+      it('checks infinity for complex numbers matching NumPy', () => {
+        const a = array([
+          new Complex(1, 2),
+          new Complex(Infinity, 0),
+          new Complex(0, -Infinity),
+          new Complex(NaN, 0),
+        ]);
+        const jsResult = isinf(a);
+        const pyResult = runNumPy(`
+result = np.isinf(np.array([1+2j, np.inf+0j, 0-np.inf*1j, np.nan+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
+      });
+    });
+
+    describe('isnan()', () => {
+      it('checks NaN for complex numbers matching NumPy', () => {
+        const a = array([
+          new Complex(1, 2),
+          new Complex(NaN, 0),
+          new Complex(0, NaN),
+          new Complex(Infinity, 0),
+        ]);
+        const jsResult = isnan(a);
+        const pyResult = runNumPy(`
+result = np.isnan(np.array([1+2j, np.nan+0j, 0+np.nan*1j, np.inf+0j]))
+        `);
+
+        expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
+      });
+    });
+
+    // Note: NumPy doesn't support isneginf/isposinf for complex types
+    // (considers them ambiguous), so we skip validation tests for those.
+    // Our implementation checks if either part is ±infinity.
   });
 });

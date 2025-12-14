@@ -305,6 +305,8 @@ function logicalXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
 /**
  * Test element-wise for finiteness (not infinity and not NaN)
  *
+ * For complex numbers: True if both real and imaginary parts are finite.
+ *
  * @param a - Input array storage
  * @returns Boolean result storage
  */
@@ -313,7 +315,15 @@ export function isfinite(a: ArrayStorage): ArrayStorage {
   const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
+  if (isComplexDType(a.dtype as DType)) {
+    // Complex: finite if both real and imag are finite
+    const complexData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      data[i] = Number.isFinite(re) && Number.isFinite(im) ? 1 : 0;
+    }
+  } else if (isBigIntDType(a.dtype)) {
     // BigInt values are always finite
     for (let i = 0; i < size; i++) {
       data[i] = 1;
@@ -331,6 +341,8 @@ export function isfinite(a: ArrayStorage): ArrayStorage {
 /**
  * Test element-wise for positive or negative infinity
  *
+ * For complex numbers: True if either real or imaginary part is infinite.
+ *
  * @param a - Input array storage
  * @returns Boolean result storage
  */
@@ -339,7 +351,17 @@ export function isinf(a: ArrayStorage): ArrayStorage {
   const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
+  if (isComplexDType(a.dtype as DType)) {
+    // Complex: infinite if either part is infinite
+    const complexData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      const reInf = !Number.isFinite(re) && !Number.isNaN(re);
+      const imInf = !Number.isFinite(im) && !Number.isNaN(im);
+      data[i] = reInf || imInf ? 1 : 0;
+    }
+  } else if (isBigIntDType(a.dtype)) {
     // BigInt values are never infinite
     for (let i = 0; i < size; i++) {
       data[i] = 0;
@@ -357,6 +379,8 @@ export function isinf(a: ArrayStorage): ArrayStorage {
 /**
  * Test element-wise for NaN (Not a Number)
  *
+ * For complex numbers: True if either real or imaginary part is NaN.
+ *
  * @param a - Input array storage
  * @returns Boolean result storage
  */
@@ -365,7 +389,15 @@ export function isnan(a: ArrayStorage): ArrayStorage {
   const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
+  if (isComplexDType(a.dtype as DType)) {
+    // Complex: NaN if either part is NaN
+    const complexData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      data[i] = Number.isNaN(re) || Number.isNaN(im) ? 1 : 0;
+    }
+  } else if (isBigIntDType(a.dtype)) {
     // BigInt values are never NaN
     for (let i = 0; i < size; i++) {
       data[i] = 0;
@@ -803,6 +835,9 @@ export function isrealobj(a: ArrayStorage): boolean {
 
 /**
  * Test element-wise for negative infinity
+ *
+ * For complex numbers: True if either real or imaginary part is -Infinity.
+ *
  * @param a - Input array storage
  * @returns Boolean array
  */
@@ -811,7 +846,15 @@ export function isneginf(a: ArrayStorage): ArrayStorage {
   const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
+  if (isComplexDType(a.dtype as DType)) {
+    // Complex: -inf if either part is -Infinity
+    const complexData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      data[i] = re === -Infinity || im === -Infinity ? 1 : 0;
+    }
+  } else if (isBigIntDType(a.dtype)) {
     // BigInt cannot be -Infinity
     // data is already zeros
   } else {
@@ -826,6 +869,9 @@ export function isneginf(a: ArrayStorage): ArrayStorage {
 
 /**
  * Test element-wise for positive infinity
+ *
+ * For complex numbers: True if either real or imaginary part is +Infinity.
+ *
  * @param a - Input array storage
  * @returns Boolean array
  */
@@ -834,7 +880,15 @@ export function isposinf(a: ArrayStorage): ArrayStorage {
   const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
+  if (isComplexDType(a.dtype as DType)) {
+    // Complex: +inf if either part is +Infinity
+    const complexData = thisData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      data[i] = re === Infinity || im === Infinity ? 1 : 0;
+    }
+  } else if (isBigIntDType(a.dtype)) {
     // BigInt cannot be +Infinity
     // data is already zeros
   } else {
