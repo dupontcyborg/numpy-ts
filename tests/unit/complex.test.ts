@@ -2689,6 +2689,90 @@ describe('Complex Number Support', () => {
   });
 
   // ==========================================================================
+  // Complex argmin/argmax Operations
+  // ==========================================================================
+  describe('Argmin/Argmax Operations', () => {
+    describe('argmin()', () => {
+      it('finds index of minimum complex value using lexicographic ordering', () => {
+        // Lexicographic: compare real parts first, then imaginary
+        const a = array([new Complex(2, 1), new Complex(1, 3), new Complex(1, 2), new Complex(3, 0)]);
+        const result = a.argmin();
+
+        // 1+2i is smallest (real=1 is smallest, and among real=1, imag=2 < imag=3)
+        expect(result).toBe(2);
+      });
+
+      it('finds argmin when real parts are equal', () => {
+        const a = array([new Complex(1, 5), new Complex(1, 2), new Complex(1, 3)]);
+        const result = a.argmin();
+
+        // All real parts equal, so compare imaginary: 2 is smallest
+        expect(result).toBe(1);
+      });
+
+      it('finds argmin with negative real parts', () => {
+        const a = array([new Complex(0, 1), new Complex(-1, 5), new Complex(1, 0)]);
+        const result = a.argmin();
+
+        // -1+5i has smallest real part
+        expect(result).toBe(1);
+      });
+
+      it('finds argmin along axis', () => {
+        const a = array([
+          [new Complex(2, 1), new Complex(1, 0)],
+          [new Complex(0, 5), new Complex(3, 2)],
+        ]);
+        const result = a.argmin(0);
+
+        // Along axis 0: compare [2+1i, 0+5i] and [1+0i, 3+2i]
+        // Column 0: 0+5i < 2+1i, so index 1
+        // Column 1: 1+0i < 3+2i, so index 0
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+    });
+
+    describe('argmax()', () => {
+      it('finds index of maximum complex value using lexicographic ordering', () => {
+        const a = array([new Complex(2, 1), new Complex(1, 3), new Complex(1, 2), new Complex(3, 0)]);
+        const result = a.argmax();
+
+        // 3+0i is largest (real=3 is largest)
+        expect(result).toBe(3);
+      });
+
+      it('finds argmax when real parts are equal', () => {
+        const a = array([new Complex(1, 2), new Complex(1, 5), new Complex(1, 3)]);
+        const result = a.argmax();
+
+        // All real parts equal, so compare imaginary: 5 is largest
+        expect(result).toBe(1);
+      });
+
+      it('finds argmax with mixed sign values', () => {
+        const a = array([new Complex(-2, 0), new Complex(1, -5), new Complex(0, 10)]);
+        const result = a.argmax();
+
+        // 1-5i has largest real part
+        expect(result).toBe(1);
+      });
+
+      it('finds argmax along axis', () => {
+        const a = array([
+          [new Complex(2, 1), new Complex(1, 0)],
+          [new Complex(0, 5), new Complex(3, 2)],
+        ]);
+        const result = a.argmax(0);
+
+        // Along axis 0: compare [2+1i, 0+5i] and [1+0i, 3+2i]
+        // Column 0: 2+1i > 0+5i, so index 0
+        // Column 1: 3+2i > 1+0i, so index 1
+        expect(result.toArray()).toEqual([0, 1]);
+      });
+    });
+  });
+
+  // ==========================================================================
   // Complex Gradient and Cross Operations
   // ==========================================================================
   describe('Gradient and Cross Operations', () => {

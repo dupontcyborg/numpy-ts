@@ -536,9 +536,22 @@ export function min(
 /**
  * Return the indices of the minimum values along a given axis
  */
+/**
+ * Compare two complex numbers using lexicographic ordering (real first, then imaginary)
+ * Returns -1 if a < b, 0 if a == b, 1 if a > b
+ */
+function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
+  if (aRe < bRe) return -1;
+  if (aRe > bRe) return 1;
+  // Real parts are equal, compare imaginary parts
+  if (aIm < bIm) return -1;
+  if (aIm > bIm) return 1;
+  return 0;
+}
+
 export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | number {
   const dtype = storage.dtype;
-  throwIfComplex(dtype, 'argmin', 'Complex numbers are not orderable.');
+  const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -548,6 +561,23 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
     // Argmin of all elements - return scalar index
     if (size === 0) {
       throw new Error('argmin of empty array');
+    }
+
+    if (isComplex) {
+      const complexData = data as Float64Array | Float32Array;
+      let minRe = complexData[0]!;
+      let minIm = complexData[1]!;
+      let minIdx = 0;
+      for (let i = 1; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (complexCompare(re, im, minRe, minIm) < 0) {
+          minRe = re;
+          minIm = im;
+          minIdx = i;
+        }
+      }
+      return minIdx;
     }
 
     let minVal = data[0]!;
@@ -585,7 +615,30 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
   const axisSize = shape[normalizedAxis]!;
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
 
-  if (isBigIntDType(dtype)) {
+  if (isComplex) {
+    const complexData = data as Float64Array | Float32Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // Initialize with first value along axis
+      const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
+      const firstIdx = multiIndexToLinear(firstIndices, shape);
+      let minRe = complexData[firstIdx * 2]!;
+      let minIm = complexData[firstIdx * 2 + 1]!;
+      let minAxisIdx = 0;
+
+      for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (complexCompare(re, im, minRe, minIm) < 0) {
+          minRe = re;
+          minIm = im;
+          minAxisIdx = axisIdx;
+        }
+      }
+      resultData[outerIdx] = minAxisIdx;
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -631,7 +684,7 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
  */
 export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | number {
   const dtype = storage.dtype;
-  throwIfComplex(dtype, 'argmax', 'Complex numbers are not orderable.');
+  const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -641,6 +694,23 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
     // Argmax of all elements - return scalar index
     if (size === 0) {
       throw new Error('argmax of empty array');
+    }
+
+    if (isComplex) {
+      const complexData = data as Float64Array | Float32Array;
+      let maxRe = complexData[0]!;
+      let maxIm = complexData[1]!;
+      let maxIdx = 0;
+      for (let i = 1; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (complexCompare(re, im, maxRe, maxIm) > 0) {
+          maxRe = re;
+          maxIm = im;
+          maxIdx = i;
+        }
+      }
+      return maxIdx;
     }
 
     let maxVal = data[0]!;
@@ -678,7 +748,30 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
   const axisSize = shape[normalizedAxis]!;
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
 
-  if (isBigIntDType(dtype)) {
+  if (isComplex) {
+    const complexData = data as Float64Array | Float32Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // Initialize with first value along axis
+      const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
+      const firstIdx = multiIndexToLinear(firstIndices, shape);
+      let maxRe = complexData[firstIdx * 2]!;
+      let maxIm = complexData[firstIdx * 2 + 1]!;
+      let maxAxisIdx = 0;
+
+      for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (complexCompare(re, im, maxRe, maxIm) > 0) {
+          maxRe = re;
+          maxIm = im;
+          maxAxisIdx = axisIdx;
+        }
+      }
+      resultData[outerIdx] = maxAxisIdx;
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
