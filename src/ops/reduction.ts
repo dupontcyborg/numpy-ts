@@ -2336,11 +2336,80 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
  * Return cumulative sum, treating NaNs as zero
  */
 export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
-  throwIfComplexNotImplemented(storage.dtype, 'nancumsum');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
+  if (isComplexDType(dtype)) {
+    // Complex nancumsum - treat NaN values as 0
+    const complexData = data as Float64Array | Float32Array;
+    const size = storage.size;
+
+    if (axis === undefined) {
+      // Flatten and cumsum
+      const result = ArrayStorage.zeros([size], dtype);
+      const resultData = result.data as Float64Array | Float32Array;
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let i = 0; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          sumRe += re;
+          sumIm += im;
+        }
+        resultData[i * 2] = sumRe;
+        resultData[i * 2 + 1] = sumIm;
+      }
+      return result;
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    // Create result with same shape
+    const result = ArrayStorage.zeros([...shape], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const axisSize = shape[normalizedAxis]!;
+
+    // Calculate strides
+    const strides: number[] = [];
+    let stride = 1;
+    for (let i = ndim - 1; i >= 0; i--) {
+      strides.unshift(stride);
+      stride *= shape[i]!;
+    }
+
+    // Perform cumsum along axis
+    const totalSize = storage.size;
+    const axisStride = strides[normalizedAxis]!;
+
+    for (let i = 0; i < totalSize; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      const axisPos = Math.floor(i / axisStride) % axisSize;
+      const isNan = complexIsNaN(re, im);
+
+      if (axisPos === 0) {
+        resultData[i * 2] = isNan ? 0 : re;
+        resultData[i * 2 + 1] = isNan ? 0 : im;
+      } else {
+        resultData[i * 2] = resultData[(i - axisStride) * 2]! + (isNan ? 0 : re);
+        resultData[i * 2 + 1] = resultData[(i - axisStride) * 2 + 1]! + (isNan ? 0 : im);
+      }
+    }
+
+    return result;
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     // Flatten and cumsum
     const size = storage.size;
@@ -2397,13 +2466,97 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
 
 /**
  * Return cumulative product, treating NaNs as one
+ * For complex arrays: NaN values (either part NaN) are treated as 1+0i
  */
 export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
-  throwIfComplexNotImplemented(storage.dtype, 'nancumprod');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
+  if (isComplexDType(dtype)) {
+    // Complex nancumprod - treat NaN values as 1+0i
+    const complexData = data as Float64Array | Float32Array;
+    const size = storage.size;
+
+    if (axis === undefined) {
+      // Flatten and cumprod
+      const result = ArrayStorage.zeros([size], dtype);
+      const resultData = result.data as Float64Array | Float32Array;
+      let prodRe = 1;
+      let prodIm = 0;
+      for (let i = 0; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+          const newRe = prodRe * re - prodIm * im;
+          const newIm = prodRe * im + prodIm * re;
+          prodRe = newRe;
+          prodIm = newIm;
+        }
+        resultData[i * 2] = prodRe;
+        resultData[i * 2 + 1] = prodIm;
+      }
+      return result;
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    // Create result with same shape
+    const result = ArrayStorage.zeros([...shape], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const axisSize = shape[normalizedAxis]!;
+
+    // Calculate strides
+    const strides: number[] = [];
+    let stride = 1;
+    for (let i = ndim - 1; i >= 0; i--) {
+      strides.unshift(stride);
+      stride *= shape[i]!;
+    }
+
+    // Perform cumprod along axis
+    const totalSize = storage.size;
+    const axisStride = strides[normalizedAxis]!;
+
+    for (let i = 0; i < totalSize; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      const axisPos = Math.floor(i / axisStride) % axisSize;
+      const isNan = complexIsNaN(re, im);
+
+      if (axisPos === 0) {
+        // If NaN, treat as 1+0i
+        resultData[i * 2] = isNan ? 1 : re;
+        resultData[i * 2 + 1] = isNan ? 0 : im;
+      } else {
+        // Multiply by previous element (or 1+0i if NaN)
+        const prevRe = resultData[(i - axisStride) * 2]!;
+        const prevIm = resultData[(i - axisStride) * 2 + 1]!;
+        if (isNan) {
+          // Keep previous value (multiply by 1+0i)
+          resultData[i * 2] = prevRe;
+          resultData[i * 2 + 1] = prevIm;
+        } else {
+          // Complex multiplication: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+          resultData[i * 2] = prevRe * re - prevIm * im;
+          resultData[i * 2 + 1] = prevRe * im + prevIm * re;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     // Flatten and cumprod
     const size = storage.size;

@@ -191,8 +191,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   nanmax: 'not_implemented',
   nanargmin: 'not_implemented',
   nanargmax: 'not_implemented',
-  nancumsum: 'not_implemented',
-  nancumprod: 'not_implemented',
+  nancumsum: 'supported',
+  nancumprod: 'supported',
   nanmedian: 'not_implemented',
 
   // Sorting (requires ordering)

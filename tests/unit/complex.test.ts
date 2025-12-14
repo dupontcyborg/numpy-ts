@@ -72,6 +72,8 @@ import {
   ediff1d,
   gradient,
   cross,
+  nancumsum,
+  nancumprod,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -2771,6 +2773,79 @@ describe('Complex Number Support', () => {
 
         expect(isNaN((result as Complex).re)).toBe(true);
         expect(isNaN((result as Complex).im)).toBe(true);
+      });
+    });
+
+    describe('nancumsum()', () => {
+      it('computes cumulative sum of complex array ignoring NaN values', () => {
+        const a = array([
+          new Complex(1, 2),
+          new Complex(NaN, 3), // Will be skipped
+          new Complex(4, 5),
+        ]);
+        const result = nancumsum(a);
+
+        // [1+2i, 1+2i (NaN skipped), 5+7i]
+        expect(result.get([0])).toEqual(new Complex(1, 2));
+        expect(result.get([1])).toEqual(new Complex(1, 2)); // NaN skipped, keeps previous sum
+        expect(result.get([2])).toEqual(new Complex(5, 7));
+      });
+
+      it('skips values where imaginary part is NaN', () => {
+        const a = array([
+          new Complex(1, 1),
+          new Complex(2, NaN), // Will be skipped
+          new Complex(3, 3),
+        ]);
+        const result = nancumsum(a);
+
+        expect(result.get([0])).toEqual(new Complex(1, 1));
+        expect(result.get([1])).toEqual(new Complex(1, 1)); // NaN skipped
+        expect(result.get([2])).toEqual(new Complex(4, 4));
+      });
+
+      it('handles all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = nancumsum(a);
+
+        expect(result.get([0])).toEqual(new Complex(0, 0));
+        expect(result.get([1])).toEqual(new Complex(0, 0));
+      });
+    });
+
+    describe('nancumprod()', () => {
+      it('computes cumulative product of complex array ignoring NaN values', () => {
+        const a = array([
+          new Complex(1, 1),
+          new Complex(NaN, 2), // Will be skipped (treated as 1+0i)
+          new Complex(2, 0),
+        ]);
+        const result = nancumprod(a);
+
+        // [1+i, 1+i (NaN skipped), (1+i)*(2+0i) = 2+2i]
+        expect(result.get([0])).toEqual(new Complex(1, 1));
+        expect(result.get([1])).toEqual(new Complex(1, 1)); // NaN skipped, keeps previous product
+        expect((result.get([2]) as Complex).re).toBeCloseTo(2);
+        expect((result.get([2]) as Complex).im).toBeCloseTo(2);
+      });
+
+      it('handles all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = nancumprod(a);
+
+        // All treated as 1+0i
+        expect(result.get([0])).toEqual(new Complex(1, 0));
+        expect(result.get([1])).toEqual(new Complex(1, 0));
+      });
+
+      it('complex multiplication works correctly', () => {
+        // (2+3i) * (4+5i) = (2*4 - 3*5) + (2*5 + 3*4)i = -7 + 22i
+        const a = array([new Complex(2, 3), new Complex(4, 5)]);
+        const result = nancumprod(a);
+
+        expect(result.get([0])).toEqual(new Complex(2, 3));
+        expect((result.get([1]) as Complex).re).toBeCloseTo(-7);
+        expect((result.get([1]) as Complex).im).toBeCloseTo(22);
       });
     });
   });
