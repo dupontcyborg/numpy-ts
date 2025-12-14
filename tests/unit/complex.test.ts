@@ -42,6 +42,10 @@ import {
   positive,
   reciprocal,
   square,
+  cumsum,
+  cumulative_sum,
+  cumprod,
+  cumulative_prod,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -1883,6 +1887,174 @@ describe('Complex Number Support', () => {
         const values = result.toArray();
         expect(values[0].re).toBeCloseTo(5);
         expect(values[0].im).toBeCloseTo(0);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Complex Reduction Operations
+  // ==========================================================================
+  describe('Complex reduction operations', () => {
+    describe('sum()', () => {
+      it('computes sum of complex array', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+        const result = a.sum();
+
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBe(9);
+        expect((result as Complex).im).toBe(12);
+      });
+
+      it('computes sum of zeros', () => {
+        const a = array([new Complex(0, 0), new Complex(0, 0)]);
+        const result = a.sum();
+
+        expect((result as Complex).re).toBe(0);
+        expect((result as Complex).im).toBe(0);
+      });
+    });
+
+    describe('prod()', () => {
+      it('computes product of complex array', () => {
+        // (1+i)(2+i) = 2 + i + 2i - 1 = 1 + 3i
+        const a = array([new Complex(1, 1), new Complex(2, 1)]);
+        const result = a.prod();
+
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBeCloseTo(1);
+        expect((result as Complex).im).toBeCloseTo(3);
+      });
+
+      it('product with identity', () => {
+        // (3+4i) * 1 = 3+4i
+        const a = array([new Complex(3, 4), new Complex(1, 0)]);
+        const result = a.prod();
+
+        expect((result as Complex).re).toBeCloseTo(3);
+        expect((result as Complex).im).toBeCloseTo(4);
+      });
+    });
+
+    describe('mean()', () => {
+      it('computes mean of complex array', () => {
+        const a = array([new Complex(2, 4), new Complex(4, 8), new Complex(6, 12)]);
+        const result = a.mean();
+
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBeCloseTo(4);
+        expect((result as Complex).im).toBeCloseTo(8);
+      });
+
+      it('mean of single element', () => {
+        const a = array([new Complex(3, 5)]);
+        const result = a.mean();
+
+        expect((result as Complex).re).toBeCloseTo(3);
+        expect((result as Complex).im).toBeCloseTo(5);
+      });
+    });
+
+    describe('var()', () => {
+      it('computes variance of complex array', () => {
+        // Variance of complex: Var(X) = E[|X - μ|²]
+        // For [1+1i, 2+2i, 3+3i], mean = 2+2i
+        // |1+1i - 2+2i|² = |-1-1i|² = 1 + 1 = 2
+        // |2+2i - 2+2i|² = |0|² = 0
+        // |3+3i - 2+2i|² = |1+1i|² = 1 + 1 = 2
+        // Var = (2 + 0 + 2) / 3 = 4/3
+        const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
+        const result = a.var();
+
+        expect(typeof result).toBe('number');
+        expect(result as number).toBeCloseTo(4 / 3);
+      });
+
+      it('variance of constant array is zero', () => {
+        const a = array([new Complex(2, 3), new Complex(2, 3), new Complex(2, 3)]);
+        const result = a.var();
+
+        expect(result as number).toBeCloseTo(0);
+      });
+    });
+
+    describe('std()', () => {
+      it('computes std of complex array', () => {
+        // std = sqrt(var)
+        const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
+        const result = a.std();
+
+        expect(typeof result).toBe('number');
+        expect(result as number).toBeCloseTo(Math.sqrt(4 / 3));
+      });
+
+      it('std of constant array is zero', () => {
+        const a = array([new Complex(2, 3), new Complex(2, 3)]);
+        const result = a.std();
+
+        expect(result as number).toBeCloseTo(0);
+      });
+    });
+
+    describe('cumsum()', () => {
+      it('computes cumulative sum of complex array', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+        const result = cumsum(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        // cumsum: [1+2i, 4+6i, 9+12i]
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(2);
+        expect(values[1].re).toBeCloseTo(4);
+        expect(values[1].im).toBeCloseTo(6);
+        expect(values[2].re).toBeCloseTo(9);
+        expect(values[2].im).toBeCloseTo(12);
+      });
+
+      it('cumulative_sum is alias for cumsum', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 2)]);
+        const result1 = cumsum(a).toArray();
+        const result2 = cumulative_sum(a).toArray();
+
+        expect(result1[0].re).toBe(result2[0].re);
+        expect(result1[1].re).toBe(result2[1].re);
+      });
+    });
+
+    describe('cumprod()', () => {
+      it('computes cumulative product of complex array', () => {
+        // (1+i), (1+i)(2+0i) = 2+2i, (2+2i)(1+i) = 2+2i+2i-2 = 0+4i
+        const a = array([new Complex(1, 1), new Complex(2, 0), new Complex(1, 1)]);
+        const result = cumprod(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(1);
+        expect(values[1].re).toBeCloseTo(2);
+        expect(values[1].im).toBeCloseTo(2);
+        expect(values[2].re).toBeCloseTo(0);
+        expect(values[2].im).toBeCloseTo(4);
+      });
+
+      it('cumulative_prod is alias for cumprod', () => {
+        const a = array([new Complex(1, 0), new Complex(2, 0)]);
+        const result1 = cumprod(a).toArray();
+        const result2 = cumulative_prod(a).toArray();
+
+        expect(result1[0].re).toBe(result2[0].re);
+        expect(result1[1].re).toBe(result2[1].re);
+      });
+
+      it('cumprod with identity element', () => {
+        const a = array([new Complex(3, 4), new Complex(1, 0)]);
+        const result = cumprod(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(3);
+        expect(values[0].im).toBeCloseTo(4);
+        expect(values[1].re).toBeCloseTo(3);
+        expect(values[1].im).toBeCloseTo(4);
       });
     });
   });

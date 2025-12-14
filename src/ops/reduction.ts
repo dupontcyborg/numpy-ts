@@ -725,6 +725,9 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
  * @param axis - Axis along which to compute variance
  * @param ddof - Delta degrees of freedom (default: 0)
  * @param keepdims - Keep dimensions (default: false)
+ *
+ * For complex arrays: Var(X) = E[|X - E[X]|²] where |z|² = re² + im²
+ * Returns real values (float64) for both real and complex input
  */
 export function variance(
   storage: ArrayStorage,
@@ -732,7 +735,7 @@ export function variance(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
-  throwIfComplexNotImplemented(storage.dtype, 'variance');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -743,6 +746,24 @@ export function variance(
 
   if (axis === undefined) {
     // Variance of all elements - return scalar
+    if (isComplexDType(dtype)) {
+      // For complex: Var(X) = E[|X - μ|²]
+      const complexData = data as Float64Array | Float32Array;
+      const meanComplex = meanResult as Complex;
+      let sumSqDiff = 0;
+
+      for (let i = 0; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        // |z - μ|² = (re - μ.re)² + (im - μ.im)²
+        const diffRe = re - meanComplex.re;
+        const diffIm = im - meanComplex.im;
+        sumSqDiff += diffRe * diffRe + diffIm * diffIm;
+      }
+
+      return sumSqDiff / (size - ddof);
+    }
+
     const meanVal = meanResult as number;
     let sumSqDiff = 0;
 
@@ -772,25 +793,50 @@ export function variance(
     ? meanArray.shape
     : Array.from(shape).filter((_, i) => i !== normalizedAxis);
 
-  // Result is always float64 for variance
+  // Result is always float64 for variance (even for complex input)
   const result = ArrayStorage.zeros(Array.from(outputShape), 'float64');
   const resultData = result.data;
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
 
-  // Compute variance for each position
-  for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-    let sumSqDiff = 0;
-    const meanVal = Number(meanData[outerIdx]!);
+  if (isComplexDType(dtype)) {
+    // Complex variance along axis: Var(X) = E[|X - μ|²]
+    const complexData = data as Float64Array | Float32Array;
+    const meanComplex = meanData as Float64Array | Float32Array;
 
-    for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-      const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const diff = Number(data[linearIdx]!) - meanVal;
-      sumSqDiff += diff * diff;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let sumSqDiff = 0;
+      const meanRe = meanComplex[outerIdx * 2]!;
+      const meanIm = meanComplex[outerIdx * 2 + 1]!;
+
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        // |z - μ|² = (re - μ.re)² + (im - μ.im)²
+        const diffRe = re - meanRe;
+        const diffIm = im - meanIm;
+        sumSqDiff += diffRe * diffRe + diffIm * diffIm;
+      }
+
+      resultData[outerIdx] = sumSqDiff / (axisSize - ddof);
     }
+  } else {
+    // Real variance for each position
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let sumSqDiff = 0;
+      const meanVal = Number(meanData[outerIdx]!);
 
-    resultData[outerIdx] = sumSqDiff / (axisSize - ddof);
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const diff = Number(data[linearIdx]!) - meanVal;
+        sumSqDiff += diff * diff;
+      }
+
+      resultData[outerIdx] = sumSqDiff / (axisSize - ddof);
+    }
   }
 
   return result;
@@ -802,6 +848,9 @@ export function variance(
  * @param axis - Axis along which to compute std
  * @param ddof - Delta degrees of freedom (default: 0)
  * @param keepdims - Keep dimensions (default: false)
+ *
+ * For complex arrays: returns sqrt(Var(X)) where Var(X) = E[|X - E[X]|²]
+ * Returns real values (float64) for both real and complex input
  */
 export function std(
   storage: ArrayStorage,
@@ -809,7 +858,7 @@ export function std(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
-  throwIfComplexNotImplemented(storage.dtype, 'std');
+  // variance() handles complex arrays - returns real values
   const varResult = variance(storage, axis, ddof, keepdims);
 
   if (typeof varResult === 'number') {
@@ -970,13 +1019,76 @@ export function any(
 
 /**
  * Return cumulative sum of elements along a given axis
+ * For complex arrays: returns complex cumulative sum
  */
 export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
-  throwIfComplexNotImplemented(storage.dtype, 'cumsum');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
+  if (isComplexDType(dtype)) {
+    // Complex cumsum
+    const complexData = data as Float64Array | Float32Array;
+    const size = storage.size;
+
+    if (axis === undefined) {
+      // Flatten and cumsum
+      const result = ArrayStorage.zeros([size], dtype);
+      const resultData = result.data as Float64Array | Float32Array;
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let i = 0; i < size; i++) {
+        sumRe += complexData[i * 2]!;
+        sumIm += complexData[i * 2 + 1]!;
+        resultData[i * 2] = sumRe;
+        resultData[i * 2 + 1] = sumIm;
+      }
+      return result;
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    // Create result with same shape
+    const result = ArrayStorage.zeros([...shape], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const axisSize = shape[normalizedAxis]!;
+
+    // Calculate strides
+    const strides: number[] = [];
+    let stride = 1;
+    for (let i = ndim - 1; i >= 0; i--) {
+      strides.unshift(stride);
+      stride *= shape[i]!;
+    }
+
+    // Perform cumsum along axis
+    const totalSize = storage.size;
+    const axisStride = strides[normalizedAxis]!;
+
+    for (let i = 0; i < totalSize; i++) {
+      const axisPos = Math.floor(i / axisStride) % axisSize;
+
+      if (axisPos === 0) {
+        resultData[i * 2] = complexData[i * 2]!;
+        resultData[i * 2 + 1] = complexData[i * 2 + 1]!;
+      } else {
+        resultData[i * 2] = resultData[(i - axisStride) * 2]! + complexData[i * 2]!;
+        resultData[i * 2 + 1] = resultData[(i - axisStride) * 2 + 1]! + complexData[i * 2 + 1]!;
+      }
+    }
+
+    return result;
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     // Flatten and cumsum
     const size = storage.size;
@@ -1031,13 +1143,87 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
 
 /**
  * Return cumulative product of elements along a given axis
+ * For complex arrays: returns complex cumulative product
+ * Complex multiplication: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
  */
 export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
-  throwIfComplexNotImplemented(storage.dtype, 'cumprod');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
+  if (isComplexDType(dtype)) {
+    // Complex cumprod
+    const complexData = data as Float64Array | Float32Array;
+    const size = storage.size;
+
+    if (axis === undefined) {
+      // Flatten and cumprod
+      const result = ArrayStorage.zeros([size], dtype);
+      const resultData = result.data as Float64Array | Float32Array;
+      let prodRe = 1;
+      let prodIm = 0;
+      for (let i = 0; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+        const newRe = prodRe * re - prodIm * im;
+        const newIm = prodRe * im + prodIm * re;
+        prodRe = newRe;
+        prodIm = newIm;
+        resultData[i * 2] = prodRe;
+        resultData[i * 2 + 1] = prodIm;
+      }
+      return result;
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    // Create result with same shape
+    const result = ArrayStorage.zeros([...shape], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const axisSize = shape[normalizedAxis]!;
+
+    // Calculate strides
+    const strides: number[] = [];
+    let stride = 1;
+    for (let i = ndim - 1; i >= 0; i--) {
+      strides.unshift(stride);
+      stride *= shape[i]!;
+    }
+
+    // Perform cumprod along axis
+    const totalSize = storage.size;
+    const axisStride = strides[normalizedAxis]!;
+
+    for (let i = 0; i < totalSize; i++) {
+      const axisPos = Math.floor(i / axisStride) % axisSize;
+
+      if (axisPos === 0) {
+        resultData[i * 2] = complexData[i * 2]!;
+        resultData[i * 2 + 1] = complexData[i * 2 + 1]!;
+      } else {
+        // Multiply by previous element: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+        const prevRe = resultData[(i - axisStride) * 2]!;
+        const prevIm = resultData[(i - axisStride) * 2 + 1]!;
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        resultData[i * 2] = prevRe * re - prevIm * im;
+        resultData[i * 2 + 1] = prevRe * im + prevIm * re;
+      }
+    }
+
+    return result;
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     // Flatten and cumprod
     const size = storage.size;

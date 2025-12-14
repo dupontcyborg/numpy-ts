@@ -37,6 +37,8 @@ import {
   positive,
   reciprocal,
   square,
+  cumsum,
+  cumprod,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1115,6 +1117,129 @@ result = np.square(np.array([1+0j, 0+1j, 3+4j]))
       const jsResult = square(array([new Complex(1, 1), new Complex(-2, -3), new Complex(0, 0)]));
       const pyResult = runNumPy(`
 result = np.square(np.array([1+1j, -2-3j, 0+0j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Reduction Functions
+  // ==========================================================================
+
+  describe('sum()', () => {
+    it('computes sum of complex array matching NumPy', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+      const jsResult = a.sum();
+      const pyResult = runNumPy(`
+result = np.sum(np.array([1+2j, 3+4j, 5+6j]))
+      `);
+
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+  });
+
+  describe('prod()', () => {
+    it('computes product of complex array matching NumPy', () => {
+      const a = array([new Complex(1, 1), new Complex(2, 1), new Complex(1, 0)]);
+      const jsResult = a.prod();
+      const pyResult = runNumPy(`
+result = np.prod(np.array([1+1j, 2+1j, 1+0j]))
+      `);
+
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re, 5);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im, 5);
+    });
+  });
+
+  describe('mean()', () => {
+    it('computes mean of complex array matching NumPy', () => {
+      const a = array([new Complex(2, 4), new Complex(4, 8), new Complex(6, 12)]);
+      const jsResult = a.mean();
+      const pyResult = runNumPy(`
+result = np.mean(np.array([2+4j, 4+8j, 6+12j]))
+      `);
+
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+  });
+
+  describe('var()', () => {
+    it('computes variance of complex array matching NumPy', () => {
+      const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
+      const jsResult = a.var();
+      const pyResult = runNumPy(`
+result = np.var(np.array([1+1j, 2+2j, 3+3j]))
+      `);
+
+      expect(typeof jsResult).toBe('number');
+      expect(jsResult as number).toBeCloseTo(pyResult.value as number);
+    });
+
+    it('computes variance with complex values matching NumPy', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 1), new Complex(2, 4)]);
+      const jsResult = a.var();
+      const pyResult = runNumPy(`
+result = np.var(np.array([1+2j, 3+1j, 2+4j]))
+      `);
+
+      expect(jsResult as number).toBeCloseTo(pyResult.value as number);
+    });
+  });
+
+  describe('std()', () => {
+    it('computes std of complex array matching NumPy', () => {
+      const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
+      const jsResult = a.std();
+      const pyResult = runNumPy(`
+result = np.std(np.array([1+1j, 2+2j, 3+3j]))
+      `);
+
+      expect(typeof jsResult).toBe('number');
+      expect(jsResult as number).toBeCloseTo(pyResult.value as number);
+    });
+  });
+
+  describe('cumsum()', () => {
+    it('computes cumulative sum of complex array matching NumPy', () => {
+      const jsResult = cumsum(array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]));
+      const pyResult = runNumPy(`
+result = np.cumsum(np.array([1+2j, 3+4j, 5+6j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes cumsum with various complex values matching NumPy', () => {
+      const jsResult = cumsum(array([new Complex(0, 1), new Complex(1, 0), new Complex(-1, -1)]));
+      const pyResult = runNumPy(`
+result = np.cumsum(np.array([0+1j, 1+0j, -1-1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('cumprod()', () => {
+    it('computes cumulative product of complex array matching NumPy', () => {
+      const jsResult = cumprod(array([new Complex(1, 1), new Complex(2, 0), new Complex(1, 1)]));
+      const pyResult = runNumPy(`
+result = np.cumprod(np.array([1+1j, 2+0j, 1+1j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes cumprod with various complex values matching NumPy', () => {
+      const jsResult = cumprod(array([new Complex(1, 0), new Complex(0, 1), new Complex(2, 1)]));
+      const pyResult = runNumPy(`
+result = np.cumprod(np.array([1+0j, 0+1j, 2+1j]))
       `);
 
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);

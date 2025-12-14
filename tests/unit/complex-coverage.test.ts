@@ -61,9 +61,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   isrealobj: 'supported', // checks if dtype is not complex
 
   // Reductions that return complex
-  // sum: 'supported', // returns Complex for complex arrays
-  // mean: 'supported',
-  // prod: 'supported',
+  // Note: sum, mean, prod, var, std are NDArray methods, not standalone exports
+  // They are tested via NDArray class tests
 
   // =========================================================================
   // UNSUPPORTED - These throw TypeError (mathematically undefined for complex)
@@ -174,10 +173,10 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   quantile: 'not_implemented',
 
   // Cumulative operations
-  cumsum: 'not_implemented',
-  cumulative_sum: 'not_implemented', // alias
-  cumprod: 'not_implemented',
-  cumulative_prod: 'not_implemented', // alias
+  cumsum: 'supported', // returns complex cumulative sum
+  cumulative_sum: 'supported', // alias
+  cumprod: 'supported', // returns complex cumulative product
+  cumulative_prod: 'supported', // alias
 
   // Weighted average
   average: 'not_implemented',
