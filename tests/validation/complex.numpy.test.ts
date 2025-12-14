@@ -61,6 +61,8 @@ import {
   logical_xor,
   diff,
   ediff1d,
+  gradient,
+  cross,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1690,6 +1692,65 @@ result = np.ediff1d(np.array([1+2j, 4+1j, 6+5j]))
 
         expect(jsResult.dtype).toBe('complex128');
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Gradient and Cross Operations
+  // ==========================================================================
+
+  describe('Gradient and Cross Operations', () => {
+    describe('gradient()', () => {
+      it('computes gradient of complex array matching NumPy', () => {
+        const f = array([new Complex(1, 1), new Complex(2, 3), new Complex(4, 6), new Complex(7, 10)]);
+        const jsResult = gradient(f);
+        const pyResult = runNumPy(`
+result = np.gradient(np.array([1+1j, 2+3j, 4+6j, 7+10j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose((jsResult as typeof f).toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('computes gradient with spacing matching NumPy', () => {
+        const f = array([new Complex(0, 0), new Complex(2, 4), new Complex(6, 12)]);
+        const jsResult = gradient(f, 2);
+        const pyResult = runNumPy(`
+result = np.gradient(np.array([0+0j, 2+4j, 6+12j]), 2)
+        `);
+
+        expect(arraysClose((jsResult as typeof f).toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('cross()', () => {
+      it('computes cross product of complex 3D vectors matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 0), new Complex(0, 1)]);
+        const b = array([new Complex(0, 1), new Complex(1, 0), new Complex(2, 0)]);
+        const jsResult = cross(a, b);
+        const pyResult = runNumPy(`
+result = np.cross(np.array([1+1j, 2+0j, 0+1j]), np.array([0+1j, 1+0j, 2+0j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('computes cross product of complex 2D vectors matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 0)]);
+        const b = array([new Complex(0, 1), new Complex(1, 0)]);
+        const jsResult = cross(a, b);
+        const pyResult = runNumPy(`
+result = np.cross(np.array([1+1j, 2+0j]), np.array([0+1j, 1+0j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        // For scalar result, compare directly
+        const jsVal = jsResult.toArray();
+        const pyVal = pyResult.value;
+        expect(jsVal.re).toBeCloseTo(pyVal.re);
+        expect(jsVal.im).toBeCloseTo(pyVal.im);
       });
     });
   });

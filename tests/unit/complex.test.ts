@@ -70,6 +70,8 @@ import {
   logical_xor,
   diff,
   ediff1d,
+  gradient,
+  cross,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -2680,6 +2682,141 @@ describe('Complex Number Support', () => {
       it('preserves complex dtype', () => {
         const a = array([new Complex(1, 2), new Complex(3, 4)]);
         const result = ediff1d(a);
+
+        expect(result.dtype).toBe('complex128');
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Complex Gradient and Cross Operations
+  // ==========================================================================
+  describe('Gradient and Cross Operations', () => {
+    describe('gradient()', () => {
+      it('computes gradient of complex array', () => {
+        // f = [1+1i, 2+3i, 4+6i, 7+10i]
+        // gradient uses central differences in interior, forward/backward at edges
+        const f = array([new Complex(1, 1), new Complex(2, 3), new Complex(4, 6), new Complex(7, 10)]);
+        const result = gradient(f);
+
+        expect(result.dtype).toBe('complex128');
+        const values = (result as typeof f).toArray() as Complex[];
+        expect(values.length).toBe(4);
+
+        // First element: forward difference = (2+3i) - (1+1i) = 1+2i
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(2);
+
+        // Second element: central difference = ((4+6i) - (1+1i)) / 2 = 1.5+2.5i
+        expect(values[1].re).toBeCloseTo(1.5);
+        expect(values[1].im).toBeCloseTo(2.5);
+
+        // Third element: central difference = ((7+10i) - (2+3i)) / 2 = 2.5+3.5i
+        expect(values[2].re).toBeCloseTo(2.5);
+        expect(values[2].im).toBeCloseTo(3.5);
+
+        // Fourth element: backward difference = (7+10i) - (4+6i) = 3+4i
+        expect(values[3].re).toBeCloseTo(3);
+        expect(values[3].im).toBeCloseTo(4);
+      });
+
+      it('computes gradient with custom spacing', () => {
+        const f = array([new Complex(0, 0), new Complex(2, 4), new Complex(6, 12)]);
+        const result = gradient(f, 2);
+
+        expect(result.dtype).toBe('complex128');
+        const values = (result as typeof f).toArray() as Complex[];
+
+        // First: forward difference / 2 = (2+4i - 0) / 2 = 1+2i
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(2);
+
+        // Second: central difference / (2*2) = (6+12i - 0) / 4 = 1.5+3i
+        expect(values[1].re).toBeCloseTo(1.5);
+        expect(values[1].im).toBeCloseTo(3);
+
+        // Third: backward difference / 2 = (6+12i - 2+4i) / 2 = 2+4i
+        expect(values[2].re).toBeCloseTo(2);
+        expect(values[2].im).toBeCloseTo(4);
+      });
+
+      it('preserves complex dtype', () => {
+        const f = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = gradient(f);
+
+        expect(result.dtype).toBe('complex128');
+      });
+    });
+
+    describe('cross()', () => {
+      it('computes cross product of complex 3D vectors', () => {
+        // a = [1+1i, 2+0i, 0+1i]
+        // b = [0+1i, 1+0i, 2+0i]
+        const a = array([new Complex(1, 1), new Complex(2, 0), new Complex(0, 1)]);
+        const b = array([new Complex(0, 1), new Complex(1, 0), new Complex(2, 0)]);
+        const result = cross(a, b);
+
+        expect(result.dtype).toBe('complex128');
+        expect(result.shape).toEqual([3]);
+
+        const values = result.toArray() as Complex[];
+
+        // c0 = a1*b2 - a2*b1 = (2+0i)*(2+0i) - (0+1i)*(1+0i) = 4 - i = 4-i
+        expect(values[0].re).toBeCloseTo(4);
+        expect(values[0].im).toBeCloseTo(-1);
+
+        // c1 = a2*b0 - a0*b2 = (0+1i)*(0+1i) - (1+1i)*(2+0i) = -1 - 2 - 2i = -3-2i
+        expect(values[1].re).toBeCloseTo(-3);
+        expect(values[1].im).toBeCloseTo(-2);
+
+        // c2 = a0*b1 - a1*b0 = (1+1i)*(1+0i) - (2+0i)*(0+1i) = 1+i - 2i = 1-i
+        expect(values[2].re).toBeCloseTo(1);
+        expect(values[2].im).toBeCloseTo(-1);
+      });
+
+      it('computes cross product of complex 2D vectors (returns scalar)', () => {
+        // a = [1+1i, 2+0i]
+        // b = [0+1i, 1+0i]
+        const a = array([new Complex(1, 1), new Complex(2, 0)]);
+        const b = array([new Complex(0, 1), new Complex(1, 0)]);
+        const result = cross(a, b);
+
+        expect(result.dtype).toBe('complex128');
+        expect(result.shape).toEqual([]);
+
+        const values = result.toArray() as Complex;
+
+        // c = a0*b1 - a1*b0 = (1+1i)*(1+0i) - (2+0i)*(0+1i) = 1+i - 2i = 1-i
+        expect(values.re).toBeCloseTo(1);
+        expect(values.im).toBeCloseTo(-1);
+      });
+
+      it('computes cross product with purely imaginary vectors', () => {
+        // a = [i, 2i, 3i]
+        // b = [1, 2, 3]
+        const a = array([new Complex(0, 1), new Complex(0, 2), new Complex(0, 3)]);
+        const b = array([new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)]);
+        const result = cross(a, b);
+
+        const values = result.toArray() as Complex[];
+
+        // c0 = (2i)*(3) - (3i)*(2) = 6i - 6i = 0
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+
+        // c1 = (3i)*(1) - (i)*(3) = 3i - 3i = 0
+        expect(values[1].re).toBeCloseTo(0);
+        expect(values[1].im).toBeCloseTo(0);
+
+        // c2 = (i)*(2) - (2i)*(1) = 2i - 2i = 0
+        expect(values[2].re).toBeCloseTo(0);
+        expect(values[2].im).toBeCloseTo(0);
+      });
+
+      it('preserves complex dtype', () => {
+        const a = array([new Complex(1, 0), new Complex(0, 1), new Complex(1, 1)]);
+        const b = array([new Complex(0, 1), new Complex(1, 0), new Complex(0, 0)]);
+        const result = cross(a, b);
 
         expect(result.dtype).toBe('complex128');
       });

@@ -229,8 +229,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Gradient/difference
   diff: 'supported',
   ediff1d: 'supported',
-  gradient: 'not_implemented',
-  cross: 'not_implemented',
+  gradient: 'supported',
+  cross: 'supported',
 
   // Statistics
   bincount: 'not_implemented',
