@@ -6,8 +6,9 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
 import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
+import { Complex } from '../core/complex';
 
 /**
  * Sum array elements over a given axis
@@ -16,16 +17,25 @@ export function sum(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  const dtype = storage.dtype;
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
 
   if (axis === undefined) {
-    // Sum all elements - return scalar
-    if (isBigIntDType(dtype)) {
+    // Sum all elements - return scalar (or Complex for complex arrays)
+    if (isComplexDType(dtype)) {
+      const complexData = data as Float64Array | Float32Array;
+      let totalRe = 0;
+      let totalIm = 0;
+      for (let i = 0; i < size; i++) {
+        totalRe += complexData[i * 2]!;
+        totalIm += complexData[i * 2 + 1]!;
+      }
+      return new Complex(totalRe, totalIm);
+    } else if (isBigIntDType(dtype)) {
       const typedData = data as BigInt64Array | BigUint64Array;
       let total = BigInt(0);
       for (let i = 0; i < size; i++) {
@@ -65,7 +75,26 @@ export function sum(
   const axisSize = shape[normalizedAxis]!;
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex sum along axis
+    const complexData = data as Float64Array | Float32Array;
+    const resultComplex = resultData as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        // Physical index is 2x logical index for complex
+        sumRe += complexData[linearIdx * 2]!;
+        sumIm += complexData[linearIdx * 2 + 1]!;
+      }
+      // Output physical index is 2x output logical index
+      resultComplex[outerIdx * 2] = sumRe;
+      resultComplex[outerIdx * 2 + 1] = sumIm;
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
 
@@ -103,17 +132,22 @@ export function sum(
 /**
  * Compute the arithmetic mean along the specified axis
  * Note: mean() returns float64 for integer dtypes, matching NumPy behavior
+ * For complex arrays, returns complex mean
  */
 export function mean(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  const dtype = storage.dtype;
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
 
   if (axis === undefined) {
-    return (sum(storage) as number) / storage.size;
+    const sumResult = sum(storage);
+    if (sumResult instanceof Complex) {
+      return new Complex(sumResult.re / storage.size, sumResult.im / storage.size);
+    }
+    return (sumResult as number) / storage.size;
   }
 
   // Normalize negative axis
@@ -129,13 +163,20 @@ export function mean(
   if (typeof sumResult === 'number') {
     return sumResult / shape[normalizedAxis]!;
   }
+  if (sumResult instanceof Complex) {
+    return new Complex(sumResult.re / shape[normalizedAxis]!, sumResult.im / shape[normalizedAxis]!);
+  }
 
   // Divide by the size of the reduced axis
   const divisor = shape[normalizedAxis]!;
 
+  // For complex dtypes, mean stays complex
   // For integer dtypes, mean returns float64 (matching NumPy behavior)
-  let resultDtype = dtype;
-  if (isBigIntDType(dtype) || dtype.startsWith('int') || dtype.startsWith('uint')) {
+  let resultDtype: DType = dtype;
+  if (isComplexDType(dtype)) {
+    // Complex mean stays complex
+    resultDtype = dtype;
+  } else if (isBigIntDType(dtype) || dtype.startsWith('int') || dtype.startsWith('uint')) {
     resultDtype = 'float64';
   }
 
@@ -143,7 +184,16 @@ export function mean(
   const resultData = result.data;
   const sumData = sumResult.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: divide both real and imaginary parts
+    const sumComplex = sumData as Float64Array | Float32Array;
+    const resultComplex = resultData as Float64Array | Float32Array;
+    const size = sumResult.size;
+    for (let i = 0; i < size; i++) {
+      resultComplex[i * 2] = sumComplex[i * 2]! / divisor;
+      resultComplex[i * 2 + 1] = sumComplex[i * 2 + 1]! / divisor;
+    }
+  } else if (isBigIntDType(dtype)) {
     // Convert BigInt sum results to float for mean
     const sumTyped = sumData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < resultData.length; i++) {
@@ -263,16 +313,30 @@ export function prod(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  const dtype = storage.dtype;
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
 
   if (axis === undefined) {
-    // Product of all elements - return scalar
-    if (isBigIntDType(dtype)) {
+    // Product of all elements - return scalar (or Complex for complex arrays)
+    if (isComplexDType(dtype)) {
+      const complexData = data as Float64Array | Float32Array;
+      let prodRe = 1;
+      let prodIm = 0;
+      for (let i = 0; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+        const newRe = prodRe * re - prodIm * im;
+        const newIm = prodRe * im + prodIm * re;
+        prodRe = newRe;
+        prodIm = newIm;
+      }
+      return new Complex(prodRe, prodIm);
+    } else if (isBigIntDType(dtype)) {
       const typedData = data as BigInt64Array | BigUint64Array;
       let product = BigInt(1);
       for (let i = 0; i < size; i++) {
@@ -312,7 +376,29 @@ export function prod(
   const axisSize = shape[normalizedAxis]!;
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex product along axis
+    const complexData = data as Float64Array | Float32Array;
+    const resultComplex = resultData as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let prodRe = 1;
+      let prodIm = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+        const newRe = prodRe * re - prodIm * im;
+        const newIm = prodRe * im + prodIm * re;
+        prodRe = newRe;
+        prodIm = newIm;
+      }
+      resultComplex[outerIdx * 2] = prodRe;
+      resultComplex[outerIdx * 2 + 1] = prodIm;
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
 
@@ -1149,7 +1235,7 @@ export function average(
   axis?: number,
   weights?: ArrayStorage,
   keepdims: boolean = false
-): ArrayStorage | number {
+): ArrayStorage | number | Complex {
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;

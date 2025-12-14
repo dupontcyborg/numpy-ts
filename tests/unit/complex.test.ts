@@ -587,4 +587,175 @@ describe('Complex Number Support', () => {
       });
     });
   });
+
+  describe('Complex comparison operations', () => {
+    describe('equal()', () => {
+      it('compares complex arrays for equality', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const b = array([new Complex(1, 2), new Complex(3, 5)]);
+
+        // Using NDArray comparison method
+        const result = a.equal(b);
+        expect(result.toArray()).toEqual([1, 0]); // [true, false]
+      });
+
+      it('compares complex with scalar', () => {
+        const a = array([new Complex(3, 0), new Complex(3, 1)]);
+        const result = a.equal(3);
+
+        // Only 3+0i equals 3
+        expect(result.toArray()).toEqual([1, 0]);
+      });
+    });
+
+    describe('not_equal()', () => {
+      it('compares complex arrays for inequality', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const b = array([new Complex(1, 2), new Complex(3, 5)]);
+
+        const result = a.not_equal(b);
+        expect(result.toArray()).toEqual([0, 1]); // [false, true]
+      });
+    });
+
+    describe('greater()', () => {
+      it('compares complex arrays with lexicographic ordering', () => {
+        // Same real, different imag
+        const a = array([new Complex(1, 3)]);
+        const b = array([new Complex(1, 2)]);
+        expect(a.greater(b).toArray()).toEqual([1]); // 1+3i > 1+2i
+
+        // Different real
+        const c = array([new Complex(2, 1)]);
+        const d = array([new Complex(1, 10)]);
+        expect(c.greater(d).toArray()).toEqual([1]); // 2+1i > 1+10i (real decides)
+      });
+
+      it('compares complex with scalar', () => {
+        const a = array([new Complex(3, 1), new Complex(2, 0)]);
+        // 3+1i > 3? Yes (real equal, imag > 0)
+        // 2+0i > 3? No (real 2 < 3)
+        expect(a.greater(3).toArray()).toEqual([1, 0]);
+      });
+    });
+
+    describe('less()', () => {
+      it('compares complex arrays with lexicographic ordering', () => {
+        const a = array([new Complex(1, 2)]);
+        const b = array([new Complex(1, 3)]);
+        expect(a.less(b).toArray()).toEqual([1]); // 1+2i < 1+3i
+
+        const c = array([new Complex(1, 10)]);
+        const d = array([new Complex(2, 1)]);
+        expect(c.less(d).toArray()).toEqual([1]); // 1+10i < 2+1i (real decides)
+      });
+    });
+
+    describe('greater_equal() and less_equal()', () => {
+      it('handles equal complex values', () => {
+        const a = array([new Complex(1, 2), new Complex(1, 2)]);
+        const b = array([new Complex(1, 2), new Complex(1, 3)]);
+
+        expect(a.greater_equal(b).toArray()).toEqual([1, 0]); // equal, less
+        expect(a.less_equal(b).toArray()).toEqual([1, 1]);    // equal, less
+      });
+    });
+  });
+
+  describe('Complex reduction operations', () => {
+    describe('sum()', () => {
+      it('sums all elements returning Complex', () => {
+        // (1+2i) + (3+4i) + (5+6i) = 9 + 12i
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+        const result = a.sum();
+
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBe(9);
+        expect((result as Complex).im).toBe(12);
+      });
+
+      it('sums along axis', () => {
+        // [[1+2i, 3+4i], [5+6i, 7+8i]]
+        // sum axis=0: [(1+5)+(2+6)i, (3+7)+(4+8)i] = [6+8i, 10+12i]
+        const a = array([
+          [new Complex(1, 2), new Complex(3, 4)],
+          [new Complex(5, 6), new Complex(7, 8)],
+        ]);
+        const result = a.sum(0);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(6);
+        expect(values[0].im).toBe(8);
+        expect(values[1].re).toBe(10);
+        expect(values[1].im).toBe(12);
+      });
+    });
+
+    describe('mean()', () => {
+      it('computes mean of all elements returning Complex', () => {
+        // (1+2i + 3+4i + 5+6i) / 3 = (9+12i) / 3 = 3 + 4i
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+        const result = a.mean();
+
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBe(3);
+        expect((result as Complex).im).toBe(4);
+      });
+
+      it('computes mean along axis', () => {
+        const a = array([
+          [new Complex(2, 4), new Complex(4, 8)],
+          [new Complex(6, 12), new Complex(8, 16)],
+        ]);
+        // mean axis=1: [(2+4)/2 + (4+8)/2 i, ...] = [3+6i, 7+14i]
+        const result = a.mean(1);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(3);
+        expect(values[0].im).toBe(6);
+        expect(values[1].re).toBe(7);
+        expect(values[1].im).toBe(14);
+      });
+    });
+
+    describe('prod()', () => {
+      it('computes product of all elements returning Complex', () => {
+        // (1+0i) * (2+0i) * (3+0i) = 6 + 0i
+        const a = array([new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)]);
+        const result = a.prod();
+
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBe(6);
+        expect((result as Complex).im).toBe(0);
+      });
+
+      it('computes product with imaginary parts', () => {
+        // (1+i) * (1+i) = 1 + 2i - 1 = 0 + 2i
+        const a = array([new Complex(1, 1), new Complex(1, 1)]);
+        const result = a.prod();
+
+        expect(result).toBeInstanceOf(Complex);
+        expect((result as Complex).re).toBeCloseTo(0);
+        expect((result as Complex).im).toBeCloseTo(2);
+      });
+
+      it('computes product along axis', () => {
+        const a = array([
+          [new Complex(1, 0), new Complex(2, 0)],
+          [new Complex(3, 0), new Complex(4, 0)],
+        ]);
+        // prod axis=0: [1*3, 2*4] = [3+0i, 8+0i]
+        const result = a.prod(0);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(3);
+        expect(values[0].im).toBe(0);
+        expect(values[1].re).toBe(8);
+        expect(values[1].im).toBe(0);
+      });
+    });
+  });
 });

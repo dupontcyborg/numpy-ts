@@ -94,10 +94,10 @@ try:
 ${indentedCode}
     if isinstance(result, np.ndarray):
         output = {'value': serialize_value(result), 'dtype': str(result.dtype), 'shape': list(result.shape)}
-    elif isinstance(result, (np.integer, np.floating)):
+    elif isinstance(result, (np.integer, np.floating, np.complexfloating)):
         output = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}
     else:
-        output = {'value': result, 'dtype': str(type(result).__name__), 'shape': []}
+        output = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}
     print(json.dumps(output))
 except Exception as e:
     print(json.dumps({'error': str(e)}), file=sys.stderr)

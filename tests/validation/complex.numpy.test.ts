@@ -277,4 +277,100 @@ result = np.array([3]) + np.array([1+2j])
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
   });
+
+  describe('Reductions', () => {
+    it('sums complex array matching NumPy', () => {
+      const arr = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+      const jsResult = arr.sum();
+      const pyResult = runNumPy(`
+result = np.sum(np.array([1+2j, 3+4j, 5+6j]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      const pyVal = pyResult.value;
+      expect((jsResult as Complex).re).toBeCloseTo(pyVal.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyVal.im);
+    });
+
+    it('computes mean of complex array matching NumPy', () => {
+      const arr = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+      const jsResult = arr.mean();
+      const pyResult = runNumPy(`
+result = np.mean(np.array([1+2j, 3+4j, 5+6j]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      const pyVal = pyResult.value;
+      expect((jsResult as Complex).re).toBeCloseTo(pyVal.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyVal.im);
+    });
+
+    it('computes prod of complex array matching NumPy', () => {
+      const arr = array([new Complex(1, 1), new Complex(2, 0)]);
+      const jsResult = arr.prod();
+      const pyResult = runNumPy(`
+result = np.prod(np.array([1+1j, 2+0j]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      const pyVal = pyResult.value;
+      expect((jsResult as Complex).re).toBeCloseTo(pyVal.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyVal.im);
+    });
+
+    it('sums complex array along axis matching NumPy', () => {
+      const arr = array([
+        [new Complex(1, 2), new Complex(3, 4)],
+        [new Complex(5, 6), new Complex(7, 8)],
+      ]);
+      const jsResult = arr.sum(0);
+      const pyResult = runNumPy(`
+result = np.sum(np.array([[1+2j, 3+4j], [5+6j, 7+8j]]), axis=0)
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('Comparisons', () => {
+    it('compares complex arrays for equality matching NumPy', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4)]);
+      const b = array([new Complex(1, 2), new Complex(3, 5)]);
+      const jsResult = a.equal(b);
+      const pyResult = runNumPy(`
+result = np.array([1+2j, 3+4j]) == np.array([1+2j, 3+5j])
+      `);
+
+      // Convert 0/1 to false/true for comparison
+      const jsAsBool = jsResult.toArray().map((v: number) => v === 1);
+      expect(jsAsBool).toEqual(pyResult.value);
+    });
+
+    it('compares complex arrays for inequality matching NumPy', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4)]);
+      const b = array([new Complex(1, 2), new Complex(3, 5)]);
+      const jsResult = a.not_equal(b);
+      const pyResult = runNumPy(`
+result = np.array([1+2j, 3+4j]) != np.array([1+2j, 3+5j])
+      `);
+
+      // Convert 0/1 to false/true for comparison
+      const jsAsBool = jsResult.toArray().map((v: number) => v === 1);
+      expect(jsAsBool).toEqual(pyResult.value);
+    });
+
+    it('compares complex with scalar matching NumPy', () => {
+      const a = array([new Complex(3, 0), new Complex(3, 1)]);
+      const jsResult = a.equal(3);
+      const pyResult = runNumPy(`
+result = np.array([3+0j, 3+1j]) == 3
+      `);
+
+      // Convert 0/1 to false/true for comparison
+      const jsAsBool = jsResult.toArray().map((v: number) => v === 1);
+      expect(jsAsBool).toEqual(pyResult.value);
+    });
+  });
 });

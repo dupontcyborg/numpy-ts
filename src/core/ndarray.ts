@@ -1113,9 +1113,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Sum of array elements, or array of sums along axis
    */
-  sum(axis?: number, keepdims: boolean = false): NDArray | number {
+  sum(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.sum(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1126,9 +1129,12 @@ export class NDArray {
    *
    * Note: mean() returns float64 for integer dtypes, matching NumPy behavior
    */
-  mean(axis?: number, keepdims: boolean = false): NDArray | number {
+  mean(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.mean(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1159,9 +1165,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Product of array elements, or array of products along axis
    */
-  prod(axis?: number, keepdims: boolean = false): NDArray | number {
+  prod(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.prod(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1300,9 +1309,12 @@ export class NDArray {
    * @param axis - Axis along which to compute average. If undefined, compute over all elements.
    * @returns Weighted average of array elements
    */
-  average(weights?: NDArray, axis?: number): NDArray | number {
+  average(weights?: NDArray, axis?: number): NDArray | number | Complex {
     const result = reductionOps.average(this._storage, axis, weights?.storage);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -4596,10 +4608,13 @@ export function average(
   axis?: number,
   weights?: NDArray,
   keepdims: boolean = false
-): NDArray | number {
+): NDArray | number | Complex {
   const weightsStorage = weights ? weights.storage : undefined;
   const result = reductionOps.average(a.storage, axis, weightsStorage, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 // ============================================================================
