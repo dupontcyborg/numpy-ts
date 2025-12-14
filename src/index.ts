@@ -4,6 +4,9 @@
  * @module numpy-ts
  */
 
+// Complex number class
+export { Complex, type ComplexInput } from './core/complex';
+
 // Core array functions
 export {
   NDArray,
@@ -230,6 +233,12 @@ export {
   iscomplexobj,
   isreal,
   isrealobj,
+  // Complex number functions
+  real,
+  imag,
+  conj,
+  conjugate,
+  angle,
   isneginf,
   isposinf,
   isfortran,

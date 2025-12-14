@@ -9,7 +9,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, promoteDTypes } from '../core/dtype';
+import { isBigIntDType, isComplexDType, getComplexComponentDType, promoteDTypes } from '../core/dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 
 /**
@@ -442,7 +442,25 @@ export function absolute(a: ArrayStorage): ArrayStorage {
   const data = a.data;
   const size = a.size;
 
-  // Create result with same dtype
+  // For complex types, result is the component dtype (magnitude is real)
+  if (isComplexDType(dtype)) {
+    const resultDtype = getComplexComponentDType(dtype);
+    const result = ArrayStorage.zeros(shape, resultDtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const srcData = data as Float64Array | Float32Array;
+
+    // Data is interleaved [re, im, re, im, ...]
+    // |z| = sqrt(re² + im²)
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+      resultData[i] = Math.sqrt(re * re + im * im);
+    }
+
+    return result;
+  }
+
+  // Create result with same dtype for non-complex
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 

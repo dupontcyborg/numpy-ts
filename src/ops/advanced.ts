@@ -8,6 +8,7 @@
 import { ArrayStorage, computeStrides } from '../core/storage';
 import { getTypedArrayConstructor, isBigIntDType, type TypedArray } from '../core/dtype';
 import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../core/broadcasting';
+import { Complex } from '../core/complex';
 
 /**
  * Broadcast an array to a given shape
@@ -204,7 +205,9 @@ export function put(
     // Extract values from storage
     valueArray = [];
     for (let i = 0; i < values.size; i++) {
-      valueArray.push(values.iget(i));
+      const val = values.iget(i);
+      // Convert Complex to its real part for non-complex operations
+      valueArray.push(val instanceof Complex ? val.re : (val as number | bigint));
     }
     // Broadcast values if needed
     if (valueArray.length === 1) {
@@ -534,7 +537,9 @@ export function putmask(
   } else {
     valueArray = [];
     for (let i = 0; i < values.size; i++) {
-      valueArray.push(values.iget(i));
+      const val = values.iget(i);
+      // Convert Complex to its real part for non-complex operations
+      valueArray.push(val instanceof Complex ? val.re : (val as number | bigint));
     }
   }
 
@@ -795,7 +800,9 @@ export function place(storage: ArrayStorage, mask: ArrayStorage, vals: ArrayStor
   // Get values array
   const valueArray: (number | bigint)[] = [];
   for (let i = 0; i < vals.size; i++) {
-    valueArray.push(vals.iget(i));
+    const val = vals.iget(i);
+    // Convert Complex to its real part for non-complex operations
+    valueArray.push(val instanceof Complex ? val.re : (val as number | bigint));
   }
 
   if (valueArray.length === 0) {

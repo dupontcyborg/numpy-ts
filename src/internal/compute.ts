@@ -9,6 +9,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { promoteDTypes, isBigIntDType } from '../core/dtype';
+import { Complex } from '../core/complex';
 
 /**
  * Compute the broadcast shape of two arrays
@@ -131,8 +132,11 @@ export function elementwiseBinaryOp(
       const bRaw = bBroadcast.iget(i);
 
       // Convert to BigInt - handle case where value is already BigInt
-      const aVal = typeof aRaw === 'bigint' ? aRaw : BigInt(Math.round(aRaw));
-      const bVal = typeof bRaw === 'bigint' ? bRaw : BigInt(Math.round(bRaw));
+      // Note: Complex values get their real part extracted
+      const aNum = aRaw instanceof Complex ? aRaw.re : aRaw;
+      const bNum = bRaw instanceof Complex ? bRaw.re : bRaw;
+      const aVal = typeof aNum === 'bigint' ? aNum : BigInt(Math.round(aNum as number));
+      const bVal = typeof bNum === 'bigint' ? bNum : BigInt(Math.round(bNum as number));
 
       // Use BigInt operations
       if (opName === 'add') {

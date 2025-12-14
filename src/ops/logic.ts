@@ -10,7 +10,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
 import { broadcastShapes } from '../internal/compute';
 
@@ -728,45 +728,77 @@ function broadcastToStorage(storage: ArrayStorage, targetShape: readonly number[
 // ============================================================
 
 /**
- * Test element-wise for complex number
- * Since numpy-ts doesn't support complex numbers, always returns false
+ * Test element-wise for complex number.
+ *
+ * For complex arrays, returns true for elements with non-zero imaginary part.
+ * For real arrays, always returns false.
+ *
  * @param a - Input array storage
- * @returns Boolean array (all false)
+ * @returns Boolean array
  */
 export function iscomplex(a: ArrayStorage): ArrayStorage {
-  const data = new Uint8Array(a.size);
+  const dtype = a.dtype as DType;
+  const size = a.size;
+  const data = new Uint8Array(size);
+
+  if (isComplexDType(dtype)) {
+    // Check if imaginary part is non-zero
+    const srcData = a.data as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = srcData[i * 2 + 1] !== 0 ? 1 : 0;
+    }
+  }
+  // For real arrays, all elements are false (initialized to 0)
+
   return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
 }
 
 /**
- * Check whether object is complex type array
- * Since numpy-ts doesn't support complex numbers, always returns false
- * @param _a - Input array storage (unused)
- * @returns false
+ * Check whether object is complex type array.
+ *
+ * @param a - Input array storage
+ * @returns true if dtype is complex64 or complex128
  */
-export function iscomplexobj(_a: ArrayStorage): boolean {
-  return false;
+export function iscomplexobj(a: ArrayStorage): boolean {
+  return isComplexDType(a.dtype as DType);
 }
 
 /**
- * Test element-wise for real number (not complex)
- * Since numpy-ts doesn't support complex numbers, always returns true
+ * Test element-wise for real number (not complex).
+ *
+ * For complex arrays, returns true for elements with zero imaginary part.
+ * For real arrays, always returns true.
+ *
  * @param a - Input array storage
- * @returns Boolean array (all true)
+ * @returns Boolean array
  */
 export function isreal(a: ArrayStorage): ArrayStorage {
-  const data = new Uint8Array(a.size).fill(1);
+  const dtype = a.dtype as DType;
+  const size = a.size;
+  const data = new Uint8Array(size);
+
+  if (isComplexDType(dtype)) {
+    // Check if imaginary part is zero
+    const srcData = a.data as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      data[i] = srcData[i * 2 + 1] === 0 ? 1 : 0;
+    }
+  } else {
+    // For real arrays, all elements are true
+    data.fill(1);
+  }
+
   return ArrayStorage.fromData(data, Array.from(a.shape), 'bool');
 }
 
 /**
- * Check whether object is real type array (not complex)
- * Since numpy-ts doesn't support complex numbers, always returns true
- * @param _a - Input array storage (unused)
- * @returns true
+ * Check whether object is real type array (not complex).
+ *
+ * @param a - Input array storage
+ * @returns true if dtype is NOT complex64 or complex128
  */
-export function isrealobj(_a: ArrayStorage): boolean {
-  return true;
+export function isrealobj(a: ArrayStorage): boolean {
+  return !isComplexDType(a.dtype as DType);
 }
 
 /**

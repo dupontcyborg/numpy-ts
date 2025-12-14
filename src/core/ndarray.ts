@@ -12,7 +12,10 @@ import {
   getTypedArrayConstructor,
   getDTypeSize,
   isBigIntDType,
+  isComplexDType,
+  isComplexLike,
 } from './dtype';
+import { Complex } from './complex';
 import { ArrayStorage } from './storage';
 import { computeBroadcastShape } from './broadcasting';
 import * as arithmeticOps from '../ops/arithmetic';
@@ -26,6 +29,7 @@ import * as hyperbolicOps from '../ops/hyperbolic';
 import * as advancedOps from '../ops/advanced';
 import * as bitwiseOps from '../ops/bitwise';
 import * as logicOps from '../ops/logic';
+import * as complexOps from '../ops/complex';
 import * as sortingOps from '../ops/sorting';
 import * as roundingOps from '../ops/rounding';
 import * as setOps from '../ops/sets';
@@ -160,7 +164,7 @@ export class NDArray {
    * Iterator protocol - iterate over the first axis
    * For 1D arrays, yields elements; for ND arrays, yields (N-1)D subarrays
    */
-  *[Symbol.iterator](): Iterator<NDArray | number | bigint> {
+  *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
     if (this.ndim === 0) {
       // 0D array: yield the single element
       yield this._storage.iget(0);
@@ -180,9 +184,9 @@ export class NDArray {
   /**
    * Get a single element from the array
    * @param indices - Array of indices, one per dimension (e.g., [0, 1] for 2D array)
-   * @returns The element value (BigInt for int64/uint64, number otherwise)
+   * @returns The element value (BigInt for int64/uint64, Complex for complex, number otherwise)
    */
-  get(indices: number[]): number | bigint {
+  get(indices: number[]): number | bigint | Complex {
     // Validate number of indices
     if (indices.length !== this.ndim) {
       throw new Error(
@@ -213,7 +217,7 @@ export class NDArray {
    * @param indices - Array of indices, one per dimension (e.g., [0, 1] for 2D array)
    * @param value - Value to set (will be converted to array's dtype)
    */
-  set(indices: number[], value: number | bigint): void {
+  set(indices: number[], value: number | bigint | Complex | { re: number; im: number }): void {
     // Validate number of indices
     if (indices.length !== this.ndim) {
       throw new Error(
@@ -238,20 +242,26 @@ export class NDArray {
 
     // Convert value to appropriate type based on dtype
     const currentDtype = this.dtype as DType;
-    let convertedValue: number | bigint;
 
-    if (isBigIntDType(currentDtype)) {
+    if (isComplexDType(currentDtype)) {
+      // For complex dtypes, pass the value directly to storage
+      // (storage.set handles Complex, {re, im}, and number)
+      this._storage.set(normalizedIndices, value);
+    } else if (isBigIntDType(currentDtype)) {
       // Convert to BigInt for BigInt dtypes
-      convertedValue = typeof value === 'bigint' ? value : BigInt(Math.round(value));
+      const numValue = value instanceof Complex ? value.re : Number(value);
+      const convertedValue = typeof value === 'bigint' ? value : BigInt(Math.round(numValue));
+      this._storage.set(normalizedIndices, convertedValue);
     } else if (currentDtype === 'bool') {
       // Convert to 0 or 1 for bool dtype
-      convertedValue = value ? 1 : 0;
+      const numValue = value instanceof Complex ? value.re : Number(value);
+      const convertedValue = numValue ? 1 : 0;
+      this._storage.set(normalizedIndices, convertedValue);
     } else {
       // Convert to number for all other dtypes
-      convertedValue = Number(value);
+      const convertedValue = value instanceof Complex ? value.re : Number(value);
+      this._storage.set(normalizedIndices, convertedValue);
     }
-
-    this._storage.set(normalizedIndices, convertedValue);
   }
 
   /**
@@ -1980,6 +1990,17 @@ function containsBigInt(data: unknown): boolean {
 }
 
 /**
+ * Helper to check if data contains Complex values
+ */
+function containsComplex(data: unknown): boolean {
+  if (isComplexLike(data)) return true;
+  if (Array.isArray(data)) {
+    return data.some((item) => containsComplex(item));
+  }
+  return false;
+}
+
+/**
  * Helper to flatten nested arrays keeping BigInt values
  */
 function flattenKeepBigInt(data: unknown): unknown[] {
@@ -2012,6 +2033,7 @@ export function array(data: any, dtype?: DType): NDArray {
   }
 
   const hasBigInt = containsBigInt(data);
+  const hasComplex = containsComplex(data);
 
   // Infer shape from nested arrays
   const shape = inferShape(data);
@@ -2020,12 +2042,16 @@ export function array(data: any, dtype?: DType): NDArray {
   // Determine dtype
   let actualDtype = dtype;
   if (!actualDtype) {
-    if (hasBigInt) {
+    if (hasComplex) {
+      actualDtype = 'complex128';
+    } else if (hasBigInt) {
       actualDtype = 'int64';
     } else {
       actualDtype = DEFAULT_DTYPE;
     }
   }
+
+  const isComplex = isComplexDType(actualDtype);
 
   // Get TypedArray constructor
   const Constructor = getTypedArrayConstructor(actualDtype);
@@ -2033,7 +2059,9 @@ export function array(data: any, dtype?: DType): NDArray {
     throw new Error(`Cannot create array with dtype ${actualDtype}`);
   }
 
-  const typedData = new Constructor(size);
+  // For complex types, physical size is 2x logical size
+  const physicalSize = isComplex ? size * 2 : size;
+  const typedData = new Constructor(physicalSize);
   const flatData = flattenKeepBigInt(data);
 
   // Fill the typed array
@@ -2047,6 +2075,28 @@ export function array(data: any, dtype?: DType): NDArray {
     const boolData = typedData as Uint8Array;
     for (let i = 0; i < size; i++) {
       boolData[i] = flatData[i] ? 1 : 0;
+    }
+  } else if (isComplex) {
+    // Complex: store as interleaved [re, im, re, im, ...]
+    const complexData = typedData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const val = flatData[i];
+      let re: number, im: number;
+
+      if (val instanceof Complex) {
+        re = val.re;
+        im = val.im;
+      } else if (typeof val === 'object' && val !== null && 're' in val) {
+        re = (val as { re: number; im?: number }).re;
+        im = (val as { re: number; im?: number }).im ?? 0;
+      } else {
+        // Scalar number - treat as real with 0 imaginary
+        re = Number(val);
+        im = 0;
+      }
+
+      complexData[i * 2] = re;
+      complexData[i * 2 + 1] = im;
     }
   } else {
     const numData = typedData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
@@ -5114,43 +5164,106 @@ export function spacing(x: NDArray): NDArray {
 }
 
 /**
- * Test element-wise for complex number
- * Since numpy-ts doesn't support complex numbers, always returns false
+ * Test element-wise for complex number.
+ *
+ * For complex arrays, returns true for elements with non-zero imaginary part.
+ * For real arrays, always returns false.
+ *
  * @param x - Input array
- * @returns Boolean array (all false)
+ * @returns Boolean array
  */
 export function iscomplex(x: NDArray): NDArray {
   return NDArray._fromStorage(logicOps.iscomplex(x.storage));
 }
 
 /**
- * Check whether array is complex type
- * Since numpy-ts doesn't support complex numbers, always returns false
+ * Check whether array is complex type.
+ *
  * @param x - Input array
- * @returns false
+ * @returns true if dtype is complex64 or complex128
  */
 export function iscomplexobj(x: NDArray): boolean {
   return logicOps.iscomplexobj(x.storage);
 }
 
 /**
- * Test element-wise for real number (not complex)
- * Since numpy-ts doesn't support complex numbers, always returns true
+ * Test element-wise for real number (not complex).
+ *
+ * For complex arrays, returns true for elements with zero imaginary part.
+ * For real arrays, always returns true.
+ *
  * @param x - Input array
- * @returns Boolean array (all true)
+ * @returns Boolean array
  */
 export function isreal(x: NDArray): NDArray {
   return NDArray._fromStorage(logicOps.isreal(x.storage));
 }
 
 /**
- * Check whether array is real type (not complex)
- * Since numpy-ts doesn't support complex numbers, always returns true
+ * Check whether array is real type (not complex).
+ *
  * @param x - Input array
- * @returns true
+ * @returns true if dtype is NOT complex64 or complex128
  */
 export function isrealobj(x: NDArray): boolean {
   return logicOps.isrealobj(x.storage);
+}
+
+/**
+ * Return the real part of complex argument.
+ *
+ * For complex arrays, returns the real components.
+ * For real arrays, returns a copy of the input.
+ *
+ * @param x - Input array
+ * @returns Array with real parts
+ */
+export function real(x: NDArray): NDArray {
+  return NDArray._fromStorage(complexOps.real(x.storage));
+}
+
+/**
+ * Return the imaginary part of complex argument.
+ *
+ * For complex arrays, returns the imaginary components.
+ * For real arrays, returns zeros.
+ *
+ * @param x - Input array
+ * @returns Array with imaginary parts
+ */
+export function imag(x: NDArray): NDArray {
+  return NDArray._fromStorage(complexOps.imag(x.storage));
+}
+
+/**
+ * Return the complex conjugate.
+ *
+ * For complex arrays, negates the imaginary part: (a + bi) -> (a - bi)
+ * For real arrays, returns a copy of the input.
+ *
+ * @param x - Input array
+ * @returns Complex conjugate array
+ */
+export function conj(x: NDArray): NDArray {
+  return NDArray._fromStorage(complexOps.conj(x.storage));
+}
+
+// Alias for conj
+export const conjugate = conj;
+
+/**
+ * Return the angle (phase) of complex argument.
+ *
+ * angle(z) = arctan2(imag(z), real(z))
+ *
+ * For real arrays, returns 0 for positive, pi for negative.
+ *
+ * @param x - Input array
+ * @param deg - Return angle in degrees if true (default: false, returns radians)
+ * @returns Array with angles in radians (or degrees)
+ */
+export function angle(x: NDArray, deg: boolean = false): NDArray {
+  return NDArray._fromStorage(complexOps.angle(x.storage, deg));
 }
 
 /**

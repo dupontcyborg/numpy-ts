@@ -7,6 +7,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { promoteDTypes } from '../core/dtype';
+import { Complex } from '../core/complex';
 import * as shapeOps from './shape';
 
 /**
@@ -589,7 +590,10 @@ export function trace(a: ArrayStorage): number | bigint {
 
   for (let i = 0; i < diagLen; i++) {
     const val = a.get(i, i);
-    if (typeof val === 'bigint') {
+    if (val instanceof Complex) {
+      // For complex values, sum the real part (trace of complex matrix would need Complex sum)
+      sum = (typeof sum === 'bigint' ? Number(sum) : sum) + val.re;
+    } else if (typeof val === 'bigint') {
       sum = (typeof sum === 'bigint' ? sum : BigInt(sum)) + val;
     } else {
       sum = (typeof sum === 'bigint' ? Number(sum) : sum) + val;
