@@ -18,6 +18,8 @@ import {
   iscomplexobj,
   isreal,
   isrealobj,
+  sqrt,
+  power,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -375,6 +377,213 @@ describe('Complex Number Support', () => {
         const result = isreal(arr);
 
         expect(result.toArray()).toEqual([1, 1, 1]);
+      });
+    });
+  });
+
+  describe('Complex arithmetic operations', () => {
+    describe('Addition', () => {
+      it('adds two complex arrays', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const b = array([new Complex(5, 6), new Complex(7, 8)]);
+        const result = a.add(b);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(6);
+        expect(values[0].im).toBe(8);
+        expect(values[1].re).toBe(10);
+        expect(values[1].im).toBe(12);
+      });
+
+      it('adds complex array and real array', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const b = array([5, 6]);
+        const result = a.add(b);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(6);
+        expect(values[0].im).toBe(2);
+        expect(values[1].re).toBe(9);
+        expect(values[1].im).toBe(4);
+      });
+
+      it('adds complex array and scalar', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = a.add(10);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(11);
+        expect(values[0].im).toBe(2);
+        expect(values[1].re).toBe(13);
+        expect(values[1].im).toBe(4);
+      });
+    });
+
+    describe('Subtraction', () => {
+      it('subtracts two complex arrays', () => {
+        const a = array([new Complex(5, 6), new Complex(7, 8)]);
+        const b = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = a.subtract(b);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(4);
+        expect(values[0].im).toBe(4);
+        expect(values[1].re).toBe(4);
+        expect(values[1].im).toBe(4);
+      });
+
+      it('subtracts scalar from complex array', () => {
+        const a = array([new Complex(5, 6), new Complex(7, 8)]);
+        const result = a.subtract(3);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(2);
+        expect(values[0].im).toBe(6);
+        expect(values[1].re).toBe(4);
+        expect(values[1].im).toBe(8);
+      });
+    });
+
+    describe('Multiplication', () => {
+      it('multiplies two complex arrays', () => {
+        // (1+2i)(3+4i) = 3 + 4i + 6i + 8i² = 3 + 10i - 8 = -5 + 10i
+        const a = array([new Complex(1, 2)]);
+        const b = array([new Complex(3, 4)]);
+        const result = a.multiply(b);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBe(-5);
+        expect(values[0].im).toBe(10);
+      });
+
+      it('multiplies complex array by scalar', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = a.multiply(2);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(2);
+        expect(values[0].im).toBe(4);
+        expect(values[1].re).toBe(6);
+        expect(values[1].im).toBe(8);
+      });
+
+      it('multiplies complex and real arrays', () => {
+        // (1+2i) * 3 = 3 + 6i
+        const a = array([new Complex(1, 2)]);
+        const b = array([3]);
+        const result = a.multiply(b);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(3);
+        expect(values[0].im).toBe(6);
+      });
+    });
+
+    describe('Division', () => {
+      it('divides two complex arrays', () => {
+        // (3+4i)/(1+2i) = (3+4i)(1-2i) / (1+4) = (3 - 6i + 4i + 8) / 5 = (11 - 2i) / 5 = 2.2 - 0.4i
+        const a = array([new Complex(3, 4)]);
+        const b = array([new Complex(1, 2)]);
+        const result = a.divide(b);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2.2);
+        expect(values[0].im).toBeCloseTo(-0.4);
+      });
+
+      it('divides complex array by scalar', () => {
+        const a = array([new Complex(4, 6), new Complex(8, 10)]);
+        const result = a.divide(2);
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(2);
+        expect(values[0].im).toBe(3);
+        expect(values[1].re).toBe(4);
+        expect(values[1].im).toBe(5);
+      });
+    });
+
+    describe('Negation', () => {
+      it('negates complex array', () => {
+        const a = array([new Complex(1, 2), new Complex(-3, 4)]);
+        const result = a.negative();
+
+        const values = result.toArray();
+        expect(values[0].re).toBe(-1);
+        expect(values[0].im).toBe(-2);
+        expect(values[1].re).toBe(3);
+        expect(values[1].im).toBe(-4);
+      });
+    });
+
+    describe('sqrt()', () => {
+      it('computes sqrt of complex numbers', () => {
+        // sqrt(0+i) = sqrt(2)/2 + sqrt(2)/2 * i
+        const a = array([new Complex(0, 1)]);
+        const result = sqrt(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.SQRT2 / 2);
+        expect(values[0].im).toBeCloseTo(Math.SQRT2 / 2);
+      });
+
+      it('computes sqrt of negative number as complex', () => {
+        // sqrt(-1+0i) = 0 + i
+        const a = array([new Complex(-1, 0)]);
+        const result = sqrt(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(1);
+      });
+
+      it('computes sqrt of positive real as complex', () => {
+        // sqrt(4+0i) = 2 + 0i
+        const a = array([new Complex(4, 0)]);
+        const result = sqrt(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+    });
+
+    describe('power()', () => {
+      it('raises complex to real power', () => {
+        // (1+i)^2 = 1 + 2i - 1 = 0 + 2i
+        const a = array([new Complex(1, 1)]);
+        const result = power(a, 2);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(2);
+      });
+
+      it('raises complex to fractional power', () => {
+        // (4+0i)^0.5 = 2 + 0i
+        const a = array([new Complex(4, 0)]);
+        const result = power(a, 0.5);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('raises complex to negative power', () => {
+        // (1+0i)^(-1) = 1 + 0i
+        const a = array([new Complex(1, 0)]);
+        const result = power(a, -1);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
       });
     });
   });

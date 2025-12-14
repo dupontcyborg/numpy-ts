@@ -29,6 +29,8 @@ export interface NumPyResult {
  * Deserialize values from Python, converting special markers back to Infinity/NaN
  */
 
+import { Complex } from '../../src/core/complex';
+
 function deserializeValue(val: any): any {
   if (Array.isArray(val)) {
     return val.map((v) => deserializeValue(v));
@@ -38,6 +40,9 @@ function deserializeValue(val: any): any {
     return -Infinity;
   } else if (val === '__NaN__') {
     return NaN;
+  } else if (typeof val === 'object' && val !== null && '__complex__' in val) {
+    // Deserialize complex numbers from Python
+    return new Complex(val.re, val.im);
   } else {
     return val;
   }
@@ -60,7 +65,7 @@ import sys
 import math
 
 def serialize_value(val):
-    """Convert NumPy arrays/values to JSON-serializable format, handling inf/nan"""
+    """Convert NumPy arrays/values to JSON-serializable format, handling inf/nan/complex"""
     if isinstance(val, np.ndarray):
         # Convert array to nested lists, then recursively serialize
         # tolist() handles multi-dimensional arrays correctly
@@ -70,6 +75,9 @@ def serialize_value(val):
     # Check bool BEFORE int (Python bool is subclass of int)
     elif isinstance(val, (bool, np.bool_)):
         return bool(val)
+    elif isinstance(val, (complex, np.complexfloating)):
+        # Serialize complex numbers as object with re/im
+        return {"__complex__": True, "re": val.real, "im": val.imag}
     elif isinstance(val, (float, np.floating)):
         if math.isnan(val):
             return "__NaN__"
@@ -164,6 +172,15 @@ export function arraysClose(a: any, b: any, rtol: number = 1e-5, atol: number = 
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
     return a.every((val, i) => arraysClose(val, b[i], rtol, atol));
+  } else if (a instanceof Complex && b instanceof Complex) {
+    // Compare complex numbers by comparing real and imaginary parts
+    return closeEnough(a.re, b.re, rtol, atol) && closeEnough(a.im, b.im, rtol, atol);
+  } else if (a instanceof Complex || b instanceof Complex) {
+    // One is complex, one is not - they should both be complex for comparison
+    // Convert real number to complex for comparison
+    const aComplex = a instanceof Complex ? a : new Complex(Number(a), 0);
+    const bComplex = b instanceof Complex ? b : new Complex(Number(b), 0);
+    return closeEnough(aComplex.re, bComplex.re, rtol, atol) && closeEnough(aComplex.im, bComplex.im, rtol, atol);
   } else if (typeof a === 'number' && typeof b === 'number') {
     return closeEnough(a, b, rtol, atol);
   } else if (typeof a === 'bigint' || typeof b === 'bigint') {

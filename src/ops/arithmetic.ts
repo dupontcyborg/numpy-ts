@@ -9,7 +9,12 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, getComplexComponentDType, promoteDTypes } from '../core/dtype';
+import {
+  isBigIntDType,
+  isComplexDType,
+  getComplexComponentDType,
+  promoteDTypes,
+} from '../core/dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 
 /**
@@ -23,6 +28,25 @@ function canUseFastPath(a: ArrayStorage, b: ArrayStorage): boolean {
     a.shape.length === b.shape.length &&
     a.shape.every((dim, i) => dim === b.shape[i])
   );
+}
+
+// ============================================================
+// Complex arithmetic helpers
+// ============================================================
+
+/**
+ * Get real and imaginary parts from a complex array at index
+ */
+function getComplexAt(data: Float64Array | Float32Array, i: number): [number, number] {
+  return [data[i * 2]!, data[i * 2 + 1]!];
+}
+
+/**
+ * Set real and imaginary parts in a complex array at index
+ */
+function setComplexAt(data: Float64Array | Float32Array, i: number, re: number, im: number): void {
+  data[i * 2] = re;
+  data[i * 2 + 1] = im;
 }
 
 /**
@@ -57,6 +81,21 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const aData = a.data;
   const bData = b.data;
   const resultData = result.data;
+
+  // Handle complex result dtype
+  if (isComplexDType(dtype)) {
+    const resultTyped = resultData as Float64Array | Float32Array;
+    const aIsComplex = isComplexDType(a.dtype);
+    const bIsComplex = isComplexDType(b.dtype);
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      // (a+bi) + (c+di) = (a+c) + (b+d)i
+      setComplexAt(resultTyped, i, aRe + bRe, aIm + bIm);
+    }
+    return result;
+  }
 
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -128,6 +167,21 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const bData = b.data;
   const resultData = result.data;
 
+  // Handle complex result dtype
+  if (isComplexDType(dtype)) {
+    const resultTyped = resultData as Float64Array | Float32Array;
+    const aIsComplex = isComplexDType(a.dtype);
+    const bIsComplex = isComplexDType(b.dtype);
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      // (a+bi) - (c+di) = (a-c) + (b-d)i
+      setComplexAt(resultTyped, i, aRe - bRe, aIm - bIm);
+    }
+    return result;
+  }
+
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const needsConversion = !isBigIntDType(a.dtype) || !isBigIntDType(b.dtype);
@@ -197,6 +251,23 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const bData = b.data;
   const resultData = result.data;
 
+  // Handle complex result dtype
+  if (isComplexDType(dtype)) {
+    const resultTyped = resultData as Float64Array | Float32Array;
+    const aIsComplex = isComplexDType(a.dtype);
+    const bIsComplex = isComplexDType(b.dtype);
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+      const re = aRe * bRe - aIm * bIm;
+      const im = aRe * bIm + aIm * bRe;
+      setComplexAt(resultTyped, i, re, im);
+    }
+    return result;
+  }
+
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const needsConversion = !isBigIntDType(a.dtype) || !isBigIntDType(b.dtype);
@@ -238,6 +309,8 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  *
  * NumPy behavior: Integer division always promotes to float
  * Type promotion rules:
+ * - complex128 + anything → complex128
+ * - complex64 + float32/int → complex64
  * - float64 + anything → float64
  * - float32 + integer → float32
  * - integer + integer → float64
@@ -249,6 +322,31 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   if (typeof b === 'number') {
     return divideScalar(a, b);
+  }
+
+  // Handle complex numbers
+  const aIsComplex = isComplexDType(a.dtype);
+  const bIsComplex = isComplexDType(b.dtype);
+
+  if (aIsComplex || bIsComplex) {
+    // Determine result complex dtype
+    const dtype = promoteDTypes(a.dtype, b.dtype);
+    const result = ArrayStorage.zeros(Array.from(a.shape), dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const size = a.size;
+    const aData = a.data;
+    const bData = b.data;
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      // (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c²+d²)
+      const denom = bRe * bRe + bIm * bIm;
+      const re = (aRe * bRe + aIm * bIm) / denom;
+      const im = (aIm * bRe - aRe * bIm) / denom;
+      setComplexAt(resultData, i, re, im);
+    }
+    return result;
   }
 
   // Determine result dtype using NumPy promotion rules
@@ -311,7 +409,15 @@ function addScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: add scalar to real part only
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re + scalar, im);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic - no precision loss
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -343,7 +449,15 @@ function subtractScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: subtract scalar from real part only
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re - scalar, im);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic - no precision loss
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -375,7 +489,16 @@ function multiplyScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: multiply both parts by scalar
+    // (a+bi) * s = (a*s) + (b*s)i
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re * scalar, im * scalar);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic - no precision loss
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -403,6 +526,20 @@ function divideScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+
+  // Handle complex types
+  if (isComplexDType(dtype)) {
+    // Complex: divide both parts by scalar
+    // (a+bi) / s = (a/s) + (b/s)i
+    const result = ArrayStorage.zeros(shape, dtype);
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = result.data as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re / scalar, im / scalar);
+    }
+    return result;
+  }
 
   // NumPy behavior: Integer division always promotes to float64
   // This allows representing inf/nan for division by zero
@@ -499,7 +636,16 @@ export function negative(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: negate both parts
+    // -(a+bi) = (-a) + (-b)i
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, -re, -im);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
