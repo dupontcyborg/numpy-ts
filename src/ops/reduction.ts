@@ -1969,11 +1969,120 @@ export function nanvar(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
-  throwIfComplexNotImplemented(storage.dtype, 'nanvar');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
+  if (isComplexDType(dtype)) {
+    // Complex nanvar: Var(X) = E[|X - μ|²] where |z|² = re² + im²
+    // Returns real values (float64)
+    const complexData = data as Float64Array | Float32Array;
+
+    if (axis === undefined) {
+      // First pass: compute mean ignoring NaN
+      let totalRe = 0;
+      let totalIm = 0;
+      let count = 0;
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          totalRe += re;
+          totalIm += im;
+          count++;
+        }
+      }
+      if (count - ddof <= 0) return NaN;
+      const meanRe = totalRe / count;
+      const meanIm = totalIm / count;
+
+      // Second pass: compute sum of squared deviations
+      let sumSq = 0;
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          // |z - μ|² = (re - μ.re)² + (im - μ.im)²
+          const diffRe = re - meanRe;
+          const diffIm = im - meanIm;
+          sumSq += diffRe * diffRe + diffIm * diffIm;
+        }
+      }
+      return sumSq / (count - ddof);
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return nanvar(storage, undefined, ddof);
+    }
+
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+    const axisSize = shape[normalizedAxis]!;
+    const resultData = new Float64Array(outerSize);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // First pass: compute mean ignoring NaN
+      let totalRe = 0;
+      let totalIm = 0;
+      let count = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          totalRe += re;
+          totalIm += im;
+          count++;
+        }
+      }
+
+      if (count - ddof <= 0) {
+        resultData[outerIdx] = NaN;
+        continue;
+      }
+
+      const meanRe = totalRe / count;
+      const meanIm = totalIm / count;
+
+      // Second pass: compute sum of squared deviations
+      let sumSq = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (!complexIsNaN(re, im)) {
+          const diffRe = re - meanRe;
+          const diffIm = im - meanIm;
+          sumSq += diffRe * diffRe + diffIm * diffIm;
+        }
+      }
+      resultData[outerIdx] = sumSq / (count - ddof);
+    }
+
+    const result = ArrayStorage.fromData(resultData, outputShape, 'float64');
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, 'float64');
+    }
+
+    return result;
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     // First pass: compute mean
     let total = 0;
@@ -2064,6 +2173,7 @@ export function nanvar(
 
 /**
  * Compute standard deviation ignoring NaN values
+ * For complex arrays: returns sqrt of variance (always real values)
  */
 export function nanstd(
   storage: ArrayStorage,
@@ -2071,7 +2181,7 @@ export function nanstd(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
-  throwIfComplexNotImplemented(storage.dtype, 'nanstd');
+  // nanvar handles complex arrays and returns real values
   const varResult = nanvar(storage, axis, ddof, keepdims);
   if (typeof varResult === 'number') {
     return Math.sqrt(varResult);

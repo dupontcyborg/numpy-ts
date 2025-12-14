@@ -2848,6 +2848,64 @@ describe('Complex Number Support', () => {
         expect((result.get([1]) as Complex).im).toBeCloseTo(22);
       });
     });
+
+    describe('nanvar()', () => {
+      it('computes variance of complex array ignoring NaN values', () => {
+        // Array: [1+2i, NaN+3i (skip), 3+4i]
+        // Mean of [1+2i, 3+4i] = (2+3i)
+        // Var = (|1+2i - 2-3i|² + |3+4i - 2-3i|²) / 2
+        //     = (|-1-i|² + |1+i|²) / 2 = (2 + 2) / 2 = 2
+        const a = array([
+          new Complex(1, 2),
+          new Complex(NaN, 3), // Will be skipped
+          new Complex(3, 4),
+        ]);
+        const result = a.nanvar();
+
+        expect(result).toBeCloseTo(2);
+      });
+
+      it('returns NaN for all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = a.nanvar();
+
+        expect(isNaN(result as number)).toBe(true);
+      });
+
+      it('computes variance with ddof', () => {
+        // Same as above but with ddof=1
+        // Var = (2 + 2) / (2 - 1) = 4
+        const a = array([
+          new Complex(1, 2),
+          new Complex(NaN, 3), // Will be skipped
+          new Complex(3, 4),
+        ]);
+        const result = a.nanvar(undefined, 1);
+
+        expect(result).toBeCloseTo(4);
+      });
+    });
+
+    describe('nanstd()', () => {
+      it('computes standard deviation of complex array ignoring NaN values', () => {
+        // Same setup as nanvar - std = sqrt(var) = sqrt(2)
+        const a = array([
+          new Complex(1, 2),
+          new Complex(NaN, 3), // Will be skipped
+          new Complex(3, 4),
+        ]);
+        const result = a.nanstd();
+
+        expect(result).toBeCloseTo(Math.sqrt(2));
+      });
+
+      it('returns NaN for all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = a.nanstd();
+
+        expect(isNaN(result as number)).toBe(true);
+      });
+    });
   });
 
   // ==========================================================================
