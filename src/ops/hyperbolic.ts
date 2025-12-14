@@ -10,6 +10,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp } from '../internal/compute';
+import { throwIfComplexNotImplemented } from '../core/dtype';
 
 /**
  * Hyperbolic sine of each element (element-wise)
@@ -19,6 +20,7 @@ import { elementwiseUnaryOp } from '../internal/compute';
  * @returns Result storage with sinh applied
  */
 export function sinh(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'sinh');
   return elementwiseUnaryOp(a, Math.sinh, false);
 }
 
@@ -30,6 +32,7 @@ export function sinh(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with cosh applied
  */
 export function cosh(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'cosh');
   return elementwiseUnaryOp(a, Math.cosh, false);
 }
 
@@ -41,6 +44,7 @@ export function cosh(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with tanh applied
  */
 export function tanh(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'tanh');
   return elementwiseUnaryOp(a, Math.tanh, false);
 }
 
@@ -52,6 +56,7 @@ export function tanh(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with arcsinh applied
  */
 export function arcsinh(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'arcsinh');
   return elementwiseUnaryOp(a, Math.asinh, false);
 }
 
@@ -63,6 +68,7 @@ export function arcsinh(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with arccosh applied
  */
 export function arccosh(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'arccosh');
   return elementwiseUnaryOp(a, Math.acosh, false);
 }
 
@@ -74,5 +80,6 @@ export function arccosh(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with arctanh applied
  */
 export function arctanh(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'arctanh');
   return elementwiseUnaryOp(a, Math.atanh, false);
 }

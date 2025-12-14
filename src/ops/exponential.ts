@@ -10,7 +10,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
-import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplexNotImplemented, type DType } from '../core/dtype';
 
 /**
  * Square root of each element
@@ -215,6 +215,7 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
  * @returns Result storage with exp applied
  */
 export function exp(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'exp');
   return elementwiseUnaryOp(a, Math.exp, false);
 }
 
@@ -226,6 +227,7 @@ export function exp(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with 2^x applied
  */
 export function exp2(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'exp2');
   return elementwiseUnaryOp(a, (x) => Math.pow(2, x), false);
 }
 
@@ -238,6 +240,7 @@ export function exp2(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with expm1 applied
  */
 export function expm1(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'expm1');
   return elementwiseUnaryOp(a, Math.expm1, false);
 }
 
@@ -249,6 +252,7 @@ export function expm1(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with log applied
  */
 export function log(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'log');
   return elementwiseUnaryOp(a, Math.log, false);
 }
 
@@ -260,6 +264,7 @@ export function log(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with log2 applied
  */
 export function log2(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'log2');
   return elementwiseUnaryOp(a, Math.log2, false);
 }
 
@@ -271,6 +276,7 @@ export function log2(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with log10 applied
  */
 export function log10(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'log10');
   return elementwiseUnaryOp(a, Math.log10, false);
 }
 
@@ -283,6 +289,7 @@ export function log10(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with log1p applied
  */
 export function log1p(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'log1p');
   return elementwiseUnaryOp(a, Math.log1p, false);
 }
 
@@ -296,6 +303,10 @@ export function log1p(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with logaddexp applied
  */
 export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplexNotImplemented(x1.dtype, 'logaddexp');
+  if (typeof x2 !== 'number') {
+    throwIfComplexNotImplemented(x2.dtype, 'logaddexp');
+  }
   if (typeof x2 === 'number') {
     return logaddexpScalar(x1, x2);
   }
@@ -370,6 +381,10 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Result storage with logaddexp2 applied
  */
 export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplexNotImplemented(x1.dtype, 'logaddexp2');
+  if (typeof x2 !== 'number') {
+    throwIfComplexNotImplemented(x2.dtype, 'logaddexp2');
+  }
   if (typeof x2 === 'number') {
     return logaddexp2Scalar(x1, x2);
   }

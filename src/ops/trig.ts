@@ -10,7 +10,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp } from '../internal/compute';
-import { isBigIntDType } from '../core/dtype';
+import { isBigIntDType, throwIfComplexNotImplemented } from '../core/dtype';
 
 /**
  * Sine of each element (element-wise)
@@ -20,6 +20,7 @@ import { isBigIntDType } from '../core/dtype';
  * @returns Result storage with sin applied
  */
 export function sin(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'sin');
   return elementwiseUnaryOp(a, Math.sin, false);
 }
 
@@ -31,6 +32,7 @@ export function sin(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with cos applied
  */
 export function cos(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'cos');
   return elementwiseUnaryOp(a, Math.cos, false);
 }
 
@@ -42,6 +44,7 @@ export function cos(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with tan applied
  */
 export function tan(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'tan');
   return elementwiseUnaryOp(a, Math.tan, false);
 }
 
@@ -53,6 +56,7 @@ export function tan(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with arcsin applied (radians)
  */
 export function arcsin(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'arcsin');
   return elementwiseUnaryOp(a, Math.asin, false);
 }
 
@@ -64,6 +68,7 @@ export function arcsin(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with arccos applied (radians)
  */
 export function arccos(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'arccos');
   return elementwiseUnaryOp(a, Math.acos, false);
 }
 
@@ -75,6 +80,7 @@ export function arccos(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with arctan applied (radians)
  */
 export function arctan(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'arctan');
   return elementwiseUnaryOp(a, Math.atan, false);
 }
 
@@ -87,6 +93,10 @@ export function arctan(a: ArrayStorage): ArrayStorage {
  * @returns Angle in radians between -π and π
  */
 export function arctan2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplexNotImplemented(x1.dtype, 'arctan2');
+  if (typeof x2 !== 'number') {
+    throwIfComplexNotImplemented(x2.dtype, 'arctan2');
+  }
   if (typeof x2 === 'number') {
     return arctan2Scalar(x1, x2);
   }
@@ -158,6 +168,10 @@ function arctan2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Hypotenuse
  */
 export function hypot(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplexNotImplemented(x1.dtype, 'hypot');
+  if (typeof x2 !== 'number') {
+    throwIfComplexNotImplemented(x2.dtype, 'hypot');
+  }
   if (typeof x2 === 'number') {
     return hypotScalar(x1, x2);
   }
@@ -227,6 +241,7 @@ function hypotScalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Angles in degrees
  */
 export function degrees(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'degrees');
   const factor = 180 / Math.PI;
   return elementwiseUnaryOp(a, (x) => x * factor, false);
 }
@@ -239,6 +254,7 @@ export function degrees(a: ArrayStorage): ArrayStorage {
  * @returns Angles in radians
  */
 export function radians(a: ArrayStorage): ArrayStorage {
+  throwIfComplexNotImplemented(a.dtype, 'radians');
   const factor = Math.PI / 180;
   return elementwiseUnaryOp(a, (x) => x * factor, false);
 }

@@ -6,7 +6,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, throwIfComplexNotImplemented, type DType } from '../core/dtype';
 import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
 import { Complex } from '../core/complex';
 
@@ -217,6 +217,7 @@ export function max(
   keepdims: boolean = false
 ): ArrayStorage | number {
   const dtype = storage.dtype;
+  throwIfComplex(dtype, 'max', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -442,6 +443,7 @@ export function min(
   keepdims: boolean = false
 ): ArrayStorage | number {
   const dtype = storage.dtype;
+  throwIfComplex(dtype, 'min', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -536,6 +538,7 @@ export function min(
  */
 export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | number {
   const dtype = storage.dtype;
+  throwIfComplex(dtype, 'argmin', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -628,6 +631,7 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
  */
 export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | number {
   const dtype = storage.dtype;
+  throwIfComplex(dtype, 'argmax', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -728,6 +732,7 @@ export function variance(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplexNotImplemented(storage.dtype, 'variance');
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
@@ -804,6 +809,7 @@ export function std(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplexNotImplemented(storage.dtype, 'std');
   const varResult = variance(storage, axis, ddof, keepdims);
 
   if (typeof varResult === 'number') {
@@ -966,6 +972,7 @@ export function any(
  * Return cumulative sum of elements along a given axis
  */
 export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
+  throwIfComplexNotImplemented(storage.dtype, 'cumsum');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1026,6 +1033,7 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
  * Return cumulative product of elements along a given axis
  */
 export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
+  throwIfComplexNotImplemented(storage.dtype, 'cumprod');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1090,6 +1098,7 @@ export function ptp(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'ptp', 'Complex numbers are not orderable.');
   const maxResult = max(storage, axis, keepdims);
   const minResult = min(storage, axis, keepdims);
 
@@ -1143,6 +1152,7 @@ export function quantile(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'quantile', 'Complex numbers are not orderable.');
   if (q < 0 || q > 1) {
     throw new Error('Quantile must be between 0 and 1');
   }
@@ -1318,6 +1328,7 @@ export function nansum(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplexNotImplemented(storage.dtype, 'nansum');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1383,6 +1394,7 @@ export function nanprod(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplexNotImplemented(storage.dtype, 'nanprod');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1448,6 +1460,7 @@ export function nanmean(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplexNotImplemented(storage.dtype, 'nanmean');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1518,6 +1531,7 @@ export function nanvar(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplexNotImplemented(storage.dtype, 'nanvar');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1619,6 +1633,7 @@ export function nanstd(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplexNotImplemented(storage.dtype, 'nanstd');
   const varResult = nanvar(storage, axis, ddof, keepdims);
   if (typeof varResult === 'number') {
     return Math.sqrt(varResult);
@@ -1639,6 +1654,7 @@ export function nanmin(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'nanmin', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1704,6 +1720,7 @@ export function nanmax(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'nanmax', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1765,6 +1782,7 @@ export function nanmax(
  * Return indices of minimum value, ignoring NaNs
  */
 export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'nanargmin', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1822,6 +1840,7 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
  * Return indices of maximum value, ignoring NaNs
  */
 export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'nanargmax', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1879,6 +1898,7 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
  * Return cumulative sum, treating NaNs as zero
  */
 export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
+  throwIfComplexNotImplemented(storage.dtype, 'nancumsum');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1941,6 +1961,7 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
  * Return cumulative product, treating NaNs as one
  */
 export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
+  throwIfComplexNotImplemented(storage.dtype, 'nancumprod');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -2007,6 +2028,7 @@ export function nanmedian(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'nanmedian', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
