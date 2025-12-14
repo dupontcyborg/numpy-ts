@@ -2438,6 +2438,167 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    // ========================================
+    // Complex Number Benchmarks
+    // ========================================
+
+    specs.push({
+      name: `zeros [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_zeros',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `ones [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_ones',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `add [${sizes.medium.join('x')}] + [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_add',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+        b: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `multiply [${sizes.medium.join('x')}] * [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_multiply',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+        b: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `divide [${sizes.medium.join('x')}] / [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_divide',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+        b: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `real [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_real',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `imag [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_imag',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `conj [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_conj',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `angle [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_angle',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `abs [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_abs',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `sqrt [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_sqrt',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `sum [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_sum',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `mean [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_mean',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `prod [${sizes.medium.join('x')}] (complex128)`,
+      category: 'complex',
+      operation: 'complex_prod',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   return specs;
