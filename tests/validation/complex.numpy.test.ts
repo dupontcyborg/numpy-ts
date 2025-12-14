@@ -59,6 +59,8 @@ import {
   logical_or,
   logical_not,
   logical_xor,
+  diff,
+  ediff1d,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1646,6 +1648,48 @@ result = np.logical_xor(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([1+0j, 1+0j
         `);
 
         expect(jsResult.toArray()).toEqual(pyResult.value.map((v: boolean) => (v ? 1 : 0)));
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Difference Operations
+  // ==========================================================================
+
+  describe('Difference Operations', () => {
+    describe('diff()', () => {
+      it('computes 1D diff of complex array matching NumPy', () => {
+        const a = array([new Complex(1, 2), new Complex(4, 3), new Complex(6, 1), new Complex(7, 5)]);
+        const jsResult = diff(a);
+        const pyResult = runNumPy(`
+result = np.diff(np.array([1+2j, 4+3j, 6+1j, 7+5j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('computes diff with n=2 matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 3), new Complex(4, 2), new Complex(7, 6), new Complex(11, 5)]);
+        const jsResult = diff(a, 2);
+        const pyResult = runNumPy(`
+result = np.diff(np.array([1+1j, 2+3j, 4+2j, 7+6j, 11+5j]), n=2)
+        `);
+
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('ediff1d()', () => {
+      it('computes ediff1d of complex array matching NumPy', () => {
+        const a = array([new Complex(1, 2), new Complex(4, 1), new Complex(6, 5)]);
+        const jsResult = ediff1d(a);
+        const pyResult = runNumPy(`
+result = np.ediff1d(np.array([1+2j, 4+1j, 6+5j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
     });
   });

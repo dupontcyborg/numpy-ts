@@ -9,7 +9,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, promoteDTypes } from '../core/dtype';
+import { isBigIntDType, isComplexDType, promoteDTypes } from '../core/dtype';
 
 /**
  * Calculate the n-th discrete difference along the given axis.
@@ -68,8 +68,9 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
   const resultShape = [...shape];
   resultShape[axis] = axisSize - 1;
 
-  // Determine result dtype - always float64 for non-float types
+  // Determine result dtype - always float64 for non-float types (except complex)
   const dtype = a.dtype;
+  const isComplex = isComplexDType(dtype);
   const resultDtype = isBigIntDType(dtype) ? 'float64' : dtype;
 
   const result = ArrayStorage.zeros(resultShape, resultDtype);
@@ -106,10 +107,20 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
     }
 
     // Compute difference
-    const val1 = isBigIntDType(dtype) ? Number(a.data[flatIdx1]!) : Number(a.data[flatIdx1]!);
-    const val2 = isBigIntDType(dtype) ? Number(a.data[flatIdx2]!) : Number(a.data[flatIdx2]!);
-
-    resultData[resultIdx] = val2 - val1;
+    if (isComplex) {
+      // Complex: access interleaved data [re, im, re, im, ...]
+      const complexData = a.data as Float64Array | Float32Array;
+      const re1 = complexData[flatIdx1 * 2]!;
+      const im1 = complexData[flatIdx1 * 2 + 1]!;
+      const re2 = complexData[flatIdx2 * 2]!;
+      const im2 = complexData[flatIdx2 * 2 + 1]!;
+      (resultData as Float64Array | Float32Array)[resultIdx * 2] = re2 - re1;
+      (resultData as Float64Array | Float32Array)[resultIdx * 2 + 1] = im2 - im1;
+    } else {
+      const val1 = isBigIntDType(dtype) ? Number(a.data[flatIdx1]!) : Number(a.data[flatIdx1]!);
+      const val2 = isBigIntDType(dtype) ? Number(a.data[flatIdx2]!) : Number(a.data[flatIdx2]!);
+      resultData[resultIdx] = val2 - val1;
+    }
   }
 
   return result;
@@ -131,6 +142,7 @@ export function ediff1d(
   // Flatten the array
   const flatSize = ary.size;
   const dtype = ary.dtype;
+  const isComplex = isComplexDType(dtype);
   const resultDtype = isBigIntDType(dtype) ? 'float64' : dtype;
 
   // Calculate result size
@@ -144,24 +156,53 @@ export function ediff1d(
 
   let idx = 0;
 
-  // Add to_begin values
+  // Add to_begin values (note: these are real numbers even for complex arrays)
   if (to_begin) {
-    for (const val of to_begin) {
-      resultData[idx++] = val;
+    if (isComplex) {
+      for (const val of to_begin) {
+        (resultData as Float64Array | Float32Array)[idx * 2] = val;
+        (resultData as Float64Array | Float32Array)[idx * 2 + 1] = 0;
+        idx++;
+      }
+    } else {
+      for (const val of to_begin) {
+        resultData[idx++] = val;
+      }
     }
   }
 
   // Calculate differences
-  for (let i = 0; i < diffSize; i++) {
-    const val1 = isBigIntDType(dtype) ? Number(ary.iget(i)) : Number(ary.iget(i));
-    const val2 = isBigIntDType(dtype) ? Number(ary.iget(i + 1)) : Number(ary.iget(i + 1));
-    resultData[idx++] = val2 - val1;
+  if (isComplex) {
+    const complexData = ary.data as Float64Array | Float32Array;
+    for (let i = 0; i < diffSize; i++) {
+      const re1 = complexData[i * 2]!;
+      const im1 = complexData[i * 2 + 1]!;
+      const re2 = complexData[(i + 1) * 2]!;
+      const im2 = complexData[(i + 1) * 2 + 1]!;
+      (resultData as Float64Array | Float32Array)[idx * 2] = re2 - re1;
+      (resultData as Float64Array | Float32Array)[idx * 2 + 1] = im2 - im1;
+      idx++;
+    }
+  } else {
+    for (let i = 0; i < diffSize; i++) {
+      const val1 = isBigIntDType(dtype) ? Number(ary.iget(i)) : Number(ary.iget(i));
+      const val2 = isBigIntDType(dtype) ? Number(ary.iget(i + 1)) : Number(ary.iget(i + 1));
+      resultData[idx++] = val2 - val1;
+    }
   }
 
-  // Add to_end values
+  // Add to_end values (note: these are real numbers even for complex arrays)
   if (to_end) {
-    for (const val of to_end) {
-      resultData[idx++] = val;
+    if (isComplex) {
+      for (const val of to_end) {
+        (resultData as Float64Array | Float32Array)[idx * 2] = val;
+        (resultData as Float64Array | Float32Array)[idx * 2 + 1] = 0;
+        idx++;
+      }
+    } else {
+      for (const val of to_end) {
+        resultData[idx++] = val;
+      }
     }
   }
 

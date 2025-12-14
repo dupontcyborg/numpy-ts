@@ -68,6 +68,8 @@ import {
   logical_or,
   logical_not,
   logical_xor,
+  diff,
+  ediff1d,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -2618,6 +2620,68 @@ describe('Complex Number Support', () => {
         const result = logical_xor(a, 1);
 
         expect(result.toArray()).toEqual([0, 1, 0]);
+      });
+    });
+  });
+
+  describe('Difference Operations', () => {
+    describe('diff()', () => {
+      it('computes first difference of complex array', () => {
+        const a = array([new Complex(1, 2), new Complex(4, 5), new Complex(10, 8)]);
+        const result = diff(a);
+
+        const values = result.toArray() as Complex[];
+        expect(values.length).toBe(2);
+        // (4,5) - (1,2) = (3,3)
+        expect(values[0].re).toBe(3);
+        expect(values[0].im).toBe(3);
+        // (10,8) - (4,5) = (6,3)
+        expect(values[1].re).toBe(6);
+        expect(values[1].im).toBe(3);
+      });
+
+      it('computes second difference of complex array', () => {
+        const a = array([new Complex(1, 0), new Complex(2, 1), new Complex(4, 3), new Complex(7, 6)]);
+        const result = diff(a, 2);
+
+        const values = result.toArray() as Complex[];
+        expect(values.length).toBe(2);
+        // First diff: [(1,1), (2,2), (3,3)]
+        // Second diff: [(1,1), (1,1)]
+        expect(values[0].re).toBe(1);
+        expect(values[0].im).toBe(1);
+        expect(values[1].re).toBe(1);
+        expect(values[1].im).toBe(1);
+      });
+
+      it('preserves complex dtype', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = diff(a);
+
+        expect(result.dtype).toBe('complex128');
+      });
+    });
+
+    describe('ediff1d()', () => {
+      it('computes differences of flattened complex array', () => {
+        const a = array([new Complex(1, 1), new Complex(3, 2), new Complex(6, 5)]);
+        const result = ediff1d(a);
+
+        const values = result.toArray() as Complex[];
+        expect(values.length).toBe(2);
+        // (3,2) - (1,1) = (2,1)
+        expect(values[0].re).toBe(2);
+        expect(values[0].im).toBe(1);
+        // (6,5) - (3,2) = (3,3)
+        expect(values[1].re).toBe(3);
+        expect(values[1].im).toBe(3);
+      });
+
+      it('preserves complex dtype', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const result = ediff1d(a);
+
+        expect(result.dtype).toBe('complex128');
       });
     });
   });

@@ -227,8 +227,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   einsum: 'not_implemented',
 
   // Gradient/difference
-  diff: 'not_implemented',
-  ediff1d: 'not_implemented',
+  diff: 'supported',
+  ediff1d: 'supported',
   gradient: 'not_implemented',
   cross: 'not_implemented',
 
