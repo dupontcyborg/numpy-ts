@@ -10,77 +10,309 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp } from '../internal/compute';
-import { isBigIntDType, throwIfComplexNotImplemented } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplexNotImplemented, type DType } from '../core/dtype';
 
 /**
  * Sine of each element (element-wise)
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: sin(a+bi) = sin(a)cosh(b) + i*cos(a)sinh(b)
  *
  * @param a - Input array storage (angles in radians)
  * @returns Result storage with sin applied
  */
 export function sin(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'sin');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // sin(a+bi) = sin(a)cosh(b) + i*cos(a)sinh(b)
+      dstData[i * 2] = Math.sin(re) * Math.cosh(im);
+      dstData[i * 2 + 1] = Math.cos(re) * Math.sinh(im);
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.sin, false);
 }
 
 /**
  * Cosine of each element (element-wise)
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: cos(a+bi) = cos(a)cosh(b) - i*sin(a)sinh(b)
  *
  * @param a - Input array storage (angles in radians)
  * @returns Result storage with cos applied
  */
 export function cos(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'cos');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // cos(a+bi) = cos(a)cosh(b) - i*sin(a)sinh(b)
+      dstData[i * 2] = Math.cos(re) * Math.cosh(im);
+      dstData[i * 2 + 1] = -Math.sin(re) * Math.sinh(im);
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.cos, false);
 }
 
 /**
  * Tangent of each element (element-wise)
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: tan(a+bi) = (sin(2a) + i*sinh(2b)) / (cos(2a) + cosh(2b))
  *
  * @param a - Input array storage (angles in radians)
  * @returns Result storage with tan applied
  */
 export function tan(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'tan');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+
+      // tan(a+bi) = (sin(2a) + i*sinh(2b)) / (cos(2a) + cosh(2b))
+      const denom = Math.cos(2 * re) + Math.cosh(2 * im);
+      dstData[i * 2] = Math.sin(2 * re) / denom;
+      dstData[i * 2 + 1] = Math.sinh(2 * im) / denom;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.tan, false);
 }
 
 /**
  * Inverse sine of each element (element-wise)
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: arcsin(z) = -i * log(iz + sqrt(1 - z²))
  *
  * @param a - Input array storage (values in range [-1, 1])
  * @returns Result storage with arcsin applied (radians)
  */
 export function arcsin(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'arcsin');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const zRe = srcData[i * 2]!;
+      const zIm = srcData[i * 2 + 1]!;
+
+      // arcsin(z) = -i * log(iz + sqrt(1 - z²))
+      // iz = i*(zRe + zIm*i) = -zIm + zRe*i
+      const izRe = -zIm;
+      const izIm = zRe;
+
+      // z² = (zRe + zIm*i)² = zRe² - zIm² + 2*zRe*zIm*i
+      const z2Re = zRe * zRe - zIm * zIm;
+      const z2Im = 2 * zRe * zIm;
+
+      // 1 - z² = (1 - z2Re) - z2Im*i
+      const oneMinusZ2Re = 1 - z2Re;
+      const oneMinusZ2Im = -z2Im;
+
+      // sqrt(1 - z²)
+      const mag = Math.sqrt(oneMinusZ2Re * oneMinusZ2Re + oneMinusZ2Im * oneMinusZ2Im);
+      const sqrtRe = Math.sqrt((mag + oneMinusZ2Re) / 2);
+      const sqrtIm = (oneMinusZ2Im >= 0 ? 1 : -1) * Math.sqrt((mag - oneMinusZ2Re) / 2);
+
+      // iz + sqrt(1 - z²)
+      const sumRe = izRe + sqrtRe;
+      const sumIm = izIm + sqrtIm;
+
+      // log(...)
+      const logMag = Math.sqrt(sumRe * sumRe + sumIm * sumIm);
+      const logRe = Math.log(logMag);
+      const logIm = Math.atan2(sumIm, sumRe);
+
+      // -i * log = -i * (logRe + logIm*i) = logIm - logRe*i
+      let resultRe = logIm;
+      let resultIm = -logRe;
+
+      // Branch cut adjustment: for purely real z > 1, the standard formula gives
+      // the wrong sign for the imaginary part. NumPy defines arcsin(x) for x > 1
+      // as pi/2 + i*arccosh(x), but our formula gives pi/2 - i*arccosh(x).
+      // Fix: negate imaginary part when z is real and z > 1
+      if (Math.abs(zIm) < 1e-15 && zRe > 1) {
+        resultIm = -resultIm;
+      }
+
+      dstData[i * 2] = resultRe;
+      dstData[i * 2 + 1] = resultIm;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.asin, false);
 }
 
 /**
  * Inverse cosine of each element (element-wise)
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: arccos(z) = -i * log(z + i*sqrt(1 - z²))
  *
  * @param a - Input array storage (values in range [-1, 1])
  * @returns Result storage with arccos applied (radians)
  */
 export function arccos(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'arccos');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const zRe = srcData[i * 2]!;
+      const zIm = srcData[i * 2 + 1]!;
+
+      // arccos(z) = -i * log(z + i*sqrt(1 - z²))
+      // z² = (zRe + zIm*i)² = zRe² - zIm² + 2*zRe*zIm*i
+      const z2Re = zRe * zRe - zIm * zIm;
+      const z2Im = 2 * zRe * zIm;
+
+      // 1 - z² = (1 - z2Re) - z2Im*i
+      const oneMinusZ2Re = 1 - z2Re;
+      const oneMinusZ2Im = -z2Im;
+
+      // sqrt(1 - z²)
+      const mag = Math.sqrt(oneMinusZ2Re * oneMinusZ2Re + oneMinusZ2Im * oneMinusZ2Im);
+      const sqrtRe = Math.sqrt((mag + oneMinusZ2Re) / 2);
+      const sqrtIm = (oneMinusZ2Im >= 0 ? 1 : -1) * Math.sqrt((mag - oneMinusZ2Re) / 2);
+
+      // i * sqrt(1 - z²) = i*(sqrtRe + sqrtIm*i) = -sqrtIm + sqrtRe*i
+      const iSqrtRe = -sqrtIm;
+      const iSqrtIm = sqrtRe;
+
+      // z + i*sqrt(1 - z²)
+      const sumRe = zRe + iSqrtRe;
+      const sumIm = zIm + iSqrtIm;
+
+      // log(...)
+      const logMag = Math.sqrt(sumRe * sumRe + sumIm * sumIm);
+      const logRe = Math.log(logMag);
+      const logIm = Math.atan2(sumIm, sumRe);
+
+      // -i * log = -i * (logRe + logIm*i) = logIm - logRe*i
+      let resultRe = logIm;
+      let resultIm = -logRe;
+
+      // Branch cut adjustment: for purely real z > 1, the standard formula gives
+      // the wrong sign for the imaginary part. NumPy defines arccos(x) for x > 1
+      // as -i*arccosh(x), but our formula gives +i*arccosh(x).
+      // Fix: negate imaginary part when z is real and z > 1
+      if (Math.abs(zIm) < 1e-15 && zRe > 1) {
+        resultIm = -resultIm;
+      }
+
+      dstData[i * 2] = resultRe;
+      dstData[i * 2 + 1] = resultIm;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.acos, false);
 }
 
 /**
  * Inverse tangent of each element (element-wise)
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: arctan(z) = (i/2) * log((1 - iz) / (1 + iz))
  *
  * @param a - Input array storage
  * @returns Result storage with arctan applied (radians)
  */
 export function arctan(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'arctan');
+  const dtype = a.dtype as DType;
+
+  if (isComplexDType(dtype)) {
+    const shape = Array.from(a.shape);
+    const size = a.size;
+    const srcData = a.data as Float64Array | Float32Array;
+
+    const result = ArrayStorage.zeros(shape, dtype);
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const zRe = srcData[i * 2]!;
+      const zIm = srcData[i * 2 + 1]!;
+
+      // arctan(z) = (i/2) * log((1 - iz) / (1 + iz))
+      // iz = -zIm + zRe*i
+      const izRe = -zIm;
+      const izIm = zRe;
+
+      // 1 - iz
+      const numRe = 1 - izRe;
+      const numIm = -izIm;
+
+      // 1 + iz
+      const denRe = 1 + izRe;
+      const denIm = izIm;
+
+      // (1 - iz) / (1 + iz) - complex division
+      const denMag2 = denRe * denRe + denIm * denIm;
+      const divRe = (numRe * denRe + numIm * denIm) / denMag2;
+      const divIm = (numIm * denRe - numRe * denIm) / denMag2;
+
+      // log(...)
+      const logMag = Math.sqrt(divRe * divRe + divIm * divIm);
+      const logRe = Math.log(logMag);
+      const logIm = Math.atan2(divIm, divRe);
+
+      // (i/2) * log = (i/2) * (logRe + logIm*i) = -logIm/2 + logRe/2 * i
+      dstData[i * 2] = -logIm / 2;
+      dstData[i * 2 + 1] = logRe / 2;
+    }
+
+    return result;
+  }
+
   return elementwiseUnaryOp(a, Math.atan, false);
 }
 

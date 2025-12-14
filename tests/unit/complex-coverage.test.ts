@@ -115,21 +115,21 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Currently these silently give wrong results - we need to add guards!
   // =========================================================================
 
-  // Trigonometric (need complex formulas)
-  sin: 'not_implemented',
-  cos: 'not_implemented',
-  tan: 'not_implemented',
-  arcsin: 'not_implemented',
-  asin: 'not_implemented', // alias
-  arccos: 'not_implemented',
-  acos: 'not_implemented', // alias
-  arctan: 'not_implemented',
-  atan: 'not_implemented', // alias
-  arctan2: 'not_implemented',
+  // Trigonometric (complex formulas implemented)
+  sin: 'supported',
+  cos: 'supported',
+  tan: 'supported',
+  arcsin: 'supported',
+  asin: 'supported', // alias
+  arccos: 'supported',
+  acos: 'supported', // alias
+  arctan: 'supported',
+  atan: 'supported', // alias
+  arctan2: 'not_implemented', // two-arg function, complex not applicable
   atan2: 'not_implemented', // alias
-  hypot: 'not_implemented',
-  degrees: 'not_implemented',
-  radians: 'not_implemented',
+  hypot: 'not_implemented', // two-arg function, complex not applicable
+  degrees: 'not_implemented', // real-to-real conversion
+  radians: 'not_implemented', // real-to-real conversion
   deg2rad: 'not_implemented',
   rad2deg: 'not_implemented',
 

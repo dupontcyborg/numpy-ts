@@ -27,6 +27,12 @@ import {
   log2,
   log10,
   log1p,
+  sin,
+  cos,
+  tan,
+  arcsin,
+  arccos,
+  arctan,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -1033,6 +1039,358 @@ describe('Complex Number Support', () => {
         const values = result.toArray();
         expect(values[0].re).toBeCloseTo(1);
         expect(values[0].im).toBeCloseTo(0.5);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Complex Trigonometric Operations
+  // ==========================================================================
+  describe('Complex trigonometric operations', () => {
+    describe('sin()', () => {
+      it('computes sin(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = sin(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes sin(pi/2) = 1', () => {
+        const a = array([new Complex(Math.PI / 2, 0)]);
+        const result = sin(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes sin(i) = i*sinh(1)', () => {
+        // sin(0 + i) = sin(0)cosh(1) + i*cos(0)sinh(1) = 0 + i*sinh(1)
+        const a = array([new Complex(0, 1)]);
+        const result = sin(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.sinh(1));
+      });
+
+      it('computes sin(a+bi) using correct formula', () => {
+        // sin(a+bi) = sin(a)cosh(b) + i*cos(a)sinh(b)
+        const a = 1;
+        const b = 2;
+        const z = array([new Complex(a, b)]);
+        const result = sin(z);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.sin(a) * Math.cosh(b));
+        expect(values[0].im).toBeCloseTo(Math.cos(a) * Math.sinh(b));
+      });
+    });
+
+    describe('cos()', () => {
+      it('computes cos(0) = 1', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = cos(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes cos(pi) = -1', () => {
+        const a = array([new Complex(Math.PI, 0)]);
+        const result = cos(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(-1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes cos(i) = cosh(1)', () => {
+        // cos(0 + i) = cos(0)cosh(1) - i*sin(0)sinh(1) = cosh(1) - 0
+        const a = array([new Complex(0, 1)]);
+        const result = cos(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.cosh(1));
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes cos(a+bi) using correct formula', () => {
+        // cos(a+bi) = cos(a)cosh(b) - i*sin(a)sinh(b)
+        const a = 1;
+        const b = 2;
+        const z = array([new Complex(a, b)]);
+        const result = cos(z);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.cos(a) * Math.cosh(b));
+        expect(values[0].im).toBeCloseTo(-Math.sin(a) * Math.sinh(b));
+      });
+    });
+
+    describe('tan()', () => {
+      it('computes tan(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = tan(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes tan(pi/4) = 1', () => {
+        const a = array([new Complex(Math.PI / 4, 0)]);
+        const result = tan(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes tan(i) = i*tanh(1)', () => {
+        // tan(z) = (sin(2a) + i*sinh(2b)) / (cos(2a) + cosh(2b))
+        // For z = i: a=0, b=1
+        // = (sin(0) + i*sinh(2)) / (cos(0) + cosh(2))
+        // = i*sinh(2) / (1 + cosh(2))
+        // = i * tanh(1)
+        const a = array([new Complex(0, 1)]);
+        const result = tan(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(Math.tanh(1));
+      });
+
+      it('computes tan(a+bi) using correct formula', () => {
+        // tan(z) = (sin(2a) + i*sinh(2b)) / (cos(2a) + cosh(2b))
+        const a = 0.5;
+        const b = 0.3;
+        const z = array([new Complex(a, b)]);
+        const result = tan(z);
+
+        const denom = Math.cos(2 * a) + Math.cosh(2 * b);
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.sin(2 * a) / denom);
+        expect(values[0].im).toBeCloseTo(Math.sinh(2 * b) / denom);
+      });
+    });
+
+    describe('arcsin()', () => {
+      it('computes arcsin(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = arcsin(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes arcsin(1) = pi/2', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = arcsin(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.PI / 2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('arcsin is inverse of sin for small values', () => {
+        const z = array([new Complex(0.3, 0.4)]);
+        const result = arcsin(sin(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.3);
+        expect(values[0].im).toBeCloseTo(0.4);
+      });
+
+      it('computes arcsin(2) with imaginary result', () => {
+        // arcsin(2) is complex because |2| > 1
+        const a = array([new Complex(2, 0)]);
+        const result = arcsin(a);
+
+        // sin(arcsin(2)) should equal 2
+        const check = sin(result);
+        const checkValues = check.toArray();
+        expect(checkValues[0].re).toBeCloseTo(2);
+        expect(checkValues[0].im).toBeCloseTo(0);
+      });
+    });
+
+    describe('arccos()', () => {
+      it('computes arccos(1) = 0', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = arccos(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes arccos(0) = pi/2', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = arccos(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.PI / 2);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('arccos is inverse of cos for values in [0, pi]', () => {
+        const z = array([new Complex(0.5, 0.3)]);
+        const result = arccos(cos(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.5);
+        expect(values[0].im).toBeCloseTo(0.3);
+      });
+
+      it('computes arccos(2) with imaginary result', () => {
+        // arccos(2) is complex because |2| > 1
+        const a = array([new Complex(2, 0)]);
+        const result = arccos(a);
+
+        // cos(arccos(2)) should equal 2
+        const check = cos(result);
+        const checkValues = check.toArray();
+        expect(checkValues[0].re).toBeCloseTo(2);
+        expect(checkValues[0].im).toBeCloseTo(0);
+      });
+    });
+
+    describe('arctan()', () => {
+      it('computes arctan(0) = 0', () => {
+        const a = array([new Complex(0, 0)]);
+        const result = arctan(a);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('computes arctan(1) = pi/4', () => {
+        const a = array([new Complex(1, 0)]);
+        const result = arctan(a);
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(Math.PI / 4);
+        expect(values[0].im).toBeCloseTo(0);
+      });
+
+      it('arctan is inverse of tan for small values', () => {
+        const z = array([new Complex(0.3, 0.2)]);
+        const result = arctan(tan(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.3);
+        expect(values[0].im).toBeCloseTo(0.2);
+      });
+
+      it('computes arctan(2i) correctly', () => {
+        // arctan(z) is special at z = i and z = -i (poles)
+        // For z = 2i, result should be well-defined
+        const a = array([new Complex(0, 2)]);
+        const result = arctan(a);
+
+        // tan(arctan(2i)) should equal 2i
+        const check = tan(result);
+        const checkValues = check.toArray();
+        expect(checkValues[0].re).toBeCloseTo(0);
+        expect(checkValues[0].im).toBeCloseTo(2);
+      });
+    });
+
+    describe('sin and arcsin are inverse operations', () => {
+      it('arcsin(sin(z)) = z for small z', () => {
+        const z = array([new Complex(0.5, 0.5)]);
+        const result = arcsin(sin(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.5);
+        expect(values[0].im).toBeCloseTo(0.5);
+      });
+
+      it('sin(arcsin(z)) = z', () => {
+        const z = array([new Complex(0.7, 0.3)]);
+        const result = sin(arcsin(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.7);
+        expect(values[0].im).toBeCloseTo(0.3);
+      });
+    });
+
+    describe('cos and arccos are inverse operations', () => {
+      it('arccos(cos(z)) = z for z in principal range', () => {
+        const z = array([new Complex(1.0, 0.5)]);
+        const result = arccos(cos(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1.0);
+        expect(values[0].im).toBeCloseTo(0.5);
+      });
+
+      it('cos(arccos(z)) = z', () => {
+        const z = array([new Complex(0.5, 0.5)]);
+        const result = cos(arccos(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.5);
+        expect(values[0].im).toBeCloseTo(0.5);
+      });
+    });
+
+    describe('tan and arctan are inverse operations', () => {
+      it('arctan(tan(z)) = z for small z', () => {
+        const z = array([new Complex(0.5, 0.3)]);
+        const result = arctan(tan(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(0.5);
+        expect(values[0].im).toBeCloseTo(0.3);
+      });
+
+      it('tan(arctan(z)) = z', () => {
+        const z = array([new Complex(1.5, 0.5)]);
+        const result = tan(arctan(z));
+
+        const values = result.toArray();
+        expect(values[0].re).toBeCloseTo(1.5);
+        expect(values[0].im).toBeCloseTo(0.5);
+      });
+    });
+
+    describe('Pythagorean identity', () => {
+      it('sin²(z) + cos²(z) = 1 for complex z', () => {
+        const z = array([new Complex(1.2, 0.8)]);
+        const sinZ = sin(z);
+        const cosZ = cos(z);
+
+        // Compute sin²(z) + cos²(z)
+        const sinVals = sinZ.toArray();
+        const cosVals = cosZ.toArray();
+
+        // sin²(z) = (a + bi)² = a² - b² + 2abi
+        const sin2Re =
+          sinVals[0].re * sinVals[0].re - sinVals[0].im * sinVals[0].im;
+        const sin2Im = 2 * sinVals[0].re * sinVals[0].im;
+
+        // cos²(z) = (c + di)² = c² - d² + 2cdi
+        const cos2Re =
+          cosVals[0].re * cosVals[0].re - cosVals[0].im * cosVals[0].im;
+        const cos2Im = 2 * cosVals[0].re * cosVals[0].im;
+
+        // sin² + cos² should equal 1
+        expect(sin2Re + cos2Re).toBeCloseTo(1);
+        expect(sin2Im + cos2Im).toBeCloseTo(0);
       });
     });
   });

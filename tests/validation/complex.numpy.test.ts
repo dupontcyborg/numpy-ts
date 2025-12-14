@@ -22,6 +22,12 @@ import {
   log2,
   log10,
   log1p,
+  sin,
+  cos,
+  tan,
+  arcsin,
+  arccos,
+  arctan,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -579,6 +585,240 @@ result = np.log(np.exp(np.array([1+0.5j, 2-1j, 0.5+1j])))
       `);
 
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Trigonometric Functions
+  // ==========================================================================
+
+  describe('sin()', () => {
+    it('computes sin of real values matching NumPy', () => {
+      const jsResult = sin(array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)]));
+      const pyResult = runNumPy(`
+import math
+result = np.sin(np.array([0+0j, math.pi/2+0j, math.pi+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes sin of complex matching NumPy', () => {
+      const jsResult = sin(array([new Complex(0, 1), new Complex(1, 1), new Complex(0.5, 2)]));
+      const pyResult = runNumPy(`
+result = np.sin(np.array([0+1j, 1+1j, 0.5+2j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('cos()', () => {
+    it('computes cos of real values matching NumPy', () => {
+      const jsResult = cos(array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)]));
+      const pyResult = runNumPy(`
+import math
+result = np.cos(np.array([0+0j, math.pi/2+0j, math.pi+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes cos of complex matching NumPy', () => {
+      const jsResult = cos(array([new Complex(0, 1), new Complex(1, 1), new Complex(0.5, 2)]));
+      const pyResult = runNumPy(`
+result = np.cos(np.array([0+1j, 1+1j, 0.5+2j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('tan()', () => {
+    it('computes tan of real values matching NumPy', () => {
+      const jsResult = tan(array([new Complex(0, 0), new Complex(Math.PI / 4, 0), new Complex(1, 0)]));
+      const pyResult = runNumPy(`
+import math
+result = np.tan(np.array([0+0j, math.pi/4+0j, 1+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes tan of complex matching NumPy', () => {
+      const jsResult = tan(array([new Complex(0, 1), new Complex(0.5, 0.5), new Complex(1, 0.3)]));
+      const pyResult = runNumPy(`
+result = np.tan(np.array([0+1j, 0.5+0.5j, 1+0.3j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('arcsin()', () => {
+    it('computes arcsin of real values matching NumPy', () => {
+      const jsResult = arcsin(array([new Complex(0, 0), new Complex(0.5, 0), new Complex(1, 0)]));
+      const pyResult = runNumPy(`
+result = np.arcsin(np.array([0+0j, 0.5+0j, 1+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes arcsin of complex matching NumPy', () => {
+      const jsResult = arcsin(array([new Complex(0.3, 0.4), new Complex(2, 0), new Complex(0, 1)]));
+      const pyResult = runNumPy(`
+result = np.arcsin(np.array([0.3+0.4j, 2+0j, 0+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('arccos()', () => {
+    it('computes arccos of real values matching NumPy', () => {
+      const jsResult = arccos(array([new Complex(0, 0), new Complex(0.5, 0), new Complex(1, 0)]));
+      const pyResult = runNumPy(`
+result = np.arccos(np.array([0+0j, 0.5+0j, 1+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes arccos of complex matching NumPy', () => {
+      const jsResult = arccos(array([new Complex(0.3, 0.4), new Complex(2, 0), new Complex(0, 1)]));
+      const pyResult = runNumPy(`
+result = np.arccos(np.array([0.3+0.4j, 2+0j, 0+1j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('arctan()', () => {
+    it('computes arctan of real values matching NumPy', () => {
+      const jsResult = arctan(array([new Complex(0, 0), new Complex(1, 0), new Complex(2, 0)]));
+      const pyResult = runNumPy(`
+result = np.arctan(np.array([0+0j, 1+0j, 2+0j]))
+      `);
+
+      expect(jsResult.dtype).toBe('complex128');
+      expect(pyResult.dtype).toBe('complex128');
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('computes arctan of complex matching NumPy', () => {
+      const jsResult = arctan(array([new Complex(0.3, 0.2), new Complex(1, 0.5), new Complex(0, 0.5)]));
+      const pyResult = runNumPy(`
+result = np.arctan(np.array([0.3+0.2j, 1+0.5j, 0+0.5j]))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('sin/arcsin inverse relationship', () => {
+    it('arcsin(sin(z)) = z for small z matching NumPy', () => {
+      const z = array([new Complex(0.3, 0.4), new Complex(0.5, 0.5), new Complex(0.2, 0.1)]);
+      const jsResult = arcsin(sin(z));
+      const pyResult = runNumPy(`
+result = np.arcsin(np.sin(np.array([0.3+0.4j, 0.5+0.5j, 0.2+0.1j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('sin(arcsin(z)) = z matching NumPy', () => {
+      const z = array([new Complex(0.7, 0.3), new Complex(0.5, 0.2), new Complex(0.3, 0.1)]);
+      const jsResult = sin(arcsin(z));
+      const pyResult = runNumPy(`
+result = np.sin(np.arcsin(np.array([0.7+0.3j, 0.5+0.2j, 0.3+0.1j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('cos/arccos inverse relationship', () => {
+    it('arccos(cos(z)) = z for z in principal range matching NumPy', () => {
+      const z = array([new Complex(0.5, 0.3), new Complex(1.0, 0.5), new Complex(0.8, 0.2)]);
+      const jsResult = arccos(cos(z));
+      const pyResult = runNumPy(`
+result = np.arccos(np.cos(np.array([0.5+0.3j, 1.0+0.5j, 0.8+0.2j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('cos(arccos(z)) = z matching NumPy', () => {
+      const z = array([new Complex(0.5, 0.5), new Complex(0.3, 0.2), new Complex(0.7, 0.3)]);
+      const jsResult = cos(arccos(z));
+      const pyResult = runNumPy(`
+result = np.cos(np.arccos(np.array([0.5+0.5j, 0.3+0.2j, 0.7+0.3j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('tan/arctan inverse relationship', () => {
+    it('arctan(tan(z)) = z for small z matching NumPy', () => {
+      const z = array([new Complex(0.3, 0.2), new Complex(0.5, 0.3), new Complex(0.2, 0.1)]);
+      const jsResult = arctan(tan(z));
+      const pyResult = runNumPy(`
+result = np.arctan(np.tan(np.array([0.3+0.2j, 0.5+0.3j, 0.2+0.1j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('tan(arctan(z)) = z matching NumPy', () => {
+      const z = array([new Complex(1.5, 0.5), new Complex(0.8, 0.3), new Complex(2, 0.5)]);
+      const jsResult = tan(arctan(z));
+      const pyResult = runNumPy(`
+result = np.tan(np.arctan(np.array([1.5+0.5j, 0.8+0.3j, 2+0.5j])))
+      `);
+
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('Pythagorean identity', () => {
+    it('sin²(z) + cos²(z) = 1 matching NumPy', () => {
+      const z = array([new Complex(1.2, 0.8), new Complex(0.5, 1.5), new Complex(2, 0.3)]);
+      const sinResult = sin(z);
+      const cosResult = cos(z);
+      const pyResult = runNumPy(`
+z = np.array([1.2+0.8j, 0.5+1.5j, 2+0.3j])
+sin_result = np.sin(z)
+cos_result = np.cos(z)
+result = sin_result**2 + cos_result**2
+      `);
+
+      // Compute sin²(z) + cos²(z) in JS
+      const sinVals = sinResult.toArray();
+      const cosVals = cosResult.toArray();
+      const sumVals = sinVals.map((s, i) => {
+        const c = cosVals[i];
+        // (a+bi)² = a² - b² + 2abi
+        const sin2Re = s.re * s.re - s.im * s.im;
+        const sin2Im = 2 * s.re * s.im;
+        const cos2Re = c.re * c.re - c.im * c.im;
+        const cos2Im = 2 * c.re * c.im;
+        return new Complex(sin2Re + cos2Re, sin2Im + cos2Im);
+      });
+
+      expect(arraysClose(sumVals, pyResult.value)).toBe(true);
     });
   });
 });
