@@ -125,8 +125,8 @@ NumPy-compatible type system with automatic promotion:
 | `str_` | ✅ | ❌ | Not planned |
 | `bytes_` | ✅ | ❌ | Not planned |
 | `object_` | ✅ | ❌ | Not planned |
-| `datetime64` | ✅ | ❌ | Future consideration |
-| `timedelta64` | ✅ | ❌ | Future consideration |
+| `datetime64` | ✅ | ❌ | Not planned |
+| `timedelta64` | ✅ | ❌ | Not planned |
 
 **Supported: 11/20 numeric dtypes** • Complex types under construction, temporal types planned for future releases
 
