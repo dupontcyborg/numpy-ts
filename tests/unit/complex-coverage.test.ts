@@ -245,12 +245,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
 
   // Set operations (lexicographic ordering)
   unique: 'supported', // lexicographic unique
-  in1d: 'not_implemented',
-  intersect1d: 'not_implemented',
-  isin: 'not_implemented',
-  setdiff1d: 'not_implemented',
-  setxor1d: 'not_implemented',
-  union1d: 'not_implemented',
+  in1d: 'supported', // alias for isin
+  intersect1d: 'supported', // lexicographic intersection
+  isin: 'supported', // lexicographic membership test
+  setdiff1d: 'supported', // lexicographic difference
+  setxor1d: 'supported', // lexicographic symmetric difference
+  union1d: 'supported', // lexicographic union
 
   // Searching
   nonzero: 'supported',
@@ -508,6 +508,12 @@ function testComplexBehavior(fn: Function, fnName: string): ComplexBehavior | 'e
       'extract', // takes (condition, array)
       'digitize', // (x, bins)
       'histogram2d', // (x, y)
+      'in1d', // (ar1, ar2)
+      'intersect1d', // (ar1, ar2)
+      'isin', // (element, test_elements)
+      'setdiff1d', // (ar1, ar2)
+      'setxor1d', // (ar1, ar2)
+      'union1d', // (ar1, ar2)
     ];
 
     // Functions that return tuples (unary)

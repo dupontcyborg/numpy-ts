@@ -282,6 +282,16 @@ export function unique(
   return result;
 }
 
+// Helper: convert storage element to key string
+function elementToKey(data: ArrayLike<number | bigint>, index: number, isComplex: boolean): string {
+  if (isComplex) {
+    const re = Number((data as Float64Array)[index * 2]);
+    const im = Number((data as Float64Array)[index * 2 + 1]);
+    return `${re},${im}`;
+  }
+  return String(Number(data[index]!));
+}
+
 /**
  * Test whether each element of a 1-D array is also present in a second array
  */
@@ -294,29 +304,41 @@ export function in1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
  */
 export function intersect1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   const dtype = ar1.dtype;
+  const isComplex = isComplexDType(dtype);
 
   const unique1 = unique(ar1) as ArrayStorage;
   const unique2 = unique(ar2) as ArrayStorage;
 
-  const set2 = new Set<number>();
+  const set2 = new Set<string>();
   for (let i = 0; i < unique2.size; i++) {
-    set2.add(Number(unique2.data[i]!));
+    set2.add(elementToKey(unique2.data, i, isComplex));
   }
 
-  const intersection: number[] = [];
+  const intersectionIndices: number[] = [];
   for (let i = 0; i < unique1.size; i++) {
-    const val = Number(unique1.data[i]!);
-    if (set2.has(val)) {
-      intersection.push(val);
+    const key = elementToKey(unique1.data, i, isComplex);
+    if (set2.has(key)) {
+      intersectionIndices.push(i);
     }
   }
 
-  intersection.sort((a, b) => a - b);
+  // unique1 is already sorted, just copy the matching elements
+  if (isComplex) {
+    const result = ArrayStorage.zeros([intersectionIndices.length], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const unique1Data = unique1.data as Float64Array | Float32Array;
+    for (let i = 0; i < intersectionIndices.length; i++) {
+      const idx = intersectionIndices[i]!;
+      resultData[i * 2] = unique1Data[idx * 2]!;
+      resultData[i * 2 + 1] = unique1Data[idx * 2 + 1]!;
+    }
+    return result;
+  }
 
-  const result = ArrayStorage.zeros([intersection.length], dtype as DType);
+  const result = ArrayStorage.zeros([intersectionIndices.length], dtype as DType);
   const resultData = result.data;
-  for (let i = 0; i < intersection.length; i++) {
-    resultData[i] = intersection[i]!;
+  for (let i = 0; i < intersectionIndices.length; i++) {
+    resultData[i] = unique1.data[intersectionIndices[i]!]!;
   }
   return result;
 }
@@ -327,19 +349,19 @@ export function intersect1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage 
 export function isin(element: ArrayStorage, testElements: ArrayStorage): ArrayStorage {
   const shape = Array.from(element.shape);
   const size = element.size;
+  const isComplex = isComplexDType(element.dtype);
 
-  const testSet = new Set<number>();
+  const testSet = new Set<string>();
   for (let i = 0; i < testElements.size; i++) {
-    testSet.add(Number(testElements.data[i]!));
+    testSet.add(elementToKey(testElements.data, i, isComplex));
   }
 
   const result = ArrayStorage.zeros(shape, 'bool');
   const resultData = result.data as Uint8Array;
-  const elementData = element.data;
 
   for (let i = 0; i < size; i++) {
-    const val = Number(elementData[i]!);
-    resultData[i] = testSet.has(val) ? 1 : 0;
+    const key = elementToKey(element.data, i, isComplex);
+    resultData[i] = testSet.has(key) ? 1 : 0;
   }
 
   return result;
@@ -350,26 +372,39 @@ export function isin(element: ArrayStorage, testElements: ArrayStorage): ArraySt
  */
 export function setdiff1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   const dtype = ar1.dtype;
+  const isComplex = isComplexDType(dtype);
 
   const unique1 = unique(ar1) as ArrayStorage;
 
-  const set2 = new Set<number>();
+  const set2 = new Set<string>();
   for (let i = 0; i < ar2.size; i++) {
-    set2.add(Number(ar2.data[i]!));
+    set2.add(elementToKey(ar2.data, i, isComplex));
   }
 
-  const diff: number[] = [];
+  const diffIndices: number[] = [];
   for (let i = 0; i < unique1.size; i++) {
-    const val = Number(unique1.data[i]!);
-    if (!set2.has(val)) {
-      diff.push(val);
+    const key = elementToKey(unique1.data, i, isComplex);
+    if (!set2.has(key)) {
+      diffIndices.push(i);
     }
   }
 
-  const result = ArrayStorage.zeros([diff.length], dtype as DType);
+  if (isComplex) {
+    const result = ArrayStorage.zeros([diffIndices.length], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const unique1Data = unique1.data as Float64Array | Float32Array;
+    for (let i = 0; i < diffIndices.length; i++) {
+      const idx = diffIndices[i]!;
+      resultData[i * 2] = unique1Data[idx * 2]!;
+      resultData[i * 2 + 1] = unique1Data[idx * 2 + 1]!;
+    }
+    return result;
+  }
+
+  const result = ArrayStorage.zeros([diffIndices.length], dtype as DType);
   const resultData = result.data;
-  for (let i = 0; i < diff.length; i++) {
-    resultData[i] = diff[i]!;
+  for (let i = 0; i < diffIndices.length; i++) {
+    resultData[i] = unique1.data[diffIndices[i]!]!;
   }
   return result;
 }
@@ -379,38 +414,84 @@ export function setdiff1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
  */
 export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   const dtype = ar1.dtype;
+  const isComplex = isComplexDType(dtype);
 
   const unique1 = unique(ar1) as ArrayStorage;
   const unique2 = unique(ar2) as ArrayStorage;
 
-  const set1 = new Set<number>();
-  const set2 = new Set<number>();
+  const set1 = new Set<string>();
+  const set2 = new Set<string>();
 
   for (let i = 0; i < unique1.size; i++) {
-    set1.add(Number(unique1.data[i]!));
+    set1.add(elementToKey(unique1.data, i, isComplex));
   }
   for (let i = 0; i < unique2.size; i++) {
-    set2.add(Number(unique2.data[i]!));
+    set2.add(elementToKey(unique2.data, i, isComplex));
   }
 
-  const xor: number[] = [];
-  for (const val of set1) {
-    if (!set2.has(val)) {
-      xor.push(val);
+  // Collect from unique1 not in set2, and unique2 not in set1
+  const xorIndices1: number[] = [];
+  const xorIndices2: number[] = [];
+
+  for (let i = 0; i < unique1.size; i++) {
+    const key = elementToKey(unique1.data, i, isComplex);
+    if (!set2.has(key)) {
+      xorIndices1.push(i);
     }
   }
-  for (const val of set2) {
-    if (!set1.has(val)) {
-      xor.push(val);
+  for (let i = 0; i < unique2.size; i++) {
+    const key = elementToKey(unique2.data, i, isComplex);
+    if (!set1.has(key)) {
+      xorIndices2.push(i);
     }
   }
 
-  xor.sort((a, b) => a - b);
+  const totalLen = xorIndices1.length + xorIndices2.length;
 
-  const result = ArrayStorage.zeros([xor.length], dtype as DType);
+  if (isComplex) {
+    // Collect all values, then sort
+    const xorValues: { re: number; im: number }[] = [];
+    const u1Data = unique1.data as Float64Array | Float32Array;
+    const u2Data = unique2.data as Float64Array | Float32Array;
+
+    for (const idx of xorIndices1) {
+      xorValues.push({ re: u1Data[idx * 2]!, im: u1Data[idx * 2 + 1]! });
+    }
+    for (const idx of xorIndices2) {
+      xorValues.push({ re: u2Data[idx * 2]!, im: u2Data[idx * 2 + 1]! });
+    }
+
+    xorValues.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+    const result = ArrayStorage.zeros([xorValues.length], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    for (let i = 0; i < xorValues.length; i++) {
+      resultData[i * 2] = xorValues[i]!.re;
+      resultData[i * 2 + 1] = xorValues[i]!.im;
+    }
+    return result;
+  }
+
+  // Collect all values, then sort
+  const xorValues: number[] = [];
+  for (const idx of xorIndices1) {
+    xorValues.push(Number(unique1.data[idx]!));
+  }
+  for (const idx of xorIndices2) {
+    xorValues.push(Number(unique2.data[idx]!));
+  }
+
+  xorValues.sort((a, b) => {
+    if (isNaN(a) && isNaN(b)) return 0;
+    if (isNaN(a)) return 1;
+    if (isNaN(b)) return -1;
+    return a - b;
+  });
+
+  const result = ArrayStorage.zeros([xorValues.length], dtype as DType);
   const resultData = result.data;
-  for (let i = 0; i < xor.length; i++) {
-    resultData[i] = xor[i]!;
+  for (let i = 0; i < xorValues.length; i++) {
+    resultData[i] = xorValues[i]!;
   }
   return result;
 }
@@ -420,26 +501,77 @@ export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
  */
 export function union1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   const dtype = ar1.dtype;
+  const isComplex = isComplexDType(dtype);
 
   const unique1 = unique(ar1) as ArrayStorage;
   const unique2 = unique(ar2) as ArrayStorage;
 
-  const unionSet = new Set<number>();
+  const unionSet = new Set<string>();
+  const unionValues: { re: number; im: number }[] = [];
 
+  if (isComplex) {
+    const u1Data = unique1.data as Float64Array | Float32Array;
+    const u2Data = unique2.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < unique1.size; i++) {
+      const re = u1Data[i * 2]!;
+      const im = u1Data[i * 2 + 1]!;
+      const key = `${re},${im}`;
+      if (!unionSet.has(key)) {
+        unionSet.add(key);
+        unionValues.push({ re, im });
+      }
+    }
+    for (let i = 0; i < unique2.size; i++) {
+      const re = u2Data[i * 2]!;
+      const im = u2Data[i * 2 + 1]!;
+      const key = `${re},${im}`;
+      if (!unionSet.has(key)) {
+        unionSet.add(key);
+        unionValues.push({ re, im });
+      }
+    }
+
+    unionValues.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+    const result = ArrayStorage.zeros([unionValues.length], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    for (let i = 0; i < unionValues.length; i++) {
+      resultData[i * 2] = unionValues[i]!.re;
+      resultData[i * 2 + 1] = unionValues[i]!.im;
+    }
+    return result;
+  }
+
+  const realValues: number[] = [];
   for (let i = 0; i < unique1.size; i++) {
-    unionSet.add(Number(unique1.data[i]!));
+    const val = Number(unique1.data[i]!);
+    const key = String(val);
+    if (!unionSet.has(key)) {
+      unionSet.add(key);
+      realValues.push(val);
+    }
   }
   for (let i = 0; i < unique2.size; i++) {
-    unionSet.add(Number(unique2.data[i]!));
+    const val = Number(unique2.data[i]!);
+    const key = String(val);
+    if (!unionSet.has(key)) {
+      unionSet.add(key);
+      realValues.push(val);
+    }
   }
 
-  const unionArr = Array.from(unionSet);
-  unionArr.sort((a, b) => a - b);
+  realValues.sort((a, b) => {
+    if (isNaN(a) && isNaN(b)) return 0;
+    if (isNaN(a)) return 1;
+    if (isNaN(b)) return -1;
+    return a - b;
+  });
 
-  const result = ArrayStorage.zeros([unionArr.length], dtype as DType);
+  const result = ArrayStorage.zeros([realValues.length], dtype as DType);
   const resultData = result.data;
-  for (let i = 0; i < unionArr.length; i++) {
-    resultData[i] = unionArr[i]!;
+  for (let i = 0; i < realValues.length; i++) {
+    resultData[i] = realValues[i]!;
   }
   return result;
 }
