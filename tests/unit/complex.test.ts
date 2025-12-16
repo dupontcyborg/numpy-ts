@@ -2906,6 +2906,78 @@ describe('Complex Number Support', () => {
         expect(isNaN(result as number)).toBe(true);
       });
     });
+
+    describe('nanargmin()', () => {
+      it('finds index of minimum complex value ignoring NaN', () => {
+        // Array: [2+1i, NaN+3i (skip), 1+2i, 3+0i]
+        // Min ignoring NaN: 1+2i at index 2
+        const a = array([
+          new Complex(2, 1),
+          new Complex(NaN, 3), // Will be skipped
+          new Complex(1, 2),
+          new Complex(3, 0),
+        ]);
+        const result = a.nanargmin();
+
+        expect(result).toBe(2);
+      });
+
+      it('uses lexicographic ordering with NaN values', () => {
+        // Array: [1+5i, 1+NaN (skip), 1+2i]
+        // Among non-NaN with real=1: 1+2i is smallest (imag=2 < imag=5)
+        const a = array([
+          new Complex(1, 5),
+          new Complex(1, NaN), // Will be skipped
+          new Complex(1, 2),
+        ]);
+        const result = a.nanargmin();
+
+        expect(result).toBe(2);
+      });
+
+      it('returns -1 for all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = a.nanargmin();
+
+        expect(result).toBe(-1);
+      });
+    });
+
+    describe('nanargmax()', () => {
+      it('finds index of maximum complex value ignoring NaN', () => {
+        // Array: [2+1i, NaN+3i (skip), 1+2i, 3+0i]
+        // Max ignoring NaN: 3+0i at index 3
+        const a = array([
+          new Complex(2, 1),
+          new Complex(NaN, 3), // Will be skipped
+          new Complex(1, 2),
+          new Complex(3, 0),
+        ]);
+        const result = a.nanargmax();
+
+        expect(result).toBe(3);
+      });
+
+      it('uses lexicographic ordering with NaN values', () => {
+        // Array: [1+2i, 1+NaN (skip), 1+5i]
+        // Among non-NaN with real=1: 1+5i is largest (imag=5 > imag=2)
+        const a = array([
+          new Complex(1, 2),
+          new Complex(1, NaN), // Will be skipped
+          new Complex(1, 5),
+        ]);
+        const result = a.nanargmax();
+
+        expect(result).toBe(2);
+      });
+
+      it('returns -1 for all-NaN array', () => {
+        const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
+        const result = a.nanargmax();
+
+        expect(result).toBe(-1);
+      });
+    });
   });
 
   // ==========================================================================

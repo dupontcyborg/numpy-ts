@@ -2330,11 +2330,71 @@ export function nanmax(
  * Return indices of minimum value, ignoring NaNs
  */
 export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | number {
-  throwIfComplex(storage.dtype, 'nanargmin', 'Complex numbers are not orderable.');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
+  if (isComplexDType(dtype)) {
+    // Complex nanargmin using lexicographic ordering, skipping NaN values
+    const complexData = data as Float64Array | Float32Array;
+
+    if (axis === undefined) {
+      let minRe = Infinity;
+      let minIm = Infinity;
+      let minIdx = -1;
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im) && complexCompare(re, im, minRe, minIm) < 0) {
+          minRe = re;
+          minIm = im;
+          minIdx = i;
+        }
+      }
+      return minIdx;
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return nanargmin(storage);
+    }
+
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+    const axisSize = shape[normalizedAxis]!;
+    const resultData = new Int32Array(outerSize);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let minRe = Infinity;
+      let minIm = Infinity;
+      let minIdx = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (!complexIsNaN(re, im) && complexCompare(re, im, minRe, minIm) < 0) {
+          minRe = re;
+          minIm = im;
+          minIdx = axisIdx;
+        }
+      }
+      resultData[outerIdx] = minIdx;
+    }
+
+    return ArrayStorage.fromData(resultData, outputShape, 'int32');
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     let minVal = Infinity;
     let minIdx = -1;
@@ -2386,13 +2446,74 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
 
 /**
  * Return indices of maximum value, ignoring NaNs
+ * For complex arrays: uses lexicographic ordering (real first, then imaginary)
  */
 export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | number {
-  throwIfComplex(storage.dtype, 'nanargmax', 'Complex numbers are not orderable.');
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
 
+  if (isComplexDType(dtype)) {
+    // Complex nanargmax using lexicographic ordering, skipping NaN values
+    const complexData = data as Float64Array | Float32Array;
+
+    if (axis === undefined) {
+      let maxRe = -Infinity;
+      let maxIm = -Infinity;
+      let maxIdx = -1;
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        if (!complexIsNaN(re, im) && complexCompare(re, im, maxRe, maxIm) > 0) {
+          maxRe = re;
+          maxIm = im;
+          maxIdx = i;
+        }
+      }
+      return maxIdx;
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return nanargmax(storage);
+    }
+
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+    const axisSize = shape[normalizedAxis]!;
+    const resultData = new Int32Array(outerSize);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let maxRe = -Infinity;
+      let maxIm = -Infinity;
+      let maxIdx = 0;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        if (!complexIsNaN(re, im) && complexCompare(re, im, maxRe, maxIm) > 0) {
+          maxRe = re;
+          maxIm = im;
+          maxIdx = axisIdx;
+        }
+      }
+      resultData[outerIdx] = maxIdx;
+    }
+
+    return ArrayStorage.fromData(resultData, outputShape, 'int32');
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     let maxVal = -Infinity;
     let maxIdx = -1;
