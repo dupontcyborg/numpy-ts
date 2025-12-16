@@ -157,10 +157,10 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Remaining arithmetic (complex formulas implemented)
   positive: 'supported',
   reciprocal: 'supported',
-  cbrt: 'not_implemented',
-  fabs: 'not_implemented', // should use absolute for complex
+  cbrt: 'supported', // complex cube root z^(1/3)
+  fabs: 'unsupported', // use absolute() for complex
   square: 'supported',
-  float_power: 'not_implemented',
+  float_power: 'supported', // complex z1^z2 = exp(z2 * log(z1))
 
   // Reductions using lexicographic ordering (real first, then imaginary)
   max: 'supported', // lexicographic max
@@ -243,8 +243,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   cov: 'not_implemented', // statistics
   corrcoef: 'not_implemented', // statistics
 
-  // Set operations
-  unique: 'not_implemented',
+  // Set operations (lexicographic ordering)
+  unique: 'supported', // lexicographic unique
   in1d: 'not_implemented',
   intersect1d: 'not_implemented',
   isin: 'not_implemented',

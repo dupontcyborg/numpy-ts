@@ -3,7 +3,30 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { type DType } from '../core/dtype';
+import { isComplexDType, type DType } from '../core/dtype';
+
+// Helper: compare complex numbers lexicographically
+function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
+  const aIsNaN = isNaN(aRe) || isNaN(aIm);
+  const bIsNaN = isNaN(bRe) || isNaN(bIm);
+  if (aIsNaN && bIsNaN) return 0;
+  if (aIsNaN) return 1;
+  if (bIsNaN) return -1;
+  if (aRe < bRe) return -1;
+  if (aRe > bRe) return 1;
+  if (aIm < bIm) return -1;
+  if (aIm > bIm) return 1;
+  return 0;
+}
+
+// Helper: check if two complex numbers are equal
+function complexEqual(aRe: number, aIm: number, bRe: number, bIm: number): boolean {
+  const aIsNaN = isNaN(aRe) || isNaN(aIm);
+  const bIsNaN = isNaN(bRe) || isNaN(bIm);
+  if (aIsNaN && bIsNaN) return true; // Both NaN are considered equal for uniqueness
+  if (aIsNaN || bIsNaN) return false;
+  return aRe === bRe && aIm === bIm;
+}
 
 /**
  * Find the unique elements of an array
@@ -24,6 +47,125 @@ export function unique(
   const dtype = a.dtype;
   const size = a.size;
   const data = a.data;
+
+  // Complex unique with lexicographic ordering
+  if (isComplexDType(dtype)) {
+    const complexData = data as Float64Array | Float32Array;
+
+    // Collect complex values with original indices
+    const values: { re: number; im: number; index: number }[] = [];
+    for (let i = 0; i < size; i++) {
+      values.push({
+        re: complexData[i * 2]!,
+        im: complexData[i * 2 + 1]!,
+        index: i,
+      });
+    }
+
+    // Sort by lexicographic order
+    values.sort((x, y) => complexCompare(x.re, x.im, y.re, y.im));
+
+    // Find unique values
+    const uniqueValues: { re: number; im: number }[] = [];
+    const indices: number[] = [];
+    const inverse: number[] = new Array(size);
+    const counts: number[] = [];
+
+    let lastRe: number | undefined = undefined;
+    let lastIm: number | undefined = undefined;
+    let currentCount = 0;
+
+    for (let i = 0; i < values.length; i++) {
+      const { re, im, index } = values[i]!;
+      const isDifferent =
+        lastRe === undefined || !complexEqual(re, im, lastRe!, lastIm!);
+
+      if (isDifferent) {
+        if (lastRe !== undefined) {
+          counts.push(currentCount);
+        }
+        uniqueValues.push({ re, im });
+        indices.push(index);
+        currentCount = 1;
+        lastRe = re;
+        lastIm = im;
+      } else {
+        currentCount++;
+      }
+    }
+    if (currentCount > 0) {
+      counts.push(currentCount);
+    }
+
+    // Build inverse mapping using a key string
+    const valueToUniqueIdx = new Map<string, number>();
+    let nanIdx = -1;
+    for (let i = 0; i < uniqueValues.length; i++) {
+      const { re, im } = uniqueValues[i]!;
+      if (isNaN(re) || isNaN(im)) {
+        nanIdx = i;
+      } else {
+        valueToUniqueIdx.set(`${re},${im}`, i);
+      }
+    }
+    for (let i = 0; i < size; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+      if (isNaN(re) || isNaN(im)) {
+        inverse[i] = nanIdx;
+      } else {
+        inverse[i] = valueToUniqueIdx.get(`${re},${im}`)!;
+      }
+    }
+
+    // Create result arrays
+    const uniqueResult = ArrayStorage.zeros([uniqueValues.length], dtype);
+    const uniqueData = uniqueResult.data as Float64Array | Float32Array;
+    for (let i = 0; i < uniqueValues.length; i++) {
+      uniqueData[i * 2] = uniqueValues[i]!.re;
+      uniqueData[i * 2 + 1] = uniqueValues[i]!.im;
+    }
+
+    if (!returnIndex && !returnInverse && !returnCounts) {
+      return uniqueResult;
+    }
+
+    const result: {
+      values: ArrayStorage;
+      indices?: ArrayStorage;
+      inverse?: ArrayStorage;
+      counts?: ArrayStorage;
+    } = { values: uniqueResult };
+
+    if (returnIndex) {
+      const indicesResult = ArrayStorage.zeros([indices.length], 'int32');
+      const indicesData = indicesResult.data as Int32Array;
+      for (let i = 0; i < indices.length; i++) {
+        indicesData[i] = indices[i]!;
+      }
+      result.indices = indicesResult;
+    }
+
+    if (returnInverse) {
+      const inverseResult = ArrayStorage.zeros([inverse.length], 'int32');
+      const inverseData = inverseResult.data as Int32Array;
+      for (let i = 0; i < inverse.length; i++) {
+        inverseData[i] = inverse[i]!;
+      }
+      result.inverse = inverseResult;
+    }
+
+    if (returnCounts) {
+      const countsResult = ArrayStorage.zeros([counts.length], 'int32');
+      const countsData = countsResult.data as Int32Array;
+      for (let i = 0; i < counts.length; i++) {
+        countsData[i] = counts[i]!;
+      }
+      result.counts = countsResult;
+    }
+
+    return result;
+  }
 
   // Collect values with original indices
   const values: { value: number; index: number }[] = [];

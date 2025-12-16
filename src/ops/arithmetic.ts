@@ -911,6 +911,31 @@ export function cbrt(a: ArrayStorage): ArrayStorage {
   const data = a.data;
   const size = a.size;
 
+  // Complex cube root: z^(1/3) = |z|^(1/3) * exp(i * arg(z)/3)
+  if (isComplexDType(dtype)) {
+    const complexData = data as Float64Array | Float32Array;
+    const result = ArrayStorage.zeros(shape, dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = complexData[i * 2]!;
+      const im = complexData[i * 2 + 1]!;
+
+      // Compute magnitude and angle
+      const mag = Math.hypot(re, im);
+      const arg = Math.atan2(im, re);
+
+      // Cube root: mag^(1/3) and angle/3
+      const newMag = Math.cbrt(mag);
+      const newArg = arg / 3;
+
+      resultData[i * 2] = newMag * Math.cos(newArg);
+      resultData[i * 2 + 1] = newMag * Math.sin(newArg);
+    }
+
+    return result;
+  }
+
   // NumPy behavior: cbrt always promotes integers to float64
   const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
   const resultDtype = isIntegerType ? 'float64' : dtype;
@@ -935,6 +960,7 @@ export function cbrt(a: ArrayStorage): ArrayStorage {
  */
 export function fabs(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype;
+  throwIfComplex(dtype, 'fabs', 'fabs is only for real numbers. Use absolute() for complex.');
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
@@ -1103,6 +1129,68 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
  * @returns Result in float64
  */
 export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  const dtype1 = x1.dtype;
+
+  // Complex float_power: z1^z2 = exp(z2 * log(z1))
+  if (isComplexDType(dtype1)) {
+    const complexData = x1.data as Float64Array | Float32Array;
+    const size = x1.size;
+    const result = ArrayStorage.zeros(Array.from(x1.shape), dtype1);
+    const resultData = result.data as Float64Array | Float32Array;
+
+    if (typeof x2 === 'number') {
+      for (let i = 0; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+
+        // z^n = |z|^n * exp(i * n * arg(z))
+        const mag = Math.hypot(re, im);
+        const arg = Math.atan2(im, re);
+        const newMag = Math.pow(mag, x2);
+        const newArg = arg * x2;
+
+        resultData[i * 2] = newMag * Math.cos(newArg);
+        resultData[i * 2 + 1] = newMag * Math.sin(newArg);
+      }
+    } else {
+      // Complex base with array exponent
+      const x2Data = x2.data;
+      const x2Complex = isComplexDType(x2.dtype);
+
+      for (let i = 0; i < size; i++) {
+        const re1 = complexData[i * 2]!;
+        const im1 = complexData[i * 2 + 1]!;
+
+        let re2: number, im2: number;
+        if (x2Complex) {
+          re2 = (x2Data as Float64Array)[i * 2]!;
+          im2 = (x2Data as Float64Array)[i * 2 + 1]!;
+        } else {
+          re2 = Number(x2Data[i]!);
+          im2 = 0;
+        }
+
+        // z1^z2 = exp(z2 * log(z1))
+        // log(z1) = ln|z1| + i*arg(z1)
+        const mag1 = Math.hypot(re1, im1);
+        const arg1 = Math.atan2(im1, re1);
+        const logRe = Math.log(mag1);
+        const logIm = arg1;
+
+        // z2 * log(z1)
+        const prodRe = re2 * logRe - im2 * logIm;
+        const prodIm = re2 * logIm + im2 * logRe;
+
+        // exp(prodRe + i*prodIm)
+        const expMag = Math.exp(prodRe);
+        resultData[i * 2] = expMag * Math.cos(prodIm);
+        resultData[i * 2 + 1] = expMag * Math.sin(prodIm);
+      }
+    }
+
+    return result;
+  }
+
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
     const resultData = result.data as Float64Array;
