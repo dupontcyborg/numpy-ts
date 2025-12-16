@@ -10,7 +10,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../core/dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
 import { broadcastShapes } from '../internal/compute';
 
@@ -509,6 +509,10 @@ export function isnat(a: ArrayStorage): ArrayStorage {
  * @returns Array with magnitude from x1 and sign from x2
  */
 export function copysign(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'copysign', 'copysign is only defined for real numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'copysign', 'copysign is only defined for real numbers.');
+  }
   if (typeof x2 === 'number') {
     return copysignScalar(x1, x2);
   }
@@ -592,6 +596,7 @@ function copysignScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
  * @returns Boolean result storage
  */
 export function signbit(a: ArrayStorage): ArrayStorage {
+  throwIfComplex(a.dtype, 'signbit', 'signbit is only defined for real numbers.');
   const data = new Uint8Array(a.size);
   const thisData = a.data;
   const size = a.size;
@@ -620,6 +625,10 @@ export function signbit(a: ArrayStorage): ArrayStorage {
  * @returns Array of next representable values
  */
 export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'nextafter', 'nextafter is only defined for real numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'nextafter', 'nextafter is only defined for real numbers.');
+  }
   if (typeof x2 === 'number') {
     return nextafterScalar(x1, x2);
   }
@@ -746,6 +755,7 @@ function nextafterSingle(x: number, y: number): number {
  * @returns Array of spacing values
  */
 export function spacing(a: ArrayStorage): ArrayStorage {
+  throwIfComplex(a.dtype, 'spacing', 'spacing is only defined for real numbers.');
   const result = ArrayStorage.zeros(Array.from(a.shape), 'float64');
   const resultData = result.data as Float64Array;
   const thisData = a.data;

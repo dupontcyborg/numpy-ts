@@ -124,13 +124,13 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   acos: 'supported', // alias
   arctan: 'supported',
   atan: 'supported', // alias
-  arctan2: 'not_implemented', // two-arg function, complex not applicable
-  atan2: 'not_implemented', // alias
-  hypot: 'not_implemented', // two-arg function, complex not applicable
-  degrees: 'not_implemented', // real-to-real conversion
-  radians: 'not_implemented', // real-to-real conversion
-  deg2rad: 'not_implemented',
-  rad2deg: 'not_implemented',
+  arctan2: 'unsupported', // two-arg function for real angles
+  atan2: 'unsupported', // alias
+  hypot: 'unsupported', // two-arg function for real numbers
+  degrees: 'unsupported', // real-to-real conversion
+  radians: 'unsupported', // real-to-real conversion
+  deg2rad: 'unsupported', // alias for radians
+  rad2deg: 'unsupported', // alias for degrees
 
   // Hyperbolic (complex formulas implemented)
   sinh: 'supported',
@@ -233,15 +233,15 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   cross: 'supported',
 
   // Statistics
-  bincount: 'not_implemented',
-  digitize: 'not_implemented',
-  histogram: 'not_implemented',
-  histogram2d: 'not_implemented',
-  histogramdd: 'not_implemented',
-  correlate: 'not_implemented',
-  convolve: 'not_implemented',
-  cov: 'not_implemented',
-  corrcoef: 'not_implemented',
+  bincount: 'unsupported', // requires integer input
+  digitize: 'unsupported', // binning for real numbers
+  histogram: 'unsupported', // binning for real numbers
+  histogram2d: 'unsupported', // binning for real numbers
+  histogramdd: 'unsupported', // binning for real numbers
+  correlate: 'not_implemented', // signal processing
+  convolve: 'not_implemented', // signal processing
+  cov: 'not_implemented', // statistics
+  corrcoef: 'not_implemented', // statistics
 
   // Set operations
   unique: 'not_implemented',
@@ -260,12 +260,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   extract: 'supported',
   count_nonzero: 'supported',
 
-  // Float-specific (need guards or implementation)
-  signbit: 'not_implemented',
-  copysign: 'not_implemented',
-  nextafter: 'not_implemented',
-  spacing: 'not_implemented',
-  real_if_close: 'not_implemented',
+  // Float-specific (only for real numbers)
+  signbit: 'unsupported', // sign bit only for real numbers
+  copysign: 'unsupported', // copy sign only for real numbers
+  nextafter: 'unsupported', // floating-point representation
+  spacing: 'unsupported', // floating-point representation
+  real_if_close: 'not_implemented', // utility for complex-to-real
 
   // =========================================================================
   // SKIP - These don't take array input or are not applicable
@@ -506,6 +506,8 @@ function testComplexBehavior(fn: Function, fnName: string): ComplexBehavior | 'e
       'float_power',
       'divmod', // binary op that returns tuple
       'extract', // takes (condition, array)
+      'digitize', // (x, bins)
+      'histogram2d', // (x, y)
     ];
 
     // Functions that return tuples (unary)

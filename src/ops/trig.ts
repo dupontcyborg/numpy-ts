@@ -10,7 +10,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplexNotImplemented, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, throwIfComplexNotImplemented, type DType } from '../core/dtype';
 
 /**
  * Sine of each element (element-wise)
@@ -325,9 +325,9 @@ export function arctan(a: ArrayStorage): ArrayStorage {
  * @returns Angle in radians between -π and π
  */
 export function arctan2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
-  throwIfComplexNotImplemented(x1.dtype, 'arctan2');
+  throwIfComplex(x1.dtype, 'arctan2', 'arctan2 is only defined for real numbers.');
   if (typeof x2 !== 'number') {
-    throwIfComplexNotImplemented(x2.dtype, 'arctan2');
+    throwIfComplex(x2.dtype, 'arctan2', 'arctan2 is only defined for real numbers.');
   }
   if (typeof x2 === 'number') {
     return arctan2Scalar(x1, x2);
@@ -400,9 +400,9 @@ function arctan2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Hypotenuse
  */
 export function hypot(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
-  throwIfComplexNotImplemented(x1.dtype, 'hypot');
+  throwIfComplex(x1.dtype, 'hypot', 'hypot is only defined for real numbers.');
   if (typeof x2 !== 'number') {
-    throwIfComplexNotImplemented(x2.dtype, 'hypot');
+    throwIfComplex(x2.dtype, 'hypot', 'hypot is only defined for real numbers.');
   }
   if (typeof x2 === 'number') {
     return hypotScalar(x1, x2);
@@ -473,7 +473,7 @@ function hypotScalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Angles in degrees
  */
 export function degrees(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'degrees');
+  throwIfComplex(a.dtype, 'degrees', 'degrees is only defined for real numbers.');
   const factor = 180 / Math.PI;
   return elementwiseUnaryOp(a, (x) => x * factor, false);
 }
@@ -486,7 +486,7 @@ export function degrees(a: ArrayStorage): ArrayStorage {
  * @returns Angles in radians
  */
 export function radians(a: ArrayStorage): ArrayStorage {
-  throwIfComplexNotImplemented(a.dtype, 'radians');
+  throwIfComplex(a.dtype, 'radians', 'radians is only defined for real numbers.');
   const factor = Math.PI / 180;
   return elementwiseUnaryOp(a, (x) => x * factor, false);
 }

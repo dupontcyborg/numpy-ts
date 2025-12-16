@@ -6,7 +6,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { TypedArray } from '../core/dtype';
+import { throwIfComplex, TypedArray } from '../core/dtype';
 
 /**
  * Count number of occurrences of each value in array of non-negative ints.
@@ -21,6 +21,7 @@ export function bincount(
   weights?: ArrayStorage,
   minlength: number = 0
 ): ArrayStorage {
+  throwIfComplex(x.dtype, 'bincount', 'bincount requires integer input.');
   const xData = x.data;
   const size = x.size;
 
@@ -78,6 +79,8 @@ export function digitize(
   bins: ArrayStorage,
   right: boolean = false
 ): ArrayStorage {
+  throwIfComplex(x.dtype, 'digitize', 'digitize requires real numbers.');
+  throwIfComplex(bins.dtype, 'digitize', 'digitize requires real numbers.');
   const xData = x.data;
   const binsData = bins.data;
   const xSize = x.size;
@@ -178,6 +181,10 @@ export function histogram(
   density: boolean = false,
   weights?: ArrayStorage
 ): { hist: ArrayStorage; bin_edges: ArrayStorage } {
+  throwIfComplex(a.dtype, 'histogram', 'histogram requires real numbers.');
+  if (typeof bins !== 'number') {
+    throwIfComplex(bins.dtype, 'histogram', 'histogram requires real numbers.');
+  }
   const aData = a.data;
   const aSize = a.size;
 
@@ -288,6 +295,8 @@ export function histogram2d(
   density: boolean = false,
   weights?: ArrayStorage
 ): { hist: ArrayStorage; x_edges: ArrayStorage; y_edges: ArrayStorage } {
+  throwIfComplex(x.dtype, 'histogram2d', 'histogram2d requires real numbers.');
+  throwIfComplex(y.dtype, 'histogram2d', 'histogram2d requires real numbers.');
   const xData = x.data;
   const yData = y.data;
   const size = x.size;
@@ -458,6 +467,7 @@ export function histogramdd(
   density: boolean = false,
   weights?: ArrayStorage
 ): { hist: ArrayStorage; edges: ArrayStorage[] } {
+  throwIfComplex(sample.dtype, 'histogramdd', 'histogramdd requires real numbers.');
   const shape = sample.shape;
   const data = sample.data;
 
