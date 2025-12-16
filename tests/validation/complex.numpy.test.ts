@@ -77,6 +77,14 @@ import {
   nanmin,
   nanmax,
   ptp,
+  cbrt,
+  float_power,
+  unique,
+  intersect1d,
+  union1d,
+  correlate,
+  convolve,
+  real_if_close,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1986,6 +1994,148 @@ result = np.ptp(np.array([1+2j, 3+4j, 2+1j]))
         expect(jsResult).toBeInstanceOf(Complex);
         expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
         expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Arithmetic Operations
+  // ==========================================================================
+
+  describe('Arithmetic Operations', () => {
+    describe('cbrt()', () => {
+      it('throws for complex input (matching NumPy behavior)', () => {
+        const a = array([new Complex(8, 0), new Complex(0, 8), new Complex(1, 1)]);
+        // NumPy doesn't support cbrt for complex numbers:
+        // TypeError: ufunc 'cbrt' not supported for the input types
+        expect(() => cbrt(a)).toThrow(/not supported for complex/);
+      });
+    });
+
+    describe('float_power()', () => {
+      it('computes complex power matching NumPy', () => {
+        const a = array([new Complex(2, 1), new Complex(1, 1)]);
+        const jsResult = float_power(a, 2);
+        const pyResult = runNumPy(`
+result = np.float_power(np.array([2+1j, 1+1j]), 2)
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Set Operations
+  // ==========================================================================
+
+  describe('Set Operations', () => {
+    describe('unique()', () => {
+      it('finds unique complex values matching NumPy', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 1), new Complex(1, 2), new Complex(2, 0)]);
+        const jsResult = unique(a);
+        const pyResult = runNumPy(`
+result = np.unique(np.array([1+2j, 3+1j, 1+2j, 2+0j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('intersect1d()', () => {
+      it('finds intersection of complex arrays matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
+        const b = array([new Complex(2, 2), new Complex(3, 3), new Complex(4, 4)]);
+        const jsResult = intersect1d(a, b);
+        const pyResult = runNumPy(`
+result = np.intersect1d(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 3+3j, 4+4j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('union1d()', () => {
+      it('finds union of complex arrays matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 2)]);
+        const b = array([new Complex(2, 2), new Complex(3, 3)]);
+        const jsResult = union1d(a, b);
+        const pyResult = runNumPy(`
+result = np.union1d(np.array([1+1j, 2+2j]), np.array([2+2j, 3+3j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Signal Processing
+  // ==========================================================================
+
+  describe('Signal Processing', () => {
+    describe('correlate()', () => {
+      it('computes complex cross-correlation matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 0), new Complex(1, -1)]);
+        const v = array([new Complex(1, 0), new Complex(0, 1)]);
+        const jsResult = correlate(a, v);
+        const pyResult = runNumPy(`
+result = np.correlate(np.array([1+1j, 2+0j, 1-1j]), np.array([1+0j, 0+1j]), mode='full')
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('convolve()', () => {
+      it('computes complex convolution matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(2, 0), new Complex(1, -1)]);
+        const v = array([new Complex(1, 0), new Complex(0, 1)]);
+        const jsResult = convolve(a, v);
+        const pyResult = runNumPy(`
+result = np.convolve(np.array([1+1j, 2+0j, 1-1j]), np.array([1+0j, 0+1j]), mode='full')
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Utility Functions
+  // ==========================================================================
+
+  describe('Utility Functions', () => {
+    describe('real_if_close()', () => {
+      it('converts to real when imaginary is negligible', () => {
+        // Array with negligible imaginary parts
+        const a = array([new Complex(1, 1e-17), new Complex(2, 0), new Complex(3, 1e-18)]);
+        const jsResult = real_if_close(a);
+        const pyResult = runNumPy(`
+result = np.real_if_close(np.array([1+1e-17j, 2+0j, 3+1e-18j]))
+        `);
+
+        // Should convert to real
+        expect(jsResult.dtype).toBe('float64');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('keeps complex when imaginary is significant', () => {
+        const a = array([new Complex(1, 0.1), new Complex(2, 0), new Complex(3, 0)]);
+        const jsResult = real_if_close(a);
+        const pyResult = runNumPy(`
+result = np.real_if_close(np.array([1+0.1j, 2+0j, 3+0j]))
+        `);
+
+        // Should stay complex
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
     });
   });

@@ -10,7 +10,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplexNotImplemented, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, throwIfComplexNotImplemented, type DType } from '../core/dtype';
 
 /**
  * Square root of each element
@@ -474,9 +474,9 @@ export function log1p(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with logaddexp applied
  */
 export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
-  throwIfComplexNotImplemented(x1.dtype, 'logaddexp');
+  throwIfComplex(x1.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
   if (typeof x2 !== 'number') {
-    throwIfComplexNotImplemented(x2.dtype, 'logaddexp');
+    throwIfComplex(x2.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
   }
   if (typeof x2 === 'number') {
     return logaddexpScalar(x1, x2);
@@ -552,9 +552,9 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Result storage with logaddexp2 applied
  */
 export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
-  throwIfComplexNotImplemented(x1.dtype, 'logaddexp2');
+  throwIfComplex(x1.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
   if (typeof x2 !== 'number') {
-    throwIfComplexNotImplemented(x2.dtype, 'logaddexp2');
+    throwIfComplex(x2.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
   }
   if (typeof x2 === 'number') {
     return logaddexp2Scalar(x1, x2);

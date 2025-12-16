@@ -655,13 +655,14 @@ export function correlate(
 
           if (vComplex) {
             vRe = (vData as Float64Array)[vIdx * 2]!;
-            vIm = -(vData as Float64Array)[vIdx * 2 + 1]!; // conjugate
+            vIm = (vData as Float64Array)[vIdx * 2 + 1]!;
           } else {
             vRe = Number(vData[vIdx]!);
             vIm = 0;
           }
 
           // a * conj(v) = (aRe + aIm*i) * (vRe - vIm*i)
+          // = (aRe*vRe + aIm*vIm) + (aIm*vRe - aRe*vIm)*i
           sumRe += aRe * vRe + aIm * vIm;
           sumIm += aIm * vRe - aRe * vIm;
         }

@@ -907,34 +907,10 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
  */
 export function cbrt(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype;
+  throwIfComplex(dtype, 'cbrt', 'cbrt is not supported for complex numbers.');
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
-
-  // Complex cube root: z^(1/3) = |z|^(1/3) * exp(i * arg(z)/3)
-  if (isComplexDType(dtype)) {
-    const complexData = data as Float64Array | Float32Array;
-    const result = ArrayStorage.zeros(shape, dtype);
-    const resultData = result.data as Float64Array | Float32Array;
-
-    for (let i = 0; i < size; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-
-      // Compute magnitude and angle
-      const mag = Math.hypot(re, im);
-      const arg = Math.atan2(im, re);
-
-      // Cube root: mag^(1/3) and angle/3
-      const newMag = Math.cbrt(mag);
-      const newArg = arg / 3;
-
-      resultData[i * 2] = newMag * Math.cos(newArg);
-      resultData[i * 2 + 1] = newMag * Math.sin(newArg);
-    }
-
-    return result;
-  }
 
   // NumPy behavior: cbrt always promotes integers to float64
   const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
