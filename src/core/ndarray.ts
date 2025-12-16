@@ -1143,9 +1143,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Maximum of array elements, or array of maximums along axis
    */
-  max(axis?: number, keepdims: boolean = false): NDArray | number {
+  max(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.max(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1154,9 +1157,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Minimum of array elements, or array of minimums along axis
    */
-  min(axis?: number, keepdims: boolean = false): NDArray | number {
+  min(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.min(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -4523,7 +4529,7 @@ export { cumprod as cumulative_prod };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Maximum value(s)
  */
-export function max(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function max(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   return a.max(axis, keepdims);
 }
 
@@ -4537,7 +4543,7 @@ export { max as amax };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Minimum value(s)
  */
-export function min(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function min(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   return a.min(axis, keepdims);
 }
 
@@ -4551,9 +4557,12 @@ export { min as amin };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Peak to peak value(s)
  */
-export function ptp(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function ptp(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   const result = reductionOps.ptp(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4718,9 +4727,12 @@ export function nanstd(
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Minimum value(s)
  */
-export function nanmin(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanmin(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   const result = reductionOps.nanmin(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4730,9 +4742,12 @@ export function nanmin(a: NDArray, axis?: number, keepdims: boolean = false): ND
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Maximum value(s)
  */
-export function nanmax(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanmax(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
   const result = reductionOps.nanmax(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**

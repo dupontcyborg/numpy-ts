@@ -215,13 +215,99 @@ export function max(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
+): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
-  throwIfComplex(dtype, 'max', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+
+  // Complex max uses lexicographic ordering (real first, then imaginary)
+  if (isComplexDType(dtype)) {
+    const complexData = data as Float64Array | Float32Array;
+
+    if (axis === undefined) {
+      if (size === 0) {
+        throw new Error('max of empty array');
+      }
+
+      let maxRe = complexData[0]!;
+      let maxIm = complexData[1]!;
+
+      for (let i = 1; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+
+        // Check for NaN propagation
+        if (isNaN(re) || isNaN(im)) {
+          return new Complex(NaN, NaN);
+        }
+
+        // Lexicographic comparison: real first, then imaginary
+        if (re > maxRe || (re === maxRe && im > maxIm)) {
+          maxRe = re;
+          maxIm = im;
+        }
+      }
+      // Check initial value for NaN
+      if (isNaN(maxRe) || isNaN(maxIm)) {
+        return new Complex(NaN, NaN);
+      }
+      return new Complex(maxRe, maxIm);
+    }
+
+    // Max along axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return max(storage) as Complex;
+    }
+
+    const result = ArrayStorage.zeros(outputShape, dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const axisSize = shape[normalizedAxis]!;
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
+      const firstIdx = multiIndexToLinear(firstIndices, shape);
+      let maxRe = complexData[firstIdx * 2]!;
+      let maxIm = complexData[firstIdx * 2 + 1]!;
+
+      for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+
+        if (isNaN(re) || isNaN(im)) {
+          maxRe = NaN;
+          maxIm = NaN;
+          break;
+        }
+        if (re > maxRe || (re === maxRe && im > maxIm)) {
+          maxRe = re;
+          maxIm = im;
+        }
+      }
+      resultData[outerIdx * 2] = maxRe;
+      resultData[outerIdx * 2 + 1] = maxIm;
+    }
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+    return result;
+  }
 
   if (axis === undefined) {
     // Max of all elements - return scalar
@@ -441,13 +527,99 @@ export function min(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
+): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
-  throwIfComplex(dtype, 'min', 'Complex numbers are not orderable.');
   const shape = storage.shape;
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+
+  // Complex min uses lexicographic ordering (real first, then imaginary)
+  if (isComplexDType(dtype)) {
+    const complexData = data as Float64Array | Float32Array;
+
+    if (axis === undefined) {
+      if (size === 0) {
+        throw new Error('min of empty array');
+      }
+
+      let minRe = complexData[0]!;
+      let minIm = complexData[1]!;
+
+      for (let i = 1; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+
+        // Check for NaN propagation
+        if (isNaN(re) || isNaN(im)) {
+          return new Complex(NaN, NaN);
+        }
+
+        // Lexicographic comparison: real first, then imaginary
+        if (re < minRe || (re === minRe && im < minIm)) {
+          minRe = re;
+          minIm = im;
+        }
+      }
+      // Check initial value for NaN
+      if (isNaN(minRe) || isNaN(minIm)) {
+        return new Complex(NaN, NaN);
+      }
+      return new Complex(minRe, minIm);
+    }
+
+    // Min along axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return min(storage) as Complex;
+    }
+
+    const result = ArrayStorage.zeros(outputShape, dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const axisSize = shape[normalizedAxis]!;
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
+      const firstIdx = multiIndexToLinear(firstIndices, shape);
+      let minRe = complexData[firstIdx * 2]!;
+      let minIm = complexData[firstIdx * 2 + 1]!;
+
+      for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+
+        if (isNaN(re) || isNaN(im)) {
+          minRe = NaN;
+          minIm = NaN;
+          break;
+        }
+        if (re < minRe || (re === minRe && im < minIm)) {
+          minRe = re;
+          minIm = im;
+        }
+      }
+      resultData[outerIdx * 2] = minRe;
+      resultData[outerIdx * 2 + 1] = minIm;
+    }
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+    return result;
+  }
 
   if (axis === undefined) {
     // Min of all elements - return scalar
@@ -1376,8 +1548,33 @@ export function ptp(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  throwIfComplex(storage.dtype, 'ptp', 'Complex numbers are not orderable.');
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype;
+
+  // Complex ptp: max - min using lexicographic ordering
+  if (isComplexDType(dtype)) {
+    const maxResult = max(storage, axis, keepdims) as Complex | ArrayStorage;
+    const minResult = min(storage, axis, keepdims) as Complex | ArrayStorage;
+
+    if (maxResult instanceof Complex && minResult instanceof Complex) {
+      return new Complex(maxResult.re - minResult.re, maxResult.im - minResult.im);
+    }
+
+    // Both are arrays, subtract element-wise
+    const maxStorage = maxResult as ArrayStorage;
+    const minStorage = minResult as ArrayStorage;
+    const maxData = maxStorage.data as Float64Array | Float32Array;
+    const minData = minStorage.data as Float64Array | Float32Array;
+    const resultData = new Float64Array(maxStorage.size * 2);
+
+    for (let i = 0; i < maxStorage.size; i++) {
+      resultData[i * 2] = maxData[i * 2]! - minData[i * 2]!;
+      resultData[i * 2 + 1] = maxData[i * 2 + 1]! - minData[i * 2 + 1]!;
+    }
+
+    return ArrayStorage.fromData(resultData, [...maxStorage.shape], dtype);
+  }
+
   const maxResult = max(storage, axis, keepdims);
   const minResult = min(storage, axis, keepdims);
 
@@ -2283,11 +2480,98 @@ export function nanmin(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  throwIfComplex(storage.dtype, 'nanmin', 'Complex numbers are not orderable.');
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+
+  // Complex nanmin uses lexicographic ordering, skipping NaN values
+  if (isComplexDType(dtype)) {
+    const complexData = data as Float64Array | Float32Array;
+
+    if (axis === undefined) {
+      let minRe = Infinity;
+      let minIm = Infinity;
+      let foundNonNaN = false;
+
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+
+        // Skip NaN values
+        if (isNaN(re) || isNaN(im)) {
+          continue;
+        }
+
+        if (!foundNonNaN) {
+          minRe = re;
+          minIm = im;
+          foundNonNaN = true;
+        } else if (re < minRe || (re === minRe && im < minIm)) {
+          minRe = re;
+          minIm = im;
+        }
+      }
+      return foundNonNaN ? new Complex(minRe, minIm) : new Complex(NaN, NaN);
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return nanmin(storage) as Complex;
+    }
+
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+    const axisSize = shape[normalizedAxis]!;
+    const resultData = new Float64Array(outerSize * 2);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let minRe = Infinity;
+      let minIm = Infinity;
+      let foundNonNaN = false;
+
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+
+        if (isNaN(re) || isNaN(im)) {
+          continue;
+        }
+
+        if (!foundNonNaN) {
+          minRe = re;
+          minIm = im;
+          foundNonNaN = true;
+        } else if (re < minRe || (re === minRe && im < minIm)) {
+          minRe = re;
+          minIm = im;
+        }
+      }
+      resultData[outerIdx * 2] = foundNonNaN ? minRe : NaN;
+      resultData[outerIdx * 2 + 1] = foundNonNaN ? minIm : NaN;
+    }
+
+    const result = ArrayStorage.fromData(resultData, outputShape, dtype);
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+
+    return result;
+  }
 
   if (axis === undefined) {
     let minVal = Infinity;
@@ -2349,11 +2633,98 @@ export function nanmax(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  throwIfComplex(storage.dtype, 'nanmax', 'Complex numbers are not orderable.');
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+
+  // Complex nanmax uses lexicographic ordering, skipping NaN values
+  if (isComplexDType(dtype)) {
+    const complexData = data as Float64Array | Float32Array;
+
+    if (axis === undefined) {
+      let maxRe = -Infinity;
+      let maxIm = -Infinity;
+      let foundNonNaN = false;
+
+      for (let i = 0; i < storage.size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+
+        // Skip NaN values
+        if (isNaN(re) || isNaN(im)) {
+          continue;
+        }
+
+        if (!foundNonNaN) {
+          maxRe = re;
+          maxIm = im;
+          foundNonNaN = true;
+        } else if (re > maxRe || (re === maxRe && im > maxIm)) {
+          maxRe = re;
+          maxIm = im;
+        }
+      }
+      return foundNonNaN ? new Complex(maxRe, maxIm) : new Complex(NaN, NaN);
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return nanmax(storage) as Complex;
+    }
+
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+    const axisSize = shape[normalizedAxis]!;
+    const resultData = new Float64Array(outerSize * 2);
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let maxRe = -Infinity;
+      let maxIm = -Infinity;
+      let foundNonNaN = false;
+
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+
+        if (isNaN(re) || isNaN(im)) {
+          continue;
+        }
+
+        if (!foundNonNaN) {
+          maxRe = re;
+          maxIm = im;
+          foundNonNaN = true;
+        } else if (re > maxRe || (re === maxRe && im > maxIm)) {
+          maxRe = re;
+          maxIm = im;
+        }
+      }
+      resultData[outerIdx * 2] = foundNonNaN ? maxRe : NaN;
+      resultData[outerIdx * 2 + 1] = foundNonNaN ? maxIm : NaN;
+    }
+
+    const result = ArrayStorage.fromData(resultData, outputShape, dtype);
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+
+    return result;
+  }
 
   if (axis === undefined) {
     let maxVal = -Infinity;

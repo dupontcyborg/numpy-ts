@@ -162,12 +162,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   square: 'supported',
   float_power: 'not_implemented',
 
-  // Reductions that need ordering (should throw unsupported)
-  max: 'not_implemented', // should be 'unsupported' - no ordering
-  amax: 'not_implemented', // alias
-  min: 'not_implemented', // should be 'unsupported' - no ordering
-  amin: 'not_implemented', // alias
-  ptp: 'not_implemented', // peak-to-peak (max - min)
+  // Reductions using lexicographic ordering (real first, then imaginary)
+  max: 'supported', // lexicographic max
+  amax: 'supported', // alias
+  min: 'supported', // lexicographic min
+  amin: 'supported', // alias
+  ptp: 'supported', // peak-to-peak (max - min)
   median: 'not_implemented', // requires sorting
   percentile: 'not_implemented',
   quantile: 'not_implemented',
@@ -187,8 +187,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   nanmean: 'supported',
   nanvar: 'supported',
   nanstd: 'supported',
-  nanmin: 'not_implemented',
-  nanmax: 'not_implemented',
+  nanmin: 'supported', // lexicographic min, skipping NaN
+  nanmax: 'supported', // lexicographic max, skipping NaN
   nanargmin: 'supported',
   nanargmax: 'supported',
   nancumsum: 'supported',

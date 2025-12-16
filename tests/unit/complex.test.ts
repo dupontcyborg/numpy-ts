@@ -77,6 +77,13 @@ import {
   average,
   sort,
   argsort,
+  max,
+  amax,
+  min,
+  amin,
+  nanmin,
+  nanmax,
+  ptp,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -3320,6 +3327,156 @@ describe('Complex Number Support', () => {
         const result = argsort(a);
 
         expect(result.dtype).toBe('int32');
+      });
+    });
+  });
+
+  describe('Min/Max Operations', () => {
+    describe('max()', () => {
+      it('finds lexicographic max of complex array', () => {
+        // Array: [1+2i, 3+1i, 2+5i]
+        // Max is 3+1i (largest real part)
+        const a = array([new Complex(1, 2), new Complex(3, 1), new Complex(2, 5)]);
+        const result = max(a) as Complex;
+
+        expect(result.re).toBe(3);
+        expect(result.im).toBe(1);
+      });
+
+      it('uses imaginary part as tiebreaker', () => {
+        // Array: [2+1i, 2+3i, 2+2i]
+        // Max is 2+3i (same real, largest imaginary)
+        const a = array([new Complex(2, 1), new Complex(2, 3), new Complex(2, 2)]);
+        const result = max(a) as Complex;
+
+        expect(result.re).toBe(2);
+        expect(result.im).toBe(3);
+      });
+
+      it('propagates NaN', () => {
+        const a = array([new Complex(1, 0), new Complex(NaN, 2), new Complex(3, 0)]);
+        const result = max(a) as Complex;
+
+        expect(isNaN(result.re)).toBe(true);
+        expect(isNaN(result.im)).toBe(true);
+      });
+    });
+
+    describe('min()', () => {
+      it('finds lexicographic min of complex array', () => {
+        // Array: [3+1i, 1+5i, 2+0i]
+        // Min is 1+5i (smallest real part)
+        const a = array([new Complex(3, 1), new Complex(1, 5), new Complex(2, 0)]);
+        const result = min(a) as Complex;
+
+        expect(result.re).toBe(1);
+        expect(result.im).toBe(5);
+      });
+
+      it('uses imaginary part as tiebreaker', () => {
+        // Array: [2+3i, 2+1i, 2+2i]
+        // Min is 2+1i (same real, smallest imaginary)
+        const a = array([new Complex(2, 3), new Complex(2, 1), new Complex(2, 2)]);
+        const result = min(a) as Complex;
+
+        expect(result.re).toBe(2);
+        expect(result.im).toBe(1);
+      });
+
+      it('propagates NaN', () => {
+        const a = array([new Complex(1, 0), new Complex(NaN, 2), new Complex(3, 0)]);
+        const result = min(a) as Complex;
+
+        expect(isNaN(result.re)).toBe(true);
+        expect(isNaN(result.im)).toBe(true);
+      });
+    });
+
+    describe('amax() and amin()', () => {
+      it('amax is alias for max', () => {
+        const a = array([new Complex(1, 0), new Complex(3, 2)]);
+        const result = amax(a) as Complex;
+
+        expect(result.re).toBe(3);
+        expect(result.im).toBe(2);
+      });
+
+      it('amin is alias for min', () => {
+        const a = array([new Complex(3, 2), new Complex(1, 0)]);
+        const result = amin(a) as Complex;
+
+        expect(result.re).toBe(1);
+        expect(result.im).toBe(0);
+      });
+    });
+
+    describe('ptp()', () => {
+      it('computes peak-to-peak (max - min)', () => {
+        // Array: [1+2i, 3+4i, 2+1i]
+        // Max: 3+4i, Min: 1+2i
+        // ptp: (3-1) + (4-2)i = 2+2i
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(2, 1)]);
+        const result = ptp(a) as Complex;
+
+        expect(result.re).toBe(2);
+        expect(result.im).toBe(2);
+      });
+
+      it('returns complex result', () => {
+        const a = array([new Complex(0, 0), new Complex(5, 3)]);
+        const result = ptp(a) as Complex;
+
+        expect(result).toBeInstanceOf(Complex);
+        expect(result.re).toBe(5);
+        expect(result.im).toBe(3);
+      });
+    });
+  });
+
+  describe('NaN-aware Min/Max', () => {
+    describe('nanmin()', () => {
+      it('finds min ignoring NaN values', () => {
+        const a = array([
+          new Complex(NaN, 0),
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, NaN),
+        ]);
+        const result = nanmin(a) as Complex;
+
+        expect(result.re).toBe(1);
+        expect(result.im).toBe(2);
+      });
+
+      it('returns NaN for all-NaN array', () => {
+        const a = array([new Complex(NaN, 0), new Complex(0, NaN)]);
+        const result = nanmin(a) as Complex;
+
+        expect(isNaN(result.re)).toBe(true);
+        expect(isNaN(result.im)).toBe(true);
+      });
+    });
+
+    describe('nanmax()', () => {
+      it('finds max ignoring NaN values', () => {
+        const a = array([
+          new Complex(NaN, 0),
+          new Complex(1, 2),
+          new Complex(3, 1),
+          new Complex(2, NaN),
+        ]);
+        const result = nanmax(a) as Complex;
+
+        expect(result.re).toBe(3);
+        expect(result.im).toBe(1);
+      });
+
+      it('returns NaN for all-NaN array', () => {
+        const a = array([new Complex(NaN, 0), new Complex(0, NaN)]);
+        const result = nanmax(a) as Complex;
+
+        expect(isNaN(result.re)).toBe(true);
+        expect(isNaN(result.im)).toBe(true);
       });
     });
   });
