@@ -63,6 +63,20 @@ import {
   ediff1d,
   gradient,
   cross,
+  nancumsum,
+  nancumprod,
+  nanvar,
+  nanstd,
+  nanargmin,
+  nanargmax,
+  average,
+  sort,
+  argsort,
+  max,
+  min,
+  nanmin,
+  nanmax,
+  ptp,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1751,6 +1765,227 @@ result = np.cross(np.array([1+1j, 2+0j]), np.array([0+1j, 1+0j]))
         const pyVal = pyResult.value;
         expect(jsVal.re).toBeCloseTo(pyVal.re);
         expect(jsVal.im).toBeCloseTo(pyVal.im);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // NaN-aware Operations
+  // ==========================================================================
+
+  describe('NaN-aware Operations', () => {
+    describe('nancumsum()', () => {
+      it('computes cumulative sum ignoring NaN matching NumPy', () => {
+        const a = array([new Complex(1, 2), new Complex(NaN, NaN), new Complex(3, 4)]);
+        const jsResult = nancumsum(a);
+        const pyResult = runNumPy(`
+result = np.nancumsum(np.array([1+2j, np.nan+np.nan*1j, 3+4j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('nancumprod()', () => {
+      it('computes cumulative product ignoring NaN matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(NaN, NaN), new Complex(2, 0)]);
+        const jsResult = nancumprod(a);
+        const pyResult = runNumPy(`
+result = np.nancumprod(np.array([1+1j, np.nan+np.nan*1j, 2+0j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('nanvar()', () => {
+      it('computes variance ignoring NaN matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(NaN, 0), new Complex(2, 2), new Complex(3, 3)]);
+        const jsResult = nanvar(a);
+        const pyResult = runNumPy(`
+result = np.nanvar(np.array([1+1j, np.nan+0j, 2+2j, 3+3j]))
+        `);
+
+        expect(typeof jsResult).toBe('number');
+        expect(jsResult as number).toBeCloseTo(pyResult.value as number);
+      });
+    });
+
+    describe('nanstd()', () => {
+      it('computes std ignoring NaN matching NumPy', () => {
+        const a = array([new Complex(1, 1), new Complex(NaN, 0), new Complex(2, 2), new Complex(3, 3)]);
+        const jsResult = nanstd(a);
+        const pyResult = runNumPy(`
+result = np.nanstd(np.array([1+1j, np.nan+0j, 2+2j, 3+3j]))
+        `);
+
+        expect(typeof jsResult).toBe('number');
+        expect(jsResult as number).toBeCloseTo(pyResult.value as number);
+      });
+    });
+
+    describe('nanargmin()', () => {
+      it('finds index of min ignoring NaN matching NumPy', () => {
+        // NumPy uses lexicographic ordering for complex
+        const a = array([new Complex(3, 1), new Complex(NaN, 0), new Complex(1, 2), new Complex(2, 0)]);
+        const jsResult = nanargmin(a);
+        const pyResult = runNumPy(`
+result = np.nanargmin(np.array([3+1j, np.nan+0j, 1+2j, 2+0j]))
+        `);
+
+        expect(jsResult).toBe(pyResult.value);
+      });
+    });
+
+    describe('nanargmax()', () => {
+      it('finds index of max ignoring NaN matching NumPy', () => {
+        const a = array([new Complex(3, 1), new Complex(NaN, 0), new Complex(1, 2), new Complex(2, 0)]);
+        const jsResult = nanargmax(a);
+        const pyResult = runNumPy(`
+result = np.nanargmax(np.array([3+1j, np.nan+0j, 1+2j, 2+0j]))
+        `);
+
+        expect(jsResult).toBe(pyResult.value);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Average and Weighted Average
+  // ==========================================================================
+
+  describe('average()', () => {
+    it('computes simple average of complex array matching NumPy', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+      const jsResult = average(a);
+      const pyResult = runNumPy(`
+result = np.average(np.array([1+2j, 3+4j, 5+6j]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+
+    it('computes weighted average of complex array matching NumPy', () => {
+      const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
+      const jsResult = average(a, undefined, array([1, 2, 3]));
+      const pyResult = runNumPy(`
+result = np.average(np.array([1+1j, 2+2j, 3+3j]), weights=np.array([1, 2, 3]))
+      `);
+
+      expect(jsResult).toBeInstanceOf(Complex);
+      expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+      expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+    });
+  });
+
+  // ==========================================================================
+  // Sorting Operations
+  // ==========================================================================
+
+  describe('Sorting Operations', () => {
+    describe('sort()', () => {
+      it('sorts complex array using lexicographic ordering matching NumPy', () => {
+        const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(2, 0), new Complex(1, 1)]);
+        const jsResult = sort(a);
+        const pyResult = runNumPy(`
+result = np.sort(np.array([3+1j, 1+2j, 2+0j, 1+1j]))
+        `);
+
+        expect(jsResult.dtype).toBe('complex128');
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('argsort()', () => {
+      it('returns indices that would sort complex array matching NumPy', () => {
+        const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(2, 0), new Complex(1, 1)]);
+        const jsResult = argsort(a);
+        const pyResult = runNumPy(`
+result = np.argsort(np.array([3+1j, 1+2j, 2+0j, 1+1j]))
+        `);
+
+        expect(jsResult.dtype).toBe('int32');
+        expect(jsResult.toArray()).toEqual(Array.from(pyResult.value));
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Min/Max Operations
+  // ==========================================================================
+
+  describe('Min/Max Operations', () => {
+    describe('max()', () => {
+      it('finds max of complex array using lexicographic ordering matching NumPy', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 1), new Complex(2, 5)]);
+        const jsResult = max(a);
+        const pyResult = runNumPy(`
+result = np.max(np.array([1+2j, 3+1j, 2+5j]))
+        `);
+
+        expect(jsResult).toBeInstanceOf(Complex);
+        expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+        expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+      });
+    });
+
+    describe('min()', () => {
+      it('finds min of complex array using lexicographic ordering matching NumPy', () => {
+        const a = array([new Complex(3, 1), new Complex(1, 5), new Complex(2, 0)]);
+        const jsResult = min(a);
+        const pyResult = runNumPy(`
+result = np.min(np.array([3+1j, 1+5j, 2+0j]))
+        `);
+
+        expect(jsResult).toBeInstanceOf(Complex);
+        expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+        expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+      });
+    });
+
+    describe('nanmin()', () => {
+      it('finds min ignoring NaN values matching NumPy', () => {
+        const a = array([new Complex(NaN, 0), new Complex(3, 1), new Complex(1, 2)]);
+        const jsResult = nanmin(a);
+        const pyResult = runNumPy(`
+result = np.nanmin(np.array([np.nan+0j, 3+1j, 1+2j]))
+        `);
+
+        expect(jsResult).toBeInstanceOf(Complex);
+        expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+        expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+      });
+    });
+
+    describe('nanmax()', () => {
+      it('finds max ignoring NaN values matching NumPy', () => {
+        const a = array([new Complex(NaN, 0), new Complex(1, 2), new Complex(3, 1)]);
+        const jsResult = nanmax(a);
+        const pyResult = runNumPy(`
+result = np.nanmax(np.array([np.nan+0j, 1+2j, 3+1j]))
+        `);
+
+        expect(jsResult).toBeInstanceOf(Complex);
+        expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+        expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
+      });
+    });
+
+    describe('ptp()', () => {
+      it('computes peak-to-peak (max - min) matching NumPy', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(2, 1)]);
+        const jsResult = ptp(a);
+        const pyResult = runNumPy(`
+result = np.ptp(np.array([1+2j, 3+4j, 2+1j]))
+        `);
+
+        expect(jsResult).toBeInstanceOf(Complex);
+        expect((jsResult as Complex).re).toBeCloseTo(pyResult.value.re);
+        expect((jsResult as Complex).im).toBeCloseTo(pyResult.value.im);
       });
     });
   });
