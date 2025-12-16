@@ -74,6 +74,9 @@ import {
   cross,
   nancumsum,
   nancumprod,
+  average,
+  sort,
+  argsort,
 } from '../../src';
 
 describe('Complex Number Support', () => {
@@ -3195,6 +3198,128 @@ describe('Complex Number Support', () => {
         const result = cross(a, b);
 
         expect(result.dtype).toBe('complex128');
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Complex Weighted Average
+  // ==========================================================================
+  describe('Weighted Average', () => {
+    describe('average()', () => {
+      it('computes weighted average of complex array', () => {
+        // Array: [1+2i, 3+4i], weights: [1, 3]
+        // Weighted avg = (1*(1+2i) + 3*(3+4i)) / 4 = (1+2i + 9+12i) / 4 = (10+14i) / 4 = 2.5+3.5i
+        const a = array([new Complex(1, 2), new Complex(3, 4)]);
+        const w = array([1, 3]);
+        const result = average(a, undefined, w);
+
+        expect((result as Complex).re).toBeCloseTo(2.5);
+        expect((result as Complex).im).toBeCloseTo(3.5);
+      });
+
+      it('returns mean for unweighted average', () => {
+        const a = array([new Complex(2, 4), new Complex(4, 8)]);
+        const result = average(a);
+
+        // Mean = (2+4i + 4+8i) / 2 = 3+6i
+        expect((result as Complex).re).toBeCloseTo(3);
+        expect((result as Complex).im).toBeCloseTo(6);
+      });
+
+      it('handles equal weights', () => {
+        const a = array([new Complex(1, 1), new Complex(3, 3)]);
+        const w = array([1, 1]);
+        const result = average(a, undefined, w);
+
+        // Equal weights = simple mean = 2+2i
+        expect((result as Complex).re).toBeCloseTo(2);
+        expect((result as Complex).im).toBeCloseTo(2);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Complex Sorting Operations
+  // ==========================================================================
+  describe('Sorting Operations', () => {
+    describe('sort()', () => {
+      it('sorts complex array using lexicographic ordering', () => {
+        // Array: [3+1i, 1+2i, 2+0i, 1+1i]
+        // Sorted: [1+1i, 1+2i, 2+0i, 3+1i] (by real first, then imag)
+        const a = array([
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, 0),
+          new Complex(1, 1),
+        ]);
+        const result = sort(a);
+
+        const values = result.toArray() as Complex[];
+        expect(values[0]).toEqual(new Complex(1, 1));
+        expect(values[1]).toEqual(new Complex(1, 2));
+        expect(values[2]).toEqual(new Complex(2, 0));
+        expect(values[3]).toEqual(new Complex(3, 1));
+      });
+
+      it('handles NaN values (sorts to end)', () => {
+        const a = array([
+          new Complex(2, 0),
+          new Complex(NaN, 1),
+          new Complex(1, 0),
+        ]);
+        const result = sort(a);
+
+        const values = result.toArray() as Complex[];
+        expect(values[0]).toEqual(new Complex(1, 0));
+        expect(values[1]).toEqual(new Complex(2, 0));
+        expect(isNaN(values[2].re)).toBe(true);
+      });
+
+      it('preserves complex dtype', () => {
+        const a = array([new Complex(2, 1), new Complex(1, 0)]);
+        const result = sort(a);
+
+        expect(result.dtype).toBe('complex128');
+      });
+    });
+
+    describe('argsort()', () => {
+      it('returns indices that would sort complex array', () => {
+        // Array: [3+1i, 1+2i, 2+0i, 1+1i]
+        // Sorted order: [1+1i(3), 1+2i(1), 2+0i(2), 3+1i(0)]
+        // Indices: [3, 1, 2, 0]
+        const a = array([
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, 0),
+          new Complex(1, 1),
+        ]);
+        const result = argsort(a);
+
+        const indices = result.toArray() as number[];
+        expect(indices).toEqual([3, 1, 2, 0]);
+      });
+
+      it('handles equal real parts (sorts by imaginary)', () => {
+        // Array: [1+3i, 1+1i, 1+2i]
+        // Sorted: [1+1i(1), 1+2i(2), 1+3i(0)]
+        const a = array([
+          new Complex(1, 3),
+          new Complex(1, 1),
+          new Complex(1, 2),
+        ]);
+        const result = argsort(a);
+
+        const indices = result.toArray() as number[];
+        expect(indices).toEqual([1, 2, 0]);
+      });
+
+      it('returns int32 dtype', () => {
+        const a = array([new Complex(2, 1), new Complex(1, 0)]);
+        const result = argsort(a);
+
+        expect(result.dtype).toBe('int32');
       });
     });
   });

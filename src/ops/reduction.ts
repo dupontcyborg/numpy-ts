@@ -1525,6 +1525,7 @@ export function average(
   weights?: ArrayStorage,
   keepdims: boolean = false
 ): ArrayStorage | number | Complex {
+  const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
@@ -1534,6 +1535,87 @@ export function average(
     return mean(storage, axis, keepdims);
   }
 
+  if (isComplexDType(dtype)) {
+    // Complex weighted average: sum(w_i * z_i) / sum(w_i)
+    const complexData = data as Float64Array | Float32Array;
+    const weightData = weights.data;
+
+    if (axis === undefined) {
+      // Compute weighted average over all elements
+      let sumRe = 0;
+      let sumIm = 0;
+      let sumWeights = 0;
+
+      for (let i = 0; i < storage.size; i++) {
+        const w = Number(weightData[i % weights.size]);
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+        sumRe += re * w;
+        sumIm += im * w;
+        sumWeights += w;
+      }
+
+      if (sumWeights === 0) {
+        return new Complex(NaN, NaN);
+      }
+      return new Complex(sumRe / sumWeights, sumIm / sumWeights);
+    }
+
+    // Normalize axis
+    let normalizedAxis = axis;
+    if (normalizedAxis < 0) {
+      normalizedAxis = ndim + normalizedAxis;
+    }
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    // Compute output shape
+    const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+    if (outputShape.length === 0) {
+      return average(storage, undefined, weights);
+    }
+
+    const outerSize = outputShape.reduce((a, b) => a * b, 1);
+    const axisSize = shape[normalizedAxis]!;
+    const result = ArrayStorage.zeros(outputShape, dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let sumRe = 0;
+      let sumIm = 0;
+      let sumWeights = 0;
+
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const w = Number(weightData[axisIdx % weights.size]);
+        const re = complexData[linearIdx * 2]!;
+        const im = complexData[linearIdx * 2 + 1]!;
+        sumRe += re * w;
+        sumIm += im * w;
+        sumWeights += w;
+      }
+
+      if (sumWeights === 0) {
+        resultData[outerIdx * 2] = NaN;
+        resultData[outerIdx * 2 + 1] = NaN;
+      } else {
+        resultData[outerIdx * 2] = sumRe / sumWeights;
+        resultData[outerIdx * 2 + 1] = sumIm / sumWeights;
+      }
+    }
+
+    if (keepdims) {
+      const keepdimsShape = [...shape];
+      keepdimsShape[normalizedAxis] = 1;
+      return ArrayStorage.fromData(resultData, keepdimsShape, dtype);
+    }
+
+    return result;
+  }
+
+  // Non-complex path
   if (axis === undefined) {
     // Compute weighted average over all elements
     let sumWeightedValues = 0;

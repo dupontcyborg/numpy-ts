@@ -27,6 +27,28 @@ function isNonZero(
 }
 
 /**
+ * Lexicographic comparison for complex numbers
+ * Compares real parts first, then imaginary parts
+ * NaN values sort to the end
+ */
+function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
+  const aIsNaN = isNaN(aRe) || isNaN(aIm);
+  const bIsNaN = isNaN(bRe) || isNaN(bIm);
+
+  // NaN values go to end
+  if (aIsNaN && bIsNaN) return 0;
+  if (aIsNaN) return 1;
+  if (bIsNaN) return -1;
+
+  // Lexicographic: compare real first, then imaginary
+  if (aRe < bRe) return -1;
+  if (aRe > bRe) return 1;
+  if (aIm < bIm) return -1;
+  if (aIm > bIm) return 1;
+  return 0;
+}
+
+/**
  * Return a sorted copy of an array
  * @param storage - Input array storage
  * @param axis - Axis along which to sort. Default is -1 (last axis)
@@ -63,7 +85,36 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
   // Sort along axis
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex sort using lexicographic ordering
+    const complexData = data as Float64Array | Float32Array;
+    const resultComplex = resultData as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // Collect values along axis
+      const values: { re: number; im: number; idx: number }[] = [];
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        values.push({
+          re: complexData[linearIdx * 2]!,
+          im: complexData[linearIdx * 2 + 1]!,
+          idx: axisIdx,
+        });
+      }
+
+      // Sort using lexicographic comparison
+      values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+      // Write sorted values back
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        resultComplex[linearIdx * 2] = values[axisIdx]!.re;
+        resultComplex[linearIdx * 2 + 1] = values[axisIdx]!.im;
+      }
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
 
@@ -153,7 +204,34 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
   // Get argsort along axis
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex argsort using lexicographic ordering
+    const complexData = data as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // Collect values along axis with their indices
+      const values: { re: number; im: number; idx: number }[] = [];
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        values.push({
+          re: complexData[linearIdx * 2]!,
+          im: complexData[linearIdx * 2 + 1]!,
+          idx: axisIdx,
+        });
+      }
+
+      // Sort using lexicographic comparison
+      values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+      // Write sorted indices back
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        resultData[linearIdx] = values[axisIdx]!.idx;
+      }
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {

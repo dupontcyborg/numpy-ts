@@ -179,7 +179,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   cumulative_prod: 'supported', // alias
 
   // Weighted average
-  average: 'not_implemented',
+  average: 'supported',
 
   // NaN-aware reductions
   nansum: 'supported',
@@ -195,9 +195,9 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   nancumprod: 'supported',
   nanmedian: 'not_implemented',
 
-  // Sorting (requires ordering)
-  sort: 'not_implemented',
-  argsort: 'not_implemented',
+  // Sorting (uses lexicographic ordering for complex)
+  sort: 'supported',
+  argsort: 'supported',
   lexsort: 'not_implemented',
   partition: 'not_implemented',
   argpartition: 'not_implemented',
