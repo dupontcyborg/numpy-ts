@@ -995,8 +995,42 @@ export function isfortran(a: ArrayStorage): boolean {
  * @param _tol - Tolerance (unused, for API compatibility)
  * @returns Copy of input array
  */
-export function real_if_close(a: ArrayStorage, _tol: number = 100): ArrayStorage {
-  // Since we don't have complex numbers, just return a copy
+export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage {
+  const dtype = a.dtype;
+
+  // For complex arrays, check if imaginary part is close to zero
+  if (isComplexDType(dtype)) {
+    const complexData = a.data as Float64Array | Float32Array;
+    const size = a.size;
+    const eps = dtype === 'complex64' ? 1.1920929e-7 : 2.220446049250313e-16;
+    const threshold = tol * eps;
+
+    // Check if all imaginary parts are close to zero
+    let allClose = true;
+    for (let i = 0; i < size; i++) {
+      const im = complexData[i * 2 + 1]!;
+      if (Math.abs(im) > threshold) {
+        allClose = false;
+        break;
+      }
+    }
+
+    if (allClose) {
+      // Return real part only
+      const realDtype = dtype === 'complex64' ? 'float32' : 'float64';
+      const result = ArrayStorage.zeros(Array.from(a.shape), realDtype);
+      const resultData = result.data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        resultData[i] = complexData[i * 2]!;
+      }
+      return result;
+    }
+
+    // Return complex array as-is
+    return a.copy();
+  }
+
+  // For non-complex arrays, just return a copy
   return a.copy();
 }
 

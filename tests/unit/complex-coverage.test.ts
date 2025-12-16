@@ -238,8 +238,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   histogram: 'unsupported', // binning for real numbers
   histogram2d: 'unsupported', // binning for real numbers
   histogramdd: 'unsupported', // binning for real numbers
-  correlate: 'not_implemented', // signal processing
-  convolve: 'not_implemented', // signal processing
+  correlate: 'supported', // complex cross-correlation with conjugate
+  convolve: 'supported', // complex convolution
   cov: 'not_implemented', // statistics
   corrcoef: 'not_implemented', // statistics
 
@@ -265,7 +265,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   copysign: 'unsupported', // copy sign only for real numbers
   nextafter: 'unsupported', // floating-point representation
   spacing: 'unsupported', // floating-point representation
-  real_if_close: 'not_implemented', // utility for complex-to-real
+  real_if_close: 'supported', // converts to real if imaginary is negligible
 
   // =========================================================================
   // SKIP - These don't take array input or are not applicable

@@ -6,7 +6,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { throwIfComplex, TypedArray } from '../core/dtype';
+import { isComplexDType, throwIfComplex, TypedArray } from '../core/dtype';
 
 /**
  * Count number of occurrences of each value in array of non-negative ints.
@@ -623,13 +623,79 @@ export function correlate(
   const vData = v.data;
   const aLen = a.size;
   const vLen = v.size;
+  const isComplex = isComplexDType(a.dtype) || isComplexDType(v.dtype);
 
   // Compute full correlation first
   const fullLen = aLen + vLen - 1;
+
+  if (isComplex) {
+    // Complex cross-correlation: c[k] = sum_n(a[n] * conj(v[n-k]))
+    const fullRe = new Float64Array(fullLen);
+    const fullIm = new Float64Array(fullLen);
+    const aComplex = isComplexDType(a.dtype);
+    const vComplex = isComplexDType(v.dtype);
+
+    for (let k = 0; k < fullLen; k++) {
+      let sumRe = 0;
+      let sumIm = 0;
+      const offset = k - vLen + 1;
+
+      for (let n = 0; n < aLen; n++) {
+        const vIdx = n - offset;
+        if (vIdx >= 0 && vIdx < vLen) {
+          let aRe: number, aIm: number, vRe: number, vIm: number;
+
+          if (aComplex) {
+            aRe = (aData as Float64Array)[n * 2]!;
+            aIm = (aData as Float64Array)[n * 2 + 1]!;
+          } else {
+            aRe = Number(aData[n]!);
+            aIm = 0;
+          }
+
+          if (vComplex) {
+            vRe = (vData as Float64Array)[vIdx * 2]!;
+            vIm = -(vData as Float64Array)[vIdx * 2 + 1]!; // conjugate
+          } else {
+            vRe = Number(vData[vIdx]!);
+            vIm = 0;
+          }
+
+          // a * conj(v) = (aRe + aIm*i) * (vRe - vIm*i)
+          sumRe += aRe * vRe + aIm * vIm;
+          sumIm += aIm * vRe - aRe * vIm;
+        }
+      }
+
+      fullRe[k] = sumRe;
+      fullIm[k] = sumIm;
+    }
+
+    // Pack into interleaved format and return based on mode
+    const packResult = (re: Float64Array, im: Float64Array, len: number, start: number = 0) => {
+      const result = new Float64Array(len * 2);
+      for (let i = 0; i < len; i++) {
+        result[i * 2] = re[start + i]!;
+        result[i * 2 + 1] = im[start + i]!;
+      }
+      return ArrayStorage.fromData(result, [len], 'complex128');
+    };
+
+    if (mode === 'full') {
+      return packResult(fullRe, fullIm, fullLen);
+    } else if (mode === 'same') {
+      const start = Math.floor((fullLen - aLen) / 2);
+      return packResult(fullRe, fullIm, aLen, start);
+    } else {
+      const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
+      const start = Math.min(aLen, vLen) - 1;
+      return packResult(fullRe, fullIm, validLen, start);
+    }
+  }
+
+  // Real arrays
   const fullResult = new Float64Array(fullLen);
 
-  // Cross-correlation: c[k] = sum_n(a[n] * conj(v[n-k]))
-  // For real arrays, this is: c[k] = sum_n(a[n] * v[n-k])
   for (let k = 0; k < fullLen; k++) {
     let sum = 0;
     const offset = k - vLen + 1;
@@ -648,7 +714,6 @@ export function correlate(
   if (mode === 'full') {
     return ArrayStorage.fromData(fullResult, [fullLen], 'float64');
   } else if (mode === 'same') {
-    // Return central part with same length as a
     const start = Math.floor((fullLen - aLen) / 2);
     const result = new Float64Array(aLen);
     for (let i = 0; i < aLen; i++) {
@@ -656,7 +721,6 @@ export function correlate(
     }
     return ArrayStorage.fromData(result, [aLen], 'float64');
   } else {
-    // mode === 'valid'
     const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
     const start = Math.min(aLen, vLen) - 1;
     const result = new Float64Array(validLen);
@@ -680,17 +744,38 @@ export function convolve(
   v: ArrayStorage,
   mode: 'full' | 'same' | 'valid' = 'full'
 ): ArrayStorage {
-  // Convolution is correlation with v reversed
+  // Convolution is correlation with v reversed (without conjugation)
   const vData = v.data;
   const vLen = v.size;
+  const vComplex = isComplexDType(v.dtype);
 
   // Create reversed v
-  const vReversed = new Float64Array(vLen);
-  for (let i = 0; i < vLen; i++) {
-    vReversed[i] = Number(vData[vLen - 1 - i]);
+  let vReversedStorage: ArrayStorage;
+
+  if (vComplex) {
+    const vReversed = new Float64Array(vLen * 2);
+    for (let i = 0; i < vLen; i++) {
+      const srcIdx = vLen - 1 - i;
+      vReversed[i * 2] = (vData as Float64Array)[srcIdx * 2]!;
+      vReversed[i * 2 + 1] = (vData as Float64Array)[srcIdx * 2 + 1]!;
+    }
+    vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], v.dtype);
+  } else {
+    const vReversed = new Float64Array(vLen);
+    for (let i = 0; i < vLen; i++) {
+      vReversed[i] = Number(vData[vLen - 1 - i]);
+    }
+    vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], 'float64');
   }
 
-  const vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], 'float64');
+  // For convolution, we need correlation without conjugation
+  // So we manually conjugate vReversed to cancel the conjugation in correlate
+  if (vComplex) {
+    const data = vReversedStorage.data as Float64Array;
+    for (let i = 0; i < vLen; i++) {
+      data[i * 2 + 1] = -data[i * 2 + 1]!; // Negate imaginary to cancel conjugation
+    }
+  }
 
   return correlate(a, vReversedStorage, mode);
 }
