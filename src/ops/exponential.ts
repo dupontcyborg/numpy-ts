@@ -10,7 +10,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplex, throwIfComplexNotImplemented, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../core/dtype';
 
 /**
  * Square root of each element

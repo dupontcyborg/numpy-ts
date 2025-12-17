@@ -446,8 +446,6 @@ export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
     }
   }
 
-  const totalLen = xorIndices1.length + xorIndices2.length;
-
   if (isComplex) {
     // Collect all values, then sort
     const xorValues: { re: number; im: number }[] = [];

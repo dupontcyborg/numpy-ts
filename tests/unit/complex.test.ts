@@ -2370,62 +2370,16 @@ describe('Complex Number Support', () => {
     });
 
     describe('isneginf()', () => {
-      it('returns false for finite complex numbers', () => {
+      it('throws for complex input (matches NumPy behavior)', () => {
         const a = array([new Complex(1, 2), new Complex(3, 4)]);
-        const result = isneginf(a);
-
-        expect(result.toArray()).toEqual([0, 0]);
-      });
-
-      it('returns true when real part is -Infinity', () => {
-        const a = array([new Complex(-Infinity, 0), new Complex(1, 2)]);
-        const result = isneginf(a);
-
-        expect(result.toArray()).toEqual([1, 0]);
-      });
-
-      it('returns true when imaginary part is -Infinity', () => {
-        const a = array([new Complex(0, -Infinity), new Complex(1, 2)]);
-        const result = isneginf(a);
-
-        expect(result.toArray()).toEqual([1, 0]);
-      });
-
-      it('returns false for +Infinity', () => {
-        const a = array([new Complex(Infinity, 0), new Complex(0, Infinity)]);
-        const result = isneginf(a);
-
-        expect(result.toArray()).toEqual([0, 0]);
+        expect(() => isneginf(a)).toThrow(/not supported for complex/);
       });
     });
 
     describe('isposinf()', () => {
-      it('returns false for finite complex numbers', () => {
+      it('throws for complex input (matches NumPy behavior)', () => {
         const a = array([new Complex(1, 2), new Complex(3, 4)]);
-        const result = isposinf(a);
-
-        expect(result.toArray()).toEqual([0, 0]);
-      });
-
-      it('returns true when real part is +Infinity', () => {
-        const a = array([new Complex(Infinity, 0), new Complex(1, 2)]);
-        const result = isposinf(a);
-
-        expect(result.toArray()).toEqual([1, 0]);
-      });
-
-      it('returns true when imaginary part is +Infinity', () => {
-        const a = array([new Complex(0, Infinity), new Complex(1, 2)]);
-        const result = isposinf(a);
-
-        expect(result.toArray()).toEqual([1, 0]);
-      });
-
-      it('returns false for -Infinity', () => {
-        const a = array([new Complex(-Infinity, 0), new Complex(0, -Infinity)]);
-        const result = isposinf(a);
-
-        expect(result.toArray()).toEqual([0, 0]);
+        expect(() => isposinf(a)).toThrow(/not supported for complex/);
       });
     });
   });

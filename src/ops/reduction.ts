@@ -6,7 +6,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, throwIfComplex, throwIfComplexNotImplemented, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../core/dtype';
 import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
 import { Complex } from '../core/complex';
 

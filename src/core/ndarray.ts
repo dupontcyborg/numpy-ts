@@ -1269,9 +1269,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Range of values
    */
-  ptp(axis?: number, keepdims: boolean = false): NDArray | number {
+  ptp(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.ptp(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1395,9 +1398,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Minimum of array elements ignoring NaNs
    */
-  nanmin(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanmin(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanmin(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1406,9 +1412,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Maximum of array elements ignoring NaNs
    */
-  nanmax(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanmax(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanmax(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**

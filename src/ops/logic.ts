@@ -920,19 +920,12 @@ export function isrealobj(a: ArrayStorage): boolean {
  * @returns Boolean array
  */
 export function isneginf(a: ArrayStorage): ArrayStorage {
+  throwIfComplex(a.dtype, 'isneginf', 'This operation is not supported for complex values because it would be ambiguous.');
   const data = new Uint8Array(a.size);
   const thisData = a.data;
   const size = a.size;
 
-  if (isComplexDType(a.dtype as DType)) {
-    // Complex: -inf if either part is -Infinity
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-      data[i] = re === -Infinity || im === -Infinity ? 1 : 0;
-    }
-  } else if (isBigIntDType(a.dtype)) {
+  if (isBigIntDType(a.dtype)) {
     // BigInt cannot be -Infinity
     // data is already zeros
   } else {
@@ -954,19 +947,12 @@ export function isneginf(a: ArrayStorage): ArrayStorage {
  * @returns Boolean array
  */
 export function isposinf(a: ArrayStorage): ArrayStorage {
+  throwIfComplex(a.dtype, 'isposinf', 'This operation is not supported for complex values because it would be ambiguous.');
   const data = new Uint8Array(a.size);
   const thisData = a.data;
   const size = a.size;
 
-  if (isComplexDType(a.dtype as DType)) {
-    // Complex: +inf if either part is +Infinity
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-      data[i] = re === Infinity || im === Infinity ? 1 : 0;
-    }
-  } else if (isBigIntDType(a.dtype)) {
+  if (isBigIntDType(a.dtype)) {
     // BigInt cannot be +Infinity
     // data is already zeros
   } else {

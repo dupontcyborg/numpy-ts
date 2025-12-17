@@ -10,7 +10,7 @@
 
 import { ArrayStorage } from '../core/storage';
 import { elementwiseUnaryOp } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplex, throwIfComplexNotImplemented, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../core/dtype';
 
 /**
  * Sine of each element (element-wise)

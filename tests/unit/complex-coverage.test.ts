@@ -212,8 +212,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   isfinite: 'supported', // True if both real and imag parts are finite
   isinf: 'supported', // True if either part is infinite
   isnan: 'supported', // True if either part is NaN
-  isneginf: 'supported', // True if either part is -Infinity
-  isposinf: 'supported', // True if either part is +Infinity
+  isneginf: 'unsupported', // NumPy throws: ambiguous for complex
+  isposinf: 'unsupported', // NumPy throws: ambiguous for complex
 
   // Linear algebra
   dot: 'supported', // complex dot product returns Complex
