@@ -3,7 +3,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm version](https://img.shields.io/npm/v/numpy-ts)](https://www.npmjs.com/package/numpy-ts)
 ![bundle size](https://img.shields.io/bundlephobia/minzip/numpy-ts)
-![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-65%20%25-yellow)
+![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-66%20%25-yellow)
 
 ```
 ███╗   ██╗██╗   ██╗███╗   ███╗██████╗ ██╗   ██╗  ████████╗███████╗
@@ -24,7 +24,7 @@ npm install numpy-ts
 
 ## Why numpy-ts?
 
-- **📊 Extensive API** — **331 of 507 NumPy functions (65.3% coverage)**
+- **📊 Extensive API** — **336 of 507 NumPy functions (66.3% coverage)**
 - **✅ NumPy-validated** — 3000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
@@ -84,16 +84,16 @@ Progress toward complete NumPy API compatibility:
 | **Linear Algebra (linalg)** | 19/31 | 61% | 🟡 |
 | **Linear Algebra** | 9/15 | 60% | 🟡 |
 | **Set Operations** | 7/12 | 58% | 🟡 |
+| **Other Math** | 5/15 | 33% | 🔴 |
 | **Random** | 17/53 | 32% | 🔴 |
 | **Utilities** | 4/16 | 25% | 🔴 |
 | **FFT** | 0/18 | 0% | 🔴 |
-| **Other Math** | 0/15 | 0% | 🔴 |
 | **Polynomials** | 0/10 | 0% | 🔴 |
 | **String/Formatting** | 0/10 | 0% | 🔴 |
 | **Type Checking** | 0/7 | 0% | 🔴 |
 | **Unplanned** | 0/25 | 0% | 🔴 |
 
-**Overall: 331/507 functions (65.3% complete)**
+**Overall: 336/507 functions (66.3% complete)**
 
 See the complete [API Reference](docs/API-REFERENCE.md) for detailed function list.
 
@@ -138,8 +138,8 @@ numpy-ts focuses on numeric array computing. The following NumPy features are **
 |---------|------------------|
 | **Datetime/Timedelta** (`datetime64`, `timedelta64`) | JS has native `Date`; libraries like [date-fns](https://date-fns.org/) handle time math better |
 | **F-order memory layout** | Exists in NumPy for Fortran/BLAS interop, which doesn't exist in JS |
-| **String/Bytes dtypes** (`str_`, `bytes_`, `U`, `S`) | JS strings are first-class; no need for fixed-width string arrays |
 | **Object dtype** (`object_`) | Defeats the purpose of typed arrays; use regular JS arrays instead |
+| **String/Bytes dtypes** (`str_`, `bytes_`, `U`, `S`) | JS strings are first-class; no need for fixed-width string arrays |
 
 These omissions keep the library focused and the bundle small. For string manipulation, datetime math, or heterogeneous data, use native JS/TS constructs alongside numpy-ts.
 
@@ -256,7 +256,7 @@ arr.sum();  // Type: number
 
 | Feature | numpy-ts | numjs | ndarray | TensorFlow.js |
 |---------|----------|-------|---------|---------------|
-| NumPy API Coverage | 331/507 (65%) | ~20% | Different | ML-focused |
+| NumPy API Coverage | 336/507 (66%) | ~20% | Different | ML-focused |
 | TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
 | NumPy Validated | ✅ 1365+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |

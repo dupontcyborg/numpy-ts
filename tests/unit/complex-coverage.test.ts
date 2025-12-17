@@ -364,6 +364,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   select: 'skip',
   place: 'skip',
   fill_diagonal: 'skip',
+  iindex: 'skip', // fancy indexing with integer indices
+  bindex: 'skip', // fancy indexing with boolean mask
   diag_indices: 'skip',
   diag_indices_from: 'skip',
   tril_indices: 'skip',

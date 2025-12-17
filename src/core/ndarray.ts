@@ -1708,7 +1708,10 @@ export class NDArray {
       indexArray = [];
       for (let i = 0; i < indices.size; i++) {
         const val = indices.storage.iget(i);
-        indexArray.push(typeof val === 'bigint' ? Number(val) : val);
+        // Handle bigint, Complex, or number types
+        const numVal =
+          typeof val === 'bigint' ? Number(val) : val instanceof Complex ? val.re : val;
+        indexArray.push(numVal);
       }
     } else if (Array.isArray(indices) && indices.length > 0 && Array.isArray(indices[0])) {
       // Flatten nested arrays
@@ -4482,7 +4485,11 @@ export function put(a: NDArray, indices: number[], values: NDArray | number | bi
  * np.iindex(arr, [0, 2], 1);   // [[1, 3], [4, 6], [7, 9]]
  * ```
  */
-export function iindex(a: NDArray, indices: NDArray | number[] | number[][], axis: number = 0): NDArray {
+export function iindex(
+  a: NDArray,
+  indices: NDArray | number[] | number[][],
+  axis: number = 0
+): NDArray {
   return a.iindex(indices, axis);
 }
 

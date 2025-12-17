@@ -49,28 +49,7 @@ This would be a major architectural addition:
 
 ---
 
-### 2. Complex Number Data Types
-**Status: Not Supported**
-**Scope: MAJOR - Touches almost everything**
-
-Missing:
-- `complex64` and `complex128` dtypes
-- `.real` and `.imag` properties
-- Functions: `angle`, `conj`, `real`, `imag`, `iscomplex`, `isreal`, `iscomplexobj`, `isrealobj`
-- Complex arithmetic in all operations
-- Complex array I/O
-
-**Implementation Notes:**
-- No native JS complex array type - need interleaved Float32/64Array or custom wrapper
-- Every arithmetic, comparison, trig, and reduction operation needs complex variants
-- dtype.ts, storage.ts, all ops files, npy I/O affected
-- Estimate: 15+ files, 50+ functions
-
-**Blocked Features:** FFT module requires complex number support.
-
----
-
-### 3. Structured Arrays / Record Arrays
+### 2. Structured Arrays / Record Arrays
 **Status: Not Supported**
 **Scope: MAJOR - New subsystem**
 
@@ -87,7 +66,7 @@ Missing:
 
 ---
 
-### 4. Advanced Indexing (Fancy Indexing)
+### 3. Advanced Indexing (Fancy Indexing)
 **Status: ✅ Implemented**
 **Scope: MODERATE - Concentrated in indexing**
 
@@ -101,7 +80,7 @@ Both methods support axis specification and work with existing `take()` and `com
 
 ## Moderate Feature Gaps
 
-### 5. Tuple of Axes for Reductions
+### 4. Tuple of Axes for Reductions
 **Status: Not Supported**
 **Scope: SMALL-MODERATE - Localized to reductions**
 
@@ -115,7 +94,7 @@ Required Changes:
 
 ---
 
-### 6. Polynomial Module
+### 5. Polynomial Module
 **Status: Not Implemented**
 **Scope: MODERATE - New module**
 
@@ -125,7 +104,7 @@ Missing: `polyval`, `polyfit`, `polyder`, `polyint`, `poly1d` class, `roots`
 
 ---
 
-### 7. Error State Control
+### 6. Error State Control
 **Status: Not Implemented**
 **Scope: SMALL - New utility**
 
@@ -140,7 +119,7 @@ Missing:
 
 ## Large New Subsystems
 
-### 8. FFT Module
+### 7. FFT Module
 **Status: Not Implemented**
 **Scope: LARGE - New module**
 **Blocker: Requires complex number support**
@@ -151,7 +130,7 @@ Missing: `fft`, `ifft`, `fft2`, `ifft2`, `fftn`, `ifftn`, `rfft`, `irfft`, `fftf
 
 ---
 
-### 9. Masked Arrays (`np.ma`)
+### 8. Masked Arrays (`np.ma`)
 **Status: Not Implemented**
 **Scope: LARGE - New subsystem**
 
@@ -162,41 +141,6 @@ Missing:
 - `ma.array`, `ma.masked_where`, etc.
 
 **Estimate:** New subsystem, significant architectural work
-
----
-
-## Priority Rankings
-
-### High Impact (Core Functionality Gaps)
-1. **ufunc system** - Foundational NumPy concept, blocks memory efficiency and extensibility
-2. **Complex numbers** - Blocks entire domains (signal processing, FFT)
-3. ~~**Integer/boolean array indexing**~~ ✅ Implemented via `iindex()` and `bindex()`
-4. **Tuple of axes** for reductions
-
-### Medium Impact (Important Features)
-5. **Polynomial module**
-6. **Error state control**
-
-### Lower Impact (Advanced/Specialized)
-7. **Structured arrays**
-8. **FFT module** (blocked by complex)
-9. **Masked arrays**
-
----
-
-## Implementation Scope Summary
-
-| Feature | Scope | Files | Functions | Blockers |
-|---------|-------|-------|-----------|----------|
-| Tuple axes reductions | Small-Mod | 1 | 15 | None |
-| Error state | Small | 1-2 | 5 | None |
-| Polynomial module | Moderate | 1 new | 10-15 | None |
-| ~~Fancy indexing~~ | ~~Moderate~~ | ~~2-3~~ | ~~10-15~~ | ✅ Done |
-| Complex numbers | Major | 15+ | 50+ | None |
-| Structured arrays | Major | 5+ | 20+ | None |
-| **ufunc system** | **Major** | **All ops** | **50+** | **None** |
-| FFT module | Large | 1 new | 15 | Complex |
-| Masked arrays | Large | 3+ new | 30+ | None |
 
 ---
 
