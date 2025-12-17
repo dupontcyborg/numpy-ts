@@ -2483,8 +2483,7 @@ result = np.einsum('i,i->', a, b)
       });
     });
 
-    // BUG: cov returns wrong values and float64 dtype for complex input
-    describe.skip('cov()', () => {
+    describe('cov()', () => {
       it('computes covariance matrix for complex arrays matching NumPy', () => {
         const a = array([[new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
                          [new Complex(4, 0), new Complex(5, 0), new Complex(6, 0)]]);
@@ -2497,8 +2496,7 @@ result = np.cov(np.array([[1+0j, 2+0j, 3+0j], [4+0j, 5+0j, 6+0j]]))
       });
     });
 
-    // BUG: corrcoef returns wrong values and float64 dtype for complex input
-    describe.skip('corrcoef()', () => {
+    describe('corrcoef()', () => {
       it('computes correlation coefficients for complex arrays matching NumPy', () => {
         const a = array([[new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
                          [new Complex(4, 0), new Complex(5, 0), new Complex(6, 0)]]);

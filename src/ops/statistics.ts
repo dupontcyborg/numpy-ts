@@ -800,6 +800,7 @@ export function cov(
 ): ArrayStorage {
   const mShape = m.shape;
   const mData = m.data;
+  const isComplex = isComplexDType(m.dtype) || (y !== undefined && isComplexDType(y.dtype));
 
   // Determine effective ddof
   let effectiveDdof: number;
@@ -815,11 +816,91 @@ export function cov(
       // Two 1D arrays - compute 2x2 covariance matrix
       const yData = y.data;
       const n = m.size;
+      const mIsComplex = isComplexDType(m.dtype);
+      const yIsComplex = isComplexDType(y.dtype);
 
       if (y.size !== n) {
         throw new Error('m and y must have same length');
       }
 
+      if (isComplex) {
+        // Complex 1D case with y
+        // Compute complex means
+        let mMeanRe = 0, mMeanIm = 0, yMeanRe = 0, yMeanIm = 0;
+        for (let i = 0; i < n; i++) {
+          if (mIsComplex) {
+            mMeanRe += (mData as Float64Array)[i * 2]!;
+            mMeanIm += (mData as Float64Array)[i * 2 + 1]!;
+          } else {
+            mMeanRe += Number(mData[i]);
+          }
+          if (yIsComplex) {
+            yMeanRe += (yData as Float64Array)[i * 2]!;
+            yMeanIm += (yData as Float64Array)[i * 2 + 1]!;
+          } else {
+            yMeanRe += Number(yData[i]);
+          }
+        }
+        mMeanRe /= n; mMeanIm /= n;
+        yMeanRe /= n; yMeanIm /= n;
+
+        // Compute covariances: cov[i,j] = E[(Xi - μi) * conj(Xj - μj)]
+        let varMRe = 0, varMIm = 0;
+        let varYRe = 0, varYIm = 0;
+        let covMYRe = 0, covMYIm = 0;
+        let covYMRe = 0, covYMIm = 0;
+
+        for (let i = 0; i < n; i++) {
+          let dmRe: number, dmIm: number, dyRe: number, dyIm: number;
+          if (mIsComplex) {
+            dmRe = (mData as Float64Array)[i * 2]! - mMeanRe;
+            dmIm = (mData as Float64Array)[i * 2 + 1]! - mMeanIm;
+          } else {
+            dmRe = Number(mData[i]) - mMeanRe;
+            dmIm = 0;
+          }
+          if (yIsComplex) {
+            dyRe = (yData as Float64Array)[i * 2]! - yMeanRe;
+            dyIm = (yData as Float64Array)[i * 2 + 1]! - yMeanIm;
+          } else {
+            dyRe = Number(yData[i]) - yMeanRe;
+            dyIm = 0;
+          }
+
+          // dm * conj(dm) = |dm|^2 (real)
+          varMRe += dmRe * dmRe + dmIm * dmIm;
+          // dy * conj(dy) = |dy|^2 (real)
+          varYRe += dyRe * dyRe + dyIm * dyIm;
+          // dm * conj(dy) = (dmRe + dmIm*i) * (dyRe - dyIm*i)
+          covMYRe += dmRe * dyRe + dmIm * dyIm;
+          covMYIm += dmIm * dyRe - dmRe * dyIm;
+          // dy * conj(dm) = (dyRe + dyIm*i) * (dmRe - dmIm*i)
+          covYMRe += dyRe * dmRe + dyIm * dmIm;
+          covYMIm += dyIm * dmRe - dyRe * dmIm;
+        }
+
+        const divisor = n - effectiveDdof;
+        if (divisor <= 0) {
+          const nanResult = new Float64Array(8);
+          nanResult.fill(NaN);
+          return ArrayStorage.fromData(nanResult, [2, 2], 'complex128');
+        }
+
+        varMRe /= divisor;
+        varYRe /= divisor;
+        covMYRe /= divisor; covMYIm /= divisor;
+        covYMRe /= divisor; covYMIm /= divisor;
+
+        // Pack into interleaved format: [[varM, covMY], [covYM, varY]]
+        const result = new Float64Array(8);
+        result[0] = varMRe; result[1] = varMIm;      // [0,0]
+        result[2] = covMYRe; result[3] = covMYIm;    // [0,1]
+        result[4] = covYMRe; result[5] = covYMIm;    // [1,0]
+        result[6] = varYRe; result[7] = varYIm;      // [1,1]
+        return ArrayStorage.fromData(result, [2, 2], 'complex128');
+      }
+
+      // Real 1D case with y
       // Compute means
       let mMean = 0,
         yMean = 0;
@@ -855,6 +936,34 @@ export function cov(
     } else {
       // Single 1D array - compute scalar variance (0-d array like NumPy)
       const n = m.size;
+
+      if (isComplex) {
+        // Complex variance: E[|X - μ|^2]
+        let meanRe = 0, meanIm = 0;
+        for (let i = 0; i < n; i++) {
+          meanRe += (mData as Float64Array)[i * 2]!;
+          meanIm += (mData as Float64Array)[i * 2 + 1]!;
+        }
+        meanRe /= n;
+        meanIm /= n;
+
+        let variance = 0;
+        for (let i = 0; i < n; i++) {
+          const dRe = (mData as Float64Array)[i * 2]! - meanRe;
+          const dIm = (mData as Float64Array)[i * 2 + 1]! - meanIm;
+          variance += dRe * dRe + dIm * dIm;
+        }
+
+        const divisor = n - effectiveDdof;
+        if (divisor <= 0) {
+          return ArrayStorage.fromData(new Float64Array([NaN, 0]), [], 'complex128');
+        }
+
+        variance /= divisor;
+        return ArrayStorage.fromData(new Float64Array([variance, 0]), [], 'complex128');
+      }
+
+      // Real 1D case
       let mean = 0;
       for (let i = 0; i < n; i++) {
         mean += Number(mData[i]);
@@ -890,6 +999,57 @@ export function cov(
     numObs = mShape[0]!;
   }
 
+  const divisor = numObs - effectiveDdof;
+
+  if (isComplex) {
+    // Complex 2D case
+    // Compute complex means for each variable
+    const meansRe = new Float64Array(numVars);
+    const meansIm = new Float64Array(numVars);
+    for (let i = 0; i < numVars; i++) {
+      let sumRe = 0, sumIm = 0;
+      for (let j = 0; j < numObs; j++) {
+        const idx = rowvar ? i * numObs + j : j * numVars + i;
+        sumRe += (mData as Float64Array)[idx * 2]!;
+        sumIm += (mData as Float64Array)[idx * 2 + 1]!;
+      }
+      meansRe[i] = sumRe / numObs;
+      meansIm[i] = sumIm / numObs;
+    }
+
+    // Compute complex covariance matrix (Hermitian: cov[i,j] = conj(cov[j,i]))
+    const covMatrix = new Float64Array(numVars * numVars * 2);
+
+    if (divisor <= 0) {
+      covMatrix.fill(NaN);
+      return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'complex128');
+    }
+
+    for (let i = 0; i < numVars; i++) {
+      for (let j = 0; j < numVars; j++) {
+        let sumRe = 0, sumIm = 0;
+        for (let k = 0; k < numObs; k++) {
+          const idxI = rowvar ? i * numObs + k : k * numVars + i;
+          const idxJ = rowvar ? j * numObs + k : k * numVars + j;
+          const diRe = (mData as Float64Array)[idxI * 2]! - meansRe[i]!;
+          const diIm = (mData as Float64Array)[idxI * 2 + 1]! - meansIm[i]!;
+          const djRe = (mData as Float64Array)[idxJ * 2]! - meansRe[j]!;
+          const djIm = (mData as Float64Array)[idxJ * 2 + 1]! - meansIm[j]!;
+          // di * conj(dj) = (diRe + diIm*i) * (djRe - djIm*i)
+          // = (diRe*djRe + diIm*djIm) + (diIm*djRe - diRe*djIm)*i
+          sumRe += diRe * djRe + diIm * djIm;
+          sumIm += diIm * djRe - diRe * djIm;
+        }
+        const outIdx = (i * numVars + j) * 2;
+        covMatrix[outIdx] = sumRe / divisor;
+        covMatrix[outIdx + 1] = sumIm / divisor;
+      }
+    }
+
+    return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'complex128');
+  }
+
+  // Real 2D case
   // Compute means for each variable
   const means = new Float64Array(numVars);
   for (let i = 0; i < numVars; i++) {
@@ -903,7 +1063,6 @@ export function cov(
 
   // Compute covariance matrix
   const covMatrix = new Float64Array(numVars * numVars);
-  const divisor = numObs - effectiveDdof;
 
   if (divisor <= 0) {
     covMatrix.fill(NaN);
@@ -938,8 +1097,13 @@ export function cov(
  * @returns Correlation coefficient matrix
  */
 export function corrcoef(x: ArrayStorage, y?: ArrayStorage, rowvar: boolean = true): ArrayStorage {
+  const isComplex = isComplexDType(x.dtype) || (y !== undefined && isComplexDType(y.dtype));
+
   // Handle 1D array without y - return scalar 1.0 (0-d array like NumPy)
   if (x.shape.length === 1 && y === undefined) {
+    if (isComplex) {
+      return ArrayStorage.fromData(new Float64Array([1, 0]), [], 'complex128');
+    }
     return ArrayStorage.fromData(new Float64Array([1]), [], 'float64');
   }
 
@@ -950,7 +1114,37 @@ export function corrcoef(x: ArrayStorage, y?: ArrayStorage, rowvar: boolean = tr
   const shape = covMatrix.shape;
   const n = shape[0]!;
 
-  // Compute correlation coefficients from covariance matrix
+  if (isComplex) {
+    // Complex correlation coefficients
+    // corr[i,j] = cov[i,j] / sqrt(cov[i,i] * cov[j,j])
+    // Diagonal elements (variances) are real, so sqrt(var_i * var_j) is real
+    const corrData = new Float64Array(n * n * 2);
+
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        // Get cov[i,j] (complex)
+        const covIJRe = (covData as Float64Array)[(i * n + j) * 2]!;
+        const covIJIm = (covData as Float64Array)[(i * n + j) * 2 + 1]!;
+        // Variances are real (imaginary part is 0 for diagonal elements)
+        const varI = (covData as Float64Array)[(i * n + i) * 2]!;
+        const varJ = (covData as Float64Array)[(j * n + j) * 2]!;
+
+        const outIdx = (i * n + j) * 2;
+        if (varI <= 0 || varJ <= 0) {
+          corrData[outIdx] = NaN;
+          corrData[outIdx + 1] = NaN;
+        } else {
+          const divisor = Math.sqrt(varI * varJ);
+          corrData[outIdx] = covIJRe / divisor;
+          corrData[outIdx + 1] = covIJIm / divisor;
+        }
+      }
+    }
+
+    return ArrayStorage.fromData(corrData, [n, n], 'complex128');
+  }
+
+  // Real correlation coefficients
   // corr[i,j] = cov[i,j] / sqrt(cov[i,i] * cov[j,j])
   const corrData = new Float64Array(n * n);
 
