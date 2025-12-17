@@ -921,9 +921,22 @@ export function tensordot(
     ...bFreeAxes.map((ax) => b.shape[ax]!),
   ];
 
+  // Determine if we're working with complex numbers
+  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+  const isComplex = isComplexDType(resultDtype);
+
+  // Helper to get real and imaginary parts
+  const getReIm = (val: number | bigint | Complex): { re: number; im: number } => {
+    if (val instanceof Complex) {
+      return { re: val.re, im: val.im };
+    }
+    return { re: Number(val), im: 0 };
+  };
+
   // Special case: no free axes (full contraction) -> scalar result
   if (resultShape.length === 0) {
-    let sum = 0;
+    let sumRe = 0;
+    let sumIm = 0;
     // Iterate over all combinations of contracted axes
     const contractSize = aAxes.map((ax) => a.shape[ax]!).reduce((acc, dim) => acc * dim, 1);
 
@@ -951,17 +964,26 @@ export function tensordot(
       const aVal = a.get(...aIdx);
       const bVal = b.get(...bIdx);
 
-      if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sum = Number(sum) + Number(aVal * bVal);
+      if (isComplex) {
+        const av = getReIm(aVal);
+        const bv = getReIm(bVal);
+        // Complex multiplication: (aRe + aIm*i) * (bRe + bIm*i)
+        sumRe += av.re * bv.re - av.im * bv.im;
+        sumIm += av.re * bv.im + av.im * bv.re;
+      } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+        sumRe += Number(aVal * bVal);
       } else {
-        sum += Number(aVal) * Number(bVal);
+        sumRe += Number(aVal) * Number(bVal);
       }
     }
-    return sum;
+
+    if (isComplex) {
+      return new Complex(sumRe, sumIm);
+    }
+    return sumRe;
   }
 
   // General case: with free axes
-  const resultDtype = promoteDTypes(a.dtype, b.dtype);
   const result = ArrayStorage.zeros(resultShape, resultDtype);
 
   const resultSize = resultShape.reduce((acc, dim) => acc * dim, 1);
@@ -981,7 +1003,8 @@ export function tensordot(
     const aFreeIndices = resultIndices.slice(0, aFreeAxes.length);
     const bFreeIndices = resultIndices.slice(aFreeAxes.length);
 
-    let sum = 0;
+    let sumRe = 0;
+    let sumIm = 0;
 
     // Sum over all contracted axes
     for (let c = 0; c < contractSize; c++) {
@@ -1015,14 +1038,24 @@ export function tensordot(
       const aVal = a.get(...aFullIdx);
       const bVal = b.get(...bFullIdx);
 
-      if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sum = Number(sum) + Number(aVal * bVal);
+      if (isComplex) {
+        const av = getReIm(aVal);
+        const bv = getReIm(bVal);
+        // Complex multiplication
+        sumRe += av.re * bv.re - av.im * bv.im;
+        sumIm += av.re * bv.im + av.im * bv.re;
+      } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+        sumRe += Number(aVal * bVal);
       } else {
-        sum += Number(aVal) * Number(bVal);
+        sumRe += Number(aVal) * Number(bVal);
       }
     }
 
-    result.set(resultIndices, sum);
+    if (isComplex) {
+      result.set(resultIndices, new Complex(sumRe, sumIm));
+    } else {
+      result.set(resultIndices, sumRe);
+    }
   }
 
   return result;
@@ -1154,7 +1187,7 @@ export function diagonal(
 export function einsum(
   subscripts: string,
   ...operands: ArrayStorage[]
-): ArrayStorage | number | bigint {
+): ArrayStorage | number | bigint | Complex {
   // Parse the subscripts
   const arrowMatch = subscripts.indexOf('->');
 
@@ -1428,14 +1461,32 @@ function computeEinsumScalar(
   operandSubscripts: string[],
   sumIndices: string[],
   indexDims: Map<string, number>
-): number {
+): number | Complex {
+  // Check if any operand is complex
+  let resultIsComplex = false;
+  for (const op of operands) {
+    if (isComplexDType(op.dtype)) {
+      resultIsComplex = true;
+      break;
+    }
+  }
+
+  // Helper to get real and imaginary parts
+  const getReIm = (val: number | bigint | Complex): { re: number; im: number } => {
+    if (val instanceof Complex) {
+      return { re: val.re, im: val.im };
+    }
+    return { re: Number(val), im: 0 };
+  };
+
   // All indices are summation indices
   let sumSize = 1;
   for (const idx of sumIndices) {
     sumSize *= indexDims.get(idx)!;
   }
 
-  let sum = 0;
+  let sumRe = 0;
+  let sumIm = 0;
 
   for (let sumIdx = 0; sumIdx < sumSize; sumIdx++) {
     // Assign values to summation indices
@@ -1449,7 +1500,8 @@ function computeEinsumScalar(
     }
 
     // Compute product of all operand values
-    let product = 1;
+    let prodRe = 1;
+    let prodIm = 0;
     for (let i = 0; i < operands.length; i++) {
       const op = operands[i]!;
       const sub = operandSubscripts[i]!;
@@ -1461,13 +1513,26 @@ function computeEinsumScalar(
       }
 
       const val = op.get(...opIdx);
-      product *= Number(val);
+      if (resultIsComplex) {
+        const v = getReIm(val);
+        // Complex multiplication: prod * v
+        const newRe = prodRe * v.re - prodIm * v.im;
+        const newIm = prodRe * v.im + prodIm * v.re;
+        prodRe = newRe;
+        prodIm = newIm;
+      } else {
+        prodRe *= Number(val);
+      }
     }
 
-    sum += product;
+    sumRe += prodRe;
+    sumIm += prodIm;
   }
 
-  return sum;
+  if (resultIsComplex) {
+    return new Complex(sumRe, sumIm);
+  }
+  return sumRe;
 }
 
 /**

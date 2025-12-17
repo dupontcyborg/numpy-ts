@@ -5424,10 +5424,10 @@ export function promote_types(dtype1: DType, dtype2: DType): DType {
  * // Trace
  * einsum('ii->', a)
  */
-export function einsum(subscripts: string, ...operands: NDArray[]): NDArray | number | bigint {
+export function einsum(subscripts: string, ...operands: NDArray[]): NDArray | number | bigint | Complex {
   const storages = operands.map((op) => op.storage);
   const result = linalgOps.einsum(subscripts, ...storages);
-  if (typeof result === 'number' || typeof result === 'bigint') {
+  if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
     return result;
   }
   return NDArray._fromStorage(result);

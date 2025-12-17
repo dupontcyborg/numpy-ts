@@ -733,33 +733,58 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
  * @returns Sorted array
  */
 export function sort_complex(storage: ArrayStorage): ArrayStorage {
-  // For real arrays, just sort normally (1D flattened)
   const dtype = storage.dtype;
   const size = storage.size;
   const data = storage.data;
 
-  // Flatten and sort
-  const values: number[] = [];
-  for (let i = 0; i < size; i++) {
-    values.push(Number(data[i]!));
+  if (isComplexDType(dtype)) {
+    // Complex sort using lexicographic ordering
+    const complexData = data as Float64Array | Float32Array;
+    const values: { re: number; im: number }[] = [];
+    for (let i = 0; i < size; i++) {
+      values.push({
+        re: complexData[i * 2]!,
+        im: complexData[i * 2 + 1]!,
+      });
+    }
+
+    // Sort using lexicographic comparison
+    values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+    // Create result (1D sorted array with complex128 dtype)
+    const result = ArrayStorage.zeros([size], 'complex128');
+    const resultData = result.data as Float64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = values[i]!.re;
+      resultData[i * 2 + 1] = values[i]!.im;
+    }
+
+    return result;
+  } else {
+    // For real arrays, sort normally (1D flattened), then cast to complex128
+    const values: number[] = [];
+    for (let i = 0; i < size; i++) {
+      values.push(Number(data[i]!));
+    }
+
+    // Sort (NaN values go to end)
+    values.sort((a, b) => {
+      if (isNaN(a) && isNaN(b)) return 0;
+      if (isNaN(a)) return 1;
+      if (isNaN(b)) return -1;
+      return a - b;
+    });
+
+    // Create result as complex128 (NumPy always returns complex)
+    const result = ArrayStorage.zeros([size], 'complex128');
+    const resultData = result.data as Float64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = values[i]!;
+      resultData[i * 2 + 1] = 0;
+    }
+
+    return result;
   }
-
-  // Sort (NaN values go to end)
-  values.sort((a, b) => {
-    if (isNaN(a) && isNaN(b)) return 0;
-    if (isNaN(a)) return 1;
-    if (isNaN(b)) return -1;
-    return a - b;
-  });
-
-  // Create result (1D sorted array)
-  const result = ArrayStorage.zeros([size], dtype as DType);
-  const resultData = result.data;
-  for (let i = 0; i < size; i++) {
-    resultData[i] = values[i]!;
-  }
-
-  return result;
 }
 
 // ============================================================================
@@ -1067,40 +1092,82 @@ export function searchsorted(
   const n = storage.size;
   const valuesData = values.data;
   const numValues = values.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Create result array
   const result = ArrayStorage.zeros([numValues], 'int32');
   const resultData = result.data as Int32Array;
 
-  // Binary search for each value
-  for (let i = 0; i < numValues; i++) {
-    const v = Number(valuesData[i]);
-    let lo = 0;
-    let hi = n;
+  if (isComplex) {
+    // Complex binary search using lexicographic comparison
+    const complexData = data as Float64Array | Float32Array;
+    const complexValues = valuesData as Float64Array | Float32Array;
 
-    if (side === 'left') {
-      // Find leftmost position where v can be inserted
-      while (lo < hi) {
-        const mid = Math.floor((lo + hi) / 2);
-        if (Number(data[mid]) < v) {
-          lo = mid + 1;
-        } else {
-          hi = mid;
+    for (let i = 0; i < numValues; i++) {
+      const vRe = complexValues[i * 2]!;
+      const vIm = complexValues[i * 2 + 1]!;
+      let lo = 0;
+      let hi = n;
+
+      if (side === 'left') {
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const midRe = complexData[mid * 2]!;
+          const midIm = complexData[mid * 2 + 1]!;
+          // Check if data[mid] < v
+          if (complexCompare(midRe, midIm, vRe, vIm) < 0) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+      } else {
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const midRe = complexData[mid * 2]!;
+          const midIm = complexData[mid * 2 + 1]!;
+          // Check if data[mid] <= v
+          if (complexCompare(midRe, midIm, vRe, vIm) <= 0) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
         }
       }
-    } else {
-      // Find rightmost position where v can be inserted
-      while (lo < hi) {
-        const mid = Math.floor((lo + hi) / 2);
-        if (Number(data[mid]) <= v) {
-          lo = mid + 1;
-        } else {
-          hi = mid;
-        }
-      }
+
+      resultData[i] = lo;
     }
+  } else {
+    // Non-complex binary search
+    for (let i = 0; i < numValues; i++) {
+      const v = Number(valuesData[i]);
+      let lo = 0;
+      let hi = n;
 
-    resultData[i] = lo;
+      if (side === 'left') {
+        // Find leftmost position where v can be inserted
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (Number(data[mid]) < v) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+      } else {
+        // Find rightmost position where v can be inserted
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (Number(data[mid]) <= v) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+      }
+
+      resultData[i] = lo;
+    }
   }
 
   return result;

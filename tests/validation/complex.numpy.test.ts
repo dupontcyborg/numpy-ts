@@ -2362,8 +2362,7 @@ result = np.lexsort((np.array([1+0j, 2+0j, 1+0j]), np.array([3+0j, 1+0j, 2+0j]))
       });
     });
 
-    // BUG: searchsorted returns wrong indices for complex - js:[2,0] vs numpy:[1,2]
-    describe.skip('searchsorted()', () => {
+    describe('searchsorted()', () => {
       it('finds insertion indices for complex values matching NumPy', () => {
         const a = array([new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)]);
         const v = array([new Complex(1.5, 0), new Complex(2.5, 0)]);
@@ -2376,8 +2375,7 @@ result = np.searchsorted(np.array([1+0j, 2+0j, 3+0j]), np.array([1.5+0j, 2.5+0j]
       });
     });
 
-    // BUG: sort_complex returns wrong order for complex numbers
-    describe.skip('sort_complex()', () => {
+    describe('sort_complex()', () => {
       it('sorts complex array (real first, then imag) matching NumPy', () => {
         const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(1, 1), new Complex(2, 0)]);
         const jsResult = sort_complex(a);
@@ -2454,8 +2452,7 @@ result = np.setxor1d(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 4+4j]))
   // ==========================================================================
 
   describe('Additional Linear Algebra Operations', () => {
-    // BUG: tensordot returns NaN for complex arrays
-    describe.skip('tensordot()', () => {
+    describe('tensordot()', () => {
       it('computes tensor dot product of complex arrays matching NumPy', () => {
         const a = array([[new Complex(1, 1), new Complex(2, 0)], [new Complex(0, 1), new Complex(1, 0)]]);
         const b = array([[new Complex(1, 0), new Complex(0, 1)], [new Complex(1, 1), new Complex(2, 0)]]);
@@ -2471,8 +2468,7 @@ result = np.tensordot(a, b, axes=1)
       });
     });
 
-    // BUG: einsum returns NaN for complex arrays
-    describe.skip('einsum()', () => {
+    describe('einsum()', () => {
       it('computes Einstein summation for complex arrays matching NumPy', () => {
         const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
         const b = array([new Complex(1, 0), new Complex(0, 1), new Complex(1, 1)]);
