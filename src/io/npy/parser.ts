@@ -6,7 +6,7 @@
 
 import { NDArray } from '../../core/ndarray';
 import { ArrayStorage } from '../../core/storage';
-import { getTypedArrayConstructor, isBigIntDType, type DType } from '../../core/dtype';
+import { getTypedArrayConstructor, isBigIntDType, isComplexDType, type DType } from '../../core/dtype';
 import {
   NPY_MAGIC,
   parseDescriptor,
@@ -210,24 +210,40 @@ function createTypedArray(
     throw new InvalidNpyError(`Cannot create array for dtype: ${dtype}`);
   }
 
+  const isComplex = isComplexDType(dtype);
+  // For complex types, the typed array needs 2x elements (interleaved re, im)
+  const arrayLength = isComplex ? numElements * 2 : numElements;
+
   if (!needsByteSwap) {
     // Fast path: no byte swapping needed
-    return new Constructor(buffer, 0, numElements);
+    return new Constructor(buffer, 0, arrayLength);
   }
 
   // Slow path: need to byte swap
   const bytes = new Uint8Array(buffer);
   const swapped = new Uint8Array(buffer.byteLength);
 
-  for (let i = 0; i < numElements; i++) {
-    const start = i * itemsize;
-    // Reverse bytes for this element
-    for (let j = 0; j < itemsize; j++) {
-      swapped[start + j] = bytes[start + itemsize - 1 - j]!;
+  if (isComplex) {
+    // For complex types, swap each float component separately
+    // complex128 = two float64 (8 bytes each), complex64 = two float32 (4 bytes each)
+    const componentSize = itemsize / 2;
+    for (let i = 0; i < numElements * 2; i++) {
+      const start = i * componentSize;
+      for (let j = 0; j < componentSize; j++) {
+        swapped[start + j] = bytes[start + componentSize - 1 - j]!;
+      }
+    }
+  } else {
+    // For non-complex types, swap the entire element
+    for (let i = 0; i < numElements; i++) {
+      const start = i * itemsize;
+      for (let j = 0; j < itemsize; j++) {
+        swapped[start + j] = bytes[start + itemsize - 1 - j]!;
+      }
     }
   }
 
-  return new Constructor(swapped.buffer, 0, numElements);
+  return new Constructor(swapped.buffer, 0, arrayLength);
 }
 
 /**

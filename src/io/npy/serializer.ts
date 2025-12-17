@@ -8,7 +8,8 @@
  */
 
 import { NDArray } from '../../core/ndarray';
-import { getDTypeSize, isBigIntDType, type DType } from '../../core/dtype';
+import { getDTypeSize, isBigIntDType, isComplexDType, type DType } from '../../core/dtype';
+import { Complex } from '../../core/complex';
 import { NPY_MAGIC, DTYPE_TO_DESCR, isSystemLittleEndian } from './format';
 
 /**
@@ -81,6 +82,7 @@ function writeArrayData(arr: NDArray, output: Uint8Array, itemsize: number): voi
   const size = arr.size;
   const isLittleEndian = isSystemLittleEndian();
   const isBigInt = isBigIntDType(dtype);
+  const isComplex = isComplexDType(dtype);
 
   // Get raw data - need to handle non-contiguous arrays
   const storage = arr['_storage']; // Access private member
@@ -102,6 +104,9 @@ function writeArrayData(arr: NDArray, output: Uint8Array, itemsize: number): voi
       if (isBigInt) {
         // Write BigInt as little-endian
         writeBigInt64LE(dataView, offset, value as bigint, dtype === 'uint64');
+      } else if (isComplex) {
+        // Write Complex as little-endian (two floats: re, im)
+        writeComplexLE(dataView, offset, value as Complex, dtype);
       } else {
         // Write number as little-endian
         writeNumberLE(dataView, offset, value as number, dtype);
@@ -118,6 +123,21 @@ function writeBigInt64LE(view: DataView, offset: number, value: bigint, unsigned
     view.setBigUint64(offset, value, true);
   } else {
     view.setBigInt64(offset, value, true);
+  }
+}
+
+/**
+ * Write a Complex number as little-endian (two floats: re, im)
+ */
+function writeComplexLE(view: DataView, offset: number, value: Complex, dtype: DType): void {
+  if (dtype === 'complex128') {
+    // Two float64 values
+    view.setFloat64(offset, value.re, true);
+    view.setFloat64(offset + 8, value.im, true);
+  } else {
+    // complex64: two float32 values
+    view.setFloat32(offset, value.re, true);
+    view.setFloat32(offset + 4, value.im, true);
   }
 }
 
