@@ -12,7 +12,10 @@ import {
   getTypedArrayConstructor,
   getDTypeSize,
   isBigIntDType,
+  isComplexDType,
+  isComplexLike,
 } from './dtype';
+import { Complex } from './complex';
 import { ArrayStorage } from './storage';
 import { computeBroadcastShape } from './broadcasting';
 import * as arithmeticOps from '../ops/arithmetic';
@@ -26,6 +29,7 @@ import * as hyperbolicOps from '../ops/hyperbolic';
 import * as advancedOps from '../ops/advanced';
 import * as bitwiseOps from '../ops/bitwise';
 import * as logicOps from '../ops/logic';
+import * as complexOps from '../ops/complex';
 import * as sortingOps from '../ops/sorting';
 import * as roundingOps from '../ops/rounding';
 import * as setOps from '../ops/sets';
@@ -160,7 +164,7 @@ export class NDArray {
    * Iterator protocol - iterate over the first axis
    * For 1D arrays, yields elements; for ND arrays, yields (N-1)D subarrays
    */
-  *[Symbol.iterator](): Iterator<NDArray | number | bigint> {
+  *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
     if (this.ndim === 0) {
       // 0D array: yield the single element
       yield this._storage.iget(0);
@@ -180,9 +184,9 @@ export class NDArray {
   /**
    * Get a single element from the array
    * @param indices - Array of indices, one per dimension (e.g., [0, 1] for 2D array)
-   * @returns The element value (BigInt for int64/uint64, number otherwise)
+   * @returns The element value (BigInt for int64/uint64, Complex for complex, number otherwise)
    */
-  get(indices: number[]): number | bigint {
+  get(indices: number[]): number | bigint | Complex {
     // Validate number of indices
     if (indices.length !== this.ndim) {
       throw new Error(
@@ -213,7 +217,7 @@ export class NDArray {
    * @param indices - Array of indices, one per dimension (e.g., [0, 1] for 2D array)
    * @param value - Value to set (will be converted to array's dtype)
    */
-  set(indices: number[], value: number | bigint): void {
+  set(indices: number[], value: number | bigint | Complex | { re: number; im: number }): void {
     // Validate number of indices
     if (indices.length !== this.ndim) {
       throw new Error(
@@ -238,20 +242,26 @@ export class NDArray {
 
     // Convert value to appropriate type based on dtype
     const currentDtype = this.dtype as DType;
-    let convertedValue: number | bigint;
 
-    if (isBigIntDType(currentDtype)) {
+    if (isComplexDType(currentDtype)) {
+      // For complex dtypes, pass the value directly to storage
+      // (storage.set handles Complex, {re, im}, and number)
+      this._storage.set(normalizedIndices, value);
+    } else if (isBigIntDType(currentDtype)) {
       // Convert to BigInt for BigInt dtypes
-      convertedValue = typeof value === 'bigint' ? value : BigInt(Math.round(value));
+      const numValue = value instanceof Complex ? value.re : Number(value);
+      const convertedValue = typeof value === 'bigint' ? value : BigInt(Math.round(numValue));
+      this._storage.set(normalizedIndices, convertedValue);
     } else if (currentDtype === 'bool') {
       // Convert to 0 or 1 for bool dtype
-      convertedValue = value ? 1 : 0;
+      const numValue = value instanceof Complex ? value.re : Number(value);
+      const convertedValue = numValue ? 1 : 0;
+      this._storage.set(normalizedIndices, convertedValue);
     } else {
       // Convert to number for all other dtypes
-      convertedValue = Number(value);
+      const convertedValue = value instanceof Complex ? value.re : Number(value);
+      this._storage.set(normalizedIndices, convertedValue);
     }
-
-    this._storage.set(normalizedIndices, convertedValue);
   }
 
   /**
@@ -1103,9 +1113,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Sum of array elements, or array of sums along axis
    */
-  sum(axis?: number, keepdims: boolean = false): NDArray | number {
+  sum(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.sum(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1116,9 +1129,12 @@ export class NDArray {
    *
    * Note: mean() returns float64 for integer dtypes, matching NumPy behavior
    */
-  mean(axis?: number, keepdims: boolean = false): NDArray | number {
+  mean(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.mean(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1127,9 +1143,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Maximum of array elements, or array of maximums along axis
    */
-  max(axis?: number, keepdims: boolean = false): NDArray | number {
+  max(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.max(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1138,9 +1157,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Minimum of array elements, or array of minimums along axis
    */
-  min(axis?: number, keepdims: boolean = false): NDArray | number {
+  min(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.min(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1149,9 +1171,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Product of array elements, or array of products along axis
    */
-  prod(axis?: number, keepdims: boolean = false): NDArray | number {
+  prod(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.prod(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1244,9 +1269,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Range of values
    */
-  ptp(axis?: number, keepdims: boolean = false): NDArray | number {
+  ptp(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.ptp(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1290,9 +1318,12 @@ export class NDArray {
    * @param axis - Axis along which to compute average. If undefined, compute over all elements.
    * @returns Weighted average of array elements
    */
-  average(weights?: NDArray, axis?: number): NDArray | number {
+  average(weights?: NDArray, axis?: number): NDArray | number | Complex {
     const result = reductionOps.average(this._storage, axis, weights?.storage);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1301,9 +1332,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Sum of array elements ignoring NaNs
    */
-  nansum(axis?: number, keepdims: boolean = false): NDArray | number {
+  nansum(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nansum(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1312,9 +1346,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Product of array elements ignoring NaNs
    */
-  nanprod(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanprod(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanprod(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1323,9 +1360,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Mean of array elements ignoring NaNs
    */
-  nanmean(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanmean(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanmean(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1358,9 +1398,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Minimum of array elements ignoring NaNs
    */
-  nanmin(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanmin(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanmin(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1369,9 +1412,12 @@ export class NDArray {
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    * @returns Maximum of array elements ignoring NaNs
    */
-  nanmax(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanmax(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
     const result = reductionOps.nanmax(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    if (typeof result === 'number' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   }
 
   /**
@@ -1715,11 +1761,11 @@ export class NDArray {
   /**
    * Dot product (matching NumPy behavior)
    * @param other - Array to dot with
-   * @returns Result of dot product (scalar or array depending on dimensions)
+   * @returns Result of dot product (scalar or array depending on dimensions, Complex for complex arrays)
    */
-  dot(other: NDArray): NDArray | number | bigint {
+  dot(other: NDArray): NDArray | number | bigint | Complex {
     const result = linalgOps.dot(this._storage, other._storage);
-    if (typeof result === 'number' || typeof result === 'bigint') {
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
     return NDArray._fromStorage(result);
@@ -1727,20 +1773,20 @@ export class NDArray {
 
   /**
    * Sum of diagonal elements (trace)
-   * @returns Sum of diagonal elements
+   * @returns Sum of diagonal elements (Complex for complex arrays)
    */
-  trace(): number | bigint {
+  trace(): number | bigint | Complex {
     return linalgOps.trace(this._storage);
   }
 
   /**
    * Inner product (contracts over last axes of both arrays)
    * @param other - Array to compute inner product with
-   * @returns Inner product result
+   * @returns Inner product result (Complex for complex arrays)
    */
-  inner(other: NDArray): NDArray | number | bigint {
+  inner(other: NDArray): NDArray | number | bigint | Complex {
     const result = linalgOps.inner(this._storage, other._storage);
-    if (typeof result === 'number' || typeof result === 'bigint') {
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
     return NDArray._fromStorage(result);
@@ -1762,9 +1808,12 @@ export class NDArray {
    * @param axes - Axes to contract (integer or [a_axes, b_axes])
    * @returns Tensor dot product result
    */
-  tensordot(other: NDArray, axes: number | [number[], number[]] = 2): NDArray | number | bigint {
+  tensordot(
+    other: NDArray,
+    axes: number | [number[], number[]] = 2
+  ): NDArray | number | bigint | Complex {
     const result = linalgOps.tensordot(this._storage, other._storage, axes);
-    if (typeof result === 'number' || typeof result === 'bigint') {
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
     return NDArray._fromStorage(result);
@@ -2053,6 +2102,17 @@ function containsBigInt(data: unknown): boolean {
 }
 
 /**
+ * Helper to check if data contains Complex values
+ */
+function containsComplex(data: unknown): boolean {
+  if (isComplexLike(data)) return true;
+  if (Array.isArray(data)) {
+    return data.some((item) => containsComplex(item));
+  }
+  return false;
+}
+
+/**
  * Helper to flatten nested arrays keeping BigInt values
  */
 function flattenKeepBigInt(data: unknown): unknown[] {
@@ -2085,6 +2145,7 @@ export function array(data: any, dtype?: DType): NDArray {
   }
 
   const hasBigInt = containsBigInt(data);
+  const hasComplex = containsComplex(data);
 
   // Infer shape from nested arrays
   const shape = inferShape(data);
@@ -2093,12 +2154,16 @@ export function array(data: any, dtype?: DType): NDArray {
   // Determine dtype
   let actualDtype = dtype;
   if (!actualDtype) {
-    if (hasBigInt) {
+    if (hasComplex) {
+      actualDtype = 'complex128';
+    } else if (hasBigInt) {
       actualDtype = 'int64';
     } else {
       actualDtype = DEFAULT_DTYPE;
     }
   }
+
+  const isComplex = isComplexDType(actualDtype);
 
   // Get TypedArray constructor
   const Constructor = getTypedArrayConstructor(actualDtype);
@@ -2106,7 +2171,9 @@ export function array(data: any, dtype?: DType): NDArray {
     throw new Error(`Cannot create array with dtype ${actualDtype}`);
   }
 
-  const typedData = new Constructor(size);
+  // For complex types, physical size is 2x logical size
+  const physicalSize = isComplex ? size * 2 : size;
+  const typedData = new Constructor(physicalSize);
   const flatData = flattenKeepBigInt(data);
 
   // Fill the typed array
@@ -2120,6 +2187,28 @@ export function array(data: any, dtype?: DType): NDArray {
     const boolData = typedData as Uint8Array;
     for (let i = 0; i < size; i++) {
       boolData[i] = flatData[i] ? 1 : 0;
+    }
+  } else if (isComplex) {
+    // Complex: store as interleaved [re, im, re, im, ...]
+    const complexData = typedData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const val = flatData[i];
+      let re: number, im: number;
+
+      if (val instanceof Complex) {
+        re = val.re;
+        im = val.im;
+      } else if (typeof val === 'object' && val !== null && 're' in val) {
+        re = (val as { re: number; im?: number }).re;
+        im = (val as { re: number; im?: number }).im ?? 0;
+      } else {
+        // Scalar number - treat as real with 0 imaginary
+        re = Number(val);
+        im = 0;
+      }
+
+      complexData[i * 2] = re;
+      complexData[i * 2 + 1] = im;
     }
   } else {
     const numData = typedData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
@@ -3268,9 +3357,9 @@ export function reciprocal(x: NDArray): NDArray {
  *
  * @param a - First array
  * @param b - Second array
- * @returns Result of dot product
+ * @returns Result of dot product (Complex for complex arrays)
  */
-export function dot(a: NDArray, b: NDArray): NDArray | number | bigint {
+export function dot(a: NDArray, b: NDArray): NDArray | number | bigint | Complex {
   return a.dot(b);
 }
 
@@ -3278,9 +3367,9 @@ export function dot(a: NDArray, b: NDArray): NDArray | number | bigint {
  * Sum of diagonal elements
  *
  * @param a - Input 2D array
- * @returns Sum of diagonal elements
+ * @returns Sum of diagonal elements (Complex for complex arrays)
  */
-export function trace(a: NDArray): number | bigint {
+export function trace(a: NDArray): number | bigint | Complex {
   return a.trace();
 }
 
@@ -3334,9 +3423,9 @@ export function transpose(a: NDArray, axes?: number[]): NDArray {
  *
  * @param a - First array
  * @param b - Second array
- * @returns Inner product result
+ * @returns Inner product result (Complex for complex arrays)
  */
-export function inner(a: NDArray, b: NDArray): NDArray | number | bigint {
+export function inner(a: NDArray, b: NDArray): NDArray | number | bigint | Complex {
   return a.inner(b);
 }
 
@@ -3365,7 +3454,7 @@ export function tensordot(
   a: NDArray,
   b: NDArray,
   axes: number | [number[], number[]] = 2
-): NDArray | number | bigint {
+): NDArray | number | bigint | Complex {
   return a.tensordot(b, axes);
 }
 
@@ -4569,7 +4658,11 @@ export { cumprod as cumulative_prod };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Maximum value(s)
  */
-export function max(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function max(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   return a.max(axis, keepdims);
 }
 
@@ -4583,7 +4676,11 @@ export { max as amax };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Minimum value(s)
  */
-export function min(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function min(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   return a.min(axis, keepdims);
 }
 
@@ -4597,9 +4694,16 @@ export { min as amin };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Peak to peak value(s)
  */
-export function ptp(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function ptp(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.ptp(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4663,10 +4767,13 @@ export function average(
   axis?: number,
   weights?: NDArray,
   keepdims: boolean = false
-): NDArray | number {
+): NDArray | number | Complex {
   const weightsStorage = weights ? weights.storage : undefined;
   const result = reductionOps.average(a.storage, axis, weightsStorage, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 // ============================================================================
@@ -4680,9 +4787,16 @@ export function average(
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Sum value(s)
  */
-export function nansum(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nansum(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nansum(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4692,9 +4806,16 @@ export function nansum(a: NDArray, axis?: number, keepdims: boolean = false): ND
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Product value(s)
  */
-export function nanprod(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanprod(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanprod(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4704,9 +4825,16 @@ export function nanprod(a: NDArray, axis?: number, keepdims: boolean = false): N
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Mean value(s)
  */
-export function nanmean(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanmean(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanmean(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4752,9 +4880,16 @@ export function nanstd(
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Minimum value(s)
  */
-export function nanmin(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanmin(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanmin(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -4764,9 +4899,16 @@ export function nanmin(a: NDArray, axis?: number, keepdims: boolean = false): ND
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Maximum value(s)
  */
-export function nanmax(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
+export function nanmax(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanmax(a.storage, axis, keepdims);
-  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  if (typeof result === 'number' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }
 
 /**
@@ -5231,43 +5373,106 @@ export function spacing(x: NDArray): NDArray {
 }
 
 /**
- * Test element-wise for complex number
- * Since numpy-ts doesn't support complex numbers, always returns false
+ * Test element-wise for complex number.
+ *
+ * For complex arrays, returns true for elements with non-zero imaginary part.
+ * For real arrays, always returns false.
+ *
  * @param x - Input array
- * @returns Boolean array (all false)
+ * @returns Boolean array
  */
 export function iscomplex(x: NDArray): NDArray {
   return NDArray._fromStorage(logicOps.iscomplex(x.storage));
 }
 
 /**
- * Check whether array is complex type
- * Since numpy-ts doesn't support complex numbers, always returns false
+ * Check whether array is complex type.
+ *
  * @param x - Input array
- * @returns false
+ * @returns true if dtype is complex64 or complex128
  */
 export function iscomplexobj(x: NDArray): boolean {
   return logicOps.iscomplexobj(x.storage);
 }
 
 /**
- * Test element-wise for real number (not complex)
- * Since numpy-ts doesn't support complex numbers, always returns true
+ * Test element-wise for real number (not complex).
+ *
+ * For complex arrays, returns true for elements with zero imaginary part.
+ * For real arrays, always returns true.
+ *
  * @param x - Input array
- * @returns Boolean array (all true)
+ * @returns Boolean array
  */
 export function isreal(x: NDArray): NDArray {
   return NDArray._fromStorage(logicOps.isreal(x.storage));
 }
 
 /**
- * Check whether array is real type (not complex)
- * Since numpy-ts doesn't support complex numbers, always returns true
+ * Check whether array is real type (not complex).
+ *
  * @param x - Input array
- * @returns true
+ * @returns true if dtype is NOT complex64 or complex128
  */
 export function isrealobj(x: NDArray): boolean {
   return logicOps.isrealobj(x.storage);
+}
+
+/**
+ * Return the real part of complex argument.
+ *
+ * For complex arrays, returns the real components.
+ * For real arrays, returns a copy of the input.
+ *
+ * @param x - Input array
+ * @returns Array with real parts
+ */
+export function real(x: NDArray): NDArray {
+  return NDArray._fromStorage(complexOps.real(x.storage));
+}
+
+/**
+ * Return the imaginary part of complex argument.
+ *
+ * For complex arrays, returns the imaginary components.
+ * For real arrays, returns zeros.
+ *
+ * @param x - Input array
+ * @returns Array with imaginary parts
+ */
+export function imag(x: NDArray): NDArray {
+  return NDArray._fromStorage(complexOps.imag(x.storage));
+}
+
+/**
+ * Return the complex conjugate.
+ *
+ * For complex arrays, negates the imaginary part: (a + bi) -> (a - bi)
+ * For real arrays, returns a copy of the input.
+ *
+ * @param x - Input array
+ * @returns Complex conjugate array
+ */
+export function conj(x: NDArray): NDArray {
+  return NDArray._fromStorage(complexOps.conj(x.storage));
+}
+
+// Alias for conj
+export const conjugate = conj;
+
+/**
+ * Return the angle (phase) of complex argument.
+ *
+ * angle(z) = arctan2(imag(z), real(z))
+ *
+ * For real arrays, returns 0 for positive, pi for negative.
+ *
+ * @param x - Input array
+ * @param deg - Return angle in degrees if true (default: false, returns radians)
+ * @returns Array with angles in radians (or degrees)
+ */
+export function angle(x: NDArray, deg: boolean = false): NDArray {
+  return NDArray._fromStorage(complexOps.angle(x.storage, deg));
 }
 
 /**
@@ -5371,10 +5576,13 @@ export function promote_types(dtype1: DType, dtype2: DType): DType {
  * // Trace
  * einsum('ii->', a)
  */
-export function einsum(subscripts: string, ...operands: NDArray[]): NDArray | number | bigint {
+export function einsum(
+  subscripts: string,
+  ...operands: NDArray[]
+): NDArray | number | bigint | Complex {
   const storages = operands.map((op) => op.storage);
   const result = linalgOps.einsum(subscripts, ...storages);
-  if (typeof result === 'number' || typeof result === 'bigint') {
+  if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
     return result;
   }
   return NDArray._fromStorage(result);

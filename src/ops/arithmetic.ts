@@ -9,7 +9,13 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, promoteDTypes } from '../core/dtype';
+import {
+  isBigIntDType,
+  isComplexDType,
+  getComplexComponentDType,
+  promoteDTypes,
+  throwIfComplex,
+} from '../core/dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 
 /**
@@ -23,6 +29,25 @@ function canUseFastPath(a: ArrayStorage, b: ArrayStorage): boolean {
     a.shape.length === b.shape.length &&
     a.shape.every((dim, i) => dim === b.shape[i])
   );
+}
+
+// ============================================================
+// Complex arithmetic helpers
+// ============================================================
+
+/**
+ * Get real and imaginary parts from a complex array at index
+ */
+function getComplexAt(data: Float64Array | Float32Array, i: number): [number, number] {
+  return [data[i * 2]!, data[i * 2 + 1]!];
+}
+
+/**
+ * Set real and imaginary parts in a complex array at index
+ */
+function setComplexAt(data: Float64Array | Float32Array, i: number, re: number, im: number): void {
+  data[i * 2] = re;
+  data[i * 2 + 1] = im;
 }
 
 /**
@@ -57,6 +82,25 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const aData = a.data;
   const bData = b.data;
   const resultData = result.data;
+
+  // Handle complex result dtype
+  if (isComplexDType(dtype)) {
+    const resultTyped = resultData as Float64Array | Float32Array;
+    const aIsComplex = isComplexDType(a.dtype);
+    const bIsComplex = isComplexDType(b.dtype);
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
+      // (a+bi) + (c+di) = (a+c) + (b+d)i
+      setComplexAt(resultTyped, i, aRe + bRe, aIm + bIm);
+    }
+    return result;
+  }
 
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -128,6 +172,25 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const bData = b.data;
   const resultData = result.data;
 
+  // Handle complex result dtype
+  if (isComplexDType(dtype)) {
+    const resultTyped = resultData as Float64Array | Float32Array;
+    const aIsComplex = isComplexDType(a.dtype);
+    const bIsComplex = isComplexDType(b.dtype);
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
+      // (a+bi) - (c+di) = (a-c) + (b-d)i
+      setComplexAt(resultTyped, i, aRe - bRe, aIm - bIm);
+    }
+    return result;
+  }
+
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const needsConversion = !isBigIntDType(a.dtype) || !isBigIntDType(b.dtype);
@@ -197,6 +260,27 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const bData = b.data;
   const resultData = result.data;
 
+  // Handle complex result dtype
+  if (isComplexDType(dtype)) {
+    const resultTyped = resultData as Float64Array | Float32Array;
+    const aIsComplex = isComplexDType(a.dtype);
+    const bIsComplex = isComplexDType(b.dtype);
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
+      // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+      const re = aRe * bRe - aIm * bIm;
+      const im = aRe * bIm + aIm * bRe;
+      setComplexAt(resultTyped, i, re, im);
+    }
+    return result;
+  }
+
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const needsConversion = !isBigIntDType(a.dtype) || !isBigIntDType(b.dtype);
@@ -238,6 +322,8 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  *
  * NumPy behavior: Integer division always promotes to float
  * Type promotion rules:
+ * - complex128 + anything → complex128
+ * - complex64 + float32/int → complex64
  * - float64 + anything → float64
  * - float32 + integer → float32
  * - integer + integer → float64
@@ -249,6 +335,35 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   if (typeof b === 'number') {
     return divideScalar(a, b);
+  }
+
+  // Handle complex numbers
+  const aIsComplex = isComplexDType(a.dtype);
+  const bIsComplex = isComplexDType(b.dtype);
+
+  if (aIsComplex || bIsComplex) {
+    // Determine result complex dtype
+    const dtype = promoteDTypes(a.dtype, b.dtype);
+    const result = ArrayStorage.zeros(Array.from(a.shape), dtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const size = a.size;
+    const aData = a.data;
+    const bData = b.data;
+
+    for (let i = 0; i < size; i++) {
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
+      // (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c²+d²)
+      const denom = bRe * bRe + bIm * bIm;
+      const re = (aRe * bRe + aIm * bIm) / denom;
+      const im = (aIm * bRe - aRe * bIm) / denom;
+      setComplexAt(resultData, i, re, im);
+    }
+    return result;
   }
 
   // Determine result dtype using NumPy promotion rules
@@ -311,7 +426,15 @@ function addScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: add scalar to real part only
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re + scalar, im);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic - no precision loss
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -343,7 +466,15 @@ function subtractScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: subtract scalar from real part only
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re - scalar, im);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic - no precision loss
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -375,7 +506,16 @@ function multiplyScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: multiply both parts by scalar
+    // (a+bi) * s = (a*s) + (b*s)i
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re * scalar, im * scalar);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic - no precision loss
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -403,6 +543,20 @@ function divideScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+
+  // Handle complex types
+  if (isComplexDType(dtype)) {
+    // Complex: divide both parts by scalar
+    // (a+bi) / s = (a/s) + (b/s)i
+    const result = ArrayStorage.zeros(shape, dtype);
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = result.data as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, re / scalar, im / scalar);
+    }
+    return result;
+  }
 
   // NumPy behavior: Integer division always promotes to float64
   // This allows representing inf/nan for division by zero
@@ -442,7 +596,25 @@ export function absolute(a: ArrayStorage): ArrayStorage {
   const data = a.data;
   const size = a.size;
 
-  // Create result with same dtype
+  // For complex types, result is the component dtype (magnitude is real)
+  if (isComplexDType(dtype)) {
+    const resultDtype = getComplexComponentDType(dtype);
+    const result = ArrayStorage.zeros(shape, resultDtype);
+    const resultData = result.data as Float64Array | Float32Array;
+    const srcData = data as Float64Array | Float32Array;
+
+    // Data is interleaved [re, im, re, im, ...]
+    // |z| = sqrt(re² + im²)
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+      resultData[i] = Math.sqrt(re * re + im * im);
+    }
+
+    return result;
+  }
+
+  // Create result with same dtype for non-complex
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
@@ -481,7 +653,16 @@ export function negative(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: negate both parts
+    // -(a+bi) = (-a) + (-b)i
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const [re, im] = getComplexAt(srcData, i);
+      setComplexAt(dstData, i, -re, -im);
+    }
+  } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic
     const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -506,6 +687,7 @@ export function negative(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with signs
  */
 export function sign(a: ArrayStorage): ArrayStorage {
+  throwIfComplex(a.dtype, 'sign', 'Sign is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const data = a.data;
@@ -544,6 +726,10 @@ export function sign(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with modulo values
  */
 export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(a.dtype, 'mod', 'Modulo is not defined for complex numbers.');
+  if (typeof b !== 'number') {
+    throwIfComplex(b.dtype, 'mod', 'Modulo is not defined for complex numbers.');
+  }
   if (typeof b === 'number') {
     return modScalar(a, b);
   }
@@ -597,6 +783,10 @@ function modScalar(storage: ArrayStorage, divisor: number): ArrayStorage {
  * @returns Result storage with floor division values
  */
 export function floorDivide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(a.dtype, 'floor_divide', 'Floor division is not defined for complex numbers.');
+  if (typeof b !== 'number') {
+    throwIfComplex(b.dtype, 'floor_divide', 'Floor division is not defined for complex numbers.');
+  }
   if (typeof b === 'number') {
     return floorDivideScalar(a, b);
   }
@@ -652,9 +842,19 @@ export function positive(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  // Copy data
-  for (let i = 0; i < size; i++) {
-    resultData[i] = data[i]!;
+  if (isComplexDType(dtype)) {
+    // Complex: copy both real and imaginary parts
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      dstData[i * 2] = srcData[i * 2]!;
+      dstData[i * 2 + 1] = srcData[i * 2 + 1]!;
+    }
+  } else {
+    // Non-complex: simple copy
+    for (let i = 0; i < size; i++) {
+      resultData[i] = data[i]!;
+    }
   }
 
   return result;
@@ -663,6 +863,7 @@ export function positive(a: ArrayStorage): ArrayStorage {
 /**
  * Reciprocal (1/x) of each element
  * NumPy behavior: Always promotes to float64 for integer types
+ * For complex: 1/z = z̄/|z|² = (re - i*im) / (re² + im²)
  *
  * @param a - Input array storage
  * @returns Result storage with reciprocal values
@@ -672,6 +873,24 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+
+  // Handle complex types
+  if (isComplexDType(dtype)) {
+    const result = ArrayStorage.zeros(shape, dtype);
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = result.data as Float64Array | Float32Array;
+
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+      // 1/z = z̄/|z|² = (re - i*im) / (re² + im²)
+      const magSq = re * re + im * im;
+      dstData[i * 2] = re / magSq;
+      dstData[i * 2 + 1] = -im / magSq;
+    }
+
+    return result;
+  }
 
   // NumPy behavior: reciprocal always promotes integers to float64
   const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
@@ -704,6 +923,7 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
  */
 export function cbrt(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype;
+  throwIfComplex(dtype, 'cbrt', 'cbrt is not supported for complex numbers.');
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
@@ -732,6 +952,7 @@ export function cbrt(a: ArrayStorage): ArrayStorage {
  */
 export function fabs(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype;
+  throwIfComplex(dtype, 'fabs', 'fabs is only for real numbers. Use absolute() for complex.');
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
@@ -767,6 +988,7 @@ export function divmod(a: ArrayStorage, b: ArrayStorage | number): [ArrayStorage
 /**
  * Element-wise square of each element
  * NumPy behavior: x**2
+ * For complex: z² = (re + i*im)² = (re² - im²) + i*(2*re*im)
  *
  * @param a - Input array storage
  * @returns Result storage with squared values
@@ -780,7 +1002,17 @@ export function square(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex: z² = (re + i*im)² = (re² - im²) + i*(2*re*im)
+    const srcData = data as Float64Array | Float32Array;
+    const dstData = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const re = srcData[i * 2]!;
+      const im = srcData[i * 2 + 1]!;
+      dstData[i * 2] = re * re - im * im;
+      dstData[i * 2 + 1] = 2 * re * im;
+    }
+  } else if (isBigIntDType(dtype)) {
     const bigData = data as BigInt64Array | BigUint64Array;
     const bigResultData = resultData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
@@ -820,6 +1052,18 @@ export function remainder(a: ArrayStorage, b: ArrayStorage | number): ArrayStora
  * @returns Result storage with heaviside values
  */
 export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(
+    x1.dtype,
+    'heaviside',
+    'Heaviside step function is not defined for complex numbers.'
+  );
+  if (typeof x2 !== 'number') {
+    throwIfComplex(
+      x2.dtype,
+      'heaviside',
+      'Heaviside step function is not defined for complex numbers.'
+    );
+  }
   const dtype = x1.dtype;
   const shape = Array.from(x1.shape);
   const size = x1.size;
@@ -885,6 +1129,68 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
  * @returns Result in float64
  */
 export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  const dtype1 = x1.dtype;
+
+  // Complex float_power: z1^z2 = exp(z2 * log(z1))
+  if (isComplexDType(dtype1)) {
+    const complexData = x1.data as Float64Array | Float32Array;
+    const size = x1.size;
+    const result = ArrayStorage.zeros(Array.from(x1.shape), dtype1);
+    const resultData = result.data as Float64Array | Float32Array;
+
+    if (typeof x2 === 'number') {
+      for (let i = 0; i < size; i++) {
+        const re = complexData[i * 2]!;
+        const im = complexData[i * 2 + 1]!;
+
+        // z^n = |z|^n * exp(i * n * arg(z))
+        const mag = Math.hypot(re, im);
+        const arg = Math.atan2(im, re);
+        const newMag = Math.pow(mag, x2);
+        const newArg = arg * x2;
+
+        resultData[i * 2] = newMag * Math.cos(newArg);
+        resultData[i * 2 + 1] = newMag * Math.sin(newArg);
+      }
+    } else {
+      // Complex base with array exponent
+      const x2Data = x2.data;
+      const x2Complex = isComplexDType(x2.dtype);
+
+      for (let i = 0; i < size; i++) {
+        const re1 = complexData[i * 2]!;
+        const im1 = complexData[i * 2 + 1]!;
+
+        let re2: number, im2: number;
+        if (x2Complex) {
+          re2 = (x2Data as Float64Array)[i * 2]!;
+          im2 = (x2Data as Float64Array)[i * 2 + 1]!;
+        } else {
+          re2 = Number(x2Data[i]!);
+          im2 = 0;
+        }
+
+        // z1^z2 = exp(z2 * log(z1))
+        // log(z1) = ln|z1| + i*arg(z1)
+        const mag1 = Math.hypot(re1, im1);
+        const arg1 = Math.atan2(im1, re1);
+        const logRe = Math.log(mag1);
+        const logIm = arg1;
+
+        // z2 * log(z1)
+        const prodRe = re2 * logRe - im2 * logIm;
+        const prodIm = re2 * logIm + im2 * logRe;
+
+        // exp(prodRe + i*prodIm)
+        const expMag = Math.exp(prodRe);
+        resultData[i * 2] = expMag * Math.cos(prodIm);
+        resultData[i * 2 + 1] = expMag * Math.sin(prodIm);
+      }
+    }
+
+    return result;
+  }
+
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
     const resultData = result.data as Float64Array;
@@ -909,6 +1215,10 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
  * @returns Remainder
  */
 export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'fmod', 'fmod is not defined for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'fmod', 'fmod is not defined for complex numbers.');
+  }
   if (typeof x2 === 'number') {
     const result = x1.copy();
     const resultData = result.data;
@@ -932,6 +1242,7 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
  * @returns Tuple of [mantissa, exponent] arrays
  */
 export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
+  throwIfComplex(x.dtype, 'frexp', 'frexp is not defined for complex numbers.');
   const mantissa = ArrayStorage.zeros(Array.from(x.shape), 'float64');
   const exponent = ArrayStorage.zeros(Array.from(x.shape), 'int32');
   const mantissaData = mantissa.data as Float64Array;
@@ -963,6 +1274,10 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
  * @returns GCD
  */
 export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'gcd', 'GCD is only defined for integers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'gcd', 'GCD is only defined for integers.');
+  }
   const gcdSingle = (a: number, b: number): number => {
     a = Math.abs(Math.trunc(a));
     b = Math.abs(Math.trunc(b));
@@ -1011,6 +1326,10 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  * @returns LCM
  */
 export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'lcm', 'LCM is only defined for integers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'lcm', 'LCM is only defined for integers.');
+  }
   const gcdSingle = (a: number, b: number): number => {
     a = Math.abs(Math.trunc(a));
     b = Math.abs(Math.trunc(b));
@@ -1066,6 +1385,10 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  * @returns Result
  */
 export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'ldexp', 'ldexp is not defined for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'ldexp', 'ldexp is not defined for complex numbers.');
+  }
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
     const resultData = result.data as Float64Array;
@@ -1089,6 +1412,7 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
  * @returns Tuple of [fractional, integral] arrays
  */
 export function modf(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
+  throwIfComplex(x.dtype, 'modf', 'modf is not defined for complex numbers.');
   const fractional = ArrayStorage.zeros(Array.from(x.shape), 'float64');
   const integral = ArrayStorage.zeros(Array.from(x.shape), 'float64');
   const fractionalData = fractional.data as Float64Array;

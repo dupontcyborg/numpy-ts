@@ -9,7 +9,7 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, promoteDTypes } from '../core/dtype';
+import { isBigIntDType, isComplexDType, promoteDTypes } from '../core/dtype';
 
 /**
  * Calculate the n-th discrete difference along the given axis.
@@ -68,8 +68,9 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
   const resultShape = [...shape];
   resultShape[axis] = axisSize - 1;
 
-  // Determine result dtype - always float64 for non-float types
+  // Determine result dtype - always float64 for non-float types (except complex)
   const dtype = a.dtype;
+  const isComplex = isComplexDType(dtype);
   const resultDtype = isBigIntDType(dtype) ? 'float64' : dtype;
 
   const result = ArrayStorage.zeros(resultShape, resultDtype);
@@ -106,10 +107,20 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
     }
 
     // Compute difference
-    const val1 = isBigIntDType(dtype) ? Number(a.data[flatIdx1]!) : Number(a.data[flatIdx1]!);
-    const val2 = isBigIntDType(dtype) ? Number(a.data[flatIdx2]!) : Number(a.data[flatIdx2]!);
-
-    resultData[resultIdx] = val2 - val1;
+    if (isComplex) {
+      // Complex: access interleaved data [re, im, re, im, ...]
+      const complexData = a.data as Float64Array | Float32Array;
+      const re1 = complexData[flatIdx1 * 2]!;
+      const im1 = complexData[flatIdx1 * 2 + 1]!;
+      const re2 = complexData[flatIdx2 * 2]!;
+      const im2 = complexData[flatIdx2 * 2 + 1]!;
+      (resultData as Float64Array | Float32Array)[resultIdx * 2] = re2 - re1;
+      (resultData as Float64Array | Float32Array)[resultIdx * 2 + 1] = im2 - im1;
+    } else {
+      const val1 = isBigIntDType(dtype) ? Number(a.data[flatIdx1]!) : Number(a.data[flatIdx1]!);
+      const val2 = isBigIntDType(dtype) ? Number(a.data[flatIdx2]!) : Number(a.data[flatIdx2]!);
+      resultData[resultIdx] = val2 - val1;
+    }
   }
 
   return result;
@@ -131,6 +142,7 @@ export function ediff1d(
   // Flatten the array
   const flatSize = ary.size;
   const dtype = ary.dtype;
+  const isComplex = isComplexDType(dtype);
   const resultDtype = isBigIntDType(dtype) ? 'float64' : dtype;
 
   // Calculate result size
@@ -144,24 +156,53 @@ export function ediff1d(
 
   let idx = 0;
 
-  // Add to_begin values
+  // Add to_begin values (note: these are real numbers even for complex arrays)
   if (to_begin) {
-    for (const val of to_begin) {
-      resultData[idx++] = val;
+    if (isComplex) {
+      for (const val of to_begin) {
+        (resultData as Float64Array | Float32Array)[idx * 2] = val;
+        (resultData as Float64Array | Float32Array)[idx * 2 + 1] = 0;
+        idx++;
+      }
+    } else {
+      for (const val of to_begin) {
+        resultData[idx++] = val;
+      }
     }
   }
 
   // Calculate differences
-  for (let i = 0; i < diffSize; i++) {
-    const val1 = isBigIntDType(dtype) ? Number(ary.iget(i)) : Number(ary.iget(i));
-    const val2 = isBigIntDType(dtype) ? Number(ary.iget(i + 1)) : Number(ary.iget(i + 1));
-    resultData[idx++] = val2 - val1;
+  if (isComplex) {
+    const complexData = ary.data as Float64Array | Float32Array;
+    for (let i = 0; i < diffSize; i++) {
+      const re1 = complexData[i * 2]!;
+      const im1 = complexData[i * 2 + 1]!;
+      const re2 = complexData[(i + 1) * 2]!;
+      const im2 = complexData[(i + 1) * 2 + 1]!;
+      (resultData as Float64Array | Float32Array)[idx * 2] = re2 - re1;
+      (resultData as Float64Array | Float32Array)[idx * 2 + 1] = im2 - im1;
+      idx++;
+    }
+  } else {
+    for (let i = 0; i < diffSize; i++) {
+      const val1 = isBigIntDType(dtype) ? Number(ary.iget(i)) : Number(ary.iget(i));
+      const val2 = isBigIntDType(dtype) ? Number(ary.iget(i + 1)) : Number(ary.iget(i + 1));
+      resultData[idx++] = val2 - val1;
+    }
   }
 
-  // Add to_end values
+  // Add to_end values (note: these are real numbers even for complex arrays)
   if (to_end) {
-    for (const val of to_end) {
-      resultData[idx++] = val;
+    if (isComplex) {
+      for (const val of to_end) {
+        (resultData as Float64Array | Float32Array)[idx * 2] = val;
+        (resultData as Float64Array | Float32Array)[idx * 2 + 1] = 0;
+        idx++;
+      }
+    } else {
+      for (const val of to_end) {
+        resultData[idx++] = val;
+      }
     }
   }
 
@@ -246,11 +287,14 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
 
   // Result has same shape as input
   const dtype = f.dtype;
+  const isComplex = isComplexDType(dtype);
   const resultDtype = isBigIntDType(dtype)
     ? 'float64'
     : dtype === 'float32'
       ? 'float32'
-      : 'float64';
+      : isComplex
+        ? dtype
+        : 'float64';
 
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
@@ -275,63 +319,130 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
 
     const axisIdx = indices[axis]!;
 
-    let gradientValue: number;
+    if (isComplex) {
+      // Complex gradient computation
+      const complexData = f.data as Float64Array | Float32Array;
+      const complexResult = resultData as Float64Array | Float32Array;
+      let gradRe: number;
+      let gradIm: number;
 
-    if (axisIdx === 0) {
-      // Forward difference at the beginning
-      const idxPlus1 = [...indices];
-      idxPlus1[axis] = 1;
-      let flatIdxPlus1 = 0;
-      for (let d = 0; d < ndim; d++) {
-        flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
+      if (axisIdx === 0) {
+        // Forward difference at the beginning
+        const idxPlus1 = [...indices];
+        idxPlus1[axis] = 1;
+        let flatIdxPlus1 = 0;
+        for (let d = 0; d < ndim; d++) {
+          flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
+        }
+
+        const f0Re = complexData[flatIdx * 2]!;
+        const f0Im = complexData[flatIdx * 2 + 1]!;
+        const f1Re = complexData[flatIdxPlus1 * 2]!;
+        const f1Im = complexData[flatIdxPlus1 * 2 + 1]!;
+
+        gradRe = (f1Re - f0Re) / h;
+        gradIm = (f1Im - f0Im) / h;
+      } else if (axisIdx === axisSize - 1) {
+        // Backward difference at the end
+        const idxMinus1 = [...indices];
+        idxMinus1[axis] = axisSize - 2;
+        let flatIdxMinus1 = 0;
+        for (let d = 0; d < ndim; d++) {
+          flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
+        }
+
+        const fNRe = complexData[flatIdx * 2]!;
+        const fNIm = complexData[flatIdx * 2 + 1]!;
+        const fNm1Re = complexData[flatIdxMinus1 * 2]!;
+        const fNm1Im = complexData[flatIdxMinus1 * 2 + 1]!;
+
+        gradRe = (fNRe - fNm1Re) / h;
+        gradIm = (fNIm - fNm1Im) / h;
+      } else {
+        // Central difference in the interior
+        const idxPlus1 = [...indices];
+        const idxMinus1 = [...indices];
+        idxPlus1[axis] = axisIdx + 1;
+        idxMinus1[axis] = axisIdx - 1;
+
+        let flatIdxPlus1 = 0;
+        let flatIdxMinus1 = 0;
+        for (let d = 0; d < ndim; d++) {
+          flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
+          flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
+        }
+
+        const fPlusRe = complexData[flatIdxPlus1 * 2]!;
+        const fPlusIm = complexData[flatIdxPlus1 * 2 + 1]!;
+        const fMinusRe = complexData[flatIdxMinus1 * 2]!;
+        const fMinusIm = complexData[flatIdxMinus1 * 2 + 1]!;
+
+        gradRe = (fPlusRe - fMinusRe) / h2;
+        gradIm = (fPlusIm - fMinusIm) / h2;
       }
 
-      const f0 = isBigIntDType(dtype) ? Number(f.data[flatIdx]!) : Number(f.data[flatIdx]!);
-      const f1 = isBigIntDType(dtype)
-        ? Number(f.data[flatIdxPlus1]!)
-        : Number(f.data[flatIdxPlus1]!);
-
-      gradientValue = (f1 - f0) / h;
-    } else if (axisIdx === axisSize - 1) {
-      // Backward difference at the end
-      const idxMinus1 = [...indices];
-      idxMinus1[axis] = axisSize - 2;
-      let flatIdxMinus1 = 0;
-      for (let d = 0; d < ndim; d++) {
-        flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
-      }
-
-      const fN = isBigIntDType(dtype) ? Number(f.data[flatIdx]!) : Number(f.data[flatIdx]!);
-      const fNm1 = isBigIntDType(dtype)
-        ? Number(f.data[flatIdxMinus1]!)
-        : Number(f.data[flatIdxMinus1]!);
-
-      gradientValue = (fN - fNm1) / h;
+      complexResult[flatIdx * 2] = gradRe;
+      complexResult[flatIdx * 2 + 1] = gradIm;
     } else {
-      // Central difference in the interior
-      const idxPlus1 = [...indices];
-      const idxMinus1 = [...indices];
-      idxPlus1[axis] = axisIdx + 1;
-      idxMinus1[axis] = axisIdx - 1;
+      // Real gradient computation
+      let gradientValue: number;
 
-      let flatIdxPlus1 = 0;
-      let flatIdxMinus1 = 0;
-      for (let d = 0; d < ndim; d++) {
-        flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
-        flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
+      if (axisIdx === 0) {
+        // Forward difference at the beginning
+        const idxPlus1 = [...indices];
+        idxPlus1[axis] = 1;
+        let flatIdxPlus1 = 0;
+        for (let d = 0; d < ndim; d++) {
+          flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
+        }
+
+        const f0 = isBigIntDType(dtype) ? Number(f.data[flatIdx]!) : Number(f.data[flatIdx]!);
+        const f1 = isBigIntDType(dtype)
+          ? Number(f.data[flatIdxPlus1]!)
+          : Number(f.data[flatIdxPlus1]!);
+
+        gradientValue = (f1 - f0) / h;
+      } else if (axisIdx === axisSize - 1) {
+        // Backward difference at the end
+        const idxMinus1 = [...indices];
+        idxMinus1[axis] = axisSize - 2;
+        let flatIdxMinus1 = 0;
+        for (let d = 0; d < ndim; d++) {
+          flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
+        }
+
+        const fN = isBigIntDType(dtype) ? Number(f.data[flatIdx]!) : Number(f.data[flatIdx]!);
+        const fNm1 = isBigIntDType(dtype)
+          ? Number(f.data[flatIdxMinus1]!)
+          : Number(f.data[flatIdxMinus1]!);
+
+        gradientValue = (fN - fNm1) / h;
+      } else {
+        // Central difference in the interior
+        const idxPlus1 = [...indices];
+        const idxMinus1 = [...indices];
+        idxPlus1[axis] = axisIdx + 1;
+        idxMinus1[axis] = axisIdx - 1;
+
+        let flatIdxPlus1 = 0;
+        let flatIdxMinus1 = 0;
+        for (let d = 0; d < ndim; d++) {
+          flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
+          flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
+        }
+
+        const fPlus = isBigIntDType(dtype)
+          ? Number(f.data[flatIdxPlus1]!)
+          : Number(f.data[flatIdxPlus1]!);
+        const fMinus = isBigIntDType(dtype)
+          ? Number(f.data[flatIdxMinus1]!)
+          : Number(f.data[flatIdxMinus1]!);
+
+        gradientValue = (fPlus - fMinus) / h2;
       }
 
-      const fPlus = isBigIntDType(dtype)
-        ? Number(f.data[flatIdxPlus1]!)
-        : Number(f.data[flatIdxPlus1]!);
-      const fMinus = isBigIntDType(dtype)
-        ? Number(f.data[flatIdxMinus1]!)
-        : Number(f.data[flatIdxMinus1]!);
-
-      gradientValue = (fPlus - fMinus) / h2;
+      resultData[flatIdx] = gradientValue;
     }
-
-    resultData[flatIdx] = gradientValue;
   }
 
   return result;
@@ -389,22 +500,72 @@ export function cross(
 
   // Determine result dtype
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
+  const isComplex = isComplexDType(resultDtype);
+
+  // Helper functions for complex arithmetic
+  const getComplex = (arr: ArrayStorage, idx: number): [number, number] => {
+    if (isComplexDType(arr.dtype)) {
+      const data = arr.data as Float64Array | Float32Array;
+      return [data[idx * 2]!, data[idx * 2 + 1]!];
+    }
+    return [Number(arr.iget(idx)), 0];
+  };
+
+  const complexMul = (aRe: number, aIm: number, bRe: number, bIm: number): [number, number] => {
+    return [aRe * bRe - aIm * bIm, aRe * bIm + aIm * bRe];
+  };
+
+  const complexSub = (aRe: number, aIm: number, bRe: number, bIm: number): [number, number] => {
+    return [aRe - bRe, aIm - bIm];
+  };
 
   // Handle simple 1D case for 3D vectors
   if (ndimA === 1 && ndimB === 1 && sizeA === 3 && sizeB === 3) {
     const result = ArrayStorage.zeros([3], resultDtype);
-    const resultData = result.data;
 
-    const a0 = Number(a.iget(0));
-    const a1 = Number(a.iget(1));
-    const a2 = Number(a.iget(2));
-    const b0 = Number(b.iget(0));
-    const b1 = Number(b.iget(1));
-    const b2 = Number(b.iget(2));
+    if (isComplex) {
+      const resultData = result.data as Float64Array | Float32Array;
+      const [a0Re, a0Im] = getComplex(a, 0);
+      const [a1Re, a1Im] = getComplex(a, 1);
+      const [a2Re, a2Im] = getComplex(a, 2);
+      const [b0Re, b0Im] = getComplex(b, 0);
+      const [b1Re, b1Im] = getComplex(b, 1);
+      const [b2Re, b2Im] = getComplex(b, 2);
 
-    resultData[0] = a1 * b2 - a2 * b1;
-    resultData[1] = a2 * b0 - a0 * b2;
-    resultData[2] = a0 * b1 - a1 * b0;
+      // c0 = a1*b2 - a2*b1
+      const [p0Re, p0Im] = complexMul(a1Re, a1Im, b2Re, b2Im);
+      const [q0Re, q0Im] = complexMul(a2Re, a2Im, b1Re, b1Im);
+      const [c0Re, c0Im] = complexSub(p0Re, p0Im, q0Re, q0Im);
+
+      // c1 = a2*b0 - a0*b2
+      const [p1Re, p1Im] = complexMul(a2Re, a2Im, b0Re, b0Im);
+      const [q1Re, q1Im] = complexMul(a0Re, a0Im, b2Re, b2Im);
+      const [c1Re, c1Im] = complexSub(p1Re, p1Im, q1Re, q1Im);
+
+      // c2 = a0*b1 - a1*b0
+      const [p2Re, p2Im] = complexMul(a0Re, a0Im, b1Re, b1Im);
+      const [q2Re, q2Im] = complexMul(a1Re, a1Im, b0Re, b0Im);
+      const [c2Re, c2Im] = complexSub(p2Re, p2Im, q2Re, q2Im);
+
+      resultData[0] = c0Re;
+      resultData[1] = c0Im;
+      resultData[2] = c1Re;
+      resultData[3] = c1Im;
+      resultData[4] = c2Re;
+      resultData[5] = c2Im;
+    } else {
+      const resultData = result.data;
+      const a0 = Number(a.iget(0));
+      const a1 = Number(a.iget(1));
+      const a2 = Number(a.iget(2));
+      const b0 = Number(b.iget(0));
+      const b1 = Number(b.iget(1));
+      const b2 = Number(b.iget(2));
+
+      resultData[0] = a1 * b2 - a2 * b1;
+      resultData[1] = a2 * b0 - a0 * b2;
+      resultData[2] = a0 * b1 - a1 * b0;
+    }
 
     return result;
   }
@@ -412,12 +573,30 @@ export function cross(
   // Handle 1D case for 2D vectors (returns scalar)
   if (ndimA === 1 && ndimB === 1 && sizeA === 2 && sizeB === 2) {
     const result = ArrayStorage.zeros([], resultDtype);
-    const a0 = Number(a.iget(0));
-    const a1 = Number(a.iget(1));
-    const b0 = Number(b.iget(0));
-    const b1 = Number(b.iget(1));
 
-    result.data[0] = a0 * b1 - a1 * b0;
+    if (isComplex) {
+      const resultData = result.data as Float64Array | Float32Array;
+      const [a0Re, a0Im] = getComplex(a, 0);
+      const [a1Re, a1Im] = getComplex(a, 1);
+      const [b0Re, b0Im] = getComplex(b, 0);
+      const [b1Re, b1Im] = getComplex(b, 1);
+
+      // c = a0*b1 - a1*b0
+      const [p0Re, p0Im] = complexMul(a0Re, a0Im, b1Re, b1Im);
+      const [q0Re, q0Im] = complexMul(a1Re, a1Im, b0Re, b0Im);
+      const [cRe, cIm] = complexSub(p0Re, p0Im, q0Re, q0Im);
+
+      resultData[0] = cRe;
+      resultData[1] = cIm;
+    } else {
+      const a0 = Number(a.iget(0));
+      const a1 = Number(a.iget(1));
+      const b0 = Number(b.iget(0));
+      const b1 = Number(b.iget(1));
+
+      result.data[0] = a0 * b1 - a1 * b0;
+    }
+
     return result;
   }
 
@@ -427,33 +606,87 @@ export function cross(
     if (sizeA === 2 && sizeB === 3) {
       // Treat 2D vector as [x, y, 0]
       const result = ArrayStorage.zeros([3], resultDtype);
-      const resultData = result.data;
 
-      const a0 = Number(a.iget(0));
-      const a1 = Number(a.iget(1));
-      const b0 = Number(b.iget(0));
-      const b1 = Number(b.iget(1));
-      const b2 = Number(b.iget(2));
+      if (isComplex) {
+        const resultData = result.data as Float64Array | Float32Array;
+        const [a0Re, a0Im] = getComplex(a, 0);
+        const [a1Re, a1Im] = getComplex(a, 1);
+        const [b0Re, b0Im] = getComplex(b, 0);
+        const [b1Re, b1Im] = getComplex(b, 1);
+        const [b2Re, b2Im] = getComplex(b, 2);
 
-      resultData[0] = a1 * b2;
-      resultData[1] = -a0 * b2;
-      resultData[2] = a0 * b1 - a1 * b0;
+        // c0 = a1*b2 - 0*b1 = a1*b2
+        const [c0Re, c0Im] = complexMul(a1Re, a1Im, b2Re, b2Im);
+        // c1 = 0*b0 - a0*b2 = -a0*b2
+        const [t1Re, t1Im] = complexMul(a0Re, a0Im, b2Re, b2Im);
+        const c1Re = -t1Re;
+        const c1Im = -t1Im;
+        // c2 = a0*b1 - a1*b0
+        const [p2Re, p2Im] = complexMul(a0Re, a0Im, b1Re, b1Im);
+        const [q2Re, q2Im] = complexMul(a1Re, a1Im, b0Re, b0Im);
+        const [c2Re, c2Im] = complexSub(p2Re, p2Im, q2Re, q2Im);
+
+        resultData[0] = c0Re;
+        resultData[1] = c0Im;
+        resultData[2] = c1Re;
+        resultData[3] = c1Im;
+        resultData[4] = c2Re;
+        resultData[5] = c2Im;
+      } else {
+        const resultData = result.data;
+        const a0 = Number(a.iget(0));
+        const a1 = Number(a.iget(1));
+        const b0 = Number(b.iget(0));
+        const b1 = Number(b.iget(1));
+        const b2 = Number(b.iget(2));
+
+        resultData[0] = a1 * b2;
+        resultData[1] = -a0 * b2;
+        resultData[2] = a0 * b1 - a1 * b0;
+      }
 
       return result;
     } else if (sizeA === 3 && sizeB === 2) {
       // 3D x 2D
       const result = ArrayStorage.zeros([3], resultDtype);
-      const resultData = result.data;
 
-      const a0 = Number(a.iget(0));
-      const a1 = Number(a.iget(1));
-      const a2 = Number(a.iget(2));
-      const b0 = Number(b.iget(0));
-      const b1 = Number(b.iget(1));
+      if (isComplex) {
+        const resultData = result.data as Float64Array | Float32Array;
+        const [a0Re, a0Im] = getComplex(a, 0);
+        const [a1Re, a1Im] = getComplex(a, 1);
+        const [a2Re, a2Im] = getComplex(a, 2);
+        const [b0Re, b0Im] = getComplex(b, 0);
+        const [b1Re, b1Im] = getComplex(b, 1);
 
-      resultData[0] = -a2 * b1;
-      resultData[1] = a2 * b0;
-      resultData[2] = a0 * b1 - a1 * b0;
+        // c0 = a1*0 - a2*b1 = -a2*b1
+        const [t0Re, t0Im] = complexMul(a2Re, a2Im, b1Re, b1Im);
+        const c0Re = -t0Re;
+        const c0Im = -t0Im;
+        // c1 = a2*b0 - a0*0 = a2*b0
+        const [c1Re, c1Im] = complexMul(a2Re, a2Im, b0Re, b0Im);
+        // c2 = a0*b1 - a1*b0
+        const [p2Re, p2Im] = complexMul(a0Re, a0Im, b1Re, b1Im);
+        const [q2Re, q2Im] = complexMul(a1Re, a1Im, b0Re, b0Im);
+        const [c2Re, c2Im] = complexSub(p2Re, p2Im, q2Re, q2Im);
+
+        resultData[0] = c0Re;
+        resultData[1] = c0Im;
+        resultData[2] = c1Re;
+        resultData[3] = c1Im;
+        resultData[4] = c2Re;
+        resultData[5] = c2Im;
+      } else {
+        const resultData = result.data;
+        const a0 = Number(a.iget(0));
+        const a1 = Number(a.iget(1));
+        const a2 = Number(a.iget(2));
+        const b0 = Number(b.iget(0));
+        const b1 = Number(b.iget(1));
+
+        resultData[0] = -a2 * b1;
+        resultData[1] = a2 * b0;
+        resultData[2] = a0 * b1 - a1 * b0;
+      }
 
       return result;
     }
@@ -469,19 +702,50 @@ export function cross(
 
     if (sizeA === 3 && sizeB === 3) {
       const result = ArrayStorage.zeros([numVectors, 3], resultDtype);
-      const resultData = result.data;
 
-      for (let i = 0; i < numVectors; i++) {
-        const a0 = Number(a.iget(i * 3));
-        const a1 = Number(a.iget(i * 3 + 1));
-        const a2 = Number(a.iget(i * 3 + 2));
-        const b0 = Number(b.iget(i * 3));
-        const b1 = Number(b.iget(i * 3 + 1));
-        const b2 = Number(b.iget(i * 3 + 2));
+      if (isComplex) {
+        const resultData = result.data as Float64Array | Float32Array;
+        for (let i = 0; i < numVectors; i++) {
+          const [a0Re, a0Im] = getComplex(a, i * 3);
+          const [a1Re, a1Im] = getComplex(a, i * 3 + 1);
+          const [a2Re, a2Im] = getComplex(a, i * 3 + 2);
+          const [b0Re, b0Im] = getComplex(b, i * 3);
+          const [b1Re, b1Im] = getComplex(b, i * 3 + 1);
+          const [b2Re, b2Im] = getComplex(b, i * 3 + 2);
 
-        resultData[i * 3] = a1 * b2 - a2 * b1;
-        resultData[i * 3 + 1] = a2 * b0 - a0 * b2;
-        resultData[i * 3 + 2] = a0 * b1 - a1 * b0;
+          const [p0Re, p0Im] = complexMul(a1Re, a1Im, b2Re, b2Im);
+          const [q0Re, q0Im] = complexMul(a2Re, a2Im, b1Re, b1Im);
+          const [c0Re, c0Im] = complexSub(p0Re, p0Im, q0Re, q0Im);
+
+          const [p1Re, p1Im] = complexMul(a2Re, a2Im, b0Re, b0Im);
+          const [q1Re, q1Im] = complexMul(a0Re, a0Im, b2Re, b2Im);
+          const [c1Re, c1Im] = complexSub(p1Re, p1Im, q1Re, q1Im);
+
+          const [p2Re, p2Im] = complexMul(a0Re, a0Im, b1Re, b1Im);
+          const [q2Re, q2Im] = complexMul(a1Re, a1Im, b0Re, b0Im);
+          const [c2Re, c2Im] = complexSub(p2Re, p2Im, q2Re, q2Im);
+
+          resultData[i * 3 * 2] = c0Re;
+          resultData[i * 3 * 2 + 1] = c0Im;
+          resultData[(i * 3 + 1) * 2] = c1Re;
+          resultData[(i * 3 + 1) * 2 + 1] = c1Im;
+          resultData[(i * 3 + 2) * 2] = c2Re;
+          resultData[(i * 3 + 2) * 2 + 1] = c2Im;
+        }
+      } else {
+        const resultData = result.data;
+        for (let i = 0; i < numVectors; i++) {
+          const a0 = Number(a.iget(i * 3));
+          const a1 = Number(a.iget(i * 3 + 1));
+          const a2 = Number(a.iget(i * 3 + 2));
+          const b0 = Number(b.iget(i * 3));
+          const b1 = Number(b.iget(i * 3 + 1));
+          const b2 = Number(b.iget(i * 3 + 2));
+
+          resultData[i * 3] = a1 * b2 - a2 * b1;
+          resultData[i * 3 + 1] = a2 * b0 - a0 * b2;
+          resultData[i * 3 + 2] = a0 * b1 - a1 * b0;
+        }
       }
 
       return result;
@@ -490,15 +754,32 @@ export function cross(
     if (sizeA === 2 && sizeB === 2) {
       // Returns 1D array of scalar cross products
       const result = ArrayStorage.zeros([numVectors], resultDtype);
-      const resultData = result.data;
 
-      for (let i = 0; i < numVectors; i++) {
-        const a0 = Number(a.iget(i * 2));
-        const a1 = Number(a.iget(i * 2 + 1));
-        const b0 = Number(b.iget(i * 2));
-        const b1 = Number(b.iget(i * 2 + 1));
+      if (isComplex) {
+        const resultData = result.data as Float64Array | Float32Array;
+        for (let i = 0; i < numVectors; i++) {
+          const [a0Re, a0Im] = getComplex(a, i * 2);
+          const [a1Re, a1Im] = getComplex(a, i * 2 + 1);
+          const [b0Re, b0Im] = getComplex(b, i * 2);
+          const [b1Re, b1Im] = getComplex(b, i * 2 + 1);
 
-        resultData[i] = a0 * b1 - a1 * b0;
+          const [p0Re, p0Im] = complexMul(a0Re, a0Im, b1Re, b1Im);
+          const [q0Re, q0Im] = complexMul(a1Re, a1Im, b0Re, b0Im);
+          const [cRe, cIm] = complexSub(p0Re, p0Im, q0Re, q0Im);
+
+          resultData[i * 2] = cRe;
+          resultData[i * 2 + 1] = cIm;
+        }
+      } else {
+        const resultData = result.data;
+        for (let i = 0; i < numVectors; i++) {
+          const a0 = Number(a.iget(i * 2));
+          const a1 = Number(a.iget(i * 2 + 1));
+          const b0 = Number(b.iget(i * 2));
+          const b1 = Number(b.iget(i * 2 + 1));
+
+          resultData[i] = a0 * b1 - a1 * b0;
+        }
       }
 
       return result;

@@ -6,8 +6,28 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { promoteDTypes } from '../core/dtype';
+import { promoteDTypes, isComplexDType } from '../core/dtype';
+import { Complex } from '../core/complex';
 import * as shapeOps from './shape';
+
+/**
+ * Helper to multiply two values that may be Complex
+ * Returns Complex if either input is Complex, number otherwise
+ */
+function multiplyValues(
+  a: number | bigint | Complex,
+  b: number | bigint | Complex
+): number | Complex {
+  if (a instanceof Complex || b instanceof Complex) {
+    const aComplex = a instanceof Complex ? a : new Complex(Number(a), 0);
+    const bComplex = b instanceof Complex ? b : new Complex(Number(b), 0);
+    return aComplex.mul(bComplex);
+  }
+  if (typeof a === 'bigint' && typeof b === 'bigint') {
+    return Number(a * b);
+  }
+  return Number(a) * Number(b);
+}
 
 /**
  * BLAS-like types for matrix operations
@@ -176,9 +196,10 @@ function dgemm(
  *
  * For 2D·2D, prefer using matmul() instead.
  */
-export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | bigint {
+export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | bigint | Complex {
   const aDim = a.ndim;
   const bDim = b.ndim;
+  const isComplex = isComplexDType(a.dtype) || isComplexDType(b.dtype);
 
   // Case 0: Scalar (0D) cases - treat as multiplication
   if (aDim === 0 || bDim === 0) {
@@ -188,35 +209,45 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
 
     if (aDim === 0 && bDim === 0) {
       // Both scalars: multiply them
-      if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        return aVal * bVal;
-      }
-      return Number(aVal) * Number(bVal);
+      return multiplyValues(aVal!, bVal!);
     } else if (aDim === 0) {
       // a is scalar, b is array: scalar * array (element-wise)
-      // Equivalent to multiply(a, b)
       const resultDtype = promoteDTypes(a.dtype, b.dtype);
       const result = ArrayStorage.zeros([...b.shape], resultDtype);
-      for (let i = 0; i < b.size; i++) {
-        const bData = b.data[i + b.offset];
-        if (typeof aVal === 'bigint' && typeof bData === 'bigint') {
-          result.data[i] = aVal * bData;
-        } else {
-          result.data[i] = Number(aVal) * Number(bData);
+      // Helper to convert flat index to multi-dimensional indices
+      const flatToIndices = (flatIdx: number, shape: readonly number[]): number[] => {
+        const indices: number[] = new Array(shape.length);
+        let remaining = flatIdx;
+        for (let d = shape.length - 1; d >= 0; d--) {
+          indices[d] = remaining % shape[d]!;
+          remaining = Math.floor(remaining / shape[d]!);
         }
+        return indices;
+      };
+      for (let i = 0; i < b.size; i++) {
+        const indices = flatToIndices(i, b.shape);
+        const bData = b.get(...indices);
+        result.set(indices, multiplyValues(aVal!, bData));
       }
       return result;
     } else {
       // b is scalar, a is array: array * scalar (element-wise)
       const resultDtype = promoteDTypes(a.dtype, b.dtype);
       const result = ArrayStorage.zeros([...a.shape], resultDtype);
-      for (let i = 0; i < a.size; i++) {
-        const aData = a.data[i + a.offset];
-        if (typeof aData === 'bigint' && typeof bVal === 'bigint') {
-          result.data[i] = aData * bVal;
-        } else {
-          result.data[i] = Number(aData) * Number(bVal);
+      // Helper to convert flat index to multi-dimensional indices
+      const flatToIndices = (flatIdx: number, shape: readonly number[]): number[] => {
+        const indices: number[] = new Array(shape.length);
+        let remaining = flatIdx;
+        for (let d = shape.length - 1; d >= 0; d--) {
+          indices[d] = remaining % shape[d]!;
+          remaining = Math.floor(remaining / shape[d]!);
         }
+        return indices;
+      };
+      for (let i = 0; i < a.size; i++) {
+        const indices = flatToIndices(i, a.shape);
+        const aData = a.get(...indices);
+        result.set(indices, multiplyValues(aData, bVal!));
       }
       return result;
     }
@@ -228,11 +259,28 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
       throw new Error(`dot: incompatible shapes (${a.shape[0]},) and (${b.shape[0]},)`);
     }
     const n = a.shape[0]!;
+
+    if (isComplex) {
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let i = 0; i < n; i++) {
+        const aVal = a.get(i);
+        const bVal = b.get(i);
+        const prod = multiplyValues(aVal, bVal);
+        if (prod instanceof Complex) {
+          sumRe += prod.re;
+          sumIm += prod.im;
+        } else {
+          sumRe += prod;
+        }
+      }
+      return new Complex(sumRe, sumIm);
+    }
+
     let sum = 0;
     for (let i = 0; i < n; i++) {
       const aVal = a.get(i);
       const bVal = b.get(i);
-      // Handle BigInt
       if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
         sum = Number(sum) + Number(aVal * bVal);
       } else {
@@ -258,18 +306,34 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
     const result = ArrayStorage.zeros([m!], resultDtype);
 
-    for (let i = 0; i < m!; i++) {
-      let sum = 0;
-      for (let j = 0; j < k!; j++) {
-        const aVal = a.get(i, j);
-        const bVal = b.get(j);
-        if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-          sum = Number(sum) + Number(aVal * bVal);
-        } else {
-          sum += Number(aVal) * Number(bVal);
+    if (isComplex) {
+      for (let i = 0; i < m!; i++) {
+        let sumRe = 0;
+        let sumIm = 0;
+        for (let j = 0; j < k!; j++) {
+          const aVal = a.get(i, j);
+          const bVal = b.get(j);
+          const aComplex = aVal instanceof Complex ? aVal : new Complex(Number(aVal), 0);
+          const bComplex = bVal instanceof Complex ? bVal : new Complex(Number(bVal), 0);
+          sumRe += aComplex.re * bComplex.re - aComplex.im * bComplex.im;
+          sumIm += aComplex.re * bComplex.im + aComplex.im * bComplex.re;
         }
+        result.set([i], new Complex(sumRe, sumIm));
       }
-      result.set([i], sum);
+    } else {
+      for (let i = 0; i < m!; i++) {
+        let sum = 0;
+        for (let j = 0; j < k!; j++) {
+          const aVal = a.get(i, j);
+          const bVal = b.get(j);
+          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+            sum = Number(sum) + Number(aVal * bVal);
+          } else {
+            sum += Number(aVal) * Number(bVal);
+          }
+        }
+        result.set([i], sum);
+      }
     }
 
     return result;
@@ -286,18 +350,34 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
     const result = ArrayStorage.zeros([n!], resultDtype);
 
-    for (let j = 0; j < n!; j++) {
-      let sum = 0;
-      for (let i = 0; i < m; i++) {
-        const aVal = a.get(i);
-        const bVal = b.get(i, j);
-        if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-          sum = Number(sum) + Number(aVal * bVal);
-        } else {
-          sum += Number(aVal) * Number(bVal);
+    if (isComplex) {
+      for (let j = 0; j < n!; j++) {
+        let sumRe = 0;
+        let sumIm = 0;
+        for (let i = 0; i < m; i++) {
+          const aVal = a.get(i);
+          const bVal = b.get(i, j);
+          const aComplex = aVal instanceof Complex ? aVal : new Complex(Number(aVal), 0);
+          const bComplex = bVal instanceof Complex ? bVal : new Complex(Number(bVal), 0);
+          sumRe += aComplex.re * bComplex.re - aComplex.im * bComplex.im;
+          sumIm += aComplex.re * bComplex.im + aComplex.im * bComplex.re;
         }
+        result.set([j], new Complex(sumRe, sumIm));
       }
-      result.set([j], sum);
+    } else {
+      for (let j = 0; j < n!; j++) {
+        let sum = 0;
+        for (let i = 0; i < m; i++) {
+          const aVal = a.get(i);
+          const bVal = b.get(i, j);
+          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+            sum = Number(sum) + Number(aVal * bVal);
+          } else {
+            sum += Number(aVal) * Number(bVal);
+          }
+        }
+        result.set([j], sum);
+      }
     }
 
     return result;
@@ -311,46 +391,63 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
       throw new Error(`dot: incompatible shapes ${JSON.stringify(a.shape)} and (${bSize},)`);
     }
 
-    // Result shape is a.shape[:-1]
     const resultShape = [...a.shape.slice(0, -1)];
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
     const result = ArrayStorage.zeros(resultShape, resultDtype);
 
-    // Iterate over all positions in result
     const resultSize = resultShape.reduce((acc, dim) => acc * dim, 1);
-    for (let i = 0; i < resultSize; i++) {
-      let sum = 0;
-      // Compute multi-dimensional index for result
-      let temp = i;
-      const resultIdx: number[] = [];
-      for (let d = resultShape.length - 1; d >= 0; d--) {
-        resultIdx[d] = temp % resultShape[d]!;
-        temp = Math.floor(temp / resultShape[d]!);
-      }
-
-      // Sum over the last dimension of a
-      for (let k = 0; k < lastDimA; k++) {
-        const aIdx = [...resultIdx, k];
-        const aVal = a.get(...aIdx);
-        const bVal = b.get(k);
-        if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-          sum = Number(sum) + Number(aVal * bVal);
-        } else {
-          sum += Number(aVal) * Number(bVal);
+    if (isComplex) {
+      for (let i = 0; i < resultSize; i++) {
+        let sumRe = 0;
+        let sumIm = 0;
+        let temp = i;
+        const resultIdx: number[] = [];
+        for (let d = resultShape.length - 1; d >= 0; d--) {
+          resultIdx[d] = temp % resultShape[d]!;
+          temp = Math.floor(temp / resultShape[d]!);
         }
+
+        for (let k = 0; k < lastDimA; k++) {
+          const aIdx = [...resultIdx, k];
+          const aVal = a.get(...aIdx);
+          const bVal = b.get(k);
+          const aComplex = aVal instanceof Complex ? aVal : new Complex(Number(aVal), 0);
+          const bComplex = bVal instanceof Complex ? bVal : new Complex(Number(bVal), 0);
+          sumRe += aComplex.re * bComplex.re - aComplex.im * bComplex.im;
+          sumIm += aComplex.re * bComplex.im + aComplex.im * bComplex.re;
+        }
+        result.set(resultIdx, new Complex(sumRe, sumIm));
       }
-      result.set(resultIdx, sum);
+    } else {
+      for (let i = 0; i < resultSize; i++) {
+        let sum = 0;
+        let temp = i;
+        const resultIdx: number[] = [];
+        for (let d = resultShape.length - 1; d >= 0; d--) {
+          resultIdx[d] = temp % resultShape[d]!;
+          temp = Math.floor(temp / resultShape[d]!);
+        }
+
+        for (let k = 0; k < lastDimA; k++) {
+          const aIdx = [...resultIdx, k];
+          const aVal = a.get(...aIdx);
+          const bVal = b.get(k);
+          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+            sum = Number(sum) + Number(aVal * bVal);
+          } else {
+            sum += Number(aVal) * Number(bVal);
+          }
+        }
+        result.set(resultIdx, sum);
+      }
     }
 
     return result;
   }
 
-  // Case 6: 1D · ND (N > 2) -> sum product over SECOND axis of b, result is (b.shape[0], b.shape[2:])
-  // Actually for 1D·3D: sum over axis 1 of b
-  // For general case: need to handle this more carefully
+  // Case 6: 1D · ND (N > 2) -> sum product over SECOND axis of b
   if (aDim === 1 && bDim > 2) {
     const aSize = a.shape[0]!;
-    // For 1D (size K) · ND, we contract over axis 1 of b (which should have size K)
     const contractAxisB = 1;
     const contractDimB = b.shape[contractAxisB]!;
 
@@ -358,47 +455,67 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
       throw new Error(`dot: incompatible shapes (${aSize},) and ${JSON.stringify(b.shape)}`);
     }
 
-    // Result shape: b.shape[0:1] + b.shape[2:]
-    // For (K,) · (L, K, M, N, ...) -> (L, M, N, ...)
     const resultShape = [...b.shape.slice(0, contractAxisB), ...b.shape.slice(contractAxisB + 1)];
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
     const result = ArrayStorage.zeros(resultShape, resultDtype);
 
-    // Compute using multi-dimensional indices
     const resultSize = resultShape.reduce((acc, dim) => acc * dim, 1);
-    for (let i = 0; i < resultSize; i++) {
-      // Convert flat index to multi-dim result index
-      let temp = i;
-      const resultIdx: number[] = [];
-      for (let d = resultShape.length - 1; d >= 0; d--) {
-        resultIdx[d] = temp % resultShape[d]!;
-        temp = Math.floor(temp / resultShape[d]!);
-      }
-
-      // Build b index by inserting the contract dimension
-      // result[i,j,...] corresponds to b[i, :, j, ...]
-      const bIdxBefore = resultIdx.slice(0, contractAxisB);
-      const bIdxAfter = resultIdx.slice(contractAxisB);
-
-      let sum = 0;
-      for (let k = 0; k < aSize; k++) {
-        const aVal = a.get(k);
-        const bIdx = [...bIdxBefore, k, ...bIdxAfter];
-        const bVal = b.get(...bIdx);
-        if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-          sum = Number(sum) + Number(aVal * bVal);
-        } else {
-          sum += Number(aVal) * Number(bVal);
+    if (isComplex) {
+      for (let i = 0; i < resultSize; i++) {
+        let temp = i;
+        const resultIdx: number[] = [];
+        for (let d = resultShape.length - 1; d >= 0; d--) {
+          resultIdx[d] = temp % resultShape[d]!;
+          temp = Math.floor(temp / resultShape[d]!);
         }
+
+        const bIdxBefore = resultIdx.slice(0, contractAxisB);
+        const bIdxAfter = resultIdx.slice(contractAxisB);
+
+        let sumRe = 0;
+        let sumIm = 0;
+        for (let k = 0; k < aSize; k++) {
+          const aVal = a.get(k);
+          const bIdx = [...bIdxBefore, k, ...bIdxAfter];
+          const bVal = b.get(...bIdx);
+          const aComplex = aVal instanceof Complex ? aVal : new Complex(Number(aVal), 0);
+          const bComplex = bVal instanceof Complex ? bVal : new Complex(Number(bVal), 0);
+          sumRe += aComplex.re * bComplex.re - aComplex.im * bComplex.im;
+          sumIm += aComplex.re * bComplex.im + aComplex.im * bComplex.re;
+        }
+        result.set(resultIdx, new Complex(sumRe, sumIm));
       }
-      result.set(resultIdx, sum);
+    } else {
+      for (let i = 0; i < resultSize; i++) {
+        let temp = i;
+        const resultIdx: number[] = [];
+        for (let d = resultShape.length - 1; d >= 0; d--) {
+          resultIdx[d] = temp % resultShape[d]!;
+          temp = Math.floor(temp / resultShape[d]!);
+        }
+
+        const bIdxBefore = resultIdx.slice(0, contractAxisB);
+        const bIdxAfter = resultIdx.slice(contractAxisB);
+
+        let sum = 0;
+        for (let k = 0; k < aSize; k++) {
+          const aVal = a.get(k);
+          const bIdx = [...bIdxBefore, k, ...bIdxAfter];
+          const bVal = b.get(...bIdx);
+          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+            sum = Number(sum) + Number(aVal * bVal);
+          } else {
+            sum += Number(aVal) * Number(bVal);
+          }
+        }
+        result.set(resultIdx, sum);
+      }
     }
 
     return result;
   }
 
   // Case 7: ND · MD (N,M ≥ 2, not both 2) -> general tensor contraction
-  // Result shape: a.shape[:-1] + b.shape[:-2] + b.shape[-1:]
   if (aDim >= 2 && bDim >= 2 && !(aDim === 2 && bDim === 2)) {
     const lastDimA = a.shape[aDim - 1]!;
     const secondLastDimB = b.shape[bDim - 2]!;
@@ -409,7 +526,6 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
       );
     }
 
-    // Build result shape
     const resultShape = [...a.shape.slice(0, -1), ...b.shape.slice(0, -2), b.shape[bDim - 1]!];
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
     const result = ArrayStorage.zeros(resultShape, resultDtype);
@@ -419,30 +535,66 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
     const bLastDim = b.shape[bDim - 1]!;
     const contractionDim = lastDimA;
 
-    // Iterate: result[i, j, k] = sum_m a[i, m] * b[j, m, k]
-    for (let i = 0; i < aOuterSize; i++) {
-      for (let j = 0; j < bOuterSize; j++) {
-        for (let k = 0; k < bLastDim; k++) {
-          let sum = 0;
-          for (let m = 0; m < contractionDim; m++) {
-            // Get a[i, m] - need to convert flat index i to multi-dim
-            const aIdx = i * contractionDim + m;
-            const aVal = a.data[aIdx + a.offset];
+    if (isComplex) {
+      for (let i = 0; i < aOuterSize; i++) {
+        for (let j = 0; j < bOuterSize; j++) {
+          for (let k = 0; k < bLastDim; k++) {
+            let sumRe = 0;
+            let sumIm = 0;
+            for (let m = 0; m < contractionDim; m++) {
+              // Use get with multi-dim indices for proper Complex extraction
+              const aMultiIdx: number[] = [];
+              let tempA = i;
+              for (let d = a.shape.length - 2; d >= 0; d--) {
+                aMultiIdx.unshift(tempA % a.shape[d]!);
+                tempA = Math.floor(tempA / a.shape[d]!);
+              }
+              aMultiIdx.push(m);
+              const aVal = a.get(...aMultiIdx);
 
-            // Get b[j, m, k] - need multi-dim indexing
-            const bIdx = j * contractionDim * bLastDim + m * bLastDim + k;
-            const bVal = b.data[bIdx + b.offset];
+              const bMultiIdx: number[] = [];
+              let tempB = j;
+              for (let d = b.shape.length - 3; d >= 0; d--) {
+                bMultiIdx.unshift(tempB % b.shape[d]!);
+                tempB = Math.floor(tempB / b.shape[d]!);
+              }
+              bMultiIdx.push(m, k);
+              const bVal = b.get(...bMultiIdx);
 
-            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-              sum = Number(sum) + Number(aVal * bVal);
-            } else {
-              sum += Number(aVal) * Number(bVal);
+              const aComplex = aVal instanceof Complex ? aVal : new Complex(Number(aVal), 0);
+              const bComplex = bVal instanceof Complex ? bVal : new Complex(Number(bVal), 0);
+              sumRe += aComplex.re * bComplex.re - aComplex.im * bComplex.im;
+              sumIm += aComplex.re * bComplex.im + aComplex.im * bComplex.re;
             }
-          }
 
-          // Set result at the appropriate position
-          const resultIdx = i * bOuterSize * bLastDim + j * bLastDim + k;
-          result.data[resultIdx] = sum;
+            const resultIdx = i * bOuterSize * bLastDim + j * bLastDim + k;
+            const resultData = result.data as Float64Array;
+            resultData[resultIdx * 2] = sumRe;
+            resultData[resultIdx * 2 + 1] = sumIm;
+          }
+        }
+      }
+    } else {
+      for (let i = 0; i < aOuterSize; i++) {
+        for (let j = 0; j < bOuterSize; j++) {
+          for (let k = 0; k < bLastDim; k++) {
+            let sum = 0;
+            for (let m = 0; m < contractionDim; m++) {
+              const aIdx = i * contractionDim + m;
+              const bIdx = j * contractionDim * bLastDim + m * bLastDim + k;
+              const aVal = a.data[aIdx + a.offset];
+              const bVal = b.data[bIdx + b.offset];
+
+              if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+                sum = Number(sum) + Number(aVal * bVal);
+              } else {
+                sum += Number(aVal) * Number(bVal);
+              }
+            }
+
+            const resultIdx = i * bOuterSize * bLastDim + j * bLastDim + k;
+            result.data[resultIdx] = sum;
+          }
         }
       }
     }
@@ -478,6 +630,42 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   // Determine result dtype (promote inputs, but use float64 for integer types)
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
+
+  // Handle complex matrix multiplication
+  if (isComplexDType(resultDtype)) {
+    const result = ArrayStorage.zeros([m, n], resultDtype);
+    const resultData = result.data as Float64Array;
+    const aData = a.data as Float64Array;
+    const bData = b.data as Float64Array;
+
+    // Simple O(m*n*k) matrix multiplication with complex numbers
+    // Data is stored in interleaved format: [re0, im0, re1, im1, ...]
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        let sumRe = 0;
+        let sumIm = 0;
+        for (let l = 0; l < k; l++) {
+          // For complex arrays in row-major order, strides are [cols*2, 2]
+          // a[i,l] is at index (i * k + l) * 2 in the underlying data
+          const aIdx = (i * k + l) * 2;
+          const bIdx = (l * n + j) * 2;
+          const aRe = aData[aIdx]!;
+          const aIm = aData[aIdx + 1]!;
+          const bRe = bData[bIdx]!;
+          const bIm = bData[bIdx + 1]!;
+          // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+          sumRe += aRe * bRe - aIm * bIm;
+          sumIm += aRe * bIm + aIm * bRe;
+        }
+        // Store in interleaved format
+        const idx = i * n + j;
+        resultData[idx * 2] = sumRe;
+        resultData[idx * 2 + 1] = sumIm;
+      }
+    }
+    return result;
+  }
+
   const computeDtype =
     resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool'
       ? 'float64'
@@ -577,13 +765,25 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  * @param a - Input 2D array
  * @returns Sum of diagonal elements
  */
-export function trace(a: ArrayStorage): number | bigint {
+export function trace(a: ArrayStorage): number | bigint | Complex {
   if (a.ndim !== 2) {
     throw new Error(`trace requires 2D array, got ${a.ndim}D`);
   }
 
   const [rows = 0, cols = 0] = a.shape;
   const diagLen = Math.min(rows, cols);
+
+  // Handle complex arrays - return Complex sum
+  if (isComplexDType(a.dtype)) {
+    let sumRe = 0;
+    let sumIm = 0;
+    for (let i = 0; i < diagLen; i++) {
+      const val = a.get(i, i) as Complex;
+      sumRe += val.re;
+      sumIm += val.im;
+    }
+    return new Complex(sumRe, sumIm);
+  }
 
   let sum: number | bigint = 0;
 
@@ -592,7 +792,7 @@ export function trace(a: ArrayStorage): number | bigint {
     if (typeof val === 'bigint') {
       sum = (typeof sum === 'bigint' ? sum : BigInt(sum)) + val;
     } else {
-      sum = (typeof sum === 'bigint' ? Number(sum) : sum) + val;
+      sum = (typeof sum === 'bigint' ? Number(sum) : sum) + (val as number);
     }
   }
 
@@ -626,9 +826,10 @@ export function transpose(a: ArrayStorage, axes?: number[]): ArrayStorage {
  * @param b - Second array
  * @returns Inner product result
  */
-export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | bigint {
+export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | bigint | Complex {
   const aDim = a.ndim;
   const bDim = b.ndim;
+  const isComplex = isComplexDType(a.dtype) || isComplexDType(b.dtype);
 
   // Last dimensions must match
   const aLastDim = a.shape[aDim - 1]!;
@@ -642,7 +843,7 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
 
   // Special case: both 1D -> scalar
   if (aDim === 1 && bDim === 1) {
-    return dot(a, b) as number;
+    return dot(a, b) as number | Complex;
   }
 
   // General case: result shape is a.shape[:-1] + b.shape[:-1]
@@ -655,30 +856,88 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
   const contractionDim = aLastDim;
 
   // Compute: result[i, j] = sum_k a[i, k] * b[j, k]
-  for (let i = 0; i < aOuterSize; i++) {
-    for (let j = 0; j < bOuterSize; j++) {
-      let sum = 0;
-      for (let k = 0; k < contractionDim; k++) {
-        // Get a[i, k] and b[j, k]
-        const aIdx = aDim === 1 ? k : i * contractionDim + k;
-        const bIdx = bDim === 1 ? k : j * contractionDim + k;
-        const aVal = a.data[aIdx + a.offset];
-        const bVal = b.data[bIdx + b.offset];
+  // Separate complex and non-complex paths for performance
+  if (isComplex) {
+    // Complex path
+    for (let i = 0; i < aOuterSize; i++) {
+      for (let j = 0; j < bOuterSize; j++) {
+        let sumRe = 0;
+        let sumIm = 0;
+        for (let k = 0; k < contractionDim; k++) {
+          let aVal: number | bigint | Complex;
+          let bVal: number | bigint | Complex;
 
-        if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-          sum = Number(sum) + Number(aVal * bVal);
-        } else {
-          sum += Number(aVal) * Number(bVal);
+          // Convert flat index to multi-dim for get()
+          if (aDim === 1) {
+            aVal = a.get(k);
+          } else {
+            const aMultiIdx: number[] = [];
+            let tempA = i;
+            const aOuterShape = a.shape.slice(0, -1);
+            for (let d = aOuterShape.length - 1; d >= 0; d--) {
+              aMultiIdx.unshift(tempA % aOuterShape[d]!);
+              tempA = Math.floor(tempA / aOuterShape[d]!);
+            }
+            aMultiIdx.push(k);
+            aVal = a.get(...aMultiIdx);
+          }
+
+          if (bDim === 1) {
+            bVal = b.get(k);
+          } else {
+            const bMultiIdx: number[] = [];
+            let tempB = j;
+            const bOuterShape = b.shape.slice(0, -1);
+            for (let d = bOuterShape.length - 1; d >= 0; d--) {
+              bMultiIdx.unshift(tempB % bOuterShape[d]!);
+              tempB = Math.floor(tempB / bOuterShape[d]!);
+            }
+            bMultiIdx.push(k);
+            bVal = b.get(...bMultiIdx);
+          }
+
+          // Complex multiplication: (aRe + aIm*i) * (bRe + bIm*i)
+          const aComplex = aVal instanceof Complex ? aVal : new Complex(Number(aVal), 0);
+          const bComplex = bVal instanceof Complex ? bVal : new Complex(Number(bVal), 0);
+          sumRe += aComplex.re * bComplex.re - aComplex.im * bComplex.im;
+          sumIm += aComplex.re * bComplex.im + aComplex.im * bComplex.re;
         }
-      }
 
-      // Set result
-      if (resultShape.length === 0) {
-        // Scalar result
-        return sum;
+        // Set result
+        if (resultShape.length === 0) {
+          return new Complex(sumRe, sumIm);
+        }
+        const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
+        const resultData = result.data as Float64Array;
+        resultData[resultIdx * 2] = sumRe;
+        resultData[resultIdx * 2 + 1] = sumIm;
       }
-      const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
-      result.data[resultIdx] = sum;
+    }
+  } else {
+    // Non-complex fast path
+    for (let i = 0; i < aOuterSize; i++) {
+      for (let j = 0; j < bOuterSize; j++) {
+        let sum = 0;
+        for (let k = 0; k < contractionDim; k++) {
+          const aFlatIdx = aDim === 1 ? k : i * contractionDim + k;
+          const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
+          const aVal = a.data[aFlatIdx + a.offset];
+          const bVal = b.data[bFlatIdx + b.offset];
+
+          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+            sum = Number(sum) + Number(aVal * bVal);
+          } else {
+            sum += Number(aVal) * Number(bVal);
+          }
+        }
+
+        // Set result
+        if (resultShape.length === 0) {
+          return sum;
+        }
+        const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
+        result.data[resultIdx] = sum;
+      }
     }
   }
 
@@ -712,13 +971,8 @@ export function outer(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
       const aVal = aFlat.get(i);
       const bVal = bFlat.get(j);
 
-      let product;
-      if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        product = aVal * bVal;
-      } else {
-        product = Number(aVal) * Number(bVal);
-      }
-
+      // Use multiplyValues to handle complex numbers properly
+      const product = multiplyValues(aVal, bVal);
       result.set([i, j], product);
     }
   }
@@ -742,7 +996,7 @@ export function tensordot(
   a: ArrayStorage,
   b: ArrayStorage,
   axes: number | [number[], number[]]
-): ArrayStorage | number | bigint {
+): ArrayStorage | number | bigint | Complex {
   let aAxes: number[];
   let bAxes: number[];
 
@@ -802,9 +1056,22 @@ export function tensordot(
     ...bFreeAxes.map((ax) => b.shape[ax]!),
   ];
 
+  // Determine if we're working with complex numbers
+  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+  const isComplex = isComplexDType(resultDtype);
+
+  // Helper to get real and imaginary parts
+  const getReIm = (val: number | bigint | Complex): { re: number; im: number } => {
+    if (val instanceof Complex) {
+      return { re: val.re, im: val.im };
+    }
+    return { re: Number(val), im: 0 };
+  };
+
   // Special case: no free axes (full contraction) -> scalar result
   if (resultShape.length === 0) {
-    let sum = 0;
+    let sumRe = 0;
+    let sumIm = 0;
     // Iterate over all combinations of contracted axes
     const contractSize = aAxes.map((ax) => a.shape[ax]!).reduce((acc, dim) => acc * dim, 1);
 
@@ -832,17 +1099,26 @@ export function tensordot(
       const aVal = a.get(...aIdx);
       const bVal = b.get(...bIdx);
 
-      if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sum = Number(sum) + Number(aVal * bVal);
+      if (isComplex) {
+        const av = getReIm(aVal);
+        const bv = getReIm(bVal);
+        // Complex multiplication: (aRe + aIm*i) * (bRe + bIm*i)
+        sumRe += av.re * bv.re - av.im * bv.im;
+        sumIm += av.re * bv.im + av.im * bv.re;
+      } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+        sumRe += Number(aVal * bVal);
       } else {
-        sum += Number(aVal) * Number(bVal);
+        sumRe += Number(aVal) * Number(bVal);
       }
     }
-    return sum;
+
+    if (isComplex) {
+      return new Complex(sumRe, sumIm);
+    }
+    return sumRe;
   }
 
   // General case: with free axes
-  const resultDtype = promoteDTypes(a.dtype, b.dtype);
   const result = ArrayStorage.zeros(resultShape, resultDtype);
 
   const resultSize = resultShape.reduce((acc, dim) => acc * dim, 1);
@@ -862,7 +1138,8 @@ export function tensordot(
     const aFreeIndices = resultIndices.slice(0, aFreeAxes.length);
     const bFreeIndices = resultIndices.slice(aFreeAxes.length);
 
-    let sum = 0;
+    let sumRe = 0;
+    let sumIm = 0;
 
     // Sum over all contracted axes
     for (let c = 0; c < contractSize; c++) {
@@ -896,14 +1173,24 @@ export function tensordot(
       const aVal = a.get(...aFullIdx);
       const bVal = b.get(...bFullIdx);
 
-      if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sum = Number(sum) + Number(aVal * bVal);
+      if (isComplex) {
+        const av = getReIm(aVal);
+        const bv = getReIm(bVal);
+        // Complex multiplication
+        sumRe += av.re * bv.re - av.im * bv.im;
+        sumIm += av.re * bv.im + av.im * bv.re;
+      } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+        sumRe += Number(aVal * bVal);
       } else {
-        sum += Number(aVal) * Number(bVal);
+        sumRe += Number(aVal) * Number(bVal);
       }
     }
 
-    result.set(resultIndices, sum);
+    if (isComplex) {
+      result.set(resultIndices, new Complex(sumRe, sumIm));
+    } else {
+      result.set(resultIndices, sumRe);
+    }
   }
 
   return result;
@@ -1035,7 +1322,7 @@ export function diagonal(
 export function einsum(
   subscripts: string,
   ...operands: ArrayStorage[]
-): ArrayStorage | number | bigint {
+): ArrayStorage | number | bigint | Complex {
   // Parse the subscripts
   const arrowMatch = subscripts.indexOf('->');
 
@@ -1309,14 +1596,32 @@ function computeEinsumScalar(
   operandSubscripts: string[],
   sumIndices: string[],
   indexDims: Map<string, number>
-): number {
+): number | Complex {
+  // Check if any operand is complex
+  let resultIsComplex = false;
+  for (const op of operands) {
+    if (isComplexDType(op.dtype)) {
+      resultIsComplex = true;
+      break;
+    }
+  }
+
+  // Helper to get real and imaginary parts
+  const getReIm = (val: number | bigint | Complex): { re: number; im: number } => {
+    if (val instanceof Complex) {
+      return { re: val.re, im: val.im };
+    }
+    return { re: Number(val), im: 0 };
+  };
+
   // All indices are summation indices
   let sumSize = 1;
   for (const idx of sumIndices) {
     sumSize *= indexDims.get(idx)!;
   }
 
-  let sum = 0;
+  let sumRe = 0;
+  let sumIm = 0;
 
   for (let sumIdx = 0; sumIdx < sumSize; sumIdx++) {
     // Assign values to summation indices
@@ -1330,7 +1635,8 @@ function computeEinsumScalar(
     }
 
     // Compute product of all operand values
-    let product = 1;
+    let prodRe = 1;
+    let prodIm = 0;
     for (let i = 0; i < operands.length; i++) {
       const op = operands[i]!;
       const sub = operandSubscripts[i]!;
@@ -1342,13 +1648,26 @@ function computeEinsumScalar(
       }
 
       const val = op.get(...opIdx);
-      product *= Number(val);
+      if (resultIsComplex) {
+        const v = getReIm(val);
+        // Complex multiplication: prod * v
+        const newRe = prodRe * v.re - prodIm * v.im;
+        const newIm = prodRe * v.im + prodIm * v.re;
+        prodRe = newRe;
+        prodIm = newIm;
+      } else {
+        prodRe *= Number(val);
+      }
     }
 
-    sum += product;
+    sumRe += prodRe;
+    sumIm += prodIm;
   }
 
-  return sum;
+  if (resultIsComplex) {
+    return new Complex(sumRe, sumIm);
+  }
+  return sumRe;
 }
 
 /**
@@ -1460,12 +1779,8 @@ export function kron(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
         outIndices[i] = aIndicesPadded[i]! * bPadded[i]! + bIndicesPadded[i]!;
       }
 
-      // Compute product and store
-      const product =
-        typeof aVal === 'bigint' || typeof bVal === 'bigint'
-          ? BigInt(Number(aVal)) * BigInt(Number(bVal))
-          : Number(aVal) * Number(bVal);
-
+      // Compute product and store - use multiplyValues for complex support
+      const product = multiplyValues(aVal, bVal);
       result.set(outIndices, product);
     }
   }

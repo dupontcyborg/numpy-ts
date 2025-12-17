@@ -16,6 +16,7 @@ import { parseNpy, serializeNpy } from '../../src/io/npy';
 import { parseNpz, serializeNpz, serializeNpzSync } from '../../src/io/npz';
 import { parseTxt, serializeTxt, genfromtxt, fromregex } from '../../src/io/txt';
 import { array, arange } from '../../src/core/ndarray';
+import { Complex } from '../../src/core/complex';
 import type { DType } from '../../src/core/dtype';
 
 // Get Python command from environment or use default
@@ -151,6 +152,83 @@ np.save('${npyPath}', arr)
       expect(arr.shape).toEqual([2, 3, 4]);
       expect(arr.get([0, 0, 0])).toBe(0);
       expect(arr.get([1, 2, 3])).toBe(23);
+
+      unlinkSync(npyPath);
+    });
+
+    it('reads complex128 NPY file from NumPy', () => {
+      const npyPath = join(tempDir, 'test_complex128.npy');
+
+      const pythonCode = `
+import numpy as np
+arr = np.array([1+2j, 3+4j, 5+6j], dtype=np.complex128)
+np.save('${npyPath}', arr)
+`;
+      execSync(`${PYTHON_CMD} -c "${pythonCode}"`, { stdio: 'pipe' });
+
+      const npyBytes = readFileSync(npyPath);
+      const arr = parseNpy(npyBytes);
+
+      expect(arr.dtype).toBe('complex128');
+      expect(arr.shape).toEqual([3]);
+      const values = arr.toArray() as Complex[];
+      expect(values[0].re).toBeCloseTo(1, 10);
+      expect(values[0].im).toBeCloseTo(2, 10);
+      expect(values[1].re).toBeCloseTo(3, 10);
+      expect(values[1].im).toBeCloseTo(4, 10);
+      expect(values[2].re).toBeCloseTo(5, 10);
+      expect(values[2].im).toBeCloseTo(6, 10);
+
+      unlinkSync(npyPath);
+    });
+
+    it('reads complex64 NPY file from NumPy', () => {
+      const npyPath = join(tempDir, 'test_complex64.npy');
+
+      const pythonCode = `
+import numpy as np
+arr = np.array([1+2j, 3+4j, 5+6j], dtype=np.complex64)
+np.save('${npyPath}', arr)
+`;
+      execSync(`${PYTHON_CMD} -c "${pythonCode}"`, { stdio: 'pipe' });
+
+      const npyBytes = readFileSync(npyPath);
+      const arr = parseNpy(npyBytes);
+
+      expect(arr.dtype).toBe('complex64');
+      expect(arr.shape).toEqual([3]);
+      const values = arr.toArray() as Complex[];
+      expect(values[0].re).toBeCloseTo(1, 5);
+      expect(values[0].im).toBeCloseTo(2, 5);
+      expect(values[1].re).toBeCloseTo(3, 5);
+      expect(values[1].im).toBeCloseTo(4, 5);
+      expect(values[2].re).toBeCloseTo(5, 5);
+      expect(values[2].im).toBeCloseTo(6, 5);
+
+      unlinkSync(npyPath);
+    });
+
+    it('reads 2D complex128 array from NumPy', () => {
+      const npyPath = join(tempDir, 'test_complex128_2d.npy');
+
+      const pythonCode = `
+import numpy as np
+arr = np.array([[1+1j, 2+2j], [3+3j, 4+4j]], dtype=np.complex128)
+np.save('${npyPath}', arr)
+`;
+      execSync(`${PYTHON_CMD} -c "${pythonCode}"`, { stdio: 'pipe' });
+
+      const npyBytes = readFileSync(npyPath);
+      const arr = parseNpy(npyBytes);
+
+      expect(arr.dtype).toBe('complex128');
+      expect(arr.shape).toEqual([2, 2]);
+      const val00 = arr.get([0, 0]) as Complex;
+      const val11 = arr.get([1, 1]) as Complex;
+      expect(val00.re).toBeCloseTo(1, 10);
+      expect(val00.im).toBeCloseTo(1, 10);
+      expect(val11.re).toBeCloseTo(4, 10);
+      expect(val11.im).toBeCloseTo(4, 10);
 
       unlinkSync(npyPath);
     });
@@ -306,6 +384,102 @@ print(json.dumps(result))
       const result = JSON.parse(output);
 
       expect(result.shape).toEqual([2, 3]);
+      expect(result.values_match).toBe(true);
+
+      unlinkSync(npyPath);
+    });
+
+    it('validates complex128 NPY file with NumPy', () => {
+      const npyPath = join(tempDir, 'ts_complex128.npy');
+
+      const arr = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], 'complex128');
+      const npyBytes = serializeNpy(arr);
+      writeFileSync(npyPath, npyBytes);
+
+      const pythonCode = `
+import numpy as np
+import json
+arr = np.load('${npyPath}')
+expected = np.array([1+2j, 3+4j, 5+6j], dtype=np.complex128)
+result = {
+    'dtype': str(arr.dtype),
+    'shape': list(arr.shape),
+    'values_match': np.allclose(arr, expected)
+}
+print(json.dumps(result))
+`;
+
+      const output = execSync(`${PYTHON_CMD} -c "${pythonCode}"`, { encoding: 'utf-8' });
+      const result = JSON.parse(output);
+
+      expect(result.dtype).toBe('complex128');
+      expect(result.shape).toEqual([3]);
+      expect(result.values_match).toBe(true);
+
+      unlinkSync(npyPath);
+    });
+
+    it('validates complex64 NPY file with NumPy', () => {
+      const npyPath = join(tempDir, 'ts_complex64.npy');
+
+      const arr = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], 'complex64');
+      const npyBytes = serializeNpy(arr);
+      writeFileSync(npyPath, npyBytes);
+
+      const pythonCode = `
+import numpy as np
+import json
+arr = np.load('${npyPath}')
+expected = np.array([1+2j, 3+4j, 5+6j], dtype=np.complex64)
+result = {
+    'dtype': str(arr.dtype),
+    'shape': list(arr.shape),
+    'values_match': np.allclose(arr, expected)
+}
+print(json.dumps(result))
+`;
+
+      const output = execSync(`${PYTHON_CMD} -c "${pythonCode}"`, { encoding: 'utf-8' });
+      const result = JSON.parse(output);
+
+      expect(result.dtype).toBe('complex64');
+      expect(result.shape).toEqual([3]);
+      expect(result.values_match).toBe(true);
+
+      unlinkSync(npyPath);
+    });
+
+    it('validates 2D complex128 array with NumPy', () => {
+      const npyPath = join(tempDir, 'ts_complex128_2d.npy');
+
+      const arr = array(
+        [
+          [new Complex(1, 1), new Complex(2, 2)],
+          [new Complex(3, 3), new Complex(4, 4)],
+        ],
+        'complex128'
+      );
+      const npyBytes = serializeNpy(arr);
+      writeFileSync(npyPath, npyBytes);
+
+      const pythonCode = `
+import numpy as np
+import json
+arr = np.load('${npyPath}')
+expected = np.array([[1+1j, 2+2j], [3+3j, 4+4j]], dtype=np.complex128)
+result = {
+    'dtype': str(arr.dtype),
+    'shape': list(arr.shape),
+    'values_match': np.allclose(arr, expected)
+}
+print(json.dumps(result))
+`;
+
+      const output = execSync(`${PYTHON_CMD} -c "${pythonCode}"`, { encoding: 'utf-8' });
+      const result = JSON.parse(output);
+
+      expect(result.dtype).toBe('complex128');
+      expect(result.shape).toEqual([2, 2]);
       expect(result.values_match).toBe(true);
 
       unlinkSync(npyPath);

@@ -196,10 +196,11 @@ describe('dtype utility functions', () => {
       expect(isValidDType('uint16')).toBe(true);
       expect(isValidDType('uint8')).toBe(true);
       expect(isValidDType('bool')).toBe(true);
+      expect(isValidDType('complex64')).toBe(true);
+      expect(isValidDType('complex128')).toBe(true);
     });
 
     it('returns false for invalid dtypes', () => {
-      expect(isValidDType('complex64')).toBe(false);
       expect(isValidDType('string')).toBe(false);
       expect(isValidDType('float16')).toBe(false);
       expect(isValidDType('int128')).toBe(false);

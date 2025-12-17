@@ -281,20 +281,20 @@ describe('NPY Format', () => {
   });
 
   describe('UnsupportedDTypeError', () => {
-    it('is thrown for complex dtypes', () => {
-      // Create a mock NPY file with complex dtype
-      const headerStr = "{'descr': '<c16', 'fortran_order': False, 'shape': (3,), }";
+    it('is thrown for string dtypes', () => {
+      // Create a mock NPY file with string dtype (unsupported)
+      const headerStr = "{'descr': 'S10', 'fortran_order': False, 'shape': (3,), }";
       const header = new TextEncoder().encode(headerStr + '\n');
       const headerLen = header.length;
 
-      const npyFile = new Uint8Array(12 + headerLen + 24);
+      const npyFile = new Uint8Array(12 + headerLen + 30);
       npyFile.set([0x93, 0x4e, 0x55, 0x4d, 0x50, 0x59, 2, 0], 0);
       npyFile[8] = headerLen & 0xff;
       npyFile[9] = (headerLen >> 8) & 0xff;
       npyFile.set(header, 12);
 
       expect(() => parseNpy(npyFile)).toThrow(UnsupportedDTypeError);
-      expect(() => parseNpy(npyFile)).toThrow('complex');
+      expect(() => parseNpy(npyFile)).toThrow('string');
     });
   });
 });

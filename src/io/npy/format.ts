@@ -64,6 +64,8 @@ export interface DTypeParseResult {
 export const SUPPORTED_DTYPES: DType[] = [
   'float64',
   'float32',
+  'complex128',
+  'complex64',
   'int64',
   'int32',
   'int16',
@@ -96,6 +98,9 @@ const DESCR_TO_DTYPE: Record<string, DType> = {
   // Float types
   f8: 'float64',
   f4: 'float32',
+  // Complex types
+  c16: 'complex128', // 16 bytes = two float64
+  c8: 'complex64', // 8 bytes = two float32
   // Signed integer types
   i8: 'int64',
   i4: 'int32',
@@ -117,6 +122,8 @@ const DESCR_TO_DTYPE: Record<string, DType> = {
 export const DTYPE_TO_DESCR: Record<DType, string> = {
   float64: '<f8',
   float32: '<f4',
+  complex128: '<c16',
+  complex64: '<c8',
   int64: '<i8',
   int32: '<i4',
   int16: '<i2',
@@ -132,7 +139,6 @@ export const DTYPE_TO_DESCR: Record<DType, string> = {
  * Unsupported dtype types (for error messages)
  */
 export const UNSUPPORTED_DTYPE_PATTERNS: Record<string, string> = {
-  c: 'complex numbers',
   S: 'byte strings',
   U: 'Unicode strings',
   O: 'Python objects',
