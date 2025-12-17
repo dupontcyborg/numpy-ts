@@ -119,8 +119,8 @@ NumPy-compatible type system with automatic promotion:
 | `uint8` | ✅ | ✅ | |
 | **Other Numeric** ||||
 | `bool` | ✅ | ✅ | Stored as uint8 |
-| `complex64` | ✅ | 🚧 | Under construction |
-| `complex128` | ✅ | 🚧 | Under construction |
+| `complex64` | ✅ | ✅ | |
+| `complex128` | ✅ | ✅ | |
 | **Non-Numeric** ||||
 | `str_` | ✅ | ❌ | Not planned |
 | `bytes_` | ✅ | ❌ | Not planned |
@@ -128,7 +128,7 @@ NumPy-compatible type system with automatic promotion:
 | `datetime64` | ✅ | ❌ | Not planned |
 | `timedelta64` | ✅ | ❌ | Not planned |
 
-**Supported: 11/20 numeric dtypes** • Complex types under construction, temporal types planned for future releases
+**Supported: 13/20 numeric dtypes** • Temporal types planned for future releases
 
 ### NumPy Memory Model
 
