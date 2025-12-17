@@ -920,7 +920,11 @@ export function isrealobj(a: ArrayStorage): boolean {
  * @returns Boolean array
  */
 export function isneginf(a: ArrayStorage): ArrayStorage {
-  throwIfComplex(a.dtype, 'isneginf', 'This operation is not supported for complex values because it would be ambiguous.');
+  throwIfComplex(
+    a.dtype,
+    'isneginf',
+    'This operation is not supported for complex values because it would be ambiguous.'
+  );
   const data = new Uint8Array(a.size);
   const thisData = a.data;
   const size = a.size;
@@ -947,7 +951,11 @@ export function isneginf(a: ArrayStorage): ArrayStorage {
  * @returns Boolean array
  */
 export function isposinf(a: ArrayStorage): ArrayStorage {
-  throwIfComplex(a.dtype, 'isposinf', 'This operation is not supported for complex values because it would be ambiguous.');
+  throwIfComplex(
+    a.dtype,
+    'isposinf',
+    'This operation is not supported for complex values because it would be ambiguous.'
+  );
   const data = new Uint8Array(a.size);
   const thisData = a.data;
   const size = a.size;

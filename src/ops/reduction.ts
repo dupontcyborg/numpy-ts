@@ -164,7 +164,10 @@ export function mean(
     return sumResult / shape[normalizedAxis]!;
   }
   if (sumResult instanceof Complex) {
-    return new Complex(sumResult.re / shape[normalizedAxis]!, sumResult.im / shape[normalizedAxis]!);
+    return new Complex(
+      sumResult.re / shape[normalizedAxis]!,
+      sumResult.im / shape[normalizedAxis]!
+    );
   }
 
   // Divide by the size of the reduced axis

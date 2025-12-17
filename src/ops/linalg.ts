@@ -32,10 +32,7 @@ function multiplyValues(
 /**
  * Helper to add two values that may be Complex
  */
-function addValues(
-  a: number | Complex,
-  b: number | Complex
-): number | Complex {
+function addValues(a: number | Complex, b: number | Complex): number | Complex {
   if (a instanceof Complex || b instanceof Complex) {
     const aComplex = a instanceof Complex ? a : new Complex(a, 0);
     const bComplex = b instanceof Complex ? b : new Complex(b, 0);

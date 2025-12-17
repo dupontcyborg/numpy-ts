@@ -826,7 +826,10 @@ export function cov(
       if (isComplex) {
         // Complex 1D case with y
         // Compute complex means
-        let mMeanRe = 0, mMeanIm = 0, yMeanRe = 0, yMeanIm = 0;
+        let mMeanRe = 0,
+          mMeanIm = 0,
+          yMeanRe = 0,
+          yMeanIm = 0;
         for (let i = 0; i < n; i++) {
           if (mIsComplex) {
             mMeanRe += (mData as Float64Array)[i * 2]!;
@@ -841,14 +844,20 @@ export function cov(
             yMeanRe += Number(yData[i]);
           }
         }
-        mMeanRe /= n; mMeanIm /= n;
-        yMeanRe /= n; yMeanIm /= n;
+        mMeanRe /= n;
+        mMeanIm /= n;
+        yMeanRe /= n;
+        yMeanIm /= n;
 
         // Compute covariances: cov[i,j] = E[(Xi - μi) * conj(Xj - μj)]
-        let varMRe = 0, varMIm = 0;
-        let varYRe = 0, varYIm = 0;
-        let covMYRe = 0, covMYIm = 0;
-        let covYMRe = 0, covYMIm = 0;
+        let varMRe = 0,
+          varMIm = 0;
+        let varYRe = 0,
+          varYIm = 0;
+        let covMYRe = 0,
+          covMYIm = 0;
+        let covYMRe = 0,
+          covYMIm = 0;
 
         for (let i = 0; i < n; i++) {
           let dmRe: number, dmIm: number, dyRe: number, dyIm: number;
@@ -888,15 +897,21 @@ export function cov(
 
         varMRe /= divisor;
         varYRe /= divisor;
-        covMYRe /= divisor; covMYIm /= divisor;
-        covYMRe /= divisor; covYMIm /= divisor;
+        covMYRe /= divisor;
+        covMYIm /= divisor;
+        covYMRe /= divisor;
+        covYMIm /= divisor;
 
         // Pack into interleaved format: [[varM, covMY], [covYM, varY]]
         const result = new Float64Array(8);
-        result[0] = varMRe; result[1] = varMIm;      // [0,0]
-        result[2] = covMYRe; result[3] = covMYIm;    // [0,1]
-        result[4] = covYMRe; result[5] = covYMIm;    // [1,0]
-        result[6] = varYRe; result[7] = varYIm;      // [1,1]
+        result[0] = varMRe;
+        result[1] = varMIm; // [0,0]
+        result[2] = covMYRe;
+        result[3] = covMYIm; // [0,1]
+        result[4] = covYMRe;
+        result[5] = covYMIm; // [1,0]
+        result[6] = varYRe;
+        result[7] = varYIm; // [1,1]
         return ArrayStorage.fromData(result, [2, 2], 'complex128');
       }
 
@@ -939,7 +954,8 @@ export function cov(
 
       if (isComplex) {
         // Complex variance: E[|X - μ|^2]
-        let meanRe = 0, meanIm = 0;
+        let meanRe = 0,
+          meanIm = 0;
         for (let i = 0; i < n; i++) {
           meanRe += (mData as Float64Array)[i * 2]!;
           meanIm += (mData as Float64Array)[i * 2 + 1]!;
@@ -1007,7 +1023,8 @@ export function cov(
     const meansRe = new Float64Array(numVars);
     const meansIm = new Float64Array(numVars);
     for (let i = 0; i < numVars; i++) {
-      let sumRe = 0, sumIm = 0;
+      let sumRe = 0,
+        sumIm = 0;
       for (let j = 0; j < numObs; j++) {
         const idx = rowvar ? i * numObs + j : j * numVars + i;
         sumRe += (mData as Float64Array)[idx * 2]!;
@@ -1027,7 +1044,8 @@ export function cov(
 
     for (let i = 0; i < numVars; i++) {
       for (let j = 0; j < numVars; j++) {
-        let sumRe = 0, sumIm = 0;
+        let sumRe = 0,
+          sumIm = 0;
         for (let k = 0; k < numObs; k++) {
           const idxI = rowvar ? i * numObs + k : k * numVars + i;
           const idxJ = rowvar ? j * numObs + k : k * numVars + j;

@@ -194,8 +194,8 @@ describe('Sorting Functions', () => {
       // NumPy always returns complex128 for sort_complex
       expect(result.dtype).toBe('complex128');
       const values = result.toArray() as Complex[];
-      expect(values.map(c => c.re)).toEqual([1, 2, 3, 4]);
-      expect(values.every(c => c.im === 0)).toBe(true);
+      expect(values.map((c) => c.re)).toEqual([1, 2, 3, 4]);
+      expect(values.every((c) => c.im === 0)).toBe(true);
     });
   });
 });

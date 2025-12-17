@@ -456,7 +456,10 @@ function createComplex2DArray() {
  * Attempt to call a function with complex input
  * Returns: 'supported' | 'unsupported' | 'not_implemented' | 'error'
  */
-function testComplexBehavior(fn: Function, fnName: string): ComplexBehavior | 'error' {
+function testComplexBehavior(
+  fn: (...args: unknown[]) => unknown,
+  fnName: string
+): ComplexBehavior | 'error' {
   const z1 = createComplexArray();
   const z2 = createComplexArray2();
   const z2d = createComplex2DArray();

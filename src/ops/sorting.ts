@@ -13,11 +13,7 @@ import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing
  * Check if a value at index i is non-zero (truthy)
  * For complex arrays, checks if either real or imag part is non-zero
  */
-function isNonZero(
-  data: ArrayStorage['data'],
-  index: number,
-  isComplex: boolean
-): boolean {
+function isNonZero(data: ArrayStorage['data'], index: number, isComplex: boolean): boolean {
   if (isComplex) {
     const re = (data as Float64Array | Float32Array)[index * 2]!;
     const im = (data as Float64Array | Float32Array)[index * 2 + 1]!;
@@ -1052,16 +1048,24 @@ export function where(
     if (isNonZero(condData, condIdx, isCondComplex)) {
       if (isResultComplex) {
         // Copy both real and imaginary parts
-        (resultData as Float64Array | Float32Array)[i * 2] = (xData as Float64Array | Float32Array)[xIdx * 2]!;
-        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (xData as Float64Array | Float32Array)[xIdx * 2 + 1]!;
+        (resultData as Float64Array | Float32Array)[i * 2] = (xData as Float64Array | Float32Array)[
+          xIdx * 2
+        ]!;
+        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (
+          xData as Float64Array | Float32Array
+        )[xIdx * 2 + 1]!;
       } else {
         resultData[i] = xData[xIdx]!;
       }
     } else {
       if (isResultComplex) {
         // Copy both real and imaginary parts
-        (resultData as Float64Array | Float32Array)[i * 2] = (yData as Float64Array | Float32Array)[yIdx * 2]!;
-        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (yData as Float64Array | Float32Array)[yIdx * 2 + 1]!;
+        (resultData as Float64Array | Float32Array)[i * 2] = (yData as Float64Array | Float32Array)[
+          yIdx * 2
+        ]!;
+        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (
+          yData as Float64Array | Float32Array
+        )[yIdx * 2 + 1]!;
       } else {
         resultData[i] = yData[yIdx]!;
       }

@@ -452,7 +452,13 @@ print(json.dumps(result))
     it('validates 2D complex128 array with NumPy', () => {
       const npyPath = join(tempDir, 'ts_complex128_2d.npy');
 
-      const arr = array([[new Complex(1, 1), new Complex(2, 2)], [new Complex(3, 3), new Complex(4, 4)]], 'complex128');
+      const arr = array(
+        [
+          [new Complex(1, 1), new Complex(2, 2)],
+          [new Complex(3, 3), new Complex(4, 4)],
+        ],
+        'complex128'
+      );
       const npyBytes = serializeNpy(arr);
       writeFileSync(npyPath, npyBytes);
 

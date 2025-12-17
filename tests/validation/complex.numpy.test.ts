@@ -715,7 +715,9 @@ result = np.log(np.exp(np.array([1+0.5j, 2-1j, 0.5+1j])))
 
   describe('sin()', () => {
     it('computes sin of real values matching NumPy', () => {
-      const jsResult = sin(array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)]));
+      const jsResult = sin(
+        array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)])
+      );
       const pyResult = runNumPy(`
 import math
 result = np.sin(np.array([0+0j, math.pi/2+0j, math.pi+0j]))
@@ -738,7 +740,9 @@ result = np.sin(np.array([0+1j, 1+1j, 0.5+2j]))
 
   describe('cos()', () => {
     it('computes cos of real values matching NumPy', () => {
-      const jsResult = cos(array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)]));
+      const jsResult = cos(
+        array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)])
+      );
       const pyResult = runNumPy(`
 import math
 result = np.cos(np.array([0+0j, math.pi/2+0j, math.pi+0j]))
@@ -761,7 +765,9 @@ result = np.cos(np.array([0+1j, 1+1j, 0.5+2j]))
 
   describe('tan()', () => {
     it('computes tan of real values matching NumPy', () => {
-      const jsResult = tan(array([new Complex(0, 0), new Complex(Math.PI / 4, 0), new Complex(1, 0)]));
+      const jsResult = tan(
+        array([new Complex(0, 0), new Complex(Math.PI / 4, 0), new Complex(1, 0)])
+      );
       const pyResult = runNumPy(`
 import math
 result = np.tan(np.array([0+0j, math.pi/4+0j, 1+0j]))
@@ -839,7 +845,9 @@ result = np.arctan(np.array([0+0j, 1+0j, 2+0j]))
     });
 
     it('computes arctan of complex matching NumPy', () => {
-      const jsResult = arctan(array([new Complex(0.3, 0.2), new Complex(1, 0.5), new Complex(0, 0.5)]));
+      const jsResult = arctan(
+        array([new Complex(0.3, 0.2), new Complex(1, 0.5), new Complex(0, 0.5)])
+      );
       const pyResult = runNumPy(`
 result = np.arctan(np.array([0.3+0.2j, 1+0.5j, 0+0.5j]))
       `);
@@ -1026,7 +1034,9 @@ result = np.arcsinh(np.array([0+0j, 1+0j, 2+0j]))
     });
 
     it('computes arcsinh of complex matching NumPy', () => {
-      const jsResult = arcsinh(array([new Complex(0.3, 0.4), new Complex(1, 1), new Complex(0, 1)]));
+      const jsResult = arcsinh(
+        array([new Complex(0.3, 0.4), new Complex(1, 1), new Complex(0, 1)])
+      );
       const pyResult = runNumPy(`
 result = np.arcsinh(np.array([0.3+0.4j, 1+1j, 0+1j]))
       `);
@@ -1048,7 +1058,9 @@ result = np.arccosh(np.array([1+0j, 2+0j, 3+0j]))
     });
 
     it('computes arccosh of complex matching NumPy', () => {
-      const jsResult = arccosh(array([new Complex(0.5, 0.3), new Complex(2, 0.5), new Complex(0, 1)]));
+      const jsResult = arccosh(
+        array([new Complex(0.5, 0.3), new Complex(2, 0.5), new Complex(0, 1)])
+      );
       const pyResult = runNumPy(`
 result = np.arccosh(np.array([0.5+0.3j, 2+0.5j, 0+1j]))
       `);
@@ -1059,7 +1071,9 @@ result = np.arccosh(np.array([0.5+0.3j, 2+0.5j, 0+1j]))
 
   describe('arctanh()', () => {
     it('computes arctanh of real values in (-1, 1) matching NumPy', () => {
-      const jsResult = arctanh(array([new Complex(0, 0), new Complex(0.5, 0), new Complex(-0.5, 0)]));
+      const jsResult = arctanh(
+        array([new Complex(0, 0), new Complex(0.5, 0), new Complex(-0.5, 0)])
+      );
       const pyResult = runNumPy(`
 result = np.arctanh(np.array([0+0j, 0.5+0j, -0.5+0j]))
       `);
@@ -1070,7 +1084,9 @@ result = np.arctanh(np.array([0+0j, 0.5+0j, -0.5+0j]))
     });
 
     it('computes arctanh of complex matching NumPy', () => {
-      const jsResult = arctanh(array([new Complex(0.3, 0.2), new Complex(0.5, 0.5), new Complex(0, 0.5)]));
+      const jsResult = arctanh(
+        array([new Complex(0.3, 0.2), new Complex(0.5, 0.5), new Complex(0, 0.5)])
+      );
       const pyResult = runNumPy(`
 result = np.arctanh(np.array([0.3+0.2j, 0.5+0.5j, 0+0.5j]))
       `);
@@ -1613,7 +1629,12 @@ result = np.isnan(np.array([1+2j, np.nan+0j, 0+np.nan*1j, np.inf+0j]))
   describe('Searching/Indexing Operations', () => {
     describe('nonzero()', () => {
       it('finds nonzero indices in complex array matching NumPy', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const jsResult = nonzero(a);
         const pyResult = runNumPy(`
 result = [arr.tolist() for arr in np.nonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))]
@@ -1625,7 +1646,12 @@ result = [arr.tolist() for arr in np.nonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
 
     describe('argwhere()', () => {
       it('finds argwhere indices in complex array matching NumPy', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 2), new Complex(0, 0), new Complex(3, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 2),
+          new Complex(0, 0),
+          new Complex(3, 0),
+        ]);
         const jsResult = argwhere(a);
         const pyResult = runNumPy(`
 result = np.argwhere(np.array([0+0j, 1+2j, 0+0j, 3+0j]))
@@ -1637,7 +1663,12 @@ result = np.argwhere(np.array([0+0j, 1+2j, 0+0j, 3+0j]))
 
     describe('flatnonzero()', () => {
       it('finds flatnonzero indices in complex array matching NumPy', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const jsResult = flatnonzero(a);
         const pyResult = runNumPy(`
 result = np.flatnonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
@@ -1657,14 +1688,21 @@ result = np.flatnonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
 result = np.where(np.array([1, 0, 1]), np.array([10+10j, 20+20j, 30+30j]), np.array([100+100j, 200+200j, 300+300j]))
         `);
 
-        expect(arraysClose((jsResult as ReturnType<typeof array>).toArray(), pyResult.value)).toBe(true);
+        expect(arraysClose((jsResult as ReturnType<typeof array>).toArray(), pyResult.value)).toBe(
+          true
+        );
       });
     });
 
     describe('extract()', () => {
       it('extracts complex values matching NumPy', () => {
         const cond = array([1, 0, 1, 0]);
-        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6), new Complex(7, 8)]);
+        const a = array([
+          new Complex(1, 2),
+          new Complex(3, 4),
+          new Complex(5, 6),
+          new Complex(7, 8),
+        ]);
         const jsResult = extract(cond, a);
         const pyResult = runNumPy(`
 result = np.extract(np.array([1, 0, 1, 0]), np.array([1+2j, 3+4j, 5+6j, 7+8j]))
@@ -1676,7 +1714,12 @@ result = np.extract(np.array([1, 0, 1, 0]), np.array([1+2j, 3+4j, 5+6j, 7+8j]))
 
     describe('count_nonzero()', () => {
       it('counts nonzero complex values matching NumPy', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const jsResult = count_nonzero(a);
         const pyResult = runNumPy(`
 result = np.count_nonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
@@ -1690,8 +1733,18 @@ result = np.count_nonzero(np.array([0+0j, 1+0j, 0+1j, 0+0j]))
   describe('Logical Operations', () => {
     describe('logical_and()', () => {
       it('computes logical AND of complex arrays matching NumPy', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
-        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(1, 0), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
+        const b = array([
+          new Complex(1, 0),
+          new Complex(1, 0),
+          new Complex(1, 0),
+          new Complex(0, 0),
+        ]);
         const jsResult = logical_and(a, b);
         const pyResult = runNumPy(`
 result = np.logical_and(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([1+0j, 1+0j, 1+0j, 0+0j]))
@@ -1703,8 +1756,18 @@ result = np.logical_and(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([1+0j, 1+0j
 
     describe('logical_or()', () => {
       it('computes logical OR of complex arrays matching NumPy', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
-        const b = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
+        const b = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 0),
+        ]);
         const jsResult = logical_or(a, b);
         const pyResult = runNumPy(`
 result = np.logical_or(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([0+0j, 1+0j, 0+0j, 0+0j]))
@@ -1716,7 +1779,12 @@ result = np.logical_or(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([0+0j, 1+0j,
 
     describe('logical_not()', () => {
       it('computes logical NOT of complex array matching NumPy', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const jsResult = logical_not(a);
         const pyResult = runNumPy(`
 result = np.logical_not(np.array([1+0j, 0+0j, 0+1j, 0+0j]))
@@ -1728,8 +1796,18 @@ result = np.logical_not(np.array([1+0j, 0+0j, 0+1j, 0+0j]))
 
     describe('logical_xor()', () => {
       it('computes logical XOR of complex arrays matching NumPy', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
-        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
+        const b = array([
+          new Complex(1, 0),
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 0),
+        ]);
         const jsResult = logical_xor(a, b);
         const pyResult = runNumPy(`
 result = np.logical_xor(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([1+0j, 1+0j, 0+0j, 0+0j]))
@@ -1747,7 +1825,12 @@ result = np.logical_xor(np.array([1+0j, 0+0j, 0+1j, 0+0j]), np.array([1+0j, 1+0j
   describe('Difference Operations', () => {
     describe('diff()', () => {
       it('computes 1D diff of complex array matching NumPy', () => {
-        const a = array([new Complex(1, 2), new Complex(4, 3), new Complex(6, 1), new Complex(7, 5)]);
+        const a = array([
+          new Complex(1, 2),
+          new Complex(4, 3),
+          new Complex(6, 1),
+          new Complex(7, 5),
+        ]);
         const jsResult = diff(a);
         const pyResult = runNumPy(`
 result = np.diff(np.array([1+2j, 4+3j, 6+1j, 7+5j]))
@@ -1758,7 +1841,13 @@ result = np.diff(np.array([1+2j, 4+3j, 6+1j, 7+5j]))
       });
 
       it('computes diff with n=2 matching NumPy', () => {
-        const a = array([new Complex(1, 1), new Complex(2, 3), new Complex(4, 2), new Complex(7, 6), new Complex(11, 5)]);
+        const a = array([
+          new Complex(1, 1),
+          new Complex(2, 3),
+          new Complex(4, 2),
+          new Complex(7, 6),
+          new Complex(11, 5),
+        ]);
         const jsResult = diff(a, 2);
         const pyResult = runNumPy(`
 result = np.diff(np.array([1+1j, 2+3j, 4+2j, 7+6j, 11+5j]), n=2)
@@ -1789,7 +1878,12 @@ result = np.ediff1d(np.array([1+2j, 4+1j, 6+5j]))
   describe('Gradient and Cross Operations', () => {
     describe('gradient()', () => {
       it('computes gradient of complex array matching NumPy', () => {
-        const f = array([new Complex(1, 1), new Complex(2, 3), new Complex(4, 6), new Complex(7, 10)]);
+        const f = array([
+          new Complex(1, 1),
+          new Complex(2, 3),
+          new Complex(4, 6),
+          new Complex(7, 10),
+        ]);
         const jsResult = gradient(f);
         const pyResult = runNumPy(`
 result = np.gradient(np.array([1+1j, 2+3j, 4+6j, 7+10j]))
@@ -1874,7 +1968,12 @@ result = np.nancumprod(np.array([1+1j, np.nan+np.nan*1j, 2+0j]))
 
     describe('nanvar()', () => {
       it('computes variance ignoring NaN matching NumPy', () => {
-        const a = array([new Complex(1, 1), new Complex(NaN, 0), new Complex(2, 2), new Complex(3, 3)]);
+        const a = array([
+          new Complex(1, 1),
+          new Complex(NaN, 0),
+          new Complex(2, 2),
+          new Complex(3, 3),
+        ]);
         const jsResult = nanvar(a);
         const pyResult = runNumPy(`
 result = np.nanvar(np.array([1+1j, np.nan+0j, 2+2j, 3+3j]))
@@ -1887,7 +1986,12 @@ result = np.nanvar(np.array([1+1j, np.nan+0j, 2+2j, 3+3j]))
 
     describe('nanstd()', () => {
       it('computes std ignoring NaN matching NumPy', () => {
-        const a = array([new Complex(1, 1), new Complex(NaN, 0), new Complex(2, 2), new Complex(3, 3)]);
+        const a = array([
+          new Complex(1, 1),
+          new Complex(NaN, 0),
+          new Complex(2, 2),
+          new Complex(3, 3),
+        ]);
         const jsResult = nanstd(a);
         const pyResult = runNumPy(`
 result = np.nanstd(np.array([1+1j, np.nan+0j, 2+2j, 3+3j]))
@@ -1901,7 +2005,12 @@ result = np.nanstd(np.array([1+1j, np.nan+0j, 2+2j, 3+3j]))
     describe('nanargmin()', () => {
       it('finds index of min ignoring NaN matching NumPy', () => {
         // NumPy uses lexicographic ordering for complex
-        const a = array([new Complex(3, 1), new Complex(NaN, 0), new Complex(1, 2), new Complex(2, 0)]);
+        const a = array([
+          new Complex(3, 1),
+          new Complex(NaN, 0),
+          new Complex(1, 2),
+          new Complex(2, 0),
+        ]);
         const jsResult = nanargmin(a);
         const pyResult = runNumPy(`
 result = np.nanargmin(np.array([3+1j, np.nan+0j, 1+2j, 2+0j]))
@@ -1913,7 +2022,12 @@ result = np.nanargmin(np.array([3+1j, np.nan+0j, 1+2j, 2+0j]))
 
     describe('nanargmax()', () => {
       it('finds index of max ignoring NaN matching NumPy', () => {
-        const a = array([new Complex(3, 1), new Complex(NaN, 0), new Complex(1, 2), new Complex(2, 0)]);
+        const a = array([
+          new Complex(3, 1),
+          new Complex(NaN, 0),
+          new Complex(1, 2),
+          new Complex(2, 0),
+        ]);
         const jsResult = nanargmax(a);
         const pyResult = runNumPy(`
 result = np.nanargmax(np.array([3+1j, np.nan+0j, 1+2j, 2+0j]))
@@ -1961,7 +2075,12 @@ result = np.average(np.array([1+1j, 2+2j, 3+3j]), weights=np.array([1, 2, 3]))
   describe('Sorting Operations', () => {
     describe('sort()', () => {
       it('sorts complex array using lexicographic ordering matching NumPy', () => {
-        const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(2, 0), new Complex(1, 1)]);
+        const a = array([
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, 0),
+          new Complex(1, 1),
+        ]);
         const jsResult = sort(a);
         const pyResult = runNumPy(`
 result = np.sort(np.array([3+1j, 1+2j, 2+0j, 1+1j]))
@@ -1974,7 +2093,12 @@ result = np.sort(np.array([3+1j, 1+2j, 2+0j, 1+1j]))
 
     describe('argsort()', () => {
       it('returns indices that would sort complex array matching NumPy', () => {
-        const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(2, 0), new Complex(1, 1)]);
+        const a = array([
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, 0),
+          new Complex(1, 1),
+        ]);
         const jsResult = argsort(a);
         const pyResult = runNumPy(`
 result = np.argsort(np.array([3+1j, 1+2j, 2+0j, 1+1j]))
@@ -2097,7 +2221,12 @@ result = np.float_power(np.array([2+1j, 1+1j]), 2)
   describe('Set Operations', () => {
     describe('unique()', () => {
       it('finds unique complex values matching NumPy', () => {
-        const a = array([new Complex(1, 2), new Complex(3, 1), new Complex(1, 2), new Complex(2, 0)]);
+        const a = array([
+          new Complex(1, 2),
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, 0),
+        ]);
         const jsResult = unique(a);
         const pyResult = runNumPy(`
 result = np.unique(np.array([1+2j, 3+1j, 1+2j, 2+0j]))
@@ -2323,7 +2452,12 @@ result = np.nanmean(np.array([2+4j, np.nan+np.nan*1j, 4+2j]))
   describe('Additional Sorting Operations', () => {
     describe('partition()', () => {
       it('partitions complex array using lexicographic ordering matching NumPy', () => {
-        const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(2, 0), new Complex(1, 1)]);
+        const a = array([
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, 0),
+          new Complex(1, 1),
+        ]);
         const jsResult = partition(a, 2);
         const pyResult = runNumPy(`
 result = np.partition(np.array([3+1j, 1+2j, 2+0j, 1+1j]), 2)
@@ -2338,7 +2472,12 @@ result = np.partition(np.array([3+1j, 1+2j, 2+0j, 1+1j]), 2)
 
     describe('argpartition()', () => {
       it('returns indices for partition matching NumPy', () => {
-        const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(2, 0), new Complex(1, 1)]);
+        const a = array([
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(2, 0),
+          new Complex(1, 1),
+        ]);
         const jsResult = argpartition(a, 2);
         const pyResult = runNumPy(`
 result = np.argpartition(np.array([3+1j, 1+2j, 2+0j, 1+1j]), 2)
@@ -2377,7 +2516,12 @@ result = np.searchsorted(np.array([1+0j, 2+0j, 3+0j]), np.array([1.5+0j, 2.5+0j]
 
     describe('sort_complex()', () => {
       it('sorts complex array (real first, then imag) matching NumPy', () => {
-        const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(1, 1), new Complex(2, 0)]);
+        const a = array([
+          new Complex(3, 1),
+          new Complex(1, 2),
+          new Complex(1, 1),
+          new Complex(2, 0),
+        ]);
         const jsResult = sort_complex(a);
         const pyResult = runNumPy(`
 result = np.sort_complex(np.array([3+1j, 1+2j, 1+1j, 2+0j]))
@@ -2454,8 +2598,14 @@ result = np.setxor1d(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 4+4j]))
   describe('Additional Linear Algebra Operations', () => {
     describe('tensordot()', () => {
       it('computes tensor dot product of complex arrays matching NumPy', () => {
-        const a = array([[new Complex(1, 1), new Complex(2, 0)], [new Complex(0, 1), new Complex(1, 0)]]);
-        const b = array([[new Complex(1, 0), new Complex(0, 1)], [new Complex(1, 1), new Complex(2, 0)]]);
+        const a = array([
+          [new Complex(1, 1), new Complex(2, 0)],
+          [new Complex(0, 1), new Complex(1, 0)],
+        ]);
+        const b = array([
+          [new Complex(1, 0), new Complex(0, 1)],
+          [new Complex(1, 1), new Complex(2, 0)],
+        ]);
         const jsResult = tensordot(a, b, 1);
         const pyResult = runNumPy(`
 a = np.array([[1+1j, 2+0j], [0+1j, 1+0j]])
@@ -2485,8 +2635,10 @@ result = np.einsum('i,i->', a, b)
 
     describe('cov()', () => {
       it('computes covariance matrix for complex arrays matching NumPy', () => {
-        const a = array([[new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
-                         [new Complex(4, 0), new Complex(5, 0), new Complex(6, 0)]]);
+        const a = array([
+          [new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
+          [new Complex(4, 0), new Complex(5, 0), new Complex(6, 0)],
+        ]);
         const jsResult = cov(a);
         const pyResult = runNumPy(`
 result = np.cov(np.array([[1+0j, 2+0j, 3+0j], [4+0j, 5+0j, 6+0j]]))
@@ -2498,8 +2650,10 @@ result = np.cov(np.array([[1+0j, 2+0j, 3+0j], [4+0j, 5+0j, 6+0j]]))
 
     describe('corrcoef()', () => {
       it('computes correlation coefficients for complex arrays matching NumPy', () => {
-        const a = array([[new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
-                         [new Complex(4, 0), new Complex(5, 0), new Complex(6, 0)]]);
+        const a = array([
+          [new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
+          [new Complex(4, 0), new Complex(5, 0), new Complex(6, 0)],
+        ]);
         const jsResult = corrcoef(a);
         const pyResult = runNumPy(`
 result = np.corrcoef(np.array([[1+0j, 2+0j, 3+0j], [4+0j, 5+0j, 6+0j]]))

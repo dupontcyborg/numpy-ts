@@ -356,7 +356,7 @@ function equalScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
     const complexData = thisData as Float64Array | Float32Array;
     for (let i = 0; i < storage.size; i++) {
       const [re, im] = getComplexAt(complexData, i);
-      data[i] = (re === scalar && im === 0) ? 1 : 0;
+      data[i] = re === scalar && im === 0 ? 1 : 0;
     }
   } else if (isBigIntDType(dtype)) {
     // BigInt comparison: convert scalar to BigInt
@@ -385,7 +385,7 @@ function notEqualScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
     const complexData = thisData as Float64Array | Float32Array;
     for (let i = 0; i < storage.size; i++) {
       const [re, im] = getComplexAt(complexData, i);
-      data[i] = (re !== scalar || im !== 0) ? 1 : 0;
+      data[i] = re !== scalar || im !== 0 ? 1 : 0;
     }
   } else {
     for (let i = 0; i < storage.size; i++) {

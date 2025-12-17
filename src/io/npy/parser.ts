@@ -6,7 +6,12 @@
 
 import { NDArray } from '../../core/ndarray';
 import { ArrayStorage } from '../../core/storage';
-import { getTypedArrayConstructor, isBigIntDType, isComplexDType, type DType } from '../../core/dtype';
+import {
+  getTypedArrayConstructor,
+  isBigIntDType,
+  isComplexDType,
+  type DType,
+} from '../../core/dtype';
 import {
   NPY_MAGIC,
   parseDescriptor,

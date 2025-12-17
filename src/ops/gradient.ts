@@ -511,21 +511,11 @@ export function cross(
     return [Number(arr.iget(idx)), 0];
   };
 
-  const complexMul = (
-    aRe: number,
-    aIm: number,
-    bRe: number,
-    bIm: number
-  ): [number, number] => {
+  const complexMul = (aRe: number, aIm: number, bRe: number, bIm: number): [number, number] => {
     return [aRe * bRe - aIm * bIm, aRe * bIm + aIm * bRe];
   };
 
-  const complexSub = (
-    aRe: number,
-    aIm: number,
-    bRe: number,
-    bIm: number
-  ): [number, number] => {
+  const complexSub = (aRe: number, aIm: number, bRe: number, bIm: number): [number, number] => {
     return [aRe - bRe, aIm - bIm];
   };
 
@@ -735,8 +725,8 @@ export function cross(
           const [q2Re, q2Im] = complexMul(a1Re, a1Im, b0Re, b0Im);
           const [c2Re, c2Im] = complexSub(p2Re, p2Im, q2Re, q2Im);
 
-          resultData[(i * 3) * 2] = c0Re;
-          resultData[(i * 3) * 2 + 1] = c0Im;
+          resultData[i * 3 * 2] = c0Re;
+          resultData[i * 3 * 2 + 1] = c0Im;
           resultData[(i * 3 + 1) * 2] = c1Re;
           resultData[(i * 3 + 1) * 2 + 1] = c1Im;
           resultData[(i * 3 + 2) * 2] = c2Re;

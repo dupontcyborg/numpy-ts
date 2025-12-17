@@ -352,7 +352,12 @@ describe('Complex Number Support', () => {
 
     describe('angle()', () => {
       it('computes phase angle in radians', () => {
-        const arr = array([new Complex(1, 0), new Complex(0, 1), new Complex(-1, 0), new Complex(0, -1)]);
+        const arr = array([
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(-1, 0),
+          new Complex(0, -1),
+        ]);
         const angles = angle(arr);
 
         expect(angles.dtype).toBe('float64');
@@ -721,7 +726,7 @@ describe('Complex Number Support', () => {
         const b = array([new Complex(1, 2), new Complex(1, 3)]);
 
         expect(a.greater_equal(b).toArray()).toEqual([1, 0]); // equal, less
-        expect(a.less_equal(b).toArray()).toEqual([1, 1]);    // equal, less
+        expect(a.less_equal(b).toArray()).toEqual([1, 1]); // equal, less
       });
     });
   });
@@ -1430,13 +1435,11 @@ describe('Complex Number Support', () => {
         const cosVals = cosZ.toArray();
 
         // sin²(z) = (a + bi)² = a² - b² + 2abi
-        const sin2Re =
-          sinVals[0].re * sinVals[0].re - sinVals[0].im * sinVals[0].im;
+        const sin2Re = sinVals[0].re * sinVals[0].re - sinVals[0].im * sinVals[0].im;
         const sin2Im = 2 * sinVals[0].re * sinVals[0].im;
 
         // cos²(z) = (c + di)² = c² - d² + 2cdi
-        const cos2Re =
-          cosVals[0].re * cosVals[0].re - cosVals[0].im * cosVals[0].im;
+        const cos2Re = cosVals[0].re * cosVals[0].re - cosVals[0].im * cosVals[0].im;
         const cos2Im = 2 * cosVals[0].re * cosVals[0].im;
 
         // sin² + cos² should equal 1
@@ -1714,13 +1717,11 @@ describe('Complex Number Support', () => {
         const coshVals = coshZ.toArray();
 
         // sinh²(z) = (a + bi)² = a² - b² + 2abi
-        const sinh2Re =
-          sinhVals[0].re * sinhVals[0].re - sinhVals[0].im * sinhVals[0].im;
+        const sinh2Re = sinhVals[0].re * sinhVals[0].re - sinhVals[0].im * sinhVals[0].im;
         const sinh2Im = 2 * sinhVals[0].re * sinhVals[0].im;
 
         // cosh²(z) = (c + di)² = c² - d² + 2cdi
-        const cosh2Re =
-          coshVals[0].re * coshVals[0].re - coshVals[0].im * coshVals[0].im;
+        const cosh2Re = coshVals[0].re * coshVals[0].re - coshVals[0].im * coshVals[0].im;
         const cosh2Im = 2 * coshVals[0].re * coshVals[0].im;
 
         // cosh² - sinh² should equal 1
@@ -1838,10 +1839,8 @@ describe('Complex Number Support', () => {
         const recipVals = recip.toArray();
 
         // (a + bi) * (c + di) = (ac - bd) + (ad + bc)i
-        const prodRe =
-          zVals[0].re * recipVals[0].re - zVals[0].im * recipVals[0].im;
-        const prodIm =
-          zVals[0].re * recipVals[0].im + zVals[0].im * recipVals[0].re;
+        const prodRe = zVals[0].re * recipVals[0].re - zVals[0].im * recipVals[0].im;
+        const prodIm = zVals[0].re * recipVals[0].im + zVals[0].im * recipVals[0].re;
 
         expect(prodRe).toBeCloseTo(1);
         expect(prodIm).toBeCloseTo(0);
@@ -2387,7 +2386,12 @@ describe('Complex Number Support', () => {
   describe('Searching/Indexing Operations', () => {
     describe('nonzero()', () => {
       it('finds indices of non-zero complex numbers', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const result = nonzero(a);
 
         expect(result.length).toBe(1); // 1D array returns tuple with 1 element
@@ -2411,7 +2415,12 @@ describe('Complex Number Support', () => {
 
     describe('argwhere()', () => {
       it('finds indices of non-zero complex numbers', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 2), new Complex(0, 0), new Complex(3, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 2),
+          new Complex(0, 0),
+          new Complex(3, 0),
+        ]);
         const result = argwhere(a);
 
         expect(result.shape).toEqual([2, 1]); // 2 nonzero elements, 1D array
@@ -2421,7 +2430,12 @@ describe('Complex Number Support', () => {
 
     describe('flatnonzero()', () => {
       it('finds flat indices of non-zero complex numbers', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const result = flatnonzero(a);
 
         expect(result.toArray()).toEqual([1, 2]);
@@ -2465,7 +2479,12 @@ describe('Complex Number Support', () => {
     describe('extract()', () => {
       it('extracts complex values where condition is true', () => {
         const cond = array([1, 0, 1, 0]);
-        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6), new Complex(7, 8)]);
+        const a = array([
+          new Complex(1, 2),
+          new Complex(3, 4),
+          new Complex(5, 6),
+          new Complex(7, 8),
+        ]);
         const result = extract(cond, a);
 
         const values = result.toArray() as Complex[];
@@ -2492,7 +2511,12 @@ describe('Complex Number Support', () => {
 
     describe('count_nonzero()', () => {
       it('counts non-zero complex numbers', () => {
-        const a = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const result = count_nonzero(a);
 
         expect(result).toBe(2);
@@ -2517,8 +2541,18 @@ describe('Complex Number Support', () => {
   describe('Logical Operations', () => {
     describe('logical_and()', () => {
       it('computes logical AND of complex arrays', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
-        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(1, 0), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
+        const b = array([
+          new Complex(1, 0),
+          new Complex(1, 0),
+          new Complex(1, 0),
+          new Complex(0, 0),
+        ]);
         const result = logical_and(a, b);
 
         expect(result.toArray()).toEqual([1, 0, 1, 0]);
@@ -2542,8 +2576,18 @@ describe('Complex Number Support', () => {
 
     describe('logical_or()', () => {
       it('computes logical OR of complex arrays', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
-        const b = array([new Complex(0, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
+        const b = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 0),
+        ]);
         const result = logical_or(a, b);
 
         expect(result.toArray()).toEqual([1, 1, 1, 0]);
@@ -2559,7 +2603,12 @@ describe('Complex Number Support', () => {
 
     describe('logical_not()', () => {
       it('computes logical NOT of complex array', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
         const result = logical_not(a);
 
         expect(result.toArray()).toEqual([0, 1, 0, 1]);
@@ -2575,8 +2624,18 @@ describe('Complex Number Support', () => {
 
     describe('logical_xor()', () => {
       it('computes logical XOR of complex arrays', () => {
-        const a = array([new Complex(1, 0), new Complex(0, 0), new Complex(0, 1), new Complex(0, 0)]);
-        const b = array([new Complex(1, 0), new Complex(1, 0), new Complex(0, 0), new Complex(0, 0)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 1),
+          new Complex(0, 0),
+        ]);
+        const b = array([
+          new Complex(1, 0),
+          new Complex(1, 0),
+          new Complex(0, 0),
+          new Complex(0, 0),
+        ]);
         const result = logical_xor(a, b);
 
         // XOR: true if exactly one is truthy
@@ -2609,7 +2668,12 @@ describe('Complex Number Support', () => {
       });
 
       it('computes second difference of complex array', () => {
-        const a = array([new Complex(1, 0), new Complex(2, 1), new Complex(4, 3), new Complex(7, 6)]);
+        const a = array([
+          new Complex(1, 0),
+          new Complex(2, 1),
+          new Complex(4, 3),
+          new Complex(7, 6),
+        ]);
         const result = diff(a, 2);
 
         const values = result.toArray() as Complex[];
@@ -2951,7 +3015,12 @@ describe('Complex Number Support', () => {
     describe('argmin()', () => {
       it('finds index of minimum complex value using lexicographic ordering', () => {
         // Lexicographic: compare real parts first, then imaginary
-        const a = array([new Complex(2, 1), new Complex(1, 3), new Complex(1, 2), new Complex(3, 0)]);
+        const a = array([
+          new Complex(2, 1),
+          new Complex(1, 3),
+          new Complex(1, 2),
+          new Complex(3, 0),
+        ]);
         const result = a.argmin();
 
         // 1+2i is smallest (real=1 is smallest, and among real=1, imag=2 < imag=3)
@@ -2990,7 +3059,12 @@ describe('Complex Number Support', () => {
 
     describe('argmax()', () => {
       it('finds index of maximum complex value using lexicographic ordering', () => {
-        const a = array([new Complex(2, 1), new Complex(1, 3), new Complex(1, 2), new Complex(3, 0)]);
+        const a = array([
+          new Complex(2, 1),
+          new Complex(1, 3),
+          new Complex(1, 2),
+          new Complex(3, 0),
+        ]);
         const result = a.argmax();
 
         // 3+0i is largest (real=3 is largest)
@@ -3036,7 +3110,12 @@ describe('Complex Number Support', () => {
       it('computes gradient of complex array', () => {
         // f = [1+1i, 2+3i, 4+6i, 7+10i]
         // gradient uses central differences in interior, forward/backward at edges
-        const f = array([new Complex(1, 1), new Complex(2, 3), new Complex(4, 6), new Complex(7, 10)]);
+        const f = array([
+          new Complex(1, 1),
+          new Complex(2, 3),
+          new Complex(4, 6),
+          new Complex(7, 10),
+        ]);
         const result = gradient(f);
 
         expect(result.dtype).toBe('complex128');
@@ -3224,11 +3303,7 @@ describe('Complex Number Support', () => {
       });
 
       it('handles NaN values (sorts to end)', () => {
-        const a = array([
-          new Complex(2, 0),
-          new Complex(NaN, 1),
-          new Complex(1, 0),
-        ]);
+        const a = array([new Complex(2, 0), new Complex(NaN, 1), new Complex(1, 0)]);
         const result = sort(a);
 
         const values = result.toArray() as Complex[];
@@ -3265,11 +3340,7 @@ describe('Complex Number Support', () => {
       it('handles equal real parts (sorts by imaginary)', () => {
         // Array: [1+3i, 1+1i, 1+2i]
         // Sorted: [1+1i(1), 1+2i(2), 1+3i(0)]
-        const a = array([
-          new Complex(1, 3),
-          new Complex(1, 1),
-          new Complex(1, 2),
-        ]);
+        const a = array([new Complex(1, 3), new Complex(1, 1), new Complex(1, 2)]);
         const result = argsort(a);
 
         const indices = result.toArray() as number[];

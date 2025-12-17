@@ -77,8 +77,7 @@ export function unique(
 
     for (let i = 0; i < values.length; i++) {
       const { re, im, index } = values[i]!;
-      const isDifferent =
-        lastRe === undefined || !complexEqual(re, im, lastRe!, lastIm!);
+      const isDifferent = lastRe === undefined || !complexEqual(re, im, lastRe!, lastIm!);
 
       if (isDifferent) {
         if (lastRe !== undefined) {

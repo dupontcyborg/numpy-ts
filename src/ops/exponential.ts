@@ -88,7 +88,9 @@ function complexPowerArray(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   // Result dtype: complex128 if any is complex128 or float64, else complex64
   const resultDtype: DType =
-    a.dtype === 'complex128' || b.dtype === 'complex128' || b.dtype === 'float64' ? 'complex128' : 'complex64';
+    a.dtype === 'complex128' || b.dtype === 'complex128' || b.dtype === 'float64'
+      ? 'complex128'
+      : 'complex64';
 
   const shape = Array.from(a.shape);
   const size = a.size;

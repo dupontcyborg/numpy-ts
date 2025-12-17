@@ -90,8 +90,12 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     const bIsComplex = isComplexDType(b.dtype);
 
     for (let i = 0; i < size; i++) {
-      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
-      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
       // (a+bi) + (c+di) = (a+c) + (b+d)i
       setComplexAt(resultTyped, i, aRe + bRe, aIm + bIm);
     }
@@ -175,8 +179,12 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     const bIsComplex = isComplexDType(b.dtype);
 
     for (let i = 0; i < size; i++) {
-      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
-      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
       // (a+bi) - (c+di) = (a-c) + (b-d)i
       setComplexAt(resultTyped, i, aRe - bRe, aIm - bIm);
     }
@@ -259,8 +267,12 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     const bIsComplex = isComplexDType(b.dtype);
 
     for (let i = 0; i < size; i++) {
-      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
-      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
       // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
       const re = aRe * bRe - aIm * bIm;
       const im = aRe * bIm + aIm * bRe;
@@ -339,8 +351,12 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
     const bData = b.data;
 
     for (let i = 0; i < size; i++) {
-      const [aRe, aIm] = aIsComplex ? getComplexAt(aData as Float64Array | Float32Array, i) : [Number(aData[i]), 0];
-      const [bRe, bIm] = bIsComplex ? getComplexAt(bData as Float64Array | Float32Array, i) : [Number(bData[i]), 0];
+      const [aRe, aIm] = aIsComplex
+        ? getComplexAt(aData as Float64Array | Float32Array, i)
+        : [Number(aData[i]), 0];
+      const [bRe, bIm] = bIsComplex
+        ? getComplexAt(bData as Float64Array | Float32Array, i)
+        : [Number(bData[i]), 0];
       // (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c²+d²)
       const denom = bRe * bRe + bIm * bIm;
       const re = (aRe * bRe + aIm * bIm) / denom;
@@ -1036,9 +1052,17 @@ export function remainder(a: ArrayStorage, b: ArrayStorage | number): ArrayStora
  * @returns Result storage with heaviside values
  */
 export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
-  throwIfComplex(x1.dtype, 'heaviside', 'Heaviside step function is not defined for complex numbers.');
+  throwIfComplex(
+    x1.dtype,
+    'heaviside',
+    'Heaviside step function is not defined for complex numbers.'
+  );
   if (typeof x2 !== 'number') {
-    throwIfComplex(x2.dtype, 'heaviside', 'Heaviside step function is not defined for complex numbers.');
+    throwIfComplex(
+      x2.dtype,
+      'heaviside',
+      'Heaviside step function is not defined for complex numbers.'
+    );
   }
   const dtype = x1.dtype;
   const shape = Array.from(x1.shape);

@@ -180,7 +180,10 @@ export function arraysClose(a: any, b: any, rtol: number = 1e-5, atol: number = 
     // Convert real number to complex for comparison
     const aComplex = a instanceof Complex ? a : new Complex(Number(a), 0);
     const bComplex = b instanceof Complex ? b : new Complex(Number(b), 0);
-    return closeEnough(aComplex.re, bComplex.re, rtol, atol) && closeEnough(aComplex.im, bComplex.im, rtol, atol);
+    return (
+      closeEnough(aComplex.re, bComplex.re, rtol, atol) &&
+      closeEnough(aComplex.im, bComplex.im, rtol, atol)
+    );
   } else if (typeof a === 'number' && typeof b === 'number') {
     return closeEnough(a, b, rtol, atol);
   } else if (typeof a === 'bigint' || typeof b === 'bigint') {

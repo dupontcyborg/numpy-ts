@@ -1735,9 +1735,12 @@ export class NDArray {
    * @param axes - Axes to contract (integer or [a_axes, b_axes])
    * @returns Tensor dot product result
    */
-  tensordot(other: NDArray, axes: number | [number[], number[]] = 2): NDArray | number | bigint {
+  tensordot(
+    other: NDArray,
+    axes: number | [number[], number[]] = 2
+  ): NDArray | number | bigint | Complex {
     const result = linalgOps.tensordot(this._storage, other._storage, axes);
-    if (typeof result === 'number' || typeof result === 'bigint') {
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
     return NDArray._fromStorage(result);
@@ -3378,7 +3381,7 @@ export function tensordot(
   a: NDArray,
   b: NDArray,
   axes: number | [number[], number[]] = 2
-): NDArray | number | bigint {
+): NDArray | number | bigint | Complex {
   return a.tensordot(b, axes);
 }
 
@@ -4538,7 +4541,11 @@ export { cumprod as cumulative_prod };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Maximum value(s)
  */
-export function max(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function max(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   return a.max(axis, keepdims);
 }
 
@@ -4552,7 +4559,11 @@ export { max as amax };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Minimum value(s)
  */
-export function min(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function min(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   return a.min(axis, keepdims);
 }
 
@@ -4566,7 +4577,11 @@ export { min as amin };
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Peak to peak value(s)
  */
-export function ptp(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function ptp(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.ptp(a.storage, axis, keepdims);
   if (typeof result === 'number' || result instanceof Complex) {
     return result;
@@ -4655,7 +4670,11 @@ export function average(
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Sum value(s)
  */
-export function nansum(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function nansum(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nansum(a.storage, axis, keepdims);
   if (typeof result === 'number' || result instanceof Complex) {
     return result;
@@ -4670,7 +4689,11 @@ export function nansum(a: NDArray, axis?: number, keepdims: boolean = false): ND
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Product value(s)
  */
-export function nanprod(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function nanprod(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanprod(a.storage, axis, keepdims);
   if (typeof result === 'number' || result instanceof Complex) {
     return result;
@@ -4685,7 +4708,11 @@ export function nanprod(a: NDArray, axis?: number, keepdims: boolean = false): N
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Mean value(s)
  */
-export function nanmean(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function nanmean(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanmean(a.storage, axis, keepdims);
   if (typeof result === 'number' || result instanceof Complex) {
     return result;
@@ -4736,7 +4763,11 @@ export function nanstd(
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Minimum value(s)
  */
-export function nanmin(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function nanmin(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanmin(a.storage, axis, keepdims);
   if (typeof result === 'number' || result instanceof Complex) {
     return result;
@@ -4751,7 +4782,11 @@ export function nanmin(a: NDArray, axis?: number, keepdims: boolean = false): ND
  * @param keepdims - If true, reduced axes are left as dimensions with size 1
  * @returns Maximum value(s)
  */
-export function nanmax(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+export function nanmax(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
   const result = reductionOps.nanmax(a.storage, axis, keepdims);
   if (typeof result === 'number' || result instanceof Complex) {
     return result;
@@ -5424,7 +5459,10 @@ export function promote_types(dtype1: DType, dtype2: DType): DType {
  * // Trace
  * einsum('ii->', a)
  */
-export function einsum(subscripts: string, ...operands: NDArray[]): NDArray | number | bigint | Complex {
+export function einsum(
+  subscripts: string,
+  ...operands: NDArray[]
+): NDArray | number | bigint | Complex {
   const storages = operands.map((op) => op.storage);
   const result = linalgOps.einsum(subscripts, ...storages);
   if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
