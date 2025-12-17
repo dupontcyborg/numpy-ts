@@ -226,18 +226,40 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
       // a is scalar, b is array: scalar * array (element-wise)
       const resultDtype = promoteDTypes(a.dtype, b.dtype);
       const result = ArrayStorage.zeros([...b.shape], resultDtype);
+      // Helper to convert flat index to multi-dimensional indices
+      const flatToIndices = (flatIdx: number, shape: readonly number[]): number[] => {
+        const indices: number[] = new Array(shape.length);
+        let remaining = flatIdx;
+        for (let d = shape.length - 1; d >= 0; d--) {
+          indices[d] = remaining % shape[d]!;
+          remaining = Math.floor(remaining / shape[d]!);
+        }
+        return indices;
+      };
       for (let i = 0; i < b.size; i++) {
-        const bData = b.get(i);
-        result.set([i], multiplyValues(aVal!, bData));
+        const indices = flatToIndices(i, b.shape);
+        const bData = b.get(...indices);
+        result.set(indices, multiplyValues(aVal!, bData));
       }
       return result;
     } else {
       // b is scalar, a is array: array * scalar (element-wise)
       const resultDtype = promoteDTypes(a.dtype, b.dtype);
       const result = ArrayStorage.zeros([...a.shape], resultDtype);
+      // Helper to convert flat index to multi-dimensional indices
+      const flatToIndices = (flatIdx: number, shape: readonly number[]): number[] => {
+        const indices: number[] = new Array(shape.length);
+        let remaining = flatIdx;
+        for (let d = shape.length - 1; d >= 0; d--) {
+          indices[d] = remaining % shape[d]!;
+          remaining = Math.floor(remaining / shape[d]!);
+        }
+        return indices;
+      };
       for (let i = 0; i < a.size; i++) {
-        const aData = a.get(i);
-        result.set([i], multiplyValues(aData, bVal!));
+        const indices = flatToIndices(i, a.shape);
+        const aData = a.get(...indices);
+        result.set(indices, multiplyValues(aData, bVal!));
       }
       return result;
     }
@@ -858,7 +880,7 @@ export function tensordot(
   a: ArrayStorage,
   b: ArrayStorage,
   axes: number | [number[], number[]]
-): ArrayStorage | number | bigint {
+): ArrayStorage | number | bigint | Complex {
   let aAxes: number[];
   let bAxes: number[];
 
