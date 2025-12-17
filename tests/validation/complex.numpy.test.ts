@@ -119,14 +119,35 @@ function arraysEqual(a: unknown[], b: unknown[]): boolean {
   return true;
 }
 
-// Helper function for comparing complex numbers
+// Helper function for comparing boolean arrays (handles 0/false and 1/true equivalence)
+function boolArraysEqual(a: unknown[], b: unknown[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const aVal = a[i];
+    const bVal = b[i];
+    // Convert to boolean and compare
+    const aBool = aVal === 1 || aVal === true;
+    const bBool = bVal === 1 || bVal === true;
+    if (aBool !== bBool) return false;
+  }
+  return true;
+}
+
+// Helper function for comparing complex numbers (Complex class uses .re and .im)
 function complexClose(a: Complex, b: unknown, tol: number = 1e-10): boolean {
-  if (typeof b === 'object' && b !== null && 'real' in b && 'imag' in b) {
-    const bComplex = b as { real: number; imag: number };
-    return Math.abs(a.real - bComplex.real) < tol && Math.abs(a.imag - bComplex.imag) < tol;
+  if (typeof b === 'object' && b !== null) {
+    // Handle both { real, imag } and { re, im } property naming
+    if ('real' in b && 'imag' in b) {
+      const bComplex = b as { real: number; imag: number };
+      return Math.abs(a.re - bComplex.real) < tol && Math.abs(a.im - bComplex.imag) < tol;
+    }
+    if ('re' in b && 'im' in b) {
+      const bComplex = b as { re: number; im: number };
+      return Math.abs(a.re - bComplex.re) < tol && Math.abs(a.im - bComplex.im) < tol;
+    }
   }
   if (typeof b === 'number') {
-    return Math.abs(a.real - b) < tol && Math.abs(a.imag) < tol;
+    return Math.abs(a.re - b) < tol && Math.abs(a.im) < tol;
   }
   return false;
 }
@@ -2189,28 +2210,26 @@ result = np.real_if_close(np.array([1+0.1j, 2+0j, 3+0j]))
 
   describe('Type Checking Functions', () => {
     describe('iscomplex()', () => {
-      // TODO: Fix boolean array comparison between NumPy and numpy-ts
-      it.skip('checks if elements have non-zero imaginary part matching NumPy', () => {
+      it('checks if elements have non-zero imaginary part matching NumPy', () => {
         const a = array([new Complex(1, 0), new Complex(2, 1), new Complex(3, 0)]);
         const jsResult = iscomplex(a);
         const pyResult = runNumPy(`
 result = np.iscomplex(np.array([1+0j, 2+1j, 3+0j]))
         `);
 
-        expect(arraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
+        expect(boolArraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
       });
     });
 
     describe('isreal()', () => {
-      // TODO: Fix boolean array comparison between NumPy and numpy-ts
-      it.skip('checks if elements have zero imaginary part matching NumPy', () => {
+      it('checks if elements have zero imaginary part matching NumPy', () => {
         const a = array([new Complex(1, 0), new Complex(2, 1), new Complex(3, 0)]);
         const jsResult = isreal(a);
         const pyResult = runNumPy(`
 result = np.isreal(np.array([1+0j, 2+1j, 3+0j]))
         `);
 
-        expect(arraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
+        expect(boolArraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
       });
     });
 
@@ -2261,8 +2280,7 @@ result = np.isrealobj(np.array([1+2j, 3+4j]))
 
   describe('Additional NaN-aware Operations', () => {
     describe('nansum()', () => {
-      // TODO: Investigate Complex return type comparison
-      it.skip('sums complex array ignoring NaN matching NumPy', () => {
+      it('sums complex array ignoring NaN matching NumPy', () => {
         const a = array([new Complex(1, 2), new Complex(NaN, NaN), new Complex(3, 4)]);
         const jsResult = nansum(a);
         const pyResult = runNumPy(`
@@ -2274,8 +2292,7 @@ result = np.nansum(np.array([1+2j, np.nan+np.nan*1j, 3+4j]))
     });
 
     describe('nanprod()', () => {
-      // TODO: Investigate Complex return type comparison
-      it.skip('multiplies complex array ignoring NaN matching NumPy', () => {
+      it('multiplies complex array ignoring NaN matching NumPy', () => {
         const a = array([new Complex(1, 1), new Complex(NaN, NaN), new Complex(2, 0)]);
         const jsResult = nanprod(a);
         const pyResult = runNumPy(`
@@ -2287,8 +2304,7 @@ result = np.nanprod(np.array([1+1j, np.nan+np.nan*1j, 2+0j]))
     });
 
     describe('nanmean()', () => {
-      // TODO: Investigate Complex return type comparison
-      it.skip('computes mean of complex array ignoring NaN matching NumPy', () => {
+      it('computes mean of complex array ignoring NaN matching NumPy', () => {
         const a = array([new Complex(2, 4), new Complex(NaN, NaN), new Complex(4, 2)]);
         const jsResult = nanmean(a);
         const pyResult = runNumPy(`
@@ -2346,7 +2362,7 @@ result = np.lexsort((np.array([1+0j, 2+0j, 1+0j]), np.array([3+0j, 1+0j, 2+0j]))
       });
     });
 
-    // TODO: searchsorted comparison returns number[] vs typed array - needs investigation
+    // BUG: searchsorted returns wrong indices for complex - js:[2,0] vs numpy:[1,2]
     describe.skip('searchsorted()', () => {
       it('finds insertion indices for complex values matching NumPy', () => {
         const a = array([new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)]);
@@ -2360,7 +2376,7 @@ result = np.searchsorted(np.array([1+0j, 2+0j, 3+0j]), np.array([1.5+0j, 2.5+0j]
       });
     });
 
-    // TODO: sort_complex comparison issue - needs investigation
+    // BUG: sort_complex returns wrong order for complex numbers
     describe.skip('sort_complex()', () => {
       it('sorts complex array (real first, then imag) matching NumPy', () => {
         const a = array([new Complex(3, 1), new Complex(1, 2), new Complex(1, 1), new Complex(2, 0)]);
@@ -2380,8 +2396,7 @@ result = np.sort_complex(np.array([3+1j, 1+2j, 1+1j, 2+0j]))
   // ==========================================================================
 
   describe('Additional Set Operations', () => {
-    // TODO: in1d returns boolean[] in different format - needs investigation
-    describe.skip('in1d()', () => {
+    describe('in1d()', () => {
       it('tests membership of complex values matching NumPy', () => {
         const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
         const b = array([new Complex(2, 2), new Complex(4, 4)]);
@@ -2390,12 +2405,11 @@ result = np.sort_complex(np.array([3+1j, 1+2j, 1+1j, 2+0j]))
 result = np.in1d(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 4+4j]))
         `);
 
-        expect(arraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
+        expect(boolArraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
       });
     });
 
-    // TODO: isin returns boolean[] in different format - needs investigation
-    describe.skip('isin()', () => {
+    describe('isin()', () => {
       it('tests membership of complex values matching NumPy', () => {
         const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
         const b = array([new Complex(2, 2), new Complex(3, 3)]);
@@ -2404,7 +2418,7 @@ result = np.in1d(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 4+4j]))
 result = np.isin(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 3+3j]))
         `);
 
-        expect(arraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
+        expect(boolArraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);
       });
     });
 
@@ -2440,7 +2454,7 @@ result = np.setxor1d(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 4+4j]))
   // ==========================================================================
 
   describe('Additional Linear Algebra Operations', () => {
-    // TODO: tensordot result comparison issue with nested complex arrays - needs investigation
+    // BUG: tensordot returns NaN for complex arrays
     describe.skip('tensordot()', () => {
       it('computes tensor dot product of complex arrays matching NumPy', () => {
         const a = array([[new Complex(1, 1), new Complex(2, 0)], [new Complex(0, 1), new Complex(1, 0)]]);
@@ -2457,7 +2471,7 @@ result = np.tensordot(a, b, axes=1)
       });
     });
 
-    // TODO: einsum scalar result comparison with Complex type - needs investigation
+    // BUG: einsum returns NaN for complex arrays
     describe.skip('einsum()', () => {
       it('computes Einstein summation for complex arrays matching NumPy', () => {
         const a = array([new Complex(1, 1), new Complex(2, 2), new Complex(3, 3)]);
@@ -2473,7 +2487,7 @@ result = np.einsum('i,i->', a, b)
       });
     });
 
-    // TODO: cov returns float64 for complex input but NumPy returns complex128 - needs investigation
+    // BUG: cov returns wrong values and float64 dtype for complex input
     describe.skip('cov()', () => {
       it('computes covariance matrix for complex arrays matching NumPy', () => {
         const a = array([[new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
@@ -2487,7 +2501,7 @@ result = np.cov(np.array([[1+0j, 2+0j, 3+0j], [4+0j, 5+0j, 6+0j]]))
       });
     });
 
-    // TODO: corrcoef returns float64 for complex input but NumPy returns complex128 - needs investigation
+    // BUG: corrcoef returns wrong values and float64 dtype for complex input
     describe.skip('corrcoef()', () => {
       it('computes correlation coefficients for complex arrays matching NumPy', () => {
         const a = array([[new Complex(1, 0), new Complex(2, 0), new Complex(3, 0)],
