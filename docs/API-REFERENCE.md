@@ -2,15 +2,15 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-11
+**Last Updated**: 2025-12-17
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 331/507 (65.3%)
-- **Top-level Functions**: 319/507 (60.0%)
-- **NDArray Methods**: 157/53 (64.2%)
+- **Overall Coverage**: 336/507 (66.3%)
+- **Top-level Functions**: 327/507 (60.9%)
+- **NDArray Methods**: 159/53 (64.2%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
@@ -35,7 +35,7 @@ Based on `npm run compare-api`:
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
 - NDArray Methods (34/53) - 64.2%
-- Other Math (0/15) - 0.0%
+- Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
 - Reductions (34/36) - 94.4%
@@ -458,19 +458,19 @@ Based on `npm run compare-api`:
 
 ## Other Math
 
-- [ ] `angle` 
+- [x] `angle` 
 - [ ] `clip` 
-- [ ] `conj` 
-- [ ] `conjugate` 
+- [x] `conj` 
+- [x] `conjugate` 
 - [ ] `fmax` 
 - [ ] `fmin` 
 - [ ] `i0` 
-- [ ] `imag` 
+- [x] `imag` 
 - [ ] `interp` 
 - [ ] `maximum` 
 - [ ] `minimum` 
 - [ ] `nan_to_num` 
-- [ ] `real` 
+- [x] `real` 
 - [ ] `sinc` 
 - [ ] `unwrap` 
 
@@ -778,6 +778,7 @@ These may be removed in future versions for strict NumPy compatibility:
 - `around()` 
 - `average()` 
 - `base()` 
+- `bindex()` 
 - `bitwise_and()` 
 - `bitwise_not()` 
 - `bitwise_or()` 
@@ -810,6 +811,7 @@ These may be removed in future versions for strict NumPy compatibility:
 - `greater_equal()` 
 - `heaviside()` 
 - `hypot()` 
+- `iindex()` 
 - `inner()` 
 - `invert()` 
 - `isclose()` 

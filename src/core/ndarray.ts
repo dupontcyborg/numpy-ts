@@ -1674,6 +1674,82 @@ export class NDArray {
     advancedOps.put(this._storage, indices, valuesStorage);
   }
 
+  // Fancy indexing operations
+  /**
+   * Integer array indexing (fancy indexing)
+   *
+   * Select elements using an array of indices. This is NumPy's "fancy indexing"
+   * feature: `arr[[0, 2, 4]]` becomes `arr.iindex([0, 2, 4])` or `arr.iindex(indices)`.
+   *
+   * @param indices - Array of integer indices (as number[], NDArray, or nested arrays)
+   * @param axis - Axis along which to index (default: 0, or flattens if undefined with flat indices)
+   * @returns New array with selected elements
+   *
+   * @example
+   * ```typescript
+   * const arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+   *
+   * // Select rows 0 and 2
+   * arr.iindex([0, 2]);           // [[1, 2, 3], [7, 8, 9]]
+   *
+   * // Select along axis 1 (columns)
+   * arr.iindex([0, 2], 1);        // [[1, 3], [4, 6], [7, 9]]
+   *
+   * // With NDArray indices
+   * const idx = np.array([0, 2]);
+   * arr.iindex(idx);              // [[1, 2, 3], [7, 8, 9]]
+   * ```
+   */
+  iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray {
+    // Convert NDArray to number[]
+    let indexArray: number[];
+    if (indices instanceof NDArray) {
+      // Flatten NDArray indices to 1D array of numbers
+      indexArray = [];
+      for (let i = 0; i < indices.size; i++) {
+        const val = indices.storage.iget(i);
+        // Handle bigint, Complex, or number types
+        const numVal =
+          typeof val === 'bigint' ? Number(val) : val instanceof Complex ? val.re : val;
+        indexArray.push(numVal);
+      }
+    } else if (Array.isArray(indices) && indices.length > 0 && Array.isArray(indices[0])) {
+      // Flatten nested arrays
+      indexArray = (indices as number[][]).flat();
+    } else {
+      indexArray = indices as number[];
+    }
+
+    return this.take(indexArray, axis);
+  }
+
+  /**
+   * Boolean array indexing (fancy indexing with mask)
+   *
+   * Select elements where a boolean mask is true. This is NumPy's boolean
+   * indexing: `arr[arr > 5]` becomes `arr.bindex(arr.greater(5))`.
+   *
+   * @param mask - Boolean NDArray mask
+   * @param axis - Axis along which to apply the mask (default: flattens array)
+   * @returns New 1D array with selected elements (or along axis if specified)
+   *
+   * @example
+   * ```typescript
+   * const arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+   *
+   * // Select all elements > 5
+   * const mask = arr.greater(5);
+   * arr.bindex(mask);             // [6, 7, 8, 9]
+   *
+   * // Select rows where first column > 3
+   * const rowMask = np.array([false, true, true]);
+   * arr.bindex(rowMask, 0);       // [[4, 5, 6], [7, 8, 9]]
+   * ```
+   */
+  bindex(mask: NDArray, axis?: number): NDArray {
+    return NDArray._fromStorage(advancedOps.compress(mask._storage, this._storage, axis));
+  }
+
   // Linear algebra operations
   /**
    * Matrix multiplication
@@ -4389,6 +4465,54 @@ export function take(a: NDArray, indices: number[], axis?: number): NDArray {
  */
 export function put(a: NDArray, indices: number[], values: NDArray | number | bigint): void {
   a.put(indices, values);
+}
+
+/**
+ * Integer array indexing (fancy indexing)
+ *
+ * Select elements from an array using an array of indices.
+ * NumPy equivalent: `arr[[0, 2, 4]]`
+ *
+ * @param a - Input array
+ * @param indices - Array of integer indices (as number[], NDArray, or nested arrays)
+ * @param axis - Axis along which to index (default: 0)
+ * @returns New array with selected elements
+ *
+ * @example
+ * ```typescript
+ * const arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+ * np.iindex(arr, [0, 2]);      // [[1, 2, 3], [7, 8, 9]]
+ * np.iindex(arr, [0, 2], 1);   // [[1, 3], [4, 6], [7, 9]]
+ * ```
+ */
+export function iindex(
+  a: NDArray,
+  indices: NDArray | number[] | number[][],
+  axis: number = 0
+): NDArray {
+  return a.iindex(indices, axis);
+}
+
+/**
+ * Boolean array indexing (fancy indexing with mask)
+ *
+ * Select elements from an array where a boolean mask is true.
+ * NumPy equivalent: `arr[arr > 5]`
+ *
+ * @param a - Input array
+ * @param mask - Boolean NDArray mask
+ * @param axis - Axis along which to apply the mask (default: flattens array)
+ * @returns New array with selected elements
+ *
+ * @example
+ * ```typescript
+ * const arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+ * const mask = arr.greater(5);
+ * np.bindex(arr, mask);        // [6, 7, 8, 9]
+ * ```
+ */
+export function bindex(a: NDArray, mask: NDArray, axis?: number): NDArray {
+  return a.bindex(mask, axis);
 }
 
 /**

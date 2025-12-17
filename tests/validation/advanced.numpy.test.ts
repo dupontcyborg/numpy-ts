@@ -25,6 +25,8 @@ import {
   ix_,
   ravel_multi_index,
   unravel_index,
+  iindex,
+  bindex,
 } from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
@@ -526,6 +528,162 @@ result = np.compress(cond, arr, axis=0)
 
       expect(result.shape).toEqual(npResult.shape);
       expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  // ========================================
+  // iindex (integer array indexing)
+  // ========================================
+  describe('iindex()', () => {
+    it('validates iindex selects rows from 2D array', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const result = iindex(arr, [0, 2], 0);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+result = arr[[0, 2], :]
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates iindex selects columns from 2D array', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const result = iindex(arr, [0, 2], 1);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+result = np.take(arr, [0, 2], axis=1)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates iindex with negative indices', () => {
+      const arr = array([10, 20, 30, 40, 50]);
+      const result = iindex(arr, [-1, -3], 0);
+
+      const npResult = runNumPy(`
+arr = np.array([10, 20, 30, 40, 50])
+result = np.take(arr, [-1, -3], axis=0)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates iindex with NDArray indices', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]);
+      const indices = array([0, 2]);
+      const result = iindex(arr, indices, 0);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2], [3, 4], [5, 6]])
+result = np.take(arr, [0, 2], axis=0)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  // ========================================
+  // bindex (boolean array indexing)
+  // ========================================
+  describe('bindex()', () => {
+    it('validates bindex selects elements with boolean mask', () => {
+      const arr = array([10, 20, 30, 40, 50]);
+      const mask = array([true, false, true, false, true], 'bool');
+      const result = bindex(arr, mask);
+
+      const npResult = runNumPy(`
+arr = np.array([10, 20, 30, 40, 50])
+mask = np.array([True, False, True, False, True])
+result = arr[mask]
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates bindex selects rows with axis=0', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const mask = array([true, false, true], 'bool');
+      const result = bindex(arr, mask, 0);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+mask = np.array([True, False, True])
+result = np.compress(mask, arr, axis=0)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates bindex selects columns with axis=1', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const mask = array([true, false, true], 'bool');
+      const result = bindex(arr, mask, 1);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2, 3], [4, 5, 6]])
+mask = np.array([True, False, True])
+result = np.compress(mask, arr, axis=1)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates bindex with comparison-generated mask', () => {
+      const arr = array([1, 5, 3, 8, 2, 9, 4]);
+      const mask = arr.greater(4);
+      const result = bindex(arr, mask);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 5, 3, 8, 2, 9, 4])
+result = arr[arr > 4]
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates bindex returns empty array when no matches', () => {
+      const arr = array([1, 2, 3]);
+      const mask = array([false, false, false], 'bool');
+      const result = bindex(arr, mask);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 2, 3])
+mask = np.array([False, False, False])
+result = arr[mask]
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(result.size).toBe(0);
     });
   });
 

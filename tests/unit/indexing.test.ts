@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, zeros } from '../../src/core/ndarray';
+import { array, zeros, iindex, bindex } from '../../src/core/ndarray';
 
 describe('Array Indexing', () => {
   describe('get()', () => {
@@ -526,6 +526,188 @@ describe('Array Indexing', () => {
         expect(arr.get([0, 0])).toBe(1);
         expect(arr.get([1, 0])).toBe(2);
         expect(arr.get([2, 0])).toBe(3);
+      });
+    });
+  });
+
+  describe('Fancy Indexing', () => {
+    describe('iindex() - integer array indexing', () => {
+      it('selects rows by integer indices from 2D array', () => {
+        const arr = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        const result = arr.iindex([0, 2]);
+        expect(result.shape).toEqual([2, 3]);
+        // Row 0: [1, 2, 3], Row 2: [7, 8, 9]
+        expect(Array.from(result.data)).toEqual([1, 2, 3, 7, 8, 9]);
+      });
+
+      it('selects columns by integer indices with axis=1', () => {
+        const arr = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        const result = arr.iindex([0, 2], 1);
+        expect(result.shape).toEqual([3, 2]);
+        // Each row gets columns 0 and 2: [1, 3], [4, 6], [7, 9]
+        expect(Array.from(result.data)).toEqual([1, 3, 4, 6, 7, 9]);
+      });
+
+      it('works with NDArray indices', () => {
+        const arr = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        const indices = array([0, 2]);
+        const result = arr.iindex(indices);
+        expect(result.shape).toEqual([2, 3]);
+        expect(Array.from(result.data)).toEqual([1, 2, 3, 7, 8, 9]);
+      });
+
+      it('selects elements from 1D array', () => {
+        const arr = array([10, 20, 30, 40, 50]);
+        const result = arr.iindex([0, 2, 4]);
+        expect(result.shape).toEqual([3]);
+        expect(Array.from(result.data)).toEqual([10, 30, 50]);
+      });
+
+      it('allows duplicate indices', () => {
+        const arr = array([10, 20, 30]);
+        const result = arr.iindex([0, 0, 1, 1, 2, 2]);
+        expect(Array.from(result.data)).toEqual([10, 10, 20, 20, 30, 30]);
+      });
+
+      it('supports negative indices', () => {
+        const arr = array([10, 20, 30, 40, 50]);
+        const result = arr.iindex([-1, -3]);
+        expect(Array.from(result.data)).toEqual([50, 30]);
+      });
+
+      it('works with top-level iindex function', () => {
+        const arr = array([
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ]);
+        const result = iindex(arr, [0, 2]);
+        expect(result.shape).toEqual([2, 2]);
+        expect(Array.from(result.data)).toEqual([1, 2, 5, 6]);
+      });
+
+      it('throws on out of bounds indices', () => {
+        const arr = array([10, 20, 30]);
+        expect(() => arr.iindex([5])).toThrow(/out of bounds/);
+      });
+    });
+
+    describe('bindex() - boolean array indexing', () => {
+      it('selects elements where mask is true (1D)', () => {
+        const arr = array([10, 20, 30, 40, 50]);
+        const mask = array([true, false, true, false, true], 'bool');
+        const result = arr.bindex(mask);
+        expect(result.shape).toEqual([3]);
+        expect(Array.from(result.data)).toEqual([10, 30, 50]);
+      });
+
+      it('selects elements where mask is true (2D flattened)', () => {
+        const arr = array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]);
+        const mask = array(
+          [
+            [true, false, true],
+            [false, true, false],
+          ],
+          'bool'
+        );
+        const result = arr.bindex(mask);
+        expect(result.shape).toEqual([3]);
+        expect(Array.from(result.data)).toEqual([1, 3, 5]);
+      });
+
+      it('selects rows where mask is true (axis=0)', () => {
+        const arr = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        const mask = array([true, false, true], 'bool');
+        const result = arr.bindex(mask, 0);
+        expect(result.shape).toEqual([2, 3]);
+        expect(Array.from(result.data)).toEqual([1, 2, 3, 7, 8, 9]);
+      });
+
+      it('selects columns where mask is true (axis=1)', () => {
+        const arr = array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]);
+        const mask = array([true, false, true], 'bool');
+        const result = arr.bindex(mask, 1);
+        expect(result.shape).toEqual([2, 2]);
+        expect(Array.from(result.data)).toEqual([1, 3, 4, 6]);
+      });
+
+      it('works with comparison results', () => {
+        const arr = array([1, 5, 3, 8, 2, 9, 4]);
+        const mask = arr.greater(4);
+        const result = arr.bindex(mask);
+        expect(Array.from(result.data)).toEqual([5, 8, 9]);
+      });
+
+      it('works with top-level bindex function', () => {
+        const arr = array([10, 20, 30, 40]);
+        const mask = array([false, true, true, false], 'bool');
+        const result = bindex(arr, mask);
+        expect(Array.from(result.data)).toEqual([20, 30]);
+      });
+
+      it('returns empty array when no elements match', () => {
+        const arr = array([1, 2, 3]);
+        const mask = array([false, false, false], 'bool');
+        const result = arr.bindex(mask);
+        expect(result.size).toBe(0);
+      });
+
+      it('returns all elements when all match', () => {
+        const arr = array([1, 2, 3]);
+        const mask = array([true, true, true], 'bool');
+        const result = arr.bindex(mask);
+        expect(Array.from(result.data)).toEqual([1, 2, 3]);
+      });
+    });
+
+    describe('fancy indexing integration', () => {
+      it('combines with other operations', () => {
+        const arr = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+
+        // Select rows 0 and 2, then sum along columns
+        const selected = arr.iindex([0, 2]);
+        const colSums = selected.sum(0);
+        // sum(0) on [[1,2,3],[7,8,9]] = [8, 10, 12]
+        expect(Array.from(colSums.data)).toEqual([8, 10, 12]);
+      });
+
+      it('preserves dtype through fancy indexing', () => {
+        const arr = array([1, 2, 3, 4], 'int32');
+        const result = arr.iindex([0, 2]);
+        expect(result.dtype).toBe('int32');
+      });
+
+      it('works with bigint dtypes', () => {
+        const arr = array([1n, 2n, 3n, 4n, 5n], 'int64');
+        const result = arr.iindex([0, 2, 4]);
+        expect(Array.from(result.data)).toEqual([1n, 3n, 5n]);
+        expect(result.dtype).toBe('int64');
       });
     });
   });
