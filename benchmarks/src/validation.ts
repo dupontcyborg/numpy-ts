@@ -56,8 +56,17 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string):
     return true;
   }
 
+  // Both null (often represents NaN or Infinity in serialization)
+  if (numpytsResult === null && numpyResult === null) {
+    return true;
+  }
+
   // Both scalars
   if (typeof numpytsResult === 'number' && typeof numpyResult === 'number') {
+    // Handle NaN: both NaN is considered equal
+    if (isNaN(numpytsResult) && isNaN(numpyResult)) return true;
+    // Handle Infinity: both must be same infinity
+    if (!isFinite(numpytsResult) && !isFinite(numpyResult)) return numpytsResult === numpyResult;
     return Math.abs(numpytsResult - numpyResult) < FLOAT_TOLERANCE;
   }
 
@@ -202,6 +211,15 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     } else if (fill === 'random' || fill === 'arange') {
       const size = shape.reduce((a, b) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
+      arrays[key] = flat.reshape(...shape);
+    } else if (fill === 'complex') {
+      // Create complex array with [1+1j, 2+2j, 3+3j, ...]
+      const size = shape.reduce((a: number, b: number) => a * b, 1);
+      const complexValues = [];
+      for (let i = 0; i < size; i++) {
+        complexValues.push(new np.Complex(i + 1, i + 1));
+      }
+      const flat = np.array(complexValues);
       arrays[key] = flat.reshape(...shape);
     } else if (fill === 'invertible') {
       // Create an invertible matrix: arange + n*I (diagonally dominant)
@@ -686,6 +704,36 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'random_permutation':
       return np.random.permutation(arrays.n);
 
+    // Complex operations
+    case 'complex_zeros':
+      return np.zeros(arrays.shape, 'complex128');
+    case 'complex_ones':
+      return np.ones(arrays.shape, 'complex128');
+    case 'complex_add':
+      return arrays.a.add(arrays.b);
+    case 'complex_multiply':
+      return arrays.a.multiply(arrays.b);
+    case 'complex_divide':
+      return arrays.a.divide(arrays.b);
+    case 'complex_real':
+      return np.real(arrays.a);
+    case 'complex_imag':
+      return np.imag(arrays.a);
+    case 'complex_conj':
+      return np.conj(arrays.a);
+    case 'complex_angle':
+      return np.angle(arrays.a);
+    case 'complex_abs':
+      return np.abs(arrays.a);
+    case 'complex_sqrt':
+      return np.sqrt(arrays.a);
+    case 'complex_sum':
+      return arrays.a.sum();
+    case 'complex_mean':
+      return arrays.a.mean();
+    case 'complex_prod':
+      return arrays.a.prod();
+
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);
   }
@@ -735,8 +783,24 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
 
             // Convert numpy-ts result to comparable format
             let tsValue: any;
+
+            // Helper to convert Complex objects to real parts
+            function complexToReal(val: any): any {
+              if (val && typeof val === 'object' && 're' in val && 'im' in val) {
+                // It's a Complex object - extract real part
+                return val.re;
+              }
+              if (Array.isArray(val)) {
+                return val.map(complexToReal);
+              }
+              return val;
+            }
+
             if (typeof numpytsResult === 'number' || typeof numpytsResult === 'boolean') {
               tsValue = numpytsResult;
+            } else if (numpytsResult && typeof numpytsResult === 'object' && 're' in numpytsResult && 'im' in numpytsResult) {
+              // It's a Complex scalar result - convert to real
+              tsValue = numpytsResult.re;
             } else if (
               numpytsResult &&
               typeof numpytsResult === 'object' &&
@@ -748,9 +812,11 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                   `NDArray missing toArray method. Type: ${typeof numpytsResult}, keys: ${Object.keys(numpytsResult).join(', ')}`
                 );
               }
+              // Convert array data, handling Complex objects
+              const rawData = numpytsResult.toArray();
               tsValue = {
                 shape: Array.from(numpytsResult.shape),
-                data: numpytsResult.toArray(),
+                data: complexToReal(rawData),
               };
             } else {
               tsValue = numpytsResult;

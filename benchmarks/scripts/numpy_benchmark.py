@@ -67,6 +67,10 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
             arange_matrix = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
             identity = np.eye(n, dtype=dtype)
             arrays[key] = arange_matrix + identity * (n * n)
+        elif fill_type == "complex":
+            # Create complex array with [1+1j, 2+2j, 3+3j, ...]
+            size = int(np.prod(shape))
+            arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=np.complex128).reshape(shape)
 
     # Pre-serialize data for parsing benchmarks
     if operation == "parseNpy" and "a" in arrays:
@@ -572,6 +576,36 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.random.choice(arrays["n"], 100)
     elif operation == "random_permutation":
         return np.random.permutation(arrays["n"])
+
+    # Complex operations
+    elif operation == "complex_zeros":
+        return np.zeros(arrays["shape"], dtype=np.complex128)
+    elif operation == "complex_ones":
+        return np.ones(arrays["shape"], dtype=np.complex128)
+    elif operation == "complex_add":
+        return arrays["a"] + arrays["b"]
+    elif operation == "complex_multiply":
+        return arrays["a"] * arrays["b"]
+    elif operation == "complex_divide":
+        return arrays["a"] / arrays["b"]
+    elif operation == "complex_real":
+        return np.real(arrays["a"])
+    elif operation == "complex_imag":
+        return np.imag(arrays["a"])
+    elif operation == "complex_conj":
+        return np.conj(arrays["a"])
+    elif operation == "complex_angle":
+        return np.angle(arrays["a"])
+    elif operation == "complex_abs":
+        return np.abs(arrays["a"])
+    elif operation == "complex_sqrt":
+        return np.sqrt(arrays["a"])
+    elif operation == "complex_sum":
+        return np.sum(arrays["a"])
+    elif operation == "complex_mean":
+        return np.mean(arrays["a"])
+    elif operation == "complex_prod":
+        return np.prod(arrays["a"])
 
     else:
         raise ValueError(f"Unknown operation: {operation}")

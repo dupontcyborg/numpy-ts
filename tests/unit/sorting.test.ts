@@ -20,6 +20,7 @@ import {
   count_nonzero,
   zeros,
   ones,
+  Complex,
 } from '../../src/core/ndarray';
 
 describe('Sorting Functions', () => {
@@ -183,14 +184,18 @@ describe('Sorting Functions', () => {
   });
 
   describe('sort_complex()', () => {
-    it('returns sorted 1D array for real arrays', () => {
+    it('returns sorted 1D array for real arrays (as complex128)', () => {
       const arr = array([
         [3, 1],
         [4, 2],
       ]);
       const result = sort_complex(arr);
       expect(result.shape).toEqual([4]);
-      expect(result.toArray()).toEqual([1, 2, 3, 4]);
+      // NumPy always returns complex128 for sort_complex
+      expect(result.dtype).toBe('complex128');
+      const values = result.toArray() as Complex[];
+      expect(values.map((c) => c.re)).toEqual([1, 2, 3, 4]);
+      expect(values.every((c) => c.im === 0)).toBe(true);
     });
   });
 });

@@ -6,8 +6,43 @@
  */
 
 import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
 import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
+
+/**
+ * Check if a value at index i is non-zero (truthy)
+ * For complex arrays, checks if either real or imag part is non-zero
+ */
+function isNonZero(data: ArrayStorage['data'], index: number, isComplex: boolean): boolean {
+  if (isComplex) {
+    const re = (data as Float64Array | Float32Array)[index * 2]!;
+    const im = (data as Float64Array | Float32Array)[index * 2 + 1]!;
+    return re !== 0 || im !== 0;
+  }
+  return Boolean(data[index]);
+}
+
+/**
+ * Lexicographic comparison for complex numbers
+ * Compares real parts first, then imaginary parts
+ * NaN values sort to the end
+ */
+function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
+  const aIsNaN = isNaN(aRe) || isNaN(aIm);
+  const bIsNaN = isNaN(bRe) || isNaN(bIm);
+
+  // NaN values go to end
+  if (aIsNaN && bIsNaN) return 0;
+  if (aIsNaN) return 1;
+  if (bIsNaN) return -1;
+
+  // Lexicographic: compare real first, then imaginary
+  if (aRe < bRe) return -1;
+  if (aRe > bRe) return 1;
+  if (aIm < bIm) return -1;
+  if (aIm > bIm) return 1;
+  return 0;
+}
 
 /**
  * Return a sorted copy of an array
@@ -46,7 +81,36 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
   // Sort along axis
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex sort using lexicographic ordering
+    const complexData = data as Float64Array | Float32Array;
+    const resultComplex = resultData as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // Collect values along axis
+      const values: { re: number; im: number; idx: number }[] = [];
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        values.push({
+          re: complexData[linearIdx * 2]!,
+          im: complexData[linearIdx * 2 + 1]!,
+          idx: axisIdx,
+        });
+      }
+
+      // Sort using lexicographic comparison
+      values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+      // Write sorted values back
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        resultComplex[linearIdx * 2] = values[axisIdx]!.re;
+        resultComplex[linearIdx * 2 + 1] = values[axisIdx]!.im;
+      }
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
 
@@ -136,7 +200,34 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
   // Get argsort along axis
-  if (isBigIntDType(dtype)) {
+  if (isComplexDType(dtype)) {
+    // Complex argsort using lexicographic ordering
+    const complexData = data as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // Collect values along axis with their indices
+      const values: { re: number; im: number; idx: number }[] = [];
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        values.push({
+          re: complexData[linearIdx * 2]!,
+          im: complexData[linearIdx * 2 + 1]!,
+          idx: axisIdx,
+        });
+      }
+
+      // Sort using lexicographic comparison
+      values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+      // Write sorted indices back
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        resultData[linearIdx] = values[axisIdx]!.idx;
+      }
+    }
+  } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -638,33 +729,58 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
  * @returns Sorted array
  */
 export function sort_complex(storage: ArrayStorage): ArrayStorage {
-  // For real arrays, just sort normally (1D flattened)
   const dtype = storage.dtype;
   const size = storage.size;
   const data = storage.data;
 
-  // Flatten and sort
-  const values: number[] = [];
-  for (let i = 0; i < size; i++) {
-    values.push(Number(data[i]!));
+  if (isComplexDType(dtype)) {
+    // Complex sort using lexicographic ordering
+    const complexData = data as Float64Array | Float32Array;
+    const values: { re: number; im: number }[] = [];
+    for (let i = 0; i < size; i++) {
+      values.push({
+        re: complexData[i * 2]!,
+        im: complexData[i * 2 + 1]!,
+      });
+    }
+
+    // Sort using lexicographic comparison
+    values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
+
+    // Create result (1D sorted array with complex128 dtype)
+    const result = ArrayStorage.zeros([size], 'complex128');
+    const resultData = result.data as Float64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = values[i]!.re;
+      resultData[i * 2 + 1] = values[i]!.im;
+    }
+
+    return result;
+  } else {
+    // For real arrays, sort normally (1D flattened), then cast to complex128
+    const values: number[] = [];
+    for (let i = 0; i < size; i++) {
+      values.push(Number(data[i]!));
+    }
+
+    // Sort (NaN values go to end)
+    values.sort((a, b) => {
+      if (isNaN(a) && isNaN(b)) return 0;
+      if (isNaN(a)) return 1;
+      if (isNaN(b)) return -1;
+      return a - b;
+    });
+
+    // Create result as complex128 (NumPy always returns complex)
+    const result = ArrayStorage.zeros([size], 'complex128');
+    const resultData = result.data as Float64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = values[i]!;
+      resultData[i * 2 + 1] = 0;
+    }
+
+    return result;
   }
-
-  // Sort (NaN values go to end)
-  values.sort((a, b) => {
-    if (isNaN(a) && isNaN(b)) return 0;
-    if (isNaN(a)) return 1;
-    if (isNaN(b)) return -1;
-    return a - b;
-  });
-
-  // Create result (1D sorted array)
-  const result = ArrayStorage.zeros([size], dtype as DType);
-  const resultData = result.data;
-  for (let i = 0; i < size; i++) {
-    resultData[i] = values[i]!;
-  }
-
-  return result;
 }
 
 // ============================================================================
@@ -681,6 +797,7 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
   const ndim = shape.length;
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Find all non-zero indices
   const nonzeroIndices: number[][] = [];
@@ -698,7 +815,7 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
 
   // Find non-zero elements
   for (let i = 0; i < size; i++) {
-    if (data[i]) {
+    if (isNonZero(data, i, isComplex)) {
       // Convert linear index to multi-index
       let remaining = i;
       for (let dim = 0; dim < ndim; dim++) {
@@ -737,6 +854,7 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
   const ndim = shape.length;
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Find all non-zero indices
   const nonzeroIndices: number[][] = [];
@@ -751,7 +869,7 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
 
   // Find non-zero elements
   for (let i = 0; i < size; i++) {
-    if (data[i]) {
+    if (isNonZero(data, i, isComplex)) {
       // Convert linear index to multi-index
       const indices: number[] = [];
       let remaining = i;
@@ -789,11 +907,12 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
 export function flatnonzero(storage: ArrayStorage): ArrayStorage {
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Find all non-zero indices
   const indices: number[] = [];
   for (let i = 0; i < size; i++) {
-    if (data[i]) {
+    if (isNonZero(data, i, isComplex)) {
       indices.push(i);
     }
   }
@@ -906,6 +1025,8 @@ export function where(
   }
 
   const totalSize = resultShape.reduce((a, b) => a * b, 1);
+  const isCondComplex = isComplexDType(condition.dtype);
+  const isResultComplex = isComplexDType(resultDtype);
 
   // Iterate over all elements
   for (let i = 0; i < totalSize; i++) {
@@ -924,10 +1045,30 @@ export function where(
       yIdx += idx * yStrides[dim]!;
     }
 
-    if (condData[condIdx]) {
-      resultData[i] = xData[xIdx]!;
+    if (isNonZero(condData, condIdx, isCondComplex)) {
+      if (isResultComplex) {
+        // Copy both real and imaginary parts
+        (resultData as Float64Array | Float32Array)[i * 2] = (xData as Float64Array | Float32Array)[
+          xIdx * 2
+        ]!;
+        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (
+          xData as Float64Array | Float32Array
+        )[xIdx * 2 + 1]!;
+      } else {
+        resultData[i] = xData[xIdx]!;
+      }
     } else {
-      resultData[i] = yData[yIdx]!;
+      if (isResultComplex) {
+        // Copy both real and imaginary parts
+        (resultData as Float64Array | Float32Array)[i * 2] = (yData as Float64Array | Float32Array)[
+          yIdx * 2
+        ]!;
+        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (
+          yData as Float64Array | Float32Array
+        )[yIdx * 2 + 1]!;
+      } else {
+        resultData[i] = yData[yIdx]!;
+      }
     }
   }
 
@@ -955,40 +1096,82 @@ export function searchsorted(
   const n = storage.size;
   const valuesData = values.data;
   const numValues = values.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   // Create result array
   const result = ArrayStorage.zeros([numValues], 'int32');
   const resultData = result.data as Int32Array;
 
-  // Binary search for each value
-  for (let i = 0; i < numValues; i++) {
-    const v = Number(valuesData[i]);
-    let lo = 0;
-    let hi = n;
+  if (isComplex) {
+    // Complex binary search using lexicographic comparison
+    const complexData = data as Float64Array | Float32Array;
+    const complexValues = valuesData as Float64Array | Float32Array;
 
-    if (side === 'left') {
-      // Find leftmost position where v can be inserted
-      while (lo < hi) {
-        const mid = Math.floor((lo + hi) / 2);
-        if (Number(data[mid]) < v) {
-          lo = mid + 1;
-        } else {
-          hi = mid;
+    for (let i = 0; i < numValues; i++) {
+      const vRe = complexValues[i * 2]!;
+      const vIm = complexValues[i * 2 + 1]!;
+      let lo = 0;
+      let hi = n;
+
+      if (side === 'left') {
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const midRe = complexData[mid * 2]!;
+          const midIm = complexData[mid * 2 + 1]!;
+          // Check if data[mid] < v
+          if (complexCompare(midRe, midIm, vRe, vIm) < 0) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+      } else {
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const midRe = complexData[mid * 2]!;
+          const midIm = complexData[mid * 2 + 1]!;
+          // Check if data[mid] <= v
+          if (complexCompare(midRe, midIm, vRe, vIm) <= 0) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
         }
       }
-    } else {
-      // Find rightmost position where v can be inserted
-      while (lo < hi) {
-        const mid = Math.floor((lo + hi) / 2);
-        if (Number(data[mid]) <= v) {
-          lo = mid + 1;
-        } else {
-          hi = mid;
-        }
-      }
+
+      resultData[i] = lo;
     }
+  } else {
+    // Non-complex binary search
+    for (let i = 0; i < numValues; i++) {
+      const v = Number(valuesData[i]);
+      let lo = 0;
+      let hi = n;
 
-    resultData[i] = lo;
+      if (side === 'left') {
+        // Find leftmost position where v can be inserted
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (Number(data[mid]) < v) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+      } else {
+        // Find rightmost position where v can be inserted
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (Number(data[mid]) <= v) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+      }
+
+      resultData[i] = lo;
+    }
   }
 
   return result;
@@ -1004,6 +1187,8 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
   const condData = condition.data;
   const data = storage.data;
   const dtype = storage.dtype;
+  const isCondComplex = isComplexDType(condition.dtype);
+  const isDataComplex = isComplexDType(dtype);
 
   // Both arrays should have same size
   const size = Math.min(condition.size, storage.size);
@@ -1011,7 +1196,7 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
   // Count number of true values
   let count = 0;
   for (let i = 0; i < size; i++) {
-    if (condData[i]) {
+    if (isNonZero(condData, i, isCondComplex)) {
       count++;
     }
   }
@@ -1026,13 +1211,24 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
     const typedData = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
-      if (condData[i]) {
+      if (isNonZero(condData, i, isCondComplex)) {
         resultTyped[idx++] = typedData[i]!;
+      }
+    }
+  } else if (isDataComplex) {
+    // Complex data: copy both real and imaginary parts
+    const typedData = data as Float64Array | Float32Array;
+    const resultTyped = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      if (isNonZero(condData, i, isCondComplex)) {
+        resultTyped[idx * 2] = typedData[i * 2]!;
+        resultTyped[idx * 2 + 1] = typedData[i * 2 + 1]!;
+        idx++;
       }
     }
   } else {
     for (let i = 0; i < size; i++) {
-      if (condData[i]) {
+      if (isNonZero(condData, i, isCondComplex)) {
         resultData[idx++] = data[i]!;
       }
     }
@@ -1052,12 +1248,13 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
   const ndim = shape.length;
   const data = storage.data;
   const size = storage.size;
+  const isComplex = isComplexDType(storage.dtype);
 
   if (axis === undefined) {
     // Count all non-zero elements
     let count = 0;
     for (let i = 0; i < size; i++) {
-      if (data[i]) {
+      if (isNonZero(data, i, isComplex)) {
         count++;
       }
     }
@@ -1091,7 +1288,7 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
       const linearIdx = multiIndexToLinear(inputIndices, shape);
-      if (data[linearIdx]) {
+      if (isNonZero(data, linearIdx, isComplex)) {
         count++;
       }
     }

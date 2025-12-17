@@ -3,6 +3,7 @@
  *
  * Supports NumPy numeric types:
  * - Floating point: float32, float64
+ * - Complex: complex64, complex128
  * - Signed integers: int8, int16, int32, int64
  * - Unsigned integers: uint8, uint16, uint32, uint64
  * - Boolean: bool
@@ -14,6 +15,8 @@
 export type DType =
   | 'float64'
   | 'float32'
+  | 'complex128'
+  | 'complex64'
   | 'int64'
   | 'int32'
   | 'int16'
@@ -45,7 +48,10 @@ export type TypedArray =
 export const DEFAULT_DTYPE: DType = 'float64';
 
 /**
- * Get the TypedArray constructor for a given dtype
+ * Get the TypedArray constructor for a given dtype.
+ * For complex types, returns the underlying float array constructor.
+ * complex128 uses Float64Array, complex64 uses Float32Array.
+ * Note: Complex arrays have 2x the physical elements (interleaved real, imag).
  */
 export function getTypedArrayConstructor(dtype: DType): TypedArrayConstructor | null {
   switch (dtype) {
@@ -53,6 +59,10 @@ export function getTypedArrayConstructor(dtype: DType): TypedArrayConstructor | 
       return Float64Array;
     case 'float32':
       return Float32Array;
+    case 'complex128':
+      return Float64Array; // Interleaved: [re, im, re, im, ...]
+    case 'complex64':
+      return Float32Array; // Interleaved: [re, im, re, im, ...]
     case 'int64':
       return BigInt64Array;
     case 'int32':
@@ -89,14 +99,18 @@ type TypedArrayConstructor =
   | Uint8ArrayConstructor;
 
 /**
- * Get the element size in bytes for a given dtype
+ * Get the element size in bytes for a given dtype.
+ * For complex types, returns the full element size (both real and imag parts).
  */
 export function getDTypeSize(dtype: DType): number {
   switch (dtype) {
+    case 'complex128':
+      return 16; // Two float64 values
     case 'float64':
     case 'int64':
     case 'uint64':
-      return 8;
+    case 'complex64':
+      return 8; // complex64 = two float32 values
     case 'float32':
     case 'int32':
     case 'uint32':
@@ -144,6 +158,98 @@ export function isBigIntDType(dtype: DType): boolean {
 }
 
 /**
+ * Check if dtype is complex
+ */
+export function isComplexDType(dtype: DType): boolean {
+  return dtype === 'complex64' || dtype === 'complex128';
+}
+
+/**
+ * Throw a TypeError if the dtype is complex.
+ * Use this at the start of functions that don't support complex numbers.
+ *
+ * @param dtype - The dtype to check
+ * @param functionName - The name of the function (for error message)
+ * @param reason - Optional reason why complex is not supported
+ * @throws TypeError if dtype is complex
+ *
+ * @example
+ * ```typescript
+ * export function floor(storage: ArrayStorage): ArrayStorage {
+ *   throwIfComplex(storage.dtype, 'floor', 'rounding is not defined for complex numbers');
+ *   // ... rest of implementation
+ * }
+ * ```
+ */
+export function throwIfComplex(dtype: DType, functionName: string, reason?: string): void {
+  if (isComplexDType(dtype)) {
+    const reasonStr = reason ? ` ${reason}` : '';
+    throw new TypeError(
+      `ufunc '${functionName}' not supported for complex dtype '${dtype}'.${reasonStr}`
+    );
+  }
+}
+
+/**
+ * Throw an error if the dtype is complex and the function doesn't yet support it.
+ * Use this for functions that SHOULD support complex but haven't been implemented yet.
+ *
+ * @param dtype - The dtype to check
+ * @param functionName - The name of the function (for error message)
+ * @throws Error if dtype is complex
+ *
+ * @example
+ * ```typescript
+ * export function sin(storage: ArrayStorage): ArrayStorage {
+ *   throwIfComplexNotImplemented(storage.dtype, 'sin');
+ *   // ... existing real-only implementation
+ * }
+ * ```
+ */
+export function throwIfComplexNotImplemented(dtype: DType, functionName: string): void {
+  if (isComplexDType(dtype)) {
+    throw new Error(
+      `'${functionName}' does not yet support complex dtype '${dtype}'. ` +
+        `Complex support is planned but not yet implemented.`
+    );
+  }
+}
+
+/**
+ * Get the underlying float dtype for a complex dtype.
+ * complex128 -> float64, complex64 -> float32
+ */
+export function getComplexComponentDType(dtype: DType): 'float64' | 'float32' {
+  if (dtype === 'complex128') return 'float64';
+  if (dtype === 'complex64') return 'float32';
+  throw new Error(`${dtype} is not a complex dtype`);
+}
+
+/**
+ * Get the complex dtype for a given float component dtype.
+ * float64 -> complex128, float32 -> complex64
+ */
+export function getComplexDType(componentDtype: 'float64' | 'float32'): 'complex128' | 'complex64' {
+  if (componentDtype === 'float64') return 'complex128';
+  if (componentDtype === 'float32') return 'complex64';
+  throw new Error(`${componentDtype} is not a valid complex component dtype`);
+}
+
+/**
+ * Check if a value looks like a complex number input.
+ * Accepts: Complex instance, {re, im} object
+ */
+export function isComplexLike(value: unknown): boolean {
+  if (typeof value === 'object' && value !== null) {
+    // Check for Complex class or {re, im} object
+    if ('re' in value && 'im' in value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Infer dtype from JavaScript value
  */
 export function inferDType(value: unknown): DType {
@@ -164,6 +270,8 @@ export function inferDType(value: unknown): DType {
     return 'float64';
   } else if (typeof value === 'boolean') {
     return 'bool';
+  } else if (isComplexLike(value)) {
+    return 'complex128'; // Default complex dtype
   }
   return DEFAULT_DTYPE;
 }
@@ -179,6 +287,48 @@ export function promoteDTypes(dtype1: DType, dtype2: DType): DType {
   // Boolean - promote to the other type
   if (dtype1 === 'bool') return dtype2;
   if (dtype2 === 'bool') return dtype1;
+
+  // Complex types - complex always wins over real types
+  // NumPy promotion rules:
+  // - complex64 + float32 → complex64
+  // - complex64 + float64 → complex128
+  // - complex128 + any_real → complex128
+  // - complex64 + complex128 → complex128
+  if (isComplexDType(dtype1) || isComplexDType(dtype2)) {
+    // Both complex
+    if (isComplexDType(dtype1) && isComplexDType(dtype2)) {
+      // complex128 wins over complex64
+      if (dtype1 === 'complex128' || dtype2 === 'complex128') {
+        return 'complex128';
+      }
+      return 'complex64';
+    }
+
+    // One complex, one real
+    const complexDtype = isComplexDType(dtype1) ? dtype1 : dtype2;
+    const realDtype = isComplexDType(dtype1) ? dtype2 : dtype1;
+
+    // complex128 + anything → complex128
+    if (complexDtype === 'complex128') {
+      return 'complex128';
+    }
+
+    // complex64 + float64 → complex128
+    // complex64 + int64/uint64 → complex128
+    // complex64 + int32/uint32 → complex128 (since float32 can't hold all int32 values)
+    if (
+      realDtype === 'float64' ||
+      realDtype === 'int64' ||
+      realDtype === 'uint64' ||
+      realDtype === 'int32' ||
+      realDtype === 'uint32'
+    ) {
+      return 'complex128';
+    }
+
+    // complex64 + float32 or smaller ints → complex64
+    return 'complex64';
+  }
 
   // Float types - integer + float always promotes to float
   if (isFloatDType(dtype1) || isFloatDType(dtype2)) {
@@ -310,6 +460,8 @@ export function isValidDType(dtype: string): dtype is DType {
   const validDTypes: DType[] = [
     'float64',
     'float32',
+    'complex128',
+    'complex64',
     'int64',
     'int32',
     'int16',
@@ -343,6 +495,10 @@ export function castValue(value: number | bigint | boolean, dtype: DType): numbe
 export function toStdlibDType(dtype: DType): string {
   // Map int64/uint64 to generic (we manage the BigInt arrays ourselves)
   if (dtype === 'int64' || dtype === 'uint64') {
+    return 'generic';
+  }
+  // Map complex to generic (we manage complex arrays ourselves)
+  if (isComplexDType(dtype)) {
     return 'generic';
   }
   // All other dtypes (including bool) are supported by stdlib

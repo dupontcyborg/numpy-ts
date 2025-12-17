@@ -81,6 +81,15 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
       arrays[key] = np.zeros(shape, dtype);
     } else if (fill === 'ones') {
       arrays[key] = np.ones(shape, dtype);
+    } else if (fill === 'complex') {
+      // Create complex array with [1+1j, 2+2j, 3+3j, ...]
+      const size = shape.reduce((a: number, b: number) => a * b, 1);
+      const complexValues = [];
+      for (let i = 0; i < size; i++) {
+        complexValues.push(new np.Complex(i + 1, i + 1));
+      }
+      const flat = np.array(complexValues);
+      arrays[key] = flat.reshape(...shape);
     } else if (fill === 'random') {
       // Create random-like data using arange for consistency
       const size = shape.reduce((a, b) => a * b, 1);
@@ -623,6 +632,37 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.random.choice(arrays['n'], 100);
   } else if (operation === 'random_permutation') {
     return np.random.permutation(arrays['n']);
+  }
+
+  // Complex operations
+  else if (operation === 'complex_zeros') {
+    return np.zeros(arrays['shape'], 'complex128');
+  } else if (operation === 'complex_ones') {
+    return np.ones(arrays['shape'], 'complex128');
+  } else if (operation === 'complex_add') {
+    return arrays['a'].add(arrays['b']);
+  } else if (operation === 'complex_multiply') {
+    return arrays['a'].multiply(arrays['b']);
+  } else if (operation === 'complex_divide') {
+    return arrays['a'].divide(arrays['b']);
+  } else if (operation === 'complex_real') {
+    return np.real(arrays['a']);
+  } else if (operation === 'complex_imag') {
+    return np.imag(arrays['a']);
+  } else if (operation === 'complex_conj') {
+    return np.conj(arrays['a']);
+  } else if (operation === 'complex_angle') {
+    return np.angle(arrays['a']);
+  } else if (operation === 'complex_abs') {
+    return np.abs(arrays['a']);
+  } else if (operation === 'complex_sqrt') {
+    return np.sqrt(arrays['a']);
+  } else if (operation === 'complex_sum') {
+    return arrays['a'].sum();
+  } else if (operation === 'complex_mean') {
+    return arrays['a'].mean();
+  } else if (operation === 'complex_prod') {
+    return arrays['a'].prod();
   }
 
   throw new Error(`Unknown operation: ${operation}`);

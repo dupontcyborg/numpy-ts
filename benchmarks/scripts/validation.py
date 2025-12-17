@@ -52,6 +52,10 @@ def setup_arrays(setup_config):
             size = np.prod(shape)
             flat = np.arange(0, size, 1, dtype=np_dtype)
             arrays[key] = flat.reshape(shape)
+        elif fill == "complex":
+            # Create complex array with [1+1j, 2+2j, 3+3j, ...]
+            size = np.prod(shape)
+            arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=np.complex128).reshape(shape)
         elif fill == "invertible":
             # Create an invertible matrix: arange + n*I (diagonally dominant)
             n = shape[0]
@@ -519,6 +523,36 @@ def run_operation(spec):
         result = np.random.choice(arrays["n"], 100)
     elif operation == "random_permutation":
         result = np.random.permutation(arrays["n"])
+
+    # Complex operations
+    elif operation == "complex_zeros":
+        result = np.zeros(arrays["shape"], dtype=np.complex128)
+    elif operation == "complex_ones":
+        result = np.ones(arrays["shape"], dtype=np.complex128)
+    elif operation == "complex_add":
+        result = arrays["a"] + arrays["b"]
+    elif operation == "complex_multiply":
+        result = arrays["a"] * arrays["b"]
+    elif operation == "complex_divide":
+        result = arrays["a"] / arrays["b"]
+    elif operation == "complex_real":
+        result = np.real(arrays["a"])
+    elif operation == "complex_imag":
+        result = np.imag(arrays["a"])
+    elif operation == "complex_conj":
+        result = np.conj(arrays["a"])
+    elif operation == "complex_angle":
+        result = np.angle(arrays["a"])
+    elif operation == "complex_abs":
+        result = np.abs(arrays["a"])
+    elif operation == "complex_sqrt":
+        result = np.sqrt(arrays["a"])
+    elif operation == "complex_sum":
+        result = np.sum(arrays["a"])
+    elif operation == "complex_mean":
+        result = np.mean(arrays["a"])
+    elif operation == "complex_prod":
+        result = np.prod(arrays["a"])
 
     else:
         raise ValueError(f"Unknown operation: {operation}")
