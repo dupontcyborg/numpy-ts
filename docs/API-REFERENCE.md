@@ -2,18 +2,20 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-17
+**Last Updated**: 2025-12-19
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 336/507 (66.3%)
-- **Top-level Functions**: 327/507 (60.9%)
-- **NDArray Methods**: 159/53 (64.2%)
+- **Overall Coverage**: 349/507 (68.8%)
+- **Top-level Functions**: 342/507 (63.9%)
+- **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
+- Array Creation (35/35)
+- Array Manipulation (46/46)
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
@@ -22,23 +24,21 @@ Based on `npm run compare-api`:
 - I/O (8/8)
 - Indexing (21/21)
 - Logic (24/24)
+- Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
 - Sorting (6/6)
 - Trigonometric (16/16)
 
 ### Incomplete Categories
-- Array Creation (33/35) - 94.3%
-- Array Manipulation (37/46) - 80.4%
 - Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
-- NDArray Methods (34/53) - 64.2%
+- NDArray Methods (40/53) - 75.5%
 - Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Reductions (34/36) - 94.4%
 - Set Operations (7/12) - 58.3%
 - Statistics (9/12) - 75.0%
 - String/Formatting (0/10) - 0.0%
@@ -88,7 +88,7 @@ Based on `npm run compare-api`:
 - [x] `array` 
 - [x] `asanyarray` 
 - [x] `asarray` 
-- [ ] `asarray_chkfinite` 
+- [x] `asarray_chkfinite` 
 - [x] `ascontiguousarray` 
 - [x] `asfortranarray` 
 - [x] `astype` 
@@ -112,7 +112,7 @@ Based on `npm run compare-api`:
 - [x] `meshgrid` 
 - [x] `ones` 
 - [x] `ones_like` 
-- [ ] `require` 
+- [x] `require` 
 - [x] `tri` 
 - [x] `tril` 
 - [x] `triu` 
@@ -129,10 +129,10 @@ Based on `npm run compare-api`:
 - [x] `atleast_1d` 
 - [x] `atleast_2d` 
 - [x] `atleast_3d` 
-- [ ] `block` 
-- [ ] `byteswap` 
+- [x] `block` 
+- [x] `byteswap` 
 - [x] `column_stack` 
-- [ ] `concat` 
+- [x] `concat` 
 - [x] `concatenate` 
 - [x] `delete` 
 - [x] `dsplit` 
@@ -146,7 +146,7 @@ Based on `npm run compare-api`:
 - [x] `hsplit` 
 - [x] `hstack` 
 - [x] `insert` 
-- [ ] `item` 
+- [x] `item` 
 - [x] `moveaxis` 
 - [x] `pad` 
 - [x] `ravel` 
@@ -162,12 +162,12 @@ Based on `npm run compare-api`:
 - [x] `stack` 
 - [x] `swapaxes` 
 - [x] `tile` 
-- [ ] `tobytes` 
-- [ ] `tofile` 
-- [ ] `tolist` 
+- [x] `tobytes` 
+- [x] `tofile` 
+- [x] `tolist` 
 - [x] `transpose` 
-- [ ] `unstack` 
-- [ ] `view` 
+- [x] `unstack` 
+- [x] `view` 
 - [x] `vsplit` 
 - [x] `vstack` 
 
@@ -407,7 +407,7 @@ Based on `npm run compare-api`:
 - [x] `argpartition` 
 - [x] `argsort` 
 - [x] `astype` 
-- [ ] `byteswap` 
+- [x] `byteswap` 
 - [ ] `choose` 
 - [ ] `clip` 
 - [ ] `compress` 
@@ -423,7 +423,7 @@ Based on `npm run compare-api`:
 - [x] `fill` 
 - [x] `flatten` 
 - [ ] `getfield` 
-- [ ] `item` 
+- [x] `item` 
 - [x] `max` 
 - [x] `mean` 
 - [x] `min` 
@@ -446,13 +446,13 @@ Based on `npm run compare-api`:
 - [x] `swapaxes` 
 - [x] `take` 
 - [ ] `to_device` 
-- [ ] `tobytes` 
-- [ ] `tofile` 
-- [ ] `tolist` 
+- [x] `tobytes` 
+- [x] `tofile` 
+- [x] `tolist` 
 - [x] `trace` 
 - [x] `transpose` 
 - [x] `var` 
-- [ ] `view` 
+- [x] `view` 
 
 ---
 
@@ -574,9 +574,9 @@ Based on `npm run compare-api`:
 - [x] `nanmean` 
 - [x] `nanmedian` 
 - [x] `nanmin` 
-- [ ] `nanpercentile` 
+- [x] `nanpercentile` 
 - [x] `nanprod` 
-- [ ] `nanquantile` 
+- [x] `nanquantile` 
 - [x] `nanstd` 
 - [x] `nansum` 
 - [x] `nanvar` 
@@ -846,7 +846,9 @@ These may be removed in future versions for strict NumPy compatibility:
 - `nanmean()` 
 - `nanmedian()` 
 - `nanmin()` 
+- `nanpercentile()` 
 - `nanprod()` 
+- `nanquantile()` 
 - `nanstd()` 
 - `nansum()` 
 - `nanvar()` 

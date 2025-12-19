@@ -1581,4 +1581,144 @@ result = np.nanprod(arr, axis=0)
       expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
     });
   });
+
+  describe('nanquantile() with axis', () => {
+    it('validates nanquantile(0.5) without axis', () => {
+      const arr = array([1, NaN, 3, NaN, 5]);
+      const result = arr.nanquantile(0.5);
+
+      const npResult = runNumPy(`
+arr = np.array([1, np.nan, 3, np.nan, 5])
+result = np.nanquantile(arr, 0.5)
+`);
+
+      expect(Math.abs((result as number) - npResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('validates nanquantile(0.25) without axis', () => {
+      const arr = array([1, NaN, 2, NaN, 3, NaN, 4]);
+      const result = arr.nanquantile(0.25);
+
+      const npResult = runNumPy(`
+arr = np.array([1, np.nan, 2, np.nan, 3, np.nan, 4])
+result = np.nanquantile(arr, 0.25)
+`);
+
+      expect(Math.abs((result as number) - npResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('validates nanquantile(0.75) without axis', () => {
+      const arr = array([1, NaN, 2, NaN, 3, NaN, 4]);
+      const result = arr.nanquantile(0.75);
+
+      const npResult = runNumPy(`
+arr = np.array([1, np.nan, 2, np.nan, 3, np.nan, 4])
+result = np.nanquantile(arr, 0.75)
+`);
+
+      expect(Math.abs((result as number) - npResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('validates nanquantile(0.5, axis=0)', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanquantile(0.5, 0);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, np.nan, 3], [np.nan, 5, 6]])
+result = np.nanquantile(arr, 0.5, axis=0)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates nanquantile(0.5, axis=1)', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [4, 5, NaN],
+      ]);
+      const result = arr.nanquantile(0.5, 1);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, np.nan, 3], [4, 5, np.nan]])
+result = np.nanquantile(arr, 0.5, axis=1)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('nanpercentile() with axis', () => {
+    it('validates nanpercentile(50) without axis', () => {
+      const arr = array([1, NaN, 3, NaN, 5]);
+      const result = arr.nanpercentile(50);
+
+      const npResult = runNumPy(`
+arr = np.array([1, np.nan, 3, np.nan, 5])
+result = np.nanpercentile(arr, 50)
+`);
+
+      expect(Math.abs((result as number) - npResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('validates nanpercentile(25) without axis', () => {
+      const arr = array([1, NaN, 2, NaN, 3, NaN, 4]);
+      const result = arr.nanpercentile(25);
+
+      const npResult = runNumPy(`
+arr = np.array([1, np.nan, 2, np.nan, 3, np.nan, 4])
+result = np.nanpercentile(arr, 25)
+`);
+
+      expect(Math.abs((result as number) - npResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('validates nanpercentile(75) without axis', () => {
+      const arr = array([1, NaN, 2, NaN, 3, NaN, 4]);
+      const result = arr.nanpercentile(75);
+
+      const npResult = runNumPy(`
+arr = np.array([1, np.nan, 2, np.nan, 3, np.nan, 4])
+result = np.nanpercentile(arr, 75)
+`);
+
+      expect(Math.abs((result as number) - npResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('validates nanpercentile(50, axis=0)', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanpercentile(50, 0);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, np.nan, 3], [np.nan, 5, 6]])
+result = np.nanpercentile(arr, 50, axis=0)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates nanpercentile(50, axis=1)', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [4, 5, NaN],
+      ]);
+      const result = arr.nanpercentile(50, 1);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, np.nan, 3], [4, 5, np.nan]])
+result = np.nanpercentile(arr, 50, axis=1)
+`);
+
+      expect((result as any).shape).toEqual(npResult.shape);
+      expect(arraysClose((result as any).toArray(), npResult.value)).toBe(true);
+    });
+  });
 });

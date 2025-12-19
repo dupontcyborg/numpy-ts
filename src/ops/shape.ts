@@ -1502,3 +1502,84 @@ export function atleast3d(storages: ArrayStorage[]): ArrayStorage[] {
     return s;
   });
 }
+
+/**
+ * Alias for concatenate
+ */
+export function concat(storages: ArrayStorage[], axis: number = 0): ArrayStorage {
+  return concatenate(storages, axis);
+}
+
+/**
+ * Split an array into a sequence of sub-arrays along an axis (inverse of stack)
+ */
+export function unstack(storage: ArrayStorage, axis: number = 0): ArrayStorage[] {
+  const shape = storage.shape;
+  const ndim = shape.length;
+  const normalizedAxis = axis < 0 ? ndim + axis : axis;
+  if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  const axisSize = shape[normalizedAxis]!;
+  const results: ArrayStorage[] = [];
+
+  for (let i = 0; i < axisSize; i++) {
+    const slices: Array<{ start: number; stop: number; step: number }> = [];
+    for (let d = 0; d < ndim; d++) {
+      if (d === normalizedAxis) {
+        slices.push({ start: i, stop: i + 1, step: 1 });
+      } else {
+        slices.push({ start: 0, stop: shape[d]!, step: 1 });
+      }
+    }
+    const sliced = sliceStorage(storage, slices);
+    const squeezed = squeeze(sliced, normalizedAxis);
+    results.push(squeezed);
+  }
+  return results;
+}
+
+/**
+ * Assemble an nd-array from nested lists of blocks
+ * For a simple list [a, b] of nD arrays, concatenates along the last axis (like np.block)
+ */
+export function block(storages: ArrayStorage[], _depth: number = 1): ArrayStorage {
+  if (storages.length === 0) {
+    throw new Error('need at least one array to block');
+  }
+  if (storages.length === 1) {
+    return storages[0]!.copy();
+  }
+  // np.block([a, b]) for nD arrays concatenates along the last axis (-1)
+  // This matches NumPy's behavior where a flat list of arrays is joined horizontally
+  return concatenate(storages, -1);
+}
+
+/**
+ * Helper function to slice storage (used by unstack)
+ */
+function sliceStorage(
+  storage: ArrayStorage,
+  slices: Array<{ start: number; stop: number; step: number }>
+): ArrayStorage {
+  const shape = storage.shape;
+  const strides = storage.strides;
+  let offset = storage.offset;
+  const dtype = storage.dtype;
+  const data = storage.data;
+
+  const newShape: number[] = [];
+  const newStrides: number[] = [];
+
+  for (let d = 0; d < shape.length; d++) {
+    const slice = slices[d]!;
+    const { start, stop, step } = slice;
+    const dimSize = Math.ceil((stop - start) / step);
+    newShape.push(dimSize);
+    newStrides.push(strides[d]! * step);
+    offset += start * strides[d]!;
+  }
+
+  return ArrayStorage.fromData(data, newShape, dtype, newStrides, offset);
+}

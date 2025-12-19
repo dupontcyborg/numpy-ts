@@ -3389,3 +3389,117 @@ export function nanmedian(
 
   return result;
 }
+
+/**
+ * Compute the q-th quantile of data along specified axis, ignoring NaNs
+ */
+export function nanquantile(
+  storage: ArrayStorage,
+  q: number,
+  axis?: number,
+  keepdims: boolean = false
+): ArrayStorage | number {
+  throwIfComplex(storage.dtype, 'nanquantile', 'Complex numbers are not orderable.');
+  if (q < 0 || q > 1) {
+    throw new Error('Quantile must be between 0 and 1');
+  }
+
+  const shape = storage.shape;
+  const ndim = shape.length;
+  const data = storage.data;
+
+  if (axis === undefined) {
+    const values: number[] = [];
+    for (let i = 0; i < storage.size; i++) {
+      const val = Number(data[i]);
+      if (!isNaN(val)) {
+        values.push(val);
+      }
+    }
+
+    if (values.length === 0) {
+      return NaN;
+    }
+
+    values.sort((a, b) => a - b);
+    const n = values.length;
+    const idx = q * (n - 1);
+    const lower = Math.floor(idx);
+    const upper = Math.ceil(idx);
+
+    if (lower === upper) {
+      return values[lower]!;
+    }
+    const frac = idx - lower;
+    return values[lower]! * (1 - frac) + values[upper]! * frac;
+  }
+
+  let normalizedAxis = axis;
+  if (normalizedAxis < 0) {
+    normalizedAxis = ndim + normalizedAxis;
+  }
+  if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+  if (outputShape.length === 0) {
+    return nanquantile(storage, q);
+  }
+
+  const outerSize = outputShape.reduce((a, b) => a * b, 1);
+  const axisSize = shape[normalizedAxis]!;
+  const resultData = new Float64Array(outerSize);
+
+  for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+    const values: number[] = [];
+    for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+      const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
+      const linearIdx = multiIndexToLinear(inputIndices, shape);
+      const val = Number(data[linearIdx]);
+      if (!isNaN(val)) {
+        values.push(val);
+      }
+    }
+
+    if (values.length === 0) {
+      resultData[outerIdx] = NaN;
+      continue;
+    }
+
+    values.sort((a, b) => a - b);
+    const n = values.length;
+    const idx = q * (n - 1);
+    const lower = Math.floor(idx);
+    const upper = Math.ceil(idx);
+
+    if (lower === upper) {
+      resultData[outerIdx] = values[lower]!;
+    } else {
+      const frac = idx - lower;
+      resultData[outerIdx] = values[lower]! * (1 - frac) + values[upper]! * frac;
+    }
+  }
+
+  const resultQ = ArrayStorage.fromData(resultData, outputShape, 'float64');
+
+  if (keepdims) {
+    const keepdimsShape = [...shape];
+    keepdimsShape[normalizedAxis] = 1;
+    return ArrayStorage.fromData(resultData, keepdimsShape, 'float64');
+  }
+
+  return resultQ;
+}
+
+/**
+ * Compute the q-th percentile of data along specified axis, ignoring NaNs
+ */
+export function nanpercentile(
+  storage: ArrayStorage,
+  q: number,
+  axis?: number,
+  keepdims: boolean = false
+): ArrayStorage | number {
+  return nanquantile(storage, q / 100, axis, keepdims);
+}

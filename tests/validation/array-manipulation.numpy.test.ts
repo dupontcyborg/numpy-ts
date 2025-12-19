@@ -44,6 +44,13 @@ import {
   column_stack,
   row_stack,
   dsplit,
+  concat,
+  unstack,
+  block,
+  flatten,
+  fill,
+  item,
+  tolist,
 } from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
@@ -1240,6 +1247,302 @@ result = [p.tolist() for p in parts]
       const npResult = runNumPy(`result = np.rollaxis(np.zeros((3, 4, 5)), 1)`);
 
       expect(result.shape).toEqual(npResult.shape);
+    });
+  });
+
+  // ========================================
+  // concat (alias for concatenate)
+  // ========================================
+  describe('concat()', () => {
+    it('validates concat 1D arrays', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const result = concat([a, b]);
+
+      const npResult = runNumPy(`
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+result = np.concat([a, b])
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates concat 2D arrays axis=0', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const result = concat([a, b], 0);
+
+      const npResult = runNumPy(`
+a = np.array([[1, 2], [3, 4]])
+b = np.array([[5, 6], [7, 8]])
+result = np.concat([a, b], axis=0)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates concat 2D arrays axis=1', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const result = concat([a, b], 1);
+
+      const npResult = runNumPy(`
+a = np.array([[1, 2], [3, 4]])
+b = np.array([[5, 6], [7, 8]])
+result = np.concat([a, b], axis=1)
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  // ========================================
+  // unstack
+  // ========================================
+  describe('unstack()', () => {
+    it('validates unstack 2D along axis=0', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const results = unstack(arr, 0);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2, 3], [4, 5, 6]])
+result = [a.tolist() for a in np.unstack(arr, axis=0)]
+`);
+
+      expect(results.length).toBe(npResult.value.length);
+      for (let i = 0; i < results.length; i++) {
+        expect(arraysClose(results[i]!.toArray(), npResult.value[i])).toBe(true);
+      }
+    });
+
+    it('validates unstack 2D along axis=1', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const results = unstack(arr, 1);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2, 3], [4, 5, 6]])
+result = [a.tolist() for a in np.unstack(arr, axis=1)]
+`);
+
+      expect(results.length).toBe(npResult.value.length);
+      for (let i = 0; i < results.length; i++) {
+        expect(arraysClose(results[i]!.toArray(), npResult.value[i])).toBe(true);
+      }
+    });
+
+    it('validates unstack 3D', () => {
+      const arr = arange(0, 24).reshape([2, 3, 4]);
+      const results = unstack(arr, 0);
+
+      const npResult = runNumPy(`
+arr = np.arange(24).reshape(2, 3, 4)
+result = [a.tolist() for a in np.unstack(arr, axis=0)]
+`);
+
+      expect(results.length).toBe(npResult.value.length);
+      for (let i = 0; i < results.length; i++) {
+        expect(arraysClose(results[i]!.toArray(), npResult.value[i])).toBe(true);
+      }
+    });
+  });
+
+  // ========================================
+  // block
+  // ========================================
+  describe('block()', () => {
+    it('validates block with 1D arrays', () => {
+      const a = array([1, 2]);
+      const b = array([3, 4]);
+      const result = block([a, b]);
+
+      const npResult = runNumPy(`
+a = np.array([1, 2])
+b = np.array([3, 4])
+result = np.block([a, b])
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates block with 2D arrays horizontal', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const result = block([a, b]);
+
+      const npResult = runNumPy(`
+a = np.array([[1, 2], [3, 4]])
+b = np.array([[5, 6], [7, 8]])
+result = np.block([a, b])
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  // ========================================
+  // flatten
+  // ========================================
+  describe('flatten()', () => {
+    it('validates flatten 2D to 1D', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = flatten(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([[1, 2, 3], [4, 5, 6]])
+result = arr.flatten()
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates flatten 3D to 1D', () => {
+      const arr = arange(0, 24).reshape([2, 3, 4]);
+      const result = flatten(arr);
+
+      const npResult = runNumPy(`
+arr = np.arange(24).reshape(2, 3, 4)
+result = arr.flatten()
+`);
+
+      expect(result.shape).toEqual(npResult.shape);
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  // ========================================
+  // fill
+  // ========================================
+  describe('fill()', () => {
+    it('validates fill with scalar', () => {
+      const arr = zeros([3, 3]);
+      fill(arr, 7);
+
+      const npResult = runNumPy(`
+arr = np.zeros((3, 3))
+arr.fill(7)
+result = arr
+`);
+
+      expect(arr.shape).toEqual(npResult.shape);
+      expect(arraysClose(arr.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates fill with negative', () => {
+      const arr = zeros([2, 4]);
+      fill(arr, -5.5);
+
+      const npResult = runNumPy(`
+arr = np.zeros((2, 4))
+arr.fill(-5.5)
+result = arr
+`);
+
+      expect(arr.shape).toEqual(npResult.shape);
+      expect(arraysClose(arr.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  // ========================================
+  // item
+  // ========================================
+  describe('item()', () => {
+    it('validates item from scalar-like', () => {
+      const arr = array([42]);
+      const result = item(arr);
+
+      const npResult = runNumPy(`result = np.array([42]).item()`);
+
+      expect(result).toBe(npResult.value);
+    });
+
+    it('validates item with index', () => {
+      const arr = array([1, 2, 3, 4, 5]);
+      const result = item(arr, 2);
+
+      const npResult = runNumPy(`result = np.array([1, 2, 3, 4, 5]).item(2)`);
+
+      expect(result).toBe(npResult.value);
+    });
+
+    it('validates item from 2D with flat index', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = item(arr, 4);
+
+      const npResult = runNumPy(`result = np.array([[1, 2, 3], [4, 5, 6]]).item(4)`);
+
+      expect(result).toBe(npResult.value);
+    });
+  });
+
+  // ========================================
+  // tolist
+  // ========================================
+  describe('tolist()', () => {
+    it('validates tolist 1D', () => {
+      const arr = array([1, 2, 3, 4, 5]);
+      const result = tolist(arr);
+
+      const npResult = runNumPy(`result = np.array([1, 2, 3, 4, 5]).tolist()`);
+
+      expect(result).toEqual(npResult.value);
+    });
+
+    it('validates tolist 2D', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = tolist(arr);
+
+      const npResult = runNumPy(`result = np.array([[1, 2, 3], [4, 5, 6]]).tolist()`);
+
+      expect(result).toEqual(npResult.value);
+    });
+
+    it('validates tolist 3D', () => {
+      const arr = arange(0, 8).reshape([2, 2, 2]);
+      const result = tolist(arr);
+
+      const npResult = runNumPy(`result = np.arange(8).reshape(2, 2, 2).tolist()`);
+
+      expect(result).toEqual(npResult.value);
     });
   });
 });
