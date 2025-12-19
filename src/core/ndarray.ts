@@ -1421,6 +1421,30 @@ export class NDArray {
   }
 
   /**
+   * Compute the q-th quantile of the data along the specified axis, ignoring NaNs
+   * @param q - Quantile to compute (0-1)
+   * @param axis - Axis along which to compute quantile. If undefined, compute over all elements.
+   * @param keepdims - If true, reduced axes are left as dimensions with size 1
+   * @returns Quantile of array elements ignoring NaNs
+   */
+  nanquantile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
+    const result = reductionOps.nanquantile(this._storage, q, axis, keepdims);
+    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  }
+
+  /**
+   * Compute the q-th percentile of the data along the specified axis, ignoring NaNs
+   * @param q - Percentile to compute (0-100)
+   * @param axis - Axis along which to compute percentile. If undefined, compute over all elements.
+   * @param keepdims - If true, reduced axes are left as dimensions with size 1
+   * @returns Percentile of array elements ignoring NaNs
+   */
+  nanpercentile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
+    const result = reductionOps.nanpercentile(this._storage, q, axis, keepdims);
+    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+  }
+
+  /**
    * Return the indices of the minimum values, ignoring NaNs
    * @param axis - Axis along which to find minimum indices. If undefined, index of global minimum.
    * @returns Indices of minimum values ignoring NaNs

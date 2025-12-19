@@ -1542,6 +1542,7 @@ export function unstack(storage: ArrayStorage, axis: number = 0): ArrayStorage[]
 
 /**
  * Assemble an nd-array from nested lists of blocks
+ * For a simple list [a, b] of nD arrays, concatenates along the last axis (like np.block)
  */
 export function block(storages: ArrayStorage[], depth: number = 1): ArrayStorage {
   if (storages.length === 0) {
@@ -1550,9 +1551,8 @@ export function block(storages: ArrayStorage[], depth: number = 1): ArrayStorage
   if (storages.length === 1) {
     return storages[0]!.copy();
   }
-  if (depth === 1) {
-    return concatenate(storages, 0);
-  }
+  // np.block([a, b]) for nD arrays concatenates along the last axis (-1)
+  // This matches NumPy's behavior where a flat list of arrays is joined horizontally
   return concatenate(storages, -1);
 }
 
