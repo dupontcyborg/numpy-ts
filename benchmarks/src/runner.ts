@@ -420,6 +420,17 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.nanmin(arrays['a']);
   } else if (operation === 'nanmax') {
     return np.nanmax(arrays['a']);
+  } else if (operation === 'nanquantile') {
+    return np.nanquantile(arrays['a'], 0.5);
+  } else if (operation === 'nanpercentile') {
+    return np.nanpercentile(arrays['a'], 50);
+  }
+
+  // Array creation - extra
+  else if (operation === 'asarray_chkfinite') {
+    return np.asarray_chkfinite(arrays['a']);
+  } else if (operation === 'require') {
+    return np.require(arrays['a'], undefined, 'C');
   }
 
   // Reshape
@@ -465,6 +476,16 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.roll(arrays['a'], 10);
   } else if (operation === 'pad') {
     return np.pad(arrays['a'], 2);
+  } else if (operation === 'concat') {
+    return np.concat([arrays['a'], arrays['b']], 0);
+  } else if (operation === 'unstack') {
+    return np.unstack(arrays['a'], 0);
+  } else if (operation === 'block') {
+    return np.block([arrays['a'], arrays['b']]);
+  } else if (operation === 'item') {
+    return np.item(arrays['a'], 0);
+  } else if (operation === 'tolist') {
+    return np.tolist(arrays['a']);
   }
 
   // New creation functions

@@ -34,6 +34,8 @@ import {
   asfortranarray,
   fromstring,
   fromiter,
+  asarray_chkfinite,
+  require,
 } from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1002,6 +1004,93 @@ result = [x.tolist(), y.tolist(), z.tolist()]
     it('matches NumPy with count limit', () => {
       const jsResult = fromiter([1, 2, 3, 4, 5], 'float64', 3);
       const pyResult = runNumPy('result = np.fromiter([1, 2, 3, 4, 5], dtype=float, count=3)');
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+  });
+
+  describe('asarray_chkfinite', () => {
+    it('matches NumPy for valid array (no NaN/Inf)', () => {
+      const jsResult = asarray_chkfinite([1, 2, 3, 4, 5]);
+      const pyResult = runNumPy('result = np.asarray_chkfinite([1, 2, 3, 4, 5])');
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+
+    it('matches NumPy for 2D valid array', () => {
+      const jsResult = asarray_chkfinite([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const pyResult = runNumPy('result = np.asarray_chkfinite([[1, 2, 3], [4, 5, 6]])');
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+
+    it('throws like NumPy for array with NaN', () => {
+      expect(() => asarray_chkfinite([1, 2, NaN, 4])).toThrow();
+      // NumPy also throws: np.asarray_chkfinite([1, 2, np.nan, 4])
+    });
+
+    it('throws like NumPy for array with Infinity', () => {
+      expect(() => asarray_chkfinite([1, 2, Infinity, 4])).toThrow();
+      // NumPy also throws: np.asarray_chkfinite([1, 2, np.inf, 4])
+    });
+
+    it('throws like NumPy for array with -Infinity', () => {
+      expect(() => asarray_chkfinite([1, -Infinity, 3])).toThrow();
+      // NumPy also throws: np.asarray_chkfinite([1, -np.inf, 3])
+    });
+  });
+
+  describe('require', () => {
+    it('matches NumPy for C-contiguous requirement', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const jsResult = require(arr, undefined, 'C');
+      const pyResult = runNumPy(
+        "result = np.require(np.array([[1, 2, 3], [4, 5, 6]]), requirements='C')"
+      );
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+
+    it('matches NumPy for writeable requirement', () => {
+      const arr = array([1, 2, 3, 4, 5]);
+      const jsResult = require(arr, undefined, 'W');
+      const pyResult = runNumPy("result = np.require(np.array([1, 2, 3, 4, 5]), requirements='W')");
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+
+    it('matches NumPy for dtype conversion', () => {
+      const arr = array([1, 2, 3], 'int32');
+      const jsResult = require(arr, 'float64');
+      const pyResult = runNumPy(
+        'result = np.require(np.array([1, 2, 3], dtype=np.int32), dtype=np.float64)'
+      );
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.dtype).toBe(pyResult.dtype);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('matches NumPy for multiple requirements', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = require(arr, undefined, ['C', 'W']);
+      const pyResult = runNumPy(
+        "result = np.require(np.array([[1, 2], [3, 4]]), requirements=['C', 'W'])"
+      );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
       expect(jsResult.toArray()).toEqual(pyResult.value);

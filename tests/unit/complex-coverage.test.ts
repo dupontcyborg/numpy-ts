@@ -194,6 +194,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   nancumsum: 'supported',
   nancumprod: 'supported',
   nanmedian: 'unsupported', // no natural ordering for complex
+  nanquantile: 'unsupported', // no natural ordering for complex
+  nanpercentile: 'unsupported', // no natural ordering for complex
 
   // Sorting (uses lexicographic ordering for complex)
   sort: 'supported',
@@ -288,7 +290,9 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   full: 'skip',
   identity: 'skip',
   asarray: 'skip',
+  asarray_chkfinite: 'skip',
   copy: 'skip',
+  require: 'skip',
   zeros_like: 'skip',
   ones_like: 'skip',
   empty_like: 'skip',
@@ -317,6 +321,9 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   vstack: 'skip',
   hstack: 'skip',
   dstack: 'skip',
+  concat: 'skip',
+  unstack: 'skip',
+  block: 'skip',
   split: 'skip',
   array_split: 'skip',
   vsplit: 'skip',
@@ -324,6 +331,14 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   tile: 'skip',
   repeat: 'skip',
   ravel: 'skip',
+  flatten: 'skip',
+  fill: 'skip',
+  item: 'skip',
+  tolist: 'skip',
+  tobytes: 'skip',
+  byteswap: 'skip',
+  view: 'skip',
+  tofile: 'skip',
   reshape: 'skip',
   squeeze: 'skip',
   expand_dims: 'skip',

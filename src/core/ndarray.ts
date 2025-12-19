@@ -2054,6 +2054,139 @@ export class NDArray {
 
     return buildNestedArray(new Array(ndim), 0);
   }
+
+  /**
+   * Return the array as a nested list (same as toArray)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tolist(): any {
+    return this.toArray();
+  }
+
+  /**
+   * Return the raw bytes of the array data
+   */
+  tobytes(): ArrayBuffer {
+    if (this._storage.isCContiguous) {
+      const data = this._storage.data;
+      const bytesPerElement = data.BYTES_PER_ELEMENT;
+      const offset = this._storage.offset * bytesPerElement;
+      const length = this.size * bytesPerElement;
+      return data.buffer.slice(offset, offset + length) as ArrayBuffer;
+    }
+    const copy = this.copy();
+    const data = copy._storage.data;
+    return data.buffer.slice(0, this.size * data.BYTES_PER_ELEMENT) as ArrayBuffer;
+  }
+
+  /**
+   * Copy an element of an array to a standard scalar and return it
+   */
+  item(...args: number[]): number | bigint | Complex {
+    if (args.length === 0) {
+      if (this.size !== 1) {
+        throw new Error('can only convert an array of size 1 to a Python scalar');
+      }
+      return this._storage.iget(0);
+    }
+    if (args.length === 1) {
+      const flatIdx = args[0]!;
+      if (flatIdx < 0 || flatIdx >= this.size) {
+        throw new Error(`index ${flatIdx} is out of bounds for size ${this.size}`);
+      }
+      return this._storage.iget(flatIdx);
+    }
+    return this.get(args);
+  }
+
+  /**
+   * Swap the bytes of the array elements
+   */
+  byteswap(inplace: boolean = false): NDArray {
+    const target = inplace ? this : this.copy();
+    const data = target._storage.data;
+    const bytesPerElement = data.BYTES_PER_ELEMENT;
+    if (bytesPerElement === 1) return target;
+
+    const buffer = data.buffer;
+    const view = new DataView(buffer);
+
+    for (let i = 0; i < data.length; i++) {
+      const byteOffset = i * bytesPerElement;
+      if (bytesPerElement === 2) {
+        const b0 = view.getUint8(byteOffset);
+        const b1 = view.getUint8(byteOffset + 1);
+        view.setUint8(byteOffset, b1);
+        view.setUint8(byteOffset + 1, b0);
+      } else if (bytesPerElement === 4) {
+        const b0 = view.getUint8(byteOffset);
+        const b1 = view.getUint8(byteOffset + 1);
+        const b2 = view.getUint8(byteOffset + 2);
+        const b3 = view.getUint8(byteOffset + 3);
+        view.setUint8(byteOffset, b3);
+        view.setUint8(byteOffset + 1, b2);
+        view.setUint8(byteOffset + 2, b1);
+        view.setUint8(byteOffset + 3, b0);
+      } else if (bytesPerElement === 8) {
+        const b0 = view.getUint8(byteOffset);
+        const b1 = view.getUint8(byteOffset + 1);
+        const b2 = view.getUint8(byteOffset + 2);
+        const b3 = view.getUint8(byteOffset + 3);
+        const b4 = view.getUint8(byteOffset + 4);
+        const b5 = view.getUint8(byteOffset + 5);
+        const b6 = view.getUint8(byteOffset + 6);
+        const b7 = view.getUint8(byteOffset + 7);
+        view.setUint8(byteOffset, b7);
+        view.setUint8(byteOffset + 1, b6);
+        view.setUint8(byteOffset + 2, b5);
+        view.setUint8(byteOffset + 3, b4);
+        view.setUint8(byteOffset + 4, b3);
+        view.setUint8(byteOffset + 5, b2);
+        view.setUint8(byteOffset + 6, b1);
+        view.setUint8(byteOffset + 7, b0);
+      }
+    }
+    return target;
+  }
+
+  /**
+   * Return a view of the array with a different dtype
+   */
+  view(dtype?: DType): NDArray {
+    if (!dtype || dtype === this.dtype) {
+      return NDArray._fromStorage(this._storage, this._base ?? this);
+    }
+    const oldSize = getDTypeSize(this.dtype as DType);
+    const newSize = getDTypeSize(dtype);
+    if (oldSize !== newSize) {
+      throw new Error(
+        'When changing to a larger dtype, its size must be a divisor of the total size in bytes of the last axis of the array.'
+      );
+    }
+    const Constructor = getTypedArrayConstructor(dtype);
+    if (!Constructor) throw new Error(`Unsupported dtype: ${dtype}`);
+    const data = this._storage.data;
+    const byteOffset = data.byteOffset + this._storage.offset * oldSize;
+    const newData = new Constructor(data.buffer as ArrayBuffer, byteOffset, this.size);
+    const storage = ArrayStorage.fromData(
+      newData as TypedArray,
+      [...this.shape],
+      dtype,
+      [...this._storage.strides],
+      0
+    );
+    return NDArray._fromStorage(storage, this._base ?? this);
+  }
+
+  /**
+   * Write array to a file (stub - use node.ts module for file operations)
+   */
+
+  tofile(_file: string, _sep: string = '', _format: string = ''): void {
+    throw new Error(
+      'tofile() requires file system access. Use the node module: import { save } from "numpy-ts/node"'
+    );
+  }
 }
 
 // Creation functions
@@ -2574,6 +2707,67 @@ export function asarray(a: NDArray | any, dtype?: DType): NDArray {
     return a.astype(dtype);
   }
   return array(a, dtype);
+}
+
+/**
+ * Convert input to an array, checking for NaN and Inf values.
+ * @param a - Input data
+ * @param dtype - Data type (optional)
+ * @returns NDArray
+ * @throws If array contains NaN or Inf values
+ */
+export function asarray_chkfinite(a: NDArray | any, dtype?: DType): NDArray {
+  const arr = asarray(a, dtype);
+  for (let i = 0; i < arr.size; i++) {
+    if (!isFinite(Number(arr.data[i]))) {
+      throw new Error('array must not contain infs or NaNs');
+    }
+  }
+  return arr;
+}
+
+/**
+ * Return array satisfying requirements.
+ * @param a - Input array
+ * @param dtype - Data type (optional)
+ * @param requirements - Requirements ('C', 'F', 'A', 'W', 'O', 'E') (optional)
+ * @returns Array satisfying requirements
+ */
+export function require(a: NDArray, dtype?: DType, requirements?: string | string[]): NDArray {
+  // Parse requirements
+  const reqs = Array.isArray(requirements) ? requirements : requirements ? [requirements] : [];
+
+  // Normalize requirement strings
+  const normalizedReqs = new Set(
+    reqs.map((r) => {
+      const upper = r.toUpperCase();
+      // Map common requirement aliases
+      if (upper === 'C_CONTIGUOUS' || upper === 'CONTIGUOUS') return 'C';
+      if (upper === 'F_CONTIGUOUS' || upper === 'FORTRAN') return 'F';
+      if (upper === 'WRITEABLE') return 'W';
+      if (upper === 'ENSUREARRAY') return 'E';
+      if (upper === 'OWNDATA') return 'O';
+      return upper;
+    })
+  );
+
+  // Handle dtype conversion if needed
+  let result = a;
+  if (dtype && a.dtype !== dtype) {
+    result = a.astype(dtype);
+  }
+
+  // For most requirements, we return a copy (which satisfies C_CONTIGUOUS, WRITEABLE, OWNDATA)
+  if (normalizedReqs.has('C') || normalizedReqs.has('W') || normalizedReqs.has('O')) {
+    if (result === a) {
+      result = a.copy();
+    }
+  }
+
+  // F_CONTIGUOUS would require a special layout - for now just return the copy
+  // (JavaScript arrays are inherently row-major like C)
+
+  return result;
 }
 
 /**
@@ -3761,6 +3955,30 @@ export function dstack(arrays: NDArray[]): NDArray {
 }
 
 /**
+ * Join a sequence of arrays along an existing axis (alias for concatenate)
+ */
+export function concat(arrays: NDArray[], axis: number = 0): NDArray {
+  return concatenate(arrays, axis);
+}
+
+/**
+ * Split an array into a sequence of sub-arrays along an axis (inverse of stack)
+ */
+export function unstack(a: NDArray, axis: number = 0): NDArray[] {
+  const storages = shapeOps.unstack(a.storage, axis);
+  return storages.map((s) => NDArray._fromStorage(s));
+}
+
+/**
+ * Assemble an nd-array from nested lists of blocks
+ */
+export function block(arrays: NDArray[]): NDArray {
+  const storages = arrays.map((a) => a.storage);
+  const resultStorage = shapeOps.block(storages);
+  return NDArray._fromStorage(resultStorage);
+}
+
+/**
  * Split array into multiple sub-arrays
  *
  * @param a - Array to split
@@ -3850,6 +4068,63 @@ export function repeat(a: NDArray, repeats: number | number[], axis?: number): N
  */
 export function ravel(a: NDArray): NDArray {
   return a.ravel();
+}
+
+/**
+ * Return a copy of the array collapsed into one dimension
+ */
+export function flatten(a: NDArray): NDArray {
+  return a.flatten();
+}
+
+/**
+ * Fill the array with a scalar value (in-place)
+ */
+export function fill(a: NDArray, value: number | bigint): void {
+  a.fill(value);
+}
+
+/**
+ * Copy an element of an array to a standard scalar and return it
+ */
+export function item(a: NDArray, ...args: number[]): number | bigint | Complex {
+  return a.item(...args);
+}
+
+/**
+ * Return the array as a nested list
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function tolist(a: NDArray): any {
+  return a.tolist();
+}
+
+/**
+ * Return the raw bytes of the array data
+ */
+export function tobytes(a: NDArray): ArrayBuffer {
+  return a.tobytes();
+}
+
+/**
+ * Swap the bytes of the array elements
+ */
+export function byteswap(a: NDArray, inplace: boolean = false): NDArray {
+  return a.byteswap(inplace);
+}
+
+/**
+ * New view of array with the same data
+ */
+export function view(a: NDArray, dtype?: DType): NDArray {
+  return a.view(dtype);
+}
+
+/**
+ * Write array to a file as text or binary
+ */
+export function tofile(a: NDArray, file: string, sep: string = '', format: string = ''): void {
+  a.tofile(file, sep, format);
 }
 
 /**
@@ -4969,6 +5244,32 @@ export function nancumprod(a: NDArray, axis?: number): NDArray {
  */
 export function nanmedian(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | number {
   const result = reductionOps.nanmedian(a.storage, axis, keepdims);
+  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+}
+
+/**
+ * Compute the q-th quantile of data along specified axis, ignoring NaNs
+ */
+export function nanquantile(
+  a: NDArray,
+  q: number,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number {
+  const result = reductionOps.nanquantile(a.storage, q, axis, keepdims);
+  return typeof result === 'number' ? result : NDArray._fromStorage(result);
+}
+
+/**
+ * Compute the q-th percentile of data along specified axis, ignoring NaNs
+ */
+export function nanpercentile(
+  a: NDArray,
+  q: number,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number {
+  const result = reductionOps.nanpercentile(a.storage, q, axis, keepdims);
   return typeof result === 'number' ? result : NDArray._fromStorage(result);
 }
 

@@ -199,6 +199,28 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    specs.push({
+      name: `asarray_chkfinite [${sizes.medium.join('x')}]`,
+      category: 'creation',
+      operation: 'asarray_chkfinite',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `require [${sizes.medium.join('x')}]`,
+      category: 'creation',
+      operation: 'require',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   // ========================================
@@ -1026,6 +1048,28 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    specs.push({
+      name: `nanquantile [${sizes.medium.join('x')}]`,
+      category: 'reductions',
+      operation: 'nanquantile',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `nanpercentile [${sizes.medium.join('x')}]`,
+      category: 'reductions',
+      operation: 'nanpercentile',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
   }
 
   // ========================================
@@ -1173,6 +1217,63 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       setup: {
         a: { shape: [m!, n!], fill: 'arange' },
         indices: { shape: Array.from({ length: 100 }, (_, i) => i % (m! * n!)) },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `concat [${m}x${n}] + [${m}x${n}]`,
+      category: 'manipulation',
+      operation: 'concat',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange' },
+        b: { shape: [m!, n!], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `unstack [${m}x${n}]`,
+      category: 'manipulation',
+      operation: 'unstack',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `block [${m}x${n}] + [${m}x${n}]`,
+      category: 'manipulation',
+      operation: 'block',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange' },
+        b: { shape: [m!, n!], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `item [${m}x${n}]`,
+      category: 'manipulation',
+      operation: 'item',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `tolist [${m}x${n}]`,
+      category: 'manipulation',
+      operation: 'tolist',
+      setup: {
+        a: { shape: [m!, n!], fill: 'arange' },
       },
       iterations,
       warmup,
