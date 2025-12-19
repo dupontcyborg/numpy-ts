@@ -74,6 +74,15 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string):
     return numpytsResult === numpyResult;
   }
 
+  // Both lists of arrays (e.g., from unstack)
+  if (Array.isArray(numpytsResult) && Array.isArray(numpyResult)) {
+    if (numpytsResult.length !== numpyResult.length) {
+      return false;
+    }
+    // Compare each array in the list
+    return numpytsResult.every((tsArr: any, i: number) => resultsMatch(tsArr, numpyResult[i], operation));
+  }
+
   // Both arrays (both should be {shape, data} format at this point)
   if (numpytsResult?.shape && numpyResult?.shape) {
     // Check shapes match
@@ -399,6 +408,16 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.nanmin(arrays.a);
     case 'nanmax':
       return np.nanmax(arrays.a);
+    case 'nanquantile':
+      return np.nanquantile(arrays.a, 0.5);
+    case 'nanpercentile':
+      return np.nanpercentile(arrays.a, 50);
+
+    // Array creation - extra
+    case 'asarray_chkfinite':
+      return np.asarray_chkfinite(arrays.a);
+    case 'require':
+      return np.require(arrays.a, undefined, 'C');
 
     // Reshape
     case 'reshape':
@@ -423,6 +442,16 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.tile(arrays.a, [2, 2]);
     case 'repeat':
       return arrays.a.repeat(2);
+    case 'concat':
+      return np.concat([arrays.a, arrays.b], 0);
+    case 'unstack':
+      return np.unstack(arrays.a, 0);
+    case 'block':
+      return np.block([arrays.a, arrays.b]);
+    case 'item':
+      return np.item(arrays.a, 0);
+    case 'tolist':
+      return np.tolist(arrays.a);
 
     // Advanced
     case 'broadcast_to':
@@ -801,6 +830,12 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
             } else if (numpytsResult && typeof numpytsResult === 'object' && 're' in numpytsResult && 'im' in numpytsResult) {
               // It's a Complex scalar result - convert to real
               tsValue = numpytsResult.re;
+            } else if (Array.isArray(numpytsResult) && numpytsResult.length > 0 && numpytsResult[0] && 'shape' in numpytsResult[0]) {
+              // It's a list of NDArrays (e.g., from unstack)
+              tsValue = numpytsResult.map((arr: any) => ({
+                shape: Array.from(arr.shape),
+                data: complexToReal(arr.toArray()),
+              }));
             } else if (
               numpytsResult &&
               typeof numpytsResult === 'object' &&

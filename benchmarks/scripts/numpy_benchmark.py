@@ -342,6 +342,16 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.nanmin(arrays["a"])
     elif operation == "nanmax":
         return np.nanmax(arrays["a"])
+    elif operation == "nanquantile":
+        return np.nanquantile(arrays["a"], 0.5)
+    elif operation == "nanpercentile":
+        return np.nanpercentile(arrays["a"], 50)
+
+    # Array creation - extra
+    elif operation == "asarray_chkfinite":
+        return np.asarray_chkfinite(arrays["a"])
+    elif operation == "require":
+        return np.require(arrays["a"], requirements='C')
 
     # Reshape
     elif operation == "reshape":
@@ -372,6 +382,16 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.tile(arrays["a"], [2, 2])
     elif operation == "repeat":
         return np.repeat(arrays["a"], 2)
+    elif operation == "concat":
+        return np.concatenate([arrays["a"], arrays["b"]], axis=0)
+    elif operation == "unstack":
+        return [arr for arr in arrays["a"]]
+    elif operation == "block":
+        return np.block([arrays["a"], arrays["b"]])
+    elif operation == "item":
+        return arrays["a"].item(0)
+    elif operation == "tolist":
+        return arrays["a"].tolist()
 
     # Advanced
     elif operation == "broadcast_to":

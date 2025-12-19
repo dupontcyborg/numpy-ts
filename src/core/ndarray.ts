@@ -2740,7 +2740,7 @@ export function asarray(a: NDArray | any, dtype?: DType): NDArray {
  * @returns NDArray
  * @throws If array contains NaN or Inf values
  */
-export function asarray_chkfinite(a: NDArray | any, dtype?: DType): NDArray {
+export function asarray_chkfinite(a: NDArray | ArrayLike<number | bigint>, dtype?: DType): NDArray {
   const arr = asarray(a, dtype);
   for (let i = 0; i < arr.size; i++) {
     if (!isFinite(Number(arr.data[i]))) {

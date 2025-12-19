@@ -312,6 +312,17 @@ def run_operation(spec):
         result = np.nanmin(arrays["a"])
     elif operation == "nanmax":
         result = np.nanmax(arrays["a"])
+    elif operation == "nanquantile":
+        result = np.nanquantile(arrays["a"], 0.5)
+    elif operation == "nanpercentile":
+        result = np.nanpercentile(arrays["a"], 50)
+
+    # Array creation - extra
+    elif operation == "asarray_chkfinite":
+        result = np.asarray_chkfinite(arrays["a"])
+    elif operation == "require":
+        # np.require with 'C' requirement returns a C-contiguous array
+        result = np.require(arrays["a"], requirements='C')
 
     # Reshape
     elif operation == "reshape":
@@ -336,6 +347,25 @@ def run_operation(spec):
         result = np.tile(arrays["a"], [2, 2])
     elif operation == "repeat":
         result = np.repeat(arrays["a"], 2)
+    elif operation == "concat":
+        # NumPy's concat is np.concatenate
+        result = np.concatenate([arrays["a"], arrays["b"]], axis=0)
+    elif operation == "unstack":
+        # Unstack splits along the specified axis (default 0)
+        # Return list of arrays, but for validation we'll return the stacked result
+        # since comparing lists of arrays is complex
+        result = [arr for arr in arrays["a"]]
+        # Return as a list - validation will handle this specially
+        result = result
+    elif operation == "block":
+        # np.block assembles from nested lists
+        result = np.block([arrays["a"], arrays["b"]])
+    elif operation == "item":
+        # Extract scalar at given index
+        result = arrays["a"].item(0)
+    elif operation == "tolist":
+        # Convert array to nested Python list
+        result = arrays["a"].tolist()
 
     # Advanced
     elif operation == "broadcast_to":
@@ -558,7 +588,10 @@ def run_operation(spec):
         raise ValueError(f"Unknown operation: {operation}")
 
     # Convert result to JSON-serializable format
-    if isinstance(result, np.ndarray):
+    if isinstance(result, list) and len(result) > 0 and isinstance(result[0], np.ndarray):
+        # Handle list of arrays (e.g., from unstack)
+        return [{"shape": list(arr.shape), "data": arr.tolist()} for arr in result]
+    elif isinstance(result, np.ndarray):
         # Handle complex arrays by converting to real
         if np.iscomplexobj(result):
             result = result.real

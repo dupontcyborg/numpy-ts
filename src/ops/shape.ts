@@ -1544,7 +1544,7 @@ export function unstack(storage: ArrayStorage, axis: number = 0): ArrayStorage[]
  * Assemble an nd-array from nested lists of blocks
  * For a simple list [a, b] of nD arrays, concatenates along the last axis (like np.block)
  */
-export function block(storages: ArrayStorage[], depth: number = 1): ArrayStorage {
+export function block(storages: ArrayStorage[], _depth: number = 1): ArrayStorage {
   if (storages.length === 0) {
     throw new Error('need at least one array to block');
   }
