@@ -15,6 +15,12 @@ import {
   kron,
   einsum,
   linalg,
+  vdot,
+  vecdot,
+  matrix_transpose,
+  permute_dims,
+  matvec,
+  vecmat,
 } from '../../src';
 
 describe('Linear Algebra Operations', () => {
@@ -1430,6 +1436,399 @@ describe('numpy.linalg Module', () => {
 
       // Check shape is transposed
       expect(pinv.shape).toEqual([2, 3]);
+    });
+  });
+
+  describe('linalg.diagonal()', () => {
+    it('extracts main diagonal from square matrix', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const result = linalg.diagonal(a);
+
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([1, 5, 9]);
+    });
+
+    it('extracts off-diagonal with offset', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const result = linalg.diagonal(a, 1);
+
+      expect(result.shape).toEqual([2]);
+      expect(result.toArray()).toEqual([2, 6]);
+    });
+  });
+
+  describe('linalg.matmul()', () => {
+    it('computes matrix multiplication', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const result = linalg.matmul(a, b);
+
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.toArray()).toEqual([
+        [19, 22],
+        [43, 50],
+      ]);
+    });
+  });
+
+  describe('linalg.matrix_transpose()', () => {
+    it('transposes 2D matrix', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = linalg.matrix_transpose(a);
+
+      expect(result.shape).toEqual([3, 2]);
+      expect(result.toArray()).toEqual([
+        [1, 4],
+        [2, 5],
+        [3, 6],
+      ]);
+    });
+
+    it('transposes 3D array (swaps last two axes)', () => {
+      const a = array([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        [
+          [5, 6],
+          [7, 8],
+        ],
+      ]);
+      const result = linalg.matrix_transpose(a);
+
+      expect(result.shape).toEqual([2, 2, 2]);
+      expect(result.get([0, 0, 0])).toBe(1);
+      expect(result.get([0, 0, 1])).toBe(3);
+      expect(result.get([0, 1, 0])).toBe(2);
+      expect(result.get([0, 1, 1])).toBe(4);
+    });
+  });
+
+  describe('linalg.multi_dot()', () => {
+    it('computes dot product of 2 matrices', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const result = linalg.multi_dot([a, b]);
+
+      expect(result.toArray()).toEqual([
+        [19, 22],
+        [43, 50],
+      ]);
+    });
+
+    it('computes dot product of 3 matrices', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const c = array([
+        [1, 0],
+        [0, 1],
+      ]);
+      const result = linalg.multi_dot([a, b, c]);
+
+      expect(result.toArray()).toEqual([
+        [19, 22],
+        [43, 50],
+      ]);
+    });
+  });
+
+  describe('linalg.outer()', () => {
+    it('computes outer product of two vectors', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5]);
+      const result = linalg.outer(a, b);
+
+      expect(result.shape).toEqual([3, 2]);
+      expect(result.toArray()).toEqual([
+        [4, 5],
+        [8, 10],
+        [12, 15],
+      ]);
+    });
+  });
+
+  describe('linalg.slogdet()', () => {
+    it('computes sign and log determinant', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = linalg.slogdet(a);
+
+      expect(result.sign).toBe(-1);
+      // det = -2, so logabsdet = log(2)
+      expect(result.logabsdet).toBeCloseTo(Math.log(2), 10);
+    });
+
+    it('handles positive determinant', () => {
+      const a = array([
+        [2, 0],
+        [0, 3],
+      ]);
+      const result = linalg.slogdet(a);
+
+      expect(result.sign).toBe(1);
+      expect(result.logabsdet).toBeCloseTo(Math.log(6), 10);
+    });
+  });
+
+  describe('linalg.svdvals()', () => {
+    it('computes singular values', () => {
+      const a = array([
+        [1, 0],
+        [0, 2],
+      ]);
+      const result = linalg.svdvals(a);
+
+      expect(result.shape).toEqual([2]);
+      // Singular values should be 2 and 1 (sorted descending)
+      expect(Number(result.get([0]))).toBeCloseTo(2, 5);
+      expect(Number(result.get([1]))).toBeCloseTo(1, 5);
+    });
+  });
+
+  describe('linalg.tensordot()', () => {
+    it('computes tensor dot product', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const result = linalg.tensordot(a, b, 1) as any;
+
+      expect(result.shape).toEqual([2, 2]);
+    });
+  });
+
+  describe('linalg.tensorinv()', () => {
+    it('computes tensor inverse for 4D array', () => {
+      // Create a proper invertible 4D array: identity when reshaped to 4x4
+      // Shape is [2,2,2,2], reshaped to [4,4] should be identity
+      const eyeData = [];
+      for (let i = 0; i < 2; i++) {
+        const row = [];
+        for (let j = 0; j < 2; j++) {
+          const subrow = [];
+          for (let k = 0; k < 2; k++) {
+            const subcol = [];
+            for (let l = 0; l < 2; l++) {
+              // Identity: (i*2+j) == (k*2+l) ? 1 : 0
+              subcol.push(i * 2 + j === k * 2 + l ? 1 : 0);
+            }
+            subrow.push(subcol);
+          }
+          row.push(subrow);
+        }
+        eyeData.push(row);
+      }
+      const a = array(eyeData);
+      const result = linalg.tensorinv(a);
+
+      expect(result.shape).toEqual([2, 2, 2, 2]);
+    });
+  });
+
+  describe('linalg.tensorsolve()', () => {
+    it('solves tensor equation', () => {
+      // Create identity-like 4D tensor for solvable system
+      const eyeData = [];
+      for (let i = 0; i < 2; i++) {
+        const row = [];
+        for (let j = 0; j < 2; j++) {
+          const subrow = [];
+          for (let k = 0; k < 2; k++) {
+            const subcol = [];
+            for (let l = 0; l < 2; l++) {
+              subcol.push(i * 2 + j === k * 2 + l ? 1 : 0);
+            }
+            subrow.push(subcol);
+          }
+          row.push(subrow);
+        }
+        eyeData.push(row);
+      }
+      const a = array(eyeData);
+      const b = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = linalg.tensorsolve(a, b);
+
+      expect(result.shape).toEqual([2, 2]);
+      // For identity tensor, solution should equal b
+      expect(result.toArray()).toEqual([
+        [1, 2],
+        [3, 4],
+      ]);
+    });
+  });
+
+  describe('linalg.trace()', () => {
+    it('computes sum of diagonal elements', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const result = linalg.trace(a);
+
+      expect(result).toBe(15); // 1 + 5 + 9
+    });
+  });
+
+  describe('linalg.vecdot()', () => {
+    it('computes vector dot product of 1D arrays', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const result = linalg.vecdot(a, b);
+
+      expect(result).toBe(32); // 1*4 + 2*5 + 3*6
+    });
+
+    it('computes vector dot product of 2D arrays', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const b = array([
+        [1, 1, 1],
+        [2, 2, 2],
+      ]);
+      const result = linalg.vecdot(a, b) as any;
+
+      expect(result.shape).toEqual([2]);
+      expect(result.toArray()).toEqual([6, 30]); // [1+2+3, 8+10+12]
+    });
+  });
+});
+
+describe('Top-level Linear Algebra Functions', () => {
+  describe('vdot()', () => {
+    it('computes dot product of flattened arrays', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const result = vdot(a, b);
+
+      expect(result).toBe(32); // 1*4 + 2*5 + 3*6
+    });
+
+    it('flattens multi-dimensional arrays', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [1, 1],
+        [1, 1],
+      ]);
+      const result = vdot(a, b);
+
+      expect(result).toBe(10); // 1+2+3+4
+    });
+  });
+
+  describe('vecdot()', () => {
+    it('computes vector dot product', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const result = vecdot(a, b);
+
+      expect(result).toBe(32);
+    });
+  });
+
+  describe('matrix_transpose()', () => {
+    it('transposes 2D matrix', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = matrix_transpose(a);
+
+      expect(result.shape).toEqual([3, 2]);
+      expect(result.toArray()).toEqual([
+        [1, 4],
+        [2, 5],
+        [3, 6],
+      ]);
+    });
+  });
+
+  describe('permute_dims()', () => {
+    it('permutes array dimensions', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = permute_dims(a, [1, 0]);
+
+      expect(result.shape).toEqual([3, 2]);
+      expect(result.toArray()).toEqual([
+        [1, 4],
+        [2, 5],
+        [3, 6],
+      ]);
+    });
+  });
+
+  describe('matvec()', () => {
+    it('computes matrix-vector product', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const b = array([1, 1, 1]);
+      const result = matvec(a, b);
+
+      expect(result.shape).toEqual([2]);
+      expect(result.toArray()).toEqual([6, 15]); // [1+2+3, 4+5+6]
+    });
+  });
+
+  describe('vecmat()', () => {
+    it('computes vector-matrix product', () => {
+      const a = array([1, 1]);
+      const b = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = vecmat(a, b);
+
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([5, 7, 9]); // [1+4, 2+5, 3+6]
     });
   });
 });

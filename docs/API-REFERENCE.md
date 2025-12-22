@@ -2,14 +2,14 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-19
+**Last Updated**: 2025-12-22
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 349/507 (68.8%)
-- **Top-level Functions**: 342/507 (63.9%)
+- **Overall Coverage**: 366/505 (72.5%)
+- **Top-level Functions**: 360/505 (67.5%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -23,6 +23,8 @@ Based on `npm run compare-api`:
 - Hyperbolic (9/9)
 - I/O (8/8)
 - Indexing (21/21)
+- Linear Algebra (15/15)
+- Linear Algebra (linalg) (31/31)
 - Logic (24/24)
 - Reductions (36/36)
 - Rounding (7/7)
@@ -33,14 +35,12 @@ Based on `npm run compare-api`:
 ### Incomplete Categories
 - Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
-- Linear Algebra (9/15) - 60.0%
-- Linear Algebra (linalg) (19/31) - 61.3%
 - NDArray Methods (40/53) - 75.5%
 - Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Set Operations (7/12) - 58.3%
-- Statistics (9/12) - 75.0%
+- Set Operations (6/11) - 54.5%
+- Statistics (9/11) - 81.8%
 - String/Formatting (0/10) - 0.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
@@ -321,15 +321,15 @@ Based on `npm run compare-api`:
 - [x] `inner` 
 - [x] `kron` 
 - [x] `matmul` 
-- [ ] `matrix_transpose` 
-- [ ] `matvec` 
+- [x] `matrix_transpose` 
+- [x] `matvec` 
 - [x] `outer` 
-- [ ] `permute_dims` 
+- [x] `permute_dims` 
 - [x] `tensordot` 
 - [x] `trace` 
-- [ ] `vdot` 
-- [ ] `vecdot` 
-- [ ] `vecmat` 
+- [x] `vdot` 
+- [x] `vecdot` 
+- [x] `vecmat` 
 
 ---
 
@@ -339,32 +339,32 @@ Based on `npm run compare-api`:
 - [x] `linalg.cond` 
 - [x] `linalg.cross` 
 - [x] `linalg.det` 
-- [ ] `linalg.diagonal` 
+- [x] `linalg.diagonal` 
 - [x] `linalg.eig` 
 - [x] `linalg.eigh` 
 - [x] `linalg.eigvals` 
 - [x] `linalg.eigvalsh` 
 - [x] `linalg.inv` 
 - [x] `linalg.lstsq` 
-- [ ] `linalg.matmul` 
+- [x] `linalg.matmul` 
 - [x] `linalg.matrix_norm` 
 - [x] `linalg.matrix_power` 
 - [x] `linalg.matrix_rank` 
-- [ ] `linalg.matrix_transpose` 
-- [ ] `linalg.multi_dot` 
+- [x] `linalg.matrix_transpose` 
+- [x] `linalg.multi_dot` 
 - [x] `linalg.norm` 
-- [ ] `linalg.outer` 
+- [x] `linalg.outer` 
 - [x] `linalg.pinv` 
 - [x] `linalg.qr` 
-- [ ] `linalg.slogdet` 
+- [x] `linalg.slogdet` 
 - [x] `linalg.solve` 
 - [x] `linalg.svd` 
-- [ ] `linalg.svdvals` 
-- [ ] `linalg.tensordot` 
-- [ ] `linalg.tensorinv` 
-- [ ] `linalg.tensorsolve` 
-- [ ] `linalg.trace` 
-- [ ] `linalg.vecdot` 
+- [x] `linalg.svdvals` 
+- [x] `linalg.tensordot` 
+- [x] `linalg.tensorinv` 
+- [x] `linalg.tensorsolve` 
+- [x] `linalg.trace` 
+- [x] `linalg.vecdot` 
 - [x] `linalg.vector_norm` 
 
 ---
@@ -616,7 +616,6 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
-- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
@@ -655,7 +654,6 @@ Based on `npm run compare-api`:
 - [ ] `histogram_bin_edges` 
 - [x] `histogramdd` 
 - [ ] `trapezoid` 
-- [ ] `trapz` 
 
 ---
 

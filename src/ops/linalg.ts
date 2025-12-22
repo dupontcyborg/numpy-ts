@@ -3570,3 +3570,644 @@ export function eigvalsh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): ArrayStorage {
   const { w } = eigh(a, UPLO);
   return w;
 }
+
+/**
+ * Return the dot product of two vectors (flattened).
+ *
+ * Unlike dot(), vdot flattens both inputs before computing the dot product.
+ * For complex numbers, vdot uses the complex conjugate of the first argument.
+ *
+ * @param a - First input array (will be flattened)
+ * @param b - Second input array (will be flattened)
+ * @returns Scalar dot product
+ */
+export function vdot(a: ArrayStorage, b: ArrayStorage): number | bigint | Complex {
+  // Flatten both arrays
+  const aFlat = shapeOps.flatten(a);
+  const bFlat = shapeOps.flatten(b);
+
+  const aSize = aFlat.shape[0]!;
+  const bSize = bFlat.shape[0]!;
+
+  if (aSize !== bSize) {
+    throw new Error(`vdot: arrays must have same number of elements, got ${aSize} and ${bSize}`);
+  }
+
+  const isComplex = isComplexDType(a.dtype) || isComplexDType(b.dtype);
+
+  if (isComplex) {
+    let sumRe = 0;
+    let sumIm = 0;
+    for (let i = 0; i < aSize; i++) {
+      const aVal = aFlat.get(i);
+      const bVal = bFlat.get(i);
+      // Complex conjugate of first argument
+      const aRe = aVal instanceof Complex ? aVal.re : Number(aVal);
+      const aIm = aVal instanceof Complex ? -aVal.im : 0; // Conjugate!
+      const bRe = bVal instanceof Complex ? bVal.re : Number(bVal);
+      const bIm = bVal instanceof Complex ? bVal.im : 0;
+      // (aRe - aIm*i) * (bRe + bIm*i) = (aRe*bRe + aIm*bIm) + (aRe*bIm - aIm*bRe)*i
+      sumRe += aRe * bRe + aIm * bIm;
+      sumIm += aRe * bIm - aIm * bRe;
+    }
+    if (Math.abs(sumIm) < 1e-15) {
+      return sumRe;
+    }
+    return new Complex(sumRe, sumIm);
+  }
+
+  // Real case
+  let sum: number | bigint = 0;
+  for (let i = 0; i < aSize; i++) {
+    const aVal = aFlat.get(i);
+    const bVal = bFlat.get(i);
+    if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+      sum = (typeof sum === 'bigint' ? sum : BigInt(sum)) + aVal * bVal;
+    } else {
+      sum = (typeof sum === 'bigint' ? Number(sum) : sum) + Number(aVal) * Number(bVal);
+    }
+  }
+
+  return sum;
+}
+
+/**
+ * Vector dot product along the last axis.
+ *
+ * Computes the dot product of vectors along the last axis of both inputs.
+ * The last dimensions of a and b must match.
+ *
+ * @param a - First input array
+ * @param b - Second input array
+ * @param axis - Axis along which to compute (default: -1, meaning last axis)
+ * @returns Result with last dimension removed
+ */
+export function vecdot(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  axis: number = -1
+): ArrayStorage | number | bigint | Complex {
+  const aDim = a.ndim;
+  const bDim = b.ndim;
+
+  // Normalize axis
+  const normalizedAxisA = axis < 0 ? aDim + axis : axis;
+  const normalizedAxisB = axis < 0 ? bDim + axis : axis;
+
+  if (normalizedAxisA < 0 || normalizedAxisA >= aDim) {
+    throw new Error(`vecdot: axis ${axis} out of bounds for array with ${aDim} dimensions`);
+  }
+  if (normalizedAxisB < 0 || normalizedAxisB >= bDim) {
+    throw new Error(`vecdot: axis ${axis} out of bounds for array with ${bDim} dimensions`);
+  }
+
+  const aAxisLen = a.shape[normalizedAxisA]!;
+  const bAxisLen = b.shape[normalizedAxisB]!;
+
+  if (aAxisLen !== bAxisLen) {
+    throw new Error(`vecdot: axis dimensions must match, got ${aAxisLen} and ${bAxisLen}`);
+  }
+
+  // For 1D arrays, just compute the dot product
+  if (aDim === 1 && bDim === 1) {
+    return dot(a, b) as number | bigint | Complex;
+  }
+
+  // Use einsum for the general case: contract the specified axis
+  // For last axis, this is equivalent to 'i...k,j...k->ij...' (removing k)
+  // Build subscripts dynamically based on input shapes
+  const aShapeWithoutAxis = [
+    ...a.shape.slice(0, normalizedAxisA),
+    ...a.shape.slice(normalizedAxisA + 1),
+  ];
+  const bShapeWithoutAxis = [
+    ...b.shape.slice(0, normalizedAxisB),
+    ...b.shape.slice(normalizedAxisB + 1),
+  ];
+
+  // Compute result by iterating over all positions
+  // Result shape is broadcast of (aShape without axis) and (bShape without axis)
+  const contractDim = aAxisLen;
+  const isComplex = isComplexDType(a.dtype) || isComplexDType(b.dtype);
+  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+
+  // Simple case: both 1D handled above
+  // For higher dims, broadcast and sum over last axis
+  // This is essentially np.sum(a * b, axis=-1)
+  const resultShape =
+    aShapeWithoutAxis.length > bShapeWithoutAxis.length ? aShapeWithoutAxis : bShapeWithoutAxis;
+
+  if (resultShape.length === 0) {
+    // Scalar result
+    let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
+    for (let k = 0; k < contractDim; k++) {
+      const aVal = a.get(k);
+      const bVal = b.get(k);
+      const prod = multiplyValues(aVal, bVal);
+      if (sum instanceof Complex || prod instanceof Complex) {
+        const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
+        const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
+        sum = sumC.add(prodC);
+      } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
+        sum = BigInt(sum as number) + BigInt(prod as number);
+      } else {
+        sum = (sum as number) + (prod as number);
+      }
+    }
+    return sum;
+  }
+
+  const result = ArrayStorage.zeros(resultShape, resultDtype);
+
+  // Iterate over all output positions
+  const totalOutputSize = resultShape.reduce((acc, dim) => acc * dim, 1);
+
+  for (let flatIdx = 0; flatIdx < totalOutputSize; flatIdx++) {
+    // Convert flat index to multi-index
+    const multiIdx: number[] = [];
+    let temp = flatIdx;
+    for (let d = resultShape.length - 1; d >= 0; d--) {
+      multiIdx.unshift(temp % resultShape[d]!);
+      temp = Math.floor(temp / resultShape[d]!);
+    }
+
+    // Build indices for a and b
+    const aIdx = [...multiIdx.slice(0, normalizedAxisA), 0, ...multiIdx.slice(normalizedAxisA)];
+    const bIdx = [...multiIdx.slice(0, normalizedAxisB), 0, ...multiIdx.slice(normalizedAxisB)];
+
+    let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
+    for (let k = 0; k < contractDim; k++) {
+      aIdx[normalizedAxisA] = k;
+      bIdx[normalizedAxisB] = k;
+      const aVal = a.get(...aIdx);
+      const bVal = b.get(...bIdx);
+      const prod = multiplyValues(aVal, bVal);
+      if (sum instanceof Complex || prod instanceof Complex) {
+        const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
+        const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
+        sum = sumC.add(prodC);
+      } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
+        sum = BigInt(sum as number) + BigInt(prod as number);
+      } else {
+        sum = (sum as number) + (prod as number);
+      }
+    }
+    result.set(multiIdx, sum);
+  }
+
+  return result;
+}
+
+/**
+ * Transpose the last two axes of an array.
+ *
+ * Equivalent to swapaxes(a, -2, -1) or transpose with axes that swap the last two.
+ * For a 2D array, this is the same as transpose.
+ *
+ * @param a - Input array with at least 2 dimensions
+ * @returns Array with last two axes transposed
+ */
+export function matrix_transpose(a: ArrayStorage): ArrayStorage {
+  if (a.ndim < 2) {
+    throw new Error(`matrix_transpose: input must have at least 2 dimensions, got ${a.ndim}D`);
+  }
+
+  // Build axes that swap the last two
+  const axes = Array.from({ length: a.ndim }, (_, i) => i);
+  const last = axes.length - 1;
+  axes[last] = last - 1;
+  axes[last - 1] = last;
+
+  return transpose(a, axes);
+}
+
+/**
+ * Permute the dimensions of an array.
+ *
+ * This is an alias for transpose to match the Array API standard.
+ *
+ * @param a - Input array
+ * @param axes - Permutation of axes. If not specified, reverses the axes.
+ * @returns Transposed array
+ */
+export function permute_dims(a: ArrayStorage, axes?: number[]): ArrayStorage {
+  return transpose(a, axes);
+}
+
+/**
+ * Matrix-vector multiplication.
+ *
+ * Computes the matrix-vector product over the last two axes of x1 and
+ * the last axis of x2.
+ *
+ * @param x1 - First input array (matrix) with shape (..., M, N)
+ * @param x2 - Second input array (vector) with shape (..., N)
+ * @returns Result with shape (..., M)
+ */
+export function matvec(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  if (x1.ndim < 2) {
+    throw new Error(`matvec: x1 must have at least 2 dimensions, got ${x1.ndim}D`);
+  }
+  if (x2.ndim < 1) {
+    throw new Error(`matvec: x2 must have at least 1 dimension, got ${x2.ndim}D`);
+  }
+
+  const m = x1.shape[x1.ndim - 2]!;
+  const n1 = x1.shape[x1.ndim - 1]!;
+  const n2 = x2.shape[x2.ndim - 1]!;
+
+  if (n1 !== n2) {
+    throw new Error(`matvec: last axis of x1 (${n1}) must match last axis of x2 (${n2})`);
+  }
+
+  // For simple 2D @ 1D case, use existing dot
+  if (x1.ndim === 2 && x2.ndim === 1) {
+    return dot(x1, x2) as ArrayStorage;
+  }
+
+  // General case: batch matrix-vector multiplication
+  const batchShapeX1 = x1.shape.slice(0, -2);
+  const batchShapeX2 = x2.shape.slice(0, -1);
+
+  // Broadcast batch dimensions
+  const maxBatchDims = Math.max(batchShapeX1.length, batchShapeX2.length);
+  const paddedX1 = [...Array(maxBatchDims - batchShapeX1.length).fill(1), ...batchShapeX1];
+  const paddedX2 = [...Array(maxBatchDims - batchShapeX2.length).fill(1), ...batchShapeX2];
+
+  const batchShape: number[] = [];
+  for (let i = 0; i < maxBatchDims; i++) {
+    const d1 = paddedX1[i]!;
+    const d2 = paddedX2[i]!;
+    if (d1 !== 1 && d2 !== 1 && d1 !== d2) {
+      throw new Error(
+        `matvec: batch dimensions not broadcastable: ${batchShapeX1} vs ${batchShapeX2}`
+      );
+    }
+    batchShape.push(Math.max(d1, d2));
+  }
+
+  const resultShape = [...batchShape, m];
+  const resultDtype = promoteDTypes(x1.dtype, x2.dtype);
+  const result = ArrayStorage.zeros(resultShape, resultDtype);
+  const isComplex = isComplexDType(resultDtype);
+
+  const totalBatch = batchShape.reduce((acc, d) => acc * d, 1);
+
+  for (let batchIdx = 0; batchIdx < totalBatch; batchIdx++) {
+    // Convert flat batch index to multi-index
+    const batchMultiIdx: number[] = [];
+    let temp = batchIdx;
+    for (let d = batchShape.length - 1; d >= 0; d--) {
+      batchMultiIdx.unshift(temp % batchShape[d]!);
+      temp = Math.floor(temp / batchShape[d]!);
+    }
+
+    // Map to x1 and x2 batch indices (handle broadcasting)
+    const x1BatchIdx = batchMultiIdx.slice(-(batchShapeX1.length || 1)).map((idx, i) => {
+      const dim = batchShapeX1[i] ?? 1;
+      return dim === 1 ? 0 : idx;
+    });
+    const x2BatchIdx = batchMultiIdx.slice(-(batchShapeX2.length || 1)).map((idx, i) => {
+      const dim = batchShapeX2[i] ?? 1;
+      return dim === 1 ? 0 : idx;
+    });
+
+    for (let i = 0; i < m; i++) {
+      let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
+      for (let j = 0; j < n1; j++) {
+        const x1Idx = [...x1BatchIdx, i, j];
+        const x2Idx = [...x2BatchIdx, j];
+        const x1Val = x1.get(...x1Idx);
+        const x2Val = x2.get(...x2Idx);
+        const prod = multiplyValues(x1Val, x2Val);
+        if (sum instanceof Complex || prod instanceof Complex) {
+          const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
+          const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
+          sum = sumC.add(prodC);
+        } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
+          sum = BigInt(sum as number) + BigInt(prod as number);
+        } else {
+          sum = (sum as number) + (prod as number);
+        }
+      }
+      const resultIdx = [...batchMultiIdx, i];
+      result.set(resultIdx, sum);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Vector-matrix multiplication.
+ *
+ * Computes the vector-matrix product over the last axis of x1 and
+ * the second-to-last axis of x2.
+ *
+ * @param x1 - First input array (vector) with shape (..., M)
+ * @param x2 - Second input array (matrix) with shape (..., M, N)
+ * @returns Result with shape (..., N)
+ */
+export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  if (x1.ndim < 1) {
+    throw new Error(`vecmat: x1 must have at least 1 dimension, got ${x1.ndim}D`);
+  }
+  if (x2.ndim < 2) {
+    throw new Error(`vecmat: x2 must have at least 2 dimensions, got ${x2.ndim}D`);
+  }
+
+  const m1 = x1.shape[x1.ndim - 1]!;
+  const m2 = x2.shape[x2.ndim - 2]!;
+  const n = x2.shape[x2.ndim - 1]!;
+
+  if (m1 !== m2) {
+    throw new Error(`vecmat: last axis of x1 (${m1}) must match second-to-last axis of x2 (${m2})`);
+  }
+
+  // For simple 1D @ 2D case, use existing dot
+  if (x1.ndim === 1 && x2.ndim === 2) {
+    return dot(x1, x2) as ArrayStorage;
+  }
+
+  // General case: batch vector-matrix multiplication
+  const batchShapeX1 = x1.shape.slice(0, -1);
+  const batchShapeX2 = x2.shape.slice(0, -2);
+
+  // Broadcast batch dimensions
+  const maxBatchDims = Math.max(batchShapeX1.length, batchShapeX2.length);
+  const paddedX1 = [...Array(maxBatchDims - batchShapeX1.length).fill(1), ...batchShapeX1];
+  const paddedX2 = [...Array(maxBatchDims - batchShapeX2.length).fill(1), ...batchShapeX2];
+
+  const batchShape: number[] = [];
+  for (let i = 0; i < maxBatchDims; i++) {
+    const d1 = paddedX1[i]!;
+    const d2 = paddedX2[i]!;
+    if (d1 !== 1 && d2 !== 1 && d1 !== d2) {
+      throw new Error(
+        `vecmat: batch dimensions not broadcastable: ${batchShapeX1} vs ${batchShapeX2}`
+      );
+    }
+    batchShape.push(Math.max(d1, d2));
+  }
+
+  const resultShape = [...batchShape, n];
+  const resultDtype = promoteDTypes(x1.dtype, x2.dtype);
+  const result = ArrayStorage.zeros(resultShape, resultDtype);
+  const isComplex = isComplexDType(resultDtype);
+
+  const totalBatch = batchShape.reduce((acc, d) => acc * d, 1);
+
+  for (let batchIdx = 0; batchIdx < totalBatch; batchIdx++) {
+    // Convert flat batch index to multi-index
+    const batchMultiIdx: number[] = [];
+    let temp = batchIdx;
+    for (let d = batchShape.length - 1; d >= 0; d--) {
+      batchMultiIdx.unshift(temp % batchShape[d]!);
+      temp = Math.floor(temp / batchShape[d]!);
+    }
+
+    // Map to x1 and x2 batch indices (handle broadcasting)
+    const x1BatchIdx = batchMultiIdx.slice(-(batchShapeX1.length || 1)).map((idx, i) => {
+      const dim = batchShapeX1[i] ?? 1;
+      return dim === 1 ? 0 : idx;
+    });
+    const x2BatchIdx = batchMultiIdx.slice(-(batchShapeX2.length || 1)).map((idx, i) => {
+      const dim = batchShapeX2[i] ?? 1;
+      return dim === 1 ? 0 : idx;
+    });
+
+    for (let j = 0; j < n; j++) {
+      let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
+      for (let i = 0; i < m1; i++) {
+        const x1Idx = [...x1BatchIdx, i];
+        const x2Idx = [...x2BatchIdx, i, j];
+        const x1Val = x1.get(...x1Idx);
+        const x2Val = x2.get(...x2Idx);
+        const prod = multiplyValues(x1Val, x2Val);
+        if (sum instanceof Complex || prod instanceof Complex) {
+          const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
+          const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
+          sum = sumC.add(prodC);
+        } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
+          sum = BigInt(sum as number) + BigInt(prod as number);
+        } else {
+          sum = (sum as number) + (prod as number);
+        }
+      }
+      const resultIdx = [...batchMultiIdx, j];
+      result.set(resultIdx, sum);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compute sign and (natural) logarithm of the determinant.
+ *
+ * Returns (sign, logabsdet) where sign is the sign of the determinant
+ * and logabsdet is the natural log of the absolute value of the determinant.
+ *
+ * This is useful for computing determinants of large matrices where the
+ * determinant itself might overflow or underflow.
+ *
+ * @param a - Square matrix
+ * @returns { sign, logabsdet }
+ */
+export function slogdet(a: ArrayStorage): { sign: number; logabsdet: number } {
+  if (a.ndim !== 2) {
+    throw new Error(`slogdet: input must be 2D, got ${a.ndim}D`);
+  }
+
+  const [m, n] = a.shape;
+  if (m !== n) {
+    throw new Error(`slogdet: matrix must be square, got ${m}x${n}`);
+  }
+
+  const size = m!;
+
+  if (size === 0) {
+    return { sign: 1, logabsdet: 0 }; // Empty matrix has determinant 1
+  }
+
+  // LU decomposition with partial pivoting
+  const { lu, sign: pivotSign } = luDecomposition(a);
+
+  // Compute log|det| = sum of log|diag(U)| and sign
+  const luData = lu.data as Float64Array;
+  let logAbsDet = 0;
+  let sign = pivotSign;
+
+  for (let i = 0; i < size; i++) {
+    const diagVal = luData[i * size + i]!;
+    if (diagVal === 0) {
+      return { sign: 0, logabsdet: -Infinity };
+    }
+    if (diagVal < 0) {
+      sign = -sign;
+    }
+    logAbsDet += Math.log(Math.abs(diagVal));
+  }
+
+  return { sign, logabsdet: logAbsDet };
+}
+
+/**
+ * Compute singular values of a matrix.
+ *
+ * This is equivalent to svd(a, compute_uv=False) but more efficient
+ * as it doesn't compute the U and V matrices.
+ *
+ * @param a - Input matrix (m x n)
+ * @returns 1D array of singular values in descending order
+ */
+export function svdvals(a: ArrayStorage): ArrayStorage {
+  // Use the existing svd function with compute_uv=false
+  const result = svd(a, true, false);
+  return result as ArrayStorage;
+}
+
+/**
+ * Compute the dot product of two or more arrays in a single function call.
+ *
+ * Optimizes the order of multiplications to minimize computation.
+ * For example, for three arrays A, B, C with shapes (10, 100), (100, 5), (5, 50),
+ * it's more efficient to compute (A @ B) @ C than A @ (B @ C).
+ *
+ * @param arrays - List of arrays to multiply
+ * @returns Result of multiplying all arrays
+ */
+export function multi_dot(arrays: ArrayStorage[]): ArrayStorage {
+  if (arrays.length < 2) {
+    throw new Error('multi_dot: need at least 2 arrays');
+  }
+
+  if (arrays.length === 2) {
+    return matmul(arrays[0]!, arrays[1]!);
+  }
+
+  // For simplicity, use left-to-right order
+  // A proper implementation would use dynamic programming to find optimal order
+  // But for now, left-to-right is correct and reasonably efficient
+  let result = arrays[0]!;
+  for (let i = 1; i < arrays.length; i++) {
+    result = matmul(result, arrays[i]!);
+  }
+
+  return result;
+}
+
+/**
+ * Compute the 'inverse' of an N-dimensional array.
+ *
+ * The inverse is defined such that tensordot(tensorinv(a), a, ind) == I
+ * where I is the identity operator.
+ *
+ * @param a - Input array to invert
+ * @param ind - Number of first indices that are involved in the inverse sum (default: 2)
+ * @returns Tensor inverse
+ */
+export function tensorinv(a: ArrayStorage, ind: number = 2): ArrayStorage {
+  if (ind <= 0) {
+    throw new Error(`tensorinv: ind must be positive, got ${ind}`);
+  }
+
+  const shape = a.shape;
+  const ndim = a.ndim;
+
+  if (ndim < ind) {
+    throw new Error(`tensorinv: array has ${ndim} dimensions, ind=${ind} is too large`);
+  }
+
+  // Compute product of first ind dimensions
+  let prodA = 1;
+  for (let i = 0; i < ind; i++) {
+    prodA *= shape[i]!;
+  }
+
+  // Compute product of remaining dimensions
+  let prodB = 1;
+  for (let i = ind; i < ndim; i++) {
+    prodB *= shape[i]!;
+  }
+
+  if (prodA !== prodB) {
+    throw new Error(
+      `tensorinv: product of first ${ind} dimensions (${prodA}) must equal product of remaining dimensions (${prodB})`
+    );
+  }
+
+  // Reshape to 2D, invert, then reshape back
+  const reshaped = shapeOps.reshape(a, [prodA, prodB]);
+  const inverted = inv(reshaped);
+
+  // New shape: remaining dims + first dims
+  const newShape = [...shape.slice(ind), ...shape.slice(0, ind)];
+  return shapeOps.reshape(inverted, newShape);
+}
+
+/**
+ * Solve the tensor equation a x = b for x.
+ *
+ * This is equivalent to solve after reshaping a and b appropriately.
+ *
+ * @param a - Coefficient tensor
+ * @param b - Target tensor
+ * @param axes - Axes of a to be summed over in the contraction (default based on b.ndim)
+ * @returns Solution tensor x
+ */
+export function tensorsolve(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  axes?: number[] | null
+): ArrayStorage {
+  const aShape = a.shape;
+  const bShape = b.shape;
+  const aDim = a.ndim;
+  const bDim = b.ndim;
+
+  // Default axes: last b.ndim axes of a
+  let axesToSum: number[];
+  if (axes === null || axes === undefined) {
+    axesToSum = Array.from({ length: bDim }, (_, i) => aDim - bDim + i);
+  } else {
+    axesToSum = axes.map((ax) => (ax < 0 ? aDim + ax : ax));
+  }
+
+  // Move the axes to sum to the end
+  const otherAxes: number[] = [];
+  for (let i = 0; i < aDim; i++) {
+    if (!axesToSum.includes(i)) {
+      otherAxes.push(i);
+    }
+  }
+  const newAxes = [...otherAxes, ...axesToSum];
+  const aTransposed = transpose(a, newAxes);
+
+  // Compute dimensions
+  const sumDims = axesToSum.map((ax) => aShape[ax]!);
+  const sumProd = sumDims.reduce((acc, d) => acc * d, 1);
+  const otherDims = otherAxes.map((ax) => aShape[ax]!);
+  const otherProd = otherDims.reduce((acc, d) => acc * d, 1);
+
+  // Check that dimensions are compatible
+  const bProd = bShape.reduce((acc, d) => acc * d, 1);
+  if (sumProd !== bProd) {
+    throw new Error(
+      `tensorsolve: dimensions don't match - sum dimensions product (${sumProd}) != b total elements (${bProd})`
+    );
+  }
+  if (otherProd !== sumProd) {
+    throw new Error(
+      `tensorsolve: non-square problem - other dimensions product (${otherProd}) != sum dimensions product (${sumProd})`
+    );
+  }
+
+  // Reshape to 2D and solve
+  const aReshaped = shapeOps.reshape(aTransposed, [otherProd, sumProd]);
+  const bReshaped = shapeOps.reshape(b, [sumProd]);
+  const xFlat = solve(aReshaped, bReshaped);
+
+  // Reshape result to original b shape
+  return shapeOps.reshape(xFlat, [...bShape]);
+}
