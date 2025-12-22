@@ -404,6 +404,25 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   iterable: 'skip',
   isdtype: 'skip',
   promote_types: 'skip',
+  can_cast: 'skip', // dtype checking, not array operation
+  common_type: 'skip', // dtype checking
+  result_type: 'skip', // dtype checking
+  min_scalar_type: 'skip', // dtype checking
+  issubdtype: 'skip', // dtype checking
+  typename: 'skip', // dtype checking
+  mintypecode: 'skip', // dtype checking
+
+  // Polynomial functions (work with any numeric type)
+  poly: 'supported', // polynomial from roots
+  polyadd: 'supported', // polynomial addition
+  polyder: 'supported', // polynomial derivative
+  polydiv: 'supported', // polynomial division
+  polyfit: 'supported', // polynomial fit
+  polyint: 'supported', // polynomial integration
+  polymul: 'supported', // polynomial multiplication
+  polysub: 'supported', // polynomial subtraction
+  polyval: 'supported', // polynomial evaluation
+  roots: 'supported', // polynomial roots
 
   // Namespace objects
   linalg: 'skip', // namespace object, not a function

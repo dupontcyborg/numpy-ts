@@ -686,6 +686,40 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].prod();
   }
 
+  // Polynomial operations
+  else if (operation === 'poly') {
+    return np.poly(arrays['a']);
+  } else if (operation === 'polyadd') {
+    return np.polyadd(arrays['a'], arrays['b']);
+  } else if (operation === 'polyder') {
+    return np.polyder(arrays['a']);
+  } else if (operation === 'polydiv') {
+    return np.polydiv(arrays['a'], arrays['b']);
+  } else if (operation === 'polyfit') {
+    return np.polyfit(arrays['a'], arrays['b'], 2);
+  } else if (operation === 'polyint') {
+    return np.polyint(arrays['a']);
+  } else if (operation === 'polymul') {
+    return np.polymul(arrays['a'], arrays['b']);
+  } else if (operation === 'polysub') {
+    return np.polysub(arrays['a'], arrays['b']);
+  } else if (operation === 'polyval') {
+    return np.polyval(arrays['a'], arrays['b']);
+  } else if (operation === 'roots') {
+    return np.roots(arrays['a']);
+  }
+
+  // Type checking operations
+  else if (operation === 'can_cast') {
+    return np.can_cast('int32', 'float64');
+  } else if (operation === 'result_type') {
+    return np.result_type('int32', 'float64');
+  } else if (operation === 'min_scalar_type') {
+    return np.min_scalar_type(1000);
+  } else if (operation === 'issubdtype') {
+    return np.issubdtype('int32', 'integer');
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 

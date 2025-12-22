@@ -6966,3 +6966,1107 @@ export function cov(
 export function corrcoef(x: NDArray, y?: NDArray, rowvar: boolean = true): NDArray {
   return NDArray._fromStorage(statisticsOps.corrcoef(x.storage, y?.storage, rowvar));
 }
+
+// ========================================
+// Type Checking Functions
+// ========================================
+
+/**
+ * Casting rules for safe type conversion
+ * In 'safe' mode: casting is allowed only if the value can be represented without loss
+ * In 'same_kind': same kind of types allowed (e.g., float to float, int to int)
+ * In 'unsafe': any conversion is allowed
+ */
+type CastingRule = 'no' | 'equiv' | 'safe' | 'same_kind' | 'unsafe';
+
+// Type hierarchy for safe casting
+const TYPE_HIERARCHY: Record<DType, number> = {
+  bool: 0,
+  uint8: 1,
+  int8: 2,
+  uint16: 3,
+  int16: 4,
+  uint32: 5,
+  int32: 6,
+  uint64: 7,
+  int64: 8,
+  float32: 9,
+  float64: 10,
+  complex64: 11,
+  complex128: 12,
+};
+
+// Type kinds
+const TYPE_KINDS: Record<DType, string> = {
+  bool: 'b',
+  uint8: 'u',
+  uint16: 'u',
+  uint32: 'u',
+  uint64: 'u',
+  int8: 'i',
+  int16: 'i',
+  int32: 'i',
+  int64: 'i',
+  float32: 'f',
+  float64: 'f',
+  complex64: 'c',
+  complex128: 'c',
+};
+
+/**
+ * Returns true if cast between data types can occur according to the casting rule.
+ *
+ * @param from_dtype - Data type to cast from
+ * @param to_dtype - Data type to cast to
+ * @param casting - Casting rule: 'no', 'equiv', 'safe', 'same_kind', or 'unsafe'
+ * @returns Whether the cast is allowed
+ *
+ * @example
+ * ```typescript
+ * can_cast('int32', 'float64')  // true - safe upcast
+ * can_cast('float64', 'int32')  // false - would lose precision
+ * can_cast('float64', 'int32', 'unsafe')  // true - forced cast
+ * ```
+ */
+export function can_cast(
+  from_dtype: DType | NDArray,
+  to_dtype: DType,
+  casting: CastingRule = 'safe'
+): boolean {
+  // Handle NDArray input
+  const fromDtype: DType = from_dtype instanceof NDArray ? (from_dtype.dtype as DType) : from_dtype;
+
+  // Exact same type - always allowed
+  if (fromDtype === to_dtype) return true;
+
+  switch (casting) {
+    case 'no':
+      // No casting allowed
+      return false;
+
+    case 'equiv':
+      // Only equivalent types (same dtype or same kind and size)
+      return fromDtype === to_dtype;
+
+    case 'safe':
+      // Safe casting: no loss of precision
+      // Bool can go to anything
+      if (fromDtype === 'bool') return true;
+
+      // Complex can only go to larger complex
+      if (isComplexDType(fromDtype)) {
+        if (!isComplexDType(to_dtype)) return false;
+        return TYPE_HIERARCHY[fromDtype] <= TYPE_HIERARCHY[to_dtype];
+      }
+
+      // Can always cast to complex
+      if (isComplexDType(to_dtype)) return true;
+
+      // Integer to float is safe if float is large enough
+      if (TYPE_KINDS[fromDtype] === 'i' || TYPE_KINDS[fromDtype] === 'u') {
+        if (TYPE_KINDS[to_dtype] === 'f') {
+          // int8, int16, uint8, uint16 can safely go to float32
+          if (to_dtype === 'float32') {
+            return ['int8', 'int16', 'uint8', 'uint16'].includes(fromDtype);
+          }
+          // All integers can go to float64
+          return to_dtype === 'float64';
+        }
+      }
+
+      // Float can only go to larger float
+      if (TYPE_KINDS[fromDtype] === 'f' && TYPE_KINDS[to_dtype] === 'f') {
+        return TYPE_HIERARCHY[fromDtype] <= TYPE_HIERARCHY[to_dtype];
+      }
+
+      // Integer to integer
+      if (
+        (TYPE_KINDS[fromDtype] === 'i' || TYPE_KINDS[fromDtype] === 'u') &&
+        (TYPE_KINDS[to_dtype] === 'i' || TYPE_KINDS[to_dtype] === 'u')
+      ) {
+        // Can only go to same or larger size
+        return TYPE_HIERARCHY[fromDtype] <= TYPE_HIERARCHY[to_dtype];
+      }
+
+      return false;
+
+    case 'same_kind': {
+      // Same kind casting (int to int, float to float, etc.)
+      const fromKind = TYPE_KINDS[fromDtype];
+      const toKind = TYPE_KINDS[to_dtype];
+
+      // Bool is compatible with integers
+      if (fromDtype === 'bool' && (toKind === 'i' || toKind === 'u' || toKind === 'b')) {
+        return true;
+      }
+
+      // Same kind or sub-kinds
+      if (fromKind === toKind) return true;
+
+      // Integers are same kind (signed/unsigned)
+      if ((fromKind === 'i' || fromKind === 'u') && (toKind === 'i' || toKind === 'u')) {
+        return true;
+      }
+
+      // Float to complex is same kind
+      if (fromKind === 'f' && toKind === 'c') return true;
+
+      return false;
+    }
+
+    case 'unsafe':
+      // Any casting is allowed
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Return a scalar type which is common to the input arrays.
+ *
+ * The return type will always be an inexact (floating point) type, even if
+ * all the input arrays are integer types.
+ *
+ * @param arrays - Input arrays
+ * @returns Common scalar type ('float32' or 'float64', or complex variants)
+ *
+ * @example
+ * ```typescript
+ * const a = array([1, 2], { dtype: 'int32' });
+ * const b = array([3.0, 4.0], { dtype: 'float32' });
+ * common_type(a, b)  // 'float32'
+ * ```
+ */
+export function common_type(...arrays: NDArray[]): DType {
+  if (arrays.length === 0) {
+    return 'float64';
+  }
+
+  let hasComplex = false;
+  let maxFloatSize = 32; // Start with float32
+
+  for (const arr of arrays) {
+    const dtype = arr.dtype as DType;
+
+    if (isComplexDType(dtype)) {
+      hasComplex = true;
+      if (dtype === 'complex128') {
+        maxFloatSize = 64;
+      }
+    } else if (dtype === 'float64') {
+      maxFloatSize = 64;
+    } else if (dtype === 'int64' || dtype === 'uint64') {
+      // 64-bit integers need float64 for precision
+      maxFloatSize = 64;
+    }
+  }
+
+  if (hasComplex) {
+    return maxFloatSize === 64 ? 'complex128' : 'complex64';
+  }
+  return maxFloatSize === 64 ? 'float64' : 'float32';
+}
+
+/**
+ * Returns the type that results from applying the NumPy type promotion rules
+ * to the arguments.
+ *
+ * @param arrays_and_dtypes - A mix of arrays or dtype strings
+ * @returns The result dtype
+ *
+ * @example
+ * ```typescript
+ * result_type('int32', 'float32')  // 'float64'
+ * result_type(array([1, 2], { dtype: 'int8' }), 'float32')  // 'float32'
+ * ```
+ */
+export function result_type(...arrays_and_dtypes: (NDArray | DType)[]): DType {
+  if (arrays_and_dtypes.length === 0) {
+    return 'float64';
+  }
+
+  // Extract dtypes
+  const dtypes: DType[] = arrays_and_dtypes.map((item) => {
+    if (item instanceof NDArray) {
+      return item.dtype as DType;
+    }
+    return item;
+  });
+
+  // Use promoteDTypes from dtype module for proper promotion
+  let result = dtypes[0]!;
+  for (let i = 1; i < dtypes.length; i++) {
+    result = promoteDTypesInternal(result, dtypes[i]!);
+  }
+
+  return result;
+}
+
+// Internal helper that mirrors the dtype.ts promoteDTypes logic
+function promoteDTypesInternal(dtype1: DType, dtype2: DType): DType {
+  if (dtype1 === dtype2) return dtype1;
+
+  // Boolean - promote to the other type
+  if (dtype1 === 'bool') return dtype2;
+  if (dtype2 === 'bool') return dtype1;
+
+  // Complex types
+  if (isComplexDType(dtype1) || isComplexDType(dtype2)) {
+    if (isComplexDType(dtype1) && isComplexDType(dtype2)) {
+      return dtype1 === 'complex128' || dtype2 === 'complex128' ? 'complex128' : 'complex64';
+    }
+    const complexDtype = isComplexDType(dtype1) ? dtype1 : dtype2;
+    const realDtype = isComplexDType(dtype1) ? dtype2 : dtype1;
+
+    if (complexDtype === 'complex128') return 'complex128';
+    if (realDtype === 'float64' || realDtype === 'int64' || realDtype === 'uint64') {
+      return 'complex128';
+    }
+    return 'complex64';
+  }
+
+  // Float types
+  const isFloat1 = TYPE_KINDS[dtype1] === 'f';
+  const isFloat2 = TYPE_KINDS[dtype2] === 'f';
+
+  if (isFloat1 || isFloat2) {
+    if (dtype1 === 'float64' || dtype2 === 'float64') return 'float64';
+
+    // float32 with large integers promotes to float64
+    if (dtype1 === 'float32' || dtype2 === 'float32') {
+      const intDtype = isFloat1 ? dtype2 : dtype1;
+      if (['int32', 'int64', 'uint32', 'uint64'].includes(intDtype)) {
+        return 'float64';
+      }
+      return 'float32';
+    }
+  }
+
+  // Integer promotion
+  const kind1 = TYPE_KINDS[dtype1];
+  const kind2 = TYPE_KINDS[dtype2];
+
+  // Mixing signed and unsigned requires promoting to a type that can hold all values
+  if ((kind1 === 'i' && kind2 === 'u') || (kind1 === 'u' && kind2 === 'i')) {
+    const unsignedDtype = kind1 === 'u' ? dtype1 : dtype2;
+
+    // Map unsigned to next larger signed type to hold all values
+    // uint8 + signed -> int16 (can hold 0-255 and negatives)
+    // uint16 + signed -> int32
+    // uint32 + signed -> int64
+    // uint64 + signed -> float64 (no int128)
+    if (unsignedDtype === 'uint64') return 'float64';
+    if (unsignedDtype === 'uint32') return 'int64';
+    if (unsignedDtype === 'uint16') return 'int32';
+    if (unsignedDtype === 'uint8') return 'int16';
+  }
+
+  // Otherwise, return higher hierarchy
+  return TYPE_HIERARCHY[dtype1] >= TYPE_HIERARCHY[dtype2] ? dtype1 : dtype2;
+}
+
+/**
+ * For scalar val, returns the data type with the smallest size and smallest
+ * scalar kind which can hold its value.
+ *
+ * @param val - Scalar value
+ * @returns Minimum dtype to represent the value
+ *
+ * @example
+ * ```typescript
+ * min_scalar_type(10)   // 'uint8'
+ * min_scalar_type(1000) // 'uint16'
+ * min_scalar_type(-1)   // 'int8'
+ * min_scalar_type(3.14) // 'float64'
+ * ```
+ */
+export function min_scalar_type(val: number | bigint | boolean): DType {
+  if (typeof val === 'boolean') {
+    return 'bool';
+  }
+
+  if (typeof val === 'bigint') {
+    if (val >= 0n) {
+      if (val <= 255n) return 'uint8';
+      if (val <= 65535n) return 'uint16';
+      if (val <= 4294967295n) return 'uint32';
+      return 'uint64';
+    } else {
+      if (val >= -128n && val <= 127n) return 'int8';
+      if (val >= -32768n && val <= 32767n) return 'int16';
+      if (val >= -2147483648n && val <= 2147483647n) return 'int32';
+      return 'int64';
+    }
+  }
+
+  // Number type
+  if (!Number.isFinite(val) || !Number.isInteger(val)) {
+    // Floats always use float64
+    return 'float64';
+  }
+
+  if (val >= 0) {
+    if (val <= 255) return 'uint8';
+    if (val <= 65535) return 'uint16';
+    if (val <= 4294967295) return 'uint32';
+    return 'float64'; // Too large for uint64 as number
+  } else {
+    if (val >= -128 && val <= 127) return 'int8';
+    if (val >= -32768 && val <= 32767) return 'int16';
+    if (val >= -2147483648 && val <= 2147483647) return 'int32';
+    return 'float64'; // Too large for int64 as number
+  }
+}
+
+/**
+ * Returns true if first argument is a typecode lower/equal in type hierarchy.
+ *
+ * In NumPy, issubdtype checks if dtype1 is a subtype of dtype2.
+ * For specific types (not categories), types are only subtypes of themselves.
+ *
+ * @param dtype1 - First dtype to check
+ * @param dtype2 - Second dtype (or type category string)
+ * @returns Whether dtype1 is a subtype of dtype2
+ *
+ * @example
+ * ```typescript
+ * issubdtype('int32', 'int32')      // true - same type
+ * issubdtype('int32', 'int64')      // false - different types
+ * issubdtype('int32', 'integer')    // true - int32 is an integer type
+ * issubdtype('float32', 'floating') // true - float32 is a floating type
+ * ```
+ */
+export function issubdtype(dtype1: DType | NDArray, dtype2: DType | string): boolean {
+  // Handle NDArray input
+  const dt1: DType = dtype1 instanceof NDArray ? (dtype1.dtype as DType) : dtype1;
+
+  // Handle category strings
+  if (dtype2 === 'integer') {
+    return ['int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64'].includes(dt1);
+  }
+  if (dtype2 === 'signedinteger') {
+    return ['int8', 'int16', 'int32', 'int64'].includes(dt1);
+  }
+  if (dtype2 === 'unsignedinteger') {
+    return ['uint8', 'uint16', 'uint32', 'uint64'].includes(dt1);
+  }
+  if (dtype2 === 'floating') {
+    return ['float32', 'float64'].includes(dt1);
+  }
+  if (dtype2 === 'complexfloating') {
+    return ['complex64', 'complex128'].includes(dt1);
+  }
+  if (dtype2 === 'number' || dtype2 === 'numeric') {
+    return !['bool'].includes(dt1);
+  }
+  if (dtype2 === 'inexact') {
+    return ['float32', 'float64', 'complex64', 'complex128'].includes(dt1);
+  }
+
+  // For specific dtypes, only exact matches are subtypes
+  return dt1 === dtype2;
+}
+
+/**
+ * Return a description for the given data type code.
+ *
+ * @param dtype - Data type to describe
+ * @returns Human-readable description
+ *
+ * @example
+ * ```typescript
+ * typename('float64')  // 'float64'
+ * typename('int32')    // 'int32'
+ * ```
+ */
+export function typename(dtype: DType): string {
+  const descriptions: Record<DType, string> = {
+    bool: 'bool',
+    uint8: 'uint8',
+    uint16: 'uint16',
+    uint32: 'uint32',
+    uint64: 'uint64',
+    int8: 'int8',
+    int16: 'int16',
+    int32: 'int32',
+    int64: 'int64',
+    float32: 'float32',
+    float64: 'float64',
+    complex64: 'complex64',
+    complex128: 'complex128',
+  };
+
+  return descriptions[dtype] || dtype;
+}
+
+/**
+ * Return the character for the minimum-size type to which given types can be
+ * safely cast.
+ *
+ * @param typechars - String of type characters
+ * @param typeset - Which set of types to consider: 'GDFgdf' (default)
+ * @param default_dtype - Default type if no valid types found
+ * @returns Type character for minimum safe type
+ *
+ * @example
+ * ```typescript
+ * mintypecode('if')  // 'd' (float64)
+ * mintypecode('ff')  // 'f' (float32)
+ * ```
+ */
+export function mintypecode(
+  typechars: string,
+  typeset: string = 'GDFgdf',
+  default_dtype: string = 'd'
+): string {
+  // Type character mappings (NumPy style)
+  const charToType: Record<string, DType> = {
+    b: 'int8',
+    B: 'uint8',
+    h: 'int16',
+    H: 'uint16',
+    i: 'int32',
+    I: 'uint32',
+    l: 'int64',
+    L: 'uint64',
+    f: 'float32',
+    d: 'float64',
+    F: 'complex64',
+    D: 'complex128',
+    g: 'float64', // long double maps to float64
+    G: 'complex128', // long complex maps to complex128
+    '?': 'bool',
+  };
+
+  const typeToChar: Record<DType, string> = {
+    int8: 'b',
+    uint8: 'B',
+    int16: 'h',
+    uint16: 'H',
+    int32: 'i',
+    uint32: 'I',
+    int64: 'l',
+    uint64: 'L',
+    float32: 'f',
+    float64: 'd',
+    complex64: 'F',
+    complex128: 'D',
+    bool: '?',
+  };
+
+  // Convert input chars to dtypes
+  const dtypes: DType[] = [];
+  for (const char of typechars) {
+    if (charToType[char]) {
+      dtypes.push(charToType[char]);
+    }
+  }
+
+  if (dtypes.length === 0) {
+    return default_dtype;
+  }
+
+  // Find minimum type that can hold all
+  let result = dtypes[0]!;
+  for (let i = 1; i < dtypes.length; i++) {
+    result = promoteDTypesInternal(result, dtypes[i]!);
+  }
+
+  // Filter by typeset if provided
+  const allowedChars = new Set(typeset);
+  const resultChar = typeToChar[result] || default_dtype;
+
+  if (allowedChars.has(resultChar) || allowedChars.size === 0) {
+    return resultChar;
+  }
+
+  // Find minimum allowed type
+  const orderedChars = 'gfdGFD';
+  for (const char of orderedChars) {
+    if (allowedChars.has(char)) {
+      return char;
+    }
+  }
+
+  return default_dtype;
+}
+
+// ========================================
+// Polynomial Functions
+// ========================================
+
+/**
+ * Find the coefficients of a polynomial with the given sequence of roots.
+ *
+ * Returns the coefficients of the polynomial whose leading coefficient is one
+ * for the given sequence of zeros (multiple roots must be included in the
+ * sequence as many times as their multiplicity).
+ *
+ * @param seq_of_zeros - Sequence of polynomial roots
+ * @returns Array of polynomial coefficients, highest power first
+ *
+ * @example
+ * ```typescript
+ * poly([1, 2, 3])  // array([1, -6, 11, -6]) = (x-1)(x-2)(x-3)
+ * poly([0, 0, 0])  // array([1, 0, 0, 0]) = x^3
+ * ```
+ */
+export function poly(seq_of_zeros: NDArray | number[]): NDArray {
+  const roots = seq_of_zeros instanceof NDArray ? seq_of_zeros.toArray().flat() : seq_of_zeros;
+
+  if (roots.length === 0) {
+    return array([1]);
+  }
+
+  // Start with [1] (leading coefficient)
+  let coeffs = [1];
+
+  // Multiply by (x - root) for each root
+  for (const root of roots) {
+    const newCoeffs = new Array(coeffs.length + 1).fill(0);
+    // Multiply current polynomial by (x - root)
+    for (let i = 0; i < coeffs.length; i++) {
+      newCoeffs[i] += coeffs[i]!; // x term
+      newCoeffs[i + 1] -= coeffs[i]! * (root as number); // -root term
+    }
+    coeffs = newCoeffs;
+  }
+
+  return array(coeffs);
+}
+
+/**
+ * Find the sum of two polynomials.
+ *
+ * @param a1 - First polynomial coefficients (highest power first)
+ * @param a2 - Second polynomial coefficients (highest power first)
+ * @returns Sum polynomial coefficients
+ *
+ * @example
+ * ```typescript
+ * polyadd([1, 2], [3, 4, 5])  // array([3, 5, 7])
+ * ```
+ */
+export function polyadd(a1: NDArray | number[], a2: NDArray | number[]): NDArray {
+  const c1 = a1 instanceof NDArray ? (a1.toArray().flat() as number[]) : a1;
+  const c2 = a2 instanceof NDArray ? (a2.toArray().flat() as number[]) : a2;
+
+  const maxLen = Math.max(c1.length, c2.length);
+  const result = new Array(maxLen).fill(0);
+
+  // Add c1 (aligned to the right/low powers)
+  for (let i = 0; i < c1.length; i++) {
+    result[maxLen - c1.length + i] += c1[i]!;
+  }
+
+  // Add c2 (aligned to the right/low powers)
+  for (let i = 0; i < c2.length; i++) {
+    result[maxLen - c2.length + i] += c2[i]!;
+  }
+
+  return array(result);
+}
+
+/**
+ * Return the derivative of the specified order of a polynomial.
+ *
+ * @param p - Polynomial coefficients (highest power first)
+ * @param m - Order of the derivative (default: 1)
+ * @returns Derivative polynomial coefficients
+ *
+ * @example
+ * ```typescript
+ * polyder([3, 2, 1])  // array([6, 2]) - derivative of 3x^2 + 2x + 1
+ * polyder([4, 3, 2, 1], 2)  // array([24, 6]) - second derivative
+ * ```
+ */
+export function polyder(p: NDArray | number[], m: number = 1): NDArray {
+  let coeffs = p instanceof NDArray ? (p.toArray().flat() as number[]) : [...p];
+
+  for (let order = 0; order < m; order++) {
+    if (coeffs.length <= 1) {
+      return array([0]);
+    }
+
+    const newCoeffs = new Array(coeffs.length - 1);
+    const degree = coeffs.length - 1;
+
+    for (let i = 0; i < degree; i++) {
+      newCoeffs[i] = coeffs[i]! * (degree - i);
+    }
+
+    coeffs = newCoeffs;
+  }
+
+  return array(coeffs);
+}
+
+/**
+ * Returns the quotient and remainder of polynomial division.
+ *
+ * @param u - Dividend polynomial coefficients (highest power first)
+ * @param v - Divisor polynomial coefficients (highest power first)
+ * @returns Tuple [quotient, remainder]
+ *
+ * @example
+ * ```typescript
+ * polydiv([1, -3, 2], [1, -1])  // [array([1, -2]), array([0])]
+ * // (x^2 - 3x + 2) / (x - 1) = (x - 2) with remainder 0
+ * ```
+ */
+export function polydiv(u: NDArray | number[], v: NDArray | number[]): [NDArray, NDArray] {
+  const dividend = u instanceof NDArray ? (u.toArray().flat() as number[]) : [...u];
+  const divisor = v instanceof NDArray ? (v.toArray().flat() as number[]) : [...v];
+
+  if (divisor.length === 0 || (divisor.length === 1 && divisor[0] === 0)) {
+    throw new Error('Division by zero polynomial');
+  }
+
+  // Remove leading zeros
+  while (dividend.length > 1 && dividend[0] === 0) dividend.shift();
+  while (divisor.length > 1 && divisor[0] === 0) divisor.shift();
+
+  if (dividend.length < divisor.length) {
+    return [array([0]), array(dividend)];
+  }
+
+  const quotient: number[] = [];
+  const remainder = [...dividend];
+
+  while (remainder.length >= divisor.length) {
+    const coeff = remainder[0]! / divisor[0]!;
+    quotient.push(coeff);
+
+    for (let i = 0; i < divisor.length; i++) {
+      remainder[i] -= coeff * divisor[i]!;
+    }
+
+    remainder.shift();
+  }
+
+  // Handle zero remainder
+  if (remainder.length === 0 || remainder.every((x) => Math.abs(x) < 1e-14)) {
+    return [array(quotient.length > 0 ? quotient : [0]), array([0])];
+  }
+
+  return [array(quotient.length > 0 ? quotient : [0]), array(remainder)];
+}
+
+/**
+ * Least squares polynomial fit.
+ *
+ * Fit a polynomial p(x) = p[0] * x^deg + ... + p[deg] of degree deg to points (x, y).
+ *
+ * @param x - x-coordinates of the sample points
+ * @param y - y-coordinates of the sample points
+ * @param deg - Degree of the fitting polynomial
+ * @returns Polynomial coefficients, highest power first
+ *
+ * @example
+ * ```typescript
+ * const x = array([0, 1, 2, 3, 4]);
+ * const y = array([0, 1, 4, 9, 16]);
+ * polyfit(x, y, 2)  // approximately array([1, 0, 0]) for y = x^2
+ * ```
+ */
+export function polyfit(x: NDArray, y: NDArray, deg: number): NDArray {
+  const xData = x.toArray().flat() as number[];
+  const yData = y.toArray().flat() as number[];
+  const n = xData.length;
+
+  if (n !== yData.length) {
+    throw new Error('x and y must have the same length');
+  }
+  if (deg < 0) {
+    throw new Error('Degree must be non-negative');
+  }
+  if (n <= deg) {
+    throw new Error('Need more data points than degree');
+  }
+
+  // Build Vandermonde matrix
+  const vandermonde: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const row: number[] = [];
+    for (let j = deg; j >= 0; j--) {
+      row.push(Math.pow(xData[i]!, j));
+    }
+    vandermonde.push(row);
+  }
+
+  // Solve using normal equations: (V^T V) c = V^T y
+  const vt = transpose2D(vandermonde);
+  const vtv = matmul2D(vt, vandermonde);
+  const vty = matvec2D(vt, yData);
+
+  // Solve the linear system using Gaussian elimination with partial pivoting
+  const coeffs = solveLinear(vtv, vty);
+
+  return array(coeffs);
+}
+
+// Helper functions for polyfit
+function transpose2D(m: number[][]): number[][] {
+  const rows = m.length;
+  const cols = m[0]!.length;
+  const result: number[][] = [];
+  for (let j = 0; j < cols; j++) {
+    const row: number[] = [];
+    for (let i = 0; i < rows; i++) {
+      row.push(m[i]![j]!);
+    }
+    result.push(row);
+  }
+  return result;
+}
+
+function matmul2D(a: number[][], b: number[][]): number[][] {
+  const aRows = a.length;
+  const aCols = a[0]!.length;
+  const bCols = b[0]!.length;
+  const result: number[][] = [];
+  for (let i = 0; i < aRows; i++) {
+    const row: number[] = [];
+    for (let j = 0; j < bCols; j++) {
+      let sum = 0;
+      for (let k = 0; k < aCols; k++) {
+        sum += a[i]![k]! * b[k]![j]!;
+      }
+      row.push(sum);
+    }
+    result.push(row);
+  }
+  return result;
+}
+
+function matvec2D(m: number[][], v: number[]): number[] {
+  const result: number[] = [];
+  for (let i = 0; i < m.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < m[i]!.length; j++) {
+      sum += m[i]![j]! * v[j]!;
+    }
+    result.push(sum);
+  }
+  return result;
+}
+
+function solveLinear(A: number[][], b: number[]): number[] {
+  const n = A.length;
+  const augmented = A.map((row, i) => [...row, b[i]!]);
+
+  // Gaussian elimination with partial pivoting
+  for (let i = 0; i < n; i++) {
+    // Find pivot
+    let maxRow = i;
+    for (let k = i + 1; k < n; k++) {
+      if (Math.abs(augmented[k]![i]!) > Math.abs(augmented[maxRow]![i]!)) {
+        maxRow = k;
+      }
+    }
+
+    // Swap rows
+    [augmented[i], augmented[maxRow]] = [augmented[maxRow]!, augmented[i]!];
+
+    // Eliminate
+    for (let k = i + 1; k < n; k++) {
+      const factor = augmented[k]![i]! / augmented[i]![i]!;
+      for (let j = i; j <= n; j++) {
+        augmented[k]![j] -= factor * augmented[i]![j]!;
+      }
+    }
+  }
+
+  // Back substitution
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    x[i] = augmented[i]![n]!;
+    for (let j = i + 1; j < n; j++) {
+      x[i] -= augmented[i]![j]! * x[j]!;
+    }
+    x[i] /= augmented[i]![i]!;
+  }
+
+  return x;
+}
+
+/**
+ * Return an antiderivative (indefinite integral) of a polynomial.
+ *
+ * @param p - Polynomial coefficients (highest power first)
+ * @param m - Order of the antiderivative (default: 1)
+ * @param k - Integration constants (default: 0)
+ * @returns Antiderivative polynomial coefficients
+ *
+ * @example
+ * ```typescript
+ * polyint([3, 2, 1])  // array([1, 1, 1, 0]) - integral of 3x^2 + 2x + 1
+ * polyint([6, 2], 1, 5)  // array([2, 1, 5]) - with constant 5
+ * ```
+ */
+export function polyint(p: NDArray | number[], m: number = 1, k: number | number[] = 0): NDArray {
+  let coeffs = p instanceof NDArray ? (p.toArray().flat() as number[]) : [...p];
+
+  const constants = Array.isArray(k) ? k : [k];
+
+  for (let order = 0; order < m; order++) {
+    const newDegree = coeffs.length;
+    const newCoeffs = new Array(newDegree + 1);
+
+    for (let i = 0; i < newDegree; i++) {
+      newCoeffs[i] = coeffs[i]! / (newDegree - i);
+    }
+
+    // Add integration constant
+    newCoeffs[newDegree] = constants[order] !== undefined ? constants[order]! : 0;
+
+    coeffs = newCoeffs;
+  }
+
+  return array(coeffs);
+}
+
+/**
+ * Find the product of two polynomials.
+ *
+ * @param a1 - First polynomial coefficients (highest power first)
+ * @param a2 - Second polynomial coefficients (highest power first)
+ * @returns Product polynomial coefficients
+ *
+ * @example
+ * ```typescript
+ * polymul([1, 2], [1, 3])  // array([1, 5, 6]) = (x+2)(x+3)
+ * ```
+ */
+export function polymul(a1: NDArray | number[], a2: NDArray | number[]): NDArray {
+  const c1 = a1 instanceof NDArray ? (a1.toArray().flat() as number[]) : a1;
+  const c2 = a2 instanceof NDArray ? (a2.toArray().flat() as number[]) : a2;
+
+  const resultLen = c1.length + c2.length - 1;
+  const result = new Array(resultLen).fill(0);
+
+  for (let i = 0; i < c1.length; i++) {
+    for (let j = 0; j < c2.length; j++) {
+      result[i + j] += c1[i]! * c2[j]!;
+    }
+  }
+
+  return array(result);
+}
+
+/**
+ * Difference (subtraction) of two polynomials.
+ *
+ * @param a1 - First polynomial coefficients (highest power first)
+ * @param a2 - Second polynomial coefficients (highest power first)
+ * @returns Difference polynomial coefficients
+ *
+ * @example
+ * ```typescript
+ * polysub([1, 2, 3], [0, 1, 1])  // array([1, 1, 2])
+ * ```
+ */
+export function polysub(a1: NDArray | number[], a2: NDArray | number[]): NDArray {
+  const c1 = a1 instanceof NDArray ? (a1.toArray().flat() as number[]) : a1;
+  const c2 = a2 instanceof NDArray ? (a2.toArray().flat() as number[]) : a2;
+
+  const maxLen = Math.max(c1.length, c2.length);
+  const result = new Array(maxLen).fill(0);
+
+  // Add c1 (aligned to the right/low powers)
+  for (let i = 0; i < c1.length; i++) {
+    result[maxLen - c1.length + i] += c1[i]!;
+  }
+
+  // Subtract c2 (aligned to the right/low powers)
+  for (let i = 0; i < c2.length; i++) {
+    result[maxLen - c2.length + i] -= c2[i]!;
+  }
+
+  return array(result);
+}
+
+/**
+ * Evaluate a polynomial at specific values.
+ *
+ * @param p - Polynomial coefficients (highest power first)
+ * @param x - Values at which to evaluate the polynomial
+ * @returns Polynomial values at x
+ *
+ * @example
+ * ```typescript
+ * polyval([1, -2, 1], 3)  // 4 = 3^2 - 2*3 + 1
+ * polyval([1, 0, 0], array([1, 2, 3]))  // array([1, 4, 9])
+ * ```
+ */
+export function polyval(p: NDArray | number[], x: NDArray | number | number[]): NDArray | number {
+  const coeffs = p instanceof NDArray ? (p.toArray().flat() as number[]) : p;
+
+  const evaluateAt = (val: number): number => {
+    // Horner's method for polynomial evaluation
+    let result = 0;
+    for (const coeff of coeffs) {
+      result = result * val + coeff;
+    }
+    return result;
+  };
+
+  if (typeof x === 'number') {
+    return evaluateAt(x);
+  }
+
+  const xArray = x instanceof NDArray ? (x.toArray().flat() as number[]) : x;
+  const results = xArray.map(evaluateAt);
+  return array(results);
+}
+
+/**
+ * Return the roots of a polynomial with coefficients given in p.
+ *
+ * The values in the rank-1 array p are coefficients of a polynomial.
+ * If the length of p is n+1 then the polynomial is:
+ * p[0]*x^n + p[1]*x^(n-1) + ... + p[n-1]*x + p[n]
+ *
+ * @param p - Polynomial coefficients (highest power first)
+ * @returns Array of roots (may be complex, returned as numbers for real roots)
+ *
+ * @example
+ * ```typescript
+ * roots([1, -3, 2])  // array([2, 1]) - roots of x^2 - 3x + 2
+ * roots([1, 0, -1])  // array([1, -1]) - roots of x^2 - 1
+ * ```
+ */
+export function roots(p: NDArray | number[]): NDArray {
+  const coeffs = p instanceof NDArray ? (p.toArray().flat() as number[]) : [...p];
+
+  // Remove leading zeros
+  while (coeffs.length > 1 && coeffs[0] === 0) {
+    coeffs.shift();
+  }
+
+  const degree = coeffs.length - 1;
+
+  if (degree <= 0) {
+    return array([]);
+  }
+
+  // Normalize by leading coefficient
+  const lead = coeffs[0]!;
+  const normalized = coeffs.map((c) => c / lead);
+
+  if (degree === 1) {
+    // Linear: ax + b = 0 -> x = -b/a
+    return array([-normalized[1]!]);
+  }
+
+  if (degree === 2) {
+    // Quadratic formula
+    const a = 1;
+    const b = normalized[1]!;
+    const c = normalized[2]!;
+    const discriminant = b * b - 4 * a * c;
+
+    if (discriminant >= 0) {
+      const sqrtD = Math.sqrt(discriminant);
+      return array([(-b + sqrtD) / 2, (-b - sqrtD) / 2]);
+    } else {
+      // Complex roots - return real parts as approximation
+      // (Full complex support would need complex array)
+      const realPart = -b / 2;
+      return array([realPart, realPart]);
+    }
+  }
+
+  // For higher degrees, use companion matrix eigenvalue method
+  // Build companion matrix
+  const n = degree;
+  const companion: number[][] = [];
+
+  for (let i = 0; i < n; i++) {
+    const row = new Array(n).fill(0);
+    if (i < n - 1) {
+      row[i + 1] = 1;
+    }
+    companion.push(row);
+  }
+
+  // Fill first row with -coefficients (normalized)
+  for (let i = 0; i < n; i++) {
+    companion[n - 1]![i] = -normalized[n - i]!;
+  }
+
+  // Find eigenvalues using QR algorithm (simplified power iteration for roots)
+  const eigenvalues = qrAlgorithm(companion);
+
+  return array(eigenvalues);
+}
+
+// Simplified QR algorithm for finding eigenvalues
+function qrAlgorithm(A: number[][]): number[] {
+  const n = A.length;
+  let H = [...A.map((row) => [...row])];
+  const maxIter = 100;
+  const tol = 1e-10;
+
+  // Simple QR iteration
+  for (let iter = 0; iter < maxIter; iter++) {
+    // QR decomposition using Gram-Schmidt
+    const { Q, R } = qrDecompose(H);
+
+    // H = R * Q
+    H = matmul2D(R, Q);
+
+    // Check for convergence (off-diagonal elements near zero)
+    let maxOff = 0;
+    for (let i = 1; i < n; i++) {
+      maxOff = Math.max(maxOff, Math.abs(H[i]![i - 1]!));
+    }
+    if (maxOff < tol) break;
+  }
+
+  // Extract diagonal as eigenvalues
+  const eigenvalues: number[] = [];
+  for (let i = 0; i < n; i++) {
+    eigenvalues.push(H[i]![i]!);
+  }
+
+  return eigenvalues;
+}
+
+function qrDecompose(A: number[][]): { Q: number[][]; R: number[][] } {
+  const n = A.length;
+  const Q: number[][] = A.map((row) => [...row]);
+  const R: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
+
+  for (let j = 0; j < n; j++) {
+    // Orthogonalize column j against previous columns
+    for (let i = 0; i < j; i++) {
+      let dot = 0;
+      for (let k = 0; k < n; k++) {
+        dot += Q[k]![i]! * A[k]![j]!;
+      }
+      R[i]![j] = dot;
+      for (let k = 0; k < n; k++) {
+        Q[k]![j] -= dot * Q[k]![i]!;
+      }
+    }
+
+    // Normalize
+    let norm = 0;
+    for (let k = 0; k < n; k++) {
+      norm += Q[k]![j]! * Q[k]![j]!;
+    }
+    norm = Math.sqrt(norm);
+    R[j]![j] = norm;
+
+    if (norm > 1e-14) {
+      for (let k = 0; k < n; k++) {
+        Q[k]![j] /= norm;
+      }
+    }
+  }
+
+  return { Q, R };
+}

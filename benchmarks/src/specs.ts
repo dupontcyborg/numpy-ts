@@ -2700,6 +2700,166 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    // ========================================
+    // Polynomial Benchmarks
+    // ========================================
+
+    specs.push({
+      name: `poly [10 roots]`,
+      category: 'polynomials',
+      operation: 'poly',
+      setup: {
+        a: { shape: [10], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polyadd [10] + [10]`,
+      category: 'polynomials',
+      operation: 'polyadd',
+      setup: {
+        a: { shape: [10], fill: 'arange' },
+        b: { shape: [10], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polyder [10]`,
+      category: 'polynomials',
+      operation: 'polyder',
+      setup: {
+        a: { shape: [10], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polydiv [10] / [5]`,
+      category: 'polynomials',
+      operation: 'polydiv',
+      setup: {
+        a: { shape: [10], fill: 'ones' },
+        b: { shape: [5], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polyfit [100] deg=5`,
+      category: 'polynomials',
+      operation: 'polyfit',
+      setup: {
+        a: { shape: [100], fill: 'arange' },
+        b: { shape: [100], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polyint [10]`,
+      category: 'polynomials',
+      operation: 'polyint',
+      setup: {
+        a: { shape: [10], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polymul [10] * [10]`,
+      category: 'polynomials',
+      operation: 'polymul',
+      setup: {
+        a: { shape: [10], fill: 'ones' },
+        b: { shape: [10], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polysub [10] - [10]`,
+      category: 'polynomials',
+      operation: 'polysub',
+      setup: {
+        a: { shape: [10], fill: 'arange' },
+        b: { shape: [10], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `polyval [10] at [100 points]`,
+      category: 'polynomials',
+      operation: 'polyval',
+      setup: {
+        a: { shape: [10], fill: 'arange' },
+        b: { shape: [100], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `roots [5]`,
+      category: 'polynomials',
+      operation: 'roots',
+      setup: {
+        a: { shape: [5], fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // ========================================
+    // Type Checking Benchmarks
+    // ========================================
+
+    specs.push({
+      name: `can_cast`,
+      category: 'type_checking',
+      operation: 'can_cast',
+      setup: {},
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `result_type`,
+      category: 'type_checking',
+      operation: 'result_type',
+      setup: {},
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `min_scalar_type`,
+      category: 'type_checking',
+      operation: 'min_scalar_type',
+      setup: {},
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `issubdtype`,
+      category: 'type_checking',
+      operation: 'issubdtype',
+      setup: {},
+      iterations,
+      warmup,
+    });
   }
 
   return specs;

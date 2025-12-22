@@ -2,14 +2,14 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-19
+**Last Updated**: 2025-12-22
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 349/507 (68.8%)
-- **Top-level Functions**: 342/507 (63.9%)
+- **Overall Coverage**: 365/505 (72.3%)
+- **Top-level Functions**: 359/505 (67.3%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -24,11 +24,13 @@ Based on `npm run compare-api`:
 - I/O (8/8)
 - Indexing (21/21)
 - Logic (24/24)
+- Polynomials (10/10)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
 - Sorting (6/6)
 - Trigonometric (16/16)
+- Type Checking (7/7)
 
 ### Incomplete Categories
 - Bit Operations (9/13) - 69.2%
@@ -37,12 +39,10 @@ Based on `npm run compare-api`:
 - Linear Algebra (linalg) (19/31) - 61.3%
 - NDArray Methods (40/53) - 75.5%
 - Other Math (5/15) - 33.3%
-- Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Set Operations (7/12) - 58.3%
-- Statistics (9/12) - 75.0%
+- Set Operations (6/11) - 54.5%
+- Statistics (9/11) - 81.8%
 - String/Formatting (0/10) - 0.0%
-- Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
 - Utilities (4/16) - 25.0%
 
@@ -478,16 +478,16 @@ Based on `npm run compare-api`:
 
 ## Polynomials
 
-- [ ] `poly` 
-- [ ] `polyadd` 
-- [ ] `polyder` 
-- [ ] `polydiv` 
-- [ ] `polyfit` 
-- [ ] `polyint` 
-- [ ] `polymul` 
-- [ ] `polysub` 
-- [ ] `polyval` 
-- [ ] `roots` 
+- [x] `poly` 
+- [x] `polyadd` 
+- [x] `polyder` 
+- [x] `polydiv` 
+- [x] `polyfit` 
+- [x] `polyint` 
+- [x] `polymul` 
+- [x] `polysub` 
+- [x] `polyval` 
+- [x] `roots` 
 
 ---
 
@@ -616,7 +616,6 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
-- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
@@ -655,7 +654,6 @@ Based on `npm run compare-api`:
 - [ ] `histogram_bin_edges` 
 - [x] `histogramdd` 
 - [ ] `trapezoid` 
-- [ ] `trapz` 
 
 ---
 
@@ -697,13 +695,13 @@ Based on `npm run compare-api`:
 
 ## Type Checking
 
-- [ ] `can_cast` 
-- [ ] `common_type` 
-- [ ] `issubdtype` 
-- [ ] `min_scalar_type` 
-- [ ] `mintypecode` 
-- [ ] `result_type` 
-- [ ] `typename` 
+- [x] `can_cast` 
+- [x] `common_type` 
+- [x] `issubdtype` 
+- [x] `min_scalar_type` 
+- [x] `mintypecode` 
+- [x] `result_type` 
+- [x] `typename` 
 
 ---
 

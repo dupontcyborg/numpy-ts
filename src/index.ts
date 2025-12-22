@@ -315,6 +315,25 @@ export {
   convolve,
   cov,
   corrcoef,
+  // Type checking functions
+  can_cast,
+  common_type,
+  result_type,
+  min_scalar_type,
+  issubdtype,
+  typename,
+  mintypecode,
+  // Polynomial functions
+  poly,
+  polyadd,
+  polyder,
+  polydiv,
+  polyfit,
+  polyint,
+  polymul,
+  polysub,
+  polyval,
+  roots,
 } from './core/ndarray';
 
 // IO functions (environment-agnostic parsing/serialization)

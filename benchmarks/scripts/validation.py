@@ -584,6 +584,39 @@ def run_operation(spec):
     elif operation == "complex_prod":
         result = np.prod(arrays["a"])
 
+    # Polynomial operations
+    elif operation == "poly":
+        result = np.poly(arrays["a"])
+    elif operation == "polyadd":
+        result = np.polyadd(arrays["a"], arrays["b"])
+    elif operation == "polyder":
+        result = np.polyder(arrays["a"])
+    elif operation == "polydiv":
+        q, r = np.polydiv(arrays["a"], arrays["b"])
+        result = q  # Return just quotient for validation
+    elif operation == "polyfit":
+        result = np.polyfit(arrays["a"], arrays["b"], 2)
+    elif operation == "polyint":
+        result = np.polyint(arrays["a"])
+    elif operation == "polymul":
+        result = np.polymul(arrays["a"], arrays["b"])
+    elif operation == "polysub":
+        result = np.polysub(arrays["a"], arrays["b"])
+    elif operation == "polyval":
+        result = np.polyval(arrays["a"], arrays["b"])
+    elif operation == "roots":
+        result = np.roots(arrays["a"])
+
+    # Type checking operations (return booleans/strings, not arrays)
+    elif operation == "can_cast":
+        result = np.can_cast("int32", "float64")
+    elif operation == "result_type":
+        result = str(np.result_type("int32", "float64"))
+    elif operation == "min_scalar_type":
+        result = str(np.min_scalar_type(1000))
+    elif operation == "issubdtype":
+        result = np.issubdtype(np.int32, np.integer)
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 
