@@ -237,6 +237,10 @@ export {
   right_shift,
   packbits,
   unpackbits,
+  bitwise_count,
+  bitwise_invert,
+  bitwise_left_shift,
+  bitwise_right_shift,
   // Logic functions
   logical_and,
   logical_or,
@@ -300,6 +304,11 @@ export {
   setdiff1d,
   setxor1d,
   union1d,
+  trim_zeros,
+  unique_all,
+  unique_counts,
+  unique_inverse,
+  unique_values,
   // Gradient functions
   diff,
   ediff1d,
@@ -315,6 +324,8 @@ export {
   convolve,
   cov,
   corrcoef,
+  histogram_bin_edges,
+  trapezoid,
 } from './core/ndarray';
 
 // IO functions (environment-agnostic parsing/serialization)

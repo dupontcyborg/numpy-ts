@@ -815,3 +815,101 @@ function computeStrides(shape: number[]): number[] {
   }
   return strides;
 }
+
+/**
+ * Count the number of 1-bits in each element (population count).
+ *
+ * @param x - Input array (must be integer type)
+ * @returns Array with population count for each element
+ */
+export function bitwise_count(x: ArrayStorage): ArrayStorage {
+  const dtype = x.dtype;
+  validateIntegerDType(dtype, 'bitwise_count');
+
+  const shape = Array.from(x.shape);
+  const data = x.data;
+  const size = x.size;
+
+  // Output is always uint8 (max popcount is 64 for uint64)
+  const result = ArrayStorage.zeros(shape, 'uint8');
+  const resultData = result.data as Uint8Array;
+
+  if (isBigIntDType(dtype)) {
+    const typedData = data as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = popcount64(typedData[i]!);
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = data[i] as number;
+      resultData[i] = popcount32(val);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Count 1-bits in a 32-bit integer (handles signed values correctly)
+ * @private
+ */
+function popcount32(n: number): number {
+  // Convert to unsigned 32-bit representation
+  n = n >>> 0;
+  // Brian Kernighan's algorithm
+  let count = 0;
+  while (n !== 0) {
+    n = n & (n - 1);
+    count++;
+  }
+  return count;
+}
+
+/**
+ * Count 1-bits in a 64-bit BigInt
+ * @private
+ */
+function popcount64(n: bigint): number {
+  // Handle negative numbers (convert to unsigned representation)
+  if (n < 0n) {
+    n = BigInt.asUintN(64, n);
+  }
+  let count = 0;
+  while (n !== 0n) {
+    n = n & (n - 1n);
+    count++;
+  }
+  return count;
+}
+
+/**
+ * Bitwise invert (alias for bitwise_not)
+ *
+ * @param x - Input array (must be integer type)
+ * @returns Result storage with bitwise NOT values
+ */
+export function bitwise_invert(x: ArrayStorage): ArrayStorage {
+  return bitwise_not(x);
+}
+
+/**
+ * Bitwise left shift (alias for left_shift)
+ *
+ * @param x1 - Input array (must be integer type)
+ * @param x2 - Shift amount (array or scalar)
+ * @returns Result storage with left-shifted values
+ */
+export function bitwise_left_shift(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  return left_shift(x1, x2);
+}
+
+/**
+ * Bitwise right shift (alias for right_shift)
+ *
+ * @param x1 - Input array (must be integer type)
+ * @param x2 - Shift amount (array or scalar)
+ * @returns Result storage with right-shifted values
+ */
+export function bitwise_right_shift(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  return right_shift(x1, x2);
+}

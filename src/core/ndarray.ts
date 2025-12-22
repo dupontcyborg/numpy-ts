@@ -5561,6 +5561,50 @@ export function unpackbits(
   return NDArray._fromStorage(resultStorage);
 }
 
+/**
+ * Count the number of 1-bits (population count) in each element.
+ *
+ * @param x - Input array (must be integer type)
+ * @returns Array with population count for each element
+ */
+export function bitwise_count(x: NDArray): NDArray {
+  return NDArray._fromStorage(bitwiseOps.bitwise_count(x.storage));
+}
+
+/**
+ * Bitwise invert (alias for bitwise_not).
+ *
+ * @param x - Input array (must be integer type)
+ * @returns Result with bitwise NOT values
+ */
+export function bitwise_invert(x: NDArray): NDArray {
+  return NDArray._fromStorage(bitwiseOps.bitwise_invert(x.storage));
+}
+
+/**
+ * Bitwise left shift (alias for left_shift).
+ *
+ * @param x1 - Input array (must be integer type)
+ * @param x2 - Shift amount (array or scalar)
+ * @returns Result with left-shifted values
+ */
+export function bitwise_left_shift(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(bitwiseOps.bitwise_left_shift(x1.storage, x2Storage));
+}
+
+/**
+ * Bitwise right shift (alias for right_shift).
+ *
+ * @param x1 - Input array (must be integer type)
+ * @param x2 - Shift amount (array or scalar)
+ * @returns Result with right-shifted values
+ */
+export function bitwise_right_shift(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(bitwiseOps.bitwise_right_shift(x1.storage, x2Storage));
+}
+
 // ========================================
 // Logic Functions
 // ========================================
@@ -6712,6 +6756,84 @@ export function union1d(ar1: NDArray, ar2: NDArray): NDArray {
   return NDArray._fromStorage(setOps.union1d(ar1.storage, ar2.storage));
 }
 
+/**
+ * Trim leading and/or trailing zeros from a 1-D array.
+ *
+ * @param filt - Input 1-D array
+ * @param trim - 'fb' to trim front and back, 'f' for front only, 'b' for back only (default: 'fb')
+ * @returns Trimmed array
+ */
+export function trim_zeros(filt: NDArray, trim: 'f' | 'b' | 'fb' = 'fb'): NDArray {
+  return NDArray._fromStorage(setOps.trim_zeros(filt.storage, trim));
+}
+
+/**
+ * Find the unique elements of an array, returning all optional outputs.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values, indices, inverse_indices, and counts (all as NDArray)
+ */
+export function unique_all(x: NDArray): {
+  values: NDArray;
+  indices: NDArray;
+  inverse_indices: NDArray;
+  counts: NDArray;
+} {
+  const result = setOps.unique_all(x.storage);
+  return {
+    values: NDArray._fromStorage(result.values),
+    indices: NDArray._fromStorage(result.indices),
+    inverse_indices: NDArray._fromStorage(result.inverse_indices),
+    counts: NDArray._fromStorage(result.counts),
+  };
+}
+
+/**
+ * Find the unique elements of an array and their counts.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values and counts (both as NDArray)
+ */
+export function unique_counts(x: NDArray): {
+  values: NDArray;
+  counts: NDArray;
+} {
+  const result = setOps.unique_counts(x.storage);
+  return {
+    values: NDArray._fromStorage(result.values),
+    counts: NDArray._fromStorage(result.counts),
+  };
+}
+
+/**
+ * Find the unique elements of an array and their inverse indices.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values and inverse_indices (both as NDArray)
+ */
+export function unique_inverse(x: NDArray): {
+  values: NDArray;
+  inverse_indices: NDArray;
+} {
+  const result = setOps.unique_inverse(x.storage);
+  return {
+    values: NDArray._fromStorage(result.values),
+    inverse_indices: NDArray._fromStorage(result.inverse_indices),
+  };
+}
+
+/**
+ * Find the unique elements of an array (values only).
+ *
+ * This is equivalent to unique(x) but with a clearer name for the Array API.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Array of unique values, sorted
+ */
+export function unique_values(x: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.unique_values(x.storage));
+}
+
 // Gradient and difference functions
 
 /**
@@ -6965,4 +7087,48 @@ export function cov(
  */
 export function corrcoef(x: NDArray, y?: NDArray, rowvar: boolean = true): NDArray {
   return NDArray._fromStorage(statisticsOps.corrcoef(x.storage, y?.storage, rowvar));
+}
+
+/**
+ * Compute the edges of the bins for histogram.
+ *
+ * This function computes the bin edges without computing the histogram itself.
+ *
+ * @param a - Input data (flattened if not 1D)
+ * @param bins - Number of bins (default: 10) or a string specifying the bin algorithm
+ * @param range - Lower and upper range of bins. If not provided, uses [a.min(), a.max()]
+ * @param weights - Optional weights for each data point (used for some algorithms)
+ * @returns Array of bin edges (length = bins + 1)
+ */
+export function histogram_bin_edges(
+  a: NDArray,
+  bins: number | 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt' = 10,
+  range?: [number, number],
+  weights?: NDArray
+): NDArray {
+  return NDArray._fromStorage(
+    statisticsOps.histogram_bin_edges(a.storage, bins, range, weights?.storage)
+  );
+}
+
+/**
+ * Integrate along the given axis using the composite trapezoidal rule.
+ *
+ * @param y - Input array to integrate
+ * @param x - Optional sample points corresponding to y values. If not provided, spacing is assumed to be 1.
+ * @param dx - Spacing between sample points when x is not given (default: 1.0)
+ * @param axis - The axis along which to integrate (default: -1, meaning last axis)
+ * @returns Definite integral approximated using the composite trapezoidal rule
+ */
+export function trapezoid(
+  y: NDArray,
+  x?: NDArray,
+  dx: number = 1.0,
+  axis: number = -1
+): NDArray | number {
+  const result = statisticsOps.trapezoid(y.storage, x?.storage, dx, axis);
+  if (typeof result === 'number') {
+    return result;
+  }
+  return NDArray._fromStorage(result);
 }

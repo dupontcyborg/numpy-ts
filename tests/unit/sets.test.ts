@@ -12,6 +12,11 @@ import {
   setdiff1d,
   setxor1d,
   union1d,
+  trim_zeros,
+  unique_all,
+  unique_counts,
+  unique_inverse,
+  unique_values,
 } from '../../src/core/ndarray';
 
 describe('Set Operations', () => {
@@ -279,5 +284,136 @@ describe('Edge Cases', () => {
         [0, 1],
       ],
     ]);
+  });
+});
+
+describe('trim_zeros()', () => {
+  it('trims leading and trailing zeros', () => {
+    const arr = array([0, 0, 1, 2, 3, 0, 0]);
+    const result = trim_zeros(arr);
+    expect(result.toArray()).toEqual([1, 2, 3]);
+  });
+
+  it('trims only front zeros with trim="f"', () => {
+    const arr = array([0, 0, 1, 2, 0, 0]);
+    const result = trim_zeros(arr, 'f');
+    expect(result.toArray()).toEqual([1, 2, 0, 0]);
+  });
+
+  it('trims only back zeros with trim="b"', () => {
+    const arr = array([0, 0, 1, 2, 0, 0]);
+    const result = trim_zeros(arr, 'b');
+    expect(result.toArray()).toEqual([0, 0, 1, 2]);
+  });
+
+  it('handles array with no leading zeros', () => {
+    const arr = array([1, 2, 3, 0, 0]);
+    const result = trim_zeros(arr);
+    expect(result.toArray()).toEqual([1, 2, 3]);
+  });
+
+  it('handles array with no trailing zeros', () => {
+    const arr = array([0, 0, 1, 2, 3]);
+    const result = trim_zeros(arr);
+    expect(result.toArray()).toEqual([1, 2, 3]);
+  });
+
+  it('handles all-zeros array', () => {
+    const arr = array([0, 0, 0]);
+    const result = trim_zeros(arr);
+    expect(result.toArray()).toEqual([]);
+  });
+
+  it('handles empty array', () => {
+    const arr = array([], 'float64');
+    const result = trim_zeros(arr);
+    expect(result.toArray()).toEqual([]);
+  });
+
+  it('handles single non-zero element', () => {
+    const arr = array([0, 5, 0]);
+    const result = trim_zeros(arr);
+    expect(result.toArray()).toEqual([5]);
+  });
+});
+
+describe('unique_all()', () => {
+  it('returns values, indices, inverse_indices, and counts', () => {
+    const arr = array([3, 1, 2, 1, 3, 3]);
+    const result = unique_all(arr);
+
+    expect(result.values.toArray()).toEqual([1, 2, 3]);
+    expect(result.indices).toBeDefined();
+    expect(result.inverse_indices).toBeDefined();
+    expect(result.counts.toArray()).toEqual([2, 1, 3]);
+  });
+
+  it('inverse_indices reconstructs original', () => {
+    const arr = array([4, 2, 2, 1]);
+    const result = unique_all(arr);
+
+    // Using inverse_indices with values should reconstruct original
+    const values = result.values.toArray() as number[];
+    const inverse = result.inverse_indices.toArray() as number[];
+    const reconstructed = inverse.map((i) => values[i]);
+    expect(reconstructed).toEqual([4, 2, 2, 1]);
+  });
+});
+
+describe('unique_counts()', () => {
+  it('returns values and counts', () => {
+    const arr = array([1, 2, 2, 3, 3, 3]);
+    const result = unique_counts(arr);
+
+    expect(result.values.toArray()).toEqual([1, 2, 3]);
+    expect(result.counts.toArray()).toEqual([1, 2, 3]);
+  });
+
+  it('handles single element', () => {
+    const arr = array([5]);
+    const result = unique_counts(arr);
+
+    expect(result.values.toArray()).toEqual([5]);
+    expect(result.counts.toArray()).toEqual([1]);
+  });
+});
+
+describe('unique_inverse()', () => {
+  it('returns values and inverse_indices', () => {
+    const arr = array([3, 1, 2, 1]);
+    const result = unique_inverse(arr);
+
+    expect(result.values.toArray()).toEqual([1, 2, 3]);
+    expect(result.inverse_indices).toBeDefined();
+  });
+
+  it('inverse_indices maps back to original', () => {
+    const arr = array([5, 3, 3, 5, 1]);
+    const result = unique_inverse(arr);
+
+    const values = result.values.toArray() as number[];
+    const inverse = result.inverse_indices.toArray() as number[];
+    const reconstructed = inverse.map((i) => values[i]);
+    expect(reconstructed).toEqual([5, 3, 3, 5, 1]);
+  });
+});
+
+describe('unique_values()', () => {
+  it('returns sorted unique values', () => {
+    const arr = array([3, 1, 2, 1, 3]);
+    const result = unique_values(arr);
+    expect(result.toArray()).toEqual([1, 2, 3]);
+  });
+
+  it('handles empty array', () => {
+    const arr = array([]);
+    const result = unique_values(arr);
+    expect(result.toArray()).toEqual([]);
+  });
+
+  it('handles already unique array', () => {
+    const arr = array([5, 3, 1, 4, 2]);
+    const result = unique_values(arr);
+    expect(result.toArray()).toEqual([1, 2, 3, 4, 5]);
   });
 });

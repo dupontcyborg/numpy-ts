@@ -2,20 +2,21 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-19
+**Last Updated**: 2025-12-22
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 349/507 (68.8%)
-- **Top-level Functions**: 342/507 (63.9%)
+- **Overall Coverage**: 359/505 (71.1%)
+- **Top-level Functions**: 353/505 (66.1%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
 - Array Creation (35/35)
 - Array Manipulation (46/46)
+- Bit Operations (13/13)
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
@@ -27,11 +28,12 @@ Based on `npm run compare-api`:
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
+- Set Operations (11/11)
 - Sorting (6/6)
+- Statistics (11/11)
 - Trigonometric (16/16)
 
 ### Incomplete Categories
-- Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
@@ -39,8 +41,6 @@ Based on `npm run compare-api`:
 - Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Set Operations (7/12) - 58.3%
-- Statistics (9/12) - 75.0%
 - String/Formatting (0/10) - 0.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
@@ -176,12 +176,12 @@ Based on `npm run compare-api`:
 ## Bit Operations
 
 - [x] `bitwise_and` 
-- [ ] `bitwise_count` 
-- [ ] `bitwise_invert` 
-- [ ] `bitwise_left_shift` 
+- [x] `bitwise_count` 
+- [x] `bitwise_invert` 
+- [x] `bitwise_left_shift` 
 - [x] `bitwise_not` 
 - [x] `bitwise_or` 
-- [ ] `bitwise_right_shift` 
+- [x] `bitwise_right_shift` 
 - [x] `bitwise_xor` 
 - [x] `invert` 
 - [x] `left_shift` 
@@ -616,18 +616,17 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
-- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
 - [x] `setxor1d` 
-- [ ] `trim_zeros` 
+- [x] `trim_zeros` 
 - [x] `union1d` 
 - [x] `unique` 
-- [ ] `unique_all` 
-- [ ] `unique_counts` 
-- [ ] `unique_inverse` 
-- [ ] `unique_values` 
+- [x] `unique_all` 
+- [x] `unique_counts` 
+- [x] `unique_inverse` 
+- [x] `unique_values` 
 
 ---
 
@@ -652,10 +651,9 @@ Based on `npm run compare-api`:
 - [x] `digitize` 
 - [x] `histogram` 
 - [x] `histogram2d` 
-- [ ] `histogram_bin_edges` 
+- [x] `histogram_bin_edges` 
 - [x] `histogramdd` 
-- [ ] `trapezoid` 
-- [ ] `trapz` 
+- [x] `trapezoid` 
 
 ---
 

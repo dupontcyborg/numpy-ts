@@ -14,6 +14,8 @@ import {
   convolve,
   cov,
   corrcoef,
+  histogram_bin_edges,
+  trapezoid,
 } from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -394,6 +396,109 @@ result = np.corrcoef(np.array([[0, 2], [1, 1], [2, 0]]), rowvar=False)
 
       expect(jsResult.shape).toEqual(pyResult.shape);
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('histogram_bin_edges', () => {
+    it('matches NumPy for basic bin count', () => {
+      const jsResult = histogram_bin_edges(array([1, 2, 3, 4, 5]), 5);
+      const pyResult = runNumPy(`
+result = np.histogram_bin_edges(np.array([1, 2, 3, 4, 5]), bins=5)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('matches NumPy with specified range', () => {
+      const jsResult = histogram_bin_edges(array([1, 2, 3, 4, 5]), 4, [0, 8]);
+      const pyResult = runNumPy(`
+result = np.histogram_bin_edges(np.array([1, 2, 3, 4, 5]), bins=4, range=(0, 8))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('matches NumPy with sturges bin selection', () => {
+      const jsResult = histogram_bin_edges(array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]), 'sturges');
+      const pyResult = runNumPy(`
+result = np.histogram_bin_edges(np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]), bins='sturges')
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      // Allow for slight differences in edge calculation
+      const jsArr = jsResult.toArray() as number[];
+      const pyArr = pyResult.value as number[];
+      expect(jsArr[0]).toBeCloseTo(pyArr[0]!, 5);
+      expect(jsArr[jsArr.length - 1]).toBeCloseTo(pyArr[pyArr.length - 1]!, 5);
+    });
+  });
+
+  describe('trapezoid', () => {
+    it('matches NumPy for 1D array', () => {
+      const jsResult = trapezoid(array([1, 2, 3, 4, 5]));
+      const pyResult = runNumPy(`
+result = np.trapezoid(np.array([1, 2, 3, 4, 5]))
+      `);
+
+      expect(Math.abs((jsResult as number) - pyResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('matches NumPy with custom dx', () => {
+      const jsResult = trapezoid(array([1, 2, 3, 4, 5]), undefined, 0.5);
+      const pyResult = runNumPy(`
+result = np.trapezoid(np.array([1, 2, 3, 4, 5]), dx=0.5)
+      `);
+
+      expect(Math.abs((jsResult as number) - pyResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('matches NumPy with x values', () => {
+      const jsResult = trapezoid(array([0, 1, 4]), array([0, 1, 2]));
+      const pyResult = runNumPy(`
+result = np.trapezoid(np.array([0, 1, 4]), x=np.array([0, 1, 2]))
+      `);
+
+      expect(Math.abs((jsResult as number) - pyResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('matches NumPy for 2D array along axis 1', () => {
+      const jsResult = trapezoid(
+        array([
+          [1, 2, 3, 4],
+          [2, 4, 6, 8],
+        ]),
+        undefined,
+        1,
+        1
+      );
+      const pyResult = runNumPy(`
+result = np.trapezoid(np.array([[1, 2, 3, 4], [2, 4, 6, 8]]), axis=1)
+      `);
+
+      expect(arraysClose((jsResult as { toArray: () => number[] }).toArray(), pyResult.value)).toBe(
+        true
+      );
+    });
+
+    it('matches NumPy for 2D array along axis 0', () => {
+      const jsResult = trapezoid(
+        array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]),
+        undefined,
+        1,
+        0
+      );
+      const pyResult = runNumPy(`
+result = np.trapezoid(np.array([[1, 2, 3], [4, 5, 6]]), axis=0)
+      `);
+
+      expect(arraysClose((jsResult as { toArray: () => number[] }).toArray(), pyResult.value)).toBe(
+        true
+      );
     });
   });
 });

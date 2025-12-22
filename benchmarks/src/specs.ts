@@ -2009,6 +2009,17 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
+    specs.push({
+      name: `bitwise_count [${sizes.medium.join('x')}]`,
+      category: 'bitwise',
+      operation: 'bitwise_count',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', dtype: 'uint32' },
+      },
+      iterations,
+      warmup,
+    });
+
     // ========================================
     // Sorting Benchmarks
     // ========================================
@@ -2258,6 +2269,62 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       operation: 'corrcoef',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `histogram_bin_edges [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'histogram_bin_edges',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `trapezoid [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'trapezoid',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // Set operation benchmarks
+    specs.push({
+      name: `trim_zeros [${sizes.small}]`,
+      category: 'sets',
+      operation: 'trim_zeros',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `unique_values [${sizes.small}]`,
+      category: 'sets',
+      operation: 'unique_values',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `unique_counts [${sizes.small}]`,
+      category: 'sets',
+      operation: 'unique_counts',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
       },
       iterations,
       warmup,

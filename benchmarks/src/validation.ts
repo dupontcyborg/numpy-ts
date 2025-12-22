@@ -101,6 +101,30 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string):
     return arraysEqual(tsData, npData);
   }
 
+  // Both plain objects (e.g., {values: [...], counts: [...]})
+  if (
+    typeof numpytsResult === 'object' &&
+    numpytsResult !== null &&
+    typeof numpyResult === 'object' &&
+    numpyResult !== null &&
+    !Array.isArray(numpytsResult) &&
+    !Array.isArray(numpyResult)
+  ) {
+    const tsKeys = Object.keys(numpytsResult);
+    const npKeys = Object.keys(numpyResult);
+
+    // Check same keys
+    if (tsKeys.length !== npKeys.length) {
+      return false;
+    }
+    if (!tsKeys.every((k) => npKeys.includes(k))) {
+      return false;
+    }
+
+    // Recursively compare each value
+    return tsKeys.every((k) => resultsMatch(numpytsResult[k], numpyResult[k], operation));
+  }
+
   return false;
 }
 
@@ -610,6 +634,8 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.packbits(arrays.a);
     case 'unpackbits':
       return np.unpackbits(arrays.a);
+    case 'bitwise_count':
+      return np.bitwise_count(arrays.a);
 
     // Sorting operations
     case 'sort':
@@ -664,6 +690,20 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.cov(arrays.a);
     case 'corrcoef':
       return np.corrcoef(arrays.a);
+    case 'histogram_bin_edges':
+      return np.histogram_bin_edges(arrays.a, 10);
+    case 'trapezoid':
+      return np.trapezoid(arrays.a);
+
+    // Set operations
+    case 'trim_zeros':
+      return np.trim_zeros(arrays.a);
+    case 'unique_values':
+      return np.unique_values(arrays.a);
+    case 'unique_counts': {
+      const result = np.unique_counts(arrays.a);
+      return { values: result.values.toArray(), counts: result.counts.toArray() };
+    }
 
     // Logic operations
     case 'logical_and':

@@ -10,6 +10,8 @@ import {
   convolve,
   cov,
   corrcoef,
+  histogram_bin_edges,
+  trapezoid,
 } from '../../src/core/ndarray';
 
 describe('Statistics Operations', () => {
@@ -377,6 +379,131 @@ describe('Statistics Operations', () => {
           expect(corrArr[i]![j]!).toBeLessThanOrEqual(1);
         }
       }
+    });
+  });
+
+  describe('histogram_bin_edges', () => {
+    it('computes bin edges with default bins', () => {
+      const arr = array([1, 2, 3, 4, 5]);
+      const edges = histogram_bin_edges(arr, 5);
+      expect(edges.shape).toEqual([6]);
+      const edgesArr = edges.toArray() as number[];
+      expect(edgesArr[0]).toBe(1);
+      expect(edgesArr[5]).toBe(5);
+    });
+
+    it('computes bin edges with specified range', () => {
+      const arr = array([1, 2, 3, 4, 5]);
+      const edges = histogram_bin_edges(arr, 4, [0, 8]);
+      expect(edges.shape).toEqual([5]);
+      const edgesArr = edges.toArray() as number[];
+      expect(edgesArr[0]).toBe(0);
+      expect(edgesArr[4]).toBe(8);
+    });
+
+    it('uses auto bin selection', () => {
+      const arr = array([1, 2, 2, 3, 3, 3, 4, 5]);
+      const edges = histogram_bin_edges(arr, 'auto');
+      expect(edges.size).toBeGreaterThan(1);
+    });
+
+    it('uses sturges bin selection', () => {
+      const arr = array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      const edges = histogram_bin_edges(arr, 'sturges');
+      // Sturges: ceil(log2(n) + 1) = ceil(log2(10) + 1) = 5
+      expect(edges.shape).toEqual([6]); // 5 bins = 6 edges
+    });
+
+    it('uses sqrt bin selection', () => {
+      const arr = array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+      const edges = histogram_bin_edges(arr, 'sqrt');
+      // sqrt(16) = 4 bins
+      expect(edges.shape).toEqual([5]); // 4 bins = 5 edges
+    });
+
+    it('handles single value', () => {
+      const arr = array([5, 5, 5, 5]);
+      const edges = histogram_bin_edges(arr, 3);
+      expect(edges.shape).toEqual([4]);
+      // When all values are same, range is expanded to [val - 0.5, val + 0.5]
+    });
+
+    it('handles empty array with at least 1 bin', () => {
+      const arr = array([], 'float64');
+      const edges = histogram_bin_edges(arr, 5);
+      expect(edges.size).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('trapezoid', () => {
+    it('integrates constant function', () => {
+      // Integral of y=2 from x=0 to x=4 is 8
+      const y = array([2, 2, 2, 2, 2]);
+      const result = trapezoid(y);
+      expect(result).toBe(8); // 4 intervals of width 1, height 2
+    });
+
+    it('integrates linear function', () => {
+      // Integral of y=x from x=0 to x=4 is 8
+      const y = array([0, 1, 2, 3, 4]);
+      const result = trapezoid(y);
+      expect(result).toBe(8);
+    });
+
+    it('integrates with custom dx', () => {
+      // Integral of y=1 from x=0 to x=2 with dx=0.5
+      const y = array([1, 1, 1, 1, 1]);
+      const result = trapezoid(y, undefined, 0.5);
+      expect(result).toBe(2); // 4 intervals of width 0.5, height 1
+    });
+
+    it('integrates with custom x values', () => {
+      // Integral of y=x from x=0 to x=2 (non-uniform spacing)
+      const y = array([0, 1, 4]);
+      const x = array([0, 1, 2]);
+      const result = trapezoid(y, x);
+      // Area = 0.5*(0+1)*1 + 0.5*(1+4)*1 = 0.5 + 2.5 = 3
+      expect(result).toBe(3);
+    });
+
+    it('integrates along axis for 2D array', () => {
+      // Each row is [1, 2, 3, 4], integral should be 7.5 for each row
+      const y = array([
+        [1, 2, 3, 4],
+        [2, 4, 6, 8],
+      ]);
+      const result = trapezoid(y, undefined, 1, 1);
+      expect((result as { toArray: () => number[] }).toArray()).toEqual([7.5, 15]);
+    });
+
+    it('integrates along axis 0 for 2D array', () => {
+      const y = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result = trapezoid(y, undefined, 1, 0);
+      // For each column: integrate over 2 points
+      // Column 0: 0.5*(1+4)*1 = 2.5
+      // Column 1: 0.5*(2+5)*1 = 3.5
+      // Column 2: 0.5*(3+6)*1 = 4.5
+      expect((result as { toArray: () => number[] }).toArray()).toEqual([2.5, 3.5, 4.5]);
+    });
+
+    it('throws for array with less than 2 points', () => {
+      const y = array([1]);
+      expect(() => trapezoid(y)).toThrow();
+    });
+
+    it('handles negative axis', () => {
+      const y = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const result1 = trapezoid(y, undefined, 1, -1);
+      const result2 = trapezoid(y, undefined, 1, 1);
+      expect((result1 as { toArray: () => number[] }).toArray()).toEqual(
+        (result2 as { toArray: () => number[] }).toArray()
+      );
     });
   });
 });
