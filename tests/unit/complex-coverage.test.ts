@@ -269,6 +269,18 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   spacing: 'unsupported', // floating-point representation
   real_if_close: 'supported', // converts to real if imaginary is negligible
 
+  // Other Math (not applicable for complex)
+  clip: 'unsupported', // clipping not defined for complex
+  maximum: 'unsupported', // element-wise max not defined for complex
+  minimum: 'unsupported', // element-wise min not defined for complex
+  fmax: 'unsupported', // NaN-aware max not defined for complex
+  fmin: 'unsupported', // NaN-aware min not defined for complex
+  nan_to_num: 'unsupported', // NaN replacement not defined for complex
+  interp: 'unsupported', // interpolation not defined for complex
+  unwrap: 'unsupported', // phase unwrapping only for real
+  sinc: 'unsupported', // sinc not defined for complex
+  i0: 'unsupported', // Bessel function not defined for complex
+
   // =========================================================================
   // SKIP - These don't take array input or are not applicable
   // =========================================================================
@@ -428,6 +440,17 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Version and other values
   __version__: 'skip',
   true_divide: 'skip', // alias for divide, tested via divide
+
+  // Utility functions (no array computation)
+  apply_along_axis: 'skip', // applies function along axis
+  apply_over_axes: 'skip', // applies function over multiple axes
+  may_share_memory: 'skip', // memory checking
+  shares_memory: 'skip', // memory checking
+  ndim: 'skip', // returns number of dimensions
+  shape: 'skip', // returns shape
+  size: 'skip', // returns size
+  geterr: 'skip', // error handling state
+  seterr: 'skip', // error handling state
 };
 
 // Type exports that are not runtime values - excluded from checks
@@ -439,6 +462,7 @@ const TYPE_EXPORTS = [
   'NpzParseOptions',
   'NpzParseResult',
   'NpzSerializeOptions',
+  'FloatErrorState',
 ];
 
 // ============================================================================
@@ -551,6 +575,7 @@ function testComplexBehavior(
       searchsorted: () => fn(z1, z2), // (a, v)
       tensordot: () => fn(z2d, z2d, 1), // (a, b, axes) - needs 2D arrays
       einsum: () => fn('i,i->', z1, z1), // (subscripts, ...operands)
+      interp: () => fn(z1, z1, z1), // (x, xp, fp) - needs 3 arrays
     };
 
     if (fnName in specialOps) {

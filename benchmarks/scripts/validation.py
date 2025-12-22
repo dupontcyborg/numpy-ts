@@ -584,6 +584,28 @@ def run_operation(spec):
     elif operation == "complex_prod":
         result = np.prod(arrays["a"])
 
+    # Other Math operations
+    elif operation == "clip":
+        result = np.clip(arrays["a"], 10, 100)
+    elif operation == "maximum":
+        result = np.maximum(arrays["a"], arrays["b"])
+    elif operation == "minimum":
+        result = np.minimum(arrays["a"], arrays["b"])
+    elif operation == "fmax":
+        result = np.fmax(arrays["a"], arrays["b"])
+    elif operation == "fmin":
+        result = np.fmin(arrays["a"], arrays["b"])
+    elif operation == "nan_to_num":
+        result = np.nan_to_num(arrays["a"])
+    elif operation == "interp":
+        result = np.interp(arrays["x"], arrays["xp"], arrays["fp"])
+    elif operation == "unwrap":
+        result = np.unwrap(arrays["a"])
+    elif operation == "sinc":
+        result = np.sinc(arrays["a"])
+    elif operation == "i0":
+        result = np.i0(arrays["a"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

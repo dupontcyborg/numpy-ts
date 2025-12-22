@@ -1268,3 +1268,276 @@ export function fill_diagonal(
     }
   }
 }
+
+// ========================================
+// Utility Functions
+// ========================================
+
+/**
+ * Apply a function along a given axis.
+ *
+ * @param arr - Input array storage
+ * @param axis - Axis along which to apply the function
+ * @param func1d - Function that takes a 1D array and returns a 1D array or scalar
+ * @returns Result array
+ */
+export function apply_along_axis(
+  arr: ArrayStorage,
+  axis: number,
+  func1d: (slice: ArrayStorage) => ArrayStorage | number
+): ArrayStorage {
+  const shape = Array.from(arr.shape);
+  const ndim = shape.length;
+
+  // Normalize axis
+  if (axis < 0) axis += ndim;
+  if (axis < 0 || axis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  // Calculate iteration shape (all dimensions except the axis dimension)
+  const iterShape: number[] = [];
+  for (let i = 0; i < ndim; i++) {
+    if (i !== axis) {
+      iterShape.push(shape[i]!);
+    }
+  }
+
+  // If no iteration dimensions, just apply the function to the whole array
+  if (iterShape.length === 0) {
+    const result = func1d(arr);
+    if (typeof result === 'number') {
+      const resultArr = ArrayStorage.zeros([1], arr.dtype);
+      resultArr.data[0] = result;
+      return resultArr;
+    }
+    return result;
+  }
+
+  // For simplicity, we'll handle the 2D case directly
+  if (ndim === 2) {
+    const [rows, cols] = shape;
+
+    if (axis === 0) {
+      // Apply function to each column
+      const results: (ArrayStorage | number)[] = [];
+      for (let c = 0; c < cols!; c++) {
+        // Extract column as 1D array
+        const colData = new Float64Array(rows!);
+        for (let r = 0; r < rows!; r++) {
+          colData[r] = Number(arr.data[r * cols! + c]!);
+        }
+        const colArr = ArrayStorage.fromData(colData, [rows!], 'float64');
+        results.push(func1d(colArr));
+      }
+
+      // Determine output shape and build result
+      const firstResult = results[0];
+      if (firstResult === undefined) {
+        return ArrayStorage.zeros([0], 'float64');
+      }
+      if (typeof firstResult === 'number') {
+        // Scalar output for each slice
+        const resultArr = ArrayStorage.zeros([cols!], 'float64');
+        for (let c = 0; c < cols!; c++) {
+          resultArr.data[c] = results[c] as number;
+        }
+        return resultArr;
+      } else {
+        // Array output for each slice
+        const resultShape = [firstResult.size, cols!];
+        const resultArr = ArrayStorage.zeros(resultShape, 'float64');
+        for (let c = 0; c < cols!; c++) {
+          const res = results[c] as ArrayStorage;
+          for (let r = 0; r < res.size; r++) {
+            resultArr.data[r * cols! + c] = Number(res.data[r]!);
+          }
+        }
+        return resultArr;
+      }
+    } else {
+      // Apply function to each row
+      const results: (ArrayStorage | number)[] = [];
+      for (let r = 0; r < rows!; r++) {
+        // Extract row as 1D array
+        const rowData = new Float64Array(cols!);
+        for (let c = 0; c < cols!; c++) {
+          rowData[c] = Number(arr.data[r * cols! + c]!);
+        }
+        const rowArr = ArrayStorage.fromData(rowData, [cols!], 'float64');
+        results.push(func1d(rowArr));
+      }
+
+      // Determine output shape and build result
+      const firstResult = results[0];
+      if (firstResult === undefined) {
+        return ArrayStorage.zeros([0], 'float64');
+      }
+      if (typeof firstResult === 'number') {
+        // Scalar output for each slice
+        const resultArr = ArrayStorage.zeros([rows!], 'float64');
+        for (let r = 0; r < rows!; r++) {
+          resultArr.data[r] = results[r] as number;
+        }
+        return resultArr;
+      } else {
+        // Array output for each slice
+        const resultShape = [rows!, firstResult.size];
+        const resultArr = ArrayStorage.zeros(resultShape, 'float64');
+        for (let r = 0; r < rows!; r++) {
+          const res = results[r] as ArrayStorage;
+          for (let c = 0; c < res.size; c++) {
+            resultArr.data[r * res.size + c] = Number(res.data[c]!);
+          }
+        }
+        return resultArr;
+      }
+    }
+  }
+
+  // For 1D arrays
+  if (ndim === 1) {
+    const result = func1d(arr);
+    if (typeof result === 'number') {
+      const resultArr = ArrayStorage.zeros([1], 'float64');
+      resultArr.data[0] = result;
+      return resultArr;
+    }
+    return result;
+  }
+
+  // General case: simplified handling
+  // This is a basic implementation for common cases
+  throw new Error(
+    `apply_along_axis not fully implemented for ${ndim}D arrays. Only 1D and 2D arrays are supported.`
+  );
+}
+
+/**
+ * Apply a function over multiple axes.
+ *
+ * @param arr - Input array storage
+ * @param func - Function that operates on an array
+ * @param axes - Axes over which to apply the function
+ * @returns Result array
+ */
+export function apply_over_axes(
+  arr: ArrayStorage,
+  func: (a: ArrayStorage, axis: number) => ArrayStorage,
+  axes: number[]
+): ArrayStorage {
+  let result = arr;
+  const ndim = arr.shape.length;
+
+  for (const axis of axes) {
+    // Normalize axis
+    let normalizedAxis = axis < 0 ? axis + ndim : axis;
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+    }
+
+    // Apply function along axis and keep dimensions
+    result = func(result, normalizedAxis);
+
+    // NumPy's apply_over_axes keeps dimensions if the result has fewer dimensions
+    // by inserting a new axis
+    if (result.shape.length < ndim) {
+      const newShape = Array.from(result.shape);
+      newShape.splice(normalizedAxis, 0, 1);
+      const newStrides = computeStrides(newShape);
+      result = new ArrayStorage(result.data, newShape, newStrides, 0, result.dtype);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Check if two arrays may share memory.
+ *
+ * In JavaScript, we can't directly check memory sharing like in Python.
+ * This is a conservative implementation that returns true if they share
+ * the same underlying buffer.
+ *
+ * @param a - First array storage
+ * @param b - Second array storage
+ * @returns True if arrays may share memory
+ */
+export function may_share_memory(a: ArrayStorage, b: ArrayStorage): boolean {
+  // In JavaScript, we can check if the underlying typed arrays share the same buffer
+  return a.data.buffer === b.data.buffer;
+}
+
+/**
+ * Check if two arrays share memory.
+ *
+ * This is the same as may_share_memory in our implementation since
+ * JavaScript doesn't have the same memory model as Python/NumPy.
+ *
+ * @param a - First array storage
+ * @param b - Second array storage
+ * @returns True if arrays share memory
+ */
+export function shares_memory(a: ArrayStorage, b: ArrayStorage): boolean {
+  return may_share_memory(a, b);
+}
+
+// Global floating-point error state
+let _floatErrorState = {
+  divide: 'warn' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
+  over: 'warn' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
+  under: 'ignore' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
+  invalid: 'warn' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
+};
+
+type ErrorMode = 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log';
+
+export interface FloatErrorState {
+  divide: ErrorMode;
+  over: ErrorMode;
+  under: ErrorMode;
+  invalid: ErrorMode;
+}
+
+/**
+ * Get the current floating-point error handling.
+ *
+ * @returns Current error handling settings
+ */
+export function geterr(): FloatErrorState {
+  return { ..._floatErrorState };
+}
+
+/**
+ * Set how floating-point errors are handled.
+ *
+ * @param all - Set all error modes at once (optional)
+ * @param divide - Treatment for division by zero
+ * @param over - Treatment for floating-point overflow
+ * @param under - Treatment for floating-point underflow
+ * @param invalid - Treatment for invalid floating-point operation
+ * @returns Previous error handling settings
+ */
+export function seterr(
+  all?: ErrorMode,
+  divide?: ErrorMode,
+  over?: ErrorMode,
+  under?: ErrorMode,
+  invalid?: ErrorMode
+): FloatErrorState {
+  const old = geterr();
+
+  if (all !== undefined) {
+    _floatErrorState.divide = all;
+    _floatErrorState.over = all;
+    _floatErrorState.under = all;
+    _floatErrorState.invalid = all;
+  }
+
+  if (divide !== undefined) _floatErrorState.divide = divide;
+  if (over !== undefined) _floatErrorState.over = over;
+  if (under !== undefined) _floatErrorState.under = under;
+  if (invalid !== undefined) _floatErrorState.invalid = invalid;
+
+  return old;
+}

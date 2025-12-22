@@ -1429,3 +1429,628 @@ export function modf(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
 
   return [fractional, integral];
 }
+
+/**
+ * Clip (limit) the values in an array
+ * Given an interval, values outside the interval are clipped to the interval edges.
+ *
+ * @param a - Input array storage
+ * @param a_min - Minimum value (null to not clip minimum)
+ * @param a_max - Maximum value (null to not clip maximum)
+ * @returns Clipped array storage
+ */
+export function clip(
+  a: ArrayStorage,
+  a_min: number | ArrayStorage | null,
+  a_max: number | ArrayStorage | null
+): ArrayStorage {
+  throwIfComplex(a.dtype, 'clip', 'clip is not supported for complex numbers.');
+  const dtype = a.dtype;
+  const shape = Array.from(a.shape);
+  const size = a.size;
+
+  const result = ArrayStorage.zeros(shape, dtype);
+  const resultData = result.data;
+  const aData = a.data;
+
+  // Handle scalar min/max values
+  const minIsScalar = a_min === null || typeof a_min === 'number';
+  const maxIsScalar = a_max === null || typeof a_max === 'number';
+
+  const minScalar = a_min === null ? -Infinity : typeof a_min === 'number' ? a_min : null;
+  const maxScalar = a_max === null ? Infinity : typeof a_max === 'number' ? a_max : null;
+
+  if (isBigIntDType(dtype)) {
+    const resultTyped = resultData as BigInt64Array | BigUint64Array;
+    const aTyped = aData as BigInt64Array | BigUint64Array;
+
+    for (let i = 0; i < size; i++) {
+      let val = aTyped[i]!;
+      const minVal = minIsScalar
+        ? minScalar === -Infinity
+          ? val
+          : BigInt(Math.round(minScalar as number))
+        : ((a_min as ArrayStorage).data[i % (a_min as ArrayStorage).size] as bigint);
+      const maxVal = maxIsScalar
+        ? maxScalar === Infinity
+          ? val
+          : BigInt(Math.round(maxScalar as number))
+        : ((a_max as ArrayStorage).data[i % (a_max as ArrayStorage).size] as bigint);
+
+      if (val < minVal) val = minVal;
+      if (val > maxVal) val = maxVal;
+      resultTyped[i] = val;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      let val = Number(aData[i]!);
+      const minVal = minIsScalar
+        ? (minScalar as number)
+        : Number((a_min as ArrayStorage).data[i % (a_min as ArrayStorage).size]!);
+      const maxVal = maxIsScalar
+        ? (maxScalar as number)
+        : Number((a_max as ArrayStorage).data[i % (a_max as ArrayStorage).size]!);
+
+      if (val < minVal) val = minVal;
+      if (val > maxVal) val = maxVal;
+      resultData[i] = val;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Element-wise maximum of array elements
+ *
+ * @param x1 - First array storage
+ * @param x2 - Second array storage or scalar
+ * @returns Element-wise maximum
+ */
+export function maximum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'maximum', 'maximum is not supported for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'maximum', 'maximum is not supported for complex numbers.');
+  }
+
+  if (typeof x2 === 'number') {
+    const dtype = x1.dtype;
+    const shape = Array.from(x1.shape);
+    const size = x1.size;
+    const result = ArrayStorage.zeros(shape, dtype);
+    const resultData = result.data;
+    const x1Data = x1.data;
+
+    if (isBigIntDType(dtype)) {
+      const resultTyped = resultData as BigInt64Array | BigUint64Array;
+      const x1Typed = x1Data as BigInt64Array | BigUint64Array;
+      const x2Big = BigInt(Math.round(x2));
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = x1Typed[i]! > x2Big ? x1Typed[i]! : x2Big;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(x1Data[i]!);
+        // NaN propagation: Math.max doesn't handle NaN correctly
+        resultData[i] = isNaN(val) || isNaN(x2) ? NaN : Math.max(val, x2);
+      }
+    }
+    return result;
+  }
+
+  return elementwiseBinaryOp(
+    x1,
+    x2,
+    (a, b) => (isNaN(a) || isNaN(b) ? NaN : Math.max(a, b)),
+    'maximum'
+  );
+}
+
+/**
+ * Element-wise minimum of array elements
+ *
+ * @param x1 - First array storage
+ * @param x2 - Second array storage or scalar
+ * @returns Element-wise minimum
+ */
+export function minimum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'minimum', 'minimum is not supported for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'minimum', 'minimum is not supported for complex numbers.');
+  }
+
+  if (typeof x2 === 'number') {
+    const dtype = x1.dtype;
+    const shape = Array.from(x1.shape);
+    const size = x1.size;
+    const result = ArrayStorage.zeros(shape, dtype);
+    const resultData = result.data;
+    const x1Data = x1.data;
+
+    if (isBigIntDType(dtype)) {
+      const resultTyped = resultData as BigInt64Array | BigUint64Array;
+      const x1Typed = x1Data as BigInt64Array | BigUint64Array;
+      const x2Big = BigInt(Math.round(x2));
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = x1Typed[i]! < x2Big ? x1Typed[i]! : x2Big;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(x1Data[i]!);
+        // NaN propagation
+        resultData[i] = isNaN(val) || isNaN(x2) ? NaN : Math.min(val, x2);
+      }
+    }
+    return result;
+  }
+
+  return elementwiseBinaryOp(
+    x1,
+    x2,
+    (a, b) => (isNaN(a) || isNaN(b) ? NaN : Math.min(a, b)),
+    'minimum'
+  );
+}
+
+/**
+ * Element-wise maximum of array elements, ignoring NaNs
+ *
+ * @param x1 - First array storage
+ * @param x2 - Second array storage or scalar
+ * @returns Element-wise maximum, NaN-aware
+ */
+export function fmax(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'fmax', 'fmax is not supported for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'fmax', 'fmax is not supported for complex numbers.');
+  }
+
+  if (typeof x2 === 'number') {
+    const dtype = x1.dtype;
+    const shape = Array.from(x1.shape);
+    const size = x1.size;
+    const result = ArrayStorage.zeros(shape, dtype);
+    const resultData = result.data;
+    const x1Data = x1.data;
+
+    if (isBigIntDType(dtype)) {
+      const resultTyped = resultData as BigInt64Array | BigUint64Array;
+      const x1Typed = x1Data as BigInt64Array | BigUint64Array;
+      const x2Big = BigInt(Math.round(x2));
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = x1Typed[i]! > x2Big ? x1Typed[i]! : x2Big;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(x1Data[i]!);
+        // Ignore NaN: return the non-NaN value, or NaN if both are NaN
+        if (isNaN(val)) {
+          resultData[i] = x2;
+        } else if (isNaN(x2)) {
+          resultData[i] = val;
+        } else {
+          resultData[i] = Math.max(val, x2);
+        }
+      }
+    }
+    return result;
+  }
+
+  return elementwiseBinaryOp(
+    x1,
+    x2,
+    (a, b) => {
+      if (isNaN(a)) return b;
+      if (isNaN(b)) return a;
+      return Math.max(a, b);
+    },
+    'fmax'
+  );
+}
+
+/**
+ * Element-wise minimum of array elements, ignoring NaNs
+ *
+ * @param x1 - First array storage
+ * @param x2 - Second array storage or scalar
+ * @returns Element-wise minimum, NaN-aware
+ */
+export function fmin(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  throwIfComplex(x1.dtype, 'fmin', 'fmin is not supported for complex numbers.');
+  if (typeof x2 !== 'number') {
+    throwIfComplex(x2.dtype, 'fmin', 'fmin is not supported for complex numbers.');
+  }
+
+  if (typeof x2 === 'number') {
+    const dtype = x1.dtype;
+    const shape = Array.from(x1.shape);
+    const size = x1.size;
+    const result = ArrayStorage.zeros(shape, dtype);
+    const resultData = result.data;
+    const x1Data = x1.data;
+
+    if (isBigIntDType(dtype)) {
+      const resultTyped = resultData as BigInt64Array | BigUint64Array;
+      const x1Typed = x1Data as BigInt64Array | BigUint64Array;
+      const x2Big = BigInt(Math.round(x2));
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = x1Typed[i]! < x2Big ? x1Typed[i]! : x2Big;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(x1Data[i]!);
+        // Ignore NaN: return the non-NaN value, or NaN if both are NaN
+        if (isNaN(val)) {
+          resultData[i] = x2;
+        } else if (isNaN(x2)) {
+          resultData[i] = val;
+        } else {
+          resultData[i] = Math.min(val, x2);
+        }
+      }
+    }
+    return result;
+  }
+
+  return elementwiseBinaryOp(
+    x1,
+    x2,
+    (a, b) => {
+      if (isNaN(a)) return b;
+      if (isNaN(b)) return a;
+      return Math.min(a, b);
+    },
+    'fmin'
+  );
+}
+
+/**
+ * Replace NaN with zero and Inf with large finite numbers
+ *
+ * @param x - Input array storage
+ * @param nan - Value to replace NaN (default: 0.0)
+ * @param posinf - Value to replace positive infinity (default: largest finite)
+ * @param neginf - Value to replace negative infinity (default: most negative finite)
+ * @returns Array with replacements
+ */
+export function nan_to_num(
+  x: ArrayStorage,
+  nan: number = 0.0,
+  posinf?: number,
+  neginf?: number
+): ArrayStorage {
+  throwIfComplex(x.dtype, 'nan_to_num', 'nan_to_num is not supported for complex numbers.');
+  const dtype = x.dtype;
+  const shape = Array.from(x.shape);
+  const size = x.size;
+
+  // Default to dtype max/min values
+  const posinfVal = posinf !== undefined ? posinf : Number.MAX_VALUE;
+  const neginfVal = neginf !== undefined ? neginf : -Number.MAX_VALUE;
+
+  const result = ArrayStorage.zeros(shape, dtype);
+  const resultData = result.data;
+  const xData = x.data;
+
+  if (isBigIntDType(dtype)) {
+    // BigInt can't have NaN or Inf, just copy
+    const resultTyped = resultData as BigInt64Array | BigUint64Array;
+    const xTyped = xData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      resultTyped[i] = xTyped[i]!;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = Number(xData[i]!);
+      if (isNaN(val)) {
+        resultData[i] = nan;
+      } else if (val === Infinity) {
+        resultData[i] = posinfVal;
+      } else if (val === -Infinity) {
+        resultData[i] = neginfVal;
+      } else {
+        resultData[i] = val;
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * One-dimensional linear interpolation
+ *
+ * Returns the one-dimensional piecewise linear interpolant to a function
+ * with given discrete data points (xp, fp), evaluated at x.
+ *
+ * @param x - The x-coordinates at which to evaluate the interpolated values
+ * @param xp - The x-coordinates of the data points (must be increasing)
+ * @param fp - The y-coordinates of the data points
+ * @param left - Value for x < xp[0] (default: fp[0])
+ * @param right - Value for x > xp[-1] (default: fp[-1])
+ * @returns Interpolated values
+ */
+export function interp(
+  x: ArrayStorage,
+  xp: ArrayStorage,
+  fp: ArrayStorage,
+  left?: number,
+  right?: number
+): ArrayStorage {
+  throwIfComplex(x.dtype, 'interp', 'interp is not supported for complex numbers.');
+  throwIfComplex(xp.dtype, 'interp', 'interp is not supported for complex numbers.');
+  throwIfComplex(fp.dtype, 'interp', 'interp is not supported for complex numbers.');
+
+  const shape = Array.from(x.shape);
+  const size = x.size;
+  const result = ArrayStorage.zeros(shape, 'float64');
+  const resultData = result.data as Float64Array;
+  const xData = x.data;
+  const xpData = xp.data;
+  const fpData = fp.data;
+  const xpSize = xp.size;
+
+  // Default left/right values
+  const leftVal = left !== undefined ? left : Number(fpData[0]!);
+  const rightVal = right !== undefined ? right : Number(fpData[xpSize - 1]!);
+
+  for (let i = 0; i < size; i++) {
+    const xi = Number(xData[i]!);
+
+    // Handle out of bounds
+    if (xi <= Number(xpData[0]!)) {
+      resultData[i] = leftVal;
+      continue;
+    }
+    if (xi >= Number(xpData[xpSize - 1]!)) {
+      resultData[i] = rightVal;
+      continue;
+    }
+
+    // Binary search for the interval
+    let lo = 0;
+    let hi = xpSize - 1;
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (Number(xpData[mid]!) <= xi) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+
+    // Linear interpolation
+    const x0 = Number(xpData[lo]!);
+    const x1 = Number(xpData[hi]!);
+    const y0 = Number(fpData[lo]!);
+    const y1 = Number(fpData[hi]!);
+    const t = (xi - x0) / (x1 - x0);
+    resultData[i] = y0 + t * (y1 - y0);
+  }
+
+  return result;
+}
+
+/**
+ * Unwrap by changing deltas between values to 2*pi complement
+ *
+ * Unwrap radian phase p by changing absolute jumps greater than
+ * discont to their 2*pi complement along the given axis.
+ *
+ * @param p - Input array of phase angles in radians
+ * @param discont - Maximum discontinuity between values (default: pi)
+ * @param axis - Axis along which to unwrap (default: -1, last axis)
+ * @param period - Size of the range over which the input wraps (default: 2*pi)
+ * @returns Unwrapped array
+ */
+export function unwrap(
+  p: ArrayStorage,
+  discont: number = Math.PI,
+  axis: number = -1,
+  period: number = 2 * Math.PI
+): ArrayStorage {
+  throwIfComplex(p.dtype, 'unwrap', 'unwrap is not supported for complex numbers.');
+
+  const shape = Array.from(p.shape);
+  const ndim = shape.length;
+
+  // Normalize axis
+  if (axis < 0) axis += ndim;
+  if (axis < 0 || axis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  // For 1D arrays, simple implementation
+  if (ndim === 1) {
+    const size = p.size;
+    const result = ArrayStorage.zeros(shape, 'float64');
+    const resultData = result.data as Float64Array;
+    const pData = p.data;
+
+    if (size === 0) return result;
+
+    resultData[0] = Number(pData[0]!);
+    let offset = 0;
+
+    for (let i = 1; i < size; i++) {
+      const prev = Number(pData[i - 1]!);
+      const curr = Number(pData[i]!);
+      let diff = curr - prev;
+
+      // Wrap the difference
+      diff = ((diff + period / 2) % period) - period / 2;
+      if (diff === -period / 2 && curr - prev > 0) {
+        diff = period / 2;
+      }
+
+      // Check for discontinuity
+      if (Math.abs(diff) > discont) {
+        offset -= Math.round((curr - prev - diff) / period) * period;
+      }
+
+      resultData[i] = curr + offset;
+    }
+
+    return result;
+  }
+
+  // For multi-dimensional arrays, we need to process along the axis
+  // This is a simplified implementation for 2D case
+  const result = ArrayStorage.zeros(shape, 'float64');
+  const resultData = result.data as Float64Array;
+  const pData = p.data;
+
+  // Copy all data first
+  for (let i = 0; i < p.size; i++) {
+    resultData[i] = Number(pData[i]!);
+  }
+
+  // Unwrap along axis
+  if (ndim === 2) {
+    const [rows, cols] = shape;
+    if (axis === 0) {
+      // Unwrap along rows (for each column)
+      for (let c = 0; c < cols!; c++) {
+        let offset = 0;
+        for (let r = 1; r < rows!; r++) {
+          const prevIdx = (r - 1) * cols! + c;
+          const currIdx = r * cols! + c;
+          const prev = resultData[prevIdx]!;
+          const curr = resultData[currIdx]!;
+          let diff = curr - prev;
+
+          diff = ((diff + period / 2) % period) - period / 2;
+          if (diff === -period / 2 && curr - prev > 0) {
+            diff = period / 2;
+          }
+
+          if (Math.abs(diff) > discont) {
+            offset -= Math.round((curr - prev - diff) / period) * period;
+          }
+
+          resultData[currIdx] = curr + offset;
+        }
+      }
+    } else {
+      // Unwrap along columns (for each row)
+      for (let r = 0; r < rows!; r++) {
+        let offset = 0;
+        for (let c = 1; c < cols!; c++) {
+          const prevIdx = r * cols! + (c - 1);
+          const currIdx = r * cols! + c;
+          const prev = resultData[prevIdx]!;
+          const curr = resultData[currIdx]!;
+          let diff = curr - prev;
+
+          diff = ((diff + period / 2) % period) - period / 2;
+          if (diff === -period / 2 && curr - prev > 0) {
+            diff = period / 2;
+          }
+
+          if (Math.abs(diff) > discont) {
+            offset -= Math.round((curr - prev - diff) / period) * period;
+          }
+
+          resultData[currIdx] = curr + offset;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Return the normalized sinc function
+ *
+ * sinc(x) = sin(pi*x) / (pi*x)
+ *
+ * The sinc function is 1 at x = 0, and sin(pi*x)/(pi*x) otherwise.
+ *
+ * @param x - Input array
+ * @returns Array of sinc values
+ */
+export function sinc(x: ArrayStorage): ArrayStorage {
+  throwIfComplex(x.dtype, 'sinc', 'sinc is not supported for complex numbers.');
+
+  const shape = Array.from(x.shape);
+  const size = x.size;
+  const result = ArrayStorage.zeros(shape, 'float64');
+  const resultData = result.data as Float64Array;
+  const xData = x.data;
+
+  for (let i = 0; i < size; i++) {
+    const val = Number(xData[i]!);
+    if (val === 0) {
+      resultData[i] = 1.0;
+    } else {
+      const pix = Math.PI * val;
+      resultData[i] = Math.sin(pix) / pix;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Modified Bessel function of the first kind, order 0
+ *
+ * Uses polynomial approximation.
+ *
+ * @param x - Input array
+ * @returns Array of I0 values
+ */
+export function i0(x: ArrayStorage): ArrayStorage {
+  throwIfComplex(x.dtype, 'i0', 'i0 is not supported for complex numbers.');
+
+  const shape = Array.from(x.shape);
+  const size = x.size;
+  const result = ArrayStorage.zeros(shape, 'float64');
+  const resultData = result.data as Float64Array;
+  const xData = x.data;
+
+  for (let i = 0; i < size; i++) {
+    const val = Math.abs(Number(xData[i]!));
+    resultData[i] = besselI0(val);
+  }
+
+  return result;
+}
+
+/**
+ * Polynomial approximation for modified Bessel function I0
+ * Based on Abramowitz and Stegun approximations
+ */
+function besselI0(x: number): number {
+  const ax = Math.abs(x);
+
+  if (ax < 3.75) {
+    // Polynomial approximation for small x
+    const t = x / 3.75;
+    const t2 = t * t;
+    return (
+      1.0 +
+      t2 *
+        (3.5156229 +
+          t2 *
+            (3.0899424 + t2 * (1.2067492 + t2 * (0.2659732 + t2 * (0.0360768 + t2 * 0.0045813)))))
+    );
+  } else {
+    // Polynomial approximation for large x
+    const t = 3.75 / ax;
+    return (
+      (Math.exp(ax) / Math.sqrt(ax)) *
+      (0.39894228 +
+        t *
+          (0.01328592 +
+            t *
+              (0.00225319 +
+                t *
+                  (-0.00157565 +
+                    t *
+                      (0.00916281 +
+                        t *
+                          (-0.02057706 + t * (0.02635537 + t * (-0.01647633 + t * 0.00392377))))))))
+    );
+  }
+}

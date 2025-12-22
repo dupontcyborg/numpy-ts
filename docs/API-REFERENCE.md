@@ -2,14 +2,14 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-19
+**Last Updated**: 2025-12-22
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 349/507 (68.8%)
-- **Top-level Functions**: 342/507 (63.9%)
+- **Overall Coverage**: 364/505 (72.1%)
+- **Top-level Functions**: 361/505 (67.7%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -24,6 +24,7 @@ Based on `npm run compare-api`:
 - I/O (8/8)
 - Indexing (21/21)
 - Logic (24/24)
+- Other Math (15/15)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
@@ -36,15 +37,14 @@ Based on `npm run compare-api`:
 - Linear Algebra (9/15) - 60.0%
 - Linear Algebra (linalg) (19/31) - 61.3%
 - NDArray Methods (40/53) - 75.5%
-- Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Set Operations (7/12) - 58.3%
-- Statistics (9/12) - 75.0%
+- Set Operations (6/11) - 54.5%
+- Statistics (9/11) - 81.8%
 - String/Formatting (0/10) - 0.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
-- Utilities (4/16) - 25.0%
+- Utilities (10/16) - 62.5%
 
 ---
 
@@ -459,20 +459,20 @@ Based on `npm run compare-api`:
 ## Other Math
 
 - [x] `angle` 
-- [ ] `clip` 
+- [x] `clip` 
 - [x] `conj` 
 - [x] `conjugate` 
-- [ ] `fmax` 
-- [ ] `fmin` 
-- [ ] `i0` 
+- [x] `fmax` 
+- [x] `fmin` 
+- [x] `i0` 
 - [x] `imag` 
-- [ ] `interp` 
-- [ ] `maximum` 
-- [ ] `minimum` 
-- [ ] `nan_to_num` 
+- [x] `interp` 
+- [x] `maximum` 
+- [x] `minimum` 
+- [x] `nan_to_num` 
 - [x] `real` 
-- [ ] `sinc` 
-- [ ] `unwrap` 
+- [x] `sinc` 
+- [x] `unwrap` 
 
 ---
 
@@ -616,7 +616,6 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
-- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
@@ -655,7 +654,6 @@ Based on `npm run compare-api`:
 - [ ] `histogram_bin_edges` 
 - [x] `histogramdd` 
 - [ ] `trapezoid` 
-- [ ] `trapz` 
 
 ---
 
@@ -739,19 +737,19 @@ Based on `npm run compare-api`:
 
 ## Utilities
 
-- [ ] `apply_along_axis` 
-- [ ] `apply_over_axes` 
+- [x] `apply_along_axis` 
+- [x] `apply_over_axes` 
 - [x] `copyto` 
 - [ ] `einsum_path` 
-- [ ] `geterr` 
+- [x] `geterr` 
 - [ ] `geterrcall` 
 - [ ] `info` 
-- [ ] `may_share_memory` 
+- [x] `may_share_memory` 
 - [x] `ndim` 
-- [ ] `seterr` 
+- [x] `seterr` 
 - [ ] `seterrcall` 
 - [x] `shape` 
-- [ ] `shares_memory` 
+- [x] `shares_memory` 
 - [ ] `show_config` 
 - [ ] `show_runtime` 
 - [x] `size` 

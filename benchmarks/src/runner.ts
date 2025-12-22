@@ -686,6 +686,29 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].prod();
   }
 
+  // Other Math operations
+  else if (operation === 'clip') {
+    return np.clip(arrays['a'], 10, 100);
+  } else if (operation === 'maximum') {
+    return np.maximum(arrays['a'], arrays['b']);
+  } else if (operation === 'minimum') {
+    return np.minimum(arrays['a'], arrays['b']);
+  } else if (operation === 'fmax') {
+    return np.fmax(arrays['a'], arrays['b']);
+  } else if (operation === 'fmin') {
+    return np.fmin(arrays['a'], arrays['b']);
+  } else if (operation === 'nan_to_num') {
+    return np.nan_to_num(arrays['a']);
+  } else if (operation === 'interp') {
+    return np.interp(arrays['x'], arrays['xp'], arrays['fp']);
+  } else if (operation === 'unwrap') {
+    return np.unwrap(arrays['a']);
+  } else if (operation === 'sinc') {
+    return np.sinc(arrays['a']);
+  } else if (operation === 'i0') {
+    return np.i0(arrays['a']);
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 

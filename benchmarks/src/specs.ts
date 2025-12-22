@@ -2702,6 +2702,128 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
   }
 
+  // ========================================
+  // Other Math Benchmarks
+  // ========================================
+
+  if (Array.isArray(sizes.medium)) {
+    specs.push({
+      name: `clip [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'clip',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `maximum [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'maximum',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+        b: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `minimum [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'minimum',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+        b: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `fmax [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'fmax',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+        b: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `fmin [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'fmin',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+        b: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `nan_to_num [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'nan_to_num',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `sinc [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'sinc',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `i0 [${sizes.medium.join('x')}]`,
+      category: 'other_math',
+      operation: 'i0',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+  }
+
+  specs.push({
+    name: `interp [${sizes.small}]`,
+    category: 'other_math',
+    operation: 'interp',
+    setup: {
+      x: { shape: [sizes.small], fill: 'arange' },
+      xp: { shape: [100], fill: 'arange' },
+      fp: { shape: [100], fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `unwrap [${sizes.small}]`,
+    category: 'other_math',
+    operation: 'unwrap',
+    setup: {
+      a: { shape: [sizes.small], fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
   return specs;
 }
 
