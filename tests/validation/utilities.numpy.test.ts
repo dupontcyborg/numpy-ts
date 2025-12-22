@@ -93,15 +93,9 @@ result = np.apply_along_axis(np.sum, 1, arr)
         [1, 2, 3],
         [4, 5, 6],
       ]);
-      // Apply sum function over axis 0
-      const sumFunc = (a: NDArray) => {
-        let total = 0;
-        const data = a.toArray() as number[];
-        for (const v of data) {
-          total += v;
-        }
-        return total;
-      };
+      // Apply sum function over axis 0 - func must take (array, axis) and return array
+      // Use NDArray's sum method with keepdims=true
+      const sumFunc = (a: NDArray, axis: number) => a.sum(axis, undefined, true);
       const jsResult = apply_over_axes(sumFunc, arr, [0]);
       const pyResult = runNumPy(`
 arr = np.array([[1, 2, 3], [4, 5, 6]])

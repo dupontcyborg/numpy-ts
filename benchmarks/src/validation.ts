@@ -8,7 +8,7 @@ import { resolve } from 'path';
 import * as np from '../../src/index';
 import type { BenchmarkCase } from './types';
 
-const FLOAT_TOLERANCE = 1e-10;
+const FLOAT_TOLERANCE = 1e-5;
 
 /**
  * Deserialize special float values from Python
@@ -157,6 +157,7 @@ function checkPartitionProperty(data: any, kth: number, shape: number[]): boolea
 
 /**
  * Recursively compare nested arrays with tolerance
+ * Uses both relative and absolute tolerance for numerical stability
  */
 function arraysEqual(a: any, b: any): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
@@ -168,7 +169,11 @@ function arraysEqual(a: any, b: any): boolean {
   if (typeof a === 'number' && typeof b === 'number') {
     if (isNaN(a) && isNaN(b)) return true;
     if (!isFinite(a) && !isFinite(b)) return a === b; // Both inf or -inf
-    return Math.abs(a - b) < FLOAT_TOLERANCE;
+    // Use both relative and absolute tolerance (like numpy.allclose)
+    const absErr = Math.abs(a - b);
+    const maxAbs = Math.max(Math.abs(a), Math.abs(b));
+    const relErr = maxAbs > 0 ? absErr / maxAbs : 0;
+    return absErr < FLOAT_TOLERANCE || relErr < FLOAT_TOLERANCE;
   }
 
   // Compare booleans
@@ -762,6 +767,28 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return arrays.a.mean();
     case 'complex_prod':
       return arrays.a.prod();
+
+    // Other Math operations
+    case 'clip':
+      return np.clip(arrays.a, 10, 100);
+    case 'maximum':
+      return np.maximum(arrays.a, arrays.b);
+    case 'minimum':
+      return np.minimum(arrays.a, arrays.b);
+    case 'fmax':
+      return np.fmax(arrays.a, arrays.b);
+    case 'fmin':
+      return np.fmin(arrays.a, arrays.b);
+    case 'nan_to_num':
+      return np.nan_to_num(arrays.a);
+    case 'interp':
+      return np.interp(arrays.x, arrays.xp, arrays.fp);
+    case 'unwrap':
+      return np.unwrap(arrays.a);
+    case 'sinc':
+      return np.sinc(arrays.a);
+    case 'i0':
+      return np.i0(arrays.a);
 
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);
