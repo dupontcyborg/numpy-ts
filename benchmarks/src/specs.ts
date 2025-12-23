@@ -1805,6 +1805,101 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
+    // New linalg functions
+    specs.push({
+      name: `linalg.slogdet [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_slogdet',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.svdvals [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'linalg_svdvals',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `linalg.multi_dot [${linalgN}x${linalgN}] x3`,
+      category: 'linalg',
+      operation: 'linalg_multi_dot',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        b: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        c: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `vdot [1000]`,
+      category: 'linalg',
+      operation: 'vdot',
+      setup: {
+        a: { shape: [1000], fill: 'arange', dtype: 'float64' },
+        b: { shape: [1000], fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `vecdot [${sizes.medium.join('x')}]`,
+      category: 'linalg',
+      operation: 'vecdot',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', dtype: 'float64' },
+        b: { shape: sizes.medium, fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `matrix_transpose [${sizes.medium.join('x')}]`,
+      category: 'linalg',
+      operation: 'matrix_transpose',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `matvec [${linalgN}x${linalgN}] · [${linalgN}]`,
+      category: 'linalg',
+      operation: 'matvec',
+      setup: {
+        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        b: { shape: [linalgN], fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `vecmat [${linalgN}] · [${linalgN}x${linalgN}]`,
+      category: 'linalg',
+      operation: 'vecmat',
+      setup: {
+        a: { shape: [linalgN], fill: 'arange', dtype: 'float64' },
+        b: { shape: linalgSize, fill: 'ones', dtype: 'float64' },
+      },
+      iterations,
+      warmup,
+    });
+
     // Indexing benchmarks
     specs.push({
       name: `take_along_axis [${sizes.medium.join('x')}]`,
@@ -2004,6 +2099,17 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       operation: 'unpackbits',
       setup: {
         a: { shape: [Math.ceil(sizes.small / 8)], fill: 'arange', dtype: 'uint8' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `bitwise_count [${sizes.medium.join('x')}]`,
+      category: 'bitwise',
+      operation: 'bitwise_count',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', dtype: 'uint32' },
       },
       iterations,
       warmup,
@@ -2258,6 +2364,62 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       operation: 'corrcoef',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `histogram_bin_edges [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'histogram_bin_edges',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `trapezoid [${sizes.small}]`,
+      category: 'statistics',
+      operation: 'trapezoid',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    // Set operation benchmarks
+    specs.push({
+      name: `trim_zeros [${sizes.small}]`,
+      category: 'sets',
+      operation: 'trim_zeros',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `unique_values [${sizes.small}]`,
+      category: 'sets',
+      operation: 'unique_values',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `unique_counts [${sizes.small}]`,
+      category: 'sets',
+      operation: 'unique_counts',
+      setup: {
+        a: { shape: [sizes.small], fill: 'arange' },
       },
       iterations,
       warmup,

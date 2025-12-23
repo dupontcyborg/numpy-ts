@@ -771,6 +771,34 @@
             <td><span class="ratio bad">5.25x</span></td>
           </tr>
           <tr>
+            <td>kron [10x10] ⊗ [10x10]</td>
+            <td>79.3K</td>
+            <td>2.1K</td>
+            <td>486.54μs</td>
+            <td><span class="ratio bad">38.57x</span></td>
+          </tr>
+          <tr>
+            <td>einsum matmul [50x50]</td>
+            <td>47.4K</td>
+            <td>6.6K</td>
+            <td>152.33μs</td>
+            <td><span class="ratio bad">7.22x</span></td>
+          </tr>
+          <tr>
+            <td>linalg.det [50x50]</td>
+            <td>96.6K</td>
+            <td>24.4K</td>
+            <td>40.99μs</td>
+            <td><span class="ratio ok">3.96x</span></td>
+          </tr>
+          <tr>
+            <td>linalg.inv [50x50]</td>
+            <td>47.7K</td>
+            <td>6.1K</td>
+            <td>164.30μs</td>
+            <td><span class="ratio bad">7.84x</span></td>
+          </tr>
+          <tr>
             <td>linalg.solve [50x50]</td>
             <td>37.8K</td>
             <td>9.7K</td>
@@ -853,6 +881,62 @@
             <td>2.21M</td>
             <td>0.45μs</td>
             <td><span class="ratio good">0.02x</span></td>
+          </tr>
+          <tr>
+            <td>linalg.slogdet [50x50]</td>
+            <td>80.4K</td>
+            <td>27.2K</td>
+            <td>36.71μs</td>
+            <td><span class="ratio ok">2.95x</span></td>
+          </tr>
+          <tr>
+            <td>linalg.svdvals [50x50]</td>
+            <td>13.0K</td>
+            <td>209</td>
+            <td>4.786ms</td>
+            <td><span class="ratio bad">62.27x</span></td>
+          </tr>
+          <tr>
+            <td>linalg.multi_dot [50x50] x3</td>
+            <td>169.4K</td>
+            <td>3.2K</td>
+            <td>310.88μs</td>
+            <td><span class="ratio bad">52.67x</span></td>
+          </tr>
+          <tr>
+            <td>vdot [1000]</td>
+            <td>830.6K</td>
+            <td>154.6K</td>
+            <td>6.47μs</td>
+            <td><span class="ratio bad">5.37x</span></td>
+          </tr>
+          <tr>
+            <td>vecdot [100x100]</td>
+            <td>312.6K</td>
+            <td>4.2K</td>
+            <td>237.79μs</td>
+            <td><span class="ratio bad">74.32x</span></td>
+          </tr>
+          <tr>
+            <td>matrix_transpose [100x100]</td>
+            <td>1.96M</td>
+            <td>4.54M</td>
+            <td>0.22μs</td>
+            <td><span class="ratio good">0.43x</span></td>
+          </tr>
+          <tr>
+            <td>matvec [50x50] · [50]</td>
+            <td>616.4K</td>
+            <td>44.2K</td>
+            <td>22.63μs</td>
+            <td><span class="ratio bad">13.95x</span></td>
+          </tr>
+          <tr>
+            <td>vecmat [50] · [50x50]</td>
+            <td>672.6K</td>
+            <td>33.0K</td>
+            <td>30.30μs</td>
+            <td><span class="ratio bad">20.38x</span></td>
           </tr>
         </tbody>
       </table>
@@ -1125,6 +1209,13 @@
             <td>47.1K</td>
             <td>21.25μs</td>
             <td><span class="ratio ok">3.12x</span></td>
+          </tr>
+          <tr>
+            <td>vstack [100x100]</td>
+            <td>265.7K</td>
+            <td>268.5K</td>
+            <td>3.72μs</td>
+            <td><span class="ratio good">0.99x</span></td>
           </tr>
           <tr>
             <td>hstack [100x100]</td>

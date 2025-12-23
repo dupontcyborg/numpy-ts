@@ -65,6 +65,7 @@ Progress toward complete NumPy API compatibility:
 | **Arithmetic** | 29/29 | 100% | ✅ |
 | **Array Creation** | 35/35 | 100% | ✅ |
 | **Array Manipulation** | 46/46 | 100% | ✅ |
+| **Bit Operations** | 13/13 | 100% | ✅ |
 | **Broadcasting** | 3/3 | 100% | ✅ |
 | **Comparison** | 10/10 | 100% | ✅ |
 | **Exponential** | 9/9 | 100% | ✅ |
@@ -72,11 +73,14 @@ Progress toward complete NumPy API compatibility:
 | **Hyperbolic** | 9/9 | 100% | ✅ |
 | **I/O** | 8/8 | 100% | ✅ |
 | **Indexing** | 21/21 | 100% | ✅ |
+| **Linear Algebra** | 15/15 | 100% | ✅ |
+| **Linear Algebra (linalg)** | 31/31 | 100% | ✅ |
 | **Logic** | 24/24 | 100% | ✅ |
 | **Other Math** | 15/15 | 100% | ✅ |
 | **Reductions** | 36/36 | 100% | ✅ |
 | **Rounding** | 7/7 | 100% | ✅ |
 | **Searching** | 7/7 | 100% | ✅ |
+| **Set Operations** | 12/12 | 100% | ✅ |
 | **Sorting** | 6/6 | 100% | ✅ |
 | **Trigonometric** | 16/16 | 100% | ✅ |
 | **Statistics** | 9/11 | 82% | 🟡 |

@@ -5731,6 +5731,50 @@ export function unpackbits(
   return NDArray._fromStorage(resultStorage);
 }
 
+/**
+ * Count the number of 1-bits (population count) in each element.
+ *
+ * @param x - Input array (must be integer type)
+ * @returns Array with population count for each element
+ */
+export function bitwise_count(x: NDArray): NDArray {
+  return NDArray._fromStorage(bitwiseOps.bitwise_count(x.storage));
+}
+
+/**
+ * Bitwise invert (alias for bitwise_not).
+ *
+ * @param x - Input array (must be integer type)
+ * @returns Result with bitwise NOT values
+ */
+export function bitwise_invert(x: NDArray): NDArray {
+  return NDArray._fromStorage(bitwiseOps.bitwise_invert(x.storage));
+}
+
+/**
+ * Bitwise left shift (alias for left_shift).
+ *
+ * @param x1 - Input array (must be integer type)
+ * @param x2 - Shift amount (array or scalar)
+ * @returns Result with left-shifted values
+ */
+export function bitwise_left_shift(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(bitwiseOps.bitwise_left_shift(x1.storage, x2Storage));
+}
+
+/**
+ * Bitwise right shift (alias for right_shift).
+ *
+ * @param x1 - Input array (must be integer type)
+ * @param x2 - Shift amount (array or scalar)
+ * @returns Result with right-shifted values
+ */
+export function bitwise_right_shift(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = typeof x2 === 'number' ? x2 : x2.storage;
+  return NDArray._fromStorage(bitwiseOps.bitwise_right_shift(x1.storage, x2Storage));
+}
+
 // ========================================
 // Logic Functions
 // ========================================
@@ -6090,6 +6134,97 @@ export function einsum(
   return NDArray._fromStorage(result);
 }
 
+/**
+ * Return the dot product of two vectors (flattened).
+ *
+ * Unlike dot(), vdot flattens both inputs before computing the dot product.
+ * For complex numbers, vdot uses the complex conjugate of the first argument.
+ *
+ * @param a - First input array (will be flattened)
+ * @param b - Second input array (will be flattened)
+ * @returns Scalar dot product
+ */
+export function vdot(a: NDArray, b: NDArray): number | bigint | Complex {
+  return linalgOps.vdot(a.storage, b.storage);
+}
+
+/**
+ * Vector dot product along the last axis.
+ *
+ * Computes the dot product of vectors along the last axis of both inputs.
+ * The last dimensions of a and b must match.
+ *
+ * @param a - First input array
+ * @param b - Second input array
+ * @param axis - Axis along which to compute (default: -1, meaning last axis)
+ * @returns Result with last dimension removed
+ */
+export function vecdot(
+  a: NDArray,
+  b: NDArray,
+  axis: number = -1
+): NDArray | number | bigint | Complex {
+  const result = linalgOps.vecdot(a.storage, b.storage, axis);
+  if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
+}
+
+/**
+ * Transpose the last two axes of an array.
+ *
+ * Equivalent to swapaxes(a, -2, -1) or transpose with axes that swap the last two.
+ * For a 2D array, this is the same as transpose.
+ *
+ * @param a - Input array with at least 2 dimensions
+ * @returns Array with last two axes transposed
+ */
+export function matrix_transpose(a: NDArray): NDArray {
+  return NDArray._fromStorage(linalgOps.matrix_transpose(a.storage));
+}
+
+/**
+ * Permute the dimensions of an array.
+ *
+ * This is an alias for transpose to match the Array API standard.
+ *
+ * @param a - Input array
+ * @param axes - Permutation of axes. If not specified, reverses the axes.
+ * @returns Transposed array
+ */
+export function permute_dims(a: NDArray, axes?: number[]): NDArray {
+  return NDArray._fromStorage(linalgOps.permute_dims(a.storage, axes));
+}
+
+/**
+ * Matrix-vector multiplication.
+ *
+ * Computes the matrix-vector product over the last two axes of x1 and
+ * the last axis of x2.
+ *
+ * @param x1 - First input array (matrix) with shape (..., M, N)
+ * @param x2 - Second input array (vector) with shape (..., N)
+ * @returns Result with shape (..., M)
+ */
+export function matvec(x1: NDArray, x2: NDArray): NDArray {
+  return NDArray._fromStorage(linalgOps.matvec(x1.storage, x2.storage));
+}
+
+/**
+ * Vector-matrix multiplication.
+ *
+ * Computes the vector-matrix product over the last axis of x1 and
+ * the second-to-last axis of x2.
+ *
+ * @param x1 - First input array (vector) with shape (..., M)
+ * @param x2 - Second input array (matrix) with shape (..., M, N)
+ * @returns Result with shape (..., N)
+ */
+export function vecmat(x1: NDArray, x2: NDArray): NDArray {
+  return NDArray._fromStorage(linalgOps.vecmat(x1.storage, x2.storage));
+}
+
 // ============================================================================
 // numpy.linalg Module
 // ============================================================================
@@ -6314,6 +6449,103 @@ export const linalg = {
    */
   eigvalsh: (a: NDArray, UPLO: 'L' | 'U' = 'L'): NDArray => {
     return NDArray._fromStorage(linalgOps.eigvalsh(a.storage, UPLO));
+  },
+
+  /**
+   * Return specified diagonals.
+   */
+  diagonal: (a: NDArray, offset: number = 0, axis1: number = 0, axis2: number = 1): NDArray => {
+    return NDArray._fromStorage(linalgOps.diagonal(a.storage, offset, axis1, axis2));
+  },
+
+  /**
+   * Matrix multiplication.
+   */
+  matmul: (a: NDArray, b: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.matmul(a.storage, b.storage));
+  },
+
+  /**
+   * Transpose the last two axes of an array.
+   */
+  matrix_transpose: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.matrix_transpose(a.storage));
+  },
+
+  /**
+   * Compute the dot product of two or more arrays.
+   */
+  multi_dot: (arrays: NDArray[]): NDArray => {
+    const storages = arrays.map((arr) => arr.storage);
+    return NDArray._fromStorage(linalgOps.multi_dot(storages));
+  },
+
+  /**
+   * Outer product of two vectors.
+   */
+  outer: (a: NDArray, b: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.outer(a.storage, b.storage));
+  },
+
+  /**
+   * Compute sign and (natural) logarithm of the determinant.
+   */
+  slogdet: (a: NDArray): { sign: number; logabsdet: number } => {
+    return linalgOps.slogdet(a.storage);
+  },
+
+  /**
+   * Compute singular values of a matrix.
+   */
+  svdvals: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.svdvals(a.storage));
+  },
+
+  /**
+   * Tensor dot product along specified axes.
+   */
+  tensordot: (
+    a: NDArray,
+    b: NDArray,
+    axes: number | [number[], number[]] = 2
+  ): NDArray | number | bigint | Complex => {
+    const result = linalgOps.tensordot(a.storage, b.storage, axes);
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the tensor inverse.
+   */
+  tensorinv: (a: NDArray, ind: number = 2): NDArray => {
+    return NDArray._fromStorage(linalgOps.tensorinv(a.storage, ind));
+  },
+
+  /**
+   * Solve the tensor equation a x = b for x.
+   */
+  tensorsolve: (a: NDArray, b: NDArray, axes?: number[] | null): NDArray => {
+    return NDArray._fromStorage(linalgOps.tensorsolve(a.storage, b.storage, axes));
+  },
+
+  /**
+   * Sum along diagonals.
+   */
+  trace: (a: NDArray): number | bigint | Complex => {
+    return linalgOps.trace(a.storage);
+  },
+
+  /**
+   * Vector dot product.
+   */
+  vecdot: (a: NDArray, b: NDArray, axis: number = -1): NDArray | number | bigint | Complex => {
+    const result = linalgOps.vecdot(a.storage, b.storage, axis);
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   },
 };
 
@@ -6882,6 +7114,84 @@ export function union1d(ar1: NDArray, ar2: NDArray): NDArray {
   return NDArray._fromStorage(setOps.union1d(ar1.storage, ar2.storage));
 }
 
+/**
+ * Trim leading and/or trailing zeros from a 1-D array.
+ *
+ * @param filt - Input 1-D array
+ * @param trim - 'fb' to trim front and back, 'f' for front only, 'b' for back only (default: 'fb')
+ * @returns Trimmed array
+ */
+export function trim_zeros(filt: NDArray, trim: 'f' | 'b' | 'fb' = 'fb'): NDArray {
+  return NDArray._fromStorage(setOps.trim_zeros(filt.storage, trim));
+}
+
+/**
+ * Find the unique elements of an array, returning all optional outputs.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values, indices, inverse_indices, and counts (all as NDArray)
+ */
+export function unique_all(x: NDArray): {
+  values: NDArray;
+  indices: NDArray;
+  inverse_indices: NDArray;
+  counts: NDArray;
+} {
+  const result = setOps.unique_all(x.storage);
+  return {
+    values: NDArray._fromStorage(result.values),
+    indices: NDArray._fromStorage(result.indices),
+    inverse_indices: NDArray._fromStorage(result.inverse_indices),
+    counts: NDArray._fromStorage(result.counts),
+  };
+}
+
+/**
+ * Find the unique elements of an array and their counts.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values and counts (both as NDArray)
+ */
+export function unique_counts(x: NDArray): {
+  values: NDArray;
+  counts: NDArray;
+} {
+  const result = setOps.unique_counts(x.storage);
+  return {
+    values: NDArray._fromStorage(result.values),
+    counts: NDArray._fromStorage(result.counts),
+  };
+}
+
+/**
+ * Find the unique elements of an array and their inverse indices.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values and inverse_indices (both as NDArray)
+ */
+export function unique_inverse(x: NDArray): {
+  values: NDArray;
+  inverse_indices: NDArray;
+} {
+  const result = setOps.unique_inverse(x.storage);
+  return {
+    values: NDArray._fromStorage(result.values),
+    inverse_indices: NDArray._fromStorage(result.inverse_indices),
+  };
+}
+
+/**
+ * Find the unique elements of an array (values only).
+ *
+ * This is equivalent to unique(x) but with a clearer name for the Array API.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Array of unique values, sorted
+ */
+export function unique_values(x: NDArray): NDArray {
+  return NDArray._fromStorage(setOps.unique_values(x.storage));
+}
+
 // Gradient and difference functions
 
 /**
@@ -7136,6 +7446,59 @@ export function cov(
 export function corrcoef(x: NDArray, y?: NDArray, rowvar: boolean = true): NDArray {
   return NDArray._fromStorage(statisticsOps.corrcoef(x.storage, y?.storage, rowvar));
 }
+
+/**
+ * Compute the edges of the bins for histogram.
+ *
+ * This function computes the bin edges without computing the histogram itself.
+ *
+ * @param a - Input data (flattened if not 1D)
+ * @param bins - Number of bins (default: 10) or a string specifying the bin algorithm
+ * @param range - Lower and upper range of bins. If not provided, uses [a.min(), a.max()]
+ * @param weights - Optional weights for each data point (used for some algorithms)
+ * @returns Array of bin edges (length = bins + 1)
+ */
+export function histogram_bin_edges(
+  a: NDArray,
+  bins: number | 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt' = 10,
+  range?: [number, number],
+  weights?: NDArray
+): NDArray {
+  return NDArray._fromStorage(
+    statisticsOps.histogram_bin_edges(a.storage, bins, range, weights?.storage)
+  );
+}
+
+/**
+ * Integrate along the given axis using the composite trapezoidal rule.
+ *
+ * @param y - Input array to integrate
+ * @param x - Optional sample points corresponding to y values. If not provided, spacing is assumed to be 1.
+ * @param dx - Spacing between sample points when x is not given (default: 1.0)
+ * @param axis - The axis along which to integrate (default: -1, meaning last axis)
+ * @returns Definite integral approximated using the composite trapezoidal rule
+ */
+export function trapezoid(
+  y: NDArray,
+  x?: NDArray,
+  dx: number = 1.0,
+  axis: number = -1
+): NDArray | number {
+  const result = statisticsOps.trapezoid(y.storage, x?.storage, dx, axis);
+  if (typeof result === 'number') {
+    return result;
+  }
+  return NDArray._fromStorage(result);
+}
+
+/**
+ * Integrate along the given axis using the composite trapezoidal rule.
+ *
+ * @deprecated Use trapezoid instead. trapz is deprecated in NumPy 2.0.
+ *
+ * This is an alias for trapezoid for backwards compatibility.
+ */
+export const trapz = trapezoid;
 
 // ========================================
 // Utility Functions

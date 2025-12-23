@@ -10,6 +10,10 @@ import {
   right_shift,
   packbits,
   unpackbits,
+  bitwise_count,
+  bitwise_invert,
+  bitwise_left_shift,
+  bitwise_right_shift,
 } from '../../src/index';
 
 describe('Bitwise Operations', () => {
@@ -370,6 +374,90 @@ describe('Bitwise Operations', () => {
         [2, 4],
         [8, 16],
       ]);
+    });
+  });
+
+  describe('bitwise_count', () => {
+    it('counts 1-bits in uint8 array', () => {
+      const a = array([0, 1, 255, 128, 15], 'uint8');
+      const result = bitwise_count(a);
+      // 0b00000000 = 0, 0b00000001 = 1, 0b11111111 = 8, 0b10000000 = 1, 0b00001111 = 4
+      expect(result.toArray()).toEqual([0, 1, 8, 1, 4]);
+      expect(result.dtype).toBe('uint8');
+    });
+
+    it('counts 1-bits in int32 array', () => {
+      const a = array([0, 1, -1, 7, 16], 'int32');
+      const result = bitwise_count(a);
+      // 0 = 0 bits, 1 = 1 bit, -1 = 32 bits (all 1s), 7 = 3 bits, 16 = 1 bit
+      expect(result.toArray()).toEqual([0, 1, 32, 3, 1]);
+    });
+
+    it('handles 2D arrays', () => {
+      const a = array(
+        [
+          [1, 3],
+          [7, 15],
+        ],
+        'uint8'
+      );
+      const result = bitwise_count(a);
+      expect(result.toArray()).toEqual([
+        [1, 2],
+        [3, 4],
+      ]);
+    });
+
+    it('throws for float arrays', () => {
+      const a = array([1.5, 2.5], 'float64');
+      expect(() => bitwise_count(a)).toThrow();
+    });
+  });
+
+  describe('bitwise_invert', () => {
+    it('is an alias for bitwise_not', () => {
+      const a = array([0, 255, 128], 'uint8');
+      const result1 = bitwise_not(a);
+      const result2 = bitwise_invert(a);
+      expect(result1.toArray()).toEqual(result2.toArray());
+    });
+
+    it('inverts int32 values', () => {
+      const a = array([0, 1, -1], 'int32');
+      const result = bitwise_invert(a);
+      expect(result.toArray()).toEqual([-1, -2, 0]);
+    });
+  });
+
+  describe('bitwise_left_shift', () => {
+    it('is an alias for left_shift', () => {
+      const a = array([1, 2, 4], 'int32');
+      const result1 = left_shift(a, 2);
+      const result2 = bitwise_left_shift(a, 2);
+      expect(result1.toArray()).toEqual(result2.toArray());
+    });
+
+    it('shifts with array', () => {
+      const a = array([1, 1, 1], 'int32');
+      const b = array([1, 2, 3], 'int32');
+      const result = bitwise_left_shift(a, b);
+      expect(result.toArray()).toEqual([2, 4, 8]);
+    });
+  });
+
+  describe('bitwise_right_shift', () => {
+    it('is an alias for right_shift', () => {
+      const a = array([8, 16, 32], 'int32');
+      const result1 = right_shift(a, 2);
+      const result2 = bitwise_right_shift(a, 2);
+      expect(result1.toArray()).toEqual(result2.toArray());
+    });
+
+    it('shifts with array', () => {
+      const a = array([8, 16, 32], 'int32');
+      const b = array([1, 2, 3], 'int32');
+      const result = bitwise_right_shift(a, b);
+      expect(result.toArray()).toEqual([4, 4, 4]);
     });
   });
 });

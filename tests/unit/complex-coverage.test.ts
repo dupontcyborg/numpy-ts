@@ -227,6 +227,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   outer: 'supported', // complex outer product
   tensordot: 'supported', // complex tensor contraction
   einsum: 'supported', // complex Einstein summation
+  vdot: 'supported', // complex vector dot product (conjugates first arg)
+  vecdot: 'supported', // complex vector dot product along axis
+  matrix_transpose: 'supported', // swaps last two axes (works naturally)
+  permute_dims: 'supported', // alias for transpose
+  matvec: 'supported', // complex matrix-vector multiplication
+  vecmat: 'supported', // complex vector-matrix multiplication
 
   // Gradient/difference
   diff: 'supported',
@@ -409,6 +415,24 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   packbits: 'skip',
   unpackbits: 'skip',
 
+  // Additional bitwise functions (integer-only operations)
+  bitwise_count: 'unsupported', // integer-only: counts 1-bits
+  bitwise_invert: 'unsupported', // integer-only: alias for bitwise_not
+  bitwise_left_shift: 'unsupported', // integer-only: alias for left_shift
+  bitwise_right_shift: 'unsupported', // integer-only: alias for right_shift
+
+  // Additional set operations
+  trim_zeros: 'supported', // works with complex arrays
+  unique_all: 'supported', // works with complex arrays
+  unique_counts: 'supported', // works with complex arrays
+  unique_inverse: 'supported', // works with complex arrays
+  unique_values: 'supported', // works with complex arrays
+
+  // Additional statistics functions
+  histogram_bin_edges: 'unsupported', // real-only: throws for complex
+  trapezoid: 'unsupported', // real-only: throws for complex
+  trapz: 'unsupported', // deprecated alias for trapezoid
+
   // Type checking utilities
   isnat: 'skip', // datetime specific
   isfortran: 'skip',
@@ -537,6 +561,8 @@ function testComplexBehavior(
       'bitwise_xor',
       'left_shift',
       'right_shift',
+      'bitwise_left_shift',
+      'bitwise_right_shift',
       'logical_and',
       'logical_or',
       'logical_xor',
@@ -558,13 +584,15 @@ function testComplexBehavior(
       'setdiff1d', // (ar1, ar2)
       'setxor1d', // (ar1, ar2)
       'union1d', // (ar1, ar2)
+      'vdot', // (a, b)
+      'vecdot', // (a, b)
     ];
 
     // Functions that return tuples (unary)
     const tupleOps = ['frexp', 'modf'];
 
     // Functions that require 2D input
-    const require2D = ['trace', 'diagonal'];
+    const require2D = ['trace', 'diagonal', 'matrix_transpose'];
 
     // Functions that require 3 arguments
     const ternaryOps = ['where'];
@@ -575,6 +603,8 @@ function testComplexBehavior(
       searchsorted: () => fn(z1, z2), // (a, v)
       tensordot: () => fn(z2d, z2d, 1), // (a, b, axes) - needs 2D arrays
       einsum: () => fn('i,i->', z1, z1), // (subscripts, ...operands)
+      matvec: () => fn(z2d, z1), // (matrix, vector) - needs 2D and 1D
+      vecmat: () => fn(z1, z2d), // (vector, matrix) - needs 1D and 2D
       interp: () => fn(z1, z1, z1), // (x, xp, fp) - needs 3 arrays
     };
 
