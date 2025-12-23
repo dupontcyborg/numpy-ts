@@ -82,6 +82,17 @@ export {
   lcm,
   ldexp,
   modf,
+  // Other math functions
+  clip,
+  maximum,
+  minimum,
+  fmax,
+  fmin,
+  nan_to_num,
+  interp,
+  unwrap,
+  sinc,
+  i0,
   dot,
   trace,
   diagonal,
@@ -333,7 +344,16 @@ export {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
-  trapz,
+  // Utility functions
+  apply_along_axis,
+  apply_over_axes,
+  may_share_memory,
+  shares_memory,
+  ndim,
+  shape,
+  size,
+  geterr,
+  seterr,
 } from './core/ndarray';
 
 // IO functions (environment-agnostic parsing/serialization)

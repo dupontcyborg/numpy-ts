@@ -8,8 +8,8 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 378/507 (74.6%)
-- **Top-level Functions**: 371/507 (69.6%)
+- **Overall Coverage**: 395/507 (77.9%)
+- **Top-level Functions**: 391/507 (73.6%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -27,24 +27,24 @@ Based on `npm run compare-api`:
 - Linear Algebra (15/15)
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
+- Other Math (15/15)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
 - Set Operations (12/12)
 - Sorting (6/6)
+- Statistics (12/12)
 - Trigonometric (16/16)
 
 ### Incomplete Categories
 - FFT (0/18) - 0.0%
 - NDArray Methods (40/53) - 75.5%
-- Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Statistics (11/12) - 91.7%
 - String/Formatting (0/10) - 0.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
-- Utilities (4/16) - 25.0%
+- Utilities (10/16) - 62.5%
 
 ---
 
@@ -459,20 +459,20 @@ Based on `npm run compare-api`:
 ## Other Math
 
 - [x] `angle` 
-- [ ] `clip` 
+- [x] `clip` 
 - [x] `conj` 
 - [x] `conjugate` 
-- [ ] `fmax` 
-- [ ] `fmin` 
-- [ ] `i0` 
+- [x] `fmax` 
+- [x] `fmin` 
+- [x] `i0` 
 - [x] `imag` 
-- [ ] `interp` 
-- [ ] `maximum` 
-- [ ] `minimum` 
-- [ ] `nan_to_num` 
+- [x] `interp` 
+- [x] `maximum` 
+- [x] `minimum` 
+- [x] `nan_to_num` 
 - [x] `real` 
-- [ ] `sinc` 
-- [ ] `unwrap` 
+- [x] `sinc` 
+- [x] `unwrap` 
 
 ---
 
@@ -655,7 +655,7 @@ Based on `npm run compare-api`:
 - [x] `histogram_bin_edges` 
 - [x] `histogramdd` 
 - [x] `trapezoid` 
-- [ ] `trapz` 
+- [x] `trapz` 
 
 ---
 
@@ -739,19 +739,19 @@ Based on `npm run compare-api`:
 
 ## Utilities
 
-- [ ] `apply_along_axis` 
-- [ ] `apply_over_axes` 
+- [x] `apply_along_axis` 
+- [x] `apply_over_axes` 
 - [x] `copyto` 
 - [ ] `einsum_path` 
-- [ ] `geterr` 
+- [x] `geterr` 
 - [ ] `geterrcall` 
 - [ ] `info` 
-- [ ] `may_share_memory` 
+- [x] `may_share_memory` 
 - [x] `ndim` 
-- [ ] `seterr` 
+- [x] `seterr` 
 - [ ] `seterrcall` 
 - [x] `shape` 
-- [ ] `shares_memory` 
+- [x] `shares_memory` 
 - [ ] `show_config` 
 - [ ] `show_runtime` 
 - [x] `size` 

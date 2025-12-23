@@ -674,6 +674,28 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "complex_prod":
         return np.prod(arrays["a"])
 
+    # Other Math operations
+    elif operation == "clip":
+        return np.clip(arrays["a"], 10, 100)
+    elif operation == "maximum":
+        return np.maximum(arrays["a"], arrays["b"])
+    elif operation == "minimum":
+        return np.minimum(arrays["a"], arrays["b"])
+    elif operation == "fmax":
+        return np.fmax(arrays["a"], arrays["b"])
+    elif operation == "fmin":
+        return np.fmin(arrays["a"], arrays["b"])
+    elif operation == "nan_to_num":
+        return np.nan_to_num(arrays["a"])
+    elif operation == "interp":
+        return np.interp(arrays["x"], arrays["xp"], arrays["fp"])
+    elif operation == "unwrap":
+        return np.unwrap(arrays["a"])
+    elif operation == "sinc":
+        return np.sinc(arrays["a"])
+    elif operation == "i0":
+        return np.i0(arrays["a"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

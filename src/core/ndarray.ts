@@ -5442,6 +5442,176 @@ export function modf(x: NDArray): [NDArray, NDArray] {
 }
 
 // ========================================
+// Other Math Functions
+// ========================================
+
+/**
+ * Clip (limit) the values in an array.
+ *
+ * Given an interval, values outside the interval are clipped to the interval edges.
+ *
+ * @param a - Input array
+ * @param a_min - Minimum value (null to not clip minimum)
+ * @param a_max - Maximum value (null to not clip maximum)
+ * @returns Clipped array
+ */
+export function clip(
+  a: NDArray,
+  a_min: NDArray | number | null,
+  a_max: NDArray | number | null
+): NDArray {
+  const minStorage = a_min instanceof NDArray ? a_min.storage : a_min;
+  const maxStorage = a_max instanceof NDArray ? a_max.storage : a_max;
+  return NDArray._fromStorage(arithmeticOps.clip(a.storage, minStorage, maxStorage));
+}
+
+/**
+ * Element-wise maximum of array elements.
+ *
+ * Compare two arrays and return a new array containing the element-wise maxima.
+ * If one of the elements being compared is a NaN, then that element is returned.
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Element-wise maximum
+ */
+export function maximum(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = x2 instanceof NDArray ? x2.storage : x2;
+  return NDArray._fromStorage(arithmeticOps.maximum(x1.storage, x2Storage));
+}
+
+/**
+ * Element-wise minimum of array elements.
+ *
+ * Compare two arrays and return a new array containing the element-wise minima.
+ * If one of the elements being compared is a NaN, then that element is returned.
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Element-wise minimum
+ */
+export function minimum(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = x2 instanceof NDArray ? x2.storage : x2;
+  return NDArray._fromStorage(arithmeticOps.minimum(x1.storage, x2Storage));
+}
+
+/**
+ * Element-wise maximum of array elements, ignoring NaNs.
+ *
+ * Compare two arrays and return a new array containing the element-wise maxima.
+ * If one of the values being compared is a NaN, the other is returned.
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Element-wise maximum, NaN-aware
+ */
+export function fmax(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = x2 instanceof NDArray ? x2.storage : x2;
+  return NDArray._fromStorage(arithmeticOps.fmax(x1.storage, x2Storage));
+}
+
+/**
+ * Element-wise minimum of array elements, ignoring NaNs.
+ *
+ * Compare two arrays and return a new array containing the element-wise minima.
+ * If one of the values being compared is a NaN, the other is returned.
+ *
+ * @param x1 - First input array
+ * @param x2 - Second input array or scalar
+ * @returns Element-wise minimum, NaN-aware
+ */
+export function fmin(x1: NDArray, x2: NDArray | number): NDArray {
+  const x2Storage = x2 instanceof NDArray ? x2.storage : x2;
+  return NDArray._fromStorage(arithmeticOps.fmin(x1.storage, x2Storage));
+}
+
+/**
+ * Replace NaN with zero and Inf with large finite numbers.
+ *
+ * @param x - Input array
+ * @param nan - Value to replace NaN (default: 0.0)
+ * @param posinf - Value to replace positive infinity (default: largest finite)
+ * @param neginf - Value to replace negative infinity (default: most negative finite)
+ * @returns Array with replacements
+ */
+export function nan_to_num(
+  x: NDArray,
+  nan: number = 0.0,
+  posinf?: number,
+  neginf?: number
+): NDArray {
+  return NDArray._fromStorage(arithmeticOps.nan_to_num(x.storage, nan, posinf, neginf));
+}
+
+/**
+ * One-dimensional linear interpolation.
+ *
+ * Returns the one-dimensional piecewise linear interpolant to a function
+ * with given discrete data points (xp, fp), evaluated at x.
+ *
+ * @param x - The x-coordinates at which to evaluate the interpolated values
+ * @param xp - The x-coordinates of the data points (must be increasing)
+ * @param fp - The y-coordinates of the data points
+ * @param left - Value for x < xp[0] (default: fp[0])
+ * @param right - Value for x > xp[-1] (default: fp[-1])
+ * @returns Interpolated values
+ */
+export function interp(
+  x: NDArray,
+  xp: NDArray,
+  fp: NDArray,
+  left?: number,
+  right?: number
+): NDArray {
+  return NDArray._fromStorage(arithmeticOps.interp(x.storage, xp.storage, fp.storage, left, right));
+}
+
+/**
+ * Unwrap by changing deltas between values to 2*pi complement.
+ *
+ * Unwrap radian phase p by changing absolute jumps greater than
+ * discont to their 2*pi complement along the given axis.
+ *
+ * @param p - Input array of phase angles in radians
+ * @param discont - Maximum discontinuity between values (default: pi)
+ * @param axis - Axis along which to unwrap (default: -1, last axis)
+ * @param period - Size of the range over which the input wraps (default: 2*pi)
+ * @returns Unwrapped array
+ */
+export function unwrap(
+  p: NDArray,
+  discont: number = Math.PI,
+  axis: number = -1,
+  period: number = 2 * Math.PI
+): NDArray {
+  return NDArray._fromStorage(arithmeticOps.unwrap(p.storage, discont, axis, period));
+}
+
+/**
+ * Return the normalized sinc function.
+ *
+ * sinc(x) = sin(pi*x) / (pi*x)
+ *
+ * The sinc function is 1 at x = 0, and sin(pi*x)/(pi*x) otherwise.
+ *
+ * @param x - Input array
+ * @returns Array of sinc values
+ */
+export function sinc(x: NDArray): NDArray {
+  return NDArray._fromStorage(arithmeticOps.sinc(x.storage));
+}
+
+/**
+ * Modified Bessel function of the first kind, order 0.
+ *
+ * @param x - Input array
+ * @returns Array of I0 values
+ */
+export function i0(x: NDArray): NDArray {
+  return NDArray._fromStorage(arithmeticOps.i0(x.storage));
+}
+
+// ========================================
 // Bitwise Functions
 // ========================================
 
@@ -7321,11 +7491,140 @@ export function trapezoid(
   return NDArray._fromStorage(result);
 }
 
+// ========================================
+// Utility Functions
+// ========================================
+
 /**
- * Integrate along the given axis using the composite trapezoidal rule.
+ * Apply a function along a given axis.
  *
- * @deprecated Use trapezoid instead. trapz is deprecated in NumPy 2.0.
- *
- * This is an alias for trapezoid for backwards compatibility.
+ * @param func1d - Function that takes a 1D array and returns a scalar or array
+ * @param axis - Axis along which to apply the function
+ * @param arr - Input array
+ * @returns Result array
  */
-export const trapz = trapezoid;
+export function apply_along_axis(
+  func1d: (arr: NDArray) => NDArray | number,
+  axis: number,
+  arr: NDArray
+): NDArray {
+  // Wrapper to convert NDArray function to ArrayStorage function
+  const storageFunc = (storage: ArrayStorage): ArrayStorage | number => {
+    const result = func1d(NDArray._fromStorage(storage));
+    if (result instanceof NDArray) {
+      return result.storage;
+    }
+    return result;
+  };
+  return NDArray._fromStorage(advancedOps.apply_along_axis(arr.storage, axis, storageFunc));
+}
+
+/**
+ * Apply a function over multiple axes.
+ *
+ * @param func - Function that operates on an array along an axis
+ * @param a - Input array
+ * @param axes - Axes over which to apply the function
+ * @returns Result array
+ */
+export function apply_over_axes(
+  func: (a: NDArray, axis: number) => NDArray,
+  a: NDArray,
+  axes: number[]
+): NDArray {
+  // Wrapper to convert NDArray function to ArrayStorage function
+  const storageFunc = (storage: ArrayStorage, axis: number): ArrayStorage => {
+    const result = func(NDArray._fromStorage(storage), axis);
+    return result.storage;
+  };
+  return NDArray._fromStorage(advancedOps.apply_over_axes(a.storage, storageFunc, axes));
+}
+
+/**
+ * Check if two arrays may share memory.
+ *
+ * @param a - First array
+ * @param b - Second array
+ * @returns True if arrays may share memory
+ */
+export function may_share_memory(a: NDArray, b: NDArray): boolean {
+  return advancedOps.may_share_memory(a.storage, b.storage);
+}
+
+/**
+ * Check if two arrays share memory.
+ *
+ * @param a - First array
+ * @param b - Second array
+ * @returns True if arrays share memory
+ */
+export function shares_memory(a: NDArray, b: NDArray): boolean {
+  return advancedOps.shares_memory(a.storage, b.storage);
+}
+
+/**
+ * Return the number of dimensions of an array.
+ *
+ * @param a - Input array
+ * @returns Number of dimensions
+ */
+export function ndim(a: NDArray | number | unknown[] | unknown): number {
+  if (typeof a === 'number') {
+    return 0;
+  }
+  if (a instanceof NDArray) {
+    return a.ndim;
+  }
+  // Handle nested arrays
+  let dim = 0;
+  let current = a;
+  while (Array.isArray(current)) {
+    dim++;
+    current = current[0];
+  }
+  return dim;
+}
+
+/**
+ * Return the shape of an array.
+ *
+ * @param a - Input array
+ * @returns Shape tuple
+ */
+export function shape(a: NDArray | number | unknown[] | unknown): number[] {
+  if (typeof a === 'number') {
+    return [];
+  }
+  if (a instanceof NDArray) {
+    return Array.from(a.shape);
+  }
+  // Handle nested arrays
+  const result: number[] = [];
+  let current = a;
+  while (Array.isArray(current)) {
+    result.push(current.length);
+    current = current[0];
+  }
+  return result;
+}
+
+/**
+ * Return the number of elements in an array.
+ *
+ * @param a - Input array
+ * @returns Number of elements
+ */
+export function size(a: NDArray | number | unknown[] | unknown): number {
+  if (typeof a === 'number') {
+    return 1;
+  }
+  if (a instanceof NDArray) {
+    return a.size;
+  }
+  // Handle nested arrays
+  const s = shape(a);
+  return s.reduce((acc, dim) => acc * dim, 1);
+}
+
+// Re-export error handling functions
+export { geterr, seterr, type FloatErrorState } from '../ops/advanced';

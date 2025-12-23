@@ -275,6 +275,18 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   spacing: 'unsupported', // floating-point representation
   real_if_close: 'supported', // converts to real if imaginary is negligible
 
+  // Other Math (not applicable for complex)
+  clip: 'unsupported', // clipping not defined for complex
+  maximum: 'unsupported', // element-wise max not defined for complex
+  minimum: 'unsupported', // element-wise min not defined for complex
+  fmax: 'unsupported', // NaN-aware max not defined for complex
+  fmin: 'unsupported', // NaN-aware min not defined for complex
+  nan_to_num: 'unsupported', // NaN replacement not defined for complex
+  interp: 'unsupported', // interpolation not defined for complex
+  unwrap: 'unsupported', // phase unwrapping only for real
+  sinc: 'unsupported', // sinc not defined for complex
+  i0: 'unsupported', // Bessel function not defined for complex
+
   // =========================================================================
   // SKIP - These don't take array input or are not applicable
   // =========================================================================
@@ -419,7 +431,6 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Additional statistics functions
   histogram_bin_edges: 'unsupported', // real-only: throws for complex
   trapezoid: 'unsupported', // real-only: throws for complex
-  trapz: 'unsupported', // deprecated alias for trapezoid
 
   // Type checking utilities
   isnat: 'skip', // datetime specific
@@ -452,6 +463,17 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Version and other values
   __version__: 'skip',
   true_divide: 'skip', // alias for divide, tested via divide
+
+  // Utility functions (no array computation)
+  apply_along_axis: 'skip', // applies function along axis
+  apply_over_axes: 'skip', // applies function over multiple axes
+  may_share_memory: 'skip', // memory checking
+  shares_memory: 'skip', // memory checking
+  ndim: 'skip', // returns number of dimensions
+  shape: 'skip', // returns shape
+  size: 'skip', // returns size
+  geterr: 'skip', // error handling state
+  seterr: 'skip', // error handling state
 };
 
 // Type exports that are not runtime values - excluded from checks
@@ -463,6 +485,7 @@ const TYPE_EXPORTS = [
   'NpzParseOptions',
   'NpzParseResult',
   'NpzSerializeOptions',
+  'FloatErrorState',
 ];
 
 // ============================================================================
@@ -581,6 +604,7 @@ function testComplexBehavior(
       einsum: () => fn('i,i->', z1, z1), // (subscripts, ...operands)
       matvec: () => fn(z2d, z1), // (matrix, vector) - needs 2D and 1D
       vecmat: () => fn(z1, z2d), // (vector, matrix) - needs 1D and 2D
+      interp: () => fn(z1, z1, z1), // (x, xp, fp) - needs 3 arrays
     };
 
     if (fnName in specialOps) {
@@ -695,7 +719,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
         expect(behavior).toBe('supported');
       });
     }
@@ -713,7 +737,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
         expect(behavior).toBe('unsupported');
       });
     }
@@ -738,7 +762,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
 
         // Currently many of these silently fail - the test documents this
         // Once we add guards, this should be 'not_implemented'
