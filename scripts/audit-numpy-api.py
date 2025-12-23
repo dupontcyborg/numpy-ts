@@ -219,7 +219,7 @@ def categorize_functions(functions):
         'Statistics': [
             'histogram', 'histogram2d', 'histogramdd', 'bincount', 'digitize',
             'corrcoef', 'correlate', 'cov', 'convolve', 'histogram_bin_edges',
-            'trapezoid', 'trapz'  # Numerical integration
+            'trapezoid'
         ],
         'Gradient': [
             'gradient', 'diff', 'ediff1d', 'cross'
@@ -297,6 +297,7 @@ def categorize_functions(functions):
             # Deprecated/legacy/internal
             'asmatrix', 'bmat', 'matrix', 'msort', 'getbuffer', 'newaxis',
             'issctype', 'issubclass_', 'issubsctype', 'sctype2char',  # np.core (deprecated)
+            'trapz',  # Removed in NumPy 2.0 (use trapezoid instead)
             # Internal/meta
             'get_include', 'get_array_wrap',
             # Advanced/niche (DLPack, ufuncs, iterators)

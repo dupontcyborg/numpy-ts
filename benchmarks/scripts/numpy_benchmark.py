@@ -283,6 +283,38 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.linalg.lstsq(arrays["a"], arrays["b"], rcond=None)
     elif operation == "linalg_cross":
         return np.cross(arrays["a"], arrays["b"])
+    elif operation == "linalg_slogdet":
+        return np.linalg.slogdet(arrays["a"])
+    elif operation == "linalg_svdvals":
+        return np.linalg.svdvals(arrays["a"])
+    elif operation == "linalg_multi_dot":
+        matrices = [arrays["a"], arrays["b"]]
+        if "c" in arrays:
+            matrices.append(arrays["c"])
+        return np.linalg.multi_dot(matrices)
+    elif operation == "vdot":
+        return np.vdot(arrays["a"], arrays["b"])
+    elif operation == "vecdot":
+        # vecdot computes dot product along the last axis
+        if hasattr(np.linalg, 'vecdot'):
+            return np.linalg.vecdot(arrays["a"], arrays["b"])
+        else:
+            return np.einsum('...i,...i->...', arrays["a"], arrays["b"])
+    elif operation == "matrix_transpose":
+        if hasattr(arrays["a"], 'mT'):
+            return arrays["a"].mT
+        else:
+            return np.swapaxes(arrays["a"], -2, -1)
+    elif operation == "matvec":
+        if hasattr(np.linalg, 'matvec'):
+            return np.linalg.matvec(arrays["a"], arrays["b"])
+        else:
+            return np.matmul(arrays["a"], arrays["b"])
+    elif operation == "vecmat":
+        if hasattr(np.linalg, 'vecmat'):
+            return np.linalg.vecmat(arrays["a"], arrays["b"])
+        else:
+            return np.matmul(arrays["a"], arrays["b"])
 
     # Reductions
     elif operation == "sum":
@@ -456,6 +488,8 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.packbits(arrays["a"].astype(np.uint8))
     elif operation == "unpackbits":
         return np.unpackbits(arrays["a"].astype(np.uint8))
+    elif operation == "bitwise_count":
+        return np.bitwise_count(arrays["a"])
 
     # IO operations (NPY/NPZ)
     elif operation == "serializeNpy":
@@ -530,6 +564,19 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.cov(arrays["a"])
     elif operation == "corrcoef":
         return np.corrcoef(arrays["a"])
+    elif operation == "histogram_bin_edges":
+        return np.histogram_bin_edges(arrays["a"].flatten(), bins=10)
+    elif operation == "trapezoid":
+        return np.trapezoid(arrays["a"].flatten())
+
+    # Set operations
+    elif operation == "trim_zeros":
+        return np.trim_zeros(arrays["a"].flatten())
+    elif operation == "unique_values":
+        return np.unique(arrays["a"].flatten())
+    elif operation == "unique_counts":
+        values, counts = np.unique(arrays["a"].flatten(), return_counts=True)
+        return (values, counts)
 
     # Logic operations
     elif operation == "logical_and":
@@ -626,6 +673,28 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.mean(arrays["a"])
     elif operation == "complex_prod":
         return np.prod(arrays["a"])
+
+    # Other Math operations
+    elif operation == "clip":
+        return np.clip(arrays["a"], 10, 100)
+    elif operation == "maximum":
+        return np.maximum(arrays["a"], arrays["b"])
+    elif operation == "minimum":
+        return np.minimum(arrays["a"], arrays["b"])
+    elif operation == "fmax":
+        return np.fmax(arrays["a"], arrays["b"])
+    elif operation == "fmin":
+        return np.fmin(arrays["a"], arrays["b"])
+    elif operation == "nan_to_num":
+        return np.nan_to_num(arrays["a"])
+    elif operation == "interp":
+        return np.interp(arrays["x"], arrays["xp"], arrays["fp"])
+    elif operation == "unwrap":
+        return np.unwrap(arrays["a"])
+    elif operation == "sinc":
+        return np.sinc(arrays["a"])
+    elif operation == "i0":
+        return np.i0(arrays["a"])
 
     # Polynomial operations
     elif operation == "poly":

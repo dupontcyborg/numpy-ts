@@ -2544,7 +2544,7 @@ result = np.sort_complex(np.array([3+1j, 1+2j, 1+1j, 2+0j]))
         const b = array([new Complex(2, 2), new Complex(4, 4)]);
         const jsResult = in1d(a, b);
         const pyResult = runNumPy(`
-result = np.in1d(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 4+4j]))
+result = np.isin(np.array([1+1j, 2+2j, 3+3j]), np.array([2+2j, 4+4j]))
         `);
 
         expect(boolArraysEqual(jsResult.toArray(), pyResult.value)).toBe(true);

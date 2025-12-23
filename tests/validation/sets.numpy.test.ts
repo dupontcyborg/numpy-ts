@@ -15,6 +15,11 @@ import {
   setdiff1d,
   setxor1d,
   union1d,
+  trim_zeros,
+  unique_all,
+  unique_counts,
+  unique_inverse,
+  unique_values,
 } from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
@@ -94,7 +99,7 @@ result = {"values": values.tolist(), "inverse": inverse.tolist()}
       const npResult = runNumPy(`
 ar1 = np.array([1, 2, 3, 4, 5])
 ar2 = np.array([2, 4])
-result = np.in1d(ar1, ar2).astype(np.uint8)
+result = np.isin(ar1, ar2).astype(np.uint8)
 `);
 
       expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
@@ -108,7 +113,7 @@ result = np.in1d(ar1, ar2).astype(np.uint8)
       const npResult = runNumPy(`
 ar1 = np.array([1, 2, 3])
 ar2 = np.array([4, 5, 6])
-result = np.in1d(ar1, ar2).astype(np.uint8)
+result = np.isin(ar1, ar2).astype(np.uint8)
 `);
 
       expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
@@ -322,6 +327,124 @@ result = np.union1d(ar1, ar2)
 `);
 
       expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('trim_zeros()', () => {
+    it('validates trim_zeros() trims front and back', () => {
+      const arr = array([0, 0, 1, 2, 3, 0, 0]);
+      const result = trim_zeros(arr, 'fb');
+
+      const npResult = runNumPy(`
+arr = np.array([0, 0, 1, 2, 3, 0, 0])
+result = np.trim_zeros(arr, 'fb')
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates trim_zeros() trims front only', () => {
+      const arr = array([0, 0, 1, 2, 0, 0]);
+      const result = trim_zeros(arr, 'f');
+
+      const npResult = runNumPy(`
+arr = np.array([0, 0, 1, 2, 0, 0])
+result = np.trim_zeros(arr, 'f')
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+
+    it('validates trim_zeros() trims back only', () => {
+      const arr = array([0, 0, 1, 2, 0, 0]);
+      const result = trim_zeros(arr, 'b');
+
+      const npResult = runNumPy(`
+arr = np.array([0, 0, 1, 2, 0, 0])
+result = np.trim_zeros(arr, 'b')
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('unique_values()', () => {
+    it('validates unique_values() returns sorted unique values', () => {
+      const arr = array([3, 1, 2, 1, 3]);
+      const result = unique_values(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([3, 1, 2, 1, 3])
+result = np.unique(arr)
+`);
+
+      expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+    });
+  });
+
+  describe('unique_counts()', () => {
+    it('validates unique_counts() returns values and counts', () => {
+      const arr = array([1, 2, 2, 3, 3, 3]);
+      const result = unique_counts(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([1, 2, 2, 3, 3, 3])
+values, counts = np.unique(arr, return_counts=True)
+result = values
+`);
+
+      const npCountsResult = runNumPy(`
+arr = np.array([1, 2, 2, 3, 3, 3])
+values, counts = np.unique(arr, return_counts=True)
+result = counts
+`);
+
+      expect(arraysClose(result.values.toArray(), npResult.value)).toBe(true);
+      expect(arraysClose(result.counts.toArray(), npCountsResult.value)).toBe(true);
+    });
+  });
+
+  describe('unique_inverse()', () => {
+    it('validates unique_inverse() returns values and inverse', () => {
+      const arr = array([3, 1, 2, 1]);
+      const result = unique_inverse(arr);
+
+      const npResult = runNumPy(`
+arr = np.array([3, 1, 2, 1])
+values, inverse = np.unique(arr, return_inverse=True)
+result = values
+`);
+
+      const npInverseResult = runNumPy(`
+arr = np.array([3, 1, 2, 1])
+values, inverse = np.unique(arr, return_inverse=True)
+result = inverse
+`);
+
+      expect(arraysClose(result.values.toArray(), npResult.value)).toBe(true);
+      expect(arraysClose(result.inverse_indices.toArray(), npInverseResult.value)).toBe(true);
+    });
+  });
+
+  describe('unique_all()', () => {
+    it('validates unique_all() returns all outputs', () => {
+      const arr = array([3, 1, 2, 1, 3, 3]);
+      const result = unique_all(arr);
+
+      const npValuesResult = runNumPy(`
+arr = np.array([3, 1, 2, 1, 3, 3])
+values, _, _, counts = np.unique(arr, return_index=True, return_inverse=True, return_counts=True)
+result = values
+`);
+
+      const npCountsResult = runNumPy(`
+arr = np.array([3, 1, 2, 1, 3, 3])
+values, _, _, counts = np.unique(arr, return_index=True, return_inverse=True, return_counts=True)
+result = counts
+`);
+
+      expect(arraysClose(result.values.toArray(), npValuesResult.value)).toBe(true);
+      expect(arraysClose(result.counts.toArray(), npCountsResult.value)).toBe(true);
     });
   });
 });

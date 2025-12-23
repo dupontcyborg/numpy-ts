@@ -341,6 +341,22 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.linalg.lstsq(arrays['a'], arrays['b']);
   } else if (operation === 'linalg_cross') {
     return np.linalg.cross(arrays['a'], arrays['b']);
+  } else if (operation === 'linalg_slogdet') {
+    return np.linalg.slogdet(arrays['a']);
+  } else if (operation === 'linalg_svdvals') {
+    return np.linalg.svdvals(arrays['a']);
+  } else if (operation === 'linalg_multi_dot') {
+    return np.linalg.multi_dot([arrays['a'], arrays['b'], arrays['c']]);
+  } else if (operation === 'vdot') {
+    return np.vdot(arrays['a'], arrays['b']);
+  } else if (operation === 'vecdot') {
+    return np.vecdot(arrays['a'], arrays['b']);
+  } else if (operation === 'matrix_transpose') {
+    return np.matrix_transpose(arrays['a']);
+  } else if (operation === 'matvec') {
+    return np.matvec(arrays['a'], arrays['b']);
+  } else if (operation === 'vecmat') {
+    return np.vecmat(arrays['a'], arrays['b']);
   }
   // Bitwise operations
   else if (operation === 'bitwise_and') {
@@ -361,6 +377,8 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.packbits(arrays['a']);
   } else if (operation === 'unpackbits') {
     return np.unpackbits(arrays['a']);
+  } else if (operation === 'bitwise_count') {
+    return np.bitwise_count(arrays['a']);
   }
   // Reductions
   else if (operation === 'sum') {
@@ -581,6 +599,19 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.cov(arrays['a']);
   } else if (operation === 'corrcoef') {
     return np.corrcoef(arrays['a']);
+  } else if (operation === 'histogram_bin_edges') {
+    return np.histogram_bin_edges(arrays['a'], 10);
+  } else if (operation === 'trapezoid') {
+    return np.trapezoid(arrays['a']);
+  }
+
+  // Set operations
+  else if (operation === 'trim_zeros') {
+    return np.trim_zeros(arrays['a']);
+  } else if (operation === 'unique_values') {
+    return np.unique_values(arrays['a']);
+  } else if (operation === 'unique_counts') {
+    return np.unique_counts(arrays['a']);
   }
 
   // Logic operations
@@ -684,6 +715,29 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].mean();
   } else if (operation === 'complex_prod') {
     return arrays['a'].prod();
+  }
+
+  // Other Math operations
+  else if (operation === 'clip') {
+    return np.clip(arrays['a'], 10, 100);
+  } else if (operation === 'maximum') {
+    return np.maximum(arrays['a'], arrays['b']);
+  } else if (operation === 'minimum') {
+    return np.minimum(arrays['a'], arrays['b']);
+  } else if (operation === 'fmax') {
+    return np.fmax(arrays['a'], arrays['b']);
+  } else if (operation === 'fmin') {
+    return np.fmin(arrays['a'], arrays['b']);
+  } else if (operation === 'nan_to_num') {
+    return np.nan_to_num(arrays['a']);
+  } else if (operation === 'interp') {
+    return np.interp(arrays['x'], arrays['xp'], arrays['fp']);
+  } else if (operation === 'unwrap') {
+    return np.unwrap(arrays['a']);
+  } else if (operation === 'sinc') {
+    return np.sinc(arrays['a']);
+  } else if (operation === 'i0') {
+    return np.i0(arrays['a']);
   }
 
   // Polynomial operations

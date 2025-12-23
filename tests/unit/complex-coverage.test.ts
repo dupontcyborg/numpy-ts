@@ -227,6 +227,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   outer: 'supported', // complex outer product
   tensordot: 'supported', // complex tensor contraction
   einsum: 'supported', // complex Einstein summation
+  vdot: 'supported', // complex vector dot product (conjugates first arg)
+  vecdot: 'supported', // complex vector dot product along axis
+  matrix_transpose: 'supported', // swaps last two axes (works naturally)
+  permute_dims: 'supported', // alias for transpose
+  matvec: 'supported', // complex matrix-vector multiplication
+  vecmat: 'supported', // complex vector-matrix multiplication
 
   // Gradient/difference
   diff: 'supported',
@@ -268,6 +274,18 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   nextafter: 'unsupported', // floating-point representation
   spacing: 'unsupported', // floating-point representation
   real_if_close: 'supported', // converts to real if imaginary is negligible
+
+  // Other Math (not applicable for complex)
+  clip: 'unsupported', // clipping not defined for complex
+  maximum: 'unsupported', // element-wise max not defined for complex
+  minimum: 'unsupported', // element-wise min not defined for complex
+  fmax: 'unsupported', // NaN-aware max not defined for complex
+  fmin: 'unsupported', // NaN-aware min not defined for complex
+  nan_to_num: 'unsupported', // NaN replacement not defined for complex
+  interp: 'unsupported', // interpolation not defined for complex
+  unwrap: 'unsupported', // phase unwrapping only for real
+  sinc: 'unsupported', // sinc not defined for complex
+  i0: 'unsupported', // Bessel function not defined for complex
 
   // =========================================================================
   // SKIP - These don't take array input or are not applicable
@@ -397,6 +415,23 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   packbits: 'skip',
   unpackbits: 'skip',
 
+  // Additional bitwise functions (integer-only operations)
+  bitwise_count: 'unsupported', // integer-only: counts 1-bits
+  bitwise_invert: 'unsupported', // integer-only: alias for bitwise_not
+  bitwise_left_shift: 'unsupported', // integer-only: alias for left_shift
+  bitwise_right_shift: 'unsupported', // integer-only: alias for right_shift
+
+  // Additional set operations
+  trim_zeros: 'supported', // works with complex arrays
+  unique_all: 'supported', // works with complex arrays
+  unique_counts: 'supported', // works with complex arrays
+  unique_inverse: 'supported', // works with complex arrays
+  unique_values: 'supported', // works with complex arrays
+
+  // Additional statistics functions
+  histogram_bin_edges: 'unsupported', // real-only: throws for complex
+  trapezoid: 'unsupported', // real-only: throws for complex
+
   // Type checking utilities
   isnat: 'skip', // datetime specific
   isfortran: 'skip',
@@ -447,6 +482,17 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Version and other values
   __version__: 'skip',
   true_divide: 'skip', // alias for divide, tested via divide
+
+  // Utility functions (no array computation)
+  apply_along_axis: 'skip', // applies function along axis
+  apply_over_axes: 'skip', // applies function over multiple axes
+  may_share_memory: 'skip', // memory checking
+  shares_memory: 'skip', // memory checking
+  ndim: 'skip', // returns number of dimensions
+  shape: 'skip', // returns shape
+  size: 'skip', // returns size
+  geterr: 'skip', // error handling state
+  seterr: 'skip', // error handling state
 };
 
 // Type exports that are not runtime values - excluded from checks
@@ -458,6 +504,7 @@ const TYPE_EXPORTS = [
   'NpzParseOptions',
   'NpzParseResult',
   'NpzSerializeOptions',
+  'FloatErrorState',
 ];
 
 // ============================================================================
@@ -532,6 +579,8 @@ function testComplexBehavior(
       'bitwise_xor',
       'left_shift',
       'right_shift',
+      'bitwise_left_shift',
+      'bitwise_right_shift',
       'logical_and',
       'logical_or',
       'logical_xor',
@@ -553,13 +602,15 @@ function testComplexBehavior(
       'setdiff1d', // (ar1, ar2)
       'setxor1d', // (ar1, ar2)
       'union1d', // (ar1, ar2)
+      'vdot', // (a, b)
+      'vecdot', // (a, b)
     ];
 
     // Functions that return tuples (unary)
     const tupleOps = ['frexp', 'modf'];
 
     // Functions that require 2D input
-    const require2D = ['trace', 'diagonal'];
+    const require2D = ['trace', 'diagonal', 'matrix_transpose'];
 
     // Functions that require 3 arguments
     const ternaryOps = ['where'];
@@ -570,6 +621,9 @@ function testComplexBehavior(
       searchsorted: () => fn(z1, z2), // (a, v)
       tensordot: () => fn(z2d, z2d, 1), // (a, b, axes) - needs 2D arrays
       einsum: () => fn('i,i->', z1, z1), // (subscripts, ...operands)
+      matvec: () => fn(z2d, z1), // (matrix, vector) - needs 2D and 1D
+      vecmat: () => fn(z1, z2d), // (vector, matrix) - needs 1D and 2D
+      interp: () => fn(z1, z1, z1), // (x, xp, fp) - needs 3 arrays
     };
 
     if (fnName in specialOps) {
@@ -684,7 +738,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
         expect(behavior).toBe('supported');
       });
     }
@@ -702,7 +756,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
         expect(behavior).toBe('unsupported');
       });
     }
@@ -727,7 +781,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
 
         // Currently many of these silently fail - the test documents this
         // Once we add guards, this should be 'not_implemented'

@@ -16,6 +16,7 @@ Based on `npm run compare-api`:
 - Arithmetic (29/29)
 - Array Creation (35/35)
 - Array Manipulation (46/46)
+- Bit Operations (13/13)
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
@@ -23,20 +24,21 @@ Based on `npm run compare-api`:
 - Hyperbolic (9/9)
 - I/O (8/8)
 - Indexing (21/21)
+- Linear Algebra (15/15)
+- Linear Algebra (linalg) (31/31)
 - Logic (24/24)
 - Polynomials (10/10)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
+- Set Operations (12/12)
 - Sorting (6/6)
+- Statistics (12/12)
 - Trigonometric (16/16)
 - Type Checking (7/7)
 
 ### Incomplete Categories
-- Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
-- Linear Algebra (9/15) - 60.0%
-- Linear Algebra (linalg) (19/31) - 61.3%
 - NDArray Methods (40/53) - 75.5%
 - Other Math (5/15) - 33.3%
 - Random (17/53) - 32.1%
@@ -44,7 +46,7 @@ Based on `npm run compare-api`:
 - Statistics (9/11) - 81.8%
 - String/Formatting (0/10) - 0.0%
 - Unplanned (0/25) - 0.0%
-- Utilities (4/16) - 25.0%
+- Utilities (10/16) - 62.5%
 
 ---
 
@@ -176,12 +178,12 @@ Based on `npm run compare-api`:
 ## Bit Operations
 
 - [x] `bitwise_and` 
-- [ ] `bitwise_count` 
-- [ ] `bitwise_invert` 
-- [ ] `bitwise_left_shift` 
+- [x] `bitwise_count` 
+- [x] `bitwise_invert` 
+- [x] `bitwise_left_shift` 
 - [x] `bitwise_not` 
 - [x] `bitwise_or` 
-- [ ] `bitwise_right_shift` 
+- [x] `bitwise_right_shift` 
 - [x] `bitwise_xor` 
 - [x] `invert` 
 - [x] `left_shift` 
@@ -321,15 +323,15 @@ Based on `npm run compare-api`:
 - [x] `inner` 
 - [x] `kron` 
 - [x] `matmul` 
-- [ ] `matrix_transpose` 
-- [ ] `matvec` 
+- [x] `matrix_transpose` 
+- [x] `matvec` 
 - [x] `outer` 
-- [ ] `permute_dims` 
+- [x] `permute_dims` 
 - [x] `tensordot` 
 - [x] `trace` 
-- [ ] `vdot` 
-- [ ] `vecdot` 
-- [ ] `vecmat` 
+- [x] `vdot` 
+- [x] `vecdot` 
+- [x] `vecmat` 
 
 ---
 
@@ -339,32 +341,32 @@ Based on `npm run compare-api`:
 - [x] `linalg.cond` 
 - [x] `linalg.cross` 
 - [x] `linalg.det` 
-- [ ] `linalg.diagonal` 
+- [x] `linalg.diagonal` 
 - [x] `linalg.eig` 
 - [x] `linalg.eigh` 
 - [x] `linalg.eigvals` 
 - [x] `linalg.eigvalsh` 
 - [x] `linalg.inv` 
 - [x] `linalg.lstsq` 
-- [ ] `linalg.matmul` 
+- [x] `linalg.matmul` 
 - [x] `linalg.matrix_norm` 
 - [x] `linalg.matrix_power` 
 - [x] `linalg.matrix_rank` 
-- [ ] `linalg.matrix_transpose` 
-- [ ] `linalg.multi_dot` 
+- [x] `linalg.matrix_transpose` 
+- [x] `linalg.multi_dot` 
 - [x] `linalg.norm` 
-- [ ] `linalg.outer` 
+- [x] `linalg.outer` 
 - [x] `linalg.pinv` 
 - [x] `linalg.qr` 
-- [ ] `linalg.slogdet` 
+- [x] `linalg.slogdet` 
 - [x] `linalg.solve` 
 - [x] `linalg.svd` 
-- [ ] `linalg.svdvals` 
-- [ ] `linalg.tensordot` 
-- [ ] `linalg.tensorinv` 
-- [ ] `linalg.tensorsolve` 
-- [ ] `linalg.trace` 
-- [ ] `linalg.vecdot` 
+- [x] `linalg.svdvals` 
+- [x] `linalg.tensordot` 
+- [x] `linalg.tensorinv` 
+- [x] `linalg.tensorsolve` 
+- [x] `linalg.trace` 
+- [x] `linalg.vecdot` 
 - [x] `linalg.vector_norm` 
 
 ---
@@ -459,20 +461,20 @@ Based on `npm run compare-api`:
 ## Other Math
 
 - [x] `angle` 
-- [ ] `clip` 
+- [x] `clip` 
 - [x] `conj` 
 - [x] `conjugate` 
-- [ ] `fmax` 
-- [ ] `fmin` 
-- [ ] `i0` 
+- [x] `fmax` 
+- [x] `fmin` 
+- [x] `i0` 
 - [x] `imag` 
-- [ ] `interp` 
-- [ ] `maximum` 
-- [ ] `minimum` 
-- [ ] `nan_to_num` 
+- [x] `interp` 
+- [x] `maximum` 
+- [x] `minimum` 
+- [x] `nan_to_num` 
 - [x] `real` 
-- [ ] `sinc` 
-- [ ] `unwrap` 
+- [x] `sinc` 
+- [x] `unwrap` 
 
 ---
 
@@ -620,13 +622,13 @@ Based on `npm run compare-api`:
 - [x] `isin` 
 - [x] `setdiff1d` 
 - [x] `setxor1d` 
-- [ ] `trim_zeros` 
+- [x] `trim_zeros` 
 - [x] `union1d` 
 - [x] `unique` 
-- [ ] `unique_all` 
-- [ ] `unique_counts` 
-- [ ] `unique_inverse` 
-- [ ] `unique_values` 
+- [x] `unique_all` 
+- [x] `unique_counts` 
+- [x] `unique_inverse` 
+- [x] `unique_values` 
 
 ---
 
@@ -651,7 +653,7 @@ Based on `npm run compare-api`:
 - [x] `digitize` 
 - [x] `histogram` 
 - [x] `histogram2d` 
-- [ ] `histogram_bin_edges` 
+- [x] `histogram_bin_edges` 
 - [x] `histogramdd` 
 - [ ] `trapezoid` 
 
@@ -737,19 +739,19 @@ Based on `npm run compare-api`:
 
 ## Utilities
 
-- [ ] `apply_along_axis` 
-- [ ] `apply_over_axes` 
+- [x] `apply_along_axis` 
+- [x] `apply_over_axes` 
 - [x] `copyto` 
 - [ ] `einsum_path` 
-- [ ] `geterr` 
+- [x] `geterr` 
 - [ ] `geterrcall` 
 - [ ] `info` 
-- [ ] `may_share_memory` 
+- [x] `may_share_memory` 
 - [x] `ndim` 
-- [ ] `seterr` 
+- [x] `seterr` 
 - [ ] `seterrcall` 
 - [x] `shape` 
-- [ ] `shares_memory` 
+- [x] `shares_memory` 
 - [ ] `show_config` 
 - [ ] `show_runtime` 
 - [x] `size` 
