@@ -431,7 +431,6 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Additional statistics functions
   histogram_bin_edges: 'unsupported', // real-only: throws for complex
   trapezoid: 'unsupported', // real-only: throws for complex
-  trapz: 'unsupported', // deprecated alias for trapezoid
 
   // Type checking utilities
   isnat: 'skip', // datetime specific

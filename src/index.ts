@@ -344,7 +344,6 @@ export {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
-  trapz,
   // Utility functions
   apply_along_axis,
   apply_over_axes,
