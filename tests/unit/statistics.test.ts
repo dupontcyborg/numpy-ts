@@ -12,6 +12,7 @@ import {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
+  trapz,
 } from '../../src/core/ndarray';
 
 describe('Statistics Operations', () => {
@@ -504,6 +505,17 @@ describe('Statistics Operations', () => {
       expect((result1 as { toArray: () => number[] }).toArray()).toEqual(
         (result2 as { toArray: () => number[] }).toArray()
       );
+    });
+  });
+
+  describe('trapz (deprecated alias)', () => {
+    it('is an alias for trapezoid', () => {
+      expect(trapz).toBe(trapezoid);
+    });
+
+    it('integrates same as trapezoid', () => {
+      const y = array([0, 1, 2, 3, 4]);
+      expect(trapz(y)).toBe(trapezoid(y));
     });
   });
 });

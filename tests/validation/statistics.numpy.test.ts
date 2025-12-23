@@ -16,6 +16,7 @@ import {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
+  trapz,
 } from '../../src/core/ndarray';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -499,6 +500,26 @@ result = np.trapezoid(np.array([[1, 2, 3], [4, 5, 6]]), axis=0)
       expect(arraysClose((jsResult as { toArray: () => number[] }).toArray(), pyResult.value)).toBe(
         true
       );
+    });
+  });
+
+  describe('trapz (deprecated alias)', () => {
+    it('matches NumPy trapz for 1D array', () => {
+      const jsResult = trapz(array([1, 2, 3, 4, 5]));
+      // Use trapz in Python (deprecated but still works)
+      const pyResult = runNumPy(`
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    result = np.trapz(np.array([1, 2, 3, 4, 5]))
+      `);
+
+      expect(Math.abs((jsResult as number) - pyResult.value)).toBeLessThan(1e-10);
+    });
+
+    it('produces same result as trapezoid', () => {
+      const y = array([1, 2, 3, 4, 5]);
+      expect(trapz(y)).toBe(trapezoid(y));
     });
   });
 });

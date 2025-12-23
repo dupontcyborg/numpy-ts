@@ -8,8 +8,8 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 367/507 (72.4%)
-- **Top-level Functions**: 360/507 (67.5%)
+- **Overall Coverage**: 378/507 (74.6%)
+- **Top-level Functions**: 371/507 (69.6%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -30,9 +30,8 @@ Based on `npm run compare-api`:
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
-- Set Operations (11/11)
+- Set Operations (12/12)
 - Sorting (6/6)
-- Statistics (11/11)
 - Trigonometric (16/16)
 
 ### Incomplete Categories
@@ -41,6 +40,7 @@ Based on `npm run compare-api`:
 - Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
+- Statistics (11/12) - 91.7%
 - String/Formatting (0/10) - 0.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
@@ -616,6 +616,7 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
+- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
@@ -654,6 +655,7 @@ Based on `npm run compare-api`:
 - [x] `histogram_bin_edges` 
 - [x] `histogramdd` 
 - [x] `trapezoid` 
+- [ ] `trapz` 
 
 ---
 

@@ -7320,3 +7320,12 @@ export function trapezoid(
   }
   return NDArray._fromStorage(result);
 }
+
+/**
+ * Integrate along the given axis using the composite trapezoidal rule.
+ *
+ * @deprecated Use trapezoid instead. trapz is deprecated in NumPy 2.0.
+ *
+ * This is an alias for trapezoid for backwards compatibility.
+ */
+export const trapz = trapezoid;

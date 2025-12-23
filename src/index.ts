@@ -333,6 +333,7 @@ export {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
+  trapz,
 } from './core/ndarray';
 
 // IO functions (environment-agnostic parsing/serialization)
