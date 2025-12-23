@@ -8,8 +8,8 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 395/507 (77.9%)
-- **Top-level Functions**: 391/507 (73.6%)
+- **Overall Coverage**: 411/507 (81.1%)
+- **Top-level Functions**: 407/507 (76.7%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -28,22 +28,22 @@ Based on `npm run compare-api`:
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
 - Other Math (15/15)
+- Polynomials (10/10)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
 - Set Operations (12/12)
 - Sorting (6/6)
-- Statistics (12/12)
+- Statistics (11/11)
 - Trigonometric (16/16)
+- Type Checking (7/7)
 
 ### Incomplete Categories
 - FFT (0/18) - 0.0%
 - NDArray Methods (40/53) - 75.5%
-- Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
 - String/Formatting (0/10) - 0.0%
-- Type Checking (0/7) - 0.0%
-- Unplanned (0/25) - 0.0%
+- Unplanned (0/26) - 0.0%
 - Utilities (10/16) - 62.5%
 
 ---
@@ -478,16 +478,16 @@ Based on `npm run compare-api`:
 
 ## Polynomials
 
-- [ ] `poly` 
-- [ ] `polyadd` 
-- [ ] `polyder` 
-- [ ] `polydiv` 
-- [ ] `polyfit` 
-- [ ] `polyint` 
-- [ ] `polymul` 
-- [ ] `polysub` 
-- [ ] `polyval` 
-- [ ] `roots` 
+- [x] `poly` 
+- [x] `polyadd` 
+- [x] `polyder` 
+- [x] `polydiv` 
+- [x] `polyfit` 
+- [x] `polyint` 
+- [x] `polymul` 
+- [x] `polysub` 
+- [x] `polyval` 
+- [x] `roots` 
 
 ---
 
@@ -655,7 +655,6 @@ Based on `npm run compare-api`:
 - [x] `histogram_bin_edges` 
 - [x] `histogramdd` 
 - [x] `trapezoid` 
-- [x] `trapz` 
 
 ---
 
@@ -697,13 +696,13 @@ Based on `npm run compare-api`:
 
 ## Type Checking
 
-- [ ] `can_cast` 
-- [ ] `common_type` 
-- [ ] `issubdtype` 
-- [ ] `min_scalar_type` 
-- [ ] `mintypecode` 
-- [ ] `result_type` 
-- [ ] `typename` 
+- [x] `can_cast` 
+- [x] `common_type` 
+- [x] `issubdtype` 
+- [x] `min_scalar_type` 
+- [x] `mintypecode` 
+- [x] `result_type` 
+- [x] `typename` 
 
 ---
 
@@ -734,6 +733,7 @@ Based on `npm run compare-api`:
 - [ ] `setfield` 
 - [ ] `setflags` 
 - [ ] `to_device` 
+- [ ] `trapz` 
 
 ---
 

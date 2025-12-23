@@ -696,6 +696,38 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "i0":
         return np.i0(arrays["a"])
 
+    # Polynomial operations
+    elif operation == "poly":
+        return np.poly(arrays["a"])
+    elif operation == "polyadd":
+        return np.polyadd(arrays["a"], arrays["b"])
+    elif operation == "polyder":
+        return np.polyder(arrays["a"])
+    elif operation == "polydiv":
+        return np.polydiv(arrays["a"], arrays["b"])
+    elif operation == "polyfit":
+        return np.polyfit(arrays["a"], arrays["b"], 2)
+    elif operation == "polyint":
+        return np.polyint(arrays["a"])
+    elif operation == "polymul":
+        return np.polymul(arrays["a"], arrays["b"])
+    elif operation == "polysub":
+        return np.polysub(arrays["a"], arrays["b"])
+    elif operation == "polyval":
+        return np.polyval(arrays["a"], arrays["b"])
+    elif operation == "roots":
+        return np.roots(arrays["a"])
+
+    # Type checking operations
+    elif operation == "can_cast":
+        return np.can_cast("int32", "float64")
+    elif operation == "result_type":
+        return np.result_type("int32", "float64")
+    elif operation == "min_scalar_type":
+        return np.min_scalar_type(1000)
+    elif operation == "issubdtype":
+        return np.issubdtype(np.int32, np.integer)
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

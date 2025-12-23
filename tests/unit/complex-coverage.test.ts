@@ -439,6 +439,25 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   iterable: 'skip',
   isdtype: 'skip',
   promote_types: 'skip',
+  can_cast: 'skip', // dtype checking, not array operation
+  common_type: 'skip', // dtype checking
+  result_type: 'skip', // dtype checking
+  min_scalar_type: 'skip', // dtype checking
+  issubdtype: 'skip', // dtype checking
+  typename: 'skip', // dtype checking
+  mintypecode: 'skip', // dtype checking
+
+  // Polynomial functions (work with any numeric type)
+  poly: 'supported', // polynomial from roots
+  polyadd: 'supported', // polynomial addition
+  polyder: 'supported', // polynomial derivative
+  polydiv: 'supported', // polynomial division
+  polyfit: 'supported', // polynomial fit
+  polyint: 'supported', // polynomial integration
+  polymul: 'supported', // polynomial multiplication
+  polysub: 'supported', // polynomial subtraction
+  polyval: 'supported', // polynomial evaluation
+  roots: 'supported', // polynomial roots
 
   // Namespace objects
   linalg: 'skip', // namespace object, not a function
@@ -585,6 +604,11 @@ function testComplexBehavior(
       'union1d', // (ar1, ar2)
       'vdot', // (a, b)
       'vecdot', // (a, b)
+      'polyadd', // (a1, a2)
+      'polysub', // (a1, a2)
+      'polymul', // (a1, a2)
+      'polydiv', // (u, v)
+      'polyval', // (p, x)
     ];
 
     // Functions that return tuples (unary)
@@ -605,6 +629,7 @@ function testComplexBehavior(
       matvec: () => fn(z2d, z1), // (matrix, vector) - needs 2D and 1D
       vecmat: () => fn(z1, z2d), // (vector, matrix) - needs 1D and 2D
       interp: () => fn(z1, z1, z1), // (x, xp, fp) - needs 3 arrays
+      polyfit: () => fn(z1, z1, 1), // (x, y, deg) - needs arrays and degree (deg=1 for 2 points)
     };
 
     if (fnName in specialOps) {
