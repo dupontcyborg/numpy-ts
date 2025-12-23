@@ -348,6 +348,28 @@ def update_readme(analysis):
     print(f"\n✅ Updated {readme_path}")
 
 
+def update_package_json(analysis):
+    """Update package.json description with current API coverage."""
+    package_json_path = Path(__file__).parent.parent / 'package.json'
+
+    with open(package_json_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    coverage = analysis['overall_coverage']
+    coverage_int = int(round(coverage))
+
+    # Update description with current coverage percentage
+    old_pattern = r'"description": "Complete NumPy implementation for TypeScript and JavaScript \(\d+% API coverage\)"'
+    new_description = f'"description": "Complete NumPy implementation for TypeScript and JavaScript ({coverage_int}% API coverage)"'
+
+    content = re.sub(old_pattern, new_description, content)
+
+    with open(package_json_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    print(f"✅ Updated {package_json_path} (coverage: {coverage_int}%)")
+
+
 def update_api_reference(analysis):
     """Update API-REFERENCE.md with complete function list."""
     api_ref_path = Path(__file__).parent.parent / 'docs' / 'API-REFERENCE.md'
@@ -486,6 +508,9 @@ def main():
 
     # Analyze coverage
     analysis = analyze_coverage(verbose=args.verbose)
+
+    # Update package.json
+    update_package_json(analysis)
 
     # Update README
     update_readme(analysis)

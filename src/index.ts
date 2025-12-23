@@ -451,4 +451,4 @@ export const random = {
 // In development/tests, use package.json directly; in production, use the replaced value
 declare const __VERSION_PLACEHOLDER__: string;
 export const __version__ =
-  typeof __VERSION_PLACEHOLDER__ !== 'undefined' ? __VERSION_PLACEHOLDER__ : '0.11.0'; // Fallback for development/tests
+  typeof __VERSION_PLACEHOLDER__ !== 'undefined' ? __VERSION_PLACEHOLDER__ : '0.12.0'; // Fallback for development/tests
