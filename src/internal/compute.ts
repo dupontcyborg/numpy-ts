@@ -109,15 +109,42 @@ export function elementwiseBinaryOp(
   op: (a: number, b: number) => number,
   opName: string
 ): ArrayStorage {
+  // Determine output dtype using NumPy promotion rules
+  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+
+  // FAST PATH: Same shape, both contiguous, non-BigInt types
+  // This avoids broadcasting overhead and uses direct array access
+  const aShape = a.shape;
+  const bShape = b.shape;
+  const sameShape = aShape.length === bShape.length && aShape.every((dim, i) => dim === bShape[i]);
+
+  if (
+    sameShape &&
+    a.isCContiguous &&
+    b.isCContiguous &&
+    !isBigIntDType(a.dtype) &&
+    !isBigIntDType(b.dtype) &&
+    !isBigIntDType(resultDtype)
+  ) {
+    const size = a.size;
+    const result = ArrayStorage.zeros(Array.from(aShape), resultDtype);
+    const resultData = result.data;
+    const aData = a.data;
+    const bData = b.data;
+
+    for (let i = 0; i < size; i++) {
+      resultData[i] = op(aData[i] as number, bData[i] as number);
+    }
+    return result;
+  }
+
+  // SLOW PATH: Broadcasting or non-contiguous arrays
   // Compute broadcast shape
   const outputShape = broadcastShapes(a.shape, b.shape);
 
   // Create broadcast views
   const aBroadcast = broadcastTo(a, outputShape);
   const bBroadcast = broadcastTo(b, outputShape);
-
-  // Determine output dtype using NumPy promotion rules
-  const resultDtype = promoteDTypes(a.dtype, b.dtype);
 
   // Create result storage
   const result = ArrayStorage.zeros(outputShape, resultDtype);

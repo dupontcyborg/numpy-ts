@@ -720,7 +720,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
         expect(behavior).toBe('supported');
       });
     }
@@ -738,7 +738,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
         expect(behavior).toBe('unsupported');
       });
     }
@@ -763,7 +763,7 @@ describe('Complex Number Coverage', () => {
           return;
         }
 
-        const behavior = testComplexBehavior(fn, fnName);
+        const behavior = testComplexBehavior(fn as (...args: unknown[]) => unknown, fnName);
 
         // Currently many of these silently fail - the test documents this
         // Once we add guards, this should be 'not_implemented'

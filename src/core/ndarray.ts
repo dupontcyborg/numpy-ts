@@ -7577,7 +7577,7 @@ export function shares_memory(a: NDArray, b: NDArray): boolean {
  * @param a - Input array
  * @returns Number of dimensions
  */
-export function ndim(a: NDArray | number | number[] | any): number {
+export function ndim(a: NDArray | number | unknown[] | unknown): number {
   if (typeof a === 'number') {
     return 0;
   }
@@ -7600,7 +7600,7 @@ export function ndim(a: NDArray | number | number[] | any): number {
  * @param a - Input array
  * @returns Shape tuple
  */
-export function shape(a: NDArray | number | number[] | any): number[] {
+export function shape(a: NDArray | number | unknown[] | unknown): number[] {
   if (typeof a === 'number') {
     return [];
   }
@@ -7623,7 +7623,7 @@ export function shape(a: NDArray | number | number[] | any): number[] {
  * @param a - Input array
  * @returns Number of elements
  */
-export function size(a: NDArray | number | number[] | any): number {
+export function size(a: NDArray | number | unknown[] | unknown): number {
   if (typeof a === 'number') {
     return 1;
   }
