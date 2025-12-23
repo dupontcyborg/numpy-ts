@@ -8,8 +8,8 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 365/505 (72.3%)
-- **Top-level Functions**: 359/505 (67.3%)
+- **Overall Coverage**: 411/507 (81.1%)
+- **Top-level Functions**: 407/507 (76.7%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -27,25 +27,23 @@ Based on `npm run compare-api`:
 - Linear Algebra (15/15)
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
+- Other Math (15/15)
 - Polynomials (10/10)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
 - Set Operations (12/12)
 - Sorting (6/6)
-- Statistics (12/12)
+- Statistics (11/11)
 - Trigonometric (16/16)
 - Type Checking (7/7)
 
 ### Incomplete Categories
 - FFT (0/18) - 0.0%
 - NDArray Methods (40/53) - 75.5%
-- Other Math (5/15) - 33.3%
 - Random (17/53) - 32.1%
-- Set Operations (6/11) - 54.5%
-- Statistics (9/11) - 81.8%
 - String/Formatting (0/10) - 0.0%
-- Unplanned (0/25) - 0.0%
+- Unplanned (0/26) - 0.0%
 - Utilities (10/16) - 62.5%
 
 ---
@@ -618,6 +616,7 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
+- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
@@ -655,7 +654,7 @@ Based on `npm run compare-api`:
 - [x] `histogram2d` 
 - [x] `histogram_bin_edges` 
 - [x] `histogramdd` 
-- [ ] `trapezoid` 
+- [x] `trapezoid` 
 
 ---
 
@@ -734,6 +733,7 @@ Based on `npm run compare-api`:
 - [ ] `setfield` 
 - [ ] `setflags` 
 - [ ] `to_device` 
+- [ ] `trapz` 
 
 ---
 

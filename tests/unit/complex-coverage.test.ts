@@ -604,6 +604,11 @@ function testComplexBehavior(
       'union1d', // (ar1, ar2)
       'vdot', // (a, b)
       'vecdot', // (a, b)
+      'polyadd', // (a1, a2)
+      'polysub', // (a1, a2)
+      'polymul', // (a1, a2)
+      'polydiv', // (u, v)
+      'polyval', // (p, x)
     ];
 
     // Functions that return tuples (unary)
@@ -624,6 +629,7 @@ function testComplexBehavior(
       matvec: () => fn(z2d, z1), // (matrix, vector) - needs 2D and 1D
       vecmat: () => fn(z1, z2d), // (vector, matrix) - needs 1D and 2D
       interp: () => fn(z1, z1, z1), // (x, xp, fp) - needs 3 arrays
+      polyfit: () => fn(z1, z1, 1), // (x, y, deg) - needs arrays and degree (deg=1 for 2 points)
     };
 
     if (fnName in specialOps) {

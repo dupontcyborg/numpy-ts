@@ -8302,7 +8302,7 @@ export function polydiv(u: NDArray | number[], v: NDArray | number[]): [NDArray,
     quotient.push(coeff);
 
     for (let i = 0; i < divisor.length; i++) {
-      remainder[i] -= coeff * divisor[i]!;
+      remainder[i] = remainder[i]! - coeff * divisor[i]!;
     }
 
     remainder.shift();
@@ -8436,7 +8436,7 @@ function solveLinear(A: number[][], b: number[]): number[] {
     for (let k = i + 1; k < n; k++) {
       const factor = augmented[k]![i]! / augmented[i]![i]!;
       for (let j = i; j <= n; j++) {
-        augmented[k]![j] -= factor * augmented[i]![j]!;
+        augmented[k]![j] = augmented[k]![j]! - factor * augmented[i]![j]!;
       }
     }
   }
@@ -8711,7 +8711,7 @@ function qrDecompose(A: number[][]): { Q: number[][]; R: number[][] } {
       }
       R[i]![j] = dot;
       for (let k = 0; k < n; k++) {
-        Q[k]![j] -= dot * Q[k]![i]!;
+        Q[k]![j] = Q[k]![j]! - dot * Q[k]![i]!;
       }
     }
 
@@ -8725,7 +8725,7 @@ function qrDecompose(A: number[][]): { Q: number[][]; R: number[][] } {
 
     if (norm > 1e-14) {
       for (let k = 0; k < n; k++) {
-        Q[k]![j] /= norm;
+        Q[k]![j] = Q[k]![j]! / norm;
       }
     }
   }
