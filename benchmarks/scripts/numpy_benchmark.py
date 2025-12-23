@@ -488,6 +488,8 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.packbits(arrays["a"].astype(np.uint8))
     elif operation == "unpackbits":
         return np.unpackbits(arrays["a"].astype(np.uint8))
+    elif operation == "bitwise_count":
+        return np.bitwise_count(arrays["a"])
 
     # IO operations (NPY/NPZ)
     elif operation == "serializeNpy":
@@ -562,6 +564,19 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.cov(arrays["a"])
     elif operation == "corrcoef":
         return np.corrcoef(arrays["a"])
+    elif operation == "histogram_bin_edges":
+        return np.histogram_bin_edges(arrays["a"].flatten(), bins=10)
+    elif operation == "trapezoid":
+        return np.trapezoid(arrays["a"].flatten())
+
+    # Set operations
+    elif operation == "trim_zeros":
+        return np.trim_zeros(arrays["a"].flatten())
+    elif operation == "unique_values":
+        return np.unique(arrays["a"].flatten())
+    elif operation == "unique_counts":
+        values, counts = np.unique(arrays["a"].flatten(), return_counts=True)
+        return (values, counts)
 
     # Logic operations
     elif operation == "logical_and":

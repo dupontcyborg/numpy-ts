@@ -8,14 +8,15 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 367/507 (72.4%)
-- **Top-level Functions**: 360/507 (67.5%)
+- **Overall Coverage**: 378/507 (74.6%)
+- **Top-level Functions**: 371/507 (69.6%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
 - Array Creation (35/35)
 - Array Manipulation (46/46)
+- Bit Operations (13/13)
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
@@ -29,18 +30,17 @@ Based on `npm run compare-api`:
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
+- Set Operations (12/12)
 - Sorting (6/6)
 - Trigonometric (16/16)
 
 ### Incomplete Categories
-- Bit Operations (9/13) - 69.2%
 - FFT (0/18) - 0.0%
 - NDArray Methods (40/53) - 75.5%
 - Other Math (5/15) - 33.3%
 - Polynomials (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- Set Operations (7/12) - 58.3%
-- Statistics (9/12) - 75.0%
+- Statistics (11/12) - 91.7%
 - String/Formatting (0/10) - 0.0%
 - Type Checking (0/7) - 0.0%
 - Unplanned (0/25) - 0.0%
@@ -176,12 +176,12 @@ Based on `npm run compare-api`:
 ## Bit Operations
 
 - [x] `bitwise_and` 
-- [ ] `bitwise_count` 
-- [ ] `bitwise_invert` 
-- [ ] `bitwise_left_shift` 
+- [x] `bitwise_count` 
+- [x] `bitwise_invert` 
+- [x] `bitwise_left_shift` 
 - [x] `bitwise_not` 
 - [x] `bitwise_or` 
-- [ ] `bitwise_right_shift` 
+- [x] `bitwise_right_shift` 
 - [x] `bitwise_xor` 
 - [x] `invert` 
 - [x] `left_shift` 
@@ -621,13 +621,13 @@ Based on `npm run compare-api`:
 - [x] `isin` 
 - [x] `setdiff1d` 
 - [x] `setxor1d` 
-- [ ] `trim_zeros` 
+- [x] `trim_zeros` 
 - [x] `union1d` 
 - [x] `unique` 
-- [ ] `unique_all` 
-- [ ] `unique_counts` 
-- [ ] `unique_inverse` 
-- [ ] `unique_values` 
+- [x] `unique_all` 
+- [x] `unique_counts` 
+- [x] `unique_inverse` 
+- [x] `unique_values` 
 
 ---
 
@@ -652,9 +652,9 @@ Based on `npm run compare-api`:
 - [x] `digitize` 
 - [x] `histogram` 
 - [x] `histogram2d` 
-- [ ] `histogram_bin_edges` 
+- [x] `histogram_bin_edges` 
 - [x] `histogramdd` 
-- [ ] `trapezoid` 
+- [x] `trapezoid` 
 - [ ] `trapz` 
 
 ---

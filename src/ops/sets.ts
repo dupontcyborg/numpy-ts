@@ -572,3 +572,161 @@ export function union1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   }
   return result;
 }
+
+/**
+ * Trim leading and/or trailing zeros from a 1-D array.
+ *
+ * @param filt - Input 1-D array
+ * @param trim - 'fb' to trim front and back, 'f' for front only, 'b' for back only (default: 'fb')
+ * @returns Trimmed array
+ */
+export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): ArrayStorage {
+  const dtype = filt.dtype;
+  const data = filt.data;
+  const size = filt.size;
+  const isComplex = isComplexDType(dtype);
+
+  if (size === 0) {
+    return ArrayStorage.zeros([0], dtype);
+  }
+
+  // Helper to check if element is zero
+  const isZero = (idx: number): boolean => {
+    if (isComplex) {
+      const re = (data as Float64Array)[idx * 2]!;
+      const im = (data as Float64Array)[idx * 2 + 1]!;
+      return re === 0 && im === 0;
+    }
+    return Number(data[idx]) === 0;
+  };
+
+  // Find first non-zero (front)
+  let first = 0;
+  if (trim === 'f' || trim === 'fb') {
+    while (first < size && isZero(first)) {
+      first++;
+    }
+  }
+
+  // Find last non-zero (back)
+  let last = size - 1;
+  if (trim === 'b' || trim === 'fb') {
+    while (last >= first && isZero(last)) {
+      last--;
+    }
+  }
+
+  // Handle all-zeros case
+  if (first > last) {
+    return ArrayStorage.zeros([0], dtype);
+  }
+
+  const newSize = last - first + 1;
+
+  if (isComplex) {
+    const result = ArrayStorage.zeros([newSize], dtype);
+    const resultData = result.data as Float64Array;
+    for (let i = 0; i < newSize; i++) {
+      resultData[i * 2] = (data as Float64Array)[(first + i) * 2]!;
+      resultData[i * 2 + 1] = (data as Float64Array)[(first + i) * 2 + 1]!;
+    }
+    return result;
+  }
+
+  const result = ArrayStorage.zeros([newSize], dtype);
+  const resultData = result.data;
+  for (let i = 0; i < newSize; i++) {
+    resultData[i] = data[first + i]!;
+  }
+  return result;
+}
+
+/**
+ * Find the unique elements of an array, returning all optional outputs.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values, indices, inverse_indices, and counts
+ */
+export function unique_all(x: ArrayStorage): {
+  values: ArrayStorage;
+  indices: ArrayStorage;
+  inverse_indices: ArrayStorage;
+  counts: ArrayStorage;
+} {
+  const result = unique(x, true, true, true);
+
+  // unique with all flags returns an object
+  const obj = result as {
+    values: ArrayStorage;
+    indices?: ArrayStorage;
+    inverse?: ArrayStorage;
+    counts?: ArrayStorage;
+  };
+
+  return {
+    values: obj.values,
+    indices: obj.indices!,
+    inverse_indices: obj.inverse!,
+    counts: obj.counts!,
+  };
+}
+
+/**
+ * Find the unique elements of an array and their counts.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values and counts
+ */
+export function unique_counts(x: ArrayStorage): {
+  values: ArrayStorage;
+  counts: ArrayStorage;
+} {
+  const result = unique(x, false, false, true);
+
+  // unique with returnCounts=true returns an object
+  const obj = result as {
+    values: ArrayStorage;
+    counts?: ArrayStorage;
+  };
+
+  return {
+    values: obj.values,
+    counts: obj.counts!,
+  };
+}
+
+/**
+ * Find the unique elements of an array and their inverse indices.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Object with values and inverse_indices
+ */
+export function unique_inverse(x: ArrayStorage): {
+  values: ArrayStorage;
+  inverse_indices: ArrayStorage;
+} {
+  const result = unique(x, false, true, false);
+
+  // unique with returnInverse=true returns an object
+  const obj = result as {
+    values: ArrayStorage;
+    inverse?: ArrayStorage;
+  };
+
+  return {
+    values: obj.values,
+    inverse_indices: obj.inverse!,
+  };
+}
+
+/**
+ * Find the unique elements of an array (values only).
+ *
+ * This is equivalent to unique(x) but with a clearer name for the Array API.
+ *
+ * @param x - Input array (flattened for uniqueness)
+ * @returns Array of unique values, sorted
+ */
+export function unique_values(x: ArrayStorage): ArrayStorage {
+  return unique(x) as ArrayStorage;
+}

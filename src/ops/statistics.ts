@@ -1182,3 +1182,324 @@ export function corrcoef(x: ArrayStorage, y?: ArrayStorage, rowvar: boolean = tr
 
   return ArrayStorage.fromData(corrData, [n, n], 'float64');
 }
+
+/**
+ * Compute the edges of the bins for histogram.
+ *
+ * This function computes the bin edges without computing the histogram itself.
+ *
+ * @param a - Input data (flattened if not 1D)
+ * @param bins - Number of bins (default: 10) or a string specifying the bin algorithm
+ * @param range - Lower and upper range of bins. If not provided, uses [a.min(), a.max()]
+ * @param weights - Optional weights for each data point (used for some algorithms)
+ * @returns Array of bin edges (length = bins + 1)
+ */
+export function histogram_bin_edges(
+  a: ArrayStorage,
+  bins: number | 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt' = 10,
+  range?: [number, number],
+  _weights?: ArrayStorage
+): ArrayStorage {
+  throwIfComplex(a.dtype, 'histogram_bin_edges', 'histogram_bin_edges requires real numbers.');
+  const aData = a.data;
+  const aSize = a.size;
+
+  // Determine min and max
+  let minVal: number, maxVal: number;
+
+  if (range) {
+    [minVal, maxVal] = range;
+  } else {
+    minVal = Infinity;
+    maxVal = -Infinity;
+    for (let i = 0; i < aSize; i++) {
+      const val = Number(aData[i]);
+      if (!isNaN(val)) {
+        if (val < minVal) minVal = val;
+        if (val > maxVal) maxVal = val;
+      }
+    }
+    // Handle edge cases
+    if (!isFinite(minVal) || !isFinite(maxVal)) {
+      minVal = 0;
+      maxVal = 1;
+    } else if (minVal === maxVal) {
+      minVal = minVal - 0.5;
+      maxVal = maxVal + 0.5;
+    }
+  }
+
+  // Determine number of bins
+  let numBins: number;
+
+  if (typeof bins === 'number') {
+    numBins = bins;
+  } else {
+    // Compute optimal number of bins using the specified algorithm
+    numBins = computeOptimalBins(aData, aSize, minVal, maxVal, bins);
+  }
+
+  // Ensure at least 1 bin
+  numBins = Math.max(1, Math.round(numBins));
+
+  // Compute bin edges
+  const binEdges = new Float64Array(numBins + 1);
+  const step = (maxVal - minVal) / numBins;
+  for (let i = 0; i <= numBins; i++) {
+    binEdges[i] = minVal + i * step;
+  }
+
+  return ArrayStorage.fromData(binEdges, [numBins + 1], 'float64');
+}
+
+/**
+ * Helper to compute optimal number of bins for histogram
+ */
+function computeOptimalBins(
+  data: TypedArray | number[],
+  size: number,
+  minVal: number,
+  maxVal: number,
+  method: 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt'
+): number {
+  if (size === 0) return 1;
+
+  const range = maxVal - minVal;
+  if (range === 0) return 1;
+
+  // Collect non-NaN values and compute statistics
+  const values: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < size; i++) {
+    const val = Number(data[i]);
+    if (!isNaN(val)) {
+      values.push(val);
+      sum += val;
+    }
+  }
+  const n = values.length;
+  if (n === 0) return 1;
+
+  const mean = sum / n;
+
+  // Compute standard deviation
+  let sumSq = 0;
+  for (let i = 0; i < n; i++) {
+    const diff = values[i]! - mean;
+    sumSq += diff * diff;
+  }
+  const std = Math.sqrt(sumSq / n);
+
+  // Compute IQR (interquartile range)
+  values.sort((a, b) => a - b);
+  const q1 = values[Math.floor(n * 0.25)] ?? 0;
+  const q3 = values[Math.floor(n * 0.75)] ?? 0;
+  const iqr = q3 - q1;
+
+  switch (method) {
+    case 'sqrt':
+      return Math.ceil(Math.sqrt(n));
+
+    case 'sturges':
+      return Math.ceil(Math.log2(n) + 1);
+
+    case 'rice':
+      return Math.ceil(2 * Math.pow(n, 1 / 3));
+
+    case 'scott': {
+      if (std === 0) return 1;
+      const scottBinWidth = (3.5 * std) / Math.pow(n, 1 / 3);
+      return Math.ceil(range / scottBinWidth);
+    }
+
+    case 'fd': {
+      // Freedman-Diaconis
+      if (iqr === 0) return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
+      const fdBinWidth = (2 * iqr) / Math.pow(n, 1 / 3);
+      return Math.ceil(range / fdBinWidth);
+    }
+
+    case 'doane': {
+      // Doane's formula
+      const g1 = computeSkewness(values, mean, std);
+      const sigmaG1 = Math.sqrt((6 * (n - 2)) / ((n + 1) * (n + 3)));
+      return Math.ceil(1 + Math.log2(n) + Math.log2(1 + Math.abs(g1) / sigmaG1));
+    }
+
+    case 'stone':
+      // Stone's rule is more complex; use Sturges as fallback
+      return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
+
+    case 'auto':
+    default: {
+      // Use maximum of Sturges and FD
+      const sturgeBins = Math.ceil(Math.log2(n) + 1);
+      const fdBins = iqr === 0 ? sturgeBins : Math.ceil(range / ((2 * iqr) / Math.pow(n, 1 / 3)));
+      return Math.max(sturgeBins, fdBins);
+    }
+  }
+}
+
+/**
+ * Helper to compute skewness
+ */
+function computeSkewness(values: number[], mean: number, std: number): number {
+  if (std === 0) return 0;
+  const n = values.length;
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    sum += Math.pow((values[i]! - mean) / std, 3);
+  }
+  return sum / n;
+}
+
+/**
+ * Integrate along the given axis using the composite trapezoidal rule.
+ *
+ * @param y - Input array to integrate
+ * @param x - Optional sample points corresponding to y values. If not provided, spacing is assumed to be 1.
+ * @param dx - Spacing between sample points when x is not given (default: 1.0)
+ * @param axis - The axis along which to integrate (default: -1, meaning last axis)
+ * @returns Definite integral approximated using the composite trapezoidal rule
+ */
+export function trapezoid(
+  y: ArrayStorage,
+  x?: ArrayStorage,
+  dx: number = 1.0,
+  axis: number = -1
+): ArrayStorage | number {
+  throwIfComplex(y.dtype, 'trapezoid', 'trapezoid requires real numbers.');
+  if (x !== undefined) {
+    throwIfComplex(x.dtype, 'trapezoid', 'trapezoid requires real numbers.');
+  }
+
+  const yShape = Array.from(y.shape);
+  const ndim = yShape.length;
+
+  // Handle negative axis
+  if (axis < 0) {
+    axis = ndim + axis;
+  }
+
+  if (axis < 0 || axis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  const axisSize = yShape[axis]!;
+
+  if (axisSize < 2) {
+    throw new Error('trapezoid requires at least 2 samples along axis');
+  }
+
+  // Get sample points
+  let xValues: Float64Array;
+  if (x !== undefined) {
+    if (x.size !== axisSize) {
+      throw new Error(`x array size (${x.size}) must match y axis size (${axisSize})`);
+    }
+    const xData = x.data;
+    xValues = new Float64Array(axisSize);
+    for (let i = 0; i < axisSize; i++) {
+      xValues[i] = Number(xData[i]);
+    }
+  } else {
+    // Create evenly spaced x values
+    xValues = new Float64Array(axisSize);
+    for (let i = 0; i < axisSize; i++) {
+      xValues[i] = i * dx;
+    }
+  }
+
+  // Compute output shape (remove the integration axis)
+  const outShape = [...yShape];
+  outShape.splice(axis, 1);
+
+  // Handle 1D case
+  if (ndim === 1) {
+    const yData = y.data;
+    let integral = 0;
+    for (let i = 0; i < axisSize - 1; i++) {
+      const y0 = Number(yData[i]);
+      const y1 = Number(yData[i + 1]);
+      const dx_i = xValues[i + 1]! - xValues[i]!;
+      integral += 0.5 * (y0 + y1) * dx_i;
+    }
+    return integral;
+  }
+
+  // For N-D arrays
+  const outSize = outShape.reduce((a, b) => a * b, 1);
+  const resultData = new Float64Array(outSize);
+
+  // Compute strides for the input array
+  const yStrides: number[] = new Array(ndim);
+  let stride = 1;
+  for (let i = ndim - 1; i >= 0; i--) {
+    yStrides[i] = stride;
+    stride *= yShape[i]!;
+  }
+
+  // Compute strides for the output array
+  const outStrides: number[] = new Array(outShape.length);
+  stride = 1;
+  for (let i = outShape.length - 1; i >= 0; i--) {
+    outStrides[i] = stride;
+    stride *= outShape[i]!;
+  }
+
+  const yData = y.data;
+
+  // Iterate over all output elements
+  for (let outIdx = 0; outIdx < outSize; outIdx++) {
+    // Compute coordinates in output array
+    const outCoords: number[] = [];
+    let remaining = outIdx;
+    for (let d = 0; d < outShape.length; d++) {
+      const coord = Math.floor(remaining / outStrides[d]!);
+      remaining %= outStrides[d]!;
+      outCoords.push(coord);
+    }
+
+    // Map to input coordinates (insert axis dimension)
+    const inCoordsBase: number[] = [];
+    let outD = 0;
+    for (let d = 0; d < ndim; d++) {
+      if (d === axis) {
+        inCoordsBase.push(0); // Placeholder for axis
+      } else {
+        inCoordsBase.push(outCoords[outD]!);
+        outD++;
+      }
+    }
+
+    // Compute integral along axis
+    let integral = 0;
+    for (let i = 0; i < axisSize - 1; i++) {
+      // Get y[i] and y[i+1]
+      inCoordsBase[axis] = i;
+      let idx0 = 0;
+      for (let d = 0; d < ndim; d++) {
+        idx0 += inCoordsBase[d]! * yStrides[d]!;
+      }
+
+      inCoordsBase[axis] = i + 1;
+      let idx1 = 0;
+      for (let d = 0; d < ndim; d++) {
+        idx1 += inCoordsBase[d]! * yStrides[d]!;
+      }
+
+      const y0 = Number(yData[idx0]);
+      const y1 = Number(yData[idx1]);
+      const dx_i = xValues[i + 1]! - xValues[i]!;
+      integral += 0.5 * (y0 + y1) * dx_i;
+    }
+
+    resultData[outIdx] = integral;
+  }
+
+  if (outShape.length === 0) {
+    return resultData[0]!;
+  }
+
+  return ArrayStorage.fromData(resultData, outShape, 'float64');
+}

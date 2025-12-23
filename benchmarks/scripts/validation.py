@@ -478,6 +478,8 @@ def run_operation(spec):
         result = np.packbits(arrays["a"].astype(np.uint8))
     elif operation == "unpackbits":
         result = np.unpackbits(arrays["a"].astype(np.uint8))
+    elif operation == "bitwise_count":
+        result = np.bitwise_count(arrays["a"])
 
     # Sorting operations
     elif operation == "sort":
@@ -529,6 +531,19 @@ def run_operation(spec):
         result = np.cov(arrays["a"])
     elif operation == "corrcoef":
         result = np.corrcoef(arrays["a"])
+    elif operation == "histogram_bin_edges":
+        result = np.histogram_bin_edges(arrays["a"].flatten(), bins=10)
+    elif operation == "trapezoid":
+        result = np.trapezoid(arrays["a"].flatten())
+
+    # Set operations
+    elif operation == "trim_zeros":
+        result = np.trim_zeros(arrays["a"].flatten())
+    elif operation == "unique_values":
+        result = np.unique(arrays["a"].flatten())
+    elif operation == "unique_counts":
+        values, counts = np.unique(arrays["a"].flatten(), return_counts=True)
+        result = {"values": values.tolist(), "counts": counts.tolist()}
 
     # Logic operations
     elif operation == "logical_and":

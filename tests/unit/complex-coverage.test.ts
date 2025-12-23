@@ -403,6 +403,24 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   packbits: 'skip',
   unpackbits: 'skip',
 
+  // Additional bitwise functions (integer-only operations)
+  bitwise_count: 'unsupported', // integer-only: counts 1-bits
+  bitwise_invert: 'unsupported', // integer-only: alias for bitwise_not
+  bitwise_left_shift: 'unsupported', // integer-only: alias for left_shift
+  bitwise_right_shift: 'unsupported', // integer-only: alias for right_shift
+
+  // Additional set operations
+  trim_zeros: 'supported', // works with complex arrays
+  unique_all: 'supported', // works with complex arrays
+  unique_counts: 'supported', // works with complex arrays
+  unique_inverse: 'supported', // works with complex arrays
+  unique_values: 'supported', // works with complex arrays
+
+  // Additional statistics functions
+  histogram_bin_edges: 'unsupported', // real-only: throws for complex
+  trapezoid: 'unsupported', // real-only: throws for complex
+  trapz: 'unsupported', // deprecated alias for trapezoid
+
   // Type checking utilities
   isnat: 'skip', // datetime specific
   isfortran: 'skip',
@@ -519,6 +537,8 @@ function testComplexBehavior(
       'bitwise_xor',
       'left_shift',
       'right_shift',
+      'bitwise_left_shift',
+      'bitwise_right_shift',
       'logical_and',
       'logical_or',
       'logical_xor',

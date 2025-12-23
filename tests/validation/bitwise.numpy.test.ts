@@ -14,6 +14,10 @@ import {
   right_shift,
   packbits,
   unpackbits,
+  bitwise_count,
+  bitwise_invert,
+  bitwise_left_shift,
+  bitwise_right_shift,
 } from '../../src/index';
 import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
 
@@ -358,6 +362,69 @@ result = np.bitwise_and(np.array([[0b1111, 0b1010], [0b0101, 0b0000]], dtype=np.
       const jsResult = left_shift(a, 1);
       const pyResult = runNumPy(`
 result = np.left_shift(np.array([[1, 2], [4, 8]], dtype=np.int32), 1)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+  });
+
+  describe('bitwise_count', () => {
+    it('matches NumPy for uint8 array', () => {
+      const a = array([0, 1, 255, 128, 15], 'uint8');
+      const jsResult = bitwise_count(a);
+      const pyResult = runNumPy(`
+result = np.bitwise_count(np.array([0, 1, 255, 128, 15], dtype=np.uint8))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+
+    it('matches NumPy for int32 array', () => {
+      const a = array([0, 1, 7, 16], 'int32');
+      const jsResult = bitwise_count(a);
+      const pyResult = runNumPy(`
+result = np.bitwise_count(np.array([0, 1, 7, 16], dtype=np.int32))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+  });
+
+  describe('bitwise_invert', () => {
+    it('matches NumPy (alias for bitwise_not)', () => {
+      const a = array([0, 255, 128], 'uint8');
+      const jsResult = bitwise_invert(a);
+      const pyResult = runNumPy(`
+result = np.bitwise_not(np.array([0, 255, 128], dtype=np.uint8))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+  });
+
+  describe('bitwise_left_shift', () => {
+    it('matches NumPy (alias for left_shift)', () => {
+      const a = array([1, 2, 4], 'int32');
+      const jsResult = bitwise_left_shift(a, 2);
+      const pyResult = runNumPy(`
+result = np.left_shift(np.array([1, 2, 4], dtype=np.int32), 2)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.toArray()).toEqual(pyResult.value);
+    });
+  });
+
+  describe('bitwise_right_shift', () => {
+    it('matches NumPy (alias for right_shift)', () => {
+      const a = array([8, 16, 32], 'int32');
+      const jsResult = bitwise_right_shift(a, 2);
+      const pyResult = runNumPy(`
+result = np.right_shift(np.array([8, 16, 32], dtype=np.int32), 2)
       `);
 
       expect(jsResult.shape).toEqual(pyResult.shape);
