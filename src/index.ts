@@ -91,6 +91,13 @@ export {
   outer,
   tensordot,
   einsum,
+  // New linear algebra functions
+  vdot,
+  vecdot,
+  matrix_transpose,
+  permute_dims,
+  matvec,
+  vecmat,
   // Linear algebra module (numpy.linalg)
   linalg,
   // Trigonometric functions

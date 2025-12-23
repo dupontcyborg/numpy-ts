@@ -15,6 +15,12 @@ import {
   kron,
   einsum,
   linalg,
+  vdot,
+  vecdot,
+  matrix_transpose,
+  permute_dims,
+  matvec,
+  vecmat,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -1406,6 +1412,331 @@ result = np.linalg.matrix_power([[1, 2], [3, 4]], 3)
       expect(jsResult.x.shape).toEqual([2]);
       expect(typeof jsResult.rank).toBe('number');
       expect(jsResult.s.shape[0]).toBe(2); // Two singular values
+    });
+  });
+
+  describe('linalg.diagonal()', () => {
+    it('matches NumPy diagonal for main diagonal', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const jsResult = linalg.diagonal(a);
+
+      // Note: np.linalg.diagonal uses np.diagonal internally
+      const pyResult = runNumPy(`
+result = np.diagonal([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+
+    it('matches NumPy diagonal for off-diagonal', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const jsResult = linalg.diagonal(a, 1);
+
+      const pyResult = runNumPy(`
+result = np.diagonal([[1, 2, 3], [4, 5, 6], [7, 8, 9]], 1)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('linalg.matmul()', () => {
+    it('matches NumPy for 2D matrix multiplication', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const jsResult = linalg.matmul(a, b);
+
+      const pyResult = runNumPy(`
+result = np.linalg.matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('linalg.matrix_transpose()', () => {
+    it('matches NumPy for 2D transpose', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const jsResult = linalg.matrix_transpose(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.matrix_transpose([[1, 2, 3], [4, 5, 6]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('linalg.multi_dot()', () => {
+    it('matches NumPy for 3 matrices', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const c = array([
+        [1, 0],
+        [0, 1],
+      ]);
+      const jsResult = linalg.multi_dot([a, b, c]);
+
+      const pyResult = runNumPy(`
+result = np.linalg.multi_dot([[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[1, 0], [0, 1]]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('linalg.outer()', () => {
+    it('matches NumPy for vector outer product', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5]);
+      const jsResult = linalg.outer(a, b);
+
+      const pyResult = runNumPy(`
+result = np.linalg.outer([1, 2, 3], [4, 5])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('linalg.slogdet()', () => {
+    it('matches NumPy for sign and logabsdet', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const jsResult = linalg.slogdet(a);
+
+      const pyResult = runNumPy(`
+sign, logabsdet = np.linalg.slogdet([[1, 2], [3, 4]])
+result = {'sign': float(sign), 'logabsdet': float(logabsdet)}
+      `);
+
+      expect(jsResult.sign).toBe(pyResult.value.sign);
+      expect(Math.abs(jsResult.logabsdet - pyResult.value.logabsdet)).toBeLessThan(1e-10);
+    });
+  });
+
+  describe('linalg.svdvals()', () => {
+    it('matches NumPy for singular values', () => {
+      const a = array([
+        [1, 0],
+        [0, 2],
+      ]);
+      const jsResult = linalg.svdvals(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.svdvals([[1, 0], [0, 2]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-5)).toBe(true);
+    });
+  });
+
+  describe('linalg.tensordot()', () => {
+    it('matches NumPy tensordot for tensor contraction', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      const jsResult = linalg.tensordot(a, b, 1) as any;
+
+      // Note: np.linalg.tensordot uses np.tensordot internally
+      const pyResult = runNumPy(`
+result = np.tensordot([[1, 2], [3, 4]], [[5, 6], [7, 8]], 1)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('linalg.trace()', () => {
+    it('matches NumPy for matrix trace', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const jsResult = linalg.trace(a);
+
+      const pyResult = runNumPy(`
+result = np.linalg.trace([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+      `);
+
+      expect(jsResult).toBe(pyResult.value);
+    });
+  });
+
+  describe('linalg.vecdot()', () => {
+    it('matches NumPy for 1D arrays', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const jsResult = linalg.vecdot(a, b);
+
+      const pyResult = runNumPy(`
+result = np.linalg.vecdot([1, 2, 3], [4, 5, 6])
+      `);
+
+      expect(jsResult).toBe(pyResult.value);
+    });
+  });
+});
+
+describe('NumPy Validation: Top-level Linear Algebra Functions', () => {
+  beforeAll(() => {
+    if (!checkNumPyAvailable()) {
+      throw new Error('Python NumPy not available');
+    }
+  });
+
+  describe('vdot()', () => {
+    it('matches NumPy for 1D arrays', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const jsResult = vdot(a, b);
+
+      const pyResult = runNumPy(`
+result = np.vdot([1, 2, 3], [4, 5, 6])
+      `);
+
+      expect(jsResult).toBe(pyResult.value);
+    });
+
+    it('matches NumPy for 2D arrays (flattened)', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [1, 1],
+        [1, 1],
+      ]);
+      const jsResult = vdot(a, b);
+
+      const pyResult = runNumPy(`
+result = np.vdot([[1, 2], [3, 4]], [[1, 1], [1, 1]])
+      `);
+
+      expect(jsResult).toBe(pyResult.value);
+    });
+  });
+
+  describe('vecdot()', () => {
+    it('matches NumPy for 1D arrays', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+      const jsResult = vecdot(a, b);
+
+      const pyResult = runNumPy(`
+result = np.vecdot([1, 2, 3], [4, 5, 6])
+      `);
+
+      expect(jsResult).toBe(pyResult.value);
+    });
+  });
+
+  describe('matrix_transpose()', () => {
+    it('matches NumPy for 2D matrix', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const jsResult = matrix_transpose(a);
+
+      const pyResult = runNumPy(`
+result = np.matrix_transpose([[1, 2, 3], [4, 5, 6]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('permute_dims()', () => {
+    it('matches NumPy for axis permutation', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const jsResult = permute_dims(a, [1, 0]);
+
+      const pyResult = runNumPy(`
+result = np.permute_dims([[1, 2, 3], [4, 5, 6]], (1, 0))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('matvec()', () => {
+    it('matches NumPy for matrix-vector product', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const b = array([1, 1, 1]);
+      const jsResult = matvec(a, b);
+
+      const pyResult = runNumPy(`
+result = np.matvec([[1, 2, 3], [4, 5, 6]], [1, 1, 1])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('vecmat()', () => {
+    it('matches NumPy for vector-matrix product', () => {
+      const a = array([1, 1]);
+      const b = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const jsResult = vecmat(a, b);
+
+      const pyResult = runNumPy(`
+result = np.vecmat([1, 1], [[1, 2, 3], [4, 5, 6]])
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
   });
 });

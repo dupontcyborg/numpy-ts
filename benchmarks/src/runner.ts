@@ -341,6 +341,22 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.linalg.lstsq(arrays['a'], arrays['b']);
   } else if (operation === 'linalg_cross') {
     return np.linalg.cross(arrays['a'], arrays['b']);
+  } else if (operation === 'linalg_slogdet') {
+    return np.linalg.slogdet(arrays['a']);
+  } else if (operation === 'linalg_svdvals') {
+    return np.linalg.svdvals(arrays['a']);
+  } else if (operation === 'linalg_multi_dot') {
+    return np.linalg.multi_dot([arrays['a'], arrays['b'], arrays['c']]);
+  } else if (operation === 'vdot') {
+    return np.vdot(arrays['a'], arrays['b']);
+  } else if (operation === 'vecdot') {
+    return np.vecdot(arrays['a'], arrays['b']);
+  } else if (operation === 'matrix_transpose') {
+    return np.matrix_transpose(arrays['a']);
+  } else if (operation === 'matvec') {
+    return np.matvec(arrays['a'], arrays['b']);
+  } else if (operation === 'vecmat') {
+    return np.vecmat(arrays['a'], arrays['b']);
   }
   // Bitwise operations
   else if (operation === 'bitwise_and') {
