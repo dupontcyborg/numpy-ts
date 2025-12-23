@@ -283,6 +283,38 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.linalg.lstsq(arrays["a"], arrays["b"], rcond=None)
     elif operation == "linalg_cross":
         return np.cross(arrays["a"], arrays["b"])
+    elif operation == "linalg_slogdet":
+        return np.linalg.slogdet(arrays["a"])
+    elif operation == "linalg_svdvals":
+        return np.linalg.svdvals(arrays["a"])
+    elif operation == "linalg_multi_dot":
+        matrices = [arrays["a"], arrays["b"]]
+        if "c" in arrays:
+            matrices.append(arrays["c"])
+        return np.linalg.multi_dot(matrices)
+    elif operation == "vdot":
+        return np.vdot(arrays["a"], arrays["b"])
+    elif operation == "vecdot":
+        # vecdot computes dot product along the last axis
+        if hasattr(np.linalg, 'vecdot'):
+            return np.linalg.vecdot(arrays["a"], arrays["b"])
+        else:
+            return np.einsum('...i,...i->...', arrays["a"], arrays["b"])
+    elif operation == "matrix_transpose":
+        if hasattr(arrays["a"], 'mT'):
+            return arrays["a"].mT
+        else:
+            return np.swapaxes(arrays["a"], -2, -1)
+    elif operation == "matvec":
+        if hasattr(np.linalg, 'matvec'):
+            return np.linalg.matvec(arrays["a"], arrays["b"])
+        else:
+            return np.matmul(arrays["a"], arrays["b"])
+    elif operation == "vecmat":
+        if hasattr(np.linalg, 'vecmat'):
+            return np.linalg.vecmat(arrays["a"], arrays["b"])
+        else:
+            return np.matmul(arrays["a"], arrays["b"])
 
     # Reductions
     elif operation == "sum":

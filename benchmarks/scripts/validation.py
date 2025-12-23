@@ -264,6 +264,47 @@ def run_operation(spec):
         result = x  # Return just solution for validation
     elif operation == "linalg_cross":
         result = np.cross(arrays["a"], arrays["b"])
+    elif operation == "linalg_slogdet":
+        sign, logdet = np.linalg.slogdet(arrays["a"])
+        # Return both as a structured result
+        result = np.array([sign, logdet])
+    elif operation == "linalg_svdvals":
+        result = np.linalg.svdvals(arrays["a"])
+    elif operation == "linalg_multi_dot":
+        matrices = [arrays["a"], arrays["b"]]
+        if "c" in arrays:
+            matrices.append(arrays["c"])
+        result = np.linalg.multi_dot(matrices)
+    elif operation == "vdot":
+        result = np.vdot(arrays["a"], arrays["b"])
+    elif operation == "vecdot":
+        # vecdot computes dot product along the last axis
+        # NumPy 2.0+ has np.linalg.vecdot, for older versions use einsum
+        if hasattr(np.linalg, 'vecdot'):
+            result = np.linalg.vecdot(arrays["a"], arrays["b"])
+        else:
+            # Fallback: use einsum to compute dot product along last axis
+            result = np.einsum('...i,...i->...', arrays["a"], arrays["b"])
+    elif operation == "matrix_transpose":
+        # NumPy 2.0+ has .mT property, for older versions use swapaxes
+        if hasattr(arrays["a"], 'mT'):
+            result = arrays["a"].mT
+        else:
+            result = np.swapaxes(arrays["a"], -2, -1)
+    elif operation == "matvec":
+        # Matrix-vector multiplication: (..., M, K) @ (..., K) -> (..., M)
+        # NumPy 2.0+ has np.linalg.matvec
+        if hasattr(np.linalg, 'matvec'):
+            result = np.linalg.matvec(arrays["a"], arrays["b"])
+        else:
+            result = np.matmul(arrays["a"], arrays["b"])
+    elif operation == "vecmat":
+        # Vector-matrix multiplication: (..., K) @ (..., K, N) -> (..., N)
+        # NumPy 2.0+ has np.linalg.vecmat
+        if hasattr(np.linalg, 'vecmat'):
+            result = np.linalg.vecmat(arrays["a"], arrays["b"])
+        else:
+            result = np.matmul(arrays["a"], arrays["b"])
 
     # Reductions
     elif operation == "sum":

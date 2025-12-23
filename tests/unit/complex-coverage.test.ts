@@ -227,6 +227,12 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   outer: 'supported', // complex outer product
   tensordot: 'supported', // complex tensor contraction
   einsum: 'supported', // complex Einstein summation
+  vdot: 'supported', // complex vector dot product (conjugates first arg)
+  vecdot: 'supported', // complex vector dot product along axis
+  matrix_transpose: 'supported', // swaps last two axes (works naturally)
+  permute_dims: 'supported', // alias for transpose
+  matvec: 'supported', // complex matrix-vector multiplication
+  vecmat: 'supported', // complex vector-matrix multiplication
 
   // Gradient/difference
   diff: 'supported',
@@ -553,13 +559,15 @@ function testComplexBehavior(
       'setdiff1d', // (ar1, ar2)
       'setxor1d', // (ar1, ar2)
       'union1d', // (ar1, ar2)
+      'vdot', // (a, b)
+      'vecdot', // (a, b)
     ];
 
     // Functions that return tuples (unary)
     const tupleOps = ['frexp', 'modf'];
 
     // Functions that require 2D input
-    const require2D = ['trace', 'diagonal'];
+    const require2D = ['trace', 'diagonal', 'matrix_transpose'];
 
     // Functions that require 3 arguments
     const ternaryOps = ['where'];
@@ -570,6 +578,8 @@ function testComplexBehavior(
       searchsorted: () => fn(z1, z2), // (a, v)
       tensordot: () => fn(z2d, z2d, 1), // (a, b, axes) - needs 2D arrays
       einsum: () => fn('i,i->', z1, z1), // (subscripts, ...operands)
+      matvec: () => fn(z2d, z1), // (matrix, vector) - needs 2D and 1D
+      vecmat: () => fn(z1, z2d), // (vector, matrix) - needs 1D and 2D
     };
 
     if (fnName in specialOps) {

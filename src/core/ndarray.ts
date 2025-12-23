@@ -5964,6 +5964,97 @@ export function einsum(
   return NDArray._fromStorage(result);
 }
 
+/**
+ * Return the dot product of two vectors (flattened).
+ *
+ * Unlike dot(), vdot flattens both inputs before computing the dot product.
+ * For complex numbers, vdot uses the complex conjugate of the first argument.
+ *
+ * @param a - First input array (will be flattened)
+ * @param b - Second input array (will be flattened)
+ * @returns Scalar dot product
+ */
+export function vdot(a: NDArray, b: NDArray): number | bigint | Complex {
+  return linalgOps.vdot(a.storage, b.storage);
+}
+
+/**
+ * Vector dot product along the last axis.
+ *
+ * Computes the dot product of vectors along the last axis of both inputs.
+ * The last dimensions of a and b must match.
+ *
+ * @param a - First input array
+ * @param b - Second input array
+ * @param axis - Axis along which to compute (default: -1, meaning last axis)
+ * @returns Result with last dimension removed
+ */
+export function vecdot(
+  a: NDArray,
+  b: NDArray,
+  axis: number = -1
+): NDArray | number | bigint | Complex {
+  const result = linalgOps.vecdot(a.storage, b.storage, axis);
+  if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
+    return result;
+  }
+  return NDArray._fromStorage(result);
+}
+
+/**
+ * Transpose the last two axes of an array.
+ *
+ * Equivalent to swapaxes(a, -2, -1) or transpose with axes that swap the last two.
+ * For a 2D array, this is the same as transpose.
+ *
+ * @param a - Input array with at least 2 dimensions
+ * @returns Array with last two axes transposed
+ */
+export function matrix_transpose(a: NDArray): NDArray {
+  return NDArray._fromStorage(linalgOps.matrix_transpose(a.storage));
+}
+
+/**
+ * Permute the dimensions of an array.
+ *
+ * This is an alias for transpose to match the Array API standard.
+ *
+ * @param a - Input array
+ * @param axes - Permutation of axes. If not specified, reverses the axes.
+ * @returns Transposed array
+ */
+export function permute_dims(a: NDArray, axes?: number[]): NDArray {
+  return NDArray._fromStorage(linalgOps.permute_dims(a.storage, axes));
+}
+
+/**
+ * Matrix-vector multiplication.
+ *
+ * Computes the matrix-vector product over the last two axes of x1 and
+ * the last axis of x2.
+ *
+ * @param x1 - First input array (matrix) with shape (..., M, N)
+ * @param x2 - Second input array (vector) with shape (..., N)
+ * @returns Result with shape (..., M)
+ */
+export function matvec(x1: NDArray, x2: NDArray): NDArray {
+  return NDArray._fromStorage(linalgOps.matvec(x1.storage, x2.storage));
+}
+
+/**
+ * Vector-matrix multiplication.
+ *
+ * Computes the vector-matrix product over the last axis of x1 and
+ * the second-to-last axis of x2.
+ *
+ * @param x1 - First input array (vector) with shape (..., M)
+ * @param x2 - Second input array (matrix) with shape (..., M, N)
+ * @returns Result with shape (..., N)
+ */
+export function vecmat(x1: NDArray, x2: NDArray): NDArray {
+  return NDArray._fromStorage(linalgOps.vecmat(x1.storage, x2.storage));
+}
+
 // ============================================================================
 // numpy.linalg Module
 // ============================================================================
@@ -6188,6 +6279,103 @@ export const linalg = {
    */
   eigvalsh: (a: NDArray, UPLO: 'L' | 'U' = 'L'): NDArray => {
     return NDArray._fromStorage(linalgOps.eigvalsh(a.storage, UPLO));
+  },
+
+  /**
+   * Return specified diagonals.
+   */
+  diagonal: (a: NDArray, offset: number = 0, axis1: number = 0, axis2: number = 1): NDArray => {
+    return NDArray._fromStorage(linalgOps.diagonal(a.storage, offset, axis1, axis2));
+  },
+
+  /**
+   * Matrix multiplication.
+   */
+  matmul: (a: NDArray, b: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.matmul(a.storage, b.storage));
+  },
+
+  /**
+   * Transpose the last two axes of an array.
+   */
+  matrix_transpose: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.matrix_transpose(a.storage));
+  },
+
+  /**
+   * Compute the dot product of two or more arrays.
+   */
+  multi_dot: (arrays: NDArray[]): NDArray => {
+    const storages = arrays.map((arr) => arr.storage);
+    return NDArray._fromStorage(linalgOps.multi_dot(storages));
+  },
+
+  /**
+   * Outer product of two vectors.
+   */
+  outer: (a: NDArray, b: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.outer(a.storage, b.storage));
+  },
+
+  /**
+   * Compute sign and (natural) logarithm of the determinant.
+   */
+  slogdet: (a: NDArray): { sign: number; logabsdet: number } => {
+    return linalgOps.slogdet(a.storage);
+  },
+
+  /**
+   * Compute singular values of a matrix.
+   */
+  svdvals: (a: NDArray): NDArray => {
+    return NDArray._fromStorage(linalgOps.svdvals(a.storage));
+  },
+
+  /**
+   * Tensor dot product along specified axes.
+   */
+  tensordot: (
+    a: NDArray,
+    b: NDArray,
+    axes: number | [number[], number[]] = 2
+  ): NDArray | number | bigint | Complex => {
+    const result = linalgOps.tensordot(a.storage, b.storage, axes);
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
+  },
+
+  /**
+   * Compute the tensor inverse.
+   */
+  tensorinv: (a: NDArray, ind: number = 2): NDArray => {
+    return NDArray._fromStorage(linalgOps.tensorinv(a.storage, ind));
+  },
+
+  /**
+   * Solve the tensor equation a x = b for x.
+   */
+  tensorsolve: (a: NDArray, b: NDArray, axes?: number[] | null): NDArray => {
+    return NDArray._fromStorage(linalgOps.tensorsolve(a.storage, b.storage, axes));
+  },
+
+  /**
+   * Sum along diagonals.
+   */
+  trace: (a: NDArray): number | bigint | Complex => {
+    return linalgOps.trace(a.storage);
+  },
+
+  /**
+   * Vector dot product.
+   */
+  vecdot: (a: NDArray, b: NDArray, axis: number = -1): NDArray | number | bigint | Complex => {
+    const result = linalgOps.vecdot(a.storage, b.storage, axis);
+    if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
+      return result;
+    }
+    return NDArray._fromStorage(result);
   },
 };
 
