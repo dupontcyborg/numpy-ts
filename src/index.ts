@@ -404,6 +404,8 @@ export {
 
 // Random functions (np.random namespace)
 import * as randomOps from './ops/random';
+// FFT functions (np.fft namespace)
+import * as fftOps from './ops/fft';
 import { ArrayStorage } from './core/storage';
 import { NDArray as NDArrayClass } from './core/ndarray';
 import { DType } from './core/dtype';
@@ -445,6 +447,150 @@ export const random = {
   set_state: randomOps.set_state,
   default_rng: randomOps.default_rng,
   Generator: randomOps.Generator,
+};
+
+// FFT namespace (np.fft)
+export const fft = {
+  fft: (
+    a: NDArrayClass | ArrayStorage,
+    n?: number,
+    axis?: number,
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.fft(storage, n, axis, norm));
+  },
+  ifft: (
+    a: NDArrayClass | ArrayStorage,
+    n?: number,
+    axis?: number,
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.ifft(storage, n, axis, norm));
+  },
+  fft2: (
+    a: NDArrayClass | ArrayStorage,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.fft2(storage, s, axes, norm));
+  },
+  ifft2: (
+    a: NDArrayClass | ArrayStorage,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.ifft2(storage, s, axes, norm));
+  },
+  fftn: (
+    a: NDArrayClass | ArrayStorage,
+    s?: number[],
+    axes?: number[],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.fftn(storage, s, axes, norm));
+  },
+  ifftn: (
+    a: NDArrayClass | ArrayStorage,
+    s?: number[],
+    axes?: number[],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.ifftn(storage, s, axes, norm));
+  },
+  rfft: (
+    a: NDArrayClass | ArrayStorage,
+    n?: number,
+    axis?: number,
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.rfft(storage, n, axis, norm));
+  },
+  irfft: (
+    a: NDArrayClass | ArrayStorage,
+    n?: number,
+    axis?: number,
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.irfft(storage, n, axis, norm));
+  },
+  rfft2: (
+    a: NDArrayClass | ArrayStorage,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.rfft2(storage, s, axes, norm));
+  },
+  irfft2: (
+    a: NDArrayClass | ArrayStorage,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.irfft2(storage, s, axes, norm));
+  },
+  rfftn: (
+    a: NDArrayClass | ArrayStorage,
+    s?: number[],
+    axes?: number[],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.rfftn(storage, s, axes, norm));
+  },
+  irfftn: (
+    a: NDArrayClass | ArrayStorage,
+    s?: number[],
+    axes?: number[],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.irfftn(storage, s, axes, norm));
+  },
+  hfft: (
+    a: NDArrayClass | ArrayStorage,
+    n?: number,
+    axis?: number,
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.hfft(storage, n, axis, norm));
+  },
+  ihfft: (
+    a: NDArrayClass | ArrayStorage,
+    n?: number,
+    axis?: number,
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.ihfft(storage, n, axis, norm));
+  },
+  fftfreq: (n: number, d?: number) => {
+    return NDArrayClass._fromStorage(fftOps.fftfreq(n, d));
+  },
+  rfftfreq: (n: number, d?: number) => {
+    return NDArrayClass._fromStorage(fftOps.rfftfreq(n, d));
+  },
+  fftshift: (a: NDArrayClass | ArrayStorage, axes?: number | number[]) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.fftshift(storage, axes));
+  },
+  ifftshift: (a: NDArrayClass | ArrayStorage, axes?: number | number[]) => {
+    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
+    return NDArrayClass._fromStorage(fftOps.ifftshift(storage, axes));
+  },
 };
 
 // Version (replaced at build time from package.json)

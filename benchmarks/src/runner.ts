@@ -774,6 +774,45 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.issubdtype('int32', 'integer');
   }
 
+  // FFT operations
+  else if (operation === 'fft') {
+    return np.fft.fft(arrays['a']);
+  } else if (operation === 'ifft') {
+    return np.fft.ifft(arrays['a']);
+  } else if (operation === 'fft2') {
+    return np.fft.fft2(arrays['a']);
+  } else if (operation === 'ifft2') {
+    return np.fft.ifft2(arrays['a']);
+  } else if (operation === 'fftn') {
+    return np.fft.fftn(arrays['a']);
+  } else if (operation === 'ifftn') {
+    return np.fft.ifftn(arrays['a']);
+  } else if (operation === 'rfft') {
+    return np.fft.rfft(arrays['a']);
+  } else if (operation === 'irfft') {
+    return np.fft.irfft(arrays['a']);
+  } else if (operation === 'rfft2') {
+    return np.fft.rfft2(arrays['a']);
+  } else if (operation === 'irfft2') {
+    return np.fft.irfft2(arrays['a']);
+  } else if (operation === 'rfftn') {
+    return np.fft.rfftn(arrays['a']);
+  } else if (operation === 'irfftn') {
+    return np.fft.irfftn(arrays['a']);
+  } else if (operation === 'hfft') {
+    return np.fft.hfft(arrays['a']);
+  } else if (operation === 'ihfft') {
+    return np.fft.ihfft(arrays['a']);
+  } else if (operation === 'fftfreq') {
+    return np.fft.fftfreq(arrays['n']);
+  } else if (operation === 'rfftfreq') {
+    return np.fft.rfftfreq(arrays['n']);
+  } else if (operation === 'fftshift') {
+    return np.fft.fftshift(arrays['a']);
+  } else if (operation === 'ifftshift') {
+    return np.fft.ifftshift(arrays['a']);
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 

@@ -462,6 +462,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Namespace objects
   linalg: 'skip', // namespace object, not a function
   random: 'skip', // namespace object
+  fft: 'skip', // namespace object
 
   // IO functions
   parseNpy: 'skip',

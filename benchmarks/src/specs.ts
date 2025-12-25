@@ -3146,6 +3146,215 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     warmup,
   });
 
+  // ========================================
+  // FFT Benchmarks
+  // ========================================
+
+  // 1D FFT operations
+  specs.push({
+    name: `fft [${sizes.small}]`,
+    category: 'fft',
+    operation: 'fft',
+    setup: {
+      a: { shape: [sizes.small], fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ifft [${sizes.small}]`,
+    category: 'fft',
+    operation: 'ifft',
+    setup: {
+      a: { shape: [sizes.small], fill: 'complex' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `rfft [${sizes.small}]`,
+    category: 'fft',
+    operation: 'rfft',
+    setup: {
+      a: { shape: [sizes.small], fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `irfft [${sizes.small / 2 + 1}]`,
+    category: 'fft',
+    operation: 'irfft',
+    setup: {
+      a: { shape: [Math.floor(sizes.small / 2) + 1], fill: 'complex' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `hfft [${sizes.small / 2 + 1}]`,
+    category: 'fft',
+    operation: 'hfft',
+    setup: {
+      a: { shape: [Math.floor(sizes.small / 2) + 1], fill: 'complex' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ihfft [${sizes.small}]`,
+    category: 'fft',
+    operation: 'ihfft',
+    setup: {
+      a: { shape: [sizes.small], fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
+  // 2D FFT operations
+  if (Array.isArray(sizes.medium)) {
+    specs.push({
+      name: `fft2 [${sizes.medium.join('x')}]`,
+      category: 'fft',
+      operation: 'fft2',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `ifft2 [${sizes.medium.join('x')}]`,
+      category: 'fft',
+      operation: 'ifft2',
+      setup: {
+        a: { shape: sizes.medium, fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `rfft2 [${sizes.medium.join('x')}]`,
+      category: 'fft',
+      operation: 'rfft2',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `irfft2 [${sizes.medium[0]}x${Math.floor(sizes.medium[1] / 2) + 1}]`,
+      category: 'fft',
+      operation: 'irfft2',
+      setup: {
+        a: { shape: [sizes.medium[0], Math.floor(sizes.medium[1] / 2) + 1], fill: 'complex' },
+      },
+      iterations,
+      warmup,
+    });
+  }
+
+  // N-D FFT operations (use 3D)
+  const fft3dSize = [32, 32, 32];
+  specs.push({
+    name: `fftn [${fft3dSize.join('x')}]`,
+    category: 'fft',
+    operation: 'fftn',
+    setup: {
+      a: { shape: fft3dSize, fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ifftn [${fft3dSize.join('x')}]`,
+    category: 'fft',
+    operation: 'ifftn',
+    setup: {
+      a: { shape: fft3dSize, fill: 'complex' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `rfftn [${fft3dSize.join('x')}]`,
+    category: 'fft',
+    operation: 'rfftn',
+    setup: {
+      a: { shape: fft3dSize, fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `irfftn [${fft3dSize[0]}x${fft3dSize[1]}x${Math.floor(fft3dSize[2] / 2) + 1}]`,
+    category: 'fft',
+    operation: 'irfftn',
+    setup: {
+      a: { shape: [fft3dSize[0], fft3dSize[1], Math.floor(fft3dSize[2] / 2) + 1], fill: 'complex' },
+    },
+    iterations,
+    warmup,
+  });
+
+  // FFT utility functions
+  specs.push({
+    name: `fftfreq(${sizes.small})`,
+    category: 'fft',
+    operation: 'fftfreq',
+    setup: {
+      n: { shape: [sizes.small] },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `rfftfreq(${sizes.small})`,
+    category: 'fft',
+    operation: 'rfftfreq',
+    setup: {
+      n: { shape: [sizes.small] },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `fftshift [${sizes.small}]`,
+    category: 'fft',
+    operation: 'fftshift',
+    setup: {
+      a: { shape: [sizes.small], fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ifftshift [${sizes.small}]`,
+    category: 'fft',
+    operation: 'ifftshift',
+    setup: {
+      a: { shape: [sizes.small], fill: 'arange' },
+    },
+    iterations,
+    warmup,
+  });
+
   return specs;
 }
 

@@ -2,14 +2,14 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-22
+**Last Updated**: 2025-12-25
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 411/507 (81.1%)
-- **Top-level Functions**: 407/507 (76.7%)
+- **Overall Coverage**: 428/505 (84.8%)
+- **Top-level Functions**: 425/505 (80.4%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -20,6 +20,7 @@ Based on `npm run compare-api`:
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
+- FFT (18/18)
 - Gradient (4/4)
 - Hyperbolic (9/9)
 - I/O (8/8)
@@ -32,18 +33,17 @@ Based on `npm run compare-api`:
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
-- Set Operations (12/12)
+- Set Operations (11/11)
 - Sorting (6/6)
 - Statistics (11/11)
 - Trigonometric (16/16)
 - Type Checking (7/7)
 
 ### Incomplete Categories
-- FFT (0/18) - 0.0%
 - NDArray Methods (40/53) - 75.5%
 - Random (17/53) - 32.1%
 - String/Formatting (0/10) - 0.0%
-- Unplanned (0/26) - 0.0%
+- Unplanned (0/25) - 0.0%
 - Utilities (10/16) - 62.5%
 
 ---
@@ -230,24 +230,24 @@ Based on `npm run compare-api`:
 
 ## FFT
 
-- [ ] `fft.fft` 
-- [ ] `fft.fft2` 
-- [ ] `fft.fftfreq` 
-- [ ] `fft.fftn` 
-- [ ] `fft.fftshift` 
-- [ ] `fft.hfft` 
-- [ ] `fft.ifft` 
-- [ ] `fft.ifft2` 
-- [ ] `fft.ifftn` 
-- [ ] `fft.ifftshift` 
-- [ ] `fft.ihfft` 
-- [ ] `fft.irfft` 
-- [ ] `fft.irfft2` 
-- [ ] `fft.irfftn` 
-- [ ] `fft.rfft` 
-- [ ] `fft.rfft2` 
-- [ ] `fft.rfftfreq` 
-- [ ] `fft.rfftn` 
+- [x] `fft.fft` 
+- [x] `fft.fft2` 
+- [x] `fft.fftfreq` 
+- [x] `fft.fftn` 
+- [x] `fft.fftshift` 
+- [x] `fft.hfft` 
+- [x] `fft.ifft` 
+- [x] `fft.ifft2` 
+- [x] `fft.ifftn` 
+- [x] `fft.ifftshift` 
+- [x] `fft.ihfft` 
+- [x] `fft.irfft` 
+- [x] `fft.irfft2` 
+- [x] `fft.irfftn` 
+- [x] `fft.rfft` 
+- [x] `fft.rfft2` 
+- [x] `fft.rfftfreq` 
+- [x] `fft.rfftn` 
 
 ---
 
@@ -616,7 +616,6 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
-- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
@@ -733,7 +732,6 @@ Based on `npm run compare-api`:
 - [ ] `setfield` 
 - [ ] `setflags` 
 - [ ] `to_device` 
-- [ ] `trapz` 
 
 ---
 
