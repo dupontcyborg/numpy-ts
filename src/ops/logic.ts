@@ -156,6 +156,12 @@ export function logical_or(a: ArrayStorage, b: ArrayStorage | number): ArrayStor
     return logicalOrScalar(a, b);
   }
 
+  // Optimize single-element non-complex arrays as scalars (only when same dtype)
+  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
+    const scalarVal = Number(b.data[0]!);
+    return logicalOrScalar(a, scalarVal);
+  }
+
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
     return logicalOrArraysFast(a, b);

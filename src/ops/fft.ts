@@ -39,8 +39,43 @@ function fftCore(real: Float64Array, imag: Float64Array, inverse: boolean): void
   }
 }
 
+// Cache for precomputed twiddle factors
+const twiddleCache = new Map<string, { cos: Float64Array; sin: Float64Array }>();
+
+/**
+ * Get or compute twiddle factors for a given size
+ */
+function getTwiddleFactors(n: number, inverse: boolean): { cos: Float64Array; sin: Float64Array } {
+  const key = `${n}_${inverse}`;
+  let cached = twiddleCache.get(key);
+  if (cached) return cached;
+
+  // Precompute all twiddle factors for this size
+  const cos = new Float64Array(n / 2);
+  const sin = new Float64Array(n / 2);
+  const sign = inverse ? 1 : -1;
+
+  for (let k = 0; k < n / 2; k++) {
+    const angle = (sign * 2 * Math.PI * k) / n;
+    cos[k] = Math.cos(angle);
+    sin[k] = Math.sin(angle);
+  }
+
+  cached = { cos, sin };
+  twiddleCache.set(key, cached);
+
+  // Limit cache size
+  if (twiddleCache.size > 100) {
+    const firstKey = twiddleCache.keys().next().value as string;
+    twiddleCache.delete(firstKey);
+  }
+
+  return cached;
+}
+
 /**
  * Cooley-Tukey radix-2 decimation-in-time FFT
+ * Optimized with precomputed twiddle factors
  */
 function cooleyTukeyFFT(real: Float64Array, imag: Float64Array, inverse: boolean): void {
   const n = real.length;
@@ -65,17 +100,17 @@ function cooleyTukeyFFT(real: Float64Array, imag: Float64Array, inverse: boolean
     j += k;
   }
 
-  // Cooley-Tukey iterative FFT
-  const sign = inverse ? 1 : -1;
+  // Cooley-Tukey iterative FFT with precomputed twiddle factors
+  const { cos: twCos, sin: twSin } = getTwiddleFactors(n, inverse);
 
   for (let size = 2; size <= n; size *= 2) {
-    const halfsize = size / 2;
+    const halfsize = size >> 1;
+    const tablestep = n / size;
 
     for (let i = 0; i < n; i += size) {
-      for (let k = 0; k < halfsize; k++) {
-        const angle = (sign * 2 * Math.PI * k) / size;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
+      for (let k = 0, twidx = 0; k < halfsize; k++, twidx += tablestep) {
+        const cos = twCos[twidx]!;
+        const sin = twSin[twidx]!;
 
         const evenIdx = i + k;
         const oddIdx = i + k + halfsize;
@@ -100,9 +135,10 @@ function cooleyTukeyFFT(real: Float64Array, imag: Float64Array, inverse: boolean
 
   // Scale for inverse FFT
   if (inverse) {
+    const scale = 1 / n;
     for (let i = 0; i < n; i++) {
-      real[i] = real[i]! / n;
-      imag[i] = imag[i]! / n;
+      real[i] = real[i]! * scale;
+      imag[i] = imag[i]! * scale;
     }
   }
 }
@@ -391,6 +427,7 @@ function fftnd(
 
 /**
  * Convert array to complex128
+ * Optimized with direct typed array access
  */
 function toComplex(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
@@ -403,21 +440,70 @@ function toComplex(a: ArrayStorage): ArrayStorage {
     const resultData = result.data as Float64Array;
     const srcData = a.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      resultData[i * 2] = srcData[i * 2]!;
-      resultData[i * 2 + 1] = srcData[i * 2 + 1]!;
+    // Use optimized copy for complex data (interleaved real/imag)
+    for (let i = 0; i < size * 2; i++) {
+      resultData[i] = srcData[i]!;
     }
     return result;
   }
 
-  // Real array: convert to complex
+  // Real array: convert to complex using direct typed array access
   const result = ArrayStorage.zeros(shape, 'complex128');
   const resultData = result.data as Float64Array;
+  const srcData = a.data;
 
-  for (let i = 0; i < size; i++) {
-    const val = a.iget(i);
-    resultData[i * 2] = val instanceof Complex ? val.re : Number(val);
-    resultData[i * 2 + 1] = val instanceof Complex ? val.im : 0;
+  // Direct typed array access based on dtype
+  if (dtype === 'float64') {
+    const typed = srcData as Float64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+      // imag part already 0 from zeros()
+    }
+  } else if (dtype === 'float32') {
+    const typed = srcData as Float32Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+    }
+  } else if (dtype === 'int32') {
+    const typed = srcData as Int32Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+    }
+  } else if (dtype === 'int16') {
+    const typed = srcData as Int16Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+    }
+  } else if (dtype === 'int8') {
+    const typed = srcData as Int8Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+    }
+  } else if (dtype === 'uint32') {
+    const typed = srcData as Uint32Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+    }
+  } else if (dtype === 'uint16') {
+    const typed = srcData as Uint16Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+    }
+  } else if (dtype === 'uint8') {
+    const typed = srcData as Uint8Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = typed[i]!;
+    }
+  } else if (dtype === 'int64' || dtype === 'uint64') {
+    const typed = srcData as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = Number(typed[i]!);
+    }
+  } else {
+    // Fallback for bool and other types
+    for (let i = 0; i < size; i++) {
+      resultData[i * 2] = Number(srcData[i]!);
+    }
   }
 
   return result;

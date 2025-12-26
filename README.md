@@ -24,7 +24,7 @@ npm install numpy-ts
 
 ## Why numpy-ts?
 
-- **📊 Extensive API** — **428 of 505 NumPy functions (84.8% coverage)**
+- **📊 Extensive API** — **429 of 507 NumPy functions (84.6% coverage)**
 - **✅ NumPy-validated** — 3000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
@@ -82,7 +82,7 @@ Progress toward complete NumPy API compatibility:
 | **Reductions** | 36/36 | 100% | ✅ |
 | **Rounding** | 7/7 | 100% | ✅ |
 | **Searching** | 7/7 | 100% | ✅ |
-| **Set Operations** | 11/11 | 100% | ✅ |
+| **Set Operations** | 12/12 | 100% | ✅ |
 | **Sorting** | 6/6 | 100% | ✅ |
 | **Statistics** | 11/11 | 100% | ✅ |
 | **Trigonometric** | 16/16 | 100% | ✅ |
@@ -91,9 +91,9 @@ Progress toward complete NumPy API compatibility:
 | **Utilities** | 10/16 | 62% | 🟡 |
 | **Random** | 17/53 | 32% | 🔴 |
 | **String/Formatting** | 0/10 | 0% | 🔴 |
-| **Unplanned** | 0/25 | 0% | 🔴 |
+| **Unplanned** | 0/26 | 0% | 🔴 |
 
-**Overall: 428/505 functions (84.8% complete)**
+**Overall: 429/507 functions (84.6% complete)**
 
 See the complete [API Reference](docs/API-REFERENCE.md) for detailed function list.
 
@@ -256,7 +256,7 @@ arr.sum();  // Type: number
 
 | Feature | numpy-ts | numjs | ndarray | TensorFlow.js |
 |---------|----------|-------|---------|---------------|
-| NumPy API Coverage | 428/505 (85%) | ~20% | Different | ML-focused |
+| NumPy API Coverage | 429/507 (85%) | ~20% | Different | ML-focused |
 | TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
 | NumPy Validated | ✅ 4500+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |
