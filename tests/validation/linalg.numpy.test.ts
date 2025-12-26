@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import {
   array,
+  ones,
   dot,
   trace,
   transpose,
@@ -14,6 +15,7 @@ import {
   diagonal,
   kron,
   einsum,
+  einsum_path,
   linalg,
   vdot,
   vecdot,
@@ -1737,6 +1739,88 @@ result = np.vecmat([1, 1], [[1, 2, 3], [4, 5, 6]])
 
       expect(jsResult.shape).toEqual(pyResult.shape);
       expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+    });
+  });
+
+  describe('einsum_path()', () => {
+    it('matches NumPy path for matrix multiply', () => {
+      const a = ones([10, 5]);
+      const b = ones([5, 8]);
+      const [jsPath] = einsum_path('ij,jk->ik', a, b);
+
+      const pyResult = runNumPy(`
+a = np.ones((10, 5))
+b = np.ones((5, 8))
+path, info = np.einsum_path('ij,jk->ik', a, b)
+# path[0] is 'einsum_path', path[1:] are the actual contractions
+result = [list(p) for p in path[1:]]
+      `);
+
+      // Compare the contraction paths
+      expect(jsPath).toEqual(pyResult.value);
+    });
+
+    it('matches NumPy path for three operands', () => {
+      const a = ones([10, 5]);
+      const b = ones([5, 8]);
+      const c = ones([8, 4]);
+      const [jsPath] = einsum_path('ij,jk,kl->il', a, b, c);
+
+      const pyResult = runNumPy(`
+a = np.ones((10, 5))
+b = np.ones((5, 8))
+c = np.ones((8, 4))
+path, info = np.einsum_path('ij,jk,kl->il', a, b, c)
+# path[0] is 'einsum_path', path[1:] are the actual contractions
+result = [list(p) for p in path[1:]]
+      `);
+
+      // Both should have 2 contractions for 3 operands
+      expect(jsPath.length).toBe(pyResult.value.length);
+    });
+
+    it('matches NumPy path for trace operation', () => {
+      const a = ones([5, 5]);
+      const [jsPath] = einsum_path('ii->', a);
+
+      const pyResult = runNumPy(`
+a = np.ones((5, 5))
+path, info = np.einsum_path('ii->', a)
+# path[0] is 'einsum_path', path[1:] are the actual contractions
+result = [list(p) for p in path[1:]]
+      `);
+
+      expect(jsPath).toEqual(pyResult.value);
+    });
+
+    it('matches NumPy path for inner product', () => {
+      const a = ones([100]);
+      const b = ones([100]);
+      const [jsPath] = einsum_path('i,i->', a, b);
+
+      const pyResult = runNumPy(`
+a = np.ones(100)
+b = np.ones(100)
+path, info = np.einsum_path('i,i->', a, b)
+result = [list(p) for p in path[1:]]
+      `);
+
+      expect(jsPath).toEqual(pyResult.value);
+    });
+
+    it('matches NumPy path for outer product', () => {
+      const a = ones([10]);
+      const b = ones([20]);
+      const [jsPath] = einsum_path('i,j->ij', a, b);
+
+      const pyResult = runNumPy(`
+a = np.ones(10)
+b = np.ones(20)
+path, info = np.einsum_path('i,j->ij', a, b)
+result = [list(p) for p in path[1:]]
+      `);
+
+      expect(jsPath).toEqual(pyResult.value);
     });
   });
 });

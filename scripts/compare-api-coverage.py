@@ -308,7 +308,7 @@ def update_readme(analysis):
     table = generate_readme_table(analysis['category_stats'])
     overall_line = (
         f"\n**Overall: {total_impl}/{total_numpy} "
-        f"functions ({coverage:.1f}% complete)**"
+        f"functions ({coverage:.1f}% coverage)**"
     )
 
     # Find and replace the table

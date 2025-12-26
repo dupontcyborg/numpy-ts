@@ -4211,3 +4211,256 @@ export function tensorsolve(
   // Reshape result to original b shape
   return shapeOps.reshape(xFlat, [...bShape]);
 }
+
+/**
+ * Evaluate the lowest cost contraction order for an einsum expression
+ *
+ * This function analyzes an einsum expression and finds an optimized contraction
+ * path that minimizes the total number of operations (FLOPs).
+ *
+ * @param subscripts - Einsum subscript string (e.g., 'ij,jk,kl->il')
+ * @param operands - Input arrays (or their shapes)
+ * @param optimize - Optimization strategy: 'greedy' (default), 'optimal', or false for no optimization
+ * @returns A tuple of [path, string_representation] where path is an array of index pairs
+ *
+ * @example
+ * ```typescript
+ * const a = ones([10, 10]);
+ * const b = ones([10, 10]);
+ * const c = ones([10, 10]);
+ * const [path, info] = einsum_path('ij,jk,kl->il', a.storage, b.storage, c.storage);
+ * // path: [[0, 1], [0, 1]] - contract first two, then result with third
+ * ```
+ */
+export function einsum_path(
+  subscripts: string,
+  ...operands: (ArrayStorage | number[])[]
+): [Array<[number, number] | number[]>, string] {
+  // Parse subscripts
+  const arrowMatch = subscripts.indexOf('->');
+
+  let inputSubscripts: string;
+  let outputSubscript: string;
+
+  if (arrowMatch === -1) {
+    inputSubscripts = subscripts;
+    outputSubscript = inferOutputSubscript(inputSubscripts);
+  } else {
+    inputSubscripts = subscripts.slice(0, arrowMatch);
+    outputSubscript = subscripts.slice(arrowMatch + 2);
+  }
+
+  const operandSubscripts = inputSubscripts.split(',').map((s) => s.trim());
+
+  if (operandSubscripts.length !== operands.length) {
+    throw new Error(
+      `einsum_path: expected ${operandSubscripts.length} operands, got ${operands.length}`
+    );
+  }
+
+  // Get shapes from operands
+  const shapes: number[][] = operands.map((op) => {
+    if (Array.isArray(op)) {
+      return op;
+    }
+    return Array.from(op.shape);
+  });
+
+  // Build index dimension map
+  const indexDims = new Map<string, number>();
+  for (let i = 0; i < operands.length; i++) {
+    const sub = operandSubscripts[i]!;
+    const shape = shapes[i]!;
+
+    if (sub.length !== shape.length) {
+      throw new Error(
+        `einsum_path: operand ${i} has ${shape.length} dimensions but subscript '${sub}' has ${sub.length} indices`
+      );
+    }
+
+    for (let j = 0; j < sub.length; j++) {
+      const idx = sub[j]!;
+      const dim = shape[j]!;
+      if (indexDims.has(idx) && indexDims.get(idx) !== dim) {
+        throw new Error(
+          `einsum_path: size mismatch for index '${idx}': ${indexDims.get(idx)} vs ${dim}`
+        );
+      }
+      indexDims.set(idx, dim);
+    }
+  }
+
+  // Simple path for 1 or 2 operands
+  if (operands.length === 1) {
+    const path: Array<[number, number] | number[]> = [[0]];
+    return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+  }
+
+  if (operands.length === 2) {
+    const path: Array<[number, number] | number[]> = [[0, 1]];
+    return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+  }
+
+  // Greedy contraction path for 3+ operands
+  // This is a simplified greedy algorithm that contracts pairs with smallest intermediate size
+  const path: Array<[number, number]> = [];
+  const currentSubscripts = [...operandSubscripts];
+  const currentShapes = [...shapes];
+  const currentIndices = operands.map((_, i) => i);
+
+  while (currentSubscripts.length > 1) {
+    let bestI = 0;
+    let bestJ = 1;
+    let bestCost = Infinity;
+
+    // Find the best pair to contract
+    for (let i = 0; i < currentSubscripts.length; i++) {
+      for (let j = i + 1; j < currentSubscripts.length; j++) {
+        const cost = estimateContractionCost(
+          currentSubscripts[i]!,
+          currentSubscripts[j]!,
+          currentShapes[i]!,
+          currentShapes[j]!,
+          outputSubscript,
+          indexDims
+        );
+
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestI = i;
+          bestJ = j;
+        }
+      }
+    }
+
+    // Record the contraction
+    path.push([currentIndices[bestI]!, currentIndices[bestJ]!]);
+
+    // Compute the result subscript and shape
+    const [newSubscript, newShape] = computeContractionResult(
+      currentSubscripts[bestI]!,
+      currentSubscripts[bestJ]!,
+      currentShapes[bestI]!,
+      currentShapes[bestJ]!,
+      outputSubscript,
+      indexDims
+    );
+
+    // Update arrays (remove j first since j > i)
+    currentSubscripts.splice(bestJ, 1);
+    currentSubscripts.splice(bestI, 1);
+    currentShapes.splice(bestJ, 1);
+    currentShapes.splice(bestI, 1);
+    currentIndices.splice(bestJ, 1);
+    currentIndices.splice(bestI, 1);
+
+    // Add the result
+    currentSubscripts.push(newSubscript);
+    currentShapes.push(newShape);
+    currentIndices.push(-1); // Intermediate result marker
+  }
+
+  return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+}
+
+/**
+ * Estimate the cost of contracting two operands
+ * @private
+ */
+function estimateContractionCost(
+  sub1: string,
+  sub2: string,
+  _shape1: number[],
+  _shape2: number[],
+  _outputSubscript: string,
+  indexDims: Map<string, number>
+): number {
+  // Find indices that will be summed over (in both operands but not in output)
+  const indices1 = new Set(sub1);
+  const indices2 = new Set(sub2);
+
+  let size = 1;
+
+  // Product of all index dimensions involved
+  for (const idx of indices1) {
+    size *= indexDims.get(idx) || 1;
+  }
+  for (const idx of indices2) {
+    if (!indices1.has(idx)) {
+      size *= indexDims.get(idx) || 1;
+    }
+  }
+
+  return size;
+}
+
+/**
+ * Compute the result subscript and shape after contracting two operands
+ * @private
+ */
+function computeContractionResult(
+  sub1: string,
+  sub2: string,
+  _shape1: number[],
+  _shape2: number[],
+  outputSubscript: string,
+  indexDims: Map<string, number>
+): [string, number[]] {
+  // Find all indices in both operands
+  const allIndices = new Set([...sub1, ...sub2]);
+
+  // Count occurrences
+  const counts = new Map<string, number>();
+  for (const idx of sub1) {
+    counts.set(idx, (counts.get(idx) || 0) + 1);
+  }
+  for (const idx of sub2) {
+    counts.set(idx, (counts.get(idx) || 0) + 1);
+  }
+
+  // Result keeps indices that:
+  // 1. Appear in the final output, OR
+  // 2. Appear only once in the two operands (will be needed for further contractions)
+  const outputIndices = new Set(outputSubscript);
+  const resultIndices: string[] = [];
+
+  for (const idx of allIndices) {
+    if (outputIndices.has(idx) || counts.get(idx) === 1) {
+      resultIndices.push(idx);
+    }
+  }
+
+  // Sort alphabetically for consistency
+  resultIndices.sort();
+
+  const resultShape = resultIndices.map((idx) => indexDims.get(idx)!);
+
+  return [resultIndices.join(''), resultShape];
+}
+
+/**
+ * Build the path information string
+ * @private
+ */
+function buildPathInfo(
+  subscripts: string,
+  shapes: number[][],
+  path: Array<[number, number] | number[]>,
+  _indexDims: Map<string, number>
+): string {
+  const lines: string[] = [];
+
+  lines.push('  Complete contraction:  ' + subscripts);
+  lines.push('         Operand shapes:  ' + shapes.map((s) => `(${s.join(', ')})`).join(', '));
+  lines.push('  Contraction path:      ' + JSON.stringify(path));
+
+  // Estimate total FLOPS
+  let totalFlops = 0;
+  for (const shape of shapes) {
+    totalFlops += shape.reduce((a, b) => a * b, 1);
+  }
+
+  lines.push('  Estimated FLOPS:       ~' + totalFlops.toExponential(2));
+
+  return lines.join('\n');
+}

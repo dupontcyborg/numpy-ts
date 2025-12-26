@@ -35,6 +35,7 @@ import * as roundingOps from '../ops/rounding';
 import * as setOps from '../ops/sets';
 import * as gradientOps from '../ops/gradient';
 import * as statisticsOps from '../ops/statistics';
+import * as formattingOps from '../ops/formatting';
 
 export class NDArray {
   // Internal storage
@@ -6135,6 +6136,31 @@ export function einsum(
 }
 
 /**
+ * Evaluate the lowest cost contraction order for an einsum expression.
+ *
+ * @param subscripts - Einsum subscripts (e.g., 'ij,jk,kl->il')
+ * @param operands - Input arrays
+ * @returns A tuple of [path, info_string]
+ *
+ * @example
+ * const [path, info] = einsum_path('ij,jk,kl->il', a, b, c);
+ */
+export function einsum_path(
+  subscripts: string,
+  ...operands: (NDArray | number[])[]
+): [Array<[number, number] | number[]>, string] {
+  // Convert operands to storages or shapes
+  const operandsOrShapes = operands.map((op) => {
+    if (Array.isArray(op)) {
+      // Plain array represents a shape
+      return op;
+    }
+    return op.storage;
+  });
+  return linalgOps.einsum_path(subscripts, ...operandsOrShapes);
+}
+
+/**
  * Return the dot product of two vectors (flattened).
  *
  * Unlike dot(), vdot flattens both inputs before computing the dot product.
@@ -8731,4 +8757,171 @@ function qrDecompose(A: number[][]): { Q: number[][]; R: number[][] } {
   }
 
   return { Q, R };
+}
+
+// ============================================================================
+// Printing and Formatting Functions
+// ============================================================================
+
+/**
+ * Set printing options for array output.
+ */
+export function set_printoptions(options: Partial<formattingOps.PrintOptions>): void {
+  formattingOps.set_printoptions(options);
+}
+
+/**
+ * Get current print options.
+ */
+export function get_printoptions(): formattingOps.PrintOptions {
+  return formattingOps.get_printoptions();
+}
+
+/**
+ * Context manager for temporarily setting print options.
+ */
+export function printoptions(
+  options: Partial<formattingOps.PrintOptions>
+): ReturnType<typeof formattingOps.printoptions> {
+  return formattingOps.printoptions(options);
+}
+
+/**
+ * Convert an array to a string representation.
+ *
+ * @param a - Input array
+ * @param max_line_width - Maximum line width
+ * @param precision - Number of digits of precision
+ * @param suppress_small - Suppress small floating point values
+ * @param separator - Separator between elements
+ * @param prefix - Prefix string
+ * @param suffix - Suffix string
+ * @param threshold - Threshold for summarization
+ * @param edgeitems - Number of edge items when summarizing
+ * @returns String representation of the array
+ */
+export function array2string(
+  a: NDArray,
+  options?: {
+    max_line_width?: number | null;
+    precision?: number | null;
+    suppress_small?: boolean | null;
+    separator?: string;
+    prefix?: string;
+    suffix?: string;
+    threshold?: number | null;
+    edgeitems?: number | null;
+  }
+): string {
+  const opts = options || {};
+  return formattingOps.array2string(
+    a.storage,
+    opts.max_line_width ?? null,
+    opts.precision ?? null,
+    opts.suppress_small ?? null,
+    opts.separator ?? ' ',
+    opts.prefix ?? '',
+    opts.suffix ?? '',
+    opts.threshold ?? null,
+    opts.edgeitems ?? null
+  );
+}
+
+/**
+ * Return the string representation of an array (includes 'array()' wrapper).
+ */
+export function array_repr(
+  a: NDArray,
+  max_line_width: number | null = null,
+  precision: number | null = null,
+  suppress_small: boolean | null = null
+): string {
+  return formattingOps.array_repr(a.storage, max_line_width, precision, suppress_small);
+}
+
+/**
+ * Return a string representation of the data in an array.
+ */
+export function array_str(
+  a: NDArray,
+  max_line_width: number | null = null,
+  precision: number | null = null,
+  suppress_small: boolean | null = null
+): string {
+  return formattingOps.array_str(a.storage, max_line_width, precision, suppress_small);
+}
+
+/**
+ * Return a string representation of a number in the given base.
+ *
+ * @param number - Number to convert
+ * @param base - Base for representation (2-36, default: 2)
+ * @param padding - Minimum number of digits
+ * @returns String representation in the given base
+ */
+export function base_repr(number: number, base: number = 2, padding: number = 0): string {
+  return formattingOps.base_repr(number, base, padding);
+}
+
+/**
+ * Return the binary representation of the input number as a string.
+ *
+ * @param num - Integer to convert
+ * @param width - Minimum width of result (uses two's complement for negatives)
+ * @returns Binary string representation
+ */
+export function binary_repr(num: number, width: number | null = null): string {
+  return formattingOps.binary_repr(num, width);
+}
+
+/**
+ * Format a floating-point number in positional notation.
+ */
+export function format_float_positional(
+  x: number,
+  precision?: number | null,
+  unique?: boolean,
+  fractional?: boolean,
+  trim?: 'k' | '.' | '0' | '-',
+  sign?: '-' | '+' | ' ',
+  pad_left?: number | null,
+  pad_right?: number | null,
+  min_digits?: number | null
+): string {
+  return formattingOps.format_float_positional(
+    x,
+    precision,
+    unique,
+    fractional,
+    trim,
+    sign,
+    pad_left,
+    pad_right,
+    min_digits
+  );
+}
+
+/**
+ * Format a floating-point number in scientific notation.
+ */
+export function format_float_scientific(
+  x: number,
+  precision?: number | null,
+  unique?: boolean,
+  trim?: 'k' | '.' | '0' | '-',
+  sign?: '-' | '+' | ' ',
+  pad_left?: number | null,
+  exp_digits?: number,
+  min_digits?: number | null
+): string {
+  return formattingOps.format_float_scientific(
+    x,
+    precision,
+    unique,
+    trim,
+    sign,
+    pad_left,
+    exp_digits,
+    min_digits
+  );
 }

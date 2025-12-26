@@ -102,6 +102,7 @@ export {
   outer,
   tensordot,
   einsum,
+  einsum_path,
   // New linear algebra functions
   vdot,
   vecdot,
@@ -354,6 +355,17 @@ export {
   size,
   geterr,
   seterr,
+  // Printing/Formatting functions
+  array2string,
+  array_repr,
+  array_str,
+  base_repr,
+  binary_repr,
+  format_float_positional,
+  format_float_scientific,
+  get_printoptions,
+  set_printoptions,
+  printoptions,
   // Type checking functions
   can_cast,
   common_type,
