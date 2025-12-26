@@ -684,6 +684,18 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.random.choice(arrays['n'], 100);
   } else if (operation === 'random_permutation') {
     return np.random.permutation(arrays['n']);
+  } else if (operation === 'random_gamma') {
+    return np.random.gamma(2, 1, arrays['shape']);
+  } else if (operation === 'random_beta') {
+    return np.random.beta(2, 5, arrays['shape']);
+  } else if (operation === 'random_chisquare') {
+    return np.random.chisquare(5, arrays['shape']);
+  } else if (operation === 'random_laplace') {
+    return np.random.laplace(0, 1, arrays['shape']);
+  } else if (operation === 'random_geometric') {
+    return np.random.geometric(0.5, arrays['shape']);
+  } else if (operation === 'random_dirichlet') {
+    return np.random.dirichlet([1, 2, 3], arrays['shape'][0]);
   }
 
   // Complex operations

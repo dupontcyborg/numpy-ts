@@ -889,6 +889,18 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.random.choice(arrays.n, 100);
     case 'random_permutation':
       return np.random.permutation(arrays.n);
+    case 'random_gamma':
+      return np.random.gamma(2, 1, arrays.shape);
+    case 'random_beta':
+      return np.random.beta(2, 5, arrays.shape);
+    case 'random_chisquare':
+      return np.random.chisquare(5, arrays.shape);
+    case 'random_laplace':
+      return np.random.laplace(0, 1, arrays.shape);
+    case 'random_geometric':
+      return np.random.geometric(0.5, arrays.shape);
+    case 'random_dirichlet':
+      return np.random.dirichlet([1, 2, 3], arrays.shape[0]);
 
     // Complex operations
     case 'complex_zeros':

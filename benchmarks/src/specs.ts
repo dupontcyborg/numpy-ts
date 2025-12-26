@@ -2702,6 +2702,73 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
+    // New random distributions
+    specs.push({
+      name: `random.gamma [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_gamma',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.beta [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_beta',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.chisquare [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_chisquare',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.laplace [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_laplace',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.geometric [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'random_geometric',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `random.dirichlet [${sizes.small}]`,
+      category: 'random',
+      operation: 'random_dirichlet',
+      setup: {
+        shape: { shape: [sizes.small] },
+      },
+      iterations,
+      warmup,
+    });
+
     // ========================================
     // Complex Number Benchmarks
     // ========================================

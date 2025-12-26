@@ -460,4 +460,724 @@ describe('Random Module', () => {
       expect(i.shape).toEqual([2, 2]);
     });
   });
+
+  // ============================================================
+  // Tests for new random functions
+  // ============================================================
+
+  describe('random_sample (alias)', () => {
+    it('is an alias for random()', () => {
+      random.seed(42);
+      const r1 = random.random(5) as any;
+
+      random.seed(42);
+      const r2 = random.random_sample(5) as any;
+
+      expect(r1.toArray()).toEqual(r2.toArray());
+    });
+  });
+
+  describe('ranf (alias)', () => {
+    it('is an alias for random()', () => {
+      random.seed(42);
+      const r1 = random.random(5) as any;
+
+      random.seed(42);
+      const r2 = random.ranf(5) as any;
+
+      expect(r1.toArray()).toEqual(r2.toArray());
+    });
+  });
+
+  describe('sample (alias)', () => {
+    it('is an alias for random()', () => {
+      random.seed(42);
+      const r1 = random.random(5) as any;
+
+      random.seed(42);
+      const r2 = random.sample(5) as any;
+
+      expect(r1.toArray()).toEqual(r2.toArray());
+    });
+  });
+
+  describe('random_integers', () => {
+    it('returns integers in inclusive range', () => {
+      random.seed(42);
+      // random_integers(1, 5) should return integers 1, 2, 3, 4, 5
+      for (let i = 0; i < 100; i++) {
+        const result = random.random_integers(1, 5) as number;
+        expect(result).toBeGreaterThanOrEqual(1);
+        expect(result).toBeLessThanOrEqual(5);
+        expect(Number.isInteger(result)).toBe(true);
+      }
+    });
+
+    it('with single argument returns integers from 1 to high', () => {
+      random.seed(42);
+      for (let i = 0; i < 100; i++) {
+        const result = random.random_integers(5) as number;
+        expect(result).toBeGreaterThanOrEqual(1);
+        expect(result).toBeLessThanOrEqual(5);
+      }
+    });
+  });
+
+  describe('bytes', () => {
+    it('returns Uint8Array of specified length', () => {
+      random.seed(42);
+      const result = random.bytes(10);
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(result.length).toBe(10);
+    });
+
+    it('produces values in byte range', () => {
+      random.seed(42);
+      const result = random.bytes(1000);
+      for (const byte of result) {
+        expect(byte).toBeGreaterThanOrEqual(0);
+        expect(byte).toBeLessThanOrEqual(255);
+      }
+    });
+  });
+
+  describe('get_bit_generator and set_bit_generator', () => {
+    it('can get and set bit generator', () => {
+      const bg = random.get_bit_generator();
+      expect(bg).toBeDefined();
+      expect(bg.name).toBe('MT19937');
+
+      const newBg = { name: 'Custom', state: {} };
+      random.set_bit_generator(newBg);
+      expect(random.get_bit_generator()).toBe(newBg);
+
+      // Restore original
+      random.set_bit_generator(bg);
+    });
+  });
+
+  describe('standard_exponential', () => {
+    it('is equivalent to exponential with scale=1', () => {
+      random.seed(42);
+      const r1 = random.exponential(1, 5) as any;
+
+      random.seed(42);
+      const r2 = random.standard_exponential(5) as any;
+
+      expect(r1.toArray()).toEqual(r2.toArray());
+    });
+
+    it('produces positive values', () => {
+      random.seed(42);
+      const result = random.standard_exponential(100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('gamma', () => {
+    it('returns single positive float', () => {
+      random.seed(42);
+      const result = random.gamma(2, 1) as number;
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThan(0);
+    });
+
+    it('returns array of specified shape', () => {
+      const result = random.gamma(2, 1, [3, 4]) as any;
+      expect(result.shape).toEqual([3, 4]);
+    });
+
+    it('produces correct mean (shape * scale)', () => {
+      random.seed(42);
+      const shape = 3;
+      const scale = 2;
+      const result = random.gamma(shape, scale, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      // Mean of gamma is shape * scale
+      expect(Math.abs(mean - shape * scale)).toBeLessThan(0.3);
+    });
+
+    it('throws for non-positive shape', () => {
+      expect(() => random.gamma(0, 1)).toThrow();
+      expect(() => random.gamma(-1, 1)).toThrow();
+    });
+  });
+
+  describe('standard_gamma', () => {
+    it('is equivalent to gamma with scale=1', () => {
+      random.seed(42);
+      const r1 = random.gamma(2, 1, 5) as any;
+
+      random.seed(42);
+      const r2 = random.standard_gamma(2, 5) as any;
+
+      expect(r1.toArray()).toEqual(r2.toArray());
+    });
+  });
+
+  describe('beta', () => {
+    it('returns values in [0, 1]', () => {
+      random.seed(42);
+      const result = random.beta(2, 5, 1000) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('produces correct mean (a / (a + b))', () => {
+      random.seed(42);
+      const a = 2;
+      const b = 5;
+      const result = random.beta(a, b, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((acc, val) => acc + val, 0) / data.length;
+      expect(Math.abs(mean - a / (a + b))).toBeLessThan(0.02);
+    });
+
+    it('throws for non-positive parameters', () => {
+      expect(() => random.beta(0, 1)).toThrow();
+      expect(() => random.beta(1, 0)).toThrow();
+    });
+  });
+
+  describe('chisquare', () => {
+    it('returns positive values', () => {
+      random.seed(42);
+      const result = random.chisquare(5, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('produces correct mean (df)', () => {
+      random.seed(42);
+      const df = 5;
+      const result = random.chisquare(df, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - df)).toBeLessThan(0.3);
+    });
+  });
+
+  describe('noncentral_chisquare', () => {
+    it('returns positive values', () => {
+      random.seed(42);
+      const result = random.noncentral_chisquare(5, 2, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('produces correct mean (df + nonc)', () => {
+      random.seed(42);
+      const df = 5;
+      const nonc = 2;
+      const result = random.noncentral_chisquare(df, nonc, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - (df + nonc))).toBeLessThan(0.5);
+    });
+  });
+
+  describe('f', () => {
+    it('returns positive values', () => {
+      random.seed(42);
+      const result = random.f(5, 10, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('produces correct mean when dfden > 2', () => {
+      random.seed(42);
+      const dfnum = 5;
+      const dfden = 10;
+      const result = random.f(dfnum, dfden, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      // Mean of F is dfden / (dfden - 2) when dfden > 2
+      const expectedMean = dfden / (dfden - 2);
+      expect(Math.abs(mean - expectedMean)).toBeLessThan(0.3);
+    });
+  });
+
+  describe('noncentral_f', () => {
+    it('returns positive values', () => {
+      random.seed(42);
+      const result = random.noncentral_f(5, 10, 2, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('standard_cauchy', () => {
+    it('returns array of specified shape', () => {
+      const result = random.standard_cauchy([2, 3]) as any;
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('produces values (Cauchy has no mean/variance)', () => {
+      random.seed(42);
+      const result = random.standard_cauchy(100) as any;
+      // Just check we get numbers
+      for (const val of result.toArray() as number[]) {
+        expect(typeof val).toBe('number');
+        expect(isFinite(val)).toBe(true);
+      }
+    });
+  });
+
+  describe('standard_t', () => {
+    it('returns array of specified shape', () => {
+      const result = random.standard_t(5, [2, 3]) as any;
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('with high df approaches normal distribution', () => {
+      random.seed(42);
+      const result = random.standard_t(100, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean)).toBeLessThan(0.1);
+    });
+
+    it('throws for non-positive df', () => {
+      expect(() => random.standard_t(0)).toThrow();
+      expect(() => random.standard_t(-1)).toThrow();
+    });
+  });
+
+  describe('laplace', () => {
+    it('returns array of specified shape', () => {
+      const result = random.laplace(0, 1, [2, 3]) as any;
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('produces correct mean', () => {
+      random.seed(42);
+      const loc = 5;
+      const result = random.laplace(loc, 1, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - loc)).toBeLessThan(0.1);
+    });
+  });
+
+  describe('logistic', () => {
+    it('returns array of specified shape', () => {
+      const result = random.logistic(0, 1, [2, 3]) as any;
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('produces correct mean', () => {
+      random.seed(42);
+      const loc = 5;
+      const result = random.logistic(loc, 1, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - loc)).toBeLessThan(0.1);
+    });
+  });
+
+  describe('lognormal', () => {
+    it('returns positive values', () => {
+      random.seed(42);
+      const result = random.lognormal(0, 1, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('produces correct mean exp(mu + sigma^2/2)', () => {
+      random.seed(42);
+      const mu = 0;
+      const sigma = 0.5;
+      const result = random.lognormal(mu, sigma, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      const expectedMean = Math.exp(mu + (sigma * sigma) / 2);
+      expect(Math.abs(mean - expectedMean)).toBeLessThan(0.1);
+    });
+  });
+
+  describe('gumbel', () => {
+    it('returns array of specified shape', () => {
+      const result = random.gumbel(0, 1, [2, 3]) as any;
+      expect(result.shape).toEqual([2, 3]);
+    });
+  });
+
+  describe('pareto', () => {
+    it('returns values >= 0', () => {
+      random.seed(42);
+      const result = random.pareto(2, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('throws for non-positive a', () => {
+      expect(() => random.pareto(0)).toThrow();
+      expect(() => random.pareto(-1)).toThrow();
+    });
+  });
+
+  describe('power', () => {
+    it('returns values in [0, 1]', () => {
+      random.seed(42);
+      const result = random.power(2, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('throws for non-positive a', () => {
+      expect(() => random.power(0)).toThrow();
+      expect(() => random.power(-1)).toThrow();
+    });
+  });
+
+  describe('rayleigh', () => {
+    it('returns positive values', () => {
+      random.seed(42);
+      const result = random.rayleigh(1, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('produces correct mode (scale)', () => {
+      random.seed(42);
+      const scale = 2;
+      const result = random.rayleigh(scale, 10000) as any;
+      const data = result.toArray() as number[];
+
+      // Mean of Rayleigh is scale * sqrt(pi/2)
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      const expectedMean = scale * Math.sqrt(Math.PI / 2);
+      expect(Math.abs(mean - expectedMean)).toBeLessThan(0.1);
+    });
+  });
+
+  describe('triangular', () => {
+    it('returns values in [left, right]', () => {
+      random.seed(42);
+      const result = random.triangular(0, 0.5, 1, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('produces correct mean ((left + mode + right) / 3)', () => {
+      random.seed(42);
+      const left = 0;
+      const mode = 0.5;
+      const right = 1;
+      const result = random.triangular(left, mode, right, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      const expectedMean = (left + mode + right) / 3;
+      expect(Math.abs(mean - expectedMean)).toBeLessThan(0.02);
+    });
+
+    it('throws for invalid parameters', () => {
+      expect(() => random.triangular(1, 0, 2)).toThrow(); // mode < left
+      expect(() => random.triangular(0, 3, 2)).toThrow(); // mode > right
+      expect(() => random.triangular(1, 1, 1)).toThrow(); // left == right
+    });
+  });
+
+  describe('wald', () => {
+    it('returns positive values', () => {
+      random.seed(42);
+      const result = random.wald(1, 1, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('produces correct mean', () => {
+      random.seed(42);
+      const mean = 2;
+      const scale = 3;
+      const result = random.wald(mean, scale, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const sampleMean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(sampleMean - mean)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('weibull', () => {
+    it('returns non-negative values', () => {
+      random.seed(42);
+      const result = random.weibull(2, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('throws for non-positive a', () => {
+      expect(() => random.weibull(0)).toThrow();
+      expect(() => random.weibull(-1)).toThrow();
+    });
+  });
+
+  describe('geometric', () => {
+    it('returns positive integers', () => {
+      random.seed(42);
+      const result = random.geometric(0.5, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(Number(val)).toBeGreaterThanOrEqual(1);
+        expect(Number.isInteger(Number(val))).toBe(true);
+      }
+    });
+
+    it('produces correct mean (1/p)', () => {
+      random.seed(42);
+      const p = 0.3;
+      const result = random.geometric(p, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + Number(b), 0) / data.length;
+      expect(Math.abs(mean - 1 / p)).toBeLessThan(0.3);
+    });
+
+    it('throws for invalid p', () => {
+      expect(() => random.geometric(0)).toThrow();
+      expect(() => random.geometric(1.5)).toThrow();
+      expect(() => random.geometric(-0.5)).toThrow();
+    });
+  });
+
+  describe('hypergeometric', () => {
+    it('returns integers in valid range', () => {
+      random.seed(42);
+      const ngood = 10;
+      const nbad = 10;
+      const nsample = 5;
+      const result = random.hypergeometric(ngood, nbad, nsample, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        const v = Number(val);
+        expect(v).toBeGreaterThanOrEqual(Math.max(0, nsample - nbad));
+        expect(v).toBeLessThanOrEqual(Math.min(nsample, ngood));
+        expect(Number.isInteger(v)).toBe(true);
+      }
+    });
+
+    it('produces correct mean', () => {
+      random.seed(42);
+      const ngood = 20;
+      const nbad = 30;
+      const nsample = 10;
+      const result = random.hypergeometric(ngood, nbad, nsample, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + Number(b), 0) / data.length;
+      const expectedMean = (nsample * ngood) / (ngood + nbad);
+      expect(Math.abs(mean - expectedMean)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('logseries', () => {
+    it('returns positive integers', () => {
+      random.seed(42);
+      const result = random.logseries(0.5, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(Number(val)).toBeGreaterThanOrEqual(1);
+        expect(Number.isInteger(Number(val))).toBe(true);
+      }
+    });
+
+    it('throws for invalid p', () => {
+      expect(() => random.logseries(0)).toThrow();
+      expect(() => random.logseries(1)).toThrow();
+      expect(() => random.logseries(1.5)).toThrow();
+    });
+  });
+
+  describe('negative_binomial', () => {
+    it('returns non-negative integers', () => {
+      random.seed(42);
+      const result = random.negative_binomial(5, 0.5, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(Number(val)).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(Number(val))).toBe(true);
+      }
+    });
+
+    it('produces correct mean (n * (1-p) / p)', () => {
+      random.seed(42);
+      const n = 5;
+      const p = 0.3;
+      const result = random.negative_binomial(n, p, 10000) as any;
+      const data = result.toArray() as number[];
+
+      const mean = data.reduce((a, b) => a + Number(b), 0) / data.length;
+      const expectedMean = (n * (1 - p)) / p;
+      expect(Math.abs(mean - expectedMean)).toBeLessThan(1);
+    });
+  });
+
+  describe('zipf', () => {
+    it('returns positive integers', () => {
+      random.seed(42);
+      const result = random.zipf(2, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(Number(val)).toBeGreaterThanOrEqual(1);
+        expect(Number.isInteger(Number(val))).toBe(true);
+      }
+    });
+
+    it('throws for a <= 1', () => {
+      expect(() => random.zipf(1)).toThrow();
+      expect(() => random.zipf(0.5)).toThrow();
+    });
+  });
+
+  describe('multinomial', () => {
+    it('returns array summing to n', () => {
+      random.seed(42);
+      const n = 10;
+      const pvals = [0.2, 0.3, 0.5];
+      const result = random.multinomial(n, pvals) as any;
+
+      const data = result.toArray() as number[];
+      const sum = data.reduce((a, b) => a + Number(b), 0);
+      expect(sum).toBe(n);
+    });
+
+    it('returns correct shape for single sample', () => {
+      const result = random.multinomial(10, [0.2, 0.3, 0.5]) as any;
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('returns correct shape for multiple samples', () => {
+      const result = random.multinomial(10, [0.2, 0.3, 0.5], 5) as any;
+      expect(result.shape).toEqual([5, 3]);
+    });
+
+    it('returns correct shape for multi-dimensional size', () => {
+      const result = random.multinomial(10, [0.2, 0.3, 0.5], [2, 3]) as any;
+      expect(result.shape).toEqual([2, 3, 3]);
+    });
+  });
+
+  describe('multivariate_normal', () => {
+    it('returns array of correct shape for single sample', () => {
+      const mean = [0, 0];
+      const cov = [
+        [1, 0],
+        [0, 1],
+      ];
+      const result = random.multivariate_normal(mean, cov) as any;
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('returns array of correct shape for multiple samples', () => {
+      const mean = [0, 0, 0];
+      const cov = [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ];
+      const result = random.multivariate_normal(mean, cov, 5) as any;
+      expect(result.shape).toEqual([5, 3]);
+    });
+
+    it('produces correct mean', () => {
+      random.seed(42);
+      const mean = [5, 10];
+      const cov = [
+        [1, 0],
+        [0, 1],
+      ];
+      const result = random.multivariate_normal(mean, cov, 1000) as any;
+      const data = result.data as Float64Array;
+
+      let sum0 = 0;
+      let sum1 = 0;
+      for (let i = 0; i < 1000; i++) {
+        sum0 += data[i * 2]!;
+        sum1 += data[i * 2 + 1]!;
+      }
+      expect(Math.abs(sum0 / 1000 - mean[0]!)).toBeLessThan(0.2);
+      expect(Math.abs(sum1 / 1000 - mean[1]!)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('dirichlet', () => {
+    it('returns array summing to 1', () => {
+      random.seed(42);
+      const alpha = [1, 2, 3];
+      const result = random.dirichlet(alpha) as any;
+
+      const data = result.toArray() as number[];
+      const sum = data.reduce((a, b) => a + b, 0);
+      expect(Math.abs(sum - 1)).toBeLessThan(1e-10);
+    });
+
+    it('returns values in [0, 1]', () => {
+      random.seed(42);
+      const result = random.dirichlet([1, 1, 1], 100) as any;
+      const data = result.data as Float64Array;
+      for (let i = 0; i < data.length; i++) {
+        expect(data[i]).toBeGreaterThanOrEqual(0);
+        expect(data[i]).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('returns correct shape', () => {
+      const result = random.dirichlet([1, 2, 3, 4], 5) as any;
+      expect(result.shape).toEqual([5, 4]);
+    });
+
+    it('throws for invalid alpha', () => {
+      expect(() => random.dirichlet([1])).toThrow(); // needs at least 2
+      expect(() => random.dirichlet([1, 0])).toThrow(); // all must be positive
+      expect(() => random.dirichlet([1, -1])).toThrow();
+    });
+  });
+
+  describe('vonmises', () => {
+    it('returns values in [-pi, pi]', () => {
+      random.seed(42);
+      const result = random.vonmises(0, 1, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThanOrEqual(-Math.PI);
+        expect(val).toBeLessThanOrEqual(Math.PI);
+      }
+    });
+
+    it('with kappa=0 is uniform on circle', () => {
+      random.seed(42);
+      const result = random.vonmises(0, 0, 10000) as any;
+      const data = result.toArray() as number[];
+
+      // Mean should be close to 0 for uniform
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean)).toBeLessThan(0.1);
+    });
+
+    it('throws for negative kappa', () => {
+      expect(() => random.vonmises(0, -1)).toThrow();
+    });
+  });
 });
