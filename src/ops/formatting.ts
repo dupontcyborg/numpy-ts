@@ -213,12 +213,17 @@ export function format_float_positional(
   }
 
   // Trim trailing zeros/decimal point
+  // Use loop-based trimming instead of regex to avoid ReDoS vulnerability
   if (trim !== 'k' && result.includes('.')) {
     if (trim === '-' || trim === '0') {
-      result = result.replace(/0+$/, '');
+      let i = result.length;
+      while (i > 0 && result[i - 1] === '0') i--;
+      result = result.slice(0, i);
     }
     if (trim === '-' || trim === '.') {
-      result = result.replace(/\.$/, '');
+      if (result.endsWith('.')) {
+        result = result.slice(0, -1);
+      }
     }
   }
 
