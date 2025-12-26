@@ -1173,11 +1173,6 @@ export function rot90(
     return storage.copy();
   }
 
-  // Optimized: do the rotation in one pass instead of k iterations
-  // k=1: flip axis1, transpose
-  // k=2: flip both axes
-  // k=3: flip axis0, transpose
-
   const Constructor = getTypedArrayConstructor(dtype);
   if (!Constructor) {
     throw new Error(`Cannot rotate array with dtype ${dtype}`);
@@ -1191,9 +1186,96 @@ export function rot90(
 
   const outputSize = outputShape.reduce((a, b) => a * b, 1);
   const outputData = new Constructor(outputSize);
-  const outputStrides = computeStrides(outputShape);
   const isBigInt = isBigIntDType(dtype);
+  const srcData = storage.data;
 
+  // Optimized 2D case (most common)
+  if (ndim === 2 && axis0 === 0 && axis1 === 1) {
+    const rows = shape[0]!;
+    const cols = shape[1]!;
+
+    if (k === 1) {
+      // 90 degrees CCW: dst[outRow, outCol] = src[outCol, cols - 1 - outRow]
+      // output shape: [cols, rows]
+      const outRows = cols;
+      const outCols = rows;
+      if (isBigInt) {
+        const src = srcData as BigInt64Array | BigUint64Array;
+        const dst = outputData as BigInt64Array | BigUint64Array;
+        for (let outRow = 0; outRow < outRows; outRow++) {
+          const dstRowOffset = outRow * outCols;
+          const srcCol = cols - 1 - outRow;
+          for (let outCol = 0; outCol < outCols; outCol++) {
+            dst[dstRowOffset + outCol] = src[outCol * cols + srcCol]!;
+          }
+        }
+      } else {
+        const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        for (let outRow = 0; outRow < outRows; outRow++) {
+          const dstRowOffset = outRow * outCols;
+          const srcCol = cols - 1 - outRow;
+          for (let outCol = 0; outCol < outCols; outCol++) {
+            dst[dstRowOffset + outCol] = src[outCol * cols + srcCol]!;
+          }
+        }
+      }
+    } else if (k === 2) {
+      // 180 degrees: dst[outRow, outCol] = src[rows - 1 - outRow, cols - 1 - outCol]
+      // output shape: [rows, cols]
+      if (isBigInt) {
+        const src = srcData as BigInt64Array | BigUint64Array;
+        const dst = outputData as BigInt64Array | BigUint64Array;
+        for (let outRow = 0; outRow < rows; outRow++) {
+          const dstRowOffset = outRow * cols;
+          const srcRowOffset = (rows - 1 - outRow) * cols;
+          for (let outCol = 0; outCol < cols; outCol++) {
+            dst[dstRowOffset + outCol] = src[srcRowOffset + (cols - 1 - outCol)]!;
+          }
+        }
+      } else {
+        const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        for (let outRow = 0; outRow < rows; outRow++) {
+          const dstRowOffset = outRow * cols;
+          const srcRowOffset = (rows - 1 - outRow) * cols;
+          for (let outCol = 0; outCol < cols; outCol++) {
+            dst[dstRowOffset + outCol] = src[srcRowOffset + (cols - 1 - outCol)]!;
+          }
+        }
+      }
+    } else {
+      // k === 3, 270 degrees CCW (or 90 CW): dst[outRow, outCol] = src[rows - 1 - outCol, outRow]
+      // output shape: [cols, rows]
+      const outRows = cols;
+      const outCols = rows;
+      if (isBigInt) {
+        const src = srcData as BigInt64Array | BigUint64Array;
+        const dst = outputData as BigInt64Array | BigUint64Array;
+        for (let outRow = 0; outRow < outRows; outRow++) {
+          const dstRowOffset = outRow * outCols;
+          for (let outCol = 0; outCol < outCols; outCol++) {
+            dst[dstRowOffset + outCol] = src[(rows - 1 - outCol) * cols + outRow]!;
+          }
+        }
+      } else {
+        const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        for (let outRow = 0; outRow < outRows; outRow++) {
+          const dstRowOffset = outRow * outCols;
+          for (let outCol = 0; outCol < outCols; outCol++) {
+            dst[dstRowOffset + outCol] = src[(rows - 1 - outCol) * cols + outRow]!;
+          }
+        }
+      }
+    }
+
+    return ArrayStorage.fromData(outputData, outputShape, dtype);
+  }
+
+  // General N-D case (fallback)
+  const outputStrides = computeStrides(outputShape);
+  const inputStrides = computeStrides(shape);
   const indices = new Array(ndim).fill(0);
   const sourceIndices = new Array(ndim);
 
@@ -1205,17 +1287,14 @@ export function rot90(
 
     let outIdx0, outIdx1;
     if (k === 1) {
-      // 90 degrees: flip axis1, then transpose
       outIdx0 = shape[axis1]! - 1 - indices[axis1]!;
       outIdx1 = indices[axis0];
     } else if (k === 2) {
-      // 180 degrees: flip both axes
       outIdx0 = shape[axis0]! - 1 - indices[axis0]!;
       outIdx1 = shape[axis1]! - 1 - indices[axis1]!;
       sourceIndices[axis0] = outIdx0;
       sourceIndices[axis1] = outIdx1;
     } else {
-      // k === 3, 270 degrees: flip axis0, then transpose
       outIdx0 = indices[axis1];
       outIdx1 = shape[axis0]! - 1 - indices[axis0]!;
     }
@@ -1231,15 +1310,21 @@ export function rot90(
       outputOffset += sourceIndices[d]! * outputStrides[d]!;
     }
 
-    // Get source value
-    const value = storage.iget(i);
+    // Get source value using direct typed array access
+    let inputOffset = 0;
+    for (let d = 0; d < ndim; d++) {
+      inputOffset += indices[d]! * inputStrides[d]!;
+    }
 
     // Write to output
     if (isBigInt) {
-      (outputData as BigInt64Array | BigUint64Array)[outputOffset] = value as bigint;
+      const src = srcData as BigInt64Array | BigUint64Array;
+      const dst = outputData as BigInt64Array | BigUint64Array;
+      dst[outputOffset] = src[inputOffset]!;
     } else {
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outputOffset] =
-        value as number;
+      const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      dst[outputOffset] = src[inputOffset]!;
     }
 
     // Increment indices

@@ -14,6 +14,7 @@ import {
   diagonal,
   kron,
   einsum,
+  einsum_path,
   linalg,
   vdot,
   vecdot,
@@ -21,6 +22,7 @@ import {
   permute_dims,
   matvec,
   vecmat,
+  ones,
 } from '../../src';
 
 describe('Linear Algebra Operations', () => {
@@ -1830,5 +1832,65 @@ describe('Top-level Linear Algebra Functions', () => {
       expect(result.shape).toEqual([3]);
       expect(result.toArray()).toEqual([5, 7, 9]); // [1+4, 2+5, 3+6]
     });
+  });
+});
+
+describe('einsum_path()', () => {
+  it('returns path for single operand', () => {
+    const a = ones([3, 3]);
+    const [path, info] = einsum_path('ii->', a);
+
+    expect(Array.isArray(path)).toBe(true);
+    expect(typeof info).toBe('string');
+    expect(info).toContain('Contraction path');
+  });
+
+  it('returns path for two operands (matrix multiply)', () => {
+    const a = ones([10, 5]);
+    const b = ones([5, 8]);
+    const [path, info] = einsum_path('ij,jk->ik', a, b);
+
+    expect(Array.isArray(path)).toBe(true);
+    expect(path.length).toBe(1);
+    expect(path[0]).toEqual([0, 1]);
+    expect(info).toContain('Complete contraction');
+  });
+
+  it('returns path for three operands', () => {
+    const a = ones([10, 5]);
+    const b = ones([5, 8]);
+    const c = ones([8, 4]);
+    const [path, info] = einsum_path('ij,jk,kl->il', a, b, c);
+
+    expect(Array.isArray(path)).toBe(true);
+    expect(path.length).toBe(2);
+    expect(info).toContain('Operand shapes');
+  });
+
+  it('works with shapes as arrays', () => {
+    const [path, info] = einsum_path('ij,jk->ik', [10, 5], [5, 8]);
+
+    expect(Array.isArray(path)).toBe(true);
+    expect(typeof info).toBe('string');
+  });
+
+  it('throws on operand count mismatch', () => {
+    const a = ones([3, 3]);
+    expect(() => einsum_path('ij,jk->ik', a)).toThrow();
+  });
+
+  it('throws on shape mismatch', () => {
+    const a = ones([3, 4]);
+    const b = ones([5, 3]); // Should be [4, x] for ij,jk
+    expect(() => einsum_path('ij,jk->ik', a, b)).toThrow();
+  });
+
+  it('handles implicit output subscript', () => {
+    const a = ones([3, 3]);
+    const b = ones([3, 3]);
+    const [path, info] = einsum_path('ij,jk', a, b);
+
+    expect(Array.isArray(path)).toBe(true);
+    expect(info).toContain('Complete contraction');
   });
 });

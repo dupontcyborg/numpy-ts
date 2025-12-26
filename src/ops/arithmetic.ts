@@ -62,6 +62,12 @@ export function add(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
     return addScalar(a, b);
   }
 
+  // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
+  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
+    const scalarVal = Number(b.data[0]!);
+    return addScalar(a, scalarVal);
+  }
+
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
     return addArraysFast(a, b);
@@ -151,6 +157,12 @@ export function subtract(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
     return subtractScalar(a, b);
   }
 
+  // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
+  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
+    const scalarVal = Number(b.data[0]!);
+    return subtractScalar(a, scalarVal);
+  }
+
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
     return subtractArraysFast(a, b);
@@ -237,6 +249,12 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 export function multiply(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   if (typeof b === 'number') {
     return multiplyScalar(a, b);
+  }
+
+  // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
+  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
+    const scalarVal = Number(b.data[0]!);
+    return multiplyScalar(a, scalarVal);
   }
 
   // Fast path: both contiguous, same shape

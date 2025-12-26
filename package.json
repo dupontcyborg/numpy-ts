@@ -1,7 +1,7 @@
 {
   "name": "numpy-ts",
   "version": "0.12.0",
-  "description": "Complete NumPy implementation for TypeScript and JavaScript (81% API coverage)",
+  "description": "Complete NumPy implementation for TypeScript and JavaScript (87% API coverage)",
   "main": "dist/numpy-ts.node.cjs",
   "browser": "dist/numpy-ts.browser.js",
   "module": "dist/numpy-ts.esm.js",
@@ -97,7 +97,7 @@
   },
   "homepage": "https://github.com/dupontcyborg/numpy-ts",
   "devDependencies": {
-    "@types/node": "^24.9.1",
+    "@types/node": "^25.0.3",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "@vitest/browser": "^4.0.3",

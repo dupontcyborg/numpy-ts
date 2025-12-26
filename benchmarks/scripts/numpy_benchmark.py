@@ -728,6 +728,44 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "issubdtype":
         return np.issubdtype(np.int32, np.integer)
 
+    # FFT operations
+    elif operation == "fft":
+        return np.fft.fft(arrays["a"])
+    elif operation == "ifft":
+        return np.fft.ifft(arrays["a"])
+    elif operation == "fft2":
+        return np.fft.fft2(arrays["a"])
+    elif operation == "ifft2":
+        return np.fft.ifft2(arrays["a"])
+    elif operation == "fftn":
+        return np.fft.fftn(arrays["a"])
+    elif operation == "ifftn":
+        return np.fft.ifftn(arrays["a"])
+    elif operation == "rfft":
+        return np.fft.rfft(arrays["a"])
+    elif operation == "irfft":
+        return np.fft.irfft(arrays["a"])
+    elif operation == "rfft2":
+        return np.fft.rfft2(arrays["a"])
+    elif operation == "irfft2":
+        return np.fft.irfft2(arrays["a"])
+    elif operation == "rfftn":
+        return np.fft.rfftn(arrays["a"])
+    elif operation == "irfftn":
+        return np.fft.irfftn(arrays["a"])
+    elif operation == "hfft":
+        return np.fft.hfft(arrays["a"])
+    elif operation == "ihfft":
+        return np.fft.ihfft(arrays["a"])
+    elif operation == "fftfreq":
+        return np.fft.fftfreq(arrays["n"])
+    elif operation == "rfftfreq":
+        return np.fft.rfftfreq(arrays["n"])
+    elif operation == "fftshift":
+        return np.fft.fftshift(arrays["a"])
+    elif operation == "ifftshift":
+        return np.fft.ifftshift(arrays["a"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

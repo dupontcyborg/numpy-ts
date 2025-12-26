@@ -96,7 +96,14 @@ function compareSvdResults(tsData: any, npData: any): boolean {
 function isNumericallySensitiveOperation(operation: string): boolean {
   // roots uses eigenvalue decomposition which can differ significantly
   // between implementations for polynomials with complex roots
-  return operation === 'roots';
+  // FFT operations can have minor floating-point differences between implementations
+  const sensitiveOps = [
+    'roots',
+    'fft', 'ifft', 'fft2', 'ifft2', 'fftn', 'ifftn',
+    'rfft', 'irfft', 'rfft2', 'irfft2', 'rfftn', 'irfftn',
+    'hfft', 'ihfft',
+  ];
+  return sensitiveOps.includes(operation);
 }
 
 /**
@@ -968,6 +975,44 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.min_scalar_type(1000);
     case 'issubdtype':
       return np.issubdtype('int32', 'integer');
+
+    // FFT operations
+    case 'fft':
+      return np.fft.fft(arrays.a);
+    case 'ifft':
+      return np.fft.ifft(arrays.a);
+    case 'fft2':
+      return np.fft.fft2(arrays.a);
+    case 'ifft2':
+      return np.fft.ifft2(arrays.a);
+    case 'fftn':
+      return np.fft.fftn(arrays.a);
+    case 'ifftn':
+      return np.fft.ifftn(arrays.a);
+    case 'rfft':
+      return np.fft.rfft(arrays.a);
+    case 'irfft':
+      return np.fft.irfft(arrays.a);
+    case 'rfft2':
+      return np.fft.rfft2(arrays.a);
+    case 'irfft2':
+      return np.fft.irfft2(arrays.a);
+    case 'rfftn':
+      return np.fft.rfftn(arrays.a);
+    case 'irfftn':
+      return np.fft.irfftn(arrays.a);
+    case 'hfft':
+      return np.fft.hfft(arrays.a);
+    case 'ihfft':
+      return np.fft.ihfft(arrays.a);
+    case 'fftfreq':
+      return np.fft.fftfreq(arrays.n);
+    case 'rfftfreq':
+      return np.fft.rfftfreq(arrays.n);
+    case 'fftshift':
+      return np.fft.fftshift(arrays.a);
+    case 'ifftshift':
+      return np.fft.ifftshift(arrays.a);
 
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);

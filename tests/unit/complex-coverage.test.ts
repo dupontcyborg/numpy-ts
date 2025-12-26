@@ -462,6 +462,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Namespace objects
   linalg: 'skip', // namespace object, not a function
   random: 'skip', // namespace object
+  fft: 'skip', // namespace object
 
   // IO functions
   parseNpy: 'skip',
@@ -493,6 +494,21 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   size: 'skip', // returns size
   geterr: 'skip', // error handling state
   seterr: 'skip', // error handling state
+
+  // Formatting functions (not array operations)
+  array2string: 'skip', // string formatting
+  array_repr: 'skip', // string formatting
+  array_str: 'skip', // string formatting
+  base_repr: 'skip', // number to string
+  binary_repr: 'skip', // number to string
+  format_float_positional: 'skip', // float formatting
+  format_float_scientific: 'skip', // float formatting
+  get_printoptions: 'skip', // print options getter
+  set_printoptions: 'skip', // print options setter
+  printoptions: 'skip', // print options context manager
+
+  // Linear algebra utilities
+  einsum_path: 'skip', // path optimization for einsum
 };
 
 // Type exports that are not runtime values - excluded from checks

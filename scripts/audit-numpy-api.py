@@ -174,7 +174,7 @@ def categorize_functions(functions):
             'nanpercentile', 'nanquantile'
         ],
         'Linear Algebra': [
-            'dot', 'matmul', 'inner', 'outer', 'tensordot', 'einsum', 'kron',
+            'dot', 'matmul', 'inner', 'outer', 'tensordot', 'einsum', 'einsum_path', 'kron',
             'trace', 'diagonal',
             'vdot', 'vecdot', 'vecmat', 'matvec', 'matrix_transpose', 'permute_dims'
         ],
@@ -265,7 +265,7 @@ def categorize_functions(functions):
             'random.bytes', 'random.get_bit_generator', 'random.set_bit_generator',
             'random.random_integers', 'random.random_sample', 'random.ranf', 'random.sample'
         ],
-        'String/Formatting': [
+        'Printing/Formatting': [
             'array2string', 'array_repr', 'array_str',
             'base_repr', 'binary_repr',
             'format_float_positional', 'format_float_scientific',
@@ -278,10 +278,9 @@ def categorize_functions(functions):
         ],
         'Utilities': [
             'apply_along_axis', 'apply_over_axes', 'copyto',
-            'may_share_memory', 'shares_memory', 'byte_bounds',
+            'may_share_memory', 'shares_memory',
             'ndim', 'shape', 'size',
-            'einsum_path', 'show_config', 'info', 'show_runtime',
-            'geterr', 'geterrcall', 'seterr', 'seterrcall', 'seterrobj', 'geterrobj'
+            'geterr', 'seterr'
         ],
         'Polynomials': [
             'poly', 'polyadd', 'polyder', 'polydiv', 'polyfit', 'polyint',
@@ -300,6 +299,9 @@ def categorize_functions(functions):
             'trapz',  # Removed in NumPy 2.0 (use trapezoid instead)
             # Internal/meta
             'get_include', 'get_array_wrap',
+            'show_config', 'show_runtime', 'info',  # NumPy introspection, not applicable to JS
+            'geterrcall', 'seterrcall', 'seterrobj', 'geterrobj',  # FP error callbacks, not applicable to JS
+            'byte_bounds',  # Memory introspection, not applicable to JS
             # Advanced/niche (DLPack, ufuncs, iterators)
             'from_dlpack', 'frompyfunc', 'vectorize', 'piecewise',
             'nested_iters', 'nditer', 'broadcast', 'ndindex', 'ndenumerate', 'flatiter',

@@ -2,14 +2,14 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-22
+**Last Updated**: 2025-12-25
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 411/507 (81.1%)
-- **Top-level Functions**: 407/507 (76.7%)
+- **Overall Coverage**: 440/507 (86.8%)
+- **Top-level Functions**: 436/507 (82.4%)
 - **NDArray Methods**: 167/53 (75.5%)
 
 ### Completed Categories (100%)
@@ -20,15 +20,17 @@ Based on `npm run compare-api`:
 - Broadcasting (3/3)
 - Comparison (10/10)
 - Exponential (9/9)
+- FFT (18/18)
 - Gradient (4/4)
 - Hyperbolic (9/9)
 - I/O (8/8)
 - Indexing (21/21)
-- Linear Algebra (15/15)
+- Linear Algebra (16/16)
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
 - Other Math (15/15)
 - Polynomials (10/10)
+- Printing/Formatting (10/10)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
@@ -37,14 +39,12 @@ Based on `npm run compare-api`:
 - Statistics (11/11)
 - Trigonometric (16/16)
 - Type Checking (7/7)
+- Utilities (10/10)
 
 ### Incomplete Categories
-- FFT (0/18) - 0.0%
 - NDArray Methods (40/53) - 75.5%
 - Random (17/53) - 32.1%
-- String/Formatting (0/10) - 0.0%
-- Unplanned (0/26) - 0.0%
-- Utilities (10/16) - 62.5%
+- Unplanned (0/31) - 0.0%
 
 ---
 
@@ -230,24 +230,24 @@ Based on `npm run compare-api`:
 
 ## FFT
 
-- [ ] `fft.fft` 
-- [ ] `fft.fft2` 
-- [ ] `fft.fftfreq` 
-- [ ] `fft.fftn` 
-- [ ] `fft.fftshift` 
-- [ ] `fft.hfft` 
-- [ ] `fft.ifft` 
-- [ ] `fft.ifft2` 
-- [ ] `fft.ifftn` 
-- [ ] `fft.ifftshift` 
-- [ ] `fft.ihfft` 
-- [ ] `fft.irfft` 
-- [ ] `fft.irfft2` 
-- [ ] `fft.irfftn` 
-- [ ] `fft.rfft` 
-- [ ] `fft.rfft2` 
-- [ ] `fft.rfftfreq` 
-- [ ] `fft.rfftn` 
+- [x] `fft.fft` 
+- [x] `fft.fft2` 
+- [x] `fft.fftfreq` 
+- [x] `fft.fftn` 
+- [x] `fft.fftshift` 
+- [x] `fft.hfft` 
+- [x] `fft.ifft` 
+- [x] `fft.ifft2` 
+- [x] `fft.ifftn` 
+- [x] `fft.ifftshift` 
+- [x] `fft.ihfft` 
+- [x] `fft.irfft` 
+- [x] `fft.irfft2` 
+- [x] `fft.irfftn` 
+- [x] `fft.rfft` 
+- [x] `fft.rfft2` 
+- [x] `fft.rfftfreq` 
+- [x] `fft.rfftn` 
 
 ---
 
@@ -318,6 +318,7 @@ Based on `npm run compare-api`:
 - [x] `diagonal` 
 - [x] `dot` 
 - [x] `einsum` 
+- [x] `einsum_path` 
 - [x] `inner` 
 - [x] `kron` 
 - [x] `matmul` 
@@ -491,6 +492,21 @@ Based on `npm run compare-api`:
 
 ---
 
+## Printing/Formatting
+
+- [x] `array2string` 
+- [x] `array_repr` 
+- [x] `array_str` 
+- [x] `base_repr` 
+- [x] `binary_repr` 
+- [x] `format_float_positional` 
+- [x] `format_float_scientific` 
+- [x] `get_printoptions` 
+- [x] `printoptions` 
+- [x] `set_printoptions` 
+
+---
+
 ## Random
 
 - [ ] `random.beta` 
@@ -658,21 +674,6 @@ Based on `npm run compare-api`:
 
 ---
 
-## String/Formatting
-
-- [ ] `array2string` 
-- [ ] `array_repr` 
-- [ ] `array_str` 
-- [ ] `base_repr` 
-- [ ] `binary_repr` 
-- [ ] `format_float_positional` 
-- [ ] `format_float_scientific` 
-- [ ] `get_printoptions` 
-- [ ] `printoptions` 
-- [ ] `set_printoptions` 
-
----
-
 ## Trigonometric
 
 - [x] `acos` 
@@ -722,16 +723,21 @@ Based on `npm run compare-api`:
 - [ ] `frompyfunc` 
 - [ ] `get_include` 
 - [ ] `getbufsize` 
+- [ ] `geterrcall` 
 - [ ] `getfield` 
 - [ ] `hamming` 
 - [ ] `hanning` 
+- [ ] `info` 
 - [ ] `is_busday` 
 - [ ] `kaiser` 
 - [ ] `nested_iters` 
 - [ ] `piecewise` 
 - [ ] `setbufsize` 
+- [ ] `seterrcall` 
 - [ ] `setfield` 
 - [ ] `setflags` 
+- [ ] `show_config` 
+- [ ] `show_runtime` 
 - [ ] `to_device` 
 - [ ] `trapz` 
 
@@ -742,18 +748,12 @@ Based on `npm run compare-api`:
 - [x] `apply_along_axis` 
 - [x] `apply_over_axes` 
 - [x] `copyto` 
-- [ ] `einsum_path` 
 - [x] `geterr` 
-- [ ] `geterrcall` 
-- [ ] `info` 
 - [x] `may_share_memory` 
 - [x] `ndim` 
 - [x] `seterr` 
-- [ ] `seterrcall` 
 - [x] `shape` 
 - [x] `shares_memory` 
-- [ ] `show_config` 
-- [ ] `show_runtime` 
 - [x] `size` 
 
 ---
