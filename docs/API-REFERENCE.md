@@ -8,9 +8,9 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 476/507 (93.9%)
+- **Overall Coverage**: 483/507 (95.3%)
 - **Top-level Functions**: 472/507 (93.1%)
-- **NDArray Methods**: 167/53 (75.5%)
+- **NDArray Methods**: 47/53 (88.7%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
@@ -43,7 +43,7 @@ Based on `npm run compare-api`:
 - Utilities (10/10)
 
 ### Incomplete Categories
-- NDArray Methods (40/53) - 75.5%
+- NDArray Methods (47/53) - 88.7%
 - Unplanned (0/31) - 0.0%
 
 ---
@@ -409,15 +409,15 @@ Based on `npm run compare-api`:
 - [x] `argsort` 
 - [x] `astype` 
 - [x] `byteswap` 
-- [ ] `choose` 
-- [ ] `clip` 
-- [ ] `compress` 
-- [ ] `conj` 
-- [ ] `conjugate` 
+- [x] `choose` 
+- [x] `clip` 
+- [x] `compress` 
+- [x] `conj` 
+- [x] `conjugate` 
 - [x] `copy` 
 - [x] `cumprod` 
 - [x] `cumsum` 
-- [ ] `diagonal` 
+- [x] `diagonal` 
 - [x] `dot` 
 - [ ] `dump` 
 - [ ] `dumps` 
@@ -435,7 +435,7 @@ Based on `npm run compare-api`:
 - [x] `ravel` 
 - [x] `repeat` 
 - [x] `reshape` 
-- [ ] `resize` 
+- [x] `resize` 
 - [x] `round` 
 - [x] `searchsorted` 
 - [ ] `setfield` 

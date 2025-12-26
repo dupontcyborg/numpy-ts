@@ -2204,6 +2204,89 @@ export class NDArray {
   }
 
   /**
+   * Construct an array from an index array and a list of arrays to choose from
+   * @param choices - Array of NDArrays to choose from
+   * @returns New array with selected elements
+   */
+  choose(choices: NDArray[]): NDArray {
+    const choiceStorages = choices.map((c) => c._storage);
+    const result = advancedOps.choose(this._storage, choiceStorages);
+    return NDArray._fromStorage(result);
+  }
+
+  /**
+   * Clip (limit) the values in an array
+   * @param a_min - Minimum value (null for no minimum)
+   * @param a_max - Maximum value (null for no maximum)
+   * @returns Array with values clipped to [a_min, a_max]
+   */
+  clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray {
+    const minStorage = a_min instanceof NDArray ? a_min._storage : a_min;
+    const maxStorage = a_max instanceof NDArray ? a_max._storage : a_max;
+    const result = arithmeticOps.clip(this._storage, minStorage, maxStorage);
+    return NDArray._fromStorage(result);
+  }
+
+  /**
+   * Return selected slices of this array along given axis
+   * @param condition - Boolean array that selects which entries to return
+   * @param axis - Axis along which to take slices (if undefined, works on flattened array)
+   * @returns Array with selected entries
+   */
+  compress(condition: NDArray | boolean[], axis?: number): NDArray {
+    const condStorage =
+      condition instanceof NDArray
+        ? condition._storage
+        : ArrayStorage.fromData(
+            new Uint8Array(condition.map((b) => (b ? 1 : 0))),
+            [condition.length],
+            'bool'
+          );
+    const result = advancedOps.compress(condStorage, this._storage, axis);
+    return NDArray._fromStorage(result);
+  }
+
+  /**
+   * Return the complex conjugate, element-wise
+   * @returns Complex conjugate of the array
+   */
+  conj(): NDArray {
+    const result = complexOps.conj(this._storage);
+    return NDArray._fromStorage(result);
+  }
+
+  /**
+   * Return the complex conjugate, element-wise (alias for conj)
+   * @returns Complex conjugate of the array
+   */
+  conjugate(): NDArray {
+    return this.conj();
+  }
+
+  /**
+   * Return specified diagonals
+   * @param offset - Offset of the diagonal from the main diagonal (default: 0)
+   * @param axis1 - First axis of the 2-D sub-arrays (default: 0)
+   * @param axis2 - Second axis of the 2-D sub-arrays (default: 1)
+   * @returns Array of diagonals
+   */
+  diagonal(offset: number = 0, axis1: number = 0, axis2: number = 1): NDArray {
+    const result = linalgOps.diagonal(this._storage, offset, axis1, axis2);
+    return NDArray._fromStorage(result);
+  }
+
+  /**
+   * Return a new array with the specified shape
+   * If the new array is larger, it will be filled with repeated copies of the original data
+   * @param newShape - Shape of the resized array
+   * @returns New array with the specified shape
+   */
+  resize(newShape: number[]): NDArray {
+    const result = shapeOps.resize(this._storage, newShape);
+    return NDArray._fromStorage(result);
+  }
+
+  /**
    * Write array to a file (stub - use node.ts module for file operations)
    */
 

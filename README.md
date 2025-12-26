@@ -3,7 +3,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm version](https://img.shields.io/npm/v/numpy-ts)](https://www.npmjs.com/package/numpy-ts)
 ![bundle size](https://img.shields.io/bundlephobia/minzip/numpy-ts)
-![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-94%20%25-green)
+![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-95%20%25-green)
 
 ```
 ███╗   ██╗██╗   ██╗███╗   ███╗██████╗ ██╗   ██╗  ████████╗███████╗
@@ -24,7 +24,7 @@ npm install numpy-ts
 
 ## Why numpy-ts?
 
-- **📊 Extensive API** — **476 of 507 NumPy functions (93.9% coverage)**
+- **📊 Extensive API** — **483 of 507 NumPy functions (95.3% coverage)**
 - **✅ NumPy-validated** — 3000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
@@ -89,11 +89,11 @@ Progress toward complete NumPy API compatibility:
 | **Trigonometric** | 16/16 | 100% | ✅ |
 | **Type Checking** | 7/7 | 100% | ✅ |
 | **Utilities** | 10/10 | 100% | ✅ |
-| **NDArray Methods** | 40/53 | 75% | 🟡 |
+| **NDArray Methods** | 47/53 | 89% | 🟡 |
 | **Random** | 53/53 | 100% | ✅ |
 | **Unplanned** | 0/31 | 0% | 🔴 |
 
-**Overall: 476/507 functions (93.9% coverage)**
+**Overall: 483/507 functions (95.3% coverage)**
 
 See the complete [API Reference](docs/API-REFERENCE.md) for detailed function list.
 
@@ -257,7 +257,7 @@ arr.sum();  // Type: number
 
 | Feature | numpy-ts | numjs | ndarray | TensorFlow.js |
 |---------|----------|-------|---------|---------------|
-| NumPy API Coverage | 476/507 (94%) | ~20% | Different | ML-focused |
+| NumPy API Coverage | 483/507 (95%) | ~20% | Different | ML-focused |
 | TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
 | NumPy Validated | ✅ 4500+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |
