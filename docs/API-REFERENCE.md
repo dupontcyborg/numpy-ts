@@ -8,9 +8,9 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 483/507 (95.3%)
-- **Top-level Functions**: 472/507 (93.1%)
-- **NDArray Methods**: 47/53 (88.7%)
+- **Overall Coverage**: 475/505 (94.1%)
+- **Top-level Functions**: 472/505 (89.7%)
+- **NDArray Methods**: 174/53 (88.7%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
@@ -35,7 +35,7 @@ Based on `npm run compare-api`:
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
-- Set Operations (12/12)
+- Set Operations (11/11)
 - Sorting (6/6)
 - Statistics (11/11)
 - Trigonometric (16/16)
@@ -44,7 +44,7 @@ Based on `npm run compare-api`:
 
 ### Incomplete Categories
 - NDArray Methods (47/53) - 88.7%
-- Unplanned (0/31) - 0.0%
+- Unplanned (0/30) - 0.0%
 
 ---
 
@@ -509,58 +509,58 @@ Based on `npm run compare-api`:
 
 ## Random
 
-- [x] `random.beta`
-- [x] `random.binomial`
-- [x] `random.bytes`
-- [x] `random.chisquare`
-- [x] `random.choice`
-- [x] `random.default_rng`
-- [x] `random.dirichlet`
-- [x] `random.exponential`
-- [x] `random.f`
-- [x] `random.gamma`
-- [x] `random.geometric`
-- [x] `random.get_bit_generator`
-- [x] `random.get_state`
-- [x] `random.gumbel`
-- [x] `random.hypergeometric`
-- [x] `random.laplace`
-- [x] `random.logistic`
-- [x] `random.lognormal`
-- [x] `random.logseries`
-- [x] `random.multinomial`
-- [x] `random.multivariate_normal`
-- [x] `random.negative_binomial`
-- [x] `random.noncentral_chisquare`
-- [x] `random.noncentral_f`
-- [x] `random.normal`
-- [x] `random.pareto`
-- [x] `random.permutation`
-- [x] `random.poisson`
-- [x] `random.power`
-- [x] `random.rand`
-- [x] `random.randint`
-- [x] `random.randn`
-- [x] `random.random`
-- [x] `random.random_integers`
-- [x] `random.random_sample`
-- [x] `random.ranf`
-- [x] `random.rayleigh`
-- [x] `random.sample`
-- [x] `random.seed`
-- [x] `random.set_bit_generator`
-- [x] `random.set_state`
-- [x] `random.shuffle`
-- [x] `random.standard_cauchy`
-- [x] `random.standard_exponential`
-- [x] `random.standard_gamma`
-- [x] `random.standard_normal`
-- [x] `random.standard_t`
-- [x] `random.triangular`
-- [x] `random.uniform`
-- [x] `random.vonmises`
-- [x] `random.wald`
-- [x] `random.weibull`
+- [x] `random.beta` 
+- [x] `random.binomial` 
+- [x] `random.bytes` 
+- [x] `random.chisquare` 
+- [x] `random.choice` 
+- [x] `random.default_rng` 
+- [x] `random.dirichlet` 
+- [x] `random.exponential` 
+- [x] `random.f` 
+- [x] `random.gamma` 
+- [x] `random.geometric` 
+- [x] `random.get_bit_generator` 
+- [x] `random.get_state` 
+- [x] `random.gumbel` 
+- [x] `random.hypergeometric` 
+- [x] `random.laplace` 
+- [x] `random.logistic` 
+- [x] `random.lognormal` 
+- [x] `random.logseries` 
+- [x] `random.multinomial` 
+- [x] `random.multivariate_normal` 
+- [x] `random.negative_binomial` 
+- [x] `random.noncentral_chisquare` 
+- [x] `random.noncentral_f` 
+- [x] `random.normal` 
+- [x] `random.pareto` 
+- [x] `random.permutation` 
+- [x] `random.poisson` 
+- [x] `random.power` 
+- [x] `random.rand` 
+- [x] `random.randint` 
+- [x] `random.randn` 
+- [x] `random.random` 
+- [x] `random.random_integers` 
+- [x] `random.random_sample` 
+- [x] `random.ranf` 
+- [x] `random.rayleigh` 
+- [x] `random.sample` 
+- [x] `random.seed` 
+- [x] `random.set_bit_generator` 
+- [x] `random.set_state` 
+- [x] `random.shuffle` 
+- [x] `random.standard_cauchy` 
+- [x] `random.standard_exponential` 
+- [x] `random.standard_gamma` 
+- [x] `random.standard_normal` 
+- [x] `random.standard_t` 
+- [x] `random.triangular` 
+- [x] `random.uniform` 
+- [x] `random.vonmises` 
+- [x] `random.wald` 
+- [x] `random.weibull` 
 - [x] `random.zipf` 
 
 ---
@@ -632,7 +632,6 @@ Based on `npm run compare-api`:
 
 ## Set Operations
 
-- [x] `in1d` 
 - [x] `intersect1d` 
 - [x] `isin` 
 - [x] `setdiff1d` 
@@ -739,7 +738,6 @@ Based on `npm run compare-api`:
 - [ ] `show_config` 
 - [ ] `show_runtime` 
 - [ ] `to_device` 
-- [ ] `trapz` 
 
 ---
 
