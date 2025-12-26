@@ -25,7 +25,6 @@ Based on `npm run compare-api`:
 - Hyperbolic (9/9)
 - I/O (8/8)
 - Indexing (21/21)
-- Linear Algebra (15/15)
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
 - Other Math (15/15)
@@ -38,13 +37,14 @@ Based on `npm run compare-api`:
 - Statistics (11/11)
 - Trigonometric (16/16)
 - Type Checking (7/7)
+- Utilities (10/10)
 
 ### Incomplete Categories
+- Linear Algebra (15/16) - 93.8%
 - NDArray Methods (40/53) - 75.5%
+- Printing/Formatting (0/10) - 0.0%
 - Random (17/53) - 32.1%
-- String/Formatting (0/10) - 0.0%
-- Unplanned (0/26) - 0.0%
-- Utilities (10/16) - 62.5%
+- Unplanned (0/31) - 0.0%
 
 ---
 
@@ -318,6 +318,7 @@ Based on `npm run compare-api`:
 - [x] `diagonal` 
 - [x] `dot` 
 - [x] `einsum` 
+- [ ] `einsum_path` 
 - [x] `inner` 
 - [x] `kron` 
 - [x] `matmul` 
@@ -491,6 +492,21 @@ Based on `npm run compare-api`:
 
 ---
 
+## Printing/Formatting
+
+- [ ] `array2string` 
+- [ ] `array_repr` 
+- [ ] `array_str` 
+- [ ] `base_repr` 
+- [ ] `binary_repr` 
+- [ ] `format_float_positional` 
+- [ ] `format_float_scientific` 
+- [ ] `get_printoptions` 
+- [ ] `printoptions` 
+- [ ] `set_printoptions` 
+
+---
+
 ## Random
 
 - [ ] `random.beta` 
@@ -658,21 +674,6 @@ Based on `npm run compare-api`:
 
 ---
 
-## String/Formatting
-
-- [ ] `array2string` 
-- [ ] `array_repr` 
-- [ ] `array_str` 
-- [ ] `base_repr` 
-- [ ] `binary_repr` 
-- [ ] `format_float_positional` 
-- [ ] `format_float_scientific` 
-- [ ] `get_printoptions` 
-- [ ] `printoptions` 
-- [ ] `set_printoptions` 
-
----
-
 ## Trigonometric
 
 - [x] `acos` 
@@ -722,16 +723,21 @@ Based on `npm run compare-api`:
 - [ ] `frompyfunc` 
 - [ ] `get_include` 
 - [ ] `getbufsize` 
+- [ ] `geterrcall` 
 - [ ] `getfield` 
 - [ ] `hamming` 
 - [ ] `hanning` 
+- [ ] `info` 
 - [ ] `is_busday` 
 - [ ] `kaiser` 
 - [ ] `nested_iters` 
 - [ ] `piecewise` 
 - [ ] `setbufsize` 
+- [ ] `seterrcall` 
 - [ ] `setfield` 
 - [ ] `setflags` 
+- [ ] `show_config` 
+- [ ] `show_runtime` 
 - [ ] `to_device` 
 - [ ] `trapz` 
 
@@ -742,18 +748,12 @@ Based on `npm run compare-api`:
 - [x] `apply_along_axis` 
 - [x] `apply_over_axes` 
 - [x] `copyto` 
-- [ ] `einsum_path` 
 - [x] `geterr` 
-- [ ] `geterrcall` 
-- [ ] `info` 
 - [x] `may_share_memory` 
 - [x] `ndim` 
 - [x] `seterr` 
-- [ ] `seterrcall` 
 - [x] `shape` 
 - [x] `shares_memory` 
-- [ ] `show_config` 
-- [ ] `show_runtime` 
 - [x] `size` 
 
 ---

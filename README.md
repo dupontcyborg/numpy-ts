@@ -74,7 +74,6 @@ Progress toward complete NumPy API compatibility:
 | **Hyperbolic** | 9/9 | 100% | ✅ |
 | **I/O** | 8/8 | 100% | ✅ |
 | **Indexing** | 21/21 | 100% | ✅ |
-| **Linear Algebra** | 15/15 | 100% | ✅ |
 | **Linear Algebra (linalg)** | 31/31 | 100% | ✅ |
 | **Logic** | 24/24 | 100% | ✅ |
 | **Other Math** | 15/15 | 100% | ✅ |
@@ -87,11 +86,12 @@ Progress toward complete NumPy API compatibility:
 | **Statistics** | 11/11 | 100% | ✅ |
 | **Trigonometric** | 16/16 | 100% | ✅ |
 | **Type Checking** | 7/7 | 100% | ✅ |
+| **Utilities** | 10/10 | 100% | ✅ |
+| **Linear Algebra** | 15/16 | 94% | 🟡 |
 | **NDArray Methods** | 40/53 | 75% | 🟡 |
-| **Utilities** | 10/16 | 62% | 🟡 |
 | **Random** | 17/53 | 32% | 🔴 |
-| **String/Formatting** | 0/10 | 0% | 🔴 |
-| **Unplanned** | 0/26 | 0% | 🔴 |
+| **Printing/Formatting** | 0/10 | 0% | 🔴 |
+| **Unplanned** | 0/31 | 0% | 🔴 |
 
 **Overall: 429/507 functions (84.6% complete)**
 
