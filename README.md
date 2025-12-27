@@ -77,6 +77,7 @@ Progress toward complete NumPy API compatibility:
 | **Linear Algebra** | 16/16 | 100% | ✅ |
 | **Linear Algebra (linalg)** | 31/31 | 100% | ✅ |
 | **Logic** | 24/24 | 100% | ✅ |
+| **NDArray Methods** | 47/47 | 100% | ✅ |
 | **Other Math** | 15/15 | 100% | ✅ |
 | **Polynomials** | 10/10 | 100% | ✅ |
 | **Printing/Formatting** | 10/10 | 100% | ✅ |
@@ -90,7 +91,6 @@ Progress toward complete NumPy API compatibility:
 | **Trigonometric** | 16/16 | 100% | ✅ |
 | **Type Checking** | 7/7 | 100% | ✅ |
 | **Utilities** | 10/10 | 100% | ✅ |
-| **NDArray Methods** | 47/53 | 89% | 🟡 |
 | **Unplanned** | 0/30 | 0% | 🔴 |
 
 **Overall: 475/505 functions (94.1% coverage)**

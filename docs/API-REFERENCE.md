@@ -2,7 +2,7 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-26
+**Last Updated**: 2025-12-27
 
 ## Progress Summary
 
@@ -10,7 +10,7 @@ Based on `npm run compare-api`:
 
 - **Overall Coverage**: 475/505 (94.1%)
 - **Top-level Functions**: 472/505 (89.7%)
-- **NDArray Methods**: 174/53 (88.7%)
+- **NDArray Methods**: 174/47 (100.0%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
@@ -28,6 +28,7 @@ Based on `npm run compare-api`:
 - Linear Algebra (16/16)
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
+- NDArray Methods (47/47)
 - Other Math (15/15)
 - Polynomials (10/10)
 - Printing/Formatting (10/10)
@@ -43,7 +44,6 @@ Based on `npm run compare-api`:
 - Utilities (10/10)
 
 ### Incomplete Categories
-- NDArray Methods (47/53) - 88.7%
 - Unplanned (0/30) - 0.0%
 
 ---
