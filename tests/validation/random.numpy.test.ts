@@ -539,4 +539,535 @@ result = rng.uniform(-5, 5, 5)
       expect(arr1).toEqual(arr2);
     });
   });
+
+  // ============================================================
+  // NumPy Validation tests for new distributions
+  // These tests validate statistical properties match NumPy
+  // ============================================================
+
+  describe('random.gamma', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.gamma(2, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.gamma(2, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.dtype).toBe(pyResult.dtype);
+
+      // Verify statistical properties
+      random.seed(42);
+      const jsSamples = random.gamma(3, 2, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      // Mean of gamma(shape, scale) = shape * scale = 6
+      expect(Math.abs(mean - 6)).toBeLessThan(0.3);
+    });
+  });
+
+  describe('random.beta', () => {
+    it('matches NumPy output shape and produces values in [0, 1]', () => {
+      const jsResult = random.beta(2, 5, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.beta(2, 5, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.dtype).toBe(pyResult.dtype);
+
+      // Verify range
+      random.seed(42);
+      const jsSamples = random.beta(2, 5, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(1);
+      }
+
+      // Mean of beta(a, b) = a / (a + b)
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 2 / 7)).toBeLessThan(0.02);
+    });
+  });
+
+  describe('random.chisquare', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.chisquare(5, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.chisquare(5, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Mean of chi-square = df
+      random.seed(42);
+      const jsSamples = random.chisquare(5, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 5)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('random.f', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.f(5, 10, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.f(5, 10, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Mean of F(d1, d2) when d2 > 2 is d2 / (d2 - 2)
+      random.seed(42);
+      const jsSamples = random.f(5, 10, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 10 / 8)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('random.laplace', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.laplace(0, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.laplace(0, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.dtype).toBe(pyResult.dtype);
+
+      // Mean of laplace(loc, scale) = loc
+      random.seed(42);
+      const jsSamples = random.laplace(5, 2, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 5)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('random.logistic', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.logistic(0, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.logistic(0, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.dtype).toBe(pyResult.dtype);
+
+      // Mean of logistic(loc, scale) = loc
+      random.seed(42);
+      const jsSamples = random.logistic(5, 2, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 5)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('random.lognormal', () => {
+    it('matches NumPy output shape and produces positive values', () => {
+      const jsResult = random.lognormal(0, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.lognormal(0, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.dtype).toBe(pyResult.dtype);
+
+      // All values should be positive
+      random.seed(42);
+      const jsSamples = random.lognormal(0, 1, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('random.gumbel', () => {
+    it('matches NumPy output shape', () => {
+      const jsResult = random.gumbel(0, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.gumbel(0, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+      expect(jsResult.dtype).toBe(pyResult.dtype);
+    });
+  });
+
+  describe('random.pareto', () => {
+    it('matches NumPy output shape and produces values >= 0', () => {
+      const jsResult = random.pareto(2, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.pareto(2, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.pareto(2, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThanOrEqual(0);
+      }
+    });
+  });
+
+  describe('random.power', () => {
+    it('matches NumPy output shape and produces values in [0, 1]', () => {
+      const jsResult = random.power(2, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.power(2, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.power(2, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(1);
+      }
+    });
+  });
+
+  describe('random.rayleigh', () => {
+    it('matches NumPy output shape and produces positive values', () => {
+      const jsResult = random.rayleigh(1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.rayleigh(1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.rayleigh(1, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('random.triangular', () => {
+    it('matches NumPy output shape and produces values in range', () => {
+      const jsResult = random.triangular(0, 0.5, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.triangular(0, 0.5, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.triangular(0, 0.5, 1, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(1);
+      }
+
+      // Mean = (left + mode + right) / 3
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 0.5)).toBeLessThan(0.02);
+    });
+  });
+
+  describe('random.wald', () => {
+    it('matches NumPy output shape and produces positive values', () => {
+      const jsResult = random.wald(1, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.wald(1, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.wald(1, 1, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('random.weibull', () => {
+    it('matches NumPy output shape and produces non-negative values', () => {
+      const jsResult = random.weibull(2, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.weibull(2, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.weibull(2, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThanOrEqual(0);
+      }
+    });
+  });
+
+  describe('random.geometric', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.geometric(0.5, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.geometric(0.5, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Mean of geometric(p) = 1/p
+      random.seed(42);
+      const jsSamples = random.geometric(0.3, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + Number(b), 0) / data.length;
+      expect(Math.abs(mean - 1 / 0.3)).toBeLessThan(0.3);
+    });
+  });
+
+  describe('random.hypergeometric', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.hypergeometric(10, 10, 5, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.hypergeometric(10, 10, 5, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Mean of hypergeometric(ngood, nbad, nsample) = nsample * ngood / (ngood + nbad)
+      random.seed(42);
+      const jsSamples = random.hypergeometric(20, 30, 10, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + Number(b), 0) / data.length;
+      expect(Math.abs(mean - (10 * 20) / 50)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('random.logseries', () => {
+    it('matches NumPy output shape and produces positive integers', () => {
+      const jsResult = random.logseries(0.5, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.logseries(0.5, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.logseries(0.5, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(Number(val)).toBeGreaterThanOrEqual(1);
+      }
+    });
+  });
+
+  describe('random.negative_binomial', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const jsResult = random.negative_binomial(5, 0.5, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.negative_binomial(5, 0.5, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Mean of negative_binomial(n, p) = n * (1-p) / p
+      random.seed(42);
+      const jsSamples = random.negative_binomial(5, 0.3, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + Number(b), 0) / data.length;
+      expect(Math.abs(mean - (5 * 0.7) / 0.3)).toBeLessThan(1);
+    });
+  });
+
+  describe('random.zipf', () => {
+    it('matches NumPy output shape and produces positive integers', () => {
+      const jsResult = random.zipf(2, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.zipf(2, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.zipf(2, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(Number(val)).toBeGreaterThanOrEqual(1);
+      }
+    });
+  });
+
+  describe('random.multinomial', () => {
+    it('matches NumPy output shape', () => {
+      const jsResult = random.multinomial(10, [0.2, 0.3, 0.5], 5) as any;
+      const pyResult = runNumPy(`
+result = np.random.multinomial(10, [0.2, 0.3, 0.5], 5)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Each row should sum to n
+      random.seed(42);
+      const jsSamples = random.multinomial(10, [0.2, 0.3, 0.5]) as any;
+      const data = jsSamples.toArray() as number[];
+      const sum = data.reduce((a, b) => a + Number(b), 0);
+      expect(sum).toBe(10);
+    });
+  });
+
+  describe('random.multivariate_normal', () => {
+    it('matches NumPy output shape and produces correct mean', () => {
+      const mean = [0, 0];
+      const cov = [
+        [1, 0],
+        [0, 1],
+      ];
+      const jsResult = random.multivariate_normal(mean, cov, 5) as any;
+      const pyResult = runNumPy(`
+result = np.random.multivariate_normal([0, 0], [[1, 0], [0, 1]], 5)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Check means
+      random.seed(42);
+      const jsSamples = random.multivariate_normal(
+        [5, 10],
+        [
+          [1, 0],
+          [0, 1],
+        ],
+        1000
+      ) as any;
+      const data = jsSamples.data as Float64Array;
+      let sum0 = 0,
+        sum1 = 0;
+      for (let i = 0; i < 1000; i++) {
+        sum0 += data[i * 2]!;
+        sum1 += data[i * 2 + 1]!;
+      }
+      expect(Math.abs(sum0 / 1000 - 5)).toBeLessThan(0.2);
+      expect(Math.abs(sum1 / 1000 - 10)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('random.dirichlet', () => {
+    it('matches NumPy output shape and sums to 1', () => {
+      const jsResult = random.dirichlet([1, 2, 3], 5) as any;
+      const pyResult = runNumPy(`
+result = np.random.dirichlet([1, 2, 3], 5)
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Each sample should sum to 1
+      random.seed(42);
+      const jsSamples = random.dirichlet([1, 2, 3]) as any;
+      const data = jsSamples.toArray() as number[];
+      const sum = data.reduce((a, b) => a + b, 0);
+      expect(Math.abs(sum - 1)).toBeLessThan(1e-10);
+    });
+  });
+
+  describe('random.vonmises', () => {
+    it('matches NumPy output shape and produces values in [-pi, pi]', () => {
+      const jsResult = random.vonmises(0, 1, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.vonmises(0, 1, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      random.seed(42);
+      const jsSamples = random.vonmises(0, 1, 1000) as any;
+      const data = jsSamples.toArray() as number[];
+      for (const val of data) {
+        expect(val).toBeGreaterThanOrEqual(-Math.PI);
+        expect(val).toBeLessThanOrEqual(Math.PI);
+      }
+    });
+  });
+
+  describe('random.standard_cauchy', () => {
+    it('matches NumPy output shape', () => {
+      const jsResult = random.standard_cauchy([3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.standard_cauchy((3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+    });
+  });
+
+  describe('random.standard_t', () => {
+    it('matches NumPy output shape', () => {
+      const jsResult = random.standard_t(5, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.standard_t(5, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+    });
+  });
+
+  describe('random.standard_exponential', () => {
+    it('matches NumPy output shape and mean', () => {
+      const jsResult = random.standard_exponential([3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.standard_exponential((3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Mean of standard exponential = 1
+      random.seed(42);
+      const jsSamples = random.standard_exponential(10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 1)).toBeLessThan(0.1);
+    });
+  });
+
+  describe('random.standard_gamma', () => {
+    it('matches NumPy output shape', () => {
+      const jsResult = random.standard_gamma(2, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.standard_gamma(2, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+    });
+  });
+
+  describe('random.noncentral_chisquare', () => {
+    it('matches NumPy output shape and mean', () => {
+      const jsResult = random.noncentral_chisquare(5, 2, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.noncentral_chisquare(5, 2, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+
+      // Mean = df + nonc
+      random.seed(42);
+      const jsSamples = random.noncentral_chisquare(5, 2, 10000) as any;
+      const data = jsSamples.toArray() as number[];
+      const mean = data.reduce((a, b) => a + b, 0) / data.length;
+      expect(Math.abs(mean - 7)).toBeLessThan(0.3);
+    });
+  });
+
+  describe('random.noncentral_f', () => {
+    it('matches NumPy output shape', () => {
+      const jsResult = random.noncentral_f(5, 10, 2, [3, 4]) as any;
+      const pyResult = runNumPy(`
+result = np.random.noncentral_f(5, 10, 2, (3, 4))
+      `);
+
+      expect(jsResult.shape).toEqual(pyResult.shape);
+    });
+  });
 });

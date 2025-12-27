@@ -431,12 +431,33 @@ function wrapResult<T>(result: T): T | NDArrayClass {
 }
 
 export const random = {
+  // State management
   seed: randomOps.seed,
+  get_state: randomOps.get_state,
+  set_state: randomOps.set_state,
+  get_bit_generator: randomOps.get_bit_generator,
+  set_bit_generator: randomOps.set_bit_generator,
+  default_rng: randomOps.default_rng,
+  Generator: randomOps.Generator,
+
+  // Basic random functions
   random: (size?: number | number[]) => wrapResult(randomOps.random(size)),
   rand: (...shape: number[]) => wrapResult(randomOps.rand(...shape)),
   randn: (...shape: number[]) => wrapResult(randomOps.randn(...shape)),
   randint: (low: number, high?: number | null, size?: number | number[], dtype?: DType) =>
     wrapResult(randomOps.randint(low, high, size, dtype)),
+
+  // Aliases
+  random_sample: (size?: number | number[]) => wrapResult(randomOps.random_sample(size)),
+  ranf: (size?: number | number[]) => wrapResult(randomOps.ranf(size)),
+  sample: (size?: number | number[]) => wrapResult(randomOps.sample(size)),
+  random_integers: (low: number, high?: number, size?: number | number[]) =>
+    wrapResult(randomOps.random_integers(low, high, size)),
+
+  // Infrastructure
+  bytes: randomOps.bytes,
+
+  // Continuous distributions
   uniform: (low?: number, high?: number, size?: number | number[]) =>
     wrapResult(randomOps.uniform(low, high, size)),
   normal: (loc?: number, scale?: number, size?: number | number[]) =>
@@ -444,9 +465,72 @@ export const random = {
   standard_normal: (size?: number | number[]) => wrapResult(randomOps.standard_normal(size)),
   exponential: (scale?: number, size?: number | number[]) =>
     wrapResult(randomOps.exponential(scale, size)),
+  standard_exponential: (size?: number | number[]) =>
+    wrapResult(randomOps.standard_exponential(size)),
+
+  // Gamma family
+  gamma: (shape: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.gamma(shape, scale, size)),
+  standard_gamma: (shape: number, size?: number | number[]) =>
+    wrapResult(randomOps.standard_gamma(shape, size)),
+  beta: (a: number, b: number, size?: number | number[]) => wrapResult(randomOps.beta(a, b, size)),
+  chisquare: (df: number, size?: number | number[]) => wrapResult(randomOps.chisquare(df, size)),
+  noncentral_chisquare: (df: number, nonc: number, size?: number | number[]) =>
+    wrapResult(randomOps.noncentral_chisquare(df, nonc, size)),
+  f: (dfnum: number, dfden: number, size?: number | number[]) =>
+    wrapResult(randomOps.f(dfnum, dfden, size)),
+  noncentral_f: (dfnum: number, dfden: number, nonc: number, size?: number | number[]) =>
+    wrapResult(randomOps.noncentral_f(dfnum, dfden, nonc, size)),
+
+  // Other continuous distributions
+  standard_cauchy: (size?: number | number[]) => wrapResult(randomOps.standard_cauchy(size)),
+  standard_t: (df: number, size?: number | number[]) => wrapResult(randomOps.standard_t(df, size)),
+  laplace: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.laplace(loc, scale, size)),
+  logistic: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.logistic(loc, scale, size)),
+  lognormal: (mean?: number, sigma?: number, size?: number | number[]) =>
+    wrapResult(randomOps.lognormal(mean, sigma, size)),
+  gumbel: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.gumbel(loc, scale, size)),
+  pareto: (a: number, size?: number | number[]) => wrapResult(randomOps.pareto(a, size)),
+  power: (a: number, size?: number | number[]) => wrapResult(randomOps.power(a, size)),
+  rayleigh: (scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.rayleigh(scale, size)),
+  triangular: (left: number, mode: number, right: number, size?: number | number[]) =>
+    wrapResult(randomOps.triangular(left, mode, right, size)),
+  wald: (mean: number, scale: number, size?: number | number[]) =>
+    wrapResult(randomOps.wald(mean, scale, size)),
+  weibull: (a: number, size?: number | number[]) => wrapResult(randomOps.weibull(a, size)),
+
+  // Discrete distributions
   poisson: (lam?: number, size?: number | number[]) => wrapResult(randomOps.poisson(lam, size)),
   binomial: (n: number, p: number, size?: number | number[]) =>
     wrapResult(randomOps.binomial(n, p, size)),
+  geometric: (p: number, size?: number | number[]) => wrapResult(randomOps.geometric(p, size)),
+  hypergeometric: (ngood: number, nbad: number, nsample: number, size?: number | number[]) =>
+    wrapResult(randomOps.hypergeometric(ngood, nbad, nsample, size)),
+  logseries: (p: number, size?: number | number[]) => wrapResult(randomOps.logseries(p, size)),
+  negative_binomial: (n: number, p: number, size?: number | number[]) =>
+    wrapResult(randomOps.negative_binomial(n, p, size)),
+  zipf: (a: number, size?: number | number[]) => wrapResult(randomOps.zipf(a, size)),
+
+  // Multivariate distributions
+  multinomial: (n: number, pvals: number[] | ArrayStorage, size?: number | number[]) =>
+    wrapResult(randomOps.multinomial(n, pvals, size)),
+  multivariate_normal: (
+    mean: number[] | ArrayStorage,
+    cov: number[][] | ArrayStorage,
+    size?: number | number[],
+    check_valid?: 'warn' | 'raise' | 'ignore',
+    tol?: number
+  ) => wrapResult(randomOps.multivariate_normal(mean, cov, size, check_valid, tol)),
+  dirichlet: (alpha: number[] | ArrayStorage, size?: number | number[]) =>
+    wrapResult(randomOps.dirichlet(alpha, size)),
+  vonmises: (mu: number, kappa: number, size?: number | number[]) =>
+    wrapResult(randomOps.vonmises(mu, kappa, size)),
+
+  // Sequence operations
   choice: (
     a: number | ArrayStorage,
     size?: number | number[],
@@ -455,10 +539,6 @@ export const random = {
   ) => wrapResult(randomOps.choice(a, size, replace, p)),
   permutation: (x: number | ArrayStorage) => wrapResult(randomOps.permutation(x)),
   shuffle: randomOps.shuffle,
-  get_state: randomOps.get_state,
-  set_state: randomOps.set_state,
-  default_rng: randomOps.default_rng,
-  Generator: randomOps.Generator,
 };
 
 // FFT namespace (np.fft)

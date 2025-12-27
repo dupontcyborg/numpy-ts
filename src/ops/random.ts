@@ -980,3 +980,1227 @@ function shuffleImpl(x: ArrayStorage, rng: () => number = mtRandomFloat53): void
 export function shuffle(x: ArrayStorage): void {
   shuffleImpl(x, mtRandomFloat53);
 }
+
+// ============================================================================
+// Simple Aliases (for NumPy compatibility)
+// ============================================================================
+
+/**
+ * Return random floats in the half-open interval [0.0, 1.0)
+ * Alias for random()
+ * @param size - Output shape
+ */
+export function random_sample(size?: number | number[]): ArrayStorage | number {
+  return random(size);
+}
+
+/**
+ * Return random floats in the half-open interval [0.0, 1.0)
+ * Alias for random()
+ * @param size - Output shape
+ */
+export function ranf(size?: number | number[]): ArrayStorage | number {
+  return random(size);
+}
+
+/**
+ * Return random floats in the half-open interval [0.0, 1.0)
+ * Alias for random()
+ * @param size - Output shape
+ */
+export function sample(size?: number | number[]): ArrayStorage | number {
+  return random(size);
+}
+
+/**
+ * Return random integers between low and high, inclusive (DEPRECATED)
+ * @deprecated Use randint instead
+ * @param low - Lowest integer
+ * @param high - Highest integer (inclusive, unlike randint)
+ * @param size - Output shape
+ */
+export function random_integers(
+  low: number,
+  high?: number,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (high === undefined) {
+    high = low;
+    low = 1;
+  }
+  // random_integers is inclusive on both ends, so add 1 to high for randint
+  return randint(low, high + 1, size);
+}
+
+// ============================================================================
+// Infrastructure functions
+// ============================================================================
+
+/**
+ * Return random bytes
+ * @param length - Number of bytes to return
+ */
+export function bytes(length: number): Uint8Array {
+  const result = new Uint8Array(length);
+  for (let i = 0; i < length; i++) {
+    result[i] = mtRandom() & 0xff;
+  }
+  return result;
+}
+
+// Bit generator interface for compatibility
+interface BitGenerator {
+  name: string;
+  state: object;
+}
+
+let _currentBitGenerator: BitGenerator = {
+  name: 'MT19937',
+  state: _mtState,
+};
+
+/**
+ * Get the current bit generator
+ * @returns The current bit generator object
+ */
+export function get_bit_generator(): BitGenerator {
+  return _currentBitGenerator;
+}
+
+/**
+ * Set the bit generator
+ * @param bitgen - The bit generator to use
+ */
+export function set_bit_generator(bitgen: BitGenerator): void {
+  _currentBitGenerator = bitgen;
+}
+
+// ============================================================================
+// Standard distribution functions
+// ============================================================================
+
+/**
+ * Draw samples from the standard exponential distribution (scale=1)
+ * @param size - Output shape
+ */
+export function standard_exponential(size?: number | number[]): ArrayStorage | number {
+  return exponential(1, size);
+}
+
+/**
+ * Draw samples from a standard gamma distribution
+ * Uses Marsaglia and Tsang's method
+ * @param shape - Shape parameter (alpha, must be > 0)
+ * @param size - Output shape
+ */
+export function standard_gamma(shape: number, size?: number | number[]): ArrayStorage | number {
+  if (shape <= 0) {
+    throw new Error('shape must be positive');
+  }
+  return gamma(shape, 1, size);
+}
+
+/**
+ * Draw samples from a standard Cauchy distribution
+ * @param size - Output shape
+ */
+export function standard_cauchy(size?: number | number[]): ArrayStorage | number {
+  if (size === undefined) {
+    return Math.tan(Math.PI * (mtRandomFloat53() - 0.5));
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = Math.tan(Math.PI * (mtRandomFloat53() - 0.5));
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a standard Student's t distribution with df degrees of freedom
+ * @param df - Degrees of freedom (must be > 0)
+ * @param size - Output shape
+ */
+export function standard_t(df: number, size?: number | number[]): ArrayStorage | number {
+  if (df <= 0) {
+    throw new Error('df must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    // t = N(0,1) / sqrt(chi2(df) / df)
+    const z = boxMullerTransform(rng);
+    const chi2 = gammaSample(df / 2, 2, rng);
+    return z / Math.sqrt(chi2 / df);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+// ============================================================================
+// Gamma distribution (needed for many other distributions)
+// ============================================================================
+
+/**
+ * Generate a single gamma sample using Marsaglia and Tsang's method
+ */
+function gammaSample(shape: number, scale: number, rng: () => number): number {
+  if (shape < 1) {
+    // For shape < 1, use Ahrens-Dieter method
+    const u = rng();
+    return gammaSample(1 + shape, scale, rng) * Math.pow(u, 1 / shape);
+  }
+
+  // Marsaglia and Tsang's method for shape >= 1
+  const d = shape - 1 / 3;
+  const c = 1 / Math.sqrt(9 * d);
+
+  while (true) {
+    let x: number;
+    let v: number;
+
+    do {
+      x = boxMullerTransform(rng);
+      v = 1 + c * x;
+    } while (v <= 0);
+
+    v = v * v * v;
+    const u = rng();
+    const x2 = x * x;
+
+    if (u < 1 - 0.0331 * x2 * x2) {
+      return d * v * scale;
+    }
+
+    if (Math.log(u) < 0.5 * x2 + d * (1 - v + Math.log(v))) {
+      return d * v * scale;
+    }
+  }
+}
+
+/**
+ * Draw samples from a Gamma distribution
+ * @param shape - Shape parameter (k, alpha) (must be > 0)
+ * @param scale - Scale parameter (theta) (default 1.0)
+ * @param size - Output shape
+ */
+export function gamma(
+  shape: number,
+  scale: number = 1,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (shape <= 0) {
+    throw new Error('shape must be positive');
+  }
+  if (scale <= 0) {
+    throw new Error('scale must be positive');
+  }
+
+  if (size === undefined) {
+    return gammaSample(shape, scale, mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = gammaSample(shape, scale, mtRandomFloat53);
+  }
+  return result;
+}
+
+// ============================================================================
+// Two-parameter continuous distributions
+// ============================================================================
+
+/**
+ * Draw samples from a Beta distribution
+ * @param a - Alpha parameter (must be > 0)
+ * @param b - Beta parameter (must be > 0)
+ * @param size - Output shape
+ */
+export function beta(a: number, b: number, size?: number | number[]): ArrayStorage | number {
+  if (a <= 0 || b <= 0) {
+    throw new Error('a and b must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const x = gammaSample(a, 1, rng);
+    const y = gammaSample(b, 1, rng);
+    return x / (x + y);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a Laplace (double exponential) distribution
+ * @param loc - Location parameter (default 0)
+ * @param scale - Scale parameter (default 1)
+ * @param size - Output shape
+ */
+export function laplace(
+  loc: number = 0,
+  scale: number = 1,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (scale <= 0) {
+    throw new Error('scale must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng() - 0.5;
+    return loc - scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a logistic distribution
+ * @param loc - Location parameter (default 0)
+ * @param scale - Scale parameter (default 1)
+ * @param size - Output shape
+ */
+export function logistic(
+  loc: number = 0,
+  scale: number = 1,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (scale <= 0) {
+    throw new Error('scale must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng();
+    return loc + scale * Math.log(u / (1 - u));
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a log-normal distribution
+ * @param mean - Mean of the underlying normal distribution (default 0)
+ * @param sigma - Standard deviation of the underlying normal (default 1)
+ * @param size - Output shape
+ */
+export function lognormal(
+  mean: number = 0,
+  sigma: number = 1,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (sigma <= 0) {
+    throw new Error('sigma must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    return Math.exp(mean + sigma * boxMullerTransform(rng));
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a Gumbel distribution
+ * @param loc - Location parameter (default 0)
+ * @param scale - Scale parameter (default 1)
+ * @param size - Output shape
+ */
+export function gumbel(
+  loc: number = 0,
+  scale: number = 1,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (scale <= 0) {
+    throw new Error('scale must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng();
+    return loc - scale * Math.log(-Math.log(u));
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a Pareto II (Lomax) distribution
+ * @param a - Shape parameter (must be > 0)
+ * @param size - Output shape
+ */
+export function pareto(a: number, size?: number | number[]): ArrayStorage | number {
+  if (a <= 0) {
+    throw new Error('a must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng();
+    return Math.pow(1 - u, -1 / a) - 1;
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a power distribution with positive exponent a-1
+ * @param a - Shape parameter (must be > 0)
+ * @param size - Output shape
+ */
+export function power(a: number, size?: number | number[]): ArrayStorage | number {
+  if (a <= 0) {
+    throw new Error('a must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng();
+    return Math.pow(u, 1 / a);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a Rayleigh distribution
+ * @param scale - Scale parameter (default 1)
+ * @param size - Output shape
+ */
+export function rayleigh(scale: number = 1, size?: number | number[]): ArrayStorage | number {
+  if (scale <= 0) {
+    throw new Error('scale must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng();
+    return scale * Math.sqrt(-2 * Math.log(u));
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a triangular distribution
+ * @param left - Lower limit
+ * @param mode - Mode (peak)
+ * @param right - Upper limit
+ * @param size - Output shape
+ */
+export function triangular(
+  left: number,
+  mode: number,
+  right: number,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (left > mode || mode > right || left === right) {
+    throw new Error('must have left <= mode <= right and left < right');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng();
+    const fc = (mode - left) / (right - left);
+    if (u < fc) {
+      return left + Math.sqrt(u * (right - left) * (mode - left));
+    } else {
+      return right - Math.sqrt((1 - u) * (right - left) * (right - mode));
+    }
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a Wald (inverse Gaussian) distribution
+ * @param mean - Mean of distribution (must be > 0)
+ * @param scale - Scale parameter (must be > 0)
+ * @param size - Output shape
+ */
+export function wald(mean: number, scale: number, size?: number | number[]): ArrayStorage | number {
+  if (mean <= 0) {
+    throw new Error('mean must be positive');
+  }
+  if (scale <= 0) {
+    throw new Error('scale must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const v = boxMullerTransform(rng);
+    const y = v * v;
+    const mu_2l = mean / (2 * scale);
+    const x = mean + mu_2l * (mean * y - Math.sqrt(4 * mean * scale * y + mean * mean * y * y));
+    const u = rng();
+    if (u <= mean / (mean + x)) {
+      return x;
+    } else {
+      return (mean * mean) / x;
+    }
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a Weibull distribution
+ * @param a - Shape parameter (must be > 0)
+ * @param size - Output shape
+ */
+export function weibull(a: number, size?: number | number[]): ArrayStorage | number {
+  if (a <= 0) {
+    throw new Error('a must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const u = rng();
+    return Math.pow(-Math.log(1 - u), 1 / a);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+// ============================================================================
+// Chi-square family of distributions
+// ============================================================================
+
+/**
+ * Draw samples from a chi-square distribution
+ * @param df - Degrees of freedom (must be > 0)
+ * @param size - Output shape
+ */
+export function chisquare(df: number, size?: number | number[]): ArrayStorage | number {
+  if (df <= 0) {
+    throw new Error('df must be positive');
+  }
+  // chi-square(df) = gamma(df/2, 2)
+  return gamma(df / 2, 2, size);
+}
+
+/**
+ * Draw samples from a noncentral chi-square distribution
+ * @param df - Degrees of freedom (must be > 0)
+ * @param nonc - Non-centrality parameter (must be >= 0)
+ * @param size - Output shape
+ */
+export function noncentral_chisquare(
+  df: number,
+  nonc: number,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (df <= 0) {
+    throw new Error('df must be positive');
+  }
+  if (nonc < 0) {
+    throw new Error('nonc must be non-negative');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    // Use Poisson mixture representation
+    if (nonc === 0) {
+      return gammaSample(df / 2, 2, rng);
+    }
+    const i = poissonSample(nonc / 2, rng);
+    return gammaSample(df / 2 + i, 2, rng);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from an F distribution
+ * @param dfnum - Degrees of freedom in numerator (must be > 0)
+ * @param dfden - Degrees of freedom in denominator (must be > 0)
+ * @param size - Output shape
+ */
+export function f(dfnum: number, dfden: number, size?: number | number[]): ArrayStorage | number {
+  if (dfnum <= 0) {
+    throw new Error('dfnum must be positive');
+  }
+  if (dfden <= 0) {
+    throw new Error('dfden must be positive');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    const chi1 = gammaSample(dfnum / 2, 2, rng);
+    const chi2 = gammaSample(dfden / 2, 2, rng);
+    return chi1 / dfnum / (chi2 / dfden);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a noncentral F distribution
+ * @param dfnum - Degrees of freedom in numerator (must be > 0)
+ * @param dfden - Degrees of freedom in denominator (must be > 0)
+ * @param nonc - Non-centrality parameter (must be >= 0)
+ * @param size - Output shape
+ */
+export function noncentral_f(
+  dfnum: number,
+  dfden: number,
+  nonc: number,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (dfnum <= 0) {
+    throw new Error('dfnum must be positive');
+  }
+  if (dfden <= 0) {
+    throw new Error('dfden must be positive');
+  }
+  if (nonc < 0) {
+    throw new Error('nonc must be non-negative');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    // Noncentral F = (noncentral chi-square(dfnum, nonc) / dfnum) / (chi-square(dfden) / dfden)
+    const nc_chi2 =
+      nonc === 0
+        ? gammaSample(dfnum / 2, 2, rng)
+        : gammaSample(dfnum / 2 + poissonSample(nonc / 2, rng), 2, rng);
+    const chi2 = gammaSample(dfden / 2, 2, rng);
+    return nc_chi2 / dfnum / (chi2 / dfden);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}
+
+// ============================================================================
+// Integer distributions
+// ============================================================================
+
+/**
+ * Draw samples from a geometric distribution
+ * @param p - Probability of success (0 < p <= 1)
+ * @param size - Output shape
+ */
+export function geometric(p: number, size?: number | number[]): ArrayStorage | number {
+  if (p <= 0 || p > 1) {
+    throw new Error('p must be in (0, 1]');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    if (p === 1) return 1;
+    const u = rng();
+    return Math.floor(Math.log(u) / Math.log(1 - p)) + 1;
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'int64');
+  const data = result.data as BigInt64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = BigInt(generateSample(mtRandomFloat53));
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a hypergeometric distribution
+ * @param ngood - Number of good elements in population
+ * @param nbad - Number of bad elements in population
+ * @param nsample - Number of items to sample
+ * @param size - Output shape
+ */
+export function hypergeometric(
+  ngood: number,
+  nbad: number,
+  nsample: number,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (ngood < 0) throw new Error('ngood must be non-negative');
+  if (nbad < 0) throw new Error('nbad must be non-negative');
+  if (nsample < 0) throw new Error('nsample must be non-negative');
+  if (nsample > ngood + nbad) throw new Error('nsample must be <= ngood + nbad');
+
+  const generateSample = (rng: () => number): number => {
+    // Simple simulation
+    let good = ngood;
+    let bad = nbad;
+    let drawnGood = 0;
+    let remaining = nsample;
+
+    while (remaining > 0) {
+      const total = good + bad;
+      if (total === 0) break;
+      const u = rng();
+      if (u < good / total) {
+        drawnGood++;
+        good--;
+      } else {
+        bad--;
+      }
+      remaining--;
+    }
+    return drawnGood;
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'int64');
+  const data = result.data as BigInt64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = BigInt(generateSample(mtRandomFloat53));
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a logarithmic series distribution
+ * @param p - Shape parameter (0 < p < 1)
+ * @param size - Output shape
+ */
+export function logseries(p: number, size?: number | number[]): ArrayStorage | number {
+  if (p <= 0 || p >= 1) {
+    throw new Error('p must be in (0, 1)');
+  }
+
+  const r = Math.log(1 - p);
+
+  const generateSample = (rng: () => number): number => {
+    // Kemp's algorithm
+    const u = rng();
+    const v = rng();
+    const q = 1 - Math.exp(r * u);
+    if (v >= q) return 1;
+    if (v === 0) return 1; // Avoid log(0)
+    const logV = Math.log(v);
+    const logQ = Math.log(q);
+    if (logV >= logQ) return 1;
+    if (logV >= 2 * logQ) return 2;
+    return Math.floor(1 + logV / logQ);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'int64');
+  const data = result.data as BigInt64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = BigInt(generateSample(mtRandomFloat53));
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a negative binomial distribution
+ * @param n - Number of successes (must be > 0)
+ * @param p - Probability of success (0 < p <= 1)
+ * @param size - Output shape
+ */
+export function negative_binomial(
+  n: number,
+  p: number,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (n <= 0) {
+    throw new Error('n must be positive');
+  }
+  if (p <= 0 || p > 1) {
+    throw new Error('p must be in (0, 1]');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    // Use Poisson-gamma mixture: NegBin(n, p) = Poisson(Gamma(n, (1-p)/p))
+    if (p === 1) return 0;
+    const y = gammaSample(n, (1 - p) / p, rng);
+    return poissonSample(y, rng);
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'int64');
+  const data = result.data as BigInt64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = BigInt(generateSample(mtRandomFloat53));
+  }
+  return result;
+}
+
+/**
+ * Draw samples from a Zipf distribution
+ * @param a - Distribution parameter (must be > 1)
+ * @param size - Output shape
+ */
+export function zipf(a: number, size?: number | number[]): ArrayStorage | number {
+  if (a <= 1) {
+    throw new Error('a must be > 1');
+  }
+
+  // Rejection method based on devroye
+  const am1 = a - 1;
+  const b = Math.pow(2, am1);
+
+  const generateSample = (rng: () => number): number => {
+    while (true) {
+      const u = 1 - rng();
+      const v = rng();
+      const x = Math.floor(Math.pow(u, -1 / am1));
+      const t = Math.pow(1 + 1 / x, am1);
+      if ((v * x * (t - 1)) / (b - 1) <= t / b) {
+        return x;
+      }
+    }
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'int64');
+  const data = result.data as BigInt64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = BigInt(generateSample(mtRandomFloat53));
+  }
+  return result;
+}
+
+// ============================================================================
+// Multivariate distributions
+// ============================================================================
+
+/**
+ * Draw samples from a multinomial distribution
+ * @param n - Number of experiments
+ * @param pvals - Probabilities of each category (must sum to 1)
+ * @param size - Output shape (number of experiments to run)
+ */
+export function multinomial(
+  n: number,
+  pvals: number[] | ArrayStorage,
+  size?: number | number[]
+): ArrayStorage {
+  const probs = Array.isArray(pvals)
+    ? pvals
+    : Array.from({ length: pvals.size }, (_, i) => Number(pvals.iget(i)));
+
+  const k = probs.length;
+  if (k === 0) {
+    throw new Error('pvals must have at least one element');
+  }
+
+  // Normalize probabilities
+  const sum = probs.reduce((a, b) => a + b, 0);
+  const normalizedProbs = probs.map((p) => p / sum);
+
+  const generateSample = (rng: () => number): number[] => {
+    const result = new Array(k).fill(0);
+    let remaining = n;
+    let pRemaining = 1.0;
+
+    for (let i = 0; i < k - 1 && remaining > 0; i++) {
+      const p = normalizedProbs[i]! / pRemaining;
+      const x = binomialSample(remaining, Math.min(1, Math.max(0, p)), rng);
+      result[i] = x;
+      remaining -= x;
+      pRemaining -= normalizedProbs[i]!;
+    }
+    result[k - 1] = remaining;
+    return result;
+  };
+
+  if (size === undefined) {
+    const sample = generateSample(mtRandomFloat53);
+    const result = ArrayStorage.zeros([k], 'int64');
+    const data = result.data as BigInt64Array;
+    for (let i = 0; i < k; i++) {
+      data[i] = BigInt(sample[i]!);
+    }
+    return result;
+  }
+
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const numSamples = shapeArr.reduce((a, b) => a * b, 1);
+  const outShape = [...shapeArr, k];
+  const result = ArrayStorage.zeros(outShape, 'int64');
+  const data = result.data as BigInt64Array;
+
+  for (let i = 0; i < numSamples; i++) {
+    const sample = generateSample(mtRandomFloat53);
+    for (let j = 0; j < k; j++) {
+      data[i * k + j] = BigInt(sample[j]!);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Draw samples from a multivariate normal distribution
+ * @param mean - Mean of the distribution (1-D array of length N)
+ * @param cov - Covariance matrix (N x N array)
+ * @param size - Number of samples to draw
+ * @param check_valid - Check validity of covariance matrix (default 'warn')
+ * @param tol - Tolerance for checking positive semi-definiteness
+ */
+export function multivariate_normal(
+  mean: number[] | ArrayStorage,
+  cov: number[][] | ArrayStorage,
+  size?: number | number[],
+  check_valid: 'warn' | 'raise' | 'ignore' = 'warn',
+  tol: number = 1e-8
+): ArrayStorage {
+  const meanArr = Array.isArray(mean)
+    ? mean
+    : Array.from({ length: mean.size }, (_, i) => Number(mean.iget(i)));
+
+  const n = meanArr.length;
+
+  // Convert cov to 2D array
+  let covArr: number[][];
+  if (Array.isArray(cov)) {
+    covArr = cov;
+  } else {
+    covArr = [];
+    for (let i = 0; i < n; i++) {
+      covArr.push([]);
+      for (let j = 0; j < n; j++) {
+        covArr[i]!.push(Number(cov.iget(i * n + j)));
+      }
+    }
+  }
+
+  // Simple Cholesky decomposition
+  const L: number[][] = Array(n)
+    .fill(0)
+    .map(() => Array(n).fill(0) as number[]);
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j <= i; j++) {
+      let sum = covArr[i]![j]!;
+      for (let k = 0; k < j; k++) {
+        sum -= L[i]![k]! * L[j]![k]!;
+      }
+      if (i === j) {
+        if (sum < -tol) {
+          if (check_valid === 'raise') {
+            throw new Error('covariance matrix is not positive semi-definite');
+          } else if (check_valid === 'warn') {
+            console.warn('covariance matrix is not positive semi-definite');
+          }
+          sum = 0;
+        }
+        L[i]![j] = Math.sqrt(Math.max(0, sum));
+      } else {
+        L[i]![j] = L[j]![j]! !== 0 ? sum / L[j]![j]! : 0;
+      }
+    }
+  }
+
+  const generateSample = (rng: () => number): number[] => {
+    // Generate standard normal samples
+    const z: number[] = [];
+    for (let i = 0; i < n; i++) {
+      z.push(boxMullerTransform(rng));
+    }
+
+    // Transform: x = mean + L * z
+    const result: number[] = [];
+    for (let i = 0; i < n; i++) {
+      let val = meanArr[i]!;
+      for (let j = 0; j <= i; j++) {
+        val += L[i]![j]! * z[j]!;
+      }
+      result.push(val);
+    }
+    return result;
+  };
+
+  if (size === undefined) {
+    const sample = generateSample(mtRandomFloat53);
+    const result = ArrayStorage.zeros([n], 'float64');
+    const data = result.data as Float64Array;
+    for (let i = 0; i < n; i++) {
+      data[i] = sample[i]!;
+    }
+    return result;
+  }
+
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const numSamples = shapeArr.reduce((a, b) => a * b, 1);
+  const outShape = [...shapeArr, n];
+  const result = ArrayStorage.zeros(outShape, 'float64');
+  const data = result.data as Float64Array;
+
+  for (let i = 0; i < numSamples; i++) {
+    const sample = generateSample(mtRandomFloat53);
+    for (let j = 0; j < n; j++) {
+      data[i * n + j] = sample[j]!;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Draw samples from a Dirichlet distribution
+ * @param alpha - Concentration parameters (must all be > 0)
+ * @param size - Number of samples to draw
+ */
+export function dirichlet(alpha: number[] | ArrayStorage, size?: number | number[]): ArrayStorage {
+  const alphaArr = Array.isArray(alpha)
+    ? alpha
+    : Array.from({ length: alpha.size }, (_, i) => Number(alpha.iget(i)));
+
+  const k = alphaArr.length;
+  if (k < 2) {
+    throw new Error('alpha must have at least 2 elements');
+  }
+
+  for (const a of alphaArr) {
+    if (a <= 0) {
+      throw new Error('all alpha values must be positive');
+    }
+  }
+
+  const generateSample = (rng: () => number): number[] => {
+    // Generate gamma samples and normalize
+    const gammas: number[] = [];
+    let sum = 0;
+    for (let i = 0; i < k; i++) {
+      const g = gammaSample(alphaArr[i]!, 1, rng);
+      gammas.push(g);
+      sum += g;
+    }
+    return gammas.map((g) => g / sum);
+  };
+
+  if (size === undefined) {
+    const sample = generateSample(mtRandomFloat53);
+    const result = ArrayStorage.zeros([k], 'float64');
+    const data = result.data as Float64Array;
+    for (let i = 0; i < k; i++) {
+      data[i] = sample[i]!;
+    }
+    return result;
+  }
+
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const numSamples = shapeArr.reduce((a, b) => a * b, 1);
+  const outShape = [...shapeArr, k];
+  const result = ArrayStorage.zeros(outShape, 'float64');
+  const data = result.data as Float64Array;
+
+  for (let i = 0; i < numSamples; i++) {
+    const sample = generateSample(mtRandomFloat53);
+    for (let j = 0; j < k; j++) {
+      data[i * k + j] = sample[j]!;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Draw samples from a von Mises distribution
+ * @param mu - Mode (center) of the distribution (in radians)
+ * @param kappa - Concentration parameter (must be >= 0)
+ * @param size - Output shape
+ */
+export function vonmises(
+  mu: number,
+  kappa: number,
+  size?: number | number[]
+): ArrayStorage | number {
+  if (kappa < 0) {
+    throw new Error('kappa must be non-negative');
+  }
+
+  const generateSample = (rng: () => number): number => {
+    if (kappa === 0) {
+      // Uniform on circle
+      return 2 * Math.PI * rng() - Math.PI;
+    }
+
+    // Best-Fisher algorithm for von Mises
+    const a = 1 + Math.sqrt(1 + 4 * kappa * kappa);
+    const b = (a - Math.sqrt(2 * a)) / (2 * kappa);
+    const r = (1 + b * b) / (2 * b);
+
+    while (true) {
+      const u1 = rng();
+      const z = Math.cos(Math.PI * u1);
+      const f = (1 + r * z) / (r + z);
+      const c = kappa * (r - f);
+      const u2 = rng();
+
+      if (c * (2 - c) > u2 || Math.log(c / u2) + 1 - c >= 0) {
+        const u3 = rng();
+        const theta = u3 > 0.5 ? Math.acos(f) : -Math.acos(f);
+        return ((theta + mu + Math.PI) % (2 * Math.PI)) - Math.PI;
+      }
+    }
+  };
+
+  if (size === undefined) {
+    return generateSample(mtRandomFloat53);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const result = ArrayStorage.zeros(shapeArr, 'float64');
+  const data = result.data as Float64Array;
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = generateSample(mtRandomFloat53);
+  }
+  return result;
+}

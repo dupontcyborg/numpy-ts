@@ -2,15 +2,15 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-25
+**Last Updated**: 2025-12-27
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 440/507 (86.8%)
-- **Top-level Functions**: 436/507 (82.4%)
-- **NDArray Methods**: 167/53 (75.5%)
+- **Overall Coverage**: 476/507 (93.9%)
+- **Top-level Functions**: 472/507 (89.5%)
+- **NDArray Methods**: 174/47 (100.0%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
@@ -28,9 +28,11 @@ Based on `npm run compare-api`:
 - Linear Algebra (16/16)
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
+- NDArray Methods (47/47)
 - Other Math (15/15)
 - Polynomials (10/10)
 - Printing/Formatting (10/10)
+- Random (53/53)
 - Reductions (36/36)
 - Rounding (7/7)
 - Searching (7/7)
@@ -42,8 +44,6 @@ Based on `npm run compare-api`:
 - Utilities (10/10)
 
 ### Incomplete Categories
-- NDArray Methods (40/53) - 75.5%
-- Random (17/53) - 32.1%
 - Unplanned (0/31) - 0.0%
 
 ---
@@ -409,15 +409,15 @@ Based on `npm run compare-api`:
 - [x] `argsort` 
 - [x] `astype` 
 - [x] `byteswap` 
-- [ ] `choose` 
-- [ ] `clip` 
-- [ ] `compress` 
-- [ ] `conj` 
-- [ ] `conjugate` 
+- [x] `choose` 
+- [x] `clip` 
+- [x] `compress` 
+- [x] `conj` 
+- [x] `conjugate` 
 - [x] `copy` 
 - [x] `cumprod` 
 - [x] `cumsum` 
-- [ ] `diagonal` 
+- [x] `diagonal` 
 - [x] `dot` 
 - [ ] `dump` 
 - [ ] `dumps` 
@@ -435,7 +435,7 @@ Based on `npm run compare-api`:
 - [x] `ravel` 
 - [x] `repeat` 
 - [x] `reshape` 
-- [ ] `resize` 
+- [x] `resize` 
 - [x] `round` 
 - [x] `searchsorted` 
 - [ ] `setfield` 
@@ -509,59 +509,59 @@ Based on `npm run compare-api`:
 
 ## Random
 
-- [ ] `random.beta` 
+- [x] `random.beta` 
 - [x] `random.binomial` 
-- [ ] `random.bytes` 
-- [ ] `random.chisquare` 
+- [x] `random.bytes` 
+- [x] `random.chisquare` 
 - [x] `random.choice` 
 - [x] `random.default_rng` 
-- [ ] `random.dirichlet` 
+- [x] `random.dirichlet` 
 - [x] `random.exponential` 
-- [ ] `random.f` 
-- [ ] `random.gamma` 
-- [ ] `random.geometric` 
-- [ ] `random.get_bit_generator` 
+- [x] `random.f` 
+- [x] `random.gamma` 
+- [x] `random.geometric` 
+- [x] `random.get_bit_generator` 
 - [x] `random.get_state` 
-- [ ] `random.gumbel` 
-- [ ] `random.hypergeometric` 
-- [ ] `random.laplace` 
-- [ ] `random.logistic` 
-- [ ] `random.lognormal` 
-- [ ] `random.logseries` 
-- [ ] `random.multinomial` 
-- [ ] `random.multivariate_normal` 
-- [ ] `random.negative_binomial` 
-- [ ] `random.noncentral_chisquare` 
-- [ ] `random.noncentral_f` 
+- [x] `random.gumbel` 
+- [x] `random.hypergeometric` 
+- [x] `random.laplace` 
+- [x] `random.logistic` 
+- [x] `random.lognormal` 
+- [x] `random.logseries` 
+- [x] `random.multinomial` 
+- [x] `random.multivariate_normal` 
+- [x] `random.negative_binomial` 
+- [x] `random.noncentral_chisquare` 
+- [x] `random.noncentral_f` 
 - [x] `random.normal` 
-- [ ] `random.pareto` 
+- [x] `random.pareto` 
 - [x] `random.permutation` 
 - [x] `random.poisson` 
-- [ ] `random.power` 
+- [x] `random.power` 
 - [x] `random.rand` 
 - [x] `random.randint` 
 - [x] `random.randn` 
 - [x] `random.random` 
-- [ ] `random.random_integers` 
-- [ ] `random.random_sample` 
-- [ ] `random.ranf` 
-- [ ] `random.rayleigh` 
-- [ ] `random.sample` 
+- [x] `random.random_integers` 
+- [x] `random.random_sample` 
+- [x] `random.ranf` 
+- [x] `random.rayleigh` 
+- [x] `random.sample` 
 - [x] `random.seed` 
-- [ ] `random.set_bit_generator` 
+- [x] `random.set_bit_generator` 
 - [x] `random.set_state` 
 - [x] `random.shuffle` 
-- [ ] `random.standard_cauchy` 
-- [ ] `random.standard_exponential` 
-- [ ] `random.standard_gamma` 
+- [x] `random.standard_cauchy` 
+- [x] `random.standard_exponential` 
+- [x] `random.standard_gamma` 
 - [x] `random.standard_normal` 
-- [ ] `random.standard_t` 
-- [ ] `random.triangular` 
+- [x] `random.standard_t` 
+- [x] `random.triangular` 
 - [x] `random.uniform` 
-- [ ] `random.vonmises` 
-- [ ] `random.wald` 
-- [ ] `random.weibull` 
-- [ ] `random.zipf` 
+- [x] `random.vonmises` 
+- [x] `random.wald` 
+- [x] `random.weibull` 
+- [x] `random.zipf` 
 
 ---
 

@@ -136,8 +136,9 @@ def analyze_coverage(verbose=False):
     # Get ALL numpy-ts top-level functions
     numpyts_toplevel = set(numpyts_audit['all_functions'].keys())
 
-    # Get methods
-    numpy_methods = set(numpy_audit['ndarray_methods'].keys())
+    # Get methods (excluding those in Unplanned category)
+    unplanned = set(numpy_audit['categorized'].get('Unplanned', []))
+    numpy_methods = set(numpy_audit['ndarray_methods'].keys()) - unplanned
     numpyts_methods = set(numpyts_audit['ndarray_methods'].keys())
 
     print("=" * 70)
