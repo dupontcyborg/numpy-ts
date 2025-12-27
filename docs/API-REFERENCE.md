@@ -10,7 +10,7 @@ Based on `npm run compare-api`:
 
 - **Overall Coverage**: 476/507 (93.9%)
 - **Top-level Functions**: 472/507 (89.5%)
-- **NDArray Methods**: 174/47 (100.0%)
+- **NDArray Methods**: 47/47 (100.0%)
 
 ### Completed Categories (100%)
 - Arithmetic (29/29)
