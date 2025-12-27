@@ -95,38 +95,33 @@ Required Changes:
 ---
 
 ### 5. Polynomial Module
-**Status: Not Implemented**
+**Status: ✅ Implemented**
 **Scope: MODERATE - New module**
 
-Missing: `polyval`, `polyfit`, `polyder`, `polyint`, `poly1d` class, `roots`
-
-**Estimate:** New module, 300-500 lines, self-contained, no blockers
+All polynomial functions implemented: `poly`, `polyadd`, `polyder`, `polydiv`, `polyfit`, `polyint`, `polymul`, `polysub`, `polyval`, `roots`
 
 ---
 
 ### 6. Error State Control
-**Status: Not Implemented**
+**Status: ✅ Partially Implemented**
 **Scope: SMALL - New utility**
 
-Missing:
-- `np.seterr()` / `np.geterr()`
-- `np.errstate()` context manager
-- Control over divide-by-zero, overflow, underflow, invalid handling
+Implemented:
+- `np.seterr()` / `np.geterr()` - basic error state management
 
-**Estimate:** 1 new file, ~100-200 lines
+Not implemented:
+- `np.errstate()` context manager
+- Full control over divide-by-zero, overflow, underflow, invalid handling
 
 ---
 
 ## Large New Subsystems
 
 ### 7. FFT Module
-**Status: Not Implemented**
+**Status: ✅ Implemented**
 **Scope: LARGE - New module**
-**Blocker: Requires complex number support**
 
-Missing: `fft`, `ifft`, `fft2`, `ifft2`, `fftn`, `ifftn`, `rfft`, `irfft`, `fftfreq`, `fftshift`
-
-**Estimate:** 500-1000 lines once complex numbers are available
+All FFT functions implemented (18/18): `fft`, `ifft`, `fft2`, `ifft2`, `fftn`, `ifftn`, `rfft`, `irfft`, `rfft2`, `irfft2`, `rfftn`, `irfftn`, `hfft`, `ihfft`, `fftfreq`, `rfftfreq`, `fftshift`, `ifftshift`
 
 ---
 

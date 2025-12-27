@@ -7,6 +7,7 @@
   "module": "dist/numpy-ts.esm.js",
   "types": "dist/types/index.d.ts",
   "type": "module",
+  "sideEffects": false,
   "files": [
     "dist/**/*.js",
     "dist/**/*.cjs",
