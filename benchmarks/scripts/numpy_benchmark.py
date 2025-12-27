@@ -643,6 +643,28 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.random.choice(arrays["n"], 100)
     elif operation == "random_permutation":
         return np.random.permutation(arrays["n"])
+    elif operation == "random_gamma":
+        return np.random.gamma(2.0, 2.0, arrays["shape"])
+    elif operation == "random_beta":
+        return np.random.beta(2.0, 5.0, arrays["shape"])
+    elif operation == "random_chisquare":
+        return np.random.chisquare(2.0, arrays["shape"])
+    elif operation == "random_laplace":
+        return np.random.laplace(0.0, 1.0, arrays["shape"])
+    elif operation == "random_geometric":
+        return np.random.geometric(0.5, arrays["shape"])
+    elif operation == "random_dirichlet":
+        # For dirichlet, we generate samples with a fixed alpha vector
+        # The shape parameter determines the number of samples
+        shape = arrays["shape"]
+        # Use a fixed 10-dimensional alpha vector
+        alpha = np.ones(10)
+        # shape determines the number of samples (output will be shape + (len(alpha),))
+        if isinstance(shape, (list, tuple)):
+            size = shape[0] if len(shape) == 1 else shape
+        else:
+            size = shape
+        return np.random.dirichlet(alpha, size)
 
     # Complex operations
     elif operation == "complex_zeros":
