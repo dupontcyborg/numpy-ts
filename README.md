@@ -262,7 +262,7 @@ arr.sum();  // Type: number
 | NumPy Validated | ✅ 4500+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |
 | Broadcasting | ✅ Full | Limited | Limited | ✅ Full |
-| Bundle Size | ~60kb gzip | ~60kb | ~5kb | >100kb |
+| Bundle Size | <100kb | ~60kb | ~5kb | >100kb |
 
 ## Contributing
 

@@ -239,6 +239,7 @@ def analyze_coverage(verbose=False):
         'toplevel_coverage': toplevel_coverage,
         'numpy_methods': len(numpy_methods),
         'numpyts_methods': len(numpyts_methods),
+        'methods_implemented': len(methods_implemented),
         'methods_coverage': methods_coverage,
         'numpy_total': numpy_total,
         'numpyts_implemented': numpyts_implemented,
@@ -419,7 +420,7 @@ def update_api_reference(analysis):
 
     lines.append(f"- **Overall Coverage**: {total_impl}/{total_numpy} ({coverage:.1f}%)")
     lines.append(f"- **Top-level Functions**: {analysis['numpyts_toplevel']}/{analysis['numpy_toplevel']} ({analysis['toplevel_coverage']:.1f}%)")
-    lines.append(f"- **NDArray Methods**: {len(analysis['numpyts_audit']['ndarray_methods'])}/{analysis['numpy_methods']} ({analysis['methods_coverage']:.1f}%)")
+    lines.append(f"- **NDArray Methods**: {analysis['methods_implemented']}/{analysis['numpy_methods']} ({analysis['methods_coverage']:.1f}%)")
     lines.append("")
 
     # Completed categories

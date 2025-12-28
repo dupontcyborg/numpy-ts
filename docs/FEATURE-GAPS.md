@@ -8,7 +8,7 @@ numpy-ts implements core NumPy functionality but lacks several deeper features. 
 
 ---
 
-## Major Feature Gaps
+## Feature Gaps
 
 ### 1. Universal Functions (ufuncs) System
 **Status: Not Implemented**
@@ -47,8 +47,6 @@ This would be a major architectural addition:
 - Add parameter handling to all operations (50+ functions)
 - Estimate: New subsystem, 1000+ lines, touches all operation files
 
----
-
 ### 2. Structured Arrays / Record Arrays
 **Status: Not Supported**
 **Scope: MAJOR - New subsystem**
@@ -64,23 +62,7 @@ Missing:
 - Field offset calculations, named field access in storage
 - Estimate: 5+ files, 20+ functions, architectural design needed
 
----
-
-### 3. Advanced Indexing (Fancy Indexing)
-**Status: ✅ Implemented**
-**Scope: MODERATE - Concentrated in indexing**
-
-Implemented via two new methods:
-- `iindex(indices, axis?)` - Integer array indexing (NumPy's `arr[[0, 2, 4]]`)
-- `bindex(mask, axis?)` - Boolean array indexing (NumPy's `arr[arr > 5]`)
-
-Both methods support axis specification and work with existing `take()` and `compress()` internally.
-
----
-
-## Moderate Feature Gaps
-
-### 4. Tuple of Axes for Reductions
+### 3. Tuple of Axes for Reductions
 **Status: Not Supported**
 **Scope: SMALL-MODERATE - Localized to reductions**
 
@@ -92,40 +74,13 @@ Required Changes:
 
 **Estimate:** 1 file, ~15 functions
 
----
-
-### 5. Polynomial Module
-**Status: ✅ Implemented**
-**Scope: MODERATE - New module**
-
-All polynomial functions implemented: `poly`, `polyadd`, `polyder`, `polydiv`, `polyfit`, `polyint`, `polymul`, `polysub`, `polyval`, `roots`
-
----
-
-### 6. Error State Control
-**Status: ✅ Partially Implemented**
-**Scope: SMALL - New utility**
-
-Implemented:
-- `np.seterr()` / `np.geterr()` - basic error state management
-
-Not implemented:
-- `np.errstate()` context manager
-- Full control over divide-by-zero, overflow, underflow, invalid handling
-
----
-
-## Large New Subsystems
-
-### 7. FFT Module
+### 4. FFT Module
 **Status: ✅ Implemented**
 **Scope: LARGE - New module**
 
 All FFT functions implemented (18/18): `fft`, `ifft`, `fft2`, `ifft2`, `fftn`, `ifftn`, `rfft`, `irfft`, `rfft2`, `irfft2`, `rfftn`, `irfftn`, `hfft`, `ihfft`, `fftfreq`, `rfftfreq`, `fftshift`, `ifftshift`
 
----
-
-### 8. Masked Arrays (`np.ma`)
+### 5. Masked Arrays (`np.ma`)
 **Status: Not Implemented**
 **Scope: LARGE - New subsystem**
 
