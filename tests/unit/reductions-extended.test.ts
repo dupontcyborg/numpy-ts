@@ -1020,5 +1020,182 @@ describe('Extended reduction tests', () => {
       expect((result as any).shape).toEqual([3]);
       expect((result as any).toArray()).toEqual([1, 5, 4.5]);
     });
+
+    it('returns NaN when all values are NaN', () => {
+      const arr = array([NaN, NaN, NaN]);
+      expect(arr.nanmedian()).toBeNaN();
+    });
+
+    it('computes nanmedian with negative axis', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanmedian(-1);
+      expect((result as any).shape).toEqual([2]);
+      expect((result as any).toArray()).toEqual([2, 5.5]);
+    });
+
+    it('returns NaN for slices with all NaN along axis', () => {
+      const arr = array([
+        [NaN, NaN],
+        [1, 2],
+      ]);
+      const result = arr.nanmedian(1);
+      expect((result as any).shape).toEqual([2]);
+      const values = (result as any).toArray();
+      expect(values[0]).toBeNaN();
+      expect(values[1]).toBe(1.5);
+    });
+
+    it('computes nanmedian with keepdims=true', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanmedian(0, true);
+      expect((result as any).shape).toEqual([1, 3]);
+    });
+  });
+
+  describe('nanquantile()', () => {
+    it('computes 0.5 quantile ignoring NaN values', () => {
+      const arr = array([1, NaN, 2, NaN, 3, 4, 5]);
+      expect(arr.nanquantile(0.5)).toBe(3);
+    });
+
+    it('computes 0.0 quantile (min) ignoring NaN', () => {
+      const arr = array([NaN, 1, 2, 3, NaN]);
+      expect(arr.nanquantile(0)).toBe(1);
+    });
+
+    it('computes 1.0 quantile (max) ignoring NaN', () => {
+      const arr = array([NaN, 1, 2, 3, NaN]);
+      expect(arr.nanquantile(1)).toBe(3);
+    });
+
+    it('computes 0.25 quantile with interpolation', () => {
+      const arr = array([1, NaN, 2, 3, 4, NaN]);
+      const result = arr.nanquantile(0.25);
+      expect(result).toBeCloseTo(1.75, 5);
+    });
+
+    it('returns NaN when all values are NaN', () => {
+      const arr = array([NaN, NaN, NaN]);
+      expect(arr.nanquantile(0.5)).toBeNaN();
+    });
+
+    it('throws for quantile < 0', () => {
+      const arr = array([1, 2, 3]);
+      expect(() => arr.nanquantile(-0.1)).toThrow('Quantile must be between 0 and 1');
+    });
+
+    it('throws for quantile > 1', () => {
+      const arr = array([1, 2, 3]);
+      expect(() => arr.nanquantile(1.1)).toThrow('Quantile must be between 0 and 1');
+    });
+
+    it('computes nanquantile along axis=0', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+        [7, 8, NaN],
+      ]);
+      const result = arr.nanquantile(0.5, 0);
+      expect((result as any).shape).toEqual([3]);
+      expect((result as any).toArray()).toEqual([4, 6.5, 4.5]);
+    });
+
+    it('computes nanquantile along axis=1', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanquantile(0.5, 1);
+      expect((result as any).shape).toEqual([2]);
+      expect((result as any).toArray()).toEqual([2, 5.5]);
+    });
+
+    it('computes nanquantile with keepdims=true', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanquantile(0.5, 0, true);
+      expect((result as any).shape).toEqual([1, 3]);
+    });
+
+    it('computes nanquantile with negative axis', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanquantile(0.5, -1);
+      expect((result as any).shape).toEqual([2]);
+      expect((result as any).toArray()).toEqual([2, 5.5]);
+    });
+
+    it('throws for out of bounds axis', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(() => arr.nanquantile(0.5, 5)).toThrow('axis 5 is out of bounds');
+    });
+
+    it('returns NaN for slices with all NaN values along axis', () => {
+      const arr = array([
+        [NaN, NaN],
+        [1, 2],
+      ]);
+      const result = arr.nanquantile(0.5, 1);
+      expect((result as any).shape).toEqual([2]);
+      const values = (result as any).toArray();
+      expect(values[0]).toBeNaN();
+      expect(values[1]).toBe(1.5);
+    });
+  });
+
+  describe('nanpercentile()', () => {
+    it('computes 50th percentile ignoring NaN values', () => {
+      const arr = array([1, NaN, 2, NaN, 3, 4, 5]);
+      expect(arr.nanpercentile(50)).toBe(3);
+    });
+
+    it('computes 0th percentile (min) ignoring NaN', () => {
+      const arr = array([NaN, 1, 2, 3, NaN]);
+      expect(arr.nanpercentile(0)).toBe(1);
+    });
+
+    it('computes 100th percentile (max) ignoring NaN', () => {
+      const arr = array([NaN, 1, 2, 3, NaN]);
+      expect(arr.nanpercentile(100)).toBe(3);
+    });
+
+    it('computes 25th percentile with interpolation', () => {
+      const arr = array([1, NaN, 2, 3, 4, NaN]);
+      const result = arr.nanpercentile(25);
+      expect(result).toBeCloseTo(1.75, 5);
+    });
+
+    it('computes nanpercentile along axis=0', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+        [7, 8, NaN],
+      ]);
+      const result = arr.nanpercentile(50, 0);
+      expect((result as any).shape).toEqual([3]);
+      expect((result as any).toArray()).toEqual([4, 6.5, 4.5]);
+    });
+
+    it('computes nanpercentile with keepdims=true', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [NaN, 5, 6],
+      ]);
+      const result = arr.nanpercentile(50, 0, true);
+      expect((result as any).shape).toEqual([1, 3]);
+    });
   });
 });

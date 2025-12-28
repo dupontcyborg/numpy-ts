@@ -102,6 +102,22 @@ describe('Logic Operations', () => {
         expect(Array.from(result.data)).toEqual([1, 0, 0, 0]);
       });
     });
+
+    describe('BigInt operations', () => {
+      it('ANDs two BigInt arrays', () => {
+        const a = array([0n, 1n, 0n, 1n], 'int64');
+        const b = array([0n, 0n, 1n, 1n], 'int64');
+        const result = a.logical_and(b);
+        expect(result.dtype).toBe('bool');
+        expect(Array.from(result.data)).toEqual([0, 0, 0, 1]);
+      });
+
+      it('ANDs BigInt array with scalar', () => {
+        const arr = array([0n, 1n, 2n, 0n], 'int64');
+        const result = arr.logical_and(1);
+        expect(Array.from(result.data)).toEqual([0, 1, 1, 0]);
+      });
+    });
   });
 
   describe('logical_or()', () => {
@@ -137,6 +153,22 @@ describe('Logic Operations', () => {
         expect(Array.from(result.data)).toEqual([1, 1, 1, 0]);
       });
     });
+
+    describe('BigInt operations', () => {
+      it('ORs two BigInt arrays', () => {
+        const a = array([0n, 1n, 0n, 1n], 'int64');
+        const b = array([0n, 0n, 1n, 1n], 'int64');
+        const result = a.logical_or(b);
+        expect(result.dtype).toBe('bool');
+        expect(Array.from(result.data)).toEqual([0, 1, 1, 1]);
+      });
+
+      it('ORs BigInt array with scalar', () => {
+        const arr = array([0n, 1n, 0n], 'int64');
+        const result = arr.logical_or(1);
+        expect(Array.from(result.data)).toEqual([1, 1, 1]);
+      });
+    });
   });
 
   describe('logical_not()', () => {
@@ -161,6 +193,13 @@ describe('Logic Operations', () => {
       const arr = array([0, 1, 0, 1]);
       const result = logical_not(arr);
       expect(Array.from(result.data)).toEqual([1, 0, 1, 0]);
+    });
+
+    it('NOTs BigInt array', () => {
+      const arr = array([0n, 1n, 2n, 0n], 'int64');
+      const result = arr.logical_not();
+      expect(result.dtype).toBe('bool');
+      expect(Array.from(result.data)).toEqual([1, 0, 0, 1]);
     });
   });
 
@@ -196,6 +235,23 @@ describe('Logic Operations', () => {
         const b = array([1, 1, 0, 0]);
         const result = logical_xor(a, b);
         expect(Array.from(result.data)).toEqual([0, 1, 1, 0]);
+      });
+    });
+
+    describe('BigInt operations', () => {
+      it('XORs two BigInt arrays', () => {
+        const a = array([0n, 1n, 0n, 1n], 'int64');
+        const b = array([0n, 0n, 1n, 1n], 'int64');
+        const result = a.logical_xor(b);
+        expect(result.dtype).toBe('bool');
+        expect(Array.from(result.data)).toEqual([0, 1, 1, 0]);
+      });
+
+      it('XORs BigInt array with scalar', () => {
+        const arr = array([0n, 1n, 2n], 'int64');
+        const result = arr.logical_xor(1);
+        // XOR with true: 0→1, 1→0, 1→0
+        expect(Array.from(result.data)).toEqual([1, 0, 0]);
       });
     });
   });

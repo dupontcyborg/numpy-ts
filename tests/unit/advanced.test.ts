@@ -144,6 +144,11 @@ describe('Advanced Functions', () => {
       const b = array([1, 2]);
       expect(() => broadcast_arrays(a, b)).toThrow();
     });
+
+    it('handles empty array', () => {
+      const result = broadcast_arrays();
+      expect(result).toEqual([]);
+    });
   });
 
   // ========================================
@@ -197,6 +202,21 @@ describe('Advanced Functions', () => {
       const arr = array([1, 2, 3]);
       const result = take(arr, [0, 0, 1, 1]);
       expect(result.toArray()).toEqual([1, 1, 2, 2]);
+    });
+
+    it('takes elements from BigInt array', () => {
+      const arr = array([1n, 2n, 3n, 4n, 5n], 'int64');
+      const result = take(arr, [0, 2, 4]);
+      expect(result.toArray()).toEqual([1n, 3n, 5n]);
+      expect(result.dtype).toBe('int64');
+    });
+
+    it('throws error for invalid axis', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(() => take(arr, [0], 5)).toThrow('axis 5 is out of bounds');
     });
 
     it('throws error for out-of-bounds index', () => {
