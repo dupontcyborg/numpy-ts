@@ -129,10 +129,106 @@ describe('Complex Number Support', () => {
       expect(prod.im).toBe(10);
     });
 
+    it('performs arithmetic with real numbers', () => {
+      const z = new Complex(3, 4);
+
+      // Add real number: (3+4i) + 2 = 5+4i
+      const sum = z.add(2);
+      expect(sum.re).toBe(5);
+      expect(sum.im).toBe(4);
+
+      // Subtract real number: (3+4i) - 1 = 2+4i
+      const diff = z.sub(1);
+      expect(diff.re).toBe(2);
+      expect(diff.im).toBe(4);
+
+      // Multiply by real number: (3+4i) * 2 = 6+8i
+      const prod = z.mul(2);
+      expect(prod.re).toBe(6);
+      expect(prod.im).toBe(8);
+    });
+
     it('converts to string', () => {
       expect(new Complex(1, 2).toString()).toBe('(1+2j)');
       expect(new Complex(1, -2).toString()).toBe('(1-2j)');
       expect(new Complex(1, 0).toString()).toBe('(1+0j)');
+    });
+
+    it('performs division', () => {
+      const a = new Complex(1, 2);
+      const b = new Complex(3, 4);
+
+      // Division by real number
+      const divReal = a.div(2);
+      expect(divReal.re).toBe(0.5);
+      expect(divReal.im).toBe(1);
+
+      // Complex division: (1+2i) / (3+4i)
+      // = (1+2i)(3-4i) / ((3+4i)(3-4i))
+      // = (3 - 4i + 6i - 8i²) / (9 + 16)
+      // = (3 + 2i + 8) / 25 = (11 + 2i) / 25
+      // = 0.44 + 0.08i
+      const divComplex = a.div(b);
+      expect(divComplex.re).toBeCloseTo(0.44);
+      expect(divComplex.im).toBeCloseTo(0.08);
+    });
+
+    it('performs negation', () => {
+      const z = new Complex(1, 2);
+      const neg = z.neg();
+      expect(neg.re).toBe(-1);
+      expect(neg.im).toBe(-2);
+    });
+
+    it('checks equality', () => {
+      const a = new Complex(1, 2);
+      const b = new Complex(1, 2);
+      const c = new Complex(1, 3);
+      const d = new Complex(2, 2);
+
+      expect(a.equals(b)).toBe(true);
+      expect(a.equals(c)).toBe(false);
+      expect(a.equals(d)).toBe(false);
+    });
+
+    it('creates Complex from various input formats using Complex.from()', () => {
+      // From Complex instance
+      const orig = new Complex(1, 2);
+      const fromComplex = Complex.from(orig);
+      expect(fromComplex.re).toBe(1);
+      expect(fromComplex.im).toBe(2);
+
+      // From number
+      const fromNum = Complex.from(5);
+      expect(fromNum.re).toBe(5);
+      expect(fromNum.im).toBe(0);
+
+      // From [re, im] array
+      const fromArray = Complex.from([3, 4]);
+      expect(fromArray.re).toBe(3);
+      expect(fromArray.im).toBe(4);
+
+      // From {re, im} object
+      const fromObj = Complex.from({ re: 7, im: 8 });
+      expect(fromObj.re).toBe(7);
+      expect(fromObj.im).toBe(8);
+
+      // From {re} object (im defaults to 0)
+      const fromObjReOnly = Complex.from({ re: 9 });
+      expect(fromObjReOnly.re).toBe(9);
+      expect(fromObjReOnly.im).toBe(0);
+
+      // Invalid input throws
+      expect(() => Complex.from(null as unknown as number)).toThrow();
+    });
+
+    it('checks if value is complex using Complex.isComplex()', () => {
+      expect(Complex.isComplex(new Complex(1, 2))).toBe(true);
+      expect(Complex.isComplex({ re: 1, im: 2 })).toBe(true);
+      expect(Complex.isComplex({ re: 1 })).toBe(false); // missing im
+      expect(Complex.isComplex(5)).toBe(false);
+      expect(Complex.isComplex('not complex')).toBe(false);
+      expect(Complex.isComplex(null)).toBe(false);
     });
   });
 
@@ -375,6 +471,26 @@ describe('Complex Number Support', () => {
         const result = angles.toArray();
         expect(result[0]).toBeCloseTo(0);
         expect(result[1]).toBeCloseTo(90);
+      });
+
+      it('computes phase angle for real (non-complex) array', () => {
+        const arr = array([1, -1, 2, -3]);
+        const angles = angle(arr);
+
+        const result = angles.toArray();
+        expect(result[0]).toBeCloseTo(0); // positive → 0
+        expect(result[1]).toBeCloseTo(Math.PI); // negative → π
+        expect(result[2]).toBeCloseTo(0);
+        expect(result[3]).toBeCloseTo(Math.PI);
+      });
+
+      it('computes phase angle for real array in degrees', () => {
+        const arr = array([1, -1]);
+        const angles = angle(arr, true);
+
+        const result = angles.toArray();
+        expect(result[0]).toBeCloseTo(0);
+        expect(result[1]).toBeCloseTo(180);
       });
     });
 
@@ -2839,6 +2955,24 @@ describe('Complex Number Support', () => {
         expect(result.get([0])).toEqual(new Complex(0, 0));
         expect(result.get([1])).toEqual(new Complex(0, 0));
       });
+
+      it('computes nancumsum along axis for 2D complex array', () => {
+        const a = array([
+          [new Complex(1, 1), new Complex(NaN, 2), new Complex(3, 3)],
+          [new Complex(4, 4), new Complex(5, 5), new Complex(NaN, 6)],
+        ]);
+        const result = nancumsum(a, 1);
+
+        // Row 0: [1+1i, 1+1i (NaN skipped), 4+4i]
+        expect(result.get([0, 0])).toEqual(new Complex(1, 1));
+        expect(result.get([0, 1])).toEqual(new Complex(1, 1));
+        expect(result.get([0, 2])).toEqual(new Complex(4, 4));
+
+        // Row 1: [4+4i, 9+9i, 9+9i (NaN skipped)]
+        expect(result.get([1, 0])).toEqual(new Complex(4, 4));
+        expect(result.get([1, 1])).toEqual(new Complex(9, 9));
+        expect(result.get([1, 2])).toEqual(new Complex(9, 9));
+      });
     });
 
     describe('nancumprod()', () => {
@@ -2874,6 +3008,26 @@ describe('Complex Number Support', () => {
         expect(result.get([0])).toEqual(new Complex(2, 3));
         expect((result.get([1]) as Complex).re).toBeCloseTo(-7);
         expect((result.get([1]) as Complex).im).toBeCloseTo(22);
+      });
+
+      it('computes nancumprod along axis for 2D complex array', () => {
+        const a = array([
+          [new Complex(2, 0), new Complex(NaN, 1), new Complex(3, 0)],
+          [new Complex(1, 1), new Complex(2, 0), new Complex(NaN, 2)],
+        ]);
+        const result = nancumprod(a, 1);
+
+        // Row 0: [2+0i, 2+0i (NaN skipped), 6+0i]
+        expect(result.get([0, 0])).toEqual(new Complex(2, 0));
+        expect(result.get([0, 1])).toEqual(new Complex(2, 0));
+        expect(result.get([0, 2])).toEqual(new Complex(6, 0));
+
+        // Row 1: [1+i, (1+i)*(2+0i) = 2+2i, 2+2i (NaN skipped)]
+        expect(result.get([1, 0])).toEqual(new Complex(1, 1));
+        expect((result.get([1, 1]) as Complex).re).toBeCloseTo(2);
+        expect((result.get([1, 1]) as Complex).im).toBeCloseTo(2);
+        expect((result.get([1, 2]) as Complex).re).toBeCloseTo(2);
+        expect((result.get([1, 2]) as Complex).im).toBeCloseTo(2);
       });
     });
 
@@ -3384,6 +3538,64 @@ describe('Complex Number Support', () => {
 
         expect(isNaN(result.re)).toBe(true);
         expect(isNaN(result.im)).toBe(true);
+      });
+
+      it('computes max along axis for 2D complex array', () => {
+        const a = array([
+          [new Complex(1, 2), new Complex(3, 1)],
+          [new Complex(4, 0), new Complex(2, 5)],
+        ]);
+        const result = max(a, 0);
+
+        expect(result.shape).toEqual([2]);
+        expect(result.get([0])).toEqual(new Complex(4, 0));
+        expect(result.get([1])).toEqual(new Complex(3, 1));
+      });
+
+      it('computes max along axis=1 for 2D complex array', () => {
+        const a = array([
+          [new Complex(1, 2), new Complex(3, 1)],
+          [new Complex(2, 5), new Complex(4, 0)],
+        ]);
+        const result = max(a, 1);
+
+        expect(result.shape).toEqual([2]);
+        expect(result.get([0])).toEqual(new Complex(3, 1)); // 3 > 1
+        expect(result.get([1])).toEqual(new Complex(4, 0)); // 4 > 2
+      });
+
+      it('computes max with negative axis', () => {
+        const a = array([
+          [new Complex(1, 2), new Complex(3, 1)],
+          [new Complex(2, 5), new Complex(4, 0)],
+        ]);
+        const result = max(a, -1);
+
+        expect(result.shape).toEqual([2]);
+        expect(result.get([0])).toEqual(new Complex(3, 1));
+        expect(result.get([1])).toEqual(new Complex(4, 0));
+      });
+
+      it('propagates NaN along axis', () => {
+        const a = array([
+          [new Complex(1, 2), new Complex(NaN, 1)],
+          [new Complex(4, 0), new Complex(2, 5)],
+        ]);
+        const result = max(a, 1);
+
+        expect(result.shape).toEqual([2]);
+        expect(isNaN((result.get([0]) as Complex).re)).toBe(true);
+        expect(result.get([1])).toEqual(new Complex(4, 0));
+      });
+
+      it('computes max with keepdims=true', () => {
+        const a = array([
+          [new Complex(1, 2), new Complex(3, 1)],
+          [new Complex(4, 0), new Complex(2, 5)],
+        ]);
+        const result = max(a, 0, true);
+
+        expect(result.shape).toEqual([1, 2]);
       });
     });
 

@@ -81,6 +81,28 @@ describe('Sorting Functions', () => {
       const result = arr.sort();
       expect(result.toArray()).toEqual([1, 2, 3]);
     });
+
+    it('sorts BigInt arrays', () => {
+      const arr = array([5n, 2n, 8n, 1n, 9n], 'int64');
+      const result = sort(arr);
+      expect(result.toArray()).toEqual([1n, 2n, 5n, 8n, 9n]);
+      expect(result.dtype).toBe('int64');
+    });
+
+    it('sorts 2D BigInt array along axis', () => {
+      const arr = array(
+        [
+          [3n, 1n, 2n],
+          [6n, 4n, 5n],
+        ],
+        'int64'
+      );
+      const result = sort(arr, 1);
+      expect(result.toArray()).toEqual([
+        [1n, 2n, 3n],
+        [4n, 5n, 6n],
+      ]);
+    });
   });
 
   describe('argsort()', () => {

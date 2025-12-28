@@ -1485,6 +1485,31 @@ describe('numpy.linalg Module', () => {
         [43, 50],
       ]);
     });
+
+    it('computes matrix multiplication with BigInt arrays', () => {
+      const a = array(
+        [
+          [1n, 2n],
+          [3n, 4n],
+        ],
+        'int64'
+      );
+      const b = array(
+        [
+          [5n, 6n],
+          [7n, 8n],
+        ],
+        'int64'
+      );
+      const result = linalg.matmul(a, b);
+
+      expect(result.shape).toEqual([2, 2]);
+      // Result is float64 (matmul converts to float)
+      expect(result.toArray()).toEqual([
+        [19, 22],
+        [43, 50],
+      ]);
+    });
   });
 
   describe('linalg.matrix_transpose()', () => {
@@ -1661,6 +1686,16 @@ describe('numpy.linalg Module', () => {
 
       expect(result.shape).toEqual([2, 2, 2, 2]);
     });
+
+    it('throws when ind is larger than ndim', () => {
+      const a = ones([2, 2]); // 2D array
+      expect(() => linalg.tensorinv(a, 3)).toThrow(/ind=3 is too large/);
+    });
+
+    it('throws when dimension products do not match', () => {
+      const a = ones([2, 3, 4]); // 2 != 3*4=12
+      expect(() => linalg.tensorinv(a, 1)).toThrow(/product of first 1 dimensions.*must equal/);
+    });
   });
 
   describe('linalg.tensorsolve()', () => {
@@ -1695,6 +1730,50 @@ describe('numpy.linalg Module', () => {
         [1, 2],
         [3, 4],
       ]);
+    });
+
+    it('throws when dimensions do not match', () => {
+      // a is [2,2,2,2] = 16 elements when reshaped, b is [3,3] = 9 elements
+      const a = ones([2, 2, 2, 2]);
+      const b = ones([3, 3]); // Wrong size
+      expect(() => linalg.tensorsolve(a, b)).toThrow(/dimensions don't match/);
+    });
+
+    it('throws for non-square problem', () => {
+      // Create a tensor where other dims product != sum dims product
+      // a shape [2, 3, 2, 3] with axes [2,3] sums to 2*3=6, other dims = 2*3=6
+      // This should work. Let's make it fail with [2, 3, 2, 2]
+      const a = ones([2, 3, 2, 2]); // other dims = 2*3=6, sum dims = 2*2=4
+      const b = ones([2, 2]); // 4 elements to match sum dims
+      expect(() => linalg.tensorsolve(a, b)).toThrow(/non-square problem/);
+    });
+
+    it('accepts explicit axes parameter', () => {
+      // Use explicit axes to control which dimensions to sum
+      const eyeData = [];
+      for (let i = 0; i < 2; i++) {
+        const row = [];
+        for (let j = 0; j < 2; j++) {
+          const subrow = [];
+          for (let k = 0; k < 2; k++) {
+            const subcol = [];
+            for (let l = 0; l < 2; l++) {
+              subcol.push(i * 2 + j === k * 2 + l ? 1 : 0);
+            }
+            subrow.push(subcol);
+          }
+          row.push(subrow);
+        }
+        eyeData.push(row);
+      }
+      const a = array(eyeData);
+      const b = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      // Explicitly specify axes [2, 3] (same as default)
+      const result = linalg.tensorsolve(a, b, [2, 3]);
+      expect(result.shape).toEqual([2, 2]);
     });
   });
 
@@ -1883,6 +1962,13 @@ describe('einsum_path()', () => {
     const a = ones([3, 4]);
     const b = ones([5, 3]); // Should be [4, x] for ij,jk
     expect(() => einsum_path('ij,jk->ik', a, b)).toThrow();
+  });
+
+  it('throws when subscript length does not match operand dimensions', () => {
+    const a = ones([3, 4, 5]); // 3D array
+    const b = ones([4, 3]);
+    // 'ij' has 2 indices but a has 3 dimensions
+    expect(() => einsum_path('ij,jk->ik', a, b)).toThrow(/operand 0 has 3 dimensions but subscript 'ij' has 2 indices/);
   });
 
   it('handles implicit output subscript', () => {
