@@ -17,6 +17,13 @@ from typing import Any, Dict
 
 import numpy as np
 
+# Require NumPy 2.0+
+NUMPY_VERSION = tuple(map(int, np.__version__.split('.')[:2]))
+if NUMPY_VERSION < (2, 0):
+    print(f"Error: NumPy 2.0+ is required for benchmarks. Found NumPy {np.__version__}", file=sys.stderr)
+    print("Please upgrade: pip install --upgrade 'numpy>=2.0'", file=sys.stderr)
+    sys.exit(1)
+
 # Benchmark configuration (can be overridden from stdin)
 MIN_SAMPLE_TIME_MS = 100  # Minimum time per sample (reduces noise)
 TARGET_SAMPLES = 5  # Number of samples to collect for statistics
