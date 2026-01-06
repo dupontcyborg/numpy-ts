@@ -110,6 +110,20 @@ describe('Mathematical Operations', () => {
       expect(result.dtype).toBe('int64');
       expect(result.toArray()).toEqual([4n, 9n, 16n]);
     });
+
+    it('promotes BigInt to float64 for negative exponent', () => {
+      const arr = array([2n, 4n, 8n], 'int64');
+      const result = power(arr, -1);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([0.5, 0.25, 0.125]);
+    });
+
+    it('promotes BigInt to float64 for fractional exponent', () => {
+      const arr = array([4n, 9n, 16n], 'int64');
+      const result = power(arr, 0.5);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([2, 3, 4]);
+    });
   });
 
   describe('absolute', () => {

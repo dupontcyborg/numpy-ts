@@ -345,13 +345,7 @@ describe('Bitwise Operations', () => {
     });
 
     it('unpacks 2D array along axis', () => {
-      const a = array(
-        [
-          [0b11110000],
-          [0b00001111],
-        ],
-        'uint8'
-      );
+      const a = array([[0b11110000], [0b00001111]], 'uint8');
       // axis=1, count=-1, bitorder='big'
       const result = unpackbits(a, 1, -1, 'big');
       expect(result.shape).toEqual([2, 8]);

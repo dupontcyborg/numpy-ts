@@ -258,7 +258,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous int16 arrays', () => {
-      const original = array([[10, 20], [30, 40]], 'int16');
+      const original = array(
+        [
+          [10, 20],
+          [30, 40],
+        ],
+        'int16'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -272,7 +278,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous int8 arrays', () => {
-      const original = array([[1, 2], [3, 4]], 'int8');
+      const original = array(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        'int8'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -286,7 +298,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous uint32 arrays', () => {
-      const original = array([[100, 200], [300, 400]], 'uint32');
+      const original = array(
+        [
+          [100, 200],
+          [300, 400],
+        ],
+        'uint32'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -296,7 +314,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous uint16 arrays', () => {
-      const original = array([[10, 20], [30, 40]], 'uint16');
+      const original = array(
+        [
+          [10, 20],
+          [30, 40],
+        ],
+        'uint16'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -306,7 +330,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous uint8 arrays', () => {
-      const original = array([[1, 2], [3, 4]], 'uint8');
+      const original = array(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        'uint8'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -316,7 +346,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous float32 arrays', () => {
-      const original = array([[1.5, 2.5], [3.5, 4.5]], 'float32');
+      const original = array(
+        [
+          [1.5, 2.5],
+          [3.5, 4.5],
+        ],
+        'float32'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -328,7 +364,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous bool arrays', () => {
-      const original = array([[1, 0], [0, 1]], 'bool');
+      const original = array(
+        [
+          [1, 0],
+          [0, 1],
+        ],
+        'bool'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -342,7 +384,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous int64 BigInt arrays', () => {
-      const original = array([[BigInt(1), BigInt(2)], [BigInt(3), BigInt(4)]], 'int64');
+      const original = array(
+        [
+          [BigInt(1), BigInt(2)],
+          [BigInt(3), BigInt(4)],
+        ],
+        'int64'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -356,7 +404,13 @@ describe('NPY Format', () => {
     });
 
     it('serializes non-contiguous uint64 BigInt arrays', () => {
-      const original = array([[BigInt(10), BigInt(20)], [BigInt(30), BigInt(40)]], 'uint64');
+      const original = array(
+        [
+          [BigInt(10), BigInt(20)],
+          [BigInt(30), BigInt(40)],
+        ],
+        'uint64'
+      );
       const transposed = transpose(original);
 
       const bytes = serializeNpy(transposed);
@@ -554,7 +608,7 @@ describe('NPY Format', () => {
       const headerStr = "{'descr': '>f8', 'fortran_order': False, 'shape': (2,), }";
       const header = new TextEncoder().encode(headerStr);
       // Pad header to be aligned to 64 bytes total
-      const paddingNeeded = 64 - (12 + header.length) % 64;
+      const paddingNeeded = 64 - ((12 + header.length) % 64);
       const paddedHeader = new Uint8Array(header.length + paddingNeeded);
       paddedHeader.set(header);
       paddedHeader.fill(0x20, header.length); // Fill with spaces
@@ -565,8 +619,22 @@ describe('NPY Format', () => {
       // Value 1.0 in big-endian: 0x3FF0000000000000
       // Value 2.0 in big-endian: 0x4000000000000000
       const dataBytes = new Uint8Array([
-        0x3f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 1.0 big-endian
-        0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 2.0 big-endian
+        0x3f,
+        0xf0,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00, // 1.0 big-endian
+        0x40,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00, // 2.0 big-endian
       ]);
 
       const npyFile = new Uint8Array(12 + headerLen + dataBytes.length);
@@ -589,7 +657,7 @@ describe('NPY Format', () => {
       // Create a big-endian NPY file (>i4 instead of <i4)
       const headerStr = "{'descr': '>i4', 'fortran_order': False, 'shape': (3,), }";
       const header = new TextEncoder().encode(headerStr);
-      const paddingNeeded = 64 - (12 + header.length) % 64;
+      const paddingNeeded = 64 - ((12 + header.length) % 64);
       const paddedHeader = new Uint8Array(header.length + paddingNeeded);
       paddedHeader.set(header);
       paddedHeader.fill(0x20, header.length);
@@ -598,9 +666,18 @@ describe('NPY Format', () => {
 
       // 3 int32 values: 1, 256, 65536 in big-endian
       const dataBytes = new Uint8Array([
-        0x00, 0x00, 0x00, 0x01, // 1
-        0x00, 0x00, 0x01, 0x00, // 256
-        0x00, 0x01, 0x00, 0x00, // 65536
+        0x00,
+        0x00,
+        0x00,
+        0x01, // 1
+        0x00,
+        0x00,
+        0x01,
+        0x00, // 256
+        0x00,
+        0x01,
+        0x00,
+        0x00, // 65536
       ]);
 
       const npyFile = new Uint8Array(12 + headerLen + dataBytes.length);
@@ -624,7 +701,7 @@ describe('NPY Format', () => {
       // [[1,2,3],[4,5,6]] stored as [1,4,2,5,3,6] in memory
       const headerStr = "{'descr': '<f8', 'fortran_order': True, 'shape': (2, 3), }";
       const header = new TextEncoder().encode(headerStr);
-      const paddingNeeded = 64 - (12 + header.length) % 64;
+      const paddingNeeded = 64 - ((12 + header.length) % 64);
       const paddedHeader = new Uint8Array(header.length + paddingNeeded);
       paddedHeader.set(header);
       paddedHeader.fill(0x20, header.length);
@@ -666,7 +743,7 @@ describe('NPY Format', () => {
       const headerStr = "{'descr': '<f8', 'fortran_order': False, 'shape': (2,), }";
       const header = new TextEncoder().encode(headerStr);
       // Pad to align
-      const paddingNeeded = 64 - (10 + header.length) % 64;
+      const paddingNeeded = 64 - ((10 + header.length) % 64);
       const paddedHeader = new Uint8Array(header.length + paddingNeeded);
       paddedHeader.set(header);
       paddedHeader.fill(0x20, header.length);

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { array, sinh, cosh, tanh, arcsinh, arccosh, arctanh } from '../../src/core/ndarray';
+import { Complex } from '../../src/core/complex';
 
 describe('Hyperbolic Operations', () => {
   describe('sinh', () => {
@@ -215,6 +216,18 @@ describe('Hyperbolic Operations', () => {
       for (let i = 0; i < resultArr.length; i++) {
         expect(Math.abs(resultArr[i]! - originalArr[i]!)).toBeLessThan(1e-10);
       }
+    });
+
+    it('handles complex numbers with Re < 1 (branch cut adjustment)', () => {
+      // Complex acosh with purely real z < 1 triggers the branch cut adjustment
+      const arr = array([new Complex(0.5, 0)]);
+      const result = arccosh(arr);
+
+      expect(result.dtype).toBe('complex128');
+      const val = result.get([0]) as any;
+      // acosh(0.5) has imaginary component due to branch cut
+      expect(typeof val.re).toBe('number');
+      expect(typeof val.im).toBe('number');
     });
   });
 

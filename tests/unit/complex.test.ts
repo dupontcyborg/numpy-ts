@@ -85,6 +85,7 @@ import {
   nanmax,
   ptp,
 } from '../../src';
+import { complexAbs } from '../../src/ops/complex';
 
 describe('Complex Number Support', () => {
   describe('Complex class', () => {
@@ -506,6 +507,36 @@ describe('Complex Number Support', () => {
         expect(result[2]).toBe(1);
       });
     });
+
+    describe('complexAbs()', () => {
+      it('computes magnitude of complex128 array', () => {
+        const arr = array([new Complex(3, 4), new Complex(5, 12)]);
+        const result = complexAbs(arr.storage);
+
+        expect(result.dtype).toBe('float64');
+        expect(result.data[0]).toBe(5);
+        expect(result.data[1]).toBe(13);
+      });
+
+      it('computes magnitude of complex64 array', () => {
+        const arr = zeros([2], 'complex64');
+        arr.set([0], new Complex(8, 6));
+        arr.set([1], new Complex(0, 1));
+        const result = complexAbs(arr.storage);
+
+        expect(result.dtype).toBe('float32');
+        expect(result.data[0]).toBe(10);
+        expect(result.data[1]).toBe(1);
+      });
+
+      it('handles zero complex numbers', () => {
+        const arr = array([new Complex(0, 0), new Complex(0, 0)]);
+        const result = complexAbs(arr.storage);
+
+        expect(result.data[0]).toBe(0);
+        expect(result.data[1]).toBe(0);
+      });
+    });
   });
 
   describe('Type checking functions', () => {
@@ -770,6 +801,21 @@ describe('Complex Number Support', () => {
         expect(values[0].re).toBeCloseTo(1);
         expect(values[0].im).toBeCloseTo(0);
       });
+
+      it('raises complex array to real array exponents', () => {
+        // Complex ** real array (exercises non-complex exponent branch)
+        const a = array([new Complex(2, 0), new Complex(3, 0)]);
+        const b = array([2, 3]); // Real exponents
+        const result = power(a, b);
+
+        expect(result.dtype).toBe('complex128');
+        const values = result.toArray();
+        // 2^2 = 4, 3^3 = 27
+        expect(values[0].re).toBeCloseTo(4);
+        expect(values[0].im).toBeCloseTo(0);
+        expect(values[1].re).toBeCloseTo(27);
+        expect(values[1].im).toBeCloseTo(0);
+      });
     });
   });
 
@@ -800,6 +846,16 @@ describe('Complex Number Support', () => {
 
         const result = a.not_equal(b);
         expect(result.toArray()).toEqual([0, 1]); // [false, true]
+      });
+
+      it('compares complex arrays with scalar', () => {
+        // Complex not_equal scalar: true if real!=scalar or imag!=0
+        const a = array([new Complex(3, 0), new Complex(3, 1), new Complex(2, 0)]);
+        const result = a.not_equal(3);
+        // 3+0i != 3? No (real=3, imag=0)
+        // 3+1i != 3? Yes (imag != 0)
+        // 2+0i != 3? Yes (real != 3)
+        expect(result.toArray()).toEqual([0, 1, 1]);
       });
     });
 

@@ -32,26 +32,19 @@ function multiplyValues(
 /**
  * BLAS-like types for matrix operations
  */
-type Layout = 'row-major' | 'column-major';
 type Transpose = 'no-transpose' | 'transpose';
 
 /**
  * Double-precision general matrix multiply (DGEMM)
  *
- * Full BLAS-compatible implementation without external dependencies.
- * Performs: C = alpha * op(A) * op(B) + beta * C
+ * Performs: C = alpha * op(A) * op(B)
  *
- * Supports all combinations of:
- * - Row-major and column-major layouts
- * - Transpose and no-transpose operations
- * - Arbitrary alpha and beta scalars
- *
- * Uses specialized loops for each case to avoid function call overhead.
+ * Row-major layout only. Supports transpose and no-transpose operations.
+ * Uses specialized loops for each transpose case to avoid function call overhead.
  *
  * @internal
  */
 function dgemm(
-  layout: Layout,
   transA: Transpose,
   transB: Transpose,
   M: number, // rows of op(A) and C
@@ -62,29 +55,20 @@ function dgemm(
   lda: number, // leading dimension of A
   B: Float64Array, // matrix B
   ldb: number, // leading dimension of B
-  beta: number, // scalar beta
   C: Float64Array, // matrix C (output)
   ldc: number // leading dimension of C
 ): void {
-  // Apply beta scaling to C first
-  if (beta === 0) {
-    for (let i = 0; i < M * N; i++) {
-      C[i] = 0;
-    }
-  } else if (beta !== 1) {
-    for (let i = 0; i < M * N; i++) {
-      C[i] = (C[i] ?? 0) * beta;
-    }
+  // Zero out result matrix
+  for (let i = 0; i < M * N; i++) {
+    C[i] = 0;
   }
 
-  // Select specialized loop based on layout and transpose modes
-  // This avoids function call overhead in the hot loop
-  const isRowMajor = layout === 'row-major';
+  // Select specialized loop based on transpose modes
   const transposeA = transA === 'transpose';
   const transposeB = transB === 'transpose';
 
-  if (isRowMajor && !transposeA && !transposeB) {
-    // Row-major, no transpose (most common case)
+  if (!transposeA && !transposeB) {
+    // No transpose (most common case)
     // C[i,j] = sum_k A[i,k] * B[k,j]
     for (let i = 0; i < M; i++) {
       for (let j = 0; j < N; j++) {
@@ -92,11 +76,11 @@ function dgemm(
         for (let k = 0; k < K; k++) {
           sum += (A[i * lda + k] ?? 0) * (B[k * ldb + j] ?? 0);
         }
-        C[i * ldc + j] = (C[i * ldc + j] ?? 0) + alpha * sum;
+        C[i * ldc + j] = alpha * sum;
       }
     }
-  } else if (isRowMajor && transposeA && !transposeB) {
-    // Row-major, A transposed
+  } else if (transposeA && !transposeB) {
+    // A transposed
     // C[i,j] = sum_k A[k,i] * B[k,j]
     for (let i = 0; i < M; i++) {
       for (let j = 0; j < N; j++) {
@@ -104,11 +88,11 @@ function dgemm(
         for (let k = 0; k < K; k++) {
           sum += (A[k * lda + i] ?? 0) * (B[k * ldb + j] ?? 0);
         }
-        C[i * ldc + j] = (C[i * ldc + j] ?? 0) + alpha * sum;
+        C[i * ldc + j] = alpha * sum;
       }
     }
-  } else if (isRowMajor && !transposeA && transposeB) {
-    // Row-major, B transposed
+  } else if (!transposeA && transposeB) {
+    // B transposed
     // C[i,j] = sum_k A[i,k] * B[j,k]
     for (let i = 0; i < M; i++) {
       for (let j = 0; j < N; j++) {
@@ -116,11 +100,11 @@ function dgemm(
         for (let k = 0; k < K; k++) {
           sum += (A[i * lda + k] ?? 0) * (B[j * ldb + k] ?? 0);
         }
-        C[i * ldc + j] = (C[i * ldc + j] ?? 0) + alpha * sum;
+        C[i * ldc + j] = alpha * sum;
       }
     }
-  } else if (isRowMajor && transposeA && transposeB) {
-    // Row-major, both transposed
+  } else {
+    // Both transposed
     // C[i,j] = sum_k A[k,i] * B[j,k]
     for (let i = 0; i < M; i++) {
       for (let j = 0; j < N; j++) {
@@ -128,53 +112,7 @@ function dgemm(
         for (let k = 0; k < K; k++) {
           sum += (A[k * lda + i] ?? 0) * (B[j * ldb + k] ?? 0);
         }
-        C[i * ldc + j] = (C[i * ldc + j] ?? 0) + alpha * sum;
-      }
-    }
-  } else if (!isRowMajor && !transposeA && !transposeB) {
-    // Column-major, no transpose
-    // C[i,j] = sum_k A[i,k] * B[k,j]
-    // Column-major: A[i,k] = A[k*lda + i], C[i,j] = C[j*ldc + i]
-    for (let i = 0; i < M; i++) {
-      for (let j = 0; j < N; j++) {
-        let sum = 0;
-        for (let k = 0; k < K; k++) {
-          sum += (A[k * lda + i] ?? 0) * (B[j * ldb + k] ?? 0);
-        }
-        C[j * ldc + i] = (C[j * ldc + i] ?? 0) + alpha * sum;
-      }
-    }
-  } else if (!isRowMajor && transposeA && !transposeB) {
-    // Column-major, A transposed
-    for (let i = 0; i < M; i++) {
-      for (let j = 0; j < N; j++) {
-        let sum = 0;
-        for (let k = 0; k < K; k++) {
-          sum += (A[i * lda + k] ?? 0) * (B[j * ldb + k] ?? 0);
-        }
-        C[j * ldc + i] = (C[j * ldc + i] ?? 0) + alpha * sum;
-      }
-    }
-  } else if (!isRowMajor && !transposeA && transposeB) {
-    // Column-major, B transposed
-    for (let i = 0; i < M; i++) {
-      for (let j = 0; j < N; j++) {
-        let sum = 0;
-        for (let k = 0; k < K; k++) {
-          sum += (A[k * lda + i] ?? 0) * (B[k * ldb + j] ?? 0);
-        }
-        C[j * ldc + i] = (C[j * ldc + i] ?? 0) + alpha * sum;
-      }
-    }
-  } else {
-    // Column-major, both transposed
-    for (let i = 0; i < M; i++) {
-      for (let j = 0; j < N; j++) {
-        let sum = 0;
-        for (let k = 0; k < K; k++) {
-          sum += (A[i * lda + k] ?? 0) * (B[k * ldb + j] ?? 0);
-        }
-        C[j * ldc + i] = (C[j * ldc + i] ?? 0) + alpha * sum;
+        C[i * ldc + j] = alpha * sum;
       }
     }
   }
@@ -737,7 +675,6 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   // Call dgemm with detected transpose flags and leading dimensions
   dgemm(
-    'row-major',
     transA,
     transB,
     m,
@@ -748,7 +685,6 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     lda, // leading dimension of a (accounts for actual memory layout)
     bData,
     ldb, // leading dimension of b (accounts for actual memory layout)
-    0.0, // beta
     result.data as Float64Array,
     n // ldc (result is always row-major with n cols)
   );

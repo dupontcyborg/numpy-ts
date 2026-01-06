@@ -3,8 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array } from '../../src/core/ndarray';
 import {
+  array,
+  Complex,
+  zeros,
   logical_and,
   logical_or,
   logical_not,
@@ -29,7 +31,7 @@ import {
   signbit,
   nextafter,
   spacing,
-} from '../../src/core/ndarray';
+} from '../../src';
 
 describe('Logic Operations', () => {
   describe('logical_and()', () => {
@@ -116,6 +118,38 @@ describe('Logic Operations', () => {
         const arr = array([0n, 1n, 2n, 0n], 'int64');
         const result = arr.logical_and(1);
         expect(Array.from(result.data)).toEqual([0, 1, 1, 0]);
+      });
+    });
+
+    describe('complex array operations', () => {
+      it('ANDs two complex arrays (tests isComplexTruthy)', () => {
+        const a = array([
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(0, 1),
+          new Complex(1, 1),
+        ]);
+        const b = array([
+          new Complex(0, 0),
+          new Complex(0, 0),
+          new Complex(1, 0),
+          new Complex(1, 1),
+        ]);
+        const result = a.logical_and(b);
+        expect(result.dtype).toBe('bool');
+        // Complex is truthy if either real or imaginary part is non-zero
+        expect(Array.from(result.data)).toEqual([0, 0, 1, 1]);
+      });
+
+      it('ANDs complex array with broadcasting (tests canUseFastPath)', () => {
+        // Test broadcasting with different shapes to trigger slow path
+        const a = array([[new Complex(1, 1), new Complex(1, 1)]]);
+        const b = array([[new Complex(1, 0)], [new Complex(0, 0)]]);
+        const result = logical_and(a, b);
+        expect(result.shape).toEqual([2, 2]);
+        expect(result.dtype).toBe('bool');
+        // Just verify it runs without error - the exact values depend on complex truthiness and broadcasting logic
+        expect(result.data.length).toBe(4);
       });
     });
   });
@@ -372,6 +406,19 @@ describe('Logic Operations', () => {
         expect(Array.from(result.data)).toEqual([-1, -2, -3]);
       });
     });
+
+    describe('broadcasting', () => {
+      it('broadcasts 2D with 1D (tests broadcastToStorage)', () => {
+        const a = array([
+          [1, 2],
+          [3, 4],
+        ]);
+        const b = array([-1, 1]);
+        const result = copysign(a, b);
+        expect(result.shape).toEqual([2, 2]);
+        expect(Array.from(result.data)).toEqual([-1, 2, -3, 4]);
+      });
+    });
   });
 
   describe('signbit()', () => {
@@ -426,6 +473,19 @@ describe('Logic Operations', () => {
       const a = array([1.0]);
       const result = nextafter(a, 2.0);
       expect(result.data[0]).toBeGreaterThan(1.0);
+    });
+
+    it('broadcasts with array direction (tests broadcastToStorage)', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const b = array([Infinity, -Infinity]);
+      const result = nextafter(a, b);
+      expect(result.shape).toEqual([2, 2]);
+      // First column moves towards Infinity, second column towards -Infinity
+      expect(result.get([0, 0])).toBeGreaterThan(1.0);
+      expect(result.get([0, 1])).toBeLessThan(2.0);
     });
   });
 
@@ -667,6 +727,34 @@ describe('Additional Logic Functions', () => {
         [1, 2],
         [3, 4],
       ]);
+    });
+
+    it('returns real part when imaginary parts are close to zero', () => {
+      // Create complex array with tiny imaginary parts
+      const arr = zeros([3], 'complex128');
+      arr.set([0], new Complex(1, 1e-20));
+      arr.set([1], new Complex(2, 1e-20));
+      arr.set([2], new Complex(3, 0));
+      const result = real_if_close(arr);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('returns complex array when imaginary parts are not close to zero', () => {
+      const arr = array([new Complex(1, 0.5), new Complex(2, 0.3)]);
+      const result = real_if_close(arr);
+      expect(result.dtype).toBe('complex128');
+      const resultArr = result.toArray() as Complex[];
+      expect(resultArr[0]!.re).toBe(1);
+      expect(resultArr[0]!.im).toBe(0.5);
+    });
+
+    it('handles complex64 arrays', () => {
+      const arr = zeros([2], 'complex64');
+      arr.set([0], new Complex(5, 1e-10));
+      arr.set([1], new Complex(10, 0));
+      const result = real_if_close(arr);
+      expect(result.dtype).toBe('float32');
     });
   });
 

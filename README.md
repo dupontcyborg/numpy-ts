@@ -25,7 +25,7 @@ npm install numpy-ts
 ## Why numpy-ts?
 
 - **📊 Extensive API** — **476 of 507 NumPy functions (93.9% coverage)**
-- **✅ NumPy-validated** — 3000+ test cases cross-validated against Python NumPy
+- **✅ NumPy-validated** — 5,000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
 - **🎯 Zero dependencies** — Pure TypeScript, no heavy external libraries
@@ -259,7 +259,7 @@ arr.sum();  // Type: number
 |---------|----------|-------|---------|---------------|
 | NumPy API Coverage | 476/507 (94%) | ~20% | Different | ML-focused |
 | TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
-| NumPy Validated | ✅ 4500+ tests | Mostly | ❌ No | ❌ No |
+| NumPy Validated | ✅ 5,000+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |
 | Broadcasting | ✅ Full | Limited | Limited | ✅ Full |
 | Bundle Size | <100kb | ~60kb | ~5kb | >100kb |

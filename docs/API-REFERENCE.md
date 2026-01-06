@@ -2,7 +2,7 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2025-12-27
+**Last Updated**: 2026-01-06
 
 ## Progress Summary
 
