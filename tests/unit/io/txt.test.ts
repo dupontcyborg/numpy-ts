@@ -357,6 +357,43 @@ Point 3: (5.5, 6.5)`;
 
       expect(text).toBe('+1\n-2\n+3\n');
     });
+
+    it('handles width padding (right-align)', () => {
+      const arr = array([1, 22, 333]);
+      const text = serializeTxt(arr, { fmt: '%5d' });
+
+      // Right-aligned: "    1", "   22", "  333"
+      expect(text).toBe('    1\n   22\n  333\n');
+    });
+
+    it('handles width padding (left-align)', () => {
+      const arr = array([1, 22, 333]);
+      const text = serializeTxt(arr, { fmt: '%-5d' });
+
+      // Left-aligned: "1    ", "22   ", "333  "
+      expect(text).toBe('1    \n22   \n333  \n');
+    });
+
+    it('handles string format specifier', () => {
+      const arr = array([1.5, 2.75, 3.125]);
+      const text = serializeTxt(arr, { fmt: '%s' });
+
+      expect(text).toBe('1.5\n2.75\n3.125\n');
+    });
+
+    it('handles header with comment prefix already present', () => {
+      const arr = array([1, 2]);
+      const text = serializeTxt(arr, { fmt: '%d', header: '# Already commented' });
+
+      expect(text).toBe('# Already commented\n1\n2\n');
+    });
+
+    it('handles footer with comment prefix already present', () => {
+      const arr = array([1, 2]);
+      const text = serializeTxt(arr, { fmt: '%d', footer: '# End of data' });
+
+      expect(text).toBe('1\n2\n# End of data\n');
+    });
   });
 
   describe('round-trip', () => {

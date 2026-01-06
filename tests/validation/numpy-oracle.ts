@@ -64,6 +64,13 @@ import json
 import sys
 import math
 
+# Require NumPy 2.0+
+NUMPY_VERSION = tuple(map(int, np.__version__.split('.')[:2]))
+if NUMPY_VERSION < (2, 0):
+    print(f"Error: NumPy 2.0+ is required for validation tests. Found NumPy {np.__version__}", file=sys.stderr)
+    print("Please upgrade: pip install --upgrade 'numpy>=2.0'", file=sys.stderr)
+    sys.exit(1)
+
 def serialize_value(val):
     """Convert NumPy arrays/values to JSON-serializable format, handling inf/nan/complex"""
     if isinstance(val, np.ndarray):

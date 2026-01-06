@@ -1485,6 +1485,105 @@ describe('numpy.linalg Module', () => {
         [43, 50],
       ]);
     });
+
+    it('computes matrix multiplication with BigInt arrays', () => {
+      const a = array(
+        [
+          [1n, 2n],
+          [3n, 4n],
+        ],
+        'int64'
+      );
+      const b = array(
+        [
+          [5n, 6n],
+          [7n, 8n],
+        ],
+        'int64'
+      );
+      const result = linalg.matmul(a, b);
+
+      expect(result.shape).toEqual([2, 2]);
+      // Result is float64 (matmul converts to float)
+      expect(result.toArray()).toEqual([
+        [19, 22],
+        [43, 50],
+      ]);
+    });
+
+    it('handles A transposed (exercises transposeA branch)', () => {
+      // A is 3x2, A.T is 2x3 effectively
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const aT = transpose(a); // Now 3x2
+      const b = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      // aT @ b = (3x2) @ (2x2) = (3x2)
+      const result = linalg.matmul(aT, b);
+
+      expect(result.shape).toEqual([3, 2]);
+      // First row: [1,4] @ [[1,2],[3,4]] = [1*1+4*3, 1*2+4*4] = [13, 18]
+      // Second row: [2,5] @ [[1,2],[3,4]] = [2*1+5*3, 2*2+5*4] = [17, 24]
+      // Third row: [3,6] @ [[1,2],[3,4]] = [3*1+6*3, 3*2+6*4] = [21, 30]
+      expect(result.toArray()).toEqual([
+        [13, 18],
+        [17, 24],
+        [21, 30],
+      ]);
+    });
+
+    it('handles B transposed (exercises transposeB branch)', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]); // 2x2
+      const b = array([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]); // 3x2, transposed will be 2x3
+      const bT = transpose(b); // 2x3 view with transposed strides
+      // a @ bT = (2x2) @ (2x3) = (2x3)
+      const result = linalg.matmul(a, bT);
+
+      expect(result.shape).toEqual([2, 3]);
+      // bT viewed as [[1,3,5],[2,4,6]]
+      // Row 0: [1,2] @ [[1,3,5],[2,4,6]] = [1*1+2*2, 1*3+2*4, 1*5+2*6] = [5, 11, 17]
+      // Row 1: [3,4] @ [[1,3,5],[2,4,6]] = [3*1+4*2, 3*3+4*4, 3*5+4*6] = [11, 25, 39]
+      expect(result.toArray()).toEqual([
+        [5, 11, 17],
+        [11, 25, 39],
+      ]);
+    });
+
+    it('handles both A and B transposed (exercises both transpose branches)', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]); // 2x3
+      const b = array([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]); // 3x2
+      const aT = transpose(a); // 3x2
+      const bT = transpose(b); // 2x3
+      // aT @ bT = (3x2) @ (2x3) = (3x3)
+      const result = linalg.matmul(aT, bT);
+
+      expect(result.shape).toEqual([3, 3]);
+      // Row 0: [1,4] @ [1,3,5; 2,4,6]^T = [1,4] @ [[1,2],[3,4],[5,6]]
+      // Actually bT is [[1,3,5],[2,4,6]], so [1,4] @ [[1,3,5],[2,4,6]] = [1*1+4*2, 1*3+4*4, 1*5+4*6] = [9, 19, 29]
+      expect(result.toArray()).toEqual([
+        [9, 19, 29],
+        [12, 26, 40],
+        [15, 33, 51],
+      ]);
+    });
   });
 
   describe('linalg.matrix_transpose()', () => {
@@ -1561,6 +1660,25 @@ describe('numpy.linalg Module', () => {
         [19, 22],
         [43, 50],
       ]);
+    });
+
+    it('throws error when given less than 2 arrays', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(() => linalg.multi_dot([a])).toThrow('need at least 2 arrays');
+    });
+  });
+
+  describe('linalg.tensorinv()', () => {
+    it('throws error when ind is not positive', () => {
+      const a = array([
+        [1, 0],
+        [0, 1],
+      ]);
+      expect(() => linalg.tensorinv(a, 0)).toThrow('ind must be positive');
+      expect(() => linalg.tensorinv(a, -1)).toThrow('ind must be positive');
     });
   });
 
@@ -1661,6 +1779,16 @@ describe('numpy.linalg Module', () => {
 
       expect(result.shape).toEqual([2, 2, 2, 2]);
     });
+
+    it('throws when ind is larger than ndim', () => {
+      const a = ones([2, 2]); // 2D array
+      expect(() => linalg.tensorinv(a, 3)).toThrow(/ind=3 is too large/);
+    });
+
+    it('throws when dimension products do not match', () => {
+      const a = ones([2, 3, 4]); // 2 != 3*4=12
+      expect(() => linalg.tensorinv(a, 1)).toThrow(/product of first 1 dimensions.*must equal/);
+    });
   });
 
   describe('linalg.tensorsolve()', () => {
@@ -1695,6 +1823,50 @@ describe('numpy.linalg Module', () => {
         [1, 2],
         [3, 4],
       ]);
+    });
+
+    it('throws when dimensions do not match', () => {
+      // a is [2,2,2,2] = 16 elements when reshaped, b is [3,3] = 9 elements
+      const a = ones([2, 2, 2, 2]);
+      const b = ones([3, 3]); // Wrong size
+      expect(() => linalg.tensorsolve(a, b)).toThrow(/dimensions don't match/);
+    });
+
+    it('throws for non-square problem', () => {
+      // Create a tensor where other dims product != sum dims product
+      // a shape [2, 3, 2, 3] with axes [2,3] sums to 2*3=6, other dims = 2*3=6
+      // This should work. Let's make it fail with [2, 3, 2, 2]
+      const a = ones([2, 3, 2, 2]); // other dims = 2*3=6, sum dims = 2*2=4
+      const b = ones([2, 2]); // 4 elements to match sum dims
+      expect(() => linalg.tensorsolve(a, b)).toThrow(/non-square problem/);
+    });
+
+    it('accepts explicit axes parameter', () => {
+      // Use explicit axes to control which dimensions to sum
+      const eyeData = [];
+      for (let i = 0; i < 2; i++) {
+        const row = [];
+        for (let j = 0; j < 2; j++) {
+          const subrow = [];
+          for (let k = 0; k < 2; k++) {
+            const subcol = [];
+            for (let l = 0; l < 2; l++) {
+              subcol.push(i * 2 + j === k * 2 + l ? 1 : 0);
+            }
+            subrow.push(subcol);
+          }
+          row.push(subrow);
+        }
+        eyeData.push(row);
+      }
+      const a = array(eyeData);
+      const b = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      // Explicitly specify axes [2, 3] (same as default)
+      const result = linalg.tensorsolve(a, b, [2, 3]);
+      expect(result.shape).toEqual([2, 2]);
     });
   });
 
@@ -1883,6 +2055,15 @@ describe('einsum_path()', () => {
     const a = ones([3, 4]);
     const b = ones([5, 3]); // Should be [4, x] for ij,jk
     expect(() => einsum_path('ij,jk->ik', a, b)).toThrow();
+  });
+
+  it('throws when subscript length does not match operand dimensions', () => {
+    const a = ones([3, 4, 5]); // 3D array
+    const b = ones([4, 3]);
+    // 'ij' has 2 indices but a has 3 dimensions
+    expect(() => einsum_path('ij,jk->ik', a, b)).toThrow(
+      /operand 0 has 3 dimensions but subscript 'ij' has 2 indices/
+    );
   });
 
   it('handles implicit output subscript', () => {

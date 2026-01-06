@@ -277,6 +277,15 @@ describe('Comparison Operations', () => {
         // 100.0 vs 1.001: diff=98.999, threshold=0.01*1.001=0.01001 → not close
         expect(Array.from(result.data)).toEqual([1, 0]);
       });
+
+      it('handles BigInt arrays with scalar', () => {
+        const arr = array([1n, 2n, 100n], 'int64');
+        const result = arr.isclose(2, 0.1, 0);
+        // 1 vs 2: diff=1, threshold=0.1*2=0.2 → not close
+        // 2 vs 2: diff=0, threshold=0.2 → close
+        // 100 vs 2: diff=98, threshold=0.2 → not close
+        expect(Array.from(result.data)).toEqual([0, 1, 0]);
+      });
     });
 
     describe('array comparisons', () => {

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';
 

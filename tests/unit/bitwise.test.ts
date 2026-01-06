@@ -47,6 +47,32 @@ describe('Bitwise Operations', () => {
       const result = a.bitwise_and(b);
       expect(result.toArray()).toEqual([0b1000, 0b1000]);
     });
+
+    it('broadcasts 2D with 1D arrays', () => {
+      const a = array(
+        [
+          [0b1111, 0b1010],
+          [0b0101, 0b1100],
+        ],
+        'int32'
+      );
+      const b = array([0b1100, 0b0011], 'int32');
+      const result = bitwise_and(a, b);
+      // Row 0: [0b1111 & 0b1100, 0b1010 & 0b0011] = [0b1100, 0b0010]
+      // Row 1: [0b0101 & 0b1100, 0b1100 & 0b0011] = [0b0100, 0b0000]
+      expect(result.toArray()).toEqual([
+        [0b1100, 0b0010],
+        [0b0100, 0b0000],
+      ]);
+    });
+
+    it('works with mixed int32 and int64 arrays', () => {
+      const a = array([0b1111, 0b1010], 'int32');
+      const b = array([0b1100, 0b0011], 'int64');
+      const result = bitwise_and(a, b);
+      expect(result.toArray()).toEqual([0b1100n, 0b0010n]);
+      expect(result.dtype).toBe('int64');
+    });
   });
 
   describe('bitwise_or', () => {
@@ -78,6 +104,30 @@ describe('Bitwise Operations', () => {
       const result = a.bitwise_or(b);
       expect(result.toArray()).toEqual([0b1100, 0b0011]);
     });
+
+    it('broadcasts 2D with 1D arrays', () => {
+      const a = array(
+        [
+          [0b1000, 0b0001],
+          [0b0010, 0b0100],
+        ],
+        'int32'
+      );
+      const b = array([0b0001, 0b1000], 'int32');
+      const result = bitwise_or(a, b);
+      expect(result.toArray()).toEqual([
+        [0b1001, 0b1001],
+        [0b0011, 0b1100],
+      ]);
+    });
+
+    it('works with mixed int32 and int64 arrays', () => {
+      const a = array([0b1000, 0b0001], 'int32');
+      const b = array([0b0001, 0b1000], 'int64');
+      const result = bitwise_or(a, b);
+      expect(result.toArray()).toEqual([0b1001n, 0b1001n]);
+      expect(result.dtype).toBe('int64');
+    });
   });
 
   describe('bitwise_xor', () => {
@@ -100,6 +150,30 @@ describe('Bitwise Operations', () => {
       const b = array([0b0101, 0b1010], 'int32');
       const result = a.bitwise_xor(b);
       expect(result.toArray()).toEqual([0b1010, 0b0000]);
+    });
+
+    it('broadcasts 2D with 1D arrays', () => {
+      const a = array(
+        [
+          [0b1111, 0b0000],
+          [0b1010, 0b0101],
+        ],
+        'int32'
+      );
+      const b = array([0b1010, 0b0101], 'int32');
+      const result = bitwise_xor(a, b);
+      expect(result.toArray()).toEqual([
+        [0b0101, 0b0101],
+        [0b0000, 0b0000],
+      ]);
+    });
+
+    it('works with mixed int32 and int64 arrays', () => {
+      const a = array([0b1111, 0b0000], 'int32');
+      const b = array([0b1010, 0b0101], 'int64');
+      const result = bitwise_xor(a, b);
+      expect(result.toArray()).toEqual([0b0101n, 0b0101n]);
+      expect(result.dtype).toBe('int64');
     });
   });
 
@@ -254,6 +328,39 @@ describe('Bitwise Operations', () => {
       const a = array([], 'uint8');
       const result = unpackbits(a);
       expect(result.toArray()).toEqual([]);
+    });
+
+    it('unpacks with count parameter', () => {
+      const a = array([0b11110000], 'uint8');
+      // Only unpack first 4 bits (axis=-1, count=4, bitorder='big')
+      const result = unpackbits(a, -1, 4, 'big');
+      expect(result.toArray()).toEqual([1, 1, 1, 1]);
+    });
+
+    it('unpacks with bitorder=little', () => {
+      const a = array([0b10000001], 'uint8');
+      // Little-endian: LSB first (axis=-1, count=-1, bitorder='little')
+      const result = unpackbits(a, -1, -1, 'little');
+      expect(result.toArray()).toEqual([1, 0, 0, 0, 0, 0, 0, 1]);
+    });
+
+    it('unpacks 2D array along axis', () => {
+      const a = array([[0b11110000], [0b00001111]], 'uint8');
+      // axis=1, count=-1, bitorder='big'
+      const result = unpackbits(a, 1, -1, 'big');
+      expect(result.shape).toEqual([2, 8]);
+      expect(result.toArray()).toEqual([
+        [1, 1, 1, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 1, 1, 1],
+      ]);
+    });
+
+    it('unpacks 2D array with count and bitorder=little', () => {
+      const a = array([[0b10101010]], 'uint8');
+      // axis=1, count=4, bitorder='little'
+      const result = unpackbits(a, 1, 4, 'little');
+      expect(result.shape).toEqual([1, 4]);
+      expect(result.toArray()).toEqual([[0, 1, 0, 1]]);
     });
   });
 
@@ -411,6 +518,28 @@ describe('Bitwise Operations', () => {
     it('throws for float arrays', () => {
       const a = array([1.5, 2.5], 'float64');
       expect(() => bitwise_count(a)).toThrow();
+    });
+
+    it('counts 1-bits in int64 BigInt array', () => {
+      const a = array([BigInt(0), BigInt(1), BigInt(7), BigInt(255)], 'int64');
+      const result = bitwise_count(a);
+      // 0 = 0 bits, 1 = 1 bit, 7 = 3 bits, 255 = 8 bits
+      expect(result.toArray()).toEqual([0, 1, 3, 8]);
+      expect(result.dtype).toBe('uint8');
+    });
+
+    it('counts 1-bits in uint64 BigInt array', () => {
+      const a = array([BigInt(0), BigInt(1), BigInt(15), BigInt(63)], 'uint64');
+      const result = bitwise_count(a);
+      // 0 = 0 bits, 1 = 1 bit, 15 = 4 bits, 63 = 6 bits
+      expect(result.toArray()).toEqual([0, 1, 4, 6]);
+    });
+
+    it('counts 1-bits in negative int64 BigInt', () => {
+      // -1 as int64 should have 64 bits set (all 1s in two's complement)
+      const a = array([BigInt(-1)], 'int64');
+      const result = bitwise_count(a);
+      expect(result.toArray()).toEqual([64]);
     });
   });
 

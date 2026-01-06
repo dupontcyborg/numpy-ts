@@ -44,3 +44,6 @@ scripts/*.json
 
 # Local TODO file
 TODO
+
+# Coverage
+coverage-report.json

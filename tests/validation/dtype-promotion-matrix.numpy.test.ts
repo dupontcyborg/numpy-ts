@@ -285,19 +285,25 @@ result = a + b
     });
 
     it('small integer + float32 promotes to float32, large integer + float32 promotes to float64 (matches NumPy)', () => {
+      // Batch all dtype checks into a single Python call for performance
+      const pyResult = runNumPy(`
+import numpy as np
+results = {}
+for dtype_name in ['int8', 'int16', 'uint8', 'uint16', 'int32', 'int64', 'uint32', 'uint64']:
+    dtype = getattr(np, dtype_name)
+    a = np.array([1], dtype=dtype)
+    b = np.array([1.0], dtype=np.float32)
+    results[dtype_name] = str((a + b).dtype)
+result = results
+      `);
+
+      const pyResults = pyResult.value as Record<string, string>;
+
       // Small integers (8, 16 bit) + float32 → float32
       const smallIntTypes: DType[] = ['int8', 'int16', 'uint8', 'uint16'];
       for (const intType of smallIntTypes) {
         const jsResult = promoteDTypes(intType, 'float32');
-
-        const pyResult = runNumPy(`
-import numpy as np
-a = np.array([1], dtype=np.${dtypeMap[intType]})
-b = np.array([1.0], dtype=np.float32)
-result = a + b
-        `);
-
-        const npyDtype = reverseMap[pyResult.dtype];
+        const npyDtype = reverseMap[pyResults[intType]];
         expect(jsResult).toBe('float32');
         expect(jsResult).toBe(npyDtype);
       }
@@ -306,15 +312,7 @@ result = a + b
       const largeIntTypes: DType[] = ['int32', 'int64', 'uint32', 'uint64'];
       for (const intType of largeIntTypes) {
         const jsResult = promoteDTypes(intType, 'float32');
-
-        const pyResult = runNumPy(`
-import numpy as np
-a = np.array([1], dtype=np.${dtypeMap[intType]})
-b = np.array([1.0], dtype=np.float32)
-result = a + b
-        `);
-
-        const npyDtype = reverseMap[pyResult.dtype];
+        const npyDtype = reverseMap[pyResults[intType]];
         expect(jsResult).toBe('float64');
         expect(jsResult).toBe(npyDtype);
       }

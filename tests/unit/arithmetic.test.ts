@@ -41,6 +41,22 @@ describe('Arithmetic Operations', () => {
         [10, 12],
       ]);
     });
+
+    it('adds mixed int32 and int64 arrays', () => {
+      const a = array([1, 2, 3], 'int32');
+      const b = array([4n, 5n, 6n], 'int64');
+      const result = a.add(b);
+      expect(result.dtype).toBe('int64');
+      expect(result.toArray()).toEqual([5n, 7n, 9n]);
+    });
+
+    it('adds int64 with float64 (converts to float)', () => {
+      const a = array([1.5, 2.5, 3.5], 'float64');
+      const b = array([1n, 1n, 1n], 'int64');
+      const result = a.add(b);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([2.5, 3.5, 4.5]);
+    });
   });
 
   describe('subtract', () => {
@@ -55,6 +71,22 @@ describe('Arithmetic Operations', () => {
       const b = array([1, 2, 3]);
       const result = a.subtract(b);
       expect(result.toArray()).toEqual([9, 18, 27]);
+    });
+
+    it('subtracts mixed int32 and int64 arrays', () => {
+      const a = array([10, 20, 30], 'int32');
+      const b = array([1n, 2n, 3n], 'int64');
+      const result = a.subtract(b);
+      expect(result.dtype).toBe('int64');
+      expect(result.toArray()).toEqual([9n, 18n, 27n]);
+    });
+
+    it('subtracts int64 from float64 (converts to float)', () => {
+      const a = array([10.5, 20.5, 30.5], 'float64');
+      const b = array([1n, 2n, 3n], 'int64');
+      const result = a.subtract(b);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([9.5, 18.5, 27.5]);
     });
   });
 
@@ -71,6 +103,22 @@ describe('Arithmetic Operations', () => {
       const result = a.multiply(b);
       expect(result.toArray()).toEqual([4, 10, 18]);
     });
+
+    it('multiplies mixed int32 and int64 arrays', () => {
+      const a = array([2, 3, 4], 'int32');
+      const b = array([3n, 4n, 5n], 'int64');
+      const result = a.multiply(b);
+      expect(result.dtype).toBe('int64');
+      expect(result.toArray()).toEqual([6n, 12n, 20n]);
+    });
+
+    it('multiplies int64 with float64 (converts to float)', () => {
+      const a = array([2.5, 3.5, 4.5], 'float64');
+      const b = array([2n, 2n, 2n], 'int64');
+      const result = a.multiply(b);
+      expect(result.dtype).toBe('float64');
+      expect(result.toArray()).toEqual([5, 7, 9]);
+    });
   });
 
   describe('divide', () => {
@@ -84,6 +132,14 @@ describe('Arithmetic Operations', () => {
       const a = array([10, 20, 30]);
       const b = array([2, 4, 5]);
       const result = a.divide(b);
+      expect(result.toArray()).toEqual([5, 5, 6]);
+    });
+
+    it('divides int64 by int32 (returns float64)', () => {
+      const a = array([10n, 20n, 30n], 'int64');
+      const b = array([2, 4, 5], 'int32');
+      const result = a.divide(b);
+      expect(result.dtype).toBe('float64');
       expect(result.toArray()).toEqual([5, 5, 6]);
     });
   });

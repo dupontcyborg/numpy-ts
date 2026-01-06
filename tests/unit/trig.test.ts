@@ -229,6 +229,17 @@ describe('Trigonometric Operations', () => {
       const result = arctan2(y, x);
       expect(result.dtype).toBe('float64');
     });
+
+    it('handles BigInt arrays with scalar', () => {
+      const y = array([1n, 2n, 3n], 'int64');
+      const result = arctan2(y, 1);
+      expect(result.dtype).toBe('float64');
+      const expected = [Math.PI / 4, Math.atan(2), Math.atan(3)];
+      const resultArr = result.toArray() as number[];
+      for (let i = 0; i < expected.length; i++) {
+        expect(Math.abs(resultArr[i]! - expected[i]!)).toBeLessThan(1e-10);
+      }
+    });
   });
 
   describe('hypot', () => {
@@ -269,6 +280,17 @@ describe('Trigonometric Operations', () => {
       const x2 = array([4, 3], 'int32');
       const result = hypot(x1, x2);
       expect(result.dtype).toBe('float64');
+    });
+
+    it('handles BigInt arrays with scalar', () => {
+      const x1 = array([3n, 6n], 'int64');
+      const result = hypot(x1, 4);
+      expect(result.dtype).toBe('float64');
+      const expected = [5, Math.sqrt(52)];
+      const resultArr = result.toArray() as number[];
+      for (let i = 0; i < expected.length; i++) {
+        expect(Math.abs(resultArr[i]! - expected[i]!)).toBeLessThan(1e-10);
+      }
     });
   });
 

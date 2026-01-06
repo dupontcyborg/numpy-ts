@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Main benchmark orchestrator
  * Runs benchmarks for both Python NumPy and numpy-ts, compares results

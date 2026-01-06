@@ -18,6 +18,7 @@ import {
   unique_inverse,
   unique_values,
 } from '../../src/core/ndarray';
+import { Complex } from '../../src/core/complex';
 
 describe('Set Operations', () => {
   describe('unique()', () => {
@@ -65,6 +66,14 @@ describe('Set Operations', () => {
       expect((result as any).inverse).toBeDefined();
       expect((result as any).counts).toBeDefined();
     });
+
+    it('handles NaN values with returnInverse', () => {
+      const arr = array([1, NaN, 2, NaN, 1]);
+      const result = unique(arr, false, true);
+      // NaN values should be grouped together and have their own index in inverse
+      expect((result as any).values.toArray().length).toBeGreaterThanOrEqual(3);
+      expect((result as any).inverse.toArray()).toBeDefined();
+    });
   });
 
   describe('in1d()', () => {
@@ -110,6 +119,14 @@ describe('Set Operations', () => {
       const ar2 = array([2, 2, 3, 3, 4]);
       const result = intersect1d(ar1, ar2);
       expect(result.toArray()).toEqual([2, 3]);
+    });
+
+    it('handles complex arrays', () => {
+      const ar1 = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)]);
+      const ar2 = array([new Complex(3, 4), new Complex(5, 6), new Complex(7, 8)]);
+      const result = intersect1d(ar1, ar2);
+      expect(result.shape).toEqual([2]);
+      expect(result.dtype).toBe('complex128');
     });
 
     it('returns sorted result', () => {
