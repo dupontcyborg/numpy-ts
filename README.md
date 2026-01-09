@@ -3,7 +3,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm version](https://img.shields.io/npm/v/numpy-ts)](https://www.npmjs.com/package/numpy-ts)
 ![bundle size](https://img.shields.io/bundlephobia/minzip/numpy-ts)
-![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-94%20%25-brightgreen)
+![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-96%20%25-brightgreen)
 
 ```
 ███╗   ██╗██╗   ██╗███╗   ███╗██████╗ ██╗   ██╗  ████████╗███████╗
@@ -24,7 +24,7 @@ npm install numpy-ts
 
 ## Why numpy-ts?
 
-- **📊 Extensive API** — **476 of 507 NumPy functions (93.9% coverage)**
+- **📊 Extensive API** — **688 of 719 NumPy functions (95.7% coverage)**
 - **✅ NumPy-validated** — 5,000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
@@ -77,6 +77,7 @@ Progress toward complete NumPy API compatibility:
 | **Linear Algebra** | 16/16 | 100% | ✅ |
 | **Linear Algebra (linalg)** | 31/31 | 100% | ✅ |
 | **Logic** | 24/24 | 100% | ✅ |
+| **Masked Arrays (ma)** | 212/212 | 100% | ✅ |
 | **NDArray Methods** | 47/47 | 100% | ✅ |
 | **Other Math** | 15/15 | 100% | ✅ |
 | **Polynomials** | 10/10 | 100% | ✅ |
@@ -93,7 +94,7 @@ Progress toward complete NumPy API compatibility:
 | **Utilities** | 10/10 | 100% | ✅ |
 | **Unplanned** | 0/31 | 0% | 🔴 |
 
-**Overall: 476/507 functions (93.9% coverage)**
+**Overall: 688/719 functions (95.7% coverage)**
 
 See the complete [API Reference](docs/API-REFERENCE.md) for detailed function list.
 
@@ -257,7 +258,7 @@ arr.sum();  // Type: number
 
 | Feature | numpy-ts | numjs | ndarray | TensorFlow.js |
 |---------|----------|-------|---------|---------------|
-| NumPy API Coverage | 476/507 (94%) | ~20% | Different | ML-focused |
+| NumPy API Coverage | 688/719 (96%) | ~20% | Different | ML-focused |
 | TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
 | NumPy Validated | ✅ 5,000+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |

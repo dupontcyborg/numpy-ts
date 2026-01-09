@@ -54,6 +54,7 @@ def get_numpy_submodule_functions():
         'linalg': np.linalg,
         'fft': np.fft,
         'random': np.random,
+        'ma': np.ma,
     }
 
     functions = {}
@@ -285,6 +286,95 @@ def categorize_functions(functions):
         'Polynomials': [
             'poly', 'polyadd', 'polyder', 'polydiv', 'polyfit', 'polyint',
             'polymul', 'polysub', 'polyval', 'roots'
+        ],
+        'Masked Arrays (ma)': [
+            # Core masked array functions
+            'ma.array', 'ma.asarray', 'ma.asanyarray', 'ma.copy',
+            'ma.masked_array', 'ma.MaskedArray',
+            # Mask creation and manipulation
+            'ma.make_mask', 'ma.make_mask_none', 'ma.make_mask_descr',
+            'ma.getmask', 'ma.getmaskarray', 'ma.getdata',
+            'ma.is_mask', 'ma.is_masked', 'ma.isMA', 'ma.isMaskedArray', 'ma.isarray',
+            'ma.mask_or', 'ma.flatten_mask',
+            'ma.harden_mask', 'ma.soften_mask',
+            # Masked value creation
+            'ma.masked_equal', 'ma.masked_greater', 'ma.masked_greater_equal',
+            'ma.masked_inside', 'ma.masked_invalid', 'ma.masked_less',
+            'ma.masked_less_equal', 'ma.masked_not_equal', 'ma.masked_object',
+            'ma.masked_outside', 'ma.masked_values', 'ma.masked_where',
+            'ma.masked_all', 'ma.masked_all_like',
+            # Fill values
+            'ma.filled', 'ma.fix_invalid',
+            'ma.common_fill_value', 'ma.default_fill_value',
+            'ma.maximum_fill_value', 'ma.minimum_fill_value',
+            'ma.set_fill_value',
+            # Compressed/clumped data
+            'ma.compressed', 'ma.compress', 'ma.compress_cols', 'ma.compress_rows',
+            'ma.compress_rowcols', 'ma.compress_nd',
+            'ma.clump_masked', 'ma.clump_unmasked',
+            'ma.flatnotmasked_contiguous', 'ma.flatnotmasked_edges',
+            'ma.notmasked_contiguous', 'ma.notmasked_edges',
+            'ma.mask_cols', 'ma.mask_rows', 'ma.mask_rowcols',
+            # Counting
+            'ma.count', 'ma.count_masked',
+            # Statistics with mask support
+            'ma.average', 'ma.mean', 'ma.var', 'ma.std', 'ma.median',
+            'ma.min', 'ma.max', 'ma.ptp', 'ma.sum', 'ma.prod',
+            'ma.anom', 'ma.anomalies',
+            'ma.cov', 'ma.corrcoef',
+            # Reductions
+            'ma.all', 'ma.any', 'ma.allequal', 'ma.allclose',
+            'ma.alltrue', 'ma.sometrue',
+            'ma.argmin', 'ma.argmax',
+            'ma.cumsum', 'ma.cumprod',
+            # Array creation
+            'ma.zeros', 'ma.ones', 'ma.empty',
+            'ma.zeros_like', 'ma.ones_like', 'ma.empty_like',
+            'ma.arange', 'ma.indices', 'ma.identity',
+            # Array manipulation
+            'ma.reshape', 'ma.ravel', 'ma.flatten_structured_array',
+            'ma.transpose', 'ma.swapaxes', 'ma.squeeze', 'ma.expand_dims',
+            'ma.resize', 'ma.repeat', 'ma.put', 'ma.putmask', 'ma.take',
+            'ma.concatenate', 'ma.stack', 'ma.vstack', 'ma.hstack', 'ma.dstack',
+            'ma.column_stack', 'ma.row_stack', 'ma.hsplit',
+            'ma.append', 'ma.choose',
+            'ma.atleast_1d', 'ma.atleast_2d', 'ma.atleast_3d',
+            'ma.diag', 'ma.diagflat', 'ma.diagonal', 'ma.vander',
+            # Math operations
+            'ma.add', 'ma.subtract', 'ma.multiply', 'ma.divide', 'ma.true_divide',
+            'ma.floor_divide', 'ma.power', 'ma.mod', 'ma.remainder', 'ma.fmod',
+            'ma.negative', 'ma.absolute', 'ma.abs', 'ma.fabs',
+            'ma.sqrt', 'ma.log', 'ma.log2', 'ma.log10', 'ma.exp',
+            'ma.sin', 'ma.cos', 'ma.tan', 'ma.arcsin', 'ma.arccos', 'ma.arctan', 'ma.arctan2',
+            'ma.sinh', 'ma.cosh', 'ma.tanh', 'ma.arcsinh', 'ma.arccosh', 'ma.arctanh',
+            'ma.hypot', 'ma.angle', 'ma.conjugate',
+            'ma.floor', 'ma.ceil', 'ma.round', 'ma.round_', 'ma.around', 'ma.fix_invalid',
+            'ma.clip', 'ma.maximum', 'ma.minimum',
+            # Comparison
+            'ma.equal', 'ma.not_equal', 'ma.less', 'ma.less_equal',
+            'ma.greater', 'ma.greater_equal',
+            # Logic/bitwise
+            'ma.logical_and', 'ma.logical_or', 'ma.logical_not', 'ma.logical_xor',
+            'ma.bitwise_and', 'ma.bitwise_or', 'ma.bitwise_xor',
+            'ma.left_shift', 'ma.right_shift',
+            # Linear algebra
+            'ma.dot', 'ma.inner', 'ma.innerproduct', 'ma.outer', 'ma.outerproduct',
+            'ma.trace', 'ma.polyfit',
+            # Set operations
+            'ma.unique', 'ma.union1d', 'ma.intersect1d', 'ma.setdiff1d', 'ma.setxor1d',
+            'ma.in1d', 'ma.isin',
+            # Sorting
+            'ma.sort', 'ma.argsort',
+            # Searching
+            'ma.nonzero', 'ma.where',
+            # Other
+            'ma.apply_along_axis', 'ma.apply_over_axes',
+            'ma.convolve', 'ma.correlate',
+            'ma.diff', 'ma.ediff1d',
+            'ma.frombuffer', 'ma.fromflex', 'ma.fromfunction',
+            'ma.ids', 'ma.ndenumerate', 'ma.ndim', 'ma.shape', 'ma.size',
+            'ma.product',  # alias for prod
+            'ma.amax', 'ma.amin',  # aliases for max, min
         ],
         'Unplanned': [
             # Methods we won't implement

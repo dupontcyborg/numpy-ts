@@ -685,6 +685,14 @@ export const fft = {
   },
 };
 
+// Masked array module (np.ma namespace)
+import * as maOps from './ma';
+
+export const ma = maOps;
+
+// Also export MaskedArray class directly for convenience
+export { MaskedArray } from './ma/MaskedArray';
+
 // Version (replaced at build time from package.json)
 // In development/tests, use package.json directly; in production, use the replaced value
 declare const __VERSION_PLACEHOLDER__: string;

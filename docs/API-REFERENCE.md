@@ -2,14 +2,14 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-01-08
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
-- **Overall Coverage**: 476/507 (93.9%)
-- **Top-level Functions**: 472/507 (89.5%)
+- **Overall Coverage**: 688/719 (95.7%)
+- **Top-level Functions**: 698/719 (92.6%)
 - **NDArray Methods**: 47/47 (100.0%)
 
 ### Completed Categories (100%)
@@ -28,6 +28,7 @@ Based on `npm run compare-api`:
 - Linear Algebra (16/16)
 - Linear Algebra (linalg) (31/31)
 - Logic (24/24)
+- Masked Arrays (ma) (212/212)
 - NDArray Methods (47/47)
 - Other Math (15/15)
 - Polynomials (10/10)
@@ -396,6 +397,223 @@ Based on `npm run compare-api`:
 - [x] `real_if_close` 
 - [x] `signbit` 
 - [x] `spacing` 
+
+---
+
+## Masked Arrays (ma)
+
+- [x] `ma.abs` 
+- [x] `ma.absolute` 
+- [x] `ma.add` 
+- [x] `ma.all` 
+- [x] `ma.allclose` 
+- [x] `ma.allequal` 
+- [x] `ma.alltrue` 
+- [x] `ma.amax` 
+- [x] `ma.amin` 
+- [x] `ma.angle` 
+- [x] `ma.anom` 
+- [x] `ma.anomalies` 
+- [x] `ma.any` 
+- [x] `ma.append` 
+- [x] `ma.apply_along_axis` 
+- [x] `ma.apply_over_axes` 
+- [x] `ma.arange` 
+- [x] `ma.arccos` 
+- [x] `ma.arccosh` 
+- [x] `ma.arcsin` 
+- [x] `ma.arcsinh` 
+- [x] `ma.arctan` 
+- [x] `ma.arctan2` 
+- [x] `ma.arctanh` 
+- [x] `ma.argmax` 
+- [x] `ma.argmin` 
+- [x] `ma.argsort` 
+- [x] `ma.around` 
+- [x] `ma.array` 
+- [x] `ma.asanyarray` 
+- [x] `ma.asarray` 
+- [x] `ma.atleast_1d` 
+- [x] `ma.atleast_2d` 
+- [x] `ma.atleast_3d` 
+- [x] `ma.average` 
+- [x] `ma.bitwise_and` 
+- [x] `ma.bitwise_or` 
+- [x] `ma.bitwise_xor` 
+- [x] `ma.ceil` 
+- [x] `ma.choose` 
+- [x] `ma.clip` 
+- [x] `ma.clump_masked` 
+- [x] `ma.clump_unmasked` 
+- [x] `ma.column_stack` 
+- [x] `ma.common_fill_value` 
+- [x] `ma.compress` 
+- [x] `ma.compress_cols` 
+- [x] `ma.compress_nd` 
+- [x] `ma.compress_rowcols` 
+- [x] `ma.compress_rows` 
+- [x] `ma.compressed` 
+- [x] `ma.concatenate` 
+- [x] `ma.conjugate` 
+- [x] `ma.convolve` 
+- [x] `ma.copy` 
+- [x] `ma.corrcoef` 
+- [x] `ma.correlate` 
+- [x] `ma.cos` 
+- [x] `ma.cosh` 
+- [x] `ma.count` 
+- [x] `ma.count_masked` 
+- [x] `ma.cov` 
+- [x] `ma.cumprod` 
+- [x] `ma.cumsum` 
+- [x] `ma.default_fill_value` 
+- [x] `ma.diag` 
+- [x] `ma.diagflat` 
+- [x] `ma.diagonal` 
+- [x] `ma.diff` 
+- [x] `ma.divide` 
+- [x] `ma.dot` 
+- [x] `ma.dstack` 
+- [x] `ma.ediff1d` 
+- [x] `ma.empty` 
+- [x] `ma.empty_like` 
+- [x] `ma.equal` 
+- [x] `ma.exp` 
+- [x] `ma.expand_dims` 
+- [x] `ma.fabs` 
+- [x] `ma.filled` 
+- [x] `ma.fix_invalid` 
+- [x] `ma.flatnotmasked_contiguous` 
+- [x] `ma.flatnotmasked_edges` 
+- [x] `ma.flatten_mask` 
+- [x] `ma.flatten_structured_array` 
+- [x] `ma.floor` 
+- [x] `ma.floor_divide` 
+- [x] `ma.fmod` 
+- [x] `ma.frombuffer` 
+- [x] `ma.fromflex` 
+- [x] `ma.fromfunction` 
+- [x] `ma.getdata` 
+- [x] `ma.getmask` 
+- [x] `ma.getmaskarray` 
+- [x] `ma.greater` 
+- [x] `ma.greater_equal` 
+- [x] `ma.harden_mask` 
+- [x] `ma.hsplit` 
+- [x] `ma.hstack` 
+- [x] `ma.hypot` 
+- [x] `ma.identity` 
+- [x] `ma.ids` 
+- [x] `ma.in1d` 
+- [x] `ma.indices` 
+- [x] `ma.inner` 
+- [x] `ma.innerproduct` 
+- [x] `ma.intersect1d` 
+- [x] `ma.isMA` 
+- [x] `ma.isMaskedArray` 
+- [x] `ma.is_mask` 
+- [x] `ma.is_masked` 
+- [x] `ma.isarray` 
+- [x] `ma.isin` 
+- [x] `ma.left_shift` 
+- [x] `ma.less` 
+- [x] `ma.less_equal` 
+- [x] `ma.log` 
+- [x] `ma.log10` 
+- [x] `ma.log2` 
+- [x] `ma.logical_and` 
+- [x] `ma.logical_not` 
+- [x] `ma.logical_or` 
+- [x] `ma.logical_xor` 
+- [x] `ma.make_mask` 
+- [x] `ma.make_mask_descr` 
+- [x] `ma.make_mask_none` 
+- [x] `ma.mask_cols` 
+- [x] `ma.mask_or` 
+- [x] `ma.mask_rowcols` 
+- [x] `ma.mask_rows` 
+- [x] `ma.masked_all` 
+- [x] `ma.masked_all_like` 
+- [x] `ma.masked_equal` 
+- [x] `ma.masked_greater` 
+- [x] `ma.masked_greater_equal` 
+- [x] `ma.masked_inside` 
+- [x] `ma.masked_invalid` 
+- [x] `ma.masked_less` 
+- [x] `ma.masked_less_equal` 
+- [x] `ma.masked_not_equal` 
+- [x] `ma.masked_object` 
+- [x] `ma.masked_outside` 
+- [x] `ma.masked_values` 
+- [x] `ma.masked_where` 
+- [x] `ma.max` 
+- [x] `ma.maximum` 
+- [x] `ma.maximum_fill_value` 
+- [x] `ma.mean` 
+- [x] `ma.median` 
+- [x] `ma.min` 
+- [x] `ma.minimum` 
+- [x] `ma.minimum_fill_value` 
+- [x] `ma.mod` 
+- [x] `ma.multiply` 
+- [x] `ma.ndenumerate` 
+- [x] `ma.ndim` 
+- [x] `ma.negative` 
+- [x] `ma.nonzero` 
+- [x] `ma.not_equal` 
+- [x] `ma.notmasked_contiguous` 
+- [x] `ma.notmasked_edges` 
+- [x] `ma.ones` 
+- [x] `ma.ones_like` 
+- [x] `ma.outer` 
+- [x] `ma.outerproduct` 
+- [x] `ma.polyfit` 
+- [x] `ma.power` 
+- [x] `ma.prod` 
+- [x] `ma.product` 
+- [x] `ma.ptp` 
+- [x] `ma.put` 
+- [x] `ma.putmask` 
+- [x] `ma.ravel` 
+- [x] `ma.remainder` 
+- [x] `ma.repeat` 
+- [x] `ma.reshape` 
+- [x] `ma.resize` 
+- [x] `ma.right_shift` 
+- [x] `ma.round` 
+- [x] `ma.round_` 
+- [x] `ma.row_stack` 
+- [x] `ma.set_fill_value` 
+- [x] `ma.setdiff1d` 
+- [x] `ma.setxor1d` 
+- [x] `ma.shape` 
+- [x] `ma.sin` 
+- [x] `ma.sinh` 
+- [x] `ma.size` 
+- [x] `ma.soften_mask` 
+- [x] `ma.sometrue` 
+- [x] `ma.sort` 
+- [x] `ma.sqrt` 
+- [x] `ma.squeeze` 
+- [x] `ma.stack` 
+- [x] `ma.std` 
+- [x] `ma.subtract` 
+- [x] `ma.sum` 
+- [x] `ma.swapaxes` 
+- [x] `ma.take` 
+- [x] `ma.tan` 
+- [x] `ma.tanh` 
+- [x] `ma.trace` 
+- [x] `ma.transpose` 
+- [x] `ma.true_divide` 
+- [x] `ma.union1d` 
+- [x] `ma.unique` 
+- [x] `ma.vander` 
+- [x] `ma.var` 
+- [x] `ma.vstack` 
+- [x] `ma.where` 
+- [x] `ma.zeros` 
+- [x] `ma.zeros_like` 
 
 ---
 
