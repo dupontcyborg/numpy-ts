@@ -795,6 +795,38 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "ifftshift":
         return np.fft.ifftshift(arrays["a"])
 
+    # Masked array operations
+    elif operation == "ma_array":
+        # Create a masked array with ~25% masked values
+        mask = arrays["a"] > arrays["a"].mean()
+        return np.ma.array(arrays["a"], mask=mask)
+    elif operation == "ma_filled":
+        # Create masked array and fill it
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        return ma.filled(0)
+    elif operation == "ma_compressed":
+        # Create masked array and compress it
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        return ma.compressed()
+    elif operation == "ma_add":
+        # Create two masked arrays and add them
+        mask = arrays["a"] > arrays["a"].mean()
+        ma_a = np.ma.array(arrays["a"], mask=mask)
+        ma_b = np.ma.array(arrays["b"])
+        return ma_a + ma_b
+    elif operation == "ma_sum":
+        # Create masked array and sum it
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        return ma.sum()
+    elif operation == "ma_mean":
+        # Create masked array and compute mean
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        return ma.mean()
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

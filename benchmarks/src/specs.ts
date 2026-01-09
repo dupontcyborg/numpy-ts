@@ -3422,6 +3422,79 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     warmup,
   });
 
+  // ========================================
+  // Masked Array Benchmarks
+  // ========================================
+
+  if (Array.isArray(sizes.medium)) {
+    specs.push({
+      name: `ma.array [${sizes.medium.join('x')}]`,
+      category: 'masked_array',
+      operation: 'ma_array',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `ma.filled [${sizes.medium.join('x')}]`,
+      category: 'masked_array',
+      operation: 'ma_filled',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `ma.compressed [${sizes.medium.join('x')}]`,
+      category: 'masked_array',
+      operation: 'ma_compressed',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `ma.add [${sizes.medium.join('x')}]`,
+      category: 'masked_array',
+      operation: 'ma_add',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+        b: { shape: sizes.medium, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `ma.sum [${sizes.medium.join('x')}]`,
+      category: 'masked_array',
+      operation: 'ma_sum',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `ma.mean [${sizes.medium.join('x')}]`,
+      category: 'masked_array',
+      operation: 'ma_mean',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+  }
+
   return specs;
 }
 

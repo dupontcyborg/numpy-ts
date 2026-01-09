@@ -825,6 +825,39 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return np.fft.ifftshift(arrays['a']);
   }
 
+  // Masked array operations
+  else if (operation === 'ma_array') {
+    // Create a masked array with ~25% masked values
+    const mask = arrays['a'].greater(arrays['a'].mean());
+    return np.ma.array(arrays['a'], { mask });
+  } else if (operation === 'ma_filled') {
+    // Create masked array and fill it
+    const mask = arrays['a'].greater(arrays['a'].mean());
+    const ma = np.ma.array(arrays['a'], { mask });
+    return ma.filled(0);
+  } else if (operation === 'ma_compressed') {
+    // Create masked array and compress it
+    const mask = arrays['a'].greater(arrays['a'].mean());
+    const ma = np.ma.array(arrays['a'], { mask });
+    return ma.compressed();
+  } else if (operation === 'ma_add') {
+    // Create two masked arrays and add them
+    const mask = arrays['a'].greater(arrays['a'].mean());
+    const ma_a = np.ma.array(arrays['a'], { mask });
+    const ma_b = np.ma.array(arrays['b']);
+    return ma_a.add(ma_b);
+  } else if (operation === 'ma_sum') {
+    // Create masked array and sum it
+    const mask = arrays['a'].greater(arrays['a'].mean());
+    const ma = np.ma.array(arrays['a'], { mask });
+    return ma.sum();
+  } else if (operation === 'ma_mean') {
+    // Create masked array and compute mean
+    const mask = arrays['a'].greater(arrays['a'].mean());
+    const ma = np.ma.array(arrays['a'], { mask });
+    return ma.mean();
+  }
+
   throw new Error(`Unknown operation: ${operation}`);
 }
 

@@ -740,6 +740,32 @@ def run_operation(spec):
     elif operation == "ifftshift":
         result = np.fft.ifftshift(arrays["a"])
 
+    # Masked array operations
+    elif operation == "ma_array":
+        mask = arrays["a"] > arrays["a"].mean()
+        result = np.ma.array(arrays["a"], mask=mask).filled()
+    elif operation == "ma_filled":
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        result = ma.filled(0)
+    elif operation == "ma_compressed":
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        result = ma.compressed()
+    elif operation == "ma_add":
+        mask = arrays["a"] > arrays["a"].mean()
+        ma_a = np.ma.array(arrays["a"], mask=mask)
+        ma_b = np.ma.array(arrays["b"])
+        result = (ma_a + ma_b).filled()
+    elif operation == "ma_sum":
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        result = ma.sum()
+    elif operation == "ma_mean":
+        mask = arrays["a"] > arrays["a"].mean()
+        ma = np.ma.array(arrays["a"], mask=mask)
+        result = ma.mean()
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

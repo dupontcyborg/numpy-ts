@@ -1026,6 +1026,38 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'ifftshift':
       return np.fft.ifftshift(arrays.a);
 
+    // Masked array operations
+    case 'ma_array': {
+      const mask = arrays.a.greater(arrays.a.mean());
+      return np.ma.array(arrays.a, { mask }).filled();
+    }
+    case 'ma_filled': {
+      const mask = arrays.a.greater(arrays.a.mean());
+      const ma = np.ma.array(arrays.a, { mask });
+      return ma.filled(0);
+    }
+    case 'ma_compressed': {
+      const mask = arrays.a.greater(arrays.a.mean());
+      const ma = np.ma.array(arrays.a, { mask });
+      return ma.compressed();
+    }
+    case 'ma_add': {
+      const mask = arrays.a.greater(arrays.a.mean());
+      const ma_a = np.ma.array(arrays.a, { mask });
+      const ma_b = np.ma.array(arrays.b);
+      return ma_a.add(ma_b).filled();
+    }
+    case 'ma_sum': {
+      const mask = arrays.a.greater(arrays.a.mean());
+      const ma = np.ma.array(arrays.a, { mask });
+      return ma.sum();
+    }
+    case 'ma_mean': {
+      const mask = arrays.a.greater(arrays.a.mean());
+      const ma = np.ma.array(arrays.a, { mask });
+      return ma.mean();
+    }
+
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);
   }
