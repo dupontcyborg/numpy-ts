@@ -52,6 +52,7 @@
     "test:unit": "vitest run --project=unit",
     "test:validation": "vitest run --project=validation",
     "test:bundles": "npm run build && vitest run --project=bundle-node --project=bundle-esm --project=bundle-browser",
+    "test:tree-shaking": "vitest run --project=tree-shaking",
     "test:ci": "npm run lint && npm run typecheck && npm test && npm run test:bundles",
     "test:summary": "vitest run --reporter=tap | grep -E 'not ok|# tests'",
     "test:watch": "vitest watch",
@@ -98,6 +99,9 @@
   },
   "homepage": "https://github.com/dupontcyborg/numpy-ts",
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.2",
     "@types/node": "^25.0.3",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
@@ -114,9 +118,12 @@
     "lint-staged": "^16.2.6",
     "playwright": "^1.56.1",
     "prettier": "^3.1.1",
+    "rollup": "^4.40.0",
+    "ts-loader": "^9.5.2",
     "tsx": "^4.20.6",
     "typescript": "^5.3.3",
-    "vitest": "^4.0.3"
+    "vitest": "^4.0.3",
+    "webpack": "^5.99.9"
   },
   "engines": {
     "node": ">=20.1.0"
