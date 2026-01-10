@@ -29,6 +29,7 @@ npm install numpy-ts
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
 - **🎯 Zero dependencies** — Pure TypeScript, no heavy external libraries
+- **🌳 Tree-shakeable** — Import only what you need (~11KB for `zeros`, not 180KB)
 
 ## Quick Start
 
