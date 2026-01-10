@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: Full import (baseline)
  * Expected: Largest bundle - includes everything
  */
-import * as np from '../../../src/index';
+import * as np from 'numpy-ts';
 
 // Use various functions to ensure they're all included
 const a = np.zeros([2, 3]);

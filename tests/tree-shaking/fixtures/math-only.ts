@@ -13,7 +13,7 @@ import {
   maximum,
   minimum,
   clip
-} from '../../../src/index';
+} from 'numpy-ts';
 
 const a = array([1, 2, 3, 4, 5]);
 const b = sin(a);

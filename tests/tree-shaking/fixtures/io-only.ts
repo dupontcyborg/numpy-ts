@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: IO operations only
  * Expected: Should include IO parsing but not FFT, random, full linalg
  */
-import { parseNpy, serializeNpy, array, zeros } from '../../../src/index';
+import { parseNpy, serializeNpy, array, zeros } from 'numpy-ts';
 
 const a = array([[1, 2], [3, 4]]);
 const serialized = serializeNpy(a);

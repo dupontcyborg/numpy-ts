@@ -5,7 +5,7 @@
  * This imports from the new modular creation module which doesn't
  * depend on arithmetic, linalg, fft, random, or other ops.
  */
-import { zeros, ones, array, arange, linspace, eye } from '../../../src/creation';
+import { zeros, ones, array, arange, linspace, eye } from 'numpy-ts';
 
 const a = zeros([2, 3]);
 const b = ones([3, 2]);

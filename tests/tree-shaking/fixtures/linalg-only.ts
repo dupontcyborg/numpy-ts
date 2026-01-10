@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: Linear algebra operations only
  * Expected: Should include linalg but not FFT, random, IO
  */
-import { array, linalg, dot, transpose, NDArray } from '../../../src/index';
+import { array, linalg, dot, transpose, NDArray } from 'numpy-ts';
 
 const a = array([[1, 2], [3, 4]]);
 const b = array([[5, 6], [7, 8]]);

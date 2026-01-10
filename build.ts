@@ -93,6 +93,41 @@ async function buildAll() {
   );
   console.log('✓ ESM build complete');
 
+  // Tree-shakeable ESM build (preserves module structure for optimal bundler tree-shaking)
+  // This transpiles each source file individually without bundling, preserving imports
+  console.log('Building tree-shakeable ESM modules...');
+  const glob = await import('node:fs').then((fs) => {
+    const files: string[] = [];
+    const walkDir = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          walkDir(fullPath);
+        } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+          files.push(fullPath);
+        }
+      }
+    };
+    walkDir('src');
+    return files;
+  });
+
+  await build({
+    entryPoints: glob,
+    bundle: false, // Don't bundle - preserve module structure
+    platform: 'neutral',
+    format: 'esm',
+    outdir: 'dist/esm',
+    outbase: 'src',
+    sourcemap: false,
+    minify: false, // Keep readable for better tree-shaking analysis
+    define: {
+      __VERSION_PLACEHOLDER__: JSON.stringify(VERSION),
+    },
+  });
+  console.log('✓ Tree-shakeable ESM build complete');
+
   console.log('\n✓ All builds completed successfully!');
 }
 

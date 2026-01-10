@@ -14,6 +14,7 @@
     "dist/**/*.mjs",
     "dist/**/*.cjs.map",
     "dist/**/*.mjs.map",
+    "dist/esm/**/*.js",
     "dist/types/**/*.d.ts",
     "README.md",
     "LICENSE"
@@ -23,6 +24,7 @@
       "types": "./dist/types/index.d.ts",
       "node": "./dist/numpy-ts.node.cjs",
       "browser": "./dist/numpy-ts.browser.js",
+      "import": "./dist/esm/index.js",
       "default": "./dist/numpy-ts.esm.js"
     },
     "./node": {
@@ -99,6 +101,7 @@
   },
   "homepage": "https://github.com/dupontcyborg/numpy-ts",
   "devDependencies": {
+    "@rollup/plugin-alias": "^6.0.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",

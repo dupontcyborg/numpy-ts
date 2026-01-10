@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: Random operations only
  * Expected: Should include random but not FFT, linalg (except what random needs), IO
  */
-import { random } from '../../../src/index';
+import { random } from 'numpy-ts';
 
 random.seed(42);
 

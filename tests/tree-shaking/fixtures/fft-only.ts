@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: FFT operations only
  * Expected: Should include FFT but not random, full linalg, IO
  */
-import { array, fft } from '../../../src/index';
+import { array, fft } from 'numpy-ts';
 
 const a = array([1, 2, 3, 4, 5, 6, 7, 8]);
 

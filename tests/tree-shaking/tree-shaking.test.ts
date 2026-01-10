@@ -20,8 +20,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { build as esbuild } from 'esbuild';
 import { rollup, InputOptions, OutputOptions } from 'rollup';
-import typescript from '@rollup/plugin-typescript';
 import nodeResolve from '@rollup/plugin-node-resolve';
+import alias from '@rollup/plugin-alias';
+import typescript from '@rollup/plugin-typescript';
 import webpack from 'webpack';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -29,6 +30,9 @@ import { mkdir, stat } from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Path to the built ESM modules (tree-shakeable)
+const NUMPY_TS_ESM = resolve(__dirname, '../../dist/esm/index.js');
 
 // Fixture definitions
 const FIXTURES = [
@@ -86,6 +90,9 @@ async function buildWithEsbuild(fixtureName: string): Promise<BundleResult> {
       treeShaking: true,
       metafile: true,
       write: true,
+      alias: {
+        'numpy-ts': NUMPY_TS_ESM,
+      },
     });
 
     // Build minified (for size comparison)
@@ -98,6 +105,9 @@ async function buildWithEsbuild(fixtureName: string): Promise<BundleResult> {
       treeShaking: true,
       minify: true,
       write: true,
+      alias: {
+        'numpy-ts': NUMPY_TS_ESM,
+      },
     });
 
     const stats = await stat(outfile);
@@ -138,6 +148,9 @@ async function buildWithRollup(fixtureName: string): Promise<BundleResult> {
     const inputOptions: InputOptions = {
       input: entry,
       plugins: [
+        alias({
+          entries: [{ find: 'numpy-ts', replacement: NUMPY_TS_ESM }],
+        }),
         nodeResolve({
           extensions: ['.ts', '.js'],
         }),
@@ -149,8 +162,9 @@ async function buildWithRollup(fixtureName: string): Promise<BundleResult> {
             sourceMap: false,
             module: 'ESNext',
             moduleResolution: 'bundler',
+            outDir: resolve(OUTPUT_DIR, 'rollup'),
           },
-          include: ['src/**/*.ts', 'tests/tree-shaking/fixtures/**/*.ts'],
+          include: ['tests/tree-shaking/fixtures/**/*.ts'],
         }),
       ],
       treeshake: {
@@ -237,6 +251,9 @@ async function buildWithWebpack(fixtureName: string): Promise<BundleResult> {
       },
       resolve: {
         extensions: ['.ts', '.js'],
+        alias: {
+          'numpy-ts': NUMPY_TS_ESM,
+        },
       },
       module: {
         rules: [
@@ -255,6 +272,13 @@ async function buildWithWebpack(fixtureName: string): Promise<BundleResult> {
               },
             },
             exclude: /node_modules/,
+          },
+          {
+            // Allow imports without .js extension in ESM
+            test: /\.js$/,
+            resolve: {
+              fullySpecified: false,
+            },
           },
         ],
       },
