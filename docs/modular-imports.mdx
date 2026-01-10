@@ -1,0 +1,319 @@
+---
+title: Modular Imports
+description: Guide to tree-shakeable imports in numpy-ts
+---
+
+# Modular Imports Guide
+
+numpy-ts is designed to be **tree-shakeable**, meaning bundlers can eliminate unused code from your final bundle. This guide explains how imports work and how to optimize your bundle size.
+
+## Quick Start
+
+```typescript
+// Standard import - tree-shaking works automatically
+import { zeros, array, dot } from 'numpy-ts';
+
+const a = zeros([3, 3]);
+const b = array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+const c = dot(a, b);
+```
+
+Modern bundlers (esbuild, Rollup, Webpack) will automatically exclude unused functions like `fft`, `random`, or `linalg` operations you didn't import.
+
+## Import Patterns
+
+### Full API (NumPy-style)
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Use np.* prefix like NumPy
+const a = np.zeros([2, 3]);
+const b = np.random.random([2, 3]);
+const c = np.linalg.inv(np.eye(3));
+```
+
+> **Note:** This pattern imports the entire library. Use named imports for smaller bundles.
+
+### Named Imports (Recommended)
+
+```typescript
+import { zeros, ones, array, arange, linspace } from 'numpy-ts';
+import { add, subtract, multiply, divide } from 'numpy-ts';
+import { dot, matmul, inv, det } from 'numpy-ts';
+import { sin, cos, tan, exp, log } from 'numpy-ts';
+```
+
+Only the functions you import (and their dependencies) are included in your bundle.
+
+### Subpath Imports (Maximum Control)
+
+For the smallest possible bundles, use subpath imports:
+
+```typescript
+// Array creation only
+import { zeros, ones, array } from 'numpy-ts/creation';
+
+// Specific operation categories
+import { add, multiply } from 'numpy-ts/arithmetic';
+import { dot, inv } from 'numpy-ts/linalg';
+import { fft, ifft } from 'numpy-ts/fft';
+import { random } from 'numpy-ts/random';
+
+// IO operations
+import { parseNpy, serializeNpy } from 'numpy-ts/io';
+```
+
+## Available Subpath Exports
+
+| Subpath | Description | Key Exports |
+|---------|-------------|-------------|
+| `numpy-ts` | Full API | Everything |
+| `numpy-ts/core` | Minimal core | `NDArray`, `zeros`, `ones`, `array` |
+| `numpy-ts/creation` | Array creation | `zeros`, `ones`, `array`, `arange`, `linspace`, `eye`, `empty`, `full` |
+| `numpy-ts/arithmetic` | Math operations | `add`, `subtract`, `multiply`, `divide`, `power`, `mod`, `sqrt`, `exp`, `log` |
+| `numpy-ts/comparison` | Comparisons | `equal`, `greater`, `less`, `maximum`, `minimum` |
+| `numpy-ts/reduction` | Reductions | `sum`, `mean`, `max`, `min`, `std`, `var`, `prod` |
+| `numpy-ts/shape` | Shape operations | `reshape`, `transpose`, `flatten`, `squeeze`, `expand_dims`, `stack`, `concatenate` |
+| `numpy-ts/linalg` | Linear algebra | `dot`, `matmul`, `inv`, `det`, `eig`, `svd`, `solve`, `norm` |
+| `numpy-ts/fft` | Fourier transforms | `fft`, `ifft`, `fft2`, `ifft2`, `rfft`, `irfft`, `fftfreq` |
+| `numpy-ts/random` | Random numbers | `random`, `seed`, `normal`, `uniform`, `randint`, `choice`, `shuffle` |
+| `numpy-ts/io` | File I/O | `parseNpy`, `serializeNpy`, `parseNpz`, `serializeNpz` |
+
+## Namespaces
+
+For NumPy compatibility, namespaces are available:
+
+```typescript
+import { linalg, random, fft } from 'numpy-ts';
+
+// Use as namespaces
+const inv = linalg.inv(matrix);
+const r = random.random([3, 3]);
+const spectrum = fft.fft(signal);
+```
+
+Or import namespaces directly:
+
+```typescript
+import { linalg } from 'numpy-ts/linalg';
+import { random } from 'numpy-ts/random';
+import { fft } from 'numpy-ts/fft';
+```
+
+## Bundle Size Optimization
+
+### Estimated Bundle Sizes
+
+| Import Pattern | Approximate Size (minified) |
+|---------------|----------------------------|
+| `import { zeros }` | ~15-20 KB |
+| `import { zeros, array, add }` | ~25-30 KB |
+| `import { zeros, dot, inv }` | ~40-50 KB |
+| `import { random }` | ~30-35 KB |
+| `import { fft }` | ~25-30 KB |
+| `import * as np` (full) | ~180 KB |
+
+### Tips for Smaller Bundles
+
+1. **Use named imports** instead of `import * as np`
+2. **Import only what you need** - avoid importing entire namespaces if you only need one function
+3. **Use subpath imports** for maximum control
+4. **Check your bundle** - use tools like `esbuild --analyze` or `webpack-bundle-analyzer`
+
+## NDArray Methods vs Standalone Functions
+
+numpy-ts provides both method and function syntax:
+
+```typescript
+import { array, sin, transpose } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+
+// Method syntax (on NDArray instance)
+const b = a.sin();
+const c = a.transpose();
+
+// Function syntax (standalone)
+const d = sin(a);
+const e = transpose(a);
+```
+
+Both produce identical results. The function syntax is more tree-shakeable when using subpath imports.
+
+## TypeScript Support
+
+All exports include full TypeScript types:
+
+```typescript
+import { zeros, NDArray, type DType } from 'numpy-ts';
+
+function createMatrix(shape: number[], dtype: DType = 'float64'): NDArray {
+  return zeros(shape, dtype);
+}
+```
+
+## CommonJS Support
+
+For CommonJS environments:
+
+```javascript
+const { zeros, array, dot } = require('numpy-ts');
+// or
+const np = require('numpy-ts');
+```
+
+## Node.js File I/O
+
+For Node.js with file system access:
+
+```typescript
+import { loadNpy, saveNpy, loadNpz, saveNpz } from 'numpy-ts/node';
+
+// Save array to .npy file
+await saveNpy('data.npy', array);
+
+// Load array from .npy file
+const loaded = await loadNpy('data.npy');
+
+// Save multiple arrays to .npz archive
+await saveNpz('data.npz', { x: array1, y: array2 });
+```
+
+## Migration from NumPy
+
+| NumPy | numpy-ts |
+|-------|----------|
+| `import numpy as np` | `import * as np from 'numpy-ts'` |
+| `from numpy import array, zeros` | `import { array, zeros } from 'numpy-ts'` |
+| `from numpy.linalg import inv` | `import { inv } from 'numpy-ts'` or `import { linalg } from 'numpy-ts'` |
+| `from numpy.random import random` | `import { random } from 'numpy-ts'` |
+| `from numpy.fft import fft` | `import { fft } from 'numpy-ts'` |
+
+## Complete Export Reference
+
+### Array Creation
+```typescript
+import {
+  // Basic creation
+  zeros, ones, empty, full, array, asarray,
+  zeros_like, ones_like, empty_like, full_like,
+  // Ranges
+  arange, linspace, logspace, geomspace,
+  // Special matrices
+  eye, identity, diag, diagflat, tri, tril, triu, vander,
+  // From data
+  frombuffer, fromfunction, fromiter, fromstring, meshgrid,
+} from 'numpy-ts';
+```
+
+### Mathematical Operations
+```typescript
+import {
+  // Arithmetic
+  add, subtract, multiply, divide, power, mod, sqrt,
+  negative, positive, absolute, sign, reciprocal,
+  floor_divide, remainder, divmod, fmod,
+  // Exponential & Logarithmic
+  exp, exp2, expm1, log, log2, log10, log1p,
+  logaddexp, logaddexp2,
+  // Trigonometric
+  sin, cos, tan, arcsin, arccos, arctan, arctan2,
+  sinh, cosh, tanh, arcsinh, arccosh, arctanh,
+  hypot, degrees, radians, deg2rad, rad2deg,
+  // Rounding
+  round, around, floor, ceil, trunc, fix, rint,
+  // Comparison
+  equal, not_equal, greater, greater_equal, less, less_equal,
+  maximum, minimum, fmax, fmin, clip,
+} from 'numpy-ts';
+```
+
+### Reductions & Statistics
+```typescript
+import {
+  // Basic reductions
+  sum, prod, mean, std, var as variance,
+  min, max, argmin, argmax, nansum, nanmean, nanstd,
+  // Cumulative
+  cumsum, cumprod, diff,
+  // Statistical
+  median, percentile, quantile, average,
+  corrcoef, cov, histogram,
+  // Logical
+  all, any, count_nonzero,
+} from 'numpy-ts';
+```
+
+### Shape & Array Manipulation
+```typescript
+import {
+  // Reshaping
+  reshape, ravel, flatten, squeeze, expand_dims,
+  // Transposing
+  transpose, swapaxes, moveaxis, rollaxis,
+  // Joining
+  concatenate, stack, vstack, hstack, dstack, column_stack,
+  // Splitting
+  split, array_split, hsplit, vsplit, dsplit,
+  // Tiling
+  tile, repeat,
+} from 'numpy-ts';
+```
+
+### Linear Algebra
+```typescript
+import {
+  // Products
+  dot, matmul, inner, outer, tensordot, kron,
+  // Decompositions
+  linalg, // namespace with: inv, det, eig, eigh, svd, qr, cholesky
+  // Norms & misc
+  trace, diagonal, norm,
+} from 'numpy-ts';
+```
+
+### FFT
+```typescript
+import {
+  fft, // namespace with: fft, ifft, fft2, ifft2, fftn, ifftn
+        // rfft, irfft, rfft2, irfft2, rfftn, irfftn
+        // fftfreq, rfftfreq, fftshift, ifftshift
+} from 'numpy-ts';
+```
+
+### Random
+```typescript
+import {
+  random, // namespace with: random, seed, rand, randn
+          // randint, choice, shuffle, permutation
+          // normal, uniform, exponential, poisson, binomial, etc.
+} from 'numpy-ts';
+```
+
+### Sorting & Searching
+```typescript
+import {
+  sort, argsort, lexsort, partition, argpartition,
+  searchsorted, where, nonzero, flatnonzero,
+  unique, in1d, intersect1d, union1d, setdiff1d,
+} from 'numpy-ts';
+```
+
+### I/O
+```typescript
+import {
+  // NPY format (environment-agnostic)
+  parseNpy, serializeNpy, parseNpyHeader, parseNpyData,
+  // NPZ format (environment-agnostic)
+  parseNpz, serializeNpz,
+  // Text format
+  parseTxt, serializeTxt, genfromtxt, fromregex,
+} from 'numpy-ts/io';
+
+// Node.js only (with file system access)
+import {
+  loadNpy, saveNpy, loadNpz, saveNpz,
+  loadtxt, savetxt,
+} from 'numpy-ts/node';
+```

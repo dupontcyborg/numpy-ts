@@ -34,6 +34,7 @@ const __dirname = dirname(__filename);
 const FIXTURES = [
   { name: 'single-function', description: 'Single function (zeros)' },
   { name: 'basic-array', description: 'Basic array creation functions' },
+  { name: 'creation-only', description: 'Creation module (modular)' },
   { name: 'math-only', description: 'Math operations only' },
   { name: 'linalg-only', description: 'Linear algebra only' },
   { name: 'fft-only', description: 'FFT operations only' },
