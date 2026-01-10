@@ -71,15 +71,34 @@ async function buildAll() {
   });
   console.log('✓ Browser build complete');
 
-  // ESM bundle (for modern browsers and bundlers)
-  console.log('Building ESM bundle...');
-  const result = await build({
-    entryPoints: ['src/index.ts'],
-    bundle: true,
-    platform: 'browser',
+  // Tree-shakeable ESM build (preserves module structure for optimal bundler tree-shaking)
+  // This transpiles each source file individually without bundling, preserving imports
+  console.log('Building tree-shakeable ESM modules...');
+  const glob = await import('node:fs').then((fs) => {
+    const files: string[] = [];
+    const walkDir = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          walkDir(fullPath);
+        } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+          files.push(fullPath);
+        }
+      }
+    };
+    walkDir('src');
+    return files;
+  });
+
+  const esmResult = await build({
+    entryPoints: glob,
+    bundle: false, // Don't bundle - preserve module structure
+    platform: 'neutral',
     format: 'esm',
-    outfile: 'dist/numpy-ts.esm.js',
-    sourcemap: false, // Bundlers will create their own source maps
+    outdir: 'dist/esm',
+    outbase: 'src',
+    sourcemap: false,
     minify: true,
     metafile: true,
     define: {
@@ -89,9 +108,9 @@ async function buildAll() {
 
   // Write metafile for analysis
   await import('node:fs/promises').then((fs) =>
-    fs.writeFile('dist/meta.json', JSON.stringify(result.metafile, null, 2))
+    fs.writeFile('dist/meta.json', JSON.stringify(esmResult.metafile, null, 2))
   );
-  console.log('✓ ESM build complete');
+  console.log('✓ Tree-shakeable ESM build complete');
 
   console.log('\n✓ All builds completed successfully!');
 }

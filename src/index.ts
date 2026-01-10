@@ -1,33 +1,57 @@
 /**
  * numpy-ts - Complete NumPy implementation for TypeScript and JavaScript
  *
+ * This module is designed for optimal tree-shaking. Each function is
+ * re-exported from modular files that only import the dependencies they need.
+ *
+ * For even better tree-shaking, you can import from submodules:
+ *   import { zeros, ones } from 'numpy-ts/creation';
+ *   import { sin, cos } from 'numpy-ts/functions/trig';
+ *
  * @module numpy-ts
  */
+
+// ============================================================
+// Core Types and Classes
+// ============================================================
 
 // Complex number class
 export { Complex, type ComplexInput } from './core/complex';
 
-// Core array functions
+// NDArray class with full method support (includes all ops for method chaining)
+// Note: Importing NDArray will include all ops due to its method definitions.
+// For tree-shakeable array creation, use standalone functions instead.
+export { NDArray } from './core/ndarray';
+
+// NDArrayCore for advanced use (minimal class without ops)
+export { NDArrayCore } from './core/ndarray-core';
+
+// ============================================================
+// Array Creation Functions (from modular creation module)
+// ============================================================
+
 export {
-  NDArray,
   zeros,
   ones,
+  empty,
+  full,
   array,
   arange,
   linspace,
   logspace,
   geomspace,
   eye,
-  empty,
-  full,
   identity,
   asarray,
-  copy,
   zeros_like,
   ones_like,
   empty_like,
   full_like,
-  // New array creation functions
+  copy,
+} from './creation';
+
+// Additional creation functions from ndarray (these need the full ndarray module)
+export {
   asanyarray,
   asarray_chkfinite,
   ascontiguousarray,
@@ -45,11 +69,16 @@ export {
   tril,
   triu,
   vander,
-  // Math functions
+} from './core/ndarray';
+
+// ============================================================
+// Arithmetic and Mathematical Functions
+// ============================================================
+
+export {
   sqrt,
   power,
-  pow, // alias for power
-  // Exponential functions
+  pow,
   exp,
   exp2,
   expm1,
@@ -60,12 +89,12 @@ export {
   logaddexp,
   logaddexp2,
   absolute,
-  abs, // alias for absolute
+  abs,
   negative,
   sign,
   mod,
   divide,
-  true_divide, // alias for divide
+  true_divide,
   floor_divide,
   positive,
   reciprocal,
@@ -82,7 +111,6 @@ export {
   lcm,
   ldexp,
   modf,
-  // Other math functions
   clip,
   maximum,
   minimum,
@@ -93,6 +121,45 @@ export {
   unwrap,
   sinc,
   i0,
+} from './functions/arithmetic';
+
+// ============================================================
+// Trigonometric and Hyperbolic Functions
+// ============================================================
+
+export {
+  sin,
+  cos,
+  tan,
+  arcsin,
+  asin,
+  arccos,
+  acos,
+  arctan,
+  atan,
+  arctan2,
+  atan2,
+  hypot,
+  degrees,
+  radians,
+  deg2rad,
+  rad2deg,
+  sinh,
+  cosh,
+  tanh,
+  arcsinh,
+  asinh,
+  arccosh,
+  acosh,
+  arctanh,
+  atanh,
+} from './functions/trig';
+
+// ============================================================
+// Linear Algebra Functions
+// ============================================================
+
+export {
   dot,
   trace,
   diagonal,
@@ -103,90 +170,246 @@ export {
   tensordot,
   einsum,
   einsum_path,
-  // New linear algebra functions
   vdot,
   vecdot,
   matrix_transpose,
   permute_dims,
   matvec,
   vecmat,
-  // Linear algebra module (numpy.linalg)
+  cross,
   linalg,
-  // Trigonometric functions
-  sin,
-  cos,
-  tan,
-  arcsin,
-  asin, // alias for arcsin
-  arccos,
-  acos, // alias for arccos
-  arctan,
-  atan, // alias for arctan
-  arctan2,
-  atan2, // alias for arctan2
-  hypot,
-  degrees,
-  radians,
-  deg2rad,
-  rad2deg,
-  // Hyperbolic functions
-  sinh,
-  cosh,
-  tanh,
-  arcsinh,
-  asinh, // alias for arcsinh
-  arccosh,
-  acosh, // alias for arccosh
-  arctanh,
-  atanh, // alias for arctanh
-  // Array manipulation
+} from './functions/linalg';
+
+// ============================================================
+// Shape Manipulation Functions
+// ============================================================
+
+export {
+  reshape,
+  flatten,
+  ravel,
+  squeeze,
+  expand_dims,
   swapaxes,
   moveaxis,
+  rollaxis,
   concatenate,
   stack,
   vstack,
   hstack,
   dstack,
   concat,
-  unstack,
+  column_stack,
+  row_stack,
   block,
   split,
   array_split,
   vsplit,
   hsplit,
+  dsplit,
+  unstack,
   tile,
   repeat,
-  // New array manipulation functions
-  ravel,
-  flatten,
-  fill,
-  item,
-  tolist,
-  tobytes,
-  byteswap,
-  view,
-  tofile,
-  reshape,
-  squeeze,
-  expand_dims,
   flip,
   fliplr,
   flipud,
   rot90,
   roll,
-  rollaxis,
+  resize,
   atleast_1d,
   atleast_2d,
   atleast_3d,
-  dsplit,
-  column_stack,
-  row_stack,
-  resize,
-  append,
-  delete_ as delete,
-  insert,
-  pad,
-  // Advanced
+} from './functions/shape';
+
+// Additional shape functions from ndarray
+export { append, delete_ as delete, insert, pad } from './core/ndarray';
+
+// ============================================================
+// Reduction Functions
+// ============================================================
+
+export {
+  sum,
+  mean,
+  prod,
+  max,
+  amax,
+  min,
+  amin,
+  ptp,
+  argmin,
+  argmax,
+  std,
+  median,
+  percentile,
+  quantile,
+  average,
+  all,
+  any,
+  cumsum,
+  cumulative_sum,
+  cumprod,
+  cumulative_prod,
+  nansum,
+  nanprod,
+  nanmean,
+  nanvar,
+  nanstd,
+  nanmin,
+  nanmax,
+  nanargmin,
+  nanargmax,
+  nancumsum,
+  nancumprod,
+  nanmedian,
+  nanquantile,
+  nanpercentile,
+} from './functions/reduction';
+
+// Variance is exported from reduction but needs aliasing
+import { variance } from './functions/reduction';
+export { variance };
+
+// ============================================================
+// Logic Functions
+// ============================================================
+
+export {
+  logical_and,
+  logical_or,
+  logical_not,
+  logical_xor,
+  isfinite,
+  isinf,
+  isnan,
+  isnat,
+  isneginf,
+  isposinf,
+  iscomplex,
+  iscomplexobj,
+  isreal,
+  isrealobj,
+  real_if_close,
+  isfortran,
+  isscalar,
+  iterable,
+  isdtype,
+  promote_types,
+  copysign,
+  signbit,
+  nextafter,
+  spacing,
+} from './functions/logic';
+
+// ============================================================
+// Sorting and Searching Functions
+// ============================================================
+
+export {
+  sort,
+  argsort,
+  lexsort,
+  partition,
+  argpartition,
+  sort_complex,
+  nonzero,
+  argwhere,
+  flatnonzero,
+  where,
+  searchsorted,
+  extract,
+  count_nonzero,
+} from './functions/sorting';
+
+// ============================================================
+// Bitwise Functions
+// ============================================================
+
+export {
+  bitwise_and,
+  bitwise_or,
+  bitwise_xor,
+  bitwise_not,
+  invert,
+  left_shift,
+  right_shift,
+  packbits,
+  unpackbits,
+  bitwise_count,
+  bitwise_invert,
+  bitwise_left_shift,
+  bitwise_right_shift,
+} from './functions/bitwise';
+
+// ============================================================
+// Rounding Functions
+// ============================================================
+
+export {
+  around,
+  round_,
+  round,
+  ceil,
+  fix,
+  floor,
+  rint,
+  trunc,
+} from './functions/rounding';
+
+// ============================================================
+// Set Operations
+// ============================================================
+
+export {
+  unique,
+  in1d,
+  intersect1d,
+  isin,
+  setdiff1d,
+  setxor1d,
+  union1d,
+  trim_zeros,
+  unique_all,
+  unique_counts,
+  unique_inverse,
+  unique_values,
+} from './functions/sets';
+
+// ============================================================
+// Statistics Functions
+// ============================================================
+
+export {
+  bincount,
+  digitize,
+  histogram,
+  histogram2d,
+  histogramdd,
+  correlate,
+  convolve,
+  cov,
+  corrcoef,
+  histogram_bin_edges,
+  trapezoid,
+} from './functions/statistics';
+
+// ============================================================
+// Gradient Functions
+// ============================================================
+
+export { diff, ediff1d, gradient } from './functions/gradient';
+
+// ============================================================
+// Complex Number Functions
+// ============================================================
+
+export { real, imag, conj, conjugate, angle } from './functions/complex';
+
+// ============================================================
+// Advanced Indexing and Data Manipulation
+// ============================================================
+
+export {
   broadcast_to,
   broadcast_arrays,
   broadcast_shapes,
@@ -198,7 +421,6 @@ export {
   choose,
   array_equal,
   array_equiv,
-  // Indexing functions
   take_along_axis,
   put_along_axis,
   putmask,
@@ -217,135 +439,20 @@ export {
   ix_,
   ravel_multi_index,
   unravel_index,
-  // Reduction functions
-  cumsum,
-  cumulative_sum, // alias for cumsum
-  cumprod,
-  cumulative_prod, // alias for cumprod
-  max,
-  amax, // alias for max
-  min,
-  amin, // alias for min
-  ptp,
-  median,
-  percentile,
-  quantile,
-  average,
-  // NaN-aware reduction functions
-  nansum,
-  nanprod,
-  nanmean,
-  nanvar,
-  nanstd,
-  nanmin,
-  nanmax,
-  nanargmin,
-  nanargmax,
-  nancumsum,
-  nancumprod,
-  nanmedian,
-  nanquantile,
-  nanpercentile,
-  // Bitwise functions
-  bitwise_and,
-  bitwise_or,
-  bitwise_xor,
-  bitwise_not,
-  invert,
-  left_shift,
-  right_shift,
-  packbits,
-  unpackbits,
-  bitwise_count,
-  bitwise_invert,
-  bitwise_left_shift,
-  bitwise_right_shift,
-  // Logic functions
-  logical_and,
-  logical_or,
-  logical_not,
-  logical_xor,
-  isfinite,
-  isinf,
-  isnan,
-  isnat,
-  iscomplex,
-  iscomplexobj,
-  isreal,
-  isrealobj,
-  // Complex number functions
-  real,
-  imag,
-  conj,
-  conjugate,
-  angle,
-  isneginf,
-  isposinf,
-  isfortran,
-  real_if_close,
-  isscalar,
-  iterable,
-  isdtype,
-  promote_types,
-  copysign,
-  signbit,
-  nextafter,
-  spacing,
-  // Sorting functions
-  sort,
-  argsort,
-  lexsort,
-  partition,
-  argpartition,
-  sort_complex,
-  // Searching functions
-  nonzero,
-  argwhere,
-  flatnonzero,
-  where,
-  searchsorted,
-  extract,
-  count_nonzero,
-  // Rounding functions
-  around,
-  round_, // alias for around
-  ceil,
-  fix,
-  floor,
-  rint,
-  round,
-  trunc,
-  // Set operations
-  unique,
-  in1d,
-  intersect1d,
-  isin,
-  setdiff1d,
-  setxor1d,
-  union1d,
-  trim_zeros,
-  unique_all,
-  unique_counts,
-  unique_inverse,
-  unique_values,
-  // Gradient functions
-  diff,
-  ediff1d,
-  gradient,
-  cross,
-  // Statistics functions
-  bincount,
-  digitize,
-  histogram,
-  histogram2d,
-  histogramdd,
-  correlate,
-  convolve,
-  cov,
-  corrcoef,
-  histogram_bin_edges,
-  trapezoid,
-  // Utility functions
+  fill,
+  item,
+  tolist,
+  tobytes,
+  byteswap,
+  view,
+  tofile,
+} from './core/ndarray';
+
+// ============================================================
+// Utility Functions
+// ============================================================
+
+export {
   apply_along_axis,
   apply_over_axes,
   may_share_memory,
@@ -355,7 +462,13 @@ export {
   size,
   geterr,
   seterr,
-  // Printing/Formatting functions
+} from './core/ndarray';
+
+// ============================================================
+// Printing/Formatting Functions
+// ============================================================
+
+export {
   array2string,
   array_repr,
   array_str,
@@ -366,7 +479,13 @@ export {
   get_printoptions,
   set_printoptions,
   printoptions,
-  // Type checking functions
+} from './core/ndarray';
+
+// ============================================================
+// Type Checking Functions
+// ============================================================
+
+export {
   can_cast,
   common_type,
   result_type,
@@ -374,7 +493,13 @@ export {
   issubdtype,
   typename,
   mintypecode,
-  // Polynomial functions
+} from './core/ndarray';
+
+// ============================================================
+// Polynomial Functions
+// ============================================================
+
+export {
   poly,
   polyadd,
   polyder,
@@ -387,10 +512,11 @@ export {
   roots,
 } from './core/ndarray';
 
-// IO functions (environment-agnostic parsing/serialization)
-// These work with bytes (ArrayBuffer/Uint8Array), not files
+// ============================================================
+// IO Functions
+// ============================================================
+
 export {
-  // NPY format
   parseNpy,
   serializeNpy,
   parseNpyHeader,
@@ -402,7 +528,6 @@ export {
   type NpyHeader,
   type NpyMetadata,
   type NpyVersion,
-  // NPZ format
   parseNpz,
   parseNpzSync,
   loadNpz,
@@ -414,10 +539,11 @@ export {
   type NpzSerializeOptions,
 } from './io';
 
-// Random functions (np.random namespace)
+// ============================================================
+// Random Namespace (np.random)
+// ============================================================
+
 import * as randomOps from './ops/random';
-// FFT functions (np.fft namespace)
-import * as fftOps from './ops/fft';
 import { ArrayStorage } from './core/storage';
 import { NDArray as NDArrayClass } from './core/ndarray';
 import { DType } from './core/dtype';
@@ -541,7 +667,12 @@ export const random = {
   shuffle: randomOps.shuffle,
 };
 
-// FFT namespace (np.fft)
+// ============================================================
+// FFT Namespace (np.fft)
+// ============================================================
+
+import * as fftOps from './ops/fft';
+
 export const fft = {
   fft: (
     a: NDArrayClass | ArrayStorage,
@@ -685,8 +816,10 @@ export const fft = {
   },
 };
 
-// Version (replaced at build time from package.json)
-// In development/tests, use package.json directly; in production, use the replaced value
+// ============================================================
+// Version
+// ============================================================
+
 declare const __VERSION_PLACEHOLDER__: string;
 export const __version__ =
-  typeof __VERSION_PLACEHOLDER__ !== 'undefined' ? __VERSION_PLACEHOLDER__ : '0.12.0'; // Fallback for development/tests
+  typeof __VERSION_PLACEHOLDER__ !== 'undefined' ? __VERSION_PLACEHOLDER__ : '0.12.0';

@@ -106,6 +106,16 @@ export default defineConfig({
           },
         },
       }),
+      // Tree-shaking tests (tests with multiple bundlers)
+      defineProject({
+        test: {
+          name: 'tree-shaking',
+          include: ['tests/tree-shaking/**/*.test.ts'],
+          exclude: ['**/node_modules/**', '**/fixtures/**'],
+          environment: 'node',
+          testTimeout: 300000, // 5 minutes - bundling can take time
+        },
+      }),
     ],
   },
 });
