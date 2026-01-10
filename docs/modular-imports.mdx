@@ -123,23 +123,50 @@ import { fft } from 'numpy-ts/fft';
 
 ## NDArray Methods vs Standalone Functions
 
-numpy-ts provides both method and function syntax:
+numpy-ts offers two ways to perform operations:
+
+### Option 1: NDArray Methods (Convenient)
 
 ```typescript
-import { array, sin, transpose } from 'numpy-ts';
+import { array } from 'numpy-ts';
 
 const a = array([[1, 2], [3, 4]]);
 
-// Method syntax (on NDArray instance)
-const b = a.sin();
-const c = a.transpose();
-
-// Function syntax (standalone)
-const d = sin(a);
-const e = transpose(a);
+// Method chaining - convenient but NOT tree-shakeable
+const result = a.sin().transpose().sum();
 ```
 
-Both produce identical results. The function syntax is more tree-shakeable when using subpath imports.
+**Pros:** Clean syntax, method chaining, IDE autocomplete on instances
+**Cons:** Importing `NDArray` pulls in ALL methods (~180KB)
+
+### Option 2: Standalone Functions (Tree-shakeable)
+
+```typescript
+import { array, sin, transpose, sum } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+
+// Function calls - tree-shakeable
+const result = sum(transpose(sin(a)));
+```
+
+**Pros:** Only imports what you use (~11KB for basic ops)
+**Cons:** No method chaining, slightly more verbose
+
+### Which Should I Use?
+
+| Use Case | Recommendation |
+|----------|----------------|
+| Application code (bundle size doesn't matter) | Methods - more convenient |
+| Library code (others bundle your code) | Functions - tree-shakeable |
+| Performance-critical landing page | Functions - smaller bundle |
+| Prototyping / Scripts | Methods - faster to write |
+
+### Technical Details
+
+The `NDArray` class has ~150 methods attached to its prototype. When you import the class (directly or indirectly via functions that return `NDArray`), all method implementations are included.
+
+Standalone functions use `NDArrayCore`, a minimal class (~11KB) with only data storage - no operation methods. This allows bundlers to eliminate unused operations.
 
 ## TypeScript Support
 

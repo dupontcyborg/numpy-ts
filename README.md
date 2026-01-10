@@ -31,6 +31,8 @@ npm install numpy-ts
 - **🎯 Zero dependencies** — Pure TypeScript, no heavy external libraries
 - **🌳 Tree-shakeable** — Import only what you need (~11KB for `zeros`, not 180KB)
 
+> **💡 Bundle size tip:** Standalone functions like `sin(arr)` tree-shake well. Method chaining like `arr.sin()` is convenient but pulls in the full library. See [modular imports guide](docs/modular-imports.mdx).
+
 ## Quick Start
 
 ```typescript
