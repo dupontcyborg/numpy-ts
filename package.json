@@ -4,7 +4,7 @@
   "description": "Complete NumPy implementation for TypeScript and JavaScript (94% API coverage)",
   "main": "dist/numpy-ts.node.cjs",
   "browser": "dist/numpy-ts.browser.js",
-  "module": "dist/numpy-ts.esm.js",
+  "module": "dist/esm/index.js",
   "types": "dist/types/index.d.ts",
   "type": "module",
   "sideEffects": false,
@@ -25,7 +25,7 @@
       "node": "./dist/numpy-ts.node.cjs",
       "browser": "./dist/numpy-ts.browser.js",
       "import": "./dist/esm/index.js",
-      "default": "./dist/numpy-ts.esm.js"
+      "default": "./dist/esm/index.js"
     },
     "./node": {
       "types": "./dist/types/node.d.ts",

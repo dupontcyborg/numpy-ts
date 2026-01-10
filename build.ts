@@ -71,28 +71,6 @@ async function buildAll() {
   });
   console.log('✓ Browser build complete');
 
-  // ESM bundle (for modern browsers and bundlers)
-  console.log('Building ESM bundle...');
-  const result = await build({
-    entryPoints: ['src/index.ts'],
-    bundle: true,
-    platform: 'browser',
-    format: 'esm',
-    outfile: 'dist/numpy-ts.esm.js',
-    sourcemap: false, // Bundlers will create their own source maps
-    minify: true,
-    metafile: true,
-    define: {
-      __VERSION_PLACEHOLDER__: JSON.stringify(VERSION),
-    },
-  });
-
-  // Write metafile for analysis
-  await import('node:fs/promises').then((fs) =>
-    fs.writeFile('dist/meta.json', JSON.stringify(result.metafile, null, 2))
-  );
-  console.log('✓ ESM build complete');
-
   // Tree-shakeable ESM build (preserves module structure for optimal bundler tree-shaking)
   // This transpiles each source file individually without bundling, preserving imports
   console.log('Building tree-shakeable ESM modules...');
@@ -113,7 +91,7 @@ async function buildAll() {
     return files;
   });
 
-  await build({
+  const esmResult = await build({
     entryPoints: glob,
     bundle: false, // Don't bundle - preserve module structure
     platform: 'neutral',
@@ -121,11 +99,17 @@ async function buildAll() {
     outdir: 'dist/esm',
     outbase: 'src',
     sourcemap: false,
-    minify: false, // Keep readable for better tree-shaking analysis
+    minify: true,
+    metafile: true,
     define: {
       __VERSION_PLACEHOLDER__: JSON.stringify(VERSION),
     },
   });
+
+  // Write metafile for analysis
+  await import('node:fs/promises').then((fs) =>
+    fs.writeFile('dist/meta.json', JSON.stringify(esmResult.metafile, null, 2))
+  );
   console.log('✓ Tree-shakeable ESM build complete');
 
   console.log('\n✓ All builds completed successfully!');
