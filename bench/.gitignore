@@ -1,0 +1,14 @@
+# Build outputs
+dist/
+node_modules/
+
+# Rust
+rust/target/
+
+# Zig
+zig/.zig-cache/
+zig/zig-out/
+
+# IDE
+.vscode/
+.idea/
