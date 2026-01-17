@@ -142,7 +142,7 @@ async function loadWasmModules(): Promise<WasmModules> {
 const results: BenchmarkResult[] = [];
 
 type DType = 'float32' | 'float64';
-type Implementation = 'typescript' | 'rust-wasm' | 'rust-wasm-copy' | 'rust-wasm-mt' | 'zig-wasm' | 'zig-wasm-copy' | 'zig-wasm-mt';
+type Implementation = 'typescript' | 'rust-wasm' | 'rust-wasm-nocopy' | 'rust-wasm-mt' | 'zig-wasm' | 'zig-wasm-nocopy' | 'zig-wasm-mt';
 
 async function benchmarkAdd(
   size: number,
@@ -221,30 +221,32 @@ async function benchmarkAdd(
     }
   }
 
-  // WASM implementations with copy (copy happens inside timing loop)
-  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
-    { wasm: wasm.rust, name: 'rust-wasm-copy' },
-    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  // WASM implementations with NO copy (data allocated directly in WASM memory)
+  const wasmNoCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-nocopy' },
+    { wasm: wasm.zig, name: 'zig-wasm-nocopy' },
   ];
 
-  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+  for (const { wasm: wasmOps, name } of wasmNoCopyImpls) {
     if (!wasmOps) continue;
 
     try {
+      // Allocate directly in WASM memory
+      const aWasm = wasmOps.alloc(size, dtype);
+      const bWasm = wasmOps.alloc(size, dtype);
+      const cWasm = wasmOps.alloc(size, dtype);
+
+      // Get views into WASM memory and initialize data there (no copy from JS arrays)
+      const aView = wasmOps.getView(aWasm.ptr, size, dtype);
+      const bView = wasmOps.getView(bWasm.ptr, size, dtype);
+      for (let i = 0; i < size; i++) {
+        aView[i] = Math.random() * 2 - 1;
+        bView[i] = Math.random() * 2 - 1;
+      }
+
       const wasmResult = await measure(
         () => {
-          // Copy to WASM inside timing loop
-          const aWasm = wasmOps.copyToWasm(a);
-          const bWasm = wasmOps.copyToWasm(b);
-          const cWasm = wasmOps.alloc(size, dtype);
-
-          // Execute operation
           wasmOps.add(aWasm.ptr, bWasm.ptr, cWasm.ptr, size, dtype, false);
-
-          // Free memory inside timing loop
-          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
-          wasmOps.free(bWasm.ptr, bWasm.len, dtype);
-          wasmOps.free(cWasm.ptr, cWasm.len, dtype);
         },
         config.warmupRuns,
         config.measureRuns
@@ -260,6 +262,11 @@ async function benchmarkAdd(
         opsPerSecond: size / (wasmResult.mean / 1000),
         throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
       });
+
+      // Cleanup
+      wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+      wasmOps.free(bWasm.ptr, bWasm.len, dtype);
+      wasmOps.free(cWasm.ptr, cWasm.len, dtype);
     } catch (e) {
       console.warn(`  ${name} failed for add-${dtype}-${size}:`, e);
     }
@@ -341,28 +348,29 @@ async function benchmarkSin(
     }
   }
 
-  // WASM implementations with copy (copy happens inside timing loop)
-  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
-    { wasm: wasm.rust, name: 'rust-wasm-copy' },
-    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  // WASM implementations with NO copy (data allocated directly in WASM memory)
+  const wasmNoCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-nocopy' },
+    { wasm: wasm.zig, name: 'zig-wasm-nocopy' },
   ];
 
-  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+  for (const { wasm: wasmOps, name } of wasmNoCopyImpls) {
     if (!wasmOps) continue;
 
     try {
+      // Allocate directly in WASM memory
+      const aWasm = wasmOps.alloc(size, dtype);
+      const cWasm = wasmOps.alloc(size, dtype);
+
+      // Get view into WASM memory and initialize data there (no copy from JS arrays)
+      const aView = wasmOps.getView(aWasm.ptr, size, dtype);
+      for (let i = 0; i < size; i++) {
+        aView[i] = Math.random() * 2 - 1;
+      }
+
       const wasmResult = await measure(
         () => {
-          // Copy to WASM inside timing loop
-          const aWasm = wasmOps.copyToWasm(a);
-          const cWasm = wasmOps.alloc(size, dtype);
-
-          // Execute operation
           wasmOps.sin(aWasm.ptr, cWasm.ptr, size, dtype, false);
-
-          // Free memory inside timing loop
-          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
-          wasmOps.free(cWasm.ptr, cWasm.len, dtype);
         },
         config.warmupRuns,
         config.measureRuns
@@ -378,6 +386,10 @@ async function benchmarkSin(
         opsPerSecond: size / (wasmResult.mean / 1000),
         throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
       });
+
+      // Cleanup
+      wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+      wasmOps.free(cWasm.ptr, cWasm.len, dtype);
     } catch (e) {
       console.warn(`  ${name} failed for sin-${dtype}-${size}:`, e);
     }
@@ -459,27 +471,29 @@ async function benchmarkSum(
     }
   }
 
-  // WASM implementations with copy (copy happens inside timing loop)
-  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
-    { wasm: wasm.rust, name: 'rust-wasm-copy' },
-    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  // WASM implementations with NO copy (data allocated directly in WASM memory)
+  const wasmNoCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-nocopy' },
+    { wasm: wasm.zig, name: 'zig-wasm-nocopy' },
   ];
 
-  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+  for (const { wasm: wasmOps, name } of wasmNoCopyImpls) {
     if (!wasmOps) continue;
 
     try {
+      // Allocate directly in WASM memory
+      const aWasm = wasmOps.alloc(size, dtype);
+
+      // Get view into WASM memory and initialize data there (no copy from JS arrays)
+      const aView = wasmOps.getView(aWasm.ptr, size, dtype);
+      for (let i = 0; i < size; i++) {
+        aView[i] = Math.random() * 2 - 1;
+      }
+
       let wasmSum = 0;
       const wasmResult = await measure(
         () => {
-          // Copy to WASM inside timing loop
-          const aWasm = wasmOps.copyToWasm(a);
-
-          // Execute operation
           wasmSum = wasmOps.sum(aWasm.ptr, size, dtype, false);
-
-          // Free memory inside timing loop
-          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
         },
         config.warmupRuns,
         config.measureRuns
@@ -495,6 +509,9 @@ async function benchmarkSum(
         opsPerSecond: size / (wasmResult.mean / 1000),
         throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
       });
+
+      // Cleanup
+      wasmOps.free(aWasm.ptr, aWasm.len, dtype);
     } catch (e) {
       console.warn(`  ${name} failed for sum-${dtype}-${size}:`, e);
     }
@@ -579,30 +596,32 @@ async function benchmarkMatmul(
     }
   }
 
-  // WASM implementations with copy (copy happens inside timing loop)
-  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
-    { wasm: wasm.rust, name: 'rust-wasm-copy' },
-    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  // WASM implementations with NO copy (data allocated directly in WASM memory)
+  const wasmNoCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-nocopy' },
+    { wasm: wasm.zig, name: 'zig-wasm-nocopy' },
   ];
 
-  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+  for (const { wasm: wasmOps, name } of wasmNoCopyImpls) {
     if (!wasmOps) continue;
 
     try {
+      // Allocate directly in WASM memory
+      const aWasm = wasmOps.alloc(n * n, dtype);
+      const bWasm = wasmOps.alloc(n * n, dtype);
+      const cWasm = wasmOps.alloc(n * n, dtype);
+
+      // Get views into WASM memory and initialize data there (no copy from JS arrays)
+      const aView = wasmOps.getView(aWasm.ptr, n * n, dtype);
+      const bView = wasmOps.getView(bWasm.ptr, n * n, dtype);
+      for (let i = 0; i < n * n; i++) {
+        aView[i] = Math.random() * 2 - 1;
+        bView[i] = Math.random() * 2 - 1;
+      }
+
       const wasmResult = await measure(
         () => {
-          // Copy to WASM inside timing loop
-          const aWasm = wasmOps.copyToWasm(a);
-          const bWasm = wasmOps.copyToWasm(b);
-          const cWasm = wasmOps.alloc(n * n, dtype);
-
-          // Execute operation
           wasmOps.matmul(aWasm.ptr, bWasm.ptr, cWasm.ptr, n, n, n, dtype, false);
-
-          // Free memory inside timing loop
-          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
-          wasmOps.free(bWasm.ptr, bWasm.len, dtype);
-          wasmOps.free(cWasm.ptr, cWasm.len, dtype);
         },
         config.warmupRuns,
         config.measureRuns
@@ -618,6 +637,11 @@ async function benchmarkMatmul(
         opsPerSecond: flops / (wasmResult.mean / 1000),
         throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
       });
+
+      // Cleanup
+      wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+      wasmOps.free(bWasm.ptr, bWasm.len, dtype);
+      wasmOps.free(cWasm.ptr, cWasm.len, dtype);
     } catch (e) {
       console.warn(`  ${name} failed for matmul-${dtype}-${n}:`, e);
     }
@@ -707,7 +731,7 @@ async function main() {
   console.log('═'.repeat(100));
 
   // Calculate average speedups by implementation
-  const implementations = ['rust-wasm', 'rust-wasm-copy', 'rust-wasm-mt', 'zig-wasm', 'zig-wasm-copy', 'zig-wasm-mt'] as const;
+  const implementations = ['rust-wasm', 'rust-wasm-nocopy', 'rust-wasm-mt', 'zig-wasm', 'zig-wasm-nocopy', 'zig-wasm-mt'] as const;
   const operations = ['add', 'sin', 'sum', 'matmul'] as const;
 
   for (const impl of implementations) {

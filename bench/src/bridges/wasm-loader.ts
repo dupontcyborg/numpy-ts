@@ -154,6 +154,20 @@ export class WasmOps {
   }
 
   /**
+   * Get a direct view into WASM memory (no copy)
+   * WARNING: This view becomes invalid if WASM memory grows
+   */
+  getView(
+    ptr: number,
+    len: number,
+    dtype: 'float32' | 'float64'
+  ): Float64Array | Float32Array {
+    return dtype === 'float64'
+      ? new Float64Array(this.memory.buffer, ptr, len)
+      : new Float32Array(this.memory.buffer, ptr, len);
+  }
+
+  /**
    * Copy data from WASM memory to TypedArray
    */
   copyFromWasm(
