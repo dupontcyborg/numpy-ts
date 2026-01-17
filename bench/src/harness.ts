@@ -6,7 +6,7 @@
 
 export interface BenchmarkResult {
   name: string;
-  implementation: 'typescript' | 'rust-wasm' | 'rust-wasm-mt' | 'zig-wasm' | 'zig-wasm-mt';
+  implementation: 'typescript' | 'rust-wasm' | 'rust-wasm-copy' | 'rust-wasm-mt' | 'zig-wasm' | 'zig-wasm-copy' | 'zig-wasm-mt';
   operation: 'add' | 'sin' | 'sum' | 'matmul';
   dtype: 'float32' | 'float64';
   size: number;

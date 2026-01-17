@@ -142,7 +142,7 @@ async function loadWasmModules(): Promise<WasmModules> {
 const results: BenchmarkResult[] = [];
 
 type DType = 'float32' | 'float64';
-type Implementation = 'typescript' | 'rust-wasm' | 'rust-wasm-mt' | 'zig-wasm' | 'zig-wasm-mt';
+type Implementation = 'typescript' | 'rust-wasm' | 'rust-wasm-copy' | 'rust-wasm-mt' | 'zig-wasm' | 'zig-wasm-copy' | 'zig-wasm-mt';
 
 async function benchmarkAdd(
   size: number,
@@ -177,7 +177,7 @@ async function benchmarkAdd(
     throughputGBps: calculateThroughput(bytesProcessed, tsResult.mean),
   });
 
-  // WASM implementations
+  // WASM implementations (no-copy: copy happens outside timing loop)
   const wasmImpls: Array<{ wasm: WasmOps | undefined; name: Implementation; mt: boolean }> = [
     { wasm: wasm.rust, name: 'rust-wasm', mt: false },
     { wasm: wasm.rustMt, name: 'rust-wasm-mt', mt: true },
@@ -220,6 +220,50 @@ async function benchmarkAdd(
       console.warn(`  ${name} failed for add-${dtype}-${size}:`, e);
     }
   }
+
+  // WASM implementations with copy (copy happens inside timing loop)
+  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-copy' },
+    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  ];
+
+  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+    if (!wasmOps) continue;
+
+    try {
+      const wasmResult = await measure(
+        () => {
+          // Copy to WASM inside timing loop
+          const aWasm = wasmOps.copyToWasm(a);
+          const bWasm = wasmOps.copyToWasm(b);
+          const cWasm = wasmOps.alloc(size, dtype);
+
+          // Execute operation
+          wasmOps.add(aWasm.ptr, bWasm.ptr, cWasm.ptr, size, dtype, false);
+
+          // Free memory inside timing loop
+          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+          wasmOps.free(bWasm.ptr, bWasm.len, dtype);
+          wasmOps.free(cWasm.ptr, cWasm.len, dtype);
+        },
+        config.warmupRuns,
+        config.measureRuns
+      );
+
+      results.push({
+        name: `add-${dtype}-${size}`,
+        implementation: name,
+        operation: 'add',
+        dtype,
+        size,
+        timeMs: wasmResult.mean,
+        opsPerSecond: size / (wasmResult.mean / 1000),
+        throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
+      });
+    } catch (e) {
+      console.warn(`  ${name} failed for add-${dtype}-${size}:`, e);
+    }
+  }
 }
 
 async function benchmarkSin(
@@ -255,7 +299,7 @@ async function benchmarkSin(
     throughputGBps: calculateThroughput(bytesProcessed, tsResult.mean),
   });
 
-  // WASM implementations
+  // WASM implementations (no-copy: copy happens outside timing loop)
   const wasmImpls: Array<{ wasm: WasmOps | undefined; name: Implementation; mt: boolean }> = [
     { wasm: wasm.rust, name: 'rust-wasm', mt: false },
     { wasm: wasm.rustMt, name: 'rust-wasm-mt', mt: true },
@@ -296,6 +340,48 @@ async function benchmarkSin(
       console.warn(`  ${name} failed for sin-${dtype}-${size}:`, e);
     }
   }
+
+  // WASM implementations with copy (copy happens inside timing loop)
+  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-copy' },
+    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  ];
+
+  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+    if (!wasmOps) continue;
+
+    try {
+      const wasmResult = await measure(
+        () => {
+          // Copy to WASM inside timing loop
+          const aWasm = wasmOps.copyToWasm(a);
+          const cWasm = wasmOps.alloc(size, dtype);
+
+          // Execute operation
+          wasmOps.sin(aWasm.ptr, cWasm.ptr, size, dtype, false);
+
+          // Free memory inside timing loop
+          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+          wasmOps.free(cWasm.ptr, cWasm.len, dtype);
+        },
+        config.warmupRuns,
+        config.measureRuns
+      );
+
+      results.push({
+        name: `sin-${dtype}-${size}`,
+        implementation: name,
+        operation: 'sin',
+        dtype,
+        size,
+        timeMs: wasmResult.mean,
+        opsPerSecond: size / (wasmResult.mean / 1000),
+        throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
+      });
+    } catch (e) {
+      console.warn(`  ${name} failed for sin-${dtype}-${size}:`, e);
+    }
+  }
 }
 
 async function benchmarkSum(
@@ -332,7 +418,7 @@ async function benchmarkSum(
     throughputGBps: calculateThroughput(bytesProcessed, tsResult.mean),
   });
 
-  // WASM implementations
+  // WASM implementations (no-copy: copy happens outside timing loop)
   const wasmImpls: Array<{ wasm: WasmOps | undefined; name: Implementation; mt: boolean }> = [
     { wasm: wasm.rust, name: 'rust-wasm', mt: false },
     { wasm: wasm.rustMt, name: 'rust-wasm-mt', mt: true },
@@ -368,6 +454,47 @@ async function benchmarkSum(
 
       // Cleanup
       wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+    } catch (e) {
+      console.warn(`  ${name} failed for sum-${dtype}-${size}:`, e);
+    }
+  }
+
+  // WASM implementations with copy (copy happens inside timing loop)
+  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-copy' },
+    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  ];
+
+  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+    if (!wasmOps) continue;
+
+    try {
+      let wasmSum = 0;
+      const wasmResult = await measure(
+        () => {
+          // Copy to WASM inside timing loop
+          const aWasm = wasmOps.copyToWasm(a);
+
+          // Execute operation
+          wasmSum = wasmOps.sum(aWasm.ptr, size, dtype, false);
+
+          // Free memory inside timing loop
+          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+        },
+        config.warmupRuns,
+        config.measureRuns
+      );
+
+      results.push({
+        name: `sum-${dtype}-${size}`,
+        implementation: name,
+        operation: 'sum',
+        dtype,
+        size,
+        timeMs: wasmResult.mean,
+        opsPerSecond: size / (wasmResult.mean / 1000),
+        throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
+      });
     } catch (e) {
       console.warn(`  ${name} failed for sum-${dtype}-${size}:`, e);
     }
@@ -408,7 +535,7 @@ async function benchmarkMatmul(
     throughputGBps: calculateThroughput(bytesProcessed, tsResult.mean),
   });
 
-  // WASM implementations
+  // WASM implementations (no-copy: copy happens outside timing loop)
   const wasmImpls: Array<{ wasm: WasmOps | undefined; name: Implementation; mt: boolean }> = [
     { wasm: wasm.rust, name: 'rust-wasm', mt: false },
     { wasm: wasm.rustMt, name: 'rust-wasm-mt', mt: true },
@@ -447,6 +574,50 @@ async function benchmarkMatmul(
       wasmOps.free(aWasm.ptr, aWasm.len, dtype);
       wasmOps.free(bWasm.ptr, bWasm.len, dtype);
       wasmOps.free(cWasm.ptr, cWasm.len, dtype);
+    } catch (e) {
+      console.warn(`  ${name} failed for matmul-${dtype}-${n}:`, e);
+    }
+  }
+
+  // WASM implementations with copy (copy happens inside timing loop)
+  const wasmCopyImpls: Array<{ wasm: WasmOps | undefined; name: Implementation }> = [
+    { wasm: wasm.rust, name: 'rust-wasm-copy' },
+    { wasm: wasm.zig, name: 'zig-wasm-copy' },
+  ];
+
+  for (const { wasm: wasmOps, name } of wasmCopyImpls) {
+    if (!wasmOps) continue;
+
+    try {
+      const wasmResult = await measure(
+        () => {
+          // Copy to WASM inside timing loop
+          const aWasm = wasmOps.copyToWasm(a);
+          const bWasm = wasmOps.copyToWasm(b);
+          const cWasm = wasmOps.alloc(n * n, dtype);
+
+          // Execute operation
+          wasmOps.matmul(aWasm.ptr, bWasm.ptr, cWasm.ptr, n, n, n, dtype, false);
+
+          // Free memory inside timing loop
+          wasmOps.free(aWasm.ptr, aWasm.len, dtype);
+          wasmOps.free(bWasm.ptr, bWasm.len, dtype);
+          wasmOps.free(cWasm.ptr, cWasm.len, dtype);
+        },
+        config.warmupRuns,
+        config.measureRuns
+      );
+
+      results.push({
+        name: `matmul-${dtype}-${n}x${n}`,
+        implementation: name,
+        operation: 'matmul',
+        dtype,
+        size: n * n,
+        timeMs: wasmResult.mean,
+        opsPerSecond: flops / (wasmResult.mean / 1000),
+        throughputGBps: calculateThroughput(bytesProcessed, wasmResult.mean),
+      });
     } catch (e) {
       console.warn(`  ${name} failed for matmul-${dtype}-${n}:`, e);
     }
@@ -536,7 +707,7 @@ async function main() {
   console.log('═'.repeat(100));
 
   // Calculate average speedups by implementation
-  const implementations = ['rust-wasm', 'rust-wasm-mt', 'zig-wasm', 'zig-wasm-mt'] as const;
+  const implementations = ['rust-wasm', 'rust-wasm-copy', 'rust-wasm-mt', 'zig-wasm', 'zig-wasm-copy', 'zig-wasm-mt'] as const;
   const operations = ['add', 'sin', 'sum', 'matmul'] as const;
 
   for (const impl of implementations) {
