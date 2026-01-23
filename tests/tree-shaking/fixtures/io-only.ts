@@ -4,7 +4,10 @@
  */
 import { parseNpy, serializeNpy, array, zeros } from 'numpy-ts';
 
-const a = array([[1, 2], [3, 4]]);
+const a = array([
+  [1, 2],
+  [3, 4],
+]);
 const serialized = serializeNpy(a);
 const z = zeros([2, 2]);
 

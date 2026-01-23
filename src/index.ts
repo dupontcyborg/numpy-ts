@@ -345,16 +345,7 @@ export {
 // Rounding Functions
 // ============================================================
 
-export {
-  around,
-  round_,
-  round,
-  ceil,
-  fix,
-  floor,
-  rint,
-  trunc,
-} from './functions/rounding';
+export { around, round_, round, ceil, fix, floor, rint, trunc } from './functions/rounding';
 
 // ============================================================
 // Set Operations

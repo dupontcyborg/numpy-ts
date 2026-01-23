@@ -263,9 +263,7 @@ export function interp(
   left?: number,
   right?: number
 ): NDArrayCore {
-  return fromStorage(
-    arithmeticOps.interp(toStorage(x), toStorage(xp), toStorage(fp), left, right)
-  );
+  return fromStorage(arithmeticOps.interp(toStorage(x), toStorage(xp), toStorage(fp), left, right));
 }
 
 /** Unwrap phase angles */

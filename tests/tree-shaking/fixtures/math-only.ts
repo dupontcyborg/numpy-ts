@@ -2,18 +2,7 @@
  * Tree-shaking test fixture: Math operations only
  * Expected: Should include math ops but not FFT, random, linalg, IO
  */
-import {
-  array,
-  sin,
-  cos,
-  exp,
-  log,
-  sqrt,
-  abs,
-  maximum,
-  minimum,
-  clip
-} from 'numpy-ts';
+import { array, sin, cos, exp, log, sqrt, abs, maximum, minimum, clip } from 'numpy-ts';
 
 const a = array([1, 2, 3, 4, 5]);
 const b = sin(a);

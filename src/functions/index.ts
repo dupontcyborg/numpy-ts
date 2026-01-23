@@ -255,16 +255,7 @@ export {
 } from './bitwise';
 
 // Rounding functions
-export {
-  around,
-  round_,
-  round,
-  ceil,
-  fix,
-  floor,
-  rint,
-  trunc,
-} from './rounding';
+export { around, round_, round, ceil, fix, floor, rint, trunc } from './rounding';
 
 // Set operations
 export {

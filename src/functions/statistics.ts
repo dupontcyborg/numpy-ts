@@ -11,21 +11,13 @@ import { NDArrayCore, toStorage, fromStorage, ArrayStorage } from './types';
 type BinStrategyString = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
 
 /** Count occurrences of values */
-export function bincount(
-  x: NDArrayCore,
-  weights?: NDArrayCore,
-  minlength?: number
-): NDArrayCore {
+export function bincount(x: NDArrayCore, weights?: NDArrayCore, minlength?: number): NDArrayCore {
   const weightsStorage = weights ? toStorage(weights) : undefined;
   return fromStorage(statisticsOps.bincount(toStorage(x), weightsStorage, minlength));
 }
 
 /** Digitize values into bins */
-export function digitize(
-  x: NDArrayCore,
-  bins: NDArrayCore,
-  right?: boolean
-): NDArrayCore {
+export function digitize(x: NDArrayCore, bins: NDArrayCore, right?: boolean): NDArrayCore {
   return fromStorage(statisticsOps.digitize(toStorage(x), toStorage(bins), right));
 }
 
@@ -65,7 +57,9 @@ export function histogram2d(
   if (Array.isArray(bins) && bins.length === 2) {
     const b0 = bins[0] instanceof NDArrayCore ? toStorage(bins[0]) : bins[0];
     const b1 = bins[1] instanceof NDArrayCore ? toStorage(bins[1]) : bins[1];
-    binsArg = [b0 as number | ArrayStorage, b1 as number | ArrayStorage] as [number, number] | [ArrayStorage, ArrayStorage];
+    binsArg = [b0 as number | ArrayStorage, b1 as number | ArrayStorage] as
+      | [number, number]
+      | [ArrayStorage, ArrayStorage];
   } else {
     binsArg = bins as number | undefined;
   }
@@ -94,13 +88,7 @@ export function histogramdd(
   weights?: NDArrayCore
 ): { hist: NDArrayCore; edges: NDArrayCore[] } {
   const weightsArg = weights ? toStorage(weights) : undefined;
-  const result = statisticsOps.histogramdd(
-    toStorage(sample),
-    bins,
-    range,
-    density,
-    weightsArg
-  );
+  const result = statisticsOps.histogramdd(toStorage(sample), bins, range, density, weightsArg);
   return {
     hist: fromStorage(result.hist),
     edges: result.edges.map((e) => fromStorage(e)),
@@ -134,25 +122,13 @@ export function cov(
   ddof?: number
 ): NDArrayCore {
   return fromStorage(
-    statisticsOps.cov(
-      toStorage(m),
-      y ? toStorage(y) : undefined,
-      rowvar,
-      bias,
-      ddof
-    )
+    statisticsOps.cov(toStorage(m), y ? toStorage(y) : undefined, rowvar, bias, ddof)
   );
 }
 
 /** Correlation coefficients */
-export function corrcoef(
-  x: NDArrayCore,
-  y?: NDArrayCore,
-  rowvar?: boolean
-): NDArrayCore {
-  return fromStorage(
-    statisticsOps.corrcoef(toStorage(x), y ? toStorage(y) : undefined, rowvar)
-  );
+export function corrcoef(x: NDArrayCore, y?: NDArrayCore, rowvar?: boolean): NDArrayCore {
+  return fromStorage(statisticsOps.corrcoef(toStorage(x), y ? toStorage(y) : undefined, rowvar));
 }
 
 /** Compute histogram bin edges */
@@ -179,12 +155,7 @@ export function trapezoid(
   dx?: number,
   axis?: number
 ): NDArrayCore | number {
-  const result = statisticsOps.trapezoid(
-    toStorage(y),
-    x ? toStorage(x) : undefined,
-    dx,
-    axis
-  );
+  const result = statisticsOps.trapezoid(toStorage(y), x ? toStorage(x) : undefined, dx, axis);
   if (typeof result === 'number') return result;
   return fromStorage(result);
 }

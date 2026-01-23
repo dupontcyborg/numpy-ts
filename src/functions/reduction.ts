@@ -146,11 +146,7 @@ export function std(
 }
 
 /** Median of array elements */
-export function median(
-  a: NDArrayCore,
-  axis?: number,
-  keepdims?: boolean
-): NDArrayCore | number {
+export function median(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArrayCore | number {
   const result = reductionOps.median(toStorage(a), axis, keepdims);
   if (typeof result === 'number') return result;
   return fromStorage(result);
@@ -198,22 +194,14 @@ export function average(
 // ============================================================
 
 /** Test if all elements are true */
-export function all(
-  a: NDArrayCore,
-  axis?: number,
-  keepdims?: boolean
-): NDArrayCore | boolean {
+export function all(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArrayCore | boolean {
   const result = reductionOps.all(toStorage(a), axis, keepdims);
   if (typeof result === 'boolean') return result;
   return fromStorage(result);
 }
 
 /** Test if any element is true */
-export function any(
-  a: NDArrayCore,
-  axis?: number,
-  keepdims?: boolean
-): NDArrayCore | boolean {
+export function any(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArrayCore | boolean {
   const result = reductionOps.any(toStorage(a), axis, keepdims);
   if (typeof result === 'boolean') return result;
   return fromStorage(result);
@@ -347,11 +335,7 @@ export function nancumprod(a: NDArrayCore, axis?: number): NDArrayCore {
 }
 
 /** Median ignoring NaN */
-export function nanmedian(
-  a: NDArrayCore,
-  axis?: number,
-  keepdims?: boolean
-): NDArrayCore | number {
+export function nanmedian(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArrayCore | number {
   const result = reductionOps.nanmedian(toStorage(a), axis, keepdims);
   if (typeof result === 'number') return result;
   return fromStorage(result);

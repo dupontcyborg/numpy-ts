@@ -66,12 +66,22 @@ export function rollaxis(a: NDArrayCore, axis: number, start: number = 0): NDArr
 
 /** Join arrays along an existing axis */
 export function concatenate(arrays: NDArrayCore[], axis: number = 0): NDArrayCore {
-  return fromStorage(shapeOps.concatenate(arrays.map((a) => toStorage(a)), axis));
+  return fromStorage(
+    shapeOps.concatenate(
+      arrays.map((a) => toStorage(a)),
+      axis
+    )
+  );
 }
 
 /** Join arrays along a new axis */
 export function stack(arrays: NDArrayCore[], axis: number = 0): NDArrayCore {
-  return fromStorage(shapeOps.stack(arrays.map((a) => toStorage(a)), axis));
+  return fromStorage(
+    shapeOps.stack(
+      arrays.map((a) => toStorage(a)),
+      axis
+    )
+  );
 }
 
 /** Stack arrays vertically (row-wise) */
@@ -91,7 +101,12 @@ export function dstack(arrays: NDArrayCore[]): NDArrayCore {
 
 /** Concatenate (alias) */
 export function concat(arrays: NDArrayCore[], axis: number = 0): NDArrayCore {
-  return fromStorage(shapeOps.concat(arrays.map((a) => toStorage(a)), axis));
+  return fromStorage(
+    shapeOps.concat(
+      arrays.map((a) => toStorage(a)),
+      axis
+    )
+  );
 }
 
 /** Stack 1D arrays as columns */
@@ -183,11 +198,7 @@ export function flipud(m: NDArrayCore): NDArrayCore {
 }
 
 /** Rotate array by 90 degrees */
-export function rot90(
-  m: NDArrayCore,
-  k: number = 1,
-  axes: [number, number] = [0, 1]
-): NDArrayCore {
+export function rot90(m: NDArrayCore, k: number = 1, axes: [number, number] = [0, 1]): NDArrayCore {
   return fromStorage(shapeOps.rot90(toStorage(m), k, axes));
 }
 

@@ -7,7 +7,10 @@ import * as np from 'numpy-ts';
 // Use various functions to ensure they're all included
 const a = np.zeros([2, 3]);
 const b = np.ones([3, 2]);
-const c = np.array([[1, 2], [3, 4]]);
+const c = np.array([
+  [1, 2],
+  [3, 4],
+]);
 const d = np.sin(c);
 const e = np.linalg.inv(c);
 const f = np.fft.fft(np.array([1, 2, 3, 4]));

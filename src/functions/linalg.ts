@@ -230,10 +230,7 @@ export const linalg = {
   qr: (
     a: NDArrayCore,
     mode?: 'reduced' | 'complete' | 'r' | 'raw'
-  ):
-    | { q: NDArrayCore; r: NDArrayCore }
-    | NDArrayCore
-    | { h: NDArrayCore; tau: NDArrayCore } => {
+  ): { q: NDArrayCore; r: NDArrayCore } | NDArrayCore | { h: NDArrayCore; tau: NDArrayCore } => {
     const result = linalgOps.qr(toStorage(a), mode);
     if ('h' in result && 'tau' in result) {
       return { h: fromStorage(result.h), tau: fromStorage(result.tau) };
@@ -254,9 +251,7 @@ export const linalg = {
     a: NDArrayCore,
     full_matrices?: boolean,
     compute_uv?: boolean
-  ):
-    | { u: NDArrayCore; s: NDArrayCore; vt: NDArrayCore }
-    | NDArrayCore => {
+  ): { u: NDArrayCore; s: NDArrayCore; vt: NDArrayCore } | NDArrayCore => {
     const result = linalgOps.svd(toStorage(a), full_matrices, compute_uv);
     if ('u' in result && 's' in result && 'vt' in result) {
       return { u: fromStorage(result.u), s: fromStorage(result.s), vt: fromStorage(result.vt) };

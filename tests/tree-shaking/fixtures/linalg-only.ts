@@ -4,8 +4,14 @@
  */
 import { array, linalg, dot, transpose, NDArray } from 'numpy-ts';
 
-const a = array([[1, 2], [3, 4]]);
-const b = array([[5, 6], [7, 8]]);
+const a = array([
+  [1, 2],
+  [3, 4],
+]);
+const b = array([
+  [5, 6],
+  [7, 8],
+]);
 
 const c = dot(a, b) as NDArray;
 const d = transpose(a);

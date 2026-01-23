@@ -14,7 +14,9 @@ export function unique(
   returnIndex: boolean = false,
   returnInverse: boolean = false,
   returnCounts: boolean = false
-): NDArrayCore | { values: NDArrayCore; indices?: NDArrayCore; inverse?: NDArrayCore; counts?: NDArrayCore } {
+):
+  | NDArrayCore
+  | { values: NDArrayCore; indices?: NDArrayCore; inverse?: NDArrayCore; counts?: NDArrayCore } {
   const result = setOps.unique(toStorage(ar), returnIndex, returnInverse, returnCounts);
   if ('values' in result) {
     return {

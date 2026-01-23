@@ -57,11 +57,7 @@ export function right_shift(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayC
 // ============================================================
 
 /** Pack bits into bytes */
-export function packbits(
-  a: NDArrayCore,
-  axis?: number,
-  bitorder?: 'big' | 'little'
-): NDArrayCore {
+export function packbits(a: NDArrayCore, axis?: number, bitorder?: 'big' | 'little'): NDArrayCore {
   return fromStorage(bitwiseOps.packbits(toStorage(a), axis, bitorder));
 }
 

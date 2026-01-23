@@ -11,7 +11,12 @@
 import { ArrayStorage } from '../core/storage';
 import { NDArrayCore, type DType, type TypedArray } from '../core/ndarray-core';
 import { Complex, isComplexLike } from '../core/complex';
-import { getTypedArrayConstructor, isBigIntDType, isComplexDType, DEFAULT_DTYPE } from '../core/dtype';
+import {
+  getTypedArrayConstructor,
+  isBigIntDType,
+  isComplexDType,
+  DEFAULT_DTYPE,
+} from '../core/dtype';
 
 // Re-export NDArrayCore as the array type for this module
 export { NDArrayCore as NDArray } from '../core/ndarray-core';
@@ -416,7 +421,12 @@ export function geomspace(
 /**
  * Create identity matrix
  */
-export function eye(n: number, m?: number, k: number = 0, dtype: DType = DEFAULT_DTYPE): NDArrayCore {
+export function eye(
+  n: number,
+  m?: number,
+  k: number = 0,
+  dtype: DType = DEFAULT_DTYPE
+): NDArrayCore {
   const cols = m ?? n;
   const result = zeros([n, cols], dtype);
   const data = result.data;
