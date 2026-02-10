@@ -496,6 +496,10 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   loadNpzSync: 'skip',
   serializeNpz: 'skip',
   serializeNpzSync: 'skip',
+  parseTxt: 'skip',
+  genfromtxt: 'skip',
+  fromregex: 'skip',
+  serializeTxt: 'skip',
 
   // Version and other values
   __version__: 'skip',

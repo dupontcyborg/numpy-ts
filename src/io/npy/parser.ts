@@ -4,7 +4,7 @@
  * Parses NumPy .npy files (both v1 and v2/v3 formats) into NDArray objects.
  */
 
-import { NDArray } from '../../full/ndarray';
+import { NDArrayCore } from '../../common/ndarray-core';
 import { ArrayStorage } from '../../common/storage';
 import {
   getTypedArrayConstructor,
@@ -28,7 +28,7 @@ import {
  * @throws InvalidNpyError if the file format is invalid
  * @throws UnsupportedDTypeError if the dtype is not supported
  */
-export function parseNpy(buffer: ArrayBuffer | Uint8Array): NDArray {
+export function parseNpy(buffer: ArrayBuffer | Uint8Array): NDArrayCore {
   const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
   const metadata = parseNpyHeader(bytes);
   return parseNpyData(bytes, metadata);
@@ -97,7 +97,7 @@ export function parseNpyHeader(bytes: Uint8Array): NpyMetadata {
 /**
  * Parse the data section of an NPY file given parsed metadata
  */
-export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArray {
+export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArrayCore {
   const { header, dataOffset } = metadata;
 
   // Parse dtype descriptor
@@ -143,7 +143,7 @@ export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArray 
     storage = ArrayStorage.fromData(typedData, [...shape], dtype);
   }
 
-  return new NDArray(storage);
+  return new NDArrayCore(storage);
 }
 
 /**

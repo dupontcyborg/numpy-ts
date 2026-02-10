@@ -4,17 +4,17 @@
  * Serializes multiple NDArrays to NPZ format (ZIP archive of .npy files).
  */
 
-import { NDArray } from '../../full/ndarray';
+import { NDArrayCore } from '../../common/ndarray-core';
 import { serializeNpy } from '../npy/serializer';
 import { writeZip, writeZipSync } from '../zip/writer';
 
 /**
  * Input type for arrays - supports:
- * - Array of NDArrays (positional, named arr_0, arr_1, etc.)
- * - Map of names to NDArrays
+ * - Array of NDArrayCores (positional, named arr_0, arr_1, etc.)
+ * - Map of names to NDArrayCores
  * - Object with names as keys
  */
-export type NpzArraysInput = NDArray[] | Map<string, NDArray> | Record<string, NDArray>;
+export type NpzArraysInput = NDArrayCore[] | Map<string, NDArrayCore> | Record<string, NDArrayCore>;
 
 /**
  * Options for serializing NPZ files
@@ -31,8 +31,8 @@ export interface NpzSerializeOptions {
  * Serialize multiple arrays to NPZ format
  *
  * @param arrays - Arrays to save. Can be:
- *   - An array of NDArrays (named arr_0, arr_1, etc. like np.savez positional args)
- *   - A Map of names to NDArrays
+ *   - An array of NDArrayCores (named arr_0, arr_1, etc. like np.savez positional args)
+ *   - A Map of names to NDArrayCores
  *   - An object with names as keys (like np.savez keyword args)
  * @param options - Serialization options
  * @returns Promise resolving to NPZ file as Uint8Array

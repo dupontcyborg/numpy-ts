@@ -5,7 +5,8 @@
  * These functions work with strings and are environment-agnostic.
  */
 
-import { array, NDArray } from '../../full/ndarray';
+import { array } from '../../core/creation';
+import { NDArrayCore } from '../../common/ndarray-core';
 import type { DType } from '../../common/dtype';
 
 /**
@@ -87,7 +88,7 @@ export interface ParseTxtOptions {
  * // arr.shape = [3, 3]
  * ```
  */
-export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArray {
+export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArrayCore {
   const {
     delimiter,
     comments = '#',
@@ -202,7 +203,7 @@ export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArray {
  * @param options - Parsing options
  * @returns NDArray with the parsed data
  */
-export function genfromtxt(text: string, options: ParseTxtOptions = {}): NDArray {
+export function genfromtxt(text: string, options: ParseTxtOptions = {}): NDArrayCore {
   // genfromtxt is essentially parseTxt with different defaults for missing value handling
   const opts: ParseTxtOptions = {
     ...options,
@@ -235,7 +236,7 @@ export function fromregex(
   text: string,
   regexp: RegExp | string,
   dtype: DType = 'float64'
-): NDArray {
+): NDArrayCore {
   const re =
     typeof regexp === 'string' ? new RegExp(regexp, 'gm') : new RegExp(regexp.source, 'gm');
 

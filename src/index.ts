@@ -531,11 +531,8 @@ export {
 // IO Functions
 // ============================================================
 
+// Types, errors, and constants - re-export directly (no wrapping needed)
 export {
-  parseNpy,
-  serializeNpy,
-  parseNpyHeader,
-  parseNpyData,
   UnsupportedDTypeError,
   InvalidNpyError,
   SUPPORTED_DTYPES,
@@ -543,16 +540,131 @@ export {
   type NpyHeader,
   type NpyMetadata,
   type NpyVersion,
-  parseNpz,
-  parseNpzSync,
-  loadNpz,
-  loadNpzSync,
-  serializeNpz,
-  serializeNpzSync,
-  type NpzParseOptions,
-  type NpzParseResult,
-  type NpzSerializeOptions,
-} from './io';
+} from './io/npy/format';
+export type { NpzParseOptions } from './io/npz/parser';
+export type { NpzSerializeOptions } from './io/npz/serializer';
+export type { ParseTxtOptions } from './io/txt/parser';
+export type { SerializeTxtOptions } from './io/txt/serializer';
+
+// Serializers - re-export directly (they accept NDArrayCore, and NDArray extends NDArrayCore)
+export { serializeNpy } from './io/npy/serializer';
+export { serializeNpz, serializeNpzSync } from './io/npz/serializer';
+export { serializeTxt } from './io/txt/serializer';
+
+// Parsers - wrap to return NDArray instead of NDArrayCore
+import {
+  parseNpy as parseNpyCore,
+  parseNpyHeader as parseNpyHeaderCore,
+  parseNpyData as parseNpyDataCore,
+} from './io/npy/parser';
+import {
+  parseNpz as parseNpzCore,
+  parseNpzSync as parseNpzSyncCore,
+  loadNpz as loadNpzCore,
+  loadNpzSync as loadNpzSyncCore,
+} from './io/npz/parser';
+import {
+  parseTxt as parseTxtCore,
+  genfromtxt as genfromtxtCore,
+  fromregex as fromregexCore,
+} from './io/txt/parser';
+import type { NpyMetadata as NpyMetadataType } from './io/npy/format';
+import type { NpzParseOptions as NpzParseOptionsType } from './io/npz/parser';
+import type { ParseTxtOptions as ParseTxtOptionsType } from './io/txt/parser';
+import type { DType as DTypeIO } from './common/dtype';
+
+// Re-export NpzArraysInput with NDArray types
+export type NpzArraysInput =
+  | NDArrayClass[]
+  | Map<string, NDArrayClass>
+  | Record<string, NDArrayClass>;
+
+// Re-export NpzParseResult with NDArray types
+export interface NpzParseResult {
+  arrays: Map<string, NDArrayClass>;
+  skipped: string[];
+  errors: Map<string, string>;
+}
+
+// Helper to upgrade NDArrayCore to NDArray
+function upgradeToNDArray(core: NDArrayCore): NDArrayClass {
+  return NDArrayClass._fromStorage(core.storage);
+}
+
+// NPY parsers
+export function parseNpy(buffer: ArrayBuffer | Uint8Array): NDArrayClass {
+  return upgradeToNDArray(parseNpyCore(buffer));
+}
+export const parseNpyHeader = parseNpyHeaderCore;
+export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadataType): NDArrayClass {
+  return upgradeToNDArray(parseNpyDataCore(bytes, metadata));
+}
+
+// NPZ parsers
+export async function parseNpz(
+  buffer: ArrayBuffer | Uint8Array,
+  options: NpzParseOptionsType = {}
+): Promise<NpzParseResult> {
+  const result = await parseNpzCore(buffer, options);
+  const arrays = new Map<string, NDArrayClass>();
+  for (const [name, arr] of result.arrays) {
+    arrays.set(name, upgradeToNDArray(arr));
+  }
+  return { arrays, skipped: result.skipped, errors: result.errors };
+}
+
+export function parseNpzSync(
+  buffer: ArrayBuffer | Uint8Array,
+  options: NpzParseOptionsType = {}
+): NpzParseResult {
+  const result = parseNpzSyncCore(buffer, options);
+  const arrays = new Map<string, NDArrayClass>();
+  for (const [name, arr] of result.arrays) {
+    arrays.set(name, upgradeToNDArray(arr));
+  }
+  return { arrays, skipped: result.skipped, errors: result.errors };
+}
+
+export async function loadNpz(
+  buffer: ArrayBuffer | Uint8Array,
+  options: NpzParseOptionsType = {}
+): Promise<Record<string, NDArrayClass>> {
+  const result = await loadNpzCore(buffer, options);
+  const upgraded: Record<string, NDArrayClass> = {};
+  for (const [name, arr] of Object.entries(result)) {
+    upgraded[name] = upgradeToNDArray(arr);
+  }
+  return upgraded;
+}
+
+export function loadNpzSync(
+  buffer: ArrayBuffer | Uint8Array,
+  options: NpzParseOptionsType = {}
+): Record<string, NDArrayClass> {
+  const result = loadNpzSyncCore(buffer, options);
+  const upgraded: Record<string, NDArrayClass> = {};
+  for (const [name, arr] of Object.entries(result)) {
+    upgraded[name] = upgradeToNDArray(arr);
+  }
+  return upgraded;
+}
+
+// Text parsers
+export function parseTxt(text: string, options: ParseTxtOptionsType = {}): NDArrayClass {
+  return upgradeToNDArray(parseTxtCore(text, options));
+}
+
+export function genfromtxt(text: string, options: ParseTxtOptionsType = {}): NDArrayClass {
+  return upgradeToNDArray(genfromtxtCore(text, options));
+}
+
+export function fromregex(
+  text: string,
+  regexp: RegExp | string,
+  dtype: DTypeIO = 'float64'
+): NDArrayClass {
+  return upgradeToNDArray(fromregexCore(text, regexp, dtype));
+}
 
 // ============================================================
 // Random Namespace (np.random)

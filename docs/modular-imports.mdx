@@ -167,7 +167,6 @@ full instanceof NDArrayCore;  // true (NDArray extends NDArrayCore)
 | `numpy-ts` | Full library with NDArray (default) |
 | `numpy-ts/core` | Tree-shakeable standalone functions |
 | `numpy-ts/node` | Node.js file I/O (load, save, etc.) |
-| `numpy-ts/io` | Browser-compatible I/O (parseNpy, serializeNpy) |
 
 ## Function Categories (numpy-ts/core)
 
@@ -341,10 +340,12 @@ const { a, b } = await load('arrays.npz');
 
 ## Browser I/O
 
-For browser environments:
+IO functions are available from both the main and core entry points:
 
 ```typescript
-import { parseNpy, serializeNpy, parseNpz, serializeNpz } from 'numpy-ts/io';
+import { parseNpy, serializeNpy, parseNpz, serializeNpz } from 'numpy-ts';
+// or for tree-shaking:
+import { parseNpy, serializeNpy } from 'numpy-ts/core';
 
 // Parse fetched .npy file
 const response = await fetch('array.npy');

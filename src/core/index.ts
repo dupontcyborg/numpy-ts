@@ -418,3 +418,36 @@ export {
   polyval,
   roots,
 } from './polynomial';
+
+// IO Functions - NPY format
+export { parseNpy, parseNpyHeader, parseNpyData } from '../io/npy/parser';
+export { serializeNpy } from '../io/npy/serializer';
+export {
+  UnsupportedDTypeError,
+  InvalidNpyError,
+  SUPPORTED_DTYPES,
+  DTYPE_TO_DESCR,
+  type NpyHeader,
+  type NpyMetadata,
+  type NpyVersion,
+} from '../io/npy/format';
+
+// IO Functions - NPZ format
+export {
+  parseNpz,
+  parseNpzSync,
+  loadNpz,
+  loadNpzSync,
+  type NpzParseOptions,
+  type NpzParseResult,
+} from '../io/npz/parser';
+export {
+  serializeNpz,
+  serializeNpzSync,
+  type NpzArraysInput,
+  type NpzSerializeOptions,
+} from '../io/npz/serializer';
+
+// IO Functions - Text format
+export { parseTxt, genfromtxt, fromregex, type ParseTxtOptions } from '../io/txt/parser';
+export { serializeTxt, type SerializeTxtOptions } from '../io/txt/serializer';

@@ -27,7 +27,7 @@
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
     },
-"./node": {
+    "./node": {
       "types": "./dist/types/node.d.ts",
       "import": "./dist/numpy-ts.node-io.mjs",
       "require": "./dist/numpy-ts.node-io.cjs",
@@ -37,16 +37,6 @@
       "types": "./dist/types/core.d.ts",
       "import": "./dist/esm/core.js",
       "default": "./dist/esm/core.js"
-    },
-    "./io": {
-      "types": "./dist/types/io/index.d.ts",
-      "node": "./dist/numpy-ts.node.cjs",
-      "browser": "./dist/numpy-ts.browser.js",
-      "default": "./dist/esm/io/index.js"
-    },
-    "./browser": {
-      "types": "./dist/types/index.d.ts",
-      "default": "./dist/numpy-ts.browser.js"
     }
   },
   "scripts": {

@@ -22,22 +22,6 @@ describe('Export Coverage', () => {
 
     // Version placeholder
     '__version__',
-
-    // IO functions (available via numpy-ts/io, not included in core)
-    'parseNpy',
-    'serializeNpy',
-    'parseNpyHeader',
-    'parseNpyData',
-    'UnsupportedDTypeError',
-    'InvalidNpyError',
-    'SUPPORTED_DTYPES',
-    'DTYPE_TO_DESCR',
-    'parseNpz',
-    'parseNpzSync',
-    'loadNpz',
-    'loadNpzSync',
-    'serializeNpz',
-    'serializeNpzSync',
   ]);
 
   // Type-only exports (not functions, just TypeScript types)
@@ -47,7 +31,10 @@ describe('Export Coverage', () => {
     'NpyVersion',
     'NpzParseOptions',
     'NpzParseResult',
+    'NpzArraysInput',
     'NpzSerializeOptions',
+    'ParseTxtOptions',
+    'SerializeTxtOptions',
     'ComplexInput',
   ]);
 

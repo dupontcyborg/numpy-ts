@@ -4,7 +4,7 @@
  * NPZ is a ZIP archive containing multiple .npy files.
  */
 
-import { NDArray } from '../../full/ndarray';
+import { NDArrayCore } from '../../common/ndarray-core';
 import { parseNpy } from '../npy/parser';
 import { UnsupportedDTypeError } from '../npy/format';
 import { readZip, readZipSync } from '../zip/reader';
@@ -26,7 +26,7 @@ export interface NpzParseOptions {
  */
 export interface NpzParseResult {
   /** Successfully parsed arrays */
-  arrays: Map<string, NDArray>;
+  arrays: Map<string, NDArrayCore>;
   /** Names of arrays that were skipped due to unsupported dtypes (only when force=true) */
   skipped: string[];
   /** Error messages for skipped arrays */
@@ -69,7 +69,7 @@ export function parseNpzSync(
  * Parse NPZ from already-extracted files
  */
 function parseNpzFromFiles(files: Map<string, Uint8Array>, force: boolean): NpzParseResult {
-  const arrays = new Map<string, NDArray>();
+  const arrays = new Map<string, NDArrayCore>();
   const skipped: string[] = [];
   const errors = new Map<string, string>();
 
@@ -110,7 +110,7 @@ function parseNpzFromFiles(files: Map<string, Uint8Array>, force: boolean): NpzP
 export async function loadNpz(
   buffer: ArrayBuffer | Uint8Array,
   options: NpzParseOptions = {}
-): Promise<Record<string, NDArray>> {
+): Promise<Record<string, NDArrayCore>> {
   const result = await parseNpz(buffer, options);
   return Object.fromEntries(result.arrays);
 }
@@ -121,7 +121,7 @@ export async function loadNpz(
 export function loadNpzSync(
   buffer: ArrayBuffer | Uint8Array,
   options: NpzParseOptions = {}
-): Record<string, NDArray> {
+): Record<string, NDArrayCore> {
   const result = parseNpzSync(buffer, options);
   return Object.fromEntries(result.arrays);
 }

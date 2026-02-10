@@ -7,7 +7,7 @@
  * v3.0 is identical to v2.0 but allows UTF-8 in dtype descriptions.
  */
 
-import { NDArray } from '../../full/ndarray';
+import { NDArrayCore } from '../../common/ndarray-core';
 import { getDTypeSize, isBigIntDType, isComplexDType, type DType } from '../../common/dtype';
 import { Complex } from '../../common/complex';
 import { NPY_MAGIC, DTYPE_TO_DESCR, isSystemLittleEndian } from './format';
@@ -18,7 +18,7 @@ import { NPY_MAGIC, DTYPE_TO_DESCR, isSystemLittleEndian } from './format';
  * @param arr - The NDArray to serialize
  * @returns A Uint8Array containing the NPY file data
  */
-export function serializeNpy(arr: NDArray): Uint8Array {
+export function serializeNpy(arr: NDArrayCore): Uint8Array {
   const shape = arr.shape;
   const dtype = arr.dtype as DType;
 
@@ -77,7 +77,7 @@ export function serializeNpy(arr: NDArray): Uint8Array {
 /**
  * Write array data to the output buffer
  */
-function writeArrayData(arr: NDArray, output: Uint8Array, itemsize: number): void {
+function writeArrayData(arr: NDArrayCore, output: Uint8Array, itemsize: number): void {
   const dtype = arr.dtype as DType;
   const size = arr.size;
   const isLittleEndian = isSystemLittleEndian();
@@ -85,7 +85,7 @@ function writeArrayData(arr: NDArray, output: Uint8Array, itemsize: number): voi
   const isComplex = isComplexDType(dtype);
 
   // Get raw data - need to handle non-contiguous arrays
-  const storage = arr['_storage']; // Access private member
+  const storage = arr.storage;
   const isCContiguous = storage.isCContiguous && storage.offset === 0;
 
   if (isCContiguous && isLittleEndian) {

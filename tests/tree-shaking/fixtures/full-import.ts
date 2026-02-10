@@ -16,7 +16,6 @@ const e = np.linalg.inv(c);
 const f = np.fft.fft(np.array([1, 2, 3, 4]));
 np.random.seed(42);
 const g = np.random.random([2, 2]);
-// @ts-expect-error - serializeNpy accepts NDArray but zeros() returns NDArrayCore (compatible at runtime)
 const h = np.serializeNpy(a);
 
 // Access shape via type guard for g (random returns union type)
