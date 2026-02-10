@@ -873,6 +873,11 @@ export function cross(
   return up(r);
 }
 
+/** Matrix multiplication */
+export function matmul(a: NDArrayCore, b: NDArrayCore): NDArray {
+  return up(core.matmul(a, b));
+}
+
 /** Element-wise logical AND */
 export function logical_and(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.logical_and(x1, x2));
@@ -916,6 +921,46 @@ export function nextafter(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
 /** Spacing between x and nearest adjacent number */
 export function spacing(x: NDArrayCore): NDArray {
   return up(core.spacing(x));
+}
+
+/** Element-wise greater than comparison */
+export function greater(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
+  return up(core.greater(x1, x2));
+}
+
+/** Element-wise greater than or equal comparison */
+export function greater_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
+  return up(core.greater_equal(x1, x2));
+}
+
+/** Element-wise less than comparison */
+export function less(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
+  return up(core.less(x1, x2));
+}
+
+/** Element-wise less than or equal comparison */
+export function less_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
+  return up(core.less_equal(x1, x2));
+}
+
+/** Element-wise equality comparison */
+export function equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
+  return up(core.equal(x1, x2));
+}
+
+/** Element-wise inequality comparison */
+export function not_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
+  return up(core.not_equal(x1, x2));
+}
+
+/** Element-wise close comparison with tolerance */
+export function isclose(
+  a: NDArrayCore,
+  b: NDArrayCore | number,
+  rtol: number = 1e-5,
+  atol: number = 1e-8
+): NDArray {
+  return up(core.isclose(a, b, rtol, atol));
 }
 
 /**
@@ -1769,6 +1814,7 @@ export {
   iterable,
   isdtype,
   promote_types,
+  allclose,
   amax,
   amin,
   var_,

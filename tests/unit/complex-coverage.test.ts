@@ -407,6 +407,16 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   choose: 'skip',
   array_equal: 'skip',
   array_equiv: 'skip',
+  matmul: 'skip', // binary op, tested elsewhere
+  var: 'skip', // alias for variance (already tested)
+  greater: 'skip', // binary comparison op
+  greater_equal: 'skip', // binary comparison op
+  less: 'skip', // binary comparison op
+  less_equal: 'skip', // binary comparison op
+  equal: 'skip', // binary comparison op
+  not_equal: 'skip', // binary comparison op
+  isclose: 'skip', // binary comparison op
+  allclose: 'skip', // binary comparison op
   take_along_axis: 'skip',
   put_along_axis: 'skip',
   putmask: 'skip',

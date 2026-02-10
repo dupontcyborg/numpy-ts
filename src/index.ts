@@ -186,6 +186,7 @@ export {
   matvec,
   vecmat,
   cross,
+  matmul,
   linalg,
 } from './full';
 
@@ -252,6 +253,7 @@ export {
   argmax,
   std,
   variance,
+  var_ as var,
   median,
   percentile,
   quantile,
@@ -313,6 +315,14 @@ export {
   signbit,
   nextafter,
   spacing,
+  greater,
+  greater_equal,
+  less,
+  less_equal,
+  equal,
+  not_equal,
+  isclose,
+  allclose,
 } from './full';
 
 // ============================================================

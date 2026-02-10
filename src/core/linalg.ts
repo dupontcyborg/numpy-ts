@@ -157,6 +157,11 @@ export function cross(
   return fromStorage(result);
 }
 
+/** Matrix multiplication */
+export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
+  return fromStorage(linalgOps.matmul(toStorage(a), toStorage(b)));
+}
+
 // ============================================================
 // Linear Algebra Namespace (numpy.linalg)
 // ============================================================

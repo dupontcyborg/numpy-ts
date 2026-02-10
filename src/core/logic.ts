@@ -6,6 +6,7 @@
  */
 
 import * as logicOps from '../common/ops/logic';
+import * as comparisonOps from '../common/ops/comparison';
 import { NDArrayCore, toStorage, fromStorage, type DType } from './types';
 
 // ============================================================
@@ -155,4 +156,72 @@ export function nextafter(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCor
 /** Spacing between x and nearest adjacent number */
 export function spacing(x: NDArrayCore): NDArrayCore {
   return fromStorage(logicOps.spacing(toStorage(x)));
+}
+
+// ============================================================
+// Element-wise Comparison Operations
+// ============================================================
+
+/** Element-wise greater than comparison */
+export function greater(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  return fromStorage(
+    comparisonOps.greater(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+  );
+}
+
+/** Element-wise greater than or equal comparison */
+export function greater_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  return fromStorage(
+    comparisonOps.greaterEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+  );
+}
+
+/** Element-wise less than comparison */
+export function less(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  return fromStorage(
+    comparisonOps.less(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+  );
+}
+
+/** Element-wise less than or equal comparison */
+export function less_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  return fromStorage(
+    comparisonOps.lessEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+  );
+}
+
+/** Element-wise equality comparison */
+export function equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  return fromStorage(
+    comparisonOps.equal(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+  );
+}
+
+/** Element-wise inequality comparison */
+export function not_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  return fromStorage(
+    comparisonOps.notEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+  );
+}
+
+/** Element-wise close comparison with tolerance */
+export function isclose(
+  a: NDArrayCore,
+  b: NDArrayCore | number,
+  rtol: number = 1e-5,
+  atol: number = 1e-8
+): NDArrayCore {
+  return fromStorage(
+    comparisonOps.isclose(toStorage(a), typeof b === 'number' ? b : toStorage(b), rtol, atol)
+  );
+}
+
+/** Check if all elements are close */
+export function allclose(
+  a: NDArrayCore,
+  b: NDArrayCore | number,
+  rtol: number = 1e-5,
+  atol: number = 1e-8
+): boolean {
+  return comparisonOps.allclose(toStorage(a), typeof b === 'number' ? b : toStorage(b), rtol, atol);
 }

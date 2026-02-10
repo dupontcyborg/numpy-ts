@@ -40,6 +40,7 @@ const NO_WRAP_FUNCTIONS = new Set([
   'einsum_path', // returns tuple
   'may_share_memory', 'shares_memory', // return boolean
   'array_equal', 'array_equiv', // return boolean
+  'allclose', // returns boolean
   // Functions returning complex objects with NDArrayCore fields
   'unique', 'unique_all', 'unique_counts', 'unique_inverse',
   'histogram', 'histogram2d', 'histogramdd', 'histogram_bin_edges',

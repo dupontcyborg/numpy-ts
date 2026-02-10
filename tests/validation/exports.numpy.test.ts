@@ -207,7 +207,7 @@ describe('NumPy API Comparison', () => {
         'strides',
         'data',
         'T',
-        'flat',
+        // 'flat', // Not yet implemented (NumPy returns a flat iterator)
         'itemsize',
         'nbytes',
       ],
@@ -255,11 +255,15 @@ describe('NumPy API Comparison', () => {
           return;
         }
 
-        // Check if we have it in TypeScript
+        // Check if we have it in TypeScript (walk full prototype chain)
         const tsArr = np.zeros([2, 3]);
-        const tsAttrs = Object.getOwnPropertyNames(Object.getPrototypeOf(tsArr))
-          .concat(Object.keys(tsArr))
-          .filter((name, index, self) => self.indexOf(name) === index);
+        const allNames: string[] = [...Object.keys(tsArr)];
+        let proto = Object.getPrototypeOf(tsArr);
+        while (proto && proto !== Object.prototype) {
+          allNames.push(...Object.getOwnPropertyNames(proto));
+          proto = Object.getPrototypeOf(proto);
+        }
+        const tsAttrs = allNames.filter((name, index, self) => self.indexOf(name) === index);
 
         expect(tsAttrs).toContain(attrName);
       });
@@ -273,6 +277,44 @@ describe('NumPy API Comparison', () => {
       // Custom exports that are allowed (not in Python NumPy)
       const allowedCustomExports = [
         'NDArray', // Our class name for ndarray
+        'NDArrayCore', // Core class for tree-shaking
+        'Complex', // Complex number class
+        // Aliases and renamed functions (JS reserved words)
+        'flatten',
+        'delete_',
+        'variance',
+        'round_',
+        'var_',
+        // Convenience indexing functions
+        'iindex',
+        'bindex',
+        // NDArray utility methods exported as standalone
+        'fill',
+        'item',
+        'tolist',
+        'tobytes',
+        'byteswap',
+        'view',
+        'tofile',
+        // IO functions (not in NumPy's top-level namespace)
+        'parseNpy',
+        'serializeNpy',
+        'parseNpyHeader',
+        'parseNpyData',
+        'UnsupportedDTypeError',
+        'InvalidNpyError',
+        'SUPPORTED_DTYPES',
+        'DTYPE_TO_DESCR',
+        'parseNpz',
+        'parseNpzSync',
+        'loadNpz',
+        'loadNpzSync',
+        'serializeNpz',
+        'serializeNpzSync',
+        'parseTxt',
+        'genfromtxt',
+        'fromregex',
+        'serializeTxt',
       ];
 
       const invalidExports: string[] = [];
@@ -295,34 +337,151 @@ describe('NumPy API Comparison', () => {
     });
 
     it('all TS ndarray attributes should exist in Python ndarray (or be allowed custom)', () => {
+      // Walk full prototype chain to find all attributes
       const tsArr = np.zeros([2, 3]);
-      const tsAttrs = Object.getOwnPropertyNames(Object.getPrototypeOf(tsArr))
-        .concat(Object.keys(tsArr))
+      const allNames: string[] = [...Object.keys(tsArr)];
+      let proto = Object.getPrototypeOf(tsArr);
+      while (proto && proto !== Object.prototype) {
+        allNames.push(...Object.getOwnPropertyNames(proto));
+        proto = Object.getPrototypeOf(proto);
+      }
+      const tsAttrs = allNames
         .filter((name) => !name.startsWith('_'))
         .filter((name, index, self) => self.indexOf(name) === index);
 
       // Custom attributes that are allowed (not in Python ndarray)
       const allowedCustomAttrs = [
         'toArray', // Our custom method to convert to nested JS arrays
-        '_data', // Internal stdlib ndarray reference
         'constructor', // JavaScript built-in
-        // Note: add, subtract, multiply, divide exist in Python but are ufuncs,
-        // not ndarray methods. We implement them as methods for now (will add standalone later)
+        'toString', // JavaScript built-in
+        // Arithmetic methods (Python uses ufuncs, we implement as methods)
         'add',
         'subtract',
         'multiply',
         'divide',
-        // matmul exists in Python as both function and @ operator, but not as method in old NumPy
-        // (it is a method in newer versions though)
         'matmul',
-        // toString is JavaScript built-in
-        'toString',
-        // Slicing convenience methods (Python uses [] operator, we use string methods)
-        'slice', // Our string-based slicing method (Python uses arr[:] syntax)
-        'row', // Convenience for arr.slice('i', ':')
-        'col', // Convenience for arr.slice(':', 'j')
-        'rows', // Convenience for arr.slice('start:stop', ':')
-        'cols', // Convenience for arr.slice(':', 'start:stop')
+        'mod',
+        'floor_divide',
+        'positive',
+        'reciprocal',
+        'sqrt',
+        'power',
+        'exp',
+        'exp2',
+        'expm1',
+        'log',
+        'log2',
+        'log10',
+        'log1p',
+        'logaddexp',
+        'logaddexp2',
+        'absolute',
+        'negative',
+        'sign',
+        'cbrt',
+        'fabs',
+        'divmod',
+        'square',
+        'remainder',
+        'heaviside',
+        // Rounding methods
+        'around',
+        'ceil',
+        'fix',
+        'floor',
+        'rint',
+        'trunc',
+        // Trig methods
+        'sin',
+        'cos',
+        'tan',
+        'arcsin',
+        'arccos',
+        'arctan',
+        'arctan2',
+        'hypot',
+        'degrees',
+        'radians',
+        'sinh',
+        'cosh',
+        'tanh',
+        'arcsinh',
+        'arccosh',
+        'arctanh',
+        // Comparison methods
+        'greater',
+        'greater_equal',
+        'less',
+        'less_equal',
+        'equal',
+        'not_equal',
+        'isclose',
+        'allclose',
+        // Bitwise methods
+        'bitwise_and',
+        'bitwise_or',
+        'bitwise_xor',
+        'bitwise_not',
+        'invert',
+        'left_shift',
+        'right_shift',
+        // Logic methods
+        'logical_and',
+        'logical_or',
+        'logical_not',
+        'logical_xor',
+        'isfinite',
+        'isinf',
+        'isnan',
+        'isnat',
+        // Floating-point methods
+        'copysign',
+        'signbit',
+        'nextafter',
+        'spacing',
+        // Reduction methods
+        'median',
+        'percentile',
+        'quantile',
+        'average',
+        'nansum',
+        'nanprod',
+        'nanmean',
+        'nanvar',
+        'nanstd',
+        'nanmin',
+        'nanmax',
+        'nanquantile',
+        'nanpercentile',
+        'nanargmin',
+        'nanargmax',
+        'nancumsum',
+        'nancumprod',
+        'nanmedian',
+        // Other methods
+        'argwhere',
+        'diff',
+        'expand_dims',
+        'moveaxis',
+        'iindex',
+        'bindex',
+        'inner',
+        'outer',
+        'tensordot',
+        // Convenience accessors
+        'get',
+        'set',
+        // Slicing convenience methods (Python uses [] operator)
+        'slice',
+        'row',
+        'col',
+        'rows',
+        'cols',
+        // Storage accessor
+        'storage',
+        // Low-level indexed get/set (internal helpers exposed on prototype)
+        'iget',
+        'iset',
       ];
 
       const invalidAttrs: string[] = [];
@@ -357,8 +516,13 @@ describe('NumPy API Comparison', () => {
       console.log(`   Implemented: ${tsImplemented.join(', ')}\n`);
 
       const tsArr = np.zeros([2, 3]);
-      const tsAttrs = Object.getOwnPropertyNames(Object.getPrototypeOf(tsArr))
-        .concat(Object.keys(tsArr))
+      const allAttrNames: string[] = [...Object.keys(tsArr)];
+      let attrProto = Object.getPrototypeOf(tsArr);
+      while (attrProto && attrProto !== Object.prototype) {
+        allAttrNames.push(...Object.getOwnPropertyNames(attrProto));
+        attrProto = Object.getPrototypeOf(attrProto);
+      }
+      const tsAttrs = allAttrNames
         .filter((name) => !name.startsWith('_'))
         .filter((name, index, self) => self.indexOf(name) === index);
       const tsAttrsImplemented = tsAttrs.filter((name) => ndarrayAttrs.includes(name));

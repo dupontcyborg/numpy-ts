@@ -135,6 +135,7 @@ export {
 // Linear algebra
 export {
   dot,
+  matmul,
   trace,
   diagonal,
   kron,
@@ -206,6 +207,7 @@ export {
   argmax,
   variance,
   var_,
+  variance as var,
   std,
   median,
   percentile,
@@ -259,6 +261,14 @@ export {
   signbit,
   nextafter,
   spacing,
+  greater,
+  greater_equal,
+  less,
+  less_equal,
+  equal,
+  not_equal,
+  isclose,
+  allclose,
 } from './logic';
 
 // Sorting and searching
