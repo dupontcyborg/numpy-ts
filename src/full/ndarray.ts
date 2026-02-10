@@ -3596,6 +3596,36 @@ export function sign(x: NDArray): NDArray {
 }
 
 /**
+ * Add arguments element-wise
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns Element-wise sum
+ */
+export function add(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.add(x2);
+}
+
+/**
+ * Subtract arguments element-wise
+ * @param x1 - First array
+ * @param x2 - Second array or scalar to subtract
+ * @returns Element-wise difference
+ */
+export function subtract(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.subtract(x2);
+}
+
+/**
+ * Multiply arguments element-wise
+ * @param x1 - First array
+ * @param x2 - Second array or scalar
+ * @returns Element-wise product
+ */
+export function multiply(x1: NDArray, x2: NDArray | number): NDArray {
+  return x1.multiply(x2);
+}
+
+/**
  * Element-wise modulo
  * @param x - Dividend array
  * @param divisor - Divisor (array or scalar)
@@ -5014,6 +5044,127 @@ export function array_equiv(a1: NDArray, a2: NDArray): boolean {
 // ============================================================================
 // Top-level Reduction Functions
 // ============================================================================
+
+/**
+ * Sum of array elements over a given axis.
+ * @param a - Input array
+ * @param axis - Axis along which to sum. If undefined, sum all elements.
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Sum value(s)
+ */
+export function sum(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
+  return a.sum(axis, keepdims);
+}
+
+/**
+ * Compute the arithmetic mean along the specified axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use all elements.
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Mean value(s)
+ */
+export function mean(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
+  return a.mean(axis, keepdims);
+}
+
+/**
+ * Return the product of array elements over a given axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use all elements.
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Product value(s)
+ */
+export function prod(
+  a: NDArray,
+  axis?: number,
+  keepdims: boolean = false
+): NDArray | number | Complex {
+  return a.prod(axis, keepdims);
+}
+
+/**
+ * Compute the standard deviation along the specified axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use all elements.
+ * @param ddof - Delta degrees of freedom (default: 0)
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Standard deviation value(s)
+ */
+export function std(
+  a: NDArray,
+  axis?: number,
+  ddof: number = 0,
+  keepdims: boolean = false
+): NDArray | number {
+  return a.std(axis, ddof, keepdims);
+}
+
+/**
+ * Compute the variance along the specified axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use all elements.
+ * @param ddof - Delta degrees of freedom (default: 0)
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Variance value(s)
+ */
+export function variance(
+  a: NDArray,
+  axis?: number,
+  ddof: number = 0,
+  keepdims: boolean = false
+): NDArray | number {
+  return a.var(axis, ddof, keepdims);
+}
+
+/**
+ * Returns the indices of the minimum values along an axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use flattened array.
+ * @returns Indices of minimum values
+ */
+export function argmin(a: NDArray, axis?: number): NDArray | number {
+  return a.argmin(axis);
+}
+
+/**
+ * Returns the indices of the maximum values along an axis.
+ * @param a - Input array
+ * @param axis - Axis along which to compute. If undefined, use flattened array.
+ * @returns Indices of maximum values
+ */
+export function argmax(a: NDArray, axis?: number): NDArray | number {
+  return a.argmax(axis);
+}
+
+/**
+ * Test whether all array elements along a given axis evaluate to True.
+ * @param a - Input array
+ * @param axis - Axis along which to test. If undefined, test all elements.
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Boolean result(s)
+ */
+export function all(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | boolean {
+  return a.all(axis, keepdims);
+}
+
+/**
+ * Test whether any array element along a given axis evaluates to True.
+ * @param a - Input array
+ * @param axis - Axis along which to test. If undefined, test all elements.
+ * @param keepdims - If true, reduced axes are left as dimensions with size 1
+ * @returns Boolean result(s)
+ */
+export function any(a: NDArray, axis?: number, keepdims: boolean = false): NDArray | boolean {
+  return a.any(axis, keepdims);
+}
 
 /**
  * Return the cumulative sum of the elements along a given axis.

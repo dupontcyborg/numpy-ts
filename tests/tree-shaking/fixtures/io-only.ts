@@ -8,6 +8,7 @@ const a = array([
   [1, 2],
   [3, 4],
 ]);
+// @ts-expect-error - serializeNpy accepts NDArray but array() returns NDArrayCore (compatible at runtime)
 const serialized = serializeNpy(a);
 const z = zeros([2, 2]);
 

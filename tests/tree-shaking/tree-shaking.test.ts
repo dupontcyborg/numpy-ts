@@ -33,8 +33,9 @@ const __dirname = dirname(__filename);
 
 // Path to the built ESM modules (tree-shakeable)
 const NUMPY_TS_ESM = resolve(__dirname, '../../dist/esm/index.js');
+const NUMPY_TS_STANDALONE = resolve(__dirname, '../../dist/esm/standalone.js');
 
-// Fixture definitions
+// Fixture definitions - main entry point (method chaining, no tree-shaking)
 const FIXTURES = [
   { name: 'single-function', description: 'Single function (zeros)' },
   { name: 'basic-array', description: 'Basic array creation functions' },
@@ -45,6 +46,13 @@ const FIXTURES = [
   { name: 'random-only', description: 'Random operations only' },
   { name: 'io-only', description: 'IO operations only' },
   { name: 'full-import', description: 'Full import (baseline)' },
+] as const;
+
+// Standalone fixtures - tree-shakeable entry point (no method chaining)
+const STANDALONE_FIXTURES = [
+  { name: 'standalone-single', description: 'Standalone: Single function (zeros)' },
+  { name: 'standalone-math', description: 'Standalone: Math operations' },
+  { name: 'standalone-linalg', description: 'Standalone: Linear algebra' },
 ] as const;
 
 interface BundleResult {
@@ -91,6 +99,7 @@ async function buildWithEsbuild(fixtureName: string): Promise<BundleResult> {
       metafile: true,
       write: true,
       alias: {
+        'numpy-ts/standalone': NUMPY_TS_STANDALONE,
         'numpy-ts': NUMPY_TS_ESM,
       },
     });
@@ -106,6 +115,7 @@ async function buildWithEsbuild(fixtureName: string): Promise<BundleResult> {
       minify: true,
       write: true,
       alias: {
+        'numpy-ts/standalone': NUMPY_TS_STANDALONE,
         'numpy-ts': NUMPY_TS_ESM,
       },
     });
@@ -149,7 +159,10 @@ async function buildWithRollup(fixtureName: string): Promise<BundleResult> {
       input: entry,
       plugins: [
         alias({
-          entries: [{ find: 'numpy-ts', replacement: NUMPY_TS_ESM }],
+          entries: [
+            { find: 'numpy-ts/standalone', replacement: NUMPY_TS_STANDALONE },
+            { find: 'numpy-ts', replacement: NUMPY_TS_ESM },
+          ],
         }),
         nodeResolve({
           extensions: ['.ts', '.js'],
@@ -252,6 +265,7 @@ async function buildWithWebpack(fixtureName: string): Promise<BundleResult> {
       resolve: {
         extensions: ['.ts', '.js'],
         alias: {
+          'numpy-ts/standalone': NUMPY_TS_STANDALONE,
           'numpy-ts': NUMPY_TS_ESM,
         },
       },
@@ -367,7 +381,7 @@ describe('Tree-shaking Tests', () => {
     console.log('='.repeat(80));
 
     for (const bundler of ['esbuild', 'rollup', 'webpack'] as const) {
-      console.log(`\n${bundler.toUpperCase()}:`);
+      console.log(`\n${bundler.toUpperCase()} - Main Entry Point (numpy-ts):`);
       console.log('-'.repeat(60));
 
       const bundlerResults = results[bundler];
@@ -384,6 +398,22 @@ describe('Tree-shaking Tests', () => {
           console.log(`  ${fixture.description.padEnd(35)} FAILED: ${result?.error || 'Unknown'}`);
         }
       }
+
+      // Print standalone results
+      console.log(`\n${bundler.toUpperCase()} - Standalone Entry Point (numpy-ts/standalone):`);
+      console.log('-'.repeat(60));
+
+      for (const fixture of STANDALONE_FIXTURES) {
+        const result = bundlerResults.get(fixture.name);
+        if (result && result.success) {
+          const percentage = ((result.minifiedSize / fullSize) * 100).toFixed(1);
+          console.log(
+            `  ${fixture.description.padEnd(35)} ${formatBytes(result.minifiedSize).padStart(10)} (${percentage}%)`
+          );
+        } else if (result) {
+          console.log(`  ${fixture.description.padEnd(35)} FAILED: ${result?.error || 'Unknown'}`);
+        }
+      }
     }
 
     // Print analysis
@@ -393,20 +423,29 @@ describe('Tree-shaking Tests', () => {
 
     const esbuildFull = results.esbuild.get('full-import')?.minifiedSize || 1;
     const esbuildSingle = results.esbuild.get('single-function')?.minifiedSize || 0;
-    const ratio = esbuildSingle / esbuildFull;
+    const esbuildStandaloneSingle = results.esbuild.get('standalone-single')?.minifiedSize || 0;
+    const mainRatio = esbuildSingle / esbuildFull;
+    const standaloneRatio = esbuildStandaloneSingle / esbuildFull;
 
-    if (ratio > 0.5) {
-      console.log('\nNOTE: Tree-shaking effectiveness is limited.');
-      console.log(`Single function import is ${(ratio * 100).toFixed(1)}% of full bundle.`);
-      console.log('This is expected due to the monolithic NDArray class design.');
-      console.log('\nTo improve tree-shaking in the future, consider:');
-      console.log('  1. Splitting ndarray.ts into smaller modules');
-      console.log('  2. Moving operations to separate files with lazy imports');
-      console.log('  3. Using more granular re-exports in index.ts');
+    console.log('\nMain entry point (numpy-ts):');
+    console.log(`  Single function import is ${(mainRatio * 100).toFixed(1)}% of full bundle.`);
+    console.log('  This is expected - method chaining requires full NDArray class.');
+
+    console.log('\nStandalone entry point (numpy-ts/standalone):');
+    if (esbuildStandaloneSingle > 0) {
+      console.log(
+        `  Single function import is ${(standaloneRatio * 100).toFixed(1)}% of full bundle.`
+      );
+      console.log(
+        `  Tree-shaking savings: ${formatBytes(esbuildSingle - esbuildStandaloneSingle)} (${((1 - standaloneRatio / mainRatio) * 100).toFixed(0)}% reduction)`
+      );
     } else {
-      console.log('\nTree-shaking is working well!');
-      console.log(`Single function import is only ${(ratio * 100).toFixed(1)}% of full bundle.`);
+      console.log('  (no standalone tests run)');
     }
+
+    console.log('\nRecommendation:');
+    console.log('  - Use numpy-ts for full API with method chaining');
+    console.log('  - Use numpy-ts/standalone when bundle size is critical');
 
     console.log('\n' + '='.repeat(80));
   });
@@ -458,8 +497,12 @@ describe('Tree-shaking Tests', () => {
         );
         console.log('Tree-shaking analysis continues with esbuild and Webpack.');
       }
-      // Test passes as long as we attempted all builds
-      expect(results.rollup.size).toBe(FIXTURES.length);
+      // Test passes as long as we attempted all main fixture builds
+      // (standalone fixtures are tested separately)
+      const mainFixtureCount = [...results.rollup.keys()].filter((name) =>
+        FIXTURES.some((f) => f.name === name)
+      ).length;
+      expect(mainFixtureCount).toBe(FIXTURES.length);
     }, 120000);
 
     it('should produce smaller bundles for partial imports', () => {
@@ -498,6 +541,96 @@ describe('Tree-shaking Tests', () => {
 
       expect(fullResult.minifiedSize).toBeGreaterThan(0);
       expect(singleResult.minifiedSize).toBeLessThan(fullResult.minifiedSize);
+    });
+  });
+
+  // Standalone tests run AFTER all main builds to ensure comparison data exists
+  describe('Standalone entry point tree-shaking (esbuild)', () => {
+    it('should build all standalone fixtures', async () => {
+      for (const fixture of STANDALONE_FIXTURES) {
+        const result = await buildWithEsbuild(fixture.name);
+        results.esbuild.set(fixture.name, result);
+        expect(result.success, `${fixture.name} should build: ${result.error}`).toBe(true);
+      }
+    }, 60000);
+
+    it('should produce significantly smaller bundles than main entry point', () => {
+      const mainSingle = results.esbuild.get('single-function')?.minifiedSize || 0;
+      const standaloneSingle = results.esbuild.get('standalone-single')?.minifiedSize || 0;
+
+      expect(mainSingle).toBeGreaterThan(0);
+      expect(standaloneSingle).toBeGreaterThan(0);
+
+      // Standalone should be significantly smaller (at least 50% reduction)
+      expect(standaloneSingle).toBeLessThan(mainSingle * 0.5);
+    });
+
+    it('should show tree-shaking working across standalone fixtures', () => {
+      const fullSize = results.esbuild.get('full-import')?.minifiedSize || 1;
+      const standaloneSingle = results.esbuild.get('standalone-single')?.minifiedSize || 0;
+      const standaloneMath = results.esbuild.get('standalone-math')?.minifiedSize || 0;
+      const standaloneLinalg = results.esbuild.get('standalone-linalg')?.minifiedSize || 0;
+
+      // All standalone fixtures should be much smaller than full bundle
+      expect(standaloneSingle / fullSize).toBeLessThan(0.2); // <20% of full
+      expect(standaloneMath / fullSize).toBeLessThan(0.3); // <30% of full
+      expect(standaloneLinalg / fullSize).toBeLessThan(0.3); // <30% of full
+
+      // Single function should be smaller than multi-function fixtures
+      expect(standaloneSingle).toBeLessThan(standaloneMath);
+      expect(standaloneSingle).toBeLessThan(standaloneLinalg);
+    });
+  });
+
+  describe('Standalone entry point tree-shaking (Rollup)', () => {
+    it('should build all standalone fixtures', async () => {
+      let successCount = 0;
+      for (const fixture of STANDALONE_FIXTURES) {
+        const result = await buildWithRollup(fixture.name);
+        results.rollup.set(fixture.name, result);
+        if (result.success) successCount++;
+      }
+
+      if (successCount === 0) {
+        console.log('WARNING: All Rollup standalone builds failed.');
+      }
+      expect(successCount).toBeGreaterThan(0);
+    }, 120000);
+
+    it('should produce significantly smaller bundles than main entry point', () => {
+      const mainSingle = results.rollup.get('single-function');
+      const standaloneSingle = results.rollup.get('standalone-single');
+
+      if (!mainSingle?.success || !standaloneSingle?.success) {
+        console.log('Rollup builds failed, skipping comparison');
+        return;
+      }
+
+      // Standalone should be significantly smaller
+      expect(standaloneSingle.minifiedSize).toBeLessThan(mainSingle.minifiedSize * 0.5);
+    });
+  });
+
+  describe('Standalone entry point tree-shaking (Webpack)', () => {
+    it('should build all standalone fixtures', async () => {
+      for (const fixture of STANDALONE_FIXTURES) {
+        const result = await buildWithWebpack(fixture.name);
+        results.webpack.set(fixture.name, result);
+        expect(result.success, `${fixture.name} should build: ${result.error}`).toBe(true);
+      }
+    }, 180000);
+
+    it('should produce significantly smaller bundles than main entry point', () => {
+      const mainSingle = results.webpack.get('single-function');
+      const standaloneSingle = results.webpack.get('standalone-single');
+
+      if (!mainSingle?.success || !standaloneSingle?.success) {
+        console.log('Webpack builds failed, skipping comparison');
+        return;
+      }
+
+      // Standalone should be significantly smaller
+      expect(standaloneSingle.minifiedSize).toBeLessThan(mainSingle.minifiedSize * 0.5);
     });
   });
 
@@ -545,7 +678,7 @@ describe('Tree-shaking Tests', () => {
 
   describe('Tree-shaking effectiveness (regression tests)', () => {
     // These tests establish baselines to detect regressions
-    // Current state: tree-shaking is limited due to monolithic design
+    // Current state: tree-shaking is working well with modular design
 
     it('esbuild: single function should be <95% of full bundle', () => {
       const fullSize = results.esbuild.get('full-import')?.minifiedSize || 1;
@@ -584,9 +717,14 @@ describe('Tree-shaking Tests', () => {
       expect(ratio).toBeLessThan(0.95);
     });
 
-    // Aspirational tests - these document desired state
-    // Currently expected to fail, but useful to track progress
-    describe.skip('Aspirational targets (currently failing)', () => {
+    // These tests are skipped because the main entry point (numpy-ts) is designed
+    // for method chaining, which requires the full NDArray class with all methods.
+    // Tree-shaking only works with the standalone entry point (numpy-ts/standalone).
+    //
+    // Design decision:
+    //   - numpy-ts: Full API with method chaining, no tree-shaking (~180KB)
+    //   - numpy-ts/standalone: Tree-shakeable functions, no method chaining (~11KB for single function)
+    describe.skip('Tree-shaking effectiveness targets (use numpy-ts/standalone for tree-shaking)', () => {
       it('single function import should be <50% of full bundle (esbuild)', () => {
         const fullSize = results.esbuild.get('full-import')?.minifiedSize || 1;
         const singleSize = results.esbuild.get('single-function')?.minifiedSize || fullSize;

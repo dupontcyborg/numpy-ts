@@ -27,6 +27,11 @@
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
     },
+    "./standalone": {
+      "types": "./dist/types/standalone.d.ts",
+      "import": "./dist/esm/standalone.js",
+      "default": "./dist/esm/standalone.js"
+    },
     "./node": {
       "types": "./dist/types/node.d.ts",
       "import": "./dist/numpy-ts.node-io.mjs",

@@ -1,12 +1,21 @@
 /**
  * numpy-ts - Complete NumPy implementation for TypeScript and JavaScript
  *
- * This module is designed for optimal tree-shaking. Each function is
- * re-exported from modular files that only import the dependencies they need.
+ * This is the main entry point with full method chaining support.
+ * Functions return NDArray which has methods like .add(), .reshape(), etc.
  *
- * For even better tree-shaking, you can import from submodules:
- *   import { zeros, ones } from 'numpy-ts/creation';
- *   import { sin, cos } from 'numpy-ts/functions/trig';
+ * @example
+ * ```typescript
+ * import { array, zeros } from 'numpy-ts';
+ *
+ * const a = array([1, 2, 3, 4]);
+ * const b = a.add(10).reshape([2, 2]).T;  // Method chaining works!
+ * ```
+ *
+ * For tree-shakeable imports (smaller bundles, no method chaining), use:
+ * ```typescript
+ * import { array, add, reshape } from 'numpy-ts/standalone';
+ * ```
  *
  * @module numpy-ts
  */
@@ -15,19 +24,12 @@
 // Core Types and Classes
 // ============================================================
 
-// Complex number class
 export { Complex, type ComplexInput } from './core/complex';
-
-// NDArray class with full method support (includes all ops for method chaining)
-// Note: Importing NDArray will include all ops due to its method definitions.
-// For tree-shakeable array creation, use standalone functions instead.
 export { NDArray } from './core/ndarray';
-
-// NDArrayCore for advanced use (minimal class without ops)
 export { NDArrayCore } from './core/ndarray-core';
 
 // ============================================================
-// Array Creation Functions (from modular creation module)
+// Array Creation Functions
 // ============================================================
 
 export {
@@ -48,10 +50,6 @@ export {
   empty_like,
   full_like,
   copy,
-} from './creation';
-
-// Additional creation functions from ndarray (these need the full ndarray module)
-export {
   asanyarray,
   asarray_chkfinite,
   ascontiguousarray,
@@ -76,9 +74,17 @@ export {
 // ============================================================
 
 export {
+  // Basic arithmetic
+  add,
+  subtract,
+  multiply,
+  divide,
+  true_divide,
+  floor_divide,
+  mod,
+  // Exponential and logarithmic
   sqrt,
   power,
-  pow,
   exp,
   exp2,
   expm1,
@@ -88,14 +94,10 @@ export {
   log1p,
   logaddexp,
   logaddexp2,
+  // Other arithmetic
   absolute,
-  abs,
   negative,
   sign,
-  mod,
-  divide,
-  true_divide,
-  floor_divide,
   positive,
   reciprocal,
   cbrt,
@@ -121,7 +123,10 @@ export {
   unwrap,
   sinc,
   i0,
-} from './functions/arithmetic';
+} from './core/ndarray';
+
+// Aliases
+export { power as pow, absolute as abs } from './core/ndarray';
 
 // ============================================================
 // Trigonometric and Hyperbolic Functions
@@ -132,13 +137,9 @@ export {
   cos,
   tan,
   arcsin,
-  asin,
   arccos,
-  acos,
   arctan,
-  atan,
   arctan2,
-  atan2,
   hypot,
   degrees,
   radians,
@@ -148,12 +149,20 @@ export {
   cosh,
   tanh,
   arcsinh,
-  asinh,
   arccosh,
-  acosh,
   arctanh,
-  atanh,
-} from './functions/trig';
+} from './core/ndarray';
+
+// Aliases
+export {
+  arcsin as asin,
+  arccos as acos,
+  arctan as atan,
+  arctan2 as atan2,
+  arcsinh as asinh,
+  arccosh as acosh,
+  arctanh as atanh,
+} from './core/ndarray';
 
 // ============================================================
 // Linear Algebra Functions
@@ -178,7 +187,7 @@ export {
   vecmat,
   cross,
   linalg,
-} from './functions/linalg';
+} from './core/ndarray';
 
 // ============================================================
 // Shape Manipulation Functions
@@ -198,7 +207,6 @@ export {
   vstack,
   hstack,
   dstack,
-  concat,
   column_stack,
   row_stack,
   block,
@@ -219,10 +227,14 @@ export {
   atleast_1d,
   atleast_2d,
   atleast_3d,
-} from './functions/shape';
+  append,
+  delete_ as delete,
+  insert,
+  pad,
+} from './core/ndarray';
 
-// Additional shape functions from ndarray
-export { append, delete_ as delete, insert, pad } from './core/ndarray';
+// Alias
+export { concatenate as concat } from './core/ndarray';
 
 // ============================================================
 // Reduction Functions
@@ -232,14 +244,13 @@ export {
   sum,
   mean,
   prod,
-  max,
   amax,
-  min,
   amin,
   ptp,
   argmin,
   argmax,
   std,
+  variance,
   median,
   percentile,
   quantile,
@@ -247,9 +258,7 @@ export {
   all,
   any,
   cumsum,
-  cumulative_sum,
   cumprod,
-  cumulative_prod,
   nansum,
   nanprod,
   nanmean,
@@ -264,11 +273,15 @@ export {
   nanmedian,
   nanquantile,
   nanpercentile,
-} from './functions/reduction';
+} from './core/ndarray';
 
-// Variance is exported from reduction but needs aliasing
-import { variance } from './functions/reduction';
-export { variance };
+// Aliases
+export {
+  amax as max,
+  amin as min,
+  cumsum as cumulative_sum,
+  cumprod as cumulative_prod,
+} from './core/ndarray';
 
 // ============================================================
 // Logic Functions
@@ -299,7 +312,7 @@ export {
   signbit,
   nextafter,
   spacing,
-} from './functions/logic';
+} from './core/ndarray';
 
 // ============================================================
 // Sorting and Searching Functions
@@ -319,7 +332,7 @@ export {
   searchsorted,
   extract,
   count_nonzero,
-} from './functions/sorting';
+} from './core/ndarray';
 
 // ============================================================
 // Bitwise Functions
@@ -336,16 +349,23 @@ export {
   packbits,
   unpackbits,
   bitwise_count,
-  bitwise_invert,
-  bitwise_left_shift,
-  bitwise_right_shift,
-} from './functions/bitwise';
+} from './core/ndarray';
+
+// Aliases
+export {
+  bitwise_not as bitwise_invert,
+  left_shift as bitwise_left_shift,
+  right_shift as bitwise_right_shift,
+} from './core/ndarray';
 
 // ============================================================
 // Rounding Functions
 // ============================================================
 
-export { around, round_, round, ceil, fix, floor, rint, trunc } from './functions/rounding';
+export { around, round_, ceil, fix, floor, rint, trunc } from './core/ndarray';
+
+// Alias
+export { around as round } from './core/ndarray';
 
 // ============================================================
 // Set Operations
@@ -364,7 +384,7 @@ export {
   unique_counts,
   unique_inverse,
   unique_values,
-} from './functions/sets';
+} from './core/ndarray';
 
 // ============================================================
 // Statistics Functions
@@ -382,19 +402,22 @@ export {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
-} from './functions/statistics';
+} from './core/ndarray';
 
 // ============================================================
 // Gradient Functions
 // ============================================================
 
-export { diff, ediff1d, gradient } from './functions/gradient';
+export { diff, ediff1d, gradient } from './core/ndarray';
 
 // ============================================================
 // Complex Number Functions
 // ============================================================
 
-export { real, imag, conj, conjugate, angle } from './functions/complex';
+export { real, imag, conj, angle } from './core/ndarray';
+
+// Alias
+export { conj as conjugate } from './core/ndarray';
 
 // ============================================================
 // Advanced Indexing and Data Manipulation
@@ -663,133 +686,95 @@ export const random = {
 // ============================================================
 
 import * as fftOps from './ops/fft';
+import { NDArrayCore } from './core/ndarray-core';
+
+// Type alias for array inputs - accepts NDArray, NDArrayCore, or ArrayStorage
+type ArrayInput = NDArrayClass | NDArrayCore | ArrayStorage;
+
+// Helper to extract storage from any array input
+function getStorage(a: ArrayInput): ArrayStorage {
+  if (a instanceof NDArrayClass) return a['_storage'];
+  if (a instanceof NDArrayCore) return a['_storage'];
+  return a;
+}
 
 export const fft = {
-  fft: (
-    a: NDArrayClass | ArrayStorage,
-    n?: number,
-    axis?: number,
-    norm?: 'backward' | 'ortho' | 'forward'
-  ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.fft(storage, n, axis, norm));
+  fft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
+    return NDArrayClass._fromStorage(fftOps.fft(getStorage(a), n, axis, norm));
   },
-  ifft: (
-    a: NDArrayClass | ArrayStorage,
-    n?: number,
-    axis?: number,
-    norm?: 'backward' | 'ortho' | 'forward'
-  ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.ifft(storage, n, axis, norm));
+  ifft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
+    return NDArrayClass._fromStorage(fftOps.ifft(getStorage(a), n, axis, norm));
   },
   fft2: (
-    a: NDArrayClass | ArrayStorage,
+    a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.fft2(storage, s, axes, norm));
+    return NDArrayClass._fromStorage(fftOps.fft2(getStorage(a), s, axes, norm));
   },
   ifft2: (
-    a: NDArrayClass | ArrayStorage,
+    a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.ifft2(storage, s, axes, norm));
+    return NDArrayClass._fromStorage(fftOps.ifft2(getStorage(a), s, axes, norm));
   },
-  fftn: (
-    a: NDArrayClass | ArrayStorage,
-    s?: number[],
-    axes?: number[],
-    norm?: 'backward' | 'ortho' | 'forward'
-  ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.fftn(storage, s, axes, norm));
+  fftn: (a: ArrayInput, s?: number[], axes?: number[], norm?: 'backward' | 'ortho' | 'forward') => {
+    return NDArrayClass._fromStorage(fftOps.fftn(getStorage(a), s, axes, norm));
   },
   ifftn: (
-    a: NDArrayClass | ArrayStorage,
+    a: ArrayInput,
     s?: number[],
     axes?: number[],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.ifftn(storage, s, axes, norm));
+    return NDArrayClass._fromStorage(fftOps.ifftn(getStorage(a), s, axes, norm));
   },
-  rfft: (
-    a: NDArrayClass | ArrayStorage,
-    n?: number,
-    axis?: number,
-    norm?: 'backward' | 'ortho' | 'forward'
-  ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.rfft(storage, n, axis, norm));
+  rfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
+    return NDArrayClass._fromStorage(fftOps.rfft(getStorage(a), n, axis, norm));
   },
-  irfft: (
-    a: NDArrayClass | ArrayStorage,
-    n?: number,
-    axis?: number,
-    norm?: 'backward' | 'ortho' | 'forward'
-  ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.irfft(storage, n, axis, norm));
+  irfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
+    return NDArrayClass._fromStorage(fftOps.irfft(getStorage(a), n, axis, norm));
   },
   rfft2: (
-    a: NDArrayClass | ArrayStorage,
+    a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.rfft2(storage, s, axes, norm));
+    return NDArrayClass._fromStorage(fftOps.rfft2(getStorage(a), s, axes, norm));
   },
   irfft2: (
-    a: NDArrayClass | ArrayStorage,
+    a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.irfft2(storage, s, axes, norm));
+    return NDArrayClass._fromStorage(fftOps.irfft2(getStorage(a), s, axes, norm));
   },
   rfftn: (
-    a: NDArrayClass | ArrayStorage,
+    a: ArrayInput,
     s?: number[],
     axes?: number[],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.rfftn(storage, s, axes, norm));
+    return NDArrayClass._fromStorage(fftOps.rfftn(getStorage(a), s, axes, norm));
   },
   irfftn: (
-    a: NDArrayClass | ArrayStorage,
+    a: ArrayInput,
     s?: number[],
     axes?: number[],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.irfftn(storage, s, axes, norm));
+    return NDArrayClass._fromStorage(fftOps.irfftn(getStorage(a), s, axes, norm));
   },
-  hfft: (
-    a: NDArrayClass | ArrayStorage,
-    n?: number,
-    axis?: number,
-    norm?: 'backward' | 'ortho' | 'forward'
-  ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.hfft(storage, n, axis, norm));
+  hfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
+    return NDArrayClass._fromStorage(fftOps.hfft(getStorage(a), n, axis, norm));
   },
-  ihfft: (
-    a: NDArrayClass | ArrayStorage,
-    n?: number,
-    axis?: number,
-    norm?: 'backward' | 'ortho' | 'forward'
-  ) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.ihfft(storage, n, axis, norm));
+  ihfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
+    return NDArrayClass._fromStorage(fftOps.ihfft(getStorage(a), n, axis, norm));
   },
   fftfreq: (n: number, d?: number) => {
     return NDArrayClass._fromStorage(fftOps.fftfreq(n, d));
@@ -797,13 +782,11 @@ export const fft = {
   rfftfreq: (n: number, d?: number) => {
     return NDArrayClass._fromStorage(fftOps.rfftfreq(n, d));
   },
-  fftshift: (a: NDArrayClass | ArrayStorage, axes?: number | number[]) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.fftshift(storage, axes));
+  fftshift: (a: ArrayInput, axes?: number | number[]) => {
+    return NDArrayClass._fromStorage(fftOps.fftshift(getStorage(a), axes));
   },
-  ifftshift: (a: NDArrayClass | ArrayStorage, axes?: number | number[]) => {
-    const storage = a instanceof NDArrayClass ? a['_storage'] : a;
-    return NDArrayClass._fromStorage(fftOps.ifftshift(storage, axes));
+  ifftshift: (a: ArrayInput, axes?: number | number[]) => {
+    return NDArrayClass._fromStorage(fftOps.ifftshift(getStorage(a), axes));
   },
 };
 

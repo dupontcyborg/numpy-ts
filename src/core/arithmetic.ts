@@ -16,6 +16,28 @@ import * as exponentialOps from '../ops/exponential';
 import { NDArrayCore, toStorage, fromStorage, fromStorageTuple } from './types';
 
 // ============================================================
+// Basic Arithmetic Functions
+// ============================================================
+
+/** Add arguments element-wise */
+export function add(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  const x2Storage = typeof x2 === 'number' ? x2 : toStorage(x2);
+  return fromStorage(arithmeticOps.add(toStorage(x1), x2Storage));
+}
+
+/** Subtract arguments element-wise */
+export function subtract(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  const x2Storage = typeof x2 === 'number' ? x2 : toStorage(x2);
+  return fromStorage(arithmeticOps.subtract(toStorage(x1), x2Storage));
+}
+
+/** Multiply arguments element-wise */
+export function multiply(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
+  const x2Storage = typeof x2 === 'number' ? x2 : toStorage(x2);
+  return fromStorage(arithmeticOps.multiply(toStorage(x1), x2Storage));
+}
+
+// ============================================================
 // Exponential and Logarithmic Functions
 // ============================================================
 
