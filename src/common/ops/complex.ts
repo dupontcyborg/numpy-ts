@@ -7,14 +7,14 @@
  * @module ops/complex
  */
 
-import { ArrayStorage } from '../core/storage';
+import { ArrayStorage } from '../storage';
 import {
   isComplexDType,
   getComplexComponentDType,
   getTypedArrayConstructor,
   type DType,
-} from '../core/dtype';
-import { Complex } from '../core/complex';
+} from '../dtype';
+import { Complex } from '../complex';
 
 /**
  * Return the real part of complex argument.

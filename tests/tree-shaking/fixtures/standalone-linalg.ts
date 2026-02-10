@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: Linear algebra from standalone entry point
  * Expected: Small bundle with only linalg operations
  */
-import { array, dot, transpose, linalg } from 'numpy-ts/standalone';
+import { array, dot, transpose, linalg } from 'numpy-ts/core';
 
 const a = array([
   [1, 2],

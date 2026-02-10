@@ -8,9 +8,9 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../core/storage';
+import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp } from '../internal/compute';
-import { isComplexDType, type DType } from '../core/dtype';
+import { isComplexDType, type DType } from '../dtype';
 
 /**
  * Hyperbolic sine of each element (element-wise)

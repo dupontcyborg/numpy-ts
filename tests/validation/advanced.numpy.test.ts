@@ -27,7 +27,7 @@ import {
   unravel_index,
   iindex,
   bindex,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Advanced Functions', () => {

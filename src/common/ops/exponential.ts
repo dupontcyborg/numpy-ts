@@ -8,9 +8,9 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../core/storage';
+import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../core/dtype';
+import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
 
 /**
  * Square root of each element

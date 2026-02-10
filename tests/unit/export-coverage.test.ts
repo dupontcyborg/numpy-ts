@@ -1,19 +1,19 @@
 /**
- * Tests that standalone exports cover all main library function exports
+ * Tests that core exports cover all main library function exports
  *
- * This test ensures that numpy-ts/standalone exports all the same functions
+ * This test ensures that numpy-ts/core exports all the same functions
  * as the main numpy-ts entry point (excluding intentional differences like
  * NDArray class and namespace objects).
  */
 
 import { describe, it, expect } from 'vitest';
 import * as main from '../../src/index';
-import * as standalone from '../../src/standalone';
+import * as core from '../../src/core';
 
 describe('Export Coverage', () => {
-  // Exports that are intentionally different between main and standalone
+  // Exports that are intentionally different between main and core
   const INTENTIONAL_EXCLUSIONS = new Set([
-    // NDArray class (standalone uses NDArrayCore)
+    // NDArray class (core uses NDArrayCore)
     'NDArray',
 
     // Namespace objects (these contain methods, not tree-shakeable)
@@ -22,6 +22,22 @@ describe('Export Coverage', () => {
 
     // Version placeholder
     '__version__',
+
+    // IO functions (available via numpy-ts/io, not included in core)
+    'parseNpy',
+    'serializeNpy',
+    'parseNpyHeader',
+    'parseNpyData',
+    'UnsupportedDTypeError',
+    'InvalidNpyError',
+    'SUPPORTED_DTYPES',
+    'DTYPE_TO_DESCR',
+    'parseNpz',
+    'parseNpzSync',
+    'loadNpz',
+    'loadNpzSync',
+    'serializeNpz',
+    'serializeNpzSync',
   ]);
 
   // Type-only exports (not functions, just TypeScript types)
@@ -42,56 +58,56 @@ describe('Export Coverage', () => {
     console.log(mainExports.join(', '));
   });
 
-  it('should list all standalone exports', () => {
-    const standaloneExports = Object.keys(standalone).sort();
-    console.log('\n=== STANDALONE EXPORTS ===');
-    console.log(`Total: ${standaloneExports.length} exports`);
-    console.log(standaloneExports.join(', '));
+  it('should list all core exports', () => {
+    const coreExports = Object.keys(core).sort();
+    console.log('\n=== CORE EXPORTS ===');
+    console.log(`Total: ${coreExports.length} exports`);
+    console.log(coreExports.join(', '));
   });
 
-  it('should identify missing exports in standalone', () => {
+  it('should identify missing exports in core', () => {
     const mainExports = new Set(Object.keys(main));
-    const standaloneExports = new Set(Object.keys(standalone));
+    const coreExports = new Set(Object.keys(core));
 
     const missingInStandalone: string[] = [];
 
     for (const exp of mainExports) {
       if (INTENTIONAL_EXCLUSIONS.has(exp)) continue;
       if (TYPE_ONLY_EXPORTS.has(exp)) continue;
-      if (!standaloneExports.has(exp)) {
+      if (!coreExports.has(exp)) {
         missingInStandalone.push(exp);
       }
     }
 
-    console.log('\n=== MISSING IN STANDALONE ===');
+    console.log('\n=== MISSING IN CORE ===');
     if (missingInStandalone.length === 0) {
-      console.log('None! Standalone has full coverage.');
+      console.log('None! Core has full coverage.');
     } else {
       console.log(`Missing ${missingInStandalone.length} exports:`);
       missingInStandalone.sort().forEach((exp) => console.log(`  - ${exp}`));
     }
 
-    // This is the actual test - standalone should export everything main does
+    // This is the actual test - core should export everything main does
     // (except intentional exclusions)
     expect(
       missingInStandalone,
-      `Standalone is missing these exports: ${missingInStandalone.join(', ')}`
+      `Core is missing these exports: ${missingInStandalone.join(', ')}`
     ).toEqual([]);
   });
 
-  it('should identify extra exports in standalone (not in main)', () => {
+  it('should identify extra exports in core (not in main)', () => {
     const mainExports = new Set(Object.keys(main));
-    const standaloneExports = new Set(Object.keys(standalone));
+    const coreExports = new Set(Object.keys(core));
 
     const extraInStandalone: string[] = [];
 
-    for (const exp of standaloneExports) {
+    for (const exp of coreExports) {
       if (!mainExports.has(exp)) {
         extraInStandalone.push(exp);
       }
     }
 
-    console.log('\n=== EXTRA IN STANDALONE (not in main) ===');
+    console.log('\n=== EXTRA IN CORE (not in main) ===');
     if (extraInStandalone.length === 0) {
       console.log('None.');
     } else {
@@ -99,12 +115,12 @@ describe('Export Coverage', () => {
       extraInStandalone.sort().forEach((exp) => console.log(`  - ${exp}`));
     }
 
-    // Extra exports in standalone are fine (they're aliases), just log them
+    // Extra exports in core are fine (they're aliases), just log them
   });
 
   it('should show coverage statistics', () => {
     const mainExports = new Set(Object.keys(main));
-    const standaloneExports = new Set(Object.keys(standalone));
+    const coreExports = new Set(Object.keys(core));
 
     // Remove intentional exclusions and type-only from main count
     let comparableMainCount = 0;
@@ -114,12 +130,12 @@ describe('Export Coverage', () => {
       }
     }
 
-    // Count how many of those are in standalone
+    // Count how many of those are in core
     let coveredCount = 0;
     for (const exp of mainExports) {
       if (INTENTIONAL_EXCLUSIONS.has(exp)) continue;
       if (TYPE_ONLY_EXPORTS.has(exp)) continue;
-      if (standaloneExports.has(exp)) {
+      if (coreExports.has(exp)) {
         coveredCount++;
       }
     }
@@ -129,7 +145,7 @@ describe('Export Coverage', () => {
     console.log('\n=== COVERAGE STATISTICS ===');
     console.log(`Main exports (total): ${mainExports.size}`);
     console.log(`Main exports (comparable): ${comparableMainCount}`);
-    console.log(`Standalone exports: ${standaloneExports.size}`);
+    console.log(`Core exports: ${coreExports.size}`);
     console.log(`Coverage: ${coveredCount}/${comparableMainCount} (${coverage}%)`);
 
     // Require 100% coverage

@@ -4,7 +4,7 @@
  * Core array class providing NumPy-like API
  */
 
-import { parseSlice, normalizeSlice } from './slicing';
+import { parseSlice, normalizeSlice } from '../common/slicing';
 import {
   type DType,
   type TypedArray,
@@ -14,102 +14,52 @@ import {
   isBigIntDType,
   isComplexDType,
   isComplexLike,
-} from './dtype';
-import { Complex } from './complex';
-import { ArrayStorage } from './storage';
-import { computeBroadcastShape } from './broadcasting';
-import * as arithmeticOps from '../ops/arithmetic';
-import * as comparisonOps from '../ops/comparison';
-import * as reductionOps from '../ops/reduction';
-import * as shapeOps from '../ops/shape';
-import * as linalgOps from '../ops/linalg';
-import * as exponentialOps from '../ops/exponential';
-import * as trigOps from '../ops/trig';
-import * as hyperbolicOps from '../ops/hyperbolic';
-import * as advancedOps from '../ops/advanced';
-import * as bitwiseOps from '../ops/bitwise';
-import * as logicOps from '../ops/logic';
-import * as complexOps from '../ops/complex';
-import * as sortingOps from '../ops/sorting';
-import * as roundingOps from '../ops/rounding';
-import * as setOps from '../ops/sets';
-import * as gradientOps from '../ops/gradient';
-import * as statisticsOps from '../ops/statistics';
-import * as formattingOps from '../ops/formatting';
+} from '../common/dtype';
+import { Complex } from '../common/complex';
+import { ArrayStorage } from '../common/storage';
+import { computeBroadcastShape } from '../common/broadcasting';
+import { NDArrayCore } from '../common/ndarray-core';
+import * as arithmeticOps from '../common/ops/arithmetic';
+import * as comparisonOps from '../common/ops/comparison';
+import * as reductionOps from '../common/ops/reduction';
+import * as shapeOps from '../common/ops/shape';
+import * as linalgOps from '../common/ops/linalg';
+import * as exponentialOps from '../common/ops/exponential';
+import * as trigOps from '../common/ops/trig';
+import * as hyperbolicOps from '../common/ops/hyperbolic';
+import * as advancedOps from '../common/ops/advanced';
+import * as bitwiseOps from '../common/ops/bitwise';
+import * as logicOps from '../common/ops/logic';
+import * as complexOps from '../common/ops/complex';
+import * as sortingOps from '../common/ops/sorting';
+import * as roundingOps from '../common/ops/rounding';
+import * as setOps from '../common/ops/sets';
+import * as gradientOps from '../common/ops/gradient';
+import * as statisticsOps from '../common/ops/statistics';
+import * as formattingOps from '../common/ops/formatting';
 
-export class NDArray {
-  // Internal storage
-  private _storage: ArrayStorage;
-  // Track if this array is a view of another array
-  private _base?: NDArray;
+export class NDArray extends NDArrayCore {
+  // Override _base with NDArray type
+  protected override _base?: NDArray;
 
   constructor(storage: ArrayStorage, base?: NDArray) {
-    this._storage = storage;
+    super(storage, base);
     this._base = base;
-  }
-
-  /**
-   * Get internal storage (for ops modules)
-   * @internal
-   */
-  get storage(): ArrayStorage {
-    return this._storage;
   }
 
   /**
    * Create NDArray from storage (for ops modules)
    * @internal
    */
-  static _fromStorage(storage: ArrayStorage, base?: NDArray): NDArray {
+  static override _fromStorage(storage: ArrayStorage, base?: NDArray): NDArray {
     return new NDArray(storage, base);
-  }
-
-  // NumPy properties
-  get shape(): readonly number[] {
-    return this._storage.shape;
-  }
-
-  get ndim(): number {
-    return this._storage.ndim;
-  }
-
-  get size(): number {
-    return this._storage.size;
-  }
-
-  get dtype(): string {
-    return this._storage.dtype;
-  }
-
-  get data(): TypedArray {
-    return this._storage.data;
-  }
-
-  get strides(): readonly number[] {
-    return this._storage.strides;
-  }
-
-  /**
-   * Array flags (similar to NumPy's flags)
-   * Provides information about memory layout
-   */
-  get flags(): {
-    C_CONTIGUOUS: boolean;
-    F_CONTIGUOUS: boolean;
-    OWNDATA: boolean;
-  } {
-    return {
-      C_CONTIGUOUS: this._storage.isCContiguous,
-      F_CONTIGUOUS: this._storage.isFContiguous,
-      OWNDATA: this._base === undefined, // True if we own data, false if we're a view
-    };
   }
 
   /**
    * Base array if this is a view, null if this array owns its data
    * Similar to NumPy's base attribute
    */
-  get base(): NDArray | null {
+  override get base(): NDArray | null {
     return this._base ?? null;
   }
 
@@ -124,14 +74,14 @@ export class NDArray {
   /**
    * Size of one array element in bytes
    */
-  get itemsize(): number {
+  override get itemsize(): number {
     return getDTypeSize(this._storage.dtype);
   }
 
   /**
    * Total bytes consumed by the elements of the array
    */
-  get nbytes(): number {
+  override get nbytes(): number {
     return this.size * this.itemsize;
   }
 
@@ -139,7 +89,7 @@ export class NDArray {
    * Fill the array with a scalar value (in-place)
    * @param value - Value to fill with
    */
-  fill(value: number | bigint): void {
+  override fill(value: number | bigint): void {
     const dtype = this._storage.dtype;
     const size = this.size;
 
@@ -165,7 +115,7 @@ export class NDArray {
    * Iterator protocol - iterate over the first axis
    * For 1D arrays, yields elements; for ND arrays, yields (N-1)D subarrays
    */
-  *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
+  override *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
     if (this.ndim === 0) {
       // 0D array: yield the single element
       yield this._storage.iget(0);
@@ -187,7 +137,7 @@ export class NDArray {
    * @param indices - Array of indices, one per dimension (e.g., [0, 1] for 2D array)
    * @returns The element value (BigInt for int64/uint64, Complex for complex, number otherwise)
    */
-  get(indices: number[]): number | bigint | Complex {
+  override get(indices: number[]): number | bigint | Complex {
     // Validate number of indices
     if (indices.length !== this.ndim) {
       throw new Error(
@@ -218,7 +168,10 @@ export class NDArray {
    * @param indices - Array of indices, one per dimension (e.g., [0, 1] for 2D array)
    * @param value - Value to set (will be converted to array's dtype)
    */
-  set(indices: number[], value: number | bigint | Complex | { re: number; im: number }): void {
+  override set(
+    indices: number[],
+    value: number | bigint | Complex | { re: number; im: number }
+  ): void {
     // Validate number of indices
     if (indices.length !== this.ndim) {
       throw new Error(
@@ -268,7 +221,7 @@ export class NDArray {
   /**
    * Return a deep copy of the array
    */
-  copy(): NDArray {
+  override copy(): NDArray {
     return new NDArray(this._storage.copy());
   }
 
@@ -278,7 +231,7 @@ export class NDArray {
    * @param copy - If false and dtype matches, return self; otherwise create copy (default: true)
    * @returns Array with specified dtype
    */
-  astype(dtype: DType, copy: boolean = true): NDArray {
+  override astype(dtype: DType, copy: boolean = true): NDArray {
     const currentDtype = this.dtype as DType;
 
     // If dtype matches and copy=false, return self
@@ -1917,7 +1870,7 @@ export class NDArray {
    * @param sliceStrs - Slice specifications, one per dimension
    * @returns Sliced view of the array
    */
-  slice(...sliceStrs: string[]): NDArray {
+  override slice(...sliceStrs: string[]): NDArray {
     if (sliceStrs.length === 0) {
       return this;
     }
@@ -2044,7 +1997,7 @@ export class NDArray {
    * String representation of the array
    * @returns String describing the array shape and dtype
    */
-  toString(): string {
+  override toString(): string {
     return `NDArray(shape=${JSON.stringify(this.shape)}, dtype=${this.dtype})`;
   }
 
@@ -2053,7 +2006,7 @@ export class NDArray {
    * @returns Nested JavaScript array representation
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toArray(): any {
+  override toArray(): any {
     // Handle 0-dimensional arrays (scalars)
     if (this.ndim === 0) {
       return this._storage.iget(0);
@@ -2084,14 +2037,14 @@ export class NDArray {
    * Return the array as a nested list (same as toArray)
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tolist(): any {
+  override tolist(): any {
     return this.toArray();
   }
 
   /**
    * Return the raw bytes of the array data
    */
-  tobytes(): ArrayBuffer {
+  override tobytes(): ArrayBuffer {
     if (this._storage.isCContiguous) {
       const data = this._storage.data;
       const bytesPerElement = data.BYTES_PER_ELEMENT;
@@ -2107,7 +2060,7 @@ export class NDArray {
   /**
    * Copy an element of an array to a standard scalar and return it
    */
-  item(...args: number[]): number | bigint | Complex {
+  override item(...args: number[]): number | bigint | Complex {
     if (args.length === 0) {
       if (this.size !== 1) {
         throw new Error('can only convert an array of size 1 to a Python scalar');
@@ -6503,9 +6456,9 @@ export const linalg = {
     axisb: number = -1,
     axisc: number = -1,
     axis?: number
-  ): NDArray | number => {
+  ): NDArray | number | Complex => {
     const result = linalgOps.cross(a.storage, b.storage, axisa, axisb, axisc, axis);
-    if (typeof result === 'number') {
+    if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
     return NDArray._fromStorage(result);
@@ -7887,7 +7840,7 @@ export function size(a: NDArray | number | unknown[] | unknown): number {
 }
 
 // Re-export error handling functions
-export { geterr, seterr, type FloatErrorState } from '../ops/advanced';
+export { geterr, seterr, type FloatErrorState } from '../common/ops/advanced';
 
 // ========================================
 // Type Checking Functions

@@ -9,8 +9,8 @@
  * and return boolean arrays (dtype: 'bool').
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
 import { broadcastShapes } from '../internal/compute';
 

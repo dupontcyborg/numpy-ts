@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseTxt, genfromtxt, fromregex, serializeTxt } from '../../../src/io/txt';
-import { array } from '../../../src/core/ndarray';
+import { array } from '../../../src';
 
 describe('Text I/O', () => {
   describe('parseTxt', () => {

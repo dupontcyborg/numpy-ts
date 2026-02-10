@@ -5,11 +5,11 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as complexOps from '../ops/complex';
+import * as complexOps from '../common/ops/complex';
 import { NDArrayCore, toStorage, fromStorage } from './types';
 
 // Re-export Complex class from core
-export { Complex } from '../core/complex';
+export { Complex } from '../common/complex';
 
 /** Extract real part of array */
 export function real(x: NDArrayCore): NDArrayCore {

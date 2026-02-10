@@ -6,11 +6,11 @@
  * isclose, allclose
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isBigIntDType, isComplexDType } from '../dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
-import { computeBroadcastShape, broadcastTo } from '../core/broadcasting';
-import { Complex } from '../core/complex';
+import { computeBroadcastShape, broadcastTo } from '../broadcasting';
+import { Complex } from '../complex';
 
 // Helper to get complex value at index
 function getComplexAt(data: Float64Array | Float32Array, i: number): [number, number] {

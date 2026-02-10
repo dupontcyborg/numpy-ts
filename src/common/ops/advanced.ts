@@ -5,10 +5,10 @@
  * @module ops/advanced
  */
 
-import { ArrayStorage, computeStrides } from '../core/storage';
-import { getTypedArrayConstructor, isBigIntDType, type TypedArray } from '../core/dtype';
-import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../core/broadcasting';
-import { Complex } from '../core/complex';
+import { ArrayStorage, computeStrides } from '../storage';
+import { getTypedArrayConstructor, isBigIntDType, type TypedArray } from '../dtype';
+import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../broadcasting';
+import { Complex } from '../complex';
 
 /**
  * Broadcast an array to a given shape

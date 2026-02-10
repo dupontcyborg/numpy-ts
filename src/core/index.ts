@@ -1,20 +1,61 @@
 /**
- * Functions Module - Tree-shakeable standalone functions
+ * Core Module - Tree-shakeable standalone functions
  *
  * This module re-exports all standalone functions from the various
- * function modules. Import from here or from the main 'numpy-ts' entry.
+ * function modules. All functions return NDArrayCore for optimal tree-shaking.
  *
  * For optimal tree-shaking, you can also import from specific submodules:
- *   import { sin, cos } from 'numpy-ts/functions/trig';
- *   import { dot, inv } from 'numpy-ts/functions/linalg';
+ *   import { sin, cos } from 'numpy-ts/core/trig';
+ *   import { dot, inv } from 'numpy-ts/core/linalg';
  */
 
-// Types
+// Types and core classes
 export type { DType, TypedArray } from './types';
 export { NDArrayCore, Complex, ArrayStorage } from './types';
 
+// Array creation functions
+export {
+  zeros,
+  ones,
+  empty,
+  full,
+  array,
+  arange,
+  linspace,
+  logspace,
+  geomspace,
+  eye,
+  identity,
+  asarray,
+  zeros_like,
+  ones_like,
+  empty_like,
+  full_like,
+  copy,
+  asanyarray,
+  ascontiguousarray,
+  asfortranarray,
+  asarray_chkfinite,
+  require,
+  diag,
+  diagflat,
+  tri,
+  tril,
+  triu,
+  vander,
+  frombuffer,
+  fromfunction,
+  fromiter,
+  fromstring,
+  fromfile,
+  meshgrid,
+} from './creation';
+
 // Arithmetic and mathematical functions
 export {
+  add,
+  subtract,
+  multiply,
   sqrt,
   power,
   pow,
@@ -293,3 +334,87 @@ export { diff, ediff1d, gradient } from './gradient';
 
 // Complex number functions
 export { real, imag, conj, conjugate, angle } from './complex';
+
+// Advanced indexing and data manipulation
+export {
+  broadcast_to,
+  broadcast_arrays,
+  broadcast_shapes,
+  take,
+  put,
+  take_along_axis,
+  put_along_axis,
+  choose,
+  compress,
+  select,
+  place,
+  putmask,
+  copyto,
+  indices,
+  ix_,
+  ravel_multi_index,
+  unravel_index,
+  diag_indices,
+  diag_indices_from,
+  fill_diagonal,
+  tril_indices,
+  tril_indices_from,
+  triu_indices,
+  triu_indices_from,
+  mask_indices,
+  array_equal,
+  array_equiv,
+  apply_along_axis,
+  apply_over_axes,
+  may_share_memory,
+  shares_memory,
+  geterr,
+  seterr,
+  iindex,
+  bindex,
+} from './advanced';
+
+// Formatting and printing functions
+export {
+  set_printoptions,
+  get_printoptions,
+  printoptions,
+  format_float_positional,
+  format_float_scientific,
+  base_repr,
+  binary_repr,
+  array2string,
+  array_repr,
+  array_str,
+} from './formatting';
+
+// Utility functions
+export { ndim, shape, size, item, tolist, tobytes, byteswap, view, tofile, fill } from './utility';
+
+// Shape manipulation (extra)
+export { append, delete_, delete_ as delete, insert, pad } from './shape-extra';
+
+// Type checking functions
+export {
+  can_cast,
+  common_type,
+  result_type,
+  min_scalar_type,
+  issubdtype,
+  typename,
+  mintypecode,
+} from './typechecking';
+
+// Polynomial functions
+export {
+  poly,
+  polyadd,
+  polyder,
+  polydiv,
+  polyfit,
+  polyint,
+  polymul,
+  polysub,
+  polyval,
+  roots,
+} from './polynomial';

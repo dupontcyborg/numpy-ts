@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as logicOps from '../ops/logic';
+import * as logicOps from '../common/ops/logic';
 import { NDArrayCore, toStorage, fromStorage, type DType } from './types';
 
 // ============================================================

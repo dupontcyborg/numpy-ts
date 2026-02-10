@@ -8,8 +8,8 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, promoteDTypes } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isBigIntDType, isComplexDType, promoteDTypes } from '../dtype';
 
 /**
  * Calculate the n-th discrete difference along the given axis.

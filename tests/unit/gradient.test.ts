@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { array, diff, ediff1d, gradient, cross } from '../../src/core/ndarray';
+import { array, diff, ediff1d, gradient, cross } from '../../src';
 
 describe('Gradient Operations', () => {
   describe('diff', () => {
@@ -266,7 +266,7 @@ describe('Gradient Operations', () => {
     it('throws for invalid vector dimensions', () => {
       const a = array([1, 2, 3, 4]);
       const b = array([5, 6, 7, 8]);
-      expect(() => cross(a, b)).toThrow('dimension must be 2 or 3');
+      expect(() => cross(a, b)).toThrow('incompatible dimensions for cross product');
     });
   });
 });

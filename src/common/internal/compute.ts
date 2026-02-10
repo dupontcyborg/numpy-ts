@@ -7,9 +7,9 @@
  * @internal
  */
 
-import { ArrayStorage } from '../core/storage';
-import { promoteDTypes, isBigIntDType } from '../core/dtype';
-import { Complex } from '../core/complex';
+import { ArrayStorage } from '../storage';
+import { promoteDTypes, isBigIntDType } from '../dtype';
+import { Complex } from '../complex';
 
 /**
  * Compute the broadcast shape of two arrays

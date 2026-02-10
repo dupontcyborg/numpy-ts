@@ -5,8 +5,15 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as shapeOps from '../ops/shape';
-import { NDArrayCore, toStorage, fromStorage, fromStorageArray } from './types';
+import * as shapeOps from '../common/ops/shape';
+import {
+  NDArrayCore,
+  toStorage,
+  fromStorage,
+  fromStorageView,
+  fromStorageArray,
+  fromStorageViewArray,
+} from './types';
 
 // ============================================================
 // Basic Shape Manipulation
@@ -27,37 +34,37 @@ export function ravel(a: NDArrayCore): NDArrayCore {
   return fromStorage(shapeOps.ravel(toStorage(a)));
 }
 
-/** Remove single-dimensional entries from shape */
+/** Remove single-dimensional entries from shape - returns a view */
 export function squeeze(a: NDArrayCore, axis?: number): NDArrayCore {
-  return fromStorage(shapeOps.squeeze(toStorage(a), axis));
+  return fromStorageView(shapeOps.squeeze(toStorage(a), axis), a);
 }
 
-/** Expand array dimensions */
+/** Expand array dimensions - returns a view */
 export function expand_dims(a: NDArrayCore, axis: number): NDArrayCore {
-  return fromStorage(shapeOps.expandDims(toStorage(a), axis));
+  return fromStorageView(shapeOps.expandDims(toStorage(a), axis), a);
 }
 
 // ============================================================
 // Axis Manipulation
 // ============================================================
 
-/** Interchange two axes */
+/** Interchange two axes - returns a view */
 export function swapaxes(a: NDArrayCore, axis1: number, axis2: number): NDArrayCore {
-  return fromStorage(shapeOps.swapaxes(toStorage(a), axis1, axis2));
+  return fromStorageView(shapeOps.swapaxes(toStorage(a), axis1, axis2), a);
 }
 
-/** Move axis to new position */
+/** Move axis to new position - returns a view */
 export function moveaxis(
   a: NDArrayCore,
   source: number | number[],
   destination: number | number[]
 ): NDArrayCore {
-  return fromStorage(shapeOps.moveaxis(toStorage(a), source, destination));
+  return fromStorageView(shapeOps.moveaxis(toStorage(a), source, destination), a);
 }
 
-/** Roll axis to given position */
+/** Roll axis to given position - returns a view */
 export function rollaxis(a: NDArrayCore, axis: number, start: number = 0): NDArrayCore {
-  return fromStorage(shapeOps.rollaxis(toStorage(a), axis, start));
+  return fromStorageView(shapeOps.rollaxis(toStorage(a), axis, start), a);
 }
 
 // ============================================================
@@ -126,37 +133,38 @@ export function block(arrays: NDArrayCore[]): NDArrayCore {
 // Splitting Arrays
 // ============================================================
 
-/** Split array into multiple sub-arrays */
+/** Split array into multiple sub-arrays - returns views */
 export function split(
   a: NDArrayCore,
   indicesOrSections: number | number[],
   axis: number = 0
 ): NDArrayCore[] {
-  return fromStorageArray(shapeOps.split(toStorage(a), indicesOrSections, axis));
+  return fromStorageViewArray(shapeOps.split(toStorage(a), indicesOrSections, axis), a);
 }
 
-/** Split array into multiple sub-arrays (may have unequal sizes) */
+/** Split array into multiple sub-arrays (may have unequal sizes) - returns views */
 export function array_split(
   a: NDArrayCore,
   indicesOrSections: number | number[],
   axis: number = 0
 ): NDArrayCore[] {
-  return fromStorageArray(shapeOps.arraySplit(toStorage(a), indicesOrSections, axis));
+  return fromStorageViewArray(shapeOps.arraySplit(toStorage(a), indicesOrSections, axis), a);
 }
 
-/** Split array vertically */
+/** Split array vertically - returns views */
 export function vsplit(a: NDArrayCore, indicesOrSections: number | number[]): NDArrayCore[] {
-  return fromStorageArray(shapeOps.vsplit(toStorage(a), indicesOrSections));
+  return fromStorageViewArray(shapeOps.vsplit(toStorage(a), indicesOrSections), a);
 }
 
-/** Split array horizontally */
+/** Split array horizontally - returns views */
 export function hsplit(a: NDArrayCore, indicesOrSections: number | number[]): NDArrayCore[] {
-  return fromStorageArray(shapeOps.hsplit(toStorage(a), indicesOrSections));
+  return fromStorageViewArray(shapeOps.hsplit(toStorage(a), indicesOrSections), a);
 }
 
 /** Split array along third axis */
+/** Split array along depth axis - returns views */
 export function dsplit(ary: NDArrayCore, indices_or_sections: number | number[]): NDArrayCore[] {
-  return fromStorageArray(shapeOps.dsplit(toStorage(ary), indices_or_sections));
+  return fromStorageViewArray(shapeOps.dsplit(toStorage(ary), indices_or_sections), ary);
 }
 
 /** Unstack array into list of arrays */

@@ -21,7 +21,7 @@ import {
   zeros,
   ones,
   Complex,
-} from '../../src/core/ndarray';
+} from '../../src';
 
 describe('Sorting Functions', () => {
   describe('sort()', () => {

@@ -5,8 +5,8 @@
  * @module ops/statistics
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isComplexDType, throwIfComplex, TypedArray } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isComplexDType, throwIfComplex, TypedArray } from '../dtype';
 
 /**
  * Count number of occurrences of each value in array of non-negative ints.

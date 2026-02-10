@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src/core/ndarray';
+import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src';
 
 describe('Rounding Functions', () => {
   describe('around()', () => {

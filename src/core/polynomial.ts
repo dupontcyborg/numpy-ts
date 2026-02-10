@@ -4,8 +4,8 @@
  * Tree-shakeable standalone functions for polynomial operations.
  */
 
-import { NDArrayCore } from '../core/ndarray-core';
-import { array } from '../creation';
+import { NDArrayCore } from '../common/ndarray-core';
+import { array } from './creation';
 
 // Helper to convert to array
 function toArray(a: NDArrayCore | number[]): NDArrayCore {

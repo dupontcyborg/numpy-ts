@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, array_equal, array_equiv } from '../../src/core/ndarray';
+import { array, array_equal, array_equiv } from '../../src';
 
 describe('Comparison Operations', () => {
   describe('greater()', () => {

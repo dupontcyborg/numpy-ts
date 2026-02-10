@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { base_repr, binary_repr } from '../../src/core/ndarray';
+import { base_repr, binary_repr } from '../../src';
 import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Formatting Functions', () => {

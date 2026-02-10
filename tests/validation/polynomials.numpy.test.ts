@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array } from '../../src/core/ndarray';
+import { array } from '../../src';
 import {
   poly,
   polyadd,
@@ -18,7 +18,7 @@ import {
   polysub,
   polyval,
   roots,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Polynomial Functions', () => {

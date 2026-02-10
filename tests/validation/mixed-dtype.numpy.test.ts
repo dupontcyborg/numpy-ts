@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { zeros } from '../../src/core/ndarray';
+import { zeros } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Mixed DType Operations', () => {

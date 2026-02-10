@@ -15,9 +15,9 @@
  * @module ops/fft
  */
 
-import { ArrayStorage } from '../core/storage';
-import { Complex } from '../core/complex';
-import type { DType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { Complex } from '../complex';
+import type { DType } from '../dtype';
 
 /**
  * Cooley-Tukey FFT algorithm (radix-2)

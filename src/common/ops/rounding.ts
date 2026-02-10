@@ -8,8 +8,8 @@
  * All functions throw TypeError for complex dtypes.
  */
 
-import { ArrayStorage } from '../core/storage';
-import { throwIfComplex } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { throwIfComplex } from '../dtype';
 
 /**
  * Round half to even (banker's rounding) - matches NumPy behavior

@@ -11,8 +11,8 @@
  *   import { sqrt, exp, abs } from 'numpy-ts';
  */
 
-import * as arithmeticOps from '../ops/arithmetic';
-import * as exponentialOps from '../ops/exponential';
+import * as arithmeticOps from '../common/ops/arithmetic';
+import * as exponentialOps from '../common/ops/exponential';
 import { NDArrayCore, toStorage, fromStorage, fromStorageTuple } from './types';
 
 // ============================================================

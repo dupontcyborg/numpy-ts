@@ -17,8 +17,8 @@ import {
   unique_counts,
   unique_inverse,
   unique_values,
-} from '../../src/core/ndarray';
-import { Complex } from '../../src/core/complex';
+} from '../../src';
+import { Complex } from '../../src/common/complex';
 
 describe('Set Operations', () => {
   describe('unique()', () => {

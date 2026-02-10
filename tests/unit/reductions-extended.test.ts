@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, zeros } from '../../src/core/ndarray';
+import { array, zeros } from '../../src';
 
 describe('Extended reduction tests', () => {
   describe('sum() with BigInt dtypes', () => {

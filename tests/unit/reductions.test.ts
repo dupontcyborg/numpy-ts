@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array } from '../../src/core/ndarray';
+import { array } from '../../src';
 
 describe('Reductions with Axis Support', () => {
   describe('sum()', () => {

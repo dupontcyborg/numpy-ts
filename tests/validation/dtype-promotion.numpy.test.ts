@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { promoteDTypes } from '../../src/core/dtype';
-import type { DType } from '../../src/core/dtype';
+import { promoteDTypes } from '../../src/common/dtype';
+import type { DType } from '../../src/common/dtype';
 import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: DType Promotion', () => {

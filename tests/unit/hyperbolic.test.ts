@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { array, sinh, cosh, tanh, arcsinh, arccosh, arctanh } from '../../src/core/ndarray';
-import { Complex } from '../../src/core/complex';
+import { array, sinh, cosh, tanh, arcsinh, arccosh, arctanh } from '../../src';
+import { Complex } from '../../src/common/complex';
 
 describe('Hyperbolic Operations', () => {
   describe('sinh', () => {

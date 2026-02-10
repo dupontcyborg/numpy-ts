@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as gradientOps from '../ops/gradient';
+import * as gradientOps from '../common/ops/gradient';
 import { NDArrayCore, toStorage, fromStorage, fromStorageArray } from './types';
 
 /** Calculate n-th discrete difference */

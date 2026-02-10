@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as reductionOps from '../ops/reduction';
+import * as reductionOps from '../common/ops/reduction';
 import { NDArrayCore, toStorage, fromStorage, Complex } from './types';
 
 // ============================================================

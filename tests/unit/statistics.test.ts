@@ -12,7 +12,7 @@ import {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
-} from '../../src/core/ndarray';
+} from '../../src';
 
 describe('Statistics Operations', () => {
   describe('bincount', () => {

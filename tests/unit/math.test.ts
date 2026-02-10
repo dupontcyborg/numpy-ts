@@ -10,7 +10,7 @@ import {
   floor_divide,
   positive,
   reciprocal,
-} from '../../src/core/ndarray';
+} from '../../src';
 
 describe('Mathematical Operations', () => {
   describe('sqrt', () => {

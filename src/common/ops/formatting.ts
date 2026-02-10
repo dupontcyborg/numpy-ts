@@ -5,9 +5,9 @@
  * @module ops/formatting
  */
 
-import { ArrayStorage } from '../core/storage';
-import type { DType } from '../core/dtype';
-import { Complex } from '../core/complex';
+import { ArrayStorage } from '../storage';
+import type { DType } from '../dtype';
+import { Complex } from '../complex';
 
 /**
  * Print options configuration

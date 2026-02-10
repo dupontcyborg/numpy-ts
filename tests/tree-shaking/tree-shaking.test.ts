@@ -33,7 +33,7 @@ const __dirname = dirname(__filename);
 
 // Path to the built ESM modules (tree-shakeable)
 const NUMPY_TS_ESM = resolve(__dirname, '../../dist/esm/index.js');
-const NUMPY_TS_STANDALONE = resolve(__dirname, '../../dist/esm/standalone.js');
+const NUMPY_TS_CORE = resolve(__dirname, '../../dist/esm/core.js');
 
 // Fixture definitions - main entry point (method chaining, no tree-shaking)
 const FIXTURES = [
@@ -48,11 +48,11 @@ const FIXTURES = [
   { name: 'full-import', description: 'Full import (baseline)' },
 ] as const;
 
-// Standalone fixtures - tree-shakeable entry point (no method chaining)
-const STANDALONE_FIXTURES = [
-  { name: 'standalone-single', description: 'Standalone: Single function (zeros)' },
-  { name: 'standalone-math', description: 'Standalone: Math operations' },
-  { name: 'standalone-linalg', description: 'Standalone: Linear algebra' },
+// Core fixtures - tree-shakeable entry point (no method chaining)
+const CORE_FIXTURES = [
+  { name: 'standalone-single', description: 'Core: Single function (zeros)' },
+  { name: 'standalone-math', description: 'Core: Math operations' },
+  { name: 'standalone-linalg', description: 'Core: Linear algebra' },
 ] as const;
 
 interface BundleResult {
@@ -99,7 +99,7 @@ async function buildWithEsbuild(fixtureName: string): Promise<BundleResult> {
       metafile: true,
       write: true,
       alias: {
-        'numpy-ts/standalone': NUMPY_TS_STANDALONE,
+        'numpy-ts/core': NUMPY_TS_CORE,
         'numpy-ts': NUMPY_TS_ESM,
       },
     });
@@ -115,7 +115,7 @@ async function buildWithEsbuild(fixtureName: string): Promise<BundleResult> {
       minify: true,
       write: true,
       alias: {
-        'numpy-ts/standalone': NUMPY_TS_STANDALONE,
+        'numpy-ts/core': NUMPY_TS_CORE,
         'numpy-ts': NUMPY_TS_ESM,
       },
     });
@@ -160,7 +160,7 @@ async function buildWithRollup(fixtureName: string): Promise<BundleResult> {
       plugins: [
         alias({
           entries: [
-            { find: 'numpy-ts/standalone', replacement: NUMPY_TS_STANDALONE },
+            { find: 'numpy-ts/core', replacement: NUMPY_TS_CORE },
             { find: 'numpy-ts', replacement: NUMPY_TS_ESM },
           ],
         }),
@@ -265,7 +265,7 @@ async function buildWithWebpack(fixtureName: string): Promise<BundleResult> {
       resolve: {
         extensions: ['.ts', '.js'],
         alias: {
-          'numpy-ts/standalone': NUMPY_TS_STANDALONE,
+          'numpy-ts/core': NUMPY_TS_CORE,
           'numpy-ts': NUMPY_TS_ESM,
         },
       },
@@ -399,11 +399,11 @@ describe('Tree-shaking Tests', () => {
         }
       }
 
-      // Print standalone results
-      console.log(`\n${bundler.toUpperCase()} - Standalone Entry Point (numpy-ts/standalone):`);
+      // Print core results
+      console.log(`\n${bundler.toUpperCase()} - Core Entry Point (numpy-ts/core):`);
       console.log('-'.repeat(60));
 
-      for (const fixture of STANDALONE_FIXTURES) {
+      for (const fixture of CORE_FIXTURES) {
         const result = bundlerResults.get(fixture.name);
         if (result && result.success) {
           const percentage = ((result.minifiedSize / fullSize) * 100).toFixed(1);
@@ -431,7 +431,7 @@ describe('Tree-shaking Tests', () => {
     console.log(`  Single function import is ${(mainRatio * 100).toFixed(1)}% of full bundle.`);
     console.log('  This is expected - method chaining requires full NDArray class.');
 
-    console.log('\nStandalone entry point (numpy-ts/standalone):');
+    console.log('\nCore entry point (numpy-ts/core):');
     if (esbuildStandaloneSingle > 0) {
       console.log(
         `  Single function import is ${(standaloneRatio * 100).toFixed(1)}% of full bundle.`
@@ -440,12 +440,12 @@ describe('Tree-shaking Tests', () => {
         `  Tree-shaking savings: ${formatBytes(esbuildSingle - esbuildStandaloneSingle)} (${((1 - standaloneRatio / mainRatio) * 100).toFixed(0)}% reduction)`
       );
     } else {
-      console.log('  (no standalone tests run)');
+      console.log('  (no core tests run)');
     }
 
     console.log('\nRecommendation:');
     console.log('  - Use numpy-ts for full API with method chaining');
-    console.log('  - Use numpy-ts/standalone when bundle size is critical');
+    console.log('  - Use numpy-ts/core when bundle size is critical');
 
     console.log('\n' + '='.repeat(80));
   });
@@ -545,9 +545,9 @@ describe('Tree-shaking Tests', () => {
   });
 
   // Standalone tests run AFTER all main builds to ensure comparison data exists
-  describe('Standalone entry point tree-shaking (esbuild)', () => {
+  describe('Core entry point tree-shaking (esbuild)', () => {
     it('should build all standalone fixtures', async () => {
-      for (const fixture of STANDALONE_FIXTURES) {
+      for (const fixture of CORE_FIXTURES) {
         const result = await buildWithEsbuild(fixture.name);
         results.esbuild.set(fixture.name, result);
         expect(result.success, `${fixture.name} should build: ${result.error}`).toBe(true);
@@ -582,10 +582,10 @@ describe('Tree-shaking Tests', () => {
     });
   });
 
-  describe('Standalone entry point tree-shaking (Rollup)', () => {
+  describe('Core entry point tree-shaking (Rollup)', () => {
     it('should build all standalone fixtures', async () => {
       let successCount = 0;
-      for (const fixture of STANDALONE_FIXTURES) {
+      for (const fixture of CORE_FIXTURES) {
         const result = await buildWithRollup(fixture.name);
         results.rollup.set(fixture.name, result);
         if (result.success) successCount++;
@@ -611,9 +611,9 @@ describe('Tree-shaking Tests', () => {
     });
   });
 
-  describe('Standalone entry point tree-shaking (Webpack)', () => {
+  describe('Core entry point tree-shaking (Webpack)', () => {
     it('should build all standalone fixtures', async () => {
-      for (const fixture of STANDALONE_FIXTURES) {
+      for (const fixture of CORE_FIXTURES) {
         const result = await buildWithWebpack(fixture.name);
         results.webpack.set(fixture.name, result);
         expect(result.success, `${fixture.name} should build: ${result.error}`).toBe(true);
@@ -719,12 +719,12 @@ describe('Tree-shaking Tests', () => {
 
     // These tests are skipped because the main entry point (numpy-ts) is designed
     // for method chaining, which requires the full NDArray class with all methods.
-    // Tree-shaking only works with the standalone entry point (numpy-ts/standalone).
+    // Tree-shaking only works with the standalone entry point (numpy-ts/core).
     //
     // Design decision:
     //   - numpy-ts: Full API with method chaining, no tree-shaking (~180KB)
-    //   - numpy-ts/standalone: Tree-shakeable functions, no method chaining (~11KB for single function)
-    describe.skip('Tree-shaking effectiveness targets (use numpy-ts/standalone for tree-shaking)', () => {
+    //   - numpy-ts/core: Tree-shakeable functions, no method chaining (~11KB for single function)
+    describe.skip('Tree-shaking effectiveness targets (use numpy-ts/core for tree-shaking)', () => {
       it('single function import should be <50% of full bundle (esbuild)', () => {
         const fullSize = results.esbuild.get('full-import')?.minifiedSize || 1;
         const singleSize = results.esbuild.get('single-function')?.minifiedSize || fullSize;

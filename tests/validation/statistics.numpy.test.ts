@@ -16,7 +16,7 @@ import {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Statistics Operations', () => {

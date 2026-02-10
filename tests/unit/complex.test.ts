@@ -85,7 +85,7 @@ import {
   nanmax,
   ptp,
 } from '../../src';
-import { complexAbs } from '../../src/ops/complex';
+import { complexAbs } from '../../src/common/ops/complex';
 
 describe('Complex Number Support', () => {
   describe('Complex class', () => {

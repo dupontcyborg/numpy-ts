@@ -5,9 +5,9 @@
  * @module ops/linalg
  */
 
-import { ArrayStorage } from '../core/storage';
-import { promoteDTypes, isComplexDType } from '../core/dtype';
-import { Complex } from '../core/complex';
+import { ArrayStorage } from '../storage';
+import { promoteDTypes, isComplexDType } from '../dtype';
+import { Complex } from '../complex';
 import * as shapeOps from './shape';
 
 /**
@@ -1749,7 +1749,7 @@ export function cross(
   axisb: number = -1,
   axisc: number = -1,
   axis?: number
-): ArrayStorage | number {
+): ArrayStorage | number | Complex {
   // If axis is specified, use it for all
   if (axis !== undefined) {
     axisa = axis;
@@ -1763,6 +1763,36 @@ export function cross(
   const axisA = normalizeAxis(axisa, a.ndim);
   const axisB = normalizeAxis(axisb, b.ndim);
 
+  // Determine output dtype (promote to complex if either input is complex)
+  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+  const isComplex = isComplexDType(resultDtype);
+
+  // Helper to get value as number or Complex
+  const getValue = (storage: ArrayStorage, ...indices: number[]): number | Complex => {
+    const val = storage.get(...indices);
+    if (val instanceof Complex) return val;
+    return Number(val);
+  };
+
+  // Helper for cross product arithmetic
+  const crossMul = (x: number | Complex, y: number | Complex): number | Complex => {
+    if (x instanceof Complex || y instanceof Complex) {
+      const xc = x instanceof Complex ? x : new Complex(x, 0);
+      const yc = y instanceof Complex ? y : new Complex(y, 0);
+      return xc.mul(yc);
+    }
+    return x * y;
+  };
+
+  const crossSub = (x: number | Complex, y: number | Complex): number | Complex => {
+    if (x instanceof Complex || y instanceof Complex) {
+      const xc = x instanceof Complex ? x : new Complex(x, 0);
+      const yc = y instanceof Complex ? y : new Complex(y, 0);
+      return xc.sub(yc);
+    }
+    return x - y;
+  };
+
   // Simple case: both are 1D vectors
   if (a.ndim === 1 && b.ndim === 1) {
     const dimA = a.shape[0]!;
@@ -1770,38 +1800,38 @@ export function cross(
 
     if (dimA === 3 && dimB === 3) {
       // 3D cross product
-      const a0 = Number(a.get(0));
-      const a1 = Number(a.get(1));
-      const a2 = Number(a.get(2));
-      const b0 = Number(b.get(0));
-      const b1 = Number(b.get(1));
-      const b2 = Number(b.get(2));
+      const a0 = getValue(a, 0);
+      const a1 = getValue(a, 1);
+      const a2 = getValue(a, 2);
+      const b0 = getValue(b, 0);
+      const b1 = getValue(b, 1);
+      const b2 = getValue(b, 2);
 
-      const result = ArrayStorage.zeros([3], 'float64');
-      result.set([0], a1 * b2 - a2 * b1);
-      result.set([1], a2 * b0 - a0 * b2);
-      result.set([2], a0 * b1 - a1 * b0);
+      const result = ArrayStorage.zeros([3], resultDtype);
+      result.set([0], crossSub(crossMul(a1, b2), crossMul(a2, b1)));
+      result.set([1], crossSub(crossMul(a2, b0), crossMul(a0, b2)));
+      result.set([2], crossSub(crossMul(a0, b1), crossMul(a1, b0)));
       return result;
     } else if (dimA === 2 && dimB === 2) {
-      // 2D cross product (returns scalar)
-      const a0 = Number(a.get(0));
-      const a1 = Number(a.get(1));
-      const b0 = Number(b.get(0));
-      const b1 = Number(b.get(1));
-      return a0 * b1 - a1 * b0;
+      // 2D cross product (returns scalar or Complex)
+      const a0 = getValue(a, 0);
+      const a1 = getValue(a, 1);
+      const b0 = getValue(b, 0);
+      const b1 = getValue(b, 1);
+      return crossSub(crossMul(a0, b1), crossMul(a1, b0));
     } else if ((dimA === 2 && dimB === 3) || (dimA === 3 && dimB === 2)) {
       // Mixed 2D/3D - treat 2D as having z=0
-      const a0 = Number(a.get(0));
-      const a1 = Number(a.get(1));
-      const a2 = dimA === 3 ? Number(a.get(2)) : 0;
-      const b0 = Number(b.get(0));
-      const b1 = Number(b.get(1));
-      const b2 = dimB === 3 ? Number(b.get(2)) : 0;
+      const a0 = getValue(a, 0);
+      const a1 = getValue(a, 1);
+      const a2 = dimA === 3 ? getValue(a, 2) : isComplex ? new Complex(0, 0) : 0;
+      const b0 = getValue(b, 0);
+      const b1 = getValue(b, 1);
+      const b2 = dimB === 3 ? getValue(b, 2) : isComplex ? new Complex(0, 0) : 0;
 
-      const result = ArrayStorage.zeros([3], 'float64');
-      result.set([0], a1 * b2 - a2 * b1);
-      result.set([1], a2 * b0 - a0 * b2);
-      result.set([2], a0 * b1 - a1 * b0);
+      const result = ArrayStorage.zeros([3], resultDtype);
+      result.set([0], crossSub(crossMul(a1, b2), crossMul(a2, b1)));
+      result.set([1], crossSub(crossMul(a2, b0), crossMul(a0, b2)));
+      result.set([2], crossSub(crossMul(a0, b1), crossMul(a1, b0)));
       return result;
     } else {
       throw new Error(`cross: incompatible dimensions for cross product: ${dimA} and ${dimB}`);
@@ -1858,7 +1888,7 @@ export function cross(
     throw new Error('cross: unexpected scalar result from higher-dimensional input');
   }
 
-  const result = ArrayStorage.zeros(resultShape, 'float64');
+  const result = ArrayStorage.zeros(resultShape, resultDtype);
 
   // Iterate over all "other" positions
   const otherSize = otherShape.reduce((acc, d) => acc * d, 1);
@@ -1877,32 +1907,32 @@ export function cross(
     const bIndices = [...otherIndices.slice(0, axisB), 0, ...otherIndices.slice(axisB)];
 
     // Extract vector components
-    const getA = (idx: number) => {
+    const getA = (idx: number): number | Complex => {
       aIndices[axisA] = idx;
-      return Number(a.get(...aIndices));
+      return getValue(a, ...aIndices);
     };
-    const getB = (idx: number) => {
+    const getB = (idx: number): number | Complex => {
       bIndices[axisB] = idx;
-      return Number(b.get(...bIndices));
+      return getValue(b, ...bIndices);
     };
 
     const a0 = getA(0);
     const a1 = getA(1);
-    const a2 = vectorDimA === 3 ? getA(2) : 0;
+    const a2 = vectorDimA === 3 ? getA(2) : isComplex ? new Complex(0, 0) : 0;
     const b0 = getB(0);
     const b1 = getB(1);
-    const b2 = vectorDimB === 3 ? getB(2) : 0;
+    const b2 = vectorDimB === 3 ? getB(2) : isComplex ? new Complex(0, 0) : 0;
 
     if (outputVectorDim === 0) {
       // Scalar result
-      result.set(otherIndices, a0 * b1 - a1 * b0);
+      result.set(otherIndices, crossSub(crossMul(a0, b1), crossMul(a1, b0)));
     } else {
       // Vector result
-      const c0 = a1 * b2 - a2 * b1;
-      const c1 = a2 * b0 - a0 * b2;
-      const c2 = a0 * b1 - a1 * b0;
+      const c0 = crossSub(crossMul(a1, b2), crossMul(a2, b1));
+      const c1 = crossSub(crossMul(a2, b0), crossMul(a0, b2));
+      const c2 = crossSub(crossMul(a0, b1), crossMul(a1, b0));
 
-      const setResult = (idx: number, val: number) => {
+      const setResult = (idx: number, val: number | Complex) => {
         const resultIndices = [
           ...otherIndices.slice(0, normalizedAxisC),
           idx,

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array, broadcast_shapes } from '../../src/core/ndarray';
+import { array, broadcast_shapes } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Broadcasting', () => {

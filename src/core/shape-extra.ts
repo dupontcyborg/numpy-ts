@@ -4,8 +4,8 @@
  * Tree-shakeable standalone functions for array manipulation.
  */
 
-import { NDArrayCore, type DType } from '../core/ndarray-core';
-import { array, zeros } from '../creation';
+import { NDArrayCore, type DType } from '../common/ndarray-core';
+import { array, zeros } from './creation';
 import { concatenate, flatten } from './shape';
 
 /**
@@ -145,20 +145,29 @@ export function insert(
     const flatData = flat.data;
     const valuesData = flatValues.data;
 
-    // Sort indices in descending order to insert from end
-    const sortedIndices = [...indices].sort((a, b) => {
-      const ai = a < 0 ? flat.size + a : a;
-      const bi = b < 0 ? flat.size + b : b;
-      return ai - bi;
-    });
-
     const result: number[] = Array.from(flatData as unknown as ArrayLike<number>);
 
-    for (let i = 0; i < sortedIndices.length; i++) {
-      const sortedIdx = sortedIndices[i]!;
-      const idx = sortedIdx < 0 ? flat.size + sortedIdx : sortedIdx;
-      const val = valuesData[i % valuesData.length] as number;
-      result.splice(idx + i, 0, val);
+    if (indices.length === 1) {
+      // Single index: insert all values at that position
+      const rawIdx = indices[0]!;
+      const idx = rawIdx < 0 ? flat.size + rawIdx : rawIdx;
+      const vals: number[] = Array.from(valuesData as unknown as ArrayLike<number>);
+      result.splice(idx, 0, ...vals);
+    } else {
+      // Multiple indices: insert one value per index (cycling through values)
+      // Sort indices ascending for correct offset tracking
+      const indexPairs = indices
+        .map((rawIdx, i) => ({
+          idx: rawIdx < 0 ? flat.size + rawIdx : rawIdx,
+          valIdx: i,
+        }))
+        .sort((a, b) => a.idx - b.idx);
+
+      for (let i = 0; i < indexPairs.length; i++) {
+        const { idx, valIdx } = indexPairs[i]!;
+        const val = valuesData[valIdx % valuesData.length] as number;
+        result.splice(idx + i, 0, val);
+      }
     }
 
     return array(result, arr.dtype as DType);

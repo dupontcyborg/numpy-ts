@@ -8,8 +8,8 @@ import {
   areBroadcastable,
   broadcastArrays,
   broadcastErrorMessage,
-} from '../../src/core/broadcasting';
-import { array, zeros, ones, broadcast_shapes } from '../../src/core/ndarray';
+} from '../../src/common/broadcasting';
+import { array, zeros, ones, broadcast_shapes } from '../../src';
 
 describe('Broadcasting utilities', () => {
   describe('computeBroadcastShape', () => {
@@ -265,14 +265,14 @@ describe('Broadcasting utilities', () => {
     });
 
     it('throws error for incompatible shapes', () => {
-      expect(() => broadcast_shapes([3], [4])).toThrow(/shape mismatch/);
-      expect(() => broadcast_shapes([3, 4], [3, 5])).toThrow(/shape mismatch/);
-      expect(() => broadcast_shapes([2, 1], [8, 4, 3])).toThrow(/shape mismatch/);
+      expect(() => broadcast_shapes([3], [4])).toThrow(/Cannot broadcast shapes/);
+      expect(() => broadcast_shapes([3, 4], [3, 5])).toThrow(/Cannot broadcast shapes/);
+      expect(() => broadcast_shapes([2, 1], [8, 4, 3])).toThrow(/Cannot broadcast shapes/);
     });
 
     it('throws descriptive error message', () => {
       expect(() => broadcast_shapes([3, 4], [5, 6])).toThrow(
-        /shape mismatch: objects cannot be broadcast to a single shape/
+        /Cannot broadcast shapes: dimensions \d+ and \d+ are incompatible/
       );
     });
 

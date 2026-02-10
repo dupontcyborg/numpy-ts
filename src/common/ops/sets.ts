@@ -2,8 +2,8 @@
  * Set operations
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isComplexDType, type DType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isComplexDType, type DType } from '../dtype';
 
 // Helper: compare complex numbers lexicographically
 function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {

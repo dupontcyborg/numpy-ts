@@ -4,14 +4,14 @@
  * Parses NumPy .npy files (both v1 and v2/v3 formats) into NDArray objects.
  */
 
-import { NDArray } from '../../core/ndarray';
-import { ArrayStorage } from '../../core/storage';
+import { NDArray } from '../../full/ndarray';
+import { ArrayStorage } from '../../common/storage';
 import {
   getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
   type DType,
-} from '../../core/dtype';
+} from '../../common/dtype';
 import {
   NPY_MAGIC,
   parseDescriptor,

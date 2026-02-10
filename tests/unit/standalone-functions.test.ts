@@ -26,7 +26,6 @@ import {
   // Array creation
   array,
   zeros,
-  ones,
 } from '../../src';
 
 describe('Standalone Functions', () => {

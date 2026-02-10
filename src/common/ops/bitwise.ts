@@ -8,8 +8,8 @@
  * These operations only work on integer types.
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isIntegerDType, promoteDTypes, DType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isBigIntDType, isIntegerDType, promoteDTypes, DType } from '../dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 
 /**

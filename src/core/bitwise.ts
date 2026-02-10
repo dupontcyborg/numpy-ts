@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as bitwiseOps from '../ops/bitwise';
+import * as bitwiseOps from '../common/ops/bitwise';
 import { NDArrayCore, toStorage, fromStorage } from './types';
 
 // ============================================================

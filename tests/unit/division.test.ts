@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ones, zeros, array } from '../../src/core/ndarray';
-import type { DType } from '../../src/core/dtype';
+import { ones, zeros, array } from '../../src';
+import type { DType } from '../../src/common/dtype';
 
 describe('Division Operations', () => {
   describe('Integer division promotes to float64 (NumPy behavior)', () => {

@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as roundingOps from '../ops/rounding';
+import * as roundingOps from '../common/ops/rounding';
 import { NDArrayCore, toStorage, fromStorage } from './types';
 
 /** Round to given decimals */

@@ -4,33 +4,27 @@
  * Tree-shakeable standalone functions that wrap the underlying ops.
  */
 
-import { NDArrayCore } from '../core/ndarray-core';
-import { ArrayStorage } from '../core/storage';
-import * as advancedOps from '../ops/advanced';
-import * as comparisonOps from '../ops/comparison';
-import { array } from '../creation';
-
-// Helper to convert NDArrayCore to ArrayStorage
-function toStorage(a: NDArrayCore): ArrayStorage {
-  return (a as unknown as { _storage: ArrayStorage })._storage;
-}
-
-// Helper to convert ArrayStorage to NDArrayCore
-function fromStorage(storage: ArrayStorage): NDArrayCore {
-  return new NDArrayCore(storage);
-}
+import { NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
+import * as advancedOps from '../common/ops/advanced';
+import * as comparisonOps from '../common/ops/comparison';
+import { array } from './creation';
+import { toStorage, fromStorage, fromStorageView } from './types';
+import { computeBroadcastShape } from '../common/broadcasting';
+import { isBigIntDType, type DType } from '../common/dtype';
 
 // ============================================================
 // Broadcasting
 // ============================================================
 
+/** Broadcast array to a new shape - returns a view */
 export function broadcast_to(a: NDArrayCore, shape: number[]): NDArrayCore {
-  return fromStorage(advancedOps.broadcast_to(toStorage(a), shape));
+  return fromStorageView(advancedOps.broadcast_to(toStorage(a), shape), a);
 }
 
 export function broadcast_arrays(...arrays: NDArrayCore[]): NDArrayCore[] {
   const storages = arrays.map(toStorage);
-  return advancedOps.broadcast_arrays(storages).map(fromStorage);
+  return advancedOps.broadcast_arrays(storages).map((s) => fromStorage(s));
 }
 
 export function broadcast_shapes(...shapes: number[][]): number[] {
@@ -148,11 +142,59 @@ export function putmask(a: NDArrayCore, mask: NDArrayCore, values: NDArrayCore):
   advancedOps.putmask(toStorage(a), toStorage(mask), toStorage(values));
 }
 
-export function copyto(dst: NDArrayCore, src: NDArrayCore): void {
-  const dstData = dst.data;
-  const srcData = src.data;
-  for (let i = 0; i < Math.min(dstData.length, srcData.length); i++) {
-    (dstData as unknown as number[])[i] = srcData[i] as number;
+export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): void {
+  const dstStorage = toStorage(dst);
+  const dstShape = dst.shape;
+  const dstSize = dst.size;
+  const dstDtype = dst.dtype as DType;
+
+  // Handle scalar source
+  if (typeof src === 'number' || typeof src === 'bigint') {
+    dst.fill(src);
+    return;
+  }
+
+  const srcStorage = toStorage(src);
+  const srcShape = src.shape;
+
+  // Check if shapes are broadcastable
+  const broadcastShape = computeBroadcastShape([srcShape as number[], dstShape as number[]]);
+  if (!broadcastShape) {
+    throw new Error(
+      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`
+    );
+  }
+
+  // Verify broadcast shape matches dst shape
+  if (
+    broadcastShape.length !== dstShape.length ||
+    !broadcastShape.every((d, i) => d === dstShape[i])
+  ) {
+    throw new Error(
+      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`
+    );
+  }
+
+  // Broadcast src to dst shape
+  const broadcastedSrc = advancedOps.broadcast_to(srcStorage, dstShape as number[]);
+
+  // Copy values
+  if (isBigIntDType(dstDtype)) {
+    for (let i = 0; i < dstSize; i++) {
+      const val = broadcastedSrc.iget(i);
+      const bigintVal = typeof val === 'bigint' ? val : BigInt(Math.round(Number(val)));
+      dstStorage.iset(i, bigintVal);
+    }
+  } else if (dstDtype === 'bool') {
+    for (let i = 0; i < dstSize; i++) {
+      const val = broadcastedSrc.iget(i);
+      dstStorage.iset(i, val ? 1 : 0);
+    }
+  } else {
+    for (let i = 0; i < dstSize; i++) {
+      const val = broadcastedSrc.iget(i);
+      dstStorage.iset(i, Number(val));
+    }
   }
 }
 
@@ -169,7 +211,7 @@ export function indices(
 
 export function ix_(...args: NDArrayCore[]): NDArrayCore[] {
   const storages = args.map(toStorage);
-  return advancedOps.ix_(...storages).map(fromStorage);
+  return advancedOps.ix_(...storages).map((s) => fromStorage(s));
 }
 
 export function ravel_multi_index(
@@ -184,7 +226,7 @@ export function ravel_multi_index(
 export function unravel_index(indices: NDArrayCore | number, shape: number[]): NDArrayCore[] {
   const indicesStorage =
     typeof indices === 'number' ? toStorage(array([indices])) : toStorage(indices);
-  return advancedOps.unravel_index(indicesStorage, shape).map(fromStorage);
+  return advancedOps.unravel_index(indicesStorage, shape).map((s) => fromStorage(s));
 }
 
 // ============================================================
@@ -192,11 +234,11 @@ export function unravel_index(indices: NDArrayCore | number, shape: number[]): N
 // ============================================================
 
 export function diag_indices(n: number, ndim: number = 2): NDArrayCore[] {
-  return advancedOps.diag_indices(n, ndim).map(fromStorage);
+  return advancedOps.diag_indices(n, ndim).map((s) => fromStorage(s));
 }
 
 export function diag_indices_from(a: NDArrayCore): NDArrayCore[] {
-  return advancedOps.diag_indices_from(toStorage(a)).map(fromStorage);
+  return advancedOps.diag_indices_from(toStorage(a)).map((s) => fromStorage(s));
 }
 
 export function fill_diagonal(a: NDArrayCore, val: number, wrap: boolean = false): void {
@@ -208,19 +250,19 @@ export function fill_diagonal(a: NDArrayCore, val: number, wrap: boolean = false
 // ============================================================
 
 export function tril_indices(n: number, k: number = 0, m?: number): NDArrayCore[] {
-  return advancedOps.tril_indices(n, k, m).map(fromStorage);
+  return advancedOps.tril_indices(n, k, m).map((s) => fromStorage(s));
 }
 
 export function tril_indices_from(a: NDArrayCore, k: number = 0): NDArrayCore[] {
-  return advancedOps.tril_indices_from(toStorage(a), k).map(fromStorage);
+  return advancedOps.tril_indices_from(toStorage(a), k).map((s) => fromStorage(s));
 }
 
 export function triu_indices(n: number, k: number = 0, m?: number): NDArrayCore[] {
-  return advancedOps.triu_indices(n, k, m).map(fromStorage);
+  return advancedOps.triu_indices(n, k, m).map((s) => fromStorage(s));
 }
 
 export function triu_indices_from(a: NDArrayCore, k: number = 0): NDArrayCore[] {
-  return advancedOps.triu_indices_from(toStorage(a), k).map(fromStorage);
+  return advancedOps.triu_indices_from(toStorage(a), k).map((s) => fromStorage(s));
 }
 
 export function mask_indices(
@@ -229,7 +271,7 @@ export function mask_indices(
   k: number = 0
 ): NDArrayCore[] {
   const wrappedMaskFunc = (nn: number, kk: number) => toStorage(mask_func(nn, kk));
-  return advancedOps.mask_indices(n, wrappedMaskFunc, k).map(fromStorage);
+  return advancedOps.mask_indices(n, wrappedMaskFunc, k).map((s) => fromStorage(s));
 }
 
 // ============================================================

@@ -4,24 +4,83 @@
  * Tree-shakeable standalone functions for array introspection.
  */
 
-import { NDArrayCore, type DType, type TypedArray } from '../core/ndarray-core';
-import { Complex } from '../core/complex';
-
+import { NDArrayCore, type DType, type TypedArray } from '../common/ndarray-core';
+import { Complex } from '../common/complex';
 
 // ============================================================
 // Array Properties
 // ============================================================
 
-export function ndim(a: NDArrayCore): number {
-  return a.ndim;
+/**
+ * Return the number of dimensions of an array.
+ * Works with NDArrayCore, scalars, and nested arrays.
+ */
+export function ndim(a: NDArrayCore | number | bigint | boolean | unknown[] | unknown): number {
+  if (a instanceof NDArrayCore) {
+    return a.ndim;
+  }
+  // Scalar
+  if (typeof a === 'number' || typeof a === 'bigint' || typeof a === 'boolean') {
+    return 0;
+  }
+  // Nested array - count dimensions
+  if (Array.isArray(a)) {
+    let dims = 0;
+    let current: unknown = a;
+    while (Array.isArray(current) && current.length > 0) {
+      dims++;
+      current = current[0];
+    }
+    return dims;
+  }
+  return 0;
 }
 
-export function shape(a: NDArrayCore): readonly number[] {
-  return a.shape;
+/**
+ * Return the shape of an array.
+ * Works with NDArrayCore, scalars, and nested arrays.
+ */
+export function shape(
+  a: NDArrayCore | number | bigint | boolean | unknown[] | unknown
+): readonly number[] | number[] {
+  if (a instanceof NDArrayCore) {
+    return a.shape;
+  }
+  // Scalar
+  if (typeof a === 'number' || typeof a === 'bigint' || typeof a === 'boolean') {
+    return [];
+  }
+  // Nested array - compute shape
+  if (Array.isArray(a)) {
+    const result: number[] = [];
+    let current: unknown = a;
+    while (Array.isArray(current) && current.length > 0) {
+      result.push(current.length);
+      current = current[0];
+    }
+    return result;
+  }
+  return [];
 }
 
-export function size(a: NDArrayCore): number {
-  return a.size;
+/**
+ * Return the number of elements in an array.
+ * Works with NDArrayCore, scalars, and nested arrays.
+ */
+export function size(a: NDArrayCore | number | bigint | boolean | unknown[] | unknown): number {
+  if (a instanceof NDArrayCore) {
+    return a.size;
+  }
+  // Scalar
+  if (typeof a === 'number' || typeof a === 'bigint' || typeof a === 'boolean') {
+    return 1;
+  }
+  // Nested array - compute size from shape
+  if (Array.isArray(a)) {
+    const shapeArr = shape(a);
+    return shapeArr.reduce((acc, dim) => acc * dim, 1);
+  }
+  return 1;
 }
 
 // ============================================================

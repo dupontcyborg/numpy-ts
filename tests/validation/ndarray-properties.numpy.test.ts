@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { zeros, array, arange, copyto } from '../../src/core/ndarray';
+import { zeros, array, arange, copyto } from '../../src';
 import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: NDArray Properties', () => {

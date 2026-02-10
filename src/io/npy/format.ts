@@ -5,7 +5,7 @@
  * Spec: https://numpy.org/doc/stable/reference/generated/numpy.lib.format.html
  */
 
-import type { DType } from '../../core/dtype';
+import type { DType } from '../../common/dtype';
 
 /**
  * NPY magic number: \x93NUMPY (6 bytes)

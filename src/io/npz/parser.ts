@@ -4,7 +4,7 @@
  * NPZ is a ZIP archive containing multiple .npy files.
  */
 
-import { NDArray } from '../../core/ndarray';
+import { NDArray } from '../../full/ndarray';
 import { parseNpy } from '../npy/parser';
 import { UnsupportedDTypeError } from '../npy/format';
 import { readZip, readZipSync } from '../zip/reader';

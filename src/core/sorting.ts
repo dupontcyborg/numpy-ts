@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as sortingOps from '../ops/sorting';
+import * as sortingOps from '../common/ops/sorting';
 import { NDArrayCore, toStorage, fromStorage, fromStorageArray } from './types';
 
 // ============================================================

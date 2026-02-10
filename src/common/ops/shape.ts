@@ -5,8 +5,8 @@
  * @module ops/shape
  */
 
-import { ArrayStorage, computeStrides } from '../core/storage';
-import { getTypedArrayConstructor, isBigIntDType, type TypedArray } from '../core/dtype';
+import { ArrayStorage, computeStrides } from '../storage';
+import { getTypedArrayConstructor, isBigIntDType, type TypedArray } from '../dtype';
 
 /**
  * Reshape array to a new shape

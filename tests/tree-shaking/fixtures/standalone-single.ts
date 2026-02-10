@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: Single function from standalone entry point
  * Expected: Smallest possible bundle - only zeros and its dependencies
  */
-import { zeros } from 'numpy-ts/standalone';
+import { zeros } from 'numpy-ts/core';
 
 // Use the function to prevent it from being eliminated
 const arr = zeros([2, 3]);

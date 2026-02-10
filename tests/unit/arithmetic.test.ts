@@ -1,15 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  array,
-  zeros,
-  float_power,
-  fmod,
-  frexp,
-  gcd,
-  lcm,
-  ldexp,
-  modf,
-} from '../../src/core/ndarray';
+import { array, zeros, float_power, fmod, frexp, gcd, lcm, ldexp, modf } from '../../src';
 
 describe('Arithmetic Operations', () => {
   describe('add', () => {

@@ -5,8 +5,8 @@
  * These functions work with strings and are environment-agnostic.
  */
 
-import { array, NDArray } from '../../core/ndarray';
-import type { DType } from '../../core/dtype';
+import { array, NDArray } from '../../full/ndarray';
+import type { DType } from '../../common/dtype';
 
 /**
  * Options for parsing text data

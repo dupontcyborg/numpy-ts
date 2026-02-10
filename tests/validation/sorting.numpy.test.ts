@@ -21,7 +21,7 @@ import {
   searchsorted,
   extract,
   count_nonzero,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Sorting Functions', () => {

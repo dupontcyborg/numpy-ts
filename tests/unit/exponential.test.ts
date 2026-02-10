@@ -1,16 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  array,
-  exp,
-  exp2,
-  expm1,
-  log,
-  log2,
-  log10,
-  log1p,
-  logaddexp,
-  logaddexp2,
-} from '../../src/core/ndarray';
+import { array, exp, exp2, expm1, log, log2, log10, log1p, logaddexp, logaddexp2 } from '../../src';
 
 describe('Exponential Operations', () => {
   describe('exp', () => {

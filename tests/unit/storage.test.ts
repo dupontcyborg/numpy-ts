@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ArrayStorage } from '../../src/core/storage';
+import { ArrayStorage } from '../../src/common/storage';
 
 describe('ArrayStorage', () => {
   describe('Basic properties', () => {

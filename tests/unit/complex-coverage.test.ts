@@ -391,6 +391,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   resize: 'skip',
   append: 'skip',
   delete: 'skip',
+  delete_: 'skip',
   insert: 'skip',
   pad: 'skip',
 

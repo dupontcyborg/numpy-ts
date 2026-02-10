@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array } from '../../src/core/ndarray';
+import { array } from '../../src';
 import {
   can_cast,
   common_type,
@@ -12,7 +12,7 @@ import {
   issubdtype,
   typename,
   mintypecode,
-} from '../../src/core/ndarray';
+} from '../../src';
 
 describe('Type Checking Functions', () => {
   describe('can_cast()', () => {

@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as statisticsOps from '../ops/statistics';
+import * as statisticsOps from '../common/ops/statistics';
 import { NDArrayCore, toStorage, fromStorage, ArrayStorage } from './types';
 
 type BinStrategyString = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
@@ -28,7 +28,7 @@ export function histogram(
   range?: [number, number],
   density?: boolean,
   weights?: NDArrayCore
-): { hist: NDArrayCore; bin_edges: NDArrayCore } {
+): [NDArrayCore, NDArrayCore] {
   const binsArg = bins instanceof NDArrayCore ? toStorage(bins) : bins;
   const weightsArg = weights ? toStorage(weights) : undefined;
   const result = statisticsOps.histogram(
@@ -38,10 +38,7 @@ export function histogram(
     density,
     weightsArg
   );
-  return {
-    hist: fromStorage(result.hist),
-    bin_edges: fromStorage(result.bin_edges),
-  };
+  return [fromStorage(result.hist), fromStorage(result.bin_edges)];
 }
 
 /** Compute 2D histogram */
@@ -52,7 +49,7 @@ export function histogram2d(
   range?: [[number, number], [number, number]],
   density?: boolean,
   weights?: NDArrayCore
-): { H: NDArrayCore; x_edges: NDArrayCore; y_edges: NDArrayCore } {
+): [NDArrayCore, NDArrayCore, NDArrayCore] {
   let binsArg: number | [number, number] | [ArrayStorage, ArrayStorage] | undefined;
   if (Array.isArray(bins) && bins.length === 2) {
     const b0 = bins[0] instanceof NDArrayCore ? toStorage(bins[0]) : bins[0];
@@ -72,11 +69,7 @@ export function histogram2d(
     density,
     weightsArg
   );
-  return {
-    H: fromStorage(result.hist),
-    x_edges: fromStorage(result.x_edges),
-    y_edges: fromStorage(result.y_edges),
-  };
+  return [fromStorage(result.hist), fromStorage(result.x_edges), fromStorage(result.y_edges)];
 }
 
 /** Compute N-dimensional histogram */
@@ -86,13 +79,10 @@ export function histogramdd(
   range?: [number, number][],
   density?: boolean,
   weights?: NDArrayCore
-): { hist: NDArrayCore; edges: NDArrayCore[] } {
+): [NDArrayCore, NDArrayCore[]] {
   const weightsArg = weights ? toStorage(weights) : undefined;
   const result = statisticsOps.histogramdd(toStorage(sample), bins, range, density, weightsArg);
-  return {
-    hist: fromStorage(result.hist),
-    edges: result.edges.map((e) => fromStorage(e)),
-  };
+  return [fromStorage(result.hist), result.edges.map((e) => fromStorage(e))];
 }
 
 /** Cross-correlation */

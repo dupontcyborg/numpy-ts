@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { zeros, array, copyto } from '../../src/core/ndarray';
+import { zeros, array, copyto } from '../../src';
 
 describe('NDArray Properties', () => {
   describe('.T (transpose shorthand)', () => {

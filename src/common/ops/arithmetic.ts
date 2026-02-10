@@ -8,14 +8,14 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../core/storage';
+import { ArrayStorage } from '../storage';
 import {
   isBigIntDType,
   isComplexDType,
   getComplexComponentDType,
   promoteDTypes,
   throwIfComplex,
-} from '../core/dtype';
+} from '../dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 
 /**

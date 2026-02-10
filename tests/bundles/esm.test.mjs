@@ -15,7 +15,7 @@ describe('ESM Bundle Smoke Test', () => {
 
   beforeAll(async () => {
     // Dynamic import of the actual built bundle
-    const bundlePath = resolve(__dirname, '../../dist/numpy-ts.esm.js');
+    const bundlePath = resolve(__dirname, '../../dist/esm/index.js');
     np = await import(bundlePath);
   });
 

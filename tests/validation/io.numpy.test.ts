@@ -15,9 +15,9 @@ import { join } from 'path';
 import { parseNpy, serializeNpy } from '../../src/io/npy';
 import { parseNpz, serializeNpz, serializeNpzSync } from '../../src/io/npz';
 import { parseTxt, serializeTxt, genfromtxt, fromregex } from '../../src/io/txt';
-import { array, arange } from '../../src/core/ndarray';
-import { Complex } from '../../src/core/complex';
-import type { DType } from '../../src/core/dtype';
+import { array, arange } from '../../src';
+import { Complex } from '../../src/common/complex';
+import type { DType } from '../../src/common/dtype';
 
 // Get Python command from environment or use default
 const PYTHON_CMD = process.env.NUMPY_PYTHON || 'python3';

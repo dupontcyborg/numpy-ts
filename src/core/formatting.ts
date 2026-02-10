@@ -4,9 +4,9 @@
  * Tree-shakeable standalone functions that wrap the underlying ops.
  */
 
-import { NDArrayCore } from '../core/ndarray-core';
-import { ArrayStorage } from '../core/storage';
-import * as formattingOps from '../ops/formatting';
+import { NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
+import * as formattingOps from '../common/ops/formatting';
 
 // Helper to convert NDArrayCore to ArrayStorage
 function toStorage(a: NDArrayCore): ArrayStorage {

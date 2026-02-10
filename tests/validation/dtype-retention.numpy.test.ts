@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { ones } from '../../src/core/ndarray';
+import { ones } from '../../src';
 import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
-import type { DType } from '../../src/core/dtype';
+import type { DType } from '../../src/common/dtype';
 
 describe('NumPy Validation: DType Retention', () => {
   beforeAll(() => {

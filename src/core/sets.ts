@@ -5,7 +5,7 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as setOps from '../ops/sets';
+import * as setOps from '../common/ops/sets';
 import { NDArrayCore, toStorage, fromStorage, ArrayStorage } from './types';
 
 /** Find unique elements */

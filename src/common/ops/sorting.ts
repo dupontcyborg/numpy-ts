@@ -5,8 +5,8 @@
  * @module ops/sorting
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, type DType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isBigIntDType, isComplexDType, type DType } from '../dtype';
 import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
 
 /**

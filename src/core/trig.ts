@@ -5,8 +5,8 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as trigOps from '../ops/trig';
-import * as hyperbolicOps from '../ops/hyperbolic';
+import * as trigOps from '../common/ops/trig';
+import * as hyperbolicOps from '../common/ops/hyperbolic';
 import { NDArrayCore, toStorage, fromStorage } from './types';
 
 // ============================================================

@@ -5,10 +5,10 @@
  * @module ops/reduction
  */
 
-import { ArrayStorage } from '../core/storage';
-import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
 import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
-import { Complex } from '../core/complex';
+import { Complex } from '../complex';
 
 /**
  * Sum array elements over a given axis

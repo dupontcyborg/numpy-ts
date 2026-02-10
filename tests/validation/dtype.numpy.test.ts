@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { zeros, ones, array, arange, linspace, eye } from '../../src/core/ndarray';
+import { zeros, ones, array, arange, linspace, eye } from '../../src';
 import { checkNumPyAvailable, runNumPy, arraysClose } from './numpy-oracle';
 
 describe('NumPy Validation: DType Support', () => {

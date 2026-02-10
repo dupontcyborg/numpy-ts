@@ -17,7 +17,7 @@ import {
   geterr,
   seterr,
   NDArray,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Utility Functions', () => {

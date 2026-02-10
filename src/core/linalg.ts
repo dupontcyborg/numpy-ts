@@ -5,8 +5,15 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as linalgOps from '../ops/linalg';
-import { NDArrayCore, toStorage, fromStorage, Complex, ArrayStorage } from './types';
+import * as linalgOps from '../common/ops/linalg';
+import {
+  NDArrayCore,
+  toStorage,
+  fromStorage,
+  fromStorageView,
+  Complex,
+  ArrayStorage,
+} from './types';
 
 // ============================================================
 // Top-Level Linear Algebra Functions
@@ -41,9 +48,9 @@ export function kron(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
   return fromStorage(linalgOps.kron(toStorage(a), toStorage(b)));
 }
 
-/** Transpose array */
+/** Transpose array - returns a view */
 export function transpose(a: NDArrayCore, axes?: number[]): NDArrayCore {
-  return fromStorage(linalgOps.transpose(toStorage(a), axes));
+  return fromStorageView(linalgOps.transpose(toStorage(a), axes), a);
 }
 
 /** Inner product of two arrays */
@@ -114,13 +121,14 @@ export function vecdot(
 }
 
 /** Matrix transpose (swap last two axes) */
+/** Matrix transpose - returns a view */
 export function matrix_transpose(a: NDArrayCore): NDArrayCore {
-  return fromStorage(linalgOps.matrix_transpose(toStorage(a)));
+  return fromStorageView(linalgOps.matrix_transpose(toStorage(a)), a);
 }
 
-/** Permute array dimensions */
+/** Permute array dimensions - returns a view */
 export function permute_dims(a: NDArrayCore, axes?: number[]): NDArrayCore {
-  return fromStorage(linalgOps.permute_dims(toStorage(a), axes));
+  return fromStorageView(linalgOps.permute_dims(toStorage(a), axes), a);
 }
 
 /** Matrix-vector product */
@@ -141,9 +149,9 @@ export function cross(
   axisb: number = -1,
   axisc: number = -1,
   axis?: number
-): NDArrayCore | number {
+): NDArrayCore | number | Complex {
   const result = linalgOps.cross(toStorage(a), toStorage(b), axisa, axisb, axisc, axis);
-  if (typeof result === 'number') {
+  if (typeof result === 'number' || result instanceof Complex) {
     return result;
   }
   return fromStorage(result);
@@ -337,7 +345,60 @@ export const linalg = {
     axisb?: number,
     axisc?: number,
     axis?: number
-  ): NDArrayCore | number => {
+  ): NDArrayCore | number | Complex => {
     return cross(a, b, axisa, axisb, axisc, axis);
+  },
+
+  /** Matrix transpose (transposes last two axes) - returns a view */
+  matrix_transpose: (a: NDArrayCore): NDArrayCore => {
+    return matrix_transpose(a);
+  },
+
+  /** Permute array dimensions - returns a view */
+  permute_dims: (a: NDArrayCore, axes?: number[]): NDArrayCore => {
+    return permute_dims(a, axes);
+  },
+
+  /** Matrix trace (sum of diagonal elements) */
+  trace: (a: NDArrayCore): number | bigint | Complex => {
+    return trace(a);
+  },
+
+  /** Extract diagonal */
+  diagonal: (a: NDArrayCore, offset?: number, axis1?: number, axis2?: number): NDArrayCore => {
+    return diagonal(a, offset, axis1, axis2);
+  },
+
+  /** Outer product */
+  outer: (a: NDArrayCore, b: NDArrayCore): NDArrayCore => {
+    return outer(a, b);
+  },
+
+  /** Inner product */
+  inner: (a: NDArrayCore, b: NDArrayCore): NDArrayCore | number | bigint | Complex => {
+    return inner(a, b);
+  },
+
+  /** Tensor dot product */
+  tensordot: (
+    a: NDArrayCore,
+    b: NDArrayCore,
+    axes?: number | [number[], number[]]
+  ): NDArrayCore | number | bigint | Complex => {
+    return tensordot(a, b, axes);
+  },
+
+  /** Vector dot product */
+  vecdot: (
+    a: NDArrayCore,
+    b: NDArrayCore,
+    axis?: number
+  ): NDArrayCore | number | bigint | Complex => {
+    return vecdot(a, b, axis);
+  },
+
+  /** Transpose array - returns a view */
+  transpose: (a: NDArrayCore, axes?: number[]): NDArrayCore => {
+    return transpose(a, axes);
   },
 };

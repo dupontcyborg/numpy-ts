@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { zeros, ones, array, arange, linspace, eye } from '../../src/core/ndarray';
+import { zeros, ones, array, arange, linspace, eye } from '../../src';
 
 describe('DType Support', () => {
   describe('Array creation with dtype', () => {

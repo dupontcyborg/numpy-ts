@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 
-import { NDArray } from './core/ndarray';
+import { NDArray } from './full/ndarray';
 import { parseNpy } from './io/npy/parser';
 import { serializeNpy } from './io/npy/serializer';
 import { parseNpz, type NpzParseOptions, type NpzParseResult } from './io/npz/parser';
@@ -29,7 +29,7 @@ import {
   type ParseTxtOptions,
   type SerializeTxtOptions,
 } from './io/txt';
-import type { DType } from './core/dtype';
+import type { DType } from './common/dtype';
 
 // Re-export everything from the main module for convenience
 export * from './index';

@@ -27,22 +27,22 @@
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
     },
-    "./standalone": {
-      "types": "./dist/types/standalone.d.ts",
-      "import": "./dist/esm/standalone.js",
-      "default": "./dist/esm/standalone.js"
-    },
-    "./node": {
+"./node": {
       "types": "./dist/types/node.d.ts",
       "import": "./dist/numpy-ts.node-io.mjs",
       "require": "./dist/numpy-ts.node-io.cjs",
       "default": "./dist/numpy-ts.node-io.cjs"
     },
+    "./core": {
+      "types": "./dist/types/core.d.ts",
+      "import": "./dist/esm/core.js",
+      "default": "./dist/esm/core.js"
+    },
     "./io": {
       "types": "./dist/types/io/index.d.ts",
       "node": "./dist/numpy-ts.node.cjs",
       "browser": "./dist/numpy-ts.browser.js",
-      "default": "./dist/numpy-ts.esm.js"
+      "default": "./dist/esm/io/index.js"
     },
     "./browser": {
       "types": "./dist/types/index.d.ts",
@@ -50,8 +50,8 @@
     }
   },
   "scripts": {
-    "dev": "esbuild src/index.ts --bundle --sourcemap --watch --outfile=dist/numpy-ts.dev.js",
-    "build": "npm run build:clean && tsx build.ts && npm run build:types",
+    "generate": "tsx scripts/generate-full.ts && prettier --write src/full/index.ts",
+    "build": "npm run build:clean && npm run generate && tsx build.ts && npm run build:types",
     "build:clean": "rm -rf dist",
     "build:types": "tsc --emitDeclarationOnly --outDir dist/types",
     "test": "vitest run --project=unit --project=validation",
@@ -68,8 +68,8 @@
     "test:coverage:validation": "vitest run --project=validation-quick --coverage",
     "test:coverage:validation:view": "vitest run --project=validation-quick --coverage && open coverage/index.html",
     "test:coverage:all": "vitest run --coverage",
-    "lint": "eslint src tests --ext .ts",
-    "lint:fix": "eslint src tests --ext .ts --fix",
+    "lint": "eslint --cache src tests",
+    "lint:fix": "eslint --cache src tests --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "typecheck": "tsc --noEmit",
@@ -128,6 +128,7 @@
     "prettier": "^3.1.1",
     "rollup": "^4.40.0",
     "ts-loader": "^9.5.2",
+    "ts-morph": "^27.0.2",
     "tsx": "^4.20.6",
     "typescript": "^5.3.3",
     "vitest": "^4.0.3",

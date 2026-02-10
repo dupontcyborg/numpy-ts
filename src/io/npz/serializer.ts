@@ -4,7 +4,7 @@
  * Serializes multiple NDArrays to NPZ format (ZIP archive of .npy files).
  */
 
-import { NDArray } from '../../core/ndarray';
+import { NDArray } from '../../full/ndarray';
 import { serializeNpy } from '../npy/serializer';
 import { writeZip, writeZipSync } from '../zip/writer';
 

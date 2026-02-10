@@ -16,7 +16,7 @@ import {
   unwrap,
   sinc,
   i0,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Other Math Operations', () => {

@@ -14,7 +14,7 @@
  *
  * For tree-shakeable imports (smaller bundles, no method chaining), use:
  * ```typescript
- * import { array, add, reshape } from 'numpy-ts/standalone';
+ * import { array, add, reshape } from 'numpy-ts/core';
  * ```
  *
  * @module numpy-ts
@@ -24,9 +24,9 @@
 // Core Types and Classes
 // ============================================================
 
-export { Complex, type ComplexInput } from './core/complex';
-export { NDArray } from './core/ndarray';
-export { NDArrayCore } from './core/ndarray-core';
+export { Complex, type ComplexInput } from './common/complex';
+export { NDArray } from './full';
+export { NDArrayCore } from './common/ndarray-core';
 
 // ============================================================
 // Array Creation Functions
@@ -67,7 +67,7 @@ export {
   tril,
   triu,
   vander,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Arithmetic and Mathematical Functions
@@ -123,10 +123,10 @@ export {
   unwrap,
   sinc,
   i0,
-} from './core/ndarray';
+} from './full';
 
 // Aliases
-export { power as pow, absolute as abs } from './core/ndarray';
+export { power as pow, absolute as abs } from './full';
 
 // ============================================================
 // Trigonometric and Hyperbolic Functions
@@ -151,7 +151,7 @@ export {
   arcsinh,
   arccosh,
   arctanh,
-} from './core/ndarray';
+} from './full';
 
 // Aliases
 export {
@@ -162,7 +162,7 @@ export {
   arcsinh as asinh,
   arccosh as acosh,
   arctanh as atanh,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Linear Algebra Functions
@@ -187,7 +187,7 @@ export {
   vecmat,
   cross,
   linalg,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Shape Manipulation Functions
@@ -228,13 +228,14 @@ export {
   atleast_2d,
   atleast_3d,
   append,
+  delete_,
   delete_ as delete,
   insert,
   pad,
-} from './core/ndarray';
+} from './full';
 
 // Alias
-export { concatenate as concat } from './core/ndarray';
+export { concatenate as concat } from './full';
 
 // ============================================================
 // Reduction Functions
@@ -273,7 +274,7 @@ export {
   nanmedian,
   nanquantile,
   nanpercentile,
-} from './core/ndarray';
+} from './full';
 
 // Aliases
 export {
@@ -281,7 +282,7 @@ export {
   amin as min,
   cumsum as cumulative_sum,
   cumprod as cumulative_prod,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Logic Functions
@@ -312,7 +313,7 @@ export {
   signbit,
   nextafter,
   spacing,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Sorting and Searching Functions
@@ -332,7 +333,7 @@ export {
   searchsorted,
   extract,
   count_nonzero,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Bitwise Functions
@@ -349,23 +350,23 @@ export {
   packbits,
   unpackbits,
   bitwise_count,
-} from './core/ndarray';
+} from './full';
 
 // Aliases
 export {
   bitwise_not as bitwise_invert,
   left_shift as bitwise_left_shift,
   right_shift as bitwise_right_shift,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Rounding Functions
 // ============================================================
 
-export { around, round_, ceil, fix, floor, rint, trunc } from './core/ndarray';
+export { around, round_, ceil, fix, floor, rint, trunc } from './full';
 
 // Alias
-export { around as round } from './core/ndarray';
+export { around as round } from './full';
 
 // ============================================================
 // Set Operations
@@ -384,7 +385,7 @@ export {
   unique_counts,
   unique_inverse,
   unique_values,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Statistics Functions
@@ -402,22 +403,22 @@ export {
   corrcoef,
   histogram_bin_edges,
   trapezoid,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Gradient Functions
 // ============================================================
 
-export { diff, ediff1d, gradient } from './core/ndarray';
+export { diff, ediff1d, gradient } from './full';
 
 // ============================================================
 // Complex Number Functions
 // ============================================================
 
-export { real, imag, conj, angle } from './core/ndarray';
+export { real, imag, conj, angle } from './full';
 
 // Alias
-export { conj as conjugate } from './core/ndarray';
+export { conj as conjugate } from './full';
 
 // ============================================================
 // Advanced Indexing and Data Manipulation
@@ -460,7 +461,7 @@ export {
   byteswap,
   view,
   tofile,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Utility Functions
@@ -476,7 +477,7 @@ export {
   size,
   geterr,
   seterr,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Printing/Formatting Functions
@@ -493,7 +494,7 @@ export {
   get_printoptions,
   set_printoptions,
   printoptions,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Type Checking Functions
@@ -507,7 +508,7 @@ export {
   issubdtype,
   typename,
   mintypecode,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // Polynomial Functions
@@ -524,7 +525,7 @@ export {
   polysub,
   polyval,
   roots,
-} from './core/ndarray';
+} from './full';
 
 // ============================================================
 // IO Functions
@@ -557,10 +558,10 @@ export {
 // Random Namespace (np.random)
 // ============================================================
 
-import * as randomOps from './ops/random';
-import { ArrayStorage } from './core/storage';
-import { NDArray as NDArrayClass } from './core/ndarray';
-import { DType } from './core/dtype';
+import * as randomOps from './common/ops/random';
+import { ArrayStorage } from './common/storage';
+import { NDArray as NDArrayClass } from './full';
+import { DType } from './common/dtype';
 
 // Helper to wrap ArrayStorage results in NDArray
 function wrapResult<T>(result: T): T | NDArrayClass {
@@ -685,8 +686,8 @@ export const random = {
 // FFT Namespace (np.fft)
 // ============================================================
 
-import * as fftOps from './ops/fft';
-import { NDArrayCore } from './core/ndarray-core';
+import * as fftOps from './common/ops/fft';
+import { NDArrayCore } from './common/ndarray-core';
 
 // Type alias for array inputs - accepts NDArray, NDArrayCore, or ArrayStorage
 type ArrayInput = NDArrayClass | NDArrayCore | ArrayStorage;

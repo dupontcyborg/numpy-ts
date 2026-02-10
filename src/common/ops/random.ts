@@ -8,8 +8,8 @@
  * Both implementations produce identical output to NumPy when seeded.
  */
 
-import { ArrayStorage } from '../core/storage';
-import { type DType, isBigIntDType } from '../core/dtype';
+import { ArrayStorage } from '../storage';
+import { type DType, isBigIntDType } from '../dtype';
 
 // ============================================================================
 // MT19937 (Mersenne Twister) - Used for legacy np.random.* functions
