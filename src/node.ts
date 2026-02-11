@@ -22,7 +22,12 @@ import { parseNpy as parseNpyIO } from './io/npy/parser';
 import { serializeNpy } from './io/npy/serializer';
 import { parseNpz as parseNpzIO, parseNpzSync as parseNpzSyncIO } from './io/npz/parser';
 import type { NpzParseOptions } from './io/npz/parser';
-import { serializeNpz, type NpzSerializeOptions, type NpzArraysInput } from './io/npz/serializer';
+import {
+  serializeNpz,
+  serializeNpzSync,
+  type NpzSerializeOptions,
+  type NpzArraysInput,
+} from './io/npz/serializer';
 import {
   parseTxt as parseTxtIO,
   genfromtxt as genfromtxtIO,
@@ -174,7 +179,6 @@ export async function saveNpz(
  * @param arrays - Arrays to save (same types as saveNpz)
  */
 export function saveNpzSync(path: string, arrays: NpzArraysInput): void {
-  const { serializeNpzSync } = require('./io/npz/serializer');
   const data = serializeNpzSync(arrays);
   writeFileSync(path, data);
 }

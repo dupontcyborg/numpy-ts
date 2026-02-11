@@ -17,11 +17,7 @@ import { NDArray } from '../../src/full';
 import { NDArrayCore } from '../../src/common/ndarray-core';
 
 // Helper: compare two array results for data equality
-function assertSameData(
-  coreResult: NDArrayCore,
-  fullResult: NDArray,
-  funcName: string
-) {
+function assertSameData(coreResult: NDArrayCore, fullResult: NDArray, funcName: string) {
   expect(fullResult).toBeInstanceOf(NDArray);
   expect(fullResult.shape).toEqual(Array.from(coreResult.shape));
   expect(fullResult.dtype).toBe(coreResult.dtype);
@@ -45,10 +41,6 @@ const b1d = core.array([5, 4, 3, 2, 1]);
 const a2d = core.array([
   [1, 2, 3],
   [4, 5, 6],
-]);
-const b2d = core.array([
-  [7, 8, 9],
-  [10, 11, 12],
 ]);
 const mat2x2 = core.array([
   [1, 2],
@@ -100,11 +92,7 @@ describe('Wrapper Validation: full/ matches core/', () => {
       ['full_like', () => core.full_like(a1d, 9), () => full.full_like(a1d, 9)],
       ['copy', () => core.copy(a1d), () => full.copy(a1d)],
       ['diag', () => core.diag(a1d), () => full.diag(a1d)],
-      [
-        'tri',
-        () => core.tri(3, 3),
-        () => full.tri(3, 3),
-      ],
+      ['tri', () => core.tri(3, 3), () => full.tri(3, 3)],
       ['tril', () => core.tril(mat2x2), () => full.tril(mat2x2)],
       ['triu', () => core.triu(mat2x2), () => full.triu(mat2x2)],
     ];
@@ -132,7 +120,11 @@ describe('Wrapper Validation: full/ matches core/', () => {
       ['power', () => core.power(a1d, 2), () => full.power(a1d, 2)],
       ['sqrt', () => core.sqrt(a1d), () => full.sqrt(a1d)],
       ['negative', () => core.negative(a1d), () => full.negative(a1d)],
-      ['absolute', () => core.absolute(core.array([-1, -2, 3])), () => full.absolute(core.array([-1, -2, 3]))],
+      [
+        'absolute',
+        () => core.absolute(core.array([-1, -2, 3])),
+        () => full.absolute(core.array([-1, -2, 3])),
+      ],
       ['sign', () => core.sign(core.array([-3, 0, 5])), () => full.sign(core.array([-3, 0, 5]))],
       ['mod', () => core.mod(a1d, 3), () => full.mod(a1d, 3)],
       ['clip', () => core.clip(a1d, 2, 4), () => full.clip(a1d, 2, 4)],
@@ -191,14 +183,26 @@ describe('Wrapper Validation: full/ matches core/', () => {
       ['sin', () => core.sin(angles), () => full.sin(angles)],
       ['cos', () => core.cos(angles), () => full.cos(angles)],
       ['tan', () => core.tan(angles), () => full.tan(angles)],
-      ['arcsin', () => core.arcsin(core.array([0, 0.5, 1])), () => full.arcsin(core.array([0, 0.5, 1]))],
-      ['arccos', () => core.arccos(core.array([0, 0.5, 1])), () => full.arccos(core.array([0, 0.5, 1]))],
+      [
+        'arcsin',
+        () => core.arcsin(core.array([0, 0.5, 1])),
+        () => full.arcsin(core.array([0, 0.5, 1])),
+      ],
+      [
+        'arccos',
+        () => core.arccos(core.array([0, 0.5, 1])),
+        () => full.arccos(core.array([0, 0.5, 1])),
+      ],
       ['arctan', () => core.arctan(angles), () => full.arctan(angles)],
       ['sinh', () => core.sinh(angles), () => full.sinh(angles)],
       ['cosh', () => core.cosh(angles), () => full.cosh(angles)],
       ['tanh', () => core.tanh(angles), () => full.tanh(angles)],
       ['degrees', () => core.degrees(angles), () => full.degrees(angles)],
-      ['radians', () => core.radians(core.array([0, 45, 90, 180])), () => full.radians(core.array([0, 45, 90, 180]))],
+      [
+        'radians',
+        () => core.radians(core.array([0, 45, 90, 180])),
+        () => full.radians(core.array([0, 45, 90, 180])),
+      ],
     ];
 
     for (const [name, coreFn, fullFn] of trigTests) {
@@ -410,9 +414,21 @@ describe('Wrapper Validation: full/ matches core/', () => {
       ['greater_equal', () => core.greater_equal(a1d, b1d), () => full.greater_equal(a1d, b1d)],
       ['less', () => core.less(a1d, b1d), () => full.less(a1d, b1d)],
       ['less_equal', () => core.less_equal(a1d, b1d), () => full.less_equal(a1d, b1d)],
-      ['equal', () => core.equal(a1d, core.array([1, 0, 3, 0, 5])), () => full.equal(a1d, core.array([1, 0, 3, 0, 5]))],
-      ['not_equal', () => core.not_equal(a1d, core.array([1, 0, 3, 0, 5])), () => full.not_equal(a1d, core.array([1, 0, 3, 0, 5]))],
-      ['isclose', () => core.isclose(a1d, core.array([1.0001, 2, 3, 4, 5])), () => full.isclose(a1d, core.array([1.0001, 2, 3, 4, 5]))],
+      [
+        'equal',
+        () => core.equal(a1d, core.array([1, 0, 3, 0, 5])),
+        () => full.equal(a1d, core.array([1, 0, 3, 0, 5])),
+      ],
+      [
+        'not_equal',
+        () => core.not_equal(a1d, core.array([1, 0, 3, 0, 5])),
+        () => full.not_equal(a1d, core.array([1, 0, 3, 0, 5])),
+      ],
+      [
+        'isclose',
+        () => core.isclose(a1d, core.array([1.0001, 2, 3, 4, 5])),
+        () => full.isclose(a1d, core.array([1.0001, 2, 3, 4, 5])),
+      ],
     ];
 
     for (const [name, coreFn, fullFn] of compTests) {
@@ -466,9 +482,21 @@ describe('Wrapper Validation: full/ matches core/', () => {
       ['logical_and', () => core.logical_and(a1d, boolArr), () => full.logical_and(a1d, boolArr)],
       ['logical_or', () => core.logical_or(a1d, boolArr), () => full.logical_or(a1d, boolArr)],
       ['logical_not', () => core.logical_not(boolArr), () => full.logical_not(boolArr)],
-      ['isnan', () => core.isnan(core.array([1, NaN, 3])), () => full.isnan(core.array([1, NaN, 3]))],
-      ['isinf', () => core.isinf(core.array([1, Infinity, -Infinity])), () => full.isinf(core.array([1, Infinity, -Infinity]))],
-      ['isfinite', () => core.isfinite(core.array([1, NaN, Infinity])), () => full.isfinite(core.array([1, NaN, Infinity]))],
+      [
+        'isnan',
+        () => core.isnan(core.array([1, NaN, 3])),
+        () => full.isnan(core.array([1, NaN, 3])),
+      ],
+      [
+        'isinf',
+        () => core.isinf(core.array([1, Infinity, -Infinity])),
+        () => full.isinf(core.array([1, Infinity, -Infinity])),
+      ],
+      [
+        'isfinite',
+        () => core.isfinite(core.array([1, NaN, Infinity])),
+        () => full.isfinite(core.array([1, NaN, Infinity])),
+      ],
     ];
 
     for (const [name, coreFn, fullFn] of logicTests) {

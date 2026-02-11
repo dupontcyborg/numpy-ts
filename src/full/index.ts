@@ -1076,7 +1076,10 @@ export function polyval(
 }
 
 /**
- * Find the roots of a polynomial
+ * Find the roots of a polynomial.
+ *
+ * Uses the companion matrix eigenvalue method (same as NumPy).
+ * Always returns a complex128 NDArrayCore.
  */
 export function roots(p: NDArrayCore | number[]): NDArray {
   return up(core.roots(p));

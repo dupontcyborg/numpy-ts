@@ -20,6 +20,7 @@ import {
   asanyarray,
   ascontiguousarray,
   asfortranarray,
+  asarray_chkfinite,
   diag,
   diagflat,
   frombuffer,
@@ -946,6 +947,74 @@ describe('Array Creation Functions', () => {
       const result = fromstring('10 20 30', 'int32');
       expect(result.dtype).toBe('int32');
       expect(result.toArray()).toEqual([10, 20, 30]);
+    });
+  });
+
+  describe('asarray_chkfinite', () => {
+    it('passes through valid finite array', () => {
+      const a = array([1, 2, 3]);
+      expect(asarray_chkfinite(a).toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('throws on NaN', () => {
+      const a = array([1, NaN, 3]);
+      expect(() => asarray_chkfinite(a)).toThrow('infs or NaNs');
+    });
+  });
+
+  describe('Creation dtype branches', () => {
+    it('zeros with int32 dtype', () => {
+      expect(zeros([3], 'int32').dtype).toBe('int32');
+    });
+
+    it('ones with float32 dtype', () => {
+      expect(ones([3], 'float32').dtype).toBe('float32');
+    });
+
+    it('full with int32 dtype and value', () => {
+      expect(full([3], 7, 'int32').toArray()).toEqual([7, 7, 7]);
+    });
+
+    it('empty with float32 dtype', () => {
+      const a = empty([3], 'float32');
+      expect(a.size).toBe(3);
+      expect(a.dtype).toBe('float32');
+    });
+
+    it('eye with k offset (non-square)', () => {
+      const a = eye(3, 4, 1);
+      expect(a.shape).toEqual([3, 4]);
+    });
+
+    it('linspace with specified num', () => {
+      const a = linspace(0, 10, 5);
+      expect(a.size).toBe(5);
+    });
+
+    it('arange with float step', () => {
+      const a = arange(0, 1, 0.25);
+      expect(a.size).toBe(4);
+    });
+
+    it('array with bool dtype', () => {
+      const a = array([0, 1, 1, 0], 'bool');
+      expect(a.dtype).toBe('bool');
+    });
+
+    it('array with int16 dtype', () => {
+      const a = array([1, 2, 3], 'int16');
+      expect(a.dtype).toBe('int16');
+    });
+
+    it('array with uint8 dtype', () => {
+      const a = array([1, 2, 3], 'uint8');
+      expect(a.dtype).toBe('uint8');
+    });
+
+    it('copy preserves dtype', () => {
+      const a = array([1, 2, 3], 'int32');
+      const b = copy(a);
+      expect(b.dtype).toBe('int32');
     });
   });
 });

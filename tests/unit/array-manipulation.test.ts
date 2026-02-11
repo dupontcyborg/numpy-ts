@@ -43,6 +43,8 @@ import {
   append,
   insert,
   pad,
+  flatten,
+  broadcast_to,
 } from '../../src';
 // Note: delete is a reserved keyword, so we use delete_ from ndarray directly
 import { delete_ } from '../../src';
@@ -987,6 +989,48 @@ describe('Array Manipulation', () => {
       const arr = array([1, 2, 3]);
       // pad edge mode is not fully implemented in the standalone module
       expect(() => pad(arr, 2, 'edge')).toThrow('not fully implemented');
+    });
+  });
+
+  // ========================================
+  // flatten (standalone function)
+  // ========================================
+  describe('flatten', () => {
+    it('flattens 3D array', () => {
+      const a = array([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        [
+          [5, 6],
+          [7, 8],
+        ],
+      ]);
+      expect(flatten(a).size).toBe(8);
+    });
+  });
+
+  // ========================================
+  // broadcast_to (shape manipulation)
+  // ========================================
+  describe('broadcast_to (from coverage gaps)', () => {
+    it('broadcasts 1D to 2D', () => {
+      const a = array([1, 2, 3]);
+      expect(broadcast_to(a, [2, 3]).shape).toEqual([2, 3]);
+    });
+  });
+
+  // ========================================
+  // roll with multiple axes/shifts
+  // ========================================
+  describe('roll (advanced)', () => {
+    it('rolls 2D array with array of shifts and axes', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(roll(a, [1, 1], [0, 1]).size).toBe(4);
     });
   });
 });

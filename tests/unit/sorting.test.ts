@@ -443,6 +443,24 @@ describe('Searching Functions', () => {
   });
 });
 
+describe('Dtype Branch Coverage', () => {
+  it('sorts float32 array', () => {
+    const a = array([3, 1, 2], 'float32');
+    expect(sort(a).toArray()).toEqual([1, 2, 3]);
+  });
+
+  it('argsort on int32 array', () => {
+    const a = array([3, 1, 2], 'int32');
+    expect(argsort(a).toArray()).toEqual([1, 2, 0]);
+  });
+
+  it('partition on int64 BigInt array', () => {
+    const a = array([3n, 1n, 2n, 5n, 4n], 'int64');
+    const r = partition(a, 2);
+    expect(r.size).toBe(5);
+  });
+});
+
 describe('Edge Cases', () => {
   it('sort handles empty array', () => {
     const arr = array([]);

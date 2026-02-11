@@ -4,7 +4,36 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, zeros } from '../../src';
+import {
+  array,
+  zeros,
+  sum,
+  mean,
+  prod,
+  std,
+  cumsum,
+  cumprod,
+  nansum,
+  nanprod,
+  nanmean,
+  ptp,
+  median,
+  average,
+  diff,
+  nanvar,
+  nanstd,
+  nanmin,
+  nanmax,
+  nanargmin,
+  nanargmax,
+  nancumsum,
+  nancumprod,
+  nanmedian,
+  nanquantile,
+  nanpercentile,
+  percentile,
+  quantile,
+} from '../../src';
 
 describe('Extended reduction tests', () => {
   describe('sum() with BigInt dtypes', () => {
@@ -1196,6 +1225,264 @@ describe('Extended reduction tests', () => {
       ]);
       const result = arr.nanpercentile(50, 0, true);
       expect((result as any).shape).toEqual([1, 3]);
+    });
+  });
+
+  // ========================================
+  // Standalone function: BigInt operations
+  // ========================================
+  describe('BigInt operations (standalone functions)', () => {
+    it('sum on int64', () => {
+      const a = array([1n, 2n, 3n], 'int64');
+      const r = sum(a);
+      expect(r).toBeDefined();
+    });
+
+    it('mean on int64 (promotes to float)', () => {
+      const a = array([2n, 4n, 6n], 'int64');
+      const r = mean(a);
+      expect(r).toBeDefined();
+    });
+
+    it('cumsum on int64', () => {
+      const a = array([1n, 2n, 3n], 'int64');
+      const r = cumsum(a);
+      expect(r.size).toBe(3);
+    });
+
+    it('diff on int64', () => {
+      const a = array([1n, 3n, 6n, 10n], 'int64');
+      const r = diff(a);
+      expect(r.size).toBe(3);
+    });
+  });
+
+  // ========================================
+  // Standalone function: Reduction keepdims & axis branches
+  // ========================================
+  describe('Reduction keepdims & axis branches (standalone functions)', () => {
+    it('sum with keepdims', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const r = sum(a, 1, true);
+      expect(r.shape).toEqual([2, 1]);
+    });
+
+    it('mean with keepdims', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const r = mean(a, 0, true);
+      expect(r.shape).toEqual([1, 2]);
+    });
+
+    it('prod with axis', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const r = prod(a, 1);
+      expect(r.toArray()).toEqual([2, 12]);
+    });
+
+    it('std with axis', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const r = std(a, 0);
+      expect(r.size).toBe(2);
+    });
+
+    it('ptp with axis', () => {
+      const a = array([
+        [1, 5],
+        [2, 8],
+      ]);
+      const r = ptp(a, 1);
+      expect(r.toArray()).toEqual([4, 6]);
+    });
+
+    it('median with keepdims', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const r = median(a, 0, true);
+      expect(r.shape).toEqual([1, 2]);
+    });
+
+    it('cumsum with axis', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const r = cumsum(a, 0);
+      expect(r.toArray()).toEqual([
+        [1, 2],
+        [4, 6],
+      ]);
+    });
+
+    it('cumprod with axis', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const r = cumprod(a, 0);
+      expect(r.toArray()).toEqual([
+        [1, 2],
+        [3, 8],
+      ]);
+    });
+
+    it('nansum with axis', () => {
+      const a = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      const r = nansum(a, 1);
+      expect(r.toArray()).toEqual([1, 7]);
+    });
+
+    it('nanmean with axis', () => {
+      const a = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      const r = nanmean(a, 1);
+      expect(r.size).toBe(2);
+    });
+
+    it('nanprod with axis', () => {
+      const a = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      const r = nanprod(a, 1);
+      expect(r.size).toBe(2);
+    });
+
+    it('average with weights', () => {
+      const a = array([1, 2, 3, 4]);
+      const w = array([4, 3, 2, 1]);
+      const r = average(a, undefined, w);
+      expect(r).toBeDefined();
+    });
+  });
+
+  // ========================================
+  // Standalone function: Reduction branches (dtype & axis variations)
+  // ========================================
+  describe('Reduction branches (standalone functions)', () => {
+    it('sum bool array', () => {
+      const a = array([1, 0, 1, 1], 'bool');
+      expect(sum(a)).toBeDefined();
+    });
+
+    it('cumsum int32', () => {
+      const a = array([1, 2, 3], 'int32');
+      expect(cumsum(a).size).toBe(3);
+    });
+
+    it('cumprod float32', () => {
+      const a = array([1, 2, 3], 'float32');
+      expect(cumprod(a).size).toBe(3);
+    });
+
+    it('ptp 2D axis=0', () => {
+      const a = array([
+        [1, 5],
+        [2, 8],
+      ]);
+      expect(ptp(a, 0).size).toBe(2);
+    });
+
+    it('median float32', () => {
+      const a = array([3, 1, 2], 'float32');
+      expect(median(a)).toBeDefined();
+    });
+
+    it('percentile with axis', () => {
+      const a = array([
+        [10, 20],
+        [30, 40],
+      ]);
+      expect(percentile(a, 50, 0).size).toBe(2);
+    });
+
+    it('quantile with axis', () => {
+      const a = array([
+        [10, 20],
+        [30, 40],
+      ]);
+      expect(quantile(a, 0.5, 0).size).toBe(2);
+    });
+
+    it('average with axis', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(average(a, 1).size).toBe(2);
+    });
+
+    it('nanvar with axis', () => {
+      const a = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      expect(nanvar(a, 1).size).toBe(2);
+    });
+
+    it('nanstd with axis', () => {
+      const a = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      expect(nanstd(a, 1).size).toBe(2);
+    });
+
+    it('nanmin/nanmax axis', () => {
+      const a = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      expect(nanmin(a, 1).size).toBe(2);
+      expect(nanmax(a, 1).size).toBe(2);
+    });
+
+    it('nanargmin/nanargmax', () => {
+      const a = array([NaN, 2, 1, 3]);
+      expect(nanargmin(a)).toBeDefined();
+      expect(nanargmax(a)).toBeDefined();
+    });
+
+    it('nancumsum/nancumprod', () => {
+      const a = array([1, NaN, 3]);
+      expect(nancumsum(a).size).toBe(3);
+      expect(nancumprod(a).size).toBe(3);
+    });
+
+    it('nanmedian with axis', () => {
+      const a = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      expect(nanmedian(a, 1).size).toBe(2);
+    });
+
+    it('nanquantile', () => {
+      const a = array([1, NaN, 3, 4]);
+      expect(nanquantile(a, 0.5)).toBeDefined();
+    });
+
+    it('nanpercentile', () => {
+      const a = array([1, NaN, 3, 4]);
+      expect(nanpercentile(a, 50)).toBeDefined();
     });
   });
 });

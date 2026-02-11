@@ -589,4 +589,24 @@ describe('Bitwise Operations', () => {
       expect(result.toArray()).toEqual([4, 4, 4]);
     });
   });
+
+  describe('packbits edge cases', () => {
+    it('packs 2D array along axis=1', () => {
+      const a = array(
+        [
+          [1, 0, 1, 0, 1, 0, 1, 0],
+          [0, 1, 0, 1, 0, 1, 0, 1],
+        ],
+        'uint8'
+      );
+      const r = packbits(a, 1);
+      expect(r.ndim).toBe(2);
+    });
+
+    it('packs with little-endian bitorder', () => {
+      const a = array([1, 0, 1, 0, 1, 0, 1, 0], 'uint8');
+      const r = packbits(a, undefined, 'little');
+      expect(r.size).toBe(1);
+    });
+  });
 });
