@@ -27,7 +27,7 @@ export default defineConfig({
     },
     // Projects configuration (replaces workspace in Vitest 4+)
     projects: [
-      // Unit tests only
+      // Unit tests (fast, no Python needed)
       defineProject({
         test: {
           name: 'unit',
@@ -36,40 +36,12 @@ export default defineConfig({
           environment: 'node',
         },
       }),
-      // Validation tests only
+      // Validation tests (requires Python + NumPy)
       defineProject({
         test: {
           name: 'validation',
           include: ['tests/validation/**'],
           exclude: ['**/node_modules/**', '**/*.md', '**/numpy-oracle.ts'],
-          environment: 'node',
-        },
-      }),
-      // Validation tests without slow exports test (for coverage)
-      defineProject({
-        test: {
-          name: 'validation-quick',
-          include: ['tests/validation/**'],
-          exclude: [
-            '**/node_modules/**',
-            '**/*.md',
-            '**/numpy-oracle.ts',
-            '**/exports.numpy.test.ts',
-          ],
-          environment: 'node',
-        },
-      }),
-      // Quick tests (unit + validation except slow exports test)
-      defineProject({
-        test: {
-          name: 'quick',
-          include: ['tests/unit/**', 'tests/validation/**'],
-          exclude: [
-            '**/node_modules/**',
-            '**/*.md',
-            '**/numpy-oracle.ts',
-            '**/exports.numpy.test.ts',
-          ],
           environment: 'node',
         },
       }),

@@ -48,17 +48,11 @@ jobs:
       - name: Run format check
         run: npm run format:check
 
-      - name: Run quick tests
-        run: npm run test:quick
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Build bundles
-        run: npm run build
-
-      - name: Test bundles
-        run: npm run test:bundles
+      - name: Run all tests
+        run: npm test
 
       - name: Generate test summary
         if: always()
