@@ -146,8 +146,7 @@ add(core, full);  // Works!
 // NDArray methods accept NDArrayCore
 full.add(core);   // Works!
 
-// Inheritance
-full instanceof NDArrayCore;  // true (NDArray extends NDArrayCore)
+// Note: compatibility is structural; do not rely on class inheritance or `instanceof`.
 ```
 
 ## Which Should I Use?
