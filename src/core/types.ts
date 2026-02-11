@@ -40,7 +40,7 @@ export function toStorage(a: NDArrayCore | ArrayStorage): ArrayStorage {
  * Wrap ArrayStorage result in NDArrayCore
  */
 export function fromStorage(storage: ArrayStorage, base?: NDArrayCore): NDArrayCore {
-  return NDArrayCore._fromStorage(storage, base);
+  return NDArrayCore.fromStorage(storage, base);
 }
 
 /**
@@ -50,7 +50,7 @@ export function fromStorage(storage: ArrayStorage, base?: NDArrayCore): NDArrayC
 export function fromStorageView(storage: ArrayStorage, original: NDArrayCore): NDArrayCore {
   // If original has a base, use that; otherwise use original as the base
   const base = original.base ?? original;
-  return NDArrayCore._fromStorage(storage, base);
+  return NDArrayCore.fromStorage(storage, base);
 }
 
 /**

@@ -5,13 +5,8 @@
  */
 
 import { NDArrayCore } from '../common/ndarray-core';
-import { ArrayStorage } from '../common/storage';
 import * as formattingOps from '../common/ops/formatting';
-
-// Helper to convert NDArrayCore to ArrayStorage
-function toStorage(a: NDArrayCore): ArrayStorage {
-  return (a as unknown as { _storage: ArrayStorage })._storage;
-}
+import { toStorage } from './types';
 
 // ============================================================
 // Print Options

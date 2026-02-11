@@ -77,7 +77,7 @@ const CUSTOM_WRAPPERS: Record<string, { returnType: string; body: string }> = {
     const data = new Ctor(2);
     data[0] = r.re;
     data[1] = r.im;
-    return NDArray._fromStorage(ArrayStorage.fromData(data, [], dtype));
+    return NDArray.fromStorage(ArrayStorage.fromData(data, [], dtype));
   }
   if (typeof r === 'number') {
     if (isComplexDType(dtype)) {
@@ -86,12 +86,12 @@ const CUSTOM_WRAPPERS: Record<string, { returnType: string; body: string }> = {
       const data = new Ctor(2);
       data[0] = r;
       data[1] = 0;
-      return NDArray._fromStorage(ArrayStorage.fromData(data, [], dtype));
+      return NDArray.fromStorage(ArrayStorage.fromData(data, [], dtype));
     }
     const Ctor = getTypedArrayConstructor(dtype)!;
     const data = new Ctor(1);
     data[0] = r as never;
-    return NDArray._fromStorage(ArrayStorage.fromData(data, [], dtype));
+    return NDArray.fromStorage(ArrayStorage.fromData(data, [], dtype));
   }
   return up(r);`,
   },
@@ -352,8 +352,7 @@ import {
 const up = (x: NDArrayCore): NDArray => {
   if (x instanceof NDArray) return x;
   const base = x.base ? up(x.base) : undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return NDArray._fromStorage((x as any)._storage, base);
+  return NDArray.fromStorage(x.storage, base);
 };
 
 // Re-export types

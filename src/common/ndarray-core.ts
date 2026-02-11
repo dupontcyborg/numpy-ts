@@ -55,7 +55,7 @@ export class NDArrayCore {
    * Create NDArray from storage (for ops modules)
    * @internal
    */
-  static _fromStorage(storage: ArrayStorage, base?: NDArrayCore): NDArrayCore {
+  static fromStorage(storage: ArrayStorage, base?: NDArrayCore): NDArrayCore {
     return new NDArrayCore(storage, base);
   }
 

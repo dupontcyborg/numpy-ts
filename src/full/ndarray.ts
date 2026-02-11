@@ -45,7 +45,7 @@ export class NDArray extends NDArrayCore {
    * Create NDArray from storage (for ops modules)
    * @internal
    */
-  static override _fromStorage(storage: ArrayStorage, base?: NDArray): NDArray {
+  static override fromStorage(storage: ArrayStorage, base?: NDArray): NDArray {
     return new NDArray(storage, base);
   }
 
@@ -316,7 +316,7 @@ export class NDArray extends NDArrayCore {
   add(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = arithmeticOps.add(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -327,7 +327,7 @@ export class NDArray extends NDArrayCore {
   subtract(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = arithmeticOps.subtract(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -338,7 +338,7 @@ export class NDArray extends NDArrayCore {
   multiply(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = arithmeticOps.multiply(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -349,7 +349,7 @@ export class NDArray extends NDArrayCore {
   divide(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = arithmeticOps.divide(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -360,7 +360,7 @@ export class NDArray extends NDArrayCore {
   mod(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = arithmeticOps.mod(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -371,7 +371,7 @@ export class NDArray extends NDArrayCore {
   floor_divide(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = arithmeticOps.floorDivide(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -380,7 +380,7 @@ export class NDArray extends NDArrayCore {
    */
   positive(): NDArray {
     const resultStorage = arithmeticOps.positive(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -389,7 +389,7 @@ export class NDArray extends NDArrayCore {
    */
   reciprocal(): NDArray {
     const resultStorage = arithmeticOps.reciprocal(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Mathematical operations
@@ -400,7 +400,7 @@ export class NDArray extends NDArrayCore {
    */
   sqrt(): NDArray {
     const resultStorage = exponentialOps.sqrt(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -411,7 +411,7 @@ export class NDArray extends NDArrayCore {
   power(exponent: NDArray | number): NDArray {
     const exponentStorage = typeof exponent === 'number' ? exponent : exponent._storage;
     const resultStorage = exponentialOps.power(this._storage, exponentStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -421,7 +421,7 @@ export class NDArray extends NDArrayCore {
    */
   exp(): NDArray {
     const resultStorage = exponentialOps.exp(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -431,7 +431,7 @@ export class NDArray extends NDArrayCore {
    */
   exp2(): NDArray {
     const resultStorage = exponentialOps.exp2(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -442,7 +442,7 @@ export class NDArray extends NDArrayCore {
    */
   expm1(): NDArray {
     const resultStorage = exponentialOps.expm1(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -452,7 +452,7 @@ export class NDArray extends NDArrayCore {
    */
   log(): NDArray {
     const resultStorage = exponentialOps.log(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -462,7 +462,7 @@ export class NDArray extends NDArrayCore {
    */
   log2(): NDArray {
     const resultStorage = exponentialOps.log2(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -472,7 +472,7 @@ export class NDArray extends NDArrayCore {
    */
   log10(): NDArray {
     const resultStorage = exponentialOps.log10(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -483,7 +483,7 @@ export class NDArray extends NDArrayCore {
    */
   log1p(): NDArray {
     const resultStorage = exponentialOps.log1p(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -496,7 +496,7 @@ export class NDArray extends NDArrayCore {
   logaddexp(x2: NDArray | number): NDArray {
     const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
     const resultStorage = exponentialOps.logaddexp(this._storage, x2Storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -509,7 +509,7 @@ export class NDArray extends NDArrayCore {
   logaddexp2(x2: NDArray | number): NDArray {
     const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
     const resultStorage = exponentialOps.logaddexp2(this._storage, x2Storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -518,7 +518,7 @@ export class NDArray extends NDArrayCore {
    */
   absolute(): NDArray {
     const resultStorage = arithmeticOps.absolute(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -527,7 +527,7 @@ export class NDArray extends NDArrayCore {
    */
   negative(): NDArray {
     const resultStorage = arithmeticOps.negative(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -536,7 +536,7 @@ export class NDArray extends NDArrayCore {
    */
   sign(): NDArray {
     const resultStorage = arithmeticOps.sign(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Rounding operations
@@ -547,7 +547,7 @@ export class NDArray extends NDArrayCore {
    */
   around(decimals: number = 0): NDArray {
     const resultStorage = roundingOps.around(this._storage, decimals);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -565,7 +565,7 @@ export class NDArray extends NDArrayCore {
    */
   ceil(): NDArray {
     const resultStorage = roundingOps.ceil(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -574,7 +574,7 @@ export class NDArray extends NDArrayCore {
    */
   fix(): NDArray {
     const resultStorage = roundingOps.fix(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -583,7 +583,7 @@ export class NDArray extends NDArrayCore {
    */
   floor(): NDArray {
     const resultStorage = roundingOps.floor(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -592,7 +592,7 @@ export class NDArray extends NDArrayCore {
    */
   rint(): NDArray {
     const resultStorage = roundingOps.rint(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -601,7 +601,7 @@ export class NDArray extends NDArrayCore {
    */
   trunc(): NDArray {
     const resultStorage = roundingOps.trunc(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Trigonometric operations
@@ -612,7 +612,7 @@ export class NDArray extends NDArrayCore {
    */
   sin(): NDArray {
     const resultStorage = trigOps.sin(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -622,7 +622,7 @@ export class NDArray extends NDArrayCore {
    */
   cos(): NDArray {
     const resultStorage = trigOps.cos(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -632,7 +632,7 @@ export class NDArray extends NDArrayCore {
    */
   tan(): NDArray {
     const resultStorage = trigOps.tan(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -642,7 +642,7 @@ export class NDArray extends NDArrayCore {
    */
   arcsin(): NDArray {
     const resultStorage = trigOps.arcsin(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -652,7 +652,7 @@ export class NDArray extends NDArrayCore {
    */
   arccos(): NDArray {
     const resultStorage = trigOps.arccos(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -662,7 +662,7 @@ export class NDArray extends NDArrayCore {
    */
   arctan(): NDArray {
     const resultStorage = trigOps.arctan(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -673,7 +673,7 @@ export class NDArray extends NDArrayCore {
   arctan2(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = trigOps.arctan2(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -685,7 +685,7 @@ export class NDArray extends NDArrayCore {
   hypot(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = trigOps.hypot(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -694,7 +694,7 @@ export class NDArray extends NDArrayCore {
    */
   degrees(): NDArray {
     const resultStorage = trigOps.degrees(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -703,7 +703,7 @@ export class NDArray extends NDArrayCore {
    */
   radians(): NDArray {
     const resultStorage = trigOps.radians(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Hyperbolic operations
@@ -714,7 +714,7 @@ export class NDArray extends NDArrayCore {
    */
   sinh(): NDArray {
     const resultStorage = hyperbolicOps.sinh(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -724,7 +724,7 @@ export class NDArray extends NDArrayCore {
    */
   cosh(): NDArray {
     const resultStorage = hyperbolicOps.cosh(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -734,7 +734,7 @@ export class NDArray extends NDArrayCore {
    */
   tanh(): NDArray {
     const resultStorage = hyperbolicOps.tanh(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -744,7 +744,7 @@ export class NDArray extends NDArrayCore {
    */
   arcsinh(): NDArray {
     const resultStorage = hyperbolicOps.arcsinh(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -754,7 +754,7 @@ export class NDArray extends NDArrayCore {
    */
   arccosh(): NDArray {
     const resultStorage = hyperbolicOps.arccosh(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -764,7 +764,7 @@ export class NDArray extends NDArrayCore {
    */
   arctanh(): NDArray {
     const resultStorage = hyperbolicOps.arctanh(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Comparison operations
@@ -776,7 +776,7 @@ export class NDArray extends NDArrayCore {
   greater(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = comparisonOps.greater(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -787,7 +787,7 @@ export class NDArray extends NDArrayCore {
   greater_equal(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = comparisonOps.greaterEqual(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -798,7 +798,7 @@ export class NDArray extends NDArrayCore {
   less(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = comparisonOps.less(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -809,7 +809,7 @@ export class NDArray extends NDArrayCore {
   less_equal(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = comparisonOps.lessEqual(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -820,7 +820,7 @@ export class NDArray extends NDArrayCore {
   equal(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = comparisonOps.equal(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -831,7 +831,7 @@ export class NDArray extends NDArrayCore {
   not_equal(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = comparisonOps.notEqual(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -845,7 +845,7 @@ export class NDArray extends NDArrayCore {
   isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = comparisonOps.isclose(this._storage, otherStorage, rtol, atol);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -870,7 +870,7 @@ export class NDArray extends NDArrayCore {
   bitwise_and(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = bitwiseOps.bitwise_and(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -881,7 +881,7 @@ export class NDArray extends NDArrayCore {
   bitwise_or(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = bitwiseOps.bitwise_or(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -892,7 +892,7 @@ export class NDArray extends NDArrayCore {
   bitwise_xor(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = bitwiseOps.bitwise_xor(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -901,7 +901,7 @@ export class NDArray extends NDArrayCore {
    */
   bitwise_not(): NDArray {
     const resultStorage = bitwiseOps.bitwise_not(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -910,7 +910,7 @@ export class NDArray extends NDArrayCore {
    */
   invert(): NDArray {
     const resultStorage = bitwiseOps.invert(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -921,7 +921,7 @@ export class NDArray extends NDArrayCore {
   left_shift(shift: NDArray | number): NDArray {
     const shiftStorage = typeof shift === 'number' ? shift : shift._storage;
     const resultStorage = bitwiseOps.left_shift(this._storage, shiftStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -932,7 +932,7 @@ export class NDArray extends NDArrayCore {
   right_shift(shift: NDArray | number): NDArray {
     const shiftStorage = typeof shift === 'number' ? shift : shift._storage;
     const resultStorage = bitwiseOps.right_shift(this._storage, shiftStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Logic operations
@@ -944,7 +944,7 @@ export class NDArray extends NDArrayCore {
   logical_and(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = logicOps.logical_and(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -955,7 +955,7 @@ export class NDArray extends NDArrayCore {
   logical_or(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = logicOps.logical_or(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -964,7 +964,7 @@ export class NDArray extends NDArrayCore {
    */
   logical_not(): NDArray {
     const resultStorage = logicOps.logical_not(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -975,7 +975,7 @@ export class NDArray extends NDArrayCore {
   logical_xor(other: NDArray | number): NDArray {
     const otherStorage = typeof other === 'number' ? other : other._storage;
     const resultStorage = logicOps.logical_xor(this._storage, otherStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -984,7 +984,7 @@ export class NDArray extends NDArrayCore {
    */
   isfinite(): NDArray {
     const resultStorage = logicOps.isfinite(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -993,7 +993,7 @@ export class NDArray extends NDArrayCore {
    */
   isinf(): NDArray {
     const resultStorage = logicOps.isinf(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1002,7 +1002,7 @@ export class NDArray extends NDArrayCore {
    */
   isnan(): NDArray {
     const resultStorage = logicOps.isnan(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1011,7 +1011,7 @@ export class NDArray extends NDArrayCore {
    */
   isnat(): NDArray {
     const resultStorage = logicOps.isnat(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1022,7 +1022,7 @@ export class NDArray extends NDArrayCore {
   copysign(x2: NDArray | number): NDArray {
     const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
     const resultStorage = logicOps.copysign(this._storage, x2Storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1031,7 +1031,7 @@ export class NDArray extends NDArrayCore {
    */
   signbit(): NDArray {
     const resultStorage = logicOps.signbit(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1042,7 +1042,7 @@ export class NDArray extends NDArrayCore {
   nextafter(x2: NDArray | number): NDArray {
     const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
     const resultStorage = logicOps.nextafter(this._storage, x2Storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1051,7 +1051,7 @@ export class NDArray extends NDArrayCore {
    */
   spacing(): NDArray {
     const resultStorage = logicOps.spacing(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Reductions
@@ -1066,7 +1066,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1082,7 +1082,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1096,7 +1096,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1110,7 +1110,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1124,7 +1124,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1134,7 +1134,7 @@ export class NDArray extends NDArrayCore {
    */
   argmin(axis?: number): NDArray | number {
     const result = reductionOps.argmin(this._storage, axis);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1144,7 +1144,7 @@ export class NDArray extends NDArrayCore {
    */
   argmax(axis?: number): NDArray | number {
     const result = reductionOps.argmax(this._storage, axis);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1156,7 +1156,7 @@ export class NDArray extends NDArrayCore {
    */
   var(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.variance(this._storage, axis, ddof, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1168,7 +1168,7 @@ export class NDArray extends NDArrayCore {
    */
   std(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.std(this._storage, axis, ddof, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1179,7 +1179,7 @@ export class NDArray extends NDArrayCore {
    */
   all(axis?: number, keepdims: boolean = false): NDArray | boolean {
     const result = reductionOps.all(this._storage, axis, keepdims);
-    return typeof result === 'boolean' ? result : NDArray._fromStorage(result);
+    return typeof result === 'boolean' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1190,7 +1190,7 @@ export class NDArray extends NDArrayCore {
    */
   any(axis?: number, keepdims: boolean = false): NDArray | boolean {
     const result = reductionOps.any(this._storage, axis, keepdims);
-    return typeof result === 'boolean' ? result : NDArray._fromStorage(result);
+    return typeof result === 'boolean' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1199,7 +1199,7 @@ export class NDArray extends NDArrayCore {
    * @returns Array with cumulative sums
    */
   cumsum(axis?: number): NDArray {
-    return NDArray._fromStorage(reductionOps.cumsum(this._storage, axis));
+    return NDArray.fromStorage(reductionOps.cumsum(this._storage, axis));
   }
 
   /**
@@ -1208,7 +1208,7 @@ export class NDArray extends NDArrayCore {
    * @returns Array with cumulative products
    */
   cumprod(axis?: number): NDArray {
-    return NDArray._fromStorage(reductionOps.cumprod(this._storage, axis));
+    return NDArray.fromStorage(reductionOps.cumprod(this._storage, axis));
   }
 
   /**
@@ -1222,7 +1222,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1233,7 +1233,7 @@ export class NDArray extends NDArrayCore {
    */
   median(axis?: number, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.median(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1245,7 +1245,7 @@ export class NDArray extends NDArrayCore {
    */
   percentile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.percentile(this._storage, q, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1257,7 +1257,7 @@ export class NDArray extends NDArrayCore {
    */
   quantile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.quantile(this._storage, q, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1271,7 +1271,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1285,7 +1285,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1299,7 +1299,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1313,7 +1313,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1325,7 +1325,7 @@ export class NDArray extends NDArrayCore {
    */
   nanvar(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.nanvar(this._storage, axis, ddof, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1337,7 +1337,7 @@ export class NDArray extends NDArrayCore {
    */
   nanstd(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.nanstd(this._storage, axis, ddof, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1351,7 +1351,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1365,7 +1365,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1377,7 +1377,7 @@ export class NDArray extends NDArrayCore {
    */
   nanquantile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.nanquantile(this._storage, q, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1389,7 +1389,7 @@ export class NDArray extends NDArrayCore {
    */
   nanpercentile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.nanpercentile(this._storage, q, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1399,7 +1399,7 @@ export class NDArray extends NDArrayCore {
    */
   nanargmin(axis?: number): NDArray | number {
     const result = reductionOps.nanargmin(this._storage, axis);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1409,7 +1409,7 @@ export class NDArray extends NDArrayCore {
    */
   nanargmax(axis?: number): NDArray | number {
     const result = reductionOps.nanargmax(this._storage, axis);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   /**
@@ -1418,7 +1418,7 @@ export class NDArray extends NDArrayCore {
    * @returns Array with cumulative sums ignoring NaNs
    */
   nancumsum(axis?: number): NDArray {
-    return NDArray._fromStorage(reductionOps.nancumsum(this._storage, axis));
+    return NDArray.fromStorage(reductionOps.nancumsum(this._storage, axis));
   }
 
   /**
@@ -1427,7 +1427,7 @@ export class NDArray extends NDArrayCore {
    * @returns Array with cumulative products ignoring NaNs
    */
   nancumprod(axis?: number): NDArray {
-    return NDArray._fromStorage(reductionOps.nancumprod(this._storage, axis));
+    return NDArray.fromStorage(reductionOps.nancumprod(this._storage, axis));
   }
 
   /**
@@ -1438,7 +1438,7 @@ export class NDArray extends NDArrayCore {
    */
   nanmedian(axis?: number, keepdims: boolean = false): NDArray | number {
     const result = reductionOps.nanmedian(this._storage, axis, keepdims);
-    return typeof result === 'number' ? result : NDArray._fromStorage(result);
+    return typeof result === 'number' ? result : NDArray.fromStorage(result);
   }
 
   // ========================================
@@ -1451,7 +1451,7 @@ export class NDArray extends NDArrayCore {
    * @returns Sorted array
    */
   sort(axis: number = -1): NDArray {
-    return NDArray._fromStorage(sortingOps.sort(this._storage, axis));
+    return NDArray.fromStorage(sortingOps.sort(this._storage, axis));
   }
 
   /**
@@ -1460,7 +1460,7 @@ export class NDArray extends NDArrayCore {
    * @returns Array of indices that sort the array
    */
   argsort(axis: number = -1): NDArray {
-    return NDArray._fromStorage(sortingOps.argsort(this._storage, axis));
+    return NDArray.fromStorage(sortingOps.argsort(this._storage, axis));
   }
 
   /**
@@ -1470,7 +1470,7 @@ export class NDArray extends NDArrayCore {
    * @returns Partitioned array
    */
   partition(kth: number, axis: number = -1): NDArray {
-    return NDArray._fromStorage(sortingOps.partition(this._storage, kth, axis));
+    return NDArray.fromStorage(sortingOps.partition(this._storage, kth, axis));
   }
 
   /**
@@ -1480,7 +1480,7 @@ export class NDArray extends NDArrayCore {
    * @returns Array of indices
    */
   argpartition(kth: number, axis: number = -1): NDArray {
-    return NDArray._fromStorage(sortingOps.argpartition(this._storage, kth, axis));
+    return NDArray.fromStorage(sortingOps.argpartition(this._storage, kth, axis));
   }
 
   /**
@@ -1489,7 +1489,7 @@ export class NDArray extends NDArrayCore {
    */
   nonzero(): NDArray[] {
     const storages = sortingOps.nonzero(this._storage);
-    return storages.map((s) => NDArray._fromStorage(s));
+    return storages.map((s) => NDArray.fromStorage(s));
   }
 
   /**
@@ -1498,7 +1498,7 @@ export class NDArray extends NDArrayCore {
    * @returns 2D array of shape (N, ndim) where N is number of non-zero elements
    */
   argwhere(): NDArray {
-    return NDArray._fromStorage(sortingOps.argwhere(this._storage));
+    return NDArray.fromStorage(sortingOps.argwhere(this._storage));
   }
 
   /**
@@ -1508,7 +1508,7 @@ export class NDArray extends NDArrayCore {
    * @returns Indices where values should be inserted
    */
   searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray {
-    return NDArray._fromStorage(sortingOps.searchsorted(this._storage, v._storage, side));
+    return NDArray.fromStorage(sortingOps.searchsorted(this._storage, v._storage, side));
   }
 
   // Gradient and difference operations
@@ -1519,7 +1519,7 @@ export class NDArray extends NDArrayCore {
    * @returns Array of differences
    */
   diff(n: number = 1, axis: number = -1): NDArray {
-    return NDArray._fromStorage(gradientOps.diff(this._storage, n, axis));
+    return NDArray.fromStorage(gradientOps.diff(this._storage, n, axis));
   }
 
   // Shape manipulation
@@ -1534,7 +1534,7 @@ export class NDArray extends NDArrayCore {
     const resultStorage = shapeOps.reshape(this._storage, newShape);
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray._fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base);
   }
 
   /**
@@ -1543,7 +1543,7 @@ export class NDArray extends NDArrayCore {
    */
   flatten(): NDArray {
     const resultStorage = shapeOps.flatten(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1554,7 +1554,7 @@ export class NDArray extends NDArrayCore {
     const resultStorage = shapeOps.ravel(this._storage);
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray._fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base);
   }
 
   /**
@@ -1565,7 +1565,7 @@ export class NDArray extends NDArrayCore {
   transpose(axes?: number[]): NDArray {
     const resultStorage = shapeOps.transpose(this._storage, axes);
     const base = this._base ?? this;
-    return NDArray._fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base);
   }
 
   /**
@@ -1576,7 +1576,7 @@ export class NDArray extends NDArrayCore {
   squeeze(axis?: number): NDArray {
     const resultStorage = shapeOps.squeeze(this._storage, axis);
     const base = this._base ?? this;
-    return NDArray._fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base);
   }
 
   /**
@@ -1587,7 +1587,7 @@ export class NDArray extends NDArrayCore {
   expand_dims(axis: number): NDArray {
     const resultStorage = shapeOps.expandDims(this._storage, axis);
     const base = this._base ?? this;
-    return NDArray._fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base);
   }
 
   /**
@@ -1599,7 +1599,7 @@ export class NDArray extends NDArrayCore {
   swapaxes(axis1: number, axis2: number): NDArray {
     const resultStorage = shapeOps.swapaxes(this._storage, axis1, axis2);
     const base = this._base ?? this;
-    return NDArray._fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base);
   }
 
   /**
@@ -1611,7 +1611,7 @@ export class NDArray extends NDArrayCore {
   moveaxis(source: number | number[], destination: number | number[]): NDArray {
     const resultStorage = shapeOps.moveaxis(this._storage, source, destination);
     const base = this._base ?? this;
-    return NDArray._fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base);
   }
 
   /**
@@ -1622,7 +1622,7 @@ export class NDArray extends NDArrayCore {
    */
   repeat(repeats: number | number[], axis?: number): NDArray {
     const resultStorage = shapeOps.repeat(this._storage, repeats, axis);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1633,7 +1633,7 @@ export class NDArray extends NDArrayCore {
    */
   take(indices: number[], axis?: number): NDArray {
     const resultStorage = advancedOps.take(this._storage, indices, axis);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1719,7 +1719,7 @@ export class NDArray extends NDArrayCore {
    * ```
    */
   bindex(mask: NDArray, axis?: number): NDArray {
-    return NDArray._fromStorage(advancedOps.compress(mask._storage, this._storage, axis));
+    return NDArray.fromStorage(advancedOps.compress(mask._storage, this._storage, axis));
   }
 
   // Linear algebra operations
@@ -1730,7 +1730,7 @@ export class NDArray extends NDArrayCore {
    */
   matmul(other: NDArray): NDArray {
     const resultStorage = linalgOps.matmul(this._storage, other._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1743,7 +1743,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1764,7 +1764,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1774,7 +1774,7 @@ export class NDArray extends NDArrayCore {
    */
   outer(other: NDArray): NDArray {
     const result = linalgOps.outer(this._storage, other._storage);
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -1791,7 +1791,7 @@ export class NDArray extends NDArrayCore {
     if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
       return result;
     }
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   // Additional arithmetic operations
@@ -1803,7 +1803,7 @@ export class NDArray extends NDArrayCore {
    */
   cbrt(): NDArray {
     const resultStorage = arithmeticOps.cbrt(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1812,7 +1812,7 @@ export class NDArray extends NDArrayCore {
    */
   fabs(): NDArray {
     const resultStorage = arithmeticOps.fabs(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1823,7 +1823,7 @@ export class NDArray extends NDArrayCore {
   divmod(divisor: NDArray | number): [NDArray, NDArray] {
     const divisorStorage = typeof divisor === 'number' ? divisor : divisor._storage;
     const [quotientStorage, remainderStorage] = arithmeticOps.divmod(this._storage, divisorStorage);
-    return [NDArray._fromStorage(quotientStorage), NDArray._fromStorage(remainderStorage)];
+    return [NDArray.fromStorage(quotientStorage), NDArray.fromStorage(remainderStorage)];
   }
 
   /**
@@ -1832,7 +1832,7 @@ export class NDArray extends NDArrayCore {
    */
   square(): NDArray {
     const resultStorage = arithmeticOps.square(this._storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1843,7 +1843,7 @@ export class NDArray extends NDArrayCore {
   remainder(divisor: NDArray | number): NDArray {
     const divisorStorage = typeof divisor === 'number' ? divisor : divisor._storage;
     const resultStorage = arithmeticOps.remainder(this._storage, divisorStorage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   /**
@@ -1854,7 +1854,7 @@ export class NDArray extends NDArrayCore {
   heaviside(x2: NDArray | number): NDArray {
     const x2Storage = typeof x2 === 'number' ? x2 : x2._storage;
     const resultStorage = arithmeticOps.heaviside(this._storage, x2Storage);
-    return NDArray._fromStorage(resultStorage);
+    return NDArray.fromStorage(resultStorage);
   }
 
   // Slicing
@@ -2126,7 +2126,7 @@ export class NDArray extends NDArrayCore {
    */
   view(dtype?: DType): NDArray {
     if (!dtype || dtype === this.dtype) {
-      return NDArray._fromStorage(this._storage, this._base ?? this);
+      return NDArray.fromStorage(this._storage, this._base ?? this);
     }
     const oldSize = getDTypeSize(this.dtype as DType);
     const newSize = getDTypeSize(dtype);
@@ -2147,7 +2147,7 @@ export class NDArray extends NDArrayCore {
       [...this._storage.strides],
       0
     );
-    return NDArray._fromStorage(storage, this._base ?? this);
+    return NDArray.fromStorage(storage, this._base ?? this);
   }
 
   /**
@@ -2158,7 +2158,7 @@ export class NDArray extends NDArrayCore {
   choose(choices: NDArray[]): NDArray {
     const choiceStorages = choices.map((c) => c._storage);
     const result = advancedOps.choose(this._storage, choiceStorages);
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -2171,7 +2171,7 @@ export class NDArray extends NDArrayCore {
     const minStorage = a_min instanceof NDArray ? a_min._storage : a_min;
     const maxStorage = a_max instanceof NDArray ? a_max._storage : a_max;
     const result = arithmeticOps.clip(this._storage, minStorage, maxStorage);
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -2190,7 +2190,7 @@ export class NDArray extends NDArrayCore {
             'bool'
           );
     const result = advancedOps.compress(condStorage, this._storage, axis);
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -2199,7 +2199,7 @@ export class NDArray extends NDArrayCore {
    */
   conj(): NDArray {
     const result = complexOps.conj(this._storage);
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -2219,7 +2219,7 @@ export class NDArray extends NDArrayCore {
    */
   diagonal(offset: number = 0, axis1: number = 0, axis2: number = 1): NDArray {
     const result = linalgOps.diagonal(this._storage, offset, axis1, axis2);
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -2230,7 +2230,7 @@ export class NDArray extends NDArrayCore {
    */
   resize(newShape: number[]): NDArray {
     const result = shapeOps.resize(this._storage, newShape);
-    return NDArray._fromStorage(result);
+    return NDArray.fromStorage(result);
   }
 
   /**
@@ -2297,7 +2297,7 @@ export function meshgrid(...args: (NDArray | { indexing?: 'xy' | 'ij' })[]): NDA
     // Reshape and broadcast
     const reshaped = inputArr.reshape(...broadcastShape);
     const resultStorage = advancedOps.broadcast_to(reshaped.storage, outputShape);
-    const result = NDArray._fromStorage(resultStorage.copy()); // copy to make contiguous
+    const result = NDArray.fromStorage(resultStorage.copy()); // copy to make contiguous
     results.push(result);
   }
 

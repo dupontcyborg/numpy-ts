@@ -38,7 +38,7 @@ import type { DType } from './common/dtype';
 
 // Helper to upgrade NDArrayCore to NDArray
 function upgrade(core: NDArrayCore): NDArray {
-  return NDArray._fromStorage(core.storage);
+  return NDArray.fromStorage(core.storage);
 }
 
 // NDArray-typed NpzParseResult for node.ts

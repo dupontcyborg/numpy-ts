@@ -598,7 +598,7 @@ export interface NpzParseResult {
 
 // Helper to upgrade NDArrayCore to NDArray
 function upgradeToNDArray(core: NDArrayCore): NDArrayClass {
-  return NDArrayClass._fromStorage(core.storage);
+  return NDArrayClass.fromStorage(core.storage);
 }
 
 // NPY parsers
@@ -688,7 +688,7 @@ import { DType } from './common/dtype';
 // Helper to wrap ArrayStorage results in NDArray
 function wrapResult<T>(result: T): T | NDArrayClass {
   if (result && typeof result === 'object' && '_data' in result && '_shape' in result) {
-    return NDArrayClass._fromStorage(result as unknown as ArrayStorage);
+    return NDArrayClass.fromStorage(result as unknown as ArrayStorage);
   }
   return result;
 }
@@ -816,17 +816,17 @@ type ArrayInput = NDArrayClass | NDArrayCore | ArrayStorage;
 
 // Helper to extract storage from any array input
 function getStorage(a: ArrayInput): ArrayStorage {
-  if (a instanceof NDArrayClass) return a['_storage'];
-  if (a instanceof NDArrayCore) return a['_storage'];
+  if (a instanceof NDArrayClass) return a.storage;
+  if (a instanceof NDArrayCore) return a.storage;
   return a;
 }
 
 export const fft = {
   fft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
-    return NDArrayClass._fromStorage(fftOps.fft(getStorage(a), n, axis, norm));
+    return NDArrayClass.fromStorage(fftOps.fft(getStorage(a), n, axis, norm));
   },
   ifft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
-    return NDArrayClass._fromStorage(fftOps.ifft(getStorage(a), n, axis, norm));
+    return NDArrayClass.fromStorage(fftOps.ifft(getStorage(a), n, axis, norm));
   },
   fft2: (
     a: ArrayInput,
@@ -834,7 +834,7 @@ export const fft = {
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    return NDArrayClass._fromStorage(fftOps.fft2(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.fft2(getStorage(a), s, axes, norm));
   },
   ifft2: (
     a: ArrayInput,
@@ -842,10 +842,10 @@ export const fft = {
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    return NDArrayClass._fromStorage(fftOps.ifft2(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.ifft2(getStorage(a), s, axes, norm));
   },
   fftn: (a: ArrayInput, s?: number[], axes?: number[], norm?: 'backward' | 'ortho' | 'forward') => {
-    return NDArrayClass._fromStorage(fftOps.fftn(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.fftn(getStorage(a), s, axes, norm));
   },
   ifftn: (
     a: ArrayInput,
@@ -853,13 +853,13 @@ export const fft = {
     axes?: number[],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    return NDArrayClass._fromStorage(fftOps.ifftn(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.ifftn(getStorage(a), s, axes, norm));
   },
   rfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
-    return NDArrayClass._fromStorage(fftOps.rfft(getStorage(a), n, axis, norm));
+    return NDArrayClass.fromStorage(fftOps.rfft(getStorage(a), n, axis, norm));
   },
   irfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
-    return NDArrayClass._fromStorage(fftOps.irfft(getStorage(a), n, axis, norm));
+    return NDArrayClass.fromStorage(fftOps.irfft(getStorage(a), n, axis, norm));
   },
   rfft2: (
     a: ArrayInput,
@@ -867,7 +867,7 @@ export const fft = {
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    return NDArrayClass._fromStorage(fftOps.rfft2(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.rfft2(getStorage(a), s, axes, norm));
   },
   irfft2: (
     a: ArrayInput,
@@ -875,7 +875,7 @@ export const fft = {
     axes?: [number, number],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    return NDArrayClass._fromStorage(fftOps.irfft2(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.irfft2(getStorage(a), s, axes, norm));
   },
   rfftn: (
     a: ArrayInput,
@@ -883,7 +883,7 @@ export const fft = {
     axes?: number[],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    return NDArrayClass._fromStorage(fftOps.rfftn(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.rfftn(getStorage(a), s, axes, norm));
   },
   irfftn: (
     a: ArrayInput,
@@ -891,25 +891,25 @@ export const fft = {
     axes?: number[],
     norm?: 'backward' | 'ortho' | 'forward'
   ) => {
-    return NDArrayClass._fromStorage(fftOps.irfftn(getStorage(a), s, axes, norm));
+    return NDArrayClass.fromStorage(fftOps.irfftn(getStorage(a), s, axes, norm));
   },
   hfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
-    return NDArrayClass._fromStorage(fftOps.hfft(getStorage(a), n, axis, norm));
+    return NDArrayClass.fromStorage(fftOps.hfft(getStorage(a), n, axis, norm));
   },
   ihfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') => {
-    return NDArrayClass._fromStorage(fftOps.ihfft(getStorage(a), n, axis, norm));
+    return NDArrayClass.fromStorage(fftOps.ihfft(getStorage(a), n, axis, norm));
   },
   fftfreq: (n: number, d?: number) => {
-    return NDArrayClass._fromStorage(fftOps.fftfreq(n, d));
+    return NDArrayClass.fromStorage(fftOps.fftfreq(n, d));
   },
   rfftfreq: (n: number, d?: number) => {
-    return NDArrayClass._fromStorage(fftOps.rfftfreq(n, d));
+    return NDArrayClass.fromStorage(fftOps.rfftfreq(n, d));
   },
   fftshift: (a: ArrayInput, axes?: number | number[]) => {
-    return NDArrayClass._fromStorage(fftOps.fftshift(getStorage(a), axes));
+    return NDArrayClass.fromStorage(fftOps.fftshift(getStorage(a), axes));
   },
   ifftshift: (a: ArrayInput, axes?: number | number[]) => {
-    return NDArrayClass._fromStorage(fftOps.ifftshift(getStorage(a), axes));
+    return NDArrayClass.fromStorage(fftOps.ifftshift(getStorage(a), axes));
   },
 };
 

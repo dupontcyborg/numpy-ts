@@ -12,7 +12,7 @@ import type { DType } from '../../src/common/dtype';
  * src/full/ndarray.ts, NOT src/common/ndarray-core.ts.
  *
  * To actually cover ndarray-core.ts, we must create NDArrayCore instances
- * directly via ArrayStorage + NDArrayCore._fromStorage().
+ * directly via ArrayStorage + NDArrayCore.fromStorage().
  */
 
 // Helper: create an NDArrayCore from a number array with the right typed array
@@ -48,19 +48,19 @@ function core(data: number[], shape: number[], dtype: DType = 'float64'): NDArra
       break;
   }
   const storage = ArrayStorage.fromData(ta, shape, dtype);
-  return NDArrayCore._fromStorage(storage);
+  return NDArrayCore.fromStorage(storage);
 }
 
 function coreBigInt(data: bigint[], shape: number[], dtype: DType = 'int64'): NDArrayCore {
   const ta = dtype === 'uint64' ? new BigUint64Array(data) : new BigInt64Array(data);
   const storage = ArrayStorage.fromData(ta, shape, dtype);
-  return NDArrayCore._fromStorage(storage);
+  return NDArrayCore.fromStorage(storage);
 }
 
 function coreBool(data: number[], shape: number[]): NDArrayCore {
   const ta = new Uint8Array(data);
   const storage = ArrayStorage.fromData(ta, shape, 'bool');
-  return NDArrayCore._fromStorage(storage);
+  return NDArrayCore.fromStorage(storage);
 }
 
 function coreComplex(reals: number[], imags: number[], shape: number[]): NDArrayCore {
@@ -70,13 +70,13 @@ function coreComplex(reals: number[], imags: number[], shape: number[]): NDArray
     interleaved[i * 2 + 1] = imags[i]!;
   }
   const storage = ArrayStorage.fromData(interleaved, shape, 'complex128');
-  return NDArrayCore._fromStorage(storage);
+  return NDArrayCore.fromStorage(storage);
 }
 
 function core0d(value: number): NDArrayCore {
   const data = new Float64Array([value]);
   const storage = ArrayStorage.fromData(data, [], 'float64');
-  return NDArrayCore._fromStorage(storage);
+  return NDArrayCore.fromStorage(storage);
 }
 
 describe('NDArrayCore Coverage', () => {
@@ -659,19 +659,19 @@ describe('NDArrayCore Coverage', () => {
   });
 
   // ========================================
-  // _fromStorage static method
+  // fromStorage static method
   // ========================================
-  describe('_fromStorage()', () => {
+  describe('fromStorage()', () => {
     it('creates NDArrayCore from storage', () => {
       const storage = ArrayStorage.fromData(new Float64Array([1, 2, 3]), [3], 'float64');
-      const a = NDArrayCore._fromStorage(storage);
+      const a = NDArrayCore.fromStorage(storage);
       expect(a.toArray()).toEqual([1, 2, 3]);
     });
 
     it('creates NDArrayCore with base', () => {
       const storage = ArrayStorage.fromData(new Float64Array([1, 2, 3]), [3], 'float64');
-      const base = NDArrayCore._fromStorage(storage);
-      const view = NDArrayCore._fromStorage(storage, base);
+      const base = NDArrayCore.fromStorage(storage);
+      const view = NDArrayCore.fromStorage(storage, base);
       expect(view.base).toBe(base);
     });
   });

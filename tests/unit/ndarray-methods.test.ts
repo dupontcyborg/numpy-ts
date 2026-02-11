@@ -1103,12 +1103,12 @@ describe('NDArray Method Coverage', () => {
   });
 
   // ========================================
-  // _fromStorage static method
+  // fromStorage static method
   // ========================================
   describe('Static', () => {
-    it('_fromStorage creates NDArray', () => {
+    it('fromStorage creates NDArray', () => {
       const a = array([1, 2, 3]);
-      // Access _fromStorage indirectly through existing API
+      // Access fromStorage indirectly through existing API
       const b = a.copy();
       expect(b.toArray()).toEqual([1, 2, 3]);
     });
