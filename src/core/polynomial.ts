@@ -5,6 +5,7 @@
  */
 
 import { NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
 import { array } from './creation';
 
 // Helper to convert to array
@@ -341,7 +342,10 @@ export function polyval(
 }
 
 /**
- * Find the roots of a polynomial
+ * Find the roots of a polynomial.
+ *
+ * Uses the companion matrix eigenvalue method (same as NumPy).
+ * Always returns a complex128 NDArrayCore.
  */
 export function roots(p: NDArrayCore | number[]): NDArrayCore {
   const poly = toArray(p);
@@ -352,84 +356,277 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
     coeffs.shift();
   }
 
-  const n = coeffs.length - 1;
-
-  if (n === 0) {
-    return array([]);
+  // Count and remove trailing zeros (these are zero roots)
+  let numZeroRoots = 0;
+  while (coeffs.length > 1 && coeffs[coeffs.length - 1] === 0) {
+    coeffs.pop();
+    numZeroRoots++;
   }
+
+  const n = coeffs.length - 1; // degree of reduced polynomial
+  const totalRoots = n + numZeroRoots;
+
+  if (totalRoots === 0) {
+    return _makeComplex128Array([], []);
+  }
+
+  // Find roots of the reduced polynomial
+  let realParts: number[] = [];
+  let imagParts: number[] = [];
 
   if (n === 1) {
-    return array([-coeffs[1]! / coeffs[0]!]);
-  }
-
-  if (n === 2) {
-    // Quadratic formula
+    realParts.push(-coeffs[1]! / coeffs[0]!);
+    imagParts.push(0);
+  } else if (n === 2) {
     const a = coeffs[0]!;
     const b = coeffs[1]!;
     const c = coeffs[2]!;
-    const discriminant = b * b - 4 * a * c;
+    const disc = b * b - 4 * a * c;
 
-    if (discriminant >= 0) {
-      const sqrtD = Math.sqrt(discriminant);
-      return array([(-b + sqrtD) / (2 * a), (-b - sqrtD) / (2 * a)]);
+    if (disc >= 0) {
+      const sqrtD = Math.sqrt(disc);
+      realParts.push((-b + sqrtD) / (2 * a), (-b - sqrtD) / (2 * a));
+      imagParts.push(0, 0);
     } else {
-      // Complex roots - return real parts for now
-      // Full complex support would need complex array
-      const realPart = -b / (2 * a);
-      return array([realPart, realPart]);
+      const sqrtD = Math.sqrt(-disc);
+      realParts.push(-b / (2 * a), -b / (2 * a));
+      imagParts.push(sqrtD / (2 * a), -sqrtD / (2 * a));
+    }
+  } else if (n >= 3) {
+    const evs = _companionEigenvalues(coeffs, n);
+    for (const ev of evs) {
+      realParts.push(ev.re);
+      imagParts.push(ev.im);
     }
   }
 
-  // For higher degree polynomials, use companion matrix eigenvalues
-  // Simplified: use Newton-Raphson for real roots
-  // This is a basic implementation - full implementation would use eigenvalue decomposition
-
-  const realRoots: number[] = [];
-
-  // Try to find roots using Newton-Raphson from multiple starting points
-  const startPoints = [];
-  for (let i = -10; i <= 10; i += 0.5) {
-    startPoints.push(i);
+  // Add zero roots
+  for (let i = 0; i < numZeroRoots; i++) {
+    realParts.push(0);
+    imagParts.push(0);
   }
 
-  for (const start of startPoints) {
-    let x = start;
-    for (let iter = 0; iter < 100; iter++) {
-      // Evaluate polynomial and derivative at x
-      let val = coeffs[0]!;
-      let deriv = 0;
-      for (let i = 1; i < coeffs.length; i++) {
-        deriv = deriv * x + val;
-        val = val * x + coeffs[i]!;
-      }
+  // Sort by magnitude descending (matching NumPy's eigenvalue ordering)
+  const indices = realParts.map((_, i) => i);
+  indices.sort((a, b) => {
+    const magA = Math.sqrt(realParts[a]! ** 2 + imagParts[a]! ** 2);
+    const magB = Math.sqrt(realParts[b]! ** 2 + imagParts[b]! ** 2);
+    if (Math.abs(magA - magB) > 1e-10) return magB - magA;
+    if (Math.abs(realParts[a]! - realParts[b]!) > 1e-10) return realParts[b]! - realParts[a]!;
+    return imagParts[b]! - imagParts[a]!;
+  });
 
-      if (Math.abs(val) < 1e-10) {
-        // Found a root
-        // Check if we already have this root
-        const isDuplicate = realRoots.some((r) => Math.abs(r - x) < 1e-6);
-        if (!isDuplicate) {
-          realRoots.push(x);
-        }
-        break;
-      }
+  const sortedReal = indices.map((i) => realParts[i]!);
+  const sortedImag = indices.map((i) => imagParts[i]!);
 
-      if (Math.abs(deriv) < 1e-15) break;
+  return _makeComplex128Array(sortedReal, sortedImag);
+}
 
-      const newX = x - val / deriv;
-      if (Math.abs(newX - x) < 1e-12) {
-        if (Math.abs(val) < 1e-8) {
-          const isDuplicate = realRoots.some((r) => Math.abs(r - x) < 1e-6);
-          if (!isDuplicate) {
-            realRoots.push(x);
-          }
-        }
-        break;
-      }
-      x = newX;
+/**
+ * Create a complex128 NDArrayCore from parallel real/imag arrays.
+ */
+function _makeComplex128Array(realParts: number[], imagParts: number[]): NDArrayCore {
+  const n = realParts.length;
+  const data = new Float64Array(2 * n);
+  for (let i = 0; i < n; i++) {
+    data[2 * i] = realParts[i]!;
+    data[2 * i + 1] = imagParts[i]!;
+  }
+  const storage = ArrayStorage.fromData(data, [n], 'complex128');
+  return new NDArrayCore(storage);
+}
+
+/**
+ * Compute eigenvalues of the companion matrix for polynomial coefficients.
+ * The companion matrix is already upper Hessenberg.
+ */
+function _companionEigenvalues(coeffs: number[], n: number): { re: number; im: number }[] {
+  // Build companion matrix (n×n)
+  // Row 0: [-c[1]/c[0], -c[2]/c[0], ..., -c[n]/c[0]]
+  // Row i (i>0): 1 at column i-1, 0 elsewhere
+  const H: number[][] = Array.from({ length: n }, () => new Array(n).fill(0) as number[]);
+  const lead = coeffs[0]!;
+
+  for (let j = 0; j < n; j++) {
+    H[0]![j] = -coeffs[j + 1]! / lead;
+  }
+  for (let i = 1; i < n; i++) {
+    H[i]![i - 1] = 1;
+  }
+
+  return _hessenbergQR(H, n);
+}
+
+/**
+ * QR iteration on an upper Hessenberg matrix to find all eigenvalues.
+ * Uses single-shift Wilkinson QR steps with exceptional shifts.
+ */
+function _hessenbergQR(H: number[][], n: number): { re: number; im: number }[] {
+  const eigenvalues: { re: number; im: number }[] = [];
+  const eps = 2.22e-16;
+  let nn = n; // size of the active (unreduced) portion
+  let totalIter = 0;
+  const maxIter = 100 * n;
+  let lastNn = n;
+  let noDeflationCount = 0;
+
+  while (nn > 0 && totalIter < maxIter) {
+    totalIter++;
+
+    if (nn === lastNn) {
+      noDeflationCount++;
+    } else {
+      noDeflationCount = 0;
+      lastNn = nn;
     }
 
-    if (realRoots.length >= n) break;
+    if (nn === 1) {
+      eigenvalues.push({ re: H[0]![0]!, im: 0 });
+      nn = 0;
+      break;
+    }
+
+    if (nn === 2) {
+      eigenvalues.push(..._eigenvalues2x2(H[0]![0]!, H[0]![1]!, H[1]![0]!, H[1]![1]!));
+      nn = 0;
+      break;
+    }
+
+    // Find start of active unreduced block by scanning from bottom
+    let l = nn - 1;
+    while (l > 0) {
+      const s = Math.abs(H[l - 1]![l - 1]!) + Math.abs(H[l]![l]!);
+      const threshold = eps * (s === 0 ? 1 : s);
+      if (Math.abs(H[l]![l - 1]!) <= threshold) {
+        H[l]![l - 1] = 0;
+        break;
+      }
+      l--;
+    }
+
+    const windowSize = nn - l;
+
+    if (windowSize === 1) {
+      eigenvalues.push({ re: H[nn - 1]![nn - 1]!, im: 0 });
+      nn--;
+      continue;
+    }
+
+    if (windowSize === 2) {
+      eigenvalues.push(
+        ..._eigenvalues2x2(
+          H[nn - 2]![nn - 2]!,
+          H[nn - 2]![nn - 1]!,
+          H[nn - 1]![nn - 2]!,
+          H[nn - 1]![nn - 1]!
+        )
+      );
+      nn -= 2;
+      continue;
+    }
+
+    // Compute shift
+    let shift: number;
+    if (noDeflationCount > 0 && noDeflationCount % 10 === 0) {
+      // Exceptional shift to break convergence stalls
+      shift = Math.abs(H[nn - 1]![nn - 2]!) + Math.abs(H[nn - 2]![nn - 3]!);
+    } else {
+      // Wilkinson shift: eigenvalue of bottom-right 2×2 closest to H[nn-1][nn-1]
+      const a = H[nn - 2]![nn - 2]!;
+      const b = H[nn - 2]![nn - 1]!;
+      const c = H[nn - 1]![nn - 2]!;
+      const d = H[nn - 1]![nn - 1]!;
+      const tr = a + d;
+      const det = a * d - b * c;
+      const disc = tr * tr - 4 * det;
+
+      if (disc >= 0) {
+        const sqrtDisc = Math.sqrt(disc);
+        const e1 = (tr + sqrtDisc) / 2;
+        const e2 = (tr - sqrtDisc) / 2;
+        shift = Math.abs(e1 - d) < Math.abs(e2 - d) ? e1 : e2;
+      } else {
+        shift = d;
+      }
+    }
+
+    // Single-shift QR step on active window H[l:nn, l:nn]
+    // Apply shift
+    for (let i = l; i < nn; i++) {
+      H[i]![i] = H[i]![i]! - shift;
+    }
+
+    // QR factorization using Givens rotations
+    const givensC: number[] = [];
+    const givensS: number[] = [];
+
+    for (let i = l; i < nn - 1; i++) {
+      const r = Math.hypot(H[i]![i]!, H[i + 1]![i]!);
+      const c = r === 0 ? 1 : H[i]![i]! / r;
+      const s = r === 0 ? 0 : H[i + 1]![i]! / r;
+      givensC.push(c);
+      givensS.push(s);
+
+      // Apply G^T from left to rows i and i+1
+      for (let j = i; j < nn; j++) {
+        const t1 = H[i]![j]!;
+        const t2 = H[i + 1]![j]!;
+        H[i]![j] = c * t1 + s * t2;
+        H[i + 1]![j] = -s * t1 + c * t2;
+      }
+    }
+
+    // Apply G from right to form RQ
+    for (let k = 0; k < givensC.length; k++) {
+      const i = l + k;
+      const c = givensC[k]!;
+      const s = givensS[k]!;
+      const maxRow = Math.min(i + 2, nn - 1);
+
+      for (let j = l; j <= maxRow; j++) {
+        const t1 = H[j]![i]!;
+        const t2 = H[j]![i + 1]!;
+        H[j]![i] = c * t1 + s * t2;
+        H[j]![i + 1] = -s * t1 + c * t2;
+      }
+    }
+
+    // Restore shift
+    for (let i = l; i < nn; i++) {
+      H[i]![i] = H[i]![i]! + shift;
+    }
   }
 
-  return array(realRoots.sort((a, b) => b - a));
+  // If we didn't converge, use diagonal as approximations
+  if (nn > 0) {
+    for (let i = 0; i < nn; i++) {
+      eigenvalues.push({ re: H[i]![i]!, im: 0 });
+    }
+  }
+
+  return eigenvalues;
+}
+
+/**
+ * Eigenvalues of a 2×2 matrix [[a, b], [c, d]].
+ * Returns complex pair if discriminant is negative.
+ */
+function _eigenvalues2x2(a: number, b: number, c: number, d: number): { re: number; im: number }[] {
+  const tr = a + d;
+  const det = a * d - b * c;
+  const disc = tr * tr - 4 * det;
+
+  if (disc >= 0) {
+    const sqrtDisc = Math.sqrt(disc);
+    return [
+      { re: (tr + sqrtDisc) / 2, im: 0 },
+      { re: (tr - sqrtDisc) / 2, im: 0 },
+    ];
+  } else {
+    const sqrtDisc = Math.sqrt(-disc);
+    return [
+      { re: tr / 2, im: sqrtDisc / 2 },
+      { re: tr / 2, im: -sqrtDisc / 2 },
+    ];
+  }
 }

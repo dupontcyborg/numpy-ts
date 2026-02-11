@@ -28,8 +28,7 @@ const NO_WRAP_FUNCTIONS = new Set([
   // Functions returning primitives
   'ndim', 'size', 'item', 'tolist', 'tobytes', 'tofile', 'fill', 'byteswap', 'view',
   'can_cast', 'common_type', 'result_type', 'min_scalar_type', 'issubdtype', 'typename', 'mintypecode',
-  'isfinite', 'isinf', 'isnan', 'isnat', 'isneginf', 'isposinf', 'iscomplex', 'iscomplexobj',
-  'isreal', 'isrealobj', 'isfortran', 'isscalar', 'iterable', 'isdtype', 'promote_types',
+  'iscomplexobj', 'isrealobj', 'isfortran', 'isscalar', 'iterable', 'isdtype', 'promote_types',
   'count_nonzero',
   // Functions returning other types
   'set_printoptions', 'get_printoptions', 'printoptions',

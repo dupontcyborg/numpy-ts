@@ -898,6 +898,46 @@ export function logical_xor(x1: NDArrayCore, x2: NDArrayCore | number): NDArray 
   return up(core.logical_xor(x1, x2));
 }
 
+/** Test for finite values */
+export function isfinite(x: NDArrayCore): NDArray {
+  return up(core.isfinite(x));
+}
+
+/** Test for infinity */
+export function isinf(x: NDArrayCore): NDArray {
+  return up(core.isinf(x));
+}
+
+/** Test for NaN */
+export function isnan(x: NDArrayCore): NDArray {
+  return up(core.isnan(x));
+}
+
+/** Test for NaT (not a time) - returns all False for numeric arrays */
+export function isnat(x: NDArrayCore): NDArray {
+  return up(core.isnat(x));
+}
+
+/** Test for negative infinity */
+export function isneginf(x: NDArrayCore): NDArray {
+  return up(core.isneginf(x));
+}
+
+/** Test for positive infinity */
+export function isposinf(x: NDArrayCore): NDArray {
+  return up(core.isposinf(x));
+}
+
+/** Element-wise test for complex values */
+export function iscomplex(x: NDArrayCore): NDArray {
+  return up(core.iscomplex(x));
+}
+
+/** Element-wise test for real values */
+export function isreal(x: NDArrayCore): NDArray {
+  return up(core.isreal(x));
+}
+
 /** Return real array if imaginary part is negligible */
 export function real_if_close(x: NDArrayCore, tol?: number): NDArray {
   return up(core.real_if_close(x, tol));
@@ -1799,15 +1839,7 @@ export {
   einsum_path,
   vdot,
   linalg,
-  isfinite,
-  isinf,
-  isnan,
-  isnat,
-  isneginf,
-  isposinf,
-  iscomplex,
   iscomplexobj,
-  isreal,
   isrealobj,
   isfortran,
   isscalar,
