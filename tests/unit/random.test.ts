@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { random } from '../../src/index';
+import { random, array } from '../../src/index';
 
 describe('Random Module', () => {
   beforeEach(() => {
@@ -1178,6 +1178,206 @@ describe('Random Module', () => {
 
     it('throws for negative kappa', () => {
       expect(() => random.vonmises(0, -1)).toThrow();
+    });
+
+    it('returns single value when size not specified', () => {
+      random.seed(42);
+      const result = random.vonmises(0, 1);
+      expect(typeof result).toBe('number');
+    });
+  });
+
+  // ============================================================
+  // Additional coverage tests for uncovered paths
+  // ============================================================
+
+  describe('shuffle', () => {
+    it('shuffles array in-place', () => {
+      random.seed(42);
+      const a = array([1, 2, 3, 4, 5]);
+      random.shuffle(a.storage);
+      // After shuffle, should have same elements but likely different order
+      const sorted = (a.toArray() as number[]).slice().sort((x, y) => x - y);
+      expect(sorted).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('preserves array size after shuffle', () => {
+      random.seed(42);
+      const a = array([10, 20, 30, 40, 50, 60]);
+      random.shuffle(a.storage);
+      expect(a.size).toBe(6);
+    });
+  });
+
+  describe('Generator method execution', () => {
+    it('Generator.shuffle modifies array in place', () => {
+      const rng = random.default_rng(42);
+      const a = array([1, 2, 3, 4, 5]);
+      rng.shuffle(a.storage);
+      const sorted = (a.toArray() as number[]).slice().sort((x, y) => x - y);
+      expect(sorted).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('Generator.choice returns valid elements', () => {
+      const rng = random.default_rng(42);
+      const result = rng.choice(5) as number;
+      expect([0, 1, 2, 3, 4]).toContain(result);
+    });
+
+    it('Generator.choice returns array of specified size', () => {
+      const rng = random.default_rng(42);
+      const result = rng.choice(10, [2, 3]) as any;
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('Generator.permutation returns permuted range', () => {
+      const rng = random.default_rng(42);
+      const result = rng.permutation(5) as any;
+      expect(result.shape).toEqual([5]);
+      const data = Array.from(result.data as Float64Array);
+      const sorted = data.slice().sort((a: number, b: number) => a - b);
+      expect(sorted).toEqual([0, 1, 2, 3, 4]);
+    });
+
+    it('Generator.exponential returns positive values', () => {
+      const rng = random.default_rng(42);
+      const result = rng.exponential(1, 10) as any;
+      const data = result.data as Float64Array;
+      for (let i = 0; i < data.length; i++) {
+        expect(data[i]).toBeGreaterThan(0);
+      }
+    });
+
+    it('Generator.exponential returns single value', () => {
+      const rng = random.default_rng(42);
+      const result = rng.exponential();
+      expect(typeof result).toBe('number');
+      expect(result as number).toBeGreaterThan(0);
+    });
+
+    it('Generator.poisson returns non-negative integers', () => {
+      const rng = random.default_rng(42);
+      const result = rng.poisson(5, 10) as any;
+      const data = result.data as BigInt64Array;
+      for (let i = 0; i < data.length; i++) {
+        expect(Number(data[i])).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('Generator.poisson returns single value', () => {
+      const rng = random.default_rng(42);
+      const result = rng.poisson(5);
+      expect(typeof result).toBe('number');
+    });
+
+    it('Generator.binomial returns integers in valid range', () => {
+      const rng = random.default_rng(42);
+      const result = rng.binomial(10, 0.5, 10) as any;
+      const data = result.data as BigInt64Array;
+      for (let i = 0; i < data.length; i++) {
+        const v = Number(data[i]);
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(10);
+      }
+    });
+
+    it('Generator.binomial returns single value', () => {
+      const rng = random.default_rng(42);
+      const result = rng.binomial(10, 0.5);
+      expect(typeof result).toBe('number');
+    });
+  });
+
+  describe('scalar return paths', () => {
+    it('standard_cauchy returns single number when no size', () => {
+      random.seed(42);
+      const result = random.standard_cauchy();
+      expect(typeof result).toBe('number');
+      expect(isFinite(result as number)).toBe(true);
+    });
+
+    it('standard_t returns single number when no size', () => {
+      random.seed(42);
+      const result = random.standard_t(5);
+      expect(typeof result).toBe('number');
+    });
+
+    it('standard_gamma returns single number when no size', () => {
+      random.seed(42);
+      const result = random.standard_gamma(2);
+      expect(typeof result).toBe('number');
+      expect(result as number).toBeGreaterThan(0);
+    });
+
+    it('standard_gamma throws for non-positive shape', () => {
+      expect(() => random.standard_gamma(0)).toThrow();
+      expect(() => random.standard_gamma(-1)).toThrow();
+    });
+
+    it('noncentral_chisquare returns single number when no size', () => {
+      random.seed(42);
+      const result = random.noncentral_chisquare(5, 2);
+      expect(typeof result).toBe('number');
+      expect(result as number).toBeGreaterThan(0);
+    });
+
+    it('noncentral_chisquare with nonc=0 reduces to chisquare', () => {
+      random.seed(42);
+      const result = random.noncentral_chisquare(5, 0, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('noncentral_chisquare throws for invalid params', () => {
+      expect(() => random.noncentral_chisquare(0, 2)).toThrow();
+      expect(() => random.noncentral_chisquare(5, -1)).toThrow();
+    });
+
+    it('noncentral_f returns single number when no size', () => {
+      random.seed(42);
+      const result = random.noncentral_f(5, 10, 2);
+      expect(typeof result).toBe('number');
+      expect(result as number).toBeGreaterThan(0);
+    });
+
+    it('noncentral_f with nonc=0 produces positive values', () => {
+      random.seed(42);
+      const result = random.noncentral_f(5, 10, 0, 100) as any;
+      for (const val of result.toArray() as number[]) {
+        expect(val).toBeGreaterThan(0);
+      }
+    });
+
+    it('noncentral_f throws for invalid params', () => {
+      expect(() => random.noncentral_f(0, 10, 2)).toThrow();
+      expect(() => random.noncentral_f(5, 0, 2)).toThrow();
+      expect(() => random.noncentral_f(5, 10, -1)).toThrow();
+    });
+
+    it('f returns single number when no size', () => {
+      random.seed(42);
+      const result = random.f(5, 10);
+      expect(typeof result).toBe('number');
+      expect(result as number).toBeGreaterThan(0);
+    });
+
+    it('f throws for invalid params', () => {
+      expect(() => random.f(0, 10)).toThrow();
+      expect(() => random.f(5, 0)).toThrow();
+    });
+
+    it('logseries returns single number when no size', () => {
+      random.seed(42);
+      const result = random.logseries(0.5);
+      expect(typeof result).toBe('number');
+      expect(result as number).toBeGreaterThanOrEqual(1);
+    });
+
+    it('vonmises returns correct shape array', () => {
+      random.seed(42);
+      const result = random.vonmises(0, 5, [2, 3]) as any;
+      expect(result.shape).toEqual([2, 3]);
     });
   });
 });

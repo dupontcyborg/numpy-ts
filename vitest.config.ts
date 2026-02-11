@@ -18,12 +18,12 @@ export default defineConfig({
         '**/test/**',
         '**/tests/**',
       ],
-      // thresholds: {
-      //   statements: 80,
-      //   branches: 75,
-      //   functions: 95,
-      //   lines: 80,
-      // },
+      thresholds: {
+        statements: 80,
+        branches: 75,
+        functions: 95,
+        lines: 80,
+      },
     },
     // Projects configuration (replaces workspace in Vitest 4+)
     projects: [

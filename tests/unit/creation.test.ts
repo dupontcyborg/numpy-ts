@@ -33,6 +33,10 @@ import {
   tril,
   triu,
   vander,
+  require,
+  genfromtxt,
+  fromregex,
+  Complex,
 } from '../../src';
 
 describe('Array Creation Functions', () => {
@@ -1015,6 +1019,464 @@ describe('Array Creation Functions', () => {
       const a = array([1, 2, 3], 'int32');
       const b = copy(a);
       expect(b.dtype).toBe('int32');
+    });
+  });
+
+  // ========================================
+  // Additional coverage tests
+  // ========================================
+
+  describe('fromfunction additional', () => {
+    it('creates 3D array from coordinate function', () => {
+      const result = fromfunction((i, j, k) => i * 100 + j * 10 + k, [2, 3, 2]);
+      expect(result.shape).toEqual([2, 3, 2]);
+      expect(result.get([0, 0, 0])).toBe(0);
+      expect(result.get([1, 2, 1])).toBe(121);
+    });
+
+    it('creates 1D array with custom dtype', () => {
+      const result = fromfunction((i) => i * 3, [4], 'int32');
+      expect(result.dtype).toBe('int32');
+      expect(result.toArray()).toEqual([0, 3, 6, 9]);
+    });
+  });
+
+  describe('fromiter additional', () => {
+    it('creates array with int32 dtype', () => {
+      const result = fromiter([10, 20, 30], 'int32');
+      expect(result.dtype).toBe('int32');
+      expect(result.toArray()).toEqual([10, 20, 30]);
+    });
+
+    it('creates array from empty iterable', () => {
+      const result = fromiter([], 'float64');
+      expect(result.shape).toEqual([0]);
+    });
+
+    it('creates array with count=0', () => {
+      const result = fromiter([1, 2, 3], 'float64', 0);
+      expect(result.shape).toEqual([0]);
+    });
+
+    it('handles iterable with Set', () => {
+      const result = fromiter(new Set([1, 2, 3]), 'float64');
+      expect(result.shape).toEqual([3]);
+    });
+  });
+
+  describe('fromstring additional', () => {
+    it('parses floats from string', () => {
+      const result = fromstring('1.5 2.5 3.5', 'float64');
+      expect(result.toArray()).toEqual([1.5, 2.5, 3.5]);
+    });
+
+    it('parses with semicolon separator', () => {
+      const result = fromstring('10;20;30', 'float64', -1, ';');
+      expect(result.toArray()).toEqual([10, 20, 30]);
+    });
+
+    it('handles empty string', () => {
+      const result = fromstring('', 'float64');
+      expect(result.shape).toEqual([0]);
+    });
+
+    it('creates float32 array', () => {
+      const result = fromstring('1 2 3', 'float32');
+      expect(result.dtype).toBe('float32');
+    });
+  });
+
+  describe('frombuffer additional', () => {
+    it('creates array from TypedArray directly', () => {
+      const source = new Float64Array([10, 20, 30, 40]);
+      const result = frombuffer(source, 'float64');
+      expect(result.shape).toEqual([4]);
+      expect(result.toArray()).toEqual([10, 20, 30, 40]);
+    });
+
+    it('creates array from TypedArray with count', () => {
+      const source = new Float64Array([10, 20, 30, 40, 50]);
+      const result = frombuffer(source, 'float64', 3);
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([10, 20, 30]);
+    });
+
+    it('creates array from TypedArray with offset', () => {
+      const source = new Float64Array([10, 20, 30, 40, 50]);
+      const result = frombuffer(source, 'float64', -1, 2);
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([30, 40, 50]);
+    });
+
+    it('creates array from Int32Array source', () => {
+      const source = new Int32Array([1, 2, 3]);
+      const result = frombuffer(source, 'float64');
+      expect(result.dtype).toBe('float64');
+      expect(result.shape).toEqual([3]);
+    });
+  });
+
+  describe('geomspace additional', () => {
+    it('throws for negative num', () => {
+      expect(() => geomspace(1, 10, -1)).toThrow('num must be non-negative');
+    });
+
+    it('works with two negative values', () => {
+      const result = geomspace(-1000, -1, 4);
+      expect(result.shape).toEqual([4]);
+      expect(result.toArray()[0]).toBeCloseTo(-1000);
+      expect(result.toArray()[3]).toBeCloseTo(-1);
+    });
+  });
+
+  describe('logspace additional', () => {
+    it('throws for negative num', () => {
+      expect(() => logspace(0, 1, -1)).toThrow('num must be non-negative');
+    });
+
+    it('works with base e', () => {
+      const arr = logspace(0, 1, 3, Math.E);
+      expect(arr.shape).toEqual([3]);
+      expect(arr.toArray()[0]).toBeCloseTo(1); // e^0
+      expect(arr.toArray()[2]).toBeCloseTo(Math.E); // e^1
+    });
+  });
+
+  describe('linspace additional', () => {
+    it('throws for negative num', () => {
+      expect(() => linspace(0, 1, -1)).toThrow('num must be non-negative');
+    });
+
+    it('handles start equal to stop', () => {
+      const arr = linspace(5, 5, 3);
+      expect(arr.toArray()).toEqual([5, 5, 5]);
+    });
+  });
+
+  describe('arange additional', () => {
+    it('handles single argument (just stop)', () => {
+      const arr = arange(3);
+      expect(arr.toArray()).toEqual([0, 1, 2]);
+    });
+
+    it('creates array with int32 dtype', () => {
+      const arr = arange(0, 5, 1, 'int32');
+      expect(arr.dtype).toBe('int32');
+      expect(arr.toArray()).toEqual([0, 1, 2, 3, 4]);
+    });
+  });
+
+  describe('meshgrid additional', () => {
+    it('returns empty array for no input', () => {
+      const result = meshgrid();
+      expect(result).toEqual([]);
+    });
+
+    it('returns copy for single input', () => {
+      const x = array([1, 2, 3]);
+      const [X] = meshgrid(x);
+      expect(X.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('creates 3D meshgrid', () => {
+      const x = array([1, 2]);
+      const y = array([3, 4]);
+      const z = array([5, 6]);
+      const [X, Y, Z] = meshgrid(x, y, z);
+      expect(X.shape).toEqual([2, 2, 2]);
+      expect(Y.shape).toEqual([2, 2, 2]);
+      expect(Z.shape).toEqual([2, 2, 2]);
+    });
+  });
+
+  describe('require function', () => {
+    it('returns same array if no dtype change needed', () => {
+      const a = array([1, 2, 3], 'float64');
+      const result = require(a);
+      expect(result).toBe(a);
+    });
+
+    it('converts dtype when specified', () => {
+      const a = array([1, 2, 3], 'float64');
+      const result = require(a, 'int32');
+      expect(result.dtype).toBe('int32');
+    });
+
+    it('handles requirements parameter (no-op)', () => {
+      const a = array([1, 2, 3]);
+      const result = require(a, undefined, ['C', 'A']);
+      expect(result).toBe(a);
+    });
+  });
+
+  describe('asarray_chkfinite additional', () => {
+    it('throws on Infinity', () => {
+      const a = array([1, Infinity, 3]);
+      expect(() => asarray_chkfinite(a)).toThrow('infs or NaNs');
+    });
+
+    it('throws on negative Infinity', () => {
+      const a = array([1, -Infinity, 3]);
+      expect(() => asarray_chkfinite(a)).toThrow('infs or NaNs');
+    });
+
+    it('accepts zero values', () => {
+      const a = array([0, 0, 0]);
+      expect(asarray_chkfinite(a).toArray()).toEqual([0, 0, 0]);
+    });
+  });
+
+  describe('ascontiguousarray additional', () => {
+    it('converts with dtype', () => {
+      const result = ascontiguousarray([1, 2, 3], 'int32');
+      expect(result.dtype).toBe('int32');
+    });
+  });
+
+  describe('asfortranarray additional', () => {
+    it('accepts NDArray input', () => {
+      const a = array([1, 2, 3]);
+      const result = asfortranarray(a);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('array with Complex input', () => {
+    it('creates complex128 array from Complex objects', () => {
+      const result = array([new Complex(1, 2), new Complex(3, 4)]);
+      expect(result.dtype).toBe('complex128');
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('creates array from NDArrayCore with dtype conversion', () => {
+      const original = array([1, 2, 3], 'float64');
+      const result = array(original, 'int32');
+      expect(result.dtype).toBe('int32');
+    });
+
+    it('creates copy from NDArrayCore without dtype', () => {
+      const original = array([1, 2, 3]);
+      const result = array(original);
+      expect(result.toArray()).toEqual(original.toArray());
+      expect(result).not.toBe(original);
+    });
+
+    it('creates array with bigint values', () => {
+      const result = array([BigInt(1), BigInt(2), BigInt(3)]);
+      expect(result.dtype).toBe('int64');
+    });
+  });
+
+  describe('genfromtxt', () => {
+    it('parses CSV text', () => {
+      const text = '1,2,3\n4,5,6';
+      const result = genfromtxt(text, { delimiter: ',' });
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('parses with whitespace delimiter', () => {
+      const text = '1 2 3\n4 5 6';
+      const result = genfromtxt(text);
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('handles missing values with NaN', () => {
+      const text = '1,2,\n4,,6';
+      const result = genfromtxt(text, { delimiter: ',' });
+      expect(result.shape).toEqual([2, 3]);
+      // Missing values should become NaN
+      const data = result.toArray() as number[][];
+      expect(isNaN(data[0]![2]!)).toBe(true);
+    });
+
+    it('handles skiprows', () => {
+      const text = 'header\n1,2,3\n4,5,6';
+      const result = genfromtxt(text, { delimiter: ',', skiprows: 1 });
+      expect(result.shape).toEqual([2, 3]);
+    });
+  });
+
+  describe('fromregex', () => {
+    it('extracts data from regex with capture groups', () => {
+      const text = 'x=1.0, y=2.0\nx=3.0, y=4.0';
+      const result = fromregex(text, /x=([\d.]+), y=([\d.]+)/);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.toArray()).toEqual([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+    });
+
+    it('extracts single column data', () => {
+      const text = 'val=10\nval=20\nval=30';
+      const result = fromregex(text, /val=(\d+)/);
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([10, 20, 30]);
+    });
+
+    it('returns empty array when no matches', () => {
+      const text = 'no matches here';
+      const result = fromregex(text, /x=(\d+)/);
+      expect(result.shape).toEqual([0]);
+    });
+
+    it('works with string regex pattern', () => {
+      const text = 'a=1 b=2\na=3 b=4';
+      const result = fromregex(text, 'a=(\\d+) b=(\\d+)');
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('handles non-numeric captures as zero', () => {
+      const text = 'name=abc value=42';
+      const result = fromregex(text, /name=(\w+) value=(\d+)/);
+      // 'abc' can't be parsed as float, becomes 0
+      // Single match with 2 groups -> 2D array [[0, 42]]
+      const data = result.toArray() as number[][];
+      expect(data[0]![0]).toBe(0);
+      expect(data[0]![1]).toBe(42);
+    });
+
+    it('creates int32 array from regex', () => {
+      const text = 'x=1, y=2\nx=3, y=4';
+      const result = fromregex(text, /x=(\d+), y=(\d+)/, 'int32');
+      expect(result.dtype).toBe('int32');
+    });
+  });
+
+  describe('diag additional', () => {
+    it('extracts diagonal with negative offset from 2D', () => {
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const result = diag(arr, -1);
+      expect(result.toArray()).toEqual([4, 8]);
+    });
+
+    it('extracts diagonal from non-square matrix', () => {
+      const arr = array([
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+      ]);
+      const result = diag(arr);
+      expect(result.toArray()).toEqual([1, 6]);
+    });
+
+    it('returns empty for out-of-range diagonal offset', () => {
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = diag(arr, 5);
+      expect(result.shape).toEqual([0]);
+    });
+
+    it('throws for 3D input', () => {
+      const arr = array([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+      ]);
+      expect(() => diag(arr)).toThrow('Input must be 1-D or 2-D');
+    });
+  });
+
+  describe('eye additional', () => {
+    it('creates eye with bigint dtype', () => {
+      const arr = eye(2, 2, 0, 'int64');
+      expect(arr.dtype).toBe('int64');
+      expect(arr.shape).toEqual([2, 2]);
+    });
+  });
+
+  describe('tri additional', () => {
+    it('creates tri with negative k', () => {
+      const result = tri(3, 3, -1);
+      expect(result.toArray()).toEqual([
+        [0, 0, 0],
+        [1, 0, 0],
+        [1, 1, 0],
+      ]);
+    });
+  });
+
+  describe('tril/triu with 3D arrays', () => {
+    it('tril works with 3D array (batch)', () => {
+      const arr = array([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        [
+          [5, 6],
+          [7, 8],
+        ],
+      ]);
+      const result = tril(arr);
+      const data = result.toArray() as number[][][];
+      expect(data[0]).toEqual([
+        [1, 0],
+        [3, 4],
+      ]);
+      expect(data[1]).toEqual([
+        [5, 0],
+        [7, 8],
+      ]);
+    });
+
+    it('triu works with 3D array (batch)', () => {
+      const arr = array([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        [
+          [5, 6],
+          [7, 8],
+        ],
+      ]);
+      const result = triu(arr);
+      const data = result.toArray() as number[][][];
+      expect(data[0]).toEqual([
+        [1, 2],
+        [0, 4],
+      ]);
+      expect(data[1]).toEqual([
+        [5, 6],
+        [0, 8],
+      ]);
+    });
+
+    it('tril throws for 1D input', () => {
+      expect(() => tril(array([1, 2, 3]))).toThrow('Input must be at least 2-D');
+    });
+
+    it('triu throws for 1D input', () => {
+      expect(() => triu(array([1, 2, 3]))).toThrow('Input must be at least 2-D');
+    });
+  });
+
+  describe('full with edge cases', () => {
+    it('full with bool dtype converts boolean', () => {
+      const result = full([3], false, 'bool');
+      expect(result.dtype).toBe('bool');
+      expect(result.toArray()).toEqual([0, 0, 0]);
+    });
+
+    it('full with bigint dtype from number fill', () => {
+      const result = full([2], 5, 'int64');
+      expect(result.dtype).toBe('int64');
+    });
+  });
+
+  describe('vander additional', () => {
+    it('vander with N=1', () => {
+      const x = array([1, 2, 3]);
+      const result = vander(x, 1);
+      expect(result.shape).toEqual([3, 1]);
+      expect(result.toArray()).toEqual([[1], [1], [1]]);
     });
   });
 });

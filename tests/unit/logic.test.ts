@@ -756,6 +756,35 @@ describe('Additional Logic Functions', () => {
       const result = real_if_close(arr);
       expect(result.dtype).toBe('float32');
     });
+
+    it('respects custom tol parameter to keep complex when default would reduce', () => {
+      // Create complex array with imaginary parts that are close to zero for default tol=100
+      // but not for a very strict tol=1
+      const arr = zeros([2], 'complex128');
+      // eps for float64 is ~2.22e-16, default tol=100 => threshold ~ 2.22e-14
+      // Set imaginary part to 1e-15 which is within default threshold but outside tol=1 threshold
+      arr.set([0], new Complex(1, 1e-15));
+      arr.set([1], new Complex(2, 1e-15));
+
+      // With default tol=100, threshold is ~2.22e-14, so 1e-15 is within tolerance => returns real
+      const resultDefault = real_if_close(arr);
+      expect(resultDefault.dtype).toBe('float64');
+
+      // With tol=1, threshold is ~2.22e-16, so 1e-15 exceeds tolerance => stays complex
+      const resultStrict = real_if_close(arr, 1);
+      expect(resultStrict.dtype).toBe('complex128');
+    });
+
+    it('preserves values when returning a copy of real array', () => {
+      const arr = array([10.5, -3.2, 0, 100]);
+      const result = real_if_close(arr);
+      expect(result.dtype).toBe('float64');
+      const data = result.toArray() as number[];
+      expect(data[0]).toBeCloseTo(10.5);
+      expect(data[1]).toBeCloseTo(-3.2);
+      expect(data[2]).toBe(0);
+      expect(data[3]).toBe(100);
+    });
   });
 
   describe('isscalar()', () => {

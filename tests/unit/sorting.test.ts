@@ -492,3 +492,89 @@ describe('Edge Cases', () => {
     expect(result.toArray()).toEqual([0, 0, 0]);
   });
 });
+
+describe('sort_complex() - additional coverage', () => {
+  it('sorts a complex array by real part then imaginary part', () => {
+    const arr = array([
+      { re: 3, im: 0 },
+      { re: 1, im: 2 },
+      { re: 1, im: 1 },
+      { re: 2, im: -1 },
+    ], 'complex128');
+    const result = sort_complex(arr);
+    expect(result.dtype).toBe('complex128');
+    expect(result.shape).toEqual([4]);
+    const values = result.toArray() as Complex[];
+    // sorted: (1,1), (1,2), (2,-1), (3,0)
+    expect(values[0]!.re).toBe(1);
+    expect(values[0]!.im).toBe(1);
+    expect(values[1]!.re).toBe(1);
+    expect(values[1]!.im).toBe(2);
+    expect(values[2]!.re).toBe(2);
+    expect(values[2]!.im).toBe(-1);
+    expect(values[3]!.re).toBe(3);
+    expect(values[3]!.im).toBe(0);
+  });
+
+  it('sorts real array and returns complex128', () => {
+    const arr = array([5, 2, 8, 1]);
+    const result = sort_complex(arr);
+    expect(result.dtype).toBe('complex128');
+    expect(result.shape).toEqual([4]);
+    const values = result.toArray() as Complex[];
+    expect(values.map(c => c.re)).toEqual([1, 2, 5, 8]);
+    expect(values.every(c => c.im === 0)).toBe(true);
+  });
+
+  it('sorts 2D real array (flattened) and returns complex128', () => {
+    const arr = array([[4, 1], [3, 2]]);
+    const result = sort_complex(arr);
+    expect(result.shape).toEqual([4]);
+    const values = result.toArray() as Complex[];
+    expect(values.map(c => c.re)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('handles NaN in real array (NaN goes to end)', () => {
+    const arr = array([3, NaN, 1]);
+    const result = sort_complex(arr);
+    const values = result.toArray() as Complex[];
+    expect(values[0]!.re).toBe(1);
+    expect(values[1]!.re).toBe(3);
+    expect(isNaN(values[2]!.re)).toBe(true);
+  });
+});
+
+describe('lexsort() - additional coverage', () => {
+  it('sorts with three keys', () => {
+    // tertiary, secondary, primary
+    const k1 = array([0, 1, 0, 1]);
+    const k2 = array([0, 0, 1, 1]);
+    const k3 = array([1, 2, 1, 2]); // primary
+    const result = lexsort([k1, k2, k3]);
+    const indices = result.toArray() as number[];
+    // Primary key k3: [1,2,1,2] -> indices 0,2 have 1, indices 1,3 have 2
+    // Among ties (0 vs 2): secondary k2: [0,1] -> 0 first
+    // Among ties (1 vs 3): secondary k2: [0,1] -> 1 first
+    expect(indices).toEqual([0, 2, 1, 3]);
+  });
+
+  it('handles NaN in keys (NaN goes to end)', () => {
+    const k1 = array([NaN, 1, 2]);
+    const result = lexsort([k1]);
+    const indices = result.toArray() as number[];
+    expect(indices[0]).toBe(1);
+    expect(indices[1]).toBe(2);
+    expect(indices[2]).toBe(0);
+  });
+
+  it('throws for 2D keys', () => {
+    const k = array([[1, 2], [3, 4]]);
+    expect(() => lexsort([k])).toThrow('1D');
+  });
+
+  it('throws for mismatched key lengths', () => {
+    const k1 = array([1, 2, 3]);
+    const k2 = array([1, 2]);
+    expect(() => lexsort([k1, k2])).toThrow('same length');
+  });
+});

@@ -191,6 +191,40 @@ describe('Statistics Operations', () => {
       const [hist] = histogramdd(sample, [3, 2]);
       expect(hist.shape).toEqual([3, 2]);
     });
+
+    it('computes density-normalized histogram', () => {
+      const sample = array([1, 2, 2, 3, 3, 3]);
+      const [hist] = histogramdd(sample, 3, undefined, true);
+      // With density=true, the integral over bins should equal 1
+      const histData = hist.toArray() as number[];
+      // Sum of density * bin_width should be approximately 1
+      const binWidth = (3 - 1) / 3;
+      let integral = 0;
+      for (const val of histData) {
+        integral += val * binWidth;
+      }
+      expect(integral).toBeCloseTo(1, 5);
+    });
+
+    it('computes histogram with explicit range', () => {
+      const sample = array([1, 2, 3, 4, 5]);
+      const [hist, edges] = histogramdd(sample, 5, [[0, 10]]);
+      expect(hist.shape).toEqual([5]);
+      // edges should span 0 to 10
+      const edgeData = edges[0]!.toArray() as number[];
+      expect(edgeData[0]).toBe(0);
+      expect(edgeData[edgeData.length - 1]).toBe(10);
+    });
+
+    it('computes weighted histogram', () => {
+      const sample = array([1, 2, 3]);
+      const weights = array([10, 20, 30]);
+      const [hist] = histogramdd(sample, 3, undefined, false, weights);
+      const histData = hist.toArray() as number[];
+      // Total weight should be 60
+      const totalWeight = histData.reduce((a, b) => a + b, 0);
+      expect(totalWeight).toBeCloseTo(60, 5);
+    });
   });
 
   describe('correlate', () => {

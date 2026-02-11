@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array } from '../../src';
+import { array, nanmedian, nancumsum, nancumprod, nanquantile, nanpercentile } from '../../src';
 
 describe('Reductions with Axis Support', () => {
   describe('sum()', () => {
@@ -578,6 +578,304 @@ describe('Reductions with Axis Support', () => {
         [1, 0],
       ]);
       const result = arr.any(0, true) as any;
+      expect(result.shape).toEqual([1, 2]);
+    });
+  });
+
+  describe('nanmedian()', () => {
+    it('computes median of 1D array ignoring NaN', () => {
+      const arr = array([1, NaN, 3, 2, NaN]);
+      const result = nanmedian(arr);
+      // Non-NaN values are [1, 2, 3], median = 2
+      expect(result).toBe(2);
+    });
+
+    it('computes median when no NaN values present', () => {
+      const arr = array([4, 1, 3, 2]);
+      const result = nanmedian(arr);
+      // Sorted: [1, 2, 3, 4], median = (2 + 3) / 2 = 2.5
+      expect(result).toBe(2.5);
+    });
+
+    it('returns NaN when all values are NaN', () => {
+      const arr = array([NaN, NaN, NaN]);
+      const result = nanmedian(arr);
+      expect(result).toBeNaN();
+    });
+
+    it('computes median along axis=0', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [4, 5, NaN],
+      ]);
+      const result = nanmedian(arr, 0) as any;
+      expect(result.shape).toEqual([3]);
+      const data = result.toArray() as number[];
+      // axis=0: column medians ignoring NaN
+      // col 0: [1, 4] => 2.5
+      // col 1: [NaN, 5] => 5
+      // col 2: [3, NaN] => 3
+      expect(data[0]).toBeCloseTo(2.5);
+      expect(data[1]).toBeCloseTo(5);
+      expect(data[2]).toBeCloseTo(3);
+    });
+
+    it('computes median along axis=1', () => {
+      const arr = array([
+        [1, 2, NaN],
+        [NaN, 5, 6],
+      ]);
+      const result = nanmedian(arr, 1) as any;
+      expect(result.shape).toEqual([2]);
+      const data = result.toArray() as number[];
+      // row 0: [1, 2] => 1.5
+      // row 1: [5, 6] => 5.5
+      expect(data[0]).toBeCloseTo(1.5);
+      expect(data[1]).toBeCloseTo(5.5);
+    });
+
+    it('handles single non-NaN value', () => {
+      const arr = array([NaN, 42, NaN]);
+      const result = nanmedian(arr);
+      expect(result).toBe(42);
+    });
+
+    it('computes median with odd number of non-NaN elements', () => {
+      const arr = array([5, NaN, 1, NaN, 3]);
+      const result = nanmedian(arr);
+      // Non-NaN values: [1, 3, 5], median = 3
+      expect(result).toBe(3);
+    });
+  });
+
+  describe('nancumsum()', () => {
+    it('computes cumulative sum treating NaN as zero', () => {
+      const arr = array([1, NaN, 3, NaN, 5]);
+      const result = nancumsum(arr);
+      expect(result.toArray()).toEqual([1, 1, 4, 4, 9]);
+    });
+
+    it('computes cumulative sum with no NaN values', () => {
+      const arr = array([1, 2, 3, 4]);
+      const result = nancumsum(arr);
+      expect(result.toArray()).toEqual([1, 3, 6, 10]);
+    });
+
+    it('computes cumulative sum along axis=0 for 2D array', () => {
+      const arr = array([
+        [1, NaN],
+        [NaN, 4],
+        [5, 6],
+      ]);
+      const result = nancumsum(arr, 0);
+      expect(result.shape).toEqual([3, 2]);
+      const data = result.toArray() as number[][];
+      expect(data[0]![0]).toBeCloseTo(1);
+      expect(data[0]![1]).toBeCloseTo(0);
+      expect(data[1]![0]).toBeCloseTo(1);
+      expect(data[1]![1]).toBeCloseTo(4);
+      expect(data[2]![0]).toBeCloseTo(6);
+      expect(data[2]![1]).toBeCloseTo(10);
+    });
+
+    it('computes cumulative sum along axis=1 for 2D array', () => {
+      const arr = array([
+        [1, NaN, 3],
+        [4, 5, NaN],
+      ]);
+      const result = nancumsum(arr, 1);
+      expect(result.shape).toEqual([2, 3]);
+      const data = result.toArray() as number[][];
+      expect(data[0]![0]).toBeCloseTo(1);
+      expect(data[0]![1]).toBeCloseTo(1);
+      expect(data[0]![2]).toBeCloseTo(4);
+      expect(data[1]![0]).toBeCloseTo(4);
+      expect(data[1]![1]).toBeCloseTo(9);
+      expect(data[1]![2]).toBeCloseTo(9);
+    });
+
+    it('handles all NaN values', () => {
+      const arr = array([NaN, NaN, NaN]);
+      const result = nancumsum(arr);
+      expect(result.toArray()).toEqual([0, 0, 0]);
+    });
+  });
+
+  describe('nancumprod()', () => {
+    it('computes cumulative product treating NaN as one', () => {
+      const arr = array([2, NaN, 3, NaN, 4]);
+      const result = nancumprod(arr);
+      expect(result.toArray()).toEqual([2, 2, 6, 6, 24]);
+    });
+
+    it('computes cumulative product with no NaN values', () => {
+      const arr = array([1, 2, 3, 4]);
+      const result = nancumprod(arr);
+      expect(result.toArray()).toEqual([1, 2, 6, 24]);
+    });
+
+    it('computes cumulative product along axis=0 for 2D array', () => {
+      const arr = array([
+        [2, NaN],
+        [NaN, 3],
+        [4, 5],
+      ]);
+      const result = nancumprod(arr, 0);
+      expect(result.shape).toEqual([3, 2]);
+      const data = result.toArray() as number[][];
+      expect(data[0]![0]).toBeCloseTo(2);
+      expect(data[0]![1]).toBeCloseTo(1);
+      expect(data[1]![0]).toBeCloseTo(2);
+      expect(data[1]![1]).toBeCloseTo(3);
+      expect(data[2]![0]).toBeCloseTo(8);
+      expect(data[2]![1]).toBeCloseTo(15);
+    });
+
+    it('computes cumulative product along axis=1 for 2D array', () => {
+      const arr = array([
+        [2, NaN, 3],
+        [4, 5, NaN],
+      ]);
+      const result = nancumprod(arr, 1);
+      expect(result.shape).toEqual([2, 3]);
+      const data = result.toArray() as number[][];
+      expect(data[0]![0]).toBeCloseTo(2);
+      expect(data[0]![1]).toBeCloseTo(2);
+      expect(data[0]![2]).toBeCloseTo(6);
+      expect(data[1]![0]).toBeCloseTo(4);
+      expect(data[1]![1]).toBeCloseTo(20);
+      expect(data[1]![2]).toBeCloseTo(20);
+    });
+
+    it('handles all NaN values', () => {
+      const arr = array([NaN, NaN, NaN]);
+      const result = nancumprod(arr);
+      expect(result.toArray()).toEqual([1, 1, 1]);
+    });
+  });
+
+  describe('nanquantile()', () => {
+    it('computes median (q=0.5) ignoring NaN', () => {
+      const arr = array([1, NaN, 2, 3]);
+      const result = nanquantile(arr, 0.5);
+      expect(result).toBe(2);
+    });
+
+    it('computes 0th quantile (minimum)', () => {
+      const arr = array([5, NaN, 1, 3]);
+      const result = nanquantile(arr, 0);
+      expect(result).toBe(1);
+    });
+
+    it('computes 1st quantile (maximum)', () => {
+      const arr = array([5, NaN, 1, 3]);
+      const result = nanquantile(arr, 1);
+      expect(result).toBe(5);
+    });
+
+    it('computes quantile along axis=0', () => {
+      const arr = array([
+        [1, NaN],
+        [3, 4],
+        [5, 6],
+      ]);
+      const result = nanquantile(arr, 0.5, 0) as any;
+      expect(result.shape).toEqual([2]);
+      const data = result.toArray() as number[];
+      expect(data[0]).toBeCloseTo(3);
+      expect(data[1]).toBeCloseTo(5);
+    });
+
+    it('computes quantile along axis=1', () => {
+      const arr = array([
+        [1, 2, NaN],
+        [NaN, 5, 6],
+      ]);
+      const result = nanquantile(arr, 0.5, 1) as any;
+      expect(result.shape).toEqual([2]);
+      const data = result.toArray() as number[];
+      expect(data[0]).toBeCloseTo(1.5);
+      expect(data[1]).toBeCloseTo(5.5);
+    });
+
+    it('returns NaN when all values are NaN', () => {
+      const arr = array([NaN, NaN, NaN]);
+      const result = nanquantile(arr, 0.5);
+      expect(result).toBeNaN();
+    });
+
+    it('throws for quantile out of range', () => {
+      const arr = array([1, 2, 3]);
+      expect(() => nanquantile(arr, -0.1)).toThrow();
+      expect(() => nanquantile(arr, 1.1)).toThrow();
+    });
+
+    it('supports keepdims=true', () => {
+      const arr = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      const result = nanquantile(arr, 0.5, 0, true) as any;
+      expect(result.shape).toEqual([1, 2]);
+    });
+  });
+
+  describe('nanpercentile()', () => {
+    it('computes 50th percentile (median) ignoring NaN', () => {
+      const arr = array([1, NaN, 2, 3]);
+      const result = nanpercentile(arr, 50);
+      expect(result).toBe(2);
+    });
+
+    it('computes 0th percentile (minimum)', () => {
+      const arr = array([5, NaN, 1, 3]);
+      const result = nanpercentile(arr, 0);
+      expect(result).toBe(1);
+    });
+
+    it('computes 100th percentile (maximum)', () => {
+      const arr = array([5, NaN, 1, 3]);
+      const result = nanpercentile(arr, 100);
+      expect(result).toBe(5);
+    });
+
+    it('computes percentile along axis=0', () => {
+      const arr = array([
+        [1, NaN],
+        [3, 4],
+        [5, 6],
+      ]);
+      const result = nanpercentile(arr, 50, 0) as any;
+      expect(result.shape).toEqual([2]);
+      const data = result.toArray() as number[];
+      expect(data[0]).toBeCloseTo(3);
+      expect(data[1]).toBeCloseTo(5);
+    });
+
+    it('computes percentile along axis=1', () => {
+      const arr = array([
+        [1, 2, NaN],
+        [NaN, 5, 6],
+      ]);
+      const result = nanpercentile(arr, 50, 1) as any;
+      expect(result.shape).toEqual([2]);
+      const data = result.toArray() as number[];
+      expect(data[0]).toBeCloseTo(1.5);
+      expect(data[1]).toBeCloseTo(5.5);
+    });
+
+    it('returns NaN when all values are NaN', () => {
+      const arr = array([NaN, NaN, NaN]);
+      const result = nanpercentile(arr, 50);
+      expect(result).toBeNaN();
+    });
+
+    it('supports keepdims=true', () => {
+      const arr = array([
+        [1, NaN],
+        [3, 4],
+      ]);
+      const result = nanpercentile(arr, 50, 0, true) as any;
       expect(result.shape).toEqual([1, 2]);
     });
   });
