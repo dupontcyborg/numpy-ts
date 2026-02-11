@@ -40,7 +40,7 @@
     }
   },
   "scripts": {
-    "generate": "tsx scripts/generate-full.ts && prettier --write src/full/index.ts",
+    "generate": "tsx scripts/generate-full.ts && prettier --write src/full/index.ts src/full/ndarray.ts",
     "build": "npm run build:clean && npm run generate && tsx build.ts && npm run build:types",
     "build:clean": "rm -rf dist",
     "build:types": "tsc --emitDeclarationOnly --outDir dist/types",

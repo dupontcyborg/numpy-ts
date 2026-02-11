@@ -1,9 +1,9 @@
 /**
  * Code Generator for full/ module
  *
- * This script generates full/index.ts from core/ module functions.
- * It transforms NDArrayCore return types to NDArray and wraps functions
- * to upgrade results.
+ * This script generates:
+ *   - full/index.ts  — wrapped core functions returning NDArray
+ *   - full/ndarray.ts — NDArray class with ~163 methods
  *
  * Run with: npx ts-node scripts/generate-full.ts
  */
@@ -12,13 +12,15 @@ import { Project, FunctionDeclaration, SourceFile, SyntaxKind } from 'ts-morph';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { METHOD_DEFS, MESHGRID_FUNCTION, type MethodDef, type MethodPattern } from './ndarray-methods';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const CORE_DIR = path.join(__dirname, '../src/core');
 const FULL_DIR = path.join(__dirname, '../src/full');
-const OUTPUT_FILE = path.join(FULL_DIR, 'index.ts');
+const INDEX_OUTPUT_FILE = path.join(FULL_DIR, 'index.ts');
+const NDARRAY_OUTPUT_FILE = path.join(FULL_DIR, 'ndarray.ts');
 
 // Files to skip (not function modules)
 const SKIP_FILES = new Set(['index.ts', 'types.ts']);
@@ -260,60 +262,15 @@ function getModuleName(funcName: string): string {
   return 'index';
 }
 
-async function main() {
-  console.log('Generating full/index.ts from core/ modules...\n');
+// ============================================================
+// Index file generation (existing logic)
+// ============================================================
 
-  const project = new Project({
-    tsConfigFilePath: path.join(__dirname, '../tsconfig.json'),
-  });
-
-  // Collect all function info from core modules
-  const allFunctions: Map<string, FunctionInfo> = new Map();
-  const wrappedFunctions: Set<string> = new Set();
-  const reexportedFunctions: Set<string> = new Set();
-
-  const coreFiles = fs.readdirSync(CORE_DIR)
-    .filter(f => f.endsWith('.ts') && !SKIP_FILES.has(f));
-
-  console.log(`Processing ${coreFiles.length} core modules...`);
-
-  // Track const exports separately
-  const constExports: Set<string> = new Set();
-
-  for (const file of coreFiles) {
-    const filePath = path.join(CORE_DIR, file);
-    const sourceFile = project.addSourceFileAtPath(filePath);
-
-    const functions = sourceFile.getFunctions()
-      .filter(f => f.isExported())
-      .map(extractFunctionInfo)
-      .filter((f): f is FunctionInfo => f !== null);
-
-    for (const func of functions) {
-      if (shouldWrapFunction(func)) {
-        wrappedFunctions.add(func.name);
-      } else {
-        reexportedFunctions.add(func.name);
-      }
-      allFunctions.set(func.name, func);
-    }
-
-    // Also collect exported variable declarations (const exports, aliases)
-    const varStatements = sourceFile.getVariableStatements()
-      .filter(v => v.isExported());
-
-    for (const varStatement of varStatements) {
-      for (const decl of varStatement.getDeclarations()) {
-        const name = decl.getName();
-        constExports.add(name);
-        reexportedFunctions.add(name);
-      }
-    }
-
-    console.log(`  ${file}: ${functions.length} functions (${functions.filter(f => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`);
-  }
-
-  // Generate the output file
+function generateIndexFile(
+  allFunctions: Map<string, FunctionInfo>,
+  wrappedFunctions: Set<string>,
+  reexportedFunctions: Set<string>,
+): void {
   const output: string[] = [];
 
   output.push(`// AUTO-GENERATED - DO NOT EDIT
@@ -397,11 +354,289 @@ export { Complex } from '../common/complex';
 
   // Write output
   const outputContent = output.join('\n');
-  fs.writeFileSync(OUTPUT_FILE, outputContent);
+  fs.writeFileSync(INDEX_OUTPUT_FILE, outputContent);
 
-  console.log(`\nGenerated ${OUTPUT_FILE}`);
+  console.log(`\nGenerated ${INDEX_OUTPUT_FILE}`);
   console.log(`  - ${wrappedFunctions.size} wrapped functions`);
   console.log(`  - ${reexportedFunctions.size} re-exported functions`);
+}
+
+// ============================================================
+// NDArray file generation (new)
+// ============================================================
+
+function formatJSDoc(doc: string | undefined): string {
+  if (!doc) return '';
+  const lines = doc.split('\n');
+  if (lines.length === 1) {
+    return `  /**\n   * ${lines[0]}\n   */\n`;
+  }
+  return `  /**\n${lines.map(l => `   * ${l}`).join('\n')}\n   */\n`;
+}
+
+function extractParamNames(params: string): string {
+  if (!params) return '';
+  // Parse param names from a TypeScript parameter string
+  // e.g. "axis?: number, keepdims: boolean = false" → "axis, keepdims"
+  return params
+    .split(',')
+    .map(p => {
+      const name = p.trim().split(/[?:=]/)[0]!.trim();
+      // Handle rest params
+      return name.startsWith('...') ? name : name;
+    })
+    .join(', ');
+}
+
+function generateMethodCode(def: MethodDef): string {
+  const doc = formatJSDoc(def.doc);
+  const coreName = def.coreName || def.name;
+
+  switch (def.pattern) {
+    case 'manual':
+      return `${doc}  ${def.manualCode!}`;
+
+    case 'unary':
+      return `${doc}  ${def.name}(): NDArray {\n    return up(core.${coreName}(this));\n  }`;
+
+    case 'binary': {
+      const params = def.params || 'other: NDArray | number';
+      const argName = def.coreArgs || extractParamNames(params);
+      return `${doc}  ${def.name}(${params}): NDArray {\n    return up(core.${coreName}(this, ${argName}));\n  }`;
+    }
+
+    case 'reduction': {
+      const params = def.params || 'axis?: number, keepdims: boolean = false';
+      const returnType = def.returnType || 'NDArray | number | Complex';
+      const argNames = def.coreArgs || extractParamNames(params);
+      return `${doc}  ${def.name}(${params}): ${returnType} {\n    const r = core.${coreName}(this, ${argNames});\n    return r instanceof NDArrayCore ? up(r) : r;\n  }`;
+    }
+
+    case 'passthrough': {
+      const params = def.params || '';
+      const argNames = def.coreArgs || extractParamNames(params);
+      const coreCall = argNames
+        ? `core.${coreName}(this, ${argNames})`
+        : `core.${coreName}(this)`;
+      return `${doc}  ${def.name}(${params}): NDArray {\n    return up(${coreCall});\n  }`;
+    }
+
+    case 'array_return':
+      return `${doc}  ${def.name}(): NDArray[] {\n    return core.${coreName}(this).map(up);\n  }`;
+
+    case 'tuple_return': {
+      const params = def.params || '';
+      const argNames = def.coreArgs || extractParamNames(params);
+      const coreCall = argNames
+        ? `core.${coreName}(this, ${argNames})`
+        : `core.${coreName}(this)`;
+      return `${doc}  ${def.name}(${params}): [NDArray, NDArray] {\n    const r = ${coreCall};\n    return [up(r[0]), up(r[1])] as [NDArray, NDArray];\n  }`;
+    }
+
+    default:
+      throw new Error(`Unknown pattern: ${def.pattern}`);
+  }
+}
+
+function generateNDArrayFile(): void {
+  const output: string[] = [];
+
+  // File header
+  output.push(`// AUTO-GENERATED - DO NOT EDIT
+// Run \`npm run generate\` to regenerate this file from scripts/ndarray-methods.ts
+
+import { parseSlice, normalizeSlice } from '../common/slicing';
+import {
+  type DType,
+  type TypedArray,
+  getTypedArrayConstructor,
+  getDTypeSize,
+  isBigIntDType,
+  isComplexDType,
+} from '../common/dtype';
+import { Complex } from '../common/complex';
+import { ArrayStorage } from '../common/storage';
+import { NDArrayCore } from '../common/ndarray-core';
+import * as core from '../core';
+
+// Helper to upgrade NDArrayCore to NDArray (zero-copy via shared storage)
+const up = (x: NDArrayCore): NDArray => {
+  if (x instanceof NDArray) return x;
+  const base = x.base ? up(x.base) : undefined;
+  return NDArray.fromStorage(x.storage, base);
+};
+
+export class NDArray extends NDArrayCore {`);
+
+  // Group methods by pattern for organized output
+  const manualMethods = METHOD_DEFS.filter(d => d.pattern === 'manual');
+  const unaryMethods = METHOD_DEFS.filter(d => d.pattern === 'unary');
+  const binaryMethods = METHOD_DEFS.filter(d => d.pattern === 'binary');
+  const reductionMethods = METHOD_DEFS.filter(d => d.pattern === 'reduction');
+  const passthroughMethods = METHOD_DEFS.filter(d => d.pattern === 'passthrough');
+  const arrayReturnMethods = METHOD_DEFS.filter(d => d.pattern === 'array_return');
+  const tupleReturnMethods = METHOD_DEFS.filter(d => d.pattern === 'tuple_return');
+
+  // --- Manual methods ---
+  output.push('\n  // ========================================');
+  output.push('  // Manual methods');
+  output.push('  // ========================================\n');
+
+  for (const def of manualMethods) {
+    output.push(generateMethodCode(def));
+    output.push('');
+  }
+
+  // --- Unary operations ---
+  output.push('  // ========================================');
+  output.push('  // Unary operations');
+  output.push('  // ========================================\n');
+
+  for (const def of unaryMethods) {
+    output.push(generateMethodCode(def));
+    output.push('');
+  }
+
+  // --- Binary operations ---
+  output.push('  // ========================================');
+  output.push('  // Binary operations');
+  output.push('  // ========================================\n');
+
+  for (const def of binaryMethods) {
+    output.push(generateMethodCode(def));
+    output.push('');
+  }
+
+  // --- Reductions ---
+  output.push('  // ========================================');
+  output.push('  // Reduction operations');
+  output.push('  // ========================================\n');
+
+  for (const def of reductionMethods) {
+    output.push(generateMethodCode(def));
+    output.push('');
+  }
+
+  // --- Passthrough ---
+  output.push('  // ========================================');
+  output.push('  // Passthrough operations');
+  output.push('  // ========================================\n');
+
+  for (const def of passthroughMethods) {
+    output.push(generateMethodCode(def));
+    output.push('');
+  }
+
+  // --- Array return ---
+  if (arrayReturnMethods.length > 0) {
+    output.push('  // ========================================');
+    output.push('  // Array return operations');
+    output.push('  // ========================================\n');
+
+    for (const def of arrayReturnMethods) {
+      output.push(generateMethodCode(def));
+      output.push('');
+    }
+  }
+
+  // --- Tuple return ---
+  if (tupleReturnMethods.length > 0) {
+    output.push('  // ========================================');
+    output.push('  // Tuple return operations');
+    output.push('  // ========================================\n');
+
+    for (const def of tupleReturnMethods) {
+      output.push(generateMethodCode(def));
+      output.push('');
+    }
+  }
+
+  // Close class
+  output.push('}');
+
+  // Meshgrid function (after class)
+  output.push('');
+  output.push('/**');
+  output.push(' * Return coordinate matrices from coordinate vectors');
+  output.push(' * @param arrays - 1D coordinate arrays');
+  output.push(' * @param indexing - \'xy\' (Cartesian, default) or \'ij\' (matrix indexing)');
+  output.push(' * @returns Array of coordinate grids');
+  output.push(' */');
+  output.push(MESHGRID_FUNCTION);
+  output.push('');
+
+  // Write output
+  const outputContent = output.join('\n');
+  fs.writeFileSync(NDARRAY_OUTPUT_FILE, outputContent);
+
+  const totalMethods = METHOD_DEFS.length;
+  const autoMethods = totalMethods - manualMethods.length;
+  console.log(`\nGenerated ${NDARRAY_OUTPUT_FILE}`);
+  console.log(`  - ${manualMethods.length} manual methods`);
+  console.log(`  - ${autoMethods} auto-generated methods`);
+  console.log(`  - ${totalMethods} total methods`);
+}
+
+// ============================================================
+// Main
+// ============================================================
+
+async function main() {
+  console.log('Generating full/ module files...\n');
+
+  const project = new Project({
+    tsConfigFilePath: path.join(__dirname, '../tsconfig.json'),
+  });
+
+  // Collect all function info from core modules
+  const allFunctions: Map<string, FunctionInfo> = new Map();
+  const wrappedFunctions: Set<string> = new Set();
+  const reexportedFunctions: Set<string> = new Set();
+
+  const coreFiles = fs.readdirSync(CORE_DIR)
+    .filter(f => f.endsWith('.ts') && !SKIP_FILES.has(f));
+
+  console.log(`Processing ${coreFiles.length} core modules...`);
+
+  // Track const exports separately
+  const constExports: Set<string> = new Set();
+
+  for (const file of coreFiles) {
+    const filePath = path.join(CORE_DIR, file);
+    const sourceFile = project.addSourceFileAtPath(filePath);
+
+    const functions = sourceFile.getFunctions()
+      .filter(f => f.isExported())
+      .map(extractFunctionInfo)
+      .filter((f): f is FunctionInfo => f !== null);
+
+    for (const func of functions) {
+      if (shouldWrapFunction(func)) {
+        wrappedFunctions.add(func.name);
+      } else {
+        reexportedFunctions.add(func.name);
+      }
+      allFunctions.set(func.name, func);
+    }
+
+    // Also collect exported variable declarations (const exports, aliases)
+    const varStatements = sourceFile.getVariableStatements()
+      .filter(v => v.isExported());
+
+    for (const varStatement of varStatements) {
+      for (const decl of varStatement.getDeclarations()) {
+        const name = decl.getName();
+        constExports.add(name);
+        reexportedFunctions.add(name);
+      }
+    }
+
+    console.log(`  ${file}: ${functions.length} functions (${functions.filter(f => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`);
+  }
+
+  // Generate both files
+  generateIndexFile(allFunctions, wrappedFunctions, reexportedFunctions);
+  generateNDArrayFile();
 }
 
 main().catch(console.error);
