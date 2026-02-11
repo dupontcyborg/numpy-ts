@@ -441,9 +441,19 @@ describe('trunc() - standalone wrapper coverage', () => {
   });
 
   it('truncates 3D array', () => {
-    const arr = array([[[1.9, -2.9], [3.1, -4.1]]]);
+    const arr = array([
+      [
+        [1.9, -2.9],
+        [3.1, -4.1],
+      ],
+    ]);
     const result = trunc(arr);
-    expect(result.toArray()).toEqual([[[1, -2], [3, -4]]]);
+    expect(result.toArray()).toEqual([
+      [
+        [1, -2],
+        [3, -4],
+      ],
+    ]);
   });
 
   it('handles zero values', () => {

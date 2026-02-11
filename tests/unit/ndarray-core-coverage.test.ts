@@ -19,15 +19,33 @@ import type { DType } from '../../src/common/dtype';
 function core(data: number[], shape: number[], dtype: DType = 'float64'): NDArrayCore {
   let ta;
   switch (dtype) {
-    case 'float64': ta = new Float64Array(data); break;
-    case 'float32': ta = new Float32Array(data); break;
-    case 'int32': ta = new Int32Array(data); break;
-    case 'int16': ta = new Int16Array(data); break;
-    case 'int8': ta = new Int8Array(data); break;
-    case 'uint32': ta = new Uint32Array(data); break;
-    case 'uint16': ta = new Uint16Array(data); break;
-    case 'uint8': ta = new Uint8Array(data); break;
-    default: ta = new Float64Array(data); break;
+    case 'float64':
+      ta = new Float64Array(data);
+      break;
+    case 'float32':
+      ta = new Float32Array(data);
+      break;
+    case 'int32':
+      ta = new Int32Array(data);
+      break;
+    case 'int16':
+      ta = new Int16Array(data);
+      break;
+    case 'int8':
+      ta = new Int8Array(data);
+      break;
+    case 'uint32':
+      ta = new Uint32Array(data);
+      break;
+    case 'uint16':
+      ta = new Uint16Array(data);
+      break;
+    case 'uint8':
+      ta = new Uint8Array(data);
+      break;
+    default:
+      ta = new Float64Array(data);
+      break;
   }
   const storage = ArrayStorage.fromData(ta, shape, dtype);
   return NDArrayCore._fromStorage(storage);

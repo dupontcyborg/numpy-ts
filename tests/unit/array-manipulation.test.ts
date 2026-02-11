@@ -1576,7 +1576,10 @@ describe('Array Manipulation', () => {
     });
 
     it('throws for arrays with fewer than 3 dimensions', () => {
-      const arr = array([[1, 2], [3, 4]]);
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
       expect(() => dsplit(arr, 2)).toThrow();
     });
   });
@@ -1593,8 +1596,14 @@ describe('Array Manipulation', () => {
     });
 
     it('assembles 2D arrays along last axis', () => {
-      const a = array([[1, 2], [3, 4]]);
-      const b = array([[5, 6], [7, 8]]);
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
       const result = block([a, b]);
       expect(result.shape).toEqual([2, 4]);
       expect(result.toArray()).toEqual([

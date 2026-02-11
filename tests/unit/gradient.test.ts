@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { array, diff, ediff1d, gradient, cross, Complex } from '../../src';
+import { array, diff, ediff1d, gradient, cross } from '../../src';
 import {
   diff as diffStorage,
   ediff1d as ediff1dStorage,

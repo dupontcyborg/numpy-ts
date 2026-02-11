@@ -11,7 +11,14 @@ import {
   broadcastShapes,
   broadcastTo,
 } from '../../src/common/broadcasting';
-import { array, zeros, ones, broadcast_shapes, broadcast_to, broadcast_arrays as ba } from '../../src';
+import {
+  array,
+  zeros,
+  ones,
+  broadcast_shapes,
+  broadcast_to,
+  broadcast_arrays as ba,
+} from '../../src';
 
 describe('Broadcasting utilities', () => {
   describe('computeBroadcastShape', () => {

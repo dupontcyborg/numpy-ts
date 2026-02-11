@@ -495,12 +495,15 @@ describe('Edge Cases', () => {
 
 describe('sort_complex() - additional coverage', () => {
   it('sorts a complex array by real part then imaginary part', () => {
-    const arr = array([
-      { re: 3, im: 0 },
-      { re: 1, im: 2 },
-      { re: 1, im: 1 },
-      { re: 2, im: -1 },
-    ], 'complex128');
+    const arr = array(
+      [
+        { re: 3, im: 0 },
+        { re: 1, im: 2 },
+        { re: 1, im: 1 },
+        { re: 2, im: -1 },
+      ],
+      'complex128'
+    );
     const result = sort_complex(arr);
     expect(result.dtype).toBe('complex128');
     expect(result.shape).toEqual([4]);
@@ -522,16 +525,19 @@ describe('sort_complex() - additional coverage', () => {
     expect(result.dtype).toBe('complex128');
     expect(result.shape).toEqual([4]);
     const values = result.toArray() as Complex[];
-    expect(values.map(c => c.re)).toEqual([1, 2, 5, 8]);
-    expect(values.every(c => c.im === 0)).toBe(true);
+    expect(values.map((c) => c.re)).toEqual([1, 2, 5, 8]);
+    expect(values.every((c) => c.im === 0)).toBe(true);
   });
 
   it('sorts 2D real array (flattened) and returns complex128', () => {
-    const arr = array([[4, 1], [3, 2]]);
+    const arr = array([
+      [4, 1],
+      [3, 2],
+    ]);
     const result = sort_complex(arr);
     expect(result.shape).toEqual([4]);
     const values = result.toArray() as Complex[];
-    expect(values.map(c => c.re)).toEqual([1, 2, 3, 4]);
+    expect(values.map((c) => c.re)).toEqual([1, 2, 3, 4]);
   });
 
   it('handles NaN in real array (NaN goes to end)', () => {
@@ -568,7 +574,10 @@ describe('lexsort() - additional coverage', () => {
   });
 
   it('throws for 2D keys', () => {
-    const k = array([[1, 2], [3, 4]]);
+    const k = array([
+      [1, 2],
+      [3, 4],
+    ]);
     expect(() => lexsort([k])).toThrow('1D');
   });
 
