@@ -36,19 +36,19 @@ export function append(
 export function delete_(arr: NDArrayCore, obj: number | number[], axis?: number): NDArrayCore {
   const indices = Array.isArray(obj) ? obj : [obj];
   const shape = [...arr.shape];
-  const data = arr.data;
+  const srcStorage = arr.storage;
 
   if (axis === undefined) {
     // Flatten and delete
     const flat = flatten(arr);
-    const flatData = flat.data;
+    const flatStorage = flat.storage;
     const newData: number[] = [];
 
     const deleteSet = new Set(indices.map((i) => (i < 0 ? flat.size + i : i)));
 
     for (let i = 0; i < flat.size; i++) {
       if (!deleteSet.has(i)) {
-        newData.push(flatData[i] as number);
+        newData.push(flatStorage.iget(i) as number);
       }
     }
 
@@ -67,9 +67,9 @@ export function delete_(arr: NDArrayCore, obj: number | number[], axis?: number)
   newShape[normalizedAxis] = newAxisLen;
 
   const result = zeros(newShape, arr.dtype as DType);
-  const resultData = result.data;
+  const resultStorage = result.storage;
 
-  // Calculate strides
+  // Calculate strides for multi-index iteration (logical C-contiguous strides)
   const strides: number[] = [];
   let stride = 1;
   for (let i = shape.length - 1; i >= 0; i--) {
@@ -116,7 +116,7 @@ export function delete_(arr: NDArrayCore, obj: number | number[], axis?: number)
       newFlatIdx += newMultiIdx[i]! * newStrides[i]!;
     }
 
-    (resultData as Float64Array)[newFlatIdx] = data[flatIdx] as number;
+    resultStorage.iset(newFlatIdx, srcStorage.iget(flatIdx));
   }
 
   return result;
@@ -219,15 +219,17 @@ export function pad(
 
   // Create result array filled with constant value
   const result = zeros(newShape, arr.dtype as DType);
-  const resultData = result.data;
+  const resultStorage = result.storage;
   if (constant_values !== 0) {
-    (resultData as Float64Array).fill(constant_values);
+    for (let i = 0; i < result.size; i++) {
+      resultStorage.iset(i, constant_values);
+    }
   }
 
   // Copy original data into the padded position
-  const data = arr.data;
+  const srcStorage = arr.storage;
 
-  // Calculate strides
+  // Calculate strides for multi-index iteration (logical C-contiguous strides)
   const strides: number[] = [];
   let stride = 1;
   for (let i = shape.length - 1; i >= 0; i--) {
@@ -259,7 +261,7 @@ export function pad(
       newFlatIdx += (multiIdx[i]! + padWidths[i]![0]) * newStrides[i]!;
     }
 
-    (resultData as Float64Array)[newFlatIdx] = data[flatIdx] as number;
+    resultStorage.iset(newFlatIdx, srcStorage.iget(flatIdx));
   }
 
   return result;

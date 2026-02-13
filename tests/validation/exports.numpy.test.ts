@@ -315,6 +315,8 @@ describe('NumPy API Comparison', () => {
         'genfromtxt',
         'fromregex',
         'serializeTxt',
+        // Deprecated in NumPy 1.24+, removed in NumPy 2.0 (use isin instead)
+        'in1d',
       ];
 
       const invalidExports: string[] = [];
@@ -482,6 +484,8 @@ describe('NumPy API Comparison', () => {
         // Low-level indexed get/set (internal helpers exposed on prototype)
         'iget',
         'iset',
+        // Deprecated in NumPy 1.25+, removed in NumPy 2.0
+        'ptp',
       ];
 
       const invalidAttrs: string[] = [];
