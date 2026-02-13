@@ -71,6 +71,8 @@ function bitwiseAndArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const size = a.size;
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
@@ -79,20 +81,26 @@ function bitwiseAndArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-        const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? aData[aOff + i]
+            : BigInt(Math.round(Number(aData[aOff + i])));
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? bData[bOff + i]
+            : BigInt(Math.round(Number(bData[bOff + i])));
         resultTyped[i] = (aVal as bigint) & (bVal as bigint);
       }
     } else {
       const aTyped = aData as BigInt64Array | BigUint64Array;
       const bTyped = bData as BigInt64Array | BigUint64Array;
       for (let i = 0; i < size; i++) {
-        resultTyped[i] = aTyped[i]! & bTyped[i]!;
+        resultTyped[i] = aTyped[aOff + i]! & bTyped[bOff + i]!;
       }
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = (aData[i] as number) & (bData[i] as number);
+      resultData[i] = (aData[aOff + i] as number) & (bData[bOff + i] as number);
     }
   }
 
@@ -107,21 +115,47 @@ function bitwiseAndScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const data = storage.data;
+  const off = storage.offset;
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const scalarBig = BigInt(Math.round(scalar));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! & scalarBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[i]! & scalarBig;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[off + i]! & scalarBig;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) & scalarBig;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      resultData[i] = (data[i] as number) & scalar;
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[i] as number) & scalar;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[off + i] as number) & scalar;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) & scalar;
+      }
     }
   }
 
@@ -163,6 +197,8 @@ function bitwiseOrArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const size = a.size;
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
@@ -171,20 +207,26 @@ function bitwiseOrArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-        const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? aData[aOff + i]
+            : BigInt(Math.round(Number(aData[aOff + i])));
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? bData[bOff + i]
+            : BigInt(Math.round(Number(bData[bOff + i])));
         resultTyped[i] = (aVal as bigint) | (bVal as bigint);
       }
     } else {
       const aTyped = aData as BigInt64Array | BigUint64Array;
       const bTyped = bData as BigInt64Array | BigUint64Array;
       for (let i = 0; i < size; i++) {
-        resultTyped[i] = aTyped[i]! | bTyped[i]!;
+        resultTyped[i] = aTyped[aOff + i]! | bTyped[bOff + i]!;
       }
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = (aData[i] as number) | (bData[i] as number);
+      resultData[i] = (aData[aOff + i] as number) | (bData[bOff + i] as number);
     }
   }
 
@@ -199,21 +241,47 @@ function bitwiseOrScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const data = storage.data;
+  const off = storage.offset;
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const scalarBig = BigInt(Math.round(scalar));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! | scalarBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[i]! | scalarBig;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[off + i]! | scalarBig;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) | scalarBig;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      resultData[i] = (data[i] as number) | scalar;
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[i] as number) | scalar;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[off + i] as number) | scalar;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) | scalar;
+      }
     }
   }
 
@@ -255,6 +323,8 @@ function bitwiseXorArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const size = a.size;
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
@@ -263,20 +333,26 @@ function bitwiseXorArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-        const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? aData[aOff + i]
+            : BigInt(Math.round(Number(aData[aOff + i])));
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? bData[bOff + i]
+            : BigInt(Math.round(Number(bData[bOff + i])));
         resultTyped[i] = (aVal as bigint) ^ (bVal as bigint);
       }
     } else {
       const aTyped = aData as BigInt64Array | BigUint64Array;
       const bTyped = bData as BigInt64Array | BigUint64Array;
       for (let i = 0; i < size; i++) {
-        resultTyped[i] = aTyped[i]! ^ bTyped[i]!;
+        resultTyped[i] = aTyped[aOff + i]! ^ bTyped[bOff + i]!;
       }
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = (aData[i] as number) ^ (bData[i] as number);
+      resultData[i] = (aData[aOff + i] as number) ^ (bData[bOff + i] as number);
     }
   }
 
@@ -291,21 +367,47 @@ function bitwiseXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const data = storage.data;
+  const off = storage.offset;
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const scalarBig = BigInt(Math.round(scalar));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! ^ scalarBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[i]! ^ scalarBig;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[off + i]! ^ scalarBig;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) ^ scalarBig;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      resultData[i] = (data[i] as number) ^ scalar;
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[i] as number) ^ scalar;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[off + i] as number) ^ scalar;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) ^ scalar;
+      }
     }
   }
 
@@ -324,20 +426,46 @@ export function bitwise_not(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const data = a.data;
+  const off = a.offset;
   const size = a.size;
+  const contiguous = a.isCContiguous;
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = ~thisTyped[i]!;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = ~thisTyped[i]!;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = ~thisTyped[off + i]!;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = ~(a.iget(i) as bigint);
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      resultData[i] = ~(data[i] as number);
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = ~(data[i] as number);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = ~(data[off + i] as number);
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = ~Number(a.iget(i));
+      }
     }
   }
 
@@ -372,7 +500,7 @@ export function left_shift(a: ArrayStorage, b: ArrayStorage | number): ArrayStor
 
   // Fast path: single-element array or broadcastable scalar shape treated as scalar
   if (b.size === 1 || (b.ndim === 1 && b.shape[0] === 1)) {
-    const shiftVal = isBigIntDType(b.dtype) ? Number(b.data[0] as bigint) : (b.data[0] as number);
+    const shiftVal = Number(b.iget(0));
     return leftShiftScalar(a, shiftVal);
   }
 
@@ -395,18 +523,26 @@ function leftShiftArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const size = a.size;
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
-      const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-      const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+      const aVal =
+        typeof aData[aOff + i] === 'bigint'
+          ? aData[aOff + i]
+          : BigInt(Math.round(Number(aData[aOff + i])));
+      const bVal =
+        typeof bData[bOff + i] === 'bigint'
+          ? bData[bOff + i]
+          : BigInt(Math.round(Number(bData[bOff + i])));
       resultTyped[i] = (aVal as bigint) << (bVal as bigint);
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = (aData[i] as number) << (bData[i] as number);
+      resultData[i] = (aData[aOff + i] as number) << (bData[bOff + i] as number);
     }
   }
 
@@ -421,21 +557,47 @@ function leftShiftScalar(storage: ArrayStorage, shift: number): ArrayStorage {
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const data = storage.data;
+  const off = storage.offset;
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const shiftBig = BigInt(Math.round(shift));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! << shiftBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[i]! << shiftBig;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[off + i]! << shiftBig;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) << shiftBig;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      resultData[i] = (data[i] as number) << shift;
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[i] as number) << shift;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[off + i] as number) << shift;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) << shift;
+      }
     }
   }
 
@@ -460,7 +622,7 @@ export function right_shift(a: ArrayStorage, b: ArrayStorage | number): ArraySto
 
   // Fast path: single-element array or broadcastable scalar shape treated as scalar
   if (b.size === 1 || (b.ndim === 1 && b.shape[0] === 1)) {
-    const shiftVal = isBigIntDType(b.dtype) ? Number(b.data[0] as bigint) : (b.data[0] as number);
+    const shiftVal = Number(b.iget(0));
     return rightShiftScalar(a, shiftVal);
   }
 
@@ -483,18 +645,26 @@ function rightShiftArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const size = a.size;
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
-      const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-      const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+      const aVal =
+        typeof aData[aOff + i] === 'bigint'
+          ? aData[aOff + i]
+          : BigInt(Math.round(Number(aData[aOff + i])));
+      const bVal =
+        typeof bData[bOff + i] === 'bigint'
+          ? bData[bOff + i]
+          : BigInt(Math.round(Number(bData[bOff + i])));
       resultTyped[i] = (aVal as bigint) >> (bVal as bigint);
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = (aData[i] as number) >> (bData[i] as number);
+      resultData[i] = (aData[aOff + i] as number) >> (bData[bOff + i] as number);
     }
   }
 
@@ -509,21 +679,47 @@ function rightShiftScalar(storage: ArrayStorage, shift: number): ArrayStorage {
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const data = storage.data;
+  const off = storage.offset;
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const shiftBig = BigInt(Math.round(shift));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! >> shiftBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[i]! >> shiftBig;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[off + i]! >> shiftBig;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) >> shiftBig;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      resultData[i] = (data[i] as number) >> shift;
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[i] as number) >> shift;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (data[off + i] as number) >> shift;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) >> shift;
+      }
     }
   }
 
@@ -568,6 +764,9 @@ export function packbits(
   const result = ArrayStorage.zeros(outShape, 'uint8');
   const resultData = result.data as Uint8Array;
 
+  const aOff = a.offset;
+  const aContiguous = a.isCContiguous;
+
   // For 1D arrays, simple case
   if (ndim === 1) {
     for (let i = 0; i < packedAxisSize; i++) {
@@ -575,7 +774,13 @@ export function packbits(
       for (let bit = 0; bit < 8; bit++) {
         const srcIdx = i * 8 + bit;
         if (srcIdx < axisSize) {
-          const val = Number(a.data[srcIdx]!) !== 0 ? 1 : 0;
+          const val = aContiguous
+            ? Number(a.data[aOff + srcIdx]!) !== 0
+              ? 1
+              : 0
+            : Number(a.iget(srcIdx)) !== 0
+              ? 1
+              : 0;
           if (bitorder === 'big') {
             byte |= val << (7 - bit);
           } else {
@@ -626,7 +831,13 @@ export function packbits(
               inputIdx += coord * inputStrides[d]!;
             }
 
-            const val = Number(a.data[inputIdx]!) !== 0 ? 1 : 0;
+            const val = aContiguous
+              ? Number(a.data[aOff + inputIdx]!) !== 0
+                ? 1
+                : 0
+              : Number(a.iget(inputIdx)) !== 0
+                ? 1
+                : 0;
             if (bitorder === 'big') {
               byte |= val << (7 - bit);
             } else {
@@ -712,10 +923,13 @@ export function unpackbits(
   const result = ArrayStorage.zeros(outShape, 'uint8');
   const resultData = result.data as Uint8Array;
 
+  const aOff = a.offset;
+  const aContiguous = a.isCContiguous;
+
   // For 1D arrays, simple case
   if (ndim === 1) {
     for (let i = 0; i < packedAxisSize; i++) {
-      const byte = Number(a.data[i]!);
+      const byte = aContiguous ? Number(a.data[aOff + i]!) : Number(a.iget(i));
       for (let bit = 0; bit < 8; bit++) {
         const outIdx = i * 8 + bit;
         if (outIdx >= unpackedAxisSize) break;
@@ -762,7 +976,7 @@ export function unpackbits(
           inputIdx += coord * inputStrides[d]!;
         }
 
-        const byte = Number(a.data[inputIdx]!);
+        const byte = aContiguous ? Number(a.data[aOff + inputIdx]!) : Number(a.iget(inputIdx));
 
         for (let bit = 0; bit < 8; bit++) {
           const axisIdx = packedIdx * 8 + bit;
@@ -828,21 +1042,46 @@ export function bitwise_count(x: ArrayStorage): ArrayStorage {
 
   const shape = Array.from(x.shape);
   const data = x.data;
+  const off = x.offset;
   const size = x.size;
+  const contiguous = x.isCContiguous;
 
   // Output is always uint8 (max popcount is 64 for uint64)
   const result = ArrayStorage.zeros(shape, 'uint8');
   const resultData = result.data as Uint8Array;
 
   if (isBigIntDType(dtype)) {
-    const typedData = data as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      resultData[i] = popcount64(typedData[i]!);
+    if (contiguous) {
+      const typedData = data as BigInt64Array | BigUint64Array;
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = popcount64(typedData[i]!);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = popcount64(typedData[off + i]!);
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = popcount64(x.iget(i) as bigint);
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      const val = data[i] as number;
-      resultData[i] = popcount32(val);
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = popcount32(data[i] as number);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = popcount32(data[off + i] as number);
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = popcount32(Number(x.iget(i)));
+      }
     }
   }
 

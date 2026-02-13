@@ -32,7 +32,6 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
   throwIfComplex(a.dtype, 'around', 'Rounding is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
-  const data = a.data;
   const size = a.size;
 
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
@@ -41,9 +40,18 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
 
   const multiplier = Math.pow(10, decimals);
 
-  for (let i = 0; i < size; i++) {
-    const val = Number(data[i]!);
-    resultData[i] = roundHalfToEven(val * multiplier) / multiplier;
+  if (a.isCContiguous) {
+    const data = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      const val = Number(data[off + i]!);
+      resultData[i] = roundHalfToEven(val * multiplier) / multiplier;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = Number(a.iget(i));
+      resultData[i] = roundHalfToEven(val * multiplier) / multiplier;
+    }
   }
 
   return result;
@@ -56,15 +64,22 @@ export function ceil(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'ceil', 'Rounding is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
-  const data = a.data;
   const size = a.size;
 
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.ceil(Number(data[i]!));
+  if (a.isCContiguous) {
+    const data = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.ceil(Number(data[off + i]!));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.ceil(Number(a.iget(i)));
+    }
   }
 
   return result;
@@ -77,15 +92,22 @@ export function fix(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'fix', 'Rounding is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
-  const data = a.data;
   const size = a.size;
 
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.trunc(Number(data[i]!));
+  if (a.isCContiguous) {
+    const data = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.trunc(Number(data[off + i]!));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.trunc(Number(a.iget(i)));
+    }
   }
 
   return result;
@@ -98,15 +120,22 @@ export function floor(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'floor', 'Rounding is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
-  const data = a.data;
   const size = a.size;
 
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.floor(Number(data[i]!));
+  if (a.isCContiguous) {
+    const data = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.floor(Number(data[off + i]!));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.floor(Number(a.iget(i)));
+    }
   }
 
   return result;
@@ -119,15 +148,22 @@ export function rint(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'rint', 'Rounding is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
-  const data = a.data;
   const size = a.size;
 
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  for (let i = 0; i < size; i++) {
-    resultData[i] = roundHalfToEven(Number(data[i]!));
+  if (a.isCContiguous) {
+    const data = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = roundHalfToEven(Number(data[off + i]!));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = roundHalfToEven(Number(a.iget(i)));
+    }
   }
 
   return result;
@@ -147,15 +183,22 @@ export function trunc(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'trunc', 'Rounding is not defined for complex numbers.');
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
-  const data = a.data;
   const size = a.size;
 
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.trunc(Number(data[i]!));
+  if (a.isCContiguous) {
+    const data = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.trunc(Number(data[off + i]!));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.trunc(Number(a.iget(i)));
+    }
   }
 
   return result;

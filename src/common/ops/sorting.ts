@@ -7,7 +7,12 @@
 
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isComplexDType, type DType } from '../dtype';
-import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
+import { Complex } from '../complex';
+import {
+  outerIndexToMultiIndex,
+  multiIndexToLinear,
+  multiIndexToBuffer,
+} from '../internal/indexing';
 
 /**
  * Check if a value at index i is non-zero (truthy)
@@ -55,6 +60,8 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
   const ndim = shape.length;
   const dtype = storage.dtype;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Handle 0-d arrays
   if (ndim === 0) {
@@ -91,10 +98,10 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
       const values: { re: number; im: number; idx: number }[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({
-          re: complexData[linearIdx * 2]!,
-          im: complexData[linearIdx * 2 + 1]!,
+          re: complexData[bufIdx * 2]!,
+          im: complexData[bufIdx * 2 + 1]!,
           idx: axisIdx,
         });
       }
@@ -102,7 +109,7 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
       // Sort using lexicographic comparison
       values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
 
-      // Write sorted values back
+      // Write sorted values back (result is contiguous copy)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -119,14 +126,14 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
       const values: { value: bigint; idx: number }[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push({ value: typedData[linearIdx]!, idx: axisIdx });
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        values.push({ value: typedData[bufIdx]!, idx: axisIdx });
       }
 
       // Sort by value
       values.sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
 
-      // Write sorted values back
+      // Write sorted values back (result is contiguous copy)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -139,8 +146,8 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
       const values: number[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push(Number(data[linearIdx]!));
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        values.push(Number(data[bufIdx]!));
       }
 
       // Sort (NaN values go to end)
@@ -151,7 +158,7 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
         return a - b;
       });
 
-      // Write sorted values back
+      // Write sorted values back (result is contiguous copy)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -174,6 +181,8 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
   const ndim = shape.length;
   const dtype = storage.dtype;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Handle 0-d arrays
   if (ndim === 0) {
@@ -209,10 +218,10 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
       const values: { re: number; im: number; idx: number }[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({
-          re: complexData[linearIdx * 2]!,
-          im: complexData[linearIdx * 2 + 1]!,
+          re: complexData[bufIdx * 2]!,
+          im: complexData[bufIdx * 2 + 1]!,
           idx: axisIdx,
         });
       }
@@ -220,7 +229,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
       // Sort using lexicographic comparison
       values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
 
-      // Write sorted indices back
+      // Write sorted indices back (result is contiguous)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -235,14 +244,14 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
       const values: { value: bigint; idx: number }[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push({ value: typedData[linearIdx]!, idx: axisIdx });
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        values.push({ value: typedData[bufIdx]!, idx: axisIdx });
       }
 
       // Sort by value
       values.sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
 
-      // Write sorted indices back
+      // Write sorted indices back (result is contiguous)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -255,8 +264,8 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
       const values: { value: number; idx: number }[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push({ value: Number(data[linearIdx]!), idx: axisIdx });
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        values.push({ value: Number(data[bufIdx]!), idx: axisIdx });
       }
 
       // Sort by value (NaN values go to end)
@@ -267,7 +276,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
         return a.value - b.value;
       });
 
-      // Write sorted indices back
+      // Write sorted indices back (result is contiguous)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -309,21 +318,56 @@ export function lexsort(keys: ArrayStorage[]): ArrayStorage {
   }
 
   // Sort using all keys (last key is primary, first key is secondary)
+  // Pre-check which keys are complex and extract contiguity info
+  const keyIsComplex = keys.map((k) => isComplexDType(k.dtype));
+  const keyContiguous = keys.map((k) => k.isCContiguous);
+  const keyData = keys.map((k) => k.data);
+  const keyOff = keys.map((k) => k.offset);
+
   indices.sort((a, b) => {
     // Iterate keys in reverse order (last is primary)
     for (let k = keys.length - 1; k >= 0; k--) {
-      const key = keys[k]!;
-      const data = key.data;
-      const va = Number(data[a]);
-      const vb = Number(data[b]);
+      if (keyIsComplex[k]) {
+        let aRe: number, aIm: number, bRe: number, bIm: number;
+        if (keyContiguous[k]) {
+          const d = keyData[k]! as Float64Array | Float32Array;
+          const o = keyOff[k]!;
+          aRe = d[(o + a) * 2]!;
+          aIm = d[(o + a) * 2 + 1]!;
+          bRe = d[(o + b) * 2]!;
+          bIm = d[(o + b) * 2 + 1]!;
+        } else {
+          const va = keys[k]!.iget(a) as Complex;
+          const vb = keys[k]!.iget(b) as Complex;
+          aRe = va.re;
+          aIm = va.im;
+          bRe = vb.re;
+          bIm = vb.im;
+        }
+        if (aRe < bRe) return -1;
+        if (aRe > bRe) return 1;
+        if (aIm < bIm) return -1;
+        if (aIm > bIm) return 1;
+      } else {
+        let va: number, vb: number;
+        if (keyContiguous[k]) {
+          const d = keyData[k]!;
+          const o = keyOff[k]!;
+          va = Number(d[o + a]!);
+          vb = Number(d[o + b]!);
+        } else {
+          va = Number(keys[k]!.iget(a));
+          vb = Number(keys[k]!.iget(b));
+        }
 
-      // Handle NaN (put at end)
-      if (isNaN(va) && isNaN(vb)) continue;
-      if (isNaN(va)) return 1;
-      if (isNaN(vb)) return -1;
+        // Handle NaN (put at end)
+        if (isNaN(va) && isNaN(vb)) continue;
+        if (isNaN(va)) return 1;
+        if (isNaN(vb)) return -1;
 
-      if (va < vb) return -1;
-      if (va > vb) return 1;
+        if (va < vb) return -1;
+        if (va > vb) return 1;
+      }
       // Equal, continue to next key
     }
     return 0; // Stable sort - preserve original order
@@ -640,6 +684,8 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
   const ndim = shape.length;
   const dtype = storage.dtype;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Handle 0-d arrays
   if (ndim === 0) {
@@ -683,14 +729,14 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
       const values: { value: bigint; idx: number }[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push({ value: typedData[linearIdx]!, idx: axisIdx });
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        values.push({ value: typedData[bufIdx]!, idx: axisIdx });
       }
 
       // Partition using quickselect
       quickselectBigIntIndices(values, normalizedKth);
 
-      // Write partitioned indices back
+      // Write partitioned indices back (result is contiguous)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -703,14 +749,14 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
       const values: { value: number; idx: number }[] = [];
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push({ value: Number(data[linearIdx]!), idx: axisIdx });
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        values.push({ value: Number(data[bufIdx]!), idx: axisIdx });
       }
 
       // Partition using quickselect
       quickselectNumberIndices(values, normalizedKth);
 
-      // Write partitioned indices back
+      // Write partitioned indices back (result is contiguous)
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
         const linearIdx = multiIndexToLinear(inputIndices, shape);
@@ -731,17 +777,22 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
 export function sort_complex(storage: ArrayStorage): ArrayStorage {
   const dtype = storage.dtype;
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
   const data = storage.data;
+  const off = storage.offset;
 
   if (isComplexDType(dtype)) {
-    // Complex sort using lexicographic ordering
-    const complexData = data as Float64Array | Float32Array;
     const values: { re: number; im: number }[] = [];
-    for (let i = 0; i < size; i++) {
-      values.push({
-        re: complexData[i * 2]!,
-        im: complexData[i * 2 + 1]!,
-      });
+    if (contiguous) {
+      const typedData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        values.push({ re: typedData[(off + i) * 2]!, im: typedData[(off + i) * 2 + 1]! });
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as { re: number; im: number };
+        values.push({ re: val.re, im: val.im });
+      }
     }
 
     // Sort using lexicographic comparison
@@ -759,8 +810,14 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
   } else {
     // For real arrays, sort normally (1D flattened), then cast to complex128
     const values: number[] = [];
-    for (let i = 0; i < size; i++) {
-      values.push(Number(data[i]!));
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        values.push(Number(data[off + i]!));
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        values.push(Number(storage.iget(i)));
+      }
     }
 
     // Sort (NaN values go to end)
@@ -795,9 +852,11 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
 export function nonzero(storage: ArrayStorage): ArrayStorage[] {
   const shape = storage.shape;
   const ndim = shape.length;
-  const data = storage.data;
   const size = storage.size;
   const isComplex = isComplexDType(storage.dtype);
+  const contiguous = storage.isCContiguous;
+  const data = storage.data;
+  const off = storage.offset;
 
   // Find all non-zero indices
   const nonzeroIndices: number[][] = [];
@@ -805,23 +864,40 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
     nonzeroIndices.push([]);
   }
 
-  // Calculate strides for index conversion
-  const strides: number[] = [];
+  // Calculate strides for logical index conversion
+  const logicalStrides: number[] = [];
   let stride = 1;
   for (let i = ndim - 1; i >= 0; i--) {
-    strides.unshift(stride);
+    logicalStrides.unshift(stride);
     stride *= shape[i]!;
   }
 
   // Find non-zero elements
-  for (let i = 0; i < size; i++) {
-    if (isNonZero(data, i, isComplex)) {
-      // Convert linear index to multi-index
-      let remaining = i;
-      for (let dim = 0; dim < ndim; dim++) {
-        const idx = Math.floor(remaining / strides[dim]!);
-        remaining = remaining % strides[dim]!;
-        nonzeroIndices[dim]!.push(idx);
+  if (contiguous) {
+    for (let i = 0; i < size; i++) {
+      if (isNonZero(data, off + i, isComplex)) {
+        let remaining = i;
+        for (let dim = 0; dim < ndim; dim++) {
+          const idx = Math.floor(remaining / logicalStrides[dim]!);
+          remaining = remaining % logicalStrides[dim]!;
+          nonzeroIndices[dim]!.push(idx);
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = storage.iget(i);
+      const nz = isComplex
+        ? (val as { re: number; im: number }).re !== 0 ||
+          (val as { re: number; im: number }).im !== 0
+        : Boolean(val);
+      if (nz) {
+        let remaining = i;
+        for (let dim = 0; dim < ndim; dim++) {
+          const idx = Math.floor(remaining / logicalStrides[dim]!);
+          remaining = remaining % logicalStrides[dim]!;
+          nonzeroIndices[dim]!.push(idx);
+        }
       }
     }
   }
@@ -852,33 +928,54 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
 export function argwhere(storage: ArrayStorage): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
-  const data = storage.data;
   const size = storage.size;
   const isComplex = isComplexDType(storage.dtype);
+  const contiguous = storage.isCContiguous;
+  const data = storage.data;
+  const off = storage.offset;
 
   // Find all non-zero indices
   const nonzeroIndices: number[][] = [];
 
-  // Calculate strides for index conversion
-  const strides: number[] = [];
+  // Calculate strides for logical index conversion
+  const logicalStrides: number[] = [];
   let stride = 1;
   for (let i = ndim - 1; i >= 0; i--) {
-    strides.unshift(stride);
+    logicalStrides.unshift(stride);
     stride *= shape[i]!;
   }
 
   // Find non-zero elements
-  for (let i = 0; i < size; i++) {
-    if (isNonZero(data, i, isComplex)) {
-      // Convert linear index to multi-index
-      const indices: number[] = [];
-      let remaining = i;
-      for (let dim = 0; dim < ndim; dim++) {
-        const idx = Math.floor(remaining / strides[dim]!);
-        remaining = remaining % strides[dim]!;
-        indices.push(idx);
+  if (contiguous) {
+    for (let i = 0; i < size; i++) {
+      if (isNonZero(data, off + i, isComplex)) {
+        const indices: number[] = [];
+        let remaining = i;
+        for (let dim = 0; dim < ndim; dim++) {
+          const idx = Math.floor(remaining / logicalStrides[dim]!);
+          remaining = remaining % logicalStrides[dim]!;
+          indices.push(idx);
+        }
+        nonzeroIndices.push(indices);
       }
-      nonzeroIndices.push(indices);
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = storage.iget(i);
+      const nz = isComplex
+        ? (val as { re: number; im: number }).re !== 0 ||
+          (val as { re: number; im: number }).im !== 0
+        : Boolean(val);
+      if (nz) {
+        const indices: number[] = [];
+        let remaining = i;
+        for (let dim = 0; dim < ndim; dim++) {
+          const idx = Math.floor(remaining / logicalStrides[dim]!);
+          remaining = remaining % logicalStrides[dim]!;
+          indices.push(idx);
+        }
+        nonzeroIndices.push(indices);
+      }
     }
   }
 
@@ -905,15 +1002,30 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
  * @returns Array of indices
  */
 export function flatnonzero(storage: ArrayStorage): ArrayStorage {
-  const data = storage.data;
   const size = storage.size;
   const isComplex = isComplexDType(storage.dtype);
+  const contiguous = storage.isCContiguous;
+  const data = storage.data;
+  const off = storage.offset;
 
   // Find all non-zero indices
   const indices: number[] = [];
-  for (let i = 0; i < size; i++) {
-    if (isNonZero(data, i, isComplex)) {
-      indices.push(i);
+  if (contiguous) {
+    for (let i = 0; i < size; i++) {
+      if (isNonZero(data, off + i, isComplex)) {
+        indices.push(i);
+      }
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = storage.iget(i);
+      const nz = isComplex
+        ? (val as { re: number; im: number }).re !== 0 ||
+          (val as { re: number; im: number }).im !== 0
+        : Boolean(val);
+      if (nz) {
+        indices.push(i);
+      }
     }
   }
 
@@ -987,12 +1099,9 @@ export function where(
   const resultDtype = x.dtype as DType;
   const result = ArrayStorage.zeros(resultShape, resultDtype);
   const resultData = result.data;
-  const condData = condition.data;
-  const xData = x.data;
-  const yData = y.data;
 
-  // Calculate strides for broadcasting
-  const calcStrides = (shape: readonly number[], padded: number[]) => {
+  // Calculate C-contiguous logical strides for broadcasting index computation
+  const calcLogicalStrides = (shape: readonly number[], padded: number[]) => {
     const strides: number[] = [];
     let stride = 1;
     for (let i = shape.length - 1; i >= 0; i--) {
@@ -1012,9 +1121,9 @@ export function where(
     return strides;
   };
 
-  const condStrides = calcStrides(condShape, paddedCond);
-  const xStrides = calcStrides(xShape, paddedX);
-  const yStrides = calcStrides(yShape, paddedY);
+  const condLogicalStrides = calcLogicalStrides(condShape, paddedCond);
+  const xLogicalStrides = calcLogicalStrides(xShape, paddedX);
+  const yLogicalStrides = calcLogicalStrides(yShape, paddedY);
 
   // Calculate result strides
   const resultStrides: number[] = [];
@@ -1028,46 +1137,131 @@ export function where(
   const isCondComplex = isComplexDType(condition.dtype);
   const isResultComplex = isComplexDType(resultDtype);
 
-  // Iterate over all elements
-  for (let i = 0; i < totalSize; i++) {
-    // Convert linear index to multi-index
-    let remaining = i;
-    let condIdx = 0;
-    let xIdx = 0;
-    let yIdx = 0;
+  // Pre-extract contiguity info for fast paths
+  const condContiguous = condition.isCContiguous;
+  const condData = condition.data;
+  const condOff = condition.offset;
 
-    for (let dim = 0; dim < maxNdim; dim++) {
-      const idx = Math.floor(remaining / resultStrides[dim]!);
-      remaining = remaining % resultStrides[dim]!;
+  const xContiguous = x.isCContiguous;
+  const xData = x.data;
+  const xOff = x.offset;
 
-      condIdx += idx * condStrides[dim]!;
-      xIdx += idx * xStrides[dim]!;
-      yIdx += idx * yStrides[dim]!;
-    }
+  const yContiguous = y.isCContiguous;
+  const yData = y.data;
+  const yOff = y.offset;
 
-    if (isNonZero(condData, condIdx, isCondComplex)) {
-      if (isResultComplex) {
-        // Copy both real and imaginary parts
-        (resultData as Float64Array | Float32Array)[i * 2] = (xData as Float64Array | Float32Array)[
-          xIdx * 2
-        ]!;
-        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (
-          xData as Float64Array | Float32Array
-        )[xIdx * 2 + 1]!;
-      } else {
-        resultData[i] = xData[xIdx]!;
+  // Check if all three inputs are contiguous and shapes match (no broadcasting needed)
+  const noBroadcast =
+    condShape.length === resultShape.length &&
+    xShape.length === resultShape.length &&
+    yShape.length === resultShape.length &&
+    condShape.every((d, i) => d === resultShape[i]) &&
+    xShape.every((d, i) => d === resultShape[i]) &&
+    yShape.every((d, i) => d === resultShape[i]);
+
+  if (noBroadcast && condContiguous && xContiguous && yContiguous) {
+    // Fast path: all inputs are contiguous and same shape
+    if (isResultComplex) {
+      const resultTyped = resultData as Float64Array | Float32Array;
+      const xTyped = xData as Float64Array | Float32Array;
+      const yTyped = yData as Float64Array | Float32Array;
+      for (let i = 0; i < totalSize; i++) {
+        const condNz = isNonZero(condData, condOff + i, isCondComplex);
+        if (condNz) {
+          resultTyped[i * 2] = xTyped[(xOff + i) * 2]!;
+          resultTyped[i * 2 + 1] = xTyped[(xOff + i) * 2 + 1]!;
+        } else {
+          resultTyped[i * 2] = yTyped[(yOff + i) * 2]!;
+          resultTyped[i * 2 + 1] = yTyped[(yOff + i) * 2 + 1]!;
+        }
+      }
+    } else if (isBigIntDType(resultDtype)) {
+      const resultTyped = resultData as BigInt64Array | BigUint64Array;
+      const xTyped = xData as BigInt64Array | BigUint64Array;
+      const yTyped = yData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < totalSize; i++) {
+        const condNz = isNonZero(condData, condOff + i, isCondComplex);
+        if (condNz) {
+          resultTyped[i] = xTyped[xOff + i]!;
+        } else {
+          resultTyped[i] = yTyped[yOff + i]!;
+        }
       }
     } else {
-      if (isResultComplex) {
-        // Copy both real and imaginary parts
-        (resultData as Float64Array | Float32Array)[i * 2] = (yData as Float64Array | Float32Array)[
-          yIdx * 2
-        ]!;
-        (resultData as Float64Array | Float32Array)[i * 2 + 1] = (
-          yData as Float64Array | Float32Array
-        )[yIdx * 2 + 1]!;
+      for (let i = 0; i < totalSize; i++) {
+        const condNz = isNonZero(condData, condOff + i, isCondComplex);
+        if (condNz) {
+          resultData[i] = xData[xOff + i] as number;
+        } else {
+          resultData[i] = yData[yOff + i] as number;
+        }
+      }
+    }
+  } else {
+    // General path with broadcasting — use per-array contiguity checks
+    for (let i = 0; i < totalSize; i++) {
+      let remaining = i;
+      let condIdx = 0;
+      let xIdx = 0;
+      let yIdx = 0;
+
+      for (let dim = 0; dim < maxNdim; dim++) {
+        const idx = Math.floor(remaining / resultStrides[dim]!);
+        remaining = remaining % resultStrides[dim]!;
+
+        condIdx += idx * condLogicalStrides[dim]!;
+        xIdx += idx * xLogicalStrides[dim]!;
+        yIdx += idx * yLogicalStrides[dim]!;
+      }
+
+      // Check condition
+      let condTruthy: boolean;
+      if (condContiguous) {
+        condTruthy = isNonZero(condData, condOff + condIdx, isCondComplex);
       } else {
-        resultData[i] = yData[yIdx]!;
+        const condVal = condition.iget(condIdx);
+        condTruthy = isCondComplex
+          ? (condVal as { re: number; im: number }).re !== 0 ||
+            (condVal as { re: number; im: number }).im !== 0
+          : Boolean(condVal);
+      }
+
+      if (condTruthy) {
+        if (isResultComplex) {
+          if (xContiguous) {
+            const xTyped = xData as Float64Array | Float32Array;
+            (resultData as Float64Array | Float32Array)[i * 2] = xTyped[(xOff + xIdx) * 2]!;
+            (resultData as Float64Array | Float32Array)[i * 2 + 1] = xTyped[(xOff + xIdx) * 2 + 1]!;
+          } else {
+            const val = x.iget(xIdx) as { re: number; im: number };
+            (resultData as Float64Array | Float32Array)[i * 2] = val.re;
+            (resultData as Float64Array | Float32Array)[i * 2 + 1] = val.im;
+          }
+        } else {
+          if (xContiguous) {
+            resultData[i] = xData[xOff + xIdx] as number;
+          } else {
+            resultData[i] = x.iget(xIdx) as number;
+          }
+        }
+      } else {
+        if (isResultComplex) {
+          if (yContiguous) {
+            const yTyped = yData as Float64Array | Float32Array;
+            (resultData as Float64Array | Float32Array)[i * 2] = yTyped[(yOff + yIdx) * 2]!;
+            (resultData as Float64Array | Float32Array)[i * 2 + 1] = yTyped[(yOff + yIdx) * 2 + 1]!;
+          } else {
+            const val = y.iget(yIdx) as { re: number; im: number };
+            (resultData as Float64Array | Float32Array)[i * 2] = val.re;
+            (resultData as Float64Array | Float32Array)[i * 2 + 1] = val.im;
+          }
+        } else {
+          if (yContiguous) {
+            resultData[i] = yData[yOff + yIdx] as number;
+          } else {
+            resultData[i] = y.iget(yIdx) as number;
+          }
+        }
       }
     }
   }
@@ -1092,85 +1286,154 @@ export function searchsorted(
     throw new Error('storage must be 1D');
   }
 
-  const data = storage.data;
   const n = storage.size;
-  const valuesData = values.data;
   const numValues = values.size;
   const isComplex = isComplexDType(storage.dtype);
+
+  // Pre-extract contiguity info
+  const storageContiguous = storage.isCContiguous;
+  const storageData = storage.data;
+  const storageOff = storage.offset;
+
+  const valuesContiguous = values.isCContiguous;
+  const valuesData = values.data;
+  const valuesOff = values.offset;
 
   // Create result array
   const result = ArrayStorage.zeros([numValues], 'int32');
   const resultData = result.data as Int32Array;
 
   if (isComplex) {
-    // Complex binary search using lexicographic comparison
-    const complexData = data as Float64Array | Float32Array;
-    const complexValues = valuesData as Float64Array | Float32Array;
+    if (storageContiguous && valuesContiguous) {
+      // Fast path: both arrays are contiguous
+      const sData = storageData as Float64Array | Float32Array;
+      const vData = valuesData as Float64Array | Float32Array;
 
-    for (let i = 0; i < numValues; i++) {
-      const vRe = complexValues[i * 2]!;
-      const vIm = complexValues[i * 2 + 1]!;
-      let lo = 0;
-      let hi = n;
+      for (let i = 0; i < numValues; i++) {
+        const vRe = vData[(valuesOff + i) * 2]!;
+        const vIm = vData[(valuesOff + i) * 2 + 1]!;
+        let lo = 0;
+        let hi = n;
 
-      if (side === 'left') {
-        while (lo < hi) {
-          const mid = Math.floor((lo + hi) / 2);
-          const midRe = complexData[mid * 2]!;
-          const midIm = complexData[mid * 2 + 1]!;
-          // Check if data[mid] < v
-          if (complexCompare(midRe, midIm, vRe, vIm) < 0) {
-            lo = mid + 1;
-          } else {
-            hi = mid;
+        if (side === 'left') {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            const midRe = sData[(storageOff + mid) * 2]!;
+            const midIm = sData[(storageOff + mid) * 2 + 1]!;
+            if (complexCompare(midRe, midIm, vRe, vIm) < 0) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
+          }
+        } else {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            const midRe = sData[(storageOff + mid) * 2]!;
+            const midIm = sData[(storageOff + mid) * 2 + 1]!;
+            if (complexCompare(midRe, midIm, vRe, vIm) <= 0) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
           }
         }
-      } else {
-        while (lo < hi) {
-          const mid = Math.floor((lo + hi) / 2);
-          const midRe = complexData[mid * 2]!;
-          const midIm = complexData[mid * 2 + 1]!;
-          // Check if data[mid] <= v
-          if (complexCompare(midRe, midIm, vRe, vIm) <= 0) {
-            lo = mid + 1;
-          } else {
-            hi = mid;
-          }
-        }
+
+        resultData[i] = lo;
       }
+    } else {
+      // Slow path: use iget for non-contiguous views
+      for (let i = 0; i < numValues; i++) {
+        const v = values.iget(i) as { re: number; im: number };
+        const vRe = v.re;
+        const vIm = v.im;
+        let lo = 0;
+        let hi = n;
 
-      resultData[i] = lo;
+        if (side === 'left') {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            const midVal = storage.iget(mid) as { re: number; im: number };
+            if (complexCompare(midVal.re, midVal.im, vRe, vIm) < 0) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
+          }
+        } else {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            const midVal = storage.iget(mid) as { re: number; im: number };
+            if (complexCompare(midVal.re, midVal.im, vRe, vIm) <= 0) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
+          }
+        }
+
+        resultData[i] = lo;
+      }
     }
   } else {
-    // Non-complex binary search
-    for (let i = 0; i < numValues; i++) {
-      const v = Number(valuesData[i]);
-      let lo = 0;
-      let hi = n;
+    if (storageContiguous && valuesContiguous) {
+      // Fast path: both arrays are contiguous
+      for (let i = 0; i < numValues; i++) {
+        const v = Number(valuesData[valuesOff + i]!);
+        let lo = 0;
+        let hi = n;
 
-      if (side === 'left') {
-        // Find leftmost position where v can be inserted
-        while (lo < hi) {
-          const mid = Math.floor((lo + hi) / 2);
-          if (Number(data[mid]) < v) {
-            lo = mid + 1;
-          } else {
-            hi = mid;
+        if (side === 'left') {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (Number(storageData[storageOff + mid]!) < v) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
+          }
+        } else {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (Number(storageData[storageOff + mid]!) <= v) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
           }
         }
-      } else {
-        // Find rightmost position where v can be inserted
-        while (lo < hi) {
-          const mid = Math.floor((lo + hi) / 2);
-          if (Number(data[mid]) <= v) {
-            lo = mid + 1;
-          } else {
-            hi = mid;
-          }
-        }
+
+        resultData[i] = lo;
       }
+    } else {
+      // Slow path: use iget for non-contiguous views
+      for (let i = 0; i < numValues; i++) {
+        const v = Number(values.iget(i));
+        let lo = 0;
+        let hi = n;
 
-      resultData[i] = lo;
+        if (side === 'left') {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (Number(storage.iget(mid)) < v) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
+          }
+        } else {
+          while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (Number(storage.iget(mid)) <= v) {
+              lo = mid + 1;
+            } else {
+              hi = mid;
+            }
+          }
+        }
+
+        resultData[i] = lo;
+      }
     }
   }
 
@@ -1184,8 +1447,6 @@ export function searchsorted(
  * @returns 1D array of elements where condition is true
  */
 export function extract(condition: ArrayStorage, storage: ArrayStorage): ArrayStorage {
-  const condData = condition.data;
-  const data = storage.data;
   const dtype = storage.dtype;
   const isCondComplex = isComplexDType(condition.dtype);
   const isDataComplex = isComplexDType(dtype);
@@ -1193,11 +1454,29 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
   // Both arrays should have same size
   const size = Math.min(condition.size, storage.size);
 
+  // Pre-extract contiguity info
+  const condContiguous = condition.isCContiguous;
+  const condData = condition.data;
+  const condOff = condition.offset;
+
+  const dataContiguous = storage.isCContiguous;
+  const data = storage.data;
+  const dataOff = storage.offset;
+
   // Count number of true values
   let count = 0;
-  for (let i = 0; i < size; i++) {
-    if (isNonZero(condData, i, isCondComplex)) {
-      count++;
+  if (condContiguous) {
+    for (let i = 0; i < size; i++) {
+      if (isNonZero(condData, condOff + i, isCondComplex)) count++;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = condition.iget(i);
+      const nz = isCondComplex
+        ? (val as { re: number; im: number }).re !== 0 ||
+          (val as { re: number; im: number }).im !== 0
+        : Boolean(val);
+      if (nz) count++;
     }
   }
 
@@ -1207,29 +1486,68 @@ export function extract(condition: ArrayStorage, storage: ArrayStorage): ArraySt
 
   // Copy values where condition is true
   let idx = 0;
-  if (isBigIntDType(dtype)) {
-    const typedData = data as BigInt64Array | BigUint64Array;
-    const resultTyped = resultData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      if (isNonZero(condData, i, isCondComplex)) {
-        resultTyped[idx++] = typedData[i]!;
+  if (condContiguous && dataContiguous) {
+    // Fast path: both condition and data are contiguous
+    if (isBigIntDType(dtype)) {
+      const resultTyped = resultData as BigInt64Array | BigUint64Array;
+      const typedData = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        if (isNonZero(condData, condOff + i, isCondComplex)) {
+          resultTyped[idx++] = typedData[dataOff + i]!;
+        }
       }
-    }
-  } else if (isDataComplex) {
-    // Complex data: copy both real and imaginary parts
-    const typedData = data as Float64Array | Float32Array;
-    const resultTyped = resultData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      if (isNonZero(condData, i, isCondComplex)) {
-        resultTyped[idx * 2] = typedData[i * 2]!;
-        resultTyped[idx * 2 + 1] = typedData[i * 2 + 1]!;
-        idx++;
+    } else if (isDataComplex) {
+      const resultTyped = resultData as Float64Array | Float32Array;
+      const typedData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        if (isNonZero(condData, condOff + i, isCondComplex)) {
+          resultTyped[idx * 2] = typedData[(dataOff + i) * 2]!;
+          resultTyped[idx * 2 + 1] = typedData[(dataOff + i) * 2 + 1]!;
+          idx++;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        if (isNonZero(condData, condOff + i, isCondComplex)) {
+          resultData[idx++] = data[dataOff + i] as number;
+        }
       }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      if (isNonZero(condData, i, isCondComplex)) {
-        resultData[idx++] = data[i]!;
+    // Slow path: use iget for non-contiguous views
+    const condTruthy = condContiguous
+      ? (i: number): boolean => isNonZero(condData, condOff + i, isCondComplex)
+      : (i: number): boolean => {
+          const val = condition.iget(i);
+          if (isCondComplex) {
+            const c = val as { re: number; im: number };
+            return c.re !== 0 || c.im !== 0;
+          }
+          return Boolean(val);
+        };
+
+    if (isBigIntDType(dtype)) {
+      const resultTyped = resultData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        if (condTruthy(i)) {
+          resultTyped[idx++] = storage.iget(i) as bigint;
+        }
+      }
+    } else if (isDataComplex) {
+      const resultTyped = resultData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        if (condTruthy(i)) {
+          const val = storage.iget(i) as { re: number; im: number };
+          resultTyped[idx * 2] = val.re;
+          resultTyped[idx * 2 + 1] = val.im;
+          idx++;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        if (condTruthy(i)) {
+          resultData[idx++] = storage.iget(i) as number;
+        }
       }
     }
   }
@@ -1248,14 +1566,29 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
   const ndim = shape.length;
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
   const isComplex = isComplexDType(storage.dtype);
+  const contiguous = storage.isCContiguous;
 
   if (axis === undefined) {
     // Count all non-zero elements
     let count = 0;
-    for (let i = 0; i < size; i++) {
-      if (isNonZero(data, i, isComplex)) {
-        count++;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        if (isNonZero(data, off + i, isComplex)) {
+          count++;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i);
+        if (isComplex) {
+          const c = val as { re: number; im: number };
+          if (c.re !== 0 || c.im !== 0) count++;
+        } else {
+          if (val !== 0 && val !== BigInt(0)) count++;
+        }
       }
     }
     return count;
@@ -1287,8 +1620,8 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
     let count = 0;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      if (isNonZero(data, linearIdx, isComplex)) {
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      if (isNonZero(data, bufIdx, isComplex)) {
         count++;
       }
     }

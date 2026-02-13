@@ -131,9 +131,17 @@ export function elementwiseBinaryOp(
     const resultData = result.data;
     const aData = a.data;
     const bData = b.data;
+    const aOff = a.offset;
+    const bOff = b.offset;
 
-    for (let i = 0; i < size; i++) {
-      resultData[i] = op(aData[i] as number, bData[i] as number);
+    if (aOff === 0 && bOff === 0) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = op(aData[i] as number, bData[i] as number);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = op(aData[aOff + i] as number, bData[bOff + i] as number);
+      }
     }
     return result;
   }
@@ -264,25 +272,52 @@ export function elementwiseUnaryOp(
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
   const inputData = a.data;
+  const off = a.offset;
+
+  const contiguous = a.isCContiguous;
 
   if (isBigIntDType(dtype)) {
     // BigInt input - convert to Number for operation, then convert back if preserving dtype
     if (isBigIntDType(resultDtype)) {
       const resultTyped = resultData as BigInt64Array | BigUint64Array;
-      for (let i = 0; i < size; i++) {
-        const val = Number(inputData[i]!);
-        resultTyped[i] = BigInt(Math.round(op(val)));
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          const val = Number(inputData[off + i]!);
+          resultTyped[i] = BigInt(Math.round(op(val)));
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = BigInt(Math.round(op(Number(a.iget(i)))));
+        }
       }
     } else {
       // BigInt input, float output
-      for (let i = 0; i < size; i++) {
-        resultData[i] = op(Number(inputData[i]!));
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = op(Number(inputData[off + i]!));
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = op(Number(a.iget(i)));
+        }
       }
     }
   } else {
     // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = op(Number(inputData[i]!));
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = op(Number(inputData[i]!));
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = op(Number(inputData[off + i]!));
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = op(Number(a.iget(i)));
+      }
     }
   }
 

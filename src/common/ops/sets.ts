@@ -47,6 +47,7 @@ export function unique(
   const dtype = a.dtype;
   const size = a.size;
   const data = a.data;
+  const off = a.offset;
 
   // Complex unique with lexicographic ordering
   if (isComplexDType(dtype)) {
@@ -56,8 +57,8 @@ export function unique(
     const values: { re: number; im: number; index: number }[] = [];
     for (let i = 0; i < size; i++) {
       values.push({
-        re: complexData[i * 2]!,
-        im: complexData[i * 2 + 1]!,
+        re: complexData[(off + i) * 2]!,
+        im: complexData[(off + i) * 2 + 1]!,
         index: i,
       });
     }
@@ -108,8 +109,8 @@ export function unique(
       }
     }
     for (let i = 0; i < size; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
+      const re = complexData[(off + i) * 2]!;
+      const im = complexData[(off + i) * 2 + 1]!;
       if (isNaN(re) || isNaN(im)) {
         inverse[i] = nanIdx;
       } else {
@@ -169,7 +170,7 @@ export function unique(
   // Collect values with original indices
   const values: { value: number; index: number }[] = [];
   for (let i = 0; i < size; i++) {
-    values.push({ value: Number(data[i]!), index: i });
+    values.push({ value: Number(data[off + i]!), index: i });
   }
 
   // Sort by value
@@ -225,7 +226,7 @@ export function unique(
     }
   }
   for (let i = 0; i < size; i++) {
-    const val = Number(data[i]!);
+    const val = Number(data[off + i]!);
     if (isNaN(val)) {
       inverse[i] = nanIdx;
     } else {
@@ -282,13 +283,18 @@ export function unique(
 }
 
 // Helper: convert storage element to key string
-function elementToKey(data: ArrayLike<number | bigint>, index: number, isComplex: boolean): string {
+function elementToKey(
+  data: ArrayLike<number | bigint>,
+  index: number,
+  isComplex: boolean,
+  offset: number = 0
+): string {
   if (isComplex) {
-    const re = Number((data as Float64Array)[index * 2]);
-    const im = Number((data as Float64Array)[index * 2 + 1]);
+    const re = Number((data as Float64Array)[(offset + index) * 2]);
+    const im = Number((data as Float64Array)[(offset + index) * 2 + 1]);
     return `${re},${im}`;
   }
-  return String(Number(data[index]!));
+  return String(Number(data[offset + index]!));
 }
 
 /**
@@ -352,14 +358,14 @@ export function isin(element: ArrayStorage, testElements: ArrayStorage): ArraySt
 
   const testSet = new Set<string>();
   for (let i = 0; i < testElements.size; i++) {
-    testSet.add(elementToKey(testElements.data, i, isComplex));
+    testSet.add(elementToKey(testElements.data, i, isComplex, testElements.offset));
   }
 
   const result = ArrayStorage.zeros(shape, 'bool');
   const resultData = result.data as Uint8Array;
 
   for (let i = 0; i < size; i++) {
-    const key = elementToKey(element.data, i, isComplex);
+    const key = elementToKey(element.data, i, isComplex, element.offset);
     resultData[i] = testSet.has(key) ? 1 : 0;
   }
 
@@ -377,7 +383,7 @@ export function setdiff1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
 
   const set2 = new Set<string>();
   for (let i = 0; i < ar2.size; i++) {
-    set2.add(elementToKey(ar2.data, i, isComplex));
+    set2.add(elementToKey(ar2.data, i, isComplex, ar2.offset));
   }
 
   const diffIndices: number[] = [];
@@ -584,6 +590,7 @@ export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): A
   const dtype = filt.dtype;
   const data = filt.data;
   const size = filt.size;
+  const off = filt.offset;
   const isComplex = isComplexDType(dtype);
 
   if (size === 0) {
@@ -593,11 +600,11 @@ export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): A
   // Helper to check if element is zero
   const isZero = (idx: number): boolean => {
     if (isComplex) {
-      const re = (data as Float64Array)[idx * 2]!;
-      const im = (data as Float64Array)[idx * 2 + 1]!;
+      const re = (data as Float64Array)[(off + idx) * 2]!;
+      const im = (data as Float64Array)[(off + idx) * 2 + 1]!;
       return re === 0 && im === 0;
     }
-    return Number(data[idx]) === 0;
+    return Number(data[off + idx]) === 0;
   };
 
   // Find first non-zero (front)
@@ -627,8 +634,8 @@ export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): A
     const result = ArrayStorage.zeros([newSize], dtype);
     const resultData = result.data as Float64Array;
     for (let i = 0; i < newSize; i++) {
-      resultData[i * 2] = (data as Float64Array)[(first + i) * 2]!;
-      resultData[i * 2 + 1] = (data as Float64Array)[(first + i) * 2 + 1]!;
+      resultData[i * 2] = (data as Float64Array)[(off + first + i) * 2]!;
+      resultData[i * 2 + 1] = (data as Float64Array)[(off + first + i) * 2 + 1]!;
     }
     return result;
   }
@@ -636,7 +643,7 @@ export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): A
   const result = ArrayStorage.zeros([newSize], dtype);
   const resultData = result.data;
   for (let i = 0; i < newSize; i++) {
-    resultData[i] = data[first + i]!;
+    resultData[i] = data[off + first + i]!;
   }
   return result;
 }

@@ -9,6 +9,7 @@
  */
 
 import { ArrayStorage } from '../storage';
+import { Complex } from '../complex';
 import { isBigIntDType, isComplexDType, promoteDTypes } from '../dtype';
 
 /**
@@ -82,6 +83,8 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
   // Calculate total size excluding the axis
   const resultSize = result.size;
 
+  const off = a.offset;
+
   // Iterate over all elements in the result
   for (let resultIdx = 0; resultIdx < resultSize; resultIdx++) {
     // Convert flat index to multi-dimensional indices
@@ -110,15 +113,19 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
     if (isComplex) {
       // Complex: access interleaved data [re, im, re, im, ...]
       const complexData = a.data as Float64Array | Float32Array;
-      const re1 = complexData[flatIdx1 * 2]!;
-      const im1 = complexData[flatIdx1 * 2 + 1]!;
-      const re2 = complexData[flatIdx2 * 2]!;
-      const im2 = complexData[flatIdx2 * 2 + 1]!;
+      const re1 = complexData[(off + flatIdx1) * 2]!;
+      const im1 = complexData[(off + flatIdx1) * 2 + 1]!;
+      const re2 = complexData[(off + flatIdx2) * 2]!;
+      const im2 = complexData[(off + flatIdx2) * 2 + 1]!;
       (resultData as Float64Array | Float32Array)[resultIdx * 2] = re2 - re1;
       (resultData as Float64Array | Float32Array)[resultIdx * 2 + 1] = im2 - im1;
     } else {
-      const val1 = isBigIntDType(dtype) ? Number(a.data[flatIdx1]!) : Number(a.data[flatIdx1]!);
-      const val2 = isBigIntDType(dtype) ? Number(a.data[flatIdx2]!) : Number(a.data[flatIdx2]!);
+      const val1 = isBigIntDType(dtype)
+        ? Number(a.data[off + flatIdx1]!)
+        : Number(a.data[off + flatIdx1]!);
+      const val2 = isBigIntDType(dtype)
+        ? Number(a.data[off + flatIdx2]!)
+        : Number(a.data[off + flatIdx2]!);
       resultData[resultIdx] = val2 - val1;
     }
   }
@@ -173,14 +180,11 @@ export function ediff1d(
 
   // Calculate differences
   if (isComplex) {
-    const complexData = ary.data as Float64Array | Float32Array;
     for (let i = 0; i < diffSize; i++) {
-      const re1 = complexData[i * 2]!;
-      const im1 = complexData[i * 2 + 1]!;
-      const re2 = complexData[(i + 1) * 2]!;
-      const im2 = complexData[(i + 1) * 2 + 1]!;
-      (resultData as Float64Array | Float32Array)[idx * 2] = re2 - re1;
-      (resultData as Float64Array | Float32Array)[idx * 2 + 1] = im2 - im1;
+      const v1 = ary.iget(i) as Complex;
+      const v2 = ary.iget(i + 1) as Complex;
+      (resultData as Float64Array | Float32Array)[idx * 2] = v2.re - v1.re;
+      (resultData as Float64Array | Float32Array)[idx * 2 + 1] = v2.im - v1.im;
       idx++;
     }
   } else {
@@ -306,6 +310,8 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
   // Calculate total size
   const totalSize = f.size;
 
+  const off = f.offset;
+
   // Iterate over all elements
   for (let flatIdx = 0; flatIdx < totalSize; flatIdx++) {
     // Convert flat index to multi-dimensional indices
@@ -315,6 +321,12 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
     for (let d = ndim - 1; d >= 0; d--) {
       indices[d] = remaining % shape[d]!;
       remaining = Math.floor(remaining / shape[d]!);
+    }
+
+    // Compute buffer index for the current element (accounting for offset and strides)
+    let currentBufIdx = off;
+    for (let d = 0; d < ndim; d++) {
+      currentBufIdx += indices[d]! * strides[d]!;
     }
 
     const axisIdx = indices[axis]!;
@@ -335,10 +347,10 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
           flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
         }
 
-        const f0Re = complexData[flatIdx * 2]!;
-        const f0Im = complexData[flatIdx * 2 + 1]!;
-        const f1Re = complexData[flatIdxPlus1 * 2]!;
-        const f1Im = complexData[flatIdxPlus1 * 2 + 1]!;
+        const f0Re = complexData[currentBufIdx * 2]!;
+        const f0Im = complexData[currentBufIdx * 2 + 1]!;
+        const f1Re = complexData[(off + flatIdxPlus1) * 2]!;
+        const f1Im = complexData[(off + flatIdxPlus1) * 2 + 1]!;
 
         gradRe = (f1Re - f0Re) / h;
         gradIm = (f1Im - f0Im) / h;
@@ -351,10 +363,10 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
           flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
         }
 
-        const fNRe = complexData[flatIdx * 2]!;
-        const fNIm = complexData[flatIdx * 2 + 1]!;
-        const fNm1Re = complexData[flatIdxMinus1 * 2]!;
-        const fNm1Im = complexData[flatIdxMinus1 * 2 + 1]!;
+        const fNRe = complexData[currentBufIdx * 2]!;
+        const fNIm = complexData[currentBufIdx * 2 + 1]!;
+        const fNm1Re = complexData[(off + flatIdxMinus1) * 2]!;
+        const fNm1Im = complexData[(off + flatIdxMinus1) * 2 + 1]!;
 
         gradRe = (fNRe - fNm1Re) / h;
         gradIm = (fNIm - fNm1Im) / h;
@@ -372,10 +384,10 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
           flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
         }
 
-        const fPlusRe = complexData[flatIdxPlus1 * 2]!;
-        const fPlusIm = complexData[flatIdxPlus1 * 2 + 1]!;
-        const fMinusRe = complexData[flatIdxMinus1 * 2]!;
-        const fMinusIm = complexData[flatIdxMinus1 * 2 + 1]!;
+        const fPlusRe = complexData[(off + flatIdxPlus1) * 2]!;
+        const fPlusIm = complexData[(off + flatIdxPlus1) * 2 + 1]!;
+        const fMinusRe = complexData[(off + flatIdxMinus1) * 2]!;
+        const fMinusIm = complexData[(off + flatIdxMinus1) * 2 + 1]!;
 
         gradRe = (fPlusRe - fMinusRe) / h2;
         gradIm = (fPlusIm - fMinusIm) / h2;
@@ -396,10 +408,12 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
           flatIdxPlus1 += idxPlus1[d]! * strides[d]!;
         }
 
-        const f0 = isBigIntDType(dtype) ? Number(f.data[flatIdx]!) : Number(f.data[flatIdx]!);
+        const f0 = isBigIntDType(dtype)
+          ? Number(f.data[currentBufIdx]!)
+          : Number(f.data[currentBufIdx]!);
         const f1 = isBigIntDType(dtype)
-          ? Number(f.data[flatIdxPlus1]!)
-          : Number(f.data[flatIdxPlus1]!);
+          ? Number(f.data[off + flatIdxPlus1]!)
+          : Number(f.data[off + flatIdxPlus1]!);
 
         gradientValue = (f1 - f0) / h;
       } else if (axisIdx === axisSize - 1) {
@@ -411,10 +425,12 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
           flatIdxMinus1 += idxMinus1[d]! * strides[d]!;
         }
 
-        const fN = isBigIntDType(dtype) ? Number(f.data[flatIdx]!) : Number(f.data[flatIdx]!);
+        const fN = isBigIntDType(dtype)
+          ? Number(f.data[currentBufIdx]!)
+          : Number(f.data[currentBufIdx]!);
         const fNm1 = isBigIntDType(dtype)
-          ? Number(f.data[flatIdxMinus1]!)
-          : Number(f.data[flatIdxMinus1]!);
+          ? Number(f.data[off + flatIdxMinus1]!)
+          : Number(f.data[off + flatIdxMinus1]!);
 
         gradientValue = (fN - fNm1) / h;
       } else {
@@ -432,11 +448,11 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
         }
 
         const fPlus = isBigIntDType(dtype)
-          ? Number(f.data[flatIdxPlus1]!)
-          : Number(f.data[flatIdxPlus1]!);
+          ? Number(f.data[off + flatIdxPlus1]!)
+          : Number(f.data[off + flatIdxPlus1]!);
         const fMinus = isBigIntDType(dtype)
-          ? Number(f.data[flatIdxMinus1]!)
-          : Number(f.data[flatIdxMinus1]!);
+          ? Number(f.data[off + flatIdxMinus1]!)
+          : Number(f.data[off + flatIdxMinus1]!);
 
         gradientValue = (fPlus - fMinus) / h2;
       }
@@ -506,7 +522,8 @@ export function cross(
   const getComplex = (arr: ArrayStorage, idx: number): [number, number] => {
     if (isComplexDType(arr.dtype)) {
       const data = arr.data as Float64Array | Float32Array;
-      return [data[idx * 2]!, data[idx * 2 + 1]!];
+      const arrOff = arr.offset;
+      return [data[(arrOff + idx) * 2]!, data[(arrOff + idx) * 2 + 1]!];
     }
     return [Number(arr.iget(idx)), 0];
   };

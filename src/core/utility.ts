@@ -88,18 +88,25 @@ export function size(a: NDArrayCore | number | bigint | boolean | unknown[] | un
 // ============================================================
 
 export function item(a: NDArrayCore, ...args: number[]): number | bigint | boolean | Complex {
-  const data = a.data;
+  const storage = a.storage;
   const shapeArr = a.shape;
 
   if (args.length === 0) {
     if (a.size !== 1) {
       throw new Error('can only convert an array of size 1 to a scalar');
     }
-    return data[0] as number | bigint | boolean | Complex;
+    // Fast path: direct data access for non-complex contiguous
+    if (storage.isCContiguous) {
+      return storage.data[storage.offset] as number | bigint | boolean | Complex;
+    }
+    return storage.iget(0) as number | bigint | boolean | Complex;
   }
 
   if (args.length === 1) {
-    return data[args[0]!] as number | bigint | boolean | Complex;
+    if (storage.isCContiguous) {
+      return storage.data[storage.offset + args[0]!] as number | bigint | boolean | Complex;
+    }
+    return storage.iget(args[0]!) as number | bigint | boolean | Complex;
   }
 
   // Multi-index access
@@ -107,56 +114,106 @@ export function item(a: NDArrayCore, ...args: number[]): number | bigint | boole
     throw new Error('incorrect number of indices for array');
   }
 
-  let flatIdx = 0;
-  let stride = 1;
-  for (let i = shapeArr.length - 1; i >= 0; i--) {
-    flatIdx += args[i]! * stride;
-    stride *= shapeArr[i]!;
-  }
-
-  return data[flatIdx] as number | bigint | boolean | Complex;
+  return storage.get(...args) as number | bigint | boolean | Complex;
 }
 
 export function tolist(a: NDArrayCore): unknown {
-  const shapeArr = [...a.shape];
-  const data = a.data;
+  const shapeArr = a.shape;
+  const storage = a.storage;
+  const ndimVal = shapeArr.length;
 
-  if (shapeArr.length === 0) {
-    return data[0];
+  if (ndimVal === 0) {
+    return storage.iget(0);
   }
 
-  if (shapeArr.length === 1) {
-    return Array.from(data as unknown as ArrayLike<number>);
-  }
+  // Fast path for contiguous arrays: direct data access
+  if (storage.isCContiguous) {
+    const data = storage.data;
+    const off = storage.offset;
 
-  function buildList(offset: number, dim: number): unknown[] {
-    if (dim === shapeArr.length - 1) {
-      const result: unknown[] = [];
-      for (let i = 0; i < shapeArr[dim]!; i++) {
-        result.push(data[offset + i]);
+    if (ndimVal === 1) {
+      const len = shapeArr[0]!;
+      const result: unknown[] = new Array(len);
+      for (let i = 0; i < len; i++) {
+        result[i] = data[off + i];
       }
       return result;
     }
 
+    // Multi-dim contiguous: compute strides and use direct data[off + linearIdx]
+    const strides: number[] = new Array(ndimVal);
+    let stride = 1;
+    for (let d = ndimVal - 1; d >= 0; d--) {
+      strides[d] = stride;
+      stride *= shapeArr[d]!;
+    }
+
+    function buildListFast(baseOffset: number, dim: number): unknown {
+      const dimSize = shapeArr[dim]!;
+      const dimStride = strides[dim]!;
+      if (dim === ndimVal - 1) {
+        const result: unknown[] = new Array(dimSize);
+        for (let i = 0; i < dimSize; i++) {
+          result[i] = data[off + baseOffset + i];
+        }
+        return result;
+      }
+      const result: unknown[] = new Array(dimSize);
+      for (let i = 0; i < dimSize; i++) {
+        result[i] = buildListFast(baseOffset + i * dimStride, dim + 1);
+      }
+      return result;
+    }
+
+    return buildListFast(0, 0);
+  }
+
+  // Slow path for non-contiguous views
+  if (ndimVal === 1) {
     const result: unknown[] = [];
-    const stride = shapeArr.slice(dim + 1).reduce((acc, b) => acc * b, 1);
-    for (let i = 0; i < shapeArr[dim]!; i++) {
-      result.push(buildList(offset + i * stride, dim + 1));
+    for (let i = 0; i < shapeArr[0]!; i++) {
+      result.push(storage.iget(i));
     }
     return result;
   }
 
-  return buildList(0, 0);
+  function buildList(indices: number[], dim: number): unknown {
+    if (dim === ndimVal) {
+      return storage.get(...indices);
+    }
+
+    const result: unknown[] = [];
+    for (let i = 0; i < shapeArr[dim]!; i++) {
+      indices[dim] = i;
+      result.push(buildList(indices, dim + 1));
+    }
+    return result;
+  }
+
+  return buildList(new Array(ndimVal), 0);
 }
 
 export function tobytes(a: NDArrayCore, order: 'C' | 'F' = 'C'): Uint8Array {
-  const data = a.data;
+  const storage = a.storage;
 
   if (order === 'F') {
     console.warn('tobytes with order="F" not fully implemented, returning C-order');
   }
 
-  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  const data = storage.data;
+  const bytesPerElement = data.BYTES_PER_ELEMENT;
+
+  if (storage.isCContiguous) {
+    // Contiguous: return the exact byte range for this view
+    const byteOffset = data.byteOffset + storage.offset * bytesPerElement;
+    const byteLength = a.size * bytesPerElement;
+    return new Uint8Array(data.buffer, byteOffset, byteLength);
+  }
+
+  // Non-contiguous: materialize into a contiguous copy first
+  const copy = a.copy();
+  const copyData = copy.data;
+  return new Uint8Array(copyData.buffer, copyData.byteOffset, a.size * bytesPerElement);
 }
 
 export function byteswap(a: NDArrayCore, inplace: boolean = false): NDArrayCore {
@@ -203,25 +260,48 @@ export function tofile(
 }
 
 export function fill(a: NDArrayCore, value: number | bigint | boolean | Complex): void {
-  const data = a.data;
+  const storage = a.storage;
   const dtype = a.dtype;
+  const sz = a.size;
 
   if (value instanceof Complex) {
     const isComplex = dtype === 'complex64' || dtype === 'complex128';
-    if (isComplex) {
-      const complexData = data as Float64Array | Float32Array;
-      for (let i = 0; i < a.size; i++) {
-        complexData[i * 2] = value.re;
-        complexData[i * 2 + 1] = value.im;
-      }
-    } else {
+    if (!isComplex) {
       throw new Error('Cannot fill non-complex array with complex value');
     }
+    if (storage.isCContiguous) {
+      const data = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < sz; i++) {
+        data[(off + i) * 2] = value.re;
+        data[(off + i) * 2 + 1] = value.im;
+      }
+    } else {
+      for (let i = 0; i < sz; i++) {
+        storage.iset(i, value);
+      }
+    }
   } else if (typeof value === 'bigint') {
-    (data as BigInt64Array | BigUint64Array).fill(value);
-  } else if (typeof value === 'boolean') {
-    (data as Uint8Array).fill(value ? 1 : 0);
+    if (storage.isCContiguous) {
+      const data = storage.data as BigInt64Array | BigUint64Array;
+      data.fill(value, storage.offset, storage.offset + sz);
+    } else {
+      for (let i = 0; i < sz; i++) {
+        storage.iset(i, value);
+      }
+    }
   } else {
-    (data as Float64Array).fill(value);
+    const numValue = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+    if (storage.isCContiguous) {
+      (storage.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>).fill(
+        numValue,
+        storage.offset,
+        storage.offset + sz
+      );
+    } else {
+      for (let i = 0; i < sz; i++) {
+        storage.iset(i, numValue);
+      }
+    }
   }
 }

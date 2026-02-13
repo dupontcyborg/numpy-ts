@@ -13,6 +13,7 @@ import { ArrayStorage } from '../storage';
 import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
 import { broadcastShapes } from '../internal/compute';
+import { Complex } from '../complex';
 
 /**
  * Helper: Convert value to boolean (0 = false, non-zero = true)
@@ -80,6 +81,8 @@ function logicalAndArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(a.size);
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const size = a.size;
 
   const aIsBigInt = isBigIntDType(a.dtype);
@@ -90,22 +93,26 @@ function logicalAndArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   if (aIsComplex || bIsComplex) {
     for (let i = 0; i < size; i++) {
       const aVal = aIsComplex
-        ? isComplexTruthy(aData as Float64Array | Float32Array, i)
-        : (aData[i] as number) !== 0;
+        ? isComplexTruthy(aData as Float64Array | Float32Array, aOff + i)
+        : (aData[aOff + i] as number) !== 0;
       const bVal = bIsComplex
-        ? isComplexTruthy(bData as Float64Array | Float32Array, i)
-        : (bData[i] as number) !== 0;
+        ? isComplexTruthy(bData as Float64Array | Float32Array, bOff + i)
+        : (bData[bOff + i] as number) !== 0;
       data[i] = aVal && bVal ? 1 : 0;
     }
   } else if (aIsBigInt || bIsBigInt) {
     for (let i = 0; i < size; i++) {
-      const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
-      const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
+      const aVal = aIsBigInt
+        ? (aData[aOff + i] as bigint) !== 0n
+        : (aData[aOff + i] as number) !== 0;
+      const bVal = bIsBigInt
+        ? (bData[bOff + i] as bigint) !== 0n
+        : (bData[bOff + i] as number) !== 0;
       data[i] = aVal && bVal ? 1 : 0;
     }
   } else {
     for (let i = 0; i < size; i++) {
-      data[i] = (aData[i] as number) !== 0 && (bData[i] as number) !== 0 ? 1 : 0;
+      data[i] = (aData[aOff + i] as number) !== 0 && (bData[bOff + i] as number) !== 0 ? 1 : 0;
     }
   }
 
@@ -118,23 +125,47 @@ function logicalAndArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  */
 function logicalAndScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
   const scalarBool = scalar !== 0;
   const size = storage.size;
 
-  if (isComplexDType(storage.dtype)) {
-    const typedData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = isComplexTruthy(typedData, i) && scalarBool ? 1 : 0;
-    }
-  } else if (isBigIntDType(storage.dtype)) {
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = typedData[i] !== 0n && scalarBool ? 1 : 0;
+  if (storage.isCContiguous) {
+    const thisData = storage.data;
+    const off = storage.offset;
+    if (isComplexDType(storage.dtype)) {
+      const typedData = thisData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = isComplexTruthy(typedData, off + i) && scalarBool ? 1 : 0;
+      }
+    } else if (isBigIntDType(storage.dtype)) {
+      const typedData = thisData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = typedData[off + i] !== 0n && scalarBool ? 1 : 0;
+      }
+    } else {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          data[i] = (thisData[i] as number) !== 0 && scalarBool ? 1 : 0;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          data[i] = (thisData[off + i] as number) !== 0 && scalarBool ? 1 : 0;
+        }
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      data[i] = (thisData[i] as number) !== 0 && scalarBool ? 1 : 0;
+    if (isComplexDType(storage.dtype)) {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        data[i] = (val.re !== 0 || val.im !== 0) && scalarBool ? 1 : 0;
+      }
+    } else if (isBigIntDType(storage.dtype)) {
+      for (let i = 0; i < size; i++) {
+        data[i] = (storage.iget(i) as bigint) !== 0n && scalarBool ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        data[i] = Number(storage.iget(i)) !== 0 && scalarBool ? 1 : 0;
+      }
     }
   }
 
@@ -158,7 +189,7 @@ export function logical_or(a: ArrayStorage, b: ArrayStorage | number): ArrayStor
 
   // Optimize single-element non-complex arrays as scalars (only when same dtype)
   if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
-    const scalarVal = Number(b.data[0]!);
+    const scalarVal = Number(b.iget(0));
     return logicalOrScalar(a, scalarVal);
   }
 
@@ -179,6 +210,8 @@ function logicalOrArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(a.size);
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const size = a.size;
 
   const aIsBigInt = isBigIntDType(a.dtype);
@@ -189,22 +222,26 @@ function logicalOrArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   if (aIsComplex || bIsComplex) {
     for (let i = 0; i < size; i++) {
       const aVal = aIsComplex
-        ? isComplexTruthy(aData as Float64Array | Float32Array, i)
-        : (aData[i] as number) !== 0;
+        ? isComplexTruthy(aData as Float64Array | Float32Array, aOff + i)
+        : (aData[aOff + i] as number) !== 0;
       const bVal = bIsComplex
-        ? isComplexTruthy(bData as Float64Array | Float32Array, i)
-        : (bData[i] as number) !== 0;
+        ? isComplexTruthy(bData as Float64Array | Float32Array, bOff + i)
+        : (bData[bOff + i] as number) !== 0;
       data[i] = aVal || bVal ? 1 : 0;
     }
   } else if (aIsBigInt || bIsBigInt) {
     for (let i = 0; i < size; i++) {
-      const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
-      const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
+      const aVal = aIsBigInt
+        ? (aData[aOff + i] as bigint) !== 0n
+        : (aData[aOff + i] as number) !== 0;
+      const bVal = bIsBigInt
+        ? (bData[bOff + i] as bigint) !== 0n
+        : (bData[bOff + i] as number) !== 0;
       data[i] = aVal || bVal ? 1 : 0;
     }
   } else {
     for (let i = 0; i < size; i++) {
-      data[i] = (aData[i] as number) !== 0 || (bData[i] as number) !== 0 ? 1 : 0;
+      data[i] = (aData[aOff + i] as number) !== 0 || (bData[bOff + i] as number) !== 0 ? 1 : 0;
     }
   }
 
@@ -217,23 +254,47 @@ function logicalOrArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  */
 function logicalOrScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
   const scalarBool = scalar !== 0;
   const size = storage.size;
 
-  if (isComplexDType(storage.dtype)) {
-    const typedData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = isComplexTruthy(typedData, i) || scalarBool ? 1 : 0;
-    }
-  } else if (isBigIntDType(storage.dtype)) {
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = typedData[i] !== 0n || scalarBool ? 1 : 0;
+  if (storage.isCContiguous) {
+    const thisData = storage.data;
+    const off = storage.offset;
+    if (isComplexDType(storage.dtype)) {
+      const typedData = thisData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = isComplexTruthy(typedData, off + i) || scalarBool ? 1 : 0;
+      }
+    } else if (isBigIntDType(storage.dtype)) {
+      const typedData = thisData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = typedData[off + i] !== 0n || scalarBool ? 1 : 0;
+      }
+    } else {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          data[i] = (thisData[i] as number) !== 0 || scalarBool ? 1 : 0;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          data[i] = (thisData[off + i] as number) !== 0 || scalarBool ? 1 : 0;
+        }
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      data[i] = (thisData[i] as number) !== 0 || scalarBool ? 1 : 0;
+    if (isComplexDType(storage.dtype)) {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        data[i] = val.re !== 0 || val.im !== 0 || scalarBool ? 1 : 0;
+      }
+    } else if (isBigIntDType(storage.dtype)) {
+      for (let i = 0; i < size; i++) {
+        data[i] = (storage.iget(i) as bigint) !== 0n || scalarBool ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        data[i] = Number(storage.iget(i)) !== 0 || scalarBool ? 1 : 0;
+      }
     }
   }
 
@@ -251,23 +312,47 @@ function logicalOrScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
  */
 export function logical_not(a: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(a.size);
-  const thisData = a.data;
   const size = a.size;
 
-  if (isComplexDType(a.dtype)) {
-    const typedData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      // NOT of complex: true if both real and imag are zero
-      data[i] = !isComplexTruthy(typedData, i) ? 1 : 0;
-    }
-  } else if (isBigIntDType(a.dtype)) {
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = typedData[i] === 0n ? 1 : 0;
+  if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    if (isComplexDType(a.dtype)) {
+      const typedData = thisData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        // NOT of complex: true if both real and imag are zero
+        data[i] = !isComplexTruthy(typedData, off + i) ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      const typedData = thisData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = typedData[off + i] === 0n ? 1 : 0;
+      }
+    } else {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          data[i] = (thisData[i] as number) === 0 ? 1 : 0;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          data[i] = (thisData[off + i] as number) === 0 ? 1 : 0;
+        }
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      data[i] = (thisData[i] as number) === 0 ? 1 : 0;
+    if (isComplexDType(a.dtype)) {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        data[i] = val.re === 0 && val.im === 0 ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      for (let i = 0; i < size; i++) {
+        data[i] = (a.iget(i) as bigint) === 0n ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        data[i] = Number(a.iget(i)) === 0 ? 1 : 0;
+      }
     }
   }
 
@@ -306,6 +391,8 @@ function logicalXorArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(a.size);
   const aData = a.data;
   const bData = b.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
   const size = a.size;
 
   const aIsBigInt = isBigIntDType(a.dtype);
@@ -316,23 +403,27 @@ function logicalXorArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   if (aIsComplex || bIsComplex) {
     for (let i = 0; i < size; i++) {
       const aVal = aIsComplex
-        ? isComplexTruthy(aData as Float64Array | Float32Array, i)
-        : (aData[i] as number) !== 0;
+        ? isComplexTruthy(aData as Float64Array | Float32Array, aOff + i)
+        : (aData[aOff + i] as number) !== 0;
       const bVal = bIsComplex
-        ? isComplexTruthy(bData as Float64Array | Float32Array, i)
-        : (bData[i] as number) !== 0;
+        ? isComplexTruthy(bData as Float64Array | Float32Array, bOff + i)
+        : (bData[bOff + i] as number) !== 0;
       data[i] = aVal !== bVal ? 1 : 0;
     }
   } else if (aIsBigInt || bIsBigInt) {
     for (let i = 0; i < size; i++) {
-      const aVal = aIsBigInt ? (aData[i] as bigint) !== 0n : (aData[i] as number) !== 0;
-      const bVal = bIsBigInt ? (bData[i] as bigint) !== 0n : (bData[i] as number) !== 0;
+      const aVal = aIsBigInt
+        ? (aData[aOff + i] as bigint) !== 0n
+        : (aData[aOff + i] as number) !== 0;
+      const bVal = bIsBigInt
+        ? (bData[bOff + i] as bigint) !== 0n
+        : (bData[bOff + i] as number) !== 0;
       data[i] = aVal !== bVal ? 1 : 0;
     }
   } else {
     for (let i = 0; i < size; i++) {
-      const aVal = (aData[i] as number) !== 0;
-      const bVal = (bData[i] as number) !== 0;
+      const aVal = (aData[aOff + i] as number) !== 0;
+      const bVal = (bData[bOff + i] as number) !== 0;
       data[i] = aVal !== bVal ? 1 : 0;
     }
   }
@@ -346,26 +437,54 @@ function logicalXorArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  */
 function logicalXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
   const scalarBool = scalar !== 0;
   const size = storage.size;
 
-  if (isComplexDType(storage.dtype)) {
-    const typedData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const valBool = isComplexTruthy(typedData, i);
-      data[i] = valBool !== scalarBool ? 1 : 0;
-    }
-  } else if (isBigIntDType(storage.dtype)) {
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      const valBool = typedData[i] !== 0n;
-      data[i] = valBool !== scalarBool ? 1 : 0;
+  if (storage.isCContiguous) {
+    const thisData = storage.data;
+    const off = storage.offset;
+    if (isComplexDType(storage.dtype)) {
+      const typedData = thisData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const valBool = isComplexTruthy(typedData, off + i);
+        data[i] = valBool !== scalarBool ? 1 : 0;
+      }
+    } else if (isBigIntDType(storage.dtype)) {
+      const typedData = thisData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        const valBool = typedData[off + i] !== 0n;
+        data[i] = valBool !== scalarBool ? 1 : 0;
+      }
+    } else {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          const valBool = (thisData[i] as number) !== 0;
+          data[i] = valBool !== scalarBool ? 1 : 0;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const valBool = (thisData[off + i] as number) !== 0;
+          data[i] = valBool !== scalarBool ? 1 : 0;
+        }
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      const valBool = (thisData[i] as number) !== 0;
-      data[i] = valBool !== scalarBool ? 1 : 0;
+    if (isComplexDType(storage.dtype)) {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        const valBool = val.re !== 0 || val.im !== 0;
+        data[i] = valBool !== scalarBool ? 1 : 0;
+      }
+    } else if (isBigIntDType(storage.dtype)) {
+      for (let i = 0; i < size; i++) {
+        const valBool = (storage.iget(i) as bigint) !== 0n;
+        data[i] = valBool !== scalarBool ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const valBool = Number(storage.iget(i)) !== 0;
+        data[i] = valBool !== scalarBool ? 1 : 0;
+      }
     }
   }
 
@@ -386,26 +505,50 @@ function logicalXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
  */
 export function isfinite(a: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(a.size);
-  const thisData = a.data;
   const size = a.size;
 
-  if (isComplexDType(a.dtype as DType)) {
-    // Complex: finite if both real and imag are finite
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-      data[i] = Number.isFinite(re) && Number.isFinite(im) ? 1 : 0;
-    }
-  } else if (isBigIntDType(a.dtype)) {
-    // BigInt values are always finite
-    for (let i = 0; i < size; i++) {
-      data[i] = 1;
+  if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    if (isComplexDType(a.dtype as DType)) {
+      // Complex: finite if both real and imag are finite
+      const complexData = thisData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const re = complexData[(off + i) * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
+        data[i] = Number.isFinite(re) && Number.isFinite(im) ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      // BigInt values are always finite
+      for (let i = 0; i < size; i++) {
+        data[i] = 1;
+      }
+    } else {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          data[i] = Number.isFinite(thisData[i] as number) ? 1 : 0;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = thisData[off + i] as number;
+          data[i] = Number.isFinite(val) ? 1 : 0;
+        }
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      const val = thisData[i] as number;
-      data[i] = Number.isFinite(val) ? 1 : 0;
+    if (isComplexDType(a.dtype as DType)) {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        data[i] = Number.isFinite(val.re) && Number.isFinite(val.im) ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      for (let i = 0; i < size; i++) {
+        data[i] = 1;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        data[i] = Number.isFinite(Number(a.iget(i))) ? 1 : 0;
+      }
     }
   }
 
@@ -422,28 +565,56 @@ export function isfinite(a: ArrayStorage): ArrayStorage {
  */
 export function isinf(a: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(a.size);
-  const thisData = a.data;
   const size = a.size;
 
-  if (isComplexDType(a.dtype as DType)) {
-    // Complex: infinite if either part is infinite
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-      const reInf = !Number.isFinite(re) && !Number.isNaN(re);
-      const imInf = !Number.isFinite(im) && !Number.isNaN(im);
-      data[i] = reInf || imInf ? 1 : 0;
-    }
-  } else if (isBigIntDType(a.dtype)) {
-    // BigInt values are never infinite
-    for (let i = 0; i < size; i++) {
-      data[i] = 0;
+  if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    if (isComplexDType(a.dtype as DType)) {
+      // Complex: infinite if either part is infinite
+      const complexData = thisData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const re = complexData[(off + i) * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
+        const reInf = !Number.isFinite(re) && !Number.isNaN(re);
+        const imInf = !Number.isFinite(im) && !Number.isNaN(im);
+        data[i] = reInf || imInf ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      // BigInt values are never infinite
+      for (let i = 0; i < size; i++) {
+        data[i] = 0;
+      }
+    } else {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          const val = thisData[i] as number;
+          data[i] = !Number.isFinite(val) && !Number.isNaN(val) ? 1 : 0;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = thisData[off + i] as number;
+          data[i] = !Number.isFinite(val) && !Number.isNaN(val) ? 1 : 0;
+        }
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      const val = thisData[i] as number;
-      data[i] = !Number.isFinite(val) && !Number.isNaN(val) ? 1 : 0;
+    if (isComplexDType(a.dtype as DType)) {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const reInf = !Number.isFinite(val.re) && !Number.isNaN(val.re);
+        const imInf = !Number.isFinite(val.im) && !Number.isNaN(val.im);
+        data[i] = reInf || imInf ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      for (let i = 0; i < size; i++) {
+        data[i] = 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(a.iget(i));
+        data[i] = !Number.isFinite(val) && !Number.isNaN(val) ? 1 : 0;
+      }
     }
   }
 
@@ -460,25 +631,43 @@ export function isinf(a: ArrayStorage): ArrayStorage {
  */
 export function isnan(a: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(a.size);
-  const thisData = a.data;
   const size = a.size;
 
-  if (isComplexDType(a.dtype as DType)) {
-    // Complex: NaN if either part is NaN
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-      data[i] = Number.isNaN(re) || Number.isNaN(im) ? 1 : 0;
-    }
-  } else if (isBigIntDType(a.dtype)) {
-    // BigInt values are never NaN
-    for (let i = 0; i < size; i++) {
-      data[i] = 0;
+  if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    if (isComplexDType(a.dtype as DType)) {
+      // Complex: NaN if either part is NaN
+      const complexData = thisData as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const re = complexData[(off + i) * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
+        data[i] = Number.isNaN(re) || Number.isNaN(im) ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      // BigInt values are never NaN
+      for (let i = 0; i < size; i++) {
+        data[i] = 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        data[i] = Number.isNaN(thisData[off + i] as number) ? 1 : 0;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      data[i] = Number.isNaN(thisData[i] as number) ? 1 : 0;
+    if (isComplexDType(a.dtype as DType)) {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        data[i] = Number.isNaN(val.re) || Number.isNaN(val.im) ? 1 : 0;
+      }
+    } else if (isBigIntDType(a.dtype)) {
+      for (let i = 0; i < size; i++) {
+        data[i] = 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        data[i] = Number.isNaN(Number(a.iget(i))) ? 1 : 0;
+      }
     }
   }
 
@@ -557,13 +746,15 @@ function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
   const size = x1.size;
   const x1Data = x1.data;
   const x2Data = x2.data;
+  const x1Off = x1.offset;
+  const x2Off = x2.offset;
 
   const x1IsBigInt = isBigIntDType(x1.dtype);
   const x2IsBigInt = isBigIntDType(x2.dtype);
 
   for (let i = 0; i < size; i++) {
-    const val1 = x1IsBigInt ? Number(x1Data[i] as bigint) : (x1Data[i] as number);
-    const val2 = x2IsBigInt ? Number(x2Data[i] as bigint) : (x2Data[i] as number);
+    const val1 = x1IsBigInt ? Number(x1Data[x1Off + i] as bigint) : (x1Data[x1Off + i] as number);
+    const val2 = x2IsBigInt ? Number(x2Data[x2Off + i] as bigint) : (x2Data[x2Off + i] as number);
     resultData[i] = Math.sign(val2) * Math.abs(val1);
   }
 
@@ -577,18 +768,31 @@ function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
 function copysignScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
   const resultData = result.data as Float64Array;
-  const thisData = storage.data;
   const size = storage.size;
   const signVal = Math.sign(scalar);
 
+  if (!storage.isCContiguous) {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = signVal * Math.abs(Number(storage.iget(i)));
+    }
+    return result;
+  }
+
+  const thisData = storage.data;
+  const off = storage.offset;
   if (isBigIntDType(storage.dtype)) {
     const typedData = thisData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
-      resultData[i] = signVal * Math.abs(Number(typedData[i]));
+      resultData[i] = signVal * Math.abs(Number(typedData[off + i]));
+    }
+  } else if (off === 0) {
+    // Fast path: no offset — V8 can eliminate bounds checks on arr[i]
+    for (let i = 0; i < size; i++) {
+      resultData[i] = signVal * Math.abs(thisData[i] as number);
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = signVal * Math.abs(thisData[i] as number);
+      resultData[i] = signVal * Math.abs(thisData[off + i] as number);
     }
   }
 
@@ -604,19 +808,34 @@ function copysignScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
 export function signbit(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'signbit', 'signbit is only defined for real numbers.');
   const data = new Uint8Array(a.size);
-  const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = typedData[i]! < 0n ? 1 : 0;
+  if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    if (isBigIntDType(a.dtype)) {
+      const typedData = thisData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = typedData[off + i]! < 0n ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = thisData[off + i] as number;
+        // Handle -0.0 case: Object.is distinguishes -0 from +0
+        data[i] = val < 0 || Object.is(val, -0) ? 1 : 0;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      const val = thisData[i] as number;
-      // Handle -0.0 case: Object.is distinguishes -0 from +0
-      data[i] = val < 0 || Object.is(val, -0) ? 1 : 0;
+    if (isBigIntDType(a.dtype)) {
+      for (let i = 0; i < size; i++) {
+        data[i] = (a.iget(i) as bigint) < 0n ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(a.iget(i));
+        // Handle -0.0 case: Object.is distinguishes -0 from +0
+        data[i] = val < 0 || Object.is(val, -0) ? 1 : 0;
+      }
     }
   }
 
@@ -673,13 +892,15 @@ function nextafterArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
   const size = x1.size;
   const x1Data = x1.data;
   const x2Data = x2.data;
+  const x1Off = x1.offset;
+  const x2Off = x2.offset;
 
   const x1IsBigInt = isBigIntDType(x1.dtype);
   const x2IsBigInt = isBigIntDType(x2.dtype);
 
   for (let i = 0; i < size; i++) {
-    const val1 = x1IsBigInt ? Number(x1Data[i] as bigint) : (x1Data[i] as number);
-    const val2 = x2IsBigInt ? Number(x2Data[i] as bigint) : (x2Data[i] as number);
+    const val1 = x1IsBigInt ? Number(x1Data[x1Off + i] as bigint) : (x1Data[x1Off + i] as number);
+    const val2 = x2IsBigInt ? Number(x2Data[x2Off + i] as bigint) : (x2Data[x2Off + i] as number);
     resultData[i] = nextafterSingle(val1, val2);
   }
 
@@ -693,17 +914,24 @@ function nextafterArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
 function nextafterScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
   const resultData = result.data as Float64Array;
-  const thisData = storage.data;
   const size = storage.size;
 
-  if (isBigIntDType(storage.dtype)) {
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      resultData[i] = nextafterSingle(Number(typedData[i]), scalar);
+  if (storage.isCContiguous) {
+    const thisData = storage.data;
+    const off = storage.offset;
+    if (isBigIntDType(storage.dtype)) {
+      const typedData = thisData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        resultData[i] = nextafterSingle(Number(typedData[off + i]), scalar);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = nextafterSingle(thisData[off + i] as number, scalar);
+      }
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = nextafterSingle(thisData[i] as number, scalar);
+      resultData[i] = nextafterSingle(Number(storage.iget(i)), scalar);
     }
   }
 
@@ -764,17 +992,24 @@ export function spacing(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'spacing', 'spacing is only defined for real numbers.');
   const result = ArrayStorage.zeros(Array.from(a.shape), 'float64');
   const resultData = result.data as Float64Array;
-  const thisData = a.data;
   const size = a.size;
 
-  if (isBigIntDType(a.dtype)) {
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      resultData[i] = spacingSingle(Number(typedData[i]));
+  if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    if (isBigIntDType(a.dtype)) {
+      const typedData = thisData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        resultData[i] = spacingSingle(Number(typedData[off + i]));
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = spacingSingle(thisData[off + i] as number);
+      }
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = spacingSingle(thisData[i] as number);
+      resultData[i] = spacingSingle(Number(a.iget(i)));
     }
   }
 
@@ -858,10 +1093,18 @@ export function iscomplex(a: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(size);
 
   if (isComplexDType(dtype)) {
-    // Check if imaginary part is non-zero
-    const srcData = a.data as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = srcData[i * 2 + 1] !== 0 ? 1 : 0;
+    if (a.isCContiguous) {
+      const off = a.offset;
+      // Check if imaginary part is non-zero
+      const srcData = a.data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = srcData[(off + i) * 2 + 1] !== 0 ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        data[i] = val.im !== 0 ? 1 : 0;
+      }
     }
   }
   // For real arrays, all elements are false (initialized to 0)
@@ -894,10 +1137,18 @@ export function isreal(a: ArrayStorage): ArrayStorage {
   const data = new Uint8Array(size);
 
   if (isComplexDType(dtype)) {
-    // Check if imaginary part is zero
-    const srcData = a.data as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      data[i] = srcData[i * 2 + 1] === 0 ? 1 : 0;
+    if (a.isCContiguous) {
+      const off = a.offset;
+      // Check if imaginary part is zero
+      const srcData = a.data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        data[i] = srcData[(off + i) * 2 + 1] === 0 ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        data[i] = val.im === 0 ? 1 : 0;
+      }
     }
   } else {
     // For real arrays, all elements are true
@@ -932,16 +1183,21 @@ export function isneginf(a: ArrayStorage): ArrayStorage {
     'This operation is not supported for complex values because it would be ambiguous.'
   );
   const data = new Uint8Array(a.size);
-  const thisData = a.data;
   const size = a.size;
 
   if (isBigIntDType(a.dtype)) {
     // BigInt cannot be -Infinity
     // data is already zeros
+  } else if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      const val = thisData[off + i] as number;
+      data[i] = val === -Infinity ? 1 : 0;
+    }
   } else {
     for (let i = 0; i < size; i++) {
-      const val = thisData[i] as number;
-      data[i] = val === -Infinity ? 1 : 0;
+      data[i] = Number(a.iget(i)) === -Infinity ? 1 : 0;
     }
   }
 
@@ -963,16 +1219,21 @@ export function isposinf(a: ArrayStorage): ArrayStorage {
     'This operation is not supported for complex values because it would be ambiguous.'
   );
   const data = new Uint8Array(a.size);
-  const thisData = a.data;
   const size = a.size;
 
   if (isBigIntDType(a.dtype)) {
     // BigInt cannot be +Infinity
     // data is already zeros
+  } else if (a.isCContiguous) {
+    const thisData = a.data;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) {
+      const val = thisData[off + i] as number;
+      data[i] = val === Infinity ? 1 : 0;
+    }
   } else {
     for (let i = 0; i < size; i++) {
-      const val = thisData[i] as number;
-      data[i] = val === Infinity ? 1 : 0;
+      data[i] = Number(a.iget(i)) === Infinity ? 1 : 0;
     }
   }
 
@@ -1000,30 +1261,55 @@ export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage 
 
   // For complex arrays, check if imaginary part is close to zero
   if (isComplexDType(dtype)) {
-    const complexData = a.data as Float64Array | Float32Array;
     const size = a.size;
     const eps = dtype === 'complex64' ? 1.1920929e-7 : 2.220446049250313e-16;
     const threshold = tol * eps;
 
-    // Check if all imaginary parts are close to zero
-    let allClose = true;
-    for (let i = 0; i < size; i++) {
-      const im = complexData[i * 2 + 1]!;
-      if (Math.abs(im) > threshold) {
-        allClose = false;
-        break;
-      }
-    }
+    if (a.isCContiguous) {
+      const complexData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
 
-    if (allClose) {
-      // Return real part only
-      const realDtype = dtype === 'complex64' ? 'float32' : 'float64';
-      const result = ArrayStorage.zeros(Array.from(a.shape), realDtype);
-      const resultData = result.data as Float64Array | Float32Array;
+      // Check if all imaginary parts are close to zero
+      let allClose = true;
       for (let i = 0; i < size; i++) {
-        resultData[i] = complexData[i * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
+        if (Math.abs(im) > threshold) {
+          allClose = false;
+          break;
+        }
       }
-      return result;
+
+      if (allClose) {
+        // Return real part only
+        const realDtype = dtype === 'complex64' ? 'float32' : 'float64';
+        const result = ArrayStorage.zeros(Array.from(a.shape), realDtype);
+        const resultData = result.data as Float64Array | Float32Array;
+        for (let i = 0; i < size; i++) {
+          resultData[i] = complexData[(off + i) * 2]!;
+        }
+        return result;
+      }
+    } else {
+      // Slow path: non-contiguous
+      let allClose = true;
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        if (Math.abs(val.im) > threshold) {
+          allClose = false;
+          break;
+        }
+      }
+
+      if (allClose) {
+        const realDtype = dtype === 'complex64' ? 'float32' : 'float64';
+        const result = ArrayStorage.zeros(Array.from(a.shape), realDtype);
+        const resultData = result.data as Float64Array | Float32Array;
+        for (let i = 0; i < size; i++) {
+          const val = a.iget(i) as Complex;
+          resultData[i] = val.re;
+        }
+        return result;
+      }
     }
 
     // Return complex array as-is

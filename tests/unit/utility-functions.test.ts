@@ -342,4 +342,112 @@ describe('Utility Functions (src/core/utility.ts)', () => {
       expect(() => fill(a, new Complex(1, 2))).toThrow('Cannot fill non-complex');
     });
   });
+
+  // ========================================
+  // View/Slice correctness
+  // ========================================
+  describe('view/slice correctness', () => {
+    describe('item() with views', () => {
+      it('reads correct values from a sliced 1D array', () => {
+        const a = array([10, 20, 30, 40, 50]);
+        const sliced = a.slice('1:4'); // [20, 30, 40]
+        expect(item(sliced, 0)).toBe(20);
+        expect(item(sliced, 1)).toBe(30);
+        expect(item(sliced, 2)).toBe(40);
+      });
+
+      it('reads correct values from a step-sliced array', () => {
+        const a = array([0, 1, 2, 3, 4, 5]);
+        const sliced = a.slice('::2'); // [0, 2, 4]
+        expect(item(sliced, 0)).toBe(0);
+        expect(item(sliced, 1)).toBe(2);
+        expect(item(sliced, 2)).toBe(4);
+      });
+
+      it('reads correct scalar from size-1 slice', () => {
+        const a = array([10, 20, 30]);
+        const sliced = a.slice('1:2'); // [20]
+        expect(item(sliced)).toBe(20);
+      });
+
+      it('reads correct values from a 2D sliced array with multi-index', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        const sliced = a.slice('1:3', '1:3'); // [[5, 6], [8, 9]]
+        expect(item(sliced, 0, 0)).toBe(5);
+        expect(item(sliced, 0, 1)).toBe(6);
+        expect(item(sliced, 1, 0)).toBe(8);
+        expect(item(sliced, 1, 1)).toBe(9);
+      });
+    });
+
+    describe('tolist() with views', () => {
+      it('converts a sliced 1D array correctly', () => {
+        const a = array([10, 20, 30, 40, 50]);
+        const sliced = a.slice('1:4'); // [20, 30, 40]
+        expect(tolist(sliced)).toEqual([20, 30, 40]);
+      });
+
+      it('converts a step-sliced array correctly', () => {
+        const a = array([0, 1, 2, 3, 4, 5]);
+        const sliced = a.slice('::2'); // [0, 2, 4]
+        expect(tolist(sliced)).toEqual([0, 2, 4]);
+      });
+
+      it('converts a 2D sliced array correctly', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        const sliced = a.slice('1:3', '1:3'); // [[5, 6], [8, 9]]
+        expect(tolist(sliced)).toEqual([
+          [5, 6],
+          [8, 9],
+        ]);
+      });
+    });
+
+    describe('tobytes() with views', () => {
+      it('returns correct bytes for a sliced array', () => {
+        const a = array([1, 2, 3, 4, 5], 'int32');
+        const sliced = a.slice('1:4'); // [2, 3, 4]
+        const bytes = tobytes(sliced);
+        expect(bytes.byteLength).toBe(12); // 3 * 4 bytes
+        const view = new Int32Array(bytes.buffer, bytes.byteOffset, 3);
+        expect(Array.from(view)).toEqual([2, 3, 4]);
+      });
+
+      it('returns correct bytes for a step-sliced (non-contiguous) array', () => {
+        const a = array([10, 20, 30, 40, 50], 'int32');
+        const sliced = a.slice('::2'); // [10, 30, 50]
+        const bytes = tobytes(sliced);
+        expect(bytes.byteLength).toBe(12); // 3 * 4 bytes
+        const view = new Int32Array(bytes.buffer, bytes.byteOffset, 3);
+        expect(Array.from(view)).toEqual([10, 30, 50]);
+      });
+    });
+
+    describe('fill() with views', () => {
+      it('fills only the sliced region, not the whole buffer', () => {
+        const a = array([1, 2, 3, 4, 5]);
+        const sliced = a.slice('1:4'); // view of [2, 3, 4]
+        fill(sliced, 99);
+        // The sliced view should be all 99s
+        expect(tolist(sliced)).toEqual([99, 99, 99]);
+        // The original array should only have indices 1-3 changed
+        expect(a.toArray()).toEqual([1, 99, 99, 99, 5]);
+      });
+
+      it('fills only even-indexed elements for step-sliced array', () => {
+        const a = array([1, 2, 3, 4, 5]);
+        const sliced = a.slice('::2'); // view of [1, 3, 5]
+        fill(sliced, 0);
+        expect(a.toArray()).toEqual([0, 2, 0, 4, 0]);
+      });
+    });
+  });
 });

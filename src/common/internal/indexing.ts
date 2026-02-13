@@ -30,6 +30,23 @@ export function multiIndexToLinear(indices: number[], shape: readonly number[]):
 }
 
 /**
+ * Convert multi-index to buffer position using actual strides and offset.
+ * Unlike multiIndexToLinear (which assumes C-contiguous layout),
+ * this works correctly for non-contiguous views/slices.
+ */
+export function multiIndexToBuffer(
+  indices: number[],
+  strides: readonly number[],
+  offset: number
+): number {
+  let idx = offset;
+  for (let i = 0; i < indices.length; i++) {
+    idx += indices[i]! * strides[i]!;
+  }
+  return idx;
+}
+
+/**
  * Convert outer index and axis index to full multi-index
  * Used in reductions along a specific axis
  *

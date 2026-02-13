@@ -579,17 +579,25 @@ export function compress(
   const ndim = shape.length;
   const dtype = storage.dtype;
 
-  // Get direct access to underlying data for fast reading
-  const inputData = storage.data;
   const isBigInt = isBigIntDType(dtype);
 
   if (axis === undefined) {
     // Flatten and select - optimized path
+    const maxLen = Math.min(condition.size, storage.size);
+    const condContiguous = condition.isCContiguous;
+    const condData = condition.data;
+    const condOff = condition.offset;
+
     // First pass: count true values
     let trueCount = 0;
-    const maxLen = Math.min(condition.size, storage.size);
-    for (let i = 0; i < maxLen; i++) {
-      if (condition.iget(i)) trueCount++;
+    if (condContiguous) {
+      for (let i = 0; i < maxLen; i++) {
+        if (condData[condOff + i]) trueCount++;
+      }
+    } else {
+      for (let i = 0; i < maxLen; i++) {
+        if (condition.iget(i)) trueCount++;
+      }
     }
 
     const Constructor = getTypedArrayConstructor(dtype);
@@ -600,18 +608,35 @@ export function compress(
 
     // Second pass: copy values
     let outIdx = 0;
-    for (let i = 0; i < maxLen; i++) {
-      if (condition.iget(i)) {
-        if (isBigInt) {
-          (outputData as BigInt64Array | BigUint64Array)[outIdx] = (
-            inputData as BigInt64Array | BigUint64Array
-          )[i]!;
-        } else {
-          (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] = (
-            inputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>
-          )[i]!;
+    const inputContiguous = storage.isCContiguous;
+    if (condContiguous && inputContiguous) {
+      const inputData = storage.data;
+      const inputOff = storage.offset;
+      if (isBigInt) {
+        const outTyped = outputData as BigInt64Array | BigUint64Array;
+        const inTyped = inputData as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < maxLen; i++) {
+          if (condData[condOff + i]) outTyped[outIdx++] = inTyped[inputOff + i]!;
         }
-        outIdx++;
+      } else {
+        const outTyped = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        const inTyped = inputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        for (let i = 0; i < maxLen; i++) {
+          if (condData[condOff + i]) outTyped[outIdx++] = inTyped[inputOff + i]!;
+        }
+      }
+    } else {
+      // Non-contiguous fallback: use iget for view-safety
+      for (let i = 0; i < maxLen; i++) {
+        if (condContiguous ? condData[condOff + i] : condition.iget(i)) {
+          if (isBigInt) {
+            (outputData as BigInt64Array | BigUint64Array)[outIdx] = storage.iget(i) as bigint;
+          } else {
+            (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] =
+              storage.iget(i) as number;
+          }
+          outIdx++;
+        }
       }
     }
 
@@ -648,67 +673,52 @@ export function compress(
   }
   const outputData = new Constructor(outputSize);
 
-  // Compute strides for efficient indexing
-  const inputStrides = computeStrides(shape);
+  const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+  const outerSize = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
 
-  // Special case: axis = 0 (most common, optimize heavily)
-  if (normalizedAxis === 0) {
-    const strideAlongAxis = inputStrides[0]!;
-    const elementsPerSlice = shape.slice(1).reduce((a, b) => a * b, 1);
-
-    let outIdx = 0;
-    for (let i = 0; i < trueCount; i++) {
-      const inputAxisIdx = axisMap[i]!;
-      const srcOffset = inputAxisIdx * strideAlongAxis;
-
-      // Copy entire slice at once
-      if (isBigInt) {
-        const src = inputData as BigInt64Array | BigUint64Array;
-        const dst = outputData as BigInt64Array | BigUint64Array;
-        for (let j = 0; j < elementsPerSlice; j++) {
-          dst[outIdx++] = src[srcOffset + j]!;
+  let outIdx = 0;
+  const inputContiguous = storage.isCContiguous;
+  if (inputContiguous) {
+    const inputData = storage.data;
+    const inputOff = storage.offset;
+    if (isBigInt) {
+      const outTyped = outputData as BigInt64Array | BigUint64Array;
+      const inTyped = inputData as BigInt64Array | BigUint64Array;
+      for (let outer = 0; outer < outerSize; outer++) {
+        for (let axisIdx = 0; axisIdx < trueCount; axisIdx++) {
+          const inputAxisIdx = axisMap[axisIdx]!;
+          for (let inner = 0; inner < innerSize; inner++) {
+            const flatIdx = outer * axisSize * innerSize + inputAxisIdx * innerSize + inner;
+            outTyped[outIdx++] = inTyped[inputOff + flatIdx]!;
+          }
         }
-      } else {
-        const src = inputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        for (let j = 0; j < elementsPerSlice; j++) {
-          dst[outIdx++] = src[srcOffset + j]!;
+      }
+    } else {
+      const outTyped = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const inTyped = inputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      for (let outer = 0; outer < outerSize; outer++) {
+        for (let axisIdx = 0; axisIdx < trueCount; axisIdx++) {
+          const inputAxisIdx = axisMap[axisIdx]!;
+          for (let inner = 0; inner < innerSize; inner++) {
+            const flatIdx = outer * axisSize * innerSize + inputAxisIdx * innerSize + inner;
+            outTyped[outIdx++] = inTyped[inputOff + flatIdx]!;
+          }
         }
       }
     }
   } else {
-    // General case for other axes
-    // Pre-compute outer and inner iteration counts
-    const outerSize = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
-    const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
-
-    let outIdx = 0;
     for (let outer = 0; outer < outerSize; outer++) {
       for (let axisIdx = 0; axisIdx < trueCount; axisIdx++) {
         const inputAxisIdx = axisMap[axisIdx]!;
-
-        // Compute base offset for this outer/axis combination
-        let baseOffset = 0;
-        let rem = outer;
-        for (let d = normalizedAxis - 1; d >= 0; d--) {
-          const idx = rem % shape[d]!;
-          rem = Math.floor(rem / shape[d]!);
-          baseOffset += idx * inputStrides[d]!;
-        }
-        baseOffset += inputAxisIdx * inputStrides[normalizedAxis]!;
-
-        // Copy inner elements
-        if (isBigInt) {
-          const src = inputData as BigInt64Array | BigUint64Array;
-          const dst = outputData as BigInt64Array | BigUint64Array;
-          for (let inner = 0; inner < innerSize; inner++) {
-            dst[outIdx++] = src[baseOffset + inner]!;
-          }
-        } else {
-          const src = inputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-          const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-          for (let inner = 0; inner < innerSize; inner++) {
-            dst[outIdx++] = src[baseOffset + inner]!;
+        for (let inner = 0; inner < innerSize; inner++) {
+          const flatIdx = outer * axisSize * innerSize + inputAxisIdx * innerSize + inner;
+          if (isBigInt) {
+            (outputData as BigInt64Array | BigUint64Array)[outIdx++] = storage.iget(
+              flatIdx
+            ) as bigint;
+          } else {
+            (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx++] =
+              storage.iget(flatIdx) as number;
           }
         }
       }
@@ -1234,7 +1244,6 @@ export function fill_diagonal(
     }
   }
 
-  const data = a.data;
   const size = a.size;
 
   // Determine diagonal length
@@ -1244,26 +1253,59 @@ export function fill_diagonal(
     diagLength = Math.max(shape[0]!, shape[1]!);
   }
 
+  const contiguous = a.isCContiguous;
+
   if (typeof val === 'number') {
-    // Fill with scalar
-    for (let i = 0; i < diagLength && i * step < size; i++) {
-      const idx = i * step;
-      if (idx < size) {
-        data[idx] = val;
+    if (contiguous) {
+      const data = a.data;
+      const off = a.offset;
+      if (isBigIntDType(a.dtype)) {
+        const typedData = data as BigInt64Array | BigUint64Array;
+        const bigVal = BigInt(Math.round(val));
+        for (let i = 0; i < diagLength; i++) {
+          const idx = i * step;
+          if (idx >= size) break;
+          typedData[off + idx] = bigVal;
+        }
       } else {
-        break;
+        for (let i = 0; i < diagLength; i++) {
+          const idx = i * step;
+          if (idx >= size) break;
+          (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[off + idx] = val;
+        }
+      }
+    } else {
+      for (let i = 0; i < diagLength && i * step < size; i++) {
+        a.iset(i * step, val);
       }
     }
   } else {
-    // Fill with array values
-    const valData = val.data;
     const valSize = val.size;
-    for (let i = 0; i < diagLength && i * step < size; i++) {
-      const idx = i * step;
-      if (idx < size) {
-        data[idx] = valData[i % valSize]!;
+    if (contiguous && val.isCContiguous) {
+      const data = a.data;
+      const off = a.offset;
+      const valData = val.data;
+      const valOff = val.offset;
+      if (isBigIntDType(a.dtype)) {
+        const typedData = data as BigInt64Array | BigUint64Array;
+        const valTyped = valData as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < diagLength; i++) {
+          const idx = i * step;
+          if (idx >= size) break;
+          typedData[off + idx] = valTyped[valOff + (i % valSize)]!;
+        }
       } else {
-        break;
+        const typedD = data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        const valTyped = valData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+        for (let i = 0; i < diagLength; i++) {
+          const idx = i * step;
+          if (idx >= size) break;
+          typedD[off + idx] = valTyped[valOff + (i % valSize)]!;
+        }
+      }
+    } else {
+      for (let i = 0; i < diagLength && i * step < size; i++) {
+        a.iset(i * step, val.iget(i % valSize));
       }
     }
   }
@@ -1325,7 +1367,7 @@ export function apply_along_axis(
         // Extract column as 1D array
         const colData = new Float64Array(rows!);
         for (let r = 0; r < rows!; r++) {
-          colData[r] = Number(arr.data[r * cols! + c]!);
+          colData[r] = Number(arr.get(r, c));
         }
         const colArr = ArrayStorage.fromData(colData, [rows!], 'float64');
         results.push(func1d(colArr));
@@ -1350,7 +1392,7 @@ export function apply_along_axis(
         for (let c = 0; c < cols!; c++) {
           const res = results[c] as ArrayStorage;
           for (let r = 0; r < res.size; r++) {
-            resultArr.data[r * cols! + c] = Number(res.data[r]!);
+            resultArr.data[r * cols! + c] = Number(res.iget(r));
           }
         }
         return resultArr;
@@ -1362,7 +1404,7 @@ export function apply_along_axis(
         // Extract row as 1D array
         const rowData = new Float64Array(cols!);
         for (let c = 0; c < cols!; c++) {
-          rowData[c] = Number(arr.data[r * cols! + c]!);
+          rowData[c] = Number(arr.get(r, c));
         }
         const rowArr = ArrayStorage.fromData(rowData, [cols!], 'float64');
         results.push(func1d(rowArr));
@@ -1387,7 +1429,7 @@ export function apply_along_axis(
         for (let r = 0; r < rows!; r++) {
           const res = results[r] as ArrayStorage;
           for (let c = 0; c < res.size; c++) {
-            resultArr.data[r * res.size + c] = Number(res.data[c]!);
+            resultArr.data[r * res.size + c] = Number(res.iget(c));
           }
         }
         return resultArr;

@@ -270,130 +270,222 @@ export function arrayEquiv(a1: ArrayStorage, a2: ArrayStorage): boolean {
 // Lexicographic ordering: compare real first, then imaginary
 
 function greaterScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
+  const result = new Uint8Array(storage.size);
+  const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(storage.dtype)) {
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < storage.size; i++) {
-      const [re, im] = getComplexAt(complexData, i);
-      // Lexicographic: compare real first, if equal compare imaginary (vs 0)
-      data[i] = (re !== scalar ? re > scalar : im > 0) ? 1 : 0;
+    if (contiguous) {
+      const srcData = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        result[i] = (re !== scalar ? re > scalar : im > 0) ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        result[i] = (val.re !== scalar ? val.re > scalar : val.im > 0) ? 1 : 0;
+      }
+    }
+  } else if (contiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      result[i] = (srcData[off + i] as number) > scalar ? 1 : 0;
     }
   } else {
-    for (let i = 0; i < storage.size; i++) {
-      data[i] = thisData[i]! > scalar ? 1 : 0;
+    for (let i = 0; i < size; i++) {
+      result[i] = Number(storage.iget(i)) > scalar ? 1 : 0;
     }
   }
 
-  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+  return ArrayStorage.fromData(result, Array.from(storage.shape), 'bool');
 }
 
 function greaterEqualScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
+  const result = new Uint8Array(storage.size);
+  const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(storage.dtype)) {
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < storage.size; i++) {
-      const [re, im] = getComplexAt(complexData, i);
-      data[i] = (re !== scalar ? re >= scalar : im >= 0) ? 1 : 0;
+    if (contiguous) {
+      const srcData = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        result[i] = (re !== scalar ? re >= scalar : im >= 0) ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        result[i] = (val.re !== scalar ? val.re >= scalar : val.im >= 0) ? 1 : 0;
+      }
+    }
+  } else if (contiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      result[i] = (srcData[off + i] as number) >= scalar ? 1 : 0;
     }
   } else {
-    for (let i = 0; i < storage.size; i++) {
-      data[i] = thisData[i]! >= scalar ? 1 : 0;
+    for (let i = 0; i < size; i++) {
+      result[i] = Number(storage.iget(i)) >= scalar ? 1 : 0;
     }
   }
 
-  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+  return ArrayStorage.fromData(result, Array.from(storage.shape), 'bool');
 }
 
 function lessScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
+  const result = new Uint8Array(storage.size);
+  const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(storage.dtype)) {
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < storage.size; i++) {
-      const [re, im] = getComplexAt(complexData, i);
-      data[i] = (re !== scalar ? re < scalar : im < 0) ? 1 : 0;
+    if (contiguous) {
+      const srcData = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        result[i] = (re !== scalar ? re < scalar : im < 0) ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        result[i] = (val.re !== scalar ? val.re < scalar : val.im < 0) ? 1 : 0;
+      }
+    }
+  } else if (contiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      result[i] = (srcData[off + i] as number) < scalar ? 1 : 0;
     }
   } else {
-    for (let i = 0; i < storage.size; i++) {
-      data[i] = thisData[i]! < scalar ? 1 : 0;
+    for (let i = 0; i < size; i++) {
+      result[i] = Number(storage.iget(i)) < scalar ? 1 : 0;
     }
   }
 
-  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+  return ArrayStorage.fromData(result, Array.from(storage.shape), 'bool');
 }
 
 function lessEqualScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
+  const result = new Uint8Array(storage.size);
+  const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(storage.dtype)) {
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < storage.size; i++) {
-      const [re, im] = getComplexAt(complexData, i);
-      data[i] = (re !== scalar ? re <= scalar : im <= 0) ? 1 : 0;
+    if (contiguous) {
+      const srcData = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        result[i] = (re !== scalar ? re <= scalar : im <= 0) ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        result[i] = (val.re !== scalar ? val.re <= scalar : val.im <= 0) ? 1 : 0;
+      }
+    }
+  } else if (contiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      result[i] = (srcData[off + i] as number) <= scalar ? 1 : 0;
     }
   } else {
-    for (let i = 0; i < storage.size; i++) {
-      data[i] = thisData[i]! <= scalar ? 1 : 0;
+    for (let i = 0; i < size; i++) {
+      result[i] = Number(storage.iget(i)) <= scalar ? 1 : 0;
     }
   }
 
-  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+  return ArrayStorage.fromData(result, Array.from(storage.shape), 'bool');
 }
 
 function equalScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
+  const result = new Uint8Array(storage.size);
+  const size = storage.size;
   const dtype = storage.dtype;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(dtype)) {
-    // Complex equals scalar only if real==scalar and imag==0
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < storage.size; i++) {
-      const [re, im] = getComplexAt(complexData, i);
-      data[i] = re === scalar && im === 0 ? 1 : 0;
+    if (contiguous) {
+      const srcData = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        result[i] = re === scalar && im === 0 ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        result[i] = val.re === scalar && val.im === 0 ? 1 : 0;
+      }
     }
   } else if (isBigIntDType(dtype)) {
-    // BigInt comparison: convert scalar to BigInt
     const scalarBig = BigInt(Math.round(scalar));
-    const typedData = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < storage.size; i++) {
-      data[i] = typedData[i]! === scalarBig ? 1 : 0;
+    if (contiguous) {
+      const srcData = storage.data as BigInt64Array | BigUint64Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        result[i] = srcData[off + i]! === scalarBig ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        result[i] = (storage.iget(i) as bigint) === scalarBig ? 1 : 0;
+      }
+    }
+  } else if (contiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      result[i] = srcData[off + i]! === scalar ? 1 : 0;
     }
   } else {
-    // Regular comparison
-    for (let i = 0; i < storage.size; i++) {
-      data[i] = thisData[i]! === scalar ? 1 : 0;
+    for (let i = 0; i < size; i++) {
+      result[i] = Number(storage.iget(i)) === scalar ? 1 : 0;
     }
   }
 
-  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+  return ArrayStorage.fromData(result, Array.from(storage.shape), 'bool');
 }
 
 function notEqualScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
+  const result = new Uint8Array(storage.size);
+  const size = storage.size;
   const dtype = storage.dtype;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(dtype)) {
-    // Complex not-equals scalar if real!=scalar or imag!=0
-    const complexData = thisData as Float64Array | Float32Array;
-    for (let i = 0; i < storage.size; i++) {
-      const [re, im] = getComplexAt(complexData, i);
-      data[i] = re !== scalar || im !== 0 ? 1 : 0;
+    if (contiguous) {
+      const srcData = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        result[i] = re !== scalar || im !== 0 ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        result[i] = val.re !== scalar || val.im !== 0 ? 1 : 0;
+      }
+    }
+  } else if (contiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      result[i] = srcData[off + i]! !== scalar ? 1 : 0;
     }
   } else {
-    for (let i = 0; i < storage.size; i++) {
-      data[i] = thisData[i]! !== scalar ? 1 : 0;
+    for (let i = 0; i < size; i++) {
+      result[i] = Number(storage.iget(i)) !== scalar ? 1 : 0;
     }
   }
 
-  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+  return ArrayStorage.fromData(result, Array.from(storage.shape), 'bool');
 }
 
 function iscloseScalar(
@@ -402,28 +494,23 @@ function iscloseScalar(
   rtol: number,
   atol: number
 ): ArrayStorage {
-  const data = new Uint8Array(storage.size);
-  const thisData = storage.data;
-  const dtype = storage.dtype;
+  const result = new Uint8Array(storage.size);
+  const size = storage.size;
+  const threshold = atol + rtol * Math.abs(scalar);
 
-  if (isBigIntDType(dtype)) {
-    // For BigInt, convert to Number for comparison
-    const thisTyped = thisData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < storage.size; i++) {
-      const a = Number(thisTyped[i]!);
-      const diff = Math.abs(a - scalar);
-      const threshold = atol + rtol * Math.abs(scalar);
-      data[i] = diff <= threshold ? 1 : 0;
+  if (storage.isCContiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      const diff = Math.abs(Number(srcData[off + i]!) - scalar);
+      result[i] = diff <= threshold ? 1 : 0;
     }
   } else {
-    // Regular numeric types
-    for (let i = 0; i < storage.size; i++) {
-      const a = Number(thisData[i]!);
-      const diff = Math.abs(a - scalar);
-      const threshold = atol + rtol * Math.abs(scalar);
-      data[i] = diff <= threshold ? 1 : 0;
+    for (let i = 0; i < size; i++) {
+      const diff = Math.abs(Number(storage.iget(i)) - scalar);
+      result[i] = diff <= threshold ? 1 : 0;
     }
   }
 
-  return ArrayStorage.fromData(data, Array.from(storage.shape), 'bool');
+  return ArrayStorage.fromData(result, Array.from(storage.shape), 'bool');
 }

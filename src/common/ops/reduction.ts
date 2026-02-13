@@ -7,7 +7,7 @@
 
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
-import { outerIndexToMultiIndex, multiIndexToLinear } from '../internal/indexing';
+import { outerIndexToMultiIndex, multiIndexToBuffer } from '../internal/indexing';
 import { Complex } from '../complex';
 
 /**
@@ -24,28 +24,59 @@ export function sum(
   const size = storage.size;
   const data = storage.data;
 
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+
+  const contiguous = storage.isCContiguous;
+
   if (axis === undefined) {
     // Sum all elements - return scalar (or Complex for complex arrays)
     if (isComplexDType(dtype)) {
-      const complexData = data as Float64Array | Float32Array;
       let totalRe = 0;
       let totalIm = 0;
-      for (let i = 0; i < size; i++) {
-        totalRe += complexData[i * 2]!;
-        totalIm += complexData[i * 2 + 1]!;
+      if (contiguous) {
+        const complexData = data as Float64Array | Float32Array;
+        for (let i = 0; i < size; i++) {
+          totalRe += complexData[(off + i) * 2]!;
+          totalIm += complexData[(off + i) * 2 + 1]!;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = storage.iget(i);
+          totalRe += (val as Complex).re;
+          totalIm += (val as Complex).im;
+        }
       }
       return new Complex(totalRe, totalIm);
     } else if (isBigIntDType(dtype)) {
-      const typedData = data as BigInt64Array | BigUint64Array;
       let total = BigInt(0);
-      for (let i = 0; i < size; i++) {
-        total += typedData[i]!;
+      if (contiguous) {
+        const typedData = data as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < size; i++) {
+          total += typedData[off + i]!;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          total += storage.iget(i) as bigint;
+        }
       }
       return Number(total);
     } else {
       let total = 0;
-      for (let i = 0; i < size; i++) {
-        total += Number(data[i]!);
+      if (contiguous) {
+        if (off === 0) {
+          for (let i = 0; i < size; i++) {
+            total += Number(data[i]!);
+          }
+        } else {
+          for (let i = 0; i < size; i++) {
+            total += Number(data[off + i]!);
+          }
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          total += Number(storage.iget(i));
+        }
       }
       return total;
     }
@@ -85,10 +116,10 @@ export function sum(
       let sumIm = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         // Physical index is 2x logical index for complex
-        sumRe += complexData[linearIdx * 2]!;
-        sumIm += complexData[linearIdx * 2 + 1]!;
+        sumRe += complexData[bufIdx * 2]!;
+        sumIm += complexData[bufIdx * 2 + 1]!;
       }
       // Output physical index is 2x output logical index
       resultComplex[outerIdx * 2] = sumRe;
@@ -102,8 +133,8 @@ export function sum(
       let sumVal = BigInt(0);
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        sumVal += typedData[linearIdx]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        sumVal += typedData[bufIdx]!;
       }
       resultTyped[outerIdx] = sumVal;
     }
@@ -112,8 +143,8 @@ export function sum(
       let sumVal = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        sumVal += Number(data[linearIdx]!);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        sumVal += Number(data[bufIdx]!);
       }
       resultData[outerIdx] = sumVal;
     }
@@ -224,6 +255,8 @@ export function max(
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Complex max uses lexicographic ordering (real first, then imaginary)
   if (isComplexDType(dtype)) {
@@ -234,12 +267,12 @@ export function max(
         throw new Error('max of empty array');
       }
 
-      let maxRe = complexData[0]!;
-      let maxIm = complexData[1]!;
+      let maxRe = complexData[off * 2]!;
+      let maxIm = complexData[off * 2 + 1]!;
 
       for (let i = 1; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
+        const re = complexData[(off + i) * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
 
         // Check for NaN propagation
         if (isNaN(re) || isNaN(im)) {
@@ -280,15 +313,15 @@ export function max(
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let maxRe = complexData[firstIdx * 2]!;
-      let maxIm = complexData[firstIdx * 2 + 1]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let maxRe = complexData[firstBufIdx * 2]!;
+      let maxIm = complexData[firstBufIdx * 2 + 1]!;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
 
         if (isNaN(re) || isNaN(im)) {
           maxRe = NaN;
@@ -318,13 +351,32 @@ export function max(
       throw new Error('max of empty array');
     }
 
-    let maxVal = data[0]!;
-    for (let i = 1; i < size; i++) {
-      if (data[i]! > maxVal) {
-        maxVal = data[i]!;
+    if (storage.isCContiguous) {
+      let maxVal = data[off]!;
+      if (off === 0) {
+        for (let i = 1; i < size; i++) {
+          if (data[i]! > maxVal) {
+            maxVal = data[i]!;
+          }
+        }
+      } else {
+        for (let i = 1; i < size; i++) {
+          if (data[off + i]! > maxVal) {
+            maxVal = data[off + i]!;
+          }
+        }
       }
+      return Number(maxVal);
+    } else {
+      let maxVal = storage.iget(0);
+      for (let i = 1; i < size; i++) {
+        const val = storage.iget(i);
+        if (val > maxVal) {
+          maxVal = val;
+        }
+      }
+      return Number(maxVal);
     }
-    return Number(maxVal);
   }
 
   // Validate and normalize axis
@@ -358,13 +410,13 @@ export function max(
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Initialize with first value along axis
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let maxVal = typedData[firstIdx]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let maxVal = typedData[firstBufIdx]!;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = typedData[linearIdx]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = typedData[bufIdx]!;
         if (val > maxVal) {
           maxVal = val;
         }
@@ -376,8 +428,8 @@ export function max(
       let maxVal = -Infinity;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = Number(data[linearIdx]!);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = Number(data[bufIdx]!);
         if (val > maxVal) {
           maxVal = val;
         }
@@ -409,34 +461,67 @@ export function prod(
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+
+  const contiguous = storage.isCContiguous;
 
   if (axis === undefined) {
     // Product of all elements - return scalar (or Complex for complex arrays)
     if (isComplexDType(dtype)) {
-      const complexData = data as Float64Array | Float32Array;
       let prodRe = 1;
       let prodIm = 0;
-      for (let i = 0; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-        const newRe = prodRe * re - prodIm * im;
-        const newIm = prodRe * im + prodIm * re;
-        prodRe = newRe;
-        prodIm = newIm;
+      if (contiguous) {
+        const complexData = data as Float64Array | Float32Array;
+        for (let i = 0; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          const newRe = prodRe * re - prodIm * im;
+          const newIm = prodRe * im + prodIm * re;
+          prodRe = newRe;
+          prodIm = newIm;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          const re = val.re;
+          const im = val.im;
+          const newRe = prodRe * re - prodIm * im;
+          const newIm = prodRe * im + prodIm * re;
+          prodRe = newRe;
+          prodIm = newIm;
+        }
       }
       return new Complex(prodRe, prodIm);
     } else if (isBigIntDType(dtype)) {
-      const typedData = data as BigInt64Array | BigUint64Array;
       let product = BigInt(1);
-      for (let i = 0; i < size; i++) {
-        product *= typedData[i]!;
+      if (contiguous) {
+        const typedData = data as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < size; i++) {
+          product *= typedData[off + i]!;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          product *= storage.iget(i) as bigint;
+        }
       }
       return Number(product);
     } else {
       let product = 1;
-      for (let i = 0; i < size; i++) {
-        product *= Number(data[i]!);
+      if (contiguous) {
+        if (off === 0) {
+          for (let i = 0; i < size; i++) {
+            product *= Number(data[i]!);
+          }
+        } else {
+          for (let i = 0; i < size; i++) {
+            product *= Number(data[off + i]!);
+          }
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          product *= Number(storage.iget(i));
+        }
       }
       return product;
     }
@@ -476,9 +561,9 @@ export function prod(
       let prodIm = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
         const newRe = prodRe * re - prodIm * im;
         const newIm = prodRe * im + prodIm * re;
@@ -496,8 +581,8 @@ export function prod(
       let prodVal = BigInt(1);
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        prodVal *= typedData[linearIdx]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        prodVal *= typedData[bufIdx]!;
       }
       resultTyped[outerIdx] = prodVal;
     }
@@ -506,8 +591,8 @@ export function prod(
       let prodVal = 1;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        prodVal *= Number(data[linearIdx]!);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        prodVal *= Number(data[bufIdx]!);
       }
       resultData[outerIdx] = prodVal;
     }
@@ -536,6 +621,8 @@ export function min(
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Complex min uses lexicographic ordering (real first, then imaginary)
   if (isComplexDType(dtype)) {
@@ -546,12 +633,12 @@ export function min(
         throw new Error('min of empty array');
       }
 
-      let minRe = complexData[0]!;
-      let minIm = complexData[1]!;
+      let minRe = complexData[off * 2]!;
+      let minIm = complexData[off * 2 + 1]!;
 
       for (let i = 1; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
+        const re = complexData[(off + i) * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
 
         // Check for NaN propagation
         if (isNaN(re) || isNaN(im)) {
@@ -592,15 +679,15 @@ export function min(
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let minRe = complexData[firstIdx * 2]!;
-      let minIm = complexData[firstIdx * 2 + 1]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let minRe = complexData[firstBufIdx * 2]!;
+      let minIm = complexData[firstBufIdx * 2 + 1]!;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
 
         if (isNaN(re) || isNaN(im)) {
           minRe = NaN;
@@ -630,13 +717,32 @@ export function min(
       throw new Error('min of empty array');
     }
 
-    let minVal = data[0]!;
-    for (let i = 1; i < size; i++) {
-      if (data[i]! < minVal) {
-        minVal = data[i]!;
+    if (storage.isCContiguous) {
+      let minVal = data[off]!;
+      if (off === 0) {
+        for (let i = 1; i < size; i++) {
+          if (data[i]! < minVal) {
+            minVal = data[i]!;
+          }
+        }
+      } else {
+        for (let i = 1; i < size; i++) {
+          if (data[off + i]! < minVal) {
+            minVal = data[off + i]!;
+          }
+        }
       }
+      return Number(minVal);
+    } else {
+      let minVal = storage.iget(0);
+      for (let i = 1; i < size; i++) {
+        const val = storage.iget(i);
+        if (val < minVal) {
+          minVal = val;
+        }
+      }
+      return Number(minVal);
     }
-    return Number(minVal);
   }
 
   // Validate and normalize axis
@@ -670,13 +776,13 @@ export function min(
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Initialize with first value along axis
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let minVal = typedData[firstIdx]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let minVal = typedData[firstBufIdx]!;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = typedData[linearIdx]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = typedData[bufIdx]!;
         if (val < minVal) {
           minVal = val;
         }
@@ -688,8 +794,8 @@ export function min(
       let minVal = Infinity;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = Number(data[linearIdx]!);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = Number(data[bufIdx]!);
         if (val < minVal) {
           minVal = val;
         }
@@ -731,39 +837,79 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+  const contiguous = storage.isCContiguous;
 
   if (axis === undefined) {
-    // Argmin of all elements - return scalar index
     if (size === 0) {
       throw new Error('argmin of empty array');
     }
 
     if (isComplex) {
-      const complexData = data as Float64Array | Float32Array;
-      let minRe = complexData[0]!;
-      let minIm = complexData[1]!;
+      if (contiguous) {
+        const complexData = data as Float64Array | Float32Array;
+        let minRe = complexData[off * 2]!;
+        let minIm = complexData[off * 2 + 1]!;
+        let minIdx = 0;
+        for (let i = 1; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (complexCompare(re, im, minRe, minIm) < 0) {
+            minRe = re;
+            minIm = im;
+            minIdx = i;
+          }
+        }
+        return minIdx;
+      } else {
+        const first = storage.iget(0) as Complex;
+        let minRe = first.re;
+        let minIm = first.im;
+        let minIdx = 0;
+        for (let i = 1; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          if (complexCompare(val.re, val.im, minRe, minIm) < 0) {
+            minRe = val.re;
+            minIm = val.im;
+            minIdx = i;
+          }
+        }
+        return minIdx;
+      }
+    }
+
+    if (contiguous) {
+      let minVal = data[off]!;
+      let minIdx = 0;
+      if (off === 0) {
+        for (let i = 1; i < size; i++) {
+          if (data[i]! < minVal) {
+            minVal = data[i]!;
+            minIdx = i;
+          }
+        }
+      } else {
+        for (let i = 1; i < size; i++) {
+          if (data[off + i]! < minVal) {
+            minVal = data[off + i]!;
+            minIdx = i;
+          }
+        }
+      }
+      return minIdx;
+    } else {
+      let minVal = storage.iget(0);
       let minIdx = 0;
       for (let i = 1; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (complexCompare(re, im, minRe, minIm) < 0) {
-          minRe = re;
-          minIm = im;
+        const val = storage.iget(i);
+        if (val < minVal) {
+          minVal = val;
           minIdx = i;
         }
       }
       return minIdx;
     }
-
-    let minVal = data[0]!;
-    let minIdx = 0;
-    for (let i = 1; i < size; i++) {
-      if (data[i]! < minVal) {
-        minVal = data[i]!;
-        minIdx = i;
-      }
-    }
-    return minIdx;
   }
 
   // Validate and normalize axis
@@ -795,16 +941,16 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Initialize with first value along axis
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let minRe = complexData[firstIdx * 2]!;
-      let minIm = complexData[firstIdx * 2 + 1]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let minRe = complexData[firstBufIdx * 2]!;
+      let minIm = complexData[firstBufIdx * 2 + 1]!;
       let minAxisIdx = 0;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (complexCompare(re, im, minRe, minIm) < 0) {
           minRe = re;
           minIm = im;
@@ -819,14 +965,14 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Initialize with first value along axis
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let minVal = typedData[firstIdx]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let minVal = typedData[firstBufIdx]!;
       let minAxisIdx = 0;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = typedData[linearIdx]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = typedData[bufIdx]!;
         if (val < minVal) {
           minVal = val;
           minAxisIdx = axisIdx;
@@ -840,8 +986,8 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
       let minAxisIdx = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = Number(data[linearIdx]!);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = Number(data[bufIdx]!);
         if (val < minVal) {
           minVal = val;
           minAxisIdx = axisIdx;
@@ -864,39 +1010,70 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+  const contiguous = storage.isCContiguous;
 
   if (axis === undefined) {
-    // Argmax of all elements - return scalar index
     if (size === 0) {
       throw new Error('argmax of empty array');
     }
 
     if (isComplex) {
-      const complexData = data as Float64Array | Float32Array;
-      let maxRe = complexData[0]!;
-      let maxIm = complexData[1]!;
+      if (contiguous) {
+        const complexData = data as Float64Array | Float32Array;
+        let maxRe = complexData[off * 2]!;
+        let maxIm = complexData[off * 2 + 1]!;
+        let maxIdx = 0;
+        for (let i = 1; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (complexCompare(re, im, maxRe, maxIm) > 0) {
+            maxRe = re;
+            maxIm = im;
+            maxIdx = i;
+          }
+        }
+        return maxIdx;
+      } else {
+        const first = storage.iget(0) as Complex;
+        let maxRe = first.re;
+        let maxIm = first.im;
+        let maxIdx = 0;
+        for (let i = 1; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          if (complexCompare(val.re, val.im, maxRe, maxIm) > 0) {
+            maxRe = val.re;
+            maxIm = val.im;
+            maxIdx = i;
+          }
+        }
+        return maxIdx;
+      }
+    }
+
+    if (contiguous) {
+      let maxVal = data[off]!;
       let maxIdx = 0;
       for (let i = 1; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (complexCompare(re, im, maxRe, maxIm) > 0) {
-          maxRe = re;
-          maxIm = im;
+        if (data[off + i]! > maxVal) {
+          maxVal = data[off + i]!;
+          maxIdx = i;
+        }
+      }
+      return maxIdx;
+    } else {
+      let maxVal = storage.iget(0);
+      let maxIdx = 0;
+      for (let i = 1; i < size; i++) {
+        const val = storage.iget(i);
+        if (val > maxVal) {
+          maxVal = val;
           maxIdx = i;
         }
       }
       return maxIdx;
     }
-
-    let maxVal = data[0]!;
-    let maxIdx = 0;
-    for (let i = 1; i < size; i++) {
-      if (data[i]! > maxVal) {
-        maxVal = data[i]!;
-        maxIdx = i;
-      }
-    }
-    return maxIdx;
   }
 
   // Validate and normalize axis
@@ -928,16 +1105,16 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Initialize with first value along axis
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let maxRe = complexData[firstIdx * 2]!;
-      let maxIm = complexData[firstIdx * 2 + 1]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let maxRe = complexData[firstBufIdx * 2]!;
+      let maxIm = complexData[firstBufIdx * 2 + 1]!;
       let maxAxisIdx = 0;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (complexCompare(re, im, maxRe, maxIm) > 0) {
           maxRe = re;
           maxIm = im;
@@ -952,14 +1129,14 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Initialize with first value along axis
       const firstIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, 0, shape);
-      const firstIdx = multiIndexToLinear(firstIndices, shape);
-      let maxVal = typedData[firstIdx]!;
+      const firstBufIdx = multiIndexToBuffer(firstIndices, inputStrides, off);
+      let maxVal = typedData[firstBufIdx]!;
       let maxAxisIdx = 0;
 
       for (let axisIdx = 1; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = typedData[linearIdx]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = typedData[bufIdx]!;
         if (val > maxVal) {
           maxVal = val;
           maxAxisIdx = axisIdx;
@@ -973,8 +1150,8 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
       let maxAxisIdx = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const val = Number(data[linearIdx]!);
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const val = Number(data[bufIdx]!);
         if (val > maxVal) {
           maxVal = val;
           maxAxisIdx = axisIdx;
@@ -1008,25 +1185,36 @@ export function variance(
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Compute mean
   const meanResult = mean(storage, axis, keepdims);
 
+  const contiguous = storage.isCContiguous;
+
   if (axis === undefined) {
     // Variance of all elements - return scalar
     if (isComplexDType(dtype)) {
-      // For complex: Var(X) = E[|X - μ|²]
-      const complexData = data as Float64Array | Float32Array;
       const meanComplex = meanResult as Complex;
       let sumSqDiff = 0;
 
-      for (let i = 0; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        // |z - μ|² = (re - μ.re)² + (im - μ.im)²
-        const diffRe = re - meanComplex.re;
-        const diffIm = im - meanComplex.im;
-        sumSqDiff += diffRe * diffRe + diffIm * diffIm;
+      if (contiguous) {
+        const complexData = data as Float64Array | Float32Array;
+        for (let i = 0; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          const diffRe = re - meanComplex.re;
+          const diffIm = im - meanComplex.im;
+          sumSqDiff += diffRe * diffRe + diffIm * diffIm;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          const diffRe = val.re - meanComplex.re;
+          const diffIm = val.im - meanComplex.im;
+          sumSqDiff += diffRe * diffRe + diffIm * diffIm;
+        }
       }
 
       return sumSqDiff / (size - ddof);
@@ -1035,9 +1223,16 @@ export function variance(
     const meanVal = meanResult as number;
     let sumSqDiff = 0;
 
-    for (let i = 0; i < size; i++) {
-      const diff = Number(data[i]!) - meanVal;
-      sumSqDiff += diff * diff;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const diff = Number(data[off + i]!) - meanVal;
+        sumSqDiff += diff * diff;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const diff = Number(storage.iget(i)) - meanVal;
+        sumSqDiff += diff * diff;
+      }
     }
 
     return sumSqDiff / (size - ddof);
@@ -1079,9 +1274,9 @@ export function variance(
 
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         // |z - μ|² = (re - μ.re)² + (im - μ.im)²
         const diffRe = re - meanRe;
         const diffIm = im - meanIm;
@@ -1098,8 +1293,8 @@ export function variance(
 
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const diff = Number(data[linearIdx]!) - meanVal;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const diff = Number(data[bufIdx]!) - meanVal;
         sumSqDiff += diff * diff;
       }
 
@@ -1157,12 +1352,23 @@ export function all(
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+  const contiguous = storage.isCContiguous;
 
   if (axis === undefined) {
     // Test all elements
-    for (let i = 0; i < size; i++) {
-      if (!data[i]) {
-        return false;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        if (!data[off + i]) {
+          return false;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        if (!storage.iget(i)) {
+          return false;
+        }
       }
     }
     return true;
@@ -1196,8 +1402,8 @@ export function all(
     let allTrue = true;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      if (!data[linearIdx]) {
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      if (!data[bufIdx]) {
         allTrue = false;
         break;
       }
@@ -1227,12 +1433,23 @@ export function any(
   const ndim = shape.length;
   const size = storage.size;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+  const contiguous = storage.isCContiguous;
 
   if (axis === undefined) {
     // Test all elements
-    for (let i = 0; i < size; i++) {
-      if (data[i]) {
-        return true;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        if (data[off + i]) {
+          return true;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        if (storage.iget(i)) {
+          return true;
+        }
       }
     }
     return false;
@@ -1266,8 +1483,8 @@ export function any(
     let anyTrue = false;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      if (data[linearIdx]) {
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      if (data[bufIdx]) {
         anyTrue = true;
         break;
       }
@@ -1294,6 +1511,9 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(dtype)) {
     // Complex cumsum
@@ -1306,11 +1526,21 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       const resultData = result.data as Float64Array | Float32Array;
       let sumRe = 0;
       let sumIm = 0;
-      for (let i = 0; i < size; i++) {
-        sumRe += complexData[i * 2]!;
-        sumIm += complexData[i * 2 + 1]!;
-        resultData[i * 2] = sumRe;
-        resultData[i * 2 + 1] = sumIm;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          sumRe += complexData[(off + i) * 2]!;
+          sumIm += complexData[(off + i) * 2 + 1]!;
+          resultData[i * 2] = sumRe;
+          resultData[i * 2 + 1] = sumIm;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          sumRe += val.re;
+          sumIm += val.im;
+          resultData[i * 2] = sumRe;
+          resultData[i * 2 + 1] = sumIm;
+        }
       }
       return result;
     }
@@ -1329,27 +1559,36 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     const resultData = result.data as Float64Array | Float32Array;
     const axisSize = shape[normalizedAxis]!;
 
-    // Calculate strides
-    const strides: number[] = [];
-    let stride = 1;
+    // Calculate C-contiguous strides for output indexing
+    const cStrides: number[] = [];
+    let cStride = 1;
     for (let i = ndim - 1; i >= 0; i--) {
-      strides.unshift(stride);
-      stride *= shape[i]!;
+      cStrides.unshift(cStride);
+      cStride *= shape[i]!;
     }
 
     // Perform cumsum along axis
     const totalSize = storage.size;
-    const axisStride = strides[normalizedAxis]!;
+    const axisStride = cStrides[normalizedAxis]!;
 
     for (let i = 0; i < totalSize; i++) {
       const axisPos = Math.floor(i / axisStride) % axisSize;
+      // Convert flat C-contiguous index to multi-index, then to buffer index
+      const multiIdx: number[] = new Array(ndim);
+      let rem = i;
+      for (let d = ndim - 1; d >= 0; d--) {
+        multiIdx[d] = rem % shape[d]!;
+        rem = Math.floor(rem / shape[d]!);
+      }
+      const bufIdx = multiIndexToBuffer(multiIdx, inputStrides, off);
 
       if (axisPos === 0) {
-        resultData[i * 2] = complexData[i * 2]!;
-        resultData[i * 2 + 1] = complexData[i * 2 + 1]!;
+        resultData[i * 2] = complexData[bufIdx * 2]!;
+        resultData[i * 2 + 1] = complexData[bufIdx * 2 + 1]!;
       } else {
-        resultData[i * 2] = resultData[(i - axisStride) * 2]! + complexData[i * 2]!;
-        resultData[i * 2 + 1] = resultData[(i - axisStride) * 2 + 1]! + complexData[i * 2 + 1]!;
+        resultData[i * 2] = resultData[(i - axisStride) * 2]! + complexData[bufIdx * 2]!;
+        resultData[i * 2 + 1] =
+          resultData[(i - axisStride) * 2 + 1]! + complexData[bufIdx * 2 + 1]!;
       }
     }
 
@@ -1362,9 +1601,16 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     const size = storage.size;
     const resultData = new Float64Array(size);
     let sum = 0;
-    for (let i = 0; i < size; i++) {
-      sum += Number(data[i]);
-      resultData[i] = sum;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        sum += Number(data[off + i]);
+        resultData[i] = sum;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        sum += Number(storage.iget(i));
+        resultData[i] = sum;
+      }
     }
     return ArrayStorage.fromData(resultData, [size], 'float64');
   }
@@ -1382,27 +1628,35 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   const resultData = new Float64Array(storage.size);
   const axisSize = shape[normalizedAxis]!;
 
-  // Calculate strides
-  const strides: number[] = [];
-  let stride = 1;
+  // Calculate C-contiguous strides for output indexing
+  const cStrides: number[] = [];
+  let cStride = 1;
   for (let i = ndim - 1; i >= 0; i--) {
-    strides.unshift(stride);
-    stride *= shape[i]!;
+    cStrides.unshift(cStride);
+    cStride *= shape[i]!;
   }
 
   // Perform cumsum along axis
   const totalSize = storage.size;
-  const axisStride = strides[normalizedAxis]!;
+  const axisStride = cStrides[normalizedAxis]!;
 
   for (let i = 0; i < totalSize; i++) {
     // Determine position along axis
     const axisPos = Math.floor(i / axisStride) % axisSize;
+    // Convert flat C-contiguous index to multi-index, then to buffer index
+    const multiIdx: number[] = new Array(ndim);
+    let rem = i;
+    for (let d = ndim - 1; d >= 0; d--) {
+      multiIdx[d] = rem % shape[d]!;
+      rem = Math.floor(rem / shape[d]!);
+    }
+    const bufIdx = multiIndexToBuffer(multiIdx, inputStrides, off);
 
     if (axisPos === 0) {
-      resultData[i] = Number(data[i]);
+      resultData[i] = Number(data[bufIdx]);
     } else {
       // Add previous element along axis
-      resultData[i] = resultData[i - axisStride]! + Number(data[i]);
+      resultData[i] = resultData[i - axisStride]! + Number(data[bufIdx]);
     }
   }
 
@@ -1419,6 +1673,9 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
+  const contiguous = storage.isCContiguous;
 
   if (isComplexDType(dtype)) {
     // Complex cumprod
@@ -1431,16 +1688,30 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
       const resultData = result.data as Float64Array | Float32Array;
       let prodRe = 1;
       let prodIm = 0;
-      for (let i = 0; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-        const newRe = prodRe * re - prodIm * im;
-        const newIm = prodRe * im + prodIm * re;
-        prodRe = newRe;
-        prodIm = newIm;
-        resultData[i * 2] = prodRe;
-        resultData[i * 2 + 1] = prodIm;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+          const newRe = prodRe * re - prodIm * im;
+          const newIm = prodRe * im + prodIm * re;
+          prodRe = newRe;
+          prodIm = newIm;
+          resultData[i * 2] = prodRe;
+          resultData[i * 2 + 1] = prodIm;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          const re = val.re;
+          const im = val.im;
+          const newRe = prodRe * re - prodIm * im;
+          const newIm = prodRe * im + prodIm * re;
+          prodRe = newRe;
+          prodIm = newIm;
+          resultData[i * 2] = prodRe;
+          resultData[i * 2 + 1] = prodIm;
+        }
       }
       return result;
     }
@@ -1459,30 +1730,38 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     const resultData = result.data as Float64Array | Float32Array;
     const axisSize = shape[normalizedAxis]!;
 
-    // Calculate strides
-    const strides: number[] = [];
-    let stride = 1;
+    // Calculate C-contiguous strides for output indexing
+    const cStrides: number[] = [];
+    let cStride = 1;
     for (let i = ndim - 1; i >= 0; i--) {
-      strides.unshift(stride);
-      stride *= shape[i]!;
+      cStrides.unshift(cStride);
+      cStride *= shape[i]!;
     }
 
     // Perform cumprod along axis
     const totalSize = storage.size;
-    const axisStride = strides[normalizedAxis]!;
+    const axisStride = cStrides[normalizedAxis]!;
 
     for (let i = 0; i < totalSize; i++) {
       const axisPos = Math.floor(i / axisStride) % axisSize;
+      // Convert flat C-contiguous index to multi-index, then to buffer index
+      const multiIdx: number[] = new Array(ndim);
+      let rem = i;
+      for (let d = ndim - 1; d >= 0; d--) {
+        multiIdx[d] = rem % shape[d]!;
+        rem = Math.floor(rem / shape[d]!);
+      }
+      const bufIdx = multiIndexToBuffer(multiIdx, inputStrides, off);
 
       if (axisPos === 0) {
-        resultData[i * 2] = complexData[i * 2]!;
-        resultData[i * 2 + 1] = complexData[i * 2 + 1]!;
+        resultData[i * 2] = complexData[bufIdx * 2]!;
+        resultData[i * 2 + 1] = complexData[bufIdx * 2 + 1]!;
       } else {
         // Multiply by previous element: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
         const prevRe = resultData[(i - axisStride) * 2]!;
         const prevIm = resultData[(i - axisStride) * 2 + 1]!;
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         resultData[i * 2] = prevRe * re - prevIm * im;
         resultData[i * 2 + 1] = prevRe * im + prevIm * re;
       }
@@ -1497,9 +1776,16 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     const size = storage.size;
     const resultData = new Float64Array(size);
     let prod = 1;
-    for (let i = 0; i < size; i++) {
-      prod *= Number(data[i]);
-      resultData[i] = prod;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        prod *= Number(data[off + i]);
+        resultData[i] = prod;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        prod *= Number(storage.iget(i));
+        resultData[i] = prod;
+      }
     }
     return ArrayStorage.fromData(resultData, [size], 'float64');
   }
@@ -1517,27 +1803,35 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   const resultData = new Float64Array(storage.size);
   const axisSize = shape[normalizedAxis]!;
 
-  // Calculate strides
-  const strides: number[] = [];
-  let stride = 1;
+  // Calculate C-contiguous strides for output indexing
+  const cStrides: number[] = [];
+  let cStride = 1;
   for (let i = ndim - 1; i >= 0; i--) {
-    strides.unshift(stride);
-    stride *= shape[i]!;
+    cStrides.unshift(cStride);
+    cStride *= shape[i]!;
   }
 
   // Perform cumprod along axis
   const totalSize = storage.size;
-  const axisStride = strides[normalizedAxis]!;
+  const axisStride = cStrides[normalizedAxis]!;
 
   for (let i = 0; i < totalSize; i++) {
     // Determine position along axis
     const axisPos = Math.floor(i / axisStride) % axisSize;
+    // Convert flat C-contiguous index to multi-index, then to buffer index
+    const multiIdx: number[] = new Array(ndim);
+    let rem = i;
+    for (let d = ndim - 1; d >= 0; d--) {
+      multiIdx[d] = rem % shape[d]!;
+      rem = Math.floor(rem / shape[d]!);
+    }
+    const bufIdx = multiIndexToBuffer(multiIdx, inputStrides, off);
 
     if (axisPos === 0) {
-      resultData[i] = Number(data[i]);
+      resultData[i] = Number(data[bufIdx]);
     } else {
       // Multiply by previous element along axis
-      resultData[i] = resultData[i - axisStride]! * Number(data[i]);
+      resultData[i] = resultData[i - axisStride]! * Number(data[bufIdx]);
     }
   }
 
@@ -1639,12 +1933,21 @@ export function quantile(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (axis === undefined) {
     // Compute quantile over all elements
     const values: number[] = [];
-    for (let i = 0; i < storage.size; i++) {
-      values.push(Number(data[i]));
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        values.push(Number(data[off + i]));
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        values.push(Number(storage.iget(i)));
+      }
     }
     values.sort((a, b) => a - b);
 
@@ -1686,8 +1989,8 @@ export function quantile(
     const values: number[] = [];
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      values.push(Number(data[linearIdx]));
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      values.push(Number(data[bufIdx]));
     }
     values.sort((a, b) => a - b);
 
@@ -1729,6 +2032,8 @@ export function average(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (weights === undefined) {
     // Unweighted average is just mean
@@ -1739,6 +2044,7 @@ export function average(
     // Complex weighted average: sum(w_i * z_i) / sum(w_i)
     const complexData = data as Float64Array | Float32Array;
     const weightData = weights.data;
+    const wOff = weights.offset;
 
     if (axis === undefined) {
       // Compute weighted average over all elements
@@ -1746,13 +2052,24 @@ export function average(
       let sumIm = 0;
       let sumWeights = 0;
 
-      for (let i = 0; i < storage.size; i++) {
-        const w = Number(weightData[i % weights.size]);
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        sumRe += re * w;
-        sumIm += im * w;
-        sumWeights += w;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const w = Number(weightData[wOff + (i % weights.size)]);
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          sumRe += re * w;
+          sumIm += im * w;
+          sumWeights += w;
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const w = Number(weightData[wOff + (i % weights.size)]);
+          const val = storage.iget(i) as Complex;
+          sumRe += val.re * w;
+          sumIm += val.im * w;
+          sumWeights += w;
+        }
       }
 
       if (sumWeights === 0) {
@@ -1788,10 +2105,10 @@ export function average(
 
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const w = Number(weightData[axisIdx % weights.size]);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const w = Number(weightData[wOff + (axisIdx % weights.size)]);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         sumRe += re * w;
         sumIm += im * w;
         sumWeights += w;
@@ -1816,16 +2133,26 @@ export function average(
   }
 
   // Non-complex path
+  const wOff2 = weights.offset;
   if (axis === undefined) {
     // Compute weighted average over all elements
     let sumWeightedValues = 0;
     let sumWeights = 0;
     const weightData = weights.data;
 
-    for (let i = 0; i < storage.size; i++) {
-      const w = Number(weightData[i % weights.size]);
-      sumWeightedValues += Number(data[i]) * w;
-      sumWeights += w;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const w = Number(weightData[wOff2 + (i % weights.size)]);
+        sumWeightedValues += Number(data[off + i]) * w;
+        sumWeights += w;
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const w = Number(weightData[wOff2 + (i % weights.size)]);
+        sumWeightedValues += Number(storage.iget(i)) * w;
+        sumWeights += w;
+      }
     }
 
     return sumWeights === 0 ? NaN : sumWeightedValues / sumWeights;
@@ -1857,9 +2184,9 @@ export function average(
 
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const w = Number(weightData[axisIdx % weights.size]);
-      sumWeightedValues += Number(data[linearIdx]) * w;
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const w = Number(weightData[wOff2 + (axisIdx % weights.size)]);
+      sumWeightedValues += Number(data[bufIdx]) * w;
       sumWeights += w;
     }
 
@@ -1901,28 +2228,53 @@ export function nansum(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (axis === undefined) {
     if (isComplex) {
       const complexData = data as Float64Array | Float32Array;
       let totalRe = 0;
       let totalIm = 0;
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im)) {
-          totalRe += re;
-          totalIm += im;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im)) {
+            totalRe += re;
+            totalIm += im;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im)) {
+            totalRe += re;
+            totalIm += im;
+          }
         }
       }
       return new Complex(totalRe, totalIm);
     }
 
     let total = 0;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        total += val;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          total += val;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          total += val;
+        }
       }
     }
     return total;
@@ -1954,9 +2306,9 @@ export function nansum(
       let totalIm = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (!complexIsNaN(re, im)) {
           totalRe += re;
           totalIm += im;
@@ -1980,8 +2332,8 @@ export function nansum(
     let total = 0;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val)) {
         total += val;
       }
@@ -2013,31 +2365,57 @@ export function nanprod(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (axis === undefined) {
     if (isComplex) {
       const complexData = data as Float64Array | Float32Array;
       let totalRe = 1;
       let totalIm = 0;
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im)) {
-          // Complex multiplication: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-          const newRe = totalRe * re - totalIm * im;
-          const newIm = totalRe * im + totalIm * re;
-          totalRe = newRe;
-          totalIm = newIm;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im)) {
+            const newRe = totalRe * re - totalIm * im;
+            const newIm = totalRe * im + totalIm * re;
+            totalRe = newRe;
+            totalIm = newIm;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im)) {
+            const newRe = totalRe * re - totalIm * im;
+            const newIm = totalRe * im + totalIm * re;
+            totalRe = newRe;
+            totalIm = newIm;
+          }
         }
       }
       return new Complex(totalRe, totalIm);
     }
 
     let total = 1;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        total *= val;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          total *= val;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          total *= val;
+        }
       }
     }
     return total;
@@ -2069,9 +2447,9 @@ export function nanprod(
       let totalIm = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (!complexIsNaN(re, im)) {
           const newRe = totalRe * re - totalIm * im;
           const newIm = totalRe * im + totalIm * re;
@@ -2097,8 +2475,8 @@ export function nanprod(
     let total = 1;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val)) {
         total *= val;
       }
@@ -2130,6 +2508,8 @@ export function nanmean(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (axis === undefined) {
     if (isComplex) {
@@ -2137,13 +2517,27 @@ export function nanmean(
       let totalRe = 0;
       let totalIm = 0;
       let count = 0;
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im)) {
-          totalRe += re;
-          totalIm += im;
-          count++;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im)) {
+            totalRe += re;
+            totalIm += im;
+            count++;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im)) {
+            totalRe += re;
+            totalIm += im;
+            count++;
+          }
         }
       }
       return count === 0 ? new Complex(NaN, NaN) : new Complex(totalRe / count, totalIm / count);
@@ -2151,11 +2545,22 @@ export function nanmean(
 
     let total = 0;
     let count = 0;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        total += val;
-        count++;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          total += val;
+          count++;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          total += val;
+          count++;
+        }
       }
     }
     return count === 0 ? NaN : total / count;
@@ -2188,9 +2593,9 @@ export function nanmean(
       let count = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (!complexIsNaN(re, im)) {
           totalRe += re;
           totalIm += im;
@@ -2221,8 +2626,8 @@ export function nanmean(
     let count = 0;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val)) {
         total += val;
         count++;
@@ -2255,6 +2660,8 @@ export function nanvar(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (isComplexDType(dtype)) {
     // Complex nanvar: Var(X) = E[|X - μ|²] where |z|² = re² + im²
@@ -2266,13 +2673,27 @@ export function nanvar(
       let totalRe = 0;
       let totalIm = 0;
       let count = 0;
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im)) {
-          totalRe += re;
-          totalIm += im;
-          count++;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im)) {
+            totalRe += re;
+            totalIm += im;
+            count++;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im)) {
+            totalRe += re;
+            totalIm += im;
+            count++;
+          }
         }
       }
       if (count - ddof <= 0) return NaN;
@@ -2281,14 +2702,26 @@ export function nanvar(
 
       // Second pass: compute sum of squared deviations
       let sumSq = 0;
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im)) {
-          // |z - μ|² = (re - μ.re)² + (im - μ.im)²
-          const diffRe = re - meanRe;
-          const diffIm = im - meanIm;
-          sumSq += diffRe * diffRe + diffIm * diffIm;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im)) {
+            const diffRe = re - meanRe;
+            const diffIm = im - meanIm;
+            sumSq += diffRe * diffRe + diffIm * diffIm;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im)) {
+            const diffRe = re - meanRe;
+            const diffIm = im - meanIm;
+            sumSq += diffRe * diffRe + diffIm * diffIm;
+          }
         }
       }
       return sumSq / (count - ddof);
@@ -2319,9 +2752,9 @@ export function nanvar(
       let count = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (!complexIsNaN(re, im)) {
           totalRe += re;
           totalIm += im;
@@ -2341,9 +2774,9 @@ export function nanvar(
       let sumSq = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (!complexIsNaN(re, im)) {
           const diffRe = re - meanRe;
           const diffIm = im - meanIm;
@@ -2369,11 +2802,22 @@ export function nanvar(
     // First pass: compute mean
     let total = 0;
     let count = 0;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        total += val;
-        count++;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          total += val;
+          count++;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          total += val;
+          count++;
+        }
       }
     }
     if (count - ddof <= 0) return NaN;
@@ -2381,10 +2825,19 @@ export function nanvar(
 
     // Second pass: compute sum of squared deviations
     let sumSq = 0;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        sumSq += (val - meanVal) ** 2;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          sumSq += (val - meanVal) ** 2;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          sumSq += (val - meanVal) ** 2;
+        }
       }
     }
     return sumSq / (count - ddof);
@@ -2414,8 +2867,8 @@ export function nanvar(
     let count = 0;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val)) {
         total += val;
         count++;
@@ -2433,8 +2886,8 @@ export function nanvar(
     let sumSq = 0;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val)) {
         sumSq += (val - meanVal) ** 2;
       }
@@ -2488,6 +2941,8 @@ export function nanmin(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Complex nanmin uses lexicographic ordering, skipping NaN values
   if (isComplexDType(dtype)) {
@@ -2497,23 +2952,44 @@ export function nanmin(
       let minRe = Infinity;
       let minIm = Infinity;
       let foundNonNaN = false;
+      const contiguous = storage.isCContiguous;
 
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
 
-        // Skip NaN values
-        if (isNaN(re) || isNaN(im)) {
-          continue;
+          if (isNaN(re) || isNaN(im)) {
+            continue;
+          }
+
+          if (!foundNonNaN) {
+            minRe = re;
+            minIm = im;
+            foundNonNaN = true;
+          } else if (re < minRe || (re === minRe && im < minIm)) {
+            minRe = re;
+            minIm = im;
+          }
         }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
 
-        if (!foundNonNaN) {
-          minRe = re;
-          minIm = im;
-          foundNonNaN = true;
-        } else if (re < minRe || (re === minRe && im < minIm)) {
-          minRe = re;
-          minIm = im;
+          if (isNaN(re) || isNaN(im)) {
+            continue;
+          }
+
+          if (!foundNonNaN) {
+            minRe = re;
+            minIm = im;
+            foundNonNaN = true;
+          } else if (re < minRe || (re === minRe && im < minIm)) {
+            minRe = re;
+            minIm = im;
+          }
         }
       }
       return foundNonNaN ? new Complex(minRe, minIm) : new Complex(NaN, NaN);
@@ -2544,9 +3020,9 @@ export function nanmin(
 
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
 
         if (isNaN(re) || isNaN(im)) {
           continue;
@@ -2578,10 +3054,20 @@ export function nanmin(
 
   if (axis === undefined) {
     let minVal = Infinity;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val) && val < minVal) {
-        minVal = val;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val) && val < minVal) {
+          minVal = val;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val) && val < minVal) {
+          minVal = val;
+        }
       }
     }
     return minVal === Infinity ? NaN : minVal;
@@ -2609,8 +3095,8 @@ export function nanmin(
     let minVal = Infinity;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val) && val < minVal) {
         minVal = val;
       }
@@ -2641,6 +3127,8 @@ export function nanmax(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   // Complex nanmax uses lexicographic ordering, skipping NaN values
   if (isComplexDType(dtype)) {
@@ -2650,23 +3138,44 @@ export function nanmax(
       let maxRe = -Infinity;
       let maxIm = -Infinity;
       let foundNonNaN = false;
+      const contiguous = storage.isCContiguous;
 
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
 
-        // Skip NaN values
-        if (isNaN(re) || isNaN(im)) {
-          continue;
+          if (isNaN(re) || isNaN(im)) {
+            continue;
+          }
+
+          if (!foundNonNaN) {
+            maxRe = re;
+            maxIm = im;
+            foundNonNaN = true;
+          } else if (re > maxRe || (re === maxRe && im > maxIm)) {
+            maxRe = re;
+            maxIm = im;
+          }
         }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
 
-        if (!foundNonNaN) {
-          maxRe = re;
-          maxIm = im;
-          foundNonNaN = true;
-        } else if (re > maxRe || (re === maxRe && im > maxIm)) {
-          maxRe = re;
-          maxIm = im;
+          if (isNaN(re) || isNaN(im)) {
+            continue;
+          }
+
+          if (!foundNonNaN) {
+            maxRe = re;
+            maxIm = im;
+            foundNonNaN = true;
+          } else if (re > maxRe || (re === maxRe && im > maxIm)) {
+            maxRe = re;
+            maxIm = im;
+          }
         }
       }
       return foundNonNaN ? new Complex(maxRe, maxIm) : new Complex(NaN, NaN);
@@ -2697,9 +3206,9 @@ export function nanmax(
 
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
 
         if (isNaN(re) || isNaN(im)) {
           continue;
@@ -2731,10 +3240,20 @@ export function nanmax(
 
   if (axis === undefined) {
     let maxVal = -Infinity;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val) && val > maxVal) {
-        maxVal = val;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val) && val > maxVal) {
+          maxVal = val;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val) && val > maxVal) {
+          maxVal = val;
+        }
       }
     }
     return maxVal === -Infinity ? NaN : maxVal;
@@ -2762,8 +3281,8 @@ export function nanmax(
     let maxVal = -Infinity;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val) && val > maxVal) {
         maxVal = val;
       }
@@ -2790,6 +3309,8 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (isComplexDType(dtype)) {
     // Complex nanargmin using lexicographic ordering, skipping NaN values
@@ -2799,13 +3320,27 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
       let minRe = Infinity;
       let minIm = Infinity;
       let minIdx = -1;
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im) && complexCompare(re, im, minRe, minIm) < 0) {
-          minRe = re;
-          minIm = im;
-          minIdx = i;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im) && complexCompare(re, im, minRe, minIm) < 0) {
+            minRe = re;
+            minIm = im;
+            minIdx = i;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im) && complexCompare(re, im, minRe, minIm) < 0) {
+            minRe = re;
+            minIm = im;
+            minIdx = i;
+          }
         }
       }
       return minIdx;
@@ -2835,9 +3370,9 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
       let minIdx = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (!complexIsNaN(re, im) && complexCompare(re, im, minRe, minIm) < 0) {
           minRe = re;
           minIm = im;
@@ -2854,11 +3389,22 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
   if (axis === undefined) {
     let minVal = Infinity;
     let minIdx = -1;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val) && val < minVal) {
-        minVal = val;
-        minIdx = i;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val) && val < minVal) {
+          minVal = val;
+          minIdx = i;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val) && val < minVal) {
+          minVal = val;
+          minIdx = i;
+        }
       }
     }
     return minIdx;
@@ -2887,8 +3433,8 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let minIdx = 0;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val) && val < minVal) {
         minVal = val;
         minIdx = axisIdx;
@@ -2909,6 +3455,8 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (isComplexDType(dtype)) {
     // Complex nanargmax using lexicographic ordering, skipping NaN values
@@ -2918,13 +3466,27 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
       let maxRe = -Infinity;
       let maxIm = -Infinity;
       let maxIdx = -1;
-      for (let i = 0; i < storage.size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im) && complexCompare(re, im, maxRe, maxIm) > 0) {
-          maxRe = re;
-          maxIm = im;
-          maxIdx = i;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im) && complexCompare(re, im, maxRe, maxIm) > 0) {
+            maxRe = re;
+            maxIm = im;
+            maxIdx = i;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im) && complexCompare(re, im, maxRe, maxIm) > 0) {
+            maxRe = re;
+            maxIm = im;
+            maxIdx = i;
+          }
         }
       }
       return maxIdx;
@@ -2954,9 +3516,9 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
       let maxIdx = 0;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
         const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        const re = complexData[linearIdx * 2]!;
-        const im = complexData[linearIdx * 2 + 1]!;
+        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
         if (!complexIsNaN(re, im) && complexCompare(re, im, maxRe, maxIm) > 0) {
           maxRe = re;
           maxIm = im;
@@ -2973,11 +3535,22 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
   if (axis === undefined) {
     let maxVal = -Infinity;
     let maxIdx = -1;
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val) && val > maxVal) {
-        maxVal = val;
-        maxIdx = i;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val) && val > maxVal) {
+          maxVal = val;
+          maxIdx = i;
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val) && val > maxVal) {
+          maxVal = val;
+          maxIdx = i;
+        }
       }
     }
     return maxIdx;
@@ -3006,8 +3579,8 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let maxIdx = 0;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val) && val > maxVal) {
         maxVal = val;
         maxIdx = axisIdx;
@@ -3027,6 +3600,7 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
 
   if (isComplexDType(dtype)) {
     // Complex nancumsum - treat NaN values as 0
@@ -3039,15 +3613,30 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       const resultData = result.data as Float64Array | Float32Array;
       let sumRe = 0;
       let sumIm = 0;
-      for (let i = 0; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im)) {
-          sumRe += re;
-          sumIm += im;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im)) {
+            sumRe += re;
+            sumIm += im;
+          }
+          resultData[i * 2] = sumRe;
+          resultData[i * 2 + 1] = sumIm;
         }
-        resultData[i * 2] = sumRe;
-        resultData[i * 2 + 1] = sumIm;
+      } else {
+        for (let i = 0; i < size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im)) {
+            sumRe += re;
+            sumIm += im;
+          }
+          resultData[i * 2] = sumRe;
+          resultData[i * 2 + 1] = sumIm;
+        }
       }
       return result;
     }
@@ -3077,19 +3666,38 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     // Perform cumsum along axis
     const totalSize = storage.size;
     const axisStride = strides[normalizedAxis]!;
+    const contiguousAxis = storage.isCContiguous;
 
-    for (let i = 0; i < totalSize; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-      const axisPos = Math.floor(i / axisStride) % axisSize;
-      const isNan = complexIsNaN(re, im);
+    if (contiguousAxis) {
+      for (let i = 0; i < totalSize; i++) {
+        const re = complexData[(off + i) * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
+        const axisPos = Math.floor(i / axisStride) % axisSize;
+        const isNan = complexIsNaN(re, im);
 
-      if (axisPos === 0) {
-        resultData[i * 2] = isNan ? 0 : re;
-        resultData[i * 2 + 1] = isNan ? 0 : im;
-      } else {
-        resultData[i * 2] = resultData[(i - axisStride) * 2]! + (isNan ? 0 : re);
-        resultData[i * 2 + 1] = resultData[(i - axisStride) * 2 + 1]! + (isNan ? 0 : im);
+        if (axisPos === 0) {
+          resultData[i * 2] = isNan ? 0 : re;
+          resultData[i * 2 + 1] = isNan ? 0 : im;
+        } else {
+          resultData[i * 2] = resultData[(i - axisStride) * 2]! + (isNan ? 0 : re);
+          resultData[i * 2 + 1] = resultData[(i - axisStride) * 2 + 1]! + (isNan ? 0 : im);
+        }
+      }
+    } else {
+      for (let i = 0; i < totalSize; i++) {
+        const v = storage.iget(i);
+        const re = (v as Complex).re;
+        const im = (v as Complex).im;
+        const axisPos = Math.floor(i / axisStride) % axisSize;
+        const isNan = complexIsNaN(re, im);
+
+        if (axisPos === 0) {
+          resultData[i * 2] = isNan ? 0 : re;
+          resultData[i * 2 + 1] = isNan ? 0 : im;
+        } else {
+          resultData[i * 2] = resultData[(i - axisStride) * 2]! + (isNan ? 0 : re);
+          resultData[i * 2 + 1] = resultData[(i - axisStride) * 2 + 1]! + (isNan ? 0 : im);
+        }
       }
     }
 
@@ -3102,12 +3710,23 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     const size = storage.size;
     const resultData = new Float64Array(size);
     let sum = 0;
-    for (let i = 0; i < size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        sum += val;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          sum += val;
+        }
+        resultData[i] = sum;
       }
-      resultData[i] = sum;
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          sum += val;
+        }
+        resultData[i] = sum;
+      }
     }
     return ArrayStorage.fromData(resultData, [size], 'float64');
   }
@@ -3136,15 +3755,29 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   // Perform cumsum along axis
   const totalSize = storage.size;
   const axisStride = strides[normalizedAxis]!;
+  const contiguousAxis = storage.isCContiguous;
 
-  for (let i = 0; i < totalSize; i++) {
-    const val = Number(data[i]);
-    const axisPos = Math.floor(i / axisStride) % axisSize;
+  if (contiguousAxis) {
+    for (let i = 0; i < totalSize; i++) {
+      const val = Number(data[off + i]);
+      const axisPos = Math.floor(i / axisStride) % axisSize;
 
-    if (axisPos === 0) {
-      resultData[i] = isNaN(val) ? 0 : val;
-    } else {
-      resultData[i] = resultData[i - axisStride]! + (isNaN(val) ? 0 : val);
+      if (axisPos === 0) {
+        resultData[i] = isNaN(val) ? 0 : val;
+      } else {
+        resultData[i] = resultData[i - axisStride]! + (isNaN(val) ? 0 : val);
+      }
+    }
+  } else {
+    for (let i = 0; i < totalSize; i++) {
+      const val = Number(storage.iget(i));
+      const axisPos = Math.floor(i / axisStride) % axisSize;
+
+      if (axisPos === 0) {
+        resultData[i] = isNaN(val) ? 0 : val;
+      } else {
+        resultData[i] = resultData[i - axisStride]! + (isNaN(val) ? 0 : val);
+      }
     }
   }
 
@@ -3160,6 +3793,7 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
 
   if (isComplexDType(dtype)) {
     // Complex nancumprod - treat NaN values as 1+0i
@@ -3172,18 +3806,34 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
       const resultData = result.data as Float64Array | Float32Array;
       let prodRe = 1;
       let prodIm = 0;
-      for (let i = 0; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
-        if (!complexIsNaN(re, im)) {
-          // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-          const newRe = prodRe * re - prodIm * im;
-          const newIm = prodRe * im + prodIm * re;
-          prodRe = newRe;
-          prodIm = newIm;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (!complexIsNaN(re, im)) {
+            const newRe = prodRe * re - prodIm * im;
+            const newIm = prodRe * im + prodIm * re;
+            prodRe = newRe;
+            prodIm = newIm;
+          }
+          resultData[i * 2] = prodRe;
+          resultData[i * 2 + 1] = prodIm;
         }
-        resultData[i * 2] = prodRe;
-        resultData[i * 2 + 1] = prodIm;
+      } else {
+        for (let i = 0; i < size; i++) {
+          const v = storage.iget(i);
+          const re = (v as Complex).re;
+          const im = (v as Complex).im;
+          if (!complexIsNaN(re, im)) {
+            const newRe = prodRe * re - prodIm * im;
+            const newIm = prodRe * im + prodIm * re;
+            prodRe = newRe;
+            prodIm = newIm;
+          }
+          resultData[i * 2] = prodRe;
+          resultData[i * 2 + 1] = prodIm;
+        }
       }
       return result;
     }
@@ -3213,29 +3863,51 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     // Perform cumprod along axis
     const totalSize = storage.size;
     const axisStride = strides[normalizedAxis]!;
+    const contiguousAxis = storage.isCContiguous;
 
-    for (let i = 0; i < totalSize; i++) {
-      const re = complexData[i * 2]!;
-      const im = complexData[i * 2 + 1]!;
-      const axisPos = Math.floor(i / axisStride) % axisSize;
-      const isNan = complexIsNaN(re, im);
+    if (contiguousAxis) {
+      for (let i = 0; i < totalSize; i++) {
+        const re = complexData[(off + i) * 2]!;
+        const im = complexData[(off + i) * 2 + 1]!;
+        const axisPos = Math.floor(i / axisStride) % axisSize;
+        const isNan = complexIsNaN(re, im);
 
-      if (axisPos === 0) {
-        // If NaN, treat as 1+0i
-        resultData[i * 2] = isNan ? 1 : re;
-        resultData[i * 2 + 1] = isNan ? 0 : im;
-      } else {
-        // Multiply by previous element (or 1+0i if NaN)
-        const prevRe = resultData[(i - axisStride) * 2]!;
-        const prevIm = resultData[(i - axisStride) * 2 + 1]!;
-        if (isNan) {
-          // Keep previous value (multiply by 1+0i)
-          resultData[i * 2] = prevRe;
-          resultData[i * 2 + 1] = prevIm;
+        if (axisPos === 0) {
+          resultData[i * 2] = isNan ? 1 : re;
+          resultData[i * 2 + 1] = isNan ? 0 : im;
         } else {
-          // Complex multiplication: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-          resultData[i * 2] = prevRe * re - prevIm * im;
-          resultData[i * 2 + 1] = prevRe * im + prevIm * re;
+          const prevRe = resultData[(i - axisStride) * 2]!;
+          const prevIm = resultData[(i - axisStride) * 2 + 1]!;
+          if (isNan) {
+            resultData[i * 2] = prevRe;
+            resultData[i * 2 + 1] = prevIm;
+          } else {
+            resultData[i * 2] = prevRe * re - prevIm * im;
+            resultData[i * 2 + 1] = prevRe * im + prevIm * re;
+          }
+        }
+      }
+    } else {
+      for (let i = 0; i < totalSize; i++) {
+        const v = storage.iget(i);
+        const re = (v as Complex).re;
+        const im = (v as Complex).im;
+        const axisPos = Math.floor(i / axisStride) % axisSize;
+        const isNan = complexIsNaN(re, im);
+
+        if (axisPos === 0) {
+          resultData[i * 2] = isNan ? 1 : re;
+          resultData[i * 2 + 1] = isNan ? 0 : im;
+        } else {
+          const prevRe = resultData[(i - axisStride) * 2]!;
+          const prevIm = resultData[(i - axisStride) * 2 + 1]!;
+          if (isNan) {
+            resultData[i * 2] = prevRe;
+            resultData[i * 2 + 1] = prevIm;
+          } else {
+            resultData[i * 2] = prevRe * re - prevIm * im;
+            resultData[i * 2 + 1] = prevRe * im + prevIm * re;
+          }
         }
       }
     }
@@ -3249,12 +3921,23 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     const size = storage.size;
     const resultData = new Float64Array(size);
     let prod = 1;
-    for (let i = 0; i < size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        prod *= val;
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          prod *= val;
+        }
+        resultData[i] = prod;
       }
-      resultData[i] = prod;
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          prod *= val;
+        }
+        resultData[i] = prod;
+      }
     }
     return ArrayStorage.fromData(resultData, [size], 'float64');
   }
@@ -3283,15 +3966,29 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   // Perform cumprod along axis
   const totalSize = storage.size;
   const axisStride = strides[normalizedAxis]!;
+  const contiguousAxis = storage.isCContiguous;
 
-  for (let i = 0; i < totalSize; i++) {
-    const val = Number(data[i]);
-    const axisPos = Math.floor(i / axisStride) % axisSize;
+  if (contiguousAxis) {
+    for (let i = 0; i < totalSize; i++) {
+      const val = Number(data[off + i]);
+      const axisPos = Math.floor(i / axisStride) % axisSize;
 
-    if (axisPos === 0) {
-      resultData[i] = isNaN(val) ? 1 : val;
-    } else {
-      resultData[i] = resultData[i - axisStride]! * (isNaN(val) ? 1 : val);
+      if (axisPos === 0) {
+        resultData[i] = isNaN(val) ? 1 : val;
+      } else {
+        resultData[i] = resultData[i - axisStride]! * (isNaN(val) ? 1 : val);
+      }
+    }
+  } else {
+    for (let i = 0; i < totalSize; i++) {
+      const val = Number(storage.iget(i));
+      const axisPos = Math.floor(i / axisStride) % axisSize;
+
+      if (axisPos === 0) {
+        resultData[i] = isNaN(val) ? 1 : val;
+      } else {
+        resultData[i] = resultData[i - axisStride]! * (isNaN(val) ? 1 : val);
+      }
     }
   }
 
@@ -3310,14 +4007,26 @@ export function nanmedian(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (axis === undefined) {
     // Collect non-NaN values
     const values: number[] = [];
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        values.push(val);
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          values.push(val);
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          values.push(val);
+        }
       }
     }
 
@@ -3356,8 +4065,8 @@ export function nanmedian(
     const values: number[] = [];
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val)) {
         values.push(val);
       }
@@ -3407,13 +4116,25 @@ export function nanquantile(
   const shape = storage.shape;
   const ndim = shape.length;
   const data = storage.data;
+  const off = storage.offset;
+  const inputStrides = storage.strides;
 
   if (axis === undefined) {
     const values: number[] = [];
-    for (let i = 0; i < storage.size; i++) {
-      const val = Number(data[i]);
-      if (!isNaN(val)) {
-        values.push(val);
+    const contiguous = storage.isCContiguous;
+    if (contiguous) {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(data[off + i]);
+        if (!isNaN(val)) {
+          values.push(val);
+        }
+      }
+    } else {
+      for (let i = 0; i < storage.size; i++) {
+        const val = Number(storage.iget(i));
+        if (!isNaN(val)) {
+          values.push(val);
+        }
       }
     }
 
@@ -3455,8 +4176,8 @@ export function nanquantile(
     const values: number[] = [];
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const linearIdx = multiIndexToLinear(inputIndices, shape);
-      const val = Number(data[linearIdx]);
+      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
+      const val = Number(data[bufIdx]);
       if (!isNaN(val)) {
         values.push(val);
       }

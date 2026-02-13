@@ -6,7 +6,7 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, isComplexDType } from '../dtype';
+import { promoteDTypes, isComplexDType, isBigIntDType, type TypedArray } from '../dtype';
 import { Complex } from '../complex';
 import * as shapeOps from './shape';
 
@@ -27,6 +27,67 @@ function multiplyValues(
     return Number(a * b);
   }
   return Number(a) * Number(b);
+}
+
+/**
+ * Hot loop for dot() general ND case: non-complex, contiguous numeric arrays.
+ * Extracted into a small function so V8 TurboFan can optimize it independently.
+ * @internal
+ */
+function dotContiguousNumeric(
+  aData: TypedArray,
+  aOff: number,
+  aOuterSize: number,
+  bData: TypedArray,
+  bOff: number,
+  bOuterSize: number,
+  bLastDim: number,
+  contractionDim: number,
+  resultData: TypedArray
+): void {
+  for (let i = 0; i < aOuterSize; i++) {
+    for (let j = 0; j < bOuterSize; j++) {
+      for (let k = 0; k < bLastDim; k++) {
+        let sum = 0;
+        for (let m = 0; m < contractionDim; m++) {
+          sum +=
+            (aData[aOff + i * contractionDim + m] as number) *
+            (bData[bOff + j * contractionDim * bLastDim + m * bLastDim + k] as number);
+        }
+        resultData[i * bOuterSize * bLastDim + j * bLastDim + k] = sum;
+      }
+    }
+  }
+}
+
+/**
+ * Hot loop for inner() general case: non-complex, contiguous numeric arrays.
+ * Extracted into a small function so V8 TurboFan can optimize it independently.
+ * @internal
+ */
+function innerContiguousNumeric(
+  aData: TypedArray,
+  aOff: number,
+  aOuterSize: number,
+  aDim: number,
+  bData: TypedArray,
+  bOff: number,
+  bOuterSize: number,
+  bDim: number,
+  contractionDim: number,
+  resultData: TypedArray
+): void {
+  for (let i = 0; i < aOuterSize; i++) {
+    for (let j = 0; j < bOuterSize; j++) {
+      let sum = 0;
+      for (let k = 0; k < contractionDim; k++) {
+        const aFlatIdx = aDim === 1 ? k : i * contractionDim + k;
+        const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
+        sum += (aData[aOff + aFlatIdx] as number) * (bData[bOff + bFlatIdx] as number);
+      }
+      resultData[aOuterSize === 1 ? j : i * bOuterSize + j] = sum;
+    }
+  }
 }
 
 /**
@@ -513,25 +574,46 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         }
       }
     } else {
-      for (let i = 0; i < aOuterSize; i++) {
-        for (let j = 0; j < bOuterSize; j++) {
-          for (let k = 0; k < bLastDim; k++) {
-            let sum = 0;
-            for (let m = 0; m < contractionDim; m++) {
-              const aIdx = i * contractionDim + m;
-              const bIdx = j * contractionDim * bLastDim + m * bLastDim + k;
-              const aVal = a.data[aIdx + a.offset];
-              const bVal = b.data[bIdx + b.offset];
+      if (
+        a.isCContiguous &&
+        b.isCContiguous &&
+        !isBigIntDType(a.dtype) &&
+        !isBigIntDType(b.dtype)
+      ) {
+        // Fast path: contiguous numeric arrays - extracted for V8 optimization
+        dotContiguousNumeric(
+          a.data,
+          a.offset,
+          aOuterSize,
+          b.data,
+          b.offset,
+          bOuterSize,
+          bLastDim,
+          contractionDim,
+          result.data
+        );
+      } else {
+        // General fallback: non-contiguous or bigint arrays
+        for (let i = 0; i < aOuterSize; i++) {
+          for (let j = 0; j < bOuterSize; j++) {
+            for (let k = 0; k < bLastDim; k++) {
+              let sum = 0;
+              for (let m = 0; m < contractionDim; m++) {
+                const aFlatIdx = i * contractionDim + m;
+                const bFlatIdx = j * contractionDim * bLastDim + m * bLastDim + k;
+                const aVal = a.iget(aFlatIdx);
+                const bVal = b.iget(bFlatIdx);
 
-              if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-                sum = Number(sum) + Number(aVal * bVal);
-              } else {
-                sum += Number(aVal) * Number(bVal);
+                if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+                  sum = Number(sum) + Number(aVal * bVal);
+                } else {
+                  sum += Number(aVal) * Number(bVal);
+                }
               }
-            }
 
-            const resultIdx = i * bOuterSize * bLastDim + j * bLastDim + k;
-            result.data[resultIdx] = sum;
+              const resultIdx = i * bOuterSize * bLastDim + j * bLastDim + k;
+              result.data[resultIdx] = sum;
+            }
           }
         }
       }
@@ -573,29 +655,20 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   if (isComplexDType(resultDtype)) {
     const result = ArrayStorage.zeros([m, n], resultDtype);
     const resultData = result.data as Float64Array;
-    const aData = a.data as Float64Array;
-    const bData = b.data as Float64Array;
 
-    // Simple O(m*n*k) matrix multiplication with complex numbers
-    // Data is stored in interleaved format: [re0, im0, re1, im1, ...]
+    // Use iget for view-safety (handles non-contiguous strides/offset)
     for (let i = 0; i < m; i++) {
       for (let j = 0; j < n; j++) {
         let sumRe = 0;
         let sumIm = 0;
         for (let l = 0; l < k; l++) {
-          // For complex arrays in row-major order, strides are [cols*2, 2]
-          // a[i,l] is at index (i * k + l) * 2 in the underlying data
-          const aIdx = (i * k + l) * 2;
-          const bIdx = (l * n + j) * 2;
-          const aRe = aData[aIdx]!;
-          const aIm = aData[aIdx + 1]!;
-          const bRe = bData[bIdx]!;
-          const bIm = bData[bIdx + 1]!;
+          const aVal = a.iget(i * k + l) as Complex;
+          const bVal = b.iget(l * n + j) as Complex;
           // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-          sumRe += aRe * bRe - aIm * bIm;
-          sumIm += aRe * bIm + aIm * bRe;
+          sumRe += aVal.re * bVal.re - aVal.im * bVal.im;
+          sumIm += aVal.re * bVal.im + aVal.im * bVal.re;
         }
-        // Store in interleaved format
+        // Store in interleaved format (result is always contiguous)
         const idx = i * n + j;
         resultData[idx * 2] = sumRe;
         resultData[idx * 2 + 1] = sumIm;
@@ -851,28 +924,57 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
     }
   } else {
     // Non-complex fast path
-    for (let i = 0; i < aOuterSize; i++) {
-      for (let j = 0; j < bOuterSize; j++) {
+    if (a.isCContiguous && b.isCContiguous && !isBigIntDType(a.dtype) && !isBigIntDType(b.dtype)) {
+      // Scalar result special case
+      if (resultShape.length === 0) {
+        const aData = a.data;
+        const bData = b.data;
+        const aOff = a.offset;
+        const bOff = b.offset;
         let sum = 0;
         for (let k = 0; k < contractionDim; k++) {
-          const aFlatIdx = aDim === 1 ? k : i * contractionDim + k;
-          const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
-          const aVal = a.data[aFlatIdx + a.offset];
-          const bVal = b.data[bFlatIdx + b.offset];
+          sum += (aData[aOff + k] as number) * (bData[bOff + k] as number);
+        }
+        return sum;
+      }
+      // Fast path: contiguous numeric arrays - extracted for V8 optimization
+      innerContiguousNumeric(
+        a.data,
+        a.offset,
+        aOuterSize,
+        aDim,
+        b.data,
+        b.offset,
+        bOuterSize,
+        bDim,
+        contractionDim,
+        result.data
+      );
+    } else {
+      // General fallback: non-contiguous or bigint arrays
+      for (let i = 0; i < aOuterSize; i++) {
+        for (let j = 0; j < bOuterSize; j++) {
+          let sum = 0;
+          for (let k = 0; k < contractionDim; k++) {
+            const aFlatIdx = aDim === 1 ? k : i * contractionDim + k;
+            const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
+            const aVal = a.iget(aFlatIdx);
+            const bVal = b.iget(bFlatIdx);
 
-          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-            sum = Number(sum) + Number(aVal * bVal);
-          } else {
-            sum += Number(aVal) * Number(bVal);
+            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+              sum = Number(sum) + Number(aVal * bVal);
+            } else {
+              sum += Number(aVal) * Number(bVal);
+            }
           }
-        }
 
-        // Set result
-        if (resultShape.length === 0) {
-          return sum;
+          // Set result
+          if (resultShape.length === 0) {
+            return sum;
+          }
+          const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
+          result.data[resultIdx] = sum;
         }
-        const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
-        result.data[resultIdx] = sum;
       }
     }
   }

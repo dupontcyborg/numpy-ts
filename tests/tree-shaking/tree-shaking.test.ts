@@ -561,8 +561,8 @@ describe('Tree-shaking Tests', () => {
       expect(mainSingle).toBeGreaterThan(0);
       expect(standaloneSingle).toBeGreaterThan(0);
 
-      // Standalone should be significantly smaller (at least 50% reduction)
-      expect(standaloneSingle).toBeLessThan(mainSingle * 0.5);
+      // Standalone should be dramatically smaller (at least 85% reduction)
+      expect(standaloneSingle).toBeLessThan(mainSingle * 0.15);
     });
 
     it('should show tree-shaking working across standalone fixtures', () => {
@@ -572,8 +572,8 @@ describe('Tree-shaking Tests', () => {
       const standaloneLinalg = results.esbuild.get('standalone-linalg')?.minifiedSize || 0;
 
       // All standalone fixtures should be much smaller than full bundle
-      expect(standaloneSingle / fullSize).toBeLessThan(0.2); // <20% of full
-      expect(standaloneMath / fullSize).toBeLessThan(0.3); // <30% of full
+      expect(standaloneSingle / fullSize).toBeLessThan(0.1); // <10% of full
+      expect(standaloneMath / fullSize).toBeLessThan(0.15); // <15% of full
       expect(standaloneLinalg / fullSize).toBeLessThan(0.3); // <30% of full
 
       // Single function should be smaller than multi-function fixtures
@@ -606,8 +606,8 @@ describe('Tree-shaking Tests', () => {
         return;
       }
 
-      // Standalone should be significantly smaller
-      expect(standaloneSingle.minifiedSize).toBeLessThan(mainSingle.minifiedSize * 0.5);
+      // Standalone should be dramatically smaller
+      expect(standaloneSingle.minifiedSize).toBeLessThan(mainSingle.minifiedSize * 0.15);
     });
   });
 
@@ -629,8 +629,8 @@ describe('Tree-shaking Tests', () => {
         return;
       }
 
-      // Standalone should be significantly smaller
-      expect(standaloneSingle.minifiedSize).toBeLessThan(mainSingle.minifiedSize * 0.5);
+      // Standalone should be dramatically smaller
+      expect(standaloneSingle.minifiedSize).toBeLessThan(mainSingle.minifiedSize * 0.15);
     });
   });
 
@@ -715,27 +715,6 @@ describe('Tree-shaking Tests', () => {
 
       const ratio = singleResult.minifiedSize / fullResult.minifiedSize;
       expect(ratio).toBeLessThan(0.95);
-    });
-
-    // These tests are skipped because the main entry point (numpy-ts) is designed
-    // for method chaining, which requires the full NDArray class with all methods.
-    // Tree-shaking only works with the standalone entry point (numpy-ts/core).
-    //
-    // Design decision:
-    //   - numpy-ts: Full API with method chaining, no tree-shaking (~180KB)
-    //   - numpy-ts/core: Tree-shakeable functions, no method chaining (~11KB for single function)
-    describe.skip('Tree-shaking effectiveness targets (use numpy-ts/core for tree-shaking)', () => {
-      it('single function import should be <50% of full bundle (esbuild)', () => {
-        const fullSize = results.esbuild.get('full-import')?.minifiedSize || 1;
-        const singleSize = results.esbuild.get('single-function')?.minifiedSize || fullSize;
-        expect(singleSize / fullSize).toBeLessThan(0.5);
-      });
-
-      it('single function import should be <30% of full bundle (ideal)', () => {
-        const fullSize = results.esbuild.get('full-import')?.minifiedSize || 1;
-        const singleSize = results.esbuild.get('single-function')?.minifiedSize || fullSize;
-        expect(singleSize / fullSize).toBeLessThan(0.3);
-      });
     });
   });
 });

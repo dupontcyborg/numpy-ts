@@ -9,6 +9,7 @@
  */
 
 import { ArrayStorage } from '../storage';
+import { Complex } from '../complex';
 import {
   isBigIntDType,
   isComplexDType,
@@ -64,7 +65,7 @@ export function add(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
 
   // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
   if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
-    const scalarVal = Number(b.data[0]!);
+    const scalarVal = Number(b.iget(0));
     return addScalar(a, scalarVal);
   }
 
@@ -88,6 +89,8 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const aData = a.data;
   const bData = b.data;
   const resultData = result.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
 
   // Handle complex result dtype
   if (isComplexDType(dtype)) {
@@ -97,11 +100,11 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     for (let i = 0; i < size; i++) {
       const [aRe, aIm] = aIsComplex
-        ? getComplexAt(aData as Float64Array | Float32Array, i)
-        : [Number(aData[i]), 0];
+        ? getComplexAt(aData as Float64Array | Float32Array, aOff + i)
+        : [Number(aData[aOff + i]), 0];
       const [bRe, bIm] = bIsComplex
-        ? getComplexAt(bData as Float64Array | Float32Array, i)
-        : [Number(bData[i]), 0];
+        ? getComplexAt(bData as Float64Array | Float32Array, bOff + i)
+        : [Number(bData[bOff + i]), 0];
       // (a+bi) + (c+di) = (a+c) + (b+d)i
       setComplexAt(resultTyped, i, aRe + bRe, aIm + bIm);
     }
@@ -114,15 +117,21 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-        const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? aData[aOff + i]
+            : BigInt(Math.round(Number(aData[aOff + i])));
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? bData[bOff + i]
+            : BigInt(Math.round(Number(bData[bOff + i])));
         resultTyped[i] = (aVal as bigint) + (bVal as bigint);
       }
     } else {
       const aTyped = aData as BigInt64Array | BigUint64Array;
       const bTyped = bData as BigInt64Array | BigUint64Array;
       for (let i = 0; i < size; i++) {
-        resultTyped[i] = aTyped[i]! + bTyped[i]!;
+        resultTyped[i] = aTyped[aOff + i]! + bTyped[bOff + i]!;
       }
     }
   } else {
@@ -130,14 +139,26 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? Number(aData[i]) : (aData[i] as number);
-        const bVal = typeof bData[i] === 'bigint' ? Number(bData[i]) : (bData[i] as number);
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? Number(aData[aOff + i])
+            : (aData[aOff + i] as number);
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? Number(bData[bOff + i])
+            : (bData[bOff + i] as number);
         resultData[i] = aVal + bVal;
       }
     } else {
       // Pure numeric operations - fully optimizable
-      for (let i = 0; i < size; i++) {
-        resultData[i] = (aData[i] as number) + (bData[i] as number);
+      if (aOff === 0 && bOff === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (aData[i] as number) + (bData[i] as number);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (aData[aOff + i] as number) + (bData[bOff + i] as number);
+        }
       }
     }
   }
@@ -159,7 +180,7 @@ export function subtract(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
 
   // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
   if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
-    const scalarVal = Number(b.data[0]!);
+    const scalarVal = Number(b.iget(0));
     return subtractScalar(a, scalarVal);
   }
 
@@ -183,6 +204,8 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const aData = a.data;
   const bData = b.data;
   const resultData = result.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
 
   // Handle complex result dtype
   if (isComplexDType(dtype)) {
@@ -192,11 +215,11 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     for (let i = 0; i < size; i++) {
       const [aRe, aIm] = aIsComplex
-        ? getComplexAt(aData as Float64Array | Float32Array, i)
-        : [Number(aData[i]), 0];
+        ? getComplexAt(aData as Float64Array | Float32Array, aOff + i)
+        : [Number(aData[aOff + i]), 0];
       const [bRe, bIm] = bIsComplex
-        ? getComplexAt(bData as Float64Array | Float32Array, i)
-        : [Number(bData[i]), 0];
+        ? getComplexAt(bData as Float64Array | Float32Array, bOff + i)
+        : [Number(bData[bOff + i]), 0];
       // (a+bi) - (c+di) = (a-c) + (b-d)i
       setComplexAt(resultTyped, i, aRe - bRe, aIm - bIm);
     }
@@ -209,15 +232,21 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-        const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? aData[aOff + i]
+            : BigInt(Math.round(Number(aData[aOff + i])));
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? bData[bOff + i]
+            : BigInt(Math.round(Number(bData[bOff + i])));
         resultTyped[i] = (aVal as bigint) - (bVal as bigint);
       }
     } else {
       const aTyped = aData as BigInt64Array | BigUint64Array;
       const bTyped = bData as BigInt64Array | BigUint64Array;
       for (let i = 0; i < size; i++) {
-        resultTyped[i] = aTyped[i]! - bTyped[i]!;
+        resultTyped[i] = aTyped[aOff + i]! - bTyped[bOff + i]!;
       }
     }
   } else {
@@ -225,13 +254,25 @@ function subtractArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? Number(aData[i]) : (aData[i] as number);
-        const bVal = typeof bData[i] === 'bigint' ? Number(bData[i]) : (bData[i] as number);
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? Number(aData[aOff + i])
+            : (aData[aOff + i] as number);
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? Number(bData[bOff + i])
+            : (bData[bOff + i] as number);
         resultData[i] = aVal - bVal;
       }
     } else {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = (aData[i] as number) - (bData[i] as number);
+      if (aOff === 0 && bOff === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (aData[i] as number) - (bData[i] as number);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (aData[aOff + i] as number) - (bData[bOff + i] as number);
+        }
       }
     }
   }
@@ -253,7 +294,7 @@ export function multiply(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
 
   // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
   if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
-    const scalarVal = Number(b.data[0]!);
+    const scalarVal = Number(b.iget(0));
     return multiplyScalar(a, scalarVal);
   }
 
@@ -277,6 +318,8 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const aData = a.data;
   const bData = b.data;
   const resultData = result.data;
+  const aOff = a.offset;
+  const bOff = b.offset;
 
   // Handle complex result dtype
   if (isComplexDType(dtype)) {
@@ -286,11 +329,11 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     for (let i = 0; i < size; i++) {
       const [aRe, aIm] = aIsComplex
-        ? getComplexAt(aData as Float64Array | Float32Array, i)
-        : [Number(aData[i]), 0];
+        ? getComplexAt(aData as Float64Array | Float32Array, aOff + i)
+        : [Number(aData[aOff + i]), 0];
       const [bRe, bIm] = bIsComplex
-        ? getComplexAt(bData as Float64Array | Float32Array, i)
-        : [Number(bData[i]), 0];
+        ? getComplexAt(bData as Float64Array | Float32Array, bOff + i)
+        : [Number(bData[bOff + i]), 0];
       // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
       const re = aRe * bRe - aIm * bIm;
       const im = aRe * bIm + aIm * bRe;
@@ -305,15 +348,21 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? aData[i] : BigInt(Math.round(Number(aData[i])));
-        const bVal = typeof bData[i] === 'bigint' ? bData[i] : BigInt(Math.round(Number(bData[i])));
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? aData[aOff + i]
+            : BigInt(Math.round(Number(aData[aOff + i])));
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? bData[bOff + i]
+            : BigInt(Math.round(Number(bData[bOff + i])));
         resultTyped[i] = (aVal as bigint) * (bVal as bigint);
       }
     } else {
       const aTyped = aData as BigInt64Array | BigUint64Array;
       const bTyped = bData as BigInt64Array | BigUint64Array;
       for (let i = 0; i < size; i++) {
-        resultTyped[i] = aTyped[i]! * bTyped[i]!;
+        resultTyped[i] = aTyped[aOff + i]! * bTyped[bOff + i]!;
       }
     }
   } else {
@@ -321,13 +370,25 @@ function multiplyArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
     if (needsConversion) {
       for (let i = 0; i < size; i++) {
-        const aVal = typeof aData[i] === 'bigint' ? Number(aData[i]) : (aData[i] as number);
-        const bVal = typeof bData[i] === 'bigint' ? Number(bData[i]) : (bData[i] as number);
+        const aVal =
+          typeof aData[aOff + i] === 'bigint'
+            ? Number(aData[aOff + i])
+            : (aData[aOff + i] as number);
+        const bVal =
+          typeof bData[bOff + i] === 'bigint'
+            ? Number(bData[bOff + i])
+            : (bData[bOff + i] as number);
         resultData[i] = aVal * bVal;
       }
     } else {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = (aData[i] as number) * (bData[i] as number);
+      if (aOff === 0 && bOff === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (aData[i] as number) * (bData[i] as number);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = (aData[aOff + i] as number) * (bData[bOff + i] as number);
+        }
       }
     }
   }
@@ -367,14 +428,16 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
     const size = a.size;
     const aData = a.data;
     const bData = b.data;
+    const aOff = a.offset;
+    const bOff = b.offset;
 
     for (let i = 0; i < size; i++) {
       const [aRe, aIm] = aIsComplex
-        ? getComplexAt(aData as Float64Array | Float32Array, i)
-        : [Number(aData[i]), 0];
+        ? getComplexAt(aData as Float64Array | Float32Array, aOff + i)
+        : [Number(aData[aOff + i]), 0];
       const [bRe, bIm] = bIsComplex
-        ? getComplexAt(bData as Float64Array | Float32Array, i)
-        : [Number(bData[i]), 0];
+        ? getComplexAt(bData as Float64Array | Float32Array, bOff + i)
+        : [Number(bData[bOff + i]), 0];
       // (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c²+d²)
       const denom = bRe * bRe + bIm * bIm;
       const re = (aRe * bRe + aIm * bIm) / denom;
@@ -420,11 +483,18 @@ function convertToFloatDType(
 ): ArrayStorage {
   const result = ArrayStorage.zeros(Array.from(storage.shape), targetDtype);
   const size = storage.size;
-  const srcData = storage.data;
   const dstData = result.data;
 
-  for (let i = 0; i < size; i++) {
-    dstData[i] = Number(srcData[i]!);
+  if (storage.isCContiguous) {
+    const srcData = storage.data;
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      dstData[i] = Number(srcData[off + i]!);
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      dstData[i] = Number(storage.iget(i));
+    }
   }
 
   return result;
@@ -439,6 +509,8 @@ function addScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const contiguous = storage.isCContiguous;
 
   // Create result with same dtype
   const result = ArrayStorage.zeros(shape, dtype);
@@ -448,22 +520,49 @@ function addScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
     // Complex: add scalar to real part only
     const srcData = data as Float64Array | Float32Array;
     const dstData = resultData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const [re, im] = getComplexAt(srcData, i);
-      setComplexAt(dstData, i, re + scalar, im);
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        setComplexAt(dstData, i, re + scalar, im);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i);
+        const re = (val as { re: number }).re ?? Number(val);
+        const im = (val as { im: number }).im ?? 0;
+        setComplexAt(dstData, i, re + scalar, im);
+      }
     }
   } else if (isBigIntDType(dtype)) {
     // BigInt arithmetic - no precision loss
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const scalarBig = BigInt(Math.round(scalar));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! + scalarBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = thisTyped[off + i]! + scalarBig;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) + scalarBig;
+      }
     }
   } else {
     // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = Number(data[i]!) + scalar;
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Number(data[i]!) + scalar;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Number(data[off + i]!) + scalar;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) + scalar;
+      }
     }
   }
 
@@ -479,31 +578,51 @@ function subtractScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const contiguous = storage.isCContiguous;
 
   // Create result with same dtype
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isComplexDType(dtype)) {
-    // Complex: subtract scalar from real part only
     const srcData = data as Float64Array | Float32Array;
     const dstData = resultData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const [re, im] = getComplexAt(srcData, i);
-      setComplexAt(dstData, i, re - scalar, im);
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        setComplexAt(dstData, i, re - scalar, im);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i);
+        const re = (val as { re: number }).re ?? Number(val);
+        const im = (val as { im: number }).im ?? 0;
+        setComplexAt(dstData, i, re - scalar, im);
+      }
     }
   } else if (isBigIntDType(dtype)) {
-    // BigInt arithmetic - no precision loss
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const scalarBig = BigInt(Math.round(scalar));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! - scalarBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = thisTyped[off + i]! - scalarBig;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) - scalarBig;
+      }
     }
   } else {
-    // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = Number(data[i]!) - scalar;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(data[off + i]!) - scalar;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) - scalar;
+      }
     }
   }
 
@@ -519,32 +638,57 @@ function multiplyScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const contiguous = storage.isCContiguous;
 
   // Create result with same dtype
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isComplexDType(dtype)) {
-    // Complex: multiply both parts by scalar
-    // (a+bi) * s = (a*s) + (b*s)i
     const srcData = data as Float64Array | Float32Array;
     const dstData = resultData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const [re, im] = getComplexAt(srcData, i);
-      setComplexAt(dstData, i, re * scalar, im * scalar);
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        setComplexAt(dstData, i, re * scalar, im * scalar);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i);
+        const re = (val as { re: number }).re ?? Number(val);
+        const im = (val as { im: number }).im ?? 0;
+        setComplexAt(dstData, i, re * scalar, im * scalar);
+      }
     }
   } else if (isBigIntDType(dtype)) {
-    // BigInt arithmetic - no precision loss
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const scalarBig = BigInt(Math.round(scalar));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! * scalarBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = thisTyped[off + i]! * scalarBig;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) * scalarBig;
+      }
     }
   } else {
-    // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = Number(data[i]!) * scalar;
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Number(data[i]!) * scalar;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Number(data[off + i]!) * scalar;
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(storage.iget(i)) * scalar;
+      }
     }
   }
 
@@ -561,24 +705,31 @@ function divideScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const contiguous = storage.isCContiguous;
 
   // Handle complex types
   if (isComplexDType(dtype)) {
-    // Complex: divide both parts by scalar
-    // (a+bi) / s = (a/s) + (b/s)i
     const result = ArrayStorage.zeros(shape, dtype);
-    const srcData = data as Float64Array | Float32Array;
     const dstData = result.data as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const [re, im] = getComplexAt(srcData, i);
-      setComplexAt(dstData, i, re / scalar, im / scalar);
+    if (contiguous) {
+      const srcData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        setComplexAt(dstData, i, re / scalar, im / scalar);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i);
+        const re = (val as { re: number }).re ?? Number(val);
+        const im = (val as { im: number }).im ?? 0;
+        setComplexAt(dstData, i, re / scalar, im / scalar);
+      }
     }
     return result;
   }
 
   // NumPy behavior: Integer division always promotes to float64
-  // This allows representing inf/nan for division by zero
-  // Bool is also promoted to float64 (NumPy behavior)
   const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
   const resultDtype = isIntegerType ? 'float64' : dtype;
 
@@ -586,15 +737,13 @@ function divideScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
-    // Convert BigInt to Number for division (promotes to float64)
+  if (contiguous) {
     for (let i = 0; i < size; i++) {
-      resultData[i] = Number(data[i]!) / scalar;
+      resultData[i] = Number(data[off + i]!) / scalar;
     }
   } else {
-    // Regular numeric types
     for (let i = 0; i < size; i++) {
-      resultData[i] = Number(data[i]!) / scalar;
+      resultData[i] = Number(storage.iget(i)) / scalar;
     }
   }
 
@@ -613,20 +762,29 @@ export function absolute(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+  const off = a.offset;
+  const contiguous = a.isCContiguous;
 
   // For complex types, result is the component dtype (magnitude is real)
   if (isComplexDType(dtype)) {
     const resultDtype = getComplexComponentDType(dtype);
     const result = ArrayStorage.zeros(shape, resultDtype);
     const resultData = result.data as Float64Array | Float32Array;
-    const srcData = data as Float64Array | Float32Array;
 
-    // Data is interleaved [re, im, re, im, ...]
-    // |z| = sqrt(re² + im²)
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
-      resultData[i] = Math.sqrt(re * re + im * im);
+    if (contiguous) {
+      const srcData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
+        resultData[i] = Math.sqrt(re * re + im * im);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i);
+        const re = (val as { re: number }).re ?? Number(val);
+        const im = (val as { im: number }).im ?? 0;
+        resultData[i] = Math.sqrt(re * re + im * im);
+      }
     }
 
     return result;
@@ -637,17 +795,34 @@ export function absolute(a: ArrayStorage): ArrayStorage {
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    // BigInt arithmetic
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      const val = thisTyped[i]!;
-      resultTyped[i] = val < 0n ? -val : val;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        const val = thisTyped[off + i]!;
+        resultTyped[i] = val < 0n ? -val : val;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as bigint;
+        resultTyped[i] = val < 0n ? -val : val;
+      }
     }
   } else {
-    // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = Math.abs(Number(data[i]!));
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Math.abs(Number(data[i]!));
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Math.abs(Number(data[off + i]!));
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.abs(Number(a.iget(i)));
+      }
     }
   }
 
@@ -666,31 +841,56 @@ export function negative(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+  const off = a.offset;
+  const contiguous = a.isCContiguous;
 
   // Create result with same dtype
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isComplexDType(dtype)) {
-    // Complex: negate both parts
-    // -(a+bi) = (-a) + (-b)i
-    const srcData = data as Float64Array | Float32Array;
     const dstData = resultData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      const [re, im] = getComplexAt(srcData, i);
-      setComplexAt(dstData, i, -re, -im);
+    if (contiguous) {
+      const srcData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const [re, im] = getComplexAt(srcData, off + i);
+        setComplexAt(dstData, i, -re, -im);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i);
+        const re = (val as { re: number }).re ?? Number(val);
+        const im = (val as { im: number }).im ?? 0;
+        setComplexAt(dstData, i, -re, -im);
+      }
     }
   } else if (isBigIntDType(dtype)) {
-    // BigInt arithmetic
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = -thisTyped[i]!;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = -thisTyped[off + i]!;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = -(a.iget(i) as bigint);
+      }
     }
   } else {
-    // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = -Number(data[i]!);
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = -Number(data[i]!);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = -Number(data[off + i]!);
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = -Number(a.iget(i));
+      }
     }
   }
 
@@ -710,24 +910,38 @@ export function sign(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+  const off = a.offset;
+  const contiguous = a.isCContiguous;
 
   // Create result with same dtype
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    // BigInt arithmetic
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < size; i++) {
-      const val = thisTyped[i]!;
-      resultTyped[i] = val > 0n ? 1n : val < 0n ? -1n : 0n;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        const val = thisTyped[off + i]!;
+        resultTyped[i] = val > 0n ? 1n : val < 0n ? -1n : 0n;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as bigint;
+        resultTyped[i] = val > 0n ? 1n : val < 0n ? -1n : 0n;
+      }
     }
   } else {
-    // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      const val = Number(data[i]!);
-      resultData[i] = val > 0 ? 1 : val < 0 ? -1 : 0;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const val = Number(data[off + i]!);
+        resultData[i] = val > 0 ? 1 : val < 0 ? -1 : 0;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(a.iget(i));
+        resultData[i] = val > 0 ? 1 : val < 0 ? -1 : 0;
+      }
     }
   }
 
@@ -765,27 +979,38 @@ function modScalar(storage: ArrayStorage, divisor: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const contiguous = storage.isCContiguous;
 
-  // Create result with same dtype
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    // BigInt arithmetic - use floor modulo
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const divisorBig = BigInt(Math.round(divisor));
-    for (let i = 0; i < size; i++) {
-      const val = thisTyped[i]!;
-      // Floor modulo for BigInt
-      resultTyped[i] = ((val % divisorBig) + divisorBig) % divisorBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        const val = thisTyped[off + i]!;
+        resultTyped[i] = ((val % divisorBig) + divisorBig) % divisorBig;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as bigint;
+        resultTyped[i] = ((val % divisorBig) + divisorBig) % divisorBig;
+      }
     }
   } else {
-    // Regular numeric types - use floor modulo
-    for (let i = 0; i < size; i++) {
-      const val = Number(data[i]!);
-      // Floor modulo: ((x % y) + y) % y
-      resultData[i] = ((val % divisor) + divisor) % divisor;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        const val = Number(data[off + i]!);
+        resultData[i] = ((val % divisor) + divisor) % divisor;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = Number(storage.iget(i));
+        resultData[i] = ((val % divisor) + divisor) % divisor;
+      }
     }
   }
 
@@ -820,23 +1045,34 @@ function floorDivideScalar(storage: ArrayStorage, divisor: number): ArrayStorage
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const contiguous = storage.isCContiguous;
 
-  // NumPy behavior: floor_divide preserves integer types
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isBigIntDType(dtype)) {
-    // BigInt floor division
-    const thisTyped = data as BigInt64Array | BigUint64Array;
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     const divisorBig = BigInt(Math.round(divisor));
-    for (let i = 0; i < size; i++) {
-      resultTyped[i] = thisTyped[i]! / divisorBig;
+    if (contiguous) {
+      const thisTyped = data as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = thisTyped[off + i]! / divisorBig;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultTyped[i] = (storage.iget(i) as bigint) / divisorBig;
+      }
     }
   } else {
-    // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = Math.floor(Number(data[i]!) / divisor);
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.floor(Number(data[off + i]!) / divisor);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.floor(Number(storage.iget(i)) / divisor);
+      }
     }
   }
 
@@ -856,22 +1092,36 @@ export function positive(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+  const off = a.offset;
+  const contiguous = a.isCContiguous;
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
 
   if (isComplexDType(dtype)) {
-    // Complex: copy both real and imaginary parts
-    const srcData = data as Float64Array | Float32Array;
     const dstData = resultData as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      dstData[i * 2] = srcData[i * 2]!;
-      dstData[i * 2 + 1] = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        dstData[i * 2] = srcData[(off + i) * 2]!;
+        dstData[i * 2 + 1] = srcData[(off + i) * 2 + 1]!;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i);
+        dstData[i * 2] = (val as { re: number }).re ?? Number(val);
+        dstData[i * 2 + 1] = (val as { im: number }).im ?? 0;
+      }
     }
   } else {
-    // Non-complex: simple copy
-    for (let i = 0; i < size; i++) {
-      resultData[i] = data[i]!;
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = data[off + i]!;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = a.iget(i) as number;
+      }
     }
   }
 
@@ -891,20 +1141,32 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+  const off = a.offset;
+  const contiguous = a.isCContiguous;
 
   // Handle complex types
   if (isComplexDType(dtype)) {
     const result = ArrayStorage.zeros(shape, dtype);
-    const srcData = data as Float64Array | Float32Array;
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
-      // 1/z = z̄/|z|² = (re - i*im) / (re² + im²)
-      const magSq = re * re + im * im;
-      dstData[i * 2] = re / magSq;
-      dstData[i * 2 + 1] = -im / magSq;
+    if (contiguous) {
+      const srcData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
+        const magSq = re * re + im * im;
+        dstData[i * 2] = re / magSq;
+        dstData[i * 2 + 1] = -im / magSq;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i);
+        const re = (val as { re: number }).re ?? Number(val);
+        const im = (val as { im: number }).im ?? 0;
+        const magSq = re * re + im * im;
+        dstData[i * 2] = re / magSq;
+        dstData[i * 2 + 1] = -im / magSq;
+      }
     }
 
     return result;
@@ -917,15 +1179,19 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  if (isBigIntDType(dtype)) {
-    // BigInt input promotes to float64
-    for (let i = 0; i < size; i++) {
-      resultData[i] = 1.0 / Number(data[i]!);
+  if (contiguous) {
+    if (off === 0) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = 1.0 / Number(data[i]!);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = 1.0 / Number(data[off + i]!);
+      }
     }
   } else {
-    // Regular numeric types
     for (let i = 0; i < size; i++) {
-      resultData[i] = 1.0 / Number(data[i]!);
+      resultData[i] = 1.0 / Number(a.iget(i));
     }
   }
 
@@ -945,17 +1211,22 @@ export function cbrt(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+  const off = a.offset;
 
-  // NumPy behavior: cbrt always promotes integers to float64
   const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
   const resultDtype = isIntegerType ? 'float64' : dtype;
 
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  // Handle all types uniformly - convert to number and apply Math.cbrt
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.cbrt(Number(data[i]!));
+  if (a.isCContiguous) {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.cbrt(Number(data[off + i]!));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.cbrt(Number(a.iget(i)));
+    }
   }
 
   return result;
@@ -974,16 +1245,27 @@ export function fabs(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
+  const off = a.offset;
 
-  // fabs always returns float64, except for float32 which stays float32
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
 
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  // Handle all types uniformly
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.abs(Number(data[i]!));
+  if (a.isCContiguous) {
+    if (off === 0) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.abs(Number(data[i]!));
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.abs(Number(data[off + i]!));
+      }
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = Math.abs(Number(a.iget(i)));
+    }
   }
 
   return result;
@@ -1094,7 +1376,7 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   if (typeof x2 === 'number') {
     // Scalar x2
     for (let i = 0; i < size; i++) {
-      const val = Number(x1.data[i]!);
+      const val = Number(x1.iget(i));
       if (val < 0) {
         resultData[i] = 0;
       } else if (val === 0) {
@@ -1105,17 +1387,16 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
     }
   } else {
     // Array x2 - needs to broadcast
-    const x2Data = x2.data;
     const x2Shape = x2.shape;
 
     // Simple case: same shape
     if (shape.every((d, i) => d === x2Shape[i])) {
       for (let i = 0; i < size; i++) {
-        const val = Number(x1.data[i]!);
+        const val = Number(x1.iget(i));
         if (val < 0) {
           resultData[i] = 0;
         } else if (val === 0) {
-          resultData[i] = Number(x2Data[i]!);
+          resultData[i] = Number(x2.iget(i));
         } else {
           resultData[i] = 1;
         }
@@ -1123,13 +1404,13 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
     } else {
       // Broadcasting case - use elementwiseBinaryOp approach
       for (let i = 0; i < size; i++) {
-        const val = Number(x1.data[i]!);
+        const val = Number(x1.iget(i));
         // Simple broadcast: assume x2 is broadcastable to x1
         const x2Idx = i % x2.size;
         if (val < 0) {
           resultData[i] = 0;
         } else if (val === 0) {
-          resultData[i] = Number(x2Data[x2Idx]!);
+          resultData[i] = Number(x2.iget(x2Idx));
         } else {
           resultData[i] = 1;
         }
@@ -1151,58 +1432,105 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
 
   // Complex float_power: z1^z2 = exp(z2 * log(z1))
   if (isComplexDType(dtype1)) {
-    const complexData = x1.data as Float64Array | Float32Array;
     const size = x1.size;
     const result = ArrayStorage.zeros(Array.from(x1.shape), dtype1);
     const resultData = result.data as Float64Array | Float32Array;
 
     if (typeof x2 === 'number') {
-      for (let i = 0; i < size; i++) {
-        const re = complexData[i * 2]!;
-        const im = complexData[i * 2 + 1]!;
+      if (x1.isCContiguous) {
+        const x1Data = x1.data as Float64Array | Float32Array;
+        const x1Off = x1.offset;
+        for (let i = 0; i < size; i++) {
+          const re = x1Data[(x1Off + i) * 2]!;
+          const im = x1Data[(x1Off + i) * 2 + 1]!;
 
-        // z^n = |z|^n * exp(i * n * arg(z))
-        const mag = Math.hypot(re, im);
-        const arg = Math.atan2(im, re);
-        const newMag = Math.pow(mag, x2);
-        const newArg = arg * x2;
+          // z^n = |z|^n * exp(i * n * arg(z))
+          const mag = Math.hypot(re, im);
+          const arg = Math.atan2(im, re);
+          const newMag = Math.pow(mag, x2);
+          const newArg = arg * x2;
 
-        resultData[i * 2] = newMag * Math.cos(newArg);
-        resultData[i * 2 + 1] = newMag * Math.sin(newArg);
+          resultData[i * 2] = newMag * Math.cos(newArg);
+          resultData[i * 2 + 1] = newMag * Math.sin(newArg);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const v = x1.iget(i) as Complex;
+
+          const mag = Math.hypot(v.re, v.im);
+          const arg = Math.atan2(v.im, v.re);
+          const newMag = Math.pow(mag, x2);
+          const newArg = arg * x2;
+
+          resultData[i * 2] = newMag * Math.cos(newArg);
+          resultData[i * 2 + 1] = newMag * Math.sin(newArg);
+        }
       }
     } else {
       // Complex base with array exponent
-      const x2Data = x2.data;
       const x2Complex = isComplexDType(x2.dtype);
 
-      for (let i = 0; i < size; i++) {
-        const re1 = complexData[i * 2]!;
-        const im1 = complexData[i * 2 + 1]!;
+      if (x1.isCContiguous && x2.isCContiguous) {
+        const x1Data = x1.data as Float64Array | Float32Array;
+        const x1Off = x1.offset;
+        const x2Data = x2.data;
+        const x2Off = x2.offset;
+        for (let i = 0; i < size; i++) {
+          const re1 = x1Data[(x1Off + i) * 2]!;
+          const im1 = x1Data[(x1Off + i) * 2 + 1]!;
 
-        let re2: number, im2: number;
-        if (x2Complex) {
-          re2 = (x2Data as Float64Array)[i * 2]!;
-          im2 = (x2Data as Float64Array)[i * 2 + 1]!;
-        } else {
-          re2 = Number(x2Data[i]!);
-          im2 = 0;
+          let re2: number, im2: number;
+          if (x2Complex) {
+            const x2Typed = x2Data as Float64Array | Float32Array;
+            re2 = x2Typed[(x2Off + i) * 2]!;
+            im2 = x2Typed[(x2Off + i) * 2 + 1]!;
+          } else {
+            re2 = Number(x2Data[x2Off + i]!);
+            im2 = 0;
+          }
+
+          // z1^z2 = exp(z2 * log(z1))
+          // log(z1) = ln|z1| + i*arg(z1)
+          const mag1 = Math.hypot(re1, im1);
+          const arg1 = Math.atan2(im1, re1);
+          const logRe = Math.log(mag1);
+          const logIm = arg1;
+
+          // z2 * log(z1)
+          const prodRe = re2 * logRe - im2 * logIm;
+          const prodIm = re2 * logIm + im2 * logRe;
+
+          // exp(prodRe + i*prodIm)
+          const expMag = Math.exp(prodRe);
+          resultData[i * 2] = expMag * Math.cos(prodIm);
+          resultData[i * 2 + 1] = expMag * Math.sin(prodIm);
         }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const v1 = x1.iget(i) as Complex;
 
-        // z1^z2 = exp(z2 * log(z1))
-        // log(z1) = ln|z1| + i*arg(z1)
-        const mag1 = Math.hypot(re1, im1);
-        const arg1 = Math.atan2(im1, re1);
-        const logRe = Math.log(mag1);
-        const logIm = arg1;
+          let re2: number, im2: number;
+          if (x2Complex) {
+            const v2 = x2.iget(i) as Complex;
+            re2 = v2.re;
+            im2 = v2.im;
+          } else {
+            re2 = Number(x2.iget(i));
+            im2 = 0;
+          }
 
-        // z2 * log(z1)
-        const prodRe = re2 * logRe - im2 * logIm;
-        const prodIm = re2 * logIm + im2 * logRe;
+          const mag1 = Math.hypot(v1.re, v1.im);
+          const arg1 = Math.atan2(v1.im, v1.re);
+          const logRe = Math.log(mag1);
+          const logIm = arg1;
 
-        // exp(prodRe + i*prodIm)
-        const expMag = Math.exp(prodRe);
-        resultData[i * 2] = expMag * Math.cos(prodIm);
-        resultData[i * 2 + 1] = expMag * Math.sin(prodIm);
+          const prodRe = re2 * logRe - im2 * logIm;
+          const prodIm = re2 * logIm + im2 * logRe;
+
+          const expMag = Math.exp(prodRe);
+          resultData[i * 2] = expMag * Math.cos(prodIm);
+          resultData[i * 2 + 1] = expMag * Math.sin(prodIm);
+        }
       }
     }
 
@@ -1212,11 +1540,18 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
     const resultData = result.data as Float64Array;
-    const x1Data = x1.data;
     const size = x1.size;
 
-    for (let i = 0; i < size; i++) {
-      resultData[i] = Math.pow(Number(x1Data[i]!), x2);
+    if (x1.isCContiguous) {
+      const x1Data = x1.data;
+      const x1Off = x1.offset;
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.pow(Number(x1Data[x1Off + i]!), x2);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.pow(Number(x1.iget(i)), x2);
+      }
     }
 
     return result;
@@ -1265,11 +1600,10 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
   const exponent = ArrayStorage.zeros(Array.from(x.shape), 'int32');
   const mantissaData = mantissa.data as Float64Array;
   const exponentData = exponent.data as Int32Array;
-  const xData = x.data;
   const size = x.size;
 
   for (let i = 0; i < size; i++) {
-    const val = Number(xData[i]!);
+    const val = Number(x.iget(i));
 
     if (val === 0 || !isFinite(val)) {
       mantissaData[i] = val;
@@ -1310,12 +1644,19 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'int32');
     const resultData = result.data as Int32Array;
-    const x1Data = x1.data;
     const size = x1.size;
     const x2Int = Math.abs(Math.trunc(x2));
 
-    for (let i = 0; i < size; i++) {
-      resultData[i] = gcdSingle(Number(x1Data[i]!), x2Int);
+    if (x1.isCContiguous) {
+      const x1Data = x1.data;
+      const x1Off = x1.offset;
+      for (let i = 0; i < size; i++) {
+        resultData[i] = gcdSingle(Number(x1Data[x1Off + i]!), x2Int);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = gcdSingle(Number(x1.iget(i)), x2Int);
+      }
     }
 
     return result;
@@ -1327,11 +1668,18 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   // Convert result to int32
   const result = ArrayStorage.zeros(Array.from(tempResult.shape), 'int32');
   const resultData = result.data as Int32Array;
-  const tempData = tempResult.data;
-  const size = tempResult.size;
+  const tempSize = tempResult.size;
 
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.round(Number(tempData[i]!));
+  if (tempResult.isCContiguous) {
+    const tempData = tempResult.data;
+    const tempOff = tempResult.offset;
+    for (let i = 0; i < tempSize; i++) {
+      resultData[i] = Math.round(Number(tempData[tempOff + i]!));
+    }
+  } else {
+    for (let i = 0; i < tempSize; i++) {
+      resultData[i] = Math.round(Number(tempResult.iget(i)));
+    }
   }
 
   return result;
@@ -1369,12 +1717,19 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'int32');
     const resultData = result.data as Int32Array;
-    const x1Data = x1.data;
     const size = x1.size;
     const x2Int = Math.abs(Math.trunc(x2));
 
-    for (let i = 0; i < size; i++) {
-      resultData[i] = lcmSingle(Number(x1Data[i]!), x2Int);
+    if (x1.isCContiguous) {
+      const x1Data = x1.data;
+      const x1Off = x1.offset;
+      for (let i = 0; i < size; i++) {
+        resultData[i] = lcmSingle(Number(x1Data[x1Off + i]!), x2Int);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = lcmSingle(Number(x1.iget(i)), x2Int);
+      }
     }
 
     return result;
@@ -1386,11 +1741,18 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   // Convert result to int32
   const result = ArrayStorage.zeros(Array.from(tempResult.shape), 'int32');
   const resultData = result.data as Int32Array;
-  const tempData = tempResult.data;
-  const size = tempResult.size;
+  const tempSize = tempResult.size;
 
-  for (let i = 0; i < size; i++) {
-    resultData[i] = Math.round(Number(tempData[i]!));
+  if (tempResult.isCContiguous) {
+    const tempData = tempResult.data;
+    const tempOff = tempResult.offset;
+    for (let i = 0; i < tempSize; i++) {
+      resultData[i] = Math.round(Number(tempData[tempOff + i]!));
+    }
+  } else {
+    for (let i = 0; i < tempSize; i++) {
+      resultData[i] = Math.round(Number(tempResult.iget(i)));
+    }
   }
 
   return result;
@@ -1410,12 +1772,11 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
   if (typeof x2 === 'number') {
     const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
     const resultData = result.data as Float64Array;
-    const x1Data = x1.data;
     const size = x1.size;
     const multiplier = Math.pow(2, x2);
 
     for (let i = 0; i < size; i++) {
-      resultData[i] = Number(x1Data[i]!) * multiplier;
+      resultData[i] = Number(x1.iget(i)) * multiplier;
     }
 
     return result;
@@ -1435,11 +1796,10 @@ export function modf(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
   const integral = ArrayStorage.zeros(Array.from(x.shape), 'float64');
   const fractionalData = fractional.data as Float64Array;
   const integralData = integral.data as Float64Array;
-  const xData = x.data;
   const size = x.size;
 
   for (let i = 0; i < size; i++) {
-    const val = Number(xData[i]!);
+    const val = Number(x.iget(i));
     const intPart = Math.trunc(val);
     integralData[i] = intPart;
     fractionalData[i] = val - intPart;
@@ -1469,7 +1829,6 @@ export function clip(
 
   const result = ArrayStorage.zeros(shape, dtype);
   const resultData = result.data;
-  const aData = a.data;
 
   // Handle scalar min/max values
   const minIsScalar = a_min === null || typeof a_min === 'number';
@@ -1478,40 +1837,91 @@ export function clip(
   const minScalar = a_min === null ? -Infinity : typeof a_min === 'number' ? a_min : null;
   const maxScalar = a_max === null ? Infinity : typeof a_max === 'number' ? a_max : null;
 
+  // Check contiguity of all array inputs
+  const aContiguous = a.isCContiguous;
+  const aData = a.data;
+  const aOff = a.offset;
+  const minContiguous = !minIsScalar && (a_min as ArrayStorage).isCContiguous;
+  const minData = !minIsScalar ? (a_min as ArrayStorage).data : null;
+  const minOff = !minIsScalar ? (a_min as ArrayStorage).offset : 0;
+  const minSize = !minIsScalar ? (a_min as ArrayStorage).size : 0;
+  const maxContiguous = !maxIsScalar && (a_max as ArrayStorage).isCContiguous;
+  const maxData = !maxIsScalar ? (a_max as ArrayStorage).data : null;
+  const maxOff = !maxIsScalar ? (a_max as ArrayStorage).offset : 0;
+  const maxSize = !maxIsScalar ? (a_max as ArrayStorage).size : 0;
+
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
-    const aTyped = aData as BigInt64Array | BigUint64Array;
 
-    for (let i = 0; i < size; i++) {
-      let val = aTyped[i]!;
-      const minVal = minIsScalar
-        ? minScalar === -Infinity
-          ? val
-          : BigInt(Math.round(minScalar as number))
-        : ((a_min as ArrayStorage).data[i % (a_min as ArrayStorage).size] as bigint);
-      const maxVal = maxIsScalar
-        ? maxScalar === Infinity
-          ? val
-          : BigInt(Math.round(maxScalar as number))
-        : ((a_max as ArrayStorage).data[i % (a_max as ArrayStorage).size] as bigint);
+    if (aContiguous && (minIsScalar || minContiguous) && (maxIsScalar || maxContiguous)) {
+      const aTyped = aData as BigInt64Array | BigUint64Array;
+      const minTyped = minData as BigInt64Array | BigUint64Array | null;
+      const maxTyped = maxData as BigInt64Array | BigUint64Array | null;
+      for (let i = 0; i < size; i++) {
+        let val = aTyped[aOff + i]!;
+        const minVal = minIsScalar
+          ? minScalar === -Infinity
+            ? val
+            : BigInt(Math.round(minScalar as number))
+          : minTyped![minOff + (i % minSize)]!;
+        const maxVal = maxIsScalar
+          ? maxScalar === Infinity
+            ? val
+            : BigInt(Math.round(maxScalar as number))
+          : maxTyped![maxOff + (i % maxSize)]!;
 
-      if (val < minVal) val = minVal;
-      if (val > maxVal) val = maxVal;
-      resultTyped[i] = val;
+        if (val < minVal) val = minVal;
+        if (val > maxVal) val = maxVal;
+        resultTyped[i] = val;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        let val = a.iget(i) as bigint;
+        const minVal = minIsScalar
+          ? minScalar === -Infinity
+            ? val
+            : BigInt(Math.round(minScalar as number))
+          : ((a_min as ArrayStorage).iget(i % (a_min as ArrayStorage).size) as bigint);
+        const maxVal = maxIsScalar
+          ? maxScalar === Infinity
+            ? val
+            : BigInt(Math.round(maxScalar as number))
+          : ((a_max as ArrayStorage).iget(i % (a_max as ArrayStorage).size) as bigint);
+
+        if (val < minVal) val = minVal;
+        if (val > maxVal) val = maxVal;
+        resultTyped[i] = val;
+      }
     }
   } else {
-    for (let i = 0; i < size; i++) {
-      let val = Number(aData[i]!);
-      const minVal = minIsScalar
-        ? (minScalar as number)
-        : Number((a_min as ArrayStorage).data[i % (a_min as ArrayStorage).size]!);
-      const maxVal = maxIsScalar
-        ? (maxScalar as number)
-        : Number((a_max as ArrayStorage).data[i % (a_max as ArrayStorage).size]!);
+    if (aContiguous && (minIsScalar || minContiguous) && (maxIsScalar || maxContiguous)) {
+      for (let i = 0; i < size; i++) {
+        let val = Number(aData[aOff + i]!);
+        const minVal = minIsScalar
+          ? (minScalar as number)
+          : Number(minData![minOff + (i % minSize)]!);
+        const maxVal = maxIsScalar
+          ? (maxScalar as number)
+          : Number(maxData![maxOff + (i % maxSize)]!);
 
-      if (val < minVal) val = minVal;
-      if (val > maxVal) val = maxVal;
-      resultData[i] = val;
+        if (val < minVal) val = minVal;
+        if (val > maxVal) val = maxVal;
+        resultData[i] = val;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        let val = Number(a.iget(i));
+        const minVal = minIsScalar
+          ? (minScalar as number)
+          : Number((a_min as ArrayStorage).iget(i % (a_min as ArrayStorage).size));
+        const maxVal = maxIsScalar
+          ? (maxScalar as number)
+          : Number((a_max as ArrayStorage).iget(i % (a_max as ArrayStorage).size));
+
+        if (val < minVal) val = minVal;
+        if (val > maxVal) val = maxVal;
+        resultData[i] = val;
+      }
     }
   }
 

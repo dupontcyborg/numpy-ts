@@ -11,6 +11,7 @@
 import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
 import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
+import { Complex } from '../complex';
 
 /**
  * Square root of each element
@@ -26,25 +27,39 @@ export function sqrt(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
 
     // Result is same complex type
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // |z| = sqrt(re² + im²)
-      const mag = Math.sqrt(re * re + im * im);
+        const mag = Math.sqrt(re * re + im * im);
+        const realPart = Math.sqrt((mag + re) / 2);
+        const imagPart = (im >= 0 ? 1 : -1) * Math.sqrt((mag - re) / 2);
 
-      // sqrt(a+bi) = sqrt((|z|+a)/2) + sign(b)*i*sqrt((|z|-a)/2)
-      const realPart = Math.sqrt((mag + re) / 2);
-      const imagPart = (im >= 0 ? 1 : -1) * Math.sqrt((mag - re) / 2);
+        dstData[i * 2] = realPart;
+        dstData[i * 2 + 1] = imagPart;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
 
-      dstData[i * 2] = realPart;
-      dstData[i * 2 + 1] = imagPart;
+        const mag = Math.sqrt(re * re + im * im);
+        const realPart = Math.sqrt((mag + re) / 2);
+        const imagPart = (im >= 0 ? 1 : -1) * Math.sqrt((mag - re) / 2);
+
+        dstData[i * 2] = realPart;
+        dstData[i * 2 + 1] = imagPart;
+      }
     }
 
     return result;
@@ -96,14 +111,24 @@ function complexPowerArray(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const size = a.size;
   const result = ArrayStorage.zeros(shape, resultDtype);
   const dstData = result.data as Float64Array | Float32Array;
+  const aContiguous = a.isCContiguous;
+  const bContiguous = b.isCContiguous;
+  const aOff = a.offset;
+  const bOff = b.offset;
 
   for (let i = 0; i < size; i++) {
     // Get base as complex
     let baseRe: number, baseIm: number;
     if (aIsComplex) {
-      const srcData = a.data as Float64Array | Float32Array;
-      baseRe = srcData[i * 2]!;
-      baseIm = srcData[i * 2 + 1]!;
+      if (aContiguous) {
+        const srcData = a.data as Float64Array | Float32Array;
+        baseRe = srcData[(aOff + i) * 2]!;
+        baseIm = srcData[(aOff + i) * 2 + 1]!;
+      } else {
+        const val = a.iget(i) as Complex;
+        baseRe = val.re;
+        baseIm = val.im;
+      }
     } else {
       baseRe = Number(a.iget(i));
       baseIm = 0;
@@ -112,9 +137,15 @@ function complexPowerArray(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     // Get exponent as complex
     let expRe: number, expIm: number;
     if (bIsComplex) {
-      const srcData = b.data as Float64Array | Float32Array;
-      expRe = srcData[i * 2]!;
-      expIm = srcData[i * 2 + 1]!;
+      if (bContiguous) {
+        const srcData = b.data as Float64Array | Float32Array;
+        expRe = srcData[(bOff + i) * 2]!;
+        expIm = srcData[(bOff + i) * 2 + 1]!;
+      } else {
+        const val = b.iget(i) as Complex;
+        expRe = val.re;
+        expIm = val.im;
+      }
     } else {
       expRe = Number(b.iget(i));
       expIm = 0;
@@ -149,26 +180,45 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const data = storage.data;
   const size = storage.size;
+  const off = storage.offset;
+  const contiguous = storage.isCContiguous;
 
   // Handle complex types
   if (isComplexDType(dtype)) {
     // z^n = |z|^n * (cos(n*θ) + i*sin(n*θ))
     const result = ArrayStorage.zeros(shape, dtype);
-    const srcData = data as Float64Array | Float32Array;
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      const mag = Math.sqrt(re * re + im * im);
-      const arg = Math.atan2(im, re);
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
 
-      const newMag = Math.pow(mag, exponent);
-      const newArg = arg * exponent;
+        const newMag = Math.pow(mag, exponent);
+        const newArg = arg * exponent;
 
-      dstData[i * 2] = newMag * Math.cos(newArg);
-      dstData[i * 2 + 1] = newMag * Math.sin(newArg);
+        dstData[i * 2] = newMag * Math.cos(newArg);
+        dstData[i * 2 + 1] = newMag * Math.sin(newArg);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
+
+        const newMag = Math.pow(mag, exponent);
+        const newArg = arg * exponent;
+
+        dstData[i * 2] = newMag * Math.cos(newArg);
+        dstData[i * 2 + 1] = newMag * Math.sin(newArg);
+      }
     }
 
     return result;
@@ -188,21 +238,40 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
     // BigInt arithmetic
     if (isBigIntDType(resultDtype) && Number.isInteger(exponent) && exponent >= 0) {
       // BigInt ** positive integer stays BigInt
-      const thisTyped = data as BigInt64Array | BigUint64Array;
-      const resultTyped = resultData as BigInt64Array | BigUint64Array;
-      for (let i = 0; i < size; i++) {
-        resultTyped[i] = thisTyped[i]! ** BigInt(exponent);
+      if (contiguous) {
+        const thisTyped = data as BigInt64Array | BigUint64Array;
+        const resultTyped = resultData as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = thisTyped[off + i]! ** BigInt(exponent);
+        }
+      } else {
+        const resultTyped = resultData as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < size; i++) {
+          resultTyped[i] = (storage.iget(i) as bigint) ** BigInt(exponent);
+        }
       }
     } else {
       // BigInt ** negative or float promotes to float64
-      for (let i = 0; i < size; i++) {
-        resultData[i] = Math.pow(Number(data[i]!), exponent);
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Math.pow(Number(data[off + i]!), exponent);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = Math.pow(Number(storage.iget(i)), exponent);
+        }
       }
     }
   } else {
     // Regular numeric types
-    for (let i = 0; i < size; i++) {
-      resultData[i] = Math.pow(Number(data[i]!), exponent);
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.pow(Number(data[off + i]!), exponent);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Math.pow(Number(storage.iget(i)), exponent);
+      }
     }
   }
 
@@ -223,19 +292,32 @@ export function exp(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
 
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // exp(a+bi) = e^a * (cos(b) + i*sin(b))
-      const expRe = Math.exp(re);
-      dstData[i * 2] = expRe * Math.cos(im);
-      dstData[i * 2 + 1] = expRe * Math.sin(im);
+        const expRe = Math.exp(re);
+        dstData[i * 2] = expRe * Math.cos(im);
+        dstData[i * 2 + 1] = expRe * Math.sin(im);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const expRe = Math.exp(re);
+        dstData[i * 2] = expRe * Math.cos(im);
+        dstData[i * 2 + 1] = expRe * Math.sin(im);
+      }
     }
 
     return result;
@@ -258,22 +340,35 @@ export function exp2(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
     const ln2 = Math.LN2;
 
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // 2^z = exp(z * ln(2)) = exp((re + im*i) * ln(2))
-      // = exp(re*ln(2) + im*ln(2)*i)
-      const expRe = Math.exp(re * ln2);
-      const angle = im * ln2;
-      dstData[i * 2] = expRe * Math.cos(angle);
-      dstData[i * 2 + 1] = expRe * Math.sin(angle);
+        const expRe = Math.exp(re * ln2);
+        const angle = im * ln2;
+        dstData[i * 2] = expRe * Math.cos(angle);
+        dstData[i * 2 + 1] = expRe * Math.sin(angle);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const expRe = Math.exp(re * ln2);
+        const angle = im * ln2;
+        dstData[i * 2] = expRe * Math.cos(angle);
+        dstData[i * 2 + 1] = expRe * Math.sin(angle);
+      }
     }
 
     return result;
@@ -297,19 +392,32 @@ export function expm1(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
 
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // expm1(z) = exp(z) - 1 = e^re * (cos(im) + i*sin(im)) - 1
-      const expRe = Math.exp(re);
-      dstData[i * 2] = expRe * Math.cos(im) - 1;
-      dstData[i * 2 + 1] = expRe * Math.sin(im);
+        const expRe = Math.exp(re);
+        dstData[i * 2] = expRe * Math.cos(im) - 1;
+        dstData[i * 2 + 1] = expRe * Math.sin(im);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const expRe = Math.exp(re);
+        dstData[i * 2] = expRe * Math.cos(im) - 1;
+        dstData[i * 2 + 1] = expRe * Math.sin(im);
+      }
     }
 
     return result;
@@ -332,20 +440,34 @@ export function log(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
 
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // log(a+bi) = ln|z| + i*arg(z)
-      const mag = Math.sqrt(re * re + im * im);
-      const arg = Math.atan2(im, re);
-      dstData[i * 2] = Math.log(mag);
-      dstData[i * 2 + 1] = arg;
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
+        dstData[i * 2] = Math.log(mag);
+        dstData[i * 2 + 1] = arg;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
+        dstData[i * 2] = Math.log(mag);
+        dstData[i * 2 + 1] = arg;
+      }
     }
 
     return result;
@@ -368,21 +490,35 @@ export function log2(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
     const invLn2 = 1 / Math.LN2;
 
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // log2(z) = log(z) / ln(2)
-      const mag = Math.sqrt(re * re + im * im);
-      const arg = Math.atan2(im, re);
-      dstData[i * 2] = Math.log(mag) * invLn2;
-      dstData[i * 2 + 1] = arg * invLn2;
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
+        dstData[i * 2] = Math.log(mag) * invLn2;
+        dstData[i * 2 + 1] = arg * invLn2;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
+        dstData[i * 2] = Math.log(mag) * invLn2;
+        dstData[i * 2 + 1] = arg * invLn2;
+      }
     }
 
     return result;
@@ -405,21 +541,35 @@ export function log10(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
     const invLn10 = 1 / Math.LN10;
 
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // log10(z) = log(z) / ln(10)
-      const mag = Math.sqrt(re * re + im * im);
-      const arg = Math.atan2(im, re);
-      dstData[i * 2] = Math.log(mag) * invLn10;
-      dstData[i * 2 + 1] = arg * invLn10;
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
+        dstData[i * 2] = Math.log(mag) * invLn10;
+        dstData[i * 2 + 1] = arg * invLn10;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const mag = Math.sqrt(re * re + im * im);
+        const arg = Math.atan2(im, re);
+        dstData[i * 2] = Math.log(mag) * invLn10;
+        dstData[i * 2 + 1] = arg * invLn10;
+      }
     }
 
     return result;
@@ -443,21 +593,36 @@ export function log1p(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(dtype)) {
     const shape = Array.from(a.shape);
     const size = a.size;
-    const srcData = a.data as Float64Array | Float32Array;
+    const contiguous = a.isCContiguous;
 
     const result = ArrayStorage.zeros(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
 
-    for (let i = 0; i < size; i++) {
-      const re = srcData[i * 2]!;
-      const im = srcData[i * 2 + 1]!;
+    if (contiguous) {
+      const srcData = a.data as Float64Array | Float32Array;
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
 
-      // log1p(z) = log(1 + z) = log((1 + re) + im*i)
-      const newRe = 1 + re;
-      const mag = Math.sqrt(newRe * newRe + im * im);
-      const arg = Math.atan2(im, newRe);
-      dstData[i * 2] = Math.log(mag);
-      dstData[i * 2 + 1] = arg;
+        const newRe = 1 + re;
+        const mag = Math.sqrt(newRe * newRe + im * im);
+        const arg = Math.atan2(im, newRe);
+        dstData[i * 2] = Math.log(mag);
+        dstData[i * 2 + 1] = arg;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = a.iget(i) as Complex;
+        const re = val.re;
+        const im = val.im;
+
+        const newRe = 1 + re;
+        const mag = Math.sqrt(newRe * newRe + im * im);
+        const arg = Math.atan2(im, newRe);
+        dstData[i * 2] = Math.log(mag);
+        dstData[i * 2 + 1] = arg;
+      }
     }
 
     return result;
@@ -525,6 +690,7 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   // Always promote to float64 for logaddexp
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
@@ -532,13 +698,23 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  for (let i = 0; i < size; i++) {
-    const val1 = isBigIntDType(dtype) ? Number(storage.data[i]!) : Number(storage.data[i]!);
+  if (contiguous) {
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      const val1 = Number(storage.data[off + i]!);
 
-    // Numerically stable implementation
-    const maxVal = Math.max(val1, x2);
-    const minVal = Math.min(val1, x2);
-    resultData[i] = maxVal + Math.log1p(Math.exp(minVal - maxVal));
+      const maxVal = Math.max(val1, x2);
+      const minVal = Math.min(val1, x2);
+      resultData[i] = maxVal + Math.log1p(Math.exp(minVal - maxVal));
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val1 = Number(storage.iget(i));
+
+      const maxVal = Math.max(val1, x2);
+      const minVal = Math.min(val1, x2);
+      resultData[i] = maxVal + Math.log1p(Math.exp(minVal - maxVal));
+    }
   }
 
   return result;
@@ -606,6 +782,7 @@ function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const size = storage.size;
+  const contiguous = storage.isCContiguous;
 
   // Always promote to float64 for logaddexp2
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
@@ -615,13 +792,23 @@ function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
 
   const LOG2_E = Math.LOG2E;
 
-  for (let i = 0; i < size; i++) {
-    const val1 = isBigIntDType(dtype) ? Number(storage.data[i]!) : Number(storage.data[i]!);
+  if (contiguous) {
+    const off = storage.offset;
+    for (let i = 0; i < size; i++) {
+      const val1 = Number(storage.data[off + i]!);
 
-    // Numerically stable implementation
-    const maxVal = Math.max(val1, x2);
-    const minVal = Math.min(val1, x2);
-    resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+      const maxVal = Math.max(val1, x2);
+      const minVal = Math.min(val1, x2);
+      resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val1 = Number(storage.iget(i));
+
+      const maxVal = Math.max(val1, x2);
+      const minVal = Math.min(val1, x2);
+      resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+    }
   }
 
   return result;

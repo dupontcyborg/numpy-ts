@@ -31,6 +31,8 @@ export class ArrayStorage {
   private _offset: number;
   // Data type
   private _dtype: DType;
+  // Cached contiguity flag (-1 = not computed, 0 = false, 1 = true)
+  private _isCContiguous: number = -1;
 
   constructor(
     data: TypedArray,
@@ -99,20 +101,32 @@ export class ArrayStorage {
    * Check if array is C-contiguous (row-major, no gaps)
    */
   get isCContiguous(): boolean {
+    if (this._isCContiguous !== -1) return this._isCContiguous === 1;
+
     const shape = this._shape;
     const strides = this._strides;
     const ndim = shape.length;
 
-    if (ndim === 0) return true;
-    if (ndim === 1) return strides[0] === 1;
-
-    // Check if strides match row-major order
-    let expectedStride = 1;
-    for (let i = ndim - 1; i >= 0; i--) {
-      if (strides[i] !== expectedStride) return false;
-      expectedStride *= shape[i]!;
+    let result: boolean;
+    if (ndim === 0) {
+      result = true;
+    } else if (ndim === 1) {
+      result = strides[0] === 1;
+    } else {
+      // Check if strides match row-major order
+      result = true;
+      let expectedStride = 1;
+      for (let i = ndim - 1; i >= 0; i--) {
+        if (strides[i] !== expectedStride) {
+          result = false;
+          break;
+        }
+        expectedStride *= shape[i]!;
+      }
     }
-    return true;
+
+    this._isCContiguous = result ? 1 : 0;
+    return result;
   }
 
   /**
