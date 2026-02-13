@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src/core/ndarray';
+import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Rounding Functions', () => {

@@ -3,18 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import {
-  array,
-  exp,
-  exp2,
-  expm1,
-  log,
-  log2,
-  log10,
-  log1p,
-  logaddexp,
-  logaddexp2,
-} from '../../src/core/ndarray';
+import { array, exp, exp2, expm1, log, log2, log10, log1p, logaddexp, logaddexp2 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Exponential Operations', () => {

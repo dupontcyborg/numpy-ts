@@ -7,7 +7,7 @@ import {
   loadNpz,
   loadNpzSync,
 } from '../../../src/io/npz';
-import { array, zeros, arange } from '../../../src/core/ndarray';
+import { array, zeros, arange } from '../../../src';
 
 describe('NPZ Format', () => {
   describe('serializeNpzSync and parseNpzSync', () => {

@@ -20,7 +20,7 @@ import {
   unique_counts,
   unique_inverse,
   unique_values,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Set Operations', () => {

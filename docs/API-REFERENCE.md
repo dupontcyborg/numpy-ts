@@ -2,14 +2,14 @@
 
 Complete NumPy 2.0+ API compatibility checklist.
 
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-02-10
 
 ## Progress Summary
 
 Based on `npm run compare-api`:
 
 - **Overall Coverage**: 476/507 (93.9%)
-- **Top-level Functions**: 472/507 (89.5%)
+- **Top-level Functions**: 502/507 (93.7%)
 - **NDArray Methods**: 47/47 (100.0%)
 
 ### Completed Categories (100%)
@@ -790,12 +790,10 @@ These may be removed in future versions for strict NumPy compatibility:
 - `copysign()` 
 - `cos()` 
 - `cosh()` 
-- `data()` 
 - `degrees()` 
 - `diff()` 
 - `divide()` 
 - `divmod()` 
-- `dtype()` 
 - `equal()` 
 - `exp()` 
 - `exp2()` 
@@ -803,7 +801,6 @@ These may be removed in future versions for strict NumPy compatibility:
 - `expm1()` 
 - `fabs()` 
 - `fix()` 
-- `flags()` 
 - `floor()` 
 - `floor_divide()` 
 - `get()` 
@@ -853,7 +850,6 @@ These may be removed in future versions for strict NumPy compatibility:
 - `nansum()` 
 - `nanvar()` 
 - `nbytes()` 
-- `ndim()` 
 - `negative()` 
 - `nextafter()` 
 - `not_equal()` 
@@ -871,18 +867,14 @@ These may be removed in future versions for strict NumPy compatibility:
 - `row()` 
 - `rows()` 
 - `set()` 
-- `shape()` 
 - `sign()` 
 - `signbit()` 
 - `sin()` 
 - `sinh()` 
-- `size()` 
 - `slice()` 
 - `spacing()` 
 - `sqrt()` 
 - `square()` 
-- `storage()` 
-- `strides()` 
 - `subtract()` 
 - `tan()` 
 - `tanh()` 

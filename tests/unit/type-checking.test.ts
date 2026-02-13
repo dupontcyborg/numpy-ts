@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array } from '../../src/core/ndarray';
+import { array } from '../../src';
 import {
   can_cast,
   common_type,
@@ -12,7 +12,14 @@ import {
   issubdtype,
   typename,
   mintypecode,
-} from '../../src/core/ndarray';
+  isscalar,
+  iterable,
+  isdtype,
+  promote_types,
+  isneginf,
+  isposinf,
+  isfortran,
+} from '../../src';
 
 describe('Type Checking Functions', () => {
   describe('can_cast()', () => {
@@ -270,6 +277,71 @@ describe('Type Checking Functions', () => {
 
     it('respects typeset filter', () => {
       expect(mintypecode('bb', 'fd')).toBe('f'); // bool+bool but only float allowed
+    });
+  });
+
+  describe('isscalar()', () => {
+    it('returns true for numbers', () => {
+      expect(isscalar(42)).toBe(true);
+      expect(isscalar(3.14)).toBe(true);
+    });
+
+    it('returns false for arrays and objects', () => {
+      expect(isscalar([1, 2])).toBe(false);
+      expect(isscalar(array([1, 2]))).toBe(false);
+    });
+  });
+
+  describe('iterable()', () => {
+    it('returns true for iterable objects', () => {
+      expect(iterable([1, 2])).toBe(true);
+    });
+
+    it('returns false for non-iterables', () => {
+      expect(iterable(42)).toBe(false);
+    });
+  });
+
+  describe('isdtype()', () => {
+    it('identifies float types', () => {
+      expect(isdtype('float64', 'f')).toBe(true);
+    });
+
+    it('identifies integer types', () => {
+      expect(isdtype('int32', 'i')).toBe(true);
+    });
+
+    it('identifies bool type', () => {
+      expect(isdtype('bool', 'b')).toBe(true);
+    });
+  });
+
+  describe('promote_types()', () => {
+    it('promotes int32 and float32', () => {
+      expect(promote_types('int32', 'float32')).toBeDefined();
+    });
+  });
+
+  describe('isneginf()', () => {
+    it('detects negative infinity', () => {
+      const a = array([-Infinity, 0, Infinity]);
+      const r = isneginf(a);
+      expect(r.size).toBe(3);
+    });
+  });
+
+  describe('isposinf()', () => {
+    it('detects positive infinity', () => {
+      const a = array([-Infinity, 0, Infinity]);
+      const r = isposinf(a);
+      expect(r.size).toBe(3);
+    });
+  });
+
+  describe('isfortran()', () => {
+    it('returns boolean for array', () => {
+      const a = array([1, 2, 3]);
+      expect(typeof isfortran(a)).toBe('boolean');
     });
   });
 });

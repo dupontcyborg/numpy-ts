@@ -17,7 +17,7 @@ import {
   radians,
   deg2rad,
   rad2deg,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Trigonometric Operations', () => {

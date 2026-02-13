@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array, sinh, cosh, tanh, arcsinh, arccosh, arctanh } from '../../src/core/ndarray';
+import { array, sinh, cosh, tanh, arcsinh, arccosh, arctanh } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Hyperbolic Operations', () => {

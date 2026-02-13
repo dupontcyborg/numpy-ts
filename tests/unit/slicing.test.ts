@@ -8,7 +8,7 @@ import {
   normalizeSlice,
   computeSliceLength,
   parseSlices,
-} from '../../src/core/slicing';
+} from '../../src/common/slicing';
 
 describe('Slicing utilities', () => {
   describe('parseSlice', () => {

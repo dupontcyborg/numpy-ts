@@ -3,7 +3,22 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, array_equal, array_equiv } from '../../src/core/ndarray';
+import {
+  array,
+  array_equal,
+  array_equiv,
+  greater,
+  less,
+  equal,
+  not_equal,
+  isclose,
+  logical_and,
+  logical_or,
+  logical_not,
+  isfinite,
+  isinf,
+  isnan,
+} from '../../src';
 
 describe('Comparison Operations', () => {
   describe('greater()', () => {
@@ -548,6 +563,52 @@ describe('Comparison Operations', () => {
         [3, 4],
       ]);
       expect(array_equiv(a, b)).toBe(true);
+    });
+  });
+
+  describe('Standalone comparison functions (branch coverage)', () => {
+    it('greater int32', () => {
+      const a = array([1, 2, 3], 'int32');
+      const b = array([3, 2, 1], 'int32');
+      expect(greater(a, b).size).toBe(3);
+    });
+
+    it('less float32', () => {
+      const a = array([1, 2, 3], 'float32');
+      expect(less(a, 2).size).toBe(3);
+    });
+
+    it('equal int32', () => {
+      const a = array([1, 2, 3], 'int32');
+      const b = array([1, 0, 3], 'int32');
+      expect(equal(a, b).size).toBe(3);
+    });
+
+    it('not_equal', () => {
+      const a = array([1, 2, 3]);
+      const b = array([1, 0, 3]);
+      expect(not_equal(a, b).size).toBe(3);
+    });
+
+    it('isclose', () => {
+      const a = array([1.0, 2.0001]);
+      const b = array([1.0, 2.0]);
+      expect(isclose(a, b).size).toBe(2);
+    });
+
+    it('logical operations on bool', () => {
+      const a = array([1, 0, 1], 'bool');
+      const b = array([1, 1, 0], 'bool');
+      expect(logical_and(a, b).size).toBe(3);
+      expect(logical_or(a, b).size).toBe(3);
+      expect(logical_not(a).size).toBe(3);
+    });
+
+    it('isfinite/isinf/isnan', () => {
+      const a = array([1, Infinity, NaN, -Infinity]);
+      expect(isfinite(a).size).toBe(4);
+      expect(isinf(a).size).toBe(4);
+      expect(isnan(a).size).toBe(4);
     });
   });
 });

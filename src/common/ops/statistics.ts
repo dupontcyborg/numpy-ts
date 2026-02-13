@@ -1,0 +1,1505 @@
+/**
+ * Statistics operations (histogram, bincount, correlate, cov, etc.)
+ *
+ * Pure functions for statistical analysis.
+ * @module ops/statistics
+ */
+
+import { ArrayStorage } from '../storage';
+import { isComplexDType, throwIfComplex, TypedArray } from '../dtype';
+
+/**
+ * Count number of occurrences of each value in array of non-negative ints.
+ *
+ * @param x - Input array (must contain non-negative integers)
+ * @param weights - Optional weights, same shape as x
+ * @param minlength - Minimum number of bins for output (default: 0)
+ * @returns Array of bin counts
+ */
+export function bincount(
+  x: ArrayStorage,
+  weights?: ArrayStorage,
+  minlength: number = 0
+): ArrayStorage {
+  throwIfComplex(x.dtype, 'bincount', 'bincount requires integer input.');
+  const xData = x.data;
+  const size = x.size;
+
+  // Find maximum value to determine output size
+  let maxVal = 0;
+  for (let i = 0; i < size; i++) {
+    const val = Number(xData[i]);
+    if (val < 0 || !Number.isInteger(val)) {
+      throw new Error("'x' argument must contain non-negative integers");
+    }
+    if (val > maxVal) {
+      maxVal = val;
+    }
+  }
+
+  const outputSize = Math.max(maxVal + 1, minlength);
+
+  if (weights !== undefined) {
+    // Weighted bincount
+    if (weights.size !== size) {
+      throw new Error('weights array must have same length as x');
+    }
+    const weightsData = weights.data;
+    const resultData = new Float64Array(outputSize);
+
+    for (let i = 0; i < size; i++) {
+      const idx = Number(xData[i]);
+      resultData[idx]! += Number(weightsData[i]);
+    }
+
+    return ArrayStorage.fromData(resultData, [outputSize], 'float64');
+  } else {
+    // Unweighted bincount
+    const resultData = new Float64Array(outputSize);
+
+    for (let i = 0; i < size; i++) {
+      const idx = Number(xData[i]);
+      resultData[idx]!++;
+    }
+
+    return ArrayStorage.fromData(resultData, [outputSize], 'float64');
+  }
+}
+
+/**
+ * Return the indices of the bins to which each value in input array belongs.
+ *
+ * @param x - Input array to be binned
+ * @param bins - Array of bins (monotonically increasing or decreasing)
+ * @param right - If true, intervals are closed on the right (default: false)
+ * @returns Array of bin indices
+ */
+export function digitize(
+  x: ArrayStorage,
+  bins: ArrayStorage,
+  right: boolean = false
+): ArrayStorage {
+  throwIfComplex(x.dtype, 'digitize', 'digitize requires real numbers.');
+  throwIfComplex(bins.dtype, 'digitize', 'digitize requires real numbers.');
+  const xData = x.data;
+  const binsData = bins.data;
+  const xSize = x.size;
+  const numBins = bins.size;
+
+  const resultData = new Float64Array(xSize);
+
+  // Check if bins is monotonically increasing or decreasing
+  let increasing = true;
+  if (numBins > 1) {
+    increasing = Number(binsData[1]) >= Number(binsData[0]);
+  }
+
+  for (let i = 0; i < xSize; i++) {
+    const val = Number(xData[i]);
+    let idx: number;
+
+    if (increasing) {
+      // For increasing bins:
+      // right=False: bins[i-1] <= x < bins[i], returns i
+      // right=True: bins[i-1] < x <= bins[i], returns i
+      if (right) {
+        // Find first index where bins[idx] >= val
+        idx = lowerBound(binsData, numBins, val);
+      } else {
+        // Find first index where bins[idx] > val
+        idx = upperBound(binsData, numBins, val);
+      }
+    } else {
+      // For decreasing bins:
+      // right=False: bins[i-1] > x >= bins[i], returns i
+      // right=True: bins[i-1] >= x > bins[i], returns i
+      // Linear search from beginning to find correct bin
+      if (right) {
+        // Find first index where bins[idx] < val
+        idx = 0;
+        while (idx < numBins && Number(binsData[idx]) >= val) {
+          idx++;
+        }
+      } else {
+        // Find first index where bins[idx] <= val (where x >= bins[idx])
+        idx = 0;
+        while (idx < numBins && Number(binsData[idx]) > val) {
+          idx++;
+        }
+      }
+    }
+
+    resultData[i] = idx;
+  }
+
+  return ArrayStorage.fromData(resultData, [...x.shape], 'float64');
+}
+
+// Binary search helpers
+function lowerBound(arr: TypedArray | number[], size: number, val: number): number {
+  let lo = 0;
+  let hi = size;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (Number(arr[mid]) < val) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+function upperBound(arr: TypedArray | number[], size: number, val: number): number {
+  let lo = 0;
+  let hi = size;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (Number(arr[mid]) <= val) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+/**
+ * Compute the histogram of a set of data.
+ *
+ * @param a - Input data (flattened if not 1D)
+ * @param bins - Number of bins (default: 10) or array of bin edges
+ * @param range - Lower and upper range of bins. If not provided, uses [a.min(), a.max()]
+ * @param density - If true, return probability density function (default: false)
+ * @param weights - Optional weights for each data point
+ * @returns Tuple of [hist, bin_edges]
+ */
+export function histogram(
+  a: ArrayStorage,
+  bins: number | ArrayStorage = 10,
+  range?: [number, number],
+  density: boolean = false,
+  weights?: ArrayStorage
+): { hist: ArrayStorage; bin_edges: ArrayStorage } {
+  throwIfComplex(a.dtype, 'histogram', 'histogram requires real numbers.');
+  if (typeof bins !== 'number') {
+    throwIfComplex(bins.dtype, 'histogram', 'histogram requires real numbers.');
+  }
+  const aData = a.data;
+  const aSize = a.size;
+
+  // Determine bin edges
+  let binEdges: number[];
+
+  if (typeof bins === 'number') {
+    // Compute bin edges from range
+    let minVal: number, maxVal: number;
+
+    if (range) {
+      [minVal, maxVal] = range;
+    } else {
+      minVal = Infinity;
+      maxVal = -Infinity;
+      for (let i = 0; i < aSize; i++) {
+        const val = Number(aData[i]);
+        if (val < minVal) minVal = val;
+        if (val > maxVal) maxVal = val;
+      }
+      // Handle case where all values are the same
+      if (minVal === maxVal) {
+        minVal = minVal - 0.5;
+        maxVal = maxVal + 0.5;
+      }
+    }
+
+    binEdges = [];
+    const step = (maxVal - minVal) / bins;
+    for (let i = 0; i <= bins; i++) {
+      binEdges.push(minVal + i * step);
+    }
+  } else {
+    // bins is an ArrayStorage of bin edges
+    const binsData = bins.data;
+    binEdges = [];
+    for (let i = 0; i < bins.size; i++) {
+      binEdges.push(Number(binsData[i]));
+    }
+  }
+
+  const numBins = binEdges.length - 1;
+  const hist = new Float64Array(numBins);
+
+  // Compute histogram
+  const weightsData = weights?.data;
+
+  for (let i = 0; i < aSize; i++) {
+    const val = Number(aData[i]);
+    const w = weightsData ? Number(weightsData[i]) : 1;
+
+    // Find bin index using binary search
+    let binIdx = upperBound(binEdges, binEdges.length, val) - 1;
+
+    // Handle edge cases
+    if (binIdx < 0) {
+      // Value is below the first bin edge
+      continue;
+    }
+    if (binIdx >= numBins) {
+      // Value is at or above the last bin edge
+      // Include values exactly at the last edge in the last bin
+      if (val === binEdges[numBins]) {
+        binIdx = numBins - 1;
+      } else {
+        continue;
+      }
+    }
+
+    hist[binIdx]! += w;
+  }
+
+  // Apply density normalization if requested
+  if (density) {
+    let totalWeight = 0;
+    for (let i = 0; i < numBins; i++) {
+      totalWeight += hist[i]!;
+    }
+
+    for (let i = 0; i < numBins; i++) {
+      const binWidth = binEdges[i + 1]! - binEdges[i]!;
+      hist[i]! = hist[i]! / (totalWeight * binWidth);
+    }
+  }
+
+  return {
+    hist: ArrayStorage.fromData(hist, [numBins], 'float64'),
+    bin_edges: ArrayStorage.fromData(new Float64Array(binEdges), [binEdges.length], 'float64'),
+  };
+}
+
+/**
+ * Compute the bi-dimensional histogram of two data samples.
+ *
+ * @param x - Array of x coordinates
+ * @param y - Array of y coordinates (must have same length as x)
+ * @param bins - Number of bins or [nx, ny] or [x_edges, y_edges]
+ * @param range - [[xmin, xmax], [ymin, ymax]]
+ * @param density - If true, return probability density function
+ * @param weights - Optional weights for each data point
+ * @returns Object with hist, x_edges, y_edges
+ */
+export function histogram2d(
+  x: ArrayStorage,
+  y: ArrayStorage,
+  bins: number | [number, number] | [ArrayStorage, ArrayStorage] = 10,
+  range?: [[number, number], [number, number]],
+  density: boolean = false,
+  weights?: ArrayStorage
+): { hist: ArrayStorage; x_edges: ArrayStorage; y_edges: ArrayStorage } {
+  throwIfComplex(x.dtype, 'histogram2d', 'histogram2d requires real numbers.');
+  throwIfComplex(y.dtype, 'histogram2d', 'histogram2d requires real numbers.');
+  const xData = x.data;
+  const yData = y.data;
+  const size = x.size;
+
+  if (y.size !== size) {
+    throw new Error('x and y must have the same length');
+  }
+
+  // Determine bin edges for x and y
+  let xEdges: number[];
+  let yEdges: number[];
+
+  // Parse bins parameter
+  let nxBins: number | ArrayStorage;
+  let nyBins: number | ArrayStorage;
+
+  if (typeof bins === 'number') {
+    nxBins = bins;
+    nyBins = bins;
+  } else if (Array.isArray(bins) && bins.length === 2) {
+    if (typeof bins[0] === 'number') {
+      nxBins = bins[0] as number;
+      nyBins = bins[1] as number;
+    } else {
+      nxBins = bins[0] as ArrayStorage;
+      nyBins = bins[1] as ArrayStorage;
+    }
+  } else {
+    nxBins = 10;
+    nyBins = 10;
+  }
+
+  // Compute x edges
+  if (typeof nxBins === 'number') {
+    let xMin: number, xMax: number;
+    if (range) {
+      [xMin, xMax] = range[0];
+    } else {
+      xMin = Infinity;
+      xMax = -Infinity;
+      for (let i = 0; i < size; i++) {
+        const val = Number(xData[i]);
+        if (val < xMin) xMin = val;
+        if (val > xMax) xMax = val;
+      }
+      if (xMin === xMax) {
+        xMin -= 0.5;
+        xMax += 0.5;
+      }
+    }
+    xEdges = [];
+    const step = (xMax - xMin) / nxBins;
+    for (let i = 0; i <= nxBins; i++) {
+      xEdges.push(xMin + i * step);
+    }
+  } else {
+    const edgesData = nxBins.data;
+    xEdges = [];
+    for (let i = 0; i < nxBins.size; i++) {
+      xEdges.push(Number(edgesData[i]));
+    }
+  }
+
+  // Compute y edges
+  if (typeof nyBins === 'number') {
+    let yMin: number, yMax: number;
+    if (range) {
+      [yMin, yMax] = range[1];
+    } else {
+      yMin = Infinity;
+      yMax = -Infinity;
+      for (let i = 0; i < size; i++) {
+        const val = Number(yData[i]);
+        if (val < yMin) yMin = val;
+        if (val > yMax) yMax = val;
+      }
+      if (yMin === yMax) {
+        yMin -= 0.5;
+        yMax += 0.5;
+      }
+    }
+    yEdges = [];
+    const step = (yMax - yMin) / nyBins;
+    for (let i = 0; i <= nyBins; i++) {
+      yEdges.push(yMin + i * step);
+    }
+  } else {
+    const edgesData = nyBins.data;
+    yEdges = [];
+    for (let i = 0; i < nyBins.size; i++) {
+      yEdges.push(Number(edgesData[i]));
+    }
+  }
+
+  const nx = xEdges.length - 1;
+  const ny = yEdges.length - 1;
+  const hist = new Float64Array(nx * ny);
+
+  // Compute histogram
+  const weightsData = weights?.data;
+
+  for (let i = 0; i < size; i++) {
+    const xVal = Number(xData[i]);
+    const yVal = Number(yData[i]);
+    const w = weightsData ? Number(weightsData[i]) : 1;
+
+    // Find bin indices
+    let xIdx = upperBound(xEdges, xEdges.length, xVal) - 1;
+    let yIdx = upperBound(yEdges, yEdges.length, yVal) - 1;
+
+    // Handle edge cases
+    if (xIdx < 0 || xIdx >= nx) {
+      if (xVal === xEdges[nx] && xIdx === nx) {
+        xIdx = nx - 1;
+      } else {
+        continue;
+      }
+    }
+    if (yIdx < 0 || yIdx >= ny) {
+      if (yVal === yEdges[ny] && yIdx === ny) {
+        yIdx = ny - 1;
+      } else {
+        continue;
+      }
+    }
+
+    hist[xIdx * ny + yIdx]! += w;
+  }
+
+  // Apply density normalization if requested
+  if (density) {
+    let totalWeight = 0;
+    for (let i = 0; i < hist.length; i++) {
+      totalWeight += hist[i]!;
+    }
+
+    for (let i = 0; i < nx; i++) {
+      for (let j = 0; j < ny; j++) {
+        const xWidth = xEdges[i + 1]! - xEdges[i]!;
+        const yWidth = yEdges[j + 1]! - yEdges[j]!;
+        const area = xWidth * yWidth;
+        hist[i * ny + j]! = hist[i * ny + j]! / (totalWeight * area);
+      }
+    }
+  }
+
+  return {
+    hist: ArrayStorage.fromData(hist, [nx, ny], 'float64'),
+    x_edges: ArrayStorage.fromData(new Float64Array(xEdges), [xEdges.length], 'float64'),
+    y_edges: ArrayStorage.fromData(new Float64Array(yEdges), [yEdges.length], 'float64'),
+  };
+}
+
+/**
+ * Compute the multidimensional histogram of some data.
+ *
+ * @param sample - Array of shape (N, D) where N is number of samples and D is number of dimensions
+ * @param bins - Number of bins for all axes, or array of bin counts per axis
+ * @param range - Array of [min, max] for each dimension
+ * @param density - If true, return probability density function
+ * @param weights - Optional weights for each sample
+ * @returns Object with hist and edges (array of edge arrays)
+ */
+export function histogramdd(
+  sample: ArrayStorage,
+  bins: number | number[] = 10,
+  range?: [number, number][],
+  density: boolean = false,
+  weights?: ArrayStorage
+): { hist: ArrayStorage; edges: ArrayStorage[] } {
+  throwIfComplex(sample.dtype, 'histogramdd', 'histogramdd requires real numbers.');
+  const shape = sample.shape;
+  const data = sample.data;
+
+  // Determine number of samples and dimensions
+  let N: number, D: number;
+
+  if (shape.length === 1) {
+    N = shape[0]!;
+    D = 1;
+  } else if (shape.length === 2) {
+    N = shape[0]!;
+    D = shape[1]!;
+  } else {
+    throw new Error('sample must be 1D or 2D array');
+  }
+
+  // Determine bin counts for each dimension
+  let binCounts: number[];
+  if (typeof bins === 'number') {
+    binCounts = new Array(D).fill(bins);
+  } else {
+    binCounts = bins;
+    if (binCounts.length !== D) {
+      throw new Error('bins array length must match number of dimensions');
+    }
+  }
+
+  // Compute edges for each dimension
+  const allEdges: number[][] = [];
+
+  for (let d = 0; d < D; d++) {
+    let minVal: number, maxVal: number;
+
+    if (range && range[d]) {
+      [minVal, maxVal] = range[d]!;
+    } else {
+      minVal = Infinity;
+      maxVal = -Infinity;
+      for (let i = 0; i < N; i++) {
+        const val = D === 1 ? Number(data[i]) : Number(data[i * D + d]);
+        if (val < minVal) minVal = val;
+        if (val > maxVal) maxVal = val;
+      }
+      if (minVal === maxVal) {
+        minVal -= 0.5;
+        maxVal += 0.5;
+      }
+    }
+
+    const numBins = binCounts[d]!;
+    const edges: number[] = [];
+    const step = (maxVal - minVal) / numBins;
+    for (let i = 0; i <= numBins; i++) {
+      edges.push(minVal + i * step);
+    }
+    allEdges.push(edges);
+  }
+
+  // Compute histogram shape
+  const histShape = binCounts.slice();
+  const histSize = histShape.reduce((a, b) => a * b, 1);
+  const hist = new Float64Array(histSize);
+
+  // Compute strides for indexing into histogram
+  const strides: number[] = new Array(D);
+  strides[D - 1] = 1;
+  for (let d = D - 2; d >= 0; d--) {
+    strides[d] = strides[d + 1]! * binCounts[d + 1]!;
+  }
+
+  // Compute histogram
+  const weightsData = weights?.data;
+
+  for (let i = 0; i < N; i++) {
+    const w = weightsData ? Number(weightsData[i]) : 1;
+    let histIdx = 0;
+    let outOfBounds = false;
+
+    for (let d = 0; d < D; d++) {
+      const val = D === 1 ? Number(data[i]) : Number(data[i * D + d]);
+      const edges = allEdges[d]!;
+      const numBins = binCounts[d]!;
+
+      let binIdx = upperBound(edges, edges.length, val) - 1;
+
+      if (binIdx < 0 || binIdx >= numBins) {
+        if (val === edges[numBins] && binIdx === numBins) {
+          binIdx = numBins - 1;
+        } else {
+          outOfBounds = true;
+          break;
+        }
+      }
+
+      histIdx += binIdx * strides[d]!;
+    }
+
+    if (!outOfBounds) {
+      hist[histIdx]! += w;
+    }
+  }
+
+  // Apply density normalization if requested
+  if (density) {
+    let totalWeight = 0;
+    for (let i = 0; i < histSize; i++) {
+      totalWeight += hist[i]!;
+    }
+
+    // Compute volume of each bin
+    const binVolumes = new Float64Array(histSize);
+    for (let i = 0; i < histSize; i++) {
+      let volume = 1;
+      let idx = i;
+      for (let d = 0; d < D; d++) {
+        const binIdx = Math.floor(idx / strides[d]!) % binCounts[d]!;
+        const edges = allEdges[d]!;
+        volume *= edges[binIdx + 1]! - edges[binIdx]!;
+      }
+      binVolumes[i] = volume;
+    }
+
+    for (let i = 0; i < histSize; i++) {
+      hist[i]! = hist[i]! / (totalWeight * binVolumes[i]!);
+    }
+  }
+
+  // Convert edges to ArrayStorage
+  const edgeStorages = allEdges.map((edges) =>
+    ArrayStorage.fromData(new Float64Array(edges), [edges.length], 'float64')
+  );
+
+  return {
+    hist: ArrayStorage.fromData(hist, histShape, 'float64'),
+    edges: edgeStorages,
+  };
+}
+
+/**
+ * Cross-correlation of two 1-dimensional sequences.
+ *
+ * @param a - First input sequence
+ * @param v - Second input sequence
+ * @param mode - 'full', 'same', or 'valid' (default: 'full')
+ * @returns Cross-correlation of a and v
+ */
+export function correlate(
+  a: ArrayStorage,
+  v: ArrayStorage,
+  mode: 'full' | 'same' | 'valid' = 'full'
+): ArrayStorage {
+  const aData = a.data;
+  const vData = v.data;
+  const aLen = a.size;
+  const vLen = v.size;
+  const isComplex = isComplexDType(a.dtype) || isComplexDType(v.dtype);
+
+  // Compute full correlation first
+  const fullLen = aLen + vLen - 1;
+
+  if (isComplex) {
+    // Complex cross-correlation: c[k] = sum_n(a[n] * conj(v[n-k]))
+    const fullRe = new Float64Array(fullLen);
+    const fullIm = new Float64Array(fullLen);
+    const aComplex = isComplexDType(a.dtype);
+    const vComplex = isComplexDType(v.dtype);
+
+    for (let k = 0; k < fullLen; k++) {
+      let sumRe = 0;
+      let sumIm = 0;
+      const offset = k - vLen + 1;
+
+      for (let n = 0; n < aLen; n++) {
+        const vIdx = n - offset;
+        if (vIdx >= 0 && vIdx < vLen) {
+          let aRe: number, aIm: number, vRe: number, vIm: number;
+
+          if (aComplex) {
+            aRe = (aData as Float64Array)[n * 2]!;
+            aIm = (aData as Float64Array)[n * 2 + 1]!;
+          } else {
+            aRe = Number(aData[n]!);
+            aIm = 0;
+          }
+
+          if (vComplex) {
+            vRe = (vData as Float64Array)[vIdx * 2]!;
+            vIm = (vData as Float64Array)[vIdx * 2 + 1]!;
+          } else {
+            vRe = Number(vData[vIdx]!);
+            vIm = 0;
+          }
+
+          // a * conj(v) = (aRe + aIm*i) * (vRe - vIm*i)
+          // = (aRe*vRe + aIm*vIm) + (aIm*vRe - aRe*vIm)*i
+          sumRe += aRe * vRe + aIm * vIm;
+          sumIm += aIm * vRe - aRe * vIm;
+        }
+      }
+
+      fullRe[k] = sumRe;
+      fullIm[k] = sumIm;
+    }
+
+    // Pack into interleaved format and return based on mode
+    const packResult = (re: Float64Array, im: Float64Array, len: number, start: number = 0) => {
+      const result = new Float64Array(len * 2);
+      for (let i = 0; i < len; i++) {
+        result[i * 2] = re[start + i]!;
+        result[i * 2 + 1] = im[start + i]!;
+      }
+      return ArrayStorage.fromData(result, [len], 'complex128');
+    };
+
+    if (mode === 'full') {
+      return packResult(fullRe, fullIm, fullLen);
+    } else if (mode === 'same') {
+      const start = Math.floor((fullLen - aLen) / 2);
+      return packResult(fullRe, fullIm, aLen, start);
+    } else {
+      const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
+      const start = Math.min(aLen, vLen) - 1;
+      return packResult(fullRe, fullIm, validLen, start);
+    }
+  }
+
+  // Real arrays
+  const fullResult = new Float64Array(fullLen);
+
+  for (let k = 0; k < fullLen; k++) {
+    let sum = 0;
+    const offset = k - vLen + 1;
+
+    for (let n = 0; n < aLen; n++) {
+      const vIdx = n - offset;
+      if (vIdx >= 0 && vIdx < vLen) {
+        sum += Number(aData[n]) * Number(vData[vIdx]);
+      }
+    }
+
+    fullResult[k] = sum;
+  }
+
+  // Return based on mode
+  if (mode === 'full') {
+    return ArrayStorage.fromData(fullResult, [fullLen], 'float64');
+  } else if (mode === 'same') {
+    const start = Math.floor((fullLen - aLen) / 2);
+    const result = new Float64Array(aLen);
+    for (let i = 0; i < aLen; i++) {
+      result[i] = fullResult[start + i]!;
+    }
+    return ArrayStorage.fromData(result, [aLen], 'float64');
+  } else {
+    const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
+    const start = Math.min(aLen, vLen) - 1;
+    const result = new Float64Array(validLen);
+    for (let i = 0; i < validLen; i++) {
+      result[i] = fullResult[start + i]!;
+    }
+    return ArrayStorage.fromData(result, [validLen], 'float64');
+  }
+}
+
+/**
+ * Discrete, linear convolution of two one-dimensional sequences.
+ *
+ * @param a - First input sequence
+ * @param v - Second input sequence
+ * @param mode - 'full', 'same', or 'valid' (default: 'full')
+ * @returns Convolution of a and v
+ */
+export function convolve(
+  a: ArrayStorage,
+  v: ArrayStorage,
+  mode: 'full' | 'same' | 'valid' = 'full'
+): ArrayStorage {
+  // Convolution is correlation with v reversed (without conjugation)
+  const vData = v.data;
+  const vLen = v.size;
+  const vComplex = isComplexDType(v.dtype);
+
+  // Create reversed v
+  let vReversedStorage: ArrayStorage;
+
+  if (vComplex) {
+    const vReversed = new Float64Array(vLen * 2);
+    for (let i = 0; i < vLen; i++) {
+      const srcIdx = vLen - 1 - i;
+      vReversed[i * 2] = (vData as Float64Array)[srcIdx * 2]!;
+      vReversed[i * 2 + 1] = (vData as Float64Array)[srcIdx * 2 + 1]!;
+    }
+    vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], v.dtype);
+  } else {
+    const vReversed = new Float64Array(vLen);
+    for (let i = 0; i < vLen; i++) {
+      vReversed[i] = Number(vData[vLen - 1 - i]);
+    }
+    vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], 'float64');
+  }
+
+  // For convolution, we need correlation without conjugation
+  // So we manually conjugate vReversed to cancel the conjugation in correlate
+  if (vComplex) {
+    const data = vReversedStorage.data as Float64Array;
+    for (let i = 0; i < vLen; i++) {
+      data[i * 2 + 1] = -data[i * 2 + 1]!; // Negate imaginary to cancel conjugation
+    }
+  }
+
+  return correlate(a, vReversedStorage, mode);
+}
+
+/**
+ * Estimate a covariance matrix.
+ *
+ * @param m - Input array (1D or 2D). Each row represents a variable, columns are observations.
+ * @param y - Optional second array (for 2 variable case)
+ * @param rowvar - If true, each row is a variable (default: true)
+ * @param bias - If true, use N for normalization; if false, use N-1 (default: false)
+ * @param ddof - Delta degrees of freedom (overrides bias if provided)
+ * @returns Covariance matrix
+ */
+export function cov(
+  m: ArrayStorage,
+  y?: ArrayStorage,
+  rowvar: boolean = true,
+  bias: boolean = false,
+  ddof?: number
+): ArrayStorage {
+  const mShape = m.shape;
+  const mData = m.data;
+  const isComplex = isComplexDType(m.dtype) || (y !== undefined && isComplexDType(y.dtype));
+
+  // Determine effective ddof
+  let effectiveDdof: number;
+  if (ddof !== undefined) {
+    effectiveDdof = ddof;
+  } else {
+    effectiveDdof = bias ? 0 : 1;
+  }
+
+  // Handle 1D case
+  if (mShape.length === 1) {
+    if (y !== undefined) {
+      // Two 1D arrays - compute 2x2 covariance matrix
+      const yData = y.data;
+      const n = m.size;
+      const mIsComplex = isComplexDType(m.dtype);
+      const yIsComplex = isComplexDType(y.dtype);
+
+      if (y.size !== n) {
+        throw new Error('m and y must have same length');
+      }
+
+      if (isComplex) {
+        // Complex 1D case with y
+        // Compute complex means
+        let mMeanRe = 0,
+          mMeanIm = 0,
+          yMeanRe = 0,
+          yMeanIm = 0;
+        for (let i = 0; i < n; i++) {
+          if (mIsComplex) {
+            mMeanRe += (mData as Float64Array)[i * 2]!;
+            mMeanIm += (mData as Float64Array)[i * 2 + 1]!;
+          } else {
+            mMeanRe += Number(mData[i]);
+          }
+          if (yIsComplex) {
+            yMeanRe += (yData as Float64Array)[i * 2]!;
+            yMeanIm += (yData as Float64Array)[i * 2 + 1]!;
+          } else {
+            yMeanRe += Number(yData[i]);
+          }
+        }
+        mMeanRe /= n;
+        mMeanIm /= n;
+        yMeanRe /= n;
+        yMeanIm /= n;
+
+        // Compute covariances: cov[i,j] = E[(Xi - μi) * conj(Xj - μj)]
+        let varMRe = 0,
+          varMIm = 0;
+        let varYRe = 0,
+          varYIm = 0;
+        let covMYRe = 0,
+          covMYIm = 0;
+        let covYMRe = 0,
+          covYMIm = 0;
+
+        for (let i = 0; i < n; i++) {
+          let dmRe: number, dmIm: number, dyRe: number, dyIm: number;
+          if (mIsComplex) {
+            dmRe = (mData as Float64Array)[i * 2]! - mMeanRe;
+            dmIm = (mData as Float64Array)[i * 2 + 1]! - mMeanIm;
+          } else {
+            dmRe = Number(mData[i]) - mMeanRe;
+            dmIm = 0;
+          }
+          if (yIsComplex) {
+            dyRe = (yData as Float64Array)[i * 2]! - yMeanRe;
+            dyIm = (yData as Float64Array)[i * 2 + 1]! - yMeanIm;
+          } else {
+            dyRe = Number(yData[i]) - yMeanRe;
+            dyIm = 0;
+          }
+
+          // dm * conj(dm) = |dm|^2 (real)
+          varMRe += dmRe * dmRe + dmIm * dmIm;
+          // dy * conj(dy) = |dy|^2 (real)
+          varYRe += dyRe * dyRe + dyIm * dyIm;
+          // dm * conj(dy) = (dmRe + dmIm*i) * (dyRe - dyIm*i)
+          covMYRe += dmRe * dyRe + dmIm * dyIm;
+          covMYIm += dmIm * dyRe - dmRe * dyIm;
+          // dy * conj(dm) = (dyRe + dyIm*i) * (dmRe - dmIm*i)
+          covYMRe += dyRe * dmRe + dyIm * dmIm;
+          covYMIm += dyIm * dmRe - dyRe * dmIm;
+        }
+
+        const divisor = n - effectiveDdof;
+        if (divisor <= 0) {
+          const nanResult = new Float64Array(8);
+          nanResult.fill(NaN);
+          return ArrayStorage.fromData(nanResult, [2, 2], 'complex128');
+        }
+
+        varMRe /= divisor;
+        varYRe /= divisor;
+        covMYRe /= divisor;
+        covMYIm /= divisor;
+        covYMRe /= divisor;
+        covYMIm /= divisor;
+
+        // Pack into interleaved format: [[varM, covMY], [covYM, varY]]
+        const result = new Float64Array(8);
+        result[0] = varMRe;
+        result[1] = varMIm; // [0,0]
+        result[2] = covMYRe;
+        result[3] = covMYIm; // [0,1]
+        result[4] = covYMRe;
+        result[5] = covYMIm; // [1,0]
+        result[6] = varYRe;
+        result[7] = varYIm; // [1,1]
+        return ArrayStorage.fromData(result, [2, 2], 'complex128');
+      }
+
+      // Real 1D case with y
+      // Compute means
+      let mMean = 0,
+        yMean = 0;
+      for (let i = 0; i < n; i++) {
+        mMean += Number(mData[i]);
+        yMean += Number(yData[i]);
+      }
+      mMean /= n;
+      yMean /= n;
+
+      // Compute covariances
+      let varM = 0,
+        varY = 0,
+        covMY = 0;
+      for (let i = 0; i < n; i++) {
+        const dm = Number(mData[i]) - mMean;
+        const dy = Number(yData[i]) - yMean;
+        varM += dm * dm;
+        varY += dy * dy;
+        covMY += dm * dy;
+      }
+
+      const divisor = n - effectiveDdof;
+      if (divisor <= 0) {
+        return ArrayStorage.fromData(new Float64Array([NaN, NaN, NaN, NaN]), [2, 2], 'float64');
+      }
+
+      varM /= divisor;
+      varY /= divisor;
+      covMY /= divisor;
+
+      return ArrayStorage.fromData(new Float64Array([varM, covMY, covMY, varY]), [2, 2], 'float64');
+    } else {
+      // Single 1D array - compute scalar variance (0-d array like NumPy)
+      const n = m.size;
+
+      if (isComplex) {
+        // Complex variance: E[|X - μ|^2]
+        let meanRe = 0,
+          meanIm = 0;
+        for (let i = 0; i < n; i++) {
+          meanRe += (mData as Float64Array)[i * 2]!;
+          meanIm += (mData as Float64Array)[i * 2 + 1]!;
+        }
+        meanRe /= n;
+        meanIm /= n;
+
+        let variance = 0;
+        for (let i = 0; i < n; i++) {
+          const dRe = (mData as Float64Array)[i * 2]! - meanRe;
+          const dIm = (mData as Float64Array)[i * 2 + 1]! - meanIm;
+          variance += dRe * dRe + dIm * dIm;
+        }
+
+        const divisor = n - effectiveDdof;
+        if (divisor <= 0) {
+          return ArrayStorage.fromData(new Float64Array([NaN, 0]), [], 'complex128');
+        }
+
+        variance /= divisor;
+        return ArrayStorage.fromData(new Float64Array([variance, 0]), [], 'complex128');
+      }
+
+      // Real 1D case
+      let mean = 0;
+      for (let i = 0; i < n; i++) {
+        mean += Number(mData[i]);
+      }
+      mean /= n;
+
+      let variance = 0;
+      for (let i = 0; i < n; i++) {
+        const d = Number(mData[i]) - mean;
+        variance += d * d;
+      }
+
+      const divisor = n - effectiveDdof;
+      if (divisor <= 0) {
+        return ArrayStorage.fromData(new Float64Array([NaN]), [], 'float64');
+      }
+
+      variance /= divisor;
+
+      return ArrayStorage.fromData(new Float64Array([variance]), [], 'float64');
+    }
+  }
+
+  // 2D case
+  let numVars: number;
+  let numObs: number;
+
+  if (rowvar) {
+    numVars = mShape[0]!;
+    numObs = mShape[1]!;
+  } else {
+    numVars = mShape[1]!;
+    numObs = mShape[0]!;
+  }
+
+  const divisor = numObs - effectiveDdof;
+
+  if (isComplex) {
+    // Complex 2D case
+    // Compute complex means for each variable
+    const meansRe = new Float64Array(numVars);
+    const meansIm = new Float64Array(numVars);
+    for (let i = 0; i < numVars; i++) {
+      let sumRe = 0,
+        sumIm = 0;
+      for (let j = 0; j < numObs; j++) {
+        const idx = rowvar ? i * numObs + j : j * numVars + i;
+        sumRe += (mData as Float64Array)[idx * 2]!;
+        sumIm += (mData as Float64Array)[idx * 2 + 1]!;
+      }
+      meansRe[i] = sumRe / numObs;
+      meansIm[i] = sumIm / numObs;
+    }
+
+    // Compute complex covariance matrix (Hermitian: cov[i,j] = conj(cov[j,i]))
+    const covMatrix = new Float64Array(numVars * numVars * 2);
+
+    if (divisor <= 0) {
+      covMatrix.fill(NaN);
+      return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'complex128');
+    }
+
+    for (let i = 0; i < numVars; i++) {
+      for (let j = 0; j < numVars; j++) {
+        let sumRe = 0,
+          sumIm = 0;
+        for (let k = 0; k < numObs; k++) {
+          const idxI = rowvar ? i * numObs + k : k * numVars + i;
+          const idxJ = rowvar ? j * numObs + k : k * numVars + j;
+          const diRe = (mData as Float64Array)[idxI * 2]! - meansRe[i]!;
+          const diIm = (mData as Float64Array)[idxI * 2 + 1]! - meansIm[i]!;
+          const djRe = (mData as Float64Array)[idxJ * 2]! - meansRe[j]!;
+          const djIm = (mData as Float64Array)[idxJ * 2 + 1]! - meansIm[j]!;
+          // di * conj(dj) = (diRe + diIm*i) * (djRe - djIm*i)
+          // = (diRe*djRe + diIm*djIm) + (diIm*djRe - diRe*djIm)*i
+          sumRe += diRe * djRe + diIm * djIm;
+          sumIm += diIm * djRe - diRe * djIm;
+        }
+        const outIdx = (i * numVars + j) * 2;
+        covMatrix[outIdx] = sumRe / divisor;
+        covMatrix[outIdx + 1] = sumIm / divisor;
+      }
+    }
+
+    return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'complex128');
+  }
+
+  // Real 2D case
+  // Compute means for each variable
+  const means = new Float64Array(numVars);
+  for (let i = 0; i < numVars; i++) {
+    let sum = 0;
+    for (let j = 0; j < numObs; j++) {
+      const idx = rowvar ? i * numObs + j : j * numVars + i;
+      sum += Number(mData[idx]);
+    }
+    means[i] = sum / numObs;
+  }
+
+  // Compute covariance matrix
+  const covMatrix = new Float64Array(numVars * numVars);
+
+  if (divisor <= 0) {
+    covMatrix.fill(NaN);
+    return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'float64');
+  }
+
+  for (let i = 0; i < numVars; i++) {
+    for (let j = i; j < numVars; j++) {
+      let sum = 0;
+      for (let k = 0; k < numObs; k++) {
+        const idxI = rowvar ? i * numObs + k : k * numVars + i;
+        const idxJ = rowvar ? j * numObs + k : k * numVars + j;
+        const di = Number(mData[idxI]) - means[i]!;
+        const dj = Number(mData[idxJ]) - means[j]!;
+        sum += di * dj;
+      }
+      const covVal = sum / divisor;
+      covMatrix[i * numVars + j] = covVal;
+      covMatrix[j * numVars + i] = covVal; // Symmetric
+    }
+  }
+
+  return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'float64');
+}
+
+/**
+ * Return Pearson product-moment correlation coefficients.
+ *
+ * @param x - Input array (1D or 2D)
+ * @param y - Optional second array (for 2 variable case)
+ * @param rowvar - If true, each row is a variable (default: true)
+ * @returns Correlation coefficient matrix
+ */
+export function corrcoef(x: ArrayStorage, y?: ArrayStorage, rowvar: boolean = true): ArrayStorage {
+  const isComplex = isComplexDType(x.dtype) || (y !== undefined && isComplexDType(y.dtype));
+
+  // Handle 1D array without y - return scalar 1.0 (0-d array like NumPy)
+  if (x.shape.length === 1 && y === undefined) {
+    if (isComplex) {
+      return ArrayStorage.fromData(new Float64Array([1, 0]), [], 'complex128');
+    }
+    return ArrayStorage.fromData(new Float64Array([1]), [], 'float64');
+  }
+
+  // Compute covariance matrix
+  const covMatrix = cov(x, y, rowvar, false);
+
+  const covData = covMatrix.data;
+  const shape = covMatrix.shape;
+  const n = shape[0]!;
+
+  if (isComplex) {
+    // Complex correlation coefficients
+    // corr[i,j] = cov[i,j] / sqrt(cov[i,i] * cov[j,j])
+    // Diagonal elements (variances) are real, so sqrt(var_i * var_j) is real
+    const corrData = new Float64Array(n * n * 2);
+
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        // Get cov[i,j] (complex)
+        const covIJRe = (covData as Float64Array)[(i * n + j) * 2]!;
+        const covIJIm = (covData as Float64Array)[(i * n + j) * 2 + 1]!;
+        // Variances are real (imaginary part is 0 for diagonal elements)
+        const varI = (covData as Float64Array)[(i * n + i) * 2]!;
+        const varJ = (covData as Float64Array)[(j * n + j) * 2]!;
+
+        const outIdx = (i * n + j) * 2;
+        if (varI <= 0 || varJ <= 0) {
+          corrData[outIdx] = NaN;
+          corrData[outIdx + 1] = NaN;
+        } else {
+          const divisor = Math.sqrt(varI * varJ);
+          corrData[outIdx] = covIJRe / divisor;
+          corrData[outIdx + 1] = covIJIm / divisor;
+        }
+      }
+    }
+
+    return ArrayStorage.fromData(corrData, [n, n], 'complex128');
+  }
+
+  // Real correlation coefficients
+  // corr[i,j] = cov[i,j] / sqrt(cov[i,i] * cov[j,j])
+  const corrData = new Float64Array(n * n);
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const covIJ = Number(covData[i * n + j]);
+      const varI = Number(covData[i * n + i]);
+      const varJ = Number(covData[j * n + j]);
+
+      if (varI <= 0 || varJ <= 0) {
+        corrData[i * n + j] = NaN;
+      } else {
+        corrData[i * n + j] = covIJ / Math.sqrt(varI * varJ);
+      }
+    }
+  }
+
+  return ArrayStorage.fromData(corrData, [n, n], 'float64');
+}
+
+/**
+ * Compute the edges of the bins for histogram.
+ *
+ * This function computes the bin edges without computing the histogram itself.
+ *
+ * @param a - Input data (flattened if not 1D)
+ * @param bins - Number of bins (default: 10) or a string specifying the bin algorithm
+ * @param range - Lower and upper range of bins. If not provided, uses [a.min(), a.max()]
+ * @param weights - Optional weights for each data point (used for some algorithms)
+ * @returns Array of bin edges (length = bins + 1)
+ */
+export function histogram_bin_edges(
+  a: ArrayStorage,
+  bins: number | 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt' = 10,
+  range?: [number, number],
+  _weights?: ArrayStorage
+): ArrayStorage {
+  throwIfComplex(a.dtype, 'histogram_bin_edges', 'histogram_bin_edges requires real numbers.');
+  const aData = a.data;
+  const aSize = a.size;
+
+  // Determine min and max
+  let minVal: number, maxVal: number;
+
+  if (range) {
+    [minVal, maxVal] = range;
+  } else {
+    minVal = Infinity;
+    maxVal = -Infinity;
+    for (let i = 0; i < aSize; i++) {
+      const val = Number(aData[i]);
+      if (!isNaN(val)) {
+        if (val < minVal) minVal = val;
+        if (val > maxVal) maxVal = val;
+      }
+    }
+    // Handle edge cases
+    if (!isFinite(minVal) || !isFinite(maxVal)) {
+      minVal = 0;
+      maxVal = 1;
+    } else if (minVal === maxVal) {
+      minVal = minVal - 0.5;
+      maxVal = maxVal + 0.5;
+    }
+  }
+
+  // Determine number of bins
+  let numBins: number;
+
+  if (typeof bins === 'number') {
+    numBins = bins;
+  } else {
+    // Compute optimal number of bins using the specified algorithm
+    numBins = computeOptimalBins(aData, aSize, minVal, maxVal, bins);
+  }
+
+  // Ensure at least 1 bin
+  numBins = Math.max(1, Math.round(numBins));
+
+  // Compute bin edges
+  const binEdges = new Float64Array(numBins + 1);
+  const step = (maxVal - minVal) / numBins;
+  for (let i = 0; i <= numBins; i++) {
+    binEdges[i] = minVal + i * step;
+  }
+
+  return ArrayStorage.fromData(binEdges, [numBins + 1], 'float64');
+}
+
+/**
+ * Helper to compute optimal number of bins for histogram
+ */
+function computeOptimalBins(
+  data: TypedArray | number[],
+  size: number,
+  minVal: number,
+  maxVal: number,
+  method: 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt'
+): number {
+  if (size === 0) return 1;
+
+  const range = maxVal - minVal;
+  if (range === 0) return 1;
+
+  // Collect non-NaN values and compute statistics
+  const values: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < size; i++) {
+    const val = Number(data[i]);
+    if (!isNaN(val)) {
+      values.push(val);
+      sum += val;
+    }
+  }
+  const n = values.length;
+  if (n === 0) return 1;
+
+  const mean = sum / n;
+
+  // Compute standard deviation
+  let sumSq = 0;
+  for (let i = 0; i < n; i++) {
+    const diff = values[i]! - mean;
+    sumSq += diff * diff;
+  }
+  const std = Math.sqrt(sumSq / n);
+
+  // Compute IQR (interquartile range)
+  values.sort((a, b) => a - b);
+  const q1 = values[Math.floor(n * 0.25)] ?? 0;
+  const q3 = values[Math.floor(n * 0.75)] ?? 0;
+  const iqr = q3 - q1;
+
+  switch (method) {
+    case 'sqrt':
+      return Math.ceil(Math.sqrt(n));
+
+    case 'sturges':
+      return Math.ceil(Math.log2(n) + 1);
+
+    case 'rice':
+      return Math.ceil(2 * Math.pow(n, 1 / 3));
+
+    case 'scott': {
+      if (std === 0) return 1;
+      const scottBinWidth = (3.5 * std) / Math.pow(n, 1 / 3);
+      return Math.ceil(range / scottBinWidth);
+    }
+
+    case 'fd': {
+      // Freedman-Diaconis
+      if (iqr === 0) return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
+      const fdBinWidth = (2 * iqr) / Math.pow(n, 1 / 3);
+      return Math.ceil(range / fdBinWidth);
+    }
+
+    case 'doane': {
+      // Doane's formula
+      const g1 = computeSkewness(values, mean, std);
+      const sigmaG1 = Math.sqrt((6 * (n - 2)) / ((n + 1) * (n + 3)));
+      return Math.ceil(1 + Math.log2(n) + Math.log2(1 + Math.abs(g1) / sigmaG1));
+    }
+
+    case 'stone':
+      // Stone's rule is more complex; use Sturges as fallback
+      return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
+
+    case 'auto':
+    default: {
+      // Use maximum of Sturges and FD
+      const sturgeBins = Math.ceil(Math.log2(n) + 1);
+      const fdBins = iqr === 0 ? sturgeBins : Math.ceil(range / ((2 * iqr) / Math.pow(n, 1 / 3)));
+      return Math.max(sturgeBins, fdBins);
+    }
+  }
+}
+
+/**
+ * Helper to compute skewness
+ */
+function computeSkewness(values: number[], mean: number, std: number): number {
+  if (std === 0) return 0;
+  const n = values.length;
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    sum += Math.pow((values[i]! - mean) / std, 3);
+  }
+  return sum / n;
+}
+
+/**
+ * Integrate along the given axis using the composite trapezoidal rule.
+ *
+ * @param y - Input array to integrate
+ * @param x - Optional sample points corresponding to y values. If not provided, spacing is assumed to be 1.
+ * @param dx - Spacing between sample points when x is not given (default: 1.0)
+ * @param axis - The axis along which to integrate (default: -1, meaning last axis)
+ * @returns Definite integral approximated using the composite trapezoidal rule
+ */
+export function trapezoid(
+  y: ArrayStorage,
+  x?: ArrayStorage,
+  dx: number = 1.0,
+  axis: number = -1
+): ArrayStorage | number {
+  throwIfComplex(y.dtype, 'trapezoid', 'trapezoid requires real numbers.');
+  if (x !== undefined) {
+    throwIfComplex(x.dtype, 'trapezoid', 'trapezoid requires real numbers.');
+  }
+
+  const yShape = Array.from(y.shape);
+  const ndim = yShape.length;
+
+  // Handle negative axis
+  if (axis < 0) {
+    axis = ndim + axis;
+  }
+
+  if (axis < 0 || axis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  const axisSize = yShape[axis]!;
+
+  if (axisSize < 2) {
+    throw new Error('trapezoid requires at least 2 samples along axis');
+  }
+
+  // Get sample points
+  let xValues: Float64Array;
+  if (x !== undefined) {
+    if (x.size !== axisSize) {
+      throw new Error(`x array size (${x.size}) must match y axis size (${axisSize})`);
+    }
+    const xData = x.data;
+    xValues = new Float64Array(axisSize);
+    for (let i = 0; i < axisSize; i++) {
+      xValues[i] = Number(xData[i]);
+    }
+  } else {
+    // Create evenly spaced x values
+    xValues = new Float64Array(axisSize);
+    for (let i = 0; i < axisSize; i++) {
+      xValues[i] = i * dx;
+    }
+  }
+
+  // Compute output shape (remove the integration axis)
+  const outShape = [...yShape];
+  outShape.splice(axis, 1);
+
+  // Handle 1D case
+  if (ndim === 1) {
+    const yData = y.data;
+    let integral = 0;
+    for (let i = 0; i < axisSize - 1; i++) {
+      const y0 = Number(yData[i]);
+      const y1 = Number(yData[i + 1]);
+      const dx_i = xValues[i + 1]! - xValues[i]!;
+      integral += 0.5 * (y0 + y1) * dx_i;
+    }
+    return integral;
+  }
+
+  // For N-D arrays
+  const outSize = outShape.reduce((a, b) => a * b, 1);
+  const resultData = new Float64Array(outSize);
+
+  // Compute strides for the input array
+  const yStrides: number[] = new Array(ndim);
+  let stride = 1;
+  for (let i = ndim - 1; i >= 0; i--) {
+    yStrides[i] = stride;
+    stride *= yShape[i]!;
+  }
+
+  // Compute strides for the output array
+  const outStrides: number[] = new Array(outShape.length);
+  stride = 1;
+  for (let i = outShape.length - 1; i >= 0; i--) {
+    outStrides[i] = stride;
+    stride *= outShape[i]!;
+  }
+
+  const yData = y.data;
+
+  // Iterate over all output elements
+  for (let outIdx = 0; outIdx < outSize; outIdx++) {
+    // Compute coordinates in output array
+    const outCoords: number[] = [];
+    let remaining = outIdx;
+    for (let d = 0; d < outShape.length; d++) {
+      const coord = Math.floor(remaining / outStrides[d]!);
+      remaining %= outStrides[d]!;
+      outCoords.push(coord);
+    }
+
+    // Map to input coordinates (insert axis dimension)
+    const inCoordsBase: number[] = [];
+    let outD = 0;
+    for (let d = 0; d < ndim; d++) {
+      if (d === axis) {
+        inCoordsBase.push(0); // Placeholder for axis
+      } else {
+        inCoordsBase.push(outCoords[outD]!);
+        outD++;
+      }
+    }
+
+    // Compute integral along axis
+    let integral = 0;
+    for (let i = 0; i < axisSize - 1; i++) {
+      // Get y[i] and y[i+1]
+      inCoordsBase[axis] = i;
+      let idx0 = 0;
+      for (let d = 0; d < ndim; d++) {
+        idx0 += inCoordsBase[d]! * yStrides[d]!;
+      }
+
+      inCoordsBase[axis] = i + 1;
+      let idx1 = 0;
+      for (let d = 0; d < ndim; d++) {
+        idx1 += inCoordsBase[d]! * yStrides[d]!;
+      }
+
+      const y0 = Number(yData[idx0]);
+      const y1 = Number(yData[idx1]);
+      const dx_i = xValues[i + 1]! - xValues[i]!;
+      integral += 0.5 * (y0 + y1) * dx_i;
+    }
+
+    resultData[outIdx] = integral;
+  }
+
+  if (outShape.length === 0) {
+    return resultData[0]!;
+  }
+
+  return ArrayStorage.fromData(resultData, outShape, 'float64');
+}

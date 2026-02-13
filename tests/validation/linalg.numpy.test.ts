@@ -1185,7 +1185,7 @@ result = np.linalg.solve([[3, 1], [1, 2]], [9, 8])
         [5, 6],
       ]);
       const jsResult = linalg.qr(a) as { q: any; r: any };
-      const reconstructed = jsResult.q.matmul(jsResult.r);
+      const reconstructed = linalg.matmul(jsResult.q, jsResult.r);
 
       // Verify A ≈ Q @ R
       for (let i = 0; i < 3; i++) {

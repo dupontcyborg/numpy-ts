@@ -13,7 +13,7 @@ import {
   radians,
   deg2rad,
   rad2deg,
-} from '../../src/core/ndarray';
+} from '../../src';
 
 describe('Trigonometric Operations', () => {
   describe('sin', () => {

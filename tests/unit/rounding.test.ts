@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src/core/ndarray';
+import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src';
 
 describe('Rounding Functions', () => {
   describe('around()', () => {
@@ -242,5 +242,230 @@ describe('Edge Cases', () => {
         [4, 4],
       ],
     ]);
+  });
+});
+
+describe('Rounding - Branch Coverage Improvement', () => {
+  describe('fix() additional branches', () => {
+    it('handles float32 dtype', () => {
+      const arr = array([1.9, -1.9, 2.5, -2.5], 'float32');
+      const result = fix(arr);
+      expect(result.toArray()).toEqual([1, -1, 2, -2]);
+    });
+
+    it('handles int32 dtype (no-op since already integers)', () => {
+      const arr = array([1, -1, 2, -2], 'int32');
+      const result = fix(arr);
+      expect(result.toArray()).toEqual([1, -1, 2, -2]);
+    });
+
+    it('handles Infinity and -Infinity', () => {
+      const arr = array([Infinity, -Infinity, 0]);
+      const result = fix(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBe(Infinity);
+      expect(values[1]).toBe(-Infinity);
+      expect(values[2]).toBe(0);
+    });
+
+    it('handles NaN values', () => {
+      const arr = array([NaN, 1.5, -NaN]);
+      const result = fix(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBeNaN();
+      expect(values[1]).toBe(1);
+    });
+  });
+
+  describe('trunc() additional branches', () => {
+    it('handles float32 dtype', () => {
+      const arr = array([1.7, -1.7, 2.9, -2.9], 'float32');
+      const result = trunc(arr);
+      expect(result.toArray()).toEqual([1, -1, 2, -2]);
+    });
+
+    it('handles int32 dtype (no-op since already integers)', () => {
+      const arr = array([1, -1, 2, -2], 'int32');
+      const result = trunc(arr);
+      expect(result.toArray()).toEqual([1, -1, 2, -2]);
+    });
+
+    it('handles Infinity and -Infinity', () => {
+      const arr = array([Infinity, -Infinity]);
+      const result = trunc(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBe(Infinity);
+      expect(values[1]).toBe(-Infinity);
+    });
+
+    it('handles NaN values', () => {
+      const arr = array([NaN, 1.5]);
+      const result = trunc(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBeNaN();
+      expect(values[1]).toBe(1);
+    });
+  });
+
+  describe('around() additional branches', () => {
+    it('handles float32 dtype', () => {
+      const arr = array([1.4, 1.5, 1.6], 'float32');
+      const result = around(arr);
+      expect(result.toArray()).toEqual([1, 2, 2]);
+    });
+
+    it('handles int32 dtype', () => {
+      const arr = array([1, 2, 3], 'int32');
+      const result = around(arr);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('handles large decimals', () => {
+      const arr = array([1.23456789]);
+      const result = around(arr, 5);
+      expect(result.toArray()[0]).toBeCloseTo(1.23457, 5);
+    });
+
+    it('handles Infinity', () => {
+      const arr = array([Infinity, -Infinity]);
+      const result = around(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBe(Infinity);
+      expect(values[1]).toBe(-Infinity);
+    });
+
+    it('handles NaN', () => {
+      const arr = array([NaN]);
+      const result = around(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBeNaN();
+    });
+  });
+
+  describe('ceil() additional branches', () => {
+    it('handles float32 dtype', () => {
+      const arr = array([1.1, 1.9, -1.1, -1.9], 'float32');
+      const result = ceil(arr);
+      expect(result.toArray()).toEqual([2, 2, -1, -1]);
+    });
+
+    it('handles int32 dtype', () => {
+      const arr = array([1, 2, 3], 'int32');
+      const result = ceil(arr);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('handles Infinity', () => {
+      const arr = array([Infinity, -Infinity]);
+      const result = ceil(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBe(Infinity);
+      expect(values[1]).toBe(-Infinity);
+    });
+  });
+
+  describe('floor() additional branches', () => {
+    it('handles float32 dtype', () => {
+      const arr = array([1.1, 1.9, -1.1, -1.9], 'float32');
+      const result = floor(arr);
+      expect(result.toArray()).toEqual([1, 1, -2, -2]);
+    });
+
+    it('handles int32 dtype', () => {
+      const arr = array([1, 2, 3], 'int32');
+      const result = floor(arr);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('rint() additional branches', () => {
+    it('handles float32 dtype', () => {
+      const arr = array([1.4, 1.5, 1.6, 2.5], 'float32');
+      const result = rint(arr);
+      expect(result.toArray()).toEqual([1, 2, 2, 2]);
+    });
+
+    it('handles int32 dtype (no change)', () => {
+      const arr = array([1, 2, 3], 'int32');
+      const result = rint(arr);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('handles Infinity in rint', () => {
+      const arr = array([Infinity, -Infinity]);
+      const result = rint(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBe(Infinity);
+      expect(values[1]).toBe(-Infinity);
+    });
+
+    it('handles NaN in rint', () => {
+      const arr = array([NaN]);
+      const result = rint(arr);
+      const values = result.toArray() as number[];
+      expect(values[0]).toBeNaN();
+    });
+
+    it('handles half-to-even for negative numbers', () => {
+      const arr = array([-0.5, -1.5, -2.5, -3.5]);
+      const result = rint(arr);
+      expect(result.toArray()).toEqual([0, -2, -2, -4]);
+    });
+  });
+
+  describe('round() additional branches', () => {
+    it('handles float32 dtype', () => {
+      const arr = array([1.234, 2.567], 'float32');
+      const result = round(arr, 2);
+      expect(result.toArray()[0]).toBeCloseTo(1.23, 2);
+      expect(result.toArray()[1]).toBeCloseTo(2.57, 2);
+    });
+  });
+});
+
+describe('trunc() - standalone wrapper coverage', () => {
+  it('truncates positive fractional values', () => {
+    const arr = array([0.1, 0.9, 1.0, 1.5, 99.99]);
+    const result = trunc(arr);
+    expect(result.toArray()).toEqual([0, 0, 1, 1, 99]);
+  });
+
+  it('truncates negative fractional values', () => {
+    const arr = array([-0.1, -0.9, -1.0, -1.5, -99.99]);
+    const result = trunc(arr);
+    const values = result.toArray() as number[];
+    // Math.trunc(-0.1) = -0, Math.trunc(-0.9) = -0
+    expect(values[2]).toBe(-1);
+    expect(values[3]).toBe(-1);
+    expect(values[4]).toBe(-99);
+  });
+
+  it('truncates 3D array', () => {
+    const arr = array([
+      [
+        [1.9, -2.9],
+        [3.1, -4.1],
+      ],
+    ]);
+    const result = trunc(arr);
+    expect(result.toArray()).toEqual([
+      [
+        [1, -2],
+        [3, -4],
+      ],
+    ]);
+  });
+
+  it('handles zero values', () => {
+    const arr = array([0, 0.0, -0.0]);
+    const result = trunc(arr);
+    const values = result.toArray() as number[];
+    expect(values[0]).toBe(0);
+  });
+
+  it('preserves integer values', () => {
+    const arr = array([1, -2, 3, -4, 0]);
+    const result = trunc(arr);
+    expect(result.toArray()).toEqual([1, -2, 3, -4, 0]);
   });
 });

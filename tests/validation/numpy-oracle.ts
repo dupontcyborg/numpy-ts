@@ -29,7 +29,7 @@ export interface NumPyResult {
  * Deserialize values from Python, converting special markers back to Infinity/NaN
  */
 
-import { Complex } from '../../src/core/complex';
+import { Complex } from '../../src/common/complex';
 
 function deserializeValue(val: any): any {
   if (Array.isArray(val)) {

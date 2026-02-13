@@ -15,7 +15,7 @@ import {
   isFloatDType,
   isBigIntDType,
   toStdlibDType,
-} from '../../src/core/dtype';
+} from '../../src/common/dtype';
 
 describe('dtype utility functions', () => {
   describe('inferDType()', () => {

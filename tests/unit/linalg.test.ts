@@ -12,6 +12,7 @@ import {
   outer,
   tensordot,
   diagonal,
+  diag,
   kron,
   einsum,
   einsum_path,
@@ -596,6 +597,21 @@ describe('Linear Algebra Operations', () => {
     it('throws error for 1D arrays', () => {
       const a = array([1, 2, 3]);
       expect(() => diagonal(a)).toThrow(/at least two dimensions/);
+    });
+  });
+
+  describe('diag()', () => {
+    it('extracts diagonal from matrix', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(diag(a).toArray()).toEqual([1, 4]);
+    });
+
+    it('creates diagonal matrix from vector', () => {
+      const a = array([1, 2, 3]);
+      expect(diag(a).shape).toEqual([3, 3]);
     });
   });
 

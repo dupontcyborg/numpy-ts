@@ -84,8 +84,10 @@ import {
   nanmin,
   nanmax,
   ptp,
+  sort_complex,
+  real_if_close,
 } from '../../src';
-import { complexAbs } from '../../src/ops/complex';
+import { complexAbs } from '../../src/common/ops/complex';
 
 describe('Complex Number Support', () => {
   describe('Complex class', () => {
@@ -3771,6 +3773,21 @@ describe('Complex Number Support', () => {
         expect(isNaN(result.re)).toBe(true);
         expect(isNaN(result.im)).toBe(true);
       });
+    });
+  });
+
+  describe('sort_complex()', () => {
+    it('sorts complex array by real part then imaginary part', () => {
+      const a = array([new Complex(3, 0), new Complex(1, 0), new Complex(2, 0)], 'complex128');
+      const r = sort_complex(a);
+      expect(r.dtype).toContain('complex');
+    });
+  });
+
+  describe('real_if_close()', () => {
+    it('returns real array when imaginary parts are close to zero', () => {
+      const a = array([1, 2, 3]);
+      expect(real_if_close(a).size).toBe(3);
     });
   });
 });

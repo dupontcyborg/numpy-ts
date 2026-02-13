@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { ones, zeros, array } from '../../src/core/ndarray';
+import { ones, zeros, array } from '../../src';
 import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
-import type { DType } from '../../src/core/dtype';
+import type { DType } from '../../src/common/dtype';
 
 describe('NumPy Validation: Division Operations', () => {
   beforeAll(() => {

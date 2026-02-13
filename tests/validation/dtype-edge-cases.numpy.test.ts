@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array, ones } from '../../src/core/ndarray';
+import { array, ones } from '../../src';
 import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: DType Edge Cases', () => {

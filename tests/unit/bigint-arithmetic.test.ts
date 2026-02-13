@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { zeros, ones } from '../../src/core/ndarray';
+import { zeros, ones } from '../../src';
 
 describe('BigInt Arithmetic Correctness', () => {
   // Number.MAX_SAFE_INTEGER = 9007199254740991

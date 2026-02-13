@@ -7,9 +7,9 @@ import {
   InvalidNpyError,
   DTYPE_TO_DESCR,
 } from '../../../src/io/npy';
-import { array, zeros, ones, arange, transpose } from '../../../src/core/ndarray';
-import { Complex } from '../../../src/core/complex';
-import type { DType } from '../../../src/core/dtype';
+import { array, zeros, ones, arange, transpose } from '../../../src';
+import { Complex } from '../../../src/common/complex';
+import type { DType } from '../../../src/common/dtype';
 
 describe('NPY Format', () => {
   describe('serializeNpy', () => {

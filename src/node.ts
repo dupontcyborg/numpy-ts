@@ -16,26 +16,40 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 
-import { NDArray } from './core/ndarray';
-import { parseNpy } from './io/npy/parser';
+import { NDArray } from './full/ndarray';
+import { NDArrayCore } from './common/ndarray-core';
+import { parseNpy as parseNpyIO } from './io/npy/parser';
 import { serializeNpy } from './io/npy/serializer';
-import { parseNpz, type NpzParseOptions, type NpzParseResult } from './io/npz/parser';
-import { serializeNpz, type NpzSerializeOptions, type NpzArraysInput } from './io/npz/serializer';
+import { parseNpz as parseNpzIO, parseNpzSync as parseNpzSyncIO } from './io/npz/parser';
+import type { NpzParseOptions } from './io/npz/parser';
 import {
-  parseTxt,
-  genfromtxt as genfromtxtCore,
-  fromregex as fromregexCore,
-  serializeTxt,
-  type ParseTxtOptions,
-  type SerializeTxtOptions,
+  serializeNpz,
+  serializeNpzSync,
+  type NpzSerializeOptions,
+  type NpzArraysInput,
+} from './io/npz/serializer';
+import {
+  parseTxt as parseTxtIO,
+  genfromtxt as genfromtxtIO,
+  fromregex as fromregexIO,
 } from './io/txt';
-import type { DType } from './core/dtype';
+import { serializeTxt, type ParseTxtOptions, type SerializeTxtOptions } from './io/txt';
+import type { DType } from './common/dtype';
+
+// Helper to upgrade NDArrayCore to NDArray
+function upgrade(core: NDArrayCore): NDArray {
+  return NDArray.fromStorage(core.storage);
+}
+
+// NDArray-typed NpzParseResult for node.ts
+interface NpzParseResultNDArray {
+  arrays: Map<string, NDArray>;
+  skipped: string[];
+  errors: Map<string, string>;
+}
 
 // Re-export everything from the main module for convenience
 export * from './index';
-
-// Re-export IO parsing/serialization functions
-export * from './io';
 
 /**
  * Options for loading NPY/NPZ files
@@ -61,7 +75,7 @@ export interface SaveNpzOptions extends NpzSerializeOptions {}
  */
 export async function loadNpy(path: string): Promise<NDArray> {
   const buffer = await readFile(path);
-  return parseNpy(buffer);
+  return upgrade(parseNpyIO(buffer));
 }
 
 /**
@@ -72,7 +86,7 @@ export async function loadNpy(path: string): Promise<NDArray> {
  */
 export function loadNpySync(path: string): NDArray {
   const buffer = readFileSync(path);
-  return parseNpy(buffer);
+  return upgrade(parseNpyIO(buffer));
 }
 
 /**
@@ -107,9 +121,14 @@ export function saveNpySync(path: string, arr: NDArray): void {
 export async function loadNpzFile(
   path: string,
   options: NpzParseOptions = {}
-): Promise<NpzParseResult> {
+): Promise<NpzParseResultNDArray> {
   const buffer = await readFile(path);
-  return parseNpz(buffer, options);
+  const result = await parseNpzIO(buffer, options);
+  const arrays = new Map<string, NDArray>();
+  for (const [name, arr] of result.arrays) {
+    arrays.set(name, upgrade(arr));
+  }
+  return { arrays, skipped: result.skipped, errors: result.errors };
 }
 
 /**
@@ -121,11 +140,17 @@ export async function loadNpzFile(
  * @param options - Load options
  * @returns Object with array names as keys
  */
-export function loadNpzFileSync(path: string, options: NpzParseOptions = {}): NpzParseResult {
+export function loadNpzFileSync(
+  path: string,
+  options: NpzParseOptions = {}
+): NpzParseResultNDArray {
   const buffer = readFileSync(path);
-  // Note: This will throw if the file is compressed
-  const { parseNpzSync } = require('./io/npz/parser');
-  return parseNpzSync(buffer, options);
+  const result = parseNpzSyncIO(buffer, options);
+  const arrays = new Map<string, NDArray>();
+  for (const [name, arr] of result.arrays) {
+    arrays.set(name, upgrade(arr));
+  }
+  return { arrays, skipped: result.skipped, errors: result.errors };
 }
 
 /**
@@ -154,7 +179,6 @@ export async function saveNpz(
  * @param arrays - Arrays to save (same types as saveNpz)
  */
 export function saveNpzSync(path: string, arrays: NpzArraysInput): void {
-  const { serializeNpzSync } = require('./io/npz/serializer');
   const data = serializeNpzSync(arrays);
   writeFileSync(path, data);
 }
@@ -171,7 +195,7 @@ export function saveNpzSync(path: string, arrays: NpzArraysInput): void {
 export async function load(
   path: string,
   options: LoadOptions = {}
-): Promise<NDArray | NpzParseResult> {
+): Promise<NDArray | NpzParseResultNDArray> {
   if (path.endsWith('.npy')) {
     if (options.allowNpy === false) {
       throw new Error('Loading .npy files is disabled (allowNpy: false)');
@@ -191,7 +215,7 @@ export async function load(
  * @param options - Load options
  * @returns NDArray for .npy files, or NpzParseResult for .npz files
  */
-export function loadSync(path: string, options: LoadOptions = {}): NDArray | NpzParseResult {
+export function loadSync(path: string, options: LoadOptions = {}): NDArray | NpzParseResultNDArray {
   if (path.endsWith('.npy')) {
     if (options.allowNpy === false) {
       throw new Error('Loading .npy files is disabled (allowNpy: false)');
@@ -302,7 +326,7 @@ export interface SaveTxtOptions extends SerializeTxtOptions {}
  */
 export async function loadtxt(path: string, options: LoadTxtOptions = {}): Promise<NDArray> {
   const content = await readFile(path, { encoding: (options.encoding ?? 'utf-8') as 'utf-8' });
-  return parseTxt(content, options);
+  return upgrade(parseTxtIO(content, options));
 }
 
 /**
@@ -314,7 +338,7 @@ export async function loadtxt(path: string, options: LoadTxtOptions = {}): Promi
  */
 export function loadtxtSync(path: string, options: LoadTxtOptions = {}): NDArray {
   const content = readFileSync(path, { encoding: (options.encoding ?? 'utf-8') as 'utf-8' });
-  return parseTxt(content, options);
+  return upgrade(parseTxtIO(content, options));
 }
 
 /**
@@ -378,7 +402,7 @@ export function savetxtSync(path: string, arr: NDArray, options: SaveTxtOptions 
  */
 export async function genfromtxt(path: string, options: LoadTxtOptions = {}): Promise<NDArray> {
   const content = await readFile(path, { encoding: (options.encoding ?? 'utf-8') as 'utf-8' });
-  return genfromtxtCore(content, options);
+  return upgrade(genfromtxtIO(content, options));
 }
 
 /**
@@ -390,7 +414,7 @@ export async function genfromtxt(path: string, options: LoadTxtOptions = {}): Pr
  */
 export function genfromtxtSync(path: string, options: LoadTxtOptions = {}): NDArray {
   const content = readFileSync(path, { encoding: (options.encoding ?? 'utf-8') as 'utf-8' });
-  return genfromtxtCore(content, options);
+  return upgrade(genfromtxtIO(content, options));
 }
 
 /**
@@ -413,7 +437,7 @@ export async function fromregex(
   dtype: DType = 'float64'
 ): Promise<NDArray> {
   const content = await readFile(path, { encoding: 'utf-8' });
-  return fromregexCore(content, regexp, dtype);
+  return upgrade(fromregexIO(content, regexp, dtype));
 }
 
 /**
@@ -430,5 +454,5 @@ export function fromregexSync(
   dtype: DType = 'float64'
 ): NDArray {
   const content = readFileSync(path, { encoding: 'utf-8' });
-  return fromregexCore(content, regexp, dtype);
+  return upgrade(fromregexIO(content, regexp, dtype));
 }

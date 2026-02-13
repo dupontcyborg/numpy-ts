@@ -5,7 +5,7 @@
  * These functions work with strings and are environment-agnostic.
  */
 
-import { NDArray } from '../../core/ndarray';
+import { NDArrayCore } from '../../common/ndarray-core';
 
 /**
  * Options for serializing array to text
@@ -165,7 +165,7 @@ function formatValue(value: number | bigint, fmt: string): string {
  * // "1.000000000000000000e+00,2.000000000000000000e+00,3.000000000000000000e+00\n4.000000000000000000e+00,5.000000000000000000e+00,6.000000000000000000e+00\n"
  * ```
  */
-export function serializeTxt(arr: NDArray, options: SerializeTxtOptions = {}): string {
+export function serializeTxt(arr: NDArrayCore, options: SerializeTxtOptions = {}): string {
   const {
     fmt = '%.18e',
     delimiter = ' ',

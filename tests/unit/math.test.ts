@@ -10,7 +10,24 @@ import {
   floor_divide,
   positive,
   reciprocal,
-} from '../../src/core/ndarray';
+  nan_to_num,
+  interp,
+  unwrap,
+  sinc,
+  i0,
+  fmod,
+  float_power,
+  frexp,
+  gcd,
+  lcm,
+  ldexp,
+  modf,
+  clip,
+  maximum,
+  minimum,
+  fmax,
+  fmin,
+} from '../../src';
 
 describe('Mathematical Operations', () => {
   describe('sqrt', () => {
@@ -467,6 +484,129 @@ describe('Mathematical Operations', () => {
       expect(result.get([0])).toBe(Infinity);
       expect(result.get([1])).toBe(1);
       expect(result.get([2])).toBe(0.5);
+    });
+  });
+
+  describe('nan_to_num', () => {
+    it('replaces NaN and Inf with finite numbers', () => {
+      const a = array([1, NaN, Infinity, -Infinity]);
+      const r = nan_to_num(a);
+      expect(isFinite(r.iget(1) as number)).toBe(true);
+    });
+  });
+
+  describe('interp', () => {
+    it('performs linear interpolation', () => {
+      const xp = array([0, 1, 2]);
+      const fp = array([0, 10, 20]);
+      const r = interp(array([0.5, 1.5]), xp, fp);
+      expect(r.size).toBe(2);
+    });
+  });
+
+  describe('unwrap', () => {
+    it('unwraps phase angles', () => {
+      const a = array([0, 1, 2, -1, -2]);
+      const r = unwrap(a);
+      expect(r.size).toBe(5);
+    });
+  });
+
+  describe('sinc', () => {
+    it('computes sinc function', () => {
+      const a = array([0, 0.5, 1]);
+      const r = sinc(a);
+      expect(r.size).toBe(3);
+    });
+  });
+
+  describe('i0', () => {
+    it('computes modified Bessel function of first kind, order 0', () => {
+      const a = array([0, 1, 2]);
+      const r = i0(a);
+      expect(r.size).toBe(3);
+    });
+  });
+
+  describe('fmod', () => {
+    it('computes element-wise remainder of division', () => {
+      const r = fmod(array([5, 7]), array([3, 4]));
+      expect(r.size).toBe(2);
+    });
+  });
+
+  describe('float_power', () => {
+    it('raises elements to powers with float output', () => {
+      const r = float_power(array([2, 3]), array([3, 2]));
+      expect(r.toArray()).toEqual([8, 9]);
+    });
+  });
+
+  describe('frexp', () => {
+    it('decomposes into mantissa and exponent', () => {
+      const [m, e] = frexp(array([1, 2, 4]));
+      expect(m.size).toBe(3);
+      expect(e.size).toBe(3);
+    });
+  });
+
+  describe('gcd', () => {
+    it('computes greatest common divisor', () => {
+      const r = gcd(array([12, 15]), array([8, 10]));
+      expect(r.toArray()).toEqual([4, 5]);
+    });
+  });
+
+  describe('lcm', () => {
+    it('computes least common multiple', () => {
+      const r = lcm(array([4, 6]), array([6, 8]));
+      expect(r.toArray()).toEqual([12, 24]);
+    });
+  });
+
+  describe('ldexp', () => {
+    it('computes x * 2**exp element-wise', () => {
+      const r = ldexp(array([1, 2]), array([2, 3]));
+      expect(r.toArray()).toEqual([4, 16]);
+    });
+  });
+
+  describe('modf', () => {
+    it('returns fractional and integral parts', () => {
+      const [frac, whole] = modf(array([1.5, 2.7]));
+      expect(frac.size).toBe(2);
+      expect(whole.size).toBe(2);
+    });
+  });
+
+  describe('clip', () => {
+    it('clips values to a range', () => {
+      const r = clip(array([1, 5, 10, 15]), 3, 12);
+      expect(r.toArray()).toEqual([3, 5, 10, 12]);
+    });
+  });
+
+  describe('maximum', () => {
+    it('computes element-wise maximum', () => {
+      expect(maximum(array([1, 5, 3]), array([4, 2, 6])).toArray()).toEqual([4, 5, 6]);
+    });
+  });
+
+  describe('minimum', () => {
+    it('computes element-wise minimum', () => {
+      expect(minimum(array([1, 5, 3]), array([4, 2, 6])).toArray()).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('fmax', () => {
+    it('computes element-wise maximum ignoring NaNs', () => {
+      expect(fmax(array([1, NaN]), array([NaN, 2])).size).toBe(2);
+    });
+  });
+
+  describe('fmin', () => {
+    it('computes element-wise minimum ignoring NaNs', () => {
+      expect(fmin(array([1, NaN]), array([NaN, 2])).size).toBe(2);
     });
   });
 });

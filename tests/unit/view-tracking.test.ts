@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, ones, zeros } from '../../src/core/ndarray';
+import { array, ones, zeros } from '../../src';
 
 describe('View Tracking', () => {
   describe('base attribute', () => {

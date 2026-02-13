@@ -14,7 +14,7 @@ import {
   floor_divide,
   positive,
   reciprocal,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Mathematical Operations', () => {

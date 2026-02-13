@@ -53,9 +53,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-  # Run unit tests (fast, no Python needed)
-  test-unit:
-    name: Unit Tests
+  # Run full test suite with coverage
+  test:
+    name: Tests & Coverage
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -68,10 +68,22 @@ jobs:
           node-version: 24
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
-      - name: Run unit tests with coverage
+      - name: Install dependencies
+        run: |
+          pip install numpy
+          npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full CI test suite
+        run: npm run test:ci
+
+      - name: Run coverage
         run: npm run test:coverage
 
       - name: Generate coverage summary
@@ -150,36 +162,6 @@ jobs:
                 body: comment
               });
             }
-
-  # Run validation tests (requires Python + NumPy)
-  test-validation:
-    name: Validation Tests
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install Python dependencies
-        run: pip install numpy
-
-      - name: Verify NumPy installation
-        run: python -c "import numpy as np; print(f'NumPy {np.__version__} installed')"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run validation tests (quick for now)
-        run: npm run test:quick
 
   # Run benchmarks and compare against main
   benchmark:

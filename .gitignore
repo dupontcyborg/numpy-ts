@@ -46,4 +46,8 @@ scripts/*.json
 TODO
 
 # Coverage
-coverage-report.json
+coverage-report.json# Tree-shaking test output
+tests/tree-shaking/.output/
+
+# ESLint cache
+.eslintcache

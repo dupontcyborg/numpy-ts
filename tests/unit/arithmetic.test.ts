@@ -9,7 +9,23 @@ import {
   lcm,
   ldexp,
   modf,
-} from '../../src/core/ndarray';
+  add,
+  subtract,
+  multiply,
+  divide,
+  sum,
+  mean,
+  prod,
+  std,
+  argmin,
+  argmax,
+  all,
+  any,
+  sort,
+  argsort,
+  unique,
+  where,
+} from '../../src';
 
 describe('Arithmetic Operations', () => {
   describe('add', () => {
@@ -555,5 +571,122 @@ describe('Reduction Operations', () => {
       expect(frac[1]).toBeCloseTo(0.7);
       expect(frac[2]).toBeCloseTo(-0.2);
     });
+  });
+});
+
+describe('Dtype branch coverage (standalone functions)', () => {
+  it('add int32 arrays', () => {
+    const a = array([1, 2, 3], 'int32');
+    const b = array([4, 5, 6], 'int32');
+    expect(add(a, b).dtype).toBe('int32');
+  });
+
+  it('add float32 arrays', () => {
+    const a = array([1, 2, 3], 'float32');
+    const b = array([4, 5, 6], 'float32');
+    expect(add(a, b).dtype).toBe('float32');
+  });
+
+  it('multiply int32 by scalar', () => {
+    const a = array([1, 2, 3], 'int32');
+    expect(multiply(a, 2).toArray()).toEqual([2, 4, 6]);
+  });
+
+  it('subtract float32', () => {
+    const a = array([4, 5, 6], 'float32');
+    expect(subtract(a, 1).size).toBe(3);
+  });
+
+  it('divide float32', () => {
+    const a = array([4, 6, 8], 'float32');
+    expect(divide(a, 2).size).toBe(3);
+  });
+
+  it('sum int32 with axis', () => {
+    const a = array(
+      [
+        [1, 2],
+        [3, 4],
+      ],
+      'int32'
+    );
+    const r = sum(a, 0);
+    expect(r.toArray()).toEqual([4, 6]);
+  });
+
+  it('sum float32 with keepdims', () => {
+    const a = array(
+      [
+        [1, 2],
+        [3, 4],
+      ],
+      'float32'
+    );
+    const r = sum(a, 1, true);
+    expect(r.shape).toEqual([2, 1]);
+  });
+
+  it('mean int32 with axis', () => {
+    const a = array(
+      [
+        [1, 2],
+        [3, 4],
+      ],
+      'int32'
+    );
+    const r = mean(a, 0);
+    expect(r.size).toBe(2);
+  });
+
+  it('prod float32', () => {
+    const a = array([1, 2, 3], 'float32');
+    const r = prod(a);
+    expect(r).toBeDefined();
+  });
+
+  it('std float32 with axis', () => {
+    const a = array(
+      [
+        [1, 2],
+        [3, 4],
+      ],
+      'float32'
+    );
+    expect(std(a, 1).size).toBe(2);
+  });
+
+  it('argmin/argmax int32', () => {
+    const a = array([3, 1, 2], 'int32');
+    expect(argmin(a)).toBe(1);
+    expect(argmax(a)).toBe(0);
+  });
+
+  it('all/any bool', () => {
+    const a = array([1, 1, 1], 'bool');
+    expect(all(a)).toBe(true);
+    const b = array([0, 0, 0], 'bool');
+    expect(any(b)).toBe(false);
+  });
+
+  it('sort float32', () => {
+    const a = array([3, 1, 2], 'float32');
+    expect(sort(a).toArray()).toEqual([1, 2, 3]);
+  });
+
+  it('argsort int32', () => {
+    const a = array([3, 1, 2], 'int32');
+    expect(argsort(a).toArray()).toEqual([1, 2, 0]);
+  });
+
+  it('unique int32', () => {
+    const a = array([3, 1, 2, 1], 'int32');
+    expect(unique(a).size).toBe(3);
+  });
+
+  it('where with int32', () => {
+    const cond = array([1, 0, 1], 'bool');
+    const x = array([10, 20, 30], 'int32');
+    const y = array([40, 50, 60], 'int32');
+    expect(where(cond, x, y).size).toBe(3);
   });
 });

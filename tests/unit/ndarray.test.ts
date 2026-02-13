@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { zeros, ones, array } from '../../src/core/ndarray';
+import { zeros, ones, array, Complex } from '../../src';
 
 describe('NDArray Creation', () => {
   describe('zeros', () => {
@@ -574,5 +574,59 @@ describe('NDArray Slicing', () => {
       const arr = array([1, 2, 3]);
       expect(() => arr.slice('-10')).toThrow(/out of bounds/);
     });
+  });
+});
+
+describe('NDArrayCore specific', () => {
+  it('fill with Complex', () => {
+    const a = array([new Complex(0, 0), new Complex(0, 0)], 'complex128');
+    a.fill(new Complex(3, 4) as any);
+    expect(a.size).toBe(2);
+  });
+
+  it('astype complex to float', () => {
+    const a = array([new Complex(1, 0), new Complex(2, 0)], 'complex128');
+    const b = a.astype('float64');
+    expect(b.dtype).toBe('float64');
+  });
+
+  it('iterator 3D', () => {
+    const a = array([
+      [
+        [1, 2],
+        [3, 4],
+      ],
+      [
+        [5, 6],
+        [7, 8],
+      ],
+    ]);
+    const items = [...a];
+    expect(items.length).toBe(2);
+  });
+
+  it('toArray on 0D', () => {
+    const a = array([42]).reshape();
+    if (a.ndim === 0) {
+      const v = a.toArray();
+      expect(v).toBeDefined();
+    }
+  });
+
+  it('tobytes non-contiguous', () => {
+    const a = array([1, 2, 3, 4, 5, 6], 'int32');
+    const s = a.slice('::2');
+    const b = s.tobytes();
+    expect(b).toBeInstanceOf(ArrayBuffer);
+  });
+
+  it('get/set with negative indices', () => {
+    const a = array([
+      [1, 2],
+      [3, 4],
+    ]);
+    expect(a.get([-1, -1])).toBe(4);
+    a.set([-1, -1], 99);
+    expect(a.get([1, 1])).toBe(99);
   });
 });

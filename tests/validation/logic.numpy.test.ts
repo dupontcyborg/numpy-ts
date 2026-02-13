@@ -16,7 +16,7 @@ import {
   isrealobj,
   isscalar,
   promote_types,
-} from '../../src/core/ndarray';
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Logic Operations', () => {

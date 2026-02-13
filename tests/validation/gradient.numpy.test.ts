@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array, diff, ediff1d, gradient, cross } from '../../src/core/ndarray';
+import { array, diff, ediff1d, gradient, cross } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Gradient Operations', () => {

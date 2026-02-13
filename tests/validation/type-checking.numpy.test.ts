@@ -6,14 +6,8 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array } from '../../src/core/ndarray';
-import {
-  can_cast,
-  common_type,
-  result_type,
-  min_scalar_type,
-  issubdtype,
-} from '../../src/core/ndarray';
+import { array } from '../../src';
+import { can_cast, common_type, result_type, min_scalar_type, issubdtype } from '../../src';
 import { runNumPy, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
 
 describe('NumPy Validation: Type Checking Functions', () => {

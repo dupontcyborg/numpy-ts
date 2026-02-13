@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array } from '../../src/core/ndarray';
+import { array } from '../../src';
 import {
   poly,
   polyadd,
@@ -18,8 +18,31 @@ import {
   polysub,
   polyval,
   roots,
-} from '../../src/core/ndarray';
+} from '../../src';
+import { Complex } from '../../src/common/complex';
 import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+
+/**
+ * Extract sorted real parts from a complex128 roots result (for comparing real-only roots).
+ */
+function sortedRealParts(result: ReturnType<typeof roots>): number[] {
+  const arr = result.toArray() as Complex[];
+  return arr.map((c) => c.re).sort((a, b) => a - b);
+}
+
+/**
+ * Extract sorted [re, im] pairs from complex128 roots for comparison.
+ * Sorts by real part then imaginary part.
+ */
+function sortedComplexParts(result: ReturnType<typeof roots>): { re: number; im: number }[] {
+  const arr = result.toArray() as Complex[];
+  return arr
+    .map((c) => ({ re: c.re, im: c.im }))
+    .sort((a, b) => {
+      if (Math.abs(a.re - b.re) > 1e-8) return a.re - b.re;
+      return a.im - b.im;
+    });
+}
 
 describe('NumPy Validation: Polynomial Functions', () => {
   beforeAll(() => {
@@ -258,36 +281,123 @@ result = np.polyfit(x, y, 2)
   });
 
   describe('roots()', () => {
-    it('validates roots for quadratic', () => {
+    it('validates roots for quadratic with real roots', () => {
       const result = roots([1, -3, 2]);
-      const resultArr = (result.toArray() as number[]).sort((a, b) => a - b);
+      const resultSorted = sortedRealParts(result);
 
       const npResult = runNumPy(`
-result = np.sort(np.roots([1, -3, 2]))
+result = np.sort(np.roots([1, -3, 2]).real)
 `);
 
-      expect(arraysClose(resultArr, npResult.value, 1e-5)).toBe(true);
+      expect(arraysClose(resultSorted, npResult.value, 1e-5)).toBe(true);
     });
 
     it('validates roots for x^2 - 1', () => {
       const result = roots([1, 0, -1]);
-      const resultArr = (result.toArray() as number[]).sort((a, b) => a - b);
+      const resultSorted = sortedRealParts(result);
 
       const npResult = runNumPy(`
 result = np.sort(np.roots([1, 0, -1]).real)
 `);
 
-      expect(arraysClose(resultArr, npResult.value, 1e-5)).toBe(true);
+      expect(arraysClose(resultSorted, npResult.value, 1e-5)).toBe(true);
     });
 
     it('validates roots for linear polynomial', () => {
       const result = roots([1, -5]);
+      const re = (result.toArray() as Complex[]).map((c) => c.re);
 
       const npResult = runNumPy(`
-result = np.roots([1, -5])
+result = np.roots([1, -5]).real
 `);
 
-      expect(arraysClose(result.toArray(), npResult.value, 1e-10)).toBe(true);
+      expect(arraysClose(re, npResult.value, 1e-10)).toBe(true);
+    });
+
+    it('validates roots for x^2 + 1 (pure imaginary roots)', () => {
+      const result = roots([1, 0, 1]);
+      const sorted = sortedComplexParts(result);
+
+      const npResult = runNumPy(`
+r = np.sort_complex(np.roots([1, 0, 1]))
+result = np.array([[c.real, c.imag] for c in r]).flatten()
+`);
+
+      const npPairs = [];
+      for (let i = 0; i < npResult.value.length; i += 2) {
+        npPairs.push({ re: npResult.value[i], im: npResult.value[i + 1] });
+      }
+      npPairs.sort((a: any, b: any) => {
+        if (Math.abs(a.re - b.re) > 1e-8) return a.re - b.re;
+        return a.im - b.im;
+      });
+
+      for (let i = 0; i < sorted.length; i++) {
+        expect(sorted[i]!.re).toBeCloseTo(npPairs[i]!.re, 5);
+        expect(sorted[i]!.im).toBeCloseTo(npPairs[i]!.im, 5);
+      }
+    });
+
+    it('validates roots for x^4 + x^3 + x^2 + x + 1 (all complex roots)', () => {
+      const result = roots([1, 1, 1, 1, 1]);
+      const sorted = sortedComplexParts(result);
+
+      const npResult = runNumPy(`
+r = np.sort_complex(np.roots([1, 1, 1, 1, 1]))
+result = np.array([[c.real, c.imag] for c in r]).flatten()
+`);
+
+      const npPairs = [];
+      for (let i = 0; i < npResult.value.length; i += 2) {
+        npPairs.push({ re: npResult.value[i], im: npResult.value[i + 1] });
+      }
+      npPairs.sort((a: any, b: any) => {
+        if (Math.abs(a.re - b.re) > 1e-8) return a.re - b.re;
+        return a.im - b.im;
+      });
+
+      expect(sorted.length).toBe(npPairs.length);
+      for (let i = 0; i < sorted.length; i++) {
+        expect(sorted[i]!.re).toBeCloseTo(npPairs[i]!.re, 3);
+        expect(sorted[i]!.im).toBeCloseTo(npPairs[i]!.im, 3);
+      }
+    });
+
+    it('validates roots for x^3 - 1 (one real, two complex)', () => {
+      const result = roots([1, 0, 0, -1]);
+      const sorted = sortedComplexParts(result);
+
+      const npResult = runNumPy(`
+r = np.sort_complex(np.roots([1, 0, 0, -1]))
+result = np.array([[c.real, c.imag] for c in r]).flatten()
+`);
+
+      const npPairs = [];
+      for (let i = 0; i < npResult.value.length; i += 2) {
+        npPairs.push({ re: npResult.value[i], im: npResult.value[i + 1] });
+      }
+      npPairs.sort((a: any, b: any) => {
+        if (Math.abs(a.re - b.re) > 1e-8) return a.re - b.re;
+        return a.im - b.im;
+      });
+
+      expect(sorted.length).toBe(npPairs.length);
+      for (let i = 0; i < sorted.length; i++) {
+        expect(sorted[i]!.re).toBeCloseTo(npPairs[i]!.re, 3);
+        expect(sorted[i]!.im).toBeCloseTo(npPairs[i]!.im, 3);
+      }
+    });
+
+    it('validates roots for polynomial with trailing zeros', () => {
+      // x^3 + x^2 = x^2(x+1) -> roots: 0, 0, -1
+      const result = roots([1, 1, 0, 0]);
+      const resultSorted = sortedRealParts(result);
+
+      const npResult = runNumPy(`
+result = np.sort(np.roots([1, 1, 0, 0]).real)
+`);
+
+      expect(arraysClose(resultSorted, npResult.value, 1e-5)).toBe(true);
     });
   });
 });

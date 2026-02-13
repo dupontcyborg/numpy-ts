@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { array, float_power, fmod, frexp, gcd, lcm, ldexp, modf } from '../../src/core/ndarray';
+import { array, float_power, fmod, frexp, gcd, lcm, ldexp, modf } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Arithmetic Operations', () => {

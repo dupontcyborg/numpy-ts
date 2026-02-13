@@ -10,11 +10,30 @@ import {
   zeros,
   broadcast_to,
   broadcast_arrays,
+  broadcast_shapes,
   take,
   put,
   choose,
   array_equal,
   fill_diagonal,
+  compress,
+  select,
+  take_along_axis,
+  put_along_axis,
+  putmask,
+  place,
+  copyto,
+  where,
+  extract,
+  count_nonzero,
+  nonzero,
+  flatnonzero,
+  searchsorted,
+  apply_along_axis,
+  may_share_memory,
+  shares_memory,
+  copy,
+  partition,
 } from '../../src';
 
 describe('Advanced Functions', () => {
@@ -361,16 +380,149 @@ describe('Advanced Functions', () => {
       expect(array_equal(a, b)).toBe(true);
     });
   });
+
+  // ========================================
+  // broadcast_shapes
+  // ========================================
+  describe('broadcast_shapes', () => {
+    it('computes broadcast shape for compatible shapes', () => {
+      const r = broadcast_shapes([3, 1], [1, 4]);
+      expect(r).toEqual([3, 4]);
+    });
+  });
+
+  // ========================================
+  // copyto
+  // ========================================
+  describe('copyto', () => {
+    it('copies values from source to destination', () => {
+      const dst = zeros([3]);
+      const src = array([1, 2, 3]);
+      copyto(dst, src);
+      expect(dst.toArray()).toEqual([1, 2, 3]);
+    });
+  });
+
+  // ========================================
+  // where
+  // ========================================
+  describe('where', () => {
+    it('selects elements based on condition', () => {
+      const cond = array([1, 0, 1], 'bool');
+      const r = where(cond, array([1, 2, 3]), array([4, 5, 6]));
+      expect(r.toArray()).toEqual([1, 5, 3]);
+    });
+  });
+
+  // ========================================
+  // extract
+  // ========================================
+  describe('extract', () => {
+    it('extracts elements where condition is true', () => {
+      const a = array([1, 2, 3, 4]);
+      const cond = array([1, 0, 1, 0], 'bool');
+      expect(extract(cond, a).toArray()).toEqual([1, 3]);
+    });
+  });
+
+  // ========================================
+  // count_nonzero
+  // ========================================
+  describe('count_nonzero', () => {
+    it('counts non-zero elements', () => {
+      const a = array([0, 1, 2, 0, 3]);
+      expect(count_nonzero(a)).toBe(3);
+    });
+  });
+
+  // ========================================
+  // nonzero
+  // ========================================
+  describe('nonzero', () => {
+    it('returns indices of non-zero elements', () => {
+      const a = array([0, 1, 2, 0, 3]);
+      const r = nonzero(a);
+      expect(r.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ========================================
+  // flatnonzero
+  // ========================================
+  describe('flatnonzero', () => {
+    it('returns flat indices of non-zero elements', () => {
+      const a = array([0, 1, 0, 2]);
+      const r = flatnonzero(a);
+      expect(r.toArray()).toEqual([1, 3]);
+    });
+  });
+
+  // ========================================
+  // searchsorted
+  // ========================================
+  describe('searchsorted', () => {
+    it('finds insertion indices to maintain sorted order', () => {
+      const a = array([1, 3, 5, 7]);
+      const r = searchsorted(a, array([2, 4, 6]));
+      expect(r.toArray()).toEqual([1, 2, 3]);
+    });
+  });
+
+  // ========================================
+  // apply_along_axis
+  // ========================================
+  describe('apply_along_axis', () => {
+    it('applies function along axis', () => {
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const r = apply_along_axis(
+        (x: any) => {
+          let s = 0;
+          for (let i = 0; i < x.size; i++) s += x.iget(i);
+          return s;
+        },
+        1,
+        a
+      );
+      expect(r.toArray()).toEqual([6, 15]);
+    });
+  });
+
+  // ========================================
+  // may_share_memory / shares_memory
+  // ========================================
+  describe('may_share_memory', () => {
+    it('returns true for slices of same array', () => {
+      const a = array([1, 2, 3]);
+      const b = a.slice('1:3');
+      expect(may_share_memory(a, b)).toBe(true);
+    });
+  });
+
+  describe('shares_memory', () => {
+    it('returns false for independent copies', () => {
+      const a = array([1, 2, 3]);
+      const b = copy(a);
+      expect(shares_memory(a, b)).toBe(false);
+    });
+  });
+
+  // ========================================
+  // partition (sorting-related advanced op)
+  // ========================================
+  describe('partition', () => {
+    it('partitions array around kth element', () => {
+      const a = array([3, 1, 4, 1, 5, 9]);
+      const r = partition(a, 2);
+      expect(r.size).toBe(6);
+    });
+  });
 });
 
 // Import new indexing functions
 import {
-  take_along_axis,
-  put_along_axis,
-  putmask,
-  compress,
-  select,
-  place,
   diag_indices,
   diag_indices_from,
   tril_indices,

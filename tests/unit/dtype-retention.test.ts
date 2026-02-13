@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { zeros, ones, array } from '../../src/core/ndarray';
-import type { DType } from '../../src/core/dtype';
+import { zeros, ones, array } from '../../src';
+import type { DType } from '../../src/common/dtype';
 
 // Test all numeric dtypes (excluding bool for some operations)
 const numericDTypes: DType[] = [

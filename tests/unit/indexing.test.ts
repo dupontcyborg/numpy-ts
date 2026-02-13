@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, zeros, iindex, bindex } from '../../src/core/ndarray';
+import { array, zeros, iindex, bindex } from '../../src';
 
 describe('Array Indexing', () => {
   describe('get()', () => {

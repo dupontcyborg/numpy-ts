@@ -25,10 +25,13 @@ npm install numpy-ts
 ## Why numpy-ts?
 
 - **📊 Extensive API** — **476 of 507 NumPy functions (93.9% coverage)**
-- **✅ NumPy-validated** — 5,000+ test cases cross-validated against Python NumPy
+- **✅ NumPy-validated** — 6,000+ test cases cross-validated against Python NumPy
 - **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
 - **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
 - **🎯 Zero dependencies** — Pure TypeScript, no heavy external libraries
+- **🌳 Tree-shakeable** — Import only what you need (~11KB for `zeros`, not 180KB)
+
+> **💡 Bundle size tip:** Standalone functions like `sin(arr)` tree-shake well. Method chaining like `arr.sin()` is convenient but pulls in the full library. See [modular imports guide](docs/modular-imports.mdx).
 
 ## Quick Start
 
@@ -259,7 +262,7 @@ arr.sum();  // Type: number
 |---------|----------|-------|---------|---------------|
 | NumPy API Coverage | 476/507 (94%) | ~20% | Different | ML-focused |
 | TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
-| NumPy Validated | ✅ 5,000+ tests | Mostly | ❌ No | ❌ No |
+| NumPy Validated | ✅ 6,000+ tests | Mostly | ❌ No | ❌ No |
 | .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |
 | Broadcasting | ✅ Full | Limited | Limited | ✅ Full |
 | Bundle Size | <100kb | ~60kb | ~5kb | >100kb |

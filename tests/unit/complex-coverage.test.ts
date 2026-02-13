@@ -30,11 +30,26 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // SUPPORTED - These functions correctly handle complex numbers
   // =========================================================================
 
-  // Note: add, subtract, multiply are NDArray methods, not standalone exports
-  // They are tested via the NDArray class tests
-  // divide is exported as a standalone function
-
+  // Basic arithmetic (now exported as standalone functions)
+  add: 'supported', // complex addition
+  subtract: 'supported', // complex subtraction
+  multiply: 'supported', // complex multiplication
   divide: 'supported', // complex division
+
+  // Reductions (now exported as standalone functions)
+  sum: 'supported', // complex sum
+  mean: 'supported', // complex mean
+  prod: 'supported', // complex product
+  std: 'supported', // complex std (returns real)
+  variance: 'supported', // complex variance (returns real)
+
+  // Argmin/argmax work on complex (lexicographic comparison)
+  argmin: 'supported',
+  argmax: 'supported',
+
+  // Logical reductions (work on any array)
+  all: 'supported',
+  any: 'supported',
   negative: 'supported',
   absolute: 'supported', // |z| = sqrt(re² + im²)
   abs: 'supported', // alias for absolute
@@ -293,6 +308,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
 
   // Classes and constructors
   NDArray: 'skip',
+  NDArrayCore: 'skip',
   Complex: 'skip',
 
   // Array creation (output dtype, not input)
@@ -375,6 +391,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   resize: 'skip',
   append: 'skip',
   delete: 'skip',
+  delete_: 'skip',
   insert: 'skip',
   pad: 'skip',
 
@@ -390,6 +407,16 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   choose: 'skip',
   array_equal: 'skip',
   array_equiv: 'skip',
+  matmul: 'skip', // binary op, tested elsewhere
+  var: 'skip', // alias for variance (already tested)
+  greater: 'skip', // binary comparison op
+  greater_equal: 'skip', // binary comparison op
+  less: 'skip', // binary comparison op
+  less_equal: 'skip', // binary comparison op
+  equal: 'skip', // binary comparison op
+  not_equal: 'skip', // binary comparison op
+  isclose: 'skip', // binary comparison op
+  allclose: 'skip', // binary comparison op
   take_along_axis: 'skip',
   put_along_axis: 'skip',
   putmask: 'skip',
@@ -479,6 +506,10 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   loadNpzSync: 'skip',
   serializeNpz: 'skip',
   serializeNpzSync: 'skip',
+  parseTxt: 'skip',
+  genfromtxt: 'skip',
+  fromregex: 'skip',
+  serializeTxt: 'skip',
 
   // Version and other values
   __version__: 'skip',

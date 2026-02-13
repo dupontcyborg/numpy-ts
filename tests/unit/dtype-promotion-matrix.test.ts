@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ones } from '../../src/core/ndarray';
-import { promoteDTypes } from '../../src/core/dtype';
-import type { DType } from '../../src/core/dtype';
+import { ones } from '../../src';
+import { promoteDTypes } from '../../src/common/dtype';
+import type { DType } from '../../src/common/dtype';
 
 describe('Complete DType Promotion Matrix', () => {
   // All supported dtypes (11 types)
