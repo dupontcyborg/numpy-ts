@@ -3,7 +3,7 @@ title: "Distributions"
 description: "Continuous, discrete, and multivariate probability distributions for random sampling."
 ---
 
-All functions on this page are accessed via the `np.random` namespace and use the global MT19937 generator. The same distributions are also available on `Generator` instances (see [Generator API](/versions/v1.0.x/api-reference/random/generator)).
+All functions on this page are accessed via the `np.random` namespace and use the global MT19937 generator. The same distributions are also available on `Generator` instances (see [Generator API](./generator)).
 
 ## Continuous Distributions
 
@@ -575,7 +575,7 @@ function hypergeometric(
 |------|------|---------|-------------|
 | `ngood` | `number` | -- | Number of good (success) items in the population. |
 | `nbad` | `number` | -- | Number of bad (failure) items in the population. |
-| `nsample` | `number` | -- | Number of items sampled. Must be <= `ngood + nbad`. |
+| `nsample` | `number` | -- | Number of items sampled. Must be `<= ngood + nbad`. |
 | `size` | `number \| number[]` | `undefined` | Output shape. |
 
 **Returns:** `NDArray | number` -- Number of good items in each sample.

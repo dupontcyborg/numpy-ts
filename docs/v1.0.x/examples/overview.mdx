@@ -9,22 +9,22 @@ description: "Practical examples demonstrating numpy-ts across common domains: l
 These guides walk through real-world patterns using numpy-ts. Each example includes complete, runnable TypeScript code that you can copy directly into your project.
 
 <CardGroup cols={2}>
-  <Card title="Linear Algebra Basics" icon="square-root-variable" href="/versions/v1.0.x/examples/linear-algebra-basics">
+  <Card title="Linear Algebra Basics" icon="square-root-variable" href=".//linear-algebra-basics">
     Solve systems of equations, compute eigenvalues and SVD, invert matrices, and perform matrix multiplication with matmul and dot.
   </Card>
-  <Card title="Signal Processing with FFT" icon="wave-sine" href="/versions/v1.0.x/examples/signal-processing">
+  <Card title="Signal Processing with FFT" icon="wave-sine" href=".//signal-processing">
     Build composite signals, compute Fourier transforms, filter frequencies, and apply convolution kernels.
   </Card>
-  <Card title="Statistics & Analysis" icon="chart-bar" href="/versions/v1.0.x/examples/statistics-analysis">
+  <Card title="Statistics & Analysis" icon="chart-bar" href=".//statistics-analysis">
     Compute descriptive statistics, build histograms, calculate correlation matrices, run Monte Carlo simulations, and weighted averages.
   </Card>
-  <Card title="Image Processing Patterns" icon="image" href="/versions/v1.0.x/examples/image-processing">
+  <Card title="Image Processing Patterns" icon="image" href=".//image-processing">
     Represent images as arrays, slice regions of interest, adjust brightness and contrast, reorder channels, and apply convolution filters.
   </Card>
-  <Card title="Data Loading & I/O" icon="file-import" href="/versions/v1.0.x/examples/data-loading">
+  <Card title="Data Loading & I/O" icon="file-import" href=".//data-loading">
     Load .npy and .npz files in Node.js and browsers, parse CSV data, and work with text-based formats.
   </Card>
-  <Card title="Performance Tips" icon="gauge-high" href="/versions/v1.0.x/examples/performance-tips">
+  <Card title="Performance Tips" icon="gauge-high" href=".//performance-tips">
     Minimize copies with views, pick the right entry point for tree-shaking, choose efficient dtypes, and prefer vectorized operations over loops.
   </Card>
 </CardGroup>
@@ -43,4 +43,4 @@ Most examples use the full entry point for readability:
 import * as np from 'numpy-ts';
 ```
 
-For production browser bundles, consider using `numpy-ts/core` for tree-shaking. See the [Tree-Shaking guide](/versions/v1.0.x/guides/tree-shaking) for details.
+For production browser bundles, consider using `numpy-ts/core` for tree-shaking. See the [Tree-Shaking guide](../guides/tree-shaking) for details.

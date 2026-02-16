@@ -96,7 +96,7 @@ const b = transpose(reshape(add(a, 10), [2, 2]));
 Best for libraries, frontend apps where every kilobyte counts, and when you only need a handful of functions.
 
 <Tip>
-Importing just `array` and `add` from `numpy-ts/core` results in a bundle around **10 KB** minified. The full entry point is always ~200-300 KB regardless of what you use. See the [Tree-Shaking guide](/versions/v1.0.x/guides/tree-shaking) for a detailed comparison.
+Importing just `array` and `add` from `numpy-ts/core` results in a bundle around **10 KB** minified. The full entry point is always ~200-300 KB regardless of what you use. See the [Tree-Shaking guide](.//tree-shaking) for a detailed comparison.
 </Tip>
 
 ### Node.js file I/O (`numpy-ts/node`)
@@ -126,13 +126,13 @@ The `numpy-ts/node` entry point uses Node.js built-in `fs` modules. It will not 
 ## Next steps
 
 <CardGroup cols={3}>
-  <Card title="Quickstart" icon="bolt" href="/versions/v1.0.x/getting-started/quickstart">
+  <Card title="Quickstart" icon="bolt" href=".//quickstart">
     Create arrays, run operations, and explore the API in 5 minutes.
   </Card>
-  <Card title="NumPy Migration Guide" icon="code-compare" href="/versions/v1.0.x/getting-started/numpy-migration">
+  <Card title="NumPy Migration Guide" icon="code-compare" href=".//numpy-migration">
     Coming from Python NumPy? See what is different in TypeScript.
   </Card>
-  <Card title="Tree-Shaking" icon="leaf" href="/versions/v1.0.x/guides/tree-shaking">
+  <Card title="Tree-Shaking" icon="leaf" href=".//tree-shaking">
     Understand how the two entry points affect your bundle size.
   </Card>
 </CardGroup>
