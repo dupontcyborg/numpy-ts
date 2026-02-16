@@ -1,0 +1,415 @@
+---
+title: "Basic Reductions"
+description: "Core reduction functions: sum, prod, mean, std, variance, min, max, median, average, ptp, all, any."
+---
+
+# Basic Reductions
+
+These functions reduce an array along one or more axes, returning either a scalar (when all axes are reduced) or an `NDArray` with fewer dimensions.
+
+---
+
+### sum
+
+Compute the sum of array elements over the given axis.
+
+```typescript
+function sum(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to sum. When `undefined`, sums over the flattened array. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, sum } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+
+sum(a);          // 10
+sum(a, 0);       // array([4, 6])
+sum(a, 1);       // array([3, 7])
+sum(a, 0, true); // array([[4, 6]])  -- shape [1, 2]
+```
+
+---
+
+### prod
+
+Compute the product of array elements over the given axis.
+
+```typescript
+function prod(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the product. When `undefined`, operates on the flattened array. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, prod } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+
+prod(a);    // 24
+prod(a, 0); // array([3, 8])
+prod(a, 1); // array([2, 12])
+```
+
+---
+
+### mean
+
+Compute the arithmetic mean along the specified axis.
+
+<Note>
+Integer inputs are automatically converted to `float64` for the result, matching NumPy behavior.
+</Note>
+
+```typescript
+function mean(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the mean. When `undefined`, operates on the flattened array. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, mean } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+
+mean(a);    // 2.5
+mean(a, 0); // array([2, 3])
+mean(a, 1); // array([1.5, 3.5])
+```
+
+---
+
+### std
+
+Compute the standard deviation along the specified axis.
+
+```typescript
+function std(
+  a: ArrayLike,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the standard deviation. |
+| `ddof` | `number` | `0` | Delta degrees of freedom. The divisor is `N - ddof`, where `N` is the number of elements. Use `ddof=1` for the sample standard deviation. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, std } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4, 5]);
+
+std(a);              // 1.4142135623730951  (population std)
+std(a, undefined, 1); // 1.5811388300841898  (sample std)
+```
+
+---
+
+### variance
+
+Compute the variance along the specified axis.
+
+<Note>
+`var` is a reserved word in JavaScript. This function is exported as both `variance` and `var_` (or accessed via the `var` alias if your bundler supports it). Use `variance` to avoid conflicts.
+</Note>
+
+```typescript
+function variance(
+  a: ArrayLike,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the variance. |
+| `ddof` | `number` | `0` | Delta degrees of freedom. The divisor is `N - ddof`. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, variance } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+
+variance(a);    // 1.25
+variance(a, 0); // array([1, 1])
+variance(a, 1); // array([0.25, 0.25])
+```
+
+---
+
+### amin
+
+Return the minimum of an array or minimum along an axis.
+
+<Note>
+Also exported as `min`. Use `amin` to avoid shadowing `Math.min`.
+</Note>
+
+```typescript
+function amin(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the minimum. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, amin } from 'numpy-ts';
+
+const a = array([[3, 1], [4, 2]]);
+
+amin(a);    // 1
+amin(a, 0); // array([3, 1])
+amin(a, 1); // array([1, 2])
+```
+
+---
+
+### amax
+
+Return the maximum of an array or maximum along an axis.
+
+<Note>
+Also exported as `max`. Use `amax` to avoid shadowing `Math.max`.
+</Note>
+
+```typescript
+function amax(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the maximum. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, amax } from 'numpy-ts';
+
+const a = array([[3, 1], [4, 2]]);
+
+amax(a);    // 4
+amax(a, 0); // array([4, 2])
+amax(a, 1); // array([3, 4])
+```
+
+---
+
+### median
+
+Compute the median along the specified axis.
+
+```typescript
+function median(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the median. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, median } from 'numpy-ts';
+
+median(array([3, 1, 4, 1, 5])); // 3
+median(array([1, 2, 3, 4]));    // 2.5  (average of middle two)
+
+const a = array([[3, 1], [4, 2]]);
+median(a, 0); // array([3.5, 1.5])
+```
+
+---
+
+### average
+
+Compute the weighted average along the specified axis.
+
+```typescript
+function average(
+  a: ArrayLike,
+  axis?: number,
+  weights?: ArrayLike,
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to compute the average. |
+| `weights` | `ArrayLike` | `undefined` | Weights associated with the values in `a`. If `undefined`, all weights are equal (equivalent to `mean`). |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, average } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4]);
+
+average(a);                             // 2.5
+average(a, undefined, [4, 3, 2, 1]);   // 2.0  (weighted)
+```
+
+---
+
+### ptp
+
+Peak to peak (maximum - minimum) value along an axis.
+
+```typescript
+function ptp(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the range. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, ptp } from 'numpy-ts';
+
+const a = array([[1, 5], [3, 2]]);
+
+ptp(a);    // 4  (5 - 1)
+ptp(a, 0); // array([2, 3])
+ptp(a, 1); // array([4, 1])
+```
+
+---
+
+### all
+
+Test whether all array elements along a given axis evaluate to `true`.
+
+```typescript
+function all(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): boolean | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to perform the logical AND. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `boolean` when reducing all axes, `NDArray` (with boolean values) when reducing along specific axes.
+
+```typescript
+import { array, all } from 'numpy-ts';
+
+all(array([1, 2, 3]));    // true
+all(array([1, 0, 3]));    // false
+
+const a = array([[1, 0], [1, 1]]);
+all(a, 0); // array([true, false])
+all(a, 1); // array([false, true])
+```
+
+---
+
+### any
+
+Test whether any array element along a given axis evaluates to `true`.
+
+```typescript
+function any(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): boolean | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to perform the logical OR. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `boolean` when reducing all axes, `NDArray` (with boolean values) when reducing along specific axes.
+
+```typescript
+import { array, any } from 'numpy-ts';
+
+any(array([0, 0, 0]));    // false
+any(array([0, 1, 0]));    // true
+
+const a = array([[0, 0], [1, 0]]);
+any(a, 0); // array([true, false])
+any(a, 1); // array([false, true])
+```

@@ -1,0 +1,330 @@
+---
+title: "Slicing & Indexing"
+description: "Select sub-arrays, individual elements, rows, and columns using string-based slicing and advanced indexing."
+---
+
+## Python vs TypeScript syntax
+
+Because TypeScript does not support Python's `arr[0:5, :]` subscript syntax, numpy-ts uses **string-based slicing** via the `.slice()` method. Every slice dimension is a string argument.
+
+<CodeGroup>
+```python Python (NumPy)
+a[0:5]
+a[0:5, :]
+a[::-1]
+a[::2, 1:3]
+a[2]            # integer index, reduces dimension
+```
+
+```typescript TypeScript (numpy-ts)
+a.slice('0:5')
+a.slice('0:5', ':')
+a.slice('::-1')
+a.slice('::2', '1:3')
+a.slice('2')            // integer index, reduces dimension
+```
+</CodeGroup>
+
+## String slice syntax
+
+The slice syntax mirrors Python's `start:stop:step`:
+
+| Slice String | Meaning | Python equivalent |
+|---|---|---|
+| `':'` | All elements | `[:]` |
+| `'0:5'` | Elements 0 through 4 | `[0:5]` |
+| `'2:'` | From index 2 to the end | `[2:]` |
+| `':3'` | First 3 elements | `[:3]` |
+| `'-3:'` | Last 3 elements | `[-3:]` |
+| `'::2'` | Every other element | `[::2]` |
+| `'::-1'` | Reversed | `[::-1]` |
+| `'1:7:2'` | From 1 to 6, step 2 | `[1:7:2]` |
+| `'3'` | Single index (reduces dimension) | `[3]` |
+
+## Basic slicing
+
+All slicing returns a **view** -- no data is copied. Modifications to the slice affect the original array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.arange(0, 10);  // [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+// First 5 elements
+a.slice('0:5').toArray();     // [0, 1, 2, 3, 4]
+
+// Last 3 elements
+a.slice('-3:').toArray();     // [7, 8, 9]
+
+// Every other element
+a.slice('::2').toArray();     // [0, 2, 4, 6, 8]
+
+// Reversed
+a.slice('::-1').toArray();    // [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+
+// Elements 2 through 7, step 2
+a.slice('2:8:2').toArray();   // [2, 4, 6]
+```
+
+## Multi-dimensional slicing
+
+Pass one string argument per dimension:
+
+```typescript
+const m = np.array([
+  [0, 1, 2, 3],
+  [4, 5, 6, 7],
+  [8, 9, 10, 11],
+]);
+// shape [3, 4]
+
+// First 2 rows, all columns
+m.slice('0:2', ':').toArray();
+// [[0, 1, 2, 3],
+//  [4, 5, 6, 7]]
+
+// All rows, columns 1 and 2
+m.slice(':', '1:3').toArray();
+// [[1, 2],
+//  [5, 6],
+//  [9, 10]]
+
+// Single row (integer index reduces dimension)
+m.slice('1').toArray();       // [4, 5, 6, 7]  (1-D result)
+
+// Submatrix: rows 0-1, columns 2-3
+m.slice('0:2', '2:4').toArray();
+// [[2, 3],
+//  [6, 7]]
+```
+
+<Note>
+When you pass an integer as a string (e.g. `'1'`), that dimension is removed from the result, just like NumPy's integer indexing. A range like `'1:2'` keeps the dimension.
+</Note>
+
+## Negative indices
+
+Negative indices count from the end, just like Python:
+
+```typescript
+const a = np.arange(0, 10);
+
+a.slice('-1').toArray();      // 9 (scalar -- dimension removed)
+a.slice('-3:').toArray();     // [7, 8, 9]
+a.slice(':-2').toArray();     // [0, 1, 2, 3, 4, 5, 6, 7]
+
+const m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+m.slice('-1').toArray();      // [7, 8, 9]  (last row)
+m.slice(':', '-1').toArray(); // [3, 6, 9]  (last column, 1-D)
+```
+
+## Element access: `get()` and `set()`
+
+For reading or writing **individual elements**, use `get()` and `set()` with an array of indices:
+
+```typescript
+const m = np.array([[10, 20, 30], [40, 50, 60]]);
+
+// Read element at row 0, column 2
+m.get([0, 2]);  // 30
+
+// Write element at row 1, column 1
+m.set([1, 1], 99);
+m.get([1, 1]);  // 99
+
+// Negative indices work here too
+m.get([0, -1]);   // 30  (last column of first row)
+m.get([-1, -1]);  // 60  (last element)
+```
+
+<Warning>
+The `get()` and `set()` methods require one index per dimension. Passing the wrong number of indices throws an error.
+</Warning>
+
+## Convenience methods: `row()`, `col()`, `rows()`, `cols()`
+
+For 2-D arrays, numpy-ts provides shorthand methods that are cleaner than manual slicing:
+
+```typescript
+const m = np.array([
+  [1, 2, 3],
+  [4, 5, 6],
+  [7, 8, 9],
+]);
+
+// Single row or column
+m.row(0).toArray();        // [1, 2, 3]
+m.row(-1).toArray();       // [7, 8, 9]
+m.col(1).toArray();        // [2, 5, 8]
+
+// Range of rows or columns
+m.rows(0, 2).toArray();   // [[1, 2, 3], [4, 5, 6]]
+m.cols(1, 3).toArray();   // [[2, 3], [5, 6], [8, 9]]
+```
+
+| Method | Equivalent | Returns |
+|---|---|---|
+| `row(i)` | `.slice(String(i), ':')` | 1-D array (single row) |
+| `col(j)` | `.slice(':', String(j))` | 1-D array (single column) |
+| `rows(start, stop)` | `.slice(`${start}:${stop}`, ':')` | 2-D sub-matrix |
+| `cols(start, stop)` | `.slice(':', `${start}:${stop}`)` | 2-D sub-matrix |
+
+<Note>
+These methods require at least 2 dimensions. Calling `row()` on a 1-D array throws an error.
+</Note>
+
+## Fancy indexing: `take` and `put`
+
+### `take(indices, axis?)`
+
+Select elements at arbitrary positions along an axis. Returns a **new array** (not a view):
+
+```typescript
+const a = np.array([10, 20, 30, 40, 50]);
+
+// Take specific elements
+np.take(a, [0, 2, 4]).toArray();    // [10, 30, 50]
+np.take(a, [4, 3, 2, 1, 0]).toArray();  // [50, 40, 30, 20, 10] (reversed)
+
+// Take from a 2-D array along axis 0 (rows)
+const m = np.array([[1, 2], [3, 4], [5, 6]]);
+np.take(m, [0, 2], 0).toArray();   // [[1, 2], [5, 6]]
+
+// Also available as a method
+a.take([1, 3]).toArray();           // [20, 40]
+```
+
+### `put(indices, values)`
+
+Modify elements at specified flat indices in-place:
+
+```typescript
+const a = np.array([0, 0, 0, 0, 0]);
+np.put(a, [1, 3], np.array([10, 20]));
+a.toArray();  // [0, 10, 0, 20, 0]
+
+// Also available as a method
+a.put([0, 4], np.array([99, 99]));
+a.toArray();  // [99, 10, 0, 20, 99]
+```
+
+## Boolean indexing: `bindex`
+
+Select elements where a boolean mask is `true`. Returns a new 1-D array containing only the matching elements:
+
+```typescript
+const a = np.array([10, 20, 30, 40, 50]);
+const mask = np.array([1, 0, 1, 0, 1], { dtype: 'bool' });
+
+// Using the function
+np.bindex(a, mask).toArray();    // [10, 30, 50]
+
+// Using the method
+a.bindex(mask).toArray();        // [10, 30, 50]
+
+// Common pattern: create mask from a comparison
+const data = np.array([1, -2, 3, -4, 5]);
+const positive = np.greater(data, 0);  // bool array: [1, 0, 1, 0, 1]
+data.bindex(positive).toArray();        // [1, 3, 5]
+```
+
+## Integer array indexing: `iindex`
+
+Select elements using an array of integer indices along a given axis. Similar to NumPy's fancy integer array indexing:
+
+```typescript
+const a = np.array([10, 20, 30, 40, 50]);
+
+// Select by index array
+a.iindex([3, 1, 4]).toArray();       // [40, 20, 50]
+
+// Duplicate indices are allowed
+a.iindex([0, 0, 2, 2]).toArray();    // [10, 10, 30, 30]
+
+// On a 2-D array, along axis 0 (default)
+const m = np.array([[1, 2], [3, 4], [5, 6]]);
+m.iindex([2, 0]).toArray();          // [[5, 6], [1, 2]]
+
+// Along axis 1 (columns)
+m.iindex([1, 0], 1).toArray();       // [[2, 1], [4, 3], [6, 5]]
+```
+
+## Conditional selection: `where`
+
+The `where` function selects elements from one of two arrays based on a condition:
+
+```typescript
+const condition = np.array([1, 0, 1, 0], { dtype: 'bool' });
+const x = np.array([1, 2, 3, 4]);
+const y = np.array([10, 20, 30, 40]);
+
+np.where(condition, x, y).toArray();  // [1, 20, 3, 40]
+```
+
+When called with only a condition, `where` returns the indices of non-zero elements:
+
+```typescript
+const a = np.array([0, 5, 0, 3, 0, 1]);
+const [indices] = np.where(a);
+indices.toArray();  // [1, 3, 5]
+```
+
+## Views vs copies
+
+Understanding when an operation returns a view (shared data) versus a copy (new data) is important for both correctness and performance:
+
+**Views (shared memory):**
+- `slice()` -- all slicing operations
+- `T` / `transpose()`
+- `reshape()` (when the array is C-contiguous)
+- `squeeze()` / `expand_dims()`
+- `broadcast_to()`
+
+**Copies (new data):**
+- `flatten()` / `copy()`
+- `take()` / `iindex()` / `bindex()`
+- Arithmetic operations (`add`, `multiply`, etc.)
+- `sort()`, `argsort()`
+
+```typescript
+const a = np.array([1, 2, 3, 4, 5]);
+
+// Slicing returns a view
+const view = a.slice('1:4');
+view.set([0], 99);
+a.toArray();  // [1, 99, 3, 4, 5]  -- modified!
+
+// Flatten returns a copy
+const flat = np.array([[1, 2], [3, 4]]).flatten();
+flat.set([0], 99);
+// Original is NOT affected
+```
+
+<Tip>
+Check `arr.base` to determine if an array is a view. If `base` is not `null`, the array shares data with its base.
+</Tip>
+
+## Summary: choosing the right tool
+
+| Task | Method | Returns |
+|---|---|---|
+| Contiguous sub-array | `.slice('0:5')` | View |
+| Single element (read) | `.get([i, j])` | Scalar |
+| Single element (write) | `.set([i, j], val)` | Void (in-place) |
+| Single row/column | `.row(i)`, `.col(j)` | View |
+| Row/column range | `.rows(a, b)`, `.cols(a, b)` | View |
+| Arbitrary integer positions | `.take(indices)` or `.iindex(indices)` | Copy |
+| In-place by flat index | `.put(indices, values)` | Void (in-place) |
+| Boolean mask selection | `.bindex(mask)` | Copy |
+| Conditional pick from two arrays | `np.where(cond, x, y)` | Copy |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Broadcasting" icon="arrows-up-down-left-right" href="/versions/v1.0.x/guides/broadcasting">
+    How arrays with different shapes combine in operations.
+  </Card>
+  <Card title="Array Basics" icon="cube" href="/versions/v1.0.x/guides/array-basics">
+    NDArray properties, creation, and conversion.
+  </Card>
+</CardGroup>

@@ -1,0 +1,242 @@
+---
+title: "Broadcasting"
+description: "How numpy-ts combines arrays with different shapes in element-wise operations."
+---
+
+## What is broadcasting?
+
+Broadcasting is the mechanism that lets numpy-ts perform element-wise operations on arrays with different shapes without explicitly copying data. When you add a scalar to a matrix, or multiply a row vector by a column vector, broadcasting determines how the shapes align.
+
+numpy-ts follows NumPy's broadcasting rules exactly.
+
+## The three rules
+
+Broadcasting compares shapes element-wise, starting from the **trailing** (rightmost) dimensions:
+
+1. **If the arrays have different numbers of dimensions**, the shape of the smaller array is padded with 1s on the **left** until both shapes have the same length.
+2. **Arrays with size 1 along a particular dimension** act as if they had the size of the array with the largest shape along that dimension. The element is repeated virtually (no memory copy).
+3. **If sizes disagree and neither is 1**, broadcasting fails with an error.
+
+## Scalar broadcasting
+
+The simplest case: a scalar broadcasts to match any array shape.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);  // shape [2, 3]
+const b = np.add(a, 10);                       // scalar -> shape []
+
+b.toArray();
+// [[11, 12, 13],
+//  [14, 15, 16]]
+```
+
+**Shape alignment:**
+
+```
+  a:  2 x 3
+  10:         (scalar, treated as shape [])
+  =>  2 x 3  (scalar stretches to fill every position)
+```
+
+## Vector-to-matrix broadcasting
+
+A 1-D array broadcasts along the rows of a 2-D matrix:
+
+```typescript
+const matrix = np.array([[1, 2, 3], [4, 5, 6]]);  // shape [2, 3]
+const row    = np.array([10, 20, 30]);              // shape [3]
+
+const result = np.add(matrix, row);
+result.toArray();
+// [[11, 22, 33],
+//  [14, 25, 36]]
+```
+
+**Shape alignment:**
+
+```
+  matrix:  2 x 3
+  row:         3   <- padded to 1 x 3
+  result:  2 x 3   <- dimension of size 1 stretches to 2
+```
+
+To broadcast along the **columns** instead, reshape the vector to a column:
+
+```typescript
+const col = np.array([10, 20]).reshape(2, 1);  // shape [2, 1]
+
+const result = np.add(matrix, col);
+result.toArray();
+// [[11, 12, 13],
+//  [24, 25, 26]]
+```
+
+**Shape alignment:**
+
+```
+  matrix:  2 x 3
+  col:     2 x 1
+  result:  2 x 3   <- dimension of size 1 stretches to 3
+```
+
+## Outer product pattern
+
+When a column vector meets a row vector, broadcasting produces the outer product:
+
+```typescript
+const a = np.array([1, 2, 3]).reshape(3, 1);  // shape [3, 1]
+const b = np.array([10, 20, 30, 40]);          // shape [4]
+
+const result = np.multiply(a, b);
+result.shape;  // [3, 4]
+result.toArray();
+// [[10,  20,  30,  40],
+//  [20,  40,  60,  80],
+//  [30,  60,  90, 120]]
+```
+
+**Shape alignment:**
+
+```
+  a:  3 x 1
+  b:      4   <- padded to 1 x 4
+  =>  3 x 4   <- both size-1 dims stretch
+```
+
+<Tip>
+You can also compute the outer product directly with `np.outer(a, b)`, which flattens both inputs first.
+</Tip>
+
+## Advanced 3D broadcasting
+
+Broadcasting extends to any number of dimensions. Here is a 3-D example:
+
+```typescript
+const a = np.ones([3, 1, 5]);   // shape [3, 1, 5]
+const b = np.ones([1, 4, 1]);   // shape [1, 4, 1]
+
+const c = np.add(a, b);
+c.shape;  // [3, 4, 5]
+```
+
+**Shape alignment (dimension-by-dimension):**
+
+```
+  a:  3 x 1 x 5
+  b:  1 x 4 x 1
+  =>  3 x 4 x 5
+```
+
+Each dimension either matches, or one of them is 1 and stretches to the other.
+
+## `broadcast_to` and `broadcast_arrays`
+
+### `broadcast_to(array, shape)`
+
+Expand an array to a new shape using broadcasting rules. Returns a read-only **view** (no data is copied):
+
+```typescript
+const a = np.array([1, 2, 3]);            // shape [3]
+const b = np.broadcast_to(a, [4, 3]);     // shape [4, 3]
+
+b.toArray();
+// [[1, 2, 3],
+//  [1, 2, 3],
+//  [1, 2, 3],
+//  [1, 2, 3]]
+```
+
+### `broadcast_arrays(...arrays)`
+
+Broadcast multiple arrays against each other, returning a list of arrays with a common shape:
+
+```typescript
+const x = np.array([1, 2, 3]);                 // shape [3]
+const y = np.array([[10], [20]]);               // shape [2, 1]
+
+const [bx, by] = np.broadcast_arrays(x, y);
+bx.shape;  // [2, 3]
+by.shape;  // [2, 3]
+
+bx.toArray();  // [[1, 2, 3], [1, 2, 3]]
+by.toArray();  // [[10, 10, 10], [20, 20, 20]]
+```
+
+### `broadcast_shapes(...shapes)`
+
+Compute the broadcasted shape without creating any arrays:
+
+```typescript
+np.broadcast_shapes([3, 1], [1, 4]);    // [3, 4]
+np.broadcast_shapes([5, 1, 3], [7, 3]); // [5, 7, 3]
+```
+
+## Shape compatibility errors
+
+When shapes are incompatible, numpy-ts throws an error. Two dimensions are incompatible when they differ and **neither is 1**:
+
+```typescript
+const a = np.array([[1, 2, 3]]);   // shape [1, 3]
+const b = np.array([[1, 2]]);      // shape [1, 2]
+
+np.add(a, b);
+// Error: operands could not be broadcast together with shapes [1,3] [1,2]
+```
+
+Here are more examples of incompatible shapes:
+
+| Shape A | Shape B | Compatible? | Reason |
+|---|---|---|---|
+| `[3]` | `[4]` | No | 3 vs 4, neither is 1 |
+| `[2, 3]` | `[3, 2]` | No | Both dims disagree |
+| `[2, 1]` | `[3, 4]` | No | First dim: 2 vs 3, neither is 1 |
+| `[4, 3]` | `[3]` | Yes | Padded to `[1, 3]`, then `[4, 3]` |
+| `[5, 1]` | `[1, 6]` | Yes | Result `[5, 6]` |
+| `[2, 3, 4]` | `[3, 1]` | Yes | Padded to `[1, 3, 1]`, result `[2, 3, 4]` |
+
+## Visual shape alignment
+
+When comparing shapes, numpy-ts right-aligns them and pads the shorter one with 1s on the left:
+
+```
+Example 1:  [8, 1, 6, 1]  and  [7, 1, 5]
+
+     8  1  6  1
+     1  7  1  5       <- padded with 1 on the left
+  => 8  7  6  5       <- take the max of each pair
+
+Example 2:  [256, 256, 3]  and  [3]
+
+  256  256  3
+            3          <- padded to [1, 1, 3]
+  256  256  3          <- 1s stretch to match
+
+Example 3:  [15, 3, 5]  and  [15, 1, 5]
+
+  15  3  5
+  15  1  5
+  15  3  5             <- the 1 stretches to 3
+
+Example 4:  [15, 3, 5]  and  [2, 5]    INCOMPATIBLE
+
+  15  3  5
+   1  2  5             <- padded
+  15  ?  5             <- 3 vs 2, FAILS
+```
+
+<Note>
+Broadcasting only creates **virtual** copies. The element at the size-1 dimension is reused via stride tricks (stride of 0), so memory usage stays proportional to the original array, not the broadcast shape.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Slicing & Indexing" icon="scissors" href="/versions/v1.0.x/guides/slicing-indexing">
+    Select sub-arrays, rows, columns, and use fancy indexing.
+  </Card>
+  <Card title="Data Types" icon="database" href="/versions/v1.0.x/guides/dtypes">
+    Understand the 13 supported dtypes and type promotion rules.
+  </Card>
+</CardGroup>

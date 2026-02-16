@@ -1,0 +1,319 @@
+---
+title: "Generator API"
+description: "Modern random number generator using PCG64 with SeedSequence, matching NumPy's default_rng."
+---
+
+The `Generator` class is the recommended way to generate random numbers. It uses the PCG64 bit generator with SeedSequence initialization, exactly matching NumPy's `numpy.random.default_rng()`.
+
+### default_rng
+
+Create a new `Generator` instance backed by PCG64.
+
+```typescript
+function default_rng(seed?: number): Generator
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `seed` | `number` | `undefined` | Optional seed value. If omitted, a random seed is used. |
+
+**Returns:** `Generator` -- A new random number generator.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(42);
+console.log(rng.random()); // Reproducible across runs
+```
+
+---
+
+## Generator Class
+
+The `Generator` class provides the following methods. Each method mirrors the corresponding legacy `np.random.*` function but uses the PCG64 bit generator.
+
+### Generator.random
+
+Generate random floats in `[0.0, 1.0)`.
+
+```typescript
+class Generator {
+  random(size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. If omitted, returns a single float. |
+
+**Returns:** `NDArray | number` -- Uniform random values in `[0, 1)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(0);
+const a = rng.random([3, 3]);
+```
+
+---
+
+### Generator.integers
+
+Return random integers from `low` (inclusive) to `high` (exclusive).
+
+```typescript
+class Generator {
+  integers(low: number, high?: number, size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `low` | `number` | -- | Lowest integer (inclusive). If `high` is omitted, range is `[0, low)`. |
+| `high` | `number` | `undefined` | Upper bound (exclusive). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Random integers.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(42);
+const dice = rng.integers(1, 7, [10]);
+```
+
+---
+
+### Generator.uniform
+
+Draw samples from a uniform distribution over `[low, high)`.
+
+```typescript
+class Generator {
+  uniform(low?: number, high?: number, size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `low` | `number` | `0` | Lower boundary (inclusive). |
+| `high` | `number` | `1` | Upper boundary (exclusive). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Uniform samples.
+
+---
+
+### Generator.normal
+
+Draw samples from a normal (Gaussian) distribution.
+
+```typescript
+class Generator {
+  normal(loc?: number, scale?: number, size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `loc` | `number` | `0` | Mean of the distribution. |
+| `scale` | `number` | `1` | Standard deviation. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Normal samples.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(0);
+const samples = rng.normal(100, 15, [1000]);
+```
+
+---
+
+### Generator.standard_normal
+
+Draw samples from the standard normal distribution (mean=0, std=1).
+
+```typescript
+class Generator {
+  standard_normal(size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Standard normal samples.
+
+---
+
+### Generator.exponential
+
+Draw samples from an exponential distribution.
+
+```typescript
+class Generator {
+  exponential(scale?: number, size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `scale` | `number` | `1` | Scale parameter (beta = 1/lambda). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Exponential samples.
+
+---
+
+### Generator.poisson
+
+Draw samples from a Poisson distribution.
+
+```typescript
+class Generator {
+  poisson(lam?: number, size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `lam` | `number` | `1` | Expected number of events (lambda). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Poisson samples.
+
+---
+
+### Generator.binomial
+
+Draw samples from a binomial distribution.
+
+```typescript
+class Generator {
+  binomial(n: number, p: number, size?: number | number[]): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Number of trials. |
+| `p` | `number` | -- | Probability of success. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Binomial samples.
+
+---
+
+### Generator.choice
+
+Randomly select elements from an array or range.
+
+```typescript
+class Generator {
+  choice(
+    a: number | ArrayLike,
+    size?: number | number[],
+    replace?: boolean,
+    p?: ArrayLike
+  ): NDArray | number;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number \| ArrayLike` | -- | If an integer, samples from `arange(a)`. If an array, samples from its elements. |
+| `size` | `number \| number[]` | `undefined` | Output shape. If omitted, returns a single value. |
+| `replace` | `boolean` | `true` | Whether to sample with replacement. |
+| `p` | `ArrayLike` | `undefined` | Probabilities for each element. Must sum to 1. |
+
+**Returns:** `NDArray | number` -- Random sample(s).
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(42);
+
+// Choose 5 random elements from [0, 10)
+const a = rng.choice(10, 5);
+
+// Weighted sampling without replacement
+const b = rng.choice(np.array([10, 20, 30, 40]), 2, false, [0.1, 0.2, 0.3, 0.4]);
+```
+
+---
+
+### Generator.permutation
+
+Return a randomly permuted copy of an array, or a permuted range.
+
+```typescript
+class Generator {
+  permutation(x: number | ArrayLike): NDArray;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `number \| ArrayLike` | -- | If an integer, permute `arange(x)`. If an array, return a shuffled copy. |
+
+**Returns:** `NDArray` -- Permuted array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(0);
+
+const perm = rng.permutation(10);
+// array([...])  a random ordering of 0..9
+```
+
+---
+
+### Generator.shuffle
+
+Shuffle an array in-place along the first axis.
+
+```typescript
+class Generator {
+  shuffle(x: NDArray): void;
+}
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `NDArray` | -- | Array to be shuffled. Modified in-place. |
+
+**Returns:** `void`
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(0);
+const arr = np.arange(10);
+rng.shuffle(arr);
+// arr is now shuffled in-place
+```
+
+---
+
+## Full Example
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Create a seeded generator
+const rng = np.random.default_rng(12345);
+
+// Generate training data with noise
+const x = rng.uniform(-5, 5, [100]);
+const noise = rng.normal(0, 0.5, [100]);
+
+// Random class labels
+const labels = rng.integers(0, 3, [100]);
+
+// Weighted random selection
+const indices = rng.choice(100, 20, false);
+```

@@ -1,0 +1,280 @@
+---
+title: "Quickstart"
+description: "Create arrays, perform operations, and explore numpy-ts in 5 minutes."
+---
+
+## Import the library
+
+```typescript
+import * as np from 'numpy-ts';
+```
+
+Or import individual functions:
+
+```typescript
+import { array, zeros, add, reshape, sum } from 'numpy-ts';
+```
+
+## Create your first array
+
+```typescript
+// From nested JavaScript arrays
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.shape);  // [2, 3]
+console.log(a.dtype);  // 'float64'
+
+// Common constructors
+const z = np.zeros([3, 3]);          // 3x3 of zeros
+const o = np.ones([2, 4]);           // 2x4 of ones
+const r = np.arange(0, 10, 2);      // [0, 2, 4, 6, 8]
+const l = np.linspace(0, 1, 5);     // [0, 0.25, 0.5, 0.75, 1]
+const I = np.eye(3);                // 3x3 identity matrix
+```
+
+<Tip>
+All creation functions accept an optional `dtype` parameter:
+`np.zeros([3, 3], 'float32')` or `np.array([1, 2, 3], 'int32')`.
+</Tip>
+
+## Basic operations
+
+numpy-ts supports element-wise arithmetic on arrays of any shape:
+
+```typescript
+const a = np.array([1, 2, 3, 4]);
+const b = np.array([10, 20, 30, 40]);
+
+const c = np.add(a, b);       // [11, 22, 33, 44]
+const d = np.multiply(a, b);  // [10, 40, 90, 160]
+const e = np.subtract(b, a);  // [9, 18, 27, 36]
+const f = np.divide(b, a);    // [10, 10, 10, 10]
+
+// Scalar operations
+const g = np.add(a, 100);     // [101, 102, 103, 104]
+const h = np.power(a, 2);     // [1, 4, 9, 16]
+```
+
+## Method chaining
+
+When you import from `numpy-ts` (the full entry point), arrays are `NDArray` instances that support method chaining. This lets you write fluent, readable pipelines:
+
+```typescript
+const result = np.array([1, 2, 3, 4, 5, 6])
+  .reshape([2, 3])     // Shape: [2, 3]
+  .multiply(10)        // Scale by 10
+  .add(1)              // Shift by 1
+  .T;                  // Transpose -> Shape: [3, 2]
+
+console.log(result.toString());
+// array([[11, 41],
+//        [21, 51],
+//        [31, 61]])
+```
+
+Every operation that exists as a standalone function (`np.add`, `np.reshape`, etc.) is also available as a method on `NDArray`.
+
+## Standalone functions (core)
+
+If you use `numpy-ts/core` for tree-shaking, the same operations are available as standalone functions:
+
+```typescript
+import { array, reshape, multiply, add, transpose } from 'numpy-ts/core';
+
+const a = array([1, 2, 3, 4, 5, 6]);
+const b = reshape(a, [2, 3]);
+const c = multiply(b, 10);
+const d = add(c, 1);
+const result = transpose(d);
+```
+
+<Note>
+`NDArrayCore` returned from `numpy-ts/core` still has properties like `.shape`, `.dtype`, `.T`, and `.toString()`. It only lacks the chainable operation methods (`.add()`, `.reshape()`, etc.). See the [Tree-Shaking guide](/versions/v1.0.x/guides/tree-shaking) for a full comparison.
+</Note>
+
+## Reductions
+
+Reduce arrays along axes to compute statistics:
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+
+// Full array reductions (return scalars)
+np.sum(a);       // 21
+np.mean(a);      // 3.5
+np.std(a);       // 1.707...
+np.min(a);       // 1
+np.max(a);       // 6
+
+// Reduce along an axis (return arrays)
+np.sum(a, 0);    // [5, 7, 9]    - sum each column
+np.sum(a, 1);    // [6, 15]      - sum each row
+np.mean(a, 0);   // [2.5, 3.5, 4.5]
+np.mean(a, 1);   // [2, 5]
+
+// Other reductions
+np.prod(a);         // 720
+np.argmax(a);       // 5  (flat index of maximum)
+np.cumsum(a);       // [1, 3, 6, 10, 15, 21]
+np.variance(a);     // 2.916...
+```
+
+## Indexing and slicing
+
+numpy-ts uses **string-based slicing** to emulate NumPy's bracket syntax:
+
+```typescript
+const a = np.arange(12).reshape([3, 4]);
+// array([[ 0,  1,  2,  3],
+//        [ 4,  5,  6,  7],
+//        [ 8,  9, 10, 11]])
+
+// Single element
+a.item(1, 2);            // 6
+
+// Slice rows and columns (string-based)
+a.slice('0:2', ':');     // First 2 rows, all columns
+a.slice(':', '1:3');     // All rows, columns 1-2
+a.slice('::-1', ':');    // Reverse row order
+
+// Negative indexing
+a.slice('-1', ':');      // Last row: [8, 9, 10, 11]
+a.slice(':', '-2:');     // Last 2 columns
+```
+
+<Tip>
+Slicing syntax mirrors NumPy: `'start:stop:step'`. Omitted values default to the full range, just like in Python.
+</Tip>
+
+## Reshaping and manipulation
+
+```typescript
+const a = np.arange(12);
+
+// Reshape
+const b = a.reshape([3, 4]);
+const c = a.reshape([2, 2, 3]);
+
+// Flatten and ravel
+b.flatten();          // Back to 1D (copy)
+b.ravel();            // Back to 1D (view when possible)
+
+// Transpose
+b.T;                  // Shape: [4, 3]
+
+// Stack and concatenate
+const x = np.array([1, 2, 3]);
+const y = np.array([4, 5, 6]);
+np.concatenate([x, y]);           // [1, 2, 3, 4, 5, 6]
+np.stack([x, y]);                 // [[1, 2, 3], [4, 5, 6]]
+np.vstack([x, y]);                // [[1, 2, 3], [4, 5, 6]]
+np.hstack([x, y]);                // [1, 2, 3, 4, 5, 6]
+```
+
+## Linear algebra
+
+```typescript
+const A = np.array([[1, 2], [3, 4]]);
+const B = np.array([[5, 6], [7, 8]]);
+
+// Matrix multiplication
+np.matmul(A, B);
+// array([[19, 22],
+//        [43, 50]])
+
+// Dot product
+const u = np.array([1, 2, 3]);
+const v = np.array([4, 5, 6]);
+np.dot(u, v);     // 32
+
+// linalg namespace
+np.linalg.inv(A);            // Matrix inverse
+np.linalg.det(A);            // Determinant: -2
+np.linalg.eig(A);            // Eigenvalues and eigenvectors
+np.linalg.svd(A);            // Singular value decomposition
+np.linalg.norm(u);           // Vector norm: 3.741...
+np.linalg.solve(A, u.reshape([2, 1]));  // Solve Ax = b
+```
+
+## Random numbers
+
+```typescript
+// Set seed for reproducibility
+np.random.seed(42);
+
+// Uniform random [0, 1)
+np.random.random([3, 3]);
+
+// Normal distribution (mean=0, std=1)
+np.random.normal(0, 1, [1000]);
+
+// Random integers
+np.random.randint(0, 10, [5]);  // 5 random ints in [0, 10)
+
+// Shuffle and choose
+const deck = np.arange(52);
+np.random.shuffle(deck);
+np.random.choice(deck, 5);     // Draw 5 cards
+```
+
+## Broadcasting
+
+Operations automatically broadcast arrays with compatible shapes, just like NumPy:
+
+```typescript
+const matrix = np.ones([3, 3]);
+const row = np.array([1, 2, 3]);
+
+// row (shape [3]) broadcasts to match matrix (shape [3, 3])
+np.add(matrix, row);
+// array([[2, 3, 4],
+//        [2, 3, 4],
+//        [2, 3, 4]])
+
+const col = np.array([[10], [20], [30]]);
+np.add(matrix, col);
+// array([[11, 11, 11],
+//        [21, 21, 21],
+//        [31, 31, 31]])
+```
+
+## FFT (Fast Fourier Transform)
+
+```typescript
+// Generate a signal
+const t = np.linspace(0, 1, 256);
+const signal = np.add(
+  np.sin(np.multiply(t, 2 * Math.PI * 5)),   // 5 Hz
+  np.sin(np.multiply(t, 2 * Math.PI * 20))   // 20 Hz
+);
+
+// Compute FFT
+const spectrum = np.fft.fft(signal);
+const freqs = np.fft.fftfreq(256, 1 / 256);
+```
+
+## Print arrays
+
+```typescript
+const a = np.arange(12).reshape([3, 4]);
+console.log(a.toString());
+// array([[ 0,  1,  2,  3],
+//        [ 4,  5,  6,  7],
+//        [ 8,  9, 10, 11]])
+
+// Control print formatting
+np.set_printoptions({ precision: 2, suppress: true });
+```
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Array Basics" icon="grid-2" href="/versions/v1.0.x/guides/array-basics">
+    Deep dive into NDArray properties, views, and copies.
+  </Card>
+  <Card title="Data Types" icon="database" href="/versions/v1.0.x/guides/dtypes">
+    Learn about the 13 supported dtypes including complex numbers and BigInt.
+  </Card>
+  <Card title="Broadcasting" icon="arrows-maximize" href="/versions/v1.0.x/guides/broadcasting">
+    Understand how operations work across arrays of different shapes.
+  </Card>
+</CardGroup>

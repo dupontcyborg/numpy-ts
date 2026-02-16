@@ -1,0 +1,310 @@
+---
+title: "Formatting & Printing"
+description: "Functions for converting arrays and numbers to strings: array2string, array_repr, array_str, base_repr, binary_repr, format_float_positional, format_float_scientific, and print option management."
+---
+
+### array2string
+
+Return a string representation of an array with full control over formatting.
+
+```typescript
+function array2string(a: ArrayLike, options?: PrintOptions): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `options` | `PrintOptions` | `undefined` | Formatting options including `precision`, `suppress`, `separator`, `prefix`, `max_line_width`, `threshold`, and `edgeitems`. |
+
+**Returns:** `string` -- Formatted string representation of the array.
+
+```typescript
+import { array, array2string } from 'numpy-ts';
+
+const a = array([[1.123456, 2.789], [3.14159, 4.0]]);
+
+array2string(a);
+// '[[1.123456, 2.789   ],\n [3.14159 , 4.      ]]'
+
+array2string(a, { precision: 2, suppress: true });
+// '[[1.12, 2.79],\n [3.14, 4.  ]]'
+```
+
+---
+
+### array_repr
+
+Return the string representation of an array, including the `array(...)` wrapper, dtype, and shape information. This is what `toString()` uses internally.
+
+```typescript
+function array_repr(
+  arr: ArrayLike,
+  max_line_width?: number,
+  precision?: number,
+  suppress_small?: boolean
+): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `arr` | `ArrayLike` | -- | Input array. |
+| `max_line_width` | `number` | `75` | Maximum number of characters per line. |
+| `precision` | `number` | `8` | Number of digits of precision for floating-point output. |
+| `suppress_small` | `boolean` | `false` | If `true`, numbers very close to zero are printed as `0.`. |
+
+**Returns:** `string` -- A string like `array([[1, 2], [3, 4]])`.
+
+```typescript
+import { array, array_repr } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+
+array_repr(a);
+// 'array([[1, 2],\n       [3, 4]])'
+
+array_repr(a, 40, 2);
+// 'array([[1, 2],\n       [3, 4]])'
+```
+
+---
+
+### array_str
+
+Return a string representation of the data in an array, without the `array(...)` wrapper.
+
+```typescript
+function array_str(
+  a: ArrayLike,
+  max_line_width?: number,
+  precision?: number,
+  suppress_small?: boolean
+): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `max_line_width` | `number` | `75` | Maximum number of characters per line. |
+| `precision` | `number` | `8` | Floating-point precision. |
+| `suppress_small` | `boolean` | `false` | If `true`, suppress small floating-point values. |
+
+**Returns:** `string` -- The array data as a string without the `array()` prefix.
+
+```typescript
+import { array, array_str } from 'numpy-ts';
+
+const a = array([1.5, 2.5, 3.5]);
+
+array_str(a);
+// '[1.5, 2.5, 3.5]'
+```
+
+---
+
+### base_repr
+
+Return the string representation of a number in the given base.
+
+```typescript
+function base_repr(number: number, base?: number, padding?: number): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `number` | `number` | -- | The integer to convert. |
+| `base` | `number` | `2` | The base for the representation (2 through 36). |
+| `padding` | `number` | `0` | Minimum number of digits. Pads with leading zeros if needed. |
+
+**Returns:** `string` -- String representation in the specified base.
+
+```typescript
+import { base_repr } from 'numpy-ts';
+
+base_repr(10, 2);        // '1010'
+base_repr(255, 16);      // 'FF'
+base_repr(10, 8, 4);     // '0012'
+base_repr(42, 10);       // '42'
+```
+
+---
+
+### binary_repr
+
+Return the binary string representation of a number. Negative numbers use two's complement notation.
+
+```typescript
+function binary_repr(num: number, width?: number): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `num` | `number` | -- | The integer to convert. |
+| `width` | `number` | `undefined` | Total width of the binary string. For negative numbers, this determines the two's complement width. |
+
+**Returns:** `string` -- Binary string representation.
+
+```typescript
+import { binary_repr } from 'numpy-ts';
+
+binary_repr(10);       // '1010'
+binary_repr(3);        // '11'
+binary_repr(-3, 8);    // '11111101'  (two's complement)
+binary_repr(10, 8);    // '00001010'  (zero-padded)
+```
+
+---
+
+### format_float_positional
+
+Format a floating-point scalar in positional (non-scientific) notation with fine-grained control.
+
+```typescript
+function format_float_positional(
+  x: number,
+  precision?: number,
+  unique?: boolean,
+  fractional?: boolean,
+  trim?: string,
+  sign?: boolean,
+  pad_left?: number,
+  pad_right?: number
+): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `x` | `number` | -- | Value to format. |
+| `precision` | `number` | `undefined` | Maximum number of digits. |
+| `unique` | `boolean` | `true` | If `true`, use the minimum number of digits to uniquely represent the value. |
+| `fractional` | `boolean` | `true` | If `true`, `precision` refers to digits after the decimal point; otherwise total significant digits. |
+| `trim` | `string` | `'k'` | Controls trailing zero trimming: `'k'` keeps trailing zeros, `'-'` trims trailing zeros, `'.'` trims trailing zeros and the decimal point, `'0'` trims all but one trailing zero. |
+| `sign` | `boolean` | `false` | If `true`, always show the sign. |
+| `pad_left` | `number` | `undefined` | Pad with spaces on the left to this width. |
+| `pad_right` | `number` | `undefined` | Pad with spaces on the right to this width. |
+
+**Returns:** `string` -- Formatted number string.
+
+```typescript
+import { format_float_positional } from 'numpy-ts';
+
+format_float_positional(3.14);                   // '3.14'
+format_float_positional(3.14, 4);                // '3.1400'
+format_float_positional(3.14, 4, true, true, '-'); // '3.14'
+format_float_positional(3.14, undefined, true, true, 'k', true); // '+3.14'
+```
+
+---
+
+### format_float_scientific
+
+Format a floating-point scalar in scientific notation.
+
+```typescript
+function format_float_scientific(
+  x: number,
+  precision?: number,
+  unique?: boolean,
+  trim?: string,
+  sign?: boolean,
+  exp_digits?: number
+): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `x` | `number` | -- | Value to format. |
+| `precision` | `number` | `undefined` | Number of digits of precision. |
+| `unique` | `boolean` | `true` | If `true`, use minimal digits to uniquely represent the value. |
+| `trim` | `string` | `'k'` | Trailing zero trimming (same options as `format_float_positional`). |
+| `sign` | `boolean` | `false` | If `true`, always show the sign. |
+| `exp_digits` | `number` | `undefined` | Minimum number of digits in the exponent. |
+
+**Returns:** `string` -- Formatted scientific notation string.
+
+```typescript
+import { format_float_scientific } from 'numpy-ts';
+
+format_float_scientific(1500.0);              // '1.5e+03'
+format_float_scientific(0.00123, 2);          // '1.23e-03'
+format_float_scientific(1500.0, 3, true, 'k', true, 3); // '+1.500e+003'
+```
+
+---
+
+### get_printoptions
+
+Return the current default print options used by `toString()` and `array2string`.
+
+```typescript
+function get_printoptions(): PrintOptions
+```
+
+**Returns:** `PrintOptions` -- An object with the current settings including `precision`, `threshold`, `edgeitems`, `linewidth`, `suppress`, and `nanstr`.
+
+```typescript
+import { get_printoptions } from 'numpy-ts';
+
+const opts = get_printoptions();
+console.log(opts.precision);   // 8
+console.log(opts.threshold);   // 1000
+console.log(opts.edgeitems);   // 3
+```
+
+---
+
+### set_printoptions
+
+Set the default print options globally. These affect all subsequent calls to `toString()`, `array_repr`, and `array2string`.
+
+```typescript
+function set_printoptions(options: PrintOptions): void
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `options` | `PrintOptions` | -- | An object with one or more print option keys: `precision`, `threshold`, `edgeitems`, `linewidth`, `suppress`, `nanstr`, `infstr`, `sign`, `formatter`. |
+
+**Returns:** `void`
+
+```typescript
+import { array, set_printoptions } from 'numpy-ts';
+
+set_printoptions({ precision: 2, suppress: true });
+
+const a = array([0.000123, 1.23456, 789.0]);
+console.log(a.toString());
+// array([0.  , 1.23, 789. ])
+
+// Reset to defaults
+set_printoptions({ precision: 8, suppress: false });
+```
+
+---
+
+### printoptions
+
+Temporarily set print options and return a restore function. This is useful as a scoped context manager for formatting.
+
+```typescript
+function printoptions(options: PrintOptions): { restore: () => void }
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `options` | `PrintOptions` | -- | Temporary print options to apply. |
+
+**Returns:** `{ restore: () => void }` -- An object with a `restore` method that reverts to the previous print options.
+
+```typescript
+import { array, printoptions } from 'numpy-ts';
+
+const a = array([1.23456789, 2.3456789]);
+
+const ctx = printoptions({ precision: 2 });
+console.log(a.toString());
+// array([1.23, 2.35])
+
+ctx.restore();
+console.log(a.toString());
+// array([1.23456789, 2.3456789 ])
+```

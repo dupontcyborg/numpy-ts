@@ -1,0 +1,176 @@
+---
+title: "Sorting"
+description: "Sort arrays, compute sort indices, perform partial sorts, and sort complex-valued arrays."
+---
+
+### sort
+
+Return a sorted copy of an array along the given axis.
+
+```typescript
+function sort(a: ArrayLike, axis?: number, kind?: string): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `-1` | Axis along which to sort. Default is `-1` (last axis). Use `null` to sort the flattened array. |
+| `kind` | `string` | `'quicksort'` | Sorting algorithm. Accepted values: `'quicksort'`, `'mergesort'`, `'heapsort'`, `'stable'`. `'stable'` and `'mergesort'` both use a stable sort. |
+
+**Returns:** `NDArray` -- A sorted copy of the input array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([3, 1, 4, 1, 5, 9]);
+const sorted = np.sort(a);
+// array([1, 1, 3, 4, 5, 9])
+
+// Sort along axis 0 (columns)
+const b = np.array([[3, 1], [2, 4]]);
+np.sort(b, 0);
+// array([[2, 1],
+//        [3, 4]])
+
+// Sort along axis 1 (rows) -- default
+np.sort(b);
+// array([[1, 3],
+//        [2, 4]])
+```
+
+---
+
+### argsort
+
+Return the indices that would sort an array along the given axis.
+
+```typescript
+function argsort(a: ArrayLike, axis?: number, kind?: string): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `-1` | Axis along which to sort. |
+| `kind` | `string` | `'quicksort'` | Sorting algorithm (`'quicksort'`, `'mergesort'`, `'heapsort'`, `'stable'`). |
+
+**Returns:** `NDArray` -- Array of indices that sort the input along the given axis.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([30, 10, 40, 20]);
+const indices = np.argsort(a);
+// array([1, 3, 0, 2])
+
+// Verify: reconstruct sorted array using the indices
+// a[indices] -> [10, 20, 30, 40]
+```
+
+---
+
+### lexsort
+
+Perform an indirect stable sort using a sequence of keys. The last key is the primary sort key, the second-to-last is the secondary key, and so on.
+
+```typescript
+function lexsort(keys: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `keys` | `ArrayLike[]` | -- | Sequence of arrays to sort by. The last array is the primary sort key. All arrays must have the same length. |
+
+**Returns:** `NDArray` -- Array of indices that sort the data lexicographically.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Sort by last name (primary), then first name (secondary)
+const first = [1, 2, 1, 2];   // secondary key
+const last  = [10, 10, 20, 20]; // primary key
+
+const indices = np.lexsort([first, last]);
+// array([0, 1, 2, 3])
+// Sorted: (10,1), (10,2), (20,1), (20,2)
+```
+
+---
+
+### partition
+
+Rearrange elements such that the element at the `kth` position is where it would be in a fully sorted array. Elements before `kth` are all smaller, and elements after are all larger, but neither partition is necessarily sorted internally.
+
+```typescript
+function partition(a: ArrayLike, kth: number | number[], axis?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `kth` | `number \| number[]` | -- | Index or indices of elements to partition around. |
+| `axis` | `number` | `-1` | Axis along which to partition. |
+
+**Returns:** `NDArray` -- A partitioned copy of the array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([3, 1, 4, 1, 5, 9, 2, 6]);
+const p = np.partition(a, 3);
+// The element at index 3 is the 4th smallest (2).
+// Elements at indices 0-2 are <= 2, elements at indices 4-7 are >= 2.
+console.log(p.item(3)); // 2
+```
+
+---
+
+### argpartition
+
+Return indices that would partition an array. The element at the `kth` index in the returned order is in its final sorted position.
+
+```typescript
+function argpartition(a: ArrayLike, kth: number | number[], axis?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `kth` | `number \| number[]` | -- | Index or indices to partition around. |
+| `axis` | `number` | `-1` | Axis along which to partition. |
+
+**Returns:** `NDArray` -- Array of indices that partition the input.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([3, 1, 4, 1, 5]);
+const indices = np.argpartition(a, 2);
+// indices[2] points to the element that would be at position 2 in a sorted array
+```
+
+---
+
+### sort_complex
+
+Sort an array by real part first, then by imaginary part for ties. Always returns a complex-typed result.
+
+```typescript
+function sort_complex(a: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. If not complex, it is cast to complex first. |
+
+**Returns:** `NDArray` -- Sorted complex array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([3, 1, 2]);
+const result = np.sort_complex(a);
+// array([1+0j, 2+0j, 3+0j])
+
+// For real inputs, behaves like sort but returns complex dtype
+```

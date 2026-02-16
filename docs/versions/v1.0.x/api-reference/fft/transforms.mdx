@@ -1,0 +1,180 @@
+---
+title: "FFT Transforms"
+description: "1-D, 2-D, and N-dimensional discrete Fourier transforms for complex-valued data."
+---
+
+All FFT functions are accessed via the `np.fft` namespace and return complex128 arrays. numpy-ts uses a Cooley-Tukey radix-2 algorithm for power-of-2 sizes and Bluestein's algorithm for arbitrary sizes.
+
+### fft
+
+Compute the 1-D discrete Fourier Transform.
+
+```typescript
+function fft(
+  a: ArrayLike,
+  n?: number,
+  axis?: number,
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (real or complex). |
+| `n` | `number` | `a.shape[axis]` | Length of the transformed axis. If shorter than the input, the input is truncated. If longer, it is zero-padded. |
+| `axis` | `number` | `-1` | Axis along which to compute the FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. `'backward'` applies no scaling on forward, `1/n` on inverse. `'ortho'` applies `1/sqrt(n)` to both. `'forward'` applies `1/n` on forward. |
+
+**Returns:** `NDArray` -- Complex128 array containing the FFT result.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const signal = np.array([1, 2, 3, 4]);
+const spectrum = np.fft.fft(signal);
+// array([10+0j, -2+2j, -2+0j, -2-2j])
+```
+
+---
+
+### ifft
+
+Compute the 1-D inverse discrete Fourier Transform.
+
+```typescript
+function ifft(
+  a: ArrayLike,
+  n?: number,
+  axis?: number,
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (typically complex, from `fft`). |
+| `n` | `number` | `a.shape[axis]` | Length of the transformed axis. |
+| `axis` | `number` | `-1` | Axis along which to compute the IFFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array containing the IFFT result.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const signal = np.array([1, 2, 3, 4]);
+const spectrum = np.fft.fft(signal);
+const recovered = np.fft.ifft(spectrum);
+// array([1+0j, 2+0j, 3+0j, 4+0j])
+```
+
+---
+
+### fft2
+
+Compute the 2-D discrete Fourier Transform. Equivalent to applying `fft` along the last two axes.
+
+```typescript
+function fft2(
+  a: ArrayLike,
+  s?: [number, number],
+  axes?: [number, number],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (at least 2-D). |
+| `s` | `[number, number]` | shape of `a` along `axes` | Shape of the output along the transform axes. Zero-pads or truncates as needed. |
+| `axes` | `[number, number]` | `[-2, -1]` | Axes over which to compute the 2-D FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array containing the 2-D FFT result.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+const F = np.fft.fft2(a);
+// 2-D complex spectrum
+```
+
+---
+
+### ifft2
+
+Compute the 2-D inverse discrete Fourier Transform.
+
+```typescript
+function ifft2(
+  a: ArrayLike,
+  s?: [number, number],
+  axes?: [number, number],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (complex, from `fft2`). |
+| `s` | `[number, number]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
+| `axes` | `[number, number]` | `[-2, -1]` | Axes over which to compute the 2-D IFFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array containing the 2-D IFFT result.
+
+---
+
+### fftn
+
+Compute the N-dimensional discrete Fourier Transform.
+
+```typescript
+function fftn(
+  a: ArrayLike,
+  s?: number[],
+  axes?: number[],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `s` | `number[]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
+| `axes` | `number[]` | all axes | Axes over which to compute the FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array containing the N-D FFT result.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.zeros([4, 4, 4]);
+const F = np.fft.fftn(a);
+```
+
+---
+
+### ifftn
+
+Compute the N-dimensional inverse discrete Fourier Transform.
+
+```typescript
+function ifftn(
+  a: ArrayLike,
+  s?: number[],
+  axes?: number[],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (complex, from `fftn`). |
+| `s` | `number[]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
+| `axes` | `number[]` | all axes | Axes over which to compute the IFFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array containing the N-D IFFT result.

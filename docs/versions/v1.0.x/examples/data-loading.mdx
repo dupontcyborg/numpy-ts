@@ -1,0 +1,333 @@
+---
+title: "Data Loading & I/O"
+description: "Load and save arrays in .npy, .npz, and text formats across Node.js and browser environments."
+---
+
+numpy-ts supports the same binary and text file formats as NumPy. The API is split across two entry points: `numpy-ts/node` for filesystem access, and `numpy-ts` (or `numpy-ts/core`) for in-memory serialization suitable for browsers.
+
+## Loading .npy files
+
+The `.npy` format stores a single array with its dtype, shape, and byte order metadata.
+
+<Tabs>
+  <Tab title="Node.js">
+
+Read and write `.npy` files directly from disk using `numpy-ts/node`.
+
+```typescript
+import { array, save, load, saveSync, loadSync } from 'numpy-ts/node';
+
+// Create and save an array
+const data = array([[1, 2, 3], [4, 5, 6]], 'float64');
+await save('matrix.npy', data);
+
+// Load it back
+const loaded = await load('matrix.npy');
+console.log(loaded.shape);  // [2, 3]
+console.log(loaded.dtype);  // 'float64'
+console.log(loaded.toArray());
+// [[1, 2, 3], [4, 5, 6]]
+
+// Synchronous variants
+saveSync('matrix.npy', data);
+const loadedSync = loadSync('matrix.npy');
+```
+
+  </Tab>
+  <Tab title="Browser">
+
+In the browser, use `serializeNpy` and `parseNpy` to work with `ArrayBuffer` and `Uint8Array`.
+
+```typescript
+import { array, serializeNpy, parseNpy } from 'numpy-ts';
+
+// Serialize to bytes
+const data = array([[1, 2, 3], [4, 5, 6]]);
+const bytes = serializeNpy(data);
+// bytes is a Uint8Array that can be sent over the network or stored
+
+// Fetch a .npy file from a server
+const response = await fetch('https://example.com/data/matrix.npy');
+const buffer = await response.arrayBuffer();
+const loaded = parseNpy(buffer);
+console.log(loaded.shape);  // [2, 3]
+
+// Upload to a server
+await fetch('/api/upload', {
+  method: 'POST',
+  body: serializeNpy(data),
+  headers: { 'Content-Type': 'application/octet-stream' },
+});
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## Working with NPZ archives (multiple arrays)
+
+The `.npz` format bundles multiple named arrays into a single ZIP archive.
+
+<Tabs>
+  <Tab title="Node.js">
+
+```typescript
+import { array, zeros, savez, savez_compressed, load } from 'numpy-ts/node';
+
+const weights = array([[0.1, 0.2], [0.3, 0.4]]);
+const biases = zeros([2]);
+const labels = array([0, 1, 1, 0], 'int32');
+
+// Save multiple arrays (uncompressed)
+await savez('model.npz', { weights, biases, labels });
+
+// Save with compression (smaller file, slower read/write)
+await savez_compressed('model_compressed.npz', { weights, biases, labels });
+
+// Load returns an object with arrays as a Map
+const result = await load('model.npz');
+const w = result.arrays.get('weights');
+const b = result.arrays.get('biases');
+const l = result.arrays.get('labels');
+
+console.log(w.shape);   // [2, 2]
+console.log(b.shape);   // [2]
+console.log(l.dtype);   // 'int32'
+```
+
+  </Tab>
+  <Tab title="Browser">
+
+```typescript
+import { array, zeros, serializeNpz, parseNpz, loadNpz } from 'numpy-ts';
+
+const weights = array([[0.1, 0.2], [0.3, 0.4]]);
+const biases = zeros([2]);
+
+// Serialize to a Uint8Array (ZIP format)
+const bytes = await serializeNpz({ weights, biases });
+
+// Parse from an ArrayBuffer
+const response = await fetch('https://example.com/model.npz');
+const buffer = await response.arrayBuffer();
+
+// Option A: Full result with metadata
+const result = await parseNpz(buffer);
+const w = result.arrays.get('weights');
+console.log('Skipped arrays:', result.skipped);
+console.log('Errors:', result.errors);
+
+// Option B: Simplified loader returning a plain object
+const arrays = await loadNpz(buffer);
+console.log(arrays.weights.shape);
+console.log(arrays.biases.shape);
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## CSV loading with parseTxt
+
+Load delimited text files (CSV, TSV, etc.) into arrays.
+
+<Tabs>
+  <Tab title="Node.js">
+
+```typescript
+import { loadtxt, savetxt, array } from 'numpy-ts/node';
+
+// Load a CSV file
+const data = await loadtxt('measurements.csv', {
+  delimiter: ',',
+});
+console.log(data.shape);  // e.g. [100, 4]
+
+// Load with options
+const filtered = await loadtxt('measurements.csv', {
+  delimiter: ',',
+  skiprows: 1,          // skip header row
+  usecols: [0, 2, 3],  // only columns 0, 2, 3
+});
+
+// Save as CSV
+const results = array([[1.1, 2.2], [3.3, 4.4]]);
+await savetxt('output.csv', results, {
+  delimiter: ',',
+  header: 'x,y',
+  fmt: '%.4f',
+});
+// Produces:
+// # x,y
+// 1.1000,2.2000
+// 3.3000,4.4000
+```
+
+  </Tab>
+  <Tab title="Browser">
+
+```typescript
+import { parseTxt, serializeTxt, array } from 'numpy-ts';
+
+// Parse from a string (from fetch, FileReader, or inline)
+const csvText = `1.0,2.0,3.0
+4.0,5.0,6.0
+7.0,8.0,9.0`;
+
+const data = parseTxt(csvText, { delimiter: ',' });
+console.log(data.shape);   // [3, 3]
+console.log(data.dtype);   // 'float64'
+
+// With options
+const withOptions = parseTxt(csvText, {
+  delimiter: ',',
+  usecols: [0, 2],     // only first and last columns
+});
+console.log(withOptions.shape);  // [3, 2]
+
+// Serialize to a CSV string
+const results = array([[1.1, 2.2], [3.3, 4.4]]);
+const text = serializeTxt(results, {
+  delimiter: ',',
+  header: 'x,y',
+  fmt: '%.2f',
+});
+console.log(text);
+// # x,y
+// 1.10,2.20
+// 3.30,4.40
+
+// Trigger download in a browser
+const blob = new Blob([text], { type: 'text/csv' });
+const url = URL.createObjectURL(blob);
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## Flexible text loading with genfromtxt
+
+`genfromtxt` is like `parseTxt` but handles missing and irregular data more gracefully.
+
+<Tabs>
+  <Tab title="Node.js">
+
+```typescript
+import { genfromtxt } from 'numpy-ts/node';
+
+// Handle missing values in CSV
+const data = await genfromtxt('messy_data.csv', {
+  delimiter: ',',
+  missing_values: ['NA', '', '-'],
+  filling_values: 0,
+});
+// Missing values replaced with 0
+```
+
+  </Tab>
+  <Tab title="Browser">
+
+```typescript
+import { genfromtxt } from 'numpy-ts';
+
+const messy = `1.0,2.0,3.0
+4.0,NA,6.0
+7.0,8.0,
+,10.0,11.0`;
+
+const data = genfromtxt(messy, {
+  delimiter: ',',
+  missing_values: ['NA', ''],
+  filling_values: 0,
+});
+console.log(data.toArray());
+// [[1, 2, 3], [4, 0, 6], [7, 8, 0], [0, 10, 11]]
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## Extracting data with fromregex
+
+Pull numeric data from unstructured text using regular expressions.
+
+<Tabs>
+  <Tab title="Node.js">
+
+```typescript
+import { fromregex } from 'numpy-ts/node';
+
+// File contains lines like: "Sensor A: temp=23.5, humidity=45.2"
+const data = await fromregex(
+  'sensor_log.txt',
+  /temp=([\d.]+), humidity=([\d.]+)/
+);
+console.log(data.shape);    // [N, 2]  (N matching lines, 2 capture groups)
+console.log(data.dtype);    // 'float64'
+```
+
+  </Tab>
+  <Tab title="Browser">
+
+```typescript
+import { fromregex } from 'numpy-ts';
+
+const log = `
+[2024-01-01] Point: x=1.5, y=2.3
+[2024-01-02] Point: x=4.0, y=5.1
+[2024-01-03] Point: x=7.2, y=8.9
+`;
+
+const points = fromregex(log, /x=([\d.]+), y=([\d.]+)/);
+console.log(points.shape);      // [3, 2]
+console.log(points.toArray());  // [[1.5, 2.3], [4.0, 5.1], [7.2, 8.9]]
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## NumPy interoperability
+
+Files saved by numpy-ts can be loaded by Python NumPy, and vice versa. This makes it easy to share data between TypeScript and Python workflows.
+
+```typescript
+// TypeScript: save
+import { array, save } from 'numpy-ts/node';
+const data = array([[1, 2, 3], [4, 5, 6]]);
+await save('shared.npy', data);
+```
+
+```python
+# Python: load
+import numpy as np
+data = np.load('shared.npy')
+print(data)
+# [[1. 2. 3.]
+#  [4. 5. 6.]]
+```
+
+```python
+# Python: save
+import numpy as np
+np.save('from_python.npy', np.array([[10, 20], [30, 40]], dtype=np.int32))
+```
+
+```typescript
+// TypeScript: load
+import { load } from 'numpy-ts/node';
+const fromPython = await load('from_python.npy');
+console.log(fromPython.dtype);     // 'int32'
+console.log(fromPython.toArray()); // [[10, 20], [30, 40]]
+```
+
+<Warning>
+numpy-ts only supports numeric dtypes. Object arrays, structured arrays, string arrays, and pickle-based `.npy` files from Python cannot be loaded.
+</Warning>

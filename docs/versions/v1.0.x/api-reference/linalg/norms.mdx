@@ -1,0 +1,339 @@
+---
+title: "Norms & Determinants"
+description: "Matrix and vector norms, condition numbers, determinants, rank, trace, diagonal, and cross products."
+---
+
+Functions prefixed with `linalg.` live under the `linalg` namespace (e.g., `np.linalg.norm(...)`). Functions without the prefix are top-level (e.g., `np.trace(...)`).
+
+### linalg.norm
+
+Compute the norm of a matrix or vector. The behavior depends on the `ord` parameter and the dimensions of the input.
+
+```typescript
+function linalg.norm(
+  x: ArrayLike,
+  ord?: number | 'fro' | 'nuc',
+  axis?: number | [number, number],
+  keepdims?: boolean
+): number | NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input array. |
+| `ord` | `number \| 'fro' \| 'nuc'` | `undefined` | Order of the norm. For vectors: any numeric value, `Infinity`, or `-Infinity`. For matrices: `1`, `-1`, `2`, `-2`, `Infinity`, `-Infinity`, `'fro'` (Frobenius), or `'nuc'` (nuclear). Default is Frobenius for matrices, 2-norm for vectors. |
+| `axis` | `number \| [number, number]` | `undefined` | Axis or axes along which to compute the norm. If `undefined`, the norm of the flattened array (vector) or the matrix norm is computed. |
+| `keepdims` | `boolean` | `false` | If `true`, the axes over which the norm is taken are left as size-1 dimensions. |
+
+**Returns:** `number | NDArray` -- Scalar when computing the norm of the entire array; `NDArray` when computing along axes.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const v = np.array([3, 4]);
+console.log(np.linalg.norm(v));       // 5 (L2 norm)
+console.log(np.linalg.norm(v, 1));    // 7 (L1 norm)
+console.log(np.linalg.norm(v, Infinity)); // 4 (max norm)
+
+const A = np.array([[1, 2], [3, 4]]);
+console.log(np.linalg.norm(A, 'fro'));  // Frobenius norm
+```
+
+---
+
+### linalg.matrix_norm
+
+Compute a matrix norm. This is a convenience function equivalent to `linalg.norm` with a 2-D input.
+
+```typescript
+function linalg.matrix_norm(
+  x: ArrayLike,
+  ord?: number | 'fro' | 'nuc',
+  keepdims?: boolean
+): number | NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input matrix (2-D). |
+| `ord` | `number \| 'fro' \| 'nuc'` | `'fro'` | Matrix norm order. Supported values: `1`, `-1`, `2`, `-2`, `Infinity`, `-Infinity`, `'fro'`, `'nuc'`. |
+| `keepdims` | `boolean` | `false` | If `true`, the result has shape `[1, 1]` instead of being a scalar. |
+
+**Returns:** `number | NDArray` -- The matrix norm.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+
+console.log(np.linalg.matrix_norm(A));          // Frobenius norm
+console.log(np.linalg.matrix_norm(A, 1));       // max column sum
+console.log(np.linalg.matrix_norm(A, Infinity)); // max row sum
+```
+
+---
+
+### linalg.vector_norm
+
+Compute a vector norm. This is a convenience function for computing norms along specific axes.
+
+```typescript
+function linalg.vector_norm(
+  x: ArrayLike,
+  ord?: number,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input array. |
+| `ord` | `number` | `2` | Order of the norm (e.g., `1`, `2`, `Infinity`, `-Infinity`, `0`). |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute. If `undefined`, uses the flattened array. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as size-1 dimensions. |
+
+**Returns:** `number | NDArray` -- The vector norm.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const v = np.array([3, -4]);
+console.log(np.linalg.vector_norm(v));       // 5 (L2)
+console.log(np.linalg.vector_norm(v, 1));    // 7 (L1)
+
+// Row-wise norms of a matrix
+const A = np.array([[1, 2], [3, 4]]);
+const row_norms = np.linalg.vector_norm(A, 2, 1);
+// array([2.23606798, 5.])
+```
+
+---
+
+### linalg.cond
+
+Compute the condition number of a matrix. A large condition number indicates the matrix is close to singular.
+
+```typescript
+function linalg.cond(
+  x: ArrayLike,
+  p?: number | 'fro' | '-fro' | 'inf' | '-inf'
+): number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input matrix. |
+| `p` | `number \| 'fro' \| '-fro' \| 'inf' \| '-inf'` | `undefined` | Norm type used in the condition number computation. Default uses the 2-norm (ratio of largest to smallest singular value). |
+
+**Returns:** `number` -- The condition number.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Well-conditioned matrix
+const A = np.eye(3);
+console.log(np.linalg.cond(A));  // 1.0
+
+// Ill-conditioned matrix
+const B = np.array([[1, 0], [0, 1e-10]]);
+console.log(np.linalg.cond(B));  // 1e10
+```
+
+---
+
+### linalg.det
+
+Compute the determinant of a square matrix.
+
+```typescript
+function linalg.det(a: ArrayLike): number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input square matrix. |
+
+**Returns:** `number` -- The determinant.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+console.log(np.linalg.det(A));  // -2
+
+const I = np.eye(3);
+console.log(np.linalg.det(I));  // 1
+```
+
+---
+
+### linalg.slogdet
+
+Compute the sign and natural logarithm of the determinant. This is more numerically stable than computing `det` directly for matrices with very large or very small determinants.
+
+```typescript
+function linalg.slogdet(a: ArrayLike): [number, number]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input square matrix. |
+
+**Returns:** `[number, number]` -- A tuple `[sign, logdet]` where `sign` is `-1`, `0`, or `1` and `logdet` is the natural log of the absolute value of the determinant. The determinant is `sign * exp(logdet)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+
+const [sign, logdet] = np.linalg.slogdet(A);
+console.log(sign);    // -1
+console.log(logdet);  // ln(2) ≈ 0.6931
+
+// Reconstruct: sign * exp(logdet) = -2
+console.log(sign * Math.exp(logdet));  // -2
+```
+
+---
+
+### linalg.matrix_rank
+
+Compute the rank of a matrix using SVD. Singular values below a threshold are treated as zero.
+
+```typescript
+function linalg.matrix_rank(M: ArrayLike, tol?: number): number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `M` | `ArrayLike` | -- | Input matrix. |
+| `tol` | `number` | `undefined` | Threshold below which singular values are considered zero. Default is `max(M, N) * eps * max(sv)`. |
+
+**Returns:** `number` -- The effective rank.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+console.log(np.linalg.matrix_rank(A));  // 2
+
+// Rank-deficient matrix
+const B = np.array([[1, 2], [2, 4]]);
+console.log(np.linalg.matrix_rank(B));  // 1
+```
+
+---
+
+### trace
+
+Return the sum along diagonals of the array. For a 2-D array, this returns the sum of the diagonal elements. For higher-dimensional arrays, the axes along which the diagonal is taken can be specified.
+
+```typescript
+function trace(
+  a: ArrayLike,
+  offset?: number,
+  axis1?: number,
+  axis2?: number
+): number | NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `offset` | `number` | `0` | Offset of the diagonal from the main diagonal. Positive means above, negative means below. |
+| `axis1` | `number` | `0` | First axis of the 2-D sub-arrays from which the diagonals are taken. |
+| `axis2` | `number` | `1` | Second axis of the 2-D sub-arrays from which the diagonals are taken. |
+
+**Returns:** `number | NDArray` -- Scalar for 2-D input, `NDArray` for higher-dimensional input.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+
+console.log(np.trace(A));      // 15 (1 + 5 + 9)
+console.log(np.trace(A, 1));   // 8  (2 + 6)
+console.log(np.trace(A, -1));  // 12 (4 + 8)
+```
+
+---
+
+### diagonal
+
+Return the specified diagonal of an array. For a 2-D array, returns the diagonal elements. For higher-dimensional arrays, the diagonal is taken over the specified axes.
+
+```typescript
+function diagonal(
+  a: ArrayLike,
+  offset?: number,
+  axis1?: number,
+  axis2?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (must be at least 2-D). |
+| `offset` | `number` | `0` | Offset of the diagonal from the main diagonal. |
+| `axis1` | `number` | `0` | First axis of the 2-D sub-array from which the diagonal is taken. |
+| `axis2` | `number` | `1` | Second axis of the 2-D sub-array from which the diagonal is taken. |
+
+**Returns:** `NDArray` -- The extracted diagonal.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+
+console.log(np.diagonal(A).toArray());      // [1, 5, 9]
+console.log(np.diagonal(A, 1).toArray());   // [2, 6]
+console.log(np.diagonal(A, -1).toArray());  // [4, 8]
+```
+
+---
+
+### cross
+
+Compute the cross product of two vectors. For 3-D vectors, this returns a 3-D vector. For 2-D vectors, this returns the scalar `z`-component.
+
+```typescript
+function cross(
+  a: ArrayLike,
+  b: ArrayLike,
+  axisa?: number,
+  axisb?: number,
+  axisc?: number,
+  axis?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. Components along the cross-product axis must have length 2 or 3. |
+| `b` | `ArrayLike` | -- | Second input array. Components along the cross-product axis must have length 2 or 3. |
+| `axisa` | `number` | `-1` | Axis of `a` that defines the vector(s). |
+| `axisb` | `number` | `-1` | Axis of `b` that defines the vector(s). |
+| `axisc` | `number` | `-1` | Axis of the result containing the cross product vector(s). |
+| `axis` | `number` | `undefined` | If set, overrides `axisa`, `axisb`, and `axisc`. |
+
+**Returns:** `NDArray` -- The cross product. For 3-D inputs: a 3-D vector. For 2-D inputs: a scalar (the z-component).
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 3-D cross product
+const a = np.array([1, 0, 0]);
+const b = np.array([0, 1, 0]);
+console.log(np.cross(a, b).toArray());  // [0, 0, 1]
+
+// 2-D cross product (scalar z-component)
+const u = np.array([1, 2]);
+const v = np.array([3, 4]);
+console.log(np.cross(u, v).toArray());  // -2
+
+// Batch cross product
+const A = np.array([[1, 0, 0], [0, 1, 0]]);
+const B = np.array([[0, 1, 0], [0, 0, 1]]);
+console.log(np.cross(A, B).shape);  // [2, 3]
+```

@@ -1,0 +1,239 @@
+---
+title: "Data Types (dtypes)"
+description: "All 13 supported dtypes, type promotion rules, BigInt handling, and complex numbers."
+---
+
+## Overview
+
+numpy-ts supports 13 data types that mirror NumPy's numeric type system. Every NDArray has a single dtype that determines how its elements are stored in memory and how arithmetic behaves.
+
+## Supported dtypes
+
+| dtype | TypedArray backing | Byte size | Range |
+|---|---|---|---|
+| `float64` | `Float64Array` | 8 | ~-1.8e308 to ~1.8e308 (64-bit IEEE 754) |
+| `float32` | `Float32Array` | 4 | ~-3.4e38 to ~3.4e38 (32-bit IEEE 754) |
+| `int64` | `BigInt64Array` | 8 | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 |
+| `int32` | `Int32Array` | 4 | -2,147,483,648 to 2,147,483,647 |
+| `int16` | `Int16Array` | 2 | -32,768 to 32,767 |
+| `int8` | `Int8Array` | 1 | -128 to 127 |
+| `uint64` | `BigUint64Array` | 8 | 0 to 18,446,744,073,709,551,615 |
+| `uint32` | `Uint32Array` | 4 | 0 to 4,294,967,295 |
+| `uint16` | `Uint16Array` | 2 | 0 to 65,535 |
+| `uint8` | `Uint8Array` | 1 | 0 to 255 |
+| `bool` | `Uint8Array` | 1 | 0 or 1 |
+| `complex128` | `Float64Array` (interleaved) | 16 | Two float64 values (real + imaginary) |
+| `complex64` | `Float32Array` (interleaved) | 8 | Two float32 values (real + imaginary) |
+
+## Default dtype
+
+When you create an array without specifying a dtype, numpy-ts uses `float64`, matching NumPy:
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+a.dtype;  // 'float64'
+```
+
+## Creating arrays with specific dtypes
+
+Pass the `dtype` option to any creation function:
+
+```typescript
+const a = np.array([1, 2, 3], { dtype: 'int32' });
+const b = np.zeros([3, 3], 'float32');
+const c = np.ones([2, 4], 'uint8');
+const d = np.arange(0, 10, 1, 'int16');
+const e = np.linspace(0, 1, 100, { dtype: 'float32' });
+```
+
+## BigInt for int64 and uint64
+
+JavaScript `number` only has 53 bits of integer precision. For full 64-bit integer support, numpy-ts uses `BigInt64Array` and `BigUint64Array` under the hood. This means `int64` and `uint64` arrays exchange values as `bigint`, not `number`.
+
+<Warning>
+When working with `int64` or `uint64` arrays, `get()` returns `bigint` and `set()` expects `bigint`. Mixing `number` and `bigint` in JavaScript throws a `TypeError`, so be explicit about conversions.
+</Warning>
+
+```typescript
+const a = np.array([1, 2, 3], { dtype: 'int64' });
+
+// Getting values returns bigint
+const val = a.get([0]);  // 1n (bigint)
+
+// Setting values requires bigint
+a.set([0], 100n);
+
+// toArray() returns bigints
+a.toArray();  // [100n, 2n, 3n]
+
+// Converting between number and bigint
+const num = Number(val);    // bigint -> number
+const big = BigInt(42);     // number -> bigint
+```
+
+## Complex numbers
+
+numpy-ts provides a `Complex` class for complex number support, with two complex dtypes:
+
+- **`complex128`** -- each element is a pair of `float64` values (real, imaginary)
+- **`complex64`** -- each element is a pair of `float32` values (real, imaginary)
+
+```typescript
+import { array, Complex } from 'numpy-ts';
+
+// Create a complex array
+const z = array([new Complex(1, 2), new Complex(3, 4)], { dtype: 'complex128' });
+z.dtype;  // 'complex128'
+
+// Access real and imaginary parts
+const elem = z.get([0]);  // Complex { re: 1, im: 2 }
+elem.re;  // 1
+elem.im;  // 2
+
+// Extract real/imaginary arrays
+import { real, imag } from 'numpy-ts';
+real(z).toArray();  // [1, 3]
+imag(z).toArray();  // [2, 4]
+```
+
+The `Complex` class supports arithmetic:
+
+```typescript
+const a = new Complex(1, 2);
+const b = new Complex(3, -1);
+
+a.add(b);    // Complex { re: 4, im: 1 }
+a.mul(b);    // Complex { re: 5, im: 5 }
+a.abs();     // 2.236...  (magnitude)
+a.conj();    // Complex { re: 1, im: -2 }
+a.toString(); // "(1+2j)"
+```
+
+## Type promotion hierarchy
+
+When you combine arrays with different dtypes in an operation, numpy-ts promotes to a common type that can represent both without data loss. The promotion follows NumPy's rules:
+
+```
+complex128 > complex64 > float64 > float32 > int64 > int32 > int16 > int8
+                                             uint64 > uint32 > uint16 > uint8 > bool
+```
+
+Some key promotion rules:
+
+| Operation | Result dtype | Reason |
+|---|---|---|
+| `float64 + int32` | `float64` | float always wins |
+| `float32 + int8` | `float32` | float32 can hold int8 values |
+| `float32 + int32` | `float64` | float32 lacks precision for all int32 values |
+| `int32 + uint32` | `int64` | need signed type larger than both |
+| `int64 + uint64` | `float64` | no integer type can hold both ranges |
+| `bool + int32` | `int32` | bool promotes to the other type |
+| `complex128 + float64` | `complex128` | complex always wins |
+| `complex64 + float64` | `complex128` | float64 requires complex128 precision |
+
+```typescript
+const a = np.array([1, 2], { dtype: 'float32' });
+const b = np.array([3, 4], { dtype: 'int32' });
+
+const c = np.add(a, b);
+c.dtype;  // 'float64' -- promoted for precision safety
+```
+
+## Integer overflow and wrapping
+
+Integer dtypes wrap on overflow, just like NumPy and C integer types. There is no error or automatic promotion:
+
+```typescript
+const a = np.array([127], { dtype: 'int8' });
+const b = np.add(a, np.array([1], { dtype: 'int8' }));
+b.toArray();  // [-128]  -- wraps around
+
+const c = np.array([255], { dtype: 'uint8' });
+const d = np.add(c, np.array([1], { dtype: 'uint8' }));
+d.toArray();  // [0]  -- wraps around
+```
+
+<Note>
+If you need overflow protection, use a wider dtype (`int16` instead of `int8`) or promote to `float64` first.
+</Note>
+
+## Converting dtypes with `astype()`
+
+Use `astype()` to create a new array with a different dtype:
+
+```typescript
+const a = np.array([1.7, 2.3, 3.9], { dtype: 'float64' });
+
+// float -> int truncates (no rounding)
+const b = a.astype('int32');
+b.toArray();  // [1, 2, 3]
+
+// int -> float
+const c = np.array([1, 2, 3], { dtype: 'int32' });
+c.astype('float32').dtype;  // 'float32'
+
+// Anything -> bool (0 = false, nonzero = true)
+const d = np.array([0, 1, -5, 0.0, 3.14]);
+d.astype('bool').toArray();  // [0, 1, 1, 0, 1]
+```
+
+By default, `astype()` always returns a copy. Pass `copy: false` to return the same array when the dtype already matches:
+
+```typescript
+const a = np.array([1, 2, 3], { dtype: 'float64' });
+
+const b = a.astype('float64', false);
+b === a;  // true  -- same object, no copy
+
+const c = a.astype('float64');
+c === a;  // false -- new copy
+```
+
+## Special cases
+
+### Comparisons always return `bool`
+
+Regardless of input dtypes, comparison operations always produce `bool` arrays:
+
+```typescript
+const a = np.array([1.0, 2.0, 3.0]);      // float64
+const b = np.array([2.0, 2.0, 2.0]);      // float64
+
+const result = np.greater(a, b);
+result.dtype;     // 'bool'
+result.toArray(); // [0, 0, 1]  (0 = false, 1 = true)
+```
+
+### `mean()` promotes integers to `float64`
+
+Just like NumPy, `mean()` converts integer arrays to `float64` to avoid truncation:
+
+```typescript
+const a = np.array([1, 2, 3, 4], { dtype: 'int32' });
+const m = np.mean(a);  // 2.5 (float64, not truncated to 2)
+```
+
+### Boolean arrays
+
+Boolean arrays store `0` (false) and `1` (true) as `uint8` values. They participate in arithmetic as integers:
+
+```typescript
+const mask = np.array([true, false, true, false], { dtype: 'bool' });
+mask.toArray();  // [1, 0, 1, 0]
+
+// Sum counts the number of true values
+np.sum(mask);  // 2
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Array Basics" icon="cube" href="/versions/v1.0.x/guides/array-basics">
+    NDArray properties, creation, and conversion.
+  </Card>
+  <Card title="Broadcasting" icon="arrows-up-down-left-right" href="/versions/v1.0.x/guides/broadcasting">
+    How arrays with different shapes combine in operations.
+  </Card>
+</CardGroup>

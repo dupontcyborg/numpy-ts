@@ -1,0 +1,272 @@
+---
+title: "Comparison"
+description: "Element-wise comparison functions that return boolean arrays, plus whole-array equality and closeness tests."
+---
+
+### equal
+
+Test element-wise equality. Inputs are broadcast together.
+
+```typescript
+function equal(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray` -- Boolean array where each element is `true` where `x1 == x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.array([1, 0, 3]);
+
+const result = np.equal(a, b);
+// array([true, false, true])
+```
+
+---
+
+### not_equal
+
+Test element-wise inequality. Inputs are broadcast together.
+
+```typescript
+function not_equal(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray` -- Boolean array where each element is `true` where `x1 != x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.array([1, 0, 3]);
+
+const result = np.not_equal(a, b);
+// array([false, true, false])
+```
+
+---
+
+### greater
+
+Test element-wise whether `x1 > x2`. Inputs are broadcast together.
+
+```typescript
+function greater(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray` -- Boolean array where each element is `true` where `x1 > x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const result = np.greater([2, 1, 3], [1, 2, 3]);
+// array([true, false, false])
+```
+
+---
+
+### greater_equal
+
+Test element-wise whether `x1 >= x2`. Inputs are broadcast together.
+
+```typescript
+function greater_equal(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray` -- Boolean array where each element is `true` where `x1 >= x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const result = np.greater_equal([2, 1, 3], [1, 2, 3]);
+// array([true, false, true])
+```
+
+---
+
+### less
+
+Test element-wise whether `x1 < x2`. Inputs are broadcast together.
+
+```typescript
+function less(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray` -- Boolean array where each element is `true` where `x1 < x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const result = np.less([1, 2, 3], [2, 2, 1]);
+// array([true, false, false])
+```
+
+---
+
+### less_equal
+
+Test element-wise whether `x1 <= x2`. Inputs are broadcast together.
+
+```typescript
+function less_equal(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray` -- Boolean array where each element is `true` where `x1 <= x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const result = np.less_equal([1, 2, 3], [2, 2, 1]);
+// array([true, true, false])
+```
+
+---
+
+### allclose
+
+Return `true` if all elements of two arrays are equal within a tolerance.
+
+```typescript
+function allclose(a: ArrayLike, b: ArrayLike, rtol?: number, atol?: number): boolean
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+| `rtol` | `number` | `1e-5` | Relative tolerance. |
+| `atol` | `number` | `1e-8` | Absolute tolerance. |
+
+**Returns:** `boolean` -- `true` if `|a - b| <= atol + rtol * |b|` for all element pairs.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.allclose([1.0, 1.00001], [1.0, 1.0]);
+// true
+
+np.allclose([1.0, 1.1], [1.0, 1.0]);
+// false
+
+np.allclose([1.0, 1.1], [1.0, 1.0], 0.2);
+// true (increased rtol)
+```
+
+---
+
+### isclose
+
+Return a boolean array where each element is `true` if the corresponding elements of `a` and `b` are equal within a tolerance.
+
+```typescript
+function isclose(a: ArrayLike, b: ArrayLike, rtol?: number, atol?: number, equal_nan?: boolean): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+| `rtol` | `number` | `1e-5` | Relative tolerance. |
+| `atol` | `number` | `1e-8` | Absolute tolerance. |
+| `equal_nan` | `boolean` | `false` | If `true`, two `NaN` values are considered equal. |
+
+**Returns:** `NDArray` -- Boolean array of element-wise closeness results.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const result = np.isclose([1.0, 1.00001, NaN], [1.0, 1.0, NaN], 1e-5, 1e-8, true);
+// array([true, true, true])
+```
+
+---
+
+### array_equal
+
+Return `true` if two arrays have the same shape and all elements are equal.
+
+```typescript
+function array_equal(a1: ArrayLike, a2: ArrayLike): boolean
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a1` | `ArrayLike` | -- | First input array. |
+| `a2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `boolean` -- `true` if both arrays have the same shape and identical elements.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.array_equal([1, 2, 3], [1, 2, 3]);
+// true
+
+np.array_equal([1, 2, 3], [1, 2, 4]);
+// false
+
+np.array_equal([1, 2], [[1, 2]]);
+// false (different shapes)
+```
+
+---
+
+### array_equiv
+
+Return `true` if two arrays are broadcastable to the same shape and all elements are equal after broadcasting.
+
+```typescript
+function array_equiv(a1: ArrayLike, a2: ArrayLike): boolean
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a1` | `ArrayLike` | -- | First input array. |
+| `a2` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `boolean` -- `true` if the arrays are shape-compatible (broadcastable) and all corresponding elements are equal.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.array_equiv([1, 2, 3], [1, 2, 3]);
+// true
+
+// Broadcasting: scalar 1 is equivalent to [1, 1, 1]
+np.array_equiv(1, np.ones([3]));
+// true
+
+np.array_equiv([1, 2], [1, 3]);
+// false
+```

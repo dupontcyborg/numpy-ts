@@ -1,0 +1,557 @@
+---
+title: "Basic Creation"
+description: "Create arrays filled with zeros, ones, constants, or from existing data."
+---
+
+### zeros
+
+Create an array filled with zeros.
+
+```typescript
+function zeros(shape: number[], dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `shape` | `number[]` | - | Shape of the new array, e.g. `[2, 3]`. |
+| `dtype` | `DType` | `'float64'` | Desired data type. |
+
+**Returns:** `NDArray` -- Array of zeros with the given shape.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.zeros([2, 3]);
+// array([[0, 0, 0],
+//        [0, 0, 0]])
+
+const b = np.zeros([3], 'int32');
+// array([0, 0, 0])
+```
+
+```typescript Core
+import { zeros } from 'numpy-ts/core';
+
+const a = zeros([2, 3]);
+const b = zeros([3], 'int32');
+```
+</CodeGroup>
+
+---
+
+### ones
+
+Create an array filled with ones.
+
+```typescript
+function ones(shape: number[], dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `shape` | `number[]` | - | Shape of the new array. |
+| `dtype` | `DType` | `'float64'` | Desired data type. |
+
+**Returns:** `NDArray` -- Array of ones with the given shape.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.ones([2, 3]);
+// array([[1, 1, 1],
+//        [1, 1, 1]])
+```
+
+```typescript Core
+import { ones } from 'numpy-ts/core';
+
+const a = ones([2, 3]);
+```
+</CodeGroup>
+
+---
+
+### empty
+
+Create an uninitialized array. In JavaScript, this is equivalent to `zeros` since typed arrays are zero-initialized.
+
+```typescript
+function empty(shape: number[], dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `shape` | `number[]` | - | Shape of the new array. |
+| `dtype` | `DType` | `'float64'` | Desired data type. |
+
+**Returns:** `NDArray` -- Uninitialized array (zero-filled in practice).
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.empty([3, 2]);
+// array([[0, 0],
+//        [0, 0],
+//        [0, 0]])
+```
+
+```typescript Core
+import { empty } from 'numpy-ts/core';
+
+const a = empty([3, 2]);
+```
+</CodeGroup>
+
+---
+
+### full
+
+Create an array filled with a constant value.
+
+```typescript
+function full(shape: number[], fill_value: number | bigint | boolean, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `shape` | `number[]` | - | Shape of the new array. |
+| `fill_value` | `number \| bigint \| boolean` | - | Value to fill the array with. |
+| `dtype` | `DType` | inferred | Data type. Inferred from `fill_value` if omitted (`int32` for integers, `float64` for floats, `bool` for booleans, `int64` for bigints). |
+
+**Returns:** `NDArray` -- Array filled with `fill_value`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.full([2, 2], 7);
+// array([[7, 7],
+//        [7, 7]])
+
+const b = np.full([3], 3.14, 'float32');
+// array([3.14, 3.14, 3.14])
+```
+
+```typescript Core
+import { full } from 'numpy-ts/core';
+
+const a = full([2, 2], 7);
+const b = full([3], 3.14, 'float32');
+```
+</CodeGroup>
+
+---
+
+### array
+
+Create an array from nested JavaScript arrays, typed arrays, or existing arrays.
+
+```typescript
+function array(data: NestedArray | TypedArray, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `data` | `NestedArray \| TypedArray` | - | Input data. Can be a nested JS array, a `TypedArray`, or an existing `NDArray`. |
+| `dtype` | `DType` | inferred | Data type. Inferred from `data` if omitted. |
+
+**Returns:** `NDArray` -- An ndarray constructed from the input data.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+// array([1, 2, 3])
+
+const b = np.array([[1, 2], [3, 4]], 'int32');
+// array([[1, 2],
+//        [3, 4]])
+
+const c = np.array(new Float32Array([1.5, 2.5, 3.5]));
+// array([1.5, 2.5, 3.5])
+```
+
+```typescript Core
+import { array } from 'numpy-ts/core';
+
+const a = array([1, 2, 3]);
+const b = array([[1, 2], [3, 4]], 'int32');
+```
+</CodeGroup>
+
+---
+
+### asarray
+
+Convert the input to an array. If the input is already an `NDArray` with the correct dtype, it is returned without copying.
+
+```typescript
+function asarray(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input data, in any form that can be converted to an array. |
+| `dtype` | `DType` | inferred | Data type. If specified and differs from the input, a cast is performed. |
+
+**Returns:** `NDArray` -- Array interpretation of `a`. No copy is made if `a` is already an ndarray of the matching dtype.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.asarray([1, 2, 3]);
+// array([1, 2, 3])
+
+const existing = np.array([4, 5, 6]);
+const b = np.asarray(existing); // no copy
+```
+
+```typescript Core
+import { asarray } from 'numpy-ts/core';
+
+const a = asarray([1, 2, 3]);
+```
+</CodeGroup>
+
+---
+
+### asanyarray
+
+Convert input to an array, passing through subclasses. Behaves identically to `asarray` in numpy-ts.
+
+```typescript
+function asanyarray(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input data. |
+| `dtype` | `DType` | inferred | Desired data type. |
+
+**Returns:** `NDArray` -- Array interpretation of `a`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.asanyarray([1, 2, 3]);
+// array([1, 2, 3])
+```
+
+```typescript Core
+import { asanyarray } from 'numpy-ts/core';
+
+const a = asanyarray([1, 2, 3]);
+```
+</CodeGroup>
+
+---
+
+### asarray_chkfinite
+
+Convert input to an array, raising an error if the input contains `Inf` or `NaN`.
+
+```typescript
+function asarray_chkfinite(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input data. |
+| `dtype` | `DType` | inferred | Desired data type. |
+
+**Returns:** `NDArray` -- Array interpretation of `a`.
+
+**Throws:** `Error` if the array contains `Inf` or `NaN`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.asarray_chkfinite([1, 2, 3]); // OK
+// np.asarray_chkfinite([1, NaN, 3]);       // Throws!
+```
+
+```typescript Core
+import { asarray_chkfinite } from 'numpy-ts/core';
+
+const a = asarray_chkfinite([1, 2, 3]);
+```
+</CodeGroup>
+
+---
+
+### ascontiguousarray
+
+Return a contiguous array (C order) in memory. In numpy-ts, this always returns a copy.
+
+```typescript
+function ascontiguousarray(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input data. |
+| `dtype` | `DType` | inferred | Desired data type. |
+
+**Returns:** `NDArray` -- Contiguous array with C-order memory layout.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.ascontiguousarray([[1, 2], [3, 4]]);
+// array([[1, 2],
+//        [3, 4]])
+```
+
+```typescript Core
+import { ascontiguousarray } from 'numpy-ts/core';
+
+const a = ascontiguousarray([[1, 2], [3, 4]]);
+```
+</CodeGroup>
+
+---
+
+### asfortranarray
+
+Return an array laid out in Fortran order in memory. In numpy-ts, this returns a C-order copy (Fortran order is not natively supported).
+
+```typescript
+function asfortranarray(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input data. |
+| `dtype` | `DType` | inferred | Desired data type. |
+
+**Returns:** `NDArray` -- Array copy (C-order in practice).
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.asfortranarray([[1, 2], [3, 4]]);
+```
+
+```typescript Core
+import { asfortranarray } from 'numpy-ts/core';
+
+const a = asfortranarray([[1, 2], [3, 4]]);
+```
+</CodeGroup>
+
+---
+
+### require
+
+Return an array that satisfies requirements. In numpy-ts, requirements like `'C'`, `'F'`, `'A'`, `'W'`, `'O'`, `'E'` are mostly no-ops.
+
+```typescript
+function require(a: ArrayLike, dtype?: DType, requirements?: string[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input array. |
+| `dtype` | `DType` | `undefined` | Desired data type. A cast is performed if needed. |
+| `requirements` | `string[]` | `undefined` | Memory layout requirements (e.g., `['C']`). Mostly no-ops in numpy-ts. |
+
+**Returns:** `NDArray` -- Array satisfying the given requirements.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.require(a, 'float32');
+console.log(b.dtype); // 'float32'
+```
+
+```typescript Core
+import { require, array } from 'numpy-ts/core';
+
+const a = array([1, 2, 3]);
+const b = require(a, 'float32');
+```
+</CodeGroup>
+
+---
+
+### copy
+
+Return a deep copy of an array.
+
+```typescript
+function copy(a: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input array to copy. |
+
+**Returns:** `NDArray` -- A copy of the input array. Modifications to the copy do not affect the original.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.copy(a);
+// b is independent of a
+```
+
+```typescript Core
+import { copy, array } from 'numpy-ts/core';
+
+const a = array([1, 2, 3]);
+const b = copy(a);
+```
+</CodeGroup>
+
+---
+
+### zeros_like
+
+Return an array of zeros with the same shape and dtype as a given array.
+
+```typescript
+function zeros_like(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Reference array. |
+| `dtype` | `DType` | `a.dtype` | Override data type. |
+
+**Returns:** `NDArray` -- Array of zeros matching the shape (and optionally dtype) of `a`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+const b = np.zeros_like(a);
+// array([[0, 0, 0],
+//        [0, 0, 0]])
+```
+
+```typescript Core
+import { zeros_like, array } from 'numpy-ts/core';
+
+const a = array([[1, 2], [3, 4]]);
+const b = zeros_like(a);
+```
+</CodeGroup>
+
+---
+
+### ones_like
+
+Return an array of ones with the same shape and dtype as a given array.
+
+```typescript
+function ones_like(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Reference array. |
+| `dtype` | `DType` | `a.dtype` | Override data type. |
+
+**Returns:** `NDArray` -- Array of ones matching the shape of `a`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+const b = np.ones_like(a);
+// array([[1, 1],
+//        [1, 1]])
+```
+
+```typescript Core
+import { ones_like, array } from 'numpy-ts/core';
+
+const a = array([[1, 2], [3, 4]]);
+const b = ones_like(a);
+```
+</CodeGroup>
+
+---
+
+### empty_like
+
+Return an uninitialized array with the same shape and dtype as a given array.
+
+```typescript
+function empty_like(a: ArrayLike, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Reference array. |
+| `dtype` | `DType` | `a.dtype` | Override data type. |
+
+**Returns:** `NDArray` -- Uninitialized array (zero-filled in practice) matching the shape of `a`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.empty_like(a);
+// array([0, 0, 0])
+```
+
+```typescript Core
+import { empty_like, array } from 'numpy-ts/core';
+
+const a = array([1, 2, 3]);
+const b = empty_like(a);
+```
+</CodeGroup>
+
+---
+
+### full_like
+
+Return a filled array with the same shape and dtype as a given array.
+
+```typescript
+function full_like(a: ArrayLike, fill_value: number | bigint | boolean, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Reference array. |
+| `fill_value` | `number \| bigint \| boolean` | - | Fill value. |
+| `dtype` | `DType` | `a.dtype` | Override data type. |
+
+**Returns:** `NDArray` -- Array filled with `fill_value`, matching the shape of `a`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+const b = np.full_like(a, 99);
+// array([[99, 99],
+//        [99, 99]])
+```
+
+```typescript Core
+import { full_like, array } from 'numpy-ts/core';
+
+const a = array([[1, 2], [3, 4]]);
+const b = full_like(a, 99);
+```
+</CodeGroup>

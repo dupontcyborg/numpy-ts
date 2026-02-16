@@ -1,0 +1,137 @@
+---
+title: "Tiling & Repeating"
+description: "Repeat and pad array contents."
+---
+
+### tile
+
+Construct an array by tiling `A` according to the repetition counts in `reps`. The result has the same dtype as `A`.
+
+```typescript
+function tile(A: ArrayLike, reps: number | number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `A` | `ArrayLike` | -- | Input array. |
+| `reps` | `number \| number[]` | -- | Number of repetitions along each axis. A single integer repeats along all axes equally. An array specifies repetitions per axis (padded with 1s on the left when shorter than `A.ndim`). |
+
+**Returns:** `NDArray` -- The tiled array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+
+// Repeat 3 times along the single axis
+const b = np.tile(a, 3);
+console.log(b.toArray());  // [1, 2, 3, 1, 2, 3, 1, 2, 3]
+
+// Tile a 1-D array into a 2-D grid
+const c = np.tile(a, [2, 3]);
+console.log(c.shape);     // [2, 9]
+console.log(c.toArray());
+// [[1, 2, 3, 1, 2, 3, 1, 2, 3],
+//  [1, 2, 3, 1, 2, 3, 1, 2, 3]]
+
+// Tile a 2-D array
+const d = np.array([[1, 2], [3, 4]]);
+const e = np.tile(d, [2, 3]);
+console.log(e.shape);  // [4, 6]
+```
+
+---
+
+### repeat
+
+Repeat each element of an array a given number of times.
+
+```typescript
+function repeat(
+  a: ArrayLike,
+  repeats: number | number[],
+  axis?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `repeats` | `number \| number[]` | -- | Number of repetitions for each element. If a single integer, all elements are repeated equally. If an array, its length must match the size of `a` (when `axis` is `undefined`) or the length of the specified axis. |
+| `axis` | `number` | `undefined` | Axis along which to repeat. If `undefined`, the array is flattened first and the result is 1-D. |
+
+**Returns:** `NDArray` -- Array with repeated elements.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+
+// Repeat each element 3 times
+const b = np.repeat(a, 3);
+console.log(b.toArray());  // [1, 1, 1, 2, 2, 2, 3, 3, 3]
+
+// Different repeat counts per element
+const c = np.repeat(a, [2, 1, 3]);
+console.log(c.toArray());  // [1, 1, 2, 3, 3, 3]
+
+// Repeat along a specific axis
+const d = np.array([[1, 2], [3, 4]]);
+const e = np.repeat(d, 2, 0);
+console.log(e.toArray());
+// [[1, 2], [1, 2], [3, 4], [3, 4]]
+
+const f = np.repeat(d, 2, 1);
+console.log(f.toArray());
+// [[1, 1, 2, 2], [3, 3, 4, 4]]
+```
+
+---
+
+### pad
+
+Pad an array with values along each dimension.
+
+```typescript
+function pad(
+  array: ArrayLike,
+  pad_width: number | [number, number] | [number, number][],
+  mode?: string,
+  constant_values?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `array` | `ArrayLike` | -- | Input array. |
+| `pad_width` | `number \| [number, number] \| [number, number][]` | -- | Number of values padded to each edge. A single integer pads all axes equally on both sides. A `[before, after]` tuple applies the same padding to every axis. An array of tuples specifies `[before, after]` per axis. |
+| `mode` | `string` | `'constant'` | Padding mode. Currently supports `'constant'`. |
+| `constant_values` | `number` | `0` | Fill value when `mode` is `'constant'`. |
+
+**Returns:** `NDArray` -- Padded array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+
+// Pad 1 element on all sides with zeros
+const b = np.pad(a, 1);
+console.log(b.toArray());
+// [[0, 0, 0, 0],
+//  [0, 1, 2, 0],
+//  [0, 3, 4, 0],
+//  [0, 0, 0, 0]]
+
+// Asymmetric padding per axis
+const c = np.pad(a, [[1, 0], [0, 2]]);
+console.log(c.shape);  // [3, 4]
+
+// Custom fill value
+const d = np.pad(a, 1, 'constant', -1);
+console.log(d.toArray());
+// [[-1, -1, -1, -1],
+//  [-1,  1,  2, -1],
+//  [-1,  3,  4, -1],
+//  [-1, -1, -1, -1]]
+```

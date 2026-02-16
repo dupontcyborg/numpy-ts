@@ -1,0 +1,126 @@
+---
+title: "Index Utilities"
+description: "Convert between flat and multi-dimensional indices, integer array indexing, and boolean indexing."
+---
+
+### ravel_multi_index
+
+Convert a tuple of index arrays into a flat index array for a given shape.
+
+```typescript
+function ravel_multi_index(
+  multi_index: ArrayLike[],
+  dims: number[],
+  mode?: 'raise' | 'wrap' | 'clip'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `multi_index` | `ArrayLike[]` | -- | Tuple of integer arrays, one per dimension. |
+| `dims` | `number[]` | -- | Shape of the array into which the indices apply. |
+| `mode` | `'raise' \| 'wrap' \| 'clip'` | `'raise'` | How to handle out-of-bounds indices. `'raise'` throws an error, `'wrap'` wraps around, `'clip'` clips to the valid range. |
+
+**Returns:** `NDArray` -- Array of flat indices corresponding to the multi-dimensional indices.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const flat = np.ravel_multi_index([[0, 1, 2], [1, 0, 2]], [3, 3]);
+// array([1, 3, 8])
+
+// With wrapping for out-of-bounds
+const wrapped = np.ravel_multi_index([[3], [1]], [3, 3], 'wrap');
+// array([1])  -- row 3 wraps to row 0
+```
+
+---
+
+### unravel_index
+
+Convert flat indices into a tuple of coordinate arrays for a given shape.
+
+```typescript
+function unravel_index(indices: ArrayLike, shape: number[]): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `indices` | `ArrayLike` | -- | Array of flat indices to convert. |
+| `shape` | `number[]` | -- | Shape of the array used for unraveling. |
+
+**Returns:** `NDArray[]` -- Tuple of index arrays, one per dimension. Each array has the same shape as `indices`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const coords = np.unravel_index([1, 3, 8], [3, 3]);
+// coords[0]: array([0, 1, 2])  -- row indices
+// coords[1]: array([1, 0, 2])  -- column indices
+
+// Find the position of the max element in a 2D array
+const a = np.array([[1, 5, 3], [9, 2, 7]]);
+const maxIdx = np.argmax(a);
+const [row, col] = np.unravel_index([maxIdx], a.shape);
+// row: array([1]), col: array([0])  -- max is at position [1, 0]
+```
+
+---
+
+### iindex
+
+Perform integer (fancy) indexing on an array. Select elements from `a` using an array of integer indices.
+
+```typescript
+function iindex(a: ArrayLike, indices: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Source array. |
+| `indices` | `ArrayLike` | -- | Integer array of indices. The result has the same shape as `indices`. |
+
+**Returns:** `NDArray` -- Array of elements selected from `a` at the given flat indices.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([10, 20, 30, 40, 50]);
+np.iindex(a, [0, 2, 4]);
+// array([10, 30, 50])
+
+// Fancy indexing with a 2D index array
+np.iindex(a, [[0, 1], [3, 4]]);
+// array([[10, 20],
+//        [40, 50]])
+```
+
+---
+
+### bindex
+
+Perform boolean array indexing on an array. Select elements from `a` where the mask is true.
+
+```typescript
+function bindex(a: ArrayLike, mask: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Source array. |
+| `mask` | `ArrayLike` | -- | Boolean array. Must be broadcastable to the shape of `a`. |
+
+**Returns:** `NDArray` -- 1-D array of elements from `a` where `mask` is true.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3, 4, 5]);
+np.bindex(a, [true, false, true, false, true]);
+// array([1, 3, 5])
+
+// Common pattern: filter by condition
+const mat = np.array([[1, 2], [3, 4]]);
+np.bindex(mat, np.greater(mat, 2));
+// array([3, 4])
+```

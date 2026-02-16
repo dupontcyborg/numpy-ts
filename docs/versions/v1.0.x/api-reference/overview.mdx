@@ -1,0 +1,97 @@
+---
+title: "API Reference Overview"
+description: "Complete API reference for numpy-ts -- 476 of 507 NumPy functions implemented in pure TypeScript."
+---
+
+# API Reference
+
+numpy-ts implements **476 out of 507** NumPy functions (**93.9%** coverage) in pure TypeScript with zero dependencies. Every function is tested against NumPy for correctness.
+
+## Coverage by category
+
+| Category | Functions | Status |
+|---|---|---|
+| [NDArray Class & Methods](/versions/v1.0.x/api-reference/ndarray/class) | 47/47 | 100% |
+| [Array Creation](/versions/v1.0.x/api-reference/creation/basic) | 35/35 | 100% |
+| [Arithmetic](/versions/v1.0.x/api-reference/math/arithmetic) | 29/29 | 100% |
+| [Exponential & Logarithmic](/versions/v1.0.x/api-reference/math/exponential) | 9/9 | 100% |
+| [Trigonometric](/versions/v1.0.x/api-reference/math/trigonometric) | 16/16 | 100% |
+| [Hyperbolic](/versions/v1.0.x/api-reference/math/hyperbolic) | 9/9 | 100% |
+| [Rounding](/versions/v1.0.x/api-reference/math/rounding) | 7/7 | 100% |
+| [Other Math](/versions/v1.0.x/api-reference/math/other-math) | 15/15 | 100% |
+| [Array Manipulation](/versions/v1.0.x/api-reference/manipulation/shape) | 46/46 | 100% |
+| [Reductions](/versions/v1.0.x/api-reference/reductions/basic) | 36/36 | 100% |
+| [Statistics](/versions/v1.0.x/api-reference/reductions/statistics) | 11/11 | 100% |
+| [Linear Algebra](/versions/v1.0.x/api-reference/linalg/products) | 38/38 | 100% |
+| [Logic & Comparison](/versions/v1.0.x/api-reference/logic/comparison) | 34/34 | 100% |
+| [Sorting & Searching](/versions/v1.0.x/api-reference/sorting/sort) | 13/13 | 100% |
+| [Set Operations](/versions/v1.0.x/api-reference/sets/set-ops) | 12/12 | 100% |
+| [Bitwise](/versions/v1.0.x/api-reference/bitwise/bitwise-ops) | 13/13 | 100% |
+| [Indexing](/versions/v1.0.x/api-reference/indexing/advanced-indexing) | 27/27 | 100% |
+| [Gradient & Differences](/versions/v1.0.x/api-reference/gradient/gradient-ops) | 3/3 | 100% |
+| [Polynomials](/versions/v1.0.x/api-reference/polynomials/polynomial-ops) | 10/10 | 100% |
+| [Random](/versions/v1.0.x/api-reference/random/overview) | 53/53 | 100% |
+| [FFT](/versions/v1.0.x/api-reference/fft/transforms) | 18/18 | 100% |
+| [I/O](/versions/v1.0.x/api-reference/io/npy-npz) | 8/8 | 100% |
+| [Utilities](/versions/v1.0.x/api-reference/utilities/type-checking) | 26/26 | 100% |
+| Unplanned | 0/31 | -- |
+
+## How to read this reference
+
+Each function page follows a consistent format:
+
+**Signature** -- The full TypeScript signature with generics and overloads where applicable.
+
+```typescript
+function functionName(a: NDArray, axis?: number, keepdims?: boolean): NDArray | number;
+```
+
+**Parameter table** -- Every parameter listed with its type, default value, and description.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `NDArray` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to operate. When `undefined`, operates on the flattened array. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Return type** -- What the function returns (scalar when reducing all axes, `NDArray` when reducing along a single axis).
+
+**Example** -- A short, runnable code snippet demonstrating typical usage.
+
+<Note>
+All type signatures use the `NDArray` class from the default `numpy-ts` entry point. If you use the tree-shakeable `numpy-ts/core` entry point, return types are `NDArrayCore` instead. The API is otherwise identical.
+</Note>
+
+## Intentionally unplanned features
+
+The following NumPy features are **not implemented** by design (31 functions):
+
+- **Datetime types** -- `datetime64` and `timedelta64` dtypes. Use native JavaScript `Date` or libraries like `date-fns` instead.
+- **Fortran-order layout** -- `order='F'` parameter. All arrays use C-contiguous (row-major) layout.
+- **Object dtype** -- `dtype=object`. JavaScript does not have an equivalent concept.
+- **String dtypes** -- `dtype='U'` and `dtype='S'`. Use native JavaScript strings and typed arrays separately.
+
+These exclusions keep the library focused on numeric computation where TypeScript can match or exceed NumPy's performance.
+
+## Quick links
+
+<CardGroup cols={2}>
+  <Card title="NDArray Class" icon="cube" href="/versions/v1.0.x/api-reference/ndarray/class">
+    Properties, core methods, and the NDArray / NDArrayCore hierarchy.
+  </Card>
+  <Card title="NDArray Methods" icon="layer-group" href="/versions/v1.0.x/api-reference/ndarray/methods">
+    100+ chainable instance methods on NDArray (arithmetic, reductions, shape, linalg, and more).
+  </Card>
+  <Card title="Array Creation" icon="plus" href="/versions/v1.0.x/api-reference/creation/basic">
+    array, zeros, ones, arange, linspace, eye, and all *_like variants.
+  </Card>
+  <Card title="Linear Algebra" icon="square-root-variable" href="/versions/v1.0.x/api-reference/linalg/products">
+    linalg.inv, linalg.det, linalg.eig, linalg.svd, linalg.solve, and more.
+  </Card>
+  <Card title="Random" icon="dice" href="/versions/v1.0.x/api-reference/random/overview">
+    53 random number generation functions including distributions and sampling.
+  </Card>
+  <Card title="FFT" icon="wave-sine" href="/versions/v1.0.x/api-reference/fft/transforms">
+    Discrete Fourier transforms: fft, ifft, rfft, irfft, fft2, fftfreq, and more.
+  </Card>
+</CardGroup>

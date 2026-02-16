@@ -1,0 +1,278 @@
+---
+title: "Polynomial Operations"
+description: "Polynomial arithmetic, fitting, evaluation, root-finding, and calculus."
+---
+
+### poly
+
+Return polynomial coefficients given a sequence of roots. The returned array represents coefficients in descending degree order, with a leading coefficient of 1.
+
+```typescript
+function poly(seq_of_zeros: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `seq_of_zeros` | `ArrayLike` | -- | Array of polynomial roots. |
+
+**Returns:** `NDArray` -- 1-D array of polynomial coefficients, highest degree first.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Polynomial with roots at 1, 2, 3  =>  (x-1)(x-2)(x-3) = x^3 - 6x^2 + 11x - 6
+const c = np.poly([1, 2, 3]);
+// array([1, -6, 11, -6])
+```
+
+---
+
+### polyadd
+
+Add two polynomials. Inputs are coefficient arrays in descending degree order. The result is trimmed of leading zeros.
+
+```typescript
+function polyadd(a1: ArrayLike, a2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a1` | `ArrayLike` | -- | Coefficients of the first polynomial. |
+| `a2` | `ArrayLike` | -- | Coefficients of the second polynomial. |
+
+**Returns:** `NDArray` -- Coefficients of the sum polynomial.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// (x^2 + 2x + 3) + (4x + 5) = x^2 + 6x + 8
+const sum = np.polyadd([1, 2, 3], [4, 5]);
+// array([1, 6, 8])
+```
+
+---
+
+### polyder
+
+Differentiate a polynomial one or more times. Coefficients are in descending degree order.
+
+```typescript
+function polyder(p: ArrayLike, m?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `p` | `ArrayLike` | -- | Polynomial coefficients (highest degree first). |
+| `m` | `number` | `1` | Number of times to differentiate. |
+
+**Returns:** `NDArray` -- Coefficients of the m-th derivative.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// d/dx (3x^3 + 2x^2 + x + 5) = 9x^2 + 4x + 1
+const d = np.polyder([3, 2, 1, 5]);
+// array([9, 4, 1])
+
+// Second derivative: 18x + 4
+const d2 = np.polyder([3, 2, 1, 5], 2);
+// array([18, 4])
+```
+
+---
+
+### polydiv
+
+Divide one polynomial by another. Returns quotient and remainder as a tuple.
+
+```typescript
+function polydiv(u: ArrayLike, v: ArrayLike): [NDArray, NDArray]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `u` | `ArrayLike` | -- | Dividend polynomial coefficients. |
+| `v` | `ArrayLike` | -- | Divisor polynomial coefficients. |
+
+**Returns:** `[NDArray, NDArray]` -- Tuple of `[quotient, remainder]` coefficient arrays.
+
+**Throws:** `Error` if the divisor is the zero polynomial.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// (x^3 - 1) / (x - 1) = x^2 + x + 1  remainder 0
+const [q, r] = np.polydiv([1, 0, 0, -1], [1, -1]);
+// q = array([1, 1, 1])
+// r = array([0])
+```
+
+---
+
+### polyfit
+
+Least-squares polynomial fit of degree `deg` to data points `(x, y)`. Returns coefficients in descending degree order.
+
+```typescript
+function polyfit(x: ArrayLike, y: ArrayLike, deg: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | x-coordinates of the sample points. |
+| `y` | `ArrayLike` | -- | y-coordinates of the sample points. |
+| `deg` | `number` | -- | Degree of the fitting polynomial. Must be less than the number of data points. |
+
+**Returns:** `NDArray` -- Polynomial coefficients, highest degree first.
+
+**Throws:** `Error` if `deg >= len(x)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const x = np.array([0, 1, 2, 3, 4]);
+const y = np.array([0, 1, 4, 9, 16]);
+
+// Fit a degree-2 polynomial: should recover y = x^2
+const coeffs = np.polyfit(x, y, 2);
+// array([1, 0, 0])  (approximately)
+```
+
+---
+
+### polyint
+
+Integrate a polynomial one or more times. Optionally specify integration constants.
+
+```typescript
+function polyint(p: ArrayLike, m?: number, k?: number | number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `p` | `ArrayLike` | -- | Polynomial coefficients (highest degree first). |
+| `m` | `number` | `1` | Number of times to integrate. |
+| `k` | `number \| number[]` | `0` | Integration constant(s). A single number applies to all integrations; an array specifies the constant for each successive integration. |
+
+**Returns:** `NDArray` -- Coefficients of the integrated polynomial.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Integrate 3x^2 + 2x + 1  =>  x^3 + x^2 + x + C
+const p = np.polyint([3, 2, 1]);
+// array([1, 1, 1, 0])
+
+// Integrate with constant C = 5
+const p2 = np.polyint([3, 2, 1], 1, 5);
+// array([1, 1, 1, 5])
+```
+
+---
+
+### polymul
+
+Multiply two polynomials. Equivalent to convolving their coefficient arrays.
+
+```typescript
+function polymul(a1: ArrayLike, a2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a1` | `ArrayLike` | -- | Coefficients of the first polynomial. |
+| `a2` | `ArrayLike` | -- | Coefficients of the second polynomial. |
+
+**Returns:** `NDArray` -- Coefficients of the product polynomial.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// (x + 1) * (x - 1) = x^2 - 1
+const prod = np.polymul([1, 1], [1, -1]);
+// array([1, 0, -1])
+```
+
+---
+
+### polysub
+
+Subtract two polynomials. Result is trimmed of leading zeros.
+
+```typescript
+function polysub(a1: ArrayLike, a2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a1` | `ArrayLike` | -- | Coefficients of the first polynomial. |
+| `a2` | `ArrayLike` | -- | Coefficients of the second polynomial. |
+
+**Returns:** `NDArray` -- Coefficients of the difference `a1 - a2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// (x^2 + 2x + 3) - (2x + 1) = x^2 + 2
+const diff = np.polysub([1, 2, 3], [2, 1]);
+// array([1, 0, 2])
+```
+
+---
+
+### polyval
+
+Evaluate a polynomial at one or more points using Horner's method.
+
+```typescript
+function polyval(p: ArrayLike, x: ArrayLike): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `p` | `ArrayLike` | -- | Polynomial coefficients (highest degree first). |
+| `x` | `ArrayLike` | -- | Points at which to evaluate the polynomial. Can be a single number. |
+
+**Returns:** `NDArray | number` -- Scalar if `x` is a single number, otherwise an `NDArray` of evaluated values.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// p(x) = x^2 + 2x + 3
+const p = [1, 2, 3];
+
+// Evaluate at a single point
+console.log(np.polyval(p, 2));  // 11
+
+// Evaluate at multiple points
+const vals = np.polyval(p, [0, 1, 2, 3]);
+// array([3, 6, 11, 18])
+```
+
+---
+
+### roots
+
+Find the roots of a polynomial with given coefficients. Uses the companion matrix eigenvalue method, the same algorithm used by NumPy.
+
+```typescript
+function roots(p: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `p` | `ArrayLike` | -- | Polynomial coefficients (highest degree first). Leading zeros are stripped. |
+
+**Returns:** `NDArray` -- 1-D complex128 array of roots, sorted by descending magnitude.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Roots of x^2 - 5x + 6 = (x-2)(x-3)
+const r = np.roots([1, -5, 6]);
+// array([3+0j, 2+0j])
+
+// Roots of x^2 + 1 (complex roots)
+const r2 = np.roots([1, 0, 1]);
+// array([0+1j, 0-1j])
+```

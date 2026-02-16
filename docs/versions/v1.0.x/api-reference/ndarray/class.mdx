@@ -1,0 +1,621 @@
+---
+title: "NDArray Class"
+description: "The NDArray and NDArrayCore classes -- properties, element access, slicing, conversion, and static methods."
+---
+
+# NDArray Class
+
+numpy-ts provides two array classes:
+
+- **`NDArray`** -- The full class with 100+ chainable instance methods. Returned by the default `numpy-ts` entry point.
+- **`NDArrayCore`** -- The minimal class with only core properties and element access. Returned by the tree-shakeable `numpy-ts/core` entry point.
+
+`NDArray` extends `NDArrayCore`. Every property and core method documented on this page exists on both classes.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.shape);   // [2, 3]
+console.log(a.dtype);   // 'float64'
+console.log(a.ndim);    // 2
+console.log(a.size);    // 6
+```
+
+---
+
+## Properties
+
+### shape
+
+```typescript
+get shape(): readonly number[]
+```
+
+Tuple of array dimensions. A 2D array with 3 rows and 4 columns has shape `[3, 4]`.
+
+| Property | Type | Description |
+|---|---|---|
+| `shape` | `readonly number[]` | Dimension sizes, one entry per axis. |
+
+```typescript
+const a = np.zeros([3, 4, 5]);
+console.log(a.shape); // [3, 4, 5]
+```
+
+---
+
+### ndim
+
+```typescript
+get ndim(): number
+```
+
+Number of array dimensions (axes). Equivalent to `shape.length`.
+
+| Property | Type | Description |
+|---|---|---|
+| `ndim` | `number` | Number of dimensions. |
+
+```typescript
+const a = np.zeros([3, 4, 5]);
+console.log(a.ndim); // 3
+```
+
+---
+
+### size
+
+```typescript
+get size(): number
+```
+
+Total number of elements in the array. Equal to the product of all shape dimensions.
+
+| Property | Type | Description |
+|---|---|---|
+| `size` | `number` | Total element count. |
+
+```typescript
+const a = np.zeros([3, 4]);
+console.log(a.size); // 12
+```
+
+---
+
+### dtype
+
+```typescript
+get dtype(): DType
+```
+
+Data type of the array elements. One of: `'float64'`, `'float32'`, `'complex128'`, `'complex64'`, `'int64'`, `'int32'`, `'int16'`, `'int8'`, `'uint64'`, `'uint32'`, `'uint16'`, `'uint8'`, `'bool'`.
+
+| Property | Type | Description |
+|---|---|---|
+| `dtype` | `DType` | Element data type string. |
+
+```typescript
+const a = np.array([1, 2, 3]);
+console.log(a.dtype); // 'float64'
+
+const b = np.zeros([2, 2], 'int32');
+console.log(b.dtype); // 'int32'
+```
+
+---
+
+### data
+
+```typescript
+get data(): TypedArray
+```
+
+The underlying JavaScript `TypedArray` buffer holding the raw element data.
+
+| Property | Type | Description |
+|---|---|---|
+| `data` | `TypedArray` | The backing typed array (`Float64Array`, `Int32Array`, etc.). |
+
+`TypedArray` is a union of `Float64Array | Float32Array | BigInt64Array | Int32Array | Int16Array | Int8Array | BigUint64Array | Uint32Array | Uint16Array | Uint8Array`.
+
+```typescript
+const a = np.array([10, 20, 30]);
+console.log(a.data); // Float64Array([10, 20, 30])
+```
+
+---
+
+### strides
+
+```typescript
+get strides(): readonly number[]
+```
+
+Stride for each dimension, measured in elements (not bytes). Used internally to map multi-dimensional indices to flat buffer positions.
+
+| Property | Type | Description |
+|---|---|---|
+| `strides` | `readonly number[]` | Elements to skip for each axis. |
+
+```typescript
+const a = np.zeros([3, 4]);
+console.log(a.strides); // [4, 1]
+```
+
+---
+
+### offset
+
+```typescript
+get offset(): number
+```
+
+Offset into the underlying data buffer, in elements. Nonzero for views created by slicing.
+
+| Property | Type | Description |
+|---|---|---|
+| `offset` | `number` | Element offset into `data`. |
+
+```typescript
+const a = np.arange(10);
+const b = a.slice('3:7');
+console.log(b.offset); // 3
+```
+
+<Note>
+The `offset` property is accessed via the internal storage object (`a.storage.offset`). On `NDArrayCore` it is not directly exposed as a top-level property but can be read from the storage.
+</Note>
+
+---
+
+### base
+
+```typescript
+get base(): NDArray | null
+```
+
+If this array is a view of another array, `base` references the original array that owns the data. Returns `null` if the array owns its own data.
+
+| Property | Type | Description |
+|---|---|---|
+| `base` | `NDArray \| null` | The owning array, or `null`. |
+
+```typescript
+const a = np.arange(10);
+const b = a.slice('2:8');
+console.log(b.base === a);   // true
+console.log(a.base === null); // true
+```
+
+---
+
+### flags
+
+```typescript
+get flags(): {
+  C_CONTIGUOUS: boolean;
+  F_CONTIGUOUS: boolean;
+  OWNDATA: boolean;
+}
+```
+
+Information about the memory layout and ownership of the array.
+
+| Flag | Type | Description |
+|---|---|---|
+| `C_CONTIGUOUS` | `boolean` | `true` if data is stored in C (row-major) order with no gaps. |
+| `F_CONTIGUOUS` | `boolean` | `true` if data is stored in Fortran (column-major) order with no gaps. |
+| `OWNDATA` | `boolean` | `true` if this array owns its data buffer (not a view). |
+
+```typescript
+const a = np.array([[1, 2], [3, 4]]);
+console.log(a.flags);
+// { C_CONTIGUOUS: true, F_CONTIGUOUS: false, OWNDATA: true }
+```
+
+---
+
+### T
+
+```typescript
+get T(): NDArray
+```
+
+Transpose of the array. Returns a view with axes reversed. Equivalent to calling `transpose()` with no arguments.
+
+| Property | Type | Description |
+|---|---|---|
+| `T` | `NDArray` | Transposed view. |
+
+<Note>
+`T` is a property (no parentheses needed). It is only available on `NDArray`, not `NDArrayCore`.
+</Note>
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.T.shape); // [3, 2]
+```
+
+---
+
+### itemsize
+
+```typescript
+get itemsize(): number
+```
+
+Size of a single array element in bytes.
+
+| Property | Type | Description |
+|---|---|---|
+| `itemsize` | `number` | Bytes per element. |
+
+```typescript
+const a = np.zeros([3], 'float64');
+console.log(a.itemsize); // 8
+
+const b = np.zeros([3], 'int8');
+console.log(b.itemsize); // 1
+```
+
+---
+
+### nbytes
+
+```typescript
+get nbytes(): number
+```
+
+Total number of bytes consumed by the array elements. Equal to `size * itemsize`.
+
+| Property | Type | Description |
+|---|---|---|
+| `nbytes` | `number` | Total byte count. |
+
+```typescript
+const a = np.zeros([100, 100], 'float32');
+console.log(a.nbytes); // 40000
+```
+
+---
+
+## Core methods
+
+### copy
+
+```typescript
+copy(): NDArray
+```
+
+Return a deep copy of the array. The returned array owns its own data and is not a view.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| *(none)* | -- | -- | -- |
+
+**Returns:** `NDArray` -- A new array with copied data.
+
+```typescript
+const a = np.array([1, 2, 3]);
+const b = a.copy();
+b.set([0], 99);
+console.log(a.get([0])); // 1  (original unchanged)
+```
+
+---
+
+### astype
+
+```typescript
+astype(dtype: DType, copy?: boolean): NDArray
+```
+
+Cast the array to a specified data type.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dtype` | `DType` | -- | Target data type. |
+| `copy` | `boolean` | `true` | If `false` and dtype already matches, return `this` instead of a copy. |
+
+**Returns:** `NDArray` -- Array with the requested dtype.
+
+```typescript
+const a = np.array([1.7, 2.3, 3.9]);
+const b = a.astype('int32');
+console.log(b.toArray()); // [1, 2, 3]
+console.log(b.dtype);     // 'int32'
+```
+
+---
+
+### fill
+
+```typescript
+fill(value: number | bigint): void
+```
+
+Fill the array in-place with a scalar value.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `value` | `number \| bigint` | -- | Value to fill with. |
+
+**Returns:** `void`
+
+```typescript
+const a = np.zeros([2, 3]);
+a.fill(7);
+console.log(a.toArray()); // [[7, 7, 7], [7, 7, 7]]
+```
+
+---
+
+### toArray
+
+```typescript
+toArray(): NestedArray
+```
+
+Convert the array to a nested JavaScript array. Scalar (0-d) arrays return a single number.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| *(none)* | -- | -- | -- |
+
+**Returns:** `number | number[] | number[][] | ...` -- Nested JavaScript array matching the shape.
+
+```typescript
+const a = np.array([[1, 2], [3, 4]]);
+console.log(a.toArray()); // [[1, 2], [3, 4]]
+```
+
+---
+
+### tolist
+
+```typescript
+tolist(): NestedArray
+```
+
+Return the array as a nested list. Identical to `toArray()`.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| *(none)* | -- | -- | -- |
+
+**Returns:** `number | number[] | number[][] | ...` -- Same as `toArray()`.
+
+---
+
+### tobytes
+
+```typescript
+tobytes(): ArrayBuffer
+```
+
+Return the raw bytes of the array data as an `ArrayBuffer`. If the array is not C-contiguous, a contiguous copy is made first.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| *(none)* | -- | -- | -- |
+
+**Returns:** `ArrayBuffer` -- Raw byte representation.
+
+```typescript
+const a = np.array([1, 2, 3], 'int32');
+const bytes = a.tobytes();
+console.log(bytes.byteLength); // 12  (3 elements * 4 bytes)
+```
+
+---
+
+### get
+
+```typescript
+get(indices: number[]): number | bigint | Complex
+```
+
+Get a single element at the given multi-dimensional indices. Supports negative indexing.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `indices` | `number[]` | -- | One index per dimension. Negative values count from the end. |
+
+**Returns:** `number | bigint | Complex` -- The scalar element value.
+
+```typescript
+const a = np.array([[10, 20], [30, 40]]);
+console.log(a.get([0, 1])); // 20
+console.log(a.get([-1, -1])); // 40
+```
+
+---
+
+### set
+
+```typescript
+set(indices: number[], value: number | bigint | Complex): void
+```
+
+Set a single element at the given multi-dimensional indices. Supports negative indexing.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `indices` | `number[]` | -- | One index per dimension. |
+| `value` | `number \| bigint \| Complex` | -- | Value to set. |
+
+**Returns:** `void`
+
+```typescript
+const a = np.zeros([2, 2]);
+a.set([0, 1], 42);
+console.log(a.get([0, 1])); // 42
+```
+
+---
+
+### slice
+
+```typescript
+slice(...sliceStrs: string[]): NDArray
+```
+
+Slice the array using NumPy-style string syntax. Returns a **view** (shares data with the original).
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `...sliceStrs` | `string[]` | -- | Slice specifications, one per dimension. Uses NumPy syntax: `'start:stop:step'`, `':'`, `'i'` (integer index). |
+
+**Returns:** `NDArray` -- A view into the original array.
+
+```typescript
+const a = np.arange(10);
+
+// Elements 2 through 6
+const b = a.slice('2:7');
+console.log(b.toArray()); // [2, 3, 4, 5, 6]
+
+// Every other element
+const c = a.slice('::2');
+console.log(c.toArray()); // [0, 2, 4, 6, 8]
+
+// 2D slicing
+const m = np.arange(12).reshape(3, 4);
+const sub = m.slice('0:2', '1:3');
+console.log(sub.toArray()); // [[1, 2], [5, 6]]
+```
+
+---
+
+### row
+
+```typescript
+row(i: number): NDArray
+```
+
+Get a single row from a 2D+ array. Convenience method for `slice(String(i), ':')`.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `i` | `number` | -- | Row index. |
+
+**Returns:** `NDArray` -- The selected row as a view.
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.row(1).toArray()); // [4, 5, 6]
+```
+
+---
+
+### col
+
+```typescript
+col(j: number): NDArray
+```
+
+Get a single column from a 2D+ array. Convenience method for `slice(':', String(j))`.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `j` | `number` | -- | Column index. |
+
+**Returns:** `NDArray` -- The selected column as a view.
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.col(0).toArray()); // [1, 4]
+```
+
+---
+
+### rows
+
+```typescript
+rows(start: number, stop: number): NDArray
+```
+
+Get a range of rows from a 2D+ array.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `start` | `number` | -- | Start row index (inclusive). |
+| `stop` | `number` | -- | Stop row index (exclusive). |
+
+**Returns:** `NDArray` -- View containing the selected rows.
+
+```typescript
+const a = np.arange(12).reshape(4, 3);
+console.log(a.rows(1, 3).toArray()); // [[3, 4, 5], [6, 7, 8]]
+```
+
+---
+
+### cols
+
+```typescript
+cols(start: number, stop: number): NDArray
+```
+
+Get a range of columns from a 2D+ array.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `start` | `number` | -- | Start column index (inclusive). |
+| `stop` | `number` | -- | Stop column index (exclusive). |
+
+**Returns:** `NDArray` -- View containing the selected columns.
+
+```typescript
+const a = np.arange(12).reshape(3, 4);
+console.log(a.cols(1, 3).toArray()); // [[1, 2], [5, 6], [9, 10]]
+```
+
+---
+
+### item
+
+```typescript
+item(...args: number[]): number | bigint | Complex
+```
+
+Extract a scalar value from the array. With no arguments, works on arrays with exactly one element. With one argument, treats it as a flat index. With multiple arguments, treats them as multi-dimensional indices.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `...args` | `number[]` | -- | No args (single-element arrays), one flat index, or multi-dimensional indices. |
+
+**Returns:** `number | bigint | Complex` -- The scalar value.
+
+```typescript
+const a = np.array([[10, 20], [30, 40]]);
+console.log(a.item(0, 1)); // 20
+console.log(a.item(3));    // 40 (flat index)
+
+const scalar = np.array([42]);
+console.log(scalar.item()); // 42
+```
+
+---
+
+## Static methods
+
+### NDArray.fromStorage
+
+```typescript
+static fromStorage(storage: ArrayStorage, base?: NDArray): NDArray
+```
+
+Create an `NDArray` from an internal `ArrayStorage` object. This is primarily used internally by numpy-ts operations.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `storage` | `ArrayStorage` | -- | The storage backing the array. |
+| `base` | `NDArray` | `undefined` | If provided, marks this array as a view of `base`. |
+
+**Returns:** `NDArray` -- A new NDArray wrapping the given storage.
+
+<Warning>
+`fromStorage` is an internal API. Prefer `np.array()`, `np.zeros()`, and other creation functions for normal usage.
+</Warning>

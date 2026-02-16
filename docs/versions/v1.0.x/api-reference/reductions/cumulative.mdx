@@ -1,0 +1,84 @@
+---
+title: "Cumulative Operations"
+description: "Cumulative sum and product functions: cumsum, cumprod, cumulative_sum, cumulative_prod."
+---
+
+# Cumulative Operations
+
+Cumulative operations return an array of the same size as the input, where each element is the running total (sum or product) of all preceding elements along the specified axis.
+
+---
+
+### cumsum
+
+Return the cumulative sum of elements along a given axis.
+
+<Note>
+Also exported as `cumulative_sum` for compatibility with the newer NumPy naming convention.
+</Note>
+
+```typescript
+function cumsum(
+  a: ArrayLike,
+  axis?: number,
+  dtype?: DType
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to compute the cumulative sum. When `undefined`, the input is flattened before computing. |
+| `dtype` | `DType` | `undefined` | Desired output dtype. If `undefined`, the dtype is inferred from the input. |
+
+**Returns:** `NDArray` containing the cumulative sums.
+
+```typescript
+import { array, cumsum } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4]);
+cumsum(a); // array([1, 3, 6, 10])
+
+const b = array([[1, 2], [3, 4]]);
+cumsum(b);    // array([1, 3, 6, 10])   -- flattened
+cumsum(b, 0); // array([[1, 2], [4, 6]])
+cumsum(b, 1); // array([[1, 3], [3, 7]])
+```
+
+---
+
+### cumprod
+
+Return the cumulative product of elements along a given axis.
+
+<Note>
+Also exported as `cumulative_prod` for compatibility with the newer NumPy naming convention.
+</Note>
+
+```typescript
+function cumprod(
+  a: ArrayLike,
+  axis?: number,
+  dtype?: DType
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to compute the cumulative product. When `undefined`, the input is flattened before computing. |
+| `dtype` | `DType` | `undefined` | Desired output dtype. If `undefined`, the dtype is inferred from the input. |
+
+**Returns:** `NDArray` containing the cumulative products.
+
+```typescript
+import { array, cumprod } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4]);
+cumprod(a); // array([1, 2, 6, 24])
+
+const b = array([[1, 2], [3, 4]]);
+cumprod(b);    // array([1, 2, 6, 24])    -- flattened
+cumprod(b, 0); // array([[1, 2], [3, 8]])
+cumprod(b, 1); // array([[1, 2], [3, 12]])
+```

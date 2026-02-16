@@ -1,0 +1,290 @@
+---
+title: "Bitwise Operations"
+description: "Element-wise bitwise AND, OR, XOR, NOT, shifts, and bit packing/unpacking."
+---
+
+### bitwise_and
+
+Compute the bit-wise AND of two arrays element-wise.
+
+```typescript
+function bitwise_and(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. Broadcasting is applied if shapes differ. |
+
+**Returns:** `NDArray` -- Element-wise bit-wise AND of `x1` and `x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0b1100, 0b1010]);
+const b = np.array([0b1010, 0b1100]);
+
+const c = np.bitwise_and(a, b);
+// array([8, 8])  -- 0b1000, 0b1000
+```
+
+---
+
+### bitwise_or
+
+Compute the bit-wise OR of two arrays element-wise.
+
+```typescript
+function bitwise_or(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. Broadcasting is applied if shapes differ. |
+
+**Returns:** `NDArray` -- Element-wise bit-wise OR of `x1` and `x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0b1100, 0b1010]);
+const b = np.array([0b1010, 0b0110]);
+
+const c = np.bitwise_or(a, b);
+// array([14, 14])  -- 0b1110, 0b1110
+```
+
+---
+
+### bitwise_xor
+
+Compute the bit-wise XOR of two arrays element-wise.
+
+```typescript
+function bitwise_xor(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. Broadcasting is applied if shapes differ. |
+
+**Returns:** `NDArray` -- Element-wise bit-wise XOR of `x1` and `x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0b1100, 0b1010]);
+const b = np.array([0b1010, 0b1100]);
+
+const c = np.bitwise_xor(a, b);
+// array([6, 6])  -- 0b0110, 0b0110
+```
+
+---
+
+### bitwise_not
+
+Compute the bit-wise NOT of an array element-wise (one's complement).
+
+<Note>
+Also available as `bitwise_invert`, which is an alias for `bitwise_not`.
+</Note>
+
+```typescript
+function bitwise_not(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- Element-wise bit-wise NOT (inversion) of `x`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0, 1, -2], 'int32');
+const b = np.bitwise_not(a);
+// array([-1, -2, 1])
+```
+
+---
+
+### invert
+
+Compute the bit-wise inversion (NOT) of an array element-wise. This is identical to `bitwise_not`.
+
+```typescript
+function invert(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- Element-wise bit-wise inversion of `x`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0b0101, 0b1100], 'int8');
+const b = np.invert(a);
+// array([-6, -13])
+```
+
+---
+
+### left_shift
+
+Shift the bits of an integer to the left. Bits are shifted to the left by appending `x2` zeros at the right of `x1`.
+
+<Note>
+Also available as `bitwise_left_shift`, which is an alias for `left_shift`.
+</Note>
+
+```typescript
+function left_shift(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | Input values. |
+| `x2` | `ArrayLike` | -- | Number of positions to shift `x1` to the left. Broadcasting is applied if shapes differ. |
+
+**Returns:** `NDArray` -- `x1` with bits shifted `x2` positions to the left.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 4]);
+const b = np.left_shift(a, [2, 1, 3]);
+// array([4, 4, 32])  -- 1<<2, 2<<1, 4<<3
+```
+
+---
+
+### right_shift
+
+Shift the bits of an integer to the right.
+
+<Note>
+Also available as `bitwise_right_shift`, which is an alias for `right_shift`.
+</Note>
+
+```typescript
+function right_shift(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | Input values. |
+| `x2` | `ArrayLike` | -- | Number of positions to shift `x1` to the right. Broadcasting is applied if shapes differ. |
+
+**Returns:** `NDArray` -- `x1` with bits shifted `x2` positions to the right.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([16, 32, 64]);
+const b = np.right_shift(a, [2, 3, 4]);
+// array([4, 4, 4])  -- 16>>2, 32>>3, 64>>4
+```
+
+---
+
+### packbits
+
+Pack the elements of a binary-valued array into bits in a uint8 array.
+
+```typescript
+function packbits(
+  a: ArrayLike,
+  axis?: number,
+  bitorder?: 'big' | 'little'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Array of 0s and 1s to pack. |
+| `axis` | `number` | `undefined` | The axis along which to pack. When `undefined`, the array is flattened first. |
+| `bitorder` | `'big' \| 'little'` | `'big'` | Bit order within each byte. `'big'` means the first element becomes the most significant bit. |
+
+**Returns:** `NDArray` -- Array of type `uint8` whose elements represent packed bits.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const bits = np.array([1, 0, 1, 1, 0, 0, 0, 0, 1, 1]);
+const packed = np.packbits(bits);
+// array([176, 192])  -- 0b10110000, 0b11000000
+
+const littleEnd = np.packbits(np.array([1, 0, 1, 1]), undefined, 'little');
+// array([13])  -- 0b00001101
+```
+
+---
+
+### unpackbits
+
+Unpack elements of a uint8 array into a binary-valued array.
+
+```typescript
+function unpackbits(
+  a: ArrayLike,
+  axis?: number,
+  count?: number,
+  bitorder?: 'big' | 'little'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array of `uint8` type. |
+| `axis` | `number` | `undefined` | The axis along which to unpack. When `undefined`, the array is flattened first. |
+| `count` | `number` | `undefined` | Number of elements to unpack along `axis`. If negative, trim that many elements from the end. |
+| `bitorder` | `'big' \| 'little'` | `'big'` | Bit order within each byte. |
+
+**Returns:** `NDArray` -- Array of `uint8` values (0s and 1s) representing the unpacked bits.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const packed = np.array([176, 192], 'uint8');
+const bits = np.unpackbits(packed);
+// array([1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0])
+
+// Limit to first 10 bits
+const trimmed = np.unpackbits(packed, undefined, 10);
+// array([1, 0, 1, 1, 0, 0, 0, 0, 1, 1])
+```
+
+---
+
+### bitwise_count
+
+Count the number of 1-bits (popcount) in each element of the array.
+
+```typescript
+function bitwise_count(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input array of integer type. |
+
+**Returns:** `NDArray` -- Array where each element contains the number of set bits (1-bits) of the corresponding element in `x`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0, 1, 7, 255]);
+const counts = np.bitwise_count(a);
+// array([0, 1, 3, 8])
+
+const b = np.array([0b1010, 0b1111, 0b10000000]);
+const c = np.bitwise_count(b);
+// array([2, 4, 1])
+```

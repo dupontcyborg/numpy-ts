@@ -1,0 +1,380 @@
+---
+title: "Products & Contractions"
+description: "Dot products, matrix multiplication, outer products, Kronecker products, and Einstein summation."
+---
+
+### dot
+
+Dot product of two arrays. For 1-D arrays, computes the inner product. For 2-D arrays, computes the matrix product (equivalent to `matmul`). For higher dimensions, a sum product over the last axis of `a` and the second-to-last axis of `b`.
+
+```typescript
+function dot(a: ArrayLike, b: ArrayLike): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray | number` -- Scalar if both inputs are 1-D, otherwise an `NDArray`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 1-D: inner product (scalar result)
+const a = np.array([1, 2, 3]);
+const b = np.array([4, 5, 6]);
+console.log(np.dot(a, b));  // 32
+
+// 2-D: matrix multiplication
+const A = np.array([[1, 2], [3, 4]]);
+const B = np.array([[5, 6], [7, 8]]);
+const C = np.dot(A, B);
+// array([[19, 22],
+//        [43, 50]])
+```
+
+---
+
+### matmul
+
+Matrix product of two arrays. This is the equivalent of the `@` operator in NumPy/Python. Unlike `dot`, `matmul` does not allow scalar multiplication and follows strict broadcasting rules for stacks of matrices.
+
+```typescript
+function matmul(a: ArrayLike, b: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array (must be at least 1-D). |
+| `b` | `ArrayLike` | -- | Second input array (must be at least 1-D). |
+
+**Returns:** `NDArray` -- The matrix product.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 0], [0, 1]]);
+const B = np.array([[4, 1], [2, 2]]);
+
+const C = np.matmul(A, B);
+// array([[4, 1],
+//        [2, 2]])
+
+// Matrix-vector product
+const v = np.array([1, 2]);
+const result = np.matmul(A, v);
+// array([1, 2])
+```
+
+---
+
+### inner
+
+Inner product of two arrays. For 1-D arrays, this is identical to `dot`. For higher-dimensional arrays, it is a sum product over the last axes.
+
+```typescript
+function inner(a: ArrayLike, b: ArrayLike): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray | number` -- Scalar if both inputs are 1-D, otherwise an `NDArray`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 1-D inner product
+const a = np.array([1, 2, 3]);
+const b = np.array([0, 1, 0]);
+console.log(np.inner(a, b));  // 2
+
+// 2-D: sum product over last axes
+const A = np.array([[1, 2], [3, 4]]);
+const B = np.array([[5, 6], [7, 8]]);
+const C = np.inner(A, B);
+// array([[17, 23],
+//        [39, 53]])
+```
+
+---
+
+### outer
+
+Compute the outer product of two vectors. The inputs are flattened if they are not already 1-D.
+
+```typescript
+function outer(a: ArrayLike, b: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array (flattened to 1-D). |
+| `b` | `ArrayLike` | -- | Second input array (flattened to 1-D). |
+
+**Returns:** `NDArray` -- 2-D array of shape `[a.size, b.size]` where `out[i, j] = a[i] * b[j]`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.array([4, 5]);
+
+const C = np.outer(a, b);
+// array([[ 4,  5],
+//        [ 8, 10],
+//        [12, 15]])
+```
+
+---
+
+### tensordot
+
+Compute tensor dot product along specified axes. Generalizes `dot` for higher-dimensional arrays.
+
+```typescript
+function tensordot(
+  a: ArrayLike,
+  b: ArrayLike,
+  axes?: number | [number[], number[]]
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+| `axes` | `number \| [number[], number[]]` | `2` | If an integer `N`, sum over the last `N` axes of `a` and the first `N` axes of `b`. If a tuple of axis lists, sum over the specified axes. |
+
+**Returns:** `NDArray` -- The tensor dot product.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+const B = np.array([[5, 6], [7, 8]]);
+
+// Default axes=2: full contraction (scalar-like)
+const c = np.tensordot(A, B);
+// array(70)
+
+// axes=1: equivalent to matmul for 2-D
+const C = np.tensordot(A, B, 1);
+// array([[19, 22],
+//        [43, 50]])
+
+// Explicit axis pairs
+const D = np.tensordot(A, B, [[1], [0]]);
+// array([[19, 22],
+//        [43, 50]])
+```
+
+---
+
+### kron
+
+Kronecker product of two arrays. The result is a block matrix formed by multiplying every element of `a` by the entirety of `b`.
+
+```typescript
+function kron(a: ArrayLike, b: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `NDArray` -- The Kronecker product.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 0], [0, 1]]);
+const B = np.array([[1, 2], [3, 4]]);
+
+const K = np.kron(A, B);
+// array([[1, 2, 0, 0],
+//        [3, 4, 0, 0],
+//        [0, 0, 1, 2],
+//        [0, 0, 3, 4]])
+```
+
+---
+
+### vdot
+
+Vector dot product. Flattens both inputs to 1-D before computing the dot product. For complex arrays, the complex conjugate of `a` is used.
+
+```typescript
+function vdot(a: ArrayLike, b: ArrayLike): number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input (flattened to 1-D). |
+| `b` | `ArrayLike` | -- | Second input (flattened to 1-D). |
+
+**Returns:** `number` -- Scalar dot product of the flattened inputs.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+const b = np.array([[5, 6], [7, 8]]);
+
+// Flattens both to [1,2,3,4] and [5,6,7,8], then dots
+console.log(np.vdot(a, b));  // 70
+```
+
+---
+
+### vecdot
+
+Vector dot product along the specified axis. Unlike `vdot`, this operates along a given axis rather than flattening.
+
+```typescript
+function vecdot(a: ArrayLike, b: ArrayLike, axis?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+| `axis` | `number` | `-1` | Axis along which to compute the dot product. |
+
+**Returns:** `NDArray` -- Dot product computed along the given axis.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+const b = np.array([[7, 8, 9], [10, 11, 12]]);
+
+// Dot along last axis (default)
+const c = np.vecdot(a, b);
+// array([50, 167])
+```
+
+---
+
+### matvec
+
+Matrix-vector product. Multiplies a matrix by a vector, equivalent to `matmul(a, b)` where `b` is 1-D.
+
+```typescript
+function matvec(a: ArrayLike, b: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input matrix (2-D or stack of matrices). |
+| `b` | `ArrayLike` | -- | Input vector (1-D or stack of vectors). |
+
+**Returns:** `NDArray` -- The matrix-vector product.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+const v = np.array([5, 6]);
+
+const result = np.matvec(A, v);
+// array([17, 39])
+```
+
+---
+
+### vecmat
+
+Vector-matrix product. Multiplies a vector by a matrix, equivalent to `matmul(a, b)` where `a` is 1-D.
+
+```typescript
+function vecmat(a: ArrayLike, b: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input vector (1-D or stack of vectors). |
+| `b` | `ArrayLike` | -- | Input matrix (2-D or stack of matrices). |
+
+**Returns:** `NDArray` -- The vector-matrix product.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const v = np.array([1, 2]);
+const A = np.array([[1, 2, 3], [4, 5, 6]]);
+
+const result = np.vecmat(v, A);
+// array([9, 12, 15])
+```
+
+---
+
+### einsum
+
+Evaluates the Einstein summation convention on the operands. This is a powerful generalization that can express many common linear algebra operations in a single call.
+
+```typescript
+function einsum(subscripts: string, ...operands: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `subscripts` | `string` | -- | Subscript string describing the operation (e.g. `'ij,jk->ik'` for matrix multiplication). |
+| `...operands` | `ArrayLike[]` | -- | One or more input arrays. |
+
+**Returns:** `NDArray` -- The result of the Einstein summation.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+const B = np.array([[5, 6], [7, 8]]);
+
+// Matrix multiplication: C_ik = sum_j A_ij * B_jk
+const C = np.einsum('ij,jk->ik', A, B);
+// array([[19, 22],
+//        [43, 50]])
+
+// Trace: sum of diagonal elements
+const t = np.einsum('ii', A);
+// array(5)
+
+// Transpose
+const T = np.einsum('ij->ji', A);
+// array([[1, 3],
+//        [2, 4]])
+```
+
+---
+
+### einsum_path
+
+Evaluate the optimal contraction order for an `einsum` expression. Returns the path and a human-readable description of the optimization.
+
+```typescript
+function einsum_path(subscripts: string, ...operands: ArrayLike[]): [string[], string]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `subscripts` | `string` | -- | Subscript string (same format as `einsum`). |
+| `...operands` | `ArrayLike[]` | -- | Input arrays. |
+
+**Returns:** `[string[], string]` -- A tuple of the contraction path (list of index pairs) and a printable description of the optimization.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.random.rand([5, 5]);
+const B = np.random.rand([5, 5]);
+const C = np.random.rand([5, 5]);
+
+const [path, info] = np.einsum_path('ij,jk,kl->il', A, B, C);
+console.log(path);  // e.g. ['einsum_path', [0, 1], [0, 1]]
+console.log(info);  // Optimization summary string
+```

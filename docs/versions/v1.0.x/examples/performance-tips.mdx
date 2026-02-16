@@ -1,0 +1,274 @@
+---
+title: "Performance Tips"
+description: "Optimize numpy-ts usage: avoid unnecessary copies, leverage views, tree-shake bundles, choose efficient dtypes, and prefer vectorized operations."
+---
+
+## Avoiding unnecessary copies (use views when possible)
+
+Views share the same underlying data buffer as the original array. Operations that return views are effectively free -- no memory allocation and no data copying.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const data = np.arange(1000000);  // 1 million elements
+
+// These return views (fast, no copy):
+const reshaped = np.reshape(data, [1000, 1000]); // view
+const transposed = reshaped.T;                    // view
+const sliced = reshaped.slice('0:500', ':');       // view
+const squeezed = np.expand_dims(data, 0);         // view
+
+// These always copy (allocate new memory):
+const flattened = np.flatten(transposed); // copy (transpose is not contiguous)
+const copied = np.copy(data);            // explicit copy
+const tiled = np.tile(data, [2]);         // copy
+```
+
+### Check whether an operation returned a view
+
+```typescript
+const a = np.arange(12).reshape([3, 4]);
+const b = a.slice('0:2', ':');
+
+console.log(b.flags.OWNDATA);  // false -- b is a view
+console.log(b.base === a);     // true  -- b shares a's data
+
+const c = np.flatten(a);
+console.log(c.flags.OWNDATA);  // true  -- c owns its data
+```
+
+<Warning>
+Views share data. Modifying a view changes the original array. If you need an independent copy, use `np.copy()` or `.copy()`.
+</Warning>
+
+---
+
+## Leveraging views for efficient slicing
+
+When processing large arrays in chunks, slice into views instead of creating copies. This is especially important in streaming and batch-processing scenarios.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const bigArray = np.random.random([10000, 100]);
+
+// Process in batches of 1000 rows without copying
+const batchSize = 1000;
+const numBatches = bigArray.shape[0] / batchSize;
+const batchMeans = [];
+
+for (let i = 0; i < numBatches; i++) {
+  const start = i * batchSize;
+  const end = start + batchSize;
+  const batch = bigArray.slice(`${start}:${end}`, ':'); // view, no copy
+  batchMeans.push(np.mean(batch, 0));
+}
+
+// Combine results
+const allMeans = np.stack(batchMeans);
+console.log('Batch means shape:', allMeans.shape); // [10, 100]
+```
+
+### reshape vs flatten vs ravel
+
+| Function | Returns | When to use |
+|---|---|---|
+| `reshape` | View (if contiguous) or copy | Change shape without copying when possible |
+| `ravel` | View (if contiguous) or copy | Flatten to 1-D, preferring a view |
+| `flatten` | Always a copy | When you need a guaranteed independent 1-D copy |
+
+```typescript
+const a = np.arange(12).reshape([3, 4]);
+
+// ravel returns a view (a is contiguous)
+const r = np.ravel(a);
+console.log(r.flags.OWNDATA); // false
+
+// After transpose, the array is no longer contiguous
+const t = a.T;
+const r2 = np.ravel(t);
+console.log(r2.flags.OWNDATA); // true (had to copy)
+```
+
+---
+
+## Tree-shaking for minimal bundles
+
+numpy-ts has two entry points with very different bundle characteristics. Choose the right one for your environment.
+
+```typescript
+// Full entry point: ~200-300 KB, all functions included, method chaining
+import * as np from 'numpy-ts';
+
+// Core entry point: ~10-40 KB, only what you import
+import { array, add, reshape, sum } from 'numpy-ts/core';
+```
+
+| Scenario | Entry point | Reason |
+|---|---|---|
+| Node.js server | `numpy-ts` | Bundle size does not matter |
+| Browser app | `numpy-ts/core` | Users download your bundle |
+| Library / npm package | `numpy-ts/core` | Let consumers control their bundle |
+| Prototyping | `numpy-ts` | Method chaining is convenient |
+
+### Measuring impact
+
+```typescript
+// This imports only ~15 KB of code
+import { array, add, multiply, sum } from 'numpy-ts/core';
+
+// This pulls in the entire ~200-300 KB library
+import { array } from 'numpy-ts';
+```
+
+<Note>
+Tree-shaking only works with ESM (ES modules). If your project uses CommonJS (`require()`), the entire module is included regardless. Make sure your `package.json` has `"type": "module"` or your bundler is configured for ESM.
+</Note>
+
+---
+
+## Choosing the right entry point
+
+numpy-ts provides three entry points:
+
+| Entry point | Returns | Tree-shakeable | File I/O |
+|---|---|---|---|
+| `numpy-ts` | `NDArray` (with methods) | No | Browser serializers only |
+| `numpy-ts/core` | `NDArrayCore` (no methods) | Yes | Browser serializers only |
+| `numpy-ts/node` | `NDArray` (with methods) | No | Full filesystem I/O |
+
+```typescript
+// Full library with chaining
+import { array } from 'numpy-ts';
+const result = array([1, 2, 3]).add(10).multiply(2);
+
+// Core library without chaining (smaller bundle)
+import { array, add, multiply } from 'numpy-ts/core';
+const result2 = multiply(add(array([1, 2, 3]), 10), 2);
+
+// Node.js with file I/O
+import { array, save, load } from 'numpy-ts/node';
+await save('data.npy', array([1, 2, 3]));
+```
+
+---
+
+## Dtype selection for memory efficiency
+
+Choose the smallest dtype that can represent your data. This reduces memory usage and can improve cache performance.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Default float64: 8 bytes per element
+const f64 = np.zeros([1000, 1000]);            // ~8 MB
+
+// float32: 4 bytes per element, sufficient for most ML/graphics
+const f32 = np.zeros([1000, 1000], 'float32'); // ~4 MB
+
+// int8: 1 byte per element, good for small integer data
+const i8 = np.zeros([1000, 1000], 'int8');     // ~1 MB
+
+// uint8: 1 byte, ideal for image pixel data (0-255)
+const pixels = np.zeros([1920, 1080, 3], 'uint8'); // ~6 MB vs ~50 MB for float64
+```
+
+### Dtype selection guide
+
+| Data type | Bytes | Use when |
+|---|---|---|
+| `float64` | 8 | Maximum precision needed, scientific computation |
+| `float32` | 4 | ML inference, graphics, when 7 digits of precision suffice |
+| `int32` | 4 | Integer data up to ~2 billion |
+| `int16` | 2 | Audio samples, small integer ranges |
+| `int8` / `uint8` | 1 | Pixel values, boolean-like data, lookup indices |
+| `bool` | 1 | Masks and boolean arrays |
+
+<Tip>
+Use `.astype()` to convert between dtypes. Going from a wider type to a narrower one truncates (float to int) or wraps (large int to small int).
+</Tip>
+
+---
+
+## Vectorized operations vs loops
+
+Always prefer vectorized operations over JavaScript loops. numpy-ts operations run on typed arrays with optimized internal loops, avoiding the overhead of JavaScript function calls and dynamic type checks.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.random([100000]);
+const b = np.random.random([100000]);
+
+// BAD: JavaScript loop (slow)
+const resultLoop = np.zeros([100000]);
+const aArr = a.toArray() as number[];
+const bArr = b.toArray() as number[];
+for (let i = 0; i < 100000; i++) {
+  // Each iteration has JS overhead
+  resultLoop.set([i], Math.sqrt(aArr[i] * aArr[i] + bArr[i] * bArr[i]));
+}
+
+// GOOD: Vectorized (fast)
+const resultVec = np.sqrt(np.add(np.power(a, 2), np.power(b, 2)));
+```
+
+### Common loop-to-vectorized translations
+
+| Loop pattern | Vectorized equivalent |
+|---|---|
+| `for (i) result[i] = a[i] + b[i]` | `np.add(a, b)` |
+| `for (i) result[i] = a[i] > threshold ? 1 : 0` | `np.greater(a, threshold)` |
+| `for (i) sum += a[i]` | `np.sum(a)` |
+| `for (i) result[i] = Math.max(a[i], 0)` | `np.maximum(a, 0)` |
+| `for (i) if (mask[i]) result.push(a[i])` | `np.extract(mask, a)` |
+| `for (i) result[i] = condition ? x[i] : y[i]` | `np.where(condition, x, y)` |
+
+---
+
+## Using keepdims for broadcasting
+
+When reducing along an axis, the reduced dimension disappears by default. Use `keepdims: true` to preserve it as a size-1 dimension, which makes subsequent broadcasting operations work without manual reshaping.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const data = np.array([[1, 2, 3], [4, 5, 6]]);  // shape [2, 3]
+
+// Without keepdims: shape [2] -- cannot directly broadcast with [2, 3]
+const rowMeans = np.mean(data, 1);
+console.log(rowMeans.shape);  // [2]
+// np.subtract(data, rowMeans) -- would need reshape
+
+// With keepdims: shape [2, 1] -- broadcasts naturally with [2, 3]
+const rowMeansKept = np.mean(data, 1, true);
+console.log(rowMeansKept.shape);  // [2, 1]
+
+// Center the data (subtract row means) -- no reshape needed
+const centered = np.subtract(data, rowMeansKept);
+console.log(centered.toString());
+// array([[-1.,  0.,  1.],
+//        [-1.,  0.,  1.]])
+
+// Normalize columns to zero mean, unit variance
+const colMean = np.mean(data, 0, true);   // shape [1, 3]
+const colStd = np.std(data, 0, undefined, true);    // shape [1, 3]
+const normalized = np.divide(np.subtract(data, colMean), colStd);
+console.log(normalized.toString());
+```
+
+### When keepdims matters
+
+```typescript
+// Pattern: normalize along an axis
+const matrix = np.random.random([100, 50]);
+
+// Compute max along axis 1 with keepdims for easy broadcasting
+const rowMax = np.amax(matrix, 1, true);   // shape [100, 1]
+const scaled = np.divide(matrix, rowMax);   // shape [100, 50] -- each row divided by its max
+
+// Without keepdims, you would need:
+const rowMax2 = np.amax(matrix, 1);         // shape [100]
+const rowMax2d = np.reshape(rowMax2, [-1, 1]); // manual reshape to [100, 1]
+const scaled2 = np.divide(matrix, rowMax2d);
+```

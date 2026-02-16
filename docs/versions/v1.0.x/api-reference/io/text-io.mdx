@@ -1,0 +1,248 @@
+---
+title: "Text I/O"
+description: "Read and write delimited text formats (CSV, TSV, whitespace-separated) in the browser and Node.js."
+---
+
+numpy-ts provides NumPy-compatible text parsing and serialization, split into environment-agnostic browser functions and Node.js file I/O functions.
+
+## Browser API
+
+These functions work with strings and can be used in any JavaScript environment.
+
+### parseTxt
+
+Parse a text string into an NDArray. Each row must have the same number of values.
+
+```typescript
+function parseTxt(text: string, options?: ParseTxtOptions): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `text` | `string` | -- | The text content to parse. |
+| `options` | `ParseTxtOptions` | `{}` | Parsing options (see table below). |
+
+**Returns:** `NDArray` -- 2-D array (or 1-D if a single row/column).
+
+```typescript
+import { parseTxt } from 'numpy-ts';
+
+const csv = `1,2,3
+4,5,6
+7,8,9`;
+
+const arr = parseTxt(csv, { delimiter: ',' });
+// shape [3, 3]
+```
+
+---
+
+### serializeTxt
+
+Serialize an NDArray to a text string.
+
+```typescript
+function serializeTxt(array: NDArray, options?: SerializeTxtOptions): string
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `array` | `NDArray` | -- | Array to serialize (must be 1-D or 2-D). |
+| `options` | `SerializeTxtOptions` | `{}` | Serialization options (see table below). |
+
+**Returns:** `string` -- Text representation of the array.
+
+```typescript
+import * as np from 'numpy-ts';
+import { serializeTxt } from 'numpy-ts';
+
+const arr = np.array([[1, 2, 3], [4, 5, 6]]);
+const csv = serializeTxt(arr, { delimiter: ',', fmt: '%d' });
+// "1,2,3\n4,5,6\n"
+```
+
+---
+
+### genfromtxt
+
+Parse text with more flexible handling of missing values. Behaves like `parseTxt` but replaces missing values with a fill value instead of throwing.
+
+```typescript
+function genfromtxt(text: string, options?: ParseTxtOptions): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `text` | `string` | -- | The text content to parse. |
+| `options` | `ParseTxtOptions` | `{}` | Parsing options. Use `missing_values` and `filling_values` to handle gaps. |
+
+**Returns:** `NDArray` -- Parsed array with missing values filled in.
+
+```typescript
+import { genfromtxt } from 'numpy-ts';
+
+const data = `1,2,3
+4,,6
+7,8,`;
+
+const arr = genfromtxt(data, {
+  delimiter: ',',
+  missing_values: [''],
+  filling_values: 0,
+});
+// array([[1, 2, 3],
+//        [4, 0, 6],
+//        [7, 8, 0]])
+```
+
+---
+
+### fromregex
+
+Extract data from a text string using a regular expression with capture groups.
+
+```typescript
+function fromregex(text: string, regexp: RegExp | string, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `text` | `string` | -- | Text content to search. |
+| `regexp` | `RegExp \| string` | -- | Regular expression with capture groups. Each match produces one row; each group produces one column. |
+| `dtype` | `DType` | `'float64'` | Data type of the resulting array. |
+
+**Returns:** `NDArray` -- Array with one row per match and one column per capture group.
+
+```typescript
+import { fromregex } from 'numpy-ts';
+
+const log = `Point: x=1.5, y=2.3
+Point: x=3.0, y=4.1
+Point: x=5.5, y=6.7`;
+
+const arr = fromregex(log, /x=([\d.]+), y=([\d.]+)/);
+// array([[1.5, 2.3],
+//        [3.0, 4.1],
+//        [5.5, 6.7]])
+```
+
+---
+
+## Options Reference
+
+### ParseTxtOptions
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `delimiter` | `string` | whitespace | String used to separate values. By default, any consecutive whitespace acts as delimiter. |
+| `comments` | `string` | `'#'` | Character indicating the start of a comment line. |
+| `skiprows` | `number` | `0` | Number of lines to skip at the beginning of the file. |
+| `usecols` | `number \| number[]` | all | Which columns to read (0-indexed). |
+| `max_rows` | `number` | all | Maximum number of data rows to read (after `skiprows`). |
+| `dtype` | `DType` | `'float64'` | Data type of the resulting array. |
+| `encoding` | `string` | `'utf-8'` | Character encoding (only relevant for Node.js file operations). |
+| `missing_values` | `string \| string[]` | `undefined` | String representation(s) of missing values (used by `genfromtxt`). |
+| `filling_values` | `number` | `NaN` (float) / `0` (int) | Replacement value for missing entries. |
+
+### SerializeTxtOptions
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `fmt` | `string` | `'%.18e'` | Printf-style format string. Examples: `'%.6f'` (6 decimals), `'%.2e'` (scientific), `'%d'` (integer). |
+| `delimiter` | `string` | `' '` | String separating columns. |
+| `newline` | `string` | `'\n'` | String written at the end of each row. |
+| `header` | `string` | `undefined` | Text written at the beginning of the file. Automatically prefixed with the comment character. |
+| `footer` | `string` | `undefined` | Text written at the end of the file. |
+| `comments` | `string` | `'# '` | String prepended to header and footer lines. |
+
+---
+
+## Node.js API
+
+<Tabs>
+<Tab title="Async">
+
+### loadtxt
+
+Load data from a text file on disk.
+
+```typescript
+function loadtxt(filepath: string, options?: ParseTxtOptions): Promise<NDArray>
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `filepath` | `string` | -- | Path to the text file. |
+| `options` | `ParseTxtOptions` | `{}` | Parsing options. |
+
+**Returns:** `Promise<NDArray>` -- The parsed array.
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+// Load CSV
+const data = await np.loadtxt('data.csv', { delimiter: ',' });
+
+// Load with column selection and header skip
+const subset = await np.loadtxt('data.txt', {
+  usecols: [0, 2],
+  skiprows: 1,
+});
+```
+
+---
+
+### savetxt
+
+Save an array to a text file.
+
+```typescript
+function savetxt(
+  filepath: string,
+  array: NDArray,
+  options?: SerializeTxtOptions
+): Promise<void>
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `filepath` | `string` | -- | Output file path. |
+| `array` | `NDArray` | -- | Array to save (must be 1-D or 2-D). |
+| `options` | `SerializeTxtOptions` | `{}` | Serialization options. |
+
+**Returns:** `Promise<void>`
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+const arr = np.array([[1, 2, 3], [4, 5, 6]]);
+
+// Save as CSV
+await np.savetxt('output.csv', arr, { delimiter: ',', fmt: '%d' });
+
+// Save with header
+await np.savetxt('output.txt', arr, {
+  header: 'x y z',
+  fmt: '%.4f',
+});
+```
+
+</Tab>
+<Tab title="Sync">
+
+Synchronous versions are also available:
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+const data = np.loadtxtSync('data.csv', { delimiter: ',' });
+np.savetxtSync('output.csv', data, { delimiter: ',', fmt: '%d' });
+```
+
+Additional sync functions:
+
+- `genfromtxtSync(path, options)` -- Like `genfromtxt` but reads from disk.
+- `fromregexSync(path, regexp, dtype)` -- Like `fromregex` but reads from disk.
+
+</Tab>
+</Tabs>

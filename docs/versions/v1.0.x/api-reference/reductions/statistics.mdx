@@ -1,0 +1,364 @@
+---
+title: "Statistics"
+description: "Statistical functions: histogram, histogram2d, histogramdd, histogram_bin_edges, bincount, digitize, correlate, convolve, cov, corrcoef, trapezoid."
+---
+
+# Statistics
+
+Functions for computing histograms, correlation, convolution, covariance, and numerical integration.
+
+---
+
+### histogram
+
+Compute the histogram of a dataset.
+
+```typescript
+function histogram(
+  a: ArrayLike,
+  bins?: number | ArrayLike,
+  range?: [number, number],
+  density?: boolean
+): [NDArray, NDArray];
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input data (flattened). |
+| `bins` | `number \| ArrayLike` | `10` | If an integer, the number of equal-width bins. If an array, the bin edges (length `nbins + 1`). |
+| `range` | `[number, number]` | `undefined` | Lower and upper range of the bins. If `undefined`, uses `[min(a), max(a)]`. |
+| `density` | `boolean` | `false` | If `true`, the result is normalized so the integral over the range equals 1. |
+
+**Returns:** A tuple `[counts, bin_edges]` where `counts` has shape `[nbins]` and `bin_edges` has shape `[nbins + 1]`.
+
+```typescript
+import { histogram } from 'numpy-ts';
+
+const [counts, edges] = histogram([1, 2, 1, 3, 2, 2], 3);
+// counts: array([2, 3, 1])
+// edges:  array([1, 1.6667, 2.3333, 3])
+
+const [density, _] = histogram([1, 2, 1, 3, 2, 2], 3, undefined, true);
+// density values integrate to 1
+```
+
+---
+
+### histogram2d
+
+Compute the bi-dimensional histogram of two data samples.
+
+```typescript
+function histogram2d(
+  x: ArrayLike,
+  y: ArrayLike,
+  bins?: number | [number, number],
+  range?: [[number, number], [number, number]],
+  density?: boolean
+): [NDArray, NDArray, NDArray];
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `x` | `ArrayLike` | -- | Array of x-coordinates. |
+| `y` | `ArrayLike` | -- | Array of y-coordinates (same length as `x`). |
+| `bins` | `number \| [number, number]` | `10` | Number of bins for each dimension, or a pair `[nx, ny]`. |
+| `range` | `[[number, number], [number, number]]` | `undefined` | Range for each dimension: `[[xmin, xmax], [ymin, ymax]]`. |
+| `density` | `boolean` | `false` | If `true`, normalize the histogram. |
+
+**Returns:** A tuple `[H, xedges, yedges]` where `H` has shape `[nx, ny]`.
+
+```typescript
+import { histogram2d } from 'numpy-ts';
+
+const x = [1, 2, 3, 4, 5];
+const y = [5, 4, 3, 2, 1];
+
+const [H, xedges, yedges] = histogram2d(x, y, 3);
+// H:      2D array of counts, shape [3, 3]
+// xedges: array of length 4
+// yedges: array of length 4
+```
+
+---
+
+### histogramdd
+
+Compute the multidimensional histogram of some data.
+
+```typescript
+function histogramdd(
+  sample: ArrayLike,
+  bins?: number | number[],
+  range?: [number, number][],
+  density?: boolean
+): [NDArray, NDArray[]];
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `sample` | `ArrayLike` | -- | Data as an `(N, D)` array, where `N` is the number of samples and `D` is the number of dimensions. |
+| `bins` | `number \| number[]` | `10` | Number of bins for each dimension. A single integer applies to all dimensions. |
+| `range` | `[number, number][]` | `undefined` | Range `[min, max]` for each dimension. |
+| `density` | `boolean` | `false` | If `true`, normalize the histogram. |
+
+**Returns:** A tuple `[H, edges]` where `H` is the D-dimensional count array and `edges` is an array of `D` edge arrays.
+
+```typescript
+import { array, histogramdd } from 'numpy-ts';
+
+const sample = array([[0, 0], [1, 1], [2, 2], [0, 1]]);
+const [H, edges] = histogramdd(sample, 3);
+// H: 3x3 array of counts
+// edges: [xedges, yedges]
+```
+
+---
+
+### histogram_bin_edges
+
+Compute the bin edges for a histogram without computing the histogram itself. Useful for sharing bin edges across multiple histograms.
+
+```typescript
+function histogram_bin_edges(
+  a: ArrayLike,
+  bins?: number | string,
+  range?: [number, number]
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input data. |
+| `bins` | `number \| string` | `10` | Number of bins, or a string naming a binning strategy (e.g., `'auto'`, `'sturges'`, `'sqrt'`). |
+| `range` | `[number, number]` | `undefined` | Lower and upper range of the bins. |
+
+**Returns:** `NDArray` of bin edges with length `nbins + 1`.
+
+```typescript
+import { histogram_bin_edges } from 'numpy-ts';
+
+const edges = histogram_bin_edges([1, 2, 3, 4, 5], 5);
+// array([1, 1.8, 2.6, 3.4, 4.2, 5])
+```
+
+---
+
+### bincount
+
+Count occurrences of each value in an array of non-negative integers.
+
+```typescript
+function bincount(
+  x: ArrayLike,
+  weights?: ArrayLike,
+  minlength?: number
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `x` | `ArrayLike` | -- | Array of non-negative integers. |
+| `weights` | `ArrayLike` | `undefined` | Weights for each value. If provided, the result is the sum of weights for each bin instead of counts. |
+| `minlength` | `number` | `0` | Minimum number of bins in the output. |
+
+**Returns:** `NDArray` of length `max(x) + 1` (or `minlength`, whichever is larger).
+
+```typescript
+import { bincount } from 'numpy-ts';
+
+bincount([0, 1, 1, 2, 2, 2]);          // array([1, 2, 3])
+bincount([0, 1, 1, 2], [0.5, 1, 1, 2]); // array([0.5, 2, 2])  (weighted)
+bincount([3], undefined, 6);             // array([0, 0, 0, 1, 0, 0])
+```
+
+---
+
+### digitize
+
+Return the indices of the bins to which each value belongs.
+
+```typescript
+function digitize(
+  x: ArrayLike,
+  bins: ArrayLike,
+  right?: boolean
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `x` | `ArrayLike` | -- | Input array to be binned. |
+| `bins` | `ArrayLike` | -- | Array of bin edges (must be monotonically increasing or decreasing). |
+| `right` | `boolean` | `false` | If `false`, the intervals are left-closed `[a, b)`. If `true`, the intervals are right-closed `(a, b]`. |
+
+**Returns:** `NDArray` of bin indices. An index `i` means `bins[i-1] <= x < bins[i]` (when `right=false`).
+
+```typescript
+import { digitize } from 'numpy-ts';
+
+const bins = [0, 1, 2, 3];
+digitize([0.5, 1.5, 2.5, 3.5], bins); // array([1, 2, 3, 4])
+digitize([-0.5], bins);                 // array([0])
+```
+
+---
+
+### correlate
+
+Cross-correlation of two 1-dimensional sequences.
+
+```typescript
+function correlate(
+  a: ArrayLike,
+  v: ArrayLike,
+  mode?: 'valid' | 'same' | 'full'
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | First input sequence. |
+| `v` | `ArrayLike` | -- | Second input sequence. |
+| `mode` | `'valid' \| 'same' \| 'full'` | `'valid'` | `'valid'`: only where the sequences fully overlap. `'same'`: output length equals the longer input. `'full'`: full cross-correlation. |
+
+**Returns:** `NDArray` containing the cross-correlation result.
+
+```typescript
+import { correlate } from 'numpy-ts';
+
+correlate([1, 2, 3], [0, 1, 0.5]);           // array([3.5])  (valid)
+correlate([1, 2, 3], [0, 1, 0.5], 'full');   // array([0.5, 2, 3.5, 3, 0])
+```
+
+---
+
+### convolve
+
+Discrete, linear convolution of two 1-dimensional sequences.
+
+```typescript
+function convolve(
+  a: ArrayLike,
+  v: ArrayLike,
+  mode?: 'valid' | 'same' | 'full'
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | First input sequence. |
+| `v` | `ArrayLike` | -- | Second input sequence. |
+| `mode` | `'valid' \| 'same' \| 'full'` | `'full'` | `'valid'`: only where the sequences fully overlap. `'same'`: output length equals the longer input. `'full'`: full convolution. |
+
+**Returns:** `NDArray` containing the convolution result.
+
+```typescript
+import { convolve } from 'numpy-ts';
+
+convolve([1, 2, 3], [0, 1, 0.5]);           // array([0, 1, 2.5, 4, 1.5])  (full)
+convolve([1, 2, 3], [0, 1, 0.5], 'same');   // array([1, 2.5, 4])
+```
+
+---
+
+### cov
+
+Estimate a covariance matrix.
+
+```typescript
+function cov(
+  m: ArrayLike,
+  y?: ArrayLike,
+  rowvar?: boolean,
+  bias?: boolean,
+  ddof?: number
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `m` | `ArrayLike` | -- | A 1-D or 2-D array of variables and observations. Each row represents a variable; each column an observation (when `rowvar=true`). |
+| `y` | `ArrayLike` | `undefined` | Additional set of variables and observations. Same form as `m`. |
+| `rowvar` | `boolean` | `true` | If `true`, each row is a variable. If `false`, each column is a variable. |
+| `bias` | `boolean` | `false` | If `false`, normalize by `N - 1` (unbiased). If `true`, normalize by `N`. |
+| `ddof` | `number` | `undefined` | Override the default degrees of freedom. If provided, `bias` is ignored and the normalization factor is `N - ddof`. |
+
+**Returns:** `NDArray` -- the covariance matrix.
+
+```typescript
+import { array, cov } from 'numpy-ts';
+
+const x = array([1, 2, 3, 4, 5]);
+cov(x);  // array([[2.5]])
+
+const m = array([[1, 2, 3], [4, 5, 6]]);
+cov(m);
+// array([[1, 1],
+//        [1, 1]])
+```
+
+---
+
+### corrcoef
+
+Return Pearson correlation coefficients.
+
+```typescript
+function corrcoef(
+  x: ArrayLike,
+  y?: ArrayLike,
+  rowvar?: boolean
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `x` | `ArrayLike` | -- | A 1-D or 2-D array of variables and observations. |
+| `y` | `ArrayLike` | `undefined` | Additional set of variables and observations. |
+| `rowvar` | `boolean` | `true` | If `true`, each row is a variable. If `false`, each column is a variable. |
+
+**Returns:** `NDArray` -- the correlation coefficient matrix, with values in `[-1, 1]`.
+
+```typescript
+import { array, corrcoef } from 'numpy-ts';
+
+const x = array([1, 2, 3, 4, 5]);
+const y = array([5, 4, 3, 2, 1]);
+
+corrcoef(x, y);
+// array([[ 1, -1],
+//        [-1,  1]])
+```
+
+---
+
+### trapezoid
+
+Integrate along the given axis using the composite trapezoidal rule.
+
+```typescript
+function trapezoid(
+  y: ArrayLike,
+  x?: ArrayLike,
+  dx?: number,
+  axis?: number
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `y` | `ArrayLike` | -- | Input array of values to integrate. |
+| `x` | `ArrayLike` | `undefined` | Sample points corresponding to `y`. If `undefined`, spacing is assumed uniform with interval `dx`. |
+| `dx` | `number` | `1` | Spacing between sample points when `x` is not provided. |
+| `axis` | `number` | `undefined` | Axis along which to integrate. |
+
+**Returns:** `number` when integrating a 1-D array, `NDArray` when integrating along an axis of a multi-dimensional array.
+
+```typescript
+import { array, trapezoid } from 'numpy-ts';
+
+trapezoid(array([1, 2, 3]));                  // 4  (area under [1,2,3] with dx=1)
+trapezoid(array([1, 2, 3]), undefined, 0.5);  // 2  (dx=0.5)
+trapezoid(array([1, 2, 3]), array([0, 1, 4])); // 8.5 (non-uniform spacing)
+```

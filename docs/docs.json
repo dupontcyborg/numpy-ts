@@ -1,0 +1,256 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "numpy-ts",
+  "description": "Complete NumPy implementation for TypeScript and JavaScript",
+  "colors": {
+    "primary": "#3179C7",
+    "light": "#3179C7",
+    "dark": "#3179C7"
+  },
+  "favicon": "/images/favicon.svg",
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg"
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "redirects": [
+    {
+      "source": "/quickstart",
+      "destination": "/versions/v1.0.x/getting-started/quickstart"
+    },
+    {
+      "source": "/api",
+      "destination": "/versions/v1.0.x/api-reference/overview"
+    },
+    {
+      "source": "/changelog",
+      "destination": "/versions/changelog"
+    }
+  ],
+  "navigation": {
+    "versions": [
+      {
+        "version": "v1.0.x",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "numpy-ts",
+                "pages": [
+                  "index",
+                  "versions/v1.0.x/getting-started/installation"
+                ]
+              },
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "versions/v1.0.x/getting-started/quickstart",
+                  "versions/v1.0.x/getting-started/numpy-migration"
+                ]
+              },
+              {
+                "group": "Guides",
+                "pages": [
+                  "versions/v1.0.x/guides/array-basics",
+                  "versions/v1.0.x/guides/dtypes",
+                  "versions/v1.0.x/guides/broadcasting",
+                  "versions/v1.0.x/guides/slicing-indexing",
+                  "versions/v1.0.x/guides/views-copies",
+                  "versions/v1.0.x/guides/tree-shaking",
+                  "versions/v1.0.x/guides/file-io",
+                  "versions/v1.0.x/guides/typescript-patterns"
+                ]
+              },
+              {
+                "group": "Resources",
+                "pages": [
+                  "versions/changelog"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "API Reference",
+            "groups": [
+              {
+                "group": "Overview",
+                "pages": [
+                  "versions/v1.0.x/api-reference/overview"
+                ]
+              },
+              {
+                "group": "NDArray",
+                "pages": [
+                  "versions/v1.0.x/api-reference/ndarray/class",
+                  "versions/v1.0.x/api-reference/ndarray/methods"
+                ]
+              },
+              {
+                "group": "Array Creation",
+                "pages": [
+                  "versions/v1.0.x/api-reference/creation/basic",
+                  "versions/v1.0.x/api-reference/creation/ranges",
+                  "versions/v1.0.x/api-reference/creation/matrices",
+                  "versions/v1.0.x/api-reference/creation/from-data"
+                ]
+              },
+              {
+                "group": "Math",
+                "pages": [
+                  "versions/v1.0.x/api-reference/math/arithmetic",
+                  "versions/v1.0.x/api-reference/math/exponential",
+                  "versions/v1.0.x/api-reference/math/trigonometric",
+                  "versions/v1.0.x/api-reference/math/hyperbolic",
+                  "versions/v1.0.x/api-reference/math/rounding",
+                  "versions/v1.0.x/api-reference/math/other-math"
+                ]
+              },
+              {
+                "group": "Array Manipulation",
+                "pages": [
+                  "versions/v1.0.x/api-reference/manipulation/shape",
+                  "versions/v1.0.x/api-reference/manipulation/transpose",
+                  "versions/v1.0.x/api-reference/manipulation/joining",
+                  "versions/v1.0.x/api-reference/manipulation/splitting",
+                  "versions/v1.0.x/api-reference/manipulation/tiling",
+                  "versions/v1.0.x/api-reference/manipulation/rearranging"
+                ]
+              },
+              {
+                "group": "Reductions & Statistics",
+                "pages": [
+                  "versions/v1.0.x/api-reference/reductions/basic",
+                  "versions/v1.0.x/api-reference/reductions/cumulative",
+                  "versions/v1.0.x/api-reference/reductions/nan-safe",
+                  "versions/v1.0.x/api-reference/reductions/search-count",
+                  "versions/v1.0.x/api-reference/reductions/statistics"
+                ]
+              },
+              {
+                "group": "Linear Algebra",
+                "pages": [
+                  "versions/v1.0.x/api-reference/linalg/products",
+                  "versions/v1.0.x/api-reference/linalg/decompositions",
+                  "versions/v1.0.x/api-reference/linalg/solvers",
+                  "versions/v1.0.x/api-reference/linalg/norms"
+                ]
+              },
+              {
+                "group": "Logic & Comparison",
+                "pages": [
+                  "versions/v1.0.x/api-reference/logic/comparison",
+                  "versions/v1.0.x/api-reference/logic/logical-ops",
+                  "versions/v1.0.x/api-reference/logic/type-testing",
+                  "versions/v1.0.x/api-reference/logic/floating-point"
+                ]
+              },
+              {
+                "group": "Sorting & Searching",
+                "pages": [
+                  "versions/v1.0.x/api-reference/sorting/sort",
+                  "versions/v1.0.x/api-reference/sorting/search"
+                ]
+              },
+              {
+                "group": "Set Operations",
+                "pages": [
+                  "versions/v1.0.x/api-reference/sets/set-ops"
+                ]
+              },
+              {
+                "group": "Bitwise",
+                "pages": [
+                  "versions/v1.0.x/api-reference/bitwise/bitwise-ops"
+                ]
+              },
+              {
+                "group": "Indexing",
+                "pages": [
+                  "versions/v1.0.x/api-reference/indexing/advanced-indexing",
+                  "versions/v1.0.x/api-reference/indexing/diagonal-indices",
+                  "versions/v1.0.x/api-reference/indexing/index-utils"
+                ]
+              },
+              {
+                "group": "Gradient & Differences",
+                "pages": [
+                  "versions/v1.0.x/api-reference/gradient/gradient-ops"
+                ]
+              },
+              {
+                "group": "Polynomials",
+                "pages": [
+                  "versions/v1.0.x/api-reference/polynomials/polynomial-ops"
+                ]
+              },
+              {
+                "group": "Random (np.random)",
+                "pages": [
+                  "versions/v1.0.x/api-reference/random/overview",
+                  "versions/v1.0.x/api-reference/random/basic",
+                  "versions/v1.0.x/api-reference/random/distributions",
+                  "versions/v1.0.x/api-reference/random/generator"
+                ]
+              },
+              {
+                "group": "FFT (np.fft)",
+                "pages": [
+                  "versions/v1.0.x/api-reference/fft/transforms",
+                  "versions/v1.0.x/api-reference/fft/real-fft",
+                  "versions/v1.0.x/api-reference/fft/utilities"
+                ]
+              },
+              {
+                "group": "I/O",
+                "pages": [
+                  "versions/v1.0.x/api-reference/io/npy-npz",
+                  "versions/v1.0.x/api-reference/io/text-io"
+                ]
+              },
+              {
+                "group": "Utilities",
+                "pages": [
+                  "versions/v1.0.x/api-reference/utilities/type-checking",
+                  "versions/v1.0.x/api-reference/utilities/formatting",
+                  "versions/v1.0.x/api-reference/utilities/misc"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Examples",
+            "groups": [
+              {
+                "group": "Examples",
+                "pages": [
+                  "versions/v1.0.x/examples/overview",
+                  "versions/v1.0.x/examples/linear-algebra-basics",
+                  "versions/v1.0.x/examples/signal-processing",
+                  "versions/v1.0.x/examples/statistics-analysis",
+                  "versions/v1.0.x/examples/image-processing",
+                  "versions/v1.0.x/examples/data-loading",
+                  "versions/v1.0.x/examples/performance-tips"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "GitHub",
+            "href": "https://github.com/dupontcyborg/numpy-ts"
+          }
+        ]
+      }
+    ]
+  }
+}

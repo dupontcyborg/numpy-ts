@@ -1,0 +1,135 @@
+---
+title: numpy-ts
+sidebarTitle: Introduction
+mode: wide
+---
+
+import { CardGroup, Card, Tabs, Tab } from '/snippets';
+
+<Frame>
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="Hero Dark"
+/>
+</Frame>
+
+# Complete NumPy for TypeScript
+
+The most comprehensive NumPy implementation for TypeScript and JavaScript. Write numerical computing code with the same API you already know from Python -- fully type-safe, tree-shakeable, and validated against NumPy itself.
+
+<Tabs>
+  <Tab title="npm">
+    ```bash
+    npm install numpy-ts
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```bash
+    yarn add numpy-ts
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    ```bash
+    pnpm add numpy-ts
+    ```
+  </Tab>
+</Tabs>
+
+## Why numpy-ts?
+
+<CardGroup cols={3}>
+  <Card title="94% API Coverage" icon="chart-pie">
+    476 of 507 NumPy functions implemented. From basic arithmetic to FFT, linear algebra, random distributions, and beyond.
+  </Card>
+  <Card title="Type-Safe" icon="shield-check">
+    Full TypeScript type definitions for every function, dtype, and array operation. Catch errors at compile time, not runtime.
+  </Card>
+  <Card title="Tree-Shakeable" icon="leaf">
+    Import only what you need. Bundlers eliminate unused code automatically, keeping your production builds small.
+  </Card>
+  <Card title="NumPy-Validated" icon="flask-vial">
+    Over 6,000 tests compare outputs directly against NumPy. If NumPy produces a result, numpy-ts matches it.
+  </Card>
+  <Card title="Zero Dependencies" icon="box">
+    No native modules, no WebAssembly, no heavy runtimes. Pure TypeScript that runs everywhere JavaScript runs.
+  </Card>
+  <Card title="Universal Runtime" icon="globe">
+    Works in Node.js, Bun, Deno, and all modern browsers. One library for server and client.
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+```typescript
+import { array, zeros, dot, linalg, arange, reshape } from 'numpy-ts';
+
+// Create arrays -- just like NumPy
+const a = array([[1, 2], [3, 4]]);
+const b = zeros([2, 2]);
+
+// Broadcasting works as expected
+const c = a.add(1);        // [[2, 3], [4, 5]]
+const d = a.multiply(2);   // [[2, 4], [6, 8]]
+
+// Linear algebra
+const inv = linalg.inv(a);
+const det = linalg.det(a); // -2
+
+// Dot products and matrix multiplication
+const e = dot(a, array([[5, 6], [7, 8]]));  // [[19, 22], [43, 50]]
+
+// Reshape, slice, and manipulate
+const r = arange(12);
+const grid = reshape(r, [3, 4]);
+```
+
+## Get Started
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/versions/v1.0.x/getting-started/quickstart">
+    Install numpy-ts and write your first array operations in under 5 minutes.
+  </Card>
+  <Card title="API Reference" icon="book" href="/versions/v1.0.x/api-reference/overview">
+    Browse all 476 implemented functions with signatures, parameters, and examples.
+  </Card>
+  <Card title="Examples" icon="code" href="/versions/v1.0.x/examples/overview">
+    Real-world examples covering linear algebra, signal processing, statistics, and more.
+  </Card>
+</CardGroup>
+
+## Coming from NumPy?
+
+numpy-ts mirrors the NumPy API as closely as possible. Most code translates directly:
+
+<Tabs>
+  <Tab title="Python (NumPy)">
+    ```python
+    import numpy as np
+
+    a = np.array([[1, 2], [3, 4]])
+    b = np.linalg.inv(a)
+    c = np.dot(a, b)          # identity matrix
+    d = np.sum(a, axis=0)     # [4, 6]
+    e = a[0, :]               # [1, 2]
+    ```
+  </Tab>
+  <Tab title="TypeScript (numpy-ts)">
+    ```typescript
+    import { array, linalg, dot, sum } from 'numpy-ts';
+
+    const a = array([[1, 2], [3, 4]]);
+    const b = linalg.inv(a);
+    const c = dot(a, b);          // identity matrix
+    const d = sum(a, { axis: 0 }); // [4, 6]
+    const e = a.get([0, ':']);     // [1, 2]
+    ```
+  </Tab>
+</Tabs>
+
+See the [NumPy Migration Guide](/versions/v1.0.x/getting-started/numpy-migration) for a complete translation reference.

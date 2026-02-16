@@ -1,0 +1,412 @@
+---
+title: "NaN-Safe Reductions"
+description: "Reduction functions that ignore NaN values: nansum, nanprod, nanmean, nanstd, nanvar, nanmin, nanmax, nanmedian, nancumsum, nancumprod, nanargmin, nanargmax, nanpercentile, nanquantile."
+---
+
+# NaN-Safe Reductions
+
+These functions are identical to their non-`nan` counterparts but **ignore `NaN` values** instead of propagating them through the computation. Use them when your data may contain missing or invalid values represented as `NaN`.
+
+---
+
+### nansum
+
+Return the sum of array elements, treating NaN as zero.
+
+```typescript
+function nansum(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to sum. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nansum } from 'numpy-ts';
+
+nansum(array([1, NaN, 3]));       // 4
+nansum(array([[1, NaN], [3, 4]]), 0); // array([4, 4])
+```
+
+---
+
+### nanprod
+
+Return the product of array elements, treating NaN as one.
+
+```typescript
+function nanprod(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the product. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nanprod } from 'numpy-ts';
+
+nanprod(array([1, NaN, 3])); // 3
+nanprod(array([[2, NaN], [3, 4]]), 1); // array([2, 12])
+```
+
+---
+
+### nanmean
+
+Compute the arithmetic mean, ignoring NaN values.
+
+```typescript
+function nanmean(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the mean. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nanmean } from 'numpy-ts';
+
+nanmean(array([1, NaN, 3])); // 2  (mean of [1, 3])
+nanmean(array([[1, NaN], [3, 4]]), 0); // array([2, 4])
+```
+
+---
+
+### nanstd
+
+Compute the standard deviation, ignoring NaN values.
+
+```typescript
+function nanstd(
+  a: ArrayLike,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the standard deviation. |
+| `ddof` | `number` | `0` | Delta degrees of freedom. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nanstd } from 'numpy-ts';
+
+nanstd(array([1, NaN, 3]));              // 1  (std of [1, 3])
+nanstd(array([1, NaN, 3]), undefined, 1); // 1.4142135623730951
+```
+
+---
+
+### nanvar
+
+Compute the variance, ignoring NaN values.
+
+```typescript
+function nanvar(
+  a: ArrayLike,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the variance. |
+| `ddof` | `number` | `0` | Delta degrees of freedom. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nanvar } from 'numpy-ts';
+
+nanvar(array([1, NaN, 3])); // 1  (variance of [1, 3])
+nanvar(array([[1, NaN], [3, 4]]), 0); // array([1, 0])
+```
+
+---
+
+### nanmin
+
+Return the minimum, ignoring NaN values.
+
+```typescript
+function nanmin(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the minimum. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nanmin } from 'numpy-ts';
+
+nanmin(array([2, NaN, 1, NaN])); // 1
+nanmin(array([[NaN, 3], [1, 2]]), 0); // array([1, 2])
+```
+
+---
+
+### nanmax
+
+Return the maximum, ignoring NaN values.
+
+```typescript
+function nanmax(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to find the maximum. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nanmax } from 'numpy-ts';
+
+nanmax(array([2, NaN, 5, NaN])); // 5
+nanmax(array([[NaN, 3], [1, 2]]), 1); // array([3, 2])
+```
+
+---
+
+### nanmedian
+
+Compute the median, ignoring NaN values.
+
+```typescript
+function nanmedian(
+  a: ArrayLike,
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute the median. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` when reducing all axes, `NDArray` when reducing along specific axes.
+
+```typescript
+import { array, nanmedian } from 'numpy-ts';
+
+nanmedian(array([1, NaN, 3, 5])); // 3  (median of [1, 3, 5])
+nanmedian(array([[NaN, 2], [3, 4]]), 0); // array([3, 3])
+```
+
+---
+
+### nancumsum
+
+Return the cumulative sum, treating NaN as zero.
+
+```typescript
+function nancumsum(
+  a: ArrayLike,
+  axis?: number
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to compute. When `undefined`, the input is flattened. |
+
+**Returns:** `NDArray` containing the cumulative sums with NaN replaced by zero.
+
+```typescript
+import { array, nancumsum } from 'numpy-ts';
+
+nancumsum(array([1, NaN, 3, NaN, 5])); // array([1, 1, 4, 4, 9])
+```
+
+---
+
+### nancumprod
+
+Return the cumulative product, treating NaN as one.
+
+```typescript
+function nancumprod(
+  a: ArrayLike,
+  axis?: number
+): NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to compute. When `undefined`, the input is flattened. |
+
+**Returns:** `NDArray` containing the cumulative products with NaN replaced by one.
+
+```typescript
+import { array, nancumprod } from 'numpy-ts';
+
+nancumprod(array([1, NaN, 3, NaN, 2])); // array([1, 1, 3, 3, 6])
+```
+
+---
+
+### nanargmin
+
+Return the index of the minimum value, ignoring NaN.
+
+```typescript
+function nanargmin(
+  a: ArrayLike,
+  axis?: number
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to search. When `undefined`, operates on the flattened array. |
+
+**Returns:** `number` when no axis is specified, `NDArray` of indices when an axis is given.
+
+```typescript
+import { array, nanargmin } from 'numpy-ts';
+
+nanargmin(array([5, NaN, 2, NaN, 3])); // 2
+nanargmin(array([[NaN, 3], [1, 2]]), 0); // array([1, 1])
+```
+
+---
+
+### nanargmax
+
+Return the index of the maximum value, ignoring NaN.
+
+```typescript
+function nanargmax(
+  a: ArrayLike,
+  axis?: number
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to search. When `undefined`, operates on the flattened array. |
+
+**Returns:** `number` when no axis is specified, `NDArray` of indices when an axis is given.
+
+```typescript
+import { array, nanargmax } from 'numpy-ts';
+
+nanargmax(array([5, NaN, 2, NaN, 3])); // 0
+nanargmax(array([[NaN, 3], [1, 2]]), 1); // array([1, 1])
+```
+
+---
+
+### nanpercentile
+
+Compute the q-th percentile of the data, ignoring NaN values.
+
+```typescript
+function nanpercentile(
+  a: ArrayLike,
+  q: number | number[],
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `q` | `number \| number[]` | -- | Percentile(s) to compute, in the range `[0, 100]`. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` for a single percentile over all axes, `NDArray` otherwise.
+
+```typescript
+import { array, nanpercentile } from 'numpy-ts';
+
+nanpercentile(array([1, NaN, 3, 4, 5]), 50);      // 3.5
+nanpercentile(array([1, NaN, 3, 4, 5]), [25, 75]); // array([2, 4.5])
+```
+
+---
+
+### nanquantile
+
+Compute the q-th quantile of the data, ignoring NaN values.
+
+```typescript
+function nanquantile(
+  a: ArrayLike,
+  q: number | number[],
+  axis?: number | number[],
+  keepdims?: boolean
+): number | NDArray;
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array. |
+| `q` | `number \| number[]` | -- | Quantile(s) to compute, in the range `[0, 1]`. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to compute. |
+| `keepdims` | `boolean` | `false` | If `true`, reduced axes are kept as dimensions with size 1. |
+
+**Returns:** `number` for a single quantile over all axes, `NDArray` otherwise.
+
+```typescript
+import { array, nanquantile } from 'numpy-ts';
+
+nanquantile(array([1, NaN, 3, 4, 5]), 0.5);        // 3.5
+nanquantile(array([1, NaN, 3, 4, 5]), [0.25, 0.75]); // array([2, 4.5])
+```

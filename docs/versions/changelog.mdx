@@ -1,0 +1,45 @@
+---
+title: Changelog
+sidebarTitle: Changelog
+mode: wide
+---
+
+# Changelog
+
+All notable changes to numpy-ts are documented here.
+
+---
+
+## v1.0.0
+
+**Initial Release**
+
+The first stable release of numpy-ts, providing a comprehensive NumPy implementation for TypeScript and JavaScript.
+
+### Highlights
+
+- **476 of 507 NumPy functions** implemented (94% API coverage)
+- **Full test suite** with 6,000+ tests validated against NumPy
+- **Zero dependencies** -- pure TypeScript, no native modules or WebAssembly
+- **Universal runtime** support for Node.js, Bun, Deno, and browsers
+- **Tree-shakeable** ESM build for minimal bundle sizes
+
+### What's Included
+
+- **NDArray class** with full dtype support (`float64`, `float32`, `int32`, `int16`, `int8`, `uint32`, `uint16`, `uint8`, `bool`)
+- **Array creation**: `array`, `zeros`, `ones`, `empty`, `full`, `arange`, `linspace`, `logspace`, `eye`, `identity`, and all `*_like` variants
+- **Math operations**: arithmetic, exponential, logarithmic, trigonometric, hyperbolic, rounding, and special functions
+- **Array manipulation**: `reshape`, `transpose`, `concatenate`, `stack`, `split`, `tile`, `repeat`, `flip`, `roll`, and more
+- **Reductions & statistics**: `sum`, `mean`, `std`, `var`, `min`, `max`, `argmin`, `argmax`, `cumsum`, `cumprod`, plus NaN-safe variants
+- **Linear algebra** (`linalg`): `dot`, `matmul`, `inv`, `det`, `eig`, `svd`, `solve`, `norm`, `qr`, `cholesky`, and more
+- **Logic & comparison**: element-wise comparisons, logical operations, type testing, floating-point checks
+- **Sorting & searching**: `sort`, `argsort`, `searchsorted`, `where`, `nonzero`, `argwhere`
+- **Set operations**: `unique`, `intersect1d`, `union1d`, `setdiff1d`, `setxor1d`, `in1d`, `isin`
+- **Bitwise operations**: `bitwise_and`, `bitwise_or`, `bitwise_xor`, `bitwise_not`, `left_shift`, `right_shift`
+- **Advanced indexing**: boolean indexing, fancy indexing, `take`, `put`, `choose`, `compress`, `extract`
+- **Random module** (`random`): `random`, `randint`, `normal`, `uniform`, `choice`, `shuffle`, `permutation`, and 20+ distributions
+- **FFT module** (`fft`): `fft`, `ifft`, `rfft`, `irfft`, `fft2`, `ifft2`, `fftfreq`, `rfftfreq`, `fftshift`, `ifftshift`
+- **File I/O**: `save`, `load`, `savez`, `savetxt`, `loadtxt`, `genfromtxt` for `.npy` and `.npz` formats
+- **Broadcasting** fully implemented following NumPy semantics
+- **Views and copies** with proper memory sharing behavior
+- **Slicing and indexing** with NumPy-compatible syntax

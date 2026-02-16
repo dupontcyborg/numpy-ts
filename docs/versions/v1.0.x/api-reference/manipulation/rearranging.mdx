@@ -1,0 +1,319 @@
+---
+title: "Rearranging"
+description: "Flip, rotate, roll, delete, and promote array dimensions."
+---
+
+### flip
+
+Reverse the order of elements along the given axis or axes.
+
+```typescript
+function flip(m: ArrayLike, axis?: number | number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `m` | `ArrayLike` | -- | Input array. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to flip. If `undefined`, flips along all axes. |
+
+**Returns:** `NDArray` -- A new array with elements reversed along the specified axis.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+
+// Flip all axes
+const b = np.flip(a);
+console.log(b.toArray());
+// [[6, 5, 4],
+//  [3, 2, 1]]
+
+// Flip along axis 0 (reverse rows)
+const c = np.flip(a, 0);
+console.log(c.toArray());
+// [[4, 5, 6],
+//  [1, 2, 3]]
+
+// Flip along axis 1 (reverse columns)
+const d = np.flip(a, 1);
+console.log(d.toArray());
+// [[3, 2, 1],
+//  [6, 5, 4]]
+```
+
+---
+
+### fliplr
+
+Flip an array left to right (reverse along axis 1). The input must have at least 2 dimensions.
+
+```typescript
+function fliplr(m: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `m` | `ArrayLike` | -- | Input array with at least 2 dimensions. |
+
+**Returns:** `NDArray` -- Array with columns reversed. Equivalent to `flip(m, 1)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+
+const b = np.fliplr(a);
+console.log(b.toArray());
+// [[3, 2, 1],
+//  [6, 5, 4]]
+```
+
+---
+
+### flipud
+
+Flip an array up to down (reverse along axis 0).
+
+```typescript
+function flipud(m: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `m` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- Array with rows reversed. Equivalent to `flip(m, 0)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4], [5, 6]]);
+
+const b = np.flipud(a);
+console.log(b.toArray());
+// [[5, 6],
+//  [3, 4],
+//  [1, 2]]
+```
+
+---
+
+### rot90
+
+Rotate an array by 90 degrees in the plane specified by the given axes. The input must have at least 2 dimensions.
+
+```typescript
+function rot90(
+  m: ArrayLike,
+  k?: number,
+  axes?: [number, number]
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `m` | `ArrayLike` | -- | Input array with at least 2 dimensions. |
+| `k` | `number` | `1` | Number of 90-degree counter-clockwise rotations. Negative values rotate clockwise. |
+| `axes` | `[number, number]` | `[0, 1]` | The plane in which to rotate, defined by two axes. |
+
+**Returns:** `NDArray` -- The rotated array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+
+// Rotate 90 degrees counter-clockwise (default)
+const b = np.rot90(a);
+console.log(b.toArray());
+// [[2, 4],
+//  [1, 3]]
+
+// Rotate 180 degrees
+const c = np.rot90(a, 2);
+console.log(c.toArray());
+// [[4, 3],
+//  [2, 1]]
+
+// Rotate 90 degrees clockwise (k = -1 or k = 3)
+const d = np.rot90(a, -1);
+console.log(d.toArray());
+// [[3, 1],
+//  [4, 2]]
+```
+
+---
+
+### roll
+
+Roll array elements along a given axis. Elements that roll past the last position wrap around to the first.
+
+```typescript
+function roll(
+  a: ArrayLike,
+  shift: number | number[],
+  axis?: number | number[]
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `shift` | `number \| number[]` | -- | Number of positions to shift. Positive shifts right, negative shifts left. If an array, each value corresponds to an axis. |
+| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to roll. If `undefined`, the array is flattened, rolled, then reshaped. |
+
+**Returns:** `NDArray` -- Array with elements rolled.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0, 1, 2, 3, 4]);
+
+// Roll forward by 2
+const b = np.roll(a, 2);
+console.log(b.toArray());  // [3, 4, 0, 1, 2]
+
+// Roll backward by 1
+const c = np.roll(a, -1);
+console.log(c.toArray());  // [1, 2, 3, 4, 0]
+
+// Roll along a specific axis
+const d = np.array([[1, 2, 3], [4, 5, 6]]);
+const e = np.roll(d, 1, 1);
+console.log(e.toArray());
+// [[3, 1, 2],
+//  [6, 4, 5]]
+```
+
+---
+
+### delete_
+
+Remove elements from an array along an axis. Returns a new array (copy). Exported as both `delete_` and `delete`.
+
+```typescript
+function delete_(
+  a: ArrayLike,
+  obj: number | number[] | string,
+  axis?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `obj` | `number \| number[]` | -- | Index or indices of elements to remove. Negative indices are supported. |
+| `axis` | `number` | `undefined` | Axis along which to delete. If `undefined`, the array is flattened first. |
+
+**Returns:** `NDArray` -- A copy of `a` with the specified elements removed.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+
+// Delete row 1
+const b = np.delete_(a, 1, 0);
+console.log(b.toArray());
+// [[1, 2, 3],
+//  [7, 8, 9]]
+
+// Delete column 0 and column 2
+const c = np.delete_(a, [0, 2], 1);
+console.log(c.toArray());
+// [[2],
+//  [5],
+//  [8]]
+
+// Without axis: flatten then delete
+const d = np.delete_(a, [0, 4]);
+console.log(d.toArray());  // [2, 3, 4, 6, 7, 8, 9]
+```
+
+---
+
+### atleast_1d
+
+Convert inputs to arrays with at least 1 dimension. Scalar (0-D) inputs become 1-D arrays of length 1. Higher-dimensional inputs are returned unchanged.
+
+```typescript
+function atleast_1d(...arys: ArrayLike[]): NDArray | NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `...arys` | `ArrayLike[]` | -- | One or more input arrays. |
+
+**Returns:** `NDArray | NDArray[]` -- A single array if one input was given, or a list of arrays if multiple inputs were given. Each output has `ndim >= 1`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Single scalar input
+const a = np.atleast_1d(np.array([42]));
+console.log(a.shape);  // [1]
+
+// Multiple inputs
+const [b, c] = np.atleast_1d(
+  np.array([1]),
+  np.array([1, 2, 3])
+) as np.NDArray[];
+console.log(b.shape);  // [1]
+console.log(c.shape);  // [3]
+```
+
+---
+
+### atleast_2d
+
+Convert inputs to arrays with at least 2 dimensions. 0-D inputs become `(1, 1)`, 1-D inputs of length N become `(1, N)`. Higher-dimensional inputs are returned unchanged.
+
+```typescript
+function atleast_2d(...arys: ArrayLike[]): NDArray | NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `...arys` | `ArrayLike[]` | -- | One or more input arrays. |
+
+**Returns:** `NDArray | NDArray[]` -- A single array if one input was given, or a list of arrays. Each output has `ndim >= 2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+
+const b = np.atleast_2d(a) as np.NDArray;
+console.log(b.shape);     // [1, 3]
+console.log(b.toArray());  // [[1, 2, 3]]
+```
+
+---
+
+### atleast_3d
+
+Convert inputs to arrays with at least 3 dimensions. 0-D inputs become `(1, 1, 1)`, 1-D inputs of length N become `(1, N, 1)`, and 2-D inputs of shape `(M, N)` become `(M, N, 1)`. Higher-dimensional inputs are returned unchanged.
+
+```typescript
+function atleast_3d(...arys: ArrayLike[]): NDArray | NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `...arys` | `ArrayLike[]` | -- | One or more input arrays. |
+
+**Returns:** `NDArray | NDArray[]` -- A single array if one input was given, or a list of arrays. Each output has `ndim >= 3`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+
+const b = np.atleast_3d(a) as np.NDArray;
+console.log(b.shape);  // [2, 2, 1]
+
+const c = np.array([1, 2, 3]);
+const d = np.atleast_3d(c) as np.NDArray;
+console.log(d.shape);  // [1, 3, 1]
+```

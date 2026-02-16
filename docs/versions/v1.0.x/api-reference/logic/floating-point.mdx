@@ -1,0 +1,144 @@
+---
+title: "Floating-Point Operations"
+description: "Low-level floating-point inspection and manipulation: sign copying, sign-bit testing, ULP stepping, and dtype promotion."
+---
+
+### copysign
+
+Return element-wise values of `x1` with the sign of `x2`. Inputs are broadcast together.
+
+```typescript
+function copysign(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | Values whose magnitudes are used. |
+| `x2` | `ArrayLike` | -- | Values whose signs are copied. |
+
+**Returns:** `NDArray` -- Array with magnitudes from `x1` and signs from `x2`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.copysign([1, -2, 3], [-1, 1, -1]);
+// array([-1, 2, -3])
+
+// Broadcasting with a scalar
+np.copysign([1, 2, 3], -1);
+// array([-1, -2, -3])
+```
+
+---
+
+### signbit
+
+Return element-wise `true` where the sign bit is set (i.e., the value is negative). This correctly detects `-0.0`.
+
+```typescript
+function signbit(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- Boolean array, `true` where the sign bit is set.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.signbit([-1, 0, 1, -0.0]);
+// array([true, false, false, true])
+
+np.signbit([-Infinity, Infinity]);
+// array([true, false])
+```
+
+---
+
+### nextafter
+
+Return the next representable floating-point value after `x1` towards `x2`, element-wise. Inputs are broadcast together.
+
+```typescript
+function nextafter(x1: ArrayLike, x2: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | -- | Starting values. |
+| `x2` | `ArrayLike` | -- | Direction values. |
+
+**Returns:** `NDArray` -- The next representable float after each `x1[i]` in the direction of `x2[i]`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Smallest float greater than 1.0
+const eps = np.nextafter([1.0], [2.0]);
+// array([1.0000000000000002])
+
+// Largest float less than 1.0
+const before = np.nextafter([1.0], [0.0]);
+// array([0.9999999999999998])
+```
+
+---
+
+### spacing
+
+Return the distance between each element and the nearest adjacent representable floating-point number. This is the ULP (unit in the last place) of each value.
+
+```typescript
+function spacing(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- The spacing (ULP) for each element.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.spacing([1.0]);
+// array([2.220446049250313e-16])  -- machine epsilon
+
+np.spacing([1e10]);
+// array([0.0000019073486328125])  -- larger spacing for larger values
+```
+
+---
+
+### promote_types
+
+Return the smallest dtype to which both input dtypes can be safely cast. This follows NumPy's type promotion rules.
+
+```typescript
+function promote_types(type1: DType, type2: DType): DType
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `type1` | `DType` | -- | First dtype. |
+| `type2` | `DType` | -- | Second dtype. |
+
+**Returns:** `DType` -- The promoted dtype that can represent values from both input dtypes without loss.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.promote_types('int32', 'float32');
+// 'float64'
+
+np.promote_types('int8', 'int16');
+// 'int16'
+
+np.promote_types('float32', 'float64');
+// 'float64'
+
+np.promote_types('bool', 'int32');
+// 'int32'
+```

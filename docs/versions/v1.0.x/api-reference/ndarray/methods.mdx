@@ -1,0 +1,1204 @@
+---
+title: "NDArray Methods"
+description: "All 100+ chainable instance methods on NDArray, grouped by category."
+---
+
+# NDArray Methods
+
+The `NDArray` class (from the default `numpy-ts` entry point) provides chainable instance methods that delegate to the corresponding standalone functions. Each method below calls its standalone equivalent under the hood.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Method chaining
+const result = np.arange(12)
+  .reshape(3, 4)
+  .multiply(2)
+  .sum(0);
+
+// Equivalent standalone calls
+const a = np.arange(12);
+const b = np.reshape(a, [3, 4]);
+const c = np.multiply(b, 2);
+const d = np.sum(c, 0);
+```
+
+<Note>
+These methods are only available on `NDArray` (the full entry point). `NDArrayCore` from `numpy-ts/core` does not include them. See the [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class) page for core methods available on both classes.
+</Note>
+
+---
+
+## Arithmetic methods
+
+### add
+
+```typescript
+add(other: NDArray | number): NDArray
+```
+Element-wise addition. See [add](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### subtract
+
+```typescript
+subtract(other: NDArray | number): NDArray
+```
+Element-wise subtraction. See [subtract](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### multiply
+
+```typescript
+multiply(other: NDArray | number): NDArray
+```
+Element-wise multiplication. See [multiply](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### divide
+
+```typescript
+divide(other: NDArray | number): NDArray
+```
+Element-wise division. See [divide](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### floor_divide
+
+```typescript
+floor_divide(other: NDArray | number): NDArray
+```
+Element-wise floor division. See [floor_divide](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### mod
+
+```typescript
+mod(other: NDArray | number): NDArray
+```
+Element-wise modulo. See [mod](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### remainder
+
+```typescript
+remainder(divisor: NDArray | number): NDArray
+```
+Element-wise remainder (same as `mod`). See [remainder](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### fmod
+
+```typescript
+fmod(divisor: NDArray | number): NDArray
+```
+Element-wise C-style remainder. See [fmod](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### power
+
+```typescript
+power(exponent: NDArray | number): NDArray
+```
+Raise elements to the given power. See [power](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### negative
+
+```typescript
+negative(): NDArray
+```
+Element-wise numerical negation (`-x`). See [negative](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### positive
+
+```typescript
+positive(): NDArray
+```
+Element-wise numerical positive (`+x`). Returns a copy. See [positive](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### absolute
+
+```typescript
+absolute(): NDArray
+```
+Element-wise absolute value. See [absolute](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### reciprocal
+
+```typescript
+reciprocal(): NDArray
+```
+Element-wise reciprocal (`1/x`). See [reciprocal](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### square
+
+```typescript
+square(): NDArray
+```
+Element-wise square (`x**2`). See [square](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### sqrt
+
+```typescript
+sqrt(): NDArray
+```
+Element-wise square root. See [sqrt](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### cbrt
+
+```typescript
+cbrt(): NDArray
+```
+Element-wise cube root. See [cbrt](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### fabs
+
+```typescript
+fabs(): NDArray
+```
+Element-wise absolute value (always returns float). See [fabs](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### sign
+
+```typescript
+sign(): NDArray
+```
+Element-wise sign indication (-1, 0, or 1). See [sign](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### heaviside
+
+```typescript
+heaviside(x2: NDArray | number): NDArray
+```
+Heaviside step function. See [heaviside](/versions/v1.0.x/api-reference/math/arithmetic).
+
+### divmod
+
+```typescript
+divmod(divisor: NDArray | number): [NDArray, NDArray]
+```
+Returns both floor quotient and remainder. See [divmod](/versions/v1.0.x/api-reference/math/arithmetic).
+
+---
+
+## Exponential and logarithmic methods
+
+### exp
+
+```typescript
+exp(): NDArray
+```
+Natural exponential (`e^x`). See [exp](/versions/v1.0.x/api-reference/math/exponential).
+
+### exp2
+
+```typescript
+exp2(): NDArray
+```
+Base-2 exponential (`2^x`). See [exp2](/versions/v1.0.x/api-reference/math/exponential).
+
+### expm1
+
+```typescript
+expm1(): NDArray
+```
+`e^x - 1`, accurate for small x. See [expm1](/versions/v1.0.x/api-reference/math/exponential).
+
+### log
+
+```typescript
+log(): NDArray
+```
+Natural logarithm. See [log](/versions/v1.0.x/api-reference/math/exponential).
+
+### log2
+
+```typescript
+log2(): NDArray
+```
+Base-2 logarithm. See [log2](/versions/v1.0.x/api-reference/math/exponential).
+
+### log10
+
+```typescript
+log10(): NDArray
+```
+Base-10 logarithm. See [log10](/versions/v1.0.x/api-reference/math/exponential).
+
+### log1p
+
+```typescript
+log1p(): NDArray
+```
+`ln(1 + x)`, accurate for small x. See [log1p](/versions/v1.0.x/api-reference/math/exponential).
+
+### logaddexp
+
+```typescript
+logaddexp(x2: NDArray | number): NDArray
+```
+`log(exp(x1) + exp(x2))`, numerically stable. See [logaddexp](/versions/v1.0.x/api-reference/math/exponential).
+
+### logaddexp2
+
+```typescript
+logaddexp2(x2: NDArray | number): NDArray
+```
+`log2(2^x1 + 2^x2)`, numerically stable. See [logaddexp2](/versions/v1.0.x/api-reference/math/exponential).
+
+---
+
+## Trigonometric methods
+
+### sin
+
+```typescript
+sin(): NDArray
+```
+Sine (radians). See [sin](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### cos
+
+```typescript
+cos(): NDArray
+```
+Cosine (radians). See [cos](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### tan
+
+```typescript
+tan(): NDArray
+```
+Tangent (radians). See [tan](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### arcsin
+
+```typescript
+arcsin(): NDArray
+```
+Inverse sine. See [arcsin](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### arccos
+
+```typescript
+arccos(): NDArray
+```
+Inverse cosine. See [arccos](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### arctan
+
+```typescript
+arctan(): NDArray
+```
+Inverse tangent. See [arctan](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### arctan2
+
+```typescript
+arctan2(other: NDArray | number): NDArray
+```
+Element-wise arc tangent of `this/other`, choosing the correct quadrant. See [arctan2](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### hypot
+
+```typescript
+hypot(other: NDArray | number): NDArray
+```
+Hypotenuse given two right-triangle legs. See [hypot](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### degrees
+
+```typescript
+degrees(): NDArray
+```
+Convert radians to degrees. See [degrees](/versions/v1.0.x/api-reference/math/trigonometric).
+
+### radians
+
+```typescript
+radians(): NDArray
+```
+Convert degrees to radians. See [radians](/versions/v1.0.x/api-reference/math/trigonometric).
+
+---
+
+## Hyperbolic methods
+
+### sinh
+
+```typescript
+sinh(): NDArray
+```
+Hyperbolic sine. See [sinh](/versions/v1.0.x/api-reference/math/hyperbolic).
+
+### cosh
+
+```typescript
+cosh(): NDArray
+```
+Hyperbolic cosine. See [cosh](/versions/v1.0.x/api-reference/math/hyperbolic).
+
+### tanh
+
+```typescript
+tanh(): NDArray
+```
+Hyperbolic tangent. See [tanh](/versions/v1.0.x/api-reference/math/hyperbolic).
+
+### arcsinh
+
+```typescript
+arcsinh(): NDArray
+```
+Inverse hyperbolic sine. See [arcsinh](/versions/v1.0.x/api-reference/math/hyperbolic).
+
+### arccosh
+
+```typescript
+arccosh(): NDArray
+```
+Inverse hyperbolic cosine. See [arccosh](/versions/v1.0.x/api-reference/math/hyperbolic).
+
+### arctanh
+
+```typescript
+arctanh(): NDArray
+```
+Inverse hyperbolic tangent. See [arctanh](/versions/v1.0.x/api-reference/math/hyperbolic).
+
+---
+
+## Rounding methods
+
+### ceil
+
+```typescript
+ceil(): NDArray
+```
+Ceiling of each element. See [ceil](/versions/v1.0.x/api-reference/math/rounding).
+
+### floor
+
+```typescript
+floor(): NDArray
+```
+Floor of each element. See [floor](/versions/v1.0.x/api-reference/math/rounding).
+
+### fix
+
+```typescript
+fix(): NDArray
+```
+Round towards zero. See [fix](/versions/v1.0.x/api-reference/math/rounding).
+
+### rint
+
+```typescript
+rint(): NDArray
+```
+Round to nearest integer. See [rint](/versions/v1.0.x/api-reference/math/rounding).
+
+### trunc
+
+```typescript
+trunc(): NDArray
+```
+Truncate to integer part. See [trunc](/versions/v1.0.x/api-reference/math/rounding).
+
+### around
+
+```typescript
+around(decimals?: number): NDArray
+```
+Round to the given number of decimals (default: 0). See [around](/versions/v1.0.x/api-reference/math/rounding).
+
+### round
+
+```typescript
+round(decimals?: number): NDArray
+```
+Alias for `around`. See [around](/versions/v1.0.x/api-reference/math/rounding).
+
+### clip
+
+```typescript
+clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray
+```
+Clip values to `[a_min, a_max]`. Pass `null` for no bound on either side. See [clip](/versions/v1.0.x/api-reference/math/other-math).
+
+---
+
+## Comparison methods
+
+### equal
+
+```typescript
+equal(other: NDArray | number): NDArray
+```
+Element-wise equality. Returns boolean array. See [equal](/versions/v1.0.x/api-reference/logic/comparison).
+
+### not_equal
+
+```typescript
+not_equal(other: NDArray | number): NDArray
+```
+Element-wise inequality. Returns boolean array. See [not_equal](/versions/v1.0.x/api-reference/logic/comparison).
+
+### greater
+
+```typescript
+greater(other: NDArray | number): NDArray
+```
+Element-wise greater than. Returns boolean array. See [greater](/versions/v1.0.x/api-reference/logic/comparison).
+
+### greater_equal
+
+```typescript
+greater_equal(other: NDArray | number): NDArray
+```
+Element-wise greater than or equal. Returns boolean array. See [greater_equal](/versions/v1.0.x/api-reference/logic/comparison).
+
+### less
+
+```typescript
+less(other: NDArray | number): NDArray
+```
+Element-wise less than. Returns boolean array. See [less](/versions/v1.0.x/api-reference/logic/comparison).
+
+### less_equal
+
+```typescript
+less_equal(other: NDArray | number): NDArray
+```
+Element-wise less than or equal. Returns boolean array. See [less_equal](/versions/v1.0.x/api-reference/logic/comparison).
+
+### allclose
+
+```typescript
+allclose(other: NDArray | number, rtol?: number, atol?: number): boolean
+```
+Returns `true` if all elements are equal within tolerance. Default `rtol=1e-5`, `atol=1e-8`. See [allclose](/versions/v1.0.x/api-reference/logic/comparison).
+
+### isclose
+
+```typescript
+isclose(other: NDArray | number, rtol?: number, atol?: number): NDArray
+```
+Element-wise comparison within tolerance. Returns boolean array. See [isclose](/versions/v1.0.x/api-reference/logic/comparison).
+
+### isnan
+
+```typescript
+isnan(): NDArray
+```
+Test element-wise for NaN. Returns boolean array. See [isnan](/versions/v1.0.x/api-reference/logic/comparison).
+
+### isinf
+
+```typescript
+isinf(): NDArray
+```
+Test element-wise for infinity. Returns boolean array. See [isinf](/versions/v1.0.x/api-reference/logic/comparison).
+
+### isfinite
+
+```typescript
+isfinite(): NDArray
+```
+Test element-wise for finiteness. Returns boolean array. See [isfinite](/versions/v1.0.x/api-reference/logic/comparison).
+
+### isnat
+
+```typescript
+isnat(): NDArray
+```
+Test element-wise for NaT (Not a Time). Always returns `false` (no datetime support). See [isnat](/versions/v1.0.x/api-reference/logic/comparison).
+
+---
+
+## Logic methods
+
+### logical_and
+
+```typescript
+logical_and(other: NDArray | number): NDArray
+```
+Element-wise logical AND. Returns boolean array. See [logical_and](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+### logical_or
+
+```typescript
+logical_or(other: NDArray | number): NDArray
+```
+Element-wise logical OR. Returns boolean array. See [logical_or](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+### logical_not
+
+```typescript
+logical_not(): NDArray
+```
+Element-wise logical NOT. Returns boolean array. See [logical_not](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+### logical_xor
+
+```typescript
+logical_xor(other: NDArray | number): NDArray
+```
+Element-wise logical XOR. Returns boolean array. See [logical_xor](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+### invert
+
+```typescript
+invert(): NDArray
+```
+Bitwise NOT (alias for `bitwise_not`). See [invert](/versions/v1.0.x/api-reference/bitwise/bitwise-ops).
+
+### bitwise_and
+
+```typescript
+bitwise_and(other: NDArray | number): NDArray
+```
+Element-wise bitwise AND. Requires integer dtype. See [bitwise_and](/versions/v1.0.x/api-reference/bitwise/bitwise-ops).
+
+### bitwise_or
+
+```typescript
+bitwise_or(other: NDArray | number): NDArray
+```
+Element-wise bitwise OR. Requires integer dtype. See [bitwise_or](/versions/v1.0.x/api-reference/bitwise/bitwise-ops).
+
+### bitwise_xor
+
+```typescript
+bitwise_xor(other: NDArray | number): NDArray
+```
+Element-wise bitwise XOR. Requires integer dtype. See [bitwise_xor](/versions/v1.0.x/api-reference/bitwise/bitwise-ops).
+
+### bitwise_not
+
+```typescript
+bitwise_not(): NDArray
+```
+Element-wise bitwise NOT. Requires integer dtype. See [bitwise_not](/versions/v1.0.x/api-reference/bitwise/bitwise-ops).
+
+### left_shift
+
+```typescript
+left_shift(shift: NDArray | number): NDArray
+```
+Element-wise left bit shift. See [left_shift](/versions/v1.0.x/api-reference/bitwise/bitwise-ops).
+
+### right_shift
+
+```typescript
+right_shift(shift: NDArray | number): NDArray
+```
+Element-wise right bit shift. See [right_shift](/versions/v1.0.x/api-reference/bitwise/bitwise-ops).
+
+### copysign
+
+```typescript
+copysign(x2: NDArray | number): NDArray
+```
+Change the sign of `this` to that of `x2`, element-wise. See [copysign](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+### signbit
+
+```typescript
+signbit(): NDArray
+```
+Returns `true` where the sign bit is set (negative). See [signbit](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+### nextafter
+
+```typescript
+nextafter(x2: NDArray | number): NDArray
+```
+Return the next floating-point value after `this` towards `x2`. See [nextafter](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+### spacing
+
+```typescript
+spacing(): NDArray
+```
+Return the distance between each element and the nearest adjacent number. See [spacing](/versions/v1.0.x/api-reference/logic/logical-ops).
+
+---
+
+## Reduction methods
+
+### sum
+
+```typescript
+sum(axis?: number, keepdims?: boolean): NDArray | number | bigint | Complex
+```
+Sum of elements along an axis. Returns a scalar when axis is `undefined`. See [sum](/versions/v1.0.x/api-reference/reductions/basic).
+
+### prod
+
+```typescript
+prod(axis?: number, keepdims?: boolean): NDArray | number | bigint | Complex
+```
+Product of elements along an axis. See [prod](/versions/v1.0.x/api-reference/reductions/basic).
+
+### mean
+
+```typescript
+mean(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Arithmetic mean along an axis. See [mean](/versions/v1.0.x/api-reference/reductions/basic).
+
+### std
+
+```typescript
+std(axis?: number, ddof?: number, keepdims?: boolean): NDArray | number
+```
+Standard deviation along an axis. `ddof` defaults to 0. See [std](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### var
+
+```typescript
+var(axis?: number, ddof?: number, keepdims?: boolean): NDArray | number
+```
+Variance along an axis. `ddof` defaults to 0. See [var](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### min
+
+```typescript
+min(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Minimum value along an axis. See [min](/versions/v1.0.x/api-reference/reductions/basic).
+
+### max
+
+```typescript
+max(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Maximum value along an axis. See [max](/versions/v1.0.x/api-reference/reductions/basic).
+
+### argmin
+
+```typescript
+argmin(axis?: number): NDArray | number
+```
+Index of the minimum value along an axis. See [argmin](/versions/v1.0.x/api-reference/reductions/basic).
+
+### argmax
+
+```typescript
+argmax(axis?: number): NDArray | number
+```
+Index of the maximum value along an axis. See [argmax](/versions/v1.0.x/api-reference/reductions/basic).
+
+### all
+
+```typescript
+all(axis?: number, keepdims?: boolean): NDArray | boolean
+```
+Test whether all elements evaluate to `true`. See [all](/versions/v1.0.x/api-reference/reductions/basic).
+
+### any
+
+```typescript
+any(axis?: number, keepdims?: boolean): NDArray | boolean
+```
+Test whether any element evaluates to `true`. See [any](/versions/v1.0.x/api-reference/reductions/basic).
+
+### ptp
+
+```typescript
+ptp(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Peak-to-peak (maximum minus minimum) along an axis. See [ptp](/versions/v1.0.x/api-reference/reductions/basic).
+
+### median
+
+```typescript
+median(axis?: number, keepdims?: boolean): NDArray | number
+```
+Median along an axis. See [median](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### percentile
+
+```typescript
+percentile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+```
+Compute the q-th percentile (0--100). See [percentile](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### quantile
+
+```typescript
+quantile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+```
+Compute the q-th quantile (0--1). See [quantile](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### average
+
+```typescript
+average(weights?: NDArray, axis?: number): NDArray | number | Complex
+```
+Weighted average along an axis. See [average](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### cumsum
+
+```typescript
+cumsum(axis?: number): NDArray
+```
+Cumulative sum along an axis. See [cumsum](/versions/v1.0.x/api-reference/reductions/basic).
+
+### cumprod
+
+```typescript
+cumprod(axis?: number): NDArray
+```
+Cumulative product along an axis. See [cumprod](/versions/v1.0.x/api-reference/reductions/basic).
+
+### diff
+
+```typescript
+diff(n?: number, axis?: number): NDArray
+```
+Calculate the n-th discrete difference along an axis. See [diff](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nansum
+
+```typescript
+nansum(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Sum treating NaNs as zero. See [nansum](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanprod
+
+```typescript
+nanprod(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Product treating NaNs as one. See [nanprod](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanmean
+
+```typescript
+nanmean(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Mean ignoring NaNs. See [nanmean](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanstd
+
+```typescript
+nanstd(axis?: number, ddof?: number, keepdims?: boolean): NDArray | number
+```
+Standard deviation ignoring NaNs. See [nanstd](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### nanvar
+
+```typescript
+nanvar(axis?: number, ddof?: number, keepdims?: boolean): NDArray | number
+```
+Variance ignoring NaNs. See [nanvar](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### nanmin
+
+```typescript
+nanmin(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Minimum ignoring NaNs. See [nanmin](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanmax
+
+```typescript
+nanmax(axis?: number, keepdims?: boolean): NDArray | number | Complex
+```
+Maximum ignoring NaNs. See [nanmax](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanargmin
+
+```typescript
+nanargmin(axis?: number): NDArray | number
+```
+Index of minimum ignoring NaNs. See [nanargmin](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanargmax
+
+```typescript
+nanargmax(axis?: number): NDArray | number
+```
+Index of maximum ignoring NaNs. See [nanargmax](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanmedian
+
+```typescript
+nanmedian(axis?: number, keepdims?: boolean): NDArray | number
+```
+Median ignoring NaNs. See [nanmedian](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### nancumsum
+
+```typescript
+nancumsum(axis?: number): NDArray
+```
+Cumulative sum treating NaNs as zero. See [nancumsum](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nancumprod
+
+```typescript
+nancumprod(axis?: number): NDArray
+```
+Cumulative product treating NaNs as one. See [nancumprod](/versions/v1.0.x/api-reference/reductions/basic).
+
+### nanpercentile
+
+```typescript
+nanpercentile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+```
+Percentile ignoring NaNs. See [nanpercentile](/versions/v1.0.x/api-reference/reductions/statistics).
+
+### nanquantile
+
+```typescript
+nanquantile(q: number, axis?: number, keepdims?: boolean): NDArray | number
+```
+Quantile ignoring NaNs. See [nanquantile](/versions/v1.0.x/api-reference/reductions/statistics).
+
+---
+
+## Shape methods
+
+### reshape
+
+```typescript
+reshape(...shape: number[]): NDArray
+```
+Return a new array with the given shape. Use `-1` for one inferred dimension. See [reshape](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### flatten
+
+```typescript
+flatten(): NDArray
+```
+Return a flattened copy (always 1D). See [flatten](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### ravel
+
+```typescript
+ravel(): NDArray
+```
+Return a flattened array. Returns a view when possible, otherwise a copy. See [ravel](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### squeeze
+
+```typescript
+squeeze(axis?: number): NDArray
+```
+Remove axes of length one. See [squeeze](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### expand_dims
+
+```typescript
+expand_dims(axis: number): NDArray
+```
+Insert a new axis of length one at the given position. See [expand_dims](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### transpose
+
+```typescript
+transpose(axes?: number[]): NDArray
+```
+Permute the dimensions. With no arguments, reverses all axes. See [transpose](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### swapaxes
+
+```typescript
+swapaxes(axis1: number, axis2: number): NDArray
+```
+Interchange two axes. See [swapaxes](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### moveaxis
+
+```typescript
+moveaxis(source: number | number[], destination: number | number[]): NDArray
+```
+Move axes to new positions. See [moveaxis](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### T
+
+```typescript
+get T(): NDArray
+```
+Transpose property (no parentheses). Returns a view with reversed axes. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#t).
+
+---
+
+## Linear algebra methods
+
+### dot
+
+```typescript
+dot(other: NDArray): NDArray | number | bigint | Complex
+```
+Dot product following NumPy semantics (inner product for 1D, matrix multiply for 2D). See [dot](/versions/v1.0.x/api-reference/linalg/products).
+
+### matmul
+
+```typescript
+matmul(other: NDArray): NDArray
+```
+Matrix multiplication (`@` operator equivalent). See [matmul](/versions/v1.0.x/api-reference/linalg/products).
+
+### inner
+
+```typescript
+inner(other: NDArray): NDArray | number | bigint | Complex
+```
+Inner product (contracts over last axes of both arrays). See [inner](/versions/v1.0.x/api-reference/linalg/products).
+
+### outer
+
+```typescript
+outer(other: NDArray): NDArray
+```
+Outer product (flattens inputs, computes `a[i] * b[j]`). See [outer](/versions/v1.0.x/api-reference/linalg/products).
+
+### tensordot
+
+```typescript
+tensordot(other: NDArray, axes?: number | [number[], number[]]): NDArray | number | bigint | Complex
+```
+Tensor dot product along specified axes. Default contracts 2 axes. See [tensordot](/versions/v1.0.x/api-reference/linalg/products).
+
+### trace
+
+```typescript
+trace(): number | bigint | Complex
+```
+Sum of diagonal elements. See [trace](/versions/v1.0.x/api-reference/linalg/products).
+
+### diagonal
+
+```typescript
+diagonal(offset?: number, axis1?: number, axis2?: number): NDArray
+```
+Return specified diagonals. See [diagonal](/versions/v1.0.x/api-reference/linalg/products).
+
+---
+
+## Sorting and searching methods
+
+### sort
+
+```typescript
+sort(axis?: number): NDArray
+```
+Return a sorted copy. Default sorts along the last axis. See [sort](/versions/v1.0.x/api-reference/sorting/sort).
+
+### argsort
+
+```typescript
+argsort(axis?: number): NDArray
+```
+Return indices that would sort the array. See [argsort](/versions/v1.0.x/api-reference/sorting/sort).
+
+### partition
+
+```typescript
+partition(kth: number, axis?: number): NDArray
+```
+Partially sort so that the element at `kth` position is in its final sorted position. See [partition](/versions/v1.0.x/api-reference/sorting/sort).
+
+### argpartition
+
+```typescript
+argpartition(kth: number, axis?: number): NDArray
+```
+Return indices that would partition the array. See [argpartition](/versions/v1.0.x/api-reference/sorting/sort).
+
+### searchsorted
+
+```typescript
+searchsorted(v: NDArray, side?: 'left' | 'right'): NDArray
+```
+Find indices where elements should be inserted to maintain order. See [searchsorted](/versions/v1.0.x/api-reference/sorting/search).
+
+### nonzero
+
+```typescript
+nonzero(): NDArray[]
+```
+Return indices of non-zero elements, one array per dimension. See [nonzero](/versions/v1.0.x/api-reference/sorting/search).
+
+### argwhere
+
+```typescript
+argwhere(): NDArray
+```
+Find indices of non-zero elements, returned as a 2D array of shape `(N, ndim)`. See [argwhere](/versions/v1.0.x/api-reference/sorting/search).
+
+---
+
+## Indexing methods
+
+### take
+
+```typescript
+take(indices: number[], axis?: number): NDArray
+```
+Take elements along an axis. See [take](/versions/v1.0.x/api-reference/indexing/advanced-indexing).
+
+### put
+
+```typescript
+put(indices: number[], values: NDArray | number | bigint): void
+```
+Set values at flat indices (in-place). See [put](/versions/v1.0.x/api-reference/indexing/advanced-indexing).
+
+### choose
+
+```typescript
+choose(choices: NDArray[]): NDArray
+```
+Construct an array by choosing from a list of arrays using `this` as the index. See [choose](/versions/v1.0.x/api-reference/indexing/advanced-indexing).
+
+### compress
+
+```typescript
+compress(condition: NDArray | boolean[], axis?: number): NDArray
+```
+Return selected slices along an axis where `condition` is `true`. See [compress](/versions/v1.0.x/api-reference/indexing/advanced-indexing).
+
+### repeat
+
+```typescript
+repeat(repeats: number | number[], axis?: number): NDArray
+```
+Repeat elements of the array. See [repeat](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### resize
+
+```typescript
+resize(newShape: number[]): NDArray
+```
+Return a new array with the given shape. Repeats data if the new shape is larger. See [resize](/versions/v1.0.x/api-reference/manipulation/shape).
+
+### bindex
+
+```typescript
+bindex(mask: NDArray, axis?: number): NDArray
+```
+Boolean array indexing. Select elements where `mask` is `true`. See [compress](/versions/v1.0.x/api-reference/indexing/advanced-indexing).
+
+### iindex
+
+```typescript
+iindex(indices: NDArray | number[] | number[][], axis?: number): NDArray
+```
+Integer array indexing (fancy indexing). Select elements by an array of indices. See [take](/versions/v1.0.x/api-reference/indexing/advanced-indexing).
+
+---
+
+## Complex number methods
+
+### conj
+
+```typescript
+conj(): NDArray
+```
+Return the complex conjugate, element-wise. For real arrays, returns a copy. See [conj](/versions/v1.0.x/api-reference/math/other-math).
+
+### conjugate
+
+```typescript
+conjugate(): NDArray
+```
+Alias for `conj`. See [conj](/versions/v1.0.x/api-reference/math/other-math).
+
+---
+
+## Other methods
+
+### copy
+
+```typescript
+copy(): NDArray
+```
+Return a deep copy. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#copy).
+
+### astype
+
+```typescript
+astype(dtype: DType, copy?: boolean): NDArray
+```
+Cast to a new dtype. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#astype).
+
+### fill
+
+```typescript
+fill(value: number | bigint): void
+```
+Fill array in-place with a scalar. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#fill).
+
+### toArray
+
+```typescript
+toArray(): NestedArray
+```
+Convert to nested JavaScript array. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#toarray).
+
+### tolist
+
+```typescript
+tolist(): NestedArray
+```
+Same as `toArray`. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#tolist).
+
+### tobytes
+
+```typescript
+tobytes(): ArrayBuffer
+```
+Serialize to raw bytes. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#tobytes).
+
+### get
+
+```typescript
+get(indices: number[]): number | bigint | Complex
+```
+Get element by multi-dimensional indices. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#get).
+
+### set
+
+```typescript
+set(indices: number[], value: number | bigint | Complex): void
+```
+Set element by multi-dimensional indices. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#set).
+
+### slice
+
+```typescript
+slice(...sliceStrs: string[]): NDArray
+```
+NumPy-style string slicing. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#slice).
+
+### row
+
+```typescript
+row(i: number): NDArray
+```
+Get row `i`. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#row).
+
+### col
+
+```typescript
+col(j: number): NDArray
+```
+Get column `j`. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#col).
+
+### rows
+
+```typescript
+rows(start: number, stop: number): NDArray
+```
+Get a range of rows. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#rows).
+
+### cols
+
+```typescript
+cols(start: number, stop: number): NDArray
+```
+Get a range of columns. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#cols).
+
+### item
+
+```typescript
+item(...args: number[]): number | bigint | Complex
+```
+Extract a scalar value. See [NDArray Class](/versions/v1.0.x/api-reference/ndarray/class#item).

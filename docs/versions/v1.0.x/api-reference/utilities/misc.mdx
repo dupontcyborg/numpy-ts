@@ -1,0 +1,270 @@
+---
+title: "Miscellaneous Utilities"
+description: "Utility functions for applying operations along axes, memory inspection, array metadata, and error handling."
+---
+
+### apply_along_axis
+
+Apply a function to 1-D slices of an array along the given axis. The function is called once for each slice, and the results are assembled into an output array.
+
+```typescript
+function apply_along_axis(
+  func1d: (arr: NDArray) => number | NDArray,
+  axis: number,
+  arr: ArrayLike
+): NDArray
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `func1d` | `(arr: NDArray) => number \| NDArray` | -- | Function that operates on a 1-D array and returns a scalar or 1-D array. |
+| `axis` | `number` | -- | Axis along which to apply `func1d`. |
+| `arr` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- The result of applying `func1d` along the specified axis.
+
+```typescript
+import { array, apply_along_axis, sort } from 'numpy-ts';
+
+const a = array([[3, 1, 2], [6, 4, 5]]);
+
+// Sort each row
+const sorted = apply_along_axis(
+  (row) => sort(row),
+  1,
+  a
+);
+// array([[1, 2, 3],
+//        [4, 5, 6]])
+
+// Sum each column (returns scalars)
+const colSums = apply_along_axis(
+  (col) => col.toArray().reduce((a, b) => a + b, 0),
+  0,
+  a
+);
+// array([9, 5, 7])
+```
+
+---
+
+### apply_over_axes
+
+Apply a function repeatedly over multiple axes. After each application, the result is kept with the reduced axis preserved as a size-1 dimension, so subsequent axes remain valid.
+
+```typescript
+function apply_over_axes(
+  func: (a: NDArray, axis: number) => NDArray,
+  a: ArrayLike,
+  axes: number[]
+): NDArray
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `func` | `(a: NDArray, axis: number) => NDArray` | -- | Function that takes an array and an axis, returning an array with that axis reduced to size 1. |
+| `a` | `ArrayLike` | -- | Input array. |
+| `axes` | `number[]` | -- | Axes over which to apply `func`, in order. |
+
+**Returns:** `NDArray` -- The result of applying `func` over all specified axes.
+
+```typescript
+import { array, apply_over_axes, sum } from 'numpy-ts';
+
+const a = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
+// shape: [2, 2, 2]
+
+// Sum over axes 0 and 2
+const result = apply_over_axes(
+  (arr, axis) => sum(arr, axis, true),
+  a,
+  [0, 2]
+);
+// shape: [1, 2, 1]
+// array([[[10], [22]]])
+```
+
+---
+
+### shares_memory
+
+Determine whether two arrays share the same underlying data buffer. Returns `true` only when the arrays definitely reference overlapping memory.
+
+```typescript
+function shares_memory(a: ArrayLike, b: ArrayLike): boolean
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `boolean` -- `true` if both arrays share memory.
+
+```typescript
+import { array, reshape, copy, shares_memory } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4]);
+const b = reshape(a, [2, 2]);   // view
+const c = copy(a);              // independent copy
+
+shares_memory(a, b);  // true  -- b is a view of a
+shares_memory(a, c);  // false -- c is a copy
+```
+
+---
+
+### may_share_memory
+
+Determine whether two arrays might share memory. This is a less strict check than `shares_memory` -- it may return `true` even when the arrays do not actually overlap, but it never returns `false` when they do.
+
+```typescript
+function may_share_memory(a: ArrayLike, b: ArrayLike): boolean
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | First input array. |
+| `b` | `ArrayLike` | -- | Second input array. |
+
+**Returns:** `boolean` -- `true` if the arrays might share memory.
+
+```typescript
+import { array, reshape, copy, may_share_memory } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4, 5, 6]);
+const b = reshape(a, [2, 3]);
+
+may_share_memory(a, b);  // true
+may_share_memory(a, copy(a));  // false
+```
+
+---
+
+### ndim
+
+Return the number of dimensions of an array.
+
+```typescript
+function ndim(a: ArrayLike): number
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array or array-like. |
+
+**Returns:** `number` -- The number of dimensions (axes).
+
+```typescript
+import { array, ndim } from 'numpy-ts';
+
+ndim(array([1, 2, 3]));             // 1
+ndim(array([[1, 2], [3, 4]]));      // 2
+ndim(array([[[1]]]));               // 3
+```
+
+---
+
+### shape
+
+Return the shape of an array as a number array.
+
+```typescript
+function shape(a: ArrayLike): number[]
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array or array-like. |
+
+**Returns:** `number[]` -- The dimensions of the array.
+
+```typescript
+import { array, zeros, shape } from 'numpy-ts';
+
+shape(array([1, 2, 3]));             // [3]
+shape(array([[1, 2], [3, 4]]));      // [2, 2]
+shape(zeros([3, 4, 5]));             // [3, 4, 5]
+```
+
+---
+
+### size
+
+Return the total number of elements in an array.
+
+```typescript
+function size(a: ArrayLike): number
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `a` | `ArrayLike` | -- | Input array or array-like. |
+
+**Returns:** `number` -- The total number of elements (product of shape dimensions).
+
+```typescript
+import { array, zeros, size } from 'numpy-ts';
+
+size(array([1, 2, 3]));            // 3
+size(array([[1, 2], [3, 4]]));     // 4
+size(zeros([3, 4, 5]));            // 60
+```
+
+---
+
+### geterr
+
+Get the current error handling settings for floating-point operations.
+
+```typescript
+function geterr(): {
+  divide: string;
+  over: string;
+  under: string;
+  invalid: string;
+}
+```
+
+**Returns:** `object` -- An object with keys `divide`, `over`, `under`, and `invalid`, each set to one of `'warn'`, `'raise'`, `'ignore'`, or `'print'`.
+
+```typescript
+import { geterr } from 'numpy-ts';
+
+const settings = geterr();
+console.log(settings);
+// { divide: 'warn', over: 'warn', under: 'ignore', invalid: 'warn' }
+```
+
+---
+
+### seterr
+
+Set how floating-point errors are handled. Returns the previous settings so you can restore them later.
+
+```typescript
+function seterr(opts: {
+  divide?: string;
+  over?: string;
+  under?: string;
+  invalid?: string;
+}): object
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `opts` | `object` | -- | An object with one or more keys: `divide` (division by zero), `over` (overflow), `under` (underflow), `invalid` (invalid operation like 0/0). Each value can be `'warn'`, `'raise'`, `'ignore'`, or `'print'`. |
+
+**Returns:** `object` -- The previous error handling settings.
+
+```typescript
+import { seterr, geterr } from 'numpy-ts';
+
+// Suppress all warnings
+const old = seterr({ divide: 'ignore', over: 'ignore' });
+
+// ... perform operations that may divide by zero ...
+
+// Restore previous settings
+seterr(old);
+```

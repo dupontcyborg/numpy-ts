@@ -1,0 +1,138 @@
+---
+title: "Installation"
+description: "Install numpy-ts and choose the right entry point for your project."
+---
+
+## Install the package
+
+<CodeGroup>
+```bash npm
+npm install numpy-ts
+```
+
+```bash yarn
+yarn add numpy-ts
+```
+
+```bash pnpm
+pnpm add numpy-ts
+```
+
+```bash bun
+bun add numpy-ts
+```
+</CodeGroup>
+
+## Requirements
+
+| Environment | Minimum Version |
+|---|---|
+| Node.js | >= 20.1.0 |
+| Browsers | ES2020+ (Chrome 80+, Firefox 78+, Safari 14+, Edge 80+) |
+| TypeScript | >= 5.0 (recommended) |
+
+<Note>
+numpy-ts has **zero runtime dependencies**. The installed size is the library itself.
+</Note>
+
+## CDN usage (browsers)
+
+You can load numpy-ts directly in the browser without a build step:
+
+<CodeGroup>
+```html esm.sh
+<script type="module">
+  import * as np from 'https://esm.sh/numpy-ts';
+
+  const a = np.array([[1, 2], [3, 4]]);
+  console.log(a.toString());
+</script>
+```
+
+```html unpkg
+<script type="module">
+  import * as np from 'https://unpkg.com/numpy-ts/dist/esm/index.js';
+
+  const a = np.array([[1, 2], [3, 4]]);
+  console.log(a.toString());
+</script>
+```
+</CodeGroup>
+
+## Choose your entry point
+
+numpy-ts ships three entry points. Pick the one that fits your use case:
+
+| Entry Point | Import Path | Returns | Bundle Size | Use When |
+|---|---|---|---|---|
+| **Full** | `numpy-ts` | `NDArray` | ~200-300 KB | You want method chaining and the complete API |
+| **Core** | `numpy-ts/core` | `NDArrayCore` | ~10-40 KB | Bundle size matters; you only need specific functions |
+| **Node** | `numpy-ts/node` | `NDArray` | ~200-300 KB + fs | You need file I/O (`load`, `save`, `savez`) on Node.js |
+
+### Full library (`numpy-ts`)
+
+The default entry point. Functions return `NDArray`, which supports method chaining (`.add()`, `.reshape()`, `.T`, etc.).
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3, 4]);
+const b = a.add(10).reshape([2, 2]).T;  // Method chaining
+```
+
+Best for applications, scripts, and projects where developer experience matters more than bundle size.
+
+### Tree-shakeable core (`numpy-ts/core`)
+
+Functions return `NDArrayCore` (no method chaining). Your bundler (webpack, Vite, esbuild, Rollup) will only include the functions you actually import.
+
+```typescript
+import { array, add, reshape, transpose } from 'numpy-ts/core';
+
+const a = array([1, 2, 3, 4]);
+const b = transpose(reshape(add(a, 10), [2, 2]));
+```
+
+Best for libraries, frontend apps where every kilobyte counts, and when you only need a handful of functions.
+
+<Tip>
+Importing just `array` and `add` from `numpy-ts/core` results in a bundle around **10 KB** minified. The full entry point is always ~200-300 KB regardless of what you use. See the [Tree-Shaking guide](/versions/v1.0.x/guides/tree-shaking) for a detailed comparison.
+</Tip>
+
+### Node.js file I/O (`numpy-ts/node`)
+
+Everything from `numpy-ts` plus file system operations for `.npy`, `.npz`, and text files.
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+// Load and save .npy files
+const arr = await np.loadNpy('data.npy');
+await np.saveNpy('output.npy', arr);
+
+// Load and save .npz archives
+const { arrays } = await np.loadNpzFile('data.npz');
+await np.savez('output.npz', { x: arr, y: arr });
+
+// Text files
+const data = await np.loadtxt('data.csv', { delimiter: ',' });
+await np.savetxt('output.csv', data, { delimiter: ',' });
+```
+
+<Warning>
+The `numpy-ts/node` entry point uses Node.js built-in `fs` modules. It will not work in browsers or edge runtimes.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="bolt" href="/versions/v1.0.x/getting-started/quickstart">
+    Create arrays, run operations, and explore the API in 5 minutes.
+  </Card>
+  <Card title="NumPy Migration Guide" icon="code-compare" href="/versions/v1.0.x/getting-started/numpy-migration">
+    Coming from Python NumPy? See what is different in TypeScript.
+  </Card>
+  <Card title="Tree-Shaking" icon="leaf" href="/versions/v1.0.x/guides/tree-shaking">
+    Understand how the two entry points affect your bundle size.
+  </Card>
+</CardGroup>
