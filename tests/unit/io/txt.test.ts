@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { parseTxt, genfromtxt, fromregex, serializeTxt } from '../../../src/io/txt';
 import { array } from '../../../src';
+// Also import from main index to test wrappers
+import {
+  parseTxt as parseTxtIndex,
+  genfromtxt as genfromtxtIndex,
+  fromregex as fromregexIndex,
+} from '../../../src';
 
 describe('Text I/O', () => {
   describe('parseTxt', () => {
@@ -394,6 +400,64 @@ Point 3: (5.5, 6.5)`;
 
       expect(text).toBe('1\n2\n# End of data\n');
     });
+
+    it('handles uppercase scientific notation (E)', () => {
+      const arr = array([1.5, 2.75]);
+      const text = serializeTxt(arr, { fmt: '%.2E' });
+
+      expect(text).toContain('1.50E+00');
+      expect(text).toContain('2.75E+00');
+    });
+
+    it('handles general format (g)', () => {
+      const arr = array([1.5, 12345, 0.000001]);
+      const text = serializeTxt(arr, { fmt: '%.4g' });
+
+      // General format uses fixed for small exponents, scientific for large
+      const lines = text.trim().split('\n');
+      expect(lines.length).toBe(3);
+      expect(lines[0]).toContain('1.5'); // Small number: fixed
+      expect(lines[1]).toMatch(/1\.23[45]e\+0?4/); // Large: scientific (allow 1.234 or 1.235)
+      expect(lines[2]).toMatch(/1(\.\d+)?e-0?6/); // Very small: scientific
+    });
+
+    it('handles uppercase general format (G)', () => {
+      const arr = array([1e10]);
+      const text = serializeTxt(arr, { fmt: '%.2G' });
+
+      expect(text).toContain('E+'); // Uppercase E
+    });
+
+    it('handles invalid format string', () => {
+      const arr = array([1, 2, 3]);
+      const text = serializeTxt(arr, { fmt: 'invalid' });
+
+      // Should fall back to string representation
+      expect(text).toBe('1\n2\n3\n');
+    });
+
+    it('handles multiline header', () => {
+      const arr = array([1, 2]);
+      const text = serializeTxt(arr, {
+        fmt: '%d',
+        header: 'Line 1\nLine 2\nLine 3',
+      });
+
+      const lines = text.split('\n');
+      expect(lines[0]).toBe('# Line 1');
+      expect(lines[1]).toBe('# Line 2');
+      expect(lines[2]).toBe('# Line 3');
+    });
+
+    it('handles multiline footer', () => {
+      const arr = array([1, 2]);
+      const text = serializeTxt(arr, {
+        fmt: '%d',
+        footer: 'Footer line 1\nFooter line 2',
+      });
+
+      expect(text).toContain('# Footer line 1\n# Footer line 2\n');
+    });
   });
 
   describe('round-trip', () => {
@@ -431,6 +495,56 @@ Point 3: (5.5, 6.5)`;
       const loaded = parseTxt(text, { delimiter: ',' });
 
       expect(loaded.toArray()).toEqual(original.toArray());
+    });
+  });
+
+  describe('index.ts wrappers upgrade to NDArray', () => {
+    it('parseTxtIndex returns NDArray instance', () => {
+      const text = '1 2 3\n4 5 6';
+      const result = parseTxtIndex(text);
+
+      // Check that result is upgraded to NDArray (has methods)
+      expect(result).toBeDefined();
+      expect(typeof result.add).toBe('function'); // NDArray has method chaining
+      expect(result.toArray()).toEqual([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+    });
+
+    it('genfromtxtIndex returns NDArray instance', () => {
+      const text = '1 2 3\n4 5 6';
+      const result = genfromtxtIndex(text);
+
+      // Check that result is upgraded to NDArray (has methods)
+      expect(result).toBeDefined();
+      expect(typeof result.add).toBe('function'); // NDArray has method chaining
+      expect(result.toArray()).toEqual([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+    });
+
+    it('fromregexIndex returns NDArray instance', () => {
+      const text = 'value=1.5\nvalue=2.5\nvalue=3.5';
+      const result = fromregexIndex(text, /value=([0-9.]+)/);
+
+      // Check that result is upgraded to NDArray (has methods)
+      expect(result).toBeDefined();
+      expect(typeof result.add).toBe('function'); // NDArray has method chaining
+      const vals = result.toArray() as number[];
+      expect(vals[0]).toBeCloseTo(1.5);
+      expect(vals[1]).toBeCloseTo(2.5);
+      expect(vals[2]).toBeCloseTo(3.5);
+    });
+
+    it('fromregexIndex with dtype parameter', () => {
+      const text = 'value=1\nvalue=2\nvalue=3';
+      const result = fromregexIndex(text, /value=([0-9]+)/, 'int32');
+
+      // Check dtype is set correctly
+      expect(result.dtype).toBe('int32');
+      expect(result.toArray()).toEqual([1, 2, 3]);
     });
   });
 });

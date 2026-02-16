@@ -8,6 +8,13 @@ import {
   loadNpzSync,
 } from '../../../src/io/npz';
 import { array, zeros, arange } from '../../../src';
+// Also import from main index to test wrappers
+import {
+  parseNpz as parseNpzIndex,
+  parseNpzSync as parseNpzSyncIndex,
+  loadNpz as loadNpzIndex,
+  loadNpzSync as loadNpzSyncIndex,
+} from '../../../src';
 
 describe('NPZ Format', () => {
   describe('serializeNpzSync and parseNpzSync', () => {
@@ -225,6 +232,118 @@ describe('NPZ Format', () => {
     it('rejects invalid ZIP files sync', () => {
       const invalidBytes = new Uint8Array([0, 1, 2, 3, 4, 5]);
       expect(() => parseNpzSync(invalidBytes)).toThrow('Invalid ZIP file');
+    });
+  });
+
+  describe('non-.npy files in ZIP', () => {
+    it('ignores files without .npy extension', async () => {
+      // Create a ZIP manually with a non-.npy file
+      const { writeZipSync } = await import('../../../src/io/zip/writer');
+
+      const arr = array([1, 2, 3]);
+      const { serializeNpy } = await import('../../../src/io/npy/serializer');
+      const npyBytes = serializeNpy(arr);
+
+      // Add both .npy and non-.npy files
+      const files = new Map([
+        ['data.npy', npyBytes],
+        ['readme.txt', new TextEncoder().encode('This is a readme')],
+        ['config.json', new TextEncoder().encode('{"version": 1}')],
+      ]);
+
+      const zipBytes = writeZipSync(files);
+      const result = parseNpzSync(zipBytes);
+
+      // Only the .npy file should be parsed
+      expect(result.arrays.size).toBe(1);
+      expect(result.arrays.has('data')).toBe(true);
+      expect(result.arrays.get('data')!.toArray()).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('force option with malformed .npy files', () => {
+    it('throws error for invalid .npy without force option', async () => {
+      const { writeZipSync } = await import('../../../src/io/zip/writer');
+
+      // Create an invalid .npy file
+      const invalidNpy = new Uint8Array([0, 1, 2, 3, 4, 5]);
+
+      const files = new Map([['invalid.npy', invalidNpy]]);
+
+      const zipBytes = writeZipSync(files);
+
+      // Should throw without force option (InvalidNpyError, not UnsupportedDTypeError)
+      expect(() => parseNpzSync(zipBytes)).toThrow();
+    });
+
+    it('force=true only skips UnsupportedDTypeError, not other errors', async () => {
+      const { writeZipSync } = await import('../../../src/io/zip/writer');
+
+      // Create an invalid .npy file (InvalidNpyError, not UnsupportedDTypeError)
+      const invalidNpy = new Uint8Array([0, 1, 2, 3, 4, 5]);
+
+      const files = new Map([['invalid.npy', invalidNpy]]);
+
+      const zipBytes = writeZipSync(files);
+
+      // force=true only applies to UnsupportedDTypeError, so this should still throw
+      expect(() => parseNpzSync(zipBytes, { force: true })).toThrow();
+    });
+  });
+
+  describe('index.ts wrappers upgrade to NDArray', () => {
+    it('parseNpzIndex returns NDArray instances', async () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+
+      const npzBytes = await serializeNpz({ a, b });
+      const result = await parseNpzIndex(npzBytes);
+
+      // Check that arrays are upgraded to NDArray (have methods)
+      const arrA = result.arrays.get('a')!;
+      expect(arrA).toBeDefined();
+      expect(typeof arrA.add).toBe('function'); // NDArray has method chaining
+      expect(arrA.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('parseNpzSyncIndex returns NDArray instances', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+
+      const npzBytes = serializeNpzSync({ a, b });
+      const result = parseNpzSyncIndex(npzBytes);
+
+      // Check that arrays are upgraded to NDArray (have methods)
+      const arrA = result.arrays.get('a')!;
+      expect(arrA).toBeDefined();
+      expect(typeof arrA.add).toBe('function'); // NDArray has method chaining
+      expect(arrA.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('loadNpzIndex returns NDArray instances', async () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+
+      const npzBytes = await serializeNpz({ a, b });
+      const result = await loadNpzIndex(npzBytes);
+
+      // Check that arrays are upgraded to NDArray (have methods)
+      expect(result.a).toBeDefined();
+      expect(typeof result.a.add).toBe('function'); // NDArray has method chaining
+      expect(result.a.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('loadNpzSyncIndex returns NDArray instances', () => {
+      const a = array([1, 2, 3]);
+      const b = array([4, 5, 6]);
+
+      const npzBytes = serializeNpzSync({ a, b });
+      const result = loadNpzSyncIndex(npzBytes);
+
+      // Check that arrays are upgraded to NDArray (have methods)
+      expect(result.a).toBeDefined();
+      expect(typeof result.a.add).toBe('function'); // NDArray has method chaining
+      expect(result.a.toArray()).toEqual([1, 2, 3]);
     });
   });
 });

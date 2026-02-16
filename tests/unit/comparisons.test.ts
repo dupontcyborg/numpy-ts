@@ -8,16 +8,20 @@ import {
   array_equal,
   array_equiv,
   greater,
+  greater_equal,
   less,
+  less_equal,
   equal,
   not_equal,
   isclose,
+  allclose,
   logical_and,
   logical_or,
   logical_not,
   isfinite,
   isinf,
   isnan,
+  Complex,
 } from '../../src';
 
 describe('Comparison Operations', () => {
@@ -609,6 +613,382 @@ describe('Comparison Operations', () => {
       expect(isfinite(a).size).toBe(4);
       expect(isinf(a).size).toBe(4);
       expect(isnan(a).size).toBe(4);
+    });
+  });
+
+  describe('Complex number comparisons', () => {
+    it('greater with complex arrays (lexicographic ordering)', () => {
+      const a = array([new Complex(2, 3), new Complex(1, 5), new Complex(2, 1)]);
+      const b = array([new Complex(2, 1), new Complex(1, 3), new Complex(2, 4)]);
+      const result = a.greater(b);
+
+      // (2, 3) > (2, 1): real equal, 3 > 1 => true
+      // (1, 5) > (1, 3): real equal, 5 > 3 => true
+      // (2, 1) > (2, 4): real equal, 1 > 4 => false
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(1);
+      expect(result.get([2])).toBe(0);
+    });
+
+    it('greater_equal with complex arrays', () => {
+      const a = array([new Complex(2, 3), new Complex(1, 5)]);
+      const b = array([new Complex(2, 3), new Complex(1, 6)]);
+      const result = a.greater_equal(b);
+
+      // (2, 3) >= (2, 3): equal => true
+      // (1, 5) >= (1, 6): real equal, 5 >= 6 => false
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(0);
+    });
+
+    it('less with complex arrays', () => {
+      const a = array([new Complex(1, 2), new Complex(2, 1)]);
+      const b = array([new Complex(2, 1), new Complex(1, 2)]);
+      const result = a.less(b);
+
+      // (1, 2) < (2, 1): 1 < 2 => true
+      // (2, 1) < (1, 2): 2 < 1 => false
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(0);
+    });
+
+    it('less_equal with complex arrays', () => {
+      const a = array([new Complex(1, 2), new Complex(1, 2)]);
+      const b = array([new Complex(1, 3), new Complex(1, 2)]);
+      const result = a.less_equal(b);
+
+      // (1, 2) <= (1, 3): real equal, 2 <= 3 => true
+      // (1, 2) <= (1, 2): equal => true
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(1);
+    });
+
+    it('equal with complex arrays', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4)]);
+      const b = array([new Complex(1, 2), new Complex(3, 5)]);
+      const result = a.equal(b);
+
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(0);
+    });
+
+    it('not_equal with complex arrays', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4)]);
+      const b = array([new Complex(1, 2), new Complex(3, 5)]);
+      const result = a.not_equal(b);
+
+      expect(result.get([0])).toBe(0);
+      expect(result.get([1])).toBe(1);
+    });
+
+    it('compares complex with real (real values get 0 imaginary part)', () => {
+      const a = array([new Complex(2, 1), new Complex(2, 0)]);
+      const b = array([2, 2]);
+      const result = a.greater(b);
+
+      // (2, 1) > (2, 0): real equal, 1 > 0 => true
+      // (2, 0) > (2, 0): equal => false
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(0);
+    });
+
+    it('equal with complex arrays', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(1, 2)]);
+      const b = array([new Complex(1, 2), new Complex(3, 4), new Complex(0, 0)]);
+      const result = a.equal(b);
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(1);
+      expect(result.get([2])).toBe(0);
+    });
+
+    it('less_equal with complex numbers (lexicographic)', () => {
+      const a = array([new Complex(1, 2), new Complex(2, 1)]);
+      const b = array([new Complex(1, 3), new Complex(2, 1)]);
+      const result = a.less_equal(b);
+      // (1,2) <= (1,3): real equal, 2 <= 3 => true
+      // (2,1) <= (2,1): equal => true
+      expect(result.get([0])).toBe(1);
+      expect(result.get([1])).toBe(1);
+    });
+  });
+
+  describe('Non-contiguous array comparisons', () => {
+    it('not_equal with non-contiguous array and scalar', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const aT = a.T; // Non-contiguous
+      const result = aT.not_equal(2);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('isclose with non-contiguous arrays', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const b = array([
+        [1.0001, 2.0001],
+        [3.0001, 4.0001],
+      ]);
+      const result = isclose(a.T, b.T, 1e-3, 1e-3);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('isclose with non-contiguous array and scalar', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const aT = a.T; // Non-contiguous
+      const result = isclose(aT, 2.0, 1e-5, 1e-5);
+      expect(result.shape).toEqual([2, 2]);
+    });
+  });
+
+  describe('BigInt comparisons', () => {
+    it('not_equal with bigint array and scalar', () => {
+      const a = array([1n, 2n, 3n, 2n], 'int64');
+      const result = not_equal(a, 2);
+      expect(result.shape).toEqual([4]);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('greater with uint64 arrays', () => {
+      const a = array([10n, 20n, 30n], 'uint64');
+      const b = array([15n, 20n, 25n], 'uint64');
+      const result = a.greater(b);
+      expect(Array.from(result.data)).toEqual([0, 0, 1]);
+    });
+
+    it('less with mixed bigint and regular', () => {
+      const a = array([5n, 10n], 'int64');
+      const result = a.less(8);
+      expect(Array.from(result.data)).toEqual([1, 0]);
+    });
+  });
+
+  describe('Mixed precision comparisons', () => {
+    it('comparison with float32 arrays', () => {
+      const a = array([1.0, 2.0, 3.0], 'float32');
+      const b = array([1.5, 2.0, 2.5], 'float32');
+      const result = a.less(b);
+      expect(Array.from(result.data)).toEqual([1, 0, 0]);
+    });
+
+    it('isclose with mixed float32 and float64', () => {
+      const a = array([1.0, 2.0], 'float32');
+      const b = array([1.0001, 2.0001], 'float64');
+      const result = isclose(a, b, 1e-3, 1e-3);
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('operations with uint8', () => {
+      const a = array([0, 128, 255], 'uint8');
+      const result = a.greater(100);
+      expect(Array.from(result.data)).toEqual([0, 1, 1]);
+    });
+
+    it('operations with int16', () => {
+      const a = array([-100, 0, 100], 'int16');
+      const b = array([0, 0, 0], 'int16');
+      const result = a.equal(b);
+      expect(Array.from(result.data)).toEqual([0, 1, 0]);
+    });
+
+    it('operations with uint32', () => {
+      const a = array([1, 2, 3], 'uint32');
+      const result = isclose(a, 2, 1, 0);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('equal with uint16 arrays', () => {
+      const a = array([1, 2, 3], 'uint16');
+      const b = array([1, 0, 3], 'uint16');
+      const result = a.equal(b);
+      expect(Array.from(result.data)).toEqual([1, 0, 1]);
+    });
+
+    it('not_equal with int8 arrays', () => {
+      const a = array([1, 2, 3], 'int8');
+      const b = array([1, 0, 3], 'int8');
+      const result = a.not_equal(b);
+      expect(Array.from(result.data)).toEqual([0, 1, 0]);
+    });
+
+    it('greater with mixed int8 and int32', () => {
+      const a = array([1, 2, 3], 'int8');
+      const b = array([0, 2, 4], 'int32');
+      const result = a.greater(b);
+      expect(Array.from(result.data)).toEqual([1, 0, 0]);
+    });
+
+    it('less with uint8 and uint64', () => {
+      const a = array([1, 2, 3], 'uint8');
+      const b = array([2n, 2n, 2n], 'uint64');
+      const result = a.less(b);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('greater_equal with float32 scalar', () => {
+      const a = array([1.0, 2.0, 3.0], 'float32');
+      const result = a.greater_equal(2.0);
+      expect(Array.from(result.data)).toEqual([0, 1, 1]);
+    });
+
+    it('less_equal with int32 scalar', () => {
+      const a = array([1, 2, 3], 'int32');
+      const result = a.less_equal(2);
+      expect(Array.from(result.data)).toEqual([1, 1, 0]);
+    });
+
+    it('equal with bigint and bigint', () => {
+      const a = array([1n, 2n, 3n], 'int64');
+      const b = array([1n, 0n, 3n], 'int64');
+      const result = equal(a, b);
+      expect(Array.from(result.data)).toEqual([1, 0, 1]);
+    });
+
+    it('not_equal with uint64 arrays', () => {
+      const a = array([1n, 2n, 3n], 'uint64');
+      const b = array([1n, 0n, 3n], 'uint64');
+      const result = not_equal(a, b);
+      expect(Array.from(result.data)).toEqual([0, 1, 0]);
+    });
+
+    it('greater with int64 scalar', () => {
+      const a = array([1n, 2n, 3n], 'int64');
+      const result = greater(a, 2);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('less with uint64 scalar', () => {
+      const a = array([1n, 2n, 3n], 'uint64');
+      const result = less(a, 2);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('greater_equal with bigint arrays', () => {
+      const a = array([1n, 2n, 3n], 'int64');
+      const b = array([2n, 2n, 2n], 'int64');
+      const result = greater_equal(a, b);
+      expect(Array.from(result.data)).toEqual([0, 1, 1]);
+    });
+
+    it('less_equal with bigint arrays', () => {
+      const a = array([1n, 2n, 3n], 'int64');
+      const b = array([2n, 2n, 2n], 'int64');
+      const result = less_equal(a, b);
+      expect(Array.from(result.data)).toEqual([1, 1, 0]);
+    });
+
+    it('equal with uint32 and uint16', () => {
+      const a = array([1, 2, 3], 'uint32');
+      const b = array([1, 0, 3], 'uint16');
+      const result = equal(a, b);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('greater with int8 and int16', () => {
+      const a = array([1, 2, 3], 'int8');
+      const b = array([0, 2, 4], 'int16');
+      const result = greater(a, b);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('less with mixed unsigned types', () => {
+      const a = array([1, 2, 3], 'uint8');
+      const b = array([2, 2, 2], 'uint32');
+      const result = less(a, b);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('isclose with int32 arrays', () => {
+      const a = array([1, 2, 3], 'int32');
+      const b = array([1, 2, 4], 'int32');
+      const result = isclose(a, b, 1e-5, 1);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('allclose with uint8 arrays', () => {
+      const a = array([1, 2, 3], 'uint8');
+      const b = array([1, 2, 3], 'uint8');
+      const result = allclose(a, b);
+      expect(result).toBe(true);
+    });
+
+    it('allclose with int8 arrays (not close)', () => {
+      const a = array([1, 2, 3], 'int8');
+      const b = array([1, 2, 4], 'int8');
+      const result = allclose(a, b, 1e-5, 0);
+      expect(result).toBe(false);
+    });
+
+    it('isclose with uint64 arrays', () => {
+      const a = array([1n, 2n, 3n], 'uint64');
+      const b = array([1n, 2n, 4n], 'uint64');
+      const result = isclose(a, b);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('equal with scalar and int8 array', () => {
+      const a = array([1, 2, 3], 'int8');
+      const result = equal(a, 2);
+      expect(Array.from(result.data)).toEqual([0, 1, 0]);
+    });
+
+    it('not_equal with scalar and uint32 array', () => {
+      const a = array([1, 2, 3], 'uint32');
+      const result = not_equal(a, 2);
+      expect(Array.from(result.data)).toEqual([1, 0, 1]);
+    });
+
+    it('greater with scalar and int16 array', () => {
+      const a = array([1, 2, 3], 'int16');
+      const result = greater(a, 2);
+      expect(Array.from(result.data)).toEqual([0, 0, 1]);
+    });
+
+    it('less with scalar and uint16 array', () => {
+      const a = array([1, 2, 3], 'uint16');
+      const result = less(a, 2);
+      expect(Array.from(result.data)).toEqual([1, 0, 0]);
+    });
+
+    it('greater_equal with complex arrays (different real parts)', () => {
+      const a = array([new Complex(2, 1), new Complex(1, 1)]);
+      const b = array([new Complex(1, 2), new Complex(1, 0)]);
+      const result = greater_equal(a, b);
+      // When real parts differ, comparison is based on real part only
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('less_equal with complex arrays (different real parts)', () => {
+      const a = array([new Complex(1, 2), new Complex(2, 1)]);
+      const b = array([new Complex(2, 1), new Complex(1, 2)]);
+      const result = less_equal(a, b);
+      // When real parts differ, comparison is based on real part only
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('greater with non-contiguous array and scalar', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const result = greater(a.T, 2);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('greater with non-contiguous complex array and scalar', () => {
+      const a = array([
+        [new Complex(1, 1), new Complex(2, 2)],
+        [new Complex(3, 3), new Complex(4, 4)],
+      ]);
+      const result = greater(a.T, 2);
+      expect(result.shape).toEqual([2, 2]);
     });
   });
 });

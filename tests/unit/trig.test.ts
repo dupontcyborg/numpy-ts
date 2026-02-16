@@ -425,4 +425,156 @@ describe('Trigonometric Operations', () => {
       }
     });
   });
+
+  describe('Non-contiguous array operations', () => {
+    it('hypot with both arrays non-contiguous', () => {
+      const a = array([
+        [3, 4],
+        [5, 12],
+      ]);
+      const b = array([
+        [4, 3],
+        [12, 5],
+      ]);
+      // Transpose to make non-contiguous
+      const result = hypot(a.T, b.T);
+      expect(result.shape).toEqual([2, 2]);
+      const vals = result.toArray() as number[][];
+      expect(vals[0]![0]).toBeCloseTo(5); // hypot(3, 4)
+      expect(vals[1]![1]).toBeCloseTo(13); // hypot(12, 5)
+    });
+
+    it('hypot with first array non-contiguous', () => {
+      const a = array([
+        [3, 4],
+        [5, 12],
+      ]);
+      const b = array([
+        [4, 3],
+        [12, 5],
+      ]);
+      const result = hypot(a.T, b); // Only a transposed
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('hypot with second array non-contiguous', () => {
+      const a = array([
+        [3, 4],
+        [5, 12],
+      ]);
+      const b = array([
+        [4, 3],
+        [12, 5],
+      ]);
+      const result = hypot(a, b.T); // Only b transposed
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('hypot with scalar and non-contiguous array', () => {
+      const a = array([
+        [3, 4],
+        [5, 12],
+      ]);
+      const result = hypot(a.T, 4);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('arctan2 with non-contiguous arrays', () => {
+      const y = array([
+        [1, 1],
+        [-1, -1],
+      ]);
+      const x = array([
+        [1, -1],
+        [1, -1],
+      ]);
+      const result = arctan2(y.T, x.T);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('arctan2 with scalar and non-contiguous', () => {
+      const y = array([
+        [1, 1],
+        [-1, -1],
+      ]);
+      const result = arctan2(y.T, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('arctan2 with non-contiguous first arg only', () => {
+      const y = array([
+        [1, 1],
+        [-1, -1],
+      ]);
+      const x = array([
+        [1, -1],
+        [1, -1],
+      ]);
+      const result = arctan2(y.T, x);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('hypot preserves float32 when both inputs are float32', () => {
+      const a = array([[3, 4]], 'float32');
+      const b = array([[4, 3]], 'float32');
+      const result = hypot(a, b);
+      expect(result.dtype).toBe('float32');
+    });
+
+    it('hypot promotes to float64 for mixed dtypes', () => {
+      const a = array([[3, 4]], 'float32');
+      const b = array([[4, 3]], 'float64');
+      const result = hypot(a, b);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('hypot promotes integer to float64', () => {
+      const a = array([3, 4], 'int32');
+      const b = array([4, 3], 'int32');
+      const result = hypot(a, b);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('arctan2 with int32 inputs', () => {
+      const y = array([1, 1], 'int32');
+      const x = array([1, -1], 'int32');
+      const result = arctan2(y, x);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('arctan2 with uint8 inputs', () => {
+      const y = array([1, 0], 'uint8');
+      const x = array([0, 1], 'uint8');
+      const result = arctan2(y, x);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('hypot with uint16 inputs', () => {
+      const a = array([3, 4], 'uint16');
+      const b = array([4, 3], 'uint16');
+      const result = hypot(a, b);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('hypot with int8 inputs', () => {
+      const a = array([3, 4], 'int8');
+      const b = array([4, 3], 'int8');
+      const result = hypot(a, b);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('arctan2 with float32 and float64 mixed', () => {
+      const y = array([1, 1], 'float32');
+      const x = array([1, -1], 'float64');
+      const result = arctan2(y, x);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('hypot with mixed uint8 and float32', () => {
+      const a = array([3, 4], 'uint8');
+      const b = array([4.0, 3.0], 'float32');
+      const result = hypot(a, b);
+      expect(result.dtype).toBe('float64');
+    });
+  });
 });
