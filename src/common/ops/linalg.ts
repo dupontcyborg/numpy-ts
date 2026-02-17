@@ -3454,16 +3454,18 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
     return { w, v };
   }
 
-  // WARNING: Non-symmetric matrices may have complex eigenvalues which we cannot represent.
-  // This implementation returns only real approximations and may be inaccurate.
-  console.warn(
-    'numpy-ts: eig() called on non-symmetric matrix. Complex eigenvalues are not supported; ' +
-      'results may be inaccurate. For symmetric matrices, use eigh() instead.'
-  );
-
   // For non-symmetric matrices, use QR iteration (simplified)
   // This is a basic implementation that may not converge for all matrices
-  const { values, vectors } = qrEigendecomposition(a);
+  const { values, vectors, hasComplexEigenvalues } = qrEigendecomposition(a);
+
+  // Only warn when complex eigenvalues are detected (real results would be inaccurate)
+  if (hasComplexEigenvalues) {
+    console.warn(
+      'numpy-ts: eig() detected complex eigenvalues which cannot be represented. ' +
+        'Results are real approximations and may be inaccurate. ' +
+        'For symmetric matrices, use eigh() instead.'
+    );
+  }
 
   const w = ArrayStorage.zeros([size], 'float64');
   const v = ArrayStorage.zeros([size, size], 'float64');
@@ -3485,7 +3487,11 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
  * @param a - Input matrix
  * @returns { values, vectors }
  */
-function qrEigendecomposition(a: ArrayStorage): { values: number[]; vectors: number[][] } {
+function qrEigendecomposition(a: ArrayStorage): {
+  values: number[];
+  vectors: number[][];
+  hasComplexEigenvalues: boolean;
+} {
   const n = a.shape[0]!;
   const maxIter = 1000;
   const tol = 1e-10;
@@ -3529,6 +3535,20 @@ function qrEigendecomposition(a: ArrayStorage): { values: number[]; vectors: num
     V = matmul(V, Q);
   }
 
+  // Detect complex eigenvalues: check for significant off-diagonal elements
+  // in 2x2 blocks along the diagonal (indicates complex conjugate pairs)
+  let hasComplexEigenvalues = false;
+  for (let i = 0; i < n - 1; i++) {
+    const subdiag = Math.abs(Number(A.get(i + 1, i)));
+    const diag0 = Math.abs(Number(A.get(i, i)));
+    const diag1 = Math.abs(Number(A.get(i + 1, i + 1)));
+    const scale = Math.max(diag0, diag1, 1e-10);
+    if (subdiag / scale > 1e-6) {
+      hasComplexEigenvalues = true;
+      break;
+    }
+  }
+
   // Extract eigenvalues from diagonal
   const values: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -3544,7 +3564,7 @@ function qrEigendecomposition(a: ArrayStorage): { values: number[]; vectors: num
     }
   }
 
-  return { values, vectors };
+  return { values, vectors, hasComplexEigenvalues };
 }
 
 /**

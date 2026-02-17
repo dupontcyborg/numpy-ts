@@ -616,10 +616,7 @@ function computeDecimalWidths(strings: string[]): { maxLeft: number; maxRight: n
  * Pre-scans values to determine format strategy (scientific/integer/fixed)
  * and computes uniform width using decimal-point alignment.
  */
-function buildFloatFormatter(
-  values: number[],
-  opts: PrintOptions
-): (v: number) => string {
+function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) => string {
   const finiteValues = values.filter((v) => Number.isFinite(v));
 
   if (finiteValues.length === 0) {
@@ -648,9 +645,7 @@ function buildFloatFormatter(
 
   // Determine format strategy (matches NumPy 2.x)
   const useScientific =
-    maxAbs >= 1e16 ||
-    (minAbs > 0 && minAbs < 1e-4) ||
-    (minAbs > 0 && maxAbs / minAbs > 1e3);
+    maxAbs >= 1e16 || (minAbs > 0 && minAbs < 1e-4) || (minAbs > 0 && maxAbs / minAbs > 1e3);
 
   if (useScientific) {
     // First pass: format each trimmed to find max mantissa fraction digits
@@ -837,24 +832,18 @@ function formatArrayRecursive(
     // Show first edgeitems
     for (let i = 0; i < edgeitems; i++) {
       newIndices[depth] = i;
-      parts.push(
-        formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1)
-      );
+      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
     }
     parts.push('...');
     // Show last edgeitems
     for (let i = size - edgeitems; i < size; i++) {
       newIndices[depth] = i;
-      parts.push(
-        formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1)
-      );
+      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
     }
   } else {
     for (let i = 0; i < size; i++) {
       newIndices[depth] = i;
-      parts.push(
-        formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1)
-      );
+      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
     }
   }
 
