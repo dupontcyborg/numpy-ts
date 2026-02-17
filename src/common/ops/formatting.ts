@@ -214,13 +214,21 @@ export function format_float_positional(
 
   // Trim trailing zeros/decimal point
   // Use loop-based trimming instead of regex to avoid ReDoS vulnerability
+  // '.' = trim trailing zeros, keep decimal point
+  // '0' = trim trailing zeros, ensure at least one digit after decimal
+  // '-' = trim trailing zeros and trailing decimal point
   if (trim !== 'k' && result.includes('.')) {
-    if (trim === '-' || trim === '0') {
+    if (trim === '.' || trim === '0' || trim === '-') {
       let i = result.length;
       while (i > 0 && result[i - 1] === '0') i--;
       result = result.slice(0, i);
     }
-    if (trim === '-' || trim === '.') {
+    if (trim === '0') {
+      if (result.endsWith('.')) {
+        result += '0';
+      }
+    }
+    if (trim === '-') {
       if (result.endsWith('.')) {
         result = result.slice(0, -1);
       }
@@ -316,10 +324,15 @@ export function format_float_scientific(
     const exponent = result.slice(eIndex);
 
     if (mantissa.includes('.')) {
-      if (trim === '-' || trim === '0') {
+      if (trim === '.' || trim === '0' || trim === '-') {
         mantissa = mantissa.replace(/0+$/, '');
       }
-      if (trim === '-' || trim === '.') {
+      if (trim === '0') {
+        if (mantissa.endsWith('.')) {
+          mantissa += '0';
+        }
+      }
+      if (trim === '-') {
         mantissa = mantissa.replace(/\.$/, '');
       }
     }
@@ -493,13 +506,302 @@ function formatValue(
 }
 
 /**
+ * Collect visible scalar values from an array, mirroring the summarization logic
+ * of formatArrayRecursive. Used for pre-scan to determine uniform formatting.
+ */
+function collectVisibleValues(
+  storage: ArrayStorage,
+  opts: PrintOptions
+): (number | bigint | boolean | Complex)[] {
+  const values: (number | bigint | boolean | Complex)[] = [];
+  const shape = storage.shape;
+  const ndim = shape.length;
+  const strides = storage.strides;
+
+  function walk(indices: number[], depth: number): void {
+    if (depth === ndim) {
+      let flatIdx = 0;
+      for (let i = 0; i < ndim; i++) {
+        flatIdx += indices[i]! * strides[i]!;
+      }
+      values.push(storage.iget(flatIdx));
+      return;
+    }
+
+    const size = shape[depth]!;
+    const totalSize = shape.reduce((a, b) => a * b, 1);
+    const shouldSummarize = totalSize > opts.threshold && size > 2 * opts.edgeitems;
+
+    if (shouldSummarize) {
+      for (let i = 0; i < opts.edgeitems; i++) {
+        indices[depth] = i;
+        walk(indices, depth + 1);
+      }
+      for (let i = size - opts.edgeitems; i < size; i++) {
+        indices[depth] = i;
+        walk(indices, depth + 1);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        indices[depth] = i;
+        walk(indices, depth + 1);
+      }
+    }
+  }
+
+  if (ndim > 0) {
+    walk(new Array(ndim).fill(0), 0);
+  } else {
+    values.push(storage.iget(0));
+  }
+
+  return values;
+}
+
+/**
+ * Format an integer-valued float as "N." (e.g., 1., 100., -3.)
+ */
+function formatIntFloat(v: number, sign: ' ' | '+' | '-'): string {
+  if (v < 0 || Object.is(v, -0)) {
+    return '-' + Math.abs(v).toString() + '.';
+  }
+  if (sign === '+') {
+    return '+' + v.toString() + '.';
+  }
+  if (sign === ' ') {
+    return ' ' + v.toString() + '.';
+  }
+  return v.toString() + '.';
+}
+
+/**
+ * Pad a formatted float string using decimal-point alignment.
+ * Left of the decimal is right-justified (padStart), right of the decimal
+ * is left-justified (padEnd with spaces). This matches NumPy's alignment.
+ */
+function padDecimalAlign(s: string, maxLeft: number, maxRight: number): string {
+  const dotIdx = s.indexOf('.');
+  if (dotIdx === -1) {
+    // No decimal point (e.g., special values) — right-justify to total width
+    return s.padStart(maxLeft + (maxRight > 0 ? 1 + maxRight : 0));
+  }
+  const left = s.slice(0, dotIdx);
+  const right = s.slice(dotIdx + 1); // after the '.'
+  const paddedLeft = left.padStart(maxLeft);
+  const paddedRight = maxRight > 0 ? right.padEnd(maxRight) : right;
+  return paddedLeft + '.' + paddedRight;
+}
+
+/**
+ * Compute max chars left of decimal and max chars right of decimal
+ * across a set of formatted strings.
+ */
+function computeDecimalWidths(strings: string[]): { maxLeft: number; maxRight: number } {
+  let maxLeft = 0;
+  let maxRight = 0;
+  for (const s of strings) {
+    const dotIdx = s.indexOf('.');
+    if (dotIdx === -1) {
+      maxLeft = Math.max(maxLeft, s.length);
+    } else {
+      maxLeft = Math.max(maxLeft, dotIdx);
+      maxRight = Math.max(maxRight, s.length - dotIdx - 1);
+    }
+  }
+  return { maxLeft, maxRight };
+}
+
+/**
+ * Build a formatter closure for float values.
+ * Pre-scans values to determine format strategy (scientific/integer/fixed)
+ * and computes uniform width using decimal-point alignment.
+ */
+function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) => string {
+  const finiteValues = values.filter((v) => Number.isFinite(v));
+
+  if (finiteValues.length === 0) {
+    // Only special values (nan, inf, -inf) or empty
+    const specialStrings = values.map((v) => {
+      if (Number.isNaN(v)) return opts.nanstr;
+      return (v > 0 ? '' : '-') + opts.infstr;
+    });
+    const maxWidth =
+      specialStrings.length > 0 ? Math.max(...specialStrings.map((s) => s.length)) : 1;
+    return (v: number) => {
+      if (Number.isNaN(v)) return opts.nanstr.padStart(maxWidth);
+      if (!Number.isFinite(v)) return ((v > 0 ? '' : '-') + opts.infstr).padStart(maxWidth);
+      return v.toString().padStart(maxWidth);
+    };
+  }
+
+  // Apply suppress: replace very small values with 0 for formatting decisions
+  const processedValues = opts.suppress
+    ? finiteValues.map((v) => (Math.abs(v) < 1e-10 && v !== 0 ? 0 : v))
+    : finiteValues;
+
+  const absValues = processedValues.map(Math.abs).filter((v) => v > 0);
+  const maxAbs = absValues.length > 0 ? Math.max(...absValues) : 0;
+  const minAbs = absValues.length > 0 ? Math.min(...absValues) : 0;
+
+  // Determine format strategy (matches NumPy 2.x)
+  const useScientific =
+    maxAbs >= 1e16 || (minAbs > 0 && minAbs < 1e-4) || (minAbs > 0 && maxAbs / minAbs > 1e3);
+
+  if (useScientific) {
+    // First pass: format each trimmed to find max mantissa fraction digits
+    const trimmedStrings = processedValues.map((v) =>
+      format_float_scientific(v, opts.precision, false, '.', opts.sign)
+    );
+    let maxMantissaFrac = 0;
+    for (const s of trimmedStrings) {
+      const eIdx = s.indexOf('e');
+      const mantissa = eIdx !== -1 ? s.slice(0, eIdx) : s;
+      const dotIdx = mantissa.indexOf('.');
+      if (dotIdx !== -1) {
+        maxMantissaFrac = Math.max(maxMantissaFrac, mantissa.length - dotIdx - 1);
+      }
+    }
+    // Second pass: re-format all with uniform mantissa precision
+    // When uniformPrec is 0, use precision=1 with trim='.' to keep the decimal point
+    // (toExponential(0) omits the dot entirely, but NumPy always shows it)
+    const uniformPrec = Math.max(maxMantissaFrac, 0);
+    const formatPrec = Math.max(uniformPrec, 1);
+    const formatTrim: 'k' | '.' = uniformPrec === 0 ? '.' : 'k';
+    const strings = processedValues.map((v) =>
+      format_float_scientific(v, formatPrec, false, formatTrim, opts.sign)
+    );
+    for (const v of values) {
+      if (!Number.isFinite(v)) {
+        strings.push(Number.isNaN(v) ? opts.nanstr : (v > 0 ? '' : '-') + opts.infstr);
+      }
+    }
+    const maxWidth = Math.max(...strings.map((s) => s.length));
+
+    return (v: number) => {
+      if (opts.suppress && Math.abs(v) < 1e-10 && v !== 0 && Number.isFinite(v)) {
+        v = 0;
+      }
+      if (Number.isNaN(v)) return opts.nanstr.padStart(maxWidth);
+      if (!Number.isFinite(v)) return ((v > 0 ? '' : '-') + opts.infstr).padStart(maxWidth);
+      return format_float_scientific(v, formatPrec, false, formatTrim, opts.sign).padStart(
+        maxWidth
+      );
+    };
+  }
+
+  // Check if all finite values are integers
+  const allIntegers = processedValues.every((v) => Number.isInteger(v));
+
+  if (allIntegers) {
+    // Integer float format — all have "N." shape, decimal-align is just padStart
+    const strings = processedValues.map((v) => formatIntFloat(v, opts.sign));
+    for (const v of values) {
+      if (!Number.isFinite(v)) {
+        strings.push(Number.isNaN(v) ? opts.nanstr : (v > 0 ? '' : '-') + opts.infstr);
+      }
+    }
+    const { maxLeft, maxRight } = computeDecimalWidths(strings);
+
+    return (v: number) => {
+      if (opts.suppress && Math.abs(v) < 1e-10 && v !== 0 && Number.isFinite(v)) {
+        v = 0;
+      }
+      if (Number.isNaN(v)) return padDecimalAlign(opts.nanstr, maxLeft, maxRight);
+      if (!Number.isFinite(v))
+        return padDecimalAlign((v > 0 ? '' : '-') + opts.infstr, maxLeft, maxRight);
+      return padDecimalAlign(formatIntFloat(v, opts.sign), maxLeft, maxRight);
+    };
+  }
+
+  // Fixed notation with trimmed trailing zeros — decimal-point aligned
+  const strings = processedValues.map((v) =>
+    format_float_positional(v, opts.precision, false, true, '.', opts.sign)
+  );
+  for (const v of values) {
+    if (!Number.isFinite(v)) {
+      strings.push(Number.isNaN(v) ? opts.nanstr : (v > 0 ? '' : '-') + opts.infstr);
+    }
+  }
+  const { maxLeft, maxRight } = computeDecimalWidths(strings);
+
+  return (v: number) => {
+    if (opts.suppress && Math.abs(v) < 1e-10 && v !== 0 && Number.isFinite(v)) {
+      v = 0;
+    }
+    if (Number.isNaN(v)) return padDecimalAlign(opts.nanstr, maxLeft, maxRight);
+    if (!Number.isFinite(v))
+      return padDecimalAlign((v > 0 ? '' : '-') + opts.infstr, maxLeft, maxRight);
+    return padDecimalAlign(
+      format_float_positional(v, opts.precision, false, true, '.', opts.sign),
+      maxLeft,
+      maxRight
+    );
+  };
+}
+
+/**
+ * Build a formatter for array values based on dtype and visible values.
+ * Implements NumPy's two-pass approach: pre-scan to determine format, then apply uniformly.
+ */
+function buildFormatter(
+  storage: ArrayStorage,
+  opts: PrintOptions
+): (value: number | bigint | boolean | Complex) => string {
+  const dtype = storage.dtype as DType;
+  const values = collectVisibleValues(storage, opts);
+
+  if (values.length === 0) {
+    return (v) => formatValue(v as number | bigint | boolean | Complex, dtype, opts);
+  }
+
+  if (dtype === 'bool') {
+    return (v) => ((v as boolean) ? ' True' : 'False');
+  }
+
+  // BigInt types (int64, uint64 use BigInt64Array/BigUint64Array)
+  if (dtype === 'int64' || dtype === 'uint64') {
+    const strings = values.map((v) => (v as bigint).toString());
+    const maxWidth = Math.max(...strings.map((s) => s.length));
+    return (v) => (v as bigint).toString().padStart(maxWidth);
+  }
+
+  // Integer types (int8, int16, int32, uint8, uint16, uint32)
+  if (dtype.startsWith('int') || dtype.startsWith('uint')) {
+    const strings = values.map((v) => (v as number).toString());
+    const maxWidth = Math.max(...strings.map((s) => s.length));
+    return (v) => (v as number).toString().padStart(maxWidth);
+  }
+
+  // Complex types
+  if (dtype === 'complex64' || dtype === 'complex128') {
+    const reals = values.map((v) => (v as Complex).re);
+    const imags = values.map((v) => Math.abs((v as Complex).im));
+    const realFmt = buildFloatFormatter(reals, opts);
+    const imagFmt = buildFloatFormatter(imags, opts);
+    return (v) => {
+      const c = v as Complex;
+      const re = realFmt(c.re);
+      const im = imagFmt(Math.abs(c.im));
+      const sign = c.im >= 0 ? '+' : '-';
+      return `${re}${sign}${im}j`;
+    };
+  }
+
+  // Float types (float32, float64)
+  const floatFmt = buildFloatFormatter(values as number[], opts);
+  return (v) => floatFmt(v as number);
+}
+
+/**
  * Recursively format array elements into a nested string
  */
 function formatArrayRecursive(
   storage: ArrayStorage,
   indices: number[],
   depth: number,
-  opts: PrintOptions
+  opts: PrintOptions,
+  formatter: (value: number | bigint | boolean | Complex) => string,
+  column: number
 ): string {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -512,7 +814,7 @@ function formatArrayRecursive(
       flatIdx += indices[i]! * strides[i]!;
     }
     const value = storage.iget(flatIdx);
-    return formatValue(value as number | bigint | boolean | Complex, storage.dtype as DType, opts);
+    return formatter(value as number | bigint | boolean | Complex);
   }
 
   const size = shape[depth]!;
@@ -530,29 +832,56 @@ function formatArrayRecursive(
     // Show first edgeitems
     for (let i = 0; i < edgeitems; i++) {
       newIndices[depth] = i;
-      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts));
+      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
     }
     parts.push('...');
     // Show last edgeitems
     for (let i = size - edgeitems; i < size; i++) {
       newIndices[depth] = i;
-      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts));
+      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
     }
   } else {
     for (let i = 0; i < size; i++) {
       newIndices[depth] = i;
-      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts));
+      parts.push(formatArrayRecursive(storage, newIndices, depth + 1, opts, formatter, column + 1));
     }
   }
 
   // Join with appropriate separators
   if (depth === ndim - 1) {
-    // Innermost dimension: use separator
-    return '[' + parts.join(opts.separator) + ']';
+    // Innermost dimension: try single line first
+    const singleLine = '[' + parts.join(opts.separator) + ']';
+    if (column + singleLine.length < opts.linewidth) {
+      return singleLine;
+    }
+    // Wrap: greedily pack elements onto lines
+    const continuationIndent = ' '.repeat(column + 1);
+    const maxContentWidth = opts.linewidth - column - 1;
+    const lines: string[] = [];
+    let currentLine = '';
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]!;
+      if (currentLine === '') {
+        currentLine = part;
+      } else {
+        const candidate = currentLine + opts.separator + part;
+        if (candidate.length < maxContentWidth) {
+          currentLine = candidate;
+        } else {
+          lines.push(currentLine);
+          currentLine = part;
+        }
+      }
+    }
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    return '[' + lines.join('\n' + continuationIndent) + ']';
   } else {
-    // Outer dimensions: use newlines
-    const indent = ' '.repeat(depth + 1);
-    const innerSep = ',\n' + indent;
+    // Outer dimensions: use newlines with blank lines between blocks
+    const indent = ' '.repeat(column + 1);
+    const extraNewlines = ndim - depth - 2;
+    const innerSep = '\n' + '\n'.repeat(Math.max(0, extraNewlines)) + indent;
     return '[' + parts.join(innerSep) + ']';
   }
 }
@@ -588,7 +917,9 @@ export function array2string(
   prefix: string = '',
   suffix: string = '',
   threshold: number | null = null,
-  edgeitems: number | null = null
+  edgeitems: number | null = null,
+  floatmode: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal' | null = null,
+  sign: ' ' | '+' | '-' | null = null
 ): string {
   const opts: PrintOptions = {
     ...currentPrintOptions,
@@ -600,6 +931,8 @@ export function array2string(
     suffix,
     threshold: threshold ?? currentPrintOptions.threshold,
     edgeitems: edgeitems ?? currentPrintOptions.edgeitems,
+    floatmode: floatmode ?? currentPrintOptions.floatmode,
+    sign: sign ?? currentPrintOptions.sign,
   };
 
   // Handle 0-d array
@@ -608,8 +941,19 @@ export function array2string(
     return formatValue(value as number | bigint | boolean | Complex, a.dtype as DType, opts);
   }
 
+  // Build formatter (pre-scan for uniform formatting)
+  const formatter = buildFormatter(a, opts);
+
   // Format recursively
-  const result = formatArrayRecursive(a, new Array(a.ndim).fill(0), 0, opts);
+  const startColumn = opts.prefix.length;
+  const result = formatArrayRecursive(
+    a,
+    new Array(a.ndim).fill(0),
+    0,
+    opts,
+    formatter,
+    startColumn
+  );
 
   return opts.prefix + result + opts.suffix;
 }

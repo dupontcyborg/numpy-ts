@@ -25,6 +25,9 @@ import {
   argsort,
   unique,
   where,
+  Complex,
+  unwrap,
+  divmod,
 } from '../../src';
 
 describe('Arithmetic Operations', () => {
@@ -688,5 +691,185 @@ describe('Dtype branch coverage (standalone functions)', () => {
     const x = array([10, 20, 30], 'int32');
     const y = array([40, 50, 60], 'int32');
     expect(where(cond, x, y).size).toBe(3);
+  });
+
+  describe('Complex number arithmetic', () => {
+    it('add with complex arrays', () => {
+      const a = array([new Complex(1, 2), new Complex(3, 4)]);
+      const b = array([new Complex(5, 6), new Complex(7, 8)]);
+      const result = a.add(b);
+      expect(result.dtype).toBe('complex128');
+      const vals = result.toArray() as Complex[];
+      expect(vals[0].re).toBeCloseTo(6);
+      expect(vals[0].im).toBeCloseTo(8);
+    });
+
+    it('multiply with complex arrays', () => {
+      const a = array([new Complex(2, 1)]);
+      const b = array([new Complex(3, 4)]);
+      const result = a.multiply(b);
+      // (2+i)(3+4i) = 6+8i+3i+4i^2 = 6+11i-4 = 2+11i
+      const vals = result.toArray() as Complex[];
+      expect(vals[0].re).toBeCloseTo(2);
+      expect(vals[0].im).toBeCloseTo(11);
+    });
+
+    it('subtract with complex and real', () => {
+      const a = array([new Complex(5, 3)]);
+      const b = array([2]);
+      const result = a.subtract(b);
+      const vals = result.toArray() as Complex[];
+      expect(vals[0].re).toBeCloseTo(3);
+      expect(vals[0].im).toBeCloseTo(3);
+    });
+
+    it('divide with complex arrays', () => {
+      const a = array([new Complex(4, 2)]);
+      const b = array([new Complex(2, 0)]);
+      const result = a.divide(b);
+      const vals = result.toArray() as Complex[];
+      expect(vals[0].re).toBeCloseTo(2);
+      expect(vals[0].im).toBeCloseTo(1);
+    });
+  });
+
+  describe('BigInt arithmetic', () => {
+    it('add with bigint arrays (int64)', () => {
+      const a = array([1n, 2n, 3n], 'int64');
+      const b = array([4n, 5n, 6n], 'int64');
+      const result = a.add(b);
+      expect(result.dtype).toBe('int64');
+      expect(result.toArray()).toEqual([5n, 7n, 9n]);
+    });
+
+    it('multiply with bigint arrays', () => {
+      const a = array([2n, 3n], 'int64');
+      const b = array([4n, 5n], 'int64');
+      const result = a.multiply(b);
+      expect(result.toArray()).toEqual([8n, 15n]);
+    });
+
+    it('subtract with uint64 arrays', () => {
+      const a = array([10n, 20n], 'uint64');
+      const b = array([3n, 5n], 'uint64');
+      const result = a.subtract(b);
+      expect(result.toArray()).toEqual([7n, 15n]);
+    });
+
+    it('power with bigint base', () => {
+      const a = array([2n, 3n], 'int64');
+      const result = a.power(2);
+      expect(result.toArray()).toEqual([4n, 9n]);
+    });
+
+    it('mod with bigint arrays', () => {
+      const a = array([10n, 15n, 20n], 'int64');
+      const b = array([3n, 4n, 6n], 'int64');
+      const result = a.mod(b);
+      expect(result.toArray()).toEqual([1n, 3n, 2n]);
+    });
+  });
+
+  describe('Mixed type arithmetic', () => {
+    it('add float32 and float64', () => {
+      const a = array([1, 2, 3], 'float32');
+      const b = array([4, 5, 6], 'float64');
+      const result = a.add(b);
+      // Should promote to float64
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('add int32 and float32', () => {
+      const a = array([1, 2], 'int32');
+      const b = array([1.5, 2.5], 'float32');
+      const result = a.add(b);
+      // Dtype promotion: int32 + float32 = float64
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('multiply uint8 and int16', () => {
+      const a = array([10, 20], 'uint8');
+      const b = array([2, 3], 'int16');
+      const result = a.multiply(b);
+      // Should promote to int16
+      expect(result.dtype).toBe('int16');
+    });
+  });
+
+  describe('unwrap 2D arrays', () => {
+    it('unwrap 2D array with axis=0 (unwrap along rows)', () => {
+      const data = array([
+        [0, 1, 2],
+        [7, 8, 9], // Jump that might wrap
+      ]);
+      const result = unwrap(data, undefined, 0);
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('unwrap 2D array with axis=1 (unwrap along columns)', () => {
+      const data = array([
+        [0, 7], // Jump that might wrap
+        [1, 8],
+        [2, 9],
+      ]);
+      const result = unwrap(data, undefined, 1);
+      expect(result.shape).toEqual([3, 2]);
+    });
+
+    it('unwrap 2D with custom period and axis=0', () => {
+      const data = array([
+        [0, 1, 2],
+        [10, 11, 12],
+      ]);
+      const result = unwrap(data, 10, 0);
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('unwrap 2D with custom period and axis=1', () => {
+      const data = array([
+        [0, 10],
+        [1, 11],
+      ]);
+      const result = unwrap(data, 10, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('unwrap 1D with default period', () => {
+      const data = array([0, 1, 7, 8]);
+      const result = unwrap(data);
+      expect(result.shape).toEqual([4]);
+    });
+
+    it('unwrap 1D with custom period', () => {
+      const data = array([0, 5, 10, 15]);
+      const result = unwrap(data, 10);
+      expect(result.shape).toEqual([4]);
+    });
+  });
+
+  describe('Additional dtype edge cases', () => {
+    it('divmod with int32', () => {
+      const a = array([10, 15, 20], 'int32');
+      const b = array([3, 4, 6], 'int32');
+      const [quotient, remainder] = divmod(a, b);
+      expect(quotient.shape).toEqual([3]);
+      expect(remainder.shape).toEqual([3]);
+    });
+
+    it('divmod with float32', () => {
+      const a = array([10.5, 15.5], 'float32');
+      const b = array([3.0, 4.0], 'float32');
+      const [quotient, remainder] = divmod(a, b);
+      expect(quotient.dtype).toBe('float32');
+      expect(remainder.dtype).toBe('float32');
+    });
+
+    it('divmod with mixed int types', () => {
+      const a = array([10, 15], 'int16');
+      const b = array([3, 4], 'int8');
+      const [quotient, remainder] = divmod(a, b);
+      expect(quotient.shape).toEqual([2]);
+      expect(remainder.shape).toEqual([2]);
+    });
   });
 });

@@ -8,6 +8,8 @@ import {
   DTYPE_TO_DESCR,
 } from '../../../src/io/npy';
 import { array, zeros, ones, arange, transpose } from '../../../src';
+// Also import from main index to test wrapper
+import { parseNpy as parseNpyIndex, parseNpyData as parseNpyDataIndex } from '../../../src';
 import { Complex } from '../../../src/common/complex';
 import type { DType } from '../../../src/common/dtype';
 
@@ -788,6 +790,33 @@ describe('NPY Format', () => {
 
       expect(() => parseNpy(npyFile)).toThrow(InvalidNpyError);
       expect(() => parseNpy(npyFile)).toThrow('truncated');
+    });
+  });
+
+  describe('index.ts wrappers upgrade to NDArray', () => {
+    it('parseNpyIndex returns NDArray instance', () => {
+      const original = array([1, 2, 3, 4, 5]);
+      const bytes = serializeNpy(original);
+      const result = parseNpyIndex(bytes);
+
+      // Check that result is upgraded to NDArray (has methods)
+      expect(result).toBeDefined();
+      expect(typeof result.add).toBe('function'); // NDArray has method chaining
+      expect(result.toArray()).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('parseNpyDataIndex returns NDArray instance', () => {
+      const original = array([1, 2, 3]);
+      const bytes = serializeNpy(original);
+      const metadata = parseNpyHeader(bytes);
+
+      // parseNpyData expects the full bytes array, not just the data portion
+      const result = parseNpyDataIndex(bytes, metadata);
+
+      // Check that result is upgraded to NDArray (has methods)
+      expect(result).toBeDefined();
+      expect(typeof result.add).toBe('function'); // NDArray has method chaining
+      expect(result.toArray()).toEqual([1, 2, 3]);
     });
   });
 });

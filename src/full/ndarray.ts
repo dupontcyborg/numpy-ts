@@ -506,7 +506,7 @@ export class NDArray extends NDArrayCore {
    * @returns String describing the array shape and dtype
    */
   override toString(): string {
-    return `NDArray(shape=${JSON.stringify(this.shape)}, dtype=${this.dtype})`;
+    return core.array_str(this);
   }
 
   /**

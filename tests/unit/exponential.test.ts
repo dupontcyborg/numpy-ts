@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { array, exp, exp2, expm1, log, log2, log10, log1p, logaddexp, logaddexp2 } from '../../src';
+import {
+  array,
+  exp,
+  exp2,
+  expm1,
+  log,
+  log2,
+  log10,
+  log1p,
+  logaddexp,
+  logaddexp2,
+  power,
+  Complex,
+} from '../../src';
 
 describe('Exponential Operations', () => {
   describe('exp', () => {
@@ -347,6 +360,125 @@ describe('Exponential Operations', () => {
       for (let i = 0; i < resultArr.length; i++) {
         expect(Math.abs(resultArr[i]! - originalArr[i]!)).toBeLessThan(1e-10);
       }
+    });
+  });
+
+  describe('logaddexp edge cases', () => {
+    it('logaddexp with very small values', () => {
+      const a = array([-1000, -500, -100]);
+      const b = array([-1001, -499, -101]);
+      const result = logaddexp(a, b);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('logaddexp with non-contiguous array and scalar', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const aT = a.T; // Non-contiguous
+      const result = logaddexp(aT, 1.0);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logaddexp with scalar second argument', () => {
+      const a = array([1.0, 2.0, 3.0]);
+      const result = logaddexp(a, 2.0);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('logaddexp with float32', () => {
+      const a = array([1.0, 2.0], 'float32');
+      const result = logaddexp(a, 1.0);
+      expect(result.shape).toEqual([2]);
+    });
+  });
+
+  describe('logaddexp2 edge cases', () => {
+    it('logaddexp2 with non-contiguous array and scalar', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const aT = a.T; // Non-contiguous
+      const result = logaddexp2(aT, 1.0);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logaddexp2 with broadcasting', () => {
+      const a = array([1, 2, 3]);
+      const b = array([[1], [2]]);
+      const result = logaddexp2(a, b);
+      expect(result.shape).toEqual([2, 3]);
+    });
+
+    it('logaddexp2 with negative values', () => {
+      const a = array([-1, -2, -3]);
+      const b = array([-1, -2, -3]);
+      const result = logaddexp2(a, b);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('logaddexp with int32 input', () => {
+      const a = array([1, 2, 3], 'int32');
+      const b = array([1, 2, 3], 'int32');
+      const result = logaddexp(a, b);
+      expect(result.dtype).toBe('float64');
+    });
+
+    it('logaddexp2 with float32 inputs', () => {
+      const a = array([1.0, 2.0], 'float32');
+      const b = array([1.0, 2.0], 'float32');
+      const result = logaddexp2(a, b);
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('logaddexp with uint8 input', () => {
+      const a = array([1, 2, 3], 'uint8');
+      const result = logaddexp(a, 1);
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('logaddexp2 with int16 input', () => {
+      const a = array([1, 2, 3], 'int16');
+      const result = logaddexp2(a, 1);
+      expect(result.shape).toEqual([3]);
+    });
+  });
+
+  describe('Non-contiguous complex arrays', () => {
+    it('exp with non-contiguous complex array', () => {
+      const a = array([
+        [new Complex(1, 0), new Complex(0, 1)],
+        [new Complex(1, 1), new Complex(2, 0)],
+      ]);
+      const result = exp(a.T);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.dtype).toBe('complex128');
+    });
+
+    it('power with non-contiguous complex base', () => {
+      const a = array([
+        [new Complex(2, 1), new Complex(1, 2)],
+        [new Complex(3, 0), new Complex(0, 3)],
+      ]);
+      const result = power(a.T, 2);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.dtype).toBe('complex128');
+    });
+
+    it('power with non-contiguous complex exponent', () => {
+      const a = array([
+        [2, 3],
+        [4, 5],
+      ]);
+      const b = array([
+        [new Complex(1, 0), new Complex(2, 0)],
+        [new Complex(1, 1), new Complex(0, 1)],
+      ]);
+      const result = power(a, b.T);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.dtype).toBe('complex128');
     });
   });
 });

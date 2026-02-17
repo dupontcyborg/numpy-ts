@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src';
+import { array, around, ceil, fix, floor, rint, round, round_, trunc } from '../../src';
 
 describe('Rounding Functions', () => {
   describe('around()', () => {
@@ -467,5 +467,108 @@ describe('trunc() - standalone wrapper coverage', () => {
     const arr = array([1, -2, 3, -4, 0]);
     const result = trunc(arr);
     expect(result.toArray()).toEqual([1, -2, 3, -4, 0]);
+  });
+});
+
+describe('around with optional parameters', () => {
+  it('around without decimals parameter (default=0)', () => {
+    const a = array([1.5, 2.7, 3.2]);
+    const result = around(a);
+    expect(result.toArray()).toEqual([2, 3, 3]);
+  });
+
+  it('around with decimals=2', () => {
+    const a = array([1.567, 2.789]);
+    const result = around(a, 2);
+    const vals = result.toArray() as number[];
+    expect(vals[0]).toBeCloseTo(1.57, 2);
+    expect(vals[1]).toBeCloseTo(2.79, 2);
+  });
+
+  it('around with negative decimals', () => {
+    const a = array([123, 456, 789]);
+    const result = around(a, -1);
+    expect(result.toArray()).toEqual([120, 460, 790]);
+  });
+
+  it('around with decimals=0 (explicit)', () => {
+    const a = array([1.4, 1.5, 1.6, 2.5]);
+    const result = around(a, 0);
+    expect(result.toArray()).toEqual([1, 2, 2, 2]);
+  });
+
+  it('round (alias) without decimals parameter', () => {
+    const a = array([1.5, 2.7, 3.2]);
+    const result = round(a);
+    expect(result.toArray()).toEqual([2, 3, 3]);
+  });
+
+  it('round with decimals=1', () => {
+    const a = array([1.56, 2.74]);
+    const result = round(a, 1);
+    const vals = result.toArray() as number[];
+    expect(vals[0]).toBeCloseTo(1.6, 1);
+    expect(vals[1]).toBeCloseTo(2.7, 1);
+  });
+
+  it('round_ alias without decimals parameter', () => {
+    const a = array([1.5, 2.7, 3.2]);
+    const result = round_(a);
+    expect(result.toArray()).toEqual([2, 3, 3]);
+  });
+
+  it('round_ alias with decimals=2', () => {
+    const a = array([1.567, 2.789]);
+    const result = round_(a, 2);
+    const vals = result.toArray() as number[];
+    expect(vals[0]).toBeCloseTo(1.57, 2);
+    expect(vals[1]).toBeCloseTo(2.79, 2);
+  });
+});
+
+describe('Non-contiguous array tests', () => {
+  it('around with non-contiguous array', () => {
+    const a = array([
+      [1.4, 1.5],
+      [1.6, 2.5],
+    ]);
+    const result = around(a.T);
+    expect(result.shape).toEqual([2, 2]);
+  });
+
+  it('ceil with non-contiguous array', () => {
+    const a = array([
+      [1.1, 1.5],
+      [1.9, 2.3],
+    ]);
+    const result = ceil(a.T);
+    expect(result.shape).toEqual([2, 2]);
+  });
+
+  it('floor with non-contiguous array', () => {
+    const a = array([
+      [1.1, 1.5],
+      [1.9, 2.3],
+    ]);
+    const result = floor(a.T);
+    expect(result.shape).toEqual([2, 2]);
+  });
+
+  it('rint with non-contiguous array', () => {
+    const a = array([
+      [1.4, 1.6],
+      [2.3, 2.7],
+    ]);
+    const result = rint(a.T);
+    expect(result.shape).toEqual([2, 2]);
+  });
+
+  it('trunc with non-contiguous array', () => {
+    const a = array([
+      [1.7, -1.7],
+      [2.3, -2.3],
+    ]);
+    const result = trunc(a.T);
+    expect(result.shape).toEqual([2, 2]);
   });
 });

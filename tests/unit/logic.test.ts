@@ -882,4 +882,273 @@ describe('Additional Logic Functions', () => {
       expect(promote_types('int32', 'bool')).toBe('int32');
     });
   });
+
+  describe('BigInt array logical operations', () => {
+    it('logical_and with two bigint arrays', () => {
+      const a = array([0n, 1n, 2n, 0n], 'int64');
+      const b = array([0n, 0n, 1n, 1n], 'int64');
+      const result = logical_and(a, b);
+      expect(result.dtype).toBe('bool');
+      expect(Array.from(result.data)).toEqual([0, 0, 1, 0]);
+    });
+
+    it('logical_or with two bigint arrays', () => {
+      const a = array([0n, 1n, 0n], 'int64');
+      const b = array([0n, 0n, 1n], 'int64');
+      const result = logical_or(a, b);
+      expect(Array.from(result.data)).toEqual([0, 1, 1]);
+    });
+
+    it('logical_xor with bigint arrays', () => {
+      const a = array([0n, 1n, 1n, 0n], 'int64');
+      const b = array([0n, 0n, 1n, 1n], 'int64');
+      const result = logical_xor(a, b);
+      expect(Array.from(result.data)).toEqual([0, 1, 0, 1]);
+    });
+
+    it('logical_and with bigint array and scalar', () => {
+      const a = array([0n, 1n, 2n], 'int64');
+      const result = logical_and(a, 1);
+      expect(Array.from(result.data)).toEqual([0, 1, 1]);
+    });
+
+    it('logical_or with bigint array and scalar', () => {
+      const a = array([0n, 1n, 2n], 'int64');
+      const result = logical_or(a, 0);
+      expect(Array.from(result.data)).toEqual([0, 1, 1]);
+    });
+
+    it('logical_not with bigint array', () => {
+      const a = array([0n, 1n, 2n, 0n], 'int64');
+      const result = logical_not(a);
+      expect(Array.from(result.data)).toEqual([1, 0, 0, 1]);
+    });
+
+    it('logical operations with mixed bigint and regular arrays', () => {
+      const a = array([0n, 1n], 'int64');
+      const b = array([0, 1], 'int32');
+      const result = logical_and(a, b);
+      expect(result.dtype).toBe('bool');
+      expect(Array.from(result.data)).toEqual([0, 1]);
+    });
+  });
+
+  describe('Non-contiguous array logical operations', () => {
+    it('logical_and with non-contiguous arrays (via transposition)', () => {
+      const a = array(
+        [
+          [1, 0],
+          [1, 1],
+        ],
+        'int32'
+      );
+      const b = array(
+        [
+          [0, 1],
+          [1, 0],
+        ],
+        'int32'
+      );
+      // Transpose to make non-contiguous
+      const aT = a.T;
+      const bT = b.T;
+      const result = logical_and(aT, bT);
+      // This tests the slow path since transposed arrays are not C-contiguous
+      expect(result.dtype).toBe('bool');
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_or with broadcasting (tests slow path)', () => {
+      const a = array([
+        [1, 0],
+        [0, 1],
+      ]);
+      const b = array([1, 0]); // Will broadcast
+      const result = logical_or(a, b);
+      // This tests broadcasting path
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('logical_and with complex and bigint mixed', () => {
+      const a = array([new Complex(1, 2), new Complex(0, 0)]);
+      const b = array([1, 0], 'int64');
+      const result = logical_and(a, b);
+      expect(result.dtype).toBe('bool');
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('logical_or with uint16 arrays', () => {
+      const a = array([0, 1, 2], 'uint16');
+      const b = array([1, 0, 0], 'uint16');
+      const result = logical_or(a, b);
+      expect(Array.from(result.data)).toEqual([1, 1, 1]);
+    });
+
+    it('logical_xor with int8 arrays', () => {
+      const a = array([1, 0, 1], 'int8');
+      const b = array([1, 1, 0], 'int8');
+      const result = logical_xor(a, b);
+      expect(Array.from(result.data)).toEqual([0, 1, 1]);
+    });
+
+    it('logical_and with non-contiguous scalar path', () => {
+      const a = array([
+        [1, 0],
+        [1, 1],
+      ]);
+      const result = logical_and(a.T, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_or with complex array and scalar', () => {
+      const a = array([new Complex(0, 0), new Complex(1, 0)]);
+      const result = logical_or(a, 0);
+      expect(result.dtype).toBe('bool');
+    });
+
+    it('logical_not with complex array', () => {
+      const a = array([new Complex(0, 0), new Complex(1, 2), new Complex(0, 1)]);
+      const result = logical_not(a);
+      expect(Array.from(result.data)).toEqual([1, 0, 0]);
+    });
+
+    it('logical_xor with complex arrays', () => {
+      const a = array([new Complex(1, 0), new Complex(0, 0)]);
+      const b = array([new Complex(0, 0), new Complex(0, 1)]);
+      const result = logical_xor(a, b);
+      expect(Array.from(result.data)).toEqual([1, 1]);
+    });
+  });
+
+  describe('additional dtype coverage for signbit/nextafter/spacing', () => {
+    it('signbit with float32 array', () => {
+      const arr = array([1.5, -2.5, 0], 'float32');
+      const result = signbit(arr);
+      expect(result.dtype).toBe('bool');
+      expect(Array.from(result.data)).toEqual([0, 1, 0]);
+    });
+
+    it('signbit with int32 array', () => {
+      const arr = array([1, -2, 0], 'int32');
+      const result = signbit(arr);
+      expect(result.dtype).toBe('bool');
+      expect(Array.from(result.data)).toEqual([0, 1, 0]);
+    });
+
+    it('nextafter with float32 arrays', () => {
+      const a = array([0, 1], 'float32');
+      const b = array([1, 0], 'float32');
+      const result = nextafter(a, b);
+      // nextafter promotes to float64
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('nextafter with int32 to float conversion', () => {
+      const a = array([0, 1], 'int32');
+      const b = array([1, 0]);
+      const result = nextafter(a, b);
+      expect(result.shape).toEqual([2]);
+    });
+
+    it('spacing with float32 array', () => {
+      const arr = array([1, 10], 'float32');
+      const result = spacing(arr);
+      // spacing promotes to float64
+      expect(result.data[1]).toBeGreaterThan(result.data[0]);
+    });
+
+    it('copysign with different dtypes', () => {
+      const a = array([1, 2, 3], 'int32');
+      const b = array([-1, 1, -1]);
+      const result = copysign(a, b);
+      expect(result.shape).toEqual([3]);
+    });
+  });
+
+  describe('Non-contiguous array logical operations', () => {
+    it('logical_and with non-contiguous array and scalar', () => {
+      const a = array([
+        [1, 0],
+        [1, 1],
+      ]);
+      const result = logical_and(a.T, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_or with non-contiguous array and scalar', () => {
+      const a = array([
+        [0, 1],
+        [0, 0],
+      ]);
+      const result = logical_or(a.T, 0);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_not with non-contiguous array', () => {
+      const a = array([
+        [1, 0],
+        [1, 0],
+      ]);
+      const result = logical_not(a.T);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_xor with non-contiguous array and scalar', () => {
+      const a = array([
+        [1, 0],
+        [1, 0],
+      ]);
+      const result = logical_xor(a.T, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_and with non-contiguous complex array and scalar', () => {
+      const a = array([
+        [new Complex(1, 1), new Complex(0, 0)],
+        [new Complex(1, 0), new Complex(0, 1)],
+      ]);
+      const result = logical_and(a.T, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_and with non-contiguous bigint array and scalar', () => {
+      const a = array(
+        [
+          [1n, 0n],
+          [1n, 1n],
+        ],
+        'int64'
+      );
+      const result = logical_and(a.T, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_or with non-contiguous complex array', () => {
+      const a = array([
+        [new Complex(0, 0), new Complex(1, 0)],
+        [new Complex(0, 1), new Complex(1, 1)],
+      ]);
+      const result = logical_or(a.T, 0);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_not with non-contiguous complex array', () => {
+      const a = array([
+        [new Complex(1, 1), new Complex(0, 0)],
+        [new Complex(0, 1), new Complex(1, 0)],
+      ]);
+      const result = logical_not(a.T);
+      expect(result.shape).toEqual([2, 2]);
+    });
+
+    it('logical_xor with non-contiguous complex array', () => {
+      const a = array([
+        [new Complex(1, 0), new Complex(0, 1)],
+        [new Complex(1, 1), new Complex(0, 0)],
+      ]);
+      const result = logical_xor(a.T, 1);
+      expect(result.shape).toEqual([2, 2]);
+    });
+  });
 });

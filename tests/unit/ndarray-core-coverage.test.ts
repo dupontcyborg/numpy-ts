@@ -544,12 +544,12 @@ describe('NDArrayCore Coverage', () => {
   // toString()
   // ========================================
   describe('toString()', () => {
-    it('includes shape and dtype', () => {
+    it('returns array contents like NumPy', () => {
       const a = core([1, 2, 3], [3]);
       const str = a.toString();
-      expect(str).toContain('NDArray');
-      expect(str).toContain('[3]');
-      expect(str).toContain('float64');
+      expect(str).toContain('[');
+      expect(str).toContain('1.');
+      expect(str).not.toContain('NDArray');
     });
   });
 

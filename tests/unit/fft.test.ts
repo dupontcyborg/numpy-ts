@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { array, fft, arange, Complex } from '../../src/index';
+// Import from core to get NDArrayCore instances
+import { array as arrayCoreLib } from '../../src/core/creation';
 
 // Helper to check if two complex values are close
 function complexClose(
@@ -1011,6 +1013,17 @@ describe('FFT Operations', () => {
       for (let i = 0; i < 8; i++) {
         expect(data[i]).toBeCloseTo(i + 1, 5);
       }
+    });
+  });
+
+  describe('getStorage helper (NDArrayCore path)', () => {
+    it('fft works with NDArrayCore instances from core lib', () => {
+      // Create NDArrayCore instance using core library
+      const coreArr = arrayCoreLib([1, 2, 3, 4]);
+      // Pass to fft namespace function which uses getStorage internally
+      const result = fft.fft(coreArr);
+      expect(result.shape).toEqual([4]);
+      expect(result.dtype).toBe('complex128');
     });
   });
 });
