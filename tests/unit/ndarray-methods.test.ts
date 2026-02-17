@@ -917,8 +917,9 @@ describe('NDArray Method Coverage', () => {
 
     it('toString()', () => {
       const a = array([1, 2, 3]);
-      expect(a.toString()).toContain('NDArray');
-      expect(a.toString()).toContain('shape');
+      expect(a.toString()).toContain('[');
+      expect(a.toString()).toContain('1.');
+      expect(a.toString()).not.toContain('NDArray');
     });
   });
 

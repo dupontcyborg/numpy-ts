@@ -167,12 +167,12 @@ describe('NDArray Properties', () => {
     expect(arr.strides).toEqual([4, 1]);
   });
 
-  it('toString returns readable format', () => {
+  it('toString returns array contents like NumPy', () => {
     const arr = zeros([2, 3]);
     const str = arr.toString();
-    expect(str).toContain('shape');
-    expect(str).toContain('2,3');
-    expect(str).toContain('dtype');
+    expect(str).toContain('[[');
+    expect(str).toContain('0.');
+    expect(str).not.toContain('shape');
   });
 });
 

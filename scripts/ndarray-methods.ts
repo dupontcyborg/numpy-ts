@@ -375,7 +375,7 @@ cols(start: number, stop: number): NDArray {
 
 const TOSTRING_METHOD = `\
 override toString(): string {
-    return \`NDArray(shape=\${JSON.stringify(this.shape)}, dtype=\${this.dtype})\`;
+    return core.array_str(this);
   }`;
 
 const TOARRAY_METHOD = `\

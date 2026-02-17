@@ -19,6 +19,7 @@ import {
 } from './dtype';
 import { Complex } from './complex';
 import { ArrayStorage } from './storage';
+import { array_str } from './ops/formatting';
 
 /**
  * Minimal NDArray class - core functionality without operation methods
@@ -381,7 +382,7 @@ export class NDArrayCore {
    * String representation
    */
   toString(): string {
-    return `NDArray(shape=${JSON.stringify(this.shape)}, dtype=${this.dtype})`;
+    return array_str(this._storage);
   }
 
   /**
