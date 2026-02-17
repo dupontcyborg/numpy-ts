@@ -250,6 +250,17 @@
             ]
           },
           {
+            "tab": "Playground",
+            "groups": [
+              {
+                "group": "Playground",
+                "pages": [
+                  "v1.0.x/playground"
+                ]
+              }
+            ]
+          },
+          {
             "tab": "GitHub",
             "href": "https://github.com/dupontcyborg/numpy-ts"
           }
