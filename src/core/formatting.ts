@@ -53,7 +53,9 @@ export function array2string(
     options?.prefix ?? '',
     options?.suffix ?? '',
     options?.threshold ?? null,
-    options?.edgeitems ?? null
+    options?.edgeitems ?? null,
+    options?.floatmode ?? null,
+    options?.sign ?? null
   );
 }
 

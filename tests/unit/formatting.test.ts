@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   array,
   arange,
+  zeros,
   array2string,
   array_repr,
   array_str,
@@ -313,6 +314,97 @@ describe('Formatting Functions', () => {
     it('respects exp_digits option', () => {
       const s = format_float_scientific(100.0, 2, true, 'k', '-', null, 3);
       expect(s).toMatch(/e\+0*2/);
+    });
+  });
+
+  describe('NumPy-compatible formatting', () => {
+    // Adaptive precision
+    it('formats integer floats with trailing dot', () => {
+      const a = array([1.0, 2.0, 3.0]);
+      const s = array2string(a);
+      expect(s).toBe('[1. 2. 3.]');
+    });
+
+    it('formats mixed floats with trimmed precision', () => {
+      const a = array([1.0, 1.5, 2.0]);
+      const s = array2string(a);
+      // 1.0 → "1.", 1.5 → "1.5", 2.0 → "2." — max width 3, right-aligned
+      expect(s).toContain('1.5');
+      expect(s).toContain('1.');
+      expect(s).toContain('2.');
+      // Verify right-alignment: " 1." should appear (padded to match 1.5 width)
+      expect(s).toMatch(/ 1\./);
+    });
+
+    it('uses scientific notation for very large values', () => {
+      const a = array([1e17, 2e17]);
+      const s = array2string(a);
+      expect(s).toMatch(/e\+/);
+    });
+
+    it('uses scientific notation for very small values', () => {
+      const a = array([1e-5, 2e-5]);
+      const s = array2string(a);
+      expect(s).toMatch(/e-/);
+    });
+
+    // Alignment
+    it('right-aligns integer values', () => {
+      const a = array([1, 100, 10], 'int32');
+      const s = array2string(a);
+      expect(s).toBe('[  1 100  10]');
+    });
+
+    it('right-aligns float values', () => {
+      const a = array([1.0, 100.0, 10.0]);
+      const s = array2string(a);
+      expect(s).toBe('[  1. 100.  10.]');
+    });
+
+    // Structure
+    it('no commas between rows in 2D', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const s = array2string(a);
+      // Should not have commas followed by newlines
+      expect(s).not.toMatch(/,\s*\n/);
+    });
+
+    it('blank lines between 3D slices', () => {
+      const a = zeros([2, 2, 2]);
+      const s = array2string(a);
+      // 3D array should have blank line between 2D slices
+      expect(s).toContain('\n\n');
+    });
+
+    it('wraps long lines at linewidth', () => {
+      const a = arange(20);
+      const s = array2string(a, { max_line_width: 40 });
+      const lines = s.split('\n');
+      for (const line of lines) {
+        expect(line.length).toBeLessThanOrEqual(41); // allow 1 char slack for closing bracket
+      }
+    });
+
+    // array_repr uses commas (different from array2string)
+    it('array_repr uses commas between elements', () => {
+      const a = array([1, 2, 3]);
+      const s = array_repr(a);
+      expect(s).toContain(', ');
+    });
+
+    it('2D array has no commas between rows in toString', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const s = array2string(a);
+      const lines = s.split('\n');
+      expect(lines.length).toBe(2);
+      // First line should end with ] not ],
+      expect(lines[0]).toMatch(/\]$/);
     });
   });
 });
