@@ -23,6 +23,20 @@
       "vscode"
     ]
   },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/dupontcyborg/numpy-ts"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/dupontcyborg/numpy-ts",
+      "linkedin": "https://linkedin.com/in/cyborgnico"
+    }
+  },
   "redirects": [
     {
       "source": "/quickstart",
@@ -259,10 +273,6 @@
                 ]
               }
             ]
-          },
-          {
-            "tab": "GitHub",
-            "href": "https://github.com/dupontcyborg/numpy-ts"
           }
         ]
       }

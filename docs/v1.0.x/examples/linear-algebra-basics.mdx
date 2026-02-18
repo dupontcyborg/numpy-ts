@@ -3,44 +3,46 @@ title: "Linear Algebra Basics"
 description: "Solve linear systems, decompose matrices, compute inverses, and multiply matrices using numpy-ts."
 ---
 
+import { Playground } from '/snippets/Playground.jsx'
+
 ## Solving a linear system Ax = b
 
 Given a system of linear equations represented as a matrix equation `Ax = b`, use `linalg.solve` to find `x`.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// System of equations:
+<Playground
+  code={String.raw`// System of equations:
 //   2x + y = 5
 //   x + 3y = 7
 const A = np.array([[2, 1], [1, 3]]);
 const b = np.array([5, 7]);
 
 const x = np.linalg.solve(A, b);
-console.log(x.toString());
-// array([1.6, 1.8])
+console.log('x =', x, '\n');
 
-// Verify: A @ x should equal b
-const check = np.matmul(A, x);
-console.log(check.toString());
-// array([5., 7.])
-```
+// Verify: A @ x should equal b (matrix-vector product)
+const check = np.dot(A, x);
+console.log('A @ x =', check);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 For larger systems, `linalg.solve` is numerically stable and much faster than computing `inv(A) @ b`.
 
-```typescript
-// 3x3 system
+<Playground
+  code={String.raw`// 3x3 system
 const A3 = np.array([
   [1, 2, 3],
   [4, 5, 6],
   [7, 8, 10],
 ]);
+
 const b3 = np.array([6, 15, 25]);
 
 const x3 = np.linalg.solve(A3, b3);
-console.log(x3.toString());
-// array([1., 1., 1.])
-```
+console.log(x3);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -48,36 +50,28 @@ console.log(x3.toString());
 
 Decompose a square matrix into its eigenvalues and eigenvectors with `linalg.eig`.
 
-```typescript
-import * as np from 'numpy-ts';
+<Playground
+  code={String.raw`const A = np.array([[4, -2], [1, 1]]);
 
-const A = np.array([[4, -2], [1, 1]]);
+const { w, v } = np.linalg.eig(A);
 
-const { eigenvalues, eigenvectors } = np.linalg.eig(A);
-
-console.log(eigenvalues.toString());
-// array([3., 2.])
-
-console.log(eigenvectors.toString());
-// Each column is an eigenvector
-// array([[0.89442719, 0.70710678],
-//        [0.4472136 , 0.70710678]])
-
-// Verify: A @ v = lambda * v for the first eigenvector
-const v0 = eigenvectors.slice(':', '0');
-const Av0 = np.matmul(A, v0);
-const lv0 = np.multiply(eigenvalues.get([0]).item(), v0);
-console.log(np.allclose(Av0, lv0)); // true
-```
+console.log('Eigenvalues:', w, '\n');
+console.log('Eigenvectors:\n', v, '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 For symmetric matrices, use `linalg.eigh` which is faster and guarantees real eigenvalues:
 
-```typescript
-const S = np.array([[2, 1], [1, 3]]);
-const { eigenvalues: vals, eigenvectors: vecs } = np.linalg.eigh(S);
-console.log(vals.toString());
-// Eigenvalues in ascending order
-```
+<Playground
+  code={String.raw`const S = np.array([[2, 1], [1, 3]]);
+const { w, v } = np.linalg.eigh(S);
+
+console.log('Eigenvalues:', w, '\n');
+console.log('Eigenvectors:\n', v, '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -85,49 +79,43 @@ console.log(vals.toString());
 
 SVD factors any matrix `A` into `U * S * V^T`. This is the foundation for dimensionality reduction, pseudoinverse computation, and low-rank approximation.
 
-```typescript
-import * as np from 'numpy-ts';
+<Playground
+  code={String.raw`const A = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
 
-const A = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+const { u, s, vt } = np.linalg.svd(A);
 
-const { U, S, Vt } = np.linalg.svd(A);
-
-console.log('U shape:', U.shape);    // [3, 3]
-console.log('S:', S.toString());     // Singular values (descending)
-console.log('Vt shape:', Vt.shape);  // [3, 3]
+console.log('U shape:', u.shape);
+console.log('S:', s);
+console.log('Vt shape:', vt.shape, '\n');
 
 // Low-rank approximation: keep only the first k singular values
 const k = 2;
 
 // Reconstruct using the top-k components
-const Uk = U.slice(':', `0:${k}`);
-const Sk = np.diag(S.slice(`0:${k}`));
-const Vtk = Vt.slice(`0:${k}`, ':');
+const Uk = u.slice(':', '0:' + k);
+const Sk = np.diag(s.slice('0:' + k));
+const Vtk = vt.slice('0:' + k, ':');
 
 const A_approx = np.matmul(np.matmul(Uk, Sk), Vtk);
 console.log('Rank-2 approximation:');
-console.log(A_approx.toString());
-```
+console.log(A_approx);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
 ## Matrix inverse and pseudo-inverse
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Standard inverse (square, non-singular matrices)
+<Playground
+  code={String.raw`// Standard inverse (square, non-singular matrices)
 const A = np.array([[1, 2], [3, 4]]);
 const Ainv = np.linalg.inv(A);
-console.log(Ainv.toString());
-// array([[-2. ,  1. ],
-//        [ 1.5, -0.5]])
+console.log('Ainv:\n', Ainv, '\n');
 
 // Verify: A @ A_inv = I
 const I = np.matmul(A, Ainv);
-console.log(I.toString());
-// array([[1., 0.],
-//        [0., 1.]])
+console.log('A @ Ainv =\n', I, '\n');
 
 // Determinant
 const det = np.linalg.det(A);
@@ -136,13 +124,15 @@ console.log('det(A):', det); // -2
 // Moore-Penrose pseudo-inverse (works on any matrix, including non-square)
 const B = np.array([[1, 2], [3, 4], [5, 6]]);
 const Bpinv = np.linalg.pinv(B);
-console.log('B shape:', B.shape);       // [3, 2]
-console.log('pinv shape:', Bpinv.shape); // [2, 3]
+console.log('B shape:', B.shape);
+console.log('pinv shape:', Bpinv.shape);
 
 // Verify: B @ pinv(B) @ B ~= B
 const check = np.matmul(np.matmul(B, Bpinv), B);
-console.log(np.allclose(check, B)); // true
-```
+console.log('B @ pinv(B) @ B ~= B:', np.allclose(check, B));`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -150,63 +140,30 @@ console.log(np.allclose(check, B)); // true
 
 numpy-ts provides several ways to multiply matrices and vectors, each suited to different use cases.
 
-```typescript
-import * as np from 'numpy-ts';
-
-const A = np.array([[1, 2], [3, 4]]);
+<Playground
+  code={String.raw`const A = np.array([[1, 2], [3, 4]]);
 const B = np.array([[5, 6], [7, 8]]);
 
 // matmul: standard matrix multiplication (equivalent to @ in Python)
 const C = np.matmul(A, B);
-console.log(C.toString());
-// array([[19, 22],
-//        [43, 50]])
+console.log('A @ B =\n', C, '\n');
 
 // dot: same result for 2-D arrays
 const D = np.dot(A, B);
-console.log(D.toString());
-// array([[19, 22],
-//        [43, 50]])
+console.log('A dot B =\n', D, '\n');
 
 // Vector dot product
 const u = np.array([1, 2, 3]);
 const v = np.array([4, 5, 6]);
-console.log(np.dot(u, v)); // 32
+console.log('u dot v =', np.dot(u, v), '\n');
 
 // Matrix-vector product
-const w = np.matmul(A, np.array([1, 0]));
-console.log(w.toString());
-// array([1, 3])
+const w = np.matmul(A, np.array([[1], [0]]));
+console.log('A @ [1, 0] =\n', w, '\n');
 
 // Method chaining (full entry point)
 const result = A.matmul(B).add(1);
-console.log(result.toString());
-// array([[20, 23],
-//        [44, 51]])
-```
-
-### When to use which
-
-| Function | Use case |
-|---|---|
-| `matmul` | Standard matrix-matrix and matrix-vector multiplication. Follows strict broadcasting rules for stacks of matrices. |
-| `dot` | Same as `matmul` for 2-D inputs. For 1-D inputs, computes the inner (scalar) product. For N-D inputs, a sum-product over the last axis of `a` and second-to-last of `b`. |
-| `inner` | Inner product. For 1-D, same as `dot`. For N-D, sum-product over the last axes of both inputs. |
-| `outer` | Outer product of two vectors, producing a 2-D matrix. |
-| `einsum` | General Einstein summation -- can express any of the above and more. |
-
-```typescript
-// einsum for matrix multiplication
-const E = np.einsum('ij,jk->ik', A, B);
-console.log(np.allclose(E, C)); // true
-
-// einsum for trace
-const tr = np.einsum('ii', A);
-console.log(tr.toString()); // 5
-
-// einsum for batch matrix multiplication
-const batch_A = np.random.rand([3, 2, 2]);
-const batch_B = np.random.rand([3, 2, 2]);
-const batch_C = np.einsum('bij,bjk->bik', batch_A, batch_B);
-console.log(batch_C.shape); // [3, 2, 2]
-```
+console.log('A.matmul(B).add(1) =\n', result, '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>

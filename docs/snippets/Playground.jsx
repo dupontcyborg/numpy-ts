@@ -1,24 +1,33 @@
-export const Playground = ({ example = "quickstart", height = "340px" }) => {
-  const EXAMPLES = {
+export const Playground = ({
+  example = "quickstart",
+  examples = null,
+  defaultExample = null,
+  code: singleCode = null,
+  label = "",
+  height = null,
+  showImportHeader = false,
+  showCopyButton = false
+}) => {
+  const DEFAULT_EXAMPLES = {
     quickstart: {
       label: "Quickstart",
       code: `// Create arrays
 const a = np.array([[1, 2, 3], [4, 5, 6]]);
 console.log("Array:\\n" + a);
 console.log("Shape:", a.shape);
-console.log("Dtype:", a.dtype);
+console.log("Dtype:", a.dtype, "\\n");
 
 // Basic arithmetic
 const b = np.multiply(a, 2);
-console.log("\\nMultiply by 2:\\n" + b);
+console.log("Multiply by 2:\\n" + b, "\\n");
 
 // Element-wise operations
 const c = np.add(a, np.array([[10, 20, 30], [40, 50, 60]]));
-console.log("Element-wise add:\\n" + c);
+console.log("Element-wise add:\\n" + c, "\\n");
 
 // Row slicing
 const row = a.row(0);
-console.log("\\nFirst row:", row);`,
+console.log("First row:", row);`,
     },
     linalg: {
       label: "Linear Algebra",
@@ -26,23 +35,23 @@ console.log("\\nFirst row:", row);`,
 const A = np.array([[1, 2], [3, 4]]);
 const B = np.array([[5, 6], [7, 8]]);
 const C = np.matmul(A, B);
-console.log("A @ B =\\n" + C);
+console.log("A @ B =\\n" + C, "\\n");
 
 // Determinant
 const det = np.linalg.det(A);
-console.log("\\ndet(A) =", det);
+console.log("det(A) =", det, "\\n");
 
 // Inverse
 const inv = np.linalg.inv(A);
-console.log("inv(A) =\\n" + inv);
+console.log("inv(A) =\\n" + inv, "\\n");
 
 // Verify A @ inv(A) = I
 const I = np.matmul(A, inv);
-console.log("\\nA @ inv(A) =\\n" + I);
+console.log("A @ inv(A) =\\n" + I, "\\n");
 
 // Eigenvalues
 const eig = np.linalg.eig(A);
-console.log("\\nEigenvalues:", eig.eigenvalues);`,
+console.log("Eigenvalues:", eig.w);`,
     },
     broadcasting: {
       label: "Broadcasting",
@@ -53,17 +62,17 @@ const row = np.array([10, 20, 30]);
 // Add row to each row of matrix
 const result = np.add(matrix, row);
 console.log("Matrix + row vector:");
-console.log(result);
+console.log(result, "\\n");
 
 // Column vector broadcasting
 const col = np.array([[100], [200], [300]]);
 const result2 = np.add(matrix, col);
-console.log("\\nMatrix + column vector:");
-console.log(result2);
+console.log("Matrix + column vector:");
+console.log(result2, "\\n");
 
 // Scalar broadcasting
-console.log("\\nMatrix * 10:");
-console.log(np.multiply(matrix, 10));`,
+console.log("Matrix * 10:");
+console.log(np.multiply(matrix, 10), "\\n");`,
     },
     random: {
       label: "Random",
@@ -72,41 +81,41 @@ np.random.seed(42);
 
 // Random integers
 const dice = np.random.randint(1, 7, [3, 3]);
-console.log("Dice rolls (3x3):\\n" + dice);
+console.log("Dice rolls (3x3):\\n" + dice, "\\n");
 
 // Normal distribution
 const normal = np.random.randn(5);
-console.log("\\nNormal samples:", normal);
+console.log("Normal samples:", normal, "\\n");
 
 // Uniform distribution
 const uniform = np.random.rand(2, 3);
-console.log("\\nUniform [0,1):\\n" + uniform);
+console.log("Uniform [0,1):\\n" + uniform, "\\n");
 
 // Statistics of random data
 const data = np.random.randn(1000);
-console.log("\\n1000 normal samples:");
+console.log("1000 normal samples:");
 console.log("  Mean:", Number(np.mean(data)).toFixed(3));
 console.log("  Std:", Number(np.std(data)).toFixed(3));`,
     },
     reductions: {
       label: "Reductions",
       code: `const a = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
-console.log("Array:\\n" + a);
+console.log("Array:\\n" + a, "\\n");
 
 // Global reductions
-console.log("\\nSum:", Number(np.sum(a)));
+console.log("Sum:", Number(np.sum(a)));
 console.log("Mean:", Number(np.mean(a)));
 console.log("Std:", Number(np.std(a)).toFixed(4));
 console.log("Min:", Number(np.min(a)));
-console.log("Max:", Number(np.max(a)));
+console.log("Max:", Number(np.max(a)), "\\n");
 
 // Axis reductions
-console.log("\\nSum along axis 0 (columns):", np.sum(a, 0));
+console.log("Sum along axis 0 (columns):", np.sum(a, 0));
 console.log("Sum along axis 1 (rows):", np.sum(a, 1));
-console.log("Mean along axis 0:", np.mean(a, 0));
+console.log("Mean along axis 0:", np.mean(a, 0), "\\n");
 
 // Cumulative
-console.log("\\nCumsum:", np.cumsum(a));
+console.log("Cumsum:", np.cumsum(a));
 console.log("Cumprod axis 0:\\n" + np.cumprod(a, 0));`,
     },
     fft: {
@@ -121,7 +130,7 @@ const signal = np.add(
   np.sin(np.multiply(t, 2 * Math.PI * 5)),   // 5 Hz
   np.multiply(np.sin(np.multiply(t, 2 * Math.PI * 12)), 0.5) // 12 Hz
 );
-console.log("Signal (first 8):", signal.slice('0:8'));
+console.log("Signal (first 8):\\n", signal.slice('0:8'), "\\n");
 
 // Compute FFT
 const spectrum = np.fft.fft(signal);
@@ -137,17 +146,18 @@ const halfFreqs = freqs.slice('0:' + halfN);
 const sorted = np.argsort(np.multiply(halfMag, -1));
 const i0 = Number(sorted.get([0]));
 const i1 = Number(sorted.get([1]));
-console.log("\\nTop frequencies:");
+console.log("Top frequencies:");
 console.log("  " + Number(halfFreqs.get([i0])) + " Hz (magnitude: " + Number(halfMag.get([i0])).toFixed(1) + ")");
 console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(halfMag.get([i1])).toFixed(1) + ")");`,
     },
   };
 
   const CDN_URLS = {
-    numpyTs: "https://cdn.jsdelivr.net/npm/numpy-ts@0.13.0/dist/numpy-ts.browser.js",
+    numpyTs: "https://cdn.jsdelivr.net/npm/numpy-ts@0.13.1/dist/numpy-ts.browser.js",
     prismCore: "https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js",
     prismTS: "https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js",
-    prismCSS: "https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css",
+    prismCSSLight: "https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism.min.css",
+    prismCSSDark: "https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css",
   };
 
   const SHARED_FONT = {
@@ -155,6 +165,76 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     fontSize: "13px",
     lineHeight: "1.5",
     tabSize: 2,
+  };
+
+  const THEME_COLORS = {
+    light: {
+      editorBg: '#f5f5f5',
+      editorText: '#24292e',
+      editorBorder: '#d1d5da',
+      toolbarBg: '#ffffff',
+      outputBg: '#fafbfc',
+      outputText: '#24292e',
+      selectBg: '#ffffff',
+      selectText: '#24292e',
+      selectBorder: '#d1d5da',
+      caretColor: '#000000',
+      placeholderText: '#6a737d',
+      tabActiveBg: '#ffffff',
+      tabInactiveBg: '#f6f8fa',
+      tabHoverBg: '#e1e4e8',
+      tabBorder: '#d1d5da',
+      tabActiveText: '#24292e',
+      tabInactiveText: '#586069',
+      resizeHandleBg: '#d1d5da',
+      resizeHandleHoverBg: '#959da5',
+    },
+    dark: {
+      editorBg: '#1e1e1e',
+      editorText: '#d4d4d4',
+      editorBorder: '#333333',
+      toolbarBg: '#161616',
+      outputBg: '#1a1a1a',
+      outputText: '#d4d4d4',
+      selectBg: '#2a2a2a',
+      selectText: '#cccccc',
+      selectBorder: '#444444',
+      caretColor: '#ffffff',
+      placeholderText: '#666666',
+      tabActiveBg: '#1e1e1e',
+      tabInactiveBg: '#161616',
+      tabHoverBg: '#2a2a2a',
+      tabBorder: '#333333',
+      tabActiveText: '#d4d4d4',
+      tabInactiveText: '#888888',
+      resizeHandleBg: '#333333',
+      resizeHandleHoverBg: '#555555',
+    }
+  };
+
+  const MIN_HEIGHT = 100;
+  const MAX_HEIGHT = 800;
+  const IMPORT_HEADER_TEXT = `import * as np from 'numpy-ts';\n\n`;
+
+  const clampHeight = (h) => Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, h));
+  const parseHeightPx = (value) => {
+    if (value == null) return null;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  };
+  const estimateSingleCodeHeight = (script, includeImportHeader) => {
+    const normalized = (script || "").replace(/\r\n/g, "\n");
+    const lineCount = normalized.length > 0 ? normalized.split("\n").length : 1;
+    const fontSizePx = parseFloat(SHARED_FONT.fontSize) || 13;
+    const lineHeightRaw = parseFloat(SHARED_FONT.lineHeight);
+    const lineHeightPx = (Number.isFinite(lineHeightRaw) ? lineHeightRaw : 1.5) * fontSizePx;
+    const topPadding = includeImportHeader ? (16 + (3 * fontSizePx)) : 16;
+    const bottomPadding = 16;
+    return Math.ceil(topPadding + bottomPadding + (lineCount * lineHeightPx) + 4);
   };
 
   function loadScript(src) {
@@ -168,28 +248,65 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     });
   }
 
-  function loadCSS(href) {
+  function loadCSS(href, removeOldId = null) {
     if (document.querySelector(`link[href="${href}"]`)) return;
+    if (removeOldId) {
+      const old = document.querySelector(`link[data-prism-theme="${removeOldId}"]`);
+      if (old) old.remove();
+    }
     const l = document.createElement("link");
     l.rel = "stylesheet";
     l.href = href;
+    if (removeOldId) l.setAttribute("data-prism-theme", removeOldId);
     document.head.appendChild(l);
   }
 
-  const [code, setCode] = useState(EXAMPLES[example]?.code || EXAMPLES.quickstart.code);
+  const resolvedExamples = examples && typeof examples === "object" && Object.keys(examples).length > 0
+    ? examples
+    : (typeof singleCode === "string"
+      ? { custom: { label: label || "", code: singleCode } }
+      : DEFAULT_EXAMPLES);
+  const exampleKeys = Object.keys(resolvedExamples);
+  const fallbackKey = exampleKeys[0];
+  const initialExampleKey = (defaultExample && resolvedExamples[defaultExample])
+    ? defaultExample
+    : ((example && resolvedExamples[example]) ? example : fallbackKey);
+  const initialCode = resolvedExamples[initialExampleKey]?.code || "";
+  const explicitHeightPx = parseHeightPx(height);
+  const initialEditorHeight = explicitHeightPx != null
+    ? clampHeight(explicitHeightPx)
+    : (typeof singleCode === "string"
+      ? clampHeight(estimateSingleCodeHeight(singleCode, showImportHeader))
+      : 340);
+
+  const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [running, setRunning] = useState(false);
-  const [selectedExample, setSelectedExample] = useState(example);
+  const [selectedExample, setSelectedExample] = useState(initialExampleKey);
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => document.documentElement.classList.contains('dark')
+  );
+  const [editorHeight, setEditorHeight] = useState(initialEditorHeight);
+  const [isResizing, setIsResizing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [copyHover, setCopyHover] = useState(false);
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
   const textareaRef = useRef(null);
   const preRef = useRef(null);
+  const codeRef = useRef(null);
+  const resizeStartY = useRef(null);
+  const resizeStartHeight = useRef(null);
+
+  const colors = THEME_COLORS[isDarkMode ? 'dark' : 'light'];
+  const copyTimeoutRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        loadCSS(CDN_URLS.prismCSS);
+        loadCSS(isDarkMode ? CDN_URLS.prismCSSDark : CDN_URLS.prismCSSLight, "prism");
         await loadScript(CDN_URLS.numpyTs);
         await loadScript(CDN_URLS.prismCore);
         await loadScript(CDN_URLS.prismTS);
@@ -202,24 +319,57 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     return () => { cancelled = true; };
   }, []);
 
+  const syncScroll = useCallback(() => {
+    if (!textareaRef.current || !codeRef.current) return;
+    const ta = textareaRef.current;
+    codeRef.current.style.transform = `translate(${-ta.scrollLeft}px, ${-ta.scrollTop}px)`;
+  }, []);
+
+  useEffect(() => {
+    // Watch for Mintlify theme changes (observes 'dark' class on html element)
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+      loadCSS(isDark ? CDN_URLS.prismCSSDark : CDN_URLS.prismCSSLight, "prism");
+      if (loaded && window.Prism) {
+        setTimeout(() => {
+          window.Prism.highlightAll();
+          requestAnimationFrame(syncScroll);
+        }, 50);
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, [loaded, syncScroll]);
+
   useEffect(() => {
     if (loaded && window.Prism) {
       window.Prism.highlightAll();
+      requestAnimationFrame(syncScroll);
     }
-  }, [code, loaded]);
+  }, [code, loaded, syncScroll]);
 
   const handleScroll = useCallback(() => {
-    if (preRef.current && textareaRef.current) {
-      preRef.current.scrollTop = textareaRef.current.scrollTop;
-      preRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
-  }, []);
+    syncScroll();
+  }, [syncScroll]);
 
   const handleExampleChange = useCallback((key) => {
     setSelectedExample(key);
-    setCode(EXAMPLES[key].code);
+    setCode(resolvedExamples[key].code);
     setOutput("");
-  }, []);
+
+    // Reset scroll position
+    if (textareaRef.current) {
+      textareaRef.current.scrollTop = 0;
+      textareaRef.current.scrollLeft = 0;
+    }
+    requestAnimationFrame(syncScroll);
+  }, [resolvedExamples, syncScroll]);
 
   const handleTab = useCallback((e) => {
     if (e.key === "Tab") {
@@ -232,6 +382,45 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
       requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + 2; });
     }
   }, []);
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartY.current = e.clientY;
+    resizeStartHeight.current = editorHeight;
+  }, [editorHeight]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e) => {
+      const delta = e.clientY - resizeStartY.current;
+      const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStartHeight.current + delta));
+      setEditorHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  useEffect(() => {
+    if (explicitHeightPx != null) {
+      setEditorHeight(clampHeight(explicitHeightPx));
+      return;
+    }
+    if (typeof singleCode === "string") {
+      setEditorHeight(clampHeight(estimateSingleCodeHeight(singleCode, showImportHeader)));
+    }
+  }, [explicitHeightPx, singleCode, showImportHeader]);
 
   const run = useCallback(() => {
     if (!loaded || !window.np) return;
@@ -265,29 +454,180 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     setRunning(false);
   }, [loaded, code]);
 
+  const handleCopy = useCallback(async () => {
+    const textToCopy = `${showImportHeader ? IMPORT_HEADER_TEXT : ""}${code}`;
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  }, [code, showImportHeader]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const measureScrollbar = () => {
+      if (!textareaRef.current) return;
+      const el = textareaRef.current;
+      const width = Math.max(el.offsetWidth - el.clientWidth, 0);
+      setScrollbarWidth(width);
+    };
+
+    measureScrollbar();
+    window.addEventListener('resize', measureScrollbar);
+    return () => window.removeEventListener('resize', measureScrollbar);
+  }, [editorHeight, code, showImportHeader]);
+
   if (loadError) {
     return (
-      <div style={{ padding: "20px", color: "#e55", background: "#1a1a1a", borderRadius: "8px", fontSize: "14px" }}>
+      <div style={{ padding: "20px", color: "#e55", background: colors.outputBg, borderRadius: "8px", fontSize: "14px" }}>
         {loadError}
       </div>
     );
   }
 
-  const editorWrap = { position: "relative", height, borderRadius: "8px 8px 0 0", overflow: "hidden", border: "1px solid #333", borderBottom: "none" };
-  const preStyle = { ...SHARED_FONT, position: "absolute", top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: "16px", background: "#1e1e1e", overflow: "auto", pointerEvents: "none", whiteSpace: "pre-wrap", wordWrap: "break-word" };
-  const codeStyle = { ...SHARED_FONT, background: "transparent", padding: 0, margin: 0, whiteSpace: "pre-wrap", wordWrap: "break-word" };
-  const textareaStyle = { ...SHARED_FONT, position: "absolute", top: 0, left: 0, right: 0, bottom: 0, padding: "16px", margin: 0, background: "transparent", color: "transparent", caretColor: "#fff", border: "none", outline: "none", resize: "none", overflow: "auto", whiteSpace: "pre-wrap", wordWrap: "break-word", WebkitTextFillColor: "transparent", zIndex: 1, width: "100%", height: "100%" };
-  const toolbarStyle = { display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "#161616", borderLeft: "1px solid #333", borderRight: "1px solid #333", flexWrap: "wrap" };
+  const tabsContainer = { display: "flex", gap: "2px", marginBottom: "-1px", marginTop: "8px", overflowX: "auto", overflowY: "hidden" };
+  const tabStyle = (isActive) => ({
+    padding: "8px 16px",
+    background: isActive ? colors.tabActiveBg : colors.tabInactiveBg,
+    color: isActive ? colors.tabActiveText : colors.tabInactiveText,
+    border: `1px solid ${colors.tabBorder}`,
+    borderBottom: isActive ? "none" : `1px solid ${colors.tabBorder}`,
+    borderRadius: "8px 8px 0 0",
+    fontSize: "13px",
+    fontWeight: isActive ? 500 : 400,
+    cursor: "pointer",
+    outline: "none",
+    transition: "background 0.15s, color 0.15s",
+    whiteSpace: "nowrap",
+    marginBottom: isActive ? "1px" : "0"
+  });
+  const editorRadius = exampleKeys.length > 1 ? "0" : "8px 8px 0 0";
+  const editorContentRadius = exampleKeys.length > 1 ? "0" : "8px 8px 0 0";
+  const editorWrap = { position: "relative", height: `${editorHeight}px`, overflow: "hidden" };
+  const editorBorderOverlay = { position: "absolute", inset: 0, borderRadius: editorRadius, border: `1px solid ${colors.editorBorder}`, borderBottom: "none", borderTop: exampleKeys.length > 1 ? "none" : `1px solid ${colors.editorBorder}`, pointerEvents: "none", zIndex: 4 };
+  const copyWrapStyle = { position: "absolute", top: "8px", right: `${10 + scrollbarWidth}px`, zIndex: 3, display: "inline-flex", alignItems: "center", gap: "6px" };
+  const copyTooltipVisible = copied || copyHover;
+  const copyTooltipStyle = {
+    fontSize: "11px",
+    lineHeight: 1,
+    color: "#ffffff",
+    background: "#3b82f6",
+    border: "1px solid #3b82f6",
+    borderRadius: "6px",
+    padding: "4px 8px",
+    opacity: copyTooltipVisible ? 1 : 0,
+    transform: copyTooltipVisible ? "translateY(0)" : "translateY(2px)",
+    transition: "opacity 0.15s, transform 0.15s",
+    pointerEvents: "none",
+    whiteSpace: "nowrap"
+  };
+  const copyBtnStyle = {
+    width: "24px",
+    height: "24px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "6px",
+    border: "none",
+    background: "transparent",
+    color: isDarkMode ? "rgba(255,255,255,0.4)" : "#9ca3af",
+    cursor: "pointer",
+    padding: 0,
+    lineHeight: 1
+  };
+  const sharedTextStyle = { margin: 0, border: 0, padding: "16px", whiteSpace: "pre", overflowWrap: "normal", wordBreak: "normal", verticalAlign: "baseline", textRendering: "auto" };
+  const preStyle = { ...SHARED_FONT, ...sharedTextStyle, position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: colors.editorBg, overflow: "hidden", pointerEvents: "none", padding: 0, borderRadius: editorContentRadius };
+  const codeStyle = { display: "block", ...SHARED_FONT, background: "transparent", padding: "16px", margin: 0, border: 0, whiteSpace: "inherit", overflowWrap: "inherit", wordBreak: "inherit", lineHeight: "inherit", willChange: "transform" };
+  const textareaStyle = { ...SHARED_FONT, ...sharedTextStyle, position: "absolute", top: 0, left: 0, right: 0, bottom: 0, paddingTop: showImportHeader ? "calc(16px + 3em)" : "16px", background: "transparent", color: "transparent", caretColor: colors.caretColor, outline: "none", resize: "none", overflow: "auto", WebkitTextFillColor: "transparent", zIndex: 1, width: "100%", height: "100%", borderRadius: editorContentRadius };
+  const resizeHandle = { height: "4px", background: isResizing ? colors.resizeHandleHoverBg : colors.resizeHandleBg, cursor: "ns-resize", transition: "background 0.15s", borderLeft: `1px solid ${colors.editorBorder}`, borderRight: `1px solid ${colors.editorBorder}` };
+  const toolbarStyle = { display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: colors.toolbarBg, borderLeft: `1px solid ${colors.editorBorder}`, borderRight: `1px solid ${colors.editorBorder}`, flexWrap: "wrap" };
   const btnStyle = { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 16px", background: "#3179C7", color: "#fff", border: "none", borderRadius: "6px", fontSize: "13px", fontWeight: 500, cursor: loaded ? "pointer" : "not-allowed", opacity: loaded ? 1 : 0.5, transition: "background 0.15s" };
-  const selectStyle = { padding: "6px 10px", background: "#2a2a2a", color: "#ccc", border: "1px solid #444", borderRadius: "6px", fontSize: "13px", cursor: "pointer", outline: "none" };
-  const badgeStyle = { marginLeft: "auto", fontSize: "11px", color: "#888", display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" };
-  const outputStyle = { margin: 0, padding: "16px", minHeight: "60px", maxHeight: "240px", overflow: "auto", ...SHARED_FONT, fontSize: "12.5px", background: "#1a1a1a", color: "#d4d4d4", borderRadius: "0 0 8px 8px", border: "1px solid #333", borderTop: "none", whiteSpace: "pre-wrap", wordWrap: "break-word" };
+  const selectStyle = { padding: "6px 10px", background: colors.selectBg, color: colors.selectText, border: `1px solid ${colors.selectBorder}`, borderRadius: "6px", fontSize: "13px", cursor: "pointer", outline: "none" };
+  const badgeStyle = { marginLeft: "auto", fontSize: "11px", color: colors.placeholderText, display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" };
+  const outputStyle = { margin: 0, padding: "16px", minHeight: "60px", maxHeight: "240px", overflow: "auto", ...SHARED_FONT, fontSize: "12.5px", background: colors.outputBg, color: colors.outputText, borderRadius: "0 0 8px 8px", border: `1px solid ${colors.editorBorder}`, borderTop: "none", whiteSpace: "pre-wrap", overflowWrap: "break-word" };
+  const renderedCode = `${showImportHeader ? IMPORT_HEADER_TEXT : ""}${code}`;
+  const singleLabel = (resolvedExamples[exampleKeys[0]]?.label || "").trim();
 
   return (
-    <div style={{ marginTop: "8px" }}>
+    <div>
+      <style>{`
+        @keyframes playgroundPulse {
+          0%, 100% { opacity: 0.45; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.12); }
+        }
+      `}</style>
+      {exampleKeys.length > 1 ? (
+        <div style={tabsContainer}>
+          {Object.entries(resolvedExamples).map(([key, val]) => (
+            <button
+              key={key}
+              onClick={() => handleExampleChange(key)}
+              style={tabStyle(key === selectedExample)}
+              onMouseEnter={(e) => {
+                if (key !== selectedExample) {
+                  e.target.style.background = colors.tabHoverBg;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (key !== selectedExample) {
+                  e.target.style.background = colors.tabInactiveBg;
+                }
+              }}
+              aria-label={`Select ${val.label} example`}
+            >
+              {val.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        singleLabel ? (
+          <div style={{ marginTop: "8px", marginBottom: "8px", fontSize: "14px", fontWeight: 500, color: colors.tabActiveText }}>
+            {singleLabel}
+          </div>
+        ) : null
+      )}
       <div style={editorWrap}>
+        <div style={editorBorderOverlay} aria-hidden="true" />
+        {showCopyButton ? (
+          <div style={copyWrapStyle}>
+            <span style={copyTooltipStyle}>{copied ? "Copied" : "Copy"}</span>
+            <button
+              type="button"
+              onClick={handleCopy}
+              style={copyBtnStyle}
+              onMouseEnter={(e) => {
+                setCopyHover(true);
+                e.currentTarget.style.color = isDarkMode ? "rgba(255,255,255,0.6)" : "#6b7280";
+              }}
+              onMouseLeave={(e) => {
+                setCopyHover(false);
+                e.currentTarget.style.color = isDarkMode ? "rgba(255,255,255,0.4)" : "#9ca3af";
+              }}
+              aria-label="Copy code"
+            >
+              {copied ? (
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M4.5 10.5L8.2 14.2L15.5 6.8" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M14.25 5.25H7.25C6.14543 5.25 5.25 6.14543 5.25 7.25V14.25C5.25 15.3546 6.14543 16.25 7.25 16.25H14.25C15.3546 16.25 16.25 15.3546 16.25 14.25V7.25C16.25 6.14543 15.3546 5.25 14.25 5.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M2.80103 11.998L1.77203 5.07397C1.61003 3.98097 2.36403 2.96397 3.45603 2.80197L10.38 1.77297C11.313 1.63397 12.19 2.16297 12.528 3.00097" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+          </div>
+        ) : null}
         <pre ref={preRef} style={preStyle}>
-          <code className="language-typescript" style={codeStyle}>{code}</code>
+          <code ref={codeRef} className="language-typescript" style={codeStyle}>{renderedCode}</code>
         </pre>
         <textarea
           ref={textareaRef}
@@ -297,11 +637,20 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
           onKeyDown={handleTab}
           style={textareaStyle}
           spellCheck={false}
+          wrap="off"
           autoCapitalize="off"
           autoCorrect="off"
           aria-label="Code editor"
         />
       </div>
+      <div
+        style={resizeHandle}
+        onMouseDown={handleResizeStart}
+        onMouseEnter={(e) => !isResizing && (e.target.style.background = colors.resizeHandleHoverBg)}
+        onMouseLeave={(e) => !isResizing && (e.target.style.background = colors.resizeHandleBg)}
+        aria-label="Resize editor"
+        role="separator"
+      />
       <div style={toolbarStyle}>
         <button
           onClick={run}
@@ -312,26 +661,16 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
         >
           {running ? "..." : "\u25B6"} Run
         </button>
-        <select
-          value={selectedExample}
-          onChange={(e) => handleExampleChange(e.target.value)}
-          style={selectStyle}
-          aria-label="Select example"
-        >
-          {Object.entries(EXAMPLES).map(([key, val]) => (
-            <option key={key} value={key}>{val.label}</option>
-          ))}
-        </select>
         <span style={badgeStyle}>
           {loaded ? (
-            <><span style={{ color: "#4caf50" }}>{"\u25CF"}</span> Runs in your browser</>
+            <><span style={{ color: "#4caf50", display: "inline-block", animation: "playgroundPulse 2.2s ease-in-out infinite", transformOrigin: "center" }}>{"\u25CF"}</span> Runs in your browser</>
           ) : (
             <><span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>{"\u21BB"}</span> Loading numpy-ts...</>
           )}
         </span>
       </div>
       <pre style={outputStyle}>
-        {output || <span style={{ color: "#666", fontStyle: "italic" }}>Click Run to execute the code above</span>}
+        {output || <span style={{ color: colors.placeholderText, fontStyle: "italic" }}>Click Run to execute the code above</span>}
       </pre>
     </div>
   );
