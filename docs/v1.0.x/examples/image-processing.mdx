@@ -1,5 +1,5 @@
 ---
-title: "Image Processing Patterns"
+title: "Image Processing"
 description: "Represent images as arrays, slice regions of interest, apply element-wise transforms, transpose channels, and build convolution filters."
 ---
 
@@ -22,22 +22,17 @@ console.log('RGB shape:', rgb.shape, '\n');
 // Create a synthetic test image: horizontal gradient
 const width = 256;
 const height = 256;
-const row = np.arange(0, width, 1, 'uint8');       // [0, 1, 2, ..., 255]
-const gradient = np.tile(row, [height, 1]);          // repeat row for each scanline
+const row = np.arange(0, width, 1, 'uint8');
+const gradient = np.tile(row, [height, 1]);
 console.log('Gradient shape:', gradient.shape, '\n');
 
 // Create a checkerboard pattern
 const blockSize = 32;
 const board = np.zeros([256, 256], 'uint8');
+
 // Fill using numpy operations
-const rowIdx = np.floor_divide(
-  np.arange(256).reshape([256, 1]),
-  blockSize
-);
-const colIdx = np.floor_divide(
-  np.arange(256).reshape([1, 256]),
-  blockSize
-);
+const rowIdx = np.arange(256).reshape([256, 1]).floor_divide(blockSize);
+const colIdx = np.arange(256).reshape([1, 256]).floor_divide(blockSize);
 const checker = np.mod(np.add(rowIdx, colIdx), 2);
 console.log('Checkerboard shape:', checker.shape, '\n');`}
   showImportHeader={true}
@@ -64,11 +59,9 @@ console.log('Red channel shape:', red.shape, '\n');
 
 // Extract the center 200x200 patch
 const cy = 240, cx = 320, halfSize = 100;
-const center = image.slice(
-  \`\${cy - halfSize}:\${cy + halfSize}\`,
-  \`\${cx - halfSize}:\${cx + halfSize}\`,
-  ':'
-);
+const y = (cy - halfSize) + ':' + (cy + halfSize);
+const x = (cx - halfSize) + ':' + (cx + halfSize);
+const center = image.slice(y, x, ':')
 console.log('Center patch shape:', center.shape, '\n');
 
 // Downsample by taking every other pixel
@@ -93,39 +86,51 @@ console.log('Rotated shape:', rotated.shape, '\n');`}
 Adjust pixel values using vectorized arithmetic -- no loops required.
 
 <Playground
-  code={String.raw`// Work in float for precision, then convert back to uint8
-const image = np.divide(
-  np.random.randint(0, 256, [256, 256, 3]),
-  255.0
-);  // Normalize to [0, 1]
-
-// Brightness adjustment: add a constant
-const brightnessOffset = 0.2;
-const brighter = np.clip(np.add(image, brightnessOffset), 0, 1);
-const darker = np.clip(np.subtract(image, brightnessOffset), 0, 1);
-
-// Contrast adjustment: scale around the mean
-const mean = np.mean(image);
-const contrastFactor = 1.5;
-const highContrast = np.clip(
-  np.add(
-    np.multiply(np.subtract(image, mean), contrastFactor),
-    mean
-  ),
-  0, 1
-);
-
-// Gamma correction: raise to a power
-const gamma = 2.2;
-const gammaCorrected = np.power(image, 1 / gamma);
-
-// Invert the image
-const inverted = np.subtract(1.0, image);
-
-// Convert back to uint8 for display
-const result = np.multiply(brighter, 255).astype('uint8');
-console.log('Result dtype:', result.dtype, '\n');
-console.log('Result range:', np.amin(result), '-', np.amax(result), '\n');`}
+  code={[
+    "// Work in float for precision, then convert back to uint8",
+    "const image = np.random.randint(0, 256, [256, 256, 3])",
+    "  .divide(255.0);",
+    "",
+    "// Print a tiny patch so we can see actual values",
+    "console.log('Original patch [0:2, 0:5, :]:\\n' + image.slice('0:2', '0:5', ':').toString(), '\\n');",
+    "console.log('Original range (min/max):', np.amin(image), '-', np.amax(image), '\\n');",
+    "",
+    "// Brightness adjustment: add a constant",
+    "const brightnessOffset = 0.2;",
+    "const brighter = np.clip(np.add(image, brightnessOffset), 0, 1);",
+    "const darker = np.clip(np.subtract(image, brightnessOffset), 0, 1);",
+    "",
+    "console.log('Brighter patch [0:2, 0:5, :]:\\n' + brighter.slice('0:2', '0:5', ':').toString(), '\\n');",
+    "console.log('Darker patch [0:2, 0:5, :]:\\n' + darker.slice('0:2', '0:5', ':').toString(), '\\n');",
+    "",
+    "// Contrast adjustment: scale around the mean",
+    "const mean = np.mean(image);",
+    "const contrastFactor = 1.5;",
+    "const highContrast = image",
+    "  .subtract(mean)",
+    "  .multiply(contrastFactor)",
+    "  .add(mean)",
+    "  .clip(0, 1);",
+    "",
+    "console.log('High-contrast patch [0:2, 0:5, :]:\\n' + highContrast.slice('0:2', '0:5', ':').toString(), '\\n');",
+    "",
+    "// Gamma correction: raise to a power",
+    "const gamma = 2.2;",
+    "const gammaCorrected = np.power(image, 1 / gamma);",
+    "console.log('Gamma-corrected patch [0:2, 0:5, :]:\\n' + gammaCorrected.slice('0:2', '0:5', ':').toString(), '\\n');",
+    "",
+    "// Invert the image",
+    "const inverted = image",
+    "  .multiply(-1.0)",
+    "  .add(1.0);",
+    "console.log('Inverted patch [0:2, 0:5, :]:\\n' + inverted.slice('0:2', '0:5', ':').toString(), '\\n');",
+    "",
+    "// Convert back to uint8 for display",
+    "const result = np.multiply(brighter, 255).astype('uint8');",
+    "console.log('Result dtype:', result.dtype);",
+    "console.log('Result range (min/max):', np.amin(result), '-', np.amax(result), '\\n');",
+    "console.log('Result patch [0:2, 0:5, :]:\\n' + result.slice('0:2', '0:5', ':').toString(), '\\n');",
+  ].join("\n")}
   showImportHeader={true}
   showCopyButton={true}
 />
@@ -175,40 +180,42 @@ console.log('Green channel:', greenSqueezed.shape, '\n');`}
 Apply spatial filters to images using convolution. For a 2-D image, convolve each row and column separately using 1-D convolution, or build a simple approach using element-wise operations.
 
 <Playground
-  code={String.raw`// Create a simple 8x8 grayscale "image"
-const image = np.array([
-  [0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 1, 1, 0, 0, 0],
-  [0, 0, 1, 1, 1, 1, 0, 0],
-  [0, 1, 1, 1, 1, 1, 1, 0],
-  [0, 1, 1, 1, 1, 1, 1, 0],
-  [0, 0, 1, 1, 1, 1, 0, 0],
-  [0, 0, 0, 1, 1, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0],
-]);
-
-const smoothKernel = np.array([1 / 3, 1 / 3, 1 / 3]);
-const rows = image.shape[0];
-
-// Apply row-by-row convolution
-const smoothedRows = [];
-for (let i = 0; i < rows; i++) {
-  const row = image.slice(\`\${i}\`, ':');
-  smoothedRows.push(np.convolve(row, smoothKernel, 'same'));
-}
-const rowSmoothed = np.stack(smoothedRows);
-
-// Then smooth columns by transposing, convolving rows, and transposing back
-const cols = rowSmoothed.shape[1];
-const smoothedCols = [];
-for (let j = 0; j < cols; j++) {
-  const col = rowSmoothed.slice(':', \`\${j}\`);
-  smoothedCols.push(np.convolve(col, smoothKernel, 'same'));
-}
-const fullySmoothed = np.transpose(np.stack(smoothedCols));
-
-console.log('Smoothed image:', '\n');
-console.log(fullySmoothed.toString(), '\n');`}
+  code={[
+    "// Create a simple 8x8 grayscale 'image'",
+    "const image = np.array([",
+    "  [0, 0, 0, 0, 0, 0, 0, 0],",
+    "  [0, 0, 0, 1, 1, 0, 0, 0],",
+    "  [0, 0, 1, 1, 1, 1, 0, 0],",
+    "  [0, 1, 1, 1, 1, 1, 1, 0],",
+    "  [0, 1, 1, 1, 1, 1, 1, 0],",
+    "  [0, 0, 1, 1, 1, 1, 0, 0],",
+    "  [0, 0, 0, 1, 1, 0, 0, 0],",
+    "  [0, 0, 0, 0, 0, 0, 0, 0],",
+    "]);",
+    "",
+    "const smoothKernel = np.array([1 / 3, 1 / 3, 1 / 3]);",
+    "const rows = image.shape[0];",
+    "",
+    "// Apply row-by-row convolution",
+    "const smoothedRows = [];",
+    "for (let i = 0; i < rows; i++) {",
+    "  const row = image.row(i);",
+    "  smoothedRows.push(np.convolve(row, smoothKernel, 'same'));",
+    "}",
+    "const rowSmoothed = np.stack(smoothedRows);",
+    "",
+    "// Then smooth columns by transposing, convolving rows, and transposing back",
+    "const cols = rowSmoothed.shape[1];",
+    "const smoothedCols = [];",
+    "for (let j = 0; j < cols; j++) {",
+    "  const col = image.col(j);",
+    "  smoothedCols.push(np.convolve(col, smoothKernel, 'same'));",
+    "}",
+    "const fullySmoothed = np.transpose(np.stack(smoothedCols));",
+    "",
+    "console.log('Smoothed image:', '\\n');",
+    "console.log(fullySmoothed.toString(), '\\n');",
+  ].join("\n")}
   showImportHeader={true}
   showCopyButton={true}
 />
@@ -216,13 +223,3 @@ console.log(fullySmoothed.toString(), '\n');`}
 <Tip>
 For large-scale 2-D convolution, consider using the FFT approach: pad the image and kernel to the same size, multiply their FFTs, and inverse-transform the result. This runs in O(N log N) instead of O(N * K).
 </Tip>
-
-### Common kernels reference
-
-| Kernel | Purpose | Values |
-|---|---|---|
-| Box blur | Uniform smoothing | `[1/K, 1/K, ..., 1/K]` (K elements) |
-| Gaussian (1-D, approx) | Smooth with bell curve | `[0.06, 0.24, 0.4, 0.24, 0.06]` |
-| Derivative | Edge detection | `[-1, 0, 1]` |
-| Laplacian (1-D) | Second derivative | `[1, -2, 1]` |
-| Sharpen (1-D) | Enhance edges | `[-1, 3, -1]` |

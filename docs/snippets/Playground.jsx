@@ -307,6 +307,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   const codeRef = useRef(null);
   const resizeStartY = useRef(null);
   const resizeStartHeight = useRef(null);
+  const runSeqRef = useRef(0);
 
   const colors = THEME_COLORS[isDarkMode ? 'dark' : 'light'];
   const copyTimeoutRef = useRef(null);
@@ -380,15 +381,134 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     requestAnimationFrame(syncScroll);
   }, [resolvedExamples, syncScroll]);
 
-  const handleTab = useCallback((e) => {
+  const handleKeyDown = useCallback((e) => {
+    const ta = e.target;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const hasSelection = start !== end;
+
     if (e.key === "Tab") {
       e.preventDefault();
-      const ta = e.target;
-      const start = ta.selectionStart;
-      const end = ta.selectionEnd;
       const newVal = ta.value.substring(0, start) + "  " + ta.value.substring(end);
       setCode(newVal);
       requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + 2; });
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const lineStart = ta.value.lastIndexOf("\n", start - 1) + 1;
+      const lineTextUpToCursor = ta.value.substring(lineStart, start);
+      const indent = (lineTextUpToCursor.match(/^[ \t]*/) || [""])[0];
+      const insert = `\n${indent}`;
+      const newVal = ta.value.substring(0, start) + insert + ta.value.substring(end);
+      const nextPos = start + insert.length;
+      setCode(newVal);
+      requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = nextPos; });
+      return;
+    }
+
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      ta.focus();
+      ta.selectionStart = 0;
+      ta.selectionEnd = ta.value.length;
+      return;
+    }
+
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      const prevStart = ta.selectionStart;
+      const prevEnd = ta.selectionEnd;
+      let copyStart = prevStart;
+      let copyEnd = prevEnd;
+
+      if (!hasSelection) {
+        const lineStart = ta.value.lastIndexOf("\n", start - 1) + 1;
+        const lineEndRaw = ta.value.indexOf("\n", start);
+        const lineEnd = lineEndRaw === -1 ? ta.value.length : lineEndRaw;
+        copyStart = lineStart;
+        copyEnd = lineEnd;
+      }
+
+      ta.focus();
+      ta.selectionStart = copyStart;
+      ta.selectionEnd = copyEnd;
+
+      let copied = false;
+      try {
+        copied = typeof document.execCommand === "function" ? document.execCommand("copy") : false;
+      } catch {
+        copied = false;
+      }
+
+      if (!copied && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(ta.value.substring(copyStart, copyEnd)).catch(() => {});
+      }
+
+      requestAnimationFrame(() => {
+        ta.selectionStart = prevStart;
+        ta.selectionEnd = prevEnd;
+      });
+      return;
+    }
+
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === "/" || e.code === "Slash")) {
+      e.preventDefault();
+      const lineStart = ta.value.lastIndexOf("\n", start - 1) + 1;
+      const endForLineCalc = hasSelection && ta.value[end - 1] === "\n" ? end - 1 : end;
+      const lineEndRaw = ta.value.indexOf("\n", endForLineCalc);
+      const lineEnd = lineEndRaw === -1 ? ta.value.length : lineEndRaw;
+      const block = ta.value.substring(lineStart, lineEnd);
+      const lines = block.split("\n");
+      const isCommentedLine = (line) => /^(\s*)\/\//.test(line);
+      const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
+      const shouldUncomment = nonEmptyLines.length > 0 && nonEmptyLines.every(isCommentedLine);
+
+      const toggleLine = (line) => {
+        if (line.trim().length === 0) return line;
+        if (shouldUncomment) return line.replace(/^(\s*)\/\/ ?/, "$1");
+        const match = line.match(/^(\s*)/);
+        const indent = match ? match[1] : "";
+        return `${indent}// ${line.slice(indent.length)}`;
+      };
+
+      const updatedLines = lines.map(toggleLine);
+      const replacedBlock = updatedLines.join("\n");
+      const newVal = ta.value.substring(0, lineStart) + replacedBlock + ta.value.substring(lineEnd);
+      setCode(newVal);
+
+      requestAnimationFrame(() => {
+        if (hasSelection) {
+          ta.selectionStart = lineStart;
+          ta.selectionEnd = lineStart + replacedBlock.length;
+          return;
+        }
+
+        const line = lines[0] || "";
+        const cursorCol = start - lineStart;
+        let newCursorCol = cursorCol;
+        if (line.trim().length > 0) {
+          if (shouldUncomment) {
+            const uncommentMatch = line.match(/^(\s*)\/\/ ?/);
+            if (uncommentMatch) {
+              const indentLen = uncommentMatch[1].length;
+              const removedLen = uncommentMatch[0].length - indentLen;
+              if (cursorCol > indentLen) {
+                newCursorCol = Math.max(indentLen, cursorCol - removedLen);
+              }
+            }
+          } else {
+            const indentLen = (line.match(/^(\s*)/) || [""])[0].length;
+            if (cursorCol > indentLen) {
+              newCursorCol = cursorCol + 3;
+            }
+          }
+        }
+
+        const newCursor = lineStart + newCursorCol;
+        ta.selectionStart = ta.selectionEnd = newCursor;
+      });
     }
   }, []);
 
@@ -431,47 +551,61 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     }
   }, [startHeightPx, singleCode, showImportHeader, minHeightPx]);
 
-  const run = useCallback(() => {
+  const run = useCallback(async () => {
     if (!loaded || !window.np) return;
+    const runId = runSeqRef.current + 1;
+    runSeqRef.current = runId;
     setRunning(true);
     setTiming(null);
-    setTimeout(() => {
-      const logs = [];
-      const origLog = console.log;
-      const origError = console.error;
-      const origWarn = console.warn;
-      const fmt = (...args) =>
-        args.map((a) => {
-          if (a == null) return String(a);
-          if (typeof a === "object" && typeof a.toString === "function" && a.toString !== Object.prototype.toString) return a.toString();
-          if (typeof a === "object") { try { return JSON.stringify(a); } catch { return String(a); } }
-          return String(a);
-        }).join(" ");
-      console.log = (...args) => logs.push(fmt(...args));
-      console.error = (...args) => logs.push("Error: " + fmt(...args));
-      console.warn = (...args) => logs.push("Warning: " + fmt(...args));
-      let hasError = false;
-      const t0 = performance.now();
-      try {
-        const result = new Function("np", code)(window.np);
-        if (result !== undefined) {
-          logs.push(typeof result === "object" && typeof result?.toString === "function" && result.toString !== Object.prototype.toString ? result.toString() : String(result));
-        }
-      } catch (e) {
-        hasError = true;
-        logs.push("Error: " + e.message);
+    const logs = [];
+    const origLog = console.log;
+    const origError = console.error;
+    const origWarn = console.warn;
+    const fmt = (...args) =>
+      args.map((a) => {
+        if (a == null) return String(a);
+        if (typeof a === "object" && typeof a.toString === "function" && a.toString !== Object.prototype.toString) return a.toString();
+        if (typeof a === "object") { try { return JSON.stringify(a); } catch { return String(a); } }
+        return String(a);
+      }).join(" ");
+
+    console.log = (...args) => logs.push(fmt(...args));
+    console.error = (...args) => logs.push("Error: " + fmt(...args));
+    console.warn = (...args) => logs.push("Warning: " + fmt(...args));
+
+    let hasError = false;
+    const shouldRunAsync = /\bawait\b/.test(code);
+    const t0 = performance.now();
+    try {
+      let result;
+      if (shouldRunAsync) {
+        const executeAsync = new Function("np", `"use strict"; return (async () => {\n${code}\n})();`);
+        result = await executeAsync(window.np);
+      } else {
+        const executeSync = new Function("np", code);
+        result = executeSync(window.np);
       }
-      const elapsed = performance.now() - t0;
+      if (result !== undefined) {
+        logs.push(typeof result === "object" && typeof result?.toString === "function" && result.toString !== Object.prototype.toString ? result.toString() : String(result));
+      }
+    } catch (e) {
+      hasError = true;
+      logs.push("Error: " + (e?.message || String(e)));
+    } finally {
       console.log = origLog;
       console.error = origError;
       console.warn = origWarn;
-      setOutput(logs.join("\n"));
-      if (showTiming && !hasError) {
-        const formatted = elapsed < 0.15 ? "< 0.10 ms" : elapsed < 1 ? elapsed.toFixed(2) + " ms" : elapsed < 1000 ? elapsed.toFixed(1) + " ms" : (elapsed / 1000).toFixed(2) + " s";
-        setTiming(formatted);
-      }
-      setRunning(false);
-    }, 0);
+    }
+
+    const elapsed = performance.now() - t0;
+    if (runId !== runSeqRef.current) return;
+
+    setOutput(logs.join("\n"));
+    if (showTiming && !hasError) {
+      const formatted = elapsed < 0.15 ? "< 0.10 ms" : elapsed < 1 ? elapsed.toFixed(2) + " ms" : elapsed < 1000 ? elapsed.toFixed(1) + " ms" : (elapsed / 1000).toFixed(2) + " s";
+      setTiming(formatted);
+    }
+    setRunning(false);
   }, [loaded, code, showTiming]);
 
   const handleCopy = useCallback(async () => {
@@ -664,7 +798,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
           value={code}
           onChange={(e) => setCode(e.target.value)}
           onScroll={handleScroll}
-          onKeyDown={handleTab}
+          onKeyDown={handleKeyDown}
           style={textareaStyle}
           spellCheck={false}
           wrap="off"
