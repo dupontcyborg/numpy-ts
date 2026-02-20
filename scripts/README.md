@@ -30,6 +30,27 @@ python scripts/compare-api-coverage.py -v
 - Before releases to update coverage stats
 - When investigating what to implement next
 
+### `compare-docs-api-coverage.py`
+
+Audit docs API coverage against implemented `numpy-ts` exports.
+
+**Usage:**
+```bash
+python scripts/compare-docs-api-coverage.py
+python scripts/compare-docs-api-coverage.py --verbose
+python scripts/compare-docs-api-coverage.py --no-refresh
+```
+
+**What it does:**
+1. Runs `audit-numpyts-api.ts` to extract current exports
+2. Detects latest docs API folder (from `docs/docs.json` redirect or `docs/v*/api`)
+3. Parses `function ...(` signatures in `docs/<version>/api/**/*.mdx`
+4. Reports missing docs entries for implemented functions
+5. Reports doc signatures that do not map to current implementation
+6. Treats known aliases as covered when they are mentioned in API docs text
+
+**Output:** `scripts/docs-api-audit.json`
+
 ### `audit-numpy-api.py`
 
 Extracts and categorizes all NumPy functions.
