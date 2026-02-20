@@ -1,6 +1,6 @@
 {
   "name": "numpy-ts",
-  "version": "0.13.1",
+  "version": "1.0.0",
   "description": "Complete NumPy implementation for TypeScript and JavaScript (94% API coverage)",
   "main": "dist/numpy-ts.node.cjs",
   "browser": "dist/numpy-ts.browser.js",
@@ -90,7 +90,7 @@
   "bugs": {
     "url": "https://github.com/dupontcyborg/numpy-ts/issues"
   },
-  "homepage": "https://github.com/dupontcyborg/numpy-ts",
+  "homepage": "https://numpyts.dev",
   "devDependencies": {
     "@rollup/plugin-alias": "^6.0.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
