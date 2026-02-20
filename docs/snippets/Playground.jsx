@@ -10,6 +10,7 @@ export const Playground = ({
   showCopyButton = false,
   showTiming = true
 }) => {
+  const NUMPY_TS_CDN_VERSION = "0.13.1";
   const DEFAULT_EXAMPLES = {
     quickstart: {
       label: "Quickstart",
@@ -155,7 +156,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   };
 
   const CDN_URLS = {
-    numpyTs: "https://cdn.jsdelivr.net/npm/numpy-ts@0.13.1/dist/numpy-ts.browser.js",
+    numpyTs: `https://cdn.jsdelivr.net/npm/numpy-ts@${NUMPY_TS_CDN_VERSION}/dist/numpy-ts.browser.js`,
     prismCore: "https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js",
     prismTS: "https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js",
     prismCSSLight: "https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism.min.css",
@@ -320,7 +321,10 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
         await loadScript(CDN_URLS.numpyTs);
         await loadScript(CDN_URLS.prismCore);
         await loadScript(CDN_URLS.prismTS);
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) {
+          console.info(`[Playground] Loaded numpy-ts v${NUMPY_TS_CDN_VERSION} from CDN.`);
+          setLoaded(true);
+        }
       } catch (e) {
         if (!cancelled) setLoadError("Failed to load dependencies. Check your connection.");
       }
