@@ -3,14 +3,14 @@ title: "Signal Processing with FFT"
 description: "Build signals, compute Fourier transforms, filter frequencies, and apply convolution using numpy-ts."
 ---
 
+import { Playground } from '/snippets/Playground.jsx'
+
 ## Creating a composite signal
 
 Build a signal by summing sine waves at different frequencies. This is the starting point for most frequency-domain analysis.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Sampling parameters
+<Playground
+  code={String.raw`// Sampling parameters
 const sampleRate = 256;  // Hz
 const duration = 1;      // seconds
 const N = sampleRate * duration;
@@ -21,17 +21,24 @@ const t = np.linspace(0, duration, N);
 // Create a composite signal: 5 Hz + 20 Hz + 50 Hz
 const freq1 = 5, freq2 = 20, freq3 = 50;
 
-const signal = np.add(
-  np.add(
-    np.sin(np.multiply(t, 2 * Math.PI * freq1)),
-    np.multiply(np.sin(np.multiply(t, 2 * Math.PI * freq2)), 0.5)
-  ),
-  np.multiply(np.sin(np.multiply(t, 2 * Math.PI * freq3)), 0.3)
-);
+const wave1 = t.multiply(2 * Math.PI * freq1).sin();
+const wave2 = t.multiply(2 * Math.PI * freq2).sin().multiply(0.5);
+const wave3 = t.multiply(2 * Math.PI * freq3).sin().multiply(0.3);
+const signal = wave1.add(wave2).add(wave3);
 
-console.log('Signal shape:', signal.shape);  // [256]
-console.log('Signal dtype:', signal.dtype);  // 'float64'
-```
+console.log('Signal shape:', signal.shape);
+console.log('Signal dtype:', signal.dtype, '\n');
+
+// Verify: signal should oscillate between roughly -1.8 and +1.8
+console.log('Min value:', Number(np.min(signal)).toFixed(4));
+console.log('Max value:', Number(np.max(signal)).toFixed(4));
+console.log('Mean (should be ~0):', Number(np.mean(signal)).toFixed(4), '\n');
+
+// First few samples (signal starts near 0 since sin(0)=0)
+console.log('First 5 samples:', signal.slice('0:5'));`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -39,23 +46,20 @@ console.log('Signal dtype:', signal.dtype);  // 'float64'
 
 The FFT converts a time-domain signal into its frequency-domain representation, revealing which frequencies are present.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Assume signal and sampleRate from above
+<Playground
+  code={String.raw`// Assume signal and sampleRate from above
 const N = 256;
 const sampleRate = 256;
 
 const t = np.linspace(0, 1, N);
-const signal = np.add(
-  np.sin(np.multiply(t, 2 * Math.PI * 5)),
-  np.multiply(np.sin(np.multiply(t, 2 * Math.PI * 20)), 0.5)
-);
+const wave1 = t.multiply(2 * Math.PI * 5).sin();
+const wave2 = t.multiply(2 * Math.PI * 20).sin().multiply(0.5);
+const signal = wave1.add(wave2);
 
 // Compute the FFT
 const spectrum = np.fft.fft(signal);
-console.log('Spectrum shape:', spectrum.shape);   // [256]
-console.log('Spectrum dtype:', spectrum.dtype);    // 'complex128'
+console.log('Spectrum shape:', spectrum.shape);
+console.log('Spectrum dtype:', spectrum.dtype, '\n');
 
 // Get the frequency bins
 const freqs = np.fft.fftfreq(N, 1 / sampleRate);
@@ -65,16 +69,23 @@ const magnitude = np.absolute(spectrum);
 
 // Only the first half is meaningful for real signals (positive frequencies)
 const halfN = Math.floor(N / 2);
-const posFreqs = freqs.slice(`0:${halfN}`);
-const posMag = magnitude.slice(`0:${halfN}`);
+const posFreqs = freqs.slice('0:' + halfN);
+const posMag = magnitude.slice('0:' + halfN);
 
 // Normalize magnitude
 const normalizedMag = np.divide(posMag, N / 2);
 
-// Find peaks: frequencies where magnitude is above a threshold
-console.log('Frequency components detected at the peak magnitudes');
-// The peaks will appear at 5 Hz (amplitude ~1.0) and 20 Hz (amplitude ~0.5)
-```
+// Find the top 2 peaks by sorting magnitudes
+const sorted = np.argsort(np.multiply(normalizedMag, -1));
+const i0 = Number(sorted.get([0]));
+const i1 = Number(sorted.get([1]));
+
+console.log('Peak 1: ' + Number(posFreqs.get([i0])) + ' Hz (amplitude: ' + Number(normalizedMag.get([i0])).toFixed(3) + ')');
+console.log('Peak 2: ' + Number(posFreqs.get([i1])) + ' Hz (amplitude: ' + Number(normalizedMag.get([i1])).toFixed(3) + ')');
+console.log('\nExpected: 5 Hz (amplitude ~1.0) and 20 Hz (amplitude ~0.5)');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -82,10 +93,8 @@ console.log('Frequency components detected at the peak magnitudes');
 
 Remove unwanted frequencies by zeroing out their components in the frequency domain, then transform back to the time domain.
 
-```typescript
-import * as np from 'numpy-ts';
-
-const N = 256;
+<Playground
+  code={String.raw`const N = 256;
 const sampleRate = 256;
 const t = np.linspace(0, 1, N);
 
@@ -111,9 +120,22 @@ const recovered = np.fft.ifft(filtered);
 // The result is complex, take the real part
 const recoveredReal = np.real(recovered);
 
-// recoveredReal should closely match the original 10 Hz clean signal
-console.log('Filtered signal shape:', recoveredReal.shape); // [256]
-```
+// Validate: recovered signal should closely match the original clean signal
+const error = np.subtract(recoveredReal, clean);
+const maxErr = Number(np.max(np.absolute(error)));
+const meanErr = Number(np.mean(np.absolute(error)));
+console.log('Filtered signal shape:', recoveredReal.shape);
+console.log('Mean absolute error:', meanErr.toFixed(6));
+console.log('Max absolute error:', maxErr.toFixed(6), '(Gibbs ringing from sharp cutoff)', '\n');
+
+// The 60 Hz noise is gone — compare std dev before and after
+const noisyStd = Number(np.std(np.subtract(noisy, clean)));
+const recoveredStd = Number(np.std(error));
+console.log('Noise std (before filter):', noisyStd.toFixed(4));
+console.log('Residual std (after filter):', recoveredStd.toFixed(4));`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -121,33 +143,30 @@ console.log('Filtered signal shape:', recoveredReal.shape); // [256]
 
 `fftfreq` returns the frequency bins for each FFT output element. `fftshift` rearranges the output so that the zero-frequency component is at the center, which is the standard convention for visualization.
 
-```typescript
-import * as np from 'numpy-ts';
-
-const N = 8;
+<Playground
+  code={String.raw`const N = 8;
 const sampleSpacing = 1 / 8;  // 8 Hz sample rate
 
 // fftfreq returns frequencies in "standard" order:
-// [0, 1, 2, 3, -4, -3, -2, -1] * (sampleRate / N)
+// [0, positive..., negative...] (Hz)
 const freqs = np.fft.fftfreq(N, sampleSpacing);
-console.log(freqs.toString());
-// array([ 0.,  1.,  2.,  3., -4., -3., -2., -1.])
+console.log('fftfreq:', freqs.toString(), '\n');
 
 // fftshift centers the zero frequency:
-// [-4, -3, -2, -1, 0, 1, 2, 3] * (sampleRate / N)
+// [negative..., 0, positive...] — standard for visualization
 const shiftedFreqs = np.fft.fftshift(freqs);
-console.log(shiftedFreqs.toString());
-// array([-4., -3., -2., -1.,  0.,  1.,  2.,  3.])
+console.log('fftshift:', shiftedFreqs.toString(), '\n');
 
 // For real-valued signals, rfftfreq returns only the positive frequencies
 const rfreqs = np.fft.rfftfreq(N, sampleSpacing);
-console.log(rfreqs.toString());
-// array([0., 1., 2., 3., 4.])
+console.log('rfftfreq:', rfreqs.toString(), '\n');
 
 // Use ifftshift to undo the shift before calling ifft
 const unshifted = np.fft.ifftshift(shiftedFreqs);
-console.log(np.allclose(unshifted, freqs)); // true
-```
+console.log('ifftshift round-trip matches:', np.allclose(unshifted, freqs));`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -155,10 +174,8 @@ console.log(np.allclose(unshifted, freqs)); // true
 
 Convolution is fundamental to signal processing -- it is used for smoothing, differentiation, edge detection, and more. numpy-ts provides `convolve` for 1-D convolution.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Create a noisy step signal
+<Playground
+  code={String.raw`// Create a noisy step signal
 const step = np.concatenate([np.zeros([50]), np.ones([50])]);
 np.random.seed(42);
 const noisy = np.add(step, np.multiply(np.random.normal(0, 1, [100]), 0.3));
@@ -169,20 +186,31 @@ const smoothKernel = np.full([kernelSize], 1.0 / kernelSize);
 
 // Apply convolution
 const smoothed = np.convolve(noisy, smoothKernel, 'same');
-console.log('Smoothed signal shape:', smoothed.shape); // [100]
+
+// Smoothing reduces noise — compare std dev before and after
+const noisyStd = Number(np.std(np.subtract(noisy, step))).toFixed(3);
+const smoothStd = Number(np.std(np.subtract(smoothed, step))).toFixed(3);
+console.log('Noise std (before smoothing):', noisyStd);
+console.log('Noise std (after smoothing):', smoothStd, '\n');
 
 // Differentiation kernel (first derivative approximation)
 const diffKernel = np.array([-1, 0, 1]);
 const derivative = np.convolve(step, diffKernel, 'same');
-// derivative will spike at the step transition
+
+// The derivative should spike at the step transition (index ~50)
+const absDeriv = derivative.absolute();
+const peakIdx = Number(np.argmax(absDeriv));
+console.log('Derivative peak at index:', peakIdx, '(step transition is at 50)');
+console.log('Derivative peak magnitude:', Number(absDeriv.get([peakIdx])), '\n');
 
 // Edge detection kernel (Laplacian approximation)
 const edgeKernel = np.array([1, -2, 1]);
 const edges = np.convolve(step, edgeKernel, 'same');
-
-console.log('Derivative shape:', derivative.shape);  // [100]
-console.log('Edges shape:', edges.shape);            // [100]
-```
+const edgePeak = Number(np.argmax(np.absolute(edges)));
+console.log('Edge detected at index:', edgePeak);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 <Note>
 The `'same'` mode returns output with the same length as the input, `'full'` returns the full convolution (length M+N-1), and `'valid'` returns only the part computed without zero-padded edges.
@@ -194,23 +222,29 @@ The `'same'` mode returns output with the same length as the input, `'full'` ret
 
 When your input is purely real (no imaginary component), `rfft` is more efficient than `fft` because it exploits the conjugate symmetry of the spectrum.
 
-```typescript
-import * as np from 'numpy-ts';
-
-const N = 1024;
+<Playground
+  code={String.raw`const N = 1024;
 const t = np.linspace(0, 1, N);
 const signal = np.sin(np.multiply(t, 2 * Math.PI * 50));
 
 // rfft is ~2x faster and returns only positive frequencies
 const rfftResult = np.fft.rfft(signal);
-console.log('rfft output length:', rfftResult.shape[0]); // 513 (N/2 + 1)
+console.log('Input length:', N);
+console.log('rfft output length:', rfftResult.shape[0], '(= N/2 + 1 =', N/2 + 1 + ')', '\n');
 
 // Corresponding frequencies
 const rfreqs = np.fft.rfftfreq(N, 1.0 / N);
-console.log('Frequency bins:', rfreqs.shape[0]); // 513
+console.log('Frequency bins:', rfreqs.shape[0], '\n');
+
+// The peak should be at 50 Hz
+const mag = np.absolute(rfftResult);
+const peakIdx = Number(np.argmax(mag));
+console.log('Peak frequency:', Number(rfreqs.get([peakIdx])), 'Hz (expected: 50)', '\n');
 
 // Inverse: irfft recovers the original real signal
 const recovered = np.fft.irfft(rfftResult);
-console.log('Recovered shape:', recovered.shape); // [1024]
-console.log(np.allclose(recovered, signal)); // true
-```
+console.log('Recovered shape:', recovered.shape);
+console.log('Round-trip matches original:', np.allclose(recovered, signal));`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>

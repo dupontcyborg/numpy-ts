@@ -21,7 +21,7 @@ console.log('x =', x, '\n');
 
 // Verify: A @ x should equal b (matrix-vector product)
 const check = np.dot(A, x);
-console.log('A @ x =', check);`}
+console.log('A @ x =', check, '\n');`}
   showImportHeader={true}
   showCopyButton={true}
 />
@@ -84,8 +84,8 @@ SVD factors any matrix `A` into `U * S * V^T`. This is the foundation for dimens
 
 const { u, s, vt } = np.linalg.svd(A);
 
-console.log('U shape:', u.shape);
-console.log('S:', s);
+console.log('U shape:', u.shape, '\n');
+console.log('S:', s, '\n');
 console.log('Vt shape:', vt.shape, '\n');
 
 // Low-rank approximation: keep only the first k singular values
@@ -97,8 +97,8 @@ const Sk = np.diag(s.slice('0:' + k));
 const Vtk = vt.slice('0:' + k, ':');
 
 const A_approx = np.matmul(np.matmul(Uk, Sk), Vtk);
-console.log('Rank-2 approximation:');
-console.log(A_approx);`}
+console.log('Rank-2 approximation:', '\n');
+console.log(A_approx, '\n');`}
   showImportHeader={true}
   showCopyButton={true}
 />
@@ -124,12 +124,12 @@ console.log('det(A):', det); // -2
 // Moore-Penrose pseudo-inverse (works on any matrix, including non-square)
 const B = np.array([[1, 2], [3, 4], [5, 6]]);
 const Bpinv = np.linalg.pinv(B);
-console.log('B shape:', B.shape);
-console.log('pinv shape:', Bpinv.shape);
+console.log('B shape:', B.shape, '\n');
+console.log('pinv shape:', Bpinv.shape, '\n');
 
 // Verify: B @ pinv(B) @ B ~= B
 const check = np.matmul(np.matmul(B, Bpinv), B);
-console.log('B @ pinv(B) @ B ~= B:', np.allclose(check, B));`}
+console.log('B @ pinv(B) @ B ~= B:', np.allclose(check, B), '\n');`}
   showImportHeader={true}
   showCopyButton={true}
 />

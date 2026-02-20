@@ -3,28 +3,28 @@ title: "Image Processing Patterns"
 description: "Represent images as arrays, slice regions of interest, apply element-wise transforms, transpose channels, and build convolution filters."
 ---
 
+import { Playground } from '/snippets/Playground.jsx'
+
 Images are naturally represented as multi-dimensional arrays. A grayscale image is a 2-D array of pixel intensities, while a color image is a 3-D array with a channel dimension. numpy-ts provides the array operations needed for common image processing tasks.
 
 ## Representing images as 2D/3D arrays
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Grayscale image: 2-D array of shape [height, width]
+<Playground
+  code={String.raw`// Grayscale image: 2-D array of shape [height, width]
 // Values typically in [0, 255] for uint8 or [0.0, 1.0] for float
 const grayscale = np.zeros([480, 640], 'uint8');
-console.log('Grayscale shape:', grayscale.shape);  // [480, 640]
+console.log('Grayscale shape:', grayscale.shape, '\n');
 
 // RGB image: 3-D array of shape [height, width, channels]
 const rgb = np.zeros([480, 640, 3], 'uint8');
-console.log('RGB shape:', rgb.shape);  // [480, 640, 3]
+console.log('RGB shape:', rgb.shape, '\n');
 
 // Create a synthetic test image: horizontal gradient
 const width = 256;
 const height = 256;
 const row = np.arange(0, width, 1, 'uint8');       // [0, 1, 2, ..., 255]
 const gradient = np.tile(row, [height, 1]);          // repeat row for each scanline
-console.log('Gradient shape:', gradient.shape);      // [256, 256]
+console.log('Gradient shape:', gradient.shape, '\n');
 
 // Create a checkerboard pattern
 const blockSize = 32;
@@ -39,8 +39,10 @@ const colIdx = np.floor_divide(
   blockSize
 );
 const checker = np.mod(np.add(rowIdx, colIdx), 2);
-console.log('Checkerboard shape:', checker.shape);   // [256, 256]
-```
+console.log('Checkerboard shape:', checker.shape, '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -48,41 +50,41 @@ console.log('Checkerboard shape:', checker.shape);   // [256, 256]
 
 Extract sub-images using NumPy-style slicing.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Simulated 480x640 RGB image
+<Playground
+  code={String.raw`// Simulated 480x640 RGB image
 const image = np.random.randint(0, 256, [480, 640, 3], 'uint8');
 
 // Extract a 100x100 region starting at (50, 100)
 const roi = image.slice('50:150', '100:200', ':');
-console.log('ROI shape:', roi.shape);  // [100, 100, 3]
+console.log('ROI shape:', roi.shape, '\n');
 
 // Extract a single channel (e.g., red channel)
 const red = image.slice(':', ':', '0');
-console.log('Red channel shape:', red.shape);  // [480, 640]
+console.log('Red channel shape:', red.shape, '\n');
 
 // Extract the center 200x200 patch
 const cy = 240, cx = 320, halfSize = 100;
 const center = image.slice(
-  `${cy - halfSize}:${cy + halfSize}`,
-  `${cx - halfSize}:${cx + halfSize}`,
+  \`\${cy - halfSize}:\${cy + halfSize}\`,
+  \`\${cx - halfSize}:\${cx + halfSize}\`,
   ':'
 );
-console.log('Center patch shape:', center.shape);  // [200, 200, 3]
+console.log('Center patch shape:', center.shape, '\n');
 
 // Downsample by taking every other pixel
 const downsampled = image.slice('::2', '::2', ':');
-console.log('Downsampled shape:', downsampled.shape);  // [240, 320, 3]
+console.log('Downsampled shape:', downsampled.shape, '\n');
 
 // Flip the image vertically (reverse rows)
 const flipped = np.flip(image, 0);
-console.log('Flipped shape:', flipped.shape);  // [480, 640, 3]
+console.log('Flipped shape:', flipped.shape, '\n');
 
 // Rotate 90 degrees
 const rotated = np.rot90(image);
-console.log('Rotated shape:', rotated.shape);  // [640, 480, 3]
-```
+console.log('Rotated shape:', rotated.shape, '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -90,10 +92,8 @@ console.log('Rotated shape:', rotated.shape);  // [640, 480, 3]
 
 Adjust pixel values using vectorized arithmetic -- no loops required.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Work in float for precision, then convert back to uint8
+<Playground
+  code={String.raw`// Work in float for precision, then convert back to uint8
 const image = np.divide(
   np.random.randint(0, 256, [256, 256, 3]),
   255.0
@@ -124,9 +124,11 @@ const inverted = np.subtract(1.0, image);
 
 // Convert back to uint8 for display
 const result = np.multiply(brighter, 255).astype('uint8');
-console.log('Result dtype:', result.dtype);  // 'uint8'
-console.log('Result range:', np.amin(result), '-', np.amax(result));
-```
+console.log('Result dtype:', result.dtype, '\n');
+console.log('Result range:', np.amin(result), '-', np.amax(result), '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -134,37 +136,37 @@ console.log('Result range:', np.amin(result), '-', np.amax(result));
 
 Different frameworks expect different axis orderings. Use `transpose` and `reshape` to convert between them.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// HWC format (height, width, channels) -- common in image APIs
+<Playground
+  code={String.raw`// HWC format (height, width, channels) -- common in image APIs
 const hwc = np.random.randint(0, 256, [224, 224, 3], 'uint8');
-console.log('HWC shape:', hwc.shape);  // [224, 224, 3]
+console.log('HWC shape:', hwc.shape, '\n');
 
 // Convert to CHW format (channels, height, width) -- used by ML frameworks
 const chw = np.transpose(hwc, [2, 0, 1]);
-console.log('CHW shape:', chw.shape);  // [3, 224, 224]
+console.log('CHW shape:', chw.shape, '\n');
 
 // Convert back to HWC
 const backToHwc = np.transpose(chw, [1, 2, 0]);
-console.log('Back to HWC:', backToHwc.shape);  // [224, 224, 3]
+console.log('Back to HWC:', backToHwc.shape, '\n');
 
 // Add a batch dimension (NCHW for batched inference)
 const batch = np.expand_dims(chw, 0);
-console.log('NCHW batch shape:', batch.shape);  // [1, 3, 224, 224]
+console.log('NCHW batch shape:', batch.shape, '\n');
 
 // Stack multiple images into a batch
 const img1 = np.random.randint(0, 256, [3, 224, 224], 'uint8');
 const img2 = np.random.randint(0, 256, [3, 224, 224], 'uint8');
 const img3 = np.random.randint(0, 256, [3, 224, 224], 'uint8');
 const batchOf3 = np.stack([img1, img2, img3]);
-console.log('Batch of 3:', batchOf3.shape);  // [3, 3, 224, 224]
+console.log('Batch of 3:', batchOf3.shape, '\n');
 
 // Extract a single channel and squeeze
 const greenChannel = chw.slice('1:2', ':', ':');  // shape [1, 224, 224]
 const greenSqueezed = np.squeeze(greenChannel, 0); // shape [224, 224]
-console.log('Green channel:', greenSqueezed.shape);
-```
+console.log('Green channel:', greenSqueezed.shape, '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 ---
 
@@ -172,10 +174,8 @@ console.log('Green channel:', greenSqueezed.shape);
 
 Apply spatial filters to images using convolution. For a 2-D image, convolve each row and column separately using 1-D convolution, or build a simple approach using element-wise operations.
 
-```typescript
-import * as np from 'numpy-ts';
-
-// Create a simple 8x8 grayscale "image"
+<Playground
+  code={String.raw`// Create a simple 8x8 grayscale "image"
 const image = np.array([
   [0, 0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 1, 1, 0, 0, 0],
@@ -187,14 +187,13 @@ const image = np.array([
   [0, 0, 0, 0, 0, 0, 0, 0],
 ]);
 
-// 1-D smoothing: convolve each row with a [1/3, 1/3, 1/3] kernel
 const smoothKernel = np.array([1 / 3, 1 / 3, 1 / 3]);
 const rows = image.shape[0];
 
 // Apply row-by-row convolution
 const smoothedRows = [];
 for (let i = 0; i < rows; i++) {
-  const row = image.slice(`${i}`, ':');
+  const row = image.slice(\`\${i}\`, ':');
   smoothedRows.push(np.convolve(row, smoothKernel, 'same'));
 }
 const rowSmoothed = np.stack(smoothedRows);
@@ -203,14 +202,16 @@ const rowSmoothed = np.stack(smoothedRows);
 const cols = rowSmoothed.shape[1];
 const smoothedCols = [];
 for (let j = 0; j < cols; j++) {
-  const col = rowSmoothed.slice(':', `${j}`);
+  const col = rowSmoothed.slice(':', \`\${j}\`);
   smoothedCols.push(np.convolve(col, smoothKernel, 'same'));
 }
 const fullySmoothed = np.transpose(np.stack(smoothedCols));
 
-console.log('Smoothed image:');
-console.log(fullySmoothed.toString());
-```
+console.log('Smoothed image:', '\n');
+console.log(fullySmoothed.toString(), '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
 
 <Tip>
 For large-scale 2-D convolution, consider using the FFT approach: pad the image and kernel to the same size, multiply their FFTs, and inverse-transform the result. This runs in O(N log N) instead of O(N * K).

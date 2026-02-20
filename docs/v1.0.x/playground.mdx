@@ -1,19 +1,40 @@
 ---
 title: "Playground"
 description: "Write and run numpy-ts code directly in your browser."
-mode: "wide"
+mode: "center"
 ---
 
-import { Playground } from "/snippets/Playground.jsx"
+import { Playground } from '/snippets/Playground.jsx'
 
 Write numpy-ts code and see results instantly — everything runs right in your browser using the same library you'd install from npm.
 
-<Playground showImportHeader={true} showCopyButton={true} />
+<Playground
+  code={String.raw`// Create arrays
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+const b = np.array([[10, 20, 30], [40, 50, 60]]);
+
+// Element-wise operation
+const c = np.add(a, b);
+
+// Reduction
+const total = np.sum(c);
+
+// Method chaining
+const d = c.multiply(b).subtract(a);
+
+// Print outputs
+console.log('a =\n', a, '\n');
+console.log('b =\n', b, '\n');
+console.log('a + b =\n', c, '\n');
+console.log('sum(a + b) =', total, '\n');
+console.log('c * b - a =\n', d);`}
+  showImportHeader={true}
+  showCopyButton={true}
+  startingHeight={460}
+/>
 
 ## How it works
 
 - Code executes **in your browser** using the numpy-ts browser bundle loaded from CDN
 - The `np` object is pre-loaded with all numpy-ts functions
 - Use `console.log()` to print output, or return a value from the last expression
-- NDArray objects display with `.toString()` formatting
-- Select from built-in examples using the dropdown, or write your own code

@@ -5,8 +5,10 @@ export const Playground = ({
   code: singleCode = null,
   label = "",
   height = null,
+  startingHeight = null,
   showImportHeader = false,
-  showCopyButton = false
+  showCopyButton = false,
+  showTiming = true
 }) => {
   const DEFAULT_EXAMPLES = {
     quickstart: {
@@ -212,11 +214,9 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     }
   };
 
-  const MIN_HEIGHT = 100;
+  const BASE_MIN_HEIGHT = 100;
   const MAX_HEIGHT = 800;
   const IMPORT_HEADER_TEXT = `import * as np from 'numpy-ts';\n\n`;
-
-  const clampHeight = (h) => Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, h));
   const parseHeightPx = (value) => {
     if (value == null) return null;
     if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -226,6 +226,8 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     }
     return null;
   };
+  const minHeightPx = BASE_MIN_HEIGHT;
+  const clampHeight = (h) => Math.max(minHeightPx, Math.min(MAX_HEIGHT, h));
   const estimateSingleCodeHeight = (script, includeImportHeader) => {
     const normalized = (script || "").replace(/\r\n/g, "\n");
     const lineCount = normalized.length > 0 ? normalized.split("\n").length : 1;
@@ -239,10 +241,16 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        if (existing.dataset.loaded === 'true') { resolve(); return; }
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
       const s = document.createElement("script");
       s.src = src;
-      s.onload = resolve;
+      s.onload = () => { s.dataset.loaded = 'true'; resolve(); };
       s.onerror = reject;
       document.head.appendChild(s);
     });
@@ -272,9 +280,9 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     ? defaultExample
     : ((example && resolvedExamples[example]) ? example : fallbackKey);
   const initialCode = resolvedExamples[initialExampleKey]?.code || "";
-  const explicitHeightPx = parseHeightPx(height);
-  const initialEditorHeight = explicitHeightPx != null
-    ? clampHeight(explicitHeightPx)
+  const startHeightPx = parseHeightPx(startingHeight) ?? parseHeightPx(height);
+  const initialEditorHeight = startHeightPx != null
+    ? clampHeight(startHeightPx)
     : (typeof singleCode === "string"
       ? clampHeight(estimateSingleCodeHeight(singleCode, showImportHeader))
       : 340);
@@ -291,6 +299,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   const [editorHeight, setEditorHeight] = useState(initialEditorHeight);
   const [isResizing, setIsResizing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [timing, setTiming] = useState(null);
   const [copyHover, setCopyHover] = useState(false);
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
   const textareaRef = useRef(null);
@@ -395,7 +404,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
 
     const handleMouseMove = (e) => {
       const delta = e.clientY - resizeStartY.current;
-      const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStartHeight.current + delta));
+      const newHeight = Math.max(minHeightPx, Math.min(MAX_HEIGHT, resizeStartHeight.current + delta));
       setEditorHeight(newHeight);
     };
 
@@ -410,49 +419,60 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing]);
+  }, [isResizing, minHeightPx]);
 
   useEffect(() => {
-    if (explicitHeightPx != null) {
-      setEditorHeight(clampHeight(explicitHeightPx));
+    if (startHeightPx != null) {
+      setEditorHeight(clampHeight(startHeightPx));
       return;
     }
     if (typeof singleCode === "string") {
       setEditorHeight(clampHeight(estimateSingleCodeHeight(singleCode, showImportHeader)));
     }
-  }, [explicitHeightPx, singleCode, showImportHeader]);
+  }, [startHeightPx, singleCode, showImportHeader, minHeightPx]);
 
   const run = useCallback(() => {
     if (!loaded || !window.np) return;
     setRunning(true);
-    const logs = [];
-    const origLog = console.log;
-    const origError = console.error;
-    const origWarn = console.warn;
-    const fmt = (...args) =>
-      args.map((a) => {
-        if (a == null) return String(a);
-        if (typeof a === "object" && typeof a.toString === "function" && a.toString !== Object.prototype.toString) return a.toString();
-        if (typeof a === "object") { try { return JSON.stringify(a); } catch { return String(a); } }
-        return String(a);
-      }).join(" ");
-    console.log = (...args) => logs.push(fmt(...args));
-    console.error = (...args) => logs.push("Error: " + fmt(...args));
-    console.warn = (...args) => logs.push("Warning: " + fmt(...args));
-    try {
-      const result = new Function("np", code)(window.np);
-      if (result !== undefined) {
-        logs.push(typeof result === "object" && typeof result?.toString === "function" && result.toString !== Object.prototype.toString ? result.toString() : String(result));
+    setTiming(null);
+    setTimeout(() => {
+      const logs = [];
+      const origLog = console.log;
+      const origError = console.error;
+      const origWarn = console.warn;
+      const fmt = (...args) =>
+        args.map((a) => {
+          if (a == null) return String(a);
+          if (typeof a === "object" && typeof a.toString === "function" && a.toString !== Object.prototype.toString) return a.toString();
+          if (typeof a === "object") { try { return JSON.stringify(a); } catch { return String(a); } }
+          return String(a);
+        }).join(" ");
+      console.log = (...args) => logs.push(fmt(...args));
+      console.error = (...args) => logs.push("Error: " + fmt(...args));
+      console.warn = (...args) => logs.push("Warning: " + fmt(...args));
+      let hasError = false;
+      const t0 = performance.now();
+      try {
+        const result = new Function("np", code)(window.np);
+        if (result !== undefined) {
+          logs.push(typeof result === "object" && typeof result?.toString === "function" && result.toString !== Object.prototype.toString ? result.toString() : String(result));
+        }
+      } catch (e) {
+        hasError = true;
+        logs.push("Error: " + e.message);
       }
-    } catch (e) {
-      logs.push("Error: " + e.message);
-    }
-    console.log = origLog;
-    console.error = origError;
-    console.warn = origWarn;
-    setOutput(logs.join("\n"));
-    setRunning(false);
-  }, [loaded, code]);
+      const elapsed = performance.now() - t0;
+      console.log = origLog;
+      console.error = origError;
+      console.warn = origWarn;
+      setOutput(logs.join("\n"));
+      if (showTiming && !hasError) {
+        const formatted = elapsed < 0.15 ? "< 0.10 ms" : elapsed < 1 ? elapsed.toFixed(2) + " ms" : elapsed < 1000 ? elapsed.toFixed(1) + " ms" : (elapsed / 1000).toFixed(2) + " s";
+        setTiming(formatted);
+      }
+      setRunning(false);
+    }, 0);
+  }, [loaded, code, showTiming]);
 
   const handleCopy = useCallback(async () => {
     const textToCopy = `${showImportHeader ? IMPORT_HEADER_TEXT : ""}${code}`;
@@ -545,7 +565,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   };
   const sharedTextStyle = { margin: 0, border: 0, padding: "16px", whiteSpace: "pre", overflowWrap: "normal", wordBreak: "normal", verticalAlign: "baseline", textRendering: "auto" };
   const preStyle = { ...SHARED_FONT, ...sharedTextStyle, position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: colors.editorBg, overflow: "hidden", pointerEvents: "none", padding: 0, borderRadius: editorContentRadius };
-  const codeStyle = { display: "block", ...SHARED_FONT, background: "transparent", padding: "16px", margin: 0, border: 0, whiteSpace: "inherit", overflowWrap: "inherit", wordBreak: "inherit", lineHeight: "inherit", willChange: "transform" };
+  const codeStyle = { display: "block", ...SHARED_FONT, background: "transparent", padding: "16px", margin: 0, border: 0, whiteSpace: "pre", overflowWrap: "normal", wordBreak: "normal", lineHeight: "inherit", willChange: "transform" };
   const textareaStyle = { ...SHARED_FONT, ...sharedTextStyle, position: "absolute", top: 0, left: 0, right: 0, bottom: 0, paddingTop: showImportHeader ? "calc(16px + 3em)" : "16px", background: "transparent", color: "transparent", caretColor: colors.caretColor, outline: "none", resize: "none", overflow: "auto", WebkitTextFillColor: "transparent", zIndex: 1, width: "100%", height: "100%", borderRadius: editorContentRadius };
   const resizeHandle = { height: "4px", background: isResizing ? colors.resizeHandleHoverBg : colors.resizeHandleBg, cursor: "ns-resize", transition: "background 0.15s", borderLeft: `1px solid ${colors.editorBorder}`, borderRight: `1px solid ${colors.editorBorder}` };
   const toolbarStyle = { display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: colors.toolbarBg, borderLeft: `1px solid ${colors.editorBorder}`, borderRight: `1px solid ${colors.editorBorder}`, flexWrap: "wrap" };
@@ -555,13 +575,23 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   const outputStyle = { margin: 0, padding: "16px", minHeight: "60px", maxHeight: "240px", overflow: "auto", ...SHARED_FONT, fontSize: "12.5px", background: colors.outputBg, color: colors.outputText, borderRadius: "0 0 8px 8px", border: `1px solid ${colors.editorBorder}`, borderTop: "none", whiteSpace: "pre-wrap", overflowWrap: "break-word" };
   const renderedCode = `${showImportHeader ? IMPORT_HEADER_TEXT : ""}${code}`;
   const singleLabel = (resolvedExamples[exampleKeys[0]]?.label || "").trim();
+  const runSpinnerStyle = { animation: "playgroundSpin 0.9s linear infinite", display: "inline-block" };
 
   return (
     <div>
       <style>{`
+        @keyframes playgroundSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
         @keyframes playgroundPulse {
           0%, 100% { opacity: 0.45; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.12); }
+        }
+        code[class*="language-"] {
+          white-space: pre !important;
+          word-break: normal !important;
+          overflow-wrap: normal !important;
         }
       `}</style>
       {exampleKeys.length > 1 ? (
@@ -659,8 +689,13 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
           onMouseEnter={(e) => loaded && (e.target.style.background = "#2668b0")}
           onMouseLeave={(e) => loaded && (e.target.style.background = "#3179C7")}
         >
-          {running ? "..." : "\u25B6"} Run
+          {running ? <><span style={runSpinnerStyle}>{"\u21BB"}</span> Run</> : <><span>{"\u25B6"}</span> Run</>}
         </button>
+        {timing && !running && (
+          <span style={{ fontSize: "12px", color: "#4caf50", fontWeight: 500 }}>
+            Completed in {timing}
+          </span>
+        )}
         <span style={badgeStyle}>
           {loaded ? (
             <><span style={{ color: "#4caf50", display: "inline-block", animation: "playgroundPulse 2.2s ease-in-out infinite", transformOrigin: "center" }}>{"\u25CF"}</span> Runs in your browser</>
