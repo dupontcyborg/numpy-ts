@@ -45,18 +45,29 @@ You can load numpy-ts directly in the browser without a build step:
   import * as np from 'https://esm.sh/numpy-ts';
 
   const a = np.array([[1, 2], [3, 4]]);
-  console.log(a.toString());
+  console.log(a);
 </script>
 ```
 
 ```html unpkg
 <script type="module">
-  import * as np from 'https://unpkg.com/numpy-ts/dist/esm/index.js';
+  import * as np from 'https://unpkg.com/numpy-ts?module';
 
   const a = np.array([[1, 2], [3, 4]]);
-  console.log(a.toString());
+  console.log(a);
 </script>
 ```
+
+```html jsdelivr
+<script type="module">
+  import * as np from "https://cdn.jsdelivr.net/npm/numpy-ts/+esm";
+
+  const a = np.array([[1, 2], [3, 4]]);
+  console.log(a);
+</script>
+```
+
+
 </CodeGroup>
 
 ## Choose your entry point
@@ -68,6 +79,8 @@ numpy-ts ships three entry points. Pick the one that fits your use case:
 | **Full** | `numpy-ts` | `NDArray` | ~200-300 KB | You want method chaining and the complete API |
 | **Core** | `numpy-ts/core` | `NDArrayCore` | ~10-40 KB | Bundle size matters; you only need specific functions |
 | **Node** | `numpy-ts/node` | `NDArray` | ~200-300 KB + fs | You need file I/O (`load`, `save`, `savez`) on Node.js |
+
+See the [Tree-Shaking guide](.//tree-shaking) for a detailed comparison.
 
 ### Full library (`numpy-ts`)
 
@@ -96,7 +109,7 @@ const b = transpose(reshape(add(a, 10), [2, 2]));
 Best for libraries, frontend apps where every kilobyte counts, and when you only need a handful of functions.
 
 <Tip>
-Importing just `array` and `add` from `numpy-ts/core` results in a bundle around **10 KB** minified. The full entry point is always ~200-300 KB regardless of what you use. See the [Tree-Shaking guide](.//tree-shaking) for a detailed comparison.
+Importing just `array` and `add` from `numpy-ts/core` results in a bundle around **10 KB** minified. The full entry point is always ~200-300 KB regardless of what you use.
 </Tip>
 
 ### Node.js file I/O (`numpy-ts/node`)

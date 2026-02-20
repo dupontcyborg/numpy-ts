@@ -10,23 +10,23 @@ All decomposition functions live under the `linalg` namespace. Access them as `n
 Compute the eigenvalues and right eigenvectors of a square matrix. For each eigenvalue `w[i]`, the corresponding eigenvector is the column `v[:, i]`.
 
 ```typescript
-function linalg.eig(a: ArrayLike): [NDArray, NDArray]
+function linalg.eig(a: ArrayLike): { w: NDArray; v: NDArray; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input square matrix. |
 
-**Returns:** `[NDArray, NDArray]` -- A tuple `[eigenvalues, eigenvectors]` where `eigenvalues` has shape `[n]` and `eigenvectors` has shape `[n, n]`. The column `eigenvectors[:, i]` is the eigenvector corresponding to `eigenvalues[i]`.
+**Returns:** `{ w, v }` -- Object where `w` has shape `[n]` (eigenvalues) and `v` has shape `[n, n]` (eigenvectors). The column `v[:, i]` is the eigenvector corresponding to `w[i]`.
 
 ```typescript
 import * as np from 'numpy-ts';
 
 const A = np.array([[1, -1], [1, 1]]);
 
-const [values, vectors] = np.linalg.eig(A);
-console.log(values.shape);    // [2]
-console.log(vectors.shape);   // [2, 2]
+const { w, v } = np.linalg.eig(A);
+console.log(w.shape);    // [2]
+console.log(v.shape);    // [2, 2]
 ```
 
 ---
@@ -36,7 +36,7 @@ console.log(vectors.shape);   // [2, 2]
 Compute eigenvalues and eigenvectors of a symmetric (Hermitian) matrix. The eigenvalues are returned in ascending order. This is faster than `eig` for symmetric matrices and guarantees real eigenvalues.
 
 ```typescript
-function linalg.eigh(a: ArrayLike, UPLO?: 'L' | 'U'): [NDArray, NDArray]
+function linalg.eigh(a: ArrayLike, UPLO?: 'L' | 'U'): { w: NDArray; v: NDArray; }
 ```
 
 | Name | Type | Default | Description |
@@ -44,16 +44,16 @@ function linalg.eigh(a: ArrayLike, UPLO?: 'L' | 'U'): [NDArray, NDArray]
 | `a` | `ArrayLike` | -- | Input symmetric matrix. |
 | `UPLO` | `'L' \| 'U'` | `'L'` | Whether to use the lower (`'L'`) or upper (`'U'`) triangle of `a`. |
 
-**Returns:** `[NDArray, NDArray]` -- A tuple `[eigenvalues, eigenvectors]`. Eigenvalues are sorted in ascending order. Eigenvectors are orthonormal.
+**Returns:** `{ w, v }` -- Object where `w` contains eigenvalues in ascending order and `v` contains orthonormal eigenvectors.
 
 ```typescript
 import * as np from 'numpy-ts';
 
 const A = np.array([[2, 1], [1, 3]]);
 
-const [values, vectors] = np.linalg.eigh(A);
-console.log(values.toArray());  // eigenvalues in ascending order
-console.log(vectors.shape);     // [2, 2]
+const { w, v } = np.linalg.eigh(A);
+console.log(w.toArray());  // eigenvalues in ascending order
+console.log(v.shape);      // [2, 2]
 ```
 
 ---
@@ -114,29 +114,37 @@ console.log(w.toArray());  // eigenvalues in ascending order
 Compute the singular value decomposition (SVD) of a matrix. Factors the matrix `a` as `U @ diag(S) @ Vh`.
 
 ```typescript
-function linalg.svd(a: ArrayLike, full_matrices?: boolean): [NDArray, NDArray, NDArray]
+function linalg.svd(
+  a: ArrayLike,
+  full_matrices?: boolean,
+  compute_uv?: boolean
+): { u: NDArray; s: NDArray; vt: NDArray; } | NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input matrix of shape `[M, N]`. |
 | `full_matrices` | `boolean` | `true` | If `true`, `U` is `[M, M]` and `Vh` is `[N, N]`. If `false`, `U` is `[M, K]` and `Vh` is `[K, N]` where `K = min(M, N)`. |
+| `compute_uv` | `boolean` | `true` | If `false`, return only singular values. |
 
-**Returns:** `[NDArray, NDArray, NDArray]` -- A tuple `[U, S, Vh]` where `U` contains the left singular vectors, `S` contains the singular values (in descending order), and `Vh` contains the right singular vectors (conjugate-transposed).
+**Returns:** `{ u, s, vt }` when `compute_uv` is `true`, where `u` contains left singular vectors, `s` contains singular values (descending), and `vt` contains right singular vectors (conjugate-transposed). Returns `NDArray` of singular values when `compute_uv` is `false`.
 
 ```typescript
 import * as np from 'numpy-ts';
 
 const A = np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]]);
 
-const [U, S, Vh] = np.linalg.svd(A);
-console.log(S.toArray());  // [3, 2, 1]
+const { u, s, vt } = np.linalg.svd(A);
+console.log(s.toArray());  // [3, 2, 1]
 
 // Reduced SVD
-const [Ur, Sr, Vhr] = np.linalg.svd(A, false);
-console.log(Ur.shape);   // [3, 3]
-console.log(Sr.shape);   // [3]
-console.log(Vhr.shape);  // [3, 3]
+const { u: ur, s: sr, vt: vtr } = np.linalg.svd(A, false);
+console.log(ur.shape);   // [3, 3]
+console.log(sr.shape);   // [3]
+console.log(vtr.shape);  // [3, 3]
+
+const sOnly = np.linalg.svd(A, true, false);
+console.log(sOnly.shape); // [3]
 ```
 
 ---
@@ -171,15 +179,18 @@ console.log(s.shape);  // [2]
 Compute the QR decomposition of a matrix. Factors the matrix `a` as `Q @ R`, where `Q` is orthogonal and `R` is upper triangular.
 
 ```typescript
-function linalg.qr(a: ArrayLike, mode?: 'reduced' | 'complete'): [NDArray, NDArray]
+function linalg.qr(
+  a: ArrayLike,
+  mode?: 'reduced' | 'complete' | 'r' | 'raw'
+): { q: NDArray; r: NDArray; } | NDArray | { h: NDArray; tau: NDArray; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input matrix of shape `[M, N]`. |
-| `mode` | `'reduced' \| 'complete'` | `'reduced'` | If `'reduced'`, returns `Q` of shape `[M, K]` and `R` of shape `[K, N]` where `K = min(M, N)`. If `'complete'`, returns the full `Q` of shape `[M, M]`. |
+| `mode` | `'reduced' \| 'complete' \| 'r' \| 'raw'` | `'reduced'` | If `'reduced'`/`'complete'`, returns `{ q, r }`. If `'r'`, returns only `R`. If `'raw'`, returns `{ h, tau }`. |
 
-**Returns:** `[NDArray, NDArray]` -- A tuple `[Q, R]`.
+**Returns:** `{ q, r }` for `'reduced'`/`'complete'`, `NDArray` for `'r'`, and `{ h, tau }` for `'raw'`.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -187,14 +198,14 @@ import * as np from 'numpy-ts';
 const A = np.array([[1, 2], [3, 4], [5, 6]]);
 
 // Reduced QR (default)
-const [Q, R] = np.linalg.qr(A);
-console.log(Q.shape);  // [3, 2]
-console.log(R.shape);  // [2, 2]
+const { q, r } = np.linalg.qr(A);
+console.log(q.shape);  // [3, 2]
+console.log(r.shape);  // [2, 2]
 
 // Complete QR
-const [Qf, Rf] = np.linalg.qr(A, 'complete');
-console.log(Qf.shape);  // [3, 3]
-console.log(Rf.shape);  // [3, 2]
+const { q: qf, r: rf } = np.linalg.qr(A, 'complete');
+console.log(qf.shape);  // [3, 3]
+console.log(rf.shape);  // [3, 2]
 ```
 
 ---
@@ -204,12 +215,13 @@ console.log(Rf.shape);  // [3, 2]
 Compute the Cholesky decomposition of a positive-definite symmetric matrix. Returns the lower-triangular matrix `L` such that `a = L @ L.T`.
 
 ```typescript
-function linalg.cholesky(a: ArrayLike): NDArray
+function linalg.cholesky(a: ArrayLike, upper?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input positive-definite symmetric matrix. |
+| `upper` | `boolean` | `false` | If `true`, compute upper-triangular factor instead of lower-triangular. |
 
 **Returns:** `NDArray` -- Lower-triangular Cholesky factor `L`.
 

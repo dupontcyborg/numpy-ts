@@ -65,7 +65,7 @@ const result = np.array([1, 2, 3, 4, 5, 6])
   .add(1)              // Shift by 1
   .T;                  // Transpose -> Shape: [3, 2]
 
-console.log(result.toString());
+console.log(result);
 // array([[11, 41],
 //        [21, 51],
 //        [31, 61]])
@@ -256,7 +256,7 @@ const freqs = np.fft.fftfreq(256, 1 / 256);
 
 ```typescript
 const a = np.arange(12).reshape([3, 4]);
-console.log(a.toString());
+console.log(a);
 // array([[ 0,  1,  2,  3],
 //        [ 4,  5,  6,  7],
 //        [ 8,  9, 10, 11]])

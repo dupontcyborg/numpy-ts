@@ -9,7 +9,7 @@ Check whether a cast between data types is possible according to the given casti
 
 ```typescript
 function can_cast(
-  from_: DType,
+  from_: ArrayLike | DType,
   to: DType,
   casting?: 'no' | 'equiv' | 'safe' | 'same_kind' | 'unsafe'
 ): boolean
@@ -17,7 +17,7 @@ function can_cast(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from_` | `DType` | -- | Source data type. |
+| `from_` | `ArrayLike \| DType` | -- | Source value or data type. |
 | `to` | `DType` | -- | Target data type. |
 | `casting` | `'no' \| 'equiv' \| 'safe' \| 'same_kind' \| 'unsafe'` | `'safe'` | Casting rule. `'no'` allows no casting, `'equiv'` allows byte-order changes, `'safe'` allows only casts that preserve values, `'same_kind'` allows safe casts and casts within a kind (e.g. float to float), `'unsafe'` allows all casts. |
 
@@ -90,12 +90,12 @@ result_type(array([1, 2], 'int16'), 'int32'); // 'int32'
 Return the minimum-size dtype that can hold the given scalar value without overflow or loss of precision.
 
 ```typescript
-function min_scalar_type(a: number): DType
+function min_scalar_type(val: number | bigint | boolean): DType
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `a` | `number` | -- | A scalar value. |
+| `val` | `number \| bigint \| boolean` | -- | A scalar value. |
 
 **Returns:** `DType` -- The smallest dtype capable of representing the value.
 
@@ -116,13 +116,13 @@ min_scalar_type(3.14);    // 'float64'
 Check whether the first dtype is a subtype of the second. This follows NumPy's type hierarchy where, for example, all integer types are subtypes of `'integer'` and all floating types are subtypes of `'floating'`.
 
 ```typescript
-function issubdtype(arg1: DType, arg2: DType | string): boolean
+function issubdtype(dtype1: ArrayLike | DType, dtype2: DType | string): boolean
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `arg1` | `DType` | -- | The dtype to test. |
-| `arg2` | `DType \| string` | -- | The dtype or abstract type category to test against (e.g. `'integer'`, `'floating'`, `'signedinteger'`, `'unsignedinteger'`, `'number'`). |
+| `dtype1` | `ArrayLike \| DType` | -- | The dtype (or array-like value) to test. |
+| `dtype2` | `DType \| string` | -- | The dtype or abstract type category to test against (e.g. `'integer'`, `'floating'`, `'signedinteger'`, `'unsignedinteger'`, `'number'`). |
 
 **Returns:** `boolean` -- `true` if `arg1` is a subtype of `arg2`.
 
@@ -144,12 +144,12 @@ issubdtype('bool', 'integer');            // true
 Return a human-readable type name for a numeric type code.
 
 ```typescript
-function typename(num: number): string
+function typename(dtype: DType): string
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `num` | `number` | -- | A numeric type code. |
+| `dtype` | `DType` | -- | Dtype code to resolve. |
 
 **Returns:** `string` -- A descriptive string for the type code.
 
@@ -169,7 +169,7 @@ Return the minimum-size type character from the given type characters that can h
 
 ```typescript
 function mintypecode(
-  typechars: string[],
+  typechars: string,
   typeset?: string,
   default_?: string
 ): string
@@ -177,7 +177,7 @@ function mintypecode(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `typechars` | `string[]` | -- | Array of type character codes. |
+| `typechars` | `string` | -- | String of type character codes. |
 | `typeset` | `string` | `'GDFgdf'` | Set of allowed type characters. |
 | `default_` | `string` | `'d'` | Default type character returned when `typechars` is empty. |
 

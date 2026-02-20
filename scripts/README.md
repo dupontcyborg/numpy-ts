@@ -48,6 +48,7 @@ python scripts/compare-docs-api-coverage.py --no-refresh
 4. Reports missing docs entries for implemented functions
 5. Reports doc signatures that do not map to current implementation
 6. Treats known aliases as covered when they are mentioned in API docs text
+7. Checks signature parity by default (parameter names/types + return type, with `NDArrayCore` normalized to `NDArray`)
 
 **Output:** `scripts/docs-api-audit.json`
 

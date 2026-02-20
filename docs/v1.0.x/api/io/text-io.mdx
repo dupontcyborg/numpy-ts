@@ -42,12 +42,12 @@ const arr = parseTxt(csv, { delimiter: ',' });
 Serialize an NDArray to a text string.
 
 ```typescript
-function serializeTxt(array: NDArray, options?: SerializeTxtOptions): string
+function serializeTxt(arr: NDArray, options?: SerializeTxtOptions): string
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `array` | `NDArray` | -- | Array to serialize (must be 1-D or 2-D). |
+| `arr` | `NDArray` | -- | Array to serialize (must be 1-D or 2-D). |
 | `options` | `SerializeTxtOptions` | `{}` | Serialization options (see table below). |
 
 **Returns:** `string` -- Text representation of the array.
@@ -65,27 +65,23 @@ const csv = serializeTxt(arr, { delimiter: ',', fmt: '%d' });
 
 ### genfromtxt
 
-Parse text with more flexible handling of missing values. Behaves like `parseTxt` but replaces missing values with a fill value instead of throwing.
+Parse a text file with more flexible handling of missing values. Replaces missing values with a fill value instead of throwing.
 
 ```typescript
-function genfromtxt(text: string, options?: ParseTxtOptions): NDArray
+function genfromtxt(path: string, options?: LoadTxtOptions): Promise<NDArray>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `text` | `string` | -- | The text content to parse. |
-| `options` | `ParseTxtOptions` | `{}` | Parsing options. Use `missing_values` and `filling_values` to handle gaps. |
+| `path` | `string` | -- | Path to the text file to parse. |
+| `options` | `LoadTxtOptions` | `{}` | Parsing options. Use `missing_values` and `filling_values` to handle gaps. |
 
 **Returns:** `NDArray` -- Parsed array with missing values filled in.
 
 ```typescript
-import { genfromtxt } from 'numpy-ts';
+import { genfromtxt } from 'numpy-ts/node';
 
-const data = `1,2,3
-4,,6
-7,8,`;
-
-const arr = genfromtxt(data, {
+const arr = await genfromtxt('data.csv', {
   delimiter: ',',
   missing_values: [''],
   filling_values: 0,
@@ -99,28 +95,24 @@ const arr = genfromtxt(data, {
 
 ### fromregex
 
-Extract data from a text string using a regular expression with capture groups.
+Extract data from a text file using a regular expression with capture groups.
 
 ```typescript
-function fromregex(text: string, regexp: RegExp | string, dtype?: DType): NDArray
+function fromregex(path: string, regexp: RegExp | string, dtype?: DType): Promise<NDArray>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `text` | `string` | -- | Text content to search. |
+| `path` | `string` | -- | Path to the text file to search. |
 | `regexp` | `RegExp \| string` | -- | Regular expression with capture groups. Each match produces one row; each group produces one column. |
 | `dtype` | `DType` | `'float64'` | Data type of the resulting array. |
 
 **Returns:** `NDArray` -- Array with one row per match and one column per capture group.
 
 ```typescript
-import { fromregex } from 'numpy-ts';
+import { fromregex } from 'numpy-ts/node';
 
-const log = `Point: x=1.5, y=2.3
-Point: x=3.0, y=4.1
-Point: x=5.5, y=6.7`;
-
-const arr = fromregex(log, /x=([\d.]+), y=([\d.]+)/);
+const arr = await fromregex('points.log', /x=([\d.]+), y=([\d.]+)/);
 // array([[1.5, 2.3],
 //        [3.0, 4.1],
 //        [5.5, 6.7]])
@@ -167,13 +159,13 @@ const arr = fromregex(log, /x=([\d.]+), y=([\d.]+)/);
 Load data from a text file on disk.
 
 ```typescript
-function loadtxt(filepath: string, options?: ParseTxtOptions): Promise<NDArray>
+function loadtxt(path: string, options?: LoadTxtOptions): Promise<NDArray>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `filepath` | `string` | -- | Path to the text file. |
-| `options` | `ParseTxtOptions` | `{}` | Parsing options. |
+| `path` | `string` | -- | Path to the text file. |
+| `options` | `LoadTxtOptions` | `{}` | Parsing options. |
 
 **Returns:** `Promise<NDArray>` -- The parsed array.
 
@@ -198,17 +190,17 @@ Save an array to a text file.
 
 ```typescript
 function savetxt(
-  filepath: string,
-  array: NDArray,
-  options?: SerializeTxtOptions
+  path: string,
+  arr: NDArray,
+  options?: SaveTxtOptions
 ): Promise<void>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `filepath` | `string` | -- | Output file path. |
-| `array` | `NDArray` | -- | Array to save (must be 1-D or 2-D). |
-| `options` | `SerializeTxtOptions` | `{}` | Serialization options. |
+| `path` | `string` | -- | Output file path. |
+| `arr` | `NDArray` | -- | Array to save (must be 1-D or 2-D). |
+| `options` | `SaveTxtOptions` | `{}` | Serialization options. |
 
 **Returns:** `Promise<void>`
 

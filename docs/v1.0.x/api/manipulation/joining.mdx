@@ -200,7 +200,7 @@ console.log(c.toArray());
 Assemble an array from nested sequences of blocks. For a flat list of N-D arrays, concatenates along the last axis.
 
 ```typescript
-function block(arrays: NestedArray): NDArray
+function block(arrays: ArrayLike[]): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -230,7 +230,7 @@ Append values to the end of an array. When no axis is given, both arrays are fla
 ```typescript
 function append(
   arr: ArrayLike,
-  values: ArrayLike,
+  values: ArrayLike | number | number[],
   axis?: number
 ): NDArray
 ```
@@ -269,7 +269,7 @@ Insert values into an array before specified indices.
 function insert(
   arr: ArrayLike,
   obj: number | number[],
-  values: ArrayLike,
+  values: ArrayLike | number | number[],
   axis?: number
 ): NDArray
 ```

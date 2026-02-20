@@ -13,9 +13,7 @@ The first difference is given by `out[i] = a[i+1] - a[i]` along the specified ax
 function diff(
   a: ArrayLike,
   n?: number,
-  axis?: number,
-  prepend?: ArrayLike,
-  append?: ArrayLike
+  axis?: number
 ): NDArray
 ```
 
@@ -58,17 +56,17 @@ Compute the differences between consecutive elements of a flattened array, with 
 
 ```typescript
 function ediff1d(
-  ary: ArrayLike,
-  to_end?: ArrayLike,
-  to_begin?: ArrayLike
+  a: ArrayLike,
+  to_end?: number[] | null,
+  to_begin?: number[] | null
 ): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `ary` | `ArrayLike` | -- | Input array. If multi-dimensional, it is flattened first. |
-| `to_end` | `ArrayLike` | `undefined` | Values to append at the end of the returned differences. |
-| `to_begin` | `ArrayLike` | `undefined` | Values to prepend at the beginning of the returned differences. |
+| `a` | `ArrayLike` | -- | Input array. If multi-dimensional, it is flattened first. |
+| `to_end` | `number[] \| null` | `undefined` | Values to append at the end of the returned differences. |
+| `to_begin` | `number[] \| null` | `undefined` | Values to prepend at the beginning of the returned differences. |
 
 **Returns:** `NDArray` -- 1-D array of differences between consecutive elements, optionally with prepended/appended values.
 
@@ -97,14 +95,16 @@ Return the gradient of an N-dimensional array. The gradient is computed using se
 ```typescript
 function gradient(
   f: ArrayLike,
-  ...varargs: (number | ArrayLike)[]
+  varargs?: number | number[],
+  axis?: number | number[] | null
 ): NDArray | NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `f` | `ArrayLike` | -- | N-dimensional array containing samples of a scalar function. |
-| `...varargs` | `(number \| ArrayLike)[]` | `[]` | Spacing between sample points. Supports multiple formats: no arguments (unit spacing), a single scalar (uniform spacing for all axes), N scalars (one per axis), or N arrays (coordinates along each axis for non-uniform spacing). |
+| `varargs` | `number \| number[]` | `undefined` | Spacing between sample points. |
+| `axis` | `number \| number[] \| null` | `undefined` | Axis or axes along which to compute the gradient. |
 
 **Returns:** `NDArray` when `f` is 1-D (a single gradient array), `NDArray[]` when `f` is N-D with N > 1 (one gradient array per axis).
 

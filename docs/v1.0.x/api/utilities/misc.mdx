@@ -9,7 +9,7 @@ Apply a function to 1-D slices of an array along the given axis. The function is
 
 ```typescript
 function apply_along_axis(
-  func1d: (arr: NDArray) => number | NDArray,
+  func1d: (arr: NDArray) => NDArray | number,
   axis: number,
   arr: ArrayLike
 ): NDArray
@@ -146,7 +146,7 @@ may_share_memory(a, copy(a));  // false
 Return the number of dimensions of an array.
 
 ```typescript
-function ndim(a: ArrayLike): number
+function ndim(a: ArrayLike | number | bigint | boolean): number
 ```
 
 | Parameter | Type | Default | Description |
@@ -170,7 +170,7 @@ ndim(array([[[1]]]));               // 3
 Return the shape of an array as a number array.
 
 ```typescript
-function shape(a: ArrayLike): number[]
+function shape(a: ArrayLike | number | bigint | boolean): number[] | readonly number[]
 ```
 
 | Parameter | Type | Default | Description |
@@ -194,7 +194,7 @@ shape(zeros([3, 4, 5]));             // [3, 4, 5]
 Return the total number of elements in an array.
 
 ```typescript
-function size(a: ArrayLike): number
+function size(a: ArrayLike | number | bigint | boolean): number
 ```
 
 | Parameter | Type | Default | Description |
@@ -218,12 +218,7 @@ size(zeros([3, 4, 5]));            // 60
 Get the current error handling settings for floating-point operations.
 
 ```typescript
-function geterr(): {
-  divide: string;
-  over: string;
-  under: string;
-  invalid: string;
-}
+function geterr(): FloatErrorState
 ```
 
 **Returns:** `object` -- An object with keys `divide`, `over`, `under`, and `invalid`, each set to one of `'warn'`, `'raise'`, `'ignore'`, or `'print'`.
@@ -243,28 +238,103 @@ console.log(settings);
 Set how floating-point errors are handled. Returns the previous settings so you can restore them later.
 
 ```typescript
-function seterr(opts: {
-  divide?: string;
-  over?: string;
-  under?: string;
-  invalid?: string;
-}): object
+function seterr(
+  all?: ErrorMode,
+  divide?: ErrorMode,
+  over?: ErrorMode,
+  under?: ErrorMode,
+  invalid?: ErrorMode
+): FloatErrorState
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `opts` | `object` | -- | An object with one or more keys: `divide` (division by zero), `over` (overflow), `under` (underflow), `invalid` (invalid operation like 0/0). Each value can be `'warn'`, `'raise'`, `'ignore'`, or `'print'`. |
+| `all` | `ErrorMode` | `undefined` | Default mode applied to all error categories unless overridden by specific args. |
+| `divide` | `ErrorMode` | `undefined` | Division-by-zero handling mode. |
+| `over` | `ErrorMode` | `undefined` | Overflow handling mode. |
+| `under` | `ErrorMode` | `undefined` | Underflow handling mode. |
+| `invalid` | `ErrorMode` | `undefined` | Invalid operation handling mode. |
 
-**Returns:** `object` -- The previous error handling settings.
+**Returns:** `FloatErrorState` -- The previous error handling settings.
 
 ```typescript
 import { seterr, geterr } from 'numpy-ts';
 
 // Suppress all warnings
-const old = seterr({ divide: 'ignore', over: 'ignore' });
+const old = seterr(undefined, 'ignore', 'ignore');
 
 // ... perform operations that may divide by zero ...
 
 // Restore previous settings
-seterr(old);
+seterr(undefined, old.divide, old.over, old.under, old.invalid);
+```
+
+---
+
+### item
+
+Get a single scalar element from an array.
+
+```typescript
+function item(a: ArrayLike, ...args: number[]): number | bigint | boolean | Complex
+```
+
+---
+
+### tolist
+
+Convert an array to nested JavaScript arrays (or a scalar for 0-D arrays).
+
+```typescript
+function tolist(a: ArrayLike): unknown
+```
+
+---
+
+### tobytes
+
+Return the raw bytes of an array in C-order by default.
+
+```typescript
+function tobytes(a: ArrayLike, order?: 'C' | 'F'): Uint8Array
+```
+
+---
+
+### byteswap
+
+Swap the byte order of each array element.
+
+```typescript
+function byteswap(a: ArrayLike, inplace?: boolean): NDArray
+```
+
+---
+
+### view
+
+Create a view of an array (same dtype view currently supported).
+
+```typescript
+function view(a: ArrayLike, dtype?: DType): NDArray
+```
+
+---
+
+### tofile
+
+Write an array to a file (Node.js-oriented API; see note in implementation for environment limits).
+
+```typescript
+function tofile(_a: ArrayLike, _file: string, _sep?: string, _format?: string): void
+```
+
+---
+
+### fill
+
+Fill an array in place with a scalar value.
+
+```typescript
+function fill(a: NDArray, value: number | bigint | boolean | Complex): void
 ```

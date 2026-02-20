@@ -16,9 +16,9 @@ Compute the sum of array elements over the given axis.
 ```typescript
 function sum(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | bigint | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -49,9 +49,9 @@ Compute the product of array elements over the given axis.
 ```typescript
 function prod(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | bigint | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -85,9 +85,9 @@ Integer inputs are automatically converted to `float64` for the result, matching
 ```typescript
 function mean(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -117,7 +117,7 @@ Compute the standard deviation along the specified axis.
 ```typescript
 function std(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -154,7 +154,7 @@ Compute the variance along the specified axis.
 ```typescript
 function variance(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -192,9 +192,9 @@ Also exported as `min`. Use `amin` to avoid shadowing `Math.min`.
 ```typescript
 function amin(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -228,9 +228,9 @@ Also exported as `max`. Use `amax` to avoid shadowing `Math.max`.
 ```typescript
 function amax(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -260,7 +260,7 @@ Compute the median along the specified axis.
 ```typescript
 function median(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
 ): number | NDArray;
 ```
@@ -295,7 +295,7 @@ function average(
   axis?: number,
   weights?: ArrayLike,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -325,9 +325,9 @@ Peak to peak (maximum - minimum) value along an axis.
 ```typescript
 function ptp(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -357,7 +357,7 @@ Test whether all array elements along a given axis evaluate to `true`.
 ```typescript
 function all(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
 ): boolean | NDArray;
 ```
@@ -390,7 +390,7 @@ Test whether any array element along a given axis evaluates to `true`.
 ```typescript
 function any(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
 ): boolean | NDArray;
 ```

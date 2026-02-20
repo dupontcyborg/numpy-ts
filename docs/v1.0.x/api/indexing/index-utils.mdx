@@ -41,7 +41,7 @@ const wrapped = np.ravel_multi_index([[3], [1]], [3, 3], 'wrap');
 Convert flat indices into a tuple of coordinate arrays for a given shape.
 
 ```typescript
-function unravel_index(indices: ArrayLike, shape: number[]): NDArray[]
+function unravel_index(indices: ArrayLike | number, shape: number[]): NDArray[]
 ```
 
 | Name | Type | Default | Description |
@@ -72,13 +72,14 @@ const [row, col] = np.unravel_index([maxIdx], a.shape);
 Perform integer (fancy) indexing on an array. Select elements from `a` using an array of integer indices.
 
 ```typescript
-function iindex(a: ArrayLike, indices: ArrayLike): NDArray
+function iindex(a: ArrayLike, indices: ArrayLike | number[][], axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Source array. |
 | `indices` | `ArrayLike` | -- | Integer array of indices. The result has the same shape as `indices`. |
+| `axis` | `number` | `undefined` | Axis along which to index. |
 
 **Returns:** `NDArray` -- Array of elements selected from `a` at the given flat indices.
 
@@ -102,13 +103,14 @@ np.iindex(a, [[0, 1], [3, 4]]);
 Perform boolean array indexing on an array. Select elements from `a` where the mask is true.
 
 ```typescript
-function bindex(a: ArrayLike, mask: ArrayLike): NDArray
+function bindex(a: ArrayLike, mask: ArrayLike, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Source array. |
 | `mask` | `ArrayLike` | -- | Boolean array. Must be broadcastable to the shape of `a`. |
+| `axis` | `number` | `undefined` | Axis along which to index. |
 
 **Returns:** `NDArray` -- 1-D array of elements from `a` where `mask` is true.
 

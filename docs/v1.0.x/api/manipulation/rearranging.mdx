@@ -194,15 +194,15 @@ Remove elements from an array along an axis. Returns a new array (copy). Exporte
 
 ```typescript
 function delete_(
-  a: ArrayLike,
-  obj: number | number[] | string,
+  arr: ArrayLike,
+  obj: number | number[],
   axis?: number
 ): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `arr` | `ArrayLike` | -- | Input array. |
 | `obj` | `number \| number[]` | -- | Index or indices of elements to remove. Negative indices are supported. |
 | `axis` | `number` | `undefined` | Axis along which to delete. If `undefined`, the array is flattened first. |
 
@@ -238,12 +238,12 @@ console.log(d.toArray());  // [2, 3, 4, 6, 7, 8, 9]
 Convert inputs to arrays with at least 1 dimension. Scalar (0-D) inputs become 1-D arrays of length 1. Higher-dimensional inputs are returned unchanged.
 
 ```typescript
-function atleast_1d(...arys: ArrayLike[]): NDArray | NDArray[]
+function atleast_1d(...arrays: ArrayLike[]): NDArray | NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `...arys` | `ArrayLike[]` | -- | One or more input arrays. |
+| `...arrays` | `ArrayLike[]` | -- | One or more input arrays. |
 
 **Returns:** `NDArray | NDArray[]` -- A single array if one input was given, or a list of arrays if multiple inputs were given. Each output has `ndim >= 1`.
 
@@ -270,12 +270,12 @@ console.log(c.shape);  // [3]
 Convert inputs to arrays with at least 2 dimensions. 0-D inputs become `(1, 1)`, 1-D inputs of length N become `(1, N)`. Higher-dimensional inputs are returned unchanged.
 
 ```typescript
-function atleast_2d(...arys: ArrayLike[]): NDArray | NDArray[]
+function atleast_2d(...arrays: ArrayLike[]): NDArray | NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `...arys` | `ArrayLike[]` | -- | One or more input arrays. |
+| `...arrays` | `ArrayLike[]` | -- | One or more input arrays. |
 
 **Returns:** `NDArray | NDArray[]` -- A single array if one input was given, or a list of arrays. Each output has `ndim >= 2`.
 
@@ -296,12 +296,12 @@ console.log(b.toArray());  // [[1, 2, 3]]
 Convert inputs to arrays with at least 3 dimensions. 0-D inputs become `(1, 1, 1)`, 1-D inputs of length N become `(1, N, 1)`, and 2-D inputs of shape `(M, N)` become `(M, N, 1)`. Higher-dimensional inputs are returned unchanged.
 
 ```typescript
-function atleast_3d(...arys: ArrayLike[]): NDArray | NDArray[]
+function atleast_3d(...arrays: ArrayLike[]): NDArray | NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `...arys` | `ArrayLike[]` | -- | One or more input arrays. |
+| `...arrays` | `ArrayLike[]` | -- | One or more input arrays. |
 
 **Returns:** `NDArray | NDArray[]` -- A single array if one input was given, or a list of arrays. Each output has `ndim >= 3`.
 

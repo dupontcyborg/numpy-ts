@@ -8,7 +8,7 @@ description: "Clipping, element-wise min/max, NaN handling, interpolation, speci
 Clip (limit) the values in an array to a given range.
 
 ```typescript
-function clip(a: ArrayLike, a_min: number | null, a_max: number | null): NDArray
+function clip(a: ArrayLike, a_min: ArrayLike | number | null, a_max: ArrayLike | number | null): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -330,7 +330,8 @@ Unwrap by changing deltas between values to their `2*pi` complement. Useful for 
 function unwrap(
   p: ArrayLike,
   discont?: number,
-  axis?: number
+  axis?: number,
+  period?: number
 ): NDArray
 ```
 
@@ -339,6 +340,7 @@ function unwrap(
 | `p` | `ArrayLike` | - | Input array of phase angles. |
 | `discont` | `number` | `Math.PI` | Maximum discontinuity between consecutive values. Jumps larger than this are wrapped. |
 | `axis` | `number` | `-1` | Axis along which to unwrap. |
+| `period` | `number` | `2 * Math.PI` | Wrapping period. |
 
 **Returns:** `NDArray` -- Unwrapped array.
 
@@ -477,12 +479,12 @@ const c = conj(a);
 Return the angle (argument) of complex numbers.
 
 ```typescript
-function angle(z: ArrayLike, deg?: boolean): NDArray
+function angle(x: ArrayLike, deg?: boolean): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `z` | `ArrayLike` | - | Input array of complex numbers. |
+| `x` | `ArrayLike` | - | Input array of complex numbers. |
 | `deg` | `boolean` | `false` | If `true`, return angles in degrees instead of radians. |
 
 **Returns:** `NDArray` -- The counterclockwise angle from the positive real axis, in radians (or degrees if `deg` is `true`).

@@ -12,8 +12,8 @@ Compute the norm of a matrix or vector. The behavior depends on the `ord` parame
 ```typescript
 function linalg.norm(
   x: ArrayLike,
-  ord?: number | 'fro' | 'nuc',
-  axis?: number | [number, number],
+  ord?: number | 'fro' | 'nuc' | null,
+  axis?: number | [number, number] | null,
   keepdims?: boolean
 ): number | NDArray
 ```
@@ -80,8 +80,8 @@ Compute a vector norm. This is a convenience function for computing norms along 
 ```typescript
 function linalg.vector_norm(
   x: ArrayLike,
-  ord?: number,
-  axis?: number | number[],
+  ord?: number | 'fro' | 'nuc',
+  axis?: number | null,
   keepdims?: boolean
 ): number | NDArray
 ```
@@ -116,14 +116,14 @@ Compute the condition number of a matrix. A large condition number indicates the
 
 ```typescript
 function linalg.cond(
-  x: ArrayLike,
-  p?: number | 'fro' | '-fro' | 'inf' | '-inf'
+  a: ArrayLike,
+  p?: number | 'fro' | 'nuc'
 ): number
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | Input matrix. |
+| `a` | `ArrayLike` | -- | Input matrix. |
 | `p` | `number \| 'fro' \| '-fro' \| 'inf' \| '-inf'` | `undefined` | Norm type used in the condition number computation. Default uses the 2-norm (ratio of largest to smallest singular value). |
 
 **Returns:** `number` -- The condition number.
@@ -173,26 +173,26 @@ console.log(np.linalg.det(I));  // 1
 Compute the sign and natural logarithm of the determinant. This is more numerically stable than computing `det` directly for matrices with very large or very small determinants.
 
 ```typescript
-function linalg.slogdet(a: ArrayLike): [number, number]
+function linalg.slogdet(a: ArrayLike): { sign: number; logabsdet: number; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input square matrix. |
 
-**Returns:** `[number, number]` -- A tuple `[sign, logdet]` where `sign` is `-1`, `0`, or `1` and `logdet` is the natural log of the absolute value of the determinant. The determinant is `sign * exp(logdet)`.
+**Returns:** `{ sign, logabsdet }` where `sign` is `-1`, `0`, or `1` and `logabsdet` is the natural log of the absolute value of the determinant. The determinant is `sign * exp(logabsdet)`.
 
 ```typescript
 import * as np from 'numpy-ts';
 
 const A = np.array([[1, 2], [3, 4]]);
 
-const [sign, logdet] = np.linalg.slogdet(A);
+const { sign, logabsdet } = np.linalg.slogdet(A);
 console.log(sign);    // -1
-console.log(logdet);  // ln(2) ≈ 0.6931
+console.log(logabsdet);  // ln(2) ≈ 0.6931
 
 // Reconstruct: sign * exp(logdet) = -2
-console.log(sign * Math.exp(logdet));  // -2
+console.log(sign * Math.exp(logabsdet));  // -2
 ```
 
 ---
@@ -202,12 +202,12 @@ console.log(sign * Math.exp(logdet));  // -2
 Compute the rank of a matrix using SVD. Singular values below a threshold are treated as zero.
 
 ```typescript
-function linalg.matrix_rank(M: ArrayLike, tol?: number): number
+function linalg.matrix_rank(a: ArrayLike, tol?: number): number
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `M` | `ArrayLike` | -- | Input matrix. |
+| `a` | `ArrayLike` | -- | Input matrix. |
 | `tol` | `number` | `undefined` | Threshold below which singular values are considered zero. Default is `max(M, N) * eps * max(sv)`. |
 
 **Returns:** `number` -- The effective rank.
@@ -228,14 +228,10 @@ console.log(np.linalg.matrix_rank(B));  // 1
 ### trace
 
 Return the sum along diagonals of the array. For a 2-D array, this returns the sum of the diagonal elements. For higher-dimensional arrays, the axes along which the diagonal is taken can be specified.
+Also available as `np.linalg.trace(...)`.
 
 ```typescript
-function trace(
-  a: ArrayLike,
-  offset?: number,
-  axis1?: number,
-  axis2?: number
-): number | NDArray
+function trace(a: ArrayLike): number | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -262,6 +258,7 @@ console.log(np.trace(A, -1));  // 12 (4 + 8)
 ### diagonal
 
 Return the specified diagonal of an array. For a 2-D array, returns the diagonal elements. For higher-dimensional arrays, the diagonal is taken over the specified axes.
+Also available as `np.linalg.diagonal(...)`.
 
 ```typescript
 function diagonal(
@@ -296,6 +293,7 @@ console.log(np.diagonal(A, -1).toArray());  // [4, 8]
 ### cross
 
 Compute the cross product of two vectors. For 3-D vectors, this returns a 3-D vector. For 2-D vectors, this returns the scalar `z`-component.
+Also available as `np.linalg.cross(...)`.
 
 ```typescript
 function cross(

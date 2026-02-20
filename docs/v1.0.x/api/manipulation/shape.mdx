@@ -8,13 +8,13 @@ description: "Reshape, flatten, and modify array dimensions."
 Change the shape of an array without changing its data. Returns a view if the array is C-contiguous, otherwise returns a copy. Use `-1` for one dimension to have its size inferred automatically.
 
 ```typescript
-function reshape(a: ArrayLike, newshape: number[]): NDArray
+function reshape(a: ArrayLike, newShape: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input array. |
-| `newshape` | `number[]` | -- | New shape. One dimension may be `-1`, in which case it is inferred from the total size. |
+| `newShape` | `number[]` | -- | New shape. One dimension may be `-1`, in which case it is inferred from the total size. |
 
 **Returns:** `NDArray` -- Array with the specified shape. View when possible, copy otherwise.
 
@@ -103,7 +103,7 @@ console.log(r.base !== null);  // true (it is a view)
 Remove axes of length 1 from the array shape. Returns a view (no data is copied).
 
 ```typescript
-function squeeze(a: ArrayLike, axis?: number | number[]): NDArray
+function squeeze(a: ArrayLike, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -135,7 +135,7 @@ console.log(c.shape);  // [3, 1]
 Insert a new axis (dimension of length 1) at the given position. Returns a view.
 
 ```typescript
-function expand_dims(a: ArrayLike, axis: number | number[]): NDArray
+function expand_dims(a: ArrayLike, axis: number): NDArray
 ```
 
 | Name | Type | Default | Description |

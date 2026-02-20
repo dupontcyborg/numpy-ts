@@ -150,16 +150,16 @@ const sampleSpacing = 1 / 8;  // 8 Hz sample rate
 // fftfreq returns frequencies in "standard" order:
 // [0, positive..., negative...] (Hz)
 const freqs = np.fft.fftfreq(N, sampleSpacing);
-console.log('fftfreq:', freqs.toString(), '\n');
+console.log('fftfreq:', freqs, '\n');
 
 // fftshift centers the zero frequency:
 // [negative..., 0, positive...] — standard for visualization
 const shiftedFreqs = np.fft.fftshift(freqs);
-console.log('fftshift:', shiftedFreqs.toString(), '\n');
+console.log('fftshift:', shiftedFreqs, '\n');
 
 // For real-valued signals, rfftfreq returns only the positive frequencies
 const rfreqs = np.fft.rfftfreq(N, sampleSpacing);
-console.log('rfftfreq:', rfreqs.toString(), '\n');
+console.log('rfftfreq:', rfreqs, '\n');
 
 // Use ifftshift to undo the shift before calling ifft
 const unshifted = np.fft.ifftshift(shiftedFreqs);

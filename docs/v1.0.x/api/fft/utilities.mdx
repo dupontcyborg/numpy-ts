@@ -62,12 +62,12 @@ const freq_hz = np.fft.rfftfreq(1000, 1 / 44100);
 Shift the zero-frequency component to the center of the spectrum. This is useful for visualizing the Fourier transform with the DC component in the middle.
 
 ```typescript
-function fftshift(x: ArrayLike, axes?: number | number[]): NDArray
+function fftshift(a: ArrayLike, axes?: number | number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | Input array. |
+| `a` | `ArrayLike` | -- | Input array. |
 | `axes` | `number \| number[]` | all axes | Axes over which to shift. |
 
 **Returns:** `NDArray` -- The shifted array.
@@ -89,12 +89,12 @@ const shifted = np.fft.fftshift(freq);
 Inverse of `fftshift`. Undoes the centering performed by `fftshift`, moving the zero-frequency component back to the beginning.
 
 ```typescript
-function ifftshift(x: ArrayLike, axes?: number | number[]): NDArray
+function ifftshift(a: ArrayLike, axes?: number | number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `ArrayLike` | -- | Input array. |
+| `a` | `ArrayLike` | -- | Input array. |
 | `axes` | `number \| number[]` | all axes | Axes over which to shift. |
 
 **Returns:** `NDArray` -- The unshifted array.

@@ -17,12 +17,12 @@ Both APIs produce statistically correct distributions and can be seeded for repr
 Set the global seed for the legacy random number generator.
 
 ```typescript
-function seed(s?: number | null): void
+function seed(seedValue?: number | null): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `s` | `number \| null` | `null` | Seed value (integer). If `null` or omitted, a time-based random seed is used. |
+| `seedValue` | `number \| null` | `null` | Seed value (integer). If `null` or omitted, a time-based random seed is used. |
 
 **Returns:** `void`
 
@@ -40,7 +40,7 @@ console.log(np.random.random()); // Reproducible value
 Get the internal state of the legacy MT19937 random number generator. The returned object can be passed to `set_state` to restore the RNG to this exact point.
 
 ```typescript
-function get_state(): { mt: number[]; mti: number }
+function get_state(): { mt: number[]; mti: number; }
 ```
 
 **Returns:** `{ mt: number[]; mti: number }` -- Object containing the MT19937 state array and index.
@@ -64,7 +64,7 @@ const b = np.random.random();
 Restore the internal state of the legacy random number generator from a previously saved state object.
 
 ```typescript
-function set_state(state: { mt: number[]; mti: number }): void
+function set_state(state: { mt: number[]; mti: number; }): void
 ```
 
 | Name | Type | Default | Description |
@@ -80,10 +80,10 @@ function set_state(state: { mt: number[]; mti: number }): void
 Get the current bit generator object. Returns an object with `name` and `state` properties.
 
 ```typescript
-function get_bit_generator(): { name: string; state: object }
+function get_bit_generator(): BitGenerator
 ```
 
-**Returns:** `{ name: string; state: object }` -- The current bit generator descriptor.
+**Returns:** `BitGenerator` -- The current bit generator descriptor.
 
 ---
 
@@ -92,12 +92,12 @@ function get_bit_generator(): { name: string; state: object }
 Set the bit generator used by the legacy random functions.
 
 ```typescript
-function set_bit_generator(bitgen: { name: string; state: object }): void
+function set_bit_generator(bitgen: BitGenerator): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `bitgen` | `{ name: string; state: object }` | -- | Bit generator descriptor. |
+| `bitgen` | `BitGenerator` | -- | Bit generator descriptor. |
 
 **Returns:** `void`
 

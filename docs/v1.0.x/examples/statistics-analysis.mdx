@@ -55,8 +55,8 @@ const data = np.random.normal(0, 1, [1000]);
 
 // Automatic binning (10 bins by default)
 const [counts, binEdges] = np.histogram(data);
-console.log('Counts:', counts.toString(), '\n');
-console.log('Bin edges:', binEdges.toString(), '\n');
+console.log('Counts:', counts, '\n');
+console.log('Bin edges:', binEdges, '\n');
 console.log('Number of bins:', counts.shape[0], '\n');
 
 // Custom number of bins
@@ -66,7 +66,7 @@ console.log('20 bins, counts shape:', counts20.shape, '\n');
 // Custom bin edges
 const customBins = np.array([-3, -2, -1, 0, 1, 2, 3]);
 const [customCounts] = np.histogram(data, customBins);
-console.log('Custom bins counts:', customCounts.toString(), '\n');
+console.log('Custom bins counts:', customCounts, '\n');
 
 // Compute bin edges without the counts
 const edges = np.histogram_bin_edges(data, 'auto');
@@ -175,7 +175,7 @@ const multiStudent = np.array([
 const assignmentWeights = np.array([0.3, 0.3, 0.4]);
 
 const finalGrades = np.average(multiStudent, 1, assignmentWeights);
-console.log('Final grades:', finalGrades.toString(), '\n');
+console.log('Final grades:', finalGrades, '\n');
 // Weighted average across columns for each student
 
 // When weights are counts (frequency weights)

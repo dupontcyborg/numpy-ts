@@ -6,9 +6,10 @@ description: "Dot products, matrix multiplication, outer products, Kronecker pro
 ### dot
 
 Dot product of two arrays. For 1-D arrays, computes the inner product. For 2-D arrays, computes the matrix product (equivalent to `matmul`). For higher dimensions, a sum product over the last axis of `a` and the second-to-last axis of `b`.
+Also available as `np.linalg.dot(...)`.
 
 ```typescript
-function dot(a: ArrayLike, b: ArrayLike): NDArray | number
+function dot(a: ArrayLike, b: ArrayLike): NDArray | number | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -39,6 +40,7 @@ const C = np.dot(A, B);
 ### matmul
 
 Matrix product of two arrays. This is the equivalent of the `@` operator in NumPy/Python. Unlike `dot`, `matmul` does not allow scalar multiplication and follows strict broadcasting rules for stacks of matrices.
+Also available as `np.linalg.matmul(...)`.
 
 ```typescript
 function matmul(a: ArrayLike, b: ArrayLike): NDArray
@@ -72,9 +74,10 @@ const result = np.matmul(A, v);
 ### inner
 
 Inner product of two arrays. For 1-D arrays, this is identical to `dot`. For higher-dimensional arrays, it is a sum product over the last axes.
+Also available as `np.linalg.inner(...)`.
 
 ```typescript
-function inner(a: ArrayLike, b: ArrayLike): NDArray | number
+function inner(a: ArrayLike, b: ArrayLike): NDArray | number | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -105,6 +108,7 @@ const C = np.inner(A, B);
 ### outer
 
 Compute the outer product of two vectors. The inputs are flattened if they are not already 1-D.
+Also available as `np.linalg.outer(...)`.
 
 ```typescript
 function outer(a: ArrayLike, b: ArrayLike): NDArray
@@ -134,13 +138,14 @@ const C = np.outer(a, b);
 ### tensordot
 
 Compute tensor dot product along specified axes. Generalizes `dot` for higher-dimensional arrays.
+Also available as `np.linalg.tensordot(...)`.
 
 ```typescript
 function tensordot(
   a: ArrayLike,
   b: ArrayLike,
   axes?: number | [number[], number[]]
-): NDArray
+): NDArray | number | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -209,7 +214,7 @@ const K = np.kron(A, B);
 Vector dot product. Flattens both inputs to 1-D before computing the dot product. For complex arrays, the complex conjugate of `a` is used.
 
 ```typescript
-function vdot(a: ArrayLike, b: ArrayLike): number
+function vdot(a: ArrayLike, b: ArrayLike): number | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -234,15 +239,16 @@ console.log(np.vdot(a, b));  // 70
 ### vecdot
 
 Vector dot product along the specified axis. Unlike `vdot`, this operates along a given axis rather than flattening.
+Also available as `np.linalg.vecdot(...)`.
 
 ```typescript
-function vecdot(a: ArrayLike, b: ArrayLike, axis?: number): NDArray
+function vecdot(x1: ArrayLike, x2: ArrayLike, axis?: number): NDArray | number | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | First input array. |
-| `b` | `ArrayLike` | -- | Second input array. |
+| `x1` | `ArrayLike` | -- | First input array. |
+| `x2` | `ArrayLike` | -- | Second input array. |
 | `axis` | `number` | `-1` | Axis along which to compute the dot product. |
 
 **Returns:** `NDArray` -- Dot product computed along the given axis.
@@ -263,15 +269,16 @@ const c = np.vecdot(a, b);
 ### matvec
 
 Matrix-vector product. Multiplies a matrix by a vector, equivalent to `matmul(a, b)` where `b` is 1-D.
+Also available as `np.linalg.matvec(...)`.
 
 ```typescript
-function matvec(a: ArrayLike, b: ArrayLike): NDArray
+function matvec(x1: ArrayLike, x2: ArrayLike): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input matrix (2-D or stack of matrices). |
-| `b` | `ArrayLike` | -- | Input vector (1-D or stack of vectors). |
+| `x1` | `ArrayLike` | -- | Input matrix (2-D or stack of matrices). |
+| `x2` | `ArrayLike` | -- | Input vector (1-D or stack of vectors). |
 
 **Returns:** `NDArray` -- The matrix-vector product.
 
@@ -290,15 +297,16 @@ const result = np.matvec(A, v);
 ### vecmat
 
 Vector-matrix product. Multiplies a vector by a matrix, equivalent to `matmul(a, b)` where `a` is 1-D.
+Also available as `np.linalg.vecmat(...)`.
 
 ```typescript
-function vecmat(a: ArrayLike, b: ArrayLike): NDArray
+function vecmat(x1: ArrayLike, x2: ArrayLike): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input vector (1-D or stack of vectors). |
-| `b` | `ArrayLike` | -- | Input matrix (2-D or stack of matrices). |
+| `x1` | `ArrayLike` | -- | Input vector (1-D or stack of vectors). |
+| `x2` | `ArrayLike` | -- | Input matrix (2-D or stack of matrices). |
 
 **Returns:** `NDArray` -- The vector-matrix product.
 
@@ -319,7 +327,7 @@ const result = np.vecmat(v, A);
 Evaluates the Einstein summation convention on the operands. This is a powerful generalization that can express many common linear algebra operations in a single call.
 
 ```typescript
-function einsum(subscripts: string, ...operands: ArrayLike[]): NDArray
+function einsum(subscripts: string, ...operands: ArrayLike[]): NDArray | number | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -357,7 +365,7 @@ const T = np.einsum('ij->ji', A);
 Evaluate the optimal contraction order for an `einsum` expression. Returns the path and a human-readable description of the optimization.
 
 ```typescript
-function einsum_path(subscripts: string, ...operands: ArrayLike[]): [string[], string]
+function einsum_path(subscripts: string, ...operands: ArrayLike[]): [([number, number] | number[])[], string]
 ```
 
 | Name | Type | Default | Description |

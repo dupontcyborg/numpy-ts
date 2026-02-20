@@ -6,6 +6,7 @@ description: "Permute, swap, and move array axes."
 ### transpose
 
 Permute the dimensions of an array. When called without `axes`, reverses the dimension order. Returns a view (no data is copied).
+Also available as `np.linalg.transpose(...)`.
 
 ```typescript
 function transpose(a: ArrayLike, axes?: number[]): NDArray
@@ -147,9 +148,10 @@ console.log(c.shape);  // [5, 3, 4, 6]
 ### permute_dims
 
 Permute the dimensions of an array. This is the Array API-compatible equivalent of `transpose`.
+Also available as `np.linalg.permute_dims(...)`.
 
 ```typescript
-function permute_dims(a: ArrayLike, axes: number[]): NDArray
+function permute_dims(a: ArrayLike, axes?: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -173,6 +175,7 @@ console.log(b.shape);  // [4, 2, 3]
 ### matrix_transpose
 
 Transpose the last two dimensions of an array. The input must have at least 2 dimensions. Returns a view.
+Also available as `np.linalg.matrix_transpose(...)`.
 
 ```typescript
 function matrix_transpose(a: ArrayLike): NDArray

@@ -147,12 +147,12 @@ const result = np.iscomplex(a);
 Return `true` if the input is a complex-typed array or has complex dtype.
 
 ```typescript
-function iscomplexobj(x: any): boolean
+function iscomplexobj(x: ArrayLike): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `any` | -- | Input to check. |
+| `x` | `ArrayLike` | -- | Input to check. |
 
 **Returns:** `boolean` -- `true` if `x` is an array with complex dtype (`complex64` or `complex128`).
 
@@ -197,12 +197,12 @@ const result = np.isreal(a);
 Return `true` if the input is not a complex-typed array.
 
 ```typescript
-function isrealobj(x: any): boolean
+function isrealobj(x: ArrayLike): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x` | `any` | -- | Input to check. |
+| `x` | `ArrayLike` | -- | Input to check. |
 
 **Returns:** `boolean` -- `true` if `x` is not a complex array (i.e., dtype is not `complex64` or `complex128`).
 
@@ -223,12 +223,12 @@ np.isrealobj(np.array([1, 2], 'complex128'));
 Return `true` if the input is a scalar value (number, boolean, bigint, or string).
 
 ```typescript
-function isscalar(element: any): boolean
+function isscalar(val: ArrayLike): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `element` | `any` | -- | Value to test. |
+| `val` | `ArrayLike` | -- | Value to test. |
 
 **Returns:** `boolean` -- `true` if `element` is a scalar type.
 
@@ -272,12 +272,12 @@ const result = np.isnat([1, 2, NaN]);
 Return `true` if the array is Fortran-contiguous and not C-contiguous.
 
 ```typescript
-function isfortran(a: ArrayLike): boolean
+function isfortran(x: ArrayLike): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `x` | `ArrayLike` | -- | Input array. |
 
 **Returns:** `boolean` -- `true` if the array is Fortran-contiguous (column-major) and not C-contiguous. In numpy-ts, arrays are always C-contiguous, so this typically returns `false`.
 
@@ -296,12 +296,12 @@ np.isfortran(a);
 Return `true` if the input can be iterated over.
 
 ```typescript
-function iterable(y: any): boolean
+function iterable(obj: ArrayLike): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `y` | `any` | -- | Value to test. |
+| `obj` | `ArrayLike` | -- | Value to test. |
 
 **Returns:** `boolean` -- `true` if `y` is iterable (arrays, NDArrays, strings, etc.).
 
@@ -320,13 +320,13 @@ np.iterable(42);                  // false
 Test whether a dtype belongs to a specified kind or set of dtypes.
 
 ```typescript
-function isdtype(dtype: DType, kind: string | DType | DType[]): boolean
+function isdtype(dtype: DType, kind: string): boolean
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `dtype` | `DType` | -- | The dtype to test. |
-| `kind` | `string \| DType \| DType[]` | -- | A dtype kind string (e.g., `'integral'`, `'real floating'`, `'numeric'`), a single `DType`, or an array of `DType` values to match against. |
+| `kind` | `string` | -- | A dtype kind string (e.g., `'integral'`, `'real floating'`, `'numeric'`). |
 
 **Returns:** `boolean` -- `true` if `dtype` matches the specified kind.
 
@@ -353,12 +353,12 @@ np.isdtype('int32', 'real floating');
 If the imaginary part of an array is close to zero, return only the real part. Otherwise, return the input unchanged.
 
 ```typescript
-function real_if_close(a: ArrayLike, tol?: number): NDArray
+function real_if_close(x: ArrayLike, tol?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input array. |
+| `x` | `ArrayLike` | -- | Input array. |
 | `tol` | `number` | `100` | Tolerance factor. The imaginary part is considered close to zero if `max(abs(imag)) < tol * eps` where `eps` is the machine epsilon for the dtype. |
 
 **Returns:** `NDArray` -- Real-valued array if the imaginary part is negligible, otherwise the original array.

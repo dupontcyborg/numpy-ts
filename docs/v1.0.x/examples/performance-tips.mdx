@@ -153,13 +153,13 @@ console.log(rowMeansKept.shape, '\n');
 
 // Center the data (subtract row means) -- no reshape needed
 const centered = np.subtract(data, rowMeansKept);
-console.log(centered.toString(), '\n');
+console.log(centered, '\n');
 
 // Normalize columns to zero mean, unit variance
 const colMean = np.mean(data, 0, true);   // shape [1, 3]
 const colStd = np.std(data, 0, undefined, true);    // shape [1, 3]
 const normalized = np.divide(np.subtract(data, colMean), colStd);
-console.log(normalized.toString(), '\n');`}
+console.log(normalized, '\n');`}
   showImportHeader={true}
   showCopyButton={true}
 />

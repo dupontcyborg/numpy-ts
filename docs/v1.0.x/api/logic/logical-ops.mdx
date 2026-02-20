@@ -8,7 +8,7 @@ description: "Element-wise logical AND, OR, NOT, and XOR operations that return 
 Compute element-wise logical AND. Inputs are broadcast together. Truthy values (non-zero) are treated as `true`.
 
 ```typescript
-function logical_and(x1: ArrayLike, x2: ArrayLike): NDArray
+function logical_and(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -36,7 +36,7 @@ np.logical_and([1, 0, 3], [1, 1, 0]);
 Compute element-wise logical OR. Inputs are broadcast together.
 
 ```typescript
-function logical_or(x1: ArrayLike, x2: ArrayLike): NDArray
+function logical_or(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -89,7 +89,7 @@ np.logical_not([0, 1, -1, 0.0]);
 Compute element-wise logical XOR. Inputs are broadcast together.
 
 ```typescript
-function logical_xor(x1: ArrayLike, x2: ArrayLike): NDArray
+function logical_xor(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |

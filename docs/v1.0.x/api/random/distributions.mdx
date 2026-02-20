@@ -669,16 +669,20 @@ Draw samples from a multivariate normal distribution.
 ```typescript
 function multivariate_normal(
   mean: ArrayLike,
-  cov: ArrayLike,
-  size?: number | number[]
+  cov: ArrayLike | number[][],
+  size?: number | number[],
+  check_valid?: 'warn' | 'raise' | 'ignore',
+  tol?: number
 ): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `mean` | `ArrayLike` | -- | Mean of the distribution (1-D array of length N). |
-| `cov` | `ArrayLike` | -- | Covariance matrix (N x N, symmetric positive semi-definite). |
+| `cov` | `ArrayLike \| number[][]` | -- | Covariance matrix (N x N, symmetric positive semi-definite). |
 | `size` | `number \| number[]` | `undefined` | Number of samples to draw. |
+| `check_valid` | `'warn' \| 'raise' \| 'ignore'` | `undefined` | Behavior when covariance is not PSD. |
+| `tol` | `number` | `undefined` | Tolerance for covariance validity checks. |
 
 **Returns:** `NDArray` -- Array of shape `[...size, N]`.
 

@@ -8,17 +8,17 @@ description: "Create identity, diagonal, triangular, and Vandermonde matrices."
 Return a 2-D array with ones on the diagonal and zeros elsewhere.
 
 ```typescript
-function eye(N: number, M?: number, k?: number, dtype?: DType): NDArray
+function eye(n: number, m?: number, k?: number, dtype?: DType): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `N` | `number` | - | Number of rows. |
-| `M` | `number` | `N` | Number of columns. Defaults to `N` (square matrix). |
+| `n` | `number` | - | Number of rows. |
+| `m` | `number` | `n` | Number of columns. Defaults to `n` (square matrix). |
 | `k` | `number` | `0` | Index of the diagonal. `0` is the main diagonal, positive values are above, negative below. |
 | `dtype` | `DType` | `'float64'` | Data type of the output array. |
 
-**Returns:** `NDArray` -- 2-D array of shape `[N, M]` with ones on the `k`-th diagonal.
+**Returns:** `NDArray` -- 2-D array of shape `[n, m]` with ones on the `k`-th diagonal.
 
 <CodeGroup>
 ```typescript Full Library

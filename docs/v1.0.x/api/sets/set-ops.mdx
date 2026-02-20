@@ -10,20 +10,20 @@ Find the sorted unique elements of an array. Optionally return indices, inverse 
 ```typescript
 function unique(
   ar: ArrayLike,
-  return_index?: boolean,
-  return_inverse?: boolean,
-  return_counts?: boolean
-): NDArray | [NDArray, ...NDArray[]]
+  returnIndex?: boolean,
+  returnInverse?: boolean,
+  returnCounts?: boolean
+): NDArray | { values: NDArray; indices?: NDArray; inverse?: NDArray; counts?: NDArray; }
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `ar` | `ArrayLike` | -- | Input array. It is flattened before computing unique values. |
-| `return_index` | `boolean` | `false` | If `true`, also return the indices of the first occurrences. |
-| `return_inverse` | `boolean` | `false` | If `true`, also return the indices to reconstruct the original from the unique array. |
-| `return_counts` | `boolean` | `false` | If `true`, also return the number of times each unique value appears. |
+| `returnIndex` | `boolean` | `false` | If `true`, also return the indices of the first occurrences. |
+| `returnInverse` | `boolean` | `false` | If `true`, also return the indices to reconstruct the original from the unique array. |
+| `returnCounts` | `boolean` | `false` | If `true`, also return the number of times each unique value appears. |
 
-**Returns:** `NDArray` when no optional flags are `true`. `[NDArray, ...NDArray[]]` tuple when one or more flags are `true` (unique values followed by the requested arrays in order: indices, inverse, counts).
+**Returns:** `NDArray` when no optional flags are `true`. Object `{ values, indices?, inverse?, counts? }` when one or more flags are `true`.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -33,11 +33,11 @@ const a = np.array([3, 1, 2, 1, 3, 2, 3]);
 np.unique(a);
 // array([1, 2, 3])
 
-const [values, indices, inverse, counts] = np.unique(a, true, true, true);
-// values  = array([1, 2, 3])
-// indices = array([1, 2, 0])     -- first occurrence positions
-// inverse = array([2, 0, 1, 0, 2, 1, 2]) -- reconstruct original
-// counts  = array([2, 2, 3])     -- occurrence counts
+const result = np.unique(a, true, true, true);
+console.log(result.values.toString());   // array([1, 2, 3])
+console.log(result.indices!.toString()); // first occurrence positions
+console.log(result.inverse!.toString()); // reconstruct original
+console.log(result.counts!.toString());  // occurrence counts
 ```
 
 ---
@@ -156,7 +156,7 @@ np.unique_values([3, 1, 2, 1, 3]);
 Test whether each element of a 1D array is also present in a second array. Returns a flattened boolean array.
 
 ```typescript
-function in1d(ar1: ArrayLike, ar2: ArrayLike, invert?: boolean): NDArray
+function in1d(ar1: ArrayLike, ar2: ArrayLike): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -184,14 +184,14 @@ np.in1d([1, 2, 3, 4], [2, 4], true);
 Test whether each element of an array is present in a set of test elements. Unlike `in1d`, this preserves the shape of the input.
 
 ```typescript
-function isin(element: ArrayLike, test_elements: ArrayLike, invert?: boolean): NDArray
+function isin(element: ArrayLike, testElements: ArrayLike): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `element` | `ArrayLike` | -- | Input array to test. |
-| `test_elements` | `ArrayLike` | -- | Values to test against. Flattened internally. |
-| `invert` | `boolean` | `false` | If `true`, return `true` where elements are *not* in `test_elements`. |
+| `testElements` | `ArrayLike` | -- | Values to test against. Flattened internally. |
+| `invert` | `boolean` | `false` | If `true`, return `true` where elements are *not* in `testElements`. |
 
 **Returns:** `NDArray` -- Boolean array with the same shape as `element`.
 
@@ -213,31 +213,21 @@ Find the sorted intersection of two arrays. Optionally return the indices of the
 ```typescript
 function intersect1d(
   ar1: ArrayLike,
-  ar2: ArrayLike,
-  assume_unique?: boolean,
-  return_indices?: boolean
-): NDArray | [NDArray, NDArray, NDArray]
+  ar2: ArrayLike
+): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `ar1` | `ArrayLike` | -- | First input array. |
 | `ar2` | `ArrayLike` | -- | Second input array. |
-| `assume_unique` | `boolean` | `false` | If `true`, assume both arrays contain unique elements, which can speed up the computation. |
-| `return_indices` | `boolean` | `false` | If `true`, also return the indices of the intersecting elements in `ar1` and `ar2`. |
-
-**Returns:** `NDArray` of common values when `return_indices` is `false`. `[NDArray, NDArray, NDArray]` tuple of `(common_values, ar1_indices, ar2_indices)` when `return_indices` is `true`.
+**Returns:** `NDArray` of sorted common values.
 
 ```typescript
 import * as np from 'numpy-ts';
 
 np.intersect1d([1, 2, 3, 4], [3, 4, 5, 6]);
 // array([3, 4])
-
-const [values, i1, i2] = np.intersect1d([1, 2, 3], [2, 3, 4], false, true);
-// values = array([2, 3])
-// i1     = array([1, 2])  -- indices in ar1
-// i2     = array([0, 1])  -- indices in ar2
 ```
 
 ---
@@ -271,7 +261,7 @@ np.union1d([1, 2, 3], [2, 3, 4, 5]);
 Find the set difference: elements in `ar1` that are not in `ar2`.
 
 ```typescript
-function setdiff1d(ar1: ArrayLike, ar2: ArrayLike, assume_unique?: boolean): NDArray
+function setdiff1d(ar1: ArrayLike, ar2: ArrayLike): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -296,7 +286,7 @@ np.setdiff1d([1, 2, 3, 4, 5], [2, 4]);
 Find the symmetric difference: elements that are in either of two arrays, but not in both.
 
 ```typescript
-function setxor1d(ar1: ArrayLike, ar2: ArrayLike, assume_unique?: boolean): NDArray
+function setxor1d(ar1: ArrayLike, ar2: ArrayLike): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -324,7 +314,7 @@ np.setxor1d([1, 1, 2], [2, 3, 3]);
 Trim leading and/or trailing zeros from a 1D array.
 
 ```typescript
-function trim_zeros(filt: ArrayLike, trim?: string): NDArray
+function trim_zeros(filt: ArrayLike, trim?: 'f' | 'b' | 'fb'): NDArray
 ```
 
 | Name | Type | Default | Description |

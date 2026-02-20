@@ -219,3 +219,53 @@ import * as np from 'numpy-ts';
 const b = np.random.bytes(16);
 // Uint8Array of 16 random bytes
 ```
+
+---
+
+### choice
+
+Generate a random sample from a given 1-D array or from `range(a)` when `a` is an integer.
+
+```typescript
+function choice(
+  a: number | ArrayLike,
+  size?: number | number[],
+  replace?: boolean,
+  p?: ArrayLike
+): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number \| ArrayLike` | -- | If `number`, sample from `0..a-1`; otherwise sample from the provided values. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+| `replace` | `boolean` | `true` | Whether sampling is with replacement. |
+| `p` | `ArrayLike` | `undefined` | Optional probabilities for each entry in `a`. |
+
+---
+
+### permutation
+
+Randomly permute a sequence or return a permuted range.
+
+```typescript
+function permutation(x: number | ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `number \| ArrayLike` | -- | If `number`, permute `0..x-1`; otherwise permute the input values. |
+
+---
+
+### shuffle
+
+Shuffle an array in place along the first axis.
+
+```typescript
+function shuffle(x: ArrayLike): void
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Array to shuffle in place. |

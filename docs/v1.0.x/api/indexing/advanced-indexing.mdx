@@ -8,7 +8,7 @@ description: "Take, put, compress, select, broadcast, and other advanced array i
 Take elements from an array along an axis.
 
 ```typescript
-function take(a: ArrayLike, indices: ArrayLike, axis?: number): NDArray
+function take(a: ArrayLike, indices: number[], axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -41,18 +41,16 @@ Replace specified elements of an array with given values.
 ```typescript
 function put(
   a: NDArray,
-  ind: ArrayLike,
-  v: ArrayLike,
-  mode?: 'raise' | 'wrap' | 'clip'
+  indices: number[],
+  values: ArrayLike
 ): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `NDArray` | -- | Target array. Modified in-place. |
-| `ind` | `ArrayLike` | -- | Flat indices of elements to replace. |
-| `v` | `ArrayLike` | -- | Values to place at the target indices. If shorter than `ind`, values are repeated cyclically. |
-| `mode` | `'raise' \| 'wrap' \| 'clip'` | `'raise'` | How to handle out-of-bounds indices. `'raise'` throws an error, `'wrap'` wraps around, `'clip'` clips to the valid range. |
+| `indices` | `number[]` | -- | Flat indices of elements to replace. |
+| `values` | `ArrayLike` | -- | Values to place at the target indices. If shorter than `indices`, values are repeated cyclically. |
 
 **Returns:** `void` -- The array `a` is modified in-place.
 
@@ -62,9 +60,6 @@ import * as np from 'numpy-ts';
 const a = np.array([0, 0, 0, 0, 0]);
 np.put(a, [1, 3], [10, 20]);
 // a is now array([0, 10, 0, 20, 0])
-
-np.put(a, [10], [99], 'clip');
-// a is now array([0, 10, 0, 20, 99])
 ```
 
 ---
@@ -141,7 +136,7 @@ Return an array drawn from elements in `choicelist` depending on conditions.
 function select(
   condlist: ArrayLike[],
   choicelist: ArrayLike[],
-  default_?: number
+  defaultVal?: number
 ): NDArray
 ```
 
@@ -149,7 +144,7 @@ function select(
 |------|------|---------|-------------|
 | `condlist` | `ArrayLike[]` | -- | List of boolean arrays. The first condition that is true determines which choice is used. |
 | `choicelist` | `ArrayLike[]` | -- | List of arrays from which output elements are taken. Must be the same length as `condlist`. |
-| `default_` | `number` | `0` | Value used when no condition is satisfied. |
+| `defaultVal` | `number` | `0` | Value used when no condition is satisfied. |
 
 **Returns:** `NDArray` -- Array where element `i` is taken from `choicelist[j][i]` for the first `j` where `condlist[j][i]` is true, or `default_` if no condition is true.
 
@@ -172,14 +167,14 @@ const result = np.select(
 Change elements of an array based on a boolean mask and replacement values.
 
 ```typescript
-function place(arr: NDArray, mask: ArrayLike, vals: ArrayLike): void
+function place(a: NDArray, mask: ArrayLike, vals: ArrayLike): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `arr` | `NDArray` | -- | Array to modify in-place. |
-| `mask` | `ArrayLike` | -- | Boolean mask. Must be broadcastable to `arr`. |
-| `vals` | `ArrayLike` | -- | Values to place into `arr` where `mask` is true. Cycled if shorter than the number of true values. |
+| `a` | `NDArray` | -- | Array to modify in-place. |
+| `mask` | `ArrayLike` | -- | Boolean mask. Must be broadcastable to `a`. |
+| `vals` | `ArrayLike` | -- | Values to place into `a` where `mask` is true. Cycled if shorter than the number of true values. |
 
 **Returns:** `void` -- The array `arr` is modified in-place.
 
@@ -284,17 +279,16 @@ np.put_along_axis(a, idx, 99, 1);
 
 ### copyto
 
-Copy values from one array to another, with optional boolean mask.
+Copy values from one array to another.
 
 ```typescript
-function copyto(dst: NDArray, src: ArrayLike, where?: ArrayLike): void
+function copyto(dst: NDArray, src: ArrayLike | number | bigint): void
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `dst` | `NDArray` | -- | Destination array. Modified in-place. |
-| `src` | `ArrayLike` | -- | Source array. Must be broadcastable to `dst`. |
-| `where` | `ArrayLike` | `undefined` | Boolean mask. Only elements where the mask is true are copied. When `undefined`, all elements are copied. |
+| `src` | `ArrayLike \| number \| bigint` | -- | Source array or scalar. Must be broadcastable to `dst`. |
 
 **Returns:** `void` -- The array `dst` is modified in-place.
 
@@ -304,10 +298,6 @@ import * as np from 'numpy-ts';
 const dst = np.zeros([3]);
 np.copyto(dst, np.array([1, 2, 3]));
 // dst is now array([1, 2, 3])
-
-const a = np.zeros([4]);
-np.copyto(a, np.array([10, 20, 30, 40]), np.array([true, false, true, false]));
-// a is now array([10, 0, 30, 0])
 ```
 
 ---
@@ -317,12 +307,12 @@ np.copyto(a, np.array([10, 20, 30, 40]), np.array([true, false, true, false]));
 Broadcast an array to a new shape without copying data.
 
 ```typescript
-function broadcast_to(array: ArrayLike, shape: number[]): NDArray
+function broadcast_to(a: ArrayLike, shape: number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `array` | `ArrayLike` | -- | The array to broadcast. |
+| `a` | `ArrayLike` | -- | The array to broadcast. |
 | `shape` | `number[]` | -- | Target shape. Must be compatible with the input shape under NumPy broadcasting rules. |
 
 **Returns:** `NDArray` -- A read-only view of the original array with the given shape.
@@ -344,12 +334,12 @@ const b = np.broadcast_to(a, [3, 3]);
 Broadcast any number of arrays against each other.
 
 ```typescript
-function broadcast_arrays(...args: ArrayLike[]): NDArray[]
+function broadcast_arrays(...arrays: ArrayLike[]): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `...args` | `ArrayLike[]` | -- | Arrays to broadcast. |
+| `...arrays` | `ArrayLike[]` | -- | Arrays to broadcast. |
 
 **Returns:** `NDArray[]` -- List of arrays with the same shape, broadcast from the inputs.
 

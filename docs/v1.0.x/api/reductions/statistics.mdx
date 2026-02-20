@@ -16,9 +16,10 @@ Compute the histogram of a dataset.
 ```typescript
 function histogram(
   a: ArrayLike,
-  bins?: number | ArrayLike,
+  bins?: number | ArrayLike | BinStrategyString,
   range?: [number, number],
-  density?: boolean
+  density?: boolean,
+  weights?: ArrayLike
 ): [NDArray, NDArray];
 ```
 
@@ -28,6 +29,7 @@ function histogram(
 | `bins` | `number \| ArrayLike` | `10` | If an integer, the number of equal-width bins. If an array, the bin edges (length `nbins + 1`). |
 | `range` | `[number, number]` | `undefined` | Lower and upper range of the bins. If `undefined`, uses `[min(a), max(a)]`. |
 | `density` | `boolean` | `false` | If `true`, the result is normalized so the integral over the range equals 1. |
+| `weights` | `ArrayLike` | `undefined` | Optional weights for each sample in `a`. |
 
 **Returns:** A tuple `[counts, bin_edges]` where `counts` has shape `[nbins]` and `bin_edges` has shape `[nbins + 1]`.
 
@@ -52,9 +54,10 @@ Compute the bi-dimensional histogram of two data samples.
 function histogram2d(
   x: ArrayLike,
   y: ArrayLike,
-  bins?: number | [number, number],
+  bins?: number | [number, number] | [ArrayLike, ArrayLike],
   range?: [[number, number], [number, number]],
-  density?: boolean
+  density?: boolean,
+  weights?: ArrayLike
 ): [NDArray, NDArray, NDArray];
 ```
 
@@ -65,6 +68,7 @@ function histogram2d(
 | `bins` | `number \| [number, number]` | `10` | Number of bins for each dimension, or a pair `[nx, ny]`. |
 | `range` | `[[number, number], [number, number]]` | `undefined` | Range for each dimension: `[[xmin, xmax], [ymin, ymax]]`. |
 | `density` | `boolean` | `false` | If `true`, normalize the histogram. |
+| `weights` | `ArrayLike` | `undefined` | Optional weights for each paired sample. |
 
 **Returns:** A tuple `[H, xedges, yedges]` where `H` has shape `[nx, ny]`.
 
@@ -91,7 +95,8 @@ function histogramdd(
   sample: ArrayLike,
   bins?: number | number[],
   range?: [number, number][],
-  density?: boolean
+  density?: boolean,
+  weights?: ArrayLike
 ): [NDArray, NDArray[]];
 ```
 
@@ -101,6 +106,7 @@ function histogramdd(
 | `bins` | `number \| number[]` | `10` | Number of bins for each dimension. A single integer applies to all dimensions. |
 | `range` | `[number, number][]` | `undefined` | Range `[min, max]` for each dimension. |
 | `density` | `boolean` | `false` | If `true`, normalize the histogram. |
+| `weights` | `ArrayLike` | `undefined` | Optional weights for each sample. |
 
 **Returns:** A tuple `[H, edges]` where `H` is the D-dimensional count array and `edges` is an array of `D` edge arrays.
 
@@ -122,8 +128,9 @@ Compute the bin edges for a histogram without computing the histogram itself. Us
 ```typescript
 function histogram_bin_edges(
   a: ArrayLike,
-  bins?: number | string,
-  range?: [number, number]
+  bins?: number | BinStrategyString,
+  range?: [number, number],
+  weights?: ArrayLike
 ): NDArray;
 ```
 
@@ -132,6 +139,7 @@ function histogram_bin_edges(
 | `a` | `ArrayLike` | -- | Input data. |
 | `bins` | `number \| string` | `10` | Number of bins, or a string naming a binning strategy (e.g., `'auto'`, `'sturges'`, `'sqrt'`). |
 | `range` | `[number, number]` | `undefined` | Lower and upper range of the bins. |
+| `weights` | `ArrayLike` | `undefined` | Optional sample weights used for automatic bin edge selection. |
 
 **Returns:** `NDArray` of bin edges with length `nbins + 1`.
 

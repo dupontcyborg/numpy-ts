@@ -40,12 +40,12 @@ a.iset([di, dj], 1);
 Return the indices to access the main diagonal of a given array.
 
 ```typescript
-function diag_indices_from(arr: ArrayLike): NDArray[]
+function diag_indices_from(a: ArrayLike): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `arr` | `ArrayLike` | -- | Array whose diagonal indices are desired. Must be at least 2-D and have equal-length dimensions. |
+| `a` | `ArrayLike` | -- | Array whose diagonal indices are desired. Must be at least 2-D and have equal-length dimensions. |
 
 **Returns:** `NDArray[]` -- Tuple of index arrays that select the main diagonal of `arr`.
 
@@ -65,7 +65,7 @@ const [di, dj] = np.diag_indices_from(a);
 Return the indices for the lower triangle of an (n, m) array.
 
 ```typescript
-function tril_indices(n: number, k?: number, m?: number): [NDArray, NDArray]
+function tril_indices(n: number, k?: number, m?: number): NDArray[]
 ```
 
 | Name | Type | Default | Description |
@@ -96,12 +96,12 @@ const [r, c] = np.tril_indices(3, 1);
 Return the indices for the lower triangle of a given array.
 
 ```typescript
-function tril_indices_from(arr: ArrayLike, k?: number): [NDArray, NDArray]
+function tril_indices_from(a: ArrayLike, k?: number): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `arr` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
+| `a` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
 | `k` | `number` | `0` | Diagonal offset. |
 
 **Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the lower triangle.
@@ -122,7 +122,7 @@ const [rows, cols] = np.tril_indices_from(a);
 Return the indices for the upper triangle of an (n, m) array.
 
 ```typescript
-function triu_indices(n: number, k?: number, m?: number): [NDArray, NDArray]
+function triu_indices(n: number, k?: number, m?: number): NDArray[]
 ```
 
 | Name | Type | Default | Description |
@@ -153,12 +153,12 @@ const [r, c] = np.triu_indices(3, 1);
 Return the indices for the upper triangle of a given array.
 
 ```typescript
-function triu_indices_from(arr: ArrayLike, k?: number): [NDArray, NDArray]
+function triu_indices_from(a: ArrayLike, k?: number): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `arr` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
+| `a` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
 | `k` | `number` | `0` | Diagonal offset. |
 
 **Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the upper triangle.
@@ -183,7 +183,7 @@ function mask_indices(
   n: number,
   mask_func: (n: number, k?: number) => NDArray,
   k?: number
-): [NDArray, NDArray]
+): NDArray[]
 ```
 
 | Name | Type | Default | Description |
@@ -212,18 +212,16 @@ Return an array representing the indices of a grid.
 ```typescript
 function indices(
   dimensions: number[],
-  dtype?: DType,
-  sparse?: boolean
-): NDArray | NDArray[]
+  dtype?: 'int32' | 'int64' | 'float64'
+): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `dimensions` | `number[]` | -- | Shape of the grid. |
-| `dtype` | `DType` | `'int32'` | Data type of the result. |
-| `sparse` | `boolean` | `false` | If `true`, return a sparse representation (list of 1-D arrays) instead of a dense grid. |
+| `dtype` | `'int32' \| 'int64' \| 'float64'` | `'int32'` | Data type of the result. |
 
-**Returns:** `NDArray` when `sparse` is false (dense grid with shape `[N, ...dimensions]`), `NDArray[]` when `sparse` is true.
+**Returns:** `NDArray` dense grid with shape `[N, ...dimensions]`.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -232,9 +230,6 @@ const grid = np.indices([2, 3]);
 // grid[0]: array([[0, 0, 0], [1, 1, 1]])  -- row indices
 // grid[1]: array([[0, 1, 2], [0, 1, 2]])  -- column indices
 
-const sparse = np.indices([2, 3], 'int32', true);
-// sparse[0]: array([[0], [1]])         -- shape [2, 1]
-// sparse[1]: array([[0, 1, 2]])        -- shape [1, 3]
 ```
 
 ---
@@ -272,7 +267,7 @@ const a = np.arange(16).reshape([4, 4]);
 Fill the main diagonal of the given array in-place.
 
 ```typescript
-function fill_diagonal(a: NDArray, val: number | ArrayLike, wrap?: boolean): void
+function fill_diagonal(a: NDArray, val: number, wrap?: boolean): void
 ```
 
 | Name | Type | Default | Description |

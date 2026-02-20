@@ -8,7 +8,7 @@ description: "Element-wise bitwise AND, OR, XOR, NOT, shifts, and bit packing/un
 Compute the bit-wise AND of two arrays element-wise.
 
 ```typescript
-function bitwise_and(x1: ArrayLike, x2: ArrayLike): NDArray
+function bitwise_and(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -35,7 +35,7 @@ const c = np.bitwise_and(a, b);
 Compute the bit-wise OR of two arrays element-wise.
 
 ```typescript
-function bitwise_or(x1: ArrayLike, x2: ArrayLike): NDArray
+function bitwise_or(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -62,7 +62,7 @@ const c = np.bitwise_or(a, b);
 Compute the bit-wise XOR of two arrays element-wise.
 
 ```typescript
-function bitwise_xor(x1: ArrayLike, x2: ArrayLike): NDArray
+function bitwise_xor(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -145,7 +145,7 @@ Also available as `bitwise_left_shift`, which is an alias for `left_shift`.
 </Note>
 
 ```typescript
-function left_shift(x1: ArrayLike, x2: ArrayLike): NDArray
+function left_shift(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -174,7 +174,7 @@ Also available as `bitwise_right_shift`, which is an alias for `right_shift`.
 </Note>
 
 ```typescript
-function right_shift(x1: ArrayLike, x2: ArrayLike): NDArray
+function right_shift(x1: ArrayLike, x2: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |

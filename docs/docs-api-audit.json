@@ -65,5 +65,10 @@
     "linalg.vector_norm"
   ],
   "missing_from_docs": [],
-  "docs_without_implementation_match": []
+  "docs_without_implementation_match": [],
+  "signature_checks": {
+    "checked": 464,
+    "mismatches": [],
+    "uncheckable_doc_signatures": []
+  }
 }

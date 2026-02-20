@@ -113,15 +113,15 @@ const a = multiply(array([2, 4, 6]), 0.5);
 Divide arguments element-wise (true division).
 
 ```typescript
-function divide(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function divide(x: ArrayLike, divisor: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | Dividend array. |
-| `x2` | `ArrayLike \| number` | - | Divisor array or scalar. |
+| `x` | `ArrayLike` | - | Dividend array. |
+| `divisor` | `ArrayLike \| number` | - | Divisor array or scalar. |
 
-**Returns:** `NDArray` -- Element-wise quotient `x1 / x2`.
+**Returns:** `NDArray` -- Element-wise quotient `x / divisor`.
 
 <CodeGroup>
 ```typescript Full Library
@@ -145,7 +145,7 @@ const a = divide(array([10, 20, 30]), 10);
 Alias for [`divide`](#divide). Returns true (floating-point) division.
 
 ```typescript
-function true_divide(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function true_divide(x: ArrayLike, divisor: ArrayLike | number): NDArray
 ```
 
 ---
@@ -155,15 +155,15 @@ function true_divide(x1: ArrayLike, x2: ArrayLike | number): NDArray
 Element-wise floor division. Returns the largest integer less than or equal to the division.
 
 ```typescript
-function floor_divide(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function floor_divide(x: ArrayLike, divisor: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | Dividend array. |
-| `x2` | `ArrayLike \| number` | - | Divisor array or scalar. |
+| `x` | `ArrayLike` | - | Dividend array. |
+| `divisor` | `ArrayLike \| number` | - | Divisor array or scalar. |
 
-**Returns:** `NDArray` -- Element-wise floor of `x1 / x2`.
+**Returns:** `NDArray` -- Element-wise floor of `x / divisor`.
 
 <CodeGroup>
 ```typescript Full Library
@@ -187,13 +187,13 @@ const a = floor_divide(array([7, 8, 9]), 3);
 Element-wise modulo (remainder of floor division). Equivalent to `remainder`.
 
 ```typescript
-function mod(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function mod(x: ArrayLike, divisor: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | Dividend array. |
-| `x2` | `ArrayLike \| number` | - | Divisor array or scalar. |
+| `x` | `ArrayLike` | - | Dividend array. |
+| `divisor` | `ArrayLike \| number` | - | Divisor array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise remainder.
 
@@ -219,13 +219,13 @@ const a = mod(array([7, 8, 9]), 3);
 Element-wise remainder of division. Equivalent to `mod`.
 
 ```typescript
-function remainder(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function remainder(x: ArrayLike, y: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | Dividend array. |
-| `x2` | `ArrayLike \| number` | - | Divisor. |
+| `x` | `ArrayLike` | - | Dividend array. |
+| `y` | `ArrayLike \| number` | - | Divisor. |
 
 **Returns:** `NDArray` -- Element-wise remainder of `x1 / x2`.
 
@@ -268,13 +268,13 @@ const a = fmod(array([-3, -2, -1, 1, 2, 3]), 2);
 Return element-wise quotient and remainder simultaneously.
 
 ```typescript
-function divmod(x1: ArrayLike, x2: ArrayLike | number): [NDArray, NDArray]
+function divmod(x: ArrayLike, y: ArrayLike | number): [NDArray, NDArray]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | Dividend. |
-| `x2` | `ArrayLike \| number` | - | Divisor. |
+| `x` | `ArrayLike` | - | Dividend. |
+| `y` | `ArrayLike \| number` | - | Divisor. |
 
 **Returns:** `[NDArray, NDArray]` -- Tuple of `[quotient, remainder]`.
 
@@ -301,13 +301,13 @@ const [q, r] = divmod(array([7, 8, 9]), 3);
 Element-wise exponentiation.
 
 ```typescript
-function power(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function power(x: ArrayLike, exponent: ArrayLike | number): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `x1` | `ArrayLike` | - | Base array. |
-| `x2` | `ArrayLike \| number` | - | Exponent array or scalar. |
+| `x` | `ArrayLike` | - | Base array. |
+| `exponent` | `ArrayLike \| number` | - | Exponent array or scalar. |
 
 **Returns:** `NDArray` -- Element-wise `x1 ** x2`.
 
@@ -333,7 +333,7 @@ const a = power(array([2, 3, 4]), 2);
 Alias for [`power`](#power).
 
 ```typescript
-function pow(x1: ArrayLike, x2: ArrayLike | number): NDArray
+function pow(x: ArrayLike, exponent: ArrayLike | number): NDArray
 ```
 
 ---

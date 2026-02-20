@@ -8,7 +8,7 @@ description: "Sort arrays, compute sort indices, perform partial sorts, and sort
 Return a sorted copy of an array along the given axis.
 
 ```typescript
-function sort(a: ArrayLike, axis?: number, kind?: string): NDArray
+function sort(a: ArrayLike, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -45,7 +45,7 @@ np.sort(b);
 Return the indices that would sort an array along the given axis.
 
 ```typescript
-function argsort(a: ArrayLike, axis?: number, kind?: string): NDArray
+function argsort(a: ArrayLike, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -102,7 +102,7 @@ const indices = np.lexsort([first, last]);
 Rearrange elements such that the element at the `kth` position is where it would be in a fully sorted array. Elements before `kth` are all smaller, and elements after are all larger, but neither partition is necessarily sorted internally.
 
 ```typescript
-function partition(a: ArrayLike, kth: number | number[], axis?: number): NDArray
+function partition(a: ArrayLike, kth: number, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -130,7 +130,7 @@ console.log(p.item(3)); // 2
 Return indices that would partition an array. The element at the `kth` index in the returned order is in its final sorted position.
 
 ```typescript
-function argpartition(a: ArrayLike, kth: number | number[], axis?: number): NDArray
+function argpartition(a: ArrayLike, kth: number, axis?: number): NDArray
 ```
 
 | Name | Type | Default | Description |

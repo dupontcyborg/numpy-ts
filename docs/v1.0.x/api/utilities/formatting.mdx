@@ -8,13 +8,13 @@ description: "Functions for converting arrays and numbers to strings: array2stri
 Return a string representation of an array with full control over formatting.
 
 ```typescript
-function array2string(a: ArrayLike, options?: PrintOptions): string
+function array2string(a: ArrayLike, options?: { max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' | '+' | '-'; floatmode?: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal'; }): string
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `a` | `ArrayLike` | -- | Input array. |
-| `options` | `PrintOptions` | `undefined` | Formatting options including `precision`, `suppress`, `separator`, `prefix`, `max_line_width`, `threshold`, and `edgeitems`. |
+| `options` | `{ max_line_width?: number; precision?: number; suppress_small?: boolean; separator?: string; prefix?: string; suffix?: string; threshold?: number; edgeitems?: number; sign?: ' ' \| '+' \| '-'; floatmode?: 'fixed' \| 'unique' \| 'maxprec' \| 'maxprec_equal'; }` | `undefined` | Formatting options. |
 
 **Returns:** `string` -- Formatted string representation of the array.
 
@@ -38,7 +38,7 @@ Return the string representation of an array, including the `array(...)` wrapper
 
 ```typescript
 function array_repr(
-  arr: ArrayLike,
+  a: ArrayLike,
   max_line_width?: number,
   precision?: number,
   suppress_small?: boolean
@@ -47,7 +47,7 @@ function array_repr(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `arr` | `ArrayLike` | -- | Input array. |
+| `a` | `ArrayLike` | -- | Input array. |
 | `max_line_width` | `number` | `75` | Maximum number of characters per line. |
 | `precision` | `number` | `8` | Number of digits of precision for floating-point output. |
 | `suppress_small` | `boolean` | `false` | If `true`, numbers very close to zero are printed as `0.`. |
@@ -76,8 +76,7 @@ Return a string representation of the data in an array, without the `array(...)`
 function array_str(
   a: ArrayLike,
   max_line_width?: number,
-  precision?: number,
-  suppress_small?: boolean
+  precision?: number
 ): string
 ```
 
@@ -133,7 +132,7 @@ base_repr(42, 10);       // '42'
 Return the binary string representation of a number. Negative numbers use two's complement notation.
 
 ```typescript
-function binary_repr(num: number, width?: number): string
+function binary_repr(num: number, width?: null | number): string
 ```
 
 | Parameter | Type | Default | Description |
@@ -161,26 +160,28 @@ Format a floating-point scalar in positional (non-scientific) notation with fine
 ```typescript
 function format_float_positional(
   x: number,
-  precision?: number,
+  precision?: null | number,
   unique?: boolean,
   fractional?: boolean,
-  trim?: string,
-  sign?: boolean,
-  pad_left?: number,
-  pad_right?: number
+  trim?: '-' | '.' | '0' | 'k',
+  sign?: ' ' | '+' | '-',
+  pad_left?: null | number,
+  pad_right?: null | number,
+  min_digits?: null | number
 ): string
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `x` | `number` | -- | Value to format. |
-| `precision` | `number` | `undefined` | Maximum number of digits. |
+| `precision` | `null \| number` | `undefined` | Maximum number of digits. |
 | `unique` | `boolean` | `true` | If `true`, use the minimum number of digits to uniquely represent the value. |
 | `fractional` | `boolean` | `true` | If `true`, `precision` refers to digits after the decimal point; otherwise total significant digits. |
-| `trim` | `string` | `'k'` | Controls trailing zero trimming: `'k'` keeps trailing zeros, `'-'` trims trailing zeros, `'.'` trims trailing zeros and the decimal point, `'0'` trims all but one trailing zero. |
-| `sign` | `boolean` | `false` | If `true`, always show the sign. |
-| `pad_left` | `number` | `undefined` | Pad with spaces on the left to this width. |
-| `pad_right` | `number` | `undefined` | Pad with spaces on the right to this width. |
+| `trim` | `'-' \| '.' \| '0' \| 'k'` | `'k'` | Controls trailing zero trimming. |
+| `sign` | `' ' \| '+' \| '-'` | `'-'` | Sign formatting mode. |
+| `pad_left` | `null \| number` | `undefined` | Pad with spaces on the left to this width. |
+| `pad_right` | `null \| number` | `undefined` | Pad with spaces on the right to this width. |
+| `min_digits` | `null \| number` | `undefined` | Minimum significant digits to emit. |
 
 **Returns:** `string` -- Formatted number string.
 
@@ -202,22 +203,26 @@ Format a floating-point scalar in scientific notation.
 ```typescript
 function format_float_scientific(
   x: number,
-  precision?: number,
-  unique?: boolean,
-  trim?: string,
-  sign?: boolean,
-  exp_digits?: number
+  precision?: null | number,
+  _unique?: boolean,
+  trim?: '-' | '.' | '0' | 'k',
+  sign?: ' ' | '+' | '-',
+  pad_left?: null | number,
+  exp_digits?: number,
+  min_digits?: null | number
 ): string
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `x` | `number` | -- | Value to format. |
-| `precision` | `number` | `undefined` | Number of digits of precision. |
-| `unique` | `boolean` | `true` | If `true`, use minimal digits to uniquely represent the value. |
-| `trim` | `string` | `'k'` | Trailing zero trimming (same options as `format_float_positional`). |
-| `sign` | `boolean` | `false` | If `true`, always show the sign. |
+| `precision` | `null \| number` | `undefined` | Number of digits of precision. |
+| `_unique` | `boolean` | `true` | If `true`, use minimal digits to uniquely represent the value. |
+| `trim` | `'-' \| '.' \| '0' \| 'k'` | `'k'` | Trailing zero trimming (same options as `format_float_positional`). |
+| `sign` | `' ' \| '+' \| '-'` | `'-'` | Sign formatting mode. |
+| `pad_left` | `null \| number` | `undefined` | Pad with spaces on the left to this width. |
 | `exp_digits` | `number` | `undefined` | Minimum number of digits in the exponent. |
+| `min_digits` | `null \| number` | `undefined` | Minimum significant digits to emit. |
 
 **Returns:** `string` -- Formatted scientific notation string.
 
@@ -257,7 +262,7 @@ console.log(opts.edgeitems);   // 3
 Set the default print options globally. These affect all subsequent calls to `toString()`, `array_repr`, and `array2string`.
 
 ```typescript
-function set_printoptions(options: PrintOptions): void
+function set_printoptions(options: Partial<PrintOptions>): void
 ```
 
 | Parameter | Type | Default | Description |
@@ -272,7 +277,7 @@ import { array, set_printoptions } from 'numpy-ts';
 set_printoptions({ precision: 2, suppress: true });
 
 const a = array([0.000123, 1.23456, 789.0]);
-console.log(a.toString());
+console.log(a);
 // array([0.  , 1.23, 789. ])
 
 // Reset to defaults
@@ -283,17 +288,17 @@ set_printoptions({ precision: 8, suppress: false });
 
 ### printoptions
 
-Temporarily set print options and return a restore function. This is useful as a scoped context manager for formatting.
+Temporarily set print options and return a context object. This is useful as a scoped context manager for formatting.
 
 ```typescript
-function printoptions(options: PrintOptions): { restore: () => void }
+function printoptions(options: Partial<PrintOptions>): { enter: () => void; exit: () => void; apply: <T>(fn: () => T) => T; _savedOptions: PrintOptions | null; }
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `options` | `PrintOptions` | -- | Temporary print options to apply. |
+| `options` | `Partial<PrintOptions>` | -- | Temporary print options to apply. |
 
-**Returns:** `{ restore: () => void }` -- An object with a `restore` method that reverts to the previous print options.
+**Returns:** `{ enter, exit, apply, _savedOptions }` -- Context helpers that apply and restore temporary print settings.
 
 ```typescript
 import { array, printoptions } from 'numpy-ts';
@@ -301,10 +306,11 @@ import { array, printoptions } from 'numpy-ts';
 const a = array([1.23456789, 2.3456789]);
 
 const ctx = printoptions({ precision: 2 });
-console.log(a.toString());
+ctx.enter();
+console.log(a);
 // array([1.23, 2.35])
 
-ctx.restore();
-console.log(a.toString());
+ctx.exit();
+console.log(a);
 // array([1.23456789, 2.3456789 ])
 ```

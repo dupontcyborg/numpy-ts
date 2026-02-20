@@ -119,7 +119,7 @@ const result = np.flatnonzero(a);
 Find indices where elements should be inserted to maintain sorted order. The input array `a` must be sorted in ascending order.
 
 ```typescript
-function searchsorted(a: ArrayLike, v: ArrayLike, side?: 'left' | 'right'): NDArray | number
+function searchsorted(a: ArrayLike, v: ArrayLike, side?: 'left' | 'right'): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -128,7 +128,7 @@ function searchsorted(a: ArrayLike, v: ArrayLike, side?: 'left' | 'right'): NDAr
 | `v` | `ArrayLike` | -- | Values to insert. |
 | `side` | `'left' \| 'right'` | `'left'` | If `'left'`, the index of the first suitable location is returned. If `'right'`, the last suitable location is returned. |
 
-**Returns:** `NDArray | number` -- Indices of insertion points. Returns a scalar `number` when `v` is a scalar, otherwise an `NDArray`.
+**Returns:** `NDArray` -- Indices of insertion points.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -152,15 +152,15 @@ np.searchsorted(a, [0, 3, 6]);
 Return elements of an array where a condition is `true`. Equivalent to `a[condition]` on the flattened array.
 
 ```typescript
-function extract(condition: ArrayLike, arr: ArrayLike): NDArray
+function extract(condition: ArrayLike, a: ArrayLike): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `condition` | `ArrayLike` | -- | Boolean array. Must be broadcastable to the shape of `arr`. |
-| `arr` | `ArrayLike` | -- | Input array. |
+| `condition` | `ArrayLike` | -- | Boolean array. Must be broadcastable to the shape of `a`. |
+| `a` | `ArrayLike` | -- | Input array. |
 
-**Returns:** `NDArray` -- 1D array of elements from `arr` where `condition` is `true`.
+**Returns:** `NDArray` -- 1D array of elements from `a` where `condition` is `true`.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -179,14 +179,13 @@ const result = np.extract(condition, a);
 Count the number of non-zero elements in the array.
 
 ```typescript
-function count_nonzero(a: ArrayLike, axis?: number | number[], keepdims?: boolean): number | NDArray
+function count_nonzero(a: ArrayLike, axis?: number): number | NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input array. |
-| `axis` | `number \| number[]` | `undefined` | Axis or axes along which to count. If `undefined`, counts over the entire array. |
-| `keepdims` | `boolean` | `false` | If `true`, the reduced axes are kept as dimensions with size 1. |
+| `axis` | `number` | `undefined` | Axis along which to count. If `undefined`, counts over the entire array. |
 
 **Returns:** `number` when no axis is specified. `NDArray` when counting along specific axes.
 

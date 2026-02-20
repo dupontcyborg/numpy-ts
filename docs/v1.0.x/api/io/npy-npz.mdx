@@ -42,12 +42,12 @@ console.log(arr.shape, arr.dtype);
 Parse only the header of a `.npy` file without reading the data. Useful for inspecting file metadata.
 
 ```typescript
-function parseNpyHeader(buffer: ArrayBuffer | Uint8Array): NpyHeader
+function parseNpyHeader(bytes: Uint8Array): NpyMetadata
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `buffer` | `ArrayBuffer \| Uint8Array` | -- | Raw bytes of a `.npy` file. |
+| `bytes` | `Uint8Array` | -- | Raw bytes of a `.npy` file. |
 
 **Returns:** `NpyHeader` -- Object with `{ descr, fortran_order, shape, version, headerLength }`.
 
@@ -66,7 +66,7 @@ console.log(header.descr);  // e.g. '<f8'
 Parse the data portion of a `.npy` file given pre-parsed metadata. Advanced use for custom streaming workflows.
 
 ```typescript
-function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArray
+function parseNpyData(bytes: Uint8Array, metadata: NpyMetadataType): NDArray
 ```
 
 | Name | Type | Default | Description |
@@ -83,12 +83,12 @@ function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArray
 Serialize an NDArray to `.npy` format bytes.
 
 ```typescript
-function serializeNpy(array: NDArray): Uint8Array
+function serializeNpy(arr: NDArray): Uint8Array
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `array` | `NDArray` | -- | The array to serialize. |
+| `arr` | `NDArray` | -- | The array to serialize. |
 
 **Returns:** `Uint8Array` -- The `.npy` file as bytes, ready to be written or downloaded.
 
@@ -159,8 +159,7 @@ function serializeNpz(
 ): Promise<Uint8Array>
 
 function serializeNpzSync(
-  arrays: NpzArraysInput,
-  options?: NpzSerializeOptions
+  arrays: NpzArraysInput
 ): Uint8Array
 ```
 
@@ -223,12 +222,13 @@ function loadNpzSync(
 Auto-detect file format (`.npy` or `.npz`) and load arrays from disk.
 
 ```typescript
-function load(filepath: string): Promise<NDArray | Record<string, NDArray>>
+function load(path: string, options?: LoadOptions): Promise<NDArray | NpzParseResultNDArray>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `filepath` | `string` | -- | Path to a `.npy` or `.npz` file. |
+| `path` | `string` | -- | Path to a `.npy` or `.npz` file. |
+| `options` | `LoadOptions` | `undefined` | Loading options. |
 
 **Returns:** `Promise<NDArray>` for `.npy` files, `Promise<NpzParseResult>` for `.npz` files.
 
@@ -246,13 +246,13 @@ const data = await np.load('dataset.npz');
 Save a single NDArray to a `.npy` file.
 
 ```typescript
-function save(filepath: string, array: NDArray): Promise<void>
+function save(path: string, arr: NDArray): Promise<void>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `filepath` | `string` | -- | Output path (should end with `.npy`). |
-| `array` | `NDArray` | -- | Array to save. |
+| `path` | `string` | -- | Output path (should end with `.npy`). |
+| `arr` | `NDArray` | -- | Array to save. |
 
 **Returns:** `Promise<void>`
 
@@ -270,12 +270,12 @@ await np.save('matrix.npy', arr);
 Save multiple arrays to an uncompressed `.npz` file.
 
 ```typescript
-function savez(filepath: string, arrays: Record<string, NDArray>): Promise<void>
+function savez(path: string, arrays: NpzArraysInput): Promise<void>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `filepath` | `string` | -- | Output path. `.npz` extension is appended if missing. |
+| `path` | `string` | -- | Output path. `.npz` extension is appended if missing. |
 | `arrays` | `Record<string, NDArray>` | -- | Named arrays to save. Also accepts `NDArray[]` or `Map`. |
 
 **Returns:** `Promise<void>`
@@ -293,12 +293,12 @@ await np.savez('data.npz', { x: xArr, y: yArr });
 Save multiple arrays to a DEFLATE-compressed `.npz` file.
 
 ```typescript
-function savez_compressed(filepath: string, arrays: Record<string, NDArray>): Promise<void>
+function savez_compressed(path: string, arrays: NpzArraysInput): Promise<void>
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `filepath` | `string` | -- | Output path. `.npz` extension is appended if missing. |
+| `path` | `string` | -- | Output path. `.npz` extension is appended if missing. |
 | `arrays` | `Record<string, NDArray>` | -- | Named arrays to save. |
 
 **Returns:** `Promise<void>`

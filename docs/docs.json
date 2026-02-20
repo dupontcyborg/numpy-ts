@@ -53,6 +53,10 @@
     {
       "source": "/examples",
       "destination": "/v1.0.x/examples/overview"
+    },
+    {
+      "source": "/playground",
+      "destination": "/v1.0.x/playground"
     }
   ],
   "navigation": {
@@ -61,7 +65,7 @@
         "version": "v1.0.x",
         "tabs": [
           {
-            "tab": "Documentation",
+            "tab": "Guides",
             "groups": [
               {
                 "group": "numpy-ts",
@@ -253,7 +257,7 @@
                 "group": "Examples",
                 "pages": [
                   "v1.0.x/examples/overview",
-                  "v1.0.x/examples/linear-algebra-basics",
+                  "v1.0.x/examples/linear-algebra",
                   "v1.0.x/examples/signal-processing",
                   "v1.0.x/examples/statistics-analysis",
                   "v1.0.x/examples/image-processing",

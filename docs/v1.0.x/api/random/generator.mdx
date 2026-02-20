@@ -10,12 +10,12 @@ The `Generator` class is the recommended way to generate random numbers. It uses
 Create a new `Generator` instance backed by PCG64.
 
 ```typescript
-function default_rng(seed?: number): Generator
+function default_rng(seedValue?: number): Generator
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `seed` | `number` | `undefined` | Optional seed value. If omitted, a random seed is used. |
+| `seedValue` | `number` | `undefined` | Optional seed value. If omitted, a random seed is used. |
 
 **Returns:** `Generator` -- A new random number generator.
 

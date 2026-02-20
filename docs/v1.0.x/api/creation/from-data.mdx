@@ -53,19 +53,19 @@ Create an array from data in a file. This function requires Node.js file system 
 
 ```typescript
 function fromfile(
-  file: string,
-  dtype?: DType,
-  count?: number,
-  sep?: string
+  _file: string,
+  _dtype?: DType,
+  _count?: number,
+  _sep?: string
 ): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `file` | `string` | - | File path to read from. |
-| `dtype` | `DType` | `'float64'` | Data type of the returned array. |
-| `count` | `number` | `-1` | Number of items to read. `-1` reads the entire file. |
-| `sep` | `string` | `''` | Separator between items in a text file. Empty string means binary read. |
+| `_file` | `string` | - | File path to read from. |
+| `_dtype` | `DType` | `'float64'` | Data type of the returned array. |
+| `_count` | `number` | `-1` | Number of items to read. `-1` reads the entire file. |
+| `_sep` | `string` | `''` | Separator between items in a text file. Empty string means binary read. |
 
 **Returns:** `NDArray` -- 1-D array created from file data.
 
@@ -144,7 +144,7 @@ Create a 1-D array from an iterable.
 
 ```typescript
 function fromiter(
-  iterable: Iterable<number>,
+  iter: Iterable<number>,
   dtype?: DType,
   count?: number
 ): NDArray
@@ -152,7 +152,7 @@ function fromiter(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `iterable` | `Iterable<number>` | - | Any iterable yielding numbers (arrays, generators, sets, etc.). |
+| `iter` | `Iterable<number>` | - | Any iterable yielding numbers (arrays, generators, sets, etc.). |
 | `dtype` | `DType` | `'float64'` | Data type of the output array. |
 | `count` | `number` | `-1` | Maximum number of items to read. `-1` reads all items. |
 
@@ -234,12 +234,12 @@ const b = fromstring('1.5,2.5,3.5', 'float64', -1, ',');
 Return coordinate matrices from coordinate vectors. Given N 1-D arrays, `meshgrid` returns N N-D arrays for vectorized evaluations of N-D scalar fields.
 
 ```typescript
-function meshgrid(...arrays: ArrayLike[]): NDArray[]
+function meshgrid(...args: (ArrayLike | { indexing?: 'xy' | 'ij'; })[]): NDArray[]
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `...arrays` | `ArrayLike[]` | - | 1-D arrays representing coordinates of a grid. |
+| `...args` | `(ArrayLike \| { indexing?: 'xy' \| 'ij' })[]` | - | 1-D arrays representing coordinates of a grid, optionally followed by options. |
 
 **Returns:** `NDArray[]` -- Array of N-D coordinate arrays, one per input.
 

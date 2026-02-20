@@ -5,16 +5,16 @@ description: "Repeat and pad array contents."
 
 ### tile
 
-Construct an array by tiling `A` according to the repetition counts in `reps`. The result has the same dtype as `A`.
+Construct an array by tiling `a` according to the repetition counts in `reps`. The result has the same dtype as `a`.
 
 ```typescript
-function tile(A: ArrayLike, reps: number | number[]): NDArray
+function tile(a: ArrayLike, reps: number | number[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `A` | `ArrayLike` | -- | Input array. |
-| `reps` | `number \| number[]` | -- | Number of repetitions along each axis. A single integer repeats along all axes equally. An array specifies repetitions per axis (padded with 1s on the left when shorter than `A.ndim`). |
+| `a` | `ArrayLike` | -- | Input array. |
+| `reps` | `number \| number[]` | -- | Number of repetitions along each axis. A single integer repeats along all axes equally. An array specifies repetitions per axis (padded with 1s on the left when shorter than `a.ndim`). |
 
 **Returns:** `NDArray` -- The tiled array.
 
@@ -94,16 +94,16 @@ Pad an array with values along each dimension.
 
 ```typescript
 function pad(
-  array: ArrayLike,
+  arr: ArrayLike,
   pad_width: number | [number, number] | [number, number][],
-  mode?: string,
+  mode?: 'constant' | 'edge' | 'linear_ramp' | 'maximum' | 'mean' | 'median' | 'minimum' | 'reflect' | 'symmetric' | 'wrap' | 'empty',
   constant_values?: number
 ): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `array` | `ArrayLike` | -- | Input array. |
+| `arr` | `ArrayLike` | -- | Input array. |
 | `pad_width` | `number \| [number, number] \| [number, number][]` | -- | Number of values padded to each edge. A single integer pads all axes equally on both sides. A `[before, after]` tuple applies the same padding to every axis. An array of tuples specifies `[before, after]` per axis. |
 | `mode` | `string` | `'constant'` | Padding mode. Currently supports `'constant'`. |
 | `constant_values` | `number` | `0` | Fill value when `mode` is `'constant'`. |

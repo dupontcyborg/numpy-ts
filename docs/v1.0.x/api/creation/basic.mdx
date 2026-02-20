@@ -355,14 +355,14 @@ const a = asfortranarray([[1, 2], [3, 4]]);
 Return an array that satisfies requirements. In numpy-ts, requirements like `'C'`, `'F'`, `'A'`, `'W'`, `'O'`, `'E'` are mostly no-ops.
 
 ```typescript
-function require(a: ArrayLike, dtype?: DType, requirements?: string[]): NDArray
+function require(a: ArrayLike, dtype?: DType, _requirements?: string | string[]): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | - | Input array. |
 | `dtype` | `DType` | `undefined` | Desired data type. A cast is performed if needed. |
-| `requirements` | `string[]` | `undefined` | Memory layout requirements (e.g., `['C']`). Mostly no-ops in numpy-ts. |
+| `_requirements` | `string \| string[]` | `undefined` | Memory layout requirements (e.g., `['C']`). Mostly no-ops in numpy-ts. |
 
 **Returns:** `NDArray` -- Array satisfying the given requirements.
 

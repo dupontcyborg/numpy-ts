@@ -16,9 +16,9 @@ Return the sum of array elements, treating NaN as zero.
 ```typescript
 function nansum(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -45,9 +45,9 @@ Return the product of array elements, treating NaN as one.
 ```typescript
 function nanprod(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -74,9 +74,9 @@ Compute the arithmetic mean, ignoring NaN values.
 ```typescript
 function nanmean(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -103,7 +103,7 @@ Compute the standard deviation, ignoring NaN values.
 ```typescript
 function nanstd(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -134,7 +134,7 @@ Compute the variance, ignoring NaN values.
 ```typescript
 function nanvar(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -165,9 +165,9 @@ Return the minimum, ignoring NaN values.
 ```typescript
 function nanmin(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -194,9 +194,9 @@ Return the maximum, ignoring NaN values.
 ```typescript
 function nanmax(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
-): number | NDArray;
+): number | NDArray | Complex;
 ```
 
 | Parameter | Type | Default | Description |
@@ -223,7 +223,7 @@ Compute the median, ignoring NaN values.
 ```typescript
 function nanmedian(
   a: ArrayLike,
-  axis?: number | number[],
+  axis?: number,
   keepdims?: boolean
 ): number | NDArray;
 ```
@@ -358,8 +358,8 @@ Compute the q-th percentile of the data, ignoring NaN values.
 ```typescript
 function nanpercentile(
   a: ArrayLike,
-  q: number | number[],
-  axis?: number | number[],
+  q: number,
+  axis?: number,
   keepdims?: boolean
 ): number | NDArray;
 ```
@@ -389,8 +389,8 @@ Compute the q-th quantile of the data, ignoring NaN values.
 ```typescript
 function nanquantile(
   a: ArrayLike,
-  q: number | number[],
-  axis?: number | number[],
+  q: number,
+  axis?: number,
   keepdims?: boolean
 ): number | NDArray;
 ```
