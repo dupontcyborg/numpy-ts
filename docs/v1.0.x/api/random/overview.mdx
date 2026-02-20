@@ -1,0 +1,143 @@
+---
+title: "Random Module Overview"
+description: "Overview of the numpy-ts random number generation module, including legacy and modern APIs."
+---
+
+The `np.random` namespace provides NumPy-compatible random number generation with two APIs:
+
+- **Legacy API** -- Global functions like `np.random.seed()`, `np.random.rand()`, `np.random.normal()`, etc. Uses **MT19937** (Mersenne Twister), matching NumPy's legacy random module.
+- **Modern API** -- The `Generator` class created via `np.random.default_rng()`. Uses **PCG64** with SeedSequence, matching NumPy's recommended modern approach.
+
+Both APIs produce statistically correct distributions and can be seeded for reproducibility.
+
+## Seeding and State
+
+### seed
+
+Set the global seed for the legacy random number generator.
+
+```typescript
+function seed(seedValue?: number | null): void
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `seedValue` | `number \| null` | `null` | Seed value (integer). If `null` or omitted, a time-based random seed is used. |
+
+**Returns:** `void`
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.random.seed(42);
+console.log(np.random.random()); // Reproducible value
+```
+
+---
+
+### get_state
+
+Get the internal state of the legacy MT19937 random number generator. The returned object can be passed to `set_state` to restore the RNG to this exact point.
+
+```typescript
+function get_state(): { mt: number[]; mti: number; }
+```
+
+**Returns:** `{ mt: number[]; mti: number }` -- Object containing the MT19937 state array and index.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.random.seed(0);
+const state = np.random.get_state();
+const a = np.random.random();
+
+np.random.set_state(state);
+const b = np.random.random();
+// a === b
+```
+
+---
+
+### set_state
+
+Restore the internal state of the legacy random number generator from a previously saved state object.
+
+```typescript
+function set_state(state: { mt: number[]; mti: number; }): void
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `state` | `{ mt: number[]; mti: number }` | -- | State object obtained from `get_state()`. |
+
+**Returns:** `void`
+
+---
+
+### get_bit_generator
+
+Get the current bit generator object. Returns an object with `name` and `state` properties.
+
+```typescript
+function get_bit_generator(): BitGenerator
+```
+
+**Returns:** `BitGenerator` -- The current bit generator descriptor.
+
+---
+
+### set_bit_generator
+
+Set the bit generator used by the legacy random functions.
+
+```typescript
+function set_bit_generator(bitgen: BitGenerator): void
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `bitgen` | `BitGenerator` | -- | Bit generator descriptor. |
+
+**Returns:** `void`
+
+---
+
+## Reproducibility
+
+numpy-ts implements the same algorithms as NumPy for both the legacy and modern APIs:
+
+| API | Bit Generator | Initialization |
+|-----|--------------|----------------|
+| Legacy (`np.random.seed`) | MT19937 | Direct seed init |
+| Modern (`np.random.default_rng`) | PCG64 | SeedSequence expansion |
+
+### NumPy Compatibility
+
+| Category | Match Level | Notes |
+|----------|-------------|-------|
+| Uniform `[0, 1)` | Exact | Identical 53-bit float generation |
+| Normal / Gaussian | Exact (seeded) | Box-Muller transform, same pairing |
+| Integer generation | Exact | Same range mapping |
+| PCG64 (Generator) | Exact | Same SeedSequence, same state advance order |
+| Gamma, Beta, Chi-square | Statistical | Same algorithms, minor float differences |
+| Poisson, Binomial | Statistical | Same algorithm selection thresholds |
+| Multivariate Normal | Statistical | Cholesky-based, same approach |
+
+<Note>
+  When using the legacy API with `np.random.seed()`, uniform and normal outputs match NumPy exactly for the same seed. Other distributions use the same algorithms as NumPy and produce statistically equivalent results, though individual values may differ due to floating-point ordering.
+</Note>
+
+---
+
+## default_rng and Generator
+
+The modern API uses `default_rng` to create a `Generator` instance backed by PCG64. See the [Generator API](./generator) page for full details.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const rng = np.random.default_rng(12345);
+const arr = rng.random([3, 3]);
+const ints = rng.integers(0, 100, [5]);
+```

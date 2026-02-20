@@ -1,0 +1,232 @@
+---
+title: "Rounding"
+description: "Element-wise rounding, floor, ceiling, and truncation functions."
+---
+
+### around
+
+Round an array to the given number of decimals.
+
+```typescript
+function around(a: ArrayLike, decimals?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input array. |
+| `decimals` | `number` | `0` | Number of decimal places to round to. `0` rounds to the nearest integer. Negative values round to powers of ten (e.g., `-1` rounds to the nearest 10). |
+
+**Returns:** `NDArray` -- Array with each element rounded to the given number of decimals.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.around(np.array([1.234, 2.567, 3.891]), 2);
+// array([1.23, 2.57, 3.89])
+
+const b = np.around(np.array([1.5, 2.5, 3.5]));
+// array([2, 2, 4])  -- banker's rounding
+
+const c = np.around(np.array([123, 456, 789]), -2);
+// array([100, 500, 800])
+```
+
+```typescript Core
+import { around, array } from 'numpy-ts/core';
+
+const a = around(array([1.234, 2.567, 3.891]), 2);
+const b = around(array([1.5, 2.5, 3.5]));
+```
+</CodeGroup>
+
+---
+
+### round
+
+Alias for [`around`](#around). Round an array to the given number of decimals.
+
+```typescript
+function round(a: ArrayLike, decimals?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input array. |
+| `decimals` | `number` | `0` | Number of decimal places. |
+
+**Returns:** `NDArray` -- Rounded array.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.round(np.array([0.123, 4.567, 8.901]), 1);
+// array([0.1, 4.6, 8.9])
+```
+
+```typescript Core
+import { round_ as round, array } from 'numpy-ts/core';
+
+const a = round(array([0.123, 4.567, 8.901]), 1);
+```
+</CodeGroup>
+
+<Note>
+In the `numpy-ts/core` entry point, `round` is exported as `round_` to avoid conflicting with the JavaScript built-in `Math.round`. The main `numpy-ts` entry point exports it as both `round` and `around`.
+</Note>
+
+---
+
+### ceil
+
+Return the ceiling of each element (smallest integer greater than or equal to each value).
+
+```typescript
+function ceil(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise ceiling.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.ceil(np.array([1.1, 1.9, -1.1, -1.9]));
+// array([2, 2, -1, -1])
+```
+
+```typescript Core
+import { ceil, array } from 'numpy-ts/core';
+
+const a = ceil(array([1.1, 1.9, -1.1, -1.9]));
+```
+</CodeGroup>
+
+---
+
+### floor
+
+Return the floor of each element (largest integer less than or equal to each value).
+
+```typescript
+function floor(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise floor.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.floor(np.array([1.1, 1.9, -1.1, -1.9]));
+// array([1, 1, -2, -2])
+```
+
+```typescript Core
+import { floor, array } from 'numpy-ts/core';
+
+const a = floor(array([1.1, 1.9, -1.1, -1.9]));
+```
+</CodeGroup>
+
+---
+
+### fix
+
+Round to the nearest integer toward zero.
+
+```typescript
+function fix(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise value rounded toward zero (truncation toward zero).
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.fix(np.array([2.7, -2.7, 0.5, -0.5]));
+// array([2, -2, 0, 0])
+```
+
+```typescript Core
+import { fix, array } from 'numpy-ts/core';
+
+const a = fix(array([2.7, -2.7, 0.5, -0.5]));
+```
+</CodeGroup>
+
+---
+
+### rint
+
+Round to the nearest integer, element-wise.
+
+```typescript
+function rint(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise value rounded to the nearest integer.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.rint(np.array([1.2, 1.5, 1.8, 2.5]));
+// array([1, 2, 2, 2])
+```
+
+```typescript Core
+import { rint, array } from 'numpy-ts/core';
+
+const a = rint(array([1.2, 1.5, 1.8, 2.5]));
+```
+</CodeGroup>
+
+---
+
+### trunc
+
+Return the truncated value of each element (drop the fractional part).
+
+```typescript
+function trunc(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise integer part. Equivalent to `fix`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.trunc(np.array([1.7, -1.7, 0.3, -0.3]));
+// array([1, -1, 0, 0])
+```
+
+```typescript Core
+import { trunc, array } from 'numpy-ts/core';
+
+const a = trunc(array([1.7, -1.7, 0.3, -0.3]));
+```
+</CodeGroup>

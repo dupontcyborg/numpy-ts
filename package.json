@@ -1,6 +1,6 @@
 {
   "name": "numpy-ts",
-  "version": "0.13.1",
+  "version": "1.0.0",
   "description": "Complete NumPy implementation for TypeScript and JavaScript (94% API coverage)",
   "main": "dist/numpy-ts.node.cjs",
   "browser": "dist/numpy-ts.browser.js",
@@ -64,7 +64,9 @@
     "bench:category": "npm run bench:build && node benchmarks/dist/bench.cjs --category",
     "bench:view": "open benchmarks/results/plots/latest.html || xdg-open benchmarks/results/plots/latest.html",
     "bench:large:view": "open benchmarks/results/plots/latest-large.html || xdg-open benchmarks/results/plots/latest-large.html",
-    "compare-api": "python3 scripts/compare-api-coverage.py"
+    "bench:docs": "python3 scripts/generate-bench-docs.py",
+    "compare-api": "python3 scripts/compare-api-coverage.py",
+    "compare-docs-api": "python3 scripts/compare-docs-api-coverage.py"
   },
   "keywords": [
     "numpy",
@@ -88,7 +90,7 @@
   "bugs": {
     "url": "https://github.com/dupontcyborg/numpy-ts/issues"
   },
-  "homepage": "https://github.com/dupontcyborg/numpy-ts",
+  "homepage": "https://numpyts.dev",
   "devDependencies": {
     "@rollup/plugin-alias": "^6.0.0",
     "@rollup/plugin-node-resolve": "^16.0.1",

@@ -1,0 +1,295 @@
+---
+title: "Diagonal & Index Generators"
+description: "Generate diagonal, triangular, and mesh index arrays for advanced array manipulation."
+---
+
+### diag_indices
+
+Return the indices to access the main diagonal of an array with `ndim` dimensions.
+
+```typescript
+function diag_indices(n: number, ndim?: number): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Size of the array along each dimension. |
+| `ndim` | `number` | `2` | Number of dimensions. |
+
+**Returns:** `NDArray[]` -- Tuple of `ndim` index arrays, each of length `n`, that together select the main diagonal.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const [di, dj] = np.diag_indices(3);
+// di: array([0, 1, 2])
+// dj: array([0, 1, 2])
+
+// Use to set the diagonal of a matrix
+const a = np.zeros([3, 3]);
+a.iset([di, dj], 1);
+// array([[1, 0, 0],
+//        [0, 1, 0],
+//        [0, 0, 1]])
+```
+
+---
+
+### diag_indices_from
+
+Return the indices to access the main diagonal of a given array.
+
+```typescript
+function diag_indices_from(a: ArrayLike): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Array whose diagonal indices are desired. Must be at least 2-D and have equal-length dimensions. |
+
+**Returns:** `NDArray[]` -- Tuple of index arrays that select the main diagonal of `arr`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.eye(4);
+const [di, dj] = np.diag_indices_from(a);
+// di: array([0, 1, 2, 3])
+// dj: array([0, 1, 2, 3])
+```
+
+---
+
+### tril_indices
+
+Return the indices for the lower triangle of an (n, m) array.
+
+```typescript
+function tril_indices(n: number, k?: number, m?: number): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Number of rows in the array. |
+| `k` | `number` | `0` | Diagonal offset. `k=0` is the main diagonal, `k<0` is below it, `k>0` is above it. |
+| `m` | `number` | `n` | Number of columns. Defaults to `n` (square array). |
+
+**Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the lower triangle.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const [rows, cols] = np.tril_indices(3);
+// rows: array([0, 1, 1, 2, 2, 2])
+// cols: array([0, 0, 1, 0, 1, 2])
+
+// Include one diagonal above the main
+const [r, c] = np.tril_indices(3, 1);
+// r: array([0, 0, 1, 1, 1, 2, 2, 2])
+// c: array([0, 1, 0, 1, 2, 0, 1, 2])
+```
+
+---
+
+### tril_indices_from
+
+Return the indices for the lower triangle of a given array.
+
+```typescript
+function tril_indices_from(a: ArrayLike, k?: number): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
+| `k` | `number` | `0` | Diagonal offset. |
+
+**Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the lower triangle.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.ones([3, 4]);
+const [rows, cols] = np.tril_indices_from(a);
+// rows: array([0, 1, 1, 2, 2, 2])
+// cols: array([0, 0, 1, 0, 1, 2])
+```
+
+---
+
+### triu_indices
+
+Return the indices for the upper triangle of an (n, m) array.
+
+```typescript
+function triu_indices(n: number, k?: number, m?: number): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Number of rows in the array. |
+| `k` | `number` | `0` | Diagonal offset. `k=0` is the main diagonal, `k<0` is below it, `k>0` is above it. |
+| `m` | `number` | `n` | Number of columns. Defaults to `n` (square array). |
+
+**Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the upper triangle.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const [rows, cols] = np.triu_indices(3);
+// rows: array([0, 0, 0, 1, 1, 2])
+// cols: array([0, 1, 2, 1, 2, 2])
+
+// Exclude the main diagonal
+const [r, c] = np.triu_indices(3, 1);
+// r: array([0, 0, 1])
+// c: array([1, 2, 2])
+```
+
+---
+
+### triu_indices_from
+
+Return the indices for the upper triangle of a given array.
+
+```typescript
+function triu_indices_from(a: ArrayLike, k?: number): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. Must be at least 2-D. Uses the last two dimensions to determine the triangle. |
+| `k` | `number` | `0` | Diagonal offset. |
+
+**Returns:** `[NDArray, NDArray]` -- Row and column index arrays for the upper triangle.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.ones([4, 4]);
+const [rows, cols] = np.triu_indices_from(a);
+// rows: array([0, 0, 0, 0, 1, 1, 1, 2, 2, 3])
+// cols: array([0, 1, 2, 3, 1, 2, 3, 2, 3, 3])
+```
+
+---
+
+### mask_indices
+
+Return the indices to access an (n, n) array given a masking function.
+
+```typescript
+function mask_indices(
+  n: number,
+  mask_func: (n: number, k?: number) => NDArray,
+  k?: number
+): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Size of the square array. |
+| `mask_func` | `(n: number, k?: number) => NDArray` | -- | A function that accepts `(n, k)` and returns a 2-D boolean or integer array (like `triu` or `tril`). |
+| `k` | `number` | `0` | Optional diagonal offset passed to `mask_func`. |
+
+**Returns:** `[NDArray, NDArray]` -- Row and column index arrays where `mask_func` returns non-zero values.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Get indices of upper triangle (excluding diagonal)
+const [rows, cols] = np.mask_indices(3, np.triu, 1);
+// rows: array([0, 0, 1])
+// cols: array([1, 2, 2])
+```
+
+---
+
+### indices
+
+Return an array representing the indices of a grid.
+
+```typescript
+function indices(
+  dimensions: number[],
+  dtype?: 'int32' | 'int64' | 'float64'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `dimensions` | `number[]` | -- | Shape of the grid. |
+| `dtype` | `'int32' \| 'int64' \| 'float64'` | `'int32'` | Data type of the result. |
+
+**Returns:** `NDArray` dense grid with shape `[N, ...dimensions]`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const grid = np.indices([2, 3]);
+// grid[0]: array([[0, 0, 0], [1, 1, 1]])  -- row indices
+// grid[1]: array([[0, 1, 2], [0, 1, 2]])  -- column indices
+
+```
+
+---
+
+### ix_
+
+Construct an open mesh from multiple sequences. This is useful for constructing index arrays for cross-indexing.
+
+```typescript
+function ix_(...args: ArrayLike[]): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `...args` | `ArrayLike[]` | -- | 1-D sequences. Each sequence is reshaped so that it broadcasts against the others. |
+
+**Returns:** `NDArray[]` -- Tuple of N-D arrays with shapes `(len(a0), 1, ..., 1)`, `(1, len(a1), 1, ..., 1)`, etc.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const [iy, ix] = np.ix_([0, 2], [1, 3]);
+// iy: array([[0], [2]])   -- shape [2, 1]
+// ix: array([[1, 3]])     -- shape [1, 2]
+
+// Use for cross-indexing a 4x4 matrix
+const a = np.arange(16).reshape([4, 4]);
+// Select rows 0,2 and columns 1,3
+```
+
+---
+
+### fill_diagonal
+
+Fill the main diagonal of the given array in-place.
+
+```typescript
+function fill_diagonal(a: NDArray, val: number, wrap?: boolean): void
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `NDArray` | -- | Array to modify. Must be at least 2-D. |
+| `val` | `number \| ArrayLike` | -- | Value(s) to write on the diagonal. If an array, values are repeated cyclically to fill the entire diagonal. |
+| `wrap` | `boolean` | `false` | For tall matrices (rows > cols), if `true`, the diagonal wraps after reaching the last column. |
+
+**Returns:** `void` -- The array `a` is modified in-place.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.zeros([3, 3]);
+np.fill_diagonal(a, 5);
+// array([[5, 0, 0],
+//        [0, 5, 0],
+//        [0, 0, 5]])
+
+const b = np.zeros([3, 3]);
+np.fill_diagonal(b, [1, 2, 3]);
+// array([[1, 0, 0],
+//        [0, 2, 0],
+//        [0, 0, 3]])
+```

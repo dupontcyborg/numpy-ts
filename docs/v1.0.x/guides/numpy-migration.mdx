@@ -1,0 +1,323 @@
+---
+title: "NumPy Migration Guide"
+description: "A side-by-side guide for Python NumPy users moving to numpy-ts in TypeScript/JavaScript."
+---
+
+If you already know NumPy in Python, you will feel at home with numpy-ts. This guide covers the key differences so you can migrate existing code or switch between the two with confidence.
+
+## Importing
+
+<CodeGroup>
+```python Python
+import numpy as np
+```
+
+```typescript TypeScript
+import * as np from 'numpy-ts';
+
+// Or, for tree-shakeable imports (no method chaining):
+import { array, add, reshape } from 'numpy-ts/core';
+
+// Or, for Node.js with file I/O support:
+import * as np from 'numpy-ts/node';
+```
+</CodeGroup>
+
+## Creating arrays
+
+<CodeGroup>
+```python Python
+a = np.array([1, 2, 3])
+b = np.array([[1, 2], [3, 4]], dtype=np.float32)
+z = np.zeros((3, 3))
+r = np.arange(0, 10, 2)
+l = np.linspace(0, 1, 5)
+I = np.eye(3)
+```
+
+```typescript TypeScript
+const a = np.array([1, 2, 3]);
+const b = np.array([[1, 2], [3, 4]], 'float32');
+const z = np.zeros([3, 3]);
+const r = np.arange(0, 10, 2);
+const l = np.linspace(0, 1, 5);
+const I = np.eye(3);
+```
+</CodeGroup>
+
+<Warning>
+Shape arguments use **arrays** in numpy-ts, not separate arguments or tuples.
+Write `np.zeros([3, 3])`, not `np.zeros(3, 3)` or `np.zeros((3, 3))`.
+</Warning>
+
+## Arithmetic
+
+<CodeGroup>
+```python Python
+c = a + b
+d = a * b
+e = a ** 2
+f = np.sqrt(a)
+g = np.dot(a, b)
+```
+
+```typescript TypeScript
+const c = np.add(a, b);       // or a.add(b)
+const d = np.multiply(a, b);  // or a.multiply(b)
+const e = np.power(a, 2);     // or a.power(2)
+const f = np.sqrt(a);         // or a.sqrt()
+const g = np.dot(a, b);
+```
+</CodeGroup>
+
+<Note>
+numpy-ts does not overload JavaScript operators. Use `np.add(a, b)` or `a.add(b)` instead of `a + b`. Method chaining (`.add()`, `.reshape()`, etc.) is available on `NDArray` from the full entry point. See [Tree-Shaking & Bundle Size](.//tree-shaking) for details on the two entry points.
+</Note>
+
+## Indexing and slicing
+
+This is the biggest syntax change. Python uses bracket notation with colons; numpy-ts uses a `.slice()` method with string arguments.
+
+<CodeGroup>
+```python Python
+a = np.arange(12).reshape(3, 4)
+
+a[0, 2]           # Single element
+a[0:2, :]         # First 2 rows
+a[:, 1:3]         # Columns 1-2
+a[::-1, :]        # Reverse rows
+a[-1, :]          # Last row
+a[1]              # Second row (implicit full slice on remaining dims)
+```
+
+```typescript TypeScript
+const a = np.arange(12).reshape([3, 4]);
+
+a.item(0, 2);            // Single element
+a.slice('0:2', ':');     // First 2 rows
+a.slice(':', '1:3');     // Columns 1-2
+a.slice('::-1', ':');    // Reverse rows
+a.slice('-1', ':');      // Last row
+a.slice('1', ':');       // Second row
+```
+</CodeGroup>
+
+### Slicing syntax reference
+
+| Python | numpy-ts | Description |
+|---|---|---|
+| `a[i]` | `a.item(i)` (scalar) or `a.slice('i', ':')` (row) | Single index |
+| `a[i, j]` | `a.item(i, j)` | Single element |
+| `a[0:5]` | `a.slice('0:5')` | Range |
+| `a[::2]` | `a.slice('::2')` | Every other element |
+| `a[::-1]` | `a.slice('::-1')` | Reverse |
+| `a[0:5, :]` | `a.slice('0:5', ':')` | Multi-axis slice |
+| `a[:, 1:3]` | `a.slice(':', '1:3')` | Column slice |
+
+## Reshaping
+
+<CodeGroup>
+```python Python
+b = a.reshape(3, 4)        # Separate args
+c = a.reshape((3, 4))      # Tuple arg
+d = a.T                    # Transpose
+e = a.flatten()
+f = np.squeeze(a)
+```
+
+```typescript TypeScript
+const b = a.reshape([3, 4]);    // Array arg (only option)
+const c = a.reshape([3, 4]);    // Same
+const d = a.T;                  // Transpose (property, not method)
+const e = a.flatten();
+const f = np.squeeze(a);
+```
+</CodeGroup>
+
+## Reductions
+
+<CodeGroup>
+```python Python
+np.sum(a)
+np.sum(a, axis=0)
+np.mean(a, axis=1)
+np.std(a)
+np.var(a)
+np.min(a)
+np.max(a)
+np.argmax(a, axis=0)
+```
+
+```typescript TypeScript
+np.sum(a);
+np.sum(a, 0);        // axis is positional, not keyword
+np.mean(a, 1);
+np.std(a);
+np.variance(a);      // 'var' is reserved in JS
+np.min(a);
+np.max(a);
+np.argmax(a, 0);
+```
+</CodeGroup>
+
+## Linear algebra
+
+<CodeGroup>
+```python Python
+np.linalg.inv(A)
+np.linalg.det(A)
+np.linalg.eig(A)
+np.linalg.svd(A)
+np.linalg.norm(v)
+np.linalg.solve(A, b)
+np.linalg.qr(A)
+np.linalg.cholesky(A)
+np.linalg.lstsq(A, b)
+np.linalg.matrix_rank(A)
+```
+
+```typescript TypeScript
+np.linalg.inv(A);
+np.linalg.det(A);
+np.linalg.eig(A);
+np.linalg.svd(A);
+np.linalg.norm(v);
+np.linalg.solve(A, b);
+np.linalg.qr(A);
+np.linalg.cholesky(A);
+np.linalg.lstsq(A, b);
+np.linalg.matrix_rank(A);
+```
+</CodeGroup>
+
+<Tip>
+The `linalg` namespace is identical between NumPy and numpy-ts. No changes needed for these calls beyond the import.
+</Tip>
+
+## Random
+
+<CodeGroup>
+```python Python
+np.random.seed(42)
+np.random.random((3, 3))
+np.random.normal(0, 1, (1000,))
+np.random.randint(0, 10, size=(5,))
+np.random.choice(arr, size=5, replace=False)
+np.random.shuffle(arr)
+```
+
+```typescript TypeScript
+np.random.seed(42);
+np.random.random([3, 3]);
+np.random.normal(0, 1, [1000]);
+np.random.randint(0, 10, [5]);
+np.random.choice(arr, 5, false);
+np.random.shuffle(arr);
+```
+</CodeGroup>
+
+<Note>
+`numpy-ts` currently uses different RNGs than NumPy. This means that the generated random numbers will not match NumPy's output, even with the same seed. Statistical properties (distributions, means, variances) will be the same, but exact sequences will differ.
+</Note>
+
+## FFT
+
+<CodeGroup>
+```python Python
+spectrum = np.fft.fft(signal)
+freqs = np.fft.fftfreq(n, d=1/256)
+shifted = np.fft.fftshift(spectrum)
+```
+
+```typescript TypeScript
+const spectrum = np.fft.fft(signal);
+const freqs = np.fft.fftfreq(n, 1/256);
+const shifted = np.fft.fftshift(spectrum);
+```
+</CodeGroup>
+
+## File I/O
+
+<CodeGroup>
+```python Python
+arr = np.load('data.npy')
+np.save('output.npy', arr)
+data = np.load('data.npz')
+np.savez('output.npz', x=arr1, y=arr2)
+table = np.loadtxt('data.csv', delimiter=',')
+np.savetxt('out.csv', arr, delimiter=',')
+```
+
+```typescript TypeScript (Node-only)
+// File I/O is only available from the 'numpy-ts/node' entry point
+import * as np from 'numpy-ts/node';
+
+const arr = await np.loadNpy('data.npy');
+await np.saveNpy('output.npy', arr);
+const data = await np.loadNpzFile('data.npz');
+await np.savez('output.npz', { x: arr1, y: arr2 });
+const table = await np.loadtxt('data.csv', { delimiter: ',' });
+await np.savetxt('out.csv', arr, { delimiter: ',' });
+```
+</CodeGroup>
+
+<Warning>
+File I/O is only available from `numpy-ts/node`. The main `numpy-ts` entry point exports buffer-based parsers and serializers (`parseNpy`, `serializeNpy`) that work in any environment.
+</Warning>
+
+## Common gotchas
+
+| Gotcha | Python (NumPy) | TypeScript (numpy-ts) | Notes |
+|---|---|---|---|
+| **Operator overloading** | `a + b`, `a * b` | `np.add(a, b)` or `a.add(b)` | JS does not support operator overloading |
+| **Shape arguments** | `reshape(3, 3)` or `reshape((3, 3))` | `reshape([3, 3])` | Always use an array, never separate args |
+| **Indexing** | `a[0:5, :]` | `a.slice('0:5', ':')` | String-based slicing |
+| **Keyword arguments** | `axis=0`, `keepdims=True` | Positional or options object | JS has no keyword args |
+| **`var` is reserved** | `np.var(a)` | `np.variance(a)` | `var` is a JS reserved word; `np.var` is also aliased but may conflict |
+| **Transpose** | `a.T` | `a.T` | Same syntax -- `.T` is a getter property |
+| **Array equality** | `a == b` (element-wise) | `np.equal(a, b)` or `np.array_equal(a, b)` | `==` compares object references in JS |
+| **Tuple axes** | `axis=(0, 2)` | `axis=[0, 2]` | Use arrays instead of tuples |
+| **int64/uint64** | Regular integers | `BigInt` values | TypedArray requirement; `np.array([1n, 2n, 3n], 'int64')` |
+| **In-place ops** | `a += b` | Not supported | numpy-ts operations always return new arrays |
+| **dtype specification** | `dtype=np.float32` | `'float32'` (string) | Dtypes are string literals in numpy-ts |
+
+## Supported dtypes
+
+numpy-ts supports 13 data types that map to JavaScript TypedArrays:
+
+| Category | Dtypes | JS Storage | Notes |
+|---|---|---|---|
+| **Floating point** | `float64` (default), `float32` | `Float64Array`, `Float32Array` | |
+| **Signed integer** | `int8`, `int16`, `int32`, `int64` | `Int8Array` ... `BigInt64Array` | `int64` uses `BigInt` |
+| **Unsigned integer** | `uint8`, `uint16`, `uint32`, `uint64` | `Uint8Array` ... `BigUint64Array` | `uint64` uses `BigInt` |
+| **Boolean** | `bool` | `Uint8Array` | Stored as 0/1 |
+| **Complex** | `complex64`, `complex128` | Interleaved `Float32Array`/`Float64Array` | `Complex` class for elements |
+
+<Tip>
+When working with `int64` or `uint64`, array elements are `BigInt` values. Use the `n` suffix for literals: `np.array([1n, 2n, 3n], 'int64')`.
+</Tip>
+
+## What about missing NumPy features?
+
+numpy-ts covers 476 of 507 NumPy functions (94%). A few categories have partial coverage:
+
+- **Structured arrays / record dtypes** -- not supported (JS has no equivalent)
+- **String operations (`np.char`)** -- not supported (use native JS string methods)
+- **`np.ma` (masked arrays)** -- not supported yet
+- **`np.matrix`** -- deprecated in NumPy itself; use 2D `NDArray` instead
+
+For everything else -- math, linear algebra, FFT, random, sorting, sets, polynomials, bitwise operations, I/O -- numpy-ts has you covered.
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Hands-on tutorial covering all major features.
+  </Card>
+  <Card title="API Reference" icon="book" href="/api">
+    Complete function reference organized by category.
+  </Card>
+  <Card title="Tree-Shaking" icon="leaf" href=".//tree-shaking">
+    Full library vs core: which entry point is right for you?
+  </Card>
+</CardGroup>

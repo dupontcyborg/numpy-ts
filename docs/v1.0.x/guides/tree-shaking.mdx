@@ -1,0 +1,164 @@
+---
+title: "Tree-Shaking & Bundle Size"
+description: "Understand the two ways to use numpy-ts and how they affect your bundle."
+---
+
+numpy-ts gives you two choices for how to import it. The right choice depends on whether you care more about **developer experience** or **bundle size**.
+
+## The full library (`numpy-ts`)
+
+```typescript
+import * as np from 'numpy-ts';
+```
+
+This is the default and the easiest way to use numpy-ts. It gives you `NDArray` objects that support **method chaining** — the same fluent style you are used to from NumPy:
+
+```typescript
+const result = np.arange(12)
+  .reshape([3, 4])
+  .multiply(2)
+  .add(1)
+  .sum(0);
+```
+
+Every standalone function (`np.add`, `np.reshape`, `np.sum`, etc.) is also available as a method on the array itself (`.add()`, `.reshape()`, `.sum()`). This makes code shorter and more readable.
+
+**The trade-off:** importing _anything_ from `numpy-ts` pulls the entire library into your bundle (~200-300 KB minified). The bundler cannot tree-shake it because all 100+ methods are attached to the `NDArray` class at import time.
+
+<Note>
+~200-300 KB is still small compared to alternatives that ship WebAssembly or native modules. For Node.js servers, scripts, and most applications this is perfectly fine.
+</Note>
+
+**Use the full library when:**
+
+- You are building an application (not a library)
+- You are running on Node.js or Bun where bundle size is irrelevant
+- You want the best developer experience with method chaining
+- You are using many functions from across the API
+
+## The tree-shakeable core (`numpy-ts/core`)
+
+```typescript
+import { array, add, reshape, sum } from 'numpy-ts/core';
+```
+
+The core entry point returns `NDArrayCore` objects — a minimal array class with properties (`shape`, `dtype`, `ndim`, `data`, `T`, etc.) but **no operation methods**. Instead, you use standalone functions for everything:
+
+```typescript
+const a = array([1, 2, 3, 4, 5, 6]);
+const b = reshape(a, [2, 3]);
+const c = add(b, 1);
+const result = sum(c, 0);
+```
+
+Your bundler (Vite, webpack, esbuild, Rollup) analyzes which functions you actually imported and excludes everything else. The result: your bundle only contains what you use.
+
+**How much does this save?**
+
+| What you import | Bundle size |
+|---|---|
+| `array` + `zeros` | ~10 KB |
+| Basic arithmetic (`add`, `subtract`, `multiply`) | ~15 KB |
+| Arithmetic + reductions (`sum`, `mean`, `std`) | ~20 KB |
+| Arithmetic + linear algebra (`dot`, `inv`, `solve`) | ~40 KB |
+| Full library (any import from `numpy-ts`) | ~200-300 KB |
+
+**Use the core entry point when:**
+
+- You are building a **browser app** where every kilobyte matters
+- You are publishing a **library** on npm (let your consumers choose their bundle)
+- You only need a small subset of numpy-ts functions
+
+## What about Node.js file I/O?
+
+There is a third entry point, `numpy-ts/node`, that adds file system operations (`load`, `save`, `savez`, `loadtxt`, `savetxt`) on top of the full library. It behaves like `numpy-ts` but also includes Node.js `fs` bindings.
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+const arr = await np.loadNpy('data.npy');
+await np.saveNpy('output.npy', arr);
+```
+
+<Warning>
+`numpy-ts/node` only works in Node.js and Bun. It will not work in browsers. For browser-based I/O, use `parseNpy` / `serializeNpy` from either `numpy-ts` or `numpy-ts/core`.
+</Warning>
+
+## NDArray vs NDArrayCore
+
+The two array types share the same core — `NDArray` extends `NDArrayCore`. This means:
+
+- Every `NDArray` _is_ an `NDArrayCore` (you can pass it to any function that accepts `NDArrayCore`)
+- `NDArrayCore` is _not_ an `NDArray` (it lacks the chaining methods)
+- Both types expose the same properties: `shape`, `ndim`, `size`, `dtype`, `data`, `strides`, `flags`, `base`, `T`, `itemsize`, `nbytes`
+
+Standalone functions from `numpy-ts/core` accept both types as input:
+
+```typescript
+import { add } from 'numpy-ts/core';
+import { array as fullArray } from 'numpy-ts';
+import { array as coreArray } from 'numpy-ts/core';
+
+const full = fullArray([1, 2, 3]);   // NDArray
+const core = coreArray([1, 2, 3]);   // NDArrayCore
+
+// Both work fine with standalone functions
+add(full, 1);   // OK
+add(core, 1);   // OK
+
+// Only NDArray has chaining methods
+full.add(1);    // OK
+// core.add(1); // TypeError — not a function
+```
+
+<Tip>
+If you are writing a library that depends on numpy-ts, accept `NDArrayCore` in your public API. This lets your consumers use either entry point.
+</Tip>
+
+## Side-by-side comparison
+
+The same operation written with both entry points:
+
+<CodeGroup>
+```typescript Full library (numpy-ts)
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+
+// Method chaining
+const result = a
+  .reshape([3, 2])
+  .multiply(10)
+  .add(1)
+  .T;
+
+console.log(np.sum(result, 0).toArray());
+```
+
+```typescript Core (numpy-ts/core)
+import { array, reshape, multiply, add, transpose, sum } from 'numpy-ts/core';
+
+const a = array([[1, 2, 3], [4, 5, 6]]);
+
+// Standalone functions
+const b = reshape(a, [3, 2]);
+const c = multiply(b, 10);
+const d = add(c, 1);
+const result = transpose(d);
+
+console.log(sum(result, 0).toArray());
+```
+</CodeGroup>
+
+Both produce identical results. The difference is only in style and bundle size.
+
+## Quick reference
+
+| | `numpy-ts` | `numpy-ts/core` | `numpy-ts/node` |
+|---|---|---|---|
+| **Array class** | `NDArray` | `NDArrayCore` | `NDArray` |
+| **Method chaining** | Yes | No | Yes |
+| **Tree-shakeable** | No | Yes | No |
+| **Bundle size** | ~200-300 KB | ~10-40 KB | ~200-300 KB + fs |
+| **File I/O** | Browser only | Browser only | Node.js + Browser |
+| **Best for** | Apps, scripts | Libraries, browsers | Node.js with files |

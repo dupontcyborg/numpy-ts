@@ -17,6 +17,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 
@@ -374,7 +375,7 @@ def update_package_json(analysis):
 
 def update_api_reference(analysis):
     """Update API-REFERENCE.md with complete function list."""
-    api_ref_path = Path(__file__).parent.parent / 'docs' / 'API-REFERENCE.md'
+    api_ref_path = Path(__file__).parent.parent / 'docs_internal' / 'API-REFERENCE.md'
 
     # Read existing file to preserve Notes section
     notes_section = ""
@@ -387,7 +388,6 @@ def update_api_reference(analysis):
                 notes_section = "\n" + notes_match.group(0)
 
     # Get current date
-    from datetime import date
     today = date.today().strftime('%Y-%m-%d')
 
     # Get data
@@ -491,6 +491,87 @@ def update_api_reference(analysis):
     print(f"✅ Updated {api_ref_path}")
 
 
+def update_docs_api_coverage_page(analysis):
+    """Generate docs/v1.0.x/guides/api-coverage.mdx with coverage details."""
+    page_path = (
+        Path(__file__).parent.parent
+        / 'docs'
+        / 'v1.0.x'
+        / 'guides'
+        / 'api-coverage.mdx'
+    )
+
+    today = date.today().strftime('%Y-%m-%d')
+    total_impl = analysis['numpyts_implemented']
+    total_numpy = analysis['numpy_total']
+    coverage = analysis['overall_coverage']
+
+    lines = []
+    lines.append('---')
+    lines.append('title: "NumPy API Coverage"')
+    lines.append(
+        'description: "Current numpy-ts coverage versus NumPy (auto-generated)."'
+    )
+    lines.append('mode: "wide"')
+    lines.append('---')
+    lines.append('')
+    lines.append('Generated via `npm run compare-api`.')
+    lines.append('')
+    lines.append(f"Last updated: **{today}**")
+    lines.append('')
+    lines.append('## Summary')
+    lines.append('')
+    lines.append(f"- Overall coverage: **{total_impl}/{total_numpy} ({coverage:.1f}%)**")
+    lines.append(
+        f"- Top-level functions: **{analysis['numpyts_toplevel']}/{analysis['numpy_toplevel']} ({analysis['toplevel_coverage']:.1f}%)**"
+    )
+    lines.append(
+        f"- NDArray methods: **{analysis['methods_implemented']}/{analysis['numpy_methods']} ({analysis['methods_coverage']:.1f}%)**"
+    )
+    lines.append('')
+    lines.append('## Category Breakdown')
+    lines.append('')
+    lines.append('| Category | Implemented | Total | Coverage | Status |')
+    lines.append('|----------|-------------|-------|----------|--------|')
+
+    sorted_categories = sorted(
+        analysis['category_stats'].items(),
+        key=lambda x: (-x[1]['percentage'], x[0])
+    )
+
+    for category, stats in sorted_categories:
+        lines.append(
+            f"| {category} | {stats['implemented']} | {stats['total']} | {stats['percentage']:.1f}% | {stats['status']} |"
+        )
+
+    lines.append('')
+    lines.append('## Missing APIs by Category')
+    lines.append('')
+
+    incomplete_categories = [
+        (category, stats)
+        for category, stats in sorted_categories
+        if stats['missing']
+    ]
+
+    if not incomplete_categories:
+        lines.append('All tracked categories are complete.')
+    else:
+        for category, stats in incomplete_categories:
+            missing = sorted(stats['missing'])
+            lines.append(f"### {category} ({len(missing)} missing)")
+            lines.append('')
+            for func in missing:
+                lines.append(f"- `{func}`")
+            lines.append('')
+
+    page_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(page_path, 'w', encoding='utf-8') as f:
+        f.write("\n".join(lines).rstrip() + "\n")
+
+    print(f"✅ Updated {page_path}")
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -519,6 +600,9 @@ def main():
 
     # Update API-REFERENCE.md
     update_api_reference(analysis)
+
+    # Update docs API coverage page
+    update_docs_api_coverage_page(analysis)
 
     print("\n" + "=" * 70)
     print("SUMMARY")

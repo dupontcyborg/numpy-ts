@@ -1,0 +1,177 @@
+---
+title: "Ranges & Sequences"
+description: "Create arrays with evenly or logarithmically spaced values."
+---
+
+### arange
+
+Return evenly spaced values within a given interval. When called with a single argument, it is treated as `stop` and `start` defaults to `0`.
+
+```typescript
+function arange(start: number, stop?: number, step?: number, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `start` | `number` | `0` | Start of the interval (inclusive). If `stop` is omitted, this value is used as `stop` and `start` becomes `0`. |
+| `stop` | `number` | - | End of the interval (exclusive). |
+| `step` | `number` | `1` | Spacing between values. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- 1-D array of evenly spaced values.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.arange(5);
+// array([0, 1, 2, 3, 4])
+
+const b = np.arange(2, 10, 2);
+// array([2, 4, 6, 8])
+
+const c = np.arange(0, 1, 0.25);
+// array([0, 0.25, 0.5, 0.75])
+```
+
+```typescript Core
+import { arange } from 'numpy-ts/core';
+
+const a = arange(5);
+const b = arange(2, 10, 2);
+const c = arange(0, 1, 0.25);
+```
+</CodeGroup>
+
+---
+
+### linspace
+
+Return evenly spaced numbers over a specified interval. Unlike `arange`, the `stop` value is included by default.
+
+```typescript
+function linspace(
+  start: number,
+  stop: number,
+  num?: number,
+  dtype?: DType
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `start` | `number` | - | Start value of the sequence. |
+| `stop` | `number` | - | End value of the sequence (inclusive). |
+| `num` | `number` | `50` | Number of samples to generate. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- 1-D array of `num` evenly spaced values from `start` to `stop`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.linspace(0, 1, 5);
+// array([0, 0.25, 0.5, 0.75, 1])
+
+const b = np.linspace(0, 10, 3);
+// array([0, 5, 10])
+```
+
+```typescript Core
+import { linspace } from 'numpy-ts/core';
+
+const a = linspace(0, 1, 5);
+const b = linspace(0, 10, 3);
+```
+</CodeGroup>
+
+---
+
+### logspace
+
+Return numbers spaced evenly on a log scale. In the default base 10, `start` and `stop` are exponents: the sequence runs from `base**start` to `base**stop`.
+
+```typescript
+function logspace(
+  start: number,
+  stop: number,
+  num?: number,
+  base?: number,
+  dtype?: DType
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `start` | `number` | - | `base**start` is the starting value of the sequence. |
+| `stop` | `number` | - | `base**stop` is the final value of the sequence. |
+| `num` | `number` | `50` | Number of samples to generate. |
+| `base` | `number` | `10.0` | The base of the log space. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- 1-D array of `num` samples, equally spaced on a log scale.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.logspace(0, 2, 3);
+// array([1, 10, 100])  -- 10^0, 10^1, 10^2
+
+const b = np.logspace(0, 3, 4, 2);
+// array([1, 2, 4, 8])  -- 2^0, 2^1, 2^2, 2^3
+```
+
+```typescript Core
+import { logspace } from 'numpy-ts/core';
+
+const a = logspace(0, 2, 3);        // base 10
+const b = logspace(0, 3, 4, 2);     // base 2
+```
+</CodeGroup>
+
+---
+
+### geomspace
+
+Return numbers spaced evenly on a log scale (a geometric sequence). Unlike `logspace`, `start` and `stop` are the actual start/stop values, not exponents.
+
+```typescript
+function geomspace(
+  start: number,
+  stop: number,
+  num?: number,
+  dtype?: DType
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `start` | `number` | - | The starting value of the sequence. Must be non-zero. |
+| `stop` | `number` | - | The final value of the sequence. Must be non-zero and same sign as `start`. |
+| `num` | `number` | `50` | Number of samples to generate. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- 1-D array of `num` samples, equally spaced on a geometric (log) scale.
+
+**Throws:** `Error` if `start` or `stop` is zero, or if they have different signs.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.geomspace(1, 1000, 4);
+// array([1, 10, 100, 1000])
+
+const b = np.geomspace(1, 256, 9);
+// array([1, 2, 4, 8, 16, 32, 64, 128, 256])
+```
+
+```typescript Core
+import { geomspace } from 'numpy-ts/core';
+
+const a = geomspace(1, 1000, 4);
+const b = geomspace(1, 256, 9);
+```
+</CodeGroup>

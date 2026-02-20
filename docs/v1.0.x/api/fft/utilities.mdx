@@ -1,0 +1,136 @@
+---
+title: "FFT Utilities"
+description: "Helper functions for computing frequency bins and shifting zero-frequency components."
+---
+
+### fftfreq
+
+Return the Discrete Fourier Transform sample frequencies. The returned array contains the frequency bin centers in cycles per unit of the sample spacing.
+
+```typescript
+function fftfreq(n: number, d?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Window length (number of samples). |
+| `d` | `number` | `1.0` | Sample spacing (inverse of the sampling rate). |
+
+**Returns:** `NDArray` -- Float64 array of length `n` containing the sample frequencies. For even `n`, the layout is `[0, 1, ..., n/2-1, -n/2, ..., -1] / (d*n)`. For odd `n`, it is `[0, 1, ..., (n-1)/2, -(n-1)/2, ..., -1] / (d*n)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const freq = np.fft.fftfreq(5, 0.1);
+// array([ 0.,  2.,  4., -4., -2.])
+
+const freq8 = np.fft.fftfreq(8);
+// array([ 0.   ,  0.125,  0.25 ,  0.375, -0.5  , -0.375, -0.25 , -0.125])
+```
+
+---
+
+### rfftfreq
+
+Return the Discrete Fourier Transform sample frequencies for use with `rfft`. Since `rfft` returns only the positive half of the spectrum, this function returns frequencies for bins `0, 1, ..., n//2`.
+
+```typescript
+function rfftfreq(n: number, d?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Window length (number of samples in the original signal, not the rfft output). |
+| `d` | `number` | `1.0` | Sample spacing. |
+
+**Returns:** `NDArray` -- Float64 array of length `n//2 + 1` containing the non-negative sample frequencies.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const freq = np.fft.rfftfreq(8);
+// array([0.   , 0.125, 0.25 , 0.375, 0.5  ])
+
+const freq_hz = np.fft.rfftfreq(1000, 1 / 44100);
+// Frequency bins in Hz for a 1000-sample window at 44.1 kHz
+```
+
+---
+
+### fftshift
+
+Shift the zero-frequency component to the center of the spectrum. This is useful for visualizing the Fourier transform with the DC component in the middle.
+
+```typescript
+function fftshift(a: ArrayLike, axes?: number | number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axes` | `number \| number[]` | all axes | Axes over which to shift. |
+
+**Returns:** `NDArray` -- The shifted array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const freq = np.fft.fftfreq(5, 0.1);
+// array([ 0.,  2.,  4., -4., -2.])
+
+const shifted = np.fft.fftshift(freq);
+// array([-4., -2.,  0.,  2.,  4.])
+```
+
+---
+
+### ifftshift
+
+Inverse of `fftshift`. Undoes the centering performed by `fftshift`, moving the zero-frequency component back to the beginning.
+
+```typescript
+function ifftshift(a: ArrayLike, axes?: number | number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axes` | `number \| number[]` | all axes | Axes over which to shift. |
+
+**Returns:** `NDArray` -- The unshifted array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const freq = np.fft.fftfreq(5, 0.1);
+const shifted = np.fft.fftshift(freq);
+const restored = np.fft.ifftshift(shifted);
+// restored matches freq exactly
+```
+
+---
+
+## Usage Pattern
+
+A common workflow combines these utilities with the FFT functions:
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Generate a signal: 50 Hz sine wave sampled at 1000 Hz
+const fs = 1000;           // Sampling frequency
+const t = np.arange(0, 1, 1 / fs);  // 1 second of samples
+const signal = np.sin(np.multiply(2 * Math.PI * 50, t));
+
+// Compute FFT and corresponding frequencies
+const spectrum = np.fft.fft(signal);
+const freq = np.fft.fftfreq(signal.size, 1 / fs);
+
+// Center the spectrum for visualization
+const centered_spectrum = np.fft.fftshift(spectrum);
+const centered_freq = np.fft.fftshift(freq);
+
+// Or use rfft for real signals (more efficient)
+const half_spectrum = np.fft.rfft(signal);
+const half_freq = np.fft.rfftfreq(signal.size, 1 / fs);
+```

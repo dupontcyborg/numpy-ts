@@ -1,0 +1,512 @@
+---
+title: "Other Math"
+description: "Clipping, element-wise min/max, NaN handling, interpolation, special functions, and complex number operations."
+---
+
+### clip
+
+Clip (limit) the values in an array to a given range.
+
+```typescript
+function clip(a: ArrayLike, a_min: ArrayLike | number | null, a_max: ArrayLike | number | null): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | - | Input array. |
+| `a_min` | `number \| null` | - | Minimum value. Elements below this are set to `a_min`. Pass `null` to skip the lower bound. |
+| `a_max` | `number \| null` | - | Maximum value. Elements above this are set to `a_max`. Pass `null` to skip the upper bound. |
+
+**Returns:** `NDArray` -- Array with values clipped to `[a_min, a_max]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.clip(np.array([1, 5, 10, 15, 20]), 3, 12);
+// array([3, 5, 10, 12, 12])
+
+// One-sided clipping
+const b = np.clip(np.array([-5, 0, 5, 10]), 0, null);
+// array([0, 0, 5, 10])
+```
+
+```typescript Core
+import { clip, array } from 'numpy-ts/core';
+
+const a = clip(array([1, 5, 10, 15, 20]), 3, 12);
+```
+</CodeGroup>
+
+---
+
+### maximum
+
+Element-wise maximum of two arrays. Propagates NaN.
+
+```typescript
+function maximum(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise maximum. If either element is NaN, the result is NaN.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.maximum(np.array([1, 5, 3]), np.array([4, 2, 6]));
+// array([4, 5, 6])
+
+const b = np.maximum(np.array([-1, 0, 1]), 0);
+// array([0, 0, 1])  -- ReLU-like operation
+```
+
+```typescript Core
+import { maximum, array } from 'numpy-ts/core';
+
+const a = maximum(array([1, 5, 3]), array([4, 2, 6]));
+```
+</CodeGroup>
+
+---
+
+### minimum
+
+Element-wise minimum of two arrays. Propagates NaN.
+
+```typescript
+function minimum(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise minimum. If either element is NaN, the result is NaN.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.minimum(np.array([1, 5, 3]), np.array([4, 2, 6]));
+// array([1, 2, 3])
+```
+
+```typescript Core
+import { minimum, array } from 'numpy-ts/core';
+
+const a = minimum(array([1, 5, 3]), array([4, 2, 6]));
+```
+</CodeGroup>
+
+---
+
+### fmax
+
+Element-wise maximum of two arrays, ignoring NaN. If one element is NaN, the other is returned.
+
+```typescript
+function fmax(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise maximum, ignoring NaN.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.fmax(np.array([1, NaN, 3]), np.array([NaN, 2, NaN]));
+// array([1, 2, 3])  -- NaN ignored in each pair
+```
+
+```typescript Core
+import { fmax, array } from 'numpy-ts/core';
+
+const a = fmax(array([1, NaN, 3]), array([NaN, 2, NaN]));
+```
+</CodeGroup>
+
+---
+
+### fmin
+
+Element-wise minimum of two arrays, ignoring NaN.
+
+```typescript
+function fmin(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise minimum, ignoring NaN.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.fmin(np.array([1, NaN, 3]), np.array([NaN, 2, NaN]));
+// array([1, 2, 3])
+```
+
+```typescript Core
+import { fmin, array } from 'numpy-ts/core';
+
+const a = fmin(array([1, NaN, 3]), array([NaN, 2, NaN]));
+```
+</CodeGroup>
+
+---
+
+### nan_to_num
+
+Replace NaN with zero and infinity with large finite numbers (or specified values).
+
+```typescript
+function nan_to_num(
+  x: ArrayLike,
+  nan?: number,
+  posinf?: number,
+  neginf?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+| `nan` | `number` | `0.0` | Value to replace NaN with. |
+| `posinf` | `number` | `undefined` | Value to replace positive infinity. Defaults to a very large finite number. |
+| `neginf` | `number` | `undefined` | Value to replace negative infinity. Defaults to a very large negative finite number. |
+
+**Returns:** `NDArray` -- Array with NaN/Inf replaced.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.nan_to_num(np.array([1, NaN, Infinity, -Infinity]));
+// array([1, 0, 1.7977e+308, -1.7977e+308])
+
+const b = np.nan_to_num(np.array([NaN, Infinity]), -1, 999);
+// array([-1, 999])
+```
+
+```typescript Core
+import { nan_to_num, array } from 'numpy-ts/core';
+
+const a = nan_to_num(array([1, NaN, Infinity, -Infinity]));
+```
+</CodeGroup>
+
+---
+
+### interp
+
+One-dimensional linear interpolation for monotonically increasing sample points.
+
+```typescript
+function interp(
+  x: ArrayLike,
+  xp: ArrayLike,
+  fp: ArrayLike,
+  left?: number,
+  right?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | x-coordinates at which to evaluate the interpolation. |
+| `xp` | `ArrayLike` | - | x-coordinates of the data points (must be increasing). |
+| `fp` | `ArrayLike` | - | y-coordinates of the data points (same length as `xp`). |
+| `left` | `number` | `fp[0]` | Value to return for `x < xp[0]`. |
+| `right` | `number` | `fp[fp.length - 1]` | Value to return for `x > xp[-1]`. |
+
+**Returns:** `NDArray` -- Interpolated values at each point in `x`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const xp = np.array([0, 1, 2, 3]);
+const fp = np.array([0, 10, 20, 30]);
+const x = np.array([0.5, 1.5, 2.5]);
+
+const y = np.interp(x, xp, fp);
+// array([5, 15, 25])
+```
+
+```typescript Core
+import { interp, array } from 'numpy-ts/core';
+
+const xp = array([0, 1, 2, 3]);
+const fp = array([0, 10, 20, 30]);
+const y = interp(array([0.5, 1.5]), xp, fp);
+```
+</CodeGroup>
+
+---
+
+### sinc
+
+Return the normalized sinc function: `sin(pi*x) / (pi*x)`. The sinc function is `1` at `x = 0`.
+
+```typescript
+function sinc(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `sin(pi*x) / (pi*x)`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.sinc(np.array([0, 0.5, 1, 1.5, 2]));
+// array([1, 0.6366..., 0, -0.2122..., 0])
+```
+
+```typescript Core
+import { sinc, array } from 'numpy-ts/core';
+
+const a = sinc(array([0, 0.5, 1, 1.5, 2]));
+```
+</CodeGroup>
+
+---
+
+### i0
+
+Modified Bessel function of the first kind, order 0.
+
+```typescript
+function i0(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array (argument of the Bessel function). |
+
+**Returns:** `NDArray` -- Element-wise modified Bessel function I_0(x).
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.i0(np.array([0, 1, 2]));
+// array([1, 1.2661..., 2.2796...])
+```
+
+```typescript Core
+import { i0, array } from 'numpy-ts/core';
+
+const a = i0(array([0, 1, 2]));
+```
+</CodeGroup>
+
+---
+
+### unwrap
+
+Unwrap by changing deltas between values to their `2*pi` complement. Useful for unwrapping radian phase data.
+
+```typescript
+function unwrap(
+  p: ArrayLike,
+  discont?: number,
+  axis?: number,
+  period?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `p` | `ArrayLike` | - | Input array of phase angles. |
+| `discont` | `number` | `Math.PI` | Maximum discontinuity between consecutive values. Jumps larger than this are wrapped. |
+| `axis` | `number` | `-1` | Axis along which to unwrap. |
+| `period` | `number` | `2 * Math.PI` | Wrapping period. |
+
+**Returns:** `NDArray` -- Unwrapped array.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+// Phase angles with wrapping
+const phase = np.array([0, 1, 2, 3, -3, -2, -1, 0]);
+const unwrapped = np.unwrap(phase);
+// Discontinuities are removed
+```
+
+```typescript Core
+import { unwrap, array } from 'numpy-ts/core';
+
+const phase = array([0, 1, 2, 3, -3, -2, -1, 0]);
+const unwrapped = unwrap(phase);
+```
+</CodeGroup>
+
+---
+
+### real
+
+Return the real part of each element. For real-valued arrays, returns a copy.
+
+```typescript
+function real(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array (real or complex). |
+
+**Returns:** `NDArray` -- The real part of each element.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+import { Complex } from 'numpy-ts';
+
+const a = np.array([new Complex(1, 2), new Complex(3, 4)]);
+const r = np.real(a);
+// array([1, 3])
+```
+
+```typescript Core
+import { real, array } from 'numpy-ts/core';
+import { Complex } from 'numpy-ts/core';
+
+const a = array([new Complex(1, 2), new Complex(3, 4)]);
+const r = real(a);
+```
+</CodeGroup>
+
+---
+
+### imag
+
+Return the imaginary part of each element. For real-valued arrays, returns zeros.
+
+```typescript
+function imag(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array (real or complex). |
+
+**Returns:** `NDArray` -- The imaginary part of each element.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+import { Complex } from 'numpy-ts';
+
+const a = np.array([new Complex(1, 2), new Complex(3, 4)]);
+const i = np.imag(a);
+// array([2, 4])
+```
+
+```typescript Core
+import { imag, array } from 'numpy-ts/core';
+import { Complex } from 'numpy-ts/core';
+
+const a = array([new Complex(1, 2), new Complex(3, 4)]);
+const i = imag(a);
+```
+</CodeGroup>
+
+---
+
+### conj
+
+Return the complex conjugate, element-wise. For each element `a + bi`, returns `a - bi`. Also available as the alias `conjugate`.
+
+```typescript
+function conj(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array (real or complex). |
+
+**Returns:** `NDArray` -- Complex conjugate of each element.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+import { Complex } from 'numpy-ts';
+
+const a = np.array([new Complex(1, 2), new Complex(3, -4)]);
+const c = np.conj(a);
+// complex128 array: [(1-2j), (3+4j)]
+
+// Alias
+const c2 = np.conjugate(a);
+```
+
+```typescript Core
+import { conj, array } from 'numpy-ts/core';
+// or: import { conjugate } from 'numpy-ts/core';
+
+import { Complex } from 'numpy-ts/core';
+
+const a = array([new Complex(1, 2)]);
+const c = conj(a);
+```
+</CodeGroup>
+
+---
+
+### angle
+
+Return the angle (argument) of complex numbers.
+
+```typescript
+function angle(x: ArrayLike, deg?: boolean): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array of complex numbers. |
+| `deg` | `boolean` | `false` | If `true`, return angles in degrees instead of radians. |
+
+**Returns:** `NDArray` -- The counterclockwise angle from the positive real axis, in radians (or degrees if `deg` is `true`).
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+import { Complex } from 'numpy-ts';
+
+const a = np.array([new Complex(1, 1), new Complex(0, 1), new Complex(-1, 0)]);
+const angles = np.angle(a);
+// array([0.7854..., 1.5708..., 3.1416...])  -- pi/4, pi/2, pi
+
+const degrees = np.angle(a, true);
+// array([45, 90, 180])
+```
+
+```typescript Core
+import { angle, array } from 'numpy-ts/core';
+import { Complex } from 'numpy-ts/core';
+
+const a = array([new Complex(1, 1), new Complex(0, 1)]);
+const angles = angle(a);
+```
+</CodeGroup>

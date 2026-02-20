@@ -10,7 +10,7 @@ Main script for tracking API coverage against NumPy.
 
 **Usage:**
 ```bash
-# Update README with current coverage
+# Update README + docs coverage page with current coverage
 python scripts/compare-api-coverage.py
 
 # Show detailed list of missing functions
@@ -22,13 +22,36 @@ python scripts/compare-api-coverage.py -v
 1. Runs `audit-numpy-api.py` to extract NumPy's API
 2. Runs `audit-numpyts-api.ts` to extract numpy-ts's API
 3. Compares them properly (member-vs-member, global-vs-global)
-4. Updates README.md with accurate coverage statistics
-5. With `--verbose`: Shows complete list of missing/extra functions
+4. Updates `README.md` with accurate coverage statistics
+5. Updates `docs/v1.0.x/guides/api-coverage.mdx` with category/missing details
+6. With `--verbose`: Shows complete list of missing/extra functions
 
 **When to run:**
 - After implementing new functions
 - Before releases to update coverage stats
 - When investigating what to implement next
+
+### `compare-docs-api-coverage.py`
+
+Audit docs API coverage against implemented `numpy-ts` exports.
+
+**Usage:**
+```bash
+python scripts/compare-docs-api-coverage.py
+python scripts/compare-docs-api-coverage.py --verbose
+python scripts/compare-docs-api-coverage.py --no-refresh
+```
+
+**What it does:**
+1. Runs `audit-numpyts-api.ts` to extract current exports
+2. Detects latest docs API folder (from `docs/docs.json` redirect or `docs/v*/api`)
+3. Parses `function ...(` signatures in `docs/<version>/api/**/*.mdx`
+4. Reports missing docs entries for implemented functions
+5. Reports doc signatures that do not map to current implementation
+6. Treats known aliases as covered when they are mentioned in API docs text
+7. Checks signature parity by default (parameter names/types + return type, with `NDArrayCore` normalized to `NDArray`)
+
+**Output:** `scripts/docs-api-audit.json`
 
 ### `audit-numpy-api.py`
 

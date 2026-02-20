@@ -1011,7 +1011,7 @@ npm run bench:category math
 
 ### Step 5: Update Documentation
 
-Update `docs/API-REFERENCE.md`:
+Update `docs_internal/API-REFERENCE.md`:
 ```markdown
 ### Mathematical Functions
 - [x] `log(x)` - Natural logarithm _(implemented as NDArray.log() method)_

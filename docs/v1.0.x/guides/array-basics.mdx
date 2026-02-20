@@ -1,0 +1,244 @@
+---
+title: "Array Basics"
+description: "Create, inspect, and convert NDArrays -- the core data structure of numpy-ts."
+---
+
+## The NDArray
+
+Every value in numpy-ts is an `NDArray` -- a multidimensional, homogeneously-typed array backed by a JavaScript `TypedArray`. If you have used NumPy in Python, you already know the mental model: shape, dtype, strides, and element-wise operations.
+
+## Creating arrays from JavaScript data
+
+Use `array()` to create an NDArray from nested JavaScript arrays or a flat list:
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 1-D array
+const a = np.array([1, 2, 3, 4]);
+
+// 2-D array (matrix)
+const b = np.array([[1, 2], [3, 4]]);
+
+// 3-D array
+const c = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
+```
+
+You can also specify a dtype explicitly:
+
+```typescript
+const ints = np.array([1, 2, 3], { dtype: 'int32' });
+const floats = np.array([1, 2, 3], { dtype: 'float32' });
+```
+
+<Tip>
+When no dtype is provided, numpy-ts defaults to `float64`, matching NumPy's behavior.
+</Tip>
+
+## NDArray properties
+
+Every NDArray exposes the same set of descriptive properties you would find in NumPy:
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+
+a.shape;    // [2, 3]        -- dimensions of the array
+a.ndim;     // 2             -- number of dimensions
+a.size;     // 6             -- total number of elements
+a.dtype;    // 'float64'     -- data type of the elements
+a.strides;  // [3, 1]        -- step sizes to traverse each dimension
+a.itemsize; // 8             -- size of one element in bytes
+a.nbytes;   // 48            -- total bytes consumed (size * itemsize)
+```
+
+| Property   | Type               | Description                                    |
+|------------|--------------------|------------------------------------------------|
+| `shape`    | `readonly number[]` | Length of each dimension                       |
+| `ndim`     | `number`           | Number of dimensions (`shape.length`)          |
+| `size`     | `number`           | Total element count                            |
+| `dtype`    | `string`           | Element data type (e.g. `'float64'`)           |
+| `data`     | `TypedArray`       | Underlying typed array buffer                  |
+| `strides`  | `readonly number[]` | Elements to skip per dimension                |
+| `itemsize` | `number`           | Bytes per element                              |
+| `nbytes`   | `number`           | Total bytes (`size * itemsize`)                |
+| `base`     | `NDArray \| null`  | Parent array if this is a view, else `null`    |
+| `flags`    | `object`           | `C_CONTIGUOUS`, `F_CONTIGUOUS`, `OWNDATA`      |
+| `T`        | `NDArray`          | Transposed view (shorthand for `.transpose()`) |
+
+## The `T` property -- transposing
+
+The `T` property returns a transposed view of the array. No data is copied; the view shares the same underlying buffer:
+
+```typescript
+const m = np.array([[1, 2, 3], [4, 5, 6]]);
+// m.shape => [2, 3]
+
+const mt = m.T;
+// mt.shape => [3, 2]
+// mt.get([0, 0]) => 1
+// mt.get([0, 1]) => 4
+// mt.get([1, 0]) => 2
+```
+
+Because `T` returns a view, modifying the transpose also modifies the original:
+
+```typescript
+mt.set([0, 1], 99);
+m.get([1, 0]);  // 99 -- same underlying data
+```
+
+## Flags and views
+
+The `flags` property tells you about the memory layout:
+
+```typescript
+const a = np.array([[1, 2], [3, 4]]);
+
+a.flags;
+// { C_CONTIGUOUS: true, F_CONTIGUOUS: false, OWNDATA: true }
+
+a.T.flags;
+// { C_CONTIGUOUS: false, F_CONTIGUOUS: true, OWNDATA: false }
+```
+
+The `base` property indicates whether an array is a view of another array:
+
+```typescript
+const a = np.array([1, 2, 3, 4, 5, 6]);
+const b = a.slice('0:3');
+
+b.base === a;  // true  -- b is a view into a
+a.base;        // null  -- a owns its data
+```
+
+## Inspecting arrays
+
+### `toString()`
+
+Returns a summary string with shape and dtype:
+
+```typescript
+const a = np.array([[1, 2], [3, 4]]);
+a.toString();
+// "NDArray(shape=[2,2], dtype=float64)"
+```
+
+### `array2string()`
+
+For NumPy-style formatted output, use the `array2string` function:
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+console.log(np.array2string(a));
+// array([[1, 2, 3],
+//        [4, 5, 6]])
+```
+
+### `array_repr()` and `array_str()`
+
+```typescript
+np.array_repr(a);  // "array([[1, 2, 3],\n       [4, 5, 6]])"
+np.array_str(a);   // "[[1, 2, 3],\n [4, 5, 6]]"
+```
+
+## Converting back to JavaScript
+
+### `toArray()`
+
+Converts the NDArray into a nested JavaScript array matching the shape:
+
+```typescript
+const a = np.array([[1, 2], [3, 4]]);
+a.toArray();
+// [[1, 2], [3, 4]]
+
+const b = np.array([10, 20, 30]);
+b.toArray();
+// [10, 20, 30]
+```
+
+### `tolist()`
+
+Alias for `toArray()`. Provided for NumPy API compatibility:
+
+```typescript
+a.tolist();  // [[1, 2], [3, 4]]
+```
+
+### `item()`
+
+Extract a single scalar from a size-1 array:
+
+```typescript
+const scalar = np.array([42]);
+scalar.item();  // 42
+```
+
+You can also pass a flat index or multi-dimensional indices:
+
+```typescript
+const a = np.array([[10, 20], [30, 40]]);
+a.item(0);        // 10  (flat index)
+a.item(1, 1);     // 40  (row 1, col 1)
+```
+
+## Accessing the raw typed array
+
+The `data` property gives you direct access to the underlying `TypedArray`:
+
+```typescript
+const a = np.array([1, 2, 3], { dtype: 'float32' });
+a.data;            // Float32Array [1, 2, 3]
+a.data.buffer;     // The underlying ArrayBuffer
+```
+
+<Warning>
+Modifying `data` directly bypasses numpy-ts and can lead to unexpected behavior, especially with non-contiguous views. Use `get()` / `set()` or operations instead.
+</Warning>
+
+## Iteration
+
+NDArrays implement the JavaScript iterator protocol. For 1-D arrays, iteration yields elements. For N-D arrays, it yields (N-1)-D sub-arrays along the first axis:
+
+```typescript
+const a = np.array([10, 20, 30]);
+for (const val of a) {
+  console.log(val);  // 10, 20, 30
+}
+
+const m = np.array([[1, 2], [3, 4]]);
+for (const row of m) {
+  console.log(row.toArray());  // [1, 2] then [3, 4]
+}
+```
+
+## Method chaining
+
+The full entry point (`numpy-ts`) returns `NDArray` objects that support method chaining, letting you write expressive pipelines:
+
+```typescript
+import * as np from 'numpy-ts';
+
+const result = np.array([1, 2, 3, 4, 5, 6])
+  .reshape(2, 3)      // shape [2, 3]
+  .add(10)             // add 10 to every element
+  .T                   // transpose to [3, 2]
+  .sum(1);             // sum along axis 1
+
+console.log(result);   // array with 3 elements
+```
+
+<Note>
+If bundle size matters more than method chaining, use `numpy-ts/core` instead. See the [Installation guide](.//installation) for details.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Data Types" icon="database" href=".//dtypes">
+    Understand the 13 supported dtypes and type promotion rules.
+  </Card>
+  <Card title="Slicing & Indexing" icon="scissors" href=".//slicing-indexing">
+    Select sub-arrays, rows, columns, and individual elements.
+  </Card>
+</CardGroup>

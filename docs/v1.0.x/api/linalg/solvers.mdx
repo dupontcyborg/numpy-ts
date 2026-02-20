@@ -1,0 +1,257 @@
+---
+title: "Solvers & Inverses"
+description: "Linear system solvers, matrix inverses, pseudo-inverses, and efficient chained products."
+---
+
+All functions on this page live under the `linalg` namespace. Access them as `np.linalg.solve(...)`, `np.linalg.inv(...)`, etc.
+
+### linalg.solve
+
+Solve the linear matrix equation `Ax = b` for `x`. The matrix `a` must be square and non-singular.
+
+```typescript
+function linalg.solve(a: ArrayLike, b: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Coefficient matrix of shape `[N, N]`. |
+| `b` | `ArrayLike` | -- | Right-hand side vector or matrix. Shape `[N]` for a single system or `[N, M]` for multiple right-hand sides. |
+
+**Returns:** `NDArray` -- Solution `x` such that `A @ x = b`.
+
+**Throws:** `Error` if `a` is singular or not square.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Solve: 2x + y = 5, x + 3y = 7
+const A = np.array([[2, 1], [1, 3]]);
+const b = np.array([5, 7]);
+
+const x = np.linalg.solve(A, b);
+// array([1.6, 1.8])
+
+// Verify: A @ x ≈ b
+console.log(np.matmul(A, x).toArray());  // [5, 7]
+```
+
+---
+
+### linalg.lstsq
+
+Compute the least-squares solution to a linear matrix equation. Finds `x` that minimizes `||b - Ax||^2`. Works for overdetermined and underdetermined systems.
+
+```typescript
+function linalg.lstsq(
+  a: ArrayLike,
+  b: ArrayLike,
+  rcond?: number | null
+): { x: NDArray; residuals: NDArray; rank: number; s: NDArray; }
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Coefficient matrix of shape `[M, N]`. |
+| `b` | `ArrayLike` | -- | Right-hand side of shape `[M]` or `[M, K]`. |
+| `rcond` | `number` | `-1` | Cut-off ratio for small singular values. Singular values less than `rcond * largest_sv` are treated as zero. A value of `-1` uses machine precision. |
+
+**Returns:** `{ x, residuals, rank, s }` where:
+- `x` -- Least-squares solution of shape `[N]` or `[N, K]`.
+- `residuals` -- Sum of squared residuals (empty if `rank < N` or `M <= N`).
+- `rank` -- Effective rank of `a`.
+- `s` -- Singular values of `a` in descending order.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Overdetermined system (3 equations, 2 unknowns)
+const A = np.array([[1, 1], [1, 2], [1, 3]]);
+const b = np.array([1, 2, 2]);
+
+const { x, residuals, rank, s } = np.linalg.lstsq(A, b);
+console.log(x.toArray());  // least-squares fit
+console.log(rank);          // 2
+console.log(s.toArray());   // singular values
+```
+
+---
+
+### linalg.inv
+
+Compute the multiplicative inverse of a square matrix. The result satisfies `A @ A_inv = I`.
+
+```typescript
+function linalg.inv(a: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input square matrix of shape `[N, N]`. |
+
+**Returns:** `NDArray` -- The inverse matrix of shape `[N, N]`.
+
+**Throws:** `Error` if the matrix is singular.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+
+const A_inv = np.linalg.inv(A);
+// array([[-2  ,  1  ],
+//        [ 1.5, -0.5]])
+
+// Verify: A @ A_inv ≈ identity
+const I = np.matmul(A, A_inv);
+// array([[1, 0],
+//        [0, 1]])
+```
+
+---
+
+### linalg.pinv
+
+Compute the Moore-Penrose pseudo-inverse of a matrix. This generalizes the inverse to non-square and singular matrices.
+
+```typescript
+function linalg.pinv(a: ArrayLike, rcond?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input matrix of shape `[M, N]`. |
+| `rcond` | `number` | `1e-15` | Cutoff for small singular values. Singular values less than `rcond * max(sv)` are set to zero. |
+
+**Returns:** `NDArray` -- The pseudo-inverse of shape `[N, M]`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4], [5, 6]]);
+
+const A_pinv = np.linalg.pinv(A);
+console.log(A_pinv.shape);  // [2, 3]
+
+// Verify: A @ pinv(A) @ A ≈ A
+const reconstructed = np.matmul(np.matmul(A, A_pinv), A);
+```
+
+---
+
+### linalg.tensorinv
+
+Compute the inverse of an N-dimensional array. The inverse is defined such that `tensordot(a_inv, a, ind) = I`, where `I` is the identity operator.
+
+```typescript
+function linalg.tensorinv(a: ArrayLike, ind?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input tensor to invert. |
+| `ind` | `number` | `2` | Number of first indices that are involved in the inverse sum. Must satisfy `prod(a.shape[:ind]) == prod(a.shape[ind:])`. |
+
+**Returns:** `NDArray` -- The tensor inverse.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.eye(4).reshape([2, 2, 2, 2]);
+
+const a_inv = np.linalg.tensorinv(a);
+console.log(a_inv.shape);  // [2, 2, 2, 2]
+```
+
+---
+
+### linalg.tensorsolve
+
+Solve the tensor equation `a x = b` for `x`. This is the tensor generalization of `linalg.solve`.
+
+```typescript
+function linalg.tensorsolve(a: ArrayLike, b: ArrayLike, axes?: number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Coefficient tensor. |
+| `b` | `ArrayLike` | -- | Right-hand side tensor. |
+| `axes` | `number[]` | `undefined` | Axes in `a` to reorder to the right before solving. |
+
+**Returns:** `NDArray` -- The solution tensor `x`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.eye(6).reshape([2, 3, 2, 3]);
+const b = np.array([[1, 0, 0], [0, 1, 0]]);
+
+const x = np.linalg.tensorsolve(a, b);
+console.log(x.shape);  // [2, 3]
+```
+
+---
+
+### linalg.multi_dot
+
+Compute the dot product of two or more arrays in a single call, automatically optimizing the order of multiplications (using the optimal parenthesization) to minimize the number of scalar multiplications.
+
+```typescript
+function linalg.multi_dot(arrays: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `ArrayLike[]` | -- | Array of matrices to multiply. The first and last can be 1-D (treated as row/column vectors). |
+
+**Returns:** `NDArray` -- The dot product of all the input arrays.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.random.rand([10, 100]);
+const B = np.random.rand([100, 5]);
+const C = np.random.rand([5, 50]);
+
+// Efficiently computes A @ B @ C with optimal ordering
+const result = np.linalg.multi_dot([A, B, C]);
+console.log(result.shape);  // [10, 50]
+```
+
+---
+
+### linalg.matrix_power
+
+Raise a square matrix to an integer power. For positive `n`, this computes `a @ a @ ... @ a` (n times). For `n = 0`, returns the identity. For negative `n`, computes the inverse raised to `|n|`.
+
+```typescript
+function linalg.matrix_power(a: ArrayLike, n: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input square matrix. |
+| `n` | `number` | -- | Integer exponent. Can be positive, zero, or negative. |
+
+**Returns:** `NDArray` -- The matrix `a` raised to the power `n`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const A = np.array([[1, 2], [3, 4]]);
+
+// Square the matrix
+const A2 = np.linalg.matrix_power(A, 2);
+// array([[ 7, 10],
+//        [15, 22]])
+
+// Identity (n=0)
+const I = np.linalg.matrix_power(A, 0);
+// array([[1, 0],
+//        [0, 1]])
+
+// Inverse (n=-1)
+const A_inv = np.linalg.matrix_power(A, -1);
+// equivalent to np.linalg.inv(A)
+```

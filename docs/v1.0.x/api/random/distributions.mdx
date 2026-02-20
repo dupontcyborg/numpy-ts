@@ -1,0 +1,720 @@
+---
+title: "Distributions"
+description: "Continuous, discrete, and multivariate probability distributions for random sampling."
+---
+
+All functions on this page are accessed via the `np.random` namespace and use the global MT19937 generator. The same distributions are also available on `Generator` instances (see [Generator API](./generator)).
+
+## Continuous Distributions
+
+### uniform
+
+Draw samples from a uniform distribution over `[low, high)`.
+
+```typescript
+function uniform(low?: number, high?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `low` | `number` | `0` | Lower boundary (inclusive). |
+| `high` | `number` | `1` | Upper boundary (exclusive). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Samples from the uniform distribution.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.uniform(-1, 1, [2, 3]);
+```
+
+---
+
+### normal
+
+Draw samples from a normal (Gaussian) distribution.
+
+```typescript
+function normal(loc?: number, scale?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `loc` | `number` | `0` | Mean of the distribution. |
+| `scale` | `number` | `1` | Standard deviation (spread). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Samples from the normal distribution.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const samples = np.random.normal(0, 1, [1000]);
+```
+
+---
+
+### standard_normal
+
+Draw samples from the standard normal distribution (mean=0, std=1). Equivalent to `normal(0, 1, size)`.
+
+```typescript
+function standard_normal(size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Standard normal samples.
+
+---
+
+### exponential
+
+Draw samples from an exponential distribution.
+
+```typescript
+function exponential(scale?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `scale` | `number` | `1` | Scale parameter (beta = 1/lambda). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Exponential samples.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.exponential(2.0, [1000]);
+```
+
+---
+
+### standard_exponential
+
+Draw samples from the standard exponential distribution (scale=1). Equivalent to `exponential(1, size)`.
+
+```typescript
+function standard_exponential(size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Standard exponential samples.
+
+---
+
+### gamma
+
+Draw samples from a Gamma distribution. Uses Marsaglia and Tsang's method.
+
+```typescript
+function gamma(shape: number, scale?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `shape` | `number` | -- | Shape parameter (k, alpha). Must be > 0. |
+| `scale` | `number` | `1` | Scale parameter (theta). Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Gamma-distributed samples.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.gamma(2, 2, [1000]);
+```
+
+---
+
+### standard_gamma
+
+Draw samples from the standard Gamma distribution (scale=1).
+
+```typescript
+function standard_gamma(shape: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `shape` | `number` | -- | Shape parameter (alpha). Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Standard gamma samples.
+
+---
+
+### beta
+
+Draw samples from a Beta distribution.
+
+```typescript
+function beta(a: number, b: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number` | -- | Alpha parameter. Must be > 0. |
+| `b` | `number` | -- | Beta parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Beta-distributed samples in `[0, 1]`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.beta(2, 5, [1000]);
+```
+
+---
+
+### chisquare
+
+Draw samples from a chi-square distribution. Internally uses `gamma(df/2, 2)`.
+
+```typescript
+function chisquare(df: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `df` | `number` | -- | Degrees of freedom. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Chi-square samples.
+
+---
+
+### noncentral_chisquare
+
+Draw samples from a noncentral chi-square distribution.
+
+```typescript
+function noncentral_chisquare(df: number, nonc: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `df` | `number` | -- | Degrees of freedom. Must be > 0. |
+| `nonc` | `number` | -- | Non-centrality parameter. Must be >= 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Noncentral chi-square samples.
+
+---
+
+### f
+
+Draw samples from an F distribution.
+
+```typescript
+function f(dfnum: number, dfden: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `dfnum` | `number` | -- | Degrees of freedom in numerator. Must be > 0. |
+| `dfden` | `number` | -- | Degrees of freedom in denominator. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- F-distributed samples.
+
+---
+
+### noncentral_f
+
+Draw samples from a noncentral F distribution.
+
+```typescript
+function noncentral_f(
+  dfnum: number,
+  dfden: number,
+  nonc: number,
+  size?: number | number[]
+): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `dfnum` | `number` | -- | Degrees of freedom in numerator. Must be > 0. |
+| `dfden` | `number` | -- | Degrees of freedom in denominator. Must be > 0. |
+| `nonc` | `number` | -- | Non-centrality parameter. Must be >= 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Noncentral F samples.
+
+---
+
+### standard_cauchy
+
+Draw samples from a standard Cauchy distribution (location=0, scale=1).
+
+```typescript
+function standard_cauchy(size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Cauchy samples.
+
+---
+
+### standard_t
+
+Draw samples from a standard Student's t distribution.
+
+```typescript
+function standard_t(df: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `df` | `number` | -- | Degrees of freedom. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Student's t samples.
+
+---
+
+### laplace
+
+Draw samples from a Laplace (double exponential) distribution.
+
+```typescript
+function laplace(loc?: number, scale?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `loc` | `number` | `0` | Location parameter (mean). |
+| `scale` | `number` | `1` | Scale parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Laplace samples.
+
+---
+
+### logistic
+
+Draw samples from a logistic distribution.
+
+```typescript
+function logistic(loc?: number, scale?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `loc` | `number` | `0` | Location parameter. |
+| `scale` | `number` | `1` | Scale parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Logistic samples.
+
+---
+
+### lognormal
+
+Draw samples from a log-normal distribution. If `X ~ Normal(mean, sigma)`, then `exp(X) ~ LogNormal`.
+
+```typescript
+function lognormal(mean?: number, sigma?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `mean` | `number` | `0` | Mean of the underlying normal distribution. |
+| `sigma` | `number` | `1` | Standard deviation of the underlying normal. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Log-normal samples.
+
+---
+
+### gumbel
+
+Draw samples from a Gumbel distribution.
+
+```typescript
+function gumbel(loc?: number, scale?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `loc` | `number` | `0` | Location parameter. |
+| `scale` | `number` | `1` | Scale parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Gumbel samples.
+
+---
+
+### pareto
+
+Draw samples from a Pareto II (Lomax) distribution.
+
+```typescript
+function pareto(a: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number` | -- | Shape parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Pareto samples.
+
+---
+
+### power
+
+Draw samples from a power distribution with positive exponent `a - 1` over `[0, 1]`.
+
+```typescript
+function power(a: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number` | -- | Shape parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Power-distributed samples in `[0, 1]`.
+
+---
+
+### rayleigh
+
+Draw samples from a Rayleigh distribution.
+
+```typescript
+function rayleigh(scale?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `scale` | `number` | `1` | Scale parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Rayleigh samples.
+
+---
+
+### triangular
+
+Draw samples from a triangular distribution over `[left, right]` with the given mode.
+
+```typescript
+function triangular(
+  left: number,
+  mode: number,
+  right: number,
+  size?: number | number[]
+): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `left` | `number` | -- | Lower limit. |
+| `mode` | `number` | -- | Peak of the distribution. Must satisfy `left <= mode <= right`. |
+| `right` | `number` | -- | Upper limit. Must satisfy `left < right`. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Triangular samples.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.triangular(0, 5, 10, [1000]);
+```
+
+---
+
+### wald
+
+Draw samples from a Wald (inverse Gaussian) distribution.
+
+```typescript
+function wald(mean: number, scale: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `mean` | `number` | -- | Mean of the distribution. Must be > 0. |
+| `scale` | `number` | -- | Scale parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Wald samples.
+
+---
+
+### weibull
+
+Draw samples from a Weibull distribution.
+
+```typescript
+function weibull(a: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number` | -- | Shape parameter. Must be > 0. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Weibull samples.
+
+---
+
+### vonmises
+
+Draw samples from a von Mises distribution (circular normal) on the interval `[-pi, pi]`.
+
+```typescript
+function vonmises(mu: number, kappa: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `mu` | `number` | -- | Mode (center) of the distribution, in radians. |
+| `kappa` | `number` | -- | Concentration parameter. Must be >= 0. When `kappa = 0`, the distribution is uniform on the circle. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Von Mises samples in `[-pi, pi]`.
+
+---
+
+## Discrete Distributions
+
+### poisson
+
+Draw samples from a Poisson distribution.
+
+```typescript
+function poisson(lam?: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `lam` | `number` | `1` | Expected number of events (lambda). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Poisson samples (non-negative integers).
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.poisson(5, [1000]);
+```
+
+---
+
+### binomial
+
+Draw samples from a binomial distribution.
+
+```typescript
+function binomial(n: number, p: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Number of trials. |
+| `p` | `number` | -- | Probability of success on each trial. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Binomial samples.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 10 coin flips with p=0.5, repeated 1000 times
+const a = np.random.binomial(10, 0.5, [1000]);
+```
+
+---
+
+### geometric
+
+Draw samples from a geometric distribution. Returns the number of trials needed to get the first success.
+
+```typescript
+function geometric(p: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `p` | `number` | -- | Probability of success. Must be in `(0, 1]`. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Geometric samples (positive integers).
+
+---
+
+### hypergeometric
+
+Draw samples from a hypergeometric distribution. Models drawing `nsample` items without replacement from a population containing `ngood` successes and `nbad` failures.
+
+```typescript
+function hypergeometric(
+  ngood: number,
+  nbad: number,
+  nsample: number,
+  size?: number | number[]
+): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `ngood` | `number` | -- | Number of good (success) items in the population. |
+| `nbad` | `number` | -- | Number of bad (failure) items in the population. |
+| `nsample` | `number` | -- | Number of items sampled. Must be `<= ngood + nbad`. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Number of good items in each sample.
+
+---
+
+### logseries
+
+Draw samples from a logarithmic series distribution.
+
+```typescript
+function logseries(p: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `p` | `number` | -- | Shape parameter. Must be in `(0, 1)`. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Log-series samples (positive integers).
+
+---
+
+### negative_binomial
+
+Draw samples from a negative binomial distribution. Models the number of failures before `n` successes.
+
+```typescript
+function negative_binomial(n: number, p: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Number of successes. Must be > 0. |
+| `p` | `number` | -- | Probability of success. Must be in `(0, 1]`. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Negative binomial samples (non-negative integers).
+
+---
+
+### zipf
+
+Draw samples from a Zipf distribution.
+
+```typescript
+function zipf(a: number, size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number` | -- | Distribution parameter. Must be > 1. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Zipf samples (positive integers).
+
+---
+
+## Multivariate Distributions
+
+### multinomial
+
+Draw samples from a multinomial distribution.
+
+```typescript
+function multinomial(n: number, pvals: ArrayLike, size?: number | number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | -- | Number of experiments (total count per sample). |
+| `pvals` | `ArrayLike` | -- | Probabilities of each category. Must sum to 1 (normalized automatically). |
+| `size` | `number \| number[]` | `undefined` | Number of multinomial experiments to run. |
+
+**Returns:** `NDArray` -- Array of shape `[...size, len(pvals)]` with integer counts.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 20 rolls of a fair 6-sided die
+const a = np.random.multinomial(20, [1/6, 1/6, 1/6, 1/6, 1/6, 1/6]);
+// array([3, 4, 2, 5, 3, 3])  (example, sums to 20)
+```
+
+---
+
+### multivariate_normal
+
+Draw samples from a multivariate normal distribution.
+
+```typescript
+function multivariate_normal(
+  mean: ArrayLike,
+  cov: ArrayLike | number[][],
+  size?: number | number[],
+  check_valid?: 'warn' | 'raise' | 'ignore',
+  tol?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `mean` | `ArrayLike` | -- | Mean of the distribution (1-D array of length N). |
+| `cov` | `ArrayLike \| number[][]` | -- | Covariance matrix (N x N, symmetric positive semi-definite). |
+| `size` | `number \| number[]` | `undefined` | Number of samples to draw. |
+| `check_valid` | `'warn' \| 'raise' \| 'ignore'` | `undefined` | Behavior when covariance is not PSD. |
+| `tol` | `number` | `undefined` | Tolerance for covariance validity checks. |
+
+**Returns:** `NDArray` -- Array of shape `[...size, N]`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const mean = [0, 0];
+const cov = [[1, 0.5], [0.5, 1]];
+const samples = np.random.multivariate_normal(mean, cov, 1000);
+// shape [1000, 2]
+```
+
+---
+
+### dirichlet
+
+Draw samples from a Dirichlet distribution. Each sample is a probability vector that sums to 1.
+
+```typescript
+function dirichlet(alpha: ArrayLike, size?: number | number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `alpha` | `ArrayLike` | -- | Concentration parameters. Must all be > 0 and have at least 2 elements. |
+| `size` | `number \| number[]` | `undefined` | Number of samples to draw. |
+
+**Returns:** `NDArray` -- Array of shape `[...size, len(alpha)]`, where each row sums to 1.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const samples = np.random.dirichlet([1, 1, 1], 5);
+// shape [5, 3], each row sums to 1.0
+```

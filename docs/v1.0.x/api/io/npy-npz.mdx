@@ -1,0 +1,334 @@
+---
+title: "NPY & NPZ Files"
+description: "Read and write NumPy's binary .npy and .npz file formats in the browser and Node.js."
+---
+
+numpy-ts provides full support for NumPy's `.npy` (single array) and `.npz` (multiple arrays, ZIP archive) binary formats. The API is split into two layers:
+
+- **Browser functions** -- Work with `ArrayBuffer` / `Uint8Array` / strings. Imported from `numpy-ts` or `numpy-ts/core`.
+- **Node.js functions** -- Add file system I/O on top. Imported from `numpy-ts/node`.
+
+## Browser API
+
+These functions work in any JavaScript environment (browser, Deno, Bun, Node.js) since they operate on bytes, not files.
+
+### parseNpy
+
+Parse a `.npy` buffer into an NDArray.
+
+```typescript
+function parseNpy(buffer: ArrayBuffer | Uint8Array): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `buffer` | `ArrayBuffer \| Uint8Array` | -- | Raw bytes of a `.npy` file. |
+
+**Returns:** `NDArray` -- The parsed array with correct shape, dtype, and data.
+
+```typescript
+import { parseNpy } from 'numpy-ts';
+
+const response = await fetch('/data/weights.npy');
+const buffer = await response.arrayBuffer();
+const arr = parseNpy(buffer);
+console.log(arr.shape, arr.dtype);
+```
+
+---
+
+### parseNpyHeader
+
+Parse only the header of a `.npy` file without reading the data. Useful for inspecting file metadata.
+
+```typescript
+function parseNpyHeader(bytes: Uint8Array): NpyMetadata
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `bytes` | `Uint8Array` | -- | Raw bytes of a `.npy` file. |
+
+**Returns:** `NpyHeader` -- Object with `{ descr, fortran_order, shape, version, headerLength }`.
+
+```typescript
+import { parseNpyHeader } from 'numpy-ts';
+
+const header = parseNpyHeader(buffer);
+console.log(header.shape);  // e.g. [100, 200]
+console.log(header.descr);  // e.g. '<f8'
+```
+
+---
+
+### parseNpyData
+
+Parse the data portion of a `.npy` file given pre-parsed metadata. Advanced use for custom streaming workflows.
+
+```typescript
+function parseNpyData(bytes: Uint8Array, metadata: NpyMetadataType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `bytes` | `Uint8Array` | -- | Raw data bytes (after the header). |
+| `metadata` | `NpyMetadata` | -- | Metadata from header parsing. |
+
+**Returns:** `NDArray` -- The parsed array.
+
+---
+
+### serializeNpy
+
+Serialize an NDArray to `.npy` format bytes.
+
+```typescript
+function serializeNpy(arr: NDArray): Uint8Array
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arr` | `NDArray` | -- | The array to serialize. |
+
+**Returns:** `Uint8Array` -- The `.npy` file as bytes, ready to be written or downloaded.
+
+```typescript
+import * as np from 'numpy-ts';
+import { serializeNpy } from 'numpy-ts';
+
+const arr = np.array([[1, 2, 3], [4, 5, 6]]);
+const bytes = serializeNpy(arr);
+
+// Download in browser
+const blob = new Blob([bytes], { type: 'application/octet-stream' });
+```
+
+---
+
+### parseNpz / parseNpzSync
+
+Parse a `.npz` buffer into a collection of named arrays. The async version supports DEFLATE-compressed files.
+
+```typescript
+function parseNpz(
+  buffer: ArrayBuffer | Uint8Array,
+  options?: NpzParseOptions
+): Promise<NpzParseResult>
+
+function parseNpzSync(
+  buffer: ArrayBuffer | Uint8Array,
+  options?: NpzParseOptions
+): NpzParseResult
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `buffer` | `ArrayBuffer \| Uint8Array` | -- | Raw bytes of a `.npz` file. |
+| `options` | `NpzParseOptions` | `{}` | Parse options. |
+
+**NpzParseOptions:**
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `force` | `boolean` | `false` | If `true`, skip arrays with unsupported dtypes instead of throwing. |
+
+**Returns:** `NpzParseResult` -- `{ arrays: Map<string, NDArray>, skipped: string[], errors: Map<string, string> }`.
+
+```typescript
+import { parseNpz } from 'numpy-ts';
+
+const response = await fetch('/data/model.npz');
+const buffer = await response.arrayBuffer();
+const result = await parseNpz(buffer);
+
+for (const [name, arr] of result.arrays) {
+  console.log(name, arr.shape);
+}
+```
+
+---
+
+### serializeNpz / serializeNpzSync
+
+Serialize multiple arrays to `.npz` format. The async version supports DEFLATE compression.
+
+```typescript
+function serializeNpz(
+  arrays: NpzArraysInput,
+  options?: NpzSerializeOptions
+): Promise<Uint8Array>
+
+function serializeNpzSync(
+  arrays: NpzArraysInput
+): Uint8Array
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `NpzArraysInput` | -- | Arrays to serialize. Accepts `NDArray[]` (named `arr_0`, `arr_1`, ...), `Map<string, NDArray>`, or `Record<string, NDArray>`. |
+| `options` | `NpzSerializeOptions` | `{}` | Serialization options. |
+
+**NpzSerializeOptions:**
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `compress` | `boolean` | `false` | Use DEFLATE compression (like `np.savez_compressed`). |
+
+**Returns:** `Uint8Array` (or `Promise<Uint8Array>`) -- The `.npz` file as bytes.
+
+```typescript
+import * as np from 'numpy-ts';
+import { serializeNpz } from 'numpy-ts';
+
+const x = np.array([1, 2, 3]);
+const y = np.array([4, 5, 6]);
+const bytes = await serializeNpz({ x, y });
+```
+
+---
+
+### loadNpz / loadNpzSync
+
+Convenience wrappers that parse an `.npz` buffer and return a simple `Record<string, NDArray>` (discarding error/skip metadata).
+
+```typescript
+function loadNpz(
+  buffer: ArrayBuffer | Uint8Array,
+  options?: NpzParseOptions
+): Promise<Record<string, NDArray>>
+
+function loadNpzSync(
+  buffer: ArrayBuffer | Uint8Array,
+  options?: NpzParseOptions
+): Record<string, NDArray>
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `buffer` | `ArrayBuffer \| Uint8Array` | -- | Raw bytes of a `.npz` file. |
+| `options` | `NpzParseOptions` | `{}` | Parse options. |
+
+**Returns:** `Record<string, NDArray>` -- Object mapping array names to NDArrays.
+
+---
+
+## Node.js API
+
+<Tabs>
+<Tab title="Async">
+
+### load
+
+Auto-detect file format (`.npy` or `.npz`) and load arrays from disk.
+
+```typescript
+function load(path: string, options?: LoadOptions): Promise<NDArray | NpzParseResultNDArray>
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `path` | `string` | -- | Path to a `.npy` or `.npz` file. |
+| `options` | `LoadOptions` | `undefined` | Loading options. |
+
+**Returns:** `Promise<NDArray>` for `.npy` files, `Promise<NpzParseResult>` for `.npz` files.
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+const arr = await np.load('weights.npy');
+const data = await np.load('dataset.npz');
+```
+
+---
+
+### save
+
+Save a single NDArray to a `.npy` file.
+
+```typescript
+function save(path: string, arr: NDArray): Promise<void>
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `path` | `string` | -- | Output path (should end with `.npy`). |
+| `arr` | `NDArray` | -- | Array to save. |
+
+**Returns:** `Promise<void>`
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+const arr = np.array([[1, 2], [3, 4]]);
+await np.save('matrix.npy', arr);
+```
+
+---
+
+### savez
+
+Save multiple arrays to an uncompressed `.npz` file.
+
+```typescript
+function savez(path: string, arrays: NpzArraysInput): Promise<void>
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `path` | `string` | -- | Output path. `.npz` extension is appended if missing. |
+| `arrays` | `Record<string, NDArray>` | -- | Named arrays to save. Also accepts `NDArray[]` or `Map`. |
+
+**Returns:** `Promise<void>`
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+await np.savez('data.npz', { x: xArr, y: yArr });
+```
+
+---
+
+### savez_compressed
+
+Save multiple arrays to a DEFLATE-compressed `.npz` file.
+
+```typescript
+function savez_compressed(path: string, arrays: NpzArraysInput): Promise<void>
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `path` | `string` | -- | Output path. `.npz` extension is appended if missing. |
+| `arrays` | `Record<string, NDArray>` | -- | Named arrays to save. |
+
+**Returns:** `Promise<void>`
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+await np.savez_compressed('data.npz', { weights: w, biases: b });
+```
+
+</Tab>
+<Tab title="Sync">
+
+Synchronous versions are also available:
+
+```typescript
+import * as np from 'numpy-ts/node';
+
+// Load
+const arr = np.loadSync('weights.npy');
+const data = np.loadNpzFileSync('dataset.npz');
+
+// Save
+np.saveSync('output.npy', arr);
+np.saveNpzSync('output.npz', { x: xArr });
+```
+
+<Note>
+  `parseNpzSync` / `loadNpzSync` only work with uncompressed `.npz` files. Use the async versions for compressed files.
+</Note>
+
+</Tab>
+</Tabs>

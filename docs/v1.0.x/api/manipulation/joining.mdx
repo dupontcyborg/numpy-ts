@@ -1,0 +1,298 @@
+---
+title: "Joining Arrays"
+description: "Concatenate, stack, and assemble arrays together."
+---
+
+### concatenate
+
+Join a sequence of arrays along an existing axis. All arrays must have the same shape except along the concatenation axis.
+
+`concat` is an alias for `concatenate`.
+
+```typescript
+function concatenate(arrays: ArrayLike[], axis?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `ArrayLike[]` | -- | Sequence of arrays to join. |
+| `axis` | `number` | `0` | Axis along which to concatenate. |
+
+**Returns:** `NDArray` -- The concatenated array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+const b = np.array([[5, 6]]);
+
+// Concatenate along rows (axis 0)
+const c = np.concatenate([a, b], 0);
+console.log(c.toArray());
+// [[1, 2], [3, 4], [5, 6]]
+
+// Concatenate along columns (axis 1)
+const d = np.concatenate([a, a], 1);
+console.log(d.toArray());
+// [[1, 2, 1, 2], [3, 4, 3, 4]]
+
+// Using the alias
+const e = np.concat([a, b], 0);
+```
+
+---
+
+### stack
+
+Join a sequence of arrays along a **new** axis. All input arrays must have the same shape.
+
+```typescript
+function stack(arrays: ArrayLike[], axis?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `ArrayLike[]` | -- | Sequence of arrays with identical shapes. |
+| `axis` | `number` | `0` | Axis in the result along which the input arrays are stacked. |
+
+**Returns:** `NDArray` -- The stacked array with one additional dimension.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.array([4, 5, 6]);
+
+// Stack along new axis 0 (default)
+const c = np.stack([a, b]);
+console.log(c.shape);     // [2, 3]
+console.log(c.toArray());  // [[1, 2, 3], [4, 5, 6]]
+
+// Stack along new axis 1
+const d = np.stack([a, b], 1);
+console.log(d.shape);     // [3, 2]
+console.log(d.toArray());  // [[1, 4], [2, 5], [3, 6]]
+```
+
+---
+
+### vstack
+
+Stack arrays vertically (row-wise). 1-D arrays of shape `(N,)` are first reshaped to `(1, N)`. Equivalent to `concatenate` along axis 0 after that reshape.
+
+`row_stack` is an alias for `vstack`.
+
+```typescript
+function vstack(arrays: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `ArrayLike[]` | -- | Sequence of arrays. 1-D arrays are promoted to 2-D. |
+
+**Returns:** `NDArray` -- The vertically stacked array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.array([4, 5, 6]);
+
+const c = np.vstack([a, b]);
+console.log(c.shape);     // [2, 3]
+console.log(c.toArray());  // [[1, 2, 3], [4, 5, 6]]
+
+// Works the same via the alias
+const d = np.row_stack([a, b]);
+```
+
+---
+
+### hstack
+
+Stack arrays horizontally (column-wise). For 1-D arrays, concatenates along axis 0. For 2-D and higher arrays, concatenates along axis 1.
+
+```typescript
+function hstack(arrays: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `ArrayLike[]` | -- | Sequence of arrays to stack. |
+
+**Returns:** `NDArray` -- The horizontally stacked array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 1-D arrays: simple concatenation
+const a = np.array([1, 2, 3]);
+const b = np.array([4, 5, 6]);
+console.log(np.hstack([a, b]).toArray());  // [1, 2, 3, 4, 5, 6]
+
+// 2-D arrays: concatenate along axis 1
+const c = np.array([[1], [2]]);
+const d = np.array([[3], [4]]);
+console.log(np.hstack([c, d]).toArray());  // [[1, 3], [2, 4]]
+```
+
+---
+
+### dstack
+
+Stack arrays depth-wise (along the third axis). 1-D arrays `(N,)` are reshaped to `(1, N, 1)` and 2-D arrays `(M, N)` to `(M, N, 1)` before stacking.
+
+```typescript
+function dstack(arrays: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `ArrayLike[]` | -- | Sequence of arrays to stack. |
+
+**Returns:** `NDArray` -- The depth-stacked array (at least 3-D).
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.array([4, 5, 6]);
+
+const c = np.dstack([a, b]);
+console.log(c.shape);     // [1, 3, 2]
+console.log(c.toArray());  // [[[1, 4], [2, 5], [3, 6]]]
+```
+
+---
+
+### column_stack
+
+Stack 1-D arrays as columns into a 2-D array. 1-D inputs are first reshaped to column vectors `(N, 1)`, then horizontally stacked. 2-D and higher arrays are passed through to `hstack` unchanged.
+
+```typescript
+function column_stack(arrays: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `ArrayLike[]` | -- | Sequence of 1-D or 2-D arrays. |
+
+**Returns:** `NDArray` -- 2-D array with each 1-D input as a column.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.array([4, 5, 6]);
+
+const c = np.column_stack([a, b]);
+console.log(c.shape);     // [3, 2]
+console.log(c.toArray());
+// [[1, 4],
+//  [2, 5],
+//  [3, 6]]
+```
+
+---
+
+### block
+
+Assemble an array from nested sequences of blocks. For a flat list of N-D arrays, concatenates along the last axis.
+
+```typescript
+function block(arrays: ArrayLike[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrays` | `NestedArray` | -- | Nested list of arrays or array-like objects. A flat list `[a, b]` concatenates along the last axis. |
+
+**Returns:** `NDArray` -- The assembled array.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2], [3, 4]]);
+const b = np.array([[5, 6], [7, 8]]);
+
+const c = np.block([a, b]);
+console.log(c.toArray());
+// [[1, 2, 5, 6],
+//  [3, 4, 7, 8]]
+```
+
+---
+
+### append
+
+Append values to the end of an array. When no axis is given, both arrays are flattened before concatenation.
+
+```typescript
+function append(
+  arr: ArrayLike,
+  values: ArrayLike | number | number[],
+  axis?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arr` | `ArrayLike` | -- | Base array. |
+| `values` | `ArrayLike` | -- | Values to append. |
+| `axis` | `number` | `undefined` | Axis along which to append. If `undefined`, both inputs are flattened first. |
+
+**Returns:** `NDArray` -- A copy of `arr` with `values` appended.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+
+// Append without axis: flattens and concatenates
+const b = np.append(a, [4, 5, 6]);
+console.log(b.toArray());  // [1, 2, 3, 4, 5, 6]
+
+// Append along an axis
+const c = np.array([[1, 2], [3, 4]]);
+const d = np.append(c, [[5, 6]], 0);
+console.log(d.toArray());
+// [[1, 2], [3, 4], [5, 6]]
+```
+
+---
+
+### insert
+
+Insert values into an array before specified indices.
+
+```typescript
+function insert(
+  arr: ArrayLike,
+  obj: number | number[],
+  values: ArrayLike | number | number[],
+  axis?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `arr` | `ArrayLike` | -- | Input array. |
+| `obj` | `number \| number[]` | -- | Index or indices before which to insert. |
+| `values` | `ArrayLike` | -- | Values to insert. |
+| `axis` | `number` | `undefined` | Axis along which to insert. If `undefined`, `arr` is flattened first. |
+
+**Returns:** `NDArray` -- A copy of `arr` with `values` inserted.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3, 4, 5]);
+
+// Insert a single value
+const b = np.insert(a, 2, 99);
+console.log(b.toArray());  // [1, 2, 99, 3, 4, 5]
+
+// Insert multiple values
+const c = np.insert(a, [1, 3], [10, 20]);
+console.log(c.toArray());  // [1, 10, 2, 3, 20, 4, 5]
+```

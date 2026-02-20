@@ -1,0 +1,4 @@
+/* Hide whitespace in mobile REST API views (Mintlify bug...) */
+div[class*="mt-8"][class*="lg:mt-0"][class*="flex"][class*="xl:hidden"] {
+    display: none !important;
+}

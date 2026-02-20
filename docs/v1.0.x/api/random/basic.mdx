@@ -1,0 +1,271 @@
+---
+title: "Basic Random Functions"
+description: "Legacy random sampling functions for uniform, normal, and integer distributions."
+---
+
+All functions on this page are accessed via the `np.random` namespace and use the global MT19937 generator. Seed with `np.random.seed()` for reproducible results.
+
+### random
+
+Generate random floats in the half-open interval `[0.0, 1.0)`.
+
+```typescript
+function random(size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. If omitted, returns a single float. |
+
+**Returns:** `NDArray | number` -- Random values in `[0, 1)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+np.random.seed(42);
+
+// Single value
+const x = np.random.random();
+
+// 1-D array
+const a = np.random.random(5);
+// array([...])  shape [5]
+
+// 2-D array
+const b = np.random.random([3, 4]);
+// array([...])  shape [3, 4]
+```
+
+---
+
+### rand
+
+Random values in a given shape. Variadic form of `random` -- pass dimensions as separate arguments.
+
+```typescript
+function rand(...shape: number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `...shape` | `number[]` | -- | Dimensions of the returned array. If no arguments, returns a single float. |
+
+**Returns:** `NDArray | number` -- Random values in `[0, 1)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.rand(2, 3);
+// array([...])  shape [2, 3]
+```
+
+---
+
+### randn
+
+Return samples from the standard normal distribution (mean=0, std=1). Variadic shape, like `rand`.
+
+```typescript
+function randn(...shape: number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `...shape` | `number[]` | -- | Dimensions of the returned array. If no arguments, returns a single float. |
+
+**Returns:** `NDArray | number` -- Samples from the standard normal distribution.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.random.randn(1000);
+// 1000 standard-normal samples
+```
+
+---
+
+### randint
+
+Return random integers from `low` (inclusive) to `high` (exclusive).
+
+```typescript
+function randint(
+  low: number,
+  high?: number | null,
+  size?: number | number[],
+  dtype?: DType
+): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `low` | `number` | -- | Lowest integer (inclusive). If `high` is omitted, this is treated as the upper bound and `low` defaults to 0. |
+| `high` | `number \| null` | `null` | One above the highest integer (exclusive). |
+| `size` | `number \| number[]` | `undefined` | Output shape. If omitted, returns a single integer. |
+| `dtype` | `DType` | `'int64'` | Desired output dtype. |
+
+**Returns:** `NDArray | number` -- Random integers in `[low, high)`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 0 to 9
+const a = np.random.randint(10);
+
+// 5 to 14, shape [2, 3]
+const b = np.random.randint(5, 15, [2, 3]);
+```
+
+---
+
+### random_sample
+
+Alias for `random()`. Return random floats in `[0.0, 1.0)`.
+
+```typescript
+function random_sample(size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Random values in `[0, 1)`.
+
+---
+
+### ranf
+
+Alias for `random()`. Return random floats in `[0.0, 1.0)`.
+
+```typescript
+function ranf(size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Random values in `[0, 1)`.
+
+---
+
+### sample
+
+Alias for `random()`. Return random floats in `[0.0, 1.0)`.
+
+```typescript
+function sample(size?: number | number[]): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Random values in `[0, 1)`.
+
+---
+
+### random_integers
+
+<Warning>
+  **Deprecated.** Use `randint` instead.
+</Warning>
+
+Return random integers between `low` and `high`, inclusive on both ends.
+
+```typescript
+function random_integers(
+  low: number,
+  high?: number,
+  size?: number | number[]
+): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `low` | `number` | -- | Lowest integer. If `high` is omitted, range is `[1, low]`. |
+| `high` | `number` | `undefined` | Highest integer (inclusive). |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+
+**Returns:** `NDArray | number` -- Random integers in `[low, high]`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Random integers from 1 to 6 (inclusive), like a die roll
+const die = np.random.random_integers(1, 6, [10]);
+```
+
+---
+
+### bytes
+
+Return random bytes as a `Uint8Array`.
+
+```typescript
+function bytes(length: number): Uint8Array
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `length` | `number` | -- | Number of random bytes to generate. |
+
+**Returns:** `Uint8Array` -- Array of random bytes.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const b = np.random.bytes(16);
+// Uint8Array of 16 random bytes
+```
+
+---
+
+### choice
+
+Generate a random sample from a given 1-D array or from `range(a)` when `a` is an integer.
+
+```typescript
+function choice(
+  a: number | ArrayLike,
+  size?: number | number[],
+  replace?: boolean,
+  p?: ArrayLike
+): NDArray | number
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `number \| ArrayLike` | -- | If `number`, sample from `0..a-1`; otherwise sample from the provided values. |
+| `size` | `number \| number[]` | `undefined` | Output shape. |
+| `replace` | `boolean` | `true` | Whether sampling is with replacement. |
+| `p` | `ArrayLike` | `undefined` | Optional probabilities for each entry in `a`. |
+
+---
+
+### permutation
+
+Randomly permute a sequence or return a permuted range.
+
+```typescript
+function permutation(x: number | ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `number \| ArrayLike` | -- | If `number`, permute `0..x-1`; otherwise permute the input values. |
+
+---
+
+### shuffle
+
+Shuffle an array in place along the first axis.
+
+```typescript
+function shuffle(x: ArrayLike): void
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | -- | Array to shuffle in place. |
