@@ -64,6 +64,7 @@
     "bench:category": "npm run bench:build && node benchmarks/dist/bench.cjs --category",
     "bench:view": "open benchmarks/results/plots/latest.html || xdg-open benchmarks/results/plots/latest.html",
     "bench:large:view": "open benchmarks/results/plots/latest-large.html || xdg-open benchmarks/results/plots/latest-large.html",
+    "bench:docs": "python3 scripts/generate-bench-docs.py",
     "compare-api": "python3 scripts/compare-api-coverage.py",
     "compare-docs-api": "python3 scripts/compare-docs-api-coverage.py"
   },

@@ -57,6 +57,14 @@
     {
       "source": "/playground",
       "destination": "/v1.0.x/playground"
+    },
+    {
+      "source": "/coverage",
+      "destination": "/v1.0.x/guides/api-coverage"
+    },
+    {
+      "source": "/performance",
+      "destination": "/v1.0.x/guides/performance"
     }
   ],
   "navigation": {
@@ -97,7 +105,9 @@
               {
                 "group": "Resources",
                 "pages": [
-                  "changelog"
+                  "changelog",
+                  "v1.0.x/guides/performance",
+                  "v1.0.x/guides/api-coverage"
                 ]
               }
             ]

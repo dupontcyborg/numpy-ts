@@ -2,36 +2,29 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm version](https://img.shields.io/npm/v/numpy-ts)](https://www.npmjs.com/package/numpy-ts)
-![bundle size](https://img.shields.io/bundlephobia/minzip/numpy-ts)
+![bundle size](https://img.shields.io/bundlejs/size/numpy-ts)
 ![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-94%20%25-brightgreen)
 
-```
-███╗   ██╗██╗   ██╗███╗   ███╗██████╗ ██╗   ██╗  ████████╗███████╗
-████╗  ██║██║   ██║████╗ ████║██╔══██╗╚██╗ ██╔╝  ╚══██╔══╝██╔════╝
-██╔██╗ ██║██║   ██║██╔████╔██║██████╔╝ ╚████╔╝█████╗██║   ███████╗
-██║╚██╗██║██║   ██║██║╚██╔╝██║██╔═══╝   ╚██╔╝ ╚════╝██║   ╚════██║
-██║ ╚████║╚██████╔╝██║ ╚═╝ ██║██║        ██║        ██║   ███████║
-╚═╝  ╚═══╝ ╚═════╝ ╚═╝     ╚═╝╚═╝        ╚═╝        ╚═╝   ╚══════╝
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.svg" />
+  <img src="docs/images/hero-light.svg" alt="numpy-ts" />
+</picture>
 
-Complete NumPy implementation for TypeScript and JavaScript
+Complete NumPy implementation for TypeScript and JavaScript.
 
-**⚠️ Under active development** — API may change before v1.0
+- **📊 Extensive API** — **476 of 507 NumPy functions (93.9% coverage)**
+- **✅ NumPy-validated** — 6,000+ tests compared against Python NumPy
+- **🔒 Type-safe** — Full TypeScript type definitions
+- **🌳 Tree-shakeable** — Import only what you use
+- **🌐 Universal** — Works in Node.js and browsers
+
+[Docs](https://https://numpy-ts.dev) • [Examples](https://numpy-ts.dev/examples) • [Benchmarks](https://numpy-ts.dev/performance)
+
+## Install
 
 ```bash
 npm install numpy-ts
 ```
-
-## Why numpy-ts?
-
-- **📊 Extensive API** — **476 of 507 NumPy functions (93.9% coverage)**
-- **✅ NumPy-validated** — 6,000+ test cases cross-validated against Python NumPy
-- **🔒 Type-safe** — Full TypeScript support with shape and dtype inference
-- **🌐 Universal** — Works in Node.js and browsers with .npy/.npz file support
-- **🎯 Zero dependencies** — Pure TypeScript, no heavy external libraries
-- **🌳 Tree-shakeable** — Import only what you need (~11KB for `zeros`, not 180KB)
-
-> **💡 Bundle size tip:** Standalone functions like `sin(arr)` tree-shake well. Method chaining like `arr.sin()` is convenient but pulls in the full library. See [modular imports guide](docs/modular-imports.mdx).
 
 ## Quick Start
 
@@ -57,239 +50,18 @@ const row = A.slice('0', ':');    // A[0, :]
 const submatrix = A.slice('0:2', '1:');  // A[0:2, 1:]
 ```
 
-## Features
+## Resources
 
-### API Coverage
-
-Progress toward complete NumPy API compatibility:
-
-| Category | Complete | Total | Status |
-|----------|----------|-------|--------|
-| **Arithmetic** | 29/29 | 100% | ✅ |
-| **Array Creation** | 35/35 | 100% | ✅ |
-| **Array Manipulation** | 46/46 | 100% | ✅ |
-| **Bit Operations** | 13/13 | 100% | ✅ |
-| **Broadcasting** | 3/3 | 100% | ✅ |
-| **Comparison** | 10/10 | 100% | ✅ |
-| **Exponential** | 9/9 | 100% | ✅ |
-| **FFT** | 18/18 | 100% | ✅ |
-| **Gradient** | 4/4 | 100% | ✅ |
-| **Hyperbolic** | 9/9 | 100% | ✅ |
-| **I/O** | 8/8 | 100% | ✅ |
-| **Indexing** | 21/21 | 100% | ✅ |
-| **Linear Algebra** | 16/16 | 100% | ✅ |
-| **Linear Algebra (linalg)** | 31/31 | 100% | ✅ |
-| **Logic** | 24/24 | 100% | ✅ |
-| **NDArray Methods** | 47/47 | 100% | ✅ |
-| **Other Math** | 15/15 | 100% | ✅ |
-| **Polynomials** | 10/10 | 100% | ✅ |
-| **Printing/Formatting** | 10/10 | 100% | ✅ |
-| **Random** | 53/53 | 100% | ✅ |
-| **Reductions** | 36/36 | 100% | ✅ |
-| **Rounding** | 7/7 | 100% | ✅ |
-| **Searching** | 7/7 | 100% | ✅ |
-| **Set Operations** | 12/12 | 100% | ✅ |
-| **Sorting** | 6/6 | 100% | ✅ |
-| **Statistics** | 11/11 | 100% | ✅ |
-| **Trigonometric** | 16/16 | 100% | ✅ |
-| **Type Checking** | 7/7 | 100% | ✅ |
-| **Utilities** | 10/10 | 100% | ✅ |
-| **Unplanned** | 0/31 | 0% | 🔴 |
-
-**Overall: 476/507 functions (93.9% coverage)**
-
-See the complete [API Reference](docs/API-REFERENCE.md) for detailed function list.
-
-### Data Types (dtypes)
-
-NumPy-compatible type system with automatic promotion:
-
-| DType | NumPy | numpy-ts | Notes |
-|-------|-------|----------|-------|
-| **Floating Point** ||||
-| `float64` | ✅ | ✅ | Default dtype |
-| `float32` | ✅ | ✅ | |
-| `float16` | ✅ | ⚠️ | Planned (waiting for [this](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float16Array)) |
-| **Signed Integers** ||||
-| `int64` | ✅ | ✅ | Uses BigInt |
-| `int32` | ✅ | ✅ | |
-| `int16` | ✅ | ✅ | |
-| `int8` | ✅ | ✅ | |
-| **Unsigned Integers** ||||
-| `uint64` | ✅ | ✅ | Uses BigInt |
-| `uint32` | ✅ | ✅ | |
-| `uint16` | ✅ | ✅ | |
-| `uint8` | ✅ | ✅ | |
-| **Other Numeric** ||||
-| `bool` | ✅ | ✅ | Stored as uint8 |
-| `complex64` | ✅ | ✅ | |
-| `complex128` | ✅ | ✅ | |
-| **Non-Numeric** ||||
-| `str_` | ✅ | ❌ | Not planned |
-| `bytes_` | ✅ | ❌ | Not planned |
-| `object_` | ✅ | ❌ | Not planned |
-| `datetime64` | ✅ | ❌ | Not planned |
-| `timedelta64` | ✅ | ❌ | Not planned |
-
-**Supported: 13/20 numeric dtypes**
-
-### Intentional Divergences from NumPy
-
-numpy-ts focuses on numeric array computing. The following NumPy features are **not planned**:
-
-| Feature | Why Not Included |
-|---------|------------------|
-| **Datetime/Timedelta** (`datetime64`, `timedelta64`) | JS has native `Date`; libraries like [date-fns](https://date-fns.org/) handle time math better |
-| **F-order memory layout** | Exists in NumPy for Fortran/BLAS interop, which doesn't exist in JS |
-| **Object dtype** (`object_`) | Defeats the purpose of typed arrays; use regular JS arrays instead |
-| **String/Bytes dtypes** (`str_`, `bytes_`, `U`, `S`) | JS strings are first-class; no need for fixed-width string arrays |
-| **Exact random sequence reproduction** | numpy-ts random functions produce statistically correct distributions but use different transformation algorithms (Box-Muller vs Ziggurat), so seeded sequences won't match NumPy exactly |
-
-These omissions keep the library focused and the bundle small. For string manipulation, datetime math, or heterogeneous data, use native JS/TS constructs alongside numpy-ts.
-
-### NumPy Memory Model
-
-- **View tracking** — `base` attribute and `OWNDATA` flag
-- **Strided arrays** — C/F contiguous flags for memory layout
-- **Zero-copy ops** — Views for slicing, transpose, reshape (when possible)
-
-```typescript
-const arr = np.ones([4, 4]);
-const view = arr.slice('0:2', '0:2');
-
-console.log(view.base === arr);      // true - view tracks base
-console.log(view.flags.OWNDATA);     // false - doesn't own data
-console.log(arr.flags.C_CONTIGUOUS); // true - row-major layout
-```
-
-## Architecture
-
-```
-┌─────────────────────────────────┐
-│  NumPy-Compatible API           │
-│  Broadcasting, DType Promotion  │
-└───────────────┬─────────────────┘
-                │
-┌───────────────┴─────────────────┐
-│  NDArray (Views & Memory Mgmt)  │
-│  Strided Arrays, Base Tracking  │
-└───────────────┬─────────────────┘
-                │- - - - - - - - - - - - - - - - - - ┐  
-┌───────────────┴─────────────────┐  ┌ ─ ─ ─ ─ ─ ─ ─ ┴ ─ ─ ─ ─ ─ ─ ─ ─┐
-│  TypeScript / JavaScript Core   │  │  WASM Compute Engine (Future)  │
-│  Computational Engine           │  │  Optimized BLAS / arithmetic   │
-└─────────────────────────────────┘  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
-```
-
-Pure TypeScript implementation built from scratch for correctness and NumPy compatibility.
-
-## Performance
-
-![Benchmark Results](benchmarks/results/plots/latest.png)
-
-See [benchmarks/README.md](benchmarks/README.md) for detailed performance analysis.
-
-## File I/O
-
-Read and write `.npy` and `.npz` files with Node.js or browsers.
-
-### Node.js
-
-```typescript
-import { load, save, savez, savez_compressed } from 'numpy-ts/node';
-
-save('array.npy', arr);
-const arr = load('array.npy');
-
-savez('arrays.npz', { a: arr1, b: arr2 });
-const { a, b } = load('arrays.npz');
-```
-
-### Browser
-
-```typescript
-import * as np from 'numpy-ts';
-
-// Parse fetched .npy file
-const response = await fetch('array.npy');
-const arr = np.parseNpy(await response.arrayBuffer());
-
-// Serialize for download
-const bytes = np.serializeNpy(arr);
-```
-
-*Why separate imports?* The `/node` entry includes Node.js `fs` usage. Keeping it separate ensures browser bundles stay clean.
-
-## Examples
-
-### Broadcasting
-
-```typescript
-const matrix = np.ones([3, 4]);     // (3, 4)
-const row = np.arange(4);           // (4,)
-const result = matrix.add(row);     // (3, 4) - row broadcast to each row
-
-const col = np.array([[1], [2], [3]]);  // (3, 1)
-const grid = col.multiply(row);         // (3, 4) - outer product via broadcasting
-```
-
-### Slicing
-
-TypeScript doesn't support Python's `arr[0:5, :]`, so we use strings:
-
-```typescript
-arr.slice('0:5', '1:3');     // arr[0:5, 1:3]
-arr.slice(':', '-1');        // arr[:, -1]
-arr.slice('::2');            // arr[::2]
-
-// Convenience helpers
-arr.row(0);                  // arr[0, :]
-arr.col(2);                  // arr[:, 2]
-```
-
-### Type Safety
-
-```typescript
-const arr = np.zeros([3, 4]);  // Type: NDArray<Float64>
-arr.shape;  // Type: readonly [3, 4]
-arr.sum();  // Type: number
-```
-
-
-## Comparison with Alternatives
-
-| Feature | numpy-ts | numjs | ndarray | TensorFlow.js |
-|---------|----------|-------|---------|---------------|
-| NumPy API Coverage | 476/507 (94%) | ~20% | Different | ML-focused |
-| TypeScript Native | ✅ Full | Partial | ❌ No | ✅ Yes |
-| NumPy Validated | ✅ 6,000+ tests | Mostly | ❌ No | ❌ No |
-| .npy/.npz Files | ✅ v1/v2/v3 | ❌ No | ❌ No | ❌ No |
-| Broadcasting | ✅ Full | Limited | Limited | ✅ Full |
-| Bundle Size | <100kb | ~60kb | ~5kb | >100kb |
+- Docs: https://numpy-ts.dev
+- Playground: https://numpy-ts.dev/playground
+- Usage Examples: https://numpy-ts.dev/examples
+- API Coverage Report: https://numpy-ts.dev/coverage
+- Performance Benchmarks: https://numpy-ts.dev/performance
 
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions on:
-
-- Setting up the development environment
-- Adding new functions with tests
-- Running benchmarks
-- Submitting pull requests
-
-## Documentation
-
-- **[API Reference](docs/API-REFERENCE.md)** — Complete function checklist (120+ functions)
-- **[Feature Details](docs/FEATURES.md)** — Broadcasting, dtypes, views, slicing
-- **[Contributing Guide](CONTRIBUTING.md)** — How to contribute
-- **[Testing Guide](docs/TESTING-GUIDE.md)** — Testing strategy and examples
-- **[Architecture](docs/ARCHITECTURE.md)** — System design and internals
-
+Issues and PRs are welcome: https://github.com/dupontcyborg/numpy-ts
 
 ## License
 
-[MIT License](LICENSE) — Copyright (c) 2025 Nicolas Dupont
-
----
-
-**Bring NumPy to TypeScript!** ⭐
-[GitHub](https://github.com/dupontcyborg/numpy-ts) • [Issues](https://github.com/dupontcyborg/numpy-ts/issues) • [NumPy Docs](https://numpy.org/)
+MIT © Nicolas Dupont

@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-13T21:40:38.368Z",
+  "timestamp": "2026-02-19T21:40:38.368Z",
   "environment": {
     "node_version": "v24.12.0",
     "python_version": "3.13.0",
     "numpy_version": "2.3.3",
-    "numpyjs_version": "0.12.0"
+    "numpyjs_version": "1.0.0"
   },
   "results": [
     {

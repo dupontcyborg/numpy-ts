@@ -385,7 +385,7 @@ def main():
     print(f"   Uncategorized: {len(uncategorized)}")
 
     # Parse API-REFERENCE.md
-    api_ref_path = Path(__file__).parent.parent / 'docs' / 'API-REFERENCE.md'
+    api_ref_path = Path(__file__).parent.parent / 'docs_internal' / 'API-REFERENCE.md'
     if api_ref_path.exists():
         print("\n6. Parsing API-REFERENCE.md...")
         implemented, unimplemented = parse_api_reference(api_ref_path)
