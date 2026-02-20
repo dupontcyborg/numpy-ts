@@ -6,8 +6,14 @@
 ![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-94%20%25-brightgreen)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.svg" />
-  <img src="docs/images/hero-light.svg" alt="numpy-ts" />
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="https://raw.githubusercontent.com/dupontcyborg/numpy-ts/main/docs/images/hero-dark.svg"
+  />
+  <img
+    src="https://raw.githubusercontent.com/dupontcyborg/numpy-ts/main/docs/images/hero-light.svg"
+    alt="numpy-ts"
+  />
 </picture>
 
 Complete NumPy implementation for TypeScript and JavaScript.
@@ -18,7 +24,7 @@ Complete NumPy implementation for TypeScript and JavaScript.
 - **🌳 Tree-shakeable** — Import only what you use
 - **🌐 Universal** — Works in Node.js and browsers
 
-[Docs](https://https://numpy-ts.dev) • [Examples](https://numpy-ts.dev/examples) • [Benchmarks](https://numpy-ts.dev/performance)
+[Docs](https://numpyts.dev) • [Examples](https://numpyts.dev/examples) • [Benchmarks](https://numpyts.dev/performance)
 
 ## Install
 
@@ -52,11 +58,11 @@ const submatrix = A.slice('0:2', '1:');  // A[0:2, 1:]
 
 ## Resources
 
-- Docs: https://numpy-ts.dev
-- Playground: https://numpy-ts.dev/playground
-- Usage Examples: https://numpy-ts.dev/examples
-- API Coverage Report: https://numpy-ts.dev/coverage
-- Performance Benchmarks: https://numpy-ts.dev/performance
+- Docs: https://numpyts.dev
+- Playground: https://numpyts.dev/playground
+- Usage Examples: https://numpyts.dev/examples
+- API Coverage Report: https://numpyts.dev/coverage
+- Performance Benchmarks: https://numpyts.dev/performance
 
 ## Contributing
 
