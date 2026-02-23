@@ -1,0 +1,26 @@
+# numpy-ts todo
+
+*rough list of tasks left to do*
+
+## P1
+
+- [ ]  Support `[]` operator that returns either a view (for > 1 dim) or a scalar (for 1 dim)
+- [ ] Add `float32` support to `matmul` (`sgemm`)
+- [ ] Implement `unfunc` support
+- [ ] Implement masked array support
+- [ ] Support tuple of axes for reductions
+
+## P2
+
+- [ ] Reach 100% function coverage via unit and validation tests
+- [ ] Reach >95% branch coverage via unit and validation tests
+- [ ] Reach >95% statement coverage via unit and validation tests
+- [ ] Simplify docs Quickstart
+- [ ] Fix PR benchmark regression testing CI
+- [ ] Make all seeded `random` functions match NumPy's output byte-for-byte
+
+## P3
+
+- [ ] Add CodeCov to pipelines
+- [ ] Link specific API reference pages in Guides
+- [ ] Add Playground components to Guides and/or API Reference?

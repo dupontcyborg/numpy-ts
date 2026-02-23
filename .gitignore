@@ -43,7 +43,7 @@ scripts/*.json
 *__pycache__*
 
 # Local TODO file
-TODO
+# TODO
 
 # Coverage
 coverage-report.json# Tree-shaking test output

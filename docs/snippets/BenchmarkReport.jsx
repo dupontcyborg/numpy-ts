@@ -51,6 +51,8 @@ export const BenchmarkReport = ({ data }) => {
   const [isDarkMode, setIsDarkMode] = useState(() =>
     document.documentElement.classList.contains('dark')
   );
+  const [openCategories, setOpenCategories] = useState({});
+  const toggleCategory = (name) => setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -66,13 +68,6 @@ export const BenchmarkReport = ({ data }) => {
   }, []);
 
   const colors = THEME_COLORS[isDarkMode ? 'dark' : 'light'];
-
-  const formatMs = (ms) => {
-    if (!Number.isFinite(ms)) return '-';
-    if (ms < 0.001) return `${(ms * 1000).toFixed(3)} us`;
-    if (ms < 1) return `${ms.toFixed(4)} ms`;
-    return `${ms.toFixed(3)} ms`;
-  };
 
   const formatOps = (ops) => {
     if (!Number.isFinite(ops) || ops <= 0) return '-';
@@ -164,56 +159,50 @@ export const BenchmarkReport = ({ data }) => {
 
       {categories.map((category) => {
         const benchmarks = Array.isArray(category.benchmarks) ? category.benchmarks : [];
+        const isOpen = !!openCategories[String(category.name)];
         return (
-          <details key={String(category.name)} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.cardBg }}>
-            <summary style={{ padding: '12px 14px', cursor: 'pointer', fontWeight: 600, color: colors.text }}>
+          <div key={String(category.name)} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.cardBg, overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleCategory(String(category.name))}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 'inherit', color: colors.text, textAlign: 'left' }}
+            >
+              <span style={{ fontSize: 10, display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▶</span>
               {String(category.name)} ({category.count} benchmarks, avg {(Number(category.avgSlowdown) || 0).toFixed(2)}x)
-            </summary>
-            <div style={{ padding: '0 14px 14px' }}>
-              <div style={{ fontSize: 13, color: colors.mutedText, marginBottom: 8 }}>
-                Slower than NumPy: {category.slowerCount} | Faster than NumPy: {category.fasterCount}
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>Benchmark</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>Slowdown</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>NumPy mean</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>numpy-ts mean</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>NumPy ops/s</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>numpy-ts ops/s</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {benchmarks.map((b, idx) => (
-                      <tr key={`${String(b.name)}-${idx}`} style={{ background: idx % 2 === 0 ? 'transparent' : colors.tableRowAlt }}>
-                        <td style={{ fontFamily: 'monospace', fontSize: 12, padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{String(b.name)}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}` }}>
-                          <span
-                            style={{
-                              background: ratioBg(b.ratio),
-                              color: ratioColor(b.ratio),
-                              padding: '2px 8px',
-                              borderRadius: 999,
-                              fontWeight: 700,
-                              fontSize: 12,
-                            }}
-                          >
-                            {formatRatio(b.ratio)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{formatMs(b.numpyMs)}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{formatMs(b.numpyTsMs)}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{formatOps(b.numpyOps)}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{formatOps(b.numpyTsOps)}</td>
+            </button>
+            {isOpen && (
+              <div style={{ padding: '0 14px 14px' }}>
+                <div style={{ fontSize: 13, color: colors.mutedText, marginBottom: 8 }}>
+                  Slower than NumPy: {category.slowerCount} | Faster than NumPy: {category.fasterCount}
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ minWidth: '100%', borderCollapse: 'collapse', margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>Benchmark</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>Slowdown</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>NumPy ops/s</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>numpy-ts ops/s</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {benchmarks.map((b, idx) => (
+                        <tr key={`${String(b.name)}-${idx}`} style={{ background: idx % 2 === 0 ? 'transparent' : colors.tableRowAlt }}>
+                          <td style={{ fontFamily: 'monospace', fontSize: 12, padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{String(b.name)}</td>
+                          <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}` }}>
+                            <span style={{ background: ratioBg(b.ratio), color: ratioColor(b.ratio), padding: '2px 8px', borderRadius: 999, fontWeight: 700, fontSize: 12 }}>
+                              {formatRatio(b.ratio)}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{formatOps(b.numpyOps)}</td>
+                          <td style={{ padding: '8px 10px', borderBottom: `1px solid ${colors.tableRowBorder}`, color: colors.text }}>{formatOps(b.numpyTsOps)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          </details>
+            )}
+          </div>
         );
       })}
     </div>

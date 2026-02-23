@@ -10,7 +10,7 @@ export const Playground = ({
   showCopyButton = false,
   showTiming = true
 }) => {
-  const NUMPY_TS_CDN_VERSION = "0.13.1";
+  const NUMPY_TS_CDN_VERSION = "1.0.0";
   const DEFAULT_EXAMPLES = {
     quickstart: {
       label: "Quickstart",
@@ -303,9 +303,11 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   const [timing, setTiming] = useState(null);
   const [copyHover, setCopyHover] = useState(false);
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
+  const [toolbarNarrow, setToolbarNarrow] = useState(false);
   const textareaRef = useRef(null);
   const preRef = useRef(null);
   const codeRef = useRef(null);
+  const toolbarRef = useRef(null);
   const resizeStartY = useRef(null);
   const resizeStartHeight = useRef(null);
   const runSeqRef = useRef(0);
@@ -643,6 +645,15 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     return () => window.removeEventListener('resize', measureScrollbar);
   }, [editorHeight, code, showImportHeader]);
 
+  useEffect(() => {
+    if (!toolbarRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setToolbarNarrow(entry.contentRect.width < 380);
+    });
+    ro.observe(toolbarRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   if (loadError) {
     return (
       <div style={{ padding: "20px", color: "#e55", background: colors.outputBg, borderRadius: "8px", fontSize: "14px" }}>
@@ -819,7 +830,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
         aria-label="Resize editor"
         role="separator"
       />
-      <div style={toolbarStyle}>
+      <div ref={toolbarRef} style={toolbarStyle}>
         <button
           onClick={run}
           disabled={!loaded}
@@ -830,8 +841,8 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
           {running ? <><span style={runSpinnerStyle}>{"\u21BB"}</span> Run</> : <><span>{"\u25B6"}</span> Run</>}
         </button>
         {timing && !running && (
-          <span style={{ fontSize: "12px", color: "#4caf50", fontWeight: 500 }}>
-            Completed in {timing}
+          <span style={{ fontSize: "12px", color: "#4caf50", fontWeight: 500, whiteSpace: "nowrap" }}>
+            {toolbarNarrow ? timing : `Completed in ${timing}`}
           </span>
         )}
         <span style={badgeStyle}>
