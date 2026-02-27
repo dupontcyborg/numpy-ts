@@ -66,7 +66,8 @@
     "bench:large:view": "open benchmarks/results/plots/latest-large.html || xdg-open benchmarks/results/plots/latest-large.html",
     "bench:docs": "python3 scripts/generate-bench-docs.py",
     "compare-api": "python3 scripts/compare-api-coverage.py",
-    "compare-docs-api": "python3 scripts/compare-docs-api-coverage.py"
+    "compare-docs-api": "python3 scripts/compare-docs-api-coverage.py",
+    "bench:wasm": "cd wasm-bench && npm run bench"
   },
   "keywords": [
     "numpy",

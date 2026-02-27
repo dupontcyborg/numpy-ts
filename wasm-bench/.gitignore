@@ -1,0 +1,6 @@
+dist/
+node_modules/
+rust/target/
+.zig-cache/
+zig/.zig-cache/
+zig-out/

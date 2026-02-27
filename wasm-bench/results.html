@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WASM Benchmark Results — Speedup vs JS</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 32px; }
+  h1 { font-size: 24px; margin-bottom: 4px; color: #f0f6fc; }
+  .subtitle { color: #8b949e; margin-bottom: 32px; font-size: 14px; }
+  .legend { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .legend-swatch { width: 16px; height: 16px; border-radius: 3px; }
+  .category { margin-bottom: 40px; }
+  .category h2 { font-size: 18px; color: #f0f6fc; margin-bottom: 16px; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+  .chart-row { display: flex; align-items: center; margin-bottom: 6px; }
+  .chart-label { width: 160px; text-align: right; padding-right: 12px; font-size: 12px; color: #8b949e; flex-shrink: 0; white-space: nowrap; }
+  .chart-bars { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .bar-group { display: flex; gap: 2px; align-items: center; height: 18px; }
+  .bar { height: 100%; border-radius: 2px; min-width: 1px; position: relative; display: flex; align-items: center; }
+  .bar-val { font-size: 10px; color: #f0f6fc; padding-left: 6px; white-space: nowrap; font-weight: 600; }
+  .bar-val.outside { position: absolute; left: calc(100% + 4px); color: #8b949e; }
+  .baseline { position: absolute; top: 0; bottom: 0; border-left: 2px dashed #484f58; z-index: 1; }
+  .baseline-label { position: absolute; top: -16px; font-size: 10px; color: #484f58; transform: translateX(-50%); }
+  .chart-area { position: relative; flex: 1; }
+  .group-spacer { height: 10px; }
+  .slower-note { font-size: 10px; color: #f85149; font-style: italic; margin-left: 4px; }
+
+  .zig-f64 { background: #58a6ff; }
+  .zig-f32 { background: #a5d6ff; }
+  .rust-f64 { background: #f0883e; }
+  .rust-f32 { background: #ffb77c; }
+
+  /* Binary sizes section */
+  .sizes { margin-top: 48px; }
+  .sizes h2 { font-size: 18px; color: #f0f6fc; margin-bottom: 16px; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+  .sizes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .size-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .size-card h3 { font-size: 14px; color: #f0f6fc; margin-bottom: 12px; }
+  .size-bar-row { display: flex; align-items: center; margin-bottom: 8px; }
+  .size-bar-label { width: 80px; font-size: 11px; color: #8b949e; flex-shrink: 0; }
+  .size-bar-track { flex: 1; height: 22px; position: relative; }
+  .size-bar { height: 100%; border-radius: 3px; display: flex; align-items: center; position: relative; }
+  .size-bar .raw-segment { height: 100%; border-radius: 3px 0 0 3px; opacity: 0.35; }
+  .size-bar .gz-segment { height: 100%; border-radius: 0 3px 3px 0; }
+  .size-bar-text { font-size: 10px; color: #f0f6fc; font-weight: 600; padding-left: 6px; white-space: nowrap; }
+  .size-bar-text.outside { position: absolute; left: calc(100% + 6px); color: #8b949e; }
+  .size-total { margin-top: 16px; padding-top: 12px; border-top: 1px solid #30363d; }
+  .size-total-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .size-total-val { font-weight: 600; color: #f0f6fc; }
+  .size-legend { display: flex; gap: 16px; margin-bottom: 16px; font-size: 12px; color: #8b949e; }
+  .size-legend-item { display: flex; align-items: center; gap: 5px; }
+  .size-legend-swatch { width: 12px; height: 12px; border-radius: 2px; }
+  .size-legend-swatch.raw { opacity: 0.35; }
+</style>
+</head>
+<body>
+
+<h1>WASM vs JS — Speedup Multipliers</h1>
+<p class="subtitle">Horizontal bars = how many times faster than pure JS (numpy-ts float64). Dashed line = 1x (JS baseline).</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch zig-f64"></div> Zig f64</div>
+  <div class="legend-item"><div class="legend-swatch zig-f32"></div> Zig f32</div>
+  <div class="legend-item"><div class="legend-swatch rust-f64"></div> Rust f64</div>
+  <div class="legend-item"><div class="legend-swatch rust-f32"></div> Rust f32</div>
+</div>
+
+<div id="charts"></div>
+
+<script>
+const DATA = [
+  { cat: "Matmul", entries: [
+    { label: "10×10",     zig64: 2.01, zig32: 2.59, rust64: 2.90, rust32: 3.45 },
+    { label: "100×100",   zig64: 4.11, zig32: 6.67, rust64: 5.05, rust32: 8.14 },
+    { label: "1000×1000", zig64: 4.85, zig32: 8.82, rust64: 5.09, rust32: 9.65 },
+  ]},
+  { cat: "Reduction — sum", entries: [
+    { label: "1K",  zig64: 5.37, zig32: 10.19, rust64: 5.99, rust32: 11.33 },
+    { label: "100K", zig64: 3.71, zig32: 6.80, rust64: 3.64, rust32: 7.39 },
+    { label: "10M", zig64: 3.57, zig32: 7.45, rust64: 3.55, rust32: 7.15 },
+  ]},
+  { cat: "Reduction — max", entries: [
+    { label: "1K",  zig64: 0.72, zig32: 1.37, rust64: 0.63, rust32: 1.37 },
+    { label: "100K", zig64: 2.22, zig32: 4.44, rust64: 4.40, rust32: 8.87 },
+    { label: "10M", zig64: 1.62, zig32: 3.18, rust64: 3.21, rust32: 6.51 },
+  ]},
+  { cat: "Unary — sqrt", entries: [
+    { label: "1K",  zig64: 14.75, zig32: 25.26, rust64: 13.63, rust32: 25.26 },
+    { label: "100K", zig64: 25.31, zig32: 52.26, rust64: 28.86, rust32: 57.71 },
+    { label: "10M", zig64: 25.82, zig32: 50.35, rust64: 24.97, rust32: 48.80 },
+  ]},
+  { cat: "Unary — exp", entries: [
+    { label: "1K",  zig64: 1.61, zig32: 2.75, rust64: 2.53, rust32: 3.38 },
+    { label: "100K", zig64: 1.48, zig32: 2.32, rust64: 2.46, rust32: 3.27 },
+    { label: "10M", zig64: 1.45, zig32: 2.02, rust64: 2.43, rust32: 2.99 },
+  ]},
+  { cat: "Binary — add", entries: [
+    { label: "1K",  zig64: 2.94, zig32: 5.30, rust64: 3.31, rust32: 6.63 },
+    { label: "100K", zig64: 8.17, zig32: 13.85, rust64: 7.90, rust32: 14.51 },
+    { label: "10M", zig64: 6.27, zig32: 12.46, rust64: 6.03, rust32: 12.83 },
+  ]},
+  { cat: "Binary — mul", entries: [
+    { label: "1K",  zig64: 2.53, zig32: 4.80, rust64: 2.82, rust32: 5.33 },
+    { label: "100K", zig64: 7.41, zig32: 12.78, rust64: 8.39, rust32: 16.47 },
+    { label: "10M", zig64: 5.23, zig32: 10.93, rust64: 5.47, rust32: 10.71 },
+  ]},
+  { cat: "Sort", entries: [
+    { label: "1K",  zig64: 9.75, zig32: 20.24, rust64: 12.10, rust32: 23.10 },
+    { label: "100K", zig64: 5.59, zig32: 5.63, rust64: 5.85, rust32: 5.85 },
+    { label: "1M", zig64: 5.89, zig32: 5.82, rust64: 5.99, rust32: 6.01 },
+  ]},
+];
+
+const container = document.getElementById('charts');
+
+for (const cat of DATA) {
+  // Find max value for scaling
+  let maxVal = 1;
+  for (const e of cat.entries) {
+    maxVal = Math.max(maxVal, e.zig64, e.zig32, e.rust64, e.rust32);
+  }
+  // Add 20% headroom for labels
+  const scale = maxVal * 1.25;
+
+  const section = document.createElement('div');
+  section.className = 'category';
+
+  let html = `<h2>${cat.cat}</h2>`;
+
+  for (const e of cat.entries) {
+    const bars = [
+      { val: e.zig64, cls: 'zig-f64' },
+      { val: e.zig32, cls: 'zig-f32' },
+      { val: e.rust64, cls: 'rust-f64' },
+      { val: e.rust32, cls: 'rust-f32' },
+    ];
+
+    html += `<div class="chart-row"><div class="chart-label">${e.label}</div><div class="chart-area">`;
+    // baseline at 1x
+    const baselinePct = (1 / scale) * 100;
+    html += `<div class="baseline" style="left:${baselinePct}%"><span class="baseline-label">1×</span></div>`;
+
+    for (const b of bars) {
+      const pct = Math.max((b.val / scale) * 100, 0.5);
+      const valStr = b.val.toFixed(2) + '×';
+      const isSmall = pct < 8;
+      const slowerNote = b.val < 1 ? ' <span class="slower-note">(slower)</span>' : '';
+      html += `<div class="bar-group"><div class="bar ${b.cls}" style="width:${pct}%"><span class="bar-val${isSmall ? ' outside' : ''}">${valStr}${slowerNote}</span></div></div>`;
+    }
+    html += `</div></div><div class="group-spacer"></div>`;
+  }
+
+  section.innerHTML = html;
+  container.appendChild(section);
+}
+
+// ─── Binary Sizes ───────────────────────────────────────────────────────────
+
+const SIZES = [
+  { kernel: "matmul",    zig: { raw: 3259, gz: 2378 }, rust: { raw: 2265, gz: 1620 } },
+  { kernel: "reduction", zig: { raw: 1674, gz: 1079 }, rust: { raw: 1665, gz: 1123 } },
+  { kernel: "unary",     zig: { raw: 2816, gz: 1890 }, rust: { raw: 3265, gz: 2478 } },
+  { kernel: "binary",    zig: { raw: 1947, gz: 1125 }, rust: { raw: 2465, gz: 1306 } },
+  { kernel: "sort",      zig: { raw: 1381, gz: 952  }, rust: { raw: 1421, gz: 985  } },
+];
+
+const zigTotal  = { raw: 11077, gz: 7424 };
+const rustTotal = { raw: 11081, gz: 7512 };
+
+const maxRaw = Math.max(...SIZES.flatMap(s => [s.zig.raw, s.rust.raw]));
+const barScale = maxRaw * 1.3;
+
+let sizesHtml = `
+<div class="sizes">
+  <h2>Binary Sizes (per kernel .wasm)</h2>
+  <div class="size-legend">
+    <div class="size-legend-item"><div class="size-legend-swatch raw" style="background:#58a6ff"></div> Raw .wasm</div>
+    <div class="size-legend-item"><div class="size-legend-swatch" style="background:#58a6ff"></div> b64+gzip (bundle cost)</div>
+  </div>
+  <div class="sizes-grid">`;
+
+for (const s of SIZES) {
+  const items = [
+    { label: "Zig", data: s.zig, color: "#58a6ff" },
+    { label: "Rust", data: s.rust, color: "#f0883e" },
+  ];
+
+  sizesHtml += `<div class="size-card"><h3>${s.kernel}</h3>`;
+  for (const item of items) {
+    const rawPct = (item.data.raw / barScale) * 100;
+    const gzPct = (item.data.gz / barScale) * 100;
+    const isSmall = gzPct < 12;
+    const text = `${(item.data.gz / 1024).toFixed(1)} KB gz — ${(item.data.raw / 1024).toFixed(1)} KB raw`;
+    sizesHtml += `
+      <div class="size-bar-row">
+        <div class="size-bar-label">${item.label}</div>
+        <div class="size-bar-track">
+          <div class="size-bar" style="width:${rawPct}%">
+            <div class="raw-segment" style="background:${item.color};width:100%;position:absolute"></div>
+            <div class="gz-segment" style="background:${item.color};width:${(item.data.gz/item.data.raw)*100}%;position:relative;z-index:1"></div>
+            <span class="size-bar-text${isSmall ? ' outside' : ''}" style="z-index:2;position:relative">${text}</span>
+          </div>
+        </div>
+      </div>`;
+  }
+  sizesHtml += `</div>`;
+}
+
+sizesHtml += `</div>
+  <div class="size-total">
+    <div class="size-total-row">
+      <span>Zig total (all 5 kernels)</span>
+      <span class="size-total-val" style="color:#58a6ff">${(zigTotal.raw/1024).toFixed(1)} KB raw — ${(zigTotal.gz/1024).toFixed(1)} KB b64+gzip</span>
+    </div>
+    <div class="size-total-row">
+      <span>Rust total (all 5 kernels)</span>
+      <span class="size-total-val" style="color:#f0883e">${(rustTotal.raw/1024).toFixed(1)} KB raw — ${(rustTotal.gz/1024).toFixed(1)} KB b64+gzip</span>
+    </div>
+  </div>
+</div>`;
+
+container.insertAdjacentHTML('beforeend', sizesHtml);
+</script>
+</body>
+</html>
