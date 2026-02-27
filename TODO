@@ -4,14 +4,16 @@
 
 ## P1
 
-- [ ]  Support `[]` operator that returns either a view (for > 1 dim) or a scalar (for 1 dim)
+- [ ] Support `[]` operator that returns either a view (for > 1 dim) or a scalar (for 1 dim)
 - [ ] Add `float32` support to `matmul` (`sgemm`)
 - [ ] Implement `unfunc` support
 - [ ] Implement masked array support
 - [ ] Support tuple of axes for reductions
+- [ ] Begin implementing WASM?
 
 ## P2
 
+- [ ] Implement async functions using Web Workers to avoid blocking main thread
 - [ ] Reach 100% function coverage via unit and validation tests
 - [ ] Reach >95% branch coverage via unit and validation tests
 - [ ] Reach >95% statement coverage via unit and validation tests
