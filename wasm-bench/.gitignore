@@ -1,4 +1,5 @@
 dist/
+results/
 node_modules/
 rust/target/
 .zig-cache/

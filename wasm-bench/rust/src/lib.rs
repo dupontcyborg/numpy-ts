@@ -8,6 +8,8 @@ mod unary;
 mod binary;
 #[cfg(feature = "kern-sort")]
 mod sort;
+#[cfg(feature = "kern-convolve")]
+mod convolve;
 
 use core::panic::PanicInfo;
 

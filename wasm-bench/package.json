@@ -7,7 +7,8 @@
     "build:zig": "bash zig/build.sh",
     "build:rust": "bash rust/build.sh",
     "build:wasm": "npm run build:zig && npm run build:rust",
-    "bench": "npm run build:wasm && tsx harness/bench.ts"
+    "bench": "npm run build:wasm && tsx harness/bench.ts",
+    "bench:view": "open results/latest.html"
   },
   "devDependencies": {
     "tsx": "^4.20.6",

@@ -10,8 +10,9 @@ crate-type = ["cdylib"]
 kern-matmul = []
 kern-reduction = []
 kern-unary = ["dep:libm"]
-kern-binary = []
+kern-binary = ["dep:libm"]
 kern-sort = []
+kern-convolve = []
 
 [dependencies]
 libm = { version = "0.2", optional = true }
