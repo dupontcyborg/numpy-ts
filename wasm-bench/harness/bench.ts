@@ -18,6 +18,29 @@ import { ArrayStorage } from '../../src/common/storage.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = resolve(__dirname, '..', 'dist');
 
+// ─── Runtime Detection ──────────────────────────────────────────────────────
+
+interface RuntimeInfo {
+  name: string;    // 'node' | 'deno' | 'bun'
+  version: string;
+  arch: string;
+  platform: string;
+}
+
+function detectRuntime(): RuntimeInfo {
+  // @ts-ignore - Deno global
+  if (typeof Deno !== 'undefined') {
+    // @ts-ignore
+    return { name: 'deno', version: Deno.version.deno, arch: process.arch, platform: process.platform };
+  }
+  // @ts-ignore - Bun global
+  if (typeof Bun !== 'undefined') {
+    // @ts-ignore
+    return { name: 'bun', version: Bun.version, arch: process.arch, platform: process.platform };
+  }
+  return { name: 'node', version: process.version, arch: process.arch, platform: process.platform };
+}
+
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 interface SizeConfig {
@@ -555,6 +578,15 @@ interface TimingResult {
   metricUnit: string;
 }
 
+interface DualTimingResult {
+  kernel: TimingResult;
+  e2e: TimingResult;
+}
+
+function dualJsResult(r: TimingResult): DualTimingResult {
+  return { kernel: r, e2e: r };
+}
+
 function median(arr: number[]): number {
   const sorted = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -584,7 +616,7 @@ function computeGflops(n: number, timeMs: number): number {
 
 function benchWasmMatmul(
   wasm: WasmKernels, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = dtype === 'f64' ? wasm.matmul_f64 : wasm.matmul_f32;
   if (!fn) return null;
 
@@ -604,31 +636,33 @@ function benchWasmMatmul(
 
   const base = wasm.baseOffset;
   const aOff = base, bOff = base + matBytes, cOff = base + 2 * matBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
 
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
     new ArrayType(wasm.memory.buffer, aOff, matElems).set(aData);
     new ArrayType(wasm.memory.buffer, bOff, matElems).set(bData);
     const t0 = performance.now();
     fn(aOff, bOff, cOff, n, n, n);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new ArrayType(wasm.memory.buffer, cOff, matElems).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: 'matmul',
-    size,
-    timeMs: ms,
-    metric: computeGflops(n, ms),
-    metricUnit: 'GFLOP/s',
+    kernel: { impl, op: 'matmul', size, timeMs: kMs, metric: computeGflops(n, kMs), metricUnit: 'GFLOP/s' },
+    e2e: { impl, op: 'matmul', size, timeMs: eMs, metric: computeGflops(n, eMs), metricUnit: 'GFLOP/s' },
   };
 }
 
 function benchJsMatmul(
   baselines: Baselines, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const n = size;
   const matElems = n * n;
 
@@ -651,7 +685,7 @@ function benchJsMatmul(
       if (iter >= warmup) times.push(t1 - t0);
     }
     const ms = median(times);
-    return { impl: 'JS (f64)', op: 'matmul', size, timeMs: ms, metric: computeGflops(n, ms), metricUnit: 'GFLOP/s' };
+    return dualJsResult({ impl: 'JS (f64)', op: 'matmul', size, timeMs: ms, metric: computeGflops(n, ms), metricUnit: 'GFLOP/s' });
   } else {
     const aData = new Float32Array(matElems);
     const bData = new Float32Array(matElems);
@@ -671,7 +705,7 @@ function benchJsMatmul(
       if (iter >= warmup) times.push(t1 - t0);
     }
     const ms = median(times);
-    return { impl: 'JS (f32→f64)', op: 'matmul', size, timeMs: ms, metric: computeGflops(n, ms), metricUnit: 'GFLOP/s' };
+    return dualJsResult({ impl: 'JS (f32→f64)', op: 'matmul', size, timeMs: ms, metric: computeGflops(n, ms), metricUnit: 'GFLOP/s' });
   }
 }
 
@@ -683,7 +717,7 @@ function computeGBs(elems: number, bytesPerElem: number, timeMs: number): number
 
 function benchWasmReduction(
   wasm: WasmKernels, opName: string, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((ptr: number, n: number) => number) | undefined;
   if (!fn) return null;
 
@@ -694,36 +728,35 @@ function benchWasmReduction(
   const ArrayType = dtype === 'f64' ? Float64Array : Float32Array;
   const data = new ArrayType(size);
   if (opName === 'prod') {
-    // Small values near 1 to avoid overflow
     for (let i = 0; i < size; i++) data[i] = 1 + Math.random() * 0.0001;
   } else {
     for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
   }
   const base = wasm.baseOffset;
-  new ArrayType(wasm.memory.buffer, base, size).set(data);
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new ArrayType(wasm.memory.buffer, base, size).set(data);
     const t0 = performance.now();
     fn(base, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t1 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, bytesPerElem, ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, bytesPerElem, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, bytesPerElem, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsReduction(
   baselines: Baselines, opName: 'sum' | 'max' | 'min' | 'prod' | 'mean', size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   // Use small values for prod to avoid overflow
   const data = new Float64Array(size);
   if (opName === 'prod') {
@@ -743,21 +776,21 @@ function benchJsReduction(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, 8, ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 // ─── Unary Benchmarks ───────────────────────────────────────────────────────
 
 function benchWasmUnary(
   wasm: WasmKernels, opName: string, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((inp: number, out: number, n: number) => void) | undefined;
   if (!fn) return null;
 
@@ -773,31 +806,33 @@ function benchWasmUnary(
     for (let i = 0; i < size; i++) data[i] = Math.random() * 4 - 2;
   }
   const base = wasm.baseOffset;
-  new ArrayType(wasm.memory.buffer, base, size).set(data);
 
   const inOff = base, outOff = base + bufBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new ArrayType(wasm.memory.buffer, base, size).set(data);
     const t0 = performance.now();
     fn(inOff, outOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new ArrayType(wasm.memory.buffer, outOff, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, bytesPerElem, ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, bytesPerElem, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, bytesPerElem, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsUnary(
   baselines: Baselines, opName: string, size: number, iterations: number, warmup: number, displayOp?: string
-): TimingResult {
+): DualTimingResult {
   const data = new Float64Array(size);
   // Use positive values for sqrt/log; general range for others
   if (opName === 'sqrt' || opName === 'log') {
@@ -817,21 +852,21 @@ function benchJsUnary(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: displayOp ?? opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, 8, ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 // ─── Binary Benchmarks ──────────────────────────────────────────────────────
 
 function benchWasmBinary(
   wasm: WasmKernels, opName: string, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((a: number, b: number, out: number, n: number) => void) | undefined;
   if (!fn) return null;
 
@@ -864,32 +899,34 @@ function benchWasmBinary(
     }
   }
   const base = wasm.baseOffset;
-  new ArrayType(wasm.memory.buffer, base, size).set(aData);
-  new ArrayType(wasm.memory.buffer, base + bufBytes, size).set(bData);
 
   const aOff = base, bOff = base + bufBytes, outOff = base + 2 * bufBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new ArrayType(wasm.memory.buffer, base, size).set(aData);
+    new ArrayType(wasm.memory.buffer, base + bufBytes, size).set(bData);
     const t0 = performance.now();
     fn(aOff, bOff, outOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new ArrayType(wasm.memory.buffer, outOff, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, bytesPerElem, ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, bytesPerElem, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, bytesPerElem, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsBinary(
   baselines: Baselines, opName: string, size: number, iterations: number, warmup: number, displayOp?: string
-): TimingResult {
+): DualTimingResult {
   const aData = new Float64Array(size);
   const bData = new Float64Array(size);
   for (let i = 0; i < size; i++) {
@@ -926,14 +963,14 @@ function benchJsBinary(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: displayOp ?? opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, 8, ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 // ─── Sort Benchmarks ────────────────────────────────────────────────────────
@@ -944,7 +981,7 @@ function computeMElemPerSec(elems: number, timeMs: number): number {
 
 function benchWasmSort(
   wasm: WasmKernels, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = dtype === 'f64' ? wasm.sort_f64 : wasm.sort_f32;
   if (!fn) return null;
 
@@ -957,30 +994,31 @@ function benchWasmSort(
   for (let i = 0; i < size; i++) data[i] = Math.random() * 1000;
 
   const base = wasm.baseOffset;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
-    // Must re-copy random data every iteration (in-place sort!)
+    const te = performance.now();
     new ArrayType(wasm.memory.buffer, base, size).set(data);
     const t0 = performance.now();
     fn(base, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new ArrayType(wasm.memory.buffer, base, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: 'sort',
-    size,
-    timeMs: ms,
-    metric: computeMElemPerSec(size, ms),
-    metricUnit: 'M elem/s',
+    kernel: { impl, op: 'sort', size, timeMs: kMs, metric: computeMElemPerSec(size, kMs), metricUnit: 'M elem/s' },
+    e2e: { impl, op: 'sort', size, timeMs: eMs, metric: computeMElemPerSec(size, eMs), metricUnit: 'M elem/s' },
   };
 }
 
 function benchJsSort(
   baselines: Baselines, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const data = new Float64Array(size);
   for (let i = 0; i < size; i++) data[i] = Math.random() * 1000;
 
@@ -995,21 +1033,21 @@ function benchJsSort(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: 'sort',
     size,
     timeMs: ms,
     metric: computeMElemPerSec(size, ms),
     metricUnit: 'M elem/s',
-  };
+  });
 }
 
 // ─── Diff Benchmarks ─────────────────────────────────────────────────────────
 
 function benchWasmDiff(
   wasm: WasmKernels, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`diff_${dtype}`] as ((inp: number, out: number, n: number) => void) | undefined;
   if (!fn) return null;
 
@@ -1023,31 +1061,32 @@ function benchWasmDiff(
   for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
 
   const base = wasm.baseOffset;
-  new ArrayType(wasm.memory.buffer, base, size).set(data);
-
   const inOff = base, outOff = base + inBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new ArrayType(wasm.memory.buffer, base, size).set(data);
     const t0 = performance.now();
     fn(inOff, outOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new ArrayType(wasm.memory.buffer, outOff, size - 1).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: 'diff',
-    size,
-    timeMs: ms,
-    metric: computeGBs(size - 1, bytesPerElem, ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: 'diff', size, timeMs: kMs, metric: computeGBs(size - 1, bytesPerElem, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: 'diff', size, timeMs: eMs, metric: computeGBs(size - 1, bytesPerElem, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsDiff(
   baselines: Baselines, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const data = new Float64Array(size);
   for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
   const storage = ArrayStorage.fromData(data, [size], 'float64');
@@ -1061,27 +1100,27 @@ function benchJsDiff(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: 'diff',
     size,
     timeMs: ms,
     metric: computeGBs(size - 1, 8, ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 // ─── Argsort Benchmarks ──────────────────────────────────────────────────────
 
 function benchWasmArgsort(
   wasm: WasmKernels, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`argsort_${dtype}`] as ((vals: number, idx: number, n: number) => void) | undefined;
   if (!fn) return null;
 
   const bytesPerElem = dtype === 'f64' ? 8 : 4;
   const dataBytes = size * bytesPerElem;
-  const idxBytes = size * 4; // u32 indices
+  const idxBytes = size * 4;
   ensureMemory(wasm, dataBytes + idxBytes);
 
   const ArrayType = dtype === 'f64' ? Float64Array : Float32Array;
@@ -1092,30 +1131,31 @@ function benchWasmArgsort(
   const dataOff = base;
   const idxOff = base + dataBytes;
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
-    // Re-copy data each iteration
+    const te = performance.now();
     new ArrayType(wasm.memory.buffer, dataOff, size).set(data);
     const t0 = performance.now();
     fn(dataOff, idxOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new Int32Array(wasm.memory.buffer, idxOff, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: 'argsort',
-    size,
-    timeMs: ms,
-    metric: computeMElemPerSec(size, ms),
-    metricUnit: 'M elem/s',
+    kernel: { impl, op: 'argsort', size, timeMs: kMs, metric: computeMElemPerSec(size, kMs), metricUnit: 'M elem/s' },
+    e2e: { impl, op: 'argsort', size, timeMs: eMs, metric: computeMElemPerSec(size, eMs), metricUnit: 'M elem/s' },
   };
 }
 
 function benchJsArgsort(
   baselines: Baselines, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const data = new Float64Array(size);
   for (let i = 0; i < size; i++) data[i] = Math.random() * 1000;
 
@@ -1129,21 +1169,21 @@ function benchJsArgsort(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: 'argsort',
     size,
     timeMs: ms,
     metric: computeMElemPerSec(size, ms),
     metricUnit: 'M elem/s',
-  };
+  });
 }
 
 // ─── Partition Benchmarks ────────────────────────────────────────────────────
 
 function benchWasmPartition(
   wasm: WasmKernels, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`partition_${dtype}`] as ((ptr: number, n: number, kth: number) => void) | undefined;
   if (!fn) return null;
 
@@ -1157,30 +1197,31 @@ function benchWasmPartition(
 
   const kth = Math.floor(size / 2);
   const base = wasm.baseOffset;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
-    // Re-copy data each iteration (in-place)
+    const te = performance.now();
     new ArrayType(wasm.memory.buffer, base, size).set(data);
     const t0 = performance.now();
     fn(base, size, kth);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new ArrayType(wasm.memory.buffer, base, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: 'partition',
-    size,
-    timeMs: ms,
-    metric: computeMElemPerSec(size, ms),
-    metricUnit: 'M elem/s',
+    kernel: { impl, op: 'partition', size, timeMs: kMs, metric: computeMElemPerSec(size, kMs), metricUnit: 'M elem/s' },
+    e2e: { impl, op: 'partition', size, timeMs: eMs, metric: computeMElemPerSec(size, eMs), metricUnit: 'M elem/s' },
   };
 }
 
 function benchJsPartition(
   baselines: Baselines, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const data = new Float64Array(size);
   for (let i = 0; i < size; i++) data[i] = Math.random() * 1000;
   const kth = Math.floor(size / 2);
@@ -1195,27 +1236,27 @@ function benchJsPartition(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: 'partition',
     size,
     timeMs: ms,
     metric: computeMElemPerSec(size, ms),
     metricUnit: 'M elem/s',
-  };
+  });
 }
 
 // ─── Argpartition Benchmarks ─────────────────────────────────────────────────
 
 function benchWasmArgpartition(
   wasm: WasmKernels, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`argpartition_${dtype}`] as ((vals: number, idx: number, n: number, kth: number) => void) | undefined;
   if (!fn) return null;
 
   const bytesPerElem = dtype === 'f64' ? 8 : 4;
   const dataBytes = size * bytesPerElem;
-  const idxBytes = size * 4; // u32 indices
+  const idxBytes = size * 4;
   ensureMemory(wasm, dataBytes + idxBytes);
 
   const ArrayType = dtype === 'f64' ? Float64Array : Float32Array;
@@ -1227,30 +1268,31 @@ function benchWasmArgpartition(
   const dataOff = base;
   const idxOff = base + dataBytes;
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
-    // Re-copy data each iteration
+    const te = performance.now();
     new ArrayType(wasm.memory.buffer, dataOff, size).set(data);
     const t0 = performance.now();
     fn(dataOff, idxOff, size, kth);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new Int32Array(wasm.memory.buffer, idxOff, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: 'argpartition',
-    size,
-    timeMs: ms,
-    metric: computeMElemPerSec(size, ms),
-    metricUnit: 'M elem/s',
+    kernel: { impl, op: 'argpartition', size, timeMs: kMs, metric: computeMElemPerSec(size, kMs), metricUnit: 'M elem/s' },
+    e2e: { impl, op: 'argpartition', size, timeMs: eMs, metric: computeMElemPerSec(size, eMs), metricUnit: 'M elem/s' },
   };
 }
 
 function benchJsArgpartition(
   baselines: Baselines, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const data = new Float64Array(size);
   for (let i = 0; i < size; i++) data[i] = Math.random() * 1000;
   const kth = Math.floor(size / 2);
@@ -1265,21 +1307,21 @@ function benchJsArgpartition(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: 'argpartition',
     size,
     timeMs: ms,
     metric: computeMElemPerSec(size, ms),
     metricUnit: 'M elem/s',
-  };
+  });
 }
 
 // ─── Convolve Benchmarks ─────────────────────────────────────────────────────
 
 function benchWasmConvolve(
   wasm: WasmKernels, op: 'correlate' | 'convolve', signalSize: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const kernelSize = 32;
   const outSize = signalSize + kernelSize - 1;
   const bytesPerElem = dtype === 'f64' ? 8 : 4;
@@ -1297,34 +1339,37 @@ function benchWasmConvolve(
   for (let i = 0; i < signalSize; i++) aData[i] = Math.random() * 2 - 1;
   for (let i = 0; i < kernelSize; i++) bData[i] = Math.random() * 2 - 1;
 
-  new ArrayType(wasm.memory.buffer, aOff, signalSize).set(aData);
-  new ArrayType(wasm.memory.buffer, bOff, kernelSize).set(bData);
-
   const fn_name = `${op}_${dtype}`;
   const fn = (wasm as Record<string, unknown>)[fn_name] as ((a: number, b: number, out: number, na: number, nb: number) => void) | undefined;
   if (!fn) return null;
 
-  // warmup
-  for (let i = 0; i < warmup; i++) fn(aOff, bOff, outOff, signalSize, kernelSize);
-  const start = performance.now();
-  for (let i = 0; i < iterations; i++) fn(aOff, bOff, outOff, signalSize, kernelSize);
-  const elapsed = performance.now() - start;
-  const timeMs = elapsed / iterations;
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
+  for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new ArrayType(wasm.memory.buffer, aOff, signalSize).set(aData);
+    new ArrayType(wasm.memory.buffer, bOff, kernelSize).set(bData);
+    const t0 = performance.now();
+    fn(aOff, bOff, outOff, signalSize, kernelSize);
+    const t1 = performance.now();
+    new ArrayType(wasm.memory.buffer, outOff, outSize).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
+  }
 
-  const elemPerSec = outSize / (timeMs / 1000);
-  return {
-    impl: `${wasm.name} (${dtype})`,
-    op,
-    size: signalSize,
-    timeMs,
-    metric: elemPerSec / 1e6,
-    metricUnit: 'M elem/s',
-  };
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
+  const mkResult = (ms: number): TimingResult => ({
+    impl, op, size: signalSize, timeMs: ms,
+    metric: outSize / (ms / 1000) / 1e6, metricUnit: 'M elem/s',
+  });
+  return { kernel: mkResult(kMs), e2e: mkResult(eMs) };
 }
 
 function benchJsConvolve(
   baselines: Baselines, op: 'correlate' | 'convolve', signalSize: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const kernelSize = 32;
   const outSize = signalSize + kernelSize - 1;
 
@@ -1337,22 +1382,23 @@ function benchJsConvolve(
   const bS = ArrayStorage.fromData(bData, [kernelSize], 'float64');
   const fn = baselines[op] as (a: ArrayStorage, b: ArrayStorage) => ArrayStorage;
 
-  // warmup
-  for (let i = 0; i < warmup; i++) fn(aS, bS);
-  const start = performance.now();
-  for (let i = 0; i < iterations; i++) fn(aS, bS);
-  const elapsed = performance.now() - start;
-  const timeMs = elapsed / iterations;
+  const times: number[] = [];
+  for (let iter = 0; iter < warmup + iterations; iter++) {
+    const t0 = performance.now();
+    fn(aS, bS);
+    const t1 = performance.now();
+    if (iter >= warmup) times.push(t1 - t0);
+  }
 
-  const elemPerSec = outSize / (timeMs / 1000);
-  return {
+  const ms = median(times);
+  return dualJsResult({
     impl: 'JS (f64)',
     op,
     size: signalSize,
-    timeMs,
-    metric: elemPerSec / 1e6,
+    timeMs: ms,
+    metric: outSize / (ms / 1000) / 1e6,
     metricUnit: 'M elem/s',
-  };
+  });
 }
 
 // ─── Linalg Benchmarks ──────────────────────────────────────────────────────
@@ -1363,7 +1409,7 @@ function computeGflopsCustom(flops: number, timeMs: number): number {
 
 function benchWasmLinalg(
   wasm: WasmKernels, opName: string, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const N = size;
   const bytesPerElem = dtype === 'f64' ? 8 : 4;
   const ArrayType = dtype === 'f64' ? Float64Array : Float32Array;
@@ -1371,6 +1417,8 @@ function benchWasmLinalg(
 
   let flops: number;
   let runFn: () => void;
+  let copyFn: () => void;
+  let readOutFn: () => void = () => {};  // default: no copy-out (scalar)
 
   switch (opName) {
     case 'matvec': {
@@ -1381,11 +1429,11 @@ function benchWasmLinalg(
       ensureMemory(wasm, matBytes + vecBytes + vecBytes);
       const aData = new ArrayType(N * N); for (let i = 0; i < N * N; i++) aData[i] = Math.random() * 2 - 1;
       const xData = new ArrayType(N); for (let i = 0; i < N; i++) xData[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N * N).set(aData);
-      new ArrayType(wasm.memory.buffer, base + matBytes, N).set(xData);
       const aOff = base, xOff = base + matBytes, outOff = base + matBytes + vecBytes;
       flops = 2 * N * N;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N * N).set(aData); new ArrayType(wasm.memory.buffer, xOff, N).set(xData); };
       runFn = () => fn(aOff, xOff, outOff, N, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, outOff, N).slice(); };
       break;
     }
     case 'vecmat': {
@@ -1396,11 +1444,11 @@ function benchWasmLinalg(
       ensureMemory(wasm, vecBytes + matBytes + vecBytes);
       const xData = new ArrayType(N); for (let i = 0; i < N; i++) xData[i] = Math.random() * 2 - 1;
       const aData = new ArrayType(N * N); for (let i = 0; i < N * N; i++) aData[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N).set(xData);
-      new ArrayType(wasm.memory.buffer, base + vecBytes, N * N).set(aData);
       const xOff = base, aOff = base + vecBytes, outOff = base + vecBytes + matBytes;
       flops = 2 * N * N;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(xData); new ArrayType(wasm.memory.buffer, aOff, N * N).set(aData); };
       runFn = () => fn(xOff, aOff, outOff, N, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, outOff, N).slice(); };
       break;
     }
     case 'vecdot': {
@@ -1412,11 +1460,11 @@ function benchWasmLinalg(
       ensureMemory(wasm, 2 * dataBytes + outBytes);
       const aData = new ArrayType(totalElems); for (let i = 0; i < totalElems; i++) aData[i] = Math.random() * 2 - 1;
       const bData = new ArrayType(totalElems); for (let i = 0; i < totalElems; i++) bData[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, totalElems).set(aData);
-      new ArrayType(wasm.memory.buffer, base + dataBytes, totalElems).set(bData);
       const aOff = base, bOff = base + dataBytes, outOff = base + 2 * dataBytes;
       flops = 2 * N * N;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, totalElems).set(aData); new ArrayType(wasm.memory.buffer, bOff, totalElems).set(bData); };
       runFn = () => fn(aOff, bOff, outOff, N, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, outOff, N).slice(); };
       break;
     }
     case 'outer': {
@@ -1427,15 +1475,15 @@ function benchWasmLinalg(
       ensureMemory(wasm, 2 * vecBytes + outBytes);
       const aData = new ArrayType(N); for (let i = 0; i < N; i++) aData[i] = Math.random() * 2 - 1;
       const bData = new ArrayType(N); for (let i = 0; i < N; i++) bData[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N).set(aData);
-      new ArrayType(wasm.memory.buffer, base + vecBytes, N).set(bData);
       const aOff = base, bOff = base + vecBytes, outOff = base + 2 * vecBytes;
       flops = N * N;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(aData); new ArrayType(wasm.memory.buffer, bOff, N).set(bData); };
       runFn = () => fn(aOff, bOff, outOff, N, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, outOff, N * N).slice(); };
       break;
     }
     case 'kron': {
-      if (N > 100) return null; // kron output is N²×N², too large for N>100
+      if (N > 100) return null;
       const fn = (wasm as Record<string, unknown>)[`kron_${dtype}`] as ((a: number, b: number, out: number, am: number, an: number, bm: number, bn: number) => void) | undefined;
       if (!fn) return null;
       const matBytes = N * N * bytesPerElem;
@@ -1443,11 +1491,11 @@ function benchWasmLinalg(
       ensureMemory(wasm, 2 * matBytes + outBytes);
       const aData = new ArrayType(N * N); for (let i = 0; i < N * N; i++) aData[i] = Math.random() * 2 - 1;
       const bData = new ArrayType(N * N); for (let i = 0; i < N * N; i++) bData[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N * N).set(aData);
-      new ArrayType(wasm.memory.buffer, base + matBytes, N * N).set(bData);
       const aOff = base, bOff = base + matBytes, outOff = base + 2 * matBytes;
       flops = N * N * N * N;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N * N).set(aData); new ArrayType(wasm.memory.buffer, bOff, N * N).set(bData); };
       runFn = () => fn(aOff, bOff, outOff, N, N, N, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, outOff, N * N * N * N).slice(); };
       break;
     }
     case 'cross': {
@@ -1457,11 +1505,11 @@ function benchWasmLinalg(
       ensureMemory(wasm, 3 * vecBytes);
       const aData = new ArrayType(N * 3); for (let i = 0; i < N * 3; i++) aData[i] = Math.random() * 2 - 1;
       const bData = new ArrayType(N * 3); for (let i = 0; i < N * 3; i++) bData[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N * 3).set(aData);
-      new ArrayType(wasm.memory.buffer, base + vecBytes, N * 3).set(bData);
       const aOff = base, bOff = base + vecBytes, outOff = base + 2 * vecBytes;
       flops = 6 * N;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N * 3).set(aData); new ArrayType(wasm.memory.buffer, bOff, N * 3).set(bData); };
       runFn = () => fn(aOff, bOff, outOff, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, outOff, N * 3).slice(); };
       break;
     }
     case 'norm': {
@@ -1471,9 +1519,10 @@ function benchWasmLinalg(
       const dataBytes = totalElems * bytesPerElem;
       ensureMemory(wasm, dataBytes);
       const data = new ArrayType(totalElems); for (let i = 0; i < totalElems; i++) data[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, totalElems).set(data);
       flops = 2 * N * N;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, totalElems).set(data); };
       runFn = () => fn(base, totalElems);
+      // scalar output — no copy-out
       break;
     }
     case 'matrix_power': {
@@ -1484,12 +1533,13 @@ function benchWasmLinalg(
       const scratchBytes = 2 * N * N * 8;
       ensureMemory(wasm, matBytes + matBytes + scratchBytes);
       const aData = new Float64Array(N * N); for (let i = 0; i < N * N; i++) aData[i] = Math.random() * 0.1;
-      for (let i = 0; i < N; i++) aData[i * N + i] += 1; // diagonally dominant
-      new Float64Array(wasm.memory.buffer, base, N * N).set(aData);
+      for (let i = 0; i < N; i++) aData[i * N + i] += 1;
       const aOff = base, outOff = base + matBytes, scrOff = base + 2 * matBytes;
       const power = 3;
-      flops = 4 * N * N * N; // 2 matmuls for power=3
+      flops = 4 * N * N * N;
+      copyFn = () => { new Float64Array(wasm.memory.buffer, base, N * N).set(aData); };
       runFn = () => fn(aOff, outOff, scrOff, N, power);
+      readOutFn = () => { new Float64Array(wasm.memory.buffer, outOff, N * N).slice(); };
       break;
     }
     case 'multi_dot3': {
@@ -1498,14 +1548,15 @@ function benchWasmLinalg(
       if (!fn) return null;
       const matBytes = N * N * 8;
       ensureMemory(wasm, 4 * matBytes + matBytes);
-      const fill = () => { const d = new Float64Array(N * N); for (let i = 0; i < N * N; i++) d[i] = Math.random() * 2 - 1; return d; };
-      new Float64Array(wasm.memory.buffer, base, N * N).set(fill());
-      new Float64Array(wasm.memory.buffer, base + matBytes, N * N).set(fill());
-      new Float64Array(wasm.memory.buffer, base + 2 * matBytes, N * N).set(fill());
+      const aData = new Float64Array(N * N); for (let i = 0; i < N * N; i++) aData[i] = Math.random() * 2 - 1;
+      const bDataM = new Float64Array(N * N); for (let i = 0; i < N * N; i++) bDataM[i] = Math.random() * 2 - 1;
+      const cData = new Float64Array(N * N); for (let i = 0; i < N * N; i++) cData[i] = Math.random() * 2 - 1;
       const aOff = base, bOff = base + matBytes, cOff = base + 2 * matBytes;
       const outOff = base + 3 * matBytes, tmpOff = base + 4 * matBytes;
       flops = 4 * N * N * N;
+      copyFn = () => { new Float64Array(wasm.memory.buffer, base, N * N).set(aData); new Float64Array(wasm.memory.buffer, bOff, N * N).set(bDataM); new Float64Array(wasm.memory.buffer, cOff, N * N).set(cData); };
       runFn = () => fn(aOff, bOff, cOff, outOff, tmpOff, N);
+      readOutFn = () => { new Float64Array(wasm.memory.buffer, outOff, N * N).slice(); };
       break;
     }
     case 'qr': {
@@ -1513,21 +1564,21 @@ function benchWasmLinalg(
       const fn = wasm.qr_f64;
       if (!fn) return null;
       const matBytes = N * N * 8;
-      const qBytes = N * N * 8; // m×k where m=n, k=n
+      const qBytes = N * N * 8;
       const rBytes = N * N * 8;
       const tauBytes = N * 8;
       const scrBytes = N * 8;
       ensureMemory(wasm, matBytes + qBytes + rBytes + tauBytes + scrBytes);
       const aData = new Float64Array(N * N); for (let i = 0; i < N * N; i++) aData[i] = Math.random() * 2 - 1;
-      new Float64Array(wasm.memory.buffer, base, N * N).set(aData);
       const aOff = base, qOff = base + matBytes, rOff = qOff + qBytes;
       const tauOff = rOff + rBytes, scrOff = tauOff + tauBytes;
       flops = (4 * N * N * N) / 3;
+      copyFn = () => { new Float64Array(wasm.memory.buffer, base, N * N).set(aData); };
       runFn = () => {
-        // Re-copy a each time since qr modifies it in place
         new Float64Array(wasm.memory.buffer, base, N * N).set(aData);
         fn(aOff, qOff, rOff, tauOff, scrOff, N, N);
       };
+      readOutFn = () => { new Float64Array(wasm.memory.buffer, qOff, N * N).slice(); new Float64Array(wasm.memory.buffer, rOff, N * N).slice(); };
       break;
     }
     case 'lstsq': {
@@ -1542,42 +1593,45 @@ function benchWasmLinalg(
       ensureMemory(wasm, aBytes + bBytes + xBytes + scrBytes);
       const aData = new Float64Array(M * Nc); for (let i = 0; i < M * Nc; i++) aData[i] = Math.random() * 2 - 1;
       const bData = new Float64Array(M); for (let i = 0; i < M; i++) bData[i] = Math.random() * 2 - 1;
-      new Float64Array(wasm.memory.buffer, base, M * Nc).set(aData);
-      new Float64Array(wasm.memory.buffer, base + aBytes, M).set(bData);
       const aOff = base, bOff = base + aBytes, xOff = bOff + bBytes, scrOff = xOff + xBytes;
       flops = 2 * N * N * N;
+      copyFn = () => { new Float64Array(wasm.memory.buffer, base, M * Nc).set(aData); new Float64Array(wasm.memory.buffer, bOff, M).set(bData); };
       runFn = () => {
         new Float64Array(wasm.memory.buffer, base, M * Nc).set(aData);
         fn(aOff, bOff, xOff, scrOff, M, Nc);
       };
+      readOutFn = () => { new Float64Array(wasm.memory.buffer, xOff, Nc).slice(); };
       break;
     }
     default:
       return null;
   }
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    copyFn();
     const t0 = performance.now();
     runFn();
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    readOutFn();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGflopsCustom(flops, ms),
-    metricUnit: 'GFLOP/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGflopsCustom(flops, kMs), metricUnit: 'GFLOP/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGflopsCustom(flops, eMs), metricUnit: 'GFLOP/s' },
   };
 }
 
 function benchJsLinalg(
   opName: string, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const N = size;
   let flops: number;
   let runFn: () => void;
@@ -1746,21 +1800,21 @@ function benchJsLinalg(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: opName,
     size,
     timeMs: ms,
     metric: computeGflopsCustom(flops, ms),
     metricUnit: 'GFLOP/s',
-  };
+  });
 }
 
 // ─── Array Ops Benchmarks ───────────────────────────────────────────────────
 
 function benchWasmArrayOp(
   wasm: WasmKernels, opName: string, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const N = size;
   const bytesPerElem = dtype === 'f64' ? 8 : 4;
   const ArrayType = dtype === 'f64' ? Float64Array : Float32Array;
@@ -1768,6 +1822,8 @@ function benchWasmArrayOp(
 
   let throughputBytes: number;
   let runFn: () => void;
+  let copyFn: () => void;
+  let readOutFn: () => void = () => {};
 
   switch (opName) {
     case 'roll': {
@@ -1776,10 +1832,11 @@ function benchWasmArrayOp(
       const bufBytes = N * bytesPerElem;
       ensureMemory(wasm, 2 * bufBytes);
       const data = new ArrayType(N); for (let i = 0; i < N; i++) data[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N).set(data);
       const shift = Math.floor(N / 3);
       throughputBytes = N * bytesPerElem;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(data); };
       runFn = () => fn(base, base + bufBytes, N, shift);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, base + bufBytes, N).slice(); };
       break;
     }
     case 'flip': {
@@ -1788,9 +1845,10 @@ function benchWasmArrayOp(
       const bufBytes = N * bytesPerElem;
       ensureMemory(wasm, 2 * bufBytes);
       const data = new ArrayType(N); for (let i = 0; i < N; i++) data[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N).set(data);
       throughputBytes = N * bytesPerElem;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(data); };
       runFn = () => fn(base, base + bufBytes, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, base + bufBytes, N).slice(); };
       break;
     }
     case 'tile': {
@@ -1801,9 +1859,10 @@ function benchWasmArrayOp(
       const outBytes = N * reps * bytesPerElem;
       ensureMemory(wasm, inBytes + outBytes);
       const data = new ArrayType(N); for (let i = 0; i < N; i++) data[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, N).set(data);
-      throughputBytes = N * bytesPerElem; // input throughput
+      throughputBytes = N * bytesPerElem;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(data); };
       runFn = () => fn(base, base + inBytes, N, reps);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, base + inBytes, N * reps).slice(); };
       break;
     }
     case 'pad': {
@@ -1816,24 +1875,25 @@ function benchWasmArrayOp(
       const outBytes = outSide * outSide * bytesPerElem;
       ensureMemory(wasm, inBytes + outBytes);
       const data = new ArrayType(side * side); for (let i = 0; i < side * side; i++) data[i] = Math.random() * 2 - 1;
-      new ArrayType(wasm.memory.buffer, base, side * side).set(data);
       throughputBytes = side * side * bytesPerElem;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, side * side).set(data); };
       runFn = () => fn(base, base + inBytes, side, side, pw);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, base + inBytes, outSide * outSide).slice(); };
       break;
     }
     case 'take': {
       const fn = (wasm as Record<string, unknown>)[`take_${dtype}`] as ((data: number, indices: number, out: number, n: number) => void) | undefined;
       if (!fn) return null;
       const dataBytes = N * bytesPerElem;
-      const idxBytes = N * 4; // i32 indices
+      const idxBytes = N * 4;
       const outBytes = N * bytesPerElem;
       ensureMemory(wasm, dataBytes + idxBytes + outBytes);
       const data = new ArrayType(N); for (let i = 0; i < N; i++) data[i] = Math.random() * 2 - 1;
       const indices = new Int32Array(N); for (let i = 0; i < N; i++) indices[i] = Math.floor(Math.random() * N);
-      new ArrayType(wasm.memory.buffer, base, N).set(data);
-      new Int32Array(wasm.memory.buffer, base + dataBytes, N).set(indices);
       throughputBytes = N * bytesPerElem;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(data); new Int32Array(wasm.memory.buffer, base + dataBytes, N).set(indices); };
       runFn = () => fn(base, base + dataBytes, base + dataBytes + idxBytes, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, base + dataBytes + idxBytes, N).slice(); };
       break;
     }
     case 'gradient': {
@@ -1842,52 +1902,56 @@ function benchWasmArrayOp(
       const bufBytes = N * bytesPerElem;
       ensureMemory(wasm, 2 * bufBytes);
       const data = new ArrayType(N); for (let i = 0; i < N; i++) data[i] = Math.random() * 10;
-      new ArrayType(wasm.memory.buffer, base, N).set(data);
       throughputBytes = N * bytesPerElem;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(data); };
       runFn = () => fn(base, base + bufBytes, N);
+      readOutFn = () => { new ArrayType(wasm.memory.buffer, base + bufBytes, N).slice(); };
       break;
     }
     case 'nonzero': {
       const fn = (wasm as Record<string, unknown>)[`nonzero_${dtype}`] as ((ptr: number, out: number, n: number) => number) | undefined;
       if (!fn) return null;
       const inputBytes = N * bytesPerElem;
-      const outputBytes = N * 4; // u32 indices
+      const outputBytes = N * 4;
       ensureMemory(wasm, inputBytes + outputBytes);
-      // Create sparse data (~70% nonzero)
       const srcData = new ArrayType(N);
       for (let i = 0; i < N; i++) srcData[i] = Math.random() > 0.3 ? Math.random() * 10 : 0;
-      new ArrayType(wasm.memory.buffer, base, N).set(srcData);
       const outPtr = base + inputBytes;
       throughputBytes = N * bytesPerElem;
+      copyFn = () => { new ArrayType(wasm.memory.buffer, base, N).set(srcData); };
       runFn = () => fn(base, outPtr, N);
+      readOutFn = () => { new Int32Array(wasm.memory.buffer, outPtr, N).slice(); };
       break;
     }
     default:
       return null;
   }
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    copyFn();
     const t0 = performance.now();
     runFn();
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    readOutFn();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(N, bytesPerElem, ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(N, bytesPerElem, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(N, bytesPerElem, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsArrayOp(
   opName: string, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const N = size;
   let runFn: () => void;
 
@@ -1966,14 +2030,14 @@ function benchJsArrayOp(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: opName,
     size,
     timeMs: ms,
     metric: computeGBs(N, 8, ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 // ─── Stats Benchmarks (sort-category) ────────────────────────────────────────
@@ -1981,7 +2045,7 @@ function benchJsArrayOp(
 function benchWasmStats(
   wasm: WasmKernels, opName: string, size: number, dtype: 'f64' | 'f32',
   iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn64 = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((...args: number[]) => number) | undefined;
   if (!fn64) return null;
   const mem = wasm.memory;
@@ -1989,10 +2053,8 @@ function benchWasmStats(
   const bytesPerElem = dtype === 'f64' ? 8 : 4;
   const dataBytes = N * bytesPerElem;
 
-  // ptr = baseOffset for data buffer (in-place, destructive)
   const ptrOffset = wasm.baseOffset;
 
-  // Generate source random data
   const ArrayType = dtype === 'f64' ? Float64Array : Float32Array;
   const srcData = new ArrayType(N);
   for (let i = 0; i < N; i++) srcData[i] = Math.random() * 200 - 100;
@@ -2007,34 +2069,33 @@ function benchWasmStats(
     else fn64(ptrOffset, N);
   }
 
-  // Benchmark
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < iterations; iter++) {
-    // Re-copy data (in-place operation is destructive)
+    const te = performance.now();
     new ArrayType(mem.buffer, ptrOffset, N).set(srcData);
     const t0 = performance.now();
     if (opName === 'percentile') fn64(ptrOffset, N, 50.0);
     else if (opName === 'quantile') fn64(ptrOffset, N, 0.5);
     else fn64(ptrOffset, N);
-    times.push(performance.now() - t0);
+    const t1 = performance.now();
+    kernelTimes.push(t1 - t0);
+    e2eTimes.push(t1 - te);
   }
 
-  const avgMs = median(times);
-  const mElemPerSec = (N / 1e6) / (avgMs / 1000);
-
-  return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size: N,
-    timeMs: avgMs,
-    metric: mElemPerSec,
-    metricUnit: 'M elem/s',
-  };
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
+  const mkResult = (ms: number): TimingResult => ({
+    impl, op: opName, size: N, timeMs: ms,
+    metric: (N / 1e6) / (ms / 1000), metricUnit: 'M elem/s',
+  });
+  return { kernel: mkResult(kMs), e2e: mkResult(eMs) };
 }
 
 function benchJsStats(
   opName: string, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const N = size;
   const srcData = new Float64Array(N);
   for (let i = 0; i < N; i++) srcData[i] = Math.random() * 200 - 100;
@@ -2065,27 +2126,29 @@ function benchJsStats(
   }
 
   const avgMs = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: opName,
     size: N,
     timeMs: avgMs,
     metric: (N / 1e6) / (avgMs / 1000),
     metricUnit: 'M elem/s',
-  };
+  });
 }
 
 // ─── FFT Benchmarks ─────────────────────────────────────────────────────────
 
 function benchWasmFft(
   wasm: WasmKernels, opName: string, size: number, dtype: 'f64' | 'f32', iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   if (dtype !== 'f64') return null;
   const M = size, N = size;
   const base = wasm.baseOffset;
 
   let flops: number;
   let runFn: () => void;
+  let copyFn: () => void;
+  let readOutFn: () => void;
 
   switch (opName) {
     case 'rfft2': {
@@ -2097,10 +2160,11 @@ function benchWasmFft(
       const scratchBytes = 8 * Math.max(M, N) * Math.max(M, N) * 8;
       ensureMemory(wasm, inpBytes + outBytes + scratchBytes);
       const data = new Float64Array(M * N); for (let i = 0; i < M * N; i++) data[i] = Math.random() * 2 - 1;
-      new Float64Array(wasm.memory.buffer, base, M * N).set(data);
       const inpOff = base, outOff = base + inpBytes, scrOff = base + inpBytes + outBytes;
       flops = 5 * M * N * Math.log2(M * N);
+      copyFn = () => { new Float64Array(wasm.memory.buffer, base, M * N).set(data); };
       runFn = () => fn(inpOff, outOff, scrOff, M, N);
+      readOutFn = () => { new Float64Array(wasm.memory.buffer, outOff, M * halfN * 2).slice(); };
       break;
     }
     case 'irfft2': {
@@ -2112,38 +2176,42 @@ function benchWasmFft(
       const scratchBytes = 8 * Math.max(M, N) * Math.max(M, N) * 8;
       ensureMemory(wasm, inpBytes + outBytes + scratchBytes);
       const data = new Float64Array(M * halfN * 2); for (let i = 0; i < M * halfN * 2; i++) data[i] = Math.random() * 2 - 1;
-      new Float64Array(wasm.memory.buffer, base, M * halfN * 2).set(data);
       const inpOff = base, outOff = base + inpBytes, scrOff = base + inpBytes + outBytes;
       flops = 5 * M * N * Math.log2(M * N);
+      copyFn = () => { new Float64Array(wasm.memory.buffer, base, M * halfN * 2).set(data); };
       runFn = () => fn(inpOff, outOff, scrOff, M, N);
+      readOutFn = () => { new Float64Array(wasm.memory.buffer, outOff, M * N).slice(); };
       break;
     }
     default:
       return null;
   }
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    copyFn();
     const t0 = performance.now();
     runFn();
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    readOutFn();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGflopsCustom(flops, ms),
-    metricUnit: 'GFLOP/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGflopsCustom(flops, kMs), metricUnit: 'GFLOP/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGflopsCustom(flops, eMs), metricUnit: 'GFLOP/s' },
   };
 }
 
 function benchJsFft(
   opName: string, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const M = size, N = size;
   let flops: number;
   let runFn: () => void;
@@ -2215,14 +2283,14 @@ function benchJsFft(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: 'JS (f64)',
     op: opName,
     size,
     timeMs: ms,
     metric: computeGflopsCustom(flops, ms),
     metricUnit: 'GFLOP/s',
-  };
+  });
 }
 
 // ─── Integer Benchmark Functions ─────────────────────────────────────────────
@@ -2244,7 +2312,7 @@ function intMaxVal(dtype: IntDtype): number {
 
 function benchWasmBinaryInt(
   wasm: WasmKernels, opName: string, dtype: IntDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((a: number, b: number, out: number, n: number) => void) | undefined;
   if (!fn) return null;
 
@@ -2261,32 +2329,34 @@ function benchWasmBinaryInt(
     bData[i] = Math.floor(Math.random() * maxV) - Math.floor(maxV / 2);
   }
   const base = wasm.baseOffset;
-  new AT(wasm.memory.buffer, base, size).set(aData);
-  new AT(wasm.memory.buffer, base + bufBytes, size).set(bData);
 
   const aOff = base, bOff = base + bufBytes, outOff = base + 2 * bufBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new AT(wasm.memory.buffer, base, size).set(aData);
+    new AT(wasm.memory.buffer, base + bufBytes, size).set(bData);
     const t0 = performance.now();
     fn(aOff, bOff, outOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new AT(wasm.memory.buffer, outOff, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, bpe, ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, bpe, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, bpe, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsBinaryInt(
   opName: string, dtype: IntDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const AT = intArrayType(dtype);
   const maxV = intMaxVal(dtype);
   const a = new AT(size), b = new AT(size), out = new AT(size);
@@ -2314,19 +2384,19 @@ function benchJsBinaryInt(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, intBytesPerElem(dtype), ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 function benchWasmReductionInt(
   wasm: WasmKernels, opName: string, dtype: IntDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((ptr: number, n: number) => number) | undefined;
   if (!fn) return null;
 
@@ -2339,30 +2409,30 @@ function benchWasmReductionInt(
   const data = new AT(size);
   for (let i = 0; i < size; i++) data[i] = Math.floor(Math.random() * maxV) - Math.floor(maxV / 2);
   const base = wasm.baseOffset;
-  new AT(wasm.memory.buffer, base, size).set(data);
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new AT(wasm.memory.buffer, base, size).set(data);
     const t0 = performance.now();
     fn(base, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t1 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, bpe, ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, bpe, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, bpe, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsReductionInt(
   opName: string, dtype: IntDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const AT = intArrayType(dtype);
   const maxV = intMaxVal(dtype);
   const data = new AT(size);
@@ -2385,23 +2455,22 @@ function benchJsReductionInt(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, intBytesPerElem(dtype), ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 function benchWasmSortInt(
   wasm: WasmKernels, opName: string, dtype: IntDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((ptr: number, n: number) => void) | undefined;
   if (!fn && opName === 'sort') return null;
 
-  // argsort has different signature
   if (opName === 'argsort') {
     const fnA = (wasm as Record<string, unknown>)[`argsort_${dtype}`] as ((vals: number, idx: number, n: number) => void) | undefined;
     if (!fnA) return null;
@@ -2417,23 +2486,25 @@ function benchWasmSortInt(
     for (let i = 0; i < size; i++) data[i] = Math.floor(Math.random() * maxV);
     const base = wasm.baseOffset;
 
-    const times: number[] = [];
+    const kernelTimes: number[] = [];
+    const e2eTimes: number[] = [];
     for (let iter = 0; iter < warmup + iterations; iter++) {
+      const te = performance.now();
       new AT(wasm.memory.buffer, base, size).set(data);
       const t0 = performance.now();
       fnA(base, base + valBytes, size);
       const t1 = performance.now();
-      if (iter >= warmup) times.push(t1 - t0);
+      new Int32Array(wasm.memory.buffer, base + valBytes, size).slice();
+      const t2 = performance.now();
+      if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
     }
 
-    const ms = median(times);
+    const kMs = median(kernelTimes);
+    const eMs = median(e2eTimes);
+    const impl = `${wasm.name} (${dtype})`;
     return {
-      impl: `${wasm.name} (${dtype})`,
-      op: opName,
-      size,
-      timeMs: ms,
-      metric: computeMElemPerSec(size, ms),
-      metricUnit: 'M elem/s',
+      kernel: { impl, op: opName, size, timeMs: kMs, metric: computeMElemPerSec(size, kMs), metricUnit: 'M elem/s' },
+      e2e: { impl, op: opName, size, timeMs: eMs, metric: computeMElemPerSec(size, eMs), metricUnit: 'M elem/s' },
     };
   }
 
@@ -2448,29 +2519,31 @@ function benchWasmSortInt(
   for (let i = 0; i < size; i++) data[i] = Math.floor(Math.random() * maxV);
   const base = wasm.baseOffset;
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
     new AT(wasm.memory.buffer, base, size).set(data);
     const t0 = performance.now();
     fn(base, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new AT(wasm.memory.buffer, base, size).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeMElemPerSec(size, ms),
-    metricUnit: 'M elem/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeMElemPerSec(size, kMs), metricUnit: 'M elem/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeMElemPerSec(size, eMs), metricUnit: 'M elem/s' },
   };
 }
 
 function benchJsSortInt(
   opName: string, dtype: IntDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const AT = intArrayType(dtype);
   const maxV = intMaxVal(dtype);
   const data = new AT(size);
@@ -2493,14 +2566,14 @@ function benchJsSortInt(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: opName,
     size,
     timeMs: ms,
     metric: computeMElemPerSec(size, ms),
     metricUnit: 'M elem/s',
-  };
+  });
 }
 
 // ─── Complex Benchmark Functions ─────────────────────────────────────────────
@@ -2519,44 +2592,47 @@ function complexScalarBytes(dtype: ComplexDtype): number {
 
 function benchWasmBinaryComplex(
   wasm: WasmKernels, opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((a: number, b: number, out: number, n: number) => void) | undefined;
   if (!fn) return null;
 
   const scBytes = complexScalarBytes(dtype);
-  const bufBytes = size * 2 * scBytes; // 2 scalars per complex
+  const bufBytes = size * 2 * scBytes;
   ensureMemory(wasm, 3 * bufBytes);
 
   const FT = complexFloatType(dtype);
   const a = new FT(size * 2), b = new FT(size * 2);
   for (let i = 0; i < size * 2; i++) { a[i] = Math.random() * 2 - 1; b[i] = Math.random() * 2 - 1; }
   const base = wasm.baseOffset;
-  new FT(wasm.memory.buffer, base, size * 2).set(a);
-  new FT(wasm.memory.buffer, base + bufBytes, size * 2).set(b);
 
   const aOff = base, bOff = base + bufBytes, outOff = base + 2 * bufBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new FT(wasm.memory.buffer, base, size * 2).set(a);
+    new FT(wasm.memory.buffer, base + bufBytes, size * 2).set(b);
     const t0 = performance.now();
     fn(aOff, bOff, outOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new FT(wasm.memory.buffer, outOff, size * 2).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
+  const cbpe = complexBytesPerElem(dtype);
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, complexBytesPerElem(dtype), ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, cbpe, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, cbpe, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsBinaryComplex(
   opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const FT = complexFloatType(dtype);
   const a = new FT(size * 2), b = new FT(size * 2), out = new FT(size * 2);
   for (let i = 0; i < size * 2; i++) { a[i] = Math.random() * 2 - 1; b[i] = Math.random() * 2 - 1; }
@@ -2584,25 +2660,24 @@ function benchJsBinaryComplex(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, complexBytesPerElem(dtype), ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 function benchWasmUnaryComplex(
   wasm: WasmKernels, opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((inp: number, out: number, n: number) => void) | undefined;
   if (!fn) return null;
 
   const scBytes = complexScalarBytes(dtype);
   const inpBytes = size * 2 * scBytes;
-  // abs outputs n scalars, exp outputs 2n scalars
   const outBytes = opName === 'abs' ? size * scBytes : size * 2 * scBytes;
   ensureMemory(wasm, inpBytes + outBytes);
 
@@ -2610,31 +2685,34 @@ function benchWasmUnaryComplex(
   const inp = new FT(size * 2);
   for (let i = 0; i < size * 2; i++) inp[i] = Math.random() * 2 - 1;
   const base = wasm.baseOffset;
-  new FT(wasm.memory.buffer, base, size * 2).set(inp);
 
   const inpOff = base, outOff = base + inpBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new FT(wasm.memory.buffer, base, size * 2).set(inp);
     const t0 = performance.now();
     fn(inpOff, outOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new FT(wasm.memory.buffer, outOff, opName === 'abs' ? size : size * 2).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
+  const cbpe = complexBytesPerElem(dtype);
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, complexBytesPerElem(dtype), ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, cbpe, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, cbpe, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsUnaryComplex(
   opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const FT = complexFloatType(dtype);
   const inp = new FT(size * 2);
   for (let i = 0; i < size * 2; i++) inp[i] = Math.random() * 2 - 1;
@@ -2663,19 +2741,19 @@ function benchJsUnaryComplex(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, complexBytesPerElem(dtype), ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 function benchWasmReductionComplex(
   wasm: WasmKernels, opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((ptr: number, out: number, n: number) => void) | undefined;
   if (!fn) return null;
 
@@ -2688,31 +2766,34 @@ function benchWasmReductionComplex(
   const data = new FT(size * 2);
   for (let i = 0; i < size * 2; i++) data[i] = Math.random() * 2 - 1;
   const base = wasm.baseOffset;
-  new FT(wasm.memory.buffer, base, size * 2).set(data);
 
   const inpOff = base, outOff = base + inpBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new FT(wasm.memory.buffer, base, size * 2).set(data);
     const t0 = performance.now();
     fn(inpOff, outOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new FT(wasm.memory.buffer, outOff, 2).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
+  const cbpe = complexBytesPerElem(dtype);
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGBs(size, complexBytesPerElem(dtype), ms),
-    metricUnit: 'GB/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGBs(size, cbpe, kMs), metricUnit: 'GB/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGBs(size, cbpe, eMs), metricUnit: 'GB/s' },
   };
 }
 
 function benchJsReductionComplex(
   opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const FT = complexFloatType(dtype);
   const data = new FT(size * 2);
   for (let i = 0; i < size * 2; i++) data[i] = Math.random() * 2 - 1;
@@ -2732,19 +2813,19 @@ function benchJsReductionComplex(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: opName,
     size,
     timeMs: ms,
     metric: computeGBs(size, complexBytesPerElem(dtype), ms),
     metricUnit: 'GB/s',
-  };
+  });
 }
 
 function benchWasmLinalgComplex(
   wasm: WasmKernels, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`matmul_${dtype}`] as ((a: number, b: number, c: number, m: number, k: number, n: number) => void) | undefined;
   if (!fn) return null;
 
@@ -2757,34 +2838,35 @@ function benchWasmLinalgComplex(
   const a = new FT(matElems * 2), b = new FT(matElems * 2);
   for (let i = 0; i < matElems * 2; i++) { a[i] = Math.random() * 2 - 1; b[i] = Math.random() * 2 - 1; }
   const base = wasm.baseOffset;
-  new FT(wasm.memory.buffer, base, matElems * 2).set(a);
-  new FT(wasm.memory.buffer, base + matBytes, matElems * 2).set(b);
 
   const aOff = base, bOff = base + matBytes, cOff = base + 2 * matBytes;
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new FT(wasm.memory.buffer, base, matElems * 2).set(a);
+    new FT(wasm.memory.buffer, base + matBytes, matElems * 2).set(b);
     const t0 = performance.now();
     fn(aOff, bOff, cOff, size, size, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new FT(wasm.memory.buffer, cOff, matElems * 2).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
-  // Complex matmul: 8*N^3 flops (4 real muls + 2 real adds per complex multiply-add)
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
   const flops = 8 * size * size * size;
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: 'matmul',
-    size,
-    timeMs: ms,
-    metric: computeGflopsCustom(flops, ms),
-    metricUnit: 'GFLOP/s',
+    kernel: { impl, op: 'matmul', size, timeMs: kMs, metric: computeGflopsCustom(flops, kMs), metricUnit: 'GFLOP/s' },
+    e2e: { impl, op: 'matmul', size, timeMs: eMs, metric: computeGflopsCustom(flops, eMs), metricUnit: 'GFLOP/s' },
   };
 }
 
 function benchJsLinalgComplex(
   dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const a = new Float64Array(size * size * 2), b = new Float64Array(size * size * 2);
   const c = new Float64Array(size * size * 2);
   for (let i = 0; i < size * size * 2; i++) { a[i] = Math.random() * 2 - 1; b[i] = Math.random() * 2 - 1; }
@@ -2813,19 +2895,19 @@ function benchJsLinalgComplex(
 
   const ms = median(times);
   const flops = 8 * size * size * size;
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: 'matmul',
     size,
     timeMs: ms,
     metric: computeGflopsCustom(flops, ms),
     metricUnit: 'GFLOP/s',
-  };
+  });
 }
 
 function benchWasmFftComplex(
   wasm: WasmKernels, opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult | null {
+): DualTimingResult | null {
   const fn = (wasm as Record<string, unknown>)[`${opName}_${dtype}`] as ((inp: number, out: number, scratch: number, n: number) => void) | undefined;
   if (!fn) return null;
 
@@ -2833,39 +2915,41 @@ function benchWasmFftComplex(
   const FT = complexFloatType(dtype);
   const inpBytes = size * 2 * scBytes;
   const outBytes = size * 2 * scBytes;
-  const scratchBytes = 8 * size * 8; // scratch is always f64
+  const scratchBytes = 8 * size * 8;
   ensureMemory(wasm, inpBytes + outBytes + scratchBytes);
 
   const data = new FT(size * 2);
   for (let i = 0; i < size * 2; i++) data[i] = Math.random() * 2 - 1;
   const base = wasm.baseOffset;
-  new FT(wasm.memory.buffer, base, size * 2).set(data);
 
   const inpOff = base, outOff = base + inpBytes, scrOff = base + inpBytes + outBytes;
   const flops = 5 * size * Math.log2(size);
 
-  const times: number[] = [];
+  const kernelTimes: number[] = [];
+  const e2eTimes: number[] = [];
   for (let iter = 0; iter < warmup + iterations; iter++) {
+    const te = performance.now();
+    new FT(wasm.memory.buffer, base, size * 2).set(data);
     const t0 = performance.now();
     fn(inpOff, outOff, scrOff, size);
     const t1 = performance.now();
-    if (iter >= warmup) times.push(t1 - t0);
+    new FT(wasm.memory.buffer, outOff, size * 2).slice();
+    const t2 = performance.now();
+    if (iter >= warmup) { kernelTimes.push(t1 - t0); e2eTimes.push(t2 - te); }
   }
 
-  const ms = median(times);
+  const kMs = median(kernelTimes);
+  const eMs = median(e2eTimes);
+  const impl = `${wasm.name} (${dtype})`;
   return {
-    impl: `${wasm.name} (${dtype})`,
-    op: opName,
-    size,
-    timeMs: ms,
-    metric: computeGflopsCustom(flops, ms),
-    metricUnit: 'GFLOP/s',
+    kernel: { impl, op: opName, size, timeMs: kMs, metric: computeGflopsCustom(flops, kMs), metricUnit: 'GFLOP/s' },
+    e2e: { impl, op: opName, size, timeMs: eMs, metric: computeGflopsCustom(flops, eMs), metricUnit: 'GFLOP/s' },
   };
 }
 
 function benchJsFftComplex(
   opName: string, dtype: ComplexDtype, size: number, iterations: number, warmup: number
-): TimingResult {
+): DualTimingResult {
   const data = new Float64Array(size * 2);
   for (let i = 0; i < size * 2; i++) data[i] = Math.random() * 2 - 1;
   const outRe = new Float64Array(size), outIm = new Float64Array(size);
@@ -2900,14 +2984,14 @@ function benchJsFftComplex(
   }
 
   const ms = median(times);
-  return {
+  return dualJsResult({
     impl: `JS (${dtype})`,
     op: opName,
     size,
     timeMs: ms,
     metric: computeGflopsCustom(flops, ms),
     metricUnit: 'GFLOP/s',
-  };
+  });
 }
 
 // ─── Correctness Checks ─────────────────────────────────────────────────────
@@ -3819,7 +3903,7 @@ interface BinarySizeEntry {
 
 interface BenchmarkReport {
   timestamp: string;
-  environment: { node: string; arch: string; platform: string };
+  environment: { runtime: string; version: string; arch: string; platform: string };
   categories: Record<string, { metric: string; results: TimingResult[] }>;
   binarySizes: BinarySizeEntry[];
 }
@@ -3939,16 +4023,16 @@ function printBinarySizes(entries: BinarySizeEntry[]) {
 
 const RESULTS_DIR = resolve(__dirname, '..', 'results');
 
-function saveJSON(report: BenchmarkReport) {
+function saveJSON(report: BenchmarkReport, basename: string) {
   if (!existsSync(RESULTS_DIR)) mkdirSync(RESULTS_DIR, { recursive: true });
-  const jsonPath = resolve(RESULTS_DIR, 'latest.json');
+  const jsonPath = resolve(RESULTS_DIR, `${basename}.json`);
   writeFileSync(jsonPath, JSON.stringify(report, null, 2));
   console.log(`\nJSON saved to ${jsonPath}`);
 }
 
-function generateHTML(report: BenchmarkReport) {
+function generateHTML(report: BenchmarkReport, modeLabel: string, basename: string) {
   if (!existsSync(RESULTS_DIR)) mkdirSync(RESULTS_DIR, { recursive: true });
-  const htmlPath = resolve(RESULTS_DIR, 'latest.html');
+  const htmlPath = resolve(RESULTS_DIR, `${basename}.html`);
 
   // Build chart data: speedup multipliers grouped by category+op+size
   // Dynamic: discover all unique WASM impl names and assign colors
@@ -4035,7 +4119,7 @@ function generateHTML(report: BenchmarkReport) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WASM Benchmark Results — Speedup vs JS</title>
+<title>WASM Benchmark Results — ${modeLabel}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 32px; }
@@ -4102,9 +4186,9 @@ function generateHTML(report: BenchmarkReport) {
 </head>
 <body>
 
-<h1>WASM vs JS — Speedup Multipliers</h1>
+<h1>WASM vs JS — Speedup Multipliers (${modeLabel})</h1>
 <p class="subtitle">Horizontal bars = how many times faster than pure JS (numpy-ts float64). Dashed line = 1× (JS baseline).</p>
-<div class="meta">Generated: ${report.timestamp} · Node ${report.environment.node} · ${report.environment.platform}/${report.environment.arch}</div>
+<div class="meta">Generated: ${report.timestamp} · ${report.environment.runtime} ${report.environment.version} · ${report.environment.platform}/${report.environment.arch}</div>
 
 <div class="legend" id="legend"></div>
 
@@ -4379,66 +4463,57 @@ async function main() {
   }
   console.log();
 
-  // Collect all results for report
-  const report: BenchmarkReport = {
-    timestamp: new Date().toISOString(),
-    environment: {
-      node: process.version,
-      arch: process.arch,
-      platform: process.platform,
-    },
-    categories: {},
-    binarySizes: [],
-  };
+  // Collect all results for two reports: kernel-only and end-to-end
+  const rt = detectRuntime();
+  const env = { runtime: rt.name, version: rt.version, arch: rt.arch, platform: rt.platform };
+  console.log(`Runtime: ${rt.name} ${rt.version} (${rt.arch}/${rt.platform})`);
+  const kernelReport: BenchmarkReport = { timestamp: new Date().toISOString(), environment: env, categories: {}, binarySizes: [] };
+  const e2eReport: BenchmarkReport = { timestamp: new Date().toISOString(), environment: env, categories: {}, binarySizes: [] };
 
   // Run benchmarks per category
   for (const cat of CATEGORIES) {
     const wasmModules = wasmByCategory[cat.name] ?? [];
     console.log(`\nBenchmarking: ${cat.name}...`);
-    const results: TimingResult[] = [];
+    const kernelResults: TimingResult[] = [];
+    const e2eResults: TimingResult[] = [];
+
+    // Helpers to push dual results
+    const pushDual = (d: DualTimingResult) => { kernelResults.push(d.kernel); e2eResults.push(d.e2e); };
+    const pushWasm = (d: DualTimingResult | null) => { if (d) { kernelResults.push(d.kernel); e2eResults.push(d.e2e); } };
+    const pushJsInline = (r: TimingResult) => { kernelResults.push(r); e2eResults.push(r); };
 
     for (const { size, iterations, warmup } of cat.sizes) {
       const matrixCats = ['matmul', 'linalg', 'fft', 'linalg_complex', 'fft_complex'];
       const sizeLabel = matrixCats.includes(cat.name) ? `${size}x${size}` : formatSize(size);
       console.log(`  ${sizeLabel} (${iterations} iters, ${warmup} warmup)...`);
 
-      switch (cat.name) {
+      try { switch (cat.name) {
         case 'matmul': {
-          results.push(benchJsMatmul(baselines, size, 'f64', iterations, warmup));
-          results.push(benchJsMatmul(baselines, size, 'f32', iterations, warmup));
+          pushDual(benchJsMatmul(baselines, size, 'f64', iterations, warmup));
+          pushDual(benchJsMatmul(baselines, size, 'f32', iterations, warmup));
           for (const wasm of wasmModules) {
-            const r64 = benchWasmMatmul(wasm, size, 'f64', iterations, warmup);
-            const r32 = benchWasmMatmul(wasm, size, 'f32', iterations, warmup);
-            if (r64) results.push(r64);
-            if (r32) results.push(r32);
+            pushWasm(benchWasmMatmul(wasm, size, 'f64', iterations, warmup));
+            pushWasm(benchWasmMatmul(wasm, size, 'f32', iterations, warmup));
           }
           break;
         }
         case 'reduction': {
           for (const op of ['sum', 'max', 'min', 'prod', 'mean'] as const) {
-            results.push(benchJsReduction(baselines, op, size, iterations, warmup));
+            pushDual(benchJsReduction(baselines, op, size, iterations, warmup));
             for (const wasm of wasmModules) {
-              const r64 = benchWasmReduction(wasm, op, size, 'f64', iterations, warmup);
-              const r32 = benchWasmReduction(wasm, op, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmReduction(wasm, op, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmReduction(wasm, op, size, 'f32', iterations, warmup));
             }
           }
-          // diff (outputs n-1 elements, not a scalar)
-          results.push(benchJsDiff(baselines, size, iterations, warmup));
+          pushDual(benchJsDiff(baselines, size, iterations, warmup));
           for (const wasm of wasmModules) {
-            const r64 = benchWasmDiff(wasm, size, 'f64', iterations, warmup);
-            const r32 = benchWasmDiff(wasm, size, 'f32', iterations, warmup);
-            if (r64) results.push(r64);
-            if (r32) results.push(r32);
+            pushWasm(benchWasmDiff(wasm, size, 'f64', iterations, warmup));
+            pushWasm(benchWasmDiff(wasm, size, 'f32', iterations, warmup));
           }
-          // nanmax, nanmin (scalar reductions that skip NaN)
           for (const op of ['nanmax', 'nanmin'] as const) {
-            // JS loop baseline
             {
               const data = new Float64Array(size);
               for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
-              // Sprinkle ~1% NaN
               for (let i = 0; i < size; i += 100) data[i] = NaN;
               const jsFn = op === 'nanmax'
                 ? () => { let m = -Infinity; for (let i = 0; i < size; i++) if (!isNaN(data[i]) && data[i] > m) m = data[i]; return m; }
@@ -4451,22 +4526,18 @@ async function main() {
                 if (iter >= warmup) times.push(t1 - t0);
               }
               const ms = median(times);
-              results.push({ impl: 'JS (f64)', op, size, timeMs: ms, metric: computeGBs(size, 8, ms), metricUnit: 'GB/s' });
+              pushJsInline({ impl: 'JS (f64)', op, size, timeMs: ms, metric: computeGBs(size, 8, ms), metricUnit: 'GB/s' });
             }
             for (const wasm of wasmModules) {
-              const r64 = benchWasmReduction(wasm, op, size, 'f64', iterations, warmup);
-              const r32 = benchWasmReduction(wasm, op, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmReduction(wasm, op, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmReduction(wasm, op, size, 'f32', iterations, warmup));
             }
           }
-          // Integer reductions (same category)
           for (const op of ['sum', 'max', 'min']) {
             for (const dt of ['i32', 'i16', 'i8'] as IntDtype[]) {
-              results.push(benchJsReductionInt(op, dt, size, iterations, warmup));
+              pushDual(benchJsReductionInt(op, dt, size, iterations, warmup));
               for (const wasm of wasmModules) {
-                const r = benchWasmReductionInt(wasm, op, dt, size, iterations, warmup);
-                if (r) results.push(r);
+                pushWasm(benchWasmReductionInt(wasm, op, dt, size, iterations, warmup));
               }
             }
           }
@@ -4492,7 +4563,7 @@ async function main() {
           ];
           for (const { wasm: wasmOp, js: jsOp } of unaryOps) {
             if (jsOp) {
-              results.push(benchJsUnary(baselines, jsOp as 'sqrt', size, iterations, warmup, wasmOp));
+              pushDual(benchJsUnary(baselines, jsOp as 'sqrt', size, iterations, warmup, wasmOp));
             } else {
               // JS loop baseline for ops without numpy-ts import
               const data = new Float64Array(size);
@@ -4520,13 +4591,11 @@ async function main() {
                 if (iter >= warmup) times.push(t1 - t0);
               }
               const ms = median(times);
-              results.push({ impl: 'JS (f64)', op: wasmOp, size, timeMs: ms, metric: computeGBs(size, 8, ms), metricUnit: 'GB/s' });
+              pushJsInline({ impl: 'JS (f64)', op: wasmOp, size, timeMs: ms, metric: computeGBs(size, 8, ms), metricUnit: 'GB/s' });
             }
             for (const wasm of wasmModules) {
-              const r64 = benchWasmUnary(wasm, wasmOp, size, 'f64', iterations, warmup);
-              const r32 = benchWasmUnary(wasm, wasmOp, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmUnary(wasm, wasmOp, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmUnary(wasm, wasmOp, size, 'f32', iterations, warmup));
             }
           }
           break;
@@ -4581,24 +4650,21 @@ async function main() {
                 if (iter >= warmup) times.push(t1 - t0);
               }
               const ms = median(times);
-              results.push({ impl: 'JS (f64)', op: wasmOp, size, timeMs: ms, metric: computeGBs(size, 8, ms), metricUnit: 'GB/s' });
+              pushJsInline({ impl: 'JS (f64)', op: wasmOp, size, timeMs: ms, metric: computeGBs(size, 8, ms), metricUnit: 'GB/s' });
             } else {
-              results.push(benchJsBinary(baselines, jsOp as 'add', size, iterations, warmup, wasmOp));
+              pushDual(benchJsBinary(baselines, jsOp as 'add', size, iterations, warmup, wasmOp));
             }
             for (const wasm of wasmModules) {
-              const r64 = benchWasmBinary(wasm, wasmOp, size, 'f64', iterations, warmup);
-              const r32 = benchWasmBinary(wasm, wasmOp, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmBinary(wasm, wasmOp, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmBinary(wasm, wasmOp, size, 'f32', iterations, warmup));
             }
           }
           // Integer binary ops (same category)
           for (const op of ['add', 'sub', 'mul', 'maximum', 'minimum']) {
             for (const dt of ['i32', 'i16', 'i8'] as IntDtype[]) {
-              results.push(benchJsBinaryInt(op, dt, size, iterations, warmup));
+              pushDual(benchJsBinaryInt(op, dt, size, iterations, warmup));
               for (const wasm of wasmModules) {
-                const r = benchWasmBinaryInt(wasm, op, dt, size, iterations, warmup);
-                if (r) results.push(r);
+                pushWasm(benchWasmBinaryInt(wasm, op, dt, size, iterations, warmup));
               }
             }
           }
@@ -4606,55 +4672,44 @@ async function main() {
         }
         case 'sort': {
           // sort
-          results.push(benchJsSort(baselines, size, iterations, warmup));
+          pushDual(benchJsSort(baselines, size, iterations, warmup));
           for (const wasm of wasmModules) {
-            const r64 = benchWasmSort(wasm, size, 'f64', iterations, warmup);
-            const r32 = benchWasmSort(wasm, size, 'f32', iterations, warmup);
-            if (r64) results.push(r64);
-            if (r32) results.push(r32);
+            pushWasm(benchWasmSort(wasm, size, 'f64', iterations, warmup));
+            pushWasm(benchWasmSort(wasm, size, 'f32', iterations, warmup));
           }
           // argsort
-          results.push(benchJsArgsort(baselines, size, iterations, warmup));
+          pushDual(benchJsArgsort(baselines, size, iterations, warmup));
           for (const wasm of wasmModules) {
-            const r64 = benchWasmArgsort(wasm, size, 'f64', iterations, warmup);
-            const r32 = benchWasmArgsort(wasm, size, 'f32', iterations, warmup);
-            if (r64) results.push(r64);
-            if (r32) results.push(r32);
+            pushWasm(benchWasmArgsort(wasm, size, 'f64', iterations, warmup));
+            pushWasm(benchWasmArgsort(wasm, size, 'f32', iterations, warmup));
           }
           // partition
-          results.push(benchJsPartition(baselines, size, iterations, warmup));
+          pushDual(benchJsPartition(baselines, size, iterations, warmup));
           for (const wasm of wasmModules) {
-            const r64 = benchWasmPartition(wasm, size, 'f64', iterations, warmup);
-            const r32 = benchWasmPartition(wasm, size, 'f32', iterations, warmup);
-            if (r64) results.push(r64);
-            if (r32) results.push(r32);
+            pushWasm(benchWasmPartition(wasm, size, 'f64', iterations, warmup));
+            pushWasm(benchWasmPartition(wasm, size, 'f32', iterations, warmup));
           }
           // argpartition
-          results.push(benchJsArgpartition(baselines, size, iterations, warmup));
+          pushDual(benchJsArgpartition(baselines, size, iterations, warmup));
           for (const wasm of wasmModules) {
-            const r64 = benchWasmArgpartition(wasm, size, 'f64', iterations, warmup);
-            const r32 = benchWasmArgpartition(wasm, size, 'f32', iterations, warmup);
-            if (r64) results.push(r64);
-            if (r32) results.push(r32);
+            pushWasm(benchWasmArgpartition(wasm, size, 'f64', iterations, warmup));
+            pushWasm(benchWasmArgpartition(wasm, size, 'f32', iterations, warmup));
           }
           // stats: median, percentile, quantile
           const statsOps = ['median', 'percentile', 'quantile'];
           for (const op of statsOps) {
-            results.push(benchJsStats(op, size, iterations, warmup));
+            pushDual(benchJsStats(op, size, iterations, warmup));
             for (const wasm of wasmModules) {
-              const r64 = benchWasmStats(wasm, op, size, 'f64', iterations, warmup);
-              const r32 = benchWasmStats(wasm, op, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmStats(wasm, op, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmStats(wasm, op, size, 'f32', iterations, warmup));
             }
           }
           // Integer sort (same category)
           for (const op of ['sort', 'argsort']) {
             for (const dt of ['i32', 'i16', 'i8'] as IntDtype[]) {
-              results.push(benchJsSortInt(op, dt, size, iterations, warmup));
+              pushDual(benchJsSortInt(op, dt, size, iterations, warmup));
               for (const wasm of wasmModules) {
-                const r = benchWasmSortInt(wasm, op, dt, size, iterations, warmup);
-                if (r) results.push(r);
+                pushWasm(benchWasmSortInt(wasm, op, dt, size, iterations, warmup));
               }
             }
           }
@@ -4662,12 +4717,10 @@ async function main() {
         }
         case 'convolve': {
           for (const op of ['correlate', 'convolve'] as const) {
-            results.push(benchJsConvolve(baselines, op, size, iterations, warmup));
+            pushDual(benchJsConvolve(baselines, op, size, iterations, warmup));
             for (const wasm of wasmModules) {
-              const r64 = benchWasmConvolve(wasm, op, size, 'f64', iterations, warmup);
-              const r32 = benchWasmConvolve(wasm, op, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmConvolve(wasm, op, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmConvolve(wasm, op, size, 'f32', iterations, warmup));
             }
           }
           break;
@@ -4676,12 +4729,10 @@ async function main() {
           const linalgOps = ['matvec', 'vecmat', 'vecdot', 'outer', 'kron', 'cross', 'norm', 'matrix_power', 'multi_dot3', 'qr', 'lstsq'];
           for (const op of linalgOps) {
             const jsR = benchJsLinalg(op, size, iterations, warmup);
-            if (jsR) results.push(jsR);
+            if (jsR) pushDual(jsR);
             for (const wasm of wasmModules) {
-              const r64 = benchWasmLinalg(wasm, op, size, 'f64', iterations, warmup);
-              const r32 = benchWasmLinalg(wasm, op, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmLinalg(wasm, op, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmLinalg(wasm, op, size, 'f32', iterations, warmup));
             }
           }
           break;
@@ -4690,12 +4741,10 @@ async function main() {
           const arrayOps = ['roll', 'flip', 'tile', 'pad', 'take', 'gradient', 'nonzero'];
           for (const op of arrayOps) {
             const jsR = benchJsArrayOp(op, size, iterations, warmup);
-            if (jsR) results.push(jsR);
+            if (jsR) pushDual(jsR);
             for (const wasm of wasmModules) {
-              const r64 = benchWasmArrayOp(wasm, op, size, 'f64', iterations, warmup);
-              const r32 = benchWasmArrayOp(wasm, op, size, 'f32', iterations, warmup);
-              if (r64) results.push(r64);
-              if (r32) results.push(r32);
+              pushWasm(benchWasmArrayOp(wasm, op, size, 'f64', iterations, warmup));
+              pushWasm(benchWasmArrayOp(wasm, op, size, 'f32', iterations, warmup));
             }
           }
           break;
@@ -4704,10 +4753,9 @@ async function main() {
           const fftOps = ['rfft2', 'irfft2'];
           for (const op of fftOps) {
             const jsR = benchJsFft(op, size, iterations, warmup);
-            if (jsR) results.push(jsR);
+            if (jsR) pushDual(jsR);
             for (const wasm of wasmModules) {
-              const r64 = benchWasmFft(wasm, op, size, 'f64', iterations, warmup);
-              if (r64) results.push(r64);
+              pushWasm(benchWasmFft(wasm, op, size, 'f64', iterations, warmup));
             }
           }
           break;
@@ -4718,10 +4766,9 @@ async function main() {
           const dtypes: ComplexDtype[] = ['c128', 'c64'];
           for (const op of ops) {
             for (const dt of dtypes) {
-              results.push(benchJsBinaryComplex(op, dt, size, iterations, warmup));
+              pushDual(benchJsBinaryComplex(op, dt, size, iterations, warmup));
               for (const wasm of wasmModules) {
-                const r = benchWasmBinaryComplex(wasm, op, dt, size, iterations, warmup);
-                if (r) results.push(r);
+                pushWasm(benchWasmBinaryComplex(wasm, op, dt, size, iterations, warmup));
               }
             }
           }
@@ -4732,10 +4779,9 @@ async function main() {
           const dtypes: ComplexDtype[] = ['c128', 'c64'];
           for (const op of ops) {
             for (const dt of dtypes) {
-              results.push(benchJsUnaryComplex(op, dt, size, iterations, warmup));
+              pushDual(benchJsUnaryComplex(op, dt, size, iterations, warmup));
               for (const wasm of wasmModules) {
-                const r = benchWasmUnaryComplex(wasm, op, dt, size, iterations, warmup);
-                if (r) results.push(r);
+                pushWasm(benchWasmUnaryComplex(wasm, op, dt, size, iterations, warmup));
               }
             }
           }
@@ -4744,10 +4790,9 @@ async function main() {
         case 'reduction_complex': {
           const dtypes: ComplexDtype[] = ['c128', 'c64'];
           for (const dt of dtypes) {
-            results.push(benchJsReductionComplex('sum', dt, size, iterations, warmup));
+            pushDual(benchJsReductionComplex('sum', dt, size, iterations, warmup));
             for (const wasm of wasmModules) {
-              const r = benchWasmReductionComplex(wasm, 'sum', dt, size, iterations, warmup);
-              if (r) results.push(r);
+              pushWasm(benchWasmReductionComplex(wasm, 'sum', dt, size, iterations, warmup));
             }
           }
           break;
@@ -4755,10 +4800,9 @@ async function main() {
         case 'linalg_complex': {
           const dtypes: ComplexDtype[] = ['c128', 'c64'];
           for (const dt of dtypes) {
-            results.push(benchJsLinalgComplex(dt, size, iterations, warmup));
+            pushDual(benchJsLinalgComplex(dt, size, iterations, warmup));
             for (const wasm of wasmModules) {
-              const r = benchWasmLinalgComplex(wasm, dt, size, iterations, warmup);
-              if (r) results.push(r);
+              pushWasm(benchWasmLinalgComplex(wasm, dt, size, iterations, warmup));
             }
           }
           break;
@@ -4768,36 +4812,49 @@ async function main() {
           const dtypes: ComplexDtype[] = ['c128', 'c64'];
           for (const op of ops) {
             for (const dt of dtypes) {
-              results.push(benchJsFftComplex(op, dt, size, iterations, warmup));
+              pushDual(benchJsFftComplex(op, dt, size, iterations, warmup));
               for (const wasm of wasmModules) {
-                const r = benchWasmFftComplex(wasm, op, dt, size, iterations, warmup);
-                if (r) results.push(r);
+                pushWasm(benchWasmFftComplex(wasm, op, dt, size, iterations, warmup));
               }
             }
           }
           break;
         }
       }
+      } catch (err) {
+        console.error(`  ⚠ Crashed at ${cat.name} size=${size}: ${err instanceof Error ? err.message : err}`);
+        console.error(`    Skipping remaining sizes for this category.`);
+        break;
+      }
     }
 
-    report.categories[cat.name] = { metric: cat.metric, results };
-    printCategoryResults(cat.name, cat.metric, results);
+    kernelReport.categories[cat.name] = { metric: cat.metric, results: kernelResults };
+    e2eReport.categories[cat.name] = { metric: cat.metric, results: e2eResults };
+    printCategoryResults(cat.name, cat.metric, kernelResults);
   }
 
   // Binary sizes
-  report.binarySizes = collectBinarySizes();
-  printBinarySizes(report.binarySizes);
+  const binarySizes = collectBinarySizes();
+  kernelReport.binarySizes = binarySizes;
+  e2eReport.binarySizes = binarySizes;
+  printBinarySizes(binarySizes);
 
-  // Save outputs
-  saveJSON(report);
-  generateHTML(report);
+  // Save outputs — kernel and e2e, with runtime prefix
+  const prefix = rt.name === 'node' ? 'latest' : `latest-${rt.name}`;
+  const prefixE2e = rt.name === 'node' ? 'latest-e2e' : `latest-${rt.name}-e2e`;
+  saveJSON(kernelReport, prefix);
+  generateHTML(kernelReport, `Kernel Only — ${rt.name} ${rt.version}`, prefix);
+  saveJSON(e2eReport, prefixE2e);
+  generateHTML(e2eReport, `End-to-End (incl. memory copy) — ${rt.name} ${rt.version}`, prefixE2e);
 
   console.log(`\n${'═'.repeat(90)}`);
   console.log('Notes:');
-  console.log('  - WASM times include memory copy overhead for matmul; kernel-only for other categories');
+  console.log('  - Kernel times measure WASM function execution only (post memory copy)');
+  console.log('  - E2E times include alloc, copy-in, kernel, and copy-out (JS↔WASM memory)');
   console.log('  - JS baselines use numpy-ts (float64 only); f32 WASM has no direct JS equivalent');
   console.log('  - Sort re-copies random data before each iteration');
   console.log('  - Binary sizes: b64+gzip = base64 encode .wasm, then gzip(level:9) — simulates JS bundle size');
+  console.log(`  - Output: results/${prefix}.json + .html (kernel), results/${prefixE2e}.json + .html (e2e)`);
   console.log(`${'═'.repeat(90)}\n`);
 }
 
