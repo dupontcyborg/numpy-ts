@@ -2,8 +2,8 @@
 // Explicit WASM SIMD — LLVM can't autovectorize loop-carried dependencies
 // without fast-math (which Rust doesn't expose)
 
+use crate::simd::{load_f32x4, load_f64x2, load_i32x4, store_f32x4, store_f64x2};
 use core::arch::wasm32::*;
-use crate::simd::{load_f64x2, load_f32x4, load_i32x4, store_f64x2, store_f32x4};
 
 // ─── Safe inner functions ────────────────────────────────────────────────────
 
@@ -34,13 +34,18 @@ fn sum_f64_inner(data: &[f64]) -> f64 {
     }
     acc0 = f64x2_add(acc0, acc1);
     let mut result = f64x2_extract_lane::<0>(acc0) + f64x2_extract_lane::<1>(acc0);
-    while i < len { result += data[i]; i += 1; }
+    while i < len {
+        result += data[i];
+        i += 1;
+    }
     result
 }
 
 fn max_f64_inner(data: &[f64]) -> f64 {
     let len = data.len();
-    if len == 0 { return f64::NEG_INFINITY; }
+    if len == 0 {
+        return f64::NEG_INFINITY;
+    }
     let init = f64x2_splat(data[0]);
     let mut acc0 = init;
     let mut acc1 = init;
@@ -64,13 +69,21 @@ fn max_f64_inner(data: &[f64]) -> f64 {
     let a = f64x2_extract_lane::<0>(acc0);
     let b = f64x2_extract_lane::<1>(acc0);
     let mut result = if a > b { a } else { b };
-    while i < len { let v = data[i]; if v > result { result = v; } i += 1; }
+    while i < len {
+        let v = data[i];
+        if v > result {
+            result = v;
+        }
+        i += 1;
+    }
     result
 }
 
 fn min_f64_inner(data: &[f64]) -> f64 {
     let len = data.len();
-    if len == 0 { return f64::INFINITY; }
+    if len == 0 {
+        return f64::INFINITY;
+    }
     let init = f64x2_splat(data[0]);
     let mut acc0 = init;
     let mut acc1 = init;
@@ -94,7 +107,13 @@ fn min_f64_inner(data: &[f64]) -> f64 {
     let a = f64x2_extract_lane::<0>(acc0);
     let b = f64x2_extract_lane::<1>(acc0);
     let mut result = if a < b { a } else { b };
-    while i < len { let v = data[i]; if v < result { result = v; } i += 1; }
+    while i < len {
+        let v = data[i];
+        if v < result {
+            result = v;
+        }
+        i += 1;
+    }
     result
 }
 
@@ -114,7 +133,10 @@ fn prod_f64_inner(data: &[f64]) -> f64 {
     }
     acc0 = f64x2_mul(acc0, acc1);
     let mut result = f64x2_extract_lane::<0>(acc0) * f64x2_extract_lane::<1>(acc0);
-    while i < len { result *= data[i]; i += 1; }
+    while i < len {
+        result *= data[i];
+        i += 1;
+    }
     result
 }
 
@@ -177,13 +199,18 @@ fn sum_f32_inner(data: &[f32]) -> f32 {
         + f32x4_extract_lane::<1>(acc0)
         + f32x4_extract_lane::<2>(acc0)
         + f32x4_extract_lane::<3>(acc0);
-    while i < len { result += data[i]; i += 1; }
+    while i < len {
+        result += data[i];
+        i += 1;
+    }
     result
 }
 
 fn max_f32_inner(data: &[f32]) -> f32 {
     let len = data.len();
-    if len == 0 { return f32::NEG_INFINITY; }
+    if len == 0 {
+        return f32::NEG_INFINITY;
+    }
     let init = f32x4_splat(data[0]);
     let mut acc0 = init;
     let mut acc1 = init;
@@ -208,16 +235,30 @@ fn max_f32_inner(data: &[f32]) -> f32 {
     let v1 = f32x4_extract_lane::<1>(acc0);
     let v2 = f32x4_extract_lane::<2>(acc0);
     let v3 = f32x4_extract_lane::<3>(acc0);
-    if v1 > result { result = v1; }
-    if v2 > result { result = v2; }
-    if v3 > result { result = v3; }
-    while i < len { let v = data[i]; if v > result { result = v; } i += 1; }
+    if v1 > result {
+        result = v1;
+    }
+    if v2 > result {
+        result = v2;
+    }
+    if v3 > result {
+        result = v3;
+    }
+    while i < len {
+        let v = data[i];
+        if v > result {
+            result = v;
+        }
+        i += 1;
+    }
     result
 }
 
 fn min_f32_inner(data: &[f32]) -> f32 {
     let len = data.len();
-    if len == 0 { return f32::INFINITY; }
+    if len == 0 {
+        return f32::INFINITY;
+    }
     let init = f32x4_splat(data[0]);
     let mut acc0 = init;
     let mut acc1 = init;
@@ -242,10 +283,22 @@ fn min_f32_inner(data: &[f32]) -> f32 {
     let v1 = f32x4_extract_lane::<1>(acc0);
     let v2 = f32x4_extract_lane::<2>(acc0);
     let v3 = f32x4_extract_lane::<3>(acc0);
-    if v1 < result { result = v1; }
-    if v2 < result { result = v2; }
-    if v3 < result { result = v3; }
-    while i < len { let v = data[i]; if v < result { result = v; } i += 1; }
+    if v1 < result {
+        result = v1;
+    }
+    if v2 < result {
+        result = v2;
+    }
+    if v3 < result {
+        result = v3;
+    }
+    while i < len {
+        let v = data[i];
+        if v < result {
+            result = v;
+        }
+        i += 1;
+    }
     result
 }
 
@@ -279,7 +332,10 @@ fn prod_f32_inner(data: &[f32]) -> f32 {
         * f32x4_extract_lane::<1>(acc0)
         * f32x4_extract_lane::<2>(acc0)
         * f32x4_extract_lane::<3>(acc0);
-    while i < len { result *= data[i]; i += 1; }
+    while i < len {
+        result *= data[i];
+        i += 1;
+    }
     result
 }
 
@@ -313,27 +369,43 @@ pub unsafe extern "C" fn mean_f32(ptr: *const f32, n: u32) -> f32 {
 // ─── nanmax: max ignoring NaN ───────────────────────────────────────────────
 
 fn nanmax_f64_inner(data: &[f64]) -> f64 {
-    if data.is_empty() { return f64::NEG_INFINITY; }
+    if data.is_empty() {
+        return f64::NEG_INFINITY;
+    }
     let mut start = 0;
-    while start < data.len() && data[start].is_nan() { start += 1; }
-    if start == data.len() { return data[0]; }
+    while start < data.len() && data[start].is_nan() {
+        start += 1;
+    }
+    if start == data.len() {
+        return data[0];
+    }
     let mut result = data[start];
     for i in (start + 1)..data.len() {
         let v = data[i];
-        if !v.is_nan() && v > result { result = v; }
+        if !v.is_nan() && v > result {
+            result = v;
+        }
     }
     result
 }
 
 fn nanmax_f32_inner(data: &[f32]) -> f32 {
-    if data.is_empty() { return f32::NEG_INFINITY; }
+    if data.is_empty() {
+        return f32::NEG_INFINITY;
+    }
     let mut start = 0;
-    while start < data.len() && data[start].is_nan() { start += 1; }
-    if start == data.len() { return data[0]; }
+    while start < data.len() && data[start].is_nan() {
+        start += 1;
+    }
+    if start == data.len() {
+        return data[0];
+    }
     let mut result = data[start];
     for i in (start + 1)..data.len() {
         let v = data[i];
-        if !v.is_nan() && v > result { result = v; }
+        if !v.is_nan() && v > result {
+            result = v;
+        }
     }
     result
 }
@@ -351,27 +423,43 @@ pub unsafe extern "C" fn nanmax_f32(ptr: *const f32, n: u32) -> f32 {
 // ─── nanmin: min ignoring NaN ───────────────────────────────────────────────
 
 fn nanmin_f64_inner(data: &[f64]) -> f64 {
-    if data.is_empty() { return f64::INFINITY; }
+    if data.is_empty() {
+        return f64::INFINITY;
+    }
     let mut start = 0;
-    while start < data.len() && data[start].is_nan() { start += 1; }
-    if start == data.len() { return data[0]; }
+    while start < data.len() && data[start].is_nan() {
+        start += 1;
+    }
+    if start == data.len() {
+        return data[0];
+    }
     let mut result = data[start];
     for i in (start + 1)..data.len() {
         let v = data[i];
-        if !v.is_nan() && v < result { result = v; }
+        if !v.is_nan() && v < result {
+            result = v;
+        }
     }
     result
 }
 
 fn nanmin_f32_inner(data: &[f32]) -> f32 {
-    if data.is_empty() { return f32::INFINITY; }
+    if data.is_empty() {
+        return f32::INFINITY;
+    }
     let mut start = 0;
-    while start < data.len() && data[start].is_nan() { start += 1; }
-    if start == data.len() { return data[0]; }
+    while start < data.len() && data[start].is_nan() {
+        start += 1;
+    }
+    if start == data.len() {
+        return data[0];
+    }
     let mut result = data[start];
     for i in (start + 1)..data.len() {
         let v = data[i];
-        if !v.is_nan() && v < result { result = v; }
+        if !v.is_nan() && v < result {
+            result = v;
+        }
     }
     result
 }
@@ -390,7 +478,9 @@ pub unsafe extern "C" fn nanmin_f32(ptr: *const f32, n: u32) -> f32 {
 
 fn diff_f64_inner(input: &[f64], output: &mut [f64]) {
     let len = input.len();
-    if len <= 1 { return; }
+    if len <= 1 {
+        return;
+    }
     let out_len = len - 1;
     let mut i = 0;
     while i + 2 <= out_len {
@@ -407,7 +497,9 @@ fn diff_f64_inner(input: &[f64], output: &mut [f64]) {
 
 fn diff_f32_inner(input: &[f32], output: &mut [f32]) {
     let len = input.len();
-    if len <= 1 { return; }
+    if len <= 1 {
+        return;
+    }
     let out_len = len - 1;
     let mut i = 0;
     while i + 4 <= out_len {
@@ -425,7 +517,9 @@ fn diff_f32_inner(input: &[f32], output: &mut [f32]) {
 #[no_mangle]
 pub unsafe extern "C" fn diff_f64(inp: *const f64, out: *mut f64, n: u32) {
     let len = n as usize;
-    if len <= 1 { return; }
+    if len <= 1 {
+        return;
+    }
     diff_f64_inner(
         core::slice::from_raw_parts(inp, len),
         core::slice::from_raw_parts_mut(out, len - 1),
@@ -435,7 +529,9 @@ pub unsafe extern "C" fn diff_f64(inp: *const f64, out: *mut f64, n: u32) {
 #[no_mangle]
 pub unsafe extern "C" fn diff_f32(inp: *const f32, out: *mut f32, n: u32) {
     let len = n as usize;
-    if len <= 1 { return; }
+    if len <= 1 {
+        return;
+    }
     diff_f32_inner(
         core::slice::from_raw_parts(inp, len),
         core::slice::from_raw_parts_mut(out, len - 1),
@@ -476,13 +572,18 @@ fn sum_i32_inner(data: &[i32]) -> i32 {
         .wrapping_add(i32x4_extract_lane::<1>(acc0))
         .wrapping_add(i32x4_extract_lane::<2>(acc0))
         .wrapping_add(i32x4_extract_lane::<3>(acc0));
-    while i < len { result = result.wrapping_add(data[i]); i += 1; }
+    while i < len {
+        result = result.wrapping_add(data[i]);
+        i += 1;
+    }
     result
 }
 
 fn max_i32_inner(data: &[i32]) -> i32 {
     let len = data.len();
-    if len == 0 { return i32::MIN; }
+    if len == 0 {
+        return i32::MIN;
+    }
     let init = i32x4_splat(data[0]);
     let mut acc0 = init;
     let mut acc1 = init;
@@ -507,16 +608,30 @@ fn max_i32_inner(data: &[i32]) -> i32 {
     let v1 = i32x4_extract_lane::<1>(acc0);
     let v2 = i32x4_extract_lane::<2>(acc0);
     let v3 = i32x4_extract_lane::<3>(acc0);
-    if v1 > result { result = v1; }
-    if v2 > result { result = v2; }
-    if v3 > result { result = v3; }
-    while i < len { let v = data[i]; if v > result { result = v; } i += 1; }
+    if v1 > result {
+        result = v1;
+    }
+    if v2 > result {
+        result = v2;
+    }
+    if v3 > result {
+        result = v3;
+    }
+    while i < len {
+        let v = data[i];
+        if v > result {
+            result = v;
+        }
+        i += 1;
+    }
     result
 }
 
 fn min_i32_inner(data: &[i32]) -> i32 {
     let len = data.len();
-    if len == 0 { return i32::MAX; }
+    if len == 0 {
+        return i32::MAX;
+    }
     let init = i32x4_splat(data[0]);
     let mut acc0 = init;
     let mut acc1 = init;
@@ -541,10 +656,22 @@ fn min_i32_inner(data: &[i32]) -> i32 {
     let v1 = i32x4_extract_lane::<1>(acc0);
     let v2 = i32x4_extract_lane::<2>(acc0);
     let v3 = i32x4_extract_lane::<3>(acc0);
-    if v1 < result { result = v1; }
-    if v2 < result { result = v2; }
-    if v3 < result { result = v3; }
-    while i < len { let v = data[i]; if v < result { result = v; } i += 1; }
+    if v1 < result {
+        result = v1;
+    }
+    if v2 < result {
+        result = v2;
+    }
+    if v3 < result {
+        result = v3;
+    }
+    while i < len {
+        let v = data[i];
+        if v < result {
+            result = v;
+        }
+        i += 1;
+    }
     result
 }
 
@@ -567,21 +694,35 @@ pub unsafe extern "C" fn min_i32(ptr: *const i32, n: u32) -> i32 {
 
 fn sum_i16_inner(data: &[i16]) -> i32 {
     let mut result: i32 = 0;
-    for &v in data { result = result.wrapping_add(v as i32); }
+    for &v in data {
+        result = result.wrapping_add(v as i32);
+    }
     result
 }
 
 fn max_i16_inner(data: &[i16]) -> i16 {
-    if data.is_empty() { return i16::MIN; }
+    if data.is_empty() {
+        return i16::MIN;
+    }
     let mut result = data[0];
-    for &v in &data[1..] { if v > result { result = v; } }
+    for &v in &data[1..] {
+        if v > result {
+            result = v;
+        }
+    }
     result
 }
 
 fn min_i16_inner(data: &[i16]) -> i16 {
-    if data.is_empty() { return i16::MAX; }
+    if data.is_empty() {
+        return i16::MAX;
+    }
     let mut result = data[0];
-    for &v in &data[1..] { if v < result { result = v; } }
+    for &v in &data[1..] {
+        if v < result {
+            result = v;
+        }
+    }
     result
 }
 
@@ -604,21 +745,35 @@ pub unsafe extern "C" fn min_i16(ptr: *const i16, n: u32) -> i16 {
 
 fn sum_i8_inner(data: &[i8]) -> i32 {
     let mut result: i32 = 0;
-    for &v in data { result = result.wrapping_add(v as i32); }
+    for &v in data {
+        result = result.wrapping_add(v as i32);
+    }
     result
 }
 
 fn max_i8_inner(data: &[i8]) -> i8 {
-    if data.is_empty() { return i8::MIN; }
+    if data.is_empty() {
+        return i8::MIN;
+    }
     let mut result = data[0];
-    for &v in &data[1..] { if v > result { result = v; } }
+    for &v in &data[1..] {
+        if v > result {
+            result = v;
+        }
+    }
     result
 }
 
 fn min_i8_inner(data: &[i8]) -> i8 {
-    if data.is_empty() { return i8::MAX; }
+    if data.is_empty() {
+        return i8::MAX;
+    }
     let mut result = data[0];
-    for &v in &data[1..] { if v < result { result = v; } }
+    for &v in &data[1..] {
+        if v < result {
+            result = v;
+        }
+    }
     result
 }
 

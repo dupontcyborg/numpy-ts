@@ -124,8 +124,11 @@ export fn tile_f32(inp: [*]const f32, out: [*]f32, n: u32, reps: u32) void {
 // Output is [(rows+2*pw) × (cols+2*pw)]
 
 export fn pad_f64(
-    inp: [*]const f64, out: [*]f64,
-    rows: u32, cols: u32, pw: u32,
+    inp: [*]const f64,
+    out: [*]f64,
+    rows: u32,
+    cols: u32,
+    pw: u32,
 ) void {
     const r = @as(usize, rows);
     const c = @as(usize, cols);
@@ -143,8 +146,11 @@ export fn pad_f64(
 }
 
 export fn pad_f32(
-    inp: [*]const f32, out: [*]f32,
-    rows: u32, cols: u32, pw: u32,
+    inp: [*]const f32,
+    out: [*]f32,
+    rows: u32,
+    cols: u32,
+    pw: u32,
 ) void {
     const r = @as(usize, rows);
     const c = @as(usize, cols);

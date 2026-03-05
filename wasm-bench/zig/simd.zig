@@ -69,7 +69,15 @@ pub inline fn store16_i8(ptr: [*]i8, i: usize, v: V16i8) void {
 // f64x2.gt + v128.bitselect (2 SIMD ops) instead of per-lane scalar calls.
 // NaN behavior doesn't matter here since callers wrap with their own NaN guards.
 
-pub inline fn max_f64x2(a: V2f64, b: V2f64) V2f64 { return @select(f64, a > b, a, b); }
-pub inline fn min_f64x2(a: V2f64, b: V2f64) V2f64 { return @select(f64, a < b, a, b); }
-pub inline fn max_f32x4(a: V4f32, b: V4f32) V4f32 { return @select(f32, a > b, a, b); }
-pub inline fn min_f32x4(a: V4f32, b: V4f32) V4f32 { return @select(f32, a < b, a, b); }
+pub inline fn max_f64x2(a: V2f64, b: V2f64) V2f64 {
+    return @select(f64, a > b, a, b);
+}
+pub inline fn min_f64x2(a: V2f64, b: V2f64) V2f64 {
+    return @select(f64, a < b, a, b);
+}
+pub inline fn max_f32x4(a: V4f32, b: V4f32) V4f32 {
+    return @select(f32, a > b, a, b);
+}
+pub inline fn min_f32x4(a: V4f32, b: V4f32) V4f32 {
+    return @select(f32, a < b, a, b);
+}

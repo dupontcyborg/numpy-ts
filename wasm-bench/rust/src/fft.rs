@@ -6,7 +6,9 @@ use libm::{cos, sin};
 
 fn next_pow2(n: usize) -> usize {
     let mut v = 1;
-    while v < n { v <<= 1; }
+    while v < n {
+        v <<= 1;
+    }
     v
 }
 
@@ -114,7 +116,9 @@ fn bluestein_fft(input: &[f64], output: &mut [f64], n: usize, inverse: bool, scr
     }
 
     // a[k] = input[k] * conj(chirp[k])
-    for v in a_pad[..p * 2].iter_mut() { *v = 0.0; }
+    for v in a_pad[..p * 2].iter_mut() {
+        *v = 0.0;
+    }
     for k in 0..n {
         let ir = input[2 * k];
         let ii = input[2 * k + 1];
@@ -125,7 +129,9 @@ fn bluestein_fft(input: &[f64], output: &mut [f64], n: usize, inverse: bool, scr
     }
 
     // b[0] = chirp[0], b[k] = b[P-k] = chirp[k]
-    for v in b_pad[..p * 2].iter_mut() { *v = 0.0; }
+    for v in b_pad[..p * 2].iter_mut() {
+        *v = 0.0;
+    }
     b_pad[0] = chirp[0];
     b_pad[1] = chirp[1];
     for k in 1..n {
@@ -171,7 +177,13 @@ fn bluestein_fft(input: &[f64], output: &mut [f64], n: usize, inverse: bool, scr
 // ─── rfft2: M×N real → M×(N/2+1) complex ──────────────────────────────────
 
 #[no_mangle]
-pub unsafe extern "C" fn rfft2_f64(inp: *const f64, out: *mut f64, scratch: *mut f64, m: u32, n: u32) {
+pub unsafe extern "C" fn rfft2_f64(
+    inp: *const f64,
+    out: *mut f64,
+    scratch: *mut f64,
+    m: u32,
+    n: u32,
+) {
     let rows = m as usize;
     let cols = n as usize;
     let half_n = cols / 2 + 1;
@@ -240,13 +252,15 @@ pub unsafe extern "C" fn fft_c64(inp: *const f32, out: *mut f32, scratch: *mut f
     let output = core::slice::from_raw_parts_mut(out, 2 * nn);
     let in_f64 = core::slice::from_raw_parts_mut(scratch, 2 * nn);
     let out_f64 = core::slice::from_raw_parts_mut(scratch.add(2 * nn), 2 * nn);
-    let fft_scratch = core::slice::from_raw_parts_mut(
-        scratch.add(4 * nn),
-        6 * next_pow2(2 * nn - 1),
-    );
-    for i in 0..2 * nn { in_f64[i] = input[i] as f64; }
+    let fft_scratch =
+        core::slice::from_raw_parts_mut(scratch.add(4 * nn), 6 * next_pow2(2 * nn - 1));
+    for i in 0..2 * nn {
+        in_f64[i] = input[i] as f64;
+    }
     bluestein_fft(in_f64, out_f64, nn, false, fft_scratch);
-    for i in 0..2 * nn { output[i] = out_f64[i] as f32; }
+    for i in 0..2 * nn {
+        output[i] = out_f64[i] as f32;
+    }
 }
 
 #[no_mangle]
@@ -256,19 +270,27 @@ pub unsafe extern "C" fn ifft_c64(inp: *const f32, out: *mut f32, scratch: *mut 
     let output = core::slice::from_raw_parts_mut(out, 2 * nn);
     let in_f64 = core::slice::from_raw_parts_mut(scratch, 2 * nn);
     let out_f64 = core::slice::from_raw_parts_mut(scratch.add(2 * nn), 2 * nn);
-    let fft_scratch = core::slice::from_raw_parts_mut(
-        scratch.add(4 * nn),
-        6 * next_pow2(2 * nn - 1),
-    );
-    for i in 0..2 * nn { in_f64[i] = input[i] as f64; }
+    let fft_scratch =
+        core::slice::from_raw_parts_mut(scratch.add(4 * nn), 6 * next_pow2(2 * nn - 1));
+    for i in 0..2 * nn {
+        in_f64[i] = input[i] as f64;
+    }
     bluestein_fft(in_f64, out_f64, nn, true, fft_scratch);
-    for i in 0..2 * nn { output[i] = out_f64[i] as f32; }
+    for i in 0..2 * nn {
+        output[i] = out_f64[i] as f32;
+    }
 }
 
 // ─── irfft2: M×(N/2+1) complex → M×N real ─────────────────────────────────
 
 #[no_mangle]
-pub unsafe extern "C" fn irfft2_f64(inp: *const f64, out: *mut f64, scratch: *mut f64, m: u32, n: u32) {
+pub unsafe extern "C" fn irfft2_f64(
+    inp: *const f64,
+    out: *mut f64,
+    scratch: *mut f64,
+    m: u32,
+    n: u32,
+) {
     let rows = m as usize;
     let cols = n as usize;
     let half_n = cols / 2 + 1;
@@ -277,7 +299,8 @@ pub unsafe extern "C" fn irfft2_f64(inp: *const f64, out: *mut f64, scratch: *mu
 
     let work = core::slice::from_raw_parts_mut(scratch, rows * half_n * 2);
     let full_row = core::slice::from_raw_parts_mut(scratch.add(rows * half_n * 2), 2 * cols);
-    let col_buf = core::slice::from_raw_parts_mut(scratch.add(rows * half_n * 2 + 2 * cols), 2 * rows);
+    let col_buf =
+        core::slice::from_raw_parts_mut(scratch.add(rows * half_n * 2 + 2 * cols), 2 * rows);
     let fft_scratch = core::slice::from_raw_parts_mut(
         scratch.add(rows * half_n * 2 + 2 * cols + 2 * rows),
         6 * next_pow2(2 * cols.max(rows) - 1),

@@ -3,22 +3,22 @@
 #[allow(dead_code)]
 mod simd;
 
-#[cfg(feature = "kern-reduction")]
-mod reduction;
-#[cfg(feature = "kern-unary")]
-mod unary;
-#[cfg(feature = "kern-binary")]
-mod binary;
-#[cfg(feature = "kern-sort")]
-mod sort;
-#[cfg(feature = "kern-convolve")]
-mod convolve;
-#[cfg(feature = "kern-linalg")]
-mod linalg;
 #[cfg(feature = "kern-arrayops")]
 mod arrayops;
+#[cfg(feature = "kern-binary")]
+mod binary;
+#[cfg(feature = "kern-convolve")]
+mod convolve;
 #[cfg(feature = "kern-fft")]
 mod fft;
+#[cfg(feature = "kern-linalg")]
+mod linalg;
+#[cfg(feature = "kern-reduction")]
+mod reduction;
+#[cfg(feature = "kern-sort")]
+mod sort;
+#[cfg(feature = "kern-unary")]
+mod unary;
 
 use core::panic::PanicInfo;
 
@@ -34,10 +34,12 @@ const TILE_F32: usize = 64;
 
 #[cfg(feature = "kern-matmul")]
 fn matmul_f64_inner(a: &[f64], b: &[f64], c: &mut [f64], m: usize, n: usize, k: usize) {
-    use core::arch::wasm32::*;
     use crate::simd::{load_f64x2, store_f64x2};
+    use core::arch::wasm32::*;
 
-    for v in c.iter_mut() { *v = 0.0; }
+    for v in c.iter_mut() {
+        *v = 0.0;
+    }
 
     let mut ii = 0;
     while ii < m {
@@ -101,10 +103,12 @@ pub unsafe extern "C" fn matmul_f64(
 
 #[cfg(feature = "kern-matmul")]
 fn matmul_f32_inner(a: &[f32], b: &[f32], c: &mut [f32], m: usize, n: usize, k: usize) {
-    use core::arch::wasm32::*;
     use crate::simd::{load_f32x4, store_f32x4};
+    use core::arch::wasm32::*;
 
-    for v in c.iter_mut() { *v = 0.0; }
+    for v in c.iter_mut() {
+        *v = 0.0;
+    }
 
     let mut ii = 0;
     while ii < m {

@@ -43,15 +43,31 @@ fn binaryV4_f32(a: [*]const f32, b: [*]const f32, out: [*]f32, n: u32, comptime 
 
 // ─── Arithmetic op implementations ─────────────────────────────────────────
 
-fn addOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return a + b; }
-fn subOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return a - b; }
-fn mulOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return a * b; }
-fn divOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return a / b; }
+fn addOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return a + b;
+}
+fn subOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return a - b;
+}
+fn mulOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return a * b;
+}
+fn divOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return a / b;
+}
 
-fn addOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return a + b; }
-fn subOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return a - b; }
-fn mulOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return a * b; }
-fn divOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return a / b; }
+fn addOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return a + b;
+}
+fn subOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return a - b;
+}
+fn mulOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return a * b;
+}
+fn divOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return a / b;
+}
 
 // ─── copysign: magnitude of a, sign of b ────────────────────────────────────
 
@@ -72,8 +88,12 @@ fn copysignOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
 
 // ─── power: a^b = exp(b * log(a)), requires positive a ──────────────────────
 
-fn powerOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return @exp(b * @log(a)); }
-fn powerOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return @exp(b * @log(a)); }
+fn powerOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return @exp(b * @log(a));
+}
+fn powerOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return @exp(b * @log(a));
+}
 
 // ─── maximum / minimum: propagates NaN (matches NumPy) ──────────────────────
 
@@ -125,8 +145,12 @@ fn fminOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
 
 // ─── logaddexp: log(exp(a) + exp(b)) ────────────────────────────────────────
 
-fn logaddexpOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return @log(@exp(a) + @exp(b)); }
-fn logaddexpOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return @log(@exp(a) + @exp(b)); }
+fn logaddexpOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return @log(@exp(a) + @exp(b));
+}
+fn logaddexpOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return @log(@exp(a) + @exp(b));
+}
 
 // Scalar logaddexp for better WASM performance (builtins scalarize poorly)
 fn logaddexpScalar_f64(av: f64, bv: f64) f64 {
@@ -169,42 +193,82 @@ fn logicalXorOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
 
 // ─── mod (floored remainder): a - floor(a/b) * b ────────────────────────
 
-fn modOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return a - @floor(a / b) * b; }
-fn modOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return a - @floor(a / b) * b; }
+fn modOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return a - @floor(a / b) * b;
+}
+fn modOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return a - @floor(a / b) * b;
+}
 
 // ─── floor_divide: floor(a / b) ─────────────────────────────────────────
 
-fn floorDivOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return @floor(a / b); }
-fn floorDivOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return @floor(a / b); }
+fn floorDivOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return @floor(a / b);
+}
+fn floorDivOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return @floor(a / b);
+}
 
 // ─── hypot: sqrt(a² + b²) ──────────────────────────────────────────────
 
-fn hypotOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 { return @sqrt(a * a + b * b); }
-fn hypotOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 { return @sqrt(a * a + b * b); }
+fn hypotOp_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    return @sqrt(a * a + b * b);
+}
+fn hypotOp_f32(a: simd.V4f32, b: simd.V4f32) simd.V4f32 {
+    return @sqrt(a * a + b * b);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ─── f64 arithmetic ──────
-export fn add_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, addOp_f64); }
-export fn sub_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, subOp_f64); }
-export fn mul_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, mulOp_f64); }
-export fn div_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, divOp_f64); }
+export fn add_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, addOp_f64);
+}
+export fn sub_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, subOp_f64);
+}
+export fn mul_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, mulOp_f64);
+}
+export fn div_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, divOp_f64);
+}
 
 // ─── f32 arithmetic ──────
-export fn add_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, addOp_f32); }
-export fn sub_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, subOp_f32); }
-export fn mul_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, mulOp_f32); }
-export fn div_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, divOp_f32); }
+export fn add_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, addOp_f32);
+}
+export fn sub_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, subOp_f32);
+}
+export fn mul_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, mulOp_f32);
+}
+export fn div_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, divOp_f32);
+}
 
 // ─── f64 new ops ─────────
-export fn copysign_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, copysignOp_f64); }
-export fn power_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, powerOp_f64); }
-export fn maximum_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, maximumOp_f64); }
-export fn minimum_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, minimumOp_f64); }
-export fn fmax_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, fmaxOp_f64); }
-export fn fmin_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, fminOp_f64); }
+export fn copysign_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, copysignOp_f64);
+}
+export fn power_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, powerOp_f64);
+}
+export fn maximum_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, maximumOp_f64);
+}
+export fn minimum_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, minimumOp_f64);
+}
+export fn fmax_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, fmaxOp_f64);
+}
+export fn fmin_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, fminOp_f64);
+}
 export fn logaddexp_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
     const len = @as(usize, n);
     var i: usize = 0;
@@ -218,16 +282,32 @@ export fn logaddexp_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) voi
         o[i] = logaddexpScalar_f64(a[i], b[i]);
     }
 }
-export fn logical_and_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, logicalAndOp_f64); }
-export fn logical_xor_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, logicalXorOp_f64); }
+export fn logical_and_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, logicalAndOp_f64);
+}
+export fn logical_xor_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, logicalXorOp_f64);
+}
 
 // ─── f32 new ops ─────────
-export fn copysign_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, copysignOp_f32); }
-export fn power_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, powerOp_f32); }
-export fn maximum_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, maximumOp_f32); }
-export fn minimum_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, minimumOp_f32); }
-export fn fmax_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, fmaxOp_f32); }
-export fn fmin_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, fminOp_f32); }
+export fn copysign_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, copysignOp_f32);
+}
+export fn power_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, powerOp_f32);
+}
+export fn maximum_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, maximumOp_f32);
+}
+export fn minimum_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, minimumOp_f32);
+}
+export fn fmax_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, fmaxOp_f32);
+}
+export fn fmin_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, fminOp_f32);
+}
 export fn logaddexp_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
     const len = @as(usize, n);
     var i: usize = 0;
@@ -241,18 +321,34 @@ export fn logaddexp_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) voi
         o[i] = logaddexpScalar_f32(a[i], b[i]);
     }
 }
-export fn logical_and_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, logicalAndOp_f32); }
-export fn logical_xor_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, logicalXorOp_f32); }
+export fn logical_and_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, logicalAndOp_f32);
+}
+export fn logical_xor_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, logicalXorOp_f32);
+}
 
 // ─── f64 new batch 2 ────
-export fn mod_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, modOp_f64); }
-export fn floor_divide_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, floorDivOp_f64); }
-export fn hypot_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void { binaryV2_f64(a, b, o, n, hypotOp_f64); }
+export fn mod_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, modOp_f64);
+}
+export fn floor_divide_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, floorDivOp_f64);
+}
+export fn hypot_f64(a: [*]const f64, b: [*]const f64, o: [*]f64, n: u32) void {
+    binaryV2_f64(a, b, o, n, hypotOp_f64);
+}
 
 // ─── f32 new batch 2 ────
-export fn mod_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, modOp_f32); }
-export fn floor_divide_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, floorDivOp_f32); }
-export fn hypot_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void { binaryV4_f32(a, b, o, n, hypotOp_f32); }
+export fn mod_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, modOp_f32);
+}
+export fn floor_divide_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, floorDivOp_f32);
+}
+export fn hypot_f32(a: [*]const f32, b: [*]const f32, o: [*]f32, n: u32) void {
+    binaryV4_f32(a, b, o, n, hypotOp_f32);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTEGER TYPES (i32, i16, i8) — wrapping arithmetic, SIMD
@@ -313,42 +409,96 @@ fn binaryV16_i8(a: [*]const i8, b: [*]const i8, out: [*]i8, n: u32, comptime op:
 
 // ─── Integer op implementations (wrapping) ───────────────────────────────
 
-fn addOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 { return a +% b; }
-fn subOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 { return a -% b; }
-fn mulOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 { return a *% b; }
-fn maxOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 { return @max(a, b); }
-fn minOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 { return @min(a, b); }
+fn addOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 {
+    return a +% b;
+}
+fn subOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 {
+    return a -% b;
+}
+fn mulOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 {
+    return a *% b;
+}
+fn maxOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 {
+    return @max(a, b);
+}
+fn minOp_i32(a: simd.V4i32, b: simd.V4i32) simd.V4i32 {
+    return @min(a, b);
+}
 
-fn addOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 { return a +% b; }
-fn subOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 { return a -% b; }
-fn mulOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 { return a *% b; }
-fn maxOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 { return @max(a, b); }
-fn minOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 { return @min(a, b); }
+fn addOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 {
+    return a +% b;
+}
+fn subOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 {
+    return a -% b;
+}
+fn mulOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 {
+    return a *% b;
+}
+fn maxOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 {
+    return @max(a, b);
+}
+fn minOp_i16(a: simd.V8i16, b: simd.V8i16) simd.V8i16 {
+    return @min(a, b);
+}
 
-fn addOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 { return a +% b; }
-fn subOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 { return a -% b; }
+fn addOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 {
+    return a +% b;
+}
+fn subOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 {
+    return a -% b;
+}
 // i8 mul: no WASM SIMD i8x16_mul, but Zig wrapping mul on vectors should emit scalar or widened code
-fn mulOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 { return a *% b; }
-fn maxOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 { return @max(a, b); }
-fn minOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 { return @min(a, b); }
+fn mulOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 {
+    return a *% b;
+}
+fn maxOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 {
+    return @max(a, b);
+}
+fn minOp_i8(a: simd.V16i8, b: simd.V16i8) simd.V16i8 {
+    return @min(a, b);
+}
 
 // ─── i32 exports ─────────
-export fn add_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void { binaryV4_i32(a, b, o, n, addOp_i32); }
-export fn sub_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void { binaryV4_i32(a, b, o, n, subOp_i32); }
-export fn mul_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void { binaryV4_i32(a, b, o, n, mulOp_i32); }
-export fn maximum_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void { binaryV4_i32(a, b, o, n, maxOp_i32); }
-export fn minimum_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void { binaryV4_i32(a, b, o, n, minOp_i32); }
+export fn add_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void {
+    binaryV4_i32(a, b, o, n, addOp_i32);
+}
+export fn sub_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void {
+    binaryV4_i32(a, b, o, n, subOp_i32);
+}
+export fn mul_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void {
+    binaryV4_i32(a, b, o, n, mulOp_i32);
+}
+export fn maximum_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void {
+    binaryV4_i32(a, b, o, n, maxOp_i32);
+}
+export fn minimum_i32(a: [*]const i32, b: [*]const i32, o: [*]i32, n: u32) void {
+    binaryV4_i32(a, b, o, n, minOp_i32);
+}
 
 // ─── i16 exports ─────────
-export fn add_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void { binaryV8_i16(a, b, o, n, addOp_i16); }
-export fn sub_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void { binaryV8_i16(a, b, o, n, subOp_i16); }
-export fn mul_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void { binaryV8_i16(a, b, o, n, mulOp_i16); }
-export fn maximum_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void { binaryV8_i16(a, b, o, n, maxOp_i16); }
-export fn minimum_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void { binaryV8_i16(a, b, o, n, minOp_i16); }
+export fn add_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void {
+    binaryV8_i16(a, b, o, n, addOp_i16);
+}
+export fn sub_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void {
+    binaryV8_i16(a, b, o, n, subOp_i16);
+}
+export fn mul_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void {
+    binaryV8_i16(a, b, o, n, mulOp_i16);
+}
+export fn maximum_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void {
+    binaryV8_i16(a, b, o, n, maxOp_i16);
+}
+export fn minimum_i16(a: [*]const i16, b: [*]const i16, o: [*]i16, n: u32) void {
+    binaryV8_i16(a, b, o, n, minOp_i16);
+}
 
 // ─── i8 exports ──────────
-export fn add_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void { binaryV16_i8(a, b, o, n, addOp_i8); }
-export fn sub_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void { binaryV16_i8(a, b, o, n, subOp_i8); }
+export fn add_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void {
+    binaryV16_i8(a, b, o, n, addOp_i8);
+}
+export fn sub_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void {
+    binaryV16_i8(a, b, o, n, subOp_i8);
+}
 export fn mul_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void {
     // Scalar fallback — no WASM SIMD i8x16_mul
     const len = @as(usize, n);
@@ -357,8 +507,12 @@ export fn mul_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void {
         o[i] = a[i] *% b[i];
     }
 }
-export fn maximum_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void { binaryV16_i8(a, b, o, n, maxOp_i8); }
-export fn minimum_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void { binaryV16_i8(a, b, o, n, minOp_i8); }
+export fn maximum_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void {
+    binaryV16_i8(a, b, o, n, maxOp_i8);
+}
+export fn minimum_i8(a: [*]const i8, b: [*]const i8, o: [*]i8, n: u32) void {
+    binaryV16_i8(a, b, o, n, minOp_i8);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COMPLEX TYPES (c128 = interleaved f64, c64 = interleaved f32)

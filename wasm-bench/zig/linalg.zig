@@ -208,8 +208,13 @@ export fn outer_f32(a: [*]const f32, b: [*]const f32, out: [*]f32, m: u32, n: u3
 // ─── kron: Kronecker product A[am×an] ⊗ B[bm×bn] → out[(am*bm)×(an*bn)] ──
 
 export fn kron_f64(
-    a: [*]const f64, b: [*]const f64, out: [*]f64,
-    am: u32, an: u32, bm: u32, bn: u32,
+    a: [*]const f64,
+    b: [*]const f64,
+    out: [*]f64,
+    am: u32,
+    an: u32,
+    bm: u32,
+    bn: u32,
 ) void {
     const a_rows = @as(usize, am);
     const a_cols = @as(usize, an);
@@ -236,8 +241,13 @@ export fn kron_f64(
 }
 
 export fn kron_f32(
-    a: [*]const f32, b: [*]const f32, out: [*]f32,
-    am: u32, an: u32, bm: u32, bn: u32,
+    a: [*]const f32,
+    b: [*]const f32,
+    out: [*]f32,
+    am: u32,
+    an: u32,
+    bm: u32,
+    bn: u32,
 ) void {
     const a_rows = @as(usize, am);
     const a_cols = @as(usize, an);

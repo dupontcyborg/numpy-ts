@@ -12,7 +12,10 @@
     "bench:bun": "npm run build:wasm && bun run harness/bench.ts",
     "bench:view": "open results/latest.html",
     "bench:view:deno": "open results/latest-deno.html",
-    "bench:view:bun": "open results/latest-bun.html"
+    "bench:view:bun": "open results/latest-bun.html",
+    "fmt": "cd rust && cargo fmt && cd ../zig && zig fmt *.zig",
+    "fmt:check": "cd rust && cargo fmt -- --check && cd ../zig && zig fmt --check *.zig",
+    "lint": "cd rust && cargo clippy --target wasm32-unknown-unknown"
   },
   "devDependencies": {
     "tsx": "^4.20.6",

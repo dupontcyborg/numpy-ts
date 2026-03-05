@@ -2,8 +2,8 @@
 // SIMD-native: sqrt, abs, neg, ceil, floor (WASM opcodes)
 // Libm: exp, log, sin, cos (no SIMD equivalent)
 
+use crate::simd::{load_f32x4, load_f64x2, store_f32x4, store_f64x2};
 use core::arch::wasm32::*;
-use crate::simd::{load_f64x2, store_f64x2, load_f32x4, store_f32x4};
 
 // ─── SIMD macros — safe inner + thin unsafe FFI wrapper ─────────────────────
 
@@ -11,7 +11,6 @@ macro_rules! unary_simd_f64 {
     ($name:ident, $op:expr) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(inp: *const f64, out: *mut f64, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(input: &[f64], output: &mut [f64]) {
                 let len = input.len();
@@ -34,7 +33,7 @@ macro_rules! unary_simd_f64 {
                     i += 1;
                 }
             }
-                        
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -49,7 +48,6 @@ macro_rules! unary_simd_f32 {
     ($name:ident, $op:expr) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(inp: *const f32, out: *mut f32, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(input: &[f32], output: &mut [f32]) {
                 let len = input.len();
@@ -76,7 +74,7 @@ macro_rules! unary_simd_f32 {
                     i += 1;
                 }
             }
-                        
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -93,12 +91,13 @@ macro_rules! unary_libm_f64 {
     ($name:ident, $op:path) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(inp: *const f64, out: *mut f64, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(input: &[f64], output: &mut [f64]) {
-                for i in 0..input.len() { output[i] = $op(input[i]); }
+                for i in 0..input.len() {
+                    output[i] = $op(input[i]);
+                }
             }
-                        
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -113,12 +112,13 @@ macro_rules! unary_libm_f32 {
     ($name:ident, $op:path) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(inp: *const f32, out: *mut f32, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(input: &[f32], output: &mut [f32]) {
-                for i in 0..input.len() { output[i] = $op(input[i]); }
+                for i in 0..input.len() {
+                    output[i] = $op(input[i]);
+                }
             }
-                        
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -194,7 +194,11 @@ fn signbit_f64_inner(input: &[f64], output: &mut [f64]) {
         i += 2;
     }
     while i < len {
-        output[i] = if input[i].to_bits() >> 63 != 0 { 1.0 } else { 0.0 };
+        output[i] = if input[i].to_bits() >> 63 != 0 {
+            1.0
+        } else {
+            0.0
+        };
         i += 1;
     }
 }
@@ -213,7 +217,11 @@ fn signbit_f32_inner(input: &[f32], output: &mut [f32]) {
         i += 4;
     }
     while i < len {
-        output[i] = if input[i].to_bits() >> 31 != 0 { 1.0 } else { 0.0 };
+        output[i] = if input[i].to_bits() >> 31 != 0 {
+            1.0
+        } else {
+            0.0
+        };
         i += 1;
     }
 }
@@ -246,9 +254,9 @@ fn abs_c128_inner(input: &[f64], output: &mut [f64]) {
     // Process 2 complex numbers at a time using f64x2 SIMD
     while i + 2 <= n {
         // Load [re0, im0] and [re1, im1]
-        let v0 = load_f64x2(input, 2 * i);     // [re0, im0]
+        let v0 = load_f64x2(input, 2 * i); // [re0, im0]
         let v1 = load_f64x2(input, 2 * i + 2); // [re1, im1]
-        // Square: [re0², im0²], [re1², im1²]
+                                               // Square: [re0², im0²], [re1², im1²]
         let sq0 = f64x2_mul(v0, v0);
         let sq1 = f64x2_mul(v1, v1);
         // Sum re²+im² for each: extract and add
@@ -274,12 +282,12 @@ fn abs_c64_inner(input: &[f32], output: &mut [f32]) {
     // Process 4 complex numbers at a time using f32x4 SIMD
     while i + 4 <= n {
         // Load 4 complex pairs = 8 f32s
-        let v0 = load_f32x4(input, 2 * i);     // [re0, im0, re1, im1]
+        let v0 = load_f32x4(input, 2 * i); // [re0, im0, re1, im1]
         let v1 = load_f32x4(input, 2 * i + 4); // [re2, im2, re3, im3]
-        // Square all
+                                               // Square all
         let sq0 = f32x4_mul(v0, v0); // [re0², im0², re1², im1²]
         let sq1 = f32x4_mul(v1, v1); // [re2², im2², re3², im3²]
-        // Sum adjacent pairs: re²+im² for each complex number
+                                     // Sum adjacent pairs: re²+im² for each complex number
         let mag0 = f32x4_extract_lane::<0>(sq0) + f32x4_extract_lane::<1>(sq0);
         let mag1 = f32x4_extract_lane::<2>(sq0) + f32x4_extract_lane::<3>(sq0);
         let mag2 = f32x4_extract_lane::<0>(sq1) + f32x4_extract_lane::<1>(sq1);

@@ -1,8 +1,11 @@
 // Binary elementwise kernels for f32/f64
 // Explicit WASM SIMD intrinsics
 
+use crate::simd::{
+    load_f32x4, load_f64x2, load_i16x8, load_i32x4, load_i8x16, store_f32x4, store_f64x2,
+    store_i16x8, store_i32x4, store_i8x16,
+};
 use core::arch::wasm32::*;
-use crate::simd::{load_f64x2, store_f64x2, load_f32x4, store_f32x4, load_i32x4, store_i32x4, load_i16x8, store_i16x8, load_i8x16, store_i8x16};
 
 // ─── Macros — safe inner fn + thin unsafe FFI wrapper ───────────────────────
 
@@ -10,7 +13,6 @@ macro_rules! binary_simd_f64 {
     ($name:ident, $op:expr) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(a: *const f64, b: *const f64, out: *mut f64, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(sa: &[f64], sb: &[f64], so: &mut [f64]) {
                 let len = sa.len();
@@ -49,7 +51,6 @@ macro_rules! binary_simd_f32 {
     ($name:ident, $op:expr) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(a: *const f32, b: *const f32, out: *mut f32, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(sa: &[f32], sb: &[f32], so: &mut [f32]) {
                 let len = sa.len();
@@ -72,7 +73,7 @@ macro_rules! binary_simd_f32 {
                     i += 1;
                 }
             }
-            
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -157,8 +158,12 @@ binary_simd_f32!(mod_f32, mod_v128_f32);
 
 // ─── floor_divide: floor(a / b) ─────────────────────────────────────────
 
-fn floor_divide_v128_f64(a: v128, b: v128) -> v128 { f64x2_floor(f64x2_div(a, b)) }
-fn floor_divide_v128_f32(a: v128, b: v128) -> v128 { f32x4_floor(f32x4_div(a, b)) }
+fn floor_divide_v128_f64(a: v128, b: v128) -> v128 {
+    f64x2_floor(f64x2_div(a, b))
+}
+fn floor_divide_v128_f32(a: v128, b: v128) -> v128 {
+    f32x4_floor(f32x4_div(a, b))
+}
 binary_simd_f64!(floor_divide_f64, floor_divide_v128_f64);
 binary_simd_f32!(floor_divide_f32, floor_divide_v128_f32);
 
@@ -212,7 +217,10 @@ fn power_f64_inner(sa: &[f64], sb: &[f64], so: &mut [f64]) {
         so[i + 3] = libm::pow(sa[i + 3], sb[i + 3]);
         i += 4;
     }
-    while i < len { so[i] = libm::pow(sa[i], sb[i]); i += 1; }
+    while i < len {
+        so[i] = libm::pow(sa[i], sb[i]);
+        i += 1;
+    }
 }
 fn power_f32_inner(sa: &[f32], sb: &[f32], so: &mut [f32]) {
     let len = sa.len();
@@ -224,7 +232,10 @@ fn power_f32_inner(sa: &[f32], sb: &[f32], so: &mut [f32]) {
         so[i + 3] = libm::powf(sa[i + 3], sb[i + 3]);
         i += 4;
     }
-    while i < len { so[i] = libm::powf(sa[i], sb[i]); i += 1; }
+    while i < len {
+        so[i] = libm::powf(sa[i], sb[i]);
+        i += 1;
+    }
 }
 
 #[no_mangle]
@@ -249,10 +260,14 @@ pub unsafe extern "C" fn power_f32(a: *const f32, b: *const f32, out: *mut f32, 
 // ─── logaddexp: log(exp(a) + exp(b)) (scalar, uses libm) ───────────────────
 
 fn logaddexp_f64_inner(sa: &[f64], sb: &[f64], so: &mut [f64]) {
-    for i in 0..sa.len() { so[i] = libm::log(libm::exp(sa[i]) + libm::exp(sb[i])); }
+    for i in 0..sa.len() {
+        so[i] = libm::log(libm::exp(sa[i]) + libm::exp(sb[i]));
+    }
 }
 fn logaddexp_f32_inner(sa: &[f32], sb: &[f32], so: &mut [f32]) {
-    for i in 0..sa.len() { so[i] = libm::logf(libm::expf(sa[i]) + libm::expf(sb[i])); }
+    for i in 0..sa.len() {
+        so[i] = libm::logf(libm::expf(sa[i]) + libm::expf(sb[i]));
+    }
 }
 
 #[no_mangle]
@@ -282,7 +297,6 @@ macro_rules! binary_simd_i32 {
     ($name:ident, $op:expr) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(a: *const i32, b: *const i32, out: *mut i32, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(sa: &[i32], sb: &[i32], so: &mut [i32]) {
                 let len = sa.len();
@@ -301,7 +315,7 @@ macro_rules! binary_simd_i32 {
                     i += 1;
                 }
             }
-                        
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -317,7 +331,6 @@ macro_rules! binary_simd_i16 {
     ($name:ident, $op:expr) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(a: *const i16, b: *const i16, out: *mut i16, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(sa: &[i16], sb: &[i16], so: &mut [i16]) {
                 let len = sa.len();
@@ -336,7 +349,7 @@ macro_rules! binary_simd_i16 {
                     i += 1;
                 }
             }
-                        
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -352,14 +365,17 @@ macro_rules! binary_simd_i8 {
     ($name:ident, $op:expr) => {
         #[no_mangle]
         pub unsafe extern "C" fn $name(a: *const i8, b: *const i8, out: *mut i8, n: u32) {
-
             // Safe inner function that operates on slices, so we can use safe indexing and iterators.
             fn inner(sa: &[i8], sb: &[i8], so: &mut [i8]) {
                 let len = sa.len();
                 let mut i = 0;
                 while i + 32 <= len {
                     store_i8x16(so, i, $op(load_i8x16(sa, i), load_i8x16(sb, i)));
-                    store_i8x16(so, i + 16, $op(load_i8x16(sa, i + 16), load_i8x16(sb, i + 16)));
+                    store_i8x16(
+                        so,
+                        i + 16,
+                        $op(load_i8x16(sa, i + 16), load_i8x16(sb, i + 16)),
+                    );
                     i += 32;
                 }
                 while i + 16 <= len {
@@ -371,7 +387,7 @@ macro_rules! binary_simd_i8 {
                     i += 1;
                 }
             }
-                        
+
             // Call the inner function with slices; unsafe only for dereferencing & slice creation
             let len = n as usize;
             inner(
@@ -405,7 +421,9 @@ binary_simd_i8!(minimum_i8, i8x16_min);
 
 // mul_i8: scalar fallback
 fn mul_i8_inner(sa: &[i8], sb: &[i8], so: &mut [i8]) {
-    for i in 0..sa.len() { so[i] = sa[i].wrapping_mul(sb[i]); }
+    for i in 0..sa.len() {
+        so[i] = sa[i].wrapping_mul(sb[i]);
+    }
 }
 
 #[no_mangle]

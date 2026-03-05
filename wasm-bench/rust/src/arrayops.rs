@@ -1,7 +1,7 @@
 // Array operation kernels: roll, flip, tile, pad, take, gradient
 
+use crate::simd::{load_f32x4, load_f64x2, store_f32x4, store_f64x2};
 use core::arch::wasm32::*;
-use crate::simd::{load_f64x2, store_f64x2, load_f32x4, store_f32x4};
 
 // ─── SIMD copy/zero helpers (safe, slice-based) ─────────────────────────────
 
@@ -16,7 +16,10 @@ fn simd_copy_f64(dst: &mut [f64], dst_off: usize, src: &[f64], src_off: usize, n
         store_f64x2(dst, dst_off + i, load_f64x2(src, src_off + i));
         i += 2;
     }
-    while i < n { dst[dst_off + i] = src[src_off + i]; i += 1; }
+    while i < n {
+        dst[dst_off + i] = src[src_off + i];
+        i += 1;
+    }
 }
 
 fn simd_copy_f32(dst: &mut [f32], dst_off: usize, src: &[f32], src_off: usize, n: usize) {
@@ -30,21 +33,36 @@ fn simd_copy_f32(dst: &mut [f32], dst_off: usize, src: &[f32], src_off: usize, n
         store_f32x4(dst, dst_off + i, load_f32x4(src, src_off + i));
         i += 4;
     }
-    while i < n { dst[dst_off + i] = src[src_off + i]; i += 1; }
+    while i < n {
+        dst[dst_off + i] = src[src_off + i];
+        i += 1;
+    }
 }
 
 fn simd_zero_f64(dst: &mut [f64], off: usize, n: usize) {
     let zero = f64x2_splat(0.0);
     let mut i = 0;
-    while i + 2 <= n { store_f64x2(dst, off + i, zero); i += 2; }
-    while i < n { dst[off + i] = 0.0; i += 1; }
+    while i + 2 <= n {
+        store_f64x2(dst, off + i, zero);
+        i += 2;
+    }
+    while i < n {
+        dst[off + i] = 0.0;
+        i += 1;
+    }
 }
 
 fn simd_zero_f32(dst: &mut [f32], off: usize, n: usize) {
     let zero = f32x4_splat(0.0);
     let mut i = 0;
-    while i + 4 <= n { store_f32x4(dst, off + i, zero); i += 4; }
-    while i < n { dst[off + i] = 0.0; i += 1; }
+    while i + 4 <= n {
+        store_f32x4(dst, off + i, zero);
+        i += 4;
+    }
+    while i < n {
+        dst[off + i] = 0.0;
+        i += 1;
+    }
 }
 
 // ─── roll: circular shift ───────────────────────────────────────────────────
@@ -52,11 +70,16 @@ fn simd_zero_f32(dst: &mut [f32], off: usize, n: usize) {
 #[no_mangle]
 pub unsafe extern "C" fn roll_f64(inp: *const f64, out: *mut f64, n: u32, shift: i32) {
     let len = n as usize;
-    if len == 0 { return; }
+    if len == 0 {
+        return;
+    }
     let input = core::slice::from_raw_parts(inp, len);
     let output = core::slice::from_raw_parts_mut(out, len);
     let s = ((shift as i64).rem_euclid(len as i64)) as usize;
-    if s == 0 { simd_copy_f64(output, 0, input, 0, len); return; }
+    if s == 0 {
+        simd_copy_f64(output, 0, input, 0, len);
+        return;
+    }
     simd_copy_f64(output, 0, input, len - s, s);
     simd_copy_f64(output, s, input, 0, len - s);
 }
@@ -64,11 +87,16 @@ pub unsafe extern "C" fn roll_f64(inp: *const f64, out: *mut f64, n: u32, shift:
 #[no_mangle]
 pub unsafe extern "C" fn roll_f32(inp: *const f32, out: *mut f32, n: u32, shift: i32) {
     let len = n as usize;
-    if len == 0 { return; }
+    if len == 0 {
+        return;
+    }
     let input = core::slice::from_raw_parts(inp, len);
     let output = core::slice::from_raw_parts_mut(out, len);
     let s = ((shift as i64).rem_euclid(len as i64)) as usize;
-    if s == 0 { simd_copy_f32(output, 0, input, 0, len); return; }
+    if s == 0 {
+        simd_copy_f32(output, 0, input, 0, len);
+        return;
+    }
     simd_copy_f32(output, 0, input, len - s, s);
     simd_copy_f32(output, s, input, 0, len - s);
 }
@@ -80,7 +108,9 @@ pub unsafe extern "C" fn flip_f64(inp: *const f64, out: *mut f64, n: u32) {
     let len = n as usize;
     let input = core::slice::from_raw_parts(inp, len);
     let output = core::slice::from_raw_parts_mut(out, len);
-    for i in 0..len { output[i] = input[len - 1 - i]; }
+    for i in 0..len {
+        output[i] = input[len - 1 - i];
+    }
 }
 
 #[no_mangle]
@@ -88,7 +118,9 @@ pub unsafe extern "C" fn flip_f32(inp: *const f32, out: *mut f32, n: u32) {
     let len = n as usize;
     let input = core::slice::from_raw_parts(inp, len);
     let output = core::slice::from_raw_parts_mut(out, len);
-    for i in 0..len { output[i] = input[len - 1 - i]; }
+    for i in 0..len {
+        output[i] = input[len - 1 - i];
+    }
 }
 
 // ─── tile: repeat array ─────────────────────────────────────────────────────
@@ -116,9 +148,7 @@ pub unsafe extern "C" fn tile_f32(inp: *const f32, out: *mut f32, n: u32, reps: 
 // ─── pad: zero-pad 2D array ─────────────────────────────────────────────────
 
 #[no_mangle]
-pub unsafe extern "C" fn pad_f64(
-    inp: *const f64, out: *mut f64, rows: u32, cols: u32, pw: u32,
-) {
+pub unsafe extern "C" fn pad_f64(inp: *const f64, out: *mut f64, rows: u32, cols: u32, pw: u32) {
     let (r, c, p) = (rows as usize, cols as usize, pw as usize);
     let out_cols = c + 2 * p;
     let input = core::slice::from_raw_parts(inp, r * c);
@@ -130,9 +160,7 @@ pub unsafe extern "C" fn pad_f64(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn pad_f32(
-    inp: *const f32, out: *mut f32, rows: u32, cols: u32, pw: u32,
-) {
+pub unsafe extern "C" fn pad_f32(inp: *const f32, out: *mut f32, rows: u32, cols: u32, pw: u32) {
     let (r, c, p) = (rows as usize, cols as usize, pw as usize);
     let out_cols = c + 2 * p;
     let input = core::slice::from_raw_parts(inp, r * c);
@@ -171,10 +199,14 @@ pub unsafe extern "C" fn take_f32(data: *const f32, indices: *const u32, out: *m
 
 fn gradient_f64_inner(input: &[f64], output: &mut [f64]) {
     let len = input.len();
-    if len < 2 { return; }
+    if len < 2 {
+        return;
+    }
     output[0] = input[1] - input[0];
     output[len - 1] = input[len - 1] - input[len - 2];
-    if len <= 2 { return; }
+    if len <= 2 {
+        return;
+    }
     let half = f64x2_splat(0.5);
     let mut i = 1;
     while i + 2 < len {
@@ -191,10 +223,14 @@ fn gradient_f64_inner(input: &[f64], output: &mut [f64]) {
 
 fn gradient_f32_inner(input: &[f32], output: &mut [f32]) {
     let len = input.len();
-    if len < 2 { return; }
+    if len < 2 {
+        return;
+    }
     output[0] = input[1] - input[0];
     output[len - 1] = input[len - 1] - input[len - 2];
-    if len <= 2 { return; }
+    if len <= 2 {
+        return;
+    }
     let half = f32x4_splat(0.5);
     let mut i = 1;
     while i + 4 < len {

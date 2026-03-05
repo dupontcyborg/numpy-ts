@@ -1,7 +1,7 @@
 // Linear algebra kernels: matvec, vecmat, vecdot, outer, kron, cross, norm
 
+use crate::simd::{load_f32x4, load_f64x2, store_f32x4, store_f64x2};
 use core::arch::wasm32::*;
-use crate::simd::{load_f64x2, store_f64x2, load_f32x4, store_f32x4};
 
 // ─── matvec: A[m×n] · x[n] → out[m] ────────────────────────────────────────
 
@@ -12,26 +12,29 @@ fn matvec_f64_inner(a: &[f64], x: &[f64], out: &mut [f64], rows: usize, cols: us
         let mut acc1 = f64x2_splat(0.0);
         let mut j = 0;
         while j + 4 <= cols {
-            acc0 = f64x2_add(acc0, f64x2_mul(
-                load_f64x2(a, row_off + j),
-                load_f64x2(x, j),
-            ));
-            acc1 = f64x2_add(acc1, f64x2_mul(
-                load_f64x2(a, row_off + j + 2),
-                load_f64x2(x, j + 2),
-            ));
+            acc0 = f64x2_add(
+                acc0,
+                f64x2_mul(load_f64x2(a, row_off + j), load_f64x2(x, j)),
+            );
+            acc1 = f64x2_add(
+                acc1,
+                f64x2_mul(load_f64x2(a, row_off + j + 2), load_f64x2(x, j + 2)),
+            );
             j += 4;
         }
         while j + 2 <= cols {
-            acc0 = f64x2_add(acc0, f64x2_mul(
-                load_f64x2(a, row_off + j),
-                load_f64x2(x, j),
-            ));
+            acc0 = f64x2_add(
+                acc0,
+                f64x2_mul(load_f64x2(a, row_off + j), load_f64x2(x, j)),
+            );
             j += 2;
         }
         acc0 = f64x2_add(acc0, acc1);
         let mut sum = f64x2_extract_lane::<0>(acc0) + f64x2_extract_lane::<1>(acc0);
-        while j < cols { sum += a[row_off + j] * x[j]; j += 1; }
+        while j < cols {
+            sum += a[row_off + j] * x[j];
+            j += 1;
+        }
         out[i] = sum;
     }
 }
@@ -43,18 +46,32 @@ fn matvec_f32_inner(a: &[f32], x: &[f32], out: &mut [f32], rows: usize, cols: us
         let mut acc1 = f32x4_splat(0.0);
         let mut j = 0;
         while j + 8 <= cols {
-            acc0 = f32x4_add(acc0, f32x4_mul(load_f32x4(a, row_off + j), load_f32x4(x, j)));
-            acc1 = f32x4_add(acc1, f32x4_mul(load_f32x4(a, row_off + j + 4), load_f32x4(x, j + 4)));
+            acc0 = f32x4_add(
+                acc0,
+                f32x4_mul(load_f32x4(a, row_off + j), load_f32x4(x, j)),
+            );
+            acc1 = f32x4_add(
+                acc1,
+                f32x4_mul(load_f32x4(a, row_off + j + 4), load_f32x4(x, j + 4)),
+            );
             j += 8;
         }
         while j + 4 <= cols {
-            acc0 = f32x4_add(acc0, f32x4_mul(load_f32x4(a, row_off + j), load_f32x4(x, j)));
+            acc0 = f32x4_add(
+                acc0,
+                f32x4_mul(load_f32x4(a, row_off + j), load_f32x4(x, j)),
+            );
             j += 4;
         }
         acc0 = f32x4_add(acc0, acc1);
-        let mut sum = f32x4_extract_lane::<0>(acc0) + f32x4_extract_lane::<1>(acc0)
-            + f32x4_extract_lane::<2>(acc0) + f32x4_extract_lane::<3>(acc0);
-        while j < cols { sum += a[row_off + j] * x[j]; j += 1; }
+        let mut sum = f32x4_extract_lane::<0>(acc0)
+            + f32x4_extract_lane::<1>(acc0)
+            + f32x4_extract_lane::<2>(acc0)
+            + f32x4_extract_lane::<3>(acc0);
+        while j < cols {
+            sum += a[row_off + j] * x[j];
+            j += 1;
+        }
         out[i] = sum;
     }
 }
@@ -66,7 +83,8 @@ pub unsafe extern "C" fn matvec_f64(a: *const f64, x: *const f64, out: *mut f64,
         core::slice::from_raw_parts(a, rows * cols),
         core::slice::from_raw_parts(x, cols),
         core::slice::from_raw_parts_mut(out, rows),
-        rows, cols,
+        rows,
+        cols,
     );
 }
 
@@ -77,7 +95,8 @@ pub unsafe extern "C" fn matvec_f32(a: *const f32, x: *const f32, out: *mut f32,
         core::slice::from_raw_parts(a, rows * cols),
         core::slice::from_raw_parts(x, cols),
         core::slice::from_raw_parts_mut(out, rows),
-        rows, cols,
+        rows,
+        cols,
     );
 }
 
@@ -90,31 +109,49 @@ fn vecmat_f64_inner(x: &[f64], a: &[f64], out: &mut [f64], rows: usize, cols: us
         store_f64x2(out, j, f64x2_splat(0.0));
         j += 2;
     }
-    while j < cols { out[j] = 0.0; j += 1; }
+    while j < cols {
+        out[j] = 0.0;
+        j += 1;
+    }
     // Accumulate
     for i in 0..rows {
         let xi = f64x2_splat(x[i]);
         let row_off = i * cols;
         j = 0;
         while j + 4 <= cols {
-            store_f64x2(out, j, f64x2_add(
-                load_f64x2(out, j),
-                f64x2_mul(xi, load_f64x2(a, row_off + j)),
-            ));
-            store_f64x2(out, j + 2, f64x2_add(
-                load_f64x2(out, j + 2),
-                f64x2_mul(xi, load_f64x2(a, row_off + j + 2)),
-            ));
+            store_f64x2(
+                out,
+                j,
+                f64x2_add(
+                    load_f64x2(out, j),
+                    f64x2_mul(xi, load_f64x2(a, row_off + j)),
+                ),
+            );
+            store_f64x2(
+                out,
+                j + 2,
+                f64x2_add(
+                    load_f64x2(out, j + 2),
+                    f64x2_mul(xi, load_f64x2(a, row_off + j + 2)),
+                ),
+            );
             j += 4;
         }
         while j + 2 <= cols {
-            store_f64x2(out, j, f64x2_add(
-                load_f64x2(out, j),
-                f64x2_mul(xi, load_f64x2(a, row_off + j)),
-            ));
+            store_f64x2(
+                out,
+                j,
+                f64x2_add(
+                    load_f64x2(out, j),
+                    f64x2_mul(xi, load_f64x2(a, row_off + j)),
+                ),
+            );
             j += 2;
         }
-        while j < cols { out[j] += x[i] * a[row_off + j]; j += 1; }
+        while j < cols {
+            out[j] += x[i] * a[row_off + j];
+            j += 1;
+        }
     }
 }
 
@@ -124,30 +161,48 @@ fn vecmat_f32_inner(x: &[f32], a: &[f32], out: &mut [f32], rows: usize, cols: us
         store_f32x4(out, j, f32x4_splat(0.0));
         j += 4;
     }
-    while j < cols { out[j] = 0.0; j += 1; }
+    while j < cols {
+        out[j] = 0.0;
+        j += 1;
+    }
     for i in 0..rows {
         let xi = f32x4_splat(x[i]);
         let row_off = i * cols;
         j = 0;
         while j + 8 <= cols {
-            store_f32x4(out, j, f32x4_add(
-                load_f32x4(out, j),
-                f32x4_mul(xi, load_f32x4(a, row_off + j)),
-            ));
-            store_f32x4(out, j + 4, f32x4_add(
-                load_f32x4(out, j + 4),
-                f32x4_mul(xi, load_f32x4(a, row_off + j + 4)),
-            ));
+            store_f32x4(
+                out,
+                j,
+                f32x4_add(
+                    load_f32x4(out, j),
+                    f32x4_mul(xi, load_f32x4(a, row_off + j)),
+                ),
+            );
+            store_f32x4(
+                out,
+                j + 4,
+                f32x4_add(
+                    load_f32x4(out, j + 4),
+                    f32x4_mul(xi, load_f32x4(a, row_off + j + 4)),
+                ),
+            );
             j += 8;
         }
         while j + 4 <= cols {
-            store_f32x4(out, j, f32x4_add(
-                load_f32x4(out, j),
-                f32x4_mul(xi, load_f32x4(a, row_off + j)),
-            ));
+            store_f32x4(
+                out,
+                j,
+                f32x4_add(
+                    load_f32x4(out, j),
+                    f32x4_mul(xi, load_f32x4(a, row_off + j)),
+                ),
+            );
             j += 4;
         }
-        while j < cols { out[j] += x[i] * a[row_off + j]; j += 1; }
+        while j < cols {
+            out[j] += x[i] * a[row_off + j];
+            j += 1;
+        }
     }
 }
 
@@ -158,7 +213,8 @@ pub unsafe extern "C" fn vecmat_f64(x: *const f64, a: *const f64, out: *mut f64,
         core::slice::from_raw_parts(x, rows),
         core::slice::from_raw_parts(a, rows * cols),
         core::slice::from_raw_parts_mut(out, cols),
-        rows, cols,
+        rows,
+        cols,
     );
 }
 
@@ -169,7 +225,8 @@ pub unsafe extern "C" fn vecmat_f32(x: *const f32, a: *const f32, out: *mut f32,
         core::slice::from_raw_parts(x, rows),
         core::slice::from_raw_parts(a, rows * cols),
         core::slice::from_raw_parts_mut(out, cols),
-        rows, cols,
+        rows,
+        cols,
     );
 }
 
@@ -182,17 +239,29 @@ fn vecdot_f64_inner(a: &[f64], b: &[f64], out: &mut [f64], batch: usize, len: us
         let mut acc1 = f64x2_splat(0.0);
         let mut j = 0;
         while j + 4 <= len {
-            acc0 = f64x2_add(acc0, f64x2_mul(load_f64x2(a, off + j), load_f64x2(b, off + j)));
-            acc1 = f64x2_add(acc1, f64x2_mul(load_f64x2(a, off + j + 2), load_f64x2(b, off + j + 2)));
+            acc0 = f64x2_add(
+                acc0,
+                f64x2_mul(load_f64x2(a, off + j), load_f64x2(b, off + j)),
+            );
+            acc1 = f64x2_add(
+                acc1,
+                f64x2_mul(load_f64x2(a, off + j + 2), load_f64x2(b, off + j + 2)),
+            );
             j += 4;
         }
         while j + 2 <= len {
-            acc0 = f64x2_add(acc0, f64x2_mul(load_f64x2(a, off + j), load_f64x2(b, off + j)));
+            acc0 = f64x2_add(
+                acc0,
+                f64x2_mul(load_f64x2(a, off + j), load_f64x2(b, off + j)),
+            );
             j += 2;
         }
         acc0 = f64x2_add(acc0, acc1);
         let mut sum = f64x2_extract_lane::<0>(acc0) + f64x2_extract_lane::<1>(acc0);
-        while j < len { sum += a[off + j] * b[off + j]; j += 1; }
+        while j < len {
+            sum += a[off + j] * b[off + j];
+            j += 1;
+        }
         out[bi] = sum;
     }
 }
@@ -210,22 +279,34 @@ fn vecdot_f32_inner(a: &[f32], b: &[f32], out: &mut [f32], batch: usize, len: us
         let mut j = 0;
         while j + 16 <= len {
             unsafe {
-                acc0 = f32x4_add(acc0, f32x4_mul(
-                    v128_load(a_ptr.add(j) as *const v128),
-                    v128_load(b_ptr.add(j) as *const v128),
-                ));
-                acc1 = f32x4_add(acc1, f32x4_mul(
-                    v128_load(a_ptr.add(j + 4) as *const v128),
-                    v128_load(b_ptr.add(j + 4) as *const v128),
-                ));
-                acc2 = f32x4_add(acc2, f32x4_mul(
-                    v128_load(a_ptr.add(j + 8) as *const v128),
-                    v128_load(b_ptr.add(j + 8) as *const v128),
-                ));
-                acc3 = f32x4_add(acc3, f32x4_mul(
-                    v128_load(a_ptr.add(j + 12) as *const v128),
-                    v128_load(b_ptr.add(j + 12) as *const v128),
-                ));
+                acc0 = f32x4_add(
+                    acc0,
+                    f32x4_mul(
+                        v128_load(a_ptr.add(j) as *const v128),
+                        v128_load(b_ptr.add(j) as *const v128),
+                    ),
+                );
+                acc1 = f32x4_add(
+                    acc1,
+                    f32x4_mul(
+                        v128_load(a_ptr.add(j + 4) as *const v128),
+                        v128_load(b_ptr.add(j + 4) as *const v128),
+                    ),
+                );
+                acc2 = f32x4_add(
+                    acc2,
+                    f32x4_mul(
+                        v128_load(a_ptr.add(j + 8) as *const v128),
+                        v128_load(b_ptr.add(j + 8) as *const v128),
+                    ),
+                );
+                acc3 = f32x4_add(
+                    acc3,
+                    f32x4_mul(
+                        v128_load(a_ptr.add(j + 12) as *const v128),
+                        v128_load(b_ptr.add(j + 12) as *const v128),
+                    ),
+                );
             }
             j += 16;
         }
@@ -233,57 +314,81 @@ fn vecdot_f32_inner(a: &[f32], b: &[f32], out: &mut [f32], batch: usize, len: us
         acc1 = f32x4_add(acc1, acc3);
         while j + 8 <= len {
             unsafe {
-                acc0 = f32x4_add(acc0, f32x4_mul(
-                    v128_load(a_ptr.add(j) as *const v128),
-                    v128_load(b_ptr.add(j) as *const v128),
-                ));
-                acc1 = f32x4_add(acc1, f32x4_mul(
-                    v128_load(a_ptr.add(j + 4) as *const v128),
-                    v128_load(b_ptr.add(j + 4) as *const v128),
-                ));
+                acc0 = f32x4_add(
+                    acc0,
+                    f32x4_mul(
+                        v128_load(a_ptr.add(j) as *const v128),
+                        v128_load(b_ptr.add(j) as *const v128),
+                    ),
+                );
+                acc1 = f32x4_add(
+                    acc1,
+                    f32x4_mul(
+                        v128_load(a_ptr.add(j + 4) as *const v128),
+                        v128_load(b_ptr.add(j + 4) as *const v128),
+                    ),
+                );
             }
             j += 8;
         }
         while j + 4 <= len {
             unsafe {
-                acc0 = f32x4_add(acc0, f32x4_mul(
-                    v128_load(a_ptr.add(j) as *const v128),
-                    v128_load(b_ptr.add(j) as *const v128),
-                ));
+                acc0 = f32x4_add(
+                    acc0,
+                    f32x4_mul(
+                        v128_load(a_ptr.add(j) as *const v128),
+                        v128_load(b_ptr.add(j) as *const v128),
+                    ),
+                );
             }
             j += 4;
         }
         acc0 = f32x4_add(acc0, acc1);
-        let mut sum = f32x4_extract_lane::<0>(acc0) + f32x4_extract_lane::<1>(acc0)
-            + f32x4_extract_lane::<2>(acc0) + f32x4_extract_lane::<3>(acc0);
-        while j < len { sum += unsafe { *a_ptr.add(j) * *b_ptr.add(j) }; j += 1; }
+        let mut sum = f32x4_extract_lane::<0>(acc0)
+            + f32x4_extract_lane::<1>(acc0)
+            + f32x4_extract_lane::<2>(acc0)
+            + f32x4_extract_lane::<3>(acc0);
+        while j < len {
+            sum += unsafe { *a_ptr.add(j) * *b_ptr.add(j) };
+            j += 1;
+        }
         out[bi] = sum;
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn vecdot_f64(
-    a: *const f64, b: *const f64, out: *mut f64, nbatch: u32, veclen: u32,
+    a: *const f64,
+    b: *const f64,
+    out: *mut f64,
+    nbatch: u32,
+    veclen: u32,
 ) {
     let (batch, len) = (nbatch as usize, veclen as usize);
     vecdot_f64_inner(
         core::slice::from_raw_parts(a, batch * len),
         core::slice::from_raw_parts(b, batch * len),
         core::slice::from_raw_parts_mut(out, batch),
-        batch, len,
+        batch,
+        len,
     );
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn vecdot_f32(
-    a: *const f32, b: *const f32, out: *mut f32, nbatch: u32, veclen: u32,
+    a: *const f32,
+    b: *const f32,
+    out: *mut f32,
+    nbatch: u32,
+    veclen: u32,
 ) {
     let (batch, len) = (nbatch as usize, veclen as usize);
     vecdot_f32_inner(
         core::slice::from_raw_parts(a, batch * len),
         core::slice::from_raw_parts(b, batch * len),
         core::slice::from_raw_parts_mut(out, batch),
-        batch, len,
+        batch,
+        len,
     );
 }
 
@@ -303,7 +408,10 @@ fn outer_f64_inner(a: &[f64], b: &[f64], out: &mut [f64], rows: usize, cols: usi
             store_f64x2(out, row_off + j, f64x2_mul(ai, load_f64x2(b, j)));
             j += 2;
         }
-        while j < cols { out[row_off + j] = a[i] * b[j]; j += 1; }
+        while j < cols {
+            out[row_off + j] = a[i] * b[j];
+            j += 1;
+        }
     }
 }
 
@@ -321,7 +429,10 @@ fn outer_f32_inner(a: &[f32], b: &[f32], out: &mut [f32], rows: usize, cols: usi
             store_f32x4(out, row_off + j, f32x4_mul(ai, load_f32x4(b, j)));
             j += 4;
         }
-        while j < cols { out[row_off + j] = a[i] * b[j]; j += 1; }
+        while j < cols {
+            out[row_off + j] = a[i] * b[j];
+            j += 1;
+        }
     }
 }
 
@@ -332,7 +443,8 @@ pub unsafe extern "C" fn outer_f64(a: *const f64, b: *const f64, out: *mut f64, 
         core::slice::from_raw_parts(a, rows),
         core::slice::from_raw_parts(b, cols),
         core::slice::from_raw_parts_mut(out, rows * cols),
-        rows, cols,
+        rows,
+        cols,
     );
 }
 
@@ -343,13 +455,22 @@ pub unsafe extern "C" fn outer_f32(a: *const f32, b: *const f32, out: *mut f32, 
         core::slice::from_raw_parts(a, rows),
         core::slice::from_raw_parts(b, cols),
         core::slice::from_raw_parts_mut(out, rows * cols),
-        rows, cols,
+        rows,
+        cols,
     );
 }
 
 // ─── kron: Kronecker product ────────────────────────────────────────────────
 
-fn kron_f64_inner(a: &[f64], b: &[f64], out: &mut [f64], ar: usize, ac: usize, br: usize, bc: usize) {
+fn kron_f64_inner(
+    a: &[f64],
+    b: &[f64],
+    out: &mut [f64],
+    ar: usize,
+    ac: usize,
+    br: usize,
+    bc: usize,
+) {
     let out_cols = ac * bc;
     for ia in 0..ar {
         for ja in 0..ac {
@@ -362,13 +483,24 @@ fn kron_f64_inner(a: &[f64], b: &[f64], out: &mut [f64], ar: usize, ac: usize, b
                     store_f64x2(out, out_off + jb, f64x2_mul(aij, load_f64x2(b, b_off + jb)));
                     jb += 2;
                 }
-                while jb < bc { out[out_off + jb] = a[ia * ac + ja] * b[b_off + jb]; jb += 1; }
+                while jb < bc {
+                    out[out_off + jb] = a[ia * ac + ja] * b[b_off + jb];
+                    jb += 1;
+                }
             }
         }
     }
 }
 
-fn kron_f32_inner(a: &[f32], b: &[f32], out: &mut [f32], ar: usize, ac: usize, br: usize, bc: usize) {
+fn kron_f32_inner(
+    a: &[f32],
+    b: &[f32],
+    out: &mut [f32],
+    ar: usize,
+    ac: usize,
+    br: usize,
+    bc: usize,
+) {
     let out_cols = ac * bc;
     for ia in 0..ar {
         for ja in 0..ac {
@@ -381,7 +513,10 @@ fn kron_f32_inner(a: &[f32], b: &[f32], out: &mut [f32], ar: usize, ac: usize, b
                     store_f32x4(out, out_off + jb, f32x4_mul(aij, load_f32x4(b, b_off + jb)));
                     jb += 4;
                 }
-                while jb < bc { out[out_off + jb] = a[ia * ac + ja] * b[b_off + jb]; jb += 1; }
+                while jb < bc {
+                    out[out_off + jb] = a[ia * ac + ja] * b[b_off + jb];
+                    jb += 1;
+                }
             }
         }
     }
@@ -389,27 +524,45 @@ fn kron_f32_inner(a: &[f32], b: &[f32], out: &mut [f32], ar: usize, ac: usize, b
 
 #[no_mangle]
 pub unsafe extern "C" fn kron_f64(
-    a: *const f64, b: *const f64, out: *mut f64, am: u32, an: u32, bm: u32, bn: u32,
+    a: *const f64,
+    b: *const f64,
+    out: *mut f64,
+    am: u32,
+    an: u32,
+    bm: u32,
+    bn: u32,
 ) {
     let (ar, ac, br, bc) = (am as usize, an as usize, bm as usize, bn as usize);
     kron_f64_inner(
         core::slice::from_raw_parts(a, ar * ac),
         core::slice::from_raw_parts(b, br * bc),
         core::slice::from_raw_parts_mut(out, ar * br * ac * bc),
-        ar, ac, br, bc,
+        ar,
+        ac,
+        br,
+        bc,
     );
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn kron_f32(
-    a: *const f32, b: *const f32, out: *mut f32, am: u32, an: u32, bm: u32, bn: u32,
+    a: *const f32,
+    b: *const f32,
+    out: *mut f32,
+    am: u32,
+    an: u32,
+    bm: u32,
+    bn: u32,
 ) {
     let (ar, ac, br, bc) = (am as usize, an as usize, bm as usize, bn as usize);
     kron_f32_inner(
         core::slice::from_raw_parts(a, ar * ac),
         core::slice::from_raw_parts(b, br * bc),
         core::slice::from_raw_parts_mut(out, ar * br * ac * bc),
-        ar, ac, br, bc,
+        ar,
+        ac,
+        br,
+        bc,
     );
 }
 
@@ -491,7 +644,11 @@ fn norm_f64_inner(data: &[f64]) -> f64 {
     }
     acc0 = f64x2_add(acc0, acc1);
     let mut sum = f64x2_extract_lane::<0>(acc0) + f64x2_extract_lane::<1>(acc0);
-    while i < len { let v = data[i]; sum += v * v; i += 1; }
+    while i < len {
+        let v = data[i];
+        sum += v * v;
+        i += 1;
+    }
     f64x2_extract_lane::<0>(f64x2_sqrt(f64x2_splat(sum)))
 }
 
@@ -513,9 +670,15 @@ fn norm_f32_inner(data: &[f32]) -> f32 {
         i += 4;
     }
     acc0 = f32x4_add(acc0, acc1);
-    let mut sum = f32x4_extract_lane::<0>(acc0) + f32x4_extract_lane::<1>(acc0)
-        + f32x4_extract_lane::<2>(acc0) + f32x4_extract_lane::<3>(acc0);
-    while i < len { let v = data[i]; sum += v * v; i += 1; }
+    let mut sum = f32x4_extract_lane::<0>(acc0)
+        + f32x4_extract_lane::<1>(acc0)
+        + f32x4_extract_lane::<2>(acc0)
+        + f32x4_extract_lane::<3>(acc0);
+    while i < len {
+        let v = data[i];
+        sum += v * v;
+        i += 1;
+    }
     f32x4_extract_lane::<0>(f32x4_sqrt(f32x4_splat(sum)))
 }
 
@@ -534,7 +697,9 @@ pub unsafe extern "C" fn norm_f32(ptr: *const f32, n: u32) -> f32 {
 const TILE_INT: usize = 48;
 
 fn matmul_internal_f64(a: &[f64], b: &[f64], c: &mut [f64], m: usize, n: usize, k: usize) {
-    for v in c.iter_mut() { *v = 0.0; }
+    for v in c.iter_mut() {
+        *v = 0.0;
+    }
     let mut ii = 0;
     while ii < m {
         let ie = if ii + TILE_INT < m { ii + TILE_INT } else { m };
@@ -573,7 +738,13 @@ fn sqrt_f64_scalar(x: f64) -> f64 {
 // ─── matrix_power: out = a^power via binary exponentiation ──────────────────
 
 #[no_mangle]
-pub unsafe extern "C" fn matrix_power_f64(a: *const f64, out: *mut f64, scratch: *mut f64, n: u32, power: u32) {
+pub unsafe extern "C" fn matrix_power_f64(
+    a: *const f64,
+    out: *mut f64,
+    scratch: *mut f64,
+    n: u32,
+    power: u32,
+) {
     let nn = n as usize;
     let sz = nn * nn;
     let a_slice = core::slice::from_raw_parts(a, sz);
@@ -582,8 +753,12 @@ pub unsafe extern "C" fn matrix_power_f64(a: *const f64, out: *mut f64, scratch:
     let tmp = core::slice::from_raw_parts_mut(scratch.add(sz), sz);
     let mut p = power as usize;
 
-    for v in out_slice.iter_mut() { *v = 0.0; }
-    for i in 0..nn { out_slice[i * nn + i] = 1.0; }
+    for v in out_slice.iter_mut() {
+        *v = 0.0;
+    }
+    for i in 0..nn {
+        out_slice[i * nn + i] = 1.0;
+    }
     cur.copy_from_slice(a_slice);
 
     while p > 0 {
@@ -602,7 +777,14 @@ pub unsafe extern "C" fn matrix_power_f64(a: *const f64, out: *mut f64, scratch:
 // ─── multi_dot3: out = a @ b @ c ────────────────────────────────────────────
 
 #[no_mangle]
-pub unsafe extern "C" fn multi_dot3_f64(a: *const f64, b: *const f64, c: *const f64, out: *mut f64, tmp: *mut f64, n: u32) {
+pub unsafe extern "C" fn multi_dot3_f64(
+    a: *const f64,
+    b: *const f64,
+    c: *const f64,
+    out: *mut f64,
+    tmp: *mut f64,
+    n: u32,
+) {
     let nn = n as usize;
     let sz = nn * nn;
     let sa = core::slice::from_raw_parts(a, sz);
@@ -617,7 +799,15 @@ pub unsafe extern "C" fn multi_dot3_f64(a: *const f64, b: *const f64, c: *const 
 // ─── qr: Householder QR decomposition ──────────────────────────────────────
 
 #[no_mangle]
-pub unsafe extern "C" fn qr_f64(a_ptr: *mut f64, q_ptr: *mut f64, r_ptr: *mut f64, tau_ptr: *mut f64, _scratch: *mut f64, m: u32, n: u32) {
+pub unsafe extern "C" fn qr_f64(
+    a_ptr: *mut f64,
+    q_ptr: *mut f64,
+    r_ptr: *mut f64,
+    tau_ptr: *mut f64,
+    _scratch: *mut f64,
+    m: u32,
+    n: u32,
+) {
     let rows = m as usize;
     let cols = n as usize;
     let k = if rows < cols { rows } else { cols };
@@ -628,19 +818,30 @@ pub unsafe extern "C" fn qr_f64(a_ptr: *mut f64, q_ptr: *mut f64, r_ptr: *mut f6
 
     for j in 0..k {
         let mut norm_sq = 0.0f64;
-        for i in j..rows { let v = a[i * cols + j]; norm_sq += v * v; }
+        for i in j..rows {
+            let v = a[i * cols + j];
+            norm_sq += v * v;
+        }
         let mut nrm = sqrt_f64_scalar(norm_sq);
-        if nrm == 0.0 { tau[j] = 0.0; continue; }
+        if nrm == 0.0 {
+            tau[j] = 0.0;
+            continue;
+        }
 
         let ajj = a[j * cols + j];
-        if ajj >= 0.0 { nrm = -nrm; }
+        if ajj >= 0.0 {
+            nrm = -nrm;
+        }
         let alpha = nrm;
 
         a[j * cols + j] -= alpha;
         let v0 = a[j * cols + j];
 
         let mut vtv = v0 * v0;
-        for i in (j + 1)..rows { let vi = a[i * cols + j]; vtv += vi * vi; }
+        for i in (j + 1)..rows {
+            let vi = a[i * cols + j];
+            vtv += vi * vi;
+        }
         if vtv == 0.0 {
             tau[j] = 0.0;
             a[j * cols + j] = alpha;
@@ -650,9 +851,13 @@ pub unsafe extern "C" fn qr_f64(a_ptr: *mut f64, q_ptr: *mut f64, r_ptr: *mut f6
 
         for col in (j + 1)..cols {
             let mut dot = 0.0f64;
-            for i in j..rows { dot += a[i * cols + j] * a[i * cols + col]; }
+            for i in j..rows {
+                dot += a[i * cols + j] * a[i * cols + col];
+            }
             let factor = tau[j] * dot;
-            for i in j..rows { a[i * cols + col] -= factor * a[i * cols + j]; }
+            for i in j..rows {
+                a[i * cols + col] -= factor * a[i * cols + j];
+            }
         }
 
         a[j * cols + j] = alpha;
@@ -666,27 +871,44 @@ pub unsafe extern "C" fn qr_f64(a_ptr: *mut f64, q_ptr: *mut f64, r_ptr: *mut f6
     }
 
     // Reconstruct Q
-    for v in q.iter_mut() { *v = 0.0; }
-    for i in 0..k { q[i * k + i] = 1.0; }
+    for v in q.iter_mut() {
+        *v = 0.0;
+    }
+    for i in 0..k {
+        q[i * k + i] = 1.0;
+    }
 
     let mut jrev = k;
     while jrev > 0 {
         jrev -= 1;
         let j = jrev;
-        if tau[j] == 0.0 { continue; }
+        if tau[j] == 0.0 {
+            continue;
+        }
 
         let mut sub_sq = 0.0f64;
-        for i in (j + 1)..rows { let vi = a[i * cols + j]; sub_sq += vi * vi; }
+        for i in (j + 1)..rows {
+            let vi = a[i * cols + j];
+            sub_sq += vi * vi;
+        }
         let vtv2 = 2.0 / tau[j];
         let v0sq = vtv2 - sub_sq;
-        let v0 = if v0sq > 0.0 { sqrt_f64_scalar(v0sq) } else { 0.0 };
+        let v0 = if v0sq > 0.0 {
+            sqrt_f64_scalar(v0sq)
+        } else {
+            0.0
+        };
 
         for col in 0..k {
             let mut dot = v0 * q[j * k + col];
-            for i in (j + 1)..rows { dot += a[i * cols + j] * q[i * k + col]; }
+            for i in (j + 1)..rows {
+                dot += a[i * cols + j] * q[i * k + col];
+            }
             let factor = tau[j] * dot;
             q[j * k + col] -= factor * v0;
-            for i in (j + 1)..rows { q[i * k + col] -= factor * a[i * cols + j]; }
+            for i in (j + 1)..rows {
+                q[i * k + col] -= factor * a[i * cols + j];
+            }
         }
     }
 }
@@ -694,7 +916,14 @@ pub unsafe extern "C" fn qr_f64(a_ptr: *mut f64, q_ptr: *mut f64, r_ptr: *mut f6
 // ─── lstsq: solve Ax=b via QR ──────────────────────────────────────────────
 
 #[no_mangle]
-pub unsafe extern "C" fn lstsq_f64(a_ptr: *mut f64, b_ptr: *const f64, x_ptr: *mut f64, scratch: *mut f64, m: u32, n: u32) {
+pub unsafe extern "C" fn lstsq_f64(
+    a_ptr: *mut f64,
+    b_ptr: *const f64,
+    x_ptr: *mut f64,
+    scratch: *mut f64,
+    m: u32,
+    n: u32,
+) {
     let rows = m as usize;
     let cols = n as usize;
     let k = if rows < cols { rows } else { cols };
@@ -721,7 +950,9 @@ pub unsafe extern "C" fn lstsq_f64(a_ptr: *mut f64, b_ptr: *const f64, x_ptr: *m
 
     for i in 0..k {
         let mut sum = 0.0f64;
-        for j in 0..rows { sum += q[j * k + i] * b[j]; }
+        for j in 0..rows {
+            sum += q[j * k + i] * b[j];
+        }
         qtb[i] = sum;
     }
 
@@ -729,7 +960,9 @@ pub unsafe extern "C" fn lstsq_f64(a_ptr: *mut f64, b_ptr: *const f64, x_ptr: *m
     while ii > 0 {
         ii -= 1;
         let mut sum = qtb[ii];
-        for j in (ii + 1)..cols { sum -= r[ii * cols + j] * x[j]; }
+        for j in (ii + 1)..cols {
+            sum -= r[ii * cols + j] * x[j];
+        }
         let diag = r[ii * cols + ii];
         x[ii] = if diag != 0.0 { sum / diag } else { 0.0 };
     }
@@ -740,7 +973,9 @@ pub unsafe extern "C" fn lstsq_f64(a_ptr: *mut f64, b_ptr: *const f64, x_ptr: *m
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn matmul_complex_f64_inner(a: &[f64], b: &[f64], c: &mut [f64], m: usize, k: usize, n: usize) {
-    for v in c.iter_mut() { *v = 0.0; }
+    for v in c.iter_mut() {
+        *v = 0.0;
+    }
     const T: usize = 32;
     let mut ii = 0;
     while ii < m {
@@ -779,7 +1014,9 @@ fn matmul_complex_f64_inner(a: &[f64], b: &[f64], c: &mut [f64], m: usize, k: us
 }
 
 fn matmul_complex_f32_inner(a: &[f32], b: &[f32], c: &mut [f32], m: usize, k: usize, n: usize) {
-    for v in c.iter_mut() { *v = 0.0; }
+    for v in c.iter_mut() {
+        *v = 0.0;
+    }
     let ap = a.as_ptr();
     let bp = b.as_ptr();
     let cp = c.as_mut_ptr();
@@ -827,23 +1064,41 @@ fn matmul_complex_f32_inner(a: &[f32], b: &[f32], c: &mut [f32], m: usize, k: us
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn matmul_c128(a: *const f64, b: *const f64, c: *mut f64, m: u32, k: u32, n: u32) {
+pub unsafe extern "C" fn matmul_c128(
+    a: *const f64,
+    b: *const f64,
+    c: *mut f64,
+    m: u32,
+    k: u32,
+    n: u32,
+) {
     let (m, k, n) = (m as usize, k as usize, n as usize);
     matmul_complex_f64_inner(
         core::slice::from_raw_parts(a, m * k * 2),
         core::slice::from_raw_parts(b, k * n * 2),
         core::slice::from_raw_parts_mut(c, m * n * 2),
-        m, k, n,
+        m,
+        k,
+        n,
     );
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn matmul_c64(a: *const f32, b: *const f32, c: *mut f32, m: u32, k: u32, n: u32) {
+pub unsafe extern "C" fn matmul_c64(
+    a: *const f32,
+    b: *const f32,
+    c: *mut f32,
+    m: u32,
+    k: u32,
+    n: u32,
+) {
     let (m, k, n) = (m as usize, k as usize, n as usize);
     matmul_complex_f32_inner(
         core::slice::from_raw_parts(a, m * k * 2),
         core::slice::from_raw_parts(b, k * n * 2),
         core::slice::from_raw_parts_mut(c, m * n * 2),
-        m, k, n,
+        m,
+        k,
+        n,
     );
 }
