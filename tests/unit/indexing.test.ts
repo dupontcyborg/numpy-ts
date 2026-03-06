@@ -711,4 +711,241 @@ describe('Array Indexing', () => {
       });
     });
   });
+
+  // ============================================================
+  // Bracket operator [] via Proxy
+  // ============================================================
+  describe('bracket operator []', () => {
+    describe('1D get', () => {
+      it('reads elements at positive indices', () => {
+        const a = array([10, 20, 30, 40, 50]);
+        expect(a[0]).toBe(10);
+        expect(a[2]).toBe(30);
+        expect(a[4]).toBe(50);
+      });
+
+      it('reads elements at negative indices', () => {
+        const a = array([10, 20, 30, 40, 50]);
+        expect(a[-1]).toBe(50);
+        expect(a[-2]).toBe(40);
+        expect(a[-5]).toBe(10);
+      });
+
+      it('works with float dtype', () => {
+        const a = array([1.5, 2.5, 3.5]);
+        expect(a[0]).toBeCloseTo(1.5);
+        expect(a[2]).toBeCloseTo(3.5);
+      });
+
+      it('works with bigint dtype', () => {
+        const a = array([1n, 2n, 3n], 'int64');
+        expect(a[0]).toBe(1n);
+        expect(a[2]).toBe(3n);
+      });
+    });
+
+    describe('1D set', () => {
+      it('sets elements at positive indices', () => {
+        const a = array([1, 2, 3, 4, 5]);
+        a[0] = 99;
+        a[4] = 77;
+        expect(a[0]).toBe(99);
+        expect(a[4]).toBe(77);
+        expect(a[2]).toBe(3); // untouched
+      });
+
+      it('sets elements at negative indices', () => {
+        const a = array([1, 2, 3]);
+        a[-1] = 100;
+        expect(a[2]).toBe(100);
+      });
+    });
+
+    describe('2D get — returns row slices', () => {
+      it('returns the correct row as a 1D NDArray', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        const row = a[0] as any;
+        expect(row.shape).toEqual([3]);
+        expect(row[0]).toBe(1);
+        expect(row[1]).toBe(2);
+        expect(row[2]).toBe(3);
+      });
+
+      it('supports negative row index', () => {
+        const a = array([
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ]);
+        const row = a[-1] as any;
+        expect(row.shape).toEqual([2]);
+        expect(row[0]).toBe(5);
+        expect(row[1]).toBe(6);
+      });
+
+      it('chains to access a scalar: arr[r][c]', () => {
+        const a = array([
+          [10, 20],
+          [30, 40],
+        ]);
+        expect((a[0] as any)[0]).toBe(10);
+        expect((a[0] as any)[1]).toBe(20);
+        expect((a[1] as any)[0]).toBe(30);
+        expect((a[1] as any)[1]).toBe(40);
+      });
+    });
+
+    describe('3D get — chained slicing', () => {
+      it('arr[i] returns 2D slice, arr[i][j] returns 1D slice, arr[i][j][k] returns scalar', () => {
+        const a = array([
+          [
+            [1, 2],
+            [3, 4],
+          ],
+          [
+            [5, 6],
+            [7, 8],
+          ],
+        ]);
+        const mat = a[0] as any;
+        expect(mat.shape).toEqual([2, 2]);
+
+        const row = mat[1] as any;
+        expect(row.shape).toEqual([2]);
+
+        expect(row[0]).toBe(3);
+        expect(row[1]).toBe(4);
+
+        // Full chain
+        expect((a[1] as any)[0][1]).toBe(6);
+      });
+    });
+
+    describe('does not interfere with normal property access', () => {
+      it('shape, dtype, ndim, size still work', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]);
+        expect(a.shape).toEqual([2, 3]);
+        expect(a.dtype).toBe('float64');
+        expect(a.ndim).toBe(2);
+        expect(a.size).toBe(6);
+      });
+
+      it('methods still work after proxy', () => {
+        const a = array([1, 2, 3, 4]);
+        expect(a.sum()).toBe(10);
+        expect(a.mean()).toBe(2.5);
+      });
+    });
+
+    describe('views preserve bracket access', () => {
+      it('slice view supports bracket access', () => {
+        const a = array([10, 20, 30, 40, 50]);
+        const view = a.slice('1:4') as any;
+        expect(view[0]).toBe(20);
+        expect(view[1]).toBe(30);
+        expect(view[2]).toBe(40);
+      });
+    });
+
+    describe('ND set — arr[i] = value', () => {
+      it('fills a 2D row with a scalar', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ]);
+        (a as any)[1] = 99;
+        expect((a[1] as any)[0]).toBe(99);
+        expect((a[1] as any)[1]).toBe(99);
+        expect((a[1] as any)[2]).toBe(99);
+        // other rows untouched
+        expect((a[0] as any)[0]).toBe(1);
+        expect((a[2] as any)[0]).toBe(7);
+      });
+
+      it('fills a 2D row with negative index', () => {
+        const a = array([
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ]);
+        (a as any)[-1] = 0;
+        expect((a[-1] as any)[0]).toBe(0);
+        expect((a[-1] as any)[1]).toBe(0);
+        expect((a[0] as any)[0]).toBe(1); // untouched
+      });
+
+      it('assigns a plain array to a 2D row', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]);
+        (a as any)[0] = [10, 20, 30];
+        expect((a[0] as any)[0]).toBe(10);
+        expect((a[0] as any)[1]).toBe(20);
+        expect((a[0] as any)[2]).toBe(30);
+        expect((a[1] as any)[0]).toBe(4); // untouched
+      });
+
+      it('assigns an NDArray to a 2D row', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]);
+        const row = array([7, 8, 9]);
+        (a as any)[0] = row;
+        expect((a[0] as any)[0]).toBe(7);
+        expect((a[0] as any)[1]).toBe(8);
+        expect((a[0] as any)[2]).toBe(9);
+        expect((a[1] as any)[0]).toBe(4); // untouched
+      });
+
+      it('throws on size mismatch for plain array', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]);
+        expect(() => {
+          (a as any)[0] = [1, 2];
+        }).toThrow();
+      });
+
+      it('throws on size mismatch for NDArray', () => {
+        const a = array([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]);
+        expect(() => {
+          (a as any)[0] = array([1, 2]);
+        }).toThrow();
+      });
+
+      it('fills a 3D slice with a scalar', () => {
+        const a = array([
+          [
+            [1, 2],
+            [3, 4],
+          ],
+          [
+            [5, 6],
+            [7, 8],
+          ],
+        ]);
+        (a as any)[0] = 0;
+        expect((a[0] as any)[0][0]).toBe(0);
+        expect((a[0] as any)[0][1]).toBe(0);
+        expect((a[0] as any)[1][0]).toBe(0);
+        expect((a[0] as any)[1][1]).toBe(0);
+        // second matrix untouched
+        expect((a[1] as any)[0][0]).toBe(5);
+      });
+    });
+  });
 });

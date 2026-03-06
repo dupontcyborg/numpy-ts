@@ -39,9 +39,71 @@ export class NDArrayCore {
   // Track if this array is a view of another array
   protected _base?: NDArrayCore;
 
+  // Allows bracket access: arr[0], arr[-1], arr[0][1], etc.
+  // Implemented via Proxy in the constructor.
+  [key: number]: NDArrayCore | number | bigint | Complex;
+
+  // Shared proxy handler — one object for all instances
+  private static readonly _proxyHandler: ProxyHandler<NDArrayCore> = {
+    get(target, prop, receiver) {
+      if (typeof prop === 'string') {
+        const idx = parseInt(prop, 10);
+        if (!isNaN(idx) && String(idx) === prop) {
+          const len = target._storage.ndim > 0 ? target._storage.shape[0]! : 1;
+          const normalized = idx < 0 ? len + idx : idx;
+          if (target._storage.ndim <= 1) {
+            return target._storage.iget(normalized);
+          }
+          return target.slice(prop);
+        }
+      }
+      // Pass receiver so getters (e.g. .T, .base) execute with this = Proxy
+      return Reflect.get(target, prop, receiver);
+    },
+    set(target, prop, value, receiver) {
+      if (typeof prop === 'string') {
+        const idx = parseInt(prop, 10);
+        if (!isNaN(idx) && String(idx) === prop) {
+          const len = target._storage.shape[0]!;
+          const normalized = idx < 0 ? len + idx : idx;
+          if (target._storage.ndim === 1) {
+            target.set([normalized], value as number | bigint | Complex);
+            return true;
+          }
+          // ND: get the slice view and fill/copy into it
+          const sliceView = target.slice(String(idx));
+          const n = sliceView.size;
+          if (typeof value === 'number' || typeof value === 'bigint') {
+            sliceView.fill(value);
+          } else if (value instanceof Complex) {
+            for (let i = 0; i < n; i++) sliceView._storage.iset(i, value);
+          } else if (value instanceof NDArrayCore) {
+            if (value.size !== n) {
+              throw new Error(`Cannot assign array of size ${value.size} into slice of size ${n}`);
+            }
+            for (let i = 0; i < n; i++) sliceView._storage.iset(i, value._storage.iget(i));
+          } else if (Array.isArray(value)) {
+            const flat = (value as unknown[]).flat(Infinity) as number[];
+            if (flat.length !== n) {
+              throw new Error(
+                `Cannot assign array of length ${flat.length} into slice of size ${n}`
+              );
+            }
+            for (let i = 0; i < n; i++) sliceView._storage.iset(i, flat[i]!);
+          } else {
+            throw new Error(`Cannot assign value of type ${typeof value} via bracket operator`);
+          }
+          return true;
+        }
+      }
+      return Reflect.set(target, prop, value, receiver);
+    },
+  };
+
   constructor(storage: ArrayStorage, base?: NDArrayCore) {
     this._storage = storage;
     this._base = base;
+    return new Proxy(this, NDArrayCore._proxyHandler);
   }
 
   /**
