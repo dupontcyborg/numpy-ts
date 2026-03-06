@@ -53,6 +53,11 @@ import {
   nanmin,
   nanmax,
   nanargmin,
+  nanargmax,
+  nanquantile,
+  nanpercentile,
+  nancumsum,
+  nancumprod,
   // sort/search
   sort,
   argsort,
@@ -98,6 +103,48 @@ import {
   fft,
   // Type
   nanmedian,
+  // Additional reductions
+  ptp,
+  variance,
+  // Sorting
+  partition,
+  argpartition,
+  count_nonzero,
+  // Stats
+  gradient,
+  trapezoid,
+  unwrap,
+  // Bitwise
+  packbits,
+  unpackbits,
+  // Linalg extras
+  vecdot,
+  permute_dims,
+  // Shape
+  rollaxis,
+  unstack,
+  append,
+  delete_,
+  insert,
+  // Indexing
+  take_along_axis,
+  put_along_axis,
+  putmask,
+  place,
+  compress,
+  iindex,
+  bindex,
+  // Utils
+  apply_along_axis,
+  apply_over_axes,
+  unique,
+  // Math
+  copysign,
+  nextafter,
+  spacing,
+  signbit,
+  // Bitwise
+  bitwise_count,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 
@@ -2333,6 +2380,2536 @@ result = np.where(cond, A, B)`);
     it('64-dim elementwise works', () => {
       const a = zeros(Array(64).fill(1));
       expect(() => sin(a)).not.toThrow();
+    });
+  });
+
+  // ============================================================
+  // SECTION 39: keepdims regression — 1D scalar-shortcut bug fix
+  // ============================================================
+  describe('keepdims regression: 1D axis=0 scalar shortcut', () => {
+    // Helper: 1D array [1,2,3,4]
+    const a1 = () => mk([4]);
+    // Helper: 2D array [3,4]
+    const a2 = () => mk([3, 4]);
+
+    // ---- amax (max) ----
+    it('amax: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = amax(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.amax(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('amax: 2D [3,4] axis=1 keepdims=true -> shape [3,1]', () => {
+      const r = amax(a2(), 1, true);
+      expect((r as any).shape).toEqual([3, 1]);
+      const py = runNumPy(
+        `result = np.amax(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- amin (min) ----
+    it('amin: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = amin(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.amin(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('amin: 2D [3,4] axis=0 keepdims=true -> shape [1,4]', () => {
+      const r = amin(a2(), 0, true);
+      expect((r as any).shape).toEqual([1, 4]);
+      const py = runNumPy(
+        `result = np.amin(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- prod ----
+    it('prod: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = prod(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.prod(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('prod: 2D [3,4] axis=1 keepdims=true -> shape [3,1]', () => {
+      const r = prod(a2(), 1, true);
+      expect((r as any).shape).toEqual([3, 1]);
+      const py = runNumPy(
+        `result = np.prod(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- average (no weights) delegates to mean — should already work ----
+    it('average (no weights): 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = average(a1(), 0, undefined, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.average(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nansum ----
+    it('nansum: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nansum(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.nansum(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nansum: 2D [3,4] axis=0 keepdims=true -> shape [1,4]', () => {
+      const r = nansum(a2(), 0, true);
+      expect((r as any).shape).toEqual([1, 4]);
+      const py = runNumPy(
+        `result = np.nansum(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nanprod ----
+    it('nanprod: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nanprod(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.nanprod(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nanmean ----
+    it('nanmean: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nanmean(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.nanmean(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanmean: 2D [3,4] axis=1 keepdims=true -> shape [3,1]', () => {
+      const r = nanmean(a2(), 1, true);
+      expect((r as any).shape).toEqual([3, 1]);
+      const py = runNumPy(
+        `result = np.nanmean(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nanvar ----
+    it('nanvar: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nanvar(a1(), 0, 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.nanvar(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nanmin ----
+    it('nanmin: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nanmin(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.nanmin(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanmin: 2D [3,4] axis=1 keepdims=true -> shape [3,1]', () => {
+      const r = nanmin(a2(), 1, true);
+      expect((r as any).shape).toEqual([3, 1]);
+      const py = runNumPy(
+        `result = np.nanmin(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nanmax ----
+    it('nanmax: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nanmax(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.nanmax(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanmax: 2D [3,4] axis=0 keepdims=true -> shape [1,4]', () => {
+      const r = nanmax(a2(), 0, true);
+      expect((r as any).shape).toEqual([1, 4]);
+      const py = runNumPy(
+        `result = np.nanmax(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nanmedian ----
+    it('nanmedian: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nanmedian(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(
+        `result = np.nanmedian(np.arange(1,5,dtype=float), axis=0, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- nanquantile ----
+    it('nanquantile: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = nanquantile(a1(), 0.5, 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(
+        `result = np.nanquantile(np.arange(1,5,dtype=float), 0.5, axis=0, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanquantile: 2D [3,4] axis=1 keepdims=true -> shape [3,1]', () => {
+      const r = nanquantile(a2(), 0.75, 1, true);
+      expect((r as any).shape).toEqual([3, 1]);
+      const py = runNumPy(
+        `result = np.nanquantile(np.arange(1,13,dtype=float).reshape(3,4), 0.75, axis=1, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    // ---- sum/all/any/quantile (already fixed — regression guard) ----
+    it('sum: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = sum(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.sum(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('quantile: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = quantile(a1(), 0.5, 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(
+        `result = np.quantile(np.arange(1,5,dtype=float), 0.5, axis=0, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('median: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = median(a1(), 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(`result = np.median(np.arange(1,5,dtype=float), axis=0, keepdims=True)`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('percentile: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const r = percentile(a1(), 75, 0, true);
+      expect((r as any).shape).toEqual([1]);
+      const py = runNumPy(
+        `result = np.percentile(np.arange(1,5,dtype=float), 75, axis=0, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 40: 0D edge cases for additional reductions
+  // ============================================================
+  describe('0D edge cases: additional reductions', () => {
+    it('amax(0D) -> scalar', () => {
+      expect(typeof amax(array(5.0))).toBe('number');
+      expect(amax(array(5.0))).toBeCloseTo(5.0);
+    });
+
+    it('amin(0D) -> scalar', () => {
+      expect(typeof amin(array(5.0))).toBe('number');
+      expect(amin(array(5.0))).toBeCloseTo(5.0);
+    });
+
+    it('prod(0D) -> scalar', () => {
+      expect(typeof prod(array(5.0))).toBe('number');
+      expect(prod(array(5.0))).toBeCloseTo(5.0);
+    });
+
+    it('average(0D) -> scalar', () => {
+      expect(typeof average(array(5.0))).toBe('number');
+      expect(average(array(5.0)) as number).toBeCloseTo(5.0);
+    });
+
+    it('nansum(0D) -> scalar', () => {
+      expect(typeof nansum(array(5.0))).toBe('number');
+      expect(nansum(array(5.0)) as number).toBeCloseTo(5.0);
+    });
+
+    it('nanmean(0D) -> scalar', () => {
+      expect(typeof nanmean(array(5.0))).toBe('number');
+      expect(nanmean(array(5.0)) as number).toBeCloseTo(5.0);
+    });
+
+    it('nanmin(0D) -> scalar', () => {
+      expect(typeof nanmin(array(5.0))).toBe('number');
+      expect(nanmin(array(5.0)) as number).toBeCloseTo(5.0);
+    });
+
+    it('nanmax(0D) -> scalar', () => {
+      expect(typeof nanmax(array(5.0))).toBe('number');
+      expect(nanmax(array(5.0)) as number).toBeCloseTo(5.0);
+    });
+  });
+
+  // ============================================================
+  // SECTION 41: nanquantile / nanpercentile axis tests
+  // ============================================================
+  describe('nanquantile/nanpercentile: axis + keepdims', () => {
+    it('nanquantile: 2D [3,4] axis=0', () => {
+      const a = mk([3, 4]);
+      const r = nanquantile(a, 0.5, 0);
+      expect((r as any).shape).toEqual([4]);
+      const py = runNumPy(
+        `result = np.nanquantile(np.arange(1,13,dtype=float).reshape(3,4), 0.5, axis=0)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanquantile: 3D [2,3,4] axis=1', () => {
+      const a = mk([2, 3, 4]);
+      const r = nanquantile(a, 0.75, 1);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    it('nanquantile: 3D [2,3,4] negative axis=-1', () => {
+      const a = mk([2, 3, 4]);
+      const r = nanquantile(a, 0.5, -1);
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('nanpercentile: 1D axis=0', () => {
+      const a = mk([5]);
+      const r = nanpercentile(a, 50, 0);
+      expect(typeof r === 'number' || (r as any).shape !== undefined).toBe(true);
+    });
+
+    it('nanpercentile: 2D [3,4] axis=1 keepdims=true -> shape [3,1]', () => {
+      const r = nanpercentile(mk([3, 4]), 75, 1, true);
+      expect((r as any).shape).toEqual([3, 1]);
+      const py = runNumPy(
+        `result = np.nanpercentile(np.arange(1,13,dtype=float).reshape(3,4), 75, axis=1, keepdims=True)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanquantile: with NaN values ignored', () => {
+      const a = array([1, NaN, 3, 4]);
+      const r = nanquantile(a, 0.5, 0);
+      const py = runNumPy(`result = np.nanquantile(np.array([1., np.nan, 3., 4.]), 0.5, axis=0)`);
+      expect(arraysClose(r as number, py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 42: nancumsum / nancumprod shape preservation
+  // ============================================================
+  describe('nancumsum/nancumprod: shape preservation 1D-4D', () => {
+    for (const shape of [[4], [3, 4], [2, 3, 4], [2, 2, 3, 4]] as number[][]) {
+      it(`nancumsum: ${JSON.stringify(shape)} no-axis`, () => {
+        const r = nancumsum(mk(shape));
+        // without axis, result is flattened
+        const n = shape.reduce((a, b) => a * b, 1);
+        expect((r as any).shape).toEqual([n]);
+      });
+
+      it(`nancumprod: ${JSON.stringify(shape)} no-axis`, () => {
+        const r = nancumprod(mk(shape));
+        const n = shape.reduce((a, b) => a * b, 1);
+        expect((r as any).shape).toEqual([n]);
+      });
+    }
+
+    it('nancumsum: 2D [3,4] axis=0 shape preserved', () => {
+      const r = nancumsum(mk([3, 4]), 0);
+      expect((r as any).shape).toEqual([3, 4]);
+      const py = runNumPy(
+        `result = np.nancumsum(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nancumsum: 3D [2,3,4] axis=1 shape preserved', () => {
+      const r = nancumsum(mk([2, 3, 4]), 1);
+      expect((r as any).shape).toEqual([2, 3, 4]);
+    });
+
+    it('nancumprod: 2D [3,4] axis=1 shape preserved', () => {
+      const r = nancumprod(mk([3, 4]), 1);
+      expect((r as any).shape).toEqual([3, 4]);
+    });
+
+    it('nancumsum: with NaN treated as 0', () => {
+      const a = array([1, NaN, 3, 4]);
+      const r = nancumsum(a);
+      const py = runNumPy(`result = np.nancumsum(np.array([1., np.nan, 3., 4.]))`);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 43: negative-axis for percentile / quantile
+  // ============================================================
+  describe('percentile/quantile: negative axis', () => {
+    it('percentile: 2D [3,4] axis=-1', () => {
+      const r = percentile(mk([3, 4]), 75, -1);
+      expect((r as any).shape).toEqual([3]);
+      const py = runNumPy(
+        `result = np.percentile(np.arange(1,13,dtype=float).reshape(3,4), 75, axis=-1)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('quantile: 3D [2,3,4] axis=-1', () => {
+      const r = quantile(mk([2, 3, 4]), 0.75, -1);
+      expect((r as any).shape).toEqual([2, 3]);
+      const py = runNumPy(
+        `result = np.quantile(np.arange(1,25,dtype=float).reshape(2,3,4), 0.75, axis=-1)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('quantile: 3D [2,3,4] axis=-2', () => {
+      const r = quantile(mk([2, 3, 4]), 0.5, -2);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    it('quantile: 4D [2,2,3,4] axis=-1 keepdims=true -> shape [2,2,3,1]', () => {
+      const r = quantile(mk([2, 2, 3, 4]), 0.5, -1, true);
+      expect((r as any).shape).toEqual([2, 2, 3, 1]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 44: nanargmin / nanargmax with axis
+  // ============================================================
+  describe('nanargmin/nanargmax: 1D and 2D with axis', () => {
+    it('nanargmin: 1D axis=0 -> scalar index', () => {
+      const a = mk([5]);
+      const r = nanargmin(a, 0);
+      expect(typeof r).toBe('number');
+      const py = runNumPy(`result = int(np.nanargmin(np.arange(1,6,dtype=float), axis=0))`);
+      expect(r).toBe(py.value);
+    });
+
+    it('nanargmin: 2D [3,4] axis=0 -> shape [4]', () => {
+      const r = nanargmin(mk([3, 4]), 0);
+      expect((r as any).shape).toEqual([4]);
+      const py = runNumPy(
+        `result = np.nanargmin(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanargmin: 2D [3,4] axis=1 -> shape [3]', () => {
+      const r = nanargmin(mk([3, 4]), 1);
+      expect((r as any).shape).toEqual([3]);
+      const py = runNumPy(
+        `result = np.nanargmin(np.arange(1,13,dtype=float).reshape(3,4), axis=1)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanargmax: 1D axis=0 -> scalar index', () => {
+      const a = mk([5]);
+      const r = nanargmax(a, 0);
+      expect(typeof r).toBe('number');
+      const py = runNumPy(`result = int(np.nanargmax(np.arange(1,6,dtype=float), axis=0))`);
+      expect(r).toBe(py.value);
+    });
+
+    it('nanargmax: 2D [3,4] axis=0 -> shape [4]', () => {
+      const r = nanargmax(mk([3, 4]), 0);
+      expect((r as any).shape).toEqual([4]);
+      const py = runNumPy(
+        `result = np.nanargmax(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanargmax: 2D [3,4] axis=1 -> shape [3]', () => {
+      const r = nanargmax(mk([3, 4]), 1);
+      expect((r as any).shape).toEqual([3]);
+    });
+
+    it('nanargmin: with NaN skipped', () => {
+      const a = array([NaN, 2, 1, 4]);
+      const r = nanargmin(a, 0);
+      expect(r).toBe(2); // index of minimum non-NaN value (1 at index 2)
+    });
+
+    it('nanargmax: with NaN skipped', () => {
+      const a = array([1, NaN, 3, 2]);
+      const r = nanargmax(a, 0);
+      expect(r).toBe(2); // index of max non-NaN value (3 at index 2)
+    });
+  });
+
+  // ============================================================
+  // SECTION 45: nanmin / nanmax 4D with all axes
+  // ============================================================
+  describe('nanmin/nanmax: 4D with all axes', () => {
+    const a4 = () => mk([2, 3, 4, 5]);
+
+    for (let ax = 0; ax < 4; ax++) {
+      const expectedShape = [2, 3, 4, 5].filter((_, i) => i !== ax);
+      it(`nanmin: 4D [2,3,4,5] axis=${ax} -> shape ${JSON.stringify(expectedShape)}`, () => {
+        const r = nanmin(a4(), ax);
+        expect((r as any).shape).toEqual(expectedShape);
+      });
+
+      it(`nanmax: 4D [2,3,4,5] axis=${ax} -> shape ${JSON.stringify(expectedShape)}`, () => {
+        const r = nanmax(a4(), ax);
+        expect((r as any).shape).toEqual(expectedShape);
+      });
+    }
+
+    it('nanmin: 4D axis=-1 keepdims=true -> shape [2,3,4,1]', () => {
+      const r = nanmin(a4(), -1, true);
+      expect((r as any).shape).toEqual([2, 3, 4, 1]);
+    });
+
+    it('nanmax: 4D axis=-1 keepdims=true -> shape [2,3,4,1]', () => {
+      const r = nanmax(a4(), -1, true);
+      expect((r as any).shape).toEqual([2, 3, 4, 1]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 46: ptp — all axes, negative axes, keepdims
+  // ============================================================
+  describe('ptp: all axes, negative axes, keepdims', () => {
+    it('ptp: 1D axis=0 values', () => {
+      const a = array([3, 1, 4, 1, 5, 9, 2, 6]);
+      const r = ptp(a, 0);
+      const py = runNumPy('result = np.ptp(np.array([3,1,4,1,5,9,2,6]), axis=0)');
+      expect(r).toBeCloseTo(py.value as number, 10);
+    });
+
+    it('ptp: 2D axis=0 -> shape [3]', () => {
+      const a = mk([2, 3]);
+      const r = ptp(a, 0);
+      const py = runNumPy('result = np.ptp(np.arange(1,7,dtype=float).reshape(2,3), axis=0)');
+      expect((r as any).shape).toEqual([3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 2D axis=1 -> shape [2]', () => {
+      const a = mk([2, 3]);
+      const r = ptp(a, 1);
+      const py = runNumPy('result = np.ptp(np.arange(1,7,dtype=float).reshape(2,3), axis=1)');
+      expect((r as any).shape).toEqual([2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 2D axis=-1 (neg) -> shape [2]', () => {
+      const a = mk([2, 3]);
+      const r = ptp(a, -1);
+      const py = runNumPy('result = np.ptp(np.arange(1,7,dtype=float).reshape(2,3), axis=-1)');
+      expect((r as any).shape).toEqual([2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 3D axis=0 -> shape [3,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = ptp(a, 0);
+      const py = runNumPy('result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=0)');
+      expect((r as any).shape).toEqual([3, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 3D axis=1 -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = ptp(a, 1);
+      const py = runNumPy('result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1)');
+      expect((r as any).shape).toEqual([2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 3D axis=2 -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = ptp(a, 2);
+      const py = runNumPy('result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=2)');
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 3D axis=-1 (neg) -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = ptp(a, -1);
+      const py = runNumPy('result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)');
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 3D axis=-2 (neg) -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = ptp(a, -2);
+      const py = runNumPy('result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)');
+      expect((r as any).shape).toEqual([2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 2D axis=0 keepdims=true -> shape [1,3]', () => {
+      const a = mk([2, 3]);
+      const r = ptp(a, 0, true);
+      const py = runNumPy(
+        'result = np.ptp(np.arange(1,7,dtype=float).reshape(2,3), axis=0, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([1, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 3D axis=1 keepdims=true -> shape [2,1,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = ptp(a, 1, true);
+      const py = runNumPy(
+        'result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 1, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('ptp: 4D axis=-1 keepdims=true -> shape [2,3,4,1]', () => {
+      const a = mk([2, 3, 4, 5]);
+      const r = ptp(a, -1, true);
+      const py = runNumPy(
+        'result = np.ptp(np.arange(1,121,dtype=float).reshape(2,3,4,5), axis=-1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 4, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 47: std/variance — missing dims, neg axes, keepdims
+  // ============================================================
+  describe('std/variance: additional coverage', () => {
+    it('std: 2D axis=1 values', () => {
+      const a = array([
+        [2.0, 4.0, 4.0, 4.0],
+        [5.0, 5.0, 7.0, 9.0],
+      ]);
+      const r = std(a, 1);
+      const py = runNumPy('result = np.std(np.array([[2.,4.,4.,4.],[5.,5.,7.,9.]]), axis=1)');
+      expect((r as any).shape).toEqual([2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('std: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = std(a, -1);
+      const py = runNumPy('result = np.std(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)');
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('std: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = std(a, -2);
+      const py = runNumPy('result = np.std(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)');
+      expect((r as any).shape).toEqual([2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('std: 4D all axes', () => {
+      const a = mk([2, 3, 4, 5]);
+      for (let ax = 0; ax < 4; ax++) {
+        const r = std(a, ax);
+        const expShape = [2, 3, 4, 5].filter((_, i) => i !== ax);
+        expect((r as any).shape).toEqual(expShape);
+      }
+    });
+
+    it('std: 3D axis=1 keepdims=true -> shape [2,1,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = std(a, 1, undefined, true);
+      const py = runNumPy(
+        'result = np.std(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 1, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('variance: 2D axis=0 values', () => {
+      const a = mk([3, 4]);
+      const r = variance(a, 0);
+      const py = runNumPy('result = np.var(np.arange(1,13,dtype=float).reshape(3,4), axis=0)');
+      expect((r as any).shape).toEqual([4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('variance: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = variance(a, -1);
+      const py = runNumPy('result = np.var(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)');
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('variance: 3D axis=2 keepdims=true -> shape [2,3,1]', () => {
+      const a = mk([2, 3, 4]);
+      const r = variance(a, 2, undefined, true);
+      const py = runNumPy(
+        'result = np.var(np.arange(1,25,dtype=float).reshape(2,3,4), axis=2, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 48: mean — 0D, 1D, 4D, 5D values
+  // ============================================================
+  describe('mean: 0D, 1D, 4D, 5D values', () => {
+    it('mean: 0D scalar', () => {
+      const a = array(7.0);
+      const r = mean(a);
+      const py = runNumPy('result = np.mean(np.array(7.0))');
+      expect(r as number).toBeCloseTo(py.value as number, 10);
+    });
+
+    it('mean: 1D axis=0 values', () => {
+      const a = array([1.0, 2.0, 3.0, 4.0]);
+      const r = mean(a, 0);
+      const py = runNumPy('result = np.mean(np.array([1.,2.,3.,4.]), axis=0)');
+      expect(r as number).toBeCloseTo(py.value as number, 10);
+    });
+
+    it('mean: 4D axis=0 shape', () => {
+      const a = mk([2, 3, 4, 5]);
+      const r = mean(a, 0);
+      expect((r as any).shape).toEqual([3, 4, 5]);
+    });
+
+    it('mean: 4D axis=-1 neg -> shape [2,3,4]', () => {
+      const a = mk([2, 3, 4, 5]);
+      const r = mean(a, -1);
+      const py = runNumPy(
+        'result = np.mean(np.arange(1,121,dtype=float).reshape(2,3,4,5), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('mean: 5D axis=2 shape', () => {
+      const a = mk([2, 2, 3, 4, 5]);
+      const r = mean(a, 2);
+      expect((r as any).shape).toEqual([2, 2, 4, 5]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 49: prod — neg axes, 4D, 5D
+  // ============================================================
+  describe('prod: neg axes, 4D, 5D', () => {
+    it('prod: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const a = array([1.0, 2.0, 3.0]);
+      const r = prod(a, 0, true);
+      const py = runNumPy('result = np.prod(np.array([1.,2.,3.]), axis=0, keepdims=True)');
+      expect((r as any).shape).toEqual([1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('prod: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = prod(a, -1);
+      const py = runNumPy('result = np.prod(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)');
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('prod: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = prod(a, -2);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    it('prod: 4D axis=1 shape', () => {
+      const a = mk([2, 3, 4, 5]);
+      const r = prod(a, 1);
+      expect((r as any).shape).toEqual([2, 4, 5]);
+    });
+
+    it('prod: 5D axis=0 shape', () => {
+      const a = mk([2, 2, 3, 4, 5]);
+      const r = prod(a, 0);
+      expect((r as any).shape).toEqual([2, 3, 4, 5]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 50: average — neg axes
+  // ============================================================
+  describe('average: negative axes', () => {
+    it('average: 2D axis=-1 neg -> shape [3]', () => {
+      const a = mk([3, 4]);
+      const r = average(a, -1);
+      const py = runNumPy('result = np.average(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)');
+      expect((r as any).shape).toEqual([3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('average: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = average(a, -2);
+      const py = runNumPy(
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)'
+      );
+      expect((r as any).shape).toEqual([2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('average: 3D axis=-1 values', () => {
+      const a = mk([2, 3, 4]);
+      const r = average(a, -1);
+      const py = runNumPy(
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 51: nanstd — keepdims
+  // ============================================================
+  describe('nanstd: keepdims', () => {
+    it('nanstd: 1D axis=0 keepdims=true -> shape [1]', () => {
+      const a = array([1.0, NaN, 3.0, 4.0]);
+      const r = nanstd(a, 0, undefined, true);
+      const py = runNumPy('result = np.nanstd(np.array([1.,np.nan,3.,4.]), axis=0, keepdims=True)');
+      expect((r as any).shape).toEqual([1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanstd: 2D axis=0 keepdims=true -> shape [1,3]', () => {
+      const a = array([
+        [1.0, NaN, 3.0],
+        [4.0, 5.0, 6.0],
+      ]);
+      const r = nanstd(a, 0, undefined, true);
+      const py = runNumPy(
+        'result = np.nanstd(np.array([[1.,np.nan,3.],[4.,5.,6.]]), axis=0, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([1, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanstd: 2D axis=1 keepdims=true -> shape [2,1]', () => {
+      const a = array([
+        [1.0, NaN, 3.0],
+        [4.0, 5.0, 6.0],
+      ]);
+      const r = nanstd(a, 1, undefined, true);
+      const py = runNumPy(
+        'result = np.nanstd(np.array([[1.,np.nan,3.],[4.,5.,6.]]), axis=1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanstd: 3D axis=-1 keepdims=true -> shape [2,3,1]', () => {
+      const a = mk([2, 3, 4]);
+      const r = nanstd(a, -1, undefined, true);
+      const py = runNumPy(
+        'result = np.nanstd(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 52: neg axes for nan reductions
+  // ============================================================
+  describe('nan reductions: negative axes', () => {
+    const mkNan = (shape: number[]) => {
+      const n = shape.reduce((a, b) => a * b, 1);
+      const data = Array.from({ length: n }, (_, i) => (i % 7 === 0 ? NaN : (i + 1) * 0.5));
+      return array(data).reshape(shape);
+    };
+
+    it('nansum: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nansum(a, -1);
+      const py = runNumPy(`
+a = np.where(np.arange(24) % 7 == 0, np.nan, (np.arange(24)+1)*0.5).reshape(2,3,4)
+result = np.nansum(a, axis=-1)`);
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanprod: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanprod(a, -1);
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('nanmean: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanmean(a, -1);
+      const py = runNumPy(`
+a = np.where(np.arange(24) % 7 == 0, np.nan, (np.arange(24)+1)*0.5).reshape(2,3,4)
+result = np.nanmean(a, axis=-1)`);
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanvar: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanvar(a, -1);
+      const py = runNumPy(`
+a = np.where(np.arange(24) % 7 == 0, np.nan, (np.arange(24)+1)*0.5).reshape(2,3,4)
+result = np.nanvar(a, axis=-1)`);
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanstd: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanstd(a, -1);
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('nanmin: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanmin(a, -2);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    it('nanmax: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanmax(a, -2);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    it('nanmedian: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanmedian(a, -1);
+      const py = runNumPy(`
+a = np.where(np.arange(24) % 7 == 0, np.nan, (np.arange(24)+1)*0.5).reshape(2,3,4)
+result = np.nanmedian(a, axis=-1)`);
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanquantile: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanquantile(a, 0.5, -1);
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('nanpercentile: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mkNan([2, 3, 4]);
+      const r = nanpercentile(a, 50, -1);
+      const py = runNumPy(`
+a = np.where(np.arange(24) % 7 == 0, np.nan, (np.arange(24)+1)*0.5).reshape(2,3,4)
+result = np.nanpercentile(a, 50, axis=-1)`);
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 53: nanargmin/nanargmax neg axes; nancumsum/nancumprod neg axis
+  // ============================================================
+  describe('nanargmin/nanargmax: neg axes; nancumsum/nancumprod: neg axis', () => {
+    it('nanargmin: 2D axis=-1 neg -> shape [3]', () => {
+      const a = array([
+        [3.0, 1.0, NaN, 4.0],
+        [NaN, 2.0, 5.0, 1.0],
+        [7.0, NaN, 2.0, 3.0],
+      ]);
+      const r = nanargmin(a, -1);
+      const py = runNumPy(
+        'result = np.nanargmin(np.array([[3.,1.,np.nan,4.],[np.nan,2.,5.,1.],[7.,np.nan,2.,3.]]), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanargmax: 2D axis=-1 neg -> shape [3]', () => {
+      const a = array([
+        [3.0, 1.0, NaN, 4.0],
+        [NaN, 2.0, 5.0, 1.0],
+        [7.0, NaN, 2.0, 3.0],
+      ]);
+      const r = nanargmax(a, -1);
+      const py = runNumPy(
+        'result = np.nanargmax(np.array([[3.,1.,np.nan,4.],[np.nan,2.,5.,1.],[7.,np.nan,2.,3.]]), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nanargmin: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = nanargmin(a, -1);
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('nanargmax: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = nanargmax(a, -2);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    it('nancumsum: 3D axis=-1 neg -> shape [2,3,4]', () => {
+      const a = array([1.0, NaN, 3.0, 4.0, NaN, 6.0, 7.0, 8.0, NaN, 10.0, 11.0, 12.0]).reshape([
+        2, 3, 2,
+      ]);
+      const r = nancumsum(a, -1);
+      expect((r as any).shape).toEqual([2, 3, 2]);
+    });
+
+    it('nancumprod: 3D axis=-1 neg -> shape preserved', () => {
+      const a = array([1.0, NaN, 3.0, 4.0, NaN, 6.0, 7.0, 8.0, NaN, 10.0, 11.0, 12.0]).reshape([
+        2, 3, 2,
+      ]);
+      const r = nancumprod(a, -1);
+      expect((r as any).shape).toEqual([2, 3, 2]);
+    });
+
+    it('nancumsum: 3D axis=-2 neg -> shape preserved', () => {
+      const a = mk([2, 3, 4]);
+      const r = nancumsum(a, -2);
+      expect((r as any).shape).toEqual([2, 3, 4]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 54: diff, gradient, trapezoid — negative axes
+  // ============================================================
+  describe('diff/gradient/trapezoid: negative axes', () => {
+    it('diff: 2D axis=-1 neg -> shape [2,2]', () => {
+      const a = mk([2, 3]);
+      const r = diff(a, 1, -1);
+      const py = runNumPy(
+        'result = np.diff(np.arange(1,7,dtype=float).reshape(2,3), n=1, axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('diff: 3D axis=-2 neg -> shape [2,2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = diff(a, 1, -2);
+      const py = runNumPy(
+        'result = np.diff(np.arange(1,25,dtype=float).reshape(2,3,4), n=1, axis=-2)'
+      );
+      expect((r as any).shape).toEqual([2, 2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('diff: 3D axis=-1 neg values', () => {
+      const a = mk([2, 3, 4]);
+      const r = diff(a, 1, -1);
+      const py = runNumPy(
+        'result = np.diff(np.arange(1,25,dtype=float).reshape(2,3,4), n=1, axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('gradient: 2D axis=-1 neg', () => {
+      const a = mk([3, 4]);
+      const r = gradient(a, undefined, -1);
+      const py = runNumPy(
+        'result = np.gradient(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([3, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('gradient: 3D axis=-1 neg shape', () => {
+      const a = mk([2, 3, 4]);
+      const r = gradient(a, undefined, -1);
+      expect((r as any).shape).toEqual([2, 3, 4]);
+    });
+
+    it('trapezoid: 2D axis=0 values', () => {
+      const a = mk([3, 4]);
+      const r = trapezoid(a, undefined, undefined, 0);
+      const py = runNumPy(
+        'result = np.trapezoid(np.arange(1,13,dtype=float).reshape(3,4), axis=0)'
+      );
+      expect((r as any).shape ?? []).toEqual(py.shape ?? [4]);
+      expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
+    });
+
+    it('trapezoid: 2D axis=-1 neg -> shape [3]', () => {
+      const a = mk([3, 4]);
+      const r = trapezoid(a, undefined, undefined, -1);
+      const py = runNumPy(
+        'result = np.trapezoid(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)'
+      );
+      expect((r as any).shape ?? []).toEqual(py.shape ?? [3]);
+      expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
+    });
+
+    it('trapezoid: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = trapezoid(a, undefined, undefined, -2);
+      const py = runNumPy(
+        'result = np.trapezoid(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)'
+      );
+      expect((r as any).shape).toEqual([2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 55: partition/argpartition — negative axes
+  // ============================================================
+  describe('partition/argpartition: negative axes', () => {
+    it('partition: 2D axis=-1 neg -> shape preserved [3,4]', () => {
+      const a = array([
+        [3.0, 1.0, 4.0, 2.0],
+        [9.0, 7.0, 2.0, 5.0],
+        [6.0, 8.0, 1.0, 3.0],
+      ]);
+      const r = partition(a, 2, -1);
+      const py = runNumPy(
+        'result = np.partition(np.array([[3.,1.,4.,2.],[9.,7.,2.,5.],[6.,8.,1.,3.]]), 2, axis=-1)'
+      );
+      expect((r as any).shape).toEqual([3, 4]);
+      // Only the k-th element must match
+      expect((r as any).toArray()[0][2]).toBeCloseTo((py.value as number[][])[0]![2]!, 10);
+    });
+
+    it('partition: 3D axis=-1 neg -> shape preserved', () => {
+      const a = mk([2, 3, 4]);
+      const r = partition(a, 1, -1);
+      expect((r as any).shape).toEqual([2, 3, 4]);
+    });
+
+    it('partition: 3D axis=-2 neg -> shape preserved', () => {
+      const a = mk([2, 3, 4]);
+      const r = partition(a, 1, -2);
+      expect((r as any).shape).toEqual([2, 3, 4]);
+    });
+
+    it('argpartition: 2D axis=-1 neg -> shape [3,4]', () => {
+      const a = array([
+        [3.0, 1.0, 4.0, 2.0],
+        [9.0, 7.0, 2.0, 5.0],
+        [6.0, 8.0, 1.0, 3.0],
+      ]);
+      const r = argpartition(a, 2, -1);
+      expect((r as any).shape).toEqual([3, 4]);
+    });
+
+    it('argpartition: 3D axis=-1 neg -> shape preserved', () => {
+      const a = mk([2, 3, 4]);
+      const r = argpartition(a, 1, -1);
+      expect((r as any).shape).toEqual([2, 3, 4]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 56: count_nonzero — negative axes
+  // ============================================================
+  describe('count_nonzero: negative axes', () => {
+    it('count_nonzero: 2D axis=-1 neg -> shape [3]', () => {
+      const a = array([
+        [1.0, 0.0, 3.0, 0.0],
+        [0.0, 5.0, 6.0, 0.0],
+        [7.0, 8.0, 0.0, 10.0],
+      ]);
+      const r = count_nonzero(a, -1);
+      const py = runNumPy(
+        'result = np.count_nonzero(np.array([[1,0,3,0],[0,5,6,0],[7,8,0,10]]), axis=-1)'
+      );
+      expect((r as any).shape ?? []).toEqual([3]);
+      expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
+    });
+
+    it('count_nonzero: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = count_nonzero(a, -2);
+      expect((r as any).shape ?? []).toEqual([2, 4]);
+    });
+
+    it('count_nonzero: 3D axis=-1 neg -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = count_nonzero(a, -1);
+      expect((r as any).shape ?? []).toEqual([2, 3]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 57: linalg.vector_norm / linalg.matrix_norm
+  // ============================================================
+  describe('linalg.vector_norm / linalg.matrix_norm: axes, keepdims, values', () => {
+    it('linalg.vector_norm: 1D values (L2)', () => {
+      const a = array([3.0, 4.0]);
+      const r = linalg.vector_norm(a);
+      const py = runNumPy('result = np.linalg.vector_norm(np.array([3.,4.]))');
+      expect(r as number).toBeCloseTo(py.value as number, 8);
+    });
+
+    it('linalg.vector_norm: 2D axis=0 -> shape [4]', () => {
+      const a = mk([3, 4]);
+      const r = linalg.vector_norm(a, undefined, 0);
+      const py = runNumPy(
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=0)'
+      );
+      expect((r as any).shape).toEqual([4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('linalg.vector_norm: 2D axis=1 -> shape [3]', () => {
+      const a = mk([3, 4]);
+      const r = linalg.vector_norm(a, undefined, 1);
+      const py = runNumPy(
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=1)'
+      );
+      expect((r as any).shape).toEqual([3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('linalg.vector_norm: 2D axis=-1 neg -> shape [3]', () => {
+      const a = mk([3, 4]);
+      const r = linalg.vector_norm(a, undefined, -1);
+      const py = runNumPy(
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('linalg.vector_norm: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = linalg.vector_norm(a, undefined, -2);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    it('linalg.vector_norm: 2D axis=1 keepdims=true -> shape [3,1]', () => {
+      const a = mk([3, 4]);
+      const r = linalg.vector_norm(a, undefined, 1, true);
+      const py = runNumPy(
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([3, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('linalg.vector_norm: 3D axis=-1 keepdims=true -> shape [2,3,1]', () => {
+      const a = mk([2, 3, 4]);
+      const r = linalg.vector_norm(a, undefined, -1, true);
+      expect((r as any).shape).toEqual([2, 3, 1]);
+    });
+
+    it('linalg.vector_norm: L1 norm values', () => {
+      const a = array([1.0, -2.0, 3.0]);
+      const r = linalg.vector_norm(a, 1);
+      const py = runNumPy('result = np.linalg.vector_norm(np.array([1.,-2.,3.]), ord=1)');
+      expect(r as number).toBeCloseTo(py.value as number, 8);
+    });
+
+    it('linalg.matrix_norm: 2D Frobenius values', () => {
+      const a = mk([3, 4]);
+      const r = linalg.matrix_norm(a, 'fro');
+      const py = runNumPy(
+        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='fro')"
+      );
+      expect(r as number).toBeCloseTo(py.value as number, 8);
+    });
+
+    it('linalg.matrix_norm: 2D nuclear norm values', () => {
+      const a = mk([3, 4]);
+      const r = linalg.matrix_norm(a, 'nuc');
+      const py = runNumPy(
+        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='nuc')"
+      );
+      expect(r as number).toBeCloseTo(py.value as number, 5);
+    });
+
+    it('linalg.matrix_norm: 2D keepdims=true -> shape [1,1]', () => {
+      const a = mk([3, 4]);
+      const r = linalg.matrix_norm(a, 'fro', true);
+      const py = runNumPy(
+        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='fro', keepdims=True)"
+      );
+      expect((r as any).shape).toEqual([1, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 58: linalg.tensorinv / linalg.tensorsolve — values
+  // ============================================================
+  describe('linalg.tensorinv / linalg.tensorsolve: values', () => {
+    it('linalg.tensorinv: 4D ind=2 shape [3,4,2,6]', () => {
+      // tensorinv of shape (2,6,3,4) with ind=2 -> shape (3,4,2,6)
+      const n = 2 * 6;
+      const eye6 = zeros([n, n]);
+      for (let i = 0; i < n; i++) (eye6 as any).set([i, i], 1.0);
+      const a = eye6.reshape([2, 6, 2, 6]);
+      const r = linalg.tensorinv(a, 2);
+      expect((r as any).shape).toEqual([2, 6, 2, 6]);
+    });
+
+    it('linalg.tensorsolve: 2D -> 1D solution', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const b = array([5.0, 11.0]);
+      const r = linalg.tensorsolve(a, b);
+      const py = runNumPy(
+        'result = np.linalg.tensorsolve(np.array([[1.,2.],[3.,4.]]), np.array([5.,11.]))'
+      );
+      expect((r as any).shape).toEqual([2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('linalg.tensorsolve: 3D -> 2D solution', () => {
+      // A has shape (2,2,2,2), b has shape (2,2)
+      const n = 4;
+      const eye4 = zeros([n, n]);
+      for (let i = 0; i < n; i++) (eye4 as any).set([i, i], 1.0);
+      const a = eye4.reshape([2, 2, 2, 2]);
+      const b = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const r = linalg.tensorsolve(a, b);
+      expect((r as any).shape).toEqual([2, 2]);
+      expect(arraysClose((r as any).toArray(), b.toArray())).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 59: shape ops — negative axes
+  // ============================================================
+  describe('shape ops: negative axes', () => {
+    it('swapaxes: 3D axes (-1, -2) neg', () => {
+      const a = mk([2, 3, 4]);
+      const r = swapaxes(a, -1, -2);
+      const py = runNumPy(
+        'result = np.swapaxes(np.arange(1,25,dtype=float).reshape(2,3,4), -1, -2)'
+      );
+      expect((r as any).shape).toEqual([2, 4, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('swapaxes: 4D axis (-1, 0) neg', () => {
+      const a = mk([2, 3, 4, 5]);
+      const r = swapaxes(a, -1, 0);
+      expect((r as any).shape).toEqual([5, 3, 4, 2]);
+    });
+
+    it('squeeze: neg axis on size-1 dim', () => {
+      const a = zeros([2, 1, 3]);
+      const r = squeeze(a, -2);
+      const py = runNumPy('result = np.squeeze(np.zeros((2,1,3)), axis=-2)');
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('rollaxis: 3D neg axis -> shape [4,2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = rollaxis(a, -1, 0);
+      const py = runNumPy(
+        'result = np.rollaxis(np.arange(1,25,dtype=float).reshape(2,3,4), -1, 0)'
+      );
+      expect((r as any).shape).toEqual([4, 2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('stack: 2D axis=-1 neg -> shape [3,4,2]', () => {
+      const a = mk([3, 4]);
+      const b = mk([3, 4]);
+      const r = stack([a, b], -1);
+      const py = runNumPy(`
+a = np.arange(1,13,dtype=float).reshape(3,4)
+b = np.arange(1,13,dtype=float).reshape(3,4)
+result = np.stack([a, b], axis=-1)`);
+      expect((r as any).shape).toEqual([3, 4, 2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('unstack: 3D axis=-1 neg -> 4 arrays of shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const parts = unstack(a, -1);
+      expect(parts.length).toBe(4);
+      expect((parts[0] as any).shape).toEqual([2, 3]);
+    });
+
+    it('split: 3D axis=-1 neg -> 2 parts of shape [2,3,2]', () => {
+      const a = mk([2, 3, 4]);
+      const parts = split(a, 2, -1);
+      expect(parts.length).toBe(2);
+      expect((parts[0] as any).shape).toEqual([2, 3, 2]);
+    });
+
+    it('array_split: 3D axis=-2 neg -> 3 parts', () => {
+      const a = mk([2, 3, 4]);
+      const parts = array_split(a, 3, -2);
+      expect(parts.length).toBe(3);
+    });
+
+    it('repeat: 3D axis=-1 neg -> shape [2,3,8]', () => {
+      const a = mk([2, 3, 4]);
+      const r = repeat(a, 2, -1);
+      expect((r as any).shape).toEqual([2, 3, 8]);
+    });
+
+    it('append: 2D axis=-1 neg', () => {
+      const a = mk([2, 3]);
+      const b = mk([2, 1]);
+      const r = append(a, b, -1);
+      const py = runNumPy(`
+a = np.arange(1,7,dtype=float).reshape(2,3)
+b = np.arange(1,3,dtype=float).reshape(2,1)
+result = np.append(a, b, axis=-1)`);
+      expect((r as any).shape).toEqual([2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('delete_: 2D axis=-1 neg -> shape [2,2]', () => {
+      const a = mk([2, 3]);
+      const r = delete_(a, 1, -1);
+      const py = runNumPy(
+        'result = np.delete(np.arange(1,7,dtype=float).reshape(2,3), 1, axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('insert: 1D insert values', () => {
+      const a = array([1.0, 2.0, 3.0, 4.0]);
+      const r = insert(a, 2, 99.0);
+      const py = runNumPy('result = np.insert(np.array([1.,2.,3.,4.]), 2, 99.)');
+      expect((r as any).shape).toEqual([5]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 60: vecdot / permute_dims — negative axes
+  // ============================================================
+  describe('vecdot/permute_dims: negative axes', () => {
+    it('vecdot: 2D axis=-1 neg -> shape [3]', () => {
+      const a = mk([3, 4]);
+      const b = mk([3, 4]);
+      const r = vecdot(a, b, -1);
+      const py = runNumPy(`
+a = np.arange(1,13,dtype=float).reshape(3,4)
+b = np.arange(1,13,dtype=float).reshape(3,4)
+result = np.vecdot(a, b, axis=-1)`);
+      expect((r as any).shape ?? []).toEqual(py.shape ?? [3]);
+      expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
+    });
+
+    it('vecdot: 3D axis=-2 neg -> shape [2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const b = mk([2, 3, 4]);
+      const r = vecdot(a, b, -2);
+      expect((r as any).shape ?? []).toEqual([2, 4]);
+    });
+
+    it('permute_dims: 3D neg axes [-1,-2,-3] -> shape [4,3,2]', () => {
+      const a = mk([2, 3, 4]);
+      const r = permute_dims(a, [-1, -2, -3]);
+      const py = runNumPy(
+        'result = np.permute_dims(np.arange(1,25,dtype=float).reshape(2,3,4), [-1,-2,-3])'
+      );
+      expect((r as any).shape).toEqual([4, 3, 2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('permute_dims: 4D neg axes [-1,0,-2,1]', () => {
+      const a = mk([2, 3, 4, 5]);
+      const r = permute_dims(a, [-1, 0, -2, 1]);
+      expect((r as any).shape).toEqual([5, 2, 4, 3]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 61: take / take_along_axis / compress — negative axes
+  // ============================================================
+  describe('take/take_along_axis/compress: negative axes', () => {
+    it('take: 2D axis=1 pos -> shape [3,2] values', () => {
+      const a = mk([3, 4]);
+      const r = take(a, [0, 2], 1);
+      const py = runNumPy(
+        'result = np.take(np.arange(1,13,dtype=float).reshape(3,4), [0,2], axis=1)'
+      );
+      expect((r as any).shape).toEqual([3, 2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('take: 3D axis=1 pos -> shape [2,2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = take(a, [0, 1], 1);
+      expect((r as any).shape).toEqual([2, 2, 4]);
+    });
+
+    it('take_along_axis: 2D axis=-1 neg -> shape preserved [3,4]', () => {
+      const a = mk([3, 4]);
+      const idx = argsort(a, -1);
+      const r = take_along_axis(a, idx, -1);
+      const py = runNumPy(`
+a = np.arange(1,13,dtype=float).reshape(3,4)
+idx = np.argsort(a, axis=-1)
+result = np.take_along_axis(a, idx, axis=-1)`);
+      expect((r as any).shape).toEqual([3, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('compress: 2D axis=-1 neg -> shape [3,2]', () => {
+      const a = mk([3, 4]);
+      const mask = array([true, false, true, false]);
+      const r = compress(mask, a, -1);
+      const py = runNumPy(`
+a = np.arange(1,13,dtype=float).reshape(3,4)
+result = np.compress([True,False,True,False], a, axis=-1)`);
+      expect((r as any).shape).toEqual([3, 2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('iindex: 2D axis=-1 neg -> shape [3,2]', () => {
+      const a = mk([3, 4]);
+      const idx = array([0, 2]);
+      const r = iindex(a, idx, -1);
+      expect((r as any).shape).toEqual([3, 2]);
+    });
+
+    it('bindex: 2D axis=-1 neg -> shape [3,2]', () => {
+      const a = mk([3, 4]);
+      const mask = array([true, false, true, false]);
+      const r = bindex(a, mask, -1);
+      expect((r as any).shape).toEqual([3, 2]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 62: put_along_axis / putmask / place — values
+  // ============================================================
+  describe('put_along_axis / putmask / place: values', () => {
+    it('put_along_axis: 2D axis=1 values', () => {
+      const a = array([
+        [10.0, 20.0, 30.0],
+        [40.0, 50.0, 60.0],
+      ]);
+      const idx = array([
+        [2, 0, 1],
+        [0, 2, 1],
+      ]);
+      const vals = array([
+        [99.0, 88.0, 77.0],
+        [66.0, 55.0, 44.0],
+      ]);
+      put_along_axis(a, idx, vals, 1);
+      const py = runNumPy(`
+a = np.array([[10.,20.,30.],[40.,50.,60.]])
+idx = np.array([[2,0,1],[0,2,1]])
+vals = np.array([[99.,88.,77.],[66.,55.,44.]])
+np.put_along_axis(a, idx, vals, axis=1)
+result = a`);
+      expect(arraysClose((a as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('put_along_axis: 2D axis=-1 neg same as axis=1', () => {
+      const a = array([
+        [10.0, 20.0, 30.0],
+        [40.0, 50.0, 60.0],
+      ]);
+      const aRef = array([
+        [10.0, 20.0, 30.0],
+        [40.0, 50.0, 60.0],
+      ]);
+      const idx = array([[0], [2]]);
+      const vals = array([[7.0], [8.0]]);
+      put_along_axis(a, idx, vals, -1);
+      put_along_axis(aRef, idx, vals, 1);
+      expect(arraysClose((a as any).toArray(), (aRef as any).toArray())).toBe(true);
+    });
+
+    it('putmask: basic values', () => {
+      const a = array([1.0, 2.0, 3.0, 4.0, 5.0]);
+      const mask = array([false, true, false, true, false]);
+      const vals = array([99.0]);
+      putmask(a, mask, vals);
+      const py = runNumPy(`
+a = np.array([1.,2.,3.,4.,5.])
+np.putmask(a, [False,True,False,True,False], 99.)
+result = a`);
+      expect(arraysClose((a as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('putmask: 2D values', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const mask = array([
+        [true, false],
+        [false, true],
+      ]);
+      putmask(a, mask, array([0.0]));
+      const py = runNumPy(`
+a = np.array([[1.,2.],[3.,4.]])
+np.putmask(a, np.array([[True,False],[False,True]]), 0.)
+result = a`);
+      expect(arraysClose((a as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('place: basic values', () => {
+      const a = array([1.0, 2.0, 3.0, 4.0, 5.0]);
+      const mask = array([false, true, false, true, false]);
+      place(a, mask, array([10.0, 20.0]));
+      const py = runNumPy(`
+a = np.array([1.,2.,3.,4.,5.])
+np.place(a, [False,True,False,True,False], [10.,20.])
+result = a`);
+      expect(arraysClose((a as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('place: 2D values', () => {
+      const a = array([
+        [1.0, 2.0],
+        [3.0, 4.0],
+      ]);
+      const mask = array([
+        [true, false],
+        [true, false],
+      ]);
+      place(a, mask, array([99.0]));
+      const py = runNumPy(`
+a = np.array([[1.,2.],[3.,4.]])
+np.place(a, np.array([[True,False],[True,False]]), [99.])
+result = a`);
+      expect(arraysClose((a as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 63: packbits / unpackbits — with axis
+  // ============================================================
+  describe('packbits/unpackbits: with axis', () => {
+    it('packbits: 2D axis=0 -> shape', () => {
+      const a = array(
+        [
+          [1, 0, 1, 0, 1, 0, 1, 0],
+          [0, 1, 0, 1, 0, 1, 0, 1],
+        ],
+        'uint8'
+      );
+      const r = packbits(a, 0);
+      const py = runNumPy(`
+a = np.array([[1,0,1,0,1,0,1,0],[0,1,0,1,0,1,0,1]], dtype=np.uint8)
+result = np.packbits(a, axis=0)`);
+      expect((r as any).shape).toEqual(py.shape);
+    });
+
+    it('packbits: 2D axis=1 -> shape', () => {
+      const a = array(
+        [
+          [1, 0, 1, 0, 1, 0, 1, 0],
+          [0, 1, 0, 1, 0, 1, 0, 1],
+        ],
+        'uint8'
+      );
+      const r = packbits(a, 1);
+      const py = runNumPy(`
+a = np.array([[1,0,1,0,1,0,1,0],[0,1,0,1,0,1,0,1]], dtype=np.uint8)
+result = np.packbits(a, axis=1)`);
+      expect((r as any).shape).toEqual(py.shape);
+    });
+
+    it('packbits: 2D axis=-1 neg -> same as axis=1', () => {
+      const a = array(
+        [
+          [1, 0, 1, 0, 1, 0, 1, 0],
+          [0, 1, 0, 1, 0, 1, 0, 1],
+        ],
+        'uint8'
+      );
+      const r1 = packbits(a, 1);
+      const r2 = packbits(a, -1);
+      expect((r2 as any).shape).toEqual((r1 as any).shape);
+    });
+
+    it('unpackbits: 2D axis=0 -> shape', () => {
+      const a = array(
+        [
+          [0b10101010, 0b11110000],
+          [0b00001111, 0b01010101],
+        ],
+        'uint8'
+      );
+      const r = unpackbits(a, 0);
+      const py = runNumPy(`
+a = np.array([[0b10101010, 0b11110000],[0b00001111, 0b01010101]], dtype=np.uint8)
+result = np.unpackbits(a, axis=0)`);
+      expect((r as any).shape).toEqual(py.shape);
+    });
+
+    it('unpackbits: 2D axis=1 -> shape', () => {
+      const a = array(
+        [
+          [0b10101010, 0b11110000],
+          [0b00001111, 0b01010101],
+        ],
+        'uint8'
+      );
+      const r = unpackbits(a, 1);
+      const py = runNumPy(`
+a = np.array([[0b10101010, 0b11110000],[0b00001111, 0b01010101]], dtype=np.uint8)
+result = np.unpackbits(a, axis=1)`);
+      expect((r as any).shape).toEqual(py.shape);
+    });
+
+    it('unpackbits: 2D axis=-1 neg -> same as axis=1', () => {
+      const a = array(
+        [
+          [0b10101010, 0b11110000],
+          [0b00001111, 0b01010101],
+        ],
+        'uint8'
+      );
+      const r1 = unpackbits(a, 1);
+      const r2 = unpackbits(a, -1);
+      expect((r2 as any).shape).toEqual((r1 as any).shape);
+    });
+  });
+
+  // ============================================================
+  // SECTION 64: unwrap — with axis
+  // ============================================================
+  describe('unwrap: with axis', () => {
+    it('unwrap: 1D no-op (already unwrapped)', () => {
+      const a = array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5]);
+      const r = unwrap(a);
+      // Already monotonically increasing within range, shape is preserved
+      expect((r as any).shape).toEqual([6]);
+      const py = runNumPy('result = np.unwrap(np.array([0.,0.5,1.,1.5,2.,2.5]))');
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('unwrap: 2D axis=0 shape preserved', () => {
+      const a = array([
+        [0.0, 0.0],
+        [0.5, 0.5],
+        [1.0, 1.0],
+        [1.5, 1.5],
+        [2.0, 2.0],
+      ]);
+      const r = unwrap(a, undefined, 0);
+      expect((r as any).shape).toEqual([5, 2]);
+    });
+
+    it('unwrap: 2D axis=1 shape preserved', () => {
+      const a = array([
+        [0.0, 0.5, 1.0, 1.5, 2.0],
+        [0.0, 0.5, 1.0, 1.5, 2.0],
+      ]);
+      const r = unwrap(a, undefined, 1);
+      const py = runNumPy(`
+a = np.array([[0.,0.5,1.,1.5,2.],[0.,0.5,1.,1.5,2.]])
+result = np.unwrap(a, axis=1)`);
+      expect((r as any).shape).toEqual([2, 5]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('unwrap: 2D axis=-1 neg -> same as axis=1', () => {
+      const a = array([
+        [0.0, 1.0, 2.0, -3.0, -2.0],
+        [0.0, 1.0, 2.0, -3.0, -2.0],
+      ]);
+      const r1 = unwrap(a, undefined, 1);
+      const r2 = unwrap(a, undefined, -1);
+      expect(arraysClose((r1 as any).toArray(), (r2 as any).toArray())).toBe(true);
+    });
+
+    it('unwrap: 3D axis=-1 neg -> shape preserved', () => {
+      const a = mk([2, 3, 5]);
+      const r = unwrap(a, undefined, -1);
+      expect((r as any).shape).toEqual([2, 3, 5]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 65: apply_along_axis / apply_over_axes — negative axes
+  // ============================================================
+  describe('apply_along_axis/apply_over_axes: negative axes', () => {
+    it('apply_along_axis: 2D axis=-1 neg -> same as axis=1', () => {
+      const a = array([
+        [1.0, 2.0, 3.0],
+        [4.0, 5.0, 6.0],
+      ]);
+      const sumFn = (row: any) => {
+        const vals = row.toArray() as number[];
+        return vals.reduce((s: number, v: number) => s + v, 0);
+      };
+      const r1 = apply_along_axis(sumFn, 1, a);
+      const r2 = apply_along_axis(sumFn, -1, a);
+      expect(arraysClose((r1 as any).toArray(), (r2 as any).toArray())).toBe(true);
+    });
+
+    it('apply_along_axis: 2D axis=-1 neg -> shape [2]', () => {
+      const a = array([
+        [1.0, 2.0, 3.0, 4.0],
+        [5.0, 6.0, 7.0, 8.0],
+      ]);
+      const sumFn = (row: any) => {
+        const vals = row.toArray() as number[];
+        return vals.reduce((s: number, v: number) => s + v, 0);
+      };
+      const r = apply_along_axis(sumFn, -1, a);
+      const py = runNumPy(`
+a = np.array([[1.,2.,3.,4.],[5.,6.,7.,8.]])
+result = np.apply_along_axis(np.sum, -1, a)`);
+      expect((r as any).shape).toEqual([2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('apply_over_axes: 3D axes=[-1] neg -> shape preserved [2,3,1]', () => {
+      const a = mk([2, 3, 4]);
+      const sumFn = (x: any, axis: number) => x.sum(axis, undefined, true);
+      const r = apply_over_axes(sumFn, a, [-1]);
+      expect((r as any).shape).toEqual([2, 3, 1]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 66: take — negative axes (plain number[] indices)
+  // ============================================================
+  describe('take: negative axes with plain array indices', () => {
+    it('take: 2D axis=-1 neg -> shape [3,2] values', () => {
+      const a = mk([3, 4]);
+      const r = take(a, [0, 2], -1);
+      const py = runNumPy(
+        'result = np.take(np.arange(1,13,dtype=float).reshape(3,4), [0,2], axis=-1)'
+      );
+      expect((r as any).shape).toEqual([3, 2]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('take: 3D axis=-1 neg -> shape [2,3,2]', () => {
+      const a = mk([2, 3, 4]);
+      const r = take(a, [0, 2], -1);
+      expect((r as any).shape).toEqual([2, 3, 2]);
+    });
+
+    it('take: 3D axis=-2 neg -> shape [2,2,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = take(a, [0, 1], -2);
+      expect((r as any).shape).toEqual([2, 2, 4]);
+    });
+
+    it('take: 4D axis=-3 neg -> shape [2,2,4,5]', () => {
+      const a = mk([2, 3, 4, 5]);
+      const r = take(a, [0, 1], -3);
+      expect((r as any).shape).toEqual([2, 2, 4, 5]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 67: argmax / argmin — value verification
+  // ============================================================
+  describe('argmax/argmin: value verification', () => {
+    it('argmax: 1D values', () => {
+      const a = array([3.0, 1.0, 9.0, 4.0, 2.0]);
+      const r = argmax(a);
+      const py = runNumPy('result = np.argmax(np.array([3.,1.,9.,4.,2.]))');
+      expect(r).toBe(py.value);
+    });
+
+    it('argmin: 1D values', () => {
+      const a = array([3.0, 1.0, 9.0, 4.0, 2.0]);
+      const r = argmin(a);
+      const py = runNumPy('result = np.argmin(np.array([3.,1.,9.,4.,2.]))');
+      expect(r).toBe(py.value);
+    });
+
+    it('argmax: 2D axis=0 values', () => {
+      const a = array([
+        [1.0, 8.0, 3.0],
+        [7.0, 2.0, 9.0],
+      ]);
+      const r = argmax(a, 0);
+      const py = runNumPy('result = np.argmax(np.array([[1.,8.,3.],[7.,2.,9.]]), axis=0)');
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('argmin: 2D axis=1 values', () => {
+      const a = array([
+        [1.0, 8.0, 3.0],
+        [7.0, 2.0, 9.0],
+      ]);
+      const r = argmin(a, 1);
+      const py = runNumPy('result = np.argmin(np.array([[1.,8.,3.],[7.,2.,9.]]), axis=1)');
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('argmax: 3D axis=-1 neg values', () => {
+      const a = mk([2, 3, 4]);
+      const r = argmax(a, -1);
+      const py = runNumPy(
+        'result = np.argmax(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('argmin: 3D axis=-2 neg values', () => {
+      const a = mk([2, 3, 4]);
+      const r = argmin(a, -2);
+      const py = runNumPy(
+        'result = np.argmin(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)'
+      );
+      expect((r as any).shape).toEqual([2, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 68: average — keepdims
+  // ============================================================
+  describe('average: keepdims', () => {
+    it('average: 2D axis=0 keepdims=true -> shape [1,3]', () => {
+      const a = mk([2, 3]);
+      const r = average(a, 0, undefined, true);
+      const py = runNumPy(
+        'result = np.average(np.arange(1,7,dtype=float).reshape(2,3), axis=0, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([1, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('average: 2D axis=1 keepdims=true -> shape [2,1]', () => {
+      const a = mk([2, 3]);
+      const r = average(a, 1, undefined, true);
+      const py = runNumPy(
+        'result = np.average(np.arange(1,7,dtype=float).reshape(2,3), axis=1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('average: 3D axis=1 keepdims=true -> shape [2,1,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = average(a, 1, undefined, true);
+      const py = runNumPy(
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 1, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('average: 3D axis=-1 keepdims=true -> shape [2,3,1]', () => {
+      const a = mk([2, 3, 4]);
+      const r = average(a, -1, undefined, true);
+      const py = runNumPy(
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1, keepdims=True)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 69: nancumprod — value verification
+  // ============================================================
+  describe('nancumprod: value verification', () => {
+    it('nancumprod: 1D with NaN values', () => {
+      const a = array([1.0, NaN, 3.0, NaN, 5.0]);
+      const r = nancumprod(a);
+      const py = runNumPy('result = np.nancumprod(np.array([1.,np.nan,3.,np.nan,5.]))');
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nancumprod: 2D axis=0 values', () => {
+      const a = array([
+        [1.0, NaN, 3.0],
+        [NaN, 2.0, 4.0],
+      ]);
+      const r = nancumprod(a, 0);
+      const py = runNumPy(`
+a = np.array([[1.,np.nan,3.],[np.nan,2.,4.]])
+result = np.nancumprod(a, axis=0)`);
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('nancumprod: 2D axis=1 values', () => {
+      const a = array([
+        [1.0, 2.0, NaN],
+        [NaN, 3.0, 4.0],
+      ]);
+      const r = nancumprod(a, 1);
+      const py = runNumPy(`
+a = np.array([[1.,2.,np.nan],[np.nan,3.,4.]])
+result = np.nancumprod(a, axis=1)`);
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 70: copysign / nextafter / spacing / signbit — values
+  // ============================================================
+  describe('copysign/nextafter/spacing/signbit: value verification', () => {
+    it('copysign: values', () => {
+      const x = array([1.0, -2.0, 3.0, -4.0]);
+      const y = array([-1.0, 1.0, -1.0, 1.0]);
+      const r = copysign(x, y);
+      const py = runNumPy(
+        'result = np.copysign(np.array([1.,-2.,3.,-4.]), np.array([-1.,1.,-1.,1.]))'
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('copysign: 2D shape preserved', () => {
+      const r = copysign(mk([2, 3]), mk([2, 3]));
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('nextafter: 1D values', () => {
+      const x = array([1.0, -1.0, 0.0]);
+      const y = array([2.0, -2.0, 1.0]);
+      const r = nextafter(x, y);
+      const py = runNumPy('result = np.nextafter(np.array([1.,-1.,0.]), np.array([2.,-2.,1.]))');
+      // nextafter(1.0, 2.0) -> slightly > 1.0
+      // nextafter(-1.0, -2.0) -> slightly < -1.0 (more negative)
+      const vals = (r as any).toArray() as number[];
+      expect(vals[0]).toBeGreaterThan(1.0);
+      expect(vals[1]).toBeLessThan(-1.0);
+      expect(py.value).toBeTruthy();
+    });
+
+    it('spacing: 1D values', () => {
+      const x = array([1.0, 10.0, 100.0]);
+      const r = spacing(x);
+      const py = runNumPy('result = np.spacing(np.array([1.,10.,100.]))');
+      expect((r as any).shape).toEqual([3]);
+      // spacing values are very small — just verify shape and positivity
+      const vals = (r as any).toArray() as number[];
+      expect(vals[0]).toBeGreaterThan(0);
+      expect(py.value).toBeTruthy();
+    });
+
+    it('signbit: 1D values', () => {
+      const x = array([-1.0, 0.0, 1.0, -0.0]);
+      const r = signbit(x);
+      const py = runNumPy('result = np.signbit(np.array([-1.,0.,1.,-0.]))');
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('signbit: 2D shape preserved', () => {
+      const r = signbit(mk([2, 3]));
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 71: bitwise_count — value verification
+  // ============================================================
+  describe('bitwise_count: value verification', () => {
+    it('bitwise_count: 1D uint8 values', () => {
+      const a = array([0, 1, 2, 3, 255, 127, 128, 64], 'uint8');
+      const r = bitwise_count(a);
+      const py = runNumPy(
+        'result = np.bitwise_count(np.array([0,1,2,3,255,127,128,64], dtype=np.uint8))'
+      );
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('bitwise_count: 2D shape preserved', () => {
+      const a = array(
+        [
+          [1, 2, 3],
+          [4, 5, 6],
+        ],
+        'uint8'
+      );
+      const r = bitwise_count(a);
+      const py = runNumPy('result = np.bitwise_count(np.array([[1,2,3],[4,5,6]], dtype=np.uint8))');
+      expect((r as any).shape).toEqual([2, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SECTION 72: shape ops — negative axes (expand_dims, moveaxis, flip, rot90, roll, concatenate)
+  // ============================================================
+  describe('shape ops: negative axes (expand_dims, moveaxis, flip, rot90, roll, concatenate)', () => {
+    it('expand_dims: axis=-1 neg -> shape [2,3,1]', () => {
+      const a = mk([2, 3]);
+      const r = expand_dims(a, -1);
+      const py = runNumPy(
+        'result = np.expand_dims(np.arange(1,7,dtype=float).reshape(2,3), axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 1]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('expand_dims: axis=-2 neg -> shape [2,1,3]', () => {
+      const a = mk([2, 3]);
+      const r = expand_dims(a, -2);
+      const py = runNumPy(
+        'result = np.expand_dims(np.arange(1,7,dtype=float).reshape(2,3), axis=-2)'
+      );
+      expect((r as any).shape).toEqual([2, 1, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('moveaxis: neg source/dest -> same result as positive', () => {
+      const a = mk([2, 3, 4]);
+      const r1 = moveaxis(a, 2, 0);
+      const r2 = moveaxis(a, -1, 0);
+      expect(arraysClose((r1 as any).toArray(), (r2 as any).toArray())).toBe(true);
+    });
+
+    it('moveaxis: 3D source=-1 dest=-2 -> shape [2,4,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = moveaxis(a, -1, -2);
+      const py = runNumPy(
+        'result = np.moveaxis(np.arange(1,25,dtype=float).reshape(2,3,4), -1, -2)'
+      );
+      expect((r as any).shape).toEqual([2, 4, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('flip: 2D axis=-1 neg -> values', () => {
+      const a = mk([3, 4]);
+      const r = flip(a, -1);
+      const py = runNumPy('result = np.flip(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)');
+      expect((r as any).shape).toEqual([3, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('flip: 3D axis=-2 neg -> values', () => {
+      const a = mk([2, 3, 4]);
+      const r = flip(a, -2);
+      const py = runNumPy('result = np.flip(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)');
+      expect((r as any).shape).toEqual([2, 3, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('rot90: 3D axes=(-2,-1) neg -> shape [2,4,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = rot90(a, 1, [-2, -1]);
+      const py = runNumPy(
+        'result = np.rot90(np.arange(1,25,dtype=float).reshape(2,3,4), 1, (-2,-1))'
+      );
+      expect((r as any).shape).toEqual([2, 4, 3]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('rot90: 3D axes=(-1,-2) neg -> shape [2,3,4] (undo)', () => {
+      const a = mk([2, 3, 4]);
+      const r1 = rot90(a, 1, [1, 2]);
+      const r2 = rot90(a, 1, [-2, -1]);
+      expect(arraysClose((r1 as any).toArray(), (r2 as any).toArray())).toBe(true);
+    });
+
+    it('roll: 3D axis=-1 neg -> shape preserved [2,3,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = roll(a, 2, -1);
+      const py = runNumPy(
+        'result = np.roll(np.arange(1,25,dtype=float).reshape(2,3,4), 2, axis=-1)'
+      );
+      expect((r as any).shape).toEqual([2, 3, 4]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('roll: 3D axis=-2 neg -> values', () => {
+      const a = mk([2, 3, 4]);
+      const r1 = roll(a, 1, 1);
+      const r2 = roll(a, 1, -2);
+      expect(arraysClose((r1 as any).toArray(), (r2 as any).toArray())).toBe(true);
+    });
+
+    it('concatenate: 2D axis=-1 neg -> shape [2,7]', () => {
+      const a = mk([2, 3]);
+      const b = mk([2, 4]);
+      const r = concatenate([a, b], -1);
+      const py = runNumPy(`
+a = np.arange(1,7,dtype=float).reshape(2,3)
+b = np.arange(1,9,dtype=float).reshape(2,4)
+result = np.concatenate([a, b], axis=-1)`);
+      expect((r as any).shape).toEqual([2, 7]);
+      expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
+    });
+
+    it('concatenate: 3D axis=-1 neg -> shape [2,3,8]', () => {
+      const a = mk([2, 3, 4]);
+      const b = mk([2, 3, 4]);
+      const r = concatenate([a, b], -1);
+      expect((r as any).shape).toEqual([2, 3, 8]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 73: linalg batch ops — svdvals, cholesky, eig/eigh, eigvals/eigvalsh, lstsq, pinv, slogdet
+  // ============================================================
+  describe('linalg batch ops: svdvals, cholesky, eig variants, lstsq, pinv, slogdet', () => {
+    /** Build a batch of identity-scaled matrices for numerical stability */
+    const mkEye = (shape: number[]) => {
+      const n = shape[shape.length - 1]!;
+      const batchDims = shape.slice(0, -2);
+      const batchSize = batchDims.reduce((a, b) => a * b, 1);
+      const data = Array.from({ length: batchSize }, (_, b) =>
+        Array.from({ length: n }, (_, i) =>
+          Array.from({ length: n }, (_, j) => (i === j ? b + 2.0 : 0.0))
+        )
+      ).flat(2);
+      return array(data).reshape(shape);
+    };
+
+    // svdvals
+    it('svdvals: 2D [3,4] -> shape [3]', () => {
+      const r = linalg.svdvals(mk([3, 4]));
+      expect((r as any).shape).toEqual([3]);
+    });
+
+    it('svdvals: 3D [2,3,4] batch -> shape [2,3]', () => {
+      const r = linalg.svdvals(mk([2, 3, 4]));
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('svdvals: 4D [2,2,3,4] batch -> shape [2,2,3]', () => {
+      const r = linalg.svdvals(mk([2, 2, 3, 4]));
+      expect((r as any).shape).toEqual([2, 2, 3]);
+    });
+
+    // cholesky
+    it('cholesky: 2D [3,3] -> shape [3,3]', () => {
+      const A = mkEye([3, 3]);
+      const r = linalg.cholesky(A);
+      expect((r as any).shape).toEqual([3, 3]);
+    });
+
+    it('cholesky: 3D [2,3,3] batch -> shape [2,3,3]', () => {
+      const A = mkEye([2, 3, 3]);
+      const r = linalg.cholesky(A);
+      expect((r as any).shape).toEqual([2, 3, 3]);
+    });
+
+    it('cholesky: 4D [2,2,3,3] batch -> shape [2,2,3,3]', () => {
+      const A = mkEye([2, 2, 3, 3]);
+      const r = linalg.cholesky(A);
+      expect((r as any).shape).toEqual([2, 2, 3, 3]);
+    });
+
+    // eig/eigvals
+    it('eig: 2D [3,3] -> w shape [3], v shape [3,3]', () => {
+      const A = mkEye([3, 3]);
+      const { w, v } = linalg.eig(A);
+      expect((w as any).shape).toEqual([3]);
+      expect((v as any).shape).toEqual([3, 3]);
+    });
+
+    it('eig: 3D [2,3,3] batch -> w shape [2,3]', () => {
+      const A = mkEye([2, 3, 3]);
+      const { w } = linalg.eig(A);
+      expect((w as any).shape).toEqual([2, 3]);
+    });
+
+    it('eigvals: 2D [3,3] -> shape [3]', () => {
+      const A = mkEye([3, 3]);
+      const r = linalg.eigvals(A);
+      expect((r as any).shape).toEqual([3]);
+    });
+
+    it('eigvals: 3D [2,3,3] batch -> shape [2,3]', () => {
+      const A = mkEye([2, 3, 3]);
+      const r = linalg.eigvals(A);
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    // eigh/eigvalsh (symmetric positive definite)
+    it('eigh: 2D [3,3] SPD -> w shape [3]', () => {
+      const A = mkEye([3, 3]);
+      const { w } = linalg.eigh(A);
+      expect((w as any).shape).toEqual([3]);
+    });
+
+    it('eigh: 3D [2,3,3] batch -> w shape [2,3]', () => {
+      const A = mkEye([2, 3, 3]);
+      const { w } = linalg.eigh(A);
+      expect((w as any).shape).toEqual([2, 3]);
+    });
+
+    it('eigvalsh: 2D [4,4] SPD -> shape [4]', () => {
+      const A = mkEye([4, 4]);
+      const r = linalg.eigvalsh(A);
+      expect((r as any).shape).toEqual([4]);
+    });
+
+    it('eigvalsh: 3D [2,4,4] batch -> shape [2,4]', () => {
+      const A = mkEye([2, 4, 4]);
+      const r = linalg.eigvalsh(A);
+      expect((r as any).shape).toEqual([2, 4]);
+    });
+
+    // lstsq
+    it('lstsq: 2D overdetermined [4,2] -> x shape [2]', () => {
+      const A = array([
+        [1.0, 1.0],
+        [1.0, 2.0],
+        [1.0, 3.0],
+        [1.0, 4.0],
+      ]);
+      const b = array([6.0, 5.0, 7.0, 10.0]);
+      const { x } = linalg.lstsq(A, b);
+      expect((x as any).shape).toEqual([2]);
+    });
+
+    it('lstsq: 2D multiple RHS [4,2] x [4,3] -> x shape [2,3]', () => {
+      const A = array([
+        [1.0, 0.0],
+        [0.0, 1.0],
+        [1.0, 1.0],
+        [1.0, -1.0],
+      ]);
+      const b = mk([4, 3]);
+      const { x } = linalg.lstsq(A, b);
+      expect((x as any).shape).toEqual([2, 3]);
+    });
+
+    // pinv
+    it('pinv: 2D [3,4] -> shape [4,3]', () => {
+      const r = linalg.pinv(mk([3, 4]));
+      expect((r as any).shape).toEqual([4, 3]);
+    });
+
+    it('pinv: 2D [4,3] -> shape [3,4]', () => {
+      const r = linalg.pinv(mk([4, 3]));
+      expect((r as any).shape).toEqual([3, 4]);
+    });
+
+    it('pinv: 3D [2,3,4] batch -> shape [2,4,3]', () => {
+      const r = linalg.pinv(mk([2, 3, 4]));
+      expect((r as any).shape).toEqual([2, 4, 3]);
+    });
+
+    // slogdet
+    it('slogdet: 2D [3,3] -> sign/logabsdet values', () => {
+      const A = array([
+        [1.0, 2.0, 3.0],
+        [0.0, 4.0, 5.0],
+        [0.0, 0.0, 6.0],
+      ]);
+      const { sign, logabsdet } = linalg.slogdet(A);
+      const py = runNumPy(
+        'sign, logabsdet = np.linalg.slogdet(np.array([[1.,2.,3.],[0.,4.,5.],[0.,0.,6.]]))\nresult = [float(sign), float(logabsdet)]'
+      );
+      expect(sign).toBeCloseTo((py.value as number[])[0]!, 10);
+      expect(logabsdet).toBeCloseTo((py.value as number[])[1]!, 8);
+    });
+
+    it('slogdet: 3D [2,3,3] batch -> sign/logabsdet arrays', () => {
+      const A = mkEye([2, 3, 3]);
+      const result = linalg.slogdet(A);
+      // NumPy returns arrays for batched input; both sign and logabsdet should be arrays
+      expect(Array.isArray((result as any).sign) || typeof (result as any).sign === 'object').toBe(
+        true
+      );
+    });
+  });
+
+  // ============================================================
+  // SECTION 74: fft.hfft / fft.ihfft — all axes + neg axes
+  // fft.fftshift / fft.ifftshift — neg axes
+  // ============================================================
+  describe('fft.hfft/ihfft: axes and neg axes; fftshift/ifftshift: neg axes', () => {
+    it('fft.hfft: 1D -> shape [14] (n=14 for 8-point input)', () => {
+      const a = mk([8]);
+      const r = fft.hfft(a);
+      // hfft of n-point input produces 2*(n-1) output by default
+      expect((r as any).shape[0]).toBe(14);
+    });
+
+    it('fft.hfft: 2D axis=0 -> shape matches numpy', () => {
+      const a = mk([4, 6]);
+      const r = fft.hfft(a, undefined, 0);
+      const py = runNumPy('result = np.fft.hfft(np.arange(1,25,dtype=float).reshape(4,6), axis=0)');
+      expect((r as any).shape).toEqual(py.shape);
+    });
+
+    it('fft.hfft: 2D axis=1 -> shape matches numpy', () => {
+      const a = mk([4, 6]);
+      const r = fft.hfft(a, undefined, 1);
+      const py = runNumPy('result = np.fft.hfft(np.arange(1,25,dtype=float).reshape(4,6), axis=1)');
+      expect((r as any).shape).toEqual(py.shape);
+    });
+
+    it('fft.hfft: 2D axis=-1 neg -> same as axis=1', () => {
+      const a = mk([4, 6]);
+      const r1 = fft.hfft(a, undefined, 1);
+      const r2 = fft.hfft(a, undefined, -1);
+      expect((r2 as any).shape).toEqual((r1 as any).shape);
+    });
+
+    it('fft.ihfft: 1D shape', () => {
+      const a = mk([8]);
+      const r = fft.ihfft(a);
+      expect((r as any).shape).toEqual([5]); // ihfft of n real points -> n//2+1
+    });
+
+    it('fft.ihfft: 2D axis=0', () => {
+      const a = mk([4, 6]);
+      const r = fft.ihfft(a, undefined, 0);
+      const py = runNumPy(
+        'result = np.fft.ihfft(np.arange(1,25,dtype=float).reshape(4,6), axis=0)'
+      );
+      expect((r as any).shape).toEqual(py.shape);
+    });
+
+    it('fft.ihfft: 2D axis=-1 neg -> same as axis=1', () => {
+      const a = mk([4, 6]);
+      const r1 = fft.ihfft(a, undefined, 1);
+      const r2 = fft.ihfft(a, undefined, -1);
+      expect((r2 as any).shape).toEqual((r1 as any).shape);
+    });
+
+    it('fft.fftshift: axis=-1 neg -> same as axis=1', () => {
+      const a = mk([4, 8]);
+      const r1 = fft.fftshift(a, 1);
+      const r2 = fft.fftshift(a, -1);
+      expect(arraysClose((r1 as any).toArray(), (r2 as any).toArray())).toBe(true);
+    });
+
+    it('fft.fftshift: 3D axis=-1 neg -> shape preserved', () => {
+      const a = mk([2, 4, 8]);
+      const r = fft.fftshift(a, -1);
+      expect((r as any).shape).toEqual([2, 4, 8]);
+    });
+
+    it('fft.ifftshift: axis=-2 neg -> same as axis=1', () => {
+      const a = mk([4, 8]);
+      const r1 = fft.ifftshift(a, 0);
+      const r2 = fft.ifftshift(a, -2);
+      expect(arraysClose((r1 as any).toArray(), (r2 as any).toArray())).toBe(true);
+    });
+
+    it('fft.ifftshift: 3D axis=-1 neg -> shape preserved', () => {
+      const a = mk([2, 4, 8]);
+      const r = fft.ifftshift(a, -1);
+      expect((r as any).shape).toEqual([2, 4, 8]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 75: Tuple/multiple axes for reductions
+  // NumPy supports axis=(0,2) for all reductions.
+  // Functions that DON'T support tuple axis silently return the
+  // unreduced array (wrong shape) — these should FAIL.
+  // Functions that DO support it are included as passing baselines.
+  // ============================================================
+  describe('tuple/multiple axes for reductions (NumPy divergence)', () => {
+    // These already work (baseline):
+    it('sum: 3D [2,3,4] axis=(0,2) -> shape [3] [works]', () => {
+      const r = sum(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+    it('mean: 3D [2,3,4] axis=(1,2) -> shape [2] [works]', () => {
+      const r = mean(mk([2, 3, 4]), [1, 2] as any);
+      expect((r as any).shape).toEqual([2]);
+    });
+    it('nansum: 3D [2,3,4] axis=(0,2) -> shape [3] [works]', () => {
+      const r = nansum(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+
+    // These silently ignore the tuple and return wrong shape:
+    it('amax: 3D [2,3,4] axis=(0,1) -> shape [4]', () => {
+      const r = amax(mk([2, 3, 4]), [0, 1] as any);
+      expect((r as any).shape).toEqual([4]);
+    });
+    it('amin: 3D [2,3,4] axis=(0,2) -> shape [3]', () => {
+      const r = amin(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+    it('all: 3D [2,3,4] axis=(0,2) -> shape [3]', () => {
+      const r = all(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+    it('any: 3D [2,3,4] axis=(0,2) -> shape [3]', () => {
+      const r = any(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+    it('nanmin: 3D [2,3,4] axis=(0,2) -> shape [3]', () => {
+      const r = nanmin(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+    it('nanmax: 3D [2,3,4] axis=(0,2) -> shape [3]', () => {
+      const r = nanmax(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+    it('median: 3D [2,3,4] axis=(0,2) -> shape [3]', () => {
+      const r = median(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+    it('count_nonzero: 3D [2,3,4] axis=(0,2) -> shape [3]', () => {
+      const r = count_nonzero(mk([2, 3, 4]), [0, 2] as any);
+      expect((r as any).shape).toEqual([3]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 76: apply_along_axis with 3D arrays
+  // NumPy supports ND; our implementation is 2D-only.
+  // ============================================================
+  describe('apply_along_axis: 3D arrays (NumPy divergence)', () => {
+    it('apply_along_axis: 3D [2,3,4] axis=2 -> shape [2,3]', () => {
+      const a = mk([2, 3, 4]);
+      const r = apply_along_axis((x: any) => sum(x), 2, a);
+      expect((r as any).shape).toEqual([2, 3]);
+    });
+
+    it('apply_along_axis: 3D [2,3,4] axis=0 -> shape [3,4]', () => {
+      const a = mk([2, 3, 4]);
+      const r = apply_along_axis((x: any) => sum(x), 0, a);
+      expect((r as any).shape).toEqual([3, 4]);
+    });
+  });
+
+  // ============================================================
+  // SECTION 77: unique with axis parameter
+  // NumPy np.unique(a, axis=0) finds unique rows/columns.
+  // Our unique() has no axis param — these should FAIL.
+  // ============================================================
+  describe('unique with axis parameter (NumPy divergence)', () => {
+    it('unique: 2D [4,3] axis=0 -> unique rows', () => {
+      // a has rows [1,2,3], [4,5,6], [1,2,3], [7,8,9] — 3 unique rows
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [1, 2, 3],
+        [7, 8, 9],
+      ]);
+      const r = (unique as any)(a, false, false, false, 0);
+      expect((r as any).shape).toEqual([3, 3]);
+    });
+
+    it('unique: 2D [3,4] axis=1 -> unique columns', () => {
+      const py = runNumPy(
+        'a = np.array([[1,1,2,3],[4,4,5,6],[7,7,8,9]])\nresult = np.unique(a, axis=1)'
+      );
+      const a = array([
+        [1, 1, 2, 3],
+        [4, 4, 5, 6],
+        [7, 7, 8, 9],
+      ]);
+      const r = (unique as any)(a, false, false, false, 1);
+      expect((r as any).shape).toEqual(py.shape);
+    });
+  });
+
+  // ============================================================
+  // SECTION 78: linalg.matrix_norm with 3D batch
+  // NumPy supports batched matrix norms; our impl is 2D-only.
+  // ============================================================
+  describe('linalg.matrix_norm: 3D batch (NumPy divergence)', () => {
+    it('linalg.matrix_norm: 3D [2,3,4] Frobenius -> shape [2]', () => {
+      const a = mk([2, 3, 4]);
+      const r = linalg.matrix_norm(a, 'fro');
+      expect((r as any).shape).toEqual([2]);
+    });
+
+    it('linalg.matrix_norm: 4D [2,2,3,4] Frobenius -> shape [2,2]', () => {
+      const a = mk([2, 2, 3, 4]);
+      const r = linalg.matrix_norm(a, 'fro');
+      expect((r as any).shape).toEqual([2, 2]);
     });
   });
 });
