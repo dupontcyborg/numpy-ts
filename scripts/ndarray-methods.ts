@@ -610,8 +610,9 @@ dot(other: NDArray): NDArray | number | bigint | Complex {
   }`;
 
 const TRACE_METHOD = `\
-trace(): number | bigint | Complex {
-    return core.trace(this);
+trace(): NDArray | number | bigint | Complex {
+    const r = core.trace(this);
+    return r instanceof NDArrayCore ? up(r) : r;
   }`;
 
 const INNER_METHOD = `\
@@ -1116,17 +1117,17 @@ export const METHOD_DEFS: MethodDef[] = [
   // ============================================================
 
   // axis? + keepdims? → NDArray | number | Complex
-  { name: 'sum', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | bigint | Complex', doc: 'Sum array elements over a given axis' },
-  { name: 'mean', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Compute the arithmetic mean along the specified axis' },
-  { name: 'prod', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | bigint | Complex', doc: 'Product of array elements over a given axis' },
-  { name: 'max', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the maximum along a given axis' },
-  { name: 'min', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the minimum along a given axis' },
+  { name: 'sum', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | bigint | Complex', doc: 'Sum array elements over a given axis' },
+  { name: 'mean', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Compute the arithmetic mean along the specified axis' },
+  { name: 'prod', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | bigint | Complex', doc: 'Product of array elements over a given axis' },
+  { name: 'max', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the maximum along a given axis' },
+  { name: 'min', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the minimum along a given axis' },
   { name: 'ptp', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Peak to peak (maximum - minimum) value along a given axis' },
-  { name: 'nansum', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the sum of array elements, treating NaNs as zero' },
-  { name: 'nanprod', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the product of array elements, treating NaNs as ones' },
-  { name: 'nanmean', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Compute the arithmetic mean, ignoring NaNs' },
-  { name: 'nanmin', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return minimum of an array, ignoring NaNs' },
-  { name: 'nanmax', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return maximum of an array, ignoring NaNs' },
+  { name: 'nansum', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the sum of array elements, treating NaNs as zero' },
+  { name: 'nanprod', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return the product of array elements, treating NaNs as ones' },
+  { name: 'nanmean', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Compute the arithmetic mean, ignoring NaNs' },
+  { name: 'nanmin', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return minimum of an array, ignoring NaNs' },
+  { name: 'nanmax', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number | Complex', doc: 'Return maximum of an array, ignoring NaNs' },
 
   // axis? → NDArray | number (no keepdims)
   { name: 'argmin', pattern: 'reduction', params: 'axis?: number', returnType: 'NDArray | number', doc: 'Indices of the minimum values along an axis' },
@@ -1137,15 +1138,15 @@ export const METHOD_DEFS: MethodDef[] = [
   // axis? + ddof + keepdims? → NDArray | number
   { name: 'var', pattern: 'reduction', coreName: 'variance', params: 'axis?: number, ddof: number = 0, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute variance along the specified axis\n@param axis - Axis along which to compute variance\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1' },
   { name: 'std', pattern: 'reduction', params: 'axis?: number, ddof: number = 0, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute standard deviation along the specified axis\n@param axis - Axis along which to compute std\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1' },
-  { name: 'nanvar', pattern: 'reduction', params: 'axis?: number, ddof: number = 0, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute the variance, ignoring NaNs\n@param axis - Axis along which to compute variance\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1' },
-  { name: 'nanstd', pattern: 'reduction', params: 'axis?: number, ddof: number = 0, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute the standard deviation, ignoring NaNs\n@param axis - Axis along which to compute std\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1' },
+  { name: 'nanvar', pattern: 'reduction', params: 'axis?: number | number[], ddof: number = 0, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute the variance, ignoring NaNs\n@param axis - Axis along which to compute variance\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1' },
+  { name: 'nanstd', pattern: 'reduction', params: 'axis?: number | number[], ddof: number = 0, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute the standard deviation, ignoring NaNs\n@param axis - Axis along which to compute std\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1' },
 
   // axis? + keepdims? → NDArray | boolean
-  { name: 'all', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | boolean', doc: 'Test whether all array elements along a given axis evaluate to True' },
-  { name: 'any', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | boolean', doc: 'Test whether any array elements along a given axis evaluate to True' },
+  { name: 'all', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | boolean', doc: 'Test whether all array elements along a given axis evaluate to True' },
+  { name: 'any', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | boolean', doc: 'Test whether any array elements along a given axis evaluate to True' },
 
   // axis? + keepdims? → NDArray | number
-  { name: 'median', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute the median along the specified axis' },
+  { name: 'median', pattern: 'reduction', params: 'axis?: number | number[], keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute the median along the specified axis' },
   { name: 'nanmedian', pattern: 'reduction', params: 'axis?: number, keepdims: boolean = false', returnType: 'NDArray | number', doc: 'Compute the median, ignoring NaNs' },
 
   // q first, then axis? + keepdims? → NDArray | number

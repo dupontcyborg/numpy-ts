@@ -1448,11 +1448,68 @@ export function apply_along_axis(
     return result;
   }
 
-  // General case: simplified handling
-  // This is a basic implementation for common cases
-  throw new Error(
-    `apply_along_axis not fully implemented for ${ndim}D arrays. Only 1D and 2D arrays are supported.`
-  );
+  // General ND case: iterate over all multi-indices except the axis dimension
+  const axisSize = shape[axis]!;
+  const iterSize = iterShape.reduce((a, b) => a * b, 1);
+
+  // Convert a flat iteration index to a multi-index in iterShape
+  function flatToMultiIter(flat: number): number[] {
+    const idx = new Array<number>(iterShape.length);
+    let rem = flat;
+    for (let d = iterShape.length - 1; d >= 0; d--) {
+      idx[d] = rem % iterShape[d]!;
+      rem = Math.floor(rem / iterShape[d]!);
+    }
+    return idx;
+  }
+
+  // Get element from arr at multi-index (with axis inserted)
+  function getElem(iterIdx: number[], axisIdx: number): number {
+    const fullIdx: number[] = [];
+    let ii = 0;
+    for (let d = 0; d < ndim; d++) {
+      fullIdx.push(d === axis ? axisIdx : iterIdx[ii++]!);
+    }
+    return Number(arr.get(...fullIdx));
+  }
+
+  // Collect results
+  const results: (ArrayStorage | number)[] = [];
+  for (let fi = 0; fi < iterSize; fi++) {
+    const iterIdx = flatToMultiIter(fi);
+    const sliceData = new Float64Array(axisSize);
+    for (let ai = 0; ai < axisSize; ai++) {
+      sliceData[ai] = getElem(iterIdx, ai);
+    }
+    const sliceArr = ArrayStorage.fromData(sliceData, [axisSize], 'float64');
+    results.push(func1d(sliceArr));
+  }
+
+  // Build output array
+  const firstResult = results[0];
+  if (firstResult === undefined) {
+    return ArrayStorage.zeros([0], 'float64');
+  }
+  if (typeof firstResult === 'number') {
+    // Scalar output: shape = iterShape
+    const resultArr = ArrayStorage.zeros(iterShape, 'float64');
+    for (let fi = 0; fi < iterSize; fi++) {
+      resultArr.data[fi] = results[fi] as number;
+    }
+    return resultArr;
+  } else {
+    // Array output: shape = iterShape + firstResult.shape
+    const outShape = [...iterShape, ...Array.from(firstResult.shape)];
+    const resultArr = ArrayStorage.zeros(outShape, 'float64');
+    const sliceSize = firstResult.size;
+    for (let fi = 0; fi < iterSize; fi++) {
+      const res = results[fi] as ArrayStorage;
+      for (let si = 0; si < sliceSize; si++) {
+        resultArr.data[fi * sliceSize + si] = Number(res.iget(si));
+      }
+    }
+    return resultArr;
+  }
 }
 
 /**

@@ -13,11 +13,12 @@ export function unique(
   ar: NDArrayCore,
   returnIndex: boolean = false,
   returnInverse: boolean = false,
-  returnCounts: boolean = false
+  returnCounts: boolean = false,
+  axis?: number
 ):
   | NDArrayCore
   | { values: NDArrayCore; indices?: NDArrayCore; inverse?: NDArrayCore; counts?: NDArrayCore } {
-  const result = setOps.unique(toStorage(ar), returnIndex, returnInverse, returnCounts);
+  const result = setOps.unique(toStorage(ar), returnIndex, returnInverse, returnCounts, axis);
   if ('values' in result) {
     return {
       values: fromStorage(result.values),

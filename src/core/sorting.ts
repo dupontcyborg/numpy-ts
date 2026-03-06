@@ -6,7 +6,7 @@
  */
 
 import * as sortingOps from '../common/ops/sorting';
-import { NDArrayCore, toStorage, fromStorage, fromStorageArray } from './types';
+import { NDArrayCore, toStorage, fromStorage, fromStorageArray, ArrayStorage } from './types';
 
 // ============================================================
 // Sorting
@@ -97,7 +97,19 @@ export function extract(condition: NDArrayCore, a: NDArrayCore): NDArrayCore {
 // ============================================================
 
 /** Count non-zero elements */
-export function count_nonzero(a: NDArrayCore, axis?: number): NDArrayCore | number {
+export function count_nonzero(a: NDArrayCore, axis?: number | number[]): NDArrayCore | number {
+  if (Array.isArray(axis)) {
+    const ndim = toStorage(a).ndim;
+    const normAxes = axis.map((ax) => (ax < 0 ? ndim + ax : ax));
+    const sortedDesc = [...normAxes].sort((x, y) => y - x);
+    let current: ArrayStorage = toStorage(a);
+    for (const ax of sortedDesc) {
+      const r = sortingOps.count_nonzero(current, ax);
+      if (typeof r === 'number') return r;
+      current = r;
+    }
+    return fromStorage(current);
+  }
   const result = sortingOps.count_nonzero(toStorage(a), axis);
   if (typeof result === 'number') return result;
   return fromStorage(result);

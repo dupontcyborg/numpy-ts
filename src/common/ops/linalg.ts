@@ -627,20 +627,11 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
 }
 
 /**
- * Matrix multiplication
- * Requires 2D arrays with compatible shapes
- *
- * Automatically detects transposed/non-contiguous arrays via strides
- * and uses appropriate DGEMM transpose parameters.
- *
- * Note: Currently uses float64 precision for all operations.
- * Integer inputs are promoted to float64 (matching NumPy behavior).
+ * Core 2D-only matrix multiplication (optimized with DGEMM).
+ * Called by the public matmul() after handling 1D promotion and ND batching.
+ * @internal
  */
-export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
-  if (a.ndim !== 2 || b.ndim !== 2) {
-    throw new Error('matmul requires 2D arrays');
-  }
-
+function matmul2D(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const [m = 0, k = 0] = a.shape;
   const [k2 = 0, n = 0] = b.shape;
 
@@ -648,15 +639,11 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     throw new Error(`matmul shape mismatch: (${m},${k}) @ (${k2},${n})`);
   }
 
-  // Determine result dtype (promote inputs, but use float64 for integer types)
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
 
-  // Handle complex matrix multiplication
   if (isComplexDType(resultDtype)) {
     const result = ArrayStorage.zeros([m, n], resultDtype);
     const resultData = result.data as Float64Array;
-
-    // Use iget for view-safety (handles non-contiguous strides/offset)
     for (let i = 0; i < m; i++) {
       for (let j = 0; j < n; j++) {
         let sumRe = 0;
@@ -664,11 +651,9 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
         for (let l = 0; l < k; l++) {
           const aVal = a.iget(i * k + l) as Complex;
           const bVal = b.iget(l * n + j) as Complex;
-          // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
           sumRe += aVal.re * bVal.re - aVal.im * bVal.im;
           sumIm += aVal.re * bVal.im + aVal.im * bVal.re;
         }
-        // Store in interleaved format (result is always contiguous)
         const idx = i * n + j;
         resultData[idx * 2] = sumRe;
         resultData[idx * 2 + 1] = sumIm;
@@ -682,13 +667,10 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
       ? 'float64'
       : resultDtype;
 
-  // For now, we only support float64 matmul (using dgemm)
-  // TODO: Add float32 support using sgemm
   if (computeDtype !== 'float64') {
     throw new Error(`matmul currently only supports float64, got ${computeDtype}`);
   }
 
-  // Convert inputs to Float64Array if needed
   let aData =
     a.dtype === 'float64'
       ? (a.data as Float64Array)
@@ -698,8 +680,6 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
       ? (b.data as Float64Array)
       : Float64Array.from(Array.from(b.data as ArrayLike<number>).map(Number));
 
-  // Handle offset for sliced arrays (views)
-  // If the array has an offset, we need to pass the subarray starting from that offset
   if (a.offset > 0) {
     aData = aData.subarray(a.offset) as Float64Array;
   }
@@ -707,33 +687,21 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     bData = bData.subarray(b.offset) as Float64Array;
   }
 
-  // Detect array layout from strides
-  // Row-major (C-contiguous): row stride > col stride
-  // Transposed (F-contiguous or transposed view): col stride > row stride
   const [aStrideRow = 0, aStrideCol = 0] = a.strides;
   const [bStrideRow = 0, bStrideCol = 0] = b.strides;
 
-  // Determine if arrays are effectively transposed
-  // For a normal MxK array: strides are [K, 1] (row stride = K cols)
-  // For a transposed KxM array (viewed as MxK): strides are [1, M] (col stride > row stride)
   const aIsTransposed = aStrideCol > aStrideRow;
   const bIsTransposed = bStrideCol > bStrideRow;
 
   const transA: Transpose = aIsTransposed ? 'transpose' : 'no-transpose';
   const transB: Transpose = bIsTransposed ? 'transpose' : 'no-transpose';
 
-  // Determine leading dimensions based on memory layout
-  // Leading dimension is the stride of the major dimension in memory
   let lda: number;
   let ldb: number;
 
   if (aIsTransposed) {
-    // Array is stored with columns contiguous (F-order or transposed)
-    // The leading dimension is how many elements to skip between columns
     lda = aStrideCol;
   } else {
-    // Array is row-major (C-order)
-    // The leading dimension is the row stride (number of elements per row)
     lda = aStrideRow;
   }
 
@@ -743,25 +711,157 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     ldb = bStrideRow;
   }
 
-  // Create result array (always row-major)
   const result = ArrayStorage.zeros([m, n], 'float64');
 
-  // Call dgemm with detected transpose flags and leading dimensions
-  dgemm(
-    transA,
-    transB,
-    m,
-    n,
-    k,
-    1.0, // alpha
-    aData,
-    lda, // leading dimension of a (accounts for actual memory layout)
-    bData,
-    ldb, // leading dimension of b (accounts for actual memory layout)
-    result.data as Float64Array,
-    n // ldc (result is always row-major with n cols)
-  );
+  dgemm(transA, transB, m, n, k, 1.0, aData, lda, bData, ldb, result.data as Float64Array, n);
 
+  return result;
+}
+
+/**
+ * Broadcast two batch-shape arrays together (NumPy rules).
+ * @internal
+ */
+function broadcastBatchShapes(shapeA: number[], shapeB: number[]): number[] {
+  const ndim = Math.max(shapeA.length, shapeB.length);
+  const result: number[] = new Array(ndim);
+  for (let i = 0; i < ndim; i++) {
+    const ai = shapeA[shapeA.length - ndim + i] ?? 1;
+    const bi = shapeB[shapeB.length - ndim + i] ?? 1;
+    if (ai !== bi && ai !== 1 && bi !== 1) {
+      throw new Error(
+        `matmul: cannot broadcast batch shapes ${JSON.stringify(shapeA)} and ${JSON.stringify(shapeB)}`
+      );
+    }
+    result[i] = Math.max(ai, bi);
+  }
+  return result;
+}
+
+/** Flat index → multi-index for given shape. @internal */
+function flatToBatchMultiIndex(flatIdx: number, shape: number[]): number[] {
+  const idx: number[] = new Array(shape.length);
+  let remaining = flatIdx;
+  for (let i = shape.length - 1; i >= 0; i--) {
+    idx[i] = remaining % shape[i]!;
+    remaining = Math.floor(remaining / shape[i]!);
+  }
+  return idx;
+}
+
+/**
+ * Multi-index → flat index, applying broadcast clamping (size-1 dims clamp to 0).
+ * multiIdx is right-aligned to shape length.
+ * @internal
+ */
+function batchMultiIndexToFlat(multiIdx: number[], shape: number[]): number {
+  const ndim = shape.length;
+  let flat = 0;
+  for (let i = 0; i < ndim; i++) {
+    const mi = multiIdx.length - ndim + i;
+    const rawIdx = mi >= 0 ? multiIdx[mi]! : 0;
+    const idx = shape[i] === 1 ? 0 : rawIdx;
+    flat = flat * shape[i]! + idx;
+  }
+  return flat;
+}
+
+/**
+ * Ensure array data is a contiguous float64 buffer with no offset.
+ * @internal
+ */
+function toContiguousFloat64(a: ArrayStorage): Float64Array {
+  if (a.isCContiguous && a.offset === 0 && a.dtype === 'float64') {
+    return a.data as Float64Array;
+  }
+  const result = new Float64Array(a.size);
+  for (let i = 0; i < a.size; i++) result[i] = Number(a.iget(i));
+  return result;
+}
+
+/**
+ * Matrix multiplication - fully NumPy-compatible.
+ *
+ * Behavior by input dimensions:
+ * - 0D: raises ValueError (at least 1-D required)
+ * - 1D @ 1D: inner product → 0D scalar array
+ * - 2D @ 1D: matrix-vector → 1D
+ * - 1D @ 2D: vector-matrix → 1D
+ * - 2D @ 2D: matrix multiplication → 2D (optimized with DGEMM)
+ * - ND @ ND (N≥3): batched matrix multiply, batch dims broadcast → ND
+ */
+export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  if (a.ndim === 0 || b.ndim === 0) {
+    throw new Error(
+      `matmul: Input operand does not have enough dimensions (has 0, gufunc core with signature (n?,k),(k,m?)->(n?,m?) requires at least 1-D)`
+    );
+  }
+
+  const aWas1D = a.ndim === 1;
+  const bWas1D = b.ndim === 1;
+
+  // Promote 1D inputs to 2D (1D a → row vector, 1D b → column vector)
+  const aProc: ArrayStorage = aWas1D ? shapeOps.reshape(a, [1, a.shape[0]!]) : a;
+  const bProc: ArrayStorage = bWas1D ? shapeOps.reshape(b, [b.shape[0]!, 1]) : b;
+
+  const aNdim = aProc.ndim;
+  const bNdim = bProc.ndim;
+  const M = aProc.shape[aNdim - 2]!;
+  const K = aProc.shape[aNdim - 1]!;
+  const K2 = bProc.shape[bNdim - 2]!;
+  const N = bProc.shape[bNdim - 1]!;
+
+  if (K !== K2) {
+    throw new Error(
+      `matmul: shape mismatch: (...,${M},${K}) @ (...,${K2},${N}): inner dimensions must match`
+    );
+  }
+
+  // Fast path: pure 2D×2D — use optimized DGEMM
+  if (aNdim === 2 && bNdim === 2) {
+    const result2D = matmul2D(aProc, bProc);
+    if (aWas1D && bWas1D) return shapeOps.reshape(result2D, []); // → 0D
+    if (aWas1D) return shapeOps.reshape(result2D, [N]); // (1,N) → (N,)
+    if (bWas1D) return shapeOps.reshape(result2D, [M]); // (M,1) → (M,)
+    return result2D;
+  }
+
+  // ND batched matrix multiplication
+  const aBatch = Array.from(aProc.shape).slice(0, aNdim - 2);
+  const bBatch = Array.from(bProc.shape).slice(0, bNdim - 2);
+  const batchShape = broadcastBatchShapes(aBatch, bBatch);
+  const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+
+  const aData = toContiguousFloat64(aProc);
+  const bData = toContiguousFloat64(bProc);
+  const resultData = new Float64Array(batchSize * M * N);
+
+  for (let bi = 0; bi < batchSize; bi++) {
+    const batchIdx = flatToBatchMultiIndex(bi, batchShape);
+    const aFlatBatch = batchMultiIndexToFlat(batchIdx, aBatch);
+    const bFlatBatch = batchMultiIndexToFlat(batchIdx, bBatch);
+
+    const aOff = aFlatBatch * M * K;
+    const bOff = bFlatBatch * K * N;
+    const rOff = bi * M * N;
+
+    for (let i = 0; i < M; i++) {
+      for (let j = 0; j < N; j++) {
+        let sum = 0;
+        for (let kk = 0; kk < K; kk++) {
+          sum += aData[aOff + i * K + kk]! * bData[bOff + kk * N + j]!;
+        }
+        resultData[rOff + i * N + j] = sum;
+      }
+    }
+  }
+
+  const outShape = [...batchShape, M, N];
+  const result = ArrayStorage.fromData(resultData, outShape, 'float64');
+
+  if (aWas1D && bWas1D) return shapeOps.reshape(result, [...batchShape]);
+  if (aWas1D) return shapeOps.reshape(result, [...batchShape, N]);
+  if (bWas1D) return shapeOps.reshape(result, [...batchShape, M]);
   return result;
 }
 
@@ -774,38 +874,127 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  * @param a - Input 2D array
  * @returns Sum of diagonal elements
  */
-export function trace(a: ArrayStorage): number | bigint | Complex {
-  if (a.ndim !== 2) {
-    throw new Error(`trace requires 2D array, got ${a.ndim}D`);
+export function trace(
+  a: ArrayStorage,
+  offset: number = 0,
+  axis1: number = 0,
+  axis2: number = 1
+): ArrayStorage | number | bigint | Complex {
+  if (a.ndim < 2) {
+    throw new Error(`trace requires at least 2D array, got ${a.ndim}D`);
   }
 
-  const [rows = 0, cols = 0] = a.shape;
-  const diagLen = Math.min(rows, cols);
+  // For 2D arrays, return a scalar (original fast path)
+  if (a.ndim === 2) {
+    const ax1 = axis1 < 0 ? a.ndim + axis1 : axis1;
+    const ax2 = axis2 < 0 ? a.ndim + axis2 : axis2;
+    const rows = a.shape[ax1]!;
+    const cols = a.shape[ax2]!;
+    const diagLen = Math.min(rows, cols) - Math.max(0, offset);
+    if (diagLen <= 0) return isComplexDType(a.dtype) ? new Complex(0, 0) : 0;
 
-  // Handle complex arrays - return Complex sum
-  if (isComplexDType(a.dtype)) {
-    let sumRe = 0;
-    let sumIm = 0;
+    if (isComplexDType(a.dtype)) {
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let i = 0; i < diagLen; i++) {
+        const idx0 = offset >= 0 ? i : i - offset;
+        const idx1 = offset >= 0 ? i + offset : i;
+        const indices: number[] = [0, 0];
+        indices[ax1] = idx0;
+        indices[ax2] = idx1;
+        const val = a.get(...indices) as Complex;
+        sumRe += val.re;
+        sumIm += val.im;
+      }
+      return new Complex(sumRe, sumIm);
+    }
+
+    let sum: number | bigint = 0;
     for (let i = 0; i < diagLen; i++) {
-      const val = a.get(i, i) as Complex;
-      sumRe += val.re;
-      sumIm += val.im;
+      const idx0 = offset >= 0 ? i : i - offset;
+      const idx1 = offset >= 0 ? i + offset : i;
+      const indices: number[] = [0, 0];
+      indices[ax1] = idx0;
+      indices[ax2] = idx1;
+      const val = a.get(...indices);
+      if (typeof val === 'bigint') {
+        sum = (typeof sum === 'bigint' ? sum : BigInt(sum)) + val;
+      } else {
+        sum = (typeof sum === 'bigint' ? Number(sum) : sum) + (val as number);
+      }
     }
-    return new Complex(sumRe, sumIm);
+    return sum;
   }
 
-  let sum: number | bigint = 0;
+  // ND case (ndim > 2): compute trace along axis1/axis2 for each combination
+  // of the remaining axes. Result shape = shape with axis1 and axis2 removed.
+  const ndim = a.ndim;
+  const ax1 = ((axis1 % ndim) + ndim) % ndim;
+  const ax2 = ((axis2 % ndim) + ndim) % ndim;
+  if (ax1 === ax2) throw new Error('trace: axis1 and axis2 must be different');
 
-  for (let i = 0; i < diagLen; i++) {
-    const val = a.get(i, i);
-    if (typeof val === 'bigint') {
-      sum = (typeof sum === 'bigint' ? sum : BigInt(sum)) + val;
+  const diagAxis1Size = a.shape[ax1]!;
+  const diagAxis2Size = a.shape[ax2]!;
+  const diagLen = Math.min(diagAxis1Size, diagAxis2Size) - Math.max(0, offset);
+
+  // Output shape: all axes except ax1 and ax2
+  const outShape = Array.from(a.shape).filter((_, i) => i !== ax1 && i !== ax2);
+  const outSize = outShape.reduce((acc, d) => acc * d, 1);
+
+  const result = ArrayStorage.zeros(outShape.length > 0 ? outShape : [1], a.dtype);
+
+  if (diagLen <= 0) return result.shape.length === 0 ? 0 : result;
+
+  for (let outFlat = 0; outFlat < outSize; outFlat++) {
+    // Convert outFlat to multi-index in outShape
+    const outIdx: number[] = new Array(outShape.length);
+    let rem = outFlat;
+    for (let i = outShape.length - 1; i >= 0; i--) {
+      outIdx[i] = rem % outShape[i]!;
+      rem = Math.floor(rem / outShape[i]!);
+    }
+
+    // Build full index mapping: outIdx → input index (skip ax1, ax2)
+    let traceSum: number | bigint = 0;
+    let traceRe = 0;
+    let traceIm = 0;
+    const isComplex = isComplexDType(a.dtype);
+
+    for (let d = 0; d < diagLen; d++) {
+      const d0 = offset >= 0 ? d : d - offset;
+      const d1 = offset >= 0 ? d + offset : d;
+
+      // Reconstruct full index
+      const fullIdx: number[] = new Array(ndim);
+      let outPos = 0;
+      for (let i = 0; i < ndim; i++) {
+        if (i === ax1) {
+          fullIdx[i] = d0;
+        } else if (i === ax2) {
+          fullIdx[i] = d1;
+        } else {
+          fullIdx[i] = outIdx[outPos++]!;
+        }
+      }
+      const val = a.get(...fullIdx);
+      if (isComplex) {
+        traceRe += (val as Complex).re;
+        traceIm += (val as Complex).im;
+      } else if (typeof val === 'bigint') {
+        traceSum = (typeof traceSum === 'bigint' ? traceSum : BigInt(traceSum)) + val;
+      } else {
+        traceSum = (typeof traceSum === 'bigint' ? Number(traceSum) : traceSum) + (val as number);
+      }
+    }
+
+    if (isComplex) {
+      result.iset(outFlat, new Complex(traceRe, traceIm));
     } else {
-      sum = (typeof sum === 'bigint' ? Number(sum) : sum) + (val as number);
+      result.iset(outFlat, typeof traceSum === 'bigint' ? Number(traceSum) : traceSum);
     }
   }
 
-  return sum;
+  return result;
 }
 
 /**
@@ -839,6 +1028,11 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
   const aDim = a.ndim;
   const bDim = b.ndim;
   const isComplex = isComplexDType(a.dtype) || isComplexDType(b.dtype);
+
+  // 0D case: treat as scalar multiplication
+  if (aDim === 0 || bDim === 0) {
+    return dot(a, b);
+  }
 
   // Last dimensions must match
   const aLastDim = a.shape[aDim - 1]!;
@@ -2230,8 +2424,28 @@ export function matrix_norm(
   ord: number | 'fro' | 'nuc' = 'fro',
   keepdims: boolean = false
 ): ArrayStorage | number {
-  if (x.ndim !== 2) {
-    throw new Error(`matrix_norm: input must be 2D, got ${x.ndim}D`);
+  if (x.ndim < 2) {
+    throw new Error(`matrix_norm: input must be at least 2D, got ${x.ndim}D`);
+  }
+
+  if (x.ndim > 2) {
+    const batchShape = Array.from(x.shape).slice(0, -2);
+    const m2 = x.shape[x.ndim - 2]!;
+    const n2 = x.shape[x.ndim - 1]!;
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const resultData = new Float64Array(batchSize);
+    const xData = toContiguousFloat64(x);
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * m2 * n2;
+      const slice = ArrayStorage.fromData(xData.slice(off, off + m2 * n2), [m2, n2], 'float64');
+      resultData[bi] = matrix_norm(slice, ord, false) as number;
+    }
+    if (keepdims) {
+      const onesShape = [...batchShape, 1, 1] as number[];
+      const out = ArrayStorage.fromData(resultData, batchShape, 'float64');
+      return shapeOps.reshape(out, onesShape);
+    }
+    return ArrayStorage.fromData(resultData, batchShape, 'float64');
   }
 
   const [m, n] = x.shape;
@@ -2337,8 +2551,8 @@ export function norm(
     } else if (typeof axis === 'number') {
       return vector_norm(x, 2, axis, keepdims);
     } else {
-      // axis is [number, number] - matrix norm
-      return matrix_norm(x, 'fro', keepdims);
+      // axis is [number, number] - fall through to matrix norm with fro
+      ord = 'fro';
     }
   }
 
@@ -2347,15 +2561,57 @@ export function norm(
     if (axis.length !== 2) {
       throw new Error('norm: axis must be a 2-tuple for matrix norms');
     }
-    // For now, only support the simple case where the matrix axes are (0, 1) or (-2, -1)
     const ax0 = axis[0] < 0 ? x.ndim + axis[0] : axis[0];
     const ax1 = axis[1] < 0 ? x.ndim + axis[1] : axis[1];
+    const matOrd = (ord ?? 'fro') as 'fro' | 'nuc' | number;
 
-    if (x.ndim !== 2 || (ax0 !== 0 && ax0 !== 1) || (ax1 !== 0 && ax1 !== 1) || ax0 === ax1) {
-      throw new Error('norm: complex axis specification not yet supported');
+    if (x.ndim === 2) {
+      return matrix_norm(x, matOrd, keepdims);
     }
 
-    return matrix_norm(x, ord as 'fro' | 'nuc' | number, keepdims);
+    // ND batch: compute matrix norm along ax0/ax1 for each batch element
+    const ndim = x.ndim;
+    const batchAxes = Array.from({ length: ndim }, (_, i) => i).filter(
+      (i) => i !== ax0 && i !== ax1
+    );
+    const batchShape = batchAxes.map((i) => x.shape[i]!);
+    const batchSize = batchShape.reduce((a, b) => a * b, 1) || 1;
+    const m = x.shape[ax0]!;
+    const n = x.shape[ax1]!;
+
+    // Transpose to [...batchAxes, ax0, ax1]
+    const perm = [...batchAxes, ax0, ax1];
+    const xT = transpose(x, perm);
+
+    const resultData = new Float64Array(batchSize);
+    for (let b = 0; b < batchSize; b++) {
+      // Convert b to multi-index in batchShape
+      const batchIdx: number[] = new Array(batchShape.length);
+      let rem = b;
+      for (let i = batchShape.length - 1; i >= 0; i--) {
+        batchIdx[i] = rem % batchShape[i]!;
+        rem = Math.floor(rem / batchShape[i]!);
+      }
+      // Extract 2D slice
+      const slice = ArrayStorage.zeros([m, n], 'float64');
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          slice.set([i, j], Number(xT.get(...batchIdx, i, j)));
+        }
+      }
+      const val = matrix_norm(slice, matOrd, false);
+      resultData[b] = typeof val === 'number' ? val : Number(val);
+    }
+
+    if (keepdims) {
+      const ksShape = Array.from(x.shape);
+      ksShape[ax0] = 1;
+      ksShape[ax1] = 1;
+      return ArrayStorage.fromData(resultData, ksShape, 'float64');
+    }
+    return batchShape.length === 0
+      ? resultData[0]!
+      : ArrayStorage.fromData(resultData, batchShape, 'float64');
   }
 
   // Single axis or no axis - vector norm
@@ -2381,6 +2637,31 @@ export function qr(
   a: ArrayStorage,
   mode: 'reduced' | 'complete' | 'r' | 'raw' = 'reduced'
 ): { q: ArrayStorage; r: ArrayStorage } | ArrayStorage | { h: ArrayStorage; tau: ArrayStorage } {
+  if (a.ndim > 2) {
+    // Batch mode: iterate over leading dims
+    const batchShape = a.shape.slice(0, -2);
+    const [m, n] = [a.shape[a.ndim - 2]!, a.shape[a.ndim - 1]!];
+    const k = Math.min(m, n);
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const qCols = mode === 'complete' ? m : k;
+
+    const qOut = ArrayStorage.zeros([...batchShape, m, qCols], 'float64');
+    const rOut = ArrayStorage.zeros([...batchShape, qCols, n], 'float64');
+
+    for (let b = 0; b < batchSize; b++) {
+      const bIdx = flatToBatchMultiIndex(b, batchShape);
+      const slice = ArrayStorage.zeros([m, n], 'float64');
+      for (let i = 0; i < m; i++)
+        for (let j = 0; j < n; j++) slice.set([i, j], Number(a.get(...bIdx, i, j)));
+      const res = qr(slice, mode) as { q: ArrayStorage; r: ArrayStorage };
+      for (let i = 0; i < m; i++)
+        for (let j = 0; j < qCols; j++) qOut.set([...bIdx, i, j], Number(res.q.get(i, j)));
+      for (let i = 0; i < qCols; i++)
+        for (let j = 0; j < n; j++) rOut.set([...bIdx, i, j], Number(res.r.get(i, j)));
+    }
+    return { q: qOut, r: rOut };
+  }
+
   if (a.ndim !== 2) {
     throw new Error(`qr: input must be 2D, got ${a.ndim}D`);
   }
@@ -2535,8 +2816,25 @@ export function qr(
  * @returns Lower (or upper) triangular Cholesky factor
  */
 export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage {
-  if (a.ndim !== 2) {
-    throw new Error(`cholesky: input must be 2D, got ${a.ndim}D`);
+  if (a.ndim < 2) {
+    throw new Error(`cholesky: input must be at least 2D, got ${a.ndim}D`);
+  }
+
+  if (a.ndim > 2) {
+    const batchShape = Array.from(a.shape).slice(0, -2);
+    const n = a.shape[a.ndim - 1]!;
+    const m2 = a.shape[a.ndim - 2]!;
+    if (m2 !== n) throw new Error(`cholesky: last 2 dimensions must be square, got ${m2}x${n}`);
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const resultData = new Float64Array(batchSize * n * n);
+    const aData = toContiguousFloat64(a);
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * n * n;
+      const slice = ArrayStorage.fromData(aData.slice(off, off + n * n), [n, n], 'float64');
+      const r = cholesky(slice, upper);
+      resultData.set(toContiguousFloat64(r), off);
+    }
+    return ArrayStorage.fromData(resultData, [...batchShape, n, n], 'float64');
   }
 
   const [m, n] = a.shape;
@@ -2810,6 +3108,51 @@ export function svd(
   full_matrices: boolean = true,
   compute_uv: boolean = true
 ): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } | ArrayStorage {
+  // Batch mode: iterate over leading dims
+  if (a.ndim > 2) {
+    const batchShape = a.shape.slice(0, -2);
+    const [m, n] = [a.shape[a.ndim - 2]!, a.shape[a.ndim - 1]!];
+    const k = Math.min(m, n);
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+
+    if (!compute_uv) {
+      const sOut = ArrayStorage.zeros([...batchShape, k], 'float64');
+      for (let b = 0; b < batchSize; b++) {
+        const bIdx = flatToBatchMultiIndex(b, batchShape);
+        const slice = ArrayStorage.zeros([m, n], 'float64');
+        for (let i = 0; i < m; i++)
+          for (let j = 0; j < n; j++) slice.set([i, j], Number(a.get(...bIdx, i, j)));
+        const { s } = svdFull(slice);
+        for (let i = 0; i < k; i++) sOut.set([...bIdx, i], Number(s.get(i)));
+      }
+      return sOut;
+    }
+
+    const uCols = full_matrices ? m : k;
+    const vtRows = full_matrices ? n : k;
+    const uOut = ArrayStorage.zeros([...batchShape, m, uCols], 'float64');
+    const sOut = ArrayStorage.zeros([...batchShape, k], 'float64');
+    const vtOut = ArrayStorage.zeros([...batchShape, vtRows, n], 'float64');
+
+    for (let b = 0; b < batchSize; b++) {
+      const bIdx = flatToBatchMultiIndex(b, batchShape);
+      const slice = ArrayStorage.zeros([m, n], 'float64');
+      for (let i = 0; i < m; i++)
+        for (let j = 0; j < n; j++) slice.set([i, j], Number(a.get(...bIdx, i, j)));
+      const res = svd(slice, full_matrices, true) as {
+        u: ArrayStorage;
+        s: ArrayStorage;
+        vt: ArrayStorage;
+      };
+      for (let i = 0; i < m; i++)
+        for (let j = 0; j < uCols; j++) uOut.set([...bIdx, i, j], Number(res.u.get(i, j)));
+      for (let i = 0; i < k; i++) sOut.set([...bIdx, i], Number(res.s.get(i)));
+      for (let i = 0; i < vtRows; i++)
+        for (let j = 0; j < n; j++) vtOut.set([...bIdx, i, j], Number(res.vt.get(i, j)));
+    }
+    return { u: uOut, s: sOut, vt: vtOut };
+  }
+
   const result = svdFull(a);
 
   if (!compute_uv) {
@@ -2850,9 +3193,29 @@ export function svd(
  * @param a - Square matrix
  * @returns Determinant
  */
-export function det(a: ArrayStorage): number {
-  if (a.ndim !== 2) {
-    throw new Error(`det: input must be 2D, got ${a.ndim}D`);
+export function det(a: ArrayStorage): number | ArrayStorage {
+  if (a.ndim < 2) {
+    throw new Error(`det: input must be at least 2D, got ${a.ndim}D`);
+  }
+
+  // Batch case: ndim > 2 → apply det to each 2D slice, return array of scalars
+  if (a.ndim > 2) {
+    const batchShape = Array.from(a.shape).slice(0, -2);
+    const n = a.shape[a.ndim - 1]!;
+    const m2 = a.shape[a.ndim - 2]!;
+    if (m2 !== n) {
+      throw new Error(`det: last 2 dimensions must be square, got ${m2}x${n}`);
+    }
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const resultData = new Float64Array(batchSize);
+    const aData = toContiguousFloat64(a);
+
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * n * n;
+      const slice = ArrayStorage.fromData(aData.slice(off, off + n * n), [n, n], 'float64');
+      resultData[bi] = det(slice) as number;
+    }
+    return ArrayStorage.fromData(resultData, batchShape, 'float64');
   }
 
   const [m, n] = a.shape;
@@ -2963,8 +3326,32 @@ function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; si
  * @returns Inverse matrix
  */
 export function inv(a: ArrayStorage): ArrayStorage {
-  if (a.ndim !== 2) {
-    throw new Error(`inv: input must be 2D, got ${a.ndim}D`);
+  if (a.ndim < 2) {
+    throw new Error(`inv: input must be at least 2D, got ${a.ndim}D`);
+  }
+
+  // Batch case: ndim > 2 → apply inv to each 2D slice
+  if (a.ndim > 2) {
+    const batchShape = Array.from(a.shape).slice(0, -2);
+    const n = a.shape[a.ndim - 1]!;
+    const m2 = a.shape[a.ndim - 2]!;
+    if (m2 !== n) {
+      throw new Error(`inv: last 2 dimensions must be square, got ${m2}x${n}`);
+    }
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const aData = toContiguousFloat64(a);
+    const resultData = new Float64Array(batchSize * n * n);
+
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * n * n;
+      const slice = ArrayStorage.fromData(aData.slice(off, off + n * n), [n, n], 'float64');
+      const invSlice = inv(slice);
+      const invData = invSlice.data as Float64Array;
+      for (let i = 0; i < n * n; i++) {
+        resultData[off + i] = invData[i]!;
+      }
+    }
+    return ArrayStorage.fromData(resultData, Array.from(a.shape), 'float64');
   }
 
   const [m, n] = a.shape;
@@ -3367,8 +3754,24 @@ export function matrix_power(a: ArrayStorage, n: number): ArrayStorage {
  * @returns Pseudo-inverse of a
  */
 export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
-  if (a.ndim !== 2) {
-    throw new Error(`pinv: input must be 2D, got ${a.ndim}D`);
+  if (a.ndim < 2) {
+    throw new Error(`pinv: input must be at least 2D, got ${a.ndim}D`);
+  }
+
+  if (a.ndim > 2) {
+    const batchShape = Array.from(a.shape).slice(0, -2);
+    const m2 = a.shape[a.ndim - 2]!;
+    const n2 = a.shape[a.ndim - 1]!;
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const resultData = new Float64Array(batchSize * n2 * m2);
+    const aData = toContiguousFloat64(a);
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * m2 * n2;
+      const slice = ArrayStorage.fromData(aData.slice(off, off + m2 * n2), [m2, n2], 'float64');
+      const r = pinv(slice, rcond);
+      resultData.set(toContiguousFloat64(r), bi * n2 * m2);
+    }
+    return ArrayStorage.fromData(resultData, [...batchShape, n2, m2], 'float64');
   }
 
   const [m, n] = a.shape;
@@ -3414,8 +3817,30 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
  * @returns { w, v } - Eigenvalues (real only) and eigenvector matrix
  */
 export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
-  if (a.ndim !== 2) {
-    throw new Error(`eig: input must be 2D, got ${a.ndim}D`);
+  if (a.ndim < 2) {
+    throw new Error(`eig: input must be at least 2D, got ${a.ndim}D`);
+  }
+
+  if (a.ndim > 2) {
+    const batchShape = Array.from(a.shape).slice(0, -2);
+    const n = a.shape[a.ndim - 1]!;
+    const m2 = a.shape[a.ndim - 2]!;
+    if (m2 !== n) throw new Error(`eig: last 2 dimensions must be square, got ${m2}x${n}`);
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const wData = new Float64Array(batchSize * n);
+    const vData = new Float64Array(batchSize * n * n);
+    const aData = toContiguousFloat64(a);
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * n * n;
+      const slice = ArrayStorage.fromData(aData.slice(off, off + n * n), [n, n], 'float64');
+      const { w, v } = eig(slice);
+      wData.set(toContiguousFloat64(w), bi * n);
+      vData.set(toContiguousFloat64(v), off);
+    }
+    return {
+      w: ArrayStorage.fromData(wData, [...batchShape, n], 'float64'),
+      v: ArrayStorage.fromData(vData, [...batchShape, n, n], 'float64'),
+    };
   }
 
   const [m, n] = a.shape;
@@ -3579,8 +4004,30 @@ function qrEigendecomposition(a: ArrayStorage): {
  * @returns { w, v } - Eigenvalues (sorted ascending) and eigenvector matrix
  */
 export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage; v: ArrayStorage } {
-  if (a.ndim !== 2) {
-    throw new Error(`eigh: input must be 2D, got ${a.ndim}D`);
+  if (a.ndim < 2) {
+    throw new Error(`eigh: input must be at least 2D, got ${a.ndim}D`);
+  }
+
+  if (a.ndim > 2) {
+    const batchShape = Array.from(a.shape).slice(0, -2);
+    const n = a.shape[a.ndim - 1]!;
+    const m2 = a.shape[a.ndim - 2]!;
+    if (m2 !== n) throw new Error(`eigh: last 2 dimensions must be square, got ${m2}x${n}`);
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const wData = new Float64Array(batchSize * n);
+    const vData = new Float64Array(batchSize * n * n);
+    const aData = toContiguousFloat64(a);
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * n * n;
+      const slice = ArrayStorage.fromData(aData.slice(off, off + n * n), [n, n], 'float64');
+      const { w, v } = eigh(slice, UPLO);
+      wData.set(toContiguousFloat64(w), bi * n);
+      vData.set(toContiguousFloat64(v), off);
+    }
+    return {
+      w: ArrayStorage.fromData(wData, [...batchShape, n], 'float64'),
+      v: ArrayStorage.fromData(vData, [...batchShape, n, n], 'float64'),
+    };
   }
 
   const [m, n] = a.shape;
@@ -4102,9 +4549,34 @@ export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @param a - Square matrix
  * @returns { sign, logabsdet }
  */
-export function slogdet(a: ArrayStorage): { sign: number; logabsdet: number } {
-  if (a.ndim !== 2) {
-    throw new Error(`slogdet: input must be 2D, got ${a.ndim}D`);
+export function slogdet(a: ArrayStorage): {
+  sign: number | ArrayStorage;
+  logabsdet: number | ArrayStorage;
+} {
+  if (a.ndim < 2) {
+    throw new Error(`slogdet: input must be at least 2D, got ${a.ndim}D`);
+  }
+
+  if (a.ndim > 2) {
+    const batchShape = Array.from(a.shape).slice(0, -2);
+    const n = a.shape[a.ndim - 1]!;
+    const m2 = a.shape[a.ndim - 2]!;
+    if (m2 !== n) throw new Error(`slogdet: last 2 dimensions must be square, got ${m2}x${n}`);
+    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+    const signData = new Float64Array(batchSize);
+    const logData = new Float64Array(batchSize);
+    const aData = toContiguousFloat64(a);
+    for (let bi = 0; bi < batchSize; bi++) {
+      const off = bi * n * n;
+      const slice = ArrayStorage.fromData(aData.slice(off, off + n * n), [n, n], 'float64');
+      const { sign, logabsdet } = slogdet(slice) as { sign: number; logabsdet: number };
+      signData[bi] = sign;
+      logData[bi] = logabsdet;
+    }
+    return {
+      sign: ArrayStorage.fromData(signData, batchShape, 'float64'),
+      logabsdet: ArrayStorage.fromData(logData, batchShape, 'float64'),
+    };
   }
 
   const [m, n] = a.shape;

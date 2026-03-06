@@ -764,6 +764,17 @@ export function dot(a: NDArrayCore, b: NDArrayCore): NDArray | number | bigint |
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
+/** Matrix trace (sum of diagonal elements, supports ND batch) */
+export function trace(
+  a: NDArrayCore,
+  offset: number = 0,
+  axis1: number = 0,
+  axis2: number = 1
+): NDArray | number | bigint | Complex {
+  const r = core.trace(a, offset, axis1, axis2);
+  return r instanceof NDArrayCore ? up(r) : r;
+}
+
 /** Return diagonal or construct diagonal array */
 export function diagonal(
   a: NDArrayCore,
@@ -1087,7 +1098,7 @@ export function roots(p: NDArrayCore | number[]): NDArray {
 /** Sum of array elements */
 export function sum(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | bigint | Complex {
   const r = core.sum(a, axis, keepdims);
@@ -1097,7 +1108,7 @@ export function sum(
 /** Mean of array elements */
 export function mean(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | Complex {
   const r = core.mean(a, axis, keepdims);
@@ -1107,7 +1118,7 @@ export function mean(
 /** Product of array elements */
 export function prod(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | bigint | Complex {
   const r = core.prod(a, axis, keepdims);
@@ -1115,13 +1126,21 @@ export function prod(
 }
 
 /** Maximum of array elements */
-export function max(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | number | Complex {
+export function max(
+  a: NDArrayCore,
+  axis?: number | number[],
+  keepdims?: boolean
+): NDArray | number | Complex {
   const r = core.max(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
 /** Minimum of array elements */
-export function min(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | number | Complex {
+export function min(
+  a: NDArrayCore,
+  axis?: number | number[],
+  keepdims?: boolean
+): NDArray | number | Complex {
   const r = core.min(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
@@ -1147,7 +1166,7 @@ export function argmax(a: NDArrayCore, axis?: number): NDArray | number {
 /** Variance of array elements */
 export function variance(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): NDArray | number {
@@ -1158,7 +1177,7 @@ export function variance(
 /** Standard deviation of array elements */
 export function std(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): NDArray | number {
@@ -1167,7 +1186,11 @@ export function std(
 }
 
 /** Median of array elements */
-export function median(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | number {
+export function median(
+  a: NDArrayCore,
+  axis?: number | number[],
+  keepdims?: boolean
+): NDArray | number {
   const r = core.median(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
@@ -1206,13 +1229,21 @@ export function average(
 }
 
 /** Test if all elements are true */
-export function all(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | boolean {
+export function all(
+  a: NDArrayCore,
+  axis?: number | number[],
+  keepdims?: boolean
+): NDArray | boolean {
   const r = core.all(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
 /** Test if any element is true */
-export function any(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | boolean {
+export function any(
+  a: NDArrayCore,
+  axis?: number | number[],
+  keepdims?: boolean
+): NDArray | boolean {
   const r = core.any(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
@@ -1230,7 +1261,7 @@ export function cumprod(a: NDArrayCore, axis?: number): NDArray {
 /** Sum ignoring NaN */
 export function nansum(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | Complex {
   const r = core.nansum(a, axis, keepdims);
@@ -1240,7 +1271,7 @@ export function nansum(
 /** Product ignoring NaN */
 export function nanprod(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | Complex {
   const r = core.nanprod(a, axis, keepdims);
@@ -1250,7 +1281,7 @@ export function nanprod(
 /** Mean ignoring NaN */
 export function nanmean(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | Complex {
   const r = core.nanmean(a, axis, keepdims);
@@ -1260,7 +1291,7 @@ export function nanmean(
 /** Variance ignoring NaN */
 export function nanvar(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): NDArray | number {
@@ -1271,7 +1302,7 @@ export function nanvar(
 /** Standard deviation ignoring NaN */
 export function nanstd(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): NDArray | number {
@@ -1282,7 +1313,7 @@ export function nanstd(
 /** Minimum ignoring NaN */
 export function nanmin(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | Complex {
   const r = core.nanmin(a, axis, keepdims);
@@ -1292,7 +1323,7 @@ export function nanmin(
 /** Maximum ignoring NaN */
 export function nanmax(
   a: NDArrayCore,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): NDArray | number | Complex {
   const r = core.nanmax(a, axis, keepdims);
@@ -1836,7 +1867,6 @@ export {
   base_repr,
   binary_repr,
   gradient,
-  trace,
   einsum,
   einsum_path,
   vdot,

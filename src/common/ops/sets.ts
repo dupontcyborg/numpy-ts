@@ -35,7 +35,8 @@ export function unique(
   a: ArrayStorage,
   returnIndex: boolean = false,
   returnInverse: boolean = false,
-  returnCounts: boolean = false
+  returnCounts: boolean = false,
+  axis?: number
 ):
   | ArrayStorage
   | {
@@ -44,6 +45,80 @@ export function unique(
       inverse?: ArrayStorage;
       counts?: ArrayStorage;
     } {
+  // Axis-based unique: find unique slices along the given axis
+  if (axis !== undefined) {
+    const shape = Array.from(a.shape);
+    const ndim = shape.length;
+    let normalizedAxis = axis < 0 ? ndim + axis : axis;
+    if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+      throw new Error(`unique: axis ${axis} out of bounds for array of dimension ${ndim}`);
+    }
+    const axisSize = shape[normalizedAxis]!;
+    // Serialize each slice along the axis to a comparable key
+    const sliceKeys: string[] = [];
+    for (let i = 0; i < axisSize; i++) {
+      // Build a key by collecting all elements in the slice
+      const parts: number[] = [];
+      // Iterate over all indices with this i on the given axis
+      const otherShape = shape.filter((_, d) => d !== normalizedAxis);
+      const otherSize = otherShape.reduce((acc, s) => acc * s, 1);
+      for (let j = 0; j < otherSize; j++) {
+        // Convert j to multi-index in otherShape
+        let rem = j;
+        const otherIdx: number[] = new Array(otherShape.length);
+        for (let d = otherShape.length - 1; d >= 0; d--) {
+          otherIdx[d] = rem % otherShape[d]!;
+          rem = Math.floor(rem / otherShape[d]!);
+        }
+        // Build full index inserting i at normalizedAxis
+        const fullIdx: number[] = [];
+        let oi = 0;
+        for (let d = 0; d < ndim; d++) {
+          fullIdx.push(d === normalizedAxis ? i : otherIdx[oi++]!);
+        }
+        parts.push(Number(a.get(...fullIdx)));
+      }
+      sliceKeys.push(parts.join(','));
+    }
+    // Find unique slice indices (sorted lexicographically)
+    const indexedKeys = sliceKeys.map((key, i) => ({ key, i }));
+    indexedKeys.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    const uniqueIndices: number[] = [];
+    let lastKey: string | undefined = undefined;
+    for (const { key, i } of indexedKeys) {
+      if (key !== lastKey) {
+        uniqueIndices.push(i);
+        lastKey = key;
+      }
+    }
+    // Build output array with unique slices stacked
+    const outShape = shape.map((s, d) => (d === normalizedAxis ? uniqueIndices.length : s));
+    const result = ArrayStorage.zeros(outShape, a.dtype);
+    for (let ui = 0; ui < uniqueIndices.length; ui++) {
+      const srcIdx = uniqueIndices[ui]!;
+      const otherShape = shape.filter((_, d) => d !== normalizedAxis);
+      const otherSize = otherShape.reduce((acc, s) => acc * s, 1);
+      for (let j = 0; j < otherSize; j++) {
+        let rem = j;
+        const otherIdx: number[] = new Array(otherShape.length);
+        for (let d = otherShape.length - 1; d >= 0; d--) {
+          otherIdx[d] = rem % otherShape[d]!;
+          rem = Math.floor(rem / otherShape[d]!);
+        }
+        const srcFullIdx: number[] = [];
+        const dstFullIdx: number[] = [];
+        let oi = 0;
+        for (let d = 0; d < ndim; d++) {
+          srcFullIdx.push(d === normalizedAxis ? srcIdx : otherIdx[oi]!);
+          dstFullIdx.push(d === normalizedAxis ? ui : otherIdx[oi]!);
+          if (d !== normalizedAxis) oi++;
+        }
+        result.set(dstFullIdx, Number(a.get(...srcFullIdx)));
+      }
+    }
+    return result;
+  }
+
   const dtype = a.dtype;
   const size = a.size;
   const data = a.data;

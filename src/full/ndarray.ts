@@ -746,8 +746,9 @@ export class NDArray extends NDArrayCore {
    * Sum of diagonal elements (trace)
    * @returns Sum of diagonal elements
    */
-  trace(): number | bigint | Complex {
-    return core.trace(this);
+  trace(): NDArray | number | bigint | Complex {
+    const r = core.trace(this);
+    return r instanceof NDArrayCore ? up(r) : r;
   }
 
   /**
@@ -1412,7 +1413,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Sum array elements over a given axis
    */
-  sum(axis?: number, keepdims: boolean = false): NDArray | number | bigint | Complex {
+  sum(axis?: number | number[], keepdims: boolean = false): NDArray | number | bigint | Complex {
     const r = core.sum(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1420,7 +1421,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Compute the arithmetic mean along the specified axis
    */
-  mean(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  mean(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.mean(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1428,7 +1429,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Product of array elements over a given axis
    */
-  prod(axis?: number, keepdims: boolean = false): NDArray | number | bigint | Complex {
+  prod(axis?: number | number[], keepdims: boolean = false): NDArray | number | bigint | Complex {
     const r = core.prod(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1436,7 +1437,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return the maximum along a given axis
    */
-  max(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  max(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.max(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1444,7 +1445,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return the minimum along a given axis
    */
-  min(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  min(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.min(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1460,7 +1461,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return the sum of array elements, treating NaNs as zero
    */
-  nansum(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  nansum(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.nansum(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1468,7 +1469,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return the product of array elements, treating NaNs as ones
    */
-  nanprod(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  nanprod(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.nanprod(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1476,7 +1477,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Compute the arithmetic mean, ignoring NaNs
    */
-  nanmean(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  nanmean(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.nanmean(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1484,7 +1485,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return minimum of an array, ignoring NaNs
    */
-  nanmin(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  nanmin(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.nanmin(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1492,7 +1493,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return maximum of an array, ignoring NaNs
    */
-  nanmax(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  nanmax(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
     const r = core.nanmax(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1557,7 +1558,7 @@ export class NDArray extends NDArrayCore {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
-  nanvar(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
+  nanvar(axis?: number | number[], ddof: number = 0, keepdims: boolean = false): NDArray | number {
     const r = core.nanvar(this, axis, ddof, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1568,7 +1569,7 @@ export class NDArray extends NDArrayCore {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
-  nanstd(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
+  nanstd(axis?: number | number[], ddof: number = 0, keepdims: boolean = false): NDArray | number {
     const r = core.nanstd(this, axis, ddof, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1576,7 +1577,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Test whether all array elements along a given axis evaluate to True
    */
-  all(axis?: number, keepdims: boolean = false): NDArray | boolean {
+  all(axis?: number | number[], keepdims: boolean = false): NDArray | boolean {
     const r = core.all(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1584,7 +1585,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Test whether any array elements along a given axis evaluate to True
    */
-  any(axis?: number, keepdims: boolean = false): NDArray | boolean {
+  any(axis?: number | number[], keepdims: boolean = false): NDArray | boolean {
     const r = core.any(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }
@@ -1592,7 +1593,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Compute the median along the specified axis
    */
-  median(axis?: number, keepdims: boolean = false): NDArray | number {
+  median(axis?: number | number[], keepdims: boolean = false): NDArray | number {
     const r = core.median(this, axis, keepdims);
     return r instanceof NDArrayCore ? up(r) : r;
   }

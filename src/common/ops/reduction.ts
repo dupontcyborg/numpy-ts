@@ -10,6 +10,16 @@ import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dt
 import { outerIndexToMultiIndex, multiIndexToBuffer } from '../internal/indexing';
 import { Complex } from '../complex';
 
+function wrapScalarKeepdims(
+  scalar: number | bigint | Complex,
+  ndim: number,
+  dtype: DType
+): ArrayStorage {
+  const out = ArrayStorage.zeros(Array(ndim).fill(1) as number[], dtype);
+  out.iset(0, scalar as number | bigint | Complex);
+  return out;
+}
+
 /**
  * Sum array elements over a given axis
  */
@@ -94,8 +104,11 @@ export function sum(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    // Result is scalar - reuse scalar sum logic
-    return sum(storage);
+    const scalar = sum(storage);
+    if (!keepdims) return scalar;
+    const out = ArrayStorage.zeros(Array(ndim).fill(1), dtype);
+    out.iset(0, scalar as number | bigint | Complex);
+    return out;
   }
 
   // Create result storage
@@ -303,7 +316,9 @@ export function max(
 
     const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
     if (outputShape.length === 0) {
-      return max(storage) as Complex;
+      const scalar = max(storage) as Complex;
+      if (!keepdims) return scalar;
+      return wrapScalarKeepdims(scalar, ndim, dtype);
     }
 
     const result = ArrayStorage.zeros(outputShape, dtype);
@@ -391,8 +406,9 @@ export function max(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    // Result is scalar
-    return max(storage);
+    const scalar = max(storage);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number | bigint, ndim, dtype);
   }
 
   // Create result storage
@@ -539,8 +555,9 @@ export function prod(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    // Result is scalar - reuse scalar prod logic
-    return prod(storage);
+    const scalar = prod(storage);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, dtype);
   }
 
   // Create result storage
@@ -669,7 +686,9 @@ export function min(
 
     const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
     if (outputShape.length === 0) {
-      return min(storage) as Complex;
+      const scalar = min(storage) as Complex;
+      if (!keepdims) return scalar;
+      return wrapScalarKeepdims(scalar, ndim, dtype);
     }
 
     const result = ArrayStorage.zeros(outputShape, dtype);
@@ -757,8 +776,9 @@ export function min(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    // Result is scalar
-    return min(storage);
+    const scalar = min(storage);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number | bigint, ndim, dtype);
   }
 
   // Create result storage
@@ -1386,8 +1406,11 @@ export function all(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    // Result is scalar
-    return all(storage);
+    const scalar = all(storage);
+    if (!keepdims) return scalar;
+    const out = ArrayStorage.zeros(Array(ndim).fill(1), 'bool');
+    out.iset(0, scalar ? 1 : 0);
+    return out;
   }
 
   // Create result storage with bool dtype
@@ -1467,8 +1490,11 @@ export function any(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    // Result is scalar
-    return any(storage);
+    const scalar = any(storage);
+    if (!keepdims) return scalar;
+    const out = ArrayStorage.zeros(Array(ndim).fill(1), 'bool');
+    out.iset(0, scalar ? 1 : 0);
+    return out;
   }
 
   // Create result storage with bool dtype
@@ -1977,7 +2003,11 @@ export function quantile(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return quantile(storage, q);
+    const scalar = quantile(storage, q) as number;
+    if (!keepdims) return scalar;
+    const out = ArrayStorage.zeros(Array(ndim).fill(1), 'float64');
+    out.iset(0, scalar);
+    return out;
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -2090,7 +2120,9 @@ export function average(
     // Compute output shape
     const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
     if (outputShape.length === 0) {
-      return average(storage, undefined, weights);
+      const scalar = average(storage, undefined, weights);
+      if (!keepdims) return scalar;
+      return wrapScalarKeepdims(scalar as Complex, ndim, dtype);
     }
 
     const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -2170,7 +2202,9 @@ export function average(
   // Compute output shape
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return average(storage, undefined, weights);
+    const scalar = average(storage, undefined, weights);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number, ndim, 'float64');
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -2291,7 +2325,9 @@ export function nansum(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nansum(storage);
+    const scalar = nansum(storage);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -2432,7 +2468,9 @@ export function nanprod(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nanprod(storage);
+    const scalar = nanprod(storage);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -2577,7 +2615,9 @@ export function nanmean(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nanmean(storage);
+    const scalar = nanmean(storage);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -2738,7 +2778,9 @@ export function nanvar(
 
     const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
     if (outputShape.length === 0) {
-      return nanvar(storage, undefined, ddof);
+      const scalar = nanvar(storage, undefined, ddof) as number;
+      if (!keepdims) return scalar;
+      return wrapScalarKeepdims(scalar, ndim, 'float64');
     }
 
     const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -2854,7 +2896,9 @@ export function nanvar(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nanvar(storage, undefined, ddof);
+    const scalar = nanvar(storage, undefined, ddof) as number;
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -3006,7 +3050,9 @@ export function nanmin(
 
     const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
     if (outputShape.length === 0) {
-      return nanmin(storage) as Complex;
+      const scalar = nanmin(storage) as Complex;
+      if (!keepdims) return scalar;
+      return wrapScalarKeepdims(scalar, ndim, dtype);
     }
 
     const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -3084,7 +3130,9 @@ export function nanmin(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nanmin(storage);
+    const scalar = nanmin(storage) as number;
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -3192,7 +3240,9 @@ export function nanmax(
 
     const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
     if (outputShape.length === 0) {
-      return nanmax(storage) as Complex;
+      const scalar = nanmax(storage) as Complex;
+      if (!keepdims) return scalar;
+      return wrapScalarKeepdims(scalar, ndim, dtype);
     }
 
     const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -3270,7 +3320,9 @@ export function nanmax(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nanmax(storage);
+    const scalar = nanmax(storage) as number;
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -4053,7 +4105,9 @@ export function nanmedian(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nanmedian(storage);
+    const scalar = nanmedian(storage) as number;
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -4165,7 +4219,9 @@ export function nanquantile(
 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   if (outputShape.length === 0) {
-    return nanquantile(storage, q);
+    const scalar = nanquantile(storage, q) as number;
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);

@@ -17,6 +17,11 @@ import {
 import { Complex } from './complex';
 
 /**
+ * Maximum number of dimensions an array can have (matches NumPy's limit).
+ */
+export const MAX_NDIM = 64;
+
+/**
  * Internal storage for NDArray data
  * Manages the underlying TypedArray and metadata
  */
@@ -372,6 +377,11 @@ export class ArrayStorage {
     strides?: number[],
     offset?: number
   ): ArrayStorage {
+    if (shape.length > MAX_NDIM) {
+      throw new Error(
+        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`
+      );
+    }
     const finalStrides = strides ?? ArrayStorage._computeStrides(shape);
     const finalOffset = offset ?? 0;
     return new ArrayStorage(data, shape, finalStrides, finalOffset, dtype);
@@ -381,6 +391,11 @@ export class ArrayStorage {
    * Create storage with zeros
    */
   static zeros(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
+    if (shape.length > MAX_NDIM) {
+      throw new Error(
+        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`
+      );
+    }
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
 

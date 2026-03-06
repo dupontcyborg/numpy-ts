@@ -28,9 +28,16 @@ export function dot(a: NDArrayCore, b: NDArrayCore): NDArrayCore | number | bigi
   return fromStorage(result);
 }
 
-/** Matrix trace (sum of diagonal elements) */
-export function trace(a: NDArrayCore): number | bigint | Complex {
-  return linalgOps.trace(toStorage(a));
+/** Matrix trace (sum of diagonal elements, supports ND batch) */
+export function trace(
+  a: NDArrayCore,
+  offset: number = 0,
+  axis1: number = 0,
+  axis2: number = 1
+): NDArrayCore | number | bigint | Complex {
+  const result = linalgOps.trace(toStorage(a), offset, axis1, axis2);
+  if (result instanceof ArrayStorage) return fromStorage(result);
+  return result;
 }
 
 /** Return diagonal or construct diagonal array */
@@ -177,9 +184,11 @@ export const linalg = {
     return dot(a, b);
   },
 
-  /** Matrix determinant */
-  det: (a: NDArrayCore): number => {
-    return linalgOps.det(toStorage(a));
+  /** Matrix determinant (supports batched ND input) */
+  det: (a: NDArrayCore): number | NDArrayCore => {
+    const result = linalgOps.det(toStorage(a));
+    if (typeof result === 'number') return result;
+    return fromStorage(result as ArrayStorage);
   },
 
   /** Matrix inverse */
@@ -295,8 +304,12 @@ export const linalg = {
   },
 
   /** Sign and log of determinant */
-  slogdet: (a: NDArrayCore): { sign: number; logabsdet: number } => {
-    return linalgOps.slogdet(toStorage(a));
+  slogdet: (a: NDArrayCore): { sign: number | NDArrayCore; logabsdet: number | NDArrayCore } => {
+    const result = linalgOps.slogdet(toStorage(a));
+    const sign = result.sign instanceof ArrayStorage ? fromStorage(result.sign) : result.sign;
+    const logabsdet =
+      result.logabsdet instanceof ArrayStorage ? fromStorage(result.logabsdet) : result.logabsdet;
+    return { sign, logabsdet };
   },
 
   /** Singular values */
@@ -364,9 +377,14 @@ export const linalg = {
     return permute_dims(a, axes);
   },
 
-  /** Matrix trace (sum of diagonal elements) */
-  trace: (a: NDArrayCore): number | bigint | Complex => {
-    return trace(a);
+  /** Matrix trace (sum of diagonal elements, supports ND batch) */
+  trace: (
+    a: NDArrayCore,
+    offset?: number,
+    axis1?: number,
+    axis2?: number
+  ): NDArrayCore | number | bigint | Complex => {
+    return trace(a, offset, axis1, axis2);
   },
 
   /** Extract diagonal */

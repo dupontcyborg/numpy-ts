@@ -967,8 +967,11 @@ function nextafterSingle(x: number, y: number): number {
   float64View[0] = x;
   let bits = int64View[0]!;
 
-  // Determine if we need to increment or decrement
-  const shouldIncrement = (x > 0 && y > x) || (x < 0 && y > x);
+  // Determine if we need to increment or decrement.
+  // For positive x: increment bits → moves away from 0 (towards +inf).
+  // For negative x: increment bits (in signed sense) → moves towards -inf.
+  // So: move toward y means increment when (x>0 && y>x) OR (x<0 && y<x).
+  const shouldIncrement = x > 0 ? y > x : y < x;
 
   if (shouldIncrement) {
     bits = bits + 1n;

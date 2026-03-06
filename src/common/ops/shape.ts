@@ -183,13 +183,6 @@ export function squeeze(storage: ArrayStorage, axis?: number): ArrayStorage {
       }
     }
 
-    // If all dimensions were 1, result would be a scalar (0-d array)
-    // For now, keep at least one dimension
-    if (newShape.length === 0) {
-      newShape.push(1);
-      newStrides.push(1);
-    }
-
     return ArrayStorage.fromData(data, newShape, dtype, newStrides, storage.offset);
   } else {
     // Normalize axis
