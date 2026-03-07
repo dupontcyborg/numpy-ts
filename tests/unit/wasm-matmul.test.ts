@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, matmul as jsMatmul, zeros, ones } from '../../src';
+import { array, matmul as jsMatmul, zeros, ones, reshape } from '../../src';
 import { matmul as wasmMatmul } from '../../src/wasm/kernels/matmul';
 import type { NDArrayCore } from '../../src/common/ndarray-core';
 
@@ -88,6 +88,54 @@ describe('WASM matmul', () => {
     });
   });
 
+  describe('batched matmul', () => {
+    it('batch of 2x2 @ 2x2 (3D)', () => {
+      // Shape: (2, 2, 2) @ (2, 2, 2)
+      const a = reshape(array([
+        1, 2, 3, 4,
+        5, 6, 7, 8,
+      ]), [2, 2, 2]);
+      const b = reshape(array([
+        1, 0, 0, 1,
+        2, 1, 1, 2,
+      ]), [2, 2, 2]);
+      const jsResult = jsMatmul(a, b);
+      const wasmResult = wasmMatmul(a, b);
+      expectClose(wasmResult, jsResult);
+    });
+
+    it('broadcast batch: (3, 2, 2) @ (2, 2)', () => {
+      const a = reshape(array([
+        1, 2, 3, 4,
+        5, 6, 7, 8,
+        9, 10, 11, 12,
+      ]), [3, 2, 2]);
+      const b = array([[1, 0], [0, 1]]);
+      const jsResult = jsMatmul(a, b);
+      const wasmResult = wasmMatmul(a, b);
+      expectClose(wasmResult, jsResult);
+    });
+
+    it('large batch above WASM threshold', () => {
+      // (2, 20, 20) @ (2, 20, 20) — each 2D slice is 400 elements
+      const aFlat: number[] = [];
+      const bFlat: number[] = [];
+      for (let batch = 0; batch < 2; batch++) {
+        for (let i = 0; i < 20; i++) {
+          for (let j = 0; j < 20; j++) {
+            aFlat.push(batch * 100 + i * 20 + j + 1);
+            bFlat.push((i + j + batch) * 0.1);
+          }
+        }
+      }
+      const a = reshape(array(aFlat), [2, 20, 20]);
+      const b = reshape(array(bFlat), [2, 20, 20]);
+      const jsResult = jsMatmul(a, b);
+      const wasmResult = wasmMatmul(a, b);
+      expectClose(wasmResult, jsResult, 1e-6);
+    });
+  });
+
   describe('fallback to JS', () => {
     it('1D vectors fall back to JS', () => {
       const a = array([1, 2, 3]);
@@ -97,7 +145,7 @@ describe('WASM matmul', () => {
       expectClose(wasmResult, jsResult);
     });
 
-    it('int32 dtype falls back to JS', () => {
+    it('int32 dtype promotes to float64 through WASM', () => {
       const a = array([[1, 2], [3, 4]], 'int32');
       const b = array([[5, 6], [7, 8]], 'int32');
       const jsResult = jsMatmul(a, b);
@@ -105,7 +153,23 @@ describe('WASM matmul', () => {
       expectClose(wasmResult, jsResult);
     });
 
-    it('mismatched dtypes fall back to JS', () => {
+    it('complex dtype falls back to JS', () => {
+      // Complex matmul not yet supported in WASM — should fall back gracefully
+      const a = array([[1, 2], [3, 4]], 'complex128');
+      const b = array([[5, 6], [7, 8]], 'complex128');
+      const jsResult = jsMatmul(a, b);
+      const wasmResult = wasmMatmul(a, b);
+      expect(wasmResult.shape).toEqual(jsResult.shape);
+      expect(wasmResult.dtype).toBe(jsResult.dtype);
+      // Compare raw data arrays (interleaved re/im pairs)
+      const aData = wasmResult.storage.data;
+      const eData = jsResult.storage.data;
+      for (let i = 0; i < aData.length; i++) {
+        expect(Math.abs(Number(aData[i]) - Number(eData[i]))).toBeLessThan(1e-10);
+      }
+    });
+
+    it('mismatched dtypes promoted through WASM', () => {
       const a = array([[1, 2], [3, 4]], 'float64');
       const b = array([[5, 6], [7, 8]], 'float32');
       const jsResult = jsMatmul(a, b);
