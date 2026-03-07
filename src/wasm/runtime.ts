@@ -92,7 +92,11 @@ export function copyOut<T extends TypedArray>(
   Ctor: new (buffer: ArrayBuffer, byteOffset: number, length: number) => T
 ): T {
   const mem = getSharedMemory();
-  const result = new Ctor(new ArrayBuffer(length * (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT), 0, length);
+  const result = new Ctor(
+    new ArrayBuffer(length * (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT),
+    0,
+    length
+  );
   new Uint8Array(result.buffer, 0, result.byteLength).set(
     new Uint8Array(mem.buffer, ptr, result.byteLength)
   );
@@ -103,8 +107,12 @@ export function copyOut<T extends TypedArray>(
  * Get the TypedArray constructor for a given dtype.
  * Returns null for unsupported dtypes (bigint, etc.)
  */
-export function getCtorForDtype(dtype: DType): (new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray) | null {
-  return getTypedArrayConstructor(dtype) as (new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray) | null;
+export function getCtorForDtype(
+  dtype: DType
+): (new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray) | null {
+  return getTypedArrayConstructor(dtype) as
+    | (new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray)
+    | null;
 }
 
 export { ArrayStorage, NDArrayCore, promoteDTypes };

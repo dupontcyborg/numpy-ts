@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, matmul as jsMatmul, zeros, ones, reshape } from '../../src';
+import { array, matmul as jsMatmul, zeros, reshape } from '../../src';
 import { matmul as wasmMatmul } from '../../src/wasm/kernels/matmul';
 import type { NDArrayCore } from '../../src/common/ndarray-core';
 
@@ -23,38 +23,68 @@ function expectClose(actual: NDArrayCore, expected: NDArrayCore, tolerance = 1e-
 describe('WASM matmul', () => {
   describe('correctness — matches JS matmul', () => {
     it('2x2 @ 2x2', () => {
-      const a = array([[1, 2], [3, 4]]);
-      const b = array([[5, 6], [7, 8]]);
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expectClose(wasmResult, jsResult);
     });
 
     it('3x3 @ 3x3', () => {
-      const a = array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
-      const b = array([[9, 8, 7], [6, 5, 4], [3, 2, 1]]);
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
+      const b = array([
+        [9, 8, 7],
+        [6, 5, 4],
+        [3, 2, 1],
+      ]);
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expectClose(wasmResult, jsResult);
     });
 
     it('non-square matrices: 2x3 @ 3x4', () => {
-      const a = array([[1, 2, 3], [4, 5, 6]]);
-      const b = array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]);
+      const a = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
+      const b = array([
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+        [9, 10, 11, 12],
+      ]);
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expectClose(wasmResult, jsResult);
     });
 
     it('identity matrix', () => {
-      const a = array([[1, 2], [3, 4]]);
-      const eye = array([[1, 0], [0, 1]]);
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const eye = array([
+        [1, 0],
+        [0, 1],
+      ]);
       const wasmResult = wasmMatmul(a, eye);
       expectClose(wasmResult, a);
     });
 
     it('zeros matrix', () => {
-      const a = array([[1, 2], [3, 4]]);
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
       const z = zeros([2, 2]);
       const wasmResult = wasmMatmul(a, z);
       const expected = zeros([2, 2]);
@@ -79,8 +109,20 @@ describe('WASM matmul', () => {
 
   describe('float32 dtype', () => {
     it('2x2 @ 2x2 float32', () => {
-      const a = array([[1, 2], [3, 4]], 'float32');
-      const b = array([[5, 6], [7, 8]], 'float32');
+      const a = array(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        'float32'
+      );
+      const b = array(
+        [
+          [5, 6],
+          [7, 8],
+        ],
+        'float32'
+      );
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expect(wasmResult.dtype).toBe('float32');
@@ -91,26 +133,19 @@ describe('WASM matmul', () => {
   describe('batched matmul', () => {
     it('batch of 2x2 @ 2x2 (3D)', () => {
       // Shape: (2, 2, 2) @ (2, 2, 2)
-      const a = reshape(array([
-        1, 2, 3, 4,
-        5, 6, 7, 8,
-      ]), [2, 2, 2]);
-      const b = reshape(array([
-        1, 0, 0, 1,
-        2, 1, 1, 2,
-      ]), [2, 2, 2]);
+      const a = reshape(array([1, 2, 3, 4, 5, 6, 7, 8]), [2, 2, 2]);
+      const b = reshape(array([1, 0, 0, 1, 2, 1, 1, 2]), [2, 2, 2]);
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expectClose(wasmResult, jsResult);
     });
 
     it('broadcast batch: (3, 2, 2) @ (2, 2)', () => {
-      const a = reshape(array([
-        1, 2, 3, 4,
-        5, 6, 7, 8,
-        9, 10, 11, 12,
-      ]), [3, 2, 2]);
-      const b = array([[1, 0], [0, 1]]);
+      const a = reshape(array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), [3, 2, 2]);
+      const b = array([
+        [1, 0],
+        [0, 1],
+      ]);
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expectClose(wasmResult, jsResult);
@@ -146,8 +181,20 @@ describe('WASM matmul', () => {
     });
 
     it('int32 dtype promotes to float64 through WASM', () => {
-      const a = array([[1, 2], [3, 4]], 'int32');
-      const b = array([[5, 6], [7, 8]], 'int32');
+      const a = array(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        'int32'
+      );
+      const b = array(
+        [
+          [5, 6],
+          [7, 8],
+        ],
+        'int32'
+      );
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expectClose(wasmResult, jsResult);
@@ -155,8 +202,20 @@ describe('WASM matmul', () => {
 
     it('complex dtype falls back to JS', () => {
       // Complex matmul not yet supported in WASM — should fall back gracefully
-      const a = array([[1, 2], [3, 4]], 'complex128');
-      const b = array([[5, 6], [7, 8]], 'complex128');
+      const a = array(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        'complex128'
+      );
+      const b = array(
+        [
+          [5, 6],
+          [7, 8],
+        ],
+        'complex128'
+      );
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expect(wasmResult.shape).toEqual(jsResult.shape);
@@ -170,8 +229,20 @@ describe('WASM matmul', () => {
     });
 
     it('mismatched dtypes promoted through WASM', () => {
-      const a = array([[1, 2], [3, 4]], 'float64');
-      const b = array([[5, 6], [7, 8]], 'float32');
+      const a = array(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        'float64'
+      );
+      const b = array(
+        [
+          [5, 6],
+          [7, 8],
+        ],
+        'float32'
+      );
       const jsResult = jsMatmul(a, b);
       const wasmResult = wasmMatmul(a, b);
       expectClose(wasmResult, jsResult, 1e-4);

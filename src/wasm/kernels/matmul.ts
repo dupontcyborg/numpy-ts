@@ -11,14 +11,7 @@
 
 import { matmul as jsMatmul } from '../../core/linalg';
 import { matmul_f64, matmul_f32, matmul_c128, matmul_c64 } from '../bins/matmul.wasm';
-import {
-  ensureMemory,
-  resetAllocator,
-  copyIn,
-  alloc,
-  copyOut,
-  type DType,
-} from '../runtime';
+import { ensureMemory, resetAllocator, copyIn, alloc, copyOut, type DType } from '../runtime';
 import { NDArrayCore } from '../../common/ndarray-core';
 import { ArrayStorage } from '../../common/storage';
 import { promoteDTypes } from '../../common/dtype';
@@ -27,7 +20,14 @@ import { promoteDTypes } from '../../common/dtype';
 // matmul is O(M*K*N) so WASM wins at relatively small sizes.
 const THRESHOLD = 256;
 
-type WasmMatmulFn = (aPtr: number, bPtr: number, cPtr: number, M: number, N: number, K: number) => void;
+type WasmMatmulFn = (
+  aPtr: number,
+  bPtr: number,
+  cPtr: number,
+  M: number,
+  N: number,
+  K: number
+) => void;
 
 // Dtype -> WASM kernel function
 const wasmKernels: Partial<Record<DType, WasmMatmulFn>> = {
@@ -68,7 +68,7 @@ function wasmMatmul2D(
   M: number,
   K: number,
   N: number,
-  factor: number = 1,
+  factor: number = 1
 ): Float64Array | Float32Array {
   const bytesPerElement = Ctor.BYTES_PER_ELEMENT;
   const aBytes = M * K * factor * bytesPerElement;
@@ -84,7 +84,15 @@ function wasmMatmul2D(
 
   kernel(aPtr, bPtr, outPtr, M, N, K);
 
-  return copyOut(outPtr, M * N * factor, Ctor as new (buffer: ArrayBuffer, byteOffset: number, length: number) => Float64Array | Float32Array);
+  return copyOut(
+    outPtr,
+    M * N * factor,
+    Ctor as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number
+    ) => Float64Array | Float32Array
+  );
 }
 
 export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
@@ -96,11 +104,14 @@ export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
 
   // Resolve the working dtype for WASM (int types promote to float64)
   const workDtype: DType =
-    resultDtype === 'float32' ? 'float32' :
-    resultDtype === 'float64' ? 'float64' :
-    // int/uint/bool promote to float64 for matmul
-    (resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool')
-      ? 'float64' : resultDtype;
+    resultDtype === 'float32'
+      ? 'float32'
+      : resultDtype === 'float64'
+        ? 'float64'
+        : // int/uint/bool promote to float64 for matmul
+          resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool'
+          ? 'float64'
+          : resultDtype;
 
   const kernel = wasmKernels[workDtype];
   const Ctor = ctorMap[workDtype];
@@ -196,10 +207,7 @@ export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
  * Get contiguous data in the target dtype, converting if necessary.
  * For complex types, returns the raw interleaved float data (2 floats per element).
  */
-function getContiguousData(
-  storage: ArrayStorage,
-  targetDtype: DType,
-): Float64Array | Float32Array {
+function getContiguousData(storage: ArrayStorage, targetDtype: DType): Float64Array | Float32Array {
   const data = storage.data;
   const offset = storage.offset;
   const size = storage.size;

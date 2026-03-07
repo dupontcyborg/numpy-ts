@@ -19,8 +19,11 @@ const __dirname = path.dirname(__filename);
 
 const CORE_DIR = path.join(__dirname, '../src/core');
 const FULL_DIR = path.join(__dirname, '../src/full');
+const WASM_DIR = path.join(__dirname, '../src/wasm');
 const INDEX_OUTPUT_FILE = path.join(FULL_DIR, 'index.ts');
 const NDARRAY_OUTPUT_FILE = path.join(FULL_DIR, 'ndarray.ts');
+const WASM_INDEX_OUTPUT_FILE = path.join(WASM_DIR, 'index.ts');
+const WASM_NDARRAY_OUTPUT_FILE = path.join(WASM_DIR, 'ndarray.ts');
 
 // Files to skip (not function modules)
 const SKIP_FILES = new Set(['index.ts', 'types.ts']);
@@ -270,6 +273,8 @@ function generateIndexFile(
   allFunctions: Map<string, FunctionInfo>,
   wrappedFunctions: Set<string>,
   reexportedFunctions: Set<string>,
+  coreImportPath: string = '../core',
+  outputFile: string = INDEX_OUTPUT_FILE,
 ): void {
   const output: string[] = [];
 
@@ -290,7 +295,7 @@ function generateIndexFile(
  * \`\`\`
  */
 
-import * as core from '../core';
+import * as core from '${coreImportPath}';
 import { NDArray } from './ndarray';
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
@@ -349,14 +354,14 @@ export { Complex } from '../common/complex';
   if (reexports.length > 0) {
     output.push(`export {`);
     output.push(`  ${reexports.join(',\n  ')},`);
-    output.push(`} from '../core';`);
+    output.push(`} from '${coreImportPath}';`);
   }
 
   // Write output
   const outputContent = output.join('\n');
-  fs.writeFileSync(INDEX_OUTPUT_FILE, outputContent);
+  fs.writeFileSync(outputFile, outputContent);
 
-  console.log(`\nGenerated ${INDEX_OUTPUT_FILE}`);
+  console.log(`\nGenerated ${outputFile}`);
   console.log(`  - ${wrappedFunctions.size} wrapped functions`);
   console.log(`  - ${reexportedFunctions.size} re-exported functions`);
 }
@@ -438,7 +443,10 @@ function generateMethodCode(def: MethodDef): string {
   }
 }
 
-function generateNDArrayFile(): void {
+function generateNDArrayFile(
+  coreImportPath: string = '../core',
+  outputFile: string = NDARRAY_OUTPUT_FILE,
+): void {
   const output: string[] = [];
 
   // File header
@@ -457,7 +465,7 @@ import {
 import { Complex } from '../common/complex';
 import { ArrayStorage } from '../common/storage';
 import { NDArrayCore } from '../common/ndarray-core';
-import * as core from '../core';
+import * as core from '${coreImportPath}';
 
 // Helper to upgrade NDArrayCore to NDArray (zero-copy via shared storage)
 const up = (x: NDArrayCore): NDArray => {
@@ -567,11 +575,11 @@ export class NDArray extends NDArrayCore {`);
 
   // Write output
   const outputContent = output.join('\n');
-  fs.writeFileSync(NDARRAY_OUTPUT_FILE, outputContent);
+  fs.writeFileSync(outputFile, outputContent);
 
   const totalMethods = METHOD_DEFS.length;
   const autoMethods = totalMethods - manualMethods.length;
-  console.log(`\nGenerated ${NDARRAY_OUTPUT_FILE}`);
+  console.log(`\nGenerated ${outputFile}`);
   console.log(`  - ${manualMethods.length} manual methods`);
   console.log(`  - ${autoMethods} auto-generated methods`);
   console.log(`  - ${totalMethods} total methods`);
@@ -634,9 +642,13 @@ async function main() {
     console.log(`  ${file}: ${functions.length} functions (${functions.filter(f => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`);
   }
 
-  // Generate both files
-  generateIndexFile(allFunctions, wrappedFunctions, reexportedFunctions);
-  generateNDArrayFile();
+  // Generate full/ files (core import: ../core)
+  generateIndexFile(allFunctions, wrappedFunctions, reexportedFunctions, '../core', INDEX_OUTPUT_FILE);
+  generateNDArrayFile('../core', NDARRAY_OUTPUT_FILE);
+
+  // Generate wasm/ files (core import: ./core — picks up WASM overrides)
+  generateIndexFile(allFunctions, wrappedFunctions, reexportedFunctions, './core', WASM_INDEX_OUTPUT_FILE);
+  generateNDArrayFile('./core', WASM_NDARRAY_OUTPUT_FILE);
 }
 
 main().catch(console.error);
