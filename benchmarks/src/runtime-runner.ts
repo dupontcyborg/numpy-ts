@@ -10,12 +10,20 @@
  */
 
 import * as np from '../../src/index';
+import * as wasmCore from '../../src/wasm/core';
 import { serializeNpy, parseNpy, serializeNpzSync, parseNpzSync } from '../../src/io';
 import type { BenchmarkCase, BenchmarkTiming, BenchmarkSetup } from './types';
 
 // Benchmark configuration - set from stdin input
 let MIN_SAMPLE_TIME_MS = 100;
 let TARGET_SAMPLES = 5;
+let USE_WASM = false;
+
+// WASM-accelerated operations: maps operation name to wasm function
+// Add entries here as new WASM kernels are implemented
+const WASM_OPS: Record<string, (arrays: Record<string, any>) => any> = {
+  matmul: (arrays) => wasmCore.matmul(arrays['a'], arrays['b']),
+};
 
 function mean(arr: number[]): number {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -122,6 +130,11 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
 }
 
 function executeOperation(operation: string, arrays: Record<string, any>): any {
+  // WASM-accelerated dispatch
+  if (USE_WASM && WASM_OPS[operation]) {
+    return WASM_OPS[operation]!(arrays);
+  }
+
   // Array creation
   if (operation === 'zeros') return np.zeros(arrays['shape']);
   if (operation === 'ones') return np.ones(arrays['shape']);
@@ -575,6 +588,7 @@ async function main() {
 
   MIN_SAMPLE_TIME_MS = config.minSampleTimeMs;
   TARGET_SAMPLES = config.targetSamples;
+  USE_WASM = config.wasm ?? false;
 
   // Detect runtime name and version
   let runtimeName = 'node';
@@ -589,7 +603,7 @@ async function main() {
     runtimeVersion = (globalThis as any).Bun.version;
   }
 
-  console.error(`${runtimeName} ${runtimeVersion}`);
+  console.error(`${runtimeName} ${runtimeVersion}${USE_WASM ? ' (WASM)' : ''}`);
   console.error(
     `Running ${specs.length} benchmarks with auto-calibration...`
   );

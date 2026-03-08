@@ -873,7 +873,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // Linalg dtype variants (standard/full only)
     if (mode !== 'quick') {
       specs.push({
-        name: `matmul [${m}x${n}] @ [${n}x${m}]`,
+        name: `matmul [${m}x${n}] @ [${n}x${m}] float32`,
         category: 'linalg',
         operation: 'matmul',
         setup: {
