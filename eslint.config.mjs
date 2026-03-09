@@ -29,6 +29,8 @@ export default [
         TextDecoder: 'readonly',
         CompressionStream: 'readonly',
         DecompressionStream: 'readonly',
+        WebAssembly: 'readonly',
+        atob: 'readonly',
       },
     },
     plugins: {

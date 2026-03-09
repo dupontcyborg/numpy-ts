@@ -19,11 +19,8 @@ const __dirname = path.dirname(__filename);
 
 const CORE_DIR = path.join(__dirname, '../src/core');
 const FULL_DIR = path.join(__dirname, '../src/full');
-const WASM_DIR = path.join(__dirname, '../src/wasm');
 const INDEX_OUTPUT_FILE = path.join(FULL_DIR, 'index.ts');
 const NDARRAY_OUTPUT_FILE = path.join(FULL_DIR, 'ndarray.ts');
-const WASM_INDEX_OUTPUT_FILE = path.join(WASM_DIR, 'index.ts');
-const WASM_NDARRAY_OUTPUT_FILE = path.join(WASM_DIR, 'ndarray.ts');
 
 // Files to skip (not function modules)
 const SKIP_FILES = new Set(['index.ts', 'types.ts']);
@@ -642,13 +639,9 @@ async function main() {
     console.log(`  ${file}: ${functions.length} functions (${functions.filter(f => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`);
   }
 
-  // Generate full/ files (core import: ../core)
+  // Generate full/ files
   generateIndexFile(allFunctions, wrappedFunctions, reexportedFunctions, '../core', INDEX_OUTPUT_FILE);
   generateNDArrayFile('../core', NDARRAY_OUTPUT_FILE);
-
-  // Generate wasm/ files (core import: ./core — picks up WASM overrides)
-  generateIndexFile(allFunctions, wrappedFunctions, reexportedFunctions, './core', WASM_INDEX_OUTPUT_FILE);
-  generateNDArrayFile('./core', WASM_NDARRAY_OUTPUT_FILE);
 }
 
 main().catch(console.error);

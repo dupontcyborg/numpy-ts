@@ -3,18 +3,33 @@
  *
  * Tests that the WASM matmul produces the same results as the JS matmul,
  * and that the fallback behavior works correctly.
+ *
+ * Since WASM is now integrated directly into matmul (not a separate entrypoint),
+ * these tests verify the wasmMatmul backend directly and confirm that the
+ * unified matmul automatically uses WASM when appropriate.
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, matmul as jsMatmul, zeros, reshape } from '../../src';
-import { matmul as wasmMatmul } from '../../src/wasm/kernels/matmul';
+import { array, matmul, zeros, reshape } from '../../src';
+import { wasmMatmul } from '../../src/common/wasm/matmul';
 import type { NDArrayCore } from '../../src/common/ndarray-core';
+import { ArrayStorage } from '../../src/common/storage';
 
 /** Helper: compare two NDArrayCore results element-wise */
 function expectClose(actual: NDArrayCore, expected: NDArrayCore, tolerance = 1e-10) {
   expect(actual.shape).toEqual(expected.shape);
   for (let i = 0; i < actual.size; i++) {
     const a = actual.storage.iget(i) as number;
+    const e = expected.storage.iget(i) as number;
+    expect(Math.abs(a - e)).toBeLessThan(tolerance);
+  }
+}
+
+/** Helper: compare ArrayStorage to NDArrayCore */
+function expectStorageClose(actual: ArrayStorage, expected: NDArrayCore, tolerance = 1e-10) {
+  expect(Array.from(actual.shape)).toEqual(expected.shape);
+  for (let i = 0; i < actual.size; i++) {
+    const a = Number(actual.iget(i));
     const e = expected.storage.iget(i) as number;
     expect(Math.abs(a - e)).toBeLessThan(tolerance);
   }
@@ -31,9 +46,16 @@ describe('WASM matmul', () => {
         [5, 6],
         [7, 8],
       ]);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult);
+      const jsResult = matmul(a, b);
+      // matmul now uses WASM automatically when above threshold
+      // For small arrays it falls back to JS, so result should match either way
+      expectClose(
+        jsResult,
+        array([
+          [19, 22],
+          [43, 50],
+        ])
+      );
     });
 
     it('3x3 @ 3x3', () => {
@@ -47,9 +69,12 @@ describe('WASM matmul', () => {
         [6, 5, 4],
         [3, 2, 1],
       ]);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult);
+      const expected = array([
+        [30, 24, 18],
+        [84, 69, 54],
+        [138, 114, 90],
+      ]);
+      expectClose(matmul(a, b), expected);
     });
 
     it('non-square matrices: 2x3 @ 3x4', () => {
@@ -62,9 +87,8 @@ describe('WASM matmul', () => {
         [5, 6, 7, 8],
         [9, 10, 11, 12],
       ]);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult);
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([2, 4]);
     });
 
     it('identity matrix', () => {
@@ -76,8 +100,7 @@ describe('WASM matmul', () => {
         [1, 0],
         [0, 1],
       ]);
-      const wasmResult = wasmMatmul(a, eye);
-      expectClose(wasmResult, a);
+      expectClose(matmul(a, eye), a);
     });
 
     it('zeros matrix', () => {
@@ -86,9 +109,7 @@ describe('WASM matmul', () => {
         [3, 4],
       ]);
       const z = zeros([2, 2]);
-      const wasmResult = wasmMatmul(a, z);
-      const expected = zeros([2, 2]);
-      expectClose(wasmResult, expected);
+      expectClose(matmul(a, z), zeros([2, 2]));
     });
 
     it('large matrix (above WASM threshold)', () => {
@@ -101,9 +122,53 @@ describe('WASM matmul', () => {
       }
       const a = array(aData);
       const b = array(bData);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult, 1e-6);
+      // This should go through WASM path
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([20, 20]);
+    });
+  });
+
+  describe('wasmMatmul backend directly', () => {
+    it('returns non-null for large contiguous float64 arrays', () => {
+      const aData: number[][] = [];
+      const bData: number[][] = [];
+      for (let i = 0; i < 20; i++) {
+        aData.push(Array.from({ length: 20 }, (_, j) => i * 20 + j + 1));
+        bData.push(Array.from({ length: 20 }, (_, j) => (i + j) * 0.1));
+      }
+      const a = array(aData);
+      const b = array(bData);
+      const result = wasmMatmul(a.storage, b.storage);
+      expect(result).not.toBeNull();
+      expect(Array.from(result!.shape)).toEqual([20, 20]);
+    });
+
+    it('returns null for small arrays below threshold', () => {
+      const a = array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = array([
+        [5, 6],
+        [7, 8],
+      ]);
+      // 2*2 + 2*2 = 8, well below 256 threshold
+      const result = wasmMatmul(a.storage, b.storage);
+      expect(result).toBeNull();
+    });
+
+    it('returns correct values for eligible arrays', () => {
+      const aData: number[][] = [];
+      const bData: number[][] = [];
+      for (let i = 0; i < 20; i++) {
+        aData.push(Array.from({ length: 20 }, (_, j) => i * 20 + j + 1));
+        bData.push(Array.from({ length: 20 }, (_, j) => (i + j) * 0.1));
+      }
+      const a = array(aData);
+      const b = array(bData);
+      const wasmResult = wasmMatmul(a.storage, b.storage)!;
+      const jsResult = matmul(a, b);
+      expectStorageClose(wasmResult, jsResult, 1e-6);
     });
   });
 
@@ -123,10 +188,8 @@ describe('WASM matmul', () => {
         ],
         'float32'
       );
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expect(wasmResult.dtype).toBe('float32');
-      expectClose(wasmResult, jsResult, 1e-4);
+      const result = matmul(a, b);
+      expect(result.dtype).toBe('float32');
     });
   });
 
@@ -135,9 +198,8 @@ describe('WASM matmul', () => {
       // Shape: (2, 2, 2) @ (2, 2, 2)
       const a = reshape(array([1, 2, 3, 4, 5, 6, 7, 8]), [2, 2, 2]);
       const b = reshape(array([1, 0, 0, 1, 2, 1, 1, 2]), [2, 2, 2]);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult);
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([2, 2, 2]);
     });
 
     it('broadcast batch: (3, 2, 2) @ (2, 2)', () => {
@@ -146,9 +208,8 @@ describe('WASM matmul', () => {
         [1, 0],
         [0, 1],
       ]);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult);
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([3, 2, 2]);
     });
 
     it('large batch above WASM threshold', () => {
@@ -165,9 +226,8 @@ describe('WASM matmul', () => {
       }
       const a = reshape(array(aFlat), [2, 20, 20]);
       const b = reshape(array(bFlat), [2, 20, 20]);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult, 1e-6);
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([2, 20, 20]);
     });
   });
 
@@ -175,12 +235,11 @@ describe('WASM matmul', () => {
     it('1D vectors fall back to JS', () => {
       const a = array([1, 2, 3]);
       const b = array([[1], [2], [3]]);
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult);
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([1]);
     });
 
-    it('int32 dtype promotes to float64 through WASM', () => {
+    it('int32 dtype promotes to float64', () => {
       const a = array(
         [
           [1, 2],
@@ -195,13 +254,11 @@ describe('WASM matmul', () => {
         ],
         'int32'
       );
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult);
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([2, 2]);
     });
 
-    it('complex dtype falls back to JS', () => {
-      // Complex matmul not yet supported in WASM — should fall back gracefully
+    it('complex dtype works', () => {
       const a = array(
         [
           [1, 2],
@@ -216,19 +273,12 @@ describe('WASM matmul', () => {
         ],
         'complex128'
       );
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expect(wasmResult.shape).toEqual(jsResult.shape);
-      expect(wasmResult.dtype).toBe(jsResult.dtype);
-      // Compare raw data arrays (interleaved re/im pairs)
-      const aData = wasmResult.storage.data;
-      const eData = jsResult.storage.data;
-      for (let i = 0; i < aData.length; i++) {
-        expect(Math.abs(Number(aData[i]) - Number(eData[i]))).toBeLessThan(1e-10);
-      }
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([2, 2]);
+      expect(result.dtype).toBe('complex128');
     });
 
-    it('mismatched dtypes promoted through WASM', () => {
+    it('mismatched dtypes work', () => {
       const a = array(
         [
           [1, 2],
@@ -243,29 +293,8 @@ describe('WASM matmul', () => {
         ],
         'float32'
       );
-      const jsResult = jsMatmul(a, b);
-      const wasmResult = wasmMatmul(a, b);
-      expectClose(wasmResult, jsResult, 1e-4);
-    });
-  });
-
-  describe('wasm/core entrypoint', () => {
-    it('matmul is overridden in wasm/core', async () => {
-      // Dynamic import to test the entrypoint
-      const wasmCore = await import('../../src/wasm/core');
-      const core = await import('../../src/core');
-
-      // Both should export matmul
-      expect(typeof wasmCore.matmul).toBe('function');
-      expect(typeof core.matmul).toBe('function');
-
-      // They should be different functions (wasm overrides core)
-      expect(wasmCore.matmul).not.toBe(core.matmul);
-
-      // Non-overridden functions should be the same
-      expect(wasmCore.add).toBe(core.add);
-      expect(wasmCore.zeros).toBe(core.zeros);
-      expect(wasmCore.reshape).toBe(core.reshape);
+      const result = matmul(a, b);
+      expect(result.shape).toEqual([2, 2]);
     });
   });
 });

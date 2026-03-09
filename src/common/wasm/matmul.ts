@@ -1,23 +1,20 @@
 /**
- * WASM-accelerated matmul kernel wrapper.
+ * WASM-accelerated matmul kernel.
  *
- * Dispatches to WASM for contiguous float32/float64 matrices above
- * the size threshold. Handles batched matmul by looping over batch
- * dimensions in JS and dispatching each 2D slice to WASM.
+ * Pure compute backend — takes ArrayStorage inputs, returns ArrayStorage or
+ * null if WASM can't handle this case (unsupported dtype, non-contiguous,
+ * below size threshold). The caller (linalg.ts) handles the JS fallback.
  *
- * Falls back to JS for: small arrays, non-contiguous, unsupported dtypes,
- * 1D inputs, and complex dtypes (until complex WASM kernels are added).
+ * Handles batched matmul by looping over batch dimensions in JS and
+ * dispatching each 2D slice to WASM.
  */
 
-import { matmul as jsMatmul } from '../../core/linalg';
-import { matmul_f64, matmul_f32, matmul_c128, matmul_c64 } from '../bins/matmul.wasm';
-import { ensureMemory, resetAllocator, copyIn, alloc, copyOut, type DType } from '../runtime';
-import { NDArrayCore } from '../../common/ndarray-core';
-import { ArrayStorage } from '../../common/storage';
-import { promoteDTypes } from '../../common/dtype';
+import { matmul_f64, matmul_f32, matmul_c128, matmul_c64 } from './bins/matmul.wasm';
+import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
+import { ArrayStorage } from '../storage';
+import { promoteDTypes, type DType } from '../dtype';
 
 // Minimum total elements (M*K + K*N) for WASM to be worth the copy overhead.
-// matmul is O(M*K*N) so WASM wins at relatively small sizes.
 const THRESHOLD = 256;
 
 type WasmMatmulFn = (
@@ -54,11 +51,6 @@ const complexFactor: Partial<Record<DType, number>> = {
 
 /**
  * Run a single 2D matmul via WASM.
- * Caller must ensure dtype is supported, inputs are contiguous, and size is above threshold.
- * aData/bData are typed arrays positioned at the correct offset for this slice.
- *
- * For complex types, `factor` is 2 (each element is 2 floats: re, im).
- * The kernel receives M, K, N in *elements* — it internally strides by 2.
  */
 function wasmMatmul2D(
   kernel: WasmMatmulFn,
@@ -95,12 +87,17 @@ function wasmMatmul2D(
   );
 }
 
-export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
-  const aStorage = a.storage;
-  const bStorage = b.storage;
+/**
+ * WASM-accelerated matmul. Returns null if WASM can't handle this case.
+ *
+ * The caller should fall back to JS when null is returned.
+ */
+export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
+  // 0D inputs can't be matmul'd — let JS throw the proper error
+  if (a.ndim === 0 || b.ndim === 0) return null;
 
   // Determine the output dtype
-  const resultDtype = promoteDTypes(aStorage.dtype, bStorage.dtype);
+  const resultDtype = promoteDTypes(a.dtype, b.dtype);
 
   // Resolve the working dtype for WASM (int types promote to float64)
   const workDtype: DType =
@@ -108,28 +105,27 @@ export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
       ? 'float32'
       : resultDtype === 'float64'
         ? 'float64'
-        : // int/uint/bool promote to float64 for matmul
-          resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool'
+        : resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool'
           ? 'float64'
           : resultDtype;
 
   const kernel = wasmKernels[workDtype];
   const Ctor = ctorMap[workDtype];
 
-  // Fall back to JS if: no WASM kernel (bigint), or non-contiguous
-  if (!kernel || !Ctor || !aStorage.isCContiguous || !bStorage.isCContiguous) {
-    return jsMatmul(a, b);
+  // Can't handle: no WASM kernel (bigint), or non-contiguous
+  if (!kernel || !Ctor || !a.isCContiguous || !b.isCContiguous) {
+    return null;
   }
 
   // Complex types store 2 floats per element; real types store 1
   const factor = complexFactor[workDtype] ?? 1;
 
   // Handle 1D promotion (same as core matmul)
-  const aWas1D = aStorage.ndim === 1;
-  const bWas1D = bStorage.ndim === 1;
+  const aWas1D = a.ndim === 1;
+  const bWas1D = b.ndim === 1;
 
-  const aShape = aWas1D ? [1, aStorage.shape[0]!] : Array.from(aStorage.shape);
-  const bShape = bWas1D ? [bStorage.shape[0]!, 1] : Array.from(bStorage.shape);
+  const aShape = aWas1D ? [1, a.shape[0]!] : Array.from(a.shape);
+  const bShape = bWas1D ? [b.shape[0]!, 1] : Array.from(b.shape);
 
   const aNdim = aShape.length;
   const bNdim = bShape.length;
@@ -139,18 +135,17 @@ export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
   const N = bShape[bNdim - 1]!;
 
   if (K !== K2) {
-    // Let JS matmul throw the proper error
-    return jsMatmul(a, b);
+    return null; // Let JS throw the proper error
   }
 
   const totalElements = M * K + K * N;
   if (totalElements < THRESHOLD) {
-    return jsMatmul(a, b);
+    return null; // Below threshold, JS is faster
   }
 
   // Get contiguous data in the working dtype
-  const aData = getContiguousData(aStorage, workDtype);
-  const bData = getContiguousData(bStorage, workDtype);
+  const aData = getContiguousData(a, workDtype, factor);
+  const bData = getContiguousData(b, workDtype, factor);
 
   // --- Pure 2D case ---
   if (aNdim === 2 && bNdim === 2) {
@@ -160,17 +155,15 @@ export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
     else if (aWas1D) outShape = [N];
     else if (bWas1D) outShape = [M];
     else outShape = [M, N];
-    return NDArrayCore.fromStorage(ArrayStorage.fromData(outData, outShape, workDtype));
+    return ArrayStorage.fromData(outData, outShape, workDtype);
   }
 
   // --- Batched ND case ---
-  // Broadcast batch dimensions, then loop over batches calling WASM for each 2D slice
   const aBatch = aShape.slice(0, aNdim - 2);
   const bBatch = bShape.slice(0, bNdim - 2);
   const batchShape = broadcastBatchShapes(aBatch, bBatch);
   const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
 
-  // For complex types, each element is `factor` floats
   const sliceA = M * K * factor;
   const sliceB = K * N * factor;
   const sliceOut = M * N * factor;
@@ -195,36 +188,33 @@ export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
   const outShape = [...batchShape, M, N];
   const result = ArrayStorage.fromData(resultData, outShape, workDtype);
 
-  if (aWas1D && bWas1D) return NDArrayCore.fromStorage(reshapeStorage(result, [...batchShape]));
-  if (aWas1D) return NDArrayCore.fromStorage(reshapeStorage(result, [...batchShape, N]));
-  if (bWas1D) return NDArrayCore.fromStorage(reshapeStorage(result, [...batchShape, M]));
-  return NDArrayCore.fromStorage(result);
+  if (aWas1D && bWas1D) return reshapeStorage(result, [...batchShape]);
+  if (aWas1D) return reshapeStorage(result, [...batchShape, N]);
+  if (bWas1D) return reshapeStorage(result, [...batchShape, M]);
+  return result;
 }
 
 // --- Helpers ---
 
-/**
- * Get contiguous data in the target dtype, converting if necessary.
- * For complex types, returns the raw interleaved float data (2 floats per element).
- */
-function getContiguousData(storage: ArrayStorage, targetDtype: DType): Float64Array | Float32Array {
+function getContiguousData(
+  storage: ArrayStorage,
+  targetDtype: DType,
+  factor: number
+): Float64Array | Float32Array {
   const data = storage.data;
   const offset = storage.offset;
   const size = storage.size;
-  // For complex types, underlying data has 2 floats per element
-  const factor = complexFactor[targetDtype] ?? 1;
   const rawLength = size * factor;
 
   if (storage.dtype === targetDtype && offset === 0) {
     return data.subarray(0, rawLength) as Float64Array | Float32Array;
   }
   if (storage.dtype === targetDtype) {
-    // Complex offset is in element units; raw data offset is element * factor
     const rawOffset = offset * factor;
     return data.subarray(rawOffset, rawOffset + rawLength) as Float64Array | Float32Array;
   }
 
-  // Type conversion needed (only for real types — complex-to-real conversion not supported)
+  // Type conversion needed (only for real types)
   const Ctor = targetDtype === 'float32' ? Float32Array : Float64Array;
   const result = new Ctor(rawLength);
   for (let i = 0; i < size; i++) {
@@ -233,12 +223,10 @@ function getContiguousData(storage: ArrayStorage, targetDtype: DType): Float64Ar
   return result;
 }
 
-/** Reshape storage (creates a view with new shape, no data copy) */
 function reshapeStorage(storage: ArrayStorage, newShape: number[]): ArrayStorage {
   return ArrayStorage.fromData(storage.data, newShape, storage.dtype);
 }
 
-/** Broadcast two batch shape arrays to a common shape */
 function broadcastBatchShapes(a: number[], b: number[]): number[] {
   const maxLen = Math.max(a.length, b.length);
   const result: number[] = [];
@@ -253,7 +241,6 @@ function broadcastBatchShapes(a: number[], b: number[]): number[] {
   return result;
 }
 
-/** Convert flat batch index to multi-index */
 function flatToBatchMultiIndex(flat: number, shape: number[]): number[] {
   const idx: number[] = new Array(shape.length);
   let remaining = flat;
@@ -264,7 +251,6 @@ function flatToBatchMultiIndex(flat: number, shape: number[]): number[] {
   return idx;
 }
 
-/** Convert multi-index to flat batch index (with broadcasting: clamp to dim size) */
 function batchMultiIndexToFlat(idx: number[], batchShape: number[]): number {
   const padded = idx.length - batchShape.length;
   let flat = 0;
@@ -272,7 +258,6 @@ function batchMultiIndexToFlat(idx: number[], batchShape: number[]): number {
   for (let i = batchShape.length - 1; i >= 0; i--) {
     const dim = batchShape[i]!;
     const ii = idx[i + padded]!;
-    // Clamp for broadcasting: if dim is 1, always use index 0
     flat += (dim === 1 ? 0 : ii) * stride;
     stride *= dim;
   }

@@ -37,20 +37,10 @@
       "types": "./dist/types/core.d.ts",
       "import": "./dist/esm/core.js",
       "default": "./dist/esm/core.js"
-    },
-    "./wasm": {
-      "types": "./dist/types/wasm/index.d.ts",
-      "import": "./dist/esm/wasm/index.js",
-      "default": "./dist/esm/wasm/index.js"
-    },
-    "./wasm/core": {
-      "types": "./dist/types/wasm/core.d.ts",
-      "import": "./dist/esm/wasm/core.js",
-      "default": "./dist/esm/wasm/core.js"
     }
   },
   "scripts": {
-    "generate": "tsx scripts/generate-full.ts && prettier --write src/full/index.ts src/full/ndarray.ts src/wasm/index.ts src/wasm/ndarray.ts",
+    "generate": "tsx scripts/generate-full.ts && prettier --write src/full/index.ts src/full/ndarray.ts",
     "build": "npm run build:clean && npm run generate && tsx build.ts && npm run build:types",
     "build:clean": "rm -rf dist",
     "build:types": "tsc --emitDeclarationOnly --outDir dist/types",
@@ -84,9 +74,6 @@
     "bench:docs": "python3 scripts/generate-bench-docs.py",
     "compare-api": "python3 scripts/compare-api-coverage.py",
     "compare-docs-api": "python3 scripts/compare-docs-api-coverage.py",
-    "bench:wasm": "npm run bench:build && node benchmarks/dist/bench.cjs --wasm",
-    "bench:wasm:node": "npm run bench:build && node benchmarks/dist/bench.cjs --wasm --runtime node",
-    "bench:wasm:quick": "npm run bench:build && node benchmarks/dist/bench.cjs --quick --wasm",
     "build:wasm": "tsx scripts/build-wasm.ts"
   },
   "keywords": [

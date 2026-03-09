@@ -6,10 +6,7 @@
  * Memory grows monotonically (high-water-mark pattern).
  */
 
-import type { TypedArray, DType } from '../common/dtype';
-import { getTypedArrayConstructor, promoteDTypes } from '../common/dtype';
-import { ArrayStorage } from '../common/storage';
-import { NDArrayCore } from '../common/ndarray-core';
+import type { TypedArray } from '../dtype';
 
 // Shared memory instance — grows as needed, never shrinks
 let memory: WebAssembly.Memory | null = null;
@@ -102,18 +99,3 @@ export function copyOut<T extends TypedArray>(
   );
   return result;
 }
-
-/**
- * Get the TypedArray constructor for a given dtype.
- * Returns null for unsupported dtypes (bigint, etc.)
- */
-export function getCtorForDtype(
-  dtype: DType
-): (new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray) | null {
-  return getTypedArrayConstructor(dtype) as
-    | (new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray)
-    | null;
-}
-
-export { ArrayStorage, NDArrayCore, promoteDTypes };
-export type { DType, TypedArray };

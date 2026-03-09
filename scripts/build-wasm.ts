@@ -2,7 +2,7 @@
  * WASM Build Script
  *
  * Compiles Zig kernels to .wasm, base64-encodes them, and generates
- * TypeScript wrapper modules in src/wasm/bins/.
+ * TypeScript wrapper modules in src/common/wasm/bins/.
  *
  * Usage: tsx scripts/build-wasm.ts
  *
@@ -20,7 +20,7 @@ const __dirname = join(__filename, '..');
 const ROOT = join(__dirname, '..');
 
 const ZIG_DIR = join(ROOT, 'src/wasm/zig');
-const BINS_DIR = join(ROOT, 'src/wasm/bins');
+const BINS_DIR = join(ROOT, 'src/common/wasm/bins');
 const TMP_DIR = join(ROOT, '.wasm-tmp');
 
 // --- Check for Zig ---
@@ -109,7 +109,7 @@ function generateWasmTs(
           .map((p) => p.trim().split(':')[0]!.trim())
           .join(', ')
       : '';
-    lines.push(`  (i.exports['${exp.name}'] as Function)(${argNames});`);
+    lines.push(`  (i.exports['${exp.name}'] as (...args: number[]) => void)(${argNames});`);
     lines.push(`}`);
     lines.push(``);
   }
@@ -188,10 +188,11 @@ for (const file of zigFiles) {
   const zigSource = readFileSync(zigPath, 'utf-8');
   const exports = parseZigExports(zigSource);
 
-  // Generate .wasm.ts
+  // Generate .wasm.ts and format with prettier
   const tsContent = generateWasmTs(name, base64, exports);
   const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
   writeFileSync(tsPath, tsContent);
+  execSync(`npx prettier --write "${tsPath}"`, { stdio: 'pipe' });
 
   console.log(
     `  ${name}.wasm.ts — ${wasmBytes.length} bytes WASM, ${exports.length} exports (${exports.map((e) => e.name).join(', ')})`

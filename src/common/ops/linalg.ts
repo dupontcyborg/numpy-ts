@@ -8,6 +8,7 @@
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, isComplexDType, isBigIntDType, type TypedArray } from '../dtype';
 import { Complex } from '../complex';
+import { wasmMatmul } from '../wasm/matmul';
 import * as shapeOps from './shape';
 
 /**
@@ -798,6 +799,11 @@ function toContiguousFloat64(a: ArrayStorage): Float64Array {
  * - ND @ ND (N≥3): batched matrix multiply, batch dims broadcast → ND
  */
 export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  // Try WASM acceleration (returns null if it can't handle this case)
+  const wasmResult = wasmMatmul(a, b);
+  if (wasmResult) return wasmResult;
+
+  // JS fallback
   if (a.ndim === 0 || b.ndim === 0) {
     throw new Error(
       `matmul: Input operand does not have enough dimensions (has 0, gufunc core with signature (n?,k),(k,m?)->(n?,m?) requires at least 1-D)`
