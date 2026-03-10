@@ -1280,29 +1280,37 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
   }
 
+  // Reductions axis=0 variants (standard/full only)
+  if (mode !== 'quick' && Array.isArray(sizes.medium)) {
+    for (const op of ['mean', 'max', 'min', 'argmax', 'argmin', 'var', 'std'] as const) {
+      specs.push({
+        name: `${op} [${sizes.medium.join('x')}] axis=0`,
+        category: 'reductions',
+        operation: op,
+        setup: {
+          a: { shape: sizes.medium, fill: 'arange' },
+          axis: { shape: [0] },
+        },
+        iterations,
+        warmup,
+      });
+    }
+  }
+
   // Reductions dtype variants (standard/full only)
   if (mode !== 'quick' && Array.isArray(sizes.medium)) {
-    specs.push({
-      name: `sum [${sizes.medium.join('x')}] float32`,
-      category: 'reductions',
-      operation: 'sum',
-      setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'float32' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `mean [${sizes.medium.join('x')}] float32`,
-      category: 'reductions',
-      operation: 'mean',
-      setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'float32' },
-      },
-      iterations,
-      warmup,
-    });
+    for (const op of ['sum', 'mean', 'max', 'min'] as const) {
+      specs.push({
+        name: `${op} [${sizes.medium.join('x')}] float32`,
+        category: 'reductions',
+        operation: op,
+        setup: {
+          a: { shape: sizes.medium, fill: 'arange', dtype: 'float32' },
+        },
+        iterations,
+        warmup,
+      });
+    }
   }
 
   // Reductions full-mode dtype variants (int8, uint16)
@@ -2685,7 +2693,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `bincount [${sizes.small}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'bincount',
       setup: {
         a: { shape: [sizes.small], fill: 'arange', dtype: 'int32' },
@@ -2696,7 +2704,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `digitize [${sizes.small}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'digitize',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -2708,7 +2716,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `histogram [${sizes.small}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'histogram',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -2719,7 +2727,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `histogram2d [${sizes.small}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'histogram2d',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -2731,7 +2739,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `correlate [${sizes.small}]`,
-      category: 'reductions',
+      category: 'math',
       operation: 'correlate',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -2743,7 +2751,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `convolve [${sizes.small}]`,
-      category: 'reductions',
+      category: 'math',
       operation: 'convolve',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -2755,7 +2763,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `cov [${sizes.medium.join('x')}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'cov',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -2766,7 +2774,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `corrcoef [${sizes.medium.join('x')}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'corrcoef',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -2777,7 +2785,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `histogram_bin_edges [${sizes.small}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'histogram_bin_edges',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -2788,7 +2796,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `trapezoid [${sizes.small}]`,
-      category: 'reductions',
+      category: 'statistics',
       operation: 'trapezoid',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
