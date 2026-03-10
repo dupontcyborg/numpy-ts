@@ -314,7 +314,9 @@ export function unique(
   const uniqueData = uniqueResult.data;
   const isBigInt = uniqueData instanceof BigInt64Array || uniqueData instanceof BigUint64Array;
   for (let i = 0; i < uniqueValues.length; i++) {
-    (uniqueData as any)[i] = isBigInt ? BigInt(uniqueValues[i]!) : uniqueValues[i]!;
+    (uniqueData as Float64Array | Int32Array | BigInt64Array)[i] = isBigInt
+      ? BigInt(uniqueValues[i]!)
+      : (uniqueValues[i]! as never);
   }
 
   if (!returnIndex && !returnInverse && !returnCounts) {

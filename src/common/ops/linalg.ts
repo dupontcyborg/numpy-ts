@@ -6,7 +6,13 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, isComplexDType, isBigIntDType, type TypedArray } from '../dtype';
+import {
+  promoteDTypes,
+  isComplexDType,
+  isBigIntDType,
+  getTypedArrayConstructor,
+  type TypedArray,
+} from '../dtype';
 import { Complex } from '../complex';
 import { wasmMatmul } from '../wasm/matmul';
 import * as shapeOps from './shape';
@@ -826,6 +832,70 @@ function toContiguousFloat64(a: ArrayStorage): Float64Array {
 }
 
 /**
+ * Extract a contiguous 2D slice from an ND array at a given batch index.
+ * @internal
+ */
+function extract2DSlice(
+  a: ArrayStorage,
+  batchIdx: number,
+  rows: number,
+  cols: number
+): ArrayStorage {
+  const ndim = a.ndim;
+  const sliceSize = rows * cols;
+  const isComplex = isComplexDType(a.dtype);
+  const isBigInt = isBigIntDType(a.dtype);
+  const factor = isComplex ? 2 : 1;
+  const Ctor = getTypedArrayConstructor(a.dtype)!;
+  const sliceData = new Ctor(sliceSize * factor);
+
+  // Compute offset into the flat contiguous data for this batch
+  if (a.isCContiguous) {
+    const srcOff = (a.offset + batchIdx * sliceSize) * factor;
+    if (isBigInt) {
+      const src = a.data as BigInt64Array | BigUint64Array;
+      const dst = sliceData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < sliceSize * factor; i++) dst[i] = src[srcOff + i]!;
+    } else {
+      const src = a.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const dst = sliceData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      for (let i = 0; i < sliceSize * factor; i++) dst[i] = src[srcOff + i]!;
+    }
+  } else {
+    // Non-contiguous: use iget for each element
+    const baseLinear = batchIdx * sliceSize;
+    for (let i = 0; i < sliceSize; i++) {
+      // Compute multi-index from the flattened batch + 2D position
+      const linearIdx = baseLinear + i;
+      // For non-contiguous, we need to map through strides
+      let remaining = linearIdx;
+      let physIdx = a.offset;
+      for (let d = ndim - 1; d >= 0; d--) {
+        const dimSize = a.shape[d]!;
+        physIdx += (remaining % dimSize) * a.strides[d]!;
+        remaining = Math.floor(remaining / dimSize);
+      }
+      if (isComplex) {
+        const src = a.data as Float64Array | Float32Array;
+        const dst = sliceData as Float64Array | Float32Array;
+        dst[i * 2] = src[physIdx * 2]!;
+        dst[i * 2 + 1] = src[physIdx * 2 + 1]!;
+      } else if (isBigInt) {
+        (sliceData as BigInt64Array | BigUint64Array)[i] = (
+          a.data as BigInt64Array | BigUint64Array
+        )[physIdx]!;
+      } else {
+        (sliceData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = (
+          a.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>
+        )[physIdx]!;
+      }
+    }
+  }
+
+  return ArrayStorage.fromData(sliceData, [rows, cols], a.dtype);
+}
+
+/**
  * Matrix multiplication - fully NumPy-compatible.
  *
  * Behavior by input dimensions:
@@ -877,38 +947,53 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     return result2D;
   }
 
-  // ND batched matrix multiplication
+  // ND batched matrix multiplication — dispatch each 2D slice to matmul2D
+  // which handles all dtypes (int, bigint, float, complex)
   const aBatch = Array.from(aProc.shape).slice(0, aNdim - 2);
   const bBatch = Array.from(bProc.shape).slice(0, bNdim - 2);
   const batchShape = broadcastBatchShapes(aBatch, bBatch);
   const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
 
-  const aData = toContiguousFloat64(aProc);
-  const bData = toContiguousFloat64(bProc);
-  const resultData = new Float64Array(batchSize * M * N);
+  const resultDtype = promoteDTypes(aProc.dtype, bProc.dtype);
+  const slices: ArrayStorage[] = [];
 
   for (let bi = 0; bi < batchSize; bi++) {
     const batchIdx = flatToBatchMultiIndex(bi, batchShape);
     const aFlatBatch = batchMultiIndexToFlat(batchIdx, aBatch);
     const bFlatBatch = batchMultiIndexToFlat(batchIdx, bBatch);
 
-    const aOff = aFlatBatch * M * K;
-    const bOff = bFlatBatch * K * N;
-    const rOff = bi * M * N;
+    // Extract 2D slices
+    const aSlice = extract2DSlice(aProc, aFlatBatch, M, K);
+    const bSlice = extract2DSlice(bProc, bFlatBatch, K, N);
+    slices.push(matmul2D(aSlice, bSlice));
+  }
 
-    for (let i = 0; i < M; i++) {
-      for (let j = 0; j < N; j++) {
-        let sum = 0;
-        for (let kk = 0; kk < K; kk++) {
-          sum += aData[aOff + i * K + kk]! * bData[bOff + kk * N + j]!;
-        }
-        resultData[rOff + i * N + j] = sum;
-      }
+  // Concatenate all 2D results into ND output
+  const elementsPerSlice = M * N;
+  const isComplex = isComplexDType(resultDtype);
+  const isBigInt = isBigIntDType(resultDtype);
+  const factor = isComplex ? 2 : 1;
+  const Ctor = getTypedArrayConstructor(resultDtype)!;
+  const totalElements = batchSize * elementsPerSlice * factor;
+  const resultData = new Ctor(totalElements);
+
+  for (let bi = 0; bi < batchSize; bi++) {
+    const slice = slices[bi]!;
+    const srcData = slice.data;
+    const dstOff = bi * elementsPerSlice * factor;
+    if (isBigInt) {
+      const src = srcData as BigInt64Array | BigUint64Array;
+      const dst = resultData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < elementsPerSlice; i++) dst[dstOff + i] = src[i]!;
+    } else {
+      const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const dst = resultData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      for (let i = 0; i < elementsPerSlice * factor; i++) dst[dstOff + i] = src[i]!;
     }
   }
 
   const outShape = [...batchShape, M, N];
-  const result = ArrayStorage.fromData(resultData, outShape, 'float64');
+  const result = ArrayStorage.fromData(resultData, outShape, resultDtype);
 
   if (aWas1D && bWas1D) return shapeOps.reshape(result, [...batchShape]);
   if (aWas1D) return shapeOps.reshape(result, [...batchShape, N]);
