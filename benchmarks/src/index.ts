@@ -42,6 +42,66 @@ function getMachineInfo(): string {
   return `${cpu} (${cores} cores, ${ramGb} GB, ${arch})`;
 }
 
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+interface CachedPython {
+  results: BenchmarkTiming[];
+  pythonVersion: string;
+  numpyVersion: string;
+}
+
+/**
+ * Try to load cached Python benchmark results from a previous run.
+ * Returns null if cache is invalid or --fresh was passed.
+ */
+function tryLoadCachedPython(
+  specs: { name: string }[],
+  modeSuffix: string,
+  resultsDir: string
+): CachedPython | null {
+  const jsonPath = path.join(resultsDir, `latest${modeSuffix}.json`);
+  if (!fs.existsSync(jsonPath)) return null;
+
+  const stat = fs.statSync(jsonPath);
+  const ageMs = Date.now() - stat.mtimeMs;
+  if (ageMs > CACHE_MAX_AGE_MS) return null;
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    const env = raw.environment;
+    if (!env?.numpy_version || !env?.machine) return null;
+
+    // Check machine matches
+    if (env.machine !== getMachineInfo()) return null;
+
+    // Extract Python timings — handle both single-runtime and multi-runtime formats
+    const results: BenchmarkTiming[] = [];
+    const cachedResults: { name: string; numpy?: BenchmarkTiming }[] = raw.results ?? [];
+
+    if (cachedResults.length !== specs.length) return null;
+
+    for (let i = 0; i < specs.length; i++) {
+      const cached = cachedResults[i]!;
+      if (cached.name !== specs[i]!.name) return null; // name mismatch
+      if (!cached.numpy) return null;
+      results.push(cached.numpy);
+    }
+
+    const ageHours = Math.round(ageMs / (60 * 60 * 1000) * 10) / 10;
+    console.log(
+      `Using cached NumPy results (${ageHours}h old). Pass --fresh to re-run Python benchmarks.`
+    );
+
+    return {
+      results,
+      pythonVersion: env.python_version ?? 'unknown',
+      numpyVersion: env.numpy_version,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   // Parse command line arguments
   const args = process.argv.slice(2);
@@ -68,6 +128,8 @@ async function main() {
       options.singleThread = true;
     } else if (arg === '--runtime' && i + 1 < args.length) {
       options.runtimes = args[++i]!.split(',').map((s) => s.trim()) as RuntimeName[];
+    } else if (arg === '--fresh') {
+      options.fresh = true;
     } else if (arg === '--help' || arg === '-h') {
       printHelp();
       process.exit(0);
@@ -169,14 +231,33 @@ async function main() {
       );
     }
 
-    // Run Python NumPy benchmarks (once, as the baseline)
-    console.log('Running Python NumPy benchmarks...');
-    const { results: numpyResults, pythonVersion, numpyVersion } = await runPythonBenchmarks(
-      specs,
-      minSampleTimeMs,
-      targetSamples,
-      options.singleThread ?? false
-    );
+    // Determine file suffix based on mode and threading (needed for cache lookup)
+    const modeSuffix =
+      (options.mode === 'full' ? '-full' : '') + (options.singleThread ? '_single' : '');
+    const resultsDir = path.resolve(__dirname, '../results');
+
+    // Run Python NumPy benchmarks (or use cache)
+    let numpyResults: BenchmarkTiming[];
+    let pythonVersion: string;
+    let numpyVersion: string;
+
+    const cached = options.fresh ? null : tryLoadCachedPython(specs, modeSuffix, resultsDir);
+    if (cached) {
+      numpyResults = cached.results;
+      pythonVersion = cached.pythonVersion;
+      numpyVersion = cached.numpyVersion;
+    } else {
+      console.log('Running Python NumPy benchmarks...');
+      const pyResult = await runPythonBenchmarks(
+        specs,
+        minSampleTimeMs,
+        targetSamples,
+        options.singleThread ?? false
+      );
+      numpyResults = pyResult.results;
+      pythonVersion = pyResult.pythonVersion;
+      numpyVersion = pyResult.numpyVersion;
+    }
 
     // Run each JS runtime via subprocess
     const runtimeResultsMap = new Map<string, BenchmarkTiming[]>();
@@ -204,12 +285,7 @@ async function main() {
       process.exit(1);
     }
 
-    // Determine file suffix based on mode and threading
-    const modeSuffix =
-      (options.mode === 'full' ? '-full' : '') + (options.singleThread ? '_single' : '');
-
     // Save results
-    const resultsDir = path.resolve(__dirname, '../results');
     const plotsDir = path.resolve(resultsDir, 'plots');
     if (!fs.existsSync(resultsDir)) fs.mkdirSync(resultsDir, { recursive: true });
     if (!fs.existsSync(plotsDir)) fs.mkdirSync(plotsDir, { recursive: true });
@@ -324,6 +400,7 @@ Options:
   --runtime <list>     Comma-separated runtimes to use (default: auto-detect)
                        Values: node, deno, bun  (e.g. --runtime node,bun)
   --category <name>    Run only benchmarks in specified category
+  --fresh              Force re-run Python benchmarks (skip cache)
   --output <path>      Save JSON results to specified path
   --help, -h           Show this help message
 
@@ -332,7 +409,8 @@ Categories:
   arithmetic           Arithmetic operations (add, multiply, etc.; includes int64/uint64 in full)
   math                 Math ops (sqrt, exp, log, trig, etc.)
   linalg               Linear algebra (matmul, dot, inv, svd, etc.)
-  reductions           Reductions & statistics (sum, mean, std, etc.)
+  reductions           Reductions (sum, mean, std, etc.)
+  statistics           Statistics & histograms (cov, corrcoef, histogram, etc.)
   manipulation         Array manipulation (reshape, concatenate, etc.)
   sorting              Sorting & searching (sort, argsort, where, etc.)
   logic                Logic & comparison (isnan, where, logical_and, etc.)
