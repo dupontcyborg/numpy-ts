@@ -417,7 +417,7 @@ describe('NDArrayCore Coverage', () => {
       const a = core([1.5, 2.5, 3.5], [3], 'float64');
       const b = a.astype('int64');
       expect(b.dtype).toBe('int64');
-      expect(b.toArray()).toEqual([2n, 3n, 4n]);
+      expect(b.toArray()).toEqual([1n, 2n, 3n]);
     });
 
     it('bool to bigint (non-BigInt→BigInt)', () => {

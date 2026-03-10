@@ -663,10 +663,48 @@ function matmul2D(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     return result;
   }
 
-  const outputDtype =
-    resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool'
-      ? 'float64'
-      : resultDtype;
+  // Integer matmul: compute directly in the target integer type (wraps on overflow, like NumPy)
+  if (resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool') {
+    const result = ArrayStorage.zeros([m, n], resultDtype);
+    const rData = result.data;
+    const aOff = a.offset;
+    const bOff = b.offset;
+    const [aStrideR = 0, aStrideC = 0] = a.strides;
+    const [bStrideR = 0, bStrideC = 0] = b.strides;
+    if (isBigIntDType(resultDtype)) {
+      const aD = a.data as BigInt64Array | BigUint64Array;
+      const bD = b.data as BigInt64Array | BigUint64Array;
+      const rD = rData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          let sum = 0n;
+          for (let l = 0; l < k; l++) {
+            sum +=
+              aD[aOff + i * aStrideR + l * aStrideC]! * bD[bOff + l * bStrideR + j * bStrideC]!;
+          }
+          rD[i * n + j] = sum;
+        }
+      }
+    } else {
+      const aD = a.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const bD = b.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const rD = rData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          let sum = 0;
+          for (let l = 0; l < k; l++) {
+            sum +=
+              aD[aOff + i * aStrideR + l * aStrideC]! * bD[bOff + l * bStrideR + j * bStrideC]!;
+          }
+          // Assigning to a TypedArray truncates/wraps automatically
+          rD[i * n + j] = sum;
+        }
+      }
+    }
+    return result;
+  }
+
+  const outputDtype = resultDtype;
 
   if (outputDtype !== 'float64' && outputDtype !== 'float32') {
     throw new Error(`matmul currently only supports float64/float32, got ${outputDtype}`);

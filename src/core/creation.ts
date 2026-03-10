@@ -684,13 +684,15 @@ export function tril(m: NDArrayCore, k: number = 0): NDArrayCore {
   const cols = shape[shape.length - 1]!;
   const batchSize = shape.slice(0, -2).reduce((a, b) => a * b, 1);
   const matrixSize = rows * cols;
-  const zero: any = data instanceof BigInt64Array || data instanceof BigUint64Array ? 0n : 0;
+  const isBigInt = data instanceof BigInt64Array || data instanceof BigUint64Array;
 
   for (let b = 0; b < batchSize; b++) {
     const offset = b * matrixSize;
     for (let i = 0; i < rows; i++) {
       for (let j = i + k + 1; j < cols; j++) {
-        data[offset + i * cols + j] = zero;
+        if (isBigInt) (data as BigInt64Array | BigUint64Array)[offset + i * cols + j] = 0n;
+        else
+          (data as Exclude<typeof data, BigInt64Array | BigUint64Array>)[offset + i * cols + j] = 0;
       }
     }
   }
@@ -710,13 +712,15 @@ export function triu(m: NDArrayCore, k: number = 0): NDArrayCore {
   const cols = shape[shape.length - 1]!;
   const batchSize = shape.slice(0, -2).reduce((a, b) => a * b, 1);
   const matrixSize = rows * cols;
-  const zero: any = data instanceof BigInt64Array || data instanceof BigUint64Array ? 0n : 0;
+  const isBigInt = data instanceof BigInt64Array || data instanceof BigUint64Array;
 
   for (let b = 0; b < batchSize; b++) {
     const offset = b * matrixSize;
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < Math.min(i + k, cols); j++) {
-        data[offset + i * cols + j] = zero;
+        if (isBigInt) (data as BigInt64Array | BigUint64Array)[offset + i * cols + j] = 0n;
+        else
+          (data as Exclude<typeof data, BigInt64Array | BigUint64Array>)[offset + i * cols + j] = 0;
       }
     }
   }

@@ -10,6 +10,11 @@ import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dt
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { Complex } from '../complex';
 
+// Reusable Float32Array accumulators — writing to f32acc[0] implicitly rounds
+// to float32 precision (same as Math.fround) but V8 optimizes typed-array
+// stores better than function calls in hot loops.
+const f32acc = new Float32Array(2); // [0]=primary, [1]=secondary (for complex im)
+
 function wrapScalarKeepdims(
   scalar: number | bigint | Complex,
   ndim: number,
@@ -71,6 +76,18 @@ export function sum(
         }
       }
       return Number(total);
+    } else if (dtype === 'float32') {
+      f32acc[0] = 0;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          f32acc[0] += Number(data[off + i]!);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          f32acc[0] += Number(storage.iget(i));
+        }
+      }
+      return f32acc[0]!;
     } else {
       let total = 0;
       if (contiguous) {
@@ -132,19 +149,32 @@ export function sum(
     const complexData = data as Float64Array | Float32Array;
     const resultComplex = resultData as Float64Array | Float32Array;
 
-    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-      let sumRe = 0;
-      let sumIm = 0;
-      let bufIdx = baseOffsets[outerIdx]!;
-      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        // Physical index is 2x logical index for complex
-        sumRe += complexData[bufIdx * 2]!;
-        sumIm += complexData[bufIdx * 2 + 1]!;
-        bufIdx += axisStr;
+    if (dtype === 'complex64') {
+      for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+        f32acc[0] = 0;
+        f32acc[1] = 0;
+        let bufIdx = baseOffsets[outerIdx]!;
+        for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+          f32acc[0] += complexData[bufIdx * 2]!;
+          f32acc[1] += complexData[bufIdx * 2 + 1]!;
+          bufIdx += axisStr;
+        }
+        resultComplex[outerIdx * 2] = f32acc[0]!;
+        resultComplex[outerIdx * 2 + 1] = f32acc[1]!;
       }
-      // Output physical index is 2x output logical index
-      resultComplex[outerIdx * 2] = sumRe;
-      resultComplex[outerIdx * 2 + 1] = sumIm;
+    } else {
+      for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+        let sumRe = 0;
+        let sumIm = 0;
+        let bufIdx = baseOffsets[outerIdx]!;
+        for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+          sumRe += complexData[bufIdx * 2]!;
+          sumIm += complexData[bufIdx * 2 + 1]!;
+          bufIdx += axisStr;
+        }
+        resultComplex[outerIdx * 2] = sumRe;
+        resultComplex[outerIdx * 2 + 1] = sumIm;
+      }
     }
   } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
@@ -158,6 +188,16 @@ export function sum(
         bufIdx += axisStr;
       }
       resultTyped[outerIdx] = sumVal;
+    }
+  } else if (dtype === 'float32') {
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      f32acc[0] = 0;
+      let bufIdx = baseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        f32acc[0] += Number(data[bufIdx]!);
+        bufIdx += axisStr;
+      }
+      resultData[outerIdx] = f32acc[0]!;
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -543,6 +583,18 @@ export function prod(
         }
       }
       return Number(product);
+    } else if (dtype === 'float32') {
+      f32acc[0] = 1;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          f32acc[0] *= Number(data[off + i]!);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          f32acc[0] *= Number(storage.iget(i));
+        }
+      }
+      return f32acc[0]!;
     } else {
       let product = 1;
       if (contiguous) {
@@ -602,22 +654,40 @@ export function prod(
     const complexData = data as Float64Array | Float32Array;
     const resultComplex = resultData as Float64Array | Float32Array;
 
-    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-      let prodRe = 1;
-      let prodIm = 0;
-      let bufIdx = baseOffsets[outerIdx]!;
-      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const re = complexData[bufIdx * 2]!;
-        const im = complexData[bufIdx * 2 + 1]!;
-        // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-        const newRe = prodRe * re - prodIm * im;
-        const newIm = prodRe * im + prodIm * re;
-        prodRe = newRe;
-        prodIm = newIm;
-        bufIdx += axisStr;
+    if (dtype === 'complex64') {
+      for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+        f32acc[0] = 1; // re
+        f32acc[1] = 0; // im
+        let bufIdx = baseOffsets[outerIdx]!;
+        for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+          const re = complexData[bufIdx * 2]!;
+          const im = complexData[bufIdx * 2 + 1]!;
+          const prevRe: number = f32acc[0]!;
+          const prevIm: number = f32acc[1]!;
+          f32acc[0] = prevRe * re - prevIm * im;
+          f32acc[1] = prevRe * im + prevIm * re;
+          bufIdx += axisStr;
+        }
+        resultComplex[outerIdx * 2] = f32acc[0]!;
+        resultComplex[outerIdx * 2 + 1] = f32acc[1]!;
       }
-      resultComplex[outerIdx * 2] = prodRe;
-      resultComplex[outerIdx * 2 + 1] = prodIm;
+    } else {
+      for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+        let prodRe = 1;
+        let prodIm = 0;
+        let bufIdx = baseOffsets[outerIdx]!;
+        for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+          const re = complexData[bufIdx * 2]!;
+          const im = complexData[bufIdx * 2 + 1]!;
+          const newRe = prodRe * re - prodIm * im;
+          const newIm = prodRe * im + prodIm * re;
+          prodRe = newRe;
+          prodIm = newIm;
+          bufIdx += axisStr;
+        }
+        resultComplex[outerIdx * 2] = prodRe;
+        resultComplex[outerIdx * 2 + 1] = prodIm;
+      }
     }
   } else if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
@@ -631,6 +701,16 @@ export function prod(
         bufIdx += axisStr;
       }
       resultTyped[outerIdx] = prodVal;
+    }
+  } else if (dtype === 'float32') {
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      f32acc[0] = 1;
+      let bufIdx = baseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        f32acc[0] *= Number(data[bufIdx]!);
+        bufIdx += axisStr;
+      }
+      resultData[outerIdx] = f32acc[0]!;
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {

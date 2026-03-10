@@ -99,15 +99,12 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
   // Determine the output dtype
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
 
-  // Resolve the working dtype for WASM (int types promote to float64)
-  const workDtype: DType =
-    resultDtype === 'float32'
-      ? 'float32'
-      : resultDtype === 'float64'
-        ? 'float64'
-        : resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool'
-          ? 'float64'
-          : resultDtype;
+  // Integer types: no WASM kernel, fall back to JS for native wrapping behavior
+  if (resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool') {
+    return null;
+  }
+
+  const workDtype: DType = resultDtype;
 
   const kernel = wasmKernels[workDtype];
   const Ctor = ctorMap[workDtype];

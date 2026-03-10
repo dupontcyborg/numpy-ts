@@ -144,9 +144,9 @@ describe('DType Support', () => {
       const arr = array([1.5, 2.7, 3.2]);
       const converted = arr.astype('int64');
       expect(converted.dtype).toBe('int64');
-      // Values are rounded when converting to BigInt
-      expect(converted.data[0]).toBe(BigInt(2));
-      expect(converted.data[1]).toBe(BigInt(3));
+      // Values are truncated toward zero (matching NumPy)
+      expect(converted.data[0]).toBe(BigInt(1));
+      expect(converted.data[1]).toBe(BigInt(2));
       expect(converted.data[2]).toBe(BigInt(3));
     });
 

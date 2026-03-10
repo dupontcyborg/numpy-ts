@@ -1523,10 +1523,11 @@ describe('numpy.linalg Module', () => {
       const result = linalg.matmul(a, b);
 
       expect(result.shape).toEqual([2, 2]);
-      // Result is float64 (matmul converts to float)
+      // Result stays int64 (matching NumPy behavior)
+      expect(result.dtype).toBe('int64');
       expect(result.toArray()).toEqual([
-        [19, 22],
-        [43, 50],
+        [19n, 22n],
+        [43n, 50n],
       ]);
     });
 
