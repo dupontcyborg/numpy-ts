@@ -8,11 +8,7 @@
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isComplexDType, type DType } from '../dtype';
 import { Complex } from '../complex';
-import {
-  outerIndexToMultiIndex,
-  multiIndexToLinear,
-  multiIndexToBuffer,
-} from '../internal/indexing';
+import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 
 /**
  * Check if a value at index i is non-zero (truthy)
@@ -87,6 +83,24 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
+  // Precompute axis offsets for reading (possibly non-contiguous input)
+  const { baseOffsets, axisStride } = precomputeAxisOffsets(
+    shape,
+    inputStrides,
+    off,
+    normalizedAxis,
+    outerSize
+  );
+  // Precompute axis offsets for writing (always contiguous output)
+  const outputStrides = computeStrides(shape);
+  const { baseOffsets: outBaseOffsets, axisStride: outAxisStride } = precomputeAxisOffsets(
+    shape,
+    outputStrides,
+    0,
+    normalizedAxis,
+    outerSize
+  );
+
   // Sort along axis
   if (isComplexDType(dtype)) {
     // Complex sort using lexicographic ordering
@@ -96,25 +110,25 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis
       const values: { re: number; im: number; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({
           re: complexData[bufIdx * 2]!,
           im: complexData[bufIdx * 2 + 1]!,
           idx: axisIdx,
         });
+        bufIdx += axisStride;
       }
 
       // Sort using lexicographic comparison
       values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
 
       // Write sorted values back (result is contiguous copy)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultComplex[linearIdx * 2] = values[axisIdx]!.re;
-        resultComplex[linearIdx * 2 + 1] = values[axisIdx]!.im;
+        resultComplex[outIdx * 2] = values[axisIdx]!.re;
+        resultComplex[outIdx * 2 + 1] = values[axisIdx]!.im;
+        outIdx += outAxisStride;
       }
     }
   } else if (isBigIntDType(dtype)) {
@@ -124,30 +138,30 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis
       const values: { value: bigint; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({ value: typedData[bufIdx]!, idx: axisIdx });
+        bufIdx += axisStride;
       }
 
       // Sort by value
       values.sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
 
       // Write sorted values back (result is contiguous copy)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultTyped[linearIdx] = values[axisIdx]!.value;
+        resultTyped[outIdx] = values[axisIdx]!.value;
+        outIdx += outAxisStride;
       }
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis
       const values: number[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push(Number(data[bufIdx]!));
+        bufIdx += axisStride;
       }
 
       // Sort (NaN values go to end)
@@ -159,10 +173,10 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
       });
 
       // Write sorted values back (result is contiguous copy)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultData[linearIdx] = values[axisIdx]!;
+        resultData[outIdx] = values[axisIdx]!;
+        outIdx += outAxisStride;
       }
     }
   }
@@ -208,6 +222,24 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
+  // Precompute axis offsets for reading (possibly non-contiguous input)
+  const { baseOffsets, axisStride } = precomputeAxisOffsets(
+    shape,
+    inputStrides,
+    off,
+    normalizedAxis,
+    outerSize
+  );
+  // Precompute axis offsets for writing (always contiguous output)
+  const outputStrides = computeStrides(shape);
+  const { baseOffsets: outBaseOffsets, axisStride: outAxisStride } = precomputeAxisOffsets(
+    shape,
+    outputStrides,
+    0,
+    normalizedAxis,
+    outerSize
+  );
+
   // Get argsort along axis
   if (isComplexDType(dtype)) {
     // Complex argsort using lexicographic ordering
@@ -216,24 +248,24 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis with their indices
       const values: { re: number; im: number; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({
           re: complexData[bufIdx * 2]!,
           im: complexData[bufIdx * 2 + 1]!,
           idx: axisIdx,
         });
+        bufIdx += axisStride;
       }
 
       // Sort using lexicographic comparison
       values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
 
       // Write sorted indices back (result is contiguous)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultData[linearIdx] = values[axisIdx]!.idx;
+        resultData[outIdx] = values[axisIdx]!.idx;
+        outIdx += outAxisStride;
       }
     }
   } else if (isBigIntDType(dtype)) {
@@ -242,30 +274,30 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis with their indices
       const values: { value: bigint; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({ value: typedData[bufIdx]!, idx: axisIdx });
+        bufIdx += axisStride;
       }
 
       // Sort by value
       values.sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
 
       // Write sorted indices back (result is contiguous)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultData[linearIdx] = values[axisIdx]!.idx;
+        resultData[outIdx] = values[axisIdx]!.idx;
+        outIdx += outAxisStride;
       }
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis with their indices
       const values: { value: number; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({ value: Number(data[bufIdx]!), idx: axisIdx });
+        bufIdx += axisStride;
       }
 
       // Sort by value (NaN values go to end)
@@ -277,10 +309,10 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
       });
 
       // Write sorted indices back (result is contiguous)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultData[linearIdx] = values[axisIdx]!.idx;
+        resultData[outIdx] = values[axisIdx]!.idx;
+        outIdx += outAxisStride;
       }
     }
   }
@@ -624,6 +656,16 @@ export function partition(storage: ArrayStorage, kth: number, axis: number = -1)
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
+  // Precompute axis offsets for reading/writing (result is always contiguous)
+  const outputStrides = computeStrides(shape);
+  const { baseOffsets: outBaseOffsets, axisStride: outAxisStride } = precomputeAxisOffsets(
+    shape,
+    outputStrides,
+    0,
+    normalizedAxis,
+    outerSize
+  );
+
   // Partition along axis using quickselect
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
@@ -631,40 +673,40 @@ export function partition(storage: ArrayStorage, kth: number, axis: number = -1)
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis
       const values: bigint[] = [];
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push(resultTyped[linearIdx]!);
+        values.push(resultTyped[outIdx]!);
+        outIdx += outAxisStride;
       }
 
       // Partition using quickselect
       quickselectBigInts(values, normalizedKth);
 
       // Write partitioned values back
+      outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultTyped[linearIdx] = values[axisIdx]!;
+        resultTyped[outIdx] = values[axisIdx]!;
+        outIdx += outAxisStride;
       }
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis
       const values: number[] = [];
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        values.push(Number(resultData[linearIdx]!));
+        values.push(Number(resultData[outIdx]!));
+        outIdx += outAxisStride;
       }
 
       // Partition using quickselect
       quickselectNumbers(values, normalizedKth);
 
       // Write partitioned values back
+      outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultData[linearIdx] = values[axisIdx]!;
+        resultData[outIdx] = values[axisIdx]!;
+        outIdx += outAxisStride;
       }
     }
   }
@@ -720,6 +762,24 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
   const outerSize = outputShape.length === 0 ? 1 : outputShape.reduce((a, b) => a * b, 1);
 
+  // Precompute axis offsets for reading (possibly non-contiguous input)
+  const { baseOffsets, axisStride } = precomputeAxisOffsets(
+    shape,
+    inputStrides,
+    off,
+    normalizedAxis,
+    outerSize
+  );
+  // Precompute axis offsets for writing (always contiguous output)
+  const outputStrides = computeStrides(shape);
+  const { baseOffsets: outBaseOffsets, axisStride: outAxisStride } = precomputeAxisOffsets(
+    shape,
+    outputStrides,
+    0,
+    normalizedAxis,
+    outerSize
+  );
+
   // Get argpartition along axis
   if (isBigIntDType(dtype)) {
     const typedData = data as BigInt64Array | BigUint64Array;
@@ -727,40 +787,40 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis with their indices
       const values: { value: bigint; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({ value: typedData[bufIdx]!, idx: axisIdx });
+        bufIdx += axisStride;
       }
 
       // Partition using quickselect
       quickselectBigIntIndices(values, normalizedKth);
 
       // Write partitioned indices back (result is contiguous)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultData[linearIdx] = values[axisIdx]!.idx;
+        resultData[outIdx] = values[axisIdx]!.idx;
+        outIdx += outAxisStride;
       }
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis with their indices
       const values: { value: number; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
         values.push({ value: Number(data[bufIdx]!), idx: axisIdx });
+        bufIdx += axisStride;
       }
 
       // Partition using quickselect
       quickselectNumberIndices(values, normalizedKth);
 
       // Write partitioned indices back (result is contiguous)
+      let outIdx = outBaseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-        const linearIdx = multiIndexToLinear(inputIndices, shape);
-        resultData[linearIdx] = values[axisIdx]!.idx;
+        resultData[outIdx] = values[axisIdx]!.idx;
+        outIdx += outAxisStride;
       }
     }
   }
@@ -1616,14 +1676,23 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
   const axisSize = shape[normalizedAxis]!;
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
 
+  // Precompute axis offsets for reading (possibly non-contiguous input)
+  const { baseOffsets, axisStride } = precomputeAxisOffsets(
+    shape,
+    inputStrides,
+    off,
+    normalizedAxis,
+    outerSize
+  );
+
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
     let count = 0;
+    let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-      const inputIndices = outerIndexToMultiIndex(outerIdx, normalizedAxis, axisIdx, shape);
-      const bufIdx = multiIndexToBuffer(inputIndices, inputStrides, off);
       if (isNonZero(data, bufIdx, isComplex)) {
         count++;
       }
+      bufIdx += axisStride;
     }
     resultData[outerIdx] = count;
   }

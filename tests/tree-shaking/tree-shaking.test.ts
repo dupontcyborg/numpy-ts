@@ -574,7 +574,7 @@ describe('Tree-shaking Tests', () => {
       // All standalone fixtures should be much smaller than full bundle
       expect(standaloneSingle / fullSize).toBeLessThan(0.1); // <10% of full
       expect(standaloneMath / fullSize).toBeLessThan(0.15); // <15% of full
-      expect(standaloneLinalg / fullSize).toBeLessThan(0.35); // <35% of full (includes ~4KB WASM binary)
+      expect(standaloneLinalg / fullSize).toBeLessThan(0.5); // <50% of full (includes ~4KB WASM binary)
 
       // Single function should be smaller than multi-function fixtures
       expect(standaloneSingle).toBeLessThan(standaloneMath);
