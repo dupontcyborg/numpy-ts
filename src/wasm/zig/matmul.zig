@@ -65,6 +65,42 @@ export fn matmul_c64(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32
     matmul_c64_ikj(a, b, c, M, N, K);
 }
 
+/// Computes C = A @ B for row-major i64 matrices with wrapping arithmetic.
+/// Handles both signed (i64) and unsigned (u64) — wrapping add/mul produce identical bits.
+export fn matmul_i64(a: [*]const i64, b: [*]const i64, c: [*]i64, M: u32, N: u32, K: u32) void {
+
+    // TODO: implement i-j-k version with register accumulation; more complex but should give ~35-50% speedup at small N.
+    // For now, just use i-k-j
+    matmul_i64_ikj(a, b, c, M, N, K);
+}
+
+/// Computes C = A @ B for row-major i32 matrices with wrapping arithmetic.
+/// Handles both signed (i32) and unsigned (u32) — wrapping add/mul produce identical bits.
+export fn matmul_i32(a: [*]const i32, b: [*]const i32, c: [*]i32, M: u32, N: u32, K: u32) void {
+
+    // TODO: implement i-j-k version with register accumulation; more complex but should give ~35-50% speedup at small N.
+    // For now, just use i-k-j
+    matmul_i32_ikj(a, b, c, M, N, K);
+}
+
+/// Computes C = A @ B for row-major i16 matrices with wrapping arithmetic.
+/// Handles both signed (i16) and unsigned (u16) — wrapping add/mul produce identical bits.
+export fn matmul_i16(a: [*]const i16, b: [*]const i16, c: [*]i16, M: u32, N: u32, K: u32) void {
+
+    // TODO: implement i-j-k version with register accumulation; more complex but should give ~35-50% speedup at small N.
+    // For now, just use i-k-j
+    matmul_i16_ikj(a, b, c, M, N, K);
+}
+
+/// Computes C = A @ B for row-major i8 matrices with wrapping arithmetic.
+/// Handles both signed (i8) and unsigned (u8) — wrapping add/mul produce identical bits.
+export fn matmul_i8(a: [*]const i8, b: [*]const i8, c: [*]i8, M: u32, N: u32, K: u32) void {
+
+    // TODO: implement i-j-k version with register accumulation; more complex but should give ~35-50% speedup at small N.
+    // For now, just use i-k-j
+    matmul_i8_ikj(a, b, c, M, N, K);
+}
+
 // --- Implementations ---
 
 /// Computes C = A @ B for row-major f64 matrices.
@@ -477,6 +513,227 @@ fn matmul_c64_ikj(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32, K
     }
 }
 
+/// Computes C = A @ B for row-major i64 matrices with wrapping arithmetic.
+/// Uses i-k-j tiled blocking with V2i64 SIMD in the inner j loop.
+/// Handles both signed (i64) and unsigned (u64) — wrapping add/mul produce identical bits.
+fn matmul_i64_ikj(a: [*]const i64, b: [*]const i64, c: [*]i64, M: u32, N: u32, K: u32) void {
+    // Zero output
+    @memset(c[0..@as(usize, M) * N], 0);
+
+    // Tiled i-k-j loop (BLAS-style blocking)
+    // Outer tile loop over i (rows of A and C)
+    var ii: usize = 0;
+    while (ii < M) : (ii += TILE_F64) {
+        const i_end = @min(ii + TILE_F64, M);
+
+        // Outer tile loop over k (columns of A, rows of B)
+        var kk: usize = 0;
+        while (kk < K) : (kk += TILE_F64) {
+            const k_end = @min(kk + TILE_F64, K);
+
+            // Outer tile loop over j (columns of B and C)
+            var jj: usize = 0;
+            while (jj < N) : (jj += TILE_F64) {
+                const j_end = @min(jj + TILE_F64, N);
+
+                // Inner tile: C[ii:i_end, jj:j_end] += A[ii:i_end, kk:k_end] @ B[kk:k_end, jj:j_end]
+                var i: usize = ii;
+                while (i < i_end) : (i += 1) {
+
+                    var k: usize = kk;
+                    while (k < k_end) : (k += 1) {
+                        const a_ik = a[i * K + k];
+                        const a_vec: simd.V2i64 = @splat(a_ik);
+                        const b_row = k * N;
+                        const c_row = i * N;
+
+                        // Vectorized j loop: two v128 (2×i64) per step = 4 i64
+                        var j: usize = jj;
+                        while (j + 4 <= j_end) : (j += 4) {
+                            simd.store2_i64(c, c_row + j, simd.load2_i64(c, c_row + j) +% a_vec *% simd.load2_i64(b, b_row + j));
+                            simd.store2_i64(c, c_row + j + 2, simd.load2_i64(c, c_row + j + 2) +% a_vec *% simd.load2_i64(b, b_row + j + 2));
+                        }
+                        // One more v128 if possible
+                        while (j + 2 <= j_end) : (j += 2) {
+                            simd.store2_i64(c, c_row + j, simd.load2_i64(c, c_row + j) +% a_vec *% simd.load2_i64(b, b_row + j));
+                        }
+                        // Scalar remainder
+                        while (j < j_end) : (j += 1) {
+                            c[c_row + j] +%= a_ik *% b[b_row + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Computes C = A @ B for row-major i32 matrices with wrapping arithmetic.
+/// Uses i-k-j tiled blocking with V4i32 SIMD in the inner j loop.
+/// Handles both signed (i32) and unsigned (u32) — wrapping add/mul produce identical bits.
+fn matmul_i32_ikj(a: [*]const i32, b: [*]const i32, c: [*]i32, M: u32, N: u32, K: u32) void {
+    // Zero output
+    @memset(c[0..@as(usize, M) * N], 0);
+
+    // Tiled i-k-j loop (BLAS-style blocking)
+    // Outer tile loop over i (rows of A and C)
+    var ii: usize = 0;
+    while (ii < M) : (ii += TILE_F32) {
+        const i_end = @min(ii + TILE_F32, M);
+
+        // Outer tile loop over k (columns of A, rows of B)
+        var kk: usize = 0;
+        while (kk < K) : (kk += TILE_F32) {
+            const k_end = @min(kk + TILE_F32, K);
+
+            // Outer tile loop over j (columns of B and C)
+            var jj: usize = 0;
+            while (jj < N) : (jj += TILE_F32) {
+                const j_end = @min(jj + TILE_F32, N);
+
+                // Inner tile: C[ii:i_end, jj:j_end] += A[ii:i_end, kk:k_end] @ B[kk:k_end, jj:j_end]
+                var i: usize = ii;
+                while (i < i_end) : (i += 1) {
+
+                    var k: usize = kk;
+                    while (k < k_end) : (k += 1) {
+                        const a_ik = a[i * K + k];
+                        const a_vec: simd.V4i32 = @splat(a_ik);
+                        const b_row = k * N;
+                        const c_row = i * N;
+
+                        // Vectorized j loop: two v128 (4×i32) per step = 8 i32
+                        var j: usize = jj;
+                        while (j + 8 <= j_end) : (j += 8) {
+                            simd.store4_i32(c, c_row + j, simd.load4_i32(c, c_row + j) +% a_vec *% simd.load4_i32(b, b_row + j));
+                            simd.store4_i32(c, c_row + j + 4, simd.load4_i32(c, c_row + j + 4) +% a_vec *% simd.load4_i32(b, b_row + j + 4));
+                        }
+                        // One more v128 if possible
+                        while (j + 4 <= j_end) : (j += 4) {
+                            simd.store4_i32(c, c_row + j, simd.load4_i32(c, c_row + j) +% a_vec *% simd.load4_i32(b, b_row + j));
+                        }
+                        // Scalar remainder
+                        while (j < j_end) : (j += 1) {
+                            c[c_row + j] +%= a_ik *% b[b_row + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Computes C = A @ B for row-major i16 matrices with wrapping arithmetic.
+/// Uses i-k-j tiled blocking with V8i16 SIMD in the inner j loop.
+/// Handles both signed (i16) and unsigned (u16) — wrapping add/mul produce identical bits.
+fn matmul_i16_ikj(a: [*]const i16, b: [*]const i16, c: [*]i16, M: u32, N: u32, K: u32) void {
+    // Zero output
+    @memset(c[0..@as(usize, M) * N], 0);
+
+    // Tiled i-k-j loop (BLAS-style blocking)
+    // Outer tile loop over i (rows of A and C)
+    var ii: usize = 0;
+    while (ii < M) : (ii += TILE_F32) {
+        const i_end = @min(ii + TILE_F32, M);
+
+        // Outer tile loop over k (columns of A, rows of B)
+        var kk: usize = 0;
+        while (kk < K) : (kk += TILE_F32) {
+            const k_end = @min(kk + TILE_F32, K);
+
+            // Outer tile loop over j (columns of B and C)
+            var jj: usize = 0;
+            while (jj < N) : (jj += TILE_F32) {
+                const j_end = @min(jj + TILE_F32, N);
+
+                // Inner tile: C[ii:i_end, jj:j_end] += A[ii:i_end, kk:k_end] @ B[kk:k_end, jj:j_end]
+                var i: usize = ii;
+                while (i < i_end) : (i += 1) {
+
+                    var k: usize = kk;
+                    while (k < k_end) : (k += 1) {
+                        const a_ik = a[i * K + k];
+                        const a_vec: simd.V8i16 = @splat(a_ik);
+                        const b_row = k * N;
+                        const c_row = i * N;
+
+                        // Vectorized j loop: two v128 (8×i16) per step = 16 i16
+                        var j: usize = jj;
+                        while (j + 16 <= j_end) : (j += 16) {
+                            simd.store8_i16(c, c_row + j, simd.load8_i16(c, c_row + j) +% a_vec *% simd.load8_i16(b, b_row + j));
+                            simd.store8_i16(c, c_row + j + 8, simd.load8_i16(c, c_row + j + 8) +% a_vec *% simd.load8_i16(b, b_row + j + 8));
+                        }
+                        // One more v128 if possible
+                        while (j + 8 <= j_end) : (j += 8) {
+                            simd.store8_i16(c, c_row + j, simd.load8_i16(c, c_row + j) +% a_vec *% simd.load8_i16(b, b_row + j));
+                        }
+                        // Scalar remainder
+                        while (j < j_end) : (j += 1) {
+                            c[c_row + j] +%= a_ik *% b[b_row + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Computes C = A @ B for row-major i8 matrices with wrapping arithmetic.
+/// Uses i-k-j tiled blocking with V16i8 SIMD in the inner j loop.
+/// Handles both signed (i8) and unsigned (u8) — wrapping add/mul produce identical bits.
+fn matmul_i8_ikj(a: [*]const i8, b: [*]const i8, c: [*]i8, M: u32, N: u32, K: u32) void {
+    // Zero output
+    @memset(c[0..@as(usize, M) * N], 0);
+
+    // Tiled i-k-j loop (BLAS-style blocking)
+    // Outer tile loop over i (rows of A and C)
+    var ii: usize = 0;
+    while (ii < M) : (ii += TILE_F32) {
+        const i_end = @min(ii + TILE_F32, M);
+
+        // Outer tile loop over k (columns of A, rows of B)
+        var kk: usize = 0;
+        while (kk < K) : (kk += TILE_F32) {
+            const k_end = @min(kk + TILE_F32, K);
+
+            // Outer tile loop over j (columns of B and C)
+            var jj: usize = 0;
+            while (jj < N) : (jj += TILE_F32) {
+                const j_end = @min(jj + TILE_F32, N);
+
+                // Inner tile: C[ii:i_end, jj:j_end] += A[ii:i_end, kk:k_end] @ B[kk:k_end, jj:j_end]
+                var i: usize = ii;
+                while (i < i_end) : (i += 1) {
+
+                    var k: usize = kk;
+                    while (k < k_end) : (k += 1) {
+                        const a_ik = a[i * K + k];
+                        const a_vec: simd.V16i8 = @splat(a_ik);
+                        const b_row = k * N;
+                        const c_row = i * N;
+
+                        // Vectorized j loop: two v128 (16×i8) per step = 32 i8
+                        // Uses widen-multiply-narrow since WASM has no i8x16.mul
+                        var j: usize = jj;
+                        while (j + 32 <= j_end) : (j += 32) {
+                            simd.store16_i8(c, c_row + j, simd.muladd_i8x16(simd.load16_i8(c, c_row + j), a_vec, simd.load16_i8(b, b_row + j)));
+                            simd.store16_i8(c, c_row + j + 16, simd.muladd_i8x16(simd.load16_i8(c, c_row + j + 16), a_vec, simd.load16_i8(b, b_row + j + 16)));
+                        }
+                        // One more v128 if possible
+                        while (j + 16 <= j_end) : (j += 16) {
+                            simd.store16_i8(c, c_row + j, simd.muladd_i8x16(simd.load16_i8(c, c_row + j), a_vec, simd.load16_i8(b, b_row + j)));
+                        }
+                        // Scalar remainder
+                        while (j < j_end) : (j += 1) {
+                            c[c_row + j] +%= a_ik *% b[b_row + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // --- Tests ---
 
 test "matmul_f64_ikj 2x2" {
@@ -776,4 +1033,153 @@ test "matmul_c64_ikj SIMD path N=4" {
     try testing.expectApproxEqAbs(c[5],  1.0, 1e-5);
     try testing.expectApproxEqAbs(c[6],  1.0, 1e-5);
     try testing.expectApproxEqAbs(c[7], -1.0, 1e-5);
+}
+
+// --- i64 ---
+
+test "matmul_i64_ikj 2x2" {
+    const testing = @import("std").testing;
+    // A = [[1, 2], [3, 4]], B = [[5, 6], [7, 8]]
+    // C = [[19, 22], [43, 50]]
+    var a = [_]i64{ 1, 2, 3, 4 };
+    var b = [_]i64{ 5, 6, 7, 8 };
+    var c = [_]i64{ 0, 0, 0, 0 };
+    matmul_i64_ikj(&a, &b, &c, 2, 2, 2);
+    try testing.expectEqual(c[0], 19);
+    try testing.expectEqual(c[1], 22);
+    try testing.expectEqual(c[2], 43);
+    try testing.expectEqual(c[3], 50);
+}
+
+test "matmul_i64_ikj non-square 2x4x3" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 1, 2, 3, 4, 5, 6 };
+    var b = [_]i64{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    var c = [_]i64{ 0, 0, 0, 0, 0, 0, 0, 0 };
+    matmul_i64_ikj(&a, &b, &c, 2, 4, 3);
+    try testing.expectEqual(c[0], 38);
+    try testing.expectEqual(c[1], 44);
+    try testing.expectEqual(c[2], 50);
+    try testing.expectEqual(c[3], 56);
+    try testing.expectEqual(c[4], 83);
+    try testing.expectEqual(c[5], 98);
+    try testing.expectEqual(c[6], 113);
+    try testing.expectEqual(c[7], 128);
+}
+
+test "matmul_i64_ikj odd N remainder" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 1, 2, 3, 4 };
+    var b = [_]i64{ 1, 2, 3, 4, 5, 6 };
+    var c = [_]i64{ 0, 0, 0, 0, 0, 0 };
+    matmul_i64_ikj(&a, &b, &c, 2, 3, 2);
+    try testing.expectEqual(c[0], 9);
+    try testing.expectEqual(c[1], 12);
+    try testing.expectEqual(c[2], 15);
+    try testing.expectEqual(c[3], 19);
+    try testing.expectEqual(c[4], 26);
+    try testing.expectEqual(c[5], 33);
+}
+
+// --- i32 ---
+
+test "matmul_i32_ikj 2x2" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 1, 2, 3, 4 };
+    var b = [_]i32{ 5, 6, 7, 8 };
+    var c = [_]i32{ 0, 0, 0, 0 };
+    matmul_i32_ikj(&a, &b, &c, 2, 2, 2);
+    try testing.expectEqual(c[0], 19);
+    try testing.expectEqual(c[1], 22);
+    try testing.expectEqual(c[2], 43);
+    try testing.expectEqual(c[3], 50);
+}
+
+test "matmul_i32_ikj non-square 2x4x3" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 1, 2, 3, 4, 5, 6 };
+    var b = [_]i32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    var c = [_]i32{ 0, 0, 0, 0, 0, 0, 0, 0 };
+    matmul_i32_ikj(&a, &b, &c, 2, 4, 3);
+    try testing.expectEqual(c[0], 38);
+    try testing.expectEqual(c[1], 44);
+    try testing.expectEqual(c[2], 50);
+    try testing.expectEqual(c[3], 56);
+    try testing.expectEqual(c[4], 83);
+    try testing.expectEqual(c[5], 98);
+    try testing.expectEqual(c[6], 113);
+    try testing.expectEqual(c[7], 128);
+}
+
+test "matmul_i32_ikj odd N remainder" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 1, 2, 3, 4 };
+    var b = [_]i32{ 1, 2, 3, 4, 5, 6 };
+    var c = [_]i32{ 0, 0, 0, 0, 0, 0 };
+    matmul_i32_ikj(&a, &b, &c, 2, 3, 2);
+    try testing.expectEqual(c[0], 9);
+    try testing.expectEqual(c[1], 12);
+    try testing.expectEqual(c[2], 15);
+    try testing.expectEqual(c[3], 19);
+    try testing.expectEqual(c[4], 26);
+    try testing.expectEqual(c[5], 33);
+}
+
+// --- i16 ---
+
+test "matmul_i16_ikj 2x2" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 1, 2, 3, 4 };
+    var b = [_]i16{ 5, 6, 7, 8 };
+    var c = [_]i16{ 0, 0, 0, 0 };
+    matmul_i16_ikj(&a, &b, &c, 2, 2, 2);
+    try testing.expectEqual(c[0], 19);
+    try testing.expectEqual(c[1], 22);
+    try testing.expectEqual(c[2], 43);
+    try testing.expectEqual(c[3], 50);
+}
+
+test "matmul_i16_ikj overflow wrapping" {
+    const testing = @import("std").testing;
+    // 200 * 200 * 2 = 80000, which wraps in i16 (-32768..32767)
+    // 80000 mod 65536 = 14464, fits in i16 as 14464
+    var a = [_]i16{ 200, 200, 200, 200 };
+    var c = [_]i16{ 0, 0, 0, 0 };
+    matmul_i16_ikj(&a, &a, &c, 2, 2, 2);
+    // Each element = 200*200 + 200*200 = 80000, wraps to 80000 - 65536 = 14464
+    try testing.expectEqual(c[0], 14464);
+    try testing.expectEqual(c[1], 14464);
+    try testing.expectEqual(c[2], 14464);
+    try testing.expectEqual(c[3], 14464);
+}
+
+// --- i8 ---
+
+test "matmul_i8_ikj 2x2" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 1, 2, 3, 4 };
+    var b = [_]i8{ 5, 6, 7, 8 };
+    var c = [_]i8{ 0, 0, 0, 0 };
+    matmul_i8_ikj(&a, &b, &c, 2, 2, 2);
+    try testing.expectEqual(c[0], 19);
+    try testing.expectEqual(c[1], 22);
+    try testing.expectEqual(c[2], 43);
+    try testing.expectEqual(c[3], 50);
+}
+
+test "matmul_i8_ikj overflow wrapping" {
+    const testing = @import("std").testing;
+    // 10*5 + 20*7 = 190, wraps in i8 (-128..127): 190 - 256 = -66
+    var a = [_]i8{ 10, 20, 30, 40 };
+    var b = [_]i8{ 5, 6, 7, 8 };
+    var c = [_]i8{ 0, 0, 0, 0 };
+    matmul_i8_ikj(&a, &b, &c, 2, 2, 2);
+    // C[0,0] = 10*5 + 20*7 = 50 + 140 = 190 -> -66
+    // C[0,1] = 10*6 + 20*8 = 60 + 160 = 220 -> -36
+    // C[1,0] = 30*5 + 40*7 = 150 + 280 = 430 -> 430-512 = -82
+    // C[1,1] = 30*6 + 40*8 = 180 + 320 = 500 -> 500-512 = -12
+    try testing.expectEqual(c[0], -66);
+    try testing.expectEqual(c[1], -36);
+    try testing.expectEqual(c[2], -82);
+    try testing.expectEqual(c[3], -12);
 }

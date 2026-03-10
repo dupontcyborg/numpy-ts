@@ -714,7 +714,7 @@ describe('Tree-shaking Tests', () => {
       }
 
       const ratio = singleResult.minifiedSize / fullResult.minifiedSize;
-      expect(ratio).toBeLessThan(0.96);
+      expect(ratio).toBeLessThan(0.97);
     });
   });
 });

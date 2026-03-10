@@ -9,10 +9,19 @@
  * dispatching each 2D slice to WASM.
  */
 
-import { matmul_f64, matmul_f32, matmul_c128, matmul_c64 } from './bins/matmul.wasm';
+import {
+  matmul_f64,
+  matmul_f32,
+  matmul_c128,
+  matmul_c64,
+  matmul_i64,
+  matmul_i32,
+  matmul_i16,
+  matmul_i8,
+} from './bins/matmul.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType } from '../dtype';
+import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 
 // Minimum total elements (M*K + K*N) for WASM to be worth the copy overhead.
 const THRESHOLD = 256;
@@ -27,20 +36,40 @@ type WasmMatmulFn = (
 ) => void;
 
 // Dtype -> WASM kernel function
+// Signed and unsigned integer types share the same kernel per bit-width
+// (wrapping add/mul produce identical bits regardless of sign interpretation).
 const wasmKernels: Partial<Record<DType, WasmMatmulFn>> = {
   float64: matmul_f64,
   float32: matmul_f32,
   complex128: matmul_c128,
   complex64: matmul_c64,
+  int64: matmul_i64,
+  uint64: matmul_i64,
+  int32: matmul_i32,
+  uint32: matmul_i32,
+  int16: matmul_i16,
+  uint16: matmul_i16,
+  int8: matmul_i8,
+  uint8: matmul_i8,
 };
 
 // Dtype -> TypedArray constructor for the underlying data
 // Complex types use float arrays (interleaved re/im pairs)
-const ctorMap: Record<string, Float64ArrayConstructor | Float32ArrayConstructor> = {
+// Integer types: signed constructor for both signed/unsigned (bit-identical in WASM)
+type AnyTypedArrayCtor = new (length: number) => TypedArray;
+const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   float64: Float64Array,
   float32: Float32Array,
   complex128: Float64Array,
   complex64: Float32Array,
+  int64: BigInt64Array,
+  uint64: BigUint64Array,
+  int32: Int32Array,
+  uint32: Uint32Array,
+  int16: Int16Array,
+  uint16: Uint16Array,
+  int8: Int8Array,
+  uint8: Uint8Array,
 };
 
 // Complex types store 2 floats per element
@@ -54,15 +83,15 @@ const complexFactor: Partial<Record<DType, number>> = {
  */
 function wasmMatmul2D(
   kernel: WasmMatmulFn,
-  Ctor: Float64ArrayConstructor | Float32ArrayConstructor,
-  aData: Float64Array | Float32Array,
-  bData: Float64Array | Float32Array,
+  Ctor: AnyTypedArrayCtor,
+  aData: TypedArray,
+  bData: TypedArray,
   M: number,
   K: number,
   N: number,
   factor: number = 1
-): Float64Array | Float32Array {
-  const bytesPerElement = Ctor.BYTES_PER_ELEMENT;
+): TypedArray {
+  const bytesPerElement = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const aBytes = M * K * factor * bytesPerElement;
   const bBytes = K * N * factor * bytesPerElement;
   const outBytes = M * N * factor * bytesPerElement;
@@ -79,11 +108,7 @@ function wasmMatmul2D(
   return copyOut(
     outPtr,
     M * N * factor,
-    Ctor as new (
-      buffer: ArrayBuffer,
-      byteOffset: number,
-      length: number
-    ) => Float64Array | Float32Array
+    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
   );
 }
 
@@ -99,17 +124,15 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
   // Determine the output dtype
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
 
-  // Integer types: no WASM kernel, fall back to JS for native wrapping behavior
-  if (resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool') {
-    return null;
-  }
+  // Bool: no WASM kernel
+  if (resultDtype === 'bool') return null;
 
   const workDtype: DType = resultDtype;
 
   const kernel = wasmKernels[workDtype];
   const Ctor = ctorMap[workDtype];
 
-  // Can't handle: no WASM kernel (bigint), or non-contiguous
+  // Can't handle: no WASM kernel, or non-contiguous
   if (!kernel || !Ctor || !a.isCContiguous || !b.isCContiguous) {
     return null;
   }
@@ -174,16 +197,26 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
     const aOff = aFlatBatch * sliceA;
     const bOff = bFlatBatch * sliceB;
 
-    const aSliceData = aData.subarray(aOff, aOff + sliceA);
-    const bSliceData = bData.subarray(bOff, bOff + sliceB);
+    const aSliceData = aData.subarray(aOff, aOff + sliceA) as TypedArray;
+    const bSliceData = bData.subarray(bOff, bOff + sliceB) as TypedArray;
 
     const sliceResult = wasmMatmul2D(kernel, Ctor, aSliceData, bSliceData, M, K, N, factor);
 
-    resultData.set(sliceResult, bi * sliceOut);
+    new Uint8Array(
+      (resultData as TypedArray).buffer,
+      bi * sliceOut * (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT,
+      (sliceResult as TypedArray).byteLength
+    ).set(
+      new Uint8Array(
+        (sliceResult as TypedArray).buffer,
+        (sliceResult as TypedArray).byteOffset,
+        (sliceResult as TypedArray).byteLength
+      )
+    );
   }
 
   const outShape = [...batchShape, M, N];
-  const result = ArrayStorage.fromData(resultData, outShape, workDtype);
+  const result = ArrayStorage.fromData(resultData as TypedArray, outShape, workDtype);
 
   if (aWas1D && bWas1D) return reshapeStorage(result, [...batchShape]);
   if (aWas1D) return reshapeStorage(result, [...batchShape, N]);
@@ -193,31 +226,28 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
 
 // --- Helpers ---
 
-function getContiguousData(
-  storage: ArrayStorage,
-  targetDtype: DType,
-  factor: number
-): Float64Array | Float32Array {
+function getContiguousData(storage: ArrayStorage, targetDtype: DType, factor: number): TypedArray {
   const data = storage.data;
   const offset = storage.offset;
   const size = storage.size;
   const rawLength = size * factor;
 
   if (storage.dtype === targetDtype && offset === 0) {
-    return data.subarray(0, rawLength) as Float64Array | Float32Array;
+    return data.subarray(0, rawLength) as TypedArray;
   }
   if (storage.dtype === targetDtype) {
     const rawOffset = offset * factor;
-    return data.subarray(rawOffset, rawOffset + rawLength) as Float64Array | Float32Array;
+    return data.subarray(rawOffset, rawOffset + rawLength) as TypedArray;
   }
 
   // Type conversion needed (only for real types)
-  const Ctor = targetDtype === 'float32' ? Float32Array : Float64Array;
+  const Ctor = ctorMap[targetDtype];
+  if (!Ctor) throw new Error(`No TypedArray constructor for dtype ${targetDtype}`);
   const result = new Ctor(rawLength);
   for (let i = 0; i < size; i++) {
-    result[i] = Number(storage.iget(i));
+    (result as Int32Array)[i] = Number(storage.iget(i));
   }
-  return result;
+  return result as TypedArray;
 }
 
 function reshapeStorage(storage: ArrayStorage, newShape: number[]): ArrayStorage {

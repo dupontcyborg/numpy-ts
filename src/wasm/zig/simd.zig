@@ -153,6 +153,48 @@ pub inline fn store16_u8(ptr: [*]u8, i: usize, v: V16u8) void {
     @as(*align(1) V16u8, @ptrCast(ptr + i)).* = v;
 }
 
+// --- i8 widen-multiply-narrow ---
+// WASM SIMD has i16x8.mul but no i8x16.mul, so i8 multiplies must be
+// widened to i16, multiplied, and truncated back. This helper computes
+// c +% (a *% b) for 16×i8 lanes via two 8×i16 multiply-adds.
+
+/// Computes c +% (a *% b) element-wise for V16i8 using widened i16x8 multiplies.
+/// WASM SIMD has i16x8.mul but no i8x16.mul.
+/// Operates entirely in i16/u8 space via @bitCast to prevent LLVM from
+/// recognizing and re-scalarizing the i8 multiply pattern.
+pub inline fn muladd_i8x16(c_vec: V16i8, a_vec: V16i8, b_vec: V16i8) V16i8 {
+    // Reinterpret as raw bytes to operate below Zig's type system
+    const a_bytes: V16u8 = @bitCast(a_vec);
+    const b_bytes: V16u8 = @bitCast(b_vec);
+    const c_bytes: V16u8 = @bitCast(c_vec);
+
+    // Widen to i16 by interleaving with zero bytes (zero-extend, not sign-extend —
+    // wrapping mul produces the same low byte regardless of sign interpretation)
+    const zero: V16u8 = @splat(0);
+
+    // Low 8 elements: interleave bytes 0..7 with zeros → 8×u16
+    const lo_even = @Vector(16, i32){ 0, -1, 1, -1, 2, -1, 3, -1, 4, -1, 5, -1, 6, -1, 7, -1 };
+    const a_lo: V8i16 = @bitCast(@shuffle(u8, a_bytes, zero, lo_even));
+    const b_lo: V8i16 = @bitCast(@shuffle(u8, b_bytes, zero, lo_even));
+    const c_lo: V8i16 = @bitCast(@shuffle(u8, c_bytes, zero, lo_even));
+
+    // High 8 elements: interleave bytes 8..15 with zeros → 8×u16
+    const hi_even = @Vector(16, i32){ 8, -1, 9, -1, 10, -1, 11, -1, 12, -1, 13, -1, 14, -1, 15, -1 };
+    const a_hi: V8i16 = @bitCast(@shuffle(u8, a_bytes, zero, hi_even));
+    const b_hi: V8i16 = @bitCast(@shuffle(u8, b_bytes, zero, hi_even));
+    const c_hi: V8i16 = @bitCast(@shuffle(u8, c_bytes, zero, hi_even));
+
+    // Multiply-add in i16 (uses native i16x8.mul + i16x8.add)
+    const r_lo = c_lo +% (a_lo *% b_lo);
+    const r_hi = c_hi +% (a_hi *% b_hi);
+
+    // Narrow back: pick low bytes from each i16 result (little-endian byte 0,2,4,...)
+    const r_lo_bytes: V16u8 = @bitCast(r_lo);
+    const r_hi_bytes: V16u8 = @bitCast(r_hi);
+    const narrow = @Vector(16, i32){ 0, 2, 4, 6, 8, 10, 12, 14, -1, -3, -5, -7, -9, -11, -13, -15 };
+    return @bitCast(@shuffle(u8, r_lo_bytes, r_hi_bytes, narrow));
+}
+
 // --- WASM SIMD min/max ---
 
 /// Returns the element-wise max of two V2f64 vectors.
