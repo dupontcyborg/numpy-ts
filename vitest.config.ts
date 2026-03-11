@@ -79,6 +79,9 @@ export default defineConfig({
         },
       }),
       // Tree-shaking tests (tests with multiple bundlers)
+      // Runs after all other projects (groupOrder: 1) so the beforeAll can
+      // rebuild with production (ReleaseFast) WASM without clobbering dist/
+      // while bundle tests are still reading from it.
       defineProject({
         test: {
           name: 'tree-shaking',
@@ -86,6 +89,7 @@ export default defineConfig({
           exclude: ['**/node_modules/**', '**/fixtures/**'],
           environment: 'node',
           testTimeout: 300000, // 5 minutes - bundling can take time
+          sequence: { groupOrder: 1 },
         },
       }),
     ],
