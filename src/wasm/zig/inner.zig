@@ -11,10 +11,9 @@
 
 const simd = @import("simd.zig");
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// f64: 4-row blocked with 2×V2f64 accumulators per row
-// ═══════════════════════════════════════════════════════════════════════════════
-
+/// Computes C = inner(A, B) for row-major f64 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Uses a 4×N register-blocked micro-kernel with 8-wide SIMD for the main loop, then 4-wide and scalar remainders.
 export fn inner_f64(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u32, K: u32) void {
     // 4-row blocked
     var i: usize = 0;
@@ -95,10 +94,9 @@ export fn inner_f64(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u32,
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// f32: 4-row blocked with 2×V4f32 accumulators per row
-// ═══════════════════════════════════════════════════════════════════════════════
-
+/// Computes C = inner(A, B) for row-major f32 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Uses a 4×N register-blocked micro-kernel with 8-wide SIMD for the main loop, then 4-wide and scalar remainders.
 export fn inner_f32(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32, K: u32) void {
     var i: usize = 0;
     while (i + 4 <= M) : (i += 4) {
@@ -174,10 +172,218 @@ export fn inner_f32(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32,
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// i64: 4-row blocked with 2×V2i64 accumulators per row, wrapping arithmetic
-// ═══════════════════════════════════════════════════════════════════════════════
+/// Computes C = inner(A, B) for row-major complex128 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Uses SIMD deinterleaving in the k-loop with 2-row blocking.
+/// B is loaded once per k and reused across both A rows.
+export fn inner_c128(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u32, K: u32) void {
+    // 2-row blocked
+    var i: usize = 0;
+    while (i + 2 <= M) : (i += 2) {
+        const a0_row = i * K * 2;
+        const a1_row = (i + 1) * K * 2;
+        for (0..N) |j| {
+            const b_row = j * K * 2;
+            var s0_re: simd.V2f64 = @splat(0);
+            var s0_im: simd.V2f64 = @splat(0);
+            var s1_re: simd.V2f64 = @splat(0);
+            var s1_im: simd.V2f64 = @splat(0);
 
+            // SIMD loop: 2 complex elements per iteration
+            var k: usize = 0;
+            while (k + 2 <= K) : (k += 2) {
+                const kk = k * 2;
+                const b0 = simd.load2_f64(b, b_row + kk);
+                const b1 = simd.load2_f64(b, b_row + kk + 2);
+                const b_re = @shuffle(f64, b0, b1, [2]i32{ 0, -1 });
+                const b_im = @shuffle(f64, b0, b1, [2]i32{ 1, -2 });
+                const a0_v0 = simd.load2_f64(a, a0_row + kk);
+                const a0_v1 = simd.load2_f64(a, a0_row + kk + 2);
+                const a0_re = @shuffle(f64, a0_v0, a0_v1, [2]i32{ 0, -1 });
+                const a0_im = @shuffle(f64, a0_v0, a0_v1, [2]i32{ 1, -2 });
+                s0_re += a0_re * b_re - a0_im * b_im;
+                s0_im += a0_re * b_im + a0_im * b_re;
+                const a1_v0 = simd.load2_f64(a, a1_row + kk);
+                const a1_v1 = simd.load2_f64(a, a1_row + kk + 2);
+                const a1_re = @shuffle(f64, a1_v0, a1_v1, [2]i32{ 0, -1 });
+                const a1_im = @shuffle(f64, a1_v0, a1_v1, [2]i32{ 1, -2 });
+                s1_re += a1_re * b_re - a1_im * b_im;
+                s1_im += a1_re * b_im + a1_im * b_re;
+            }
+
+            // Horizontal sum + scalar remainder
+            var r0_re: f64 = s0_re[0] + s0_re[1];
+            var r0_im: f64 = s0_im[0] + s0_im[1];
+            var r1_re: f64 = s1_re[0] + s1_re[1];
+            var r1_im: f64 = s1_im[0] + s1_im[1];
+            while (k < K) : (k += 1) {
+                const kk = k * 2;
+                const br = b[b_row + kk];
+                const bi = b[b_row + kk + 1];
+                r0_re += a[a0_row + kk] * br - a[a0_row + kk + 1] * bi;
+                r0_im += a[a0_row + kk] * bi + a[a0_row + kk + 1] * br;
+                r1_re += a[a1_row + kk] * br - a[a1_row + kk + 1] * bi;
+                r1_im += a[a1_row + kk] * bi + a[a1_row + kk + 1] * br;
+            }
+
+            const o0 = (i * N + j) * 2;
+            c[o0] = r0_re;
+            c[o0 + 1] = r0_im;
+            const o1 = ((i + 1) * N + j) * 2;
+            c[o1] = r1_re;
+            c[o1 + 1] = r1_im;
+        }
+    }
+    // Remainder row
+    while (i < M) : (i += 1) {
+        const a_row = i * K * 2;
+        for (0..N) |j| {
+            const b_row = j * K * 2;
+            var acc_re: simd.V2f64 = @splat(0);
+            var acc_im: simd.V2f64 = @splat(0);
+
+            var k: usize = 0;
+            while (k + 2 <= K) : (k += 2) {
+                const kk = k * 2;
+                const b0 = simd.load2_f64(b, b_row + kk);
+                const b1 = simd.load2_f64(b, b_row + kk + 2);
+                const b_re = @shuffle(f64, b0, b1, [2]i32{ 0, -1 });
+                const b_im = @shuffle(f64, b0, b1, [2]i32{ 1, -2 });
+                const a0 = simd.load2_f64(a, a_row + kk);
+                const a1 = simd.load2_f64(a, a_row + kk + 2);
+                const a_re = @shuffle(f64, a0, a1, [2]i32{ 0, -1 });
+                const a_im = @shuffle(f64, a0, a1, [2]i32{ 1, -2 });
+                acc_re += a_re * b_re - a_im * b_im;
+                acc_im += a_re * b_im + a_im * b_re;
+            }
+
+            var sum_re: f64 = acc_re[0] + acc_re[1];
+            var sum_im: f64 = acc_im[0] + acc_im[1];
+            while (k < K) : (k += 1) {
+                const kk = k * 2;
+                const a_re = a[a_row + kk];
+                const a_im = a[a_row + kk + 1];
+                const b_re = b[b_row + kk];
+                const b_im = b[b_row + kk + 1];
+                sum_re += a_re * b_re - a_im * b_im;
+                sum_im += a_re * b_im + a_im * b_re;
+            }
+
+            const out_idx = (i * N + j) * 2;
+            c[out_idx] = sum_re;
+            c[out_idx + 1] = sum_im;
+        }
+    }
+}
+
+/// Computes C = inner(A, B) for row-major complex64 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Uses SIMD deinterleaving in the k-loop with 2-row blocking.
+/// B is loaded once per k and reused across both A rows.
+export fn inner_c64(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32, K: u32) void {
+    // 2-row blocked
+    var i: usize = 0;
+    while (i + 2 <= M) : (i += 2) {
+        const a0_row = i * K * 2;
+        const a1_row = (i + 1) * K * 2;
+        for (0..N) |j| {
+            const b_row = j * K * 2;
+            var s0_re: simd.V4f32 = @splat(0);
+            var s0_im: simd.V4f32 = @splat(0);
+            var s1_re: simd.V4f32 = @splat(0);
+            var s1_im: simd.V4f32 = @splat(0);
+
+            // SIMD loop: 4 complex elements per iteration
+            var k: usize = 0;
+            while (k + 4 <= K) : (k += 4) {
+                const kk = k * 2;
+                const b0 = simd.load4_f32(b, b_row + kk);
+                const b1 = simd.load4_f32(b, b_row + kk + 4);
+                const b_re = @shuffle(f32, b0, b1, [4]i32{ 0, 2, -1, -3 });
+                const b_im = @shuffle(f32, b0, b1, [4]i32{ 1, 3, -2, -4 });
+                const a0_v0 = simd.load4_f32(a, a0_row + kk);
+                const a0_v1 = simd.load4_f32(a, a0_row + kk + 4);
+                const a0_re = @shuffle(f32, a0_v0, a0_v1, [4]i32{ 0, 2, -1, -3 });
+                const a0_im = @shuffle(f32, a0_v0, a0_v1, [4]i32{ 1, 3, -2, -4 });
+                s0_re += a0_re * b_re - a0_im * b_im;
+                s0_im += a0_re * b_im + a0_im * b_re;
+                const a1_v0 = simd.load4_f32(a, a1_row + kk);
+                const a1_v1 = simd.load4_f32(a, a1_row + kk + 4);
+                const a1_re = @shuffle(f32, a1_v0, a1_v1, [4]i32{ 0, 2, -1, -3 });
+                const a1_im = @shuffle(f32, a1_v0, a1_v1, [4]i32{ 1, 3, -2, -4 });
+                s1_re += a1_re * b_re - a1_im * b_im;
+                s1_im += a1_re * b_im + a1_im * b_re;
+            }
+
+            // Horizontal sum + scalar remainder
+            var r0_re: f32 = s0_re[0] + s0_re[1] + s0_re[2] + s0_re[3];
+            var r0_im: f32 = s0_im[0] + s0_im[1] + s0_im[2] + s0_im[3];
+            var r1_re: f32 = s1_re[0] + s1_re[1] + s1_re[2] + s1_re[3];
+            var r1_im: f32 = s1_im[0] + s1_im[1] + s1_im[2] + s1_im[3];
+            while (k < K) : (k += 1) {
+                const kk = k * 2;
+                const br = b[b_row + kk];
+                const bi = b[b_row + kk + 1];
+                r0_re += a[a0_row + kk] * br - a[a0_row + kk + 1] * bi;
+                r0_im += a[a0_row + kk] * bi + a[a0_row + kk + 1] * br;
+                r1_re += a[a1_row + kk] * br - a[a1_row + kk + 1] * bi;
+                r1_im += a[a1_row + kk] * bi + a[a1_row + kk + 1] * br;
+            }
+
+            const o0 = (i * N + j) * 2;
+            c[o0] = r0_re;
+            c[o0 + 1] = r0_im;
+            const o1 = ((i + 1) * N + j) * 2;
+            c[o1] = r1_re;
+            c[o1 + 1] = r1_im;
+        }
+    }
+    // Remainder row
+    while (i < M) : (i += 1) {
+        const a_row = i * K * 2;
+        for (0..N) |j| {
+            const b_row = j * K * 2;
+            var acc_re: simd.V4f32 = @splat(0);
+            var acc_im: simd.V4f32 = @splat(0);
+
+            var k: usize = 0;
+            while (k + 4 <= K) : (k += 4) {
+                const kk = k * 2;
+                const b0 = simd.load4_f32(b, b_row + kk);
+                const b1 = simd.load4_f32(b, b_row + kk + 4);
+                const b_re = @shuffle(f32, b0, b1, [4]i32{ 0, 2, -1, -3 });
+                const b_im = @shuffle(f32, b0, b1, [4]i32{ 1, 3, -2, -4 });
+                const a0 = simd.load4_f32(a, a_row + kk);
+                const a1 = simd.load4_f32(a, a_row + kk + 4);
+                const a_re = @shuffle(f32, a0, a1, [4]i32{ 0, 2, -1, -3 });
+                const a_im = @shuffle(f32, a0, a1, [4]i32{ 1, 3, -2, -4 });
+                acc_re += a_re * b_re - a_im * b_im;
+                acc_im += a_re * b_im + a_im * b_re;
+            }
+
+            var sum_re: f32 = acc_re[0] + acc_re[1] + acc_re[2] + acc_re[3];
+            var sum_im: f32 = acc_im[0] + acc_im[1] + acc_im[2] + acc_im[3];
+            while (k < K) : (k += 1) {
+                const kk = k * 2;
+                const a_re = a[a_row + kk];
+                const a_im = a[a_row + kk + 1];
+                const b_re = b[b_row + kk];
+                const b_im = b[b_row + kk + 1];
+                sum_re += a_re * b_re - a_im * b_im;
+                sum_im += a_re * b_im + a_im * b_re;
+            }
+
+            const out_idx = (i * N + j) * 2;
+            c[out_idx] = sum_re;
+            c[out_idx + 1] = sum_im;
+        }
+    }
+}
+
+/// Computes C = inner(A, B) for row-major i64 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Handles both signed (i64) and unsigned (u64) with wrapping arithmetic.
+/// Uses a 4×N register-blocked micro-kernel with 4-wide SIMD for the main loop, then smaller remainders.
 export fn inner_i64(a: [*]const i64, b: [*]const i64, c: [*]i64, M: u32, N: u32, K: u32) void {
     var i: usize = 0;
     while (i + 4 <= M) : (i += 4) {
@@ -247,10 +453,10 @@ export fn inner_i64(a: [*]const i64, b: [*]const i64, c: [*]i64, M: u32, N: u32,
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// i32: 4-row blocked with 2×V4i32 accumulators per row, wrapping arithmetic
-// ═══════════════════════════════════════════════════════════════════════════════
-
+/// Computes C = inner(A, B) for row-major i32 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Handles both signed (i32) and unsigned (u32) with wrapping arithmetic.
+/// Uses a 4×N register-blocked micro-kernel with 4-wide SIMD for the main loop, then smaller remainders.
 export fn inner_i32(a: [*]const i32, b: [*]const i32, c: [*]i32, M: u32, N: u32, K: u32) void {
     var i: usize = 0;
     while (i + 4 <= M) : (i += 4) {
@@ -320,10 +526,10 @@ export fn inner_i32(a: [*]const i32, b: [*]const i32, c: [*]i32, M: u32, N: u32,
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// i16: 4-row blocked with 2×V8i16 accumulators per row, wrapping arithmetic
-// ═══════════════════════════════════════════════════════════════════════════════
-
+/// Computes C = inner(A, B) for row-major i16 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Handles both signed (i16) and unsigned (u16) with wrapping arithmetic.
+/// Uses a 4×N register-blocked micro-kernel with 4-wide SIMD for the main loop, then smaller remainders.
 export fn inner_i16(a: [*]const i16, b: [*]const i16, c: [*]i16, M: u32, N: u32, K: u32) void {
     var i: usize = 0;
     while (i + 4 <= M) : (i += 4) {
@@ -393,60 +599,10 @@ export fn inner_i16(a: [*]const i16, b: [*]const i16, c: [*]i16, M: u32, N: u32,
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Complex and i8: keep simple (complex uses shuffle, i8 uses muladd)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export fn inner_c128(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u32, K: u32) void {
-    for (0..M) |i| {
-        const a_row = i * K * 2;
-        for (0..N) |j| {
-            const b_row = j * K * 2;
-            var sum_re: f64 = 0;
-            var sum_im: f64 = 0;
-
-            for (0..K) |k| {
-                const ak = k * 2;
-                const a_re = a[a_row + ak];
-                const a_im = a[a_row + ak + 1];
-                const b_re = b[b_row + ak];
-                const b_im = b[b_row + ak + 1];
-                sum_re += a_re * b_re - a_im * b_im;
-                sum_im += a_re * b_im + a_im * b_re;
-            }
-
-            const out_idx = (i * N + j) * 2;
-            c[out_idx] = sum_re;
-            c[out_idx + 1] = sum_im;
-        }
-    }
-}
-
-export fn inner_c64(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32, K: u32) void {
-    for (0..M) |i| {
-        const a_row = i * K * 2;
-        for (0..N) |j| {
-            const b_row = j * K * 2;
-            var sum_re: f32 = 0;
-            var sum_im: f32 = 0;
-
-            for (0..K) |k| {
-                const ak = k * 2;
-                const a_re = a[a_row + ak];
-                const a_im = a[a_row + ak + 1];
-                const b_re = b[b_row + ak];
-                const b_im = b[b_row + ak + 1];
-                sum_re += a_re * b_re - a_im * b_im;
-                sum_im += a_re * b_im + a_im * b_re;
-            }
-
-            const out_idx = (i * N + j) * 2;
-            c[out_idx] = sum_re;
-            c[out_idx + 1] = sum_im;
-        }
-    }
-}
-
+/// Computes C = inner(A, B) for row-major i8 arrays.
+/// A is (M x K), B is (N x K), C is (M x N).
+/// Handles both signed (i8) and unsigned (u8) with wrapping arithmetic.
+/// Uses a 4×N register-blocked micro-kernel with 16-wide SIMD for the main loop, then smaller remainders.
 export fn inner_i8(a: [*]const i8, b: [*]const i8, c: [*]i8, M: u32, N: u32, K: u32) void {
     const k_simd = K & ~@as(u32, 15);
 
@@ -474,9 +630,7 @@ export fn inner_i8(a: [*]const i8, b: [*]const i8, c: [*]i8, M: u32, N: u32, K: 
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Tests
-// ═══════════════════════════════════════════════════════════════════════════════
+// --- Tests ---
 
 test "inner_f64 2x3 @ 2x3 → 2x2" {
     const testing = @import("std").testing;

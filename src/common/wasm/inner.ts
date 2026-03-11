@@ -21,6 +21,7 @@ import {
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { Complex } from '../complex';
 
 import { wasmConfig } from './config';
 
@@ -84,7 +85,7 @@ const complexFactor: Partial<Record<DType, number>> = {
  * The 1D·1D case (scalar result) is also handled when both inputs are 1D.
  * The caller should fall back to JS when null is returned.
  */
-export function wasmInner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | null {
+export function wasmInner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | Complex | null {
   // Only handle cases where both are at least 1D with matching last dim
   if (a.ndim === 0 || b.ndim === 0) return null;
   if (!a.isCContiguous || !b.isCContiguous) return null;
@@ -140,8 +141,10 @@ export function wasmInner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | numb
   // 1D · 1D → scalar
   if (a.ndim === 1 && b.ndim === 1) {
     if (factor === 2) {
-      // Complex scalar — return via storage for now, caller handles
-      return null; // Let JS handle complex scalar
+      return new Complex(
+        Number((outData as Float64Array | Float32Array)[0]!),
+        Number((outData as Float64Array | Float32Array)[1]!)
+      );
     }
     return (outData as Float64Array | Float32Array)[0]!;
   }
