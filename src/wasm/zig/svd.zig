@@ -264,10 +264,10 @@ test "svd_f64 rank-1 matrix" {
 test "svd_f64 4x4 reconstruction" {
     const testing = @import("std").testing;
     const orig = [_]f64{
-        2, -1, 0, 0,
-        -1, 2, -1, 0,
-        0, -1, 2, -1,
-        0, 0, -1, 2,
+        2,  -1, 0,  0,
+        -1, 2,  -1, 0,
+        0,  -1, 2,  -1,
+        0,  0,  -1, 2,
     };
     var u: [16]f64 = undefined;
     var s: [4]f64 = undefined;
@@ -287,9 +287,9 @@ test "svd_f64 4x4 reconstruction" {
 test "svd_f64 5x3 reconstruction" {
     const testing = @import("std").testing;
     const orig = [_]f64{
-        1, 2, 3,
-        4, 5, 6,
-        7, 8, 9,
+        1,  2,  3,
+        4,  5,  6,
+        7,  8,  9,
         10, 11, 12,
         13, 14, 15,
     };

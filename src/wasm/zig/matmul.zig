@@ -16,7 +16,7 @@ const TILE_F32 = 128; // Tile size for f32/i32/i16 matmul (tuned for WASM v128)
 /// A is (M x K), B is (K x N), C is (M x N).
 /// Uses a 4×N register-blocked micro-kernel with 4-wide SIMD for the main loop, then 2-wide and scalar remainders.
 export fn matmul_f64(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u32, K: u32) void {
-    @memset(c[0..@as(usize, M) * N], 0);
+    @memset(c[0 .. @as(usize, M) * N], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE_F64) {
@@ -158,7 +158,7 @@ export fn matmul_f64(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u32
 /// A is (M x K), B is (K x N), C is (M x N).
 /// Uses a 4×N register-blocked micro-kernel with 4-wide SIMD for the main loop, then 2-wide and scalar remainders.
 export fn matmul_f32(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32, K: u32) void {
-    @memset(c[0..@as(usize, M) * N], 0);
+    @memset(c[0 .. @as(usize, M) * N], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE_F32) {
@@ -302,7 +302,7 @@ export fn matmul_f32(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32
 /// the load-C-every-k approach. Uses i-j-k loop order with 2-row blocking.
 export fn matmul_c128(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u32, K: u32) void {
     const TILE = TILE_F64 / 2; // Smaller tile for complex (2x physical size)
-    @memset(c[0..@as(usize, M) * N * 2], 0);
+    @memset(c[0 .. @as(usize, M) * N * 2], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE) {
@@ -428,7 +428,7 @@ export fn matmul_c128(a: [*]const f64, b: [*]const f64, c: [*]f64, M: u32, N: u3
 /// only reading/writing C once per (i,j) per k-tile. Uses i-j-k loop order with 2-row blocking.
 export fn matmul_c64(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32, K: u32) void {
     const TILE = TILE_F32 / 2; // Smaller tile for complex (2x physical size)
-    @memset(c[0..@as(usize, M) * N * 2], 0);
+    @memset(c[0 .. @as(usize, M) * N * 2], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE) {
@@ -553,7 +553,7 @@ export fn matmul_c64(a: [*]const f32, b: [*]const f32, c: [*]f32, M: u32, N: u32
 /// Handles both signed (i64) and unsigned (u64) — wrapping add/mul produce identical bits.
 /// Uses a 4×N register-blocked micro-kernel with 4-wide SIMD for the main loop, then 2-wide and scalar remainders.
 export fn matmul_i64(a: [*]const i64, b: [*]const i64, c: [*]i64, M: u32, N: u32, K: u32) void {
-    @memset(c[0..@as(usize, M) * N], 0);
+    @memset(c[0 .. @as(usize, M) * N], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE_F64) {
@@ -693,7 +693,7 @@ export fn matmul_i64(a: [*]const i64, b: [*]const i64, c: [*]i64, M: u32, N: u32
 /// Handles both signed (i32) and unsigned (u32) — wrapping add/mul produce identical bits.
 /// Uses a 4×N register-blocked micro-kernel with 4-wide SIMD for the main loop, then 2-wide and scalar remainders.
 export fn matmul_i32(a: [*]const i32, b: [*]const i32, c: [*]i32, M: u32, N: u32, K: u32) void {
-    @memset(c[0..@as(usize, M) * N], 0);
+    @memset(c[0 .. @as(usize, M) * N], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE_F32) {
@@ -833,7 +833,7 @@ export fn matmul_i32(a: [*]const i32, b: [*]const i32, c: [*]i32, M: u32, N: u32
 /// Handles both signed (i16) and unsigned (u16) — wrapping add/mul produce identical bits.
 /// Uses a 4×N register-blocked micro-kernel with 8-wide SIMD for the main loop, then 4-wide and scalar remainders.
 export fn matmul_i16(a: [*]const i16, b: [*]const i16, c: [*]i16, M: u32, N: u32, K: u32) void {
-    @memset(c[0..@as(usize, M) * N], 0);
+    @memset(c[0 .. @as(usize, M) * N], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE_F32) {
@@ -973,7 +973,7 @@ export fn matmul_i16(a: [*]const i16, b: [*]const i16, c: [*]i16, M: u32, N: u32
 /// Handles both signed (i8) and unsigned (u8) — wrapping add/mul produce identical bits.
 /// Uses an i-j-j blocked approach with 16-wide SIMD for the main loop, then smaller remainders.
 export fn matmul_i8(a: [*]const i8, b: [*]const i8, c: [*]i8, M: u32, N: u32, K: u32) void {
-    @memset(c[0..@as(usize, M) * N], 0);
+    @memset(c[0 .. @as(usize, M) * N], 0);
 
     var ii: usize = 0;
     while (ii < M) : (ii += TILE_F32) {

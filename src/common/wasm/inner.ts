@@ -85,7 +85,10 @@ const complexFactor: Partial<Record<DType, number>> = {
  * The 1D·1D case (scalar result) is also handled when both inputs are 1D.
  * The caller should fall back to JS when null is returned.
  */
-export function wasmInner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | Complex | null {
+export function wasmInner(
+  a: ArrayStorage,
+  b: ArrayStorage
+): ArrayStorage | number | Complex | null {
   // Only handle cases where both are at least 1D with matching last dim
   if (a.ndim === 0 || b.ndim === 0) return null;
   if (!a.isCContiguous || !b.isCContiguous) return null;

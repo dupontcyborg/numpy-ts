@@ -280,8 +280,8 @@ test "outer_i16 basic" {
 
 test "outer_i8 wrapping" {
     const testing = @import("std").testing;
-    const a = [_]i8{ 20 };
-    const b = [_]i8{ 20 };
+    const a = [_]i8{20};
+    const b = [_]i8{20};
     var c: [1]i8 = undefined;
     outer_i8(&a, &b, &c, 1, 1);
     // 20*20 = 400 → wraps in i8

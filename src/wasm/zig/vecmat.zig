@@ -53,7 +53,7 @@ export fn vecmat_f32(x: [*]const f32, A: [*]const f32, y: [*]f32, K: u32, N: u32
 /// y is also interleaved [re0, im0, re1, im1, ...]
 export fn vecmat_c128(x: [*]const f64, A: [*]const f64, y: [*]f64, K: u32, N: u32) void {
     // Zero output (2 f64s per complex element)
-    @memset(y[0..@as(usize, N) * 2], 0);
+    @memset(y[0 .. @as(usize, N) * 2], 0);
     for (0..K) |k| {
         const x_re = x[k * 2];
         const x_im = x[k * 2 + 1];
@@ -75,7 +75,7 @@ export fn vecmat_c128(x: [*]const f64, A: [*]const f64, y: [*]f64, K: u32, N: u3
 /// y is also interleaved [re0, im0, re1, im1, ...]
 export fn vecmat_c64(x: [*]const f32, A: [*]const f32, y: [*]f32, K: u32, N: u32) void {
     // Zero output (2 f32s per complex element)
-    @memset(y[0..@as(usize, N) * 2], 0);
+    @memset(y[0 .. @as(usize, N) * 2], 0);
     for (0..K) |k| {
         const x_re = x[k * 2];
         const x_im = x[k * 2 + 1];
