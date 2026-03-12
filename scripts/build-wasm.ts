@@ -10,7 +10,7 @@
  * (checked-in .wasm.ts files will be used as-is).
  */
 
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -149,7 +149,7 @@ for (const file of zigFiles) {
   const zigPath = join(ZIG_DIR, file);
   console.log(`  Testing ${file}...`);
   try {
-    execSync(`zig test ${zigPath}`, { stdio: 'pipe', cwd: ZIG_DIR });
+    execFileSync('zig', ['test', zigPath], { stdio: 'pipe', cwd: ZIG_DIR });
     console.log(`  ✓ ${file} — all tests passed`);
   } catch (err: unknown) {
     const error = err as { stderr?: Buffer; stdout?: Buffer };
