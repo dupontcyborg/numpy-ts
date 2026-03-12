@@ -4607,9 +4607,28 @@ export function vecdot(
     throw new Error(`vecdot: axis dimensions must match, got ${aAxisLen} and ${bAxisLen}`);
   }
 
-  // For 1D arrays, just compute the dot product
+  // For 1D arrays, compute conj(a) · b directly (can't delegate to dot which doesn't conjugate)
   if (aDim === 1 && bDim === 1) {
-    return dot(a, b) as number | bigint | Complex;
+    const isComplexInput = isComplexDType(a.dtype) || isComplexDType(b.dtype);
+    if (!isComplexInput) {
+      return dot(a, b) as number | bigint | Complex;
+    }
+    const n = a.shape[0]!;
+    let sumRe = 0;
+    let sumIm = 0;
+    for (let i = 0; i < n; i++) {
+      const aVal = a.get(i);
+      const bVal = b.get(i);
+      const aConj = aVal instanceof Complex ? new Complex(aVal.re, -aVal.im) : aVal;
+      const prod = multiplyValues(aConj, bVal);
+      if (prod instanceof Complex) {
+        sumRe += prod.re;
+        sumIm += prod.im;
+      } else {
+        sumRe += Number(prod);
+      }
+    }
+    return new Complex(sumRe, sumIm);
   }
 
   // Try WASM-accelerated vecdot for 2D arrays with default axis (-1)
@@ -4661,7 +4680,9 @@ export function vecdot(
     for (let k = 0; k < contractDim; k++) {
       const aVal = a.get(k);
       const bVal = b.get(k);
-      const prod = multiplyValues(aVal, bVal);
+      // vecdot uses conj(a) * b
+      const aConj = aVal instanceof Complex ? new Complex(aVal.re, -aVal.im) : aVal;
+      const prod = multiplyValues(aConj, bVal);
       if (sum instanceof Complex || prod instanceof Complex) {
         const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
         const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
@@ -4712,7 +4733,9 @@ export function vecdot(
         bIdx[normalizedAxisB] = k;
         const aVal = a.get(...aIdx);
         const bVal = b.get(...bIdx);
-        const prod = multiplyValues(aVal, bVal);
+        // vecdot uses conj(a) * b
+        const aConj = aVal instanceof Complex ? new Complex(aVal.re, -aVal.im) : aVal;
+        const prod = multiplyValues(aConj, bVal);
         if (sum instanceof Complex || prod instanceof Complex) {
           const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
           const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
