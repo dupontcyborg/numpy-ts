@@ -19,7 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
 const ROOT = join(__dirname, '..');
 
-const ZIG_DIR = join(ROOT, 'src/wasm/zig');
+const ZIG_DIR = join(ROOT, 'src/common/wasm/zig');
 const BINS_DIR = join(ROOT, 'src/common/wasm/bins');
 const TMP_DIR = join(ROOT, '.wasm-tmp');
 
