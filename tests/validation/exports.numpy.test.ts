@@ -315,6 +315,8 @@ describe('NumPy API Comparison', () => {
         'genfromtxt',
         'fromregex',
         'serializeTxt',
+        // WASM runtime configuration
+        'wasmConfig',
         // Deprecated in NumPy 1.24+, removed in NumPy 2.0 (use isin instead)
         'in1d',
       ];

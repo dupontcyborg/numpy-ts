@@ -6,7 +6,8 @@
  */
 
 import { ArrayStorage, computeStrides } from '../storage';
-import { getTypedArrayConstructor, isBigIntDType, type TypedArray } from '../dtype';
+import { getTypedArrayConstructor, isBigIntDType, isComplexDType, type TypedArray } from '../dtype';
+import { Complex } from '../complex';
 
 /**
  * Reshape array to a new shape
@@ -71,24 +72,36 @@ export function flatten(storage: ArrayStorage): ArrayStorage {
     throw new Error(`Cannot flatten array with dtype ${dtype}`);
   }
 
+  const isComplex = isComplexDType(dtype);
+  const physicalSize = isComplex ? size * 2 : size;
+
   // Fast path: if array is C-contiguous, just copy the underlying data
   if (storage.isCContiguous) {
     const data = storage.data;
-    const newData = data.slice(storage.offset, storage.offset + size);
+    const physicalOffset = isComplex ? storage.offset * 2 : storage.offset;
+    const newData = data.slice(physicalOffset, physicalOffset + physicalSize);
     return ArrayStorage.fromData(newData as TypedArray, [size], dtype, [1], 0);
   }
 
   // Slow path: non-contiguous array, copy using iget (flat index)
   // This is much faster than recursive get(...indices) calls
-  const newData = new Constructor(size);
+  const newData = new Constructor(physicalSize);
   const isBigInt = isBigIntDType(dtype);
 
-  for (let i = 0; i < size; i++) {
-    const value = storage.iget(i);
-    if (isBigInt) {
-      (newData as BigInt64Array | BigUint64Array)[i] = value as bigint;
-    } else {
-      (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
+  if (isComplex) {
+    for (let i = 0; i < size; i++) {
+      const value = storage.iget(i) as Complex;
+      (newData as Float64Array | Float32Array)[i * 2] = value.re;
+      (newData as Float64Array | Float32Array)[i * 2 + 1] = value.im;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const value = storage.iget(i);
+      if (isBigInt) {
+        (newData as BigInt64Array | BigUint64Array)[i] = value as bigint;
+      } else {
+        (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
+      }
     }
   }
 

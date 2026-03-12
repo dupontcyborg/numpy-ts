@@ -8,6 +8,8 @@ import type { BenchmarkReport, BenchmarkComparison, MultiRuntimeReport, RuntimeC
 import {
   groupByCategory,
   getCategorySummaries,
+  getDtypeSummaries,
+  getMultiRuntimeDtypeSummaries,
   formatDuration,
   formatRatio,
   formatOpsPerSec,
@@ -50,6 +52,7 @@ function createHTML(report: BenchmarkReport): string {
   const { timestamp, environment, results, summary } = report;
   const groups = groupByCategory(results);
   const categorySummaries = getCategorySummaries(results);
+  const dtypeSummaries = getDtypeSummaries(results);
 
   // Prepare data for charts
   const categories = Array.from(groups.keys());
@@ -232,7 +235,7 @@ function createHTML(report: BenchmarkReport): string {
 <body>
   <div class="container">
     <h1>🚀 NumPy vs numpy-ts Benchmark Results</h1>
-    <p class="subtitle">Performance comparison of numpy-ts against Python NumPy</p>
+    <p class="subtitle">Performance comparison of numpy-ts against ${environment.baseline === 'pyodide' ? 'Pyodide NumPy (WASM)' : 'Python NumPy'}</p>
 
     <div class="meta">
       <div><strong>Timestamp:</strong> ${new Date(timestamp).toLocaleString()}</div>
@@ -262,6 +265,8 @@ function createHTML(report: BenchmarkReport): string {
         <div class="value">${formatRatio(summary.worst_case)}</div>
       </div>
     </div>
+
+    ${generateDtypeBreakdown(dtypeSummaries)}
 
     <div class="chart-container">
       <h2>📊 Average Slowdown by Category</h2>
@@ -347,6 +352,8 @@ function createHTML(report: BenchmarkReport): string {
         }
       }
     });
+
+    ${generateDtypeChartScript(dtypeSummaries)}
   </script>
 </body>
 </html>`;
@@ -436,7 +443,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
 <body>
   <div class="container">
     <h1>NumPy vs numpy-ts Multi-Runtime Benchmarks</h1>
-    <p class="subtitle">Performance comparison across Node.js, Deno, and Bun</p>
+    <p class="subtitle">Performance comparison across Node.js, Deno, and Bun (baseline: ${environment.baseline === 'pyodide' ? 'Pyodide NumPy/WASM' : 'Python NumPy'})</p>
 
     <div class="meta">
       <div><strong>Timestamp:</strong> ${new Date(timestamp).toLocaleString()}</div>
@@ -469,6 +476,12 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
         </div>`;
       }).join('')}
     </div>
+
+    ${runtimeNames.map((rt) => {
+      const dtypeSums = getMultiRuntimeDtypeSummaries(results, rt);
+      if (dtypeSums.size <= 1) return '';
+      return generateDtypeBreakdownMultiRuntime(dtypeSums, rt);
+    }).join('')}
 
     <div class="chart-container">
       <h2>Average Slowdown by Category (Grouped)</h2>
@@ -506,6 +519,11 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
         }
       }
     });
+
+    ${runtimeNames.map((rt) => {
+      const dtypeSums = getMultiRuntimeDtypeSummaries(results, rt);
+      return generateDtypeChartScript(dtypeSums, `dtypeChart_${rt}`);
+    }).join('\n')}
   </script>
 </body>
 </html>`;
@@ -571,6 +589,154 @@ function generateMultiRuntimeCategoryTables(
   }
 
   return html;
+}
+
+function generateDtypeBreakdown(
+  dtypeSummaries: Map<string, { avg_slowdown: number; median_slowdown: number; count: number }>
+): string {
+  if (dtypeSummaries.size <= 1) return ''; // Only float64 — nothing interesting to show
+
+  let html = `
+    <div class="chart-container">
+      <h2>Slowdown by DType</h2>
+      <div style="display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:400px">
+          <canvas id="dtypeChart"></canvas>
+        </div>
+        <div style="flex:0 0 auto">
+          <table style="margin:0">
+            <thead>
+              <tr>
+                <th>DType</th>
+                <th>Count</th>
+                <th>Avg Slowdown</th>
+                <th>Median Slowdown</th>
+              </tr>
+            </thead>
+            <tbody>`;
+
+  for (const [dtype, data] of dtypeSummaries) {
+    const colors = DTYPE_COLORS[dtype] ?? DTYPE_COLORS['float64']!;
+    const ratioClass = data.avg_slowdown < 2 ? 'good' : data.avg_slowdown < 5 ? 'ok' : 'bad';
+    html += `
+              <tr>
+                <td><span style="display:inline-block;font-size:0.85em;font-weight:600;padding:2px 8px;border-radius:3px;background:${colors.bg};color:${colors.text}">${dtype}</span></td>
+                <td>${data.count}</td>
+                <td><span class="ratio ${ratioClass}">${formatRatio(data.avg_slowdown)}</span></td>
+                <td>${formatRatio(data.median_slowdown)}</td>
+              </tr>`;
+  }
+
+  html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+
+  return html;
+}
+
+function generateDtypeBreakdownMultiRuntime(
+  dtypeSummaries: Map<string, { avg_slowdown: number; median_slowdown: number; count: number }>,
+  runtimeName: string
+): string {
+  if (dtypeSummaries.size <= 1) return '';
+
+  const canvasId = `dtypeChart_${runtimeName}`;
+  let html = `
+    <div class="chart-container">
+      <h2>Slowdown by DType (${runtimeName})</h2>
+      <div style="display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:400px">
+          <canvas id="${canvasId}"></canvas>
+        </div>
+        <div style="flex:0 0 auto">
+          <table style="margin:0">
+            <thead>
+              <tr>
+                <th>DType</th>
+                <th>Count</th>
+                <th>Avg Slowdown</th>
+                <th>Median Slowdown</th>
+              </tr>
+            </thead>
+            <tbody>`;
+
+  for (const [dtype, data] of dtypeSummaries) {
+    const colors = DTYPE_COLORS[dtype] ?? DTYPE_COLORS['float64']!;
+    const ratioClass = data.avg_slowdown < 2 ? 'good' : data.avg_slowdown < 5 ? 'ok' : 'bad';
+    html += `
+              <tr>
+                <td><span style="display:inline-block;font-size:0.85em;font-weight:600;padding:2px 8px;border-radius:3px;background:${colors.bg};color:${colors.text}">${dtype}</span></td>
+                <td>${data.count}</td>
+                <td><span class="ratio ${ratioClass}">${formatRatio(data.avg_slowdown)}</span></td>
+                <td>${formatRatio(data.median_slowdown)}</td>
+              </tr>`;
+  }
+
+  html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+
+  return html;
+}
+
+function generateDtypeChartScript(
+  dtypeSummaries: Map<string, { avg_slowdown: number; median_slowdown: number; count: number }>,
+  canvasId: string = 'dtypeChart'
+): string {
+  if (dtypeSummaries.size <= 1) return '';
+
+  const labels = Array.from(dtypeSummaries.keys());
+  const avgData = labels.map((d) => dtypeSummaries.get(d)!.avg_slowdown);
+  const medianData = labels.map((d) => dtypeSummaries.get(d)!.median_slowdown);
+  const bgColors = labels.map((d) => {
+    const c = DTYPE_COLORS[d] ?? DTYPE_COLORS['float64']!;
+    return c.bg;
+  });
+  const borderColors = labels.map((d) => {
+    const c = DTYPE_COLORS[d] ?? DTYPE_COLORS['float64']!;
+    return c.text;
+  });
+
+  return `
+    new Chart(document.getElementById('${canvasId}'), {
+      type: 'bar',
+      data: {
+        labels: ${JSON.stringify(labels)},
+        datasets: [
+          {
+            label: 'Avg Slowdown',
+            data: ${JSON.stringify(avgData)},
+            backgroundColor: ${JSON.stringify(bgColors)},
+            borderColor: ${JSON.stringify(borderColors)},
+            borderWidth: 2
+          },
+          {
+            label: 'Median Slowdown',
+            data: ${JSON.stringify(medianData)},
+            backgroundColor: ${JSON.stringify(bgColors.map((c) => c + '80'))},
+            borderColor: ${JSON.stringify(borderColors)},
+            borderWidth: 1,
+            borderDash: [5, 5]
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: true } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Slowdown Ratio (lower is better)' }
+          }
+        }
+      }
+    });`;
 }
 
 function generateCategoryTables(groups: Map<string, BenchmarkComparison[]>): string {

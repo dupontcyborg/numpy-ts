@@ -77,3 +77,73 @@ export function outerIndexToMultiIndex(
   indices[axis] = axisIdx;
   return indices;
 }
+
+/**
+ * Precompute stride-based offsets for iterating over an axis reduction.
+ *
+ * Returns { baseOffsets, axisStride } where:
+ * - baseOffsets[outerIdx] is the buffer offset of the first element along the
+ *   reduction axis for that output position
+ * - axisStride is the stride along the reduction axis in the buffer
+ *
+ * Inner loop becomes:
+ *   let off = baseOffsets[outerIdx];
+ *   for (k = 0; k < axisSize; k++, off += axisStride) { data[off] ... }
+ *
+ * This eliminates per-element allocations and index decomposition.
+ */
+export function precomputeAxisOffsets(
+  shape: readonly number[],
+  strides: readonly number[],
+  offset: number,
+  axis: number,
+  outerSize: number
+): { baseOffsets: Int32Array; axisStride: number } {
+  const ndim = shape.length;
+  const axisStride = strides[axis]!;
+
+  // Build output shape (shape with axis removed) and corresponding strides
+  const outerDims: number[] = [];
+  const outerStrides: number[] = [];
+  for (let i = 0; i < ndim; i++) {
+    if (i !== axis) {
+      outerDims.push(shape[i]!);
+      outerStrides.push(strides[i]!);
+    }
+  }
+
+  const baseOffsets = new Int32Array(outerSize);
+  const outerNdim = outerDims.length;
+
+  if (outerNdim === 0) {
+    // Scalar output — single element
+    baseOffsets[0] = offset;
+  } else if (outerNdim === 1) {
+    // 2D input, reducing one axis — fast path
+    const s = outerStrides[0]!;
+    for (let i = 0; i < outerSize; i++) {
+      baseOffsets[i] = offset + i * s;
+    }
+  } else {
+    // General N-D case — decompose outerIdx into multi-index, dot with strides
+    // Precompute cumulative products for index decomposition (right-to-left)
+    const cumProd = new Int32Array(outerNdim);
+    cumProd[outerNdim - 1] = 1;
+    for (let i = outerNdim - 2; i >= 0; i--) {
+      cumProd[i] = cumProd[i + 1]! * outerDims[i + 1]!;
+    }
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let base = offset;
+      let remaining = outerIdx;
+      for (let d = 0; d < outerNdim; d++) {
+        const idx = (remaining / cumProd[d]!) | 0;
+        remaining -= idx * cumProd[d]!;
+        base += idx * outerStrides[d]!;
+      }
+      baseOffsets[outerIdx] = base;
+    }
+  }
+
+  return { baseOffsets, axisStride };
+}

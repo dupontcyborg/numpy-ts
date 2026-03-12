@@ -90,6 +90,62 @@ export function getCategorySummaries(
   return summaries;
 }
 
+export function getDtypeSummaries(
+  comparisons: BenchmarkComparison[]
+): Map<string, { avg_slowdown: number; median_slowdown: number; count: number }> {
+  const dtypeRe =
+    /\s+(float64|float32|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
+  const groups = new Map<string, number[]>();
+
+  for (const c of comparisons) {
+    const m = c.name.match(dtypeRe);
+    const dtype = m ? m[1]! : 'float64';
+    const existing = groups.get(dtype) || [];
+    existing.push(c.ratio);
+    groups.set(dtype, existing);
+  }
+
+  const summaries = new Map<string, { avg_slowdown: number; median_slowdown: number; count: number }>();
+  // Order dtypes consistently
+  const dtypeOrder = [
+    'float64', 'float32', 'complex128', 'complex64',
+    'int64', 'int32', 'int16', 'int8',
+    'uint64', 'uint32', 'uint16', 'uint8', 'bool',
+  ];
+
+  for (const dtype of dtypeOrder) {
+    const ratios = groups.get(dtype);
+    if (!ratios) continue;
+    const avg = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+    const sorted = [...ratios].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
+    summaries.set(dtype, { avg_slowdown: avg, median_slowdown: median, count: ratios.length });
+  }
+
+  return summaries;
+}
+
+export function getMultiRuntimeDtypeSummaries(
+  comparisons: RuntimeComparison[],
+  runtimeName: string
+): Map<string, { avg_slowdown: number; median_slowdown: number; count: number }> {
+  // Convert RuntimeComparison to BenchmarkComparison for the given runtime
+  const benchComparisons: BenchmarkComparison[] = [];
+  for (const c of comparisons) {
+    const entry = c.runtimes[runtimeName];
+    if (!entry) continue;
+    benchComparisons.push({
+      name: c.name,
+      category: c.category,
+      numpy: c.numpy,
+      numpyjs: entry.timing,
+      ratio: entry.ratio,
+    });
+  }
+  return getDtypeSummaries(benchComparisons);
+}
+
 export function formatDuration(ms: number): string {
   if (ms < 1) {
     return `${(ms * 1000).toFixed(2)}μs`;
@@ -154,6 +210,17 @@ export function printResults(comparisons: BenchmarkComparison[], summary: Benchm
   console.log('\nBy Category:');
   for (const [category, data] of categorySummaries) {
     console.log(`  ${category.padEnd(15)} ${formatRatio(data.avg_slowdown).padStart(8)}`);
+  }
+
+  // Print dtype summaries
+  const dtypeSums = getDtypeSummaries(comparisons);
+  if (dtypeSums.size > 1) {
+    console.log('\nBy DType:');
+    for (const [dtype, data] of dtypeSums) {
+      console.log(
+        `  ${dtype.padEnd(12)} avg ${formatRatio(data.avg_slowdown).padStart(8)}  median ${formatRatio(data.median_slowdown).padStart(8)}  (${data.count} benchmarks)`
+      );
+    }
   }
 
   console.log('='.repeat(80) + '\n');

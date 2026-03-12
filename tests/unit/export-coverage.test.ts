@@ -22,6 +22,9 @@ describe('Export Coverage', () => {
 
     // Version placeholder
     '__version__',
+
+    // WASM runtime configuration (not a core array operation)
+    'wasmConfig',
   ]);
 
   // Type-only exports (not functions, just TypeScript types)

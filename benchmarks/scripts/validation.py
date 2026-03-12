@@ -59,10 +59,14 @@ def setup_arrays(setup_config):
             size = np.prod(shape)
             flat = np.arange(0, size, 1, dtype=np_dtype)
             arrays[key] = flat.reshape(shape)
-        elif fill == "complex":
-            # Create complex array with [1+1j, 2+2j, 3+3j, ...]
+        elif fill in ("complex", "complex_small"):
+            # 'complex': [1+1j, 2+2j, ...], 'complex_small': modular values to avoid overflow
             size = np.prod(shape)
-            arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=np.complex128).reshape(shape)
+            cdtype = np.complex64 if dtype == "complex64" else np.complex128
+            if fill == "complex_small":
+                arrays[key] = np.array([complex((i % 10) + 1, (i % 10) + 1) for i in range(size)], dtype=cdtype).reshape(shape)
+            else:
+                arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=cdtype).reshape(shape)
         elif fill == "invertible":
             # Create an invertible matrix: arange + n*I (diagonally dominant)
             n = shape[0]
@@ -502,7 +506,7 @@ def run_operation(spec):
     elif operation == "lexsort":
         result = np.lexsort((arrays["a"].ravel(), arrays["b"].ravel()))
     elif operation == "sort_complex":
-        result = np.sort_complex(arrays["a"]).real  # Return real part for comparison
+        result = np.sort_complex(arrays["a"])  # Returns complex array
 
     # Searching operations
     elif operation == "nonzero":
@@ -743,21 +747,29 @@ def run_operation(spec):
     else:
         raise ValueError(f"Unknown operation: {operation}")
 
+    def _complex_to_pairs(val):
+        """Recursively convert complex numbers to [re, im] pairs."""
+        if isinstance(val, complex):
+            return [val.real, val.imag]
+        if isinstance(val, list):
+            return [_complex_to_pairs(v) for v in val]
+        return val
+
     # Convert result to JSON-serializable format
     if isinstance(result, list) and len(result) > 0 and isinstance(result[0], np.ndarray):
         # Handle list of arrays (e.g., from unstack)
         return [{"shape": list(arr.shape), "data": arr.tolist()} for arr in result]
     elif isinstance(result, np.ndarray):
-        # Handle complex arrays by converting to real
+        # Handle complex arrays by converting to [re, im] pairs
         if np.iscomplexobj(result):
-            result = result.real
+            return {"shape": list(result.shape), "data": _complex_to_pairs(result.tolist())}
         return {"shape": list(result.shape), "data": result.tolist()}
     elif isinstance(result, (np.integer, np.floating)):
         return float(result)
     elif isinstance(result, np.bool_):
         return bool(result)
     elif isinstance(result, (complex, np.complexfloating)):
-        return float(result.real)
+        return [float(result.real), float(result.imag)]
     else:
         return result
 
@@ -770,11 +782,8 @@ def serialize_value(val):
         return {k: serialize_value(v) for k, v in val.items()}
     elif isinstance(val, (list, tuple)):
         return [serialize_value(v) for v in val]
-    elif isinstance(val, complex):
-        # Return real part for comparison (complex eigenvalues differ)
-        return serialize_value(val.real)
-    elif isinstance(val, (np.complexfloating, np.complex64, np.complex128)):
-        return serialize_value(float(val.real))
+    elif isinstance(val, (complex, np.complexfloating, np.complex64, np.complex128)):
+        return [serialize_value(float(val.real)), serialize_value(float(val.imag))]
     elif isinstance(val, float):
         if math.isnan(val):
             return "__NaN__"

@@ -28,6 +28,8 @@ jobs:
         with:
           python-version: '3.13'
 
+      - uses: mlugg/setup-zig@v2
+
       - name: Install dependencies
         run: |
           pip install numpy
@@ -124,6 +126,8 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
+
+      - uses: mlugg/setup-zig@v2
 
       - name: Install dependencies
         run: npm ci

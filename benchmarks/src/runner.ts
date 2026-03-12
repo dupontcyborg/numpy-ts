@@ -89,7 +89,9 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
         complexValues.push(new np.Complex(i + 1, i + 1));
       }
       const flat = np.array(complexValues);
-      arrays[key] = flat.reshape(...shape);
+      const reshaped = flat.reshape(...shape);
+      // Cast to complex64 if requested
+      arrays[key] = dtype === 'complex64' ? np.asarray(reshaped, 'complex64') : reshaped;
     } else if (fill === 'random') {
       // Create random-like data using arange for consistency
       const size = shape.reduce((a, b) => a * b, 1);

@@ -1,0 +1,217 @@
+{
+  "timestamp": "2026-03-12T03:19:14.292Z",
+  "environment": {
+    "python_version": "3.12.7",
+    "numpy_version": "2.0.2 (Pyodide/WASM)",
+    "numpyjs_version": "1.0.0",
+    "runtimes": {
+      "node": "3",
+      "deno": "2.7.1",
+      "bun": "1.3.10"
+    },
+    "machine": "Apple M4 Max (16 cores, 128 GB, arm64)",
+    "baseline": "pyodide"
+  },
+  "results": [
+    {
+      "name": "zeros [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "zeros [100x100]",
+        "mean_ms": 0.0007344570799999993,
+        "median_ms": 0.0007344570799999993,
+        "min_ms": 0.0007344570799999993,
+        "max_ms": 0.0007344570799999993,
+        "std_ms": 0,
+        "ops_per_sec": 1361549.9492495884,
+        "total_ops": 100000,
+        "total_samples": 1
+      },
+      "runtimes": {
+        "node": {
+          "timing": {
+            "name": "zeros [100x100]",
+            "mean_ms": 0.0015172565651182756,
+            "median_ms": 0.0015172565651182756,
+            "min_ms": 0.0015172565651182756,
+            "max_ms": 0.0015172565651182756,
+            "std_ms": 0,
+            "ops_per_sec": 659084.3124294186,
+            "total_ops": 33777,
+            "total_samples": 1
+          },
+          "ratio": 2.065820599235393
+        },
+        "deno": {
+          "timing": {
+            "name": "zeros [100x100]",
+            "mean_ms": 0.0014826266344425854,
+            "median_ms": 0.0014826266344425854,
+            "min_ms": 0.0014826266344425854,
+            "max_ms": 0.0014826266344425854,
+            "std_ms": 0,
+            "ops_per_sec": 674478.6426799652,
+            "total_ops": 32274,
+            "total_samples": 1
+          },
+          "ratio": 2.01867021888139
+        },
+        "bun": {
+          "timing": {
+            "name": "zeros [100x100]",
+            "mean_ms": 0.001125766675,
+            "median_ms": 0.001125766675,
+            "min_ms": 0.001125766675,
+            "max_ms": 0.001125766675,
+            "std_ms": 0,
+            "ops_per_sec": 888283.5335306049,
+            "total_ops": 40000,
+            "total_samples": 1
+          },
+          "ratio": 1.532787559213128
+        }
+      }
+    },
+    {
+      "name": "ones [100x100]",
+      "category": "creation",
+      "numpy": {
+        "name": "ones [100x100]",
+        "mean_ms": 0.0026070047946633278,
+        "median_ms": 0.0026070047946633278,
+        "min_ms": 0.0026070047946633278,
+        "max_ms": 0.0026070047946633278,
+        "std_ms": 0,
+        "ops_per_sec": 383581.9565990255,
+        "total_ops": 38376,
+        "total_samples": 1
+      },
+      "runtimes": {
+        "node": {
+          "timing": {
+            "name": "ones [100x100]",
+            "mean_ms": 0.0026097746565397076,
+            "median_ms": 0.0026097746565397076,
+            "min_ms": 0.0026097746565397076,
+            "max_ms": 0.0026097746565397076,
+            "std_ms": 0,
+            "ops_per_sec": 383174.84518985136,
+            "total_ops": 17906,
+            "total_samples": 1
+          },
+          "ratio": 1.0010624690380507
+        },
+        "deno": {
+          "timing": {
+            "name": "ones [100x100]",
+            "mean_ms": 0.002760161577386147,
+            "median_ms": 0.002760161577386147,
+            "min_ms": 0.002760161577386147,
+            "max_ms": 0.002760161577386147,
+            "std_ms": 0,
+            "ops_per_sec": 362297.63075935317,
+            "total_ops": 17193,
+            "total_samples": 1
+          },
+          "ratio": 1.0587481783832307
+        },
+        "bun": {
+          "timing": {
+            "name": "ones [100x100]",
+            "mean_ms": 0.0016943388485187252,
+            "median_ms": 0.0016943388485187252,
+            "min_ms": 0.0016943388485187252,
+            "max_ms": 0.0016943388485187252,
+            "std_ms": 0,
+            "ops_per_sec": 590200.7150896938,
+            "total_ops": 26835,
+            "total_samples": 1
+          },
+          "ratio": 0.6499178106565525
+        }
+      }
+    },
+    {
+      "name": "eye(100)",
+      "category": "creation",
+      "numpy": {
+        "name": "eye(100)",
+        "mean_ms": 0.0028970315240961944,
+        "median_ms": 0.0028970315240961944,
+        "min_ms": 0.0028970315240961944,
+        "max_ms": 0.0028970315240961944,
+        "std_ms": 0,
+        "ops_per_sec": 345180.91766777594,
+        "total_ops": 30897,
+        "total_samples": 1
+      },
+      "runtimes": {
+        "node": {
+          "timing": {
+            "name": "eye(100)",
+            "mean_ms": 0.002479543749999999,
+            "median_ms": 0.002479543749999999,
+            "min_ms": 0.002479543749999999,
+            "max_ms": 0.002479543749999999,
+            "std_ms": 0,
+            "ops_per_sec": 403300.0022685627,
+            "total_ops": 20000,
+            "total_samples": 1
+          },
+          "ratio": 0.8558911870223981
+        },
+        "deno": {
+          "timing": {
+            "name": "eye(100)",
+            "mean_ms": 0.0022837687634358356,
+            "median_ms": 0.0022837687634358356,
+            "min_ms": 0.0022837687634358356,
+            "max_ms": 0.0022837687634358356,
+            "std_ms": 0,
+            "ops_per_sec": 437872.7023551813,
+            "total_ops": 21398,
+            "total_samples": 1
+          },
+          "ratio": 0.7883133975037837
+        },
+        "bun": {
+          "timing": {
+            "name": "eye(100)",
+            "mean_ms": 0.0011863262362479627,
+            "median_ms": 0.0011863262362479627,
+            "min_ms": 0.0011863262362479627,
+            "max_ms": 0.0011863262362479627,
+            "std_ms": 0,
+            "ops_per_sec": 842938.4510307523,
+            "total_ops": 43539,
+            "total_samples": 1
+          },
+          "ratio": 0.40949717888143056
+        }
+      }
+    }
+  ],
+  "summaries": {
+    "node": {
+      "avg_slowdown": 1.3075914184319473,
+      "median_slowdown": 1.0010624690380507,
+      "best_case": 0.8558911870223981,
+      "worst_case": 2.065820599235393,
+      "total_benchmarks": 3
+    },
+    "deno": {
+      "avg_slowdown": 1.2885772649228016,
+      "median_slowdown": 1.0587481783832307,
+      "best_case": 0.7883133975037837,
+      "worst_case": 2.01867021888139,
+      "total_benchmarks": 3
+    },
+    "bun": {
+      "avg_slowdown": 0.8640675162503704,
+      "median_slowdown": 0.6499178106565525,
+      "best_case": 0.40949717888143056,
+      "worst_case": 1.532787559213128,
+      "total_benchmarks": 3
+    }
+  }
+}

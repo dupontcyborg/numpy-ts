@@ -866,12 +866,12 @@ export function cross(
     data[1] = r.im;
     return NDArray.fromStorage(ArrayStorage.fromData(data, [], dtype));
   }
-  if (typeof r === 'number') {
+  if (typeof r === 'number' || typeof r === 'bigint') {
     if (isComplexDType(dtype)) {
       const baseDtype = dtype === 'complex64' ? 'float32' : 'float64';
       const Ctor = getTypedArrayConstructor(baseDtype)!;
       const data = new Ctor(2);
-      data[0] = r;
+      data[0] = Number(r);
       data[1] = 0;
       return NDArray.fromStorage(ArrayStorage.fromData(data, [], dtype));
     }

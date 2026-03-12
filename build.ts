@@ -1,11 +1,28 @@
 import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 
 // Read version from package.json
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const VERSION = packageJson.version;
 
+function buildWasm() {
+  try {
+    execSync('zig version', { stdio: 'ignore' });
+    console.log('Building WASM kernels...');
+    execSync('npx tsx scripts/build-wasm.ts', { stdio: 'inherit' });
+    console.log('✓ WASM build complete\n');
+  } catch {
+    console.warn('⚠ Zig not found — using checked-in WASM binaries\n');
+  }
+}
+
+const skipWasm = process.argv.includes('--skip-wasm');
+
 async function buildAll() {
+  // Build WASM kernels (optional — skipped if Zig not installed or --skip-wasm)
+  if (!skipWasm) buildWasm();
+
   // Main bundle for Node.js (CJS) - core functionality only
   console.log('Building Node.js CJS bundle...');
   await build({

@@ -7,6 +7,19 @@
 - [ ] Implement `unfunc` support
 - [ ] Implement masked array support
 - [-] Begin implementing WASM?
+    - [X] Linalg
+    - [ ] Reductions
+    - [ ] Arithmetic
+    - [ ] RNGs
+    - [ ] FFTs
+- [ ] Modularize codebase
+    - [ ] `linalg.ts` -> `linalg/*.ts`
+    - [ ] `reduction.ts` -> `reductions/*.ts`
+    - [ ] `arithmetic.ts` -> `arithmetic/*.ts`
+    - [ ] `random.ts` -> `random/*.ts`
+    - [ ] Organize WASM bins to match above
+- [X] Promote `int8`/`uint8`/`int16`/`uint16` (and `int32`/`uint32`?) to `int64` for items listed under `SKIP_NARROW_INT_OPERATIONS`
+- [X] Fix dtype promotion/wrapping/overflow discrepancies against Python NumPy
 - [X] Support `[]` operator that returns either a view (for > 1 dim) or a scalar (for 1 dim)
 - [X] Add `float32` support to `matmul` (`sgemm`)
 - [X] Fix `matmul` not supporting `1D` or `> 2D` ndarrays

@@ -74,10 +74,14 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
             arange_matrix = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
             identity = np.eye(n, dtype=dtype)
             arrays[key] = arange_matrix + identity * (n * n)
-        elif fill_type == "complex":
-            # Create complex array with [1+1j, 2+2j, 3+3j, ...]
+        elif fill_type in ("complex", "complex_small"):
+            # 'complex': [1+1j, 2+2j, ...], 'complex_small': modular values to avoid overflow
             size = int(np.prod(shape))
-            arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=np.complex128).reshape(shape)
+            cdtype = np.complex64 if dtype == "complex64" else np.complex128
+            if fill_type == "complex_small":
+                arrays[key] = np.array([complex((i % 10) + 1, (i % 10) + 1) for i in range(size)], dtype=cdtype).reshape(shape)
+            else:
+                arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=cdtype).reshape(shape)
 
     # Pre-serialize data for parsing benchmarks
     if operation == "parseNpy" and "a" in arrays:

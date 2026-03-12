@@ -6,9 +6,55 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, isComplexDType, isBigIntDType, type TypedArray } from '../dtype';
+import {
+  promoteDTypes,
+  isComplexDType,
+  isBigIntDType,
+  getTypedArrayConstructor,
+  type TypedArray,
+} from '../dtype';
 import { Complex } from '../complex';
+import { wasmMatmul } from '../wasm/matmul';
+import { wasmInner } from '../wasm/inner';
+import { wasmDot1D } from '../wasm/dot';
+import { wasmMatvec } from '../wasm/matvec';
+import { wasmVecmat } from '../wasm/vecmat';
+import { wasmOuter } from '../wasm/outer';
+import { wasmVecdot } from '../wasm/vecdot';
+import { wasmVdotComplex } from '../wasm/vdot';
+import { wasmKron } from '../wasm/kron';
+import { wasmCross } from '../wasm/cross';
+import { wasmQr } from '../wasm/qr';
+import { wasmCholesky } from '../wasm/cholesky';
+import { wasmSvd } from '../wasm/svd';
 import * as shapeOps from './shape';
+import type { DType } from '../dtype';
+
+// 1-element typed-array accumulators for wrapping integer arithmetic.
+// Writing to acc[0] implicitly truncates/wraps to the dtype's range,
+// matching NumPy's native accumulation behavior.
+const _i32acc = new Int32Array(1);
+const _u32acc = new Uint32Array(1);
+const _i16acc = new Int16Array(1);
+const _u16acc = new Uint16Array(1);
+const _i8acc = new Int8Array(1);
+const _u8acc = new Uint8Array(1);
+
+type IntAcc = Int32Array | Uint32Array | Int16Array | Uint16Array | Int8Array | Uint8Array;
+
+const _intAccMap: Partial<Record<DType, IntAcc>> = {
+  int32: _i32acc,
+  uint32: _u32acc,
+  int16: _i16acc,
+  uint16: _u16acc,
+  int8: _i8acc,
+  uint8: _u8acc,
+};
+
+/** Returns a 1-element wrapping accumulator for narrow int dtypes, or null for float/bigint. */
+function getIntAcc(dtype: DType): IntAcc | null {
+  return _intAccMap[dtype] ?? null;
+}
 
 /**
  * Helper to multiply two values that may be Complex
@@ -85,7 +131,8 @@ function innerContiguousNumeric(
         const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
         sum += (aData[aOff + aFlatIdx] as number) * (bData[bOff + bFlatIdx] as number);
       }
-      resultData[aOuterSize === 1 ? j : i * bOuterSize + j] = sum;
+      const idx = aOuterSize === 1 ? j : i * bOuterSize + j;
+      resultData[idx] = sum;
     }
   }
 }
@@ -257,6 +304,11 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
     if (a.shape[0] !== b.shape[0]) {
       throw new Error(`dot: incompatible shapes (${a.shape[0]},) and (${b.shape[0]},)`);
     }
+
+    // Try WASM-accelerated 1D dot
+    const wasmDotResult = wasmDot1D(a, b);
+    if (wasmDotResult !== null) return wasmDotResult;
+
     const n = a.shape[0]!;
 
     if (isComplex) {
@@ -276,6 +328,15 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
       return new Complex(sumRe, sumIm);
     }
 
+    const resultDtype = promoteDTypes(a.dtype, b.dtype);
+    const acc = getIntAcc(resultDtype);
+    if (acc) {
+      acc[0] = 0;
+      for (let i = 0; i < n; i++) {
+        acc[0] += Number(a.get(i)) * Number(b.get(i));
+      }
+      return acc[0]!;
+    }
     let sum = 0;
     for (let i = 0; i < n; i++) {
       const aVal = a.get(i);
@@ -302,6 +363,10 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
       throw new Error(`dot: incompatible shapes (${m},${k}) and (${n},)`);
     }
 
+    // Try WASM-accelerated matvec
+    const wasmMvResult = wasmMatvec(a, b);
+    if (wasmMvResult) return wasmMvResult;
+
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
     const result = ArrayStorage.zeros([m!], resultDtype);
 
@@ -320,18 +385,27 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         result.set([i], new Complex(sumRe, sumIm));
       }
     } else {
+      const dotAcc = getIntAcc(resultDtype);
       for (let i = 0; i < m!; i++) {
-        let sum = 0;
-        for (let j = 0; j < k!; j++) {
-          const aVal = a.get(i, j);
-          const bVal = b.get(j);
-          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-            sum = Number(sum) + Number(aVal * bVal);
-          } else {
-            sum += Number(aVal) * Number(bVal);
+        if (dotAcc) {
+          dotAcc[0] = 0;
+          for (let j = 0; j < k!; j++) {
+            dotAcc[0] += Number(a.get(i, j)) * Number(b.get(j));
           }
+          result.set([i], dotAcc[0]!);
+        } else {
+          let sum = 0;
+          for (let j = 0; j < k!; j++) {
+            const aVal = a.get(i, j);
+            const bVal = b.get(j);
+            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+              sum = Number(sum) + Number(aVal * bVal);
+            } else {
+              sum += Number(aVal) * Number(bVal);
+            }
+          }
+          result.set([i], sum);
         }
-        result.set([i], sum);
       }
     }
 
@@ -345,6 +419,10 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
     if (m !== k) {
       throw new Error(`dot: incompatible shapes (${m},) and (${k},${n})`);
     }
+
+    // Try WASM-accelerated vecmat
+    const wasmVmResult = wasmVecmat(a, b);
+    if (wasmVmResult) return wasmVmResult;
 
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
     const result = ArrayStorage.zeros([n!], resultDtype);
@@ -364,18 +442,27 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         result.set([j], new Complex(sumRe, sumIm));
       }
     } else {
+      const dotAcc2 = getIntAcc(resultDtype);
       for (let j = 0; j < n!; j++) {
-        let sum = 0;
-        for (let i = 0; i < m; i++) {
-          const aVal = a.get(i);
-          const bVal = b.get(i, j);
-          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-            sum = Number(sum) + Number(aVal * bVal);
-          } else {
-            sum += Number(aVal) * Number(bVal);
+        if (dotAcc2) {
+          dotAcc2[0] = 0;
+          for (let i = 0; i < m; i++) {
+            dotAcc2[0] += Number(a.get(i)) * Number(b.get(i, j));
           }
+          result.set([j], dotAcc2[0]!);
+        } else {
+          let sum = 0;
+          for (let i = 0; i < m; i++) {
+            const aVal = a.get(i);
+            const bVal = b.get(i, j);
+            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+              sum = Number(sum) + Number(aVal * bVal);
+            } else {
+              sum += Number(aVal) * Number(bVal);
+            }
+          }
+          result.set([j], sum);
         }
-        result.set([j], sum);
       }
     }
 
@@ -418,8 +505,8 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         result.set(resultIdx, new Complex(sumRe, sumIm));
       }
     } else {
+      const ndDot1DAcc = getIntAcc(resultDtype);
       for (let i = 0; i < resultSize; i++) {
-        let sum = 0;
         let temp = i;
         const resultIdx: number[] = [];
         for (let d = resultShape.length - 1; d >= 0; d--) {
@@ -427,17 +514,27 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
           temp = Math.floor(temp / resultShape[d]!);
         }
 
-        for (let k = 0; k < lastDimA; k++) {
-          const aIdx = [...resultIdx, k];
-          const aVal = a.get(...aIdx);
-          const bVal = b.get(k);
-          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-            sum = Number(sum) + Number(aVal * bVal);
-          } else {
-            sum += Number(aVal) * Number(bVal);
+        if (ndDot1DAcc) {
+          ndDot1DAcc[0] = 0;
+          for (let k = 0; k < lastDimA; k++) {
+            const aIdx = [...resultIdx, k];
+            ndDot1DAcc[0] += Number(a.get(...aIdx)) * Number(b.get(k));
           }
+          result.set(resultIdx, ndDot1DAcc[0]!);
+        } else {
+          let sum = 0;
+          for (let k = 0; k < lastDimA; k++) {
+            const aIdx = [...resultIdx, k];
+            const aVal = a.get(...aIdx);
+            const bVal = b.get(k);
+            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+              sum = Number(sum) + Number(aVal * bVal);
+            } else {
+              sum += Number(aVal) * Number(bVal);
+            }
+          }
+          result.set(resultIdx, sum);
         }
-        result.set(resultIdx, sum);
       }
     }
 
@@ -485,6 +582,7 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         result.set(resultIdx, new Complex(sumRe, sumIm));
       }
     } else {
+      const dot1dNdAcc = getIntAcc(resultDtype);
       for (let i = 0; i < resultSize; i++) {
         let temp = i;
         const resultIdx: number[] = [];
@@ -496,18 +594,27 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         const bIdxBefore = resultIdx.slice(0, contractAxisB);
         const bIdxAfter = resultIdx.slice(contractAxisB);
 
-        let sum = 0;
-        for (let k = 0; k < aSize; k++) {
-          const aVal = a.get(k);
-          const bIdx = [...bIdxBefore, k, ...bIdxAfter];
-          const bVal = b.get(...bIdx);
-          if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-            sum = Number(sum) + Number(aVal * bVal);
-          } else {
-            sum += Number(aVal) * Number(bVal);
+        if (dot1dNdAcc) {
+          dot1dNdAcc[0] = 0;
+          for (let k = 0; k < aSize; k++) {
+            const bIdx = [...bIdxBefore, k, ...bIdxAfter];
+            dot1dNdAcc[0] += Number(a.get(k)) * Number(b.get(...bIdx));
           }
+          result.set(resultIdx, dot1dNdAcc[0]!);
+        } else {
+          let sum = 0;
+          for (let k = 0; k < aSize; k++) {
+            const aVal = a.get(k);
+            const bIdx = [...bIdxBefore, k, ...bIdxAfter];
+            const bVal = b.get(...bIdx);
+            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+              sum = Number(sum) + Number(aVal * bVal);
+            } else {
+              sum += Number(aVal) * Number(bVal);
+            }
+          }
+          result.set(resultIdx, sum);
         }
-        result.set(resultIdx, sum);
       }
     }
 
@@ -578,9 +685,11 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         a.isCContiguous &&
         b.isCContiguous &&
         !isBigIntDType(a.dtype) &&
-        !isBigIntDType(b.dtype)
+        !isBigIntDType(b.dtype) &&
+        !getIntAcc(resultDtype)
       ) {
         // Fast path: contiguous numeric arrays - extracted for V8 optimization
+        // Excludes narrow int types (int8/int16 etc.) which need wrapping accumulators
         dotContiguousNumeric(
           a.data,
           a.offset,
@@ -594,25 +703,35 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         );
       } else {
         // General fallback: non-contiguous or bigint arrays
+        const ndMdAcc = getIntAcc(resultDtype);
         for (let i = 0; i < aOuterSize; i++) {
           for (let j = 0; j < bOuterSize; j++) {
             for (let k = 0; k < bLastDim; k++) {
-              let sum = 0;
-              for (let m = 0; m < contractionDim; m++) {
-                const aFlatIdx = i * contractionDim + m;
-                const bFlatIdx = j * contractionDim * bLastDim + m * bLastDim + k;
-                const aVal = a.iget(aFlatIdx);
-                const bVal = b.iget(bFlatIdx);
-
-                if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-                  sum = Number(sum) + Number(aVal * bVal);
-                } else {
-                  sum += Number(aVal) * Number(bVal);
-                }
-              }
-
               const resultIdx = i * bOuterSize * bLastDim + j * bLastDim + k;
-              result.data[resultIdx] = sum;
+              if (ndMdAcc) {
+                ndMdAcc[0] = 0;
+                for (let m = 0; m < contractionDim; m++) {
+                  const aFlatIdx = i * contractionDim + m;
+                  const bFlatIdx = j * contractionDim * bLastDim + m * bLastDim + k;
+                  ndMdAcc[0] += Number(a.iget(aFlatIdx)) * Number(b.iget(bFlatIdx));
+                }
+                result.data[resultIdx] = ndMdAcc[0]!;
+              } else {
+                let sum = 0;
+                for (let m = 0; m < contractionDim; m++) {
+                  const aFlatIdx = i * contractionDim + m;
+                  const bFlatIdx = j * contractionDim * bLastDim + m * bLastDim + k;
+                  const aVal = a.iget(aFlatIdx);
+                  const bVal = b.iget(bFlatIdx);
+
+                  if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+                    sum = Number(sum) + Number(aVal * bVal);
+                  } else {
+                    sum += Number(aVal) * Number(bVal);
+                  }
+                }
+                result.data[resultIdx] = sum;
+              }
             }
           }
         }
@@ -662,10 +781,48 @@ function matmul2D(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     return result;
   }
 
-  const outputDtype =
-    resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool'
-      ? 'float64'
-      : resultDtype;
+  // Integer matmul: compute directly in the target integer type (wraps on overflow, like NumPy)
+  if (resultDtype.startsWith('int') || resultDtype.startsWith('uint') || resultDtype === 'bool') {
+    const result = ArrayStorage.zeros([m, n], resultDtype);
+    const rData = result.data;
+    const aOff = a.offset;
+    const bOff = b.offset;
+    const [aStrideR = 0, aStrideC = 0] = a.strides;
+    const [bStrideR = 0, bStrideC = 0] = b.strides;
+    if (isBigIntDType(resultDtype)) {
+      const aD = a.data as BigInt64Array | BigUint64Array;
+      const bD = b.data as BigInt64Array | BigUint64Array;
+      const rD = rData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          let sum = 0n;
+          for (let l = 0; l < k; l++) {
+            sum +=
+              aD[aOff + i * aStrideR + l * aStrideC]! * bD[bOff + l * bStrideR + j * bStrideC]!;
+          }
+          rD[i * n + j] = sum;
+        }
+      }
+    } else {
+      const aD = a.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const bD = b.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const rD = rData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          let sum = 0;
+          for (let l = 0; l < k; l++) {
+            sum +=
+              aD[aOff + i * aStrideR + l * aStrideC]! * bD[bOff + l * bStrideR + j * bStrideC]!;
+          }
+          // Assigning to a TypedArray truncates/wraps automatically
+          rD[i * n + j] = sum;
+        }
+      }
+    }
+    return result;
+  }
+
+  const outputDtype = resultDtype;
 
   if (outputDtype !== 'float64' && outputDtype !== 'float32') {
     throw new Error(`matmul currently only supports float64/float32, got ${outputDtype}`);
@@ -787,6 +944,70 @@ function toContiguousFloat64(a: ArrayStorage): Float64Array {
 }
 
 /**
+ * Extract a contiguous 2D slice from an ND array at a given batch index.
+ * @internal
+ */
+function extract2DSlice(
+  a: ArrayStorage,
+  batchIdx: number,
+  rows: number,
+  cols: number
+): ArrayStorage {
+  const ndim = a.ndim;
+  const sliceSize = rows * cols;
+  const isComplex = isComplexDType(a.dtype);
+  const isBigInt = isBigIntDType(a.dtype);
+  const factor = isComplex ? 2 : 1;
+  const Ctor = getTypedArrayConstructor(a.dtype)!;
+  const sliceData = new Ctor(sliceSize * factor);
+
+  // Compute offset into the flat contiguous data for this batch
+  if (a.isCContiguous) {
+    const srcOff = (a.offset + batchIdx * sliceSize) * factor;
+    if (isBigInt) {
+      const src = a.data as BigInt64Array | BigUint64Array;
+      const dst = sliceData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < sliceSize * factor; i++) dst[i] = src[srcOff + i]!;
+    } else {
+      const src = a.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const dst = sliceData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      for (let i = 0; i < sliceSize * factor; i++) dst[i] = src[srcOff + i]!;
+    }
+  } else {
+    // Non-contiguous: use iget for each element
+    const baseLinear = batchIdx * sliceSize;
+    for (let i = 0; i < sliceSize; i++) {
+      // Compute multi-index from the flattened batch + 2D position
+      const linearIdx = baseLinear + i;
+      // For non-contiguous, we need to map through strides
+      let remaining = linearIdx;
+      let physIdx = a.offset;
+      for (let d = ndim - 1; d >= 0; d--) {
+        const dimSize = a.shape[d]!;
+        physIdx += (remaining % dimSize) * a.strides[d]!;
+        remaining = Math.floor(remaining / dimSize);
+      }
+      if (isComplex) {
+        const src = a.data as Float64Array | Float32Array;
+        const dst = sliceData as Float64Array | Float32Array;
+        dst[i * 2] = src[physIdx * 2]!;
+        dst[i * 2 + 1] = src[physIdx * 2 + 1]!;
+      } else if (isBigInt) {
+        (sliceData as BigInt64Array | BigUint64Array)[i] = (
+          a.data as BigInt64Array | BigUint64Array
+        )[physIdx]!;
+      } else {
+        (sliceData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = (
+          a.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>
+        )[physIdx]!;
+      }
+    }
+  }
+
+  return ArrayStorage.fromData(sliceData, [rows, cols], a.dtype);
+}
+
+/**
  * Matrix multiplication - fully NumPy-compatible.
  *
  * Behavior by input dimensions:
@@ -798,6 +1019,40 @@ function toContiguousFloat64(a: ArrayStorage): Float64Array {
  * - ND @ ND (N≥3): batched matrix multiply, batch dims broadcast → ND
  */
 export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
+  // Dispatch 1D cases to dedicated WASM kernels (faster than promoting to 2D matmul)
+  if (a.ndim === 1 && b.ndim === 1) {
+    // 1D · 1D → scalar (wrapped in 0D storage for matmul)
+    const dotResult = wasmDot1D(a, b);
+    if (dotResult !== null) {
+      const dt = promoteDTypes(a.dtype, b.dtype);
+      const scalar = ArrayStorage.zeros([], dt);
+      if (dotResult instanceof Complex) {
+        (scalar.data as Float64Array | Float32Array)[0] = dotResult.re;
+        (scalar.data as Float64Array | Float32Array)[1] = dotResult.im;
+      } else {
+        scalar.data[0] = dotResult;
+      }
+      return scalar;
+    }
+  } else if (a.ndim >= 2 && b.ndim === 1) {
+    // 2D · 1D → matvec (result shape removes last dim of a)
+    if (a.ndim === 2) {
+      const mvResult = wasmMatvec(a, b);
+      if (mvResult) return mvResult;
+    }
+  } else if (a.ndim === 1 && b.ndim >= 2) {
+    // 1D · 2D → vecmat (result shape removes first dim of b)
+    if (b.ndim === 2) {
+      const vmResult = wasmVecmat(a, b);
+      if (vmResult) return vmResult;
+    }
+  }
+
+  // Try WASM acceleration for 2D+ matmul (returns null if it can't handle this case)
+  const wasmResult = wasmMatmul(a, b);
+  if (wasmResult) return wasmResult;
+
+  // JS fallback
   if (a.ndim === 0 || b.ndim === 0) {
     throw new Error(
       `matmul: Input operand does not have enough dimensions (has 0, gufunc core with signature (n?,k),(k,m?)->(n?,m?) requires at least 1-D)`
@@ -833,38 +1088,53 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     return result2D;
   }
 
-  // ND batched matrix multiplication
+  // ND batched matrix multiplication — dispatch each 2D slice to matmul2D
+  // which handles all dtypes (int, bigint, float, complex)
   const aBatch = Array.from(aProc.shape).slice(0, aNdim - 2);
   const bBatch = Array.from(bProc.shape).slice(0, bNdim - 2);
   const batchShape = broadcastBatchShapes(aBatch, bBatch);
   const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
 
-  const aData = toContiguousFloat64(aProc);
-  const bData = toContiguousFloat64(bProc);
-  const resultData = new Float64Array(batchSize * M * N);
+  const resultDtype = promoteDTypes(aProc.dtype, bProc.dtype);
+  const slices: ArrayStorage[] = [];
 
   for (let bi = 0; bi < batchSize; bi++) {
     const batchIdx = flatToBatchMultiIndex(bi, batchShape);
     const aFlatBatch = batchMultiIndexToFlat(batchIdx, aBatch);
     const bFlatBatch = batchMultiIndexToFlat(batchIdx, bBatch);
 
-    const aOff = aFlatBatch * M * K;
-    const bOff = bFlatBatch * K * N;
-    const rOff = bi * M * N;
+    // Extract 2D slices
+    const aSlice = extract2DSlice(aProc, aFlatBatch, M, K);
+    const bSlice = extract2DSlice(bProc, bFlatBatch, K, N);
+    slices.push(matmul2D(aSlice, bSlice));
+  }
 
-    for (let i = 0; i < M; i++) {
-      for (let j = 0; j < N; j++) {
-        let sum = 0;
-        for (let kk = 0; kk < K; kk++) {
-          sum += aData[aOff + i * K + kk]! * bData[bOff + kk * N + j]!;
-        }
-        resultData[rOff + i * N + j] = sum;
-      }
+  // Concatenate all 2D results into ND output
+  const elementsPerSlice = M * N;
+  const isComplex = isComplexDType(resultDtype);
+  const isBigInt = isBigIntDType(resultDtype);
+  const factor = isComplex ? 2 : 1;
+  const Ctor = getTypedArrayConstructor(resultDtype)!;
+  const totalElements = batchSize * elementsPerSlice * factor;
+  const resultData = new Ctor(totalElements);
+
+  for (let bi = 0; bi < batchSize; bi++) {
+    const slice = slices[bi]!;
+    const srcData = slice.data;
+    const dstOff = bi * elementsPerSlice * factor;
+    if (isBigInt) {
+      const src = srcData as BigInt64Array | BigUint64Array;
+      const dst = resultData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < elementsPerSlice; i++) dst[dstOff + i] = src[i]!;
+    } else {
+      const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      const dst = resultData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+      for (let i = 0; i < elementsPerSlice * factor; i++) dst[dstOff + i] = src[i]!;
     }
   }
 
   const outShape = [...batchShape, M, N];
-  const result = ArrayStorage.fromData(resultData, outShape, 'float64');
+  const result = ArrayStorage.fromData(resultData, outShape, resultDtype);
 
   if (aWas1D && bWas1D) return shapeOps.reshape(result, [...batchShape]);
   if (aWas1D) return shapeOps.reshape(result, [...batchShape, N]);
@@ -1051,7 +1321,13 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
     );
   }
 
-  // Special case: both 1D -> scalar
+  // Try WASM-accelerated path (handles 1D·1D scalar and ND·MD)
+  const wasmResult = wasmInner(a, b);
+  if (wasmResult !== null) {
+    return wasmResult;
+  }
+
+  // Special case: both 1D -> scalar (JS fallback for small arrays / complex / unsupported dtype)
   if (aDim === 1 && bDim === 1) {
     return dot(a, b) as number | Complex;
   }
@@ -1125,8 +1401,16 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
     }
   } else {
     // Non-complex fast path
-    if (a.isCContiguous && b.isCContiguous && !isBigIntDType(a.dtype) && !isBigIntDType(b.dtype)) {
-      // Scalar result special case
+    const innerAcc = getIntAcc(resultDtype);
+    if (
+      a.isCContiguous &&
+      b.isCContiguous &&
+      !isBigIntDType(a.dtype) &&
+      !isBigIntDType(b.dtype) &&
+      !innerAcc
+    ) {
+      // Fast path: contiguous numeric arrays - extracted for V8 optimization
+      // Excludes narrow int types (int8/int16 etc.) which need wrapping accumulators
       if (resultShape.length === 0) {
         const aData = a.data;
         const bData = b.data;
@@ -1138,7 +1422,6 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
         }
         return sum;
       }
-      // Fast path: contiguous numeric arrays - extracted for V8 optimization
       innerContiguousNumeric(
         a.data,
         a.offset,
@@ -1155,26 +1438,40 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
       // General fallback: non-contiguous or bigint arrays
       for (let i = 0; i < aOuterSize; i++) {
         for (let j = 0; j < bOuterSize; j++) {
-          let sum = 0;
-          for (let k = 0; k < contractionDim; k++) {
-            const aFlatIdx = aDim === 1 ? k : i * contractionDim + k;
-            const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
-            const aVal = a.iget(aFlatIdx);
-            const bVal = b.iget(bFlatIdx);
-
-            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-              sum = Number(sum) + Number(aVal * bVal);
-            } else {
-              sum += Number(aVal) * Number(bVal);
+          if (innerAcc) {
+            innerAcc[0] = 0;
+            for (let k = 0; k < contractionDim; k++) {
+              const aFlatIdx = aDim === 1 ? k : i * contractionDim + k;
+              const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
+              innerAcc[0] += Number(a.iget(aFlatIdx)) * Number(b.iget(bFlatIdx));
             }
-          }
+            if (resultShape.length === 0) {
+              return innerAcc[0]!;
+            }
+            const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
+            result.data[resultIdx] = innerAcc[0]!;
+          } else {
+            let sum = 0;
+            for (let k = 0; k < contractionDim; k++) {
+              const aFlatIdx = aDim === 1 ? k : i * contractionDim + k;
+              const bFlatIdx = bDim === 1 ? k : j * contractionDim + k;
+              const aVal = a.iget(aFlatIdx);
+              const bVal = b.iget(bFlatIdx);
 
-          // Set result
-          if (resultShape.length === 0) {
-            return sum;
+              if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
+                sum = Number(sum) + Number(aVal * bVal);
+              } else {
+                sum += Number(aVal) * Number(bVal);
+              }
+            }
+
+            // Set result
+            if (resultShape.length === 0) {
+              return sum;
+            }
+            const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
+            result.data[resultIdx] = sum;
           }
-          const resultIdx = aOuterSize === 1 ? j : i * bOuterSize + j;
-          result.data[resultIdx] = sum;
         }
       }
     }
@@ -1197,6 +1494,10 @@ export function outer(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   // Flatten inputs to 1D
   const aFlat = a.ndim === 1 ? a : shapeOps.ravel(a);
   const bFlat = b.ndim === 1 ? b : shapeOps.ravel(b);
+
+  // Try WASM-accelerated outer product
+  const wasmResult = wasmOuter(aFlat, bFlat);
+  if (wasmResult) return wasmResult;
 
   const m = aFlat.size;
   const n = bFlat.size;
@@ -1949,6 +2250,12 @@ export function kron(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   // Promote dtypes
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
 
+  // WASM fast path for 2D × 2D
+  if (aNdim === 2 && bNdim === 2) {
+    const wasmResult = wasmKron(a, b);
+    if (wasmResult) return wasmResult;
+  }
+
   // Determine output shape
   const ndim = Math.max(aNdim, bNdim);
   const outShape: number[] = new Array(ndim);
@@ -2052,7 +2359,7 @@ export function cross(
   axisb: number = -1,
   axisc: number = -1,
   axis?: number
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   // If axis is specified, use it for all
   if (axis !== undefined) {
     axisa = axis;
@@ -2071,27 +2378,36 @@ export function cross(
   const isComplex = isComplexDType(resultDtype);
 
   // Helper to get value as number or Complex
-  const getValue = (storage: ArrayStorage, ...indices: number[]): number | Complex => {
+  type CrossVal = number | bigint | Complex;
+
+  const getValue = (storage: ArrayStorage, ...indices: number[]): CrossVal => {
     const val = storage.get(...indices);
     if (val instanceof Complex) return val;
+    if (typeof val === 'bigint') return val;
     return Number(val);
   };
 
   // Helper for cross product arithmetic
-  const crossMul = (x: number | Complex, y: number | Complex): number | Complex => {
+  const crossMul = (x: CrossVal, y: CrossVal): CrossVal => {
     if (x instanceof Complex || y instanceof Complex) {
-      const xc = x instanceof Complex ? x : new Complex(x, 0);
-      const yc = y instanceof Complex ? y : new Complex(y, 0);
+      const xc = x instanceof Complex ? x : new Complex(Number(x), 0);
+      const yc = y instanceof Complex ? y : new Complex(Number(y), 0);
       return xc.mul(yc);
+    }
+    if (typeof x === 'bigint' || typeof y === 'bigint') {
+      return BigInt(x as bigint) * BigInt(y as bigint);
     }
     return x * y;
   };
 
-  const crossSub = (x: number | Complex, y: number | Complex): number | Complex => {
+  const crossSub = (x: CrossVal, y: CrossVal): CrossVal => {
     if (x instanceof Complex || y instanceof Complex) {
-      const xc = x instanceof Complex ? x : new Complex(x, 0);
-      const yc = y instanceof Complex ? y : new Complex(y, 0);
+      const xc = x instanceof Complex ? x : new Complex(Number(x), 0);
+      const yc = y instanceof Complex ? y : new Complex(Number(y), 0);
       return xc.sub(yc);
+    }
+    if (typeof x === 'bigint' || typeof y === 'bigint') {
+      return BigInt(x as bigint) - BigInt(y as bigint);
     }
     return x - y;
   };
@@ -2126,10 +2442,24 @@ export function cross(
       // Mixed 2D/3D - treat 2D as having z=0
       const a0 = getValue(a, 0);
       const a1 = getValue(a, 1);
-      const a2 = dimA === 3 ? getValue(a, 2) : isComplex ? new Complex(0, 0) : 0;
+      const a2 =
+        dimA === 3
+          ? getValue(a, 2)
+          : isComplex
+            ? new Complex(0, 0)
+            : isBigIntDType(resultDtype)
+              ? 0n
+              : 0;
       const b0 = getValue(b, 0);
       const b1 = getValue(b, 1);
-      const b2 = dimB === 3 ? getValue(b, 2) : isComplex ? new Complex(0, 0) : 0;
+      const b2 =
+        dimB === 3
+          ? getValue(b, 2)
+          : isComplex
+            ? new Complex(0, 0)
+            : isBigIntDType(resultDtype)
+              ? 0n
+              : 0;
 
       const result = ArrayStorage.zeros([3], resultDtype);
       result.set([0], crossSub(crossMul(a1, b2), crossMul(a2, b1)));
@@ -2170,6 +2500,14 @@ export function cross(
   }
 
   const otherShape = aOtherShape;
+
+  // WASM fast path: batched 3×3 cross product with last axis as vector axis
+  if (vectorDimA === 3 && vectorDimB === 3 && axisA === a.ndim - 1 && axisB === b.ndim - 1) {
+    const batchSize = otherShape.reduce((acc, d) => acc * d, 1);
+    const wasmResult = wasmCross(a, b, batchSize);
+    if (wasmResult) return wasmResult;
+  }
+
   const normalizedAxisC = axisc < 0 ? otherShape.length + 1 + axisc : axisc;
 
   // Build result shape
@@ -2210,21 +2548,35 @@ export function cross(
     const bIndices = [...otherIndices.slice(0, axisB), 0, ...otherIndices.slice(axisB)];
 
     // Extract vector components
-    const getA = (idx: number): number | Complex => {
+    const getA = (idx: number): CrossVal => {
       aIndices[axisA] = idx;
       return getValue(a, ...aIndices);
     };
-    const getB = (idx: number): number | Complex => {
+    const getB = (idx: number): CrossVal => {
       bIndices[axisB] = idx;
       return getValue(b, ...bIndices);
     };
 
     const a0 = getA(0);
     const a1 = getA(1);
-    const a2 = vectorDimA === 3 ? getA(2) : isComplex ? new Complex(0, 0) : 0;
+    const a2 =
+      vectorDimA === 3
+        ? getA(2)
+        : isComplex
+          ? new Complex(0, 0)
+          : isBigIntDType(resultDtype)
+            ? 0n
+            : 0;
     const b0 = getB(0);
     const b1 = getB(1);
-    const b2 = vectorDimB === 3 ? getB(2) : isComplex ? new Complex(0, 0) : 0;
+    const b2 =
+      vectorDimB === 3
+        ? getB(2)
+        : isComplex
+          ? new Complex(0, 0)
+          : isBigIntDType(resultDtype)
+            ? 0n
+            : 0;
 
     if (outputVectorDim === 0) {
       // Scalar result
@@ -2235,7 +2587,7 @@ export function cross(
       const c1 = crossSub(crossMul(a2, b0), crossMul(a0, b2));
       const c2 = crossSub(crossMul(a0, b1), crossMul(a1, b0));
 
-      const setResult = (idx: number, val: number | Complex) => {
+      const setResult = (idx: number, val: CrossVal) => {
         const resultIndices = [
           ...otherIndices.slice(0, normalizedAxisC),
           idx,
@@ -2673,6 +3025,12 @@ export function qr(
     throw new Error(`qr: input must be 2D, got ${a.ndim}D`);
   }
 
+  // WASM fast path for 'reduced' mode
+  if (mode === 'reduced') {
+    const wasmResult = wasmQr(a);
+    if (wasmResult) return wasmResult;
+  }
+
   const [m, n] = a.shape;
   const k = Math.min(m!, n!);
 
@@ -2849,6 +3207,23 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
     throw new Error(`cholesky: matrix must be square, got ${m}x${n}`);
   }
 
+  // WASM fast path
+  const wasmResult = wasmCholesky(a);
+  if (wasmResult) {
+    if (upper) {
+      // Transpose L to get U
+      const size = m!;
+      const U = ArrayStorage.zeros([size, size], 'float64');
+      for (let i = 0; i < size; i++) {
+        for (let j = i; j < size; j++) {
+          U.set([i, j], Number(wasmResult.get(j, i)));
+        }
+      }
+      return U;
+    }
+    return wasmResult;
+  }
+
   const size = m!;
   const L = ArrayStorage.zeros([size, size], 'float64');
 
@@ -2905,6 +3280,10 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   if (a.ndim !== 2) {
     throw new Error(`svd: input must be 2D, got ${a.ndim}D`);
   }
+
+  // WASM fast path
+  const wasmResult = wasmSvd(a);
+  if (wasmResult) return wasmResult;
 
   const [m, n] = a.shape;
   const smaller = Math.min(m!, n!);
@@ -4137,20 +4516,29 @@ export function vdot(a: ArrayStorage, b: ArrayStorage): number | bigint | Comple
 
   const isComplex = isComplexDType(a.dtype) || isComplexDType(b.dtype);
 
+  // WASM path: real/integer types use dot kernel, complex uses conjugate kernel
+  if (!isComplex) {
+    const wasmResult = wasmDot1D(aFlat, bFlat);
+    if (wasmResult !== null) return wasmResult;
+  } else {
+    const wasmResult = wasmVdotComplex(aFlat, bFlat);
+    if (wasmResult !== null) return wasmResult;
+  }
+
   if (isComplex) {
     let sumRe = 0;
     let sumIm = 0;
     for (let i = 0; i < aSize; i++) {
       const aVal = aFlat.get(i);
       const bVal = bFlat.get(i);
-      // Complex conjugate of first argument
+      // Complex conjugate of first argument: conj(a) * b
       const aRe = aVal instanceof Complex ? aVal.re : Number(aVal);
-      const aIm = aVal instanceof Complex ? -aVal.im : 0; // Conjugate!
+      const aIm = aVal instanceof Complex ? aVal.im : 0;
       const bRe = bVal instanceof Complex ? bVal.re : Number(bVal);
       const bIm = bVal instanceof Complex ? bVal.im : 0;
-      // (aRe - aIm*i) * (bRe + bIm*i) = (aRe*bRe + aIm*bIm) + (aRe*bIm - aIm*bRe)*i
+      // conj(a)*b = (aRe - aIm*i)(bRe + bIm*i) = (aRe*bRe + aIm*bIm) + (aRe*bIm - aIm*bRe)*i
       sumRe += aRe * bRe + aIm * bIm;
-      sumIm += aRe * bIm - aIm * bRe;
+      sumIm += -aIm * bRe + aRe * bIm;
     }
     if (Math.abs(sumIm) < 1e-15) {
       return sumRe;
@@ -4159,6 +4547,15 @@ export function vdot(a: ArrayStorage, b: ArrayStorage): number | bigint | Comple
   }
 
   // Real case
+  const vdotResultDtype = promoteDTypes(a.dtype, b.dtype);
+  const vdotAcc = getIntAcc(vdotResultDtype);
+  if (vdotAcc) {
+    vdotAcc[0] = 0;
+    for (let i = 0; i < aSize; i++) {
+      vdotAcc[0] += Number(aFlat.get(i)) * Number(bFlat.get(i));
+    }
+    return vdotAcc[0]!;
+  }
   let sum: number | bigint = 0;
   for (let i = 0; i < aSize; i++) {
     const aVal = aFlat.get(i);
@@ -4210,9 +4607,34 @@ export function vecdot(
     throw new Error(`vecdot: axis dimensions must match, got ${aAxisLen} and ${bAxisLen}`);
   }
 
-  // For 1D arrays, just compute the dot product
+  // For 1D arrays, compute conj(a) · b directly (can't delegate to dot which doesn't conjugate)
   if (aDim === 1 && bDim === 1) {
-    return dot(a, b) as number | bigint | Complex;
+    const isComplexInput = isComplexDType(a.dtype) || isComplexDType(b.dtype);
+    if (!isComplexInput) {
+      return dot(a, b) as number | bigint | Complex;
+    }
+    const n = a.shape[0]!;
+    let sumRe = 0;
+    let sumIm = 0;
+    for (let i = 0; i < n; i++) {
+      const aVal = a.get(i);
+      const bVal = b.get(i);
+      const aConj = aVal instanceof Complex ? new Complex(aVal.re, -aVal.im) : aVal;
+      const prod = multiplyValues(aConj, bVal);
+      if (prod instanceof Complex) {
+        sumRe += prod.re;
+        sumIm += prod.im;
+      } else {
+        sumRe += Number(prod);
+      }
+    }
+    return new Complex(sumRe, sumIm);
+  }
+
+  // Try WASM-accelerated vecdot for 2D arrays with default axis (-1)
+  if (aDim === 2 && bDim === 2 && axis === -1) {
+    const wasmResult = wasmVecdot(a, b);
+    if (wasmResult) return wasmResult;
   }
 
   // Use einsum for the general case: contract the specified axis
@@ -4239,13 +4661,28 @@ export function vecdot(
   const resultShape =
     aShapeWithoutAxis.length > bShapeWithoutAxis.length ? aShapeWithoutAxis : bShapeWithoutAxis;
 
+  const vecdotAcc = getIntAcc(resultDtype);
+
   if (resultShape.length === 0) {
     // Scalar result
-    let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
+    if (vecdotAcc) {
+      vecdotAcc[0] = 0;
+      for (let k = 0; k < contractDim; k++) {
+        vecdotAcc[0] += Number(a.get(k)) * Number(b.get(k));
+      }
+      return vecdotAcc[0]!;
+    }
+    let sum: number | bigint | Complex = isComplex
+      ? new Complex(0, 0)
+      : isBigIntDType(resultDtype)
+        ? 0n
+        : 0;
     for (let k = 0; k < contractDim; k++) {
       const aVal = a.get(k);
       const bVal = b.get(k);
-      const prod = multiplyValues(aVal, bVal);
+      // vecdot uses conj(a) * b
+      const aConj = aVal instanceof Complex ? new Complex(aVal.re, -aVal.im) : aVal;
+      const prod = multiplyValues(aConj, bVal);
       if (sum instanceof Complex || prod instanceof Complex) {
         const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
         const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
@@ -4277,24 +4714,40 @@ export function vecdot(
     const aIdx = [...multiIdx.slice(0, normalizedAxisA), 0, ...multiIdx.slice(normalizedAxisA)];
     const bIdx = [...multiIdx.slice(0, normalizedAxisB), 0, ...multiIdx.slice(normalizedAxisB)];
 
-    let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
-    for (let k = 0; k < contractDim; k++) {
-      aIdx[normalizedAxisA] = k;
-      bIdx[normalizedAxisB] = k;
-      const aVal = a.get(...aIdx);
-      const bVal = b.get(...bIdx);
-      const prod = multiplyValues(aVal, bVal);
-      if (sum instanceof Complex || prod instanceof Complex) {
-        const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
-        const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
-        sum = sumC.add(prodC);
-      } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
-        sum = BigInt(sum as number) + BigInt(prod as number);
-      } else {
-        sum = (sum as number) + (prod as number);
+    if (vecdotAcc) {
+      vecdotAcc[0] = 0;
+      for (let k = 0; k < contractDim; k++) {
+        aIdx[normalizedAxisA] = k;
+        bIdx[normalizedAxisB] = k;
+        vecdotAcc[0] += Number(a.get(...aIdx)) * Number(b.get(...bIdx));
       }
+      result.set(multiIdx, vecdotAcc[0]!);
+    } else {
+      let sum: number | bigint | Complex = isComplex
+        ? new Complex(0, 0)
+        : isBigIntDType(resultDtype)
+          ? 0n
+          : 0;
+      for (let k = 0; k < contractDim; k++) {
+        aIdx[normalizedAxisA] = k;
+        bIdx[normalizedAxisB] = k;
+        const aVal = a.get(...aIdx);
+        const bVal = b.get(...bIdx);
+        // vecdot uses conj(a) * b
+        const aConj = aVal instanceof Complex ? new Complex(aVal.re, -aVal.im) : aVal;
+        const prod = multiplyValues(aConj, bVal);
+        if (sum instanceof Complex || prod instanceof Complex) {
+          const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
+          const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
+          sum = sumC.add(prodC);
+        } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
+          sum = BigInt(sum as number) + BigInt(prod as number);
+        } else {
+          sum = (sum as number) + (prod as number);
+        }
+      }
+      result.set(multiIdx, sum);
     }
-    result.set(multiIdx, sum);
   }
 
   return result;
@@ -4414,26 +4867,40 @@ export function matvec(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
       return dim === 1 ? 0 : idx;
     });
 
+    const matvecAcc = getIntAcc(resultDtype);
     for (let i = 0; i < m; i++) {
-      let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
-      for (let j = 0; j < n1; j++) {
-        const x1Idx = [...x1BatchIdx, i, j];
-        const x2Idx = [...x2BatchIdx, j];
-        const x1Val = x1.get(...x1Idx);
-        const x2Val = x2.get(...x2Idx);
-        const prod = multiplyValues(x1Val, x2Val);
-        if (sum instanceof Complex || prod instanceof Complex) {
-          const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
-          const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
-          sum = sumC.add(prodC);
-        } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
-          sum = BigInt(sum as number) + BigInt(prod as number);
-        } else {
-          sum = (sum as number) + (prod as number);
+      if (matvecAcc) {
+        matvecAcc[0] = 0;
+        for (let j = 0; j < n1; j++) {
+          const x1Idx = [...x1BatchIdx, i, j];
+          const x2Idx = [...x2BatchIdx, j];
+          matvecAcc[0] += Number(x1.get(...x1Idx)) * Number(x2.get(...x2Idx));
         }
+        result.set([...batchMultiIdx, i], matvecAcc[0]!);
+      } else {
+        let sum: number | bigint | Complex = isComplex
+          ? new Complex(0, 0)
+          : isBigIntDType(resultDtype)
+            ? 0n
+            : 0;
+        for (let j = 0; j < n1; j++) {
+          const x1Idx = [...x1BatchIdx, i, j];
+          const x2Idx = [...x2BatchIdx, j];
+          const x1Val = x1.get(...x1Idx);
+          const x2Val = x2.get(...x2Idx);
+          const prod = multiplyValues(x1Val, x2Val);
+          if (sum instanceof Complex || prod instanceof Complex) {
+            const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
+            const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
+            sum = sumC.add(prodC);
+          } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
+            sum = BigInt(sum as number) + BigInt(prod as number);
+          } else {
+            sum = (sum as number) + (prod as number);
+          }
+        }
+        result.set([...batchMultiIdx, i], sum);
       }
-      const resultIdx = [...batchMultiIdx, i];
-      result.set(resultIdx, sum);
     }
   }
 
@@ -4518,26 +4985,40 @@ export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
       return dim === 1 ? 0 : idx;
     });
 
+    const vecmatAcc = getIntAcc(resultDtype);
     for (let j = 0; j < n; j++) {
-      let sum: number | bigint | Complex = isComplex ? new Complex(0, 0) : 0;
-      for (let i = 0; i < m1; i++) {
-        const x1Idx = [...x1BatchIdx, i];
-        const x2Idx = [...x2BatchIdx, i, j];
-        const x1Val = x1.get(...x1Idx);
-        const x2Val = x2.get(...x2Idx);
-        const prod = multiplyValues(x1Val, x2Val);
-        if (sum instanceof Complex || prod instanceof Complex) {
-          const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
-          const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
-          sum = sumC.add(prodC);
-        } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
-          sum = BigInt(sum as number) + BigInt(prod as number);
-        } else {
-          sum = (sum as number) + (prod as number);
+      if (vecmatAcc) {
+        vecmatAcc[0] = 0;
+        for (let i = 0; i < m1; i++) {
+          const x1Idx = [...x1BatchIdx, i];
+          const x2Idx = [...x2BatchIdx, i, j];
+          vecmatAcc[0] += Number(x1.get(...x1Idx)) * Number(x2.get(...x2Idx));
         }
+        result.set([...batchMultiIdx, j], vecmatAcc[0]!);
+      } else {
+        let sum: number | bigint | Complex = isComplex
+          ? new Complex(0, 0)
+          : isBigIntDType(resultDtype)
+            ? 0n
+            : 0;
+        for (let i = 0; i < m1; i++) {
+          const x1Idx = [...x1BatchIdx, i];
+          const x2Idx = [...x2BatchIdx, i, j];
+          const x1Val = x1.get(...x1Idx);
+          const x2Val = x2.get(...x2Idx);
+          const prod = multiplyValues(x1Val, x2Val);
+          if (sum instanceof Complex || prod instanceof Complex) {
+            const sumC: Complex = sum instanceof Complex ? sum : new Complex(Number(sum), 0);
+            const prodC: Complex = prod instanceof Complex ? prod : new Complex(Number(prod), 0);
+            sum = sumC.add(prodC);
+          } else if (typeof sum === 'bigint' || typeof prod === 'bigint') {
+            sum = BigInt(sum as number) + BigInt(prod as number);
+          } else {
+            sum = (sum as number) + (prod as number);
+          }
+        }
+        result.set([...batchMultiIdx, j], sum);
       }
-      const resultIdx = [...batchMultiIdx, j];
-      result.set(resultIdx, sum);
     }
   }
 

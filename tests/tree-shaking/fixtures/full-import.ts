@@ -11,6 +11,10 @@ const c = np.array([
   [1, 2],
   [3, 4],
 ]);
+const spd = np.array([
+  [4, 2],
+  [2, 5],
+]);
 const d = np.sin(c);
 const e = np.linalg.inv(c);
 const f = np.fft.fft(np.array([1, 2, 3, 4]));
@@ -18,7 +22,15 @@ np.random.seed(42);
 const g = np.random.random([2, 2]);
 const h = np.serializeNpy(a);
 
+// Exercise all linalg WASM kernels so bundler includes them
+const i = np.linalg.svd(c);
+const j = np.linalg.cholesky(spd);
+const k = np.linalg.qr(c);
+const l = np.dot(c, c);
+const m = np.matmul(c, c);
+
 // Access shape via type guard for g (random returns union type)
 const gShape = typeof g === 'object' && 'shape' in g ? g.shape : null;
 console.log(a.shape, b.shape, c.shape, d.shape, e.shape, f.shape, gShape, h.byteLength);
-export { a, b, c, d, e, f, g, h };
+console.log(i, j.shape, k, l, m);
+export { a, b, c, d, e, f, g, h, i, j, k, l, m };

@@ -59,7 +59,7 @@ export async function generatePNGChart(report: BenchmarkReport, outputPath: stri
         title: {
           display: true,
           text: [
-            'numpy-ts vs Python NumPy Performance',
+            `numpy-ts vs ${report.environment.baseline === 'pyodide' ? 'Pyodide NumPy (WASM)' : 'Python NumPy'} Performance`,
             `Overall: ${summary.avg_slowdown.toFixed(1)}x slower (avg) | Best: ${summary.best_case.toFixed(1)}x | Worst: ${summary.worst_case.toFixed(1)}x`,
           ],
           font: {
@@ -325,7 +325,7 @@ export async function generateMultiRuntimePNGChart(
         title: {
           display: true,
           text: [
-            'numpy-ts vs Python NumPy — Multi-Runtime Performance',
+            `numpy-ts vs ${report.environment.baseline === 'pyodide' ? 'Pyodide NumPy (WASM)' : 'Python NumPy'} — Multi-Runtime Performance`,
             subtitleParts.join(' | '),
           ],
           font: { size: 18, weight: 'bold' },

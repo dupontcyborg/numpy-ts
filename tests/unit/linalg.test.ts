@@ -25,6 +25,7 @@ import {
   vecmat,
   ones,
 } from '../../src';
+import { Complex } from '../../src/common/complex';
 
 describe('Linear Algebra Operations', () => {
   describe('dot()', () => {
@@ -1523,10 +1524,11 @@ describe('numpy.linalg Module', () => {
       const result = linalg.matmul(a, b);
 
       expect(result.shape).toEqual([2, 2]);
-      // Result is float64 (matmul converts to float)
+      // Result stays int64 (matching NumPy behavior)
+      expect(result.dtype).toBe('int64');
       expect(result.toArray()).toEqual([
-        [19, 22],
-        [43, 50],
+        [19n, 22n],
+        [43n, 50n],
       ]);
     });
 
@@ -1960,6 +1962,46 @@ describe('Top-level Linear Algebra Functions', () => {
       const result = vecdot(a, b);
 
       expect(result).toBe(32);
+    });
+
+    it('conjugates first argument for complex inputs', () => {
+      // vecdot(a, b) = sum(conj(a) * b)
+      // a = [1+1j, 2+2j], b = [1+1j, 2+2j]
+      // conj(a) * b = (1-1j)(1+1j) + (2-2j)(2+2j) = (1+1) + (4+4) = 2 + 8 = 10
+      // Result should be purely real: 10 + 0j
+      const a = array([new Complex(1, 1), new Complex(2, 2)]);
+      const b = array([new Complex(1, 1), new Complex(2, 2)]);
+      const result = vecdot(a, b);
+
+      expect(result).toBeInstanceOf(Complex);
+      const c = result as Complex;
+      expect(c.re).toBeCloseTo(10, 10);
+      expect(c.im).toBeCloseTo(0, 10);
+    });
+
+    it('computes complex vecdot with asymmetric inputs', () => {
+      // a = [3+4j, 1-2j], b = [1+0j, 0+1j]
+      // conj(a)*b = (3-4j)(1) + (1+2j)(j) = 3-4j + (j+2j²) = 3-4j + (-2+j) = 1-3j
+      const a = array([new Complex(3, 4), new Complex(1, -2)]);
+      const b = array([new Complex(1, 0), new Complex(0, 1)]);
+      const result = vecdot(a, b);
+
+      expect(result).toBeInstanceOf(Complex);
+      const c = result as Complex;
+      expect(c.re).toBeCloseTo(1, 5);
+      expect(c.im).toBeCloseTo(-3, 5);
+    });
+
+    it('complex vecdot of vector with itself gives real result', () => {
+      // conj(a) * a is always real (|a|² for each element)
+      const a = array([new Complex(3, 4), new Complex(5, 12)]);
+      const result = vecdot(a, a);
+
+      expect(result).toBeInstanceOf(Complex);
+      const c = result as Complex;
+      // |3+4j|² + |5+12j|² = 25 + 169 = 194
+      expect(c.re).toBeCloseTo(194, 10);
+      expect(c.im).toBeCloseTo(0, 10);
     });
   });
 

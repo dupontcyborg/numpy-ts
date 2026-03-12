@@ -556,6 +556,9 @@ export type { NpzSerializeOptions } from './io/npz/serializer';
 export type { ParseTxtOptions } from './io/txt/parser';
 export type { SerializeTxtOptions } from './io/txt/serializer';
 
+// WASM configuration (for testing — set thresholdMultiplier to 0 to force WASM, Infinity to disable)
+export { wasmConfig } from './common/wasm/config';
+
 // Serializers - re-export directly (they accept NDArrayCore, and NDArray extends NDArrayCore)
 export { serializeNpy } from './io/npy/serializer';
 export { serializeNpz, serializeNpzSync } from './io/npz/serializer';

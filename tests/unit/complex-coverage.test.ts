@@ -486,10 +486,11 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   polyval: 'supported', // polynomial evaluation
   roots: 'supported', // polynomial roots
 
-  // Namespace objects
+  // Namespace objects and runtime config
   linalg: 'skip', // namespace object, not a function
   random: 'skip', // namespace object
   fft: 'skip', // namespace object
+  wasmConfig: 'skip', // WASM runtime configuration object
 
   // IO functions
   parseNpy: 'skip',

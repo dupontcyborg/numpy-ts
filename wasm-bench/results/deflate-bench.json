@@ -1,0 +1,509 @@
+{
+  "timestamp": "2026-03-11T12:13:41.262Z",
+  "results": [
+    {
+      "engine": "Zig ReleaseFast",
+      "dataType": "float64",
+      "dataSize": 8000,
+      "dataSizeHuman": "float64 1K",
+      "compressTime": {
+        "median_ms": 0.12058299999999633,
+        "min_ms": 0.10462500000001285,
+        "max_ms": 0.21129200000000026,
+        "throughput_MBs": 63.27089665417374
+      },
+      "decompressTime": {
+        "median_ms": 0.11016599999999244,
+        "min_ms": 0.09675000000000011,
+        "max_ms": 0.2051659999999913,
+        "throughput_MBs": 69.25362209075871
+      },
+      "compressedSize": 6571,
+      "ratio": 0.821375,
+      "binarySize": 8755,
+      "binarySizeGzip": 3698
+    },
+    {
+      "engine": "Zig ReleaseSmall",
+      "dataType": "float64",
+      "dataSize": 8000,
+      "dataSizeHuman": "float64 1K",
+      "compressTime": {
+        "median_ms": 0.16579199999999616,
+        "min_ms": 0.14500000000001023,
+        "max_ms": 0.21749999999998693,
+        "throughput_MBs": 46.017868963823204
+      },
+      "decompressTime": {
+        "median_ms": 0.26224999999999454,
+        "min_ms": 0.24479100000000642,
+        "max_ms": 0.2954170000000005,
+        "throughput_MBs": 29.09206684938097
+      },
+      "compressedSize": 6571,
+      "ratio": 0.821375,
+      "binarySize": 4762,
+      "binarySizeGzip": 2355
+    },
+    {
+      "engine": "Compression Streams",
+      "dataType": "float64",
+      "dataSize": 8000,
+      "dataSizeHuman": "float64 1K",
+      "compressTime": {
+        "median_ms": 0.14654099999998493,
+        "min_ms": 0.10558299999999576,
+        "max_ms": 0.25662499999998545,
+        "throughput_MBs": 52.06320777973935
+      },
+      "decompressTime": {
+        "median_ms": 0.08108299999997826,
+        "min_ms": 0.06350000000000477,
+        "max_ms": 0.21375000000000455,
+        "throughput_MBs": 94.09363900265217
+      },
+      "compressedSize": 6019,
+      "ratio": 0.752375
+    },
+    {
+      "engine": "node:zlib (sync)",
+      "dataType": "float64",
+      "dataSize": 8000,
+      "dataSizeHuman": "float64 1K",
+      "compressTime": {
+        "median_ms": 0.059583000000003494,
+        "min_ms": 0.049584000000010064,
+        "max_ms": 0.09904199999999719,
+        "throughput_MBs": 128.04649868669844
+      },
+      "decompressTime": {
+        "median_ms": 0.02075000000002092,
+        "min_ms": 0.02029099999998607,
+        "max_ms": 0.02229099999999562,
+        "throughput_MBs": 367.68166415625586
+      },
+      "compressedSize": 6019,
+      "ratio": 0.752375
+    },
+    {
+      "engine": "Zig ReleaseFast",
+      "dataType": "float64",
+      "dataSize": 80000,
+      "dataSizeHuman": "float64 10K",
+      "compressTime": {
+        "median_ms": 4.469875000000002,
+        "min_ms": 3.816334000000012,
+        "max_ms": 4.678291999999999,
+        "throughput_MBs": 17.068474020526295
+      },
+      "decompressTime": {
+        "median_ms": 1.189625000000035,
+        "min_ms": 1.123708000000022,
+        "max_ms": 1.2834170000000427,
+        "throughput_MBs": 64.13276899232763
+      },
+      "compressedSize": 64762,
+      "ratio": 0.809525,
+      "binarySize": 8755,
+      "binarySizeGzip": 3698
+    },
+    {
+      "engine": "Zig ReleaseSmall",
+      "dataType": "float64",
+      "dataSize": 80000,
+      "dataSizeHuman": "float64 10K",
+      "compressTime": {
+        "median_ms": 4.569624999999974,
+        "min_ms": 4.082416000000023,
+        "max_ms": 4.985208,
+        "throughput_MBs": 16.695887586508835
+      },
+      "decompressTime": {
+        "median_ms": 2.4227919999999585,
+        "min_ms": 2.162541000000033,
+        "max_ms": 2.5672909999999547,
+        "throughput_MBs": 31.49009296402717
+      },
+      "compressedSize": 64762,
+      "ratio": 0.809525,
+      "binarySize": 4762,
+      "binarySizeGzip": 2355
+    },
+    {
+      "engine": "Compression Streams",
+      "dataType": "float64",
+      "dataSize": 80000,
+      "dataSizeHuman": "float64 10K",
+      "compressTime": {
+        "median_ms": 2.183208000000036,
+        "min_ms": 2.0489579999999705,
+        "max_ms": 2.549000000000035,
+        "throughput_MBs": 34.94579779503316
+      },
+      "decompressTime": {
+        "median_ms": 0.35295800000005784,
+        "min_ms": 0.2827500000000782,
+        "max_ms": 0.9878750000000309,
+        "throughput_MBs": 216.1558749553417
+      },
+      "compressedSize": 58663,
+      "ratio": 0.7332875
+    },
+    {
+      "engine": "node:zlib (sync)",
+      "dataType": "float64",
+      "dataSize": 80000,
+      "dataSizeHuman": "float64 10K",
+      "compressTime": {
+        "median_ms": 2.1364589999999453,
+        "min_ms": 1.7830840000000308,
+        "max_ms": 2.2934999999999945,
+        "throughput_MBs": 35.71046545358556
+      },
+      "decompressTime": {
+        "median_ms": 0.16891599999996743,
+        "min_ms": 0.14800000000002456,
+        "max_ms": 0.19820800000002237,
+        "throughput_MBs": 451.6679610724545
+      },
+      "compressedSize": 58663,
+      "ratio": 0.7332875
+    },
+    {
+      "engine": "Zig ReleaseFast",
+      "dataType": "float64",
+      "dataSize": 800000,
+      "dataSizeHuman": "float64 100K",
+      "compressTime": {
+        "median_ms": 50.19154200000003,
+        "min_ms": 47.974249999999984,
+        "max_ms": 52.735124999999925,
+        "throughput_MBs": 15.20055815629254
+      },
+      "decompressTime": {
+        "median_ms": 11.848124999999982,
+        "min_ms": 11.111208999999917,
+        "max_ms": 13.32725000000005,
+        "throughput_MBs": 64.39326502083672
+      },
+      "compressedSize": 645836,
+      "ratio": 0.807295,
+      "binarySize": 8755,
+      "binarySizeGzip": 3698
+    },
+    {
+      "engine": "Zig ReleaseSmall",
+      "dataType": "float64",
+      "dataSize": 800000,
+      "dataSizeHuman": "float64 100K",
+      "compressTime": {
+        "median_ms": 48.886792000000014,
+        "min_ms": 48.15112500000009,
+        "max_ms": 50.31441700000005,
+        "throughput_MBs": 15.606249089222295
+      },
+      "decompressTime": {
+        "median_ms": 22.921332999999777,
+        "min_ms": 22.564416000000165,
+        "max_ms": 23.75658300000032,
+        "throughput_MBs": 33.285125831251065
+      },
+      "compressedSize": 645836,
+      "ratio": 0.807295,
+      "binarySize": 4762,
+      "binarySizeGzip": 2355
+    },
+    {
+      "engine": "Compression Streams",
+      "dataType": "float64",
+      "dataSize": 800000,
+      "dataSizeHuman": "float64 100K",
+      "compressTime": {
+        "median_ms": 24.542832999999973,
+        "min_ms": 23.451125000000047,
+        "max_ms": 27.655416999999943,
+        "throughput_MBs": 31.08603856470037
+      },
+      "decompressTime": {
+        "median_ms": 2.5350000000003092,
+        "min_ms": 2.395292000000154,
+        "max_ms": 2.6575000000002547,
+        "throughput_MBs": 300.9623089250126
+      },
+      "compressedSize": 583206,
+      "ratio": 0.7290075
+    },
+    {
+      "engine": "node:zlib (sync)",
+      "dataType": "float64",
+      "dataSize": 800000,
+      "dataSizeHuman": "float64 100K",
+      "compressTime": {
+        "median_ms": 22.75458299999991,
+        "min_ms": 21.997207999999773,
+        "max_ms": 31.010667000000012,
+        "throughput_MBs": 33.52904569268542
+      },
+      "decompressTime": {
+        "median_ms": 1.972957999999835,
+        "min_ms": 1.7892080000001442,
+        "max_ms": 2.029167000000143,
+        "throughput_MBs": 386.6982739242618
+      },
+      "compressedSize": 583206,
+      "ratio": 0.7290075
+    },
+    {
+      "engine": "Zig ReleaseFast",
+      "dataType": "float64",
+      "dataSize": 8000000,
+      "dataSizeHuman": "float64 1M",
+      "compressTime": {
+        "median_ms": 482.47408299999915,
+        "min_ms": 479.96137499999986,
+        "max_ms": 520.054959,
+        "throughput_MBs": 15.813066027942506
+      },
+      "decompressTime": {
+        "median_ms": 120.95050000000083,
+        "min_ms": 120.48941699999978,
+        "max_ms": 122.42179099999976,
+        "throughput_MBs": 63.07865226890296
+      },
+      "compressedSize": 6457533,
+      "ratio": 0.807191625,
+      "binarySize": 8755,
+      "binarySizeGzip": 3698
+    },
+    {
+      "engine": "Zig ReleaseSmall",
+      "dataType": "float64",
+      "dataSize": 8000000,
+      "dataSizeHuman": "float64 1M",
+      "compressTime": {
+        "median_ms": 512.3702090000006,
+        "min_ms": 500.28700000000026,
+        "max_ms": 543.4804160000003,
+        "throughput_MBs": 14.89039447890693
+      },
+      "decompressTime": {
+        "median_ms": 232.8065000000006,
+        "min_ms": 231.2334579999988,
+        "max_ms": 233.8482499999991,
+        "throughput_MBs": 32.7713982695929
+      },
+      "compressedSize": 6457533,
+      "ratio": 0.807191625,
+      "binarySize": 4762,
+      "binarySizeGzip": 2355
+    },
+    {
+      "engine": "Compression Streams",
+      "dataType": "float64",
+      "dataSize": 8000000,
+      "dataSizeHuman": "float64 1M",
+      "compressTime": {
+        "median_ms": 231.87237500000083,
+        "min_ms": 230.62891599999966,
+        "max_ms": 236.02416699999958,
+        "throughput_MBs": 32.90342168294077
+      },
+      "decompressTime": {
+        "median_ms": 24.56708399999843,
+        "min_ms": 23.93262500000128,
+        "max_ms": 24.996374999998807,
+        "throughput_MBs": 310.55352484041197
+      },
+      "compressedSize": 5828388,
+      "ratio": 0.7285485
+    },
+    {
+      "engine": "node:zlib (sync)",
+      "dataType": "float64",
+      "dataSize": 8000000,
+      "dataSizeHuman": "float64 1M",
+      "compressTime": {
+        "median_ms": 233.49045799999658,
+        "min_ms": 226.91320799999812,
+        "max_ms": 240.0620830000007,
+        "throughput_MBs": 32.67540179843286
+      },
+      "decompressTime": {
+        "median_ms": 17.95470800000112,
+        "min_ms": 17.727624999999534,
+        "max_ms": 18.291207999998733,
+        "throughput_MBs": 424.92445609527726
+      },
+      "compressedSize": 5828388,
+      "ratio": 0.7285485
+    },
+    {
+      "engine": "Zig ReleaseFast",
+      "dataType": "sparse",
+      "dataSize": 100000,
+      "dataSizeHuman": "sparse 100KB",
+      "compressTime": {
+        "median_ms": 1.6787499999991269,
+        "min_ms": 1.5708749999976135,
+        "max_ms": 1.8984999999993306,
+        "throughput_MBs": 56.808596658629696
+      },
+      "decompressTime": {
+        "median_ms": 0.08937500000320142,
+        "min_ms": 0.07433300000047893,
+        "max_ms": 0.14099999999962165,
+        "throughput_MBs": 1067.0481861505893
+      },
+      "compressedSize": 1855,
+      "ratio": 0.01855,
+      "binarySize": 8755,
+      "binarySizeGzip": 3698
+    },
+    {
+      "engine": "Zig ReleaseSmall",
+      "dataType": "sparse",
+      "dataSize": 100000,
+      "dataSizeHuman": "sparse 100KB",
+      "compressTime": {
+        "median_ms": 1.8862909999988915,
+        "min_ms": 1.721958000001905,
+        "max_ms": 2.2642500000001746,
+        "throughput_MBs": 50.55817561589439
+      },
+      "decompressTime": {
+        "median_ms": 0.12687499999810825,
+        "min_ms": 0.10529099999985192,
+        "max_ms": 0.15633300000263262,
+        "throughput_MBs": 751.6644858486459
+      },
+      "compressedSize": 1855,
+      "ratio": 0.01855,
+      "binarySize": 4762,
+      "binarySizeGzip": 2355
+    },
+    {
+      "engine": "Compression Streams",
+      "dataType": "sparse",
+      "dataSize": 100000,
+      "dataSizeHuman": "sparse 100KB",
+      "compressTime": {
+        "median_ms": 0.26341600000159815,
+        "min_ms": 0.22233300000152667,
+        "max_ms": 0.3208330000015849,
+        "throughput_MBs": 362.0411502719896
+      },
+      "decompressTime": {
+        "median_ms": 0.143791999998939,
+        "min_ms": 0.1130830000001879,
+        "max_ms": 0.19037499999831198,
+        "throughput_MBs": 663.2318323782179
+      },
+      "compressedSize": 989,
+      "ratio": 0.00989
+    },
+    {
+      "engine": "node:zlib (sync)",
+      "dataType": "sparse",
+      "dataSize": 100000,
+      "dataSizeHuman": "sparse 100KB",
+      "compressTime": {
+        "median_ms": 0.1858749999992142,
+        "min_ms": 0.163790999999037,
+        "max_ms": 0.21479100000215112,
+        "throughput_MBs": 513.0729341817251
+      },
+      "decompressTime": {
+        "median_ms": 0.01204199999847333,
+        "min_ms": 0.011667000002489658,
+        "max_ms": 0.018000000000029104,
+        "throughput_MBs": 7919.567484862612
+      },
+      "compressedSize": 989,
+      "ratio": 0.00989
+    },
+    {
+      "engine": "Zig ReleaseFast",
+      "dataType": "sparse",
+      "dataSize": 1000000,
+      "dataSizeHuman": "sparse 1MB",
+      "compressTime": {
+        "median_ms": 16.873916000000463,
+        "min_ms": 16.476957999999286,
+        "max_ms": 17.14195800000016,
+        "throughput_MBs": 56.51766409209479
+      },
+      "decompressTime": {
+        "median_ms": 0.9326250000012806,
+        "min_ms": 0.8597909999989497,
+        "max_ms": 1.2033330000012938,
+        "throughput_MBs": 1022.5699679988641
+      },
+      "compressedSize": 18265,
+      "ratio": 0.018265,
+      "binarySize": 8755,
+      "binarySizeGzip": 3698
+    },
+    {
+      "engine": "Zig ReleaseSmall",
+      "dataType": "sparse",
+      "dataSize": 1000000,
+      "dataSizeHuman": "sparse 1MB",
+      "compressTime": {
+        "median_ms": 18.56550000000061,
+        "min_ms": 18.154582999999548,
+        "max_ms": 19.307165999998688,
+        "throughput_MBs": 51.36809223593324
+      },
+      "decompressTime": {
+        "median_ms": 1.1757089999991877,
+        "min_ms": 1.0901669999984733,
+        "max_ms": 1.240458000000217,
+        "throughput_MBs": 811.1482657757224
+      },
+      "compressedSize": 18265,
+      "ratio": 0.018265,
+      "binarySize": 4762,
+      "binarySizeGzip": 2355
+    },
+    {
+      "engine": "Compression Streams",
+      "dataType": "sparse",
+      "dataSize": 1000000,
+      "dataSizeHuman": "sparse 1MB",
+      "compressTime": {
+        "median_ms": 1.6854160000002594,
+        "min_ms": 1.6286670000008598,
+        "max_ms": 1.7817079999986163,
+        "throughput_MBs": 565.839126011681
+      },
+      "decompressTime": {
+        "median_ms": 0.7682500000009895,
+        "min_ms": 0.6680000000014843,
+        "max_ms": 0.9745829999992566,
+        "throughput_MBs": 1241.359344490754
+      },
+      "compressedSize": 9292,
+      "ratio": 0.009292
+    },
+    {
+      "engine": "node:zlib (sync)",
+      "dataType": "sparse",
+      "dataSize": 1000000,
+      "dataSizeHuman": "sparse 1MB",
+      "compressTime": {
+        "median_ms": 1.6477080000004207,
+        "min_ms": 1.589165999997931,
+        "max_ms": 1.7900420000005397,
+        "throughput_MBs": 578.7884239234176
+      },
+      "decompressTime": {
+        "median_ms": 0.17599999999947613,
+        "min_ms": 0.09166600000025937,
+        "max_ms": 0.3631249999998545,
+        "throughput_MBs": 5418.604070506185
+      },
+      "compressedSize": 9292,
+      "ratio": 0.009292
+    }
+  ]
+}

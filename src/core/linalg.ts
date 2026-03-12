@@ -156,9 +156,9 @@ export function cross(
   axisb: number = -1,
   axisc: number = -1,
   axis?: number
-): NDArrayCore | number | Complex {
+): NDArrayCore | number | bigint | Complex {
   const result = linalgOps.cross(toStorage(a), toStorage(b), axisa, axisb, axisc, axis);
-  if (typeof result === 'number' || result instanceof Complex) {
+  if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
     return result;
   }
   return fromStorage(result);
@@ -363,7 +363,7 @@ export const linalg = {
     axisb?: number,
     axisc?: number,
     axis?: number
-  ): NDArrayCore | number | Complex => {
+  ): NDArrayCore | number | bigint | Complex => {
     return cross(a, b, axisa, axisb, axisc, axis);
   },
 

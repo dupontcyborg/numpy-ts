@@ -614,7 +614,8 @@ describe('Dtype branch coverage (standalone functions)', () => {
       'int32'
     );
     const r = sum(a, 0);
-    expect(r.toArray()).toEqual([4, 6]);
+    expect(r.dtype).toBe('int64');
+    expect(r.toArray()).toEqual([4n, 6n]);
   });
 
   it('sum float32 with keepdims', () => {
