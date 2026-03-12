@@ -235,7 +235,7 @@ function createHTML(report: BenchmarkReport): string {
 <body>
   <div class="container">
     <h1>🚀 NumPy vs numpy-ts Benchmark Results</h1>
-    <p class="subtitle">Performance comparison of numpy-ts against Python NumPy</p>
+    <p class="subtitle">Performance comparison of numpy-ts against ${environment.baseline === 'pyodide' ? 'Pyodide NumPy (WASM)' : 'Python NumPy'}</p>
 
     <div class="meta">
       <div><strong>Timestamp:</strong> ${new Date(timestamp).toLocaleString()}</div>
@@ -443,7 +443,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
 <body>
   <div class="container">
     <h1>NumPy vs numpy-ts Multi-Runtime Benchmarks</h1>
-    <p class="subtitle">Performance comparison across Node.js, Deno, and Bun</p>
+    <p class="subtitle">Performance comparison across Node.js, Deno, and Bun (baseline: ${environment.baseline === 'pyodide' ? 'Pyodide NumPy/WASM' : 'Python NumPy'})</p>
 
     <div class="meta">
       <div><strong>Timestamp:</strong> ${new Date(timestamp).toLocaleString()}</div>

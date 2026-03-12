@@ -9,6 +9,7 @@ import * as path from 'path';
 import { getBenchmarkSpecs, filterByCategory } from './specs';
 import { setBenchmarkConfig } from './runner';
 import { runPythonBenchmarks } from './python-runner';
+import { runPyodideBenchmarks } from './pyodide-runner';
 import { detectRuntimes, spawnRuntimeBenchmark } from './runtime-spawner';
 import {
   compareResults,
@@ -130,6 +131,8 @@ async function main() {
       options.runtimes = args[++i]!.split(',').map((s) => s.trim()) as RuntimeName[];
     } else if (arg === '--fresh') {
       options.fresh = true;
+    } else if (arg === '--pyodide') {
+      options.pyodide = true;
     } else if (arg === '--help' || arg === '-h') {
       printHelp();
       process.exit(0);
@@ -231,12 +234,15 @@ async function main() {
       );
     }
 
-    // Determine file suffix based on mode and threading (needed for cache lookup)
+    // Determine file suffix based on mode, threading, and baseline
     const modeSuffix =
-      (options.mode === 'full' ? '-full' : '') + (options.singleThread ? '_single' : '');
+      (options.mode === 'full' ? '-full' : '') +
+      (options.singleThread ? '-single' : '') +
+      (options.pyodide ? '-pyodide' : '');
     const resultsDir = path.resolve(__dirname, '../results');
+    const baselineType = options.pyodide ? 'pyodide' : 'python';
 
-    // Run Python NumPy benchmarks (or use cache)
+    // Run NumPy benchmarks (native Python or Pyodide WASM)
     let numpyResults: BenchmarkTiming[];
     let pythonVersion: string;
     let numpyVersion: string;
@@ -246,6 +252,12 @@ async function main() {
       numpyResults = cached.results;
       pythonVersion = cached.pythonVersion;
       numpyVersion = cached.numpyVersion;
+    } else if (options.pyodide) {
+      console.log('Running NumPy benchmarks via Pyodide (WASM)...');
+      const pyResult = await runPyodideBenchmarks(specs, minSampleTimeMs, targetSamples);
+      numpyResults = pyResult.results;
+      pythonVersion = pyResult.pythonVersion;
+      numpyVersion = pyResult.numpyVersion + ' (Pyodide/WASM)';
     } else {
       console.log('Running Python NumPy benchmarks...');
       const pyResult = await runPythonBenchmarks(
@@ -306,6 +318,7 @@ async function main() {
           numpy_version: numpyVersion,
           numpyjs_version: packageJson.version,
           machine: getMachineInfo(),
+          baseline: baselineType,
         },
         results: comparisons,
         summary,
@@ -349,6 +362,7 @@ async function main() {
           numpyjs_version: packageJson.version,
           runtimes: runtimeVersions,
           machine: getMachineInfo(),
+          baseline: baselineType,
         },
         results: comparisons,
         summaries,
@@ -400,7 +414,8 @@ Options:
   --runtime <list>     Comma-separated runtimes to use (default: auto-detect)
                        Values: node, deno, bun  (e.g. --runtime node,bun)
   --category <name>    Run only benchmarks in specified category
-  --fresh              Force re-run Python benchmarks (skip cache)
+  --pyodide            Use Pyodide (WASM NumPy) as baseline instead of native Python
+  --fresh              Force re-run Python/Pyodide benchmarks (skip cache)
   --output <path>      Save JSON results to specified path
   --help, -h           Show this help message
 

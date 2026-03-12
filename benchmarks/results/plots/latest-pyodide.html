@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NumPy vs numpy-ts Multi-Runtime Benchmark Results</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { color: #2c3e50; margin-bottom: 10px; font-size: 2.5em; }
+    .subtitle { color: #7f8c8d; margin-bottom: 30px; font-size: 1.1em; }
+    .meta { background: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 30px; font-family: monospace; font-size: 0.9em; }
+    .runtime-cards { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+    .runtime-card { background: #34495e; color: white; padding: 12px 20px; border-radius: 8px; flex: 1; min-width: 200px; }
+    .runtime-card h3 { font-size: 1.1em; margin-bottom: 5px; text-transform: capitalize; }
+    .runtime-card .version { opacity: 0.8; font-size: 0.9em; }
+    .runtime-card.node { border-left: 4px solid #36a2eb; }
+    .runtime-card.deno { border-left: 4px solid #4bc0c0; }
+    .runtime-card.bun { border-left: 4px solid #ff9f40; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .summary-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .summary-card h3 { font-size: 0.85em; opacity: 0.9; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+    .summary-card .runtime-label { font-size: 0.8em; opacity: 0.7; margin-bottom: 8px; text-transform: capitalize; }
+    .summary-card .value { font-size: 2em; font-weight: bold; }
+    .chart-container { margin: 40px 0; padding: 20px; background: white; border-radius: 8px; border: 1px solid #e0e0e0; }
+    .chart-container h2 { margin-bottom: 20px; color: #2c3e50; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9em; }
+    th { background: #34495e; color: white; font-weight: 600; text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.5px; }
+    tr:hover { background: #f8f9fa; }
+    .ratio { font-weight: bold; padding: 3px 6px; border-radius: 4px; }
+    .ratio.good { background: #d4edda; color: #155724; }
+    .ratio.ok { background: #fff3cd; color: #856404; }
+    .ratio.bad { background: #f8d7da; color: #721c24; }
+    .ratio.best { outline: 2px solid #28a745; }
+    .category-section { margin: 40px 0; }
+    .category-section h2 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e0e0e0; text-align: center; color: #7f8c8d; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>NumPy vs numpy-ts Multi-Runtime Benchmarks</h1>
+    <p class="subtitle">Performance comparison across Node.js, Deno, and Bun (baseline: Pyodide NumPy/WASM)</p>
+
+    <div class="meta">
+      <div><strong>Timestamp:</strong> 3/11/2026, 11:19:14 PM</div>
+      <div><strong>Machine:</strong> Apple M4 Max (16 cores, 128 GB, arm64)</div>
+      <div><strong>Python:</strong> 3.12.7</div>
+      <div><strong>NumPy:</strong> 2.0.2 (Pyodide/WASM)</div>
+      <div><strong>numpy-ts:</strong> 1.0.0</div>
+      <div><strong>Total Benchmarks:</strong> 3</div>
+    </div>
+
+    <div class="runtime-cards">
+      
+        <div class="runtime-card node">
+          <h3>node</h3>
+          <div class="version">v3</div>
+          <div class="version">Avg: 1.31x | Median: 1.00x</div>
+        </div>
+      
+        <div class="runtime-card deno">
+          <h3>deno</h3>
+          <div class="version">v2.7.1</div>
+          <div class="version">Avg: 1.29x | Median: 1.06x</div>
+        </div>
+      
+        <div class="runtime-card bun">
+          <h3>bun</h3>
+          <div class="version">v1.3.10</div>
+          <div class="version">Avg: 0.86x | Median: 0.65x</div>
+        </div>
+      
+    </div>
+
+    <div class="summary-grid">
+      
+        <div class="summary-card">
+          <h3>Average Slowdown</h3>
+          <div class="runtime-label">node</div>
+          <div class="value">1.31x</div>
+        </div>
+        <div class="summary-card">
+          <h3>Average Slowdown</h3>
+          <div class="runtime-label">deno</div>
+          <div class="value">1.29x</div>
+        </div>
+        <div class="summary-card">
+          <h3>Average Slowdown</h3>
+          <div class="runtime-label">bun</div>
+          <div class="value">0.86x</div>
+        </div>
+    </div>
+
+    
+
+    <div class="chart-container">
+      <h2>Average Slowdown by Category (Grouped)</h2>
+      <canvas id="categoryChart"></canvas>
+    </div>
+
+    
+    <div class="category-section">
+      <h2>CREATION</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Benchmark</th>
+            <th>NumPy (ms)</th>
+            <th>node (ms)</th><th>node ratio</th><th>deno (ms)</th><th>deno ratio</th><th>bun (ms)</th><th>bun ratio</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>zeros [100x100] <span style="display:inline-block;font-size:0.75em;font-weight:600;padding:1px 6px;border-radius:3px;background:#dbeafe;color:#1e40af;opacity:0.55;vertical-align:middle">float64</span></td>
+            <td>0.73μs</td>
+            <td>1.52μs</td>
+            <td><span class="ratio ok">2.07x</span></td>
+            <td>1.48μs</td>
+            <td><span class="ratio ok">2.02x</span></td>
+            <td>1.13μs</td>
+            <td><span class="ratio good best">1.53x</span></td></tr>
+          <tr>
+            <td>ones [100x100] <span style="display:inline-block;font-size:0.75em;font-weight:600;padding:1px 6px;border-radius:3px;background:#dbeafe;color:#1e40af;opacity:0.55;vertical-align:middle">float64</span></td>
+            <td>2.61μs</td>
+            <td>2.61μs</td>
+            <td><span class="ratio good">1.00x</span></td>
+            <td>2.76μs</td>
+            <td><span class="ratio good">1.06x</span></td>
+            <td>1.69μs</td>
+            <td><span class="ratio good best">0.65x</span></td></tr>
+          <tr>
+            <td>eye(100) <span style="display:inline-block;font-size:0.75em;font-weight:600;padding:1px 6px;border-radius:3px;background:#dbeafe;color:#1e40af;opacity:0.55;vertical-align:middle">float64</span></td>
+            <td>2.90μs</td>
+            <td>2.48μs</td>
+            <td><span class="ratio good">0.86x</span></td>
+            <td>2.28μs</td>
+            <td><span class="ratio good">0.79x</span></td>
+            <td>1.19μs</td>
+            <td><span class="ratio good best">0.41x</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      <p>Generated by numpy-ts Benchmark Suite</p>
+      <p>Lower ratios are better (closer to NumPy performance)</p>
+    </div>
+  </div>
+
+  <script>
+    new Chart(document.getElementById('categoryChart'), {
+      type: 'bar',
+      data: {
+        labels: ["Creation"],
+        datasets: [{"label":"Node","data":[1.3075914184319473],"backgroundColor":"rgba(54, 162, 235, 0.8)","borderWidth":1},{"label":"Deno","data":[1.2885772649228016],"backgroundColor":"rgba(75, 192, 192, 0.8)","borderWidth":1},{"label":"Bun","data":[0.8640675162503704],"backgroundColor":"rgba(255, 159, 64, 0.8)","borderWidth":1}]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: true } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Slowdown Ratio (lower is better)' }
+          }
+        }
+      }
+    });
+
+    
+
+
+  </script>
+</body>
+</html>

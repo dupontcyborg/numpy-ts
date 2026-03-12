@@ -59,6 +59,7 @@ export interface BenchmarkReport {
     numpy_version?: string;
     numpyjs_version: string;
     machine?: string;
+    baseline?: BaselineType;
   };
   results: BenchmarkComparison[];
   summary: BenchmarkSummary;
@@ -88,10 +89,13 @@ export interface MultiRuntimeReport {
     numpyjs_version: string;
     runtimes: Record<string, string>;
     machine?: string;
+    baseline?: BaselineType;
   };
   results: RuntimeComparison[];
   summaries: Record<string, BenchmarkSummary>;
 }
+
+export type BaselineType = 'python' | 'pyodide';
 
 export interface BenchmarkOptions {
   mode?: BenchmarkMode;
@@ -100,4 +104,5 @@ export interface BenchmarkOptions {
   singleThread?: boolean;
   runtimes?: RuntimeName[];
   fresh?: boolean;
+  pyodide?: boolean;
 }
