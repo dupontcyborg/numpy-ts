@@ -70,7 +70,12 @@ export function mul_i64(a: number, b: number, out: number, N: number): void {
 
 export function mul_scalar_i64(a: number, out: number, N: number, scalar: number): void {
   const i = init();
-  (i.exports['mul_scalar_i64'] as (...args: number[]) => void)(a, out, N, scalar);
+  (i.exports['mul_scalar_i64'] as (...args: (number | bigint)[]) => void)(
+    a,
+    out,
+    N,
+    BigInt(Math.round(scalar))
+  );
 }
 
 export function mul_i32(a: number, b: number, out: number, N: number): void {

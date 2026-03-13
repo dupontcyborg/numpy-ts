@@ -50,7 +50,12 @@ export function min_i64(a: number, b: number, out: number, N: number): void {
 
 export function min_scalar_i64(a: number, out: number, N: number, scalar: number): void {
   const i = init();
-  (i.exports['min_scalar_i64'] as (...args: number[]) => void)(a, out, N, scalar);
+  (i.exports['min_scalar_i64'] as (...args: (number | bigint)[]) => void)(
+    a,
+    out,
+    N,
+    BigInt(Math.round(scalar))
+  );
 }
 
 export function min_u64(a: number, b: number, out: number, N: number): void {
@@ -60,7 +65,12 @@ export function min_u64(a: number, b: number, out: number, N: number): void {
 
 export function min_scalar_u64(a: number, out: number, N: number, scalar: number): void {
   const i = init();
-  (i.exports['min_scalar_u64'] as (...args: number[]) => void)(a, out, N, scalar);
+  (i.exports['min_scalar_u64'] as (...args: (number | bigint)[]) => void)(
+    a,
+    out,
+    N,
+    BigInt(Math.round(scalar))
+  );
 }
 
 export function min_i32(a: number, b: number, out: number, N: number): void {

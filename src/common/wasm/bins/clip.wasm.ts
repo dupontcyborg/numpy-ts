@@ -35,12 +35,24 @@ export function clip_f32(a: number, out: number, N: number, lo: number, hi: numb
 
 export function clip_i64(a: number, out: number, N: number, lo: number, hi: number): void {
   const i = init();
-  (i.exports['clip_i64'] as (...args: number[]) => void)(a, out, N, lo, hi);
+  (i.exports['clip_i64'] as (...args: (number | bigint)[]) => void)(
+    a,
+    out,
+    N,
+    BigInt(Math.round(lo)),
+    BigInt(Math.round(hi))
+  );
 }
 
 export function clip_u64(a: number, out: number, N: number, lo: number, hi: number): void {
   const i = init();
-  (i.exports['clip_u64'] as (...args: number[]) => void)(a, out, N, lo, hi);
+  (i.exports['clip_u64'] as (...args: (number | bigint)[]) => void)(
+    a,
+    out,
+    N,
+    BigInt(Math.round(lo)),
+    BigInt(Math.round(hi))
+  );
 }
 
 export function clip_i32(a: number, out: number, N: number, lo: number, hi: number): void {
