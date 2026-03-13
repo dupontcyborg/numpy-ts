@@ -11,6 +11,8 @@
 import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
 import { isBigIntDType, isComplexDType, promoteDTypes } from '../dtype';
+import { wasmDiff } from '../wasm/diff';
+import { wasmGradient1D } from '../wasm/gradient';
 
 /**
  * Calculate the n-th discrete difference along the given axis.
@@ -45,6 +47,12 @@ export function diff(a: ArrayStorage, n: number = 1, axis: number = -1): ArraySt
     throw new Error(
       `diff requires at least ${n + 1} elements along axis ${axis}, but got ${shape[normalizedAxis]}`
     );
+  }
+
+  // WASM fast path for single diff along last axis on C-contiguous non-complex arrays
+  if (n === 1 && !isComplexDType(a.dtype)) {
+    const wasm = wasmDiff(a, normalizedAxis);
+    if (wasm) return wasm;
   }
 
   let result = a;
@@ -261,6 +269,17 @@ export function gradient(
       throw new Error(`Number of spacings must match number of axes`);
     }
     spacings = varargs;
+  }
+
+  // WASM fast path for 1D gradient with uniform spacing
+  if (
+    axes.length === 1 &&
+    f.shape.length === 1 &&
+    !isComplexDType(f.dtype) &&
+    typeof varargs === 'number'
+  ) {
+    const wasm = wasmGradient1D(f, spacings[0]!);
+    if (wasm) return wasm;
   }
 
   // Compute gradient for each axis
