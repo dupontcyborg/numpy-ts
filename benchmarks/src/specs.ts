@@ -4400,6 +4400,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     specs.push(...expanded);
   }
 
+  // Append dtype suffix to specs with explicit non-default dtype so the
+  // visualization layer shows the correct badge instead of defaulting to float64.
+  for (const spec of specs) {
+    // Already has a dtype suffix from auto-generation? Skip.
+    if (/\s+(float64|float32|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/.test(spec.name)) continue;
+    const dataEntries = Object.entries(spec.setup).filter(([key]) => DATA_ARRAY_KEYS.has(key));
+    if (dataEntries.length === 0) continue;
+    const dtypes = new Set(dataEntries.map(([, e]) => e.dtype).filter(Boolean));
+    if (dtypes.size === 1) {
+      const dtype = Array.from(dtypes)[0]!;
+      if (dtype !== 'float64') {
+        spec.name = `${spec.name} ${dtype}`;
+      }
+    }
+  }
+
   return specs;
 }
 

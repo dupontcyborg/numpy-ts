@@ -129,6 +129,8 @@ async function main() {
       options.singleThread = true;
     } else if (arg === '--runtime' && i + 1 < args.length) {
       options.runtimes = args[++i]!.split(',').map((s) => s.trim()) as RuntimeName[];
+    } else if (arg === '--spec' && i + 1 < args.length) {
+      options.spec = args[++i];
     } else if (arg === '--fresh') {
       options.fresh = true;
     } else if (arg === '--pyodide') {
@@ -203,6 +205,17 @@ async function main() {
 
     if (specs.length === 0) {
       console.error('No benchmarks found for category: ' + options.category);
+      process.exit(1);
+    }
+  }
+
+  if (options.spec) {
+    const pattern = options.spec.toLowerCase();
+    console.log(`Spec filter: "${options.spec}"`);
+    specs = specs.filter((s) => s.name.toLowerCase().includes(pattern));
+
+    if (specs.length === 0) {
+      console.error('No benchmarks matched --spec: ' + options.spec);
       process.exit(1);
     }
   }
@@ -414,6 +427,7 @@ Options:
   --runtime <list>     Comma-separated runtimes to use (default: auto-detect)
                        Values: node, deno, bun  (e.g. --runtime node,bun)
   --category <name>    Run only benchmarks in specified category
+  --spec <pattern>     Run only benchmarks whose name contains <pattern> (case-insensitive)
   --pyodide            Use Pyodide (WASM NumPy) as baseline instead of native Python
   --fresh              Force re-run Python/Pyodide benchmarks (skip cache)
   --output <path>      Save JSON results to specified path
@@ -449,6 +463,7 @@ Examples:
   npm run bench:deno                      # Shorthand: Deno only
   npm run bench:bun                       # Shorthand: Bun only
   npm run bench -- --category linalg      # Run only linalg benchmarks
+  npm run bench -- --spec gcd             # Run only benchmarks matching "gcd"
 `);
 }
 

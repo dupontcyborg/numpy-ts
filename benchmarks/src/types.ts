@@ -105,4 +105,5 @@ export interface BenchmarkOptions {
   runtimes?: RuntimeName[];
   fresh?: boolean;
   pyodide?: boolean;
+  spec?: string;
 }
