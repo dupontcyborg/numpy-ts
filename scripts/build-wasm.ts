@@ -56,21 +56,30 @@ function parseZigExports(
 }
 
 /**
- * Parse Zig function parameters into TypeScript parameter types.
+ * Parse Zig function parameters into TypeScript parameter types and detect i64/u64 params.
  * All WASM numeric params become `number` in TypeScript.
+ * Returns both the TS param string and a set of param names that are i64/u64.
  */
-function zigParamsToTs(params: string): string {
-  if (!params.trim()) return '';
-  return params
+function zigParamsToTs(params: string): { tsParams: string; bigintParams: Set<string> } {
+  if (!params.trim()) return { tsParams: '', bigintParams: new Set() };
+  const bigintParams = new Set<string>();
+  const tsParams = params
     .split(',')
     .map((p) => {
-      const name = p.trim().split(':')[0]!.trim();
+      const parts = p.trim().split(':');
+      const name = parts[0]!.trim();
+      const zigType = parts.slice(1).join(':').trim();
       // Skip comptime params
       if (name.startsWith('comptime')) return null;
+      // Detect i64/u64 scalar params (not pointers)
+      if ((zigType === 'i64' || zigType === 'u64') && !zigType.includes('[*]')) {
+        bigintParams.add(name);
+      }
       return `${name}: number`;
     })
     .filter(Boolean)
     .join(', ');
+  return { tsParams, bigintParams };
 }
 
 // --- Generate .wasm.ts module ---
@@ -109,7 +118,7 @@ function generateWasmTs(
   lines.push(``);
 
   for (const exp of exports) {
-    const tsParams = zigParamsToTs(exp.params);
+    const { tsParams, bigintParams } = zigParamsToTs(exp.params);
     const ret = exp.returnType;
     const retPrefix = ret === 'void' ? '' : 'return ';
     lines.push(`export function ${exp.name}(${tsParams}): ${ret} {`);
@@ -120,9 +129,25 @@ function generateWasmTs(
           .map((p) => p.trim().split(':')[0]!.trim())
           .join(', ')
       : '';
-    lines.push(
-      `  ${retPrefix}(i.exports['${exp.name}'] as (...args: number[]) => ${ret})(${argNames});`
-    );
+    if (bigintParams.size > 0) {
+      // Some params need BigInt conversion for WASM i64 params
+      const castArgs = tsParams
+        ? tsParams
+            .split(',')
+            .map((p) => {
+              const name = p.trim().split(':')[0]!.trim();
+              return bigintParams.has(name) ? `BigInt(Math.round(${name}))` : name;
+            })
+            .join(', ')
+        : '';
+      lines.push(
+        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: (number | bigint)[]) => ${ret})(${castArgs});`
+      );
+    } else {
+      lines.push(
+        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: number[]) => ${ret})(${argNames});`
+      );
+    }
     lines.push(`}`);
     lines.push(``);
   }

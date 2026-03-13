@@ -141,6 +141,13 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string, 
     return true;
   }
 
+  // BigInt scalars (from int64 results)
+  if (typeof numpytsResult === 'bigint' || typeof numpyResult === 'bigint') {
+    const a = typeof numpytsResult === 'bigint' ? Number(numpytsResult) : numpytsResult;
+    const b = typeof numpyResult === 'bigint' ? Number(numpyResult) : numpyResult;
+    return resultsMatch(a, b, operation, tolerance);
+  }
+
   // Both scalars
   if (typeof numpytsResult === 'number' && typeof numpyResult === 'number') {
     // Handle NaN: both NaN is considered equal
@@ -303,6 +310,13 @@ function arraysEqual(a: any, b: any, tolerance: number = FLOAT64_TOLERANCE): boo
       return dist < tolerance || relErr < tolerance;
     }
     return a.every((val, i) => arraysEqual(val, b[i], tolerance));
+  }
+
+  // Compare BigInt values (from int64 results)
+  if (typeof a === 'bigint' || typeof b === 'bigint') {
+    const na = typeof a === 'bigint' ? Number(a) : a;
+    const nb = typeof b === 'bigint' ? Number(b) : b;
+    return arraysEqual(na, nb, tolerance);
   }
 
   // Compare numbers with tolerance
@@ -1232,8 +1246,14 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
             } else {
               failed++;
               console.error(`  ❌ ${spec.name}: Results don't match`);
-              console.error(`     numpy-ts: ${JSON.stringify(tsValue).substring(0, 100)}`);
-              console.error(`     NumPy:    ${JSON.stringify(numpyResult).substring(0, 100)}`);
+              const bigIntReplacer = (_k: string, v: unknown) =>
+                typeof v === 'bigint' ? Number(v) : v;
+              console.error(
+                `     numpy-ts: ${JSON.stringify(tsValue, bigIntReplacer).substring(0, 100)}`
+              );
+              console.error(
+                `     NumPy:    ${JSON.stringify(numpyResult, bigIntReplacer).substring(0, 100)}`
+              );
             }
           } catch (err) {
             failed++;

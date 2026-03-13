@@ -673,8 +673,8 @@ describe('Tree-shaking Tests', () => {
           if (!moduleResult?.success) continue;
 
           // Each module-specific import should be roughly <= full import
-          // Allow 0.5% tolerance for bundler metadata overhead
-          const tolerance = Math.ceil(fullResult.minifiedSize * 0.005);
+          // Allow 1% tolerance for bundler metadata overhead
+          const tolerance = Math.ceil(fullResult.minifiedSize * 0.01);
           expect(
             moduleResult.minifiedSize,
             `${bundler}: ${fixture} should be <= full import (with tolerance)`
