@@ -253,10 +253,10 @@ export fn mul_scalar_i8(a: [*]const i8, out: [*]i8, N: u32, scalar: i8) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "mul_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 2, 3, 4, 5, 6 };
     const b = [_]f64{ 3, 4, 5, 6, 7 };
     var out: [5]f64 = undefined;
@@ -266,6 +266,7 @@ test "mul_f64 basic" {
 }
 
 test "mul_i8 wrapping" {
+    const testing = @import("std").testing;
     const a = [_]i8{ 10, 20, 30, 40 };
     const b = [_]i8{ 2, 3, 4, 5 };
     var out: [4]i8 = undefined;
@@ -277,6 +278,7 @@ test "mul_i8 wrapping" {
 }
 
 test "mul_c128 basic" {
+    const testing = @import("std").testing;
     // (1+2i) * (3+4i) = (-5+10i)
     const a = [_]f64{ 1, 2 };
     const b = [_]f64{ 3, 4 };
@@ -287,6 +289,7 @@ test "mul_c128 basic" {
 }
 
 test "mul_scalar_f32 basic" {
+    const testing = @import("std").testing;
     const a = [_]f32{ 1, 2, 3, 4, 5 };
     var out: [5]f32 = undefined;
     mul_scalar_f32(&a, &out, 5, 3.0);

@@ -38,10 +38,10 @@ export fn gcd_i32(a: [*]const i32, b: [*]const i32, out: [*]i32, N: u32) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "gcd_scalar_i32 basic" {
+    const testing = @import("std").testing;
     const a = [_]i32{ 12, 18, 7, 0, -15 };
     var out: [5]i32 = undefined;
     gcd_scalar_i32(&a, &out, 5, 6);
@@ -53,6 +53,7 @@ test "gcd_scalar_i32 basic" {
 }
 
 test "gcd_i32 binary" {
+    const testing = @import("std").testing;
     const a = [_]i32{ 12, 18, 7, 0 };
     const b = [_]i32{ 8, 12, 5, 3 };
     var out: [4]i32 = undefined;

@@ -173,10 +173,10 @@ export fn clip_u8(a: [*]const u8, out: [*]u8, N: u32, lo: u8, hi: u8) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "clip_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ -5, 0, 3, 10, 15 };
     var out: [5]f64 = undefined;
     clip_f64(&a, &out, 5, 0.0, 10.0);
@@ -188,6 +188,7 @@ test "clip_f64 basic" {
 }
 
 test "clip_i8 basic" {
+    const testing = @import("std").testing;
     const a = [_]i8{ -100, -50, 0, 50, 100, -10, 10, 20, -20, 30, -30, 40, -40, 50, -50, 60, 70 };
     var out: [17]i8 = undefined;
     clip_i8(&a, &out, 17, -10, 10);
@@ -197,6 +198,7 @@ test "clip_i8 basic" {
 }
 
 test "clip_u8 unsigned values above 127" {
+    const testing = @import("std").testing;
     const a = [_]u8{ 0, 50, 100, 150, 200, 255, 128, 64, 190, 210, 230, 240, 10, 20, 30, 40, 250 };
     var out: [17]u8 = undefined;
     clip_u8(&a, &out, 17, 50, 200);

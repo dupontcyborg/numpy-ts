@@ -23,10 +23,10 @@ export fn frexp_f64(x: [*]const f64, out_m: [*]f64, out_e: [*]i32, N: u32) void 
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "frexp_f64 basic" {
+    const testing = @import("std").testing;
     const x = [_]f64{ 0.0, 1.0, 2.0, -4.0, 0.5 };
     var out_m: [5]f64 = undefined;
     var out_e: [5]i32 = undefined;

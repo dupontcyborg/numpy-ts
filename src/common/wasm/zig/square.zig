@@ -136,10 +136,10 @@ export fn square_i8(a: [*]const i8, out: [*]i8, N: u32) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "square_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 2, 3, -4 };
     var out: [3]f64 = undefined;
     square_f64(&a, &out, 3);
@@ -149,6 +149,7 @@ test "square_f64 basic" {
 }
 
 test "square_i8 wrapping" {
+    const testing = @import("std").testing;
     const a = [_]i8{ 2, 3, 10, 15 };
     var out: [4]i8 = undefined;
     square_i8(&a, &out, 4);
@@ -160,6 +161,7 @@ test "square_i8 wrapping" {
 }
 
 test "square_c128 basic" {
+    const testing = @import("std").testing;
     // (3+4i)² = 9-16 + i(24) = -7+24i
     // (1+2i)² = 1-4 + i(4) = -3+4i
     // (0+1i)² = -1+0i
@@ -175,6 +177,7 @@ test "square_c128 basic" {
 }
 
 test "square_c64 basic" {
+    const testing = @import("std").testing;
     // (3+4i)² = -7+24i
     // (1+2i)² = -3+4i
     // (0+1i)² = -1+0i

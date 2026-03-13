@@ -212,10 +212,10 @@ export fn add_scalar_i8(a: [*]const i8, out: [*]i8, N: u32, scalar: i8) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "add_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 1, 2, 3, 4, 5 };
     const b = [_]f64{ 10, 20, 30, 40, 50 };
     var out: [5]f64 = undefined;
@@ -225,6 +225,7 @@ test "add_f64 basic" {
 }
 
 test "add_scalar_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 1, 2, 3 };
     var out: [3]f64 = undefined;
     add_scalar_f64(&a, &out, 3, 10.0);
@@ -233,6 +234,7 @@ test "add_scalar_f64 basic" {
 }
 
 test "add_f32 large" {
+    const testing = @import("std").testing;
     var a: [100]f32 = undefined;
     var b: [100]f32 = undefined;
     for (0..100) |idx| {
@@ -248,6 +250,7 @@ test "add_f32 large" {
 }
 
 test "add_i32 basic" {
+    const testing = @import("std").testing;
     const a = [_]i32{ 1, 2, 3, 4, 5 };
     const b = [_]i32{ 10, 20, 30, 40, 50 };
     var out: [5]i32 = undefined;
@@ -257,6 +260,7 @@ test "add_i32 basic" {
 }
 
 test "add_c128 basic" {
+    const testing = @import("std").testing;
     // (1+2i) + (3+4i) = (4+6i)
     const a = [_]f64{ 1, 2 };
     const b = [_]f64{ 3, 4 };

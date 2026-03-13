@@ -256,10 +256,10 @@ export fn min_scalar_u8(a: [*]const u8, out: [*]u8, N: u32, scalar: u8) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "min_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 1, 5, 3 };
     const b = [_]f64{ 2, 4, 6 };
     var out: [3]f64 = undefined;
@@ -270,6 +270,7 @@ test "min_f64 basic" {
 }
 
 test "min_i8 basic" {
+    const testing = @import("std").testing;
     const a = [_]i8{ 1, 5, 3, -2, 7, 0, 8, -1, 9, 10, -5, 4, 6, -3, 2, 11, 12 };
     const b = [_]i8{ 2, 4, 6, -1, 3, 1, 7, 0, 8, 5, -4, 3, 7, -2, 1, 10, 13 };
     var out: [17]i8 = undefined;
@@ -280,6 +281,7 @@ test "min_i8 basic" {
 }
 
 test "min_u8 unsigned values above 127" {
+    const testing = @import("std").testing;
     const a = [_]u8{ 200, 100, 255, 0, 128, 1, 254, 50, 130, 140, 150, 160, 170, 180, 190, 210, 220 };
     const b = [_]u8{ 100, 200, 128, 1, 255, 0, 50, 254, 140, 130, 160, 150, 180, 170, 210, 190, 230 };
     var out: [17]u8 = undefined;

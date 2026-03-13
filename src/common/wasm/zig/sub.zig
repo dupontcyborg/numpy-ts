@@ -214,10 +214,10 @@ export fn sub_scalar_i8(a: [*]const i8, out: [*]i8, N: u32, scalar: i8) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "sub_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 10, 20, 30 };
     const b = [_]f64{ 1, 2, 3 };
     var out: [3]f64 = undefined;
@@ -227,6 +227,7 @@ test "sub_f64 basic" {
 }
 
 test "sub_scalar_f32 basic" {
+    const testing = @import("std").testing;
     const a = [_]f32{ 10, 20, 30, 40, 50 };
     var out: [5]f32 = undefined;
     sub_scalar_f32(&a, &out, 5, 5.0);
@@ -235,6 +236,7 @@ test "sub_scalar_f32 basic" {
 }
 
 test "sub_i16 basic" {
+    const testing = @import("std").testing;
     const a = [_]i16{ 100, 200, 300, 400, 500, 600, 700, 800, 900 };
     const b = [_]i16{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     var out: [9]i16 = undefined;

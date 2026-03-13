@@ -186,10 +186,10 @@ export fn div_c64(a: [*]const f32, b: [*]const f32, out: [*]f32, N: u32) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "div_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 10, 20, 30, 40 };
     const b = [_]f64{ 2, 5, 10, 8 };
     var out: [4]f64 = undefined;
@@ -201,6 +201,7 @@ test "div_f64 basic" {
 }
 
 test "div_scalar_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 10, 20, 30, 40 };
     var out: [4]f64 = undefined;
     div_scalar_f64(&a, &out, 4, 5.0);
@@ -211,6 +212,7 @@ test "div_scalar_f64 basic" {
 }
 
 test "div_f32 basic" {
+    const testing = @import("std").testing;
     const a = [_]f32{ 10, 20, 30, 40, 50 };
     const b = [_]f32{ 2, 4, 5, 8, 10 };
     var out: [5]f32 = undefined;
@@ -221,6 +223,7 @@ test "div_f32 basic" {
 }
 
 test "div_c128 basic" {
+    const testing = @import("std").testing;
     // (3+4i)/(1+2i) = (3+8+i(4-6))/(1+4) = (11-2i)/5 = (2.2-0.4i)
     const a = [_]f64{ 3, 4, 10, 0 };
     const b = [_]f64{ 1, 2, 5, 0 };

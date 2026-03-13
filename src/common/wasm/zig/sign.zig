@@ -112,10 +112,10 @@ export fn sign_i8(a: [*]const i8, out: [*]i8, N: u32) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "sign_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ -5, 0, 7 };
     var out: [3]f64 = undefined;
     sign_f64(&a, &out, 3);
@@ -125,6 +125,7 @@ test "sign_f64 basic" {
 }
 
 test "sign_i16 basic" {
+    const testing = @import("std").testing;
     const a = [_]i16{ -5, 0, 7, -1, 3, 0, -9, 2, 10 };
     var out: [9]i16 = undefined;
     sign_i16(&a, &out, 9);
@@ -134,6 +135,7 @@ test "sign_i16 basic" {
 }
 
 test "sign_i8 large" {
+    const testing = @import("std").testing;
     var a: [20]i8 = undefined;
     for (0..20) |idx| {
         a[idx] = if (idx % 3 == 0) -1 else if (idx % 3 == 1) 0 else 1;

@@ -256,10 +256,10 @@ export fn max_scalar_u8(a: [*]const u8, out: [*]u8, N: u32, scalar: u8) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "max_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 1, 5, 3 };
     const b = [_]f64{ 2, 4, 6 };
     var out: [3]f64 = undefined;
@@ -270,6 +270,7 @@ test "max_f64 basic" {
 }
 
 test "max_i32 basic" {
+    const testing = @import("std").testing;
     const a = [_]i32{ 1, 5, 3, -2, 7 };
     const b = [_]i32{ 2, 4, 6, -1, 3 };
     var out: [5]i32 = undefined;
@@ -280,6 +281,7 @@ test "max_i32 basic" {
 }
 
 test "max_u8 unsigned values above 127" {
+    const testing = @import("std").testing;
     const a = [_]u8{ 200, 100, 255, 0, 128, 1, 254, 50, 130, 140, 150, 160, 170, 180, 190, 210, 220 };
     const b = [_]u8{ 100, 200, 128, 1, 255, 0, 50, 254, 140, 130, 160, 150, 180, 170, 210, 190, 230 };
     var out: [17]u8 = undefined;

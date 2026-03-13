@@ -97,10 +97,10 @@ export fn abs_i8(a: [*]const i8, out: [*]i8, N: u32) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "abs_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ -1, 2, -3, 0 };
     var out: [4]f64 = undefined;
     abs_f64(&a, &out, 4);
@@ -111,6 +111,7 @@ test "abs_f64 basic" {
 }
 
 test "abs_i32 basic" {
+    const testing = @import("std").testing;
     const a = [_]i32{ -1, 2, -3, 0, 5 };
     var out: [5]i32 = undefined;
     abs_i32(&a, &out, 5);
@@ -122,6 +123,7 @@ test "abs_i32 basic" {
 }
 
 test "abs_i8 basic" {
+    const testing = @import("std").testing;
     const a = [_]i8{ -1, 2, -3, 4, -5, 6, -7, 8, -9, 10, -11, 12, -13, 14, -15, 16, -17 };
     var out: [17]i8 = undefined;
     abs_i8(&a, &out, 17);

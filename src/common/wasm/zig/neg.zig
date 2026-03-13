@@ -117,10 +117,10 @@ export fn neg_i8(a: [*]const i8, out: [*]i8, N: u32) void {
     }
 }
 
-/// --- Tests ---
-const testing = @import("std").testing;
+// --- Tests ---
 
 test "neg_f64 basic" {
+    const testing = @import("std").testing;
     const a = [_]f64{ 1, -2, 3 };
     var out: [3]f64 = undefined;
     neg_f64(&a, &out, 3);
@@ -130,6 +130,7 @@ test "neg_f64 basic" {
 }
 
 test "neg_i8 basic" {
+    const testing = @import("std").testing;
     const a = [_]i8{ 1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17 };
     var out: [17]i8 = undefined;
     neg_i8(&a, &out, 17);
@@ -139,6 +140,7 @@ test "neg_i8 basic" {
 }
 
 test "neg_c64 basic" {
+    const testing = @import("std").testing;
     // -(1+2i) = (-1-2i)
     const a = [_]f32{ 1, 2, 3, 4 };
     var out: [4]f32 = undefined;
