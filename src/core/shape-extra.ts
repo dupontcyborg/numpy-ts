@@ -7,6 +7,7 @@
 import { NDArrayCore, type DType } from '../common/ndarray-core';
 import { array, zeros } from './creation';
 import { concatenate, flatten } from './shape';
+import { wasmPad2D } from '../common/wasm/pad';
 
 /**
  * Append values to the end of an array
@@ -212,6 +213,14 @@ export function pad(
 
   // Calculate new shape
   const newShape = shape.map((s, i) => s + padWidths[i]![0] + padWidths[i]![1]);
+
+  // WASM fast path for 2D uniform zero-pad
+  if (mode === 'constant' && constant_values === 0 && ndim === 2 && typeof pad_width === 'number') {
+    const wasm = wasmPad2D(arr.storage, pad_width);
+    if (wasm) {
+      return new NDArrayCore(wasm);
+    }
+  }
 
   if (mode !== 'constant') {
     throw new Error(`pad mode '${mode}' not fully implemented in standalone`);

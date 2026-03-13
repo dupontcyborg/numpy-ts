@@ -4,16 +4,31 @@
  * Compiles Zig kernels to .wasm, base64-encodes them, and generates
  * TypeScript wrapper modules in src/common/wasm/bins/.
  *
- * Usage: tsx scripts/build-wasm.ts [--safe]
+ * Usage: tsx scripts/build-wasm.ts [--safe] [--force]
+ *
+ * Features:
+ * - Content-based caching: skips unchanged kernels (hash of source + simd.zig + flags + zig version)
+ * - Parallel compilation: tests and builds run concurrently across all kernels
  *
  * Requires Zig installed. If Zig is not found, exits with a warning
  * (checked-in .wasm.ts files will be used as-is).
  */
 
-import { execSync, execFileSync } from 'child_process';
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
+import { execSync, execFile } from 'child_process';
+import {
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  existsSync,
+} from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
@@ -22,20 +37,50 @@ const ROOT = join(__dirname, '..');
 const ZIG_DIR = join(ROOT, 'src/common/wasm/zig');
 const BINS_DIR = join(ROOT, 'src/common/wasm/bins');
 const TMP_DIR = join(ROOT, '.wasm-tmp');
+const CACHE_FILE = join(ROOT, '.wasm-cache.json');
 
 // --safe flag: compile with ReleaseSafe (bounds checks, overflow detection)
 const SAFE_MODE = process.argv.includes('--safe');
+const FORCE_BUILD = process.argv.includes('--force');
 const ZIG_OPT = SAFE_MODE ? 'ReleaseSafe' : 'ReleaseFast';
 
 // --- Check for Zig ---
 
+let zigVersion: string;
 try {
-  const version = execSync('zig version', { encoding: 'utf-8' }).trim();
-  console.log(`Found Zig ${version}`);
+  zigVersion = execSync('zig version', { encoding: 'utf-8' }).trim();
+  console.log(`Found Zig ${zigVersion}`);
 } catch {
   console.warn('WARNING: Zig not found — skipping WASM build.');
   console.warn('Checked-in .wasm.ts files will be used. Install Zig to rebuild.');
   process.exit(0);
+}
+
+// --- Cache ---
+
+type CacheEntry = { hash: string };
+type Cache = Record<string, CacheEntry>;
+
+function loadCache(): Cache {
+  if (FORCE_BUILD) return {};
+  try {
+    return JSON.parse(readFileSync(CACHE_FILE, 'utf-8')) as Cache;
+  } catch {
+    return {};
+  }
+}
+
+function saveCache(cache: Cache): void {
+  writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2) + '\n');
+}
+
+function computeHash(zigPath: string, simdSource: string): string {
+  const h = createHash('sha256');
+  h.update(readFileSync(zigPath, 'utf-8'));
+  h.update(simdSource);
+  h.update(zigVersion);
+  h.update(ZIG_OPT);
+  return h.digest('hex');
 }
 
 // --- Parse Zig exports ---
@@ -155,65 +200,61 @@ function generateWasmTs(
   return lines.join('\n');
 }
 
-// --- Main build ---
+// --- Test a single kernel ---
 
-mkdirSync(TMP_DIR, { recursive: true });
-mkdirSync(BINS_DIR, { recursive: true });
-
-const zigFiles = readdirSync(ZIG_DIR).filter(
-  (f) => f.endsWith('.zig') && f !== 'simd.zig'
-);
-
-console.log(`Building ${zigFiles.length} WASM kernel(s) [${ZIG_OPT}]...\n`);
-
-// --- Run Zig tests ---
-
-console.log('Running Zig tests...\n');
-
-for (const file of zigFiles) {
+async function testKernel(
+  file: string
+): Promise<{ name: string; error?: string }> {
+  const name = file.replace('.zig', '');
   const zigPath = join(ZIG_DIR, file);
-  console.log(`  Testing ${file}...`);
   try {
-    execFileSync('zig', ['test', zigPath], { stdio: 'pipe', cwd: ZIG_DIR });
-    console.log(`  ✓ ${file} — all tests passed`);
+    await execFileAsync('zig', ['test', zigPath], { cwd: ZIG_DIR });
+    return { name };
   } catch (err: unknown) {
-    const error = err as { stderr?: Buffer; stdout?: Buffer };
-    console.error(`  ✗ ${file} — tests FAILED:`);
-    console.error(error.stderr?.toString() ?? error.stdout?.toString() ?? '');
-    process.exit(1);
+    const error = err as { stderr?: string; stdout?: string };
+    return { name, error: `tests FAILED:\n${error.stderr ?? error.stdout ?? ''}` };
   }
 }
 
-console.log('');
+// --- Compile a single kernel ---
 
-// --- Compile to WASM ---
-
-for (const file of zigFiles) {
+async function compileKernel(
+  file: string,
+  simdSource: string,
+  cache: Cache
+): Promise<{ name: string; skipped: boolean; error?: string }> {
   const name = file.replace('.zig', '');
   const zigPath = join(ZIG_DIR, file);
-  const wasmPath = join(TMP_DIR, `${name}.wasm`);
+  const hash = computeHash(zigPath, simdSource);
+  const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
 
-  // Compile Zig -> .wasm
-  console.log(`  Compiling ${file}...`);
+  // Check cache
+  if (cache[name]?.hash === hash && existsSync(tsPath)) {
+    return { name, skipped: true };
+  }
+
+  // Compile
+  const wasmPath = join(TMP_DIR, `${name}.wasm`);
+  const zigArgs = [
+    'build-exe',
+    zigPath,
+    '-target',
+    'wasm32-freestanding',
+    '-O',
+    ZIG_OPT,
+    '-mcpu=generic+simd128',
+    '-fno-entry',
+    '-rdynamic',
+    `--import-memory`,
+    `-femit-bin=${wasmPath}`,
+  ];
+  if (!SAFE_MODE) zigArgs.push('-fstrip');
+
   try {
-    const zigArgs = [
-        'build-exe',
-        zigPath,
-        '-target', 'wasm32-freestanding',
-        '-O', ZIG_OPT,
-        '-mcpu=generic+simd128',
-        '-fno-entry',
-        '-rdynamic',
-        `--import-memory`,
-        `-femit-bin=${wasmPath}`,
-      ];
-    if (!SAFE_MODE) zigArgs.push('-fstrip');
-    execFileSync('zig', zigArgs, { stdio: 'pipe', cwd: ZIG_DIR });
+    await execFileAsync('zig', zigArgs, { cwd: ZIG_DIR });
   } catch (err: unknown) {
-    const error = err as { stderr?: Buffer };
-    console.error(`  FAILED to compile ${file}:`);
-    console.error(error.stderr?.toString() ?? '');
-    process.exit(1);
+    const error = err as { stderr?: string };
+    return { name, skipped: false, error: `compilation FAILED:\n${error.stderr ?? ''}` };
   }
 
   // Read .wasm binary
@@ -224,18 +265,101 @@ for (const file of zigFiles) {
   const zigSource = readFileSync(zigPath, 'utf-8');
   const exports = parseZigExports(zigSource);
 
-  // Generate .wasm.ts and format with prettier
+  // Generate .wasm.ts
   const tsContent = generateWasmTs(name, base64, exports);
-  const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
   writeFileSync(tsPath, tsContent);
   execSync(`npx prettier --write "${tsPath}"`, { stdio: 'pipe' });
 
+  // Update cache
+  cache[name] = { hash };
+
+  return { name, skipped: false };
+}
+
+// --- Main build ---
+
+async function main() {
+  mkdirSync(TMP_DIR, { recursive: true });
+  mkdirSync(BINS_DIR, { recursive: true });
+
+  const zigFiles = readdirSync(ZIG_DIR).filter(
+    (f) => f.endsWith('.zig') && f !== 'simd.zig'
+  );
+
+  const cache = loadCache();
+  const simdPath = join(ZIG_DIR, 'simd.zig');
+  const simdSource = existsSync(simdPath) ? readFileSync(simdPath, 'utf-8') : '';
+
+  // Determine which kernels need rebuilding
+  const stale = zigFiles.filter((file) => {
+    const name = file.replace('.zig', '');
+    const hash = computeHash(join(ZIG_DIR, file), simdSource);
+    const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
+    return !(cache[name]?.hash === hash && existsSync(tsPath));
+  });
+
+  const cached = zigFiles.length - stale.length;
+
+  if (stale.length === 0) {
+    console.log(`All ${cached} kernel(s) cached (unchanged). Nothing to do.\n`);
+    rmSync(TMP_DIR, { recursive: true, force: true });
+    return;
+  }
+
   console.log(
-    `  ${name}.wasm.ts — ${wasmBytes.length} bytes WASM, ${exports.length} exports (${exports.map((e) => e.name).join(', ')})`
+    `${stale.length} kernel(s) to build, ${cached} cached [${ZIG_OPT}]\n`
+  );
+
+  // Phase 1: Test all stale kernels in parallel
+  console.log('Testing...\n');
+  const testResults = await Promise.all(stale.map((file) => testKernel(file)));
+
+  const testFailures = testResults.filter((r) => r.error);
+  if (testFailures.length > 0) {
+    for (const f of testFailures) {
+      console.error(`  ✗ ${f.name} — ${f.error}`);
+    }
+    const passed = testResults.length - testFailures.length;
+    console.error(`\n${testFailures.length} test failure(s), ${passed} passed. Build aborted.\n`);
+    rmSync(TMP_DIR, { recursive: true, force: true });
+    process.exit(1);
+  }
+
+  console.log(`  ${stale.length} test(s) passed.\n`);
+
+  // Phase 2: Compile all stale kernels in parallel
+  console.log('Compiling...\n');
+  const buildResults = await Promise.all(
+    stale.map((file) => compileKernel(file, simdSource, cache))
+  );
+
+  // Report results
+  let failed = false;
+  let built = 0;
+  for (const result of buildResults) {
+    if (result.error) {
+      console.error(`  ✗ ${result.name} — ${result.error}`);
+      failed = true;
+    } else {
+      console.log(`  ✓ ${result.name}`);
+      built++;
+    }
+  }
+
+  if (failed) {
+    rmSync(TMP_DIR, { recursive: true, force: true });
+    process.exit(1);
+  }
+
+  // Save cache
+  saveCache(cache);
+
+  // Clean up
+  rmSync(TMP_DIR, { recursive: true, force: true });
+
+  console.log(
+    `\nWASM build complete: ${built} built, ${cached} cached (unchanged).`
   );
 }
 
-// Clean up
-rmSync(TMP_DIR, { recursive: true, force: true });
-
-console.log(`\nWASM build complete.`);
+main();

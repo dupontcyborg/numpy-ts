@@ -8,6 +8,11 @@
 import { ArrayStorage, computeStrides } from '../storage';
 import { getTypedArrayConstructor, isBigIntDType, isComplexDType, type TypedArray } from '../dtype';
 import { Complex } from '../complex';
+import { wasmFlip } from '../wasm/flip';
+import { wasmTile2D } from '../wasm/tile';
+import { wasmRoll } from '../wasm/roll';
+import { wasmRot90 } from '../wasm/rot90';
+import { wasmRepeat } from '../wasm/repeat';
 
 /**
  * Reshape array to a new shape
@@ -786,6 +791,21 @@ export function tile(storage: ArrayStorage, reps: number | number[]): ArrayStora
   // Normalize reps to array
   const repsArr = Array.isArray(reps) ? reps : [reps];
 
+  // WASM fast path for 2D tile
+  if (ndim === 2 && repsArr.length === 2 && storage.isCContiguous) {
+    const wasm = wasmTile2D(storage, repsArr[0]!, repsArr[1]!);
+    if (wasm) return wasm;
+  }
+
+  // WASM fast path for 1D tile (treat as 2D [1, N] tiled by [1, reps])
+  if (ndim === 1 && repsArr.length === 1 && storage.isCContiguous) {
+    const wasm = wasmTile2D(storage, 1, repsArr[0]!);
+    if (wasm) {
+      // Reshape from [1, N*reps] to [N*reps]
+      return ArrayStorage.fromData(wasm.data, [storage.size * repsArr[0]!], storage.dtype);
+    }
+  }
+
   // Pad reps or shape to match dimensions
   const maxDim = Math.max(ndim, repsArr.length);
   const paddedShape = new Array(maxDim).fill(1);
@@ -873,6 +893,12 @@ export function repeat(
   const size = storage.size;
 
   if (axis === undefined) {
+    // WASM fast path for uniform flat repeat
+    if (typeof repeats === 'number' && storage.isCContiguous) {
+      const wasm = wasmRepeat(storage, repeats);
+      if (wasm) return wasm;
+    }
+
     // Flatten and repeat each element
     const flatSize = size;
     const repeatsArr = Array.isArray(repeats) ? repeats : new Array(flatSize).fill(repeats);
@@ -1022,8 +1048,17 @@ export function flip(storage: ArrayStorage, axis?: number | number[]): ArrayStor
   if (!Constructor) {
     throw new Error(`Cannot flip array with dtype ${dtype}`);
   }
-  const outputData = new Constructor(size);
   const isBigInt = isBigIntDType(dtype);
+
+  // WASM fast path: full reversal when flipping all axes on contiguous array
+  // For C-contiguous, flipping all axes is equivalent to reversing the flat buffer.
+  // Also covers 1D flip and 2D flip-both-axes.
+  if (axesToFlip.size === ndim && storage.isCContiguous && !isComplexDType(dtype)) {
+    const wasm = wasmFlip(storage);
+    if (wasm) return wasm;
+  }
+
+  const outputData = new Constructor(size);
 
   // Fast path for 1D arrays
   if (ndim === 1 && storage.isCContiguous) {
@@ -1177,6 +1212,18 @@ export function rot90(
 
   if (k === 0) {
     return storage.copy();
+  }
+
+  // WASM fast path for 2D rot90 with default axes
+  if (ndim === 2 && axis0 === 0 && axis1 === 1 && storage.isCContiguous) {
+    if (k === 1) {
+      const wasm = wasmRot90(storage);
+      if (wasm) return wasm;
+    } else if (k === 2) {
+      // 180° rotation = full reversal
+      const wasm = wasmFlip(storage);
+      if (wasm) return wasm;
+    }
   }
 
   const Constructor = getTypedArrayConstructor(dtype);
@@ -1362,6 +1409,13 @@ export function roll(
   // Handle no axis case - roll as flattened array
   if (axis === undefined) {
     const flatShift = Array.isArray(shift) ? shift.reduce((a, b) => a + b, 0) : shift;
+
+    // WASM fast path for flat roll
+    if (storage.isCContiguous) {
+      const wasm = wasmRoll(storage, flatShift);
+      if (wasm) return wasm;
+    }
+
     const flatStorage = flatten(storage);
 
     const Constructor = getTypedArrayConstructor(dtype);
@@ -1613,21 +1667,34 @@ export function unstack(storage: ArrayStorage, axis: number = 0): ArrayStorage[]
   }
 
   const axisSize = shape[normalizedAxis]!;
-  const results: ArrayStorage[] = [];
+  const results: ArrayStorage[] = new Array(axisSize);
+  const data = storage.data;
+  const dtype = storage.dtype;
+  const strides = storage.strides;
+  const baseOffset = storage.offset;
+
+  // Build output shape and strides (axis dimension removed)
+  const outShape: number[] = [];
+  const outStrides: number[] = [];
+  for (let d = 0; d < ndim; d++) {
+    if (d !== normalizedAxis) {
+      outShape.push(shape[d]!);
+      outStrides.push(strides[d]!);
+    }
+  }
+
+  const axisStride = strides[normalizedAxis]!;
 
   for (let i = 0; i < axisSize; i++) {
-    const slices: Array<{ start: number; stop: number; step: number }> = [];
-    for (let d = 0; d < ndim; d++) {
-      if (d === normalizedAxis) {
-        slices.push({ start: i, stop: i + 1, step: 1 });
-      } else {
-        slices.push({ start: 0, stop: shape[d]!, step: 1 });
-      }
-    }
-    const sliced = sliceStorage(storage, slices);
-    const squeezed = squeeze(sliced, normalizedAxis);
-    results.push(squeezed);
+    results[i] = ArrayStorage.fromData(
+      data,
+      outShape,
+      dtype,
+      outStrides,
+      baseOffset + i * axisStride
+    );
   }
+
   return results;
 }
 
@@ -1645,32 +1712,4 @@ export function block(storages: ArrayStorage[], _depth: number = 1): ArrayStorag
   // np.block([a, b]) for nD arrays concatenates along the last axis (-1)
   // This matches NumPy's behavior where a flat list of arrays is joined horizontally
   return concatenate(storages, -1);
-}
-
-/**
- * Helper function to slice storage (used by unstack)
- */
-function sliceStorage(
-  storage: ArrayStorage,
-  slices: Array<{ start: number; stop: number; step: number }>
-): ArrayStorage {
-  const shape = storage.shape;
-  const strides = storage.strides;
-  let offset = storage.offset;
-  const dtype = storage.dtype;
-  const data = storage.data;
-
-  const newShape: number[] = [];
-  const newStrides: number[] = [];
-
-  for (let d = 0; d < shape.length; d++) {
-    const slice = slices[d]!;
-    const { start, stop, step } = slice;
-    const dimSize = Math.ceil((stop - start) / step);
-    newShape.push(dimSize);
-    newStrides.push(strides[d]! * step);
-    offset += start * strides[d]!;
-  }
-
-  return ArrayStorage.fromData(data, newShape, dtype, newStrides, offset);
 }
