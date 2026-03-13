@@ -84,6 +84,7 @@
     "bench:docs": "python3 scripts/generate-bench-docs.py",
     "compare-api": "python3 scripts/compare-api-coverage.py",
     "compare-docs-api": "python3 scripts/compare-docs-api-coverage.py",
+    "wasm:size": "tsx scripts/wasm-size.ts",
     "build:wasm": "tsx scripts/build-wasm.ts",
     "build:wasm:safe": "tsx scripts/build-wasm.ts --safe",
     "build:test": "npm run build:clean && npm run generate && npm run build:wasm:safe && tsx build.ts --skip-wasm && npm run build:types"
