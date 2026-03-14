@@ -14,6 +14,7 @@ import { wasmRoll } from '../wasm/roll';
 import { wasmRot90 } from '../wasm/rot90';
 import { wasmRepeat } from '../wasm/repeat';
 import { parseSlice, normalizeSlice } from '../slicing';
+import { expandEllipsis } from '../internal/indexing';
 
 /**
  * Slice an array along one or more dimensions
@@ -22,39 +23,31 @@ import { parseSlice, normalizeSlice } from '../slicing';
 export function slice(storage: ArrayStorage, ...sliceStrs: string[]): ArrayStorage {
   if (sliceStrs.length === 0) return storage;
 
-  if (sliceStrs.length > storage.ndim) {
-    throw new Error(
-      `Too many indices for array: array is ${storage.ndim}-dimensional, but ${sliceStrs.length} were indexed`
-    );
-  }
-
-  const sliceSpecs = sliceStrs.map((str, i) => {
-    const parsed = parseSlice(str);
-    return normalizeSlice(parsed, storage.shape[i]!);
-  });
-
-  while (sliceSpecs.length < storage.ndim) {
-    sliceSpecs.push({
-      start: 0,
-      stop: storage.shape[sliceSpecs.length]!,
-      step: 1,
-      isIndex: false,
-    });
-  }
+  sliceStrs = expandEllipsis(sliceStrs, storage.ndim);
 
   const newShape: number[] = [];
   const newStrides: number[] = [];
   let newOffset = storage.offset;
 
-  for (let i = 0; i < sliceSpecs.length; i++) {
-    const spec = sliceSpecs[i]!;
-    newOffset += spec.start * storage.strides[i]!;
+  let axis = 0;
+  for (let i = 0; i < sliceStrs.length; i++) {
+    const str = sliceStrs[i]!;
+    if (str === 'newaxis') {
+      newShape.push(1);
+      newStrides.push(0);
+    } else {
+      const parsed = parseSlice(str);
+      const spec = normalizeSlice(parsed, storage.shape[axis]!);
+      const stride = storage.strides[axis]!;
+      axis++;
+      newOffset += spec.start * stride;
 
-    if (spec.isIndex) continue;
+      if (spec.isIndex) continue;
 
-    const sliceLength = Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
-    newShape.push(sliceLength);
-    newStrides.push(storage.strides[i]! * spec.step);
+      const sliceLength = Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
+      newShape.push(sliceLength);
+      newStrides.push(stride * spec.step);
+    }
   }
 
   return ArrayStorage.fromData(storage.data, newShape, storage.dtype, newStrides, newOffset);
@@ -68,40 +61,32 @@ export function slice(storage: ArrayStorage, ...sliceStrs: string[]): ArrayStora
 export function sliceKeepDim(storage: ArrayStorage, ...sliceStrs: string[]): ArrayStorage {
   if (sliceStrs.length === 0) return storage;
 
-  if (sliceStrs.length > storage.ndim) {
-    throw new Error(
-      `Too many indices for array: array is ${storage.ndim}-dimensional, but ${sliceStrs.length} were indexed`
-    );
-  }
-
-  const sliceSpecs = sliceStrs.map((str, i) => {
-    const parsed = parseSlice(str);
-    return normalizeSlice(parsed, storage.shape[i]!);
-  });
-
-  while (sliceSpecs.length < storage.ndim) {
-    sliceSpecs.push({
-      start: 0,
-      stop: storage.shape[sliceSpecs.length]!,
-      step: 1,
-      isIndex: false,
-    });
-  }
+  sliceStrs = expandEllipsis(sliceStrs, storage.ndim);
 
   const newShape: number[] = [];
   const newStrides: number[] = [];
   let newOffset = storage.offset;
 
-  for (let i = 0; i < sliceSpecs.length; i++) {
-    const spec = sliceSpecs[i]!;
-    newOffset += spec.start * storage.strides[i]!;
+  let axis = 0;
+  for (let i = 0; i < sliceStrs.length; i++) {
+    const str = sliceStrs[i]!;
+    if (str === 'newaxis') {
+      newShape.push(1);
+      newStrides.push(0);
+    } else {
+      const parsed = parseSlice(str);
+      const spec = normalizeSlice(parsed, storage.shape[axis]!);
+      const stride = storage.strides[axis]!;
+      axis++;
+      newOffset += spec.start * stride;
 
-    // Unlike slice(), isIndex dimensions are kept as size-1 (rank is preserved)
-    const sliceLength = spec.isIndex
-      ? 1
-      : Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
-    newShape.push(sliceLength);
-    newStrides.push(storage.strides[i]! * spec.step);
+      // Unlike slice(), isIndex dimensions are kept as size-1 (rank is preserved)
+      const sliceLength = spec.isIndex
+        ? 1
+        : Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
+      newShape.push(sliceLength);
+      newStrides.push(stride * spec.step);
+    }
   }
 
   return ArrayStorage.fromData(storage.data, newShape, storage.dtype, newStrides, newOffset);

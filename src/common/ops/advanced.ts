@@ -10,7 +10,7 @@ import { getTypedArrayConstructor, isBigIntDType, isComplexDType, type TypedArra
 import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../broadcasting';
 import { Complex } from '../complex';
 import { parseSlice } from '../slicing';
-import { multiIndexToLinear } from '../internal/indexing';
+import { expandEllipsis, multiIndexToLinear } from '../internal/indexing';
 import { slice as storageSlice, transpose as storageTranspose } from './shape';
 
 /**
@@ -1650,29 +1650,6 @@ export function seterr(
 
 type StorageIndex = number | string | number[] | ArrayStorage;
 
-function expandEllipsis(indices: unknown[], ndim: number): unknown[] {
-  const ellipsisCount = indices.filter((x) => x === '...').length;
-  if (ellipsisCount > 1) throw new Error('an index can only have a single ellipsis (...)');
-
-  // Pad missing trailing indices with ':' (numpy semantics)
-  const withoutEllipsis = ellipsisCount === 0 ? indices : indices.filter((x) => x !== '...');
-  const nonTrailingCount = withoutEllipsis.length;
-  const padding = Array(ndim - nonTrailingCount).fill(':');
-
-  if (ellipsisCount === 0) return [...indices, ...padding];
-
-  // Replace '...' with the appropriate number of ':' entries
-  const result: unknown[] = [];
-  for (const idx of indices) {
-    if (idx === '...') {
-      result.push(...padding);
-    } else {
-      result.push(idx);
-    }
-  }
-  return result;
-}
-
 function numberArrayToStorage(values: number[]): ArrayStorage {
   return ArrayStorage.fromData(new Int32Array(values), [values.length], 'int32');
 }
@@ -1692,7 +1669,7 @@ function numberArrayToStorage(values: number[]): ArrayStorage {
  */
 export function vindex(a: ArrayStorage, ...indices: StorageIndex[]): ArrayStorage {
   // expand ellipsis and auto-pad missing trailing dims with ':'
-  const expanded = expandEllipsis(indices, a.ndim) as StorageIndex[];
+  const expanded = expandEllipsis(indices, a.ndim);
 
   // Split indices into simple slicing operations, and integer array indexing
   let sliceIndices: string[] = [];
@@ -1700,6 +1677,9 @@ export function vindex(a: ArrayStorage, ...indices: StorageIndex[]): ArrayStorag
   for (const ind of expanded) {
     if (typeof ind === 'number') {
       sliceIndices.push(ind.toString());
+    } else if (ind === 'newaxis') {
+      sliceIndices.push(ind);
+      arrayIndices.push(':');
     } else if (typeof ind === 'string') {
       const slice = parseSlice(ind);
       if (slice.isIndex) {

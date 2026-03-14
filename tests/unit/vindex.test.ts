@@ -218,6 +218,59 @@ describe('vindex', () => {
   });
 
   // ========================================
+  // newaxis
+  // ========================================
+  describe('newaxis', () => {
+    it('slice: newaxis at start inserts leading dim', () => {
+      const a = arange(6).reshape([2, 3]);
+      const result = vindex(a, 'newaxis', ':', ':');
+      expect(result.shape).toEqual([1, 2, 3]);
+      expect(result.toArray()).toEqual([[[0, 1, 2], [3, 4, 5]]]);
+    });
+
+    it('slice: newaxis between dims', () => {
+      const a = arange(6).reshape([2, 3]);
+      const result = vindex(a, ':', 'newaxis', ':');
+      expect(result.shape).toEqual([2, 1, 3]);
+    });
+
+    it('slice: newaxis at end', () => {
+      const a = arange(4);
+      const result = vindex(a, ':', 'newaxis');
+      expect(result.shape).toEqual([4, 1]);
+    });
+
+    it('array index + newaxis: newaxis appears after subspace', () => {
+      const a = arange(15).reshape([5, 3]);
+      const idx = array([1, 3]);
+      const result = vindex(a, idx, 'newaxis', ':');
+      // subspace (2,), newaxis (1,), slice (3,) → (2, 1, 3)
+      expect(result.shape).toEqual([2, 1, 3]);
+      expect(result.toArray()).toEqual([[[3, 4, 5]], [[9, 10, 11]]]);
+    });
+
+    it('newaxis before array index: still appears after subspace', () => {
+      const a = arange(15).reshape([5, 3]);
+      const idx = array([1, 3]);
+      const result = vindex(a, 'newaxis', idx, ':');
+      // newaxis is in slice portion position 0 → after subspace (2,)
+      expect(result.shape).toEqual([2, 1, 3]);
+    });
+
+    it('multiple newaxis entries', () => {
+      const a = arange(6);
+      const result = vindex(a, 'newaxis', ':', 'newaxis');
+      expect(result.shape).toEqual([1, 6, 1]);
+    });
+
+    it('single newaxis on 1D array', () => {
+      const a = arange(3);
+      expect(vindex(a, 'newaxis').shape).toEqual([1, 3]);
+      expect(vindex(a, 'newaxis').toArray()).toEqual([[0, 1, 2]]);
+    });
+  });
+
+  // ========================================
   // Complex dtypes
   // ========================================
   describe('complex dtypes', () => {
