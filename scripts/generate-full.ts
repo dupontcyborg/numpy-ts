@@ -141,14 +141,17 @@ function extractFunctionInfo(func: FunctionDeclaration): FunctionInfo | null {
 
   const params = func.getParameters().map(p => {
     const pName = p.getName();
-    paramNames.push(pName);  // Store the parameter name
+    const isRest = p.isRestParameter();
+    paramNames.push(isRest ? `...${pName}` : pName);  // Store the parameter name
 
     const typeNode = p.getTypeNode();
     const type = typeNode ? typeNode.getText() : 'any';
     const isOptional = p.isOptional() || p.hasInitializer();
     const initializer = p.getInitializer()?.getText();
 
-    if (initializer) {
+    if (isRest) {
+      return `...${pName}: ${type}`;
+    } else if (initializer) {
       return `${pName}: ${type} = ${initializer}`;
     } else if (isOptional) {
       return `${pName}?: ${type}`;
@@ -316,6 +319,7 @@ const up = (x: NDArrayCore): NDArray => {
 
 // Re-export types
 export type { DType, TypedArray } from '../core/types';
+export type { NDIndex } from '../core/advanced';
 export { NDArray, meshgrid } from './ndarray';
 export { NDArrayCore } from '../common/ndarray-core';
 export { Complex } from '../common/complex';

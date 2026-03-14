@@ -39,6 +39,7 @@ const up = (x: NDArrayCore): NDArray => {
 
 // Re-export types
 export type { DType, TypedArray } from '../core/types';
+export type { NDIndex } from '../core/advanced';
 export { NDArray, meshgrid } from './ndarray';
 export { NDArrayCore } from '../common/ndarray-core';
 export { Complex } from '../common/complex';
@@ -169,6 +170,19 @@ export function apply_over_axes(
     return func(up(arr), axis);
   };
   return up(core.apply_over_axes(wrappedFunc, a, axes));
+}
+
+/**
+ * Vectorized multi-dimensional indexing (dask.vindex semantics).
+ *
+ * Integer-array subspace dimensions come first in the output, followed by
+ * slice dimensions in their original order.
+ */
+export function vindex(
+  a: NDArrayCore,
+  ...indices: (number | string | number[] | NDArrayCore)[]
+): NDArray {
+  return up(core.vindex(a, ...indices));
 }
 
 /** Add arguments element-wise */
