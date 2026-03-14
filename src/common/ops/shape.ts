@@ -13,6 +13,99 @@ import { wasmTile2D } from '../wasm/tile';
 import { wasmRoll } from '../wasm/roll';
 import { wasmRot90 } from '../wasm/rot90';
 import { wasmRepeat } from '../wasm/repeat';
+import { parseSlice, normalizeSlice } from '../slicing';
+
+/**
+ * Slice an array along one or more dimensions
+ * Returns a view (no data copy) with adjusted shape, strides, and offset
+ */
+export function slice(storage: ArrayStorage, ...sliceStrs: string[]): ArrayStorage {
+  if (sliceStrs.length === 0) return storage;
+
+  if (sliceStrs.length > storage.ndim) {
+    throw new Error(
+      `Too many indices for array: array is ${storage.ndim}-dimensional, but ${sliceStrs.length} were indexed`
+    );
+  }
+
+  const sliceSpecs = sliceStrs.map((str, i) => {
+    const parsed = parseSlice(str);
+    return normalizeSlice(parsed, storage.shape[i]!);
+  });
+
+  while (sliceSpecs.length < storage.ndim) {
+    sliceSpecs.push({
+      start: 0,
+      stop: storage.shape[sliceSpecs.length]!,
+      step: 1,
+      isIndex: false,
+    });
+  }
+
+  const newShape: number[] = [];
+  const newStrides: number[] = [];
+  let newOffset = storage.offset;
+
+  for (let i = 0; i < sliceSpecs.length; i++) {
+    const spec = sliceSpecs[i]!;
+    newOffset += spec.start * storage.strides[i]!;
+
+    if (spec.isIndex) continue;
+
+    const sliceLength = Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
+    newShape.push(sliceLength);
+    newStrides.push(storage.strides[i]! * spec.step);
+  }
+
+  return ArrayStorage.fromData(storage.data, newShape, storage.dtype, newStrides, newOffset);
+}
+
+/**
+ * Slice an array along one or more dimensions, keeping all dimensions (rank-preserving)
+ * Like slice(), but integer-index specs produce a size-1 dimension instead of dropping it.
+ * Returns a view (no data copy) with adjusted shape, strides, and offset
+ */
+export function sliceKeepDim(storage: ArrayStorage, ...sliceStrs: string[]): ArrayStorage {
+  if (sliceStrs.length === 0) return storage;
+
+  if (sliceStrs.length > storage.ndim) {
+    throw new Error(
+      `Too many indices for array: array is ${storage.ndim}-dimensional, but ${sliceStrs.length} were indexed`
+    );
+  }
+
+  const sliceSpecs = sliceStrs.map((str, i) => {
+    const parsed = parseSlice(str);
+    return normalizeSlice(parsed, storage.shape[i]!);
+  });
+
+  while (sliceSpecs.length < storage.ndim) {
+    sliceSpecs.push({
+      start: 0,
+      stop: storage.shape[sliceSpecs.length]!,
+      step: 1,
+      isIndex: false,
+    });
+  }
+
+  const newShape: number[] = [];
+  const newStrides: number[] = [];
+  let newOffset = storage.offset;
+
+  for (let i = 0; i < sliceSpecs.length; i++) {
+    const spec = sliceSpecs[i]!;
+    newOffset += spec.start * storage.strides[i]!;
+
+    // Unlike slice(), isIndex dimensions are kept as size-1 (rank is preserved)
+    const sliceLength = spec.isIndex
+      ? 1
+      : Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
+    newShape.push(sliceLength);
+    newStrides.push(storage.strides[i]! * spec.step);
+  }
+
+  return ArrayStorage.fromData(storage.data, newShape, storage.dtype, newStrides, newOffset);
+}
 
 /**
  * Reshape array to a new shape

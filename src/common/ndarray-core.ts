@@ -8,7 +8,7 @@
  * For the full NDArray with all methods, use ndarray-full.ts
  */
 
-import { parseSlice, normalizeSlice } from './slicing';
+import * as shapeOps from './ops/shape';
 import {
   type DType,
   type TypedArray,
@@ -518,58 +518,11 @@ export class NDArrayCore {
   /**
    * Slice the array
    */
-  slice(...sliceStrs: string[]): NDArrayCore {
-    if (sliceStrs.length === 0) {
-      return this;
-    }
-
-    if (sliceStrs.length > this.ndim) {
-      throw new Error(
-        `Too many indices for array: array is ${this.ndim}-dimensional, but ${sliceStrs.length} were indexed`
-      );
-    }
-
-    const sliceSpecs = sliceStrs.map((str, i) => {
-      const parsed = parseSlice(str);
-      return normalizeSlice(parsed, this.shape[i]!);
-    });
-
-    while (sliceSpecs.length < this.ndim) {
-      sliceSpecs.push({
-        start: 0,
-        stop: this.shape[sliceSpecs.length]!,
-        step: 1,
-        isIndex: false,
-      });
-    }
-
-    const newShape: number[] = [];
-    const newStrides: number[] = [];
-    let newOffset = this._storage.offset;
-
-    for (let i = 0; i < sliceSpecs.length; i++) {
-      const spec = sliceSpecs[i]!;
-      newOffset += spec.start * this._storage.strides[i]!;
-
-      if (spec.step === 0) {
-        continue;
-      }
-
-      const sliceLength = Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
-      newShape.push(sliceLength);
-      newStrides.push(this._storage.strides[i]! * spec.step);
-    }
-
-    const slicedStorage = ArrayStorage.fromData(
-      this._storage.data,
-      newShape,
-      this._storage.dtype,
-      newStrides,
-      newOffset
-    );
-
+  slice(...sliceStrs: string[]): this {
+    const slicedStorage = shapeOps.slice(this._storage, ...sliceStrs);
+    if (slicedStorage === this._storage) return this;
     const base = this._base ?? this;
-    return new NDArrayCore(slicedStorage, base);
+    return new (this.constructor as typeof NDArrayCore)(slicedStorage, base) as this;
   }
 
   /**
