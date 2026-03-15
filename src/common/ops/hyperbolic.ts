@@ -12,6 +12,7 @@ import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp } from '../internal/compute';
 import { isComplexDType, type DType } from '../dtype';
 import { wasmSinh } from '../wasm/sinh';
+import { wasmCosh } from '../wasm/cosh';
 import { wasmTanh } from '../wasm/tanh';
 
 /**
@@ -81,6 +82,9 @@ export function cosh(a: ArrayStorage): ArrayStorage {
 
     return result;
   }
+
+  const wasmResult = wasmCosh(a);
+  if (wasmResult) return wasmResult;
 
   return elementwiseUnaryOp(a, Math.cosh, false);
 }

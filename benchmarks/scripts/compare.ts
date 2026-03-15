@@ -1,12 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * Compare benchmark results: local (working tree) vs git (staged or HEAD).
+ * Compare benchmark results: local (working tree) vs git (staged, HEAD, or main).
  *
  * Usage:
- *   tsx benchmarks/scripts/compare.ts [latest|latest-full]
+ *   tsx benchmarks/scripts/compare.ts [latest|latest-full] [--main]
  *
  * Defaults to "latest" if no argument given.
- * Compares against staged version first; falls back to HEAD if nothing is staged.
+ * --main: compare against main branch HEAD instead of current branch's staged/HEAD.
+ * Otherwise compares against staged version first; falls back to HEAD if nothing is staged.
  */
 
 import { readFileSync, existsSync } from 'fs';
@@ -14,7 +15,10 @@ import { execSync } from 'child_process';
 import { resolve } from 'path';
 
 const root = resolve(import.meta.dirname, '../..');
-const variant = process.argv[2] === 'latest-full' ? 'latest-full' : 'latest';
+const args = process.argv.slice(2);
+const useMain = args.includes('--main');
+const positional = args.filter(a => !a.startsWith('--'));
+const variant = positional[0] === 'latest-full' ? 'latest-full' : 'latest';
 const relPath = `benchmarks/results/${variant}.json`;
 const localPath = resolve(root, relPath);
 
@@ -25,40 +29,52 @@ if (!existsSync(localPath)) {
 }
 const local = JSON.parse(readFileSync(localPath, 'utf8'));
 
-// --- Load git version (staged first, then HEAD) ---
+// --- Load git version ---
 let gitJson: string | null = null;
 let source = '';
 
-try {
-  // Try staged (:0 = index)
-  gitJson = execSync(`git show :${relPath}`, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
-  // Check if staged differs from HEAD (i.e. something is actually staged)
+if (useMain) {
+  // Compare against main branch HEAD
   try {
-    execSync(`git diff --cached --quiet -- ${relPath}`, { cwd: root, stdio: 'pipe' });
-    // No diff = nothing staged, fall through to HEAD
-    gitJson = null;
+    gitJson = execSync(`git show main:${relPath}`, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+    source = 'main';
   } catch {
-    // diff --cached returned non-zero = there ARE staged changes
-    // But if staged == local (working tree), comparing them is pointless — use HEAD instead
+    console.error(`No version of ${relPath} found on main branch.`);
+    process.exit(1);
+  }
+} else {
+  // Default: staged first, then HEAD
+  try {
+    // Try staged (:0 = index)
+    gitJson = execSync(`git show :${relPath}`, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+    // Check if staged differs from HEAD (i.e. something is actually staged)
     try {
-      execSync(`git diff --quiet -- ${relPath}`, { cwd: root, stdio: 'pipe' });
-      // No diff = staged matches local, fall through to HEAD
+      execSync(`git diff --cached --quiet -- ${relPath}`, { cwd: root, stdio: 'pipe' });
+      // No diff = nothing staged, fall through to HEAD
       gitJson = null;
     } catch {
-      source = 'staged';
+      // diff --cached returned non-zero = there ARE staged changes
+      // But if staged == local (working tree), comparing them is pointless — use HEAD instead
+      try {
+        execSync(`git diff --quiet -- ${relPath}`, { cwd: root, stdio: 'pipe' });
+        // No diff = staged matches local, fall through to HEAD
+        gitJson = null;
+      } catch {
+        source = 'staged';
+      }
     }
-  }
-} catch {
-  // Not in index at all
-}
-
-if (!gitJson) {
-  try {
-    gitJson = execSync(`git show HEAD:${relPath}`, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
-    source = 'HEAD';
   } catch {
-    console.error(`No git version of ${relPath} found (not staged or committed).`);
-    process.exit(1);
+    // Not in index at all
+  }
+
+  if (!gitJson) {
+    try {
+      gitJson = execSync(`git show HEAD:${relPath}`, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+      source = 'HEAD';
+    } catch {
+      console.error(`No git version of ${relPath} found (not staged or committed).`);
+      process.exit(1);
+    }
   }
 }
 

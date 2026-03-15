@@ -12,9 +12,10 @@ import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp } from '../internal/compute';
 import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
 import { Complex } from '../complex';
-import { wasmSin } from '../wasm/sin';
 import { wasmCos } from '../wasm/cos';
 import { wasmTan } from '../wasm/tan';
+import { wasmArcsin } from '../wasm/arcsin';
+import { wasmArccos } from '../wasm/arccos';
 import { wasmArctan } from '../wasm/arctan';
 import { wasmHypot, wasmHypotScalar } from '../wasm/hypot';
 
@@ -62,9 +63,6 @@ export function sin(a: ArrayStorage): ArrayStorage {
 
     return result;
   }
-
-  const wasmResult = wasmSin(a);
-  if (wasmResult) return wasmResult;
 
   return elementwiseUnaryOp(a, Math.sin, false);
 }
@@ -216,6 +214,9 @@ export function arcsin(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmArcsin(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.asin, false);
 }
 
@@ -308,6 +309,9 @@ export function arccos(a: ArrayStorage): ArrayStorage {
 
     return result;
   }
+
+  const wasmResult = wasmArccos(a);
+  if (wasmResult) return wasmResult;
 
   return elementwiseUnaryOp(a, Math.acos, false);
 }
