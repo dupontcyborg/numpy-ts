@@ -210,9 +210,12 @@ async function main() {
   }
 
   if (options.spec) {
-    const pattern = options.spec.toLowerCase();
+    const patterns = options.spec.split(',').map((p: string) => p.trim().toLowerCase());
     console.log(`Spec filter: "${options.spec}"`);
-    specs = specs.filter((s) => s.name.toLowerCase().includes(pattern));
+    specs = specs.filter((s) => {
+      const name = s.name.toLowerCase();
+      return patterns.some((p: string) => name.includes(p));
+    });
 
     if (specs.length === 0) {
       console.error('No benchmarks matched --spec: ' + options.spec);
@@ -257,8 +260,8 @@ async function main() {
 
     // Run NumPy benchmarks (native Python or Pyodide WASM)
     let numpyResults: BenchmarkTiming[];
-    let pythonVersion: string;
-    let numpyVersion: string;
+    let pythonVersion: string = 'unknown';
+    let numpyVersion: string = 'unknown';
 
     const cached = options.fresh ? null : tryLoadCachedPython(specs, modeSuffix, resultsDir);
     if (cached) {
