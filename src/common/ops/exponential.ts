@@ -12,6 +12,11 @@ import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
 import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
 import { Complex } from '../complex';
+import { wasmSqrt } from '../wasm/sqrt';
+import { wasmPower, wasmPowerScalar } from '../wasm/power';
+import { wasmExp } from '../wasm/exp';
+import { wasmExp2 } from '../wasm/exp2';
+import { wasmLogaddexp, wasmLogaddexpScalar } from '../wasm/logaddexp';
 
 /**
  * Square root of each element
@@ -65,6 +70,9 @@ export function sqrt(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmSqrt(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.sqrt, false); // false = promote integers to float64
 }
 
@@ -89,6 +97,9 @@ export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   if (aIsComplex || bIsComplex) {
     return complexPowerArray(a, b);
   }
+
+  const wasmResult = wasmPower(a, b);
+  if (wasmResult) return wasmResult;
 
   return elementwiseBinaryOp(a, b, Math.pow, 'power');
 }
@@ -182,6 +193,12 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
   const size = storage.size;
   const off = storage.offset;
   const contiguous = storage.isCContiguous;
+
+  // Try WASM fast path (non-complex only)
+  if (!isComplexDType(dtype)) {
+    const wasmResult = wasmPowerScalar(storage, exponent);
+    if (wasmResult) return wasmResult;
+  }
 
   // Handle complex types
   if (isComplexDType(dtype)) {
@@ -323,6 +340,9 @@ export function exp(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmExp(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.exp, false);
 }
 
@@ -373,6 +393,9 @@ export function exp2(a: ArrayStorage): ArrayStorage {
 
     return result;
   }
+
+  const wasmResult = wasmExp2(a);
+  if (wasmResult) return wasmResult;
 
   return elementwiseUnaryOp(a, (x) => Math.pow(2, x), false);
 }
@@ -656,6 +679,9 @@ export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
  * @private
  */
 function logaddexpArray(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  const wasmResult = wasmLogaddexp(x1, x2);
+  if (wasmResult) return wasmResult;
+
   const outputShape = broadcastShapes(x1.shape, x2.shape);
   const size = outputShape.reduce((a, b) => a * b, 1);
   const dtype1 = x1.dtype;
@@ -687,6 +713,9 @@ function logaddexpArray(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @private
  */
 function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
+  const wasmResult = wasmLogaddexpScalar(storage, x2);
+  if (wasmResult) return wasmResult;
+
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const size = storage.size;

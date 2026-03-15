@@ -13,4 +13,10 @@ export const wasmConfig = {
    * - Infinity: disable WASM entirely, always fall back to JS
    */
   thresholdMultiplier: 1,
+
+  /**
+   * Incremented each time a WASM kernel successfully executes.
+   * Reset to 0 by callers (e.g. benchmark runner) to detect per-operation WASM usage.
+   */
+  wasmCallCount: 0,
 };

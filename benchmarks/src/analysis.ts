@@ -2,6 +2,21 @@
  * Benchmark results analysis
  */
 
+const DTYPE_RE = /\s+(float64|float32|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
+const DTYPE_ORDER = ['float64', 'float32', 'int64', 'uint64', 'int32', 'uint32', 'int16', 'uint16', 'int8', 'uint8', 'complex128', 'complex64', 'bool'];
+
+function compareBenchmarkNames(a: string, b: string): number {
+  const aMatch = a.match(DTYPE_RE);
+  const bMatch = b.match(DTYPE_RE);
+  const aBase = aMatch ? a.slice(0, -aMatch[0].length) : a;
+  const bBase = bMatch ? b.slice(0, -bMatch[0].length) : b;
+  const baseCmp = aBase.localeCompare(bBase);
+  if (baseCmp !== 0) return baseCmp;
+  const aDtype = aMatch ? aMatch[1]! : 'float64'; // no suffix = implicit float64
+  const bDtype = bMatch ? bMatch[1]! : 'float64';
+  return DTYPE_ORDER.indexOf(aDtype) - DTYPE_ORDER.indexOf(bDtype);
+}
+
 import type {
   BenchmarkTiming,
   BenchmarkComparison,
@@ -27,7 +42,8 @@ export function compareResults(
       category: spec.category,
       numpy,
       numpyjs,
-      ratio: numpyjs.mean_ms / numpy.mean_ms
+      ratio: numpyjs.mean_ms / numpy.mean_ms,
+      wasmUsed: numpyjs.wasmUsed,
     });
   }
 
@@ -66,6 +82,10 @@ export function groupByCategory(
     const existing = groups.get(comparison.category) || [];
     existing.push(comparison);
     groups.set(comparison.category, existing);
+  }
+
+  for (const items of groups.values()) {
+    items.sort((a, b) => compareBenchmarkNames(a.name, b.name));
   }
 
   return groups;
@@ -253,6 +273,7 @@ export function compareMultiRuntime(
       category: spec.category,
       numpy,
       runtimes,
+      wasmUsed: Object.values(runtimes).some((r) => r.timing.wasmUsed),
     });
   }
 
@@ -306,6 +327,9 @@ export function groupMultiRuntimeByCategory(
     const existing = groups.get(comparison.category) || [];
     existing.push(comparison);
     groups.set(comparison.category, existing);
+  }
+  for (const items of groups.values()) {
+    items.sort((a, b) => compareBenchmarkNames(a.name, b.name));
   }
   return groups;
 }

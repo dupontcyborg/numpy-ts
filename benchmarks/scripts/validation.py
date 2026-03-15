@@ -193,6 +193,12 @@ def run_operation(spec):
         result = np.cos(arrays["a"])
     elif operation == "tan":
         result = np.tan(arrays["a"])
+    elif operation == "arcsin":
+        result = np.arcsin(arrays["a"])
+    elif operation == "arccos":
+        result = np.arccos(arrays["a"])
+    elif operation == "arctan":
+        result = np.arctan(arrays["a"])
     elif operation == "arctan2":
         result = np.arctan2(arrays["a"], arrays["b"])
     elif operation == "hypot":
@@ -205,6 +211,12 @@ def run_operation(spec):
         result = np.cosh(arrays["a"])
     elif operation == "tanh":
         result = np.tanh(arrays["a"])
+    elif operation == "arcsinh":
+        result = np.arcsinh(arrays["a"])
+    elif operation == "arccosh":
+        result = np.arccosh(arrays["a"])
+    elif operation == "arctanh":
+        result = np.arctanh(arrays["a"])
 
     # Exponential
     elif operation == "exp":

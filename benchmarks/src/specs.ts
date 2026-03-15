@@ -848,7 +848,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // --- unwrap ---
     specs.push({
       name: `unwrap [${sizes.small}]`,
-      category: 'arithmetic',
+      category: 'trig',
       operation: 'unwrap',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -860,7 +860,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // --- sinc ---
     specs.push({
       name: `sinc [${sizes.medium.join('x')}]`,
-      category: 'arithmetic',
+      category: 'trig',
       operation: 'sinc',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -944,10 +944,10 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
-    // Trigonometric functions
+    // Trigonometric & hyperbolic functions
     specs.push({
       name: `sin [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'sin',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -959,7 +959,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `cos [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'cos',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -970,7 +970,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `tan [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'tan',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -980,8 +980,41 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
+      name: `arcsin [${sizes.medium.join('x')}]`,
+      category: 'trig',
+      operation: 'arcsin',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `arccos [${sizes.medium.join('x')}]`,
+      category: 'trig',
+      operation: 'arccos',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `arctan [${sizes.medium.join('x')}]`,
+      category: 'trig',
+      operation: 'arctan',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
       name: `arctan2 [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'arctan2',
       setup: {
         a: { shape: sizes.medium, fill: 'arange', value: 1 },
@@ -993,7 +1026,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `hypot [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'hypot',
       setup: {
         a: { shape: sizes.medium, fill: 'arange', value: 1 },
@@ -1007,7 +1040,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // Use scaled values to avoid overflow (sinh/cosh overflow around 710)
     specs.push({
       name: `sinh [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'sinh',
       setup: {
         a: { shape: sizes.medium, fill: 'ones' },
@@ -1018,7 +1051,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `cosh [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'cosh',
       setup: {
         a: { shape: sizes.medium, fill: 'ones' },
@@ -1029,10 +1062,43 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `tanh [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'tanh',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `arcsinh [${sizes.medium.join('x')}]`,
+      category: 'trig',
+      operation: 'arcsinh',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `arccosh [${sizes.medium.join('x')}]`,
+      category: 'trig',
+      operation: 'arccosh',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `arctanh [${sizes.medium.join('x')}]`,
+      category: 'trig',
+      operation: 'arctanh',
+      setup: {
+        a: { shape: sizes.medium, fill: 'random' },
       },
       iterations,
       warmup,
@@ -3823,7 +3889,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `sinc [${sizes.medium.join('x')}]`,
-      category: 'math',
+      category: 'trig',
       operation: 'sinc',
       setup: {
         a: { shape: sizes.medium, fill: 'random' },
@@ -3859,7 +3925,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
   specs.push({
     name: `unwrap [${sizes.small}]`,
-    category: 'math',
+    category: 'trig',
     operation: 'unwrap',
     setup: {
       a: { shape: [sizes.small], fill: 'random' },
@@ -4103,7 +4169,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     sets: ['float', 'int'],
     logic: ['float', 'int'],
     gradient: ['float', 'int'],
-    trig: ['float'],
+    trig: ['float', 'int', 'complex'],
     indexing: ['float', 'int'],
     polynomials: ['float'],
     bitwise: ['int'],

@@ -11,6 +11,7 @@
 
 import * as np from '../../src/index';
 import { serializeNpy, parseNpy, serializeNpzSync, parseNpzSync } from '../../src/io';
+import { wasmConfig } from '../../src/common/wasm/config';
 import type { BenchmarkCase, BenchmarkTiming, BenchmarkSetup } from './types';
 
 // Benchmark configuration - set from stdin input
@@ -183,6 +184,9 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'sin') return arrays['a'].sin();
   if (operation === 'cos') return arrays['a'].cos();
   if (operation === 'tan') return arrays['a'].tan();
+  if (operation === 'arcsin') return arrays['a'].arcsin();
+  if (operation === 'arccos') return arrays['a'].arccos();
+  if (operation === 'arctan') return arrays['a'].arctan();
   if (operation === 'arctan2') return arrays['a'].arctan2(arrays['b']);
   if (operation === 'hypot') return arrays['a'].hypot(arrays['b']);
 
@@ -190,6 +194,9 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'sinh') return arrays['a'].sinh();
   if (operation === 'cosh') return arrays['a'].cosh();
   if (operation === 'tanh') return arrays['a'].tanh();
+  if (operation === 'arcsinh') return arrays['a'].arcsinh();
+  if (operation === 'arccosh') return arrays['a'].arccosh();
+  if (operation === 'arctanh') return arrays['a'].arctanh();
 
   // Exponential
   if (operation === 'exp') return arrays['a'].exp();
@@ -532,10 +539,12 @@ function runBenchmark(spec: BenchmarkCase): BenchmarkTiming {
   const { name, operation, setup, warmup } = spec;
   const arrays = setupArrays(setup, operation);
 
-  // Warmup
+  // Warmup — also used to detect WASM kernel usage
+  wasmConfig.wasmCallCount = 0;
   for (let i = 0; i < warmup; i++) {
     executeOperation(operation, arrays);
   }
+  const wasmUsed = wasmConfig.wasmCallCount > 0;
 
   // Calibrate
   const opsPerSample = calibrateOpsPerSample(operation, arrays);
@@ -566,6 +575,7 @@ function runBenchmark(spec: BenchmarkCase): BenchmarkTiming {
     ops_per_sec: 1000 / meanMs,
     total_ops: totalOps,
     total_samples: TARGET_SAMPLES,
+    wasmUsed,
   };
 }
 
@@ -583,6 +593,9 @@ async function main() {
 
   MIN_SAMPLE_TIME_MS = config.minSampleTimeMs;
   TARGET_SAMPLES = config.targetSamples;
+  if (config.noWasm) {
+    wasmConfig.thresholdMultiplier = Infinity;
+  }
 
   // Detect runtime name and version
   let runtimeName = 'node';
@@ -628,6 +641,7 @@ async function main() {
         ops_per_sec: 0,
         total_ops: 0,
         total_samples: 0,
+        wasmUsed: false,
       });
       console.error(
         `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)}   FAILED: ${err instanceof Error ? err.message : err}`
