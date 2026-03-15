@@ -2855,7 +2855,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'bitwise',
       operation: 'bitwise_count',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'uint32' },
+        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
       },
       iterations,
       warmup,
@@ -4154,6 +4154,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Standard mode: float64 (base) + float32
   // Full mode:     float64 (base) + float32 + complex128 + int64 + int32 + int16 + int8
 
+  // type DtypeFamily = 'float' | 'int' | 'uint' | 'complex';
   type DtypeFamily = 'float' | 'int' | 'complex';
 
   // Which dtype families each category supports
@@ -4185,6 +4186,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       { dtype: 'int16', minMode: 'full' },
       { dtype: 'int8', minMode: 'full' },
     ],
+    // uint: [
+    //   { dtype: 'uint64', minMode: 'full' },
+    //   { dtype: 'uint32', minMode: 'full' },
+    //   { dtype: 'uint16', minMode: 'full' },
+    //   { dtype: 'uint8', minMode: 'full' },
+    // ],
     complex: [
       { dtype: 'complex128', minMode: 'full' },
       { dtype: 'complex64', minMode: 'full' },
@@ -4217,6 +4224,8 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     'ldexp', // real float composition
     'modf', // real float decomposition
     'interp', // special setup, not dtype-variant-friendly
+    'packbits', // always uint8
+    'unpackbits', // always uint8
   ]);
 
   // Operations to skip for ALL int dtype variants
@@ -4397,19 +4406,25 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       // Skip specs that already have an explicit non-default dtype
       const dataEntries = Object.entries(spec.setup).filter(([key]) => DATA_ARRAY_KEYS.has(key));
       if (dataEntries.length === 0) continue;
-      const hasNonDefaultDtype = dataEntries.some(
-        ([, entry]) => entry.dtype && entry.dtype !== 'float64'
-      );
-      if (hasNonDefaultDtype) continue;
 
-      // Get supported families for this category
+      // For categories that include float, the default base dtype is float64.
+      // For integer-only categories (e.g. bitwise), we still want to sweep all int/uint dtypes.
       const families = CATEGORY_DTYPE_SUPPORT[spec.category];
       if (!families) continue; // Category not listed = skip (random, utilities, etc.)
 
+      const hasFloatFamily = families.includes('float');
+      if (hasFloatFamily) {
+        const hasNonDefaultDtype = dataEntries.some(
+          ([, entry]) => entry.dtype && entry.dtype !== 'float64'
+        );
+        if (hasNonDefaultDtype) continue;
+      }
+
       // Collect all applicable variant dtypes
       for (const family of families) {
-        // Skip int variants for operations prone to overflow
-        if (family === 'int' && SKIP_INT_OPERATIONS.has(spec.operation)) continue;
+        // Skip int/uint variants for operations prone to overflow
+        if ((family === 'int' || family === 'uint') && SKIP_INT_OPERATIONS.has(spec.operation))
+          continue;
         // Skip complex variants for unsupported operations
         if (family === 'complex' && SKIP_COMPLEX_OPERATIONS.has(spec.operation)) continue;
         // Skip complex variants for broadcasting specs (complex broadcasting is buggy)
@@ -4421,10 +4436,17 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
         for (const variant of FAMILY_VARIANTS[family]!) {
           if (MODE_RANK[mode]! < MODE_RANK[variant.minMode]!) continue;
 
-          // Skip narrow int types (int8/int16) for accumulation ops where overflow wrapping differs
+          // Skip variant if it matches the base spec's dtype (would be a duplicate)
+          const baseDtype = dataEntries[0]?.[1]?.dtype;
+          if (baseDtype && variant.dtype === baseDtype) continue;
+
+          // Skip narrow int/uint types for accumulation ops where overflow wrapping differs
           if (
-            family === 'int' &&
-            (variant.dtype === 'int8' || variant.dtype === 'int16') &&
+            (family === 'int' || family === 'uint') &&
+            (variant.dtype === 'int8' ||
+              variant.dtype === 'int16' ||
+              variant.dtype === 'uint8' ||
+              variant.dtype === 'uint16') &&
             SKIP_NARROW_INT_OPERATIONS.has(spec.operation)
           )
             continue;
