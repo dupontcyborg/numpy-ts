@@ -7,7 +7,7 @@
  * in JS and run through the f64 SIMD kernel (matches NumPy's promotion).
  */
 
-import { cosh_f64, cosh_f32, cosh_i64 } from './bins/cosh.wasm';
+import { cosh_f64, cosh_f32, cosh_i64, cosh_u64 } from './bins/cosh.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isComplexDType, isBigIntDType, type DType, type TypedArray } from '../dtype';
@@ -61,14 +61,14 @@ export function wasmCosh(a: ArrayStorage): ArrayStorage | null {
   }
 
   // int64 native path — avoid costly BigInt→Number conversion in JS
-  if (dtype === 'int64') {
+  if (dtype === 'int64' || dtype === 'uint64') {
     ensureMemory(size * 16);
     resetAllocator();
     const aOff = a.offset;
     const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
     const aPtr = copyIn(aData);
     const outPtr = alloc(size * 8);
-    cosh_i64(aPtr, outPtr, size);
+    (dtype === 'int64' ? cosh_i64 : cosh_u64)(aPtr, outPtr, size);
     const outData = copyOut(
       outPtr,
       size,
