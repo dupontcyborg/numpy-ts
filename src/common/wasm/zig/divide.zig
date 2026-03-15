@@ -136,6 +136,88 @@ export fn div_scalar_i8_f64(a: [*]const i8, out: [*]f64, N: u32, scalar: f64) vo
     }
 }
 
+// ---- Unsigned integer variants (u* → f64) ----
+
+/// u64-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
+export fn div_u64_f64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+    }
+}
+
+/// u64-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u64_f64(a: [*]const u64, out: [*]f64, N: u32, scalar: f64) void {
+    const s: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v0: f64 = @floatFromInt(a[i]);
+        const v1: f64 = @floatFromInt(a[i + 1]);
+        const v = simd.V2f64{ v0, v1 };
+        simd.store2_f64(out, i, v / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// u32-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
+export fn div_u32_f64(a: [*]const u32, b: [*]const u32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+    }
+}
+
+/// u32-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u32_f64(a: [*]const u32, out: [*]f64, N: u32, scalar: f64) void {
+    const s: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v0: f64 = @floatFromInt(a[i]);
+        const v1: f64 = @floatFromInt(a[i + 1]);
+        const v = simd.V2f64{ v0, v1 };
+        simd.store2_f64(out, i, v / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// u16-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
+export fn div_u16_f64(a: [*]const u16, b: [*]const u16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+    }
+}
+
+/// u16-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u16_f64(a: [*]const u16, out: [*]f64, N: u32, scalar: f64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// u8-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
+export fn div_u8_f64(a: [*]const u8, b: [*]const u8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+    }
+}
+
+/// u8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u8_f64(a: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
 /// Complex128 binary divide: (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c²+d²).
 /// N = number of complex elements (each = 2 f64s).
 export fn div_c128(a: [*]const f64, b: [*]const f64, out: [*]f64, N: u32) void {

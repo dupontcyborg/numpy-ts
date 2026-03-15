@@ -30,25 +30,24 @@ const BASE_THRESHOLD = 64;
 type DiffFn = (aPtr: number, outPtr: number, N: number) => void;
 type Diff2DFn = (aPtr: number, outPtr: number, rows: number, cols: number) => void;
 
-// uint types are excluded: diff does subtraction, so reusing signed kernels produces
-// wrong results for values > signed max (e.g. uint8 128 read as i8 -128).
-// JS fallback reads TypedArray values as correctly unsigned.
+// uint types reuse signed kernels: two's complement wrapping subtraction
+// produces identical bit patterns regardless of sign interpretation.
 const kernels1D: Partial<Record<DType, DiffFn>> = {
   float64: diff_f64,
   float32: diff_f32,
-  int64: diff_i64,
-  int32: diff_i32,
-  int16: diff_i16,
-  int8: diff_i8,
+  int64: diff_i64, uint64: diff_i64,
+  int32: diff_i32, uint32: diff_i32,
+  int16: diff_i16, uint16: diff_i16,
+  int8: diff_i8,  uint8: diff_i8,
 };
 
 const kernels2D: Partial<Record<DType, Diff2DFn>> = {
   float64: diff_2d_f64,
   float32: diff_2d_f32,
-  int64: diff_2d_i64,
-  int32: diff_2d_i32,
-  int16: diff_2d_i16,
-  int8: diff_2d_i8,
+  int64: diff_2d_i64, uint64: diff_2d_i64,
+  int32: diff_2d_i32, uint32: diff_2d_i32,
+  int16: diff_2d_i16, uint16: diff_2d_i16,
+  int8: diff_2d_i8,  uint8: diff_2d_i8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

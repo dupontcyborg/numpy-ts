@@ -148,6 +148,78 @@ export fn copysign_scalar_i8(x1: [*]const i8, out: [*]f64, N: u32, scalar: i8) v
     }
 }
 
+// ---- Unsigned integer variants (u* → f64) ----
+// For uint types, x2 is always >= 0, so sign is always +1 (or 0).
+// The key difference from signed is correct @floatFromInt on unsigned values.
+
+export fn copysign_u64(x1: [*]const u64, x2: [*]const u64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+export fn copysign_scalar_u64(x1: [*]const u64, out: [*]f64, N: u32, scalar: f64) void {
+    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = sign * @as(f64, @floatFromInt(x1[i]));
+    }
+}
+
+export fn copysign_u32(x1: [*]const u32, x2: [*]const u32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+export fn copysign_scalar_u32(x1: [*]const u32, out: [*]f64, N: u32, scalar: f64) void {
+    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = sign * @as(f64, @floatFromInt(x1[i]));
+    }
+}
+
+export fn copysign_u16(x1: [*]const u16, x2: [*]const u16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+export fn copysign_scalar_u16(x1: [*]const u16, out: [*]f64, N: u32, scalar: f64) void {
+    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = sign * @as(f64, @floatFromInt(x1[i]));
+    }
+}
+
+export fn copysign_u8(x1: [*]const u8, x2: [*]const u8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+export fn copysign_scalar_u8(x1: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
+    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = sign * @as(f64, @floatFromInt(x1[i]));
+    }
+}
+
 // --- Tests ---
 
 test "copysign_f64 basic" {

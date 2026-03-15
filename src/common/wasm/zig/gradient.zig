@@ -125,6 +125,64 @@ export fn gradient_i8(a: [*]const i8, out: [*]f64, N: u32, h: f64) void {
     out[N - 1] = (@as(f64, @floatFromInt(a[N - 1])) - @as(f64, @floatFromInt(a[N - 2]))) / h;
 }
 
+// ---- Unsigned integer variants (u* → f64) ----
+
+/// 1D gradient for u64 input → f64 output (scalar loop).
+export fn gradient_u64(a: [*]const u64, out: [*]f64, N: u32, h: f64) void {
+    if (N < 2) return;
+    out[0] = (@as(f64, @floatFromInt(a[1])) - @as(f64, @floatFromInt(a[0]))) / h;
+    const h2 = 2.0 * h;
+    var i: u32 = 1;
+    while (i < N - 1) : (i += 1) {
+        const vp = @as(f64, @floatFromInt(a[i + 1]));
+        const vm = @as(f64, @floatFromInt(a[i - 1]));
+        out[i] = (vp - vm) / h2;
+    }
+    out[N - 1] = (@as(f64, @floatFromInt(a[N - 1])) - @as(f64, @floatFromInt(a[N - 2]))) / h;
+}
+
+/// 1D gradient for u32 input → f64 output.
+export fn gradient_u32(a: [*]const u32, out: [*]f64, N: u32, h: f64) void {
+    if (N < 2) return;
+    out[0] = (@as(f64, @floatFromInt(a[1])) - @as(f64, @floatFromInt(a[0]))) / h;
+    const h2 = 2.0 * h;
+    var i: u32 = 1;
+    while (i < N - 1) : (i += 1) {
+        const vp = @as(f64, @floatFromInt(a[i + 1]));
+        const vm = @as(f64, @floatFromInt(a[i - 1]));
+        out[i] = (vp - vm) / h2;
+    }
+    out[N - 1] = (@as(f64, @floatFromInt(a[N - 1])) - @as(f64, @floatFromInt(a[N - 2]))) / h;
+}
+
+/// 1D gradient for u16 input → f64 output.
+export fn gradient_u16(a: [*]const u16, out: [*]f64, N: u32, h: f64) void {
+    if (N < 2) return;
+    out[0] = (@as(f64, @floatFromInt(a[1])) - @as(f64, @floatFromInt(a[0]))) / h;
+    const h2 = 2.0 * h;
+    var i: u32 = 1;
+    while (i < N - 1) : (i += 1) {
+        const vp = @as(f64, @floatFromInt(a[i + 1]));
+        const vm = @as(f64, @floatFromInt(a[i - 1]));
+        out[i] = (vp - vm) / h2;
+    }
+    out[N - 1] = (@as(f64, @floatFromInt(a[N - 1])) - @as(f64, @floatFromInt(a[N - 2]))) / h;
+}
+
+/// 1D gradient for u8 input → f64 output.
+export fn gradient_u8(a: [*]const u8, out: [*]f64, N: u32, h: f64) void {
+    if (N < 2) return;
+    out[0] = (@as(f64, @floatFromInt(a[1])) - @as(f64, @floatFromInt(a[0]))) / h;
+    const h2 = 2.0 * h;
+    var i: u32 = 1;
+    while (i < N - 1) : (i += 1) {
+        const vp = @as(f64, @floatFromInt(a[i + 1]));
+        const vm = @as(f64, @floatFromInt(a[i - 1]));
+        out[i] = (vp - vm) / h2;
+    }
+    out[N - 1] = (@as(f64, @floatFromInt(a[N - 1])) - @as(f64, @floatFromInt(a[N - 2]))) / h;
+}
+
 // --- Tests ---
 
 test "gradient_f64 basic" {

@@ -153,6 +153,104 @@ export fn logaddexp_scalar_i8(a: [*]const i8, out: [*]f64, N: u32, scalar: i8) v
     }
 }
 
+// ---- Unsigned integer variants (u* → f64) ----
+
+/// Element-wise logaddexp for u64 → f64 output.
+export fn logaddexp_u64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const bf = @as(f64, @floatFromInt(b[i]));
+        const mx = @max(af, bf);
+        const mn = @min(af, bf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
+/// Element-wise logaddexp scalar for u64 → f64 output.
+export fn logaddexp_scalar_u64(a: [*]const u64, out: [*]f64, N: u32, scalar: u64) void {
+    const sf = @as(f64, @floatFromInt(scalar));
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const mx = @max(af, sf);
+        const mn = @min(af, sf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
+/// Element-wise logaddexp for u32 → f64 output.
+export fn logaddexp_u32(a: [*]const u32, b: [*]const u32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const bf = @as(f64, @floatFromInt(b[i]));
+        const mx = @max(af, bf);
+        const mn = @min(af, bf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
+/// Element-wise logaddexp scalar for u32 → f64 output.
+export fn logaddexp_scalar_u32(a: [*]const u32, out: [*]f64, N: u32, scalar: u32) void {
+    const sf = @as(f64, @floatFromInt(scalar));
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const mx = @max(af, sf);
+        const mn = @min(af, sf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
+/// Element-wise logaddexp for u16 → f64 output.
+export fn logaddexp_u16(a: [*]const u16, b: [*]const u16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const bf = @as(f64, @floatFromInt(b[i]));
+        const mx = @max(af, bf);
+        const mn = @min(af, bf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
+/// Element-wise logaddexp scalar for u16 → f64 output.
+export fn logaddexp_scalar_u16(a: [*]const u16, out: [*]f64, N: u32, scalar: u16) void {
+    const sf = @as(f64, @floatFromInt(scalar));
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const mx = @max(af, sf);
+        const mn = @min(af, sf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
+/// Element-wise logaddexp for u8 → f64 output.
+export fn logaddexp_u8(a: [*]const u8, b: [*]const u8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const bf = @as(f64, @floatFromInt(b[i]));
+        const mx = @max(af, bf);
+        const mn = @min(af, bf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
+/// Element-wise logaddexp scalar for u8 → f64 output.
+export fn logaddexp_scalar_u8(a: [*]const u8, out: [*]f64, N: u32, scalar: u8) void {
+    const sf = @as(f64, @floatFromInt(scalar));
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const af = @as(f64, @floatFromInt(a[i]));
+        const mx = @max(af, sf);
+        const mn = @min(af, sf);
+        out[i] = mx + math.log1p(math.exp(mn - mx));
+    }
+}
+
 // --- Tests ---
 
 test "logaddexp_f64 basic" {
