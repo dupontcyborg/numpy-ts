@@ -4055,7 +4055,8 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     indexing: ['float', 'int', 'uint'],
     polynomials: ['float'],
     bitwise: ['int', 'uint'],
-    // Skipped entirely (no variants): random, utilities, io, fft
+    fft: ['float', 'complex'],
+    // Skipped entirely (no variants): random, utilities, io
   };
 
   // Variant dtypes for each family, keyed by minimum mode required
@@ -4277,6 +4278,19 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     'cross',
     'unique_values',
     'unique_counts',
+    // FFT: real-input ops and utilities (complex variants don't make sense)
+    'rfft',
+    'irfft',
+    'rfft2',
+    'irfft2',
+    'rfftn',
+    'irfftn',
+    'hfft',
+    'ihfft',
+    'fftfreq',
+    'rfftfreq',
+    'fftshift',
+    'ifftshift',
   ]);
 
   if (mode !== 'quick') {
