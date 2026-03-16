@@ -331,3 +331,25 @@ export function shares_memory(a: NDArrayCore, b: NDArrayCore): boolean {
 
 export const geterr = advancedOps.geterr;
 export const seterr = advancedOps.seterr;
+
+// ============================================================
+// Vectorized Multi-dimensional Indexing
+// ============================================================
+
+export type NDIndex = number | string | number[] | NDArrayCore;
+
+/**
+ * Vectorized multi-dimensional indexing (dask.vindex semantics).
+ *
+ * Integer-array subspace dimensions come first in the output, followed by
+ * slice dimensions in their original order.
+ */
+export function vindex(
+  a: NDArrayCore,
+  ...indices: (number | string | number[] | NDArrayCore)[]
+): NDArrayCore {
+  const storageIndices = indices.map((idx) =>
+    idx instanceof NDArrayCore ? toStorage(idx) : idx
+  ) as (number | string | number[] | ArrayStorage)[];
+  return fromStorage(advancedOps.vindex(toStorage(a), ...storageIndices));
+}

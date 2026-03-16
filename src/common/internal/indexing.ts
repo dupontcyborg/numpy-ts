@@ -147,3 +147,29 @@ export function precomputeAxisOffsets(
 
   return { baseOffsets, axisStride };
 }
+/**
+ * Replaces '...' with an appropriate number of ':'.
+ * If there's not '...', it's implicit at the end.
+ *
+ *
+ * So the result of this function will have length ndim + newaxisCount
+ * where newaxisCount is the number of 'newaxis' in the input.
+ */
+export function expandEllipsis<T>(indices: (T | string)[], ndim: number): (T | string)[] {
+  const ellipsisCount = indices.filter((x) => x === '...').length;
+  const newAxisCount = indices.filter((x) => x === 'newaxis').length;
+  if (ellipsisCount > 1) throw new Error('an index can only have a single ellipsis (...)');
+  const otherCount = indices.length - ellipsisCount - newAxisCount;
+  const replacements = ndim - otherCount;
+  if (replacements < 0)
+    throw new Error(
+      `Too many indices for array: array is ${ndim}-dimensional, but ${otherCount} were indexed`
+    );
+  if (replacements === 0 && ellipsisCount === 0) return indices;
+
+  const ellipsisIndex = ellipsisCount === 0 ? indices.length : indices.indexOf('...');
+  const result = indices.slice();
+  result.splice(ellipsisIndex, ellipsisCount, ...Array(replacements).fill(':'));
+
+  return result;
+}

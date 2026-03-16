@@ -6,9 +6,12 @@
  */
 
 import { ArrayStorage, computeStrides } from '../storage';
-import { getTypedArrayConstructor, isBigIntDType, type TypedArray } from '../dtype';
+import { getTypedArrayConstructor, isBigIntDType, isComplexDType, type TypedArray } from '../dtype';
 import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../broadcasting';
 import { Complex } from '../complex';
+import { parseSlice } from '../slicing';
+import { expandEllipsis, multiIndexToLinear } from '../internal/indexing';
+import { slice as storageSlice, transpose as storageTranspose } from './shape';
 
 /**
  * Broadcast an array to a given shape
@@ -1639,4 +1642,131 @@ export function seterr(
   if (invalid !== undefined) _floatErrorState.invalid = invalid;
 
   return old;
+}
+
+// ============================================================
+// Vectorized Multi-dimensional Indexing (vindex)
+// ============================================================
+
+type StorageIndex = number | string | number[] | ArrayStorage;
+
+function numberArrayToStorage(values: number[]): ArrayStorage {
+  return ArrayStorage.fromData(new Int32Array(values), [values.length], 'int32');
+}
+
+/**
+ * Vectorized multi-dimensional indexing.
+ *
+ * Integer-array subspace dimensions come first in the output, followed by
+ * slice dimensions in their original order.
+ *
+ * Supported index types:
+ *   number        — scalar, removes the dimension
+ *   string '1:4'  — range slice
+ *   string '...'  — ellipsis, expands to fill remaining dimensions
+ *   number[]      — cast to 1-d integer index array
+ *   ArrayStorage  — integer array indexing
+ */
+export function vindex(a: ArrayStorage, ...indices: StorageIndex[]): ArrayStorage {
+  // expand ellipsis and auto-pad missing trailing dims with ':'
+  const expanded = expandEllipsis(indices, a.ndim);
+
+  // Split indices into simple slicing operations, and integer array indexing
+  let sliceIndices: string[] = [];
+  let arrayIndices: (ArrayStorage | ':')[] = [];
+  for (const ind of expanded) {
+    if (typeof ind === 'number') {
+      sliceIndices.push(ind.toString());
+    } else if (ind === 'newaxis') {
+      sliceIndices.push(ind);
+      arrayIndices.push(':');
+    } else if (typeof ind === 'string') {
+      const slice = parseSlice(ind);
+      if (slice.isIndex) {
+        sliceIndices.push(ind);
+      } else {
+        sliceIndices.push(ind);
+        arrayIndices.push(':');
+      }
+    } else if (Array.isArray(ind)) {
+      sliceIndices.push(':');
+      arrayIndices.push(numberArrayToStorage(ind));
+    } else {
+      sliceIndices.push(':');
+      arrayIndices.push(ind);
+    }
+  }
+
+  // Do the simple slicing first
+  a = storageSlice(a, ...sliceIndices);
+
+  // Now go on to do integer array indexing
+
+  // Transpose a so dimensions covered by indexing operations (I) are first and then the rest (R)
+  let arrayIndexesFiltered: ArrayStorage[] = [];
+  let transposeI: number[] = [];
+  let transposeR: number[] = [];
+  let shapeR: number[] = [];
+  for (let i = 0; i < a.ndim; i++) {
+    let ind = arrayIndices[i];
+    if (ind instanceof ArrayStorage) {
+      arrayIndexesFiltered.push(ind);
+      transposeI.push(i);
+    } else {
+      transposeR.push(i);
+      shapeR.push(a.shape[i]!);
+    }
+  }
+  a = storageTranspose(a, [...transposeI, ...transposeR]);
+
+  // Broadcast the array indices
+  arrayIndexesFiltered = broadcast_arrays(arrayIndexesFiltered);
+  const shapeI: number[] =
+    arrayIndexesFiltered.length > 0 ? Array.from(arrayIndexesFiltered[0]!.shape) : [];
+  const sizeI: number = shapeI.reduce((p, d) => p * d, 1);
+  const sizeR: number = shapeR.reduce((p, d) => p * d, 1);
+
+  // Allocate output
+  const outputShape = [...shapeI, ...shapeR];
+  const Constructor = getTypedArrayConstructor(a.dtype)!;
+  const outputSize = sizeI * sizeR;
+  const physicalSize = isComplexDType(a.dtype) ? outputSize * 2 : outputSize;
+  const outputData = new Constructor(physicalSize);
+  const outputStorage = ArrayStorage.fromData(outputData, outputShape, a.dtype);
+
+  if (outputSize === 0) return outputStorage;
+
+  const baseIndexR = shapeR.map((_) => 0);
+  for (let i = 0; i < sizeI; i++) {
+    const indexI = arrayIndexesFiltered.map((ind) => ind.iget(i) as number);
+
+    // Validate and handle negative integers
+    for (let j = 0; j < indexI.length; j++) {
+      let index = indexI[j]!;
+      if (index < 0) index = indexI[j] = a.shape[j]! + index;
+      if (index < 0 || index >= a.shape[j]!) {
+        throw new Error(`index ${index} is out of bounds for axis with size ${a.shape[j]!}`);
+      }
+    }
+
+    // Convert to linear index
+    const index = [...indexI, ...baseIndexR];
+    const linear = multiIndexToLinear(index, a.shape);
+
+    // Copy slice(a, ...indexI) to outputStorage[i]
+    if (isComplexDType(a.dtype)) {
+      for (let j = 0; j < sizeR; j++) {
+        const value = a.iget(linear + j) as Complex;
+        const physicalIndex = (i * sizeR + j) * 2;
+        outputStorage.data[physicalIndex] = value.re;
+        outputStorage.data[physicalIndex + 1] = value.im;
+      }
+    } else {
+      for (let j = 0; j < sizeR; j++) {
+        outputStorage.data[i * sizeR + j] = a.iget(linear + j) as number | bigint;
+      }
+    }
+  }
+
+  return outputStorage;
 }

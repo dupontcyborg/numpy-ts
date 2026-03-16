@@ -13,6 +13,84 @@ import { wasmTile2D } from '../wasm/tile';
 import { wasmRoll } from '../wasm/roll';
 import { wasmRot90 } from '../wasm/rot90';
 import { wasmRepeat } from '../wasm/repeat';
+import { parseSlice, normalizeSlice } from '../slicing';
+import { expandEllipsis } from '../internal/indexing';
+
+/**
+ * Slice an array along one or more dimensions
+ * Returns a view (no data copy) with adjusted shape, strides, and offset
+ */
+export function slice(storage: ArrayStorage, ...sliceStrs: string[]): ArrayStorage {
+  if (sliceStrs.length === 0) return storage;
+
+  sliceStrs = expandEllipsis(sliceStrs, storage.ndim);
+
+  const newShape: number[] = [];
+  const newStrides: number[] = [];
+  let newOffset = storage.offset;
+
+  let axis = 0;
+  for (let i = 0; i < sliceStrs.length; i++) {
+    const str = sliceStrs[i]!;
+    if (str === 'newaxis') {
+      newShape.push(1);
+      newStrides.push(0);
+    } else {
+      const parsed = parseSlice(str);
+      const spec = normalizeSlice(parsed, storage.shape[axis]!);
+      const stride = storage.strides[axis]!;
+      axis++;
+      newOffset += spec.start * stride;
+
+      if (spec.isIndex) continue;
+
+      const sliceLength = Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
+      newShape.push(sliceLength);
+      newStrides.push(stride * spec.step);
+    }
+  }
+
+  return ArrayStorage.fromData(storage.data, newShape, storage.dtype, newStrides, newOffset);
+}
+
+/**
+ * Slice an array along one or more dimensions, keeping all dimensions (rank-preserving)
+ * Like slice(), but integer-index specs produce a size-1 dimension instead of dropping it.
+ * Returns a view (no data copy) with adjusted shape, strides, and offset
+ */
+export function sliceKeepDim(storage: ArrayStorage, ...sliceStrs: string[]): ArrayStorage {
+  if (sliceStrs.length === 0) return storage;
+
+  sliceStrs = expandEllipsis(sliceStrs, storage.ndim);
+
+  const newShape: number[] = [];
+  const newStrides: number[] = [];
+  let newOffset = storage.offset;
+
+  let axis = 0;
+  for (let i = 0; i < sliceStrs.length; i++) {
+    const str = sliceStrs[i]!;
+    if (str === 'newaxis') {
+      newShape.push(1);
+      newStrides.push(0);
+    } else {
+      const parsed = parseSlice(str);
+      const spec = normalizeSlice(parsed, storage.shape[axis]!);
+      const stride = storage.strides[axis]!;
+      axis++;
+      newOffset += spec.start * stride;
+
+      // Unlike slice(), isIndex dimensions are kept as size-1 (rank is preserved)
+      const sliceLength = spec.isIndex
+        ? 1
+        : Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
+      newShape.push(sliceLength);
+      newStrides.push(stride * spec.step);
+    }
+  }
+
+  return ArrayStorage.fromData(storage.data, newShape, storage.dtype, newStrides, newOffset);
+}
 
 /**
  * Reshape array to a new shape

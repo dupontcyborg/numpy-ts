@@ -382,7 +382,9 @@ export {
   seterr,
   iindex,
   bindex,
+  vindex,
 } from './advanced';
+export type { NDIndex } from './advanced';
 
 // Formatting and printing functions
 export {

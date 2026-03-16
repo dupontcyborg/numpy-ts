@@ -288,6 +288,7 @@ describe('NumPy API Comparison', () => {
         // Convenience indexing functions
         'iindex',
         'bindex',
+        'vindex',
         // NDArray utility methods exported as standalone
         'fill',
         'item',
@@ -469,6 +470,7 @@ describe('NumPy API Comparison', () => {
         'moveaxis',
         'iindex',
         'bindex',
+        'vindex',
         'inner',
         'outer',
         'tensordot',

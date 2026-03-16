@@ -442,6 +442,7 @@ export {
   put,
   iindex,
   bindex,
+  vindex,
   copyto,
   choose,
   array_equal,
@@ -472,6 +473,7 @@ export {
   view,
   tofile,
 } from './full';
+export type { NDIndex } from './full';
 
 // ============================================================
 // Utility Functions
