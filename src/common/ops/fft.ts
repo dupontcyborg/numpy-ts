@@ -429,12 +429,7 @@ function fftnd(
   }
 
   // WASM fast path for 2D FFT: single call handles both axes (row FFT + transpose + col FFT)
-  if (
-    axesList.length === 2 &&
-    result.ndim === 2 &&
-    norm === 'backward' &&
-    result.isCContiguous
-  ) {
+  if (axesList.length === 2 && result.ndim === 2 && norm === 'backward' && result.isCContiguous) {
     const rows = result.shape[axesList[0]!]!;
     const cols = result.shape[axesList[1]!]!;
     const isStandardAxes = axesList[0] === 0 && axesList[1] === 1;
@@ -673,10 +668,7 @@ function fft1dAlongAxis(
 
   // WASM fast path: when innerSize === 1, rows are contiguous interleaved complex data.
   // Batch all rows into a single WASM call to avoid per-row copy overhead.
-  if (
-    innerSize === 1 &&
-    n >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
-  ) {
+  if (innerSize === 1 && n >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier) {
     const totalDataLen = outerSize * n * 2; // all rows, interleaved re,im
     const scratchN = fft_scratch_size(n);
     const totalBytes = totalDataLen * 8;
@@ -718,10 +710,7 @@ function fft1dAlongAxis(
 
   // WASM path for non-last axis: gather columns → batch FFT → scatter back.
   // This avoids the JS FFT for the strided axis.
-  if (
-    innerSize > 1 &&
-    n >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
-  ) {
+  if (innerSize > 1 && n >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier) {
     const totalRows = outerSize * innerSize; // total number of 1D FFTs to perform
     const batchDataLen = totalRows * n * 2; // all rows, interleaved
     const scratchN = fft_scratch_size(n);

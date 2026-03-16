@@ -1081,8 +1081,7 @@ export function bitwise_count(x: ArrayStorage): ArrayStorage {
 
   // NumPy's bitwise_count counts bits of abs(value) for signed types,
   // and bits of the raw value for unsigned types.
-  const isSigned =
-    dtype === 'int8' || dtype === 'int16' || dtype === 'int32' || dtype === 'int64';
+  const isSigned = dtype === 'int8' || dtype === 'int16' || dtype === 'int32' || dtype === 'int64';
 
   if (isBigIntDType(dtype)) {
     if (contiguous) {
@@ -1122,12 +1121,7 @@ export function bitwise_count(x: ArrayStorage): ArrayStorage {
     }
   } else {
     // Unsigned types: count bits of raw value, mask to correct width
-    const bitMask =
-      dtype === 'uint8'
-        ? 0xff
-        : dtype === 'uint16'
-          ? 0xffff
-          : 0xffffffff;
+    const bitMask = dtype === 'uint8' ? 0xff : dtype === 'uint16' ? 0xffff : 0xffffffff;
 
     if (contiguous) {
       if (off === 0) {

@@ -19,7 +19,7 @@ export fn fft_scratch_size(n: u32) u32 {
     return @intCast(scratchSizeF64(@as(usize, n)));
 }
 
-/// Computes the FFT for N complex points (interleaved f64). 
+/// Computes the FFT for N complex points (interleaved f64).
 /// Scratch buffer must hold 2*N f64 for Stockham, or 4*N for Bluestein's.
 export fn fft_c128(inp: [*]const f64, out: [*]f64, scratch: [*]f64, n: u32) void {
     fftDispatch(inp, out, scratch, @as(usize, n), false);
@@ -55,7 +55,7 @@ export fn ifft_c64(inp: [*]const f32, out: [*]f32, scratch: [*]f64, n: u32) void
     for (0..2 * N) |i| out[i] = @as(f32, @floatCast(out_f64[i]));
 }
 
-/// Real-to-complex FFT: input is N real f64, output is (N/2+1) complex f64 (interleaved). 
+/// Real-to-complex FFT: input is N real f64, output is (N/2+1) complex f64 (interleaved).
 /// Scratch must hold 4*N f64 for Bluestein's.
 export fn rfft_f64(inp: [*]const f64, out: [*]f64, scratch: [*]f64, n: u32) void {
     const N = @as(usize, n);
@@ -273,7 +273,7 @@ fn factorize(n: usize) struct { factors: [MAX_FACTORS]usize, count: usize } {
     return .{ .factors = result, .count = count };
 }
 
-/// Check if n is fully factorable into allowed radix factors (4, 2, 3, 5). 
+/// Check if n is fully factorable into allowed radix factors (4, 2, 3, 5).
 /// Used to decide if we can use Stockham FFT.
 fn isFullyFactorable(n: usize) bool {
     var r = n;
@@ -793,8 +793,6 @@ fn scratchSizeF64(N: usize) usize {
     }
     return bluesteinScratchF64(N);
 }
-
-
 
 // --- Tests ---
 

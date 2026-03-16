@@ -41,19 +41,27 @@ type ScalarFn = (x1Ptr: number, outPtr: number, N: number, scalar: number) => vo
 const binaryKernels: Partial<Record<DType, BinaryFn>> = {
   float64: copysign_f64,
   float32: copysign_f32,
-  int64: copysign_i64, uint64: copysign_u64,
-  int32: copysign_i32, uint32: copysign_u32,
-  int16: copysign_i16, uint16: copysign_u16,
-  int8: copysign_i8,  uint8: copysign_u8,
+  int64: copysign_i64,
+  uint64: copysign_u64,
+  int32: copysign_i32,
+  uint32: copysign_u32,
+  int16: copysign_i16,
+  uint16: copysign_u16,
+  int8: copysign_i8,
+  uint8: copysign_u8,
 };
 
 const scalarKernels: Partial<Record<DType, ScalarFn>> = {
   float64: copysign_scalar_f64,
   float32: copysign_scalar_f32,
-  int64: copysign_scalar_i64, uint64: copysign_scalar_u64,
-  int32: copysign_scalar_i32, uint32: copysign_scalar_u32,
-  int16: copysign_scalar_i16, uint16: copysign_scalar_u16,
-  int8: copysign_scalar_i8,  uint8: copysign_scalar_u8,
+  int64: copysign_scalar_i64,
+  uint64: copysign_scalar_u64,
+  int32: copysign_scalar_i32,
+  uint32: copysign_scalar_u32,
+  int16: copysign_scalar_i16,
+  uint16: copysign_scalar_u16,
+  int8: copysign_scalar_i8,
+  uint8: copysign_scalar_u8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

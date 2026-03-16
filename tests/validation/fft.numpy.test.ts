@@ -415,7 +415,7 @@ result = np.fft.fft(np.arange(1, 16, dtype=float))
     });
 
     it('matches NumPy for N=100 (4*25)', () => {
-      const data = Array.from({ length: 100 }, (_, i) => Math.sin(2 * Math.PI * i / 100));
+      const data = Array.from({ length: 100 }, (_, i) => Math.sin((2 * Math.PI * i) / 100));
       const jsResult = fft.fft(array(data));
       const pyResult = runNumPy(`
 result = np.fft.fft(np.sin(2 * np.pi * np.arange(100) / 100))
@@ -489,9 +489,7 @@ result = np.fft.fft2(a)
 
   describe('fft.hfft', () => {
     it('matches NumPy', () => {
-      const jsResult = fft.hfft(
-        array([new Complex(1, 0), new Complex(2, -1), new Complex(3, 0)])
-      );
+      const jsResult = fft.hfft(array([new Complex(1, 0), new Complex(2, -1), new Complex(3, 0)]));
       const pyResult = runNumPy(`
 result = np.fft.hfft(np.array([1+0j, 2-1j, 3+0j]))
       `);
@@ -592,7 +590,12 @@ result = np.fft.ifft(np.array([10, -2, -2, -2]), norm='forward')
 
     it('ortho roundtrip for non-pow2 size', () => {
       const original = array([1, 2, 3, 4, 5, 6]);
-      const recovered = fft.ifft(fft.fft(original, undefined, undefined, 'ortho'), undefined, undefined, 'ortho');
+      const recovered = fft.ifft(
+        fft.fft(original, undefined, undefined, 'ortho'),
+        undefined,
+        undefined,
+        'ortho'
+      );
       const pyResult = runNumPy(`
 original = np.array([1, 2, 3, 4, 5, 6], dtype=float)
 result = np.fft.ifft(np.fft.fft(original, norm='ortho'), norm='ortho')
