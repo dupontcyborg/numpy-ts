@@ -3,6 +3,7 @@ import { NDArrayCore } from '../../src/common/ndarray-core';
 import { Complex } from '../../src/common/complex';
 import { ArrayStorage } from '../../src/common/storage';
 import type { DType } from '../../src/common/dtype';
+import { sliceKeepDim } from '../../src/common/ops/shape';
 
 /**
  * Tests for src/common/ndarray-core.ts
@@ -205,9 +206,9 @@ describe('NDArrayCore Coverage', () => {
       const a = core([1, 2, 3, 4], [2, 2]);
       const rows = [...a];
       expect(rows).toHaveLength(2);
-      // NDArrayCore.slice('0') keeps dim as size-1, so each "row" is shape [1, 2]
-      expect((rows[0] as NDArrayCore).toArray()).toEqual([[1, 2]]);
-      expect((rows[1] as NDArrayCore).toArray()).toEqual([[3, 4]]);
+      // slice('0') removes the indexed dimension, so each row is shape [2]
+      expect((rows[0] as NDArrayCore).toArray()).toEqual([1, 2]);
+      expect((rows[1] as NDArrayCore).toArray()).toEqual([3, 4]);
     });
   });
 
@@ -484,13 +485,11 @@ describe('NDArrayCore Coverage', () => {
       expect(() => a.slice('0', '1')).toThrow('Too many indices');
     });
 
-    it('scalar indexing produces size-1 dimension (NDArrayCore does not check isIndex)', () => {
+    it('scalar indexing removes dimension', () => {
       const a = core([1, 2, 3, 4, 5, 6], [2, 3]);
       const row = a.slice('0');
-      // NDArrayCore.slice uses step===0 check, but normalizeSlice returns step=1 for isIndex
-      // So scalar indexing gives size-1 dim, not dimension removal (NDArray override handles that)
-      expect(row.shape).toEqual([1, 3]);
-      expect(row.toArray()).toEqual([[1, 2, 3]]);
+      expect(row.shape).toEqual([3]);
+      expect(row.toArray()).toEqual([1, 2, 3]);
     });
 
     it('range slicing preserves dimension', () => {
@@ -521,13 +520,11 @@ describe('NDArrayCore Coverage', () => {
     it('3D array with only first dim sliced (scalar index)', () => {
       const a = core([1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2]);
       const s = a.slice('1');
-      // NDArrayCore keeps the dimension as size-1 (NDArray override removes it)
-      expect(s.shape).toEqual([1, 2, 2]);
+      // scalar index removes the dimension
+      expect(s.shape).toEqual([2, 2]);
       expect(s.toArray()).toEqual([
-        [
-          [5, 6],
-          [7, 8],
-        ],
+        [5, 6],
+        [7, 8],
       ]);
     });
 
@@ -537,6 +534,54 @@ describe('NDArrayCore Coverage', () => {
       const v2 = v1.slice('0:2');
       expect(v2.base).toBe(a);
       expect(v2.toArray()).toEqual([2, 3]);
+    });
+  });
+
+  // ========================================
+  // sliceKeepDim()
+  // ========================================
+  describe('sliceKeepDim()', () => {
+    it('scalar index keeps dimension as size-1 (unlike slice which drops it)', () => {
+      const a = core([1, 2, 3, 4, 5, 6], [2, 3]);
+      const result = sliceKeepDim(a.storage, '0');
+      expect(result.shape).toEqual([1, 3]);
+    });
+
+    it('range slice behaves identically to slice()', () => {
+      const a = core([1, 2, 3, 4, 5, 6], [2, 3]);
+      const result = sliceKeepDim(a.storage, '0:1', '1:3');
+      expect(result.shape).toEqual([1, 2]);
+    });
+
+    it('scalar index on 2D keeps both dims', () => {
+      const a = core([1, 2, 3, 4, 5, 6, 7, 8, 9], [3, 3]);
+      const result = sliceKeepDim(a.storage, '1', '1');
+      expect(result.shape).toEqual([1, 1]);
+    });
+
+    it('returns view with correct data', () => {
+      const a = core([10, 20, 30, 40, 50], [5]);
+      const result = sliceKeepDim(a.storage, '2');
+      expect(result.shape).toEqual([1]);
+      const arr = NDArrayCore.fromStorage(result);
+      expect(arr.toArray()).toEqual([30]);
+    });
+
+    it('throws for too many indices', () => {
+      const a = core([1, 2, 3], [3]);
+      expect(() => sliceKeepDim(a.storage, '0', '1')).toThrow('Too many indices');
+    });
+
+    it('pads missing dimensions with full slices', () => {
+      const a = core([1, 2, 3, 4, 5, 6], [2, 3]);
+      const result = sliceKeepDim(a.storage, '0:1');
+      expect(result.shape).toEqual([1, 3]);
+    });
+
+    it('empty call returns same storage', () => {
+      const a = core([1, 2, 3], [3]);
+      const result = sliceKeepDim(a.storage);
+      expect(result).toBe(a.storage);
     });
   });
 

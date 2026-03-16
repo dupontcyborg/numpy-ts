@@ -450,7 +450,6 @@ function generateNDArrayFile(
   output.push(`// AUTO-GENERATED - DO NOT EDIT
 // Run \`npm run generate\` to regenerate this file from scripts/ndarray-methods.ts
 
-import { parseSlice, normalizeSlice } from '../common/slicing';
 import {
   type DType,
   type TypedArray,
