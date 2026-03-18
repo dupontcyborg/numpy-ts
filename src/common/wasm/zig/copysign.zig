@@ -50,7 +50,7 @@ export fn copysign_i64(x1: [*]const i64, x2: [*]const i64, out: [*]f64, N: u32) 
     }
 }
 
-/// Element-wise copysign for u64, output is f64. 
+/// Element-wise copysign for u64, output is f64.
 export fn copysign_u64(x1: [*]const u64, x2: [*]const u64, out: [*]f64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
@@ -90,7 +90,7 @@ export fn copysign_i16(x1: [*]const i16, x2: [*]const i16, out: [*]f64, N: u32) 
     }
 }
 
-/// Element-wise copysign for u16, output is f64. 
+/// Element-wise copysign for u16, output is f64.
 export fn copysign_u16(x1: [*]const u16, x2: [*]const u16, out: [*]f64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
@@ -150,7 +150,7 @@ export fn copysign_scalar_f32(x1: [*]const f32, out: [*]f64, N: u32, scalar: f32
     }
 }
 
-/// Element-wise copysign for i64 scalar, output is f64. 
+/// Element-wise copysign for i64 scalar, output is f64.
 export fn copysign_scalar_i64(x1: [*]const i64, out: [*]f64, N: u32, scalar: i64) void {
     const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;

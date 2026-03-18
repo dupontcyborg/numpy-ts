@@ -105,7 +105,6 @@ export fn logaddexp_u16(a: [*]const u16, b: [*]const u16, out: [*]f64, N: u32) v
     }
 }
 
-
 /// Element-wise logaddexp for i8 → f64 output.
 export fn logaddexp_i8(a: [*]const i8, b: [*]const i8, out: [*]f64, N: u32) void {
     var i: u32 = 0;

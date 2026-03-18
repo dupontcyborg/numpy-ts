@@ -75,7 +75,15 @@ export function wasmBitwiseCount(a: ArrayStorage): ArrayStorage | null {
 
   kernel(aPtr, outPtr, size);
 
-  const outData = copyOut(outPtr, size, Uint8Array as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray);
+  const outData = copyOut(
+    outPtr,
+    size,
+    Uint8Array as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number
+    ) => TypedArray
+  );
 
   return ArrayStorage.fromData(outData, Array.from(a.shape), 'uint8');
 }

@@ -33,19 +33,27 @@ type ScalarFn = (aPtr: number, outPtr: number, N: number, scalar: number) => voi
 const binaryKernels: Partial<Record<DType, BinaryFn>> = {
   float64: logical_or_f64,
   float32: logical_or_f32,
-  int64: logical_or_i64, uint64: logical_or_i64,
-  int32: logical_or_i32, uint32: logical_or_i32,
-  int16: logical_or_i16, uint16: logical_or_i16,
-  int8: logical_or_i8,  uint8: logical_or_i8 as unknown as BinaryFn,
+  int64: logical_or_i64,
+  uint64: logical_or_i64,
+  int32: logical_or_i32,
+  uint32: logical_or_i32,
+  int16: logical_or_i16,
+  uint16: logical_or_i16,
+  int8: logical_or_i8,
+  uint8: logical_or_i8 as unknown as BinaryFn,
 };
 
 const scalarKernels: Partial<Record<DType, ScalarFn>> = {
   float64: logical_or_scalar_f64,
   float32: logical_or_scalar_f32,
-  int64: logical_or_scalar_i64, uint64: logical_or_scalar_i64,
-  int32: logical_or_scalar_i32, uint32: logical_or_scalar_i32,
-  int16: logical_or_scalar_i16, uint16: logical_or_scalar_i16,
-  int8: logical_or_scalar_i8,  uint8: logical_or_scalar_i8 as unknown as ScalarFn,
+  int64: logical_or_scalar_i64,
+  uint64: logical_or_scalar_i64,
+  int32: logical_or_scalar_i32,
+  uint32: logical_or_scalar_i32,
+  int16: logical_or_scalar_i16,
+  uint16: logical_or_scalar_i16,
+  int8: logical_or_scalar_i8,
+  uint8: logical_or_scalar_i8 as unknown as ScalarFn,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

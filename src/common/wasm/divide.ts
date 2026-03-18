@@ -56,18 +56,26 @@ const scalarKernels: Partial<Record<DType, ScalarFn>> = {
 
 // Integer-to-f64 binary kernels (int/uint in, f64 out)
 const intBinaryKernels: Partial<Record<DType, BinaryFn>> = {
-  int64: div_i64_f64, uint64: div_u64_f64,
-  int32: div_i32_f64, uint32: div_u32_f64,
-  int16: div_i16_f64, uint16: div_u16_f64,
-  int8: div_i8_f64,  uint8: div_u8_f64,
+  int64: div_i64_f64,
+  uint64: div_u64_f64,
+  int32: div_i32_f64,
+  uint32: div_u32_f64,
+  int16: div_i16_f64,
+  uint16: div_u16_f64,
+  int8: div_i8_f64,
+  uint8: div_u8_f64,
 };
 
 // Integer-to-f64 scalar kernels (int/uint in, f64 out)
 const intScalarKernels: Partial<Record<DType, ScalarFn>> = {
-  int64: div_scalar_i64_f64, uint64: div_scalar_u64_f64,
-  int32: div_scalar_i32_f64, uint32: div_scalar_u32_f64,
-  int16: div_scalar_i16_f64, uint16: div_scalar_u16_f64,
-  int8: div_scalar_i8_f64,  uint8: div_scalar_u8_f64,
+  int64: div_scalar_i64_f64,
+  uint64: div_scalar_u64_f64,
+  int32: div_scalar_i32_f64,
+  uint32: div_scalar_u32_f64,
+  int16: div_scalar_i16_f64,
+  uint16: div_scalar_u16_f64,
+  int8: div_scalar_i8_f64,
+  uint8: div_scalar_u8_f64,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

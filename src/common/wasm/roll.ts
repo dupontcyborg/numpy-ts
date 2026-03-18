@@ -18,10 +18,14 @@ type RollFn = (aPtr: number, outPtr: number, N: number, shift: number) => void;
 const kernels: Partial<Record<DType, RollFn>> = {
   float64: roll_f64,
   float32: roll_f32,
-  int64: roll_i64, uint64: roll_i64,
-  int32: roll_i32, uint32: roll_i32,
-  int16: roll_i16, uint16: roll_i16,
-  int8: roll_i8,  uint8: roll_i8,
+  int64: roll_i64,
+  uint64: roll_i64,
+  int32: roll_i32,
+  uint32: roll_i32,
+  int16: roll_i16,
+  uint16: roll_i16,
+  int8: roll_i8,
+  uint8: roll_i8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

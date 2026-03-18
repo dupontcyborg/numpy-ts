@@ -689,7 +689,8 @@ function logaddexpArray(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
 
   // NumPy promotes small integer types (8/16-bit) to float32, larger integers to float64.
   // Only use float32 when both inputs would promote to float32.
-  const promosToF32 = (d: string) => d === 'float32' || d === 'int8' || d === 'uint8' || d === 'int16' || d === 'uint16';
+  const promosToF32 = (d: string) =>
+    d === 'float32' || d === 'int8' || d === 'uint8' || d === 'int16' || d === 'uint16';
   const resultDtype = promosToF32(dtype1) && promosToF32(dtype2) ? 'float32' : 'float64';
 
   const result = ArrayStorage.zeros(outputShape, resultDtype);
@@ -723,7 +724,14 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const contiguous = storage.isCContiguous;
 
   // NumPy promotes small integer types (8/16-bit) to float32, larger integers to float64.
-  const resultDtype = (dtype === 'float32' || dtype === 'int8' || dtype === 'uint8' || dtype === 'int16' || dtype === 'uint16') ? 'float32' : 'float64';
+  const resultDtype =
+    dtype === 'float32' ||
+    dtype === 'int8' ||
+    dtype === 'uint8' ||
+    dtype === 'int16' ||
+    dtype === 'uint16'
+      ? 'float32'
+      : 'float64';
 
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;

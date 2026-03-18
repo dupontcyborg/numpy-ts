@@ -51,17 +51,25 @@ const scalarKernels: Partial<Record<DType, ScalarFn>> = {
 };
 
 const intBinaryKernels: Partial<Record<DType, BinaryFn>> = {
-  int64: logaddexp_i64, uint64: logaddexp_u64,
-  int32: logaddexp_i32, uint32: logaddexp_u32,
-  int16: logaddexp_i16, uint16: logaddexp_u16,
-  int8: logaddexp_i8,  uint8: logaddexp_u8,
+  int64: logaddexp_i64,
+  uint64: logaddexp_u64,
+  int32: logaddexp_i32,
+  uint32: logaddexp_u32,
+  int16: logaddexp_i16,
+  uint16: logaddexp_u16,
+  int8: logaddexp_i8,
+  uint8: logaddexp_u8,
 };
 
 const intScalarKernels: Partial<Record<DType, ScalarFn>> = {
-  int64: logaddexp_scalar_i64, uint64: logaddexp_scalar_u64,
-  int32: logaddexp_scalar_i32, uint32: logaddexp_scalar_u32,
-  int16: logaddexp_scalar_i16, uint16: logaddexp_scalar_u16,
-  int8: logaddexp_scalar_i8,  uint8: logaddexp_scalar_u8,
+  int64: logaddexp_scalar_i64,
+  uint64: logaddexp_scalar_u64,
+  int32: logaddexp_scalar_i32,
+  uint32: logaddexp_scalar_u32,
+  int16: logaddexp_scalar_i16,
+  uint16: logaddexp_scalar_u16,
+  int8: logaddexp_scalar_i8,
+  uint8: logaddexp_scalar_u8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

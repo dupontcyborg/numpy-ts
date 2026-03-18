@@ -25,10 +25,14 @@ type Pad2DFn = (aPtr: number, outPtr: number, rows: number, cols: number, padWid
 const kernels: Partial<Record<DType, Pad2DFn>> = {
   float64: pad_2d_f64,
   float32: pad_2d_f32,
-  int64: pad_2d_i64, uint64: pad_2d_i64,
-  int32: pad_2d_i32, uint32: pad_2d_i32,
-  int16: pad_2d_i16, uint16: pad_2d_i16,
-  int8: pad_2d_i8,  uint8: pad_2d_i8,
+  int64: pad_2d_i64,
+  uint64: pad_2d_i64,
+  int32: pad_2d_i32,
+  uint32: pad_2d_i32,
+  int16: pad_2d_i16,
+  uint16: pad_2d_i16,
+  int8: pad_2d_i8,
+  uint8: pad_2d_i8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

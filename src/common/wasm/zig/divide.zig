@@ -38,7 +38,6 @@ export fn div_i64_f64(a: [*]const i64, b: [*]const i64, out: [*]f64, N: u32) voi
     }
 }
 
-
 /// u64-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
 export fn div_u64_f64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) void {
     var i: u32 = 0;
@@ -218,7 +217,6 @@ export fn div_scalar_i32_f64(a: [*]const i32, out: [*]f64, N: u32, scalar: f64) 
     }
 }
 
-
 /// u32-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
 export fn div_scalar_u32_f64(a: [*]const u32, out: [*]f64, N: u32, scalar: f64) void {
     const s: simd.V2f64 = @splat(scalar);
@@ -258,7 +256,6 @@ export fn div_scalar_i8_f64(a: [*]const i8, out: [*]f64, N: u32, scalar: f64) vo
         out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
     }
 }
-
 
 /// u8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
 export fn div_scalar_u8_f64(a: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
