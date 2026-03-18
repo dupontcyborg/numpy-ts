@@ -11,7 +11,8 @@ export fn qr_f64(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]f
     const M = @as(usize, m_arg);
     const N = @as(usize, n_arg);
     const K = if (M < N) M else N;
-    _ = scratch;
+    // scratch[0..K] stores v0 values for Q reconstruction
+    const v0_store = scratch;
 
     // Householder reflections — modify a in place
     for (0..K) |j| {
@@ -24,6 +25,7 @@ export fn qr_f64(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]f
         var nrm = @sqrt(norm_sq);
         if (nrm == 0) {
             tau_out[j] = 0;
+            v0_store[j] = 0;
             continue;
         }
 
@@ -35,6 +37,7 @@ export fn qr_f64(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]f
         // Form Householder vector v in a[j:,j]
         a[j * N + j] -= alpha;
         const v0 = a[j * N + j];
+        v0_store[j] = v0;
 
         // tau = 2 / (v^T v)
         var vtv: f64 = v0 * v0;
@@ -83,15 +86,8 @@ export fn qr_f64(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]f
         const j = jrev;
         if (tau_out[j] == 0) continue;
 
-        // Recover |v[0]| from tau and sub-diagonal elements
-        var sub_sq: f64 = 0;
-        for (j + 1..M) |ri| {
-            const vi = a[ri * N + j];
-            sub_sq += vi * vi;
-        }
-        const vtv2 = 2.0 / tau_out[j];
-        const v0sq = vtv2 - sub_sq;
-        const v0_val = if (v0sq > 0) @sqrt(v0sq) else 0.0;
+        // Use stored v0 value (exact, preserves sign)
+        const v0_val = v0_store[j];
 
         // Apply H_j to Q: Q -= tau * v * (v^T * Q)
         for (0..K) |col| {

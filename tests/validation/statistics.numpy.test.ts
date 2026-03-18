@@ -45,7 +45,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('bincount', () => {
@@ -280,6 +280,62 @@ result = np.convolve(np.array([1, 2, 3, 4, 5]), np.array([1, 2, 3]), mode='valid
 
         expect(jsResult.shape).toEqual(pyResult.shape);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('correlate (float32)', () => {
+      it('matches NumPy for full mode float32', () => {
+        const jsResult = correlate(
+          array([1, 2, 3], 'float32'),
+          array([0, 1, 0.5], 'float32'),
+          'full'
+        );
+        const pyResult = runNumPy(`
+result = np.correlate(np.array([1, 2, 3], dtype=np.float32), np.array([0, 1, 0.5], dtype=np.float32), mode='full')
+`);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+
+      it('matches NumPy for valid mode float32', () => {
+        const jsResult = correlate(
+          array([1, 2, 3, 4, 5], 'float32'),
+          array([1, 2, 3], 'float32'),
+          'valid'
+        );
+        const pyResult = runNumPy(`
+result = np.correlate(np.array([1, 2, 3, 4, 5], dtype=np.float32), np.array([1, 2, 3], dtype=np.float32), mode='valid')
+`);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+    });
+
+    describe('convolve (float32)', () => {
+      it('matches NumPy for full mode float32', () => {
+        const jsResult = convolve(
+          array([1, 2, 3], 'float32'),
+          array([0, 1, 0.5], 'float32'),
+          'full'
+        );
+        const pyResult = runNumPy(`
+result = np.convolve(np.array([1, 2, 3], dtype=np.float32), np.array([0, 1, 0.5], dtype=np.float32), mode='full')
+`);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+
+      it('matches NumPy for valid mode float32', () => {
+        const jsResult = convolve(
+          array([1, 2, 3, 4, 5], 'float32'),
+          array([1, 2, 3], 'float32'),
+          'valid'
+        );
+        const pyResult = runNumPy(`
+result = np.convolve(np.array([1, 2, 3, 4, 5], dtype=np.float32), np.array([1, 2, 3], dtype=np.float32), mode='valid')
+`);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
       });
     });
 

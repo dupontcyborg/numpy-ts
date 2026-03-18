@@ -46,7 +46,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('sin', () => {
@@ -228,6 +228,62 @@ result = np.arctan(np.array([0, 1, 2], dtype=np.int32))
 
         expect(jsResult.dtype).toBe(pyResult.dtype);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('trig functions (float32)', () => {
+      it('sin matches NumPy for float32', () => {
+        const jsResult = sin(array([0, 0.5, 1.0, 1.5], 'float32'));
+        const pyResult = runNumPy(`
+result = np.sin(np.array([0, 0.5, 1.0, 1.5], dtype=np.float32))
+`);
+        expect(jsResult.dtype).toBe('float32');
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+
+      it('cos matches NumPy for float32', () => {
+        const jsResult = cos(array([0, 0.5, 1.0, 1.5], 'float32'));
+        const pyResult = runNumPy(`
+result = np.cos(np.array([0, 0.5, 1.0, 1.5], dtype=np.float32))
+`);
+        expect(jsResult.dtype).toBe('float32');
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+
+      it('tan matches NumPy for float32', () => {
+        const jsResult = tan(array([0, 0.5, 1.0], 'float32'));
+        const pyResult = runNumPy(`
+result = np.tan(np.array([0, 0.5, 1.0], dtype=np.float32))
+`);
+        expect(jsResult.dtype).toBe('float32');
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+
+      it('arcsin matches NumPy for float32', () => {
+        const jsResult = arcsin(array([0, 0.5, -0.5, 1], 'float32'));
+        const pyResult = runNumPy(`
+result = np.arcsin(np.array([0, 0.5, -0.5, 1], dtype=np.float32))
+`);
+        expect(jsResult.dtype).toBe('float32');
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+
+      it('arccos matches NumPy for float32', () => {
+        const jsResult = arccos(array([1, 0.5, 0, -0.5, -1], 'float32'));
+        const pyResult = runNumPy(`
+result = np.arccos(np.array([1, 0.5, 0, -0.5, -1], dtype=np.float32))
+`);
+        expect(jsResult.dtype).toBe('float32');
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
+      });
+
+      it('arctan matches NumPy for float32', () => {
+        const jsResult = arctan(array([-1, 0, 1, 10], 'float32'));
+        const pyResult = runNumPy(`
+result = np.arctan(np.array([-1, 0, 1, 10], dtype=np.float32))
+`);
+        expect(jsResult.dtype).toBe('float32');
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-6)).toBe(true);
       });
     });
 

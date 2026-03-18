@@ -53,7 +53,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('dot()', () => {
@@ -1097,7 +1097,7 @@ result = np.einsum('ii->i', a)
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('linalg.cross()', () => {
@@ -1793,7 +1793,7 @@ result = np.linalg.vecdot(a, b)
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('vdot()', () => {

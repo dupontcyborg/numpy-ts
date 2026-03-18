@@ -23,6 +23,19 @@ const WASM_MODES = [
   { name: 'forced WASM (threshold=0)', multiplier: 0 },
 ] as const;
 
+const NP_DTYPE: Record<string, string> = {
+  float64: 'np.float64',
+  float32: 'np.float32',
+  int32: 'np.int32',
+  int16: 'np.int16',
+  int8: 'np.int8',
+  uint32: 'np.uint32',
+  uint16: 'np.uint16',
+  uint8: 'np.uint8',
+};
+
+const MATH_DTYPES = Object.keys(NP_DTYPE);
+
 for (const mode of WASM_MODES) {
   describe(`NumPy Validation: Mathematical Operations [${mode.name}]`, () => {
     beforeAll(() => {
@@ -43,7 +56,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('sqrt', () => {
@@ -92,6 +105,20 @@ result = np.sqrt(np.array([1, 4, 9], dtype=np.float32))
         expect(jsResult.dtype).toBe(pyResult.dtype);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
+    });
+
+    describe('sqrt (multi-dtype)', () => {
+      for (const dtype of MATH_DTYPES) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = sqrt(array([1, 4, 9, 16], dtype as any));
+          const pyResult = runNumPy(`
+result = np.sqrt(np.array([1, 4, 9, 16], dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+          ).toBe(true);
+        });
+      }
     });
 
     describe('power', () => {
@@ -160,6 +187,29 @@ result = np.power(np.array([1, 2, 3, 0]), 0)
       });
     });
 
+    describe('power (multi-dtype)', () => {
+      for (const dtype of [
+        'float64',
+        'float32',
+        'int32',
+        'int16',
+        'int8',
+        'uint32',
+        'uint16',
+        'uint8',
+      ]) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = power(array([1, 2, 3, 4], dtype as any), 2);
+          const pyResult = runNumPy(`
+result = np.power(np.array([1, 2, 3, 4], dtype=${NP_DTYPE[dtype]}), 2)
+`);
+          expect(
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+          ).toBe(true);
+        });
+      }
+    });
+
     describe('absolute', () => {
       it('matches NumPy for mixed signs', () => {
         const jsResult = absolute(array([-3, -1, 0, 1, 3]));
@@ -207,6 +257,21 @@ result = np.absolute(np.array([-3.5, 2.1, -0.5], dtype=np.float64))
       });
     });
 
+    describe('absolute (multi-dtype)', () => {
+      for (const dtype of MATH_DTYPES) {
+        it(`matches NumPy for ${dtype}`, () => {
+          // Use only positive values for unsigned types
+          const vals = dtype.startsWith('uint') ? [1, 2, 3, 4, 5] : [-3, -1, 0, 1, 3];
+          const pyVals = dtype.startsWith('uint') ? '[1, 2, 3, 4, 5]' : '[-3, -1, 0, 1, 3]';
+          const jsResult = absolute(array(vals, dtype as any));
+          const pyResult = runNumPy(`
+result = np.absolute(np.array(${pyVals}, dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+        });
+      }
+    });
+
     describe('negative', () => {
       it('matches NumPy for mixed signs', () => {
         const jsResult = negative(array([1, -2, 3, -4, 0]));
@@ -252,6 +317,18 @@ result = np.negative(np.array([3.5, -2.1, 0.5], dtype=np.float32))
         expect(jsResult.dtype).toBe(pyResult.dtype);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
+    });
+
+    describe('negative (multi-dtype)', () => {
+      for (const dtype of ['float64', 'float32', 'int32', 'int16', 'int8']) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = negative(array([1, -2, 3, -4, 0], dtype as any));
+          const pyResult = runNumPy(`
+result = np.negative(np.array([1, -2, 3, -4, 0], dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+        });
+      }
     });
 
     describe('sign', () => {
@@ -308,6 +385,18 @@ result = np.sign(np.array([0, 0, 0]))
 
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
+    });
+
+    describe('sign (multi-dtype)', () => {
+      for (const dtype of ['float64', 'float32', 'int32', 'int16', 'int8']) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = sign(array([-5, 0, 5], dtype as any));
+          const pyResult = runNumPy(`
+result = np.sign(np.array([-5, 0, 5], dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+        });
+      }
     });
 
     describe('mod', () => {

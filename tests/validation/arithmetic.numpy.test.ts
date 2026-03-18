@@ -11,6 +11,20 @@ const WASM_MODES = [
   { name: 'forced WASM (threshold=0)', multiplier: 0 },
 ] as const;
 
+const NP_DTYPE: Record<string, string> = {
+  float64: 'np.float64',
+  float32: 'np.float32',
+  int32: 'np.int32',
+  int16: 'np.int16',
+  int8: 'np.int8',
+  uint32: 'np.uint32',
+  uint16: 'np.uint16',
+  uint8: 'np.uint8',
+};
+
+const ALL_DTYPES = Object.keys(NP_DTYPE);
+const FLOAT_DTYPES = ['float64', 'float32'];
+
 for (const mode of WASM_MODES) {
   describe(`NumPy Validation: Arithmetic Operations [${mode.name}]`, () => {
     beforeAll(() => {
@@ -31,7 +45,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('add', () => {
@@ -74,6 +88,21 @@ result = np.array([[1, 2], [3, 4]]) + np.array([[5, 6], [7, 8]])
       });
     });
 
+    describe('add (multi-dtype)', () => {
+      for (const dtype of ALL_DTYPES) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = array([1, 2, 3, 4, 5], dtype as any).add(2);
+          const pyResult = runNumPy(`
+result = np.add(np.array([1, 2, 3, 4, 5], dtype=${NP_DTYPE[dtype]}), ${NP_DTYPE[dtype]}(2))
+`);
+          expect(jsResult.shape).toEqual(pyResult.shape);
+          expect(
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+          ).toBe(true);
+        });
+      }
+    });
+
     describe('subtract', () => {
       it('matches NumPy for scalar subtraction', () => {
         const jsResult = array([10, 20, 30]).subtract(5);
@@ -94,6 +123,21 @@ result = np.array([10, 20, 30]) - np.array([1, 2, 3])
         expect(jsResult.shape).toEqual(pyResult.shape);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
+    });
+
+    describe('subtract (multi-dtype)', () => {
+      for (const dtype of ALL_DTYPES) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = array([10, 8, 6, 4, 2], dtype as any).subtract(1);
+          const pyResult = runNumPy(`
+result = np.subtract(np.array([10, 8, 6, 4, 2], dtype=${NP_DTYPE[dtype]}), ${NP_DTYPE[dtype]}(1))
+`);
+          expect(jsResult.shape).toEqual(pyResult.shape);
+          expect(
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+          ).toBe(true);
+        });
+      }
     });
 
     describe('multiply', () => {
@@ -136,6 +180,21 @@ result = np.array([[1, 2], [3, 4]]) * np.array([[2, 3], [4, 5]])
       });
     });
 
+    describe('multiply (multi-dtype)', () => {
+      for (const dtype of ALL_DTYPES) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = array([1, 2, 3, 4, 5], dtype as any).multiply(3);
+          const pyResult = runNumPy(`
+result = np.multiply(np.array([1, 2, 3, 4, 5], dtype=${NP_DTYPE[dtype]}), ${NP_DTYPE[dtype]}(3))
+`);
+          expect(jsResult.shape).toEqual(pyResult.shape);
+          expect(
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+          ).toBe(true);
+        });
+      }
+    });
+
     describe('divide', () => {
       it('matches NumPy for scalar division', () => {
         const jsResult = array([10, 20, 30]).divide(10);
@@ -156,6 +215,21 @@ result = np.array([10, 20, 30]) / np.array([2, 4, 5])
         expect(jsResult.shape).toEqual(pyResult.shape);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
+    });
+
+    describe('divide (multi-dtype)', () => {
+      for (const dtype of FLOAT_DTYPES) {
+        it(`matches NumPy for ${dtype}`, () => {
+          const jsResult = array([10, 20, 30], dtype as any).divide(5);
+          const pyResult = runNumPy(`
+result = np.divide(np.array([10, 20, 30], dtype=${NP_DTYPE[dtype]}), ${NP_DTYPE[dtype]}(5))
+`);
+          expect(jsResult.shape).toEqual(pyResult.shape);
+          expect(
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+          ).toBe(true);
+        });
+      }
     });
 
     describe('chained operations', () => {

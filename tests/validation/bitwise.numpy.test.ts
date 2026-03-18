@@ -27,6 +27,18 @@ const WASM_MODES = [
   { name: 'forced WASM (threshold=0)', multiplier: 0 },
 ] as const;
 
+const INT_DTYPES = ['int32', 'int16', 'int8', 'uint32', 'uint16', 'uint8'] as const;
+const NP_DTYPE: Record<string, string> = {
+  int64: 'np.int64',
+  int32: 'np.int32',
+  int16: 'np.int16',
+  int8: 'np.int8',
+  uint64: 'np.uint64',
+  uint32: 'np.uint32',
+  uint16: 'np.uint16',
+  uint8: 'np.uint8',
+};
+
 for (const mode of WASM_MODES) {
   describe(`NumPy Validation: Bitwise Operations [${mode.name}]`, () => {
     beforeAll(() => {
@@ -47,7 +59,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('bitwise_and', () => {
@@ -135,6 +147,67 @@ result = np.bitwise_xor(np.array([0b1111, 0b0000], dtype=np.int32), 0b1010)
         expect(jsResult.shape).toEqual(pyResult.shape);
         expect(jsResult.toArray()).toEqual(pyResult.value);
       });
+    });
+
+    describe('bitwise ops (multi-dtype)', () => {
+      for (const dtype of INT_DTYPES) {
+        it(`bitwise_and matches NumPy for ${dtype}`, () => {
+          const a = array([5, 3, 7], dtype as any);
+          const b = array([3, 6, 5], dtype as any);
+          const jsResult = bitwise_and(a, b);
+          const pyResult = runNumPy(`
+result = np.bitwise_and(np.array([5, 3, 7], dtype=${NP_DTYPE[dtype]}), np.array([3, 6, 5], dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(jsResult.toArray()).toEqual(pyResult.value);
+        });
+
+        it(`bitwise_or matches NumPy for ${dtype}`, () => {
+          const a = array([5, 3, 7], dtype as any);
+          const b = array([3, 6, 5], dtype as any);
+          const jsResult = bitwise_or(a, b);
+          const pyResult = runNumPy(`
+result = np.bitwise_or(np.array([5, 3, 7], dtype=${NP_DTYPE[dtype]}), np.array([3, 6, 5], dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(jsResult.toArray()).toEqual(pyResult.value);
+        });
+
+        it(`bitwise_xor matches NumPy for ${dtype}`, () => {
+          const a = array([5, 3, 7], dtype as any);
+          const b = array([3, 6, 5], dtype as any);
+          const jsResult = bitwise_xor(a, b);
+          const pyResult = runNumPy(`
+result = np.bitwise_xor(np.array([5, 3, 7], dtype=${NP_DTYPE[dtype]}), np.array([3, 6, 5], dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(jsResult.toArray()).toEqual(pyResult.value);
+        });
+
+        it(`invert matches NumPy for ${dtype}`, () => {
+          const a = array([5, 3, 7], dtype as any);
+          const jsResult = invert(a);
+          const pyResult = runNumPy(`
+result = np.invert(np.array([5, 3, 7], dtype=${NP_DTYPE[dtype]}))
+`);
+          expect(jsResult.toArray()).toEqual(pyResult.value);
+        });
+
+        it(`left_shift matches NumPy for ${dtype}`, () => {
+          const a = array([1, 2, 3], dtype as any);
+          const jsResult = left_shift(a, 1);
+          const pyResult = runNumPy(`
+result = np.left_shift(np.array([1, 2, 3], dtype=${NP_DTYPE[dtype]}), 1)
+`);
+          expect(jsResult.toArray()).toEqual(pyResult.value);
+        });
+
+        it(`right_shift matches NumPy for ${dtype}`, () => {
+          const a = array([4, 8, 16], dtype as any);
+          const jsResult = right_shift(a, 1);
+          const pyResult = runNumPy(`
+result = np.right_shift(np.array([4, 8, 16], dtype=${NP_DTYPE[dtype]}), 1)
+`);
+          expect(jsResult.toArray()).toEqual(pyResult.value);
+        });
+      }
     });
 
     describe('bitwise_not', () => {

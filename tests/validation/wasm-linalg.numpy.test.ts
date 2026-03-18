@@ -30,7 +30,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1; // restore default
+      wasmConfig.thresholdMultiplier = mode.multiplier; // restore to current mode
     });
 
     describe('matmul (WASM)', () => {

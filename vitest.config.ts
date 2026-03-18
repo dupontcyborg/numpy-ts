@@ -17,6 +17,7 @@ export default defineConfig({
         '**/*.config.*',
         '**/test/**',
         '**/tests/**',
+        'src/common/wasm/bins/**',
       ],
       thresholds: {
         statements: 80,

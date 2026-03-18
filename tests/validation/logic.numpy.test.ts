@@ -48,7 +48,7 @@ for (const mode of WASM_MODES) {
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = 1;
+      wasmConfig.thresholdMultiplier = mode.multiplier;
     });
 
     describe('logical_and()', () => {
@@ -188,6 +188,64 @@ result = np.logical_xor(a, b).astype(np.uint8)
         expect(result.shape).toEqual(npResult.shape);
         expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
       });
+    });
+
+    describe('logical ops (multi-dtype)', () => {
+      const LOGIC_DTYPES = ['float64', 'float32', 'int32', 'int8'] as const;
+      const NP_DTYPE: Record<string, string> = {
+        float64: 'np.float64',
+        float32: 'np.float32',
+        int32: 'np.int32',
+        int8: 'np.int8',
+      };
+
+      for (const dtype of LOGIC_DTYPES) {
+        it(`logical_and matches NumPy for ${dtype}`, () => {
+          const a = array([0, 1, 2, 3], dtype as any);
+          const b = array([3, 0, 1, 0], dtype as any);
+          const result = a.logical_and(b);
+          const npResult = runNumPy(`
+a = np.array([0, 1, 2, 3], dtype=${NP_DTYPE[dtype]})
+b = np.array([3, 0, 1, 0], dtype=${NP_DTYPE[dtype]})
+result = np.logical_and(a, b).astype(np.uint8)
+`);
+          expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+        });
+
+        it(`logical_or matches NumPy for ${dtype}`, () => {
+          const a = array([0, 1, 0, 3], dtype as any);
+          const b = array([0, 0, 1, 0], dtype as any);
+          const result = a.logical_or(b);
+          const npResult = runNumPy(`
+a = np.array([0, 1, 0, 3], dtype=${NP_DTYPE[dtype]})
+b = np.array([0, 0, 1, 0], dtype=${NP_DTYPE[dtype]})
+result = np.logical_or(a, b).astype(np.uint8)
+`);
+          expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+        });
+
+        it(`logical_xor matches NumPy for ${dtype}`, () => {
+          const a = array([0, 1, 0, 1], dtype as any);
+          const b = array([0, 0, 1, 1], dtype as any);
+          const result = a.logical_xor(b);
+          const npResult = runNumPy(`
+a = np.array([0, 1, 0, 1], dtype=${NP_DTYPE[dtype]})
+b = np.array([0, 0, 1, 1], dtype=${NP_DTYPE[dtype]})
+result = np.logical_xor(a, b).astype(np.uint8)
+`);
+          expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+        });
+
+        it(`logical_not matches NumPy for ${dtype}`, () => {
+          const a = array([0, 1, 2, 0], dtype as any);
+          const result = a.logical_not();
+          const npResult = runNumPy(`
+a = np.array([0, 1, 2, 0], dtype=${NP_DTYPE[dtype]})
+result = np.logical_not(a).astype(np.uint8)
+`);
+          expect(arraysClose(result.toArray(), npResult.value)).toBe(true);
+        });
+      }
     });
 
     describe('isfinite()', () => {

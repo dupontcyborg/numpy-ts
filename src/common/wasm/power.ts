@@ -22,7 +22,7 @@ import {
 } from './bins/power.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { promoteDTypes, isBigIntDType, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -124,6 +124,42 @@ export function wasmPowerScalar(a: ArrayStorage, scalar: number): ArrayStorage |
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const dtype = a.dtype;
+
+  // Integer types with negative or non-integer exponents need float promotion
+  // (matches NumPy behavior: int ** negative → float64).
+  // Convert to float64 and use the f64 kernel.
+  const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
+  if (isIntegerType && (scalar < 0 || !Number.isInteger(scalar))) {
+    const bpe = 8; // f64
+    ensureMemory(size * bpe * 2);
+    resetAllocator();
+
+    const aOff = a.offset;
+    const src = a.data;
+    const converted = new Float64Array(size);
+    if (isBigIntDType(dtype)) {
+      for (let i = 0; i < size; i++) converted[i] = Number(src[aOff + i]!);
+    } else {
+      for (let i = 0; i < size; i++) converted[i] = src[aOff + i] as number;
+    }
+
+    const aPtr = copyIn(converted as unknown as TypedArray);
+    const outPtr = alloc(size * bpe);
+
+    power_scalar_f64(aPtr, outPtr, size, scalar);
+
+    const outData = copyOut(
+      outPtr,
+      size,
+      Float64Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+    return ArrayStorage.fromData(outData, Array.from(a.shape), 'float64');
+  }
+
   const kernel = scalarKernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
