@@ -18,19 +18,6 @@ export fn div_f64(a: [*]const f64, b: [*]const f64, out: [*]f64, N: u32) void {
     }
 }
 
-/// Element-wise divide by scalar for f64 using 2-wide SIMD: out[i] = a[i] / scalar.
-export fn div_scalar_f64(a: [*]const f64, out: [*]f64, N: u32, scalar: f64) void {
-    const s: simd.V2f64 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 1);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        simd.store2_f64(out, i, simd.load2_f64(a, i) / s);
-    }
-    while (i < N) : (i += 1) {
-        out[i] = a[i] / scalar;
-    }
-}
-
 /// Element-wise divide for f32 using 4-wide SIMD: out[i] = a[i] / b[i].
 export fn div_f32(a: [*]const f32, b: [*]const f32, out: [*]f32, N: u32) void {
     const n_simd = N & ~@as(u32, 3);
@@ -43,19 +30,6 @@ export fn div_f32(a: [*]const f32, b: [*]const f32, out: [*]f32, N: u32) void {
     }
 }
 
-/// Element-wise divide by scalar for f32 using 4-wide SIMD: out[i] = a[i] / scalar.
-export fn div_scalar_f32(a: [*]const f32, out: [*]f32, N: u32, scalar: f32) void {
-    const s: simd.V4f32 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 3);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 4) {
-        simd.store4_f32(out, i, simd.load4_f32(a, i) / s);
-    }
-    while (i < N) : (i += 1) {
-        out[i] = a[i] / scalar;
-    }
-}
-
 /// i64-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
 export fn div_i64_f64(a: [*]const i64, b: [*]const i64, out: [*]f64, N: u32) void {
     var i: u32 = 0;
@@ -64,79 +38,6 @@ export fn div_i64_f64(a: [*]const i64, b: [*]const i64, out: [*]f64, N: u32) voi
     }
 }
 
-/// i64-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_i64_f64(a: [*]const i64, out: [*]f64, N: u32, scalar: f64) void {
-    const s: simd.V2f64 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 1);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v0: f64 = @floatFromInt(a[i]);
-        const v1: f64 = @floatFromInt(a[i + 1]);
-        const v = simd.V2f64{ v0, v1 };
-        simd.store2_f64(out, i, v / s);
-    }
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
-    }
-}
-
-/// i32-to-f64 binary divide with 4-wide SIMD: out[i] = f64(a[i]) / f64(b[i]).
-export fn div_i32_f64(a: [*]const i32, b: [*]const i32, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
-    }
-}
-
-/// i32-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_i32_f64(a: [*]const i32, out: [*]f64, N: u32, scalar: f64) void {
-    const s: simd.V2f64 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 1);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v0: f64 = @floatFromInt(a[i]);
-        const v1: f64 = @floatFromInt(a[i + 1]);
-        const v = simd.V2f64{ v0, v1 };
-        simd.store2_f64(out, i, v / s);
-    }
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
-    }
-}
-
-/// i16-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
-export fn div_i16_f64(a: [*]const i16, b: [*]const i16, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
-    }
-}
-
-/// i16-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_i16_f64(a: [*]const i16, out: [*]f64, N: u32, scalar: f64) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
-    }
-}
-
-/// i8-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
-export fn div_i8_f64(a: [*]const i8, b: [*]const i8, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
-    }
-}
-
-/// i8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_i8_f64(a: [*]const i8, out: [*]f64, N: u32, scalar: f64) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
-    }
-}
-
-// ---- Unsigned integer variants (u* → f64) ----
 
 /// u64-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
 export fn div_u64_f64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) void {
@@ -145,20 +46,11 @@ export fn div_u64_f64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) voi
         out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
     }
 }
-
-/// u64-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_u64_f64(a: [*]const u64, out: [*]f64, N: u32, scalar: f64) void {
-    const s: simd.V2f64 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 1);
+/// i32-to-f64 binary divide with 4-wide SIMD: out[i] = f64(a[i]) / f64(b[i]).
+export fn div_i32_f64(a: [*]const i32, b: [*]const i32, out: [*]f64, N: u32) void {
     var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v0: f64 = @floatFromInt(a[i]);
-        const v1: f64 = @floatFromInt(a[i + 1]);
-        const v = simd.V2f64{ v0, v1 };
-        simd.store2_f64(out, i, v / s);
-    }
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
     }
 }
 
@@ -170,19 +62,11 @@ export fn div_u32_f64(a: [*]const u32, b: [*]const u32, out: [*]f64, N: u32) voi
     }
 }
 
-/// u32-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_u32_f64(a: [*]const u32, out: [*]f64, N: u32, scalar: f64) void {
-    const s: simd.V2f64 = @splat(scalar);
-    const n_simd = N & ~@as(u32, 1);
+/// i16-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
+export fn div_i16_f64(a: [*]const i16, b: [*]const i16, out: [*]f64, N: u32) void {
     var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v0: f64 = @floatFromInt(a[i]);
-        const v1: f64 = @floatFromInt(a[i + 1]);
-        const v = simd.V2f64{ v0, v1 };
-        simd.store2_f64(out, i, v / s);
-    }
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
     }
 }
 
@@ -194,11 +78,11 @@ export fn div_u16_f64(a: [*]const u16, b: [*]const u16, out: [*]f64, N: u32) voi
     }
 }
 
-/// u16-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_u16_f64(a: [*]const u16, out: [*]f64, N: u32, scalar: f64) void {
+/// i8-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
+export fn div_i8_f64(a: [*]const i8, b: [*]const i8, out: [*]f64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
     }
 }
 
@@ -207,14 +91,6 @@ export fn div_u8_f64(a: [*]const u8, b: [*]const u8, out: [*]f64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
-    }
-}
-
-/// u8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_u8_f64(a: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
     }
 }
 
@@ -265,6 +141,130 @@ export fn div_c64(a: [*]const f32, b: [*]const f32, out: [*]f32, N: u32) void {
         const denom = b_re * b_re + b_im * b_im;
         out[idx] = (a_re * b_re + a_im * b_im) / denom;
         out[idx + 1] = (a_im * b_re - a_re * b_im) / denom;
+    }
+}
+
+/// Element-wise divide by scalar for f64 using 2-wide SIMD: out[i] = a[i] / scalar.
+export fn div_scalar_f64(a: [*]const f64, out: [*]f64, N: u32, scalar: f64) void {
+    const s: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_f64(out, i, simd.load2_f64(a, i) / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = a[i] / scalar;
+    }
+}
+
+/// Element-wise divide by scalar for f32 using 4-wide SIMD: out[i] = a[i] / scalar.
+export fn div_scalar_f32(a: [*]const f32, out: [*]f32, N: u32, scalar: f32) void {
+    const s: simd.V4f32 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 3);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 4) {
+        simd.store4_f32(out, i, simd.load4_f32(a, i) / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = a[i] / scalar;
+    }
+}
+
+/// i64-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_i64_f64(a: [*]const i64, out: [*]f64, N: u32, scalar: f64) void {
+    const s: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v0: f64 = @floatFromInt(a[i]);
+        const v1: f64 = @floatFromInt(a[i + 1]);
+        const v = simd.V2f64{ v0, v1 };
+        simd.store2_f64(out, i, v / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// u64-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u64_f64(a: [*]const u64, out: [*]f64, N: u32, scalar: f64) void {
+    const s: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v0: f64 = @floatFromInt(a[i]);
+        const v1: f64 = @floatFromInt(a[i + 1]);
+        const v = simd.V2f64{ v0, v1 };
+        simd.store2_f64(out, i, v / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// i32-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_i32_f64(a: [*]const i32, out: [*]f64, N: u32, scalar: f64) void {
+    const s: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v0: f64 = @floatFromInt(a[i]);
+        const v1: f64 = @floatFromInt(a[i + 1]);
+        const v = simd.V2f64{ v0, v1 };
+        simd.store2_f64(out, i, v / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+
+/// u32-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u32_f64(a: [*]const u32, out: [*]f64, N: u32, scalar: f64) void {
+    const s: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v0: f64 = @floatFromInt(a[i]);
+        const v1: f64 = @floatFromInt(a[i + 1]);
+        const v = simd.V2f64{ v0, v1 };
+        simd.store2_f64(out, i, v / s);
+    }
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// i16-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_i16_f64(a: [*]const i16, out: [*]f64, N: u32, scalar: f64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// u16-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u16_f64(a: [*]const u16, out: [*]f64, N: u32, scalar: f64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+/// i8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_i8_f64(a: [*]const i8, out: [*]f64, N: u32, scalar: f64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+    }
+}
+
+
+/// u8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
+export fn div_scalar_u8_f64(a: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
     }
 }
 
