@@ -226,7 +226,11 @@ result = np.array([200.0, -200.0, 127.5, -128.5], dtype=np.float64).astype(np.in
       expect(r.tolist()).toEqual(npResult.value);
     });
 
-    it('float64 inf/nan to int32 matches NumPy', () => {
+    // NumPy float→int overflow is platform-dependent (UB on x86_64, saturation on ARM).
+    // See: https://github.com/numpy/numpy/issues/31013
+    const isArm = process.arch === 'arm64';
+
+    it.skipIf(!isArm)('float64 inf/nan to int32 matches NumPy', () => {
       const r = np.array([Infinity, -Infinity, NaN], 'float64').astype('int32');
 
       const npResult = runNumPy(`
@@ -237,7 +241,7 @@ result = np.array([np.inf, -np.inf, np.nan], dtype=np.float64).astype(np.int32).
       expect(r.tolist()).toEqual(npResult.value);
     });
 
-    it('float64 inf/nan to int8 matches NumPy', () => {
+    it.skipIf(!isArm)('float64 inf/nan to int8 matches NumPy', () => {
       const r = np.array([Infinity, -Infinity, NaN], 'float64').astype('int8');
 
       const npResult = runNumPy(`
@@ -248,7 +252,7 @@ result = np.array([np.inf, -np.inf, np.nan], dtype=np.float64).astype(np.int8).t
       expect(r.tolist()).toEqual(npResult.value);
     });
 
-    it('float64 inf/nan to uint8 matches NumPy', () => {
+    it.skipIf(!isArm)('float64 inf/nan to uint8 matches NumPy', () => {
       const r = np.array([Infinity, -Infinity, NaN], 'float64').astype('uint8');
 
       const npResult = runNumPy(`
@@ -259,7 +263,7 @@ result = np.array([np.inf, -np.inf, np.nan], dtype=np.float64).astype(np.uint8).
       expect(r.tolist()).toEqual(npResult.value);
     });
 
-    it('float64 very large value to int8 matches NumPy', () => {
+    it.skipIf(!isArm)('float64 very large value to int8 matches NumPy', () => {
       const r = np.array([1e20, -1e20], 'float64').astype('int8');
 
       const npResult = runNumPy(`
@@ -270,7 +274,7 @@ result = np.array([1e20, -1e20], dtype=np.float64).astype(np.int8).tolist()
       expect(r.tolist()).toEqual(npResult.value);
     });
 
-    it('float64 large value to int32 saturates', () => {
+    it.skipIf(!isArm)('float64 large value to int32 saturates', () => {
       const r = np.array([3e9, -3e9, 1e20], 'float64').astype('int32');
 
       const npResult = runNumPy(`
@@ -281,7 +285,7 @@ result = np.array([3e9, -3e9, 1e20], dtype=np.float64).astype(np.int32).tolist()
       expect(r.tolist()).toEqual(npResult.value);
     });
 
-    it('float64 to int64 with special values', () => {
+    it.skipIf(!isArm)('float64 to int64 with special values', () => {
       const r = np.array([Infinity, -Infinity, NaN, 1e20], 'float64').astype('int64');
 
       const npResult = runNumPy(`

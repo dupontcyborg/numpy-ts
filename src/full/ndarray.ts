@@ -1,7 +1,6 @@
 // AUTO-GENERATED - DO NOT EDIT
 // Run `npm run generate` to regenerate this file from scripts/ndarray-methods.ts
 
-import { parseSlice, normalizeSlice } from '../common/slicing';
 import {
   type DType,
   type TypedArray,
@@ -211,71 +210,6 @@ export class NDArray extends NDArrayCore {
     const core = super.astype(dtype, copy);
     if (core instanceof NDArray) return core;
     return new NDArray((core as unknown as { _storage: ArrayStorage })._storage);
-  }
-
-  /**
-   * Slice the array using NumPy-style string syntax
-   * @param sliceStrs - Slice specifications, one per dimension
-   * @returns Sliced view of the array
-   */
-  override slice(...sliceStrs: string[]): NDArray {
-    if (sliceStrs.length === 0) {
-      return this;
-    }
-
-    if (sliceStrs.length > this.ndim) {
-      throw new Error(
-        `Too many indices for array: array is ${this.ndim}-dimensional, but ${sliceStrs.length} were indexed`
-      );
-    }
-
-    const sliceSpecs = sliceStrs.map((str, i) => {
-      const spec = parseSlice(str);
-      const normalized = normalizeSlice(spec, this.shape[i]!);
-      return normalized;
-    });
-
-    while (sliceSpecs.length < this.ndim) {
-      sliceSpecs.push({
-        start: 0,
-        stop: this.shape[sliceSpecs.length]!,
-        step: 1,
-        isIndex: false,
-      });
-    }
-
-    const newShape: number[] = [];
-    const newStrides: number[] = [];
-    let newOffset = this._storage.offset;
-
-    for (let i = 0; i < sliceSpecs.length; i++) {
-      const spec = sliceSpecs[i]!;
-      const stride = this._storage.strides[i]!;
-
-      newOffset += spec.start * stride;
-
-      if (!spec.isIndex) {
-        let dimSize: number;
-        if (spec.step > 0) {
-          dimSize = Math.max(0, Math.ceil((spec.stop - spec.start) / spec.step));
-        } else {
-          dimSize = Math.max(0, Math.ceil((spec.start - spec.stop) / Math.abs(spec.step)));
-        }
-        newShape.push(dimSize);
-        newStrides.push(stride * spec.step);
-      }
-    }
-
-    const slicedStorage = ArrayStorage.fromData(
-      this._storage.data,
-      newShape,
-      this._storage.dtype,
-      newStrides,
-      newOffset
-    );
-
-    const base = this._base ?? this;
-    return new NDArray(slicedStorage, base);
   }
 
   /**

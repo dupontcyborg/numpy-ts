@@ -28,6 +28,98 @@ export fn copysign_f64(x1: [*]const f64, x2: [*]const f64, out: [*]f64, N: u32) 
     }
 }
 
+/// Element-wise copysign for f32, output f64: out[i] = copysign(x1[i], x2[i]).
+export fn copysign_f32(x1: [*]const f32, x2: [*]const f32, out: [*]f64, N: u32) void {
+    const sign_mask_32: u32 = @as(u32, 1) << 31;
+    const mag_mask_32: u32 = ~sign_mask_32;
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag = @as(u32, @bitCast(x1[i])) & mag_mask_32;
+        const sign = @as(u32, @bitCast(x2[i])) & sign_mask_32;
+        out[i] = @as(f64, @as(f32, @bitCast(mag | sign)));
+    }
+}
+
+/// Element-wise copysign for i64, output is f64.
+export fn copysign_i64(x1: [*]const i64, x2: [*]const i64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
+        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+/// Element-wise copysign for u64, output is f64.
+export fn copysign_u64(x1: [*]const u64, x2: [*]const u64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+/// Element-wise copysign for i32, output is f64.
+export fn copysign_i32(x1: [*]const i32, x2: [*]const i32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
+        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+/// Element-wise copysign for u32, output is f64.
+export fn copysign_u32(x1: [*]const u32, x2: [*]const u32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+/// Element-wise copysign for i16, output is f64.
+export fn copysign_i16(x1: [*]const i16, x2: [*]const i16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
+        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+/// Element-wise copysign for u16, output is f64.
+export fn copysign_u16(x1: [*]const u16, x2: [*]const u16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+/// Element-wise copysign for i8, output is f64.
+export fn copysign_i8(x1: [*]const i8, x2: [*]const i8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
+        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
+/// Element-wise copysign for u8, output is f64.
+export fn copysign_u8(x1: [*]const u8, x2: [*]const u8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
+        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        out[i] = sign * mag;
+    }
+}
+
 /// Element-wise copysign scalar for f64 using 2-wide SIMD: out[i] = copysign(x1[i], scalar).
 /// Uses bitwise manipulation to combine magnitude of x1 with sign of scalar.
 export fn copysign_scalar_f64(x1: [*]const f64, out: [*]f64, N: u32, scalar: f64) void {
@@ -46,18 +138,6 @@ export fn copysign_scalar_f64(x1: [*]const f64, out: [*]f64, N: u32, scalar: f64
     }
 }
 
-/// Element-wise copysign for f32, output f64: out[i] = copysign(x1[i], x2[i]).
-export fn copysign_f32(x1: [*]const f32, x2: [*]const f32, out: [*]f64, N: u32) void {
-    const sign_mask_32: u32 = @as(u32, 1) << 31;
-    const mag_mask_32: u32 = ~sign_mask_32;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const mag = @as(u32, @bitCast(x1[i])) & mag_mask_32;
-        const sign = @as(u32, @bitCast(x2[i])) & sign_mask_32;
-        out[i] = @as(f64, @as(f32, @bitCast(mag | sign)));
-    }
-}
-
 /// Element-wise copysign scalar for f32, output f64: out[i] = copysign(x1[i], scalar).
 export fn copysign_scalar_f32(x1: [*]const f32, out: [*]f64, N: u32, scalar: f32) void {
     const sign_mask_32: u32 = @as(u32, 1) << 31;
@@ -70,19 +150,7 @@ export fn copysign_scalar_f32(x1: [*]const f32, out: [*]f64, N: u32, scalar: f32
     }
 }
 
-/// Element-wise copysign for i64, scalar loop (no i64x2 compare in WASM SIMD).
-/// Output is f64.
-export fn copysign_i64(x1: [*]const i64, x2: [*]const i64, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
-        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
-        out[i] = sign * mag;
-    }
-}
-
-/// Element-wise copysign scalar for i64, scalar loop (no i64x2 compare in WASM SIMD).
-/// Output is f64.
+/// Element-wise copysign for i64 scalar, output is f64.
 export fn copysign_scalar_i64(x1: [*]const i64, out: [*]f64, N: u32, scalar: i64) void {
     const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
@@ -91,76 +159,7 @@ export fn copysign_scalar_i64(x1: [*]const i64, out: [*]f64, N: u32, scalar: i64
     }
 }
 
-/// Element-wise copysign for i32, output f64: out[i] = copysign(x1[i], x2[i]).
-export fn copysign_i32(x1: [*]const i32, x2: [*]const i32, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
-        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
-        out[i] = sign * mag;
-    }
-}
-
-/// Element-wise copysign scalar for i32, output f64: out[i] = copysign(x1[i], scalar).
-export fn copysign_scalar_i32(x1: [*]const i32, out: [*]f64, N: u32, scalar: i32) void {
-    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
-    }
-}
-
-/// Element-wise copysign for i16, output f64: out[i] = copysign(x1[i], x2[i]).
-export fn copysign_i16(x1: [*]const i16, x2: [*]const i16, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
-        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
-        out[i] = sign * mag;
-    }
-}
-
-/// Element-wise copysign scalar for i16, output f64: out[i] = copysign(x1[i], scalar).
-export fn copysign_scalar_i16(x1: [*]const i16, out: [*]f64, N: u32, scalar: i16) void {
-    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
-    }
-}
-
-/// Element-wise copysign for i8, output f64: out[i] = copysign(x1[i], x2[i]).
-export fn copysign_i8(x1: [*]const i8, x2: [*]const i8, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
-        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
-        out[i] = sign * mag;
-    }
-}
-
-/// Element-wise copysign scalar for i8, output f64: out[i] = copysign(x1[i], scalar).
-export fn copysign_scalar_i8(x1: [*]const i8, out: [*]f64, N: u32, scalar: i8) void {
-    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
-    }
-}
-
-// ---- Unsigned integer variants (u* → f64) ----
-// For uint types, x2 is always >= 0, so sign is always +1 (or 0).
-// The key difference from signed is correct @floatFromInt on unsigned values.
-
-export fn copysign_u64(x1: [*]const u64, x2: [*]const u64, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
-        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
-        out[i] = sign * mag;
-    }
-}
-
+/// Element-wise copysign for u64 scalar, output is f64.
 export fn copysign_scalar_u64(x1: [*]const u64, out: [*]f64, N: u32, scalar: f64) void {
     const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
@@ -169,15 +168,16 @@ export fn copysign_scalar_u64(x1: [*]const u64, out: [*]f64, N: u32, scalar: f64
     }
 }
 
-export fn copysign_u32(x1: [*]const u32, x2: [*]const u32, out: [*]f64, N: u32) void {
+/// Element-wise copysign for i32 scalar, output is f64.
+export fn copysign_scalar_i32(x1: [*]const i32, out: [*]f64, N: u32, scalar: i32) void {
+    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
-        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
-        out[i] = sign * mag;
+        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
     }
 }
 
+/// Element-wise copysign for u32 scalar, output is f64.
 export fn copysign_scalar_u32(x1: [*]const u32, out: [*]f64, N: u32, scalar: f64) void {
     const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
@@ -186,15 +186,16 @@ export fn copysign_scalar_u32(x1: [*]const u32, out: [*]f64, N: u32, scalar: f64
     }
 }
 
-export fn copysign_u16(x1: [*]const u16, x2: [*]const u16, out: [*]f64, N: u32) void {
+/// Element-wise copysign for i16 scalar, output is f64.
+export fn copysign_scalar_i16(x1: [*]const i16, out: [*]f64, N: u32, scalar: i16) void {
+    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
-        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
-        out[i] = sign * mag;
+        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
     }
 }
 
+/// Element-wise copysign for u16 scalar, output is f64.
 export fn copysign_scalar_u16(x1: [*]const u16, out: [*]f64, N: u32, scalar: f64) void {
     const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
@@ -203,15 +204,16 @@ export fn copysign_scalar_u16(x1: [*]const u16, out: [*]f64, N: u32, scalar: f64
     }
 }
 
-export fn copysign_u8(x1: [*]const u8, x2: [*]const u8, out: [*]f64, N: u32) void {
+/// Element-wise copysign for i8 scalar, output is f64.
+export fn copysign_scalar_i8(x1: [*]const i8, out: [*]f64, N: u32, scalar: i8) void {
+    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
-        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
-        out[i] = sign * mag;
+        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
     }
 }
 
+/// Element-wise copysign for u8 scalar, output is f64.
 export fn copysign_scalar_u8(x1: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
     const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
