@@ -26,8 +26,11 @@ const kernels: Partial<Record<DType, UnaryFn>> = {
   float64: logical_not_f64,
   float32: logical_not_f32,
   int64: logical_not_i64,
+  uint64: logical_not_i64,
   int32: logical_not_i32,
+  uint32: logical_not_i32,
   int16: logical_not_i16,
+  uint16: logical_not_i16,
   int8: logical_not_i8,
   uint8: logical_not_i8 as unknown as UnaryFn,
 };

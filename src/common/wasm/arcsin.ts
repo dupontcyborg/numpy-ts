@@ -7,7 +7,7 @@
  * in JS and run through the f64 SIMD kernel (matches NumPy's promotion).
  */
 
-import { arcsin_f64, arcsin_f32, arcsin_i64 } from './bins/arcsin.wasm';
+import { arcsin_f64, arcsin_f32, arcsin_i64, arcsin_u64 } from './bins/arcsin.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isComplexDType, isBigIntDType, type DType, type TypedArray } from '../dtype';
@@ -61,14 +61,14 @@ export function wasmArcsin(a: ArrayStorage): ArrayStorage | null {
   }
 
   // int64 native path — avoid costly BigInt→Number conversion in JS
-  if (dtype === 'int64') {
-    ensureMemory(size * 16); // 8 bytes in (i64) + 8 bytes out (f64)
+  if (dtype === 'int64' || dtype === 'uint64') {
+    ensureMemory(size * 16); // 8 bytes in (i64/u64) + 8 bytes out (f64)
     resetAllocator();
     const aOff = a.offset;
     const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
     const aPtr = copyIn(aData);
     const outPtr = alloc(size * 8);
-    arcsin_i64(aPtr, outPtr, size);
+    (dtype === 'int64' ? arcsin_i64 : arcsin_u64)(aPtr, outPtr, size);
     const outData = copyOut(
       outPtr,
       size,

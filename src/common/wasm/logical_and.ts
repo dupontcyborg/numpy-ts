@@ -34,8 +34,11 @@ const binaryKernels: Partial<Record<DType, BinaryFn>> = {
   float64: logical_and_f64,
   float32: logical_and_f32,
   int64: logical_and_i64,
+  uint64: logical_and_i64,
   int32: logical_and_i32,
+  uint32: logical_and_i32,
   int16: logical_and_i16,
+  uint16: logical_and_i16,
   int8: logical_and_i8,
   uint8: logical_and_i8 as unknown as BinaryFn,
 };
@@ -44,8 +47,11 @@ const scalarKernels: Partial<Record<DType, ScalarFn>> = {
   float64: logical_and_scalar_f64,
   float32: logical_and_scalar_f32,
   int64: logical_and_scalar_i64,
+  uint64: logical_and_scalar_i64,
   int32: logical_and_scalar_i32,
+  uint32: logical_and_scalar_i32,
   int16: logical_and_scalar_i16,
+  uint16: logical_and_scalar_i16,
   int8: logical_and_scalar_i8,
   uint8: logical_and_scalar_i8 as unknown as ScalarFn,
 };

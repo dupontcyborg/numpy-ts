@@ -19,9 +19,13 @@ const kernels: Partial<Record<DType, Rot90Fn>> = {
   float64: rot90_f64,
   float32: rot90_f32,
   int64: rot90_i64,
+  uint64: rot90_i64,
   int32: rot90_i32,
+  uint32: rot90_i32,
   int16: rot90_i16,
+  uint16: rot90_i16,
   int8: rot90_i8,
+  uint8: rot90_i8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

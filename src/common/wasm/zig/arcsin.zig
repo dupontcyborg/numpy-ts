@@ -30,6 +30,14 @@ export fn arcsin_i64(a: [*]const i64, out: [*]f64, N: u32) void {
     }
 }
 
+/// Element-wise arcsin for u64 → f64 output. Scalar (no u64 SIMD in WASM).
+export fn arcsin_u64(a: [*]const u64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.asin(@as(f64, @floatFromInt(a[i])));
+    }
+}
+
 // --- Tests ---
 
 test "arcsin_f64 basic" {

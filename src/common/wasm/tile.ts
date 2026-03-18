@@ -33,9 +33,13 @@ const kernels: Partial<Record<DType, Tile2DFn>> = {
   float64: tile_2d_f64,
   float32: tile_2d_f32,
   int64: tile_2d_i64,
+  uint64: tile_2d_i64,
   int32: tile_2d_i32,
+  uint32: tile_2d_i32,
   int16: tile_2d_i16,
+  uint16: tile_2d_i16,
   int8: tile_2d_i8,
+  uint8: tile_2d_i8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

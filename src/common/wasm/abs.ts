@@ -51,6 +51,16 @@ export function wasmAbs(a: ArrayStorage): ArrayStorage | null {
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const dtype = a.dtype;
+
+  // Unsigned types: abs is identity — fast TypedArray copy (no WASM needed)
+  if (dtype === 'uint8' || dtype === 'uint16' || dtype === 'uint32' || dtype === 'uint64') {
+    const Ctor = ctorMap[dtype]!;
+    const aOff = a.offset;
+    const src = a.data.subarray(aOff, aOff + size) as TypedArray;
+    const copy = new (Ctor as unknown as new (src: TypedArray) => TypedArray)(src);
+    return ArrayStorage.fromData(copy, Array.from(a.shape), dtype);
+  }
+
   const kernel = kernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;

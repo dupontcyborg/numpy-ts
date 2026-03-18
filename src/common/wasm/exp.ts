@@ -7,7 +7,7 @@
  * in JS and run through the f64 SIMD kernel (matches NumPy's promotion).
  */
 
-import { exp_f64, exp_f32 } from './bins/exp.wasm';
+import { exp_f64, exp_f32, exp_i64, exp_u64 } from './bins/exp.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isComplexDType, isBigIntDType, type DType, type TypedArray } from '../dtype';
@@ -58,6 +58,27 @@ export function wasmExp(a: ArrayStorage): ArrayStorage | null {
       Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
     );
     return ArrayStorage.fromData(outData, Array.from(a.shape), dtype);
+  }
+
+  // int64/uint64 native path — avoid costly BigInt→Number conversion
+  if (dtype === 'int64' || dtype === 'uint64') {
+    ensureMemory(size * 16); // 8 bytes in + 8 bytes out
+    resetAllocator();
+    const aOff = a.offset;
+    const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
+    const aPtr = copyIn(aData);
+    const outPtr = alloc(size * 8);
+    (dtype === 'int64' ? exp_i64 : exp_u64)(aPtr, outPtr, size);
+    const outData = copyOut(
+      outPtr,
+      size,
+      Float64Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+    return ArrayStorage.fromData(outData, Array.from(a.shape), 'float64');
   }
 
   // Integer path: convert to float64, run SIMD f64 kernel

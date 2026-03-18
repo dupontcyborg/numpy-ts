@@ -19,9 +19,13 @@ const kernels: Partial<Record<DType, UnaryFn>> = {
   float64: flip_f64,
   float32: flip_f32,
   int64: flip_i64,
+  uint64: flip_i64,
   int32: flip_i32,
+  uint32: flip_i32,
   int16: flip_i16,
+  uint16: flip_i16,
   int8: flip_i8,
+  uint8: flip_i8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

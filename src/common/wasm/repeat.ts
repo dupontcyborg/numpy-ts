@@ -26,9 +26,13 @@ const kernels: Partial<Record<DType, RepeatFn>> = {
   float64: repeat_f64,
   float32: repeat_f32,
   int64: repeat_i64,
+  uint64: repeat_i64,
   int32: repeat_i32,
+  uint32: repeat_i32,
   int16: repeat_i16,
+  uint16: repeat_i16,
   int8: repeat_i8,
+  uint8: repeat_i8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

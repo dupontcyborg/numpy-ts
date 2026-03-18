@@ -587,7 +587,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // --- cbrt ---
     specs.push({
       name: `cbrt [${sizes.medium.join('x')}]`,
-      category: 'arithmetic',
+      category: 'math',
       operation: 'cbrt',
       setup: {
         a: { shape: sizes.medium, fill: 'arange', value: 1 },
@@ -611,7 +611,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // --- heaviside ---
     specs.push({
       name: `heaviside [${sizes.medium.join('x')}] scalar`,
-      category: 'arithmetic',
+      category: 'math',
       operation: 'heaviside',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -623,7 +623,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `heaviside [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
-      category: 'arithmetic',
+      category: 'math',
       operation: 'heaviside',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -834,7 +834,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // --- interp ---
     specs.push({
       name: `interp [${sizes.small}]`,
-      category: 'arithmetic',
+      category: 'math',
       operation: 'interp',
       setup: {
         x: { shape: [sizes.small], fill: 'arange' },
@@ -872,7 +872,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // --- i0 ---
     specs.push({
       name: `i0 [${sizes.medium.join('x')}]`,
-      category: 'arithmetic',
+      category: 'math',
       operation: 'i0',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -1199,7 +1199,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `cross [${sizes.small}x3]`,
-      category: 'gradient',
+      category: 'linalg',
       operation: 'cross',
       setup: {
         a: { shape: [sizes.small, 3], fill: 'arange' },
@@ -2855,7 +2855,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'bitwise',
       operation: 'bitwise_count',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: sizes.medium, fill: 'arange', dtype: 'uint32' },
       },
       iterations,
       warmup,
@@ -2942,7 +2942,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `nonzero [${sizes.medium.join('x')}]`,
-      category: 'sorting',
+      category: 'indexing',
       operation: 'nonzero',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -2953,7 +2953,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `argwhere [${sizes.medium.join('x')}]`,
-      category: 'sorting',
+      category: 'indexing',
       operation: 'argwhere',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -2964,7 +2964,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `flatnonzero [${sizes.medium.join('x')}]`,
-      category: 'sorting',
+      category: 'indexing',
       operation: 'flatnonzero',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -2975,7 +2975,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `where [${sizes.medium.join('x')}] with x,y`,
-      category: 'sorting',
+      category: 'logic',
       operation: 'where',
       setup: {
         a: { shape: sizes.medium, fill: 'ones', dtype: 'int32' },
@@ -3001,7 +3001,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `extract [${sizes.medium.join('x')}]`,
-      category: 'sorting',
+      category: 'indexing',
       operation: 'extract',
       setup: {
         condition: { shape: sizes.medium, fill: 'ones', dtype: 'int32' },
@@ -3013,7 +3013,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `count_nonzero [${sizes.medium.join('x')}]`,
-      category: 'sorting',
+      category: 'reductions',
       operation: 'count_nonzero',
       setup: {
         a: { shape: sizes.medium, fill: 'arange' },
@@ -3074,7 +3074,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `correlate [${sizes.small}]`,
-      category: 'math',
+      category: 'statistics',
       operation: 'correlate',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -3086,7 +3086,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     specs.push({
       name: `convolve [${sizes.small}]`,
-      category: 'math',
+      category: 'statistics',
       operation: 'convolve',
       setup: {
         a: { shape: [sizes.small], fill: 'arange' },
@@ -3816,124 +3816,6 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Other Math Benchmarks
   // ========================================
 
-  if (Array.isArray(sizes.medium)) {
-    specs.push({
-      name: `clip [${sizes.medium.join('x')}]`,
-      category: 'math',
-      operation: 'clip',
-      setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `maximum [${sizes.medium.join('x')}]`,
-      category: 'math',
-      operation: 'maximum',
-      setup: {
-        a: { shape: sizes.medium, fill: 'random' },
-        b: { shape: sizes.medium, fill: 'random' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `minimum [${sizes.medium.join('x')}]`,
-      category: 'math',
-      operation: 'minimum',
-      setup: {
-        a: { shape: sizes.medium, fill: 'random' },
-        b: { shape: sizes.medium, fill: 'random' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `fmax [${sizes.medium.join('x')}]`,
-      category: 'math',
-      operation: 'fmax',
-      setup: {
-        a: { shape: sizes.medium, fill: 'random' },
-        b: { shape: sizes.medium, fill: 'random' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `fmin [${sizes.medium.join('x')}]`,
-      category: 'math',
-      operation: 'fmin',
-      setup: {
-        a: { shape: sizes.medium, fill: 'random' },
-        b: { shape: sizes.medium, fill: 'random' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `nan_to_num [${sizes.medium.join('x')}]`,
-      category: 'math',
-      operation: 'nan_to_num',
-      setup: {
-        a: { shape: sizes.medium, fill: 'random' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `sinc [${sizes.medium.join('x')}]`,
-      category: 'trig',
-      operation: 'sinc',
-      setup: {
-        a: { shape: sizes.medium, fill: 'random' },
-      },
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `i0 [${sizes.medium.join('x')}]`,
-      category: 'math',
-      operation: 'i0',
-      setup: {
-        a: { shape: sizes.medium, fill: 'random' },
-      },
-      iterations,
-      warmup,
-    });
-  }
-
-  specs.push({
-    name: `interp [${sizes.small}]`,
-    category: 'math',
-    operation: 'interp',
-    setup: {
-      x: { shape: [sizes.small], fill: 'arange' },
-      xp: { shape: [100], fill: 'arange' },
-      fp: { shape: [100], fill: 'arange' },
-    },
-    iterations,
-    warmup,
-  });
-
-  specs.push({
-    name: `unwrap [${sizes.small}]`,
-    category: 'trig',
-    operation: 'unwrap',
-    setup: {
-      a: { shape: [sizes.small], fill: 'random' },
-    },
-    iterations,
-    warmup,
-  });
-
   // ========================================
   // FFT Benchmarks
   // ========================================
@@ -4154,26 +4036,25 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Standard mode: float64 (base) + float32
   // Full mode:     float64 (base) + float32 + complex128 + int64 + int32 + int16 + int8
 
-  // type DtypeFamily = 'float' | 'int' | 'uint' | 'complex';
-  type DtypeFamily = 'float' | 'int' | 'complex';
+  type DtypeFamily = 'float' | 'int' | 'uint' | 'complex';
 
   // Which dtype families each category supports
   const CATEGORY_DTYPE_SUPPORT: Record<string, DtypeFamily[]> = {
-    creation: ['float', 'int', 'complex'],
-    arithmetic: ['float', 'int', 'complex'],
-    math: ['float', 'int', 'complex'],
+    creation: ['float', 'int', 'uint', 'complex'],
+    arithmetic: ['float', 'int', 'uint', 'complex'],
+    math: ['float', 'int', 'uint', 'complex'],
     linalg: ['float', 'complex'],
-    reductions: ['float', 'int', 'complex'],
+    reductions: ['float', 'int', 'uint', 'complex'],
     statistics: ['float'],
-    manipulation: ['float', 'int'],
-    sorting: ['float', 'int'],
-    sets: ['float', 'int'],
-    logic: ['float', 'int'],
-    gradient: ['float', 'int'],
-    trig: ['float', 'int', 'complex'],
-    indexing: ['float', 'int'],
+    manipulation: ['float', 'int', 'uint'],
+    sorting: ['float', 'int', 'uint'],
+    sets: ['float', 'int', 'uint'],
+    logic: ['float', 'int', 'uint'],
+    gradient: ['float', 'int', 'uint'],
+    trig: ['float', 'int', 'uint', 'complex'],
+    indexing: ['float', 'int', 'uint'],
     polynomials: ['float'],
-    bitwise: ['int'],
+    bitwise: ['int', 'uint'],
     // Skipped entirely (no variants): random, utilities, io, fft
   };
 
@@ -4186,12 +4067,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       { dtype: 'int16', minMode: 'full' },
       { dtype: 'int8', minMode: 'full' },
     ],
-    // uint: [
-    //   { dtype: 'uint64', minMode: 'full' },
-    //   { dtype: 'uint32', minMode: 'full' },
-    //   { dtype: 'uint16', minMode: 'full' },
-    //   { dtype: 'uint8', minMode: 'full' },
-    // ],
+    uint: [
+      { dtype: 'uint64', minMode: 'full' },
+      { dtype: 'uint32', minMode: 'full' },
+      { dtype: 'uint16', minMode: 'full' },
+      { dtype: 'uint8', minMode: 'full' },
+    ],
     complex: [
       { dtype: 'complex128', minMode: 'full' },
       { dtype: 'complex64', minMode: 'full' },
@@ -4243,6 +4124,13 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     'tensordot',
     // Truly incompatible with BigInt (int64) — would throw at runtime
     'asarray_chkfinite', // NaN/Inf check doesn't work with BigInt
+  ]);
+
+  // Operations to skip for uint dtype variants specifically.
+  // NumPy raises TypeError for these on unsigned integer arrays.
+  const SKIP_UINT_OPERATIONS = new Set([
+    'sign',    // np.sign raises TypeError for uint types
+    'signbit', // np.signbit raises TypeError for uint types
   ]);
 
   // Operations to skip for NARROW int types (int8/int16) only.
@@ -4425,6 +4313,8 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
         // Skip int/uint variants for operations prone to overflow
         if ((family === 'int' || family === 'uint') && SKIP_INT_OPERATIONS.has(spec.operation))
           continue;
+        // Skip uint variants for operations NumPy raises TypeError on for unsigned types
+        if (family === 'uint' && SKIP_UINT_OPERATIONS.has(spec.operation)) continue;
         // Skip complex variants for unsupported operations
         if (family === 'complex' && SKIP_COMPLEX_OPERATIONS.has(spec.operation)) continue;
         // Skip complex variants for broadcasting specs (complex broadcasting is buggy)
@@ -4466,6 +4356,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
                   break;
                 }
                 cloned.fill = 'complex_small';
+              }
+              if (family === 'uint' && typeof entry.value === 'number' && entry.value < 0) {
+                // NumPy 2.0 raises OverflowError for np.full(shape, negative, dtype=uint*).
+                // Skip this variant rather than produce a test that will always mismatch.
+                skipVariant = true;
+                break;
               }
               variantSetup[key] = cloned;
             } else {
