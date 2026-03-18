@@ -476,6 +476,12 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.cos(arrays.a);
     case 'tan':
       return np.tan(arrays.a);
+    case 'arcsin':
+      return np.arcsin(arrays.a);
+    case 'arccos':
+      return np.arccos(arrays.a);
+    case 'arctan':
+      return np.arctan(arrays.a);
     case 'arctan2':
       return np.arctan2(arrays.a, arrays.b);
     case 'hypot':
@@ -488,6 +494,12 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return np.cosh(arrays.a);
     case 'tanh':
       return np.tanh(arrays.a);
+    case 'arcsinh':
+      return np.arcsinh(arrays.a);
+    case 'arccosh':
+      return np.arccosh(arrays.a);
+    case 'arctanh':
+      return np.arctanh(arrays.a);
 
     // Exponential
     case 'exp':

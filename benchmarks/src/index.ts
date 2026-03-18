@@ -135,6 +135,8 @@ async function main() {
       options.fresh = true;
     } else if (arg === '--pyodide') {
       options.pyodide = true;
+    } else if (arg === '--no-wasm') {
+      options.noWasm = true;
     } else if (arg === '--help' || arg === '-h') {
       printHelp();
       process.exit(0);
@@ -163,6 +165,9 @@ async function main() {
   console.log(`Mode: ${options.mode}`);
   if (options.singleThread) {
     console.log('NumPy threading: single-threaded (OMP/MKL/OpenBLAS threads = 1)');
+  }
+  if (options.noWasm) {
+    console.log('WASM kernels: disabled (--no-wasm)');
   }
 
   // Detect available runtimes
@@ -210,9 +215,12 @@ async function main() {
   }
 
   if (options.spec) {
-    const pattern = options.spec.toLowerCase();
+    const patterns = options.spec.split(',').map((p: string) => p.trim().toLowerCase());
     console.log(`Spec filter: "${options.spec}"`);
-    specs = specs.filter((s) => s.name.toLowerCase().includes(pattern));
+    specs = specs.filter((s) => {
+      const name = s.name.toLowerCase();
+      return patterns.some((p: string) => name.includes(p));
+    });
 
     if (specs.length === 0) {
       console.error('No benchmarks matched --spec: ' + options.spec);
@@ -257,8 +265,8 @@ async function main() {
 
     // Run NumPy benchmarks (native Python or Pyodide WASM)
     let numpyResults: BenchmarkTiming[];
-    let pythonVersion: string;
-    let numpyVersion: string;
+    let pythonVersion: string = 'unknown';
+    let numpyVersion: string = 'unknown';
 
     const cached = options.fresh ? null : tryLoadCachedPython(specs, modeSuffix, resultsDir);
     if (cached) {
@@ -296,6 +304,7 @@ async function main() {
           specs,
           minSampleTimeMs,
           targetSamples,
+          options.noWasm ?? false,
         );
         runtimeResultsMap.set(runtime.name, results);
         runtimeVersions[runtime.name] = version;
@@ -428,6 +437,7 @@ Options:
                        Values: node, deno, bun  (e.g. --runtime node,bun)
   --category <name>    Run only benchmarks in specified category
   --spec <pattern>     Run only benchmarks whose name contains <pattern> (case-insensitive)
+  --no-wasm            Disable WASM/SIMD kernels (fall back to pure JS for all ops)
   --pyodide            Use Pyodide (WASM NumPy) as baseline instead of native Python
   --fresh              Force re-run Python/Pyodide benchmarks (skip cache)
   --output <path>      Save JSON results to specified path
@@ -436,7 +446,8 @@ Options:
 Categories:
   creation             Array creation (zeros, ones, arange, etc.)
   arithmetic           Arithmetic operations (add, multiply, etc.; includes int64/uint64 in full)
-  math                 Math ops (sqrt, exp, log, trig, etc.)
+  math                 Math ops (sqrt, exp, log, abs, etc.)
+  trig                 Trigonometric & hyperbolic functions (sin, cos, tan, sinh, cosh, tanh, and arc variants)
   linalg               Linear algebra (matmul, dot, inv, svd, etc.)
   reductions           Reductions (sum, mean, std, etc.)
   statistics           Statistics & histograms (cov, corrcoef, histogram, etc.)

@@ -34,13 +34,17 @@ const DTYPE_COLORS: Record<string, { bg: string; text: string }> = {
 
 const DTYPE_RE = /\s+(float64|float32|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
 
-function formatBenchmarkName(name: string): string {
+function formatBenchmarkName(name: string, wasmUsed?: boolean): string {
   const m = name.match(DTYPE_RE);
   const dtype = m ? m[1]! : 'float64';
   const baseName = m ? name.slice(0, -m[0].length) : name;
   const colors = DTYPE_COLORS[dtype] ?? DTYPE_COLORS['float64']!;
   const opacity = m ? '1' : '0.55'; // implicit float64 is dimmer
-  return `${baseName} <span style="display:inline-block;font-size:0.75em;font-weight:600;padding:1px 6px;border-radius:3px;background:${colors.bg};color:${colors.text};opacity:${opacity};vertical-align:middle">${dtype}</span>`;
+  const dtypeBadge = `<span style="display:inline-block;font-size:0.75em;font-weight:600;padding:1px 6px;border-radius:3px;background:${colors.bg};color:${colors.text};opacity:${opacity};vertical-align:middle">${dtype}</span>`;
+  const wasmBadge = wasmUsed
+    ? ` <span style="display:inline-block;font-size:0.75em;font-weight:700;padding:1px 6px;border-radius:3px;background:#e0e7ff;color:#3730a3;vertical-align:middle" title="Accelerated with a WASM/SIMD kernel">WASM</span>`
+    : '';
+  return `${baseName} ${dtypeBadge}${wasmBadge}`;
 }
 
 export function generateHTMLReport(report: BenchmarkReport, outputPath: string): void {
@@ -563,7 +567,7 @@ function generateMultiRuntimeCategoryTables(
 
       html += `
           <tr>
-            <td>${formatBenchmarkName(item.name)}</td>
+            <td>${formatBenchmarkName(item.name, item.wasmUsed)}</td>
             <td>${formatDuration(item.numpy.mean_ms)}</td>`;
 
       for (const rt of runtimeNames) {
@@ -762,7 +766,7 @@ function generateCategoryTables(groups: Map<string, BenchmarkComparison[]>): str
       const ratioClass = item.ratio < 2 ? 'good' : item.ratio < 5 ? 'ok' : 'bad';
       html += `
           <tr>
-            <td>${formatBenchmarkName(item.name)}</td>
+            <td>${formatBenchmarkName(item.name, item.wasmUsed)}</td>
             <td>${formatOpsPerSec(item.numpy.ops_per_sec)}</td>
             <td>${formatOpsPerSec(item.numpyjs.ops_per_sec)}</td>
             <td>${formatDuration(item.numpyjs.mean_ms)}</td>

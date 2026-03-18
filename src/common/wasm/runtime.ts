@@ -7,6 +7,7 @@
  */
 
 import type { TypedArray } from '../dtype';
+import { wasmConfig } from './config';
 
 // Shared memory instance — grows as needed, never shrinks
 let memory: WebAssembly.Memory | null = null;
@@ -44,9 +45,11 @@ export function ensureMemory(bytes: number): void {
 
 /**
  * Reset the bump allocator. Call before each kernel invocation.
+ * Also increments wasmCallCount so callers can detect WASM execution.
  */
 export function resetAllocator(base: number = heapBase): void {
   offset = base;
+  wasmConfig.wasmCallCount++;
 }
 
 /**

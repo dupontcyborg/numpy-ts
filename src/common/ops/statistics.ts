@@ -7,6 +7,8 @@
 
 import { ArrayStorage } from '../storage';
 import { isComplexDType, throwIfComplex, TypedArray } from '../dtype';
+import { wasmCorrelate } from '../wasm/correlate';
+import { wasmConvolve } from '../wasm/convolve';
 
 /**
  * Count number of occurrences of each value in array of non-negative ints.
@@ -694,7 +696,26 @@ export function correlate(
     }
   }
 
-  // Real arrays
+  // Try WASM fast path for real arrays
+  const wasmFull = wasmCorrelate(a, v);
+  if (wasmFull) {
+    if (mode === 'full') return wasmFull;
+    const wasmData = wasmFull.data;
+    if (mode === 'same') {
+      const start = Math.floor((fullLen - aLen) / 2);
+      const result = new Float64Array(aLen);
+      for (let i = 0; i < aLen; i++) result[i] = wasmData[start + i] as number;
+      return ArrayStorage.fromData(result, [aLen], wasmFull.dtype);
+    } else {
+      const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
+      const start = Math.min(aLen, vLen) - 1;
+      const result = new Float64Array(validLen);
+      for (let i = 0; i < validLen; i++) result[i] = wasmData[start + i] as number;
+      return ArrayStorage.fromData(result, [validLen], wasmFull.dtype);
+    }
+  }
+
+  // Real arrays — JS fallback
   const fullResult = new Float64Array(fullLen);
 
   for (let k = 0; k < fullLen; k++) {
@@ -745,10 +766,34 @@ export function convolve(
   v: ArrayStorage,
   mode: 'full' | 'same' | 'valid' = 'full'
 ): ArrayStorage {
+  const vLen = v.size;
+  const aLen = a.size;
+  const vComplex = isComplexDType(v.dtype);
+
+  // Try WASM fast path for non-complex
+  if (!vComplex && !isComplexDType(a.dtype)) {
+    const wasmFull = wasmConvolve(a, v);
+    if (wasmFull) {
+      const fullLen = aLen + vLen - 1;
+      if (mode === 'full') return wasmFull;
+      const wasmData = wasmFull.data;
+      if (mode === 'same') {
+        const start = Math.floor((fullLen - aLen) / 2);
+        const result = new Float64Array(aLen);
+        for (let i = 0; i < aLen; i++) result[i] = wasmData[start + i] as number;
+        return ArrayStorage.fromData(result, [aLen], wasmFull.dtype);
+      } else {
+        const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
+        const start = Math.min(aLen, vLen) - 1;
+        const result = new Float64Array(validLen);
+        for (let i = 0; i < validLen; i++) result[i] = wasmData[start + i] as number;
+        return ArrayStorage.fromData(result, [validLen], wasmFull.dtype);
+      }
+    }
+  }
+
   // Convolution is correlation with v reversed (without conjugation)
   const vData = v.data;
-  const vLen = v.size;
-  const vComplex = isComplexDType(v.dtype);
 
   // Create reversed v
   let vReversedStorage: ArrayStorage;

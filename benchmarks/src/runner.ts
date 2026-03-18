@@ -229,6 +229,12 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].cos();
   } else if (operation === 'tan') {
     return arrays['a'].tan();
+  } else if (operation === 'arcsin') {
+    return arrays['a'].arcsin();
+  } else if (operation === 'arccos') {
+    return arrays['a'].arccos();
+  } else if (operation === 'arctan') {
+    return arrays['a'].arctan();
   } else if (operation === 'arctan2') {
     return arrays['a'].arctan2(arrays['b']);
   } else if (operation === 'hypot') {
@@ -242,6 +248,12 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     return arrays['a'].cosh();
   } else if (operation === 'tanh') {
     return arrays['a'].tanh();
+  } else if (operation === 'arcsinh') {
+    return arrays['a'].arcsinh();
+  } else if (operation === 'arccosh') {
+    return arrays['a'].arccosh();
+  } else if (operation === 'arctanh') {
+    return arrays['a'].arctanh();
   }
 
   // Exponential operations

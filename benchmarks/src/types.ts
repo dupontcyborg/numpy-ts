@@ -33,6 +33,7 @@ export interface BenchmarkTiming {
   ops_per_sec: number; // Operations per second
   total_ops: number; // Total operations executed
   total_samples: number; // Number of timing samples taken
+  wasmUsed?: boolean; // True if a WASM/SIMD kernel was used for this operation
 }
 
 export interface BenchmarkComparison {
@@ -41,6 +42,7 @@ export interface BenchmarkComparison {
   numpy: BenchmarkTiming;
   numpyjs: BenchmarkTiming;
   ratio: number; // numpyjs / numpy (how many times slower)
+  wasmUsed?: boolean; // True if a WASM/SIMD kernel was used
 }
 
 export interface BenchmarkSummary {
@@ -79,6 +81,7 @@ export interface RuntimeComparison {
   category: string;
   numpy: BenchmarkTiming;
   runtimes: Record<string, { timing: BenchmarkTiming; ratio: number }>;
+  wasmUsed?: boolean; // True if a WASM/SIMD kernel was used
 }
 
 export interface MultiRuntimeReport {
@@ -106,4 +109,5 @@ export interface BenchmarkOptions {
   fresh?: boolean;
   pyodide?: boolean;
   spec?: string;
+  noWasm?: boolean;
 }

@@ -202,6 +202,12 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.cos(arrays["a"])
     elif operation == "tan":
         return np.tan(arrays["a"])
+    elif operation == "arcsin":
+        return np.arcsin(arrays["a"])
+    elif operation == "arccos":
+        return np.arccos(arrays["a"])
+    elif operation == "arctan":
+        return np.arctan(arrays["a"])
     elif operation == "arctan2":
         return np.arctan2(arrays["a"], arrays["b"])
     elif operation == "hypot":
@@ -214,6 +220,12 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         return np.cosh(arrays["a"])
     elif operation == "tanh":
         return np.tanh(arrays["a"])
+    elif operation == "arcsinh":
+        return np.arcsinh(arrays["a"])
+    elif operation == "arccosh":
+        return np.arccosh(arrays["a"])
+    elif operation == "arctanh":
+        return np.arctanh(arrays["a"])
 
     # Exponential
     elif operation == "exp":
