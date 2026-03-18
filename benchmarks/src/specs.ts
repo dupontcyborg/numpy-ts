@@ -1756,7 +1756,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
   // Reductions axis=0 variants (standard/full only)
   if (mode !== 'quick' && Array.isArray(sizes.medium)) {
-    for (const op of ['mean', 'max', 'min', 'argmax', 'argmin', 'var', 'std'] as const) {
+    for (const op of ['mean', 'max', 'min', 'argmax', 'argmin', 'var', 'std', 'prod', 'median'] as const) {
       specs.push({
         name: `${op} [${sizes.medium.join('x')}] axis=0`,
         category: 'reductions',
