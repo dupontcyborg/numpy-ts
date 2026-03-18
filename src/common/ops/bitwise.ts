@@ -11,6 +11,13 @@
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isIntegerDType, promoteDTypes, DType } from '../dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
+import { wasmBitwiseAnd } from '../wasm/bitwise_and';
+import { wasmBitwiseOr } from '../wasm/bitwise_or';
+import { wasmBitwiseXor } from '../wasm/bitwise_xor';
+import { wasmBitwiseNot } from '../wasm/bitwise_not';
+import { wasmLeftShift, wasmLeftShiftScalar } from '../wasm/left_shift';
+import { wasmRightShift, wasmRightShiftScalar } from '../wasm/right_shift';
+import { wasmBitwiseCount } from '../wasm/bitwise_count';
 
 /**
  * Helper: Validate that dtype is an integer type for bitwise operations
@@ -54,6 +61,8 @@ export function bitwise_and(a: ArrayStorage, b: ArrayStorage | number): ArraySto
 
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
+    const wasmResult = wasmBitwiseAnd(a, b);
+    if (wasmResult) return wasmResult;
     return bitwiseAndArraysFast(a, b);
   }
 
@@ -180,6 +189,8 @@ export function bitwise_or(a: ArrayStorage, b: ArrayStorage | number): ArrayStor
 
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
+    const wasmResult = wasmBitwiseOr(a, b);
+    if (wasmResult) return wasmResult;
     return bitwiseOrArraysFast(a, b);
   }
 
@@ -306,6 +317,8 @@ export function bitwise_xor(a: ArrayStorage, b: ArrayStorage | number): ArraySto
 
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
+    const wasmResult = wasmBitwiseXor(a, b);
+    if (wasmResult) return wasmResult;
     return bitwiseXorArraysFast(a, b);
   }
 
@@ -423,6 +436,10 @@ function bitwiseXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
 export function bitwise_not(a: ArrayStorage): ArrayStorage {
   validateIntegerDType(a.dtype, 'bitwise_not');
 
+  // WASM acceleration
+  const wasmResult = wasmBitwiseNot(a);
+  if (wasmResult) return wasmResult;
+
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const data = a.data;
@@ -501,11 +518,15 @@ export function left_shift(a: ArrayStorage, b: ArrayStorage | number): ArrayStor
   // Fast path: single-element array or broadcastable scalar shape treated as scalar
   if (b.size === 1 || (b.ndim === 1 && b.shape[0] === 1)) {
     const shiftVal = Number(b.iget(0));
+    const wasmResult = wasmLeftShiftScalar(a, shiftVal);
+    if (wasmResult) return wasmResult;
     return leftShiftScalar(a, shiftVal);
   }
 
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
+    const wasmResult = wasmLeftShift(a, b);
+    if (wasmResult) return wasmResult;
     return leftShiftArraysFast(a, b);
   }
 
@@ -623,11 +644,15 @@ export function right_shift(a: ArrayStorage, b: ArrayStorage | number): ArraySto
   // Fast path: single-element array or broadcastable scalar shape treated as scalar
   if (b.size === 1 || (b.ndim === 1 && b.shape[0] === 1)) {
     const shiftVal = Number(b.iget(0));
+    const wasmResult = wasmRightShiftScalar(a, shiftVal);
+    if (wasmResult) return wasmResult;
     return rightShiftScalar(a, shiftVal);
   }
 
   // Fast path: both contiguous, same shape
   if (canUseFastPath(a, b)) {
+    const wasmResult = wasmRightShift(a, b);
+    if (wasmResult) return wasmResult;
     return rightShiftArraysFast(a, b);
   }
 
@@ -1040,6 +1065,10 @@ export function bitwise_count(x: ArrayStorage): ArrayStorage {
   const dtype = x.dtype;
   validateIntegerDType(dtype, 'bitwise_count');
 
+  // WASM acceleration
+  const wasmResult = wasmBitwiseCount(x);
+  if (wasmResult) return wasmResult;
+
   const shape = Array.from(x.shape);
   const data = x.data;
   const off = x.offset;
@@ -1050,37 +1079,69 @@ export function bitwise_count(x: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.zeros(shape, 'uint8');
   const resultData = result.data as Uint8Array;
 
+  // NumPy's bitwise_count counts bits of abs(value) for signed types,
+  // and bits of the raw value for unsigned types.
+  const isSigned =
+    dtype === 'int8' || dtype === 'int16' || dtype === 'int32' || dtype === 'int64';
+
   if (isBigIntDType(dtype)) {
     if (contiguous) {
       const typedData = data as BigInt64Array | BigUint64Array;
       if (off === 0) {
         for (let i = 0; i < size; i++) {
-          resultData[i] = popcount64(typedData[i]!);
+          const v = typedData[i]!;
+          resultData[i] = popcount64(isSigned && v < 0n ? -v : v);
         }
       } else {
         for (let i = 0; i < size; i++) {
-          resultData[i] = popcount64(typedData[off + i]!);
+          const v = typedData[off + i]!;
+          resultData[i] = popcount64(isSigned && v < 0n ? -v : v);
         }
       }
     } else {
       for (let i = 0; i < size; i++) {
-        resultData[i] = popcount64(x.iget(i) as bigint);
+        const v = x.iget(i) as bigint;
+        resultData[i] = popcount64(isSigned && v < 0n ? -v : v);
       }
     }
-  } else {
+  } else if (isSigned) {
     if (contiguous) {
       if (off === 0) {
         for (let i = 0; i < size; i++) {
-          resultData[i] = popcount32(data[i] as number);
+          resultData[i] = popcount32(Math.abs(data[i] as number));
         }
       } else {
         for (let i = 0; i < size; i++) {
-          resultData[i] = popcount32(data[off + i] as number);
+          resultData[i] = popcount32(Math.abs(data[off + i] as number));
         }
       }
     } else {
       for (let i = 0; i < size; i++) {
-        resultData[i] = popcount32(Number(x.iget(i)));
+        resultData[i] = popcount32(Math.abs(Number(x.iget(i))));
+      }
+    }
+  } else {
+    // Unsigned types: count bits of raw value, mask to correct width
+    const bitMask =
+      dtype === 'uint8'
+        ? 0xff
+        : dtype === 'uint16'
+          ? 0xffff
+          : 0xffffffff;
+
+    if (contiguous) {
+      if (off === 0) {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = popcount32((data[i] as number) & bitMask);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          resultData[i] = popcount32((data[off + i] as number) & bitMask);
+        }
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = popcount32(Number(x.iget(i)) & bitMask);
       }
     }
   }

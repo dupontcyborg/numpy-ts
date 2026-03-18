@@ -496,8 +496,9 @@ describe('Bitwise Operations', () => {
     it('counts 1-bits in int32 array', () => {
       const a = array([0, 1, -1, 7, 16], 'int32');
       const result = bitwise_count(a);
-      // 0 = 0 bits, 1 = 1 bit, -1 = 32 bits (all 1s), 7 = 3 bits, 16 = 1 bit
-      expect(result.toArray()).toEqual([0, 1, 32, 3, 1]);
+      // NumPy counts bits of abs(value) for signed types
+      // 0 = 0 bits, 1 = 1 bit, abs(-1)=1 = 1 bit, 7 = 3 bits, 16 = 1 bit
+      expect(result.toArray()).toEqual([0, 1, 1, 3, 1]);
     });
 
     it('handles 2D arrays', () => {
@@ -536,10 +537,10 @@ describe('Bitwise Operations', () => {
     });
 
     it('counts 1-bits in negative int64 BigInt', () => {
-      // -1 as int64 should have 64 bits set (all 1s in two's complement)
+      // NumPy counts bits of abs(value) for signed types: abs(-1) = 1 = 1 bit
       const a = array([BigInt(-1)], 'int64');
       const result = bitwise_count(a);
-      expect(result.toArray()).toEqual([64]);
+      expect(result.toArray()).toEqual([1]);
     });
   });
 
