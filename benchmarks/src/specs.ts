@@ -2595,7 +2595,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     // ========================================
-    // Sorting Benchmarks
+    // Sorting Benchmarks (shuffled = realistic random data)
     // ========================================
 
     specs.push({
@@ -2603,10 +2603,21 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'sorting',
       operation: 'sort',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: sizes.medium, fill: 'shuffled' },
       },
       iterations,
       includeInQuick: true,
+      warmup,
+    });
+
+    specs.push({
+      name: `sort [${sizes.medium.join('x')}] sorted`,
+      category: 'sorting',
+      operation: 'sort',
+      setup: {
+        a: { shape: sizes.medium, fill: 'arange' },
+      },
+      iterations,
       warmup,
     });
 
@@ -2615,7 +2626,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'sorting',
       operation: 'argsort',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: sizes.medium, fill: 'shuffled' },
       },
       iterations,
       includeInQuick: true,
@@ -2627,7 +2638,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'sorting',
       operation: 'partition',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: sizes.medium, fill: 'shuffled' },
         kth: { shape: [Math.floor(sizes.medium[0]! / 2)] },
       },
       iterations,
@@ -2639,7 +2650,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'sorting',
       operation: 'argpartition',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: sizes.medium, fill: 'shuffled' },
         kth: { shape: [Math.floor(sizes.medium[0]! / 2)] },
       },
       iterations,
@@ -2651,23 +2662,13 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'sorting',
       operation: 'lexsort',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
-        b: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [sizes.small], fill: 'shuffled' },
+        b: { shape: [sizes.small], fill: 'shuffled' },
       },
       iterations,
       warmup,
     });
 
-    specs.push({
-      name: `sort_complex [${sizes.small}]`,
-      category: 'sorting',
-      operation: 'sort_complex',
-      setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
-      },
-      iterations,
-      warmup,
-    });
 
     // ========================================
     // Searching Benchmarks
@@ -3780,7 +3781,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     reductions: ['float', 'int', 'uint', 'complex'],
     statistics: ['float'],
     manipulation: ['float', 'int', 'uint'],
-    sorting: ['float', 'int', 'uint'],
+    sorting: ['float', 'int', 'uint', 'complex'],
     sets: ['float', 'int', 'uint'],
     logic: ['float', 'int', 'uint'],
     gradient: ['float', 'int', 'uint'],
@@ -3926,9 +3927,6 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     'nanpercentile',
     'nanquantile',
     'ptp',
-    'sort',
-    'argsort',
-    'sort_complex',
     'partition',
     'argpartition',
     'searchsorted',

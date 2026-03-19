@@ -327,21 +327,8 @@ export class ArrayStorage {
     const newData = new Constructor(physicalSize);
 
     if (this.isCContiguous && this._offset === 0) {
-      // Fast path: direct copy of physical data
-      if (isBigIntDType(dtype)) {
-        const src = this._data as BigInt64Array | BigUint64Array;
-        const dst = newData as BigInt64Array | BigUint64Array;
-        for (let i = 0; i < physicalSize; i++) {
-          dst[i] = src[i]!;
-        }
-      } else {
-        (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>).set(
-          (this._data as Exclude<TypedArray, BigInt64Array | BigUint64Array>).subarray(
-            0,
-            physicalSize
-          )
-        );
-      }
+      // Fast path: direct copy via TypedArray.set() (works for all types including BigInt)
+      (newData as any).set((this._data as any).subarray(0, physicalSize));
     } else {
       // Slow path: respect strides
       if (isBigIntDType(dtype)) {

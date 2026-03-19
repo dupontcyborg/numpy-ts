@@ -68,6 +68,18 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
             arrays[key] = np.random.randn(*shape).astype(dtype)
         elif fill_type == "arange":
             arrays[key] = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+        elif fill_type == "shuffled":
+            # Deterministic Fisher-Yates shuffle of arange using LCG (seed=42)
+            # Use arange with target dtype first (wraps for narrow types), then shuffle
+            size = int(np.prod(shape))
+            wrapped = np.arange(size, dtype=dtype)
+            vals = wrapped.tolist()
+            seed = 42
+            for i in range(size - 1, 0, -1):
+                seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF
+                j = seed % (i + 1)
+                vals[i], vals[j] = vals[j], vals[i]
+            arrays[key] = np.array(vals, dtype=dtype).reshape(shape)
         elif fill_type == "invertible":
             # Create an invertible matrix: arange + n*I (diagonally dominant)
             n = shape[0]

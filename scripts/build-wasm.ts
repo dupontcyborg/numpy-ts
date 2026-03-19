@@ -7,8 +7,10 @@
  * Usage: tsx scripts/build-wasm.ts [--safe] [--force]
  *
  * Features:
- * - Content-based caching: skips unchanged kernels (hash of source + simd.zig + flags + zig version)
- * - Parallel compilation: tests and builds run concurrently across all kernels
+ * - Per-mode caching: ReleaseFast and ReleaseSafe builds are cached independently
+ *   in .wasm-cache/{fast,safe}/, so switching modes never causes a full rebuild.
+ * - Content-based hashing: hash of kernel source + shared modules + zig version + flags.
+ * - Parallel compilation: tests and builds run concurrently across all kernels.
  *
  * Requires Zig installed. If Zig is not found, exits with a warning
  * (checked-in .wasm.ts files will be used as-is).
@@ -22,6 +24,7 @@ import {
   mkdirSync,
   rmSync,
   existsSync,
+  copyFileSync,
 } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -37,12 +40,16 @@ const ROOT = join(__dirname, '..');
 const ZIG_DIR = join(ROOT, 'src/common/wasm/zig');
 const BINS_DIR = join(ROOT, 'src/common/wasm/bins');
 const TMP_DIR = join(ROOT, '.wasm-tmp');
-const CACHE_FILE = join(ROOT, '.wasm-cache.json');
 
 // --safe flag: compile with ReleaseSafe (bounds checks, overflow detection)
 const SAFE_MODE = process.argv.includes('--safe');
 const FORCE_BUILD = process.argv.includes('--force');
 const ZIG_OPT = SAFE_MODE ? 'ReleaseSafe' : 'ReleaseFast';
+const MODE_KEY = SAFE_MODE ? 'safe' : 'fast';
+
+// Per-mode cache directories
+const CACHE_DIR = join(ROOT, '.wasm-cache', MODE_KEY);
+const CACHE_HASHES_FILE = join(CACHE_DIR, 'hashes.json');
 
 // --- Check for Zig ---
 
@@ -58,26 +65,36 @@ try {
 
 // --- Cache ---
 
-type CacheEntry = { hash: string };
-type Cache = Record<string, CacheEntry>;
+type Hashes = Record<string, string>;
 
-function loadCache(): Cache {
+function loadHashes(): Hashes {
   if (FORCE_BUILD) return {};
   try {
-    return JSON.parse(readFileSync(CACHE_FILE, 'utf-8')) as Cache;
+    return JSON.parse(readFileSync(CACHE_HASHES_FILE, 'utf-8')) as Hashes;
   } catch {
     return {};
   }
 }
 
-function saveCache(cache: Cache): void {
-  writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2) + '\n');
+function saveHashes(hashes: Hashes): void {
+  writeFileSync(CACHE_HASHES_FILE, JSON.stringify(hashes, null, 2) + '\n');
 }
 
-function computeHash(zigPath: string, simdSource: string): string {
+/**
+ * Compute content hash for a kernel. Only includes shared modules that
+ * the kernel actually imports (so changing sorting_common.zig doesn't
+ * invalidate add.zig which only imports simd.zig).
+ */
+function computeHash(zigPath: string, sharedModuleSources: Map<string, string>): string {
   const h = createHash('sha256');
-  h.update(readFileSync(zigPath, 'utf-8'));
-  h.update(simdSource);
+  const source = readFileSync(zigPath, 'utf-8');
+  h.update(source);
+  // Hash only the shared modules this kernel imports
+  for (const [name, content] of sharedModuleSources) {
+    if (source.includes(`@import("${name}")`)) {
+      h.update(content);
+    }
+  }
   h.update(zigVersion);
   h.update(ZIG_OPT);
   return h.digest('hex');
@@ -93,7 +110,6 @@ function parseZigExports(
   let match;
   while ((match = regex.exec(zigSource)) !== null) {
     const zigRet = match[3]!;
-    // Map Zig integer return types to TS 'number', void stays void
     const returnType = zigRet === 'void' ? 'void' : 'number';
     exports.push({ name: match[1]!, params: match[2]!, returnType });
   }
@@ -102,8 +118,6 @@ function parseZigExports(
 
 /**
  * Parse Zig function parameters into TypeScript parameter types and detect i64/u64 params.
- * All WASM numeric params become `number` in TypeScript.
- * Returns both the TS param string and a set of param names that are i64/u64.
  */
 function zigParamsToTs(params: string): { tsParams: string; bigintParams: Set<string> } {
   if (!params.trim()) return { tsParams: '', bigintParams: new Set() };
@@ -114,9 +128,7 @@ function zigParamsToTs(params: string): { tsParams: string; bigintParams: Set<st
       const parts = p.trim().split(':');
       const name = parts[0]!.trim();
       const zigType = parts.slice(1).join(':').trim();
-      // Skip comptime params
       if (name.startsWith('comptime')) return null;
-      // Detect i64/u64 scalar params (not pointers)
       if ((zigType === 'i64' || zigType === 'u64') && !zigType.includes('[*]')) {
         bigintParams.add(name);
       }
@@ -130,9 +142,9 @@ function zigParamsToTs(params: string): { tsParams: string; bigintParams: Set<st
 // --- Generate .wasm.ts module ---
 
 function generateWasmTs(
-  kernelName: string,
+  _kernelName: string,
   base64: string,
-  exports: { name: string; params: string }[]
+  exports: { name: string; params: string; returnType: string }[]
 ): string {
   const lines: string[] = [];
 
@@ -140,7 +152,8 @@ function generateWasmTs(
   lines.push(``);
   lines.push(`import { getSharedMemory, setHeapBase } from '../runtime';`);
   lines.push(``);
-  lines.push(`const B64 = "${base64}";`);
+  lines.push(`const B64 =`);
+  lines.push(`  '${base64}';`);
   lines.push(``);
   lines.push(`let inst: WebAssembly.Instance | null = null;`);
   lines.push(``);
@@ -149,10 +162,9 @@ function generateWasmTs(
   lines.push(`  const raw = atob(B64);`);
   lines.push(`  const bytes = new Uint8Array(raw.length);`);
   lines.push(`  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);`);
-  lines.push(`  inst = new WebAssembly.Instance(`);
-  lines.push(`    new WebAssembly.Module(bytes),`);
-  lines.push(`    { env: { memory: getSharedMemory() } }`);
-  lines.push(`  );`);
+  lines.push(`  inst = new WebAssembly.Instance(new WebAssembly.Module(bytes), {`);
+  lines.push(`    env: { memory: getSharedMemory() },`);
+  lines.push(`  });`);
   lines.push(`  // Register heap base so runtime knows where safe allocation starts`);
   lines.push(`  const heapBase = inst.exports['__heap_base'];`);
   lines.push(`  if (heapBase && typeof (heapBase as WebAssembly.Global).value === 'number') {`);
@@ -175,7 +187,6 @@ function generateWasmTs(
           .join(', ')
       : '';
     if (bigintParams.size > 0) {
-      // Some params need BigInt conversion for WASM i64 params
       const castArgs = tsParams
         ? tsParams
             .split(',')
@@ -202,9 +213,7 @@ function generateWasmTs(
 
 // --- Test a single kernel ---
 
-async function testKernel(
-  file: string
-): Promise<{ name: string; error?: string }> {
+async function testKernel(file: string): Promise<{ name: string; error?: string }> {
   const name = file.replace('.zig', '');
   const zigPath = join(ZIG_DIR, file);
   try {
@@ -220,16 +229,19 @@ async function testKernel(
 
 async function compileKernel(
   file: string,
-  simdSource: string,
-  cache: Cache
+  sharedSources: Map<string, string>,
+  hashes: Hashes
 ): Promise<{ name: string; skipped: boolean; error?: string }> {
   const name = file.replace('.zig', '');
   const zigPath = join(ZIG_DIR, file);
-  const hash = computeHash(zigPath, simdSource);
+  const hash = computeHash(zigPath, sharedSources);
   const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
+  const cachePath = join(CACHE_DIR, `${name}.wasm.ts`);
 
-  // Check cache
-  if (cache[name]?.hash === hash && existsSync(tsPath)) {
+  // Check if cached output is current
+  if (hashes[name] === hash && existsSync(cachePath)) {
+    // Just copy from cache to bins
+    copyFileSync(cachePath, tsPath);
     return { name, skipped: true };
   }
 
@@ -267,11 +279,14 @@ async function compileKernel(
 
   // Generate .wasm.ts
   const tsContent = generateWasmTs(name, base64, exports);
+
+  // Write to bins/, format, then copy formatted version to cache
   writeFileSync(tsPath, tsContent);
   execSync(`npx prettier --write "${tsPath}"`, { stdio: 'pipe' });
+  copyFileSync(tsPath, cachePath);
 
-  // Update cache
-  cache[name] = { hash };
+  // Update hash
+  hashes[name] = hash;
 
   return { name, skipped: false };
 }
@@ -281,34 +296,50 @@ async function compileKernel(
 async function main() {
   mkdirSync(TMP_DIR, { recursive: true });
   mkdirSync(BINS_DIR, { recursive: true });
+  mkdirSync(CACHE_DIR, { recursive: true });
 
+  const SHARED_MODULES = new Set(['simd.zig', 'sorting_common.zig']);
   const zigFiles = readdirSync(ZIG_DIR).filter(
-    (f) => f.endsWith('.zig') && f !== 'simd.zig'
+    (f) => f.endsWith('.zig') && !SHARED_MODULES.has(f)
   );
 
-  const cache = loadCache();
-  const simdPath = join(ZIG_DIR, 'simd.zig');
-  const simdSource = existsSync(simdPath) ? readFileSync(simdPath, 'utf-8') : '';
+  const hashes = loadHashes();
 
-  // Determine which kernels need rebuilding
+  // Read shared module sources for hash computation
+  const sharedSources = new Map<string, string>();
+  for (const m of SHARED_MODULES) {
+    const p = join(ZIG_DIR, m);
+    if (existsSync(p)) sharedSources.set(m, readFileSync(p, 'utf-8'));
+  }
+
+  // Determine which kernels need recompilation
   const stale = zigFiles.filter((file) => {
     const name = file.replace('.zig', '');
-    const hash = computeHash(join(ZIG_DIR, file), simdSource);
-    const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
-    return !(cache[name]?.hash === hash && existsSync(tsPath));
+    const hash = computeHash(join(ZIG_DIR, file), sharedSources);
+    const cachePath = join(CACHE_DIR, `${name}.wasm.ts`);
+    return !(hashes[name] === hash && existsSync(cachePath));
   });
 
   const cached = zigFiles.length - stale.length;
 
   if (stale.length === 0) {
-    console.log(`All ${cached} kernel(s) cached (unchanged). Nothing to do.\n`);
+    // All cached — just copy from cache to bins to ensure bins/ matches current mode
+    let restored = 0;
+    for (const file of zigFiles) {
+      const name = file.replace('.zig', '');
+      const cachePath = join(CACHE_DIR, `${name}.wasm.ts`);
+      const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
+      if (existsSync(cachePath)) {
+        copyFileSync(cachePath, tsPath);
+        restored++;
+      }
+    }
+    console.log(`All ${cached} kernel(s) cached — restored ${restored} to bins/ [${ZIG_OPT}]\n`);
     rmSync(TMP_DIR, { recursive: true, force: true });
     return;
   }
 
-  console.log(
-    `${stale.length} kernel(s) to build, ${cached} cached [${ZIG_OPT}]\n`
-  );
+  console.log(`${stale.length} kernel(s) to build, ${cached} cached [${ZIG_OPT}]\n`);
 
   // Phase 1: Test all stale kernels in parallel
   console.log('Testing...\n');
@@ -327,19 +358,22 @@ async function main() {
 
   console.log(`  ${stale.length} test(s) passed.\n`);
 
-  // Phase 2: Compile all stale kernels in parallel
+  // Phase 2: Compile stale kernels + copy cached kernels, all in parallel
   console.log('Compiling...\n');
   const buildResults = await Promise.all(
-    stale.map((file) => compileKernel(file, simdSource, cache))
+    zigFiles.map((file) => compileKernel(file, sharedSources, hashes))
   );
 
   // Report results
   let failed = false;
   let built = 0;
+  let restored = 0;
   for (const result of buildResults) {
     if (result.error) {
       console.error(`  ✗ ${result.name} — ${result.error}`);
       failed = true;
+    } else if (result.skipped) {
+      restored++;
     } else {
       console.log(`  ✓ ${result.name}`);
       built++;
@@ -351,14 +385,18 @@ async function main() {
     process.exit(1);
   }
 
-  // Save cache
-  saveCache(cache);
+  // Save hashes
+  saveHashes(hashes);
 
   // Clean up
   rmSync(TMP_DIR, { recursive: true, force: true });
 
+  // Delete old single-file cache if it exists
+  const oldCacheFile = join(ROOT, '.wasm-cache.json');
+  if (existsSync(oldCacheFile)) rmSync(oldCacheFile);
+
   console.log(
-    `\nWASM build complete: ${built} built, ${cached} cached (unchanged).`
+    `\nWASM build complete: ${built} built, ${restored} from cache [${ZIG_OPT}]`
   );
 }
 

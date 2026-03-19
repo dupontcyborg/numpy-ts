@@ -1,0 +1,205 @@
+/**
+ * WASM-accelerated argpartition (returns indices for quickselect partition).
+ *
+ * Returns null if WASM can't handle this case.
+ */
+
+import {
+  argpartition_f64,
+  argpartition_f32,
+  argpartition_i64,
+  argpartition_u64,
+  argpartition_i32,
+  argpartition_u32,
+  argpartition_i16,
+  argpartition_u16,
+  argpartition_i8,
+  argpartition_u8,
+  argpartition_slices_f64,
+  argpartition_slices_f32,
+  argpartition_slices_i64,
+  argpartition_slices_u64,
+  argpartition_slices_i32,
+  argpartition_slices_u32,
+  argpartition_slices_i16,
+  argpartition_slices_u16,
+  argpartition_slices_i8,
+  argpartition_slices_u8,
+} from './bins/argpartition.wasm';
+import { ensureMemory, resetAllocator, copyIn, alloc, copyOut, getSharedMemory } from './runtime';
+import { ArrayStorage } from '../storage';
+import type { DType, TypedArray } from '../dtype';
+import { wasmConfig } from './config';
+
+const BASE_THRESHOLD = 64;
+
+type ArgpartitionFn = (aPtr: number, outPtr: number, N: number, kth: number) => void;
+type SliceArgpartitionFn = (
+  aPtr: number,
+  outPtr: number,
+  sliceSize: number,
+  numSlices: number,
+  kth: number
+) => void;
+
+const kernels: Partial<Record<DType, ArgpartitionFn>> = {
+  float64: argpartition_f64,
+  float32: argpartition_f32,
+  int64: argpartition_i64,
+  uint64: argpartition_u64,
+  int32: argpartition_i32,
+  uint32: argpartition_u32,
+  int16: argpartition_i16,
+  uint16: argpartition_u16,
+  int8: argpartition_i8,
+  uint8: argpartition_u8,
+};
+
+const sliceKernels: Partial<Record<DType, SliceArgpartitionFn>> = {
+  float64: argpartition_slices_f64,
+  float32: argpartition_slices_f32,
+  int64: argpartition_slices_i64,
+  uint64: argpartition_slices_u64,
+  int32: argpartition_slices_i32,
+  uint32: argpartition_slices_u32,
+  int16: argpartition_slices_i16,
+  uint16: argpartition_slices_u16,
+  int8: argpartition_slices_i8,
+  uint8: argpartition_slices_u8,
+};
+
+type AnyTypedArrayCtor = new (length: number) => TypedArray;
+const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
+  float64: Float64Array,
+  float32: Float32Array,
+  int64: BigInt64Array,
+  uint64: BigUint64Array,
+  int32: Int32Array,
+  uint32: Uint32Array,
+  int16: Int16Array,
+  uint16: Uint16Array,
+  int8: Int8Array,
+  uint8: Uint8Array,
+};
+
+/**
+ * WASM-accelerated argpartition of contiguous slices.
+ * Uses batch kernel when slices are packed contiguously.
+ */
+export function wasmArgpartitionSlices(
+  inputData: TypedArray,
+  resultData: Int32Array,
+  inputSliceOffsets: Int32Array | number[],
+  outputSliceOffsets: Int32Array | number[],
+  axisSize: number,
+  outerSize: number,
+  kth: number,
+  dtype: DType
+): boolean {
+  if (axisSize < 2) return false;
+
+  const sliceKernel = sliceKernels[dtype];
+
+  if (
+    sliceKernel &&
+    inputSliceOffsets[0] === 0 &&
+    outerSize > 1 &&
+    inputSliceOffsets[1] === axisSize &&
+    outputSliceOffsets[0] === 0 &&
+    outputSliceOffsets[1] === axisSize
+  ) {
+    const Ctor = ctorMap[dtype];
+    if (!Ctor) return false;
+    const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+    const inputBytes = inputData.length * bpe;
+    const outputBytes = resultData.length * 4;
+
+    ensureMemory(inputBytes + outputBytes);
+    resetAllocator();
+
+    const inputPtr = copyIn(inputData as TypedArray);
+    const outputPtr = alloc(outputBytes);
+
+    sliceKernel(inputPtr, outputPtr, axisSize, outerSize, kth);
+
+    const mem = getSharedMemory();
+    new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
+      new Uint8Array(mem.buffer, outputPtr, resultData.byteLength)
+    );
+    return true;
+  }
+
+  // Fallback: per-slice calls
+  const kernel = kernels[dtype];
+  const Ctor = ctorMap[dtype];
+  if (!kernel || !Ctor) return false;
+
+  const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const inputBytes = inputData.length * bpe;
+  const outputBytes = resultData.length * 4;
+
+  ensureMemory(inputBytes + outputBytes);
+  resetAllocator();
+
+  const inputPtr = copyIn(inputData as TypedArray);
+  const outputPtr = alloc(outputBytes);
+
+  for (let i = 0; i < outerSize; i++) {
+    kernel(
+      inputPtr + inputSliceOffsets[i]! * bpe,
+      outputPtr + outputSliceOffsets[i]! * 4,
+      axisSize,
+      kth
+    );
+  }
+
+  const mem = getSharedMemory();
+  new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
+    new Uint8Array(mem.buffer, outputPtr, resultData.byteLength)
+  );
+
+  return true;
+}
+
+/**
+ * WASM-accelerated argpartition of a contiguous 1D buffer.
+ * Returns ArrayStorage of int32 indices or null if WASM can't handle it.
+ */
+export function wasmArgpartition(a: ArrayStorage, kth: number): ArrayStorage | null {
+  if (!a.isCContiguous) return null;
+
+  const size = a.size;
+  if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const dtype = a.dtype;
+  const kernel = kernels[dtype];
+  const Ctor = ctorMap[dtype];
+  if (!kernel || !Ctor) return null;
+
+  const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const aBytes = size * bpe;
+  const outBytes = size * 4;
+
+  ensureMemory(aBytes + outBytes);
+  resetAllocator();
+
+  const aOff = a.offset;
+  const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
+
+  const aPtr = copyIn(aData);
+  const outPtr = alloc(outBytes);
+
+  kernel(aPtr, outPtr, size, kth);
+
+  const outData = copyOut(
+    outPtr,
+    size,
+    Int32Array as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number
+    ) => Int32Array
+  );
+
+  return ArrayStorage.fromData(outData, Array.from(a.shape), 'int32');
+}
