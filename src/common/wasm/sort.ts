@@ -106,8 +106,7 @@ export function wasmSortSlices(
   // sliceOffsets are in logical element units (complex = 1 element, not 2 floats).
   const sliceKernel = sliceKernels[dtype];
 
-  if (sliceKernel && sliceOffsets[0] === 0 && outerSize > 1 &&
-      sliceOffsets[1] === axisSize) {
+  if (sliceKernel && sliceOffsets[0] === 0 && outerSize > 1 && sliceOffsets[1] === axisSize) {
     // Packed contiguous slices — single batch WASM call
     const Ctor = ctorMap[dtype];
     if (!Ctor) return false;

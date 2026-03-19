@@ -10,6 +10,12 @@ import { isBigIntDType, isComplexDType, type DType } from '../dtype';
 import { Complex } from '../complex';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { wasmReduceCountNz } from '../wasm/reduce_count_nz';
+import { wasmSort, wasmSortSlices } from '../wasm/sort';
+import { wasmArgsort, wasmArgsortSlices } from '../wasm/argsort';
+import { wasmPartition, wasmPartitionSlices } from '../wasm/partition';
+import { wasmArgpartition, wasmArgpartitionSlices } from '../wasm/argpartition';
+import { wasmSearchsorted } from '../wasm/searchsorted';
+import { wasmLexsort } from '../wasm/lexsort';
 
 /**
  * Check if a value at index i is non-zero (truthy)
@@ -101,6 +107,27 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
     normalizedAxis,
     outerSize
   );
+
+  // WASM fast path: 1D contiguous sort
+  if (ndim === 1 && result.isCContiguous) {
+    const wasmResult = wasmSort(result);
+    if (wasmResult) return wasmResult;
+  }
+
+  // WASM fast path: multi-dim sort along contiguous axis (stride=1)
+  if (outAxisStride === 1) {
+    if (
+      wasmSortSlices(
+        resultData as import('../dtype').TypedArray,
+        outBaseOffsets,
+        axisSize,
+        outerSize,
+        dtype
+      )
+    ) {
+      return result;
+    }
+  }
 
   // Sort along axis
   if (isComplexDType(dtype)) {
@@ -241,6 +268,29 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
     outerSize
   );
 
+  // WASM fast path: 1D contiguous argsort
+  if (ndim === 1 && storage.isCContiguous) {
+    const wasmResult = wasmArgsort(storage);
+    if (wasmResult) return wasmResult;
+  }
+
+  // WASM fast path: multi-dim argsort along contiguous axis (stride=1)
+  if (outAxisStride === 1 && axisStride === 1) {
+    if (
+      wasmArgsortSlices(
+        data as import('../dtype').TypedArray,
+        resultData,
+        baseOffsets,
+        outBaseOffsets,
+        axisSize,
+        outerSize,
+        dtype
+      )
+    ) {
+      return result;
+    }
+  }
+
   // Get argsort along axis
   if (isComplexDType(dtype)) {
     // Complex argsort using lexicographic ordering
@@ -343,6 +393,10 @@ export function lexsort(keys: ArrayStorage[]): ArrayStorage {
       throw new Error('all keys must have the same length');
     }
   }
+
+  // WASM fast path: all keys same dtype and contiguous
+  const wasmResult = wasmLexsort(keys);
+  if (wasmResult) return wasmResult;
 
   // Create indices array
   const indices: number[] = [];
@@ -649,6 +703,13 @@ export function partition(storage: ArrayStorage, kth: number, axis: number = -1)
     throw new Error(`kth(=${kth}) out of bounds (${axisSize})`);
   }
 
+  // WASM fast path: 1D contiguous partition
+  if (ndim === 1 && storage.isCContiguous && !isComplexDType(dtype)) {
+    const copy = storage.copy();
+    const wasmResult = wasmPartition(copy, normalizedKth);
+    if (wasmResult) return wasmResult;
+  }
+
   // Create output storage
   const result = storage.copy();
   const resultData = result.data;
@@ -666,6 +727,22 @@ export function partition(storage: ArrayStorage, kth: number, axis: number = -1)
     normalizedAxis,
     outerSize
   );
+
+  // WASM fast path: multi-dim partition along contiguous axis (stride=1)
+  if (outAxisStride === 1 && !isComplexDType(dtype)) {
+    if (
+      wasmPartitionSlices(
+        resultData as import('../dtype').TypedArray,
+        outBaseOffsets,
+        axisSize,
+        outerSize,
+        normalizedKth,
+        dtype
+      )
+    ) {
+      return result;
+    }
+  }
 
   // Partition along axis using quickselect
   if (isBigIntDType(dtype)) {
@@ -755,6 +832,12 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
     throw new Error(`kth(=${kth}) out of bounds (${axisSize})`);
   }
 
+  // WASM fast path: 1D contiguous argpartition
+  if (ndim === 1 && storage.isCContiguous && !isComplexDType(dtype)) {
+    const wasmResult = wasmArgpartition(storage, normalizedKth);
+    if (wasmResult) return wasmResult;
+  }
+
   // Create output storage with int32 dtype
   const result = ArrayStorage.zeros(Array.from(shape), 'int32');
   const resultData = result.data as Int32Array;
@@ -780,6 +863,24 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
     normalizedAxis,
     outerSize
   );
+
+  // WASM fast path: multi-dim argpartition along contiguous axis (stride=1)
+  if (outAxisStride === 1 && axisStride === 1 && !isComplexDType(dtype)) {
+    if (
+      wasmArgpartitionSlices(
+        data as import('../dtype').TypedArray,
+        resultData,
+        baseOffsets,
+        outBaseOffsets,
+        axisSize,
+        outerSize,
+        normalizedKth,
+        dtype
+      )
+    ) {
+      return result;
+    }
+  }
 
   // Get argpartition along axis
   if (isBigIntDType(dtype)) {
@@ -1359,6 +1460,12 @@ export function searchsorted(
   const valuesContiguous = values.isCContiguous;
   const valuesData = values.data;
   const valuesOff = values.offset;
+
+  // WASM fast path
+  if (!isComplex) {
+    const wasmResult = wasmSearchsorted(storage, values, side);
+    if (wasmResult) return wasmResult;
+  }
 
   // Create result array
   const result = ArrayStorage.zeros([numValues], 'int32');

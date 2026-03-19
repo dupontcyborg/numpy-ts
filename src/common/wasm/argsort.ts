@@ -105,9 +105,14 @@ export function wasmArgsortSlices(
   const sliceKernel = sliceKernels[dtype];
 
   // Try batch kernel for packed contiguous slices
-  if (sliceKernel && inputSliceOffsets[0] === 0 && outerSize > 1 &&
-      inputSliceOffsets[1] === axisSize && outputSliceOffsets[0] === 0 &&
-      outputSliceOffsets[1] === axisSize) {
+  if (
+    sliceKernel &&
+    inputSliceOffsets[0] === 0 &&
+    outerSize > 1 &&
+    inputSliceOffsets[1] === axisSize &&
+    outputSliceOffsets[0] === 0 &&
+    outputSliceOffsets[1] === axisSize
+  ) {
     const Ctor = ctorMap[dtype];
     if (!Ctor) return false;
     const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
@@ -146,7 +151,11 @@ export function wasmArgsortSlices(
   const outputPtr = alloc(outputBytes);
 
   for (let i = 0; i < outerSize; i++) {
-    kernel(inputPtr + inputSliceOffsets[i]! * bytesPerElem, outputPtr + outputSliceOffsets[i]! * 4, axisSize);
+    kernel(
+      inputPtr + inputSliceOffsets[i]! * bytesPerElem,
+      outputPtr + outputSliceOffsets[i]! * 4,
+      axisSize
+    );
   }
 
   const mem = getSharedMemory();
@@ -191,7 +200,11 @@ export function wasmArgsort(a: ArrayStorage): ArrayStorage | null {
   const outData = copyOut(
     outPtr,
     size,
-    Int32Array as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => Int32Array
+    Int32Array as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number
+    ) => Int32Array
   );
 
   return ArrayStorage.fromData(outData, Array.from(a.shape), 'int32');

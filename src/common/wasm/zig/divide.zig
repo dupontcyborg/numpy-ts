@@ -45,6 +45,7 @@ export fn div_u64_f64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) voi
         out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
     }
 }
+
 /// i32-to-f64 binary divide with 4-wide SIMD: out[i] = f64(a[i]) / f64(b[i]).
 export fn div_i32_f64(a: [*]const i32, b: [*]const i32, out: [*]f64, N: u32) void {
     var i: u32 = 0;
