@@ -60,27 +60,67 @@ export interface RawZipEntry {
 }
 
 /**
- * CRC-32 lookup table
+ * CRC-32 lookup tables (slice-by-8 for ~8x throughput over byte-at-a-time)
  */
-const CRC32_TABLE = (() => {
-  const table = new Uint32Array(256);
+const CRC32_TABLES = (() => {
+  const tables: Uint32Array[] = [];
+  const t0 = new Uint32Array(256);
   for (let i = 0; i < 256; i++) {
     let c = i;
     for (let j = 0; j < 8; j++) {
       c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
     }
-    table[i] = c;
+    t0[i] = c;
   }
-  return table;
+  tables.push(t0);
+  for (let k = 1; k < 8; k++) {
+    const tk = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      tk[i] = (tables[k - 1]![i]! >>> 8) ^ t0[tables[k - 1]![i]! & 0xff]!;
+    }
+    tables.push(tk);
+  }
+  return tables;
 })();
 
 /**
- * Calculate CRC-32 checksum
+ * Calculate CRC-32 checksum using slice-by-8.
+ * Processes 8 bytes per iteration, then finishes byte-at-a-time.
  */
 export function crc32(data: Uint8Array): number {
+  const t0 = CRC32_TABLES[0]!;
+  const t1 = CRC32_TABLES[1]!;
+  const t2 = CRC32_TABLES[2]!;
+  const t3 = CRC32_TABLES[3]!;
+  const t4 = CRC32_TABLES[4]!;
+  const t5 = CRC32_TABLES[5]!;
+  const t6 = CRC32_TABLES[6]!;
+  const t7 = CRC32_TABLES[7]!;
+  const len = data.length;
+
   let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i++) {
-    crc = CRC32_TABLE[(crc ^ data[i]!) & 0xff]! ^ (crc >>> 8);
+  let i = 0;
+
+  const end8 = len - 7;
+  while (i < end8) {
+    const lo = (crc ^ (data[i]! | (data[i + 1]! << 8) | (data[i + 2]! << 16) | (data[i + 3]! << 24))) >>> 0;
+    const hi = data[i + 4]! | (data[i + 5]! << 8) | (data[i + 6]! << 16) | (data[i + 7]! << 24);
+    crc =
+      t7[lo & 0xff]! ^
+      t6[(lo >>> 8) & 0xff]! ^
+      t5[(lo >>> 16) & 0xff]! ^
+      t4[(lo >>> 24) & 0xff]! ^
+      t3[hi & 0xff]! ^
+      t2[(hi >>> 8) & 0xff]! ^
+      t1[(hi >>> 16) & 0xff]! ^
+      t0[(hi >>> 24) & 0xff]!;
+    i += 8;
   }
+
+  while (i < len) {
+    crc = t0[(crc ^ data[i]!) & 0xff]! ^ (crc >>> 8);
+    i++;
+  }
+
   return (crc ^ 0xffffffff) >>> 0;
 }

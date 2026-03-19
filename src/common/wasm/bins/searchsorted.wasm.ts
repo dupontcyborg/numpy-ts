@@ -3,7 +3,7 @@
 import { getSharedMemory, setHeapBase } from '../runtime';
 
 const B64 =
-  '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';
+  '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';
 
 let inst: WebAssembly.Instance | null = null;
 
@@ -34,17 +34,6 @@ export function searchsorted_left_f64(
   (i.exports['searchsorted_left_f64'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
-export function searchsorted_right_f64(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_f64'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
 export function searchsorted_left_f32(
   sorted: number,
   N: number,
@@ -54,17 +43,6 @@ export function searchsorted_left_f32(
 ): void {
   const i = init();
   (i.exports['searchsorted_left_f32'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
-export function searchsorted_right_f32(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_f32'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
 export function searchsorted_left_i64(
@@ -78,17 +56,6 @@ export function searchsorted_left_i64(
   (i.exports['searchsorted_left_i64'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
-export function searchsorted_right_i64(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_i64'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
 export function searchsorted_left_u64(
   sorted: number,
   N: number,
@@ -98,17 +65,6 @@ export function searchsorted_left_u64(
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u64'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
-export function searchsorted_right_u64(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_u64'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
 export function searchsorted_left_i32(
@@ -122,17 +78,6 @@ export function searchsorted_left_i32(
   (i.exports['searchsorted_left_i32'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
-export function searchsorted_right_i32(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_i32'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
 export function searchsorted_left_u32(
   sorted: number,
   N: number,
@@ -142,17 +87,6 @@ export function searchsorted_left_u32(
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u32'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
-export function searchsorted_right_u32(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_u32'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
 export function searchsorted_left_i16(
@@ -166,17 +100,6 @@ export function searchsorted_left_i16(
   (i.exports['searchsorted_left_i16'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
-export function searchsorted_right_i16(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_i16'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
 export function searchsorted_left_u16(
   sorted: number,
   N: number,
@@ -186,17 +109,6 @@ export function searchsorted_left_u16(
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u16'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
-export function searchsorted_right_u16(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_u16'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
 export function searchsorted_left_i8(
@@ -210,17 +122,6 @@ export function searchsorted_left_i8(
   (i.exports['searchsorted_left_i8'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
-export function searchsorted_right_i8(
-  sorted: number,
-  N: number,
-  values: number,
-  out: number,
-  M: number
-): void {
-  const i = init();
-  (i.exports['searchsorted_right_i8'] as (...args: number[]) => void)(sorted, N, values, out, M);
-}
-
 export function searchsorted_left_u8(
   sorted: number,
   N: number,
@@ -230,6 +131,105 @@ export function searchsorted_left_u8(
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u8'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_f64(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_f64'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_f32(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_f32'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_i64(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_i64'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_u64(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_u64'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_i32(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_i32'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_u32(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_u32'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_i16(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_i16'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_u16(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_u16'] as (...args: number[]) => void)(sorted, N, values, out, M);
+}
+
+export function searchsorted_right_i8(
+  sorted: number,
+  N: number,
+  values: number,
+  out: number,
+  M: number
+): void {
+  const i = init();
+  (i.exports['searchsorted_right_i8'] as (...args: number[]) => void)(sorted, N, values, out, M);
 }
 
 export function searchsorted_right_u8(

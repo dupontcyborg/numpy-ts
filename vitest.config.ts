@@ -42,7 +42,7 @@ export default defineConfig({
         test: {
           name: 'validation',
           include: ['tests/validation/**'],
-          exclude: ['**/node_modules/**', '**/*.md', '**/numpy-oracle.ts'],
+          exclude: ['**/node_modules/**', '**/*.md', '**/numpy-oracle.ts', '**/_helpers.ts'],
           environment: 'node',
         },
       }),

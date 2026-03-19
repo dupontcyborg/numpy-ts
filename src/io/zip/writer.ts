@@ -44,6 +44,7 @@ export async function writeZip(
   }[] = [];
 
   // Prepare entries
+  const encoder = new TextEncoder();
   for (const [name, data] of files) {
     const crc = crc32(data);
     let compressedData: Uint8Array;
@@ -51,7 +52,6 @@ export async function writeZip(
 
     if (compress) {
       compressedData = await deflateRaw(data);
-      // Only use compression if it actually makes the data smaller
       if (compressedData.length < data.length) {
         compressionMethod = ZIP_DEFLATED;
       } else {
@@ -69,21 +69,25 @@ export async function writeZip(
       compressedData,
       crc,
       compressionMethod,
-      offset: 0, // Will be set during writing
+      offset: 0,
     });
+  }
+
+  // Pre-encode file names once
+  const nameByteCache = new Map<string, Uint8Array>();
+  for (const entry of entries) {
+    nameByteCache.set(entry.name, encoder.encode(entry.name));
   }
 
   // Calculate total size
   let localHeadersSize = 0;
   for (const entry of entries) {
-    const nameBytes = new TextEncoder().encode(entry.name);
-    localHeadersSize += 30 + nameBytes.length + entry.compressedData.length;
+    localHeadersSize += 30 + nameByteCache.get(entry.name)!.length + entry.compressedData.length;
   }
 
   let centralDirSize = 0;
   for (const entry of entries) {
-    const nameBytes = new TextEncoder().encode(entry.name);
-    centralDirSize += 46 + nameBytes.length;
+    centralDirSize += 46 + nameByteCache.get(entry.name)!.length;
   }
 
   const eocdSize = 22;
@@ -97,13 +101,13 @@ export async function writeZip(
   let offset = 0;
   for (const entry of entries) {
     entry.offset = offset;
-    offset = writeLocalHeader(output, view, offset, entry);
+    offset = writeLocalHeader(output, view, offset, entry, nameByteCache.get(entry.name)!);
   }
 
   // Write central directory
   const centralDirOffset = offset;
   for (const entry of entries) {
-    offset = writeCentralHeader(output, view, offset, entry);
+    offset = writeCentralHeader(output, view, offset, entry, nameByteCache.get(entry.name)!);
   }
 
   // Write end of central directory
@@ -129,6 +133,7 @@ export function writeZipSync(files: Map<string, Uint8Array>): Uint8Array {
   }[] = [];
 
   // Prepare entries (no compression in sync mode)
+  const encoder = new TextEncoder();
   for (const [name, data] of files) {
     const crc = crc32(data);
     entries.push({
@@ -141,17 +146,21 @@ export function writeZipSync(files: Map<string, Uint8Array>): Uint8Array {
     });
   }
 
+  // Pre-encode file names once (reused for size calc, local headers, and central headers)
+  const nameByteCache = new Map<string, Uint8Array>();
+  for (const entry of entries) {
+    nameByteCache.set(entry.name, encoder.encode(entry.name));
+  }
+
   // Calculate total size
   let localHeadersSize = 0;
   for (const entry of entries) {
-    const nameBytes = new TextEncoder().encode(entry.name);
-    localHeadersSize += 30 + nameBytes.length + entry.compressedData.length;
+    localHeadersSize += 30 + nameByteCache.get(entry.name)!.length + entry.compressedData.length;
   }
 
   let centralDirSize = 0;
   for (const entry of entries) {
-    const nameBytes = new TextEncoder().encode(entry.name);
-    centralDirSize += 46 + nameBytes.length;
+    centralDirSize += 46 + nameByteCache.get(entry.name)!.length;
   }
 
   const eocdSize = 22;
@@ -165,13 +174,13 @@ export function writeZipSync(files: Map<string, Uint8Array>): Uint8Array {
   let offset = 0;
   for (const entry of entries) {
     entry.offset = offset;
-    offset = writeLocalHeader(output, view, offset, entry);
+    offset = writeLocalHeader(output, view, offset, entry, nameByteCache.get(entry.name)!);
   }
 
   // Write central directory
   const centralDirOffset = offset;
   for (const entry of entries) {
-    offset = writeCentralHeader(output, view, offset, entry);
+    offset = writeCentralHeader(output, view, offset, entry, nameByteCache.get(entry.name)!);
   }
 
   // Write end of central directory
@@ -193,9 +202,9 @@ function writeLocalHeader(
     data: Uint8Array;
     crc: number;
     compressionMethod: number;
-  }
+  },
+  nameBytes: Uint8Array
 ): number {
-  const nameBytes = new TextEncoder().encode(entry.name);
 
   // Signature
   view.setUint32(offset, ZIP_LOCAL_SIGNATURE, true);
@@ -266,9 +275,9 @@ function writeCentralHeader(
     crc: number;
     compressionMethod: number;
     offset: number;
-  }
+  },
+  nameBytes: Uint8Array
 ): number {
-  const nameBytes = new TextEncoder().encode(entry.name);
 
   // Signature
   view.setUint32(offset, ZIP_CENTRAL_SIGNATURE, true);
