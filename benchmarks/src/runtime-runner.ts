@@ -86,6 +86,19 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
       const size = shape.reduce((a: number, b: number) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
       arrays[key] = flat.reshape(...shape);
+    } else if (fill === 'shuffled') {
+      // Deterministic Fisher-Yates shuffle of arange using LCG (seed=42)
+      // Create arange with target dtype first (wraps for narrow types), then shuffle
+      const size = shape.reduce((a: number, b: number) => a * b, 1);
+      const wrapped = np.arange(0, size, 1, dtype);
+      const vals = (wrapped as any).toArray().flat() as number[];
+      let seed = 42;
+      for (let i = size - 1; i > 0; i--) {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        const j = seed % (i + 1);
+        [vals[i], vals[j]] = [vals[j]!, vals[i]!];
+      }
+      arrays[key] = np.array(vals, dtype).reshape(...shape);
     } else if (fill === 'arange') {
       const size = shape.reduce((a: number, b: number) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);

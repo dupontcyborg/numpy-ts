@@ -383,6 +383,19 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       const size = shape.reduce((a, b) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
       arrays[key] = flat.reshape(...shape);
+    } else if (fill === 'shuffled') {
+      // Deterministic Fisher-Yates shuffle of arange using LCG (seed=42)
+      // Create arange with target dtype first (wraps for narrow types), then shuffle
+      const size = shape.reduce((a: number, b: number) => a * b, 1);
+      const wrapped = np.arange(0, size, 1, dtype);
+      const vals = (wrapped as any).toArray().flat() as number[];
+      let seed = 42;
+      for (let i = size - 1; i > 0; i--) {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        const j = seed % (i + 1);
+        [vals[i], vals[j]] = [vals[j]!, vals[i]!];
+      }
+      arrays[key] = np.array(vals, dtype).reshape(...shape);
     } else if (fill === 'complex' || fill === 'complex_small') {
       // Create complex array. 'complex' uses [1+1j, 2+2j, ...] (large values),
       // 'complex_small' uses modular values [(i%10+1) + (i%10+1)j] to avoid overflow in trig/exp.
@@ -1219,28 +1232,53 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                   tsValue.shape.length > 0 &&
                   checkPartitionProperty(tsValue.data, kth, tsValue.shape);
               } else {
-                // For argpartition, apply indices to get partitioned values and check property
-                // Get original array from spec setup
-                const origArray = Array.isArray(spec.setup.a)
-                  ? spec.setup.a
-                  : spec.setup.a?.shape
-                    ? Array.from({ length: spec.setup.a.shape.reduce((a: number, b: number) => a * b, 1) }, (_, i) => i)
-                    : [];
+                // For argpartition, rebuild the input array and apply indices
+                // to get partitioned values, then check partition property
+                const aSpec = spec.setup.a!;
+                const aShape = aSpec.shape;
+                const aSize = aShape.reduce((x: number, y: number) => x * y, 1);
+                const aDtype = aSpec.dtype || 'float64';
+                const aFill = aSpec.fill || 'arange';
 
-                // Apply indices to get partitioned array
+                let origArray: number[];
+                if (aFill === 'shuffled') {
+                  const wrapped = np.arange(0, aSize, 1, aDtype);
+                  origArray = (wrapped as any).toArray().flat() as number[];
+                  let seed = 42;
+                  for (let si = aSize - 1; si > 0; si--) {
+                    seed = (seed * 1664525 + 1013904223) >>> 0;
+                    const sj = seed % (si + 1);
+                    [origArray[si], origArray[sj]] = [origArray[sj]!, origArray[si]!];
+                  }
+                } else {
+                  origArray = Array.from({ length: aSize }, (_, i) => i);
+                }
+
+                // Reshape flat origArray into nested arrays matching input shape
+                function reshapeFlat(flat: number[], shape: number[]): any {
+                  if (shape.length <= 1) return flat;
+                  const rowSize = shape.slice(1).reduce((a, b) => a * b, 1);
+                  const rows: any[] = [];
+                  for (let ri = 0; ri < shape[0]!; ri++) {
+                    rows.push(reshapeFlat(flat.slice(ri * rowSize, (ri + 1) * rowSize), shape.slice(1)));
+                  }
+                  return rows;
+                }
+
+                const origNested = reshapeFlat(origArray, aShape);
+
+                // Apply per-row indices: for each row, indices are local (0..axisSize-1)
                 function applyIndices(data: any, indices: any): any {
+                  if (Array.isArray(indices) && Array.isArray(indices[0])) {
+                    return indices.map((row: any, ri: number) => applyIndices(data[ri], row));
+                  }
                   if (Array.isArray(indices)) {
-                    return indices.map((idx: any) => {
-                      if (Array.isArray(idx)) {
-                        return applyIndices(data, idx);
-                      }
-                      return Array.isArray(data) ? data[idx] : data;
-                    });
+                    return indices.map((idx: number) => data[idx]);
                   }
                   return data;
                 }
 
-                const partitionedData = applyIndices(origArray, tsValue.data);
+                const partitionedData = applyIndices(origNested, tsValue.data);
                 isValid = checkPartitionProperty(partitionedData, kth, tsValue.shape);
               }
             } else {

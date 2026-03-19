@@ -59,6 +59,19 @@ def setup_arrays(setup_config):
             size = np.prod(shape)
             flat = np.arange(0, size, 1, dtype=np_dtype)
             arrays[key] = flat.reshape(shape)
+        elif fill == "shuffled":
+            # Deterministic Fisher-Yates shuffle of arange using LCG (seed=42)
+            # Must match the JS implementation exactly
+            # Use arange with target dtype first (wraps for narrow types), then shuffle
+            size = int(np.prod(shape))
+            wrapped = np.arange(size, dtype=np_dtype)
+            vals = wrapped.tolist()
+            seed = 42
+            for i in range(size - 1, 0, -1):
+                seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF
+                j = seed % (i + 1)
+                vals[i], vals[j] = vals[j], vals[i]
+            arrays[key] = np.array(vals, dtype=np_dtype).reshape(shape)
         elif fill in ("complex", "complex_small"):
             # 'complex': [1+1j, 2+2j, ...], 'complex_small': modular values to avoid overflow
             size = np.prod(shape)
@@ -538,7 +551,7 @@ def run_operation(spec):
     elif operation == "sort":
         result = np.sort(arrays["a"])
     elif operation == "argsort":
-        result = np.argsort(arrays["a"])
+        result = np.argsort(arrays["a"], kind='stable')
     elif operation == "partition":
         kth = arrays.get("kth", 0)
         result = np.partition(arrays["a"], kth)
