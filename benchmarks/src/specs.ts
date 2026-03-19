@@ -2658,16 +2658,6 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
-    specs.push({
-      name: `sort_complex [${sizes.small}]`,
-      category: 'sorting',
-      operation: 'sort_complex',
-      setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
-      },
-      iterations,
-      warmup,
-    });
 
     // ========================================
     // Searching Benchmarks
@@ -3780,7 +3770,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     reductions: ['float', 'int', 'uint', 'complex'],
     statistics: ['float'],
     manipulation: ['float', 'int', 'uint'],
-    sorting: ['float', 'int', 'uint'],
+    sorting: ['float', 'int', 'uint', 'complex'],
     sets: ['float', 'int', 'uint'],
     logic: ['float', 'int', 'uint'],
     gradient: ['float', 'int', 'uint'],
@@ -3926,9 +3916,6 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     'nanpercentile',
     'nanquantile',
     'ptp',
-    'sort',
-    'argsort',
-    'sort_complex',
     'partition',
     'argpartition',
     'searchsorted',
