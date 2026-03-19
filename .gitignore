@@ -55,3 +55,4 @@ tests/tree-shaking/.output/
 # WASM build temp
 .wasm-tmp/
 .wasm-cache.json
+.wasm-cache/
