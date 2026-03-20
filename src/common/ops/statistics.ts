@@ -1112,19 +1112,25 @@ export function cov(
     return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'complex128');
   }
 
-  // Real 2D case
-  // Compute means for each variable
-  const means = new Float64Array(numVars);
+  // Real 2D case — center data into Float64Array, then direct dot products.
+
+  // Step 1: Build centered matrix as contiguous [numVars × numObs] Float64Array
+  const centered = new Float64Array(numVars * numObs);
   for (let i = 0; i < numVars; i++) {
     let sum = 0;
     for (let j = 0; j < numObs; j++) {
       const idx = rowvar ? i * numObs + j : j * numVars + i;
       sum += Number(mData[idx]);
     }
-    means[i] = sum / numObs;
+    const mean = sum / numObs;
+    const row = i * numObs;
+    for (let j = 0; j < numObs; j++) {
+      const idx = rowvar ? i * numObs + j : j * numVars + i;
+      centered[row + j] = Number(mData[idx]) - mean;
+    }
   }
 
-  // Compute covariance matrix
+  // Step 2: Compute cov = centered @ centered^T / divisor
   const covMatrix = new Float64Array(numVars * numVars);
 
   if (divisor <= 0) {
@@ -1132,19 +1138,18 @@ export function cov(
     return ArrayStorage.fromData(covMatrix, [numVars, numVars], 'float64');
   }
 
+  const invDiv = 1.0 / divisor;
   for (let i = 0; i < numVars; i++) {
+    const rowI = i * numObs;
     for (let j = i; j < numVars; j++) {
+      const rowJ = j * numObs;
       let sum = 0;
       for (let k = 0; k < numObs; k++) {
-        const idxI = rowvar ? i * numObs + k : k * numVars + i;
-        const idxJ = rowvar ? j * numObs + k : k * numVars + j;
-        const di = Number(mData[idxI]) - means[i]!;
-        const dj = Number(mData[idxJ]) - means[j]!;
-        sum += di * dj;
+        sum += centered[rowI + k]! * centered[rowJ + k]!;
       }
-      const covVal = sum / divisor;
+      const covVal = sum * invDiv;
       covMatrix[i * numVars + j] = covVal;
-      covMatrix[j * numVars + i] = covVal; // Symmetric
+      covMatrix[j * numVars + i] = covVal;
     }
   }
 
@@ -1210,18 +1215,20 @@ export function corrcoef(x: ArrayStorage, y?: ArrayStorage, rowvar: boolean = tr
   // Real correlation coefficients
   // corr[i,j] = cov[i,j] / sqrt(cov[i,i] * cov[j,j])
   const corrData = new Float64Array(n * n);
+  const cData = covData as Float64Array;
+
+  // Precompute 1/sqrt(variance) for each variable
+  const invStd = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const v = cData[i * n + i]!;
+    invStd[i] = v > 0 ? 1.0 / Math.sqrt(v) : NaN;
+  }
 
   for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      const covIJ = Number(covData[i * n + j]);
-      const varI = Number(covData[i * n + i]);
-      const varJ = Number(covData[j * n + j]);
-
-      if (varI <= 0 || varJ <= 0) {
-        corrData[i * n + j] = NaN;
-      } else {
-        corrData[i * n + j] = covIJ / Math.sqrt(varI * varJ);
-      }
+    for (let j = i; j < n; j++) {
+      const val = cData[i * n + j]! * invStd[i]! * invStd[j]!;
+      corrData[i * n + j] = val;
+      corrData[j * n + i] = val;
     }
   }
 
