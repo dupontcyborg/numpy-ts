@@ -327,18 +327,20 @@ export function polyval(
 
   const xArr = x instanceof NDArrayCore ? x : array(x);
   const xData = xArr.data;
-  const results: number[] = [];
+  const n = xArr.size;
+  const deg = poly.size;
+  const resultData = new Float64Array(n);
 
-  for (let j = 0; j < xArr.size; j++) {
-    const xVal = xData[j] as number;
-    let result = coeffs[0] as number;
-    for (let i = 1; i < poly.size; i++) {
-      result = result * xVal + (coeffs[i] as number);
+  for (let j = 0; j < n; j++) {
+    const xVal = Number(xData[j]);
+    let result = Number(coeffs[0]);
+    for (let i = 1; i < deg; i++) {
+      result = result * xVal + Number(coeffs[i]);
     }
-    results.push(result);
+    resultData[j] = result;
   }
 
-  return array(results);
+  return new NDArrayCore(ArrayStorage.fromData(resultData, Array.from(xArr.shape), 'float64'));
 }
 
 /**

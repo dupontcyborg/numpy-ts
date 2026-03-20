@@ -560,10 +560,12 @@ export function asarray_chkfinite(a: NDArrayCore | unknown, dtype?: DType): NDAr
   const arr = asarray(a as NDArrayCore, dtype);
   const data = arr.data;
 
-  for (let i = 0; i < data.length; i++) {
-    const val = data[i] as number;
-    if (!Number.isFinite(val)) {
-      throw new Error('array must not contain infs or NaNs');
+  // Integer and BigInt types are always finite — skip the check
+  if (data instanceof Float64Array || data instanceof Float32Array) {
+    for (let i = 0; i < data.length; i++) {
+      if (!isFinite(data[i]!)) {
+        throw new Error('array must not contain infs or NaNs');
+      }
     }
   }
 
@@ -686,14 +688,13 @@ export function tril(m: NDArrayCore, k: number = 0): NDArrayCore {
   const matrixSize = rows * cols;
   const isBigInt = data instanceof BigInt64Array || data instanceof BigUint64Array;
 
+  // Zero the upper triangle using bulk fill per row segment
   for (let b = 0; b < batchSize; b++) {
     const offset = b * matrixSize;
     for (let i = 0; i < rows; i++) {
-      for (let j = i + k + 1; j < cols; j++) {
-        if (isBigInt) (data as BigInt64Array | BigUint64Array)[offset + i * cols + j] = 0n;
-        else
-          (data as Exclude<typeof data, BigInt64Array | BigUint64Array>)[offset + i * cols + j] = 0;
-      }
+      const start = offset + i * cols + Math.max(0, Math.min(i + k + 1, cols));
+      const end = offset + i * cols + cols;
+      if (start < end) data.fill(isBigInt ? 0n as never : 0 as never, start, end);
     }
   }
 
@@ -714,14 +715,13 @@ export function triu(m: NDArrayCore, k: number = 0): NDArrayCore {
   const matrixSize = rows * cols;
   const isBigInt = data instanceof BigInt64Array || data instanceof BigUint64Array;
 
+  // Zero the lower triangle using bulk fill per row segment
   for (let b = 0; b < batchSize; b++) {
     const offset = b * matrixSize;
     for (let i = 0; i < rows; i++) {
-      for (let j = 0; j < Math.min(i + k, cols); j++) {
-        if (isBigInt) (data as BigInt64Array | BigUint64Array)[offset + i * cols + j] = 0n;
-        else
-          (data as Exclude<typeof data, BigInt64Array | BigUint64Array>)[offset + i * cols + j] = 0;
-      }
+      const end = offset + i * cols + Math.max(0, Math.min(i + k, cols));
+      const start = offset + i * cols;
+      if (start < end) data.fill(isBigInt ? 0n as never : 0 as never, start, end);
     }
   }
 
