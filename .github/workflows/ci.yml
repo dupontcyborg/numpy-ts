@@ -29,6 +29,8 @@ jobs:
           python-version: '3.13'
 
       - uses: mlugg/setup-zig@v2
+        with:
+          version: "0.15.2"
 
       - name: Install dependencies
         run: |
@@ -128,6 +130,8 @@ jobs:
           cache: 'npm'
 
       - uses: mlugg/setup-zig@v2
+        with:
+          version: "0.15.2"
 
       - name: Install dependencies
         run: npm ci
