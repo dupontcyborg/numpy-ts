@@ -10,6 +10,8 @@
     "bench": "npm run build:wasm && tsx harness/bench.ts",
     "bench:deno": "npm run build:wasm && deno run --allow-read --allow-write --allow-env --sloppy-imports --node-modules-dir harness/bench.ts",
     "bench:bun": "npm run build:wasm && bun run harness/bench.ts",
+    "bench:gpu": "npm run build:wasm && deno run --allow-read --unstable-webgpu harness/bench-matmul-gpu.ts",
+    "bench:threaded": "tsx harness/bench-matmul-threaded.ts",
     "bench:deflate": "tsx harness/bench-deflate.ts",
     "bench:view": "open results/latest.html",
     "bench:view:deno": "open results/latest-deno.html",
