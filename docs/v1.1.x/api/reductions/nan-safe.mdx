@@ -165,7 +165,7 @@ Return the minimum, ignoring NaN values.
 ```typescript
 function nanmin(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray | Complex;
 ```
@@ -194,7 +194,7 @@ Return the maximum, ignoring NaN values.
 ```typescript
 function nanmax(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray | Complex;
 ```

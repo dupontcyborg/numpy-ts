@@ -120,10 +120,10 @@ function linalg.pinv(a: ArrayLike, rcond?: number): NDArray
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input matrix of shape `[M, N]`. |
+| `a` | `ArrayLike` | -- | Input matrix or batch of matrices with shape `[..., M, N]`. |
 | `rcond` | `number` | `1e-15` | Cutoff for small singular values. Singular values less than `rcond * max(sv)` are set to zero. |
 
-**Returns:** `NDArray` -- The pseudo-inverse of shape `[N, M]`.
+**Returns:** `NDArray` -- The pseudo-inverse of shape `[..., N, M]`.
 
 ```typescript
 import * as np from 'numpy-ts';

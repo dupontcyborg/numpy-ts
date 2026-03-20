@@ -99,7 +99,8 @@
                   "v1.1.x/guides/views-copies",
                   "v1.1.x/guides/tree-shaking",
                   "v1.1.x/guides/file-io",
-                  "v1.1.x/guides/typescript-patterns"
+                  "v1.1.x/guides/typescript-patterns",
+                  "v1.1.x/guides/wasm-acceleration"
                 ]
               },
               {
@@ -107,7 +108,9 @@
                 "pages": [
                   "changelog",
                   "v1.1.x/guides/performance",
-                  "v1.1.x/guides/api-coverage"
+                  "v1.1.x/guides/api-coverage",
+                  "v1.1.x/guides/roadmap",
+                  "v1.1.x/guides/ai-disclosure"
                 ]
               }
             ]

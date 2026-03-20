@@ -15,9 +15,9 @@ function linalg.eig(a: ArrayLike): { w: NDArray; v: NDArray; }
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input square matrix. |
+| `a` | `ArrayLike` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
 
-**Returns:** `{ w, v }` -- Object where `w` has shape `[n]` (eigenvalues) and `v` has shape `[n, n]` (eigenvectors). The column `v[:, i]` is the eigenvector corresponding to `w[i]`.
+**Returns:** `{ w, v }` -- Object where `w` has shape `[..., n]` (eigenvalues) and `v` has shape `[..., n, n]` (eigenvectors). The column `v[:, i]` is the eigenvector corresponding to `w[i]`.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -27,6 +27,12 @@ const A = np.array([[1, -1], [1, 1]]);
 const { w, v } = np.linalg.eig(A);
 console.log(w.shape);    // [2]
 console.log(v.shape);    // [2, 2]
+
+// Batch: apply eig to two 3×3 matrices at once
+const batch = np.zeros([2, 3, 3]);
+// ... fill batch ...
+const { w: batchW } = np.linalg.eig(batch);
+console.log(batchW.shape);  // [2, 3]
 ```
 
 ---
@@ -41,10 +47,10 @@ function linalg.eigh(a: ArrayLike, UPLO?: 'L' | 'U'): { w: NDArray; v: NDArray; 
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input symmetric matrix. |
+| `a` | `ArrayLike` | -- | Input symmetric matrix or batch of matrices with shape `[..., n, n]`. |
 | `UPLO` | `'L' \| 'U'` | `'L'` | Whether to use the lower (`'L'`) or upper (`'U'`) triangle of `a`. |
 
-**Returns:** `{ w, v }` -- Object where `w` contains eigenvalues in ascending order and `v` contains orthonormal eigenvectors.
+**Returns:** `{ w, v }` -- Object where `w` has shape `[..., n]` containing eigenvalues in ascending order and `v` has shape `[..., n, n]` containing orthonormal eigenvectors.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -68,9 +74,9 @@ function linalg.eigvals(a: ArrayLike): NDArray
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input square matrix. |
+| `a` | `ArrayLike` | -- | Input square matrix or batch of matrices with shape `[..., n, n]`. |
 
-**Returns:** `NDArray` -- 1-D array of eigenvalues (may be complex-valued).
+**Returns:** `NDArray` -- Array of eigenvalues with shape `[..., n]` (may be complex-valued).
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -93,10 +99,10 @@ function linalg.eigvalsh(a: ArrayLike, UPLO?: 'L' | 'U'): NDArray
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input symmetric matrix. |
+| `a` | `ArrayLike` | -- | Input symmetric matrix or batch of matrices with shape `[..., n, n]`. |
 | `UPLO` | `'L' \| 'U'` | `'L'` | Whether to use the lower or upper triangle. |
 
-**Returns:** `NDArray` -- 1-D array of real eigenvalues in ascending order.
+**Returns:** `NDArray` -- Array of real eigenvalues with shape `[..., n]` in ascending order.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -220,10 +226,10 @@ function linalg.cholesky(a: ArrayLike, upper?: boolean): NDArray
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `a` | `ArrayLike` | -- | Input positive-definite symmetric matrix. |
+| `a` | `ArrayLike` | -- | Input positive-definite matrix or batch of matrices with shape `[..., n, n]`. |
 | `upper` | `boolean` | `false` | If `true`, compute upper-triangular factor instead of lower-triangular. |
 
-**Returns:** `NDArray` -- Lower-triangular Cholesky factor `L`.
+**Returns:** `NDArray` of shape `[..., n, n]` -- Lower-triangular Cholesky factor `L`.
 
 **Throws:** `Error` if the matrix is not positive definite.
 
@@ -238,4 +244,9 @@ const L = np.linalg.cholesky(A);
 
 // Verify: L @ L.T ≈ A
 const reconstructed = np.matmul(L, L.T);
+
+// Batch Cholesky for two 3×3 SPD matrices
+const batch = np.eye(3).reshape([1, 3, 3]).repeat(2, 0);
+const batchL = np.linalg.cholesky(batch);
+console.log(batchL.shape);  // [2, 3, 3]
 ```

@@ -4,6 +4,36 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.1.0" description="2026-03-19">
+
+## numpy-ts v1.1.0
+
+The performance release! v1.1.0 introduces Zig-compiled WASM microkernels that transparently accelerate compute- and memory-bound operations across the library. numpy-ts remains lightweight, tree-shakeable, and zero-config - just faster.
+
+* Implemented **97 WASM-accelerated operations** compiled from Zig with 128-bit SIMD
+    * WASM kernels are embedded as base64, synchronously initialized, and individually tree-shakeable
+    * Acceleration is fully transparent: same API, same results, no configuration needed
+* Generally sped up the entire library by ~8x:
+    * **Arithmetic**: ~23x faster (65x slower than NumPy → 2.75x)
+    * **Linear Algebra**: ~19x faster (61x → 3.2x)
+    * **Logic**: ~27x faster (48x → 1.8x)
+    * **Manipulation**: ~9x faster (15x → 1.6x)
+    * **Gradient**: ~60x faster (30x slower → 2x *faster* than NumPy)
+    * **FFT**: ~3x faster (22x → 8x)
+    * **Random**: ~6x faster (11x → 1.9x)
+    * **Indexing**: ~5.5x faster (12x → 2.2x)
+* Added bracket indexing (`arr[i]`, `arr[i][j]`, `arr[i] = val`) on all NDArray instances via Proxy
+* Added multi-axis reductions: `amin`, `amax`, `median`, `all`, `any`, `nanmin`, `nanmax` now accept `axis: number[]`
+* Added batched linear algebra: `eig`, `eigh`, `eigvals`, `eigvalsh`, `cholesky`, `pinv`, `slogdet`, `matrix_norm` support `[..., n, n]` batch inputs
+* Added `unique` axis parameter: find unique rows, columns, or slices along any axis
+* Added `apply_along_axis` ND support: now works with arrays of any dimensionality
+* Unified `slice()` implementation: moved from duplicated logic in `NDArrayCore`/`NDArray` to a single `shapeOps.slice()` function, and added `sliceKeepDim()` for rank-preserving slicing (thanks [@BorisTheBrave](https://github.com/dupontcyborg/numpy-ts/pull/62))
+* Revamped benchmark suite to thoroughly test all functions and dtype combinations
+* Added [WASM Acceleration](/v1.1.x/guides/wasm-acceleration) guide
+* Added [AI Disclosure](/v1.1.x/guides/ai-disclosure) page
+
+</Update>
+
 <Update label="v1.0.0" description="2026-02-20">
 
 ## numpy-ts v1.0.0
@@ -12,7 +42,7 @@ The first stable release of numpy-ts, providing a comprehensive NumPy implementa
 
 * **476 of 507 NumPy functions** implemented (94% API coverage)
 * **Full test suite** with 6,000+ tests validated against NumPy
-* **Zero dependencies** -- pure TypeScript, no native modules or WebAssembly
+* **Zero dependencies**: pure TypeScript, no native modules or WebAssembly
 * **Universal runtime** support for Node.js, Bun, Deno, and browsers
 * **Tree-shakeable** ESM build for minimal bundle sizes
 

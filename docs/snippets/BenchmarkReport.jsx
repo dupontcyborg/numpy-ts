@@ -117,20 +117,20 @@ export const BenchmarkReport = ({ data }) => {
   };
 
   const ratioColor = (ratio) => {
-    if (ratio <= 1) return colors.ratioGoodText;
-    if (ratio <= 2) return colors.ratioOkText;
+    if (ratio < 2.5) return colors.ratioGoodText;
+    if (ratio <= 5) return colors.ratioOkText;
     return colors.ratioBadText;
   };
 
   const ratioBg = (ratio) => {
-    if (ratio <= 1) return colors.ratioGoodBg;
-    if (ratio <= 2) return colors.ratioOkBg;
+    if (ratio < 2.5) return colors.ratioGoodBg;
+    if (ratio <= 5) return colors.ratioOkBg;
     return colors.ratioBadBg;
   };
 
   const chartColor = (ratio) => {
-    if (ratio <= 1) return colors.chartGood;
-    if (ratio <= 2) return colors.chartOk;
+    if (ratio < 2.5) return colors.chartGood;
+    if (ratio <= 5) return colors.chartOk;
     return colors.chartBad;
   };
 
@@ -172,7 +172,23 @@ export const BenchmarkReport = ({ data }) => {
             const widthPct = Math.max(2, (ratio / maxCategorySlowdown) * 100);
             return (
               <div key={String(category.name)} style={{ display: 'grid', gridTemplateColumns: '180px 1fr 80px', gap: 10, alignItems: 'center' }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: colors.text }}>{String(category.name)}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <a
+                    href={`#cat-${String(category.name).replace(/\s+/g, '-').toLowerCase()}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const catName = String(category.name);
+                      setOpenCategories((prev) => ({ ...prev, [catName]: true }));
+                      setTimeout(() => {
+                        const el = document.getElementById(`cat-${catName.replace(/\s+/g, '-').toLowerCase()}`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
+                    onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                    onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                  >{String(category.name)}</a>
+                </div>
                 <div style={{ background: colors.chartTrack, height: 14, borderRadius: 7, overflow: 'hidden' }}>
                   <div
                     style={{
@@ -198,7 +214,7 @@ export const BenchmarkReport = ({ data }) => {
         const benchmarks = Array.isArray(category.benchmarks) ? category.benchmarks : [];
         const isOpen = !!openCategories[String(category.name)];
         return (
-          <div key={String(category.name)} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.cardBg, overflow: 'hidden' }}>
+          <div key={String(category.name)} id={`cat-${String(category.name).replace(/\s+/g, '-').toLowerCase()}`} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.cardBg, overflow: 'hidden', scrollMarginTop: 80 }}>
             <button
               onClick={() => toggleCategory(String(category.name))}
               style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 'inherit', color: colors.text, textAlign: 'left' }}

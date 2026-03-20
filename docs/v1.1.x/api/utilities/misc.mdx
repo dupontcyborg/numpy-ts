@@ -5,7 +5,7 @@ description: "Utility functions for applying operations along axes, memory inspe
 
 ### apply_along_axis
 
-Apply a function to 1-D slices of an array along the given axis. The function is called once for each slice, and the results are assembled into an output array.
+Apply a function to 1-D slices of an array along the given axis. The function is called once for each slice, and the results are assembled into an output array. Supports arrays of any dimensionality. For ND arrays, the function iterates over all combinations of indices on dimensions other than `axis`.
 
 ```typescript
 function apply_along_axis(
@@ -44,6 +44,15 @@ const colSums = apply_along_axis(
   a
 );
 // array([9, 5, 7])
+
+// Sum along axis 2 of a 3-D array
+const b = np.ones([2, 3, 4]);
+const result = apply_along_axis(
+  (row) => row.sum(),
+  2,
+  b
+);
+console.log(result.shape);  // [2, 3]
 ```
 
 ---

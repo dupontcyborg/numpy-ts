@@ -599,6 +599,61 @@ console.log(scalar.item()); // 42
 
 ---
 
+## Bracket indexing (`[]`)
+
+All NDArray instances support bracket indexing via a transparent Proxy, providing natural JavaScript syntax for element access and slicing.
+
+```typescript
+arr[i]        // 1D: scalar at index i. ND: view of slice along axis 0.
+arr[-1]       // Negative indices supported (same as NumPy).
+arr[i][j]     // Chaining works naturally — each slice is itself a bracketed NDArray.
+arr[i] = val  // Set element(s) at index i.
+```
+
+| Expression | Behavior |
+|---|---|
+| `arr[i]` | 1D: returns scalar at index `i`. ND: returns a view of the slice along axis 0. |
+| `arr[-1]` | Negative indices supported (same as NumPy). |
+| `arr[i][j]` | Chaining works naturally — each slice is itself a bracketed NDArray. |
+| `arr[i] = val` | Sets element(s) at index `i` (see notes below). |
+
+```typescript
+import { array } from 'numpy-ts';
+
+// 1D — scalar access
+const v = array([10, 20, 30, 40]);
+v[0];    // 10
+v[-1];   // 40
+
+// 1D — element assignment
+v[2] = 99;
+v[2];    // 99
+
+// 2D — row slices and chaining
+const m = array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+m[0];        // NDArray [1, 2, 3]
+m[0][1];     // 2
+m[-1][2];    // 9
+
+// 3D — deep chaining
+const t = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
+t[1][0][1];  // 6
+```
+
+<Note>
+Multi-dimensional set (`arr[i] = value`) is supported for ND arrays. Accepted value types:
+- `number` / `bigint`: fills all elements of the slice with that scalar.
+- `Complex`: fills all elements with the complex value.
+- `NDArray`: copies element-by-element (sizes must match).
+- `number[]` / nested array: flattened and copied element-by-element (sizes must match).
+
+TypeScript types: `arr[i]` is typed as `NDArray | number | bigint | Complex`.
+
+Performance: benchmarked at ~66 ns/op for 1D scalar read — no measurable overhead vs direct `.iget()` on typical workloads.
+</Note>
+
+---
+
 ## Static methods
 
 ### NDArray.fromStorage

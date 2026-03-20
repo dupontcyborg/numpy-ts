@@ -1,0 +1,65 @@
+---
+title: "Roadmap"
+description: "What's coming next for numpy-ts."
+sidebarTitle: "Roadmap"
+---
+
+The goal for `numpy-ts` is to be the best possible NumPy implementation for JavaScript and TypeScript. To get there, there's have a long list of features, optimizations, and API improvements to build. Here's a high-level roadmap of what's coming next:
+
+## Async / Worker offloading
+
+Heavy operations like `matmul`, `svd`, `fft`, and `convolve` can block the main thread for tens of milliseconds on large inputs. We're designing an opt-in `np.async.*` namespace that transparently offloads these to a Web Worker pool:
+
+```typescript
+// Proposed API
+const result = await np.async.matmul(A, B);
+const { u, s, vt } = await np.async.linalg.svd(largeMatrix);
+```
+
+The worker pool will support two transport paths:
+- **SharedArrayBuffer** (zero-copy) when COOP/COEP headers are present
+- **postMessage** (universal fallback) for environments without cross-origin isolation
+
+## Multi-threaded WASM
+
+Extend the WASM acceleration layer to use multiple threads via `WebAssembly.Memory` with `shared: true` and Web Workers. This would allow large matrix operations to be parallelized across CPU cores without leaving the WASM execution context.
+
+## Ufunc framework
+
+A generalized ufunc (universal function) system that would allow users to define custom element-wise and reduction operations that automatically get broadcasting, dtype promotion, and axis handling:
+
+```typescript
+// Proposed API
+const clampedAdd = np.ufunc((a, b) => Math.min(a + b, 255), 2);
+clampedAdd(imageA, imageB); // broadcasts, handles dtypes, etc.
+```
+
+## Masked arrays
+
+Support for arrays with a boolean mask that marks invalid or missing entries. Operations would automatically skip masked elements, similar to NumPy's `numpy.ma` module:
+
+```typescript
+// Proposed API
+const a = np.ma.array([1, 2, 3, 4], { mask: [false, false, true, false] });
+np.mean(a); // 2.333... (skips index 2)
+```
+
+## Structured arrays / record arrays
+
+Arrays with named, heterogeneous fields -- useful for tabular data without pulling in a full DataFrame library:
+
+```typescript
+// Proposed API
+const dt = np.dtype([['name', 'U10'], ['age', 'int32'], ['score', 'float64']]);
+const records = np.zeros(100, dt);
+```
+
+This is a significant undertaking and may be scoped to a subset of NumPy's structured array features.
+
+## Random distribution parity
+
+While numpy-ts implements all core random distributions, some NumPy random functions have subtle parameter variations and edge-case behaviors that differ. The goal is full behavioral parity with NumPy's `numpy.random.Generator` interface.
+
+<Note>
+This roadmap reflects current thinking, not commitments. Items may be reprioritized, combined, or dropped based on what the community actually needs. The best way to influence the roadmap is to [open an issue](https://github.com/dupontcyborg/numpy-ts/issues) with your use case.
+</Note>

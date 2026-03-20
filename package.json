@@ -81,7 +81,7 @@
     "bench:full:compare": "tsx benchmarks/scripts/compare.ts latest-full",
     "bench:view": "open benchmarks/results/plots/latest.html || xdg-open benchmarks/results/plots/latest.html",
     "bench:full:view": "open benchmarks/results/plots/latest-full.html || xdg-open benchmarks/results/plots/latest-full.html",
-    "bench:docs": "python3 scripts/generate-bench-docs.py",
+    "bench:docs": "python3 scripts/generate-bench-docs.py benchmarks/results/latest-full.json",
     "compare-api": "python3 scripts/compare-api-coverage.py",
     "compare-docs-api": "python3 scripts/compare-docs-api-coverage.py",
     "wasm:size": "tsx scripts/wasm-size.ts",

@@ -192,7 +192,7 @@ Also exported as `min`. Use `amin` to avoid shadowing `Math.min`.
 ```typescript
 function amin(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray | Complex;
 ```
@@ -228,7 +228,7 @@ Also exported as `max`. Use `amax` to avoid shadowing `Math.max`.
 ```typescript
 function amax(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray | Complex;
 ```
@@ -260,7 +260,7 @@ Compute the median along the specified axis.
 ```typescript
 function median(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): number | NDArray;
 ```
@@ -357,7 +357,7 @@ Test whether all array elements along a given axis evaluate to `true`.
 ```typescript
 function all(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): boolean | NDArray;
 ```
@@ -390,7 +390,7 @@ Test whether any array element along a given axis evaluates to `true`.
 ```typescript
 function any(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
 ): boolean | NDArray;
 ```
