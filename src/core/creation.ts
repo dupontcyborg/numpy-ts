@@ -708,7 +708,7 @@ export function tril(m: NDArrayCore, k: number = 0): NDArrayCore {
     for (let i = 0; i < rows; i++) {
       const start = offset + i * cols + Math.max(0, Math.min(i + k + 1, cols));
       const end = offset + i * cols + cols;
-      if (start < end) data.fill(isBigInt ? 0n as never : 0 as never, start, end);
+      if (start < end) data.fill(isBigInt ? (0n as never) : (0 as never), start, end);
     }
   }
 
@@ -735,7 +735,7 @@ export function triu(m: NDArrayCore, k: number = 0): NDArrayCore {
     for (let i = 0; i < rows; i++) {
       const end = offset + i * cols + Math.max(0, Math.min(i + k, cols));
       const start = offset + i * cols;
-      if (start < end) data.fill(isBigInt ? 0n as never : 0 as never, start, end);
+      if (start < end) data.fill(isBigInt ? (0n as never) : (0 as never), start, end);
     }
   }
 

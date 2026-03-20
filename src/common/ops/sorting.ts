@@ -16,7 +16,7 @@ import { wasmPartition, wasmPartitionSlices } from '../wasm/partition';
 import { wasmArgpartition, wasmArgpartitionSlices } from '../wasm/argpartition';
 import { wasmSearchsorted } from '../wasm/searchsorted';
 import { wasmLexsort } from '../wasm/lexsort';
-import { wasmExtract } from '../wasm/gather';
+import { wasmExtract, wasmWhere } from '../wasm/gather';
 
 /**
  * Check if a value at index i is non-zero (truthy)
@@ -1262,6 +1262,19 @@ export function where(
     throw new Error('either both or neither of x and y should be given');
   }
 
+  // WASM fast path: same shape, contiguous, non-complex, non-broadcast
+  if (
+    condition.size === x.size &&
+    x.size === y.size &&
+    x.dtype === y.dtype &&
+    condition.shape.length === x.shape.length &&
+    condition.shape.every((d, i) => d === x.shape[i]) &&
+    x.shape.every((d, i) => d === y!.shape[i])
+  ) {
+    const wasmResult = wasmWhere(condition, x, y);
+    if (wasmResult) return wasmResult;
+  }
+
   const condShape = condition.shape;
   const xShape = x.shape;
   const yShape = y.shape;
@@ -1366,14 +1379,26 @@ export function where(
       const resultTyped = resultData as Float64Array | Float32Array;
       const xTyped = xData as Float64Array | Float32Array;
       const yTyped = yData as Float64Array | Float32Array;
-      for (let i = 0; i < totalSize; i++) {
-        const condNz = isNonZero(condData, condOff + i, isCondComplex);
-        if (condNz) {
-          resultTyped[i * 2] = xTyped[(xOff + i) * 2]!;
-          resultTyped[i * 2 + 1] = xTyped[(xOff + i) * 2 + 1]!;
-        } else {
-          resultTyped[i * 2] = yTyped[(yOff + i) * 2]!;
-          resultTyped[i * 2 + 1] = yTyped[(yOff + i) * 2 + 1]!;
+      if (isCondComplex) {
+        for (let i = 0; i < totalSize; i++) {
+          const condNz = isNonZero(condData, condOff + i, true);
+          if (condNz) {
+            resultTyped[i * 2] = xTyped[(xOff + i) * 2]!;
+            resultTyped[i * 2 + 1] = xTyped[(xOff + i) * 2 + 1]!;
+          } else {
+            resultTyped[i * 2] = yTyped[(yOff + i) * 2]!;
+            resultTyped[i * 2 + 1] = yTyped[(yOff + i) * 2 + 1]!;
+          }
+        }
+      } else {
+        for (let i = 0; i < totalSize; i++) {
+          if (condData[condOff + i]) {
+            resultTyped[i * 2] = xTyped[(xOff + i) * 2]!;
+            resultTyped[i * 2 + 1] = xTyped[(xOff + i) * 2 + 1]!;
+          } else {
+            resultTyped[i * 2] = yTyped[(yOff + i) * 2]!;
+            resultTyped[i * 2 + 1] = yTyped[(yOff + i) * 2 + 1]!;
+          }
         }
       }
     } else if (isBigIntDType(resultDtype)) {
@@ -1381,8 +1406,7 @@ export function where(
       const xTyped = xData as BigInt64Array | BigUint64Array;
       const yTyped = yData as BigInt64Array | BigUint64Array;
       for (let i = 0; i < totalSize; i++) {
-        const condNz = isNonZero(condData, condOff + i, isCondComplex);
-        if (condNz) {
+        if (condData[condOff + i]) {
           resultTyped[i] = xTyped[xOff + i]!;
         } else {
           resultTyped[i] = yTyped[yOff + i]!;
@@ -1390,8 +1414,7 @@ export function where(
       }
     } else {
       for (let i = 0; i < totalSize; i++) {
-        const condNz = isNonZero(condData, condOff + i, isCondComplex);
-        if (condNz) {
+        if (condData[condOff + i]) {
           resultData[i] = xData[xOff + i] as number;
         } else {
           resultData[i] = yData[yOff + i] as number;

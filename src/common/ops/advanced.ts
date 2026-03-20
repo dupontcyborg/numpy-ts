@@ -432,24 +432,27 @@ export function take_along_axis(
     // Compute source linear index (replace axis dimension with index value)
     let srcLinearIdx = 0;
     for (let d = 0; d < ndim; d++) {
-      const idx = d === normalizedAxis ? indexValue : (shape[d] === 1 ? 0 : multiIdx[d]!);
+      const idx = d === normalizedAxis ? indexValue : shape[d] === 1 ? 0 : multiIdx[d]!;
       srcLinearIdx += idx * inputStrides[d]!;
     }
 
     if (inputContiguous) {
       if (isBigInt) {
-        (outputData as BigInt64Array | BigUint64Array)[outIdx] =
-          (inputData as BigInt64Array | BigUint64Array)[inputOff + srcLinearIdx]!;
+        (outputData as BigInt64Array | BigUint64Array)[outIdx] = (
+          inputData as BigInt64Array | BigUint64Array
+        )[inputOff + srcLinearIdx]!;
       } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] =
-          (inputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[inputOff + srcLinearIdx]!;
+        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] = (
+          inputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>
+        )[inputOff + srcLinearIdx]!;
       }
     } else {
       const value = storage.iget(srcLinearIdx);
       if (isBigInt) {
         (outputData as BigInt64Array | BigUint64Array)[outIdx] = value as bigint;
       } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] = value as number;
+        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] =
+          value as number;
       }
     }
   }
@@ -713,7 +716,7 @@ export function compress(
       const outerOff = inputOff + outer * axisSize * innerSize;
       for (let axisIdx = 0; axisIdx < trueCount; axisIdx++) {
         const srcStart = outerOff + axisMap[axisIdx]! * innerSize;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         outputData.set(inputData.subarray(srcStart, srcStart + innerSize) as any, outIdx);
         outIdx += innerSize;
       }

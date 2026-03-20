@@ -205,7 +205,6 @@ function writeLocalHeader(
   },
   nameBytes: Uint8Array
 ): number {
-
   // Signature
   view.setUint32(offset, ZIP_LOCAL_SIGNATURE, true);
   offset += 4;
@@ -278,7 +277,6 @@ function writeCentralHeader(
   },
   nameBytes: Uint8Array
 ): number {
-
   // Signature
   view.setUint32(offset, ZIP_CENTRAL_SIGNATURE, true);
   offset += 4;

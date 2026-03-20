@@ -3,7 +3,14 @@
  */
 
 import { describe, it } from 'vitest';
-import { WASM_MODES, FLOAT_DTYPES, INT_DTYPES, SMALL_DATA, compareReduction, setupWasmMode } from './_helpers';
+import {
+  WASM_MODES,
+  FLOAT_DTYPES,
+  INT_DTYPES,
+  SMALL_DATA,
+  compareReduction,
+  setupWasmMode,
+} from './_helpers';
 
 for (const mode of WASM_MODES) {
   describe(`NumPy Validation: nan* Reductions [${mode.name}]`, () => {

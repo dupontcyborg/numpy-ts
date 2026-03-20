@@ -103,7 +103,8 @@ export function crc32(data: Uint8Array): number {
 
   const end8 = len - 7;
   while (i < end8) {
-    const lo = (crc ^ (data[i]! | (data[i + 1]! << 8) | (data[i + 2]! << 16) | (data[i + 3]! << 24))) >>> 0;
+    const lo =
+      (crc ^ (data[i]! | (data[i + 1]! << 8) | (data[i + 2]! << 16) | (data[i + 3]! << 24))) >>> 0;
     const hi = data[i + 4]! | (data[i + 5]! << 8) | (data[i + 6]! << 16) | (data[i + 7]! << 24);
     crc =
       t7[lo & 0xff]! ^

@@ -3,14 +3,36 @@
  */
 
 import {
-  extract_f64, extract_f32, extract_i64, extract_u64,
-  extract_i32, extract_u32, extract_i16, extract_u16,
-  extract_i8, extract_u8,
-  take_axis0_2d_f64, take_axis0_2d_f32,
-  take_axis0_2d_i64, take_axis0_2d_u64,
-  take_axis0_2d_i32, take_axis0_2d_u32,
-  take_axis0_2d_i16, take_axis0_2d_u16,
-  take_axis0_2d_i8, take_axis0_2d_u8,
+  extract_f64,
+  extract_f32,
+  extract_i64,
+  extract_u64,
+  extract_i32,
+  extract_u32,
+  extract_i16,
+  extract_u16,
+  extract_i8,
+  extract_u8,
+  take_axis0_2d_f64,
+  take_axis0_2d_f32,
+  take_axis0_2d_i64,
+  take_axis0_2d_u64,
+  take_axis0_2d_i32,
+  take_axis0_2d_u32,
+  take_axis0_2d_i16,
+  take_axis0_2d_u16,
+  take_axis0_2d_i8,
+  take_axis0_2d_u8,
+  where_f64,
+  where_f32,
+  where_i64,
+  where_u64,
+  where_i32,
+  where_u32,
+  where_i16,
+  where_u16,
+  where_i8,
+  where_u8,
 } from './bins/gather.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
@@ -20,31 +42,52 @@ import { wasmConfig } from './config';
 const BASE_THRESHOLD = 64;
 
 type ExtractFn = (condPtr: number, dataPtr: number, outPtr: number, N: number) => number;
-type TakeFn = (dataPtr: number, indicesPtr: number, outPtr: number, rows: number, cols: number) => void;
+type TakeFn = (
+  dataPtr: number,
+  indicesPtr: number,
+  outPtr: number,
+  rows: number,
+  cols: number
+) => void;
 
 const extractKernels: Partial<Record<DType, ExtractFn>> = {
-  float64: extract_f64, float32: extract_f32,
-  int64: extract_i64, uint64: extract_u64,
-  int32: extract_i32, uint32: extract_u32,
-  int16: extract_i16, uint16: extract_u16,
-  int8: extract_i8, uint8: extract_u8,
+  float64: extract_f64,
+  float32: extract_f32,
+  int64: extract_i64,
+  uint64: extract_u64,
+  int32: extract_i32,
+  uint32: extract_u32,
+  int16: extract_i16,
+  uint16: extract_u16,
+  int8: extract_i8,
+  uint8: extract_u8,
 };
 
 const takeKernels: Partial<Record<DType, TakeFn>> = {
-  float64: take_axis0_2d_f64, float32: take_axis0_2d_f32,
-  int64: take_axis0_2d_i64, uint64: take_axis0_2d_u64,
-  int32: take_axis0_2d_i32, uint32: take_axis0_2d_u32,
-  int16: take_axis0_2d_i16, uint16: take_axis0_2d_u16,
-  int8: take_axis0_2d_i8, uint8: take_axis0_2d_u8,
+  float64: take_axis0_2d_f64,
+  float32: take_axis0_2d_f32,
+  int64: take_axis0_2d_i64,
+  uint64: take_axis0_2d_u64,
+  int32: take_axis0_2d_i32,
+  uint32: take_axis0_2d_u32,
+  int16: take_axis0_2d_i16,
+  uint16: take_axis0_2d_u16,
+  int8: take_axis0_2d_i8,
+  uint8: take_axis0_2d_u8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;
 const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
-  float64: Float64Array, float32: Float32Array,
-  int64: BigInt64Array, uint64: BigUint64Array,
-  int32: Int32Array, uint32: Uint32Array,
-  int16: Int16Array, uint16: Uint16Array,
-  int8: Int8Array, uint8: Uint8Array,
+  float64: Float64Array,
+  float32: Float32Array,
+  int64: BigInt64Array,
+  uint64: BigUint64Array,
+  int32: Int32Array,
+  uint32: Uint32Array,
+  int16: Int16Array,
+  uint16: Uint16Array,
+  int8: Int8Array,
+  uint8: Uint8Array,
 };
 
 /**
@@ -52,10 +95,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
  * condition must be flattened int32, data must be contiguous.
  * Returns ArrayStorage or null.
  */
-export function wasmExtract(
-  condition: ArrayStorage,
-  storage: ArrayStorage
-): ArrayStorage | null {
+export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): ArrayStorage | null {
   if (!condition.isCContiguous || !storage.isCContiguous) return null;
 
   const size = Math.min(condition.size, storage.size);
@@ -68,9 +108,17 @@ export function wasmExtract(
 
   // Condition must be a simple numeric type (not complex/bigint for the WASM kernel)
   const condDtype = condition.dtype;
-  if (condDtype !== 'int32' && condDtype !== 'float64' && condDtype !== 'int8' &&
-      condDtype !== 'uint8' && condDtype !== 'int16' && condDtype !== 'uint16' &&
-      condDtype !== 'float32' && condDtype !== 'uint32') return null;
+  if (
+    condDtype !== 'int32' &&
+    condDtype !== 'float64' &&
+    condDtype !== 'int8' &&
+    condDtype !== 'uint8' &&
+    condDtype !== 'int16' &&
+    condDtype !== 'uint16' &&
+    condDtype !== 'float32' &&
+    condDtype !== 'uint32'
+  )
+    return null;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
 
@@ -163,4 +211,82 @@ export function wasmTakeAlongAxis2D(
   );
 
   return ArrayStorage.fromData(outData, Array.from(indices.shape), dtype);
+}
+
+// --- WASM where: out[i] = cond[i] ? x[i] : y[i] ---
+
+type WhereFn = (condPtr: number, xPtr: number, yPtr: number, outPtr: number, N: number) => void;
+
+const whereKernels: Partial<Record<DType, WhereFn>> = {
+  float64: where_f64,
+  float32: where_f32,
+  int64: where_i64,
+  uint64: where_u64,
+  int32: where_i32,
+  uint32: where_u32,
+  int16: where_i16,
+  uint16: where_u16,
+  int8: where_i8,
+  uint8: where_u8,
+};
+
+/**
+ * WASM-accelerated element-wise where: out[i] = cond[i] ? x[i] : y[i].
+ * All three arrays must be contiguous, same shape, non-complex, same dtype for x/y.
+ * Condition is converted to i32 for the WASM kernel.
+ * Returns ArrayStorage or null.
+ */
+export function wasmWhere(
+  condition: ArrayStorage,
+  x: ArrayStorage,
+  y: ArrayStorage
+): ArrayStorage | null {
+  if (!condition.isCContiguous || !x.isCContiguous || !y.isCContiguous) return null;
+
+  const size = condition.size;
+  if (size !== x.size || size !== y.size) return null;
+  if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const dtype = x.dtype;
+  if (dtype !== y.dtype) return null;
+
+  const kernel = whereKernels[dtype];
+  const Ctor = ctorMap[dtype];
+  if (!kernel || !Ctor) return null;
+
+  const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const condBytes = size * 4; // i32
+  const dataBytes = size * bpe;
+
+  ensureMemory(condBytes + dataBytes * 2 + dataBytes); // cond + x + y + out
+  resetAllocator();
+
+  // Convert condition to i32
+  const condOff = condition.offset;
+  const condData = condition.data;
+  const condI32 = new Int32Array(size);
+  for (let i = 0; i < size; i++) {
+    condI32[i] = condData[condOff + i] ? 1 : 0;
+  }
+  const condPtr = copyIn(condI32);
+
+  const xOff = x.offset;
+  const xSlice = x.data.subarray(xOff, xOff + size) as TypedArray;
+  const xPtr = copyIn(xSlice);
+
+  const yOff = y.offset;
+  const ySlice = y.data.subarray(yOff, yOff + size) as TypedArray;
+  const yPtr = copyIn(ySlice);
+
+  const outPtr = alloc(dataBytes);
+
+  kernel(condPtr, xPtr, yPtr, outPtr, size);
+
+  const outData = copyOut(
+    outPtr,
+    size,
+    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+  );
+
+  return ArrayStorage.fromData(outData, Array.from(x.shape), dtype);
 }

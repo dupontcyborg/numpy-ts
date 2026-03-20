@@ -264,7 +264,115 @@ export fn count_nonzero_i32(cond: [*]const i32, N: u32) u32 {
     return count;
 }
 
+// --- where: out[i] = cond[i] ? x[i] : y[i] ---
+
+/// Element-wise where for f64: out[i] = cond[i] != 0 ? x[i] : y[i].
+export fn where_f64(cond: [*]const i32, x: [*]const f64, y: [*]const f64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for f32.
+export fn where_f32(cond: [*]const i32, x: [*]const f32, y: [*]const f32, out: [*]f32, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for i64.
+export fn where_i64(cond: [*]const i32, x: [*]const i64, y: [*]const i64, out: [*]i64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for u64.
+export fn where_u64(cond: [*]const i32, x: [*]const u64, y: [*]const u64, out: [*]u64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for i32.
+export fn where_i32(cond: [*]const i32, x: [*]const i32, y: [*]const i32, out: [*]i32, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for u32.
+export fn where_u32(cond: [*]const i32, x: [*]const u32, y: [*]const u32, out: [*]u32, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for i16.
+export fn where_i16(cond: [*]const i32, x: [*]const i16, y: [*]const i16, out: [*]i16, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for u16.
+export fn where_u16(cond: [*]const i32, x: [*]const u16, y: [*]const u16, out: [*]u16, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for i8.
+export fn where_i8(cond: [*]const i32, x: [*]const i8, y: [*]const i8, out: [*]i8, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
+/// Element-wise where for u8.
+export fn where_u8(cond: [*]const i32, x: [*]const u8, y: [*]const u8, out: [*]u8, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = if (cond[i] != 0) x[i] else y[i];
+    }
+}
+
 // --- Tests ---
+
+test "where_f64 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1, 0 };
+    const x = [_]f64{ 10.0, 20.0, 30.0, 40.0 };
+    const y = [_]f64{ 1.0, 2.0, 3.0, 4.0 };
+    var out: [4]f64 = undefined;
+    where_f64(&cond, &x, &y, &out, 4);
+    try testing.expectApproxEqAbs(out[0], 10.0, 1e-10);
+    try testing.expectApproxEqAbs(out[1], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[2], 30.0, 1e-10);
+    try testing.expectApproxEqAbs(out[3], 4.0, 1e-10);
+}
+
+test "where_u8 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 0, 1, 1, 0 };
+    const x = [_]u8{ 10, 20, 30, 40 };
+    const y = [_]u8{ 1, 2, 3, 4 };
+    var out: [4]u8 = undefined;
+    where_u8(&cond, &x, &y, &out, 4);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 20);
+    try testing.expectEqual(out[2], 30);
+    try testing.expectEqual(out[3], 4);
+}
 
 test "extract_f64 basic" {
     const testing = @import("std").testing;

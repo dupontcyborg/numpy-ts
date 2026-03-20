@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import * as np from '../../../src/full/index';
 import { wasmConfig } from '../../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from '../numpy-oracle';
+import { runNumPy, arraysClose, checkNumPyAvailable } from '../numpy-oracle';
 import { WASM_MODES } from './_helpers';
 
 for (const mode of WASM_MODES) {

@@ -23,7 +23,16 @@ export const NP_DTYPE: Record<string, string> = {
 
 export const ALL_DTYPES = Object.keys(NP_DTYPE);
 export const FLOAT_DTYPES = ['float64', 'float32'];
-export const INT_DTYPES = ['int64', 'int32', 'int16', 'int8', 'uint64', 'uint32', 'uint16', 'uint8'];
+export const INT_DTYPES = [
+  'int64',
+  'int32',
+  'int16',
+  'int8',
+  'uint64',
+  'uint32',
+  'uint16',
+  'uint8',
+];
 
 export const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -92,7 +101,7 @@ result = np.${npOp}(a${npAxisArg})
 }
 
 /** Setup hooks for a WASM mode describe block */
-export function setupWasmMode(mode: typeof WASM_MODES[number]) {
+export function setupWasmMode(mode: (typeof WASM_MODES)[number]) {
   beforeAll(() => {
     wasmConfig.thresholdMultiplier = mode.multiplier;
     if (!checkNumPyAvailable()) {

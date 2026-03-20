@@ -979,9 +979,12 @@ export function rfft2(
       resetAllocator();
 
       // Convert input to f64 and copy to WASM
-      const inputData = a.dtype === 'float64'
-        ? (a.data as Float64Array).subarray(a.offset, a.offset + rows * cols)
-        : Float64Array.from(a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>);
+      const inputData =
+        a.dtype === 'float64'
+          ? (a.data as Float64Array).subarray(a.offset, a.offset + rows * cols)
+          : Float64Array.from(
+              a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>
+            );
       const inPtr = copyIn(inputData as unknown as TypedArray);
       const outPtr = alloc(outputBytes);
       const scratchPtr = alloc(scratchBytes);
