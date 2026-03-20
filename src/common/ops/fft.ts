@@ -17,7 +17,7 @@
 
 import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
-import type { DType } from '../dtype';
+import { isComplexDType, type DType } from '../dtype';
 import {
   fft_batch_c128,
   ifft_batch_c128,
@@ -25,6 +25,10 @@ import {
   fft2_c128,
   ifft2_c128,
   fft2_scratch_size,
+  rfft2_f64,
+  rfft2_scratch_size,
+  irfft2_f64,
+  irfft2_scratch_size,
 } from '../wasm/bins/fft.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from '../wasm/runtime';
 import type { TypedArray } from '../dtype';
@@ -946,19 +950,57 @@ export function rfft2(
   const shape = Array.from(a.shape);
   const ndim = shape.length;
 
-  // Normalize axes
   const ax0 = axes[0] < 0 ? ndim + axes[0] : axes[0];
   const ax1 = axes[1] < 0 ? ndim + axes[1] : axes[1];
 
-  // Apply FFT along first axis
-  let result = fft(a, s ? s[0] : undefined, ax0, norm);
+  // WASM fast path: 2D real input, standard axes, backward norm, no padding
+  if (
+    ndim === 2 &&
+    ax0 === 0 &&
+    ax1 === 1 &&
+    norm === 'backward' &&
+    !s &&
+    a.isCContiguous &&
+    !isComplexDType(a.dtype)
+  ) {
+    const rows = shape[0]!;
+    const cols = shape[1]!;
+    if (
+      rows >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier &&
+      cols >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
+    ) {
+      const halfCols = Math.floor(cols / 2) + 1;
+      const scratchN = rfft2_scratch_size(rows, cols);
+      const inputBytes = rows * cols * 8;
+      const outputBytes = rows * halfCols * 2 * 8;
+      const scratchBytes = scratchN * 8;
 
-  // Apply rFFT along second axis
-  const outShape = Array.from(result.shape);
-  const n1 = s ? s[1] : outShape[ax1]!;
-  result = fft(result, n1, ax1, norm);
+      ensureMemory(inputBytes + outputBytes + scratchBytes);
+      resetAllocator();
 
-  // Truncate last axis to n1//2 + 1
+      // Convert input to f64 and copy to WASM
+      const inputData = a.dtype === 'float64'
+        ? (a.data as Float64Array).subarray(a.offset, a.offset + rows * cols)
+        : Float64Array.from(a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>);
+      const inPtr = copyIn(inputData as unknown as TypedArray);
+      const outPtr = alloc(outputBytes);
+      const scratchPtr = alloc(scratchBytes);
+
+      rfft2_f64(inPtr, outPtr, scratchPtr, rows, cols);
+
+      const outData = copyOut(
+        outPtr,
+        rows * halfCols * 2,
+        Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => Float64Array
+      );
+
+      return ArrayStorage.fromData(outData, [rows, halfCols], 'complex128');
+    }
+  }
+
+  // Fallback: use fft2 + truncate
+  const result = fft2(a, s, axes, norm);
+  const n1 = s ? s[1] : shape[ax1]!;
   const outLen = Math.floor(n1 / 2) + 1;
   return truncateAxis(result, ax1, outLen);
 }
@@ -984,10 +1026,49 @@ export function irfft2(
   const outLen1 = s ? s[1] : (inputLen1 - 1) * 2;
   const outLen0 = s ? s[0] : shape[ax0]!;
 
-  // Apply irfft along last axis first
-  let result = irfft(a, outLen1, ax1, norm);
+  // WASM fast path: 2D complex input, standard axes, backward norm
+  if (
+    ndim === 2 &&
+    ax0 === 0 &&
+    ax1 === 1 &&
+    norm === 'backward' &&
+    !s &&
+    a.isCContiguous &&
+    isComplexDType(a.dtype)
+  ) {
+    const rows = shape[0]!;
+    const colsHalf = shape[1]!;
+    if (
+      rows >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier &&
+      outLen1 >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
+    ) {
+      const scratchN = irfft2_scratch_size(rows, outLen1);
+      const inputBytes = rows * colsHalf * 2 * 8;
+      const outputBytes = rows * outLen1 * 8;
+      const scratchBytes = scratchN * 8;
 
-  // Apply ifft along first axis
+      ensureMemory(inputBytes + outputBytes + scratchBytes);
+      resetAllocator();
+
+      const inputData = (a.data as Float64Array).subarray(a.offset, a.offset + rows * colsHalf * 2);
+      const inPtr = copyIn(inputData as unknown as TypedArray);
+      const outPtr = alloc(outputBytes);
+      const scratchPtr = alloc(scratchBytes);
+
+      irfft2_f64(inPtr, outPtr, scratchPtr, rows, colsHalf, outLen1);
+
+      const outData = copyOut(
+        outPtr,
+        rows * outLen1,
+        Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => Float64Array
+      );
+
+      return ArrayStorage.fromData(outData, [rows, outLen1], 'float64');
+    }
+  }
+
+  // Fallback: irfft along last axis, then ifft along first axis
+  let result = irfft(a, outLen1, ax1, norm);
   result = ifft(result, outLen0, ax0, norm);
 
   return extractReal(result);

@@ -221,6 +221,126 @@ export fn fft2_scratch_size(rows: u32, cols: u32) u32 {
     return @intCast(fft_scratch_sz + 2 * M * N);
 }
 
+/// 2D real-to-complex FFT: real f64[rows × cols] → complex128[rows × (cols/2+1)].
+/// Fuses real→complex conversion, 2D FFT, and truncation into a single WASM call.
+/// scratch must hold: 2*rows*cols (complex buffer) + fft2 scratch.
+export fn rfft2_f64(inp: [*]const f64, out: [*]f64, scratch: [*]f64, rows: u32, cols: u32) void {
+    const M = @as(usize, rows);
+    const N = @as(usize, cols);
+    const total = M * N;
+    const half_n = N / 2 + 1;
+
+    // Pack real → complex into scratch
+    const complex_buf = scratch;
+    for (0..total) |i| {
+        complex_buf[2 * i] = inp[i];
+        complex_buf[2 * i + 1] = 0;
+    }
+
+    // Run full complex 2D FFT in-place using scratch after complex_buf
+    const fft_scratch_sz = @max(scratchSizeF64(N), scratchSizeF64(M));
+    const fft_scratch = complex_buf + 2 * total;
+    const transpose_buf = fft_scratch + fft_scratch_sz;
+
+    // Temp output for full complex FFT
+    const full_out = transpose_buf + 2 * total;
+
+    // Row FFTs
+    for (0..M) |r| {
+        fftDispatch(complex_buf + r * N * 2, full_out + r * N * 2, fft_scratch, N, false);
+    }
+
+    // Transpose + column FFTs + transpose back
+    complexTranspose(full_out, transpose_buf, M, N);
+    for (0..N) |c| {
+        fftDispatch(transpose_buf + c * M * 2, full_out + c * M * 2, fft_scratch, M, false);
+    }
+    for (0..total * 2) |i| transpose_buf[i] = full_out[i];
+    complexTranspose(transpose_buf, full_out, N, M);
+
+    // Truncate: copy only first half_n columns per row to output
+    for (0..M) |r| {
+        for (0..half_n) |c| {
+            const src_idx = (r * N + c) * 2;
+            const dst_idx = (r * half_n + c) * 2;
+            out[dst_idx] = full_out[src_idx];
+            out[dst_idx + 1] = full_out[src_idx + 1];
+        }
+    }
+}
+
+/// Scratch size for rfft2: complex buffer + fft scratch + 2 transpose buffers.
+export fn rfft2_scratch_size(rows: u32, cols: u32) u32 {
+    const M = @as(usize, rows);
+    const N = @as(usize, cols);
+    const fft_scratch_sz = @max(scratchSizeF64(N), scratchSizeF64(M));
+    // complex_buf(2*M*N) + fft_scratch + transpose_buf(2*M*N) + full_out(2*M*N)
+    return @intCast(2 * M * N + fft_scratch_sz + 2 * M * N + 2 * M * N);
+}
+
+/// 2D complex-to-real inverse FFT: complex128[rows × (cols/2+1)] → real f64[rows × cols].
+/// Fuses Hermitian expansion, 2D inverse FFT, and real extraction.
+export fn irfft2_f64(inp: [*]const f64, out: [*]f64, scratch: [*]f64, rows: u32, cols_half: u32, cols_out: u32) void {
+    const M = @as(usize, rows);
+    const half_n = @as(usize, cols_half);
+    const N = @as(usize, cols_out);
+    const total = M * N;
+
+    // Expand Hermitian symmetry per row: input[rows × half_n] → full complex[rows × N]
+    const full_in = scratch;
+    for (0..M) |r| {
+        // Copy existing coefficients
+        for (0..half_n) |c| {
+            const si = (r * half_n + c) * 2;
+            const di = (r * N + c) * 2;
+            full_in[di] = inp[si];
+            full_in[di + 1] = inp[si + 1];
+        }
+        // Fill conjugate mirror: full[r][N-k] = conj(full[r][k])
+        for (1..half_n) |k| {
+            if (N - k >= half_n) {
+                const si = (r * half_n + k) * 2;
+                const di = (r * N + (N - k)) * 2;
+                full_in[di] = inp[si];
+                full_in[di + 1] = -inp[si + 1];
+            }
+        }
+    }
+
+    // Run full complex 2D inverse FFT
+    const fft_scratch_sz = @max(scratchSizeF64(N), scratchSizeF64(M));
+    const fft_scratch = full_in + 2 * total;
+    const transpose_buf = fft_scratch + fft_scratch_sz;
+    const full_out = transpose_buf + 2 * total;
+
+    // Row IFFTs
+    for (0..M) |r| {
+        fftDispatch(full_in + r * N * 2, full_out + r * N * 2, fft_scratch, N, true);
+    }
+
+    // Transpose + column IFFTs + transpose back
+    complexTranspose(full_out, transpose_buf, M, N);
+    for (0..N) |c| {
+        fftDispatch(transpose_buf + c * M * 2, full_out + c * M * 2, fft_scratch, M, true);
+    }
+    for (0..total * 2) |i| transpose_buf[i] = full_out[i];
+    complexTranspose(transpose_buf, full_out, N, M);
+
+    // Extract real parts
+    for (0..total) |i| {
+        out[i] = full_out[2 * i];
+    }
+}
+
+/// Scratch size for irfft2.
+export fn irfft2_scratch_size(rows: u32, cols_out: u32) u32 {
+    const M = @as(usize, rows);
+    const N = @as(usize, cols_out);
+    const fft_scratch_sz = @max(scratchSizeF64(N), scratchSizeF64(M));
+    // full_in(2*M*N) + fft_scratch + transpose_buf(2*M*N) + full_out(2*M*N)
+    return @intCast(2 * M * N + fft_scratch_sz + 2 * M * N + 2 * M * N);
+}
+
 /// Find the next power of 2 greater than or equal to n, for zero-padding in Bluestein's algorithm.
 fn nextPow2(n: usize) usize {
     var v: usize = 1;
