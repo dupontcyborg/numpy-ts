@@ -158,12 +158,20 @@ export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArrayCor
     throw new Error('polyfit: degree must be less than number of points');
   }
 
+  // Convert input data to float64 for numerical stability (matches NumPy behavior)
+  const xf64 = new Float64Array(n);
+  const yf64 = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    xf64[i] = Number(xData[i]);
+    yf64[i] = Number(yData[i]);
+  }
+
   // Build Vandermonde matrix
   const A: number[][] = [];
   for (let i = 0; i < n; i++) {
     const row: number[] = [];
     for (let j = deg; j >= 0; j--) {
-      row.push(Math.pow(xData[i] as number, j));
+      row.push(Math.pow(xf64[i]!, j));
     }
     A.push(row);
   }
@@ -184,7 +192,7 @@ export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArrayCor
 
     let sum = 0;
     for (let k = 0; k < n; k++) {
-      sum += A[k]![i]! * (yData[k] as number);
+      sum += A[k]![i]! * yf64[k]!;
     }
     ATy.push(sum);
   }

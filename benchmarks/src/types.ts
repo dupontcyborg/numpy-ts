@@ -110,4 +110,5 @@ export interface BenchmarkOptions {
   pyodide?: boolean;
   spec?: string;
   noWasm?: boolean;
+  dtypes?: string[];
 }

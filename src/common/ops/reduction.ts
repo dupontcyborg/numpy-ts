@@ -6,7 +6,7 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { isBigIntDType, isComplexDType, isFloatDType, throwIfComplex, type DType } from '../dtype';
+import { getTypedArrayConstructor, isBigIntDType, isComplexDType, isFloatDType, throwIfComplex, type DType, type TypedArray } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { Complex } from '../complex';
 import { wasmReduceSum, wasmReduceSumStrided } from '../wasm/reduce_sum';
@@ -28,6 +28,39 @@ import { wasmReduceAll } from '../wasm/reduce_all';
 // to float32 precision (same as Math.fround) but V8 optimizes typed-array
 // stores better than function calls in hot loops.
 const f32acc = new Float32Array(2); // [0]=primary, [1]=secondary (for complex im)
+
+// Float16Array accumulator for matching NumPy's float16 reduction precision.
+// When native Float16Array is available, accumulating via f16acc[0] rounds to
+// float16 at each step — matching NumPy's overflow/precision behavior exactly.
+const f16acc: Float32Array | null =
+  typeof globalThis.Float16Array !== 'undefined'
+    ? new (globalThis.Float16Array as any)(2) as unknown as Float32Array
+    : null;
+
+/**
+ * Get the appropriate typed accumulator for a dtype.
+ * Returns f16acc for float16 (native only), f32acc for float32, or null for float64/others.
+ * Writing to acc[0] implicitly rounds to the dtype's precision at each step.
+ */
+function getFloatAcc(dtype: DType): Float32Array | null {
+  if (dtype === 'float16') return f16acc;
+  if (dtype === 'float32') return f32acc;
+  return null;
+}
+
+/**
+ * Round a scalar value to the precision of the given dtype.
+ * For float16 (native) and float32, writes to a TypedArray element and reads back.
+ * For float64 and fallback float16, returns the value unchanged.
+ */
+function roundToDtype(value: number, dtype: DType): number {
+  const acc = getFloatAcc(dtype);
+  if (acc) {
+    acc[0] = value;
+    return acc[0]!;
+  }
+  return value;
+}
 
 /**
  * Promote narrow integer dtypes for accumulation, matching NumPy behavior.
@@ -134,18 +167,19 @@ export function sum(
         }
       }
       return Number(total);
-    } else if (dtype === 'float32') {
-      f32acc[0] = 0;
+    } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
+      const acc = getFloatAcc(dtype)!;
+      acc[0] = 0;
       if (contiguous) {
         for (let i = 0; i < size; i++) {
-          f32acc[0] += Number(data[off + i]!);
+          acc[0] += Number(data[off + i]!);
         }
       } else {
         for (let i = 0; i < size; i++) {
-          f32acc[0] += Number(storage.iget(i));
+          acc[0] += Number(storage.iget(i));
         }
       }
-      return f32acc[0]!;
+      return acc[0]!;
     } else {
       let total = 0;
       if (contiguous) {
@@ -291,15 +325,16 @@ export function sum(
       }
       resultTyped[outerIdx] = BigInt(Math.round(sumVal));
     }
-  } else if (dtype === 'float32') {
+  } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
+    const acc = getFloatAcc(dtype)!;
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-      f32acc[0] = 0;
+      acc[0] = 0;
       let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        f32acc[0] += Number(data[bufIdx]!);
+        acc[0] += Number(data[bufIdx]!);
         bufIdx += axisStr;
       }
-      resultData[outerIdx] = f32acc[0]!;
+      resultData[outerIdx] = acc[0]!;
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -341,6 +376,23 @@ export function mean(
     const wasmResult = wasmReduceMean(storage);
     if (wasmResult !== null) return wasmResult;
 
+    // NumPy computes mean in higher precision to avoid overflow, then casts back.
+    // For float16/float32: accumulate in float64, divide, then round to input dtype.
+    if (dtype === 'float16' || dtype === 'float32') {
+      let total = 0;
+      const off2 = storage.offset;
+      if (storage.isCContiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          total += Number(storage.data[off2 + i]);
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          total += Number(storage.iget(i));
+        }
+      }
+      return roundToDtype(total / storage.size, dtype);
+    }
+
     const sumResult = sum(storage);
     if (sumResult instanceof Complex) {
       return new Complex(sumResult.re / storage.size, sumResult.im / storage.size);
@@ -369,6 +421,35 @@ export function mean(
     if (wasmResult) {
       return ArrayStorage.fromData(wasmResult.data, outputShape, 'float64');
     }
+  }
+
+  // For float16/float32: compute sum in float64 to avoid overflow, then round.
+  // NumPy's mean uses higher-precision accumulation internally.
+  let sumStorage: ArrayStorage;
+  if (dtype === 'float16' || dtype === 'float32') {
+    // Convert to float64, sum, divide, convert back
+    const f64Storage = ArrayStorage.zeros(Array.from(shape), 'float64');
+    const srcData = storage.data;
+    const dstData = f64Storage.data as Float64Array;
+    const off2 = storage.offset;
+    if (storage.isCContiguous) {
+      for (let i = 0; i < storage.size; i++) dstData[i] = Number(srcData[off2 + i]);
+    } else {
+      for (let i = 0; i < storage.size; i++) dstData[i] = Number(storage.iget(i));
+    }
+    const f64Sum = sum(f64Storage, normalizedAxis, keepdims);
+    if (typeof f64Sum === 'number') {
+      return roundToDtype(f64Sum / shape[normalizedAxis]!, dtype);
+    }
+    sumStorage = f64Sum as ArrayStorage;
+    const divisor = shape[normalizedAxis]!;
+    const resultData = sumStorage.data as Float64Array;
+    const Ctor = getTypedArrayConstructor(dtype)!;
+    const outData = new Ctor(resultData.length);
+    for (let i = 0; i < resultData.length; i++) {
+      (outData as any)[i] = resultData[i]! / divisor;
+    }
+    return ArrayStorage.fromData(outData as unknown as TypedArray, Array.from(sumStorage.shape), dtype);
   }
 
   const sumResult = sum(storage, axis, keepdims);
@@ -717,18 +798,19 @@ export function prod(
         }
       }
       return Number(product);
-    } else if (dtype === 'float32') {
-      f32acc[0] = 1;
+    } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
+      const acc = getFloatAcc(dtype)!;
+      acc[0] = 1;
       if (contiguous) {
         for (let i = 0; i < size; i++) {
-          f32acc[0] *= Number(data[off + i]!);
+          acc[0] *= Number(data[off + i]!);
         }
       } else {
         for (let i = 0; i < size; i++) {
-          f32acc[0] *= Number(storage.iget(i));
+          acc[0] *= Number(storage.iget(i));
         }
       }
-      return f32acc[0]!;
+      return acc[0]!;
     } else {
       let product = 1;
       if (contiguous) {
@@ -863,15 +945,16 @@ export function prod(
       }
       resultTyped[outerIdx] = prodVal;
     }
-  } else if (dtype === 'float32') {
+  } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
+    const acc = getFloatAcc(dtype)!;
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-      f32acc[0] = 1;
+      acc[0] = 1;
       let bufIdx = baseOffsets[outerIdx]!;
       for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-        f32acc[0] *= Number(data[bufIdx]!);
+        acc[0] *= Number(data[bufIdx]!);
         bufIdx += axisStr;
       }
-      resultData[outerIdx] = f32acc[0]!;
+      resultData[outerIdx] = acc[0]!;
     }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -1559,6 +1642,24 @@ export function variance(
     }
 
     const meanVal = meanResult as number;
+    const acc = getFloatAcc(dtype);
+    if (acc) {
+      // float16/float32: accumulate in native precision to match NumPy overflow behavior
+      acc[0] = 0;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          const diff = Number(data[off + i]!) - meanVal;
+          acc[0] += diff * diff;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const diff = Number(storage.iget(i)) - meanVal;
+          acc[0] += diff * diff;
+        }
+      }
+      acc[0] /= (size - ddof);
+      return acc[0]!;
+    }
     let sumSqDiff = 0;
 
     if (contiguous) {
@@ -1632,7 +1733,26 @@ export function variance(
       resultData[outerIdx] = sumSqDiff / (axisSize - ddof);
     }
   } else {
-    // Real variance for each position
+    const acc = getFloatAcc(dtype);
+    if (acc) {
+      // float16/float32: accumulate in native precision, store in input dtype
+      const Ctor = getTypedArrayConstructor(dtype)!;
+      const outData = new Ctor(outerSize);
+      for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+        acc[0] = 0;
+        const meanVal = Number(meanData[outerIdx]!);
+        let bufIdx = baseOffsets[outerIdx]!;
+        for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+          const diff = Number(data[bufIdx]!) - meanVal;
+          acc[0] += diff * diff;
+          bufIdx += axisStr;
+        }
+        acc[0] /= (axisSize - ddof);
+        (outData as any)[outerIdx] = acc[0]!;
+      }
+      return ArrayStorage.fromData(outData as unknown as TypedArray, Array.from(outputShape), dtype);
+    }
+    // Real variance for each position (float64)
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       let sumSqDiff = 0;
       const meanVal = Number(meanData[outerIdx]!);
@@ -1977,6 +2097,25 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   if (axis === undefined) {
     // Flatten and cumsum
     const size = storage.size;
+    const acc = getFloatAcc(dtype);
+    if (acc) {
+      // float16/float32: accumulate and store in the input dtype to match NumPy
+      const Ctor = getTypedArrayConstructor(dtype)!;
+      const resultData = new Ctor(size);
+      acc[0] = 0;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          acc[0] += Number(data[off + i]);
+          resultData[i] = acc[0]!;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          acc[0] += Number(storage.iget(i));
+          resultData[i] = acc[0]!;
+        }
+      }
+      return ArrayStorage.fromData(resultData as unknown as TypedArray, [size], dtype);
+    }
     const resultData = new Float64Array(size);
     let sum = 0;
     if (contiguous) {
@@ -2003,7 +2142,11 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   }
 
   // Create result with same shape
-  const resultData = new Float64Array(storage.size);
+  const axisAcc = getFloatAcc(dtype);
+  const axisCtor = axisAcc ? getTypedArrayConstructor(dtype)! : null;
+  const resultData = axisCtor
+    ? new axisCtor(storage.size) as unknown as TypedArray
+    : new Float64Array(storage.size);
   const axisSize = shape[normalizedAxis]!;
 
   // Precompute offsets for outer iteration
@@ -2026,19 +2169,33 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   );
 
   // Perform cumsum along axis
-  for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-    let inIdx = inBase[outerIdx]!;
-    let outIdx = outBase[outerIdx]!;
-    let sum = 0;
-    for (let k = 0; k < axisSize; k++) {
-      sum += Number(data[inIdx]);
-      resultData[outIdx] = sum;
-      inIdx += inStride;
-      outIdx += outStride;
+  if (axisAcc) {
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let inIdx = inBase[outerIdx]!;
+      let outIdx = outBase[outerIdx]!;
+      axisAcc[0] = 0;
+      for (let k = 0; k < axisSize; k++) {
+        axisAcc[0] += Number(data[inIdx]);
+        resultData[outIdx] = axisAcc[0]!;
+        inIdx += inStride;
+        outIdx += outStride;
+      }
+    }
+  } else {
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let inIdx = inBase[outerIdx]!;
+      let outIdx = outBase[outerIdx]!;
+      let sum = 0;
+      for (let k = 0; k < axisSize; k++) {
+        sum += Number(data[inIdx]);
+        resultData[outIdx] = sum;
+        inIdx += inStride;
+        outIdx += outStride;
+      }
     }
   }
 
-  return ArrayStorage.fromData(resultData, [...shape], 'float64');
+  return ArrayStorage.fromData(resultData, [...shape], axisAcc ? dtype : 'float64');
 }
 
 /**
@@ -2576,7 +2733,7 @@ export function average(
       }
     }
 
-    return sumWeights === 0 ? NaN : sumWeightedValues / sumWeights;
+    return sumWeights === 0 ? NaN : roundToDtype(sumWeightedValues / sumWeights, dtype);
   }
 
   // Normalize axis
@@ -2698,6 +2855,28 @@ export function nansum(
         }
       }
       return new Complex(totalRe, totalIm);
+    }
+
+    const acc = getFloatAcc(dtype as DType);
+    if (acc) {
+      acc[0] = 0;
+      const contiguous = storage.isCContiguous;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const val = Number(data[off + i]);
+          if (!isNaN(val)) {
+            acc[0] += val;
+          }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const val = Number(storage.iget(i));
+          if (!isNaN(val)) {
+            acc[0] += val;
+          }
+        }
+      }
+      return acc[0]!;
     }
 
     let total = 0;
@@ -3015,24 +3194,37 @@ export function nanmean(
       return count === 0 ? new Complex(NaN, NaN) : new Complex(totalRe / count, totalIm / count);
     }
 
-    let total = 0;
+    // nanmean accumulates in the input dtype's precision (like NumPy)
+    const acc = getFloatAcc(dtype as DType);
     let count = 0;
     const contiguous = storage.isCContiguous;
+    if (acc) {
+      acc[0] = 0;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const val = Number(data[off + i]);
+          if (!isNaN(val)) { acc[0] += val; count++; }
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const val = Number(storage.iget(i));
+          if (!isNaN(val)) { acc[0] += val; count++; }
+        }
+      }
+      if (count === 0) return NaN;
+      acc[0] /= count;
+      return acc[0]!;
+    }
+    let total = 0;
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
-          total += val;
-          count++;
-        }
+        if (!isNaN(val)) { total += val; count++; }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
-          total += val;
-          count++;
-        }
+        if (!isNaN(val)) { total += val; count++; }
       }
     }
     return count === 0 ? NaN : total / count;

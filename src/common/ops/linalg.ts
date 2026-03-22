@@ -10,6 +10,7 @@ import {
   promoteDTypes,
   isComplexDType,
   isBigIntDType,
+  hasFloat16,
   getTypedArrayConstructor,
   type TypedArray,
 } from '../dtype';
@@ -336,6 +337,23 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         acc[0] += Number(a.get(i)) * Number(b.get(i));
       }
       return acc[0]!;
+    }
+    // Accumulate in the result dtype's precision (float16/float32/float64)
+    if (resultDtype === 'float16' && hasFloat16) {
+      const f16 = new (globalThis.Float16Array as any)(1);
+      f16[0] = 0;
+      for (let i = 0; i < n; i++) {
+        f16[0] += Number(a.get(i)) * Number(b.get(i));
+      }
+      return Number(f16[0]!);
+    }
+    if (resultDtype === 'float32') {
+      const f32 = new Float32Array(1);
+      f32[0] = 0;
+      for (let i = 0; i < n; i++) {
+        f32[0] += Number(a.get(i)) * Number(b.get(i));
+      }
+      return f32[0]!;
     }
     let sum = 0;
     for (let i = 0; i < n; i++) {
@@ -824,13 +842,14 @@ function matmul2D(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   const outputDtype = resultDtype;
 
-  if (outputDtype !== 'float64' && outputDtype !== 'float32') {
-    throw new Error(`matmul currently only supports float64/float32, got ${outputDtype}`);
+  if (outputDtype !== 'float64' && outputDtype !== 'float32' && outputDtype !== 'float16') {
+    throw new Error(`matmul currently only supports float64/float32/float16, got ${outputDtype}`);
   }
 
   const toF64 = (storage: typeof a): Float64Array => {
     if (storage.dtype === 'float64') return storage.data as Float64Array;
-    if (storage.dtype === 'float32') return Float64Array.from(storage.data as Float32Array);
+    if (storage.dtype === 'float32' || storage.dtype === 'float16')
+      return Float64Array.from(storage.data as Float32Array);
     return Float64Array.from(Array.from(storage.data as ArrayLike<number>).map(Number));
   };
   let aData = toF64(a);
@@ -871,12 +890,12 @@ function matmul2D(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   dgemm(transA, transB, m, n, k, 1.0, aData, lda, bData, ldb, result.data as Float64Array, n);
 
-  if (outputDtype === 'float32') {
-    const f32 = ArrayStorage.zeros([m, n], 'float32');
+  if (outputDtype === 'float32' || outputDtype === 'float16') {
+    const out = ArrayStorage.zeros([m, n], outputDtype);
     const src = result.data as Float64Array;
-    const dst = f32.data as Float32Array;
-    for (let i = 0; i < src.length; i++) dst[i] = src[i]!;
-    return f32;
+    const dst = out.data;
+    for (let i = 0; i < src.length; i++) (dst as any)[i] = src[i]!;
+    return out;
   }
 
   return result;
@@ -1186,6 +1205,33 @@ export function trace(
       return new Complex(sumRe, sumIm);
     }
 
+    // Float16/float32 accumulator for matching NumPy precision
+    if (a.dtype === 'float16' && hasFloat16) {
+      const f16 = new (globalThis.Float16Array as any)(1);
+      f16[0] = 0;
+      for (let i = 0; i < diagLen; i++) {
+        const idx0 = offset >= 0 ? i : i - offset;
+        const idx1 = offset >= 0 ? i + offset : i;
+        const indices: number[] = [0, 0];
+        indices[ax1] = idx0;
+        indices[ax2] = idx1;
+        f16[0] += Number(a.get(...indices));
+      }
+      return Number(f16[0]!);
+    }
+    if (a.dtype === 'float32') {
+      const f32 = new Float32Array(1);
+      f32[0] = 0;
+      for (let i = 0; i < diagLen; i++) {
+        const idx0 = offset >= 0 ? i : i - offset;
+        const idx1 = offset >= 0 ? i + offset : i;
+        const indices: number[] = [0, 0];
+        indices[ax1] = idx0;
+        indices[ax2] = idx1;
+        f32[0] += Number(a.get(...indices));
+      }
+      return f32[0]!;
+    }
     let sum: number | bigint = 0;
     for (let i = 0; i < diagLen; i++) {
       const idx0 = offset >= 0 ? i : i - offset;
@@ -4568,6 +4614,23 @@ export function vdot(a: ArrayStorage, b: ArrayStorage): number | bigint | Comple
       vdotAcc[0] += Number(aFlat.get(i)) * Number(bFlat.get(i));
     }
     return vdotAcc[0]!;
+  }
+  // Float16/float32 accumulator for matching NumPy precision
+  if (vdotResultDtype === 'float16' && hasFloat16) {
+    const f16 = new (globalThis.Float16Array as any)(1);
+    f16[0] = 0;
+    for (let i = 0; i < aSize; i++) {
+      f16[0] += Number(aFlat.get(i)) * Number(bFlat.get(i));
+    }
+    return Number(f16[0]!);
+  }
+  if (vdotResultDtype === 'float32') {
+    const f32 = new Float32Array(1);
+    f32[0] = 0;
+    for (let i = 0; i < aSize; i++) {
+      f32[0] += Number(aFlat.get(i)) * Number(bFlat.get(i));
+    }
+    return f32[0]!;
   }
   let sum: number | bigint = 0;
   for (let i = 0; i < aSize; i++) {

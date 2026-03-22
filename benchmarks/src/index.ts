@@ -137,6 +137,8 @@ async function main() {
       options.pyodide = true;
     } else if (arg === '--no-wasm') {
       options.noWasm = true;
+    } else if (arg === '--dtype' && i + 1 < args.length) {
+      options.dtypes = args[++i]!.split(',').map((s) => s.trim());
     } else if (arg === '--help' || arg === '-h') {
       printHelp();
       process.exit(0);
@@ -224,6 +226,24 @@ async function main() {
 
     if (specs.length === 0) {
       console.error('No benchmarks matched --spec: ' + options.spec);
+      process.exit(1);
+    }
+  }
+
+  if (options.dtypes) {
+    const dtypeSet = new Set(options.dtypes);
+    console.log(`DType filter: ${options.dtypes.join(', ')}`);
+    specs = specs.filter((s) => {
+      // Extract dtype from spec name suffix (e.g. "add float32" → "float32")
+      // Specs without a dtype suffix are implicitly float64
+      const words = s.name.split(' ');
+      const lastWord = words[words.length - 1]!;
+      const specDtype = s.setup.a?.dtype ?? (lastWord.match(/^(float|int|uint|bool|complex)/) ? lastWord : 'float64');
+      return dtypeSet.has(specDtype);
+    });
+
+    if (specs.length === 0) {
+      console.error('No benchmarks matched --dtype: ' + options.dtypes.join(','));
       process.exit(1);
     }
   }
@@ -437,6 +457,7 @@ Options:
                        Values: node, deno, bun  (e.g. --runtime node,bun)
   --category <name>    Run only benchmarks in specified category
   --spec <pattern>     Run only benchmarks whose name contains <pattern> (case-insensitive)
+  --dtype <list>       Comma-separated dtypes to include (e.g. --dtype float16,float32)
   --no-wasm            Disable WASM/SIMD kernels (fall back to pure JS for all ops)
   --pyodide            Use Pyodide (WASM NumPy) as baseline instead of native Python
   --fresh              Force re-run Python/Pyodide benchmarks (skip cache)
@@ -475,6 +496,7 @@ Examples:
   npm run bench:bun                       # Shorthand: Bun only
   npm run bench -- --category linalg      # Run only linalg benchmarks
   npm run bench -- --spec gcd             # Run only benchmarks matching "gcd"
+  npm run bench -- --dtype float16,float32 # Run only float16 and float32 benchmarks
 `);
 }
 

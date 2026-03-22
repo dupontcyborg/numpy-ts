@@ -6,7 +6,7 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { isComplexDType, throwIfComplex, TypedArray } from '../dtype';
+import { getTypedArrayConstructor, hasFloat16, isComplexDType, isFloatDType, throwIfComplex, TypedArray } from '../dtype';
 import { wasmCorrelate } from '../wasm/correlate';
 import { wasmConvolve } from '../wasm/convolve';
 
@@ -215,9 +215,26 @@ export function histogram(
     }
 
     binEdges = [];
-    const step = (maxVal - minVal) / bins;
-    for (let i = 0; i <= bins; i++) {
-      binEdges.push(minVal + i * step);
+    // Compute edges in the input dtype's precision to match NumPy.
+    // NumPy computes bin edges in the input dtype, so for float16/float32
+    // the step and arithmetic are done in that precision, with intermediate
+    // rounding affecting the final edges.
+    const Ctor = getTypedArrayConstructor(a.dtype);
+    if (Ctor && isFloatDType(a.dtype) && a.dtype !== 'float64') {
+      // Use a typed array to compute edges in the input dtype's precision
+      const tmp = new Ctor(3); // [step, edge, minVal]
+      tmp[0] = (maxVal - minVal) / bins;
+      tmp[2] = minVal;
+      for (let i = 0; i <= bins; i++) {
+        // Compute minVal + i * step in the input dtype
+        tmp[1] = Number(tmp[2]!) + i * Number(tmp[0]!);
+        binEdges.push(Number(tmp[1]!));
+      }
+    } else {
+      const step = (maxVal - minVal) / bins;
+      for (let i = 0; i <= bins; i++) {
+        binEdges.push(minVal + i * step);
+      }
     }
   } else {
     // bins is an ArrayStorage of bin edges
@@ -350,9 +367,20 @@ export function histogram2d(
       }
     }
     xEdges = [];
-    const step = (xMax - xMin) / nxBins;
-    for (let i = 0; i <= nxBins; i++) {
-      xEdges.push(xMin + i * step);
+    const xCtor = getTypedArrayConstructor(x.dtype);
+    if (xCtor && isFloatDType(x.dtype) && x.dtype !== 'float64') {
+      const tmp = new xCtor(3);
+      tmp[0] = (xMax - xMin) / nxBins;
+      tmp[2] = xMin;
+      for (let i = 0; i <= nxBins; i++) {
+        tmp[1] = Number(tmp[2]!) + i * Number(tmp[0]!);
+        xEdges.push(Number(tmp[1]!));
+      }
+    } else {
+      const step = (xMax - xMin) / nxBins;
+      for (let i = 0; i <= nxBins; i++) {
+        xEdges.push(xMin + i * step);
+      }
     }
   } else {
     const edgesData = nxBins.data;
@@ -381,9 +409,20 @@ export function histogram2d(
       }
     }
     yEdges = [];
-    const step = (yMax - yMin) / nyBins;
-    for (let i = 0; i <= nyBins; i++) {
-      yEdges.push(yMin + i * step);
+    const yCtor = getTypedArrayConstructor(y.dtype);
+    if (yCtor && isFloatDType(y.dtype) && y.dtype !== 'float64') {
+      const tmp = new yCtor(3);
+      tmp[0] = (yMax - yMin) / nyBins;
+      tmp[2] = yMin;
+      for (let i = 0; i <= nyBins; i++) {
+        tmp[1] = Number(tmp[2]!) + i * Number(tmp[0]!);
+        yEdges.push(Number(tmp[1]!));
+      }
+    } else {
+      const step = (yMax - yMin) / nyBins;
+      for (let i = 0; i <= nyBins; i++) {
+        yEdges.push(yMin + i * step);
+      }
     }
   } else {
     const edgesData = nyBins.data;
@@ -1469,6 +1508,29 @@ export function trapezoid(
   // Handle 1D case
   if (ndim === 1) {
     const yData = y.data;
+    const yDtype = y.dtype;
+    if (yDtype === 'float16' && hasFloat16) {
+      const f16 = new (globalThis.Float16Array as any)(1);
+      f16[0] = 0;
+      for (let i = 0; i < axisSize - 1; i++) {
+        const y0 = Number(yData[i]);
+        const y1 = Number(yData[i + 1]);
+        const dx_i = xValues[i + 1]! - xValues[i]!;
+        f16[0] += 0.5 * (y0 + y1) * dx_i;
+      }
+      return Number(f16[0]!);
+    }
+    if (yDtype === 'float32') {
+      const f32 = new Float32Array(1);
+      f32[0] = 0;
+      for (let i = 0; i < axisSize - 1; i++) {
+        const y0 = Number(yData[i]);
+        const y1 = Number(yData[i + 1]);
+        const dx_i = xValues[i + 1]! - xValues[i]!;
+        f32[0] += 0.5 * (y0 + y1) * dx_i;
+      }
+      return f32[0]!;
+    }
     let integral = 0;
     for (let i = 0; i < axisSize - 1; i++) {
       const y0 = Number(yData[i]);
@@ -1481,7 +1543,14 @@ export function trapezoid(
 
   // For N-D arrays
   const outSize = outShape.reduce((a, b) => a * b, 1);
-  const resultData = new Float64Array(outSize);
+  const yDtypeND = y.dtype;
+  const useF16ND = yDtypeND === 'float16' && hasFloat16;
+  const useF32ND = yDtypeND === 'float32';
+  const resultData = useF16ND
+    ? new (globalThis.Float16Array as any)(outSize)
+    : useF32ND
+      ? new Float32Array(outSize)
+      : new Float64Array(outSize);
 
   // Compute strides for the input array
   const yStrides: number[] = new Array(ndim);
@@ -1525,33 +1594,58 @@ export function trapezoid(
     }
 
     // Compute integral along axis
-    let integral = 0;
-    for (let i = 0; i < axisSize - 1; i++) {
-      // Get y[i] and y[i+1]
-      inCoordsBase[axis] = i;
-      let idx0 = 0;
-      for (let d = 0; d < ndim; d++) {
-        idx0 += inCoordsBase[d]! * yStrides[d]!;
+    if (useF16ND) {
+      const f16 = new (globalThis.Float16Array as any)(1);
+      f16[0] = 0;
+      for (let i = 0; i < axisSize - 1; i++) {
+        inCoordsBase[axis] = i;
+        let idx0 = 0;
+        for (let d = 0; d < ndim; d++) { idx0 += inCoordsBase[d]! * yStrides[d]!; }
+        inCoordsBase[axis] = i + 1;
+        let idx1 = 0;
+        for (let d = 0; d < ndim; d++) { idx1 += inCoordsBase[d]! * yStrides[d]!; }
+        f16[0] += 0.5 * (Number(yData[idx0]) + Number(yData[idx1])) * (xValues[i + 1]! - xValues[i]!);
       }
-
-      inCoordsBase[axis] = i + 1;
-      let idx1 = 0;
-      for (let d = 0; d < ndim; d++) {
-        idx1 += inCoordsBase[d]! * yStrides[d]!;
+      resultData[outIdx] = f16[0]!;
+    } else if (useF32ND) {
+      const f32 = new Float32Array(1);
+      f32[0] = 0;
+      for (let i = 0; i < axisSize - 1; i++) {
+        inCoordsBase[axis] = i;
+        let idx0 = 0;
+        for (let d = 0; d < ndim; d++) { idx0 += inCoordsBase[d]! * yStrides[d]!; }
+        inCoordsBase[axis] = i + 1;
+        let idx1 = 0;
+        for (let d = 0; d < ndim; d++) { idx1 += inCoordsBase[d]! * yStrides[d]!; }
+        f32[0] += 0.5 * (Number(yData[idx0]) + Number(yData[idx1])) * (xValues[i + 1]! - xValues[i]!);
       }
-
-      const y0 = Number(yData[idx0]);
-      const y1 = Number(yData[idx1]);
-      const dx_i = xValues[i + 1]! - xValues[i]!;
-      integral += 0.5 * (y0 + y1) * dx_i;
+      resultData[outIdx] = f32[0]!;
+    } else {
+      let integral = 0;
+      for (let i = 0; i < axisSize - 1; i++) {
+        inCoordsBase[axis] = i;
+        let idx0 = 0;
+        for (let d = 0; d < ndim; d++) {
+          idx0 += inCoordsBase[d]! * yStrides[d]!;
+        }
+        inCoordsBase[axis] = i + 1;
+        let idx1 = 0;
+        for (let d = 0; d < ndim; d++) {
+          idx1 += inCoordsBase[d]! * yStrides[d]!;
+        }
+        const y0 = Number(yData[idx0]);
+        const y1 = Number(yData[idx1]);
+        const dx_i = xValues[i + 1]! - xValues[i]!;
+        integral += 0.5 * (y0 + y1) * dx_i;
+      }
+      resultData[outIdx] = integral;
     }
-
-    resultData[outIdx] = integral;
   }
 
   if (outShape.length === 0) {
     return resultData[0]!;
   }
 
-  return ArrayStorage.fromData(resultData, outShape, 'float64');
+  const outDtype = useF16ND ? 'float16' as const : useF32ND ? 'float32' as const : 'float64' as const;
+  return ArrayStorage.fromData(resultData as unknown as TypedArray, outShape, outDtype);
 }

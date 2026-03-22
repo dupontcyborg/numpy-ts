@@ -61,7 +61,7 @@
     "format:check": "npm run format:check:ts && npm run lint:zig",
     "format:check:ts": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "bench:build": "esbuild benchmarks/src/index.ts --bundle --platform=node --format=cjs --external:pyodide --outfile=benchmarks/dist/bench.cjs && esbuild benchmarks/src/runtime-runner.ts --bundle --platform=neutral --format=esm --outfile=benchmarks/dist/runtime-runner.mjs",
+    "bench:build": "esbuild benchmarks/src/index.ts --bundle --platform=node --format=cjs --external:pyodide --outfile=benchmarks/dist/bench.cjs && esbuild benchmarks/src/runtime-runner.ts --bundle --platform=neutral --format=esm --external:node:fs --external:node:fs/promises --outfile=benchmarks/dist/runtime-runner.mjs",
     "bench": "npm run bench:build && node benchmarks/dist/bench.cjs",
     "bench:quick": "npm run bench:build && node benchmarks/dist/bench.cjs --quick",
     "bench:single": "npm run bench:build && node benchmarks/dist/bench.cjs --single-thread",

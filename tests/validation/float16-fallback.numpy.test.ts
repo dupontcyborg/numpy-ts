@@ -437,8 +437,7 @@ result = np.array([0, 1, 100, 1000, -50], dtype=np.int32).astype(np.float16)
   });
 
   describe('2D operations match NumPy', () => {
-    it('dot product via manual multiply+sum', () => {
-      // matmul doesn't support float16 directly, so test via element-wise ops
+    it('matmul with float16', () => {
       const a = array(
         [
           [1, 2],
@@ -453,12 +452,11 @@ result = np.array([0, 1, 100, 1000, -50], dtype=np.int32).astype(np.float16)
         ],
         'float16'
       );
-      // Promote to float32 for matmul
-      const ts = np.matmul(a.astype('float32'), b.astype('float32'));
+      const ts = np.matmul(a, b);
 
       const py = runNumPy(`
-a = np.array([[1, 2], [3, 4]], dtype=np.float32)
-b = np.array([[5, 6], [7, 8]], dtype=np.float32)
+a = np.array([[1, 2], [3, 4]], dtype=np.float16)
+b = np.array([[5, 6], [7, 8]], dtype=np.float16)
 result = np.matmul(a, b)
       `);
 
@@ -512,6 +510,141 @@ result = np.sum(np.array([[1,2,3],[4,5,6]], dtype=np.float16), axis=1)
       for (let i = 0; i < 2; i++) {
         expect(approxEqual(ts1.get([i]) as number, py1.value[i])).toBe(true);
       }
+    });
+  });
+
+  describe('histogram matches NumPy', () => {
+    it('histogram bin edges and counts match', () => {
+      const a = arange(0, 1000, 1, 'float16');
+      const [tsHist, tsEdges] = np.histogram(a) as [any, any];
+
+      const pyH = runNumPy(`
+a = np.arange(1000, dtype=np.float16)
+h, _ = np.histogram(a)
+result = h
+      `);
+      const pyE = runNumPy(`
+a = np.arange(1000, dtype=np.float16)
+_, edges = np.histogram(a)
+result = edges
+      `);
+
+      expect(tsHist.toArray()).toEqual(pyH.value);
+      // Bin edges should also match
+      const tsEdgeArr = tsEdges.toArray() as number[];
+      for (let i = 0; i < tsEdgeArr.length; i++) {
+        expect(approxEqual(tsEdgeArr[i]!, pyE.value[i])).toBe(true);
+      }
+    });
+
+    it('histogram2d counts match', () => {
+      const x = arange(0, 100, 1, 'float16');
+      const y = arange(0, 100, 1, 'float16');
+      const [tsHist] = np.histogram2d(x, y) as [any, any, any];
+
+      const py = runNumPy(`
+x = np.arange(100, dtype=np.float16)
+y = np.arange(100, dtype=np.float16)
+h, _, _ = np.histogram2d(x, y)
+result = h
+      `);
+
+      expect(tsHist.toArray()).toEqual(py.value);
+    });
+  });
+
+  describe('matmul matches NumPy', () => {
+    it('small float16 matmul', () => {
+      const a = array(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        'float16'
+      );
+      const b = array(
+        [
+          [5, 6],
+          [7, 8],
+        ],
+        'float16'
+      );
+      const ts = np.matmul(a, b);
+
+      const py = runNumPy(`
+a = np.array([[1, 2], [3, 4]], dtype=np.float16)
+b = np.array([[5, 6], [7, 8]], dtype=np.float16)
+result = np.matmul(a, b)
+      `);
+
+      expect(ts.dtype).toBe('float16');
+      expect(py.dtype).toContain('float16');
+      const tsArr = ts.toArray() as number[][];
+      for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 2; j++) {
+          expect(approxEqual(tsArr[i]![j]!, py.value[i][j])).toBe(true);
+        }
+      }
+    });
+  });
+
+  describe('large reductions with overflow match NumPy', () => {
+    it('sum of large float16 array overflows like NumPy', () => {
+      // On native Float16Array, sum of 10000 elements overflows to inf
+      // On Float32Array fallback, it stays finite — that's expected
+      const a = arange(0, 10000, 1, 'float16');
+      const ts = a.sum();
+
+      const py = runNumPy(`
+import warnings
+warnings.filterwarnings('ignore')
+a = np.arange(10000, dtype=np.float16)
+result = np.array([float(a.sum())])
+      `);
+
+      if (hasFloat16) {
+        // Native Float16Array should overflow to inf like NumPy
+        expect(ts).toBe(py.value[0]);
+      } else {
+        // Float32Array fallback: our result is finite, NumPy's is inf
+        expect(Number.isFinite(ts as number)).toBe(true);
+      }
+    });
+
+    it('cumsum accumulates like NumPy on native Float16Array', () => {
+      // Use a small array to avoid overflow — compare exact accumulation
+      const a = array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 'float16');
+      const ts = np.cumsum(a);
+
+      const py = runNumPy(`
+result = np.cumsum(np.array([1,2,3,4,5,6,7,8,9,10], dtype=np.float16))
+      `);
+
+      expect(ts.toArray()).toEqual(py.value);
+    });
+
+    it('dot product of float16 1D arrays', () => {
+      const a = arange(0, 100, 1, 'float16');
+      const ts = np.dot(a, a);
+
+      const py = runNumPy(`
+a = np.arange(100, dtype=np.float16)
+result = np.array([float(np.dot(a, a))])
+      `);
+
+      expect(approxEqual(ts as number, py.value[0])).toBe(true);
+    });
+
+    it('trace of float16 matrix', () => {
+      const a = arange(0, 100, 1, 'float16').reshape([10, 10]);
+      const ts = np.trace(a);
+
+      const py = runNumPy(`
+a = np.arange(100, dtype=np.float16).reshape(10, 10)
+result = np.array([float(np.trace(a))])
+      `);
+
+      expect(approxEqual(ts as number, py.value[0])).toBe(true);
     });
   });
 

@@ -3848,6 +3848,10 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     'einsum',
     'correlate',
     'convolve',
+    // NumPy's linalg explicitly rejects float16 for polynomial ops (uses eigvals/lstsq internally)
+    'polyfit',
+    'polyval',
+    'roots',
   ]);
 
   // Operations to skip for ALL int dtype variants (blocks both int and uint families)
