@@ -35,11 +35,17 @@ export fn reduce_prod_f32(a: [*]const f32, N: u32) f32 {
     return total;
 }
 
-/// Returns the product of i64 elements.
+/// Returns the product of i64 elements. Uses 2-wide SIMD accumulation.
+/// Note: i64x2.mul is native on x86 but emulated on ARM NEON.
 /// Handles both signed (i64) and unsigned (u64) since wrapping multiplication gives same bits.
 export fn reduce_prod_i64(a: [*]const i64, N: u32) i64 {
-    var total: i64 = 1;
+    var acc: simd.V2i64 = .{ 1, 1 };
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        acc *%= simd.load2_i64(a, i);
+    }
+    var total: i64 = acc[0] *% acc[1];
     while (i < N) : (i += 1) {
         total *%= a[i];
     }
@@ -62,40 +68,61 @@ export fn reduce_prod_i32(a: [*]const i32, N: u32) i32 {
     return total;
 }
 
-/// Returns the product of i16 elements. Promotes to i64 output to avoid overflow.
+/// Returns the product of i16 elements. Promotes to i64 via 2-wide SIMD accumulation.
 export fn reduce_prod_i16(a: [*]const i16, N: u32) i64 {
-    var total: i64 = 1;
+    var acc: simd.V2i64 = .{ 1, 1 };
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        // Widen i16 → i64 and multiply
+        acc *%= simd.V2i64{ @as(i64, a[i]), @as(i64, a[i + 1]) };
+    }
+    var total: i64 = acc[0] *% acc[1];
     while (i < N) : (i += 1) {
         total *%= @as(i64, a[i]);
     }
     return total;
 }
 
-/// Returns the product of u16 elements. Promotes to u64 output to avoid overflow.
+/// Returns the product of u16 elements. Promotes to u64 via 2-wide SIMD accumulation.
 export fn reduce_prod_u16(a: [*]const u16, N: u32) u64 {
-    var total: u64 = 1;
+    var acc: simd.V2u64 = .{ 1, 1 };
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        acc *%= simd.V2u64{ @as(u64, a[i]), @as(u64, a[i + 1]) };
+    }
+    var total: u64 = acc[0] *% acc[1];
     while (i < N) : (i += 1) {
         total *%= @as(u64, a[i]);
     }
     return total;
 }
 
-/// Returns the product of i8 elements. Promotes to i64 output to avoid overflow.
+/// Returns the product of i8 elements. Promotes to i64 via 2-wide SIMD accumulation.
 export fn reduce_prod_i8(a: [*]const i8, N: u32) i64 {
-    var total: i64 = 1;
+    var acc: simd.V2i64 = .{ 1, 1 };
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        acc *%= simd.V2i64{ @as(i64, a[i]), @as(i64, a[i + 1]) };
+    }
+    var total: i64 = acc[0] *% acc[1];
     while (i < N) : (i += 1) {
         total *%= @as(i64, a[i]);
     }
     return total;
 }
 
-/// Returns the product of u8 elements. Promotes to u64 output to avoid overflow.
+/// Returns the product of u8 elements. Promotes to u64 via 2-wide SIMD accumulation.
 export fn reduce_prod_u8(a: [*]const u8, N: u32) u64 {
-    var total: u64 = 1;
+    var acc: simd.V2u64 = .{ 1, 1 };
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        acc *%= simd.V2u64{ @as(u64, a[i]), @as(u64, a[i + 1]) };
+    }
+    var total: u64 = acc[0] *% acc[1];
     while (i < N) : (i += 1) {
         total *%= @as(u64, a[i]);
     }
