@@ -85,10 +85,10 @@ jobs:
           pip install numpy
           npm ci
 
-      - name: Run full CI test suite
-        run: npm run test:ci
+      - name: Build for testing
+        run: npm run build:test
 
-      - name: Run coverage
+      - name: Run tests with coverage
         run: npm run test:coverage
 
       - name: Generate coverage summary
