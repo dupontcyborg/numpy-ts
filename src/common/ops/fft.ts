@@ -18,6 +18,7 @@
 import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
 import { isComplexDType, type DType } from '../dtype';
+import { roll as shapeRoll } from './shape';
 import {
   fft_batch_c128,
   ifft_batch_c128,
@@ -1521,7 +1522,7 @@ export function fftshift(a: ArrayStorage, axes?: number | number[]): ArrayStorag
   // Calculate shift amounts
   const shifts = shape.map((_, i) => (axesList.includes(i) ? Math.floor(shape[i]! / 2) : 0));
 
-  return roll(a, shifts);
+  return shapeRoll(a, shifts);
 }
 
 /**
@@ -1548,63 +1549,6 @@ export function ifftshift(a: ArrayStorage, axes?: number | number[]): ArrayStora
   // Calculate shift amounts (negative of fftshift)
   const shifts = shape.map((_, i) => (axesList.includes(i) ? -Math.floor(shape[i]! / 2) : 0));
 
-  return roll(a, shifts);
+  return shapeRoll(a, shifts);
 }
 
-/**
- * Roll array elements along specified axes.
- */
-function roll(a: ArrayStorage, shifts: number[]): ArrayStorage {
-  const shape = Array.from(a.shape);
-  const dtype = a.dtype as DType;
-  const size = a.size;
-
-  // Create result array with same dtype
-  const result = ArrayStorage.zeros(shape, dtype);
-  const isComplex = dtype === 'complex128' || dtype === 'complex64';
-
-  // Calculate strides for index conversion
-  const strides = new Array(shape.length);
-  strides[shape.length - 1] = 1;
-  for (let i = shape.length - 2; i >= 0; i--) {
-    strides[i] = strides[i + 1]! * shape[i + 1]!;
-  }
-
-  // Copy with shifts
-  for (let flatIdx = 0; flatIdx < size; flatIdx++) {
-    // Convert flat index to multi-dimensional index
-    const srcIndices = new Array(shape.length);
-    let remainder = flatIdx;
-    for (let d = 0; d < shape.length; d++) {
-      srcIndices[d] = Math.floor(remainder / strides[d]!);
-      remainder = remainder % strides[d]!;
-    }
-
-    // Apply shifts with wrapping
-    const dstIndices = srcIndices.map((idx, d) => {
-      let newIdx = idx + shifts[d]!;
-      const dim = shape[d]!;
-      newIdx = ((newIdx % dim) + dim) % dim;
-      return newIdx;
-    });
-
-    // Convert back to flat index
-    let dstFlatIdx = 0;
-    for (let d = 0; d < shape.length; d++) {
-      dstFlatIdx += dstIndices[d]! * strides[d]!;
-    }
-
-    // Copy value(s)
-    if (isComplex) {
-      const srcData = a.data as Float64Array;
-      const dstData = result.data as Float64Array;
-      dstData[dstFlatIdx * 2] = srcData[flatIdx * 2]!;
-      dstData[dstFlatIdx * 2 + 1] = srcData[flatIdx * 2 + 1]!;
-    } else {
-      const val = a.iget(flatIdx);
-      result.iset(dstFlatIdx, val);
-    }
-  }
-
-  return result;
-}
