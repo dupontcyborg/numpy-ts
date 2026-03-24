@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { getBenchmarkSpecs, filterByCategory } from './specs';
-import { setBenchmarkConfig } from './runner';
 import { runPythonBenchmarks } from './python-runner';
 import { runPyodideBenchmarks } from './pyodide-runner';
 import { detectRuntimes, spawnRuntimeBenchmark } from './runtime-spawner';
@@ -152,15 +151,15 @@ async function main() {
   if (options.mode === 'quick') {
     minSampleTimeMs = 50;
     targetSamples = 1;
-    setBenchmarkConfig(minSampleTimeMs, targetSamples);
+
   } else if (options.mode === 'full') {
     minSampleTimeMs = 100;
     targetSamples = 5;
-    setBenchmarkConfig(minSampleTimeMs, targetSamples);
+
   } else {
     minSampleTimeMs = 100;
     targetSamples = 5;
-    setBenchmarkConfig(minSampleTimeMs, targetSamples);
+
   }
 
   console.log('NumPy vs numpy-ts Benchmark Suite\n');
