@@ -9,7 +9,7 @@
  */
 
 import { performance } from 'perf_hooks';
-import * as np from '../../src/index';
+import * as np from '../../src/core';
 import { serializeNpy, parseNpy, serializeNpzSync, parseNpzSync } from '../../src/io';
 import type { BenchmarkCase, BenchmarkTiming, BenchmarkSetup } from './types';
 
@@ -89,39 +89,39 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
         complexValues.push(new np.Complex(i + 1, i + 1));
       }
       const flat = np.array(complexValues);
-      const reshaped = flat.reshape(...shape);
+      const reshaped = np.reshape(flat, shape);
       // Cast to complex64 if requested
       arrays[key] = dtype === 'complex64' ? np.asarray(reshaped, 'complex64') : reshaped;
     } else if (fill === 'random') {
       // Create random-like data using arange for consistency
       const size = shape.reduce((a, b) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
-      arrays[key] = flat.reshape(...shape);
+      arrays[key] = np.reshape(flat, shape);
     } else if (fill === 'shuffled') {
       // Deterministic Fisher-Yates shuffle of arange using LCG (seed=42)
       // Create arange with target dtype first (wraps for narrow types), then shuffle
       const size = shape.reduce((a, b) => a * b, 1);
       const wrapped = np.arange(0, size, 1, dtype);
-      const vals = (wrapped as any).toArray().flat() as number[];
+      const vals = np.tolist(np.flatten(wrapped)) as number[];
       let seed = 42;
       for (let i = size - 1; i > 0; i--) {
         seed = (seed * 1664525 + 1013904223) >>> 0;
         const j = seed % (i + 1);
         [vals[i], vals[j]] = [vals[j]!, vals[i]!];
       }
-      arrays[key] = np.array(vals, dtype).reshape(...shape);
+      arrays[key] = np.reshape(np.array(vals, dtype), shape);
     } else if (fill === 'arange') {
       const size = shape.reduce((a, b) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
-      arrays[key] = flat.reshape(...shape);
+      arrays[key] = np.reshape(flat, shape);
     } else if (fill === 'invertible') {
       // Create an invertible matrix: arange + n*I (diagonally dominant)
       const n = shape[0];
       const size = shape.reduce((a, b) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
-      const arangeMatrix = flat.reshape(...shape);
+      const arangeMatrix = np.reshape(flat, shape);
       const identity = np.eye(n, undefined, undefined, dtype);
-      arrays[key] = arangeMatrix.add(identity.multiply(n * n));
+      arrays[key] = np.add(arangeMatrix, np.multiply(identity, n * n));
     }
   }
 
@@ -187,27 +187,27 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
 
   // Arithmetic
   else if (operation === 'add') {
-    return arrays['a'].add(arrays['b']);
+    return np.add(arrays['a'], arrays['b']);
   } else if (operation === 'subtract') {
-    return arrays['a'].subtract(arrays['b']);
+    return np.subtract(arrays['a'], arrays['b']);
   } else if (operation === 'multiply') {
-    return arrays['a'].multiply(arrays['b']);
+    return np.multiply(arrays['a'], arrays['b']);
   } else if (operation === 'divide') {
-    return arrays['a'].divide(arrays['b']);
+    return np.divide(arrays['a'], arrays['b']);
   } else if (operation === 'mod') {
-    return arrays['a'].mod(arrays['b']);
+    return np.mod(arrays['a'], arrays['b']);
   } else if (operation === 'floor_divide') {
-    return arrays['a'].floor_divide(arrays['b']);
+    return np.floor_divide(arrays['a'], arrays['b']);
   } else if (operation === 'reciprocal') {
-    return arrays['a'].reciprocal();
+    return np.reciprocal(arrays['a']);
   } else if (operation === 'positive') {
-    return arrays['a'].positive();
+    return np.positive(arrays['a']);
   } else if (operation === 'cbrt') {
-    return arrays['a'].cbrt();
+    return np.cbrt(arrays['a']);
   } else if (operation === 'fabs') {
-    return arrays['a'].fabs();
+    return np.fabs(arrays['a']);
   } else if (operation === 'divmod') {
-    return arrays['a'].divmod(arrays['b']);
+    return np.divmod(arrays['a'], arrays['b']);
   } else if (operation === 'gcd') {
     // Extract scalar if b is single-element array
     const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
@@ -224,70 +224,70 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
 
   // Mathematical operations
   else if (operation === 'sqrt') {
-    return arrays['a'].sqrt();
+    return np.sqrt(arrays['a']);
   } else if (operation === 'power') {
-    return arrays['a'].power(arrays['b']);
+    return np.power(arrays['a'], arrays['b']);
   } else if (operation === 'absolute') {
-    return arrays['a'].absolute();
+    return np.absolute(arrays['a']);
   } else if (operation === 'negative') {
-    return arrays['a'].negative();
+    return np.negative(arrays['a']);
   } else if (operation === 'sign') {
-    return arrays['a'].sign();
+    return np.sign(arrays['a']);
   }
 
   // Trigonometric operations
   else if (operation === 'sin') {
-    return arrays['a'].sin();
+    return np.sin(arrays['a']);
   } else if (operation === 'cos') {
-    return arrays['a'].cos();
+    return np.cos(arrays['a']);
   } else if (operation === 'tan') {
-    return arrays['a'].tan();
+    return np.tan(arrays['a']);
   } else if (operation === 'arcsin') {
-    return arrays['a'].arcsin();
+    return np.arcsin(arrays['a']);
   } else if (operation === 'arccos') {
-    return arrays['a'].arccos();
+    return np.arccos(arrays['a']);
   } else if (operation === 'arctan') {
-    return arrays['a'].arctan();
+    return np.arctan(arrays['a']);
   } else if (operation === 'arctan2') {
-    return arrays['a'].arctan2(arrays['b']);
+    return np.arctan2(arrays['a'], arrays['b']);
   } else if (operation === 'hypot') {
-    return arrays['a'].hypot(arrays['b']);
+    return np.hypot(arrays['a'], arrays['b']);
   }
 
   // Hyperbolic operations
   else if (operation === 'sinh') {
-    return arrays['a'].sinh();
+    return np.sinh(arrays['a']);
   } else if (operation === 'cosh') {
-    return arrays['a'].cosh();
+    return np.cosh(arrays['a']);
   } else if (operation === 'tanh') {
-    return arrays['a'].tanh();
+    return np.tanh(arrays['a']);
   } else if (operation === 'arcsinh') {
-    return arrays['a'].arcsinh();
+    return np.arcsinh(arrays['a']);
   } else if (operation === 'arccosh') {
-    return arrays['a'].arccosh();
+    return np.arccosh(arrays['a']);
   } else if (operation === 'arctanh') {
-    return arrays['a'].arctanh();
+    return np.arctanh(arrays['a']);
   }
 
   // Exponential operations
   else if (operation === 'exp') {
-    return arrays['a'].exp();
+    return np.exp(arrays['a']);
   } else if (operation === 'exp2') {
-    return arrays['a'].exp2();
+    return np.exp2(arrays['a']);
   } else if (operation === 'expm1') {
-    return arrays['a'].expm1();
+    return np.expm1(arrays['a']);
   } else if (operation === 'log') {
-    return arrays['a'].log();
+    return np.log(arrays['a']);
   } else if (operation === 'log2') {
-    return arrays['a'].log2();
+    return np.log2(arrays['a']);
   } else if (operation === 'log10') {
-    return arrays['a'].log10();
+    return np.log10(arrays['a']);
   } else if (operation === 'log1p') {
-    return arrays['a'].log1p();
+    return np.log1p(arrays['a']);
   } else if (operation === 'logaddexp') {
-    return arrays['a'].logaddexp(arrays['b']);
+    return np.logaddexp(arrays['a'], arrays['b']);
   } else if (operation === 'logaddexp2') {
-    return arrays['a'].logaddexp2(arrays['b']);
+    return np.logaddexp2(arrays['a'], arrays['b']);
   }
 
   // Gradient operations
@@ -301,20 +301,20 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
 
   // Linear algebra
   else if (operation === 'dot') {
-    return arrays['a'].dot(arrays['b']);
+    return np.dot(arrays['a'], arrays['b']);
   } else if (operation === 'inner') {
-    return arrays['a'].inner(arrays['b']);
+    return np.inner(arrays['a'], arrays['b']);
   } else if (operation === 'outer') {
-    return arrays['a'].outer(arrays['b']);
+    return np.outer(arrays['a'], arrays['b']);
   } else if (operation === 'tensordot') {
     const axes = arrays['axes'] ?? 2;
-    return arrays['a'].tensordot(arrays['b'], axes);
+    return np.tensordot(arrays['a'], arrays['b'], axes);
   } else if (operation === 'matmul') {
-    return arrays['a'].matmul(arrays['b']);
+    return np.matmul(arrays['a'], arrays['b']);
   } else if (operation === 'trace') {
-    return arrays['a'].trace();
+    return np.trace(arrays['a']);
   } else if (operation === 'transpose') {
-    return arrays['a'].transpose();
+    return np.transpose(arrays['a']);
   } else if (operation === 'diagonal') {
     return np.diagonal(arrays['a']);
   } else if (operation === 'kron') {
@@ -340,9 +340,9 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
     // Create positive definite matrix: A^T * A + n*I
     const a = arrays['a'];
     const n = a.shape[0];
-    const aT = a.transpose();
-    const aTa = aT.matmul(a);
-    const posdef = aTa.add(np.eye(n).multiply(n));
+    const aT = np.transpose(a);
+    const aTa = np.matmul(aT, a);
+    const posdef = np.add(aTa, np.multiply(np.eye(n), n));
     return np.linalg.cholesky(posdef);
   } else if (operation === 'linalg_svd') {
     return np.linalg.svd(arrays['a']);
@@ -351,8 +351,8 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   } else if (operation === 'linalg_eigh') {
     // Create symmetric matrix: (A + A^T) / 2
     const a = arrays['a'];
-    const aT = a.transpose();
-    const sym = a.add(aT).multiply(0.5);
+    const aT = np.transpose(a);
+    const sym = np.multiply(np.add(a, aT), 0.5);
     return np.linalg.eigh(sym);
   } else if (operation === 'linalg_norm') {
     return np.linalg.norm(arrays['a']);
@@ -409,46 +409,35 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   }
   // Reductions
   else if (operation === 'sum') {
-    const axis = arrays['axis'];
-    return arrays['a'].sum(axis);
+    return np.sum(arrays['a'], arrays['axis']);
   } else if (operation === 'mean') {
-    const axis = arrays['axis'];
-    return arrays['a'].mean(axis);
+    return np.mean(arrays['a'], arrays['axis']);
   } else if (operation === 'max') {
-    const axis = arrays['axis'];
-    return arrays['a'].max(axis);
+    return np.max(arrays['a'], arrays['axis']);
   } else if (operation === 'min') {
-    const axis = arrays['axis'];
-    return arrays['a'].min(axis);
+    return np.min(arrays['a'], arrays['axis']);
   } else if (operation === 'prod') {
-    const axis = arrays['axis'];
-    return arrays['a'].prod(axis);
+    return np.prod(arrays['a'], arrays['axis']);
   } else if (operation === 'argmin') {
-    const axis = arrays['axis'];
-    return arrays['a'].argmin(axis);
+    return np.argmin(arrays['a'], arrays['axis']);
   } else if (operation === 'argmax') {
-    const axis = arrays['axis'];
-    return arrays['a'].argmax(axis);
+    return np.argmax(arrays['a'], arrays['axis']);
   } else if (operation === 'var') {
-    const axis = arrays['axis'];
-    return arrays['a'].var(axis);
+    return np.var_(arrays['a'], arrays['axis']);
   } else if (operation === 'std') {
-    const axis = arrays['axis'];
-    return arrays['a'].std(axis);
+    return np.std(arrays['a'], arrays['axis']);
   } else if (operation === 'all') {
-    const axis = arrays['axis'];
-    return arrays['a'].all(axis);
+    return np.all(arrays['a'], arrays['axis']);
   } else if (operation === 'any') {
-    const axis = arrays['axis'];
-    return arrays['a'].any(axis);
+    return np.any(arrays['a'], arrays['axis']);
   }
   // New reduction functions
   else if (operation === 'cumsum') {
-    return arrays['a'].cumsum();
+    return np.cumsum(arrays['a']);
   } else if (operation === 'cumprod') {
-    return arrays['a'].cumprod();
+    return np.cumprod(arrays['a']);
   } else if (operation === 'ptp') {
-    return arrays['a'].ptp();
+    return np.ptp(arrays['a']);
   } else if (operation === 'median') {
     return np.median(arrays['a']);
   } else if (operation === 'percentile') {
@@ -480,13 +469,13 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
 
   // Reshape
   else if (operation === 'reshape') {
-    return arrays['a'].reshape(...arrays['new_shape']);
+    return np.reshape(arrays['a'], arrays['new_shape']);
   } else if (operation === 'flatten') {
-    return arrays['a'].flatten();
+    return np.flatten(arrays['a']);
   } else if (operation === 'ravel') {
-    return arrays['a'].ravel();
+    return np.ravel(arrays['a']);
   } else if (operation === 'squeeze') {
-    return arrays['a'].squeeze();
+    return np.squeeze(arrays['a']);
   }
 
   // Slicing
@@ -496,7 +485,7 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
 
   // Array manipulation
   else if (operation === 'swapaxes') {
-    return arrays['a'].swapaxes(0, 1);
+    return np.swapaxes(arrays['a'], 0, 1);
   } else if (operation === 'concatenate') {
     return np.concatenate([arrays['a'], arrays['b']], 0);
   } else if (operation === 'stack') {
@@ -508,11 +497,11 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   } else if (operation === 'tile') {
     return np.tile(arrays['a'], [2, 2]);
   } else if (operation === 'repeat') {
-    return arrays['a'].repeat(2);
+    return np.repeat(arrays['a'], 2);
   } else if (operation === 'broadcast_to') {
     return np.broadcast_to(arrays['a'], arrays['target_shape']);
   } else if (operation === 'take') {
-    return arrays['a'].take(arrays['indices']);
+    return np.take(arrays['a'], arrays['indices']);
   } else if (operation === 'flip') {
     return np.flip(arrays['a']);
   } else if (operation === 'rot90') {
@@ -643,31 +632,19 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
 
   // Logic operations
   else if (operation === 'logical_and') {
-    if (arrays['b']) {
-      return arrays['a'].logical_and(arrays['b']);
-    } else {
-      return arrays['a'].logical_and(arrays['scalar']);
-    }
+    return np.logical_and(arrays['a'], arrays['b'] ?? arrays['scalar']);
   } else if (operation === 'logical_or') {
-    if (arrays['b']) {
-      return arrays['a'].logical_or(arrays['b']);
-    } else {
-      return arrays['a'].logical_or(arrays['scalar']);
-    }
+    return np.logical_or(arrays['a'], arrays['b'] ?? arrays['scalar']);
   } else if (operation === 'logical_not') {
-    return arrays['a'].logical_not();
+    return np.logical_not(arrays['a']);
   } else if (operation === 'logical_xor') {
-    if (arrays['b']) {
-      return arrays['a'].logical_xor(arrays['b']);
-    } else {
-      return arrays['a'].logical_xor(arrays['scalar']);
-    }
+    return np.logical_xor(arrays['a'], arrays['b'] ?? arrays['scalar']);
   } else if (operation === 'isfinite') {
-    return arrays['a'].isfinite();
+    return np.isfinite(arrays['a']);
   } else if (operation === 'isinf') {
-    return arrays['a'].isinf();
+    return np.isinf(arrays['a']);
   } else if (operation === 'isnan') {
-    return arrays['a'].isnan();
+    return np.isnan(arrays['a']);
   } else if (operation === 'isneginf') {
     return np.isneginf(arrays['a']);
   } else if (operation === 'isposinf') {
@@ -675,13 +652,9 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   } else if (operation === 'isreal') {
     return np.isreal(arrays['a']);
   } else if (operation === 'signbit') {
-    return arrays['a'].signbit();
+    return np.signbit(arrays['a']);
   } else if (operation === 'copysign') {
-    if (arrays['b']) {
-      return arrays['a'].copysign(arrays['b']);
-    } else {
-      return arrays['a'].copysign(arrays['scalar']);
-    }
+    return np.copysign(arrays['a'], arrays['b'] ?? arrays['scalar']);
   }
 
   // Random operations
@@ -731,11 +704,11 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   } else if (operation === 'complex_ones') {
     return np.ones(arrays['shape'], 'complex128');
   } else if (operation === 'complex_add') {
-    return arrays['a'].add(arrays['b']);
+    return np.add(arrays['a'], arrays['b']);
   } else if (operation === 'complex_multiply') {
-    return arrays['a'].multiply(arrays['b']);
+    return np.multiply(arrays['a'], arrays['b']);
   } else if (operation === 'complex_divide') {
-    return arrays['a'].divide(arrays['b']);
+    return np.divide(arrays['a'], arrays['b']);
   } else if (operation === 'complex_real') {
     return np.real(arrays['a']);
   } else if (operation === 'complex_imag') {
@@ -749,11 +722,11 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   } else if (operation === 'complex_sqrt') {
     return np.sqrt(arrays['a']);
   } else if (operation === 'complex_sum') {
-    return arrays['a'].sum();
+    return np.sum(arrays['a']);
   } else if (operation === 'complex_mean') {
-    return arrays['a'].mean();
+    return np.mean(arrays['a']);
   } else if (operation === 'complex_prod') {
-    return arrays['a'].prod();
+    return np.prod(arrays['a']);
   }
 
   // Other Math operations
