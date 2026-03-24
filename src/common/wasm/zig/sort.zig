@@ -81,52 +81,52 @@ export fn sort_u8(a: [*]u8, N: u32) void {
 
 /// Sort numSlices contiguous f64 slices of sliceSize elements each.
 export fn sort_slices_f64(a: [*]f64, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(f64, a, sliceSize, numSlices);
+    sc.sortSlices(f64, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous f32 slices of sliceSize elements each.
 export fn sort_slices_f32(a: [*]f32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(f32, a, sliceSize, numSlices);
+    sc.sortSlices(f32, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous i64 slices of sliceSize elements each.
 export fn sort_slices_i64(a: [*]i64, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(i64, a, sliceSize, numSlices);
+    sc.sortSlices(i64, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous u64 slices of sliceSize elements each.
 export fn sort_slices_u64(a: [*]u64, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(u64, a, sliceSize, numSlices);
+    sc.sortSlices(u64, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous i32 slices of sliceSize elements each. Uses radix sort.
 export fn sort_slices_i32(a: [*]i32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(i32, a, sliceSize, numSlices);
+    sc.sortSlices(i32, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous u32 slices of sliceSize elements each. Uses radix sort.
 export fn sort_slices_u32(a: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(u32, a, sliceSize, numSlices);
+    sc.sortSlices(u32, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous i16 slices of sliceSize elements each. Uses radix sort.
 export fn sort_slices_i16(a: [*]i16, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(i16, a, sliceSize, numSlices);
+    sc.sortSlices(i16, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous u16 slices of sliceSize elements each. Uses radix sort.
 export fn sort_slices_u16(a: [*]u16, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(u16, a, sliceSize, numSlices);
+    sc.sortSlices(u16, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous i8 slices of sliceSize elements each. Uses radix sort.
 export fn sort_slices_i8(a: [*]i8, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(i8, a, sliceSize, numSlices);
+    sc.sortSlices(i8, a, sliceSize, numSlices);
 }
 
 /// Sort numSlices contiguous u8 slices of sliceSize elements each. Uses radix sort.
 export fn sort_slices_u8(a: [*]u8, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortSlices(u8, a, sliceSize, numSlices);
+    sc.sortSlices(u8, a, sliceSize, numSlices);
 }
 
 // --- Float16 sort (operates on raw u16 bits with IEEE-754 bit-flip) ---
@@ -166,7 +166,7 @@ export fn sort_f16(a: [*]u16, N: u32) void {
 export fn sort_slices_f16(a: [*]u16, sliceSize: u32, numSlices: u32) void {
     const total = @as(usize, sliceSize) * @as(usize, numSlices);
     f16FlipInPlace(a, @intCast(total));
-    sc.heapSortSlices(u16, a, sliceSize, numSlices);
+    sc.sortSlices(u16, a, sliceSize, numSlices);
     f16UnflipInPlace(a, @intCast(total));
 }
 
@@ -184,12 +184,12 @@ export fn sort_c64(a: [*]f32, N: u32) void {
 
 /// Batch complex128 slice sort.
 export fn sort_slices_c128(a: [*]f64, sliceSize: u32, numSlices: u32) void {
-    sc.complexIntroSortSlices(f64, a, sliceSize, numSlices);
+    sc.complexSortSlices(f64, a, sliceSize, numSlices);
 }
 
 /// Batch complex64 slice sort.
 export fn sort_slices_c64(a: [*]f32, sliceSize: u32, numSlices: u32) void {
-    sc.complexIntroSortSlices(f32, a, sliceSize, numSlices);
+    sc.complexSortSlices(f32, a, sliceSize, numSlices);
 }
 
 // --- Tests ---
