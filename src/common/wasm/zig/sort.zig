@@ -1,6 +1,7 @@
 //! WASM in-place sort kernels for all numeric types.
 //!
-//! Sorts a contiguous 1D buffer in ascending order using heap sort.
+//! Sorts a contiguous 1D buffer in ascending order using introsort
+//! (quicksort + heapsort fallback + insertion sort base case).
 //! O(N log N) worst-case, in-place, no allocation.
 //!
 //! Supported dtypes: f64, f32, i64, u64, i32, u32, i16, u16, i8, u8.
@@ -10,52 +11,70 @@ const sc = @import("sorting_common.zig");
 
 /// Sort f64 array in-place. NaN values sort to end.
 export fn sort_f64(a: [*]f64, N: u32) void {
-    sc.heapSort(f64, a, N);
+    sc.introSort(f64, a, N);
 }
 
 /// Sort f32 array in-place. NaN values sort to end.
 export fn sort_f32(a: [*]f32, N: u32) void {
-    sc.heapSort(f32, a, N);
+    sc.introSort(f32, a, N);
 }
 
 /// Sort i64 array in-place.
 export fn sort_i64(a: [*]i64, N: u32) void {
-    sc.heapSort(i64, a, N);
+    sc.introSort(i64, a, N);
 }
 
 /// Sort u64 array in-place.
 export fn sort_u64(a: [*]u64, N: u32) void {
-    sc.heapSort(u64, a, N);
+    sc.introSort(u64, a, N);
 }
 
-/// Sort i32 array in-place.
+/// Sort i32 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
 export fn sort_i32(a: [*]i32, N: u32) void {
-    sc.heapSort(i32, a, N);
+    if (N >= 256 and N <= 4096) {
+        var scratch: [4096]i32 = undefined;
+        sc.radixSort(i32, a, N, &scratch);
+    } else sc.introSort(i32, a, N);
 }
 
-/// Sort u32 array in-place.
+/// Sort u32 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
 export fn sort_u32(a: [*]u32, N: u32) void {
-    sc.heapSort(u32, a, N);
+    if (N >= 256 and N <= 4096) {
+        var scratch: [4096]u32 = undefined;
+        sc.radixSort(u32, a, N, &scratch);
+    } else sc.introSort(u32, a, N);
 }
 
-/// Sort i16 array in-place.
+/// Sort i16 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
 export fn sort_i16(a: [*]i16, N: u32) void {
-    sc.heapSort(i16, a, N);
+    if (N >= 256 and N <= 4096) {
+        var scratch: [4096]i16 = undefined;
+        sc.radixSort(i16, a, N, &scratch);
+    } else sc.introSort(i16, a, N);
 }
 
-/// Sort u16 array in-place.
+/// Sort u16 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
 export fn sort_u16(a: [*]u16, N: u32) void {
-    sc.heapSort(u16, a, N);
+    if (N >= 256 and N <= 4096) {
+        var scratch: [4096]u16 = undefined;
+        sc.radixSort(u16, a, N, &scratch);
+    } else sc.introSort(u16, a, N);
 }
 
-/// Sort i8 array in-place.
+/// Sort i8 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
 export fn sort_i8(a: [*]i8, N: u32) void {
-    sc.heapSort(i8, a, N);
+    if (N >= 256 and N <= 4096) {
+        var scratch: [4096]i8 = undefined;
+        sc.radixSort(i8, a, N, &scratch);
+    } else sc.introSort(i8, a, N);
 }
 
-/// Sort u8 array in-place.
+/// Sort u8 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
 export fn sort_u8(a: [*]u8, N: u32) void {
-    sc.heapSort(u8, a, N);
+    if (N >= 256 and N <= 4096) {
+        var scratch: [4096]u8 = undefined;
+        sc.radixSort(u8, a, N, &scratch);
+    } else sc.introSort(u8, a, N);
 }
 
 // --- Batch slice sort (single WASM call for multi-dim arrays) ---
@@ -108,6 +127,47 @@ export fn sort_slices_i8(a: [*]i8, sliceSize: u32, numSlices: u32) void {
 /// Sort numSlices contiguous u8 slices of sliceSize elements each. Uses radix sort.
 export fn sort_slices_u8(a: [*]u8, sliceSize: u32, numSlices: u32) void {
     sc.heapSortSlices(u8, a, sliceSize, numSlices);
+}
+
+// --- Float16 sort (operates on raw u16 bits with IEEE-754 bit-flip) ---
+
+/// Map float16 bits to a sortable u16: positive floats map to upper half,
+/// negative floats map to lower half (inverted), preserving total order.
+/// NaN (exponent=0x1F, mantissa!=0) maps to highest values → sorts to end.
+inline fn f16ToSortKey(bits: u16) u16 {
+    return if (bits >> 15 != 0) ~bits else bits ^ (@as(u16, 1) << 15);
+}
+
+inline fn sortKeyToF16(key: u16) u16 {
+    return if (key >> 15 != 0) key ^ (@as(u16, 1) << 15) else ~key;
+}
+
+fn f16FlipInPlace(a: [*]u16, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) a[i] = f16ToSortKey(a[i]);
+}
+
+fn f16UnflipInPlace(a: [*]u16, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) a[i] = sortKeyToF16(a[i]);
+}
+
+/// Sort float16 array in-place (data is raw u16 bits). NaN sorts to end.
+export fn sort_f16(a: [*]u16, N: u32) void {
+    f16FlipInPlace(a, N);
+    if (N >= 256 and N <= 4096) {
+        var scratch: [4096]u16 = undefined;
+        sc.radixSort(u16, a, N, &scratch);
+    } else sc.introSort(u16, a, N);
+    f16UnflipInPlace(a, N);
+}
+
+/// Sort numSlices contiguous float16 slices (data is raw u16 bits).
+export fn sort_slices_f16(a: [*]u16, sliceSize: u32, numSlices: u32) void {
+    const total = @as(usize, sliceSize) * @as(usize, numSlices);
+    f16FlipInPlace(a, @intCast(total));
+    sc.heapSortSlices(u16, a, sliceSize, numSlices);
+    f16UnflipInPlace(a, @intCast(total));
 }
 
 // --- Complex sort ---

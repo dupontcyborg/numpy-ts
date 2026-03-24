@@ -195,6 +195,89 @@ pub fn heapSort(comptime T: type, a: [*]T, N: u32) void {
     }
 }
 
+// --- Introsort (quicksort + heapsort fallback + insertion sort base) ---
+
+/// Insertion sort for small subarrays. Fast for N ≤ ~32 due to low overhead.
+fn insertionSort(comptime T: type, a: [*]T, lo: u32, hi: u32) void {
+    var i: u32 = lo + 1;
+    while (i <= hi) : (i += 1) {
+        const key = a[i];
+        var j: u32 = i;
+        while (j > lo and lessThan(T, key, a[j - 1])) {
+            a[j] = a[j - 1];
+            j -= 1;
+        }
+        a[j] = key;
+    }
+}
+
+/// Hoare partition: more efficient than Lomuto (fewer swaps on average).
+fn hoarePartition(comptime T: type, a: [*]T, lo: u32, hi: u32) u32 {
+    const mid = medianOfThree(T, a, lo, hi);
+    // After medianOfThree, a[mid] is the median. Use it as pivot.
+    const pivot = a[mid];
+    var i: u32 = lo;
+    var j: u32 = hi;
+    while (true) {
+        while (lessThan(T, a[i], pivot)) i += 1;
+        while (lessThan(T, pivot, a[j])) j -= 1;
+        if (i >= j) return j;
+        swap(T, a, i, j);
+        i += 1;
+        j -= 1;
+    }
+}
+
+/// Floor of log2(n), used to compute introsort depth limit.
+fn floorLog2(n: u32) u32 {
+    if (n == 0) return 0;
+    return 31 - @clz(n);
+}
+
+/// Introsort inner loop: quicksort with depth-limited heapsort fallback.
+fn introSortImpl(comptime T: type, a: [*]T, lo_arg: u32, hi_arg: u32, depth: u32) void {
+    var lo = lo_arg;
+    var hi = hi_arg;
+    var d = depth;
+
+    while (hi > lo) {
+        const size = hi - lo + 1;
+
+        // Base case: insertion sort for small subarrays
+        if (size <= 24) {
+            insertionSort(T, a, lo, hi);
+            return;
+        }
+
+        // Depth limit exceeded: fall back to heapsort to guarantee O(N log N)
+        if (d == 0) {
+            // Sort the subarray [lo..hi] using heapsort
+            heapSort(T, a + lo, size);
+            return;
+        }
+        d -= 1;
+
+        const p = hoarePartition(T, a, lo, hi);
+
+        // Recurse on the smaller partition, loop on the larger (tail-call optimization)
+        if (p - lo < hi - p) {
+            introSortImpl(T, a, lo, p, d);
+            lo = p + 1;
+        } else {
+            introSortImpl(T, a, p + 1, hi, d);
+            hi = p;
+        }
+    }
+}
+
+/// In-place introsort: quicksort + heapsort fallback + insertion sort base.
+/// O(N log N) worst-case, cache-friendly, fast on real data.
+pub fn introSort(comptime T: type, a: [*]T, N: u32) void {
+    if (N <= 1) return;
+    const depthLimit = 2 * floorLog2(N);
+    introSortImpl(T, a, 0, N - 1, depthLimit);
+}
+
 // --- Heap sort (indirect + stable, for argsort) ---
 
 /// Stable sift-down: uses stableLess so equal elements preserve original index order.
@@ -388,12 +471,15 @@ pub fn radixSort(comptime T: type, a: [*]T, N: u32, scratch: [*]T) void {
 // --- Batch slice operations ---
 
 /// Sort numSlices contiguous slices of sliceSize elements each.
-/// Automatically selects radix sort for ≤32-bit integer types, heap sort otherwise.
+/// Automatically selects radix sort for ≤32-bit types, introsort otherwise.
 pub fn heapSortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32) void {
     // Radix sort wins for small integer types (1–4 byte keys, few passes).
-    // For 8-byte types (f64/i64/u64) the 8-pass overhead exceeds heap sort at typical slice sizes.
-    const useRadix = (T == u8 or T == i8 or T == u16 or T == i16 or
-        T == u32 or T == i32) and sliceSize >= 16;
+    // For 8-byte types (f64/i64/u64) the 8-pass overhead exceeds introsort at typical slice sizes.
+    // For floats, radix's toRadixKey overhead + 4-8 passes loses to introsort at small slice sizes.
+    // Radix sort: 1 pass for u8/i8 (counting sort) always wins.
+    // For 2-4 byte types, introsort wins at small slice sizes (<256).
+    const useRadix = ((T == u8 or T == i8) and sliceSize >= 16) or
+        ((T == u16 or T == i16 or T == u32 or T == i32) and sliceSize >= 256);
 
     if (useRadix) {
         var scratchBuf: [4096]T = undefined;
@@ -409,7 +495,7 @@ pub fn heapSortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32)
 
     var i: u32 = 0;
     while (i < numSlices) : (i += 1) {
-        heapSort(T, a + @as(usize, i) * @as(usize, sliceSize), sliceSize);
+        introSort(T, a + @as(usize, i) * @as(usize, sliceSize), sliceSize);
     }
 }
 

@@ -8,6 +8,7 @@
 import {
   sort_f64,
   sort_f32,
+  sort_f16,
   sort_i64,
   sort_u64,
   sort_i32,
@@ -18,6 +19,7 @@ import {
   sort_u8,
   sort_slices_f64,
   sort_slices_f32,
+  sort_slices_f16,
   sort_slices_i64,
   sort_slices_u64,
   sort_slices_i32,
@@ -52,6 +54,7 @@ type SliceSortFn = (aPtr: number, sliceSize: number, numSlices: number) => void;
 const kernels: Partial<Record<DType, SortFn>> = {
   float64: sort_f64,
   float32: sort_f32,
+  float16: sort_f16,
   int64: sort_i64,
   uint64: sort_u64,
   int32: sort_i32,
@@ -62,12 +65,12 @@ const kernels: Partial<Record<DType, SortFn>> = {
   uint8: sort_u8,
   complex128: sort_c128,
   complex64: sort_c64,
-  float16: sort_f32,
 };
 
 const sliceKernels: Partial<Record<DType, SliceSortFn>> = {
   float64: sort_slices_f64,
   float32: sort_slices_f32,
+  float16: sort_slices_f16,
   int64: sort_slices_i64,
   uint64: sort_slices_u64,
   int32: sort_slices_i32,
@@ -78,13 +81,13 @@ const sliceKernels: Partial<Record<DType, SliceSortFn>> = {
   uint8: sort_slices_u8,
   complex128: sort_slices_c128,
   complex64: sort_slices_c64,
-  float16: sort_slices_f32,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;
 const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   float64: Float64Array,
   float32: Float32Array,
+  float16: Uint16Array, // native f16 sort operates on raw u16 bits
   int64: BigInt64Array,
   uint64: BigUint64Array,
   int32: Int32Array,
@@ -95,7 +98,6 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   uint8: Uint8Array,
   complex128: Float64Array,
   complex64: Float32Array,
-  float16: Float32Array,
 };
 
 /**
@@ -117,39 +119,23 @@ export function wasmSortSlices(
   // sliceOffsets are in logical element units (complex = 1 element, not 2 floats).
   const sliceKernel = sliceKernels[dtype];
 
-  const isF16 = dtype === 'float16';
+  // For float16, the native f16 WASM kernel sorts raw u16 bits directly
+  // (using IEEE-754 bit-flip trick), so no f16↔f32 conversion needed.
+  // The ctorMap entry is Uint16Array, and copyIn/copyOut handle raw bytes.
+  const totalBytes = resultData.byteLength;
 
   if (sliceKernel && sliceOffsets[0] === 0 && outerSize > 1 && sliceOffsets[1] === axisSize) {
     // Packed contiguous slices — single batch WASM call
-    const Ctor = ctorMap[dtype];
-    if (!Ctor) return false;
-    const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-    const inputData = isF16
-      ? f16ToF32Input(resultData as TypedArray, dtype)
-      : (resultData as TypedArray);
-    const totalBytes = inputData.length * bpe;
-
     ensureMemory(totalBytes);
     resetAllocator();
 
-    const ptr = copyIn(inputData);
+    const ptr = copyIn(resultData);
     sliceKernel(ptr, axisSize, outerSize);
 
     const mem = getSharedMemory();
-    if (isF16) {
-      const f32Out = new Float32Array(inputData.length);
-      new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-        new Uint8Array(mem.buffer, ptr, f32Out.byteLength)
-      );
-      const f16Out = f32ToF16Output(f32Out as unknown as TypedArray, dtype);
-      new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-        new Uint8Array(f16Out.buffer, f16Out.byteOffset, f16Out.byteLength)
-      );
-    } else {
-      new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-        new Uint8Array(mem.buffer, ptr, resultData.byteLength)
-      );
-    }
+    new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
+      new Uint8Array(mem.buffer, ptr, resultData.byteLength)
+    );
     return true;
   }
 
@@ -162,35 +148,20 @@ export function wasmSortSlices(
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   // For complex, each logical element is 2 floats, so byte offset = logicalOffset * 2 * bpe
   const bytesPerElem = isComplex ? bpe * 2 : bpe;
-  const inputData = isF16
-    ? f16ToF32Input(resultData as TypedArray, dtype)
-    : (resultData as TypedArray);
-  const totalBytes = inputData.length * bpe;
 
   ensureMemory(totalBytes);
   resetAllocator();
 
-  const ptr = copyIn(inputData);
+  const ptr = copyIn(resultData);
 
   for (let i = 0; i < outerSize; i++) {
     kernel(ptr + sliceOffsets[i]! * bytesPerElem, axisSize);
   }
 
   const mem = getSharedMemory();
-  if (isF16) {
-    const f32Out = new Float32Array(inputData.length);
-    new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-      new Uint8Array(mem.buffer, ptr, f32Out.byteLength)
-    );
-    const f16Out = f32ToF16Output(f32Out as unknown as TypedArray, dtype);
-    new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-      new Uint8Array(f16Out.buffer, f16Out.byteOffset, f16Out.byteLength)
-    );
-  } else {
-    new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-      new Uint8Array(mem.buffer, ptr, resultData.byteLength)
-    );
-  }
+  new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
+    new Uint8Array(mem.buffer, ptr, resultData.byteLength)
+  );
 
   return true;
 }
