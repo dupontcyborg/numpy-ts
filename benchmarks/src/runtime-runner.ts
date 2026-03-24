@@ -9,7 +9,7 @@
  * needing to import perf_hooks.
  */
 
-import * as np from '../../src/index';
+import * as np from '../../src/core';
 import { serializeNpy, parseNpy, serializeNpzSync, parseNpzSync } from '../../src/io';
 import { wasmConfig } from '../../src/common/wasm/config';
 import type { BenchmarkCase, BenchmarkTiming, BenchmarkSetup } from './types';
@@ -81,37 +81,37 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
         complexValues.push(new np.Complex(v, v));
       }
       const flat = np.array(complexValues);
-      const reshaped = flat.reshape(...shape);
+      const reshaped = np.reshape(flat, shape);
       // Cast to target dtype (e.g. complex64) if specified
       arrays[key] = dtype === 'complex64' ? np.asarray(reshaped, 'complex64') : reshaped;
     } else if (fill === 'random') {
       const size = shape.reduce((a: number, b: number) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
-      arrays[key] = flat.reshape(...shape);
+      arrays[key] = np.reshape(flat, shape);
     } else if (fill === 'shuffled') {
       // Deterministic Fisher-Yates shuffle of arange using LCG (seed=42)
       // Create arange with target dtype first (wraps for narrow types), then shuffle
       const size = shape.reduce((a: number, b: number) => a * b, 1);
       const wrapped = np.arange(0, size, 1, dtype);
-      const vals = (wrapped as any).toArray().flat() as number[];
+      const vals = (np.tolist(np.flatten(wrapped)) as number[]).flat() as number[];
       let seed = 42;
       for (let i = size - 1; i > 0; i--) {
         seed = (seed * 1664525 + 1013904223) >>> 0;
         const j = seed % (i + 1);
         [vals[i], vals[j]] = [vals[j]!, vals[i]!];
       }
-      arrays[key] = np.array(vals, dtype).reshape(...shape);
+      arrays[key] = np.reshape(np.array(vals, dtype), shape);
     } else if (fill === 'arange') {
       const size = shape.reduce((a: number, b: number) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
-      arrays[key] = flat.reshape(...shape);
+      arrays[key] = np.reshape(flat, shape);
     } else if (fill === 'invertible') {
       const n = shape[0];
       const size = shape.reduce((a: number, b: number) => a * b, 1);
       const flat = np.arange(0, size, 1, dtype);
-      const arangeMatrix = flat.reshape(...shape);
+      const arangeMatrix = np.reshape(flat, shape);
       const identity = np.eye(n, undefined, undefined, dtype);
-      arrays[key] = arangeMatrix.add(identity.multiply(n * n));
+      arrays[key] = np.add(arangeMatrix, np.multiply(identity, n * n));
     }
   }
 
@@ -157,17 +157,17 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'full_like') return np.full_like(arrays['a'], 7);
 
   // Arithmetic
-  if (operation === 'add') return arrays['a'].add(arrays['b']);
-  if (operation === 'subtract') return arrays['a'].subtract(arrays['b']);
-  if (operation === 'multiply') return arrays['a'].multiply(arrays['b']);
-  if (operation === 'divide') return arrays['a'].divide(arrays['b']);
-  if (operation === 'mod') return arrays['a'].mod(arrays['b']);
-  if (operation === 'floor_divide') return arrays['a'].floor_divide(arrays['b']);
-  if (operation === 'reciprocal') return arrays['a'].reciprocal();
-  if (operation === 'positive') return arrays['a'].positive();
-  if (operation === 'cbrt') return arrays['a'].cbrt();
-  if (operation === 'fabs') return arrays['a'].fabs();
-  if (operation === 'divmod') return arrays['a'].divmod(arrays['b']);
+  if (operation === 'add') return np.add(arrays['a'], arrays['b']);
+  if (operation === 'subtract') return np.subtract(arrays['a'], arrays['b']);
+  if (operation === 'multiply') return np.multiply(arrays['a'], arrays['b']);
+  if (operation === 'divide') return np.divide(arrays['a'], arrays['b']);
+  if (operation === 'mod') return np.mod(arrays['a'], arrays['b']);
+  if (operation === 'floor_divide') return np.floor_divide(arrays['a'], arrays['b']);
+  if (operation === 'reciprocal') return np.reciprocal(arrays['a']);
+  if (operation === 'positive') return np.positive(arrays['a']);
+  if (operation === 'cbrt') return np.cbrt(arrays['a']);
+  if (operation === 'fabs') return np.fabs(arrays['a']);
+  if (operation === 'divmod') return np.divmod(arrays['a'], arrays['b']);
   if (operation === 'gcd') {
     const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
     return np.gcd(arrays['a'], scalar);
@@ -189,40 +189,40 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'modf') return np.modf(arrays['a']);
 
   // Math
-  if (operation === 'sqrt') return arrays['a'].sqrt();
-  if (operation === 'power') return arrays['a'].power(arrays['b']);
-  if (operation === 'absolute') return arrays['a'].absolute();
-  if (operation === 'negative') return arrays['a'].negative();
-  if (operation === 'sign') return arrays['a'].sign();
+  if (operation === 'sqrt') return np.sqrt(arrays['a']);
+  if (operation === 'power') return np.power(arrays['a'], arrays['b']);
+  if (operation === 'absolute') return np.absolute(arrays['a']);
+  if (operation === 'negative') return np.negative(arrays['a']);
+  if (operation === 'sign') return np.sign(arrays['a']);
 
   // Trig
-  if (operation === 'sin') return arrays['a'].sin();
-  if (operation === 'cos') return arrays['a'].cos();
-  if (operation === 'tan') return arrays['a'].tan();
-  if (operation === 'arcsin') return arrays['a'].arcsin();
-  if (operation === 'arccos') return arrays['a'].arccos();
-  if (operation === 'arctan') return arrays['a'].arctan();
-  if (operation === 'arctan2') return arrays['a'].arctan2(arrays['b']);
-  if (operation === 'hypot') return arrays['a'].hypot(arrays['b']);
+  if (operation === 'sin') return np.sin(arrays['a']);
+  if (operation === 'cos') return np.cos(arrays['a']);
+  if (operation === 'tan') return np.tan(arrays['a']);
+  if (operation === 'arcsin') return np.arcsin(arrays['a']);
+  if (operation === 'arccos') return np.arccos(arrays['a']);
+  if (operation === 'arctan') return np.arctan(arrays['a']);
+  if (operation === 'arctan2') return np.arctan2(arrays['a'], arrays['b']);
+  if (operation === 'hypot') return np.hypot(arrays['a'], arrays['b']);
 
   // Hyperbolic
-  if (operation === 'sinh') return arrays['a'].sinh();
-  if (operation === 'cosh') return arrays['a'].cosh();
-  if (operation === 'tanh') return arrays['a'].tanh();
-  if (operation === 'arcsinh') return arrays['a'].arcsinh();
-  if (operation === 'arccosh') return arrays['a'].arccosh();
-  if (operation === 'arctanh') return arrays['a'].arctanh();
+  if (operation === 'sinh') return np.sinh(arrays['a']);
+  if (operation === 'cosh') return np.cosh(arrays['a']);
+  if (operation === 'tanh') return np.tanh(arrays['a']);
+  if (operation === 'arcsinh') return np.arcsinh(arrays['a']);
+  if (operation === 'arccosh') return np.arccosh(arrays['a']);
+  if (operation === 'arctanh') return np.arctanh(arrays['a']);
 
   // Exponential
-  if (operation === 'exp') return arrays['a'].exp();
-  if (operation === 'exp2') return arrays['a'].exp2();
-  if (operation === 'expm1') return arrays['a'].expm1();
-  if (operation === 'log') return arrays['a'].log();
-  if (operation === 'log2') return arrays['a'].log2();
-  if (operation === 'log10') return arrays['a'].log10();
-  if (operation === 'log1p') return arrays['a'].log1p();
-  if (operation === 'logaddexp') return arrays['a'].logaddexp(arrays['b']);
-  if (operation === 'logaddexp2') return arrays['a'].logaddexp2(arrays['b']);
+  if (operation === 'exp') return np.exp(arrays['a']);
+  if (operation === 'exp2') return np.exp2(arrays['a']);
+  if (operation === 'expm1') return np.expm1(arrays['a']);
+  if (operation === 'log') return np.log(arrays['a']);
+  if (operation === 'log2') return np.log2(arrays['a']);
+  if (operation === 'log10') return np.log10(arrays['a']);
+  if (operation === 'log1p') return np.log1p(arrays['a']);
+  if (operation === 'logaddexp') return np.logaddexp(arrays['a'], arrays['b']);
+  if (operation === 'logaddexp2') return np.logaddexp2(arrays['a'], arrays['b']);
 
   // Gradient
   if (operation === 'diff') return np.diff(arrays['a']);
@@ -230,13 +230,13 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'cross') return np.cross(arrays['a'], arrays['b']);
 
   // Linear algebra
-  if (operation === 'dot') return arrays['a'].dot(arrays['b']);
-  if (operation === 'inner') return arrays['a'].inner(arrays['b']);
-  if (operation === 'outer') return arrays['a'].outer(arrays['b']);
-  if (operation === 'tensordot') return arrays['a'].tensordot(arrays['b'], arrays['axes'] ?? 2);
-  if (operation === 'matmul') return arrays['a'].matmul(arrays['b']);
-  if (operation === 'trace') return arrays['a'].trace();
-  if (operation === 'transpose') return arrays['a'].transpose();
+  if (operation === 'dot') return np.dot(arrays['a'], arrays['b']);
+  if (operation === 'inner') return np.inner(arrays['a'], arrays['b']);
+  if (operation === 'outer') return np.outer(arrays['a'], arrays['b']);
+  if (operation === 'tensordot') return np.tensordot(arrays['a'], arrays['b'], arrays['axes'] ?? 2);
+  if (operation === 'matmul') return np.matmul(arrays['a'], arrays['b']);
+  if (operation === 'trace') return np.trace(arrays['a']);
+  if (operation === 'transpose') return np.transpose(arrays['a']);
   if (operation === 'diagonal') return np.diagonal(arrays['a']);
   if (operation === 'kron') return np.kron(arrays['a'], arrays['b']);
   if (operation === 'einsum') return np.einsum(arrays['subscripts'], arrays['a'], arrays['b']);
@@ -251,17 +251,17 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'linalg_cholesky') {
     const a = arrays['a'];
     const n = a.shape[0];
-    const aT = a.transpose();
-    const aTa = aT.matmul(a);
-    const posdef = aTa.add(np.eye(n).multiply(n));
+    const aT = np.transpose(a);
+    const aTa = np.matmul(aT, a);
+    const posdef = np.add(aTa, np.multiply(np.eye(n), n));
     return np.linalg.cholesky(posdef);
   }
   if (operation === 'linalg_svd') return np.linalg.svd(arrays['a']);
   if (operation === 'linalg_eig') return np.linalg.eig(arrays['a']);
   if (operation === 'linalg_eigh') {
     const a = arrays['a'];
-    const aT = a.transpose();
-    const sym = a.add(aT).multiply(0.5);
+    const aT = np.transpose(a);
+    const sym = np.multiply(np.add(a, aT), 0.5);
     return np.linalg.eigh(sym);
   }
   if (operation === 'linalg_norm') return np.linalg.norm(arrays['a']);
@@ -294,20 +294,20 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'bitwise_count') return np.bitwise_count(arrays['a']);
 
   // Reductions
-  if (operation === 'sum') return arrays['a'].sum(arrays['axis']);
-  if (operation === 'mean') return arrays['a'].mean(arrays['axis']);
-  if (operation === 'max') return arrays['a'].max(arrays['axis']);
-  if (operation === 'min') return arrays['a'].min(arrays['axis']);
-  if (operation === 'prod') return arrays['a'].prod(arrays['axis']);
-  if (operation === 'argmin') return arrays['a'].argmin(arrays['axis']);
-  if (operation === 'argmax') return arrays['a'].argmax(arrays['axis']);
-  if (operation === 'var') return arrays['a'].var(arrays['axis']);
-  if (operation === 'std') return arrays['a'].std(arrays['axis']);
-  if (operation === 'all') return arrays['a'].all(arrays['axis']);
-  if (operation === 'any') return arrays['a'].any(arrays['axis']);
-  if (operation === 'cumsum') return arrays['a'].cumsum();
-  if (operation === 'cumprod') return arrays['a'].cumprod();
-  if (operation === 'ptp') return arrays['a'].ptp();
+  if (operation === 'sum') return np.sum(arrays['a'], arrays['axis']);
+  if (operation === 'mean') return np.mean(arrays['a'], arrays['axis']);
+  if (operation === 'max') return np.max(arrays['a'], arrays['axis']);
+  if (operation === 'min') return np.min(arrays['a'], arrays['axis']);
+  if (operation === 'prod') return np.prod(arrays['a'], arrays['axis']);
+  if (operation === 'argmin') return np.argmin(arrays['a'], arrays['axis']);
+  if (operation === 'argmax') return np.argmax(arrays['a'], arrays['axis']);
+  if (operation === 'var') return np.var_(arrays['a'], arrays['axis']);
+  if (operation === 'std') return np.std(arrays['a'], arrays['axis']);
+  if (operation === 'all') return np.all(arrays['a'], arrays['axis']);
+  if (operation === 'any') return np.any(arrays['a'], arrays['axis']);
+  if (operation === 'cumsum') return np.cumsum(arrays['a']);
+  if (operation === 'cumprod') return np.cumprod(arrays['a']);
+  if (operation === 'ptp') return np.ptp(arrays['a']);
   if (operation === 'median') return np.median(arrays['a']);
   if (operation === 'percentile') return np.percentile(arrays['a'], 50);
   if (operation === 'quantile') return np.quantile(arrays['a'], 0.5);
@@ -324,24 +324,24 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'require') return np.require(arrays['a'], undefined, 'C');
 
   // Reshape
-  if (operation === 'reshape') return arrays['a'].reshape(...arrays['new_shape']);
-  if (operation === 'flatten') return arrays['a'].flatten();
-  if (operation === 'ravel') return arrays['a'].ravel();
-  if (operation === 'squeeze') return arrays['a'].squeeze();
+  if (operation === 'reshape') return np.reshape(arrays['a'], arrays['new_shape']);
+  if (operation === 'flatten') return np.flatten(arrays['a']);
+  if (operation === 'ravel') return np.ravel(arrays['a']);
+  if (operation === 'squeeze') return np.squeeze(arrays['a']);
 
   // Slicing
   if (operation === 'slice') return arrays['a'].slice('0:100', '0:100');
 
   // Array manipulation
-  if (operation === 'swapaxes') return arrays['a'].swapaxes(0, 1);
+  if (operation === 'swapaxes') return np.swapaxes(arrays['a'], 0, 1);
   if (operation === 'concatenate') return np.concatenate([arrays['a'], arrays['b']], 0);
   if (operation === 'stack') return np.stack([arrays['a'], arrays['b']], 0);
   if (operation === 'vstack') return np.vstack([arrays['a'], arrays['b']]);
   if (operation === 'hstack') return np.hstack([arrays['a'], arrays['b']]);
   if (operation === 'tile') return np.tile(arrays['a'], [2, 2]);
-  if (operation === 'repeat') return arrays['a'].repeat(2);
+  if (operation === 'repeat') return np.repeat(arrays['a'], 2);
   if (operation === 'broadcast_to') return np.broadcast_to(arrays['a'], arrays['target_shape']);
-  if (operation === 'take') return arrays['a'].take(arrays['indices']);
+  if (operation === 'take') return np.take(arrays['a'], arrays['indices']);
   if (operation === 'flip') return np.flip(arrays['a']);
   if (operation === 'rot90') return np.rot90(arrays['a']);
   if (operation === 'roll') return np.roll(arrays['a'], 10);
@@ -411,21 +411,21 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
 
   // Logic
   if (operation === 'logical_and')
-    return arrays['b'] ? arrays['a'].logical_and(arrays['b']) : arrays['a'].logical_and(arrays['scalar']);
+    return arrays['b'] ? np.logical_and(arrays['a'], arrays['b']) : np.logical_and(arrays['a'], arrays['scalar']);
   if (operation === 'logical_or')
-    return arrays['b'] ? arrays['a'].logical_or(arrays['b']) : arrays['a'].logical_or(arrays['scalar']);
-  if (operation === 'logical_not') return arrays['a'].logical_not();
+    return arrays['b'] ? np.logical_or(arrays['a'], arrays['b']) : np.logical_or(arrays['a'], arrays['scalar']);
+  if (operation === 'logical_not') return np.logical_not(arrays['a']);
   if (operation === 'logical_xor')
-    return arrays['b'] ? arrays['a'].logical_xor(arrays['b']) : arrays['a'].logical_xor(arrays['scalar']);
-  if (operation === 'isfinite') return arrays['a'].isfinite();
-  if (operation === 'isinf') return arrays['a'].isinf();
-  if (operation === 'isnan') return arrays['a'].isnan();
+    return arrays['b'] ? np.logical_xor(arrays['a'], arrays['b']) : np.logical_xor(arrays['a'], arrays['scalar']);
+  if (operation === 'isfinite') return np.isfinite(arrays['a']);
+  if (operation === 'isinf') return np.isinf(arrays['a']);
+  if (operation === 'isnan') return np.isnan(arrays['a']);
   if (operation === 'isneginf') return np.isneginf(arrays['a']);
   if (operation === 'isposinf') return np.isposinf(arrays['a']);
   if (operation === 'isreal') return np.isreal(arrays['a']);
-  if (operation === 'signbit') return arrays['a'].signbit();
+  if (operation === 'signbit') return np.signbit(arrays['a']);
   if (operation === 'copysign')
-    return arrays['b'] ? arrays['a'].copysign(arrays['b']) : arrays['a'].copysign(arrays['scalar']);
+    return arrays['b'] ? np.copysign(arrays['a'], arrays['b']) : np.copysign(arrays['a'], arrays['scalar']);
 
   // Random
   if (operation === 'random_random') return np.random.random(arrays['shape']);
@@ -450,18 +450,18 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   // Complex
   if (operation === 'complex_zeros') return np.zeros(arrays['shape'], 'complex128');
   if (operation === 'complex_ones') return np.ones(arrays['shape'], 'complex128');
-  if (operation === 'complex_add') return arrays['a'].add(arrays['b']);
-  if (operation === 'complex_multiply') return arrays['a'].multiply(arrays['b']);
-  if (operation === 'complex_divide') return arrays['a'].divide(arrays['b']);
+  if (operation === 'complex_add') return np.add(arrays['a'], arrays['b']);
+  if (operation === 'complex_multiply') return np.multiply(arrays['a'], arrays['b']);
+  if (operation === 'complex_divide') return np.divide(arrays['a'], arrays['b']);
   if (operation === 'complex_real') return np.real(arrays['a']);
   if (operation === 'complex_imag') return np.imag(arrays['a']);
   if (operation === 'complex_conj') return np.conj(arrays['a']);
   if (operation === 'complex_angle') return np.angle(arrays['a']);
   if (operation === 'complex_abs') return np.abs(arrays['a']);
   if (operation === 'complex_sqrt') return np.sqrt(arrays['a']);
-  if (operation === 'complex_sum') return arrays['a'].sum();
-  if (operation === 'complex_mean') return arrays['a'].mean();
-  if (operation === 'complex_prod') return arrays['a'].prod();
+  if (operation === 'complex_sum') return np.sum(arrays['a']);
+  if (operation === 'complex_mean') return np.mean(arrays['a']);
+  if (operation === 'complex_prod') return np.prod(arrays['a']);
 
   // Other Math
   if (operation === 'clip') return np.clip(arrays['a'], 10, 100);
