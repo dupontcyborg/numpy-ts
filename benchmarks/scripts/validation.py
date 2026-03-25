@@ -31,6 +31,8 @@ def setup_arrays(setup_config):
             arrays[key] = shape[0]
             if key in ["new_shape", "shape", "target_shape", "dims"]:
                 arrays[key] = shape
+                if dtype != "float64":
+                    arrays["dtype"] = dtype
             continue
 
         # Handle indices array
@@ -649,32 +651,104 @@ def run_operation(spec):
         else:
             result = np.copysign(arrays["a"], arrays["scalar"])
 
-    # Random operations - return placeholder with correct shape
-    # (actual values will differ between NumPy and numpy-ts)
+    # Random operations — seeded for exact-match validation
     elif operation == "random_random":
+        np.random.seed(42)
         result = np.random.random(tuple(arrays["shape"]))
     elif operation == "random_rand":
+        np.random.seed(42)
         result = np.random.rand(*arrays["shape"])
     elif operation == "random_randn":
+        np.random.seed(42)
         result = np.random.randn(*arrays["shape"])
     elif operation == "random_randint":
-        result = np.random.randint(0, 100, tuple(arrays["shape"]))
+        np.random.seed(42)
+        dtype = arrays.get("dtype", "int64")
+        result = np.random.randint(0, 100, tuple(arrays["shape"]), dtype=dtype)
     elif operation == "random_uniform":
+        np.random.seed(42)
         result = np.random.uniform(0, 1, tuple(arrays["shape"]))
     elif operation == "random_normal":
+        np.random.seed(42)
         result = np.random.normal(0, 1, tuple(arrays["shape"]))
     elif operation == "random_standard_normal":
+        np.random.seed(42)
         result = np.random.standard_normal(tuple(arrays["shape"]))
     elif operation == "random_exponential":
+        np.random.seed(42)
         result = np.random.exponential(1, tuple(arrays["shape"]))
     elif operation == "random_poisson":
+        np.random.seed(42)
         result = np.random.poisson(5, tuple(arrays["shape"]))
     elif operation == "random_binomial":
+        np.random.seed(42)
         result = np.random.binomial(10, 0.5, tuple(arrays["shape"]))
     elif operation == "random_choice":
+        np.random.seed(42)
         result = np.random.choice(arrays["n"], 100)
     elif operation == "random_permutation":
+        np.random.seed(42)
         result = np.random.permutation(arrays["n"])
+    elif operation == "random_standard_exponential":
+        np.random.seed(42)
+        result = np.random.standard_exponential(tuple(arrays["shape"]))
+    elif operation == "random_logistic":
+        np.random.seed(42)
+        result = np.random.logistic(0, 1, tuple(arrays["shape"]))
+    elif operation == "random_lognormal":
+        np.random.seed(42)
+        result = np.random.lognormal(0, 1, tuple(arrays["shape"]))
+    elif operation == "random_gumbel":
+        np.random.seed(42)
+        result = np.random.gumbel(0, 1, tuple(arrays["shape"]))
+    elif operation == "random_pareto":
+        np.random.seed(42)
+        result = np.random.pareto(3, tuple(arrays["shape"]))
+    elif operation == "random_power":
+        np.random.seed(42)
+        result = np.random.power(3, tuple(arrays["shape"]))
+    elif operation == "random_rayleigh":
+        np.random.seed(42)
+        result = np.random.rayleigh(1, tuple(arrays["shape"]))
+    elif operation == "random_weibull":
+        np.random.seed(42)
+        result = np.random.weibull(3, tuple(arrays["shape"]))
+    elif operation == "random_triangular":
+        np.random.seed(42)
+        result = np.random.triangular(0, 0.5, 1, tuple(arrays["shape"]))
+    elif operation == "random_standard_cauchy":
+        np.random.seed(42)
+        result = np.random.standard_cauchy(tuple(arrays["shape"]))
+    elif operation == "random_standard_t":
+        np.random.seed(42)
+        result = np.random.standard_t(5, tuple(arrays["shape"]))
+    elif operation == "random_wald":
+        np.random.seed(42)
+        result = np.random.wald(1, 1, tuple(arrays["shape"]))
+    elif operation == "random_vonmises":
+        np.random.seed(42)
+        result = np.random.vonmises(0, 1, tuple(arrays["shape"]))
+    elif operation == "random_zipf":
+        np.random.seed(42)
+        result = np.random.zipf(2, tuple(arrays["shape"]))
+    elif operation == "random_gamma":
+        np.random.seed(42)
+        result = np.random.gamma(2, 1, tuple(arrays["shape"]))
+    elif operation == "random_beta":
+        np.random.seed(42)
+        result = np.random.beta(2, 5, tuple(arrays["shape"]))
+    elif operation == "random_chisquare":
+        np.random.seed(42)
+        result = np.random.chisquare(5, tuple(arrays["shape"]))
+    elif operation == "random_dirichlet":
+        np.random.seed(42)
+        result = np.random.dirichlet([1, 2, 3], arrays["shape"][0])
+    elif operation == "random_laplace":
+        np.random.seed(42)
+        result = np.random.laplace(0, 1, tuple(arrays["shape"]))
+    elif operation == "random_geometric":
+        np.random.seed(42)
+        result = np.random.geometric(0.5, tuple(arrays["shape"]))
 
     # Complex operations
     elif operation == "complex_zeros":

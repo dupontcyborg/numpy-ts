@@ -3066,16 +3066,18 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
-    specs.push({
-      name: `random.randint [${sizes.medium.join('x')}]`,
-      category: 'random',
-      operation: 'random_randint',
-      setup: {
-        shape: { shape: sizes.medium, dtype: 'int64' },
-      },
-      iterations,
-      warmup,
-    });
+    for (const dt of ['int64', 'int32', 'int16', 'int8', 'uint64', 'uint32', 'uint16', 'uint8'] as const) {
+      specs.push({
+        name: `random.randint [${sizes.medium.join('x')}] ${dt}`,
+        category: 'random',
+        operation: 'random_randint',
+        setup: {
+          shape: { shape: sizes.medium, dtype: dt },
+        },
+        iterations,
+        warmup,
+      });
+    }
 
     specs.push({
       name: `random.uniform [${sizes.medium.join('x')}]`,
@@ -3233,6 +3235,34 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       iterations,
       warmup,
     });
+
+    for (const op of [
+      { name: 'standard_exponential', operation: 'random_standard_exponential' },
+      { name: 'logistic', operation: 'random_logistic' },
+      { name: 'lognormal', operation: 'random_lognormal' },
+      { name: 'gumbel', operation: 'random_gumbel' },
+      { name: 'pareto', operation: 'random_pareto' },
+      { name: 'power', operation: 'random_power' },
+      { name: 'rayleigh', operation: 'random_rayleigh' },
+      { name: 'weibull', operation: 'random_weibull' },
+      { name: 'triangular', operation: 'random_triangular' },
+      { name: 'standard_cauchy', operation: 'random_standard_cauchy' },
+      { name: 'standard_t', operation: 'random_standard_t' },
+      { name: 'wald', operation: 'random_wald' },
+      { name: 'vonmises', operation: 'random_vonmises' },
+      { name: 'zipf', operation: 'random_zipf' },
+    ] as const) {
+      specs.push({
+        name: `random.${op.name} [${sizes.medium.join('x')}]`,
+        category: 'random',
+        operation: op.operation,
+        setup: {
+          shape: { shape: sizes.medium },
+        },
+        iterations,
+        warmup,
+      });
+    }
 
     // ========================================
     // Complex Number Benchmarks

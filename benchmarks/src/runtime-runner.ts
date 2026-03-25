@@ -53,6 +53,8 @@ function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, 
       arrays[key] = shape[0];
       if (key === 'new_shape' || key === 'shape' || key === 'target_shape' || key === 'dims') {
         arrays[key] = shape;
+        // Store dtype for operations that need it (e.g., randint)
+        if (dtype) arrays['dtype'] = dtype;
       }
       continue;
     }
@@ -432,7 +434,7 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'random_random') return np.random.random(arrays['shape']);
   if (operation === 'random_rand') return np.random.rand(...arrays['shape']);
   if (operation === 'random_randn') return np.random.randn(...arrays['shape']);
-  if (operation === 'random_randint') return np.random.randint(0, 100, arrays['shape']);
+  if (operation === 'random_randint') return np.random.randint(0, 100, arrays['shape'], arrays['dtype'] || 'int64');
   if (operation === 'random_uniform') return np.random.uniform(0, 1, arrays['shape']);
   if (operation === 'random_normal') return np.random.normal(0, 1, arrays['shape']);
   if (operation === 'random_standard_normal') return np.random.standard_normal(arrays['shape']);
@@ -447,6 +449,20 @@ function executeOperation(operation: string, arrays: Record<string, any>): any {
   if (operation === 'random_laplace') return np.random.laplace(0, 1, arrays['shape']);
   if (operation === 'random_geometric') return np.random.geometric(0.5, arrays['shape']);
   if (operation === 'random_dirichlet') return np.random.dirichlet([1, 2, 3], arrays['shape'][0]);
+  if (operation === 'random_standard_exponential') return np.random.standard_exponential(arrays['shape']);
+  if (operation === 'random_logistic') return np.random.logistic(0, 1, arrays['shape']);
+  if (operation === 'random_lognormal') return np.random.lognormal(0, 1, arrays['shape']);
+  if (operation === 'random_gumbel') return np.random.gumbel(0, 1, arrays['shape']);
+  if (operation === 'random_pareto') return np.random.pareto(3, arrays['shape']);
+  if (operation === 'random_power') return np.random.power(3, arrays['shape']);
+  if (operation === 'random_rayleigh') return np.random.rayleigh(1, arrays['shape']);
+  if (operation === 'random_weibull') return np.random.weibull(3, arrays['shape']);
+  if (operation === 'random_triangular') return np.random.triangular(0, 0.5, 1, arrays['shape']);
+  if (operation === 'random_standard_cauchy') return np.random.standard_cauchy(arrays['shape']);
+  if (operation === 'random_standard_t') return np.random.standard_t(5, arrays['shape']);
+  if (operation === 'random_wald') return np.random.wald(1, 1, arrays['shape']);
+  if (operation === 'random_vonmises') return np.random.vonmises(0, 1, arrays['shape']);
+  if (operation === 'random_zipf') return np.random.zipf(2, arrays['shape']);
 
   // Complex
   if (operation === 'complex_zeros') return np.zeros(arrays['shape'], 'complex128');

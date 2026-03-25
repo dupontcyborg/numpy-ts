@@ -38,10 +38,13 @@ function deserializeValue(val: any): any {
 }
 
 /**
- * Check if operation is a random operation (non-deterministic)
+ * Check if operation is a random operation that can't do exact comparison.
+ * Now that random ops are seeded, most can do value comparison.
+ * Only choice/permutation remain non-deterministic in ordering.
  */
 function isRandomOperation(operation: string): boolean {
-  return operation.startsWith('random_');
+  // choice and permutation use shuffling which differs between implementations
+  return operation === 'random_choice' || operation === 'random_permutation';
 }
 
 /**
@@ -376,6 +379,7 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       arrays[key] = shape[0];
       if (key === 'new_shape' || key === 'shape' || key === 'target_shape' || key === 'dims') {
         arrays[key] = shape;
+        if (dtype !== 'float64') arrays['dtype'] = dtype;
       }
       continue;
     }
@@ -985,43 +989,103 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
         return np.copysign(arrays.a, arrays.scalar);
       }
 
-    // Random operations - these are non-deterministic, so we just validate they run
+    // Random operations — seeded for exact-match validation
     case 'random_random':
+      np.random.seed(42);
       return np.random.random(arrays.shape);
     case 'random_rand':
+      np.random.seed(42);
       return np.random.rand(...arrays.shape);
     case 'random_randn':
+      np.random.seed(42);
       return np.random.randn(...arrays.shape);
     case 'random_randint':
-      return np.random.randint(0, 100, arrays.shape);
+      np.random.seed(42);
+      return np.random.randint(0, 100, arrays.shape, arrays.dtype || 'int64');
     case 'random_uniform':
+      np.random.seed(42);
       return np.random.uniform(0, 1, arrays.shape);
     case 'random_normal':
+      np.random.seed(42);
       return np.random.normal(0, 1, arrays.shape);
     case 'random_standard_normal':
+      np.random.seed(42);
       return np.random.standard_normal(arrays.shape);
     case 'random_exponential':
+      np.random.seed(42);
       return np.random.exponential(1, arrays.shape);
     case 'random_poisson':
+      np.random.seed(42);
       return np.random.poisson(5, arrays.shape);
     case 'random_binomial':
+      np.random.seed(42);
       return np.random.binomial(10, 0.5, arrays.shape);
     case 'random_choice':
+      np.random.seed(42);
       return np.random.choice(arrays.n, 100);
     case 'random_permutation':
+      np.random.seed(42);
       return np.random.permutation(arrays.n);
     case 'random_gamma':
+      np.random.seed(42);
       return np.random.gamma(2, 1, arrays.shape);
     case 'random_beta':
+      np.random.seed(42);
       return np.random.beta(2, 5, arrays.shape);
     case 'random_chisquare':
+      np.random.seed(42);
       return np.random.chisquare(5, arrays.shape);
     case 'random_laplace':
+      np.random.seed(42);
       return np.random.laplace(0, 1, arrays.shape);
     case 'random_geometric':
+      np.random.seed(42);
       return np.random.geometric(0.5, arrays.shape);
     case 'random_dirichlet':
+      np.random.seed(42);
       return np.random.dirichlet([1, 2, 3], arrays.shape[0]);
+    case 'random_standard_exponential':
+      np.random.seed(42);
+      return np.random.standard_exponential(arrays.shape);
+    case 'random_logistic':
+      np.random.seed(42);
+      return np.random.logistic(0, 1, arrays.shape);
+    case 'random_lognormal':
+      np.random.seed(42);
+      return np.random.lognormal(0, 1, arrays.shape);
+    case 'random_gumbel':
+      np.random.seed(42);
+      return np.random.gumbel(0, 1, arrays.shape);
+    case 'random_pareto':
+      np.random.seed(42);
+      return np.random.pareto(3, arrays.shape);
+    case 'random_power':
+      np.random.seed(42);
+      return np.random.power(3, arrays.shape);
+    case 'random_rayleigh':
+      np.random.seed(42);
+      return np.random.rayleigh(1, arrays.shape);
+    case 'random_weibull':
+      np.random.seed(42);
+      return np.random.weibull(3, arrays.shape);
+    case 'random_triangular':
+      np.random.seed(42);
+      return np.random.triangular(0, 0.5, 1, arrays.shape);
+    case 'random_standard_cauchy':
+      np.random.seed(42);
+      return np.random.standard_cauchy(arrays.shape);
+    case 'random_standard_t':
+      np.random.seed(42);
+      return np.random.standard_t(5, arrays.shape);
+    case 'random_wald':
+      np.random.seed(42);
+      return np.random.wald(1, 1, arrays.shape);
+    case 'random_vonmises':
+      np.random.seed(42);
+      return np.random.vonmises(0, 1, arrays.shape);
+    case 'random_zipf':
+      np.random.seed(42);
+      return np.random.zipf(2, arrays.shape);
 
     // Complex operations
     case 'complex_zeros':

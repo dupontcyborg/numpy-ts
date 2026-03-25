@@ -45,6 +45,9 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
                 arrays[key] = shape[0]
             else:
                 arrays[key] = tuple(shape)
+            # Store dtype for operations that need it (e.g., randint)
+            if key == "shape" and dtype != "float64":
+                arrays["dtype"] = dtype
             continue
 
         # Handle indices array
@@ -679,7 +682,8 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         shape = arrays["shape"]
         return np.random.randn(*shape)
     elif operation == "random_randint":
-        return np.random.randint(0, 100, arrays["shape"])
+        dtype = arrays.get("dtype", "int64")
+        return np.random.randint(0, 100, arrays["shape"], dtype=dtype)
     elif operation == "random_uniform":
         return np.random.uniform(0, 1, arrays["shape"])
     elif operation == "random_normal":
@@ -718,6 +722,34 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
         else:
             size = shape
         return np.random.dirichlet(alpha, size)
+    elif operation == "random_standard_exponential":
+        return np.random.standard_exponential(arrays["shape"])
+    elif operation == "random_logistic":
+        return np.random.logistic(0.0, 1.0, arrays["shape"])
+    elif operation == "random_lognormal":
+        return np.random.lognormal(0.0, 1.0, arrays["shape"])
+    elif operation == "random_gumbel":
+        return np.random.gumbel(0.0, 1.0, arrays["shape"])
+    elif operation == "random_pareto":
+        return np.random.pareto(3.0, arrays["shape"])
+    elif operation == "random_power":
+        return np.random.power(3.0, arrays["shape"])
+    elif operation == "random_rayleigh":
+        return np.random.rayleigh(1.0, arrays["shape"])
+    elif operation == "random_weibull":
+        return np.random.weibull(3.0, arrays["shape"])
+    elif operation == "random_triangular":
+        return np.random.triangular(0.0, 0.5, 1.0, arrays["shape"])
+    elif operation == "random_standard_cauchy":
+        return np.random.standard_cauchy(arrays["shape"])
+    elif operation == "random_standard_t":
+        return np.random.standard_t(5.0, arrays["shape"])
+    elif operation == "random_wald":
+        return np.random.wald(1.0, 1.0, arrays["shape"])
+    elif operation == "random_vonmises":
+        return np.random.vonmises(0.0, 1.0, arrays["shape"])
+    elif operation == "random_zipf":
+        return np.random.zipf(2.0, arrays["shape"])
 
     # Complex operations
     elif operation == "complex_zeros":
