@@ -66,14 +66,38 @@ export fn reduce_min_i64(a: [*]const i64, N: u32) i64 {
 }
 
 /// Returns the mimimum u64 element. Returns 0 if N=0.
+/// Uses signed i64 comparison with sign-bit flip (XOR 0x8000…) so LLVM
+/// emits the native i64x2.gt_s SIMD instruction instead of scalarising.
 export fn reduce_min_u64(a: [*]const u64, N: u32) u64 {
     if (N == 0) return 0;
-    var result: u64 = a[0];
+
+    const FLIP: i64 = @bitCast(@as(u64, 0x8000000000000000));
+    const ptr: [*]const i64 = @ptrCast(a);
+
+    var result: i64 = ptr[0] +% FLIP;
     var i: u32 = 1;
-    while (i < N) : (i += 1) {
-        if (a[i] < result) result = a[i];
+
+    // 2-wide SIMD path
+    const n_simd = N & ~@as(u32, 1);
+    if (n_simd >= 2) {
+        const flip_vec = @as(simd.V2i64, @splat(FLIP));
+        var acc = simd.load2_i64(ptr, 0) +% flip_vec;
+        i = 2;
+        while (i < n_simd) : (i += 2) {
+            const v = simd.load2_i64(ptr, i) +% flip_vec;
+            acc = @select(i64, acc < v, acc, v); // uses i64x2.gt_s (inverted)
+        }
+        result = if (acc[0] < acc[1]) acc[0] else acc[1];
+        i = n_simd;
     }
-    return result;
+
+    // Scalar tail
+    while (i < N) : (i += 1) {
+        const biased = ptr[i] +% FLIP;
+        if (biased < result) result = biased;
+    }
+
+    return @bitCast(@as(i64, result -% FLIP));
 }
 
 /// Returns the mimimum i32 element. Returns 0 if N=0. Uses 4-wide SIMD.

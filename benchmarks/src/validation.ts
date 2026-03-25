@@ -31,6 +31,8 @@ function deserializeValue(val: any): any {
     return -Infinity;
   } else if (val === '__NaN__') {
     return NaN;
+  } else if (typeof val === 'string' && val.startsWith('__bigint__')) {
+    return BigInt(val.slice(10));
   }
   return val;
 }
@@ -150,7 +152,10 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string, 
     return true;
   }
 
-  // BigInt scalars (from int64 results)
+  // BigInt scalars (from int64/uint64 results) — compare exactly
+  if (typeof numpytsResult === 'bigint' && typeof numpyResult === 'bigint') {
+    return numpytsResult === numpyResult;
+  }
   if (typeof numpytsResult === 'bigint' || typeof numpyResult === 'bigint') {
     const a = typeof numpytsResult === 'bigint' ? Number(numpytsResult) : numpytsResult;
     const b = typeof numpyResult === 'bigint' ? Number(numpyResult) : numpyResult;
@@ -324,7 +329,10 @@ function arraysEqual(a: any, b: any, tolerance: number = FLOAT64_TOLERANCE): boo
     return a.every((val, i) => arraysEqual(val, b[i], tolerance));
   }
 
-  // Compare BigInt values (from int64 results)
+  // Compare BigInt values (from int64/uint64 results) — compare exactly
+  if (typeof a === 'bigint' && typeof b === 'bigint') {
+    return a === b;
+  }
   if (typeof a === 'bigint' || typeof b === 'bigint') {
     const na = typeof a === 'bigint' ? Number(a) : a;
     const nb = typeof b === 'bigint' ? Number(b) : b;
@@ -750,11 +758,12 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       return (result as { q: any }).q;
     }
     case 'linalg_cholesky': {
-      // Create positive definite matrix: A^T * A + n*I
+      // Create positive definite matrix: A^T * A + trace(A^T * A) * I
       const n = arrays.a.shape[0];
       const aT = arrays.a.transpose();
       const aTa = aT.matmul(arrays.a);
-      const posdef = aTa.add(np.eye(n).multiply(n));
+      const tr = np.trace(aTa);
+      const posdef = aTa.add(np.eye(n, undefined, 0, arrays.a.dtype).multiply(tr));
       return np.linalg.cholesky(posdef);
     }
     case 'linalg_svd': {

@@ -306,10 +306,12 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "linalg_qr":
         return np.linalg.qr(arrays["a"])
     elif operation == "linalg_cholesky":
-        # Create positive definite matrix: A^T * A + n*I
+        # Create positive definite matrix: A^T * A + trace(A^T * A) * I
+        # Scale identity by trace to guarantee positive-definiteness in all dtypes
         a = arrays["a"]
         n = a.shape[0]
-        posdef = a.T @ a + np.eye(n) * n
+        ata = a.T @ a
+        posdef = ata + np.eye(n, dtype=a.dtype) * np.trace(ata)
         return np.linalg.cholesky(posdef)
     elif operation == "linalg_svd":
         return np.linalg.svd(arrays["a"])

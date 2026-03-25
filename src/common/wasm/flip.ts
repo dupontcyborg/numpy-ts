@@ -8,16 +8,19 @@
 import { flip_f64, flip_f32, flip_i64, flip_i32, flip_i16, flip_i8 } from './bins/flip.wasm';
 import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { hasFloat16, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
+// Flip is pure memory reversal — kernel just needs to match element width.
+// float16: native Float16Array (2 bytes) → flip_i16; polyfill Float32Array (4 bytes) → flip_f32
 const kernels: Partial<Record<DType, UnaryFn>> = {
   float64: flip_f64,
   float32: flip_f32,
+  float16: hasFloat16 ? flip_i16 : flip_f32,
   int64: flip_i64,
   uint64: flip_i64,
   int32: flip_i32,
@@ -32,6 +35,7 @@ type AnyTypedArrayCtor = new (length: number) => TypedArray;
 const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   float64: Float64Array,
   float32: Float32Array,
+  float16: hasFloat16 ? (Float16Array as unknown as AnyTypedArrayCtor) : Float32Array,
   int64: BigInt64Array,
   uint64: BigUint64Array,
   int32: Int32Array,

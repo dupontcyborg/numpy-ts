@@ -195,19 +195,181 @@ pub fn heapSort(comptime T: type, a: [*]T, N: u32) void {
     }
 }
 
-// --- Heap sort (indirect + stable, for argsort) ---
+// --- Introsort (quicksort + heapsort fallback + insertion sort base) ---
 
-/// Stable sift-down: uses stableLess so equal elements preserve original index order.
-fn heapSiftDownStable(comptime T: type, a: [*]const T, out: [*]u32, start: u32, end: u32) void {
+/// Insertion sort for small subarrays. Fast for N ≤ ~32 due to low overhead.
+fn insertionSort(comptime T: type, a: [*]T, lo: u32, hi: u32) void {
+    var i: u32 = lo + 1;
+    while (i <= hi) : (i += 1) {
+        const key = a[i];
+        var j: u32 = i;
+        while (j > lo and lessThan(T, key, a[j - 1])) {
+            a[j] = a[j - 1];
+            j -= 1;
+        }
+        a[j] = key;
+    }
+}
+
+/// Hoare partition: more efficient than Lomuto (fewer swaps on average).
+fn hoarePartition(comptime T: type, a: [*]T, lo: u32, hi: u32) u32 {
+    const mid = medianOfThree(T, a, lo, hi);
+    // After medianOfThree, a[mid] is the median. Use it as pivot.
+    const pivot = a[mid];
+    var i: u32 = lo;
+    var j: u32 = hi;
+    while (true) {
+        while (lessThan(T, a[i], pivot)) i += 1;
+        while (lessThan(T, pivot, a[j])) j -= 1;
+        if (i >= j) return j;
+        swap(T, a, i, j);
+        i += 1;
+        j -= 1;
+    }
+}
+
+/// Floor of log2(n), used to compute introsort depth limit.
+fn floorLog2(n: u32) u32 {
+    if (n == 0) return 0;
+    return 31 - @clz(n);
+}
+
+/// Introsort inner loop: quicksort with depth-limited heapsort fallback.
+fn introSortImpl(comptime T: type, a: [*]T, lo_arg: u32, hi_arg: u32, depth: u32) void {
+    var lo = lo_arg;
+    var hi = hi_arg;
+    var d = depth;
+
+    while (hi > lo) {
+        const size = hi - lo + 1;
+
+        // Base case: insertion sort for small subarrays
+        if (size <= 24) {
+            insertionSort(T, a, lo, hi);
+            return;
+        }
+
+        // Depth limit exceeded: fall back to heapsort to guarantee O(N log N)
+        if (d == 0) {
+            // Sort the subarray [lo..hi] using heapsort
+            heapSort(T, a + lo, size);
+            return;
+        }
+        d -= 1;
+
+        const p = hoarePartition(T, a, lo, hi);
+
+        // Recurse on the smaller partition, loop on the larger (tail-call optimization)
+        if (p - lo < hi - p) {
+            introSortImpl(T, a, lo, p, d);
+            lo = p + 1;
+        } else {
+            introSortImpl(T, a, p + 1, hi, d);
+            hi = p;
+        }
+    }
+}
+
+/// In-place introsort: quicksort + heapsort fallback + insertion sort base.
+/// O(N log N) worst-case, cache-friendly, fast on real data.
+pub fn introSort(comptime T: type, a: [*]T, N: u32) void {
+    if (N <= 1) return;
+    const depthLimit = 2 * floorLog2(N);
+    introSortImpl(T, a, 0, N - 1, depthLimit);
+}
+
+// --- Indirect introsort (stable, for argsort) ---
+
+/// Indirect insertion sort: sorts out[lo..hi] by comparing a[out[i]].
+fn insertionSortStable(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, hi: u32) void {
+    var i: u32 = lo + 1;
+    while (i <= hi) : (i += 1) {
+        const key = out[i];
+        var j: u32 = i;
+        while (j > lo and stableLess(T, a, key, out[j - 1])) {
+            out[j] = out[j - 1];
+            j -= 1;
+        }
+        out[j] = key;
+    }
+}
+
+/// Indirect Hoare partition using stableLess.
+fn hoarePartitionStable(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, hi: u32) u32 {
+    const med = medianOfThreeIndirect(T, a, out, lo, hi);
+    const pivot_idx = out[med];
+    var i: u32 = lo;
+    var j: u32 = hi;
+    while (true) {
+        while (stableLess(T, a, out[i], pivot_idx)) i += 1;
+        while (stableLess(T, a, pivot_idx, out[j])) j -= 1;
+        if (i >= j) return j;
+        swapU32(out, i, j);
+        i += 1;
+        j -= 1;
+    }
+}
+
+fn introSortStableImpl(comptime T: type, a: [*]const T, out: [*]u32, lo_arg: u32, hi_arg: u32, depth: u32) void {
+    var lo = lo_arg;
+    var hi = hi_arg;
+    var d = depth;
+
+    while (hi > lo) {
+        const size = hi - lo + 1;
+        if (size <= 24) {
+            insertionSortStable(T, a, out, lo, hi);
+            return;
+        }
+        if (d == 0) {
+            // Fallback: heap sort this subrange
+            // We need to heap-sort out[lo..hi] using a[out[i]] comparisons
+            heapSortStableRange(T, a, out, lo, hi);
+            return;
+        }
+        d -= 1;
+
+        const p = hoarePartitionStable(T, a, out, lo, hi);
+        if (p - lo < hi - p) {
+            introSortStableImpl(T, a, out, lo, p, d);
+            lo = p + 1;
+        } else {
+            introSortStableImpl(T, a, out, p + 1, hi, d);
+            hi = p;
+        }
+    }
+}
+
+/// Heap sort a subrange out[lo..hi] stably (fallback for introsort depth limit).
+fn heapSortStableRange(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, hi: u32) void {
+    const n = hi - lo + 1;
+    if (n <= 1) return;
+    // Build max-heap
+    var start: u32 = (n - 2) / 2;
+    while (true) {
+        heapSiftDownStableOff(T, a, out, lo, start, n - 1);
+        if (start == 0) break;
+        start -= 1;
+    }
+    var end: u32 = n - 1;
+    while (end > 0) {
+        swapU32(out, lo, lo + end);
+        end -= 1;
+        heapSiftDownStableOff(T, a, out, lo, 0, end);
+    }
+}
+
+/// Sift-down for stable heap sort with offset (operates on out[lo + start .. lo + end]).
+fn heapSiftDownStableOff(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, start: u32, end: u32) void {
     var root = start;
     while (true) {
         var child = 2 * root + 1;
         if (child > end) break;
-        if (child + 1 <= end and stableLess(T, a, out[child], out[child + 1])) {
+        if (child + 1 <= end and stableLess(T, a, out[lo + child], out[lo + child + 1])) {
             child += 1;
         }
-        if (stableLess(T, a, out[root], out[child])) {
-            swapU32(out, root, child);
+        if (stableLess(T, a, out[lo + root], out[lo + child])) {
+            swapU32(out, lo + root, lo + child);
             root = child;
         } else {
             break;
@@ -215,22 +377,11 @@ fn heapSiftDownStable(comptime T: type, a: [*]const T, out: [*]u32, start: u32, 
     }
 }
 
-/// Stable indirect heap sort: sorts out[0..N] so a[out[0]] <= a[out[1]] <= ...
-/// Equal elements preserve original index order (matching NumPy stable sort).
-pub fn heapSortStable(comptime T: type, a: [*]const T, out: [*]u32, N: u32) void {
+/// Stable indirect introsort: sorts out[0..N] so a[out[0]] <= a[out[1]] <= ...
+pub fn introSortStable(comptime T: type, a: [*]const T, out: [*]u32, N: u32) void {
     if (N <= 1) return;
-    var start: u32 = (N - 2) / 2;
-    while (true) {
-        heapSiftDownStable(T, a, out, start, N - 1);
-        if (start == 0) break;
-        start -= 1;
-    }
-    var end: u32 = N - 1;
-    while (end > 0) {
-        swapU32(out, 0, end);
-        end -= 1;
-        heapSiftDownStable(T, a, out, 0, end);
-    }
+    const depthLimit = 2 * floorLog2(N);
+    introSortStableImpl(T, a, out, 0, N - 1, depthLimit);
 }
 
 // --- Lexsort ---
@@ -388,12 +539,15 @@ pub fn radixSort(comptime T: type, a: [*]T, N: u32, scratch: [*]T) void {
 // --- Batch slice operations ---
 
 /// Sort numSlices contiguous slices of sliceSize elements each.
-/// Automatically selects radix sort for ≤32-bit integer types, heap sort otherwise.
-pub fn heapSortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32) void {
+/// Automatically selects radix sort for ≤32-bit types, introsort otherwise.
+pub fn sortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32) void {
     // Radix sort wins for small integer types (1–4 byte keys, few passes).
-    // For 8-byte types (f64/i64/u64) the 8-pass overhead exceeds heap sort at typical slice sizes.
-    const useRadix = (T == u8 or T == i8 or T == u16 or T == i16 or
-        T == u32 or T == i32) and sliceSize >= 16;
+    // For 8-byte types (f64/i64/u64) the 8-pass overhead exceeds introsort at typical slice sizes.
+    // For floats, radix's toRadixKey overhead + 4-8 passes loses to introsort at small slice sizes.
+    // Radix sort: 1 pass for u8/i8 (counting sort) always wins.
+    // For 2-4 byte types, introsort wins at small slice sizes (<256).
+    const useRadix = ((T == u8 or T == i8) and sliceSize >= 16) or
+        ((T == u16 or T == i16 or T == u32 or T == i32) and sliceSize >= 256);
 
     if (useRadix) {
         var scratchBuf: [4096]T = undefined;
@@ -409,18 +563,18 @@ pub fn heapSortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32)
 
     var i: u32 = 0;
     while (i < numSlices) : (i += 1) {
-        heapSort(T, a + @as(usize, i) * @as(usize, sliceSize), sliceSize);
+        introSort(T, a + @as(usize, i) * @as(usize, sliceSize), sliceSize);
     }
 }
 
 /// Argsort numSlices contiguous slices. Initialises indices and sorts stably.
-pub fn heapSortStableSlices(comptime T: type, a: [*]const T, out: [*]u32, sliceSize: u32, numSlices: u32) void {
+pub fn argsortSlices(comptime T: type, a: [*]const T, out: [*]u32, sliceSize: u32, numSlices: u32) void {
     var i: u32 = 0;
     while (i < numSlices) : (i += 1) {
         const off = @as(usize, i) * @as(usize, sliceSize);
         const sliceOut = out + off;
         initIndices(sliceOut, sliceSize);
-        heapSortStable(T, a + off, sliceOut, sliceSize);
+        introSortStable(T, a + off, sliceOut, sliceSize);
     }
 }
 
@@ -522,6 +676,239 @@ fn complexSiftDown(comptime T: type, a: [*]T, start: u32, end: u32) void {
     }
 }
 
+// --- Complex introsort ---
+
+fn complexInsertionSort(comptime T: type, a: [*]T, lo: u32, hi: u32) void {
+    var i: u32 = lo + 1;
+    while (i <= hi) : (i += 1) {
+        const ix2 = @as(usize, i) * 2;
+        const key_re = a[ix2];
+        const key_im = a[ix2 + 1];
+        var j: u32 = i;
+        while (j > lo) {
+            const j2 = @as(usize, j - 1) * 2;
+            // Is key < a[j-1]?
+            const b_re = a[j2];
+            const b_im = a[j2 + 1];
+            const key_nan = (key_re != key_re) or (key_im != key_im);
+            const b_nan = (b_re != b_re) or (b_im != b_im);
+            const lt = if (key_nan) false else if (b_nan) true else if (key_re < b_re) true else if (key_re > b_re) false else key_im < b_im;
+            if (!lt) break;
+            // shift a[j-1] right
+            const jj = @as(usize, j) * 2;
+            a[jj] = a[j2];
+            a[jj + 1] = a[j2 + 1];
+            j -= 1;
+        }
+        const j2 = @as(usize, j) * 2;
+        a[j2] = key_re;
+        a[j2 + 1] = key_im;
+    }
+}
+
+fn complexMedianOfThree(comptime T: type, a: [*]T, lo: u32, hi: u32) u32 {
+    const mid = lo + (hi - lo) / 2;
+    if (complexLess(T, a, hi, lo)) complexSwap(T, a, lo, hi);
+    if (complexLess(T, a, mid, lo)) complexSwap(T, a, lo, mid);
+    if (complexLess(T, a, hi, mid)) complexSwap(T, a, mid, hi);
+    return mid;
+}
+
+fn complexHoarePartition(comptime T: type, a: [*]T, lo: u32, hi: u32) u32 {
+    const mid = complexMedianOfThree(T, a, lo, hi);
+    const mid2 = @as(usize, mid) * 2;
+    const pivot_re = a[mid2];
+    const pivot_im = a[mid2 + 1];
+    var i: u32 = lo;
+    var j: u32 = hi;
+
+    while (true) {
+        // a[i] < pivot?
+        while (true) {
+            const ix2 = @as(usize, i) * 2;
+            const a_nan = (a[ix2] != a[ix2]) or (a[ix2 + 1] != a[ix2 + 1]);
+            const p_nan = (pivot_re != pivot_re) or (pivot_im != pivot_im);
+            const lt = if (a_nan) false else if (p_nan) true else if (a[ix2] < pivot_re) true else if (a[ix2] > pivot_re) false else a[ix2 + 1] < pivot_im;
+            if (!lt) break;
+            i += 1;
+        }
+        // pivot < a[j]?
+        while (true) {
+            const j2 = @as(usize, j) * 2;
+            const a_nan = (a[j2] != a[j2]) or (a[j2 + 1] != a[j2 + 1]);
+            const p_nan = (pivot_re != pivot_re) or (pivot_im != pivot_im);
+            const lt = if (p_nan) false else if (a_nan) true else if (pivot_re < a[j2]) true else if (pivot_re > a[j2]) false else pivot_im < a[j2 + 1];
+            if (!lt) break;
+            j -= 1;
+        }
+        if (i >= j) return j;
+        complexSwap(T, a, i, j);
+        i += 1;
+        j -= 1;
+    }
+}
+
+fn complexIntroSortImpl(comptime T: type, a: [*]T, lo_arg: u32, hi_arg: u32, depth: u32) void {
+    var lo = lo_arg;
+    var hi = hi_arg;
+    var d = depth;
+
+    while (hi > lo) {
+        const size = hi - lo + 1;
+        if (size <= 24) {
+            complexInsertionSort(T, a, lo, hi);
+            return;
+        }
+        if (d == 0) {
+            complexHeapSort(T, a + @as(usize, lo) * 2, size);
+            return;
+        }
+        d -= 1;
+
+        const p = complexHoarePartition(T, a, lo, hi);
+        if (p - lo < hi - p) {
+            complexIntroSortImpl(T, a, lo, p, d);
+            lo = p + 1;
+        } else {
+            complexIntroSortImpl(T, a, p + 1, hi, d);
+            hi = p;
+        }
+    }
+}
+
+/// In-place introsort for complex arrays. N = number of complex elements.
+pub fn complexIntroSort(comptime T: type, a: [*]T, N: u32) void {
+    if (N <= 1) return;
+    const depthLimit = 2 * floorLog2(N);
+    complexIntroSortImpl(T, a, 0, N - 1, depthLimit);
+}
+
+/// Batch complex introsort: sort numSlices contiguous slices.
+pub fn complexIntroSortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32) void {
+    var i: u32 = 0;
+    while (i < numSlices) : (i += 1) {
+        complexIntroSort(T, a + @as(usize, i) * @as(usize, sliceSize) * 2, sliceSize);
+    }
+}
+
+// --- Complex indirect introsort (stable, for complex argsort) ---
+
+fn complexInsertionSortStable(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, hi: u32) void {
+    var i: u32 = lo + 1;
+    while (i <= hi) : (i += 1) {
+        const key = out[i];
+        var j: u32 = i;
+        while (j > lo and complexStableLess(T, a, key, out[j - 1])) {
+            out[j] = out[j - 1];
+            j -= 1;
+        }
+        out[j] = key;
+    }
+}
+
+fn complexMedianOfThreeStable(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, hi: u32) u32 {
+    const mid = lo + (hi - lo) / 2;
+    if (complexStableLess(T, a, out[hi], out[lo])) swapU32(out, lo, hi);
+    if (complexStableLess(T, a, out[mid], out[lo])) swapU32(out, lo, mid);
+    if (complexStableLess(T, a, out[hi], out[mid])) swapU32(out, mid, hi);
+    return mid;
+}
+
+fn complexHoarePartitionStable(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, hi: u32) u32 {
+    const med = complexMedianOfThreeStable(T, a, out, lo, hi);
+    const pivot_idx = out[med];
+    var i_idx: u32 = lo;
+    var j_idx: u32 = hi;
+    while (true) {
+        while (complexStableLess(T, a, out[i_idx], pivot_idx)) i_idx += 1;
+        while (complexStableLess(T, a, pivot_idx, out[j_idx])) j_idx -= 1;
+        if (i_idx >= j_idx) return j_idx;
+        swapU32(out, i_idx, j_idx);
+        i_idx += 1;
+        j_idx -= 1;
+    }
+}
+
+fn complexIntroSortStableImpl(comptime T: type, a: [*]const T, out: [*]u32, lo_arg: u32, hi_arg: u32, depth: u32) void {
+    var lo = lo_arg;
+    var hi = hi_arg;
+    var d = depth;
+
+    while (hi > lo) {
+        const size = hi - lo + 1;
+        if (size <= 24) {
+            complexInsertionSortStable(T, a, out, lo, hi);
+            return;
+        }
+        if (d == 0) {
+            complexHeapSortStableRange(T, a, out, lo, hi);
+            return;
+        }
+        d -= 1;
+
+        const p = complexHoarePartitionStable(T, a, out, lo, hi);
+        if (p - lo < hi - p) {
+            complexIntroSortStableImpl(T, a, out, lo, p, d);
+            lo = p + 1;
+        } else {
+            complexIntroSortStableImpl(T, a, out, p + 1, hi, d);
+            hi = p;
+        }
+    }
+}
+
+fn complexHeapSortStableRange(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, hi: u32) void {
+    const n = hi - lo + 1;
+    if (n <= 1) return;
+    var start: u32 = (n - 2) / 2;
+    while (true) {
+        complexSiftDownStableOff(T, a, out, lo, start, n - 1);
+        if (start == 0) break;
+        start -= 1;
+    }
+    var end: u32 = n - 1;
+    while (end > 0) {
+        swapU32(out, lo, lo + end);
+        end -= 1;
+        complexSiftDownStableOff(T, a, out, lo, 0, end);
+    }
+}
+
+fn complexSiftDownStableOff(comptime T: type, a: [*]const T, out: [*]u32, lo: u32, start: u32, end: u32) void {
+    var root = start;
+    while (true) {
+        var child = 2 * root + 1;
+        if (child > end) break;
+        if (child + 1 <= end and complexStableLess(T, a, out[lo + child], out[lo + child + 1])) {
+            child += 1;
+        }
+        if (complexStableLess(T, a, out[lo + root], out[lo + child])) {
+            swapU32(out, lo + root, lo + child);
+            root = child;
+        } else {
+            break;
+        }
+    }
+}
+
+/// Stable indirect introsort for complex arrays.
+pub fn complexIntroSortStable(comptime T: type, a: [*]const T, out: [*]u32, N: u32) void {
+    if (N <= 1) return;
+    const depthLimit = 2 * floorLog2(N);
+    complexIntroSortStableImpl(T, a, out, 0, N - 1, depthLimit);
+}
+
+/// Batch complex introsort stable: argsort numSlices contiguous slices.
+pub fn complexIntroSortStableSlices(comptime T: type, a: [*]const T, out: [*]u32, sliceSize: u32, numSlices: u32) void {
+    var i: u32 = 0;
+    while (i < numSlices) : (i += 1) {
+        const off = @as(usize, i) * @as(usize, sliceSize);
+        const sliceOut = out + off;
+        initIndices(sliceOut, sliceSize);
+        complexIntroSortStable(T, a + off * 2, sliceOut, sliceSize);
+    }
+}
+
 /// Heap sort for complex arrays. N = number of complex elements (buffer has 2*N floats).
 pub fn complexHeapSort(comptime T: type, a: [*]T, N: u32) void {
     if (N <= 1) return;
@@ -539,57 +926,22 @@ pub fn complexHeapSort(comptime T: type, a: [*]T, N: u32) void {
     }
 }
 
-/// Stable sift-down for complex argsort.
-fn complexStableSiftDown(comptime T: type, a: [*]const T, out: [*]u32, start: u32, end: u32) void {
-    var root = start;
-    while (true) {
-        var child = 2 * root + 1;
-        if (child > end) break;
-        if (child + 1 <= end and complexStableLess(T, a, out[child], out[child + 1])) {
-            child += 1;
-        }
-        if (complexStableLess(T, a, out[root], out[child])) {
-            swapU32(out, root, child);
-            root = child;
-        } else {
-            break;
-        }
-    }
-}
-
-/// Stable argsort for complex arrays. Equal elements preserve original index order.
-pub fn complexHeapSortStable(comptime T: type, a: [*]const T, out: [*]u32, N: u32) void {
-    if (N <= 1) return;
-    var start: u32 = (N - 2) / 2;
-    while (true) {
-        complexStableSiftDown(T, a, out, start, N - 1);
-        if (start == 0) break;
-        start -= 1;
-    }
-    var end: u32 = N - 1;
-    while (end > 0) {
-        swapU32(out, 0, end);
-        end -= 1;
-        complexStableSiftDown(T, a, out, 0, end);
-    }
-}
-
 /// Batch complex sort: sort numSlices contiguous slices of sliceSize complex elements.
-pub fn complexHeapSortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32) void {
+pub fn complexSortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32) void {
     var i: u32 = 0;
     while (i < numSlices) : (i += 1) {
-        complexHeapSort(T, a + @as(usize, i) * @as(usize, sliceSize) * 2, sliceSize);
+        complexIntroSort(T, a + @as(usize, i) * @as(usize, sliceSize) * 2, sliceSize);
     }
 }
 
 /// Batch complex argsort: argsort numSlices contiguous slices.
-pub fn complexHeapSortStableSlices(comptime T: type, a: [*]const T, out: [*]u32, sliceSize: u32, numSlices: u32) void {
+pub fn complexArgsortSlices(comptime T: type, a: [*]const T, out: [*]u32, sliceSize: u32, numSlices: u32) void {
     var i: u32 = 0;
     while (i < numSlices) : (i += 1) {
         const off = @as(usize, i) * @as(usize, sliceSize);
         const sliceOut = out + off;
         initIndices(sliceOut, sliceSize);
-        complexHeapSortStable(T, a + off * 2, sliceOut, sliceSize);
+        complexIntroSortStable(T, a + off * 2, sliceOut, sliceSize);
     }
 }
 
@@ -717,13 +1069,13 @@ test "heapSort: all equal" {
     for (a) |v| try testing.expectEqual(v, 7);
 }
 
-// --- heapSortStable ---
+// --- introSortStable ---
 
-test "heapSortStable: preserves order for equal f64" {
+test "introSortStable: preserves order for equal f64" {
     const a = [_]f64{ 3.0, 1.0, 3.0, 1.0, 2.0 };
     var out: [5]u32 = undefined;
     initIndices(&out, 5);
-    heapSortStable(f64, &a, &out, 5);
+    introSortStable(f64, &a, &out, 5);
     // 1.0 at indices 1,3 → stable: 1 before 3
     try testing.expectEqual(out[0], 1);
     try testing.expectEqual(out[1], 3);
@@ -734,11 +1086,11 @@ test "heapSortStable: preserves order for equal f64" {
     try testing.expectEqual(out[4], 2);
 }
 
-test "heapSortStable: i32 basic" {
+test "introSortStable: i32 basic" {
     const a = [_]i32{ 30, -10, 20, 0 };
     var out: [4]u32 = undefined;
     initIndices(&out, 4);
-    heapSortStable(i32, &a, &out, 4);
+    introSortStable(i32, &a, &out, 4);
     try testing.expectEqual(a[out[0]], -10);
     try testing.expectEqual(a[out[3]], 30);
 }
@@ -885,11 +1237,11 @@ test "radixSort: reverse sorted" {
     try testing.expect(isSorted(i8, &a));
 }
 
-// --- heapSortSlices ---
+// --- sortSlices ---
 
-test "heapSortSlices: f64 two slices" {
+test "sortSlices: f64 two slices" {
     var a = [_]f64{ 3.0, 1.0, 2.0, 6.0, 4.0, 5.0 };
-    heapSortSlices(f64, &a, 3, 2);
+    sortSlices(f64, &a, 3, 2);
     // First slice sorted
     try testing.expectApproxEqAbs(a[0], 1.0, 1e-10);
     try testing.expectApproxEqAbs(a[2], 3.0, 1e-10);
@@ -898,18 +1250,18 @@ test "heapSortSlices: f64 two slices" {
     try testing.expectApproxEqAbs(a[5], 6.0, 1e-10);
 }
 
-test "heapSortSlices: i16 uses radix sort path" {
+test "sortSlices: i16 uses radix sort path" {
     // 20 elements per slice triggers radix sort (threshold >= 16)
     var a = [_]i16{ 100, -50, 32, -128, 0, 500, -1, 7, 32, 100, -50, 200, 3, -200, 50, 1, -1, 0, 127, -128 };
-    heapSortSlices(i16, &a, 20, 1);
+    sortSlices(i16, &a, 20, 1);
     try testing.expect(isSorted(i16, &a));
     try testing.expectEqual(a[0], -200);
     try testing.expectEqual(a[19], 500);
 }
 
-test "heapSortSlices: u8 radix sort multiple slices" {
+test "sortSlices: u8 radix sort multiple slices" {
     var a = [_]u8{ 50, 10, 30, 20, 40, 255, 0, 128, 64, 200, 1, 99, 50, 75, 33, 44, 88, 12, 7, 250, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 100, 200, 150, 175, 125, 225, 25, 75, 50, 99 };
-    heapSortSlices(u8, &a, 20, 2);
+    sortSlices(u8, &a, 20, 2);
     // First 20 elements sorted
     try testing.expect(isSorted(u8, a[0..20]));
     // Second 20 elements sorted
@@ -918,10 +1270,10 @@ test "heapSortSlices: u8 radix sort multiple slices" {
 
 // --- heapSortStableSlices ---
 
-test "heapSortStableSlices: two slices stable" {
+test "argsortSlices: two slices stable" {
     const a = [_]f64{ 2.0, 1.0, 2.0, 5.0, 3.0, 5.0 };
     var out: [6]u32 = undefined;
-    heapSortStableSlices(f64, &a, &out, 3, 2);
+    argsortSlices(f64, &a, &out, 3, 2);
     // First slice: [2.0, 1.0, 2.0] → indices [1, 0, 2] (stable: 0 before 2 for equal 2.0)
     try testing.expectEqual(out[0], 1);
     try testing.expectEqual(out[1], 0);
@@ -1005,35 +1357,35 @@ test "complexLess: NaN sorts to end" {
     try testing.expect(complexLess(f64, &a, 1, 0)); // normal < NaN
 }
 
-// --- complexHeapSort ---
+// --- complexIntroSort ---
 
-test "complexHeapSort: basic" {
+test "complexIntroSort: basic" {
     // (3+1j), (1+2j), (2+0j) → sorted: (1+2j), (2+0j), (3+1j)
     var a = [_]f64{ 3.0, 1.0, 1.0, 2.0, 2.0, 0.0 };
-    complexHeapSort(f64, &a, 3);
+    complexIntroSort(f64, &a, 3);
     try testing.expectApproxEqAbs(a[0], 1.0, 1e-10); // re of first
     try testing.expectApproxEqAbs(a[1], 2.0, 1e-10); // im of first
     try testing.expectApproxEqAbs(a[2], 2.0, 1e-10); // re of second
     try testing.expectApproxEqAbs(a[4], 3.0, 1e-10); // re of third
 }
 
-test "complexHeapSort: equal real, sort by imag" {
+test "complexIntroSort: equal real, sort by imag" {
     // (1+3j), (1+1j), (1+2j) → sorted: (1+1j), (1+2j), (1+3j)
     var a = [_]f64{ 1.0, 3.0, 1.0, 1.0, 1.0, 2.0 };
-    complexHeapSort(f64, &a, 3);
+    complexIntroSort(f64, &a, 3);
     try testing.expectApproxEqAbs(a[1], 1.0, 1e-10);
     try testing.expectApproxEqAbs(a[3], 2.0, 1e-10);
     try testing.expectApproxEqAbs(a[5], 3.0, 1e-10);
 }
 
-// --- complexHeapSortStable ---
+// --- complexIntroSortStable ---
 
-test "complexHeapSortStable: preserves order for equal" {
+test "complexIntroSortStable: preserves order for equal" {
     // (1+1j), (2+2j), (1+1j) → stable: indices [0, 2, 1]
     const a = [_]f64{ 1.0, 1.0, 2.0, 2.0, 1.0, 1.0 };
     var out: [3]u32 = undefined;
     initIndices(&out, 3);
-    complexHeapSortStable(f64, &a, &out, 3);
+    complexIntroSortStable(f64, &a, &out, 3);
     try testing.expectEqual(out[0], 0); // first (1+1j)
     try testing.expectEqual(out[1], 2); // second (1+1j), idx 2 > 0
     try testing.expectEqual(out[2], 1); // (2+2j)

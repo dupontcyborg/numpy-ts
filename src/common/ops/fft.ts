@@ -18,25 +18,20 @@
 import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
 import { isComplexDType, type DType } from '../dtype';
+import { roll as shapeRoll } from './shape';
 import {
-  fft_batch_c128,
-  ifft_batch_c128,
-  fft_scratch_size,
-  fft2_c128,
-  ifft2_c128,
-  fft2_scratch_size,
-  rfft2_f64,
-  rfft2_scratch_size,
-  irfft2_f64,
-  irfft2_scratch_size,
-  rfft_batch_f64,
-  irfft_batch_f64,
-  rfft_batch_scratch_size,
-  irfftn_3d,
-  irfftn_3d_scratch_size,
-} from '../wasm/bins/fft.wasm';
-import { ensureMemory, resetAllocator, copyIn, alloc, copyOut } from '../wasm/runtime';
-import type { TypedArray } from '../dtype';
+  wasmFft,
+  wasmIfft,
+  wasmRfft,
+  wasmIrfft,
+  wasmFft2,
+  wasmFftBatch,
+  wasmRfftBatch,
+  wasmIrfftBatch,
+  wasmRfft2,
+  wasmIrfft2,
+  wasmIrfftn3d,
+} from '../wasm/fft';
 import { wasmConfig } from '../wasm/config';
 
 /**
@@ -277,6 +272,17 @@ export function fft(
   axis: number = -1,
   norm: 'backward' | 'ortho' | 'forward' = 'backward'
 ): ArrayStorage {
+  // WASM fast path: 1D FFT on last axis, no truncation/padding, backward norm
+  if (
+    n === undefined &&
+    (axis === -1 || axis === a.ndim - 1) &&
+    norm === 'backward' &&
+    a.ndim === 1
+  ) {
+    const complexA = isComplexDType(a.dtype) ? a : toComplex(a);
+    const result = wasmFft(complexA);
+    if (result) return result;
+  }
   // Always pass explicit axis for 1D FFT
   return fftnd(a, n !== undefined ? [n] : undefined, [axis], norm, false);
 }
@@ -296,6 +302,17 @@ export function ifft(
   axis: number = -1,
   norm: 'backward' | 'ortho' | 'forward' = 'backward'
 ): ArrayStorage {
+  // WASM fast path: 1D IFFT on last axis, no truncation/padding, backward norm
+  if (
+    n === undefined &&
+    (axis === -1 || axis === a.ndim - 1) &&
+    norm === 'backward' &&
+    a.ndim === 1
+  ) {
+    const complexA = isComplexDType(a.dtype) ? a : toComplex(a);
+    const result = wasmIfft(complexA);
+    if (result) return result;
+  }
   // Always pass explicit axis for 1D IFFT
   return fftnd(a, n !== undefined ? [n] : undefined, [axis], norm, true);
 }
@@ -448,29 +465,11 @@ function fftnd(
       rows >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier &&
       cols >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
     ) {
-      const totalDataLen = rows * cols * 2;
-      const scratchN = fft2_scratch_size(rows, cols);
-      const totalBytes = totalDataLen * 8;
-      const scratchBytes = scratchN * 8;
-
-      ensureMemory(totalBytes * 2 + scratchBytes);
-      resetAllocator();
-
       const srcData = result.data as Float64Array;
-      const inPtr = copyIn(srcData.subarray(0, totalDataLen) as unknown as TypedArray);
-      const outPtr = alloc(totalBytes);
-      const scratchPtr = alloc(scratchBytes);
-
-      const kernel = inverse ? ifft2_c128 : fft2_c128;
-      kernel(inPtr, outPtr, scratchPtr, rows, cols);
-
-      const outData = copyOut(
-        outPtr,
-        totalDataLen,
-        Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-      );
-
-      return ArrayStorage.fromData(outData as unknown as Float64Array, [rows, cols], 'complex128');
+      const outData = wasmFft2(srcData, rows, cols, inverse);
+      if (outData) {
+        return ArrayStorage.fromData(outData, [rows, cols], 'complex128');
+      }
     }
   }
 
@@ -665,13 +664,10 @@ function wasmBatchRfft(a: ArrayStorage, n: number): ArrayStorage | null {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
   const outLen = Math.floor(n / 2) + 1;
-
-  // Batch = product of all dims except last
   const batch = shape.slice(0, ndim - 1).reduce((acc, s) => acc * s, 1);
-  const inStride = n; // real values per row
-  const outStride = outLen * 2; // complex values per row (interleaved)
+  const inStride = n;
+  const outStride = outLen * 2;
 
-  // Convert input to float64 if needed
   const srcData =
     a.dtype === 'float64'
       ? (a.data as Float64Array)
@@ -679,29 +675,12 @@ function wasmBatchRfft(a: ArrayStorage, n: number): ArrayStorage | null {
           a.data.subarray(a.offset, a.offset + a.size) as unknown as ArrayLike<number>
         );
 
-  const inBytes = batch * n * 8;
-  const outBytes = batch * outLen * 2 * 8;
-  const scratchN = rfft_batch_scratch_size(n);
-  const scratchBytes = scratchN * 8;
-
-  ensureMemory(inBytes + outBytes + scratchBytes);
-  resetAllocator();
-
-  const inPtr = copyIn(srcData.subarray(0, batch * n) as unknown as TypedArray);
-  const outPtr = alloc(outBytes);
-  const scratchPtr = alloc(scratchBytes);
-
-  rfft_batch_f64(inPtr, outPtr, scratchPtr, n, batch, inStride, outStride);
-
-  const outData = copyOut(
-    outPtr,
-    batch * outLen * 2,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-  );
+  const outData = wasmRfftBatch(srcData, n, batch, inStride, outStride);
+  if (!outData) return null;
 
   const outShape = [...shape];
   outShape[ndim - 1] = outLen;
-  return ArrayStorage.fromData(outData as unknown as Float64Array, outShape, 'complex128');
+  return ArrayStorage.fromData(outData, outShape, 'complex128');
 }
 
 /**
@@ -712,77 +691,20 @@ function wasmBatchRfft(a: ArrayStorage, n: number): ArrayStorage | null {
 function wasmBatchIrfft(a: ArrayStorage, nOut: number): ArrayStorage | null {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
-  const nHalf = shape[ndim - 1]!; // input length along last axis
-
+  const nHalf = shape[ndim - 1]!;
   const batch = shape.slice(0, ndim - 1).reduce((acc, s) => acc * s, 1);
-  const inStride = nHalf * 2; // complex values per row (interleaved)
-  const outStride = nOut; // real values per row
+  const inStride = nHalf * 2;
+  const outStride = nOut;
 
-  // Ensure complex128 input
-  const cplx = isComplexDType(a.dtype) ? toComplex(a) : toComplex(a);
+  const cplx = toComplex(a);
   const srcData = cplx.data as Float64Array;
 
-  const inBytes = batch * nHalf * 2 * 8;
-  const outBytes = batch * nOut * 8;
-  const scratchN = rfft_batch_scratch_size(nOut);
-  const scratchBytes = scratchN * 8;
-
-  ensureMemory(inBytes + outBytes + scratchBytes);
-  resetAllocator();
-
-  const inPtr = copyIn(srcData.subarray(0, batch * nHalf * 2) as unknown as TypedArray);
-  const outPtr = alloc(outBytes);
-  const scratchPtr = alloc(scratchBytes);
-
-  irfft_batch_f64(inPtr, outPtr, scratchPtr, nOut, batch, inStride, outStride);
-
-  const outData = copyOut(
-    outPtr,
-    batch * nOut,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-  );
+  const outData = wasmIrfftBatch(srcData, nHalf, nOut, batch, inStride, outStride);
+  if (!outData) return null;
 
   const outShape = [...shape];
   outShape[ndim - 1] = nOut;
-  return ArrayStorage.fromData(outData as unknown as Float64Array, outShape, 'float64');
-}
-
-/**
- * WASM fused 3D irfftn: one WASM call for the entire inverse real 3D FFT.
- */
-function wasmIrfftn3d(
-  a: ArrayStorage,
-  d0: number,
-  d1: number,
-  d2Half: number,
-  d2Out: number
-): ArrayStorage | null {
-  const cplx = toComplex(a);
-  const srcData = cplx.data as Float64Array;
-  const totalIn = d0 * d1 * d2Half * 2; // complex interleaved
-  const totalOut = d0 * d1 * d2Out; // real
-
-  const inBytes = totalIn * 8;
-  const outBytes = totalOut * 8;
-  const scratchN = irfftn_3d_scratch_size(d0, d1, d2Out);
-  const scratchBytes = scratchN * 8;
-
-  ensureMemory(inBytes + outBytes + scratchBytes);
-  resetAllocator();
-
-  const inPtr = copyIn(srcData.subarray(0, totalIn) as unknown as TypedArray);
-  const outPtr = alloc(outBytes);
-  const scratchPtr = alloc(scratchBytes);
-
-  irfftn_3d(inPtr, outPtr, scratchPtr, d0, d1, d2Half, d2Out);
-
-  const outData = copyOut(
-    outPtr,
-    totalOut,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-  );
-
-  return ArrayStorage.fromData(outData as unknown as Float64Array, [d0, d1, d2Out], 'float64');
+  return ArrayStorage.fromData(outData, outShape, 'float64');
 }
 
 function fft1dAlongAxis(
@@ -807,56 +729,32 @@ function fft1dAlongAxis(
   // WASM fast path: when innerSize === 1, rows are contiguous interleaved complex data.
   // Batch all rows into a single WASM call to avoid per-row copy overhead.
   if (innerSize === 1 && n >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier) {
-    const totalDataLen = outerSize * n * 2; // all rows, interleaved re,im
-    const scratchN = fft_scratch_size(n);
-    const totalBytes = totalDataLen * 8;
-    const scratchBytes = scratchN * 8;
+    const totalDataLen = outerSize * n * 2;
+    const outData = wasmFftBatch(srcData, n, outerSize, inverse);
+    if (outData) {
+      resultData.set(outData);
 
-    ensureMemory(totalBytes * 2 + scratchBytes); // input + output + scratch
-    resetAllocator();
+      // Apply normalization adjustments for non-backward modes
+      if (norm === 'ortho') {
+        const scale = inverse ? Math.sqrt(n) : 1 / Math.sqrt(n);
+        for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
+      } else if (norm === 'forward' && !inverse) {
+        const scale = 1 / n;
+        for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
+      } else if (norm === 'forward' && inverse) {
+        // WASM applied 1/n, but forward+inverse wants no scaling → undo it
+        for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * n;
+      }
 
-    const allData = srcData.subarray(0, totalDataLen);
-    const inPtr = copyIn(allData as unknown as TypedArray);
-    const outPtr = alloc(totalBytes);
-    const scratchPtr = alloc(scratchBytes);
-
-    // WASM kernel uses 'backward' convention: forward=no scaling, inverse=1/n
-    const kernel = inverse ? ifft_batch_c128 : fft_batch_c128;
-    kernel(inPtr, outPtr, scratchPtr, n, outerSize);
-
-    const outData = copyOut(
-      outPtr,
-      totalDataLen,
-      Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-    );
-    resultData.set(outData as unknown as Float64Array);
-
-    // Apply normalization adjustments for non-backward modes
-    if (norm === 'ortho') {
-      const scale = inverse ? Math.sqrt(n) : 1 / Math.sqrt(n);
-      for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
-    } else if (norm === 'forward' && !inverse) {
-      const scale = 1 / n;
-      for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
-    } else if (norm === 'forward' && inverse) {
-      // WASM applied 1/n, but forward+inverse wants no scaling → undo it
-      for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * n;
+      return result;
     }
-
-    return result;
   }
 
   // WASM path for non-last axis: gather columns → batch FFT → scatter back.
   // This avoids the JS FFT for the strided axis.
   if (innerSize > 1 && n >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier) {
-    const totalRows = outerSize * innerSize; // total number of 1D FFTs to perform
-    const batchDataLen = totalRows * n * 2; // all rows, interleaved
-    const scratchN = fft_scratch_size(n);
-    const batchBytes = batchDataLen * 8;
-    const scratchBytes = scratchN * 8;
-
-    ensureMemory(batchBytes * 2 + scratchBytes);
-    resetAllocator();
+    const totalRows = outerSize * innerSize;
+    const batchDataLen = totalRows * n * 2;
 
     // Gather: extract strided columns into contiguous batch buffer
     const gathered = new Float64Array(batchDataLen);
@@ -873,46 +771,36 @@ function fft1dAlongAxis(
       }
     }
 
-    const inPtr = copyIn(gathered as unknown as TypedArray);
-    const outPtr = alloc(batchBytes);
-    const scratchPtr = alloc(scratchBytes);
-
-    const kernel = inverse ? ifft_batch_c128 : fft_batch_c128;
-    kernel(inPtr, outPtr, scratchPtr, n, totalRows);
-
-    const outData = copyOut(
-      outPtr,
-      batchDataLen,
-      Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-    ) as unknown as Float64Array;
-
-    // Scatter: write back from contiguous batch to strided positions
-    row = 0;
-    for (let outer = 0; outer < outerSize; outer++) {
-      for (let inner = 0; inner < innerSize; inner++) {
-        const rowOff = row * n * 2;
-        for (let k = 0; k < n; k++) {
-          const dstIdx = ((outer * n + k) * innerSize + inner) * 2;
-          resultData[dstIdx] = outData[rowOff + k * 2]!;
-          resultData[dstIdx + 1] = outData[rowOff + k * 2 + 1]!;
+    const outData = wasmFftBatch(gathered, n, totalRows, inverse);
+    if (outData) {
+      // Scatter: write back from contiguous batch to strided positions
+      row = 0;
+      for (let outer = 0; outer < outerSize; outer++) {
+        for (let inner = 0; inner < innerSize; inner++) {
+          const rowOff = row * n * 2;
+          for (let k = 0; k < n; k++) {
+            const dstIdx = ((outer * n + k) * innerSize + inner) * 2;
+            resultData[dstIdx] = outData[rowOff + k * 2]!;
+            resultData[dstIdx + 1] = outData[rowOff + k * 2 + 1]!;
+          }
+          row++;
         }
-        row++;
       }
-    }
 
-    // Apply normalization adjustments for non-backward modes
-    const totalDataLen = outerSize * n * innerSize * 2;
-    if (norm === 'ortho') {
-      const scale = inverse ? Math.sqrt(n) : 1 / Math.sqrt(n);
-      for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
-    } else if (norm === 'forward' && !inverse) {
-      const scale = 1 / n;
-      for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
-    } else if (norm === 'forward' && inverse) {
-      for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * n;
-    }
+      // Apply normalization adjustments for non-backward modes
+      const totalDataLen = outerSize * n * innerSize * 2;
+      if (norm === 'ortho') {
+        const scale = inverse ? Math.sqrt(n) : 1 / Math.sqrt(n);
+        for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
+      } else if (norm === 'forward' && !inverse) {
+        const scale = 1 / n;
+        for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * scale;
+      } else if (norm === 'forward' && inverse) {
+        for (let i = 0; i < totalDataLen; i++) resultData[i] = resultData[i]! * n;
+      }
 
-    return result;
+      return result;
+    }
   }
 
   // JS fallback for small sizes
@@ -998,6 +886,18 @@ export function rfft(
   const inputLen = n ?? shape[ax]!;
   const outLen = Math.floor(inputLen / 2) + 1;
 
+  // WASM fast path: 1D rfft on last axis, no truncation/padding, backward norm
+  if (
+    ndim === 1 &&
+    n === undefined &&
+    norm === 'backward' &&
+    !isComplexDType(a.dtype) &&
+    a.dtype === 'float64'
+  ) {
+    const result = wasmRfft(a, inputLen);
+    if (result) return result;
+  }
+
   // WASM fast path: batch rfft when last axis is contiguous and input is real/float
   if (
     ax === ndim - 1 &&
@@ -1041,6 +941,12 @@ export function irfft(
   // Determine output length
   const inputLen = shape[ax]!;
   const outLen = n ?? (inputLen - 1) * 2;
+
+  // WASM fast path: 1D irfft on last axis, backward norm
+  if (ndim === 1 && norm === 'backward' && isComplexDType(a.dtype) && a.dtype === 'complex128') {
+    const result = wasmIrfft(a, outLen);
+    if (result) return result;
+  }
 
   // WASM fast path: batch irfft when last axis is contiguous
   if (
@@ -1128,34 +1034,16 @@ export function rfft2(
       cols >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
     ) {
       const halfCols = Math.floor(cols / 2) + 1;
-      const scratchN = rfft2_scratch_size(rows, cols);
-      const inputBytes = rows * cols * 8;
-      const outputBytes = rows * halfCols * 2 * 8;
-      const scratchBytes = scratchN * 8;
-
-      ensureMemory(inputBytes + outputBytes + scratchBytes);
-      resetAllocator();
-
-      // Convert input to f64 and copy to WASM
       const inputData =
         a.dtype === 'float64'
           ? (a.data as Float64Array).subarray(a.offset, a.offset + rows * cols)
           : Float64Array.from(
               a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>
             );
-      const inPtr = copyIn(inputData as unknown as TypedArray);
-      const outPtr = alloc(outputBytes);
-      const scratchPtr = alloc(scratchBytes);
-
-      rfft2_f64(inPtr, outPtr, scratchPtr, rows, cols);
-
-      const outData = copyOut(
-        outPtr,
-        rows * halfCols * 2,
-        Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => Float64Array
-      );
-
-      return ArrayStorage.fromData(outData, [rows, halfCols], 'complex128');
+      const outData = wasmRfft2(inputData, rows, cols);
+      if (outData) {
+        return ArrayStorage.fromData(outData, [rows, halfCols], 'complex128');
+      }
     }
   }
 
@@ -1203,28 +1091,11 @@ export function irfft2(
       rows >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier &&
       outLen1 >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
     ) {
-      const scratchN = irfft2_scratch_size(rows, outLen1);
-      const inputBytes = rows * colsHalf * 2 * 8;
-      const outputBytes = rows * outLen1 * 8;
-      const scratchBytes = scratchN * 8;
-
-      ensureMemory(inputBytes + outputBytes + scratchBytes);
-      resetAllocator();
-
       const inputData = (a.data as Float64Array).subarray(a.offset, a.offset + rows * colsHalf * 2);
-      const inPtr = copyIn(inputData as unknown as TypedArray);
-      const outPtr = alloc(outputBytes);
-      const scratchPtr = alloc(scratchBytes);
-
-      irfft2_f64(inPtr, outPtr, scratchPtr, rows, colsHalf, outLen1);
-
-      const outData = copyOut(
-        outPtr,
-        rows * outLen1,
-        Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => Float64Array
-      );
-
-      return ArrayStorage.fromData(outData, [rows, outLen1], 'float64');
+      const outData = wasmIrfft2(inputData, rows, colsHalf, outLen1);
+      if (outData) {
+        return ArrayStorage.fromData(outData, [rows, outLen1], 'float64');
+      }
     }
   }
 
@@ -1328,8 +1199,9 @@ export function irfftn(
     const d1 = outLens[1]!;
     const d2Half = inputLastLen;
     const d2Out = outLens[2]!;
-    const result = wasmIrfftn3d(a, d0, d1, d2Half, d2Out);
-    if (result) return result;
+    const cplx = toComplex(a);
+    const outData = wasmIrfftn3d(cplx.data as Float64Array, d0, d1, d2Half, d2Out);
+    if (outData) return ArrayStorage.fromData(outData, [d0, d1, d2Out], 'float64');
   }
 
   // Apply irfft along the last axis first (recovers full spectrum from Hermitian half)
@@ -1518,10 +1390,14 @@ export function fftshift(a: ArrayStorage, axes?: number | number[]): ArrayStorag
     axesList = axes.map((ax) => (ax < 0 ? ndim + ax : ax));
   }
 
-  // Calculate shift amounts
-  const shifts = shape.map((_, i) => (axesList.includes(i) ? Math.floor(shape[i]! / 2) : 0));
+  // Calculate shift amounts — only for the specified axes
+  const shifts = axesList.map((ax) => Math.floor(shape[ax]! / 2));
 
-  return roll(a, shifts);
+  // For 1D arrays shifting all axes, use flat roll (hits WASM fast path)
+  if (ndim === 1 && axesList.length === 1 && axesList[0] === 0) {
+    return shapeRoll(a, shifts[0]!);
+  }
+  return shapeRoll(a, shifts, axesList);
 }
 
 /**
@@ -1545,66 +1421,12 @@ export function ifftshift(a: ArrayStorage, axes?: number | number[]): ArrayStora
     axesList = axes.map((ax) => (ax < 0 ? ndim + ax : ax));
   }
 
-  // Calculate shift amounts (negative of fftshift)
-  const shifts = shape.map((_, i) => (axesList.includes(i) ? -Math.floor(shape[i]! / 2) : 0));
+  // Calculate shift amounts (negative of fftshift) — only for the specified axes
+  const shifts = axesList.map((ax) => -Math.floor(shape[ax]! / 2));
 
-  return roll(a, shifts);
-}
-
-/**
- * Roll array elements along specified axes.
- */
-function roll(a: ArrayStorage, shifts: number[]): ArrayStorage {
-  const shape = Array.from(a.shape);
-  const dtype = a.dtype as DType;
-  const size = a.size;
-
-  // Create result array with same dtype
-  const result = ArrayStorage.zeros(shape, dtype);
-  const isComplex = dtype === 'complex128' || dtype === 'complex64';
-
-  // Calculate strides for index conversion
-  const strides = new Array(shape.length);
-  strides[shape.length - 1] = 1;
-  for (let i = shape.length - 2; i >= 0; i--) {
-    strides[i] = strides[i + 1]! * shape[i + 1]!;
+  // For 1D arrays shifting all axes, use flat roll (hits WASM fast path)
+  if (ndim === 1 && axesList.length === 1 && axesList[0] === 0) {
+    return shapeRoll(a, shifts[0]!);
   }
-
-  // Copy with shifts
-  for (let flatIdx = 0; flatIdx < size; flatIdx++) {
-    // Convert flat index to multi-dimensional index
-    const srcIndices = new Array(shape.length);
-    let remainder = flatIdx;
-    for (let d = 0; d < shape.length; d++) {
-      srcIndices[d] = Math.floor(remainder / strides[d]!);
-      remainder = remainder % strides[d]!;
-    }
-
-    // Apply shifts with wrapping
-    const dstIndices = srcIndices.map((idx, d) => {
-      let newIdx = idx + shifts[d]!;
-      const dim = shape[d]!;
-      newIdx = ((newIdx % dim) + dim) % dim;
-      return newIdx;
-    });
-
-    // Convert back to flat index
-    let dstFlatIdx = 0;
-    for (let d = 0; d < shape.length; d++) {
-      dstFlatIdx += dstIndices[d]! * strides[d]!;
-    }
-
-    // Copy value(s)
-    if (isComplex) {
-      const srcData = a.data as Float64Array;
-      const dstData = result.data as Float64Array;
-      dstData[dstFlatIdx * 2] = srcData[flatIdx * 2]!;
-      dstData[dstFlatIdx * 2 + 1] = srcData[flatIdx * 2 + 1]!;
-    } else {
-      const val = a.iget(flatIdx);
-      result.iset(dstFlatIdx, val);
-    }
-  }
-
-  return result;
+  return shapeRoll(a, shifts, axesList);
 }

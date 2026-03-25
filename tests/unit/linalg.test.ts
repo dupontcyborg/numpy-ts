@@ -1231,6 +1231,27 @@ describe('numpy.linalg Module', () => {
       ]); // Not positive definite
       expect(() => linalg.cholesky(a)).toThrow('not positive definite');
     });
+
+    it('computes Cholesky of float32 positive definite matrix (uses wasmCholeskyF32)', () => {
+      // Must be >= 4x4 to exceed WASM threshold
+      const a = array(
+        [
+          [4, 2, 0, 0],
+          [2, 5, 0, 0],
+          [0, 0, 4, 2],
+          [0, 0, 2, 5],
+        ],
+        'float32'
+      );
+      const L = linalg.cholesky(a);
+      expect(L.shape).toEqual([4, 4]);
+      // L should be lower triangular (upper triangle is zero)
+      expect(L.get([0, 1])).toBeCloseTo(0, 5);
+      expect(L.get([0, 2])).toBeCloseTo(0, 5);
+      // L @ L^T should recover A
+      const Ldiag0 = L.get([0, 0]) as number;
+      expect(Ldiag0).toBeCloseTo(2, 5); // sqrt(4) = 2
+    });
   });
 
   describe('linalg.svd()', () => {

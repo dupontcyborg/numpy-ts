@@ -26,7 +26,7 @@ import { wasmVdotComplex } from '../wasm/vdot';
 import { wasmKron } from '../wasm/kron';
 import { wasmCross } from '../wasm/cross';
 import { wasmQr } from '../wasm/qr';
-import { wasmCholesky } from '../wasm/cholesky';
+import { wasmCholesky, wasmCholeskyF32 } from '../wasm/cholesky';
 import { wasmSvd } from '../wasm/svd';
 import * as shapeOps from './shape';
 import type { DType } from '../dtype';
@@ -3274,12 +3274,12 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
   }
 
   // WASM fast path
-  const wasmResult = wasmCholesky(a);
+  const wasmResult = a.dtype === 'float32' ? wasmCholeskyF32(a) : wasmCholesky(a);
   if (wasmResult) {
     if (upper) {
       // Transpose L to get U
       const size = m!;
-      const U = ArrayStorage.zeros([size, size], 'float64');
+      const U = ArrayStorage.zeros([size, size], wasmResult.dtype);
       for (let i = 0; i < size; i++) {
         for (let j = i; j < size; j++) {
           U.set([i, j], Number(wasmResult.get(j, i)));
@@ -3976,23 +3976,7 @@ export function lstsq(
   }
 
   const [m, n] = a.shape;
-
-  // Use SVD to solve least squares
-  const { u, s, vt } = svdFull(a);
   const k = Math.min(m!, n!);
-
-  // Determine rcond
-  const threshold = rcond ?? Math.max(m!, n!) * Number.EPSILON;
-  const maxSigma = Number(s.get(0));
-  const cutoff = maxSigma * threshold;
-
-  // Compute effective rank
-  let rank = 0;
-  for (let i = 0; i < k; i++) {
-    if (Number(s.get(i)) > cutoff) {
-      rank++;
-    }
-  }
 
   // Handle 1D b
   const b2D = b.ndim === 1 ? shapeOps.reshape(b, [b.size, 1]) : b;
@@ -4002,49 +3986,64 @@ export function lstsq(
     throw new Error(`lstsq: incompatible shapes (${m},${n}) and (${b.shape.join(',')})`);
   }
 
-  // Compute x = V @ S^+ @ U^T @ b
-  // where S^+ is pseudoinverse of S (1/s for s > cutoff, 0 otherwise)
-  const x = ArrayStorage.zeros([n!, nrhs], 'float64');
+  // SVD for singular values, rank, and x computation
+  const { u, s, vt } = svdFull(a);
+  const sData = s.data as Float64Array;
+  const uData = u.data as Float64Array;
+  const vtData = vt.data as Float64Array;
 
-  for (let j = 0; j < nrhs; j++) {
-    // Compute U^T @ b[:, j]
-    const utb: number[] = new Array(m!).fill(0);
-    for (let i = 0; i < m!; i++) {
-      for (let l = 0; l < m!; l++) {
-        utb[i]! += Number(u.get(l, i)) * Number(b2D.get(l, j));
-      }
-    }
+  // Determine rcond and rank
+  const threshold = rcond ?? Math.max(m!, n!) * Number.EPSILON;
+  const maxSigma = sData[0]!;
+  const cutoff = maxSigma * threshold;
+  let rank = 0;
+  for (let i = 0; i < k; i++) {
+    if (sData[i]! > cutoff) rank++;
+  }
 
-    // Apply S^+ and V
-    for (let i = 0; i < n!; i++) {
-      let sum = 0;
-      for (let l = 0; l < k; l++) {
-        const sigma = Number(s.get(l));
-        if (sigma > cutoff) {
-          sum += (Number(vt.get(l, i)) * utb[l]!) / sigma;
-        }
+  // Compute x = V @ S^+ @ U^T @ b using WASM matmul
+  // Build (V @ S^+) as n×k matrix, U^T as k×m, then matmul chains
+  const vsInvData = new Float64Array(n! * k);
+  for (let l = 0; l < k; l++) {
+    const sigma = sData[l]!;
+    if (sigma > cutoff) {
+      const invSigma = 1.0 / sigma;
+      for (let i = 0; i < n!; i++) {
+        vsInvData[i * k + l] = vtData[l * n! + i]! * invSigma;
       }
-      x.set([i, j], sum);
     }
   }
 
-  // Compute residuals if m > n (overdetermined)
+  // U^T truncated: k × m
+  const utData = new Float64Array(k * m!);
+  for (let l = 0; l < k; l++) {
+    for (let j = 0; j < m!; j++) {
+      utData[l * m! + j] = uData[j * m! + l]!;
+    }
+  }
+
+  // x = (V @ S^+) @ (U^T @ b) via two WASM matmuls
+  const vsInv = ArrayStorage.fromData(vsInvData, [n!, k], 'float64');
+  const ut = ArrayStorage.fromData(utData, [k, m!], 'float64');
+  const utb = wasmMatmul(ut, b2D) ?? matmul2D(ut, b2D); // k × nrhs
+  let x: ArrayStorage = wasmMatmul(vsInv, utb) ?? matmul2D(vsInv, utb); // n × nrhs
+
+  // Compute residuals if m > n (overdetermined) and full rank
   let residuals: ArrayStorage;
-  if (m! > n!) {
-    residuals = ArrayStorage.zeros([nrhs], 'float64');
+  if (m! > n! && rank === n!) {
+    const resArr = new Float64Array(nrhs);
+    const xForMul = b.ndim === 1 ? shapeOps.reshape(x, [n!, 1]) : x;
+    const ax = wasmMatmul(a, xForMul) ?? matmul2D(a, xForMul);
+    const axData = ax.data as Float64Array;
     for (let j = 0; j < nrhs; j++) {
-      // Compute ||A @ x[:, j] - b[:, j]||^2
       let resSum = 0;
       for (let i = 0; i < m!; i++) {
-        let axij = 0;
-        for (let l = 0; l < n!; l++) {
-          axij += Number(a.get(i, l)) * Number(x.get(l, j));
-        }
-        const diff = axij - Number(b2D.get(i, j));
+        const diff = axData[i * nrhs + j]! - Number(b2D.iget(i * nrhs + j));
         resSum += diff * diff;
       }
-      residuals.set([j], resSum);
+      resArr[j] = resSum;
     }
+    residuals = ArrayStorage.fromData(resArr, [nrhs], 'float64');
   } else {
     residuals = ArrayStorage.zeros([0], 'float64');
   }
@@ -4242,28 +4241,41 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
   const [m, n] = a.shape;
   const { u, s, vt } = svdFull(a);
   const k = Math.min(m!, n!);
+  const sData = s.data as Float64Array;
 
   // Determine cutoff
-  const maxS = Number(s.get(0));
+  const maxS = sData[0]!;
   const cutoff = maxS * rcond;
 
-  // Compute V @ S^+ @ U^T
-  // S^+ has 1/s for s > cutoff, 0 otherwise
-  const result = ArrayStorage.zeros([n!, m!], 'float64');
-
-  for (let i = 0; i < n!; i++) {
-    for (let j = 0; j < m!; j++) {
-      let sum = 0;
-      for (let l = 0; l < k; l++) {
-        const sigma = Number(s.get(l));
-        if (sigma > cutoff) {
-          sum += (Number(vt.get(l, i)) * Number(u.get(j, l))) / sigma;
-        }
+  // Compute pinv = V^T^T @ S^+ @ U^T = (V^T transposed with S^+ scaling) @ U^T
+  // Step 1: Build S^+ @ V^T → each row l of vt scaled by 1/s[l] (or 0)
+  // Result is k × n, but we want V @ S^+ which is n × k (= vt^T with scaling)
+  const vsInvData = new Float64Array(n! * k);
+  for (let l = 0; l < k; l++) {
+    const sigma = sData[l]!;
+    if (sigma > cutoff) {
+      const invSigma = 1.0 / sigma;
+      for (let i = 0; i < n!; i++) {
+        // V @ S^+ : column l of V (= row l of vt) scaled by 1/sigma
+        vsInvData[i * k + l] = (vt.data as Float64Array)[l * n! + i]! * invSigma;
       }
-      result.set([i, j], sum);
+    }
+    // else: column stays 0 (already zero-initialized)
+  }
+  const vsInv = ArrayStorage.fromData(vsInvData, [n!, k], 'float64');
+
+  // Step 2: Build U^T (k × m) — take first k rows of u^T (= first k columns of u, transposed)
+  const utData = new Float64Array(k * m!);
+  const uData = u.data as Float64Array;
+  for (let l = 0; l < k; l++) {
+    for (let j = 0; j < m!; j++) {
+      utData[l * m! + j] = uData[j * m! + l]!;
     }
   }
+  const ut = ArrayStorage.fromData(utData, [k, m!], 'float64');
 
+  // Step 3: pinv = vsInv @ ut via WASM matmul (n × k) @ (k × m) → (n × m)
+  const result = wasmMatmul(vsInv, ut) ?? matmul2D(vsInv, ut);
   return result;
 }
 

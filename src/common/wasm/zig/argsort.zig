@@ -12,113 +12,113 @@ const sc = @import("sorting_common.zig");
 /// Argsort for f64: writes ascending-order indices into out. NaN sorts to end.
 export fn argsort_f64(a: [*]const f64, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(f64, a, out, N);
+    sc.introSortStable(f64, a, out, N);
 }
 
 /// Argsort for f32: writes ascending-order indices into out. NaN sorts to end.
 export fn argsort_f32(a: [*]const f32, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(f32, a, out, N);
+    sc.introSortStable(f32, a, out, N);
 }
 
 /// Argsort for i64.
 export fn argsort_i64(a: [*]const i64, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(i64, a, out, N);
+    sc.introSortStable(i64, a, out, N);
 }
 
 /// Argsort for u64.
 export fn argsort_u64(a: [*]const u64, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(u64, a, out, N);
+    sc.introSortStable(u64, a, out, N);
 }
 
 /// Argsort for i32.
 export fn argsort_i32(a: [*]const i32, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(i32, a, out, N);
+    sc.introSortStable(i32, a, out, N);
 }
 
 /// Argsort for u32.
 export fn argsort_u32(a: [*]const u32, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(u32, a, out, N);
+    sc.introSortStable(u32, a, out, N);
 }
 
 /// Argsort for i16.
 export fn argsort_i16(a: [*]const i16, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(i16, a, out, N);
+    sc.introSortStable(i16, a, out, N);
 }
 
 /// Argsort for u16.
 export fn argsort_u16(a: [*]const u16, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(u16, a, out, N);
+    sc.introSortStable(u16, a, out, N);
 }
 
 /// Argsort for i8.
 export fn argsort_i8(a: [*]const i8, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(i8, a, out, N);
+    sc.introSortStable(i8, a, out, N);
 }
 
 /// Argsort for u8.
 export fn argsort_u8(a: [*]const u8, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.heapSortStable(u8, a, out, N);
+    sc.introSortStable(u8, a, out, N);
 }
 
 // --- Batch slice argsort ---
 
 /// Stable argsort of numSlices contiguous f64 slices.
 export fn argsort_slices_f64(a: [*]const f64, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(f64, a, out, sliceSize, numSlices);
+    sc.argsortSlices(f64, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous f32 slices.
 export fn argsort_slices_f32(a: [*]const f32, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(f32, a, out, sliceSize, numSlices);
+    sc.argsortSlices(f32, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous i64 slices.
 export fn argsort_slices_i64(a: [*]const i64, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(i64, a, out, sliceSize, numSlices);
+    sc.argsortSlices(i64, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous u64 slices.
 export fn argsort_slices_u64(a: [*]const u64, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(u64, a, out, sliceSize, numSlices);
+    sc.argsortSlices(u64, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous i32 slices.
 export fn argsort_slices_i32(a: [*]const i32, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(i32, a, out, sliceSize, numSlices);
+    sc.argsortSlices(i32, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous u32 slices.
 export fn argsort_slices_u32(a: [*]const u32, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(u32, a, out, sliceSize, numSlices);
+    sc.argsortSlices(u32, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous i16 slices.
 export fn argsort_slices_i16(a: [*]const i16, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(i16, a, out, sliceSize, numSlices);
+    sc.argsortSlices(i16, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous u16 slices.
 export fn argsort_slices_u16(a: [*]const u16, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(u16, a, out, sliceSize, numSlices);
+    sc.argsortSlices(u16, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous i8 slices.
 export fn argsort_slices_i8(a: [*]const i8, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(i8, a, out, sliceSize, numSlices);
+    sc.argsortSlices(i8, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous u8 slices.
 export fn argsort_slices_u8(a: [*]const u8, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.heapSortStableSlices(u8, a, out, sliceSize, numSlices);
+    sc.argsortSlices(u8, a, out, sliceSize, numSlices);
 }
 
 // --- Complex argsort ---
@@ -126,23 +126,23 @@ export fn argsort_slices_u8(a: [*]const u8, out: [*]u32, sliceSize: u32, numSlic
 /// Stable argsort for complex128 (interleaved f64 pairs). NaN sorts to end.
 export fn argsort_c128(a: [*]const f64, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.complexHeapSortStable(f64, a, out, N);
+    sc.complexIntroSortStable(f64, a, out, N);
 }
 
 /// Stable argsort for complex64 (interleaved f32 pairs). NaN sorts to end.
 export fn argsort_c64(a: [*]const f32, out: [*]u32, N: u32) void {
     sc.initIndices(out, N);
-    sc.complexHeapSortStable(f32, a, out, N);
+    sc.complexIntroSortStable(f32, a, out, N);
 }
 
 /// Stable argsort of numSlices contiguous complex128 slices.
 export fn argsort_slices_c128(a: [*]const f64, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.complexHeapSortStableSlices(f64, a, out, sliceSize, numSlices);
+    sc.complexArgsortSlices(f64, a, out, sliceSize, numSlices);
 }
 
 /// Stable argsort of numSlices contiguous complex64 slices.
 export fn argsort_slices_c64(a: [*]const f32, out: [*]u32, sliceSize: u32, numSlices: u32) void {
-    sc.complexHeapSortStableSlices(f32, a, out, sliceSize, numSlices);
+    sc.complexArgsortSlices(f32, a, out, sliceSize, numSlices);
 }
 
 // --- Tests ---

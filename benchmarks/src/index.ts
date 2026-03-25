@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { getBenchmarkSpecs, filterByCategory } from './specs';
-import { setBenchmarkConfig } from './runner';
 import { runPythonBenchmarks } from './python-runner';
 import { runPyodideBenchmarks } from './pyodide-runner';
 import { detectRuntimes, spawnRuntimeBenchmark } from './runtime-spawner';
@@ -152,15 +151,15 @@ async function main() {
   if (options.mode === 'quick') {
     minSampleTimeMs = 50;
     targetSamples = 1;
-    setBenchmarkConfig(minSampleTimeMs, targetSamples);
+
   } else if (options.mode === 'full') {
     minSampleTimeMs = 100;
     targetSamples = 5;
-    setBenchmarkConfig(minSampleTimeMs, targetSamples);
+
   } else {
     minSampleTimeMs = 100;
     targetSamples = 5;
-    setBenchmarkConfig(minSampleTimeMs, targetSamples);
+
   }
 
   console.log('NumPy vs numpy-ts Benchmark Suite\n');
@@ -259,7 +258,6 @@ async function main() {
     ]);
     const validatableSpecs = specs.filter(
       (spec) =>
-        !Object.values(spec.setup).some((s) => s.dtype === 'int64' || s.dtype === 'uint64') &&
         spec.category !== 'io' &&
         !nonValidatableOperations.has(spec.operation)
     );
@@ -271,7 +269,7 @@ async function main() {
     const skippedCount = specs.length - validatableSpecs.length;
     if (skippedCount > 0) {
       console.log(
-        `Skipping validation for ${skippedCount} benchmarks (int64/uint64/IO/Complex linalg)\n`
+        `Skipping validation for ${skippedCount} benchmarks (IO/Complex linalg)\n`
       );
     }
 

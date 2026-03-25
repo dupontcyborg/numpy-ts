@@ -3,7 +3,7 @@
  * Defines all benchmarks to run
  */
 
-import type { DType } from '../../src/core/dtype';
+import type { DType } from '../../src/common/dtype';
 import type { BenchmarkCase, BenchmarkMode, BenchmarkSetup } from './types';
 
 export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCase[] {
@@ -2209,7 +2209,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'linalg',
       operation: 'linalg_pinv',
       setup: {
-        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        a: { shape: linalgSize, fill: 'invertible', dtype: 'float64' },
       },
       iterations,
       warmup,
@@ -2242,7 +2242,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'linalg',
       operation: 'linalg_lstsq',
       setup: {
-        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        a: { shape: linalgSize, fill: 'invertible', dtype: 'float64' },
         b: { shape: [linalgN], fill: 'ones', dtype: 'float64' },
       },
       iterations,
@@ -3804,7 +3804,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
   // Operations to skip for ALL auto dtype variants
   const SKIP_DTYPE_OPERATIONS = new Set([
-    'linalg_cholesky', // positive-definiteness lost in float32
+    // 'linalg_cholesky', // positive-definiteness lost in float32
     'linalg_eigh', // eigenvalue decomposition numerically sensitive
     'linalg_eigvalsh', // eigenvalue computation numerically sensitive
     'mod', // int overflow issues with narrow types

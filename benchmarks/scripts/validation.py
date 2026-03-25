@@ -810,6 +810,12 @@ def run_operation(spec):
             return [_complex_to_pairs(v) for v in val]
         return val
 
+    def _int64_to_bigint(val):
+        """Recursively convert int64/uint64 values to __bigint__ string sentinels."""
+        if isinstance(val, list):
+            return [_int64_to_bigint(v) for v in val]
+        return f"__bigint__{val}"
+
     # Convert result to JSON-serializable format
     if isinstance(result, list) and len(result) > 0 and isinstance(result[0], np.ndarray):
         # Handle list of arrays (e.g., from unstack)
@@ -818,8 +824,14 @@ def run_operation(spec):
         # Handle complex arrays by converting to [re, im] pairs
         if np.iscomplexobj(result):
             return {"shape": list(result.shape), "data": _complex_to_pairs(result.tolist())}
+        # Serialize int64/uint64 as __bigint__ strings to preserve full 64-bit precision
+        # (JSON numbers are float64, which loses precision for values > 2^53)
+        if result.dtype in (np.dtype('int64'), np.dtype('uint64')):
+            return {"shape": list(result.shape), "data": _int64_to_bigint(result.tolist())}
         return {"shape": list(result.shape), "data": result.tolist()}
     elif isinstance(result, (np.integer, np.floating)):
+        if isinstance(result, (np.int64, np.uint64)):
+            return f"__bigint__{int(result)}"
         return float(result)
     elif isinstance(result, np.bool_):
         return bool(result)

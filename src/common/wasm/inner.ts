@@ -37,14 +37,21 @@ type WasmInnerFn = (
   K: number
 ) => void;
 
+type WasmComplexInnerFn = (
+  aPtr: number,
+  bPtr: number,
+  cPtr: number,
+  M: number,
+  N: number,
+  K: number,
+  scratchPtr: number
+) => void;
+
 // Dtype -> WASM kernel function
-// Signed and unsigned integer types share the same kernel per bit-width
-// (wrapping add/mul produce identical bits regardless of sign interpretation).
+// Complex types use separate map with scratch parameter.
 const wasmKernels: Partial<Record<DType, WasmInnerFn>> = {
   float64: inner_f64,
   float32: inner_f32,
-  complex128: inner_c128,
-  complex64: inner_c64,
   int64: inner_i64,
   uint64: inner_i64,
   int32: inner_i32,
@@ -53,6 +60,12 @@ const wasmKernels: Partial<Record<DType, WasmInnerFn>> = {
   uint16: inner_i16,
   int8: inner_i8,
   uint8: inner_i8,
+};
+
+// Complex types: deinterleave → 3 real inner products (Gauss trick) → combine.
+const complexKernels: Partial<Record<DType, WasmComplexInnerFn>> = {
+  complex64: inner_c64,
+  complex128: inner_c128,
 };
 
 // Dtype -> TypedArray constructor
@@ -95,8 +108,9 @@ export function wasmInner(
 
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
   const kernel = wasmKernels[resultDtype];
+  const complexKernel = complexKernels[resultDtype];
   const Ctor = ctorMap[resultDtype];
-  if (!kernel || !Ctor) return null;
+  if ((!kernel && !complexKernel) || !Ctor) return null;
 
   const factor = complexFactor[resultDtype] ?? 1;
 
@@ -116,7 +130,9 @@ export function wasmInner(
   const bBytes = N * K * factor * bytesPerElement;
   const outBytes = M * N * factor * bytesPerElement;
 
-  ensureMemory(aBytes + bBytes + outBytes);
+  const scratchElements = complexKernel ? 2 * M * K + 2 * N * K + 3 * M * N : 0;
+  const scratchBytes = scratchElements * bytesPerElement;
+  ensureMemory(aBytes + bBytes + outBytes + scratchBytes);
   resetAllocator();
 
   // Get raw data
@@ -133,7 +149,12 @@ export function wasmInner(
   const bPtr = copyIn(bData);
   const outPtr = alloc(outBytes);
 
-  kernel(aPtr, bPtr, outPtr, M, N, K);
+  if (complexKernel) {
+    const scratchPtr = alloc(scratchBytes);
+    complexKernel(aPtr, bPtr, outPtr, M, N, K, scratchPtr);
+  } else {
+    kernel!(aPtr, bPtr, outPtr, M, N, K);
+  }
 
   const outData = copyOut(
     outPtr,

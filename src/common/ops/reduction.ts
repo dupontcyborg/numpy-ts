@@ -32,6 +32,7 @@ import { wasmReduceProd, wasmReduceProdStrided } from '../wasm/reduce_prod';
 import { wasmReduceQuantile } from '../wasm/reduce_quantile';
 import { wasmReduceAny } from '../wasm/reduce_any';
 import { wasmReduceAll } from '../wasm/reduce_all';
+import { wasmReduceStd } from '../wasm/reduce_std';
 
 // Reusable Float32Array accumulators — writing to f32acc[0] implicitly rounds
 // to float32 precision (same as Math.fround) but V8 optimizes typed-array
@@ -1814,6 +1815,12 @@ export function std(
   ddof: number = 0,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  // WASM fast path for full-array std (ddof=0 only — WASM kernel uses population std)
+  if (axis === undefined && ddof === 0 && !keepdims) {
+    const wasmResult = wasmReduceStd(storage);
+    if (wasmResult !== null) return wasmResult;
+  }
+
   // variance() handles complex arrays - returns real values
   const varResult = variance(storage, axis, ddof, keepdims);
 

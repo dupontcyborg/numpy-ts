@@ -461,3 +461,195 @@ export {
 // IO Functions - Text format
 export { parseTxt, genfromtxt, fromregex, type ParseTxtOptions } from '../io/txt/parser';
 export { serializeTxt, type SerializeTxtOptions } from '../io/txt/serializer';
+
+// Random Namespace (core.random)
+
+import * as randomOps from '../common/ops/random';
+import { ArrayStorage } from '../common/storage';
+import { NDArrayCore as NDArrayCoreClass } from '../common/ndarray-core';
+import { DType } from '../common/dtype';
+
+// Helper to wrap ArrayStorage results in NDArrayCore
+function wrapResult<T>(result: T): T | NDArrayCoreClass {
+  if (result && typeof result === 'object' && '_data' in result && '_shape' in result) {
+    return NDArrayCoreClass.fromStorage(result as unknown as ArrayStorage);
+  }
+  return result;
+}
+
+export const random = {
+  // State management
+  seed: randomOps.seed,
+  get_state: randomOps.get_state,
+  set_state: randomOps.set_state,
+  get_bit_generator: randomOps.get_bit_generator,
+  set_bit_generator: randomOps.set_bit_generator,
+  default_rng: randomOps.default_rng,
+  Generator: randomOps.Generator,
+
+  // Basic random functions
+  random: (size?: number | number[]) => wrapResult(randomOps.random(size)),
+  rand: (...shape: number[]) => wrapResult(randomOps.rand(...shape)),
+  randn: (...shape: number[]) => wrapResult(randomOps.randn(...shape)),
+  randint: (low: number, high?: number | null, size?: number | number[], dtype?: DType) =>
+    wrapResult(randomOps.randint(low, high, size, dtype)),
+
+  // Aliases
+  random_sample: (size?: number | number[]) => wrapResult(randomOps.random_sample(size)),
+  ranf: (size?: number | number[]) => wrapResult(randomOps.ranf(size)),
+  sample: (size?: number | number[]) => wrapResult(randomOps.sample(size)),
+  random_integers: (low: number, high?: number, size?: number | number[]) =>
+    wrapResult(randomOps.random_integers(low, high, size)),
+
+  // Infrastructure
+  bytes: randomOps.bytes,
+
+  // Continuous distributions
+  uniform: (low?: number, high?: number, size?: number | number[]) =>
+    wrapResult(randomOps.uniform(low, high, size)),
+  normal: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.normal(loc, scale, size)),
+  standard_normal: (size?: number | number[]) => wrapResult(randomOps.standard_normal(size)),
+  exponential: (scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.exponential(scale, size)),
+  standard_exponential: (size?: number | number[]) =>
+    wrapResult(randomOps.standard_exponential(size)),
+
+  // Gamma family
+  gamma: (shape: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.gamma(shape, scale, size)),
+  standard_gamma: (shape: number, size?: number | number[]) =>
+    wrapResult(randomOps.standard_gamma(shape, size)),
+  beta: (a: number, b: number, size?: number | number[]) => wrapResult(randomOps.beta(a, b, size)),
+  chisquare: (df: number, size?: number | number[]) => wrapResult(randomOps.chisquare(df, size)),
+  noncentral_chisquare: (df: number, nonc: number, size?: number | number[]) =>
+    wrapResult(randomOps.noncentral_chisquare(df, nonc, size)),
+  f: (dfnum: number, dfden: number, size?: number | number[]) =>
+    wrapResult(randomOps.f(dfnum, dfden, size)),
+  noncentral_f: (dfnum: number, dfden: number, nonc: number, size?: number | number[]) =>
+    wrapResult(randomOps.noncentral_f(dfnum, dfden, nonc, size)),
+
+  // Other continuous distributions
+  standard_cauchy: (size?: number | number[]) => wrapResult(randomOps.standard_cauchy(size)),
+  standard_t: (df: number, size?: number | number[]) => wrapResult(randomOps.standard_t(df, size)),
+  laplace: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.laplace(loc, scale, size)),
+  logistic: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.logistic(loc, scale, size)),
+  lognormal: (mean?: number, sigma?: number, size?: number | number[]) =>
+    wrapResult(randomOps.lognormal(mean, sigma, size)),
+  gumbel: (loc?: number, scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.gumbel(loc, scale, size)),
+  pareto: (a: number, size?: number | number[]) => wrapResult(randomOps.pareto(a, size)),
+  power: (a: number, size?: number | number[]) => wrapResult(randomOps.power(a, size)),
+  rayleigh: (scale?: number, size?: number | number[]) =>
+    wrapResult(randomOps.rayleigh(scale, size)),
+  triangular: (left: number, mode: number, right: number, size?: number | number[]) =>
+    wrapResult(randomOps.triangular(left, mode, right, size)),
+  wald: (mean: number, scale: number, size?: number | number[]) =>
+    wrapResult(randomOps.wald(mean, scale, size)),
+  weibull: (a: number, size?: number | number[]) => wrapResult(randomOps.weibull(a, size)),
+
+  // Discrete distributions
+  poisson: (lam?: number, size?: number | number[]) => wrapResult(randomOps.poisson(lam, size)),
+  binomial: (n: number, p: number, size?: number | number[]) =>
+    wrapResult(randomOps.binomial(n, p, size)),
+  geometric: (p: number, size?: number | number[]) => wrapResult(randomOps.geometric(p, size)),
+  hypergeometric: (ngood: number, nbad: number, nsample: number, size?: number | number[]) =>
+    wrapResult(randomOps.hypergeometric(ngood, nbad, nsample, size)),
+  logseries: (p: number, size?: number | number[]) => wrapResult(randomOps.logseries(p, size)),
+  negative_binomial: (n: number, p: number, size?: number | number[]) =>
+    wrapResult(randomOps.negative_binomial(n, p, size)),
+  zipf: (a: number, size?: number | number[]) => wrapResult(randomOps.zipf(a, size)),
+
+  // Multivariate distributions
+  multinomial: (n: number, pvals: number[] | ArrayStorage, size?: number | number[]) =>
+    wrapResult(randomOps.multinomial(n, pvals, size)),
+  multivariate_normal: (
+    mean: number[] | ArrayStorage,
+    cov: number[][] | ArrayStorage,
+    size?: number | number[],
+    check_valid?: 'warn' | 'raise' | 'ignore',
+    tol?: number
+  ) => wrapResult(randomOps.multivariate_normal(mean, cov, size, check_valid, tol)),
+  dirichlet: (alpha: number[] | ArrayStorage, size?: number | number[]) =>
+    wrapResult(randomOps.dirichlet(alpha, size)),
+  vonmises: (mu: number, kappa: number, size?: number | number[]) =>
+    wrapResult(randomOps.vonmises(mu, kappa, size)),
+
+  // Sequence operations
+  choice: (
+    a: number | ArrayStorage,
+    size?: number | number[],
+    replace?: boolean,
+    p?: ArrayStorage | number[]
+  ) => wrapResult(randomOps.choice(a, size, replace, p)),
+  permutation: (x: number | ArrayStorage) => wrapResult(randomOps.permutation(x)),
+  shuffle: randomOps.shuffle,
+};
+
+// FFT Namespace (core.fft)
+
+import * as fftOps from '../common/ops/fft';
+
+// Type alias for array inputs
+type ArrayInput = NDArrayCoreClass | ArrayStorage;
+
+// Helper to extract storage from any array input
+function getStorage(a: ArrayInput): ArrayStorage {
+  if (a instanceof NDArrayCoreClass) return a.storage;
+  return a;
+}
+
+export const fft = {
+  fft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.fft(getStorage(a), n, axis, norm)),
+  ifft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.ifft(getStorage(a), n, axis, norm)),
+  fft2: (
+    a: ArrayInput,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => NDArrayCoreClass.fromStorage(fftOps.fft2(getStorage(a), s, axes, norm)),
+  ifft2: (
+    a: ArrayInput,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => NDArrayCoreClass.fromStorage(fftOps.ifft2(getStorage(a), s, axes, norm)),
+  fftn: (a: ArrayInput, s?: number[], axes?: number[], norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.fftn(getStorage(a), s, axes, norm)),
+  ifftn: (a: ArrayInput, s?: number[], axes?: number[], norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.ifftn(getStorage(a), s, axes, norm)),
+  rfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.rfft(getStorage(a), n, axis, norm)),
+  irfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.irfft(getStorage(a), n, axis, norm)),
+  rfft2: (
+    a: ArrayInput,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => NDArrayCoreClass.fromStorage(fftOps.rfft2(getStorage(a), s, axes, norm)),
+  irfft2: (
+    a: ArrayInput,
+    s?: [number, number],
+    axes?: [number, number],
+    norm?: 'backward' | 'ortho' | 'forward'
+  ) => NDArrayCoreClass.fromStorage(fftOps.irfft2(getStorage(a), s, axes, norm)),
+  rfftn: (a: ArrayInput, s?: number[], axes?: number[], norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.rfftn(getStorage(a), s, axes, norm)),
+  irfftn: (a: ArrayInput, s?: number[], axes?: number[], norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.irfftn(getStorage(a), s, axes, norm)),
+  hfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.hfft(getStorage(a), n, axis, norm)),
+  ihfft: (a: ArrayInput, n?: number, axis?: number, norm?: 'backward' | 'ortho' | 'forward') =>
+    NDArrayCoreClass.fromStorage(fftOps.ihfft(getStorage(a), n, axis, norm)),
+  fftfreq: (n: number, d?: number) => NDArrayCoreClass.fromStorage(fftOps.fftfreq(n, d)),
+  rfftfreq: (n: number, d?: number) => NDArrayCoreClass.fromStorage(fftOps.rfftfreq(n, d)),
+  fftshift: (a: ArrayInput, axes?: number | number[]) =>
+    NDArrayCoreClass.fromStorage(fftOps.fftshift(getStorage(a), axes)),
+  ifftshift: (a: ArrayInput, axes?: number | number[]) =>
+    NDArrayCoreClass.fromStorage(fftOps.ifftshift(getStorage(a), axes)),
+};

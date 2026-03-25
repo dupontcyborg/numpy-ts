@@ -2,7 +2,7 @@
  * Benchmark type definitions
  */
 
-import type { DType } from '../../src/core/dtype';
+import type { DType } from '../../src/common/dtype';
 
 export interface BenchmarkSetup {
   [key: string]: {
