@@ -5,373 +5,170 @@
  * - Legacy API (np.random.seed, random, rand, uniform, etc.) uses MT19937
  * - Modern API (np.random.default_rng) uses PCG64 with SeedSequence
  *
- * Both implementations produce identical output to NumPy when seeded.
+ * Core RNG and distribution algorithms run in WASM (Zig) for:
+ * - Exact NumPy output matching (Ziggurat for Generator, polar for legacy)
+ * - Native u128 for PCG64 (vs slow JS BigInt)
  */
 
 import { ArrayStorage } from '../storage';
 import { type DType, isBigIntDType } from '../dtype';
+import {
+  initMT19937,
+  mt19937Uint32,
+  mt19937Float64,
+  getMT19937State,
+  setMT19937State,
+  initPCG64FromSeed,
+  pcg64Float64,
+  pcg64SaveState,
+  pcg64RestoreState,
+  pcg64BoundedUint64,
+  standardNormalPCG,
+  standardExponentialPCG,
+  legacyGauss,
+  legacyGaussReset,
+  legacyStandardExponential,
+  fillUniformF64MT,
+  fillUniformF64PCG,
+  fillStandardNormalPCG,
+  fillStandardExponentialPCG,
+  fillLegacyGauss,
+  fillLegacyStandardExponential,
+  fillRkInterval,
+  wasmLegacyStandardGamma,
+  fillLegacyStandardGamma,
+  fillLegacyChisquare,
+  fillPareto,
+  fillPower,
+  fillWeibull,
+  fillLogistic,
+  fillGumbel,
+  fillLaplace,
+  fillRayleigh,
+  fillTriangular,
+  fillStandardCauchy,
+  fillLognormal,
+  fillWald,
+  fillStandardT,
+  fillBeta,
+  fillF,
+  fillNoncentralChisquare,
+  fillNoncentralF,
+  fillGeometric,
+  fillPoisson,
+  fillBinomial,
+  fillNegativeBinomial,
+  fillHypergeometric,
+  fillLogseries,
+  fillZipf,
+  fillVonmises,
+  fillRandintI64,
+  fillRandintU8,
+  fillRandintU16,
+  fillPermutation,
+} from '../wasm/rng';
 
 // ============================================================================
-// MT19937 (Mersenne Twister) - Used for legacy np.random.* functions
-// Produces identical output to NumPy's np.random.seed() based functions
-// ============================================================================
-
-const MT_N = 624;
-const MT_M = 397;
-const MT_MATRIX_A = 0x9908b0df;
-const MT_UPPER_MASK = 0x80000000;
-const MT_LOWER_MASK = 0x7fffffff;
-
-interface MT19937State {
-  mt: Uint32Array;
-  mti: number;
-}
-
-let _mtState: MT19937State = {
-  mt: new Uint32Array(MT_N),
-  mti: MT_N + 1,
-};
-
-/**
- * Initialize MT19937 with a seed
- */
-function mtInit(seed: number): void {
-  const mt = _mtState.mt;
-  mt[0] = seed >>> 0;
-  for (let i = 1; i < MT_N; i++) {
-    const s = mt[i - 1]! ^ (mt[i - 1]! >>> 30);
-    mt[i] = (Math.imul(1812433253, s) + i) >>> 0;
-  }
-  _mtState.mti = MT_N;
-}
-
-/**
- * Generate a random 32-bit integer using MT19937
- */
-function mtRandom(): number {
-  const mt = _mtState.mt;
-  let y: number;
-  const mag01 = [0, MT_MATRIX_A];
-
-  if (_mtState.mti >= MT_N) {
-    let kk: number;
-
-    if (_mtState.mti === MT_N + 1) {
-      mtInit(5489);
-    }
-
-    for (kk = 0; kk < MT_N - MT_M; kk++) {
-      y = (mt[kk]! & MT_UPPER_MASK) | (mt[kk + 1]! & MT_LOWER_MASK);
-      mt[kk] = mt[kk + MT_M]! ^ (y >>> 1) ^ mag01[y & 1]!;
-    }
-    for (; kk < MT_N - 1; kk++) {
-      y = (mt[kk]! & MT_UPPER_MASK) | (mt[kk + 1]! & MT_LOWER_MASK);
-      mt[kk] = mt[kk + (MT_M - MT_N)]! ^ (y >>> 1) ^ mag01[y & 1]!;
-    }
-    y = (mt[MT_N - 1]! & MT_UPPER_MASK) | (mt[0]! & MT_LOWER_MASK);
-    mt[MT_N - 1] = mt[MT_M - 1]! ^ (y >>> 1) ^ mag01[y & 1]!;
-
-    _mtState.mti = 0;
-  }
-
-  y = mt[_mtState.mti++]!;
-
-  // Tempering
-  y ^= y >>> 11;
-  y ^= (y << 7) & 0x9d2c5680;
-  y ^= (y << 15) & 0xefc60000;
-  y ^= y >>> 18;
-
-  return y >>> 0;
-}
-
-/**
- * Generate a random float in [0, 1) using MT19937 (53-bit precision)
- * Matches NumPy's random_standard_uniform exactly
- */
-function mtRandomFloat53(): number {
-  const a = mtRandom() >>> 5; // 27 bits
-  const b = mtRandom() >>> 6; // 26 bits
-  return (a * 67108864.0 + b) / 9007199254740992.0;
-}
-
-// ============================================================================
-// SeedSequence - NumPy's seed expansion algorithm
-// ============================================================================
-
-const SS_MULT_A = 0x931e8875;
-const SS_MULT_B = 0x58f38ded;
-const SS_INIT_A = 0x43b0d7e5;
-const SS_INIT_B = 0x8b51f9dd;
-const SS_MIX_MULT_L = 0xca01f9dd;
-const SS_MIX_MULT_R = 0x4973f715;
-const SS_XSHIFT = 16;
-const SS_POOL_SIZE = 4;
-
-function u32(x: number): number {
-  return x >>> 0;
-}
-
-/**
- * SeedSequence hashmix function - uses MULT_A
- */
-function ssHashmix(value: number, hashConstRef: { val: number }): number {
-  value = u32(u32(value) ^ hashConstRef.val);
-  hashConstRef.val = u32(Math.imul(hashConstRef.val, SS_MULT_A));
-  value = u32(Math.imul(value, hashConstRef.val));
-  value = u32(value ^ (value >>> SS_XSHIFT));
-  return value;
-}
-
-/**
- * SeedSequence mix function
- */
-function ssMix(x: number, y: number): number {
-  let result = u32(u32(Math.imul(SS_MIX_MULT_L, u32(x))) - u32(Math.imul(SS_MIX_MULT_R, u32(y))));
-  result = u32(result ^ (result >>> SS_XSHIFT));
-  return result;
-}
-
-/**
- * Create SeedSequence pool from entropy
- * Includes Phase 1 (initial mixing) and Phase 2 (cross-mixing)
- */
-function seedSequence(seed: number): number[] {
-  const mixer: number[] = [0, 0, 0, 0];
-  const entropy = [seed >>> 0];
-  const hashConst = { val: SS_INIT_A };
-
-  // Phase 1: Initial hash mixing
-  for (let i = 0; i < SS_POOL_SIZE; i++) {
-    if (i < entropy.length) {
-      mixer[i] = ssHashmix(entropy[i]!, hashConst);
-    } else {
-      mixer[i] = ssHashmix(0, hashConst);
-    }
-  }
-
-  // Phase 2: Cross-mixing (ensures late bits affect early bits)
-  for (let iSrc = 0; iSrc < SS_POOL_SIZE; iSrc++) {
-    for (let iDst = 0; iDst < SS_POOL_SIZE; iDst++) {
-      if (iSrc !== iDst) {
-        const hashed = ssHashmix(mixer[iSrc]!, hashConst);
-        mixer[iDst] = ssMix(mixer[iDst]!, hashed);
-      }
-    }
-  }
-
-  return mixer;
-}
-
-/**
- * Generate state uint32 array from pool
- * Note: Uses MULT_B (not MULT_A) for the inline hashmix operation
- */
-function ssGenerateState(pool: number[], nWords: number): number[] {
-  const result: number[] = [];
-  let hashConst = SS_INIT_B;
-
-  for (let i = 0; i < nWords; i++) {
-    const dataVal = pool[i % SS_POOL_SIZE]!;
-    // Inline hashmix-like operation using MULT_B
-    let value = u32(dataVal ^ hashConst);
-    hashConst = u32(Math.imul(hashConst, SS_MULT_B));
-    value = u32(Math.imul(value, hashConst));
-    value = u32(value ^ (value >>> SS_XSHIFT));
-    result.push(value);
-  }
-
-  return result;
-}
-
-// ============================================================================
-// PCG64 (XSL-RR variant) - Used for Generator class (default_rng)
-// Uses 128-bit state and ADVANCE-THEN-OUTPUT order like NumPy
-// ============================================================================
-
-interface PCG64State {
-  state: bigint;
-  inc: bigint;
-}
-
-// PCG64 128-bit multiplier (from PCG paper)
-const PCG64_MULT_LO = BigInt('4865540595714422341');
-const PCG64_MULT_HI = BigInt('2549297995355413924');
-const PCG64_MULT = (PCG64_MULT_HI << BigInt(64)) | PCG64_MULT_LO;
-const MASK_64 = BigInt('0xffffffffffffffff');
-const MASK_128 = (BigInt(1) << BigInt(128)) - BigInt(1);
-
-/**
- * PCG64 XSL-RR output function
- */
-function pcg64Output(state: bigint): bigint {
-  const hi = state >> BigInt(64);
-  const lo = state & MASK_64;
-  const xored = (hi ^ lo) & MASK_64;
-  const rot = Number(state >> BigInt(122));
-  // 64-bit rotate right
-  const rotated = ((xored >> BigInt(rot)) | (xored << BigInt(64 - rot))) & MASK_64;
-  return rotated;
-}
-
-/**
- * PCG64 state advance function
- */
-function pcg64Advance(state: bigint, inc: bigint): bigint {
-  return (state * PCG64_MULT + inc) & MASK_128;
-}
-
-/**
- * Initialize PCG64 with SeedSequence (matches NumPy's default_rng exactly)
- */
-function pcg64Init(seed: number): PCG64State {
-  const pool = seedSequence(seed);
-  const stateU32 = ssGenerateState(pool, 8);
-
-  // Combine uint32 pairs into uint64 (little-endian)
-  const s0 = BigInt(stateU32[0]!) | (BigInt(stateU32[1]!) << BigInt(32));
-  const s1 = BigInt(stateU32[2]!) | (BigInt(stateU32[3]!) << BigInt(32));
-  const s2 = BigInt(stateU32[4]!) | (BigInt(stateU32[5]!) << BigInt(32));
-  const s3 = BigInt(stateU32[6]!) | (BigInt(stateU32[7]!) << BigInt(32));
-
-  // Combine into 128-bit values: (high << 64) | low
-  const initState = (s0 << BigInt(64)) | s1;
-  let initInc = ((s2 << BigInt(64)) | s3) << BigInt(1);
-  initInc = (initInc | BigInt(1)) & MASK_128; // Must be odd
-
-  // PCG setseq initialization: 2 bumps
-  let state = BigInt(0);
-  state = pcg64Advance(state, initInc); // bump 1
-  state = (state + initState) & MASK_128;
-  state = pcg64Advance(state, initInc); // bump 2
-
-  return { state, inc: initInc };
-}
-
-/**
- * PCG64 step: ADVANCE then OUTPUT (NumPy order)
- */
-function pcg64Step(pcgState: PCG64State): bigint {
-  // First advance
-  pcgState.state = pcg64Advance(pcgState.state, pcgState.inc);
-  // Then output from new state
-  return pcg64Output(pcgState.state);
-}
-
-/**
- * Generate random float in [0, 1) from PCG64 (53-bit precision)
- */
-function pcg64RandomFloat(pcgState: PCG64State): number {
-  const u64 = pcg64Step(pcgState);
-  const shifted = u64 >> BigInt(11);
-  return Number(shifted) / 9007199254740992.0;
-}
-
-// ============================================================================
-// Generator Class - Modern API using PCG64
+// Generator Class - Modern API using PCG64 + Ziggurat (via WASM)
 // ============================================================================
 
 /**
- * Random number generator class (matches NumPy's Generator from default_rng)
+ * Random number generator class (matches NumPy's Generator from default_rng).
+ * Each instance maintains its own PCG64 state snapshot, swapped into WASM on each call.
  */
 export class Generator {
-  private _pcgState: PCG64State;
+  private _state: BigUint64Array;
 
   constructor(seedValue?: number) {
-    if (seedValue !== undefined) {
-      this._pcgState = pcg64Init(seedValue);
-    } else {
-      const randomSeed = Math.floor(Math.random() * 0x100000000);
-      this._pcgState = pcg64Init(randomSeed);
-    }
+    const s = seedValue !== undefined ? seedValue : Math.floor(Math.random() * 0x100000000);
+    initPCG64FromSeed(s);
+    this._state = pcg64SaveState();
   }
 
-  private _randomFloat(): number {
-    return pcg64RandomFloat(this._pcgState);
+  /** Load this instance's state into WASM, run fn, snapshot state back. */
+  private _withState<T>(fn: () => T): T {
+    pcg64RestoreState(this._state);
+    const result = fn();
+    this._state = pcg64SaveState();
+    return result;
   }
 
   random(size?: number | number[]): ArrayStorage | number {
-    if (size === undefined) {
-      return this._randomFloat();
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'float64');
-    const data = result.data as Float64Array;
-    for (let i = 0; i < totalSize; i++) {
-      data[i] = this._randomFloat();
-    }
-    return result;
+    return this._withState(() => {
+      if (size === undefined) {
+        return pcg64Float64();
+      }
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const data = fillUniformF64PCG(totalSize);
+      return ArrayStorage.fromData(new Float64Array(data), shape, 'float64');
+    });
   }
 
   integers(low: number, high?: number, size?: number | number[]): ArrayStorage | number {
-    if (high === undefined) {
-      high = low;
-      low = 0;
-    }
-    if (size === undefined) {
-      return Math.floor(this._randomFloat() * (high - low)) + low;
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'int64');
-    const data = result.data as BigInt64Array;
-    const range = high - low;
-    for (let i = 0; i < totalSize; i++) {
-      data[i] = BigInt(Math.floor(this._randomFloat() * range) + low);
-    }
-    return result;
+    return this._withState(() => {
+      if (high === undefined) {
+        high = low;
+        low = 0;
+      }
+      const rng = high - low - 1; // inclusive max offset
+      if (size === undefined) {
+        return Number(pcg64BoundedUint64(low, rng));
+      }
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const result = ArrayStorage.zeros(shape, 'int64');
+      const data = result.data as BigInt64Array;
+      for (let i = 0; i < totalSize; i++) {
+        data[i] = pcg64BoundedUint64(low, rng);
+      }
+      return result;
+    });
   }
 
   standard_normal(size?: number | number[]): ArrayStorage | number {
-    if (size === undefined) {
-      return boxMullerTransform(this._randomFloat.bind(this));
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'float64');
-    const data = result.data as Float64Array;
-    for (let i = 0; i < totalSize; i += 2) {
-      const [z0, z1] = boxMullerTransformPair(this._randomFloat.bind(this));
-      data[i] = z0;
-      if (i + 1 < totalSize) {
-        data[i + 1] = z1;
+    return this._withState(() => {
+      if (size === undefined) {
+        return standardNormalPCG();
       }
-    }
-    return result;
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const data = fillStandardNormalPCG(totalSize);
+      return ArrayStorage.fromData(new Float64Array(data), shape, 'float64');
+    });
   }
 
   normal(loc: number = 0, scale: number = 1, size?: number | number[]): ArrayStorage | number {
-    if (size === undefined) {
-      return boxMullerTransform(this._randomFloat.bind(this)) * scale + loc;
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'float64');
-    const data = result.data as Float64Array;
-    for (let i = 0; i < totalSize; i += 2) {
-      const [z0, z1] = boxMullerTransformPair(this._randomFloat.bind(this));
-      data[i] = z0 * scale + loc;
-      if (i + 1 < totalSize) {
-        data[i + 1] = z1 * scale + loc;
+    return this._withState(() => {
+      if (size === undefined) {
+        return standardNormalPCG() * scale + loc;
       }
-    }
-    return result;
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const rawData = fillStandardNormalPCG(totalSize);
+      const data = new Float64Array(totalSize);
+      for (let i = 0; i < totalSize; i++) {
+        data[i] = rawData[i]! * scale + loc;
+      }
+      return ArrayStorage.fromData(data, shape, 'float64');
+    });
   }
 
   uniform(low: number = 0, high: number = 1, size?: number | number[]): ArrayStorage | number {
-    if (size === undefined) {
-      return this._randomFloat() * (high - low) + low;
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'float64');
-    const data = result.data as Float64Array;
-    const range = high - low;
-    for (let i = 0; i < totalSize; i++) {
-      data[i] = this._randomFloat() * range + low;
-    }
-    return result;
+    return this._withState(() => {
+      if (size === undefined) {
+        return pcg64Float64() * (high - low) + low;
+      }
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const rawData = fillUniformF64PCG(totalSize);
+      const data = new Float64Array(totalSize);
+      const range = high - low;
+      for (let i = 0; i < totalSize; i++) {
+        data[i] = rawData[i]! * range + low;
+      }
+      return ArrayStorage.fromData(data, shape, 'float64');
+    });
   }
 
   choice(
@@ -380,57 +177,65 @@ export class Generator {
     replace: boolean = true,
     p?: ArrayStorage | number[]
   ): ArrayStorage | number {
-    return choiceImpl(a, size, replace, p, this._randomFloat.bind(this));
+    return this._withState(() => choiceImpl(a, size, replace, p, pcg64Float64));
   }
 
   permutation(x: number | ArrayStorage): ArrayStorage {
-    return permutationImpl(x, this._randomFloat.bind(this));
+    return this._withState(() => permutationImpl(x, pcg64Float64));
   }
 
   shuffle(x: ArrayStorage): void {
-    shuffleImpl(x, this._randomFloat.bind(this));
+    this._withState(() => {
+      shuffleImpl(x, pcg64Float64);
+    });
   }
 
   exponential(scale: number = 1, size?: number | number[]): ArrayStorage | number {
-    if (size === undefined) {
-      return -Math.log(1 - this._randomFloat()) * scale;
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'float64');
-    const data = result.data as Float64Array;
-    for (let i = 0; i < totalSize; i++) {
-      data[i] = -Math.log(1 - this._randomFloat()) * scale;
-    }
-    return result;
+    return this._withState(() => {
+      if (size === undefined) {
+        return standardExponentialPCG() * scale;
+      }
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const rawData = fillStandardExponentialPCG(totalSize);
+      const data = new Float64Array(totalSize);
+      for (let i = 0; i < totalSize; i++) {
+        data[i] = rawData[i]! * scale;
+      }
+      return ArrayStorage.fromData(data, shape, 'float64');
+    });
   }
 
   poisson(lam: number = 1, size?: number | number[]): ArrayStorage | number {
-    if (size === undefined) {
-      return poissonSample(lam, this._randomFloat.bind(this));
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'int64');
-    const data = result.data as BigInt64Array;
-    for (let i = 0; i < totalSize; i++) {
-      data[i] = BigInt(poissonSample(lam, this._randomFloat.bind(this)));
-    }
-    return result;
+    return this._withState(() => {
+      if (size === undefined) {
+        return poissonSample(lam, pcg64Float64);
+      }
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const result = ArrayStorage.zeros(shape, 'int64');
+      const data = result.data as BigInt64Array;
+      for (let i = 0; i < totalSize; i++) {
+        data[i] = BigInt(poissonSample(lam, pcg64Float64));
+      }
+      return result;
+    });
   }
 
   binomial(n: number, p: number, size?: number | number[]): ArrayStorage | number {
-    if (size === undefined) {
-      return binomialSample(n, p, this._randomFloat.bind(this));
-    }
-    const shape = Array.isArray(size) ? size : [size];
-    const totalSize = shape.reduce((a, b) => a * b, 1);
-    const result = ArrayStorage.zeros(shape, 'int64');
-    const data = result.data as BigInt64Array;
-    for (let i = 0; i < totalSize; i++) {
-      data[i] = BigInt(binomialSample(n, p, this._randomFloat.bind(this)));
-    }
-    return result;
+    return this._withState(() => {
+      if (size === undefined) {
+        return binomialSample(n, p, pcg64Float64);
+      }
+      const shape = Array.isArray(size) ? size : [size];
+      const totalSize = shape.reduce((a, b) => a * b, 1);
+      const result = ArrayStorage.zeros(shape, 'int64');
+      const data = result.data as BigInt64Array;
+      for (let i = 0; i < totalSize; i++) {
+        data[i] = BigInt(binomialSample(n, p, pcg64Float64));
+      }
+      return result;
+    });
   }
 }
 
@@ -454,7 +259,8 @@ export function seed(seedValue?: number | null): void {
   if (seedValue === undefined || seedValue === null) {
     seedValue = Math.floor(Date.now() ^ (Math.random() * 0x100000000));
   }
-  mtInit(seedValue >>> 0);
+  initMT19937(seedValue >>> 0);
+  legacyGaussReset();
 }
 
 /**
@@ -462,10 +268,8 @@ export function seed(seedValue?: number | null): void {
  * @returns State object that can be used with set_state
  */
 export function get_state(): { mt: number[]; mti: number } {
-  return {
-    mt: Array.from(_mtState.mt),
-    mti: _mtState.mti,
-  };
+  const { mt, mti } = getMT19937State();
+  return { mt: Array.from(mt), mti };
 }
 
 /**
@@ -473,8 +277,8 @@ export function get_state(): { mt: number[]; mti: number } {
  * @param state - State object from get_state
  */
 export function set_state(state: { mt: number[]; mti: number }): void {
-  _mtState.mt = new Uint32Array(state.mt);
-  _mtState.mti = state.mti;
+  setMT19937State(new Uint32Array(state.mt), state.mti);
+  legacyGaussReset();
 }
 
 // ============================================================================
@@ -482,65 +286,512 @@ export function set_state(state: { mt: number[]; mti: number }): void {
 // ============================================================================
 
 /**
- * Box-Muller transform for generating standard normal random numbers
+ * NumPy's rk_interval: bounded random integer in [0, max] using rejection sampling
+ * with bit masking. Matches randomkit.c line 449.
+ * Uses mt19937Uint32 (rk_random) masked to smallest bitmask >= max, rejecting > max.
  */
-function boxMullerTransform(rng: () => number): number {
-  let u1: number, u2: number;
+function rkInterval(max: number): number {
+  if (max === 0) return 0;
+
+  // Smallest bit mask >= max
+  let mask = max;
+  mask |= mask >>> 1;
+  mask |= mask >>> 2;
+  mask |= mask >>> 4;
+  mask |= mask >>> 8;
+  mask |= mask >>> 16;
+
+  // Rejection sampling: generate masked u32, reject if > max
+  let value: number;
   do {
-    u1 = rng();
-    u2 = rng();
-  } while (u1 === 0);
-  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    value = (mt19937Uint32() & mask) >>> 0;
+  } while (value > max);
+
+  return value;
 }
 
-/**
- * Box-Muller transform returning both values
- */
-function boxMullerTransformPair(rng: () => number): [number, number] {
-  let u1: number, u2: number;
-  do {
-    u1 = rng();
-    u2 = rng();
-  } while (u1 === 0);
-  const r = Math.sqrt(-2 * Math.log(u1));
-  const theta = 2 * Math.PI * u2;
-  return [r * Math.cos(theta), r * Math.sin(theta)];
-}
+// ============================================================================
+// NumPy-exact legacy distribution helpers
+// ============================================================================
 
 /**
- * Poisson random sample using inverse transform sampling
+ * log-gamma function matching NumPy's random_loggam (distributions.c)
  */
-function poissonSample(lam: number, rng: () => number): number {
-  if (lam < 30) {
-    const L = Math.exp(-lam);
-    let k = 0;
-    let p = 1;
-    do {
-      k++;
-      p *= rng();
-    } while (p > L);
-    return k - 1;
+function randomLoggam(x: number): number {
+  const a = [
+    8.333333333333333e-2, -2.777777777777778e-3, 7.936507936507937e-4, -5.952380952380952e-4,
+    8.417508417508418e-4, -1.917526917526918e-3, 6.41025641025641e-3, -2.955065359477124e-2,
+    1.796443723688307e-1, -1.3924322169059,
+  ];
+
+  if (x === 1.0 || x === 2.0) return 0.0;
+
+  let n: number;
+  if (x < 7.0) {
+    n = Math.floor(7 - x);
   } else {
-    const z = boxMullerTransform(rng);
-    return Math.max(0, Math.round(lam + Math.sqrt(lam) * z));
+    n = 0;
+  }
+  let x0 = x + n;
+  const x2 = (1.0 / x0) * (1.0 / x0);
+  const lg2pi = 1.8378770664093453;
+  let gl0 = a[9]!;
+  for (let k = 8; k >= 0; k--) {
+    gl0 *= x2;
+    gl0 += a[k]!;
+  }
+  let gl = gl0 / x0 + 0.5 * lg2pi + (x0 - 0.5) * Math.log(x0) - x0;
+  if (x < 7.0) {
+    for (let k = 1; k <= n; k++) {
+      gl -= Math.log(x0 - 1.0);
+      x0 -= 1.0;
+    }
+  }
+  return gl;
+}
+
+/**
+ * Legacy standard gamma — exact match for NumPy's legacy_standard_gamma
+ * Uses legacyGauss(), legacyStandardExponential(), mt19937Float64()
+ */
+function legacyStandardGamma(shape: number): number {
+  return wasmLegacyStandardGamma(shape);
+}
+
+/**
+ * Legacy chisquare: 2 * legacyStandardGamma(df/2)
+ */
+function legacyChisquare(df: number): number {
+  return 2.0 * legacyStandardGamma(df / 2.0);
+}
+
+// ============================================================================
+// Hypergeometric: NumPy-exact (HYP + HRUA) from legacy-distributions.c
+// ============================================================================
+
+function hypergeometricHyp(good: number, bad: number, sample: number): number {
+  const d1 = bad + good - sample;
+  let d2 = Math.min(bad, good);
+  let y = d2;
+  let k = sample;
+  while (y > 0.0) {
+    const u = mt19937Float64();
+    y -= Math.floor(u + y / (d1 + k));
+    k--;
+    if (k === 0) break;
+  }
+  const z = d2 - y;
+  if (good > bad) return sample - z;
+  return z;
+}
+
+function hypergeometricHrua(good: number, bad: number, sample: number): number {
+  const D1 = 1.7155277699214135;
+  const D2 = 0.8989161620588988;
+
+  const mingoodbad = Math.min(good, bad);
+  const popsize = good + bad;
+  const maxgoodbad = Math.max(good, bad);
+  const m = Math.min(sample, popsize - sample);
+  const d4 = mingoodbad / popsize;
+  const d5 = 1.0 - d4;
+  const d6 = m * d4 + 0.5;
+  const d7 = Math.sqrt(((popsize - m) * sample * d4 * d5) / (popsize - 1) + 0.5);
+  const d8 = D1 * d7 + D2;
+  const d9 = Math.floor(((m + 1) * (mingoodbad + 1)) / (popsize + 2));
+  const d10 =
+    randomLoggam(d9 + 1) +
+    randomLoggam(mingoodbad - d9 + 1) +
+    randomLoggam(m - d9 + 1) +
+    randomLoggam(maxgoodbad - m + d9 + 1);
+  const d11 = Math.min(Math.min(m, mingoodbad) + 1.0, Math.floor(d6 + 16 * d7));
+
+  let Z: number;
+  while (true) {
+    const X = mt19937Float64();
+    const Y = mt19937Float64();
+    const W = d6 + (d8 * (Y - 0.5)) / X;
+
+    if (W < 0.0 || W >= d11) continue;
+
+    Z = Math.floor(W);
+    const T =
+      d10 -
+      (randomLoggam(Z + 1) +
+        randomLoggam(mingoodbad - Z + 1) +
+        randomLoggam(m - Z + 1) +
+        randomLoggam(maxgoodbad - m + Z + 1));
+
+    if (X * (4.0 - X) - 3.0 <= T) break;
+    if (X * (X - T) >= 1) continue;
+    if (2.0 * Math.log(X) <= T) break;
+  }
+
+  if (good > bad) Z = m - Z;
+  if (m < sample) Z = good - Z;
+  return Z;
+}
+
+// ============================================================================
+// Poisson: NumPy-exact (random_poisson_mult + random_poisson_ptrs)
+// ============================================================================
+
+function poissonMult(lam: number, rng: () => number): number {
+  const enlam = Math.exp(-lam);
+  let X = 0;
+  let prod = 1.0;
+  while (true) {
+    const U = rng();
+    prod *= U;
+    if (prod > enlam) {
+      X += 1;
+    } else {
+      return X;
+    }
   }
 }
 
-/**
- * Binomial random sample
- */
-function binomialSample(n: number, p: number, rng: () => number): number {
-  if (n * p < 10 && n * (1 - p) < 10) {
-    let successes = 0;
-    for (let i = 0; i < n; i++) {
-      if (rng() < p) successes++;
+function poissonPtrs(lam: number, rng: () => number): number {
+  const slam = Math.sqrt(lam);
+  const loglam = Math.log(lam);
+  const b = 0.931 + 2.53 * slam;
+  const a = -0.059 + 0.02483 * b;
+  const invalpha = 1.1239 + 1.1328 / (b - 3.4);
+  const vr = 0.9277 - 3.6224 / (b - 2);
+
+  while (true) {
+    const U = rng() - 0.5;
+    const V = rng();
+    const us = 0.5 - Math.abs(U);
+    const k = Math.floor(((2 * a) / us + b) * U + lam + 0.43);
+    if (us >= 0.07 && V <= vr) return k;
+    if (k < 0 || (us < 0.013 && V > us)) continue;
+    if (
+      Math.log(V) + Math.log(invalpha) - Math.log(a / (us * us) + b) <=
+      -lam + k * loglam - randomLoggam(k + 1)
+    ) {
+      return k;
     }
-    return successes;
+  }
+}
+
+function poissonSample(lam: number, rng: () => number): number {
+  if (lam >= 10) return poissonPtrs(lam, rng);
+  else if (lam === 0) return 0;
+  else return poissonMult(lam, rng);
+}
+
+// ============================================================================
+// Binomial: NumPy-exact (legacy_random_binomial_inversion + random_binomial_btpe)
+// ============================================================================
+
+/** Cached binomial state for BTPE/inversion */
+interface BinomialState {
+  has_binomial: boolean;
+  nsave: number;
+  psave: number;
+  r: number;
+  q: number;
+  fm: number;
+  m: number;
+  p1: number;
+  xm: number;
+  xl: number;
+  xr: number;
+  c: number;
+  laml: number;
+  lamr: number;
+  p2: number;
+  p3: number;
+  p4: number;
+}
+
+function makeBinomialState(): BinomialState {
+  return {
+    has_binomial: false,
+    nsave: 0,
+    psave: 0,
+    r: 0,
+    q: 0,
+    fm: 0,
+    m: 0,
+    p1: 0,
+    xm: 0,
+    xl: 0,
+    xr: 0,
+    c: 0,
+    laml: 0,
+    lamr: 0,
+    p2: 0,
+    p3: 0,
+    p4: 0,
+  };
+}
+
+function binomialBtpe(n: number, p: number, rng: () => number, binomial: BinomialState): number {
+  let r: number, q: number, fm: number, p1: number, xm: number, xl: number, xr: number;
+  let c: number, laml: number, lamr: number, p2: number, p3: number, p4: number;
+  let a: number, u: number, v: number, s: number, F: number, rho: number, t: number, A: number;
+  let nrq: number, x1: number, x2: number, f1: number, f2: number;
+  let z: number, z2: number, w: number, w2: number, x: number;
+  let m: number, y: number, k: number;
+
+  if (!binomial.has_binomial || binomial.nsave !== n || binomial.psave !== p) {
+    binomial.nsave = n;
+    binomial.psave = p;
+    binomial.has_binomial = true;
+    binomial.r = r = Math.min(p, 1.0 - p);
+    binomial.q = q = 1.0 - r;
+    binomial.fm = fm = n * r + r;
+    binomial.m = m = Math.floor(fm);
+    binomial.p1 = p1 = Math.floor(2.195 * Math.sqrt(n * r * q) - 4.6 * q) + 0.5;
+    binomial.xm = xm = m + 0.5;
+    binomial.xl = xl = xm - p1;
+    binomial.xr = xr = xm + p1;
+    binomial.c = c = 0.134 + 20.5 / (15.3 + m);
+    a = (fm - xl) / (fm - xl * r);
+    binomial.laml = laml = a * (1.0 + a / 2.0);
+    a = (xr - fm) / (xr * q);
+    binomial.lamr = lamr = a * (1.0 + a / 2.0);
+    binomial.p2 = p2 = p1 * (1.0 + 2.0 * c);
+    binomial.p3 = p3 = p2 + c / laml;
+    binomial.p4 = p4 = p3 + c / lamr;
   } else {
-    const mean = n * p;
-    const std = Math.sqrt(n * p * (1 - p));
-    const z = boxMullerTransform(rng);
-    return Math.max(0, Math.min(n, Math.round(mean + std * z)));
+    r = binomial.r;
+    q = binomial.q;
+    fm = binomial.fm;
+    m = binomial.m;
+    p1 = binomial.p1;
+    xm = binomial.xm;
+    xl = binomial.xl;
+    xr = binomial.xr;
+    c = binomial.c;
+    laml = binomial.laml;
+    lamr = binomial.lamr;
+    p2 = binomial.p2;
+    p3 = binomial.p3;
+    p4 = binomial.p4;
+  }
+
+  // Main loop (gotos replaced with labeled loop + continue)
+  outer: while (true) {
+    // Step10
+    nrq = n * r * q;
+    u = rng() * p4;
+    v = rng();
+
+    if (u <= p1) {
+      y = Math.floor(xm - p1 * v + u);
+      // goto Step60
+    } else if (u <= p2) {
+      // Step20
+      x = xl + (u - p1) / c;
+      v = v * c + 1.0 - Math.abs(m - x + 0.5) / p1;
+      if (v > 1.0) continue outer;
+      y = Math.floor(x);
+      // goto Step50
+      k = Math.abs(y - m);
+      if (k > 20 && k < nrq / 2.0 - 1) {
+        // Step52
+        rho = (k / nrq) * ((k * (k / 3.0 + 0.625) + 0.16666666666666666) / nrq + 0.5);
+        t = (-k * k) / (2 * nrq);
+        A = Math.log(v);
+        if (A < t - rho) {
+          /* accept */
+        } else if (A > t + rho) continue outer;
+        else {
+          x1 = y + 1;
+          f1 = m + 1;
+          z = n + 1 - m;
+          w = n - y + 1;
+          x2 = x1 * x1;
+          f2 = f1 * f1;
+          z2 = z * z;
+          w2 = w * w;
+          if (
+            A >
+            xm * Math.log(f1 / x1) +
+              (n - m + 0.5) * Math.log(z / w) +
+              (y - m) * Math.log((w * r) / (x1 * q)) +
+              (13680 - (462 - (132 - (99 - 140 / f2) / f2) / f2) / f2) / f1 / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / z2) / z2) / z2) / z2) / z / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / x2) / x2) / x2) / x2) / x1 / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / w2) / w2) / w2) / w2) / w / 166320
+          ) {
+            continue outer;
+          }
+        }
+      } else {
+        s = r / q;
+        a = s * (n + 1);
+        F = 1.0;
+        if (m < y) {
+          for (let i = m + 1; i <= y; i++) F *= a / i - s;
+        } else if (m > y) {
+          for (let i = y + 1; i <= m; i++) F /= a / i - s;
+        }
+        if (v > F) continue outer;
+      }
+    } else if (u <= p3) {
+      // Step30
+      y = Math.floor(xl + Math.log(v) / laml);
+      if (y < 0 || v === 0.0) continue outer;
+      v = v * (u - p2) * laml;
+      // goto Step50
+      k = Math.abs(y - m);
+      if (k > 20 && k < nrq / 2.0 - 1) {
+        rho = (k / nrq) * ((k * (k / 3.0 + 0.625) + 0.16666666666666666) / nrq + 0.5);
+        t = (-k * k) / (2 * nrq);
+        A = Math.log(v);
+        if (A < t - rho) {
+          /* accept */
+        } else if (A > t + rho) continue outer;
+        else {
+          x1 = y + 1;
+          f1 = m + 1;
+          z = n + 1 - m;
+          w = n - y + 1;
+          x2 = x1 * x1;
+          f2 = f1 * f1;
+          z2 = z * z;
+          w2 = w * w;
+          if (
+            A >
+            xm * Math.log(f1 / x1) +
+              (n - m + 0.5) * Math.log(z / w) +
+              (y - m) * Math.log((w * r) / (x1 * q)) +
+              (13680 - (462 - (132 - (99 - 140 / f2) / f2) / f2) / f2) / f1 / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / z2) / z2) / z2) / z2) / z / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / x2) / x2) / x2) / x2) / x1 / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / w2) / w2) / w2) / w2) / w / 166320
+          ) {
+            continue outer;
+          }
+        }
+      } else {
+        s = r / q;
+        a = s * (n + 1);
+        F = 1.0;
+        if (m < y) {
+          for (let i = m + 1; i <= y; i++) F *= a / i - s;
+        } else if (m > y) {
+          for (let i = y + 1; i <= m; i++) F /= a / i - s;
+        }
+        if (v > F) continue outer;
+      }
+    } else {
+      // Step40
+      y = Math.floor(xr - Math.log(v) / lamr);
+      if (y > n || v === 0.0) continue outer;
+      v = v * (u - p3) * lamr;
+      // goto Step50
+      k = Math.abs(y - m);
+      if (k > 20 && k < nrq / 2.0 - 1) {
+        rho = (k / nrq) * ((k * (k / 3.0 + 0.625) + 0.16666666666666666) / nrq + 0.5);
+        t = (-k * k) / (2 * nrq);
+        A = Math.log(v);
+        if (A < t - rho) {
+          /* accept */
+        } else if (A > t + rho) continue outer;
+        else {
+          x1 = y + 1;
+          f1 = m + 1;
+          z = n + 1 - m;
+          w = n - y + 1;
+          x2 = x1 * x1;
+          f2 = f1 * f1;
+          z2 = z * z;
+          w2 = w * w;
+          if (
+            A >
+            xm * Math.log(f1 / x1) +
+              (n - m + 0.5) * Math.log(z / w) +
+              (y - m) * Math.log((w * r) / (x1 * q)) +
+              (13680 - (462 - (132 - (99 - 140 / f2) / f2) / f2) / f2) / f1 / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / z2) / z2) / z2) / z2) / z / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / x2) / x2) / x2) / x2) / x1 / 166320 +
+              (13680 - (462 - (132 - (99 - 140 / w2) / w2) / w2) / w2) / w / 166320
+          ) {
+            continue outer;
+          }
+        }
+      } else {
+        s = r / q;
+        a = s * (n + 1);
+        F = 1.0;
+        if (m < y) {
+          for (let i = m + 1; i <= y; i++) F *= a / i - s;
+        } else if (m > y) {
+          for (let i = y + 1; i <= m; i++) F /= a / i - s;
+        }
+        if (v > F) continue outer;
+      }
+    }
+
+    // Step60
+    if (p > 0.5) y = n - y;
+    return y;
+  }
+}
+
+function binomialInversion(
+  n: number,
+  p: number,
+  rng: () => number,
+  binomial: BinomialState
+): number {
+  let q: number, qn: number, np: number, px: number, U: number;
+  let X: number, bound: number;
+
+  if (!binomial.has_binomial || binomial.nsave !== n || binomial.psave !== p) {
+    binomial.nsave = n;
+    binomial.psave = p;
+    binomial.has_binomial = true;
+    binomial.q = q = 1.0 - p;
+    binomial.r = qn = Math.exp(n * Math.log(q));
+    binomial.c = np = n * p;
+    binomial.m = bound = Math.min(n, Math.floor(np + 10.0 * Math.sqrt(np * q + 1)));
+  } else {
+    q = binomial.q;
+    qn = binomial.r;
+    np = binomial.c;
+    bound = binomial.m;
+  }
+  X = 0;
+  px = qn;
+  U = rng();
+  while (U > px) {
+    X++;
+    if (X > bound) {
+      X = 0;
+      px = qn;
+      U = rng();
+    } else {
+      U -= px;
+      px = ((n - X + 1) * p * px) / (X * q);
+    }
+  }
+  return X;
+}
+
+/** Per-call binomial state (reset each call to match NumPy behavior) */
+function binomialSample(n: number, p: number, rng: () => number): number {
+  if (n === 0 || p === 0.0) return 0;
+
+  const binomial = makeBinomialState();
+  if (p <= 0.5) {
+    if (p * n <= 30.0) {
+      return binomialInversion(n, p, rng, binomial);
+    } else {
+      return binomialBtpe(n, p, rng, binomial);
+    }
+  } else {
+    const q = 1.0 - p;
+    if (q * n <= 30.0) {
+      return n - binomialInversion(n, q, rng, binomial);
+    } else {
+      return n - binomialBtpe(n, q, rng, binomial);
+    }
   }
 }
 
@@ -554,16 +805,12 @@ function binomialSample(n: number, p: number, rng: () => number): number {
  */
 export function random(size?: number | number[]): ArrayStorage | number {
   if (size === undefined) {
-    return mtRandomFloat53();
+    return mt19937Float64();
   }
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = mtRandomFloat53();
-  }
-  return result;
+  const data = fillUniformF64MT(totalSize);
+  return ArrayStorage.fromData(new Float64Array(data), shape, 'float64');
 }
 
 /**
@@ -572,15 +819,11 @@ export function random(size?: number | number[]): ArrayStorage | number {
  */
 export function rand(...shape: number[]): ArrayStorage | number {
   if (shape.length === 0) {
-    return mtRandomFloat53();
+    return mt19937Float64();
   }
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = mtRandomFloat53();
-  }
-  return result;
+  const data = fillUniformF64MT(totalSize);
+  return ArrayStorage.fromData(new Float64Array(data), shape, 'float64');
 }
 
 /**
@@ -589,19 +832,11 @@ export function rand(...shape: number[]): ArrayStorage | number {
  */
 export function randn(...shape: number[]): ArrayStorage | number {
   if (shape.length === 0) {
-    return boxMullerTransform(mtRandomFloat53);
+    return legacyGauss();
   }
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i += 2) {
-    const [z0, z1] = boxMullerTransformPair(mtRandomFloat53);
-    data[i] = z0;
-    if (i + 1 < totalSize) {
-      data[i + 1] = z1;
-    }
-  }
-  return result;
+  const data = fillLegacyGauss(totalSize);
+  return ArrayStorage.fromData(new Float64Array(data), shape, 'float64');
 }
 
 /**
@@ -623,27 +858,44 @@ export function randint(
   }
   const range = high - low;
 
+  // NumPy's legacy randint uses rk_interval (rejection sampling with bit masking)
+  // rk_interval generates rk_random() values masked to the smallest bitmask >= max,
+  // rejecting values > max. range-1 because rk_interval is inclusive [0, max].
+  const rng = range - 1;
+
   if (size === undefined) {
-    return Math.floor(mtRandomFloat53() * range) + low;
+    return rkInterval(rng) + low;
   }
 
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, dtype);
-  const data = result.data;
 
-  if (isBigIntDType(dtype)) {
-    const bigData = data as BigInt64Array | BigUint64Array;
-    for (let i = 0; i < totalSize; i++) {
-      bigData[i] = BigInt(Math.floor(mtRandomFloat53() * range) + low);
-    }
+  // Dispatch by dtype to match NumPy's buffered bounded sampling exactly.
+  // Small dtypes (u8/u16) extract multiple values per mt19937 u32 call.
+  if (dtype === 'int8' || dtype === 'uint8') {
+    const raw = fillRandintU8(totalSize, rng, low);
+    const result = ArrayStorage.zeros(shape, dtype);
+    const data = result.data as Int8Array | Uint8Array;
+    data.set(dtype === 'int8' ? new Int8Array(raw.buffer) : raw);
+    return result;
+  } else if (dtype === 'int16' || dtype === 'uint16') {
+    const raw = fillRandintU16(totalSize, rng, low);
+    const result = ArrayStorage.zeros(shape, dtype);
+    const data = result.data as Int16Array | Uint16Array;
+    data.set(dtype === 'int16' ? new Int16Array(raw.buffer) : raw);
+    return result;
+  } else if (isBigIntDType(dtype)) {
+    const data = fillRandintI64(totalSize, rng, low);
+    return ArrayStorage.fromData(new BigInt64Array(data), shape, dtype);
   } else {
-    const numData = data as Exclude<typeof data, BigInt64Array | BigUint64Array>;
+    const rawData = fillRkInterval(totalSize, rng);
+    const result = ArrayStorage.zeros(shape, dtype);
+    const numData = result.data as Exclude<typeof result.data, BigInt64Array | BigUint64Array>;
     for (let i = 0; i < totalSize; i++) {
-      numData[i] = Math.floor(mtRandomFloat53() * range) + low;
+      numData[i] = rawData[i]! + low;
     }
+    return result;
   }
-  return result;
 }
 
 /**
@@ -658,17 +910,17 @@ export function uniform(
   size?: number | number[]
 ): ArrayStorage | number {
   if (size === undefined) {
-    return mtRandomFloat53() * (high - low) + low;
+    return mt19937Float64() * (high - low) + low;
   }
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const data = result.data as Float64Array;
+  const rawData = fillUniformF64MT(totalSize);
+  const data = new Float64Array(totalSize);
   const range = high - low;
   for (let i = 0; i < totalSize; i++) {
-    data[i] = mtRandomFloat53() * range + low;
+    data[i] = rawData[i]! * range + low;
   }
-  return result;
+  return ArrayStorage.fromData(data, shape, 'float64');
 }
 
 /**
@@ -683,20 +935,16 @@ export function normal(
   size?: number | number[]
 ): ArrayStorage | number {
   if (size === undefined) {
-    return boxMullerTransform(mtRandomFloat53) * scale + loc;
+    return legacyGauss() * scale + loc;
   }
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i += 2) {
-    const [z0, z1] = boxMullerTransformPair(mtRandomFloat53);
-    data[i] = z0 * scale + loc;
-    if (i + 1 < totalSize) {
-      data[i + 1] = z1 * scale + loc;
-    }
+  const rawData = fillLegacyGauss(totalSize);
+  const data = new Float64Array(totalSize);
+  for (let i = 0; i < totalSize; i++) {
+    data[i] = rawData[i]! * scale + loc;
   }
-  return result;
+  return ArrayStorage.fromData(data, shape, 'float64');
 }
 
 /**
@@ -705,20 +953,12 @@ export function normal(
  */
 export function standard_normal(size?: number | number[]): ArrayStorage | number {
   if (size === undefined) {
-    return boxMullerTransform(mtRandomFloat53);
+    return legacyGauss();
   }
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i += 2) {
-    const [z0, z1] = boxMullerTransformPair(mtRandomFloat53);
-    data[i] = z0;
-    if (i + 1 < totalSize) {
-      data[i + 1] = z1;
-    }
-  }
-  return result;
+  const data = fillLegacyGauss(totalSize);
+  return ArrayStorage.fromData(new Float64Array(data), shape, 'float64');
 }
 
 /**
@@ -728,16 +968,16 @@ export function standard_normal(size?: number | number[]): ArrayStorage | number
  */
 export function exponential(scale: number = 1, size?: number | number[]): ArrayStorage | number {
   if (size === undefined) {
-    return -Math.log(1 - mtRandomFloat53()) * scale;
+    return legacyStandardExponential() * scale;
   }
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const data = result.data as Float64Array;
+  const rawData = fillLegacyStandardExponential(totalSize);
+  const data = new Float64Array(totalSize);
   for (let i = 0; i < totalSize; i++) {
-    data[i] = -Math.log(1 - mtRandomFloat53()) * scale;
+    data[i] = rawData[i]! * scale;
   }
-  return result;
+  return ArrayStorage.fromData(data, shape, 'float64');
 }
 
 /**
@@ -747,16 +987,12 @@ export function exponential(scale: number = 1, size?: number | number[]): ArrayS
  */
 export function poisson(lam: number = 1, size?: number | number[]): ArrayStorage | number {
   if (size === undefined) {
-    return poissonSample(lam, mtRandomFloat53);
+    return poissonSample(lam, mt19937Float64);
   }
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'int64');
-  const data = result.data as BigInt64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = BigInt(poissonSample(lam, mtRandomFloat53));
-  }
-  return result;
+  const data = fillPoisson(totalSize, lam);
+  return ArrayStorage.fromData(new BigInt64Array(data), shape, 'int64');
 }
 
 /**
@@ -767,16 +1003,12 @@ export function poisson(lam: number = 1, size?: number | number[]): ArrayStorage
  */
 export function binomial(n: number, p: number, size?: number | number[]): ArrayStorage | number {
   if (size === undefined) {
-    return binomialSample(n, p, mtRandomFloat53);
+    return binomialSample(n, p, mt19937Float64);
   }
   const shape = Array.isArray(size) ? size : [size];
   const totalSize = shape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shape, 'int64');
-  const data = result.data as BigInt64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = BigInt(binomialSample(n, p, mtRandomFloat53));
-  }
-  return result;
+  const data = fillBinomial(totalSize, n, p);
+  return ArrayStorage.fromData(new BigInt64Array(data), shape, 'int64');
 }
 
 /**
@@ -787,20 +1019,34 @@ function choiceImpl(
   size?: number | number[],
   replace: boolean = true,
   p?: ArrayStorage | number[],
-  rng: () => number = mtRandomFloat53
+  rng: () => number = mt19937Float64
 ): ArrayStorage | number {
+  // Fast path: integer a, replace=true, no p — skip building population array
+  const n = typeof a === 'number' ? a : a.size;
+  if (typeof a === 'number' && replace && p === undefined) {
+    if (n === 0) throw new Error('cannot take a sample from an empty sequence');
+    if (size === undefined) {
+      return Math.floor(rng() * n);
+    }
+    const shape = Array.isArray(size) ? size : [size];
+    const totalSize = shape.reduce((s, d) => s * d, 1);
+    const result = ArrayStorage.zeros(shape, 'float64');
+    const data = result.data as Float64Array;
+    for (let i = 0; i < totalSize; i++) {
+      data[i] = Math.floor(rng() * n);
+    }
+    return result;
+  }
+
   let population: number[];
   if (typeof a === 'number') {
     population = Array.from({ length: a }, (_, i) => i);
   } else {
-    const totalSize = a.size;
     population = [];
-    for (let i = 0; i < totalSize; i++) {
+    for (let i = 0; i < n; i++) {
       population.push(Number(a.iget(i)));
     }
   }
-
-  const n = population.length;
   if (n === 0) {
     throw new Error('cannot take a sample from an empty sequence');
   }
@@ -920,7 +1166,7 @@ export function choice(
   replace: boolean = true,
   p?: ArrayStorage | number[]
 ): ArrayStorage | number {
-  return choiceImpl(a, size, replace, p, mtRandomFloat53);
+  return choiceImpl(a, size, replace, p, mt19937Float64);
 }
 
 /**
@@ -928,8 +1174,14 @@ export function choice(
  */
 function permutationImpl(
   x: number | ArrayStorage,
-  rng: () => number = mtRandomFloat53
+  rng: () => number = mt19937Float64
 ): ArrayStorage {
+  // Fast path: integer n with MT19937 — do entire shuffle in WASM
+  if (typeof x === 'number' && rng === mt19937Float64) {
+    const data = fillPermutation(x);
+    return ArrayStorage.fromData(new Float64Array(data), [x], 'float64');
+  }
+
   let arr: ArrayStorage;
   if (typeof x === 'number') {
     const data = new Float64Array(x);
@@ -957,13 +1209,13 @@ function permutationImpl(
  * @param x - Input array or int. If int, returns permutation of arange(x)
  */
 export function permutation(x: number | ArrayStorage): ArrayStorage {
-  return permutationImpl(x, mtRandomFloat53);
+  return permutationImpl(x, mt19937Float64);
 }
 
 /**
  * Implementation of shuffle (in-place)
  */
-function shuffleImpl(x: ArrayStorage, rng: () => number = mtRandomFloat53): void {
+function shuffleImpl(x: ArrayStorage, rng: () => number = mt19937Float64): void {
   const n = x.size;
   for (let i = n - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -978,7 +1230,7 @@ function shuffleImpl(x: ArrayStorage, rng: () => number = mtRandomFloat53): void
  * @param x - Array to be shuffled
  */
 export function shuffle(x: ArrayStorage): void {
-  shuffleImpl(x, mtRandomFloat53);
+  shuffleImpl(x, mt19937Float64);
 }
 
 // ============================================================================
@@ -1041,9 +1293,23 @@ export function random_integers(
  * @param length - Number of bytes to return
  */
 export function bytes(length: number): Uint8Array {
+  // NumPy's rk_fill: extracts 4 bytes per u32 (little-endian), matching randomkit.c line 487
   const result = new Uint8Array(length);
-  for (let i = 0; i < length; i++) {
-    result[i] = mtRandom() & 0xff;
+  let i = 0;
+  // Process 4 bytes at a time from each u32
+  for (; i + 3 < length; i += 4) {
+    const r = mt19937Uint32();
+    result[i] = r & 0xff;
+    result[i + 1] = (r >>> 8) & 0xff;
+    result[i + 2] = (r >>> 16) & 0xff;
+    result[i + 3] = (r >>> 24) & 0xff;
+  }
+  // Handle remaining bytes (0-3) from one more u32
+  if (i < length) {
+    let r = mt19937Uint32();
+    for (; i < length; i++, r >>>= 8) {
+      result[i] = r & 0xff;
+    }
   }
   return result;
 }
@@ -1056,7 +1322,7 @@ interface BitGenerator {
 
 let _currentBitGenerator: BitGenerator = {
   name: 'MT19937',
-  state: _mtState,
+  state: {},
 };
 
 /**
@@ -1089,7 +1355,7 @@ export function standard_exponential(size?: number | number[]): ArrayStorage | n
 
 /**
  * Draw samples from a standard gamma distribution
- * Uses Marsaglia and Tsang's method
+ * Uses NumPy's legacy_standard_gamma algorithm exactly
  * @param shape - Shape parameter (alpha, must be > 0)
  * @param size - Output shape
  */
@@ -1097,7 +1363,13 @@ export function standard_gamma(shape: number, size?: number | number[]): ArraySt
   if (shape <= 0) {
     throw new Error('shape must be positive');
   }
-  return gamma(shape, 1, size);
+  if (size === undefined) {
+    return legacyStandardGamma(shape);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const data = fillLegacyStandardGamma(totalSize, shape);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1105,17 +1377,14 @@ export function standard_gamma(shape: number, size?: number | number[]): ArraySt
  * @param size - Output shape
  */
 export function standard_cauchy(size?: number | number[]): ArrayStorage | number {
+  // NumPy: legacy_gauss / legacy_gauss (ratio of two polar-method normals with caching)
   if (size === undefined) {
-    return Math.tan(Math.PI * (mtRandomFloat53() - 0.5));
+    return legacyGauss() / legacyGauss();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = Math.tan(Math.PI * (mtRandomFloat53() - 0.5));
-  }
-  return result;
+  const data = fillStandardCauchy(totalSize);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1128,24 +1397,21 @@ export function standard_t(df: number, size?: number | number[]): ArrayStorage |
     throw new Error('df must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    // t = N(0,1) / sqrt(chi2(df) / df)
-    const z = boxMullerTransform(rng);
-    const chi2 = gammaSample(df / 2, 2, rng);
-    return z / Math.sqrt(chi2 / df);
+  // NumPy: num = legacyGauss(), denom = legacy_standard_gamma(df/2),
+  // return sqrt(df/2) * num / sqrt(denom)
+  const generateSample = (): number => {
+    const num = legacyGauss();
+    const denom = legacyStandardGamma(df / 2);
+    return (Math.sqrt(df / 2) * num) / Math.sqrt(denom);
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillStandardT(totalSize, df);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 // ============================================================================
@@ -1153,44 +1419,8 @@ export function standard_t(df: number, size?: number | number[]): ArrayStorage |
 // ============================================================================
 
 /**
- * Generate a single gamma sample using Marsaglia and Tsang's method
- */
-function gammaSample(shape: number, scale: number, rng: () => number): number {
-  if (shape < 1) {
-    // For shape < 1, use Ahrens-Dieter method
-    const u = rng();
-    return gammaSample(1 + shape, scale, rng) * Math.pow(u, 1 / shape);
-  }
-
-  // Marsaglia and Tsang's method for shape >= 1
-  const d = shape - 1 / 3;
-  const c = 1 / Math.sqrt(9 * d);
-
-  while (true) {
-    let x: number;
-    let v: number;
-
-    do {
-      x = boxMullerTransform(rng);
-      v = 1 + c * x;
-    } while (v <= 0);
-
-    v = v * v * v;
-    const u = rng();
-    const x2 = x * x;
-
-    if (u < 1 - 0.0331 * x2 * x2) {
-      return d * v * scale;
-    }
-
-    if (Math.log(u) < 0.5 * x2 + d * (1 - v + Math.log(v))) {
-      return d * v * scale;
-    }
-  }
-}
-
-/**
  * Draw samples from a Gamma distribution
+ * NumPy: scale * legacy_standard_gamma(shape)
  * @param shape - Shape parameter (k, alpha) (must be > 0)
  * @param scale - Scale parameter (theta) (default 1.0)
  * @param size - Output shape
@@ -1208,16 +1438,16 @@ export function gamma(
   }
 
   if (size === undefined) {
-    return gammaSample(shape, scale, mtRandomFloat53);
+    return scale * legacyStandardGamma(shape);
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
+  const rawData = fillLegacyStandardGamma(totalSize, shape);
+  const data = new Float64Array(totalSize);
   for (let i = 0; i < totalSize; i++) {
-    data[i] = gammaSample(shape, scale, mtRandomFloat53);
+    data[i] = rawData[i]! * scale;
   }
-  return result;
+  return ArrayStorage.fromData(data, shapeArr, 'float64');
 }
 
 // ============================================================================
@@ -1235,23 +1465,43 @@ export function beta(a: number, b: number, size?: number | number[]): ArrayStora
     throw new Error('a and b must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const x = gammaSample(a, 1, rng);
-    const y = gammaSample(b, 1, rng);
-    return x / (x + y);
+  // NumPy legacy_beta: Johnk's algorithm when a<=1 && b<=1, else gamma ratio
+  const generateSample = (): number => {
+    if (a <= 1.0 && b <= 1.0) {
+      // Johnk's algorithm
+      while (true) {
+        const U = mt19937Float64();
+        const V = mt19937Float64();
+        const X = Math.pow(U, 1.0 / a);
+        const Y = Math.pow(V, 1.0 / b);
+        if (X + Y <= 1.0) {
+          if (X + Y > 0) {
+            return X / (X + Y);
+          } else {
+            // Log-space fallback
+            const logX = Math.log(U) / a;
+            const logY = Math.log(V) / b;
+            const logM = logX > logY ? logX : logY;
+            const lX = logX - logM;
+            const lY = logY - logM;
+            return Math.exp(lX - Math.log(Math.exp(lX) + Math.exp(lY)));
+          }
+        }
+      }
+    } else {
+      const Ga = legacyStandardGamma(a);
+      const Gb = legacyStandardGamma(b);
+      return Ga / (Ga + Gb);
+    }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
-  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const totalSize = shapeArr.reduce((aa, bb) => aa * bb, 1);
+  const data = fillBeta(totalSize, a, b);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1269,22 +1519,26 @@ export function laplace(
     throw new Error('scale must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng() - 0.5;
-    return loc - scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+  // NumPy random_laplace: branch on U >= 0.5 or U > 0, reject U==0
+  const generateSample = (): number => {
+    while (true) {
+      const U = mt19937Float64();
+      if (U >= 0.5) {
+        return loc - scale * Math.log(2.0 - U - U);
+      } else if (U > 0.0) {
+        return loc + scale * Math.log(U + U);
+      }
+      // Reject U == 0.0
+    }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillLaplace(totalSize, loc, scale);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1302,22 +1556,23 @@ export function logistic(
     throw new Error('scale must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng();
-    return loc + scale * Math.log(u / (1 - u));
+  // NumPy random_logistic: reject U==0
+  const generateSample = (): number => {
+    while (true) {
+      const U = mt19937Float64();
+      if (U > 0.0) {
+        return loc + scale * Math.log(U / (1.0 - U));
+      }
+    }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillLogistic(totalSize, loc, scale);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1335,21 +1590,14 @@ export function lognormal(
     throw new Error('sigma must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    return Math.exp(mean + sigma * boxMullerTransform(rng));
-  };
-
+  // NumPy: exp(legacy_gauss() * sigma + mean) — uses polar-gauss with caching
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return Math.exp(legacyGauss() * sigma + mean);
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillLognormal(totalSize, mean, sigma);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1367,22 +1615,21 @@ export function gumbel(
     throw new Error('scale must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng();
-    return loc - scale * Math.log(-Math.log(u));
+  // NumPy random_gumbel: reject U == 1.0 (where 1-next_double==1)
+  const generateSample = (): number => {
+    while (true) {
+      const U = 1.0 - mt19937Float64();
+      if (U < 1.0) return loc - scale * Math.log(-Math.log(U));
+    }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillGumbel(totalSize, loc, scale);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1395,22 +1642,18 @@ export function pareto(a: number, size?: number | number[]): ArrayStorage | numb
     throw new Error('a must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng();
-    return Math.pow(1 - u, -1 / a) - 1;
+  // NumPy legacy_pareto: exp(legacy_standard_exponential() / a) - 1
+  const generateSample = (): number => {
+    return Math.exp(legacyStandardExponential() / a) - 1;
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
-  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const totalSize = shapeArr.reduce((aa, bb) => aa * bb, 1);
+  const data = fillPareto(totalSize, a);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1423,22 +1666,18 @@ export function power(a: number, size?: number | number[]): ArrayStorage | numbe
     throw new Error('a must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng();
-    return Math.pow(u, 1 / a);
+  // NumPy legacy_power: pow(1 - exp(-legacy_standard_exponential()), 1/a)
+  const generateSample = (): number => {
+    return Math.pow(1 - Math.exp(-legacyStandardExponential()), 1.0 / a);
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
-  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const totalSize = shapeArr.reduce((aa, bb) => aa * bb, 1);
+  const data = fillPower(totalSize, a);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1451,22 +1690,15 @@ export function rayleigh(scale: number = 1, size?: number | number[]): ArrayStor
     throw new Error('scale must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng();
-    return scale * Math.sqrt(-2 * Math.log(u));
-  };
-
+  // NumPy: mode * sqrt(-2.0 * log1p(-U)) = mode * sqrt(2 * standard_exponential)
+  // legacy_rayleigh uses next_double (= mt19937Float64) via legacy_standard_exponential
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return scale * Math.sqrt(2.0 * legacyStandardExponential());
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillRayleigh(totalSize, scale);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1486,27 +1718,29 @@ export function triangular(
     throw new Error('must have left <= mode <= right and left < right');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng();
-    const fc = (mode - left) / (right - left);
-    if (u < fc) {
-      return left + Math.sqrt(u * (right - left) * (mode - left));
+  // NumPy random_triangular: exact match
+  const base = right - left;
+  const leftbase = mode - left;
+  const ratio = leftbase / base;
+  const leftprod = leftbase * base;
+  const rightprod = (right - mode) * base;
+
+  const generateSample = (): number => {
+    const U = mt19937Float64();
+    if (U <= ratio) {
+      return left + Math.sqrt(U * leftprod);
     } else {
-      return right - Math.sqrt((1 - u) * (right - left) * (right - mode));
+      return right - Math.sqrt((1.0 - U) * rightprod);
     }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillTriangular(totalSize, left, mode, right);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1523,30 +1757,27 @@ export function wald(mean: number, scale: number, size?: number | number[]): Arr
     throw new Error('scale must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const v = boxMullerTransform(rng);
-    const y = v * v;
+  // NumPy legacy_wald: uses legacyGauss and mt19937Float64
+  const generateSample = (): number => {
     const mu_2l = mean / (2 * scale);
-    const x = mean + mu_2l * (mean * y - Math.sqrt(4 * mean * scale * y + mean * mean * y * y));
-    const u = rng();
-    if (u <= mean / (mean + x)) {
-      return x;
+    let Y = legacyGauss();
+    Y = mean * Y * Y;
+    const X = mean + mu_2l * (Y - Math.sqrt(4 * scale * Y + Y * Y));
+    const U = mt19937Float64();
+    if (U <= mean / (mean + X)) {
+      return X;
     } else {
-      return (mean * mean) / x;
+      return (mean * mean) / X;
     }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillWald(totalSize, mean, scale);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1559,22 +1790,19 @@ export function weibull(a: number, size?: number | number[]): ArrayStorage | num
     throw new Error('a must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const u = rng();
-    return Math.pow(-Math.log(1 - u), 1 / a);
+  // NumPy legacy_weibull: pow(legacy_standard_exponential(), 1/a)
+  const generateSample = (): number => {
+    if (a === 0.0) return 0.0;
+    return Math.pow(legacyStandardExponential(), 1.0 / a);
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
-  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const totalSize = shapeArr.reduce((aa, bb) => aa * bb, 1);
+  const data = fillWeibull(totalSize, a);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 // ============================================================================
@@ -1590,8 +1818,14 @@ export function chisquare(df: number, size?: number | number[]): ArrayStorage | 
   if (df <= 0) {
     throw new Error('df must be positive');
   }
-  // chi-square(df) = gamma(df/2, 2)
-  return gamma(df / 2, 2, size);
+  // NumPy: 2.0 * legacy_standard_gamma(df / 2.0)
+  if (size === undefined) {
+    return legacyChisquare(df);
+  }
+  const shapeArr = Array.isArray(size) ? size : [size];
+  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
+  const data = fillLegacyChisquare(totalSize, df);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1612,26 +1846,28 @@ export function noncentral_chisquare(
     throw new Error('nonc must be non-negative');
   }
 
-  const generateSample = (rng: () => number): number => {
-    // Use Poisson mixture representation
+  // NumPy legacy_noncentral_chisquare
+  const generateSample = (): number => {
     if (nonc === 0) {
-      return gammaSample(df / 2, 2, rng);
+      return legacyChisquare(df);
     }
-    const i = poissonSample(nonc / 2, rng);
-    return gammaSample(df / 2 + i, 2, rng);
+    if (1 < df) {
+      const Chi2 = legacyChisquare(df - 1);
+      const n2 = legacyGauss() + Math.sqrt(nonc);
+      return Chi2 + n2 * n2;
+    } else {
+      const i = poissonSample(nonc / 2.0, mt19937Float64);
+      return legacyChisquare(df + 2 * i);
+    }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillNoncentralChisquare(totalSize, df, nonc);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1648,23 +1884,20 @@ export function f(dfnum: number, dfden: number, size?: number | number[]): Array
     throw new Error('dfden must be positive');
   }
 
-  const generateSample = (rng: () => number): number => {
-    const chi1 = gammaSample(dfnum / 2, 2, rng);
-    const chi2 = gammaSample(dfden / 2, 2, rng);
-    return chi1 / dfnum / (chi2 / dfden);
+  // NumPy legacy_f: (chisquare(dfnum) * dfden) / (chisquare(dfden) * dfnum)
+  const generateSample = (): number => {
+    const subexpr1 = legacyChisquare(dfnum) * dfden;
+    const subexpr2 = legacyChisquare(dfden) * dfnum;
+    return subexpr1 / subexpr2;
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillF(totalSize, dfnum, dfden);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 /**
@@ -1690,27 +1923,31 @@ export function noncentral_f(
     throw new Error('nonc must be non-negative');
   }
 
-  const generateSample = (rng: () => number): number => {
-    // Noncentral F = (noncentral chi-square(dfnum, nonc) / dfnum) / (chi-square(dfden) / dfden)
-    const nc_chi2 =
-      nonc === 0
-        ? gammaSample(dfnum / 2, 2, rng)
-        : gammaSample(dfnum / 2 + poissonSample(nonc / 2, rng), 2, rng);
-    const chi2 = gammaSample(dfden / 2, 2, rng);
-    return nc_chi2 / dfnum / (chi2 / dfden);
+  // NumPy: legacy_noncentral_chisquare(dfnum, nonc) * dfden / (legacy_chisquare(dfden) * dfnum)
+  const generateNcChi2 = (): number => {
+    if (nonc === 0) return legacyChisquare(dfnum);
+    if (1 < dfnum) {
+      const Chi2 = legacyChisquare(dfnum - 1);
+      const n2 = legacyGauss() + Math.sqrt(nonc);
+      return Chi2 + n2 * n2;
+    } else {
+      const i = poissonSample(nonc / 2.0, mt19937Float64);
+      return legacyChisquare(dfnum + 2 * i);
+    }
+  };
+
+  const generateSample = (): number => {
+    const t = generateNcChi2() * dfden;
+    return t / (legacyChisquare(dfden) * dfnum);
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillNoncentralF(totalSize, dfnum, dfden, nonc);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }
 
 // ============================================================================
@@ -1727,23 +1964,36 @@ export function geometric(p: number, size?: number | number[]): ArrayStorage | n
     throw new Error('p must be in (0, 1]');
   }
 
-  const generateSample = (rng: () => number): number => {
-    if (p === 1) return 1;
-    const u = rng();
-    return Math.floor(Math.log(u) / Math.log(1 - p)) + 1;
+  // NumPy: two algorithms depending on p threshold (1/3)
+  // p >= 1/3: random_geometric_search — sequential search
+  // p < 1/3: legacy_geometric_inversion — ceil(log1p(-U) / log(1-p))
+  const generateSample = (): number => {
+    if (p >= 1 / 3) {
+      // random_geometric_search: sequential CDF search
+      let X = 1;
+      let sum = p;
+      let prod = p;
+      const q = 1.0 - p;
+      const U = mt19937Float64();
+      while (U > sum) {
+        prod *= q;
+        sum += prod;
+        X++;
+      }
+      return X;
+    } else {
+      // legacy_geometric_inversion: ceil(log1p(-U) / log(1-p))
+      return Math.ceil(Math.log1p(-mt19937Float64()) / Math.log(1 - p));
+    }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'int64');
-  const data = result.data as BigInt64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = BigInt(generateSample(mtRandomFloat53));
-  }
-  return result;
+  const data = fillGeometric(totalSize, p);
+  return ArrayStorage.fromData(new BigInt64Array(data), shapeArr, 'int64');
 }
 
 /**
@@ -1764,39 +2014,24 @@ export function hypergeometric(
   if (nsample < 0) throw new Error('nsample must be non-negative');
   if (nsample > ngood + nbad) throw new Error('nsample must be <= ngood + nbad');
 
-  const generateSample = (rng: () => number): number => {
-    // Simple simulation
-    let good = ngood;
-    let bad = nbad;
-    let drawnGood = 0;
-    let remaining = nsample;
-
-    while (remaining > 0) {
-      const total = good + bad;
-      if (total === 0) break;
-      const u = rng();
-      if (u < good / total) {
-        drawnGood++;
-        good--;
-      } else {
-        bad--;
-      }
-      remaining--;
+  // NumPy legacy: sample > 10 -> HRUA, sample > 0 -> HYP, else 0
+  const generateSample = (): number => {
+    if (nsample > 10) {
+      return hypergeometricHrua(ngood, nbad, nsample);
+    } else if (nsample > 0) {
+      return hypergeometricHyp(ngood, nbad, nsample);
+    } else {
+      return 0;
     }
-    return drawnGood;
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'int64');
-  const data = result.data as BigInt64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = BigInt(generateSample(mtRandomFloat53));
-  }
-  return result;
+  const data = fillHypergeometric(totalSize, ngood, nbad, nsample);
+  return ArrayStorage.fromData(new BigInt64Array(data), shapeArr, 'int64');
 }
 
 /**
@@ -1809,33 +2044,32 @@ export function logseries(p: number, size?: number | number[]): ArrayStorage | n
     throw new Error('p must be in (0, 1)');
   }
 
-  const r = Math.log(1 - p);
+  // NumPy legacy_logseries: exact match
+  const r = Math.log(1.0 - p);
 
-  const generateSample = (rng: () => number): number => {
-    // Kemp's algorithm
-    const u = rng();
-    const v = rng();
-    const q = 1 - Math.exp(r * u);
-    if (v >= q) return 1;
-    if (v === 0) return 1; // Avoid log(0)
-    const logV = Math.log(v);
-    const logQ = Math.log(q);
-    if (logV >= logQ) return 1;
-    if (logV >= 2 * logQ) return 2;
-    return Math.floor(1 + logV / logQ);
+  const generateSample = (): number => {
+    while (true) {
+      const V = mt19937Float64();
+      if (V >= p) return 1;
+      const U = mt19937Float64();
+      const q = 1.0 - Math.exp(r * U);
+      if (V <= q * q) {
+        const result = Math.floor(1 + Math.log(V) / Math.log(q));
+        if (result < 1 || V === 0.0) continue;
+        return result;
+      }
+      if (V >= q) return 1;
+      return 2;
+    }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'int64');
-  const data = result.data as BigInt64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = BigInt(generateSample(mtRandomFloat53));
-  }
-  return result;
+  const data = fillLogseries(totalSize, p);
+  return ArrayStorage.fromData(new BigInt64Array(data), shapeArr, 'int64');
 }
 
 /**
@@ -1856,24 +2090,20 @@ export function negative_binomial(
     throw new Error('p must be in (0, 1]');
   }
 
-  const generateSample = (rng: () => number): number => {
-    // Use Poisson-gamma mixture: NegBin(n, p) = Poisson(Gamma(n, (1-p)/p))
+  // NumPy: Y = legacy_gamma(n, (1-p)/p), return random_poisson(Y)
+  const generateSample = (): number => {
     if (p === 1) return 0;
-    const y = gammaSample(n, (1 - p) / p, rng);
-    return poissonSample(y, rng);
+    const Y = legacyStandardGamma(n) * ((1 - p) / p);
+    return poissonSample(Y, mt19937Float64);
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'int64');
-  const data = result.data as BigInt64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = BigInt(generateSample(mtRandomFloat53));
-  }
-  return result;
+  const data = fillNegativeBinomial(totalSize, n, p);
+  return ArrayStorage.fromData(new BigInt64Array(data), shapeArr, 'int64');
 }
 
 /**
@@ -1886,33 +2116,31 @@ export function zipf(a: number, size?: number | number[]): ArrayStorage | number
     throw new Error('a must be > 1');
   }
 
-  // Rejection method based on devroye
-  const am1 = a - 1;
-  const b = Math.pow(2, am1);
+  // NumPy legacy_random_zipf: exact match
+  const am1 = a - 1.0;
+  const b = Math.pow(2.0, am1);
+  const RAND_INT_MAX = 9007199254740991; // Number.MAX_SAFE_INTEGER
 
-  const generateSample = (rng: () => number): number => {
+  const generateSample = (): number => {
     while (true) {
-      const u = 1 - rng();
-      const v = rng();
-      const x = Math.floor(Math.pow(u, -1 / am1));
-      const t = Math.pow(1 + 1 / x, am1);
-      if ((v * x * (t - 1)) / (b - 1) <= t / b) {
-        return x;
+      const U = 1.0 - mt19937Float64();
+      const V = mt19937Float64();
+      const X = Math.floor(Math.pow(U, -1.0 / am1));
+      if (X > RAND_INT_MAX || X < 1.0) continue;
+      const T = Math.pow(1.0 + 1.0 / X, am1);
+      if ((V * X * (T - 1.0)) / (b - 1.0) <= T / b) {
+        return X;
       }
     }
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
-  const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'int64');
-  const data = result.data as BigInt64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = BigInt(generateSample(mtRandomFloat53));
-  }
-  return result;
+  const totalSize = shapeArr.reduce((aa, bb) => aa * bb, 1);
+  const data = fillZipf(totalSize, a);
+  return ArrayStorage.fromData(new BigInt64Array(data), shapeArr, 'int64');
 }
 
 // ============================================================================
@@ -1943,28 +2171,31 @@ export function multinomial(
   const sum = probs.reduce((a, b) => a + b, 0);
   const normalizedProbs = probs.map((p) => p / sum);
 
-  const generateSample = (rng: () => number): number[] => {
+  // NumPy: random_multinomial calls random_binomial(p/remaining_p, dn) for each category
+  const generateSample = (): number[] => {
     const result = new Array(k).fill(0);
     let remaining = n;
     let pRemaining = 1.0;
 
-    for (let i = 0; i < k - 1 && remaining > 0; i++) {
-      const p = normalizedProbs[i]! / pRemaining;
-      const x = binomialSample(remaining, Math.min(1, Math.max(0, p)), rng);
-      result[i] = x;
-      remaining -= x;
+    for (let i = 0; i < k - 1; i++) {
+      const bi = binomialSample(remaining, normalizedProbs[i]! / pRemaining, mt19937Float64);
+      result[i] = bi;
+      remaining -= bi;
+      if (remaining <= 0) break;
       pRemaining -= normalizedProbs[i]!;
     }
-    result[k - 1] = remaining;
+    if (remaining > 0) {
+      result[k - 1] = remaining;
+    }
     return result;
   };
 
   if (size === undefined) {
-    const sample = generateSample(mtRandomFloat53);
+    const samp = generateSample();
     const result = ArrayStorage.zeros([k], 'int64');
     const data = result.data as BigInt64Array;
     for (let i = 0; i < k; i++) {
-      data[i] = BigInt(sample[i]!);
+      data[i] = BigInt(samp[i]!);
     }
     return result;
   }
@@ -1976,9 +2207,9 @@ export function multinomial(
   const data = result.data as BigInt64Array;
 
   for (let i = 0; i < numSamples; i++) {
-    const sample = generateSample(mtRandomFloat53);
+    const samp = generateSample();
     for (let j = 0; j < k; j++) {
-      data[i * k + j] = BigInt(sample[j]!);
+      data[i * k + j] = BigInt(samp[j]!);
     }
   }
 
@@ -2047,31 +2278,17 @@ export function multivariate_normal(
     }
   }
 
-  const generateSample = (rng: () => number): number[] => {
-    // Generate standard normal samples
-    const z: number[] = [];
-    for (let i = 0; i < n; i++) {
-      z.push(boxMullerTransform(rng));
-    }
-
-    // Transform: x = mean + L * z
-    const result: number[] = [];
-    for (let i = 0; i < n; i++) {
+  if (size === undefined) {
+    const z = fillLegacyGauss(n);
+    const result = ArrayStorage.zeros([n], 'float64');
+    const data = result.data as Float64Array;
+    // Transform in-place: z holds normals, overwrite with L*z + mean
+    for (let i = n - 1; i >= 0; i--) {
       let val = meanArr[i]!;
       for (let j = 0; j <= i; j++) {
         val += L[i]![j]! * z[j]!;
       }
-      result.push(val);
-    }
-    return result;
-  };
-
-  if (size === undefined) {
-    const sample = generateSample(mtRandomFloat53);
-    const result = ArrayStorage.zeros([n], 'float64');
-    const data = result.data as Float64Array;
-    for (let i = 0; i < n; i++) {
-      data[i] = sample[i]!;
+      data[i] = val;
     }
     return result;
   }
@@ -2079,17 +2296,21 @@ export function multivariate_normal(
   const shapeArr = Array.isArray(size) ? size : [size];
   const numSamples = shapeArr.reduce((a, b) => a * b, 1);
   const outShape = [...shapeArr, n];
-  const result = ArrayStorage.zeros(outShape, 'float64');
-  const data = result.data as Float64Array;
+  const allZ = fillLegacyGauss(numSamples * n);
+  const data = new Float64Array(numSamples * n);
 
-  for (let i = 0; i < numSamples; i++) {
-    const sample = generateSample(mtRandomFloat53);
-    for (let j = 0; j < n; j++) {
-      data[i * n + j] = sample[j]!;
+  for (let s = 0; s < numSamples; s++) {
+    const base = s * n;
+    for (let i = 0; i < n; i++) {
+      let val = meanArr[i]!;
+      for (let j = 0; j <= i; j++) {
+        val += L[i]![j]! * allZ[base + j]!;
+      }
+      data[base + i] = val;
     }
   }
 
-  return result;
+  return ArrayStorage.fromData(data, outShape, 'float64');
 }
 
 /**
@@ -2113,42 +2334,36 @@ export function dirichlet(alpha: number[] | ArrayStorage, size?: number | number
     }
   }
 
-  const generateSample = (rng: () => number): number[] => {
-    // Generate gamma samples and normalize
-    const gammas: number[] = [];
+  // NumPy: dirichlet uses standard_gamma for each alpha, then normalizes
+  // Must preserve per-sample call order: gamma(alpha[0]), gamma(alpha[1]), ... for each sample
+  const generateSample = (out: Float64Array, offset: number): void => {
     let sum = 0;
     for (let i = 0; i < k; i++) {
-      const g = gammaSample(alphaArr[i]!, 1, rng);
-      gammas.push(g);
+      const g = wasmLegacyStandardGamma(alphaArr[i]!);
+      out[offset + i] = g;
       sum += g;
     }
-    return gammas.map((g) => g / sum);
+    for (let i = 0; i < k; i++) {
+      out[offset + i] = out[offset + i]! / sum;
+    }
   };
 
   if (size === undefined) {
-    const sample = generateSample(mtRandomFloat53);
-    const result = ArrayStorage.zeros([k], 'float64');
-    const data = result.data as Float64Array;
-    for (let i = 0; i < k; i++) {
-      data[i] = sample[i]!;
-    }
-    return result;
+    const data = new Float64Array(k);
+    generateSample(data, 0);
+    return ArrayStorage.fromData(data, [k], 'float64');
   }
 
   const shapeArr = Array.isArray(size) ? size : [size];
   const numSamples = shapeArr.reduce((a, b) => a * b, 1);
   const outShape = [...shapeArr, k];
-  const result = ArrayStorage.zeros(outShape, 'float64');
-  const data = result.data as Float64Array;
+  const data = new Float64Array(numSamples * k);
 
   for (let i = 0; i < numSamples; i++) {
-    const sample = generateSample(mtRandomFloat53);
-    for (let j = 0; j < k; j++) {
-      data[i * k + j] = sample[j]!;
-    }
+    generateSample(data, i * k);
   }
 
-  return result;
+  return ArrayStorage.fromData(data, outShape, 'float64');
 }
 
 /**
@@ -2166,41 +2381,48 @@ export function vonmises(
     throw new Error('kappa must be non-negative');
   }
 
-  const generateSample = (rng: () => number): number => {
-    if (kappa === 0) {
+  // NumPy legacy_vonmises: exact match
+  const generateSample = (): number => {
+    if (kappa < 1e-8) {
       // Uniform on circle
-      return 2 * Math.PI * rng() - Math.PI;
+      return Math.PI * (2 * mt19937Float64() - 1);
     }
 
-    // Best-Fisher algorithm for von Mises
-    const a = 1 + Math.sqrt(1 + 4 * kappa * kappa);
-    const b = (a - Math.sqrt(2 * a)) / (2 * kappa);
-    const r = (1 + b * b) / (2 * b);
+    let s: number;
+    if (kappa < 1e-5) {
+      s = 1.0 / kappa + kappa;
+    } else {
+      const r = 1 + Math.sqrt(1 + 4 * kappa * kappa);
+      const rho = (r - Math.sqrt(2 * r)) / (2 * kappa);
+      s = (1 + rho * rho) / (2 * rho);
+    }
 
+    let W: number;
     while (true) {
-      const u1 = rng();
-      const z = Math.cos(Math.PI * u1);
-      const f = (1 + r * z) / (r + z);
-      const c = kappa * (r - f);
-      const u2 = rng();
-
-      if (c * (2 - c) > u2 || Math.log(c / u2) + 1 - c >= 0) {
-        const u3 = rng();
-        const theta = u3 > 0.5 ? Math.acos(f) : -Math.acos(f);
-        return ((theta + mu + Math.PI) % (2 * Math.PI)) - Math.PI;
-      }
+      const U = mt19937Float64();
+      const Z = Math.cos(Math.PI * U);
+      W = (1 + s * Z) / (s + Z);
+      const Y = kappa * (s - W);
+      const V = mt19937Float64();
+      if (Y * (2 - Y) - V >= 0 || Math.log(Y / V) + 1 - Y >= 0) break;
     }
+
+    const U2 = mt19937Float64();
+    let result = Math.acos(W);
+    if (U2 < 0.5) result = -result;
+    result += mu;
+    const neg = result < 0;
+    let mod = Math.abs(result);
+    mod = ((mod + Math.PI) % (2 * Math.PI)) - Math.PI;
+    if (neg) mod *= -1;
+    return mod;
   };
 
   if (size === undefined) {
-    return generateSample(mtRandomFloat53);
+    return generateSample();
   }
   const shapeArr = Array.isArray(size) ? size : [size];
   const totalSize = shapeArr.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(shapeArr, 'float64');
-  const data = result.data as Float64Array;
-  for (let i = 0; i < totalSize; i++) {
-    data[i] = generateSample(mtRandomFloat53);
-  }
-  return result;
+  const data = fillVonmises(totalSize, mu, kappa);
+  return ArrayStorage.fromData(new Float64Array(data), shapeArr, 'float64');
 }

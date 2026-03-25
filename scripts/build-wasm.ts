@@ -298,7 +298,7 @@ async function main() {
   mkdirSync(BINS_DIR, { recursive: true });
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  const SHARED_MODULES = new Set(['simd.zig', 'sorting_common.zig']);
+  const SHARED_MODULES = new Set(['simd.zig', 'sorting_common.zig', 'ziggurat_tables.zig']);
   const zigFiles = readdirSync(ZIG_DIR).filter(
     (f) => f.endsWith('.zig') && !SHARED_MODULES.has(f)
   );
