@@ -22,6 +22,8 @@ import { roll as shapeRoll } from './shape';
 import {
   wasmFft,
   wasmIfft,
+  wasmRfft,
+  wasmIrfft,
   wasmFft2,
   wasmFftBatch,
   wasmRfftBatch,
@@ -884,6 +886,18 @@ export function rfft(
   const inputLen = n ?? shape[ax]!;
   const outLen = Math.floor(inputLen / 2) + 1;
 
+  // WASM fast path: 1D rfft on last axis, no truncation/padding, backward norm
+  if (
+    ndim === 1 &&
+    n === undefined &&
+    norm === 'backward' &&
+    !isComplexDType(a.dtype) &&
+    a.dtype === 'float64'
+  ) {
+    const result = wasmRfft(a, inputLen);
+    if (result) return result;
+  }
+
   // WASM fast path: batch rfft when last axis is contiguous and input is real/float
   if (
     ax === ndim - 1 &&
@@ -927,6 +941,17 @@ export function irfft(
   // Determine output length
   const inputLen = shape[ax]!;
   const outLen = n ?? (inputLen - 1) * 2;
+
+  // WASM fast path: 1D irfft on last axis, backward norm
+  if (
+    ndim === 1 &&
+    norm === 'backward' &&
+    isComplexDType(a.dtype) &&
+    a.dtype === 'complex128'
+  ) {
+    const result = wasmIrfft(a, outLen);
+    if (result) return result;
+  }
 
   // WASM fast path: batch irfft when last axis is contiguous
   if (

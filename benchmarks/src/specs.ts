@@ -3,7 +3,7 @@
  * Defines all benchmarks to run
  */
 
-import type { DType } from '../../src/core/dtype';
+import type { DType } from '../../src/common/dtype';
 import type { BenchmarkCase, BenchmarkMode, BenchmarkSetup } from './types';
 
 export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCase[] {
