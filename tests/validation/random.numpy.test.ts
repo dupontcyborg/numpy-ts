@@ -402,122 +402,617 @@ result = np.random.binomial(10, 0.5, (2, 3))
   // ============================================================
   // EXACT MATCH TESTS - NumPy compatibility validation
   // These tests verify that seeded random functions produce
-  // identical output to NumPy's implementations
+  // bit-identical output to NumPy's implementations.
+  //
+  // Core generators (MT19937 uniform, PCG64 uniform) and
+  // distribution algorithms (polar/Ziggurat) all run in WASM
+  // and match NumPy exactly.
   // ============================================================
 
-  describe('EXACT MATCH: MT19937 Legacy Functions', () => {
-    it('random.random() matches NumPy exactly with seed', () => {
+  /** Helper: compare JS float64 array against NumPy result, 14-digit precision */
+  function expectExactMatch(
+    jsValues: number[],
+    pyResult: { value: any },
+    n: number = jsValues.length
+  ) {
+    for (let i = 0; i < n; i++) {
+      expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
+    }
+  }
+
+  describe('EXACT MATCH: MT19937 Legacy — Core', () => {
+    it('random.random() matches NumPy', () => {
       random.seed(42);
-      const jsResult = random.random(5) as any;
-      const jsValues = jsResult.toArray() as number[];
-
-      const pyResult = runNumPy(`
+      const js = (random.random(10) as any).toArray() as number[];
+      const py = runNumPy(`
 np.random.seed(42)
-result = np.random.random(5)
+result = np.random.random(10)
       `);
-
-      // Exact match within floating point precision
-      for (let i = 0; i < 5; i++) {
-        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
-      }
+      expectExactMatch(js, py);
     });
 
-    it('random.rand() matches NumPy exactly with seed', () => {
+    it('random.rand() matches NumPy', () => {
       random.seed(123);
-      const jsResult = random.rand(3, 2) as any;
-      const jsFlat = jsResult.flatten().toArray() as number[];
-
-      const pyResult = runNumPy(`
+      const js = (random.rand(3, 2) as any).flatten().toArray() as number[];
+      const py = runNumPy(`
 np.random.seed(123)
 result = np.random.rand(3, 2).flatten()
       `);
+      expectExactMatch(js, py);
+    });
 
-      for (let i = 0; i < jsFlat.length; i++) {
-        expect(jsFlat[i]).toBeCloseTo(pyResult.value[i], 14);
+    it('random.uniform() matches NumPy', () => {
+      random.seed(999);
+      const js = (random.uniform(-10, 10, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(999)
+result = np.random.uniform(-10, 10, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.randn() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.randn(10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.randn(10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.standard_normal() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.standard_normal(10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.standard_normal(10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.normal() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.normal(2, 3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.normal(2, 3, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.exponential() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.exponential(2, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.exponential(2, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.standard_exponential() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.standard_exponential(10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.standard_exponential(10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.randint() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.randint(0, 100, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.randint(0, 100, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
       }
     });
 
-    it('random.uniform() matches NumPy exactly with seed', () => {
-      random.seed(999);
-      const jsResult = random.uniform(-10, 10, 5) as any;
-      const jsValues = jsResult.toArray() as number[];
+    for (const dt of ['int32', 'int16', 'int8', 'uint64', 'uint32', 'uint16', 'uint8'] as const) {
+      it(`random.randint() matches NumPy with dtype=${dt}`, () => {
+        random.seed(42);
+        const js = (random.randint(0, 50, 10, dt) as any).toArray().map(Number) as number[];
+        const py = runNumPy(`
+np.random.seed(42)
+result = np.random.randint(0, 50, 10, dtype=np.${dt})
+        `);
+        for (let i = 0; i < 10; i++) {
+          expect(js[i]).toBe(py.value[i]);
+        }
+      });
+    }
 
-      const pyResult = runNumPy(`
-np.random.seed(999)
-result = np.random.uniform(-10, 10, 5)
+    it('random.bytes() matches NumPy', () => {
+      random.seed(42);
+      const jsBytes = Array.from(random.bytes(20));
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.array(list(np.random.bytes(20)))
       `);
+      for (let i = 0; i < 20; i++) {
+        expect(jsBytes[i]).toBe(py.value[i]);
+      }
+    });
 
-      for (let i = 0; i < 5; i++) {
-        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 13);
+    it('matches NumPy across multiple seeds', () => {
+      for (const s of [0, 1, 12345, 99999, 2147483647]) {
+        random.seed(s);
+        const js = (random.random(5) as any).toArray() as number[];
+        const py = runNumPy(`
+np.random.seed(${s})
+result = np.random.random(5)
+        `);
+        expectExactMatch(js, py);
       }
     });
   });
 
-  describe('EXACT MATCH: PCG64 Generator (NumPy 2.0+)', () => {
-    it('default_rng().random() matches NumPy exactly', () => {
-      const rng = random.default_rng(42);
-      const jsResult = rng.random(5) as any;
-      const jsValues = Array.from(jsResult.data as Float64Array);
+  describe('EXACT MATCH: MT19937 Legacy — Distributions', () => {
+    it('random.laplace() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.laplace(2, 3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.laplace(2, 3, 10)
+      `);
+      expectExactMatch(js, py);
+    });
 
-      const pyResult = runNumPy(`
+    it('random.logistic() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.logistic(2, 3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.logistic(2, 3, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.pareto() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.pareto(3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.pareto(3, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.power() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.power(3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.power(3, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.weibull() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.weibull(3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.weibull(3, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.triangular() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.triangular(0, 0.5, 1, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.triangular(0, 0.5, 1, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.standard_cauchy() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.standard_cauchy(10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.standard_cauchy(10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.gumbel() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.gumbel(2, 3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.gumbel(2, 3, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.rayleigh() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.rayleigh(2, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.rayleigh(2, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.lognormal() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.lognormal(0, 1, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.lognormal(0, 1, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.geometric() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.geometric(0.3, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.geometric(0.3, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.geometric() matches NumPy for high p (search algorithm)', () => {
+      random.seed(42);
+      const js = (random.geometric(0.7, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.geometric(0.7, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.standard_gamma() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.standard_gamma(2, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.standard_gamma(2, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.gamma() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.gamma(2, 3, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.gamma(2, 3, 10)
+      `);
+      // 13-digit precision: scale multiply can introduce ~1 ULP difference
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBeCloseTo(py.value[i], 13);
+      }
+    });
+
+    it('random.chisquare() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.chisquare(5, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.chisquare(5, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.beta() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.beta(2, 5, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.beta(2, 5, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.beta() matches NumPy (Johnk, a<=1 b<=1)', () => {
+      random.seed(42);
+      const js = (random.beta(0.5, 0.5, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.beta(0.5, 0.5, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.standard_t() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.standard_t(5, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.standard_t(5, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.wald() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.wald(1, 1, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.wald(1, 1, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.f() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.f(5, 10, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.f(5, 10, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.noncentral_chisquare() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.noncentral_chisquare(5, 2, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.noncentral_chisquare(5, 2, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.noncentral_f() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.noncentral_f(5, 10, 2, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.noncentral_f(5, 10, 2, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.binomial() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.binomial(10, 0.5, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.binomial(10, 0.5, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.poisson() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.poisson(5, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.poisson(5, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.negative_binomial() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.negative_binomial(5, 0.5, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.negative_binomial(5, 0.5, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.hypergeometric() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.hypergeometric(20, 30, 10, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.hypergeometric(20, 30, 10, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.logseries() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.logseries(0.5, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.logseries(0.5, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.zipf() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.zipf(2, 10) as any).toArray().map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.zipf(2, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.vonmises() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.vonmises(0, 1, 10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.vonmises(0, 1, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.multinomial() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.multinomial(20, [0.2, 0.3, 0.5], 5) as any)
+        .flatten()
+        .toArray()
+        .map(Number) as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.multinomial(20, [0.2, 0.3, 0.5], 5).flatten()
+      `);
+      for (let i = 0; i < js.length; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('random.dirichlet() matches NumPy', () => {
+      random.seed(42);
+      const js = (random.dirichlet([1, 2, 3], 5) as any).flatten().toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.dirichlet([1, 2, 3], 5).flatten()
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('random.multivariate_normal() produces correct statistics', () => {
+      // NumPy uses SVD-based decomposition, we use Cholesky.
+      // Both are correct but produce different streams. Validate statistically.
+      random.seed(42);
+      const js = random.multivariate_normal(
+        [5, 10],
+        [
+          [1, 0],
+          [0, 1],
+        ],
+        1000
+      ) as any;
+      const data = js.data as Float64Array;
+      let sum0 = 0;
+      let sum1 = 0;
+      for (let i = 0; i < 1000; i++) {
+        sum0 += data[i * 2]!;
+        sum1 += data[i * 2 + 1]!;
+      }
+      expect(Math.abs(sum0 / 1000 - 5)).toBeLessThan(0.2);
+      expect(Math.abs(sum1 / 1000 - 10)).toBeLessThan(0.2);
+    });
+  });
+
+  describe('EXACT MATCH: PCG64 Generator — Core', () => {
+    it('default_rng().random() matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.random(10) as any).data as Float64Array);
+      const py = runNumPy(`
 rng = np.random.default_rng(42)
+result = rng.random(10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('default_rng().random() matches across multiple seeds', () => {
+      for (const s of [0, 1, 12345, 99999, 2147483647]) {
+        const rng = random.default_rng(s);
+        const js = Array.from((rng.random(5) as any).data as Float64Array);
+        const py = runNumPy(`
+rng = np.random.default_rng(${s})
 result = rng.random(5)
-      `);
-
-      // Exact match within floating point precision
-      for (let i = 0; i < 5; i++) {
-        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
-      }
-    });
-
-    it('default_rng().random() with different seeds matches NumPy', () => {
-      for (const seed of [0, 1, 12345, 99999]) {
-        const rng = random.default_rng(seed);
-        const jsResult = rng.random(3) as any;
-        const jsValues = Array.from(jsResult.data as Float64Array);
-
-        const pyResult = runNumPy(`
-rng = np.random.default_rng(${seed})
-result = rng.random(3)
         `);
-
-        for (let i = 0; i < 3; i++) {
-          expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
-        }
+        expectExactMatch(js, py);
       }
     });
 
-    it('default_rng().integers() produces values in correct range', () => {
-      // Note: integers() uses bounded random which may differ from NumPy's
-      // exact algorithm, so we test range and statistical properties
+    it('default_rng().uniform() matches NumPy', () => {
       const rng = random.default_rng(42);
-      const jsResult = rng.integers(0, 100, 1000) as any;
-      const jsValues = Array.from(jsResult.data as BigInt64Array).map(Number);
-
-      // All values should be in [0, 100)
-      for (const val of jsValues) {
-        expect(val).toBeGreaterThanOrEqual(0);
-        expect(val).toBeLessThan(100);
-      }
-
-      // Mean should be close to 49.5
-      const mean = jsValues.reduce((a, b) => a + b, 0) / jsValues.length;
-      expect(Math.abs(mean - 49.5)).toBeLessThan(5);
-    });
-
-    it('default_rng().uniform() matches NumPy exactly', () => {
-      const rng = random.default_rng(42);
-      const jsResult = rng.uniform(-5, 5, 5) as any;
-      const jsValues = Array.from(jsResult.data as Float64Array);
-
-      const pyResult = runNumPy(`
+      const js = Array.from((rng.uniform(-5, 5, 10) as any).data as Float64Array);
+      const py = runNumPy(`
 rng = np.random.default_rng(42)
-result = rng.uniform(-5, 5, 5)
+result = rng.uniform(-5, 5, 10)
       `);
+      expectExactMatch(js, py);
+    });
 
-      for (let i = 0; i < 5; i++) {
-        expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 13);
+    it('default_rng().standard_normal() matches NumPy (Ziggurat)', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.standard_normal(10) as any).data as Float64Array);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.standard_normal(10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('default_rng().normal() matches NumPy (Ziggurat)', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.normal(5, 2, 10) as any).data as Float64Array);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.normal(5, 2, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('default_rng().exponential() matches NumPy (Ziggurat)', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.exponential(2, 10) as any).data as Float64Array);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.exponential(2, 10)
+      `);
+      expectExactMatch(js, py);
+    });
+
+    it('default_rng().integers() matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.integers(0, 100, 10) as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.integers(0, 100, 10)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
       }
+    });
+  });
+
+  describe('EXACT MATCH: Independent Generator instances', () => {
+    it('two generators with same seed produce identical output', () => {
+      const rng1 = random.default_rng(42);
+      const rng2 = random.default_rng(42);
+      const js1 = Array.from((rng1.random(10) as any).data as Float64Array);
+      const js2 = Array.from((rng2.random(10) as any).data as Float64Array);
+      expect(js1).toEqual(js2);
+    });
+
+    it('interleaved generators maintain independent state', () => {
+      const rng1 = random.default_rng(42);
+      const rng2 = random.default_rng(99);
+
+      // Interleave calls
+      const a1 = rng1.random() as number;
+      const b1 = rng2.random() as number;
+      const a2 = rng1.random() as number;
+      const b2 = rng2.random() as number;
+
+      // Verify against sequential generation
+      const rng1b = random.default_rng(42);
+      const rng2b = random.default_rng(99);
+      expect(a1).toBe(rng1b.random() as number);
+      expect(a2).toBe(rng1b.random() as number);
+      expect(b1).toBe(rng2b.random() as number);
+      expect(b2).toBe(rng2b.random() as number);
     });
   });
 
