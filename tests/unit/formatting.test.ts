@@ -17,6 +17,8 @@ import {
   get_printoptions,
   set_printoptions,
   printoptions,
+  Complex,
+  reshape,
 } from '../../src';
 
 describe('Formatting Functions', () => {
@@ -405,6 +407,59 @@ describe('Formatting Functions', () => {
       expect(lines.length).toBe(2);
       // First line should end with ] not ],
       expect(lines[0]).toMatch(/\]$/);
+    });
+
+    it('formats complex array (covers complex branch in buildFormatter)', () => {
+      const a = array([new Complex(1, 2), new Complex(3, -4), new Complex(0, 1)]);
+      const s = array2string(a);
+      expect(s).toContain('+');
+      expect(s).toContain('j');
+    });
+
+    it('formats 0-d int array (covers 0-d branch in array2string)', () => {
+      // Create a 0-d array by reshaping a 1-element array
+      const a = reshape(array([42], 'int32'), []);
+      const s = array2string(a);
+      expect(s).toBe('42');
+    });
+
+    it('formats 0-d float array', () => {
+      const a = reshape(array([3.14]), []);
+      const s = array2string(a);
+      expect(s).toContain('3.14');
+    });
+
+    it('formats 0-d bigint array', () => {
+      const a = reshape(array([42n], 'int64'), []);
+      const s = array2string(a);
+      expect(s).toBe('42');
+    });
+
+    it('formats array of all NaN/Inf (covers special-only formatter)', () => {
+      const a = array([NaN, Infinity, -Infinity]);
+      const s = array2string(a);
+      expect(s).toContain('nan');
+      expect(s).toContain('inf');
+    });
+
+    it('formats bool array (covers bool formatter)', () => {
+      const a = array([true, false, true], 'bool');
+      const s = array2string(a);
+      expect(s).toContain('True');
+      expect(s).toContain('False');
+    });
+
+    it('formats int64 array (covers bigint formatter)', () => {
+      const a = array([1n, 100n, 10n], 'int64');
+      const s = array2string(a);
+      expect(s).toContain('1');
+      expect(s).toContain('100');
+    });
+
+    it('formats empty array (covers empty formatter)', () => {
+      const a = array([], 'float64');
+      const s = array2string(a);
+      expect(s).toBe('[]');
     });
   });
 });

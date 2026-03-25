@@ -21,6 +21,8 @@ import {
   zeros,
   ones,
   Complex,
+  arange,
+  reshape,
 } from '../../src';
 
 describe('Sorting Functions', () => {
@@ -202,6 +204,16 @@ describe('Sorting Functions', () => {
       const arr = array([3, 1, 2]);
       const result = arr.argpartition(1);
       expect(result.shape).toEqual([3]);
+    });
+
+    it('argpartition on int64 BigInt array', () => {
+      const arr = array([3n, 1n, 4n, 1n, 5n], 'int64');
+      const result = argpartition(arr, 2);
+      expect(result.shape).toEqual([5]);
+      // Verify result contains valid indices (0-4)
+      const indices = result.toArray() as number[];
+      expect(indices.length).toBe(5);
+      expect(indices.every(i => i >= 0 && i < 5)).toBe(true);
     });
   });
 
@@ -585,5 +597,73 @@ describe('lexsort() - additional coverage', () => {
     const k1 = array([1, 2, 3]);
     const k2 = array([1, 2]);
     expect(() => lexsort([k1, k2])).toThrow('same length');
+  });
+});
+
+describe('Dtype Branch Coverage (extended)', () => {
+  // 2D float16 array: sort along axis=0 forces axisStride=cols != 1
+  // (WASM path requires outAxisStride===1, which fails for axis-0 sort on 2D)
+  it('sort 2D float16 array along axis 0 (non-contiguous read path)', () => {
+    const arr = reshape(array([3.0, 1.0, 4.0, 2.0, 5.0, 0.0], 'float16'), [2, 3]);
+    const result = sort(arr, 0);
+    expect(result.dtype).toBe('float16');
+    expect(Array.from(result.shape)).toEqual([2, 3]);
+  });
+
+  it('argsort 2D float16 array along axis 0 (non-contiguous read path)', () => {
+    const arr = reshape(array([3.0, 1.0, 4.0, 2.0, 5.0, 0.0], 'float16'), [2, 3]);
+    const result = argsort(arr, 0);
+    expect(result.dtype).toBe('int32');
+    expect(Array.from(result.shape)).toEqual([2, 3]);
+  });
+
+  // 2D complex array: sort along axis=0 forces outAxisStride=cols != 1, skips WASM
+  it('sort 2D complex array along axis 0 (JS complex sort path)', () => {
+    const arr = array([
+      [new Complex(3, 1), new Complex(1, 4)],
+      [new Complex(2, 0), new Complex(4, 2)],
+    ]);
+    const result = sort(arr, 0);
+    expect(Array.from(result.shape)).toEqual([2, 2]);
+  });
+
+  it('argsort 2D complex array along axis 0 (JS complex argsort path)', () => {
+    const arr = array([
+      [new Complex(3, 1), new Complex(1, 4)],
+      [new Complex(2, 0), new Complex(4, 2)],
+    ]);
+    const result = argsort(arr, 0);
+    expect(Array.from(result.shape)).toEqual([2, 2]);
+  });
+
+  // 2D int64 array: partition along axis=0 forces outAxisStride=cols != 1, skips WASM
+  it('partition 2D int64 array along axis 0 (quickselectBigInts path)', () => {
+    const arr = reshape(array([3n, 1n, 4n, 1n, 5n, 9n], 'int64'), [2, 3]);
+    const result = partition(arr, 1, 0);
+    expect(Array.from(result.shape)).toEqual([2, 3]);
+  });
+
+  it('argpartition 2D int64 array along axis 0 (quickselectBigIntIndices path)', () => {
+    const arr = reshape(array([3n, 1n, 4n, 1n, 5n, 9n], 'int64'), [2, 3]);
+    const result = argpartition(arr, 1, 0);
+    expect(Array.from(result.shape)).toEqual([2, 3]);
+  });
+
+  // extract with non-contiguous CONDITION (triggers L1809 non-contiguous callback)
+  it('extract with non-contiguous condition (triggers non-contiguous condTruthy)', () => {
+    const bigCond = array([1, 0, 1, 0, 1, 0, 1, 0]);
+    const nonContigCond = bigCond.slice('0:8:2'); // [1,1,1,1] - non-contiguous
+    const data = array([10, 20, 30, 40]);
+    const result = extract(nonContigCond, data);
+    expect(result.toArray()).toEqual([10, 20, 30, 40]);
+  });
+
+  // extract with non-contiguous DATA but contiguous condition (triggers L1808 contiguous callback)
+  it('extract with non-contiguous data (triggers contiguous condTruthy)', () => {
+    const big = array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    const nonContig = big.slice('0:10:2'); // [1,3,5,7,9] - non-contiguous
+    const cond = array([true, false, true, false, true]);
+    const result = extract(cond, nonContig);
+    expect(result.toArray()).toEqual([1, 5, 9]);
   });
 });

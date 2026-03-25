@@ -943,12 +943,7 @@ export function irfft(
   const outLen = n ?? (inputLen - 1) * 2;
 
   // WASM fast path: 1D irfft on last axis, backward norm
-  if (
-    ndim === 1 &&
-    norm === 'backward' &&
-    isComplexDType(a.dtype) &&
-    a.dtype === 'complex128'
-  ) {
+  if (ndim === 1 && norm === 'backward' && isComplexDType(a.dtype) && a.dtype === 'complex128') {
     const result = wasmIrfft(a, outLen);
     if (result) return result;
   }

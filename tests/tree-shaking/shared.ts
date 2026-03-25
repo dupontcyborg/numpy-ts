@@ -101,12 +101,16 @@ export function logBundleSizes(bundler: string, results: Map<string, BundleResul
     .filter(([, r]) => r.success)
     .sort(([, a], [, b]) => a.minifiedSize - b.minifiedSize);
 
-  const header = hasGzip ? `${bundler} bundle sizes (minified + gzip):` : `${bundler} bundle sizes (minified):`;
+  const header = hasGzip
+    ? `${bundler} bundle sizes (minified + gzip):`
+    : `${bundler} bundle sizes (minified):`;
   console.log(`\n${header}`);
   for (const [name, r] of sorted) {
     const pct = ((r.minifiedSize / fullSize) * 100).toFixed(1);
     const gz = r.gzipSize !== undefined ? `  gzip: ${formatBytes(r.gzipSize).padStart(10)}` : '';
-    console.log(`  ${name.padEnd(20)} ${formatBytes(r.minifiedSize).padStart(10)}  (${pct.padStart(5)}%)${gz}`);
+    console.log(
+      `  ${name.padEnd(20)} ${formatBytes(r.minifiedSize).padStart(10)}  (${pct.padStart(5)}%)${gz}`
+    );
   }
 }
 

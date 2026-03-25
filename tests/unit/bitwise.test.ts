@@ -416,6 +416,31 @@ describe('Bitwise Operations', () => {
       expect(result.dtype).toBe('uint64');
       expect(result.toArray()[0]).toBe(BigInt(0xff000000000000ffn));
     });
+
+    it('supports int64 bitwise_xor', () => {
+      const a = array([0x0fn, 0xf0n], 'int64');
+      const b = array([0xffn, 0x00n], 'int64');
+      const result = bitwise_xor(a, b);
+      expect(result.dtype).toBe('int64');
+      expect(result.toArray()[0]).toBe(0xf0n);
+      expect(result.toArray()[1]).toBe(0xf0n);
+    });
+
+    it('supports int64 left_shift array-array', () => {
+      const a = array([1n, 2n, 4n], 'int64');
+      const b = array([1n, 2n, 3n], 'int64');
+      const result = left_shift(a, b);
+      expect(result.dtype).toBe('int64');
+      expect(result.toArray()).toEqual([2n, 8n, 32n]);
+    });
+
+    it('supports int64 right_shift array-array', () => {
+      const a = array([16n, 8n, 4n], 'int64');
+      const b = array([1n, 2n, 1n], 'int64');
+      const result = right_shift(a, b);
+      expect(result.dtype).toBe('int64');
+      expect(result.toArray()).toEqual([8n, 2n, 2n]);
+    });
   });
 
   describe('error handling', () => {

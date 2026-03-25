@@ -11,6 +11,7 @@ import {
   mean,
   prod,
   std,
+  variance,
   cumsum,
   cumprod,
   nansum,
@@ -37,6 +38,11 @@ import {
   any as anyFn,
   cumulative_sum,
   cumulative_prod,
+  min,
+  max,
+  arange,
+  reshape,
+  Complex,
 } from '../../src';
 
 describe('Extended reduction tests', () => {
@@ -2055,6 +2061,179 @@ describe('Extended reduction tests', () => {
       const r = mean(a, 1);
       expect(r.dtype).toBe('float64');
       expect(r.toArray()).toEqual([3, 7]);
+    });
+  });
+
+  // ========================================
+  // Multi-axis reductions (covers reduceMultiAxis + arrow callbacks)
+  // ========================================
+  describe('multi-axis reductions', () => {
+    const a3d = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
+
+    it('sum along [0,1]', () => {
+      const r = sum(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+      expect(r.toArray()).toEqual([16, 20]);
+    });
+
+    it('mean along [0,2]', () => {
+      const r = mean(a3d, [0, 2] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+      expect(r.toArray()).toEqual([3.5, 5.5]);
+    });
+
+    it('prod along [0,1]', () => {
+      const r = prod(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+      expect(r.toArray()).toEqual([105, 384]);
+    });
+
+    it('nanvar along [0,1]', () => {
+      const r = nanvar(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('nanstd along [0,1]', () => {
+      const r = nanstd(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('nansum along [0,1]', () => {
+      const r = nansum(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+      expect(r.toArray()).toEqual([16, 20]);
+    });
+
+    it('nanmean along [0,1]', () => {
+      const r = nanmean(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('nanprod along [0,1]', () => {
+      const r = nanprod(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('variance along [0,1]', () => {
+      const r = variance(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('std along [0,1]', () => {
+      const r = std(a3d, [0, 1] as any);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+  });
+
+  // ========================================
+  // nanquantile/nanpercentile with integer input
+  // ========================================
+  describe('nanquantile on integer arrays', () => {
+    it('nanquantile delegates to quantile for integer dtype', () => {
+      const a = array([1, 2, 3, 4, 5], 'int32');
+      const r = nanquantile(a, 0.5);
+      expect(r).toBe(3);
+    });
+
+    it('nanpercentile delegates to percentile for integer dtype', () => {
+      const a = array([1, 2, 3, 4, 5], 'int32');
+      const r = nanpercentile(a, 50);
+      expect(r).toBe(3);
+    });
+
+    it('nanquantile with non-contiguous float array', () => {
+      const a = array([1.0, NaN, 3.0, NaN, 5.0]);
+      // Slice to get non-contiguous view
+      const sliced = a.slice('0:5:2');
+      const r = nanquantile(sliced, 0.5);
+      expect(r).toBe(3);
+    });
+  });
+
+  // ========================================
+  // Complex dtype reductions with axis
+  // (covers complex filter/reduce callbacks)
+  // ========================================
+  describe('complex reductions with axis', () => {
+    // 2D complex array: shape [2, 2]
+    const c2d = array([
+      [new Complex(1, 2), new Complex(3, 4)],
+      [new Complex(5, 6), new Complex(7, 8)],
+    ]);
+
+    it('nanmin on 2D complex array with axis', () => {
+      const r = nanmin(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('nanmax on 2D complex array with axis', () => {
+      const r = nanmax(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('nanvar on 2D complex array with axis', () => {
+      const r = nanvar(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('nanargmin on 2D complex array with axis', () => {
+      const r = nanargmin(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('nanargmax on 2D complex array with axis', () => {
+      const r = nanargmax(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('cumsum on 2D complex array with axis (covers complex+axis path)', () => {
+      const r = cumsum(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2, 2]);
+    });
+
+    it('cumprod on 2D complex array with axis (covers complex+axis path)', () => {
+      const r = cumprod(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2, 2]);
+    });
+
+    it('average on 2D complex array with axis and weights', () => {
+      const weights = array([1, 2]);
+      const r = average(c2d, 0, weights);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+
+    it('min on 2D complex array with axis', () => {
+      const r = min(c2d, 0);
+      expect(Array.from(r.shape)).toEqual([2]);
+    });
+  });
+
+  // ========================================
+  // Large array reductions with keepdims=true
+  // (covers WASM+keepdims path)
+  // ========================================
+  describe('large array reductions with keepdims', () => {
+    // Use int32 so WASM strided kernels are available (float64 excluded from WASM max/min)
+    const big = reshape(array(Array.from({ length: 100 }, (_, i) => i), 'int32'), [10, 10]);
+
+    it('sum with keepdims=true (WASM path)', () => {
+      const r = sum(big, 0, true);
+      expect(Array.from(r.shape)).toEqual([1, 10]);
+    });
+
+    it('max with keepdims=true (WASM path)', () => {
+      const r = max(big, 0, true);
+      expect(Array.from(r.shape)).toEqual([1, 10]);
+    });
+
+    it('prod with keepdims=true (WASM path)', () => {
+      const r = prod(big, 0, true);
+      expect(Array.from(r.shape)).toEqual([1, 10]);
+    });
+
+    it('min with keepdims=true (WASM path)', () => {
+      const r = min(big, 0, true);
+      expect(Array.from(r.shape)).toEqual([1, 10]);
     });
   });
 });
