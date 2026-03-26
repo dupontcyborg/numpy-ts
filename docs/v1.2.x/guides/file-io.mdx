@@ -1,29 +1,34 @@
 ---
 title: "File I/O"
-description: "Save and load arrays in .npy, .npz, and text formats across Node.js and browsers."
+description: "Save and load arrays in .npy, .npz, and text formats. File-based I/O works on Node.js, Bun, and Deno; buffer-based I/O works everywhere including browsers."
 ---
 
-numpy-ts supports the same file formats as NumPy: `.npy` (single array), `.npz` (multiple arrays), and delimited text files. The API is split across two entry points to keep browser bundles free of Node.js dependencies.
+numpy-ts supports the same file formats as NumPy: `.npy` (single array), `.npz` (multiple arrays), and delimited text files. All functions are available from the main `numpy-ts` entry point.
 
-| Format | Node.js (`numpy-ts/node`) | Browser (`numpy-ts` or `numpy-ts/core`) |
-|---|---|---|
-| `.npy` | `save` / `load` | `serializeNpy` / `parseNpy` |
-| `.npz` | `savez` / `savez_compressed` / `load` | `serializeNpz` / `parseNpz` |
-| Text (CSV, TSV) | `savetxt` / `loadtxt` | `serializeTxt` / `parseTxt` |
-| Text (flexible) | `genfromtxt` / `fromregex` | `genfromtxt` / `fromregex` |
+| Category | File-based (Node / Bun / Deno) | Buffer-based (all environments) |
+|-|-|-|
+| `.npy` | `loadNpy` / `loadNpySync` / `saveNpy` / `saveNpySync` | `serializeNpy` / `parseNpy` |
+| `.npz` | `loadNpzFile` / `loadNpzFileSync` / `saveNpzFile` / `saveNpzFileSync` / `savez` / `savez_compressed` | `serializeNpz` / `parseNpz` |
+| Auto-detect | `load` / `loadSync` / `save` / `saveSync` | -- |
+| Text (CSV, TSV) | `loadtxt` / `loadtxtSync` / `savetxt` / `savetxtSync` | `serializeTxt` / `parseTxt` |
+| Text (flexible) | `genfromtxtFile` / `genfromtxtFileSync` / `fromregexFile` / `fromregexFileSync` | `genfromtxt` / `fromregex` |
 
 <Note>
-Node.js functions read and write files on disk. Browser functions work with `ArrayBuffer`, `Uint8Array`, and strings -- you handle the network or file access yourself.
+File-based functions read and write files on disk and require a server runtime (Node.js, Bun, or Deno). In the browser, they throw: *"File IO requires Node.js, Bun, or Deno. In the browser, use parseNpy(buffer) / parseTxt(text) with fetch() instead."* Buffer-based functions work with `ArrayBuffer`, `Uint8Array`, and strings in all environments.
 </Note>
+
+<Tip>
+`numpy-ts/node` still works but is a **deprecated** alias for `numpy-ts`. Update your imports to `from 'numpy-ts'`.
+</Tip>
 
 ## NPY files (single array)
 
 The `.npy` format stores a single array with its dtype and shape metadata.
 
 <Tabs>
-  <Tab title="Node.js">
+  <Tab title="File-based (Node / Bun / Deno)">
 ```typescript
-import { array, save, load } from 'numpy-ts/node';
+import { array, save, load } from 'numpy-ts';
 
 const a = array([[1, 2, 3], [4, 5, 6]]);
 
@@ -38,14 +43,14 @@ console.log(loaded.shape); // [2, 3]
 Synchronous variants are also available:
 
 ```typescript
-import { array, saveSync, loadSync } from 'numpy-ts/node';
+import { array, saveSync, loadSync } from 'numpy-ts';
 
 const a = array([1, 2, 3]);
 saveSync('data.npy', a);
 const loaded = loadSync('data.npy');
 ```
   </Tab>
-  <Tab title="Browser">
+  <Tab title="Buffer-based (all environments)">
 ```typescript
 import { array, serializeNpy, parseNpy } from 'numpy-ts';
 
@@ -74,9 +79,9 @@ import { array, serializeNpy, parseNpy } from 'numpy-ts/core';
 The `.npz` format stores multiple named arrays in a single ZIP archive. `savez_compressed` applies deflate compression.
 
 <Tabs>
-  <Tab title="Node.js">
+  <Tab title="File-based (Node / Bun / Deno)">
 ```typescript
-import { array, zeros, savez, savez_compressed, load } from 'numpy-ts/node';
+import { array, zeros, savez, savez_compressed, load } from 'numpy-ts';
 
 const weights = array([[0.1, 0.2], [0.3, 0.4]]);
 const biases = zeros([2]);
@@ -93,7 +98,7 @@ const w = result.arrays.get('weights');
 const b = result.arrays.get('biases');
 ```
   </Tab>
-  <Tab title="Browser">
+  <Tab title="Buffer-based (all environments)">
 ```typescript
 import { array, zeros, serializeNpz, parseNpz } from 'numpy-ts';
 
@@ -118,9 +123,9 @@ const b = result.arrays.get('biases');
 Load and save delimited text files such as CSV and TSV.
 
 <Tabs>
-  <Tab title="Node.js">
+  <Tab title="File-based (Node / Bun / Deno)">
 ```typescript
-import { array, loadtxt, savetxt } from 'numpy-ts/node';
+import { array, loadtxt, savetxt } from 'numpy-ts';
 
 // Load a CSV file
 const data = await loadtxt('data.csv', { delimiter: ',' });
@@ -141,7 +146,7 @@ await savetxt('output.csv', a, {
 });
 ```
   </Tab>
-  <Tab title="Browser">
+  <Tab title="Buffer-based (all environments)">
 ```typescript
 import { array, parseTxt, serializeTxt } from 'numpy-ts';
 
@@ -173,18 +178,18 @@ console.log(text);
 Like `loadtxt`, but handles missing values more gracefully.
 
 <Tabs>
-  <Tab title="Node.js">
+  <Tab title="File-based (Node / Bun / Deno)">
 ```typescript
-import { genfromtxt } from 'numpy-ts/node';
+import { genfromtxtFile } from 'numpy-ts';
 
-const data = await genfromtxt('messy_data.csv', {
+const data = await genfromtxtFile('messy_data.csv', {
   delimiter: ',',
   missing_values: ['NA', '', '-'],
   filling_values: 0,
 });
 ```
   </Tab>
-  <Tab title="Browser">
+  <Tab title="Buffer-based (all environments)">
 ```typescript
 import { genfromtxt } from 'numpy-ts';
 
@@ -207,17 +212,17 @@ const data = genfromtxt(csv, {
 Extract numeric data from unstructured text using regular expressions.
 
 <Tabs>
-  <Tab title="Node.js">
+  <Tab title="File-based (Node / Bun / Deno)">
 ```typescript
-import { fromregex } from 'numpy-ts/node';
+import { fromregexFile } from 'numpy-ts';
 
 // File contents: "Point: x=1.5, y=2.3\nPoint: x=4.0, y=5.1"
-const points = await fromregex('points.txt', /x=([\d.]+), y=([\d.]+)/);
+const points = await fromregexFile('points.txt', /x=([\d.]+), y=([\d.]+)/);
 console.log(points.shape); // [2, 2]
 console.log(points.toArray()); // [[1.5, 2.3], [4.0, 5.1]]
 ```
   </Tab>
-  <Tab title="Browser">
+  <Tab title="Buffer-based (all environments)">
 ```typescript
 import { fromregex } from 'numpy-ts';
 
@@ -230,13 +235,24 @@ console.log(points.toArray()); // [[1.5, 2.3], [4.0, 5.1]]
   </Tab>
 </Tabs>
 
-## Why a separate Node.js entry point?
+## Types
 
-<Note>
-File I/O functions that read and write to the filesystem are in `numpy-ts/node` because they depend on Node.js built-in modules (`fs`, `fs/promises`). Keeping them in a separate entry point means that `numpy-ts` and `numpy-ts/core` never import `fs`, so they work cleanly in browsers and edge runtimes without bundler polyfills.
+File I/O functions accept typed options objects:
 
-If you only need serialization and parsing (not disk access), use `serializeNpy`, `parseNpy`, `serializeNpz`, `parseNpz`, `serializeTxt`, and `parseTxt` from the main entry points.
-</Note>
+```typescript
+import type {
+  LoadOptions,
+  SaveNpzOptions,
+  LoadTxtOptions,
+  SaveTxtOptions,
+} from 'numpy-ts';
+```
+
+## Sync I/O internals
+
+<Tip>
+Sync file I/O functions (`loadSync`, `saveSync`, `loadNpySync`, etc.) use an async self-warming cache that resolves `node:fs` at module load time. This is transparent in practice. In the extremely unlikely case that you call a sync function before the microtask queue has flushed, call any async I/O function first to ensure the cache is ready.
+</Tip>
 
 ## NumPy compatibility
 
@@ -255,12 +271,12 @@ np.save('from_python.npy', np.array([[1, 2], [3, 4]]))
 
 ```typescript
 // TypeScript
-import { load } from 'numpy-ts/node';
+import { load } from 'numpy-ts';
 
 const arr = await load('from_python.npy');
 console.log(arr.toArray()); // [[1, 2], [3, 4]]
 ```
 
 <Warning>
-numpy-ts does not support NumPy object arrays, structured arrays, or pickle-based `.npy` files. Only numeric dtypes (`float64`, `float32`, `int32`, `int16`, `int8`, `uint32`, `uint16`, `uint8`, `bool`, `complex128`, `complex64`) are supported.
+numpy-ts does not support NumPy object arrays, structured arrays, or pickle-based `.npy` files. Only numeric dtypes (`float16`, `float64`, `float32`, `int32`, `int16`, `int8`, `uint32`, `uint16`, `uint8`, `bool`, `complex128`, `complex64`) are supported.
 </Warning>

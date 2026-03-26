@@ -65,6 +65,14 @@
     {
       "source": "/performance",
       "destination": "/v1.2.x/guides/performance"
+    },
+    {
+      "source": "/roadmap",
+      "destination": "/v1.2.x/guides/roadmap"
+    },
+    {
+      "source": "/ai-disclosure",
+      "destination": "/v1.2.x/guides/ai-disclosure"
     }
   ],
   "navigation": {

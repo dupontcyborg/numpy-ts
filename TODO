@@ -7,12 +7,12 @@
 - [ ] Implement `unfunc` support
 - [ ] Implement masked array support
 - [ ] Async API
-- [ ] Add `float16` support (conditional upon `Float16Array` being available)
 - [ ] Modularize codebase
     - [ ] `linalg.ts` -> `linalg/*.ts`
     - [ ] `reduction.ts` -> `reductions/*.ts`
     - [ ] `arithmetic.ts` -> `arithmetic/*.ts`
     - [ ] `random.ts` -> `random/*.ts`
+- [X] Add `float16` support (conditional upon `Float16Array` being available)
 - [X] Accelerate with WASM kernels
 - [X] Promote `int8`/`uint8`/`int16`/`uint16` (and `int32`/`uint32`?) to `int64` for items listed under `SKIP_NARROW_INT_OPERATIONS`
 - [X] Fix dtype promotion/wrapping/overflow discrepancies against Python NumPy
@@ -30,7 +30,7 @@
 - [ ] Reach >95% statement coverage via unit and validation tests
 - [ ] Simplify docs Quickstart
 - [ ] Fix PR benchmark regression testing CI
-- [ ] Make all seeded `random` functions match NumPy's output byte-for-byte
+- [X] Make all seeded `random` functions match NumPy's output byte-for-byte
 
 ## P3
 

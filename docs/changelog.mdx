@@ -4,6 +4,26 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.2.0" description="2026-03-26">
+
+## numpy-ts v1.2.0
+
+The DX release! v1.2.0 brings some quality-of-life upgrades:
+
+* Added `float16` dtype support: 
+    * New half-precision dtype with native `Float16Array` on modern runtimes (Node 23+, Chrome 127+) and `Float32Array` fallback on older runtimes. Full NPY round-trip support.
+* Complete `random` module rewrite: 
+    * Entire `np.random` module rewritten as Zig-compiled WASM. Now **matches NumPy's random output bit-for-bit** for all distributions with both legacy (MT19937) and modern (PCG64) APIs.
+    * Random functions are now **~6x faster on average**.
+* Simplified bundles:
+    * Removed CJS bundle. The package is now ESM-only (`dist/numpy-ts.node.cjs` removed).
+    * All 22 file I/O functions now available from `import from 'numpy-ts'` — works on Node, Bun, and Deno. `numpy-ts/node` is deprecated (still works as an alias).
+    * 2 build outputs (down from 5) — tree-shakeable ESM + browser IIFE
+* Performance optimizations across the board - yielding an **average 20% speedup**.
+* Cross-runtime test coverage: all 10,000+ tests now run on Node, Bun, Deno, and Chromium
+
+</Update>
+
 <Update label="v1.1.0" description="2026-03-19">
 
 ## numpy-ts v1.1.0

@@ -1,11 +1,11 @@
 ---
 title: "Data Types (dtypes)"
-description: "All 13 supported dtypes, type promotion rules, BigInt handling, and complex numbers."
+description: "All 14 supported dtypes, type promotion rules, BigInt handling, and complex numbers."
 ---
 
 ## Overview
 
-numpy-ts supports 13 data types that mirror NumPy's numeric type system. Every NDArray has a single dtype that determines how its elements are stored in memory and how arithmetic behaves.
+numpy-ts supports 14 data types that mirror NumPy's numeric type system. Every NDArray has a single dtype that determines how its elements are stored in memory and how arithmetic behaves.
 
 ## Supported dtypes
 
@@ -13,6 +13,7 @@ numpy-ts supports 13 data types that mirror NumPy's numeric type system. Every N
 |---|---|---|---|
 | `float64` | `Float64Array` | 8 | ~-1.8e308 to ~1.8e308 (64-bit IEEE 754) |
 | `float32` | `Float32Array` | 4 | ~-3.4e38 to ~3.4e38 (32-bit IEEE 754) |
+| `float16` | `Float16Array` (fallback: `Float32Array`) | 2 | ~-65504 to ~65504 (16-bit IEEE 754) |
 | `int64` | `BigInt64Array` | 8 | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 |
 | `int32` | `Int32Array` | 4 | -2,147,483,648 to 2,147,483,647 |
 | `int16` | `Int16Array` | 2 | -32,768 to 32,767 |
@@ -111,13 +112,40 @@ a.conj();    // Complex { re: 1, im: -2 }
 a.toString(); // "(1+2j)"
 ```
 
+## Float16 support
+
+numpy-ts includes a `float16` dtype with automatic fallback for broad runtime compatibility.
+
+- Uses native `Float16Array` on modern runtimes (Node 23+, Chrome 127+, Firefox 129+, Safari 18.2+).
+- Falls back to `Float32Array` on older runtimes — `float16` always works, no runtime errors.
+- Use the `hasFloat16` export to check for native support at runtime.
+
+```typescript
+import * as np from 'numpy-ts';
+import { hasFloat16 } from 'numpy-ts';
+
+const a = np.array([1.5, 2.0, 3.25], { dtype: 'float16' });
+a.dtype;       // 'float16'
+a.itemsize;    // 2
+
+if (hasFloat16) {
+  console.log('Native Float16Array — exact NumPy precision');
+} else {
+  console.log('Float32Array fallback — float32 precision');
+}
+```
+
+<Note>
+If you need exact NumPy float16 parity, target Node 23+ or use `hasFloat16` to guard precision-sensitive code paths.
+</Note>
+
 ## Type promotion hierarchy
 
 When you combine arrays with different dtypes in an operation, numpy-ts promotes to a common type that can represent both without data loss. The promotion follows NumPy's rules:
 
 ```
-complex128 > complex64 > float64 > float32 > int64 > int32 > int16 > int8
-                                             uint64 > uint32 > uint16 > uint8 > bool
+complex128 > complex64 > float64 > float32 > float16 > int64 > int32 > int16 > int8
+                                                        uint64 > uint32 > uint16 > uint8 > bool
 ```
 
 Some key promotion rules:
@@ -126,6 +154,9 @@ Some key promotion rules:
 |---|---|---|
 | `float64 + int32` | `float64` | float always wins |
 | `float32 + int8` | `float32` | float32 can hold int8 values |
+| `float16 + float32` | `float32` | wider float wins |
+| `float16 + int8` | `float16` | float16 can hold int8 values |
+| `float16 + int16` | `float32` | float16 lacks precision for all int16 values |
 | `float32 + int32` | `float64` | float32 lacks precision for all int32 values |
 | `int32 + uint32` | `int64` | need signed type larger than both |
 | `int64 + uint64` | `float64` | no integer type can hold both ranges |

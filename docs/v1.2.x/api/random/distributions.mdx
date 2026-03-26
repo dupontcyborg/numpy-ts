@@ -5,6 +5,10 @@ description: "Continuous, discrete, and multivariate probability distributions f
 
 All functions on this page are accessed via the `np.random` namespace and use the global MT19937 generator. The same distributions are also available on `Generator` instances (see [Generator API](./generator)).
 
+<Note>
+As of v1.2.0, all distribution functions now produce bit-for-bit identical output to NumPy given the same seed. This applies to every distribution on this page -- exponential, gamma, beta, chi-square, poisson, binomial, and all others -- thanks to the Zig/WASM rewrite of the random module.
+</Note>
+
 ## Continuous Distributions
 
 ### uniform

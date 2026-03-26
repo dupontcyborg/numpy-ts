@@ -56,9 +56,9 @@ const records = np.zeros(100, dt);
 
 This is a significant undertaking and may be scoped to a subset of NumPy's structured array features.
 
-## Random distribution parity
+## Graph-based chaining / fused kernels
 
-While numpy-ts implements all core random distributions, some NumPy random functions have subtle parameter variations and edge-case behaviors that differ. The goal is full behavioral parity with NumPy's `numpy.random.Generator` interface.
+Keep data in WASM memory across chained operations to eliminate copy overhead. Currently each WASM kernel copies data in and out of WASM memory. Fused kernels would allow chaining operations (e.g. `a.add(b).multiply(c)`) to stay entirely in WASM memory, only copying the final result back to JavaScript.
 
 <Note>
 This roadmap reflects current thinking, not commitments. Items may be reprioritized, combined, or dropped based on what the community actually needs. The best way to influence the roadmap is to [open an issue](https://github.com/dupontcyborg/numpy-ts/issues) with your use case.

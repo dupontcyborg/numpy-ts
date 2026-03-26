@@ -27,12 +27,20 @@ WASM kernels cover 97 operations across these modules:
 | **Manipulation** | ~9x | 15x slower | 1.6x slower |
 | **Gradient** | ~60x | 30x slower | 2x *faster* |
 | **FFT** | ~3x | 22x slower | 8x slower |
-| **Random** | ~6x | 11x slower | 1.9x slower |
+| **Random** (Zig rewrite) | ~6x | 11x slower | 1.9x slower |
 | **Indexing** | ~5.5x | 12x slower | 2.2x slower |
 
 <Note>
 All benchmarks measure computation time *within* numpy-ts and *within* NumPy respectively -- no FFI or serialization overhead is counted. This gives an apples-to-apples comparison of the numerical computation itself. For more info, see [performance benchmarks](./performance.mdx).
 </Note>
+
+## Random module (Zig rewrite)
+
+In `v1.2.0`, the entire `np.random` module was rewritten as a Zig-compiled WASM kernel. Both the legacy **MT19937** and modern **PCG64/SeedSequence** implementations now run in WASM, replacing the previous pure-TypeScript versions.
+
+The rewrite achieves **bit-for-bit output matching with NumPy** for both the `np.random.seed()` (legacy) and `np.random.default_rng()` (modern) APIs. All distributions -- not just uniform and normal -- now produce identical sequences to NumPy given the same seed. This includes gamma, beta, chi-square, Poisson, binomial, multivariate normal, and every other distribution in the module.
+
+Performance improved by **~6x** compared to the previous TypeScript implementation, bringing numpy-ts random generation to within 1.9x of native NumPy speed.
 
 ## Architecture
 

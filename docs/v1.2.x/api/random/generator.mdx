@@ -5,6 +5,10 @@ description: "Modern random number generator using PCG64 with SeedSequence, matc
 
 The `Generator` class is the recommended way to generate random numbers. It uses the PCG64 bit generator with SeedSequence initialization, exactly matching NumPy's `numpy.random.default_rng()`.
 
+<Note>
+As of v1.2.0, the `Generator` class (PCG64 + SeedSequence) is now fully implemented in Zig/WASM. `default_rng(seed)` produces bit-for-bit identical output to NumPy's `numpy.random.default_rng(seed)` for all methods.
+</Note>
+
 ### default_rng
 
 Create a new `Generator` instance backed by PCG64.

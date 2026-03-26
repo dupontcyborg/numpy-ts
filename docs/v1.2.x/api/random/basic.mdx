@@ -5,6 +5,10 @@ description: "Legacy random sampling functions for uniform, normal, and integer 
 
 All functions on this page are accessed via the `np.random` namespace and use the global MT19937 generator. Seed with `np.random.seed()` for reproducible results.
 
+<Note>
+As of v1.2.0, random functions on this page (`rand`, `randn`, `random`, `randint`, `uniform`, `normal`, `choice`, `shuffle`, `permutation`, `bytes`) are now implemented as Zig-compiled WASM kernels. With `np.random.seed(n)`, outputs match NumPy exactly for the same seed across every function listed here.
+</Note>
+
 ### random
 
 Generate random floats in the half-open interval `[0.0, 1.0)`.

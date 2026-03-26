@@ -17,9 +17,6 @@ import * as np from 'numpy-ts';
 
 // Or, for tree-shakeable imports (no method chaining):
 import { array, add, reshape } from 'numpy-ts/core';
-
-// Or, for Node.js with file I/O support:
-import * as np from 'numpy-ts/node';
 ```
 </CodeGroup>
 
@@ -217,7 +214,7 @@ np.random.shuffle(arr);
 </CodeGroup>
 
 <Note>
-`numpy-ts` currently uses different RNGs than NumPy. This means that the generated random numbers will not match NumPy's output, even with the same seed. Statistical properties (distributions, means, variances) will be the same, but exact sequences will differ.
+As of v1.2.0, `numpy-ts` uses the same RNGs as NumPy (MT19937 for the legacy API, PCG64 for the modern API). Random outputs now match NumPy exactly for all distributions given the same seed.
 </Note>
 
 ## FFT
@@ -248,9 +245,8 @@ table = np.loadtxt('data.csv', delimiter=',')
 np.savetxt('out.csv', arr, delimiter=',')
 ```
 
-```typescript TypeScript (Node-only)
-// File I/O is only available from the 'numpy-ts/node' entry point
-import * as np from 'numpy-ts/node';
+```typescript TypeScript
+import * as np from 'numpy-ts';
 
 const arr = await np.loadNpy('data.npy');
 await np.saveNpy('output.npy', arr);
@@ -262,7 +258,7 @@ await np.savetxt('out.csv', arr, { delimiter: ',' });
 </CodeGroup>
 
 <Warning>
-File I/O is only available from `numpy-ts/node`. The main `numpy-ts` entry point exports buffer-based parsers and serializers (`parseNpy`, `serializeNpy`) that work in any environment.
+`numpy-ts/node` is deprecated as of v1.2.0 (it still works as an alias). All 22 file I/O functions are now available from the main `numpy-ts` entry point on Node, Bun, and Deno.
 </Warning>
 
 ## Common gotchas
@@ -283,11 +279,11 @@ File I/O is only available from `numpy-ts/node`. The main `numpy-ts` entry point
 
 ## Supported dtypes
 
-numpy-ts supports 13 data types that map to JavaScript TypedArrays:
+numpy-ts supports 14 data types that map to JavaScript TypedArrays:
 
 | Category | Dtypes | JS Storage | Notes |
 |---|---|---|---|
-| **Floating point** | `float64` (default), `float32` | `Float64Array`, `Float32Array` | |
+| **Floating point** | `float64` (default), `float32`, `float16` | `Float64Array`, `Float32Array`, `Float16Array` | `float16` uses `Float32Array` fallback on older runtimes |
 | **Signed integer** | `int8`, `int16`, `int32`, `int64` | `Int8Array` ... `BigInt64Array` | `int64` uses `BigInt` |
 | **Unsigned integer** | `uint8`, `uint16`, `uint32`, `uint64` | `Uint8Array` ... `BigUint64Array` | `uint64` uses `BigInt` |
 | **Boolean** | `bool` | `Uint8Array` | Stored as 0/1 |

@@ -28,6 +28,8 @@ bun add numpy-ts
 | Environment | Minimum Version |
 |---|---|
 | Node.js | >= 20.1.0 |
+| Bun | >= 1.0 |
+| Deno | >= 1.37 |
 | Browsers | ES2020+ (Chrome 80+, Firefox 78+, Safari 14+, Edge 80+) |
 | TypeScript | >= 5.0 (recommended) |
 
@@ -72,25 +74,28 @@ You can load numpy-ts directly in the browser without a build step:
 
 ## Choose your entry point
 
-numpy-ts ships three entry points. Pick the one that fits your use case:
+numpy-ts ships two entry points. Pick the one that fits your use case:
 
 | Entry Point | Import Path | Returns | Bundle Size | Use When |
 |---|---|---|---|---|
-| **Full** | `numpy-ts` | `NDArray` | ~200-300 KB | You want method chaining and the complete API |
+| **Full** | `numpy-ts` | `NDArray` | ~200-300 KB | You want method chaining, the complete API, and file I/O on server runtimes |
 | **Core** | `numpy-ts/core` | `NDArrayCore` | ~10-40 KB | Bundle size matters; you only need specific functions |
-| **Node** | `numpy-ts/node` | `NDArray` | ~200-300 KB + fs | You need file I/O (`load`, `save`, `savez`) on Node.js |
 
 See the [Tree-Shaking guide](.//tree-shaking) for a detailed comparison.
 
 ### Full library (`numpy-ts`)
 
-The default entry point. Functions return `NDArray`, which supports method chaining (`.add()`, `.reshape()`, `.T`, etc.).
+The default entry point. Functions return `NDArray`, which supports method chaining (`.add()`, `.reshape()`, `.T`, etc.). On server runtimes (Node.js, Bun, Deno), file I/O operations (`loadNpy`, `saveNpy`, `loadNpzFile`, `savez`, `loadtxt`, `savetxt`) are available directly. In browsers, calling file I/O functions throws a clear error.
 
 ```typescript
 import * as np from 'numpy-ts';
 
 const a = np.array([1, 2, 3, 4]);
 const b = a.add(10).reshape([2, 2]).T;  // Method chaining
+
+// File I/O — works on Node.js, Bun, and Deno
+const arr = await np.loadNpy('data.npy');
+await np.saveNpy('output.npy', arr);
 ```
 
 Best for applications, scripts, and projects where developer experience matters more than bundle size.
@@ -111,30 +116,6 @@ Best for libraries, frontend apps where every kilobyte counts, and when you only
 <Tip>
 Importing just `array` and `add` from `numpy-ts/core` results in a bundle around **10 KB** minified. The full entry point is always ~200-300 KB regardless of what you use.
 </Tip>
-
-### Node.js file I/O (`numpy-ts/node`)
-
-Everything from `numpy-ts` plus file system operations for `.npy`, `.npz`, and text files.
-
-```typescript
-import * as np from 'numpy-ts/node';
-
-// Load and save .npy files
-const arr = await np.loadNpy('data.npy');
-await np.saveNpy('output.npy', arr);
-
-// Load and save .npz archives
-const { arrays } = await np.loadNpzFile('data.npz');
-await np.savez('output.npz', { x: arr, y: arr });
-
-// Text files
-const data = await np.loadtxt('data.csv', { delimiter: ',' });
-await np.savetxt('output.csv', data, { delimiter: ',' });
-```
-
-<Warning>
-The `numpy-ts/node` entry point uses Node.js built-in `fs` modules. It will not work in browsers or edge runtimes.
-</Warning>
 
 ## Next steps
 

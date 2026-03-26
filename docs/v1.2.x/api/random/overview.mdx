@@ -107,25 +107,25 @@ function set_bit_generator(bitgen: BitGenerator): void
 
 numpy-ts implements the same algorithms as NumPy for both the legacy and modern APIs:
 
-| API | Bit Generator | Initialization |
-|-----|--------------|----------------|
-| Legacy (`np.random.seed`) | MT19937 | Direct seed init |
-| Modern (`np.random.default_rng`) | PCG64 | SeedSequence expansion |
+| API | Bit Generator | Implementation | Initialization |
+|-|-|-|-|
+| Legacy (`np.random.seed`) | MT19937 | Zig/WASM | Direct seed init |
+| Modern (`np.random.default_rng`) | PCG64 | Zig/WASM | SeedSequence expansion |
 
 ### NumPy Compatibility
 
 | Category | Match Level | Notes |
-|----------|-------------|-------|
+|-|-|-|
 | Uniform `[0, 1)` | Exact | Identical 53-bit float generation |
-| Normal / Gaussian | Exact (seeded) | Box-Muller transform, same pairing |
+| Normal / Gaussian | Exact | Box-Muller transform, same pairing |
 | Integer generation | Exact | Same range mapping |
 | PCG64 (Generator) | Exact | Same SeedSequence, same state advance order |
-| Gamma, Beta, Chi-square | Statistical | Same algorithms, minor float differences |
-| Poisson, Binomial | Statistical | Same algorithm selection thresholds |
-| Multivariate Normal | Statistical | Cholesky-based, same approach |
+| Gamma, Beta, Chi-square | Exact | Zig rewrite matches NumPy bit-for-bit |
+| Poisson, Binomial | Exact | Zig rewrite matches NumPy bit-for-bit |
+| Multivariate Normal | Exact | Cholesky-based, identical output |
 
 <Note>
-  When using the legacy API with `np.random.seed()`, uniform and normal outputs match NumPy exactly for the same seed. Other distributions use the same algorithms as NumPy and produce statistically equivalent results, though individual values may differ due to floating-point ordering.
+  As of v1.2.0, all distributions match NumPy exactly for the same seed, across both the legacy (`np.random.seed()`) and modern (`np.random.default_rng()`) APIs. The legacy API uses MT19937 implemented in Zig/WASM; the modern API uses PCG64 in Zig/WASM.
 </Note>
 
 ---
