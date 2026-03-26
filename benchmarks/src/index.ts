@@ -37,7 +37,7 @@ const packageJson = JSON.parse(
 function getMachineInfo(): string {
   const cpu = os.cpus()[0]?.model ?? 'Unknown CPU';
   const cores = os.cpus().length;
-  const ramGb = Math.round(os.totalmem() / (1024 ** 3));
+  const ramGb = Math.round(os.totalmem() / 1024 ** 3);
   const arch = os.arch();
   return `${cpu} (${cores} cores, ${ramGb} GB, ${arch})`;
 }
@@ -87,7 +87,7 @@ function tryLoadCachedPython(
       results.push(cached.numpy);
     }
 
-    const ageHours = Math.round(ageMs / (60 * 60 * 1000) * 10) / 10;
+    const ageHours = Math.round((ageMs / (60 * 60 * 1000)) * 10) / 10;
     console.log(
       `Using cached NumPy results (${ageHours}h old). Pass --fresh to re-run Python benchmarks.`
     );
@@ -151,15 +151,12 @@ async function main() {
   if (options.mode === 'quick') {
     minSampleTimeMs = 50;
     targetSamples = 1;
-
   } else if (options.mode === 'full') {
     minSampleTimeMs = 100;
     targetSamples = 5;
-
   } else {
     minSampleTimeMs = 100;
     targetSamples = 5;
-
   }
 
   console.log('NumPy vs numpy-ts Benchmark Suite\n');
@@ -192,9 +189,7 @@ async function main() {
     }
   }
 
-  const runtimeStr = selectedRuntimes
-    .map((r) => `${r.name} v${r.version}`)
-    .join(', ');
+  const runtimeStr = selectedRuntimes.map((r) => `${r.name} v${r.version}`).join(', ');
   console.log(`Runtimes: ${runtimeStr}`);
 
   // Get benchmark specifications
@@ -237,7 +232,9 @@ async function main() {
       // Specs without a dtype suffix are implicitly float64
       const words = s.name.split(' ');
       const lastWord = words[words.length - 1]!;
-      const specDtype = s.setup.a?.dtype ?? (lastWord.match(/^(float|int|uint|bool|complex)/) ? lastWord : 'float64');
+      const specDtype =
+        s.setup.a?.dtype ??
+        (lastWord.match(/^(float|int|uint|bool|complex)/) ? lastWord : 'float64');
       return dtypeSet.has(specDtype);
     });
 
@@ -252,14 +249,22 @@ async function main() {
   try {
     // Validate correctness before benchmarking
     const nonValidatableOperations = new Set([
-      'linalg_det', 'linalg_qr', 'linalg_cholesky', 'linalg_svd', 'linalg_eig', 'linalg_eigh',
-      'linalg_eigvals', 'linalg_eigvalsh', 'linalg_matrix_rank', 'linalg_pinv', 'linalg_cond',
-      'linalg_lstsq', 'linalg_matrix_power'
+      'linalg_det',
+      'linalg_qr',
+      'linalg_cholesky',
+      'linalg_svd',
+      'linalg_eig',
+      'linalg_eigh',
+      'linalg_eigvals',
+      'linalg_eigvalsh',
+      'linalg_matrix_rank',
+      'linalg_pinv',
+      'linalg_cond',
+      'linalg_lstsq',
+      'linalg_matrix_power',
     ]);
     const validatableSpecs = specs.filter(
-      (spec) =>
-        spec.category !== 'io' &&
-        !nonValidatableOperations.has(spec.operation)
+      (spec) => spec.category !== 'io' && !nonValidatableOperations.has(spec.operation)
     );
     if (validatableSpecs.length > 0) {
       console.log('Validating correctness against NumPy...');
@@ -268,9 +273,7 @@ async function main() {
     }
     const skippedCount = specs.length - validatableSpecs.length;
     if (skippedCount > 0) {
-      console.log(
-        `Skipping validation for ${skippedCount} benchmarks (IO/Complex linalg)\n`
-      );
+      console.log(`Skipping validation for ${skippedCount} benchmarks (IO/Complex linalg)\n`);
     }
 
     // Determine file suffix based on mode, threading, and baseline
@@ -322,7 +325,7 @@ async function main() {
           specs,
           minSampleTimeMs,
           targetSamples,
-          options.noWasm ?? false,
+          options.noWasm ?? false
         );
         runtimeResultsMap.set(runtime.name, results);
         runtimeVersions[runtime.name] = version;

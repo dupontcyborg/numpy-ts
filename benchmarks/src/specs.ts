@@ -1622,7 +1622,17 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
   // Reductions axis=0 variants (standard/full only)
   if (mode !== 'quick' && Array.isArray(sizes.medium)) {
-    for (const op of ['mean', 'max', 'min', 'argmax', 'argmin', 'var', 'std', 'prod', 'median'] as const) {
+    for (const op of [
+      'mean',
+      'max',
+      'min',
+      'argmax',
+      'argmin',
+      'var',
+      'std',
+      'prod',
+      'median',
+    ] as const) {
       specs.push({
         name: `${op} [${sizes.medium.join('x')}] axis=0`,
         category: 'reductions',
@@ -2647,7 +2657,6 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
-
     // ========================================
     // Searching Benchmarks
     // ========================================
@@ -3066,7 +3075,16 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
-    for (const dt of ['int64', 'int32', 'int16', 'int8', 'uint64', 'uint32', 'uint16', 'uint8'] as const) {
+    for (const dt of [
+      'int64',
+      'int32',
+      'int16',
+      'int8',
+      'uint64',
+      'uint32',
+      'uint16',
+      'uint8',
+    ] as const) {
       specs.push({
         name: `random.randint [${sizes.medium.join('x')}] ${dt}`,
         category: 'random',
@@ -3263,6 +3281,88 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
         warmup,
       });
     }
+
+    // ========================================
+    // Generator (PCG64) Random Benchmarks
+    // ========================================
+
+    specs.push({
+      name: `Generator.random [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'gen_random',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `Generator.uniform [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'gen_uniform',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `Generator.standard_normal [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'gen_standard_normal',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      includeInQuick: true,
+      warmup,
+    });
+
+    specs.push({
+      name: `Generator.normal [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'gen_normal',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `Generator.exponential [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'gen_exponential',
+      setup: {
+        shape: { shape: sizes.medium },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `Generator.integers [${sizes.medium.join('x')}]`,
+      category: 'random',
+      operation: 'gen_integers',
+      setup: {
+        shape: { shape: sizes.medium, dtype: 'int64' },
+      },
+      iterations,
+      warmup,
+    });
+
+    specs.push({
+      name: `Generator.permutation [${sizes.small}]`,
+      category: 'random',
+      operation: 'gen_permutation',
+      setup: {
+        n: { shape: [sizes.small], dtype: 'int64' },
+      },
+      iterations,
+      warmup,
+    });
 
     // ========================================
     // Complex Number Benchmarks
@@ -3909,7 +4009,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Operations to skip for uint dtype variants specifically.
   // NumPy raises TypeError for these on unsigned integer arrays.
   const SKIP_UINT_OPERATIONS = new Set([
-    'sign',    // np.sign raises TypeError for uint types
+    'sign', // np.sign raises TypeError for uint types
     'signbit', // np.signbit raises TypeError for uint types
   ]);
 
@@ -4181,7 +4281,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // visualization layer shows the correct badge instead of defaulting to float64.
   for (const spec of specs) {
     // Already has a dtype suffix from auto-generation? Skip.
-    if (/\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/.test(spec.name)) continue;
+    if (
+      /\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/.test(
+        spec.name
+      )
+    )
+      continue;
     const dataEntries = Object.entries(spec.setup).filter(([key]) => DATA_ARRAY_KEYS.has(key));
     if (dataEntries.length === 0) continue;
     const dtypes = new Set(dataEntries.map(([, e]) => e.dtype).filter(Boolean));

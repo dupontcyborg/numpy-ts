@@ -2,8 +2,24 @@
  * Benchmark results analysis
  */
 
-const DTYPE_RE = /\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
-const DTYPE_ORDER = ['float64', 'float32', 'float16', 'int64', 'uint64', 'int32', 'uint32', 'int16', 'uint16', 'int8', 'uint8', 'complex128', 'complex64', 'bool'];
+const DTYPE_RE =
+  /\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
+const DTYPE_ORDER = [
+  'float64',
+  'float32',
+  'float16',
+  'int64',
+  'uint64',
+  'int32',
+  'uint32',
+  'int16',
+  'uint16',
+  'int8',
+  'uint8',
+  'complex128',
+  'complex64',
+  'bool',
+];
 
 function compareBenchmarkNames(a: string, b: string): number {
   const aMatch = a.match(DTYPE_RE);
@@ -69,7 +85,7 @@ export function calculateSummary(comparisons: BenchmarkComparison[]): BenchmarkS
     median_slowdown,
     best_case,
     worst_case,
-    total_benchmarks: comparisons.length
+    total_benchmarks: comparisons.length,
   };
 }
 
@@ -103,7 +119,7 @@ export function getCategorySummaries(
 
     summaries.set(category, {
       avg_slowdown,
-      count: items.length
+      count: items.length,
     });
   }
 
@@ -125,12 +141,26 @@ export function getDtypeSummaries(
     groups.set(dtype, existing);
   }
 
-  const summaries = new Map<string, { avg_slowdown: number; median_slowdown: number; count: number }>();
+  const summaries = new Map<
+    string,
+    { avg_slowdown: number; median_slowdown: number; count: number }
+  >();
   // Order dtypes consistently
   const dtypeOrder = [
-    'float64', 'float32', 'float16', 'complex128', 'complex64',
-    'int64', 'int32', 'int16', 'int8',
-    'uint64', 'uint32', 'uint16', 'uint8', 'bool',
+    'float64',
+    'float32',
+    'float16',
+    'complex128',
+    'complex64',
+    'int64',
+    'int32',
+    'int16',
+    'int8',
+    'uint64',
+    'uint32',
+    'uint16',
+    'uint8',
+    'bool',
   ];
 
   for (const dtype of dtypeOrder) {
@@ -349,7 +379,9 @@ export function printMultiRuntimeResults(
     console.log(`\n[${category.toUpperCase()}]`);
 
     for (const item of items) {
-      const parts = [`  ${item.name.padEnd(35)} NumPy: ${formatDuration(item.numpy.mean_ms).padStart(10)}`];
+      const parts = [
+        `  ${item.name.padEnd(35)} NumPy: ${formatDuration(item.numpy.mean_ms).padStart(10)}`,
+      ];
 
       for (const rt of runtimeNames) {
         const entry = item.runtimes[rt];

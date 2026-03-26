@@ -107,9 +107,20 @@ function isNumericallySensitiveOperation(operation: string): boolean {
   // FFT operations can have minor floating-point differences between implementations
   const sensitiveOps = [
     'roots',
-    'fft', 'ifft', 'fft2', 'ifft2', 'fftn', 'ifftn',
-    'rfft', 'irfft', 'rfft2', 'irfft2', 'rfftn', 'irfftn',
-    'hfft', 'ihfft',
+    'fft',
+    'ifft',
+    'fft2',
+    'ifft2',
+    'fftn',
+    'ifftn',
+    'rfft',
+    'irfft',
+    'rfft2',
+    'irfft2',
+    'rfftn',
+    'irfftn',
+    'hfft',
+    'ihfft',
   ];
   return sensitiveOps.includes(operation);
 }
@@ -119,7 +130,12 @@ function isNumericallySensitiveOperation(operation: string): boolean {
  * @param operation - The operation name (for special handling of non-deterministic operations)
  * @param tolerance - Numeric tolerance for comparisons (default: FLOAT64_TOLERANCE)
  */
-function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string, tolerance: number = FLOAT64_TOLERANCE): boolean {
+function resultsMatch(
+  numpytsResult: any,
+  numpyResult: any,
+  operation?: string,
+  tolerance: number = FLOAT64_TOLERANCE
+): boolean {
   // For random operations, just check shapes match (values will differ)
   if (operation && isRandomOperation(operation)) {
     if (numpytsResult?.shape && numpyResult?.shape) {
@@ -151,7 +167,12 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string, 
   // Float32Array fallback only: NumPy returned null (inf/overflow) but numpy-ts
   // returned a finite value. This happens because our Float32Array backing has
   // much larger range than true float16 (max ~65504).
-  if (numpyResult === null && numpytsResult !== null && tolerance >= FLOAT16_TOLERANCE && !npHasFloat16) {
+  if (
+    numpyResult === null &&
+    numpytsResult !== null &&
+    tolerance >= FLOAT16_TOLERANCE &&
+    !npHasFloat16
+  ) {
     return true;
   }
 
@@ -173,7 +194,12 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string, 
     if (!isFinite(numpytsResult) && !isFinite(numpyResult)) return numpytsResult === numpyResult;
     // Float32Array fallback only: allow inf-vs-large-finite mismatches since
     // overflow boundaries differ (float16 max ~65504, Float32Array ~3.4e38)
-    if (tolerance >= FLOAT16_TOLERANCE && !npHasFloat16 && (!isFinite(numpytsResult) || !isFinite(numpyResult))) return true;
+    if (
+      tolerance >= FLOAT16_TOLERANCE &&
+      !npHasFloat16 &&
+      (!isFinite(numpytsResult) || !isFinite(numpyResult))
+    )
+      return true;
     // Use both relative and absolute tolerance (like numpy.allclose)
     const absErr = Math.abs(numpytsResult - numpyResult);
     const maxAbs = Math.max(Math.abs(numpytsResult), Math.abs(numpyResult));
@@ -196,7 +222,9 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string, 
       return false;
     }
     // Compare each array in the list
-    return numpytsResult.every((tsArr: any, i: number) => resultsMatch(tsArr, numpyResult[i], operation, tolerance));
+    return numpytsResult.every((tsArr: any, i: number) =>
+      resultsMatch(tsArr, numpyResult[i], operation, tolerance)
+    );
   }
 
   // Both arrays (both should be {shape, data} format at this point)
@@ -243,7 +271,9 @@ function resultsMatch(numpytsResult: any, numpyResult: any, operation?: string, 
     }
 
     // Recursively compare each value
-    return tsKeys.every((k) => resultsMatch(numpytsResult[k], numpyResult[k], operation, tolerance));
+    return tsKeys.every((k) =>
+      resultsMatch(numpytsResult[k], numpyResult[k], operation, tolerance)
+    );
   }
 
   return false;
@@ -375,7 +405,9 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     const { shape, dtype = 'float64', fill = 'zeros', value } = config;
 
     // Handle scalar values
-    if (['n', 'axis', 'new_shape', 'shape', 'fill_value', 'target_shape', 'dims', 'kth'].includes(key)) {
+    if (
+      ['n', 'axis', 'new_shape', 'shape', 'fill_value', 'target_shape', 'dims', 'kth'].includes(key)
+    ) {
       arrays[key] = shape[0];
       if (key === 'new_shape' || key === 'shape' || key === 'target_shape' || key === 'dims') {
         arrays[key] = shape;
@@ -1087,6 +1119,36 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       np.random.seed(42);
       return np.random.zipf(2, arrays.shape);
 
+    // Generator (PCG64) random
+    case 'gen_random': {
+      const rng = np.random.default_rng(42);
+      return rng.random(arrays.shape);
+    }
+    case 'gen_uniform': {
+      const rng = np.random.default_rng(42);
+      return rng.uniform(0, 1, arrays.shape);
+    }
+    case 'gen_standard_normal': {
+      const rng = np.random.default_rng(42);
+      return rng.standard_normal(arrays.shape);
+    }
+    case 'gen_normal': {
+      const rng = np.random.default_rng(42);
+      return rng.normal(0, 1, arrays.shape);
+    }
+    case 'gen_exponential': {
+      const rng = np.random.default_rng(42);
+      return rng.exponential(1, arrays.shape);
+    }
+    case 'gen_integers': {
+      const rng = np.random.default_rng(42);
+      return rng.integers(0, 100, arrays.shape);
+    }
+    case 'gen_permutation': {
+      const rng = np.random.default_rng(42);
+      return rng.permutation(arrays.n);
+    }
+
     // Complex operations
     case 'complex_zeros':
       return np.zeros(arrays.shape, 'complex128');
@@ -1274,10 +1336,20 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
 
             if (typeof numpytsResult === 'number' || typeof numpytsResult === 'boolean') {
               tsValue = numpytsResult;
-            } else if (numpytsResult && typeof numpytsResult === 'object' && 're' in numpytsResult && 'im' in numpytsResult) {
+            } else if (
+              numpytsResult &&
+              typeof numpytsResult === 'object' &&
+              're' in numpytsResult &&
+              'im' in numpytsResult
+            ) {
               // It's a Complex scalar result - convert to [re, im] pair
               tsValue = [numpytsResult.re, numpytsResult.im];
-            } else if (Array.isArray(numpytsResult) && numpytsResult.length > 0 && numpytsResult[0] && 'shape' in numpytsResult[0]) {
+            } else if (
+              Array.isArray(numpytsResult) &&
+              numpytsResult.length > 0 &&
+              numpytsResult[0] &&
+              'shape' in numpytsResult[0]
+            ) {
               // It's a list of NDArrays (e.g., from unstack)
               tsValue = numpytsResult.map((arr: any) => ({
                 shape: Array.from(arr.shape),
@@ -1345,7 +1417,9 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                   const rowSize = shape.slice(1).reduce((a, b) => a * b, 1);
                   const rows: any[] = [];
                   for (let ri = 0; ri < shape[0]!; ri++) {
-                    rows.push(reshapeFlat(flat.slice(ri * rowSize, (ri + 1) * rowSize), shape.slice(1)));
+                    rows.push(
+                      reshapeFlat(flat.slice(ri * rowSize, (ri + 1) * rowSize), shape.slice(1))
+                    );
                   }
                   return rows;
                 }
@@ -1369,13 +1443,15 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
             } else {
               // Standard comparison for other operations
               // Use looser tolerance for lower-precision dtypes
-              const hasFloat16 = Object.values(spec.setup).some(
-                (s) => s.dtype === 'float16'
-              );
+              const hasFloat16 = Object.values(spec.setup).some((s) => s.dtype === 'float16');
               const hasLowPrecision = Object.values(spec.setup).some(
                 (s) => s.dtype && s.dtype !== 'float64'
               );
-              const tol = hasFloat16 ? FLOAT16_TOLERANCE : hasLowPrecision ? FLOAT32_TOLERANCE : FLOAT64_TOLERANCE;
+              const tol = hasFloat16
+                ? FLOAT16_TOLERANCE
+                : hasLowPrecision
+                  ? FLOAT32_TOLERANCE
+                  : FLOAT64_TOLERANCE;
               isValid = resultsMatch(tsValue, numpyResult, spec.operation, tol);
             }
 

@@ -751,6 +751,29 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "random_zipf":
         return np.random.zipf(2.0, arrays["shape"])
 
+    # Generator (PCG64) random
+    elif operation == "gen_random":
+        rng = np.random.default_rng(42)
+        return rng.random(tuple(arrays["shape"]))
+    elif operation == "gen_uniform":
+        rng = np.random.default_rng(42)
+        return rng.uniform(0.0, 1.0, tuple(arrays["shape"]))
+    elif operation == "gen_standard_normal":
+        rng = np.random.default_rng(42)
+        return rng.standard_normal(tuple(arrays["shape"]))
+    elif operation == "gen_normal":
+        rng = np.random.default_rng(42)
+        return rng.normal(0.0, 1.0, tuple(arrays["shape"]))
+    elif operation == "gen_exponential":
+        rng = np.random.default_rng(42)
+        return rng.exponential(1.0, tuple(arrays["shape"]))
+    elif operation == "gen_integers":
+        rng = np.random.default_rng(42)
+        return rng.integers(0, 100, tuple(arrays["shape"]))
+    elif operation == "gen_permutation":
+        rng = np.random.default_rng(42)
+        return rng.permutation(arrays["n"])
+
     # Complex operations
     elif operation == "complex_zeros":
         return np.zeros(arrays["shape"], dtype=np.complex128)

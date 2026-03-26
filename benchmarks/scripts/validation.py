@@ -750,6 +750,29 @@ def run_operation(spec):
         np.random.seed(42)
         result = np.random.geometric(0.5, tuple(arrays["shape"]))
 
+    # Generator (PCG64) random
+    elif operation == "gen_random":
+        rng = np.random.default_rng(42)
+        result = rng.random(tuple(arrays["shape"]))
+    elif operation == "gen_uniform":
+        rng = np.random.default_rng(42)
+        result = rng.uniform(0.0, 1.0, tuple(arrays["shape"]))
+    elif operation == "gen_standard_normal":
+        rng = np.random.default_rng(42)
+        result = rng.standard_normal(tuple(arrays["shape"]))
+    elif operation == "gen_normal":
+        rng = np.random.default_rng(42)
+        result = rng.normal(0.0, 1.0, tuple(arrays["shape"]))
+    elif operation == "gen_exponential":
+        rng = np.random.default_rng(42)
+        result = rng.exponential(1.0, tuple(arrays["shape"]))
+    elif operation == "gen_integers":
+        rng = np.random.default_rng(42)
+        result = rng.integers(0, 100, tuple(arrays["shape"]))
+    elif operation == "gen_permutation":
+        rng = np.random.default_rng(42)
+        result = rng.permutation(arrays["n"])
+
     # Complex operations
     elif operation == "complex_zeros":
         result = np.zeros(arrays["shape"], dtype=np.complex128)

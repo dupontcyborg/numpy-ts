@@ -13,7 +13,7 @@ export async function runPyodideBenchmarks(
   targetSamples: number = 5
 ): Promise<{ results: BenchmarkTiming[]; pythonVersion: string; numpyVersion: string }> {
   // Dynamic import — pyodide is optional
-  let loadPyodide: typeof import('pyodide')['loadPyodide'];
+  let loadPyodide: (typeof import('pyodide'))['loadPyodide'];
   try {
     const mod = await import('pyodide');
     loadPyodide = mod.loadPyodide;

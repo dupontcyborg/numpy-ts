@@ -293,7 +293,10 @@ export async function generateMultiRuntimePNGChart(
         .map((item) => item.runtimes[rt]!.ratio);
       return ratios.length > 0 ? ratios.reduce((a, b) => a + b, 0) / ratios.length : 0;
     });
-    const colors = RUNTIME_COLORS[rt] || { bg: 'rgba(153, 102, 255, 0.8)', border: 'rgba(153, 102, 255, 1)' };
+    const colors = RUNTIME_COLORS[rt] || {
+      bg: 'rgba(153, 102, 255, 0.8)',
+      border: 'rgba(153, 102, 255, 1)',
+    };
     return {
       label: `${rt.charAt(0).toUpperCase() + rt.slice(1)} (avg slowdown)`,
       data,

@@ -4,7 +4,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { BenchmarkReport, BenchmarkComparison, MultiRuntimeReport, RuntimeComparison } from './types';
+import type {
+  BenchmarkReport,
+  BenchmarkComparison,
+  MultiRuntimeReport,
+  RuntimeComparison,
+} from './types';
 import {
   groupByCategory,
   getCategorySummaries,
@@ -17,23 +22,24 @@ import {
 } from './analysis';
 
 const DTYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  float64:    { bg: '#dbeafe', text: '#1e40af' },
-  float32:    { bg: '#e0f2fe', text: '#0369a1' },
-  float16:    { bg: '#e0f7fa', text: '#00695c' },
+  float64: { bg: '#dbeafe', text: '#1e40af' },
+  float32: { bg: '#e0f2fe', text: '#0369a1' },
+  float16: { bg: '#e0f7fa', text: '#00695c' },
   complex128: { bg: '#ede9fe', text: '#6d28d9' },
-  complex64:  { bg: '#f3e8ff', text: '#7e22ce' },
-  int64:      { bg: '#fef3c7', text: '#92400e' },
-  int32:      { bg: '#fff7ed', text: '#9a3412' },
-  int16:      { bg: '#ffedd5', text: '#9a3412' },
-  int8:       { bg: '#fee2e2', text: '#991b1b' },
-  uint64:     { bg: '#d1fae5', text: '#065f46' },
-  uint32:     { bg: '#dcfce7', text: '#166534' },
-  uint16:     { bg: '#f0fdf4', text: '#166534' },
-  uint8:      { bg: '#ecfdf5', text: '#065f46' },
-  bool:       { bg: '#f1f5f9', text: '#475569' },
+  complex64: { bg: '#f3e8ff', text: '#7e22ce' },
+  int64: { bg: '#fef3c7', text: '#92400e' },
+  int32: { bg: '#fff7ed', text: '#9a3412' },
+  int16: { bg: '#ffedd5', text: '#9a3412' },
+  int8: { bg: '#fee2e2', text: '#991b1b' },
+  uint64: { bg: '#d1fae5', text: '#065f46' },
+  uint32: { bg: '#dcfce7', text: '#166534' },
+  uint16: { bg: '#f0fdf4', text: '#166534' },
+  uint8: { bg: '#ecfdf5', text: '#065f46' },
+  bool: { bg: '#f1f5f9', text: '#475569' },
 };
 
-const DTYPE_RE = /\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
+const DTYPE_RE =
+  /\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
 
 function formatBenchmarkName(name: string, wasmUsed?: boolean): string {
   const m = name.match(DTYPE_RE);
@@ -61,9 +67,7 @@ function createHTML(report: BenchmarkReport): string {
 
   // Prepare data for charts
   const categories = Array.from(groups.keys());
-  const categoryAvgSlowdowns = categories.map(
-    (cat) => categorySummaries.get(cat)!.avg_slowdown
-  );
+  const categoryAvgSlowdowns = categories.map((cat) => categorySummaries.get(cat)!.avg_slowdown);
 
   // All benchmark names and ratios for detailed chart
   const benchmarkNames = results.map((r) => r.name);
@@ -332,9 +336,15 @@ function createHTML(report: BenchmarkReport): string {
         datasets: [{
           label: 'Slowdown Ratio (x times slower)',
           data: ${JSON.stringify(benchmarkRatios)},
-          backgroundColor: ${JSON.stringify(benchmarkRatios.map((r: number) =>
-            r < 2 ? 'rgba(46, 213, 115, 0.8)' : r < 5 ? 'rgba(255, 195, 18, 0.8)' : 'rgba(235, 77, 75, 0.8)'
-          ))},
+          backgroundColor: ${JSON.stringify(
+            benchmarkRatios.map((r: number) =>
+              r < 2
+                ? 'rgba(46, 213, 115, 0.8)'
+                : r < 5
+                  ? 'rgba(255, 195, 18, 0.8)'
+                  : 'rgba(235, 77, 75, 0.8)'
+            )
+          )},
           borderWidth: 1
         }]
       },
@@ -460,33 +470,41 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
     </div>
 
     <div class="runtime-cards">
-      ${runtimeNames.map((rt) => `
+      ${runtimeNames
+        .map(
+          (rt) => `
         <div class="runtime-card ${rt}">
           <h3>${rt}</h3>
           <div class="version">v${environment.runtimes[rt]}</div>
           ${summaries[rt] ? `<div class="version">Avg: ${formatRatio(summaries[rt]!.avg_slowdown)} | Median: ${formatRatio(summaries[rt]!.median_slowdown)}</div>` : ''}
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
     </div>
 
     <div class="summary-grid">
-      ${runtimeNames.map((rt) => {
-        const s = summaries[rt];
-        if (!s) return '';
-        return `
+      ${runtimeNames
+        .map((rt) => {
+          const s = summaries[rt];
+          if (!s) return '';
+          return `
         <div class="summary-card">
           <h3>Average Slowdown</h3>
           <div class="runtime-label">${rt}</div>
           <div class="value">${formatRatio(s.avg_slowdown)}</div>
         </div>`;
-      }).join('')}
+        })
+        .join('')}
     </div>
 
-    ${runtimeNames.map((rt) => {
-      const dtypeSums = getMultiRuntimeDtypeSummaries(results, rt);
-      if (dtypeSums.size <= 1) return '';
-      return generateDtypeBreakdownMultiRuntime(dtypeSums, rt);
-    }).join('')}
+    ${runtimeNames
+      .map((rt) => {
+        const dtypeSums = getMultiRuntimeDtypeSummaries(results, rt);
+        if (dtypeSums.size <= 1) return '';
+        return generateDtypeBreakdownMultiRuntime(dtypeSums, rt);
+      })
+      .join('')}
 
     <div class="chart-container">
       <h2>Average Slowdown by Category (Grouped)</h2>
@@ -506,12 +524,14 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
       type: 'bar',
       data: {
         labels: ${JSON.stringify(categories.map((c) => c.charAt(0).toUpperCase() + c.slice(1)))},
-        datasets: ${JSON.stringify(datasets.map((ds) => ({
-          label: ds.label.charAt(0).toUpperCase() + ds.label.slice(1),
-          data: ds.data,
-          backgroundColor: ds.backgroundColor,
-          borderWidth: 1,
-        })))}
+        datasets: ${JSON.stringify(
+          datasets.map((ds) => ({
+            label: ds.label.charAt(0).toUpperCase() + ds.label.slice(1),
+            data: ds.data,
+            backgroundColor: ds.backgroundColor,
+            borderWidth: 1,
+          }))
+        )}
       },
       options: {
         responsive: true,
@@ -525,10 +545,12 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
       }
     });
 
-    ${runtimeNames.map((rt) => {
-      const dtypeSums = getMultiRuntimeDtypeSummaries(results, rt);
-      return generateDtypeChartScript(dtypeSums, `dtypeChart_${rt}`);
-    }).join('\n')}
+    ${runtimeNames
+      .map((rt) => {
+        const dtypeSums = getMultiRuntimeDtypeSummaries(results, rt);
+        return generateDtypeChartScript(dtypeSums, `dtypeChart_${rt}`);
+      })
+      .join('\n')}
   </script>
 </body>
 </html>`;

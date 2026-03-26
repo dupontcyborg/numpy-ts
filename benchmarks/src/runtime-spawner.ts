@@ -69,7 +69,7 @@ export async function spawnRuntimeBenchmark(
   specs: BenchmarkCase[],
   minSampleTimeMs: number,
   targetSamples: number,
-  noWasm: boolean = false,
+  noWasm: boolean = false
 ): Promise<{ results: BenchmarkTiming[]; version: string }> {
   const { cmd, args } = getRuntimeArgs(runtime);
 
@@ -112,7 +112,9 @@ export async function spawnRuntimeBenchmark(
         resolve({ results, version });
       } catch (err) {
         reject(
-          new Error(`Failed to parse ${runtime} output: ${err}\nstdout: ${stdout.substring(0, 500)}`)
+          new Error(
+            `Failed to parse ${runtime} output: ${err}\nstdout: ${stdout.substring(0, 500)}`
+          )
         );
       }
     });
