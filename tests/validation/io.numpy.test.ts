@@ -28,7 +28,7 @@ try {
   execSync(`${PYTHON_CMD} -c "import numpy"`, { stdio: 'pipe' });
   hasNumPy = true;
 } catch {
-  hasNumPy = false;
+  // hasNumPy remains false
 }
 
 const describeIfNumPy = hasNumPy ? describe : describe.skip;

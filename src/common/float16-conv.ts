@@ -118,11 +118,7 @@ export function float16BytesToTypedArray(
   for (let i = 0; i < numElements; i++) {
     let bits: number;
     if (needsByteSwap) {
-      // Big-endian source: read as big-endian uint16
-      bits = view.getUint16(i * 2, false);
-      // But we need to swap since the data was already byte-swapped by caller,
-      // or we read it in native order — actually, let's just read little-endian
-      // since the caller handles byte swapping before us.
+      // Read little-endian since the caller handles byte swapping before us.
       bits = view.getUint16(i * 2, true);
     } else {
       bits = view.getUint16(i * 2, true); // Little-endian (NPY default)

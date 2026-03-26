@@ -1949,7 +1949,11 @@ result = float(np.random.poisson(${lam}))
     });
 
     it('binomial scalar (n*p > 30, BTPE path) matches NumPy', () => {
-      for (const [n, p] of [[100, 0.5], [200, 0.3], [50, 0.8]] as const) {
+      for (const [n, p] of [
+        [100, 0.5],
+        [200, 0.3],
+        [50, 0.8],
+      ] as const) {
         random.seed(42);
         const js = random.binomial(n, p) as number;
         const py = runNumPy(`
@@ -1961,7 +1965,11 @@ result = float(np.random.binomial(${n}, ${p}))
     });
 
     it('binomial scalar (n*p <= 30, inversion path) matches NumPy', () => {
-      for (const [n, p] of [[10, 0.3], [5, 0.5], [20, 0.1]] as const) {
+      for (const [n, p] of [
+        [10, 0.3],
+        [5, 0.5],
+        [20, 0.1],
+      ] as const) {
         random.seed(42);
         const js = random.binomial(n, p) as number;
         const py = runNumPy(`

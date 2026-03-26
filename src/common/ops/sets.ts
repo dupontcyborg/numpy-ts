@@ -3,7 +3,7 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType } from '../dtype';
+import { isComplexDType, type DType, type TypedArray } from '../dtype';
 
 // Helper: compare complex numbers lexicographically
 function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
@@ -26,6 +26,93 @@ function complexEqual(aRe: number, aIm: number, bRe: number, bIm: number): boole
   if (aIsNaN && bIsNaN) return true; // Both NaN are considered equal for uniqueness
   if (aIsNaN || bIsNaN) return false;
   return aRe === bRe && aIm === bIm;
+}
+
+/**
+ * Counting sort path for small-range integer types.
+ * O(n + range) instead of O(n log n).
+ */
+function uniqueCountingSort(
+  data: TypedArray,
+  off: number,
+  size: number,
+  dtype: DType,
+  minVal: number,
+  range: number,
+  returnIndex: boolean,
+  returnInverse: boolean,
+  returnCounts: boolean
+):
+  | ArrayStorage
+  | {
+      values: ArrayStorage;
+      indices?: ArrayStorage;
+      inverse?: ArrayStorage;
+      counts?: ArrayStorage;
+    } {
+  const bucketCounts = new Int32Array(range);
+  const firstIdx = returnIndex ? new Int32Array(range).fill(-1) : null;
+
+  for (let i = 0; i < size; i++) {
+    const v = Number((data as Int8Array)[off + i]!) - minVal;
+    bucketCounts[v]!++;
+    if (firstIdx !== null && firstIdx[v] === -1) firstIdx[v] = i;
+  }
+
+  let numUnique = 0;
+  for (let v = 0; v < range; v++) {
+    if (bucketCounts[v]! > 0) numUnique++;
+  }
+
+  // Allocate result arrays directly — no intermediate copies
+  const uniqueResult = ArrayStorage.zeros([numUnique], dtype);
+  const uniqueData = uniqueResult.data;
+  const isBigInt = uniqueData instanceof BigInt64Array || uniqueData instanceof BigUint64Array;
+
+  const countsResult = returnCounts ? ArrayStorage.zeros([numUnique], 'int32') : null;
+  const countsData = countsResult ? (countsResult.data as Int32Array) : null;
+  const indicesResult = returnIndex ? ArrayStorage.zeros([numUnique], 'int32') : null;
+  const indicesData = indicesResult ? (indicesResult.data as Int32Array) : null;
+  const valToUniqueIdx = returnInverse ? new Int32Array(range).fill(-1) : null;
+
+  let ui = 0;
+  for (let v = 0; v < range; v++) {
+    if (bucketCounts[v]! > 0) {
+      if (isBigInt) {
+        (uniqueData as BigInt64Array)[ui] = BigInt(v + minVal);
+      } else {
+        (uniqueData as Int8Array)[ui] = v + minVal;
+      }
+      if (countsData) countsData[ui] = bucketCounts[v]!;
+      if (indicesData) indicesData[ui] = firstIdx![v]!;
+      if (valToUniqueIdx) valToUniqueIdx[v] = ui;
+      ui++;
+    }
+  }
+
+  if (!returnIndex && !returnInverse && !returnCounts) return uniqueResult;
+
+  const result: {
+    values: ArrayStorage;
+    indices?: ArrayStorage;
+    inverse?: ArrayStorage;
+    counts?: ArrayStorage;
+  } = { values: uniqueResult };
+
+  if (indicesResult) result.indices = indicesResult;
+
+  if (returnInverse) {
+    const inverseResult = ArrayStorage.zeros([size], 'int32');
+    const inverseData = inverseResult.data as Int32Array;
+    for (let i = 0; i < size; i++) {
+      inverseData[i] = valToUniqueIdx![Number((data as Int8Array)[off + i]!) - minVal]!;
+    }
+    result.inverse = inverseResult;
+  }
+
+  if (countsResult) result.counts = countsResult;
+
+  return result;
 }
 
 /**
@@ -242,86 +329,169 @@ export function unique(
     return result;
   }
 
-  // Collect values with original indices
-  const values: { value: number; index: number }[] = [];
-  for (let i = 0; i < size; i++) {
-    values.push({ value: Number(data[off + i]!), index: i });
+  // --- Non-complex, non-axis unique ---
+
+  // Fast path: counting sort for int8/uint8 (range 256, always worth it)
+  if (dtype === 'int8' || dtype === 'uint8') {
+    const minVal = dtype === 'int8' ? -128 : 0;
+    return uniqueCountingSort(
+      data,
+      off,
+      size,
+      dtype,
+      minVal,
+      256,
+      returnIndex,
+      returnInverse,
+      returnCounts
+    );
   }
 
-  // Sort by value
-  values.sort((x, y) => {
-    if (isNaN(x.value) && isNaN(y.value)) return 0;
-    if (isNaN(x.value)) return 1;
-    if (isNaN(y.value)) return -1;
-    return x.value - y.value;
-  });
+  // For int16/uint16/int32/uint32: counting sort only if range is small relative to size
+  if (dtype === 'int16' || dtype === 'uint16' || dtype === 'int32' || dtype === 'uint32') {
+    let min = Number(data[off]!),
+      max = min;
+    for (let i = 1; i < size; i++) {
+      const v = Number(data[off + i]!);
+      if (v < min) min = v;
+      else if (v > max) max = v;
+    }
+    const range = max - min + 1;
+    if (range <= 4 * size) {
+      return uniqueCountingSort(
+        data,
+        off,
+        size,
+        dtype,
+        min,
+        range,
+        returnIndex,
+        returnInverse,
+        returnCounts
+      );
+    }
+  }
+
+  const isBigInt = data instanceof BigInt64Array || data instanceof BigUint64Array;
+  const isFloat = dtype === 'float64' || dtype === 'float32' || dtype === 'float16';
+
+  // Fast path: when we don't need original indices, sort values directly
+  if (!returnIndex && !returnInverse) {
+    const vals = new Float64Array(size);
+    for (let i = 0; i < size; i++) vals[i] = Number(data[off + i]!);
+    vals.sort(); // native optimized sort, NaN goes to end
+
+    if (size === 0) {
+      const empty = ArrayStorage.zeros([0], dtype as DType);
+      return returnCounts ? { values: empty, counts: ArrayStorage.zeros([0], 'int32') } : empty;
+    }
+
+    // Walk sorted array to find unique values and counts
+    const uniqueVals: number[] = [vals[0]!];
+    const counts: number[] = [1];
+
+    for (let i = 1; i < size; i++) {
+      const v = vals[i]!;
+      const prev = vals[i - 1]!;
+      // After sort, NaN clusters at end; treat consecutive NaN as same
+      if (v !== prev && !(v !== v && prev !== prev)) {
+        uniqueVals.push(v);
+        counts.push(1);
+      } else {
+        counts[counts.length - 1]!++;
+      }
+    }
+
+    const numUnique = uniqueVals.length;
+    const uniqueResult = ArrayStorage.zeros([numUnique], dtype as DType);
+    const uniqueData = uniqueResult.data;
+    if (isBigInt) {
+      for (let i = 0; i < numUnique; i++) {
+        (uniqueData as BigInt64Array)[i] = BigInt(uniqueVals[i]!);
+      }
+    } else {
+      for (let i = 0; i < numUnique; i++) {
+        (uniqueData as Float64Array)[i] = uniqueVals[i]!;
+      }
+    }
+
+    if (!returnCounts) return uniqueResult;
+
+    const countsResult = ArrayStorage.zeros([numUnique], 'int32');
+    const countsData = countsResult.data as Int32Array;
+    for (let i = 0; i < numUnique; i++) countsData[i] = counts[i]!;
+    return { values: uniqueResult, counts: countsResult };
+  }
+
+  // General path: need to track original indices (returnIndex or returnInverse)
+  // Use parallel typed arrays instead of object array to avoid GC pressure
+  const vals = new Float64Array(size);
+  const sortedIdxs = new Int32Array(size);
+  for (let i = 0; i < size; i++) {
+    vals[i] = Number(data[off + i]!);
+    sortedIdxs[i] = i;
+  }
+
+  // Sort index array by value
+  if (isFloat) {
+    sortedIdxs.sort((a, b) => {
+      const av = vals[a]!,
+        bv = vals[b]!;
+      // NaN check using self-inequality (faster than isNaN)
+      if (av !== av && bv !== bv) return 0;
+      if (av !== av) return 1;
+      if (bv !== bv) return -1;
+      return av - bv;
+    });
+  } else {
+    // Integer types: no NaN possible
+    sortedIdxs.sort((a, b) => vals[a]! - vals[b]!);
+  }
 
   // Find unique values
   const uniqueValues: number[] = [];
-  const indices: number[] = [];
-  const inverse: number[] = new Array(size);
-  const counts: number[] = [];
+  const findIndices: number[] = [];
+  const countsArr: number[] = [];
 
-  let lastValue: number | undefined = undefined;
+  let lastValue: number | undefined;
   let currentCount = 0;
 
-  for (let i = 0; i < values.length; i++) {
-    const { value, index } = values[i]!;
+  for (let i = 0; i < size; i++) {
+    const idx = sortedIdxs[i]!;
+    const value = vals[idx]!;
     const isDifferent =
       lastValue === undefined ||
-      (isNaN(value) && !isNaN(lastValue!)) ||
-      (!isNaN(value) && isNaN(lastValue!)) ||
-      (!isNaN(value) && !isNaN(lastValue!) && value !== lastValue);
+      (isFloat
+        ? (value !== value && lastValue === lastValue) ||
+          (value === value && lastValue !== lastValue) ||
+          (value === value && value !== lastValue)
+        : value !== lastValue);
 
     if (isDifferent) {
-      if (lastValue !== undefined) {
-        counts.push(currentCount);
-      }
+      if (lastValue !== undefined) countsArr.push(currentCount);
       uniqueValues.push(value);
-      indices.push(index);
+      findIndices.push(idx);
       currentCount = 1;
       lastValue = value;
     } else {
       currentCount++;
     }
   }
-  if (currentCount > 0) {
-    counts.push(currentCount);
-  }
-
-  // Build inverse mapping
-  const valueToUniqueIdx = new Map<number, number>();
-  let nanIdx = -1;
-  for (let i = 0; i < uniqueValues.length; i++) {
-    const v = uniqueValues[i]!;
-    if (isNaN(v)) {
-      nanIdx = i;
-    } else {
-      valueToUniqueIdx.set(v, i);
-    }
-  }
-  for (let i = 0; i < size; i++) {
-    const val = Number(data[off + i]!);
-    if (isNaN(val)) {
-      inverse[i] = nanIdx;
-    } else {
-      inverse[i] = valueToUniqueIdx.get(val)!;
-    }
-  }
+  if (currentCount > 0) countsArr.push(currentCount);
 
   // Create result arrays
-  const uniqueResult = ArrayStorage.zeros([uniqueValues.length], dtype as DType);
+  const numUnique = uniqueValues.length;
+  const uniqueResult = ArrayStorage.zeros([numUnique], dtype as DType);
   const uniqueData = uniqueResult.data;
-  const isBigInt = uniqueData instanceof BigInt64Array || uniqueData instanceof BigUint64Array;
-  for (let i = 0; i < uniqueValues.length; i++) {
-    (uniqueData as Float64Array | Int32Array | BigInt64Array)[i] = isBigInt
+  const resultIsBigInt =
+    uniqueData instanceof BigInt64Array || uniqueData instanceof BigUint64Array;
+  for (let i = 0; i < numUnique; i++) {
+    (uniqueData as Float64Array | Int32Array | BigInt64Array)[i] = resultIsBigInt
       ? BigInt(uniqueValues[i]!)
       : (uniqueValues[i]! as never);
   }
 
-  if (!returnIndex && !returnInverse && !returnCounts) {
-    return uniqueResult;
-  }
+  if (!returnIndex && !returnInverse && !returnCounts) return uniqueResult;
 
   const result: {
     values: ArrayStorage;
@@ -331,29 +501,34 @@ export function unique(
   } = { values: uniqueResult };
 
   if (returnIndex) {
-    const indicesResult = ArrayStorage.zeros([indices.length], 'int32');
+    const indicesResult = ArrayStorage.zeros([numUnique], 'int32');
     const indicesData = indicesResult.data as Int32Array;
-    for (let i = 0; i < indices.length; i++) {
-      indicesData[i] = indices[i]!;
-    }
+    for (let i = 0; i < numUnique; i++) indicesData[i] = findIndices[i]!;
     result.indices = indicesResult;
   }
 
   if (returnInverse) {
-    const inverseResult = ArrayStorage.zeros([inverse.length], 'int32');
+    // Build inverse mapping only when needed
+    const valueToUniqueIdx = new Map<number, number>();
+    let nanIdx = -1;
+    for (let i = 0; i < numUnique; i++) {
+      const v = uniqueValues[i]!;
+      if (v !== v) nanIdx = i;
+      else valueToUniqueIdx.set(v, i);
+    }
+    const inverseResult = ArrayStorage.zeros([size], 'int32');
     const inverseData = inverseResult.data as Int32Array;
-    for (let i = 0; i < inverse.length; i++) {
-      inverseData[i] = inverse[i]!;
+    for (let i = 0; i < size; i++) {
+      const val = vals[i]!;
+      inverseData[i] = val !== val ? nanIdx : valueToUniqueIdx.get(val)!;
     }
     result.inverse = inverseResult;
   }
 
   if (returnCounts) {
-    const countsResult = ArrayStorage.zeros([counts.length], 'int32');
+    const countsResult = ArrayStorage.zeros([numUnique], 'int32');
     const countsData = countsResult.data as Int32Array;
-    for (let i = 0; i < counts.length; i++) {
-      countsData[i] = counts[i]!;
-    }
+    for (let i = 0; i < numUnique; i++) countsData[i] = countsArr[i]!;
     result.counts = countsResult;
   }
 
@@ -669,59 +844,65 @@ export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): A
   const data = filt.data;
   const size = filt.size;
   const off = filt.offset;
-  const isComplex = isComplexDType(dtype);
 
   if (size === 0) {
     return ArrayStorage.zeros([0], dtype);
   }
 
-  // Helper to check if element is zero
-  const isZero = (idx: number): boolean => {
-    if (isComplex) {
-      const re = (data as Float64Array)[(off + idx) * 2]!;
-      const im = (data as Float64Array)[(off + idx) * 2 + 1]!;
-      return re === 0 && im === 0;
-    }
-    return Number(data[off + idx]) === 0;
-  };
-
-  // Find first non-zero (front)
   let first = 0;
-  if (trim === 'f' || trim === 'fb') {
-    while (first < size && isZero(first)) {
-      first++;
-    }
-  }
-
-  // Find last non-zero (back)
   let last = size - 1;
-  if (trim === 'b' || trim === 'fb') {
-    while (last >= first && isZero(last)) {
-      last--;
+
+  if (isComplexDType(dtype)) {
+    // Complex: check interleaved re/im pairs
+    const cdata = data as Float64Array;
+    if (trim !== 'b') {
+      while (first < size && cdata[(off + first) * 2] === 0 && cdata[(off + first) * 2 + 1] === 0)
+        first++;
     }
-  }
-
-  // Handle all-zeros case
-  if (first > last) {
-    return ArrayStorage.zeros([0], dtype);
-  }
-
-  const newSize = last - first + 1;
-
-  if (isComplex) {
+    if (trim !== 'f') {
+      while (last >= first && cdata[(off + last) * 2] === 0 && cdata[(off + last) * 2 + 1] === 0)
+        last--;
+    }
+    if (first > last) return ArrayStorage.zeros([0], dtype);
+    const newSize = last - first + 1;
     const result = ArrayStorage.zeros([newSize], dtype);
-    const resultData = result.data as Float64Array;
-    for (let i = 0; i < newSize; i++) {
-      resultData[i * 2] = (data as Float64Array)[(off + first + i) * 2]!;
-      resultData[i * 2 + 1] = (data as Float64Array)[(off + first + i) * 2 + 1]!;
-    }
+    (result.data as Float64Array).set(
+      cdata.subarray((off + first) * 2, (off + first + newSize) * 2)
+    );
     return result;
   }
 
+  if (data instanceof BigInt64Array || data instanceof BigUint64Array) {
+    // BigInt types: compare with 0n
+    if (trim !== 'b') {
+      while (first < size && data[off + first] === 0n) first++;
+    }
+    if (trim !== 'f') {
+      while (last >= first && data[off + last] === 0n) last--;
+    }
+  } else {
+    // All other typed arrays: inline zero check, no closure overhead
+    // Use subarray so V8 sees a single typed array type in the inner loop
+    const slice = (data as Float64Array).subarray(off, off + size);
+    if (trim !== 'b') {
+      while (first < size && slice[first] === 0) first++;
+    }
+    if (trim !== 'f') {
+      while (last >= first && slice[last] === 0) last--;
+    }
+  }
+
+  if (first > last) return ArrayStorage.zeros([0], dtype);
+
+  const newSize = last - first + 1;
   const result = ArrayStorage.zeros([newSize], dtype);
-  const resultData = result.data;
-  for (let i = 0; i < newSize; i++) {
-    resultData[i] = data[off + first + i]!;
+  // Bulk copy using native TypedArray.set() instead of element-wise loop
+  if (data instanceof BigInt64Array || data instanceof BigUint64Array) {
+    (result.data as BigInt64Array).set(data.subarray(off + first, off + first + newSize));
+  } else {
+    (result.data as Float64Array).set(
+      (data as Float64Array).subarray(off + first, off + first + newSize)
+    );
   }
   return result;
 }

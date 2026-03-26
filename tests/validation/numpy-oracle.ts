@@ -137,13 +137,13 @@ except Exception as e:
       try {
         const parsed = JSON.parse(stderrStr);
         if ('error' in parsed) {
-          throw new Error(`NumPy error: ${parsed.error}`);
+          throw new Error(`NumPy error: ${parsed.error}`, { cause: error });
         }
       } catch {
         // Not JSON, throw original error
       }
     }
-    throw new Error(`Failed to run Python: ${err.message || 'Unknown error'}`);
+    throw new Error(`Failed to run Python: ${err.message || 'Unknown error'}`, { cause: error });
   } finally {
     try {
       unlinkSync(tmpFile);

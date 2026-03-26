@@ -1030,7 +1030,6 @@ describe('FFT Operations', () => {
 
   describe('core/index.ts fft namespace coverage', () => {
     const a = arrayCoreLib([1, 2, 3, 4]);
-    const c = arrayCoreLib([new Complex(1, 0), new Complex(2, 0), new Complex(3, 0), new Complex(4, 0)]);
     const a2d = arrayCoreLib([
       [1, 2, 3, 4],
       [5, 6, 7, 8],
