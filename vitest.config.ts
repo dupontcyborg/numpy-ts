@@ -113,6 +113,7 @@ export default defineConfig({
           environment: 'node',
           testTimeout: 300000, // 5 minutes - bundling can take time
           sequence: { groupOrder: 1 },
+          globalSetup: ['tests/tree-shaking/global-setup.ts'],
         },
       }),
     ],
