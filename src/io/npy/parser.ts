@@ -127,7 +127,7 @@ export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArrayC
   // Handle Fortran order (column-major)
   // NumPy stores data in row-major (C order) by default
   // If fortran_order is true, we need to adjust
-  let shape = header.shape;
+  const shape = header.shape;
   let storage: ArrayStorage;
 
   if (header.fortran_order && shape.length > 1) {
@@ -140,7 +140,6 @@ export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArrayC
 
     // Transpose to get correct C-order layout
     storage = transposeStorage(tempStorage, reversedShape);
-    shape = header.shape; // Use original shape after transpose
   } else {
     storage = ArrayStorage.fromData(typedData, [...shape], dtype);
   }

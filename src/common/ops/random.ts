@@ -558,7 +558,6 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
   } else {
     r = binomial.r;
     q = binomial.q;
-    fm = binomial.fm;
     m = binomial.m;
     p1 = binomial.p1;
     xm = binomial.xm;
@@ -753,7 +752,6 @@ function binomialInversion(
   } else {
     q = binomial.q;
     qn = binomial.r;
-    np = binomial.c;
     bound = binomial.m;
   }
   X = 0;

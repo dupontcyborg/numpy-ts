@@ -777,12 +777,13 @@ export function select(
   }
 
   // Initialize with default value
-  let defaultVal: number | bigint = defaultValue;
-  if (isBigIntDType(dtype)) {
-    defaultVal = typeof defaultValue === 'bigint' ? defaultValue : BigInt(defaultValue);
-  } else {
-    defaultVal = typeof defaultValue === 'bigint' ? Number(defaultValue) : defaultValue;
-  }
+  const defaultVal: number | bigint = isBigIntDType(dtype)
+    ? typeof defaultValue === 'bigint'
+      ? defaultValue
+      : BigInt(defaultValue)
+    : typeof defaultValue === 'bigint'
+      ? Number(defaultValue)
+      : defaultValue;
 
   const outputData = new Constructor(outputSize);
   for (let i = 0; i < outputSize; i++) {
