@@ -1234,7 +1234,7 @@ describe('Random Module', () => {
       const rng = random.default_rng(42);
       const result = rng.permutation(5) as any;
       expect(result.shape).toEqual([5]);
-      const data = Array.from(result.data as Float64Array);
+      const data = Array.from(result.data as BigInt64Array).map(Number);
       const sorted = data.slice().sort((a: number, b: number) => a - b);
       expect(sorted).toEqual([0, 1, 2, 3, 4]);
     });

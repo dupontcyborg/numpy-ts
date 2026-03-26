@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { random } from '../../src/index';
+import { random, arange } from '../../src/index';
 import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
 
 describe('NumPy Validation: Random Operations', () => {
@@ -328,7 +328,7 @@ result = np.random.binomial(10, 0.5, (2, 3))
     it('produces values from correct range', () => {
       random.seed(42);
       const jsResult = random.choice(5, 100) as any;
-      const data = jsResult.toArray() as number[];
+      const data = Array.from(jsResult.data as BigInt64Array).map(Number);
 
       // All values should be in [0, 5)
       for (const val of data) {
@@ -1563,6 +1563,357 @@ result = np.random.noncentral_f(5, 10, 2, (3, 4))
       `);
 
       expect(jsResult.shape).toEqual(pyResult.shape);
+    });
+  });
+
+  describe('EXACT MATCH: Legacy permutation', () => {
+    it('permutation(int) matches NumPy exactly', () => {
+      random.seed(42);
+      const js = (random.permutation(10) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.permutation(10).astype(float)
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBeCloseTo(py.value[i], 14);
+      }
+    });
+
+    it('permutation(int) matches NumPy across seeds', () => {
+      for (const s of [0, 1, 12345, 99999]) {
+        random.seed(s);
+        const js = (random.permutation(20) as any).toArray() as number[];
+        const py = runNumPy(`
+np.random.seed(${s})
+result = np.random.permutation(20).astype(float)
+        `);
+        for (let i = 0; i < 20; i++) {
+          expect(js[i]).toBeCloseTo(py.value[i], 14);
+        }
+      }
+    });
+  });
+
+  // ============================================================
+  // EXACT MATCH: PCG64 Generator — Extended
+  // Covers every Generator method not tested above.
+  // ============================================================
+
+  describe('EXACT MATCH: PCG64 Generator — Extended', () => {
+    it('default_rng().permutation(int) matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.permutation(20) as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.permutation(20)
+      `);
+      for (let i = 0; i < 20; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('default_rng().permutation(int) matches across seeds', () => {
+      for (const s of [0, 1, 12345, 99999]) {
+        const rng = random.default_rng(s);
+        const js = Array.from((rng.permutation(15) as any).data as BigInt64Array).map(Number);
+        const py = runNumPy(`
+rng = np.random.default_rng(${s})
+result = rng.permutation(15)
+        `);
+        for (let i = 0; i < 15; i++) {
+          expect(js[i]).toBe(py.value[i]);
+        }
+      }
+    });
+
+    it('default_rng().poisson() matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.poisson(5, 20) as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.poisson(5, 20)
+      `);
+      for (let i = 0; i < 20; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('default_rng().binomial() matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.binomial(10, 0.3, 20) as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.binomial(10, 0.3, 20)
+      `);
+      for (let i = 0; i < 20; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('default_rng().choice(int, size, replace=True) matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.choice(10, 5) as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.choice(10, 5)
+      `);
+      for (let i = 0; i < 5; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('default_rng().choice(int, size, replace=True) matches across seeds', () => {
+      for (const s of [0, 1, 12345, 99999]) {
+        const rng = random.default_rng(s);
+        const js = Array.from((rng.choice(20, 10) as any).data as BigInt64Array).map(Number);
+        const py = runNumPy(`
+rng = np.random.default_rng(${s})
+result = rng.choice(20, 10)
+        `);
+        for (let i = 0; i < 10; i++) {
+          expect(js[i]).toBe(py.value[i]);
+        }
+      }
+    });
+
+    it('default_rng().shuffle() matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const arr = arange(10);
+      rng.shuffle(arr);
+      const js = Array.from((arr as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+arr = np.arange(10)
+rng.shuffle(arr)
+result = arr
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('default_rng().shuffle() matches across seeds', () => {
+      for (const s of [0, 1, 12345, 99999]) {
+        const rng = random.default_rng(s);
+        const arr = arange(15);
+        rng.shuffle(arr);
+        const js = Array.from((arr as any).data as BigInt64Array).map(Number);
+        const py = runNumPy(`
+rng = np.random.default_rng(${s})
+arr = np.arange(15)
+rng.shuffle(arr)
+result = arr
+        `);
+        for (let i = 0; i < 15; i++) {
+          expect(js[i]).toBe(py.value[i]);
+        }
+      }
+    });
+  });
+
+  describe('EXACT MATCH: Legacy choice & shuffle', () => {
+    it('choice(int, size, replace=True) matches NumPy', () => {
+      random.seed(42);
+      const js = Array.from((random.choice(10, 5) as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.choice(10, 5)
+      `);
+      for (let i = 0; i < 5; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('choice(int, size, replace=True) matches across seeds', () => {
+      for (const s of [0, 1, 12345, 99999]) {
+        random.seed(s);
+        const js = Array.from((random.choice(20, 10) as any).data as BigInt64Array).map(Number);
+        const py = runNumPy(`
+np.random.seed(${s})
+result = np.random.choice(20, 10)
+        `);
+        for (let i = 0; i < 10; i++) {
+          expect(js[i]).toBe(py.value[i]);
+        }
+      }
+    });
+
+    it('choice(int, size, replace=False) matches NumPy', () => {
+      random.seed(42);
+      const js = (random.choice(10, 5, false) as any).toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.choice(10, 5, replace=False).astype(float)
+      `);
+      for (let i = 0; i < 5; i++) {
+        expect(js[i]).toBeCloseTo(py.value[i], 14);
+      }
+    });
+
+    it('shuffle() matches NumPy', () => {
+      random.seed(42);
+      const arr = arange(10);
+      random.shuffle(arr);
+      const js = arr.toArray() as number[];
+      const py = runNumPy(`
+np.random.seed(42)
+arr = np.arange(10, dtype=float)
+np.random.shuffle(arr)
+result = arr
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBeCloseTo(py.value[i], 14);
+      }
+    });
+
+    it('shuffle() matches across seeds', () => {
+      for (const s of [0, 1, 12345, 99999]) {
+        random.seed(s);
+        const arr = arange(15);
+        random.shuffle(arr);
+        const js = arr.toArray() as number[];
+        const py = runNumPy(`
+np.random.seed(${s})
+arr = np.arange(15, dtype=float)
+np.random.shuffle(arr)
+result = arr
+        `);
+        for (let i = 0; i < 15; i++) {
+          expect(js[i]).toBeCloseTo(py.value[i], 14);
+        }
+      }
+    });
+  });
+
+  describe('multivariate_normal statistical validation', () => {
+    // Note: multivariate_normal cannot be bit-exact because NumPy uses LAPACK's
+    // dgesdd for SVD, whose sign convention for singular vectors is
+    // implementation-dependent. Our WASM SVD produces valid but differently-signed
+    // singular vectors. Both produce correct samples from the same distribution,
+    // but the specific sample values differ. We validate statistical properties.
+
+    it('multivariate_normal produces correct shape and mean', () => {
+      random.seed(42);
+      const result = random.multivariate_normal(
+        [5, 10],
+        [
+          [1, 0.5],
+          [0.5, 1],
+        ],
+        5000
+      ) as any;
+      expect(result.shape).toEqual([5000, 2]);
+      const data = result.data as Float64Array;
+      let sum0 = 0,
+        sum1 = 0;
+      for (let i = 0; i < 5000; i++) {
+        sum0 += data[i * 2]!;
+        sum1 += data[i * 2 + 1]!;
+      }
+      expect(Math.abs(sum0 / 5000 - 5)).toBeLessThan(0.1);
+      expect(Math.abs(sum1 / 5000 - 10)).toBeLessThan(0.1);
+    });
+
+    it('multivariate_normal produces correct covariance structure', () => {
+      random.seed(42);
+      const result = random.multivariate_normal(
+        [0, 0],
+        [
+          [1, 0.8],
+          [0.8, 1],
+        ],
+        10000
+      ) as any;
+      const data = result.data as Float64Array;
+      // Compute sample correlation
+      let sumXY = 0,
+        sumX2 = 0,
+        sumY2 = 0;
+      for (let i = 0; i < 10000; i++) {
+        const x = data[i * 2]!,
+          y = data[i * 2 + 1]!;
+        sumXY += x * y;
+        sumX2 += x * x;
+        sumY2 += y * y;
+      }
+      const corr = sumXY / Math.sqrt(sumX2 * sumY2);
+      expect(Math.abs(corr - 0.8)).toBeLessThan(0.05);
+    });
+
+    it('multivariate_normal is deterministic with same seed', () => {
+      random.seed(42);
+      const r1 = Array.from(
+        (
+          random.multivariate_normal(
+            [0, 0],
+            [
+              [1, 0.5],
+              [0.5, 1],
+            ],
+            3
+          ) as any
+        ).data as Float64Array
+      );
+      random.seed(42);
+      const r2 = Array.from(
+        (
+          random.multivariate_normal(
+            [0, 0],
+            [
+              [1, 0.5],
+              [0.5, 1],
+            ],
+            3
+          ) as any
+        ).data as Float64Array
+      );
+      for (let i = 0; i < 6; i++) {
+        expect(r1[i]).toBe(r2[i]);
+      }
+    });
+  });
+
+  describe('EXACT MATCH: Generator choice (replace=False)', () => {
+    it('default_rng().choice(int, size, replace=False) matches NumPy', () => {
+      const rng = random.default_rng(42);
+      const js = Array.from((rng.choice(10, 5, false) as any).data as BigInt64Array).map(Number);
+      const py = runNumPy(`
+rng = np.random.default_rng(42)
+result = rng.choice(10, 5, replace=False)
+      `);
+      for (let i = 0; i < 5; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
+    });
+
+    it('default_rng().choice(int, size, replace=False) matches across seeds', () => {
+      for (const s of [0, 1, 12345, 99999]) {
+        const rng = random.default_rng(s);
+        const js = Array.from((rng.choice(20, 8, false) as any).data as BigInt64Array).map(Number);
+        const py = runNumPy(`
+rng = np.random.default_rng(${s})
+result = rng.choice(20, 8, replace=False)
+        `);
+        for (let i = 0; i < 8; i++) {
+          expect(js[i]).toBe(py.value[i]);
+        }
+      }
+    });
+  });
+
+  describe('EXACT MATCH: choice with probabilities', () => {
+    it('choice(int, size, p=) matches NumPy (replace=True)', () => {
+      random.seed(42);
+      const js = Array.from(
+        (random.choice(5, 10, true, [0.1, 0.2, 0.3, 0.2, 0.2]) as any).data
+      ).map(Number);
+      const py = runNumPy(`
+np.random.seed(42)
+result = np.random.choice(5, 10, p=[0.1, 0.2, 0.3, 0.2, 0.2])
+      `);
+      for (let i = 0; i < 10; i++) {
+        expect(js[i]).toBe(py.value[i]);
+      }
     });
   });
 });
