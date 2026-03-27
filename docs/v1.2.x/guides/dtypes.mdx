@@ -135,9 +135,9 @@ if (hasFloat16) {
 }
 ```
 
-<Note>
+<Tip>
 If you need exact NumPy float16 parity, target Node 23+ or use `hasFloat16` to guard precision-sensitive code paths.
-</Note>
+</Tip>
 
 ## Type promotion hierarchy
 
@@ -186,9 +186,9 @@ const d = np.add(c, np.array([1], { dtype: 'uint8' }));
 d.toArray();  // [0]  -- wraps around
 ```
 
-<Note>
+<Tip>
 If you need overflow protection, use a wider dtype (`int16` instead of `int8`) or promote to `float64` first.
-</Note>
+</Tip>
 
 ## Converting dtypes with `astype()`
 

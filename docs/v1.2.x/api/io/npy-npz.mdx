@@ -415,9 +415,9 @@ np.saveNpzSync('output.npz', { x: xArr });
 np.saveNpzFileSync('output.npz', { x: xArr });
 ```
 
-<Note>
+<Tip>
   `parseNpzSync` / `loadNpzSync` only work with uncompressed `.npz` files. Use the async versions for compressed files. This is a limitation of the [`CompressionStream API`](https://developer.mozilla.org/en-US/docs/Web/API/CompressionStream) which is async-only.
-</Note>
+</Tip>
 
 </Tab>
 </Tabs>

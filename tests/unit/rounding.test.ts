@@ -510,7 +510,6 @@ describe('around with optional parameters', () => {
     expect(vals[0]).toBeCloseTo(1.6, 1);
     expect(vals[1]).toBeCloseTo(2.7, 1);
   });
-
 });
 
 describe('Non-contiguous array tests', () => {

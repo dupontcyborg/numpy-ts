@@ -30,9 +30,9 @@ WASM kernels cover 97 operations across these modules:
 | **Random** (Zig rewrite) | ~6x | 11x slower | 1.9x slower |
 | **Indexing** | ~5.5x | 12x slower | 2.2x slower |
 
-<Note>
-All benchmarks measure computation time *within* numpy-ts and *within* NumPy respectively -- no FFI or serialization overhead is counted. This gives an apples-to-apples comparison of the numerical computation itself. For more info, see [performance benchmarks](./performance.mdx).
-</Note>
+<Tip>
+All benchmarks measure computation time from JS\<->numpy-ts and Python\<->NumPy respectively. This gives an apples-to-apples comparison of the numerical computation itself. For more info, see [performance benchmarks](./performance).
+</Tip>
 
 ## Random module (Zig rewrite)
 

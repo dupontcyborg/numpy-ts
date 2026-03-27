@@ -228,9 +228,9 @@ Transpose of the array. Returns a view with axes reversed. Equivalent to calling
 |---|---|---|
 | `T` | `NDArray` | Transposed view. |
 
-<Note>
+<Tip>
 `T` is a property (no parentheses needed). It is only available on `NDArray`, not `NDArrayCore`.
-</Note>
+</Tip>
 
 ```typescript
 const a = np.array([[1, 2, 3], [4, 5, 6]]);
@@ -640,7 +640,7 @@ const t = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
 t[1][0][1];  // 6
 ```
 
-<Note>
+<Tip>
 Multi-dimensional set (`arr[i] = value`) is supported for ND arrays. Accepted value types:
 - `number` / `bigint`: fills all elements of the slice with that scalar.
 - `Complex`: fills all elements with the complex value.
@@ -650,7 +650,7 @@ Multi-dimensional set (`arr[i] = value`) is supported for ND arrays. Accepted va
 TypeScript types: `arr[i]` is typed as `NDArray | number | bigint | Complex`.
 
 Performance: benchmarked at ~66 ns/op for 1D scalar read — no measurable overhead vs direct `.iget()` on typical workloads.
-</Note>
+</Tip>
 
 ---
 
