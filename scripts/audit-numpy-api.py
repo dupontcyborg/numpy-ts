@@ -169,7 +169,6 @@ def categorize_functions(functions):
             'ptp', 'nanmin', 'nanmax', 'nanmean', 'nanstd', 'nanvar', 'nanmedian',
             'nansum', 'nanprod',
             'amax', 'amin',  # aliases for max, min
-            'round_',  # alias for around/round
             'cumulative_prod', 'cumulative_sum',  # aliases for cumprod, cumsum
             'nanpercentile', 'nanquantile'
         ],

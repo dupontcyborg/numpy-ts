@@ -374,7 +374,7 @@ export {
 // Rounding Functions
 // ============================================================
 
-export { around, round_, ceil, fix, floor, rint, trunc } from './full';
+export { around, ceil, fix, floor, rint, trunc } from './full';
 
 // Alias
 export { around as round } from './full';

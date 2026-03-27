@@ -1884,7 +1884,6 @@ export {
   var_,
   cumulative_sum,
   cumulative_prod,
-  round_,
   unique,
   unique_all,
   unique_counts,

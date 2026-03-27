@@ -66,15 +66,11 @@ const a = np.round(np.array([0.123, 4.567, 8.901]), 1);
 ```
 
 ```typescript Core
-import { round_ as round, array } from 'numpy-ts/core';
+import { round, array } from 'numpy-ts/core';
 
 const a = round(array([0.123, 4.567, 8.901]), 1);
 ```
 </CodeGroup>
-
-<Note>
-In the `numpy-ts/core` entry point, `round` is exported as `round_` to avoid conflicting with the JavaScript built-in `Math.round`. The main `numpy-ts` entry point exports it as both `round` and `around`.
-</Note>
 
 ---
 

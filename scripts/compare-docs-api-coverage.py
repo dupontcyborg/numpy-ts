@@ -67,7 +67,6 @@ ALIAS_EXPORTS = {
     'delete',
     'max',
     'min',
-    'round_',
     'row_stack',
     'var',
 }

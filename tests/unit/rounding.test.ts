@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { array, around, ceil, fix, floor, rint, round, round_, trunc } from '../../src';
+import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src';
 
 describe('Rounding Functions', () => {
   describe('around()', () => {
@@ -511,19 +511,6 @@ describe('around with optional parameters', () => {
     expect(vals[1]).toBeCloseTo(2.7, 1);
   });
 
-  it('round_ alias without decimals parameter', () => {
-    const a = array([1.5, 2.7, 3.2]);
-    const result = round_(a);
-    expect(result.toArray()).toEqual([2, 3, 3]);
-  });
-
-  it('round_ alias with decimals=2', () => {
-    const a = array([1.567, 2.789]);
-    const result = round_(a, 2);
-    const vals = result.toArray() as number[];
-    expect(vals[0]).toBeCloseTo(1.57, 2);
-    expect(vals[1]).toBeCloseTo(2.79, 2);
-  });
 });
 
 describe('Non-contiguous array tests', () => {

@@ -85,7 +85,6 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
 
   // Rounding operations (no natural rounding for complex)
   around: 'unsupported',
-  round_: 'unsupported', // alias for around
   ceil: 'unsupported',
   fix: 'unsupported',
   floor: 'unsupported',

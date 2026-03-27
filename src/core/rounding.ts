@@ -13,9 +13,6 @@ export function around(a: NDArrayCore, decimals: number = 0): NDArrayCore {
   return fromStorage(roundingOps.around(toStorage(a), decimals));
 }
 
-/** Alias for around */
-export const round_ = around;
-
 /** Round (same as around) */
 export function round(a: NDArrayCore, decimals: number = 0): NDArrayCore {
   return fromStorage(roundingOps.round(toStorage(a), decimals));

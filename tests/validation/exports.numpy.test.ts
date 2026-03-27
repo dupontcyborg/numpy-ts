@@ -283,7 +283,6 @@ describe('NumPy API Comparison', () => {
         'flatten',
         'delete_',
         'variance',
-        'round_',
         'var_',
         // Convenience indexing functions
         'iindex',
