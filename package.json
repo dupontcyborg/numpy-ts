@@ -85,6 +85,7 @@
     "wasm:size": "tsx scripts/wasm-size.ts",
     "build:wasm": "tsx scripts/build-wasm.ts",
     "build:wasm:safe": "tsx scripts/build-wasm.ts --safe",
+    "build:wasm:small": "tsx scripts/build-wasm.ts --small",
     "build:test": "npm run build:clean && npm run generate && npm run build:wasm:safe && tsx build.ts --skip-wasm && npm run build:types"
   },
   "keywords": [

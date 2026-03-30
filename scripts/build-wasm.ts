@@ -42,10 +42,12 @@ const BINS_DIR = join(ROOT, 'src/common/wasm/bins');
 const TMP_DIR = join(ROOT, '.wasm-tmp');
 
 // --safe flag: compile with ReleaseSafe (bounds checks, overflow detection)
+// --small flag: compile with ReleaseSmall (optimized for binary size)
 const SAFE_MODE = process.argv.includes('--safe');
+const SMALL_MODE = process.argv.includes('--small');
 const FORCE_BUILD = process.argv.includes('--force');
-const ZIG_OPT = SAFE_MODE ? 'ReleaseSafe' : 'ReleaseFast';
-const MODE_KEY = SAFE_MODE ? 'safe' : 'fast';
+const ZIG_OPT = SAFE_MODE ? 'ReleaseSafe' : SMALL_MODE ? 'ReleaseSmall' : 'ReleaseFast';
+const MODE_KEY = SAFE_MODE ? 'safe' : SMALL_MODE ? 'small' : 'fast';
 
 // Per-mode cache directories
 const CACHE_DIR = join(ROOT, '.wasm-cache', MODE_KEY);
@@ -260,7 +262,7 @@ async function compileKernel(
     `--import-memory`,
     `-femit-bin=${wasmPath}`,
   ];
-  if (!SAFE_MODE) zigArgs.push('-fstrip');
+  if (!SAFE_MODE) zigArgs.push('-fstrip'); // strip for both ReleaseFast and ReleaseSmall
 
   try {
     await execFileAsync('zig', zigArgs, { cwd: ZIG_DIR });

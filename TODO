@@ -24,6 +24,16 @@
 
 ## P2
 
+- [ ] Per-kernel WASM optimization levels (ReleaseSmall vs ReleaseFast)
+    - ReleaseSmall saves ~73% binary size but regresses loop-bound kernels 40-166%
+    - Compute-heavy kernels (matmul +3%, inner +8%) barely regress and are good candidates
+    - Loop-bound kernels (lexsort, power, flip, count_nonzero) must stay ReleaseFast
+    - Steps:
+        1. Build a benchmark harness that compiles each kernel in both modes and compares perf
+        2. Produce a per-kernel optimization map from the results
+        3. Validate the map across runtimes (Node/Deno/Bun) to ensure consistency
+        4. Update `build-wasm.ts` to accept per-kernel optimization overrides
+
 - [ ] Implement async functions using Web Workers to avoid blocking main thread
 - [ ] Reach 100% function coverage via unit and validation tests
 - [ ] Reach >95% branch coverage via unit and validation tests
