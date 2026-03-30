@@ -15,6 +15,13 @@ import {
   isComplexDType,
 } from './dtype';
 import { Complex } from './complex';
+import {
+  type WasmRegion,
+  wasmMalloc,
+  getSharedMemory,
+  registerForCleanup,
+  unregisterCleanup,
+} from './wasm/runtime';
 
 /**
  * Maximum number of dimensions an array can have (matches NumPy's limit).
@@ -26,6 +33,9 @@ export const MAX_NDIM = 64;
  * Manages the underlying TypedArray and metadata
  */
 export class ArrayStorage {
+  // Symbol.dispose for `using` keyword support (conditionally defined below class)
+  [Symbol.dispose]?: () => void;
+
   // Underlying TypedArray data buffer
   private _data: TypedArray;
   // Array shape
@@ -38,19 +48,26 @@ export class ArrayStorage {
   private _dtype: DType;
   // Cached contiguity flag (-1 = not computed, 0 = false, 1 = true)
   private _isCContiguous: number = -1;
+  // WASM memory region (null for JS-fallback arrays)
+  private _wasmRegion: WasmRegion | null;
 
   constructor(
     data: TypedArray,
     shape: readonly number[],
     strides: readonly number[],
     offset: number,
-    dtype: DType
+    dtype: DType,
+    wasmRegion: WasmRegion | null = null
   ) {
     this._data = data;
     this._shape = shape;
     this._strides = strides;
     this._offset = offset;
     this._dtype = dtype;
+    this._wasmRegion = wasmRegion;
+    if (wasmRegion) {
+      registerForCleanup(this, wasmRegion);
+    }
   }
 
   /**
@@ -100,6 +117,51 @@ export class ArrayStorage {
    */
   get offset(): number {
     return this._offset;
+  }
+
+  /**
+   * Whether this storage is backed by WASM linear memory (zero-copy eligible).
+   */
+  get isWasmBacked(): boolean {
+    return this._wasmRegion !== null;
+  }
+
+  /**
+   * Eagerly free the WASM memory backing this storage.
+   *
+   * In normal usage, WASM memory is freed automatically via FinalizationRegistry
+   * when the storage is garbage collected. Call dispose() to free immediately
+   * when you know this storage will not be used again — useful in tight loops,
+   * benchmarks, or resource-sensitive contexts.
+   *
+   * Also available as `[Symbol.dispose]` on runtimes that support it (Node 18+,
+   * Chrome 134+, Firefox 132+), enabling the `using` keyword for automatic
+   * scope-based cleanup. Safari does not yet support `Symbol.dispose`, so use
+   * this method directly for cross-browser compatibility.
+   */
+  dispose(): void {
+    if (this._wasmRegion) {
+      unregisterCleanup(this);
+      this._wasmRegion.release();
+      this._wasmRegion = null;
+    }
+  }
+
+  /**
+   * Byte offset of the start of the allocation in WASM memory.
+   * Returns 0 if not WASM-backed (safe for use with resolveInputPtr).
+   * @internal
+   */
+  get wasmPtr(): number {
+    return this._wasmRegion ? this._wasmRegion.ptr : 0;
+  }
+
+  /**
+   * The underlying WasmRegion for view sharing.
+   * @internal
+   */
+  get wasmRegion(): WasmRegion | null {
+    return this._wasmRegion;
   }
 
   /**
@@ -355,11 +417,28 @@ export class ArrayStorage {
       }
     }
 
+    const region = wasmMalloc(newData.byteLength);
+    if (region) {
+      const mem = getSharedMemory();
+      const wasmData = new Constructor(mem.buffer, region.ptr, physicalSize) as TypedArray;
+      (wasmData as unknown as { set(src: ArrayLike<number>): void }).set(
+        newData as unknown as ArrayLike<number>
+      );
+      return new ArrayStorage(
+        wasmData,
+        shape,
+        ArrayStorage._computeStrides(shape),
+        0,
+        dtype,
+        region
+      );
+    }
     return new ArrayStorage(newData, shape, ArrayStorage._computeStrides(shape), 0, dtype);
   }
 
   /**
-   * Create storage from TypedArray data
+   * Create storage from TypedArray data.
+   * If the data is not already in WASM memory, copies it there (one-time cost).
    */
   static fromData(
     data: TypedArray,
@@ -375,7 +454,65 @@ export class ArrayStorage {
     }
     const finalStrides = strides ?? ArrayStorage._computeStrides(shape);
     const finalOffset = offset ?? 0;
+
+    // If data is already a view into WASM memory, use directly (no region — caller passes it via constructor)
+    const mem = getSharedMemory();
+    if (data.buffer === mem.buffer) {
+      return new ArrayStorage(data, shape, finalStrides, finalOffset, dtype);
+    }
+
+    // External data: try to copy into WASM memory
+    const region = wasmMalloc(data.byteLength);
+    if (region) {
+      const Ctor = data.constructor as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray;
+      const wasmData = new Ctor(mem.buffer, region.ptr, data.length);
+      (wasmData as unknown as { set(src: ArrayLike<number>): void }).set(
+        data as unknown as ArrayLike<number>
+      );
+      return new ArrayStorage(wasmData, shape, finalStrides, finalOffset, dtype, region);
+    }
+
+    // JS fallback
     return new ArrayStorage(data, shape, finalStrides, finalOffset, dtype);
+  }
+
+  /**
+   * Create a view sharing the same backing WASM region.
+   * Increments the WasmRegion refcount so the memory is not freed
+   * until all views are garbage collected.
+   * @internal
+   */
+  static fromDataShared(
+    data: TypedArray,
+    shape: number[],
+    dtype: DType,
+    strides: number[],
+    offset: number,
+    wasmRegion: WasmRegion | null
+  ): ArrayStorage {
+    if (wasmRegion) wasmRegion.retain();
+    return new ArrayStorage(data, shape, strides, offset, dtype, wasmRegion);
+  }
+
+  /**
+   * Create storage with a WASM-backed output region.
+   * Used by kernel wrappers to construct output directly in WASM memory.
+   * @internal
+   */
+  static fromWasmRegion(
+    shape: number[],
+    dtype: DType,
+    region: WasmRegion,
+    elementCount: number,
+    Ctor: new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+  ): ArrayStorage {
+    const mem = getSharedMemory();
+    const data = new Ctor(mem.buffer, region.ptr, elementCount);
+    return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype, region);
   }
 
   /**
@@ -398,9 +535,21 @@ export class ArrayStorage {
 
     // For complex types, physical size is 2x logical size
     const physicalSize = isComplex ? size * 2 : size;
-    const data = new Constructor(physicalSize);
-    // TypedArrays are initialized to 0 by default, so no need to fill
+    const byteLength =
+      physicalSize * (Constructor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
 
+    // Try WASM allocation first
+    const region = wasmMalloc(byteLength);
+    if (region) {
+      const mem = getSharedMemory();
+      // Zero-fill (freed WASM regions may have stale data)
+      new Uint8Array(mem.buffer, region.ptr, byteLength).fill(0);
+      const data = new Constructor(mem.buffer, region.ptr, physicalSize);
+      return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype, region);
+    }
+
+    // JS fallback
+    const data = new Constructor(physicalSize);
     return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype);
   }
 
@@ -419,7 +568,18 @@ export class ArrayStorage {
 
     // For complex types, physical size is 2x logical size
     const physicalSize = isComplex ? size * 2 : size;
-    const data = new Constructor(physicalSize);
+    const byteLength =
+      physicalSize * (Constructor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+
+    // Try WASM allocation first
+    const region = wasmMalloc(byteLength);
+    let data: TypedArray;
+    if (region) {
+      const mem = getSharedMemory();
+      data = new Constructor(mem.buffer, region.ptr, physicalSize);
+    } else {
+      data = new Constructor(physicalSize);
+    }
 
     // Fill with ones
     if (isBigIntDType(dtype)) {
@@ -435,7 +595,14 @@ export class ArrayStorage {
       (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>).fill(1);
     }
 
-    return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype);
+    return new ArrayStorage(
+      data,
+      shape,
+      ArrayStorage._computeStrides(shape),
+      0,
+      dtype,
+      region ?? null
+    );
   }
 
   /**
@@ -451,6 +618,13 @@ export class ArrayStorage {
     }
     return strides;
   }
+}
+
+// Symbol.dispose support for the `using` keyword (automatic scope-based cleanup).
+// Safari does not yet support Symbol.dispose, so we define it conditionally.
+// Users on Safari can call .dispose() directly instead.
+if (typeof Symbol.dispose !== 'undefined') {
+  ArrayStorage.prototype[Symbol.dispose] = ArrayStorage.prototype.dispose;
 }
 
 /**
