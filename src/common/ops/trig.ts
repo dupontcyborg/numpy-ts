@@ -12,11 +12,13 @@ import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp } from '../internal/compute';
 import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
 import { Complex } from '../complex';
+import { wasmSin } from '../wasm/sin';
 import { wasmCos } from '../wasm/cos';
 import { wasmTan } from '../wasm/tan';
 import { wasmArcsin } from '../wasm/arcsin';
 import { wasmArccos } from '../wasm/arccos';
 import { wasmArctan } from '../wasm/arctan';
+import { wasmArctan2 } from '../wasm/arctan2';
 import { wasmHypot, wasmHypotScalar } from '../wasm/hypot';
 
 /**
@@ -63,6 +65,9 @@ export function sin(a: ArrayStorage): ArrayStorage {
 
     return result;
   }
+
+  const wasmResult = wasmSin(a);
+  if (wasmResult) return wasmResult;
 
   return elementwiseUnaryOp(a, Math.sin, false);
 }
@@ -468,6 +473,9 @@ export function arctan2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
  * @private
  */
 function arctan2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  const wasmResult = wasmArctan2(x1, x2);
+  if (wasmResult) return wasmResult;
+
   const shape = Array.from(x1.shape);
   const size = x1.size;
   const dtype1 = x1.dtype;

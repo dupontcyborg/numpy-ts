@@ -16,6 +16,7 @@ import {
 } from '../dtype';
 import { wasmCorrelate } from '../wasm/correlate';
 import { wasmConvolve } from '../wasm/convolve';
+import { wasmMatmul } from '../wasm/matmul';
 
 /**
  * Count number of occurrences of each value in array of non-negative ints.
@@ -1176,10 +1177,11 @@ export function cov(
     return covStorage;
   }
 
-  // Real 2D case — center data into Float64Array, then direct dot products.
+  // Real 2D case — center data, then cov = centered @ centered^T / divisor.
 
-  // Step 1: Build centered matrix as contiguous [numVars × numObs] Float64Array
-  const centered = new Float64Array(numVars * numObs);
+  // Step 1: Build centered matrix in WASM [numVars × numObs]
+  const centeredStorage = ArrayStorage.empty([numVars, numObs], 'float64');
+  const centered = centeredStorage.data as Float64Array;
   for (let i = 0; i < numVars; i++) {
     let sum = 0;
     for (let j = 0; j < numObs; j++) {
@@ -1194,15 +1196,38 @@ export function cov(
     }
   }
 
-  // Step 2: Compute cov = centered @ centered^T / divisor
-  const covStorage = ArrayStorage.empty([numVars, numVars], 'float64');
-  const covMatrix = covStorage.data as Float64Array;
-
   if (divisor <= 0) {
-    covMatrix.fill(NaN);
+    centeredStorage.dispose();
+    const covStorage = ArrayStorage.empty([numVars, numVars], 'float64');
+    (covStorage.data as Float64Array).fill(NaN);
     return covStorage;
   }
 
+  // Step 2: cov = centered @ centeredT / divisor — use WASM matmul
+  // Create explicit transpose (contiguous) for WASM matmul
+  const centeredTStorage = ArrayStorage.empty([numObs, numVars], 'float64');
+  const centeredT = centeredTStorage.data as Float64Array;
+  for (let i = 0; i < numVars; i++) {
+    for (let j = 0; j < numObs; j++) {
+      centeredT[j * numVars + i] = centered[i * numObs + j]!;
+    }
+  }
+
+  const product = wasmMatmul(centeredStorage, centeredTStorage);
+  centeredStorage.dispose();
+  centeredTStorage.dispose();
+
+  if (product) {
+    // Scale by 1/divisor in-place
+    const covMatrix = product.data as Float64Array;
+    const invDiv = 1.0 / divisor;
+    for (let i = 0; i < numVars * numVars; i++) covMatrix[i] = covMatrix[i]! * invDiv;
+    return product;
+  }
+
+  // JS fallback (shouldn't happen for float64 contiguous arrays)
+  const covStorage = ArrayStorage.empty([numVars, numVars], 'float64');
+  const covMatrix = covStorage.data as Float64Array;
   const invDiv = 1.0 / divisor;
   for (let i = 0; i < numVars; i++) {
     const rowI = i * numObs;
@@ -1217,7 +1242,6 @@ export function cov(
       covMatrix[j * numVars + i] = covVal;
     }
   }
-
   return covStorage;
 }
 

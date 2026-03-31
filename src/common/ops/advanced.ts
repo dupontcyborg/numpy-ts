@@ -11,6 +11,7 @@ import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../broadcas
 import { Complex } from '../complex';
 import { wasmIndices } from '../wasm/indices';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
+import { wasmUnravelIndex } from '../wasm/unravel_index';
 
 /**
  * Broadcast an array to a given shape
@@ -1133,6 +1134,12 @@ export function unravel_index(
   order: 'C' | 'F' = 'C'
 ): ArrayStorage[] {
   const ndim = shape.length;
+
+  // WASM fast path: C-order, non-scalar array input
+  if (order === 'C' && typeof indices !== 'number') {
+    const wasmResult = wasmUnravelIndex(indices, shape);
+    if (wasmResult) return wasmResult;
+  }
 
   // Handle scalar input
   let indicesArray: number[];

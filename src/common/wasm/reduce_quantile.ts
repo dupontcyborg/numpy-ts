@@ -7,7 +7,13 @@
  */
 
 import { reduce_quantile_f64, reduce_quantile_strided_f64 } from './bins/reduce_quantile.wasm';
-import { resetScratchAllocator, scratchCopyIn, scratchAlloc, wasmMalloc, f16ToF32Input } from './runtime';
+import {
+  resetScratchAllocator,
+  scratchCopyIn,
+  scratchAlloc,
+  wasmMalloc,
+  f16ToF32Input,
+} from './runtime';
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isComplexDType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';

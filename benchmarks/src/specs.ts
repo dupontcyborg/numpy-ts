@@ -2450,17 +2450,19 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
-    specs.push({
-      name: `unravel_index [${sizes.small}]`,
-      category: 'indexing',
-      operation: 'unravel_index',
-      setup: {
-        a: { shape: [sizes.small], fill: 'arange', dtype: 'int32' },
-        dims: { shape: [100, 100] },
-      },
-      iterations,
-      warmup,
-    });
+    for (const idxDtype of ['int32', 'int64', 'uint32', 'uint64'] as const) {
+      specs.push({
+        name: `unravel_index [${sizes.small}]${idxDtype === 'int32' ? '' : ` ${idxDtype}`}`,
+        category: 'indexing',
+        operation: 'unravel_index',
+        setup: {
+          a: { shape: [sizes.small], fill: 'arange', dtype: idxDtype },
+          dims: { shape: [100, 100] },
+        },
+        iterations,
+        warmup,
+      });
+    }
 
     // ========================================
     // Bitwise Operations Benchmarks
@@ -2987,7 +2989,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       category: 'logic',
       operation: 'signbit',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: -50 },
+        a: { shape: sizes.medium, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -3952,6 +3954,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     'ldexp', // real float composition
     'modf', // real float decomposition
     'interp', // special setup, not dtype-variant-friendly
+    'unravel_index', // index dtype pinned manually (int32, int64, float64)
     'packbits', // always uint8
     'unpackbits', // always uint8
   ]);
@@ -4010,7 +4013,6 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // NumPy raises TypeError for these on unsigned integer arrays.
   const SKIP_UINT_OPERATIONS = new Set([
     'sign', // np.sign raises TypeError for uint types
-    'signbit', // np.signbit raises TypeError for uint types
   ]);
 
   // Operations to skip for NARROW int types (int8/int16) only.

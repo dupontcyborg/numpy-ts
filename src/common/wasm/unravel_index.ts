@@ -66,7 +66,14 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
       outRegions.push(region);
     }
 
-    const indicesPtr = resolveInputPtr(idxData, indices.isWasmBacked, indices.wasmPtr, idxOff, N, bpe64);
+    const indicesPtr = resolveInputPtr(
+      idxData,
+      indices.isWasmBacked,
+      indices.wasmPtr,
+      idxOff,
+      N,
+      bpe64
+    );
 
     const strides64 = new BigInt64Array(ndim);
     let stride64 = 1n;

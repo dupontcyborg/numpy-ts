@@ -1861,16 +1861,26 @@ export function diagonal(
   }
   outShape.push(diagLen);
 
-  // Create output array
-  const result = ArrayStorage.zeros(outShape, a.dtype);
+  // Fast path: 2D arrays — return a strided view (zero-copy)
+  if (ndim === 2 && ax1 === 0 && ax2 === 1) {
+    const startOffset = a.offset + (offset >= 0 ? offset * a.strides[1]! : -offset * a.strides[0]!);
+    const diagStride = a.strides[0]! + a.strides[1]!;
+    return ArrayStorage.fromDataShared(
+      a.data,
+      [diagLen],
+      a.dtype,
+      [diagStride],
+      startOffset,
+      a.wasmRegion
+    );
+  }
 
-  // Extract diagonal elements
-  // We need to iterate over all combinations of indices for other dimensions
+  // General N-D path: element-by-element copy
+  const result = ArrayStorage.zeros(outShape, a.dtype);
   const otherDims = shape.filter((_, i) => i !== ax1 && i !== ax2);
   const otherSize = otherDims.reduce((acc, d) => acc * d, 1);
 
   for (let otherIdx = 0; otherIdx < otherSize; otherIdx++) {
-    // Convert flat index to multi-dimensional indices for "other" dimensions
     let temp = otherIdx;
     const otherIndices: number[] = [];
     for (let i = otherDims.length - 1; i >= 0; i--) {
@@ -1878,9 +1888,7 @@ export function diagonal(
       temp = Math.floor(temp / otherDims[i]!);
     }
 
-    // Extract diagonal for this slice
     for (let d = 0; d < diagLen; d++) {
-      // Build source indices
       const srcIndices: number[] = new Array(ndim);
       let otherIdx2 = 0;
       for (let i = 0; i < ndim; i++) {
@@ -1893,10 +1901,7 @@ export function diagonal(
         }
       }
 
-      // Build destination indices
       const dstIndices = [...otherIndices, d];
-
-      // Copy element
       const value = a.get(...srcIndices);
       result.set(dstIndices, value);
     }

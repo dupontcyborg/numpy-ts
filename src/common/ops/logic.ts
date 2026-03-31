@@ -25,6 +25,7 @@ import { wasmLogicalOr, wasmLogicalOrScalar } from '../wasm/logical_or';
 import { wasmLogicalXor, wasmLogicalXorScalar } from '../wasm/logical_xor';
 import { wasmCopysign, wasmCopysignScalar } from '../wasm/copysign';
 import { wasmLogicalNot } from '../wasm/logical_not';
+import { wasmSignbit } from '../wasm/signbit';
 
 /**
  * Helper: Convert value to boolean (0 = false, non-zero = true)
@@ -859,6 +860,10 @@ function copysignScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
  */
 export function signbit(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'signbit', 'signbit is only defined for real numbers.');
+
+  const wasmResult = wasmSignbit(a);
+  if (wasmResult) return wasmResult;
+
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
   const data = result.data as Uint8Array;
   const size = a.size;
