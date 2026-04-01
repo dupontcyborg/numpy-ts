@@ -4,9 +4,9 @@
  */
 
 import { vector_norm2_f64, vector_norm2_f32 } from './bins/vector_norm.wasm';
-import { resetScratchAllocator, resolveInputPtr, scratchCopyIn, f16ToF32Input } from './runtime';
+import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType, type TypedArray } from '../dtype';
+import { isComplexDType, type DType } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -36,8 +36,7 @@ export function wasmVectorNorm2(a: ArrayStorage): number | null {
 
   // Float16: convert to f32 and use f32 kernel
   if (dtype === 'float16') {
-    const aData = f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype);
-    const aPtr = scratchCopyIn(aData);
+    const aPtr = f16InputToScratchF32(a, size);
     return vector_norm2_f32(aPtr, size);
   }
 

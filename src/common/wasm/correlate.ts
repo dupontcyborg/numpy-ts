@@ -7,7 +7,7 @@
  */
 
 import { correlate_f64, correlate_f32 } from './bins/correlate.wasm';
-import { wasmMalloc, resetScratchAllocator, scratchCopyIn, f16ToF32Input } from './runtime';
+import { wasmMalloc, resetScratchAllocator, scratchCopyIn, f16InputToScratchF32 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
@@ -69,31 +69,28 @@ export function wasmCorrelate(a: ArrayStorage, v: ArrayStorage): ArrayStorage | 
   const vOff = v.offset;
 
   // Convert to target float type if input dtype differs (e.g. int32 -> float64)
-  let aData: TypedArray;
-  let vData: TypedArray;
+  let aPtr: number;
+  let vPtr: number;
   if (a.dtype === 'float16') {
-    aData = f16ToF32Input(a.data.subarray(aOff, aOff + aLen) as TypedArray, a.dtype);
+    aPtr = f16InputToScratchF32(a, aLen);
   } else if (a.dtype === dtype) {
-    aData = a.data.subarray(aOff, aOff + aLen) as TypedArray;
+    aPtr = scratchCopyIn(a.data.subarray(aOff, aOff + aLen) as TypedArray);
   } else {
     const tmp = new (Ctor as unknown as new (len: number) => TypedArray)(aLen);
     const src = a.data;
     for (let i = 0; i < aLen; i++) tmp[i] = Number(src[aOff + i]!);
-    aData = tmp;
+    aPtr = scratchCopyIn(tmp);
   }
   if (v.dtype === 'float16') {
-    vData = f16ToF32Input(v.data.subarray(vOff, vOff + vLen) as TypedArray, v.dtype);
+    vPtr = f16InputToScratchF32(v, vLen);
   } else if (v.dtype === dtype) {
-    vData = v.data.subarray(vOff, vOff + vLen) as TypedArray;
+    vPtr = scratchCopyIn(v.data.subarray(vOff, vOff + vLen) as TypedArray);
   } else {
     const tmp = new (Ctor as unknown as new (len: number) => TypedArray)(vLen);
     const src = v.data;
     for (let i = 0; i < vLen; i++) tmp[i] = Number(src[vOff + i]!);
-    vData = tmp;
+    vPtr = scratchCopyIn(tmp);
   }
-
-  const aPtr = scratchCopyIn(aData);
-  const vPtr = scratchCopyIn(vData);
 
   kernel(aPtr, aLen, vPtr, vLen, outRegion.ptr, outLen);
 

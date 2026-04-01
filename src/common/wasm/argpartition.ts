@@ -32,7 +32,7 @@ import {
   scratchCopyIn,
   scratchAlloc,
   getSharedMemory,
-  f16ToF32Input,
+  f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -127,11 +127,13 @@ export function wasmArgpartitionSlices(
     wasmConfig.wasmCallCount++;
     resetScratchAllocator();
 
-    const inputPtr = scratchCopyIn(
+    const inputPtr =
       dtype === 'float16'
-        ? f16ToF32Input(inputData as TypedArray, dtype)
-        : (inputData as TypedArray)
-    );
+        ? f16InputToScratchF32(
+            { data: inputData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
+            inputData.length
+          )
+        : scratchCopyIn(inputData as TypedArray);
     const outputPtr = scratchAlloc(outputBytes);
 
     sliceKernel(inputPtr, outputPtr, axisSize, outerSize, kth);
@@ -154,9 +156,13 @@ export function wasmArgpartitionSlices(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inputPtr = scratchCopyIn(
-    dtype === 'float16' ? f16ToF32Input(inputData as TypedArray, dtype) : (inputData as TypedArray)
-  );
+  const inputPtr =
+    dtype === 'float16'
+      ? f16InputToScratchF32(
+          { data: inputData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
+          inputData.length
+        )
+      : scratchCopyIn(inputData as TypedArray);
   const outputPtr = scratchAlloc(outputBytes);
 
   for (let i = 0; i < outerSize; i++) {
@@ -200,10 +206,10 @@ export function wasmArgpartition(a: ArrayStorage, kth: number): ArrayStorage | n
   resetScratchAllocator();
 
   const aOff = a.offset;
-  let aData = a.data.subarray(aOff, aOff + size) as TypedArray;
-  if (dtype === 'float16') aData = f16ToF32Input(aData, dtype);
-
-  const aPtr = scratchCopyIn(aData);
+  const aPtr =
+    dtype === 'float16'
+      ? f16InputToScratchF32(a, size)
+      : scratchCopyIn(a.data.subarray(aOff, aOff + size) as TypedArray);
 
   kernel(aPtr, outRegion.ptr, size, kth);
 

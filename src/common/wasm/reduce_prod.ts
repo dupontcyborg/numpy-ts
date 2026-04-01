@@ -29,8 +29,7 @@ import {
 import {
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  f16ToF32Input,
+  f16InputToScratchF32,
   alloc,
   copyOut,
 } from './runtime';
@@ -45,7 +44,7 @@ type ReduceFn = (aPtr: number, N: number) => number | bigint;
 const kernels: Partial<Record<DType, ReduceFn>> = {
   float64: reduce_prod_f64,
   float32: reduce_prod_f32,
-  float16: reduce_prod_f32, // f16 input converted to f32, then multiplied
+  float16: reduce_prod_f32,
   int64: reduce_prod_i64,
   uint64: reduce_prod_i64,
   int32: reduce_prod_i32,
@@ -61,7 +60,7 @@ type AnyTypedArrayCtor = new (length: number) => TypedArray;
 const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   float64: Float64Array,
   float32: Float32Array,
-  float16: Float32Array, // f16 converted to f32 before kernel call
+  float16: Float32Array,
   int64: BigInt64Array,
   uint64: BigUint64Array,
   int32: Int32Array,
@@ -90,11 +89,15 @@ export function wasmReduceProd(a: ArrayStorage): number | null {
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  // Float16: convert to f32 before passing to f32 kernel
+  // Float16: convert to f32, run f32 kernel, cast result back to f16 precision.
+  // f32 accumulation + f16 cast matches NumPy's pairwise summation behavior.
   if (dtype === 'float16') {
-    const aData = f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype);
-    const aPtr = scratchCopyIn(aData);
-    return Number(kernel(aPtr, size));
+    const aPtr = f16InputToScratchF32(a, size);
+    const f32Result = Number(kernel(aPtr, size));
+    // Cast through Float16Array to match f16 overflow (e.g., 65536 → inf)
+    const f16Round = new Float16Array(1);
+    f16Round[0] = f32Result;
+    return f16Round[0]!;
   }
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
@@ -126,7 +129,7 @@ const stridedKernels: Partial<Record<DType, StridedFn>> = {
 const stridedOutDtype: Partial<Record<DType, DType>> = {
   float64: 'float64',
   float32: 'float32',
-  float16: 'float32',
+  float16: 'float16',
   int64: 'int64',
   uint64: 'uint64',
   int32: 'int32',
@@ -222,8 +225,7 @@ export function wasmReduceProdStrided(
   resetScratchAllocator();
   let inPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + totalSize) as TypedArray;
-    inPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    inPtr = f16InputToScratchF32(a, totalSize);
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
@@ -232,6 +234,13 @@ export function wasmReduceProdStrided(
   kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
 
   const outData = copyOut(outPtr, outSize, OutCtor);
+
+  // f16: cast f32 output back to f16 (matches NumPy overflow behavior)
+  if (dtype === 'float16') {
+    const f16Data = new Float16Array(outSize);
+    f16Data.set(outData as Float32Array);
+    return ArrayStorage.fromData(f16Data as unknown as TypedArray, [outSize], 'float16');
+  }
 
   return ArrayStorage.fromData(outData, [outSize], outDtype);
 }

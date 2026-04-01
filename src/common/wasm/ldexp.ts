@@ -7,13 +7,11 @@
 
 import { ldexp_scalar_f64, ldexp_scalar_f32 } from './bins/ldexp.wasm';
 import {
-  ensureMemory,
-  resetAllocator,
-  copyIn,
-  alloc,
-  copyOut,
-  f16ToF32Input,
-  f32ToF16Output,
+  wasmMalloc,
+  resetScratchAllocator,
+  resolveInputPtr,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -46,23 +44,38 @@ export function wasmLdexpScalar(a: ArrayStorage, exp: number): ArrayStorage | nu
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
 
-  const isF16 = dtype === 'float16';
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  ensureMemory(size * bpe * 2);
-  resetAllocator();
 
-  const aData = isF16
-    ? f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype)
-    : (a.data.subarray(a.offset, a.offset + size) as TypedArray);
-  const aPtr = copyIn(aData);
-  const outPtr = alloc(size * bpe);
-  kernel(aPtr, outPtr, size, exp);
+  const outRegion = wasmMalloc(size * bpe);
+  if (!outRegion) return null;
 
-  let outData = copyOut(
-    outPtr,
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  if (dtype === 'float16') {
+    const aPtr = f16InputToScratchF32(a, size);
+    kernel(aPtr, outRegion.ptr, size, exp);
+
+    const f16Region = f32OutputToF16Region(outRegion, size);
+    outRegion.release();
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      dtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
+
+  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
+  kernel(aPtr, outRegion.ptr, size, exp);
+
+  return ArrayStorage.fromWasmRegion(
+    Array.from(a.shape),
+    dtype,
+    outRegion,
     size,
     Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
-  if (isF16) outData = f32ToF16Output(outData, dtype);
-  return ArrayStorage.fromData(outData, Array.from(a.shape), dtype);
 }

@@ -22,7 +22,7 @@ import {
   resetScratchAllocator,
   scratchAlloc,
   getSharedMemory,
-  f16ToF32Input,
+  f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -95,19 +95,27 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  // Allocate scratch for all keys concatenated
-  const flatBuf = scratchAlloc(keysBytes);
-  const mem = getSharedMemory();
-
-  for (let k = 0; k < numKeys; k++) {
-    const key = keys[k]!;
-    const kOff = key.offset;
-    let kData = key.data.subarray(kOff, kOff + n) as TypedArray;
-    if (dtype === 'float16') kData = f16ToF32Input(kData, dtype);
-    const destOffset = flatBuf + k * n * bpe;
-    new Uint8Array(mem.buffer, destOffset, n * bpe).set(
-      new Uint8Array(kData.buffer, kData.byteOffset, kData.byteLength)
-    );
+  // Allocate one flat buffer for all keys concatenated (no alignment gaps)
+  const isF16 = dtype === 'float16';
+  let flatBuf: number;
+  if (isF16) {
+    // f16→f32: each key converted via bump allocator (contiguous since all same size)
+    flatBuf = 0;
+    for (let k = 0; k < numKeys; k++) {
+      const ptr = f16InputToScratchF32(keys[k]!, n);
+      if (k === 0) flatBuf = ptr;
+    }
+  } else {
+    flatBuf = scratchAlloc(keysBytes);
+    const mem = getSharedMemory();
+    for (let k = 0; k < numKeys; k++) {
+      const key = keys[k]!;
+      const kData = key.data.subarray(key.offset, key.offset + n) as TypedArray;
+      const destOffset = flatBuf + k * n * bpe;
+      new Uint8Array(mem.buffer, destOffset, n * bpe).set(
+        new Uint8Array(kData.buffer, kData.byteOffset, kData.byteLength)
+      );
+    }
   }
 
   kernel(flatBuf, numKeys, n, outRegion.ptr);

@@ -29,10 +29,9 @@ import {
 import {
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
+  f16InputToScratchF32,
   alloc,
   copyOut,
-  f16ToF32Input,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -92,8 +91,7 @@ export function wasmReduceArgmin(a: ArrayStorage): number | null {
   resetScratchAllocator();
   let aPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + size) as TypedArray;
-    aPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    aPtr = f16InputToScratchF32(a, size);
   } else {
     aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   }
@@ -144,8 +142,7 @@ export function wasmReduceArgminStrided(
   resetScratchAllocator();
   let inPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + totalSize) as TypedArray;
-    inPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    inPtr = f16InputToScratchF32(a, totalSize);
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }

@@ -33,8 +33,8 @@ import {
   resetScratchAllocator,
   scratchCopyIn,
   getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -110,25 +110,25 @@ export function wasmPartitionSlices(
   if (sliceKernel && sliceOffsets[0] === 0 && outerSize > 1 && sliceOffsets[1] === axisSize) {
     const Ctor = ctorMap[dtype];
     if (!Ctor) return false;
-    const inputData = isF16
-      ? f16ToF32Input(resultData as TypedArray, dtype)
-      : (resultData as TypedArray);
 
     wasmConfig.wasmCallCount++;
     resetScratchAllocator();
 
-    const ptr = scratchCopyIn(inputData);
+    const ptr = isF16
+      ? f16InputToScratchF32(
+          { data: resultData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
+          resultData.length
+        )
+      : scratchCopyIn(resultData as TypedArray);
     sliceKernel(ptr, axisSize, outerSize, kth);
 
     const mem = getSharedMemory();
     if (isF16) {
-      const f32Out = new Float32Array(inputData.length);
-      new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-        new Uint8Array(mem.buffer, ptr, f32Out.byteLength)
-      );
-      const f16Out = f32ToF16Output(f32Out as unknown as TypedArray, dtype);
+      const f16Out = new Uint16Array(resultData.length);
+      const f32View = new Float32Array(mem.buffer, ptr, resultData.length);
+      new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
       new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-        new Uint8Array(f16Out.buffer, f16Out.byteOffset, f16Out.byteLength)
+        new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
       );
     } else {
       new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
@@ -144,14 +144,16 @@ export function wasmPartitionSlices(
   if (!kernel || !Ctor) return false;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  const inputData = isF16
-    ? f16ToF32Input(resultData as TypedArray, dtype)
-    : (resultData as TypedArray);
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const ptr = scratchCopyIn(inputData);
+  const ptr = isF16
+    ? f16InputToScratchF32(
+        { data: resultData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
+        resultData.length
+      )
+    : scratchCopyIn(resultData as TypedArray);
 
   for (let i = 0; i < outerSize; i++) {
     kernel(ptr + sliceOffsets[i]! * bpe, axisSize, kth);
@@ -159,13 +161,11 @@ export function wasmPartitionSlices(
 
   const mem = getSharedMemory();
   if (isF16) {
-    const f32Out = new Float32Array(inputData.length);
-    new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-      new Uint8Array(mem.buffer, ptr, f32Out.byteLength)
-    );
-    const f16Out = f32ToF16Output(f32Out as unknown as TypedArray, dtype);
+    const f16Out = new Uint16Array(resultData.length);
+    const f32View = new Float32Array(mem.buffer, ptr, resultData.length);
+    new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
     new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-      new Uint8Array(f16Out.buffer, f16Out.byteOffset, f16Out.byteLength)
+      new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
     );
   } else {
     new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
@@ -203,22 +203,27 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
   resetScratchAllocator();
 
   const aOff = a.offset;
-  let aData = a.data.subarray(aOff, aOff + size) as TypedArray;
-
   if (isF16) {
-    aData = f16ToF32Input(aData, dtype);
-    const scratchPtr = scratchCopyIn(aData);
+    const scratchPtr = f16InputToScratchF32(a, size);
     kernel(scratchPtr, size, kth);
+    // Copy sorted f32 scratch into persistent output, then convert to f16
     const mem = getSharedMemory();
-    const f32Out = new Float32Array(size);
-    new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-      new Uint8Array(mem.buffer, scratchPtr, f32Out.byteLength)
+    new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
+      new Uint8Array(mem.buffer, scratchPtr, outBytes)
     );
+    const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Out as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
-      dtype
+      dtype,
+      f16Region,
+      size,
+      Uint16Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
     );
   }
 
@@ -229,6 +234,7 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
       new Uint8Array(mem.buffer, a.wasmPtr + aOff * bpe, outBytes)
     );
   } else {
+    const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
     new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
       new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength)
     );

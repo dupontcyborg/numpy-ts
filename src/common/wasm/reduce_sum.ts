@@ -29,8 +29,7 @@ import {
 import {
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  f16ToF32Input,
+  f16InputToScratchF32,
   alloc,
   copyOut,
 } from './runtime';
@@ -91,8 +90,7 @@ export function wasmReduceSum(a: ArrayStorage): number | null {
 
   // Float16: convert to f32 before passing to f32 kernel
   if (dtype === 'float16') {
-    const aData = f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype);
-    const aPtr = scratchCopyIn(aData);
+    const aPtr = f16InputToScratchF32(a, size);
     return Number(kernel(aPtr, size));
   }
 
@@ -147,8 +145,7 @@ export function wasmReduceSumStrided(
   resetScratchAllocator();
   let inPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + totalSize) as TypedArray;
-    inPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    inPtr = f16InputToScratchF32(a, totalSize);
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }

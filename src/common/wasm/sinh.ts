@@ -13,9 +13,8 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   scratchCopyIn,
-  f16ToF32Input,
-  f32ToF16Output,
-  getSharedMemory,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isComplexDType, isBigIntDType, type DType, type TypedArray } from '../dtype';
@@ -54,21 +53,19 @@ export function wasmSinh(a: ArrayStorage): ArrayStorage | null {
     wasmConfig.wasmCallCount++;
 
     resetScratchAllocator();
-    const aOff = a.offset;
-    const aData = f16ToF32Input(a.data.subarray(aOff, aOff + size) as TypedArray, dtype);
-    const aPtr = scratchCopyIn(aData);
+    const aPtr = f16InputToScratchF32(a, size);
 
     sinh_f32(aPtr, outRegion.ptr, size);
 
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, size);
-    const f32Copy = new Float32Array(size);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
-      dtype
+      dtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
   }
 

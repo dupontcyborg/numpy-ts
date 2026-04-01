@@ -7,7 +7,7 @@
  */
 
 import { reduce_nanmin_f64, reduce_nanmin_f32 } from './bins/reduce_nanmin.wasm';
-import { resetScratchAllocator, resolveInputPtr, scratchCopyIn, f16ToF32Input } from './runtime';
+import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
@@ -50,8 +50,7 @@ export function wasmReduceNanmin(a: ArrayStorage): number | null {
   resetScratchAllocator();
   let aPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + size) as TypedArray;
-    aPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    aPtr = f16InputToScratchF32(a, size);
   } else {
     aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   }

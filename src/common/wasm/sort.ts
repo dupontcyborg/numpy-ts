@@ -38,8 +38,8 @@ import {
   resetScratchAllocator,
   scratchCopyIn,
   getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -188,27 +188,27 @@ export function wasmSort(a: ArrayStorage): ArrayStorage | null {
   resetScratchAllocator();
 
   const aOff = a.offset;
-  let aData = a.data.subarray(aOff, aOff + bufLen) as TypedArray;
-
   if (isF16) {
-    aData = f16ToF32Input(aData, dtype);
-    // Copy f32 data into scratch, sort there, copy out
-    const scratchPtr = scratchCopyIn(aData);
+    const scratchPtr = f16InputToScratchF32(a, size);
     kernel(scratchPtr, size);
-    // Copy sorted data from scratch to persistent output
+    // Copy sorted f32 scratch into persistent output, then convert to f16
     const mem = getSharedMemory();
     new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
       new Uint8Array(mem.buffer, scratchPtr, outBytes)
     );
-    // Read back as f32, convert to f16
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, bufLen);
-    const f32Copy = new Float32Array(bufLen);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
-      dtype
+      dtype,
+      f16Region,
+      size,
+      Uint16Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
     );
   }
 
@@ -219,6 +219,7 @@ export function wasmSort(a: ArrayStorage): ArrayStorage | null {
       new Uint8Array(mem.buffer, a.wasmPtr + aOff * bpe, outBytes)
     );
   } else {
+    const aData = a.data.subarray(aOff, aOff + bufLen) as TypedArray;
     new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
       new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength)
     );

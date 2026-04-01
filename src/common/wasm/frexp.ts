@@ -6,13 +6,7 @@
  */
 
 import { frexp_f64 } from './bins/frexp.wasm';
-import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
-  scratchCopyIn,
-  f16ToF32Input,
-} from './runtime';
+import { wasmMalloc, resetScratchAllocator, resolveInputPtr, scratchCopyIn } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { TypedArray } from '../dtype';
 import { wasmConfig } from './config';
@@ -47,10 +41,9 @@ export function wasmFrexp(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null 
   // If float16/float32, we need to promote to f64 for the kernel
   let aPtr: number;
   if (dtype === 'float16') {
-    const f32Data = f16ToF32Input(
-      a.data.subarray(a.offset, a.offset + size) as TypedArray,
-      dtype
-    ) as Float32Array;
+    const f32Data = new Float32Array(
+      a.data.subarray(a.offset, a.offset + size) as unknown as ArrayLike<number>
+    );
     const f64Data = new Float64Array(size);
     for (let i = 0; i < size; i++) f64Data[i] = f32Data[i]!;
     aPtr = scratchCopyIn(f64Data as unknown as TypedArray);

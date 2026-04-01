@@ -438,17 +438,25 @@ test "svd_f64 symmetric matrix" {
 /// Compute Givens rotation: [cs sn; -sn cs]^T [f; g] = [r; 0]
 inline fn gk_givens(f: f64, g: f64, cs: *f64, sn: *f64, r: *f64) void {
     if (g == 0) {
-        cs.* = 1; sn.* = 0; r.* = f;
+        cs.* = 1;
+        sn.* = 0;
+        r.* = f;
     } else if (f == 0) {
-        cs.* = 0; sn.* = if (g >= 0) 1 else -1; r.* = @abs(g);
+        cs.* = 0;
+        sn.* = if (g >= 0) 1 else -1;
+        r.* = @abs(g);
     } else if (@abs(f) > @abs(g)) {
         const t = g / f;
         const tt = @sqrt(1 + t * t);
-        cs.* = 1.0 / tt; sn.* = t * cs.*; r.* = f * tt;
+        cs.* = 1.0 / tt;
+        sn.* = t * cs.*;
+        r.* = f * tt;
     } else {
         const t = f / g;
         const tt = @sqrt(1 + t * t);
-        sn.* = 1.0 / tt; cs.* = t * sn.*; r.* = g * tt;
+        sn.* = 1.0 / tt;
+        cs.* = t * sn.*;
+        r.* = g * tt;
     }
 }
 
@@ -459,7 +467,10 @@ fn gk_bidiagonalize(a: [*]f64, diag: [*]f64, superdiag: [*]f64, M: usize, N: usi
     for (0..K) |j| {
         // Left Householder: zero a[j+1:, j]
         var norm_sq: f64 = 0;
-        for (j..M) |i| { const v = a[i * N + j]; norm_sq += v * v; }
+        for (j..M) |i| {
+            const v = a[i * N + j];
+            norm_sq += v * v;
+        }
         var alpha = @sqrt(norm_sq);
         if (alpha == 0) {
             diag[j] = 0;
@@ -468,7 +479,10 @@ fn gk_bidiagonalize(a: [*]f64, diag: [*]f64, superdiag: [*]f64, M: usize, N: usi
             diag[j] = alpha;
             a[j * N + j] -= alpha;
             var vtv: f64 = 0;
-            for (j..M) |i| { const vi = a[i * N + j]; vtv += vi * vi; }
+            for (j..M) |i| {
+                const vi = a[i * N + j];
+                vtv += vi * vi;
+            }
             if (vtv != 0) {
                 const tau = 2.0 / vtv;
                 for (j + 1..N) |col| {
@@ -483,7 +497,10 @@ fn gk_bidiagonalize(a: [*]f64, diag: [*]f64, superdiag: [*]f64, M: usize, N: usi
         // Right Householder: zero a[j, j+2:]
         if (j + 1 < N) {
             var rnorm_sq: f64 = 0;
-            for (j + 1..N) |col| { const v = a[j * N + col]; rnorm_sq += v * v; }
+            for (j + 1..N) |col| {
+                const v = a[j * N + col];
+                rnorm_sq += v * v;
+            }
             var ralpha = @sqrt(rnorm_sq);
             if (ralpha == 0) {
                 if (j < K - 1) superdiag[j] = 0;
@@ -492,7 +509,10 @@ fn gk_bidiagonalize(a: [*]f64, diag: [*]f64, superdiag: [*]f64, M: usize, N: usi
                 if (j < K - 1) superdiag[j] = ralpha;
                 a[j * N + j + 1] -= ralpha;
                 var rvtv: f64 = 0;
-                for (j + 1..N) |col| { const vc = a[j * N + col]; rvtv += vc * vc; }
+                for (j + 1..N) |col| {
+                    const vc = a[j * N + col];
+                    rvtv += vc * vc;
+                }
                 if (rvtv != 0) {
                     const rtau = 2.0 / rvtv;
                     for (j + 1..M) |row| {
@@ -524,7 +544,9 @@ fn gk_qr_step(d: [*]f64, e: [*]f64, p: usize, end: usize) void {
     var g = d[p] * e[p];
 
     for (p..n) |k| {
-        var cs: f64 = undefined; var sn: f64 = undefined; var r: f64 = undefined;
+        var cs: f64 = undefined;
+        var sn: f64 = undefined;
+        var r: f64 = undefined;
         gk_givens(f, g, &cs, &sn, &r);
         if (k > p) e[k - 1] = r;
         f = cs * d[k] + sn * e[k];
@@ -578,7 +600,9 @@ fn gk_bidiag_svd(d: [*]f64, e: [*]f64, n: usize) void {
         gk_qr_step(d, e, p, block_end);
     }
 
-    for (0..n) |i| { if (d[i] < 0) d[i] = -d[i]; }
+    for (0..n) |i| {
+        if (d[i] < 0) d[i] = -d[i];
+    }
 }
 
 /// Compute singular values of A[m×n] via Golub-Kahan bidiagonalization + QR.
@@ -606,7 +630,9 @@ export fn svd_values_gk_f64(a_in: [*]const f64, s: [*]f64, scratch: [*]f64, m_ar
     // Sort descending
     const std = @import("std");
     std.mem.sortUnstable(f64, diag[0..K], {}, struct {
-        fn cmp(_: void, lhs: f64, rhs: f64) bool { return lhs > rhs; }
+        fn cmp(_: void, lhs: f64, rhs: f64) bool {
+            return lhs > rhs;
+        }
     }.cmp);
 
     for (0..K) |i| s[i] = diag[i];

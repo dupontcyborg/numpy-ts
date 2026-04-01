@@ -11,12 +11,17 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   scratchCopyIn,
-  copyOut,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import {
+  promoteDTypes,
+  isComplexDType,
+  isBigIntDType,
+  type DType,
+  type TypedArray,
+} from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -50,51 +55,89 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const dtype = promoteDTypes(a.dtype, b.dtype);
+  if (isComplexDType(dtype)) return null;
 
   const floatKernel = binaryKernels[dtype];
-  if (!floatKernel) return null;
 
-  const Ctor = ctorMap[dtype]!;
-  const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  const outBytes = size * bpe;
+  // Float path (f64, f32)
+  if (floatKernel) {
+    const Ctor = ctorMap[dtype]!;
+    const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
 
-  const outRegion = wasmMalloc(outBytes);
+    const outRegion = wasmMalloc(size * bpe);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+
+    let aPtr: number;
+    let bPtr: number;
+    if (dtype === 'float16') {
+      aPtr = f16InputToScratchF32(a, size);
+      bPtr = f16InputToScratchF32(b, size);
+    } else {
+      aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
+      bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, bpe);
+    }
+
+    floatKernel(aPtr, bPtr, outRegion.ptr, size);
+
+    if (dtype === 'float16') {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        dtype,
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      dtype,
+      outRegion,
+      size,
+      Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
+
+  // Integer path: convert both inputs to f64, use f64 kernel (NumPy promotes int→float64)
+  const outRegion = wasmMalloc(size * 8);
   if (!outRegion) return null;
 
   wasmConfig.wasmCallCount++;
-
   resetScratchAllocator();
 
-  let aPtr: number;
-  let bPtr: number;
-  if (dtype === 'float16') {
-    const aData = f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, a.dtype);
-    const bData = f16ToF32Input(b.data.subarray(b.offset, b.offset + size) as TypedArray, b.dtype);
-    aPtr = scratchCopyIn(aData);
-    bPtr = scratchCopyIn(bData);
+  const aOff = a.offset;
+  const bOff = b.offset;
+  const aSrc = a.data;
+  const bSrc = b.data;
+  const aF64 = new Float64Array(size);
+  const bF64 = new Float64Array(size);
+  if (isBigIntDType(a.dtype)) {
+    for (let i = 0; i < size; i++) aF64[i] = Number(aSrc[aOff + i]!);
   } else {
-    aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
-    bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, bpe);
+    for (let i = 0; i < size; i++) aF64[i] = aSrc[aOff + i] as number;
+  }
+  if (isBigIntDType(b.dtype)) {
+    for (let i = 0; i < size; i++) bF64[i] = Number(bSrc[bOff + i]!);
+  } else {
+    for (let i = 0; i < size; i++) bF64[i] = bSrc[bOff + i] as number;
   }
 
-  floatKernel(aPtr, bPtr, outRegion.ptr, size);
+  const aPtr = scratchCopyIn(aF64 as unknown as TypedArray);
+  const bPtr = scratchCopyIn(bF64 as unknown as TypedArray);
 
-  if (dtype === 'float16') {
-    const outData = copyOut(
-      outRegion.ptr,
-      size,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
-    );
-    outRegion.release();
-    const finalOut = f32ToF16Output(outData, dtype);
-    return ArrayStorage.fromData(finalOut, Array.from(a.shape), dtype);
-  }
+  arctan2_f64(aPtr, bPtr, outRegion.ptr, size);
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),
-    dtype,
+    'float64',
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
 }

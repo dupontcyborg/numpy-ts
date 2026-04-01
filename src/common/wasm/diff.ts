@@ -24,10 +24,8 @@ import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -125,9 +123,7 @@ export function wasmDiff(a: ArrayStorage, axis: number): ArrayStorage | null {
   resultShape[normalizedAxis] = outAxisLen;
 
   if (isF16) {
-    let aData = a.data.subarray(a.offset, a.offset + size) as TypedArray;
-    aData = f16ToF32Input(aData, dtype);
-    const aPtr = scratchCopyIn(aData);
+    const aPtr = f16InputToScratchF32(a, size);
 
     if (ndim === 1) {
       const kernel = kernels1D[dtype];
@@ -145,15 +141,15 @@ export function wasmDiff(a: ArrayStorage, axis: number): ArrayStorage | null {
       kernel(aPtr, outRegion.ptr, numRows, axisLen);
     }
 
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, outSize);
-    const f32Copy = new Float32Array(outSize);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, outSize);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       resultShape,
-      dtype
+      dtype,
+      f16Region,
+      outSize,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
   }
 

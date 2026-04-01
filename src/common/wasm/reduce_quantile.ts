@@ -7,13 +7,7 @@
  */
 
 import { reduce_quantile_f64, reduce_quantile_strided_f64 } from './bins/reduce_quantile.wasm';
-import {
-  resetScratchAllocator,
-  scratchCopyIn,
-  scratchAlloc,
-  wasmMalloc,
-  f16ToF32Input,
-} from './runtime';
+import { resetScratchAllocator, scratchCopyIn, scratchAlloc, wasmMalloc } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isComplexDType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
@@ -40,11 +34,7 @@ export function wasmReduceQuantile(a: ArrayStorage, q: number): number | null {
   if (a.dtype === 'float64') {
     f64Buf.set((data as Float64Array).subarray(off, off + size));
   } else if (a.dtype === 'float16') {
-    const f32Data = f16ToF32Input(
-      data.subarray(off, off + size) as TypedArray,
-      a.dtype
-    ) as Float32Array;
-    for (let i = 0; i < size; i++) f64Buf[i] = f32Data[i]!;
+    for (let i = 0; i < size; i++) f64Buf[i] = Number(data[off + i]!);
   } else if (isBigIntDType(a.dtype)) {
     const typed = data as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) f64Buf[i] = Number(typed[off + i]!);
@@ -96,11 +86,7 @@ export function wasmReduceQuantileStrided(
   if (storage.dtype === 'float64') {
     f64Buf.set((data as Float64Array).subarray(off, off + totalSize));
   } else if (storage.dtype === 'float16') {
-    const f32Data = f16ToF32Input(
-      data.subarray(off, off + totalSize) as TypedArray,
-      storage.dtype
-    ) as Float32Array;
-    for (let i = 0; i < totalSize; i++) f64Buf[i] = f32Data[i]!;
+    for (let i = 0; i < totalSize; i++) f64Buf[i] = Number(data[off + i]!);
   } else if (isBigIntDType(storage.dtype)) {
     const typed = data as BigInt64Array | BigUint64Array;
     for (let i = 0; i < totalSize; i++) f64Buf[i] = Number(typed[off + i]!);

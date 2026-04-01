@@ -13,13 +13,11 @@ import {
   heaviside_f32,
 } from './bins/heaviside.wasm';
 import {
-  ensureMemory,
-  resetAllocator,
-  copyIn,
-  alloc,
-  copyOut,
-  f16ToF32Input,
-  f32ToF16Output,
+  wasmMalloc,
+  resetScratchAllocator,
+  resolveInputPtr,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -62,25 +60,40 @@ export function wasmHeavisideScalar(
   const Ctor = ctorMap[resultDtype];
   if (!kernel || !Ctor) return null;
 
-  const isF16 = resultDtype === 'float16';
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  ensureMemory(size * bpe * 2);
-  resetAllocator();
 
-  const x1Data = isF16
-    ? f16ToF32Input(x1.data.subarray(x1.offset, x1.offset + size) as TypedArray, resultDtype)
-    : (x1.data.subarray(x1.offset, x1.offset + size) as TypedArray);
-  const x1Ptr = copyIn(x1Data);
-  const outPtr = alloc(size * bpe);
-  kernel(x1Ptr, outPtr, size, x2);
+  const outRegion = wasmMalloc(size * bpe);
+  if (!outRegion) return null;
 
-  let outData = copyOut(
-    outPtr,
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  if (resultDtype === 'float16') {
+    const x1Ptr = f16InputToScratchF32(x1, size);
+    kernel(x1Ptr, outRegion.ptr, size, x2);
+
+    const f16Region = f32OutputToF16Region(outRegion, size);
+    outRegion.release();
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
+      Array.from(x1.shape),
+      resultDtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
+
+  const x1Ptr = resolveInputPtr(x1.data, x1.isWasmBacked, x1.wasmPtr, x1.offset, size, bpe);
+  kernel(x1Ptr, outRegion.ptr, size, x2);
+
+  return ArrayStorage.fromWasmRegion(
+    Array.from(x1.shape),
+    resultDtype,
+    outRegion,
     size,
     Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
-  if (isF16) outData = f32ToF16Output(outData, resultDtype);
-  return ArrayStorage.fromData(outData, Array.from(x1.shape), resultDtype);
 }
 
 export function wasmHeaviside(
@@ -96,27 +109,40 @@ export function wasmHeaviside(
   const Ctor = ctorMap[resultDtype];
   if (!kernel || !Ctor) return null;
 
-  const isF16 = resultDtype === 'float16';
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  ensureMemory(size * bpe * 3);
-  resetAllocator();
 
-  const x1Data = isF16
-    ? f16ToF32Input(x1.data.subarray(x1.offset, x1.offset + size) as TypedArray, resultDtype)
-    : (x1.data.subarray(x1.offset, x1.offset + size) as TypedArray);
-  const x2Data = isF16
-    ? f16ToF32Input(x2.data.subarray(x2.offset, x2.offset + size) as TypedArray, resultDtype)
-    : (x2.data.subarray(x2.offset, x2.offset + size) as TypedArray);
-  const x1Ptr = copyIn(x1Data);
-  const x2Ptr = copyIn(x2Data);
-  const outPtr = alloc(size * bpe);
-  kernel(x1Ptr, x2Ptr, outPtr, size);
+  const outRegion = wasmMalloc(size * bpe);
+  if (!outRegion) return null;
 
-  let outData = copyOut(
-    outPtr,
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  if (resultDtype === 'float16') {
+    const x1Ptr = f16InputToScratchF32(x1, size);
+    const x2Ptr = f16InputToScratchF32(x2, size);
+    kernel(x1Ptr, x2Ptr, outRegion.ptr, size);
+
+    const f16Region = f32OutputToF16Region(outRegion, size);
+    outRegion.release();
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
+      Array.from(x1.shape),
+      resultDtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
+
+  const x1Ptr = resolveInputPtr(x1.data, x1.isWasmBacked, x1.wasmPtr, x1.offset, size, bpe);
+  const x2Ptr = resolveInputPtr(x2.data, x2.isWasmBacked, x2.wasmPtr, x2.offset, size, bpe);
+  kernel(x1Ptr, x2Ptr, outRegion.ptr, size);
+
+  return ArrayStorage.fromWasmRegion(
+    Array.from(x1.shape),
+    resultDtype,
+    outRegion,
     size,
     Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
-  if (isF16) outData = f32ToF16Output(outData, resultDtype);
-  return ArrayStorage.fromData(outData, Array.from(x1.shape), resultDtype);
 }

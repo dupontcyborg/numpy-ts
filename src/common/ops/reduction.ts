@@ -454,22 +454,31 @@ export function mean(
     const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
     const wasmResult = wasmReduceMeanStrided(storage, outerSize, axisSize, innerSize);
     if (wasmResult) {
-      const strides: number[] = new Array(outputShape.length);
-      let s = 1;
-      for (let i = outputShape.length - 1; i >= 0; i--) {
-        strides[i] = s;
-        s *= outputShape[i]!;
+      // NumPy mean: float16→float16, float32→float32, int→float64
+      const outDtype = isFloatDType(dtype) ? dtype : 'float64';
+      if (outDtype === 'float64') {
+        const strides: number[] = new Array(outputShape.length);
+        let s = 1;
+        for (let i = outputShape.length - 1; i >= 0; i--) {
+          strides[i] = s;
+          s *= outputShape[i]!;
+        }
+        const shared = ArrayStorage.fromDataShared(
+          wasmResult.data,
+          outputShape,
+          'float64',
+          strides,
+          0,
+          wasmResult.wasmRegion
+        );
+        wasmResult.dispose();
+        return shared;
       }
-      const shared = ArrayStorage.fromDataShared(
-        wasmResult.data,
-        outputShape,
-        'float64',
-        strides,
-        0,
-        wasmResult.wasmRegion
-      );
+      // float16/float32: cast f64 output back to input dtype via .set()
+      const outStorage = ArrayStorage.empty(outputShape, outDtype);
+      (outStorage.data as Float32Array | Float16Array).set(wasmResult.data as Float64Array);
       wasmResult.dispose();
-      return shared;
+      return outStorage;
     }
   }
 
@@ -1765,8 +1774,21 @@ export function variance(
   const off = storage.offset;
   const inputStrides = storage.strides;
 
-  // Compute mean
-  const meanResult = mean(storage, axis, keepdims);
+  // Compute mean for var.
+  // NumPy's var does NOT promote f16→f32 for its internal mean (unlike standalone mean()),
+  // so f16 sum can overflow → inf mean → inf var. We must match this behavior.
+  let meanResult: ArrayStorage | number | Complex;
+  // Compute mean. For f16 variance, NumPy's var does NOT promote its internal mean
+  // to f32 (unlike standalone mean()). NumPy computes sum(x)/N where sum overflows in f16.
+  // We compute the f64 sum, cast to f16 (which overflows like NumPy), then divide.
+  if (dtype === 'float16' && axis === undefined && f16acc) {
+    const sumResult = sum(storage);
+    f16acc[0] = sumResult as number; // cast sum to f16 (overflow → inf)
+    f16acc[0] /= size; // inf/N = inf, matching NumPy
+    meanResult = f16acc[0]!;
+  } else {
+    meanResult = mean(storage, axis, keepdims);
+  }
 
   const contiguous = storage.isCContiguous;
 
@@ -4047,10 +4069,12 @@ export function nanmin(
     return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
+  // nanmin preserves input dtype (like NumPy)
+  const outDtype = isFloatDType(dtype) ? dtype : 'float64';
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
-  const result = ArrayStorage.empty(outputShape, 'float64');
-  const resultData = result.data as Float64Array;
+  const result = ArrayStorage.empty(outputShape, outDtype);
+  const resultData = result.data;
 
   const { baseOffsets, axisStride: axisStr } = precomputeAxisOffsets(
     shape,
@@ -4260,10 +4284,12 @@ export function nanmax(
     return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
+  // nanmax preserves input dtype (like NumPy)
+  const outDtype = isFloatDType(dtype) ? dtype : 'float64';
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
-  const result = ArrayStorage.empty(outputShape, 'float64');
-  const resultData = result.data as Float64Array;
+  const result = ArrayStorage.empty(outputShape, outDtype);
+  const resultData = result.data;
 
   const { baseOffsets, axisStride: axisStr } = precomputeAxisOffsets(
     shape,
