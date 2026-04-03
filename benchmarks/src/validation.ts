@@ -796,22 +796,24 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'linalg_cholesky':
       return np.linalg.cholesky(arrays._posdef ?? arrays.a);
     case 'linalg_svd': {
-      const result = np.linalg.svd(arrays.a);
-      // Return just S (singular values) for validation
-      return (result as { s: any }).s;
+      const result = np.linalg.svd(arrays.a) as { u: any; s: any; vt: any };
+      result.u.dispose();
+      result.vt.dispose();
+      return result.s;
     }
     case 'linalg_eig': {
-      const result = np.linalg.eig(arrays.a);
-      // Return just eigenvalues for validation (eigenvectors can differ)
-      return (result as { w: any }).w;
+      const result = np.linalg.eig(arrays.a) as { w: any; v: any };
+      result.v.dispose();
+      return result.w;
     }
     case 'linalg_eigh': {
-      // Create symmetric matrix: (A + A^T) / 2
       const aT = arrays.a.transpose();
       const sym = arrays.a.add(aT).multiply(0.5);
-      const result = np.linalg.eigh(sym);
-      // Return just eigenvalues for validation
-      return (result as { w: any }).w;
+      const result = np.linalg.eigh(sym) as { w: any; v: any };
+      aT.dispose();
+      sym.dispose();
+      result.v.dispose();
+      return result.w;
     }
     case 'linalg_norm':
       return np.linalg.norm(arrays.a);
@@ -824,9 +826,10 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'linalg_matrix_power':
       return np.linalg.matrix_power(arrays.a, 3);
     case 'linalg_lstsq': {
-      const result = np.linalg.lstsq(arrays.a, arrays.b);
-      // Return just x (solution) for validation
-      return (result as { x: any }).x;
+      const result = np.linalg.lstsq(arrays.a, arrays.b) as { x: any; residuals: any; s: any };
+      result.residuals.dispose();
+      result.s.dispose();
+      return result.x;
     }
     case 'linalg_cross':
       return np.linalg.cross(arrays.a, arrays.b);

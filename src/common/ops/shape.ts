@@ -14,10 +14,8 @@ import {
   type TypedArray,
 } from '../dtype';
 import { Complex } from '../complex';
-import { wasmFlip } from '../wasm/flip';
 import { wasmTile2D } from '../wasm/tile';
 import { wasmRoll } from '../wasm/roll';
-import { wasmRot90 } from '../wasm/rot90';
 import { wasmRepeat } from '../wasm/repeat';
 import { parseSlice, normalizeSlice } from '../slicing';
 
@@ -1294,7 +1292,7 @@ export function flip(storage: ArrayStorage, axis?: number | number[]): ArrayStor
   const shape = storage.shape;
   const ndim = shape.length;
   const dtype = storage.dtype;
-  const size = storage.size;
+  // const size = storage.size;
 
   // Determine which axes to flip
   let axesToFlip: Set<number>;
@@ -1319,154 +1317,17 @@ export function flip(storage: ArrayStorage, axis?: number | number[]): ArrayStor
     );
   }
 
-  // Create output array
-  const Constructor = getTypedArrayConstructor(dtype);
-  if (!Constructor) {
-    throw new Error(`Cannot flip array with dtype ${dtype}`);
-  }
-  const isBigInt = isBigIntDType(dtype);
-
-  // WASM fast path: full reversal when flipping all axes on contiguous array
-  // For C-contiguous, flipping all axes is equivalent to reversing the flat buffer.
-  // Also covers 1D flip and 2D flip-both-axes.
-  if (axesToFlip.size === ndim && storage.isCContiguous && !isComplexDType(dtype)) {
-    const wasm = wasmFlip(storage);
-    if (wasm) return wasm;
+  // Return a strided view — O(1), no data copied.
+  // Flipping axis i: negate its stride and shift the offset so element 0
+  // maps to the last element along that axis in the source.
+  const strides = Array.from(storage.strides);
+  let newOffset = storage.offset;
+  for (const ax of axesToFlip) {
+    newOffset += (shape[ax]! - 1) * strides[ax]!;
+    strides[ax] = -strides[ax]!;
   }
 
-  const flipResult = ArrayStorage.empty([...shape], dtype);
-  const outputData = flipResult.data;
-
-  // Fast path for 1D arrays
-  if (ndim === 1 && storage.isCContiguous) {
-    // Float16Array optimization: bulk-convert for faster per-element access
-    if (dtype === 'float16' && hasFloat16) {
-      const start = storage.offset;
-      const f32Src = new Float32Array((storage.data as Float16Array).subarray(start, start + size));
-      const f32Out = new Float32Array(size);
-      for (let i = 0; i < size; i++) {
-        f32Out[i] = f32Src[size - 1 - i]!;
-      }
-      (outputData as Float16Array).set(f32Out);
-      return flipResult;
-    }
-
-    const sourceData = storage.data;
-    const start = storage.offset;
-    for (let i = 0; i < size; i++) {
-      if (isBigInt) {
-        (outputData as BigInt64Array | BigUint64Array)[i] = sourceData[
-          start + size - 1 - i
-        ] as bigint;
-      } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = sourceData[
-          start + size - 1 - i
-        ] as number;
-      }
-    }
-    return flipResult;
-  }
-
-  // Fast path for 2D arrays
-  if (ndim === 2 && storage.isCContiguous) {
-    const rows = shape[0]!;
-    const cols = shape[1]!;
-    const start = storage.offset;
-
-    const sourceData = storage.data;
-
-    // Flipping both axes - reverse entire array
-    if (axesToFlip.size === 2) {
-      for (let i = 0; i < size; i++) {
-        if (isBigInt) {
-          (outputData as BigInt64Array | BigUint64Array)[i] = sourceData[
-            start + size - 1 - i
-          ] as bigint;
-        } else {
-          (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = sourceData[
-            start + size - 1 - i
-          ] as number;
-        }
-      }
-      return flipResult;
-    }
-
-    if (axesToFlip.size === 1) {
-      if (axesToFlip.has(0)) {
-        // Flip rows: copy rows in reverse order
-        for (let r = 0; r < rows; r++) {
-          const sourceRowStart = start + (rows - 1 - r) * cols;
-          const outputRowStart = r * cols;
-          for (let c = 0; c < cols; c++) {
-            if (isBigInt) {
-              (outputData as BigInt64Array | BigUint64Array)[outputRowStart + c] = sourceData[
-                sourceRowStart + c
-              ] as bigint;
-            } else {
-              (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[
-                outputRowStart + c
-              ] = sourceData[sourceRowStart + c] as number;
-            }
-          }
-        }
-        return flipResult;
-      } else if (axesToFlip.has(1)) {
-        // Flip columns: reverse each row
-        for (let r = 0; r < rows; r++) {
-          const sourceRowStart = start + r * cols;
-          const outputRowStart = r * cols;
-          for (let c = 0; c < cols; c++) {
-            if (isBigInt) {
-              (outputData as BigInt64Array | BigUint64Array)[outputRowStart + c] = sourceData[
-                sourceRowStart + cols - 1 - c
-              ] as bigint;
-            } else {
-              (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[
-                outputRowStart + c
-              ] = sourceData[sourceRowStart + cols - 1 - c] as number;
-            }
-          }
-        }
-        return flipResult;
-      }
-    }
-  }
-
-  // General path: element-by-element copy
-  const sourceIndices = new Array(ndim);
-  const outputIndices = new Array(ndim).fill(0);
-
-  for (let i = 0; i < size; i++) {
-    // Compute source indices by flipping the specified axes
-    for (let d = 0; d < ndim; d++) {
-      sourceIndices[d] = axesToFlip.has(d) ? shape[d]! - 1 - outputIndices[d]! : outputIndices[d];
-    }
-
-    // Get value from source
-    let sourceOffset = storage.offset;
-    for (let d = 0; d < ndim; d++) {
-      sourceOffset += sourceIndices[d]! * storage.strides[d]!;
-    }
-    const value = storage.data[sourceOffset];
-
-    // Write to output
-    if (isBigInt) {
-      (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
-    } else {
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
-    }
-
-    // Increment output indices
-    for (let d = ndim - 1; d >= 0; d--) {
-      outputIndices[d]++;
-      if (outputIndices[d]! < shape[d]!) {
-        break;
-      }
-      outputIndices[d] = 0;
-    }
-  }
-
-  return flipResult;
+  return ArrayStorage.fromDataShared(storage.data, [...shape], dtype, strides, newOffset, storage.wasmRegion);
 }
 
 /**
@@ -1504,183 +1365,50 @@ export function rot90(
     return storage.copy();
   }
 
-  // WASM fast path for 2D rot90 with default axes
-  if (ndim === 2 && axis0 === 0 && axis1 === 1 && storage.isCContiguous) {
-    if (k === 1) {
-      const wasm = wasmRot90(storage);
-      if (wasm) return wasm;
-    } else if (k === 2) {
-      // 180° rotation = full reversal
-      const wasm = wasmFlip(storage);
-      if (wasm) return wasm;
-    }
+  // Return a strided view — O(1), no data copied, works for any ndim and any k.
+  //
+  // Rotating axes (axis0, axis1) by k steps CCW is equivalent to transforming
+  // the strides and offset of the view:
+  //
+  //   k=1: new_strides[axis0] = -s1, new_strides[axis1] = s0
+  //        new_offset += (dim1-1)*s1    (dim1 = shape[axis1])
+  //        swap shape[axis0] <-> shape[axis1]
+  //
+  //   k=2: new_strides[axis0] = -s0, new_strides[axis1] = -s1
+  //        new_offset += (dim0-1)*s0 + (dim1-1)*s1
+  //        shape unchanged
+  //
+  //   k=3: new_strides[axis0] = s1, new_strides[axis1] = -s0
+  //        new_offset += (dim0-1)*s0    (dim0 = shape[axis0])
+  //        swap shape[axis0] <-> shape[axis1]
+  const strides = Array.from(storage.strides);
+  const newShape = [...shape];
+  const s0 = strides[axis0]!;
+  const s1 = strides[axis1]!;
+  const dim0 = shape[axis0]!;
+  const dim1 = shape[axis1]!;
+  let newOffset = storage.offset;
+
+  if (k === 1) {
+    strides[axis0] = -s1;
+    strides[axis1] = s0;
+    newOffset += (dim1 - 1) * s1;
+    newShape[axis0] = dim1;
+    newShape[axis1] = dim0;
+  } else if (k === 2) {
+    strides[axis0] = -s0;
+    strides[axis1] = -s1;
+    newOffset += (dim0 - 1) * s0 + (dim1 - 1) * s1;
+  } else {
+    // k === 3
+    strides[axis0] = s1;
+    strides[axis1] = -s0;
+    newOffset += (dim0 - 1) * s0;
+    newShape[axis0] = dim1;
+    newShape[axis1] = dim0;
   }
 
-  const Constructor = getTypedArrayConstructor(dtype);
-  if (!Constructor) {
-    throw new Error(`Cannot rotate array with dtype ${dtype}`);
-  }
-
-  const outputShape = [...shape];
-  if (k === 1 || k === 3) {
-    // Swap dimensions for axis0 and axis1
-    [outputShape[axis0], outputShape[axis1]] = [outputShape[axis1]!, outputShape[axis0]!];
-  }
-
-  const rot90Result = ArrayStorage.empty(outputShape, dtype);
-  const outputData = rot90Result.data;
-  const isBigInt = isBigIntDType(dtype);
-  const srcData = storage.data;
-
-  // Optimized 2D case (most common)
-  if (ndim === 2 && axis0 === 0 && axis1 === 1) {
-    const rows = shape[0]!;
-    const cols = shape[1]!;
-
-    if (k === 1) {
-      // 90 degrees CCW: dst[outRow, outCol] = src[outCol, cols - 1 - outRow]
-      // output shape: [cols, rows]
-      const outRows = cols;
-      const outCols = rows;
-      if (isBigInt) {
-        const src = srcData as BigInt64Array | BigUint64Array;
-        const dst = outputData as BigInt64Array | BigUint64Array;
-        for (let outRow = 0; outRow < outRows; outRow++) {
-          const dstRowOffset = outRow * outCols;
-          const srcCol = cols - 1 - outRow;
-          for (let outCol = 0; outCol < outCols; outCol++) {
-            dst[dstRowOffset + outCol] = src[outCol * cols + srcCol]!;
-          }
-        }
-      } else {
-        const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        for (let outRow = 0; outRow < outRows; outRow++) {
-          const dstRowOffset = outRow * outCols;
-          const srcCol = cols - 1 - outRow;
-          for (let outCol = 0; outCol < outCols; outCol++) {
-            dst[dstRowOffset + outCol] = src[outCol * cols + srcCol]!;
-          }
-        }
-      }
-    } else if (k === 2) {
-      // 180 degrees: dst[outRow, outCol] = src[rows - 1 - outRow, cols - 1 - outCol]
-      // output shape: [rows, cols]
-      if (isBigInt) {
-        const src = srcData as BigInt64Array | BigUint64Array;
-        const dst = outputData as BigInt64Array | BigUint64Array;
-        for (let outRow = 0; outRow < rows; outRow++) {
-          const dstRowOffset = outRow * cols;
-          const srcRowOffset = (rows - 1 - outRow) * cols;
-          for (let outCol = 0; outCol < cols; outCol++) {
-            dst[dstRowOffset + outCol] = src[srcRowOffset + (cols - 1 - outCol)]!;
-          }
-        }
-      } else {
-        const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        for (let outRow = 0; outRow < rows; outRow++) {
-          const dstRowOffset = outRow * cols;
-          const srcRowOffset = (rows - 1 - outRow) * cols;
-          for (let outCol = 0; outCol < cols; outCol++) {
-            dst[dstRowOffset + outCol] = src[srcRowOffset + (cols - 1 - outCol)]!;
-          }
-        }
-      }
-    } else {
-      // k === 3, 270 degrees CCW (or 90 CW): dst[outRow, outCol] = src[rows - 1 - outCol, outRow]
-      // output shape: [cols, rows]
-      const outRows = cols;
-      const outCols = rows;
-      if (isBigInt) {
-        const src = srcData as BigInt64Array | BigUint64Array;
-        const dst = outputData as BigInt64Array | BigUint64Array;
-        for (let outRow = 0; outRow < outRows; outRow++) {
-          const dstRowOffset = outRow * outCols;
-          for (let outCol = 0; outCol < outCols; outCol++) {
-            dst[dstRowOffset + outCol] = src[(rows - 1 - outCol) * cols + outRow]!;
-          }
-        }
-      } else {
-        const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        for (let outRow = 0; outRow < outRows; outRow++) {
-          const dstRowOffset = outRow * outCols;
-          for (let outCol = 0; outCol < outCols; outCol++) {
-            dst[dstRowOffset + outCol] = src[(rows - 1 - outCol) * cols + outRow]!;
-          }
-        }
-      }
-    }
-
-    return rot90Result;
-  }
-
-  // General N-D case (fallback)
-  const outputStrides = computeStrides(outputShape);
-  const inputStrides = computeStrides(shape);
-  const indices = new Array(ndim).fill(0);
-  const sourceIndices = new Array(ndim);
-
-  for (let i = 0; i < storage.size; i++) {
-    // Transform indices based on k
-    for (let d = 0; d < ndim; d++) {
-      sourceIndices[d] = indices[d];
-    }
-
-    let outIdx0, outIdx1;
-    if (k === 1) {
-      outIdx0 = shape[axis1]! - 1 - indices[axis1]!;
-      outIdx1 = indices[axis0];
-    } else if (k === 2) {
-      outIdx0 = shape[axis0]! - 1 - indices[axis0]!;
-      outIdx1 = shape[axis1]! - 1 - indices[axis1]!;
-      sourceIndices[axis0] = outIdx0;
-      sourceIndices[axis1] = outIdx1;
-    } else {
-      outIdx0 = indices[axis1];
-      outIdx1 = shape[axis0]! - 1 - indices[axis0]!;
-    }
-
-    if (k !== 2) {
-      sourceIndices[axis0] = outIdx0;
-      sourceIndices[axis1] = outIdx1;
-    }
-
-    // Compute output offset
-    let outputOffset = 0;
-    for (let d = 0; d < ndim; d++) {
-      outputOffset += sourceIndices[d]! * outputStrides[d]!;
-    }
-
-    // Get source value using direct typed array access
-    let inputOffset = 0;
-    for (let d = 0; d < ndim; d++) {
-      inputOffset += indices[d]! * inputStrides[d]!;
-    }
-
-    // Write to output
-    if (isBigInt) {
-      const src = srcData as BigInt64Array | BigUint64Array;
-      const dst = outputData as BigInt64Array | BigUint64Array;
-      dst[outputOffset] = src[inputOffset]!;
-    } else {
-      const src = srcData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-      const dst = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-      dst[outputOffset] = src[inputOffset]!;
-    }
-
-    // Increment indices
-    for (let d = ndim - 1; d >= 0; d--) {
-      indices[d]++;
-      if (indices[d]! < shape[d]!) {
-        break;
-      }
-      indices[d] = 0;
-    }
-  }
-
-  return rot90Result;
+  return ArrayStorage.fromDataShared(storage.data, newShape, dtype, strides, newOffset, storage.wasmRegion);
 }
 
 /**
