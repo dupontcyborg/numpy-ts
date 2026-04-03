@@ -45,36 +45,48 @@ export fn sort_u32(a: [*]u32, N: u32) void {
     } else sc.introSort(u32, a, N);
 }
 
-/// Sort i16 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
-export fn sort_i16(a: [*]i16, N: u32) void {
-    if (N >= 256 and N <= 4096) {
-        var scratch: [4096]i16 = undefined;
-        sc.radixSort(i16, a, N, &scratch);
-    } else sc.introSort(i16, a, N);
+/// Sort i16 array in-place. Uses radix sort when scratch is provided, introsort otherwise.
+export fn sort_i16(a: [*]i16, N: u32, scratch: ?[*]i16) void {
+    if (scratch) |s| {
+        if (N >= 256) {
+            sc.radixSort(i16, a, N, s);
+            return;
+        }
+    }
+    sc.introSort(i16, a, N);
 }
 
-/// Sort u16 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
-export fn sort_u16(a: [*]u16, N: u32) void {
-    if (N >= 256 and N <= 4096) {
-        var scratch: [4096]u16 = undefined;
-        sc.radixSort(u16, a, N, &scratch);
-    } else sc.introSort(u16, a, N);
+/// Sort u16 array in-place. Uses radix sort when scratch is provided, introsort otherwise.
+export fn sort_u16(a: [*]u16, N: u32, scratch: ?[*]u16) void {
+    if (scratch) |s| {
+        if (N >= 256) {
+            sc.radixSort(u16, a, N, s);
+            return;
+        }
+    }
+    sc.introSort(u16, a, N);
 }
 
-/// Sort i8 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
-export fn sort_i8(a: [*]i8, N: u32) void {
-    if (N >= 256 and N <= 4096) {
-        var scratch: [4096]i8 = undefined;
-        sc.radixSort(i8, a, N, &scratch);
-    } else sc.introSort(i8, a, N);
+/// Sort i8 array in-place. Uses radix sort when scratch is provided, introsort otherwise.
+export fn sort_i8(a: [*]i8, N: u32, scratch: ?[*]i8) void {
+    if (scratch) |s| {
+        if (N >= 16) {
+            sc.radixSort(i8, a, N, s);
+            return;
+        }
+    }
+    sc.introSort(i8, a, N);
 }
 
-/// Sort u8 array in-place. Uses radix sort for N ≥ 16 (≤ 4096), introsort otherwise.
-export fn sort_u8(a: [*]u8, N: u32) void {
-    if (N >= 256 and N <= 4096) {
-        var scratch: [4096]u8 = undefined;
-        sc.radixSort(u8, a, N, &scratch);
-    } else sc.introSort(u8, a, N);
+/// Sort u8 array in-place. Uses radix sort when scratch is provided, introsort otherwise.
+export fn sort_u8(a: [*]u8, N: u32, scratch: ?[*]u8) void {
+    if (scratch) |s| {
+        if (N >= 16) {
+            sc.radixSort(u8, a, N, s);
+            return;
+        }
+    }
+    sc.introSort(u8, a, N);
 }
 
 // --- Batch slice sort (single WASM call for multi-dim arrays) ---
@@ -226,7 +238,7 @@ test "sort_i32 basic" {
 test "sort_u8 basic" {
     const testing = @import("std").testing;
     var a = [_]u8{ 200, 50, 100, 10, 255 };
-    sort_u8(&a, 5);
+    sort_u8(&a, 5, null);
     try testing.expectEqual(a[0], 10);
     try testing.expectEqual(a[4], 255);
 }
@@ -263,7 +275,7 @@ test "sort_i16 radix sort path" {
     const testing = @import("std").testing;
     // 20 elements to trigger radix sort (threshold=16)
     var a = [_]i16{ 100, -50, 32, -128, 0, 500, -1, 7, 32, 100, -50, 200, 3, -200, 50, 1, -1, 0, 127, -128 };
-    sort_i16(&a, 20);
+    sort_i16(&a, 20, null);
     try testing.expectEqual(a[0], -200);
     try testing.expectEqual(a[1], -128);
     try testing.expectEqual(a[2], -128);
@@ -278,7 +290,7 @@ test "sort_i16 radix sort path" {
 test "sort_u8 radix sort path" {
     const testing = @import("std").testing;
     var a = [_]u8{ 255, 0, 128, 64, 32, 16, 8, 4, 2, 1, 200, 150, 100, 50, 25, 12, 6, 3, 0, 255 };
-    sort_u8(&a, 20);
+    sort_u8(&a, 20, null);
     try testing.expectEqual(a[0], 0);
     try testing.expectEqual(a[1], 0);
     try testing.expectEqual(a[18], 255);

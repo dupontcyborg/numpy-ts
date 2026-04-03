@@ -531,6 +531,51 @@ pub fn lexHeapSort(comptime T: type, keys: [*]const T, num_keys: u32, N: u32, ou
     }
 }
 
+/// Lexicographic radix sort for narrow integer keys. Uses LSD byte-at-a-time
+/// counting sort per key, processing keys from least significant (index 0) to
+/// most significant (index num_keys-1). O(N × num_keys × sizeof(T)) — much
+/// faster than O(N log N) heap sort for narrow types (i8: 1 pass/key, i16: 2).
+/// Requires a scratch buffer of N u32 elements (passed from caller).
+pub fn lexRadixSort(comptime T: type, keys: [*]const T, num_keys: u32, N: u32, out: [*]u32, scratch: [*]u32) void {
+    if (N <= 1) return;
+    const U = RadixUnsigned(T);
+    const numBytes = @sizeOf(T);
+
+    var k: u32 = 0;
+    while (k < num_keys) : (k += 1) {
+        const keyBase = @as(usize, k) * @as(usize, N);
+
+        var pass: u32 = 0;
+        while (pass < numBytes) : (pass += 1) {
+            // Count occurrences of each byte bucket
+            var counts = [_]u32{0} ** 256;
+            for (0..N) |i| {
+                const val_bytes: [numBytes]u8 = @bitCast(toRadixKey(T, U, keys[keyBase + out[i]]));
+                counts[val_bytes[pass]] += 1;
+            }
+
+            // Prefix sum
+            var total: u32 = 0;
+            for (0..256) |b| {
+                const c = counts[b];
+                counts[b] = total;
+                total += c;
+            }
+
+            // Scatter (stable)
+            for (0..N) |i| {
+                const val_bytes: [numBytes]u8 = @bitCast(toRadixKey(T, U, keys[keyBase + out[i]]));
+                const bucket = val_bytes[pass];
+                scratch[counts[bucket]] = out[i];
+                counts[bucket] += 1;
+            }
+
+            // Copy back
+            @memcpy(out[0..N], scratch[0..N]);
+        }
+    }
+}
+
 // --- Radix sort ---
 
 /// Map a value to a radix-sortable unsigned integer.

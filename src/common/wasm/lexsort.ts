@@ -31,6 +31,13 @@ import { wasmConfig } from './config';
 const BASE_THRESHOLD = 64;
 
 type LexsortFn = (keysPtr: number, numKeys: number, N: number, outPtr: number) => void;
+type LexsortRadixFn = (
+  keysPtr: number,
+  numKeys: number,
+  N: number,
+  outPtr: number,
+  scratchPtr: number
+) => void;
 
 const kernels: Partial<Record<DType, LexsortFn>> = {
   float64: lexsort_f64,
@@ -39,11 +46,15 @@ const kernels: Partial<Record<DType, LexsortFn>> = {
   uint64: lexsort_u64,
   int32: lexsort_i32,
   uint32: lexsort_u32,
-  int16: lexsort_i16,
-  uint16: lexsort_u16,
-  int8: lexsort_i8,
-  uint8: lexsort_u8,
   float16: lexsort_f32,
+};
+
+// Narrow integer types use radix sort (extra scratch parameter)
+const radixKernels: Partial<Record<DType, LexsortRadixFn>> = {
+  int16: lexsort_i16 as unknown as LexsortRadixFn,
+  uint16: lexsort_u16 as unknown as LexsortRadixFn,
+  int8: lexsort_i8 as unknown as LexsortRadixFn,
+  uint8: lexsort_u8 as unknown as LexsortRadixFn,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;
@@ -81,8 +92,9 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
   }
 
   const kernel = kernels[dtype];
+  const radixKernel = radixKernels[dtype];
   const Ctor = ctorMap[dtype];
-  if (!kernel || !Ctor) return null;
+  if ((!kernel && !radixKernel) || !Ctor) return null;
 
   const numKeys = keys.length;
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
@@ -118,7 +130,12 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
     }
   }
 
-  kernel(flatBuf, numKeys, n, outRegion.ptr);
+  if (radixKernel) {
+    const scratchPtr = scratchAlloc(n * 4);
+    radixKernel(flatBuf, numKeys, n, outRegion.ptr, scratchPtr);
+  } else {
+    kernel!(flatBuf, numKeys, n, outRegion.ptr);
+  }
 
   return ArrayStorage.fromWasmRegion(
     [n],

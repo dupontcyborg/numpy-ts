@@ -34,7 +34,6 @@ import {
   scratchCopyIn,
   getSharedMemory,
   f16InputToScratchF32,
-  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';

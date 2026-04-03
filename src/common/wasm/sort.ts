@@ -36,6 +36,7 @@ import {
 import {
   wasmMalloc,
   resetScratchAllocator,
+  scratchAlloc,
   scratchCopyIn,
   getSharedMemory,
   f16InputToScratchF32,
@@ -50,6 +51,8 @@ const BASE_THRESHOLD = 64;
 type SortFn = (aPtr: number, N: number) => void;
 type SliceSortFn = (aPtr: number, sliceSize: number, numSlices: number) => void;
 
+type SortWithScratchFn = (aPtr: number, N: number, scratchPtr: number) => void;
+
 const kernels: Partial<Record<DType, SortFn>> = {
   float64: sort_f64,
   float32: sort_f32,
@@ -58,12 +61,16 @@ const kernels: Partial<Record<DType, SortFn>> = {
   uint64: sort_u64,
   int32: sort_i32,
   uint32: sort_u32,
-  int16: sort_i16,
-  uint16: sort_u16,
-  int8: sort_i8,
-  uint8: sort_u8,
   complex128: sort_c128,
   complex64: sort_c64,
+};
+
+// Narrow integer types accept scratch pointer for radix sort at any N
+const scratchKernels: Partial<Record<DType, SortWithScratchFn>> = {
+  int16: sort_i16 as unknown as SortWithScratchFn,
+  uint16: sort_u16 as unknown as SortWithScratchFn,
+  int8: sort_i8 as unknown as SortWithScratchFn,
+  uint8: sort_u8 as unknown as SortWithScratchFn,
 };
 
 const sliceKernels: Partial<Record<DType, SliceSortFn>> = {
@@ -135,8 +142,9 @@ export function wasmSortSlices(
 
   // Non-contiguous slices: per-slice calls
   const kernel = kernels[dtype];
+  const scratchKernel = scratchKernels[dtype];
   const Ctor = ctorMap[dtype];
-  if (!kernel || !Ctor) return false;
+  if ((!kernel && !scratchKernel) || !Ctor) return false;
 
   const isComplex = dtype === 'complex128' || dtype === 'complex64';
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
@@ -147,8 +155,15 @@ export function wasmSortSlices(
 
   const ptr = scratchCopyIn(resultData);
 
-  for (let i = 0; i < outerSize; i++) {
-    kernel(ptr + sliceOffsets[i]! * bytesPerElem, axisSize);
+  if (scratchKernel) {
+    const radixScratch = scratchAlloc(axisSize * bpe);
+    for (let i = 0; i < outerSize; i++) {
+      scratchKernel(ptr + sliceOffsets[i]! * bytesPerElem, axisSize, radixScratch);
+    }
+  } else {
+    for (let i = 0; i < outerSize; i++) {
+      kernel!(ptr + sliceOffsets[i]! * bytesPerElem, axisSize);
+    }
   }
 
   const mem = getSharedMemory();
@@ -171,8 +186,9 @@ export function wasmSort(a: ArrayStorage): ArrayStorage | null {
 
   const dtype = a.dtype;
   const kernel = kernels[dtype];
+  const scratchK = scratchKernels[dtype];
   const Ctor = ctorMap[dtype];
-  if (!kernel || !Ctor) return null;
+  if ((!kernel && !scratchK) || !Ctor) return null;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const isF16 = dtype === 'float16';
@@ -190,7 +206,7 @@ export function wasmSort(a: ArrayStorage): ArrayStorage | null {
   const aOff = a.offset;
   if (isF16) {
     const scratchPtr = f16InputToScratchF32(a, size);
-    kernel(scratchPtr, size);
+    kernel!(scratchPtr, size);
     // Copy sorted f32 scratch into persistent output, then convert to f16
     const mem = getSharedMemory();
     new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
@@ -225,7 +241,12 @@ export function wasmSort(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  kernel(outRegion.ptr, size);
+  if (scratchK) {
+    const radixScratch = scratchAlloc(size * bpe);
+    scratchK(outRegion.ptr, size, radixScratch);
+  } else {
+    kernel!(outRegion.ptr, size);
+  }
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),

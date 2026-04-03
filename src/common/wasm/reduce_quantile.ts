@@ -40,12 +40,13 @@ import {
   wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { isBigIntDType, isComplexDType, getDTypeSize, type DType, type TypedArray } from '../dtype';
+import { isComplexDType, getDTypeSize, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
 
 type SortFn = (aPtr: number, N: number) => void;
+type SortWithScratchFn = (aPtr: number, N: number, scratchPtr: number) => void;
 type SliceSortFn = (aPtr: number, sliceSize: number, numSlices: number) => void;
 
 const sortKernels: Partial<Record<DType, SortFn>> = {
@@ -56,10 +57,14 @@ const sortKernels: Partial<Record<DType, SortFn>> = {
   uint64: sort_u64,
   int32: sort_i32,
   uint32: sort_u32,
-  int16: sort_i16,
-  uint16: sort_u16,
-  int8: sort_i8,
-  uint8: sort_u8,
+};
+
+// Narrow integer types accept an optional scratch pointer for radix sort
+const sortWithScratchKernels: Partial<Record<DType, SortWithScratchFn>> = {
+  int16: sort_i16 as unknown as SortWithScratchFn,
+  uint16: sort_u16 as unknown as SortWithScratchFn,
+  int8: sort_i8 as unknown as SortWithScratchFn,
+  uint8: sort_u8 as unknown as SortWithScratchFn,
 };
 
 const sliceSortKernels: Partial<Record<DType, SliceSortFn>> = {
@@ -143,16 +148,16 @@ export function wasmReduceQuantile(a: ArrayStorage, q: number): number | null {
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const kernel = sortKernels[a.dtype];
-  if (!kernel) return null;
+  const scratchKernel = sortWithScratchKernels[a.dtype];
+  if (!kernel && !scratchKernel) return null;
 
   const bpe = getDTypeSize(a.dtype);
-  const factor = isBigIntDType(a.dtype) ? 1 : 1; // no interleaving for real types
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
   // Copy input data to scratch in its native dtype
-  const inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size * factor, bpe);
+  const inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
 
   // Sort needs a mutable copy — if resolveInputPtr returned a direct pointer
   // (WASM-backed, zero-copy), we need to copy to scratch to avoid mutating the original
@@ -170,8 +175,13 @@ export function wasmReduceQuantile(a: ArrayStorage, q: number): number | null {
     sortPtr = inPtr;
   }
 
-  // Sort in-place in native dtype
-  kernel(sortPtr, size);
+  // Sort in-place in native dtype — allocate radix scratch for narrow types
+  if (scratchKernel) {
+    const radixScratch = scratchAlloc(size * bpe);
+    scratchKernel(sortPtr, size, radixScratch);
+  } else {
+    kernel!(sortPtr, size);
+  }
 
   // Read quantile from sorted buffer
   const mem = getSharedMemory();
@@ -199,7 +209,8 @@ export function wasmReduceQuantileStrided(
 
   const sliceKernel = sliceSortKernels[dtype];
   const sortKernel = sortKernels[dtype];
-  if (!sortKernel) return null;
+  const scratchSortKernel = sortWithScratchKernels[dtype];
+  if (!sortKernel && !scratchSortKernel) return null;
 
   const bpe = getDTypeSize(dtype);
   const outSize = outer * inner;
@@ -262,7 +273,12 @@ export function wasmReduceQuantileStrided(
         }
 
         // Sort the column
-        sortKernel(colPtr, axisSize);
+        if (scratchSortKernel) {
+          const colScratch = scratchAlloc(axisSize * bpe);
+          scratchSortKernel(colPtr, axisSize, colScratch);
+        } else {
+          sortKernel!(colPtr, axisSize);
+        }
 
         // Interpolate
         outView[o * inner + inn] = interpolateQuantile(mem.buffer, colPtr, axisSize, q, dtype);
