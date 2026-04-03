@@ -25,6 +25,8 @@ import {
   reduce_prod_strided_u32,
   reduce_prod_strided_u16,
   reduce_prod_strided_u8,
+  reduce_prod_strided_c128,
+  reduce_prod_strided_c64,
 } from './bins/reduce_prod.wasm';
 import {
   resetScratchAllocator,
@@ -243,4 +245,52 @@ export function wasmReduceProdStrided(
   }
 
   return ArrayStorage.fromData(outData, [outSize], outDtype);
+}
+
+/**
+ * WASM-accelerated strided product for complex types.
+ */
+export function wasmReduceProdStridedComplex(
+  a: ArrayStorage,
+  outerSize: number,
+  axisSize: number,
+  innerSize: number
+): ArrayStorage | null {
+  if (!a.isCContiguous) return null;
+  const dtype = a.dtype;
+  if (dtype !== 'complex128' && dtype !== 'complex64') return null;
+
+  const totalSize = outerSize * axisSize * innerSize;
+  if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const isC128 = dtype === 'complex128';
+  const floatBpe = isC128 ? 8 : 4;
+  const outSize = outerSize * innerSize;
+  const outFloats = outSize * 2;
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  const inPtr = resolveInputPtr(
+    a.data,
+    a.isWasmBacked,
+    a.wasmPtr,
+    a.offset,
+    totalSize * 2,
+    floatBpe
+  );
+  const outPtr = alloc(outFloats * floatBpe);
+
+  if (isC128) {
+    reduce_prod_strided_c128(inPtr, outPtr, outerSize, axisSize, innerSize);
+  } else {
+    reduce_prod_strided_c64(inPtr, outPtr, outerSize, axisSize, innerSize);
+  }
+
+  const Ctor = isC128
+    ? (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
+    : (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+  const outData = copyOut(outPtr, outFloats, Ctor);
+
+  return ArrayStorage.fromData(outData, [outSize], dtype);
 }

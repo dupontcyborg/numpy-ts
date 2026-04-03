@@ -16,7 +16,12 @@ import {
 } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { Complex } from '../complex';
-import { wasmReduceSum, wasmReduceSumStrided } from '../wasm/reduce_sum';
+import {
+  wasmReduceSum,
+  wasmReduceSumStrided,
+  wasmReduceSumStridedComplex,
+  wasmReduceSumComplex,
+} from '../wasm/reduce_sum';
 import { wasmReduceMax, wasmReduceMaxStrided } from '../wasm/reduce_max';
 import { wasmReduceMin, wasmReduceMinStrided } from '../wasm/reduce_min';
 import { wasmReduceArgmax, wasmReduceArgmaxStrided } from '../wasm/reduce_argmax';
@@ -26,7 +31,11 @@ import { wasmReduceVar } from '../wasm/reduce_var';
 import { wasmReduceNansum } from '../wasm/reduce_nansum';
 import { wasmReduceNanmin } from '../wasm/reduce_nanmin';
 import { wasmReduceNanmax } from '../wasm/reduce_nanmax';
-import { wasmReduceProd, wasmReduceProdStrided } from '../wasm/reduce_prod';
+import {
+  wasmReduceProd,
+  wasmReduceProdStrided,
+  wasmReduceProdStridedComplex,
+} from '../wasm/reduce_prod';
 import { wasmReduceQuantile, wasmReduceQuantileStrided } from '../wasm/reduce_quantile';
 import { wasmReduceAny } from '../wasm/reduce_any';
 import { wasmReduceAll } from '../wasm/reduce_all';
@@ -144,6 +153,10 @@ export function sum(
 
     // Sum all elements - return scalar (or Complex for complex arrays)
     if (isComplexDType(dtype)) {
+      // WASM fast path for complex global sum
+      const wasmCSum = wasmReduceSumComplex(storage);
+      if (wasmCSum !== null) return new Complex(wasmCSum[0], wasmCSum[1]);
+
       let totalRe = 0;
       let totalIm = 0;
       if (contiguous) {
@@ -302,7 +315,27 @@ export function sum(
   );
 
   if (isComplexDType(dtype)) {
-    // Complex sum along axis
+    // WASM fast path for complex sum along axis
+    if (contiguous) {
+      const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
+      const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+      const wasmResult = wasmReduceSumStridedComplex(storage, wasmOuter, axisSize, innerSize);
+      if (wasmResult) {
+        const outShape = keepdims
+          ? shape.map((s, i) => (i === normalizedAxis ? 1 : s))
+          : outputShape;
+        return ArrayStorage.fromDataShared(
+          wasmResult.data,
+          outShape,
+          dtype,
+          computeStrides(outShape),
+          0,
+          wasmResult.wasmRegion
+        );
+      }
+    }
+
+    // Complex sum along axis — JS fallback
     const complexData = data as Float64Array | Float32Array;
     const resultComplex = resultData as Float64Array | Float32Array;
 
@@ -983,7 +1016,27 @@ export function prod(
   );
 
   if (isComplexDType(dtype)) {
-    // Complex product along axis
+    // WASM fast path for complex prod along axis
+    if (contiguous) {
+      const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
+      const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+      const wasmResult = wasmReduceProdStridedComplex(storage, wasmOuter, axisSize, innerSize);
+      if (wasmResult) {
+        const outShape = keepdims
+          ? shape.map((s, i) => (i === normalizedAxis ? 1 : s))
+          : outputShape;
+        return ArrayStorage.fromDataShared(
+          wasmResult.data,
+          outShape,
+          dtype,
+          computeStrides(outShape),
+          0,
+          wasmResult.wasmRegion
+        );
+      }
+    }
+
+    // Complex product along axis — JS fallback
     const complexData = data as Float64Array | Float32Array;
     const resultComplex = resultData as Float64Array | Float32Array;
 

@@ -25,11 +25,17 @@ import {
   reduce_sum_strided_u32,
   reduce_sum_strided_u16,
   reduce_sum_strided_u8,
+  reduce_sum_c128,
+  reduce_sum_c64,
+  reduce_sum_strided_c128,
+  reduce_sum_strided_c64,
 } from './bins/reduce_sum.wasm';
 import {
   resetScratchAllocator,
   resolveInputPtr,
   f16InputToScratchF32,
+  scratchAlloc,
+  getSharedMemory,
   alloc,
   copyOut,
 } from './runtime';
@@ -99,6 +105,40 @@ export function wasmReduceSum(a: ArrayStorage): number | null {
   return Number(kernel(aPtr, size));
 }
 
+/**
+ * WASM-accelerated global sum for complex types.
+ * Returns [re, im] tuple or null.
+ */
+export function wasmReduceSumComplex(a: ArrayStorage): [number, number] | null {
+  if (!a.isCContiguous) return null;
+  const dtype = a.dtype;
+  if (dtype !== 'complex128' && dtype !== 'complex64') return null;
+
+  const size = a.size;
+  if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const isC128 = dtype === 'complex128';
+  const floatBpe = isC128 ? 8 : 4;
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  const inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size * 2, floatBpe);
+  const outPtr = scratchAlloc(isC128 ? 16 : 8);
+
+  if (isC128) {
+    reduce_sum_c128(inPtr, size, outPtr);
+    const mem = getSharedMemory();
+    const out = new Float64Array(mem.buffer, outPtr, 2);
+    return [out[0]!, out[1]!];
+  } else {
+    reduce_sum_c64(inPtr, size, outPtr);
+    const mem = getSharedMemory();
+    const out = new Float32Array(mem.buffer, outPtr, 2);
+    return [out[0]!, out[1]!];
+  }
+}
+
 // --- Strided axis reduction (all output f64 to avoid overflow and BigInt overhead) ---
 
 type StridedFn = (aPtr: number, outPtr: number, outer: number, axis: number, inner: number) => void;
@@ -160,4 +200,53 @@ export function wasmReduceSumStrided(
   );
 
   return ArrayStorage.fromData(outData, [outSize], 'float64');
+}
+
+/**
+ * WASM-accelerated strided sum for complex types.
+ * Returns ArrayStorage of complex output, or null.
+ */
+export function wasmReduceSumStridedComplex(
+  a: ArrayStorage,
+  outerSize: number,
+  axisSize: number,
+  innerSize: number
+): ArrayStorage | null {
+  if (!a.isCContiguous) return null;
+  const dtype = a.dtype;
+  if (dtype !== 'complex128' && dtype !== 'complex64') return null;
+
+  const totalSize = outerSize * axisSize * innerSize;
+  if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const isC128 = dtype === 'complex128';
+  const floatBpe = isC128 ? 8 : 4;
+  const outSize = outerSize * innerSize;
+  const outFloats = outSize * 2; // interleaved re/im
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  const inPtr = resolveInputPtr(
+    a.data,
+    a.isWasmBacked,
+    a.wasmPtr,
+    a.offset,
+    totalSize * 2,
+    floatBpe
+  );
+  const outPtr = alloc(outFloats * floatBpe);
+
+  if (isC128) {
+    reduce_sum_strided_c128(inPtr, outPtr, outerSize, axisSize, innerSize);
+  } else {
+    reduce_sum_strided_c64(inPtr, outPtr, outerSize, axisSize, innerSize);
+  }
+
+  const Ctor = isC128
+    ? (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
+    : (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+  const outData = copyOut(outPtr, outFloats, Ctor);
+
+  return ArrayStorage.fromData(outData, [outSize], dtype);
 }

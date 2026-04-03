@@ -304,6 +304,91 @@ export fn reduce_sum_u16_to_u64(a: [*]const u16, N: u32) u64 {
     return sum;
 }
 
+// --- Complex sum kernels ---
+// Complex data is interleaved [re0, im0, re1, im1, ...].
+// N = number of complex elements. The buffer has 2*N floats.
+
+/// Sum complex128 (f64 pairs). Returns (re, im) via out[0], out[1].
+export fn reduce_sum_c128(a: [*]const f64, N: u32, out: [*]f64) void {
+    const simd_mod = @import("simd.zig");
+    var acc: simd_mod.V2f64 = @splat(0.0);
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        acc += simd_mod.load2_f64(a, i * 2);
+    }
+    simd_mod.store2_f64(out, 0, acc);
+}
+
+/// Sum complex64 (f32 pairs). Returns (re, im) via out[0], out[1].
+export fn reduce_sum_c64(a: [*]const f32, N: u32, out: [*]f32) void {
+    const simd_mod = @import("simd.zig");
+    // Process 2 complex elements at a time (4 floats = 1 f32x4)
+    const n2 = N & ~@as(u32, 1);
+    var acc: simd_mod.V4f32 = @splat(0.0);
+    var i: u32 = 0;
+    while (i < n2) : (i += 2) {
+        acc += simd_mod.load4_f32(a, i * 2);
+    }
+    // Reduce 4-wide to 2-wide: lanes [0,1] + [2,3]
+    var re = acc[0] + acc[2];
+    var im = acc[1] + acc[3];
+    // Scalar tail
+    if (i < N) {
+        re += a[i * 2];
+        im += a[i * 2 + 1];
+    }
+    out[0] = re;
+    out[1] = im;
+}
+
+/// Strided sum for complex128. Input is interleaved f64 pairs.
+/// outer × axis × inner layout, each "element" is 2 f64s.
+export fn reduce_sum_strided_c128(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    for (0..O) |o| {
+        const base = (o * S) * 2;
+        const ob = o * I * 2;
+        // Init from first axis slice
+        for (0..I) |i| {
+            out[ob + i * 2] = a[base + i * 2];
+            out[ob + i * 2 + 1] = a[base + i * 2 + 1];
+        }
+        for (1..A) |ax| {
+            const row = base + ax * I * 2;
+            for (0..I) |i| {
+                out[ob + i * 2] += a[row + i * 2];
+                out[ob + i * 2 + 1] += a[row + i * 2 + 1];
+            }
+        }
+    }
+}
+
+/// Strided sum for complex64. Input is interleaved f32 pairs.
+export fn reduce_sum_strided_c64(a: [*]const f32, out: [*]f32, outer: u32, axis: u32, inner: u32) void {
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    for (0..O) |o| {
+        const base = (o * S) * 2;
+        const ob = o * I * 2;
+        for (0..I) |i| {
+            out[ob + i * 2] = a[base + i * 2];
+            out[ob + i * 2 + 1] = a[base + i * 2 + 1];
+        }
+        for (1..A) |ax| {
+            const row = base + ax * I * 2;
+            for (0..I) |i| {
+                out[ob + i * 2] += a[row + i * 2];
+                out[ob + i * 2 + 1] += a[row + i * 2 + 1];
+            }
+        }
+    }
+}
+
 // --- Tests ---
 
 test "reduce_sum_f64 basic" {
