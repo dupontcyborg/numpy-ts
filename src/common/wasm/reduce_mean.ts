@@ -32,8 +32,7 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   f16InputToScratchF32,
-  alloc,
-  copyOut,
+  wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -143,6 +142,9 @@ export function wasmReduceMeanStrided(
   const outBpe = Float64Array.BYTES_PER_ELEMENT;
   const outSize = outerSize * innerSize;
 
+  const outRegion = wasmMalloc(outSize * outBpe);
+  if (!outRegion) return null;
+
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
   let inPtr: number;
@@ -151,15 +153,14 @@ export function wasmReduceMeanStrided(
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
-  const outPtr = alloc(outSize * outBpe);
 
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
+  kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
 
-  const outData = copyOut(
-    outPtr,
+  return ArrayStorage.fromWasmRegion(
+    [outSize],
+    'float64',
+    outRegion,
     outSize,
     Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
-
-  return ArrayStorage.fromData(outData, [outSize], 'float64');
 }

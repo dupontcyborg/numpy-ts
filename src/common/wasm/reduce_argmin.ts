@@ -30,8 +30,7 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   f16InputToScratchF32,
-  alloc,
-  copyOut,
+  wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -138,6 +137,9 @@ export function wasmReduceArgminStrided(
   const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outSize = outerSize * innerSize;
 
+  const outRegion = wasmMalloc(outSize * 4);
+  if (!outRegion) return null;
+
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
   let inPtr: number;
@@ -146,16 +148,14 @@ export function wasmReduceArgminStrided(
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
-  const outPtr = alloc(outSize * 4); // i32 = 4 bytes
 
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
+  kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
 
-  const OutCtor = Int32Array as unknown as new (
-    buf: ArrayBuffer,
-    off: number,
-    len: number
-  ) => TypedArray;
-  const outData = copyOut(outPtr, outSize, OutCtor);
-
-  return ArrayStorage.fromData(outData, [outSize], 'int32');
+  return ArrayStorage.fromWasmRegion(
+    [outSize],
+    'int32',
+    outRegion,
+    outSize,
+    Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+  );
 }

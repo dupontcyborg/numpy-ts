@@ -16,6 +16,9 @@ import { getBenchmarkSpecs } from '../../benchmarks/src/specs';
 import { setupArrays, executeOperation } from '../../benchmarks/src/bench-utils';
 
 // --- Config ---
+// Use LEAK_SIZE_SCALE env var to override size scale (e.g. "large" for stress testing).
+// Default is 'default' (100×100) for CI speed.
+const SIZE_SCALE = (process.env.LEAK_SIZE_SCALE || 'default') as 'small' | 'default' | 'large';
 const ITERS = 10; // enough to detect consistent leaks, fast enough for CI
 const MAX_LEAK_PER_ITER = 0; // zero tolerance — any leak is a bug
 
@@ -41,7 +44,7 @@ function releaseResult(result: unknown): void {
 }
 
 // --- Test generation ---
-const allSpecs = getBenchmarkSpecs('full');
+const allSpecs = getBenchmarkSpecs('full', SIZE_SCALE);
 const categories = [...new Set(allSpecs.map((s) => s.category))].sort();
 
 for (const category of categories) {

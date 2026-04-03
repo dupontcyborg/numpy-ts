@@ -324,7 +324,7 @@ export function sum(
         const outShape = keepdims
           ? shape.map((s, i) => (i === normalizedAxis ? 1 : s))
           : outputShape;
-        return ArrayStorage.fromDataShared(
+        const shared = ArrayStorage.fromDataShared(
           wasmResult.data,
           outShape,
           dtype,
@@ -332,6 +332,9 @@ export function sum(
           0,
           wasmResult.wasmRegion
         );
+        wasmResult.dispose();
+        result.dispose(); // free the pre-allocated JS fallback result
+        return shared;
       }
     }
 
@@ -1025,7 +1028,7 @@ export function prod(
         const outShape = keepdims
           ? shape.map((s, i) => (i === normalizedAxis ? 1 : s))
           : outputShape;
-        return ArrayStorage.fromDataShared(
+        const shared = ArrayStorage.fromDataShared(
           wasmResult.data,
           outShape,
           dtype,
@@ -1033,6 +1036,9 @@ export function prod(
           0,
           wasmResult.wasmRegion
         );
+        wasmResult.dispose();
+        result.dispose(); // free the pre-allocated JS fallback result
+        return shared;
       }
     }
 

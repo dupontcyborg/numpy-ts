@@ -36,8 +36,7 @@ import {
   f16InputToScratchF32,
   scratchAlloc,
   getSharedMemory,
-  alloc,
-  copyOut,
+  wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -181,6 +180,9 @@ export function wasmReduceSumStrided(
   const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outSize = outerSize * innerSize;
 
+  const outRegion = wasmMalloc(outSize * 8);
+  if (!outRegion) return null;
+
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
   let inPtr: number;
@@ -189,17 +191,16 @@ export function wasmReduceSumStrided(
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
-  const outPtr = alloc(outSize * 8);
 
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
+  kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
 
-  const outData = copyOut(
-    outPtr,
+  return ArrayStorage.fromWasmRegion(
+    [outSize],
+    'float64',
+    outRegion,
     outSize,
     Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
-
-  return ArrayStorage.fromData(outData, [outSize], 'float64');
 }
 
 /**
@@ -223,6 +224,10 @@ export function wasmReduceSumStridedComplex(
   const floatBpe = isC128 ? 8 : 4;
   const outSize = outerSize * innerSize;
   const outFloats = outSize * 2; // interleaved re/im
+  const outBytes = outFloats * floatBpe;
+
+  const outRegion = wasmMalloc(outBytes);
+  if (!outRegion) return null;
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
@@ -235,18 +240,16 @@ export function wasmReduceSumStridedComplex(
     totalSize * 2,
     floatBpe
   );
-  const outPtr = alloc(outFloats * floatBpe);
 
   if (isC128) {
-    reduce_sum_strided_c128(inPtr, outPtr, outerSize, axisSize, innerSize);
+    reduce_sum_strided_c128(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
   } else {
-    reduce_sum_strided_c64(inPtr, outPtr, outerSize, axisSize, innerSize);
+    reduce_sum_strided_c64(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
   }
 
   const Ctor = isC128
     ? (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
     : (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
-  const outData = copyOut(outPtr, outFloats, Ctor);
 
-  return ArrayStorage.fromData(outData, [outSize], dtype);
+  return ArrayStorage.fromWasmRegion([outSize], dtype, outRegion, outFloats, Ctor);
 }

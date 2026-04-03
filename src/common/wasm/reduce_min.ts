@@ -33,8 +33,6 @@ import {
   resolveInputPtr,
   f16InputToScratchF32,
   wasmMalloc,
-  alloc,
-  copyOut,
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
@@ -200,9 +198,9 @@ export function wasmReduceMinStrided(
     );
   }
 
-  const outPtr = alloc(outSize * outBpe);
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
-  const outData = copyOut(outPtr, outSize, OutCtor);
+  const outRegion2 = wasmMalloc(outSize * outBpe);
+  if (!outRegion2) return null;
+  kernel(inPtr, outRegion2.ptr, outerSize, axisSize, innerSize);
 
-  return ArrayStorage.fromData(outData, [outSize], dtype);
+  return ArrayStorage.fromWasmRegion([outSize], dtype, outRegion2, outSize, OutCtor);
 }
