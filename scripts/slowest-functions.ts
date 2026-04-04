@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const data = JSON.parse(
-  readFileSync(join(__dirname, '../benchmarks/results/latest-full.json'), 'utf-8')
+  readFileSync(join(__dirname, '../benchmarks/results/latest-full-large.json'), 'utf-8')
 );
 
 const N = parseInt(process.argv[2] ?? '50', 10);

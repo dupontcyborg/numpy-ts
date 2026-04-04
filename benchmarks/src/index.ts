@@ -19,7 +19,7 @@ import {
   printMultiRuntimeResults,
 } from './analysis';
 import { generateHTMLReport, generateMultiRuntimeHTMLReport } from './visualization';
-import { generatePNGChart, generateMultiRuntimePNGChart } from './chart-generator';
+import { generatePNGChart, generateH2HChart, generateMultiRuntimePNGChart } from './chart-generator';
 import { validateBenchmarks } from './validation';
 import type {
   BenchmarkOptions,
@@ -290,12 +290,20 @@ async function main() {
       }
     }
 
-    // Determine file suffix based on mode, threading, and baseline
+    // Determine file suffix based on mode, threading, baseline, and runtimes
     const sizeSuffix = options.sizeScale === 'small' ? '-small' : options.sizeScale === 'large' ? '-large' : '';
+    // Runtime suffix: single non-node runtime → "-deno"/"-bun"; multiple → "-runtimes"; node-only → ""
+    const runtimeSuffix =
+      selectedRuntimes.length > 1
+        ? '-runtimes'
+        : selectedRuntimes.length === 1 && selectedRuntimes[0]!.name !== 'node'
+          ? `-${selectedRuntimes[0]!.name}`
+          : '';
     const modeSuffix =
       (options.mode === 'full' ? '-full' : '') +
       (options.singleThread ? '-single' : '') +
       sizeSuffix +
+      runtimeSuffix +
       (options.pyodide ? '-pyodide' : '');
     const resultsDir = path.resolve(__dirname, '../results');
     const baselineType = options.pyodide ? 'pyodide' : 'python';
@@ -437,6 +445,10 @@ async function main() {
       const pngPath = path.join(plotsDir, `latest${modeSuffix}.png`);
       await generatePNGChart(report, pngPath);
       console.log(`PNG chart saved to: ${pngPath}`);
+
+      const h2hPath = path.join(plotsDir, `latest${modeSuffix}-h2h.png`);
+      await generateH2HChart(report, h2hPath);
+      console.log(`H2H chart saved to: ${h2hPath}`);
 
       console.log(`\nView report: open ${htmlPath}`);
     } else {

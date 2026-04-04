@@ -55,11 +55,11 @@ function formatBenchmarkName(name: string, wasmUsed?: boolean): string {
 }
 
 export function generateHTMLReport(report: BenchmarkReport, outputPath: string): void {
-  const html = createHTML(report);
+  const html = createHTML(report, outputPath);
   fs.writeFileSync(outputPath, html, 'utf-8');
 }
 
-function createHTML(report: BenchmarkReport): string {
+function createHTML(report: BenchmarkReport, outputPath: string = ''): string {
   const { timestamp, environment, results, summary } = report;
   const groups = groupByCategory(results);
   const categorySummaries = getCategorySummaries(results);
@@ -258,7 +258,7 @@ function createHTML(report: BenchmarkReport): string {
 
     <div class="summary-grid">
       <div class="summary-card">
-        <h3>Geo Mean</h3>
+        <h3>Overall Slowdown</h3>
         <div class="value">${formatRatio(summary.geo_mean)}</div>
       </div>
       <div class="summary-card">
@@ -278,7 +278,7 @@ function createHTML(report: BenchmarkReport): string {
     ${generateDtypeBreakdown(dtypeSummaries)}
 
     <div class="chart-container">
-      <h2>📊 Geo Mean by Category</h2>
+      <h2>📊 Overall Slowdown by Category</h2>
       <canvas id="categoryChart"></canvas>
     </div>
 
@@ -302,7 +302,7 @@ function createHTML(report: BenchmarkReport): string {
       data: {
         labels: ${JSON.stringify(categories)},
         datasets: [{
-          label: 'Geo Mean (x times slower than NumPy)',
+          label: 'Overall Slowdown (x times slower than NumPy)',
           data: ${JSON.stringify(categoryAvgSlowdowns)},
           backgroundColor: 'rgba(102, 126, 234, 0.8)',
           borderColor: 'rgba(102, 126, 234, 1)',
@@ -476,7 +476,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
         <div class="runtime-card ${rt}">
           <h3>${rt}</h3>
           <div class="version">v${environment.runtimes[rt]}</div>
-          ${summaries[rt] ? `<div class="version">Geo: ${formatRatio(summaries[rt]!.geo_mean)} | Median: ${formatRatio(summaries[rt]!.median_slowdown)}</div>` : ''}
+          ${summaries[rt] ? `<div class="version">Overall: ${formatRatio(summaries[rt]!.geo_mean)} | Median: ${formatRatio(summaries[rt]!.median_slowdown)}</div>` : ''}
         </div>
       `
         )
@@ -490,7 +490,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
           if (!s) return '';
           return `
         <div class="summary-card">
-          <h3>Geo Mean</h3>
+          <h3>Overall Slowdown</h3>
           <div class="runtime-label">${rt}</div>
           <div class="value">${formatRatio(s.geo_mean)}</div>
         </div>`;
@@ -507,7 +507,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
       .join('')}
 
     <div class="chart-container">
-      <h2>Geo Mean by Category (Grouped)</h2>
+      <h2>Overall Slowdown by Category (Grouped)</h2>
       <canvas id="categoryChart"></canvas>
     </div>
 

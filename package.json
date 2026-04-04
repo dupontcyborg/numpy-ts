@@ -80,6 +80,7 @@
     "test:leaks": "vitest run --project leaks",
     "test:leaks:large": "LEAK_SIZE_SCALE=large vitest run --project leaks",
     "bench:full:compare": "tsx benchmarks/scripts/compare.ts latest-full",
+    "bench:regenerate": "tsx benchmarks/scripts/regenerate-charts.ts",
     "bench:view": "open benchmarks/results/plots/latest.html || xdg-open benchmarks/results/plots/latest.html",
     "bench:full:view": "open benchmarks/results/plots/latest-full.html || xdg-open benchmarks/results/plots/latest-full.html",
     "bench:docs": "python3 scripts/generate-bench-docs.py benchmarks/results/latest-full.json",
