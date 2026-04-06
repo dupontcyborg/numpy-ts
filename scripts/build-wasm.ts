@@ -233,13 +233,20 @@ async function compileKernel(
   file: string,
   sharedSources: Map<string, string>,
   hashes: Hashes,
-  globalBase?: number
+  globalBase?: number,
+  /** Override output name (e.g. 'matmul_float-relaxed' for relaxed variant) */
+  outputName?: string,
+  /** Override CPU features (e.g. 'generic+simd128+relaxed_simd') */
+  cpuFeatures: string = 'generic+simd128'
 ): Promise<{ name: string; skipped: boolean; error?: string }> {
-  const name = file.replace('.zig', '');
+  const name = outputName ?? file.replace('.zig', '');
   const zigPath = join(ZIG_DIR, file);
-  // Include globalBase in hash so reassignment triggers rebuild
+  // Include globalBase and cpuFeatures in hash so changes trigger rebuild
   const baseHash = computeHash(zigPath, sharedSources);
-  const hash = globalBase !== undefined ? `${baseHash}:gb=${globalBase}` : baseHash;
+  const hashParts = [baseHash];
+  if (globalBase !== undefined) hashParts.push(`gb=${globalBase}`);
+  if (cpuFeatures !== 'generic+simd128') hashParts.push(`cpu=${cpuFeatures}`);
+  const hash = hashParts.join(':');
   const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
   const cachePath = join(CACHE_DIR, `${name}.wasm.ts`);
 
@@ -259,7 +266,7 @@ async function compileKernel(
     'wasm32-freestanding',
     '-O',
     ZIG_OPT,
-    '-mcpu=generic+simd128',
+    `-mcpu=${cpuFeatures}`,
     '-fno-entry',
     '-rdynamic',
     `--import-memory`,
@@ -309,6 +316,14 @@ async function main() {
   mkdirSync(CACHE_DIR, { recursive: true });
 
   const SHARED_MODULES = new Set(['simd.zig', 'sorting_common.zig', 'ziggurat_tables.zig']);
+
+  // Kernels that get a second compilation with +relaxed_simd (FMA: relaxed_madd).
+  // Only _float kernels benefit — integer kernels have no FMA equivalent.
+  const RELAXED_KERNELS = new Set([
+    'matmul_float', 'dot_float', 'inner_float',
+    'vecdot_float', 'matvec_float', 'vecmat_float',
+    'vector_norm',
+  ]);
   const zigFiles = readdirSync(ZIG_DIR).filter(
     (f) => f.endsWith('.zig') && !SHARED_MODULES.has(f)
   );
@@ -322,6 +337,12 @@ async function main() {
   for (let i = 0; i < sortedFiles.length; i++) {
     globalBaseMap.set(sortedFiles[i]!, i * MODULE_STRIDE);
   }
+  // Relaxed variants get offsets after all regular modules
+  const relaxedGlobalBaseMap = new Map<string, number>();
+  const relaxedFiles = sortedFiles.filter((f) => RELAXED_KERNELS.has(f.replace('.zig', '')));
+  for (let i = 0; i < relaxedFiles.length; i++) {
+    relaxedGlobalBaseMap.set(relaxedFiles[i]!, (sortedFiles.length + i) * MODULE_STRIDE);
+  }
 
   const hashes = loadHashes();
 
@@ -332,7 +353,7 @@ async function main() {
     if (existsSync(p)) sharedSources.set(m, readFileSync(p, 'utf-8'));
   }
 
-  // Determine which kernels need recompilation
+  // Determine which kernels need recompilation (baseline)
   const stale = zigFiles.filter((file) => {
     const name = file.replace('.zig', '');
     const baseHash = computeHash(join(ZIG_DIR, file), sharedSources);
@@ -342,13 +363,37 @@ async function main() {
     return !(hashes[name] === hash && existsSync(cachePath));
   });
 
-  const cached = zigFiles.length - stale.length;
+  // Determine which relaxed kernels need recompilation
+  const relaxedCpu = 'generic+simd128+relaxed_simd';
+  const staleRelaxed = relaxedFiles.filter((file) => {
+    const name = file.replace('.zig', '');
+    const relaxedName = `${name}-relaxed`;
+    const baseHash = computeHash(join(ZIG_DIR, file), sharedSources);
+    const gb = relaxedGlobalBaseMap.get(file);
+    const hashParts = [baseHash];
+    if (gb !== undefined) hashParts.push(`gb=${gb}`);
+    hashParts.push(`cpu=${relaxedCpu}`);
+    const hash = hashParts.join(':');
+    const cachePath = join(CACHE_DIR, `${relaxedName}.wasm.ts`);
+    return !(hashes[relaxedName] === hash && existsSync(cachePath));
+  });
 
-  if (stale.length === 0) {
+  const cached = zigFiles.length + relaxedFiles.length - stale.length - staleRelaxed.length;
+
+  if (stale.length === 0 && staleRelaxed.length === 0) {
     // All cached — just copy from cache to bins to ensure bins/ matches current mode
     let restored = 0;
     for (const file of zigFiles) {
       const name = file.replace('.zig', '');
+      const cachePath = join(CACHE_DIR, `${name}.wasm.ts`);
+      const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
+      if (existsSync(cachePath)) {
+        copyFileSync(cachePath, tsPath);
+        restored++;
+      }
+    }
+    for (const file of relaxedFiles) {
+      const name = `${file.replace('.zig', '')}-relaxed`;
       const cachePath = join(CACHE_DIR, `${name}.wasm.ts`);
       const tsPath = join(BINS_DIR, `${name}.wasm.ts`);
       if (existsSync(cachePath)) {
@@ -361,7 +406,8 @@ async function main() {
     return;
   }
 
-  console.log(`${stale.length} kernel(s) to build, ${cached} cached [${ZIG_OPT}]\n`);
+  const totalStale = stale.length + staleRelaxed.length;
+  console.log(`${totalStale} kernel(s) to build, ${cached} cached [${ZIG_OPT}]\n`);
 
   // Phase 1: Test all stale kernels in parallel
   console.log('Testing...\n');
@@ -381,10 +427,24 @@ async function main() {
   console.log(`  ${stale.length} test(s) passed.\n`);
 
   // Phase 2: Compile stale kernels + copy cached kernels, all in parallel
+  // This includes both baseline and relaxed variants.
   console.log('Compiling...\n');
-  const buildResults = await Promise.all(
-    zigFiles.map((file) => compileKernel(file, sharedSources, hashes, globalBaseMap.get(file)))
-  );
+  const buildPromises = [
+    ...zigFiles.map((file) =>
+      compileKernel(file, sharedSources, hashes, globalBaseMap.get(file))
+    ),
+    ...relaxedFiles.map((file) =>
+      compileKernel(
+        file,
+        sharedSources,
+        hashes,
+        relaxedGlobalBaseMap.get(file),
+        `${file.replace('.zig', '')}-relaxed`,
+        relaxedCpu
+      )
+    ),
+  ];
+  const buildResults = await Promise.all(buildPromises);
 
   // Report results
   let failed = false;

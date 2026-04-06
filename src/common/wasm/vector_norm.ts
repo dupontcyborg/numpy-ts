@@ -3,19 +3,26 @@
  * Returns null if WASM can't handle.
  */
 
-import { vector_norm2_f64, vector_norm2_f32 } from './bins/vector_norm.wasm';
+import * as floatBase from './bins/vector_norm.wasm';
+import * as floatRelaxed from './bins/vector_norm-relaxed.wasm';
+import { useRelaxedKernels } from './detect';
 import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isComplexDType, type DType } from '../dtype';
 import { wasmConfig } from './config';
+
+let _float: typeof floatBase | null = null;
+function float(): typeof floatBase {
+  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+}
 
 const BASE_THRESHOLD = 64;
 
 type NormFn = (aPtr: number, N: number) => number;
 
 const kernels: Partial<Record<DType, { fn: NormFn; bpe: number }>> = {
-  float64: { fn: vector_norm2_f64, bpe: 8 },
-  float32: { fn: vector_norm2_f32, bpe: 4 },
+  float64: { fn: (...a) => float().vector_norm2_f64(...a), bpe: 8 },
+  float32: { fn: (...a) => float().vector_norm2_f32(...a), bpe: 4 },
 };
 
 /**
@@ -37,7 +44,7 @@ export function wasmVectorNorm2(a: ArrayStorage): number | null {
   // Float16: convert to f32 and use f32 kernel
   if (dtype === 'float16') {
     const aPtr = f16InputToScratchF32(a, size);
-    return vector_norm2_f32(aPtr, size);
+    return float().vector_norm2_f32(aPtr, size);
   }
 
   const entry = kernels[dtype];

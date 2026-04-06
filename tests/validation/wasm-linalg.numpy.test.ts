@@ -9,15 +9,19 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { array, matmul, dot, inner, reshape, linalg, wasmConfig } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
 
-// Run all tests with both default thresholds (multiplier=1) and forced-WASM (multiplier=0)
+// Run all tests with default, forced-baseline, and forced-relaxed modes
 const WASM_MODES = [
-  { name: 'default thresholds', multiplier: 1 },
-  { name: 'forced WASM (threshold=0)', multiplier: 0 },
+  { name: 'default thresholds', multiplier: 1, relaxed: 'auto' as const },
+  { name: 'forced WASM (baseline)', multiplier: 0, relaxed: false as const },
+  { name: 'forced WASM (relaxed)', multiplier: 0, relaxed: true as const },
 ] as const;
 
 for (const mode of WASM_MODES) {
-  describe(`NumPy Validation: WASM-accelerated Linear Algebra [${mode.name}]`, () => {
+  const descFn = mode.relaxed === true && !supportsRelaxedSimd() ? describe.skip : describe;
+
+  descFn(`NumPy Validation: WASM-accelerated Linear Algebra [${mode.name}]`, () => {
     beforeAll(() => {
       if (!checkNumPyAvailable()) {
         throw new Error(
@@ -27,10 +31,12 @@ for (const mode of WASM_MODES) {
         );
       }
       wasmConfig.thresholdMultiplier = mode.multiplier;
+      wasmConfig.useRelaxedSimd = mode.relaxed;
     });
 
     afterEach(() => {
-      wasmConfig.thresholdMultiplier = mode.multiplier; // restore to current mode
+      wasmConfig.thresholdMultiplier = mode.multiplier;
+      wasmConfig.useRelaxedSimd = mode.relaxed;
     });
 
     describe('matmul (WASM)', () => {

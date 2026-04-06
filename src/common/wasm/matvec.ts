@@ -5,16 +5,10 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  matvec_f64,
-  matvec_f32,
-  matvec_c128,
-  matvec_c64,
-  matvec_i64,
-  matvec_i32,
-  matvec_i16,
-  matvec_i8,
-} from './bins/matvec.wasm';
+import * as floatBase from './bins/matvec_float.wasm';
+import * as floatRelaxed from './bins/matvec_float-relaxed.wasm';
+import { matvec_i64, matvec_i32, matvec_i16, matvec_i8 } from './bins/matvec_int.wasm';
+import { useRelaxedKernels } from './detect';
 import {
   wasmMalloc,
   resetScratchAllocator,
@@ -27,15 +21,20 @@ import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
+let _float: typeof floatBase | null = null;
+function float(): typeof floatBase {
+  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+}
+
 const BASE_THRESHOLD = 128; // Minimum M*K for WASM
 
 type WasmMatvecFn = (A: number, x: number, y: number, M: number, K: number) => void;
 
 const wasmKernels: Partial<Record<DType, WasmMatvecFn>> = {
-  float64: matvec_f64,
-  float32: matvec_f32,
-  complex128: matvec_c128,
-  complex64: matvec_c64,
+  float64: (...a) => float().matvec_f64(...a),
+  float32: (...a) => float().matvec_f32(...a),
+  complex128: (...a) => float().matvec_c128(...a),
+  complex64: (...a) => float().matvec_c64(...a),
   int64: matvec_i64,
   uint64: matvec_i64,
   int32: matvec_i32,
@@ -44,7 +43,7 @@ const wasmKernels: Partial<Record<DType, WasmMatvecFn>> = {
   uint16: matvec_i16,
   int8: matvec_i8,
   uint8: matvec_i8,
-  float16: matvec_f32,
+  float16: (...a) => float().matvec_f32(...a),
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

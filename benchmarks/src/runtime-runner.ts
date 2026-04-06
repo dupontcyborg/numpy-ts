@@ -11,11 +11,24 @@
 
 import { wasmConfig, wasmMemoryConfig } from '../../src/common/wasm/config';
 import { wasmFreeBytes, configureWasm, resetScratchAllocator } from '../../src/common/wasm/runtime';
+import { supportsRelaxedSimd, useRelaxedKernels } from '../../src/common/wasm/detect';
 import type { BenchmarkCase, BenchmarkTiming } from './types';
 import { setupArrays, executeOperation } from './bench-utils';
 
 // Set to true to log WASM heap usage after each benchmark spec
 const LOG_HEAP = !!process.env['LOG_HEAP'];
+
+// WASM_RELAXED=0|false → force baseline; WASM_RELAXED=1|true → force relaxed FMA
+const WASM_RELAXED = process.env['WASM_RELAXED'];
+if (WASM_RELAXED === '0' || WASM_RELAXED === 'false') {
+  wasmConfig.useRelaxedSimd = false;
+} else if (WASM_RELAXED === '1' || WASM_RELAXED === 'true') {
+  wasmConfig.useRelaxedSimd = true;
+}
+
+console.error(
+  `Relaxed SIMD: supported=${supportsRelaxedSimd()}, config=${wasmConfig.useRelaxedSimd}, using=${useRelaxedKernels()}`
+);
 
 // Benchmark configuration - set from stdin input
 let MIN_SAMPLE_TIME_MS = 100;

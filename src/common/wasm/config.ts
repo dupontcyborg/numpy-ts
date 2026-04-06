@@ -39,4 +39,12 @@ export const wasmConfig = {
    * Reset to 0 by callers (e.g. benchmark runner) to detect per-operation WASM usage.
    */
   wasmCallCount: 0,
+
+  /**
+   * Controls relaxed SIMD kernel usage (FMA: f32x4.relaxed_madd / f64x2.relaxed_madd).
+   * - 'auto' (default): detect via WebAssembly.validate probe, use if supported
+   * - true: force relaxed kernels (will fail on unsupported runtimes)
+   * - false: force baseline kernels even if relaxed is available
+   */
+  useRelaxedSimd: 'auto' as 'auto' | boolean,
 };

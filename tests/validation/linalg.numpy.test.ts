@@ -27,16 +27,21 @@ import {
   wasmConfig,
 } from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
 
 const WASM_MODES = [
-  { name: 'default thresholds', multiplier: 1 },
-  { name: 'forced WASM (threshold=0)', multiplier: 0 },
+  { name: 'default thresholds', multiplier: 1, relaxed: 'auto' as const },
+  { name: 'forced WASM (baseline)', multiplier: 0, relaxed: false as const },
+  { name: 'forced WASM (relaxed)', multiplier: 0, relaxed: true as const },
 ] as const;
 
 for (const mode of WASM_MODES) {
-  describe(`NumPy Validation: Linear Algebra [${mode.name}]`, () => {
+  const descFn = mode.relaxed === true && !supportsRelaxedSimd() ? describe.skip : describe;
+
+  descFn(`NumPy Validation: Linear Algebra [${mode.name}]`, () => {
     beforeAll(() => {
       wasmConfig.thresholdMultiplier = mode.multiplier;
+      wasmConfig.useRelaxedSimd = mode.relaxed;
       if (!checkNumPyAvailable()) {
         throw new Error(
           '❌ Python NumPy not available!\n\n' +
@@ -54,6 +59,7 @@ for (const mode of WASM_MODES) {
 
     afterEach(() => {
       wasmConfig.thresholdMultiplier = mode.multiplier;
+      wasmConfig.useRelaxedSimd = mode.relaxed;
     });
 
     describe('dot()', () => {
@@ -1098,6 +1104,7 @@ result = np.einsum('ii->i', a)
 
     afterEach(() => {
       wasmConfig.thresholdMultiplier = mode.multiplier;
+      wasmConfig.useRelaxedSimd = mode.relaxed;
     });
 
     describe('linalg.cross()', () => {
@@ -1794,6 +1801,7 @@ result = np.linalg.vecdot(a, b)
 
     afterEach(() => {
       wasmConfig.thresholdMultiplier = mode.multiplier;
+      wasmConfig.useRelaxedSimd = mode.relaxed;
     });
 
     describe('vdot()', () => {
