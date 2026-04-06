@@ -20,10 +20,8 @@ import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
@@ -105,28 +103,19 @@ export function wasmVecdot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
   resetScratchAllocator();
 
   if (isF16) {
-    let aData = a.data.subarray(
-      a.offset * factor,
-      a.offset * factor + B * K * factor
-    ) as TypedArray;
-    let bData = b.data.subarray(
-      b.offset * factor,
-      b.offset * factor + B * K * factor
-    ) as TypedArray;
-    aData = f16ToF32Input(aData, resultDtype);
-    bData = f16ToF32Input(bData, resultDtype);
-    const aPtr = scratchCopyIn(aData);
-    const bPtr = scratchCopyIn(bData);
+    const aPtr = f16InputToScratchF32(a, B * K);
+    const bPtr = f16InputToScratchF32(b, B * K);
     kernel(aPtr, bPtr, outRegion.ptr, B, K);
-    // f16 needs post-conversion, can't use fromWasmRegion directly
-    // but output is in persistent heap, read it as f32 and convert
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, totalElements);
-    const f32Copy = new Float32Array(totalElements);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, totalElements);
     outRegion.release();
-    const f16Data = f32ToF16Output(f32Copy as unknown as TypedArray, resultDtype);
-    return ArrayStorage.fromData(f16Data, [B], resultDtype);
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
+      [B],
+      resultDtype,
+      f16Region,
+      totalElements,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
   }
 
   const aPtr = resolveInputPtr(

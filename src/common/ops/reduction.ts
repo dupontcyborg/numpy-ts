@@ -16,7 +16,12 @@ import {
 } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { Complex } from '../complex';
-import { wasmReduceSum, wasmReduceSumStrided } from '../wasm/reduce_sum';
+import {
+  wasmReduceSum,
+  wasmReduceSumStrided,
+  wasmReduceSumStridedComplex,
+  wasmReduceSumComplex,
+} from '../wasm/reduce_sum';
 import { wasmReduceMax, wasmReduceMaxStrided } from '../wasm/reduce_max';
 import { wasmReduceMin, wasmReduceMinStrided } from '../wasm/reduce_min';
 import { wasmReduceArgmax, wasmReduceArgmaxStrided } from '../wasm/reduce_argmax';
@@ -26,7 +31,11 @@ import { wasmReduceVar } from '../wasm/reduce_var';
 import { wasmReduceNansum } from '../wasm/reduce_nansum';
 import { wasmReduceNanmin } from '../wasm/reduce_nanmin';
 import { wasmReduceNanmax } from '../wasm/reduce_nanmax';
-import { wasmReduceProd, wasmReduceProdStrided } from '../wasm/reduce_prod';
+import {
+  wasmReduceProd,
+  wasmReduceProdStrided,
+  wasmReduceProdStridedComplex,
+} from '../wasm/reduce_prod';
 import { wasmReduceQuantile, wasmReduceQuantileStrided } from '../wasm/reduce_quantile';
 import { wasmReduceAny } from '../wasm/reduce_any';
 import { wasmReduceAll } from '../wasm/reduce_all';
@@ -144,6 +153,10 @@ export function sum(
 
     // Sum all elements - return scalar (or Complex for complex arrays)
     if (isComplexDType(dtype)) {
+      // WASM fast path for complex global sum
+      const wasmCSum = wasmReduceSumComplex(storage);
+      if (wasmCSum !== null) return new Complex(wasmCSum[0], wasmCSum[1]);
+
       let totalRe = 0;
       let totalIm = 0;
       if (contiguous) {
@@ -302,7 +315,30 @@ export function sum(
   );
 
   if (isComplexDType(dtype)) {
-    // Complex sum along axis
+    // WASM fast path for complex sum along axis
+    if (contiguous) {
+      const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
+      const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+      const wasmResult = wasmReduceSumStridedComplex(storage, wasmOuter, axisSize, innerSize);
+      if (wasmResult) {
+        const outShape = keepdims
+          ? shape.map((s, i) => (i === normalizedAxis ? 1 : s))
+          : outputShape;
+        const shared = ArrayStorage.fromDataShared(
+          wasmResult.data,
+          outShape,
+          dtype,
+          computeStrides(outShape),
+          0,
+          wasmResult.wasmRegion
+        );
+        wasmResult.dispose();
+        result.dispose(); // free the pre-allocated JS fallback result
+        return shared;
+      }
+    }
+
+    // Complex sum along axis — JS fallback
     const complexData = data as Float64Array | Float32Array;
     const resultComplex = resultData as Float64Array | Float32Array;
 
@@ -454,22 +490,31 @@ export function mean(
     const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
     const wasmResult = wasmReduceMeanStrided(storage, outerSize, axisSize, innerSize);
     if (wasmResult) {
-      const strides: number[] = new Array(outputShape.length);
-      let s = 1;
-      for (let i = outputShape.length - 1; i >= 0; i--) {
-        strides[i] = s;
-        s *= outputShape[i]!;
+      // NumPy mean: float16→float16, float32→float32, int→float64
+      const outDtype = isFloatDType(dtype) ? dtype : 'float64';
+      if (outDtype === 'float64') {
+        const strides: number[] = new Array(outputShape.length);
+        let s = 1;
+        for (let i = outputShape.length - 1; i >= 0; i--) {
+          strides[i] = s;
+          s *= outputShape[i]!;
+        }
+        const shared = ArrayStorage.fromDataShared(
+          wasmResult.data,
+          outputShape,
+          'float64',
+          strides,
+          0,
+          wasmResult.wasmRegion
+        );
+        wasmResult.dispose();
+        return shared;
       }
-      const shared = ArrayStorage.fromDataShared(
-        wasmResult.data,
-        outputShape,
-        'float64',
-        strides,
-        0,
-        wasmResult.wasmRegion
-      );
+      // float16/float32: cast f64 output back to input dtype via .set()
+      const outStorage = ArrayStorage.empty(outputShape, outDtype);
+      (outStorage.data as Float32Array | Float16Array).set(wasmResult.data as Float64Array);
       wasmResult.dispose();
-      return shared;
+      return outStorage;
     }
   }
 
@@ -974,7 +1019,30 @@ export function prod(
   );
 
   if (isComplexDType(dtype)) {
-    // Complex product along axis
+    // WASM fast path for complex prod along axis
+    if (contiguous) {
+      const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
+      const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+      const wasmResult = wasmReduceProdStridedComplex(storage, wasmOuter, axisSize, innerSize);
+      if (wasmResult) {
+        const outShape = keepdims
+          ? shape.map((s, i) => (i === normalizedAxis ? 1 : s))
+          : outputShape;
+        const shared = ArrayStorage.fromDataShared(
+          wasmResult.data,
+          outShape,
+          dtype,
+          computeStrides(outShape),
+          0,
+          wasmResult.wasmRegion
+        );
+        wasmResult.dispose();
+        result.dispose(); // free the pre-allocated JS fallback result
+        return shared;
+      }
+    }
+
+    // Complex product along axis — JS fallback
     const complexData = data as Float64Array | Float32Array;
     const resultComplex = resultData as Float64Array | Float32Array;
 
@@ -1765,8 +1833,21 @@ export function variance(
   const off = storage.offset;
   const inputStrides = storage.strides;
 
-  // Compute mean
-  const meanResult = mean(storage, axis, keepdims);
+  // Compute mean for var.
+  // NumPy's var does NOT promote f16→f32 for its internal mean (unlike standalone mean()),
+  // so f16 sum can overflow → inf mean → inf var. We must match this behavior.
+  let meanResult: ArrayStorage | number | Complex;
+  // Compute mean. For f16 variance, NumPy's var does NOT promote its internal mean
+  // to f32 (unlike standalone mean()). NumPy computes sum(x)/N where sum overflows in f16.
+  // We compute the f64 sum, cast to f16 (which overflows like NumPy), then divide.
+  if (dtype === 'float16' && axis === undefined && f16acc) {
+    const sumResult = sum(storage);
+    f16acc[0] = sumResult as number; // cast sum to f16 (overflow → inf)
+    f16acc[0] /= size; // inf/N = inf, matching NumPy
+    meanResult = f16acc[0]!;
+  } else {
+    meanResult = mean(storage, axis, keepdims);
+  }
 
   const contiguous = storage.isCContiguous;
 
@@ -4047,10 +4128,12 @@ export function nanmin(
     return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
+  // nanmin preserves input dtype (like NumPy)
+  const outDtype = isFloatDType(dtype) ? dtype : 'float64';
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
-  const result = ArrayStorage.empty(outputShape, 'float64');
-  const resultData = result.data as Float64Array;
+  const result = ArrayStorage.empty(outputShape, outDtype);
+  const resultData = result.data;
 
   const { baseOffsets, axisStride: axisStr } = precomputeAxisOffsets(
     shape,
@@ -4260,10 +4343,12 @@ export function nanmax(
     return wrapScalarKeepdims(scalar, ndim, 'float64');
   }
 
+  // nanmax preserves input dtype (like NumPy)
+  const outDtype = isFloatDType(dtype) ? dtype : 'float64';
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
-  const result = ArrayStorage.empty(outputShape, 'float64');
-  const resultData = result.data as Float64Array;
+  const result = ArrayStorage.empty(outputShape, outDtype);
+  const resultData = result.data;
 
   const { baseOffsets, axisStride: axisStr } = precomputeAxisOffsets(
     shape,

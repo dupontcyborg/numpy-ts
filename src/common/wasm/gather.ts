@@ -39,9 +39,8 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   scratchCopyIn,
-  getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -161,9 +160,7 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
 
   let dataPtr: number;
   if (isF16) {
-    let dataSlice = storage.data.subarray(dataOff, dataOff + size) as TypedArray;
-    dataSlice = f16ToF32Input(dataSlice, dtype);
-    dataPtr = scratchCopyIn(dataSlice);
+    dataPtr = f16InputToScratchF32(storage, size);
   } else {
     dataPtr = resolveInputPtr(
       storage.data,
@@ -178,15 +175,15 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
   const count = kernel(condPtr, dataPtr, outRegion.ptr, size);
 
   if (isF16) {
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, count);
-    const f32Copy = new Float32Array(count);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, count);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       [count],
-      dtype
+      dtype,
+      f16Region,
+      count,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
   }
 
@@ -235,10 +232,7 @@ export function wasmTakeAlongAxis2D(
 
   let dataPtr: number;
   if (isF16) {
-    const dataOff = storage.offset;
-    let dataSlice = storage.data.subarray(dataOff, dataOff + totalSize) as TypedArray;
-    dataSlice = f16ToF32Input(dataSlice, dtype);
-    dataPtr = scratchCopyIn(dataSlice);
+    dataPtr = f16InputToScratchF32(storage, totalSize);
   } else {
     dataPtr = resolveInputPtr(
       storage.data,
@@ -262,15 +256,15 @@ export function wasmTakeAlongAxis2D(
   kernel(dataPtr, idxPtr, outRegion.ptr, rows!, cols!);
 
   if (isF16) {
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, totalSize);
-    const f32Copy = new Float32Array(totalSize);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, totalSize);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       Array.from(indices.shape),
-      dtype
+      dtype,
+      f16Region,
+      totalSize,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
   }
 
@@ -348,12 +342,8 @@ export function wasmWhere(
   let yPtr: number;
 
   if (isF16) {
-    let xSlice = x.data.subarray(x.offset, x.offset + size) as TypedArray;
-    xSlice = f16ToF32Input(xSlice, dtype);
-    xPtr = scratchCopyIn(xSlice);
-    let ySlice = y.data.subarray(y.offset, y.offset + size) as TypedArray;
-    ySlice = f16ToF32Input(ySlice, dtype);
-    yPtr = scratchCopyIn(ySlice);
+    xPtr = f16InputToScratchF32(x, size);
+    yPtr = f16InputToScratchF32(y, size);
   } else {
     xPtr = resolveInputPtr(x.data, x.isWasmBacked, x.wasmPtr, x.offset, size, bpe);
     yPtr = resolveInputPtr(y.data, y.isWasmBacked, y.wasmPtr, y.offset, size, bpe);
@@ -362,15 +352,15 @@ export function wasmWhere(
   kernel(condPtr, xPtr, yPtr, outRegion.ptr, size);
 
   if (isF16) {
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, size);
-    const f32Copy = new Float32Array(size);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       Array.from(x.shape),
-      dtype
+      dtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
   }
 

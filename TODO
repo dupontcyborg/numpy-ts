@@ -24,6 +24,8 @@
 
 ## P2
 
+- [ ] Remove JS functions and make WASM handle all cases (no minimum threshold; non-contiguous support)
+- [ ] Add JS-side measurement mode for benchmarks to show the "real" cost if you were to use NumPy from JS
 - [ ] Per-kernel WASM optimization levels (ReleaseSmall vs ReleaseFast)
     - ReleaseSmall saves ~73% binary size but regresses loop-bound kernels 40-166%
     - Compute-heavy kernels (matmul +3%, inner +8%) barely regress and are good candidates

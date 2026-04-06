@@ -29,10 +29,8 @@ import {
 import {
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  alloc,
-  copyOut,
-  f16ToF32Input,
+  f16InputToScratchF32,
+  wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -92,8 +90,7 @@ export function wasmReduceArgmin(a: ArrayStorage): number | null {
   resetScratchAllocator();
   let aPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + size) as TypedArray;
-    aPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    aPtr = f16InputToScratchF32(a, size);
   } else {
     aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   }
@@ -140,25 +137,25 @@ export function wasmReduceArgminStrided(
   const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outSize = outerSize * innerSize;
 
+  const outRegion = wasmMalloc(outSize * 4);
+  if (!outRegion) return null;
+
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
   let inPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + totalSize) as TypedArray;
-    inPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    inPtr = f16InputToScratchF32(a, totalSize);
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
-  const outPtr = alloc(outSize * 4); // i32 = 4 bytes
 
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
+  kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
 
-  const OutCtor = Int32Array as unknown as new (
-    buf: ArrayBuffer,
-    off: number,
-    len: number
-  ) => TypedArray;
-  const outData = copyOut(outPtr, outSize, OutCtor);
-
-  return ArrayStorage.fromData(outData, [outSize], 'int32');
+  return ArrayStorage.fromWasmRegion(
+    [outSize],
+    'int32',
+    outRegion,
+    outSize,
+    Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+  );
 }

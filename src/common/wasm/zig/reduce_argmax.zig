@@ -2,7 +2,9 @@
 //!
 //! Reduction: result = index of max(a[0..N])
 //! Returns u32 index. Unsigned variants needed — comparison is sign-dependent.
-//! Scalar loops only (tracking index alongside value makes SIMD complex).
+//! i8/u8 use two-pass SIMD: find max value (16-wide), then find first index.
+
+const simd = @import("simd.zig");
 
 /// Returns the index of the maximum f64 element. Returns 0 if N=0.
 /// Note: NaN is considered less than any number, so reduce_argmax_f64([NaN], 1) returns 0.
@@ -126,34 +128,78 @@ export fn reduce_argmax_u16(a: [*]const u16, N: u32) u32 {
     return idx;
 }
 
-/// Returns the index of the maximum i8 element. Returns 0 if N=0.
+/// Returns the index of the maximum i8 element. Two-pass SIMD.
 export fn reduce_argmax_i8(a: [*]const i8, N: u32) u32 {
     if (N == 0) return 0;
-    var best: i8 = a[0];
-    var idx: u32 = 0;
-    var i: u32 = 1;
-    while (i < N) : (i += 1) {
-        if (a[i] > best) {
-            best = a[i];
-            idx = i;
+    const n16 = N & ~@as(u32, 15);
+    var max_val: i8 = a[0];
+    if (n16 >= 16) {
+        var acc = simd.load16_i8(a, 0);
+        var i: u32 = 16;
+        while (i < n16) : (i += 16) acc = @max(acc, simd.load16_i8(a, i));
+        max_val = acc[0];
+        inline for (1..16) |lane| {
+            if (acc[lane] > max_val) max_val = acc[lane];
         }
     }
-    return idx;
+    {
+        var i: u32 = n16;
+        while (i < N) : (i += 1) {
+            if (a[i] > max_val) max_val = a[i];
+        }
+    }
+    const target: simd.V16i8 = @splat(max_val);
+    {
+        var i: u32 = 0;
+        while (i < n16) : (i += 16) {
+            const eq = simd.load16_i8(a, i) == target;
+            inline for (0..16) |lane| {
+                if (eq[lane]) return i + @as(u32, lane);
+            }
+        }
+        var j: u32 = n16;
+        while (j < N) : (j += 1) {
+            if (a[j] == max_val) return j;
+        }
+    }
+    return 0;
 }
 
-/// Returns the index of the maximum u8 element. Returns 0 if N=0.
+/// Returns the index of the maximum u8 element. Two-pass SIMD.
 export fn reduce_argmax_u8(a: [*]const u8, N: u32) u32 {
     if (N == 0) return 0;
-    var best: u8 = a[0];
-    var idx: u32 = 0;
-    var i: u32 = 1;
-    while (i < N) : (i += 1) {
-        if (a[i] > best) {
-            best = a[i];
-            idx = i;
+    const n16 = N & ~@as(u32, 15);
+    var max_val: u8 = a[0];
+    if (n16 >= 16) {
+        var acc = simd.load16_u8(a, 0);
+        var i: u32 = 16;
+        while (i < n16) : (i += 16) acc = @max(acc, simd.load16_u8(a, i));
+        max_val = acc[0];
+        inline for (1..16) |lane| {
+            if (acc[lane] > max_val) max_val = acc[lane];
         }
     }
-    return idx;
+    {
+        var i: u32 = n16;
+        while (i < N) : (i += 1) {
+            if (a[i] > max_val) max_val = a[i];
+        }
+    }
+    const target: simd.V16u8 = @splat(max_val);
+    {
+        var i: u32 = 0;
+        while (i < n16) : (i += 16) {
+            const eq = simd.load16_u8(a, i) == target;
+            inline for (0..16) |lane| {
+                if (eq[lane]) return i + @as(u32, lane);
+            }
+        }
+        var j: u32 = n16;
+        while (j < N) : (j += 1) {
+            if (a[j] == max_val) return j;
+        }
+    }
+    return 0;
 }
 
 // --- Strided axis reduction (output is always i32 indices) ---

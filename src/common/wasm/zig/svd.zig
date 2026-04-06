@@ -429,3 +429,285 @@ test "svd_f64 symmetric matrix" {
     try testing.expectApproxEqAbs(s[0], 3.0, 1e-10);
     try testing.expectApproxEqAbs(s[1], 1.0, 1e-10);
 }
+
+// ============================================================================
+// Golub-Kahan SVD: Householder bidiagonalization + implicit QR iteration
+// Much faster than Jacobi for singular values only.
+// ============================================================================
+
+/// Compute Givens rotation: [cs sn; -sn cs]^T [f; g] = [r; 0]
+inline fn gk_givens(f: f64, g: f64, cs: *f64, sn: *f64, r: *f64) void {
+    if (g == 0) {
+        cs.* = 1;
+        sn.* = 0;
+        r.* = f;
+    } else if (f == 0) {
+        cs.* = 0;
+        sn.* = if (g >= 0) 1 else -1;
+        r.* = @abs(g);
+    } else if (@abs(f) > @abs(g)) {
+        const t = g / f;
+        const tt = @sqrt(1 + t * t);
+        cs.* = 1.0 / tt;
+        sn.* = t * cs.*;
+        r.* = f * tt;
+    } else {
+        const t = f / g;
+        const tt = @sqrt(1 + t * t);
+        sn.* = 1.0 / tt;
+        cs.* = t * sn.*;
+        r.* = g * tt;
+    }
+}
+
+/// Householder bidiagonalization: A[m×n] → diag + superdiag (in-place on a).
+fn gk_bidiagonalize(a: [*]f64, diag: [*]f64, superdiag: [*]f64, M: usize, N: usize) void {
+    const K = if (M < N) M else N;
+
+    for (0..K) |j| {
+        // Left Householder: zero a[j+1:, j]
+        var norm_sq: f64 = 0;
+        for (j..M) |i| {
+            const v = a[i * N + j];
+            norm_sq += v * v;
+        }
+        var alpha = @sqrt(norm_sq);
+        if (alpha == 0) {
+            diag[j] = 0;
+        } else {
+            if (a[j * N + j] >= 0) alpha = -alpha;
+            diag[j] = alpha;
+            a[j * N + j] -= alpha;
+            var vtv: f64 = 0;
+            for (j..M) |i| {
+                const vi = a[i * N + j];
+                vtv += vi * vi;
+            }
+            if (vtv != 0) {
+                const tau = 2.0 / vtv;
+                for (j + 1..N) |col| {
+                    var dot: f64 = 0;
+                    for (j..M) |i| dot += a[i * N + j] * a[i * N + col];
+                    const factor = tau * dot;
+                    for (j..M) |i| a[i * N + col] -= factor * a[i * N + j];
+                }
+            }
+        }
+
+        // Right Householder: zero a[j, j+2:]
+        if (j + 1 < N) {
+            var rnorm_sq: f64 = 0;
+            for (j + 1..N) |col| {
+                const v = a[j * N + col];
+                rnorm_sq += v * v;
+            }
+            var ralpha = @sqrt(rnorm_sq);
+            if (ralpha == 0) {
+                if (j < K - 1) superdiag[j] = 0;
+            } else {
+                if (a[j * N + j + 1] >= 0) ralpha = -ralpha;
+                if (j < K - 1) superdiag[j] = ralpha;
+                a[j * N + j + 1] -= ralpha;
+                var rvtv: f64 = 0;
+                for (j + 1..N) |col| {
+                    const vc = a[j * N + col];
+                    rvtv += vc * vc;
+                }
+                if (rvtv != 0) {
+                    const rtau = 2.0 / rvtv;
+                    for (j + 1..M) |row| {
+                        var dot: f64 = 0;
+                        for (j + 1..N) |col| dot += a[j * N + col] * a[row * N + col];
+                        const factor = rtau * dot;
+                        for (j + 1..N) |col| a[row * N + col] -= factor * a[j * N + col];
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Implicit QR step with Wilkinson shift on bidiagonal d[p..end), e[p..end-1).
+fn gk_qr_step(d: [*]f64, e: [*]f64, p: usize, end: usize) void {
+    const n = end - 1;
+    const dn = d[n];
+    const dn1 = d[n - 1];
+    const en1 = e[n - 1];
+    const t11 = dn1 * dn1 + (if (n >= 2) e[n - 2] * e[n - 2] else 0);
+    const t22 = dn * dn + en1 * en1;
+    const t12 = dn1 * en1;
+    const dd = (t11 - t22) * 0.5;
+    const sign_dd: f64 = if (dd >= 0) 1 else -1;
+    const mu = t22 - t12 * t12 / (dd + sign_dd * @sqrt(dd * dd + t12 * t12));
+
+    var f = d[p] * d[p] - mu;
+    var g = d[p] * e[p];
+
+    for (p..n) |k| {
+        var cs: f64 = undefined;
+        var sn: f64 = undefined;
+        var r: f64 = undefined;
+        gk_givens(f, g, &cs, &sn, &r);
+        if (k > p) e[k - 1] = r;
+        f = cs * d[k] + sn * e[k];
+        e[k] = -sn * d[k] + cs * e[k];
+        g = sn * d[k + 1];
+        d[k + 1] *= cs;
+        gk_givens(f, g, &cs, &sn, &r);
+        d[k] = r;
+        f = cs * e[k] + sn * d[k + 1];
+        d[k + 1] = -sn * e[k] + cs * d[k + 1];
+        if (k + 1 < n) {
+            g = sn * e[k + 1];
+            e[k + 1] *= cs;
+        }
+    }
+    e[n - 1] = f;
+}
+
+/// QR iteration on bidiagonal to extract singular values.
+fn gk_bidiag_svd(d: [*]f64, e: [*]f64, n: usize) void {
+    const MAX_ITER: usize = 100 * n;
+    const eps = 2.2204460492503131e-16;
+    var iter: usize = 0;
+    var q: usize = 0;
+
+    while (q < n and iter < MAX_ITER) : (iter += 1) {
+        // Find converged tail
+        q = 0;
+        while (q < n - 1) {
+            const idx = n - 2 - q;
+            if (@abs(e[idx]) <= eps * (@abs(d[idx]) + @abs(d[idx + 1]))) {
+                e[idx] = 0;
+                q += 1;
+            } else break;
+        }
+        if (q >= n - 1) break;
+
+        // Find start of unreduced block
+        var p: usize = n - q - 1;
+        while (p > 0) {
+            if (@abs(e[p - 1]) <= eps * (@abs(d[p - 1]) + @abs(d[p]))) {
+                e[p - 1] = 0;
+                break;
+            }
+            p -= 1;
+        }
+
+        const block_end = n - q;
+        if (block_end - p < 2) continue;
+
+        gk_qr_step(d, e, p, block_end);
+    }
+
+    for (0..n) |i| {
+        if (d[i] < 0) d[i] = -d[i];
+    }
+}
+
+/// Compute singular values of A[m×n] via Golub-Kahan bidiagonalization + QR.
+/// `scratch` must hold at least m*n + 3*k f64 values (k = min(m,n)).
+/// Output `s[0..k]` contains singular values in descending order.
+export fn svd_values_gk_f64(a_in: [*]const f64, s: [*]f64, scratch: [*]f64, m_arg: u32, n_arg: u32) void {
+    const M = @as(usize, m_arg);
+    const N = @as(usize, n_arg);
+    const K = if (M < N) M else N;
+
+    // Copy A into scratch
+    const a = scratch;
+    for (0..M * N) |i| a[i] = a_in[i];
+
+    const diag = a + M * N;
+    const superdiag = diag + K;
+    // tau_left/tau_right not needed for values-only — reuse space
+    const tau_left = superdiag + K;
+    const tau_right = tau_left + K;
+    _ = tau_right;
+
+    gk_bidiagonalize(a, diag, superdiag, M, N);
+    gk_bidiag_svd(diag, superdiag, K);
+
+    // Sort descending
+    const std = @import("std");
+    std.mem.sortUnstable(f64, diag[0..K], {}, struct {
+        fn cmp(_: void, lhs: f64, rhs: f64) bool {
+            return lhs > rhs;
+        }
+    }.cmp);
+
+    for (0..K) |i| s[i] = diag[i];
+}
+
+// --- Tests ---
+
+test "svd_values_gk_f64 diagonal 2x2" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 3, 0, 0, 4 };
+    var s: [2]f64 = undefined;
+    var scratch: [64]f64 = undefined;
+    svd_values_gk_f64(&a, &s, &scratch, 2, 2);
+    try testing.expectApproxEqAbs(s[0], 4.0, 1e-10);
+    try testing.expectApproxEqAbs(s[1], 3.0, 1e-10);
+}
+
+test "svd_values_gk_f64 general 2x2" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 1, 2, 3, 4 };
+    var s: [2]f64 = undefined;
+    var scratch: [64]f64 = undefined;
+    svd_values_gk_f64(&a, &s, &scratch, 2, 2);
+    try testing.expectApproxEqAbs(s[0], 5.4649857042190426, 1e-8);
+    try testing.expectApproxEqAbs(s[1], 0.3659661906262574, 1e-8);
+}
+
+test "svd_values_gk_f64 identity 3x3" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+    var s: [3]f64 = undefined;
+    var scratch: [64]f64 = undefined;
+    svd_values_gk_f64(&a, &s, &scratch, 3, 3);
+    try testing.expectApproxEqAbs(s[0], 1.0, 1e-10);
+    try testing.expectApproxEqAbs(s[1], 1.0, 1e-10);
+    try testing.expectApproxEqAbs(s[2], 1.0, 1e-10);
+}
+
+test "svd_values_gk_f64 diagonal 3x3" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 5, 0, 0, 0, 3, 0, 0, 0, 1 };
+    var s: [3]f64 = undefined;
+    var scratch: [64]f64 = undefined;
+    svd_values_gk_f64(&a, &s, &scratch, 3, 3);
+    try testing.expectApproxEqAbs(s[0], 5.0, 1e-10);
+    try testing.expectApproxEqAbs(s[1], 3.0, 1e-10);
+    try testing.expectApproxEqAbs(s[2], 1.0, 1e-10);
+}
+
+test "svd_values_gk_f64 tall 3x2" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 1, 0, 0, 1, 0, 0 };
+    var s: [2]f64 = undefined;
+    var scratch: [64]f64 = undefined;
+    svd_values_gk_f64(&a, &s, &scratch, 3, 2);
+    try testing.expectApproxEqAbs(s[0], 1.0, 1e-10);
+    try testing.expectApproxEqAbs(s[1], 1.0, 1e-10);
+}
+
+test "svd_values_gk_f64 matches jacobi" {
+    const testing = @import("std").testing;
+    // Compare against Jacobi SVD for a non-trivial matrix
+    const a = [_]f64{ 1, 2, 3, 4, 5, 6, 7, 8, 10 }; // slightly off-singular
+    var s_gk: [3]f64 = undefined;
+    var scratch_gk: [128]f64 = undefined;
+    svd_values_gk_f64(&a, &s_gk, &scratch_gk, 3, 3);
+
+    // Jacobi reference
+    var u: [9]f64 = undefined;
+    var s_j: [3]f64 = undefined;
+    var vt: [9]f64 = undefined;
+    var work: [256]f64 = undefined;
+    svd_f64(&a, &u, &s_j, &vt, &work, 3, 3);
+
+    for (0..3) |i| {
+        try testing.expectApproxEqAbs(s_gk[i], s_j[i], 1e-8);
+    }
+}

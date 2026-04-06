@@ -35,6 +35,7 @@ import { wasmHeavisideScalar, wasmHeaviside } from '../wasm/heaviside';
 import { wasmLdexpScalar } from '../wasm/ldexp';
 import { wasmFrexp } from '../wasm/frexp';
 import { wasmGcdScalar, wasmGcd } from '../wasm/gcd';
+import { wasmDivmodScalar } from '../wasm/divmod';
 
 /**
  * Helper: Check if two arrays can use the fast path
@@ -1366,6 +1367,11 @@ export function fabs(a: ArrayStorage): ArrayStorage {
  * @returns Tuple of [quotient, remainder] storages
  */
 export function divmod(a: ArrayStorage, b: ArrayStorage | number): [ArrayStorage, ArrayStorage] {
+  // Fused WASM path for scalar divisor (single pass over data)
+  if (typeof b === 'number') {
+    const wasm = wasmDivmodScalar(a, b);
+    if (wasm) return wasm;
+  }
   const quotient = floorDivide(a, b);
   const remainder = mod(a, b);
   return [quotient, remainder];

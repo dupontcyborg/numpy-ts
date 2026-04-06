@@ -9,9 +9,8 @@
  * needing to import perf_hooks.
  */
 
-import { wasmConfig } from '../../src/common/wasm/config';
-import { wasmFreeBytes } from '../../src/common/wasm/runtime';
-import { wasmMemoryConfig } from '../../src/common/wasm/config';
+import { wasmConfig, wasmMemoryConfig } from '../../src/common/wasm/config';
+import { wasmFreeBytes, configureWasm, resetScratchAllocator } from '../../src/common/wasm/runtime';
 import type { BenchmarkCase, BenchmarkTiming } from './types';
 import { setupArrays, executeOperation } from './bench-utils';
 
@@ -114,10 +113,11 @@ function runBenchmark(spec: BenchmarkCase): BenchmarkTiming {
     totalOps += opsPerSample;
   }
 
-  // Release setup arrays — they're no longer needed
+  // Release setup arrays and flush any temp heap allocs from the last kernel
   for (const val of Object.values(arrays)) {
     (val as any)?.dispose?.();
   }
+  resetScratchAllocator();
 
   if (LOG_HEAP) {
     const free = wasmFreeBytes();
@@ -153,8 +153,16 @@ async function main() {
   const specs: BenchmarkCase[] = input.specs;
   const config = input.config;
 
+  // Bump WASM memory for large array benchmarks (1 GiB, scratch auto-scales to 32 MiB)
+  if (config.sizeScale === 'large') {
+    configureWasm({ maxMemory: 1024 * 1024 * 1024 });
+    console.error('WASM max memory set to 1 GiB for large benchmarks');
+  }
+
   MIN_SAMPLE_TIME_MS = config.minSampleTimeMs;
   TARGET_SAMPLES = config.targetSamples;
+  const expectedWasm: Record<string, boolean> = config.expectedWasm ?? {};
+  const hasExpectedWasm = Object.keys(expectedWasm).length > 0;
   if (config.noWasm) {
     wasmConfig.thresholdMultiplier = Infinity;
   }
@@ -190,8 +198,17 @@ async function main() {
       const result = runBenchmark(spec);
       results.push(result);
 
+      const wasmKey = spec.name.replace(/\s*\[.*?\]/g, '').replace(/\(.*?\)/g, '()').trim();
+      let wasmWarn = '';
+      if (hasExpectedWasm) {
+        if (!(wasmKey in expectedWasm)) {
+          wasmWarn = '  ⚠ no WASM reference';
+        } else if (expectedWasm[wasmKey] && !result.wasmUsed) {
+          wasmWarn = '  ⚠ WASM regression';
+        }
+      }
       console.error(
-        `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)} ${result.mean_ms.toFixed(3).padStart(8)}ms  ${Math.round(result.ops_per_sec).toLocaleString().padStart(12)} ops/sec`
+        `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)} ${result.mean_ms.toFixed(3).padStart(8)}ms  ${Math.round(result.ops_per_sec).toLocaleString().padStart(12)} ops/sec${wasmWarn}`
       );
     } catch (err) {
       // Push a placeholder result so indices stay aligned with Python results

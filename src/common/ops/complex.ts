@@ -22,22 +22,21 @@ import { Complex } from '../complex';
  */
 export function real(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
-  const shape = Array.from(a.shape);
-  const size = a.size;
 
   if (isComplexDType(dtype)) {
-    // Complex array: extract real parts
+    // Return a stride-2 view into the interleaved complex buffer — O(1), no copy.
+    // complex128 data is Float64Array [re0, im0, re1, im1, ...]; strides are in complex-element
+    // units, so float-element strides are 2×. The real part starts at offset * 2.
     const resultDtype = getComplexComponentDType(dtype);
-    const result = ArrayStorage.empty(shape, resultDtype);
-    const resultData = result.data;
-    const srcData = a.data as Float64Array | Float32Array;
-
-    // Data is interleaved [re, im, re, im, ...]
-    for (let i = 0; i < size; i++) {
-      (resultData as Float64Array | Float32Array)[i] = srcData[i * 2]!;
-    }
-
-    return result;
+    const strides = Array.from(a.strides).map((s) => s * 2);
+    return ArrayStorage.fromDataShared(
+      a.data,
+      Array.from(a.shape),
+      resultDtype,
+      strides,
+      a.offset * 2,
+      a.wasmRegion
+    );
   }
 
   // Real array: return copy
@@ -55,26 +54,24 @@ export function real(a: ArrayStorage): ArrayStorage {
  */
 export function imag(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
-  const shape = Array.from(a.shape);
-  const size = a.size;
 
   if (isComplexDType(dtype)) {
-    // Complex array: extract imaginary parts
+    // Return a stride-2 view into the interleaved complex buffer — O(1), no copy.
+    // The imaginary part is at offset * 2 + 1 in the underlying float array.
     const resultDtype = getComplexComponentDType(dtype);
-    const result = ArrayStorage.empty(shape, resultDtype);
-    const resultData = result.data;
-    const srcData = a.data as Float64Array | Float32Array;
-
-    // Data is interleaved [re, im, re, im, ...]
-    for (let i = 0; i < size; i++) {
-      (resultData as Float64Array | Float32Array)[i] = srcData[i * 2 + 1]!;
-    }
-
-    return result;
+    const strides = Array.from(a.strides).map((s) => s * 2);
+    return ArrayStorage.fromDataShared(
+      a.data,
+      Array.from(a.shape),
+      resultDtype,
+      strides,
+      a.offset * 2 + 1,
+      a.wasmRegion
+    );
   }
 
   // Real array: return zeros with appropriate dtype
-  // NumPy returns float64 for integer types
+  const shape = Array.from(a.shape);
   const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
   return ArrayStorage.zeros(shape, resultDtype);
 }

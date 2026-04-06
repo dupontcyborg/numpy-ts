@@ -15,10 +15,13 @@ import {
 } from '../dtype';
 import { Complex } from '../complex';
 import { wasmMatmul } from '../wasm/matmul';
+import { wasmSvdValues } from '../wasm/svd';
+import { wasmVectorNorm2 } from '../wasm/vector_norm';
 import { wasmInner } from '../wasm/inner';
 import { wasmDot1D } from '../wasm/dot';
 import { wasmMatvec } from '../wasm/matvec';
 import { wasmVecmat } from '../wasm/vecmat';
+import { wasmLuFactor, wasmLuInv, wasmLuSolve } from '../wasm/lu';
 import { wasmOuter } from '../wasm/outer';
 import { wasmVecdot } from '../wasm/vecdot';
 import { wasmVdotComplex } from '../wasm/vdot';
@@ -2724,12 +2727,19 @@ export function vector_norm(
         result += Math.abs(Number(flat.get(i)));
       }
     } else if (ord === 2) {
-      result = 0;
-      for (let i = 0; i < n; i++) {
-        const val = Number(flat.get(i));
-        result += val * val;
+      // WASM fast path for L2 norm
+      const wasmNorm = wasmVectorNorm2(flat);
+      if (wasmNorm !== null) {
+        if (flat !== x) flat.dispose();
+        result = wasmNorm;
+      } else {
+        result = 0;
+        for (let i = 0; i < n; i++) {
+          const val = Number(flat.get(i));
+          result += val * val;
+        }
+        result = Math.sqrt(result);
       }
-      result = Math.sqrt(result);
     } else {
       result = 0;
       for (let i = 0; i < n; i++) {
@@ -3722,12 +3732,22 @@ export function det(a: ArrayStorage): number | ArrayStorage {
     return Number(aData[0]) * Number(aData[3]) - Number(aData[1]) * Number(aData[2]);
   }
 
-  // LU decomposition with partial pivoting
+  // WASM fast path for f64/f32
+  if (a.dtype === 'float64' || a.dtype === 'float32') {
+    const factored = wasmLuFactor(a);
+    if (factored) {
+      const luData = factored.lu.data as Float64Array | Float32Array;
+      let result: number = factored.sign;
+      for (let i = 0; i < size; i++) result *= luData[i * size + i]!;
+      factored.lu.dispose();
+      return result;
+    }
+  }
+
+  // JS fallback: LU decomposition with partial pivoting
   const { lu, sign } = luDecomposition(a);
 
   try {
-    // Determinant is product of diagonal of U times sign from pivoting
-    // Use direct array access for speed
     const luData = lu.data as Float64Array;
     let result = sign;
     for (let i = 0; i < size; i++) {
@@ -3851,20 +3871,35 @@ export function inv(a: ArrayStorage): ArrayStorage {
 
   const size = m!;
 
-  // Do LU decomposition once
+  // WASM fast path for f64/f32
+  if (a.dtype === 'float64' || a.dtype === 'float32') {
+    const factored = wasmLuFactor(a);
+    if (factored) {
+      const { lu: wasmLu, piv: wasmPiv } = factored;
+      // Check for singularity: any zero on the LU diagonal
+      const luData = wasmLu.data as Float64Array | Float32Array;
+      for (let i = 0; i < size; i++) {
+        if (Math.abs(luData[i * size + i]!) < 1e-15) {
+          wasmLu.dispose();
+          throw new Error('inv: singular matrix');
+        }
+      }
+      const result = wasmLuInv(wasmLu, wasmPiv, a.dtype);
+      wasmLu.dispose();
+      if (result) return result;
+    }
+  }
+
+  // JS fallback
   const { lu, piv } = luDecomposition(a);
   const luData = lu.data as Float64Array;
 
-  // Solve A @ X = I for all columns at once
   const result = ArrayStorage.zeros([size, size], 'float64');
   const resultData = result.data as Float64Array;
 
-  // Process each column of the identity matrix
   for (let col = 0; col < size; col++) {
-    // Forward substitution for column col (L @ y = P @ e_col)
     const y = new Float64Array(size);
     for (let i = 0; i < size; i++) {
-      // e_col[piv[i]] is 1 if piv[i] === col, else 0
       let sum = piv[i] === col ? 1 : 0;
       for (let j = 0; j < i; j++) {
         sum -= luData[i * size + j]! * y[j]!;
@@ -3872,7 +3907,6 @@ export function inv(a: ArrayStorage): ArrayStorage {
       y[i] = sum;
     }
 
-    // Back substitution (U @ x = y)
     for (let i = size - 1; i >= 0; i--) {
       let sum = y[i]!;
       for (let j = i + 1; j < size; j++) {
@@ -3963,6 +3997,69 @@ export function solve(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   const size = m!;
 
+  // WASM fast path: factor once, solve all columns
+  if ((a.dtype === 'float64' || a.dtype === 'float32') && b.isCContiguous) {
+    const factored = wasmLuFactor(a);
+    if (factored) {
+      const { lu: wasmLu, piv: wasmPiv } = factored;
+      const workDtype = a.dtype;
+
+      if (b.ndim === 1) {
+        if (b.shape[0] !== size) {
+          wasmLu.dispose();
+          throw new Error(`solve: incompatible shapes (${m},${n}) and (${b.shape[0]},)`);
+        }
+        const bConverted =
+          b.dtype === workDtype
+            ? b
+            : ArrayStorage.fromData(
+                new (workDtype === 'float32' ? Float32Array : Float64Array)(
+                  Array.from({ length: size }, (_, i) => Number(b.iget(i)))
+                ),
+                [size],
+                workDtype
+              );
+        const result = wasmLuSolve(wasmLu, wasmPiv, bConverted, workDtype);
+        wasmLu.dispose();
+        if (bConverted !== b) bConverted.dispose();
+        if (result) return result;
+      }
+
+      if (b.ndim === 2) {
+        if (b.shape[0] !== size) {
+          wasmLu.dispose();
+          throw new Error(
+            `solve: incompatible shapes (${m},${n}) and (${b.shape[0]},${b.shape[1]})`
+          );
+        }
+        const k = b.shape[1]!;
+        const Ctor = workDtype === 'float32' ? Float32Array : Float64Array;
+        const result = ArrayStorage.empty([size, k], workDtype);
+        const resultData = result.data as Float64Array | Float32Array;
+        const bData = b.data;
+
+        for (let j = 0; j < k; j++) {
+          // Extract column j into contiguous vector
+          const col = new Ctor(size);
+          for (let i = 0; i < size; i++) col[i] = Number(bData[b.offset + i * k + j]);
+          const colStorage = ArrayStorage.fromData(col, [size], workDtype);
+          const xCol = wasmLuSolve(wasmLu, wasmPiv, colStorage, workDtype);
+          colStorage.dispose();
+          if (xCol) {
+            const xData = xCol.data as Float64Array | Float32Array;
+            for (let i = 0; i < size; i++) resultData[i * k + j] = xData[i]!;
+            xCol.dispose();
+          }
+        }
+        wasmLu.dispose();
+        return result;
+      }
+
+      wasmLu.dispose();
+    }
+  }
+
+  // JS fallback
   if (b.ndim === 1) {
     if (b.shape[0] !== size) {
       throw new Error(`solve: incompatible shapes (${m},${n}) and (${b.shape[0]},)`);
@@ -3978,18 +4075,14 @@ export function solve(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     const k = b.shape[1]!;
     const result = ArrayStorage.zeros([size, k], 'float64');
 
-    // Solve for each column
     for (let j = 0; j < k; j++) {
-      // Extract column j of b
       const bCol = ArrayStorage.zeros([size], 'float64');
       for (let i = 0; i < size; i++) {
         bCol.set([i], Number(b.get(i, j)));
       }
 
-      // Solve
       const xCol = solveVector(a, bCol);
 
-      // Copy to result
       for (let i = 0; i < size; i++) {
         result.set([i, j], Number(xCol.get(i)));
       }
@@ -4127,8 +4220,8 @@ export function cond(a: ArrayStorage, p: number | 'fro' | 'nuc' = 2): number {
   const [m, n] = a.shape;
 
   if (p === 2 || p === -2) {
-    // Condition number from singular values
-    const { u, s, vt } = svdFull(a);
+    // Condition number from singular values (values only — no U/V needed)
+    const s = svdvals(a);
     try {
       const k = Math.min(m!, n!);
       const maxS = Number(s.get(0));
@@ -4140,9 +4233,7 @@ export function cond(a: ArrayStorage, p: number | 'fro' | 'nuc' = 2): number {
         return maxS > 0 ? minS / maxS : 0;
       }
     } finally {
-      u.dispose();
       s.dispose();
-      vt.dispose();
     }
   }
 
@@ -4184,7 +4275,7 @@ export function matrix_rank(a: ArrayStorage, tol?: number): number {
     throw new Error(`matrix_rank: input must be at most 2D, got ${a.ndim}D`);
   }
 
-  const { u, s, vt } = svdFull(a);
+  const s = svdvals(a);
   try {
     const maxS = Number(s.get(0));
 
@@ -4200,9 +4291,7 @@ export function matrix_rank(a: ArrayStorage, tol?: number): number {
 
     return rank;
   } finally {
-    u.dispose();
     s.dispose();
-    vt.dispose();
   }
 }
 
@@ -5312,11 +5401,31 @@ export function slogdet(a: ArrayStorage): {
     return { sign: 1, logabsdet: 0 }; // Empty matrix has determinant 1
   }
 
-  // LU decomposition with partial pivoting
+  // WASM fast path for f64/f32
+  if (a.dtype === 'float64' || a.dtype === 'float32') {
+    const factored = wasmLuFactor(a);
+    if (factored) {
+      const luData = factored.lu.data as Float64Array | Float32Array;
+      let logAbsDet = 0;
+      let sign = factored.sign;
+      for (let i = 0; i < size; i++) {
+        const diagVal = luData[i * size + i]!;
+        if (diagVal === 0) {
+          factored.lu.dispose();
+          return { sign: 0, logabsdet: -Infinity };
+        }
+        if (diagVal < 0) sign = -sign;
+        logAbsDet += Math.log(Math.abs(diagVal));
+      }
+      factored.lu.dispose();
+      return { sign, logabsdet: logAbsDet };
+    }
+  }
+
+  // JS fallback: LU decomposition with partial pivoting
   const { lu, sign: pivotSign } = luDecomposition(a);
 
   try {
-    // Compute log|det| = sum of log|diag(U)| and sign
     const luData = lu.data as Float64Array;
     let logAbsDet = 0;
     let sign = pivotSign;
@@ -5348,7 +5457,11 @@ export function slogdet(a: ArrayStorage): {
  * @returns 1D array of singular values in descending order
  */
 export function svdvals(a: ArrayStorage): ArrayStorage {
-  // Use the existing svd function with compute_uv=false
+  // Fast path: Golub-Kahan (values only, no U/V)
+  const wasmResult = wasmSvdValues(a);
+  if (wasmResult) return wasmResult;
+
+  // Fallback: full SVD, extract S
   const result = svd(a, true, false);
   return result as ArrayStorage;
 }

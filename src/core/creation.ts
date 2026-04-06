@@ -11,6 +11,7 @@
 import { ArrayStorage } from '../common/storage';
 import { NDArrayCore, type DType } from '../common/ndarray-core';
 import { Complex, isComplexLike } from '../common/complex';
+import { wasmAllFinite } from '../common/wasm/all_finite';
 import {
   getTypedArrayConstructor,
   isBigIntDType,
@@ -527,35 +528,37 @@ export function asfortranarray(a: NDArrayCore | unknown, dtype?: DType): NDArray
 
 export function asarray_chkfinite(a: NDArrayCore | unknown, dtype?: DType): NDArrayCore {
   const arr = asarray(a as NDArrayCore, dtype);
+
+  // WASM fast path: SIMD bit-check with early exit, no output allocation
+  const wasmResult = wasmAllFinite(arr.storage);
+  if (wasmResult === true) return arr;
+  if (wasmResult === false) throw new Error('array must not contain infs or NaNs');
+
+  // JS fallback for non-contiguous or unsupported dtypes
   const data = arr.data;
 
   // Integer and BigInt types are always finite — skip the check.
-  // For floats, check via exponent bits: NaN/Inf have all exponent bits set.
   if (data instanceof Float64Array) {
-    // View as Uint32Array to check upper 32 bits of each f64
-    // Float64 exponent bits are bits 52-62 → in upper 32 bits, that's bits 20-30
     const u32 = new Uint32Array(data.buffer, data.byteOffset, data.length * 2);
-    const expMask = 0x7ff00000; // exponent bits in upper 32 bits of f64
+    const expMask = 0x7ff00000;
     for (let i = 1; i < u32.length; i += 2) {
       if ((u32[i]! & expMask) === expMask) {
         throw new Error('array must not contain infs or NaNs');
       }
     }
   } else if (data instanceof Float32Array) {
-    // View as Uint32Array to check exponent bits of each f32
-    // Float16Array backing is also Float32Array on fallback, so this handles both
     const u32 = new Uint32Array(data.buffer, data.byteOffset, data.length);
-    const expMask = 0x7f800000; // exponent bits in f32
+    const expMask = 0x7f800000;
     for (let i = 0; i < u32.length; i++) {
       if ((u32[i]! & expMask) === expMask) {
         throw new Error('array must not contain infs or NaNs');
       }
     }
   } else if (arr.dtype === 'float16') {
-    // Native Float16Array — check each element via Number conversion
-    for (let i = 0; i < data.length; i++) {
-      const v = Number(data[i]);
-      if (!isFinite(v)) {
+    const u16 = new Uint16Array(data.buffer, data.byteOffset, data.length);
+    const expMask = 0x7c00;
+    for (let i = 0; i < u16.length; i++) {
+      if ((u16[i]! & expMask) === expMask) {
         throw new Error('array must not contain infs or NaNs');
       }
     }

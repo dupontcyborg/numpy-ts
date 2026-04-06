@@ -298,11 +298,15 @@ def run_operation(spec):
         q, r = np.linalg.qr(arrays["a"])
         result = q  # Return just Q for validation
     elif operation == "linalg_cholesky":
-        # Create positive definite matrix: A^T * A + n*I
-        a = arrays["a"]
-        n = a.shape[0]
-        posdef = a.T @ a + np.eye(n) * n
-        result = np.linalg.cholesky(posdef)
+        # Use pre-computed positive-definite matrix from setup
+        if "_posdef" in arrays:
+            result = np.linalg.cholesky(arrays["_posdef"])
+        else:
+            a = arrays["a"]
+            n = a.shape[0]
+            ata = a.T @ a
+            posdef = ata + np.eye(n, dtype=a.dtype) * np.trace(ata)
+            result = np.linalg.cholesky(posdef)
     elif operation == "linalg_svd":
         u, s, vt = np.linalg.svd(arrays["a"])
         result = s  # Return just singular values for validation

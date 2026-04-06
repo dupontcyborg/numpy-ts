@@ -33,8 +33,7 @@ import {
   resetScratchAllocator,
   scratchCopyIn,
   getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -110,25 +109,25 @@ export function wasmPartitionSlices(
   if (sliceKernel && sliceOffsets[0] === 0 && outerSize > 1 && sliceOffsets[1] === axisSize) {
     const Ctor = ctorMap[dtype];
     if (!Ctor) return false;
-    const inputData = isF16
-      ? f16ToF32Input(resultData as TypedArray, dtype)
-      : (resultData as TypedArray);
 
     wasmConfig.wasmCallCount++;
     resetScratchAllocator();
 
-    const ptr = scratchCopyIn(inputData);
+    const ptr = isF16
+      ? f16InputToScratchF32(
+          { data: resultData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
+          resultData.length
+        )
+      : scratchCopyIn(resultData as TypedArray);
     sliceKernel(ptr, axisSize, outerSize, kth);
 
     const mem = getSharedMemory();
     if (isF16) {
-      const f32Out = new Float32Array(inputData.length);
-      new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-        new Uint8Array(mem.buffer, ptr, f32Out.byteLength)
-      );
-      const f16Out = f32ToF16Output(f32Out as unknown as TypedArray, dtype);
+      const f16Out = new Uint16Array(resultData.length);
+      const f32View = new Float32Array(mem.buffer, ptr, resultData.length);
+      new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
       new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-        new Uint8Array(f16Out.buffer, f16Out.byteOffset, f16Out.byteLength)
+        new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
       );
     } else {
       new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
@@ -144,14 +143,16 @@ export function wasmPartitionSlices(
   if (!kernel || !Ctor) return false;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  const inputData = isF16
-    ? f16ToF32Input(resultData as TypedArray, dtype)
-    : (resultData as TypedArray);
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const ptr = scratchCopyIn(inputData);
+  const ptr = isF16
+    ? f16InputToScratchF32(
+        { data: resultData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
+        resultData.length
+      )
+    : scratchCopyIn(resultData as TypedArray);
 
   for (let i = 0; i < outerSize; i++) {
     kernel(ptr + sliceOffsets[i]! * bpe, axisSize, kth);
@@ -159,13 +160,11 @@ export function wasmPartitionSlices(
 
   const mem = getSharedMemory();
   if (isF16) {
-    const f32Out = new Float32Array(inputData.length);
-    new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-      new Uint8Array(mem.buffer, ptr, f32Out.byteLength)
-    );
-    const f16Out = f32ToF16Output(f32Out as unknown as TypedArray, dtype);
+    const f16Out = new Uint16Array(resultData.length);
+    const f32View = new Float32Array(mem.buffer, ptr, resultData.length);
+    new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
     new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-      new Uint8Array(f16Out.buffer, f16Out.byteOffset, f16Out.byteLength)
+      new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
     );
   } else {
     new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
@@ -203,22 +202,60 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
   resetScratchAllocator();
 
   const aOff = a.offset;
-  let aData = a.data.subarray(aOff, aOff + size) as TypedArray;
-
   if (isF16) {
-    aData = f16ToF32Input(aData, dtype);
-    const scratchPtr = scratchCopyIn(aData);
-    kernel(scratchPtr, size, kth);
+    // Float16 partition: use the "sort floats as integers" trick.
+    // Partition only rearranges elements — it doesn't modify values — so we can
+    // transform f16 bit patterns into a form where i16 comparison gives the
+    // correct f16 order, run partition_i16, and undo the transform.
+    //
+    // Transform: if sign bit is set (negative), XOR with 0x7FFF (flip exp+mantissa).
+    // This makes signed i16 comparison match f16 ordering.
+    // The transform is self-inverse: applying it again undoes it.
+    const f16Bytes = size * 2;
+    const f16Region = wasmMalloc(f16Bytes);
+    if (!f16Region) {
+      outRegion.release();
+      return null;
+    }
     const mem = getSharedMemory();
-    const f32Out = new Float32Array(size);
-    new Uint8Array(f32Out.buffer, 0, f32Out.byteLength).set(
-      new Uint8Array(mem.buffer, scratchPtr, f32Out.byteLength)
-    );
+
+    // Copy f16 input into f16Region
+    if (a.isWasmBacked) {
+      new Uint8Array(mem.buffer, f16Region.ptr, f16Bytes).set(
+        new Uint8Array(mem.buffer, a.wasmPtr + aOff * 2, f16Bytes)
+      );
+    } else {
+      const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
+      new Uint8Array(mem.buffer, f16Region.ptr, f16Bytes).set(
+        new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength)
+      );
+    }
+
+    // Transform: make i16 comparison match f16 order
+    const u16View = new Uint16Array(mem.buffer, f16Region.ptr, size);
+    for (let j = 0; j < size; j++) {
+      if (u16View[j]! & 0x8000) u16View[j]! ^= 0x7fff;
+    }
+
+    // Partition using i16 kernel
+    partition_i16(f16Region.ptr, size, kth);
+
+    // Undo transform
+    for (let j = 0; j < size; j++) {
+      if (u16View[j]! & 0x8000) u16View[j]! ^= 0x7fff;
+    }
+
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Out as unknown as TypedArray, dtype),
+    return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
-      dtype
+      dtype,
+      f16Region,
+      size,
+      Uint16Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
     );
   }
 
@@ -229,6 +266,7 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
       new Uint8Array(mem.buffer, a.wasmPtr + aOff * bpe, outBytes)
     );
   } else {
+    const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
     new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
       new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength)
     );

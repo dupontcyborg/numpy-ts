@@ -13,7 +13,6 @@ import { wasmMin, wasmMinScalar } from '../../src/common/wasm/min';
 import { wasmSquare } from '../../src/common/wasm/square';
 import { wasmRoll } from '../../src/common/wasm/roll';
 import { wasmRepeat } from '../../src/common/wasm/repeat';
-import { wasmRot90 } from '../../src/common/wasm/rot90';
 import { wasmTile2D } from '../../src/common/wasm/tile';
 import { wasmPad2D } from '../../src/common/wasm/pad';
 import { wasmHeavisideScalar, wasmHeaviside } from '../../src/common/wasm/heaviside';
@@ -145,28 +144,6 @@ describe('wasmRepeat', () => {
 
 // ============================================================
 // rot90
-// ============================================================
-describe('wasmRot90', () => {
-  it('rotates 2D array 90° CCW', () => {
-    // [[1, 2], [3, 4]] rotated CCW → [[2, 4], [1, 3]]
-    const a = array([
-      [1, 2],
-      [3, 4],
-    ]);
-    const r = wasmRot90(a.storage);
-    expect(r).not.toBeNull();
-    expect(Array.from(r!.shape)).toEqual([2, 2]);
-    const data = Array.from(r!.data as Float64Array);
-    expect(data).toEqual([2, 4, 1, 3]);
-  });
-
-  it('returns null for 1D array', () => {
-    const a = array([1, 2, 3]);
-    const r = wasmRot90(a.storage);
-    expect(r).toBeNull();
-  });
-});
-
 // ============================================================
 // tile
 // ============================================================

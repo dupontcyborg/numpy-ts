@@ -34,10 +34,8 @@ import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  copyOut,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
@@ -129,16 +127,8 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
     let aPtr: number;
     let bPtr: number;
     if (dtype === 'float16') {
-      const aData = f16ToF32Input(
-        a.data.subarray(a.offset, a.offset + size) as TypedArray,
-        a.dtype
-      );
-      const bData = f16ToF32Input(
-        b.data.subarray(b.offset, b.offset + size) as TypedArray,
-        b.dtype
-      );
-      aPtr = scratchCopyIn(aData);
-      bPtr = scratchCopyIn(bData);
+      aPtr = f16InputToScratchF32(a, size);
+      bPtr = f16InputToScratchF32(b, size);
     } else {
       aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
       bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, bpe);
@@ -147,18 +137,16 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
     floatKernel(aPtr, bPtr, outRegion.ptr, size);
 
     if (dtype === 'float16') {
-      const outData = copyOut(
-        outRegion.ptr,
-        size,
-        Ctor as unknown as new (
-          buffer: ArrayBuffer,
-          byteOffset: number,
-          length: number
-        ) => TypedArray
-      );
+      const f16Region = f32OutputToF16Region(outRegion, size);
       outRegion.release();
-      const finalOut = f32ToF16Output(outData, dtype);
-      return ArrayStorage.fromData(finalOut, Array.from(a.shape), dtype);
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        dtype,
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
     }
 
     return ArrayStorage.fromWasmRegion(
@@ -232,8 +220,7 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
 
     let aPtr: number;
     if (dtype === 'float16') {
-      const aData = f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype);
-      aPtr = scratchCopyIn(aData);
+      aPtr = f16InputToScratchF32(a, size);
     } else {
       aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
     }
@@ -241,18 +228,16 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
     floatKernel(aPtr, outRegion.ptr, size, scalar);
 
     if (dtype === 'float16') {
-      const outData = copyOut(
-        outRegion.ptr,
-        size,
-        Ctor as unknown as new (
-          buffer: ArrayBuffer,
-          byteOffset: number,
-          length: number
-        ) => TypedArray
-      );
+      const f16Region = f32OutputToF16Region(outRegion, size);
       outRegion.release();
-      const finalOut = f32ToF16Output(outData, dtype);
-      return ArrayStorage.fromData(finalOut, Array.from(a.shape), dtype);
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        dtype,
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
     }
 
     return ArrayStorage.fromWasmRegion(

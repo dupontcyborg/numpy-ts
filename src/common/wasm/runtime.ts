@@ -16,7 +16,7 @@
 
 import type { TypedArray } from '../dtype';
 import { hasFloat16 } from '../dtype';
-import { wasmConfig, wasmMemoryConfig } from './config';
+import { wasmConfig, wasmMemoryConfig, type ConfigureWasmOptions } from './config';
 
 // FinalizationRegistry is available in all target environments (Node 14+,
 // modern browsers) but not in ES2020 lib typings.
@@ -39,6 +39,10 @@ let heapInitialized = false;
 // Scratch region state
 let scratchBase = 0;
 let scratchOffset = 0;
+
+// Temp heap allocations made when scratch is too small.
+// Freed on next resetScratchAllocator() call.
+let tempHeapPtrs: number[] = [];
 
 /**
  * Get the shared WebAssembly.Memory instance.
@@ -101,6 +105,48 @@ function ensureHeapInitialized(): void {
   }
 
   scratchOffset = scratchBase;
+}
+
+// ---------------------------------------------------------------------------
+// Public configuration API
+// ---------------------------------------------------------------------------
+
+/**
+ * Configure WASM memory settings. Must be called before any array operations
+ * (i.e. before the WASM memory is initialized on first use).
+ *
+ * @example
+ * ```ts
+ * import { configureWasm } from 'numpy-ts';
+ * configureWasm({ maxMemory: 512 * 1024 * 1024 }); // 512 MiB
+ * ```
+ */
+export function configureWasm(options: ConfigureWasmOptions): void {
+  if (heapInitialized) {
+    throw new Error(
+      'configureWasm() must be called before any array operations. ' +
+        'WASM memory has already been initialized.'
+    );
+  }
+  if (options.maxMemory !== undefined) {
+    if (options.maxMemory <= 0) {
+      throw new Error('maxMemory must be a positive number of bytes.');
+    }
+    wasmMemoryConfig.maxMemoryBytes = options.maxMemory;
+    // Auto-scale scratch to 1/16 of maxMemory, capped at 32 MiB
+    if (options.scratchSize === undefined) {
+      wasmMemoryConfig.scratchBytes = Math.min(
+        Math.floor(options.maxMemory / 16),
+        32 * 1024 * 1024
+      );
+    }
+  }
+  if (options.scratchSize !== undefined) {
+    if (options.scratchSize <= 0) {
+      throw new Error('scratchSize must be a positive number of bytes.');
+    }
+    wasmMemoryConfig.scratchBytes = options.scratchSize;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -200,26 +246,41 @@ export function wasmFreeBytes(): number {
 /**
  * Reset the scratch bump allocator. Call before each kernel invocation
  * that may need to copy JS-fallback inputs into WASM memory.
+ * Also frees any temp heap allocations from the previous kernel call.
  */
 export function resetScratchAllocator(): void {
   ensureHeapInitialized();
   scratchOffset = scratchBase;
+  if (tempHeapPtrs.length > 0) {
+    for (const ptr of tempHeapPtrs) {
+      heap_free(ptr);
+    }
+    tempHeapPtrs = [];
+  }
 }
 
 /**
  * Bump-allocate `bytes` from the scratch region. Returns byte offset.
- * Always 8-byte aligned. Throws if scratch space is exhausted.
+ * Always 8-byte aligned. Falls back to heap if scratch space is exhausted.
  */
 export function scratchAlloc(bytes: number): number {
   ensureHeapInitialized();
   const aligned = (scratchOffset + 7) & ~7;
-  scratchOffset = aligned + bytes;
-  if (scratchOffset > wasmMemoryConfig.maxMemoryBytes) {
-    throw new Error(
-      `WASM scratch OOM: need ${scratchOffset - scratchBase} bytes, ` +
-        `have ${wasmMemoryConfig.scratchBytes}`
-    );
+  const newOffset = aligned + bytes;
+  if (newOffset > wasmMemoryConfig.maxMemoryBytes) {
+    // Scratch region too small — allocate on the persistent heap instead.
+    // The pointer is tracked and freed on the next resetScratchAllocator() call.
+    const ptr = heap_malloc(bytes);
+    if (ptr === 0) {
+      throw new Error(
+        `WASM OOM: scratch full (${wasmMemoryConfig.scratchBytes} bytes) ` +
+          `and heap malloc failed for ${bytes} bytes`
+      );
+    }
+    tempHeapPtrs.push(ptr);
+    return ptr;
   }
+  scratchOffset = newOffset;
   return aligned;
 }
 
@@ -265,6 +326,20 @@ export function resolveInputPtr(
   // JS-fallback: copy to scratch
   const src = data.subarray(offset, offset + elementCount) as TypedArray;
   return scratchCopyIn(src);
+}
+
+/**
+ * Resolve a TypedArray to a WASM pointer. If the array is already a view
+ * into WASM memory, returns its byte offset directly (zero-copy).
+ * Otherwise copies to scratch. Useful when you have a TypedArray but
+ * don't know if it's WASM-backed (e.g. from getContiguousData).
+ */
+export function resolveTypedArrayPtr(data: TypedArray): number {
+  const mem = getSharedMemory();
+  if (data.buffer === mem.buffer) {
+    return data.byteOffset;
+  }
+  return scratchCopyIn(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -336,6 +411,7 @@ export function copyOut<T extends TypedArray>(
 /**
  * Convert Float16Array data to Float32Array for WASM kernel input.
  * WASM kernels operate on f32 for float16 data (no native f16 SIMD).
+ * @deprecated Use f16InputToScratchF32 instead — avoids intermediate JS allocation.
  */
 export function f16ToF32Input(data: TypedArray, dtype: string): TypedArray {
   if (dtype === 'float16' && hasFloat16) {
@@ -346,6 +422,7 @@ export function f16ToF32Input(data: TypedArray, dtype: string): TypedArray {
 
 /**
  * Convert Float32Array WASM output back to Float16Array.
+ * @deprecated Use f32OutputToF16Region instead — avoids JS round-trip.
  */
 export function f32ToF16Output(data: TypedArray, dtype: string): TypedArray {
   if (dtype === 'float16' && hasFloat16) {
@@ -354,4 +431,52 @@ export function f32ToF16Output(data: TypedArray, dtype: string): TypedArray {
     return f16 as unknown as TypedArray;
   }
   return data;
+}
+
+// ---------------------------------------------------------------------------
+// Optimized f16 conversion helpers (zero JS allocation)
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert f16 input to f32 in the scratch region using .set() — no JS allocation.
+ * Creates Float32Array view on WASM scratch memory and uses .set(f16Data) which
+ * converts f16→f32 in-place. 1.2x–3x faster than f16ToF32Input + scratchCopyIn.
+ *
+ * @param a - The ArrayStorage with f16 data
+ * @param size - Number of elements
+ * @returns WASM byte offset of the f32 scratch data
+ */
+export function f16InputToScratchF32(
+  a: { data: TypedArray; isWasmBacked: boolean; wasmPtr: number; offset: number },
+  size: number
+): number {
+  const mem = getSharedMemory();
+  const ptr = scratchAlloc(size * 4);
+  const f32View = new Float32Array(mem.buffer, ptr, size);
+  if (a.isWasmBacked) {
+    f32View.set(new Float16Array(mem.buffer, a.wasmPtr + a.offset * 2, size));
+  } else {
+    f32View.set(a.data.subarray(a.offset, a.offset + size) as unknown as ArrayLike<number>);
+  }
+  return ptr;
+}
+
+/**
+ * Convert f32 kernel output to f16 in a new WASM region using .set() — no JS round-trip.
+ * Allocates a persistent f16 WasmRegion, creates Float16Array + Float32Array views
+ * on WASM memory, and uses .set() to convert in-place.
+ * Replaces: copyOut + f32ToF16Output + fromData (saves 2 copies).
+ *
+ * @param outRegion - The WasmRegion containing f32 output from the kernel
+ * @param size - Number of elements
+ * @returns New WasmRegion with f16 data, or null on OOM. Caller must release outRegion.
+ */
+export function f32OutputToF16Region(outRegion: WasmRegion, size: number): WasmRegion | null {
+  const f16Region = wasmMalloc(size * 2);
+  if (!f16Region) return null;
+  const mem = getSharedMemory();
+  const f32View = new Float32Array(mem.buffer, outRegion.ptr, size);
+  const f16View = new Float16Array(mem.buffer, f16Region.ptr, size);
+  f16View.set(f32View);
+  return f16Region;
 }

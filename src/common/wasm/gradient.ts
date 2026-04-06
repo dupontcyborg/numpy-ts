@@ -21,8 +21,7 @@ import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  f16ToF32Input,
+  f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -122,9 +121,7 @@ export function wasmGradient1D(a: ArrayStorage, spacing: number): ArrayStorage |
 
   const aOff = a.offset;
   if (dtype === 'float16') {
-    let aData = a.data.subarray(aOff, aOff + size) as TypedArray;
-    aData = f16ToF32Input(aData, dtype);
-    const aPtr = scratchCopyIn(aData);
+    const aPtr = f16InputToScratchF32(a, size);
     kernel(aPtr, outRegion.ptr, size, spacing);
   } else {
     const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, aOff, size, inBpe);

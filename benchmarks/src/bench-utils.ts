@@ -109,6 +109,22 @@ export function setupArrays(setup: BenchmarkSetup, operation?: string): Record<s
     }
   }
 
+  if (operation === 'linalg_cholesky' && arrays['a']) {
+    // Pre-compute positive-definite matrix: A^T·A + trace(A^T·A)·I
+    const a = arrays['a'];
+    const n = a.shape[0];
+    const aT = np.transpose(a);
+    const aTa = np.matmul(aT, a);
+    const tr = np.trace(aTa);
+    const eye = np.eye(n, undefined, 0, a.dtype);
+    const scaled = np.multiply(eye, tr);
+    arrays['_posdef'] = np.add(aTa, scaled);
+    aT.dispose();
+    aTa.dispose();
+    eye.dispose();
+    scaled.dispose();
+  }
+
   if (operation === 'parseNpy' && arrays['a']) {
     arrays['_npyBytes'] = serializeNpy(arrays['a']);
   } else if (operation === 'serializeNpzSync' && arrays['a']) {
@@ -242,22 +258,7 @@ export function executeOperation(operation: string, arrays: Record<string, any>)
   if (operation === 'linalg_inv') return np.linalg.inv(arrays['a']);
   if (operation === 'linalg_solve') return np.linalg.solve(arrays['a'], arrays['b']);
   if (operation === 'linalg_qr') return np.linalg.qr(arrays['a']);
-  if (operation === 'linalg_cholesky') {
-    const a = arrays['a'];
-    const n = a.shape[0];
-    const aT = np.transpose(a);
-    const aTa = np.matmul(aT, a);
-    const tr = np.trace(aTa);
-    const eye = np.eye(n, undefined, 0, a.dtype);
-    const scaled = np.multiply(eye, tr);
-    const posdef = np.add(aTa, scaled);
-    const result = np.linalg.cholesky(posdef);
-    aTa.dispose();
-    eye.dispose();
-    scaled.dispose();
-    posdef.dispose();
-    return result;
-  }
+  if (operation === 'linalg_cholesky') return np.linalg.cholesky(arrays['_posdef']);
   if (operation === 'linalg_svd') return np.linalg.svd(arrays['a']);
   if (operation === 'linalg_eig') return np.linalg.eig(arrays['a']);
   if (operation === 'linalg_eigh') {

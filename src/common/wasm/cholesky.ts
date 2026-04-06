@@ -6,7 +6,7 @@
  */
 
 import { cholesky_f64, cholesky_f32 } from './bins/cholesky.wasm';
-import { wasmMalloc, resetScratchAllocator, scratchCopyIn } from './runtime';
+import { wasmMalloc, resetScratchAllocator, scratchCopyIn, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { TypedArray } from '../dtype';
 
@@ -36,15 +36,19 @@ export function wasmCholesky(a: ArrayStorage): ArrayStorage | null {
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  // Copy input matrix to WASM memory (converting to float64)
-  const aData = new Float64Array(matSize);
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      aData[i * n + j] = Number(a.get(i, j));
+  // Resolve input — zero-copy if already WASM-backed float64 contiguous
+  let aPtr: number;
+  if (a.isCContiguous && a.dtype === 'float64') {
+    aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, matSize, 8);
+  } else {
+    const aData = new Float64Array(matSize);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        aData[i * n + j] = Number(a.get(i, j));
+      }
     }
+    aPtr = scratchCopyIn(aData as unknown as TypedArray);
   }
-
-  const aPtr = scratchCopyIn(aData as unknown as TypedArray);
 
   const rc = cholesky_f64(aPtr, outRegion.ptr, n);
 
@@ -88,14 +92,18 @@ export function wasmCholeskyF32(a: ArrayStorage): ArrayStorage | null {
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const aData = new Float32Array(matSize);
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      aData[i * n + j] = Number(a.get(i, j));
+  let aPtr: number;
+  if (a.isCContiguous && a.dtype === 'float32') {
+    aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, matSize, 4);
+  } else {
+    const aData = new Float32Array(matSize);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        aData[i * n + j] = Number(a.get(i, j));
+      }
     }
+    aPtr = scratchCopyIn(aData as unknown as TypedArray);
   }
-
-  const aPtr = scratchCopyIn(aData as unknown as TypedArray);
 
   const rc = cholesky_f32(aPtr, outRegion.ptr, n);
 

@@ -19,10 +19,8 @@ import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
@@ -102,25 +100,18 @@ export function wasmMatvec(A: ArrayStorage, x: ArrayStorage): ArrayStorage | nul
   resetScratchAllocator();
 
   if (isF16) {
-    let aData = A.data.subarray(
-      A.offset * factor,
-      A.offset * factor + M * K * factor
-    ) as TypedArray;
-    let xData = x.data.subarray(x.offset * factor, x.offset * factor + K * factor) as TypedArray;
-    aData = f16ToF32Input(aData, resultDtype);
-    xData = f16ToF32Input(xData, resultDtype);
-    const aPtr = scratchCopyIn(aData);
-    const xPtr = scratchCopyIn(xData);
+    const aPtr = f16InputToScratchF32(A, M * K);
+    const xPtr = f16InputToScratchF32(x, K);
     kernel(aPtr, xPtr, outRegion.ptr, M, K);
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, totalElements);
-    const f32Copy = new Float32Array(totalElements);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, totalElements);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, resultDtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       [M],
-      resultDtype
+      resultDtype,
+      f16Region,
+      totalElements,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
   }
 

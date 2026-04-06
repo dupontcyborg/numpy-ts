@@ -25,6 +25,64 @@ export fn arctan2_f32(a: [*]const f32, b: [*]const f32, out: [*]f32, N: u32) voi
     }
 }
 
+// --- Integer-to-f64 variants (avoid JS BigInt→Number conversion) ---
+
+export fn arctan2_i64_f64(a: [*]const i64, b: [*]const i64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
+export fn arctan2_u64_f64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
+export fn arctan2_i32_f64(a: [*]const i32, b: [*]const i32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
+export fn arctan2_u32_f64(a: [*]const u32, b: [*]const u32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
+export fn arctan2_i16_f64(a: [*]const i16, b: [*]const i16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
+export fn arctan2_u16_f64(a: [*]const u16, b: [*]const u16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
+export fn arctan2_i8_f64(a: [*]const i8, b: [*]const i8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
+export fn arctan2_u8_f64(a: [*]const u8, b: [*]const u8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        out[i] = math.atan2(@as(f64, @floatFromInt(a[i])), @as(f64, @floatFromInt(b[i])));
+    }
+}
+
 // --- Tests ---
 
 test "arctan2_f64 basic" {

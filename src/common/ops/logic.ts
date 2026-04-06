@@ -23,6 +23,8 @@ import { Complex } from '../complex';
 import { wasmLogicalAnd, wasmLogicalAndScalar } from '../wasm/logical_and';
 import { wasmLogicalOr, wasmLogicalOrScalar } from '../wasm/logical_or';
 import { wasmLogicalXor, wasmLogicalXorScalar } from '../wasm/logical_xor';
+import { wasmIsnan } from '../wasm/isnan';
+import { wasmIsfinite } from '../wasm/isfinite';
 import { wasmCopysign, wasmCopysignScalar } from '../wasm/copysign';
 import { wasmLogicalNot } from '../wasm/logical_not';
 import { wasmSignbit } from '../wasm/signbit';
@@ -556,6 +558,15 @@ function logicalXorScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
  * @returns Boolean result storage
  */
 export function isfinite(a: ArrayStorage): ArrayStorage {
+  // Integer and BigInt values are always finite — return all-true immediately
+  if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
+    return ArrayStorage.ones(Array.from(a.shape), 'bool');
+  }
+
+  // WASM fast path for float types
+  const wasmResult = wasmIsfinite(a);
+  if (wasmResult) return wasmResult;
+
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
   const data = result.data as Uint8Array;
   const size = a.size;
@@ -575,28 +586,26 @@ export function isfinite(a: ArrayStorage): ArrayStorage {
       // Integer and BigInt values are always finite
       data.fill(1);
     } else {
-      if (off === 0) {
-        for (let i = 0; i < size; i++) {
-          data[i] = Number.isFinite(thisData[i] as number) ? 1 : 0;
-        }
-      } else {
-        for (let i = 0; i < size; i++) {
-          const val = thisData[off + i] as number;
-          data[i] = Number.isFinite(val) ? 1 : 0;
-        }
+      // v - v === 0 is true for finite, false for NaN (NaN-NaN=NaN) and inf (inf-inf=NaN)
+      for (let i = 0; i < size; i++) {
+        const v = thisData[off + i] as number;
+        data[i] = v - v === 0 ? 1 : 0;
       }
     }
   } else {
     if (isComplexDType(a.dtype as DType)) {
       for (let i = 0; i < size; i++) {
         const val = a.iget(i) as Complex;
-        data[i] = Number.isFinite(val.re) && Number.isFinite(val.im) ? 1 : 0;
+        const reOk = val.re - val.re === 0;
+        const imOk = val.im - val.im === 0;
+        data[i] = reOk && imOk ? 1 : 0;
       }
     } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
       data.fill(1);
     } else {
       for (let i = 0; i < size; i++) {
-        data[i] = Number.isFinite(Number(a.iget(i))) ? 1 : 0;
+        const v = Number(a.iget(i));
+        data[i] = v - v === 0 ? 1 : 0;
       }
     }
   }
@@ -675,6 +684,10 @@ export function isinf(a: ArrayStorage): ArrayStorage {
  * @returns Boolean result storage
  */
 export function isnan(a: ArrayStorage): ArrayStorage {
+  // WASM fast path for float types
+  const wasmResult = wasmIsnan(a);
+  if (wasmResult) return wasmResult;
+
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
   const data = result.data as Uint8Array;
   const size = a.size;
@@ -693,21 +706,24 @@ export function isnan(a: ArrayStorage): ArrayStorage {
     } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
       // Integer and BigInt values are never NaN — data is already zero-filled
     } else {
+      // v !== v is true only for NaN (IEEE 754: NaN != NaN)
       for (let i = 0; i < size; i++) {
-        data[i] = Number.isNaN(thisData[off + i] as number) ? 1 : 0;
+        const v = thisData[off + i] as number;
+        data[i] = v !== v ? 1 : 0;
       }
     }
   } else {
     if (isComplexDType(a.dtype as DType)) {
       for (let i = 0; i < size; i++) {
         const val = a.iget(i) as Complex;
-        data[i] = Number.isNaN(val.re) || Number.isNaN(val.im) ? 1 : 0;
+        data[i] = val.re !== val.re || val.im !== val.im ? 1 : 0;
       }
     } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
       // Integer and BigInt values are never NaN — data is already zero-filled
     } else {
       for (let i = 0; i < size; i++) {
-        data[i] = Number.isNaN(Number(a.iget(i))) ? 1 : 0;
+        const v = Number(a.iget(i));
+        data[i] = v !== v ? 1 : 0;
       }
     }
   }

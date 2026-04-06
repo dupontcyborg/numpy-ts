@@ -1929,3 +1929,7 @@ export {
   tofile,
   fill,
 } from '../core';
+
+// WASM configuration
+export { wasmConfig } from '../common/wasm/config';
+export { configureWasm } from '../common/wasm/runtime';

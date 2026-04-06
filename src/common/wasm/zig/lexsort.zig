@@ -47,28 +47,28 @@ export fn lexsort_u32(keys: [*]const u32, num_keys: u32, N: u32, out: [*]u32) vo
     sc.lexHeapSort(u32, keys, num_keys, N, out);
 }
 
-/// Lexicographic indirect sort for i16 keys.
-export fn lexsort_i16(keys: [*]const i16, num_keys: u32, N: u32, out: [*]u32) void {
+/// Lexicographic indirect sort for i16 keys. Uses radix sort (scratch = N u32 elements).
+export fn lexsort_i16(keys: [*]const i16, num_keys: u32, N: u32, out: [*]u32, scratch: [*]u32) void {
     sc.initIndices(out, N);
-    sc.lexHeapSort(i16, keys, num_keys, N, out);
+    sc.lexRadixSort(i16, keys, num_keys, N, out, scratch);
 }
 
-/// Lexicographic indirect sort for u16 keys.
-export fn lexsort_u16(keys: [*]const u16, num_keys: u32, N: u32, out: [*]u32) void {
+/// Lexicographic indirect sort for u16 keys. Uses radix sort.
+export fn lexsort_u16(keys: [*]const u16, num_keys: u32, N: u32, out: [*]u32, scratch: [*]u32) void {
     sc.initIndices(out, N);
-    sc.lexHeapSort(u16, keys, num_keys, N, out);
+    sc.lexRadixSort(u16, keys, num_keys, N, out, scratch);
 }
 
-/// Lexicographic indirect sort for i8 keys.
-export fn lexsort_i8(keys: [*]const i8, num_keys: u32, N: u32, out: [*]u32) void {
+/// Lexicographic indirect sort for i8 keys. Uses radix sort.
+export fn lexsort_i8(keys: [*]const i8, num_keys: u32, N: u32, out: [*]u32, scratch: [*]u32) void {
     sc.initIndices(out, N);
-    sc.lexHeapSort(i8, keys, num_keys, N, out);
+    sc.lexRadixSort(i8, keys, num_keys, N, out, scratch);
 }
 
-/// Lexicographic indirect sort for u8 keys.
-export fn lexsort_u8(keys: [*]const u8, num_keys: u32, N: u32, out: [*]u32) void {
+/// Lexicographic indirect sort for u8 keys. Uses radix sort.
+export fn lexsort_u8(keys: [*]const u8, num_keys: u32, N: u32, out: [*]u32, scratch: [*]u32) void {
     sc.initIndices(out, N);
-    sc.lexHeapSort(u8, keys, num_keys, N, out);
+    sc.lexRadixSort(u8, keys, num_keys, N, out, scratch);
 }
 
 // --- Tests ---
@@ -123,4 +123,39 @@ test "lexsort_i32 single element" {
     var out: [1]u32 = undefined;
     lexsort_i32(&keys, 2, 1, &out);
     try testing.expectEqual(out[0], 0);
+}
+
+test "lexsort_i8 radix 2-key" {
+    const testing = @import("std").testing;
+    // key0 (secondary): [3, 1, 2], key1 (primary): [5, 5, 5] — all tied, sort by key0
+    const keys = [_]i8{ 3, 1, 2, 5, 5, 5 };
+    var out: [3]u32 = undefined;
+    var scratch: [3]u32 = undefined;
+    lexsort_i8(&keys, 2, 3, &out, &scratch);
+    try testing.expectEqual(out[0], 1); // key0=1
+    try testing.expectEqual(out[1], 2); // key0=2
+    try testing.expectEqual(out[2], 0); // key0=3
+}
+
+test "lexsort_i8 radix negative values" {
+    const testing = @import("std").testing;
+    const keys = [_]i8{ -5, 3, -1, 0 };
+    var out: [4]u32 = undefined;
+    var scratch: [4]u32 = undefined;
+    lexsort_i8(&keys, 1, 4, &out, &scratch);
+    try testing.expectEqual(out[0], 0); // -5
+    try testing.expectEqual(out[1], 2); // -1
+    try testing.expectEqual(out[2], 3); // 0
+    try testing.expectEqual(out[3], 1); // 3
+}
+
+test "lexsort_i16 radix basic" {
+    const testing = @import("std").testing;
+    const keys = [_]i16{ 300, -100, 200 };
+    var out: [3]u32 = undefined;
+    var scratch: [3]u32 = undefined;
+    lexsort_i16(&keys, 1, 3, &out, &scratch);
+    try testing.expectEqual(out[0], 1); // -100
+    try testing.expectEqual(out[1], 2); // 200
+    try testing.expectEqual(out[2], 0); // 300
 }

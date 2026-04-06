@@ -25,6 +25,7 @@ describe('Export Coverage', () => {
 
     // WASM runtime configuration (not a core array operation)
     'wasmConfig',
+    'configureWasm',
 
     // Runtime feature detection (not a core array operation)
     'hasFloat16',

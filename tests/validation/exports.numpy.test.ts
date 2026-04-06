@@ -333,6 +333,7 @@ describe('NumPy API Comparison', () => {
         'fromregexFileSync',
         // WASM runtime configuration
         'wasmConfig',
+        'configureWasm',
         // Runtime feature detection
         'hasFloat16',
         // Deprecated in NumPy 1.24+, removed in NumPy 2.0 (use isin instead)

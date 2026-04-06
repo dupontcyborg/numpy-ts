@@ -6,20 +6,24 @@
  */
 
 /**
- * WASM memory configuration.
- *
- * Controls the size of the WASM linear memory pool used to back ArrayStorage
- * data directly (zero-copy). When the pool is full, allocations fall back to
- * regular JS TypedArrays (with copy-in/copy-out for WASM kernels).
+ * Internal WASM memory configuration. Use configureWasm() to change these
+ * before any array operations.
  */
 export const wasmMemoryConfig = {
   /** Total WASM linear memory size in bytes. Default 256 MiB. */
   maxMemoryBytes: 256 * 1024 * 1024,
-  /** Scratch region for bump-allocating JS-fallback copy-ins. Default 4 MiB. */
-  scratchBytes: 4 * 1024 * 1024,
+  /** Scratch region for bump-allocating JS-fallback copy-ins. Default 8 MiB. */
+  scratchBytes: 8 * 1024 * 1024,
   /** When true, fall back to JS-backed TypedArrays when WASM memory is full. */
   fallbackToJS: true,
 };
+
+export interface ConfigureWasmOptions {
+  /** Total WASM linear memory in bytes. Default 256 MiB. */
+  maxMemory?: number;
+  /** Scratch region size in bytes. Default: 1/16 of maxMemory (~6% for temp kernel buffers). */
+  scratchSize?: number;
+}
 
 export const wasmConfig = {
   /**

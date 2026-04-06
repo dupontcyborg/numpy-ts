@@ -31,11 +31,9 @@ import {
 import {
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  alloc,
-  copyOut,
-  f16ToF32Input,
-  f32ToF16Output,
+  f16InputToScratchF32,
+  wasmMalloc,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -95,8 +93,7 @@ export function wasmReduceMax(a: ArrayStorage): number | null {
   resetScratchAllocator();
   let aPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + size) as TypedArray;
-    aPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    aPtr = f16InputToScratchF32(a, size);
   } else {
     aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   }
@@ -179,17 +176,31 @@ export function wasmReduceMaxStrided(
   resetScratchAllocator();
   let inPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + totalSize) as TypedArray;
-    inPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    inPtr = f16InputToScratchF32(a, totalSize);
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
-  const outPtr = alloc(outSize * outBpe);
 
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
+  // f16: output as f32, then convert to f16 via wasmMalloc region
+  if (dtype === 'float16') {
+    const outRegion = wasmMalloc(outSize * 4);
+    if (!outRegion) return null;
+    kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
+    const f16Region = f32OutputToF16Region(outRegion, outSize);
+    outRegion.release();
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
+      [outSize],
+      dtype,
+      f16Region,
+      outSize,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
 
-  let outData = copyOut(outPtr, outSize, OutCtor);
-  outData = f32ToF16Output(outData, dtype);
+  const outRegion2 = wasmMalloc(outSize * outBpe);
+  if (!outRegion2) return null;
+  kernel(inPtr, outRegion2.ptr, outerSize, axisSize, innerSize);
 
-  return ArrayStorage.fromData(outData, [outSize], dtype);
+  return ArrayStorage.fromWasmRegion([outSize], dtype, outRegion2, outSize, OutCtor);
 }

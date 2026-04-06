@@ -7,7 +7,7 @@
  */
 
 import { reduce_nansum_f64, reduce_nansum_f32 } from './bins/reduce_nansum.wasm';
-import { resetScratchAllocator, resolveInputPtr, scratchCopyIn, f16ToF32Input } from './runtime';
+import { resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
@@ -26,7 +26,6 @@ type AnyTypedArrayCtor = new (length: number) => TypedArray;
 const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   float64: Float64Array,
   float32: Float32Array,
-  float16: Float32Array, // f16 converted to f32 before kernel call
 };
 
 /**
@@ -46,13 +45,6 @@ export function wasmReduceNansum(a: ArrayStorage): number | null {
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
-
-  // Float16: convert to f32 before passing to f32 kernel
-  if (dtype === 'float16') {
-    const aData = f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype);
-    const aPtr = scratchCopyIn(aData);
-    return Number(kernel(aPtr, size));
-  }
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);

@@ -25,14 +25,15 @@ import {
   reduce_prod_strided_u32,
   reduce_prod_strided_u16,
   reduce_prod_strided_u8,
+  reduce_prod_strided_c128,
+  reduce_prod_strided_c64,
 } from './bins/reduce_prod.wasm';
 import {
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  f16ToF32Input,
-  alloc,
-  copyOut,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
+  wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -45,7 +46,7 @@ type ReduceFn = (aPtr: number, N: number) => number | bigint;
 const kernels: Partial<Record<DType, ReduceFn>> = {
   float64: reduce_prod_f64,
   float32: reduce_prod_f32,
-  float16: reduce_prod_f32, // f16 input converted to f32, then multiplied
+  float16: reduce_prod_f32,
   int64: reduce_prod_i64,
   uint64: reduce_prod_i64,
   int32: reduce_prod_i32,
@@ -61,7 +62,7 @@ type AnyTypedArrayCtor = new (length: number) => TypedArray;
 const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   float64: Float64Array,
   float32: Float32Array,
-  float16: Float32Array, // f16 converted to f32 before kernel call
+  float16: Float32Array,
   int64: BigInt64Array,
   uint64: BigUint64Array,
   int32: Int32Array,
@@ -90,11 +91,15 @@ export function wasmReduceProd(a: ArrayStorage): number | null {
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  // Float16: convert to f32 before passing to f32 kernel
+  // Float16: convert to f32, run f32 kernel, cast result back to f16 precision.
+  // f32 accumulation + f16 cast matches NumPy's pairwise summation behavior.
   if (dtype === 'float16') {
-    const aData = f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype);
-    const aPtr = scratchCopyIn(aData);
-    return Number(kernel(aPtr, size));
+    const aPtr = f16InputToScratchF32(a, size);
+    const f32Result = Number(kernel(aPtr, size));
+    // Cast through Float16Array to match f16 overflow (e.g., 65536 → inf)
+    const f16Round = new Float16Array(1);
+    f16Round[0] = f32Result;
+    return f16Round[0]!;
   }
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
@@ -126,7 +131,7 @@ const stridedKernels: Partial<Record<DType, StridedFn>> = {
 const stridedOutDtype: Partial<Record<DType, DType>> = {
   float64: 'float64',
   float32: 'float32',
-  float16: 'float32',
+  float16: 'float16',
   int64: 'int64',
   uint64: 'uint64',
   int32: 'int32',
@@ -218,20 +223,83 @@ export function wasmReduceProdStrided(
   const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outSize = outerSize * innerSize;
 
+  const outRegion = wasmMalloc(outSize * outBpe);
+  if (!outRegion) return null;
+
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
   let inPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + totalSize) as TypedArray;
-    inPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    inPtr = f16InputToScratchF32(a, totalSize);
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
-  const outPtr = alloc(outSize * outBpe);
 
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
+  kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
 
-  const outData = copyOut(outPtr, outSize, OutCtor);
+  // f16: cast f32 output back to f16 (matches NumPy overflow behavior)
+  if (dtype === 'float16') {
+    const f16Region = f32OutputToF16Region(outRegion, outSize);
+    outRegion.release();
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
+      [outSize],
+      'float16',
+      f16Region,
+      outSize,
+      Uint16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
 
-  return ArrayStorage.fromData(outData, [outSize], outDtype);
+  return ArrayStorage.fromWasmRegion([outSize], outDtype!, outRegion, outSize, OutCtor!);
+}
+
+/**
+ * WASM-accelerated strided product for complex types.
+ */
+export function wasmReduceProdStridedComplex(
+  a: ArrayStorage,
+  outerSize: number,
+  axisSize: number,
+  innerSize: number
+): ArrayStorage | null {
+  if (!a.isCContiguous) return null;
+  const dtype = a.dtype;
+  if (dtype !== 'complex128' && dtype !== 'complex64') return null;
+
+  const totalSize = outerSize * axisSize * innerSize;
+  if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const isC128 = dtype === 'complex128';
+  const floatBpe = isC128 ? 8 : 4;
+  const outSize = outerSize * innerSize;
+  const outFloats = outSize * 2;
+  const outBytes = outFloats * floatBpe;
+
+  const outRegion = wasmMalloc(outBytes);
+  if (!outRegion) return null;
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  const inPtr = resolveInputPtr(
+    a.data,
+    a.isWasmBacked,
+    a.wasmPtr,
+    a.offset,
+    totalSize * 2,
+    floatBpe
+  );
+
+  if (isC128) {
+    reduce_prod_strided_c128(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
+  } else {
+    reduce_prod_strided_c64(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
+  }
+
+  const Ctor = isC128
+    ? (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
+    : (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+
+  return ArrayStorage.fromWasmRegion([outSize], dtype, outRegion, outFloats, Ctor);
 }

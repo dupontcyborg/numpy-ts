@@ -293,6 +293,65 @@ export fn reduce_prod_strided_u8(a: [*]const u8, out: [*]u64, outer: u32, axis: 
     }
 }
 
+// --- Complex prod kernels ---
+// Complex multiplication: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+// N = number of complex elements. Buffer has 2*N floats.
+
+/// Strided product for complex128.
+export fn reduce_prod_strided_c128(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    for (0..O) |o| {
+        const base = (o * S) * 2;
+        const ob = o * I * 2;
+        // Init from first axis slice
+        for (0..I) |i| {
+            out[ob + i * 2] = a[base + i * 2];
+            out[ob + i * 2 + 1] = a[base + i * 2 + 1];
+        }
+        for (1..A) |ax| {
+            const row = base + ax * I * 2;
+            for (0..I) |i| {
+                const re = out[ob + i * 2];
+                const im = out[ob + i * 2 + 1];
+                const ar = a[row + i * 2];
+                const ai = a[row + i * 2 + 1];
+                out[ob + i * 2] = re * ar - im * ai;
+                out[ob + i * 2 + 1] = re * ai + im * ar;
+            }
+        }
+    }
+}
+
+/// Strided product for complex64.
+export fn reduce_prod_strided_c64(a: [*]const f32, out: [*]f32, outer: u32, axis: u32, inner: u32) void {
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    for (0..O) |o| {
+        const base = (o * S) * 2;
+        const ob = o * I * 2;
+        for (0..I) |i| {
+            out[ob + i * 2] = a[base + i * 2];
+            out[ob + i * 2 + 1] = a[base + i * 2 + 1];
+        }
+        for (1..A) |ax| {
+            const row = base + ax * I * 2;
+            for (0..I) |i| {
+                const re = out[ob + i * 2];
+                const im = out[ob + i * 2 + 1];
+                const ar = a[row + i * 2];
+                const ai = a[row + i * 2 + 1];
+                out[ob + i * 2] = re * ar - im * ai;
+                out[ob + i * 2 + 1] = re * ai + im * ar;
+            }
+        }
+    }
+}
+
 // --- Tests ---
 
 test "reduce_prod_f64 basic" {

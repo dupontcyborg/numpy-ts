@@ -1178,11 +1178,9 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
   const contiguous = storage.isCContiguous;
   const data = storage.data;
   const off = storage.offset;
+  const outNdim = ndim === 0 ? 1 : ndim;
 
-  // Find all non-zero indices
-  const nonzeroIndices: number[][] = [];
-
-  // Calculate strides for logical index conversion
+  // Calculate strides for linear → multi-index conversion
   const logicalStrides: number[] = [];
   let stride = 1;
   for (let i = ndim - 1; i >= 0; i--) {
@@ -1190,18 +1188,40 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
     stride *= shape[i]!;
   }
 
-  // Find non-zero elements
+  // Pass 1: count non-zero elements (no allocations)
+  let numNonzero = 0;
+  if (contiguous) {
+    for (let i = 0; i < size; i++) {
+      if (isNonZero(data, off + i, isComplex)) numNonzero++;
+    }
+  } else {
+    for (let i = 0; i < size; i++) {
+      const val = storage.iget(i);
+      const nz = isComplex
+        ? (val as { re: number; im: number }).re !== 0 ||
+          (val as { re: number; im: number }).im !== 0
+        : Boolean(val);
+      if (nz) numNonzero++;
+    }
+  }
+
+  // Allocate result: shape (numNonzero, ndim)
+  const result = ArrayStorage.zeros([numNonzero, outNdim], 'int32');
+  const resultData = result.data as Int32Array;
+
+  // Pass 2: fill result directly — no intermediate arrays
+  let row = 0;
   if (contiguous) {
     for (let i = 0; i < size; i++) {
       if (isNonZero(data, off + i, isComplex)) {
-        const indices: number[] = [];
         let remaining = i;
+        const base = row * outNdim;
         for (let dim = 0; dim < ndim; dim++) {
-          const idx = Math.floor(remaining / logicalStrides[dim]!);
-          remaining = remaining % logicalStrides[dim]!;
-          indices.push(idx);
+          const s = logicalStrides[dim]!;
+          resultData[base + dim] = (remaining / s) | 0;
+          remaining = remaining % s;
         }
-        nonzeroIndices.push(indices);
+        row++;
       }
     }
   } else {
@@ -1212,29 +1232,15 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
           (val as { re: number; im: number }).im !== 0
         : Boolean(val);
       if (nz) {
-        const indices: number[] = [];
         let remaining = i;
+        const base = row * outNdim;
         for (let dim = 0; dim < ndim; dim++) {
-          const idx = Math.floor(remaining / logicalStrides[dim]!);
-          remaining = remaining % logicalStrides[dim]!;
-          indices.push(idx);
+          const s = logicalStrides[dim]!;
+          resultData[base + dim] = (remaining / s) | 0;
+          remaining = remaining % s;
         }
-        nonzeroIndices.push(indices);
+        row++;
       }
-    }
-  }
-
-  // Create result array: shape is (numNonzero, ndim)
-  const numNonzero = nonzeroIndices.length;
-  const resultShape = ndim === 0 ? [numNonzero, 1] : [numNonzero, ndim];
-  const result = ArrayStorage.zeros(resultShape, 'int32');
-  const resultData = result.data as Int32Array;
-
-  // Fill result array
-  for (let i = 0; i < numNonzero; i++) {
-    const indices = nonzeroIndices[i]!;
-    for (let dim = 0; dim < (ndim === 0 ? 1 : ndim); dim++) {
-      resultData[i * (ndim === 0 ? 1 : ndim) + dim] = indices[dim] ?? 0;
     }
   }
 

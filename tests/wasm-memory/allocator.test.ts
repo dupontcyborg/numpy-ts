@@ -144,27 +144,60 @@ describe('max size class boundary', () => {
 // ---------------------------------------------------------------------------
 
 describe('scratch overflow', () => {
-  it('scratchAlloc throws when scratch is exhausted', () => {
+  it('scratchAlloc falls back to heap when scratch is exhausted', () => {
     resetScratchAllocator();
-    // Scratch is 1 MiB. Request 2 MiB — should throw.
-    expect(() => scratchAlloc(2 * 1024 * 1024)).toThrow(/scratch OOM/i);
+    // Scratch is 1 MiB. Request 2 MiB — should fall back to heap_malloc, not throw.
+    const ptr = scratchAlloc(2 * 1024 * 1024);
+    expect(ptr).toBeGreaterThan(0);
   });
 
-  it('scratch recovers after overflow (reset per kernel call)', () => {
+  it('heap fallback pointer is outside the scratch region', () => {
     resetScratchAllocator();
-    // Overflow
-    expect(() => scratchAlloc(2 * 1024 * 1024)).toThrow();
+    // Normal scratch allocation — should be within scratch region
+    const scratchPtr = scratchAlloc(64);
+    // Heap fallback — should be at a different location
+    const heapPtr = scratchAlloc(2 * 1024 * 1024);
+    expect(heapPtr).not.toBe(0);
+    // The heap pointer should be distinct from the scratch pointer
+    expect(heapPtr).not.toBe(scratchPtr);
+  });
 
-    // Reset and try a normal allocation — should succeed
+  it('heap fallback allocations are freed on resetScratchAllocator', () => {
     resetScratchAllocator();
+    // Allocate on heap via overflow
+    const heapPtr1 = scratchAlloc(2 * 1024 * 1024);
+    const heapPtr2 = scratchAlloc(2 * 1024 * 1024);
+    expect(heapPtr1).toBeGreaterThan(0);
+    expect(heapPtr2).toBeGreaterThan(0);
+
+    // Reset should free the heap allocations
+    resetScratchAllocator();
+
+    // After reset, scratch should work normally again
     const ptr = scratchAlloc(1024);
     expect(ptr).toBeGreaterThan(0);
   });
 
-  it('kernel call succeeds on a normally-allocated array after scratch overflow+reset', () => {
-    // Trigger a scratch overflow
+  it('multiple heap fallbacks followed by reset and normal use', () => {
+    // Simulate a kernel that overflows scratch multiple times
+    for (let round = 0; round < 3; round++) {
+      resetScratchAllocator();
+      // Mix scratch and heap allocations
+      const s1 = scratchAlloc(256);
+      expect(s1).toBeGreaterThan(0);
+      const h1 = scratchAlloc(2 * 1024 * 1024); // heap fallback
+      expect(h1).toBeGreaterThan(0);
+    }
+    // After final reset, everything should be clean
     resetScratchAllocator();
-    expect(() => scratchAlloc(2 * 1024 * 1024)).toThrow();
+    const ptr = scratchAlloc(512);
+    expect(ptr).toBeGreaterThan(0);
+  });
+
+  it('kernel call succeeds on a normally-allocated array after scratch overflow+reset', () => {
+    // Trigger a scratch overflow (falls back to heap)
+    resetScratchAllocator();
+    scratchAlloc(2 * 1024 * 1024);
 
     // Scratch is now in a bad state, but the next kernel call resets it.
     // Verify a normal operation still works (resetScratchAllocator is called

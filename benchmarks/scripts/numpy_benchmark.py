@@ -115,6 +115,12 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
         np.savez(buffer, **npz_arrays)
         arrays["_npzBytes"] = buffer.getvalue()
 
+    if operation == "linalg_cholesky" and "a" in arrays:
+        a = arrays["a"]
+        n = a.shape[0]
+        ata = a.T @ a
+        arrays["_posdef"] = ata + np.eye(n, dtype=a.dtype) * np.trace(ata)
+
     return arrays
 
 
@@ -310,13 +316,7 @@ def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
     elif operation == "linalg_qr":
         return np.linalg.qr(arrays["a"])
     elif operation == "linalg_cholesky":
-        # Create positive definite matrix: A^T * A + trace(A^T * A) * I
-        # Scale identity by trace to guarantee positive-definiteness in all dtypes
-        a = arrays["a"]
-        n = a.shape[0]
-        ata = a.T @ a
-        posdef = ata + np.eye(n, dtype=a.dtype) * np.trace(ata)
-        return np.linalg.cholesky(posdef)
+        return np.linalg.cholesky(arrays["_posdef"])
     elif operation == "linalg_svd":
         return np.linalg.svd(arrays["a"])
     elif operation == "linalg_eig":

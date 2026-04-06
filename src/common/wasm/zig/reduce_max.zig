@@ -247,194 +247,111 @@ export fn reduce_max_u8(a: [*]const u8, N: u32) u8 {
     return result;
 }
 
-/// Returns the maximum f64 element along the axis, strided. Output is pre-allocated.
+// --- Generic SIMD strided max helpers ---
+
+fn stridedMaxInt(comptime T: type, comptime W: comptime_int, a: [*]const T, out: [*]T, outer: u32, axis: u32, inner: u32) void {
+    const VT = @Vector(W, T);
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    const IW = I & ~@as(usize, W - 1);
+    for (0..O) |o| {
+        const base = o * S;
+        const ob = o * I;
+        var i: usize = 0;
+        while (i < IW) : (i += W) @as(*align(1) VT, @ptrCast(out + ob + i)).* = @as(*align(1) const VT, @ptrCast(a + base + i)).*;
+        while (i < I) : (i += 1) out[ob + i] = a[base + i];
+        for (1..A) |ax| {
+            const row = base + ax * I;
+            i = 0;
+            while (i < IW) : (i += W) {
+                const acc: VT = @as(*align(1) const VT, @ptrCast(out + ob + i)).*;
+                const v: VT = @as(*align(1) const VT, @ptrCast(a + row + i)).*;
+                @as(*align(1) VT, @ptrCast(out + ob + i)).* = @max(acc, v);
+            }
+            while (i < I) : (i += 1) {
+                if (a[row + i] > out[ob + i]) out[ob + i] = a[row + i];
+            }
+        }
+    }
+}
+
+fn stridedMaxFloat(comptime T: type, comptime W: comptime_int, a: [*]const T, out: [*]T, outer: u32, axis: u32, inner: u32) void {
+    const VT = @Vector(W, T);
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    const IW = I & ~@as(usize, W - 1);
+    for (0..O) |o| {
+        const base = o * S;
+        const ob = o * I;
+        var i: usize = 0;
+        while (i < IW) : (i += W) @as(*align(1) VT, @ptrCast(out + ob + i)).* = @as(*align(1) const VT, @ptrCast(a + base + i)).*;
+        while (i < I) : (i += 1) out[ob + i] = a[base + i];
+        for (1..A) |ax| {
+            const row = base + ax * I;
+            i = 0;
+            while (i < IW) : (i += W) {
+                const acc: VT = @as(*align(1) const VT, @ptrCast(out + ob + i)).*;
+                const v: VT = @as(*align(1) const VT, @ptrCast(a + row + i)).*;
+                @as(*align(1) VT, @ptrCast(out + ob + i)).* = @select(T, acc > v, acc, v);
+            }
+            while (i < I) : (i += 1) {
+                if (a[row + i] > out[ob + i]) out[ob + i] = a[row + i];
+            }
+        }
+    }
+}
+
+fn stridedMaxScalar(comptime T: type, a: [*]const T, out: [*]T, outer: u32, axis: u32, inner: u32) void {
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    for (0..O) |o| {
+        const base = o * S;
+        const ob = o * I;
+        for (0..I) |i| out[ob + i] = a[base + i];
+        for (1..A) |ax| {
+            for (0..I) |i| {
+                if (a[base + ax * I + i] > out[ob + i]) out[ob + i] = a[base + ax * I + i];
+            }
+        }
+    }
+}
+
 export fn reduce_max_strided_f64(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxFloat(f64, 2, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum f32 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_f32(a: [*]const f32, out: [*]f32, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxFloat(f32, 4, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum i64 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_i64(a: [*]const i64, out: [*]i64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxScalar(i64, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum u64 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_u64(a: [*]const u64, out: [*]u64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxScalar(u64, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum i32 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_i32(a: [*]const i32, out: [*]i32, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxInt(i32, 4, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum u32 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_u32(a: [*]const u32, out: [*]u32, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxInt(u32, 4, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum i16 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_i16(a: [*]const i16, out: [*]i16, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxInt(i16, 8, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum u16 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_u16(a: [*]const u16, out: [*]u16, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxInt(u16, 8, a, out, outer, axis, inner);
 }
 
-/// Returns the maximum i8 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_i8(a: [*]const i8, out: [*]i8, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxInt(i8, 16, a, out, outer, axis, inner);
 }
-
-/// Returns the maximum u8 element along the axis, strided. Output is pre-allocated.
 export fn reduce_max_strided_u8(a: [*]const u8, out: [*]u8, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
-            for (0..I) |i| {
-                const v = a[base + ax * I + i];
-                if (v > out[ob + i]) out[ob + i] = v;
-            }
-        }
-    }
+    stridedMaxInt(u8, 16, a, out, outer, axis, inner);
 }
 
 // --- Tests ---

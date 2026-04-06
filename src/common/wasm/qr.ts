@@ -7,7 +7,7 @@
  */
 
 import { qr_f64 } from './bins/qr.wasm';
-import { wasmMalloc, resetScratchAllocator, scratchCopyIn, scratchAlloc } from './runtime';
+import { wasmMalloc, resetScratchAllocator, scratchAlloc, getSharedMemory } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { TypedArray } from '../dtype';
 
@@ -47,20 +47,35 @@ export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  // Copy input matrix to WASM scratch (converting to float64)
+  // QR modifies input during Householder reflections — allocate working copy on heap
   const aSize = m * n;
-  const aData = new Float64Array(aSize);
-  for (let i = 0; i < m; i++) {
-    for (let j = 0; j < n; j++) {
-      aData[i * n + j] = Number(a.get(i, j));
+  const aRegion = wasmMalloc(aSize * 8);
+  if (!aRegion) {
+    qRegion.release();
+    rRegion.release();
+    return null;
+  }
+  const mem = getSharedMemory();
+  if (a.dtype === 'float64' && a.isCContiguous) {
+    const aView = new Float64Array(mem.buffer, aRegion.ptr, aSize);
+    if (a.isWasmBacked) {
+      aView.set(new Float64Array(mem.buffer, a.wasmPtr + a.offset * 8, aSize));
+    } else {
+      aView.set((a.data as Float64Array).subarray(a.offset, a.offset + aSize));
+    }
+  } else {
+    const aView = new Float64Array(mem.buffer, aRegion.ptr, aSize);
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        aView[i * n + j] = Number(a.get(i, j));
+      }
     }
   }
-
-  const aPtr = scratchCopyIn(aData as unknown as TypedArray);
   const tauPtr = scratchAlloc(k * 8);
   const scratchPtr = scratchAlloc(k * 8);
 
-  qr_f64(aPtr, qRegion.ptr, rRegion.ptr, tauPtr, scratchPtr, m, n);
+  qr_f64(aRegion.ptr, qRegion.ptr, rRegion.ptr, tauPtr, scratchPtr, m, n);
+  aRegion.release();
 
   const qStorage = ArrayStorage.fromWasmRegion(
     [m, k],

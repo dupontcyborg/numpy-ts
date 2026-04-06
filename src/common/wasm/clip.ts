@@ -18,13 +18,11 @@ import {
   clip_u8,
 } from './bins/clip.wasm';
 import {
-  ensureMemory,
-  resetAllocator,
-  copyIn,
-  alloc,
-  copyOut,
-  f16ToF32Input,
-  f32ToF16Output,
+  wasmMalloc,
+  resetScratchAllocator,
+  resolveInputPtr,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -78,20 +76,37 @@ export function wasmClip(a: ArrayStorage, lo: number, hi: number): ArrayStorage 
   if (!kernel || !Ctor) return null;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  ensureMemory(size * bpe * 2);
-  resetAllocator();
 
-  const aPtr = copyIn(
-    f16ToF32Input(a.data.subarray(a.offset, a.offset + size) as TypedArray, dtype)
-  );
-  const outPtr = alloc(size * bpe);
-  kernel(aPtr, outPtr, size, lo, hi);
+  const outRegion = wasmMalloc(size * bpe);
+  if (!outRegion) return null;
 
-  const outData = copyOut(
-    outPtr,
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  if (dtype === 'float16') {
+    const aPtr = f16InputToScratchF32(a, size);
+    kernel(aPtr, outRegion.ptr, size, lo, hi);
+
+    const f16Region = f32OutputToF16Region(outRegion, size);
+    outRegion.release();
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      dtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
+
+  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
+  kernel(aPtr, outRegion.ptr, size, lo, hi);
+
+  return ArrayStorage.fromWasmRegion(
+    Array.from(a.shape),
+    dtype,
+    outRegion,
     size,
     Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
-  const finalOut = f32ToF16Output(outData, dtype);
-  return ArrayStorage.fromData(finalOut, Array.from(a.shape), dtype);
 }

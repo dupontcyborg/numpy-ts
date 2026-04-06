@@ -144,7 +144,7 @@ function parseZipEntries(buffer: ArrayBuffer | Uint8Array): RawZipEntry[] {
     const extraFieldLength = view.getUint16(localOffset + 28, true);
 
     const dataStart = localOffset + 30 + fileNameLength + extraFieldLength;
-    const compressedData = bytes.slice(dataStart, dataStart + ce.compressedSize);
+    const compressedData = bytes.subarray(dataStart, dataStart + ce.compressedSize);
 
     entries.push({
       name: ce.name,

@@ -13,10 +13,10 @@
 //! Each allocation is prefixed with a 8-byte header storing the size class index.
 //! This allows free() to find the right bucket in O(1).
 //!
-//! Size classes: 32, 64, 128, 256, ..., 2^25 (32 MiB) = 20 buckets.
-//! Allocations larger than 32 MiB are not supported (returns 0).
+//! Size classes: 32, 64, 128, 256, ..., 2^32 (4 GiB) = 28 buckets.
+//! Covers the full WASM32 address space.
 
-const NUM_BUCKETS: u32 = 20; // size classes: 2^5 (32) through 2^24 (16 MiB)
+const NUM_BUCKETS: u32 = 28; // size classes: 2^5 (32) through 2^32 (4 GiB) — covers full WASM32 range
 const MIN_SIZE_LOG2: u32 = 5; // smallest bucket = 32 bytes
 const HEADER_SIZE: u32 = 8; // [size_class_idx: u32, next_free: u32]
 const ALIGNMENT: u32 = 8;
@@ -38,7 +38,7 @@ var total_free: u32 = 0;
 // --- Segregated free lists ---
 // Each bucket is a singly-linked list head (pointer to first free block, or 0).
 // Stored as module globals. We use an array of u32 pointers.
-// Index 0 = size class 32 bytes, index 1 = 64 bytes, ..., index 19 = 16 MiB.
+// Index 0 = size class 32 bytes, index 1 = 64 bytes, ..., index 27 = 4 GiB.
 var buckets: [NUM_BUCKETS]u32 = [_]u32{0} ** NUM_BUCKETS;
 
 // --- Raw memory access helpers ---
@@ -63,7 +63,7 @@ fn sizeClassIndex(size: u32) u32 {
     // clz gives leading zeros; 32 - clz(size-1) = ceil(log2(size))
     const log2_ceil = 32 - @clz(size - 1);
     const idx = log2_ceil - MIN_SIZE_LOG2;
-    return if (idx >= NUM_BUCKETS) NUM_BUCKETS - 1 else idx;
+    return idx; // may exceed NUM_BUCKETS — caller must check
 }
 
 /// Get the block size (usable bytes) for a given size class index.

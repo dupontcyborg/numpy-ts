@@ -19,7 +19,7 @@ import {
   printMultiRuntimeResults,
 } from './analysis';
 import { generateHTMLReport, generateMultiRuntimeHTMLReport } from './visualization';
-import { generatePNGChart, generateMultiRuntimePNGChart } from './chart-generator';
+import { generatePNGChart, generateH2HChart, generateMultiRuntimePNGChart } from './chart-generator';
 import { validateBenchmarks } from './validation';
 import type {
   BenchmarkOptions,
@@ -134,8 +134,17 @@ async function main() {
       options.fresh = true;
     } else if (arg === '--pyodide') {
       options.pyodide = true;
+    } else if (arg === '--size' && i + 1 < args.length) {
+      const s = args[++i] as string;
+      if (s === 'small' || s === 'large') options.sizeScale = s;
+      else {
+        console.error(`Unknown size scale: ${s}. Use 'small' or 'large'.`);
+        process.exit(1);
+      }
     } else if (arg === '--no-wasm') {
       options.noWasm = true;
+    } else if (arg === '--skip-numpy') {
+      options.skipNumpy = true;
     } else if (arg === '--dtype' && i + 1 < args.length) {
       options.dtypes = args[++i]!.split(',').map((s) => s.trim());
     } else if (arg === '--help' || arg === '-h') {
@@ -193,7 +202,7 @@ async function main() {
   console.log(`Runtimes: ${runtimeStr}`);
 
   // Get benchmark specifications
-  let specs = getBenchmarkSpecs(options.mode || 'standard');
+  let specs = getBenchmarkSpecs(options.mode || 'standard', options.sizeScale || 'default');
 
   // In quick mode, run only the representative tagged specs
   if (options.mode === 'quick') {
@@ -266,20 +275,35 @@ async function main() {
     const validatableSpecs = specs.filter(
       (spec) => spec.category !== 'io' && !nonValidatableOperations.has(spec.operation)
     );
-    if (validatableSpecs.length > 0) {
-      console.log('Validating correctness against NumPy...');
-      await validateBenchmarks(validatableSpecs);
-      console.log('');
-    }
-    const skippedCount = specs.length - validatableSpecs.length;
-    if (skippedCount > 0) {
-      console.log(`Skipping validation for ${skippedCount} benchmarks (IO/Complex linalg)\n`);
+    // Skip validation for non-default sizes — correctness doesn't change with array size
+    if (options.sizeScale && options.sizeScale !== 'default') {
+      console.log(`Skipping validation for --size ${options.sizeScale} (correctness validated at default size)\n`);
+    } else {
+      if (validatableSpecs.length > 0) {
+        console.log('Validating correctness against NumPy...');
+        await validateBenchmarks(validatableSpecs);
+        console.log('');
+      }
+      const skippedCount = specs.length - validatableSpecs.length;
+      if (skippedCount > 0) {
+        console.log(`Skipping validation for ${skippedCount} benchmarks (IO/Complex linalg)\n`);
+      }
     }
 
-    // Determine file suffix based on mode, threading, and baseline
+    // Determine file suffix based on mode, threading, baseline, and runtimes
+    const sizeSuffix = options.sizeScale === 'small' ? '-small' : options.sizeScale === 'large' ? '-large' : '';
+    // Runtime suffix: single non-node runtime → "-deno"/"-bun"; multiple → "-runtimes"; node-only → ""
+    const runtimeSuffix =
+      selectedRuntimes.length > 1
+        ? '-runtimes'
+        : selectedRuntimes.length === 1 && selectedRuntimes[0]!.name !== 'node'
+          ? `-${selectedRuntimes[0]!.name}`
+          : '';
     const modeSuffix =
       (options.mode === 'full' ? '-full' : '') +
       (options.singleThread ? '-single' : '') +
+      sizeSuffix +
+      runtimeSuffix +
       (options.pyodide ? '-pyodide' : '');
     const resultsDir = path.resolve(__dirname, '../results');
     const baselineType = options.pyodide ? 'pyodide' : 'python';
@@ -289,28 +313,37 @@ async function main() {
     let pythonVersion: string = 'unknown';
     let numpyVersion: string = 'unknown';
 
-    const cached = options.fresh ? null : tryLoadCachedPython(specs, modeSuffix, resultsDir);
-    if (cached) {
-      numpyResults = cached.results;
-      pythonVersion = cached.pythonVersion;
-      numpyVersion = cached.numpyVersion;
-    } else if (options.pyodide) {
-      console.log('Running NumPy benchmarks via Pyodide (WASM)...');
-      const pyResult = await runPyodideBenchmarks(specs, minSampleTimeMs, targetSamples);
-      numpyResults = pyResult.results;
-      pythonVersion = pyResult.pythonVersion;
-      numpyVersion = pyResult.numpyVersion + ' (Pyodide/WASM)';
+    if (options.skipNumpy) {
+      console.log('Skipping NumPy benchmarks (--skip-numpy)\n');
+      numpyResults = specs.map((s) => ({
+        name: s.name,
+        mean_ms: 0, median_ms: 0, min_ms: 0, max_ms: 0, std_ms: 0,
+        ops_per_sec: 0, total_ops: 0, total_samples: 0,
+      }));
     } else {
-      console.log('Running Python NumPy benchmarks...');
-      const pyResult = await runPythonBenchmarks(
-        specs,
-        minSampleTimeMs,
-        targetSamples,
-        options.singleThread ?? false
-      );
-      numpyResults = pyResult.results;
-      pythonVersion = pyResult.pythonVersion;
-      numpyVersion = pyResult.numpyVersion;
+      const cached = options.fresh ? null : tryLoadCachedPython(specs, modeSuffix, resultsDir);
+      if (cached) {
+        numpyResults = cached.results;
+        pythonVersion = cached.pythonVersion;
+        numpyVersion = cached.numpyVersion;
+      } else if (options.pyodide) {
+        console.log('Running NumPy benchmarks via Pyodide (WASM)...');
+        const pyResult = await runPyodideBenchmarks(specs, minSampleTimeMs, targetSamples);
+        numpyResults = pyResult.results;
+        pythonVersion = pyResult.pythonVersion;
+        numpyVersion = pyResult.numpyVersion + ' (Pyodide/WASM)';
+      } else {
+        console.log('Running Python NumPy benchmarks...');
+        const pyResult = await runPythonBenchmarks(
+          specs,
+          minSampleTimeMs,
+          targetSamples,
+          options.singleThread ?? false
+        );
+        numpyResults = pyResult.results;
+        pythonVersion = pyResult.pythonVersion;
+        numpyVersion = pyResult.numpyVersion;
+      }
     }
 
     // Run each JS runtime via subprocess
@@ -320,12 +353,32 @@ async function main() {
     for (const runtime of selectedRuntimes) {
       console.log(`\nRunning numpy-ts benchmarks under ${runtime.name}...`);
       try {
+        // Build expected WASM usage map from reference results
+        // Build expected WASM map keyed by op+dtype (strip [size] so it works across size scales)
+        const stripSize = (name: string) => name.replace(/\s*\[.*?\]/g, '').replace(/\(.*?\)/g, '()').trim();
+        const expectedWasm: Record<string, boolean> = {};
+        const refCandidates = [
+          path.join(resultsDir, `latest${modeSuffix}.json`),
+          path.join(resultsDir, 'latest-full.json'),
+        ];
+        for (const refPath of refCandidates) {
+          try {
+            const ref = JSON.parse(fs.readFileSync(refPath, 'utf-8'));
+            for (const r of ref.results ?? []) {
+              expectedWasm[stripSize(r.name)] = !!r.wasmUsed;
+            }
+            break;
+          } catch { /* try next candidate */ }
+        }
+
         const { results, version } = await spawnRuntimeBenchmark(
           runtime.name,
           specs,
           minSampleTimeMs,
           targetSamples,
-          options.noWasm ?? false
+          options.noWasm ?? false,
+          expectedWasm,
+          options.sizeScale
         );
         runtimeResultsMap.set(runtime.name, results);
         runtimeVersions[runtime.name] = version;
@@ -340,6 +393,10 @@ async function main() {
       process.exit(1);
     }
 
+    // Skip saving results when NumPy was skipped — ratios would be meaningless
+    if (options.skipNumpy) {
+      console.log('\nResults not saved (--skip-numpy).');
+    } else {
     // Save results
     const plotsDir = path.resolve(resultsDir, 'plots');
     if (!fs.existsSync(resultsDir)) fs.mkdirSync(resultsDir, { recursive: true });
@@ -389,6 +446,10 @@ async function main() {
       await generatePNGChart(report, pngPath);
       console.log(`PNG chart saved to: ${pngPath}`);
 
+      const h2hPath = path.join(plotsDir, `latest${modeSuffix}-h2h.png`);
+      await generateH2HChart(report, h2hPath);
+      console.log(`H2H chart saved to: ${h2hPath}`);
+
       console.log(`\nView report: open ${htmlPath}`);
     } else {
       // Multiple runtimes: use MultiRuntimeReport format
@@ -435,6 +496,7 @@ async function main() {
 
       console.log(`\nView report: open ${htmlPath}`);
     }
+    } // end if (!skipNumpy)
   } catch (error) {
     console.error('Benchmark failed:', error);
     process.exit(1);
@@ -459,6 +521,8 @@ Options:
   --category <name>    Run only benchmarks in specified category
   --spec <pattern>     Run only benchmarks whose name contains <pattern> (case-insensitive)
   --dtype <list>       Comma-separated dtypes to include (e.g. --dtype float16,float32)
+  --size <scale>       Array size scale: 'small' (32x32) or 'large' (1000x1000)
+                       Default uses standard sizes (100x100). Affects all benchmarks.
   --no-wasm            Disable WASM/SIMD kernels (fall back to pure JS for all ops)
   --pyodide            Use Pyodide (WASM NumPy) as baseline instead of native Python
   --fresh              Force re-run Python/Pyodide benchmarks (skip cache)

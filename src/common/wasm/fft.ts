@@ -34,7 +34,7 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   scratchAlloc,
-  scratchCopyIn,
+  resolveTypedArrayPtr,
   getSharedMemory,
 } from './runtime';
 import { ArrayStorage } from '../storage';
@@ -271,7 +271,7 @@ export function wasmFft2(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inPtr = scratchCopyIn(data.subarray(0, totalDataLen) as unknown as TypedArray);
+  const inPtr = resolveTypedArrayPtr(data.subarray(0, totalDataLen) as unknown as TypedArray);
   const outPtr = scratchAlloc(totalBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
 
@@ -302,7 +302,7 @@ export function wasmFftBatch(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inPtr = scratchCopyIn(data.subarray(0, totalDataLen) as unknown as TypedArray);
+  const inPtr = resolveTypedArrayPtr(data.subarray(0, totalDataLen) as unknown as TypedArray);
   const outPtr = scratchAlloc(totalBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
 
@@ -334,7 +334,7 @@ export function wasmRfftBatch(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inPtr = scratchCopyIn(srcData.subarray(0, batch * n) as unknown as TypedArray);
+  const inPtr = resolveTypedArrayPtr(srcData.subarray(0, batch * n) as unknown as TypedArray);
   const outPtr = scratchAlloc(outBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
 
@@ -368,7 +368,9 @@ export function wasmIrfftBatch(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inPtr = scratchCopyIn(srcData.subarray(0, batch * nHalf * 2) as unknown as TypedArray);
+  const inPtr = resolveTypedArrayPtr(
+    srcData.subarray(0, batch * nHalf * 2) as unknown as TypedArray
+  );
   const outPtr = scratchAlloc(outBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
 
@@ -401,7 +403,7 @@ export function wasmRfft2(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inPtr = scratchCopyIn(inputData as TypedArray);
+  const inPtr = resolveTypedArrayPtr(inputData as TypedArray);
   const outPtr = scratchAlloc(outputBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
 
@@ -433,7 +435,9 @@ export function wasmIrfft2(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inPtr = scratchCopyIn(inputData.subarray(0, rows * colsHalf * 2) as unknown as TypedArray);
+  const inPtr = resolveTypedArrayPtr(
+    inputData.subarray(0, rows * colsHalf * 2) as unknown as TypedArray
+  );
   const outPtr = scratchAlloc(outputBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
 
@@ -467,7 +471,7 @@ export function wasmIrfftn3d(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const inPtr = scratchCopyIn(srcData.subarray(0, totalIn) as unknown as TypedArray);
+  const inPtr = resolveTypedArrayPtr(srcData.subarray(0, totalIn) as unknown as TypedArray);
   const outPtr = scratchAlloc(outBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
 

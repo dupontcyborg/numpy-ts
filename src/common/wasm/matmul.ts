@@ -22,11 +22,9 @@ import {
 import {
   wasmMalloc,
   resetScratchAllocator,
-  scratchCopyIn,
+  resolveTypedArrayPtr,
   scratchAlloc,
-  getSharedMemory,
-  f16ToF32Input,
-  f32ToF16Output,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
@@ -119,8 +117,8 @@ function wasmMatmul2DInto(
   N: number
 ): void {
   resetScratchAllocator();
-  const aPtr = scratchCopyIn(aData);
-  const bPtr = scratchCopyIn(bData);
+  const aPtr = resolveTypedArrayPtr(aData);
+  const bPtr = resolveTypedArrayPtr(bData);
   kernel(aPtr, bPtr, outPtr, M, N, K);
 }
 
@@ -143,8 +141,8 @@ function wasmMatmul2DComplexInto(
   const scratchBytes = scratchElements * bpe;
 
   resetScratchAllocator();
-  const aPtr = scratchCopyIn(aData);
-  const bPtr = scratchCopyIn(bData);
+  const aPtr = resolveTypedArrayPtr(aData);
+  const bPtr = resolveTypedArrayPtr(bData);
   const scratchPtr = scratchAlloc(scratchBytes);
   kernel(aPtr, bPtr, outPtr, M, N, K, scratchPtr);
 }
@@ -207,8 +205,8 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
   let aData = getContiguousData(a, workDtype, factor);
   let bData = getContiguousData(b, workDtype, factor);
   if (isF16) {
-    aData = f16ToF32Input(aData, workDtype);
-    bData = f16ToF32Input(bData, workDtype);
+    aData = new Float32Array(aData as unknown as ArrayLike<number>) as unknown as TypedArray;
+    bData = new Float32Array(bData as unknown as ArrayLike<number>) as unknown as TypedArray;
   }
 
   // --- Pure 2D case ---
@@ -227,19 +225,21 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
     }
 
     if (isF16) {
-      // Read f32 from WASM, convert to f16, return as fromData
-      const mem = getSharedMemory();
-      const f32View = new Float32Array(mem.buffer, outRegion.ptr, outElements);
-      const f32Copy = new Float32Array(outElements);
-      f32Copy.set(f32View);
-      outRegion.release();
-      const f16Data = f32ToF16Output(f32Copy as unknown as TypedArray, workDtype);
       let outShape: number[];
       if (aWas1D && bWas1D) outShape = [];
       else if (aWas1D) outShape = [N];
       else if (bWas1D) outShape = [M];
       else outShape = [M, N];
-      return ArrayStorage.fromData(f16Data, outShape, workDtype);
+      const f16Region = f32OutputToF16Region(outRegion, outElements);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        outShape,
+        workDtype,
+        f16Region,
+        outElements,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
     }
 
     let outShape: number[];
@@ -303,13 +303,16 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
   const outShape = [...batchShape, M, N];
 
   if (isF16) {
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, totalOut);
-    const f32Copy = new Float32Array(totalOut);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, totalOut);
     outRegion.release();
-    const f16Data = f32ToF16Output(f32Copy as unknown as TypedArray, workDtype);
-    const result = ArrayStorage.fromData(f16Data, outShape, workDtype);
+    if (!f16Region) return null;
+    const result = ArrayStorage.fromWasmRegion(
+      outShape,
+      workDtype,
+      f16Region,
+      totalOut,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
     if (aWas1D && bWas1D) return reshapeStorage(result, [...batchShape]);
     if (aWas1D) return reshapeStorage(result, [...batchShape, N]);
     if (bWas1D) return reshapeStorage(result, [...batchShape, M]);

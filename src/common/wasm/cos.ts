@@ -7,18 +7,27 @@
  * in JS and run through the f64 SIMD kernel (matches NumPy's promotion).
  */
 
-import { cos_f64, cos_f32 } from './bins/cos.wasm';
+import {
+  cos_f64,
+  cos_f32,
+  cos_i64_f64,
+  cos_u64_f64,
+  cos_i32_f64,
+  cos_u32_f64,
+  cos_i16_f64,
+  cos_u16_f64,
+  cos_i8_f64,
+  cos_u8_f64,
+} from './bins/cos.wasm';
 import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  f16ToF32Input,
-  f32ToF16Output,
-  getSharedMemory,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, isBigIntDType, type DType, type TypedArray } from '../dtype';
+import { isComplexDType, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -28,6 +37,28 @@ type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 const kernels: Partial<Record<DType, UnaryFn>> = {
   float64: cos_f64,
   float32: cos_f32,
+};
+
+const intKernels: Partial<Record<DType, UnaryFn>> = {
+  int64: cos_i64_f64,
+  uint64: cos_u64_f64,
+  int32: cos_i32_f64,
+  uint32: cos_u32_f64,
+  int16: cos_i16_f64,
+  uint16: cos_u16_f64,
+  int8: cos_i8_f64,
+  uint8: cos_u8_f64,
+};
+
+const bpeMap: Partial<Record<DType, number>> = {
+  int64: 8,
+  uint64: 8,
+  int32: 4,
+  uint32: 4,
+  int16: 2,
+  uint16: 2,
+  int8: 1,
+  uint8: 1,
 };
 
 /**
@@ -54,21 +85,19 @@ export function wasmCos(a: ArrayStorage): ArrayStorage | null {
     wasmConfig.wasmCallCount++;
 
     resetScratchAllocator();
-    const aOff = a.offset;
-    const aData = f16ToF32Input(a.data.subarray(aOff, aOff + size) as TypedArray, dtype);
-    const aPtr = scratchCopyIn(aData);
+    const aPtr = f16InputToScratchF32(a, size);
 
     cos_f32(aPtr, outRegion.ptr, size);
 
-    const mem = getSharedMemory();
-    const f32View = new Float32Array(mem.buffer, outRegion.ptr, size);
-    const f32Copy = new Float32Array(size);
-    f32Copy.set(f32View);
+    const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();
-    return ArrayStorage.fromData(
-      f32ToF16Output(f32Copy as unknown as TypedArray, dtype),
+    if (!f16Region) return null;
+    return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
-      dtype
+      dtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
   }
 
@@ -99,29 +128,20 @@ export function wasmCos(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Integer path: convert to float64, run SIMD f64 kernel
-  // (NumPy promotes int→float64 for cos)
-  const bpe = 8; // f64
-  const outBytes = size * bpe;
+  // Integer path: Zig kernel reads native int type, converts to f64 internally
+  const intKernel = intKernels[dtype];
+  const inBpe = bpeMap[dtype];
+  if (!intKernel || !inBpe) return null;
 
+  const outBytes = size * 8;
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
 
   wasmConfig.wasmCallCount++;
-
   resetScratchAllocator();
-  const aOff = a.offset;
-  const src = a.data;
-  const converted = new Float64Array(size);
-  if (isBigIntDType(dtype)) {
-    for (let i = 0; i < size; i++) converted[i] = Number(src[aOff + i]!);
-  } else {
-    for (let i = 0; i < size; i++) converted[i] = src[aOff + i] as number;
-  }
+  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
 
-  const aPtr = scratchCopyIn(converted as unknown as TypedArray);
-
-  cos_f64(aPtr, outRegion.ptr, size);
+  intKernel(aPtr, outRegion.ptr, size);
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),

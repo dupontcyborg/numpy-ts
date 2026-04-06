@@ -69,7 +69,9 @@ export async function spawnRuntimeBenchmark(
   specs: BenchmarkCase[],
   minSampleTimeMs: number,
   targetSamples: number,
-  noWasm: boolean = false
+  noWasm: boolean = false,
+  expectedWasm: Record<string, boolean> = {},
+  sizeScale?: string
 ): Promise<{ results: BenchmarkTiming[]; version: string }> {
   const { cmd, args } = getRuntimeArgs(runtime);
 
@@ -131,6 +133,8 @@ export async function spawnRuntimeBenchmark(
           minSampleTimeMs,
           targetSamples,
           noWasm,
+          expectedWasm,
+          sizeScale,
         },
       })
     );

@@ -4,30 +4,45 @@
  */
 
 import type { DType } from '../../src/common/dtype';
-import type { BenchmarkCase, BenchmarkMode, BenchmarkSetup } from './types';
+import type { BenchmarkCase, BenchmarkMode, BenchmarkSetup, SizeScale } from './types';
 
-export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCase[] {
-  // Array sizes vary by mode
-  // Auto-calibration handles the iteration count
-  const sizeConfig = {
-    quick: {
-      small: 1000,
-      medium: [100, 100] as [number, number],
-      large: [500, 500] as [number, number],
+export function getBenchmarkSpecs(
+  mode: BenchmarkMode = 'standard',
+  sizeScale: SizeScale = 'default'
+): BenchmarkCase[] {
+  // Array sizes: 1D and 2D base sizes, plus special sizes for expensive ops.
+  // sizeScale selects small/default/large arrays; mode only affects warmup/iterations.
+  const sizeScaleConfig = {
+    small: {
+      d1: 100,
+      d2: [32, 32] as [number, number],
+      io: [100, 100] as [number, number],
+      kron: [6, 6] as [number, number],
+      einsum: [20, 20] as [number, number],
+      linalg: [20, 20] as [number, number],
+      linalgSlow: [20, 20] as [number, number],
     },
-    standard: {
-      small: 1000,
-      medium: [100, 100] as [number, number],
-      large: [500, 500] as [number, number],
+    default: {
+      d1: 1000,
+      d2: [100, 100] as [number, number],
+      io: [500, 500] as [number, number],
+      kron: [10, 10] as [number, number],
+      einsum: [50, 50] as [number, number],
+      linalg: [50, 50] as [number, number],
+      linalgSlow: [50, 50] as [number, number],
     },
-    full: {
-      small: 1000,
-      medium: [100, 100] as [number, number],
-      large: [500, 500] as [number, number],
+    large: {
+      d1: 10000,
+      d2: [1000, 1000] as [number, number],
+      io: [1000, 1000] as [number, number],
+      kron: [32, 32] as [number, number],
+      einsum: [1000, 1000] as [number, number],
+      linalg: [500, 500] as [number, number],
+      linalgSlow: [200, 200] as [number, number],
     },
   };
 
-  const sizes = sizeConfig[mode] ?? sizeConfig.standard;
+  const scaledSizes = sizeScaleConfig[sizeScale];
 
   const warmupConfig = {
     quick: {
@@ -54,23 +69,23 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // ========================================
 
   specs.push({
-    name: `zeros [${sizes.small}]`,
+    name: `zeros [${scaledSizes.d1}]`,
     category: 'creation',
     operation: 'zeros',
     setup: {
-      shape: { shape: [sizes.small] },
+      shape: { shape: [scaledSizes.d1] },
     },
     iterations,
     warmup,
   });
 
-  if (Array.isArray(sizes.medium)) {
+  if (Array.isArray(scaledSizes.d2)) {
     specs.push({
-      name: `zeros [${sizes.medium.join('x')}]`,
+      name: `zeros [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'zeros',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       includeInQuick: true,
@@ -78,11 +93,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `ones [${sizes.medium.join('x')}]`,
+      name: `ones [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'ones',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       includeInQuick: true,
@@ -91,51 +106,51 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   }
 
   specs.push({
-    name: `arange(${sizes.small})`,
+    name: `arange(${scaledSizes.d1})`,
     category: 'creation',
     operation: 'arange',
     setup: {
-      n: { shape: [sizes.small] },
+      n: { shape: [scaledSizes.d1] },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `linspace(0, 100, ${sizes.small})`,
+    name: `linspace(0, 100, ${scaledSizes.d1})`,
     category: 'creation',
     operation: 'linspace',
     setup: {
-      n: { shape: [sizes.small] },
+      n: { shape: [scaledSizes.d1] },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `logspace(0, 3, ${sizes.small})`,
+    name: `logspace(0, 3, ${scaledSizes.d1})`,
     category: 'creation',
     operation: 'logspace',
     setup: {
-      n: { shape: [sizes.small] },
+      n: { shape: [scaledSizes.d1] },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `geomspace(1, 1000, ${sizes.small})`,
+    name: `geomspace(1, 1000, ${scaledSizes.d1})`,
     category: 'creation',
     operation: 'geomspace',
     setup: {
-      n: { shape: [sizes.small] },
+      n: { shape: [scaledSizes.d1] },
     },
     iterations,
     warmup,
   });
 
-  if (Array.isArray(sizes.medium)) {
-    const eyeSize = sizes.medium[0]!;
+  if (Array.isArray(scaledSizes.d2)) {
+    const eyeSize = scaledSizes.d2[0]!;
     specs.push({
       name: `eye(${eyeSize})`,
       category: 'creation',
@@ -160,22 +175,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `empty [${sizes.medium.join('x')}]`,
+      name: `empty [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'empty',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `full [${sizes.medium.join('x')}]`,
+      name: `full [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'full',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
         fill_value: { shape: [7] },
       },
       iterations,
@@ -183,44 +198,44 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `copy [${sizes.medium.join('x')}]`,
+      name: `copy [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'copy',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `zeros_like [${sizes.medium.join('x')}]`,
+      name: `zeros_like [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'zeros_like',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `asarray_chkfinite [${sizes.medium.join('x')}]`,
+      name: `asarray_chkfinite [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'asarray_chkfinite',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `require [${sizes.medium.join('x')}]`,
+      name: `require [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'require',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -231,14 +246,14 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Arithmetic Benchmarks
   // ========================================
 
-  if (Array.isArray(sizes.medium)) {
+  if (Array.isArray(scaledSizes.d2)) {
     // --- add ---
     specs.push({
-      name: `add [${sizes.medium.join('x')}] + scalar`,
+      name: `add [${scaledSizes.d2.join('x')}] + scalar`,
       category: 'arithmetic',
       operation: 'add',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
         b: { shape: [1], fill: 'ones' },
       },
       iterations,
@@ -246,12 +261,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `add [${sizes.medium.join('x')}] + [${sizes.medium.join('x')}]`,
+      name: `add [${scaledSizes.d2.join('x')}] + [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'add',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       includeInQuick: true,
@@ -260,11 +275,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- subtract ---
     specs.push({
-      name: `subtract [${sizes.medium.join('x')}] - scalar`,
+      name: `subtract [${scaledSizes.d2.join('x')}] - scalar`,
       category: 'arithmetic',
       operation: 'subtract',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 1 },
       },
       iterations,
@@ -272,12 +287,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `subtract [${sizes.medium.join('x')}] - [${sizes.medium.join('x')}]`,
+      name: `subtract [${scaledSizes.d2.join('x')}] - [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'subtract',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       includeInQuick: true,
@@ -286,11 +301,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- multiply ---
     specs.push({
-      name: `multiply [${sizes.medium.join('x')}] * scalar`,
+      name: `multiply [${scaledSizes.d2.join('x')}] * scalar`,
       category: 'arithmetic',
       operation: 'multiply',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
         b: { shape: [1], value: 2 },
       },
       iterations,
@@ -298,12 +313,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `multiply [${sizes.medium.join('x')}] * [${sizes.medium.join('x')}]`,
+      name: `multiply [${scaledSizes.d2.join('x')}] * [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'multiply',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -312,11 +327,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- divide ---
     specs.push({
-      name: `divide [${sizes.medium.join('x')}] / scalar`,
+      name: `divide [${scaledSizes.d2.join('x')}] / scalar`,
       category: 'arithmetic',
       operation: 'divide',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 3 },
       },
       iterations,
@@ -324,12 +339,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `divide [${sizes.medium.join('x')}] / [${sizes.medium.join('x')}]`,
+      name: `divide [${scaledSizes.d2.join('x')}] / [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'divide',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       includeInQuick: true,
@@ -338,11 +353,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- mod ---
     specs.push({
-      name: `mod [${sizes.medium.join('x')}] % scalar`,
+      name: `mod [${scaledSizes.d2.join('x')}] % scalar`,
       category: 'arithmetic',
       operation: 'mod',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 7 },
       },
       iterations,
@@ -350,12 +365,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `mod [${sizes.medium.join('x')}] % [${sizes.medium.join('x')}]`,
+      name: `mod [${scaledSizes.d2.join('x')}] % [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'mod',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -363,11 +378,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- floor_divide ---
     specs.push({
-      name: `floor_divide [${sizes.medium.join('x')}] // scalar`,
+      name: `floor_divide [${scaledSizes.d2.join('x')}] // scalar`,
       category: 'arithmetic',
       operation: 'floor_divide',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 3 },
       },
       iterations,
@@ -375,12 +390,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `floor_divide [${sizes.medium.join('x')}] // [${sizes.medium.join('x')}]`,
+      name: `floor_divide [${scaledSizes.d2.join('x')}] // [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'floor_divide',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -388,11 +403,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- remainder ---
     specs.push({
-      name: `remainder [${sizes.medium.join('x')}] % scalar`,
+      name: `remainder [${scaledSizes.d2.join('x')}] % scalar`,
       category: 'arithmetic',
       operation: 'remainder',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 7 },
       },
       iterations,
@@ -400,12 +415,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `remainder [${sizes.medium.join('x')}] % [${sizes.medium.join('x')}]`,
+      name: `remainder [${scaledSizes.d2.join('x')}] % [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'remainder',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -413,11 +428,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- float_power ---
     specs.push({
-      name: `float_power [${sizes.medium.join('x')}] ** scalar`,
+      name: `float_power [${scaledSizes.d2.join('x')}] ** scalar`,
       category: 'arithmetic',
       operation: 'float_power',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
         b: { shape: [1], value: 2 },
       },
       iterations,
@@ -425,12 +440,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `float_power [${sizes.medium.join('x')}] ** [${sizes.medium.join('x')}]`,
+      name: `float_power [${scaledSizes.d2.join('x')}] ** [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'float_power',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -438,11 +453,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- divmod ---
     specs.push({
-      name: `divmod [${sizes.medium.join('x')}] scalar`,
+      name: `divmod [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'divmod',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 7 },
       },
       iterations,
@@ -450,12 +465,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `divmod [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `divmod [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'divmod',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -463,11 +478,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- gcd ---
     specs.push({
-      name: `gcd [${sizes.medium.join('x')}] scalar`,
+      name: `gcd [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'gcd',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1, dtype: 'int32' },
         b: { shape: [1], value: 6, dtype: 'int32' },
       },
       iterations,
@@ -475,12 +490,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `gcd [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `gcd [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'gcd',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
-        b: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1, dtype: 'int32' },
+        b: { shape: scaledSizes.d2, fill: 'arange', value: 1, dtype: 'int32' },
       },
       iterations,
       warmup,
@@ -488,11 +503,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- lcm ---
     specs.push({
-      name: `lcm [${sizes.medium.join('x')}] scalar`,
+      name: `lcm [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'lcm',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1, dtype: 'int32' },
         b: { shape: [1], value: 6, dtype: 'int32' },
       },
       iterations,
@@ -500,12 +515,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `lcm [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `lcm [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'lcm',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
-        b: { shape: sizes.medium, fill: 'arange', value: 1, dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1, dtype: 'int32' },
+        b: { shape: scaledSizes.d2, fill: 'arange', value: 1, dtype: 'int32' },
       },
       iterations,
       warmup,
@@ -513,11 +528,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- absolute ---
     specs.push({
-      name: `absolute [${sizes.medium.join('x')}]`,
+      name: `absolute [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'absolute',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -526,11 +541,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- negative ---
     specs.push({
-      name: `negative [${sizes.medium.join('x')}]`,
+      name: `negative [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'negative',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -538,11 +553,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- positive ---
     specs.push({
-      name: `positive [${sizes.medium.join('x')}]`,
+      name: `positive [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'positive',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -550,11 +565,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- sign ---
     specs.push({
-      name: `sign [${sizes.medium.join('x')}]`,
+      name: `sign [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'sign',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -562,11 +577,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- square ---
     specs.push({
-      name: `square [${sizes.medium.join('x')}]`,
+      name: `square [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'square',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -574,11 +589,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- reciprocal ---
     specs.push({
-      name: `reciprocal [${sizes.medium.join('x')}]`,
+      name: `reciprocal [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'reciprocal',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -586,11 +601,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- cbrt ---
     specs.push({
-      name: `cbrt [${sizes.medium.join('x')}]`,
+      name: `cbrt [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'cbrt',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
       },
       iterations,
       warmup,
@@ -598,11 +613,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- fabs ---
     specs.push({
-      name: `fabs [${sizes.medium.join('x')}]`,
+      name: `fabs [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'fabs',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: -100 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: -100 },
       },
       iterations,
       warmup,
@@ -610,11 +625,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- heaviside ---
     specs.push({
-      name: `heaviside [${sizes.medium.join('x')}] scalar`,
+      name: `heaviside [${scaledSizes.d2.join('x')}] scalar`,
       category: 'math',
       operation: 'heaviside',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 0.5 },
       },
       iterations,
@@ -622,12 +637,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `heaviside [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `heaviside [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'heaviside',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -635,11 +650,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- fmod ---
     specs.push({
-      name: `fmod [${sizes.medium.join('x')}] % scalar`,
+      name: `fmod [${scaledSizes.d2.join('x')}] % scalar`,
       category: 'arithmetic',
       operation: 'fmod',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 7 },
       },
       iterations,
@@ -647,12 +662,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `fmod [${sizes.medium.join('x')}] % [${sizes.medium.join('x')}]`,
+      name: `fmod [${scaledSizes.d2.join('x')}] % [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'fmod',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -660,11 +675,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- frexp ---
     specs.push({
-      name: `frexp [${sizes.medium.join('x')}]`,
+      name: `frexp [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'frexp',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
       },
       iterations,
       warmup,
@@ -672,11 +687,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- ldexp ---
     specs.push({
-      name: `ldexp [${sizes.medium.join('x')}] scalar`,
+      name: `ldexp [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'ldexp',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
         b: { shape: [1], value: 3 },
       },
       iterations,
@@ -684,12 +699,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `ldexp [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `ldexp [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'ldexp',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -697,11 +712,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- modf ---
     specs.push({
-      name: `modf [${sizes.medium.join('x')}]`,
+      name: `modf [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'modf',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
       },
       iterations,
       warmup,
@@ -709,11 +724,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- clip ---
     specs.push({
-      name: `clip [${sizes.medium.join('x')}]`,
+      name: `clip [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'clip',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -721,11 +736,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- maximum ---
     specs.push({
-      name: `maximum [${sizes.medium.join('x')}] scalar`,
+      name: `maximum [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'maximum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 50 },
       },
       iterations,
@@ -733,12 +748,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `maximum [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `maximum [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'maximum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -746,11 +761,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- minimum ---
     specs.push({
-      name: `minimum [${sizes.medium.join('x')}] scalar`,
+      name: `minimum [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'minimum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 50 },
       },
       iterations,
@@ -758,12 +773,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `minimum [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `minimum [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'minimum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -771,11 +786,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- fmax ---
     specs.push({
-      name: `fmax [${sizes.medium.join('x')}] scalar`,
+      name: `fmax [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'fmax',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 50 },
       },
       iterations,
@@ -783,12 +798,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `fmax [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `fmax [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'fmax',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -796,11 +811,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- fmin ---
     specs.push({
-      name: `fmin [${sizes.medium.join('x')}] scalar`,
+      name: `fmin [${scaledSizes.d2.join('x')}] scalar`,
       category: 'arithmetic',
       operation: 'fmin',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         b: { shape: [1], value: 50 },
       },
       iterations,
@@ -808,12 +823,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `fmin [${sizes.medium.join('x')}] [${sizes.medium.join('x')}]`,
+      name: `fmin [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'fmin',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
@@ -821,11 +836,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- nan_to_num ---
     specs.push({
-      name: `nan_to_num [${sizes.medium.join('x')}]`,
+      name: `nan_to_num [${scaledSizes.d2.join('x')}]`,
       category: 'arithmetic',
       operation: 'nan_to_num',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -833,11 +848,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- interp ---
     specs.push({
-      name: `interp [${sizes.small}]`,
+      name: `interp [${scaledSizes.d1}]`,
       category: 'math',
       operation: 'interp',
       setup: {
-        x: { shape: [sizes.small], fill: 'arange' },
+        x: { shape: [scaledSizes.d1], fill: 'arange' },
         xp: { shape: [100], fill: 'arange' },
         fp: { shape: [100], fill: 'arange' },
       },
@@ -847,11 +862,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- unwrap ---
     specs.push({
-      name: `unwrap [${sizes.small}]`,
+      name: `unwrap [${scaledSizes.d1}]`,
       category: 'trig',
       operation: 'unwrap',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
@@ -859,11 +874,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- sinc ---
     specs.push({
-      name: `sinc [${sizes.medium.join('x')}]`,
+      name: `sinc [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'sinc',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -871,11 +886,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // --- i0 ---
     specs.push({
-      name: `i0 [${sizes.medium.join('x')}]`,
+      name: `i0 [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'i0',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -886,13 +901,13 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Mathematical Operations Benchmarks
   // ========================================
 
-  if (Array.isArray(sizes.medium)) {
+  if (Array.isArray(scaledSizes.d2)) {
     specs.push({
-      name: `sqrt [${sizes.medium.join('x')}]`,
+      name: `sqrt [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'sqrt',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
       },
       iterations,
       includeInQuick: true,
@@ -900,11 +915,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `power [${sizes.medium.join('x')}] ** 2`,
+      name: `power [${scaledSizes.d2.join('x')}] ** 2`,
       category: 'math',
       operation: 'power',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
         b: { shape: [1], value: 2 },
       },
       iterations,
@@ -915,11 +930,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // Trigonometric & hyperbolic functions
     specs.push({
-      name: `sin [${sizes.medium.join('x')}]`,
+      name: `sin [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'sin',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -927,79 +942,79 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `cos [${sizes.medium.join('x')}]`,
+      name: `cos [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'cos',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `tan [${sizes.medium.join('x')}]`,
+      name: `tan [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'tan',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `arcsin [${sizes.medium.join('x')}]`,
+      name: `arcsin [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'arcsin',
       setup: {
-        a: { shape: sizes.medium, fill: 'random' },
+        a: { shape: scaledSizes.d2, fill: 'random' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `arccos [${sizes.medium.join('x')}]`,
+      name: `arccos [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'arccos',
       setup: {
-        a: { shape: sizes.medium, fill: 'random' },
+        a: { shape: scaledSizes.d2, fill: 'random' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `arctan [${sizes.medium.join('x')}]`,
+      name: `arctan [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'arctan',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `arctan2 [${sizes.medium.join('x')}]`,
+      name: `arctan2 [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'arctan2',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
-        b: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
+        b: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `hypot [${sizes.medium.join('x')}]`,
+      name: `hypot [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'hypot',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
-        b: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
+        b: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
       },
       iterations,
       warmup,
@@ -1008,66 +1023,66 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // Hyperbolic functions
     // Use scaled values to avoid overflow (sinh/cosh overflow around 710)
     specs.push({
-      name: `sinh [${sizes.medium.join('x')}]`,
+      name: `sinh [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'sinh',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `cosh [${sizes.medium.join('x')}]`,
+      name: `cosh [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'cosh',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `tanh [${sizes.medium.join('x')}]`,
+      name: `tanh [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'tanh',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `arcsinh [${sizes.medium.join('x')}]`,
+      name: `arcsinh [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'arcsinh',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `arccosh [${sizes.medium.join('x')}]`,
+      name: `arccosh [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'arccosh',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', value: 1 },
+        a: { shape: scaledSizes.d2, fill: 'arange', value: 1 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `arctanh [${sizes.medium.join('x')}]`,
+      name: `arctanh [${scaledSizes.d2.join('x')}]`,
       category: 'trig',
       operation: 'arctanh',
       setup: {
-        a: { shape: sizes.medium, fill: 'random' },
+        a: { shape: scaledSizes.d2, fill: 'random' },
       },
       iterations,
       warmup,
@@ -1075,11 +1090,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // Exponential functions
     specs.push({
-      name: `exp [${sizes.medium.join('x')}]`,
+      name: `exp [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'exp',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       includeInQuick: true,
@@ -1087,56 +1102,56 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `exp2 [${sizes.medium.join('x')}]`,
+      name: `exp2 [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'exp2',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `log [${sizes.medium.join('x')}]`,
+      name: `log [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'log',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `log2 [${sizes.medium.join('x')}]`,
+      name: `log2 [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'log2',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `log10 [${sizes.medium.join('x')}]`,
+      name: `log10 [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'log10',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `logaddexp [${sizes.medium.join('x')}]`,
+      name: `logaddexp [${scaledSizes.d2.join('x')}]`,
       category: 'math',
       operation: 'logaddexp',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -1144,11 +1159,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // Gradient functions
     specs.push({
-      name: `diff [${sizes.medium.join('x')}]`,
+      name: `diff [${scaledSizes.d2.join('x')}]`,
       category: 'gradient',
       operation: 'diff',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -1156,23 +1171,23 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `gradient [${sizes.small}]`,
+      name: `gradient [${scaledSizes.d1}]`,
       category: 'gradient',
       operation: 'gradient',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `cross [${sizes.small}x3]`,
+      name: `cross [${scaledSizes.d1}x3]`,
       category: 'linalg',
       operation: 'cross',
       setup: {
-        a: { shape: [sizes.small, 3], fill: 'arange' },
-        b: { shape: [sizes.small, 3], fill: 'ones' },
+        a: { shape: [scaledSizes.d1, 3], fill: 'arange' },
+        b: { shape: [scaledSizes.d1, 3], fill: 'ones' },
       },
       iterations,
       warmup,
@@ -1183,17 +1198,17 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Linear Algebra Benchmarks
   // ========================================
 
-  if (Array.isArray(sizes.medium)) {
-    const [m, n] = sizes.medium;
+  if (Array.isArray(scaledSizes.d2)) {
+    const [m, n] = scaledSizes.d2;
 
     // Dot product benchmarks
     specs.push({
-      name: `dot 1D · 1D [${sizes.small}]`,
+      name: `dot 1D · 1D [${scaledSizes.d1}]`,
       category: 'linalg',
       operation: 'dot',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
-        b: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
+        b: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
@@ -1251,12 +1266,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // Inner product
     specs.push({
-      name: `inner 1D · 1D [${sizes.small}]`,
+      name: `inner 1D · 1D [${scaledSizes.d1}]`,
       category: 'linalg',
       operation: 'inner',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
-        b: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
+        b: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
@@ -1274,14 +1289,15 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
-    // Outer product
+    // Outer product — output is NxN, so use 2D dimension to keep output manageable
+    const outerN = scaledSizes.d2[0]!;
     specs.push({
-      name: `outer [${sizes.small}] x [${sizes.small}]`,
+      name: `outer [${outerN}] x [${outerN}]`,
       category: 'linalg',
       operation: 'outer',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
-        b: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [outerN], fill: 'arange' },
+        b: { shape: [outerN], fill: 'arange' },
       },
       iterations,
       warmup,
@@ -1305,13 +1321,13 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Reduction Benchmarks
   // ========================================
 
-  if (Array.isArray(sizes.medium)) {
+  if (Array.isArray(scaledSizes.d2)) {
     specs.push({
-      name: `sum [${sizes.medium.join('x')}]`,
+      name: `sum [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'sum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -1319,11 +1335,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `sum [${sizes.medium.join('x')}] axis=0`,
+      name: `sum [${scaledSizes.d2.join('x')}] axis=0`,
       category: 'reductions',
       operation: 'sum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         axis: { shape: [0] },
       },
       iterations,
@@ -1331,11 +1347,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `mean [${sizes.medium.join('x')}]`,
+      name: `mean [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'mean',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -1343,11 +1359,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `max [${sizes.medium.join('x')}]`,
+      name: `max [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'max',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -1355,66 +1371,66 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `min [${sizes.medium.join('x')}]`,
+      name: `min [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'min',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `prod [${sizes.medium.join('x')}]`,
+      name: `prod [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'prod',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `argmin [${sizes.medium.join('x')}]`,
+      name: `argmin [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'argmin',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `argmax [${sizes.medium.join('x')}]`,
+      name: `argmax [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'argmax',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `var [${sizes.medium.join('x')}]`,
+      name: `var [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'var',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `std [${sizes.medium.join('x')}]`,
+      name: `std [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'std',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -1422,22 +1438,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `all [${sizes.medium.join('x')}]`,
+      name: `all [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'all',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `any [${sizes.medium.join('x')}]`,
+      name: `any [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'any',
       setup: {
-        a: { shape: sizes.medium, fill: 'zeros' },
+        a: { shape: scaledSizes.d2, fill: 'zeros' },
       },
       iterations,
       warmup,
@@ -1445,77 +1461,77 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // New reduction functions
     specs.push({
-      name: `cumsum [${sizes.medium.join('x')}]`,
+      name: `cumsum [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'cumsum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `cumprod [${sizes.medium.join('x')}]`,
+      name: `cumprod [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'cumprod',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `ptp [${sizes.medium.join('x')}]`,
+      name: `ptp [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'ptp',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `median [${sizes.medium.join('x')}]`,
+      name: `median [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'median',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `percentile [${sizes.medium.join('x')}]`,
+      name: `percentile [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'percentile',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `quantile [${sizes.medium.join('x')}]`,
+      name: `quantile [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'quantile',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `average [${sizes.medium.join('x')}]`,
+      name: `average [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'average',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -1523,66 +1539,66 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // NaN-aware reduction functions
     specs.push({
-      name: `nansum [${sizes.medium.join('x')}]`,
+      name: `nansum [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'nansum',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `nanmean [${sizes.medium.join('x')}]`,
+      name: `nanmean [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'nanmean',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `nanmin [${sizes.medium.join('x')}]`,
+      name: `nanmin [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'nanmin',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `nanmax [${sizes.medium.join('x')}]`,
+      name: `nanmax [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'nanmax',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `nanquantile [${sizes.medium.join('x')}]`,
+      name: `nanquantile [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'nanquantile',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `nanpercentile [${sizes.medium.join('x')}]`,
+      name: `nanpercentile [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'nanpercentile',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -1590,7 +1606,7 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   }
 
   // Reductions axis=0 variants (standard/full only)
-  if (mode !== 'quick' && Array.isArray(sizes.medium)) {
+  if (mode !== 'quick' && Array.isArray(scaledSizes.d2)) {
     for (const op of [
       'mean',
       'max',
@@ -1603,11 +1619,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       'median',
     ] as const) {
       specs.push({
-        name: `${op} [${sizes.medium.join('x')}] axis=0`,
+        name: `${op} [${scaledSizes.d2.join('x')}] axis=0`,
         category: 'reductions',
         operation: op,
         setup: {
-          a: { shape: sizes.medium, fill: 'arange' },
+          a: { shape: scaledSizes.d2, fill: 'arange' },
           axis: { shape: [0] },
         },
         iterations,
@@ -1620,8 +1636,8 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // Reshape Benchmarks
   // ========================================
 
-  if (Array.isArray(sizes.medium)) {
-    const [m, n] = sizes.medium;
+  if (Array.isArray(scaledSizes.d2)) {
+    const [m, n] = scaledSizes.d2;
 
     specs.push({
       name: `reshape [${m}x${n}] -> [${n}x${m}] (contiguous)`,
@@ -1831,8 +1847,8 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // IO Benchmarks (NPY/NPZ parsing and serialization)
   // ========================================
 
-  if (Array.isArray(sizes.medium)) {
-    const [m, n] = sizes.medium;
+  if (Array.isArray(scaledSizes.d2)) {
+    const [m, n] = scaledSizes.d2;
     // NPY serialization
     specs.push({
       name: `serializeNpy [${m}x${n}]`,
@@ -1872,23 +1888,27 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     // NPZ parsing (sync, no compression)
-    specs.push({
-      name: `parseNpzSync {a, b} [${m}x${n}]`,
-      category: 'io',
-      operation: 'parseNpzSync',
-      setup: {
-        a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
-        b: { shape: [m!, n!], fill: 'ones', dtype: 'float64' },
-      },
-      iterations,
-      includeInQuick: true,
-      warmup,
-    });
+    // Skip for large arrays: NumPy's np.load() returns a lazy NpzFile (~7μs regardless)
+    // Once we add compression/decompression, I'll re-add this
+    if (sizeScale !== 'large') {
+      specs.push({
+        name: `parseNpzSync {a, b} [${m}x${n}]`,
+        category: 'io',
+        operation: 'parseNpzSync',
+        setup: {
+          a: { shape: [m!, n!], fill: 'arange', dtype: 'float64' },
+          b: { shape: [m!, n!], fill: 'ones', dtype: 'float64' },
+        },
+        iterations,
+        includeInQuick: true,
+        warmup,
+      });
+    }
   }
 
   // Larger IO benchmarks for non-quick mode
-  if (mode !== 'quick' && Array.isArray(sizes.large)) {
-    const [m, n] = sizes.large;
+  if (mode !== 'quick' && Array.isArray(scaledSizes.io)) {
+    const [m, n] = scaledSizes.io;
 
     specs.push({
       name: `serializeNpy [${m}x${n}]`,
@@ -1916,42 +1936,42 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
   // New functions benchmarks
   // Trigonometric conversions
   specs.push({
-    name: `deg2rad [${sizes.small}]`,
+    name: `deg2rad [${scaledSizes.d1}]`,
     category: 'trig',
     operation: 'deg2rad',
     setup: {
-      a: { shape: [sizes.small], fill: 'arange', value: 0 },
+      a: { shape: [scaledSizes.d1], fill: 'arange', value: 0 },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `rad2deg [${sizes.small}]`,
+    name: `rad2deg [${scaledSizes.d1}]`,
     category: 'trig',
     operation: 'rad2deg',
     setup: {
-      a: { shape: [sizes.small], fill: 'arange', value: 0 },
+      a: { shape: [scaledSizes.d1], fill: 'arange', value: 0 },
     },
     iterations,
     warmup,
   });
 
-  if (Array.isArray(sizes.medium)) {
+  if (Array.isArray(scaledSizes.d2)) {
     // Linear algebra operations
     specs.push({
-      name: `diagonal [${sizes.medium.join('x')}]`,
+      name: `diagonal [${scaledSizes.d2.join('x')}]`,
       category: 'linalg',
       operation: 'diagonal',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
-    // Kron produces large outputs, so use smaller inputs (10x10 -> 100x100 output)
-    const kronSize = [10, 10] as [number, number];
+    // Kron produces large outputs, so use smaller inputs
+    const kronSize = scaledSizes.kron;
     specs.push({
       name: `kron [${kronSize.join('x')}] ⊗ [${kronSize.join('x')}]`,
       category: 'linalg',
@@ -1966,44 +1986,44 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // New array creation benchmarks
     specs.push({
-      name: `diag [${sizes.medium[0]}]`,
+      name: `diag [${scaledSizes.d2[0]}]`,
       category: 'creation',
       operation: 'diag',
       setup: {
-        a: { shape: [sizes.medium[0]!], fill: 'arange' },
+        a: { shape: [scaledSizes.d2[0]!], fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `tri [${sizes.medium.join('x')}]`,
+      name: `tri [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'tri',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `tril [${sizes.medium.join('x')}]`,
+      name: `tril [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'tril',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `triu [${sizes.medium.join('x')}]`,
+      name: `triu [${scaledSizes.d2.join('x')}]`,
       category: 'creation',
       operation: 'triu',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -2011,51 +2031,51 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // New array manipulation benchmarks
     specs.push({
-      name: `flip [${sizes.medium.join('x')}]`,
+      name: `flip [${scaledSizes.d2.join('x')}]`,
       category: 'manipulation',
       operation: 'flip',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `rot90 [${sizes.medium.join('x')}]`,
+      name: `rot90 [${scaledSizes.d2.join('x')}]`,
       category: 'manipulation',
       operation: 'rot90',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `roll [${sizes.medium.join('x')}] shift=10`,
+      name: `roll [${scaledSizes.d2.join('x')}] shift=10`,
       category: 'manipulation',
       operation: 'roll',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `pad [${sizes.medium.join('x')}] width=2`,
+      name: `pad [${scaledSizes.d2.join('x')}] width=2`,
       category: 'manipulation',
       operation: 'pad',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     // einsum - matrix multiplication
-    const einsumSize = [50, 50] as [number, number];
+    const einsumSize = scaledSizes.einsum;
     specs.push({
       name: `einsum matmul [${einsumSize.join('x')}]`,
       category: 'linalg',
@@ -2073,9 +2093,9 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // numpy.linalg Module Benchmarks
     // ========================================
 
-    // Use smaller sizes for O(n³) operations
+    // O(n³) operations use scaled linalg sizes
     // These benchmarks use special 'invertible' fill mode handled in runner
-    const linalgSize = [50, 50] as [number, number];
+    const linalgSize = scaledSizes.linalg;
     const linalgN = linalgSize[0]!;
 
     specs.push({
@@ -2137,12 +2157,14 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       warmup,
     });
 
+    const linalgSlowSize = scaledSizes.linalgSlow;
+    const linalgSlowN = linalgSlowSize[0]!;
     specs.push({
-      name: `linalg.svd [${linalgN}x${linalgN}]`,
+      name: `linalg.svd [${linalgSlowN}x${linalgSlowN}]`,
       category: 'linalg',
       operation: 'linalg_svd',
       setup: {
-        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        a: { shape: linalgSlowSize, fill: 'arange', dtype: 'float64' },
       },
       iterations,
       includeInQuick: true,
@@ -2150,12 +2172,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `linalg.eigh [${linalgN}x${linalgN}]`,
+      name: `linalg.eigh [${linalgSlowN}x${linalgSlowN}]`,
       category: 'linalg',
       operation: 'linalg_eigh',
       setup: {
-        // Will be made symmetric in runner (eigh is for symmetric matrices)
-        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        a: { shape: linalgSlowSize, fill: 'arange', dtype: 'float64' },
       },
       iterations,
       warmup,
@@ -2253,83 +2274,85 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `linalg.svdvals [${linalgN}x${linalgN}]`,
+      name: `linalg.svdvals [${linalgSlowN}x${linalgSlowN}]`,
       category: 'linalg',
       operation: 'linalg_svdvals',
       setup: {
-        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        a: { shape: linalgSlowSize, fill: 'arange', dtype: 'float64' },
       },
       iterations,
       warmup,
     });
 
+    const mdN = linalgSlowN;
     specs.push({
-      name: `linalg.multi_dot [${linalgN}x${linalgN}] x3`,
+      name: `linalg.multi_dot [${mdN}x${mdN}] x3`,
       category: 'linalg',
       operation: 'linalg_multi_dot',
       setup: {
-        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
-        b: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
-        c: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
+        a: { shape: linalgSlowSize, fill: 'arange', dtype: 'float64' },
+        b: { shape: linalgSlowSize, fill: 'arange', dtype: 'float64' },
+        c: { shape: linalgSlowSize, fill: 'arange', dtype: 'float64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `vdot [1000]`,
+      name: `vdot [${scaledSizes.d1}]`,
       category: 'linalg',
       operation: 'vdot',
       setup: {
-        a: { shape: [1000], fill: 'arange', dtype: 'float64' },
-        b: { shape: [1000], fill: 'ones', dtype: 'float64' },
+        a: { shape: [scaledSizes.d1], fill: 'arange', dtype: 'float64' },
+        b: { shape: [scaledSizes.d1], fill: 'ones', dtype: 'float64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `vecdot [${sizes.medium.join('x')}]`,
+      name: `vecdot [${scaledSizes.d2.join('x')}]`,
       category: 'linalg',
       operation: 'vecdot',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'float64' },
-        b: { shape: sizes.medium, fill: 'ones', dtype: 'float64' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'float64' },
+        b: { shape: scaledSizes.d2, fill: 'ones', dtype: 'float64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `matrix_transpose [${sizes.medium.join('x')}]`,
+      name: `matrix_transpose [${scaledSizes.d2.join('x')}]`,
       category: 'linalg',
       operation: 'matrix_transpose',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'float64' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'float64' },
       },
       iterations,
       warmup,
     });
 
+    const mvN = scaledSizes.d2[0]!;
     specs.push({
-      name: `matvec [${linalgN}x${linalgN}] · [${linalgN}]`,
+      name: `matvec [${mvN}x${mvN}] · [${mvN}]`,
       category: 'linalg',
       operation: 'matvec',
       setup: {
-        a: { shape: linalgSize, fill: 'arange', dtype: 'float64' },
-        b: { shape: [linalgN], fill: 'ones', dtype: 'float64' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'float64' },
+        b: { shape: [mvN], fill: 'ones', dtype: 'float64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `vecmat [${linalgN}] · [${linalgN}x${linalgN}]`,
+      name: `vecmat [${mvN}] · [${mvN}x${mvN}]`,
       category: 'linalg',
       operation: 'vecmat',
       setup: {
-        a: { shape: [linalgN], fill: 'arange', dtype: 'float64' },
-        b: { shape: linalgSize, fill: 'ones', dtype: 'float64' },
+        a: { shape: [mvN], fill: 'arange', dtype: 'float64' },
+        b: { shape: scaledSizes.d2, fill: 'ones', dtype: 'float64' },
       },
       iterations,
       warmup,
@@ -2337,82 +2360,82 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // Indexing benchmarks
     specs.push({
-      name: `take_along_axis [${sizes.medium.join('x')}]`,
+      name: `take_along_axis [${scaledSizes.d2.join('x')}]`,
       category: 'indexing',
       operation: 'take_along_axis',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         // indices array with same shape
-        b: { shape: sizes.medium, fill: 'zeros', dtype: 'int32' },
+        b: { shape: scaledSizes.d2, fill: 'zeros', dtype: 'int32' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `compress [${sizes.medium.join('x')}]`,
+      name: `compress [${scaledSizes.d2.join('x')}]`,
       category: 'indexing',
       operation: 'compress',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: [sizes.medium[0]!], fill: 'ones', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: [scaledSizes.d2[0]!], fill: 'ones', dtype: 'int32' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `diag_indices n=${sizes.medium[0]}`,
+      name: `diag_indices n=${scaledSizes.d2[0]}`,
       category: 'indexing',
       operation: 'diag_indices',
       setup: {
-        n: { shape: [sizes.medium[0]!] },
+        n: { shape: [scaledSizes.d2[0]!] },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `tril_indices n=${sizes.medium[0]}`,
+      name: `tril_indices n=${scaledSizes.d2[0]}`,
       category: 'indexing',
       operation: 'tril_indices',
       setup: {
-        n: { shape: [sizes.medium[0]!] },
+        n: { shape: [scaledSizes.d2[0]!] },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `triu_indices n=${sizes.medium[0]}`,
+      name: `triu_indices n=${scaledSizes.d2[0]}`,
       category: 'indexing',
       operation: 'triu_indices',
       setup: {
-        n: { shape: [sizes.medium[0]!] },
+        n: { shape: [scaledSizes.d2[0]!] },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `indices [${sizes.medium.join('x')}]`,
+      name: `indices [${scaledSizes.d2.join('x')}]`,
       category: 'indexing',
       operation: 'indices',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `ravel_multi_index [${sizes.small}]`,
+      name: `ravel_multi_index [${scaledSizes.d1}]`,
       category: 'indexing',
       operation: 'ravel_multi_index',
       setup: {
         // 1D index arrays
-        a: { shape: [sizes.small], fill: 'zeros', dtype: 'int32' },
-        b: { shape: [sizes.small], fill: 'zeros', dtype: 'int32' },
+        a: { shape: [scaledSizes.d1], fill: 'zeros', dtype: 'int32' },
+        b: { shape: [scaledSizes.d1], fill: 'zeros', dtype: 'int32' },
         dims: { shape: [100, 100] },
       },
       iterations,
@@ -2421,11 +2444,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     for (const idxDtype of ['int32', 'int64', 'uint32', 'uint64'] as const) {
       specs.push({
-        name: `unravel_index [${sizes.small}]${idxDtype === 'int32' ? '' : ` ${idxDtype}`}`,
+        name: `unravel_index [${scaledSizes.d1}]${idxDtype === 'int32' ? '' : ` ${idxDtype}`}`,
         category: 'indexing',
         operation: 'unravel_index',
         setup: {
-          a: { shape: [sizes.small], fill: 'arange', dtype: idxDtype },
+          a: { shape: [scaledSizes.d1], fill: 'arange', dtype: idxDtype },
           dims: { shape: [100, 100] },
         },
         iterations,
@@ -2438,12 +2461,12 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // ========================================
 
     specs.push({
-      name: `bitwise_and [${sizes.medium.join('x')}] & [${sizes.medium.join('x')}]`,
+      name: `bitwise_and [${scaledSizes.d2.join('x')}] & [${scaledSizes.d2.join('x')}]`,
       category: 'bitwise',
       operation: 'bitwise_and',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
-        b: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
+        b: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
       },
       iterations,
       includeInQuick: true,
@@ -2451,57 +2474,57 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `bitwise_or [${sizes.medium.join('x')}] | [${sizes.medium.join('x')}]`,
+      name: `bitwise_or [${scaledSizes.d2.join('x')}] | [${scaledSizes.d2.join('x')}]`,
       category: 'bitwise',
       operation: 'bitwise_or',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
-        b: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
+        b: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `bitwise_xor [${sizes.medium.join('x')}] ^ [${sizes.medium.join('x')}]`,
+      name: `bitwise_xor [${scaledSizes.d2.join('x')}] ^ [${scaledSizes.d2.join('x')}]`,
       category: 'bitwise',
       operation: 'bitwise_xor',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
-        b: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
+        b: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `bitwise_not [${sizes.medium.join('x')}]`,
+      name: `bitwise_not [${scaledSizes.d2.join('x')}]`,
       category: 'bitwise',
       operation: 'bitwise_not',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `invert [${sizes.medium.join('x')}]`,
+      name: `invert [${scaledSizes.d2.join('x')}]`,
       category: 'bitwise',
       operation: 'invert',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `left_shift [${sizes.medium.join('x')}] << 2`,
+      name: `left_shift [${scaledSizes.d2.join('x')}] << 2`,
       category: 'bitwise',
       operation: 'left_shift',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
         b: { shape: [1], value: 2, dtype: 'int32' },
       },
       iterations,
@@ -2509,11 +2532,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `right_shift [${sizes.medium.join('x')}] >> 2`,
+      name: `right_shift [${scaledSizes.d2.join('x')}] >> 2`,
       category: 'bitwise',
       operation: 'right_shift',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'int32' },
         b: { shape: [1], value: 2, dtype: 'int32' },
       },
       iterations,
@@ -2521,33 +2544,33 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `packbits [${sizes.small}]`,
+      name: `packbits [${scaledSizes.d1}]`,
       category: 'bitwise',
       operation: 'packbits',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange', dtype: 'uint8' },
+        a: { shape: [scaledSizes.d1], fill: 'arange', dtype: 'uint8' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `unpackbits [${Math.ceil(sizes.small / 8)}]`,
+      name: `unpackbits [${Math.ceil(scaledSizes.d1 / 8)}]`,
       category: 'bitwise',
       operation: 'unpackbits',
       setup: {
-        a: { shape: [Math.ceil(sizes.small / 8)], fill: 'arange', dtype: 'uint8' },
+        a: { shape: [Math.ceil(scaledSizes.d1 / 8)], fill: 'arange', dtype: 'uint8' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `bitwise_count [${sizes.medium.join('x')}]`,
+      name: `bitwise_count [${scaledSizes.d2.join('x')}]`,
       category: 'bitwise',
       operation: 'bitwise_count',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange', dtype: 'uint32' },
+        a: { shape: scaledSizes.d2, fill: 'arange', dtype: 'uint32' },
       },
       iterations,
       warmup,
@@ -2558,11 +2581,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // ========================================
 
     specs.push({
-      name: `sort [${sizes.medium.join('x')}]`,
+      name: `sort [${scaledSizes.d2.join('x')}]`,
       category: 'sorting',
       operation: 'sort',
       setup: {
-        a: { shape: sizes.medium, fill: 'shuffled' },
+        a: { shape: scaledSizes.d2, fill: 'shuffled' },
       },
       iterations,
       includeInQuick: true,
@@ -2570,22 +2593,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `sort [${sizes.medium.join('x')}] sorted`,
+      name: `sort [${scaledSizes.d2.join('x')}] sorted`,
       category: 'sorting',
       operation: 'sort',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `argsort [${sizes.medium.join('x')}]`,
+      name: `argsort [${scaledSizes.d2.join('x')}]`,
       category: 'sorting',
       operation: 'argsort',
       setup: {
-        a: { shape: sizes.medium, fill: 'shuffled' },
+        a: { shape: scaledSizes.d2, fill: 'shuffled' },
       },
       iterations,
       includeInQuick: true,
@@ -2593,36 +2616,36 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `partition [${sizes.medium.join('x')}] kth=${Math.floor(sizes.medium[0]! / 2)}`,
+      name: `partition [${scaledSizes.d2.join('x')}] kth=${Math.floor(scaledSizes.d2[0]! / 2)}`,
       category: 'sorting',
       operation: 'partition',
       setup: {
-        a: { shape: sizes.medium, fill: 'shuffled' },
-        kth: { shape: [Math.floor(sizes.medium[0]! / 2)] },
+        a: { shape: scaledSizes.d2, fill: 'shuffled' },
+        kth: { shape: [Math.floor(scaledSizes.d2[0]! / 2)] },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `argpartition [${sizes.medium.join('x')}] kth=${Math.floor(sizes.medium[0]! / 2)}`,
+      name: `argpartition [${scaledSizes.d2.join('x')}] kth=${Math.floor(scaledSizes.d2[0]! / 2)}`,
       category: 'sorting',
       operation: 'argpartition',
       setup: {
-        a: { shape: sizes.medium, fill: 'shuffled' },
-        kth: { shape: [Math.floor(sizes.medium[0]! / 2)] },
+        a: { shape: scaledSizes.d2, fill: 'shuffled' },
+        kth: { shape: [Math.floor(scaledSizes.d2[0]! / 2)] },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `lexsort [${sizes.small}] x 2 keys`,
+      name: `lexsort [${scaledSizes.d1}] x 2 keys`,
       category: 'sorting',
       operation: 'lexsort',
       setup: {
-        a: { shape: [sizes.small], fill: 'shuffled' },
-        b: { shape: [sizes.small], fill: 'shuffled' },
+        a: { shape: [scaledSizes.d1], fill: 'shuffled' },
+        b: { shape: [scaledSizes.d1], fill: 'shuffled' },
       },
       iterations,
       warmup,
@@ -2633,46 +2656,46 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // ========================================
 
     specs.push({
-      name: `nonzero [${sizes.medium.join('x')}]`,
+      name: `nonzero [${scaledSizes.d2.join('x')}]`,
       category: 'indexing',
       operation: 'nonzero',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `argwhere [${sizes.medium.join('x')}]`,
+      name: `argwhere [${scaledSizes.d2.join('x')}]`,
       category: 'indexing',
       operation: 'argwhere',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `flatnonzero [${sizes.medium.join('x')}]`,
+      name: `flatnonzero [${scaledSizes.d2.join('x')}]`,
       category: 'indexing',
       operation: 'flatnonzero',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `where [${sizes.medium.join('x')}] with x,y`,
+      name: `where [${scaledSizes.d2.join('x')}] with x,y`,
       category: 'logic',
       operation: 'where',
       setup: {
-        a: { shape: sizes.medium, fill: 'ones', dtype: 'int32' },
-        b: { shape: sizes.medium, fill: 'arange' },
-        c: { shape: sizes.medium, fill: 'zeros' },
+        a: { shape: scaledSizes.d2, fill: 'ones', dtype: 'int32' },
+        b: { shape: scaledSizes.d2, fill: 'arange' },
+        c: { shape: scaledSizes.d2, fill: 'zeros' },
       },
       iterations,
       includeInQuick: true,
@@ -2680,11 +2703,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `searchsorted [${sizes.small}]`,
+      name: `searchsorted [${scaledSizes.d1}]`,
       category: 'sorting',
       operation: 'searchsorted',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
         b: { shape: [100], fill: 'arange' },
       },
       iterations,
@@ -2692,23 +2715,23 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `extract [${sizes.medium.join('x')}]`,
+      name: `extract [${scaledSizes.d2.join('x')}]`,
       category: 'indexing',
       operation: 'extract',
       setup: {
-        condition: { shape: sizes.medium, fill: 'ones', dtype: 'int32' },
-        a: { shape: sizes.medium, fill: 'arange' },
+        condition: { shape: scaledSizes.d2, fill: 'ones', dtype: 'int32' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `count_nonzero [${sizes.medium.join('x')}]`,
+      name: `count_nonzero [${scaledSizes.d2.join('x')}]`,
       category: 'reductions',
       operation: 'count_nonzero',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -2719,22 +2742,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // ========================================
 
     specs.push({
-      name: `bincount [${sizes.small}]`,
+      name: `bincount [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'bincount',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange', dtype: 'int32' },
+        a: { shape: [scaledSizes.d1], fill: 'arange', dtype: 'int32' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `digitize [${sizes.small}]`,
+      name: `digitize [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'digitize',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
         b: { shape: [100], fill: 'arange' },
       },
       iterations,
@@ -2742,34 +2765,34 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `histogram [${sizes.small}]`,
+      name: `histogram [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'histogram',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `histogram2d [${sizes.small}]`,
+      name: `histogram2d [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'histogram2d',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
-        b: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
+        b: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `correlate [${sizes.small}]`,
+      name: `correlate [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'correlate',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
         b: { shape: [100], fill: 'ones' },
       },
       iterations,
@@ -2777,11 +2800,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `convolve [${sizes.small}]`,
+      name: `convolve [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'convolve',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
         b: { shape: [100], fill: 'ones' },
       },
       iterations,
@@ -2789,44 +2812,44 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `cov [${sizes.medium.join('x')}]`,
+      name: `cov [${scaledSizes.d2.join('x')}]`,
       category: 'statistics',
       operation: 'cov',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `corrcoef [${sizes.medium.join('x')}]`,
+      name: `corrcoef [${scaledSizes.d2.join('x')}]`,
       category: 'statistics',
       operation: 'corrcoef',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `histogram_bin_edges [${sizes.small}]`,
+      name: `histogram_bin_edges [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'histogram_bin_edges',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `trapezoid [${sizes.small}]`,
+      name: `trapezoid [${scaledSizes.d1}]`,
       category: 'statistics',
       operation: 'trapezoid',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
@@ -2834,22 +2857,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // Set operation benchmarks
     specs.push({
-      name: `trim_zeros [${sizes.small}]`,
+      name: `trim_zeros [${scaledSizes.d1}]`,
       category: 'sets',
       operation: 'trim_zeros',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `unique_values [${sizes.small}]`,
+      name: `unique_values [${scaledSizes.d1}]`,
       category: 'sets',
       operation: 'unique_values',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -2857,11 +2880,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `unique_counts [${sizes.small}]`,
+      name: `unique_counts [${scaledSizes.d1}]`,
       category: 'sets',
       operation: 'unique_counts',
       setup: {
-        a: { shape: [sizes.small], fill: 'arange' },
+        a: { shape: [scaledSizes.d1], fill: 'arange' },
       },
       iterations,
       warmup,
@@ -2872,11 +2895,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // ========================================
 
     specs.push({
-      name: `logical_and [${sizes.medium.join('x')}] & scalar`,
+      name: `logical_and [${scaledSizes.d2.join('x')}] & scalar`,
       category: 'logic',
       operation: 'logical_and',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         scalar: { shape: [1], value: 1 },
       },
       iterations,
@@ -2884,23 +2907,23 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `logical_and [${sizes.medium.join('x')}] & [${sizes.medium.join('x')}]`,
+      name: `logical_and [${scaledSizes.d2.join('x')}] & [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'logical_and',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
-        b: { shape: sizes.medium, fill: 'ones' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
+        b: { shape: scaledSizes.d2, fill: 'ones' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `logical_or [${sizes.medium.join('x')}] | scalar`,
+      name: `logical_or [${scaledSizes.d2.join('x')}] | scalar`,
       category: 'logic',
       operation: 'logical_or',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         scalar: { shape: [1], value: 0 },
       },
       iterations,
@@ -2908,22 +2931,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `logical_not [${sizes.medium.join('x')}]`,
+      name: `logical_not [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'logical_not',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `logical_xor [${sizes.medium.join('x')}] ^ scalar`,
+      name: `logical_xor [${scaledSizes.d2.join('x')}] ^ scalar`,
       category: 'logic',
       operation: 'logical_xor',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         scalar: { shape: [1], value: 1 },
       },
       iterations,
@@ -2931,22 +2954,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `isfinite [${sizes.medium.join('x')}]`,
+      name: `isfinite [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'isfinite',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `isnan [${sizes.medium.join('x')}]`,
+      name: `isnan [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'isnan',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -2954,22 +2977,22 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `signbit [${sizes.medium.join('x')}]`,
+      name: `signbit [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'signbit',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `copysign [${sizes.medium.join('x')}] scalar`,
+      name: `copysign [${scaledSizes.d2.join('x')}] scalar`,
       category: 'logic',
       operation: 'copysign',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
         scalar: { shape: [1], value: -1 },
       },
       iterations,
@@ -2977,33 +3000,33 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `isneginf [${sizes.medium.join('x')}]`,
+      name: `isneginf [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'isneginf',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `isposinf [${sizes.medium.join('x')}]`,
+      name: `isposinf [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'isposinf',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `isreal [${sizes.medium.join('x')}]`,
+      name: `isreal [${scaledSizes.d2.join('x')}]`,
       category: 'logic',
       operation: 'isreal',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
@@ -3014,33 +3037,33 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // ========================================
 
     specs.push({
-      name: `random.random [${sizes.medium.join('x')}]`,
+      name: `random.random [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_random',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.rand [${sizes.medium.join('x')}]`,
+      name: `random.rand [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_rand',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.randn [${sizes.medium.join('x')}]`,
+      name: `random.randn [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_randn',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
@@ -3057,11 +3080,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       'uint8',
     ] as const) {
       specs.push({
-        name: `random.randint [${sizes.medium.join('x')}] ${dt}`,
+        name: `random.randint [${scaledSizes.d2.join('x')}] ${dt}`,
         category: 'random',
         operation: 'random_randint',
         setup: {
-          shape: { shape: sizes.medium, dtype: dt },
+          shape: { shape: scaledSizes.d2, dtype: dt },
         },
         iterations,
         warmup,
@@ -3069,11 +3092,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     }
 
     specs.push({
-      name: `random.uniform [${sizes.medium.join('x')}]`,
+      name: `random.uniform [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_uniform',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       includeInQuick: true,
@@ -3081,11 +3104,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `random.normal [${sizes.medium.join('x')}]`,
+      name: `random.normal [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_normal',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       includeInQuick: true,
@@ -3093,66 +3116,66 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `random.standard_normal [${sizes.medium.join('x')}]`,
+      name: `random.standard_normal [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_standard_normal',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.exponential [${sizes.medium.join('x')}]`,
+      name: `random.exponential [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_exponential',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.poisson [${sizes.medium.join('x')}]`,
+      name: `random.poisson [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_poisson',
       setup: {
-        shape: { shape: sizes.medium, dtype: 'int64' },
+        shape: { shape: scaledSizes.d2, dtype: 'int64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.binomial [${sizes.medium.join('x')}]`,
+      name: `random.binomial [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_binomial',
       setup: {
-        shape: { shape: sizes.medium, dtype: 'int64' },
+        shape: { shape: scaledSizes.d2, dtype: 'int64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.choice [${sizes.small}]`,
+      name: `random.choice [${scaledSizes.d1}]`,
       category: 'random',
       operation: 'random_choice',
       setup: {
-        n: { shape: [sizes.small], dtype: 'int64' },
+        n: { shape: [scaledSizes.d1], dtype: 'int64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.permutation [${sizes.small}]`,
+      name: `random.permutation [${scaledSizes.d1}]`,
       category: 'random',
       operation: 'random_permutation',
       setup: {
-        n: { shape: [sizes.small], dtype: 'int64' },
+        n: { shape: [scaledSizes.d1], dtype: 'int64' },
       },
       iterations,
       warmup,
@@ -3160,66 +3183,66 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
     // New random distributions
     specs.push({
-      name: `random.gamma [${sizes.medium.join('x')}]`,
+      name: `random.gamma [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_gamma',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.beta [${sizes.medium.join('x')}]`,
+      name: `random.beta [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_beta',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.chisquare [${sizes.medium.join('x')}]`,
+      name: `random.chisquare [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_chisquare',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.laplace [${sizes.medium.join('x')}]`,
+      name: `random.laplace [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_laplace',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.geometric [${sizes.medium.join('x')}]`,
+      name: `random.geometric [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'random_geometric',
       setup: {
-        shape: { shape: sizes.medium, dtype: 'int64' },
+        shape: { shape: scaledSizes.d2, dtype: 'int64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `random.dirichlet [${sizes.small}]`,
+      name: `random.dirichlet [${scaledSizes.d1}]`,
       category: 'random',
       operation: 'random_dirichlet',
       setup: {
-        shape: { shape: [sizes.small] },
+        shape: { shape: [scaledSizes.d1] },
       },
       iterations,
       warmup,
@@ -3242,11 +3265,11 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
       { name: 'zipf', operation: 'random_zipf' },
     ] as const) {
       specs.push({
-        name: `random.${op.name} [${sizes.medium.join('x')}]`,
+        name: `random.${op.name} [${scaledSizes.d2.join('x')}]`,
         category: 'random',
         operation: op.operation,
         setup: {
-          shape: { shape: sizes.medium },
+          shape: { shape: scaledSizes.d2 },
         },
         iterations,
         warmup,
@@ -3258,33 +3281,33 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // ========================================
 
     specs.push({
-      name: `Generator.random [${sizes.medium.join('x')}]`,
+      name: `Generator.random [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'gen_random',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `Generator.uniform [${sizes.medium.join('x')}]`,
+      name: `Generator.uniform [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'gen_uniform',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `Generator.standard_normal [${sizes.medium.join('x')}]`,
+      name: `Generator.standard_normal [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'gen_standard_normal',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       includeInQuick: true,
@@ -3292,44 +3315,44 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `Generator.normal [${sizes.medium.join('x')}]`,
+      name: `Generator.normal [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'gen_normal',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `Generator.exponential [${sizes.medium.join('x')}]`,
+      name: `Generator.exponential [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'gen_exponential',
       setup: {
-        shape: { shape: sizes.medium },
+        shape: { shape: scaledSizes.d2 },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `Generator.integers [${sizes.medium.join('x')}]`,
+      name: `Generator.integers [${scaledSizes.d2.join('x')}]`,
       category: 'random',
       operation: 'gen_integers',
       setup: {
-        shape: { shape: sizes.medium, dtype: 'int64' },
+        shape: { shape: scaledSizes.d2, dtype: 'int64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `Generator.permutation [${sizes.small}]`,
+      name: `Generator.permutation [${scaledSizes.d1}]`,
       category: 'random',
       operation: 'gen_permutation',
       setup: {
-        n: { shape: [sizes.small], dtype: 'int64' },
+        n: { shape: [scaledSizes.d1], dtype: 'int64' },
       },
       iterations,
       warmup,
@@ -3343,99 +3366,99 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     // complex_zeros and complex_ones removed — auto-generated as zeros/ones complex128
 
     specs.push({
-      name: `real [${sizes.medium.join('x')}] complex128`,
+      name: `real [${scaledSizes.d2.join('x')}] complex128`,
       category: 'math',
       operation: 'complex_real',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex' },
+        a: { shape: scaledSizes.d2, fill: 'complex' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `real [${sizes.medium.join('x')}] complex64`,
+      name: `real [${scaledSizes.d2.join('x')}] complex64`,
       category: 'math',
       operation: 'complex_real',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex_small', dtype: 'complex64' },
+        a: { shape: scaledSizes.d2, fill: 'complex_small', dtype: 'complex64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `imag [${sizes.medium.join('x')}] complex128`,
+      name: `imag [${scaledSizes.d2.join('x')}] complex128`,
       category: 'math',
       operation: 'complex_imag',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex' },
+        a: { shape: scaledSizes.d2, fill: 'complex' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `imag [${sizes.medium.join('x')}] complex64`,
+      name: `imag [${scaledSizes.d2.join('x')}] complex64`,
       category: 'math',
       operation: 'complex_imag',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex_small', dtype: 'complex64' },
+        a: { shape: scaledSizes.d2, fill: 'complex_small', dtype: 'complex64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `conj [${sizes.medium.join('x')}] complex128`,
+      name: `conj [${scaledSizes.d2.join('x')}] complex128`,
       category: 'math',
       operation: 'complex_conj',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex' },
+        a: { shape: scaledSizes.d2, fill: 'complex' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `conj [${sizes.medium.join('x')}] complex64`,
+      name: `conj [${scaledSizes.d2.join('x')}] complex64`,
       category: 'math',
       operation: 'complex_conj',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex_small', dtype: 'complex64' },
+        a: { shape: scaledSizes.d2, fill: 'complex_small', dtype: 'complex64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `angle [${sizes.medium.join('x')}] complex128`,
+      name: `angle [${scaledSizes.d2.join('x')}] complex128`,
       category: 'math',
       operation: 'complex_angle',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex' },
+        a: { shape: scaledSizes.d2, fill: 'complex' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `angle [${sizes.medium.join('x')}] complex64`,
+      name: `angle [${scaledSizes.d2.join('x')}] complex64`,
       category: 'math',
       operation: 'complex_angle',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex_small', dtype: 'complex64' },
+        a: { shape: scaledSizes.d2, fill: 'complex_small', dtype: 'complex64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `abs [${sizes.medium.join('x')}] complex128`,
+      name: `abs [${scaledSizes.d2.join('x')}] complex128`,
       category: 'math',
       operation: 'complex_abs',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex' },
+        a: { shape: scaledSizes.d2, fill: 'complex' },
       },
       iterations,
       includeInQuick: true,
@@ -3443,33 +3466,33 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `abs [${sizes.medium.join('x')}] complex64`,
+      name: `abs [${scaledSizes.d2.join('x')}] complex64`,
       category: 'math',
       operation: 'complex_abs',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex_small', dtype: 'complex64' },
+        a: { shape: scaledSizes.d2, fill: 'complex_small', dtype: 'complex64' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `sqrt [${sizes.medium.join('x')}] complex128`,
+      name: `sqrt [${scaledSizes.d2.join('x')}] complex128`,
       category: 'math',
       operation: 'complex_sqrt',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex' },
+        a: { shape: scaledSizes.d2, fill: 'complex' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `sqrt [${sizes.medium.join('x')}] complex64`,
+      name: `sqrt [${scaledSizes.d2.join('x')}] complex64`,
       category: 'math',
       operation: 'complex_sqrt',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex_small', dtype: 'complex64' },
+        a: { shape: scaledSizes.d2, fill: 'complex_small', dtype: 'complex64' },
       },
       iterations,
       warmup,
@@ -3650,79 +3673,79 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
   // 1D FFT operations
   specs.push({
-    name: `fft [${sizes.small}]`,
+    name: `fft [${scaledSizes.d1}]`,
     category: 'fft',
     operation: 'fft',
     setup: {
-      a: { shape: [sizes.small], fill: 'arange' },
+      a: { shape: [scaledSizes.d1], fill: 'arange' },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `ifft [${sizes.small}]`,
+    name: `ifft [${scaledSizes.d1}]`,
     category: 'fft',
     operation: 'ifft',
     setup: {
-      a: { shape: [sizes.small], fill: 'complex' },
+      a: { shape: [scaledSizes.d1], fill: 'complex' },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `rfft [${sizes.small}]`,
+    name: `rfft [${scaledSizes.d1}]`,
     category: 'fft',
     operation: 'rfft',
     setup: {
-      a: { shape: [sizes.small], fill: 'arange' },
+      a: { shape: [scaledSizes.d1], fill: 'arange' },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `irfft [${sizes.small / 2 + 1}]`,
+    name: `irfft [${scaledSizes.d1 / 2 + 1}]`,
     category: 'fft',
     operation: 'irfft',
     setup: {
-      a: { shape: [Math.floor(sizes.small / 2) + 1], fill: 'complex' },
+      a: { shape: [Math.floor(scaledSizes.d1 / 2) + 1], fill: 'complex' },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `hfft [${sizes.small / 2 + 1}]`,
+    name: `hfft [${scaledSizes.d1 / 2 + 1}]`,
     category: 'fft',
     operation: 'hfft',
     setup: {
-      a: { shape: [Math.floor(sizes.small / 2) + 1], fill: 'complex' },
+      a: { shape: [Math.floor(scaledSizes.d1 / 2) + 1], fill: 'complex' },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `ihfft [${sizes.small}]`,
+    name: `ihfft [${scaledSizes.d1}]`,
     category: 'fft',
     operation: 'ihfft',
     setup: {
-      a: { shape: [sizes.small], fill: 'arange' },
+      a: { shape: [scaledSizes.d1], fill: 'arange' },
     },
     iterations,
     warmup,
   });
 
   // 2D FFT operations
-  if (Array.isArray(sizes.medium)) {
+  if (Array.isArray(scaledSizes.d2)) {
     specs.push({
-      name: `fft2 [${sizes.medium.join('x')}]`,
+      name: `fft2 [${scaledSizes.d2.join('x')}]`,
       category: 'fft',
       operation: 'fft2',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       includeInQuick: true,
@@ -3730,33 +3753,33 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
     });
 
     specs.push({
-      name: `ifft2 [${sizes.medium.join('x')}]`,
+      name: `ifft2 [${scaledSizes.d2.join('x')}]`,
       category: 'fft',
       operation: 'ifft2',
       setup: {
-        a: { shape: sizes.medium, fill: 'complex' },
+        a: { shape: scaledSizes.d2, fill: 'complex' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `rfft2 [${sizes.medium.join('x')}]`,
+      name: `rfft2 [${scaledSizes.d2.join('x')}]`,
       category: 'fft',
       operation: 'rfft2',
       setup: {
-        a: { shape: sizes.medium, fill: 'arange' },
+        a: { shape: scaledSizes.d2, fill: 'arange' },
       },
       iterations,
       warmup,
     });
 
     specs.push({
-      name: `irfft2 [${sizes.medium[0]}x${Math.floor(sizes.medium[1] / 2) + 1}]`,
+      name: `irfft2 [${scaledSizes.d2[0]}x${Math.floor(scaledSizes.d2[1] / 2) + 1}]`,
       category: 'fft',
       operation: 'irfft2',
       setup: {
-        a: { shape: [sizes.medium[0], Math.floor(sizes.medium[1] / 2) + 1], fill: 'complex' },
+        a: { shape: [scaledSizes.d2[0], Math.floor(scaledSizes.d2[1] / 2) + 1], fill: 'complex' },
       },
       iterations,
       warmup,
@@ -3811,44 +3834,44 @@ export function getBenchmarkSpecs(mode: BenchmarkMode = 'standard'): BenchmarkCa
 
   // FFT utility functions
   specs.push({
-    name: `fftfreq(${sizes.small})`,
+    name: `fftfreq(${scaledSizes.d1})`,
     category: 'fft',
     operation: 'fftfreq',
     setup: {
-      n: { shape: [sizes.small] },
+      n: { shape: [scaledSizes.d1] },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `rfftfreq(${sizes.small})`,
+    name: `rfftfreq(${scaledSizes.d1})`,
     category: 'fft',
     operation: 'rfftfreq',
     setup: {
-      n: { shape: [sizes.small] },
+      n: { shape: [scaledSizes.d1] },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `fftshift [${sizes.small}]`,
+    name: `fftshift [${scaledSizes.d1}]`,
     category: 'fft',
     operation: 'fftshift',
     setup: {
-      a: { shape: [sizes.small], fill: 'arange' },
+      a: { shape: [scaledSizes.d1], fill: 'arange' },
     },
     iterations,
     warmup,
   });
 
   specs.push({
-    name: `ifftshift [${sizes.small}]`,
+    name: `ifftshift [${scaledSizes.d1}]`,
     category: 'fft',
     operation: 'ifftshift',
     setup: {
-      a: { shape: [sizes.small], fill: 'arange' },
+      a: { shape: [scaledSizes.d1], fill: 'arange' },
     },
     iterations,
     warmup,

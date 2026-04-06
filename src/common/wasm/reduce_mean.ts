@@ -31,10 +31,8 @@ import {
 import {
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  alloc,
-  copyOut,
-  f16ToF32Input,
+  f16InputToScratchF32,
+  wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -94,8 +92,7 @@ export function wasmReduceMean(a: ArrayStorage): number | null {
   resetScratchAllocator();
   let aPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + size) as TypedArray;
-    aPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    aPtr = f16InputToScratchF32(a, size);
   } else {
     aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   }
@@ -145,24 +142,25 @@ export function wasmReduceMeanStrided(
   const outBpe = Float64Array.BYTES_PER_ELEMENT;
   const outSize = outerSize * innerSize;
 
+  const outRegion = wasmMalloc(outSize * outBpe);
+  if (!outRegion) return null;
+
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
   let inPtr: number;
   if (dtype === 'float16') {
-    const aRaw = a.data.subarray(a.offset, a.offset + totalSize) as TypedArray;
-    inPtr = scratchCopyIn(f16ToF32Input(aRaw, dtype));
+    inPtr = f16InputToScratchF32(a, totalSize);
   } else {
     inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, inBpe);
   }
-  const outPtr = alloc(outSize * outBpe);
 
-  kernel(inPtr, outPtr, outerSize, axisSize, innerSize);
+  kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
 
-  const outData = copyOut(
-    outPtr,
+  return ArrayStorage.fromWasmRegion(
+    [outSize],
+    'float64',
+    outRegion,
     outSize,
     Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
-
-  return ArrayStorage.fromData(outData, [outSize], 'float64');
 }

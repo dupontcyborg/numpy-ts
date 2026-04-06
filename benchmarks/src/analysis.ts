@@ -69,14 +69,19 @@ export function compareResults(
 export function calculateSummary(comparisons: BenchmarkComparison[]): BenchmarkSummary {
   const ratios = comparisons.map((c) => c.ratio);
 
-  const geo_mean = Math.exp(ratios.reduce((s, r) => s + Math.log(r), 0) / ratios.length);
+  // Clamp ratios to a small epsilon to avoid log(0)=-Infinity poisoning the geo mean
+  const geo_mean = Math.exp(
+    ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+  );
 
   const sorted = [...ratios].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   const median_slowdown =
     sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
 
-  const best_case = Math.min(...ratios);
+  // Filter out zero ratios (below timing resolution) for best_case
+  const positiveRatios = ratios.filter((r) => r > 0);
+  const best_case = positiveRatios.length > 0 ? Math.min(...positiveRatios) : 0;
   const worst_case = Math.max(...ratios);
 
   return {
@@ -114,7 +119,7 @@ export function getCategorySummaries(
 
   for (const [category, items] of groups) {
     const ratios = items.map((item) => item.ratio);
-    const geo_mean = Math.exp(ratios.reduce((s, r) => s + Math.log(r), 0) / ratios.length);
+    const geo_mean = Math.exp(ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length);
 
     summaries.set(category, {
       geo_mean,
@@ -165,7 +170,7 @@ export function getDtypeSummaries(
   for (const dtype of dtypeOrder) {
     const ratios = groups.get(dtype);
     if (!ratios) continue;
-    const geo = Math.exp(ratios.reduce((s, r) => s + Math.log(r), 0) / ratios.length);
+    const geo = Math.exp(ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length);
     const sorted = [...ratios].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
@@ -329,7 +334,7 @@ export function calculateMultiRuntimeSummaries(
 
     if (ratios.length === 0) continue;
 
-    const geo_mean = Math.exp(ratios.reduce((s, r) => s + Math.log(r), 0) / ratios.length);
+    const geo_mean = Math.exp(ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length);
     const sorted = [...ratios].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median_slowdown =

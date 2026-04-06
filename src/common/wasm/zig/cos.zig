@@ -25,6 +25,49 @@ export fn cos_f32(a: [*]const f32, out: [*]f32, N: u32) void {
     }
 }
 
+// --- Integer-to-f64 variants (avoid JS conversion loop) ---
+
+/// Element-wise cos for i64 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_i64_f64(a: [*]const i64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+/// Element-wise cos for u64 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_u64_f64(a: [*]const u64, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+/// Element-wise cos for i32 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_i32_f64(a: [*]const i32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+/// Element-wise cos for u32 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_u32_f64(a: [*]const u32, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+/// Element-wise cos for i16 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_i16_f64(a: [*]const i16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+/// Element-wise cos for u16 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_u16_f64(a: [*]const u16, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+/// Element-wise cos for i8 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_i8_f64(a: [*]const i8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+/// Element-wise cos for u8 → f64 output: out[i] = cos(float(a[i])).
+export fn cos_u8_f64(a: [*]const u8, out: [*]f64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = math.cos(@as(f64, @floatFromInt(a[i])));
+}
+
 // --- Tests ---
 
 test "cos_f64 basic" {

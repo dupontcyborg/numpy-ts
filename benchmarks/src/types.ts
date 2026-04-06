@@ -108,6 +108,8 @@ export interface MultiRuntimeReport {
 
 export type BaselineType = 'python' | 'pyodide';
 
+export type SizeScale = 'small' | 'default' | 'large';
+
 export interface BenchmarkOptions {
   mode?: BenchmarkMode;
   category?: string;
@@ -119,4 +121,6 @@ export interface BenchmarkOptions {
   spec?: string;
   noWasm?: boolean;
   dtypes?: string[];
+  sizeScale?: SizeScale;
+  skipNumpy?: boolean;
 }

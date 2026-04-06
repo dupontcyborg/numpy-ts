@@ -907,7 +907,15 @@ export function cov(
   ddof?: number
 ): ArrayStorage {
   const mShape = m.shape;
-  const mData = m.data;
+  // Bulk-convert float16 to float64 upfront to avoid per-element f16→f64 overhead
+  const mData =
+    m.dtype === 'float16'
+      ? (() => {
+          const f = new Float64Array(m.size);
+          f.set(m.data.subarray(m.offset, m.offset + m.size) as unknown as ArrayLike<number>);
+          return f;
+        })()
+      : m.data;
   const isComplex = isComplexDType(m.dtype) || (y !== undefined && isComplexDType(y.dtype));
 
   // Determine effective ddof
@@ -1178,6 +1186,7 @@ export function cov(
   }
 
   // Real 2D case — center data, then cov = centered @ centered^T / divisor.
+  // Always use float64 for intermediate computation to match NumPy's precision.
 
   // Step 1: Build centered matrix in WASM [numVars × numObs]
   const centeredStorage = ArrayStorage.empty([numVars, numObs], 'float64');

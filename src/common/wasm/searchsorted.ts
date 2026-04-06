@@ -30,8 +30,7 @@ import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
-  f16ToF32Input,
+  f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
@@ -129,15 +128,8 @@ export function wasmSearchsorted(
   let valuesPtr: number;
 
   if (isF16) {
-    const sOff = sorted.offset;
-    let sData = sorted.data.subarray(sOff, sOff + n) as TypedArray;
-    sData = f16ToF32Input(sData, dtype);
-    sortedPtr = scratchCopyIn(sData);
-
-    const vOff = values.offset;
-    let vData = values.data.subarray(vOff, vOff + m) as TypedArray;
-    vData = f16ToF32Input(vData, dtype);
-    valuesPtr = scratchCopyIn(vData);
+    sortedPtr = f16InputToScratchF32(sorted, n);
+    valuesPtr = f16InputToScratchF32(values, m);
   } else {
     sortedPtr = resolveInputPtr(
       sorted.data,

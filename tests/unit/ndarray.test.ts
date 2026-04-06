@@ -594,35 +594,65 @@ describe('NDArray Slicing', () => {
     });
 
     it('"..." alone is identity on 2D', () => {
-      const arr = array([[1, 2, 3], [4, 5, 6]]);
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
       const result = arr.slice('...');
       expect(result.shape).toEqual([2, 3]);
-      expect(result.toArray()).toEqual([[1, 2, 3], [4, 5, 6]]);
+      expect(result.toArray()).toEqual([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
     });
 
     it('"...", "1:3" slices last dim of 2D', () => {
-      const arr = array([[1, 2, 3], [4, 5, 6]]);
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
       const result = arr.slice('...', '1:3');
       expect(result.shape).toEqual([2, 2]);
-      expect(result.toArray()).toEqual([[2, 3], [5, 6]]);
+      expect(result.toArray()).toEqual([
+        [2, 3],
+        [5, 6],
+      ]);
     });
 
     it('"1", "..." scalar on first dim of 2D', () => {
-      const arr = array([[1, 2, 3], [4, 5, 6]]);
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
       const result = arr.slice('1', '...');
       expect(result.shape).toEqual([3]);
       expect(result.toArray()).toEqual([4, 5, 6]);
     });
 
     it('"...", "0" scalar on last dim of 3D', () => {
-      const arr = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
+      const arr = array([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        [
+          [5, 6],
+          [7, 8],
+        ],
+      ]);
       const result = arr.slice('...', '0');
       expect(result.shape).toEqual([2, 2]);
-      expect(result.toArray()).toEqual([[1, 3], [5, 7]]);
+      expect(result.toArray()).toEqual([
+        [1, 3],
+        [5, 7],
+      ]);
     });
 
     it('throws on multiple ellipses', () => {
-      const arr = array([[1, 2], [3, 4]]);
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
       expect(() => arr.slice('...', '...')).toThrow(/ellipsis/);
     });
   });
@@ -642,20 +672,34 @@ describe('NDArray Slicing', () => {
     });
 
     it('"newaxis", ":", ":" inserts leading dim on 2D', () => {
-      const arr = array([[1, 2], [3, 4]]);
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
       const result = arr.slice('newaxis', ':', ':');
       expect(result.shape).toEqual([1, 2, 2]);
-      expect(result.toArray()).toEqual([[[1, 2], [3, 4]]]);
+      expect(result.toArray()).toEqual([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+      ]);
     });
 
     it('":", "newaxis", ":" inserts middle dim on 2D', () => {
-      const arr = array([[1, 2, 3], [4, 5, 6]]);
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
       const result = arr.slice(':', 'newaxis', ':');
       expect(result.shape).toEqual([2, 1, 3]);
     });
 
     it('":", ":", "newaxis" inserts trailing dim on 2D', () => {
-      const arr = array([[1, 2], [3, 4]]);
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
       const result = arr.slice(':', ':', 'newaxis');
       expect(result.shape).toEqual([2, 2, 1]);
     });
@@ -667,14 +711,20 @@ describe('NDArray Slicing', () => {
     });
 
     it('newaxis after scalar index', () => {
-      const arr = array([[1, 2, 3], [4, 5, 6]]);
+      const arr = array([
+        [1, 2, 3],
+        [4, 5, 6],
+      ]);
       const result = arr.slice('0', 'newaxis', ':');
       expect(result.shape).toEqual([1, 3]);
       expect(result.toArray()).toEqual([[1, 2, 3]]);
     });
 
     it('"...", "newaxis" inserts trailing dim via ellipsis', () => {
-      const arr = array([[1, 2], [3, 4]]);
+      const arr = array([
+        [1, 2],
+        [3, 4],
+      ]);
       const result = arr.slice('...', 'newaxis');
       expect(result.shape).toEqual([2, 2, 1]);
     });
