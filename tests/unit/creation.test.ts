@@ -1267,6 +1267,74 @@ describe('Array Creation Functions', () => {
     });
   });
 
+  describe('array from TypedArray input', () => {
+    it('creates array from Uint32Array', () => {
+      const result = array(new Uint32Array([1, 2, 3]));
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('creates array from Float64Array', () => {
+      const result = array(new Float64Array([1.5, 2.5, 3.5]));
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([1.5, 2.5, 3.5]);
+    });
+
+    it('creates array from Int32Array', () => {
+      const result = array(new Int32Array([-1, 0, 1]));
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([-1, 0, 1]);
+    });
+
+    it('creates array from Float32Array', () => {
+      const result = array(new Float32Array([1, 2, 3]));
+      expect(result.shape).toEqual([3]);
+    });
+
+    it('creates array from Uint8Array', () => {
+      const result = array(new Uint8Array([10, 20, 30]));
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([10, 20, 30]);
+    });
+
+    it('creates array from Int16Array with dtype override', () => {
+      const result = array(new Int16Array([1, 2, 3]), 'float32');
+      expect(result.dtype).toBe('float32');
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('creates array from BigInt64Array', () => {
+      const result = array(new BigInt64Array([1n, 2n, 3n]));
+      expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('int64');
+    });
+
+    it('creates array from BigUint64Array', () => {
+      const result = array(new BigUint64Array([1n, 2n, 3n]));
+      expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('int64');
+    });
+
+    it('asarray works with TypedArray input', () => {
+      const result = asarray(new Uint32Array([4, 5, 6]));
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([4, 5, 6]);
+    });
+
+    it('ascontiguousarray works with TypedArray input', () => {
+      const result = ascontiguousarray(new Float64Array([7, 8, 9]));
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([7, 8, 9]);
+    });
+
+    it('asfortranarray works with TypedArray input', () => {
+      const result = asfortranarray(new Float64Array([7, 8, 9]));
+      expect(result.shape).toEqual([3]);
+      expect(result.toArray()).toEqual([7, 8, 9]);
+    });
+  });
+
   describe('genfromtxt', () => {
     it('parses CSV text', () => {
       const text = '1,2,3\n4,5,6';
