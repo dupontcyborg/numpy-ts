@@ -23,7 +23,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
@@ -80,7 +80,7 @@ export function wasmOuter(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
   const N = b.size;
   if (M + N < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+  const resultDtype = effectiveDType(promoteDTypes(a.dtype, b.dtype));
   const kernel = wasmKernels[resultDtype];
   const Ctor = ctorMap[resultDtype];
   if (!kernel || !Ctor) return null;

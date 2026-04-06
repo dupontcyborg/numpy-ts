@@ -38,7 +38,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -108,7 +108,7 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = promoteDTypes(a.dtype, b.dtype);
+  const dtype = effectiveDType(promoteDTypes(a.dtype, b.dtype));
 
   // Float path
   const floatKernel = binaryKernels[dtype];
@@ -202,7 +202,7 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
 
   // Float path
   const floatKernel = scalarKernels[dtype];

@@ -7,7 +7,7 @@
 import { all_finite_f64, all_finite_f32, all_finite_u16 } from './bins/all_finite.wasm';
 import { resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType } from '../dtype';
+import { effectiveDType, type DType } from '../dtype';
 import { wasmConfig } from './config';
 
 type AllFiniteFn = (aPtr: number, N: number) => number;
@@ -27,7 +27,7 @@ const bpeMap: Partial<Record<DType, number>> = {
 export function wasmAllFinite(a: ArrayStorage): boolean | null {
   if (!a.isCContiguous) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = kernels[dtype];
   const bpe = bpeMap[dtype];
   if (!kernel || !bpe) return null;

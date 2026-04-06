@@ -24,7 +24,7 @@ import {
   f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -102,7 +102,7 @@ export function wasmGradient1D(a: ArrayStorage, spacing: number): ArrayStorage |
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
   if (size < 2) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = kernels[dtype];
   const InCtor = inCtorMap[dtype];
   const OutCtor = outCtorMap[dtype];

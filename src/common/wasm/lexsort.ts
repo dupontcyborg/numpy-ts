@@ -25,7 +25,7 @@ import {
   f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -84,7 +84,7 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
   if (n < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   // All keys must be same dtype and contiguous
-  const dtype = keys[0]!.dtype;
+  const dtype = effectiveDType(keys[0]!.dtype);
   for (const key of keys) {
     if (key.dtype !== dtype || !key.isCContiguous || key.ndim !== 1 || key.size !== n) {
       return null;

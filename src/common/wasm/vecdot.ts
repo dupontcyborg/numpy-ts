@@ -18,7 +18,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
@@ -84,7 +84,7 @@ export function wasmVecdot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
   if (B !== b.shape[0]! || K !== b.shape[1]!) return null;
   if (B * K < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+  const resultDtype = effectiveDType(promoteDTypes(a.dtype, b.dtype));
   const kernel = wasmKernels[resultDtype];
   const Ctor = ctorMap[resultDtype];
   if (!kernel || !Ctor) return null;

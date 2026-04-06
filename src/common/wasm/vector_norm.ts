@@ -8,7 +8,7 @@ import * as floatRelaxed from './bins/vector_norm-relaxed.wasm';
 import { useRelaxedKernels } from './detect';
 import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType } from '../dtype';
+import { effectiveDType, isComplexDType, type DType } from '../dtype';
 import { wasmConfig } from './config';
 
 let _float: typeof floatBase | null = null;
@@ -36,7 +36,7 @@ export function wasmVectorNorm2(a: ArrayStorage): number | null {
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();

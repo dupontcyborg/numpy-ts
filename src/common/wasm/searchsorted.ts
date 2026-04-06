@@ -33,7 +33,7 @@ import {
   f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -104,7 +104,7 @@ export function wasmSearchsorted(
   const m = values.size;
   if (m < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = sorted.dtype;
+  const dtype = effectiveDType(sorted.dtype);
   const kernelMap = side === 'left' ? leftKernels : rightKernels;
   const kernel = kernelMap[dtype];
   const Ctor = ctorMap[dtype];

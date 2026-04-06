@@ -9,7 +9,7 @@
 import { reduce_nanmax_f64, reduce_nanmax_f32 } from './bins/reduce_nanmax.wasm';
 import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -39,7 +39,7 @@ export function wasmReduceNanmax(a: ArrayStorage): number | null {
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = kernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;

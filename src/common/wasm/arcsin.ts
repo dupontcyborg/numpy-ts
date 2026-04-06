@@ -17,7 +17,13 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, isBigIntDType, type DType, type TypedArray } from '../dtype';
+import {
+  effectiveDType,
+  isComplexDType,
+  isBigIntDType,
+  type DType,
+  type TypedArray,
+} from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -39,7 +45,7 @@ export function wasmArcsin(a: ArrayStorage): ArrayStorage | null {
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   if (isComplexDType(dtype)) return null;
 
   // float16 path: convert to f32, run f32 kernel, convert back

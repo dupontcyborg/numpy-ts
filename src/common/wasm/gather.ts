@@ -43,7 +43,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -115,7 +115,7 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
   const size = Math.min(condition.size, storage.size);
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = storage.dtype;
+  const dtype = effectiveDType(storage.dtype);
   const kernel = extractKernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
@@ -215,7 +215,7 @@ export function wasmTakeAlongAxis2D(
   const totalSize = rows! * cols!;
   if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = storage.dtype;
+  const dtype = effectiveDType(storage.dtype);
   const kernel = takeKernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
@@ -312,7 +312,7 @@ export function wasmWhere(
   if (size !== x.size || size !== y.size) return null;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = x.dtype;
+  const dtype = effectiveDType(x.dtype);
   if (dtype !== y.dtype) return null;
 
   const kernel = whereKernels[dtype];

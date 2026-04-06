@@ -51,6 +51,15 @@ export type TypedArray =
 export const hasFloat16: boolean = typeof globalThis.Float16Array !== 'undefined';
 
 /**
+ * Returns the effective dtype for WASM kernel dispatch.
+ * When Float16Array is unavailable, float16 storage is backed by Float32Array,
+ * so WASM kernels should treat it as float32.
+ */
+export function effectiveDType(dtype: DType): DType {
+  return dtype === 'float16' && !hasFloat16 ? 'float32' : dtype;
+}
+
+/**
  * Default dtype (matches NumPy)
  */
 export const DEFAULT_DTYPE: DType = 'float64';

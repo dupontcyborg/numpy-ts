@@ -15,7 +15,7 @@ import {
 } from './bins/pad.wasm';
 import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -48,7 +48,9 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   uint16: Uint16Array,
   int8: Int8Array,
   uint8: Uint8Array,
-  float16: Float16Array as unknown as AnyTypedArrayCtor,
+  float16: (typeof Float16Array !== 'undefined'
+    ? Float16Array
+    : Float32Array) as unknown as AnyTypedArrayCtor,
 };
 
 /**
@@ -63,7 +65,7 @@ export function wasmPad2D(a: ArrayStorage, padWidth: number): ArrayStorage | nul
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = kernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;

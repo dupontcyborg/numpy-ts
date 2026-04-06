@@ -29,7 +29,13 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, isBigIntDType, type DType, type TypedArray } from '../dtype';
+import {
+  effectiveDType,
+  promoteDTypes,
+  isBigIntDType,
+  type DType,
+  type TypedArray,
+} from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -92,7 +98,7 @@ export function wasmPower(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = promoteDTypes(a.dtype, b.dtype);
+  const dtype = effectiveDType(promoteDTypes(a.dtype, b.dtype));
   const kernel = binaryKernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
@@ -152,7 +158,7 @@ export function wasmPowerScalar(a: ArrayStorage, scalar: number): ArrayStorage |
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
 
   // Integer types with negative or non-integer exponents need float promotion
   // (matches NumPy behavior: int ** negative -> float64).

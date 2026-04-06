@@ -15,7 +15,7 @@ import {
 } from './bins/tile.wasm';
 import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -70,7 +70,7 @@ export function wasmTile2D(a: ArrayStorage, repRows: number, repCols: number): A
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = kernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;

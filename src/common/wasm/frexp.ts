@@ -8,7 +8,7 @@
 import { frexp_f64 } from './bins/frexp.wasm';
 import { wasmMalloc, resetScratchAllocator, resolveInputPtr, scratchCopyIn } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { TypedArray } from '../dtype';
+import { effectiveDType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -19,7 +19,7 @@ export function wasmFrexp(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null 
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   // frexp only defined for float types; integers are promoted to float64 by caller
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   if (dtype !== 'float64' && dtype !== 'float32' && dtype !== 'float16') return null;
 
   const bpe_f64 = 8;

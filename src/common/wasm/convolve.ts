@@ -9,7 +9,7 @@
 import { convolve_f64, convolve_f32 } from './bins/convolve.wasm';
 import { wasmMalloc, resetScratchAllocator, scratchCopyIn, f16InputToScratchF32 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
@@ -48,9 +48,11 @@ export function wasmConvolve(a: ArrayStorage, v: ArrayStorage): ArrayStorage | n
   if (outLen < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   // Use float64 unless both are float32 (or float16, which uses f32 kernel)
+  const aDtype = effectiveDType(a.dtype);
+  const vDtype = effectiveDType(v.dtype);
   const bothF32Like =
-    (a.dtype === 'float32' || a.dtype === 'float16') &&
-    (v.dtype === 'float32' || v.dtype === 'float16');
+    (aDtype === 'float32' || aDtype === 'float16') &&
+    (vDtype === 'float32' || vDtype === 'float16');
   const dtype: DType = bothF32Like ? 'float32' : 'float64';
   const kernel = kernels[dtype];
   const Ctor = ctorMap[dtype];
@@ -71,9 +73,9 @@ export function wasmConvolve(a: ArrayStorage, v: ArrayStorage): ArrayStorage | n
   // Convert to target float type if input dtype differs (e.g. int32 -> float64)
   let aPtr: number;
   let vPtr: number;
-  if (a.dtype === 'float16') {
+  if (aDtype === 'float16') {
     aPtr = f16InputToScratchF32(a, aLen);
-  } else if (a.dtype === dtype) {
+  } else if (aDtype === dtype) {
     aPtr = scratchCopyIn(a.data.subarray(aOff, aOff + aLen) as TypedArray);
   } else {
     const tmp = new (Ctor as unknown as new (len: number) => TypedArray)(aLen);
@@ -81,9 +83,9 @@ export function wasmConvolve(a: ArrayStorage, v: ArrayStorage): ArrayStorage | n
     for (let i = 0; i < aLen; i++) tmp[i] = Number(src[aOff + i]!);
     aPtr = scratchCopyIn(tmp);
   }
-  if (v.dtype === 'float16') {
+  if (vDtype === 'float16') {
     vPtr = f16InputToScratchF32(v, vLen);
-  } else if (v.dtype === dtype) {
+  } else if (vDtype === dtype) {
     vPtr = scratchCopyIn(v.data.subarray(vOff, vOff + vLen) as TypedArray);
   } else {
     const tmp = new (Ctor as unknown as new (len: number) => TypedArray)(vLen);

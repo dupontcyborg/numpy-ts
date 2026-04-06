@@ -39,7 +39,7 @@ import {
   wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -85,7 +85,7 @@ export function wasmReduceSum(a: ArrayStorage): number | null {
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = kernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
@@ -110,7 +110,7 @@ export function wasmReduceSum(a: ArrayStorage): number | null {
  */
 export function wasmReduceSumComplex(a: ArrayStorage): [number, number] | null {
   if (!a.isCContiguous) return null;
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   if (dtype !== 'complex128' && dtype !== 'complex64') return null;
 
   const size = a.size;
@@ -172,7 +172,7 @@ export function wasmReduceSumStrided(
   const totalSize = outerSize * axisSize * innerSize;
   if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = stridedKernels[dtype];
   const InCtor = ctorMap[dtype];
   if (!kernel || !InCtor) return null;
@@ -214,7 +214,7 @@ export function wasmReduceSumStridedComplex(
   innerSize: number
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   if (dtype !== 'complex128' && dtype !== 'complex64') return null;
 
   const totalSize = outerSize * axisSize * innerSize;

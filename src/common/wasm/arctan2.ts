@@ -25,7 +25,13 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, isComplexDType, type DType, type TypedArray } from '../dtype';
+import {
+  effectiveDType,
+  promoteDTypes,
+  isComplexDType,
+  type DType,
+  type TypedArray,
+} from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -81,7 +87,7 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = promoteDTypes(a.dtype, b.dtype);
+  const dtype = effectiveDType(promoteDTypes(a.dtype, b.dtype));
   if (isComplexDType(dtype)) return null;
 
   const floatKernel = binaryKernels[dtype];

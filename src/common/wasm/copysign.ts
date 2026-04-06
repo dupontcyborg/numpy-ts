@@ -32,7 +32,7 @@ import {
 } from './bins/copysign.wasm';
 import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -72,7 +72,9 @@ type AnyTypedArrayCtor = new (length: number) => TypedArray;
 const inputCtorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
   float64: Float64Array,
   float32: Float32Array,
-  float16: Float16Array as unknown as AnyTypedArrayCtor,
+  float16: (typeof Float16Array !== 'undefined'
+    ? Float16Array
+    : Float32Array) as unknown as AnyTypedArrayCtor,
   int64: BigInt64Array,
   uint64: BigUint64Array,
   int32: Int32Array,
@@ -110,7 +112,7 @@ const outCtorMap: Partial<
     off: number,
     len: number
   ) => TypedArray,
-  float16: Float16Array as unknown as new (
+  float16: (typeof Float16Array !== 'undefined' ? Float16Array : Float32Array) as unknown as new (
     buf: ArrayBuffer,
     off: number,
     len: number
@@ -135,7 +137,7 @@ export function wasmCopysign(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage |
   const size = x1.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = x1.dtype;
+  const dtype = effectiveDType(x1.dtype);
   if (x2.dtype !== dtype) return null;
 
   const kernel = binaryKernels[dtype];
@@ -171,7 +173,7 @@ export function wasmCopysignScalar(x1: ArrayStorage, scalar: number): ArrayStora
   const size = x1.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = x1.dtype;
+  const dtype = effectiveDType(x1.dtype);
 
   const kernel = scalarKernels[dtype];
   const InCtor = inputCtorMap[dtype];

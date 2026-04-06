@@ -21,7 +21,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 // Resolve float kernel module once — relaxed if supported, baseline otherwise.
@@ -158,7 +158,7 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
   if (a.ndim === 0 || b.ndim === 0) return null;
 
   // Determine the output dtype
-  const resultDtype = promoteDTypes(a.dtype, b.dtype);
+  const resultDtype = effectiveDType(promoteDTypes(a.dtype, b.dtype));
 
   // Bool: no WASM kernel
   if (resultDtype === 'bool') return null;

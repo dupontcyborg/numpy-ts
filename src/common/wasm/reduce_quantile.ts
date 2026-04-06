@@ -40,7 +40,13 @@ import {
   wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, getDTypeSize, type DType, type TypedArray } from '../dtype';
+import {
+  effectiveDType,
+  isComplexDType,
+  getDTypeSize,
+  type DType,
+  type TypedArray,
+} from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -142,16 +148,17 @@ function interpolateQuantile(
  */
 export function wasmReduceQuantile(a: ArrayStorage, q: number): number | null {
   if (!a.isCContiguous) return null;
-  if (isComplexDType(a.dtype)) return null;
+  const dtype = effectiveDType(a.dtype);
+  if (isComplexDType(dtype)) return null;
 
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const kernel = sortKernels[a.dtype];
-  const scratchKernel = sortWithScratchKernels[a.dtype];
+  const kernel = sortKernels[dtype];
+  const scratchKernel = sortWithScratchKernels[dtype];
   if (!kernel && !scratchKernel) return null;
 
-  const bpe = getDTypeSize(a.dtype);
+  const bpe = getDTypeSize(dtype);
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
@@ -185,7 +192,7 @@ export function wasmReduceQuantile(a: ArrayStorage, q: number): number | null {
 
   // Read quantile from sorted buffer
   const mem = getSharedMemory();
-  return interpolateQuantile(mem.buffer, sortPtr, size, q, a.dtype);
+  return interpolateQuantile(mem.buffer, sortPtr, size, q, dtype);
 }
 
 /**
@@ -201,9 +208,8 @@ export function wasmReduceQuantileStrided(
   q: number
 ): ArrayStorage | null {
   if (!storage.isCContiguous) return null;
-  if (isComplexDType(storage.dtype)) return null;
-
-  const dtype = storage.dtype;
+  const dtype = effectiveDType(storage.dtype);
+  if (isComplexDType(dtype)) return null;
   const totalSize = outer * axisSize * inner;
   if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 

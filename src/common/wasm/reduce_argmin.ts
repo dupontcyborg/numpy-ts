@@ -33,7 +33,7 @@ import {
   wasmMalloc,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -79,7 +79,7 @@ export function wasmReduceArgmin(a: ArrayStorage): number | null {
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = kernels[dtype];
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
@@ -129,7 +129,7 @@ export function wasmReduceArgminStrided(
   const totalSize = outerSize * axisSize * innerSize;
   if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = a.dtype;
+  const dtype = effectiveDType(a.dtype);
   const kernel = stridedKernels[dtype];
   const InCtor = ctorMap[dtype];
   if (!kernel || !InCtor) return null;

@@ -20,7 +20,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { effectiveDType, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -53,11 +53,12 @@ export function wasmHeavisideScalar(
   resultDtype: 'float64' | 'float32' | 'float16'
 ): ArrayStorage | null {
   if (!x1.isCContiguous) return null;
+  const dtype = effectiveDType(resultDtype) as 'float64' | 'float32' | 'float16';
   const size = x1.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const kernel = scalarKernels[resultDtype];
-  const Ctor = ctorMap[resultDtype];
+  const kernel = scalarKernels[dtype];
+  const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
@@ -68,7 +69,7 @@ export function wasmHeavisideScalar(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  if (resultDtype === 'float16') {
+  if (dtype === 'float16') {
     const x1Ptr = f16InputToScratchF32(x1, size);
     kernel(x1Ptr, outRegion.ptr, size, x2);
 
@@ -102,11 +103,12 @@ export function wasmHeaviside(
   resultDtype: 'float64' | 'float32' | 'float16'
 ): ArrayStorage | null {
   if (!x1.isCContiguous || !x2.isCContiguous) return null;
+  const dtype = effectiveDType(resultDtype) as 'float64' | 'float32' | 'float16';
   const size = x1.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const kernel = binaryKernels[resultDtype];
-  const Ctor = ctorMap[resultDtype];
+  const kernel = binaryKernels[dtype];
+  const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
@@ -117,7 +119,7 @@ export function wasmHeaviside(
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  if (resultDtype === 'float16') {
+  if (dtype === 'float16') {
     const x1Ptr = f16InputToScratchF32(x1, size);
     const x2Ptr = f16InputToScratchF32(x2, size);
     kernel(x1Ptr, x2Ptr, outRegion.ptr, size);
