@@ -195,36 +195,79 @@ pub inline fn muladd_i8x16(c_vec: V16i8, a_vec: V16i8, b_vec: V16i8) V16i8 {
     return @bitCast(@shuffle(u8, r_lo_bytes, r_hi_bytes, narrow));
 }
 
+// --- Fused multiply-add ---
+// Baseline (simd128 only): a * b + c = f64x2.mul + f64x2.add (2 SIMD ops, no regression).
+// Relaxed (+relaxed_simd): LLVM intrinsic → f64x2.relaxed_madd (1 SIMD op, true FMA).
+// NOTE: Zig's @mulAdd scalarizes on wasm32 (extracts lanes → scalar fma → reassemble).
+// We must use the LLVM intrinsic directly for the relaxed path.
+
+const has_relaxed_simd = blk: {
+    const builtin = @import("builtin");
+    break :blk builtin.cpu.arch == .wasm32 and
+        @import("std").Target.wasm.featureSetHas(builtin.cpu.features, .relaxed_simd);
+};
+
+const relaxed_wasm = if (has_relaxed_simd) struct {
+    extern fn @"llvm.wasm.relaxed.madd.v2f64"(V2f64, V2f64, V2f64) V2f64;
+    extern fn @"llvm.wasm.relaxed.madd.v4f32"(V4f32, V4f32, V4f32) V4f32;
+    extern fn @"llvm.wasm.relaxed.nmadd.v2f64"(V2f64, V2f64, V2f64) V2f64;
+    extern fn @"llvm.wasm.relaxed.nmadd.v4f32"(V4f32, V4f32, V4f32) V4f32;
+} else struct {};
+
+/// Fused multiply-add for V2f64: a * b + c.
+/// Relaxed: f64x2.relaxed_madd (1 op). Baseline: f64x2.mul + f64x2.add (2 ops).
+pub inline fn mulAdd_f64x2(a: V2f64, b: V2f64, c: V2f64) V2f64 {
+    if (has_relaxed_simd) return relaxed_wasm.@"llvm.wasm.relaxed.madd.v2f64"(a, b, c);
+    return a * b + c;
+}
+
+/// Fused multiply-add for V4f32: a * b + c.
+/// Relaxed: f32x4.relaxed_madd (1 op). Baseline: f32x4.mul + f32x4.add (2 ops).
+pub inline fn mulAdd_f32x4(a: V4f32, b: V4f32, c: V4f32) V4f32 {
+    if (has_relaxed_simd) return relaxed_wasm.@"llvm.wasm.relaxed.madd.v4f32"(a, b, c);
+    return a * b + c;
+}
+
+/// Negated fused multiply-add for V2f64: -(a * b) + c = c - a * b.
+/// Relaxed: f64x2.relaxed_nmadd (1 op). Baseline: f64x2.mul + f64x2.sub (2 ops).
+pub inline fn nmulAdd_f64x2(a: V2f64, b: V2f64, c: V2f64) V2f64 {
+    if (has_relaxed_simd) return relaxed_wasm.@"llvm.wasm.relaxed.nmadd.v2f64"(a, b, c);
+    return c - a * b;
+}
+
+/// Negated fused multiply-add for V4f32: -(a * b) + c = c - a * b.
+/// Relaxed: f32x4.relaxed_nmadd (1 op). Baseline: f32x4.mul + f32x4.sub (2 ops).
+pub inline fn nmulAdd_f32x4(a: V4f32, b: V4f32, c: V4f32) V4f32 {
+    if (has_relaxed_simd) return relaxed_wasm.@"llvm.wasm.relaxed.nmadd.v4f32"(a, b, c);
+    return c - a * b;
+}
+
 // --- WASM SIMD min/max ---
+// LLVM pattern-matches @select(f32, a < b, a, b) directly to f32x4.pmin (1 SIMD op).
+// f32x4.pmin and f32x4.relaxed_min are both single instructions with identical
+// throughput — the only difference is NaN handling. No relaxed variant needed.
+// NOTE: Do NOT change to @min/@max — LLVM scalarizes those to scalar fmin/fmax calls.
 
 /// Returns the element-wise max of two V2f64 vectors.
-/// Uses @select to prevent LLVM from scalarizing on WASM targets.
-/// `@max` uses IEEE 754-2019 semantics which LLVM lowers to scalar calls;
-/// `@select` compiles to `f64x2.gt + v128.bitselect` (2 SIMD ops).
+/// Compiles to f64x2.pmax (1 SIMD op).
 pub inline fn max_f64x2(a: V2f64, b: V2f64) V2f64 {
     return @select(f64, a > b, a, b);
 }
 
 /// Returns the element-wise min of two V2f64 vectors.
-/// Uses @select to prevent LLVM from scalarizing on WASM targets.
-/// `@min` uses IEEE 754-2019 semantics which LLVM lowers to scalar calls;
-/// `@select` compiles to `f64x2.lt + v128.bitselect` (2 SIMD ops).
+/// Compiles to f64x2.pmin (1 SIMD op).
 pub inline fn min_f64x2(a: V2f64, b: V2f64) V2f64 {
     return @select(f64, a < b, a, b);
 }
 
 /// Returns the element-wise max of two V4f32 vectors.
-/// Uses @select to prevent LLVM from scalarizing on WASM targets.
-/// `@max` uses IEEE 754-2019 semantics which LLVM lowers to scalar calls;
-/// `@select` compiles to `f32x4.gt + v128.bitselect` (2 SIMD ops).
+/// Compiles to f32x4.pmax (1 SIMD op).
 pub inline fn max_f32x4(a: V4f32, b: V4f32) V4f32 {
     return @select(f32, a > b, a, b);
 }
 
 /// Returns the element-wise min of two V4f32 vectors.
-/// Uses @select to prevent LLVM from scalarizing on WASM targets.
-/// `@min` uses IEEE 754-2019 semantics which LLVM lowers to scalar calls;
-/// `@select` compiles to `f32x4.lt + v128.bitselect` (2 SIMD ops).
+/// Compiles to f32x4.pmin (1 SIMD op).
 pub inline fn min_f32x4(a: V4f32, b: V4f32) V4f32 {
     return @select(f32, a < b, a, b);
 }

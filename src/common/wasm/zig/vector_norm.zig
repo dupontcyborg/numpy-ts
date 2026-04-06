@@ -12,7 +12,7 @@ export fn vector_norm2_f64(a: [*]const f64, N: u32) f64 {
     var i: u32 = 0;
     while (i < n2) : (i += 2) {
         const v = simd.load2_f64(a, i);
-        acc += v * v;
+        acc = simd.mulAdd_f64x2(v, v, acc);
     }
     var sum = acc[0] + acc[1];
     while (i < N) : (i += 1) {
@@ -28,7 +28,7 @@ export fn vector_norm2_f32(a: [*]const f32, N: u32) f32 {
     var i: u32 = 0;
     while (i < n4) : (i += 4) {
         const v = simd.load4_f32(a, i);
-        acc += v * v;
+        acc = simd.mulAdd_f32x4(v, v, acc);
     }
     var sum = acc[0] + acc[1] + acc[2] + acc[3];
     while (i < N) : (i += 1) {
