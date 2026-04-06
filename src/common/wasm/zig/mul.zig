@@ -229,8 +229,7 @@ export fn mul_i8(a: [*]const i8, b: [*]const i8, out: [*]i8, N: u32) void {
     const n_simd = N & ~@as(u32, 15);
     var i: u32 = 0;
     while (i < n_simd) : (i += 16) {
-        const zero: simd.V16i8 = @splat(0);
-        simd.store16_i8(out, i, simd.muladd_i8x16(zero, simd.load16_i8(a, i), simd.load16_i8(b, i)));
+        simd.store16_i8(out, i, simd.mul_i8x16(simd.load16_i8(a, i), simd.load16_i8(b, i)));
     }
     while (i < N) : (i += 1) {
         out[i] = a[i] *% b[i];
@@ -245,8 +244,7 @@ export fn mul_scalar_i8(a: [*]const i8, out: [*]i8, N: u32, scalar: i8) void {
     const n_simd = N & ~@as(u32, 15);
     var i: u32 = 0;
     while (i < n_simd) : (i += 16) {
-        const zero: simd.V16i8 = @splat(0);
-        simd.store16_i8(out, i, simd.muladd_i8x16(zero, simd.load16_i8(a, i), s));
+        simd.store16_i8(out, i, simd.mul_i8x16(simd.load16_i8(a, i), s));
     }
     while (i < N) : (i += 1) {
         out[i] = a[i] *% scalar;

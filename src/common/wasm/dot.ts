@@ -5,16 +5,10 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  dot_f64,
-  dot_f32,
-  dot_c128,
-  dot_c64,
-  dot_i64,
-  dot_i32,
-  dot_i16,
-  dot_i8,
-} from './bins/dot.wasm';
+import * as floatBase from './bins/dot_float.wasm';
+import * as floatRelaxed from './bins/dot_float-relaxed.wasm';
+import { dot_i64, dot_i32, dot_i16, dot_i8 } from './bins/dot_int.wasm';
+import { useRelaxedKernels } from './detect';
 import { resetScratchAllocator, resolveInputPtr, scratchAlloc, getSharedMemory } from './runtime';
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
@@ -22,16 +16,21 @@ import { Complex } from '../complex';
 
 import { wasmConfig } from './config';
 
+let _float: typeof floatBase | null = null;
+function float(): typeof floatBase {
+  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+}
+
 const BASE_THRESHOLD = 128; // Minimum K for WASM to be worth it
 
 type WasmDotFn = (aPtr: number, bPtr: number, outPtr: number, K: number) => void;
 
 const wasmKernels: Partial<Record<DType, WasmDotFn>> = {
-  float64: dot_f64,
-  float32: dot_f32,
+  float64: (...a) => float().dot_f64(...a),
+  float32: (...a) => float().dot_f32(...a),
   // float16 excluded: NumPy accumulates in f16 precision (overflows to inf), f32 WASM gives different results
-  complex128: dot_c128,
-  complex64: dot_c64,
+  complex128: (...a) => float().dot_c128(...a),
+  complex64: (...a) => float().dot_c64(...a),
   int64: dot_i64,
   uint64: dot_i64,
   int32: dot_i32,

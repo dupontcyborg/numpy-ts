@@ -5,16 +5,10 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  vecmat_f64,
-  vecmat_f32,
-  vecmat_c128,
-  vecmat_c64,
-  vecmat_i64,
-  vecmat_i32,
-  vecmat_i16,
-  vecmat_i8,
-} from './bins/vecmat.wasm';
+import * as floatBase from './bins/vecmat_float.wasm';
+import * as floatRelaxed from './bins/vecmat_float-relaxed.wasm';
+import { vecmat_i64, vecmat_i32, vecmat_i16, vecmat_i8 } from './bins/vecmat_int.wasm';
+import { useRelaxedKernels } from './detect';
 import {
   wasmMalloc,
   resetScratchAllocator,
@@ -27,15 +21,20 @@ import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
+let _float: typeof floatBase | null = null;
+function float(): typeof floatBase {
+  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+}
+
 const BASE_THRESHOLD = 128; // Minimum K*N for WASM
 
 type WasmVecmatFn = (x: number, A: number, y: number, K: number, N: number) => void;
 
 const wasmKernels: Partial<Record<DType, WasmVecmatFn>> = {
-  float64: vecmat_f64,
-  float32: vecmat_f32,
-  complex128: vecmat_c128,
-  complex64: vecmat_c64,
+  float64: (...a) => float().vecmat_f64(...a),
+  float32: (...a) => float().vecmat_f32(...a),
+  complex128: (...a) => float().vecmat_c128(...a),
+  complex64: (...a) => float().vecmat_c64(...a),
   int64: vecmat_i64,
   uint64: vecmat_i64,
   int32: vecmat_i32,
@@ -44,7 +43,7 @@ const wasmKernels: Partial<Record<DType, WasmVecmatFn>> = {
   uint16: vecmat_i16,
   int8: vecmat_i8,
   uint8: vecmat_i8,
-  float16: vecmat_f32,
+  float16: (...a) => float().vecmat_f32(...a),
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

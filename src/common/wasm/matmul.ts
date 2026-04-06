@@ -9,16 +9,10 @@
  * dispatching each 2D slice to WASM.
  */
 
-import {
-  matmul_f64,
-  matmul_f32,
-  matmul_c64,
-  matmul_c128,
-  matmul_i64,
-  matmul_i32,
-  matmul_i16,
-  matmul_i8,
-} from './bins/matmul.wasm';
+import * as floatBase from './bins/matmul_float.wasm';
+import * as floatRelaxed from './bins/matmul_float-relaxed.wasm';
+import { matmul_i64, matmul_i32, matmul_i16, matmul_i8 } from './bins/matmul_int.wasm';
+import { useRelaxedKernels } from './detect';
 import {
   wasmMalloc,
   resetScratchAllocator,
@@ -29,6 +23,13 @@ import {
 import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
+
+// Resolve float kernel module once — relaxed if supported, baseline otherwise.
+// Safe: .wasm.ts modules use lazy init(), importing doesn't instantiate.
+let _float: typeof floatBase | null = null;
+function float(): typeof floatBase {
+  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+}
 
 // Minimum total elements (M*K + K*N) for WASM to be worth the copy overhead.
 const BASE_THRESHOLD = 256;
@@ -57,8 +58,8 @@ type WasmComplexMatmulFn = (
 // (wrapping add/mul produce identical bits regardless of sign interpretation).
 // Complex types use Gauss-trick kernels (3 real matmuls) — see complexKernels.
 const wasmKernels: Partial<Record<DType, WasmMatmulFn>> = {
-  float64: matmul_f64,
-  float32: matmul_f32,
+  float64: (...a) => float().matmul_f64(...a),
+  float32: (...a) => float().matmul_f32(...a),
   int64: matmul_i64,
   uint64: matmul_i64,
   int32: matmul_i32,
@@ -67,14 +68,14 @@ const wasmKernels: Partial<Record<DType, WasmMatmulFn>> = {
   uint16: matmul_i16,
   int8: matmul_i8,
   uint8: matmul_i8,
-  float16: matmul_f32,
+  float16: (...a) => float().matmul_f32(...a),
 };
 
 // Complex types: deinterleave → 3 real matmuls (Gauss trick) → combine + reinterleave.
 // Takes an extra scratch pointer. ~30-40% faster than the old interleaved kernels.
 const complexKernels: Partial<Record<DType, WasmComplexMatmulFn>> = {
-  complex64: matmul_c64,
-  complex128: matmul_c128,
+  complex64: (...a) => float().matmul_c64(...a),
+  complex128: (...a) => float().matmul_c128(...a),
 };
 
 // Dtype -> TypedArray constructor for the underlying data

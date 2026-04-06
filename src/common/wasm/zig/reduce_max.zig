@@ -54,7 +54,7 @@ export fn reduce_max_f32(a: [*]const f32, N: u32) f32 {
     return result;
 }
 
-/// Returns the maximum i64 element, scalar.
+/// Returns the maximum i64 element. Returns 0 if N=0.
 export fn reduce_max_i64(a: [*]const i64, N: u32) i64 {
     if (N == 0) return 0;
     var result: i64 = a[0];

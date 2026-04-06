@@ -233,15 +233,14 @@ export fn kron_i8(a: [*]const i8, b: [*]const i8, out: [*]i8, am: u32, an: u32, 
     for (0..@as(usize, am)) |ia| {
         for (0..a_cols) |ja| {
             const aij: simd.V16i8 = @splat(a[ia * a_cols + ja]);
-            const zero: simd.V16i8 = @splat(0);
             for (0..b_rows) |ib| {
                 const out_row = out + (ia * b_rows + ib) * out_cols + ja * b_cols;
                 const b_row = b + ib * b_cols;
 
-                // Vectorized j loop: 16 i8s per step (widened i16 multiply via muladd)
+                // Vectorized j loop: 16 i8s per step (widened i16 multiply)
                 var jb: usize = 0;
                 while (jb + 16 <= b_cols) : (jb += 16) {
-                    simd.store16_i8(out_row, jb, simd.muladd_i8x16(zero, aij, simd.load16_i8(b_row, jb)));
+                    simd.store16_i8(out_row, jb, simd.mul_i8x16(aij, simd.load16_i8(b_row, jb)));
                 }
                 // Scalar remainder
                 while (jb < b_cols) : (jb += 1) {

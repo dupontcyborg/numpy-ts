@@ -56,7 +56,7 @@ export fn max_scalar_f32(a: [*]const f32, out: [*]f32, N: u32, scalar: f32) void
     }
 }
 
-/// Element-wise maximum for i64, scalar loop (no i64x2 compare in WASM SIMD).
+/// Element-wise maximum for i64, scalar (LLVM scalarizes i64x2 @select).
 export fn max_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
@@ -64,7 +64,7 @@ export fn max_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) void {
     }
 }
 
-/// Element-wise maximum with scalar for i64, scalar loop.
+/// Element-wise maximum with scalar for i64, scalar.
 export fn max_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
@@ -72,7 +72,7 @@ export fn max_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void
     }
 }
 
-/// Element-wise maximum for u64, scalar loop (no u64x2 compare in WASM SIMD).
+/// Element-wise maximum for u64, scalar (LLVM scalarizes i64x2 @select).
 export fn max_u64(a: [*]const u64, b: [*]const u64, out: [*]u64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
@@ -80,7 +80,7 @@ export fn max_u64(a: [*]const u64, b: [*]const u64, out: [*]u64, N: u32) void {
     }
 }
 
-/// Element-wise maximum with scalar for u64, scalar loop.
+/// Element-wise maximum with scalar for u64, scalar.
 export fn max_scalar_u64(a: [*]const u64, out: [*]u64, N: u32, scalar: u64) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {

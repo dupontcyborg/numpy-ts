@@ -81,9 +81,22 @@ export fn logical_and_scalar_i64(a: [*]const i64, out: [*]u8, N: u32, scalar: i6
     }
 }
 
-/// Element-wise logical AND for i32: out[i] = (a[i] != 0) & (b[i] != 0).
+/// Element-wise logical AND for i32 using 4-wide SIMD: out[i] = (a[i] != 0) & (b[i] != 0).
 export fn logical_and_i32(a: [*]const i32, b: [*]const i32, out: [*]u8, N: u32) void {
+    const zero_i32: simd.V4i32 = @splat(0);
+    const one_i32: simd.V4i32 = @splat(1);
+    const n_simd = N & ~@as(u32, 3);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 4) {
+        const va_bool = @select(i32, simd.load4_i32(a, i) != zero_i32, one_i32, zero_i32);
+        const vb_bool = @select(i32, simd.load4_i32(b, i) != zero_i32, one_i32, zero_i32);
+        const result = va_bool & vb_bool;
+        const result_bytes: @Vector(16, u8) = @bitCast(result);
+        out[i] = result_bytes[0];
+        out[i + 1] = result_bytes[4];
+        out[i + 2] = result_bytes[8];
+        out[i + 3] = result_bytes[12];
+    }
     while (i < N) : (i += 1) {
         out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
     }
@@ -101,9 +114,23 @@ export fn logical_and_scalar_i32(a: [*]const i32, out: [*]u8, N: u32, scalar: i3
     }
 }
 
-/// Element-wise logical AND for i16: out[i] = (a[i] != 0) & (b[i] != 0).
+/// Element-wise logical AND for i16 using 8-wide SIMD: out[i] = (a[i] != 0) & (b[i] != 0).
 export fn logical_and_i16(a: [*]const i16, b: [*]const i16, out: [*]u8, N: u32) void {
+    const zero_i16: simd.V8i16 = @splat(0);
+    const one_i16: simd.V8i16 = @splat(1);
+    const narrow = @Vector(8, i32){ 0, 2, 4, 6, 8, 10, 12, 14 };
+    const n_simd = N & ~@as(u32, 7);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 8) {
+        const va_bool = @select(i16, simd.load8_i16(a, i) != zero_i16, one_i16, zero_i16);
+        const vb_bool = @select(i16, simd.load8_i16(b, i) != zero_i16, one_i16, zero_i16);
+        const result = va_bool & vb_bool;
+        const result_bytes: @Vector(16, u8) = @bitCast(result);
+        const narrowed: @Vector(8, u8) = @shuffle(u8, result_bytes, undefined, narrow);
+        inline for (0..8) |lane| {
+            out[i + lane] = narrowed[lane];
+        }
+    }
     while (i < N) : (i += 1) {
         out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
     }

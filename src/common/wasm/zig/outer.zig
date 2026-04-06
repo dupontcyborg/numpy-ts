@@ -156,15 +156,14 @@ export fn outer_i16(a: [*]const i16, b: [*]const i16, c: [*]i16, M: u32, N: u32)
 export fn outer_i8(a: [*]const i8, b: [*]const i8, c: [*]i8, M: u32, N: u32) void {
     // Each row is just a[i] * b[:] — broadcast + muladd with acc=0
     const n_simd = N & ~@as(u32, 15); // floor to V16i8 (16-wide)
-    const zero: simd.V16i8 = @splat(0);
     for (0..M) |i| {
         const a_i: simd.V16i8 = @splat(a[i]);
         const c_row = i * N;
 
-        // Vectorized j loop: 16 i8s per step (widened i16 multiply via muladd)
+        // Vectorized j loop: 16 i8s per step (widened i16 multiply)
         var j: u32 = 0;
         while (j < n_simd) : (j += 16) {
-            simd.store16_i8(c, c_row + j, simd.muladd_i8x16(zero, a_i, simd.load16_i8(b, j)));
+            simd.store16_i8(c, c_row + j, simd.mul_i8x16(a_i, simd.load16_i8(b, j)));
         }
         // Scalar remainder
         while (j < N) : (j += 1) {

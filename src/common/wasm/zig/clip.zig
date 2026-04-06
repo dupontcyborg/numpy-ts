@@ -59,16 +59,14 @@ export fn clip_u64(a: [*]const u64, out: [*]u64, N: u32, lo: u64, hi: u64) void 
     }
 }
 
-/// Element-wise clamp for i32 using 4-wide SIMD with compare+select.
+/// Element-wise clamp for i32 using 4-wide SIMD.
 export fn clip_i32(a: [*]const i32, out: [*]i32, N: u32, lo: i32, hi: i32) void {
     const vlo: simd.V4i32 = @splat(lo);
     const vhi: simd.V4i32 = @splat(hi);
     const n_simd = N & ~@as(u32, 3);
     var i: u32 = 0;
     while (i < n_simd) : (i += 4) {
-        const v = simd.load4_i32(a, i);
-        const clamped_lo = @select(i32, v > vlo, v, vlo);
-        simd.store4_i32(out, i, @select(i32, clamped_lo < vhi, clamped_lo, vhi));
+        simd.store4_i32(out, i, simd.min_i32x4(simd.max_i32x4(simd.load4_i32(a, i), vlo), vhi));
     }
     while (i < N) : (i += 1) {
         var v = a[i];
@@ -78,16 +76,14 @@ export fn clip_i32(a: [*]const i32, out: [*]i32, N: u32, lo: i32, hi: i32) void 
     }
 }
 
-/// Element-wise clamp for u32 using 4-wide SIMD with unsigned compare+select.
+/// Element-wise clamp for u32 using 4-wide SIMD.
 export fn clip_u32(a: [*]const u32, out: [*]u32, N: u32, lo: u32, hi: u32) void {
     const vlo: simd.V4u32 = @splat(lo);
     const vhi: simd.V4u32 = @splat(hi);
     const n_simd = N & ~@as(u32, 3);
     var i: u32 = 0;
     while (i < n_simd) : (i += 4) {
-        const v = simd.load4_u32(a, i);
-        const clamped_lo = @select(u32, v > vlo, v, vlo);
-        simd.store4_u32(out, i, @select(u32, clamped_lo < vhi, clamped_lo, vhi));
+        simd.store4_u32(out, i, simd.min_u32x4(simd.max_u32x4(simd.load4_u32(a, i), vlo), vhi));
     }
     while (i < N) : (i += 1) {
         var v = a[i];
@@ -97,16 +93,14 @@ export fn clip_u32(a: [*]const u32, out: [*]u32, N: u32, lo: u32, hi: u32) void 
     }
 }
 
-/// Element-wise clamp for i16 using 8-wide SIMD with compare+select.
+/// Element-wise clamp for i16 using 8-wide SIMD.
 export fn clip_i16(a: [*]const i16, out: [*]i16, N: u32, lo: i16, hi: i16) void {
     const vlo: simd.V8i16 = @splat(lo);
     const vhi: simd.V8i16 = @splat(hi);
     const n_simd = N & ~@as(u32, 7);
     var i: u32 = 0;
     while (i < n_simd) : (i += 8) {
-        const v = simd.load8_i16(a, i);
-        const clamped_lo = @select(i16, v > vlo, v, vlo);
-        simd.store8_i16(out, i, @select(i16, clamped_lo < vhi, clamped_lo, vhi));
+        simd.store8_i16(out, i, simd.min_i16x8(simd.max_i16x8(simd.load8_i16(a, i), vlo), vhi));
     }
     while (i < N) : (i += 1) {
         var v = a[i];
@@ -116,16 +110,14 @@ export fn clip_i16(a: [*]const i16, out: [*]i16, N: u32, lo: i16, hi: i16) void 
     }
 }
 
-/// Element-wise clamp for u16 using 8-wide SIMD with unsigned compare+select.
+/// Element-wise clamp for u16 using 8-wide SIMD.
 export fn clip_u16(a: [*]const u16, out: [*]u16, N: u32, lo: u16, hi: u16) void {
     const vlo: simd.V8u16 = @splat(lo);
     const vhi: simd.V8u16 = @splat(hi);
     const n_simd = N & ~@as(u32, 7);
     var i: u32 = 0;
     while (i < n_simd) : (i += 8) {
-        const v = simd.load8_u16(a, i);
-        const clamped_lo = @select(u16, v > vlo, v, vlo);
-        simd.store8_u16(out, i, @select(u16, clamped_lo < vhi, clamped_lo, vhi));
+        simd.store8_u16(out, i, simd.min_u16x8(simd.max_u16x8(simd.load8_u16(a, i), vlo), vhi));
     }
     while (i < N) : (i += 1) {
         var v = a[i];
@@ -135,16 +127,14 @@ export fn clip_u16(a: [*]const u16, out: [*]u16, N: u32, lo: u16, hi: u16) void 
     }
 }
 
-/// Element-wise clamp for i8 using 16-wide SIMD with compare+select.
+/// Element-wise clamp for i8 using 16-wide SIMD.
 export fn clip_i8(a: [*]const i8, out: [*]i8, N: u32, lo: i8, hi: i8) void {
     const vlo: simd.V16i8 = @splat(lo);
     const vhi: simd.V16i8 = @splat(hi);
     const n_simd = N & ~@as(u32, 15);
     var i: u32 = 0;
     while (i < n_simd) : (i += 16) {
-        const v = simd.load16_i8(a, i);
-        const clamped_lo = @select(i8, v > vlo, v, vlo);
-        simd.store16_i8(out, i, @select(i8, clamped_lo < vhi, clamped_lo, vhi));
+        simd.store16_i8(out, i, simd.min_i8x16(simd.max_i8x16(simd.load16_i8(a, i), vlo), vhi));
     }
     while (i < N) : (i += 1) {
         var v = a[i];
@@ -154,16 +144,14 @@ export fn clip_i8(a: [*]const i8, out: [*]i8, N: u32, lo: i8, hi: i8) void {
     }
 }
 
-/// Element-wise clamp for u8 using 16-wide SIMD with unsigned compare+select.
+/// Element-wise clamp for u8 using 16-wide SIMD.
 export fn clip_u8(a: [*]const u8, out: [*]u8, N: u32, lo: u8, hi: u8) void {
     const vlo: simd.V16u8 = @splat(lo);
     const vhi: simd.V16u8 = @splat(hi);
     const n_simd = N & ~@as(u32, 15);
     var i: u32 = 0;
     while (i < n_simd) : (i += 16) {
-        const v = simd.load16_u8(a, i);
-        const clamped_lo = @select(u8, v > vlo, v, vlo);
-        simd.store16_u8(out, i, @select(u8, clamped_lo < vhi, clamped_lo, vhi));
+        simd.store16_u8(out, i, simd.min_u8x16(simd.max_u8x16(simd.load16_u8(a, i), vlo), vhi));
     }
     while (i < N) : (i += 1) {
         var v = a[i];

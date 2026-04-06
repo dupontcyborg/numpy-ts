@@ -128,8 +128,7 @@ export fn square_i8(a: [*]const i8, out: [*]i8, N: u32) void {
     var i: u32 = 0;
     while (i < n_simd) : (i += 16) {
         const v = simd.load16_i8(a, i);
-        const zero: simd.V16i8 = @splat(0);
-        simd.store16_i8(out, i, simd.muladd_i8x16(zero, v, v));
+        simd.store16_i8(out, i, simd.mul_i8x16(v, v));
     }
     while (i < N) : (i += 1) {
         out[i] = a[i] *% a[i];

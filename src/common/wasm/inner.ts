@@ -8,16 +8,10 @@
  * inner(A[M,K], B[N,K]) → C[M,N] where C[i,j] = sum_k A[i,k] * B[j,k]
  */
 
-import {
-  inner_f64,
-  inner_f32,
-  inner_c128,
-  inner_c64,
-  inner_i64,
-  inner_i32,
-  inner_i16,
-  inner_i8,
-} from './bins/inner.wasm';
+import * as floatBase from './bins/inner_float.wasm';
+import * as floatRelaxed from './bins/inner_float-relaxed.wasm';
+import { inner_i64, inner_i32, inner_i16, inner_i8 } from './bins/inner_int.wasm';
+import { useRelaxedKernels } from './detect';
 import {
   wasmMalloc,
   resetScratchAllocator,
@@ -30,6 +24,11 @@ import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { Complex } from '../complex';
 
 import { wasmConfig } from './config';
+
+let _float: typeof floatBase | null = null;
+function float(): typeof floatBase {
+  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+}
 
 // Minimum total elements (M*K + N*K) for WASM to be worth the copy overhead.
 const BASE_THRESHOLD = 256;
@@ -56,8 +55,8 @@ type WasmComplexInnerFn = (
 // Dtype -> WASM kernel function
 // Complex types use separate map with scratch parameter.
 const wasmKernels: Partial<Record<DType, WasmInnerFn>> = {
-  float64: inner_f64,
-  float32: inner_f32,
+  float64: (...a) => float().inner_f64(...a),
+  float32: (...a) => float().inner_f32(...a),
   // float16 excluded: overflow mismatch with NumPy
   int64: inner_i64,
   uint64: inner_i64,
@@ -71,8 +70,8 @@ const wasmKernels: Partial<Record<DType, WasmInnerFn>> = {
 
 // Complex types: deinterleave → 3 real inner products (Gauss trick) → combine.
 const complexKernels: Partial<Record<DType, WasmComplexInnerFn>> = {
-  complex64: inner_c64,
-  complex128: inner_c128,
+  complex64: (...a) => float().inner_c64(...a),
+  complex128: (...a) => float().inner_c128(...a),
 };
 
 // Dtype -> TypedArray constructor

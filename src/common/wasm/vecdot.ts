@@ -6,16 +6,10 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  vecdot_f64,
-  vecdot_f32,
-  vecdot_c128,
-  vecdot_c64,
-  vecdot_i64,
-  vecdot_i32,
-  vecdot_i16,
-  vecdot_i8,
-} from './bins/vecdot.wasm';
+import * as floatBase from './bins/vecdot_float.wasm';
+import * as floatRelaxed from './bins/vecdot_float-relaxed.wasm';
+import { vecdot_i64, vecdot_i32, vecdot_i16, vecdot_i8 } from './bins/vecdot_int.wasm';
+import { useRelaxedKernels } from './detect';
 import {
   wasmMalloc,
   resetScratchAllocator,
@@ -28,15 +22,20 @@ import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
+let _float: typeof floatBase | null = null;
+function float(): typeof floatBase {
+  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+}
+
 const BASE_THRESHOLD = 256; // Minimum B*K for WASM
 
 type WasmVecdotFn = (a: number, b: number, out: number, B: number, K: number) => void;
 
 const wasmKernels: Partial<Record<DType, WasmVecdotFn>> = {
-  float64: vecdot_f64,
-  float32: vecdot_f32,
-  complex128: vecdot_c128,
-  complex64: vecdot_c64,
+  float64: (...a) => float().vecdot_f64(...a),
+  float32: (...a) => float().vecdot_f32(...a),
+  complex128: (...a) => float().vecdot_c128(...a),
+  complex64: (...a) => float().vecdot_c64(...a),
   int64: vecdot_i64,
   uint64: vecdot_i64,
   int32: vecdot_i32,
@@ -45,7 +44,7 @@ const wasmKernels: Partial<Record<DType, WasmVecdotFn>> = {
   uint16: vecdot_i16,
   int8: vecdot_i8,
   uint8: vecdot_i8,
-  float16: vecdot_f32,
+  float16: (...a) => float().vecdot_f32(...a),
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;
