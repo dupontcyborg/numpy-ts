@@ -1,13 +1,12 @@
 /**
  * DType Sweep: Shape manipulation functions.
- * Structural tests — validates shape/dtype preservation across all dtypes.
+ * Structural tests — validates shape/dtype preservation across ALL dtypes.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as np from '../../../src';
-import { SETS, checkNumPyAvailable, isComplex } from './_helpers';
+import { ALL_DTYPES, runNumPy, arraysClose, checkNumPyAvailable, npDtype, isComplex } from './_helpers';
 
 const { array } = np;
-const ALL = SETS.ALL;
 
 const SMALL_DATA = [1, 2, 3, 4, 5, 6];
 const SMALL_2D = [
@@ -20,7 +19,7 @@ beforeAll(() => {
 });
 
 describe('DType Sweep: Shape manipulation', () => {
-  for (const dtype of ALL) {
+  for (const dtype of ALL_DTYPES) {
     const data = dtype === 'bool' ? [1, 0, 1, 0, 1, 0] : SMALL_DATA;
     const data2d =
       dtype === 'bool'
@@ -65,11 +64,21 @@ describe('DType Sweep: Shape manipulation', () => {
     });
 
     it(`roll ${dtype}`, () => {
-      expect(np.roll(array(dtype === 'bool' ? [1, 0, 1] : [1, 2, 3], dtype), 1).shape).toEqual([3]);
+      const d = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
+      const jsResult = np.roll(array(d, dtype), 1);
+      const pyResult = runNumPy(
+        `result = np.roll(np.array(${JSON.stringify(d)}, dtype=${npDtype(dtype)}), 1).astype(np.float64)`
+      );
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
 
     it(`flip ${dtype}`, () => {
-      expect(np.flip(array(dtype === 'bool' ? [1, 0, 1] : [1, 2, 3], dtype)).shape).toEqual([3]);
+      const d = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
+      const jsResult = np.flip(array(d, dtype));
+      const pyResult = runNumPy(
+        `result = np.flip(np.array(${JSON.stringify(d)}, dtype=${npDtype(dtype)})).astype(np.float64)`
+      );
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
 
     it(`squeeze ${dtype}`, () => {
@@ -106,30 +115,47 @@ describe('DType Sweep: Shape manipulation', () => {
     });
 
     it(`atleast_1d ${dtype}`, () => {
-      expect(np.atleast_1d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(
-        1
-      );
+      expect(np.atleast_1d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(1);
     });
 
     it(`atleast_2d ${dtype}`, () => {
-      expect(np.atleast_2d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(
-        2
-      );
+      expect(np.atleast_2d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(2);
     });
 
     it(`atleast_3d ${dtype}`, () => {
-      expect(np.atleast_3d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(
-        3
-      );
+      expect(np.atleast_3d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(3);
     });
 
     it(`broadcast_to ${dtype}`, () => {
       expect(np.broadcast_to(array(dtype === 'bool' ? [1] : [1], dtype), [3]).shape).toEqual([3]);
     });
 
+    it(`broadcast_arrays ${dtype}`, () => {
+      const a = array(dtype === 'bool' ? [1] : [1], dtype);
+      const b = array(dtype === 'bool' ? [1, 0, 1] : [1, 2, 3], dtype);
+      const [ra, rb] = np.broadcast_arrays(a, b) as any[];
+      expect(ra.shape).toEqual([3]);
+      expect(rb.shape).toEqual([3]);
+    });
+
     it(`split ${dtype}`, () => {
       const a = array(dtype === 'bool' ? [1, 0, 1, 0] : [1, 2, 3, 4], dtype);
       expect(np.split(a, 2).length).toBe(2);
+    });
+
+    it(`hsplit ${dtype}`, () => {
+      const a = array(dtype === 'bool' ? [1, 0, 1, 0] : [1, 2, 3, 4], dtype);
+      expect(np.hsplit(a, 2).length).toBe(2);
+    });
+
+    it(`vsplit ${dtype}`, () => {
+      const a = array(dtype === 'bool' ? [[1, 0], [0, 1]] : [[1, 2], [3, 4]], dtype);
+      expect(np.vsplit(a, 2).length).toBe(2);
+    });
+
+    it(`dsplit ${dtype}`, () => {
+      const a = np.reshape(array(dtype === 'bool' ? [1, 0, 1, 0, 1, 0, 1, 0] : [1, 2, 3, 4, 5, 6, 7, 8], dtype), [2, 2, 2]);
+      expect(np.dsplit(a, 2).length).toBe(2);
     });
 
     it(`array_split ${dtype}`, () => {
@@ -146,7 +172,11 @@ describe('DType Sweep: Shape manipulation', () => {
     });
 
     it(`rot90 ${dtype}`, () => {
-      expect(np.rot90(array(data2d, dtype)).shape).toEqual([3, 2]);
+      const jsResult = np.rot90(array(data2d, dtype));
+      const pyResult = runNumPy(
+        `result = np.rot90(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})).astype(np.float64)`
+      );
+      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
     });
 
     it(`moveaxis ${dtype}`, () => {
@@ -158,9 +188,9 @@ describe('DType Sweep: Shape manipulation', () => {
     });
 
     it(`insert ${dtype}`, () => {
-      if (isComplex(dtype)) return; // complex interleaving changes element count
-      const a = array(dtype === 'bool' ? [1, 0, 1] : [1, 2, 3], dtype);
-      expect(np.insert(a, 1, dtype === 'bool' ? 0 : 99).shape).toEqual([4]);
+      const a = array(dtype === 'bool' ? [1, 0, 1] : isComplex(dtype) ? [1, 2, 3] : [1, 2, 3], dtype);
+      const jsResult = np.insert(a, 1, dtype === 'bool' ? 0 : 99);
+      expect(jsResult.shape).toEqual([4]);
     });
 
     it(`delete_ ${dtype}`, () => {
@@ -173,13 +203,32 @@ describe('DType Sweep: Shape manipulation', () => {
       expect(np.resize(a, [4]).shape).toEqual([4]);
     });
 
+    it(`unstack ${dtype}`, () => {
+      const a = array(data2d, dtype);
+      const result = np.unstack(a);
+      expect(result.length).toBe(2);
+      expect(result[0]!.shape).toEqual([3]);
+    });
+
     it(`diagflat ${dtype}`, () => {
-      if (isComplex(dtype)) return; // complex interleaving changes element count
-      expect(np.diagflat(array(dtype === 'bool' ? [1, 0] : [1, 2], dtype)).shape).toEqual([2, 2]);
+      const jsResult = np.diagflat(array(dtype === 'bool' ? [1, 0] : isComplex(dtype) ? [1, 2] : [1, 2], dtype));
+      expect(jsResult.shape).toEqual([2, 2]);
     });
 
     it(`flatten ${dtype}`, () => {
       expect(np.flatten(array(data2d, dtype)).shape).toEqual([6]);
+    });
+
+    it(`pad ${dtype}`, () => {
+      const a = array(dtype === 'bool' ? [1, 0, 1] : [1, 2, 3], dtype);
+      expect(np.pad(a, 2).shape).toEqual([7]);
+    });
+
+    it(`trim_zeros ${dtype}`, () => {
+      const data0 = dtype === 'bool' ? [0, 1, 0] : [0, 1, 2, 0];
+      const jsResult = np.trim_zeros(array(data0, dtype));
+      const expected = dtype === 'bool' ? [1] : [1, 2];
+      expect(jsResult.shape).toEqual([expected.length]);
     });
 
     it(`compress ${dtype}`, () => {

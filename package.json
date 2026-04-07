@@ -50,7 +50,7 @@
     "test:tree-shaking": "vitest run --project=tree-shaking",
     "test:ci": "npm run lint && npm run typecheck && npm run test",
     "test:coverage": "vitest run --project=unit --project=validation --project=runtime-io --project=wasm-memory --coverage",
-    "test:dtype-coverage": "rm -rf coverage/dtype-hits && vitest run --config vitest.dtype-coverage.config.ts && npx tsx scripts/dtype-coverage-report.ts --summary",
+    "test:dtype-coverage": "npx tsx scripts/dtype-coverage-report.ts",
     "test:coverage:view": "open coverage/index.html || xdg-open coverage/index.html",
     "lint": "npm run lint:ts && npm run lint:zig",
     "lint:ts": "eslint --cache src tests",

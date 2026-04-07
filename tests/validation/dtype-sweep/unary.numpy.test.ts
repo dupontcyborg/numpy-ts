@@ -1,73 +1,78 @@
 /**
  * DType Sweep: Unary element-wise math functions.
- * Tests each function across its full valid dtype set, validated against NumPy.
+ * Tests each function across ALL dtypes, validated against NumPy.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as np from '../../../src';
-import { SETS, runNumPy, arraysClose, checkNumPyAvailable, npDtype, isInt } from './_helpers';
+import { ALL_DTYPES, runNumPy, arraysClose, checkNumPyAvailable, npDtype, isInt } from './_helpers';
 
 const { array } = np;
-const FLOAT = SETS.FLOAT;
-const REAL = SETS.REAL;
 
 beforeAll(() => {
   if (!checkNumPyAvailable()) throw new Error('Python NumPy not available');
 });
 
 describe('DType Sweep: Unary math', () => {
-  const unaryOps: { name: string; fn: (a: any) => any; dtypes: readonly string[] }[] = [
-    { name: 'absolute', fn: np.absolute, dtypes: REAL },
-    { name: 'negative', fn: np.negative, dtypes: REAL },
-    { name: 'positive', fn: np.positive, dtypes: REAL },
-    { name: 'sign', fn: np.sign, dtypes: REAL },
-    { name: 'square', fn: np.square, dtypes: REAL },
-    { name: 'sqrt', fn: np.sqrt, dtypes: FLOAT },
-    { name: 'cbrt', fn: np.cbrt, dtypes: REAL },
-    { name: 'reciprocal', fn: np.reciprocal, dtypes: FLOAT },
-    { name: 'exp', fn: np.exp, dtypes: REAL },
-    { name: 'exp2', fn: np.exp2, dtypes: REAL },
-    { name: 'expm1', fn: np.expm1, dtypes: REAL },
-    { name: 'log', fn: np.log, dtypes: FLOAT },
-    { name: 'log2', fn: np.log2, dtypes: FLOAT },
-    { name: 'log10', fn: np.log10, dtypes: FLOAT },
-    { name: 'log1p', fn: np.log1p, dtypes: FLOAT },
-    { name: 'sin', fn: np.sin, dtypes: REAL },
-    { name: 'cos', fn: np.cos, dtypes: REAL },
-    { name: 'tan', fn: np.tan, dtypes: REAL },
-    { name: 'arcsin', fn: np.arcsin, dtypes: REAL },
-    { name: 'arccos', fn: np.arccos, dtypes: REAL },
-    { name: 'arctan', fn: np.arctan, dtypes: REAL },
-    { name: 'sinh', fn: np.sinh, dtypes: REAL },
-    { name: 'cosh', fn: np.cosh, dtypes: REAL },
-    { name: 'tanh', fn: np.tanh, dtypes: REAL },
-    { name: 'arcsinh', fn: np.arcsinh, dtypes: REAL },
-    { name: 'arccosh', fn: np.arccosh, dtypes: FLOAT },
-    { name: 'arctanh', fn: np.arctanh, dtypes: REAL },
-    { name: 'ceil', fn: np.ceil, dtypes: REAL },
-    { name: 'floor', fn: np.floor, dtypes: REAL },
-    { name: 'rint', fn: np.rint, dtypes: REAL },
-    { name: 'trunc', fn: np.trunc, dtypes: REAL },
-    { name: 'fix', fn: np.fix, dtypes: REAL },
-    { name: 'degrees', fn: np.degrees, dtypes: REAL },
-    { name: 'radians', fn: np.radians, dtypes: REAL },
-    { name: 'sinc', fn: np.sinc, dtypes: REAL },
-    { name: 'fabs', fn: np.fabs, dtypes: REAL },
-    { name: 'signbit', fn: np.signbit, dtypes: REAL },
+  const unaryOps: { name: string; fn: (a: any) => any }[] = [
+    { name: 'absolute', fn: np.absolute },
+    { name: 'negative', fn: np.negative },
+    { name: 'positive', fn: np.positive },
+    { name: 'sign', fn: np.sign },
+    { name: 'square', fn: np.square },
+    { name: 'sqrt', fn: np.sqrt },
+    { name: 'cbrt', fn: np.cbrt },
+    { name: 'reciprocal', fn: np.reciprocal },
+    { name: 'exp', fn: np.exp },
+    { name: 'exp2', fn: np.exp2 },
+    { name: 'expm1', fn: np.expm1 },
+    { name: 'log', fn: np.log },
+    { name: 'log2', fn: np.log2 },
+    { name: 'log10', fn: np.log10 },
+    { name: 'log1p', fn: np.log1p },
+    { name: 'sin', fn: np.sin },
+    { name: 'cos', fn: np.cos },
+    { name: 'tan', fn: np.tan },
+    { name: 'arcsin', fn: np.arcsin },
+    { name: 'arccos', fn: np.arccos },
+    { name: 'arctan', fn: np.arctan },
+    { name: 'sinh', fn: np.sinh },
+    { name: 'cosh', fn: np.cosh },
+    { name: 'tanh', fn: np.tanh },
+    { name: 'arcsinh', fn: np.arcsinh },
+    { name: 'arccosh', fn: np.arccosh },
+    { name: 'arctanh', fn: np.arctanh },
+    { name: 'ceil', fn: np.ceil },
+    { name: 'floor', fn: np.floor },
+    { name: 'rint', fn: np.rint },
+    { name: 'trunc', fn: np.trunc },
+    { name: 'fix', fn: np.fix },
+    { name: 'around', fn: np.around },
+    { name: 'degrees', fn: np.degrees },
+    { name: 'radians', fn: np.radians },
+    { name: 'deg2rad', fn: np.deg2rad },
+    { name: 'rad2deg', fn: np.rad2deg },
+    { name: 'sinc', fn: np.sinc },
+    { name: 'fabs', fn: np.fabs },
+    { name: 'signbit', fn: np.signbit },
+    { name: 'i0', fn: np.i0 },
+    { name: 'spacing', fn: np.spacing },
+    { name: 'nan_to_num', fn: np.nan_to_num },
   ];
 
-  for (const { name, fn, dtypes } of unaryOps) {
+  for (const { name, fn } of unaryOps) {
     describe(name, () => {
-      for (const dtype of dtypes) {
+      for (const dtype of ALL_DTYPES) {
         it(`${dtype}`, () => {
           const needsDomain = ['arcsin', 'arccos', 'arctanh'].includes(name);
-          const needsPositive = ['arccosh', 'log', 'log2', 'log10', 'log1p', 'sqrt'].includes(name);
-          const data = needsDomain
-            ? isInt(dtype)
-              ? [0, 1, 0, 1]
-              : [0.1, 0.5, 0.9, 0.3]
-            : needsPositive
-              ? [1, 2, 3, 4]
-              : [1, 2, 3, 4];
+          const needsPositive = ['arccosh', 'log', 'log2', 'log10', 'log1p', 'sqrt', 'i0'].includes(name);
+          const data =
+            dtype === 'bool'
+              ? [1, 0, 1, 0]
+              : needsDomain
+                ? isInt(dtype) ? [0, 1, 0, 1] : [0.1, 0.5, 0.9, 0.3]
+                : needsPositive
+                  ? [1, 2, 3, 4]
+                  : [1, 2, 3, 4];
           const a = array(data, dtype);
           const jsResult = fn(a);
           const pyResult = runNumPy(`
@@ -79,6 +84,24 @@ result = np.${name}(a).astype(np.float64)
           expect(arraysClose(jsResult.toArray(), pyResult.value, rtol, atol)).toBe(true);
         });
       }
+    });
+  }
+});
+
+describe('DType Sweep: Binary-like unary', () => {
+  for (const dtype of ALL_DTYPES) {
+    it(`nextafter ${dtype}`, () => {
+      const data1 = dtype === 'bool' ? [1, 0] : [1, 2];
+      const data2 = dtype === 'bool' ? [0, 1] : [2, 3];
+      const a = array(data1, dtype);
+      const b = array(data2, dtype);
+      const jsResult = np.nextafter(a, b);
+      const pyResult = runNumPy(`
+a = np.array(${JSON.stringify(data1)}, dtype=${npDtype(dtype)})
+b = np.array(${JSON.stringify(data2)}, dtype=${npDtype(dtype)})
+result = np.nextafter(a, b).astype(np.float64)
+      `);
+      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-3)).toBe(true);
     });
   }
 });
