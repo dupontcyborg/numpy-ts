@@ -17,7 +17,7 @@
 
 import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
-import { isComplexDType, fftResultDtype, fftRealResultDtype, type DType } from '../dtype';
+import { isComplexDType, fftResultDtype, type DType } from '../dtype';
 import { roll as shapeRoll } from './shape';
 import {
   wasmFft,

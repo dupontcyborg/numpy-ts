@@ -553,14 +553,14 @@ describe('Trigonometric Operations', () => {
       const a = array([3, 4], 'uint16');
       const b = array([4, 3], 'uint16');
       const result = hypot(a, b);
-      expect(result.dtype).toBe('float64');
+      expect(result.dtype).toBe('float32');
     });
 
     it('hypot with int8 inputs', () => {
       const a = array([3, 4], 'int8');
       const b = array([4, 3], 'int8');
       const result = hypot(a, b);
-      expect(result.dtype).toBe('float64');
+      expect(result.dtype).toBe('float16');
     });
 
     it('arctan2 with float32 and float64 mixed', () => {
@@ -574,7 +574,7 @@ describe('Trigonometric Operations', () => {
       const a = array([3, 4], 'uint8');
       const b = array([4.0, 3.0], 'float32');
       const result = hypot(a, b);
-      expect(result.dtype).toBe('float64');
+      expect(result.dtype).toBe('float32');
     });
   });
 });

@@ -16,6 +16,8 @@ import {
   isIntegerDType,
   throwIfComplex,
   hasFloat16,
+  mathResultDtype,
+  promoteDTypes,
   type DType,
 } from '../dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
@@ -762,6 +764,27 @@ export function isnat(a: ArrayStorage): ArrayStorage {
  * @returns Array with magnitude from x1 and sign from x2
  */
 export function copysign(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  // NumPy promotes bool → float16 for copysign
+  if (x1.dtype === 'bool') {
+    const dt = mathResultDtype('bool');
+    const conv = (a: ArrayStorage) => {
+      const r = ArrayStorage.empty(Array.from(a.shape), dt);
+      const s = a.data as Uint8Array;
+      for (let i = 0; i < a.size; i++) r.data[i] = s[a.offset + i]!;
+      return r;
+    };
+    return copysign(conv(x1), typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? conv(x2) : x2);
+  }
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') {
+    const dt = mathResultDtype('bool');
+    const conv = (a: ArrayStorage) => {
+      const r = ArrayStorage.empty(Array.from(a.shape), dt);
+      const s = a.data as Uint8Array;
+      for (let i = 0; i < a.size; i++) r.data[i] = s[a.offset + i]!;
+      return r;
+    };
+    return copysign(x1, conv(x2));
+  }
   throwIfComplex(x1.dtype, 'copysign', 'copysign is only defined for real numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'copysign', 'copysign is only defined for real numbers.');
@@ -811,8 +834,9 @@ export function copysign(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStor
  * @private
  */
 function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const outDtype = mathResultDtype(promoteDTypes(x1.dtype, x2.dtype));
+  const result = ArrayStorage.zeros(Array.from(x1.shape), outDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = x1.size;
   const x1Data = x1.data;
   const x2Data = x2.data;
@@ -838,8 +862,9 @@ function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @private
  */
 function copysignScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const outDtype = mathResultDtype(storage.dtype);
+  const result = ArrayStorage.zeros(Array.from(storage.shape), outDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = storage.size;
   const signVal = Object.is(scalar, -0) || scalar < 0 ? -1 : 1;
 

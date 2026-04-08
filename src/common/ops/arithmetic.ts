@@ -19,6 +19,8 @@ import {
   throwIfComplex,
   throwIfBool,
   isFloatDType,
+  mathResultDtype,
+  boolArithmeticDtype,
 } from '../dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 import { wasmAdd, wasmAddScalar } from '../wasm/add';
@@ -50,6 +52,32 @@ function canUseFastPath(a: ArrayStorage, b: ArrayStorage): boolean {
     a.shape.length === b.shape.length &&
     a.shape.every((dim, i) => dim === b.shape[i])
   );
+}
+
+/**
+ * Convert a bool ArrayStorage to int8 (NumPy promotes bool → int8 for arithmetic).
+ */
+function boolToInt8(a: ArrayStorage): ArrayStorage {
+  const result = ArrayStorage.empty(Array.from(a.shape), 'int8');
+  const src = a.data as Uint8Array;
+  const dst = result.data as Int8Array;
+  const off = a.offset;
+  for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
+  return result;
+}
+
+/**
+ * Convert a bool ArrayStorage to its math result type (float16 or float32).
+ * Used for binary math ops like copysign, hypot, arctan2 where NumPy promotes bool → float16.
+ */
+function boolToMathFloat(a: ArrayStorage): ArrayStorage {
+  const dt = mathResultDtype('bool');
+  const result = ArrayStorage.empty(Array.from(a.shape), dt);
+  const src = a.data as Uint8Array;
+  const dst = result.data;
+  const off = a.offset;
+  for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
+  return result;
 }
 
 // ============================================================
@@ -1067,6 +1095,10 @@ export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   if (typeof b !== 'number') {
     throwIfComplex(b.dtype, 'mod', 'Modulo is not defined for complex numbers.');
   }
+  // NumPy promotes bool → int8 for mod
+  if (a.dtype === 'bool')
+    return mod(boolToInt8(a), typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b);
+  if (typeof b !== 'number' && b.dtype === 'bool') return mod(a, boolToInt8(b));
   if (typeof b === 'number') {
     return modScalar(a, b);
   }
@@ -1135,6 +1167,12 @@ export function floorDivide(a: ArrayStorage, b: ArrayStorage | number): ArraySto
   if (typeof b !== 'number') {
     throwIfComplex(b.dtype, 'floor_divide', 'Floor division is not defined for complex numbers.');
   }
+  if (a.dtype === 'bool')
+    return floorDivide(
+      boolToInt8(a),
+      typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b
+    );
+  if (typeof b !== 'number' && b.dtype === 'bool') return floorDivide(a, boolToInt8(b));
   if (typeof b === 'number') {
     return floorDivideScalar(a, b);
   }
@@ -1354,8 +1392,7 @@ export function cbrt(a: ArrayStorage): ArrayStorage {
   const size = a.size;
   const off = a.offset;
 
-  const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
-  const resultDtype = isIntegerType ? 'float64' : dtype;
+  const resultDtype = mathResultDtype(dtype);
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
@@ -1388,7 +1425,7 @@ export function fabs(a: ArrayStorage): ArrayStorage {
   const size = a.size;
   const off = a.offset;
 
-  const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
+  const resultDtype = mathResultDtype(dtype);
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
@@ -1449,7 +1486,9 @@ export function square(a: ArrayStorage): ArrayStorage {
   const data = a.data;
   const size = a.size;
 
-  const result = ArrayStorage.empty(shape, dtype);
+  // NumPy promotes bool → int8 for square
+  const resultDtype = boolArithmeticDtype(dtype);
+  const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
 
   if (isComplexDType(dtype)) {
@@ -1502,6 +1541,13 @@ export function remainder(a: ArrayStorage, b: ArrayStorage | number): ArrayStora
  * @returns Result storage with heaviside values
  */
 export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  // NumPy promotes bool → float16 for heaviside
+  if (x1.dtype === 'bool')
+    return heaviside(
+      boolToMathFloat(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return heaviside(x1, boolToMathFloat(x2));
   throwIfComplex(
     x1.dtype,
     'heaviside',
@@ -1761,6 +1807,12 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'fmod', 'fmod is not defined for complex numbers.');
   }
+  if (x1.dtype === 'bool')
+    return fmod(
+      boolToInt8(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToInt8(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return fmod(x1, boolToInt8(x2));
   if (typeof x2 === 'number') {
     const result = x1.copy();
     const resultData = result.data;

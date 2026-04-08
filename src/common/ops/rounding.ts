@@ -30,7 +30,7 @@ function roundHalfToEven(x: number): number {
  */
 export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
   throwIfComplex(a.dtype, 'around', 'Rounding is not defined for complex numbers.');
-  if ((isIntegerDType(a.dtype) || a.dtype === 'bool') && decimals >= 0) return a.copy();
+  if (isIntegerDType(a.dtype) && decimals >= 0) return a.copy();
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -64,7 +64,7 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
  */
 export function ceil(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'ceil', 'Rounding is not defined for complex numbers.');
-  if (isIntegerDType(a.dtype) || a.dtype === 'bool') return a.copy();
+  if (isIntegerDType(a.dtype)) return a.copy();
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -94,7 +94,7 @@ export function ceil(a: ArrayStorage): ArrayStorage {
  */
 export function fix(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'fix', 'Rounding is not defined for complex numbers.');
-  if (isIntegerDType(a.dtype) || a.dtype === 'bool') return a.copy();
+  if (isIntegerDType(a.dtype)) return a.copy();
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -124,7 +124,7 @@ export function fix(a: ArrayStorage): ArrayStorage {
  */
 export function floor(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'floor', 'Rounding is not defined for complex numbers.');
-  if (isIntegerDType(a.dtype) || a.dtype === 'bool') return a.copy();
+  if (isIntegerDType(a.dtype)) return a.copy();
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -154,7 +154,7 @@ export function floor(a: ArrayStorage): ArrayStorage {
  */
 export function rint(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'rint', 'Rounding is not defined for complex numbers.');
-  if (isIntegerDType(a.dtype) || a.dtype === 'bool') return a.copy();
+  if (isIntegerDType(a.dtype)) return a.copy();
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -191,7 +191,7 @@ export function round(a: ArrayStorage, decimals: number = 0): ArrayStorage {
  */
 export function trunc(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'trunc', 'Rounding is not defined for complex numbers.');
-  if (isIntegerDType(a.dtype) || a.dtype === 'bool') return a.copy();
+  if (isIntegerDType(a.dtype)) return a.copy();
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;

@@ -10,9 +10,36 @@
 
 import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
+import {
+  isBigIntDType,
+  isComplexDType,
+  throwIfComplex,
+  mathResultDtype,
+  type DType,
+} from '../dtype';
 import { Complex } from '../complex';
 import { wasmSqrt } from '../wasm/sqrt';
+
+/** Convert bool storage to int8 (NumPy promotes bool → int8 for arithmetic). */
+function boolToInt8(a: ArrayStorage): ArrayStorage {
+  const result = ArrayStorage.empty(Array.from(a.shape), 'int8');
+  const src = a.data as Uint8Array;
+  const dst = result.data as Int8Array;
+  const off = a.offset;
+  for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
+  return result;
+}
+
+/** Convert bool to math float type (float16/float32) for math binary ops. */
+function boolToMathFloat(a: ArrayStorage): ArrayStorage {
+  const dt = mathResultDtype('bool');
+  const result = ArrayStorage.empty(Array.from(a.shape), dt);
+  const src = a.data as Uint8Array;
+  const dst = result.data;
+  const off = a.offset;
+  for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
+  return result;
+}
 import { wasmPower, wasmPowerScalar } from '../wasm/power';
 import { wasmExp } from '../wasm/exp';
 import { wasmExp2 } from '../wasm/exp2';
@@ -86,6 +113,12 @@ export function sqrt(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with power applied
  */
 export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  // NumPy promotes bool → int8 for power
+  if (a.dtype === 'bool') {
+    const a8 = boolToInt8(a);
+    return power(a8, typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b);
+  }
+  if (typeof b !== 'number' && b.dtype === 'bool') return power(a, boolToInt8(b));
   if (typeof b === 'number') {
     return powerScalar(a, b);
   }
@@ -669,6 +702,12 @@ export function log1p(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with logaddexp applied
  */
 export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (x1.dtype === 'bool')
+    return logaddexp(
+      boolToMathFloat(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
@@ -773,6 +812,12 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Result storage with logaddexp2 applied
  */
 export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (x1.dtype === 'bool')
+    return logaddexp2(
+      boolToMathFloat(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp2(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');

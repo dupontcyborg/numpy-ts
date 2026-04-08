@@ -196,7 +196,7 @@ export function array(data: unknown, dtype?: DType): NDArrayCore {
     const bigintData = typedData as BigInt64Array | BigUint64Array;
     for (let i = 0; i < size; i++) {
       const val = flatData[i];
-      bigintData[i] = typeof val === 'bigint' ? val : BigInt(Math.round(Number(val)));
+      bigintData[i] = typeof val === 'bigint' ? val : BigInt(Math.trunc(Number(val)));
     }
   } else if (actualDtype === 'bool') {
     const boolData = typedData as Uint8Array;
@@ -257,16 +257,28 @@ export function arange(
 
   const length = Math.max(0, Math.ceil((actualStop - actualStart) / step));
 
+  if (dtype === 'bool' && length > 2) {
+    throw new TypeError(
+      'arange() is only supported for booleans when the result has at most length 2.'
+    );
+  }
+
   const storage = ArrayStorage.empty([length], dtype);
   const data = storage.data;
 
   if (isBigIntDType(dtype)) {
     for (let i = 0; i < length; i++) {
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.round(actualStart + i * step));
+      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(actualStart + i * step));
     }
   } else if (dtype === 'bool') {
     for (let i = 0; i < length; i++) {
       (data as Uint8Array)[i] = actualStart + i * step !== 0 ? 1 : 0;
+    }
+  } else if (isComplexDType(dtype)) {
+    // Complex arrays store interleaved [re, im] pairs
+    for (let i = 0; i < length; i++) {
+      (data as Float64Array | Float32Array)[i * 2] = actualStart + i * step;
+      (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
     for (let i = 0; i < length; i++) {
@@ -304,11 +316,17 @@ export function linspace(
 
   if (isBigIntDType(dtype)) {
     for (let i = 0; i < num; i++) {
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.round(start + i * step));
+      // NumPy computes in float64 then truncates to int (like astype cast)
+      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(start + i * step));
     }
   } else if (dtype === 'bool') {
     for (let i = 0; i < num; i++) {
       (data as Uint8Array)[i] = start + i * step !== 0 ? 1 : 0;
+    }
+  } else if (isComplexDType(dtype)) {
+    for (let i = 0; i < num; i++) {
+      (data as Float64Array | Float32Array)[i * 2] = start + i * step;
+      (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
     for (let i = 0; i < num; i++) {
@@ -348,12 +366,18 @@ export function logspace(
   if (isBigIntDType(dtype)) {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.round(Math.pow(base, exponent)));
+      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(Math.pow(base, exponent)));
     }
   } else if (dtype === 'bool') {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
       (data as Uint8Array)[i] = Math.pow(base, exponent) !== 0 ? 1 : 0;
+    }
+  } else if (isComplexDType(dtype)) {
+    for (let i = 0; i < num; i++) {
+      const exponent = start + i * step;
+      (data as Float64Array | Float32Array)[i * 2] = Math.pow(base, exponent);
+      (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
     for (let i = 0; i < num; i++) {
@@ -406,12 +430,18 @@ export function geomspace(
   if (isBigIntDType(dtype)) {
     for (let i = 0; i < num; i++) {
       const value = signStart * Math.exp(logStart + i * step);
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.round(value));
+      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(value));
     }
   } else if (dtype === 'bool') {
     for (let i = 0; i < num; i++) {
       const value = signStart * Math.exp(logStart + i * step);
       (data as Uint8Array)[i] = value !== 0 ? 1 : 0;
+    }
+  } else if (isComplexDType(dtype)) {
+    for (let i = 0; i < num; i++) {
+      const value = signStart * Math.exp(logStart + i * step);
+      (data as Float64Array | Float32Array)[i * 2] = value;
+      (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
     for (let i = 0; i < num; i++) {
