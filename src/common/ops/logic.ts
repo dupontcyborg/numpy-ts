@@ -968,8 +968,9 @@ export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   // NumPy promotes bool → float16 for nextafter; compute in float16 precision
   if (x1.dtype === 'bool' && hasFloat16) {
     const size = x1.size;
-    const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
-    const resultData = result.data as Float64Array;
+    const dt = mathResultDtype('bool'); // 'float16'
+    const result = ArrayStorage.zeros(Array.from(x1.shape), dt);
+    const resultData = result.data;
     for (let i = 0; i < size; i++) {
       const v1 = Number(x1.iget(i));
       const v2 = typeof x2 === 'number' ? x2 : Number(x2.iget(i));
@@ -990,8 +991,9 @@ export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   // Slow path: broadcasting
   const outputShape = broadcastShapes(x1.shape, x2.shape);
   const size = outputShape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(outputShape, 'float64');
-  const resultData = result.data as Float64Array;
+  const nextDtype = mathResultDtype(promoteDTypes(x1.dtype, x2.dtype));
+  const result = ArrayStorage.zeros(outputShape, nextDtype);
+  const resultData = result.data as Float64Array | Float32Array;
 
   // Create broadcast views
   const x1Broadcast = broadcastToStorage(x1, outputShape);
@@ -1011,8 +1013,9 @@ export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
  * @private
  */
 function nextafterArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const nextDtype = mathResultDtype(promoteDTypes(x1.dtype, x2.dtype));
+  const result = ArrayStorage.zeros(Array.from(x1.shape), nextDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = x1.size;
   const x1Data = x1.data;
   const x2Data = x2.data;
@@ -1036,8 +1039,9 @@ function nextafterArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @private
  */
 function nextafterScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const nextDtype = mathResultDtype(storage.dtype);
+  const result = ArrayStorage.zeros(Array.from(storage.shape), nextDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = storage.size;
 
   if (storage.isCContiguous) {
@@ -1123,8 +1127,9 @@ export function spacing(a: ArrayStorage): ArrayStorage {
   const FLOAT32_TYPES = new Set(['int16', 'uint16']);
   if (FLOAT16_TYPES.has(a.dtype) && hasFloat16) {
     const size = a.size;
-    const result = ArrayStorage.zeros(Array.from(a.shape), 'float64');
-    const resultData = result.data as Float64Array;
+    const dt = mathResultDtype('bool'); // 'float16'
+    const result = ArrayStorage.zeros(Array.from(a.shape), dt);
+    const resultData = result.data;
     for (let i = 0; i < size; i++) {
       resultData[i] = float16Spacing(Number(a.iget(i)));
     }
@@ -1132,8 +1137,8 @@ export function spacing(a: ArrayStorage): ArrayStorage {
   }
   if (FLOAT32_TYPES.has(a.dtype)) {
     const size = a.size;
-    const result = ArrayStorage.zeros(Array.from(a.shape), 'float64');
-    const resultData = result.data as Float64Array;
+    const result = ArrayStorage.zeros(Array.from(a.shape), 'float32');
+    const resultData = result.data as Float32Array;
     for (let i = 0; i < size; i++) {
       // Compute spacing in float32 precision
       const f32 = new Float32Array([Number(a.iget(i))]);
@@ -1152,8 +1157,10 @@ export function spacing(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
-  const result = ArrayStorage.zeros(Array.from(a.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  // float32 preserves float32, everything else → float64
+  const resultDtype = a.dtype === 'float32' ? ('float32' as const) : ('float64' as const);
+  const result = ArrayStorage.zeros(Array.from(a.shape), resultDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = a.size;
 
   if (a.isCContiguous) {

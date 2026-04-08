@@ -70,10 +70,9 @@ export function imag(a: ArrayStorage): ArrayStorage {
     );
   }
 
-  // Real array: return zeros with appropriate dtype
+  // Real array: return zeros with same dtype (bool stays bool, float32 stays float32, etc.)
   const shape = Array.from(a.shape);
-  const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
-  return ArrayStorage.zeros(shape, resultDtype);
+  return ArrayStorage.zeros(shape, dtype);
 }
 
 /**
@@ -105,7 +104,15 @@ export function conj(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
-  // Real array: return copy
+  // Real array: return copy (NumPy: conj(bool) → int8)
+  if (dtype === 'bool') {
+    const result = ArrayStorage.empty(shape, 'int8');
+    const src = a.data as Uint8Array;
+    const dst = result.data as Int8Array;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) dst[i] = src[off + i]!;
+    return result;
+  }
   return a.copy();
 }
 
@@ -128,9 +135,10 @@ export function angle(a: ArrayStorage, deg: boolean = false): ArrayStorage {
   const shape = Array.from(a.shape);
   const size = a.size;
 
-  // Result is always float64
-  const result = ArrayStorage.empty(shape, 'float64');
-  const resultData = result.data as Float64Array;
+  // Result dtype: complex64/float32→float32, else float64
+  const resultDtype: DType = dtype === 'complex64' || dtype === 'float32' ? 'float32' : 'float64';
+  const result = ArrayStorage.empty(shape, resultDtype);
+  const resultData = result.data as Float64Array | Float32Array;
 
   if (isComplexDType(dtype)) {
     const srcData = a.data as Float64Array | Float32Array;

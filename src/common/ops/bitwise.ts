@@ -10,6 +10,15 @@
 
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isIntegerDType, promoteDTypes, DType } from '../dtype';
+
+function boolToInt8(a: ArrayStorage): ArrayStorage {
+  const result = ArrayStorage.empty(Array.from(a.shape), 'int8');
+  const src = a.data as Uint8Array;
+  const dst = result.data as Int8Array;
+  const off = a.offset;
+  for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
+  return result;
+}
 import { elementwiseBinaryOp } from '../internal/compute';
 import { wasmBitwiseAnd } from '../wasm/bitwise_and';
 import { wasmBitwiseOr } from '../wasm/bitwise_or';
@@ -521,6 +530,14 @@ export function invert(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with left-shifted values
  */
 export function left_shift(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  // NumPy: left_shift(bool) → int8
+  if (a.dtype === 'bool') {
+    return left_shift(
+      boolToInt8(a),
+      typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b
+    );
+  }
+  if (typeof b !== 'number' && b.dtype === 'bool') return left_shift(a, boolToInt8(b));
   validateIntegerDType(a.dtype, 'left_shift');
 
   if (typeof b === 'number') {
@@ -647,6 +664,14 @@ function leftShiftScalar(storage: ArrayStorage, shift: number): ArrayStorage {
  * @returns Result storage with right-shifted values
  */
 export function right_shift(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  // NumPy: right_shift(bool) → int8
+  if (a.dtype === 'bool') {
+    return right_shift(
+      boolToInt8(a),
+      typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b
+    );
+  }
+  if (typeof b !== 'number' && b.dtype === 'bool') return right_shift(a, boolToInt8(b));
   validateIntegerDType(a.dtype, 'right_shift');
 
   if (typeof b === 'number') {

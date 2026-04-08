@@ -61,7 +61,6 @@ export fn reduce_sum_i32(a: [*]const i32, N: u32) i32 {
     return total;
 }
 
-
 /// Sum i16 array, accumulate in i64 to avoid overflow.
 export fn reduce_sum_i16_to_i64(a: [*]const i16, N: u32) i64 {
     var sum: i64 = 0;

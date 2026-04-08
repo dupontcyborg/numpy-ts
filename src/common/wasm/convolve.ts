@@ -52,10 +52,14 @@ const kernels: Partial<Record<DType, ConvolveFn>> = {
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
-  float64: 8, float32: 4,
-  int32: 4, uint32: 4,
-  int16: 2, uint16: 2,
-  int8: 1, uint8: 1,
+  float64: 8,
+  float32: 4,
+  int32: 4,
+  uint32: 4,
+  int16: 2,
+  uint16: 2,
+  int8: 1,
+  uint8: 1,
 };
 
 /**

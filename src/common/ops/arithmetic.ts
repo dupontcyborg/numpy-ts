@@ -1564,11 +1564,16 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   const shape = Array.from(x1.shape);
   const size = x1.size;
 
-  // Result is always float64 (or float32 if input is float32)
-  const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
+  // Result is always float64 (or float32/float16 if input is float32/float16)
+  const resultDtype = dtype === 'float32' ? 'float32' : dtype === 'float16' ? 'float16' : 'float64';
 
   // Promote input to result dtype for WASM and fast paths
-  const x1Float = x1.dtype === resultDtype ? x1 : convertToFloatDType(x1, resultDtype);
+  const x1Float =
+    x1.dtype === resultDtype
+      ? x1
+      : resultDtype === 'float16'
+        ? x1
+        : convertToFloatDType(x1, resultDtype as 'float32' | 'float64');
 
   // Extract scalar from size-1 array
   if (typeof x2 !== 'number' && x2.size === 1) {
@@ -1602,7 +1607,12 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
     } else {
       // Array x2 - needs to broadcast
       const x2Shape = x2.shape;
-      const x2Float = x2.dtype === resultDtype ? x2 : convertToFloatDType(x2, resultDtype);
+      const x2Float =
+        x2.dtype === resultDtype
+          ? x2
+          : resultDtype === 'float16'
+            ? x2
+            : convertToFloatDType(x2, resultDtype as 'float32' | 'float64');
 
       try {
         // Simple case: same shape
@@ -1838,13 +1848,23 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
 export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
   throwIfComplex(x.dtype, 'frexp', 'frexp is not defined for complex numbers.');
 
+  // NumPy promotes bool → float16 for frexp
+  if (x.dtype === 'bool') {
+    const converted = boolToMathFloat(x);
+    const [m, e] = frexp(converted);
+    converted.dispose();
+    return [m, e];
+  }
+
   // Try WASM path
   const wasmResult = wasmFrexp(x);
   if (wasmResult) return wasmResult;
 
-  const mantissa = ArrayStorage.empty(Array.from(x.shape), 'float64');
+  const mantissaDtype =
+    x.dtype === 'float32' ? 'float32' : x.dtype === 'float16' ? 'float16' : 'float64';
+  const mantissa = ArrayStorage.empty(Array.from(x.shape), mantissaDtype);
   const exponent = ArrayStorage.empty(Array.from(x.shape), 'int32');
-  const mantissaData = mantissa.data as Float64Array;
+  const mantissaData = mantissa.data;
   const exponentData = exponent.data as Int32Array;
   const size = x.size;
 
@@ -2068,6 +2088,15 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  */
 export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   throwIfComplex(x1.dtype, 'ldexp', 'ldexp is not defined for complex numbers.');
+
+  // NumPy promotes bool → float16 for ldexp
+  if (x1.dtype === 'bool') {
+    const converted = boolToMathFloat(x1);
+    const result = ldexp(converted, x2);
+    converted.dispose();
+    return result;
+  }
+
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'ldexp', 'ldexp is not defined for complex numbers.');
     // Extract scalar from size-1 array
@@ -2077,16 +2106,22 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
   }
   if (typeof x2 === 'number') {
     // Promote to float for WASM
-    const resultDtype = x1.dtype === 'float32' ? 'float32' : 'float64';
-    const x1Float = x1.dtype === resultDtype ? x1 : convertToFloatDType(x1, resultDtype);
+    const resultDtype =
+      x1.dtype === 'float32' ? 'float32' : x1.dtype === 'float16' ? 'float16' : 'float64';
+    const x1Float =
+      x1.dtype === resultDtype
+        ? x1
+        : resultDtype === 'float16'
+          ? x1
+          : convertToFloatDType(x1, resultDtype as 'float32' | 'float64');
 
     try {
       // Try WASM scalar path
       const wasmResult = wasmLdexpScalar(x1Float, x2);
       if (wasmResult) return wasmResult;
 
-      const result = ArrayStorage.empty(Array.from(x1.shape), 'float64');
-      const resultData = result.data as Float64Array;
+      const result = ArrayStorage.empty(Array.from(x1.shape), resultDtype);
+      const resultData = result.data;
       const size = x1.size;
       const multiplier = Math.pow(2, x2);
 
@@ -2108,7 +2143,16 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
     }
   }
 
-  return elementwiseBinaryOp(x1, x2, (a, b) => a * Math.pow(2, b), 'ldexp');
+  // Array x2: output dtype follows x1 only (not standard binary promotion)
+  const resultDtype =
+    x1.dtype === 'float32' ? 'float32' : x1.dtype === 'float16' ? 'float16' : 'float64';
+  const result = ArrayStorage.empty(Array.from(x1.shape), resultDtype);
+  const resultData = result.data;
+  const size = x1.size;
+  for (let i = 0; i < size; i++) {
+    resultData[i] = Number(x1.iget(i)) * Math.pow(2, Number(x2.iget(i)));
+  }
+  return result;
 }
 
 /**
@@ -2149,6 +2193,18 @@ export function clip(
   a_max: number | ArrayStorage | null
 ): ArrayStorage {
   throwIfComplex(a.dtype, 'clip', 'clip is not supported for complex numbers.');
+
+  // NumPy promotes bool → int64 for clip (Python int bounds are int64)
+  if (a.dtype === 'bool') {
+    const converted = ArrayStorage.empty(Array.from(a.shape), 'int64');
+    const src = a.data as Uint8Array;
+    const dst = converted.data as BigInt64Array;
+    const off = a.offset;
+    for (let i = 0; i < a.size; i++) dst[i] = BigInt(src[off + i]!);
+    const result = clip(converted, a_min, a_max);
+    converted.dispose();
+    return result;
+  }
 
   // WASM acceleration for scalar bounds
   if (
@@ -2786,8 +2842,9 @@ export function sinc(x: ArrayStorage): ArrayStorage {
 
   const shape = Array.from(x.shape);
   const size = x.size;
-  const result = ArrayStorage.empty(shape, 'float64');
-  const resultData = result.data as Float64Array;
+  const resultDtype = mathResultDtype(x.dtype);
+  const result = ArrayStorage.empty(shape, resultDtype);
+  const resultData = result.data;
   const xData = x.data;
 
   for (let i = 0; i < size; i++) {
@@ -2816,8 +2873,9 @@ export function i0(x: ArrayStorage): ArrayStorage {
 
   const shape = Array.from(x.shape);
   const size = x.size;
-  const result = ArrayStorage.empty(shape, 'float64');
-  const resultData = result.data as Float64Array;
+  const resultDtype = mathResultDtype(x.dtype);
+  const result = ArrayStorage.empty(shape, resultDtype);
+  const resultData = result.data;
   const xData = x.data;
 
   for (let i = 0; i < size; i++) {

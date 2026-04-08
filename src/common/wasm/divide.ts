@@ -34,11 +34,7 @@ import {
   div_c128,
   div_c64,
 } from './bins/divide.wasm';
-import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
-} from './runtime';
+import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isComplexDType, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';

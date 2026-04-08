@@ -30,7 +30,12 @@ import {
   copysign_f16,
   copysign_scalar_f16,
 } from './bins/copysign.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr, f32OutputToF16Region } from './runtime';
+import {
+  wasmMalloc,
+  resetScratchAllocator,
+  resolveInputPtr,
+  f32OutputToF16Region,
+} from './runtime';
 import { ArrayStorage } from '../storage';
 import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';

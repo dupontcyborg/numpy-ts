@@ -16,11 +16,7 @@ import {
   correlate_i8,
   correlate_u8,
 } from './bins/correlate.wasm';
-import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
-} from './runtime';
+import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
 import {
   effectiveDType,
@@ -56,10 +52,14 @@ const kernels: Partial<Record<DType, CorrelateFn>> = {
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
-  float64: 8, float32: 4,
-  int32: 4, uint32: 4,
-  int16: 2, uint16: 2,
-  int8: 1, uint8: 1,
+  float64: 8,
+  float32: 4,
+  int32: 4,
+  uint32: 4,
+  int16: 2,
+  uint16: 2,
+  int8: 1,
+  uint8: 1,
 };
 
 /**

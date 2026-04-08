@@ -273,9 +273,7 @@ export function wasmFft2(
   const scratchN = fft2_scratch_size(rows, cols);
   const totalBytes = totalDataLen * bpe;
   // c64 needs extra scratch: 4*rows*cols f64 for f32↔f64 conversion buffers
-  const scratchBytes = isF32
-    ? (scratchN + 4 * rows * cols) * 8
-    : scratchN * 8;
+  const scratchBytes = isF32 ? (scratchN + 4 * rows * cols) * 8 : scratchN * 8;
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();

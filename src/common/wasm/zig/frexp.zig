@@ -23,6 +23,22 @@ export fn frexp_f64(x: [*]const f64, out_m: [*]f64, out_e: [*]i32, N: u32) void 
     }
 }
 
+/// frexp for f32: decomposes x[i] into mantissa (f32) and exponent (i32).
+export fn frexp_f32(x: [*]const f32, out_m: [*]f32, out_e: [*]i32, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        const val = x[i];
+        if (val == 0.0 or !math.isFinite(val)) {
+            out_m[i] = val;
+            out_e[i] = 0;
+        } else {
+            const result = math.frexp(val);
+            out_m[i] = result.significand;
+            out_e[i] = result.exponent;
+        }
+    }
+}
+
 // --- Tests ---
 
 test "frexp_f64 basic" {
@@ -60,6 +76,20 @@ test "frexp_f64 inf and nan" {
     try testing.expectEqual(out_e[1], 0);
     try testing.expect(math.isNan(out_m[2]));
     try testing.expectEqual(out_e[2], 0);
+}
+
+test "frexp_f32 basic" {
+    const testing = @import("std").testing;
+    const x = [_]f32{ 0.0, 1.0, 2.0 };
+    var out_m: [3]f32 = undefined;
+    var out_e: [3]i32 = undefined;
+    frexp_f32(&x, &out_m, &out_e, 3);
+    try testing.expectApproxEqAbs(out_m[0], 0.0, 1e-5);
+    try testing.expectEqual(out_e[0], 0);
+    try testing.expectApproxEqAbs(out_m[1], 0.5, 1e-5);
+    try testing.expectEqual(out_e[1], 1);
+    try testing.expectApproxEqAbs(out_m[2], 0.5, 1e-5);
+    try testing.expectEqual(out_e[2], 2);
 }
 
 test "frexp_f64 negative values" {

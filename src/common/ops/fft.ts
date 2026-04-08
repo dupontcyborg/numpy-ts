@@ -1363,9 +1363,11 @@ function conjugate(a: ArrayStorage): ArrayStorage {
 function extractReal(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const size = a.size;
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const resultData = result.data as Float64Array;
-  const srcData = a.data as Float64Array;
+  // complex128 → float64, complex64 → float32
+  const realDtype: DType = a.dtype === 'complex64' ? 'float32' : 'float64';
+  const result = ArrayStorage.zeros(shape, realDtype);
+  const resultData = result.data as Float64Array | Float32Array;
+  const srcData = a.data as Float64Array | Float32Array;
 
   for (let i = 0; i < size; i++) {
     resultData[i] = srcData[i * 2]!;

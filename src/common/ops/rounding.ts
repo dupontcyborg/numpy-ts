@@ -9,7 +9,7 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { throwIfComplex, isIntegerDType } from '../dtype';
+import { throwIfComplex, isIntegerDType, mathResultDtype } from '../dtype';
 
 /**
  * Round half to even (banker's rounding) - matches NumPy behavior
@@ -31,6 +31,14 @@ function roundHalfToEven(x: number): number {
 export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
   throwIfComplex(a.dtype, 'around', 'Rounding is not defined for complex numbers.');
   if (isIntegerDType(a.dtype) && decimals >= 0) return a.copy();
+  if (a.dtype === 'bool') {
+    const dt = mathResultDtype('bool');
+    const r = ArrayStorage.empty(Array.from(a.shape), dt);
+    const src = a.data as Uint8Array;
+    const off = a.offset;
+    for (let i = 0; i < a.size; i++) r.data[i] = src[off + i]!;
+    return r;
+  }
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -155,6 +163,15 @@ export function floor(a: ArrayStorage): ArrayStorage {
 export function rint(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'rint', 'Rounding is not defined for complex numbers.');
   if (isIntegerDType(a.dtype)) return a.copy();
+  // NumPy: rint(bool) → float16 (via mathResultDtype); values 0/1 stay 0.0/1.0
+  if (a.dtype === 'bool') {
+    const dt = mathResultDtype('bool');
+    const r = ArrayStorage.empty(Array.from(a.shape), dt);
+    const src = a.data as Uint8Array;
+    const off = a.offset;
+    for (let i = 0; i < a.size; i++) r.data[i] = src[off + i]!;
+    return r;
+  }
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
