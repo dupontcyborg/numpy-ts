@@ -67,14 +67,14 @@ function getIntAcc(dtype: DType): IntAcc | null {
 function multiplyValues(
   a: number | bigint | Complex,
   b: number | bigint | Complex
-): number | Complex {
+): number | bigint | Complex {
   if (a instanceof Complex || b instanceof Complex) {
     const aComplex = a instanceof Complex ? a : new Complex(Number(a), 0);
     const bComplex = b instanceof Complex ? b : new Complex(Number(b), 0);
     return aComplex.mul(bComplex);
   }
   if (typeof a === 'bigint' && typeof b === 'bigint') {
-    return Number(a * b);
+    return a * b;
   }
   return Number(a) * Number(b);
 }
@@ -326,13 +326,21 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
           sumRe += prod.re;
           sumIm += prod.im;
         } else {
-          sumRe += prod;
+          sumRe += Number(prod);
         }
       }
       return new Complex(sumRe, sumIm);
     }
 
     const resultDtype = promoteDTypes(a.dtype, b.dtype);
+    // BigInt accumulation for int64/uint64
+    if (isBigIntDType(resultDtype)) {
+      let sum = BigInt(0);
+      for (let i = 0; i < n; i++) {
+        sum += BigInt(a.get(i) as number | bigint) * BigInt(b.get(i) as number | bigint);
+      }
+      return sum;
+    }
     const acc = getIntAcc(resultDtype);
     if (acc) {
       acc[0] = 0;
@@ -405,6 +413,14 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         }
         result.set([i], new Complex(sumRe, sumIm));
       }
+    } else if (isBigIntDType(resultDtype)) {
+      for (let i = 0; i < m!; i++) {
+        let sum = 0n;
+        for (let j = 0; j < k!; j++) {
+          sum += BigInt(a.get(i, j) as number | bigint) * BigInt(b.get(j) as number | bigint);
+        }
+        result.set([i], sum);
+      }
     } else {
       const dotAcc = getIntAcc(resultDtype);
       for (let i = 0; i < m!; i++) {
@@ -417,13 +433,7 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         } else {
           let sum = 0;
           for (let j = 0; j < k!; j++) {
-            const aVal = a.get(i, j);
-            const bVal = b.get(j);
-            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-              sum = Number(sum) + Number(aVal * bVal);
-            } else {
-              sum += Number(aVal) * Number(bVal);
-            }
+            sum += Number(a.get(i, j)) * Number(b.get(j));
           }
           result.set([i], sum);
         }
@@ -462,6 +472,14 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         }
         result.set([j], new Complex(sumRe, sumIm));
       }
+    } else if (isBigIntDType(resultDtype)) {
+      for (let j = 0; j < n!; j++) {
+        let sum = 0n;
+        for (let i = 0; i < m; i++) {
+          sum += BigInt(a.get(i) as number | bigint) * BigInt(b.get(i, j) as number | bigint);
+        }
+        result.set([j], sum);
+      }
     } else {
       const dotAcc2 = getIntAcc(resultDtype);
       for (let j = 0; j < n!; j++) {
@@ -474,13 +492,7 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
         } else {
           let sum = 0;
           for (let i = 0; i < m; i++) {
-            const aVal = a.get(i);
-            const bVal = b.get(i, j);
-            if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-              sum = Number(sum) + Number(aVal * bVal);
-            } else {
-              sum += Number(aVal) * Number(bVal);
-            }
+            sum += Number(a.get(i)) * Number(b.get(i, j));
           }
           result.set([j], sum);
         }
@@ -1722,6 +1734,10 @@ export function tensordot(
     if (isComplex) {
       return new Complex(sumRe, sumIm);
     }
+    // Bool tensordot: clamp to 0/1 (NumPy uses logical AND for multiply, OR for add)
+    if (resultDtype === 'bool') {
+      return sumRe ? 1 : 0;
+    }
     return sumRe;
   }
 
@@ -1795,6 +1811,8 @@ export function tensordot(
 
     if (isComplex) {
       result.set(resultIndices, new Complex(sumRe, sumIm));
+    } else if (resultDtype === 'bool') {
+      result.set(resultIndices, sumRe ? 1 : 0);
     } else {
       result.set(resultIndices, sumRe);
     }
@@ -2432,6 +2450,11 @@ export function cross(
   axisc: number = -1,
   axis?: number
 ): ArrayStorage | number | bigint | Complex {
+  if (a.dtype === 'bool' || b.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   // If axis is specified, use it for all
   if (axis !== undefined) {
     axisa = axis;
