@@ -50,7 +50,8 @@ export function diff(a: ArrayStorage, n: number = 1, axis: number = -1): ArraySt
   }
 
   // WASM fast path for single diff along last axis on C-contiguous non-complex arrays
-  if (n === 1 && !isComplexDType(a.dtype)) {
+  // Skip WASM for bool — NumPy bool diff uses XOR, not subtract
+  if (n === 1 && !isComplexDType(a.dtype) && a.dtype !== 'bool') {
     const wasm = wasmDiff(a, normalizedAxis);
     if (wasm) return wasm;
   }
@@ -127,6 +128,11 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
       const im2 = complexData[(off + flatIdx2) * 2 + 1]!;
       (resultData as Float64Array | Float32Array)[resultIdx * 2] = re2 - re1;
       (resultData as Float64Array | Float32Array)[resultIdx * 2 + 1] = im2 - im1;
+    } else if (dtype === 'bool') {
+      // Bool diff is XOR in NumPy — returns bool
+      const val1 = a.data[off + flatIdx1]! as number;
+      const val2 = a.data[off + flatIdx2]! as number;
+      resultData[resultIdx] = val1 !== val2 ? 1 : 0;
     } else {
       const val1 = isBigIntDType(dtype)
         ? Number(a.data[off + flatIdx1]!)
@@ -154,6 +160,11 @@ export function ediff1d(
   to_end: number[] | null = null,
   to_begin: number[] | null = null
 ): ArrayStorage {
+  if (ary.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   // Flatten the array
   const flatSize = ary.size;
   const dtype = ary.dtype;
@@ -237,6 +248,11 @@ export function gradient(
   varargs: number | number[] = 1,
   axis: number | number[] | null = null
 ): ArrayStorage | ArrayStorage[] {
+  if (f.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   const shape = Array.from(f.shape);
   const ndim = shape.length;
 
@@ -502,6 +518,11 @@ export function cross(
   axisb: number = -1,
   _axisc: number = -1
 ): ArrayStorage {
+  if (a.dtype === 'bool' || b.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   const shapeA = Array.from(a.shape);
   const shapeB = Array.from(b.shape);
   const ndimA = shapeA.length;

@@ -213,6 +213,17 @@ export function throwIfComplex(dtype: DType, functionName: string, reason?: stri
 }
 
 /**
+ * Throw a TypeError if the dtype is bool and the operation doesn't support it.
+ * Matches NumPy 2.x behavior where boolean arithmetic (negative, subtract, etc.) is rejected.
+ */
+export function throwIfBool(dtype: DType, functionName: string, reason?: string): void {
+  if (dtype === 'bool') {
+    const reasonStr = reason ? ` ${reason}` : '';
+    throw new TypeError(`ufunc '${functionName}' not supported for boolean dtype.${reasonStr}`);
+  }
+}
+
+/**
  * Throw an error if the dtype is complex and the function doesn't yet support it.
  * Use this for functions that SHOULD support complex but haven't been implemented yet.
  *
@@ -478,6 +489,15 @@ export function promoteDTypes(dtype1: DType, dtype2: DType): DType {
   // Fallback (shouldn't reach here if logic above is complete)
   return 'float64';
 }
+/**
+ * Result dtype for bool inputs in arithmetic ops that promote bool → int8.
+ * Used by: power, mod, floor_divide, remainder, square.
+ */
+export function boolArithmeticDtype(inputDtype: DType): DType {
+  return inputDtype === 'bool' ? 'int8' : inputDtype;
+}
+
+/**
 
 /**
  * Validate dtype string

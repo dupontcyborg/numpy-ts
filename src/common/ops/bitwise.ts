@@ -450,6 +450,20 @@ export function bitwise_not(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.empty(shape, dtype);
   const resultData = result.data;
 
+  // Bool: logical negation (NumPy treats bitwise_not on bool as logical NOT)
+  if (dtype === 'bool') {
+    if (contiguous) {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = (data[off + i] as number) ? 0 : 1;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        resultData[i] = Number(a.iget(i)) ? 0 : 1;
+      }
+    }
+    return result;
+  }
+
   if (isBigIntDType(dtype)) {
     const resultTyped = resultData as BigInt64Array | BigUint64Array;
     if (contiguous) {
@@ -768,6 +782,12 @@ export function packbits(
   axis: number = -1,
   bitorder: 'big' | 'little' = 'big'
 ): ArrayStorage {
+  // NumPy accepts integer + bool types, rejects float/complex
+  if (a.dtype.startsWith('float') || a.dtype.startsWith('complex')) {
+    throw new TypeError(
+      `Expected an input array of integer or boolean data type, got '${a.dtype}'`
+    );
+  }
   const shape = Array.from(a.shape);
   const ndim = shape.length;
 

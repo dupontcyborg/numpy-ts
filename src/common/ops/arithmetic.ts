@@ -17,6 +17,8 @@ import {
   getComplexComponentDType,
   promoteDTypes,
   throwIfComplex,
+  throwIfBool,
+  isFloatDType,
 } from '../dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
 import { wasmAdd, wasmAddScalar } from '../wasm/add';
@@ -157,6 +159,11 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
         resultTyped[i] = aTyped[aOff + i]! + bTyped[bOff + i]!;
       }
     }
+  } else if (dtype === 'bool') {
+    // Bool addition is logical OR in NumPy (any nonzero → 1)
+    for (let i = 0; i < size; i++) {
+      resultData[i] = (aData[aOff + i] as number) + (bData[bOff + i] as number) ? 1 : 0;
+    }
   } else {
     const needsConversion = isBigIntDType(a.dtype) || isBigIntDType(b.dtype);
 
@@ -197,6 +204,11 @@ function addArraysFast(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  * @returns Result storage
  */
 export function subtract(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  throwIfBool(
+    a.dtype,
+    'subtract',
+    'The `-` operator is not supported for booleans, use `bitwise_xor` instead.'
+  );
   if (typeof b === 'number') {
     return subtractScalar(a, b);
   }
@@ -916,6 +928,12 @@ export function absolute(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with negated values
  */
 export function negative(a: ArrayStorage): ArrayStorage {
+  throwIfBool(
+    a.dtype,
+    'negative',
+    'The `-` operator is not supported for booleans, use `~` instead.'
+  );
+
   const wasmResult = wasmNeg(a);
   if (wasmResult) return wasmResult;
 
@@ -988,6 +1006,7 @@ export function negative(a: ArrayStorage): ArrayStorage {
  */
 export function sign(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'sign', 'Sign is not defined for complex numbers.');
+  throwIfBool(a.dtype, 'sign', 'Sign is not defined for boolean dtype.');
 
   const wasmResult = wasmSign(a);
   if (wasmResult) return wasmResult;
@@ -1173,6 +1192,8 @@ function floorDivideScalar(storage: ArrayStorage, divisor: number): ArrayStorage
  * @returns Result storage (copy of input)
  */
 export function positive(a: ArrayStorage): ArrayStorage {
+  throwIfBool(a.dtype, 'positive', 'The `+` operator is not supported for booleans.');
+
   // Positive is essentially a no-op that returns a copy
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
@@ -1220,6 +1241,21 @@ export function positive(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with reciprocal values
  */
 export function reciprocal(a: ArrayStorage): ArrayStorage {
+  // NumPy promotes bool → int8 for reciprocal (integer division: 1/True=1, 1/False=UB→0)
+  if (a.dtype === 'bool') {
+    const shape = Array.from(a.shape);
+    const promoted = ArrayStorage.empty(shape, 'int8');
+    const promData = promoted.data as Int8Array;
+    const srcData = a.data;
+    const off = a.offset;
+    for (let i = 0; i < a.size; i++) {
+      const val = a.isCContiguous ? (srcData[off + i] as number) : Number(a.iget(i));
+      // Integer reciprocal: 1/1=1, 1/0 is UB in C — use -1 matching NumPy int8 behavior
+      promData[i] = val !== 0 ? (1 / val) | 0 : -1;
+    }
+    return promoted;
+  }
+
   // WASM acceleration for float types
   const wasmResult = wasmReciprocal(a);
   if (wasmResult) return wasmResult;
@@ -1259,11 +1295,29 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
-  // NumPy behavior: reciprocal always promotes integers to float64
-  const isIntegerType = dtype !== 'float32' && dtype !== 'float64';
-  const resultDtype = isIntegerType ? 'float64' : dtype;
+  // NumPy keeps dtype for reciprocal: float→float division, int→integer division (truncated)
+  const isIntegerType = isIntegerDType(dtype);
 
-  const result = ArrayStorage.empty(shape, resultDtype);
+  if (isIntegerType) {
+    // Integer reciprocal: Math.trunc(1/val), matching NumPy behavior
+    const result = ArrayStorage.empty(shape, dtype);
+    const resultData = result.data;
+    if (isBigIntDType(dtype)) {
+      const rd = resultData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < size; i++) {
+        const val = contiguous ? (data[off + i] as bigint) : (a.iget(i) as bigint);
+        rd[i] = val !== 0n ? 1n / val : -1n;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = contiguous ? (data[off + i] as number) : Number(a.iget(i));
+        resultData[i] = val !== 0 ? Math.trunc(1 / val) : 0;
+      }
+    }
+    return result;
+  }
+
+  const result = ArrayStorage.empty(shape, dtype);
   const resultData = result.data;
 
   if (contiguous) {
@@ -1685,7 +1739,14 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
     return result;
   }
 
-  return elementwiseBinaryOp(x1, x2, (a, b) => Math.pow(a, b), 'float_power');
+  // float_power always returns float64 (unlike power which preserves dtype)
+  const result = ArrayStorage.empty(Array.from(x1.shape), 'float64');
+  const resultData = result.data as Float64Array;
+  const size = x1.size;
+  for (let i = 0; i < size; i++) {
+    resultData[i] = Math.pow(Number(x1.iget(i)), Number(x2.iget(i)));
+  }
+  return result;
 }
 
 /**
@@ -1775,8 +1836,18 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
  */
 export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   throwIfComplex(x1.dtype, 'gcd', 'GCD is only defined for integers.');
+  throwIfBool(x1.dtype, 'gcd', 'GCD is only defined for integer dtypes.');
+  if (isFloatDType(x1.dtype))
+    throw new TypeError(
+      `ufunc 'gcd' not supported for float dtype '${x1.dtype}'. GCD is only defined for integer dtypes.`
+    );
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'gcd', 'GCD is only defined for integers.');
+    throwIfBool(x2.dtype, 'gcd', 'GCD is only defined for integer dtypes.');
+    if (isFloatDType(x2.dtype))
+      throw new TypeError(
+        `ufunc 'gcd' not supported for float dtype '${x2.dtype}'. GCD is only defined for integer dtypes.`
+      );
   }
   const gcdSingle = (a: number, b: number): number => {
     a = Math.abs(Math.trunc(a));
@@ -1858,8 +1929,18 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  */
 export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   throwIfComplex(x1.dtype, 'lcm', 'LCM is only defined for integers.');
+  throwIfBool(x1.dtype, 'lcm', 'LCM is only defined for integer dtypes.');
+  if (isFloatDType(x1.dtype))
+    throw new TypeError(
+      `ufunc 'lcm' not supported for float dtype '${x1.dtype}'. LCM is only defined for integer dtypes.`
+    );
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'lcm', 'LCM is only defined for integers.');
+    throwIfBool(x2.dtype, 'lcm', 'LCM is only defined for integer dtypes.');
+    if (isFloatDType(x2.dtype))
+      throw new TypeError(
+        `ufunc 'lcm' not supported for float dtype '${x2.dtype}'. LCM is only defined for integer dtypes.`
+      );
   }
   const gcdSingle = (a: number, b: number): number => {
     a = Math.abs(Math.trunc(a));
