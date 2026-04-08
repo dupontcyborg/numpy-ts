@@ -53,23 +53,23 @@ export fn tanh_u32_f64(a: [*]const u32, out: [*]f64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = @floatCast(math.tanh(@as(f64, @floatFromInt(a[i]))));
 }
-/// Element-wise tanh for i16 → f64 output: out[i] = tanh(float(a[i])).
-export fn tanh_i16_f64(a: [*]const i16, out: [*]f64, N: u32) void {
+/// Element-wise tanh for i16 → f32 output: out[i] = tanh(float(a[i])).
+export fn tanh_i16_f32(a: [*]const i16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = @floatCast(math.tanh(@as(f64, @floatFromInt(a[i]))));
 }
-/// Element-wise tanh for u16 → f64 output: out[i] = tanh(float(a[i])).
-export fn tanh_u16_f64(a: [*]const u16, out: [*]f64, N: u32) void {
+/// Element-wise tanh for u16 → f32 output: out[i] = tanh(float(a[i])).
+export fn tanh_u16_f32(a: [*]const u16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = @floatCast(math.tanh(@as(f64, @floatFromInt(a[i]))));
 }
-/// Element-wise tanh for i8 → f64 output: out[i] = tanh(float(a[i])).
-export fn tanh_i8_f64(a: [*]const i8, out: [*]f64, N: u32) void {
+/// Element-wise tanh for i8 → f32 output: out[i] = tanh(float(a[i])).
+export fn tanh_i8_f32(a: [*]const i8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = @floatCast(math.tanh(@as(f64, @floatFromInt(a[i]))));
 }
-/// Element-wise tanh for u8 → f64 output: out[i] = tanh(float(a[i])).
-export fn tanh_u8_f64(a: [*]const u8, out: [*]f64, N: u32) void {
+/// Element-wise tanh for u8 → f32 output: out[i] = tanh(float(a[i])).
+export fn tanh_u8_f32(a: [*]const u8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = @floatCast(math.tanh(@as(f64, @floatFromInt(a[i]))));
 }
@@ -126,34 +126,34 @@ test "tanh_u32_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
 }
 
-test "tanh_i16_f64 basic" {
+test "tanh_i16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i16{0};
-    var out: [1]f64 = undefined;
-    tanh_i16_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    tanh_i16_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }
 
-test "tanh_u16_f64 basic" {
+test "tanh_u16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u16{0};
-    var out: [1]f64 = undefined;
-    tanh_u16_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    tanh_u16_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }
 
-test "tanh_i8_f64 basic" {
+test "tanh_i8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i8{0};
-    var out: [1]f64 = undefined;
-    tanh_i8_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    tanh_i8_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }
 
-test "tanh_u8_f64 basic" {
+test "tanh_u8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u8{0};
-    var out: [1]f64 = undefined;
-    tanh_u8_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    tanh_u8_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }

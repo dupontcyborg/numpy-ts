@@ -3,14 +3,28 @@
  *
  * Unary: out[i] = sqrt(a[i])
  * Returns null if WASM can't handle this case.
- * Float types output same type; integer types use native WASM kernels
- * that convert to f64 internally (no JS conversion loop needed).
+ * Float types output same type; integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
-import { sqrt_f64, sqrt_f32, sqrt_i64, sqrt_i32, sqrt_i16, sqrt_i8 } from './bins/sqrt.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import {
+  sqrt_f64,
+  sqrt_f32,
+  sqrt_i64,
+  sqrt_i32,
+  sqrt_i16_f32,
+  sqrt_i8_f32,
+} from './bins/sqrt.wasm';
+import {
+  wasmMalloc,
+  resetScratchAllocator,
+  resolveInputPtr,
+  f32OutputToF16Region,
+} from './runtime';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType, type TypedArray } from '../dtype';
+import { isComplexDType, hasFloat16, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -23,16 +37,20 @@ const floatKernels: Partial<Record<DType, UnaryFn>> = {
   float32: sqrt_f32,
 };
 
-// Integer kernels: input is native int, output is f64
-const intKernels: Partial<Record<DType, UnaryFn>> = {
+// Large int → f64 output (i32/u32/i64/u64 need f64 precision)
+const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
   int64: sqrt_i64,
   uint64: sqrt_i64,
   int32: sqrt_i32,
   uint32: sqrt_i32,
-  int16: sqrt_i16,
-  uint16: sqrt_i16,
-  int8: sqrt_i8,
-  uint8: sqrt_i8,
+};
+
+// Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
+const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
+  int16: sqrt_i16_f32,
+  uint16: sqrt_i16_f32,
+  int8: sqrt_i8_f32,
+  uint8: sqrt_i8_f32,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;
@@ -88,13 +106,12 @@ export function wasmSqrt(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Integer path: native int input, f64 output
-  const intKernel = intKernels[dtype];
-  if (intKernel) {
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntKernels[dtype];
+  if (smallKernel) {
     const InputCtor = inputCtorMap[dtype]!;
     const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-    const outBpe = 8; // f64
-    const outBytes = size * outBpe;
+    const outBytes = size * 4; // f32
 
     const outRegion = wasmMalloc(outBytes);
     if (!outRegion) return null;
@@ -104,7 +121,52 @@ export function wasmSqrt(a: ArrayStorage): ArrayStorage | null {
     resetScratchAllocator();
     const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
 
-    intKernel(aPtr, outRegion.ptr, size);
+    smallKernel(aPtr, outRegion.ptr, size);
+
+    // i8/u8 → downcast f32 to f16 (matching NumPy's bool/int8/uint8 → float16)
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8' || dtype === 'bool')) {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    // i16/u16 → f32 output
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntKernels[dtype];
+  if (largeKernel) {
+    const InputCtor = inputCtorMap[dtype]!;
+    const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+    const outBytes = size * 8;
+
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
+
+    largeKernel(aPtr, outRegion.ptr, size);
 
     return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),

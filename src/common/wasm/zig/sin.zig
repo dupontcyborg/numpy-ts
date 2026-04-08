@@ -45,25 +45,25 @@ export fn sin_u32_f64(a: [*]const u32, out: [*]f64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = math.sin(@as(f64, @floatFromInt(a[i])));
 }
-/// Element-wise sin for i16 → f64 output: out[i] = sin(float(a[i])).
-export fn sin_i16_f64(a: [*]const i16, out: [*]f64, N: u32) void {
+/// Element-wise sin for i16 → f32 output: out[i] = sin(float(a[i])).
+export fn sin_i16_f32(a: [*]const i16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = math.sin(@as(f64, @floatFromInt(a[i])));
+    while (i < N) : (i += 1) out[i] = @floatCast(math.sin(@as(f64, @floatFromInt(a[i]))));
 }
-/// Element-wise sin for u16 → f64 output: out[i] = sin(float(a[i])).
-export fn sin_u16_f64(a: [*]const u16, out: [*]f64, N: u32) void {
+/// Element-wise sin for u16 → f32 output: out[i] = sin(float(a[i])).
+export fn sin_u16_f32(a: [*]const u16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = math.sin(@as(f64, @floatFromInt(a[i])));
+    while (i < N) : (i += 1) out[i] = @floatCast(math.sin(@as(f64, @floatFromInt(a[i]))));
 }
-/// Element-wise sin for i8 → f64 output: out[i] = sin(float(a[i])).
-export fn sin_i8_f64(a: [*]const i8, out: [*]f64, N: u32) void {
+/// Element-wise sin for i8 → f32 output: out[i] = sin(float(a[i])).
+export fn sin_i8_f32(a: [*]const i8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = math.sin(@as(f64, @floatFromInt(a[i])));
+    while (i < N) : (i += 1) out[i] = @floatCast(math.sin(@as(f64, @floatFromInt(a[i]))));
 }
-/// Element-wise sin for u8 → f64 output: out[i] = sin(float(a[i])).
-export fn sin_u8_f64(a: [*]const u8, out: [*]f64, N: u32) void {
+/// Element-wise sin for u8 → f32 output: out[i] = sin(float(a[i])).
+export fn sin_u8_f32(a: [*]const u8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = math.sin(@as(f64, @floatFromInt(a[i])));
+    while (i < N) : (i += 1) out[i] = @floatCast(math.sin(@as(f64, @floatFromInt(a[i]))));
 }
 
 // --- Tests ---
@@ -121,34 +121,34 @@ test "sin_u32_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
 }
 
-test "sin_i16_f64 basic" {
+test "sin_i16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i16{0};
-    var out: [1]f64 = undefined;
-    sin_i16_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    sin_i16_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }
 
-test "sin_u16_f64 basic" {
+test "sin_u16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u16{0};
-    var out: [1]f64 = undefined;
-    sin_u16_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    sin_u16_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }
 
-test "sin_i8_f64 basic" {
+test "sin_i8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i8{0};
-    var out: [1]f64 = undefined;
-    sin_i8_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    sin_i8_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }
 
-test "sin_u8_f64 basic" {
+test "sin_u8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u8{0};
-    var out: [1]f64 = undefined;
-    sin_u8_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
+    var out: [1]f32 = undefined;
+    sin_u8_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
 }

@@ -8,10 +8,14 @@
 import {
   reciprocal_f64,
   reciprocal_f32,
-  reciprocal_i64_f64,
-  reciprocal_i32_f64,
-  reciprocal_i16_f64,
-  reciprocal_i8_f64,
+  reciprocal_i64,
+  reciprocal_u64,
+  reciprocal_i32,
+  reciprocal_u32,
+  reciprocal_i16,
+  reciprocal_u16,
+  reciprocal_i8,
+  reciprocal_u8,
 } from './bins/reciprocal.wasm';
 import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
@@ -29,16 +33,16 @@ const floatKernels: Partial<Record<DType, UnaryFn>> = {
   // float16 excluded: f16→f32 conversion overhead makes JS path faster
 };
 
-// Integer-to-f64 kernels (int in, f64 out)
+// Integer kernels (same-dtype in/out)
 const intKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: reciprocal_i64_f64,
-  uint64: reciprocal_i64_f64,
-  int32: reciprocal_i32_f64,
-  uint32: reciprocal_i32_f64,
-  int16: reciprocal_i16_f64,
-  uint16: reciprocal_i16_f64,
-  int8: reciprocal_i8_f64,
-  uint8: reciprocal_i8_f64,
+  int64: reciprocal_i64,
+  uint64: reciprocal_u64,
+  int32: reciprocal_i32,
+  uint32: reciprocal_u32,
+  int16: reciprocal_i16,
+  uint16: reciprocal_u16,
+  int8: reciprocal_i8,
+  uint8: reciprocal_u8,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;
@@ -88,13 +92,13 @@ export function wasmReciprocal(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Try integer-to-f64 kernel
+  // Try integer kernel (same-dtype output)
   const intKernel = intKernels[dtype];
   const InCtor = ctorMap[dtype];
   if (!intKernel || !InCtor) return null;
 
-  const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  const outBytes = size * 8;
+  const bpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const outBytes = size * bpe;
 
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
@@ -102,15 +106,15 @@ export function wasmReciprocal(a: ArrayStorage): ArrayStorage | null {
   wasmConfig.wasmCallCount++;
 
   resetScratchAllocator();
-  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
+  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
 
   intKernel(aPtr, outRegion.ptr, size);
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),
-    'float64',
+    dtype,
     outRegion,
     size,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    InCtor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
   );
 }

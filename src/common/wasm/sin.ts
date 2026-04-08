@@ -3,8 +3,10 @@
  *
  * Unary: out[i] = sin(a[i])
  * Returns null if WASM can't handle this case.
- * Float types use native kernels; integer types are converted to float64
- * in JS and run through the f64 SIMD kernel (matches NumPy's promotion).
+ * Float types use native kernels; integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
 import {
@@ -14,10 +16,10 @@ import {
   sin_u64_f64,
   sin_i32_f64,
   sin_u32_f64,
-  sin_i16_f64,
-  sin_u16_f64,
-  sin_i8_f64,
-  sin_u8_f64,
+  sin_i16_f32,
+  sin_u16_f32,
+  sin_i8_f32,
+  sin_u8_f32,
 } from './bins/sin.wasm';
 import {
   wasmMalloc,
@@ -27,7 +29,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, isComplexDType, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, isComplexDType, hasFloat16, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -39,15 +41,20 @@ const kernels: Partial<Record<DType, UnaryFn>> = {
   float32: sin_f32,
 };
 
-const intKernels: Partial<Record<DType, UnaryFn>> = {
+// Large int → f64 output (i32/u32/i64/u64 need f64 precision)
+const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
   int64: sin_i64_f64,
   uint64: sin_u64_f64,
   int32: sin_i32_f64,
   uint32: sin_u32_f64,
-  int16: sin_i16_f64,
-  uint16: sin_u16_f64,
-  int8: sin_i8_f64,
-  uint8: sin_u8_f64,
+};
+
+// Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
+const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
+  int16: sin_i16_f32,
+  uint16: sin_u16_f32,
+  int8: sin_i8_f32,
+  uint8: sin_u8_f32,
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -101,7 +108,7 @@ export function wasmSin(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Native float path
+  // Native float path (f32/f64)
   const nativeKernel = kernels[dtype];
   if (nativeKernel) {
     const isF32 = dtype === 'float32';
@@ -128,10 +135,53 @@ export function wasmSin(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Integer path: Zig kernel reads native int type, converts to f64 internally
-  const intKernel = intKernels[dtype];
   const inBpe = bpeMap[dtype];
-  if (!intKernel || !inBpe) return null;
+  if (!inBpe) return null;
+
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntKernels[dtype];
+  if (smallKernel) {
+    const outBytes = size * 4; // f32
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
+
+    smallKernel(aPtr, outRegion.ptr, size);
+
+    // i8/u8 → downcast f32 to f16 (matching NumPy's bool/int8/uint8 → float16)
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8' || dtype === 'bool')) {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    // i16/u16 → f32 output
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntKernels[dtype];
+  if (!largeKernel) return null;
 
   const outBytes = size * 8;
   const outRegion = wasmMalloc(outBytes);
@@ -141,7 +191,7 @@ export function wasmSin(a: ArrayStorage): ArrayStorage | null {
   resetScratchAllocator();
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
 
-  intKernel(aPtr, outRegion.ptr, size);
+  largeKernel(aPtr, outRegion.ptr, size);
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),

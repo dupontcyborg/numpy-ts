@@ -672,7 +672,7 @@ export function histogramdd(
 export function correlate(
   a: ArrayStorage,
   v: ArrayStorage,
-  mode: 'full' | 'same' | 'valid' = 'full'
+  mode: 'full' | 'same' | 'valid' = 'valid'
 ): ArrayStorage {
   const aData = a.data;
   const vData = v.data;

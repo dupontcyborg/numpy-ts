@@ -8,14 +8,14 @@
 import {
   divmod_scalar_f64,
   divmod_scalar_f32,
-  divmod_scalar_i64_f64,
-  divmod_scalar_u64_f64,
-  divmod_scalar_i32_f64,
-  divmod_scalar_u32_f64,
-  divmod_scalar_i16_f64,
-  divmod_scalar_u16_f64,
-  divmod_scalar_i8_f64,
-  divmod_scalar_u8_f64,
+  divmod_scalar_i64,
+  divmod_scalar_u64,
+  divmod_scalar_i32,
+  divmod_scalar_u32,
+  divmod_scalar_i16,
+  divmod_scalar_u16,
+  divmod_scalar_i8,
+  divmod_scalar_u8,
 } from './bins/divmod.wasm';
 import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
@@ -32,16 +32,16 @@ const floatKernels: Partial<Record<DType, DivmodScalarFn>> = {
   float32: divmod_scalar_f32,
 };
 
-// Integer-to-f64 scalar kernels
+// Integer scalar kernels (same-dtype in/out)
 const intKernels: Partial<Record<DType, DivmodScalarFn>> = {
-  int64: divmod_scalar_i64_f64,
-  uint64: divmod_scalar_u64_f64,
-  int32: divmod_scalar_i32_f64,
-  uint32: divmod_scalar_u32_f64,
-  int16: divmod_scalar_i16_f64,
-  uint16: divmod_scalar_u16_f64,
-  int8: divmod_scalar_i8_f64,
-  uint8: divmod_scalar_u8_f64,
+  int64: divmod_scalar_i64,
+  uint64: divmod_scalar_u64,
+  int32: divmod_scalar_i32,
+  uint32: divmod_scalar_u32,
+  int16: divmod_scalar_i16,
+  uint16: divmod_scalar_u16,
+  int8: divmod_scalar_i8,
+  uint8: divmod_scalar_u8,
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -101,12 +101,25 @@ export function wasmDivmodScalar(
     ];
   }
 
-  // Integer path — int in, f64 out
+  // Integer path — same-dtype in/out
   const intKernel = intKernels[dtype];
   const inBpe = bpeMap[dtype];
   if (!intKernel || !inBpe) return null;
 
-  const outBytes = size * 8;
+  const intCtorMap: Partial<Record<DType, new (length: number) => TypedArray>> = {
+    int8: Int8Array,
+    uint8: Uint8Array,
+    int16: Int16Array,
+    uint16: Uint16Array,
+    int32: Int32Array,
+    uint32: Uint32Array,
+    int64: BigInt64Array,
+    uint64: BigUint64Array,
+  };
+  const IntCtor = intCtorMap[dtype];
+  if (!IntCtor) return null;
+
+  const outBytes = size * inBpe;
   const qRegion = wasmMalloc(outBytes);
   if (!qRegion) return null;
   const rRegion = wasmMalloc(outBytes);
@@ -122,13 +135,13 @@ export function wasmDivmodScalar(
   intKernel(aPtr, qRegion.ptr, rRegion.ptr, size, scalar);
 
   const shape = Array.from(a.shape);
-  const F64Ctor = Float64Array as unknown as new (
+  const CtorT = IntCtor as unknown as new (
     buf: ArrayBuffer,
     off: number,
     len: number
   ) => TypedArray;
   return [
-    ArrayStorage.fromWasmRegion(shape, 'float64', qRegion, size, F64Ctor),
-    ArrayStorage.fromWasmRegion(shape, 'float64', rRegion, size, F64Ctor),
+    ArrayStorage.fromWasmRegion(shape, dtype, qRegion, size, CtorT),
+    ArrayStorage.fromWasmRegion(shape, dtype, rRegion, size, CtorT),
   ];
 }

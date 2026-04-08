@@ -12,6 +12,7 @@ import {
   isComplexDType,
   isFloatDType,
   throwIfComplex,
+  reductionAccumDtype,
   type DType,
 } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
@@ -87,6 +88,7 @@ function roundToDtype(value: number, dtype: DType): number {
 /** For sum/prod: promote narrow ints to int64 (matches NumPy) */
 function intAccumulationDtype(dtype: DType): DType {
   switch (dtype) {
+    case 'bool':
     case 'int8':
     case 'int16':
     case 'int32':
@@ -103,6 +105,7 @@ function intAccumulationDtype(dtype: DType): DType {
 /** For mean/std/var: promote all ints to float64 (matches NumPy) */
 function floatAccumulationDtype(dtype: DType): DType {
   switch (dtype) {
+    case 'bool':
     case 'int8':
     case 'int16':
     case 'int32':
@@ -2373,7 +2376,25 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       }
       return result;
     }
-    const result = ArrayStorage.empty([size], 'float64');
+    const accumDtype = reductionAccumDtype(dtype);
+    if (isBigIntDType(accumDtype)) {
+      const result = ArrayStorage.empty([size], accumDtype);
+      const resultData = result.data as BigInt64Array | BigUint64Array;
+      let sum = 0n;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          sum += BigInt(Number(data[off + i]));
+          resultData[i] = sum;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          sum += BigInt(Number(storage.iget(i)));
+          resultData[i] = sum;
+        }
+      }
+      return result;
+    }
+    const result = ArrayStorage.empty([size], accumDtype);
     const resultData = result.data as Float64Array;
     let sum = 0;
     if (contiguous) {
@@ -2399,9 +2420,9 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
   }
 
-  // Create result with same shape
+  // Create result with same shape, using NumPy accumulation dtype
   const axisAcc = getFloatAcc(dtype);
-  const outDtype2 = axisAcc ? dtype : 'float64';
+  const outDtype2 = axisAcc ? dtype : reductionAccumDtype(dtype);
   const result = ArrayStorage.empty([...shape], outDtype2);
   const resultData = result.data;
   const axisSize = shape[normalizedAxis]!;
@@ -2568,7 +2589,25 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   if (axis === undefined) {
     // Flatten and cumprod
     const size = storage.size;
-    const result = ArrayStorage.empty([size], 'float64');
+    const accumDtype = reductionAccumDtype(dtype);
+    if (isBigIntDType(accumDtype)) {
+      const result = ArrayStorage.empty([size], accumDtype);
+      const resultData = result.data as BigInt64Array | BigUint64Array;
+      let prod = 1n;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          prod *= BigInt(Number(data[off + i]));
+          resultData[i] = prod;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          prod *= BigInt(Number(storage.iget(i)));
+          resultData[i] = prod;
+        }
+      }
+      return result;
+    }
+    const result = ArrayStorage.empty([size], accumDtype);
     const resultData = result.data as Float64Array;
     let prod = 1;
     if (contiguous) {
@@ -2595,7 +2634,8 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   }
 
   // Create result with same shape
-  const result = ArrayStorage.empty([...shape], 'float64');
+  const cumprodAccumDtype = reductionAccumDtype(dtype);
+  const result = ArrayStorage.empty([...shape], cumprodAccumDtype);
   const resultData = result.data as Float64Array;
   const axisSize = shape[normalizedAxis]!;
 
@@ -2643,6 +2683,12 @@ export function ptp(
   keepdims: boolean = false
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
+
+  if (dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
 
   // Complex ptp: max - min using lexicographic ordering
   if (isComplexDType(dtype)) {
@@ -2727,6 +2773,24 @@ export function median(
   axis?: number,
   keepdims: boolean = false
 ): ArrayStorage | number {
+  // Bool median: promote to float64 first (NumPy median succeeds for bool,
+  // even though quantile rejects bool due to subtract)
+  if (storage.dtype === 'bool') {
+    const f64 = ArrayStorage.empty(Array.from(storage.shape), 'float64');
+    const srcData = storage.data;
+    const dstData = f64.data as Float64Array;
+    const off = storage.offset;
+    if (storage.isCContiguous) {
+      for (let i = 0; i < storage.size; i++) dstData[i] = Number(srcData[off + i]);
+    } else {
+      for (let i = 0; i < storage.size; i++) dstData[i] = Number(storage.iget(i));
+    }
+    try {
+      return quantile(f64, 0.5, axis, keepdims);
+    } finally {
+      f64.dispose();
+    }
+  }
   return quantile(storage, 0.5, axis, keepdims);
 }
 
@@ -2752,6 +2816,11 @@ export function quantile(
   keepdims: boolean = false
 ): ArrayStorage | number {
   throwIfComplex(storage.dtype, 'quantile', 'Complex numbers are not orderable.');
+  if (storage.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   if (q < 0 || q > 1) {
     throw new Error('Quantile must be between 0 and 1');
   }
@@ -5267,6 +5336,11 @@ export function nanquantile(
   keepdims: boolean = false
 ): ArrayStorage | number {
   throwIfComplex(storage.dtype, 'nanquantile', 'Complex numbers are not orderable.');
+  if (storage.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
 
   // Integer types can't have NaN — delegate to regular quantile (which has WASM)
   if (!isFloatDType(storage.dtype)) {

@@ -62,35 +62,35 @@ export fn div_u32_f64(a: [*]const u32, b: [*]const u32, out: [*]f64, N: u32) voi
     }
 }
 
-/// i16-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
-export fn div_i16_f64(a: [*]const i16, b: [*]const i16, out: [*]f64, N: u32) void {
+/// i16-to-f32 binary divide: out[i] = f32(a[i]) / f32(b[i]).
+export fn div_i16_f32(a: [*]const i16, b: [*]const i16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+        out[i] = @as(f32, @floatFromInt(a[i])) / @as(f32, @floatFromInt(b[i]));
     }
 }
 
-/// u16-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
-export fn div_u16_f64(a: [*]const u16, b: [*]const u16, out: [*]f64, N: u32) void {
+/// u16-to-f32 binary divide: out[i] = f32(a[i]) / f32(b[i]).
+export fn div_u16_f32(a: [*]const u16, b: [*]const u16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+        out[i] = @as(f32, @floatFromInt(a[i])) / @as(f32, @floatFromInt(b[i]));
     }
 }
 
-/// i8-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
-export fn div_i8_f64(a: [*]const i8, b: [*]const i8, out: [*]f64, N: u32) void {
+/// i8-to-f32 binary divide: out[i] = f32(a[i]) / f32(b[i]).
+export fn div_i8_f32(a: [*]const i8, b: [*]const i8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+        out[i] = @as(f32, @floatFromInt(a[i])) / @as(f32, @floatFromInt(b[i]));
     }
 }
 
-/// u8-to-f64 binary divide: out[i] = f64(a[i]) / f64(b[i]).
-export fn div_u8_f64(a: [*]const u8, b: [*]const u8, out: [*]f64, N: u32) void {
+/// u8-to-f32 binary divide: out[i] = f32(a[i]) / f32(b[i]).
+export fn div_u8_f32(a: [*]const u8, b: [*]const u8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / @as(f64, @floatFromInt(b[i]));
+        out[i] = @as(f32, @floatFromInt(a[i])) / @as(f32, @floatFromInt(b[i]));
     }
 }
 
@@ -234,35 +234,35 @@ export fn div_scalar_u32_f64(a: [*]const u32, out: [*]f64, N: u32, scalar: f64) 
     }
 }
 
-/// i16-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_i16_f64(a: [*]const i16, out: [*]f64, N: u32, scalar: f64) void {
+/// i16-to-f32 scalar divide: out[i] = f32(a[i]) / scalar.
+export fn div_scalar_i16_f32(a: [*]const i16, out: [*]f32, N: u32, scalar: f32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+        out[i] = @as(f32, @floatFromInt(a[i])) / scalar;
     }
 }
 
-/// u16-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_u16_f64(a: [*]const u16, out: [*]f64, N: u32, scalar: f64) void {
+/// u16-to-f32 scalar divide: out[i] = f32(a[i]) / scalar.
+export fn div_scalar_u16_f32(a: [*]const u16, out: [*]f32, N: u32, scalar: f32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+        out[i] = @as(f32, @floatFromInt(a[i])) / scalar;
     }
 }
 
-/// i8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_i8_f64(a: [*]const i8, out: [*]f64, N: u32, scalar: f64) void {
+/// i8-to-f32 scalar divide: out[i] = f32(a[i]) / scalar.
+export fn div_scalar_i8_f32(a: [*]const i8, out: [*]f32, N: u32, scalar: f32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+        out[i] = @as(f32, @floatFromInt(a[i])) / scalar;
     }
 }
 
-/// u8-to-f64 scalar divide: out[i] = f64(a[i]) / scalar.
-export fn div_scalar_u8_f64(a: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
+/// u8-to-f32 scalar divide: out[i] = f32(a[i]) / scalar.
+export fn div_scalar_u8_f32(a: [*]const u8, out: [*]f32, N: u32, scalar: f32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = @as(f64, @floatFromInt(a[i])) / scalar;
+        out[i] = @as(f32, @floatFromInt(a[i])) / scalar;
     }
 }
 
@@ -393,15 +393,15 @@ test "div_scalar_i32_f64 basic" {
     try testing.expectApproxEqAbs(out[3], 8.0, 1e-10);
 }
 
-test "div_i8_f64 basic" {
+test "div_i8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i8{ 10, -20, 30 };
     const b = [_]i8{ 2, 4, -5 };
-    var out: [3]f64 = undefined;
-    div_i8_f64(&a, &b, &out, 3);
-    try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
-    try testing.expectApproxEqAbs(out[1], -5.0, 1e-10);
-    try testing.expectApproxEqAbs(out[2], -6.0, 1e-10);
+    var out: [3]f32 = undefined;
+    div_i8_f32(&a, &b, &out, 3);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], -5.0, 1e-5);
+    try testing.expectApproxEqAbs(out[2], -6.0, 1e-5);
 }
 
 test "div_c128 divide by identity" {
@@ -453,31 +453,31 @@ test "div_u32_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
 }
 
-test "div_i16_f64 basic" {
+test "div_i16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i16{6};
     const b = [_]i16{2};
-    var out: [1]f64 = undefined;
-    div_i16_f64(&a, &b, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+    var out: [1]f32 = undefined;
+    div_i16_f32(&a, &b, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-5);
 }
 
-test "div_u16_f64 basic" {
+test "div_u16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u16{6};
     const b = [_]u16{2};
-    var out: [1]f64 = undefined;
-    div_u16_f64(&a, &b, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+    var out: [1]f32 = undefined;
+    div_u16_f32(&a, &b, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-5);
 }
 
-test "div_u8_f64 basic" {
+test "div_u8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u8{6};
     const b = [_]u8{2};
-    var out: [1]f64 = undefined;
-    div_u8_f64(&a, &b, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+    var out: [1]f32 = undefined;
+    div_u8_f32(&a, &b, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-5);
 }
 
 test "div_scalar_i64_f64 basic" {
@@ -504,34 +504,34 @@ test "div_scalar_u32_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
 }
 
-test "div_scalar_i16_f64 basic" {
+test "div_scalar_i16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i16{6};
-    var out: [1]f64 = undefined;
-    div_scalar_i16_f64(&a, &out, 1, 2.0);
-    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+    var out: [1]f32 = undefined;
+    div_scalar_i16_f32(&a, &out, 1, 2.0);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-5);
 }
 
-test "div_scalar_u16_f64 basic" {
+test "div_scalar_u16_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u16{6};
-    var out: [1]f64 = undefined;
-    div_scalar_u16_f64(&a, &out, 1, 2.0);
-    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+    var out: [1]f32 = undefined;
+    div_scalar_u16_f32(&a, &out, 1, 2.0);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-5);
 }
 
-test "div_scalar_i8_f64 basic" {
+test "div_scalar_i8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i8{6};
-    var out: [1]f64 = undefined;
-    div_scalar_i8_f64(&a, &out, 1, 2.0);
-    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+    var out: [1]f32 = undefined;
+    div_scalar_i8_f32(&a, &out, 1, 2.0);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-5);
 }
 
-test "div_scalar_u8_f64 basic" {
+test "div_scalar_u8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]u8{6};
-    var out: [1]f64 = undefined;
-    div_scalar_u8_f64(&a, &out, 1, 2.0);
-    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+    var out: [1]f32 = undefined;
+    div_scalar_u8_f32(&a, &out, 1, 2.0);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-5);
 }

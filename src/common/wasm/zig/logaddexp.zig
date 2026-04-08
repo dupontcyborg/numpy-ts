@@ -81,51 +81,51 @@ export fn logaddexp_u32(a: [*]const u32, b: [*]const u32, out: [*]f64, N: u32) v
     }
 }
 
-/// Element-wise logaddexp for i16 → f64 output.
-export fn logaddexp_i16(a: [*]const i16, b: [*]const i16, out: [*]f64, N: u32) void {
+/// Element-wise logaddexp for i16 → f32 output.
+export fn logaddexp_i16(a: [*]const i16, b: [*]const i16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const bf = @as(f64, @floatFromInt(b[i]));
         const mx = @max(af, bf);
         const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
-/// Element-wise logaddexp for u16 → f64 output.
-export fn logaddexp_u16(a: [*]const u16, b: [*]const u16, out: [*]f64, N: u32) void {
+/// Element-wise logaddexp for u16 → f32 output.
+export fn logaddexp_u16(a: [*]const u16, b: [*]const u16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const bf = @as(f64, @floatFromInt(b[i]));
         const mx = @max(af, bf);
         const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
-/// Element-wise logaddexp for i8 → f64 output.
-export fn logaddexp_i8(a: [*]const i8, b: [*]const i8, out: [*]f64, N: u32) void {
+/// Element-wise logaddexp for i8 → f32 output.
+export fn logaddexp_i8(a: [*]const i8, b: [*]const i8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const bf = @as(f64, @floatFromInt(b[i]));
         const mx = @max(af, bf);
         const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
-/// Element-wise logaddexp for u8 → f64 output.
-export fn logaddexp_u8(a: [*]const u8, b: [*]const u8, out: [*]f64, N: u32) void {
+/// Element-wise logaddexp for u8 → f32 output.
+export fn logaddexp_u8(a: [*]const u8, b: [*]const u8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const bf = @as(f64, @floatFromInt(b[i]));
         const mx = @max(af, bf);
         const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
@@ -201,51 +201,51 @@ export fn logaddexp_scalar_u32(a: [*]const u32, out: [*]f64, N: u32, scalar: u32
     }
 }
 
-/// Element-wise logaddexp scalar for i16 → f64 output.
-export fn logaddexp_scalar_i16(a: [*]const i16, out: [*]f64, N: u32, scalar: i16) void {
+/// Element-wise logaddexp scalar for i16 → f32 output.
+export fn logaddexp_scalar_i16(a: [*]const i16, out: [*]f32, N: u32, scalar: i16) void {
     const sf = @as(f64, @floatFromInt(scalar));
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const mx = @max(af, sf);
         const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
-/// Element-wise logaddexp scalar for u16 → f64 output.
-export fn logaddexp_scalar_u16(a: [*]const u16, out: [*]f64, N: u32, scalar: u16) void {
+/// Element-wise logaddexp scalar for u16 → f32 output.
+export fn logaddexp_scalar_u16(a: [*]const u16, out: [*]f32, N: u32, scalar: u16) void {
     const sf = @as(f64, @floatFromInt(scalar));
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const mx = @max(af, sf);
         const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
-/// Element-wise logaddexp scalar for i8 → f64 output.
-export fn logaddexp_scalar_i8(a: [*]const i8, out: [*]f64, N: u32, scalar: i8) void {
+/// Element-wise logaddexp scalar for i8 → f32 output.
+export fn logaddexp_scalar_i8(a: [*]const i8, out: [*]f32, N: u32, scalar: i8) void {
     const sf = @as(f64, @floatFromInt(scalar));
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const mx = @max(af, sf);
         const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
-/// Element-wise logaddexp scalar for u8 → f64 output.
-export fn logaddexp_scalar_u8(a: [*]const u8, out: [*]f64, N: u32, scalar: u8) void {
+/// Element-wise logaddexp scalar for u8 → f32 output.
+export fn logaddexp_scalar_u8(a: [*]const u8, out: [*]f32, N: u32, scalar: u8) void {
     const sf = @as(f64, @floatFromInt(scalar));
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const mx = @max(af, sf);
         const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
     }
 }
 
@@ -355,36 +355,36 @@ test "logaddexp_i16 basic" {
     const testing = @import("std").testing;
     const a = [_]i16{0};
     const b = [_]i16{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_i16(&a, &b, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }
 
 test "logaddexp_u16 basic" {
     const testing = @import("std").testing;
     const a = [_]u16{0};
     const b = [_]u16{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_u16(&a, &b, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }
 
 test "logaddexp_i8 basic" {
     const testing = @import("std").testing;
     const a = [_]i8{0};
     const b = [_]i8{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_i8(&a, &b, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }
 
 test "logaddexp_u8 basic" {
     const testing = @import("std").testing;
     const a = [_]u8{0};
     const b = [_]u8{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_u8(&a, &b, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }
 
 test "logaddexp_scalar_u64 basic" {
@@ -414,31 +414,31 @@ test "logaddexp_scalar_u32 basic" {
 test "logaddexp_scalar_i16 basic" {
     const testing = @import("std").testing;
     const a = [_]i16{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_scalar_i16(&a, &out, 1, 0);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }
 
 test "logaddexp_scalar_u16 basic" {
     const testing = @import("std").testing;
     const a = [_]u16{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_scalar_u16(&a, &out, 1, 0);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }
 
 test "logaddexp_scalar_i8 basic" {
     const testing = @import("std").testing;
     const a = [_]i8{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_scalar_i8(&a, &out, 1, 0);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }
 
 test "logaddexp_scalar_u8 basic" {
     const testing = @import("std").testing;
     const a = [_]u8{0};
-    var out: [1]f64 = undefined;
+    var out: [1]f32 = undefined;
     logaddexp_scalar_u8(&a, &out, 1, 0);
-    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 0.6931471805599453, 1e-5);
 }

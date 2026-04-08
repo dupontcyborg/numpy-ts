@@ -3,6 +3,10 @@
  *
  * Binary: out[i] = atan2(a[i], b[i])  (same-shape contiguous arrays)
  * Returns null if WASM can't handle this case.
+ * Integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
 import {
@@ -12,10 +16,10 @@ import {
   arctan2_u64_f64,
   arctan2_i32_f64,
   arctan2_u32_f64,
-  arctan2_i16_f64,
-  arctan2_u16_f64,
-  arctan2_i8_f64,
-  arctan2_u8_f64,
+  arctan2_i16_f32,
+  arctan2_u16_f32,
+  arctan2_i8_f32,
+  arctan2_u8_f32,
 } from './bins/arctan2.wasm';
 import {
   wasmMalloc,
@@ -29,6 +33,7 @@ import {
   effectiveDType,
   promoteDTypes,
   isComplexDType,
+  hasFloat16,
   type DType,
   type TypedArray,
 } from '../dtype';
@@ -44,16 +49,20 @@ const binaryKernels: Partial<Record<DType, BinaryFn>> = {
   float16: arctan2_f32,
 };
 
-// Integer-to-f64 binary kernels: both inputs same integer type, output f64
-const intBinaryKernels: Partial<Record<DType, BinaryFn>> = {
+// Large int → f64 output (i32/u32/i64/u64 need f64 precision)
+const largeIntKernels: Partial<Record<DType, BinaryFn>> = {
   int64: arctan2_i64_f64,
   uint64: arctan2_u64_f64,
   int32: arctan2_i32_f64,
   uint32: arctan2_u32_f64,
-  int16: arctan2_i16_f64,
-  uint16: arctan2_u16_f64,
-  int8: arctan2_i8_f64,
-  uint8: arctan2_u8_f64,
+};
+
+// Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
+const smallIntKernels: Partial<Record<DType, BinaryFn>> = {
+  int16: arctan2_i16_f32,
+  uint16: arctan2_u16_f32,
+  int8: arctan2_i8_f32,
+  uint8: arctan2_u8_f32,
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -137,11 +146,50 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
     );
   }
 
-  // Integer path: Zig kernel reads native int type, converts to f64 internally.
-  // Both inputs must be the same promoted dtype for the integer kernel.
-  const intKernel = intBinaryKernels[dtype];
   const inBpe = bpeMap[dtype];
-  if (!intKernel || !inBpe) return null;
+  if (!inBpe) return null;
+
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntKernels[dtype];
+  if (smallKernel) {
+    const outBytes = size * 4; // f32
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
+    const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, inBpe);
+
+    smallKernel(aPtr, bPtr, outRegion.ptr, size);
+
+    // i8/u8 → downcast f32 to f16 (matching NumPy's bool/int8/uint8 → float16)
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8' || dtype === 'bool')) {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    // i16/u16 → f32 output
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntKernels[dtype];
+  if (!largeKernel) return null;
 
   const outRegion = wasmMalloc(size * 8);
   if (!outRegion) return null;
@@ -151,7 +199,7 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
   const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, inBpe);
 
-  intKernel(aPtr, bPtr, outRegion.ptr, size);
+  largeKernel(aPtr, bPtr, outRegion.ptr, size);
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),
