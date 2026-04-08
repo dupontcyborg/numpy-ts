@@ -11,8 +11,10 @@ import {
   hasFloat16,
   isComplexDType,
   isFloatDType,
+  promoteDTypes,
   throwIfComplex,
   TypedArray,
+  type DType,
 } from '../dtype';
 import { wasmCorrelate } from '../wasm/correlate';
 import { wasmConvolve } from '../wasm/convolve';
@@ -771,9 +773,10 @@ export function correlate(
     }
   }
 
-  // Real arrays — JS fallback
-  const fullStorage = ArrayStorage.empty([fullLen], 'float64');
-  const fullResult = fullStorage.data as Float64Array;
+  // Real arrays — JS fallback (preserve input dtype, matching NumPy)
+  const outDtype = promoteDTypes(a.dtype as DType, v.dtype as DType);
+  const fullStorage = ArrayStorage.empty([fullLen], outDtype);
+  const fullResult = fullStorage.data;
 
   for (let k = 0; k < fullLen; k++) {
     let sum = 0;
@@ -794,8 +797,8 @@ export function correlate(
     return fullStorage;
   } else if (mode === 'same') {
     const start = Math.floor((fullLen - aLen) / 2);
-    const sameStorage = ArrayStorage.empty([aLen], 'float64');
-    const result = sameStorage.data as Float64Array;
+    const sameStorage = ArrayStorage.empty([aLen], outDtype);
+    const result = sameStorage.data;
     for (let i = 0; i < aLen; i++) {
       result[i] = fullResult[start + i]!;
     }
@@ -804,8 +807,8 @@ export function correlate(
   } else {
     const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
     const start = Math.min(aLen, vLen) - 1;
-    const validStorage = ArrayStorage.empty([validLen], 'float64');
-    const result = validStorage.data as Float64Array;
+    const validStorage = ArrayStorage.empty([validLen], outDtype);
+    const result = validStorage.data;
     for (let i = 0; i < validLen; i++) {
       result[i] = fullResult[start + i]!;
     }
@@ -870,11 +873,12 @@ export function convolve(
     }
     vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], v.dtype);
   } else {
-    const vReversed = new Float64Array(vLen);
+    // Preserve dtype for reversed v so correlate output matches input dtype
+    vReversedStorage = ArrayStorage.empty([vLen], v.dtype);
+    const vRevData = vReversedStorage.data;
     for (let i = 0; i < vLen; i++) {
-      vReversed[i] = Number(vData[vLen - 1 - i]);
+      vRevData[i] = vData[vLen - 1 - i]!;
     }
-    vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], 'float64');
   }
 
   // For convolution, we need correlation without conjugation
