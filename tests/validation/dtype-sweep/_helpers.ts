@@ -9,6 +9,19 @@ import {
   checkNumPyAvailable as _checkNumPyAvailable,
   type NumPyResult,
 } from '../numpy-oracle';
+import { wasmConfig } from '../../../src/common/wasm/config';
+
+// Force JS or WASM backend via FORCE_BACKEND env var.
+// 'js' → thresholdMultiplier=Infinity (all JS), 'wasm' → 0 (all WASM), unset → auto.
+const forcedBackend = process.env.FORCE_BACKEND as 'js' | 'wasm' | undefined;
+if (forcedBackend === 'js') {
+  wasmConfig.thresholdMultiplier = Infinity;
+} else if (forcedBackend === 'wasm') {
+  wasmConfig.thresholdMultiplier = 0;
+}
+
+/** Label for the active backend — use in describe() blocks for clear failure output. */
+export const BACKEND: string = forcedBackend ?? 'auto';
 
 export { ALL_DTYPES } from './_dtype-matrix';
 export const runNumPy = _runNumPy;
