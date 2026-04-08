@@ -210,6 +210,56 @@ export fn rfft_batch_scratch_size(n: u32) u32 {
     return 6 * n;
 }
 
+/// Batched real-to-complex FFT for f32 (computed in f64).
+/// Input: f32 real data, output: f32 interleaved complex.
+/// Scratch must hold conversion buffers + rfft scratch.
+export fn rfft_batch_f32(inp: [*]const f32, out: [*]f32, scratch: [*]f64, n: u32, batch: u32, in_stride: u32, out_stride: u32) void {
+    const N = @as(usize, n);
+    const B = @as(usize, batch);
+    const istr = @as(usize, in_stride);
+    const ostr = @as(usize, out_stride);
+    const half_n = N / 2 + 1;
+
+    // Layout: in_f64[B*N] | out_f64[B*half_n*2] | rfft_scratch
+    const in_f64 = scratch;
+    const out_f64 = scratch + B * N;
+    const rfft_scratch = out_f64 + B * half_n * 2;
+
+    // Convert f32 → f64 (respecting strides)
+    for (0..B) |b| {
+        for (0..N) |j| in_f64[b * N + j] = @as(f64, inp[b * istr + j]);
+    }
+    rfft_batch_f64(in_f64, out_f64, rfft_scratch, n, batch, @intCast(N), @intCast(half_n * 2));
+    // Convert f64 → f32 (respecting output strides)
+    for (0..B) |b| {
+        for (0..half_n * 2) |j| out[b * ostr + j] = @as(f32, @floatCast(out_f64[b * half_n * 2 + j]));
+    }
+}
+
+/// Batched complex-to-real inverse FFT for f32 (computed in f64).
+/// Input: f32 interleaved complex, output: f32 real.
+export fn irfft_batch_f32(inp: [*]const f32, out: [*]f32, scratch: [*]f64, n_out: u32, batch: u32, in_stride: u32, out_stride: u32) void {
+    const N = @as(usize, n_out);
+    const B = @as(usize, batch);
+    const istr = @as(usize, in_stride);
+    const ostr = @as(usize, out_stride);
+
+    // Layout: in_f64[B*istr] | out_f64[B*N] | irfft_scratch
+    const in_f64 = scratch;
+    const out_f64 = scratch + B * istr;
+    const irfft_scratch = out_f64 + B * N;
+
+    // Convert f32 → f64
+    for (0..B) |b| {
+        for (0..istr) |j| in_f64[b * istr + j] = @as(f64, inp[b * istr + j]);
+    }
+    irfft_batch_f64(in_f64, out_f64, irfft_scratch, n_out, batch, @intCast(istr), @intCast(N));
+    // Convert f64 → f32
+    for (0..B) |b| {
+        for (0..N) |j| out[b * ostr + j] = @as(f32, @floatCast(out_f64[b * N + j]));
+    }
+}
+
 /// Fused 3D inverse real FFT: input [d0, d1, d2_half] complex128 → output [d0, d1, d2_out] float64.
 /// Performs: batch irfft(last axis) → pack to complex → 2D ifft(axes 0,1) → extract real.
 export fn irfftn_3d(inp: [*]const f64, out: [*]f64, scratch: [*]f64, d0: u32, d1: u32, d2_half: u32, d2_out: u32) void {

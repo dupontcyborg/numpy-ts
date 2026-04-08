@@ -1932,13 +1932,16 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
     return a;
   };
 
+  // NumPy preserves the promoted integer dtype
+  const outDtype = typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype);
+
   if (typeof x2 === 'number') {
     // Try WASM scalar path
     const wasmResult = wasmGcdScalar(x1, x2);
     if (wasmResult) return wasmResult;
 
-    const result = ArrayStorage.empty(Array.from(x1.shape), 'int32');
-    const resultData = result.data as Int32Array;
+    const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
+    const resultData = result.data;
     const size = x1.size;
     const x2Int = Math.abs(Math.trunc(x2));
 
@@ -1970,23 +1973,35 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
     if (wasmResult) return wasmResult;
   }
 
-  // Array case - use elementwiseBinaryOp then convert to int32
-  const tempResult = elementwiseBinaryOp(x1, x2, gcdSingle, 'gcd');
+  // Array case — compute gcd preserving promoted dtype
+  const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
+  const resultData = result.data;
+  const size = x1.size;
 
-  // Convert result to int32
-  const result = ArrayStorage.empty(Array.from(tempResult.shape), 'int32');
-  const resultData = result.data as Int32Array;
-  const tempSize = tempResult.size;
-
-  if (tempResult.isCContiguous) {
-    const tempData = tempResult.data;
-    const tempOff = tempResult.offset;
-    for (let i = 0; i < tempSize; i++) {
-      resultData[i] = Math.round(Number(tempData[tempOff + i]!));
+  if (isBigIntDType(outDtype)) {
+    const gcdBig = (a: bigint, b: bigint): bigint => {
+      a = a < 0n ? -a : a;
+      b = b < 0n ? -b : b;
+      while (b !== 0n) {
+        const t = b;
+        b = a % b;
+        a = t;
+      }
+      return a;
+    };
+    const x1Data = x1.data as BigInt64Array | BigUint64Array;
+    const x2Data = (x2 as ArrayStorage).data as BigInt64Array | BigUint64Array;
+    const x1Off = x1.offset;
+    const x2Off = (x2 as ArrayStorage).offset;
+    for (let i = 0; i < size; i++) {
+      (resultData as BigInt64Array | BigUint64Array)[i] = gcdBig(
+        x1Data[x1Off + i]!,
+        x2Data[x2Off + i]!
+      );
     }
   } else {
-    for (let i = 0; i < tempSize; i++) {
-      resultData[i] = Math.round(Number(tempResult.iget(i)));
+    for (let i = 0; i < size; i++) {
+      resultData[i] = gcdSingle(Number(x1.iget(i)), Number((x2 as ArrayStorage).iget(i)));
     }
   }
 
@@ -2032,52 +2047,61 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
     return (a * b) / gcdSingle(a, b);
   };
 
+  // NumPy preserves the promoted integer dtype
+  const outDtype = typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype);
+
   if (typeof x2 === 'number') {
-    const result = ArrayStorage.empty(Array.from(x1.shape), 'int32');
-    const resultData = result.data as Int32Array;
+    const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
+    const resultData = result.data;
     const size = x1.size;
     const x2Int = Math.abs(Math.trunc(x2));
 
-    if (x1.isCContiguous) {
-      const x1Data = x1.data;
-      const x1Off = x1.offset;
-      for (let i = 0; i < size; i++) {
-        resultData[i] = lcmSingle(Number(x1Data[x1Off + i]!), x2Int);
-      }
-    } else {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = lcmSingle(Number(x1.iget(i)), x2Int);
-      }
+    for (let i = 0; i < size; i++) {
+      resultData[i] = lcmSingle(Number(x1.iget(i)), x2Int);
     }
 
     return result;
   }
 
-  // Array case - use elementwiseBinaryOp then convert to int32
-  const tempResult = elementwiseBinaryOp(x1, x2, lcmSingle, 'lcm');
+  // Array case — compute lcm preserving promoted dtype
+  const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
+  const resultData = result.data;
+  const size = x1.size;
 
-  try {
-    // Convert result to int32
-    const result = ArrayStorage.empty(Array.from(tempResult.shape), 'int32');
-    const resultData = result.data as Int32Array;
-    const tempSize = tempResult.size;
-
-    if (tempResult.isCContiguous) {
-      const tempData = tempResult.data;
-      const tempOff = tempResult.offset;
-      for (let i = 0; i < tempSize; i++) {
-        resultData[i] = Math.round(Number(tempData[tempOff + i]!));
+  if (isBigIntDType(outDtype)) {
+    const gcdBig = (a: bigint, b: bigint): bigint => {
+      a = a < 0n ? -a : a;
+      b = b < 0n ? -b : b;
+      while (b !== 0n) {
+        const t = b;
+        b = a % b;
+        a = t;
       }
-    } else {
-      for (let i = 0; i < tempSize; i++) {
-        resultData[i] = Math.round(Number(tempResult.iget(i)));
-      }
+      return a;
+    };
+    const lcmBig = (a: bigint, b: bigint): bigint => {
+      a = a < 0n ? -a : a;
+      b = b < 0n ? -b : b;
+      if (a === 0n || b === 0n) return 0n;
+      return (a * b) / gcdBig(a, b);
+    };
+    const x1Data = x1.data as BigInt64Array | BigUint64Array;
+    const x2Data = x2.data as BigInt64Array | BigUint64Array;
+    const x1Off = x1.offset;
+    const x2Off = x2.offset;
+    for (let i = 0; i < size; i++) {
+      (resultData as BigInt64Array | BigUint64Array)[i] = lcmBig(
+        x1Data[x1Off + i]!,
+        x2Data[x2Off + i]!
+      );
     }
-
-    return result;
-  } finally {
-    tempResult.dispose();
+  } else {
+    for (let i = 0; i < size; i++) {
+      resultData[i] = lcmSingle(Number(x1.iget(i)), Number(x2.iget(i)));
+    }
   }
+
+  return result;
 }
 
 /**
@@ -2842,7 +2866,8 @@ export function sinc(x: ArrayStorage): ArrayStorage {
 
   const shape = Array.from(x.shape);
   const size = x.size;
-  const resultDtype = mathResultDtype(x.dtype);
+  // NumPy: sinc preserves float32, all other types → float64
+  const resultDtype = x.dtype === 'float32' ? 'float32' : 'float64';
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
   const xData = x.data;
@@ -2873,7 +2898,8 @@ export function i0(x: ArrayStorage): ArrayStorage {
 
   const shape = Array.from(x.shape);
   const size = x.size;
-  const resultDtype = mathResultDtype(x.dtype);
+  // NumPy: i0 preserves float32, all other types → float64
+  const resultDtype = x.dtype === 'float32' ? 'float32' : 'float64';
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
   const xData = x.data;

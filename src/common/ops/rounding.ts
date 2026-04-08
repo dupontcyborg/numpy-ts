@@ -162,14 +162,13 @@ export function floor(a: ArrayStorage): ArrayStorage {
  */
 export function rint(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'rint', 'Rounding is not defined for complex numbers.');
-  if (isIntegerDType(a.dtype)) return a.copy();
-  // NumPy: rint(bool) → float16 (via mathResultDtype); values 0/1 stay 0.0/1.0
-  if (a.dtype === 'bool') {
-    const dt = mathResultDtype('bool');
+  // NumPy: rint promotes ints/bool via mathResultDtype (values stay the same, just cast)
+  if (isIntegerDType(a.dtype) || a.dtype === 'bool') {
+    const dt = mathResultDtype(a.dtype);
     const r = ArrayStorage.empty(Array.from(a.shape), dt);
-    const src = a.data as Uint8Array;
+    const src = a.data;
     const off = a.offset;
-    for (let i = 0; i < a.size; i++) r.data[i] = src[off + i]!;
+    for (let i = 0; i < a.size; i++) r.data[i] = Number(src[off + i]!);
     return r;
   }
   const dtype = a.dtype;

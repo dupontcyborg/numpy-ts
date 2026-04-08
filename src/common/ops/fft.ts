@@ -684,11 +684,12 @@ function wasmBatchRfft(a: ArrayStorage, n: number): ArrayStorage | null {
   const inStride = n;
   const outStride = outLen * 2;
 
-  let srcData: Float64Array;
+  let srcData: Float64Array | Float32Array;
   if (a.dtype === 'float64') {
     srcData = a.data as Float64Array;
+  } else if (a.dtype === 'float32') {
+    srcData = a.data as Float32Array;
   } else if (a.dtype === 'int64' || a.dtype === 'uint64') {
-    // BigInt arrays need explicit conversion
     const bigData = a.data as BigInt64Array | BigUint64Array;
     srcData = new Float64Array(a.size);
     for (let i = 0; i < a.size; i++) srcData[i] = Number(bigData[a.offset + i]!);
@@ -720,14 +721,26 @@ function wasmBatchIrfft(a: ArrayStorage, nOut: number): ArrayStorage | null {
   const outStride = nOut;
 
   const cplx = toComplex(a);
-  const srcData = cplx.data as Float64Array;
+  const isC64 = cplx.dtype === 'complex64';
+  const outDtype: DType = isC64 ? 'float32' : 'float64';
+
+  // complex64 WASM-backed data may be Float64Array view — extract to proper Float32Array
+  let srcData: Float64Array | Float32Array;
+  if (isC64 && !(cplx.data instanceof Float32Array)) {
+    const len = cplx.size * 2;
+    srcData = new Float32Array(len);
+    const src = cplx.data;
+    for (let i = 0; i < len; i++) srcData[i] = Number(src[i]!);
+  } else {
+    srcData = cplx.data as Float64Array | Float32Array;
+  }
 
   const outData = wasmIrfftBatch(srcData, nHalf, nOut, batch, inStride, outStride);
   if (!outData) return null;
 
   const outShape = [...shape];
   outShape[ndim - 1] = nOut;
-  return ArrayStorage.fromData(outData, outShape, 'float64');
+  return ArrayStorage.fromData(outData, outShape, outDtype);
 }
 
 function fft1dAlongAxis(
@@ -1080,7 +1093,10 @@ export function rfft2(
       }
       const outData = wasmRfft2(inputData, rows, cols);
       if (outData) {
-        return ArrayStorage.fromData(outData, [rows, halfCols], fftResultDtype(a.dtype as DType));
+        const cDtype = fftResultDtype(a.dtype as DType);
+        // wasmRfft2 returns Float64Array; convert to Float32Array for complex64
+        const typedOut = cDtype === 'complex64' ? Float32Array.from(outData) : outData;
+        return ArrayStorage.fromData(typedOut, [rows, halfCols], cDtype);
       }
     }
   }
@@ -1129,10 +1145,21 @@ export function irfft2(
       rows >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier &&
       outLen1 >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
     ) {
-      const inputData = (a.data as Float64Array).subarray(a.offset, a.offset + rows * colsHalf * 2);
+      const inLen = rows * colsHalf * 2;
+      let inputData: Float64Array | Float32Array;
+      if (a.dtype === 'complex64') {
+        // complex64 WASM-backed data may be Float64Array view — extract to proper Float32Array
+        inputData = new Float32Array(inLen);
+        const src = a.data;
+        const off = a.offset;
+        for (let i = 0; i < inLen; i++) inputData[i] = Number(src[off + i]!);
+      } else {
+        inputData = (a.data as Float64Array).subarray(a.offset, a.offset + inLen);
+      }
       const outData = wasmIrfft2(inputData, rows, colsHalf, outLen1);
       if (outData) {
-        return ArrayStorage.fromData(outData, [rows, outLen1], 'float64');
+        const outDtype: DType = a.dtype === 'complex64' ? 'float32' : 'float64';
+        return ArrayStorage.fromData(outData, [rows, outLen1], outDtype);
       }
     }
   }

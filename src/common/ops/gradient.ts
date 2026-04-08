@@ -169,7 +169,7 @@ export function ediff1d(
   const flatSize = ary.size;
   const dtype = ary.dtype;
   const isComplex = isComplexDType(dtype);
-  const resultDtype = isBigIntDType(dtype) ? 'float64' : dtype;
+  const resultDtype = dtype;
 
   // Calculate result size
   const diffSize = Math.max(0, flatSize - 1);
@@ -207,10 +207,17 @@ export function ediff1d(
       idx++;
     }
   } else {
-    for (let i = 0; i < diffSize; i++) {
-      const val1 = isBigIntDType(dtype) ? Number(ary.iget(i)) : Number(ary.iget(i));
-      const val2 = isBigIntDType(dtype) ? Number(ary.iget(i + 1)) : Number(ary.iget(i + 1));
-      resultData[idx++] = val2 - val1;
+    if (isBigIntDType(dtype)) {
+      const bigData = ary.data as BigInt64Array | BigUint64Array;
+      const off = ary.offset;
+      for (let i = 0; i < diffSize; i++) {
+        (resultData as BigInt64Array | BigUint64Array)[idx++] =
+          bigData[off + i + 1]! - bigData[off + i]!;
+      }
+    } else {
+      for (let i = 0; i < diffSize; i++) {
+        resultData[idx++] = Number(ary.iget(i + 1)) - Number(ary.iget(i));
+      }
     }
   }
 
