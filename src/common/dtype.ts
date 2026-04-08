@@ -489,6 +489,37 @@ export function promoteDTypes(dtype1: DType, dtype2: DType): DType {
   // Fallback (shouldn't reach here if logic above is complete)
   return 'float64';
 }
+
+// ─── Unary / reduction result-dtype rules (NumPy 2.x) ───────────────────────
+
+/**
+ * Result dtype for unary math functions (sin, cos, sqrt, exp, log, etc.).
+ * Maps input dtype to the "minimum float" that can represent it.
+ *
+ * bool/int8/uint8  → float16 (if available, else float32)
+ * int16/uint16     → float32
+ * int32+/uint32+   → float64
+ * float/complex    → same dtype (preserved)
+ */
+export function mathResultDtype(inputDtype: DType): DType {
+  switch (inputDtype) {
+    case 'bool':
+    case 'int8':
+    case 'uint8':
+      return hasFloat16 ? 'float16' : 'float32';
+    case 'int16':
+    case 'uint16':
+      return 'float32';
+    case 'int32':
+    case 'uint32':
+    case 'int64':
+    case 'uint64':
+      return 'float64';
+    default:
+      return inputDtype; // float16/32/64, complex64/128 preserved
+  }
+}
+
 /**
  * Result dtype for bool inputs in arithmetic ops that promote bool → int8.
  * Used by: power, mod, floor_divide, remainder, square.
@@ -498,6 +529,47 @@ export function boolArithmeticDtype(inputDtype: DType): DType {
 }
 
 /**
+ * Result dtype for reduction accumulation (sum, prod, cumsum, cumprod).
+ * NumPy accumulates small integers in wider types to prevent overflow.
+ *
+ * bool/int8/int16/int32  → int64
+ * uint8/uint16/uint32    → uint64
+ * int64/uint64           → same
+ * float/complex          → same
+ */
+export function reductionAccumDtype(inputDtype: DType): DType {
+  switch (inputDtype) {
+    case 'bool':
+    case 'int8':
+    case 'int16':
+    case 'int32':
+      return 'int64';
+    case 'uint8':
+    case 'uint16':
+    case 'uint32':
+      return 'uint64';
+    default:
+      return inputDtype;
+  }
+}
+
+/**
+ * Result dtype for FFT functions.
+ * float32 → complex64, everything else → complex128.
+ */
+export function fftResultDtype(inputDtype: DType): DType {
+  if (inputDtype === 'float32' || inputDtype === 'complex64') return 'complex64';
+  return 'complex128';
+}
+
+/**
+ * Result dtype for real-output FFT functions (hfft).
+ * float32/complex64 → float32, everything else → float64.
+ */
+export function fftRealResultDtype(inputDtype: DType): DType {
+  if (inputDtype === 'float32' || inputDtype === 'complex64') return 'float32';
+  return 'float64';
+}
 
 /**
  * Validate dtype string

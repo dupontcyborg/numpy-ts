@@ -422,8 +422,24 @@ export class NDArrayCore {
       const newData = new Constructor(size);
       const oldData = this.data as Float64Array | Float32Array;
       if (isBigIntDType(dtype)) {
+        const isSigned = dtype === 'int64';
         for (let i = 0; i < size; i++) {
-          (newData as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(oldData[i * 2]!));
+          const v = Math.trunc(oldData[i * 2]!);
+          if (isNaN(v) || (!isSigned && v < 0)) {
+            (newData as BigInt64Array | BigUint64Array)[i] = 0n;
+          } else {
+            (newData as BigInt64Array | BigUint64Array)[i] = BigInt(v);
+          }
+        }
+      } else if (dtype === 'bool') {
+        for (let i = 0; i < size; i++) {
+          (newData as Uint8Array)[i] = oldData[i * 2]! !== 0 ? 1 : 0;
+        }
+      } else if (dtype === 'uint32') {
+        // Complex → uint32: NumPy clamps negatives/NaN to 0
+        for (let i = 0; i < size; i++) {
+          const v = oldData[i * 2]!;
+          (newData as Uint32Array)[i] = isNaN(v) || v < 0 ? 0 : v;
         }
       } else {
         for (let i = 0; i < size; i++) {
