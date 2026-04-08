@@ -559,10 +559,10 @@ result = np.reciprocal(np.array([[1.0, 2.0], [4.0, 5.0]]))
       it('matches NumPy dtype promotion for integers', () => {
         const jsResult = reciprocal(array([2, 4, 8], 'int32'));
         const pyResult = runNumPy(`
-result = np.reciprocal(np.array([2.0, 4.0, 8.0]))
+result = np.reciprocal(np.array([2, 4, 8], dtype=np.int32))
         `);
 
-        expect(jsResult.dtype).toBe('float64'); // Promoted to float64
+        expect(jsResult.dtype).toBe('int32'); // NumPy preserves int32 (integer division)
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
 

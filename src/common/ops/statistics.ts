@@ -9,6 +9,7 @@ import { ArrayStorage } from '../storage';
 import {
   getTypedArrayConstructor,
   hasFloat16,
+  isBigIntDType,
   isComplexDType,
   isFloatDType,
   promoteDTypes,
@@ -778,18 +779,33 @@ export function correlate(
   const fullStorage = ArrayStorage.empty([fullLen], outDtype);
   const fullResult = fullStorage.data;
 
-  for (let k = 0; k < fullLen; k++) {
-    let sum = 0;
-    const offset = k - vLen + 1;
-
-    for (let n = 0; n < aLen; n++) {
-      const vIdx = n - offset;
-      if (vIdx >= 0 && vIdx < vLen) {
-        sum += Number(aData[n]) * Number(vData[vIdx]);
+  if (isBigIntDType(outDtype)) {
+    const aBig = aData as BigInt64Array | BigUint64Array;
+    const vBig = vData as BigInt64Array | BigUint64Array;
+    const out = fullResult as BigInt64Array | BigUint64Array;
+    for (let k = 0; k < fullLen; k++) {
+      let sum = 0n;
+      const offset = k - vLen + 1;
+      for (let n = 0; n < aLen; n++) {
+        const vIdx = n - offset;
+        if (vIdx >= 0 && vIdx < vLen) {
+          sum += aBig[n]! * vBig[vIdx]!;
+        }
       }
+      out[k] = sum;
     }
-
-    fullResult[k] = sum;
+  } else {
+    for (let k = 0; k < fullLen; k++) {
+      let sum = 0;
+      const offset = k - vLen + 1;
+      for (let n = 0; n < aLen; n++) {
+        const vIdx = n - offset;
+        if (vIdx >= 0 && vIdx < vLen) {
+          sum += Number(aData[n]) * Number(vData[vIdx]);
+        }
+      }
+      fullResult[k] = sum;
+    }
   }
 
   // Return based on mode

@@ -1017,9 +1017,9 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
     // Sort using lexicographic comparison
     values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
 
-    // Create result (1D sorted array with complex128 dtype)
-    const result = ArrayStorage.zeros([size], 'complex128');
-    const resultData = result.data as Float64Array;
+    // Create result preserving complex dtype
+    const result = ArrayStorage.zeros([size], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
     for (let i = 0; i < size; i++) {
       resultData[i * 2] = values[i]!.re;
       resultData[i * 2 + 1] = values[i]!.im;
@@ -1047,9 +1047,11 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
       return a - b;
     });
 
-    // Create result as complex128 (NumPy always returns complex)
-    const result = ArrayStorage.zeros([size], 'complex128');
-    const resultData = result.data as Float64Array;
+    // NumPy sort_complex: small ints (≤16-bit) → complex64, everything else → complex128
+    const smallInts = new Set(['int8', 'uint8', 'int16', 'uint16']);
+    const cDtype = smallInts.has(dtype) ? ('complex64' as const) : ('complex128' as const);
+    const result = ArrayStorage.zeros([size], cDtype);
+    const resultData = result.data as Float64Array | Float32Array;
     for (let i = 0; i < size; i++) {
       resultData[i * 2] = values[i]!;
       resultData[i * 2 + 1] = 0;

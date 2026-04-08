@@ -72,7 +72,8 @@ import numpy as np
 result = np.cumsum(np.array([32000, 1000, 1000], dtype=np.int16)).tolist()
       `);
 
-      expect(r.tolist()).toEqual(npResult.value);
+      // cumsum promotes int16→int64 (BigInt); compare as numbers
+      expect(r.tolist().map(Number)).toEqual(npResult.value);
     });
 
     it('int32 sum promotes to avoid overflow', () => {

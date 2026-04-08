@@ -485,13 +485,13 @@ result = {'mantissa': mantissa.tolist(), 'exponent': exponent.tolist()}
 
     describe('gcd()', () => {
       it('validates gcd() with arrays', () => {
-        const a = array([12, 18, 24]);
-        const b = array([8, 12, 16]);
+        const a = array([12, 18, 24], 'int32');
+        const b = array([8, 12, 16], 'int32');
         const result = gcd(a, b);
 
         const npResult = runNumPy(`
-a = np.array([12, 18, 24])
-b = np.array([8, 12, 16])
+a = np.array([12, 18, 24], dtype=np.int32)
+b = np.array([8, 12, 16], dtype=np.int32)
 result = np.gcd(a, b)
 `);
 
@@ -500,11 +500,11 @@ result = np.gcd(a, b)
       });
 
       it('validates gcd() with scalar', () => {
-        const arr = array([12, 18, 24]);
+        const arr = array([12, 18, 24], 'int32');
         const result = gcd(arr, 6);
 
         const npResult = runNumPy(`
-arr = np.array([12, 18, 24])
+arr = np.array([12, 18, 24], dtype=np.int32)
 result = np.gcd(arr, 6)
 `);
 
@@ -514,13 +514,13 @@ result = np.gcd(arr, 6)
 
     describe('lcm()', () => {
       it('validates lcm() with arrays', () => {
-        const a = array([12, 18, 24]);
-        const b = array([8, 12, 16]);
+        const a = array([12, 18, 24], 'int32');
+        const b = array([8, 12, 16], 'int32');
         const result = lcm(a, b);
 
         const npResult = runNumPy(`
-a = np.array([12, 18, 24])
-b = np.array([8, 12, 16])
+a = np.array([12, 18, 24], dtype=np.int32)
+b = np.array([8, 12, 16], dtype=np.int32)
 result = np.lcm(a, b)
 `);
 
@@ -529,11 +529,11 @@ result = np.lcm(a, b)
       });
 
       it('validates lcm() with scalar', () => {
-        const arr = array([4, 6, 8]);
+        const arr = array([4, 6, 8], 'int32');
         const result = lcm(arr, 3);
 
         const npResult = runNumPy(`
-arr = np.array([4, 6, 8])
+arr = np.array([4, 6, 8], dtype=np.int32)
 result = np.lcm(arr, 3)
 `);
 

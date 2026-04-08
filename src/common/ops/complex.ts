@@ -8,7 +8,7 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { isComplexDType, getComplexComponentDType, type DType } from '../dtype';
+import { isComplexDType, getComplexComponentDType, mathResultDtype, type DType } from '../dtype';
 import { Complex } from '../complex';
 
 /**
@@ -135,8 +135,12 @@ export function angle(a: ArrayStorage, deg: boolean = false): ArrayStorage {
   const shape = Array.from(a.shape);
   const size = a.size;
 
-  // Result dtype: complex64/float32→float32, else float64
-  const resultDtype: DType = dtype === 'complex64' || dtype === 'float32' ? 'float32' : 'float64';
+  // complex → float component dtype, real → mathResultDtype (except bool → float64)
+  const resultDtype: DType = isComplexDType(dtype)
+    ? getComplexComponentDType(dtype)
+    : dtype === 'bool'
+      ? 'float64'
+      : mathResultDtype(dtype);
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data as Float64Array | Float32Array;
 

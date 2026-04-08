@@ -1564,8 +1564,7 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   const shape = Array.from(x1.shape);
   const size = x1.size;
 
-  // Result is always float64 (or float32/float16 if input is float32/float16)
-  const resultDtype = dtype === 'float32' ? 'float32' : dtype === 'float16' ? 'float16' : 'float64';
+  const resultDtype = mathResultDtype(dtype);
 
   // Promote input to result dtype for WASM and fast paths
   const x1Float =
@@ -1584,7 +1583,11 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   try {
     if (typeof x2 === 'number') {
       // Try WASM scalar path
-      const wasmResult = wasmHeavisideScalar(x1Float, x2, resultDtype);
+      const wasmResult = wasmHeavisideScalar(
+        x1Float,
+        x2,
+        resultDtype as 'float64' | 'float32' | 'float16'
+      );
       if (wasmResult) return wasmResult;
 
       // Scalar x2 — use direct data access for contiguous
@@ -1618,7 +1621,11 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
         // Simple case: same shape
         if (shape.every((d, i) => d === x2Shape[i])) {
           // Try WASM binary path
-          const wasmResult = wasmHeaviside(x1Float, x2Float, resultDtype);
+          const wasmResult = wasmHeaviside(
+            x1Float,
+            x2Float,
+            resultDtype as 'float64' | 'float32' | 'float16'
+          );
           if (wasmResult) return wasmResult;
 
           const result = ArrayStorage.empty(shape, resultDtype);
@@ -1860,8 +1867,7 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
   const wasmResult = wasmFrexp(x);
   if (wasmResult) return wasmResult;
 
-  const mantissaDtype =
-    x.dtype === 'float32' ? 'float32' : x.dtype === 'float16' ? 'float16' : 'float64';
+  const mantissaDtype = mathResultDtype(x.dtype);
   const mantissa = ArrayStorage.empty(Array.from(x.shape), mantissaDtype);
   const exponent = ArrayStorage.empty(Array.from(x.shape), 'int32');
   const mantissaData = mantissa.data;
@@ -2129,9 +2135,7 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
     }
   }
   if (typeof x2 === 'number') {
-    // Promote to float for WASM
-    const resultDtype =
-      x1.dtype === 'float32' ? 'float32' : x1.dtype === 'float16' ? 'float16' : 'float64';
+    const resultDtype = mathResultDtype(x1.dtype);
     const x1Float =
       x1.dtype === resultDtype
         ? x1
@@ -2168,8 +2172,7 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
   }
 
   // Array x2: output dtype follows x1 only (not standard binary promotion)
-  const resultDtype =
-    x1.dtype === 'float32' ? 'float32' : x1.dtype === 'float16' ? 'float16' : 'float64';
+  const resultDtype = mathResultDtype(x1.dtype);
   const result = ArrayStorage.empty(Array.from(x1.shape), resultDtype);
   const resultData = result.data;
   const size = x1.size;
