@@ -1,17 +1,19 @@
 /**
  * DType Sweep: Shape manipulation functions.
  * Structural tests — validates shape/dtype preservation across ALL dtypes.
+ * Oracle tests use batched oracle for roll, flip, rot90.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as np from '../../../src';
 import {
   ALL_DTYPES,
-  runNumPy,
-  arraysClose,
+  runNumPyBatch,
   checkNumPyAvailable,
   npDtype,
   isComplex,
+  expectMatchPre,
 } from './_helpers';
+import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -21,8 +23,38 @@ const SMALL_2D = [
   [4, 5, 6],
 ];
 
+// Pre-computed oracle results — filled in beforeAll
+let oracle: Map<string, NumPyResult & { error?: string }>;
+
 beforeAll(() => {
   if (!checkNumPyAvailable()) throw new Error('Python NumPy not available');
+
+  const snippets: Record<string, string> = {};
+
+  for (const dtype of ALL_DTYPES) {
+    const d = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
+    const data2d =
+      dtype === 'bool'
+        ? [
+            [1, 0, 1],
+            [0, 1, 0],
+          ]
+        : SMALL_2D;
+
+    snippets[`shape_roll_${dtype}`] =
+      `_result_orig = np.roll(np.array(${JSON.stringify(d)}, dtype=${npDtype(dtype)}), 1)
+result = _result_orig.astype(np.float64)`;
+
+    snippets[`shape_flip_${dtype}`] =
+      `_result_orig = np.flip(np.array(${JSON.stringify(d)}, dtype=${npDtype(dtype)}))
+result = _result_orig.astype(np.float64)`;
+
+    snippets[`shape_rot90_${dtype}`] =
+      `_result_orig = np.rot90(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)}))
+result = _result_orig.astype(np.float64)`;
+  }
+
+  oracle = runNumPyBatch(snippets);
 });
 
 describe('DType Sweep: Shape manipulation', () => {
@@ -73,19 +105,13 @@ describe('DType Sweep: Shape manipulation', () => {
     it(`roll ${dtype}`, () => {
       const d = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
       const jsResult = np.roll(array(d, dtype), 1);
-      const pyResult = runNumPy(
-        `result = np.roll(np.array(${JSON.stringify(d)}, dtype=${npDtype(dtype)}), 1).astype(np.float64)`
-      );
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`shape_roll_${dtype}`)!);
     });
 
     it(`flip ${dtype}`, () => {
       const d = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
       const jsResult = np.flip(array(d, dtype));
-      const pyResult = runNumPy(
-        `result = np.flip(np.array(${JSON.stringify(d)}, dtype=${npDtype(dtype)})).astype(np.float64)`
-      );
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`shape_flip_${dtype}`)!);
     });
 
     it(`squeeze ${dtype}`, () => {
@@ -200,10 +226,7 @@ describe('DType Sweep: Shape manipulation', () => {
 
     it(`rot90 ${dtype}`, () => {
       const jsResult = np.rot90(array(data2d, dtype));
-      const pyResult = runNumPy(
-        `result = np.rot90(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})).astype(np.float64)`
-      );
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`shape_rot90_${dtype}`)!);
     });
 
     it(`moveaxis ${dtype}`, () => {

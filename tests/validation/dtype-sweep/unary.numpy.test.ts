@@ -1,19 +1,116 @@
 /**
  * DType Sweep: Unary element-wise math functions.
  * Tests each function across ALL dtypes, validated against NumPy.
+ * Uses batched oracle — all Python computations run in a single subprocess.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as np from '../../../src';
-import { ALL_DTYPES, runNumPy, arraysClose, checkNumPyAvailable, npDtype, isInt, expectBothReject } from './_helpers';
+import {
+  ALL_DTYPES,
+  checkNumPyAvailable,
+  npDtype,
+  isInt,
+  runNumPyBatch,
+  expectBothReject,
+  expectMatchPre,
+} from './_helpers';
+import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
+const allUnaryOps = [
+  'absolute',
+  'negative',
+  'positive',
+  'sign',
+  'square',
+  'sqrt',
+  'cbrt',
+  'reciprocal',
+  'exp',
+  'exp2',
+  'expm1',
+  'log',
+  'log2',
+  'log10',
+  'log1p',
+  'sin',
+  'cos',
+  'tan',
+  'arcsin',
+  'arccos',
+  'arctan',
+  'sinh',
+  'cosh',
+  'tanh',
+  'arcsinh',
+  'arccosh',
+  'arctanh',
+  'ceil',
+  'floor',
+  'rint',
+  'trunc',
+  'fix',
+  'around',
+  'degrees',
+  'radians',
+  'deg2rad',
+  'rad2deg',
+  'sinc',
+  'fabs',
+  'signbit',
+  'i0',
+  'spacing',
+  'nan_to_num',
+];
+
+let oracle: Map<string, NumPyResult & { error?: string }>;
+
+function getData(name: string, dtype: string): number[] {
+  const needsDomain = ['arcsin', 'arccos', 'arctanh'].includes(name);
+  const needsPositive = ['arccosh', 'log', 'log2', 'log10', 'log1p', 'sqrt', 'i0'].includes(name);
+  return dtype === 'bool'
+    ? [1, 0, 1, 0]
+    : needsDomain
+      ? isInt(dtype)
+        ? [0, 1, 0, 1]
+        : [0.1, 0.5, 0.9, 0.3]
+      : needsPositive
+        ? [1, 2, 3, 4]
+        : [1, 2, 3, 4];
+}
+
 beforeAll(() => {
   if (!checkNumPyAvailable()) throw new Error('Python NumPy not available');
+
+  const snippets: Record<string, string> = {};
+
+  for (const name of allUnaryOps) {
+    for (const dtype of ALL_DTYPES) {
+      const data = getData(name, dtype);
+      snippets[`${name}_${dtype}`] = `
+a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+_result_orig = np.${name}(a)
+result = _result_orig.astype(np.float64)`;
+    }
+  }
+
+  // nextafter snippets
+  for (const dtype of ALL_DTYPES) {
+    const data1 = dtype === 'bool' ? [1, 0] : [1, 2];
+    const data2 = dtype === 'bool' ? [0, 1] : [2, 3];
+    snippets[`nextafter_${dtype}`] = `
+a = np.array(${JSON.stringify(data1)}, dtype=${npDtype(dtype)})
+b = np.array(${JSON.stringify(data2)}, dtype=${npDtype(dtype)})
+_result_orig = np.nextafter(a, b)
+result = _result_orig.astype(np.float64)`;
+  }
+
+  oracle = runNumPyBatch(snippets);
 });
 
 describe('DType Sweep: Unary math', () => {
-  const unaryOps: { name: string; fn: (a: any) => any }[] = [
+  const ops: { name: string; fn: (a: any) => any }[] = [
     { name: 'absolute', fn: np.absolute },
     { name: 'negative', fn: np.negative },
     { name: 'positive', fn: np.positive },
@@ -59,33 +156,29 @@ describe('DType Sweep: Unary math', () => {
     { name: 'nan_to_num', fn: np.nan_to_num },
   ];
 
-  for (const { name, fn } of unaryOps) {
+  for (const { name, fn } of ops) {
     describe(name, () => {
       for (const dtype of ALL_DTYPES) {
         it(`${dtype}`, () => {
-          const needsDomain = ['arcsin', 'arccos', 'arctanh'].includes(name);
-          const needsPositive = ['arccosh', 'log', 'log2', 'log10', 'log1p', 'sqrt', 'i0'].includes(
-            name
-          );
-          const data =
-            dtype === 'bool'
-              ? [1, 0, 1, 0]
-              : needsDomain
-                ? isInt(dtype)
-                  ? [0, 1, 0, 1]
-                  : [0.1, 0.5, 0.9, 0.3]
-                : needsPositive
-                  ? [1, 2, 3, 4]
-                  : [1, 2, 3, 4];
+          const data = getData(name, dtype);
           const a = array(data, dtype);
-          const jsResult = fn(a);
-          const pyResult = runNumPy(`
+          const BOOL_REJECTED = ['negative', 'positive', 'sign'];
+          if (dtype === 'bool' && BOOL_REJECTED.includes(name)) {
+            const pyCode = `
 a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
-result = np.${name}(a).astype(np.float64)
-          `);
+_result_orig = np.${name}(a)
+result = _result_orig.astype(np.float64)`;
+            const _r = expectBothReject(
+              `${name} is not supported for boolean dtype`,
+              () => fn(a),
+              pyCode
+            );
+            if (_r === 'both-reject') return;
+          }
+          const jsResult = fn(a);
           const rtol = dtype === 'float32' ? 1e-2 : 1e-3;
           const atol = dtype === 'float32' ? 1e-5 : 1e-8;
-          expect(arraysClose(jsResult.toArray(), pyResult.value, rtol, atol)).toBe(true);
+          expectMatchPre(jsResult, oracle.get(`${name}_${dtype}`)!, { rtol, atol });
         });
       }
     });
@@ -97,19 +190,21 @@ describe('DType Sweep: Binary-like unary', () => {
     it(`nextafter ${dtype}`, () => {
       const data1 = dtype === 'bool' ? [1, 0] : [1, 2];
       const data2 = dtype === 'bool' ? [0, 1] : [2, 3];
-      const pyCode = `
+      if (dtype.startsWith('complex')) {
+        const pyCode = `
 a = np.array(${JSON.stringify(data1)}, dtype=${npDtype(dtype)})
 b = np.array(${JSON.stringify(data2)}, dtype=${npDtype(dtype)})
-result = np.nextafter(a, b).astype(np.float64)`;
-      // nextafter: only defined for real floating-point — complex rejected by both JS and NumPy
-      if (dtype.startsWith('complex')) {
-        const _r = expectBothReject('nextafter is only defined for real floating-point numbers', () => np.nextafter(array(data1, dtype), array(data2, dtype)), pyCode);
+_result_orig = np.nextafter(a, b)
+result = _result_orig.astype(np.float64)`;
+        const _r = expectBothReject(
+          'nextafter is only defined for real floating-point numbers',
+          () => np.nextafter(array(data1, dtype), array(data2, dtype)),
+          pyCode
+        );
         if (_r === 'both-reject') return;
-        // js-permissive not expected here — nextafter always rejects complex
       }
       const jsResult = np.nextafter(array(data1, dtype), array(data2, dtype));
-      const pyResult = runNumPy(pyCode);
-      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-3)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`nextafter_${dtype}`)!, { rtol: 1e-3 });
     });
   }
 });

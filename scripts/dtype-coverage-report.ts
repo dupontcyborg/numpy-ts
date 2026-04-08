@@ -511,7 +511,12 @@ function parseTestFile(filePath: string): CoverageEntry[] {
     let hasOracle = false;
     let bodyBrace = braceDepth;
     for (let j = i; j < Math.min(i + 30, lines.length); j++) {
-      if (lines[j]!.includes('runNumPy(') || lines[j]!.includes('runNumPy`')) {
+      if (
+        lines[j]!.includes('runNumPy(') ||
+        lines[j]!.includes('runNumPy`') ||
+        lines[j]!.includes('expectMatch') ||
+        lines[j]!.includes('oracle.get(')
+      ) {
         hasOracle = true;
         break;
       }
@@ -629,9 +634,8 @@ function parseOpsPattern(filePath: string): CoverageEntry[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    // Detect start of ops array
+    // Detect start of ops array with { name: '...' } objects
     if (line.match(/const\s+\w+\s*:\s*\{/) && line.includes('name:')) {
-      // Multi-line ops array — collect all names
       const names: string[] = [];
       const startLine = i;
       for (let j = i; j < lines.length; j++) {
@@ -643,14 +647,43 @@ function parseOpsPattern(filePath: string): CoverageEntry[] {
         }
       }
     }
+    // Also detect string arrays: const compOps = ['greater', 'less', ...]
+    const strArrayM = line.match(/const\s+(\w+)\s*=\s*\[/);
+    if (strArrayM && line.includes("'") && !line.includes('name:')) {
+      const names: string[] = [];
+      const startLine = i;
+      for (let j = i; j < lines.length; j++) {
+        const matches = lines[j]!.matchAll(/'(\w[\w.]+)'/g);
+        for (const m of matches) names.push(m[1]!);
+        if (lines[j]!.includes('];') || (j > i && lines[j]!.trim().startsWith(']'))) {
+          if (names.length > 0) {
+            opsArrays.push({ names, startLine, endLine: j });
+          }
+          break;
+        }
+      }
+    }
   }
 
   // For each ops array, find the for-loop that iterates it and the dtype loop inside
+  // Skip for-loops inside beforeAll (snippet builders) — look for ones inside describe blocks
   for (const { names, endLine } of opsArrays) {
     // Look for: for (const { name, fn } of ops) { describe(name, () => { for (const dtype of X) { it(...)
-    for (let j = endLine + 1; j < Math.min(endLine + 10, lines.length); j++) {
-      const forM = lines[j]!.match(/for\s*\(\s*const\s+\{/);
+    for (let j = endLine + 1; j < Math.min(endLine + 150, lines.length); j++) {
+      const trimmed = lines[j]!.trim();
+      const forM = trimmed.match(/for\s*\(\s*const\s+[\w{]/);
       if (forM) {
+        // Skip if this for-loop is inside beforeAll (snippet builder, not test loop)
+        // Heuristic: if the next few lines contain 'snippets[' or don't contain 'describe(' or 'it(', skip
+        let isSnippetLoop = false;
+        for (let peek = j + 1; peek < Math.min(j + 10, lines.length); peek++) {
+          if (lines[peek]!.includes('snippets[') || lines[peek]!.includes('snippets.')) {
+            isSnippetLoop = true;
+            break;
+          }
+        }
+        if (isSnippetLoop) continue;
+
         // Find the dtype loop inside
         for (let k = j + 1; k < Math.min(j + 10, lines.length); k++) {
           const dtypeForM = lines[k]!.match(/for\s*\(\s*const\s+\w+\s+of\s+(\w[\w.]*)\s*\)/);
@@ -731,7 +764,12 @@ function parseOpsPattern(filePath: string): CoverageEntry[] {
     }
   }
 
-  const hasOracleInFile = content.includes('runNumPy(') || content.includes('runNumPy`');
+  const hasOracleInFile =
+    content.includes('runNumPy(') ||
+    content.includes('runNumPy`') ||
+    content.includes('runNumPyBatch(') ||
+    content.includes('expectMatch') ||
+    content.includes('oracle.get(');
 
   for (const { name, dtypes } of opsEntries) {
     for (const dtype of dtypes) {

@@ -1,22 +1,50 @@
 /**
  * DType Sweep: Creation functions.
  * Validates that arrays are created with correct dtype and shape, across ALL dtypes.
+ * Uses batched oracle — all Python computations run in a single subprocess.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as np from '../../../src';
 import {
   ALL_DTYPES,
-  runNumPy,
-  arraysClose,
   checkNumPyAvailable,
   npDtype,
   isComplex,
+  runNumPyBatch,
+  expectBothReject,
+  expectMatchPre,
 } from './_helpers';
+import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
+// Pre-computed oracle results — filled in beforeAll
+let oracle: Map<string, NumPyResult & { error?: string }>;
+
 beforeAll(() => {
   if (!checkNumPyAvailable()) throw new Error('Python NumPy not available');
+
+  const snippets: Record<string, string> = {};
+
+  for (const dtype of ALL_DTYPES) {
+    snippets[`arange_${dtype}`] = `
+_result_orig = np.arange(0, 5, 1, dtype=${npDtype(dtype)})
+result = _result_orig.astype(np.float64)`;
+
+    snippets[`linspace_${dtype}`] = `
+_result_orig = np.linspace(0, 1, 5, dtype=${npDtype(dtype)})
+result = _result_orig.astype(np.float64)`;
+
+    snippets[`logspace_${dtype}`] = `
+_result_orig = np.logspace(0, 2, 5, dtype=${npDtype(dtype)})
+result = _result_orig.astype(np.float64)`;
+
+    snippets[`geomspace_${dtype}`] = `
+_result_orig = np.geomspace(1, 100, 5, dtype=${npDtype(dtype)})
+result = _result_orig.astype(np.float64)`;
+  }
+
+  oracle = runNumPyBatch(snippets);
 });
 
 describe('DType Sweep: Creation', () => {
@@ -70,35 +98,35 @@ describe('DType Sweep: Creation', () => {
     });
 
     it(`arange ${dtype}`, () => {
+      // arange(bool) with length > 2: NumPy rejects
+      if (dtype === 'bool') {
+        const pyCode = `
+_result_orig = np.arange(0, 5, 1, dtype=${npDtype(dtype)})
+result = _result_orig.astype(np.float64)`;
+        const _r = expectBothReject(
+          'arange(bool) with length > 2 not supported by NumPy',
+          () => np.arange(0, 5, 1, dtype),
+          pyCode
+        );
+        if (_r === 'both-reject') return;
+      }
       const jsResult = np.arange(0, 5, 1, dtype);
-      const pyResult = runNumPy(
-        `result = np.arange(0, 5, 1, dtype=${npDtype(dtype)}).astype(np.float64)`
-      );
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`arange_${dtype}`)!);
     });
 
     it(`linspace ${dtype}`, () => {
       const jsResult = np.linspace(0, 1, 5, dtype);
-      const pyResult = runNumPy(
-        `result = np.linspace(0, 1, 5, dtype=${npDtype(dtype)}).astype(np.float64)`
-      );
-      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-4)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`linspace_${dtype}`)!, { rtol: 1e-4 });
     });
 
     it(`logspace ${dtype}`, () => {
       const jsResult = np.logspace(0, 2, 5, undefined, dtype);
-      const pyResult = runNumPy(
-        `result = np.logspace(0, 2, 5, dtype=${npDtype(dtype)}).astype(np.float64)`
-      );
-      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-3)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`logspace_${dtype}`)!, { rtol: 1e-3 });
     });
 
     it(`geomspace ${dtype}`, () => {
       const jsResult = np.geomspace(1, 100, 5, dtype);
-      const pyResult = runNumPy(
-        `result = np.geomspace(1, 100, 5, dtype=${npDtype(dtype)}).astype(np.float64)`
-      );
-      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-3)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`geomspace_${dtype}`)!, { rtol: 1e-3 });
     });
   }
 });

@@ -1,22 +1,77 @@
 /**
  * DType Sweep: Sorting & searching functions.
  * Tests each function across ALL dtypes, validated against NumPy.
+ * Uses batched oracle — all Python computations run in a single subprocess.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as np from '../../../src';
 import {
   ALL_DTYPES,
-  runNumPy,
-  arraysClose,
+  runNumPyBatch,
   checkNumPyAvailable,
   npDtype,
   isComplex,
+  expectMatchPre,
 } from './_helpers';
+import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
+// Pre-computed oracle results — filled in beforeAll
+let oracle: Map<string, NumPyResult & { error?: string }>;
+
 beforeAll(() => {
   if (!checkNumPyAvailable()) throw new Error('Python NumPy not available');
+
+  const snippets: Record<string, string> = {};
+
+  for (const dtype of ALL_DTYPES) {
+    const data = dtype === 'bool' ? [1, 0, 1, 0, 1, 0] : [5, 2, 8, 1, 9, 3];
+
+    snippets[`sort_${dtype}`] = `
+a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+_result_orig = np.sort(a)
+result = _result_orig.astype(np.float64)`;
+
+    snippets[`argsort_${dtype}`] = `
+a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+_result_orig = np.argsort(a)
+result = _result_orig`;
+
+    const sorted = dtype === 'bool' ? [0, 0, 1, 1, 1] : [1, 3, 5, 7, 9];
+    const vals = dtype === 'bool' ? [0, 1] : [2, 4, 6];
+    snippets[`searchsorted_${dtype}`] = `
+a = np.array(${JSON.stringify(sorted)}, dtype=${npDtype(dtype)})
+v = np.array(${JSON.stringify(vals)}, dtype=${npDtype(dtype)})
+_result_orig = np.searchsorted(a, v)
+result = _result_orig`;
+
+    snippets[`partition_${dtype}`] = `
+a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+r = np.partition(a, 2)
+result = np.array([r[2]]).astype(np.float64)`;
+
+    snippets[`argpartition_${dtype}`] = `
+a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+idx = np.argpartition(a, 2)
+result = np.array([a[idx[2]]]).astype(np.float64)`;
+
+    const sortComplexData = isComplex(dtype) ? [3, 1, 2] : dtype === 'bool' ? [1, 0, 1] : [3, 1, 2];
+    snippets[`sort_complex_${dtype}`] = `
+a = np.array(${JSON.stringify(sortComplexData)}, dtype=${npDtype(dtype)})
+_result_orig = np.sort_complex(a)
+result = _result_orig.astype(np.complex128)`;
+
+    const keys1 = dtype === 'bool' ? [1, 0, 1] : [3, 1, 2];
+    const keys2 = dtype === 'bool' ? [0, 1, 0] : [1, 3, 2];
+    snippets[`lexsort_${dtype}`] = `
+k1 = np.array(${JSON.stringify(keys1)}, dtype=${npDtype(dtype)})
+k2 = np.array(${JSON.stringify(keys2)}, dtype=${npDtype(dtype)})
+_result_orig = np.lexsort((k1, k2))
+result = _result_orig`;
+  }
+
+  oracle = runNumPyBatch(snippets);
 });
 
 describe('DType Sweep: Sorting', () => {
@@ -25,80 +80,48 @@ describe('DType Sweep: Sorting', () => {
 
     it(`sort ${dtype}`, () => {
       const jsResult = np.sort(array(data, dtype));
-      const pyResult = runNumPy(`
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
-result = np.sort(a).astype(np.float64)
-      `);
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`sort_${dtype}`)!);
     });
 
     it(`argsort ${dtype}`, () => {
       const jsResult = np.argsort(array(data, dtype));
-      const pyResult = runNumPy(`
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
-result = np.argsort(a)
-      `);
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`argsort_${dtype}`)!);
     });
 
     it(`searchsorted ${dtype}`, () => {
       const sorted = dtype === 'bool' ? [0, 0, 1, 1, 1] : [1, 3, 5, 7, 9];
       const vals = dtype === 'bool' ? [0, 1] : [2, 4, 6];
       const jsResult = np.searchsorted(array(sorted, dtype), array(vals, dtype));
-      const pyResult = runNumPy(`
-a = np.array(${JSON.stringify(sorted)}, dtype=${npDtype(dtype)})
-v = np.array(${JSON.stringify(vals)}, dtype=${npDtype(dtype)})
-result = np.searchsorted(a, v)
-      `);
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`searchsorted_${dtype}`)!);
     });
 
     it(`partition ${dtype}`, () => {
       const jsResult = np.partition(array(data, dtype), 2);
-      // Partition only guarantees element at kth is correct
-      const pyResult = runNumPy(`
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
-r = np.partition(a, 2)
-result = np.array([r[2]]).astype(np.float64)
-      `);
+      const py = oracle.get(`partition_${dtype}`)!;
       const jsKth = jsResult.toArray()[2];
-      expect(Number(jsKth)).toBeCloseTo(Number(pyResult.value[0]), 4);
+      expect(Number(jsKth)).toBeCloseTo(Number(py.value[0]), 4);
     });
 
     it(`argpartition ${dtype}`, () => {
       const a = array(data, dtype);
       const jsResult = np.argpartition(a, 2);
-      const pyResult = runNumPy(`
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
-idx = np.argpartition(a, 2)
-result = np.array([a[idx[2]]]).astype(np.float64)
-      `);
-      // The element at kth position should match
+      const py = oracle.get(`argpartition_${dtype}`)!;
       const jsIdx = Number(jsResult.toArray()[2]);
       const jsKthVal = Number(a.toArray()[jsIdx]);
-      expect(jsKthVal).toBeCloseTo(Number(pyResult.value[0]), 4);
+      expect(jsKthVal).toBeCloseTo(Number(py.value[0]), 4);
     });
 
     it(`sort_complex ${dtype}`, () => {
       const d = isComplex(dtype) ? [3, 1, 2] : dtype === 'bool' ? [1, 0, 1] : [3, 1, 2];
       const jsResult = np.sort_complex(array(d, dtype));
-      const pyResult = runNumPy(`
-a = np.array(${JSON.stringify(d)}, dtype=${npDtype(dtype)})
-result = np.sort_complex(a).astype(np.complex128)
-      `);
-      expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-4)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`sort_complex_${dtype}`)!, { rtol: 1e-4 });
     });
 
     it(`lexsort ${dtype}`, () => {
       const keys1 = dtype === 'bool' ? [1, 0, 1] : [3, 1, 2];
       const keys2 = dtype === 'bool' ? [0, 1, 0] : [1, 3, 2];
       const jsResult = np.lexsort([array(keys1, dtype), array(keys2, dtype)]);
-      const pyResult = runNumPy(`
-k1 = np.array(${JSON.stringify(keys1)}, dtype=${npDtype(dtype)})
-k2 = np.array(${JSON.stringify(keys2)}, dtype=${npDtype(dtype)})
-result = np.lexsort((k1, k2))
-      `);
-      expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      expectMatchPre(jsResult, oracle.get(`lexsort_${dtype}`)!);
     });
   }
 });
