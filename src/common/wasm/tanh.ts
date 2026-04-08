@@ -12,8 +12,8 @@
 import {
   tanh_f64,
   tanh_f32,
-  tanh_i64,
-  tanh_u64,
+  tanh_i64_f64,
+  tanh_u64_f64,
   tanh_i32_f64,
   tanh_u32_f64,
   tanh_i16_f32,
@@ -43,8 +43,8 @@ const kernels: Partial<Record<DType, UnaryFn>> = {
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: tanh_i64,
-  uint64: tanh_u64,
+  int64: tanh_i64_f64,
+  uint64: tanh_u64_f64,
   int32: tanh_i32_f64,
   uint32: tanh_u32_f64,
 };

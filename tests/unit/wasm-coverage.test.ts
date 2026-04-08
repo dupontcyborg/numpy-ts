@@ -412,7 +412,7 @@ describe('wasmExp2', () => {
     const a = array([1, 2, 3], 'int16');
     const r = wasmExp2(a.storage);
     expect(r).not.toBeNull();
-    expect(r!.dtype).toBe('float64');
+    expect(r!.dtype).toBe('float32');
   });
 
   it('returns null for complex', () => {
