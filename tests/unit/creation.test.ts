@@ -1268,52 +1268,75 @@ describe('Array Creation Functions', () => {
   });
 
   describe('array from TypedArray input', () => {
-    it('creates array from Uint32Array', () => {
+    it('creates array from Uint32Array and inherits dtype', () => {
       const result = array(new Uint32Array([1, 2, 3]));
       expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('uint32');
       expect(result.toArray()).toEqual([1, 2, 3]);
     });
 
-    it('creates array from Float64Array', () => {
+    it('creates array from Float64Array and inherits dtype', () => {
       const result = array(new Float64Array([1.5, 2.5, 3.5]));
       expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('float64');
       expect(result.toArray()).toEqual([1.5, 2.5, 3.5]);
     });
 
-    it('creates array from Int32Array', () => {
+    it('creates array from Int32Array and inherits dtype', () => {
       const result = array(new Int32Array([-1, 0, 1]));
       expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('int32');
       expect(result.toArray()).toEqual([-1, 0, 1]);
     });
 
-    it('creates array from Float32Array', () => {
+    it('creates array from Float32Array and inherits dtype', () => {
       const result = array(new Float32Array([1, 2, 3]));
       expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('float32');
     });
 
-    it('creates array from Uint8Array', () => {
+    it('creates array from Uint8Array and inherits dtype', () => {
       const result = array(new Uint8Array([10, 20, 30]));
       expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('uint8');
       expect(result.toArray()).toEqual([10, 20, 30]);
     });
 
-    it('creates array from Int16Array with dtype override', () => {
+    it('creates array from Int8Array and inherits dtype', () => {
+      const result = array(new Int8Array([-1, 0, 1]));
+      expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('int8');
+    });
+
+    it('creates array from Int16Array and inherits dtype', () => {
+      const result = array(new Int16Array([1, 2, 3]));
+      expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('int16');
+    });
+
+    it('creates array from Uint16Array and inherits dtype', () => {
+      const result = array(new Uint16Array([1, 2, 3]));
+      expect(result.shape).toEqual([3]);
+      expect(result.dtype).toBe('uint16');
+    });
+
+    it('explicit dtype overrides TypedArray dtype', () => {
       const result = array(new Int16Array([1, 2, 3]), 'float32');
       expect(result.dtype).toBe('float32');
       expect(result.shape).toEqual([3]);
       expect(result.toArray()).toEqual([1, 2, 3]);
     });
 
-    it('creates array from BigInt64Array', () => {
+    it('creates array from BigInt64Array and inherits dtype', () => {
       const result = array(new BigInt64Array([1n, 2n, 3n]));
       expect(result.shape).toEqual([3]);
       expect(result.dtype).toBe('int64');
     });
 
-    it('creates array from BigUint64Array', () => {
+    it('creates array from BigUint64Array and inherits dtype', () => {
       const result = array(new BigUint64Array([1n, 2n, 3n]));
       expect(result.shape).toEqual([3]);
-      expect(result.dtype).toBe('int64');
+      expect(result.dtype).toBe('uint64');
     });
 
     it('asarray works with TypedArray input', () => {

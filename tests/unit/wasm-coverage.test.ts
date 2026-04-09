@@ -289,9 +289,15 @@ describe('wasmIndices', () => {
     expect(r).toBeNull();
   });
 
-  it('returns null for non-int32 dtype', () => {
-    const r = wasmIndices([3, 4], 'float64');
+  it('returns null for unsupported dtype', () => {
+    const r = wasmIndices([3, 4], 'float32');
     expect(r).toBeNull();
+  });
+
+  it('handles float64 dtype', () => {
+    const r = wasmIndices([3, 4], 'float64');
+    expect(r).not.toBeNull();
+    expect(r!.dtype).toBe('float64');
   });
 });
 

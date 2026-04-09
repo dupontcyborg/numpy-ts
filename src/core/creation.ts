@@ -177,7 +177,30 @@ export function array(data: unknown, dtype?: DType): NDArrayCore {
 
   let actualDtype = dtype;
   if (!actualDtype) {
-    if (hasComplex) {
+    // TypedArray input: inherit dtype directly
+    if (data instanceof Float64Array) {
+      actualDtype = 'float64';
+    } else if (data instanceof Float32Array) {
+      actualDtype = 'float32';
+    } else if (data instanceof Int32Array) {
+      actualDtype = 'int32';
+    } else if (data instanceof Int16Array) {
+      actualDtype = 'int16';
+    } else if (data instanceof Int8Array) {
+      actualDtype = 'int8';
+    } else if (data instanceof Uint32Array) {
+      actualDtype = 'uint32';
+    } else if (data instanceof Uint16Array) {
+      actualDtype = 'uint16';
+    } else if (data instanceof Uint8Array || data instanceof Uint8ClampedArray) {
+      actualDtype = 'uint8';
+    } else if (data instanceof BigInt64Array) {
+      actualDtype = 'int64';
+    } else if (data instanceof BigUint64Array) {
+      actualDtype = 'uint64';
+    } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+      actualDtype = 'float16';
+    } else if (hasComplex) {
       actualDtype = 'complex128';
     } else if (hasBigInt) {
       actualDtype = 'int64';
