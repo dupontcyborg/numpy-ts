@@ -204,7 +204,7 @@ export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): vo
 
 export function indices(
   dimensions: number[],
-  dtype: 'int32' | 'int64' | 'float64' = 'int32'
+  dtype: 'int32' | 'int64' | 'float64' = 'float64'
 ): NDArrayCore {
   return fromStorage(advancedOps.indices(dimensions, dtype));
 }

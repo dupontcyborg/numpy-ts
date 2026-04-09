@@ -100,7 +100,7 @@ export function select(
 
 export function indices(
   dimensions: number[],
-  dtype: 'int32' | 'int64' | 'float64' = 'int32'
+  dtype: 'int32' | 'int64' | 'float64' = 'float64'
 ): NDArray {
   return up(core.indices(dimensions, dtype));
 }

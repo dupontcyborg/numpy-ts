@@ -3,7 +3,7 @@
 import { getSharedMemory, setHeapBase } from '../runtime';
 
 const B64 =
-  'AGFzbQEAAAABCgFgBn9/f39/fwACDwEDZW52Bm1lbW9yeQIAcgMDAgAABgkBfwFBgIDIAwsHKQIRdW5yYXZlbF9pbmRleF9pMzIAABF1bnJhdmVsX2luZGV4X2k2NAABCq0CApEBAQl/AkAgAkUNACAFRQ0AIAJBAnQhBkEAIQcDQCAAIAdBAnRqKAIAIQggAyEJIAEhCiAEIQsgBSEMA0AgCiAIIAkoAgAiDW0iDiALKAIAbzYCACAJQQRqIQkgCiAGaiEKIAtBBGohCyAIIA4gDWxrIQggDEF/aiIMDQALIAFBBGohASAHQQFqIgcgAkcNAAsLC5cBBAJ/AX4EfwJ+AkAgAkUNACAFRQ0AIAJBA3QhBkEAIQcDQCAAIAdBA3RqKQMAIQggAyEJIAEhCiAEIQsgBSEMA0AgCiAIIAkpAwAiDX8iDiALKQMAgTcDACAJQQhqIQkgCiAGaiEKIAtBCGohCyAIIA4gDX59IQggDEF/aiIMDQALIAFBCGohASAHQQFqIgcgAkcNAAsLCw==';
+  'AGFzbQEAAAABCgFgBn9/f39/fwACDwEDZW52Bm1lbW9yeQIAcgMCAQAGCQF/AUGAgMgDCwcVARF1bnJhdmVsX2luZGV4X2Y2NAAACp4BAZsBBAJ/AX4EfwJ+AkAgAkUNACAFRQ0AIAJBA3QhBkEAIQcDQCAAIAdBA3RqKwMA/AYhCCADIQkgASEKIAQhCyAFIQwDQCAKIAggCSgCAKwiDX8iDiALNAIAgbk5AwAgCUEEaiEJIAogBmohCiALQQRqIQsgCCAOIA1+fSEIIAxBf2oiDA0ACyABQQhqIQEgB0EBaiIHIAJHDQALCws=';
 
 let inst: WebAssembly.Instance | null = null;
 
@@ -23,7 +23,7 @@ function init(): WebAssembly.Instance {
   return inst;
 }
 
-export function unravel_index_i32(
+export function unravel_index_f64(
   indices: number,
   out: number,
   N: number,
@@ -32,26 +32,7 @@ export function unravel_index_i32(
   ndim: number
 ): void {
   const i = init();
-  (i.exports['unravel_index_i32'] as (...args: number[]) => void)(
-    indices,
-    out,
-    N,
-    strides,
-    shape,
-    ndim
-  );
-}
-
-export function unravel_index_i64(
-  indices: number,
-  out: number,
-  N: number,
-  strides: number,
-  shape: number,
-  ndim: number
-): void {
-  const i = init();
-  (i.exports['unravel_index_i64'] as (...args: number[]) => void)(
+  (i.exports['unravel_index_f64'] as (...args: number[]) => void)(
     indices,
     out,
     N,

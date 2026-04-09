@@ -872,15 +872,15 @@ export function diag_indices(n: number, ndim: number = 2): ArrayStorage[] {
     throw new Error('ndim must be at least 1');
   }
 
-  const indices = new Int32Array(n);
+  const indices = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     indices[i] = i;
   }
 
   const result: ArrayStorage[] = [];
   for (let d = 0; d < ndim; d++) {
-    const dimResult = ArrayStorage.empty([n], 'int32');
-    (dimResult.data as Int32Array).set(indices);
+    const dimResult = ArrayStorage.empty([n], 'float64');
+    (dimResult.data as Float64Array).set(indices);
     result.push(dimResult);
   }
 
@@ -927,10 +927,10 @@ export function tril_indices(n: number, k: number = 0, m?: number): ArrayStorage
     }
   }
 
-  const rowResult = ArrayStorage.empty([rows.length], 'int32');
-  (rowResult.data as Int32Array).set(rows);
-  const colResult = ArrayStorage.empty([colIndices.length], 'int32');
-  (colResult.data as Int32Array).set(colIndices);
+  const rowResult = ArrayStorage.empty([rows.length], 'float64');
+  (rowResult.data as Float64Array).set(rows);
+  const colResult = ArrayStorage.empty([colIndices.length], 'float64');
+  (colResult.data as Float64Array).set(colIndices);
   return [rowResult, colResult];
 }
 
@@ -963,10 +963,10 @@ export function triu_indices(n: number, k: number = 0, m?: number): ArrayStorage
     }
   }
 
-  const rowResult = ArrayStorage.empty([rows.length], 'int32');
-  (rowResult.data as Int32Array).set(rows);
-  const colResult = ArrayStorage.empty([colIndices.length], 'int32');
-  (colResult.data as Int32Array).set(colIndices);
+  const rowResult = ArrayStorage.empty([rows.length], 'float64');
+  (rowResult.data as Float64Array).set(rows);
+  const colResult = ArrayStorage.empty([colIndices.length], 'float64');
+  (colResult.data as Float64Array).set(colIndices);
   return [rowResult, colResult];
 }
 
@@ -1011,10 +1011,10 @@ export function mask_indices(
     }
   }
 
-  const rowResult = ArrayStorage.empty([rows.length], 'int32');
-  (rowResult.data as Int32Array).set(rows);
-  const colResult = ArrayStorage.empty([cols.length], 'int32');
-  (colResult.data as Int32Array).set(cols);
+  const rowResult = ArrayStorage.empty([rows.length], 'float64');
+  (rowResult.data as Float64Array).set(rows);
+  const colResult = ArrayStorage.empty([cols.length], 'float64');
+  (colResult.data as Float64Array).set(cols);
   return [rowResult, colResult];
 }
 
@@ -1023,7 +1023,7 @@ export function mask_indices(
  */
 export function indices(
   dimensions: number[],
-  dtype: 'int32' | 'int64' | 'float64' = 'int32'
+  dtype: 'int32' | 'int64' | 'float64' = 'float64'
 ): ArrayStorage {
   // WASM fast path for 2D/3D int32 grids
   const wasmResult = wasmIndices(dimensions, dtype);
@@ -1117,8 +1117,8 @@ export function ravel_multi_index(
 
   const size = multi_index[0]!.size;
   const ndim = dims.length;
-  const ravelResult = ArrayStorage.empty([size], 'int32');
-  const outputData = ravelResult.data as Int32Array;
+  const ravelResult = ArrayStorage.empty([size], 'float64');
+  const outputData = ravelResult.data as Float64Array;
 
   // Compute strides for row-major (C) order
   const strides = new Array(ndim);
@@ -1203,7 +1203,7 @@ export function unravel_index(
   // Create output arrays
   const result: ArrayStorage[] = [];
   for (let d = 0; d < ndim; d++) {
-    const unravelResult = ArrayStorage.empty(outputShape.length ? outputShape : [1], 'int32');
+    const unravelResult = ArrayStorage.empty(outputShape.length ? outputShape : [1], 'float64');
     result.push(unravelResult);
   }
 
@@ -1218,13 +1218,13 @@ export function unravel_index(
       for (let d = 0; d < ndim; d++) {
         const coord = Math.floor(flatIdx / strides[d]!);
         flatIdx = flatIdx % strides[d]!;
-        (result[d]!.data as Int32Array)[i] = coord % shape[d]!;
+        (result[d]!.data as Float64Array)[i] = coord % shape[d]!;
       }
     } else {
       for (let d = ndim - 1; d >= 0; d--) {
         const coord = Math.floor(flatIdx / strides[d]!);
         flatIdx = flatIdx % strides[d]!;
-        (result[d]!.data as Int32Array)[i] = coord % shape[d]!;
+        (result[d]!.data as Float64Array)[i] = coord % shape[d]!;
       }
     }
   }
@@ -1233,8 +1233,8 @@ export function unravel_index(
   if (typeof indices === 'number') {
     return result.map((arr) => {
       const value = arr.iget(0);
-      const scalarResult = ArrayStorage.empty([], 'int32');
-      (scalarResult.data as Int32Array)[0] = Number(value);
+      const scalarResult = ArrayStorage.empty([], 'float64');
+      (scalarResult.data as Float64Array)[0] = Number(value);
       return scalarResult;
     });
   }
