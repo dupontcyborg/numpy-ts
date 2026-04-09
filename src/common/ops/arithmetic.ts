@@ -1777,7 +1777,7 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
       if (wasmResult) {
         if (resultDtype === 'float16') {
           const f16 = ArrayStorage.empty(Array.from(wasmResult.shape), 'float16');
-          f16.data.set(wasmResult.data as Float32Array);
+          (f16.data as unknown as Float16Array).set(wasmResult.data as Float32Array);
           wasmResult.dispose();
           return f16;
         }
@@ -1815,7 +1815,7 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
           if (wasmResult) {
             if (resultDtype === 'float16') {
               const f16 = ArrayStorage.empty(Array.from(wasmResult.shape), 'float16');
-              f16.data.set(wasmResult.data as Float32Array);
+              (f16.data as unknown as Float16Array).set(wasmResult.data as Float32Array);
               wasmResult.dispose();
               return f16;
             }
@@ -2161,11 +2161,9 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
     return result;
   }
 
-  // Check size-1 scalar extraction
+  // Extract scalar from size-1 array
   if (typeof x2 !== 'number' && x2.size === 1) {
-    const scalarVal = Number(x2.iget(0));
-    const wasmResult = wasmGcdScalar(x1, scalarVal);
-    if (wasmResult) return wasmResult;
+    return gcd(x1, Number(x2.iget(0)));
   }
 
   // Try WASM binary path
@@ -2262,6 +2260,11 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
     }
 
     return result;
+  }
+
+  // Extract scalar from size-1 array
+  if (x2.size === 1) {
+    return lcm(x1, Number(x2.iget(0)));
   }
 
   // Array case — compute lcm preserving promoted dtype

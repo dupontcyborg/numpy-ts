@@ -83,13 +83,13 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // UNSUPPORTED - These throw TypeError (mathematically undefined for complex)
   // =========================================================================
 
-  // Rounding operations (no natural rounding for complex)
-  around: 'unsupported',
+  // Rounding operations
+  around: 'supported', // component-wise rounding
   ceil: 'unsupported',
   fix: 'unsupported',
   floor: 'unsupported',
-  rint: 'unsupported',
-  round: 'unsupported',
+  rint: 'supported', // component-wise rounding
+  round: 'supported', // component-wise rounding
   trunc: 'unsupported',
 
   // Modulo/remainder (not defined for complex)
@@ -99,8 +99,8 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   floor_divide: 'unsupported',
   divmod: 'unsupported',
 
-  // Sign operations (no ordering for complex)
-  sign: 'unsupported',
+  // Sign operations
+  sign: 'supported', // z / abs(z)
 
   // Integer-only operations
   gcd: 'unsupported',
@@ -182,7 +182,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   min: 'supported', // lexicographic min
   amin: 'supported', // alias
   ptp: 'supported', // peak-to-peak (max - min)
-  median: 'unsupported', // no natural ordering for complex
+  median: 'supported', // lexicographic ordering for complex
   percentile: 'unsupported', // no natural ordering for complex
   quantile: 'unsupported', // no natural ordering for complex
 
@@ -207,7 +207,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   nanargmax: 'supported',
   nancumsum: 'supported',
   nancumprod: 'supported',
-  nanmedian: 'unsupported', // no natural ordering for complex
+  nanmedian: 'supported', // lexicographic ordering for complex
   nanquantile: 'unsupported', // no natural ordering for complex
   nanpercentile: 'unsupported', // no natural ordering for complex
 
@@ -257,7 +257,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   // Statistics
   bincount: 'unsupported', // requires integer input
   digitize: 'unsupported', // binning for real numbers
-  histogram: 'unsupported', // binning for real numbers
+  histogram: 'supported', // uses real part for complex
   histogram2d: 'unsupported', // binning for real numbers
   histogramdd: 'unsupported', // binning for real numbers
   correlate: 'supported', // complex cross-correlation with conjugate
@@ -290,15 +290,15 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   real_if_close: 'supported', // converts to real if imaginary is negligible
 
   // Other Math (not applicable for complex)
-  clip: 'unsupported', // clipping not defined for complex
-  maximum: 'unsupported', // element-wise max not defined for complex
-  minimum: 'unsupported', // element-wise min not defined for complex
-  fmax: 'unsupported', // NaN-aware max not defined for complex
-  fmin: 'unsupported', // NaN-aware min not defined for complex
-  nan_to_num: 'unsupported', // NaN replacement not defined for complex
+  clip: 'supported', // lexicographic comparison for complex
+  maximum: 'supported', // lexicographic comparison for complex
+  minimum: 'supported', // lexicographic comparison for complex
+  fmax: 'supported', // lexicographic comparison, NaN-ignoring
+  fmin: 'supported', // lexicographic comparison, NaN-ignoring
+  nan_to_num: 'supported', // component-wise NaN replacement
   interp: 'unsupported', // interpolation not defined for complex
   unwrap: 'unsupported', // phase unwrapping only for real
-  sinc: 'unsupported', // sinc not defined for complex
+  sinc: 'supported', // sin(πz) / (πz) for complex
   i0: 'unsupported', // Bessel function not defined for complex
 
   // =========================================================================
@@ -456,7 +456,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
 
   // Additional statistics functions
   histogram_bin_edges: 'unsupported', // real-only: throws for complex
-  trapezoid: 'unsupported', // real-only: throws for complex
+  trapezoid: 'supported', // complex trapezoidal integration
 
   // Type checking utilities
   isnat: 'skip', // datetime specific
@@ -682,6 +682,10 @@ function testComplexBehavior(
       'polymul', // (a1, a2)
       'polydiv', // (u, v)
       'polyval', // (p, x)
+      'maximum', // (x1, x2)
+      'minimum', // (x1, x2)
+      'fmax', // (x1, x2)
+      'fmin', // (x1, x2)
     ];
 
     // Functions that return tuples (unary)
@@ -691,7 +695,7 @@ function testComplexBehavior(
     const require2D = ['trace', 'diagonal', 'matrix_transpose'];
 
     // Functions that require 3 arguments
-    const ternaryOps = ['where'];
+    const ternaryOps = ['where', 'clip'];
 
     // Functions with special signatures
     const specialOps: Record<string, () => unknown> = {
