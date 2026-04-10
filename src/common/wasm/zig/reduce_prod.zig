@@ -431,3 +431,101 @@ test "reduce_prod_u8 promotion" {
     const a = [_]u8{ 2, 3, 4, 5 };
     try testing.expectEqual(reduce_prod_u8(&a, 4), 120);
 }
+
+test "reduce_prod_strided_f64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f64{ 1.0, 5.0, 3.0 };
+    var out = [_]f64{0.0};
+    reduce_prod_strided_f64(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15.0);
+}
+
+test "reduce_prod_strided_f32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 1.0, 5.0, 3.0 };
+    var out = [_]f32{0.0};
+    reduce_prod_strided_f32(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15.0);
+}
+
+test "reduce_prod_strided_i64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 1, 5, 3 };
+    var out = [_]i64{0};
+    reduce_prod_strided_i64(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_u64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 1, 5, 3 };
+    var out = [_]u64{0};
+    reduce_prod_strided_u64(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_i32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 1, 5, 3 };
+    var out = [_]i32{0};
+    reduce_prod_strided_i32(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_u32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 1, 5, 3 };
+    var out = [_]u32{0};
+    reduce_prod_strided_u32(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_i16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 1, 5, 3 };
+    var out = [_]i64{0};
+    reduce_prod_strided_i16(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_u16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 1, 5, 3 };
+    var out = [_]u64{0};
+    reduce_prod_strided_u16(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_i8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 1, 5, 3 };
+    var out = [_]i64{0};
+    reduce_prod_strided_i8(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_u8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u8{ 1, 5, 3 };
+    var out = [_]u64{0};
+    reduce_prod_strided_u8(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 15);
+}
+
+test "reduce_prod_strided_c128 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f64{ 1.0, 0.0, 2.0, 0.0 };
+    var out = [_]f64{ 0.0, 0.0 };
+    reduce_prod_strided_c128(&a, &out, 1, 2, 1);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[1], 0.0, 1e-10);
+}
+
+test "reduce_prod_strided_c64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 1.0, 0.0, 2.0, 0.0 };
+    var out = [_]f32{ 0.0, 0.0 };
+    reduce_prod_strided_c64(&a, &out, 1, 2, 1);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-6);
+    try testing.expectApproxEqAbs(out[1], 0.0, 1e-6);
+}

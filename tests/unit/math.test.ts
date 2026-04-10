@@ -447,11 +447,11 @@ describe('Mathematical Operations', () => {
       expect(result.toArray()).toEqual([0.2, 0.1, 0.05]);
     });
 
-    it('promotes integer arrays to float64', () => {
-      const arr = array([2, 4, 8], 'int32');
+    it('keeps integer dtype for integer reciprocal', () => {
+      const arr = array([1, 2, 4], 'int32');
       const result = reciprocal(arr);
-      expect(result.dtype).toBe('float64');
-      expect(result.toArray()).toEqual([0.5, 0.25, 0.125]);
+      expect(result.dtype).toBe('int32');
+      expect(result.toArray()).toEqual([1, 0, 0]); // integer division: trunc(1/x)
     });
 
     it('preserves float32 dtype', () => {
@@ -552,14 +552,14 @@ describe('Mathematical Operations', () => {
 
   describe('gcd', () => {
     it('computes greatest common divisor', () => {
-      const r = gcd(array([12, 15]), array([8, 10]));
+      const r = gcd(array([12, 15], 'int32'), array([8, 10], 'int32'));
       expect(r.toArray()).toEqual([4, 5]);
     });
   });
 
   describe('lcm', () => {
     it('computes least common multiple', () => {
-      const r = lcm(array([4, 6]), array([6, 8]));
+      const r = lcm(array([4, 6], 'int32'), array([6, 8], 'int32'));
       expect(r.toArray()).toEqual([12, 24]);
     });
   });

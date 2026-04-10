@@ -185,9 +185,9 @@ export const linalg = {
   },
 
   /** Matrix determinant (supports batched ND input) */
-  det: (a: NDArrayCore): number | NDArrayCore => {
+  det: (a: NDArrayCore): number | Complex | NDArrayCore => {
     const result = linalgOps.det(toStorage(a));
-    if (typeof result === 'number') return result;
+    if (typeof result === 'number' || result instanceof Complex) return result;
     return fromStorage(result as ArrayStorage);
   },
 

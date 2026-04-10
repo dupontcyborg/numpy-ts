@@ -4,8 +4,10 @@
  * Binary: out[i] = log(exp(a[i]) + exp(b[i]))  (same-shape contiguous arrays)
  * Scalar: out[i] = log(exp(a[i]) + exp(scalar))
  * Returns null if WASM can't handle this case.
- * Float types use native kernels; int64/uint64 use native i64 kernels
- * that convert to f64 in WASM (avoiding JS BigInt->Number overhead).
+ * Float types use native kernels; integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
 import {
@@ -38,7 +40,7 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, hasFloat16, promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -58,22 +60,30 @@ const scalarKernels: Partial<Record<DType, ScalarFn>> = {
   float16: logaddexp_scalar_f32,
 };
 
-const intBinaryKernels: Partial<Record<DType, BinaryFn>> = {
+// Large int → f64 output (i32/u32/i64/u64 need f64 precision)
+const largeIntBinaryKernels: Partial<Record<DType, BinaryFn>> = {
   int64: logaddexp_i64,
   uint64: logaddexp_u64,
   int32: logaddexp_i32,
   uint32: logaddexp_u32,
+};
+
+// Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
+const smallIntBinaryKernels: Partial<Record<DType, BinaryFn>> = {
   int16: logaddexp_i16,
   uint16: logaddexp_u16,
   int8: logaddexp_i8,
   uint8: logaddexp_u8,
 };
 
-const intScalarKernels: Partial<Record<DType, ScalarFn>> = {
+const largeIntScalarKernels: Partial<Record<DType, ScalarFn>> = {
   int64: logaddexp_scalar_i64,
   uint64: logaddexp_scalar_u64,
   int32: logaddexp_scalar_i32,
   uint32: logaddexp_scalar_u32,
+};
+
+const smallIntScalarKernels: Partial<Record<DType, ScalarFn>> = {
   int16: logaddexp_scalar_i16,
   uint16: logaddexp_scalar_u16,
   int8: logaddexp_scalar_i8,
@@ -101,6 +111,9 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
  */
 export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
   if (!a.isCContiguous || !b.isCContiguous) return null;
+
+  // WASM kernels expect same-dtype inputs — bail on mixed dtypes
+  if (a.dtype !== b.dtype) return null;
 
   // WASM kernel does not broadcast — sizes must match
   if (a.size !== b.size) return null;
@@ -158,9 +171,51 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
     );
   }
 
-  // Int path
-  const intKernel = intBinaryKernels[dtype];
-  if (intKernel) {
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntBinaryKernels[dtype];
+  if (smallKernel) {
+    const InputCtor = ctorMap[dtype]!;
+    const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+    const outBytes = size * 4; // f32
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
+    const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, inputBpe);
+
+    smallKernel(aPtr, bPtr, outRegion.ptr, size);
+
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8')) {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntBinaryKernels[dtype];
+  if (largeKernel) {
     const InputCtor = ctorMap[dtype]!;
     const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
     const outBytes = size * 8;
@@ -174,7 +229,7 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
     const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
     const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, inputBpe);
 
-    intKernel(aPtr, bPtr, outRegion.ptr, size);
+    largeKernel(aPtr, bPtr, outRegion.ptr, size);
 
     return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
@@ -249,9 +304,50 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
     );
   }
 
-  // Int path
-  const intKernel = intScalarKernels[dtype];
-  if (intKernel) {
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntScalarKernels[dtype];
+  if (smallKernel) {
+    const InputCtor = ctorMap[dtype]!;
+    const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+    const outBytes = size * 4; // f32
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
+
+    smallKernel(aPtr, outRegion.ptr, size, scalar);
+
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8')) {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntScalarKernels[dtype];
+  if (largeKernel) {
     const InputCtor = ctorMap[dtype]!;
     const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
     const outBytes = size * 8;
@@ -264,7 +360,7 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
     resetScratchAllocator();
     const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
 
-    intKernel(aPtr, outRegion.ptr, size, scalar);
+    largeKernel(aPtr, outRegion.ptr, size, scalar);
 
     return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),

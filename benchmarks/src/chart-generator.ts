@@ -213,7 +213,8 @@ export async function generateH2HChart(report: BenchmarkReport, outputPath: stri
     return v.toFixed(0);
   };
 
-  const baseline = report.environment.baseline === 'pyodide' ? 'Pyodide NumPy (WASM)' : 'Python NumPy';
+  const baseline =
+    report.environment.baseline === 'pyodide' ? 'Pyodide NumPy (WASM)' : 'Python NumPy';
 
   const width = 1200;
   const height = 600;
@@ -307,7 +308,10 @@ export async function generateH2HChart(report: BenchmarkReport, outputPath: stri
       {
         id: 'chartAreaBorder',
         afterDraw: (chart: any) => {
-          const { ctx, chartArea: { left, top, right, bottom } } = chart;
+          const {
+            ctx,
+            chartArea: { left, top, right, bottom },
+          } = chart;
           ctx.save();
           ctx.strokeStyle = 'rgba(0,0,0,0.1)';
           ctx.lineWidth = 1;

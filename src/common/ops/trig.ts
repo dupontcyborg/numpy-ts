@@ -10,8 +10,25 @@
 
 import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
+import {
+  isBigIntDType,
+  isComplexDType,
+  throwIfComplex,
+  mathResultDtype,
+  promoteDTypes,
+  type DType,
+} from '../dtype';
 import { Complex } from '../complex';
+
+/** Convert bool to math float type for binary math ops. */
+function boolToMathFloat(a: ArrayStorage): ArrayStorage {
+  const dt = mathResultDtype('bool');
+  const result = ArrayStorage.empty(Array.from(a.shape), dt);
+  const src = a.data as Uint8Array;
+  const off = a.offset;
+  for (let i = 0; i < a.size; i++) result.data[i] = src[off + i]!;
+  return result;
+}
 import { wasmSin } from '../wasm/sin';
 import { wasmCos } from '../wasm/cos';
 import { wasmTan } from '../wasm/tan';
@@ -458,6 +475,12 @@ function arctanComplex(zRe: number, zIm: number): [number, number] {
  * @returns Angle in radians between -π and π
  */
 export function arctan2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (x1.dtype === 'bool')
+    return arctan2(
+      boolToMathFloat(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return arctan2(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'arctan2', 'arctan2 is only defined for real numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'arctan2', 'arctan2 is only defined for real numbers.');
@@ -481,9 +504,7 @@ function arctan2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
   const dtype1 = x1.dtype;
   const dtype2 = x2.dtype;
 
-  // Always promote to float64 for arctan2 (matching NumPy behavior)
-  // Only preserve float32 if both inputs are float32
-  const resultDtype = dtype1 === 'float32' && dtype2 === 'float32' ? 'float32' : 'float64';
+  const resultDtype = mathResultDtype(promoteDTypes(dtype1, dtype2));
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
@@ -532,8 +553,7 @@ function arctan2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const size = storage.size;
 
-  // Always promote to float64 for trig operations
-  const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
+  const resultDtype = mathResultDtype(dtype);
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
@@ -570,6 +590,12 @@ function arctan2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Hypotenuse
  */
 export function hypot(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (x1.dtype === 'bool')
+    return hypot(
+      boolToMathFloat(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return hypot(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'hypot', 'hypot is only defined for real numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'hypot', 'hypot is only defined for real numbers.');
@@ -593,9 +619,8 @@ function hypotArray(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
   const dtype1 = x1.dtype;
   const dtype2 = x2.dtype;
 
-  // Always promote to float64 for hypot (matching NumPy behavior)
-  // Only preserve float32 if both inputs are float32
-  const resultDtype = dtype1 === 'float32' && dtype2 === 'float32' ? 'float32' : 'float64';
+  // Use NumPy's math result dtype (float16 for small ints, float32 for int16, etc.)
+  const resultDtype = mathResultDtype(promoteDTypes(dtype1, dtype2));
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
@@ -647,8 +672,7 @@ function hypotScalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const shape = Array.from(storage.shape);
   const size = storage.size;
 
-  // Always promote to float64 for trig operations
-  const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
+  const resultDtype = mathResultDtype(dtype);
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;

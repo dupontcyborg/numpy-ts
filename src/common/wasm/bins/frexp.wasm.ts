@@ -3,7 +3,7 @@
 import { getSharedMemory, setHeapBase } from '../runtime';
 
 const B64 =
-  'AGFzbQEAAAABCAFgBH9/f38AAg8BA2VudgZtZW1vcnkCAC8DAgEABgkBfwFBgIC8AQsHDQEJZnJleHBfZjY0AAAKqgIBpwIDAXwBfgJ/AkAgA0UNAANAAkACQAJAIAArAwAiBEQAAAAAAAAAAGENACAEvSIFQv///////////wCDQoCAgICAgID4/wBUDQELIAEgBDkDAEEAIQYMAQtBACEGAkACQCAFQjSIp0H/D3EiB0H/D0YNACAHDQEgBUL/////////B4NQDQAgBUKAgICAgICAgIB/gyAFIAVCDIZ5pyIGQQFqrYZC/////////weDQgAgBkE/cUEzSRuEQoCAgICAgIDwP4QhBUGCeCAGayEGCyABIAU3AwAMAQsgB0GCeGohBiABIAVC/////////4eAf4NCgICAgICAgPA/hDcDAAsgAiAGNgIAIABBCGohACABQQhqIQEgAkEEaiECIANBf2oiAw0ACwsL';
+  'AGFzbQEAAAABCAFgBH9/f38AAg8BA2VudgZtZW1vcnkCAC8DAwIAAAYJAX8BQYCAvAELBxkCCWZyZXhwX2Y2NAAACWZyZXhwX2YzMgABCqYEAqcCAwF8AX4CfwJAIANFDQADQAJAAkACQCAAKwMAIgREAAAAAAAAAABhDQAgBL0iBUL///////////8Ag0KAgICAgICA+P8AVA0BCyABIAQ5AwBBACEGDAELQQAhBgJAAkAgBUI0iKdB/w9xIgdB/w9GDQAgBw0BIAVC/////////weDUA0AIAVCgICAgICAgICAf4MgBSAFQgyGeaciBkEBaq2GQv////////8Hg0IAIAZBP3FBM0kbhEKAgICAgICA8D+EIQVBgnggBmshBgsgASAFNwMADAELIAdBgnhqIQYgASAFQv////////+HgH+DQoCAgICAgIDwP4Q3AwALIAIgBjYCACAAQQhqIQAgAUEIaiEBIAJBBGohAiADQX9qIgMNAAsLC/oBAgF9A38CQCADRQ0AA0ACQAJAAkAgACoCACIEQwAAAABbDQAgBLwiBUH/////B3FBgICA/AdJDQELIAEgBDgCAEEAIQYMAQtBACEGAkACQCAFQRd2Qf8BcSIHQf8BRg0AIAcNASAFQf///wNxRQ0AIAVBgICAgHhxIAUgBUEJdGciBkEBanRB////A3FBACAGQR9xQRZJG3JBgICA+ANyIQVBgn8gBmshBgsgASAFNgIADAELIAdBgn9qIQYgASAFQf///4N4cUGAgID4A3I2AgALIAIgBjYCACAAQQRqIQAgAUEEaiEBIAJBBGohAiADQX9qIgMNAAsLCw==';
 
 let inst: WebAssembly.Instance | null = null;
 
@@ -26,4 +26,9 @@ function init(): WebAssembly.Instance {
 export function frexp_f64(x: number, out_m: number, out_e: number, N: number): void {
   const i = init();
   (i.exports['frexp_f64'] as (...args: number[]) => void)(x, out_m, out_e, N);
+}
+
+export function frexp_f32(x: number, out_m: number, out_e: number, N: number): void {
+  const i = init();
+  (i.exports['frexp_f32'] as (...args: number[]) => void)(x, out_m, out_e, N);
 }

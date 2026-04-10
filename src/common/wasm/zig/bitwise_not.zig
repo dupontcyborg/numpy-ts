@@ -93,3 +93,11 @@ test "bitwise_not_i64 basic" {
     try testing.expectEqual(out[1], 0);
     try testing.expectEqual(out[2], ~@as(i64, 0xFF));
 }
+
+test "bitwise_not_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{0};
+    var out: [1]i16 = undefined;
+    bitwise_not_i16(&a, &out, 1);
+    try testing.expectEqual(out[0], -1);
+}

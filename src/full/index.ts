@@ -98,10 +98,7 @@ export function select(
   return up(core.select(condlist, choicelist, defaultVal));
 }
 
-export function indices(
-  dimensions: number[],
-  dtype: 'int32' | 'int64' | 'float64' = 'int32'
-): NDArray {
+export function indices(dimensions: number[], dtype: string = 'float64'): NDArray {
   return up(core.indices(dimensions, dtype));
 }
 
@@ -143,7 +140,7 @@ export function triu_indices_from(a: NDArrayCore, k: number = 0): NDArray[] {
 
 export function mask_indices(
   n: number,
-  mask_func: (n: number, k: number) => NDArrayCore,
+  mask_func: (m: NDArrayCore, k: number) => NDArrayCore,
   k: number = 0
 ): NDArray[] {
   return core.mask_indices(n, mask_func, k).map(up);
@@ -551,12 +548,7 @@ export function array(data: unknown, dtype?: DType): NDArray {
 /**
  * Create array with evenly spaced values within a given interval
  */
-export function arange(
-  start: number,
-  stop?: number,
-  step: number = 1,
-  dtype: DType = DEFAULT_DTYPE
-): NDArray {
+export function arange(start: number, stop?: number, step: number = 1, dtype?: DType): NDArray {
   return up(core.arange(start, stop, step, dtype));
 }
 
@@ -1737,7 +1729,7 @@ export function trapezoid(
   x?: NDArrayCore,
   dx?: number,
   axis?: number
-): NDArray | number {
+): NDArray | number | Complex {
   const r = core.trapezoid(y, x, dx, axis);
   return r instanceof NDArrayCore ? up(r) : r;
 }

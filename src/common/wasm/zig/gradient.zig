@@ -450,3 +450,43 @@ test "gradient_i64 N=2 edge case" {
     try testing.expectApproxEqAbs(out[0], 4.0, 1e-10);
     try testing.expectApproxEqAbs(out[1], 4.0, 1e-10);
 }
+
+test "gradient_u64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 0, 2, 4 };
+    var out: [3]f64 = undefined;
+    gradient_u64(&a, &out, 3, 1.0);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[1], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[2], 2.0, 1e-10);
+}
+
+test "gradient_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 0, 2, 4 };
+    var out: [3]f64 = undefined;
+    gradient_u32(&a, &out, 3, 1.0);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[1], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[2], 2.0, 1e-10);
+}
+
+test "gradient_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 0, 2, 4 };
+    var out: [3]f64 = undefined;
+    gradient_u16(&a, &out, 3, 1.0);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[1], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[2], 2.0, 1e-10);
+}
+
+test "gradient_u8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u8{ 0, 2, 4 };
+    var out: [3]f64 = undefined;
+    gradient_u8(&a, &out, 3, 1.0);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[1], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(out[2], 2.0, 1e-10);
+}

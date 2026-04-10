@@ -324,3 +324,178 @@ test "sort_i32 radix sort path" {
         try testing.expect(a[i] >= a[i - 1]);
     }
 }
+
+test "sort_i64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 100, -50, 0, 9999999999 };
+    sort_i64(&a, 4);
+    try testing.expectEqual(a[0], -50);
+    try testing.expectEqual(a[3], 9999999999);
+}
+
+test "sort_u64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 300, 100, 200 };
+    sort_u64(&a, 3);
+    try testing.expectEqual(a[0], 100);
+    try testing.expectEqual(a[2], 300);
+}
+
+test "sort_u32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 5, 1, 3, 4, 2 };
+    sort_u32(&a, 5);
+    try testing.expectEqual(a[0], 1);
+    try testing.expectEqual(a[4], 5);
+}
+
+test "sort_u16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 500, 100, 300, 200, 400 };
+    sort_u16(&a, 5, null);
+    try testing.expectEqual(a[0], 100);
+    try testing.expectEqual(a[4], 500);
+}
+
+test "sort_i8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 10, -5, 0, -128, 127 };
+    sort_i8(&a, 5, null);
+    try testing.expectEqual(a[0], -128);
+    try testing.expectEqual(a[4], 127);
+}
+
+test "sort_slices_f64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f64{ 3.0, 1.0, 2.0, 9.0, 7.0, 8.0 };
+    sort_slices_f64(&a, 3, 2);
+    try testing.expectApproxEqAbs(a[0], 1.0, 1e-10);
+    try testing.expectApproxEqAbs(a[2], 3.0, 1e-10);
+    try testing.expectApproxEqAbs(a[3], 7.0, 1e-10);
+    try testing.expectApproxEqAbs(a[5], 9.0, 1e-10);
+}
+
+test "sort_slices_f32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 3.0, 1.0, 2.0 };
+    sort_slices_f32(&a, 3, 1);
+    try testing.expectApproxEqAbs(a[0], 1.0, 1e-5);
+    try testing.expectApproxEqAbs(a[2], 3.0, 1e-5);
+}
+
+test "sort_slices_i64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 30, 10, 20 };
+    sort_slices_i64(&a, 3, 1);
+    try testing.expectEqual(a[0], 10);
+    try testing.expectEqual(a[2], 30);
+}
+
+test "sort_slices_u64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 30, 10, 20 };
+    sort_slices_u64(&a, 3, 1);
+    try testing.expectEqual(a[0], 10);
+    try testing.expectEqual(a[2], 30);
+}
+
+test "sort_slices_i32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 30, 10, 20 };
+    sort_slices_i32(&a, 3, 1);
+    try testing.expectEqual(a[0], 10);
+    try testing.expectEqual(a[2], 30);
+}
+
+test "sort_slices_u32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 30, 10, 20 };
+    sort_slices_u32(&a, 3, 1);
+    try testing.expectEqual(a[0], 10);
+    try testing.expectEqual(a[2], 30);
+}
+
+test "sort_slices_i16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 30, 10, 20 };
+    sort_slices_i16(&a, 3, 1);
+    try testing.expectEqual(a[0], 10);
+    try testing.expectEqual(a[2], 30);
+}
+
+test "sort_slices_u16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 300, 100, 200 };
+    sort_slices_u16(&a, 3, 1);
+    try testing.expectEqual(a[0], 100);
+    try testing.expectEqual(a[2], 300);
+}
+
+test "sort_slices_i8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 30, 10, 20 };
+    sort_slices_i8(&a, 3, 1);
+    try testing.expectEqual(a[0], 10);
+    try testing.expectEqual(a[2], 30);
+}
+
+test "sort_slices_u8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u8{ 200, 50, 100 };
+    sort_slices_u8(&a, 3, 1);
+    try testing.expectEqual(a[0], 50);
+    try testing.expectEqual(a[2], 200);
+}
+
+test "sort_f16 basic" {
+    const testing = @import("std").testing;
+    // f16 bit patterns: 0.0=0x0000, 1.0=0x3C00, 2.0=0x4000
+    var a = [_]u16{ 0x4000, 0x0000, 0x3C00 }; // [2.0, 0.0, 1.0]
+    sort_f16(&a, 3);
+    try testing.expectEqual(a[0], 0x0000); // 0.0
+    try testing.expectEqual(a[1], 0x3C00); // 1.0
+    try testing.expectEqual(a[2], 0x4000); // 2.0
+}
+
+test "sort_slices_f16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 0x4000, 0x0000, 0x3C00 }; // [2.0, 0.0, 1.0]
+    sort_slices_f16(&a, 3, 1);
+    try testing.expectEqual(a[0], 0x0000);
+    try testing.expectEqual(a[2], 0x4000);
+}
+
+test "sort_c128 basic" {
+    // Complex128: interleaved f64 pairs, lexicographic order by (re, im)
+    const testing = @import("std").testing;
+    var a = [_]f64{ 3.0, 0.0, 1.0, 0.0, 2.0, 0.0 }; // [(3,0),(1,0),(2,0)]
+    sort_c128(&a, 3);
+    try testing.expectApproxEqAbs(a[0], 1.0, 1e-10);
+    try testing.expectApproxEqAbs(a[2], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(a[4], 3.0, 1e-10);
+}
+
+test "sort_c64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 3.0, 0.0, 1.0, 0.0, 2.0, 0.0 };
+    sort_c64(&a, 3);
+    try testing.expectApproxEqAbs(a[0], 1.0, 1e-5);
+    try testing.expectApproxEqAbs(a[2], 2.0, 1e-5);
+    try testing.expectApproxEqAbs(a[4], 3.0, 1e-5);
+}
+
+test "sort_slices_c128 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f64{ 3.0, 0.0, 1.0, 0.0 }; // slice: [(3,0),(1,0)]
+    sort_slices_c128(&a, 2, 1);
+    try testing.expectApproxEqAbs(a[0], 1.0, 1e-10);
+    try testing.expectApproxEqAbs(a[2], 3.0, 1e-10);
+}
+
+test "sort_slices_c64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 3.0, 0.0, 1.0, 0.0 };
+    sort_slices_c64(&a, 2, 1);
+    try testing.expectApproxEqAbs(a[0], 1.0, 1e-5);
+    try testing.expectApproxEqAbs(a[2], 3.0, 1e-5);
+}

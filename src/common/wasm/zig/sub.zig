@@ -374,3 +374,47 @@ test "sub_scalar_i8 SIMD boundary N=17" {
         try testing.expectEqual(out[i], expected);
     }
 }
+
+test "sub_c64 basic" {
+    const testing = @import("std").testing;
+    // c64 stored as pairs of f32: [re0, im0]
+    const a = [_]f32{ 5.0, 3.0 };
+    const b = [_]f32{ 2.0, 1.0 };
+    var out: [2]f32 = undefined;
+    sub_c64(&a, &b, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-6);
+    try testing.expectApproxEqAbs(out[1], 2.0, 1e-6);
+}
+
+test "sub_scalar_c64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 5.0, 3.0 };
+    var out: [2]f32 = undefined;
+    sub_scalar_c64(&a, &out, 1, 2.0);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-6);
+    try testing.expectApproxEqAbs(out[1], 3.0, 1e-6);
+}
+
+test "sub_scalar_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{5};
+    var out: [1]i64 = undefined;
+    sub_scalar_i64(&a, &out, 1, 2);
+    try testing.expectEqual(out[0], 3);
+}
+
+test "sub_scalar_i32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i32{5};
+    var out: [1]i32 = undefined;
+    sub_scalar_i32(&a, &out, 1, 2);
+    try testing.expectEqual(out[0], 3);
+}
+
+test "sub_scalar_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{5};
+    var out: [1]i16 = undefined;
+    sub_scalar_i16(&a, &out, 1, 2);
+    try testing.expectEqual(out[0], 3);
+}

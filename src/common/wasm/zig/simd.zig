@@ -387,6 +387,7 @@ pub inline fn max_u64x2(a: V2u64, b: V2u64) V2u64 {
     const fb = sb +% SIGN_FLIP_64;
     return @select(u64, fa > fb, a, b);
 }
+
 /// Element-wise min for V2u64 via sign-flip + signed compare.
 pub inline fn min_u64x2(a: V2u64, b: V2u64) V2u64 {
     const sa: V2i64 = @bitCast(a);

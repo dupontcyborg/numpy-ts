@@ -15,6 +15,9 @@ import {
   isComplexDType,
   isIntegerDType,
   throwIfComplex,
+  hasFloat16,
+  mathResultDtype,
+  promoteDTypes,
   type DType,
 } from '../dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
@@ -761,6 +764,27 @@ export function isnat(a: ArrayStorage): ArrayStorage {
  * @returns Array with magnitude from x1 and sign from x2
  */
 export function copysign(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  // NumPy promotes bool → float16 for copysign
+  if (x1.dtype === 'bool') {
+    const dt = mathResultDtype('bool');
+    const conv = (a: ArrayStorage) => {
+      const r = ArrayStorage.empty(Array.from(a.shape), dt);
+      const s = a.data as Uint8Array;
+      for (let i = 0; i < a.size; i++) r.data[i] = s[a.offset + i]!;
+      return r;
+    };
+    return copysign(conv(x1), typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? conv(x2) : x2);
+  }
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') {
+    const dt = mathResultDtype('bool');
+    const conv = (a: ArrayStorage) => {
+      const r = ArrayStorage.empty(Array.from(a.shape), dt);
+      const s = a.data as Uint8Array;
+      for (let i = 0; i < a.size; i++) r.data[i] = s[a.offset + i]!;
+      return r;
+    };
+    return copysign(x1, conv(x2));
+  }
   throwIfComplex(x1.dtype, 'copysign', 'copysign is only defined for real numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'copysign', 'copysign is only defined for real numbers.');
@@ -810,8 +834,9 @@ export function copysign(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStor
  * @private
  */
 function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const outDtype = mathResultDtype(promoteDTypes(x1.dtype, x2.dtype));
+  const result = ArrayStorage.zeros(Array.from(x1.shape), outDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = x1.size;
   const x1Data = x1.data;
   const x2Data = x2.data;
@@ -824,7 +849,9 @@ function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
   for (let i = 0; i < size; i++) {
     const val1 = x1IsBigInt ? Number(x1Data[x1Off + i] as bigint) : (x1Data[x1Off + i] as number);
     const val2 = x2IsBigInt ? Number(x2Data[x2Off + i] as bigint) : (x2Data[x2Off + i] as number);
-    resultData[i] = Math.sign(val2) * Math.abs(val1);
+    // Use Object.is to distinguish +0/-0 (Math.sign(0) returns 0, but copysign needs ±1)
+    const sign = Object.is(val2, -0) || val2 < 0 ? -1 : 1;
+    resultData[i] = sign * Math.abs(val1);
   }
 
   return result;
@@ -835,10 +862,11 @@ function copysignArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @private
  */
 function copysignScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const outDtype = mathResultDtype(storage.dtype);
+  const result = ArrayStorage.zeros(Array.from(storage.shape), outDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = storage.size;
-  const signVal = Math.sign(scalar);
+  const signVal = Object.is(scalar, -0) || scalar < 0 ? -1 : 1;
 
   if (!storage.isCContiguous) {
     for (let i = 0; i < size; i++) {
@@ -924,10 +952,33 @@ export function signbit(a: ArrayStorage): ArrayStorage {
  * @returns Array of next representable values
  */
 export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
-  throwIfComplex(x1.dtype, 'nextafter', 'nextafter is only defined for real numbers.');
+  throwIfComplex(
+    x1.dtype,
+    'nextafter',
+    'nextafter is only defined for real floating-point numbers.'
+  );
   if (typeof x2 !== 'number') {
-    throwIfComplex(x2.dtype, 'nextafter', 'nextafter is only defined for real numbers.');
+    throwIfComplex(
+      x2.dtype,
+      'nextafter',
+      'nextafter is only defined for real floating-point numbers.'
+    );
   }
+
+  // NumPy promotes bool → float16 for nextafter; compute in float16 precision
+  if (x1.dtype === 'bool' && hasFloat16) {
+    const size = x1.size;
+    const dt = mathResultDtype('bool'); // 'float16'
+    const result = ArrayStorage.zeros(Array.from(x1.shape), dt);
+    const resultData = result.data;
+    for (let i = 0; i < size; i++) {
+      const v1 = Number(x1.iget(i));
+      const v2 = typeof x2 === 'number' ? x2 : Number(x2.iget(i));
+      resultData[i] = float16Nextafter(v1, v2);
+    }
+    return result;
+  }
+
   if (typeof x2 === 'number') {
     return nextafterScalar(x1, x2);
   }
@@ -940,8 +991,9 @@ export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   // Slow path: broadcasting
   const outputShape = broadcastShapes(x1.shape, x2.shape);
   const size = outputShape.reduce((a, b) => a * b, 1);
-  const result = ArrayStorage.zeros(outputShape, 'float64');
-  const resultData = result.data as Float64Array;
+  const nextDtype = mathResultDtype(promoteDTypes(x1.dtype, x2.dtype));
+  const result = ArrayStorage.zeros(outputShape, nextDtype);
+  const resultData = result.data as Float64Array | Float32Array;
 
   // Create broadcast views
   const x1Broadcast = broadcastToStorage(x1, outputShape);
@@ -961,8 +1013,9 @@ export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
  * @private
  */
 function nextafterArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(x1.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const nextDtype = mathResultDtype(promoteDTypes(x1.dtype, x2.dtype));
+  const result = ArrayStorage.zeros(Array.from(x1.shape), nextDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = x1.size;
   const x1Data = x1.data;
   const x2Data = x2.data;
@@ -986,8 +1039,9 @@ function nextafterArraysFast(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @private
  */
 function nextafterScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
-  const result = ArrayStorage.zeros(Array.from(storage.shape), 'float64');
-  const resultData = result.data as Float64Array;
+  const nextDtype = mathResultDtype(storage.dtype);
+  const result = ArrayStorage.zeros(Array.from(storage.shape), nextDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = storage.size;
 
   if (storage.isCContiguous) {
@@ -1067,8 +1121,57 @@ function nextafterSingle(x: number, y: number): number {
  */
 export function spacing(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'spacing', 'spacing is only defined for real numbers.');
-  const result = ArrayStorage.zeros(Array.from(a.shape), 'float64');
-  const resultData = result.data as Float64Array;
+
+  // NumPy promotes small types to their "minimum float": bool/int8/uint8→float16, int16/uint16→float32
+  const FLOAT16_TYPES = new Set(['bool', 'int8', 'uint8']);
+  const FLOAT32_TYPES = new Set(['int16', 'uint16']);
+  if (FLOAT16_TYPES.has(a.dtype) && hasFloat16) {
+    const size = a.size;
+    const dt = mathResultDtype('bool'); // 'float16'
+    const result = ArrayStorage.zeros(Array.from(a.shape), dt);
+    const resultData = result.data;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = float16Spacing(Number(a.iget(i)));
+    }
+    return result;
+  }
+  if (FLOAT32_TYPES.has(a.dtype)) {
+    const size = a.size;
+    const result = ArrayStorage.zeros(Array.from(a.shape), 'float32');
+    const resultData = result.data as Float32Array;
+    for (let i = 0; i < size; i++) {
+      // Compute spacing in float32 precision
+      const f32 = new Float32Array([Number(a.iget(i))]);
+      const f32next = new Float32Array(1);
+      const view = new DataView(f32.buffer);
+      const bits = view.getUint32(0, true);
+      const viewNext = new DataView(f32next.buffer);
+      if ((bits & 0x7fffffff) === 0) {
+        viewNext.setUint32(0, 1, true);
+        resultData[i] = f32next[0]!;
+      } else {
+        viewNext.setUint32(0, bits + 1, true);
+        resultData[i] = Math.abs(f32next[0]! - f32[0]!);
+      }
+    }
+    return result;
+  }
+
+  // float16 preserves float16 (compute spacing in float16 precision)
+  if (a.dtype === 'float16' && hasFloat16) {
+    const size = a.size;
+    const result = ArrayStorage.zeros(Array.from(a.shape), 'float16');
+    const resultData = result.data;
+    for (let i = 0; i < size; i++) {
+      resultData[i] = float16Spacing(Number(a.iget(i)));
+    }
+    return result;
+  }
+
+  // float32 preserves float32, everything else → float64
+  const resultDtype = a.dtype === 'float32' ? ('float32' as const) : ('float64' as const);
+  const result = ArrayStorage.zeros(Array.from(a.shape), resultDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const size = a.size;
 
   if (a.isCContiguous) {
@@ -1097,6 +1200,51 @@ export function spacing(a: ArrayStorage): ArrayStorage {
  * Compute spacing for a single value
  * @private
  */
+/**
+ * Compute nextafter in float16 precision, matching NumPy's bool→float16 promotion.
+ * @private
+ */
+function float16Nextafter(x: number, y: number): number {
+  const f16 = new Float16Array([x]);
+  const view = new DataView(f16.buffer);
+  let bits = view.getUint16(0, true);
+  const xf16 = f16[0]!;
+  const yf16 = new Float16Array([y])[0]!;
+  if (xf16 === yf16) return xf16;
+  if (Number.isNaN(xf16) || Number.isNaN(yf16)) return NaN;
+  if (xf16 === 0) {
+    // From zero: step toward y
+    view.setUint16(0, yf16 > 0 ? 1 : 0x8001, true);
+    return f16[0]!;
+  }
+  if (xf16 < yf16) {
+    bits = bits & 0x8000 ? bits - 1 : bits + 1;
+  } else {
+    bits = bits & 0x8000 ? bits + 1 : bits - 1;
+  }
+  view.setUint16(0, bits, true);
+  return f16[0]!;
+}
+
+/**
+ * Compute float16 ULP (spacing) for a value, matching NumPy's bool→float16 promotion.
+ * @private
+ */
+function float16Spacing(val: number): number {
+  const f16 = new Float16Array(2);
+  f16[0] = val;
+  const view = new DataView(f16.buffer);
+  const bits = view.getUint16(0, true);
+  // For ±0, return smallest float16 subnormal
+  if ((bits & 0x7fff) === 0) {
+    view.setUint16(2, 1, true);
+    return f16[1]!;
+  }
+  // Increment mantissa by 1 ULP
+  view.setUint16(2, bits + 1, true);
+  return Math.abs(f16[1]! - f16[0]!);
+}
+
 function spacingSingle(x: number): number {
   // Handle special cases
   if (Number.isNaN(x)) {

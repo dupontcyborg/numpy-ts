@@ -222,3 +222,128 @@ test "right_shift_scalar_i8 SIMD boundary N=17" {
         try testing.expectEqual(out[idx], v >> 2);
     }
 }
+
+test "right_shift_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{ 64, -8 };
+    const b = [_]i64{ 2, 1 };
+    var out: [2]i64 = undefined;
+    right_shift_i64(&a, &b, &out, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], -4); // arithmetic shift
+}
+
+test "right_shift_scalar_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{ 64, 128, -32 };
+    var out: [3]i64 = undefined;
+    right_shift_scalar_i64(&a, &out, 3, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 32);
+    try testing.expectEqual(out[2], -8);
+}
+
+test "right_shift_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{ 64, -8 };
+    const b = [_]i16{ 2, 1 };
+    var out: [2]i16 = undefined;
+    right_shift_i16(&a, &b, &out, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], -4);
+}
+
+test "right_shift_scalar_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{ 64, 128 };
+    var out: [2]i16 = undefined;
+    right_shift_scalar_i16(&a, &out, 2, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 32);
+}
+
+test "right_shift_i8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i8{ 64, -8 };
+    const b = [_]i8{ 2, 1 };
+    var out: [2]i8 = undefined;
+    right_shift_i8(&a, &b, &out, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], -4);
+}
+
+test "right_shift_u64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 64, 128 };
+    const b = [_]u64{ 2, 3 };
+    var out: [2]u64 = undefined;
+    right_shift_u64(&a, &b, &out, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 16);
+}
+
+test "right_shift_scalar_u64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 64, 128 };
+    var out: [2]u64 = undefined;
+    right_shift_scalar_u64(&a, &out, 2, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 32);
+}
+
+test "right_shift_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 64, 128 };
+    const b = [_]u32{ 2, 3 };
+    var out: [2]u32 = undefined;
+    right_shift_u32(&a, &b, &out, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 16);
+}
+
+test "right_shift_scalar_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 64, 128 };
+    var out: [2]u32 = undefined;
+    right_shift_scalar_u32(&a, &out, 2, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 32);
+}
+
+test "right_shift_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 64, 128 };
+    const b = [_]u16{ 2, 3 };
+    var out: [2]u16 = undefined;
+    right_shift_u16(&a, &b, &out, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 16);
+}
+
+test "right_shift_scalar_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 64, 128 };
+    var out: [2]u16 = undefined;
+    right_shift_scalar_u16(&a, &out, 2, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 32);
+}
+
+test "right_shift_u8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u8{ 64, 128 };
+    const b = [_]u8{ 2, 3 };
+    var out: [2]u8 = undefined;
+    right_shift_u8(&a, &b, &out, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 16);
+}
+
+test "right_shift_scalar_u8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u8{ 64, 128 };
+    var out: [2]u8 = undefined;
+    right_shift_scalar_u8(&a, &out, 2, 2);
+    try testing.expectEqual(out[0], 16);
+    try testing.expectEqual(out[1], 32);
+}

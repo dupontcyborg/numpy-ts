@@ -3,7 +3,7 @@
 import { getSharedMemory, setHeapBase } from '../runtime';
 
 const B64 =
-  'AGFzbQEAAAABCgFgBn9/f39/fwACDwEDZW52Bm1lbW9yeQIAIQMDAgAABgkBfwFBgICEAQsHHwIMY29udm9sdmVfZjY0AAAMY29udm9sdmVfZjMyAAEKiQMCxgEDA38BfAR/AkAgA0F/aiIGIAFqIgdFDQBBACEIA0BEAAAAAAAAAAAhCQJAQQAgCCAGayIDIAMgCEsbIgogCEEBaiILIAEgCCABSRsiDE8NACAAIAggBiAIIAZJG0EDdCINayEDIAIgDWohDUQAAAAAAAAAACEJA0AgCSADKwMAIA0rAwCioCEJIANBCGohAyANQXhqIQ0gCkEBaiIKIAxJDQALCyAEIAhBA3RqIAk5AwAgAEEIaiEAIAshCCALIAdHDQALCwu+AQMDfwF9BH8CQCADQX9qIgYgAWoiB0UNAEEAIQgDQEMAAAAAIQkCQEEAIAggBmsiAyADIAhLGyIKIAhBAWoiCyABIAggAUkbIgxPDQAgACAIIAYgCCAGSRtBAnQiDWshAyACIA1qIQ1DAAAAACEJA0AgCSADKgIAIA0qAgCUkiEJIANBBGohAyANQXxqIQ0gCkEBaiIKIAxJDQALCyAEIAhBAnRqIAk4AgAgAEEEaiEAIAshCCALIAdHDQALCws=';
+  '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';
 
 let inst: WebAssembly.Instance | null = null;
 
@@ -45,4 +45,76 @@ export function convolve_f32(
 ): void {
   const i = init();
   (i.exports['convolve_f32'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
+}
+
+export function convolve_i32(
+  a: number,
+  na: number,
+  b: number,
+  nb: number,
+  out: number,
+  outLen: number
+): void {
+  const i = init();
+  (i.exports['convolve_i32'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
+}
+
+export function convolve_u32(
+  a: number,
+  na: number,
+  b: number,
+  nb: number,
+  out: number,
+  outLen: number
+): void {
+  const i = init();
+  (i.exports['convolve_u32'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
+}
+
+export function convolve_i16(
+  a: number,
+  na: number,
+  b: number,
+  nb: number,
+  out: number,
+  outLen: number
+): void {
+  const i = init();
+  (i.exports['convolve_i16'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
+}
+
+export function convolve_u16(
+  a: number,
+  na: number,
+  b: number,
+  nb: number,
+  out: number,
+  outLen: number
+): void {
+  const i = init();
+  (i.exports['convolve_u16'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
+}
+
+export function convolve_i8(
+  a: number,
+  na: number,
+  b: number,
+  nb: number,
+  out: number,
+  outLen: number
+): void {
+  const i = init();
+  (i.exports['convolve_i8'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
+}
+
+export function convolve_u8(
+  a: number,
+  na: number,
+  b: number,
+  nb: number,
+  out: number,
+  outLen: number
+): void {
+  const i = init();
+  (i.exports['convolve_u8'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
 }

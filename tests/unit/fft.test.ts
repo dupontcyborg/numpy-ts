@@ -911,7 +911,7 @@ describe('FFT Operations', () => {
     it('fft with float32 input', () => {
       const arr = array([1, 2, 3, 4], 'float32');
       const result = fft.fft(arr);
-      expect(result.dtype).toBe('complex128');
+      expect(result.dtype).toBe('complex64'); // NumPy: fft(float32) → complex64
     });
 
     it('fft with int16 input', () => {

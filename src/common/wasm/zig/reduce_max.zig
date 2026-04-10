@@ -443,3 +443,83 @@ test "reduce_max_i32 negatives" {
     const a = [_]i32{ -10, -3, -7, -1 };
     try testing.expectEqual(reduce_max_i32(&a, 4), -1);
 }
+
+test "reduce_max_strided_f64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f64{ 1.0, 5.0, 3.0 };
+    var out = [_]f64{0.0};
+    reduce_max_strided_f64(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5.0);
+}
+
+test "reduce_max_strided_f32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 1.0, 5.0, 3.0 };
+    var out = [_]f32{0.0};
+    reduce_max_strided_f32(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5.0);
+}
+
+test "reduce_max_strided_i64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 1, 5, 3 };
+    var out = [_]i64{0};
+    reduce_max_strided_i64(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}
+
+test "reduce_max_strided_u64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 1, 5, 3 };
+    var out = [_]u64{0};
+    reduce_max_strided_u64(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}
+
+test "reduce_max_strided_i32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 1, 5, 3 };
+    var out = [_]i32{0};
+    reduce_max_strided_i32(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}
+
+test "reduce_max_strided_u32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 1, 5, 3 };
+    var out = [_]u32{0};
+    reduce_max_strided_u32(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}
+
+test "reduce_max_strided_i16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 1, 5, 3 };
+    var out = [_]i16{0};
+    reduce_max_strided_i16(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}
+
+test "reduce_max_strided_u16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 1, 5, 3 };
+    var out = [_]u16{0};
+    reduce_max_strided_u16(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}
+
+test "reduce_max_strided_i8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 1, 5, 3 };
+    var out = [_]i8{0};
+    reduce_max_strided_i8(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}
+
+test "reduce_max_strided_u8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u8{ 1, 5, 3 };
+    var out = [_]u8{0};
+    reduce_max_strided_u8(&a, &out, 1, 3, 1);
+    try testing.expectEqual(out[0], 5);
+}

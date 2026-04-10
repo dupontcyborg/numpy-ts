@@ -21,7 +21,13 @@ import {
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
+import {
+  effectiveDType,
+  isComplexDType,
+  promoteDTypes,
+  type DType,
+  type TypedArray,
+} from '../dtype';
 import { wasmConfig } from './config';
 
 // Resolve float kernel module once — relaxed if supported, baseline otherwise.
@@ -162,6 +168,10 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
 
   // Bool: no WASM kernel
   if (resultDtype === 'bool') return null;
+
+  // Mixed real/complex: WASM complex kernel expects both inputs interleaved
+  // TODO: support mixed dtypes by upcasting here
+  if (isComplexDType(resultDtype) && a.dtype !== b.dtype) return null;
 
   const workDtype: DType = resultDtype;
 

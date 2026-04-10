@@ -1,7 +1,6 @@
-//! WASM Householder QR decomposition and least-squares solve.
+//! WASM Householder QR decomposition.
 //!
 //! qr_f64: A[m×n] → Q[m×k], R[k×n] where k = min(m,n)
-//! lstsq_f64: solve Ax=b via QR for overdetermined systems (m >= n)
 
 /// Householder QR decomposition for f64 matrices.
 /// `a` is modified in place (stores R on upper triangle, Householder vectors below).
@@ -104,50 +103,6 @@ export fn qr_f64(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]f
     }
 }
 
-/// Least-squares solve Ax=b via QR decomposition for f64 matrices.
-/// a is modified in place. scratch layout:
-///   a_copy[M*N] + Q[M*K] + R[K*N] + tau[K] + QtB[K] + qr_scratch[...]
-export fn lstsq_f64(a: [*]f64, b: [*]const f64, x: [*]f64, scratch: [*]f64, m_arg: u32, n_arg: u32) void {
-    const M = @as(usize, m_arg);
-    const N = @as(usize, n_arg);
-    const K = if (M < N) M else N;
-
-    // Partition scratch
-    const a_copy = scratch;
-    const q_ptr = a_copy + M * N;
-    const r_ptr = q_ptr + M * K;
-    const tau_ptr = r_ptr + K * N;
-    const qtb_ptr = tau_ptr + K;
-    const qr_scratch = qtb_ptr + K;
-
-    // Copy a since qr modifies in place
-    for (0..M * N) |i| a_copy[i] = a[i];
-
-    // QR decomposition
-    qr_f64(a_copy, q_ptr, r_ptr, tau_ptr, qr_scratch, m_arg, n_arg);
-
-    // QtB = Q^T * b
-    for (0..K) |ci| {
-        var sum: f64 = 0;
-        for (0..M) |ri| {
-            sum += q_ptr[ri * K + ci] * b[ri];
-        }
-        qtb_ptr[ci] = sum;
-    }
-
-    // Back-substitution: R * x = QtB
-    var ii: usize = K;
-    while (ii > 0) {
-        ii -= 1;
-        var sum: f64 = qtb_ptr[ii];
-        for (ii + 1..N) |j| {
-            sum -= r_ptr[ii * N + j] * x[j];
-        }
-        const diag = r_ptr[ii * N + ii];
-        x[ii] = if (diag != 0) sum / diag else 0;
-    }
-}
-
 // --- Tests ---
 
 test "qr_f64 2x2" {
@@ -199,19 +154,6 @@ test "qr_f64 3x2" {
     try testing.expectApproxEqAbs(qtq00, 1.0, 1e-10);
     try testing.expectApproxEqAbs(qtq01, 0.0, 1e-10);
     try testing.expectApproxEqAbs(qtq11, 1.0, 1e-10);
-}
-
-test "lstsq_f64 overdetermined 3x2" {
-    const testing = @import("std").testing;
-    // A = [[1,1],[1,2],[1,3]], b = [1,2,3]
-    // Least squares: x = [0, 1] (exact fit for y=x)
-    var a = [_]f64{ 1, 1, 1, 2, 1, 3 };
-    const b = [_]f64{ 1, 2, 3 };
-    var x: [2]f64 = undefined;
-    var scratch: [128]f64 = undefined;
-    lstsq_f64(&a, &b, &x, &scratch, 3, 2);
-    try testing.expectApproxEqAbs(x[0], 0.0, 1e-10);
-    try testing.expectApproxEqAbs(x[1], 1.0, 1e-10);
 }
 
 test "qr_f64 1x1" {
@@ -316,46 +258,5 @@ test "qr_f64 2x3 wide" {
             for (0..2) |k| val += q[i * 2 + k] * r[k * 3 + j];
             try testing.expectApproxEqAbs(val, orig[i * 3 + j], 1e-10);
         }
-    }
-}
-
-test "lstsq_f64 exact 2x2" {
-    const testing = @import("std").testing;
-    // A = [[1,0],[0,1]], b = [3,7] → x = [3,7]
-    var a = [_]f64{ 1, 0, 0, 1 };
-    const b = [_]f64{ 3, 7 };
-    var x: [2]f64 = undefined;
-    var scratch: [128]f64 = undefined;
-    lstsq_f64(&a, &b, &x, &scratch, 2, 2);
-    try testing.expectApproxEqAbs(x[0], 3.0, 1e-10);
-    try testing.expectApproxEqAbs(x[1], 7.0, 1e-10);
-}
-
-test "lstsq_f64 overdetermined 4x2" {
-    const testing = @import("std").testing;
-    // Fit y = 2x + 1: A = [[1,0],[1,1],[1,2],[1,3]], b = [1,3,5,7]
-    var a = [_]f64{ 1, 0, 1, 1, 1, 2, 1, 3 };
-    const b = [_]f64{ 1, 3, 5, 7 };
-    var x: [2]f64 = undefined;
-    var scratch: [256]f64 = undefined;
-    lstsq_f64(&a, &b, &x, &scratch, 4, 2);
-    try testing.expectApproxEqAbs(x[0], 1.0, 1e-10);
-    try testing.expectApproxEqAbs(x[1], 2.0, 1e-10);
-}
-
-test "lstsq_f64 3x3 exact" {
-    const testing = @import("std").testing;
-    // A = [[2,1,0],[1,3,1],[0,1,2]], b = [5,10,7] → solve exactly
-    var a = [_]f64{ 2, 1, 0, 1, 3, 1, 0, 1, 2 };
-    const b = [_]f64{ 5, 10, 7 };
-    var x: [3]f64 = undefined;
-    var scratch: [256]f64 = undefined;
-    lstsq_f64(&a, &b, &x, &scratch, 3, 3);
-    // Verify Ax ≈ b
-    const orig_a = [_]f64{ 2, 1, 0, 1, 3, 1, 0, 1, 2 };
-    for (0..3) |i| {
-        var val: f64 = 0;
-        for (0..3) |j| val += orig_a[i * 3 + j] * x[j];
-        try testing.expectApproxEqAbs(val, b[i], 1e-8);
     }
 }

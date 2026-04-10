@@ -1,6 +1,8 @@
 /**
  * WASM-accelerated searchsorted (binary search for insertion indices).
  *
+ * Output is float64 indices for JS ergonomics (no BigInt).
+ * WASM searches u32 internally and converts to f64 before returning.
  * Returns null if WASM can't handle this case.
  */
 
@@ -91,7 +93,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
 
 /**
  * WASM-accelerated searchsorted.
- * Returns ArrayStorage of int32 insertion indices or null if WASM can't handle it.
+ * Returns ArrayStorage of float64 insertion indices or null if WASM can't handle it.
  */
 export function wasmSearchsorted(
   sorted: ArrayStorage,
@@ -114,7 +116,7 @@ export function wasmSearchsorted(
   if (values.dtype !== dtype) return null;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  const outBytes = m * 4; // u32 indices
+  const outBytes = m * 8; // f64 indices
 
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
@@ -153,10 +155,10 @@ export function wasmSearchsorted(
 
   return ArrayStorage.fromWasmRegion(
     Array.from(values.shape),
-    'int32',
+    'float64',
     outRegion,
     m,
-    Int32Array as unknown as new (
+    Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
       length: number

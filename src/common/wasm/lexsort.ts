@@ -1,6 +1,8 @@
 /**
  * WASM-accelerated lexsort (indirect stable sort on multiple keys).
  *
+ * Output is float64 indices for JS ergonomics (no BigInt).
+ * WASM sorts u32 internally and converts to f64 before returning.
  * All keys must be the same dtype and contiguous.
  * Returns null if WASM can't handle this case.
  */
@@ -17,13 +19,7 @@ import {
   lexsort_i8,
   lexsort_u8,
 } from './bins/lexsort.wasm';
-import {
-  wasmMalloc,
-  resetScratchAllocator,
-  scratchAlloc,
-  getSharedMemory,
-  f16InputToScratchF32,
-} from './runtime';
+import { wasmMalloc, resetScratchAllocator, scratchAlloc, getSharedMemory } from './runtime';
 import { ArrayStorage } from '../storage';
 import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
@@ -75,7 +71,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
 /**
  * WASM-accelerated lexsort.
  * All keys must be the same dtype and 1D contiguous.
- * Returns ArrayStorage of int32 indices or null if WASM can't handle it.
+ * Returns ArrayStorage of float64 indices or null if WASM can't handle it.
  */
 export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
   if (keys.length === 0) return null;
@@ -99,7 +95,7 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
   const numKeys = keys.length;
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const keysBytes = numKeys * n * bpe;
-  const outBytes = n * 4; // i32 indices
+  const outBytes = n * 8; // f64 indices
 
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
@@ -111,11 +107,14 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
   const isF16 = dtype === 'float16';
   let flatBuf: number;
   if (isF16) {
-    // f16→f32: each key converted via bump allocator (contiguous since all same size)
-    flatBuf = 0;
+    // f16→f32: allocate one contiguous block, then convert each key into its slot
+    const keyF32Bytes = n * 4;
+    flatBuf = scratchAlloc(numKeys * keyF32Bytes);
+    const mem = getSharedMemory();
     for (let k = 0; k < numKeys; k++) {
-      const ptr = f16InputToScratchF32(keys[k]!, n);
-      if (k === 0) flatBuf = ptr;
+      const destView = new Float32Array(mem.buffer, flatBuf + k * keyF32Bytes, n);
+      const key = keys[k]!;
+      destView.set(key.data.subarray(key.offset, key.offset + n) as unknown as ArrayLike<number>);
     }
   } else {
     flatBuf = scratchAlloc(keysBytes);
@@ -131,7 +130,7 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
   }
 
   if (radixKernel) {
-    const scratchPtr = scratchAlloc(n * 4);
+    const scratchPtr = scratchAlloc(n * 8);
     radixKernel(flatBuf, numKeys, n, outRegion.ptr, scratchPtr);
   } else {
     kernel!(flatBuf, numKeys, n, outRegion.ptr);
@@ -139,10 +138,10 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
 
   return ArrayStorage.fromWasmRegion(
     [n],
-    'int32',
+    'float64',
     outRegion,
     n,
-    Int32Array as unknown as new (
+    Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
       length: number

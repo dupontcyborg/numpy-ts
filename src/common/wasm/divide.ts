@@ -4,6 +4,10 @@
  * Binary: out[i] = a[i] / b[i]
  * Scalar: out[i] = a[i] / scalar
  * Returns null if WASM can't handle this case.
+ * Integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
 import {
@@ -56,7 +60,7 @@ const scalarKernels: Partial<Record<DType, ScalarFn>> = {
   // float16 excluded: f16→f32 conversion overhead makes JS path faster
 };
 
-// Integer-to-f64 binary kernels (int/uint in, f64 out)
+// All int → f64 binary kernels (NumPy: all int divide → f64)
 const intBinaryKernels: Partial<Record<DType, BinaryFn>> = {
   int64: div_i64_f64,
   uint64: div_u64_f64,
@@ -68,7 +72,7 @@ const intBinaryKernels: Partial<Record<DType, BinaryFn>> = {
   uint8: div_u8_f64,
 };
 
-// Integer-to-f64 scalar kernels (int/uint in, f64 out)
+// All int → f64 scalar kernels
 const intScalarKernels: Partial<Record<DType, ScalarFn>> = {
   int64: div_scalar_i64_f64,
   uint64: div_scalar_u64_f64,
@@ -78,6 +82,17 @@ const intScalarKernels: Partial<Record<DType, ScalarFn>> = {
   uint16: div_scalar_u16_f64,
   int8: div_scalar_i8_f64,
   uint8: div_scalar_u8_f64,
+};
+
+const bpeMap: Partial<Record<DType, number>> = {
+  int64: 8,
+  uint64: 8,
+  int32: 4,
+  uint32: 4,
+  int16: 2,
+  uint16: 2,
+  int8: 1,
+  uint8: 1,
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;
@@ -151,19 +166,18 @@ export function wasmDiv(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Try integer-to-f64 kernel
+  const inBpe = bpeMap[dtype];
+  if (!inBpe) return null;
+
+  // All int → f64 output (NumPy: all int divide → f64)
   const intKernel = intBinaryKernels[dtype];
-  const InCtor = ctorMap[dtype];
-  if (!intKernel || !InCtor) return null;
+  if (!intKernel) return null;
 
-  const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outBytes = size * 8;
-
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
 
   wasmConfig.wasmCallCount++;
-
   resetScratchAllocator();
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
   const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, inBpe);
@@ -212,19 +226,18 @@ export function wasmDivScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     );
   }
 
-  // Try integer-to-f64 scalar kernel
+  const inBpe = bpeMap[dtype];
+  if (!inBpe) return null;
+
+  // All int → f64 scalar path
   const intKernel = intScalarKernels[dtype];
-  const InCtor = ctorMap[dtype];
-  if (!intKernel || !InCtor) return null;
+  if (!intKernel) return null;
 
-  const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outBytes = size * 8;
-
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
 
   wasmConfig.wasmCallCount++;
-
   resetScratchAllocator();
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
 

@@ -54,16 +54,17 @@ export fn vecmat_f32(x: [*]const f32, A: [*]const f32, y: [*]f32, K: u32, N: u32
 export fn vecmat_c128(x: [*]const f64, A: [*]const f64, y: [*]f64, K: u32, N: u32) void {
     // Zero output (2 f64s per complex element)
     @memset(y[0 .. @as(usize, N) * 2], 0);
+    // vecmat computes conj(x) @ A, matching NumPy's convention
     for (0..K) |k| {
         const x_re = x[k * 2];
-        const x_im = x[k * 2 + 1];
+        const x_im = -x[k * 2 + 1]; // conjugate
         const a_row = k * N * 2; // 2 f64s per complex element
-        // Scalar loop: complex multiply-accumulate
+        // Scalar loop: conj(x) * A multiply-accumulate
         for (0..N) |j| {
             const idx = j * 2;
             const a_re = A[a_row + idx];
             const a_im = A[a_row + idx + 1];
-            // (x_re + x_im*i) * (a_re + a_im*i)
+            // (x_re - x_im*i) * (a_re + a_im*i)
             y[idx] += x_re * a_re - x_im * a_im;
             y[idx + 1] += x_re * a_im + x_im * a_re;
         }
@@ -76,16 +77,17 @@ export fn vecmat_c128(x: [*]const f64, A: [*]const f64, y: [*]f64, K: u32, N: u3
 export fn vecmat_c64(x: [*]const f32, A: [*]const f32, y: [*]f32, K: u32, N: u32) void {
     // Zero output (2 f32s per complex element)
     @memset(y[0 .. @as(usize, N) * 2], 0);
+    // vecmat computes conj(x) @ A, matching NumPy's convention
     for (0..K) |k| {
         const x_re = x[k * 2];
-        const x_im = x[k * 2 + 1];
+        const x_im = -x[k * 2 + 1]; // conjugate
         const a_row = k * N * 2; // 2 f32s per complex element
-        // Scalar loop: complex multiply-accumulate
+        // Scalar loop: conj(x) * A multiply-accumulate
         for (0..N) |j| {
             const idx = j * 2;
             const a_re = A[a_row + idx];
             const a_im = A[a_row + idx + 1];
-            // (x_re + x_im*i) * (a_re + a_im*i)
+            // (x_re - x_im*i) * (a_re + a_im*i)
             y[idx] += x_re * a_re - x_im * a_im;
             y[idx + 1] += x_re * a_im + x_im * a_re;
         }
@@ -120,27 +122,28 @@ test "vecmat_f32 basic" {
 test "vecmat_c128 basic" {
     const testing = @import("std").testing;
     // x = [(1+2i)], A = [[(3+4i), (5+6i)]], K=1, N=2
-    // y[0] = (1+2i)*(3+4i) = 3+4i+6i-8 = -5+10i
-    // y[1] = (1+2i)*(5+6i) = 5+6i+10i-12 = -7+16i
+    // conj(x) = [(1-2i)]
+    // y[0] = (1-2i)*(3+4i) = 3+4i-6i+8 = 11-2i
+    // y[1] = (1-2i)*(5+6i) = 5+6i-10i+12 = 17-4i
     const x = [_]f64{ 1, 2 };
     const A = [_]f64{ 3, 4, 5, 6 };
     var y: [4]f64 = undefined;
     vecmat_c128(&x, &A, &y, 1, 2);
-    try testing.expectApproxEqAbs(y[0], -5.0, 1e-10);
-    try testing.expectApproxEqAbs(y[1], 10.0, 1e-10);
-    try testing.expectApproxEqAbs(y[2], -7.0, 1e-10);
-    try testing.expectApproxEqAbs(y[3], 16.0, 1e-10);
+    try testing.expectApproxEqAbs(y[0], 11.0, 1e-10);
+    try testing.expectApproxEqAbs(y[1], -2.0, 1e-10);
+    try testing.expectApproxEqAbs(y[2], 17.0, 1e-10);
+    try testing.expectApproxEqAbs(y[3], -4.0, 1e-10);
 }
 
 test "vecmat_c64 basic" {
     const testing = @import("std").testing;
-    // Same as c128 but f32
+    // Same as c128 but f32 — conj(x) @ A
     const x = [_]f32{ 1, 2 };
     const A = [_]f32{ 3, 4, 5, 6 };
     var y: [4]f32 = undefined;
     vecmat_c64(&x, &A, &y, 1, 2);
-    try testing.expectApproxEqAbs(y[0], -5.0, 1e-5);
-    try testing.expectApproxEqAbs(y[1], 10.0, 1e-5);
-    try testing.expectApproxEqAbs(y[2], -7.0, 1e-5);
-    try testing.expectApproxEqAbs(y[3], 16.0, 1e-5);
+    try testing.expectApproxEqAbs(y[0], 11.0, 1e-5);
+    try testing.expectApproxEqAbs(y[1], -2.0, 1e-5);
+    try testing.expectApproxEqAbs(y[2], 17.0, 1e-5);
+    try testing.expectApproxEqAbs(y[3], -4.0, 1e-5);
 }

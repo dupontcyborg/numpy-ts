@@ -12,7 +12,12 @@ import { Project, FunctionDeclaration, SourceFile, SyntaxKind } from 'ts-morph';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { METHOD_DEFS, MESHGRID_FUNCTION, type MethodDef, type MethodPattern } from './ndarray-methods';
+import {
+  METHOD_DEFS,
+  MESHGRID_FUNCTION,
+  type MethodDef,
+  type MethodPattern,
+} from './ndarray-methods';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,38 +33,85 @@ const SKIP_FILES = new Set(['index.ts', 'types.ts']);
 // Functions that should NOT be wrapped (they don't return NDArrayCore)
 const NO_WRAP_FUNCTIONS = new Set([
   // Functions returning primitives
-  'ndim', 'size', 'item', 'tolist', 'tobytes', 'tofile', 'fill', 'byteswap', 'view',
-  'can_cast', 'common_type', 'result_type', 'min_scalar_type', 'issubdtype', 'typename', 'mintypecode',
-  'iscomplexobj', 'isrealobj', 'isfortran', 'isscalar', 'iterable', 'isdtype', 'promote_types',
+  'ndim',
+  'size',
+  'item',
+  'tolist',
+  'tobytes',
+  'tofile',
+  'fill',
+  'byteswap',
+  'view',
+  'can_cast',
+  'common_type',
+  'result_type',
+  'min_scalar_type',
+  'issubdtype',
+  'typename',
+  'mintypecode',
+  'iscomplexobj',
+  'isrealobj',
+  'isfortran',
+  'isscalar',
+  'iterable',
+  'isdtype',
+  'promote_types',
   'count_nonzero',
   // Functions returning other types
-  'set_printoptions', 'get_printoptions', 'printoptions',
-  'format_float_positional', 'format_float_scientific', 'base_repr', 'binary_repr',
-  'array2string', 'array_repr', 'array_str',
-  'geterr', 'seterr',
+  'set_printoptions',
+  'get_printoptions',
+  'printoptions',
+  'format_float_positional',
+  'format_float_scientific',
+  'base_repr',
+  'binary_repr',
+  'array2string',
+  'array_repr',
+  'array_str',
+  'geterr',
+  'seterr',
   'linalg', // namespace object
   'einsum_path', // returns tuple
-  'may_share_memory', 'shares_memory', // return boolean
-  'array_equal', 'array_equiv', // return boolean
+  'may_share_memory',
+  'shares_memory', // return boolean
+  'array_equal',
+  'array_equiv', // return boolean
   'allclose', // returns boolean
   // Functions returning complex objects with NDArrayCore fields
-  'unique', 'unique_all', 'unique_counts', 'unique_inverse',
-  'histogram', 'histogram2d', 'histogramdd', 'histogram_bin_edges',
+  'unique',
+  'unique_all',
+  'unique_counts',
+  'unique_inverse',
+  'histogram',
+  'histogram2d',
+  'histogramdd',
+  'histogram_bin_edges',
   // Functions returning union of single and array (NDArrayCore | NDArrayCore[])
-  'gradient', 'atleast_1d', 'atleast_2d', 'atleast_3d', 'searchsorted',
+  'gradient',
+  'atleast_1d',
+  'atleast_2d',
+  'atleast_3d',
+  'searchsorted',
   // Functions returning NDArrayCore[] with overloads
-  'split', 'dsplit', 'hsplit', 'vsplit', 'array_split',
+  'split',
+  'dsplit',
+  'hsplit',
+  'vsplit',
+  'array_split',
   // Functions with optional array parameters returning NDArrayCore[] | undefined
-  'broadcast_arrays', 'meshgrid', 'einsum',
+  'broadcast_arrays',
+  'meshgrid',
+  'einsum',
   // Functions with rest parameters or union returns needing special handling
-  'ix_', 'where',
+  'ix_',
+  'where',
   // meshgrid is re-exported from ./ndarray (needs NDArray-aware implementation)
   'meshgrid',
 ]);
 
 // Map function names when calling core (for reserved keywords)
 const CORE_NAME_MAP: Record<string, string> = {
-  'delete_': 'delete',
+  delete_: 'delete',
 };
 
 // Custom wrapper overrides for functions that need hand-written logic.
@@ -124,7 +176,7 @@ interface FunctionInfo {
   name: string;
   jsDoc: string;
   params: string;
-  paramNames: string[];  // Store parameter names separately for reliable function calls
+  paramNames: string[]; // Store parameter names separately for reliable function calls
   returnType: string;
   isExported: boolean;
 }
@@ -134,28 +186,31 @@ function extractFunctionInfo(func: FunctionDeclaration): FunctionInfo | null {
   if (!name) return null;
 
   const jsDocNodes = func.getJsDocs();
-  const jsDoc = jsDocNodes.map(doc => doc.getFullText()).join('\n');
+  const jsDoc = jsDocNodes.map((doc) => doc.getFullText()).join('\n');
 
   // Extract parameter names directly using ts-morph (reliable, handles complex types)
   const paramNames: string[] = [];
 
-  const params = func.getParameters().map(p => {
-    const pName = p.getName();
-    paramNames.push(pName);  // Store the parameter name
+  const params = func
+    .getParameters()
+    .map((p) => {
+      const pName = p.getName();
+      paramNames.push(pName); // Store the parameter name
 
-    const typeNode = p.getTypeNode();
-    const type = typeNode ? typeNode.getText() : 'any';
-    const isOptional = p.isOptional() || p.hasInitializer();
-    const initializer = p.getInitializer()?.getText();
+      const typeNode = p.getTypeNode();
+      const type = typeNode ? typeNode.getText() : 'any';
+      const isOptional = p.isOptional() || p.hasInitializer();
+      const initializer = p.getInitializer()?.getText();
 
-    if (initializer) {
-      return `${pName}: ${type} = ${initializer}`;
-    } else if (isOptional) {
-      return `${pName}?: ${type}`;
-    } else {
-      return `${pName}: ${type}`;
-    }
-  }).join(', ');
+      if (initializer) {
+        return `${pName}: ${type} = ${initializer}`;
+      } else if (isOptional) {
+        return `${pName}?: ${type}`;
+      } else {
+        return `${pName}: ${type}`;
+      }
+    })
+    .join(', ');
 
   const returnTypeNode = func.getReturnTypeNode();
   const returnType = returnTypeNode ? returnTypeNode.getText() : 'any';
@@ -219,9 +274,16 @@ export function ${info.name}(${info.params}): ${custom.returnType} {
   // Detect return type patterns
   const isTupleOfArrays = /^\[NDArrayCore,\s*NDArrayCore\]$/.test(rt.replace(/\s/g, ''));
   const isArrayOfArrays = rt.includes('NDArrayCore[]') && !rt.includes('|');
-  const isOptionalArray = /NDArrayCore\[\]\s*\|\s*undefined/.test(rt) || /undefined\s*\|\s*NDArrayCore\[\]/.test(rt);
-  const isUnionWithPrimitive = rt.includes('NDArrayCore') && (rt.includes('number') || rt.includes('bigint') || rt.includes('Complex') || rt.includes('boolean'));
-  const isOptionalSingle = /NDArrayCore\s*\|\s*undefined/.test(rt) || /undefined\s*\|\s*NDArrayCore/.test(rt);
+  const isOptionalArray =
+    /NDArrayCore\[\]\s*\|\s*undefined/.test(rt) || /undefined\s*\|\s*NDArrayCore\[\]/.test(rt);
+  const isUnionWithPrimitive =
+    rt.includes('NDArrayCore') &&
+    (rt.includes('number') ||
+      rt.includes('bigint') ||
+      rt.includes('Complex') ||
+      rt.includes('boolean'));
+  const isOptionalSingle =
+    /NDArrayCore\s*\|\s*undefined/.test(rt) || /undefined\s*\|\s*NDArrayCore/.test(rt);
   const isPureSingle = rt === 'NDArrayCore';
 
   if (isTupleOfArrays) {
@@ -271,7 +333,7 @@ function generateIndexFile(
   wrappedFunctions: Set<string>,
   reexportedFunctions: Set<string>,
   coreImportPath: string = '../core',
-  outputFile: string = INDEX_OUTPUT_FILE,
+  outputFile: string = INDEX_OUTPUT_FILE
 ): void {
   const output: string[] = [];
 
@@ -379,7 +441,7 @@ function formatJSDoc(doc: string | undefined): string {
   if (lines.length === 1) {
     return `  /**\n   * ${lines[0]}\n   */\n`;
   }
-  return `  /**\n${lines.map(l => `   * ${l}`).join('\n')}\n   */\n`;
+  return `  /**\n${lines.map((l) => `   * ${l}`).join('\n')}\n   */\n`;
 }
 
 function extractParamNames(params: string): string {
@@ -388,7 +450,7 @@ function extractParamNames(params: string): string {
   // e.g. "axis?: number, keepdims: boolean = false" → "axis, keepdims"
   return params
     .split(',')
-    .map(p => {
+    .map((p) => {
       const name = p.trim().split(/[?:=]/)[0]!.trim();
       // Handle rest params
       return name.startsWith('...') ? name : name;
@@ -423,9 +485,7 @@ function generateMethodCode(def: MethodDef): string {
     case 'passthrough': {
       const params = def.params || '';
       const argNames = def.coreArgs || extractParamNames(params);
-      const coreCall = argNames
-        ? `core.${coreName}(this, ${argNames})`
-        : `core.${coreName}(this)`;
+      const coreCall = argNames ? `core.${coreName}(this, ${argNames})` : `core.${coreName}(this)`;
       return `${doc}  ${def.name}(${params}): NDArray {\n    return up(${coreCall});\n  }`;
     }
 
@@ -435,9 +495,7 @@ function generateMethodCode(def: MethodDef): string {
     case 'tuple_return': {
       const params = def.params || '';
       const argNames = def.coreArgs || extractParamNames(params);
-      const coreCall = argNames
-        ? `core.${coreName}(this, ${argNames})`
-        : `core.${coreName}(this)`;
+      const coreCall = argNames ? `core.${coreName}(this, ${argNames})` : `core.${coreName}(this)`;
       return `${doc}  ${def.name}(${params}): [NDArray, NDArray] {\n    const r = ${coreCall};\n    return [up(r[0]), up(r[1])] as [NDArray, NDArray];\n  }`;
     }
 
@@ -448,7 +506,7 @@ function generateMethodCode(def: MethodDef): string {
 
 function generateNDArrayFile(
   coreImportPath: string = '../core',
-  outputFile: string = NDARRAY_OUTPUT_FILE,
+  outputFile: string = NDARRAY_OUTPUT_FILE
 ): void {
   const output: string[] = [];
 
@@ -479,13 +537,13 @@ const up = (x: NDArrayCore): NDArray => {
 export class NDArray extends NDArrayCore {`);
 
   // Group methods by pattern for organized output
-  const manualMethods = METHOD_DEFS.filter(d => d.pattern === 'manual');
-  const unaryMethods = METHOD_DEFS.filter(d => d.pattern === 'unary');
-  const binaryMethods = METHOD_DEFS.filter(d => d.pattern === 'binary');
-  const reductionMethods = METHOD_DEFS.filter(d => d.pattern === 'reduction');
-  const passthroughMethods = METHOD_DEFS.filter(d => d.pattern === 'passthrough');
-  const arrayReturnMethods = METHOD_DEFS.filter(d => d.pattern === 'array_return');
-  const tupleReturnMethods = METHOD_DEFS.filter(d => d.pattern === 'tuple_return');
+  const manualMethods = METHOD_DEFS.filter((d) => d.pattern === 'manual');
+  const unaryMethods = METHOD_DEFS.filter((d) => d.pattern === 'unary');
+  const binaryMethods = METHOD_DEFS.filter((d) => d.pattern === 'binary');
+  const reductionMethods = METHOD_DEFS.filter((d) => d.pattern === 'reduction');
+  const passthroughMethods = METHOD_DEFS.filter((d) => d.pattern === 'passthrough');
+  const arrayReturnMethods = METHOD_DEFS.filter((d) => d.pattern === 'array_return');
+  const tupleReturnMethods = METHOD_DEFS.filter((d) => d.pattern === 'tuple_return');
 
   // --- Manual methods ---
   output.push('\n  // ========================================');
@@ -569,7 +627,7 @@ export class NDArray extends NDArrayCore {`);
   output.push('/**');
   output.push(' * Return coordinate matrices from coordinate vectors');
   output.push(' * @param arrays - 1D coordinate arrays');
-  output.push(' * @param indexing - \'xy\' (Cartesian, default) or \'ij\' (matrix indexing)');
+  output.push(" * @param indexing - 'xy' (Cartesian, default) or 'ij' (matrix indexing)");
   output.push(' * @returns Array of coordinate grids');
   output.push(' */');
   output.push(MESHGRID_FUNCTION);
@@ -603,8 +661,7 @@ async function main() {
   const wrappedFunctions: Set<string> = new Set();
   const reexportedFunctions: Set<string> = new Set();
 
-  const coreFiles = fs.readdirSync(CORE_DIR)
-    .filter(f => f.endsWith('.ts') && !SKIP_FILES.has(f));
+  const coreFiles = fs.readdirSync(CORE_DIR).filter((f) => f.endsWith('.ts') && !SKIP_FILES.has(f));
 
   console.log(`Processing ${coreFiles.length} core modules...`);
 
@@ -615,8 +672,9 @@ async function main() {
     const filePath = path.join(CORE_DIR, file);
     const sourceFile = project.addSourceFileAtPath(filePath);
 
-    const functions = sourceFile.getFunctions()
-      .filter(f => f.isExported())
+    const functions = sourceFile
+      .getFunctions()
+      .filter((f) => f.isExported())
       .map(extractFunctionInfo)
       .filter((f): f is FunctionInfo => f !== null);
 
@@ -630,8 +688,7 @@ async function main() {
     }
 
     // Also collect exported variable declarations (const exports, aliases)
-    const varStatements = sourceFile.getVariableStatements()
-      .filter(v => v.isExported());
+    const varStatements = sourceFile.getVariableStatements().filter((v) => v.isExported());
 
     for (const varStatement of varStatements) {
       for (const decl of varStatement.getDeclarations()) {
@@ -641,11 +698,19 @@ async function main() {
       }
     }
 
-    console.log(`  ${file}: ${functions.length} functions (${functions.filter(f => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`);
+    console.log(
+      `  ${file}: ${functions.length} functions (${functions.filter((f) => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`
+    );
   }
 
   // Generate full/ files
-  generateIndexFile(allFunctions, wrappedFunctions, reexportedFunctions, '../core', INDEX_OUTPUT_FILE);
+  generateIndexFile(
+    allFunctions,
+    wrappedFunctions,
+    reexportedFunctions,
+    '../core',
+    INDEX_OUTPUT_FILE
+  );
   generateNDArrayFile('../core', NDARRAY_OUTPUT_FILE);
 }
 

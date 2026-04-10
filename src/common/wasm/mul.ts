@@ -94,6 +94,9 @@ const complexFactor: Partial<Record<DType, number>> = {
 export function wasmMul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
   if (!a.isCContiguous || !b.isCContiguous) return null;
 
+  // WASM kernels expect same-dtype inputs — bail on mixed dtypes
+  if (a.dtype !== b.dtype) return null;
+
   // WASM kernel does not broadcast — sizes must match
   if (a.size !== b.size) return null;
 

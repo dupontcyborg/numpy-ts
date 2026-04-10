@@ -1,6 +1,8 @@
 /**
  * WASM-accelerated argpartition (returns indices for quickselect partition).
  *
+ * Output is float64 indices for JS ergonomics (no BigInt).
+ * WASM partitions u32 internally and converts to f64 before returning.
  * Returns null if WASM can't handle this case.
  */
 
@@ -97,11 +99,12 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
  * WASM-accelerated argpartition of contiguous slices.
  * Uses batch kernel when slices are packed contiguously.
  *
- * Note: operates on pre-existing JS buffers, uses scratch.
+ * Note: operates on pre-existing JS buffers (inputData/resultData), uses scratch.
+ * resultData is Float64Array (f64 indices).
  */
 export function wasmArgpartitionSlices(
   inputData: TypedArray,
-  resultData: Int32Array,
+  resultData: Float64Array,
   inputSliceOffsets: Int32Array | number[],
   outputSliceOffsets: Int32Array | number[],
   axisSize: number,
@@ -123,7 +126,7 @@ export function wasmArgpartitionSlices(
   ) {
     const Ctor = ctorMap[dtype];
     if (!Ctor) return false;
-    const outputBytes = resultData.length * 4;
+    const outputBytes = resultData.length * 8; // f64
 
     wasmConfig.wasmCallCount++;
     resetScratchAllocator();
@@ -152,7 +155,7 @@ export function wasmArgpartitionSlices(
   if (!kernel || !Ctor) return false;
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
-  const outputBytes = resultData.length * 4;
+  const outputBytes = resultData.length * 8; // f64
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
@@ -169,7 +172,7 @@ export function wasmArgpartitionSlices(
   for (let i = 0; i < outerSize; i++) {
     kernel(
       inputPtr + inputSliceOffsets[i]! * bpe,
-      outputPtr + outputSliceOffsets[i]! * 4,
+      outputPtr + outputSliceOffsets[i]! * 8, // f64 stride
       axisSize,
       kth
     );
@@ -185,7 +188,7 @@ export function wasmArgpartitionSlices(
 
 /**
  * WASM-accelerated argpartition of a contiguous 1D buffer.
- * Returns ArrayStorage of int32 indices or null if WASM can't handle it.
+ * Returns ArrayStorage of float64 indices or null if WASM can't handle it.
  */
 export function wasmArgpartition(a: ArrayStorage, kth: number): ArrayStorage | null {
   if (!a.isCContiguous) return null;
@@ -198,7 +201,7 @@ export function wasmArgpartition(a: ArrayStorage, kth: number): ArrayStorage | n
   const Ctor = ctorMap[dtype];
   if (!kernel || !Ctor) return null;
 
-  const outBytes = size * 4; // i32 indices
+  const outBytes = size * 8; // f64 indices
 
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
@@ -239,10 +242,10 @@ export function wasmArgpartition(a: ArrayStorage, kth: number): ArrayStorage | n
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),
-    'int32',
+    'float64',
     outRegion,
     size,
-    Int32Array as unknown as new (
+    Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
       length: number

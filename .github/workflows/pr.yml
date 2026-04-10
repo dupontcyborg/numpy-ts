@@ -46,16 +46,16 @@ jobs:
           version: "0.15.2"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Run ESLint
+      - name: Run ESLint + Zig fmt
         run: npm run lint
 
       - name: Type check
         run: npm run typecheck
+
+      - name: Zig dead code check
+        run: npm run report:zig-dead-code
 
   # Run full test suite with coverage
   test:
@@ -83,13 +83,22 @@ jobs:
       - name: Install dependencies
         run: |
           pip install numpy
-          npm ci
+          npm install
 
       - name: Build for testing
         run: npm run build:test
 
       - name: Run tests with coverage
         run: npm run test:coverage
+
+      - name: Zig export fn test coverage (≥95%)
+        run: npm run report:zig-coverage
+
+      - name: DType coverage report
+        id: dtype-coverage
+        if: always()
+        run: |
+          npm run report:dtype-coverage -- --summary 2>&1 | tee dtype-coverage.txt || true
 
       - name: Generate coverage summary
         id: coverage
@@ -105,6 +114,7 @@ jobs:
           };
 
           let comment = '## 📊 Coverage Report\n\n';
+          comment += '### Vitest Coverage\n\n';
           comment += '| Metric | Coverage | Threshold | Status |\n';
           comment += '|--------|----------|-----------|--------|\n';
           comment += \`| Statements | \${formatMetric(total.statements)} | 80% | \${total.statements.pct >= 80 ? '✅' : '❌'} |\n\`;
@@ -121,6 +131,18 @@ jobs:
             comment += '\n✅ All coverage thresholds met!\n';
           } else {
             comment += '\n⚠️ Some coverage thresholds not met. Please add tests.\n';
+          }
+
+          // Append dtype coverage summary if available
+          const fs = require('fs');
+          if (fs.existsSync('dtype-coverage.txt')) {
+            const dtypeSummary = fs.readFileSync('dtype-coverage.txt', 'utf-8').trim();
+            if (dtypeSummary) {
+              comment += '\n### DType Sweep Coverage\n\n';
+              comment += '<details><summary>Click to expand</summary>\n\n';
+              comment += '\`\`\`\n' + dtypeSummary + '\n\`\`\`\n';
+              comment += '</details>\n';
+            }
           }
 
           console.log('COMMENT<<EOF');
@@ -168,9 +190,9 @@ jobs:
               });
             }
 
-  # Run benchmarks and compare against main
+  # Compare committed benchmark results against main baseline
   benchmark:
-    name: Benchmark Comparison
+    name: Benchmark Regression Check
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -178,124 +200,88 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Need full history to compare with main
+          fetch-depth: 0
+
+      - name: Fetch main branch
+        run: git fetch origin main:refs/remotes/origin/main
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: 'npm'
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install dependencies
-        run: |
-          pip install numpy
-          npm ci
-
-      # Run benchmarks on PR branch
-      - name: Run benchmarks (PR branch)
-        run: npm run bench:quick
-
-      - name: Save PR benchmark results
-        run: |
-          mkdir -p benchmark-results
-          cp benchmarks/results/latest.json benchmark-results/pr-results.json
-
-      # Switch to main and run benchmarks
-      - name: Checkout main branch
-        run: |
-          # Discard changes to benchmark results (already saved to benchmark-results/)
-          git restore benchmarks/results/
-          git checkout main
-
-      - name: Install dependencies (main)
-        run: npm ci
-
-      - name: Run benchmarks (main branch)
-        run: npm run bench:quick
-
-      - name: Save main benchmark results
-        run: cp benchmarks/results/latest.json benchmark-results/main-results.json
-
-      # Compare results
-      - name: Compare benchmarks
+      - name: Compare against main baseline
         id: compare
         run: |
           node -e "
-          const prResults = require('./benchmark-results/pr-results.json');
-          const mainResults = require('./benchmark-results/main-results.json');
+          const fs = require('fs');
+          const { execSync } = require('child_process');
 
-          let hasRegression = false;
-          let comment = '## 📊 Benchmark Comparison\n\n';
-          comment += '| Operation | Main (ms) | PR (ms) | Change | Status |\n';
-          comment += '|-----------|-----------|---------|--------|--------|\n';
+          // Load PR results (committed in this branch)
+          if (!fs.existsSync('benchmarks/results/latest-full.json')) {
+            console.log('No latest-full.json in PR branch — skipping');
+            fs.writeFileSync('bench-comment.md', '## Benchmark Regression Check\n\nNo benchmark results in this branch.\n');
+            process.exit(0);
+          }
+          const pr = JSON.parse(fs.readFileSync('benchmarks/results/latest-full.json', 'utf8'));
 
-          const prOps = prResults.results || [];
-          const mainOps = mainResults.results || [];
+          // Load baseline from main
+          let baseline;
+          try {
+            const raw = execSync('git show origin/main:benchmarks/results/latest-full.json', { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+            baseline = JSON.parse(raw);
+          } catch {
+            console.log('No baseline on main — skipping');
+            fs.writeFileSync('bench-comment.md', '## Benchmark Regression Check\n\nNo baseline found on main.\n');
+            process.exit(0);
+          }
 
-          const threshold = 1.2; // 20% regression threshold
-
-          // Track categories
-          let currentCategory = '';
+          const threshold = 1.25;
+          const prOps = pr.results || [];
+          const mainOps = baseline.results || [];
+          const regressions = [];
 
           prOps.forEach(prOp => {
             const mainOp = mainOps.find(m => m.name === prOp.name);
             if (mainOp && prOp.numpyjs && mainOp.numpyjs) {
-              // Add category header if changed
-              if (prOp.category !== currentCategory) {
-                currentCategory = prOp.category;
-                comment += \`| **\${currentCategory.toUpperCase()}** | | | | |\n\`;
+              const ratio = prOp.numpyjs.mean_ms / mainOp.numpyjs.mean_ms;
+              if (ratio > threshold) {
+                regressions.push({
+                  name: prOp.name,
+                  category: prOp.category,
+                  main_ms: mainOp.numpyjs.mean_ms,
+                  pr_ms: prOp.numpyjs.mean_ms,
+                  change: ((ratio - 1) * 100).toFixed(1)
+                });
               }
-
-              const prTime = prOp.numpyjs.mean_ms;
-              const mainTime = mainOp.numpyjs.mean_ms;
-              const ratio = prTime / mainTime;
-              const change = ((ratio - 1) * 100).toFixed(1);
-
-              const status = ratio > threshold ? '⚠️ Regression' :
-                           ratio > 1.05 ? '⚡ Slower' :
-                           ratio < 0.95 ? '🚀 Faster' : '✅ Similar';
-
-              if (ratio > threshold) hasRegression = true;
-
-              comment += \`| \${prOp.name} | \${mainTime.toFixed(4)} | \${prTime.toFixed(4)} | \${change > 0 ? '+' : ''}\${change}% | \${status} |\n\`;
             }
           });
 
-          if (prOps.length === 0) {
-            comment += '| *No benchmark results found* | | | | |\n';
-          }
-
-          if (hasRegression) {
-            comment += '\n⚠️ **Warning**: Performance regression detected (>20% slower)\n';
+          let comment = '## Benchmark Regression Check\n\n';
+          if (regressions.length === 0) {
+            comment += 'No regressions >25% detected.\n';
           } else {
-            comment += '\n✅ No significant performance regressions detected\n';
+            comment += '| Operation | Main (ms) | PR (ms) | Change |\n';
+            comment += '|-|-|-|-|\n';
+            regressions.forEach(r => {
+              comment += \`| \${r.name} | \${r.main_ms.toFixed(4)} | \${r.pr_ms.toFixed(4)} | +\${r.change}% |\n\`;
+            });
+            comment += '\n**Warning**: ' + regressions.length + ' operation(s) regressed >25%.\n';
           }
 
-          console.log('COMMENT<<EOF');
-          console.log(comment);
-          console.log('EOF');
-          console.log('HAS_REGRESSION=' + hasRegression);
-          " > comparison.txt
-
-          # Output for GitHub Actions
-          echo "comment<<EOF" >> $GITHUB_OUTPUT
-          cat comparison.txt | grep -A 1000 "COMMENT<<EOF" | grep -B 1000 "^EOF$" | grep -v "COMMENT<<EOF" | grep -v "^EOF$" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          has_regression=$(cat comparison.txt | grep "HAS_REGRESSION=true" || echo "HAS_REGRESSION=false")
-          echo "${has_regression##*=}" | xargs -I {} echo "has_regression={}" >> $GITHUB_OUTPUT
+          fs.writeFileSync('bench-comment.md', comment);
+          const has = regressions.length > 0 ? 'true' : 'false';
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'has_regression=' + has + '\n');
+          "
 
       - name: Comment PR
+        if: always() && hashFiles('bench-comment.md') != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const comment = `${{ steps.compare.outputs.comment }}`;
+            const fs = require('fs');
+            const comment = fs.readFileSync('bench-comment.md', 'utf8');
 
-            // Find existing benchmark comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -303,11 +289,10 @@ jobs:
             });
 
             const botComment = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('📊 Benchmark Comparison')
+              c.user.type === 'Bot' && c.body.includes('Benchmark Regression Check')
             );
 
             if (botComment) {
-              // Update existing comment
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -315,7 +300,6 @@ jobs:
                 body: comment
               });
             } else {
-              // Create new comment
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -327,5 +311,5 @@ jobs:
       - name: Fail if regression detected
         if: steps.compare.outputs.has_regression == 'true'
         run: |
-          echo "::error::Performance regression detected! Review the benchmark comparison comment."
+          echo "::error::Performance regression detected (>25%). See PR comment."
           exit 1

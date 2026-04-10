@@ -175,3 +175,23 @@ test "signbit_f16 basic" {
     try testing.expectEqual(out[2], 0); // 0.0
     try testing.expectEqual(out[3], 1); // -0.0
 }
+
+test "signbit_i32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i32{ -1, 0, 1 };
+    var out: [3]u8 = undefined;
+    signbit_i32(&a, &out, 3);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 0);
+    try testing.expectEqual(out[2], 0);
+}
+
+test "signbit_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{ -1, 0, 1 };
+    var out: [3]u8 = undefined;
+    signbit_i16(&a, &out, 3);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 0);
+    try testing.expectEqual(out[2], 0);
+}

@@ -128,7 +128,7 @@ result = np.cumsum(np.array([1, 2, 3], dtype=${npDtype[dtype]}))
           const result = cumsum(arr);
 
           console.log(
-            `  cumsum(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray())})`
+            `  cumsum(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray(), (_, v) => (typeof v === 'bigint' ? v.toString() : v))})`
           );
         });
 
@@ -141,7 +141,7 @@ result = np.cumprod(np.array([1, 2, 3], dtype=${npDtype[dtype]}))
           const result = cumprod(arr);
 
           console.log(
-            `  cumprod(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray())})`
+            `  cumprod(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray(), (_, v) => (typeof v === 'bigint' ? v.toString() : v))})`
           );
         });
       });
@@ -489,10 +489,14 @@ result = np.cumsum(arr)
       const result = cumsum(arr);
       const tsValues = result.toArray();
 
+      const stringify = (v: unknown) =>
+        JSON.stringify(v, (_, x) => (typeof x === 'bigint' ? Number(x) : x));
       console.log(
-        `  int8 cumsum([100,50,50]): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${result.dtype})`
+        `  int8 cumsum([100,50,50]): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${stringify(tsValues)} (${result.dtype})`
       );
-      expect(arraysClose(tsValues, npResult.value, 0, 0)).toBe(true);
+      // cumsum promotes int8→int64 (BigInt); compare as numbers
+      const tsNumbers = tsValues.map(Number);
+      expect(arraysClose(tsNumbers, npResult.value, 0, 0)).toBe(true);
     });
 
     it('prod crossing int8 boundary', () => {

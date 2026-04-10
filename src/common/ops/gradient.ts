@@ -50,7 +50,8 @@ export function diff(a: ArrayStorage, n: number = 1, axis: number = -1): ArraySt
   }
 
   // WASM fast path for single diff along last axis on C-contiguous non-complex arrays
-  if (n === 1 && !isComplexDType(a.dtype)) {
+  // Skip WASM for bool — NumPy bool diff uses XOR, not subtract
+  if (n === 1 && !isComplexDType(a.dtype) && a.dtype !== 'bool') {
     const wasm = wasmDiff(a, normalizedAxis);
     if (wasm) return wasm;
   }
@@ -77,10 +78,9 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
   const resultShape = [...shape];
   resultShape[axis] = axisSize - 1;
 
-  // Determine result dtype - always float64 for non-float types (except complex)
   const dtype = a.dtype;
   const isComplex = isComplexDType(dtype);
-  const resultDtype = isBigIntDType(dtype) ? 'float64' : dtype;
+  const resultDtype = dtype;
 
   const result = ArrayStorage.zeros(resultShape, resultDtype);
   const resultData = result.data;
@@ -127,13 +127,19 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
       const im2 = complexData[(off + flatIdx2) * 2 + 1]!;
       (resultData as Float64Array | Float32Array)[resultIdx * 2] = re2 - re1;
       (resultData as Float64Array | Float32Array)[resultIdx * 2 + 1] = im2 - im1;
+    } else if (dtype === 'bool') {
+      // Bool diff is XOR in NumPy — returns bool
+      const val1 = a.data[off + flatIdx1]! as number;
+      const val2 = a.data[off + flatIdx2]! as number;
+      resultData[resultIdx] = val1 !== val2 ? 1 : 0;
+    } else if (isBigIntDType(dtype)) {
+      const bigData = a.data as BigInt64Array | BigUint64Array;
+      const val1 = bigData[off + flatIdx1]!;
+      const val2 = bigData[off + flatIdx2]!;
+      (resultData as BigInt64Array | BigUint64Array)[resultIdx] = val2 - val1;
     } else {
-      const val1 = isBigIntDType(dtype)
-        ? Number(a.data[off + flatIdx1]!)
-        : Number(a.data[off + flatIdx1]!);
-      const val2 = isBigIntDType(dtype)
-        ? Number(a.data[off + flatIdx2]!)
-        : Number(a.data[off + flatIdx2]!);
+      const val1 = Number(a.data[off + flatIdx1]!);
+      const val2 = Number(a.data[off + flatIdx2]!);
       resultData[resultIdx] = val2 - val1;
     }
   }
@@ -154,11 +160,16 @@ export function ediff1d(
   to_end: number[] | null = null,
   to_begin: number[] | null = null
 ): ArrayStorage {
+  if (ary.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   // Flatten the array
   const flatSize = ary.size;
   const dtype = ary.dtype;
   const isComplex = isComplexDType(dtype);
-  const resultDtype = isBigIntDType(dtype) ? 'float64' : dtype;
+  const resultDtype = dtype;
 
   // Calculate result size
   const diffSize = Math.max(0, flatSize - 1);
@@ -196,10 +207,17 @@ export function ediff1d(
       idx++;
     }
   } else {
-    for (let i = 0; i < diffSize; i++) {
-      const val1 = isBigIntDType(dtype) ? Number(ary.iget(i)) : Number(ary.iget(i));
-      const val2 = isBigIntDType(dtype) ? Number(ary.iget(i + 1)) : Number(ary.iget(i + 1));
-      resultData[idx++] = val2 - val1;
+    if (isBigIntDType(dtype)) {
+      const bigData = ary.data as BigInt64Array | BigUint64Array;
+      const off = ary.offset;
+      for (let i = 0; i < diffSize; i++) {
+        (resultData as BigInt64Array | BigUint64Array)[idx++] =
+          bigData[off + i + 1]! - bigData[off + i]!;
+      }
+    } else {
+      for (let i = 0; i < diffSize; i++) {
+        resultData[idx++] = Number(ary.iget(i + 1)) - Number(ary.iget(i));
+      }
     }
   }
 
@@ -237,6 +255,11 @@ export function gradient(
   varargs: number | number[] = 1,
   axis: number | number[] | null = null
 ): ArrayStorage | ArrayStorage[] {
+  if (f.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   const shape = Array.from(f.shape);
   const ndim = shape.length;
 
@@ -313,8 +336,8 @@ function gradientAlongAxis(f: ArrayStorage, axis: number, spacing: number): Arra
   const isComplex = isComplexDType(dtype);
   const resultDtype = isBigIntDType(dtype)
     ? 'float64'
-    : dtype === 'float32'
-      ? 'float32'
+    : dtype === 'float16' || dtype === 'float32'
+      ? dtype
       : isComplex
         ? dtype
         : 'float64';
@@ -502,6 +525,11 @@ export function cross(
   axisb: number = -1,
   _axisc: number = -1
 ): ArrayStorage {
+  if (a.dtype === 'bool' || b.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   const shapeA = Array.from(a.shape);
   const shapeB = Array.from(b.shape);
   const ndimA = shapeA.length;

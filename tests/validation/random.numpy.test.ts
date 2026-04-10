@@ -2050,4 +2050,164 @@ result = float(rng.binomial(100, 0.5))
       expect(js).toBe(py.value);
     });
   });
+
+  describe('WASM RNG fill paths (large arrays)', () => {
+    // Large enough arrays to trigger WASM-accelerated fill functions.
+    // We validate shape, dtype, range, and basic statistical properties.
+    const N = 10000;
+
+    it('random.random large array has correct shape and range', () => {
+      const result = random.random(N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      expect(data.every((v: number) => v >= 0 && v < 1)).toBe(true);
+    });
+
+    it('random.standard_normal large array has correct stats', () => {
+      random.seed(123);
+      const result = random.standard_normal(N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      const mean = data.reduce((a: number, b: number) => a + b, 0) / N;
+      expect(Math.abs(mean)).toBeLessThan(0.1);
+    });
+
+    it('random.standard_exponential large array is positive', () => {
+      random.seed(123);
+      const result = random.standard_exponential(N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      expect(data.every((v: number) => v > 0)).toBe(true);
+    });
+
+    it('random.gamma large array has correct mean', () => {
+      random.seed(123);
+      const shape = 5;
+      const result = random.gamma(shape, 1.0, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      const mean = data.reduce((a: number, b: number) => a + b, 0) / N;
+      expect(Math.abs(mean - shape)).toBeLessThan(0.3);
+    });
+
+    it('random.beta large array is in [0, 1]', () => {
+      random.seed(123);
+      const result = random.beta(2, 5, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      expect(data.every((v: number) => v >= 0 && v <= 1)).toBe(true);
+    });
+
+    it('random.chisquare large array has correct mean', () => {
+      random.seed(123);
+      const df = 4;
+      const result = random.chisquare(df, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      const mean = data.reduce((a: number, b: number) => a + b, 0) / N;
+      expect(Math.abs(mean - df)).toBeLessThan(0.3);
+    });
+
+    it('random.f large array is positive', () => {
+      random.seed(123);
+      const result = random.f(5, 10, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      expect(data.every((v: number) => v > 0)).toBe(true);
+    });
+
+    it('random.poisson large array has correct mean', () => {
+      random.seed(123);
+      const lam = 7;
+      const result = random.poisson(lam, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      const mean = data.reduce((a: number, b: number) => a + b, 0) / N;
+      expect(Math.abs(mean - lam)).toBeLessThan(0.3);
+    });
+
+    it('random.binomial large array has correct mean', () => {
+      random.seed(123);
+      const trials = 20;
+      const p = 0.3;
+      const result = random.binomial(trials, p, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      const mean = data.reduce((a: number, b: number) => a + b, 0) / N;
+      expect(Math.abs(mean - trials * p)).toBeLessThan(0.3);
+    });
+
+    it('random.geometric large array is positive integers', () => {
+      random.seed(123);
+      const result = random.geometric(0.3, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      expect(data.every((v: number) => v >= 1 && Number.isInteger(v))).toBe(true);
+    });
+
+    it('random.hypergeometric large array is in valid range', () => {
+      random.seed(123);
+      const result = random.hypergeometric(20, 30, 10, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      expect(data.every((v: number) => v >= 0 && v <= 10)).toBe(true);
+    });
+
+    it('random.logseries large array is positive integers', () => {
+      random.seed(123);
+      const result = random.logseries(0.5, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      expect(data.every((v: number) => v >= 1 && Number.isInteger(v))).toBe(true);
+    });
+
+    it('random.zipf large array is positive integers', () => {
+      random.seed(123);
+      const result = random.zipf(2, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      expect(data.every((v: number) => v >= 1 && Number.isInteger(v))).toBe(true);
+    });
+
+    it('random.negative_binomial large array is non-negative', () => {
+      random.seed(123);
+      const result = random.negative_binomial(5, 0.5, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      expect(data.every((v: number) => v >= 0)).toBe(true);
+    });
+
+    it('random.vonmises large array is in [-pi, pi]', () => {
+      random.seed(123);
+      const result = random.vonmises(0, 1, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      expect(data.every((v: number) => v >= -Math.PI && v <= Math.PI)).toBe(true);
+    });
+
+    it('random.wald large array is positive', () => {
+      random.seed(123);
+      const result = random.wald(1, 1, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      expect(data.every((v: number) => v > 0)).toBe(true);
+    });
+
+    it('random.randint large int8 array', () => {
+      random.seed(123);
+      const result = random.randint(0, 100, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray().map(Number) as number[];
+      expect(data.every((v: number) => v >= 0 && v < 100)).toBe(true);
+    });
+
+    it('random.standard_t large array', () => {
+      random.seed(123);
+      const result = random.standard_t(5, N) as any;
+      expect(result.shape).toEqual([N]);
+      const data = result.toArray() as number[];
+      const mean = data.reduce((a: number, b: number) => a + b, 0) / N;
+      expect(Math.abs(mean)).toBeLessThan(0.1);
+    });
+  });
 });

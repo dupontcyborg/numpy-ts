@@ -15,8 +15,7 @@
  */
 
 import type { TypedArray } from '../dtype';
-import { hasFloat16 } from '../dtype';
-import { wasmConfig, wasmMemoryConfig, type ConfigureWasmOptions } from './config';
+import { wasmMemoryConfig, type ConfigureWasmOptions } from './config';
 
 // FinalizationRegistry is available in all target environments (Node 14+,
 // modern browsers) but not in ES2020 lib typings.
@@ -346,94 +345,6 @@ export function resolveTypedArrayPtr(data: TypedArray): number {
 // Backward compatibility — old API mapped to scratch allocator
 // These are used by kernel wrappers that haven't been migrated yet.
 // ---------------------------------------------------------------------------
-
-/**
- * @deprecated Use scratchAlloc region or wasmMalloc for persistent.
- * Ensure WASM memory can hold `bytes` above heapBase.
- * With fixed-size memory, this is a no-op (memory is pre-allocated).
- */
-export function ensureMemory(_bytes: number): void {
-  ensureHeapInitialized();
-  // No-op: memory is fixed-size and pre-allocated
-}
-
-/**
- * @deprecated Use resetScratchAllocator.
- * Reset the bump allocator. For backward compat, resets the scratch region.
- */
-export function resetAllocator(): void {
-  ensureHeapInitialized();
-  resetScratchAllocator();
-  wasmConfig.wasmCallCount++;
-}
-
-/**
- * @deprecated Use scratchAlloc.
- * Bump-allocate from scratch region (backward compat).
- */
-export function alloc(bytes: number): number {
-  return scratchAlloc(bytes);
-}
-
-/**
- * @deprecated Use scratchCopyIn.
- * Copy a JS TypedArray into scratch region (backward compat).
- */
-export function copyIn(src: TypedArray): number {
-  return scratchCopyIn(src);
-}
-
-/**
- * @deprecated Output should be a WASM-backed view, not a copy.
- * Copy data from WASM memory into a new JS TypedArray (backward compat).
- */
-export function copyOut<T extends TypedArray>(
-  ptr: number,
-  length: number,
-  Ctor: new (buffer: ArrayBuffer, byteOffset: number, length: number) => T
-): T {
-  const mem = getSharedMemory();
-  const result = new Ctor(
-    new ArrayBuffer(length * (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT),
-    0,
-    length
-  );
-  new Uint8Array(result.buffer, 0, result.byteLength).set(
-    new Uint8Array(mem.buffer, ptr, result.byteLength)
-  );
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Float16 conversion helpers (unchanged)
-// ---------------------------------------------------------------------------
-
-/**
- * Convert Float16Array data to Float32Array for WASM kernel input.
- * WASM kernels operate on f32 for float16 data (no native f16 SIMD).
- * @deprecated Use f16InputToScratchF32 instead — avoids intermediate JS allocation.
- */
-export function f16ToF32Input(data: TypedArray, dtype: string): TypedArray {
-  if (dtype === 'float16' && hasFloat16) {
-    return new Float32Array(data as unknown as ArrayLike<number>) as unknown as TypedArray;
-  }
-  return data;
-}
-
-/**
- * Convert Float32Array WASM output back to Float16Array.
- * @deprecated Use f32OutputToF16Region instead — avoids JS round-trip.
- */
-export function f32ToF16Output(data: TypedArray, dtype: string): TypedArray {
-  if (dtype === 'float16' && hasFloat16) {
-    const f16 = new Float16Array(data.length);
-    f16.set(data as Exclude<TypedArray, BigInt64Array | BigUint64Array>);
-    return f16 as unknown as TypedArray;
-  }
-  return data;
-}
-
-// ---------------------------------------------------------------------------
 // Optimized f16 conversion helpers (zero JS allocation)
 // ---------------------------------------------------------------------------
 
@@ -479,4 +390,19 @@ export function f32OutputToF16Region(outRegion: WasmRegion, size: number): WasmR
   const f16View = new Float16Array(mem.buffer, f16Region.ptr, size);
   f16View.set(f32View);
   return f16Region;
+}
+
+/**
+ * Convert f32 WASM output to f16 in-place within the same region.
+ * Safe because f16[i] at byte 2i never reaches unread f32[j>i] at byte 4j.
+ * Avoids extra wasmMalloc + release overhead of f32OutputToF16Region.
+ * The region retains its original (f32-sized) allocation; the extra bytes are unused.
+ */
+export function f32ToF16InPlace(outRegion: WasmRegion, size: number): void {
+  const mem = getSharedMemory();
+  const f32View = new Float32Array(mem.buffer, outRegion.ptr, size);
+  const f16View = new Float16Array(mem.buffer, outRegion.ptr, size);
+  for (let i = 0; i < size; i++) {
+    f16View[i] = f32View[i]!;
+  }
 }

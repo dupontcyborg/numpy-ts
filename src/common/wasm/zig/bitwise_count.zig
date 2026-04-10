@@ -157,3 +157,27 @@ test "bitwise_count_i64 signed" {
     try testing.expectEqual(out[1], 1); // abs(-1) = 1 bit
     try testing.expectEqual(out[2], 8);
 }
+
+test "bitwise_count_u64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u64{0xFF};
+    var out: [1]u8 = undefined;
+    bitwise_count_u64(&a, &out, 1);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "bitwise_count_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{0x000F};
+    var out: [1]u8 = undefined;
+    bitwise_count_i16(&a, &out, 1);
+    try testing.expectEqual(out[0], 4);
+}
+
+test "bitwise_count_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{0x00FF};
+    var out: [1]u8 = undefined;
+    bitwise_count_u16(&a, &out, 1);
+    try testing.expectEqual(out[0], 8);
+}

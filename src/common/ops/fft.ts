@@ -17,7 +17,7 @@
 
 import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
-import { isComplexDType, type DType } from '../dtype';
+import { isComplexDType, throwIfComplex, fftResultDtype, hasFloat16, type DType } from '../dtype';
 import { roll as shapeRoll } from './shape';
 import {
   wasmFft,
@@ -411,23 +411,24 @@ function fftnd(
 ): ArrayStorage {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
+  const cDtype = fftResultDtype(a.dtype as DType);
 
   // Handle empty arrays
   if (a.size === 0) {
-    return ArrayStorage.zeros(shape, 'complex128');
+    return ArrayStorage.zeros(shape, cDtype);
   }
 
   // Handle 0-D arrays
   if (ndim === 0) {
-    const result = ArrayStorage.zeros([1], 'complex128');
+    const result = ArrayStorage.zeros([1], cDtype);
     const val = a.iget(0);
     const re = val instanceof Complex ? val.re : Number(val);
     const im = val instanceof Complex ? val.im : 0;
-    const data = result.data as Float64Array;
+    const data = result.data as Float64Array | Float32Array;
     data[0] = re;
     data[1] = im;
     // Reshape to scalar
-    return ArrayStorage.fromData(result.data, [], 'complex128');
+    return ArrayStorage.fromData(result.data, [], cDtype);
   }
 
   // Normalize axes
@@ -477,11 +478,11 @@ function fftnd(
       rows >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier &&
       cols >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
     ) {
-      const srcData = result.data as Float64Array;
+      const srcData = result.data as Float64Array | Float32Array;
       const outData = wasmFft2(srcData, rows, cols, inverse);
       if (outData) {
         result.dispose();
-        return ArrayStorage.fromData(outData, [rows, cols], 'complex128');
+        return ArrayStorage.fromData(outData, [rows, cols], cDtype);
       }
     }
   }
@@ -504,14 +505,14 @@ function toComplex(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
   const shape = Array.from(a.shape);
   const size = a.size;
+  const outDtype = fftResultDtype(dtype);
 
   if (dtype === 'complex128' || dtype === 'complex64') {
-    // Already complex, just copy
-    const result = ArrayStorage.zeros(shape, 'complex128');
-    const resultData = result.data as Float64Array;
+    // Already complex — promote to target complex dtype
+    const result = ArrayStorage.zeros(shape, outDtype);
+    const resultData = result.data as Float64Array | Float32Array;
     const srcData = a.data as Float64Array | Float32Array;
 
-    // Use optimized copy for complex data (interleaved real/imag)
     for (let i = 0; i < size * 2; i++) {
       resultData[i] = srcData[i]!;
     }
@@ -519,8 +520,8 @@ function toComplex(a: ArrayStorage): ArrayStorage {
   }
 
   // Real array: convert to complex using direct typed array access
-  const result = ArrayStorage.zeros(shape, 'complex128');
-  const resultData = result.data as Float64Array;
+  const result = ArrayStorage.zeros(shape, outDtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const srcData = a.data;
 
   // Direct typed array access based on dtype
@@ -614,9 +615,9 @@ function padAxis(a: ArrayStorage, axis: number, newSize: number): ArrayStorage {
   const oldSize = shape[axis]!;
   shape[axis] = newSize;
 
-  const result = ArrayStorage.zeros(shape, 'complex128');
-  const resultData = result.data as Float64Array;
-  const srcData = a.data as Float64Array;
+  const result = ArrayStorage.zeros(shape, a.dtype);
+  const resultData = result.data as Float64Array | Float32Array;
+  const srcData = a.data as Float64Array | Float32Array;
 
   // Calculate strides for iteration
   const outerSize = shape.slice(0, axis).reduce((a, b) => a * b, 1);
@@ -644,8 +645,8 @@ function truncateAxis(a: ArrayStorage, axis: number, newSize: number): ArrayStor
   const oldSize = shape[axis]!;
   shape[axis] = newSize;
 
-  const result = ArrayStorage.zeros(shape, 'complex128');
-  const resultData = result.data as Float64Array;
+  const result = ArrayStorage.zeros(shape, a.dtype);
+  const resultData = result.data as Float64Array | Float32Array;
   const srcData = a.data as Float64Array;
 
   const outerSize = shape.slice(0, axis).reduce((a, b) => a * b, 1);
@@ -683,19 +684,27 @@ function wasmBatchRfft(a: ArrayStorage, n: number): ArrayStorage | null {
   const inStride = n;
   const outStride = outLen * 2;
 
-  const srcData =
-    a.dtype === 'float64'
-      ? (a.data as Float64Array)
-      : Float64Array.from(
-          a.data.subarray(a.offset, a.offset + a.size) as unknown as ArrayLike<number>
-        );
+  let srcData: Float64Array | Float32Array;
+  if (a.dtype === 'float64') {
+    srcData = a.data as Float64Array;
+  } else if (a.dtype === 'float32') {
+    srcData = a.data as Float32Array;
+  } else if (a.dtype === 'int64' || a.dtype === 'uint64') {
+    const bigData = a.data as BigInt64Array | BigUint64Array;
+    srcData = new Float64Array(a.size);
+    for (let i = 0; i < a.size; i++) srcData[i] = Number(bigData[a.offset + i]!);
+  } else {
+    srcData = Float64Array.from(
+      a.data.subarray(a.offset, a.offset + a.size) as unknown as ArrayLike<number>
+    );
+  }
 
   const outData = wasmRfftBatch(srcData, n, batch, inStride, outStride);
   if (!outData) return null;
 
   const outShape = [...shape];
   outShape[ndim - 1] = outLen;
-  return ArrayStorage.fromData(outData, outShape, 'complex128');
+  return ArrayStorage.fromData(outData, outShape, fftResultDtype(a.dtype as DType));
 }
 
 /**
@@ -712,14 +721,26 @@ function wasmBatchIrfft(a: ArrayStorage, nOut: number): ArrayStorage | null {
   const outStride = nOut;
 
   const cplx = toComplex(a);
-  const srcData = cplx.data as Float64Array;
+  const isC64 = cplx.dtype === 'complex64';
+  const outDtype: DType = isC64 ? 'float32' : 'float64';
+
+  // complex64 WASM-backed data may be Float64Array view — extract to proper Float32Array
+  let srcData: Float64Array | Float32Array;
+  if (isC64 && !(cplx.data instanceof Float32Array)) {
+    const len = cplx.size * 2;
+    srcData = new Float32Array(len);
+    const src = cplx.data;
+    for (let i = 0; i < len; i++) srcData[i] = Number(src[i]!);
+  } else {
+    srcData = cplx.data as Float64Array | Float32Array;
+  }
 
   const outData = wasmIrfftBatch(srcData, nHalf, nOut, batch, inStride, outStride);
   if (!outData) return null;
 
   const outShape = [...shape];
   outShape[ndim - 1] = nOut;
-  return ArrayStorage.fromData(outData, outShape, 'float64');
+  return ArrayStorage.fromData(outData, outShape, outDtype);
 }
 
 function fft1dAlongAxis(
@@ -733,9 +754,9 @@ function fft1dAlongAxis(
 
   if (n === 0) return a;
 
-  const result = ArrayStorage.zeros(shape, 'complex128');
-  const resultData = result.data as Float64Array;
-  const srcData = a.data as Float64Array;
+  const result = ArrayStorage.zeros(shape, a.dtype);
+  const resultData = result.data as Float64Array | Float32Array;
+  const srcData = a.data as Float64Array | Float32Array;
 
   // Calculate dimensions
   const outerSize = shape.slice(0, axis).reduce((acc, s) => acc * s, 1);
@@ -891,6 +912,7 @@ export function rfft(
   axis: number = -1,
   norm: 'backward' | 'ortho' | 'forward' = 'backward'
 ): ArrayStorage {
+  throwIfComplex(a.dtype, 'rfft', 'rfft expects real input.');
   const shape = Array.from(a.shape);
   const ndim = shape.length;
 
@@ -983,10 +1005,11 @@ export function irfft(
   const fullShape = [...shape];
   fullShape[ax] = outLen;
 
-  const full = ArrayStorage.zeros(fullShape, 'complex128');
-  const fullData = full.data as Float64Array;
+  const cDtype = fftResultDtype(a.dtype as DType);
+  const full = ArrayStorage.zeros(fullShape, cDtype);
+  const fullData = full.data as Float64Array | Float32Array;
   const complexA = toComplex(a);
-  const srcData = complexA.data as Float64Array;
+  const srcData = complexA.data as Float64Array | Float32Array;
 
   const outerSize = shape.slice(0, ax).reduce((acc, s) => acc * s, 1);
   const innerSize = shape.slice(ax + 1).reduce((acc, s) => acc * s, 1);
@@ -1034,6 +1057,7 @@ export function rfft2(
   axes: [number, number] = [-2, -1],
   norm: 'backward' | 'ortho' | 'forward' = 'backward'
 ): ArrayStorage {
+  throwIfComplex(a.dtype, 'rfft2', 'rfft2 expects real input.');
   const shape = Array.from(a.shape);
   const ndim = shape.length;
 
@@ -1057,15 +1081,24 @@ export function rfft2(
       cols >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
     ) {
       const halfCols = Math.floor(cols / 2) + 1;
-      const inputData =
-        a.dtype === 'float64'
-          ? (a.data as Float64Array).subarray(a.offset, a.offset + rows * cols)
-          : Float64Array.from(
-              a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>
-            );
+      let inputData: Float64Array;
+      if (a.dtype === 'float64') {
+        inputData = (a.data as Float64Array).subarray(a.offset, a.offset + rows * cols);
+      } else if (a.dtype === 'int64' || a.dtype === 'uint64') {
+        const bigData = a.data as BigInt64Array | BigUint64Array;
+        inputData = new Float64Array(rows * cols);
+        for (let i = 0; i < rows * cols; i++) inputData[i] = Number(bigData[a.offset + i]!);
+      } else {
+        inputData = Float64Array.from(
+          a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>
+        );
+      }
       const outData = wasmRfft2(inputData, rows, cols);
       if (outData) {
-        return ArrayStorage.fromData(outData, [rows, halfCols], 'complex128');
+        const cDtype = fftResultDtype(a.dtype as DType);
+        // wasmRfft2 returns Float64Array; convert to Float32Array for complex64
+        const typedOut = cDtype === 'complex64' ? Float32Array.from(outData) : outData;
+        return ArrayStorage.fromData(typedOut, [rows, halfCols], cDtype);
       }
     }
   }
@@ -1114,10 +1147,21 @@ export function irfft2(
       rows >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier &&
       outLen1 >= FFT_WASM_THRESHOLD * wasmConfig.thresholdMultiplier
     ) {
-      const inputData = (a.data as Float64Array).subarray(a.offset, a.offset + rows * colsHalf * 2);
+      const inLen = rows * colsHalf * 2;
+      let inputData: Float64Array | Float32Array;
+      if (a.dtype === 'complex64') {
+        // complex64 WASM-backed data may be Float64Array view — extract to proper Float32Array
+        inputData = new Float32Array(inLen);
+        const src = a.data;
+        const off = a.offset;
+        for (let i = 0; i < inLen; i++) inputData[i] = Number(src[off + i]!);
+      } else {
+        inputData = (a.data as Float64Array).subarray(a.offset, a.offset + inLen);
+      }
       const outData = wasmIrfft2(inputData, rows, colsHalf, outLen1);
       if (outData) {
-        return ArrayStorage.fromData(outData, [rows, outLen1], 'float64');
+        const outDtype: DType = a.dtype === 'complex64' ? 'float32' : 'float64';
+        return ArrayStorage.fromData(outData, [rows, outLen1], outDtype);
       }
     }
   }
@@ -1138,6 +1182,7 @@ export function rfftn(
   axes?: number[],
   norm: 'backward' | 'ortho' | 'forward' = 'backward'
 ): ArrayStorage {
+  throwIfComplex(a.dtype, 'rfftn', 'rfftn expects real input.');
   const shape = Array.from(a.shape);
   const ndim = shape.length;
 
@@ -1221,7 +1266,8 @@ export function irfftn(
     s === undefined &&
     a.isCContiguous &&
     isComplexDType(a.dtype) &&
-    outLens[2]! % 2 === 0
+    outLens[2]! % 2 === 0 &&
+    (a.dtype === 'complex128' || a.dtype === 'float64')
   ) {
     const d0 = outLens[0]!;
     const d1 = outLens[1]!;
@@ -1273,6 +1319,7 @@ export function hfft(
   const outLen = n ?? (inputLen - 1) * 2;
 
   // hfft = irfft(conj(a))
+  const inputDtype = a.dtype;
   const complexA = toComplex(a);
   const conjA = conjugate(complexA);
   complexA.dispose();
@@ -1280,9 +1327,17 @@ export function hfft(
   conjA.dispose();
 
   // Scale by n for correct normalization
-  const resultData = result.data as Float64Array;
+  const resultData = result.data as Float64Array | Float32Array;
   for (let i = 0; i < result.size; i++) {
     resultData[i] = resultData[i]! * outLen;
+  }
+
+  // NumPy: hfft(float16) → float16
+  if (inputDtype === 'float16' && hasFloat16) {
+    const f16 = ArrayStorage.empty(Array.from(result.shape), 'float16');
+    (f16.data as unknown as Float16Array).set(result.data as Float32Array);
+    result.dispose();
+    return f16;
   }
 
   return result;
@@ -1303,6 +1358,7 @@ export function ihfft(
   axis: number = -1,
   norm: 'backward' | 'ortho' | 'forward' = 'backward'
 ): ArrayStorage {
+  throwIfComplex(a.dtype, 'ihfft', 'ihfft expects real input.');
   const shape = Array.from(a.shape);
   const ndim = shape.length;
   const ax = axis < 0 ? ndim + axis : axis;
@@ -1330,9 +1386,9 @@ export function ihfft(
 function conjugate(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const size = a.size;
-  const result = ArrayStorage.zeros(shape, 'complex128');
-  const resultData = result.data as Float64Array;
-  const srcData = a.data as Float64Array;
+  const result = ArrayStorage.zeros(shape, a.dtype);
+  const resultData = result.data as Float64Array | Float32Array;
+  const srcData = a.data as Float64Array | Float32Array;
 
   for (let i = 0; i < size; i++) {
     resultData[i * 2] = srcData[i * 2]!;
@@ -1348,9 +1404,11 @@ function conjugate(a: ArrayStorage): ArrayStorage {
 function extractReal(a: ArrayStorage): ArrayStorage {
   const shape = Array.from(a.shape);
   const size = a.size;
-  const result = ArrayStorage.zeros(shape, 'float64');
-  const resultData = result.data as Float64Array;
-  const srcData = a.data as Float64Array;
+  // complex128 → float64, complex64 → float32
+  const realDtype: DType = a.dtype === 'complex64' ? 'float32' : 'float64';
+  const result = ArrayStorage.zeros(shape, realDtype);
+  const resultData = result.data as Float64Array | Float32Array;
+  const srcData = a.data as Float64Array | Float32Array;
 
   for (let i = 0; i < size; i++) {
     resultData[i] = srcData[i * 2]!;

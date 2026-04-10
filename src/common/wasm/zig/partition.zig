@@ -162,3 +162,138 @@ test "partition_f64 single" {
     partition_f64(&a, 1, 0);
     try testing.expectApproxEqAbs(a[0], 42.0, 1e-10);
 }
+
+test "partition_f32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 3.0, 1.0, 4.0, 1.5, 2.0 };
+    partition_f32(&a, 5, 2);
+    try testing.expectApproxEqAbs(a[2], 2.0, 1e-5);
+    for (0..2) |i| try testing.expect(a[i] <= a[2]);
+    for (3..5) |i| try testing.expect(a[i] >= a[2]);
+}
+
+test "partition_i64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 50, 10, 40, 20, 30 };
+    partition_i64(&a, 5, 2);
+    try testing.expectEqual(a[2], 30);
+    for (0..2) |i| try testing.expect(a[i] <= a[2]);
+    for (3..5) |i| try testing.expect(a[i] >= a[2]);
+}
+
+test "partition_u64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 50, 10, 40, 20, 30 };
+    partition_u64(&a, 5, 2);
+    try testing.expectEqual(a[2], 30);
+    for (0..2) |i| try testing.expect(a[i] <= a[2]);
+    for (3..5) |i| try testing.expect(a[i] >= a[2]);
+}
+
+test "partition_u32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 50, 10, 40, 20, 30 };
+    partition_u32(&a, 5, 2);
+    try testing.expectEqual(a[2], 30);
+    for (0..2) |i| try testing.expect(a[i] <= a[2]);
+    for (3..5) |i| try testing.expect(a[i] >= a[2]);
+}
+
+test "partition_i16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 50, 10, 40, 20, 30 };
+    partition_i16(&a, 5, 2);
+    try testing.expectEqual(a[2], 30);
+    for (0..2) |i| try testing.expect(a[i] <= a[2]);
+    for (3..5) |i| try testing.expect(a[i] >= a[2]);
+}
+
+test "partition_u16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 500, 100, 400, 200, 300 };
+    partition_u16(&a, 5, 2);
+    try testing.expectEqual(a[2], 300);
+    for (0..2) |i| try testing.expect(a[i] <= a[2]);
+    for (3..5) |i| try testing.expect(a[i] >= a[2]);
+}
+
+test "partition_i8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 50, 10, 40, 20, 30 };
+    partition_i8(&a, 5, 2);
+    try testing.expectEqual(a[2], 30);
+    for (0..2) |i| try testing.expect(a[i] <= a[2]);
+    for (3..5) |i| try testing.expect(a[i] >= a[2]);
+}
+
+test "partition_slices_f64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f64{ 3.0, 1.0, 2.0, 9.0, 7.0, 8.0 };
+    partition_slices_f64(&a, 3, 2, 1);
+    // kth=1 in each slice of 3: second smallest
+    try testing.expectApproxEqAbs(a[1], 2.0, 1e-10);
+    try testing.expectApproxEqAbs(a[4], 8.0, 1e-10);
+}
+
+test "partition_slices_f32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 3.0, 1.0, 2.0 };
+    partition_slices_f32(&a, 3, 1, 1);
+    try testing.expectApproxEqAbs(a[1], 2.0, 1e-5);
+}
+
+test "partition_slices_i64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 30, 10, 20 };
+    partition_slices_i64(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 20);
+}
+
+test "partition_slices_u64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 30, 10, 20 };
+    partition_slices_u64(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 20);
+}
+
+test "partition_slices_i32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 30, 10, 20 };
+    partition_slices_i32(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 20);
+}
+
+test "partition_slices_u32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 30, 10, 20 };
+    partition_slices_u32(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 20);
+}
+
+test "partition_slices_i16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 30, 10, 20 };
+    partition_slices_i16(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 20);
+}
+
+test "partition_slices_u16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 300, 100, 200 };
+    partition_slices_u16(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 200);
+}
+
+test "partition_slices_i8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 30, 10, 20 };
+    partition_slices_i8(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 20);
+}
+
+test "partition_slices_u8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u8{ 200, 50, 100 };
+    partition_slices_u8(&a, 3, 1, 1);
+    try testing.expectEqual(a[1], 100);
+}

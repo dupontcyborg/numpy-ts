@@ -582,4 +582,3 @@ export function executeOperation(operation: string, arrays: Record<string, any>)
  * Without this, the WASM heap exhausts during tight benchmark loops
  * because FinalizationRegistry can't keep up with allocation rate.
  */
-

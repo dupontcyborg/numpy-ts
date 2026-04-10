@@ -842,8 +842,8 @@ describe('Indexing Functions', () => {
   // ========================================
   describe('mask_indices', () => {
     it('returns indices using mask function', () => {
-      // Use tril as mask function
-      const [rows, cols] = mask_indices(3, (n, k) => tril(zeros([n, n]).add(1), k));
+      // Use tril as mask function — mask_func receives (ones_matrix, k)
+      const [rows, cols] = mask_indices(3, (m, k) => tril(m, k));
       expect(rows.toArray()).toEqual([0, 1, 1, 2, 2, 2]);
       expect(cols.toArray()).toEqual([0, 0, 1, 0, 1, 2]);
     });

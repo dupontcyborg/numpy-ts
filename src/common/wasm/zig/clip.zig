@@ -281,3 +281,23 @@ test "clip_u32 basic" {
     try testing.expectEqual(out[5], 200);
     try testing.expectEqual(out[6], 200);
 }
+
+test "clip_u64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 0, 5, 10 };
+    var out: [3]u64 = undefined;
+    clip_u64(&a, &out, 3, 2, 8);
+    try testing.expectEqual(out[0], 2);
+    try testing.expectEqual(out[1], 5);
+    try testing.expectEqual(out[2], 8);
+}
+
+test "clip_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 0, 5, 10 };
+    var out: [3]u16 = undefined;
+    clip_u16(&a, &out, 3, 2, 8);
+    try testing.expectEqual(out[0], 2);
+    try testing.expectEqual(out[1], 5);
+    try testing.expectEqual(out[2], 8);
+}

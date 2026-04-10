@@ -6,6 +6,7 @@
  */
 
 import * as statisticsOps from '../common/ops/statistics';
+import { Complex } from '../common/complex';
 import { NDArrayCore, toStorage, fromStorage, ArrayStorage } from './types';
 
 type BinStrategyString = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
@@ -38,7 +39,8 @@ export function histogram(
     density,
     weightsArg
   );
-  return [fromStorage(result.hist), fromStorage(result.bin_edges)];
+  const hist = result.hist;
+  return [fromStorage(hist), fromStorage(result.bin_edges)];
 }
 
 /** Compute 2D histogram */
@@ -144,8 +146,9 @@ export function trapezoid(
   x?: NDArrayCore,
   dx?: number,
   axis?: number
-): NDArrayCore | number {
+): NDArrayCore | number | Complex {
   const result = statisticsOps.trapezoid(toStorage(y), x ? toStorage(x) : undefined, dx, axis);
   if (typeof result === 'number') return result;
+  if (result instanceof Complex) return result;
   return fromStorage(result);
 }

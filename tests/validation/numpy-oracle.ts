@@ -23,6 +23,10 @@ export interface NumPyResult {
   value: any;
   dtype: string;
   shape: number[];
+  /** Original dtype before any .astype() cast (set via _result_orig in Python code) */
+  orig_dtype?: string;
+  /** Original shape before any .astype() cast */
+  orig_shape?: number[];
 }
 
 /**
@@ -41,8 +45,8 @@ function deserializeValue(val: any): any {
   } else if (val === '__NaN__') {
     return NaN;
   } else if (typeof val === 'object' && val !== null && '__complex__' in val) {
-    // Deserialize complex numbers from Python
-    return new Complex(val.re, val.im);
+    // Deserialize complex numbers from Python (re/im may be special markers)
+    return new Complex(deserializeValue(val.re) as number, deserializeValue(val.im) as number);
   } else {
     return val;
   }
@@ -105,6 +109,10 @@ ${indentedCode}
         output = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}
     else:
         output = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}
+    # If user code set _result_orig, include original dtype/shape before any cast
+    if '_result_orig' in dir():
+        output['orig_dtype'] = str(_result_orig.dtype) if hasattr(_result_orig, 'dtype') else output['dtype']
+        output['orig_shape'] = list(_result_orig.shape) if hasattr(_result_orig, 'shape') else output['shape']
     print(json.dumps(output))
 except Exception as e:
     print(json.dumps({'error': str(e)}), file=sys.stderr)
@@ -144,6 +152,130 @@ except Exception as e:
       }
     }
     throw new Error(`Failed to run Python: ${err.message || 'Unknown error'}`, { cause: error });
+  } finally {
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
+/**
+ * Execute multiple Python NumPy computations in a single subprocess.
+ * Each entry maps a key to a Python code snippet that sets `result`
+ * (and optionally `_result_orig` for dtype/shape capture).
+ *
+ * Returns a Map<string, NumPyResult> keyed by the same keys.
+ * Entries that error are stored with a special `error` field.
+ */
+export function runNumPyBatch(
+  snippets: Record<string, string>
+): Map<string, NumPyResult & { error?: string }> {
+  const keys = Object.keys(snippets);
+  if (keys.length === 0) return new Map();
+
+  // Build a single Python script that runs all snippets
+  const snippetBlocks = keys
+    .map((key) => {
+      const indented = snippets[key]!.trim()
+        .split('\n')
+        .map((line) => '    ' + line)
+        .join('\n');
+      return [
+        'try:',
+        indented,
+        '    if isinstance(result, np.ndarray):',
+        "        _out = {'value': serialize_value(result), 'dtype': str(result.dtype), 'shape': list(result.shape)}",
+        '    elif isinstance(result, (np.integer, np.floating, np.complexfloating)):',
+        "        _out = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}",
+        '    else:',
+        "        _out = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}",
+        "    if '_result_orig' in dir():",
+        "        _out['orig_dtype'] = str(_result_orig.dtype) if hasattr(_result_orig, 'dtype') else _out['dtype']",
+        "        _out['orig_shape'] = list(_result_orig.shape) if hasattr(_result_orig, 'shape') else _out['shape']",
+        '        del _result_orig',
+        `    _all_results[${JSON.stringify(key)}] = _out`,
+        'except Exception as _e:',
+        `    _all_results[${JSON.stringify(key)}] = {'error': str(_e)}`,
+      ].join('\n');
+    })
+    .join('\n');
+
+  const pythonCode = [
+    'import numpy as np',
+    'import json',
+    'import sys',
+    'import math',
+    '',
+    "NUMPY_VERSION = tuple(map(int, np.__version__.split('.')[:2]))",
+    'if NUMPY_VERSION < (2, 0):',
+    '    print(f"Error: NumPy 2.0+ required. Found {np.__version__}", file=sys.stderr)',
+    '    sys.exit(1)',
+    '',
+    'def serialize_value(val):',
+    '    if isinstance(val, np.ndarray):',
+    '        return serialize_value(val.tolist())',
+    '    elif isinstance(val, list):',
+    '        return [serialize_value(v) for v in val]',
+    '    elif isinstance(val, (bool, np.bool_)):',
+    '        return bool(val)',
+    '    elif isinstance(val, (complex, np.complexfloating)):',
+    '        return {"__complex__": True, "re": serialize_value(float(val.real)), "im": serialize_value(float(val.imag))}',
+    '    elif isinstance(val, (float, np.floating)):',
+    '        if math.isnan(val):',
+    '            return "__NaN__"',
+    '        elif math.isinf(val):',
+    '            return "__Infinity__" if val > 0 else "__-Infinity__"',
+    '        else:',
+    '            return float(val)',
+    '    elif isinstance(val, (int, np.integer)):',
+    '        return int(val)',
+    '    else:',
+    '        return val',
+    '',
+    '_all_results = {}',
+    snippetBlocks,
+    'print(json.dumps(_all_results))',
+  ].join('\n');
+
+  const tmpFile = join(
+    tmpdir(),
+    `numpy-batch-${Date.now()}-${Math.random().toString(36).slice(2)}.py`
+  );
+
+  try {
+    writeFileSync(tmpFile, pythonCode, 'utf-8');
+    const output = execSync(`${PYTHON_CMD} ${tmpFile}`, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 50 * 1024 * 1024, // 50MB for large batches
+    });
+
+    const parsed = JSON.parse(output);
+    const results = new Map<string, NumPyResult & { error?: string }>();
+    for (const key of keys) {
+      const entry = parsed[key];
+      if (entry && 'error' in entry && !('value' in entry)) {
+        results.set(key, entry);
+      } else if (entry) {
+        entry.value = deserializeValue(entry.value);
+        results.set(key, entry as NumPyResult);
+      } else {
+        results.set(key, {
+          error: 'Missing from batch output',
+          value: undefined,
+          dtype: '',
+          shape: [],
+        });
+      }
+    }
+    return results;
+  } catch (error: unknown) {
+    const err = error as { stderr?: Buffer; message?: string };
+    throw new Error(`Failed to run batched Python: ${err.message || 'Unknown error'}`, {
+      cause: error,
+    });
   } finally {
     try {
       unlinkSync(tmpFile);

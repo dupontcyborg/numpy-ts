@@ -245,3 +245,44 @@ test "power_f64 edge zero base" {
     try testing.expectApproxEqAbs(out[0], 1.0, 1e-10); // 0^0 = 1
     try testing.expectApproxEqAbs(out[1], 0.0, 1e-10); // 0^5 = 0
 }
+
+test "power_scalar_f32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]f32{2.0};
+    var out: [1]f32 = undefined;
+    power_scalar_f32(&a, &out, 1, 3.0);
+    try testing.expectApproxEqAbs(out[0], 8.0, 1e-6);
+}
+
+test "power_scalar_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{2};
+    var out: [1]i64 = undefined;
+    power_scalar_i64(&a, &out, 1, 3);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "power_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{2};
+    const b = [_]i16{3};
+    var out: [1]i16 = undefined;
+    power_i16(&a, &b, &out, 1);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "power_scalar_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{2};
+    var out: [1]i16 = undefined;
+    power_scalar_i16(&a, &out, 1, 3);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "power_scalar_i8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i8{2};
+    var out: [1]i8 = undefined;
+    power_scalar_i8(&a, &out, 1, 3);
+    try testing.expectEqual(out[0], 8);
+}

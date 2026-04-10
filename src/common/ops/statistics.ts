@@ -6,17 +6,40 @@
  */
 
 import { ArrayStorage } from '../storage';
+import { Complex } from '../complex';
 import {
+  getComplexComponentDType,
   getTypedArrayConstructor,
   hasFloat16,
+  isBigIntDType,
   isComplexDType,
   isFloatDType,
+  promoteDTypes,
   throwIfComplex,
   TypedArray,
+  type DType,
 } from '../dtype';
 import { wasmCorrelate } from '../wasm/correlate';
 import { wasmConvolve } from '../wasm/convolve';
 import { wasmMatmul } from '../wasm/matmul';
+
+/**
+ * Extract real parts from a complex array into a float array.
+ * complex128 → float64, complex64 → float32.
+ */
+function extractRealPart(a: ArrayStorage): ArrayStorage {
+  const shape = Array.from(a.shape);
+  const size = a.size;
+  const realDtype = getComplexComponentDType(a.dtype);
+  const result = ArrayStorage.empty(shape, realDtype);
+  const resultData = result.data as Float64Array | Float32Array;
+  const srcData = a.data as Float64Array | Float32Array;
+  const off = a.offset;
+  for (let i = 0; i < size; i++) {
+    resultData[i] = srcData[(off + i) * 2]!;
+  }
+  return result;
+}
 
 /**
  * Count number of occurrences of each value in array of non-negative ints.
@@ -194,9 +217,18 @@ export function histogram(
   density: boolean = false,
   weights?: ArrayStorage
 ): { hist: ArrayStorage; bin_edges: ArrayStorage } {
-  throwIfComplex(a.dtype, 'histogram', 'histogram requires real numbers.');
-  if (typeof bins !== 'number') {
-    throwIfComplex(bins.dtype, 'histogram', 'histogram requires real numbers.');
+  // Complex input: use real part (matches NumPy behavior)
+  if (isComplexDType(a.dtype)) {
+    const realPart = extractRealPart(a);
+    const result = histogram(realPart, bins, range, density, weights);
+    realPart.dispose();
+    return result;
+  }
+  if (typeof bins !== 'number' && isComplexDType(bins.dtype)) {
+    const realBins = extractRealPart(bins);
+    const result = histogram(a, realBins, range, density, weights);
+    realBins.dispose();
+    return result;
   }
   const aData = a.data;
   const aSize = a.size;
@@ -672,7 +704,7 @@ export function histogramdd(
 export function correlate(
   a: ArrayStorage,
   v: ArrayStorage,
-  mode: 'full' | 'same' | 'valid' = 'full'
+  mode: 'full' | 'same' | 'valid' = 'valid'
 ): ArrayStorage {
   const aData = a.data;
   const vData = v.data;
@@ -701,16 +733,16 @@ export function correlate(
           let aRe: number, aIm: number, vRe: number, vIm: number;
 
           if (aComplex) {
-            aRe = (aData as Float64Array)[n * 2]!;
-            aIm = (aData as Float64Array)[n * 2 + 1]!;
+            aRe = (aData as Float64Array | Float32Array)[n * 2]!;
+            aIm = (aData as Float64Array | Float32Array)[n * 2 + 1]!;
           } else {
             aRe = Number(aData[n]!);
             aIm = 0;
           }
 
           if (vComplex) {
-            vRe = (vData as Float64Array)[vIdx * 2]!;
-            vIm = (vData as Float64Array)[vIdx * 2 + 1]!;
+            vRe = (vData as Float64Array | Float32Array)[vIdx * 2]!;
+            vIm = (vData as Float64Array | Float32Array)[vIdx * 2 + 1]!;
           } else {
             vRe = Number(vData[vIdx]!);
             vIm = 0;
@@ -728,9 +760,11 @@ export function correlate(
     }
 
     // Pack into interleaved format and return based on mode
+    // Promote complex64+complex64 → complex64, mixed → complex128 (matches NumPy)
+    const outComplexDtype = promoteDTypes(a.dtype as DType, v.dtype as DType);
     const packResult = (re: Float64Array, im: Float64Array, len: number, start: number = 0) => {
-      const storage = ArrayStorage.empty([len], 'complex128');
-      const result = storage.data as Float64Array;
+      const storage = ArrayStorage.empty([len], outComplexDtype);
+      const result = storage.data as Float64Array | Float32Array;
       for (let i = 0; i < len; i++) {
         result[i * 2] = re[start + i]!;
         result[i * 2 + 1] = im[start + i]!;
@@ -771,22 +805,38 @@ export function correlate(
     }
   }
 
-  // Real arrays — JS fallback
-  const fullStorage = ArrayStorage.empty([fullLen], 'float64');
-  const fullResult = fullStorage.data as Float64Array;
+  // Real arrays — JS fallback (preserve input dtype, matching NumPy)
+  const outDtype = promoteDTypes(a.dtype as DType, v.dtype as DType);
+  const fullStorage = ArrayStorage.empty([fullLen], outDtype);
+  const fullResult = fullStorage.data;
 
-  for (let k = 0; k < fullLen; k++) {
-    let sum = 0;
-    const offset = k - vLen + 1;
-
-    for (let n = 0; n < aLen; n++) {
-      const vIdx = n - offset;
-      if (vIdx >= 0 && vIdx < vLen) {
-        sum += Number(aData[n]) * Number(vData[vIdx]);
+  if (isBigIntDType(outDtype)) {
+    const aBig = aData as BigInt64Array | BigUint64Array;
+    const vBig = vData as BigInt64Array | BigUint64Array;
+    const out = fullResult as BigInt64Array | BigUint64Array;
+    for (let k = 0; k < fullLen; k++) {
+      let sum = 0n;
+      const offset = k - vLen + 1;
+      for (let n = 0; n < aLen; n++) {
+        const vIdx = n - offset;
+        if (vIdx >= 0 && vIdx < vLen) {
+          sum += aBig[n]! * vBig[vIdx]!;
+        }
       }
+      out[k] = sum;
     }
-
-    fullResult[k] = sum;
+  } else {
+    for (let k = 0; k < fullLen; k++) {
+      let sum = 0;
+      const offset = k - vLen + 1;
+      for (let n = 0; n < aLen; n++) {
+        const vIdx = n - offset;
+        if (vIdx >= 0 && vIdx < vLen) {
+          sum += Number(aData[n]) * Number(vData[vIdx]);
+        }
+      }
+      fullResult[k] = sum;
+    }
   }
 
   // Return based on mode
@@ -794,8 +844,8 @@ export function correlate(
     return fullStorage;
   } else if (mode === 'same') {
     const start = Math.floor((fullLen - aLen) / 2);
-    const sameStorage = ArrayStorage.empty([aLen], 'float64');
-    const result = sameStorage.data as Float64Array;
+    const sameStorage = ArrayStorage.empty([aLen], outDtype);
+    const result = sameStorage.data;
     for (let i = 0; i < aLen; i++) {
       result[i] = fullResult[start + i]!;
     }
@@ -804,8 +854,8 @@ export function correlate(
   } else {
     const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
     const start = Math.min(aLen, vLen) - 1;
-    const validStorage = ArrayStorage.empty([validLen], 'float64');
-    const result = validStorage.data as Float64Array;
+    const validStorage = ArrayStorage.empty([validLen], outDtype);
+    const result = validStorage.data;
     for (let i = 0; i < validLen; i++) {
       result[i] = fullResult[start + i]!;
     }
@@ -862,25 +912,27 @@ export function convolve(
   let vReversedStorage: ArrayStorage;
 
   if (vComplex) {
-    const vReversed = new Float64Array(vLen * 2);
+    const isC64 = v.dtype === 'complex64';
+    const vReversed = isC64 ? new Float32Array(vLen * 2) : new Float64Array(vLen * 2);
     for (let i = 0; i < vLen; i++) {
       const srcIdx = vLen - 1 - i;
-      vReversed[i * 2] = (vData as Float64Array)[srcIdx * 2]!;
-      vReversed[i * 2 + 1] = (vData as Float64Array)[srcIdx * 2 + 1]!;
+      vReversed[i * 2] = (vData as Float64Array | Float32Array)[srcIdx * 2]!;
+      vReversed[i * 2 + 1] = (vData as Float64Array | Float32Array)[srcIdx * 2 + 1]!;
     }
     vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], v.dtype);
   } else {
-    const vReversed = new Float64Array(vLen);
+    // Preserve dtype for reversed v so correlate output matches input dtype
+    vReversedStorage = ArrayStorage.empty([vLen], v.dtype);
+    const vRevData = vReversedStorage.data;
     for (let i = 0; i < vLen; i++) {
-      vReversed[i] = Number(vData[vLen - 1 - i]);
+      vRevData[i] = vData[vLen - 1 - i]!;
     }
-    vReversedStorage = ArrayStorage.fromData(vReversed, [vLen], 'float64');
   }
 
   // For convolution, we need correlation without conjugation
   // So we manually conjugate vReversed to cancel the conjugation in correlate
   if (vComplex) {
-    const data = vReversedStorage.data as Float64Array;
+    const data = vReversedStorage.data as Float64Array | Float32Array;
     for (let i = 0; i < vLen; i++) {
       data[i * 2 + 1] = -data[i * 2 + 1]!; // Negate imaginary to cancel conjugation
     }
@@ -1398,8 +1450,10 @@ export function histogram_bin_edges(
   // Ensure at least 1 bin
   numBins = Math.max(1, Math.round(numBins));
 
-  // Compute bin edges
-  const edgeStorage = ArrayStorage.empty([numBins + 1], 'float64');
+  // Preserve float32/float16 precision; all other types (int, bool, float64) use float64 edges
+  const edgeDtype =
+    a.dtype === 'float32' ? 'float32' : a.dtype === 'float16' ? 'float16' : 'float64';
+  const edgeStorage = ArrayStorage.empty([numBins + 1], edgeDtype);
   const binEdges = edgeStorage.data as Float64Array;
   const step = (maxVal - minVal) / numBins;
   for (let i = 0; i <= numBins; i++) {
@@ -1511,6 +1565,145 @@ function computeSkewness(values: number[], mean: number, std: number): number {
 }
 
 /**
+ * Trapezoidal integration for complex arrays.
+ * Integrates complex values, producing a complex result.
+ */
+function trapezoidComplex(
+  y: ArrayStorage,
+  x: ArrayStorage | undefined,
+  dx: number,
+  axis: number
+): ArrayStorage | Complex {
+  const yShape = Array.from(y.shape);
+  const ndim = yShape.length;
+
+  if (axis < 0) axis = ndim + axis;
+  if (axis < 0 || axis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  const axisSize = yShape[axis]!;
+  if (axisSize < 2) {
+    throw new Error('trapezoid requires at least 2 samples along axis');
+  }
+
+  let xValues: Float64Array;
+  if (x !== undefined) {
+    if (isComplexDType(x.dtype)) {
+      throw new Error('trapezoid requires real x values.');
+    }
+    if (x.size !== axisSize) {
+      throw new Error(`x array size (${x.size}) must match y axis size (${axisSize})`);
+    }
+    const xData = x.data;
+    xValues = new Float64Array(axisSize);
+    for (let i = 0; i < axisSize; i++) {
+      xValues[i] = Number(xData[i]);
+    }
+  } else {
+    xValues = new Float64Array(axisSize);
+    for (let i = 0; i < axisSize; i++) {
+      xValues[i] = i * dx;
+    }
+  }
+
+  const yData = y.data as Float64Array | Float32Array;
+  const yOff = y.offset;
+
+  // 1D case
+  if (ndim === 1) {
+    let integralRe = 0;
+    let integralIm = 0;
+    for (let i = 0; i < axisSize - 1; i++) {
+      const y0Re = yData[(yOff + i) * 2]!;
+      const y0Im = yData[(yOff + i) * 2 + 1]!;
+      const y1Re = yData[(yOff + i + 1) * 2]!;
+      const y1Im = yData[(yOff + i + 1) * 2 + 1]!;
+      const dx_i = xValues[i + 1]! - xValues[i]!;
+      integralRe += 0.5 * (y0Re + y1Re) * dx_i;
+      integralIm += 0.5 * (y0Im + y1Im) * dx_i;
+    }
+    return new Complex(integralRe, integralIm);
+  }
+
+  // N-D case
+  const outShape = [...yShape];
+  outShape.splice(axis, 1);
+  const outSize = outShape.reduce((a, b) => a * b, 1);
+
+  const resultStorage = ArrayStorage.empty(outShape, y.dtype);
+  const resultData = resultStorage.data as Float64Array | Float32Array;
+
+  const yStrides: number[] = new Array(ndim);
+  let stride = 1;
+  for (let i = ndim - 1; i >= 0; i--) {
+    yStrides[i] = stride;
+    stride *= yShape[i]!;
+  }
+
+  const outStrides: number[] = new Array(outShape.length);
+  stride = 1;
+  for (let i = outShape.length - 1; i >= 0; i--) {
+    outStrides[i] = stride;
+    stride *= outShape[i]!;
+  }
+
+  for (let outIdx = 0; outIdx < outSize; outIdx++) {
+    const outCoords: number[] = [];
+    let remaining = outIdx;
+    for (let d = 0; d < outShape.length; d++) {
+      const coord = Math.floor(remaining / outStrides[d]!);
+      remaining %= outStrides[d]!;
+      outCoords.push(coord);
+    }
+
+    const inCoordsBase: number[] = [];
+    let outD = 0;
+    for (let d = 0; d < ndim; d++) {
+      if (d === axis) {
+        inCoordsBase.push(0);
+      } else {
+        inCoordsBase.push(outCoords[outD]!);
+        outD++;
+      }
+    }
+
+    let integralRe = 0;
+    let integralIm = 0;
+    for (let i = 0; i < axisSize - 1; i++) {
+      inCoordsBase[axis] = i;
+      let idx0 = 0;
+      for (let d = 0; d < ndim; d++) {
+        idx0 += inCoordsBase[d]! * yStrides[d]!;
+      }
+      inCoordsBase[axis] = i + 1;
+      let idx1 = 0;
+      for (let d = 0; d < ndim; d++) {
+        idx1 += inCoordsBase[d]! * yStrides[d]!;
+      }
+      const dx_i = xValues[i + 1]! - xValues[i]!;
+      integralRe +=
+        0.5 * (Number(yData[(yOff + idx0) * 2]!) + Number(yData[(yOff + idx1) * 2]!)) * dx_i;
+      integralIm +=
+        0.5 *
+        (Number(yData[(yOff + idx0) * 2 + 1]!) + Number(yData[(yOff + idx1) * 2 + 1]!)) *
+        dx_i;
+    }
+    resultData[outIdx * 2] = integralRe;
+    resultData[outIdx * 2 + 1] = integralIm;
+  }
+
+  if (outShape.length === 0) {
+    const re = Number(resultData[0]!);
+    const im = Number(resultData[1]!);
+    resultStorage.dispose();
+    return new Complex(re, im);
+  }
+
+  return resultStorage;
+}
+
+/**
  * Integrate along the given axis using the composite trapezoidal rule.
  *
  * @param y - Input array to integrate
@@ -1524,10 +1717,13 @@ export function trapezoid(
   x?: ArrayStorage,
   dx: number = 1.0,
   axis: number = -1
-): ArrayStorage | number {
-  throwIfComplex(y.dtype, 'trapezoid', 'trapezoid requires real numbers.');
+): ArrayStorage | number | Complex {
+  // Complex y: integrate complex values using trapezoidal rule
+  if (isComplexDType(y.dtype)) {
+    return trapezoidComplex(y, x, dx, axis);
+  }
   if (x !== undefined) {
-    throwIfComplex(x.dtype, 'trapezoid', 'trapezoid requires real numbers.');
+    throwIfComplex(x.dtype, 'trapezoid', 'trapezoid requires real x values.');
   }
 
   const yShape = Array.from(y.shape);

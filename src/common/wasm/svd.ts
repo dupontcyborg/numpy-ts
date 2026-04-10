@@ -9,7 +9,7 @@
 import { svd_f64, svd_values_gk_f64 } from './bins/svd.wasm';
 import { wasmMalloc, resetScratchAllocator, getSharedMemory } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { TypedArray } from '../dtype';
+import { isComplexDType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
@@ -23,6 +23,9 @@ export function wasmSvd(
   a: ArrayStorage
 ): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } | null {
   if (a.ndim !== 2) return null;
+
+  // TODO: support complex in WASM
+  if (isComplexDType(a.dtype)) return null;
 
   const m = a.shape[0]!;
   const n = a.shape[1]!;
@@ -115,6 +118,7 @@ export function wasmSvd(
  */
 export function wasmSvdValues(a: ArrayStorage): ArrayStorage | null {
   if (a.ndim !== 2) return null;
+  if (isComplexDType(a.dtype)) return null;
 
   const m = a.shape[0]!;
   const n = a.shape[1]!;

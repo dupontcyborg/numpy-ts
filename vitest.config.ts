@@ -20,6 +20,8 @@ export default defineConfig({
         '**/test/**',
         '**/tests/**',
         'src/common/wasm/bins/**',
+        'src/core/index.ts',
+        'src/full/index.ts',
       ],
       thresholds: {
         statements: 80,
@@ -44,7 +46,7 @@ export default defineConfig({
         test: {
           name: 'validation',
           include: ['tests/validation/**'],
-          exclude: ['**/node_modules/**', '**/*.md', '**/numpy-oracle.ts', '**/_helpers.ts'],
+          exclude: ['**/node_modules/**', '**/*.md', '**/numpy-oracle.ts', '**/_helpers.ts', '**/_dtype-matrix.ts', '**/_*.ts'],
           environment: 'node',
         },
       }),

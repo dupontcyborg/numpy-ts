@@ -507,15 +507,15 @@ describe('Reduction Operations', () => {
 
   describe('gcd', () => {
     it('computes greatest common divisor', () => {
-      const a = array([12, 18, 24]);
-      const b = array([8, 12, 16]);
+      const a = array([12, 18, 24], 'int32');
+      const b = array([8, 12, 16], 'int32');
       const result = gcd(a, b);
       expect(result.dtype).toBe('int32');
       expect(result.toArray()).toEqual([4, 6, 8]);
     });
 
     it('works with scalar', () => {
-      const arr = array([12, 18, 24]);
+      const arr = array([12, 18, 24], 'int32');
       const result = gcd(arr, 6);
       expect(result.toArray()).toEqual([6, 6, 6]);
     });
@@ -523,21 +523,21 @@ describe('Reduction Operations', () => {
 
   describe('lcm', () => {
     it('computes least common multiple', () => {
-      const a = array([12, 18, 24]);
-      const b = array([8, 12, 16]);
+      const a = array([12, 18, 24], 'int32');
+      const b = array([8, 12, 16], 'int32');
       const result = lcm(a, b);
       expect(result.dtype).toBe('int32');
       expect(result.toArray()).toEqual([24, 36, 48]);
     });
 
     it('works with scalar', () => {
-      const arr = array([4, 6, 8]);
+      const arr = array([4, 6, 8], 'int32');
       const result = lcm(arr, 3);
       expect(result.toArray()).toEqual([12, 6, 24]);
     });
 
     it('handles zero', () => {
-      const arr = array([0, 5, 10]);
+      const arr = array([0, 5, 10], 'int32');
       const result = lcm(arr, 5);
       expect(result.toArray()).toEqual([0, 5, 10]);
     });

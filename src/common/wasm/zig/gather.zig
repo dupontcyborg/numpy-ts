@@ -252,18 +252,6 @@ export fn take_axis0_2d_u8(data: [*]const u8, indices: [*]const i32, out: [*]u8,
     }
 }
 
-// --- count_nonzero for condition array ---
-
-/// Count nonzero i32 elements. Used to pre-allocate extract output.
-export fn count_nonzero_i32(cond: [*]const i32, N: u32) u32 {
-    var count: u32 = 0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        if (cond[i] != 0) count += 1;
-    }
-    return count;
-}
-
 // --- where: out[i] = cond[i] ? x[i] : y[i] ---
 
 /// Element-wise where for f64: out[i] = cond[i] != 0 ? x[i] : y[i].
@@ -435,8 +423,272 @@ test "take_axis0_2d_i8 basic" {
     try testing.expectEqual(out[3], 6); // data[2][1]
 }
 
-test "count_nonzero_i32 basic" {
+test "extract_f32 basic" {
     const testing = @import("std").testing;
-    const cond = [_]i32{ 0, 1, 0, 1, 1, 0 };
-    try testing.expectEqual(count_nonzero_i32(&cond, 6), 3);
+    const cond = [_]i32{ 1, 0, 1 };
+    const data = [_]f32{ 10.0, 20.0, 30.0 };
+    var out: [3]f32 = undefined;
+    const cnt = extract_f32(&cond, &data, &out, 3);
+    try testing.expectEqual(cnt, 2);
+    try testing.expectEqual(out[0], 10.0);
+    try testing.expectEqual(out[1], 30.0);
+}
+
+test "extract_i64 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const data = [_]i64{ 10, 20, 30 };
+    var out: [3]i64 = undefined;
+    const cnt = extract_i64(&cond, &data, &out, 3);
+    try testing.expectEqual(cnt, 2);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 30);
+}
+
+test "extract_u64 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 0, 1, 0 };
+    const data = [_]u64{ 10, 20, 30 };
+    var out: [3]u64 = undefined;
+    const cnt = extract_u64(&cond, &data, &out, 3);
+    try testing.expectEqual(cnt, 1);
+    try testing.expectEqual(out[0], 20);
+}
+
+test "extract_i32 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const data = [_]i32{ 10, 20, 30 };
+    var out: [3]i32 = undefined;
+    const cnt = extract_i32(&cond, &data, &out, 3);
+    try testing.expectEqual(cnt, 2);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 30);
+}
+
+test "extract_u32 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const data = [_]u32{ 10, 20, 30 };
+    var out: [3]u32 = undefined;
+    const cnt = extract_u32(&cond, &data, &out, 3);
+    try testing.expectEqual(cnt, 2);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 30);
+}
+
+test "extract_i16 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const data = [_]i16{ 10, 20, 30 };
+    var out: [3]i16 = undefined;
+    const cnt = extract_i16(&cond, &data, &out, 3);
+    try testing.expectEqual(cnt, 2);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 30);
+}
+
+test "extract_u16 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const data = [_]u16{ 10, 20, 30 };
+    var out: [3]u16 = undefined;
+    const cnt = extract_u16(&cond, &data, &out, 3);
+    try testing.expectEqual(cnt, 2);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 30);
+}
+
+test "take_axis0_2d_f32 basic" {
+    const testing = @import("std").testing;
+    // data: [[1,2],[3,4]]; indices[i] = src row for position i
+    // indices=[1,1,0,0] -> out[0]=data[1*2+0]=3, out[1]=data[1*2+1]=4, out[2]=data[0*2+0]=1, out[3]=data[0*2+1]=2
+    const data = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]f32 = undefined;
+    take_axis0_2d_f32(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3.0);
+    try testing.expectEqual(out[1], 4.0);
+    try testing.expectEqual(out[2], 1.0);
+    try testing.expectEqual(out[3], 2.0);
+}
+
+test "take_axis0_2d_i64 basic" {
+    const testing = @import("std").testing;
+    const data = [_]i64{ 1, 2, 3, 4 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]i64 = undefined;
+    take_axis0_2d_i64(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 2);
+}
+
+test "take_axis0_2d_u64 basic" {
+    const testing = @import("std").testing;
+    const data = [_]u64{ 1, 2, 3, 4 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]u64 = undefined;
+    take_axis0_2d_u64(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 2);
+}
+
+test "take_axis0_2d_i32 basic" {
+    const testing = @import("std").testing;
+    const data = [_]i32{ 1, 2, 3, 4 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]i32 = undefined;
+    take_axis0_2d_i32(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 2);
+}
+
+test "take_axis0_2d_u32 basic" {
+    const testing = @import("std").testing;
+    const data = [_]u32{ 1, 2, 3, 4 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]u32 = undefined;
+    take_axis0_2d_u32(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 2);
+}
+
+test "take_axis0_2d_i16 basic" {
+    const testing = @import("std").testing;
+    const data = [_]i16{ 1, 2, 3, 4 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]i16 = undefined;
+    take_axis0_2d_i16(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 2);
+}
+
+test "take_axis0_2d_u16 basic" {
+    const testing = @import("std").testing;
+    const data = [_]u16{ 1, 2, 3, 4 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]u16 = undefined;
+    take_axis0_2d_u16(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 2);
+}
+
+test "take_axis0_2d_u8 basic" {
+    const testing = @import("std").testing;
+    const data = [_]u8{ 1, 2, 3, 4 };
+    const indices = [_]i32{ 1, 1, 0, 0 };
+    var out: [4]u8 = undefined;
+    take_axis0_2d_u8(&data, &indices, &out, 2, 2);
+    try testing.expectEqual(out[0], 3);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 2);
+}
+
+test "where_f32 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]f32{ 10.0, 20.0, 30.0 };
+    const y = [_]f32{ 100.0, 200.0, 300.0 };
+    var out: [3]f32 = undefined;
+    where_f32(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10.0);
+    try testing.expectEqual(out[1], 200.0);
+    try testing.expectEqual(out[2], 30.0);
+}
+
+test "where_i64 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]i64{ 10, 20, 30 };
+    const y = [_]i64{ 100, 200, 300 };
+    var out: [3]i64 = undefined;
+    where_i64(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 200);
+    try testing.expectEqual(out[2], 30);
+}
+
+test "where_u64 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]u64{ 10, 20, 30 };
+    const y = [_]u64{ 100, 200, 300 };
+    var out: [3]u64 = undefined;
+    where_u64(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 200);
+    try testing.expectEqual(out[2], 30);
+}
+
+test "where_i32 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]i32{ 10, 20, 30 };
+    const y = [_]i32{ 100, 200, 300 };
+    var out: [3]i32 = undefined;
+    where_i32(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 200);
+    try testing.expectEqual(out[2], 30);
+}
+
+test "where_u32 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]u32{ 10, 20, 30 };
+    const y = [_]u32{ 100, 200, 300 };
+    var out: [3]u32 = undefined;
+    where_u32(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 200);
+    try testing.expectEqual(out[2], 30);
+}
+
+test "where_i16 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]i16{ 10, 20, 30 };
+    const y = [_]i16{ 100, 200, 300 };
+    var out: [3]i16 = undefined;
+    where_i16(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 200);
+    try testing.expectEqual(out[2], 30);
+}
+
+test "where_u16 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]u16{ 10, 20, 30 };
+    const y = [_]u16{ 100, 200, 300 };
+    var out: [3]u16 = undefined;
+    where_u16(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], 200);
+    try testing.expectEqual(out[2], 30);
+}
+
+test "where_i8 basic" {
+    const testing = @import("std").testing;
+    const cond = [_]i32{ 1, 0, 1 };
+    const x = [_]i8{ 10, 20, 30 };
+    const y = [_]i8{ -1, -2, -3 };
+    var out: [3]i8 = undefined;
+    where_i8(&cond, &x, &y, &out, 3);
+    try testing.expectEqual(out[0], 10);
+    try testing.expectEqual(out[1], -2);
+    try testing.expectEqual(out[2], 30);
 }

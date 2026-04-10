@@ -86,3 +86,21 @@ test "bitwise_xor_i8 SIMD boundary N=17" {
         try testing.expectEqual(out[idx], 0);
     }
 }
+
+test "bitwise_xor_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{0b1010};
+    const b = [_]i64{0b1100};
+    var out: [1]i64 = undefined;
+    bitwise_xor_i64(&a, &b, &out, 1);
+    try testing.expectEqual(out[0], 0b0110);
+}
+
+test "bitwise_xor_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{0b1010};
+    const b = [_]i16{0b1100};
+    var out: [1]i16 = undefined;
+    bitwise_xor_i16(&a, &b, &out, 1);
+    try testing.expectEqual(out[0], 0b0110);
+}

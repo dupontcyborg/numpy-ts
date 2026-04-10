@@ -238,7 +238,9 @@ export function median(
   }
   const result = reductionOps.median(toStorage(a), axis, keepdims);
   if (typeof result === 'number') return result;
-  return fromStorage(result);
+  if (result && typeof result === 'object' && 're' in result)
+    return result as unknown as NDArrayCore | number;
+  return fromStorage(result as ArrayStorage);
 }
 
 /** Percentile of array elements */
@@ -480,7 +482,9 @@ export function nancumprod(a: NDArrayCore, axis?: number): NDArrayCore {
 export function nanmedian(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArrayCore | number {
   const result = reductionOps.nanmedian(toStorage(a), axis, keepdims);
   if (typeof result === 'number') return result;
-  return fromStorage(result);
+  if (result && typeof result === 'object' && 're' in result)
+    return result as unknown as NDArrayCore | number;
+  return fromStorage(result as ArrayStorage);
 }
 
 /** Quantile ignoring NaN */

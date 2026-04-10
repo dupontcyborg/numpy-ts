@@ -173,6 +173,16 @@ export function isclose(
   if (typeof b === 'number') {
     return iscloseScalar(a, b, rtol, atol);
   }
+  // Complex isclose: |a - b| <= atol + rtol * |b| using complex abs
+  if (isComplexDType(a.dtype) || (typeof b !== 'number' && isComplexDType(b.dtype))) {
+    return complexComparisonOp(a, b, (aRe, aIm, bRe, bIm) => {
+      const diffRe = aRe - bRe;
+      const diffIm = aIm - bIm;
+      const absDiff = Math.hypot(diffRe, diffIm);
+      const absB = Math.hypot(bRe, bIm);
+      return absDiff <= atol + rtol * absB;
+    });
+  }
   return elementwiseComparisonOp(a, b, (x, y) => {
     const diff = Math.abs(x - y);
     const threshold = atol + rtol * Math.abs(y);

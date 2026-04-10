@@ -326,6 +326,8 @@ describe('Complete DType Promotion Matrix', () => {
       const boolArr = ones([2], 'bool');
 
       expect(boolArr.add(ones([2], 'int8')).dtype).toBe('int8');
+      // NumPy 2.x rejects subtract(bool, bool) but allows subtract(bool, other)
+      expect(() => boolArr.subtract(ones([2], 'bool'))).toThrow(TypeError);
       expect(boolArr.subtract(ones([2], 'uint16')).dtype).toBe('uint16');
       expect(boolArr.multiply(ones([2], 'float32')).dtype).toBe('float32');
       // Division promotes to float64 (NumPy behavior)

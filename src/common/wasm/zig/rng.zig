@@ -206,7 +206,7 @@ export fn pcg64_init_from_ss(words: [*]const u32) void {
 /// Initialize PCG64 with pre-computed 128-bit state and increment, passed as
 /// two u64 pairs. Performs the 2-bump seeded initialization matching
 /// NumPy's `pcg_setseq_128_srandom_r`.
-export fn pcg64_init(state_lo: u64, state_hi: u64, inc_lo: u64, inc_hi: u64) void {
+fn pcg64_init(state_lo: u64, state_hi: u64, inc_lo: u64, inc_hi: u64) void {
     const init_state: u128 = (@as(u128, state_hi) << 64) | @as(u128, state_lo);
     const init_seq: u128 = (@as(u128, inc_hi) << 64) | @as(u128, inc_lo);
     pcg64_init_raw(init_state, init_seq);
@@ -214,7 +214,7 @@ export fn pcg64_init(state_lo: u64, state_hi: u64, inc_lo: u64, inc_hi: u64) voi
 
 /// Advance the PCG64 state and return the next u64 (XSL-RR output function).
 /// Matches NumPy's `pcg64_random_r`.
-export fn pcg64_step() u64 {
+fn pcg64_step() u64 {
     pcg64_step_internal();
     return pcg64_output(pcg_state);
 }
@@ -262,7 +262,7 @@ export fn pcg64_get_state(out: [*]u64) void {
 
 /// Set PCG64 state directly from u64 pairs (no initialization bumps).
 /// Use this to restore a previously serialized state mid-stream.
-export fn pcg64_set_state(state_lo: u64, state_hi: u64, inc_lo: u64, inc_hi: u64) void {
+fn pcg64_set_state(state_lo: u64, state_hi: u64, inc_lo: u64, inc_hi: u64) void {
     pcg_state = (@as(u128, state_hi) << 64) | @as(u128, state_lo);
     pcg_inc = (@as(u128, inc_hi) << 64) | @as(u128, inc_lo);
 }
@@ -2105,4 +2105,211 @@ test "fill_permutation_pcg is a valid permutation" {
         seen[idx] = true;
     }
     for (seen) |s| try testing.expect(s);
+}
+
+test "mt19937_genrand produces u32" {
+    mt19937_init(42);
+    const v = mt19937_genrand();
+    try testing.expect(v >= 0);
+}
+
+test "mt19937_get_state and mt19937_set_state round-trip" {
+    mt19937_init(99);
+    var state: [624]u32 = undefined;
+    const idx = mt19937_get_state(&state);
+    mt19937_init(1);
+    mt19937_set_state(&state, idx);
+    mt19937_init(99);
+    _ = mt19937_get_state(&state);
+    try testing.expect(idx < 625);
+}
+
+test "pcg64_init produces valid output" {
+    pcg64_init(12345, 67890, 1, 1);
+    const v = pcg64_random_f64();
+    try testing.expect(v >= 0.0 and v < 1.0);
+}
+
+test "fill_bounded_uint64_pcg stays in range" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [5]i64 = undefined;
+    fill_bounded_uint64_pcg(&out, 5, 0, 9);
+    for (out) |v| {
+        try testing.expect(v >= 0 and v <= 9);
+    }
+}
+
+test "pcg64_set_state restores state" {
+    pcg64_init(42, 0, 1, 1);
+    var state: [6]u64 = undefined;
+    pcg64_get_state(&state);
+    const v1 = pcg64_random_f64();
+    pcg64_set_state(state[0], state[1], state[2], state[3]);
+    const v2 = pcg64_random_f64();
+    try testing.expectEqual(v1, v2);
+}
+
+test "standard_normal_pcg is in plausible range" {
+    pcg64_init(42, 0, 1, 1);
+    const v = standard_normal_pcg();
+    try testing.expect(v > -10.0 and v < 10.0);
+}
+
+test "standard_exponential_pcg is positive" {
+    pcg64_init(42, 0, 1, 1);
+    const v = standard_exponential_pcg();
+    try testing.expect(v > 0.0);
+}
+
+test "fill_standard_normal_pcg values in plausible range" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_standard_normal_pcg(&out, 10);
+    for (out) |v| {
+        try testing.expect(v > -10.0 and v < 10.0);
+    }
+}
+
+test "fill_standard_exponential_pcg values are positive" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_standard_exponential_pcg(&out, 10);
+    for (out) |v| {
+        try testing.expect(v > 0.0);
+    }
+}
+
+test "legacy_gauss is in plausible range" {
+    mt19937_init(42);
+    const v = legacy_gauss();
+    try testing.expect(v > -10.0 and v < 10.0);
+}
+
+test "legacy_standard_exponential is positive" {
+    mt19937_init(42);
+    const v = legacy_standard_exponential();
+    try testing.expect(v > 0.0);
+}
+
+test "fill_legacy_gauss values in plausible range" {
+    mt19937_init(42);
+    var out: [10]f64 = undefined;
+    fill_legacy_gauss(&out, 10);
+    for (out) |v| {
+        try testing.expect(v > -10.0 and v < 10.0);
+    }
+}
+
+test "fill_legacy_standard_exponential values are positive" {
+    mt19937_init(42);
+    var out: [10]f64 = undefined;
+    fill_legacy_standard_exponential(&out, 10);
+    for (out) |v| {
+        try testing.expect(v > 0.0);
+    }
+}
+
+test "legacy_standard_gamma shape=2 is positive" {
+    mt19937_init(42);
+    const v = legacy_standard_gamma(2.0);
+    try testing.expect(v > 0.0);
+}
+
+test "fill_legacy_standard_gamma values are positive" {
+    mt19937_init(42);
+    var out: [10]f64 = undefined;
+    fill_legacy_standard_gamma(&out, 10, 2.0);
+    for (out) |v| {
+        try testing.expect(v > 0.0);
+    }
+}
+
+test "fill_legacy_chisquare values are positive" {
+    mt19937_init(42);
+    var out: [10]f64 = undefined;
+    fill_legacy_chisquare(&out, 10, 3.0);
+    for (out) |v| {
+        try testing.expect(v > 0.0);
+    }
+}
+
+test "fill_logistic values in plausible range" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_logistic(&out, 10, 0.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v > -50.0 and v < 50.0);
+    }
+}
+
+test "fill_gumbel values in plausible range" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_gumbel(&out, 10, 0.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v > -50.0 and v < 100.0);
+    }
+}
+
+test "fill_laplace values in plausible range" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_laplace(&out, 10, 0.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v > -50.0 and v < 50.0);
+    }
+}
+
+test "fill_standard_cauchy values are finite" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_standard_cauchy(&out, 10);
+    for (out) |v| {
+        try testing.expect(!std.math.isNan(v));
+    }
+}
+
+test "fill_lognormal values are positive" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_lognormal(&out, 10, 0.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v > 0.0);
+    }
+}
+
+test "fill_wald values are positive" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_wald(&out, 10, 1.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v > 0.0);
+    }
+}
+
+test "fill_noncentral_chisquare values are positive" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_noncentral_chisquare(&out, 10, 3.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v >= 0.0);
+    }
+}
+
+test "fill_noncentral_f values are positive" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_noncentral_f(&out, 10, 2.0, 3.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v >= 0.0);
+    }
+}
+
+test "fill_vonmises values in [-pi, pi]" {
+    pcg64_init(42, 0, 1, 1);
+    var out: [10]f64 = undefined;
+    fill_vonmises(&out, 10, 0.0, 1.0);
+    for (out) |v| {
+        try testing.expect(v >= -std.math.pi and v <= std.math.pi);
+    }
 }

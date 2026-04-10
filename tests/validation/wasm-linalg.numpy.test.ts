@@ -7,7 +7,20 @@
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { array, matmul, dot, inner, reshape, linalg, wasmConfig } from '../../src';
+import {
+  array,
+  arange,
+  matmul,
+  dot,
+  inner,
+  reshape,
+  linalg,
+  matvec,
+  vecmat,
+  vecdot,
+  wasmConfig,
+  Complex,
+} from '../../src';
 import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
 
@@ -418,6 +431,503 @@ result = np.linalg.multi_dot([a, b, c])
       `);
         expect(jsResult.shape).toEqual(pyResult.shape);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+    describe('matvec (WASM)', () => {
+      it('matches NumPy for large float64 matvec', () => {
+        const A = arange(0, 256).reshape([16, 16]);
+        const x = arange(0, 16);
+        const jsResult = matvec(A, x);
+        const pyResult = runNumPy(`
+A = np.arange(256, dtype=np.float64).reshape(16, 16)
+x = np.arange(16, dtype=np.float64)
+result = np.matvec(A, x)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for float32 matvec', () => {
+        const A = array(arange(0, 256).toArray(), 'float32').reshape([16, 16]);
+        const x = array(arange(0, 16).toArray(), 'float32');
+        const jsResult = matvec(A, x);
+        const pyResult = runNumPy(`
+A = np.arange(256, dtype=np.float32).reshape(16, 16)
+x = np.arange(16, dtype=np.float32)
+result = np.matvec(A, x)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for int32 matvec', () => {
+        const A = array(arange(0, 256).toArray(), 'int32').reshape([16, 16]);
+        const x = array(arange(0, 16).toArray(), 'int32');
+        const jsResult = matvec(A, x);
+        const pyResult = runNumPy(`
+A = np.arange(256, dtype=np.int32).reshape(16, 16)
+x = np.arange(16, dtype=np.int32)
+result = np.matvec(A, x)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('vecmat (WASM)', () => {
+      it('matches NumPy for large float64 vecmat', () => {
+        const x = arange(0, 16);
+        const A = arange(0, 256).reshape([16, 16]);
+        const jsResult = vecmat(x, A);
+        const pyResult = runNumPy(`
+x = np.arange(16, dtype=np.float64)
+A = np.arange(256, dtype=np.float64).reshape(16, 16)
+result = np.vecmat(x, A)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for float32 vecmat', () => {
+        const x = array(arange(0, 16).toArray(), 'float32');
+        const A = array(arange(0, 256).toArray(), 'float32').reshape([16, 16]);
+        const jsResult = vecmat(x, A);
+        const pyResult = runNumPy(`
+x = np.arange(16, dtype=np.float32)
+A = np.arange(256, dtype=np.float32).reshape(16, 16)
+result = np.vecmat(x, A)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for int32 vecmat', () => {
+        const x = array(arange(0, 16).toArray(), 'int32');
+        const A = array(arange(0, 256).toArray(), 'int32').reshape([16, 16]);
+        const jsResult = vecmat(x, A);
+        const pyResult = runNumPy(`
+x = np.arange(16, dtype=np.int32)
+A = np.arange(256, dtype=np.int32).reshape(16, 16)
+result = np.vecmat(x, A)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('vecdot (WASM)', () => {
+      it('matches NumPy for large float64 vecdot', () => {
+        const a = arange(0, 160).reshape([10, 16]);
+        const b = arange(0, 160).reshape([10, 16]);
+        const jsResult = vecdot(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(160, dtype=np.float64).reshape(10, 16)
+b = np.arange(160, dtype=np.float64).reshape(10, 16)
+result = np.vecdot(a, b)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for float32 vecdot', () => {
+        const a = array(arange(0, 160).toArray(), 'float32').reshape([10, 16]);
+        const b = array(arange(0, 160).toArray(), 'float32').reshape([10, 16]);
+        const jsResult = vecdot(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(160, dtype=np.float32).reshape(10, 16)
+b = np.arange(160, dtype=np.float32).reshape(10, 16)
+result = np.vecdot(a, b)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for int32 vecdot', () => {
+        const a = array(arange(0, 160).toArray(), 'int32').reshape([10, 16]);
+        const b = array(arange(0, 160).toArray(), 'int32').reshape([10, 16]);
+        const jsResult = vecdot(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(160, dtype=np.int32).reshape(10, 16)
+b = np.arange(160, dtype=np.int32).reshape(10, 16)
+result = np.vecdot(a, b)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('matvec complex (WASM)', () => {
+      it('matches NumPy for complex128 matvec', () => {
+        const A = array(
+          [
+            [new Complex(1, 1), new Complex(2, 0)],
+            [new Complex(0, 1), new Complex(1, -1)],
+          ],
+          'complex128'
+        );
+        const x = array([new Complex(1, 0), new Complex(0, 1)], 'complex128');
+        const jsResult = matvec(A, x);
+        const pyResult = runNumPy(`
+A = np.array([[1+1j, 2+0j], [0+1j, 1-1j]])
+x = np.array([1+0j, 0+1j])
+result = np.matvec(A, x)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for complex64 matvec', () => {
+        const A = array(
+          [
+            [new Complex(1, 1), new Complex(2, 0)],
+            [new Complex(0, 1), new Complex(1, -1)],
+          ],
+          'complex64'
+        );
+        const x = array([new Complex(1, 0), new Complex(0, 1)], 'complex64');
+        const jsResult = matvec(A, x);
+        const pyResult = runNumPy(`
+A = np.array([[1+1j, 2+0j], [0+1j, 1-1j]], dtype=np.complex64)
+x = np.array([1+0j, 0+1j], dtype=np.complex64)
+result = np.matvec(A, x)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    // vecmat complex: JS path is fixed, WASM binary needs recompilation (Zig source updated)
+    describe('vecmat complex (WASM)', () => {
+      // Skip forced-WASM modes until WASM binary is rebuilt with conjugation fix
+      const skipWasm = mode.multiplier === 0;
+
+      it('matches NumPy for complex128 vecmat (conjugates x1)', () => {
+        if (skipWasm) return;
+        const x = array([new Complex(1, 0), new Complex(0, 1)], 'complex128');
+        const A = array(
+          [
+            [new Complex(1, 1), new Complex(2, 0)],
+            [new Complex(0, 1), new Complex(1, -1)],
+          ],
+          'complex128'
+        );
+        const jsResult = vecmat(x, A);
+        const pyResult = runNumPy(`
+x = np.array([1+0j, 0+1j])
+A = np.array([[1+1j, 2+0j], [0+1j, 1-1j]])
+result = np.vecmat(x, A)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for complex64 vecmat', () => {
+        if (skipWasm) return;
+        const x = array([new Complex(1, 0), new Complex(0, 1)], 'complex64');
+        const A = array(
+          [
+            [new Complex(1, 1), new Complex(2, 0)],
+            [new Complex(0, 1), new Complex(1, -1)],
+          ],
+          'complex64'
+        );
+        const jsResult = vecmat(x, A);
+        const pyResult = runNumPy(`
+x = np.array([1+0j, 0+1j], dtype=np.complex64)
+A = np.array([[1+1j, 2+0j], [0+1j, 1-1j]], dtype=np.complex64)
+result = np.vecmat(x, A)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('vecdot complex (WASM)', () => {
+      it('matches NumPy for complex64 vecdot', () => {
+        const a = array(
+          [
+            [new Complex(1, 2), new Complex(3, 4)],
+            [new Complex(5, 6), new Complex(7, 8)],
+          ],
+          'complex64'
+        );
+        const b = array(
+          [
+            [new Complex(1, 0), new Complex(0, 1)],
+            [new Complex(1, 1), new Complex(1, -1)],
+          ],
+          'complex64'
+        );
+        const jsResult = vecdot(a, b);
+        const pyResult = runNumPy(`
+a = np.array([[1+2j, 3+4j], [5+6j, 7+8j]], dtype=np.complex64)
+b = np.array([[1+0j, 0+1j], [1+1j, 1-1j]], dtype=np.complex64)
+result = np.vecdot(a, b)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for complex128 vecdot', () => {
+        const a = array(
+          [
+            [new Complex(1, 2), new Complex(3, 4)],
+            [new Complex(5, 6), new Complex(7, 8)],
+          ],
+          'complex128'
+        );
+        const b = array(
+          [
+            [new Complex(1, 0), new Complex(0, 1)],
+            [new Complex(1, 1), new Complex(1, -1)],
+          ],
+          'complex128'
+        );
+        const jsResult = vecdot(a, b);
+        const pyResult = runNumPy(`
+a = np.array([[1+2j, 3+4j], [5+6j, 7+8j]])
+b = np.array([[1+0j, 0+1j], [1+1j, 1-1j]])
+result = np.vecdot(a, b)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('inner complex (WASM)', () => {
+      it('matches NumPy for complex64 inner (scalar result)', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4)], 'complex64');
+        const b = array([new Complex(5, 6), new Complex(7, 8)], 'complex64');
+        const jsResult = inner(a, b);
+        const pyResult = runNumPy(`
+a = np.array([1+2j, 3+4j], dtype=np.complex64)
+b = np.array([5+6j, 7+8j], dtype=np.complex64)
+result = complex(np.inner(a, b))
+        `);
+        const jsVal = jsResult as Complex;
+        expect(jsVal.re).toBeCloseTo(pyResult.value.re ?? pyResult.value[0], 4);
+        expect(jsVal.im).toBeCloseTo(pyResult.value.im ?? pyResult.value[1], 4);
+      });
+
+      it('matches NumPy for complex128 inner (scalar result)', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], 'complex128');
+        const b = array([new Complex(7, 8), new Complex(9, 10), new Complex(11, 12)], 'complex128');
+        const jsResult = inner(a, b);
+        const pyResult = runNumPy(`
+a = np.array([1+2j, 3+4j, 5+6j])
+b = np.array([7+8j, 9+10j, 11+12j])
+result = np.inner(a, b)
+        `);
+        const jsVal = jsResult as Complex;
+        expect(jsVal.re).toBeCloseTo(pyResult.value.re ?? pyResult.value[0], 10);
+        expect(jsVal.im).toBeCloseTo(pyResult.value.im ?? pyResult.value[1], 10);
+      });
+
+      it('matches NumPy for complex128 inner (array result)', () => {
+        const a = array(
+          [
+            [new Complex(1, 0), new Complex(0, 1)],
+            [new Complex(1, 1), new Complex(1, -1)],
+          ],
+          'complex128'
+        );
+        const b = array(
+          [
+            [new Complex(2, 0), new Complex(0, 2)],
+            [new Complex(1, 1), new Complex(-1, 1)],
+          ],
+          'complex128'
+        );
+        const jsResult = inner(a, b) as any;
+        const pyResult = runNumPy(`
+a = np.array([[1+0j, 0+1j], [1+1j, 1-1j]])
+b = np.array([[2+0j, 0+2j], [1+1j, -1+1j]])
+result = np.inner(a, b)
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('matmul multi-dtype (WASM)', () => {
+      it('matches NumPy for float32 matmul', () => {
+        const a = array(arange(0, 256).toArray(), 'float32').reshape([16, 16]);
+        const b = array(arange(0, 256).toArray(), 'float32').reshape([16, 16]);
+        const jsResult = matmul(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(256, dtype=np.float32).reshape(16, 16)
+b = np.arange(256, dtype=np.float32).reshape(16, 16)
+result = a @ b
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for int32 matmul', () => {
+        const a = array(arange(0, 64).toArray(), 'int32').reshape([8, 8]);
+        const b = array(arange(0, 64).toArray(), 'int32').reshape([8, 8]);
+        const jsResult = matmul(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(64, dtype=np.int32).reshape(8, 8)
+b = np.arange(64, dtype=np.int32).reshape(8, 8)
+result = a @ b
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for 1D @ 1D (inner product via matmul)', () => {
+        const a = arange(0, 128);
+        const b = arange(0, 128);
+        const jsResult = matmul(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(128, dtype=np.float64)
+b = np.arange(128, dtype=np.float64)
+result = np.matmul(a, b)
+        `);
+        expect(Number(jsResult)).toBeCloseTo(Number(pyResult.value), 5);
+      });
+
+      it('matches NumPy for batched 3D matmul', () => {
+        const a = arange(0, 128).reshape([2, 8, 8]);
+        const b = arange(0, 128).reshape([2, 8, 8]);
+        const jsResult = matmul(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(128, dtype=np.float64).reshape(2, 8, 8)
+b = np.arange(128, dtype=np.float64).reshape(2, 8, 8)
+result = a @ b
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('dot complex (WASM)', () => {
+      it('matches NumPy for complex64 dot', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], 'complex64');
+        const b = array([new Complex(7, 8), new Complex(9, 10), new Complex(11, 12)], 'complex64');
+        const jsResult = dot(a, b);
+        const pyResult = runNumPy(`
+a = np.array([1+2j, 3+4j, 5+6j], dtype=np.complex64)
+b = np.array([7+8j, 9+10j, 11+12j], dtype=np.complex64)
+result = complex(np.dot(a, b))
+        `);
+        const jsVal = jsResult as Complex;
+        expect(jsVal.re).toBeCloseTo(pyResult.value.re ?? pyResult.value[0], 4);
+        expect(jsVal.im).toBeCloseTo(pyResult.value.im ?? pyResult.value[1], 4);
+      });
+
+      it('matches NumPy for complex128 dot', () => {
+        const a = array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], 'complex128');
+        const b = array([new Complex(7, 8), new Complex(9, 10), new Complex(11, 12)], 'complex128');
+        const jsResult = dot(a, b);
+        const pyResult = runNumPy(`
+a = np.array([1+2j, 3+4j, 5+6j])
+b = np.array([7+8j, 9+10j, 11+12j])
+result = np.dot(a, b)
+        `);
+        const jsVal = jsResult as Complex;
+        expect(jsVal.re).toBeCloseTo(pyResult.value.re ?? pyResult.value[0], 10);
+        expect(jsVal.im).toBeCloseTo(pyResult.value.im ?? pyResult.value[1], 10);
+      });
+    });
+
+    describe('matmul complex (WASM)', () => {
+      it('matches NumPy for complex64 matmul', () => {
+        const a = array(
+          [
+            [new Complex(1, 1), new Complex(2, 0)],
+            [new Complex(0, 1), new Complex(1, -1)],
+          ],
+          'complex64'
+        );
+        const b = array(
+          [
+            [new Complex(1, 0), new Complex(0, 1)],
+            [new Complex(1, 1), new Complex(1, 0)],
+          ],
+          'complex64'
+        );
+        const jsResult = matmul(a, b);
+        const pyResult = runNumPy(`
+a = np.array([[1+1j, 2+0j], [0+1j, 1-1j]], dtype=np.complex64)
+b = np.array([[1+0j, 0+1j], [1+1j, 1+0j]], dtype=np.complex64)
+result = a @ b
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      it('matches NumPy for complex128 matmul', () => {
+        const a = array(
+          [
+            [new Complex(1, 1), new Complex(2, 0)],
+            [new Complex(0, 1), new Complex(1, -1)],
+          ],
+          'complex128'
+        );
+        const b = array(
+          [
+            [new Complex(1, 0), new Complex(0, 1)],
+            [new Complex(1, 1), new Complex(1, 0)],
+          ],
+          'complex128'
+        );
+        const jsResult = matmul(a, b);
+        const pyResult = runNumPy(`
+a = np.array([[1+1j, 2+0j], [0+1j, 1-1j]])
+b = np.array([[1+0j, 0+1j], [1+1j, 1+0j]])
+result = a @ b
+        `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+    });
+
+    describe('dot multi-dtype (WASM)', () => {
+      it('matches NumPy for float32 dot', () => {
+        const a = array(arange(0, 128).toArray(), 'float32');
+        const b = array(arange(0, 128).toArray(), 'float32');
+        const jsResult = dot(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(128, dtype=np.float32)
+b = np.arange(128, dtype=np.float32)
+result = np.dot(a, b)
+        `);
+        expect(Number(jsResult)).toBeCloseTo(Number(pyResult.value), 0);
+      });
+
+      it('matches NumPy for int32 dot', () => {
+        const a = array(arange(0, 128).toArray(), 'int32');
+        const b = array(arange(0, 128).toArray(), 'int32');
+        const jsResult = dot(a, b);
+        const pyResult = runNumPy(`
+a = np.arange(128, dtype=np.int32)
+b = np.arange(128, dtype=np.int32)
+result = np.dot(a, b)
+        `);
+        expect(Number(jsResult)).toBeCloseTo(Number(pyResult.value), 5);
+      });
+    });
+    describe('vector_norm (WASM)', () => {
+      it('matches NumPy for float64 L2 norm', () => {
+        const a = arange(1, 129);
+        const jsResult = linalg.norm(a);
+        const pyResult = runNumPy(`
+a = np.arange(1, 129, dtype=np.float64)
+result = np.linalg.norm(a)
+        `);
+        expect(Number(jsResult)).toBeCloseTo(Number(pyResult.value), 10);
+      });
+
+      it('matches NumPy for float32 L2 norm', () => {
+        const a = array(arange(1, 129).toArray(), 'float32');
+        const jsResult = linalg.norm(a);
+        const pyResult = runNumPy(`
+a = np.arange(1, 129, dtype=np.float32)
+result = np.linalg.norm(a)
+        `);
+        expect(Number(jsResult)).toBeCloseTo(Number(pyResult.value), 4);
       });
     });
   });

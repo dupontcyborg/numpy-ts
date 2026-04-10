@@ -40,10 +40,9 @@ import {
   scratchCopyIn,
   getSharedMemory,
   f16InputToScratchF32,
-  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -206,26 +205,35 @@ export function wasmSort(a: ArrayStorage): ArrayStorage | null {
   const aOff = a.offset;
   if (isF16) {
     const scratchPtr = f16InputToScratchF32(a, size);
-    kernel!(scratchPtr, size);
-    // Copy sorted f32 scratch into persistent output, then convert to f16
-    const mem = getSharedMemory();
-    new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
-      new Uint8Array(mem.buffer, scratchPtr, outBytes)
-    );
-    const f16Region = f32OutputToF16Region(outRegion, size);
+    // Sort as f32 (not f16 — the data is converted to f32 in scratch)
+    sort_f32(scratchPtr, size);
+    // Copy sorted f32 data to JS before any malloc (which may grow memory/invalidate views)
+    const mem0 = getSharedMemory();
+    const sortedF32 = new Float32Array(size);
+    sortedF32.set(new Float32Array(mem0.buffer, scratchPtr, size));
+    // Now allocate the f16 output region
     outRegion.release();
+    const f16Region = wasmMalloc(size * 2);
     if (!f16Region) return null;
-    return ArrayStorage.fromWasmRegion(
-      Array.from(a.shape),
-      dtype,
-      f16Region,
-      size,
-      Uint16Array as unknown as new (
-        buffer: ArrayBuffer,
-        byteOffset: number,
-        length: number
-      ) => TypedArray
-    );
+    const mem = getSharedMemory();
+    const F16Ctor = hasFloat16
+      ? (Float16Array as unknown as new (
+          buffer: ArrayBuffer,
+          byteOffset: number,
+          length: number
+        ) => TypedArray)
+      : (Uint16Array as unknown as new (
+          buffer: ArrayBuffer,
+          byteOffset: number,
+          length: number
+        ) => TypedArray);
+    if (hasFloat16) {
+      new Float16Array(mem.buffer, f16Region.ptr, size).set(sortedF32);
+    } else {
+      const u16 = new Uint16Array(mem.buffer, f16Region.ptr, size);
+      for (let i = 0; i < size; i++) u16[i] = sortedF32[i]!;
+    }
+    return ArrayStorage.fromWasmRegion(Array.from(a.shape), dtype, f16Region, size, F16Ctor);
   }
 
   // Copy input data into the output region, then sort in-place

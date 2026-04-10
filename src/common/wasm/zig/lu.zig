@@ -361,3 +361,41 @@ test "lu_solve_f64 basic" {
     try testing.expectApproxEqAbs(x[0], 5.0, 1e-10);
     try testing.expectApproxEqAbs(x[1], -6.0, 1e-10);
 }
+
+test "lu_factor_f32 identity" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+    var piv: [3]i32 = undefined;
+    const sign = lu_factor_f32(&a, &piv, 3);
+    try testing.expectEqual(sign, 1);
+    try testing.expectEqual(piv[0], 0);
+    try testing.expectEqual(piv[1], 1);
+    try testing.expectEqual(piv[2], 2);
+}
+
+test "lu_solve_f32 basic" {
+    const testing = @import("std").testing;
+    // [[2,1],[5,3]] @ x = [4,7] -> x = [5,-6]
+    var a = [_]f32{ 2, 1, 5, 3 };
+    var piv: [2]i32 = undefined;
+    _ = lu_factor_f32(&a, &piv, 2);
+    var b = [_]f32{ 4, 7 };
+    var x: [2]f32 = undefined;
+    lu_solve_f32(&a, &piv, &b, &x, 2);
+    try testing.expectApproxEqAbs(x[0], 5.0, 1e-6);
+    try testing.expectApproxEqAbs(x[1], -6.0, 1e-6);
+}
+
+test "lu_inv_f32 2x2" {
+    const testing = @import("std").testing;
+    // [[4,7],[2,6]] -> inv = [[0.6,-0.7],[-0.2,0.4]]
+    var a = [_]f32{ 4, 7, 2, 6 };
+    var piv: [2]i32 = undefined;
+    _ = lu_factor_f32(&a, &piv, 2);
+    var inv_out: [4]f32 = undefined;
+    lu_inv_f32(&a, &piv, &inv_out, 2);
+    try testing.expectApproxEqAbs(inv_out[0], 0.6, 1e-6);
+    try testing.expectApproxEqAbs(inv_out[1], -0.7, 1e-6);
+    try testing.expectApproxEqAbs(inv_out[2], -0.2, 1e-6);
+    try testing.expectApproxEqAbs(inv_out[3], 0.4, 1e-6);
+}

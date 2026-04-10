@@ -2,13 +2,13 @@
  * Complex number operations
  *
  * Pure functions for complex array operations:
- * real, imag, conj, angle
+ * real, imag, conj, angle, clipComplex, and shared complex-indexing helpers
  *
  * @module ops/complex
  */
 
 import { ArrayStorage } from '../storage';
-import { isComplexDType, getComplexComponentDType, type DType } from '../dtype';
+import { isComplexDType, getComplexComponentDType, mathResultDtype, type DType } from '../dtype';
 import { Complex } from '../complex';
 
 /**
@@ -70,10 +70,9 @@ export function imag(a: ArrayStorage): ArrayStorage {
     );
   }
 
-  // Real array: return zeros with appropriate dtype
+  // Real array: return zeros with same dtype (bool stays bool, float32 stays float32, etc.)
   const shape = Array.from(a.shape);
-  const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
-  return ArrayStorage.zeros(shape, resultDtype);
+  return ArrayStorage.zeros(shape, dtype);
 }
 
 /**
@@ -105,7 +104,15 @@ export function conj(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
-  // Real array: return copy
+  // Real array: return copy (NumPy: conj(bool) → int8)
+  if (dtype === 'bool') {
+    const result = ArrayStorage.empty(shape, 'int8');
+    const src = a.data as Uint8Array;
+    const dst = result.data as Int8Array;
+    const off = a.offset;
+    for (let i = 0; i < size; i++) dst[i] = src[off + i]!;
+    return result;
+  }
   return a.copy();
 }
 
@@ -128,9 +135,14 @@ export function angle(a: ArrayStorage, deg: boolean = false): ArrayStorage {
   const shape = Array.from(a.shape);
   const size = a.size;
 
-  // Result is always float64
-  const result = ArrayStorage.empty(shape, 'float64');
-  const resultData = result.data as Float64Array;
+  // complex → float component dtype, real → mathResultDtype (except bool → float64)
+  const resultDtype: DType = isComplexDType(dtype)
+    ? getComplexComponentDType(dtype)
+    : dtype === 'bool'
+      ? 'float64'
+      : mathResultDtype(dtype);
+  const result = ArrayStorage.empty(shape, resultDtype);
+  const resultData = result.data as Float64Array | Float32Array;
 
   if (isComplexDType(dtype)) {
     const srcData = a.data as Float64Array | Float32Array;
@@ -194,4 +206,117 @@ export function complexAbs(a: ArrayStorage): ArrayStorage {
 
   // Real array: return zeros (dead path but safe)
   return ArrayStorage.zeros(shape, resultDtype);
+}
+
+/**
+ * Get real and imaginary parts from an interleaved complex array at logical index i.
+ */
+export function getComplexAt(data: Float64Array | Float32Array, i: number): [number, number] {
+  return [data[i * 2]!, data[i * 2 + 1]!];
+}
+
+/**
+ * Set real and imaginary parts in an interleaved complex array at logical index i.
+ */
+export function setComplexAt(
+  data: Float64Array | Float32Array,
+  i: number,
+  re: number,
+  im: number
+): void {
+  data[i * 2] = re;
+  data[i * 2 + 1] = im;
+}
+
+/**
+ * NumPy lexicographic comparison for complex: compare real parts first,
+ * then imaginary parts as tiebreaker.
+ * Returns true if a > b.
+ */
+export function complexGreater(aRe: number, aIm: number, bRe: number, bIm: number): boolean {
+  if (aRe !== bRe) return aRe > bRe;
+  return aIm > bIm;
+}
+
+/**
+ * Clip complex array: compare by real part first, imaginary as tiebreaker (lexicographic).
+ */
+export function clipComplex(
+  a: ArrayStorage,
+  a_min: number | ArrayStorage | null,
+  a_max: number | ArrayStorage | null
+): ArrayStorage {
+  const dtype = a.dtype;
+  const size = a.size;
+  const shape = Array.from(a.shape);
+  const result = ArrayStorage.empty(shape, dtype);
+  const resultData = result.data as Float64Array | Float32Array;
+  const aData = a.data as Float64Array | Float32Array;
+  const aOff = a.offset;
+
+  const minIsScalar = a_min === null || typeof a_min === 'number';
+  const maxIsScalar = a_max === null || typeof a_max === 'number';
+  const minIsComplex = !minIsScalar && isComplexDType((a_min as ArrayStorage).dtype);
+  const maxIsComplex = !maxIsScalar && isComplexDType((a_max as ArrayStorage).dtype);
+
+  for (let i = 0; i < size; i++) {
+    let [re, im] = getComplexAt(aData, aOff + i);
+
+    // Get min bound
+    let loRe: number, loIm: number;
+    if (a_min === null) {
+      loRe = -Infinity;
+      loIm = -Infinity;
+    } else if (typeof a_min === 'number') {
+      loRe = a_min;
+      loIm = 0;
+    } else if (minIsComplex) {
+      [loRe, loIm] = getComplexAt(
+        (a_min as ArrayStorage).data as Float64Array | Float32Array,
+        (a_min as ArrayStorage).offset + (i % (a_min as ArrayStorage).size)
+      );
+    } else {
+      loRe = Number(
+        (a_min as ArrayStorage).data[
+          (a_min as ArrayStorage).offset + (i % (a_min as ArrayStorage).size)
+        ]
+      );
+      loIm = 0;
+    }
+
+    // Get max bound
+    let hiRe: number, hiIm: number;
+    if (a_max === null) {
+      hiRe = Infinity;
+      hiIm = Infinity;
+    } else if (typeof a_max === 'number') {
+      hiRe = a_max;
+      hiIm = 0;
+    } else if (maxIsComplex) {
+      [hiRe, hiIm] = getComplexAt(
+        (a_max as ArrayStorage).data as Float64Array | Float32Array,
+        (a_max as ArrayStorage).offset + (i % (a_max as ArrayStorage).size)
+      );
+    } else {
+      hiRe = Number(
+        (a_max as ArrayStorage).data[
+          (a_max as ArrayStorage).offset + (i % (a_max as ArrayStorage).size)
+        ]
+      );
+      hiIm = 0;
+    }
+
+    // Clip: if value < min, use min; if value > max, use max
+    if (complexGreater(loRe, loIm, re, im)) {
+      re = loRe;
+      im = loIm;
+    }
+    if (complexGreater(re, im, hiRe, hiIm)) {
+      re = hiRe;
+      im = hiIm;
+    }
+
+    setComplexAt(resultData, i, re, im);
+  }
+  return result;
 }

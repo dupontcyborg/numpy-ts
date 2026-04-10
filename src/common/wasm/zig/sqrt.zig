@@ -53,29 +53,29 @@ export fn sqrt_i32(a: [*]const i32, out: [*]f64, N: u32) void {
     }
 }
 
-/// Element-wise sqrt for i16 → f64 output.
-export fn sqrt_i16(a: [*]const i16, out: [*]f64, N: u32) void {
-    const n_simd = N & ~@as(u32, 1);
+/// Element-wise sqrt for i16 → f32 output.
+export fn sqrt_i16_f32(a: [*]const i16, out: [*]f32, N: u32) void {
+    const n_simd = N & ~@as(u32, 3);
     var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v: simd.V2f64 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]) };
-        simd.store2_f64(out, i, @sqrt(v));
+    while (i < n_simd) : (i += 4) {
+        const v: simd.V4f32 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]), @floatFromInt(a[i + 2]), @floatFromInt(a[i + 3]) };
+        simd.store4_f32(out, i, @sqrt(v));
     }
     while (i < N) : (i += 1) {
-        out[i] = @sqrt(@as(f64, @floatFromInt(a[i])));
+        out[i] = @floatCast(@sqrt(@as(f64, @floatFromInt(a[i]))));
     }
 }
 
-/// Element-wise sqrt for i8 → f64 output.
-export fn sqrt_i8(a: [*]const i8, out: [*]f64, N: u32) void {
-    const n_simd = N & ~@as(u32, 1);
+/// Element-wise sqrt for i8 → f32 output.
+export fn sqrt_i8_f32(a: [*]const i8, out: [*]f32, N: u32) void {
+    const n_simd = N & ~@as(u32, 3);
     var i: u32 = 0;
-    while (i < n_simd) : (i += 2) {
-        const v: simd.V2f64 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]) };
-        simd.store2_f64(out, i, @sqrt(v));
+    while (i < n_simd) : (i += 4) {
+        const v: simd.V4f32 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]), @floatFromInt(a[i + 2]), @floatFromInt(a[i + 3]) };
+        simd.store4_f32(out, i, @sqrt(v));
     }
     while (i < N) : (i += 1) {
-        out[i] = @sqrt(@as(f64, @floatFromInt(a[i])));
+        out[i] = @floatCast(@sqrt(@as(f64, @floatFromInt(a[i]))));
     }
 }
 
@@ -157,14 +157,14 @@ test "sqrt_i32 SIMD boundary N=3" {
     try testing.expectApproxEqAbs(out[2], 3.0, 1e-10);
 }
 
-test "sqrt_i8 basic" {
+test "sqrt_i8_f32 basic" {
     const testing = @import("std").testing;
     const a = [_]i8{ 0, 1, 4, 9, 16 };
-    var out: [5]f64 = undefined;
-    sqrt_i8(&a, &out, 5);
-    try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
-    try testing.expectApproxEqAbs(out[1], 1.0, 1e-10);
-    try testing.expectApproxEqAbs(out[4], 4.0, 1e-10);
+    var out: [5]f32 = undefined;
+    sqrt_i8_f32(&a, &out, 5);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], 1.0, 1e-5);
+    try testing.expectApproxEqAbs(out[4], 4.0, 1e-5);
 }
 
 test "sqrt_i64 basic" {
@@ -176,4 +176,12 @@ test "sqrt_i64 basic" {
     try testing.expectApproxEqAbs(out[1], 1.0, 1e-10);
     try testing.expectApproxEqAbs(out[2], 2.0, 1e-10);
     try testing.expectApproxEqAbs(out[3], 10.0, 1e-10);
+}
+
+test "sqrt_i16_f32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{4};
+    var out: [1]f32 = undefined;
+    sqrt_i16_f32(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-5);
 }

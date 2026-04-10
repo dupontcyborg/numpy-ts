@@ -6,14 +6,18 @@
 
 - [ ] Implement `unfunc` support
 - [ ] Implement masked array support
-- [ ] Async API
+- [ ] Implement fancy indexing support
 - [ ] Modularize codebase
     - [ ] `linalg.ts` -> `linalg/*.ts`
     - [ ] `reduction.ts` -> `reductions/*.ts`
     - [ ] `arithmetic.ts` -> `arithmetic/*.ts`
     - [ ] `random.ts` -> `random/*.ts`
+- [ ] Add heterogeneous dtype promotion to binary WASM kernels
+- [ ] Add strided array handling to all WASM kernels
+- [ ] Consider removing TypeScript ops where we have WASM and have WASM run all cases
 - [X] Add `float16` support (conditional upon `Float16Array` being available)
 - [X] Accelerate with WASM kernels
+- [X] WASM optimization & relaxed SIMD
 - [X] Promote `int8`/`uint8`/`int16`/`uint16` (and `int32`/`uint32`?) to `int64` for items listed under `SKIP_NARROW_INT_OPERATIONS`
 - [X] Fix dtype promotion/wrapping/overflow discrepancies against Python NumPy
 - [X] Support `[]` operator that returns either a view (for > 1 dim) or a scalar (for 1 dim)
@@ -35,7 +39,7 @@
         2. Produce a per-kernel optimization map from the results
         3. Validate the map across runtimes (Node/Deno/Bun) to ensure consistency
         4. Update `build-wasm.ts` to accept per-kernel optimization overrides
-
+- [ ] Add comprehensive axis & ndim test coverage (like we did with dtype)
 - [ ] Implement async functions using Web Workers to avoid blocking main thread
 - [ ] Reach 100% function coverage via unit and validation tests
 - [ ] Reach >95% branch coverage via unit and validation tests
@@ -46,6 +50,7 @@
 
 ## P3
 
+- [ ] Move existing NumPy validation test from inline `runNumpy()` to `runNumpyBatch()` like dtype-sweep
 - [ ] Add CodeCov to pipelines
 - [ ] Link specific API reference pages in Guides
 - [ ] Add Playground components to Guides and/or API Reference?

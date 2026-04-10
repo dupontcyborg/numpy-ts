@@ -4,8 +4,10 @@
  * Binary: out[i] = hypot(a[i], b[i])  (same-shape contiguous arrays)
  * Scalar: out[i] = hypot(a[i], scalar)
  * Returns null if WASM can't handle this case.
- * Float types use native kernels; int64/uint64 use native i64 kernels
- * that convert to f64 in WASM (avoiding JS BigInt->Number overhead).
+ * Float types use native kernels; integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
 import {
@@ -27,10 +29,10 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   f16InputToScratchF32,
-  f32OutputToF16Region,
+  f32ToF16InPlace,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, hasFloat16, promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -50,23 +52,30 @@ const scalarKernels: Partial<Record<DType, ScalarFn>> = {
   float16: hypot_scalar_f32,
 };
 
-// Int64 kernels: native int input, f64 output
-const intBinaryKernels: Partial<Record<DType, BinaryFn>> = {
+// Large int → f64 output (i32/u32/i64/u64 need f64 precision)
+const largeIntBinaryKernels: Partial<Record<DType, BinaryFn>> = {
   int64: hypot_i64,
   uint64: hypot_i64,
   int32: hypot_i32,
   uint32: hypot_i32,
+};
+
+// Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
+const smallIntBinaryKernels: Partial<Record<DType, BinaryFn>> = {
   int16: hypot_i16,
   uint16: hypot_i16,
   int8: hypot_i8,
   uint8: hypot_i8,
 };
 
-const intScalarKernels: Partial<Record<DType, ScalarFn>> = {
+const largeIntScalarKernels: Partial<Record<DType, ScalarFn>> = {
   int64: hypot_scalar_i64,
   uint64: hypot_scalar_i64,
   int32: hypot_scalar_i32,
   uint32: hypot_scalar_i32,
+};
+
+const smallIntScalarKernels: Partial<Record<DType, ScalarFn>> = {
   int16: hypot_scalar_i16,
   uint16: hypot_scalar_i16,
   int8: hypot_scalar_i8,
@@ -94,6 +103,9 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
  */
 export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
   if (!a.isCContiguous || !b.isCContiguous) return null;
+
+  // WASM kernels expect same-dtype inputs — bail on mixed dtypes
+  if (a.dtype !== b.dtype) return null;
 
   // WASM kernel does not broadcast — sizes must match
   if (a.size !== b.size) return null;
@@ -130,13 +142,11 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
     floatKernel(aPtr, bPtr, outRegion.ptr, size);
 
     if (dtype === 'float16') {
-      const f16Region = f32OutputToF16Region(outRegion, size);
-      outRegion.release();
-      if (!f16Region) return null;
+      f32ToF16InPlace(outRegion, size);
       return ArrayStorage.fromWasmRegion(
         Array.from(a.shape),
         dtype,
-        f16Region,
+        outRegion,
         size,
         Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
       );
@@ -151,9 +161,49 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
     );
   }
 
-  // Int path: native int input, f64 output
-  const intKernel = intBinaryKernels[dtype];
-  if (intKernel) {
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntBinaryKernels[dtype];
+  if (smallKernel) {
+    const InputCtor = ctorMap[dtype]!;
+    const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+    const outBytes = size * 4; // f32
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
+    const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, inputBpe);
+
+    smallKernel(aPtr, bPtr, outRegion.ptr, size);
+
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8')) {
+      f32ToF16InPlace(outRegion, size);
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        outRegion,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntBinaryKernels[dtype];
+  if (largeKernel) {
     const InputCtor = ctorMap[dtype]!;
     const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
     const outBytes = size * 8;
@@ -167,7 +217,7 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
     const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
     const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, inputBpe);
 
-    intKernel(aPtr, bPtr, outRegion.ptr, size);
+    largeKernel(aPtr, bPtr, outRegion.ptr, size);
 
     return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
@@ -221,13 +271,11 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
     floatKernel(aPtr, outRegion.ptr, size, scalar);
 
     if (dtype === 'float16') {
-      const f16Region = f32OutputToF16Region(outRegion, size);
-      outRegion.release();
-      if (!f16Region) return null;
+      f32ToF16InPlace(outRegion, size);
       return ArrayStorage.fromWasmRegion(
         Array.from(a.shape),
         dtype,
-        f16Region,
+        outRegion,
         size,
         Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
       );
@@ -242,9 +290,48 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
     );
   }
 
-  // Int path
-  const intKernel = intScalarKernels[dtype];
-  if (intKernel) {
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntScalarKernels[dtype];
+  if (smallKernel) {
+    const InputCtor = ctorMap[dtype]!;
+    const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+    const outBytes = size * 4; // f32
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
+
+    smallKernel(aPtr, outRegion.ptr, size, scalar);
+
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8')) {
+      f32ToF16InPlace(outRegion, size);
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        outRegion,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntScalarKernels[dtype];
+  if (largeKernel) {
     const InputCtor = ctorMap[dtype]!;
     const inputBpe = (InputCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
     const outBytes = size * 8;
@@ -257,7 +344,7 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
     resetScratchAllocator();
     const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inputBpe);
 
-    intKernel(aPtr, outRegion.ptr, size, scalar);
+    largeKernel(aPtr, outRegion.ptr, size, scalar);
 
     return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),

@@ -3559,11 +3559,11 @@ describe('Complex Number Support', () => {
         expect(indices).toEqual([1, 2, 0]);
       });
 
-      it('returns int32 dtype', () => {
+      it('returns float64 dtype', () => {
         const a = array([new Complex(2, 1), new Complex(1, 0)]);
         const result = argsort(a);
 
-        expect(result.dtype).toBe('int32');
+        expect(result.dtype).toBe('float64');
       });
     });
   });

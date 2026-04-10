@@ -19,7 +19,11 @@ import {
   printMultiRuntimeResults,
 } from './analysis';
 import { generateHTMLReport, generateMultiRuntimeHTMLReport } from './visualization';
-import { generatePNGChart, generateH2HChart, generateMultiRuntimePNGChart } from './chart-generator';
+import {
+  generatePNGChart,
+  generateH2HChart,
+  generateMultiRuntimePNGChart,
+} from './chart-generator';
 import { validateBenchmarks } from './validation';
 import type {
   BenchmarkOptions,
@@ -277,7 +281,9 @@ async function main() {
     );
     // Skip validation for non-default sizes — correctness doesn't change with array size
     if (options.sizeScale && options.sizeScale !== 'default') {
-      console.log(`Skipping validation for --size ${options.sizeScale} (correctness validated at default size)\n`);
+      console.log(
+        `Skipping validation for --size ${options.sizeScale} (correctness validated at default size)\n`
+      );
     } else {
       if (validatableSpecs.length > 0) {
         console.log('Validating correctness against NumPy...');
@@ -291,7 +297,8 @@ async function main() {
     }
 
     // Determine file suffix based on mode, threading, baseline, and runtimes
-    const sizeSuffix = options.sizeScale === 'small' ? '-small' : options.sizeScale === 'large' ? '-large' : '';
+    const sizeSuffix =
+      options.sizeScale === 'small' ? '-small' : options.sizeScale === 'large' ? '-large' : '';
     // Runtime suffix: single non-node runtime → "-deno"/"-bun"; multiple → "-runtimes"; node-only → ""
     const runtimeSuffix =
       selectedRuntimes.length > 1
@@ -317,8 +324,14 @@ async function main() {
       console.log('Skipping NumPy benchmarks (--skip-numpy)\n');
       numpyResults = specs.map((s) => ({
         name: s.name,
-        mean_ms: 0, median_ms: 0, min_ms: 0, max_ms: 0, std_ms: 0,
-        ops_per_sec: 0, total_ops: 0, total_samples: 0,
+        mean_ms: 0,
+        median_ms: 0,
+        min_ms: 0,
+        max_ms: 0,
+        std_ms: 0,
+        ops_per_sec: 0,
+        total_ops: 0,
+        total_samples: 0,
       }));
     } else {
       const cached = options.fresh ? null : tryLoadCachedPython(specs, modeSuffix, resultsDir);
@@ -355,7 +368,11 @@ async function main() {
       try {
         // Build expected WASM usage map from reference results
         // Build expected WASM map keyed by op+dtype (strip [size] so it works across size scales)
-        const stripSize = (name: string) => name.replace(/\s*\[.*?\]/g, '').replace(/\(.*?\)/g, '()').trim();
+        const stripSize = (name: string) =>
+          name
+            .replace(/\s*\[.*?\]/g, '')
+            .replace(/\(.*?\)/g, '()')
+            .trim();
         const expectedWasm: Record<string, boolean> = {};
         const refCandidates = [
           path.join(resultsDir, `latest${modeSuffix}.json`),
@@ -368,7 +385,9 @@ async function main() {
               expectedWasm[stripSize(r.name)] = !!r.wasmUsed;
             }
             break;
-          } catch { /* try next candidate */ }
+          } catch {
+            /* try next candidate */
+          }
         }
 
         const { results, version } = await spawnRuntimeBenchmark(
@@ -397,105 +416,105 @@ async function main() {
     if (options.skipNumpy) {
       console.log('\nResults not saved (--skip-numpy).');
     } else {
-    // Save results
-    const plotsDir = path.resolve(resultsDir, 'plots');
-    if (!fs.existsSync(resultsDir)) fs.mkdirSync(resultsDir, { recursive: true });
-    if (!fs.existsSync(plotsDir)) fs.mkdirSync(plotsDir, { recursive: true });
+      // Save results
+      const plotsDir = path.resolve(resultsDir, 'plots');
+      if (!fs.existsSync(resultsDir)) fs.mkdirSync(resultsDir, { recursive: true });
+      if (!fs.existsSync(plotsDir)) fs.mkdirSync(plotsDir, { recursive: true });
 
-    if (runtimeResultsMap.size === 1) {
-      // Single runtime: use legacy BenchmarkReport format for backward compatibility
-      const [runtimeName, jsResults] = [...runtimeResultsMap.entries()][0]!;
-      const comparisons = compareResults(specs, numpyResults, jsResults);
-      const summary = calculateSummary(comparisons);
+      if (runtimeResultsMap.size === 1) {
+        // Single runtime: use legacy BenchmarkReport format for backward compatibility
+        const [runtimeName, jsResults] = [...runtimeResultsMap.entries()][0]!;
+        const comparisons = compareResults(specs, numpyResults, jsResults);
+        const summary = calculateSummary(comparisons);
 
-      printResults(comparisons, summary);
+        printResults(comparisons, summary);
 
-      const report: BenchmarkReport = {
-        timestamp: new Date().toISOString(),
-        environment: {
-          node_version: runtimeVersions[runtimeName] || process.version,
-          python_version: pythonVersion,
-          numpy_version: numpyVersion,
-          numpyjs_version: packageJson.version,
-          machine: getMachineInfo(),
-          baseline: baselineType,
-        },
-        results: comparisons,
-        summary,
-      };
+        const report: BenchmarkReport = {
+          timestamp: new Date().toISOString(),
+          environment: {
+            node_version: runtimeVersions[runtimeName] || process.version,
+            python_version: pythonVersion,
+            numpy_version: numpyVersion,
+            numpyjs_version: packageJson.version,
+            machine: getMachineInfo(),
+            baseline: baselineType,
+          },
+          results: comparisons,
+          summary,
+        };
 
-      const jsonPath = options.output
-        ? path.resolve(options.output)
-        : path.join(resultsDir, `latest${modeSuffix}.json`);
-      fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2));
-      console.log(`Results saved to: ${jsonPath}`);
+        const jsonPath = options.output
+          ? path.resolve(options.output)
+          : path.join(resultsDir, `latest${modeSuffix}.json`);
+        fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2));
+        console.log(`Results saved to: ${jsonPath}`);
 
-      const historyDir = path.join(resultsDir, 'history');
-      if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      fs.writeFileSync(
-        path.join(historyDir, `benchmark${modeSuffix}-${timestamp}.json`),
-        JSON.stringify(report, null, 2)
-      );
+        const historyDir = path.join(resultsDir, 'history');
+        if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        fs.writeFileSync(
+          path.join(historyDir, `benchmark${modeSuffix}-${timestamp}.json`),
+          JSON.stringify(report, null, 2)
+        );
 
-      const htmlPath = path.join(plotsDir, `latest${modeSuffix}.html`);
-      generateHTMLReport(report, htmlPath);
-      console.log(`HTML report saved to: ${htmlPath}`);
+        const htmlPath = path.join(plotsDir, `latest${modeSuffix}.html`);
+        generateHTMLReport(report, htmlPath);
+        console.log(`HTML report saved to: ${htmlPath}`);
 
-      const pngPath = path.join(plotsDir, `latest${modeSuffix}.png`);
-      await generatePNGChart(report, pngPath);
-      console.log(`PNG chart saved to: ${pngPath}`);
+        const pngPath = path.join(plotsDir, `latest${modeSuffix}.png`);
+        await generatePNGChart(report, pngPath);
+        console.log(`PNG chart saved to: ${pngPath}`);
 
-      const h2hPath = path.join(plotsDir, `latest${modeSuffix}-h2h.png`);
-      await generateH2HChart(report, h2hPath);
-      console.log(`H2H chart saved to: ${h2hPath}`);
+        const h2hPath = path.join(plotsDir, `latest${modeSuffix}-h2h.png`);
+        await generateH2HChart(report, h2hPath);
+        console.log(`H2H chart saved to: ${h2hPath}`);
 
-      console.log(`\nView report: open ${htmlPath}`);
-    } else {
-      // Multiple runtimes: use MultiRuntimeReport format
-      const comparisons = compareMultiRuntime(specs, numpyResults, runtimeResultsMap);
-      const summaries = calculateMultiRuntimeSummaries(comparisons);
+        console.log(`\nView report: open ${htmlPath}`);
+      } else {
+        // Multiple runtimes: use MultiRuntimeReport format
+        const comparisons = compareMultiRuntime(specs, numpyResults, runtimeResultsMap);
+        const summaries = calculateMultiRuntimeSummaries(comparisons);
 
-      printMultiRuntimeResults(comparisons, summaries);
+        printMultiRuntimeResults(comparisons, summaries);
 
-      const report: MultiRuntimeReport = {
-        timestamp: new Date().toISOString(),
-        environment: {
-          python_version: pythonVersion,
-          numpy_version: numpyVersion,
-          numpyjs_version: packageJson.version,
-          runtimes: runtimeVersions,
-          machine: getMachineInfo(),
-          baseline: baselineType,
-        },
-        results: comparisons,
-        summaries,
-      };
+        const report: MultiRuntimeReport = {
+          timestamp: new Date().toISOString(),
+          environment: {
+            python_version: pythonVersion,
+            numpy_version: numpyVersion,
+            numpyjs_version: packageJson.version,
+            runtimes: runtimeVersions,
+            machine: getMachineInfo(),
+            baseline: baselineType,
+          },
+          results: comparisons,
+          summaries,
+        };
 
-      const jsonPath = options.output
-        ? path.resolve(options.output)
-        : path.join(resultsDir, `latest${modeSuffix}.json`);
-      fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2));
-      console.log(`Results saved to: ${jsonPath}`);
+        const jsonPath = options.output
+          ? path.resolve(options.output)
+          : path.join(resultsDir, `latest${modeSuffix}.json`);
+        fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2));
+        console.log(`Results saved to: ${jsonPath}`);
 
-      const historyDir = path.join(resultsDir, 'history');
-      if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      fs.writeFileSync(
-        path.join(historyDir, `benchmark${modeSuffix}-${timestamp}.json`),
-        JSON.stringify(report, null, 2)
-      );
+        const historyDir = path.join(resultsDir, 'history');
+        if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        fs.writeFileSync(
+          path.join(historyDir, `benchmark${modeSuffix}-${timestamp}.json`),
+          JSON.stringify(report, null, 2)
+        );
 
-      const htmlPath = path.join(plotsDir, `latest${modeSuffix}.html`);
-      generateMultiRuntimeHTMLReport(report, htmlPath);
-      console.log(`HTML report saved to: ${htmlPath}`);
+        const htmlPath = path.join(plotsDir, `latest${modeSuffix}.html`);
+        generateMultiRuntimeHTMLReport(report, htmlPath);
+        console.log(`HTML report saved to: ${htmlPath}`);
 
-      const pngPath = path.join(plotsDir, `latest${modeSuffix}.png`);
-      await generateMultiRuntimePNGChart(report, pngPath);
-      console.log(`PNG chart saved to: ${pngPath}`);
+        const pngPath = path.join(plotsDir, `latest${modeSuffix}.png`);
+        await generateMultiRuntimePNGChart(report, pngPath);
+        console.log(`PNG chart saved to: ${pngPath}`);
 
-      console.log(`\nView report: open ${htmlPath}`);
-    }
+        console.log(`\nView report: open ${htmlPath}`);
+      }
     } // end if (!skipNumpy)
   } catch (error) {
     console.error('Benchmark failed:', error);

@@ -628,15 +628,18 @@ function copyToOutput(
   const ndim = sourceShape.length;
   const sourceSize = source.size;
   const isBigInt = dtype === 'int64' || dtype === 'uint64';
+  const isComplex = dtype === 'complex128' || dtype === 'complex64';
+  // Complex arrays: each logical element = 2 physical entries (re, im)
+  const elemScale = isComplex ? 2 : 1;
 
   // Fast path: if concatenating along axis 0 and both are C-contiguous,
   // we can do bulk copy
   if (axis === 0 && source.isCContiguous && ndim > 0) {
-    // Calculate the starting position in output array
-    const outputOffset = axisOffset * outputStrides[0]!;
+    // Calculate the starting position in output array (physical)
+    const outputOffset = axisOffset * outputStrides[0]! * elemScale;
     const sourceData = source.data;
-    const start = source.offset;
-    const end = start + sourceSize;
+    const start = source.offset * elemScale;
+    const end = start + sourceSize * elemScale;
 
     // Bulk copy the entire source array
     // @ts-expect-error - TypedArray.set() works with any typed array subarray
@@ -650,13 +653,15 @@ function copyToOutput(
     const cols = sourceShape[1]!;
     const outputCols = _outputShape[1]!;
     const sourceData = source.data;
-    const sourceStart = source.offset;
+    const sourceStart = source.offset * elemScale;
 
     for (let row = 0; row < rows; row++) {
-      const sourceRowStart = sourceStart + row * cols;
-      const outputRowStart = row * outputCols + axisOffset;
-      // @ts-expect-error - TypedArray.set() works with any typed array subarray
-      outputData.set(sourceData.subarray(sourceRowStart, sourceRowStart + cols), outputRowStart);
+      const sourceRowStart = sourceStart + row * cols * elemScale;
+      const outputRowStart = (row * outputCols + axisOffset) * elemScale;
+      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>).set(
+        sourceData.subarray(sourceRowStart, sourceRowStart + cols * elemScale) as Float64Array,
+        outputRowStart
+      );
     }
     return;
   }
@@ -701,7 +706,11 @@ function copyToOutput(
     }
 
     // Write to output
-    if (isBigInt) {
+    if (isComplex) {
+      const c = value as { re: number; im: number };
+      (outputData as Float64Array)[outputIdx * 2] = c.re;
+      (outputData as Float64Array)[outputIdx * 2 + 1] = c.im;
+    } else if (isBigInt) {
       (outputData as BigInt64Array | BigUint64Array)[outputIdx] = value as bigint;
     } else {
       (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outputIdx] =
@@ -1464,13 +1473,19 @@ export function roll(
       return rollResult;
     }
 
+    const isComplex = isComplexDType(dtype);
     for (let i = 0; i < size; i++) {
       const sourceIdx = (((i - flatShift) % size) + size) % size;
-      const value = flatStorage.iget(sourceIdx);
-      if (isBigInt) {
-        (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
+      if (isComplex) {
+        const value = flatStorage.iget(sourceIdx) as Complex;
+        (outputData as Float64Array | Float32Array)[i * 2] = value.re;
+        (outputData as Float64Array | Float32Array)[i * 2 + 1] = value.im;
+      } else if (isBigInt) {
+        (outputData as BigInt64Array | BigUint64Array)[i] = flatStorage.iget(sourceIdx) as bigint;
       } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
+        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = flatStorage.iget(
+          sourceIdx
+        ) as number;
       }
     }
 
@@ -1537,6 +1552,7 @@ export function roll(
     return axisRollResult;
   }
 
+  const isComplex = isComplexDType(dtype);
   for (let i = 0; i < size; i++) {
     // Compute source indices by rolling back
     const sourceIndices = [...outputIndices];
@@ -1552,13 +1568,22 @@ export function roll(
     for (let d = 0; d < ndim; d++) {
       sourceOffset += sourceIndices[d]! * storage.strides[d]!;
     }
-    const value = storage.data[sourceOffset];
 
     // Write to output
-    if (isBigInt) {
-      (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
+    if (isComplex) {
+      const physSrc = sourceOffset * 2;
+      (outputData as Float64Array | Float32Array)[i * 2] = (
+        storage.data as Float64Array | Float32Array
+      )[physSrc]!;
+      (outputData as Float64Array | Float32Array)[i * 2 + 1] = (
+        storage.data as Float64Array | Float32Array
+      )[physSrc + 1]!;
+    } else if (isBigInt) {
+      (outputData as BigInt64Array | BigUint64Array)[i] = storage.data[sourceOffset] as bigint;
     } else {
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
+      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = storage.data[
+        sourceOffset
+      ] as number;
     }
 
     // Increment output indices

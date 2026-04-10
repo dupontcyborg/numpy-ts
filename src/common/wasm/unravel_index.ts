@@ -1,8 +1,14 @@
 /**
  * WASM-accelerated unravel_index: convert flat indices to multi-dimensional indices.
+ * Uses native i32/i64 kernels for integer inputs (no JS conversion overhead),
+ * with f64 kernel as fallback. All kernels output f64 directly.
  */
 
-import { unravel_index_i32, unravel_index_i64 } from './bins/unravel_index.wasm';
+import {
+  unravel_index_i32_f64,
+  unravel_index_i64_f64,
+  unravel_index_f64,
+} from './bins/unravel_index.wasm';
 import {
   wasmMalloc,
   resetScratchAllocator,
@@ -20,7 +26,7 @@ const BASE_THRESHOLD = 64;
 
 /**
  * WASM-accelerated unravel_index for flat indices with C-order strides.
- * Returns ndim ArrayStorage arrays, or null if WASM can't handle this case.
+ * Returns ndim ArrayStorage arrays (float64), or null if WASM can't handle this case.
  */
 export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayStorage[] | null {
   if (!indices.isCContiguous) return null;
@@ -30,12 +36,15 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
   if (ndim === 0 || N === 0) return null;
   if (N < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const bpe = 4; // i32
+  const dtype = indices.dtype;
+  const idxData = indices.data;
+  const idxOff = indices.offset;
+  const f64Bpe = 8;
 
-  // Allocate ndim separate persistent output regions (one per dimension)
+  // Allocate f64 output regions
   const outRegions: WasmRegion[] = [];
   for (let d = 0; d < ndim; d++) {
-    const region = wasmMalloc(N * bpe);
+    const region = wasmMalloc(N * f64Bpe);
     if (!region) {
       for (const r of outRegions) r.release();
       return null;
@@ -46,26 +55,12 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const idxOff = indices.offset;
-  const idxData = indices.data;
-  const dtype = indices.dtype;
-  const use64 = dtype === 'int64' || dtype === 'uint64';
+  // All kernels output f64 directly into scratch, then copy to persistent regions
+  const outScratchPtr = scratchAlloc(ndim * N * f64Bpe);
 
-  // i64/u64 path: use i64 kernel directly (8 bytes per element)
-  if (use64) {
+  if (dtype === 'int64' || dtype === 'uint64') {
+    // i64 kernel: native BigInt input, f64 output
     const bpe64 = 8;
-    // Re-allocate output regions for i64 (previous ones were i32-sized)
-    for (const r of outRegions) r.release();
-    outRegions.length = 0;
-    for (let d = 0; d < ndim; d++) {
-      const region = wasmMalloc(N * bpe64);
-      if (!region) {
-        for (const r of outRegions) r.release();
-        return null;
-      }
-      outRegions.push(region);
-    }
-
     const indicesPtr = resolveInputPtr(
       idxData,
       indices.isWasmBacked,
@@ -85,61 +80,66 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
     const shape64 = new BigInt64Array(shape.map(BigInt));
     const shapePtr = scratchCopyIn(shape64 as unknown as TypedArray);
 
-    const outScratchPtr = scratchAlloc(ndim * N * bpe64);
-    unravel_index_i64(indicesPtr, outScratchPtr, N, stridesPtr, shapePtr, ndim);
+    unravel_index_i64_f64(indicesPtr, outScratchPtr, N, stridesPtr, shapePtr, ndim);
+  } else if (dtype === 'int32' || dtype === 'uint32') {
+    // i32 kernel: native int input, f64 output
+    const bpe32 = 4;
+    const indicesPtr = resolveInputPtr(
+      idxData,
+      indices.isWasmBacked,
+      indices.wasmPtr,
+      idxOff,
+      N,
+      bpe32
+    );
 
-    const mem = getSharedMemory();
-    for (let d = 0; d < ndim; d++) {
-      const src = new BigInt64Array(mem.buffer, outScratchPtr + d * N * bpe64, N);
-      const dst = new BigInt64Array(mem.buffer, outRegions[d]!.ptr, N);
-      dst.set(src);
+    const strides = new Int32Array(ndim);
+    let stride = 1;
+    for (let i = ndim - 1; i >= 0; i--) {
+      strides[i] = stride;
+      stride *= shape[i]!;
     }
+    const stridesPtr = scratchCopyIn(strides as unknown as TypedArray);
+    const shapeI32 = new Int32Array(shape);
+    const shapePtr = scratchCopyIn(shapeI32 as unknown as TypedArray);
 
-    const outputShape = Array.from(indices.shape);
-    const results: ArrayStorage[] = [];
-    for (let d = 0; d < ndim; d++) {
-      results.push(
-        ArrayStorage.fromWasmRegion(
-          outputShape,
-          'int64',
-          outRegions[d]!,
-          N,
-          BigInt64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-        )
-      );
-    }
-    return results;
-  }
-
-  // i32/u32 path: use i32 kernel (u32 has same bit pattern for non-negative values)
-  let indicesPtr: number;
-  if (dtype === 'int32' || dtype === 'uint32') {
-    indicesPtr = resolveInputPtr(idxData, indices.isWasmBacked, indices.wasmPtr, idxOff, N, bpe);
+    unravel_index_i32_f64(indicesPtr, outScratchPtr, N, stridesPtr, shapePtr, ndim);
   } else {
-    const i32 = new Int32Array(N);
-    for (let i = 0; i < N; i++) {
-      i32[i] = Number(idxData[idxOff + i]);
+    // f64 fallback: convert input to f64 if needed
+    let indicesPtr: number;
+    if (dtype === 'float64') {
+      indicesPtr = resolveInputPtr(
+        idxData,
+        indices.isWasmBacked,
+        indices.wasmPtr,
+        idxOff,
+        N,
+        f64Bpe
+      );
+    } else {
+      const f64 = new Float64Array(N);
+      for (let i = 0; i < N; i++) f64[i] = Number(idxData[idxOff + i]);
+      indicesPtr = scratchCopyIn(f64 as unknown as TypedArray);
     }
-    indicesPtr = scratchCopyIn(i32 as unknown as TypedArray);
+
+    const strides = new Int32Array(ndim);
+    let stride = 1;
+    for (let i = ndim - 1; i >= 0; i--) {
+      strides[i] = stride;
+      stride *= shape[i]!;
+    }
+    const stridesPtr = scratchCopyIn(strides as unknown as TypedArray);
+    const shapeI32 = new Int32Array(shape);
+    const shapePtr = scratchCopyIn(shapeI32 as unknown as TypedArray);
+
+    unravel_index_f64(indicesPtr, outScratchPtr, N, stridesPtr, shapePtr, ndim);
   }
 
-  const strides = new Int32Array(ndim);
-  let stride = 1;
-  for (let i = ndim - 1; i >= 0; i--) {
-    strides[i] = stride;
-    stride *= shape[i]!;
-  }
-  const stridesPtr = scratchCopyIn(strides as unknown as TypedArray);
-  const shapeI32 = new Int32Array(shape);
-  const shapePtr = scratchCopyIn(shapeI32 as unknown as TypedArray);
-
-  const outScratchPtr = scratchAlloc(ndim * N * bpe);
-  unravel_index_i32(indicesPtr, outScratchPtr, N, stridesPtr, shapePtr, ndim);
-
+  // Copy f64 scratch output to persistent regions
   const mem = getSharedMemory();
   for (let d = 0; d < ndim; d++) {
-    const src = new Int32Array(mem.buffer, outScratchPtr + d * N * bpe, N);
-    const dst = new Int32Array(mem.buffer, outRegions[d]!.ptr, N);
+    const src = new Float64Array(mem.buffer, outScratchPtr + d * N * f64Bpe, N);
+    const dst = new Float64Array(mem.buffer, outRegions[d]!.ptr, N);
     dst.set(src);
   }
 
@@ -149,10 +149,10 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
     results.push(
       ArrayStorage.fromWasmRegion(
         outputShape,
-        'int32',
+        'float64',
         outRegions[d]!,
         N,
-        Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
       )
     );
   }

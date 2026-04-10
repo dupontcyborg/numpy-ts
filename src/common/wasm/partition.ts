@@ -36,7 +36,7 @@ import {
   f16InputToScratchF32,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -246,17 +246,18 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
     }
 
     outRegion.release();
-    return ArrayStorage.fromWasmRegion(
-      Array.from(a.shape),
-      dtype,
-      f16Region,
-      size,
-      Uint16Array as unknown as new (
-        buffer: ArrayBuffer,
-        byteOffset: number,
-        length: number
-      ) => TypedArray
-    );
+    const F16Ctor = hasFloat16
+      ? (Float16Array as unknown as new (
+          buffer: ArrayBuffer,
+          byteOffset: number,
+          length: number
+        ) => TypedArray)
+      : (Uint16Array as unknown as new (
+          buffer: ArrayBuffer,
+          byteOffset: number,
+          length: number
+        ) => TypedArray);
+    return ArrayStorage.fromWasmRegion(Array.from(a.shape), dtype, f16Region, size, F16Ctor);
   }
 
   // Copy input into output region, then partition in-place

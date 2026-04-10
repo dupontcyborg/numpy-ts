@@ -3,31 +3,33 @@
  *
  * Unary: out[i] = tanh(a[i])
  * Returns null if WASM can't handle this case.
- * Float types use native kernels; integer types are converted to float64
- * in JS and run through the f64 SIMD kernel (matches NumPy's promotion).
+ * Float types use native kernels; integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
 import {
   tanh_f64,
   tanh_f32,
-  tanh_i64,
-  tanh_u64,
+  tanh_i64_f64,
+  tanh_u64_f64,
   tanh_i32_f64,
   tanh_u32_f64,
-  tanh_i16_f64,
-  tanh_u16_f64,
-  tanh_i8_f64,
-  tanh_u8_f64,
+  tanh_i16_f32,
+  tanh_u16_f32,
+  tanh_i8_f32,
+  tanh_u8_f32,
 } from './bins/tanh.wasm';
 import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
   f16InputToScratchF32,
-  f32OutputToF16Region,
+  f32ToF16InPlace,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, isComplexDType, type DType, type TypedArray } from '../dtype';
+import { effectiveDType, isComplexDType, hasFloat16, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -39,15 +41,20 @@ const kernels: Partial<Record<DType, UnaryFn>> = {
   float32: tanh_f32,
 };
 
-const intKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: tanh_i64,
-  uint64: tanh_u64,
+// Large int → f64 output (i32/u32/i64/u64 need f64 precision)
+const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
+  int64: tanh_i64_f64,
+  uint64: tanh_u64_f64,
   int32: tanh_i32_f64,
   uint32: tanh_u32_f64,
-  int16: tanh_i16_f64,
-  uint16: tanh_u16_f64,
-  int8: tanh_i8_f64,
-  uint8: tanh_u8_f64,
+};
+
+// Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
+const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
+  int16: tanh_i16_f32,
+  uint16: tanh_u16_f32,
+  int8: tanh_i8_f32,
+  uint8: tanh_u8_f32,
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -89,13 +96,11 @@ export function wasmTanh(a: ArrayStorage): ArrayStorage | null {
 
     tanh_f32(aPtr, outRegion.ptr, size);
 
-    const f16Region = f32OutputToF16Region(outRegion, size);
-    outRegion.release();
-    if (!f16Region) return null;
+    f32ToF16InPlace(outRegion, size);
     return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
       dtype,
-      f16Region,
+      outRegion,
       size,
       Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
     );
@@ -128,10 +133,51 @@ export function wasmTanh(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Integer path: Zig kernel reads native int type, converts to f64 internally
-  const intKernel = intKernels[dtype];
   const inBpe = bpeMap[dtype];
-  if (!intKernel || !inBpe) return null;
+  if (!inBpe) return null;
+
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntKernels[dtype];
+  if (smallKernel) {
+    const outBytes = size * 4; // f32
+    const outRegion = wasmMalloc(outBytes);
+    if (!outRegion) return null;
+
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
+
+    smallKernel(aPtr, outRegion.ptr, size);
+
+    // i8/u8 → downcast f32 to f16 (matching NumPy's bool/int8/uint8 → float16)
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8' || dtype === 'bool')) {
+      f32ToF16InPlace(outRegion, size);
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        outRegion,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    // i16/u16 → f32 output
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      'float32',
+      outRegion,
+      size,
+      Float32Array as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number
+      ) => TypedArray
+    );
+  }
+
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntKernels[dtype];
+  if (!largeKernel) return null;
 
   const outBytes = size * 8;
   const outRegion = wasmMalloc(outBytes);
@@ -141,7 +187,7 @@ export function wasmTanh(a: ArrayStorage): ArrayStorage | null {
   resetScratchAllocator();
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
 
-  intKernel(aPtr, outRegion.ptr, size);
+  largeKernel(aPtr, outRegion.ptr, size);
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),

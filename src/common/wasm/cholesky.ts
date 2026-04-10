@@ -8,7 +8,7 @@
 import { cholesky_f64, cholesky_f32 } from './bins/cholesky.wasm';
 import { wasmMalloc, resetScratchAllocator, scratchCopyIn, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { TypedArray } from '../dtype';
+import { isComplexDType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
@@ -21,6 +21,7 @@ const BASE_THRESHOLD = 4; // Minimum matrix dimension for WASM (Cholesky is O(nÂ
  */
 export function wasmCholesky(a: ArrayStorage): ArrayStorage | null {
   if (a.ndim !== 2) return null;
+  if (isComplexDType(a.dtype)) return null;
 
   const n = a.shape[0]!;
   if (n !== a.shape[1]!) return null; // Must be square
@@ -77,6 +78,7 @@ export function wasmCholesky(a: ArrayStorage): ArrayStorage | null {
  */
 export function wasmCholeskyF32(a: ArrayStorage): ArrayStorage | null {
   if (a.ndim !== 2) return null;
+  if (isComplexDType(a.dtype)) return null;
 
   const n = a.shape[0]!;
   if (n !== a.shape[1]!) return null;

@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install numpy
-          npm ci
+          npm install
 
       - name: Verify environment
         run: |
@@ -49,11 +49,17 @@ jobs:
       - name: Run type checking
         run: npm run typecheck
 
-      - name: Run format check
-        run: npm run format:check
+      - name: Zig dead code check
+        run: npm run report:zig-dead-code
 
       - name: Run all tests
         run: npm test
+
+      - name: DType sweep (JS backend)
+        run: npm run test:dtypes:js
+
+      - name: DType sweep (WASM backend)
+        run: npm run test:dtypes:wasm
 
       - name: Generate test summary
         if: always()
@@ -81,7 +87,7 @@ jobs:
           version: "0.15.2"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -123,7 +129,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install numpy
-          npm ci
+          npm install
 
       - name: Run tests under Bun
         run: npm run test:bun
@@ -164,7 +170,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install numpy
-          npm ci
+          npm install
 
       - name: Run tests under Deno
         run: npm run test:deno
@@ -197,10 +203,16 @@ jobs:
       - name: Install dependencies
         run: |
           pip install numpy
-          npm ci
+          npm install
 
       - name: Run tests with coverage
         run: npm run test:coverage
+
+      - name: Zig export fn test coverage (≥95%)
+        run: npm run report:zig-coverage
+
+      - name: DType coverage report
+        run: npm run report:dtype-coverage
 
       # - name: Upload coverage reports
       #   uses: codecov/codecov-action@v4
@@ -245,7 +257,7 @@ jobs:
           version: "0.15.2"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build all bundles
         run: npm run build

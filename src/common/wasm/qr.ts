@@ -9,7 +9,7 @@
 import { qr_f64 } from './bins/qr.wasm';
 import { wasmMalloc, resetScratchAllocator, scratchAlloc, getSharedMemory } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { TypedArray } from '../dtype';
+import { isComplexDType, type TypedArray } from '../dtype';
 
 import { wasmConfig } from './config';
 
@@ -21,6 +21,9 @@ const BASE_THRESHOLD = 4; // Minimum matrix dimension for WASM (QR is O(n³), wo
  */
 export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | null {
   if (a.ndim !== 2) return null;
+
+  // TODO: Add complex128/complex64 support to WASM
+  if (isComplexDType(a.dtype)) return null;
 
   const m = a.shape[0]!;
   const n = a.shape[1]!;

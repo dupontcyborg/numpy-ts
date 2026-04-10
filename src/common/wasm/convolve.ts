@@ -1,15 +1,32 @@
 /**
  * WASM-accelerated 1D convolution (full mode).
  *
- * Computes full linear convolution, returns float64 or float32 result.
+ * Computes full linear convolution with native dtype support.
  * The JS ops layer handles mode slicing (same/valid) and complex types.
  * Returns null if WASM can't handle this case.
  */
 
-import { convolve_f64, convolve_f32 } from './bins/convolve.wasm';
-import { wasmMalloc, resetScratchAllocator, scratchCopyIn, f16InputToScratchF32 } from './runtime';
+import {
+  convolve_f64,
+  convolve_f32,
+  convolve_i32,
+  convolve_u32,
+  convolve_i16,
+  convolve_u16,
+  convolve_i8,
+  convolve_u8,
+} from './bins/convolve.wasm';
+import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import {
+  effectiveDType,
+  isComplexDType,
+  isBigIntDType,
+  getTypedArrayConstructor,
+  promoteDTypes,
+  type DType,
+  TypedArray,
+} from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
@@ -26,12 +43,23 @@ type ConvolveFn = (
 const kernels: Partial<Record<DType, ConvolveFn>> = {
   float64: convolve_f64,
   float32: convolve_f32,
+  int32: convolve_i32,
+  uint32: convolve_u32,
+  int16: convolve_i16,
+  uint16: convolve_u16,
+  int8: convolve_i8,
+  uint8: convolve_u8,
 };
 
-type AnyTypedArrayCtor = new (length: number) => TypedArray;
-const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
-  float64: Float64Array,
-  float32: Float32Array,
+const bpeMap: Partial<Record<DType, number>> = {
+  float64: 8,
+  float32: 4,
+  int32: 4,
+  uint32: 4,
+  int16: 2,
+  uint16: 2,
+  int8: 1,
+  uint8: 1,
 };
 
 /**
@@ -47,18 +75,22 @@ export function wasmConvolve(a: ArrayStorage, v: ArrayStorage): ArrayStorage | n
 
   if (outLen < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  // Use float64 unless both are float32 (or float16, which uses f32 kernel)
   const aDtype = effectiveDType(a.dtype);
   const vDtype = effectiveDType(v.dtype);
-  const bothF32Like =
-    (aDtype === 'float32' || aDtype === 'float16') &&
-    (vDtype === 'float32' || vDtype === 'float16');
-  const dtype: DType = bothF32Like ? 'float32' : 'float64';
-  const kernel = kernels[dtype];
-  const Ctor = ctorMap[dtype];
-  if (!kernel || !Ctor) return null;
 
-  const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  // Bail on complex, BigInt, bool, float16
+  if (isComplexDType(aDtype) || isComplexDType(vDtype)) return null;
+  if (isBigIntDType(aDtype) || isBigIntDType(vDtype)) return null;
+  if (aDtype === 'bool' || vDtype === 'bool') return null;
+  if (aDtype === 'float16' || vDtype === 'float16') return null;
+
+  // Promote dtypes (e.g. int8+int16 → int16, float32+int32 → float64)
+  const dtype = promoteDTypes(aDtype, vDtype);
+  const kernel = kernels[dtype];
+  const bpe = bpeMap[dtype];
+  if (!kernel || !bpe) return null;
+
+  const Ctor = getTypedArrayConstructor(dtype)!;
   const outBytes = outLen * bpe;
 
   const outRegion = wasmMalloc(outBytes);
@@ -67,32 +99,8 @@ export function wasmConvolve(a: ArrayStorage, v: ArrayStorage): ArrayStorage | n
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  const aOff = a.offset;
-  const vOff = v.offset;
-
-  // Convert to target float type if input dtype differs (e.g. int32 -> float64)
-  let aPtr: number;
-  let vPtr: number;
-  if (aDtype === 'float16') {
-    aPtr = f16InputToScratchF32(a, aLen);
-  } else if (aDtype === dtype) {
-    aPtr = scratchCopyIn(a.data.subarray(aOff, aOff + aLen) as TypedArray);
-  } else {
-    const tmp = new (Ctor as unknown as new (len: number) => TypedArray)(aLen);
-    const src = a.data;
-    for (let i = 0; i < aLen; i++) tmp[i] = Number(src[aOff + i]!);
-    aPtr = scratchCopyIn(tmp);
-  }
-  if (vDtype === 'float16') {
-    vPtr = f16InputToScratchF32(v, vLen);
-  } else if (vDtype === dtype) {
-    vPtr = scratchCopyIn(v.data.subarray(vOff, vOff + vLen) as TypedArray);
-  } else {
-    const tmp = new (Ctor as unknown as new (len: number) => TypedArray)(vLen);
-    const src = v.data;
-    for (let i = 0; i < vLen; i++) tmp[i] = Number(src[vOff + i]!);
-    vPtr = scratchCopyIn(tmp);
-  }
+  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, aLen, bpe);
+  const vPtr = resolveInputPtr(v.data, v.isWasmBacked, v.wasmPtr, v.offset, vLen, bpe);
 
   kernel(aPtr, aLen, vPtr, vLen, outRegion.ptr, outLen);
 

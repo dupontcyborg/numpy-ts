@@ -5,10 +5,12 @@
  */
 
 import { NDArrayCore, type DType } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
+import { Complex } from '../common/complex';
 import { array, zeros } from './creation';
 import { concatenate, flatten } from './shape';
 import { wasmPad2D } from '../common/wasm/pad';
-import { hasFloat16 } from '../common/dtype';
+import { hasFloat16, isComplexDType } from '../common/dtype';
 
 /**
  * Append values to the end of an array
@@ -144,9 +146,54 @@ export function insert(
     // Flatten and insert
     const flat = flatten(arr);
     const flatValues = flatten(valuesArr);
+    const dtype = arr.dtype as DType;
+    const isComplex = isComplexDType(dtype);
+
+    if (isComplex) {
+      // Complex path: work with Complex objects via iget/iset
+      const flatSize = flat.size;
+      const valSize = flatValues.size;
+      const items: Complex[] = [];
+      for (let i = 0; i < flatSize; i++) {
+        items.push(flat.storage.iget(i) as Complex);
+      }
+
+      if (indices.length === 1) {
+        const rawIdx = indices[0]!;
+        const idx = rawIdx < 0 ? flatSize + rawIdx : rawIdx;
+        const vals: Complex[] = [];
+        for (let i = 0; i < valSize; i++) {
+          const v = flatValues.storage.iget(i);
+          vals.push(v instanceof Complex ? v : new Complex(Number(v), 0));
+        }
+        items.splice(idx, 0, ...vals);
+      } else {
+        const indexPairs = indices
+          .map((rawIdx, i) => ({
+            idx: rawIdx < 0 ? flatSize + rawIdx : rawIdx,
+            valIdx: i,
+          }))
+          .sort((a, b) => a.idx - b.idx);
+
+        for (let i = 0; i < indexPairs.length; i++) {
+          const { idx, valIdx } = indexPairs[i]!;
+          const v = flatValues.storage.iget(valIdx % valSize);
+          const val = v instanceof Complex ? v : new Complex(Number(v), 0);
+          items.splice(idx + i, 0, val);
+        }
+      }
+
+      const resultStorage = ArrayStorage.empty([items.length], dtype);
+      const resultData = resultStorage.data as Float64Array | Float32Array;
+      for (let i = 0; i < items.length; i++) {
+        resultData[i * 2] = items[i]!.re;
+        resultData[i * 2 + 1] = items[i]!.im;
+      }
+      return new NDArrayCore(resultStorage);
+    }
+
     const flatData = flat.data;
     const valuesData = flatValues.data;
-
     const result: number[] = Array.from(flatData as unknown as ArrayLike<number>);
 
     if (indices.length === 1) {
@@ -172,7 +219,7 @@ export function insert(
       }
     }
 
-    return array(result, arr.dtype as DType);
+    return array(result, dtype);
   }
 
   // Insert along axis - simplified implementation

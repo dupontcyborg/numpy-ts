@@ -3,27 +3,33 @@
  *
  * Unary: out[i] = cosh(a[i])
  * Returns null if WASM can't handle this case.
- * Float types use native kernels; integer types are converted to float64
- * in JS and run through the f64 SIMD kernel (matches NumPy's promotion).
+ * Float types use native kernels; integer types use type-appropriate output:
+ *   i8/u8 → f32 (then downcast to f16 if available)
+ *   i16/u16 → f32
+ *   i32/u32/i64/u64 → f64
  */
 
-import { cosh_f64, cosh_f32, cosh_i64, cosh_u64 } from './bins/cosh.wasm';
+import {
+  cosh_f64,
+  cosh_f32,
+  cosh_i64_f64,
+  cosh_u64_f64,
+  cosh_i32_f64,
+  cosh_u32_f64,
+  cosh_i16_f32,
+  cosh_u16_f32,
+  cosh_i8_f32,
+  cosh_u8_f32,
+} from './bins/cosh.wasm';
 import {
   wasmMalloc,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
   f16InputToScratchF32,
   f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import {
-  effectiveDType,
-  isComplexDType,
-  isBigIntDType,
-  type DType,
-  type TypedArray,
-} from '../dtype';
+import { effectiveDType, isComplexDType, hasFloat16, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -33,6 +39,33 @@ type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 const kernels: Partial<Record<DType, UnaryFn>> = {
   float64: cosh_f64,
   float32: cosh_f32,
+};
+
+// Large int → f64 output (i32/u32/i64/u64 need f64 precision)
+const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
+  int64: cosh_i64_f64,
+  uint64: cosh_u64_f64,
+  int32: cosh_i32_f64,
+  uint32: cosh_u32_f64,
+};
+
+// Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
+const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
+  int16: cosh_i16_f32,
+  uint16: cosh_u16_f32,
+  int8: cosh_i8_f32,
+  uint8: cosh_u8_f32,
+};
+
+const bpeMap: Partial<Record<DType, number>> = {
+  int64: 8,
+  uint64: 8,
+  int32: 4,
+  uint32: 4,
+  int16: 2,
+  uint16: 2,
+  int8: 1,
+  uint8: 1,
 };
 
 /**
@@ -50,7 +83,7 @@ export function wasmCosh(a: ArrayStorage): ArrayStorage | null {
 
   // float16 path: convert to f32, run f32 kernel, convert back
   if (dtype === 'float16') {
-    const bpe = 4;
+    const bpe = 4; // f32
     const outBytes = size * bpe;
 
     const outRegion = wasmMalloc(outBytes);
@@ -75,7 +108,7 @@ export function wasmCosh(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Native float path
+  // Native float path (f32/f64)
   const nativeKernel = kernels[dtype];
   if (nativeKernel) {
     const isF32 = dtype === 'float32';
@@ -102,26 +135,43 @@ export function wasmCosh(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // int64 native path — avoid costly BigInt→Number conversion in JS
-  if (dtype === 'int64' || dtype === 'uint64') {
-    const outBytes = size * 8;
+  const inBpe = bpeMap[dtype];
+  if (!inBpe) return null;
 
+  // Small int path: i8/u8/i16/u16 → f32 output, optionally downcast to f16
+  const smallKernel = smallIntKernels[dtype];
+  if (smallKernel) {
+    const outBytes = size * 4; // f32
     const outRegion = wasmMalloc(outBytes);
     if (!outRegion) return null;
 
     wasmConfig.wasmCallCount++;
-
     resetScratchAllocator();
-    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, 8);
+    const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
 
-    (dtype === 'int64' ? cosh_i64 : cosh_u64)(aPtr, outRegion.ptr, size);
+    smallKernel(aPtr, outRegion.ptr, size);
 
+    // i8/u8 → downcast f32 to f16 (matching NumPy's bool/int8/uint8 → float16)
+    if (hasFloat16 && (dtype === 'int8' || dtype === 'uint8' || dtype === 'bool')) {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        Array.from(a.shape),
+        'float16',
+        f16Region,
+        size,
+        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      );
+    }
+
+    // i16/u16 → f32 output
     return ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
-      'float64',
+      'float32',
       outRegion,
       size,
-      Float64Array as unknown as new (
+      Float32Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
         length: number
@@ -129,29 +179,19 @@ export function wasmCosh(a: ArrayStorage): ArrayStorage | null {
     );
   }
 
-  // Other integer path: convert to float64, run f64 kernel
-  // (NumPy promotes int→float64 for cosh)
-  const bpe = 8; // f64
-  const outBytes = size * bpe;
+  // Large int path: i32/u32/i64/u64 → f64 output
+  const largeKernel = largeIntKernels[dtype];
+  if (!largeKernel) return null;
 
+  const outBytes = size * 8;
   const outRegion = wasmMalloc(outBytes);
   if (!outRegion) return null;
 
   wasmConfig.wasmCallCount++;
-
   resetScratchAllocator();
-  const aOff = a.offset;
-  const src = a.data;
-  const converted = new Float64Array(size);
-  if (isBigIntDType(dtype)) {
-    for (let i = 0; i < size; i++) converted[i] = Number(src[aOff + i]!);
-  } else {
-    for (let i = 0; i < size; i++) converted[i] = src[aOff + i] as number;
-  }
+  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
 
-  const aPtr = scratchCopyIn(converted as unknown as TypedArray);
-
-  cosh_f64(aPtr, outRegion.ptr, size);
+  largeKernel(aPtr, outRegion.ptr, size);
 
   return ArrayStorage.fromWasmRegion(
     Array.from(a.shape),

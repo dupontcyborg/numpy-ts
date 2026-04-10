@@ -103,6 +103,8 @@ export function wasmHeaviside(
   resultDtype: 'float64' | 'float32' | 'float16'
 ): ArrayStorage | null {
   if (!x1.isCContiguous || !x2.isCContiguous) return null;
+  // WASM kernels expect same-dtype inputs — bail on mixed dtypes
+  if (x1.dtype !== x2.dtype) return null;
   const dtype = effectiveDType(resultDtype) as 'float64' | 'float32' | 'float16';
   const size = x1.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;

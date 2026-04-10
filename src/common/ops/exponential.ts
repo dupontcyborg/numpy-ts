@@ -10,9 +10,54 @@
 
 import { ArrayStorage } from '../storage';
 import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
-import { isBigIntDType, isComplexDType, throwIfComplex, type DType } from '../dtype';
+import {
+  isBigIntDType,
+  isComplexDType,
+  throwIfComplex,
+  mathResultDtype,
+  promoteDTypes,
+  type DType,
+} from '../dtype';
 import { Complex } from '../complex';
 import { wasmSqrt } from '../wasm/sqrt';
+
+/** Convert bool storage to int8 (NumPy promotes bool → int8 for arithmetic). */
+function boolToInt8(a: ArrayStorage): ArrayStorage {
+  return boolToType(a, 'int8');
+}
+
+/** Convert bool array to a target dtype. */
+function boolToType(a: ArrayStorage, dtype: DType): ArrayStorage {
+  const result = ArrayStorage.empty(Array.from(a.shape), dtype);
+  const src = a.data as Uint8Array;
+  const off = a.offset;
+  const size = a.size;
+  if (isBigIntDType(dtype)) {
+    const dst = result.data as unknown as BigInt64Array;
+    for (let i = 0; i < size; i++) dst[i] = BigInt(src[off + i]!);
+  } else if (isComplexDType(dtype)) {
+    const dst = result.data as Float64Array;
+    for (let i = 0; i < size; i++) {
+      dst[i * 2] = src[off + i]!;
+      dst[i * 2 + 1] = 0;
+    }
+  } else {
+    const dst = result.data;
+    for (let i = 0; i < size; i++) dst[i] = src[off + i]! as number;
+  }
+  return result;
+}
+
+/** Convert bool to math float type (float16/float32) for math binary ops. */
+function boolToMathFloat(a: ArrayStorage): ArrayStorage {
+  const dt = mathResultDtype('bool');
+  const result = ArrayStorage.empty(Array.from(a.shape), dt);
+  const src = a.data as Uint8Array;
+  const dst = result.data;
+  const off = a.offset;
+  for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
+  return result;
+}
 import { wasmPower, wasmPowerScalar } from '../wasm/power';
 import { wasmExp } from '../wasm/exp';
 import { wasmExp2 } from '../wasm/exp2';
@@ -86,6 +131,17 @@ export function sqrt(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with power applied
  */
 export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
+  // NumPy promotes bool to the other operand's type for power (bool+bool → int8)
+  if (a.dtype === 'bool' && typeof b !== 'number' && b.dtype !== 'bool') {
+    return power(boolToType(a, b.dtype), b);
+  }
+  if (a.dtype === 'bool') {
+    const a8 = boolToInt8(a);
+    return power(a8, typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b);
+  }
+  if (typeof b !== 'number' && b.dtype === 'bool') {
+    return power(a, boolToType(b, a.dtype));
+  }
   if (typeof b === 'number') {
     return powerScalar(a, b);
   }
@@ -98,8 +154,8 @@ export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
     return complexPowerArray(a, b);
   }
 
-  // Scalar broadcast: if b is a single element, use the faster scalar path
-  if (b.size === 1) {
+  // Scalar broadcast: if b is a single element and same dtype, use the faster scalar path
+  if (b.size === 1 && a.dtype === b.dtype) {
     return powerScalar(a, Number(b.iget(0)));
   }
 
@@ -117,11 +173,8 @@ function complexPowerArray(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   const aIsComplex = isComplexDType(a.dtype);
   const bIsComplex = isComplexDType(b.dtype);
 
-  // Result dtype: complex128 if any is complex128 or float64, else complex64
-  const resultDtype: DType =
-    a.dtype === 'complex128' || b.dtype === 'complex128' || b.dtype === 'float64'
-      ? 'complex128'
-      : 'complex64';
+  // Use standard promotion rules for complex result dtype
+  const resultDtype: DType = promoteDTypes(a.dtype, b.dtype);
 
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -165,6 +218,24 @@ function complexPowerArray(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
     } else {
       expRe = Number(b.iget(i));
       expIm = 0;
+    }
+
+    // Special case: 0^w (avoid NaN from 0 * -Infinity in log path)
+    if (baseRe === 0 && baseIm === 0) {
+      if (expRe > 0 && expIm === 0) {
+        // 0^(positive real) = 0
+        dstData[i * 2] = 0;
+        dstData[i * 2 + 1] = 0;
+      } else if (expRe === 0 && expIm === 0) {
+        // 0^0 = 1
+        dstData[i * 2] = 1;
+        dstData[i * 2 + 1] = 0;
+      } else {
+        // 0^(negative or complex exponent) → NaN or inf per IEEE
+        dstData[i * 2] = NaN;
+        dstData[i * 2 + 1] = NaN;
+      }
+      continue;
     }
 
     // z^w = exp(w * ln(z))
@@ -669,6 +740,12 @@ export function log1p(a: ArrayStorage): ArrayStorage {
  * @returns Result storage with logaddexp applied
  */
 export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (x1.dtype === 'bool')
+    return logaddexp(
+      boolToMathFloat(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
@@ -692,11 +769,7 @@ function logaddexpArray(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
   const dtype1 = x1.dtype;
   const dtype2 = x2.dtype;
 
-  // NumPy promotes small integer types (8/16-bit) to float32, larger integers to float64.
-  // Only use float32 when both inputs would promote to float32.
-  const promosToF32 = (d: string) =>
-    d === 'float32' || d === 'int8' || d === 'uint8' || d === 'int16' || d === 'uint16';
-  const resultDtype = promosToF32(dtype1) && promosToF32(dtype2) ? 'float32' : 'float64';
+  const resultDtype = mathResultDtype(promoteDTypes(dtype1, dtype2));
 
   const result = ArrayStorage.empty(outputShape, resultDtype);
   const resultData = result.data;
@@ -728,15 +801,7 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const size = storage.size;
   const contiguous = storage.isCContiguous;
 
-  // NumPy promotes small integer types (8/16-bit) to float32, larger integers to float64.
-  const resultDtype =
-    dtype === 'float32' ||
-    dtype === 'int8' ||
-    dtype === 'uint8' ||
-    dtype === 'int16' ||
-    dtype === 'uint16'
-      ? 'float32'
-      : 'float64';
+  const resultDtype = mathResultDtype(dtype);
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;
@@ -773,6 +838,12 @@ function logaddexpScalar(storage: ArrayStorage, x2: number): ArrayStorage {
  * @returns Result storage with logaddexp2 applied
  */
 export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+  if (x1.dtype === 'bool')
+    return logaddexp2(
+      boolToMathFloat(x1),
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+    );
+  if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp2(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
@@ -793,9 +864,7 @@ function logaddexp2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
   const dtype1 = x1.dtype;
   const dtype2 = x2.dtype;
 
-  // Always promote to float64 for logaddexp2 (matching NumPy behavior)
-  // Only preserve float32 if both inputs are float32
-  const resultDtype = dtype1 === 'float32' && dtype2 === 'float32' ? 'float32' : 'float64';
+  const resultDtype = mathResultDtype(promoteDTypes(dtype1, dtype2));
 
   const result = ArrayStorage.empty(outputShape, resultDtype);
   const resultData = result.data;
@@ -827,8 +896,7 @@ function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
   const size = storage.size;
   const contiguous = storage.isCContiguous;
 
-  // Always promote to float64 for logaddexp2
-  const resultDtype = dtype === 'float32' ? 'float32' : 'float64';
+  const resultDtype = mathResultDtype(dtype);
 
   const result = ArrayStorage.empty(shape, resultDtype);
   const resultData = result.data;

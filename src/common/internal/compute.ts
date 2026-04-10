@@ -8,7 +8,7 @@
  */
 
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, isBigIntDType } from '../dtype';
+import { promoteDTypes, isBigIntDType, mathResultDtype } from '../dtype';
 import { Complex } from '../complex';
 
 /**
@@ -263,9 +263,8 @@ export function elementwiseUnaryOp(
   const size = a.size;
 
   // Determine output dtype
-  // Math operations like sqrt may need float output even for integer input
-  const isIntegerType = dtype !== 'float16' && dtype !== 'float32' && dtype !== 'float64';
-  const resultDtype = preserveDtype ? dtype : isIntegerType ? 'float64' : dtype;
+  // Math operations like sqrt use NumPy's type promotion (int8→float16, int16→float32, etc.)
+  const resultDtype = preserveDtype ? dtype : mathResultDtype(dtype);
 
   // Create result storage
   const result = ArrayStorage.empty(shape, resultDtype);

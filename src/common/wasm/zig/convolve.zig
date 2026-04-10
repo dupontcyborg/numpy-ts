@@ -52,7 +52,58 @@ export fn convolve_f32(a: [*]const f32, na: u32, b: [*]const f32, nb: u32, out: 
     }
 }
 
+// --- Integer convolve kernels (scalar loop, same-type output) ---
+
+fn convolveInt(comptime T: type, a: [*]const T, na: u32, b: [*]const T, nb: u32, out: [*]T, outLen: u32) void {
+    _ = outLen;
+    const n_a = @as(usize, na);
+    const n_b = @as(usize, nb);
+    const full_len = n_a + n_b - 1;
+
+    for (0..full_len) |k| {
+        var sum: T = 0;
+        const j_start = if (k >= n_b - 1) k - (n_b - 1) else 0;
+        const j_end = if (k < n_a) k + 1 else n_a;
+        var j = j_start;
+        while (j < j_end) : (j += 1) {
+            sum +%= a[j] *% b[k - j];
+        }
+        out[k] = sum;
+    }
+}
+
+export fn convolve_i32(a: [*]const i32, na: u32, b: [*]const i32, nb: u32, out: [*]i32, outLen: u32) void {
+    convolveInt(i32, a, na, b, nb, out, outLen);
+}
+export fn convolve_u32(a: [*]const u32, na: u32, b: [*]const u32, nb: u32, out: [*]u32, outLen: u32) void {
+    convolveInt(u32, a, na, b, nb, out, outLen);
+}
+export fn convolve_i16(a: [*]const i16, na: u32, b: [*]const i16, nb: u32, out: [*]i16, outLen: u32) void {
+    convolveInt(i16, a, na, b, nb, out, outLen);
+}
+export fn convolve_u16(a: [*]const u16, na: u32, b: [*]const u16, nb: u32, out: [*]u16, outLen: u32) void {
+    convolveInt(u16, a, na, b, nb, out, outLen);
+}
+export fn convolve_i8(a: [*]const i8, na: u32, b: [*]const i8, nb: u32, out: [*]i8, outLen: u32) void {
+    convolveInt(i8, a, na, b, nb, out, outLen);
+}
+export fn convolve_u8(a: [*]const u8, na: u32, b: [*]const u8, nb: u32, out: [*]u8, outLen: u32) void {
+    convolveInt(u8, a, na, b, nb, out, outLen);
+}
+
 // --- Tests ---
+
+test "convolve_i32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i32{ 1, 2, 3 };
+    const v = [_]i32{ 1, 1 };
+    var out: [4]i32 = undefined;
+    convolve_i32(&a, 3, &v, 2, &out, 4);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 3);
+    try testing.expectEqual(out[2], 5);
+    try testing.expectEqual(out[3], 3);
+}
 
 test "convolve_f64 basic" {
     const testing = @import("std").testing;

@@ -26,6 +26,14 @@ if (WASM_RELAXED === '0' || WASM_RELAXED === 'false') {
   wasmConfig.useRelaxedSimd = true;
 }
 
+// FORCE_BACKEND=js → all JS (no WASM); FORCE_BACKEND=wasm → force WASM for all sizes
+const FORCE_BACKEND = process.env['FORCE_BACKEND'];
+if (FORCE_BACKEND === 'js') {
+  wasmConfig.thresholdMultiplier = Infinity;
+} else if (FORCE_BACKEND === 'wasm') {
+  wasmConfig.thresholdMultiplier = 0;
+}
+
 console.error(
   `Relaxed SIMD: supported=${supportsRelaxedSimd()}, config=${wasmConfig.useRelaxedSimd}, using=${useRelaxedKernels()}`
 );
@@ -58,7 +66,10 @@ function releaseResult(result: unknown): void {
     for (const val of result.values()) releaseResult(val);
   } else if (Array.isArray(result)) {
     for (const item of result) (item as any)?.dispose?.();
-  } else if (typeof result === 'object' && !(ArrayBuffer.isView(result) || result instanceof ArrayBuffer)) {
+  } else if (
+    typeof result === 'object' &&
+    !(ArrayBuffer.isView(result) || result instanceof ArrayBuffer)
+  ) {
     for (const val of Object.values(result as Record<string, unknown>)) {
       releaseResult(val);
     }
@@ -211,7 +222,10 @@ async function main() {
       const result = runBenchmark(spec);
       results.push(result);
 
-      const wasmKey = spec.name.replace(/\s*\[.*?\]/g, '').replace(/\(.*?\)/g, '()').trim();
+      const wasmKey = spec.name
+        .replace(/\s*\[.*?\]/g, '')
+        .replace(/\(.*?\)/g, '()')
+        .trim();
       let wasmWarn = '';
       if (hasExpectedWasm) {
         if (!(wasmKey in expectedWasm)) {

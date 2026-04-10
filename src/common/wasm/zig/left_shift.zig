@@ -134,3 +134,46 @@ test "left_shift_scalar_i8 SIMD boundary N=17" {
         try testing.expectEqual(out[idx], v << 1);
     }
 }
+
+test "left_shift_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{1};
+    const b = [_]i64{3};
+    var out: [1]i64 = undefined;
+    left_shift_i64(&a, &b, &out, 1);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "left_shift_scalar_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{1};
+    var out: [1]i64 = undefined;
+    left_shift_scalar_i64(&a, &out, 1, 3);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "left_shift_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{1};
+    const b = [_]i16{3};
+    var out: [1]i16 = undefined;
+    left_shift_i16(&a, &b, &out, 1);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "left_shift_scalar_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{1};
+    var out: [1]i16 = undefined;
+    left_shift_scalar_i16(&a, &out, 1, 3);
+    try testing.expectEqual(out[0], 8);
+}
+
+test "left_shift_i8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i8{1};
+    const b = [_]i8{2};
+    var out: [1]i8 = undefined;
+    left_shift_i8(&a, &b, &out, 1);
+    try testing.expectEqual(out[0], 4);
+}

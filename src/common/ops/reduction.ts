@@ -12,6 +12,7 @@ import {
   isComplexDType,
   isFloatDType,
   throwIfComplex,
+  reductionAccumDtype,
   type DType,
 } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
@@ -87,6 +88,7 @@ function roundToDtype(value: number, dtype: DType): number {
 /** For sum/prod: promote narrow ints to int64 (matches NumPy) */
 function intAccumulationDtype(dtype: DType): DType {
   switch (dtype) {
+    case 'bool':
     case 'int8':
     case 'int16':
     case 'int32':
@@ -103,6 +105,7 @@ function intAccumulationDtype(dtype: DType): DType {
 /** For mean/std/var: promote all ints to float64 (matches NumPy) */
 function floatAccumulationDtype(dtype: DType): DType {
   switch (dtype) {
+    case 'bool':
     case 'int8':
     case 'int16':
     case 'int32':
@@ -2079,12 +2082,32 @@ export function all(
   const inputStrides = storage.strides;
   const contiguous = storage.isCContiguous;
 
+  const isComplex = isComplexDType(storage.dtype);
+
   if (axis === undefined) {
     // WASM fast path for full-array all
     const wasmAll = wasmReduceAll(storage);
     if (wasmAll !== null) return wasmAll === 1;
 
     // Test all elements
+    if (isComplex) {
+      // Complex: element is truthy if re != 0 OR im != 0
+      if (contiguous) {
+        const complexData = data as Float64Array | Float32Array;
+        for (let i = 0; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (re === 0 && im === 0) return false;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          if (val.re === 0 && val.im === 0) return false;
+        }
+      }
+      return true;
+    }
+
     if (contiguous) {
       for (let i = 0; i < size; i++) {
         if (!data[off + i]) {
@@ -2136,17 +2159,35 @@ export function all(
     outerSize
   );
 
-  for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-    let allTrue = true;
-    let bufIdx = baseOffsets[outerIdx]!;
-    for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-      if (!data[bufIdx]) {
-        allTrue = false;
-        break;
+  if (isComplex) {
+    const complexData = data as Float64Array | Float32Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let allTrue = true;
+      let bufIdx = baseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
+        if (re === 0 && im === 0) {
+          allTrue = false;
+          break;
+        }
+        bufIdx += axisStr;
       }
-      bufIdx += axisStr;
+      resultData[outerIdx] = allTrue ? 1 : 0;
     }
-    resultData[outerIdx] = allTrue ? 1 : 0;
+  } else {
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let allTrue = true;
+      let bufIdx = baseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        if (!data[bufIdx]) {
+          allTrue = false;
+          break;
+        }
+        bufIdx += axisStr;
+      }
+      resultData[outerIdx] = allTrue ? 1 : 0;
+    }
   }
 
   // Handle keepdims
@@ -2175,12 +2216,32 @@ export function any(
   const inputStrides = storage.strides;
   const contiguous = storage.isCContiguous;
 
+  const isComplex = isComplexDType(storage.dtype);
+
   if (axis === undefined) {
     // WASM fast path for full-array any
     const wasmAny = wasmReduceAny(storage);
     if (wasmAny !== null) return wasmAny === 1;
 
     // Test all elements
+    if (isComplex) {
+      // Complex: element is truthy if re != 0 OR im != 0
+      if (contiguous) {
+        const complexData = data as Float64Array | Float32Array;
+        for (let i = 0; i < size; i++) {
+          const re = complexData[(off + i) * 2]!;
+          const im = complexData[(off + i) * 2 + 1]!;
+          if (re !== 0 || im !== 0) return true;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const val = storage.iget(i) as Complex;
+          if (val.re !== 0 || val.im !== 0) return true;
+        }
+      }
+      return false;
+    }
+
     if (contiguous) {
       for (let i = 0; i < size; i++) {
         if (data[off + i]) {
@@ -2232,17 +2293,35 @@ export function any(
     outerSize
   );
 
-  for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-    let anyTrue = false;
-    let bufIdx = baseOffsets[outerIdx]!;
-    for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
-      if (data[bufIdx]) {
-        anyTrue = true;
-        break;
+  if (isComplex) {
+    const complexData = data as Float64Array | Float32Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let anyTrue = false;
+      let bufIdx = baseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        const re = complexData[bufIdx * 2]!;
+        const im = complexData[bufIdx * 2 + 1]!;
+        if (re !== 0 || im !== 0) {
+          anyTrue = true;
+          break;
+        }
+        bufIdx += axisStr;
       }
-      bufIdx += axisStr;
+      resultData[outerIdx] = anyTrue ? 1 : 0;
     }
-    resultData[outerIdx] = anyTrue ? 1 : 0;
+  } else {
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let anyTrue = false;
+      let bufIdx = baseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        if (data[bufIdx]) {
+          anyTrue = true;
+          break;
+        }
+        bufIdx += axisStr;
+      }
+      resultData[outerIdx] = anyTrue ? 1 : 0;
+    }
   }
 
   // Handle keepdims
@@ -2373,7 +2452,44 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       }
       return result;
     }
-    const result = ArrayStorage.empty([size], 'float64');
+    const accumDtype = reductionAccumDtype(dtype);
+    if (isBigIntDType(dtype)) {
+      // Input is already BigInt (int64/uint64) — must use BigInt arithmetic
+      const result = ArrayStorage.empty([size], accumDtype);
+      const resultData = result.data as BigInt64Array | BigUint64Array;
+      let sum = 0n;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          sum += data[off + i] as bigint;
+          resultData[i] = sum;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          sum += storage.iget(i) as bigint;
+          resultData[i] = sum;
+        }
+      }
+      return result;
+    }
+    if (isBigIntDType(accumDtype)) {
+      // Non-bigint input promoted to int64/uint64 output — accumulate as Number (fast)
+      const result = ArrayStorage.empty([size], accumDtype);
+      const resultData = result.data as BigInt64Array | BigUint64Array;
+      let sum = 0;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          sum += data[off + i] as number;
+          resultData[i] = BigInt(sum);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          sum += Number(storage.iget(i));
+          resultData[i] = BigInt(sum);
+        }
+      }
+      return result;
+    }
+    const result = ArrayStorage.empty([size], accumDtype);
     const resultData = result.data as Float64Array;
     let sum = 0;
     if (contiguous) {
@@ -2399,9 +2515,9 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
   }
 
-  // Create result with same shape
+  // Create result with same shape, using NumPy accumulation dtype
   const axisAcc = getFloatAcc(dtype);
-  const outDtype2 = axisAcc ? dtype : 'float64';
+  const outDtype2 = axisAcc ? dtype : reductionAccumDtype(dtype);
   const result = ArrayStorage.empty([...shape], outDtype2);
   const resultData = result.data;
   const axisSize = shape[normalizedAxis]!;
@@ -2434,6 +2550,34 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       for (let k = 0; k < axisSize; k++) {
         axisAcc[0] += Number(data[inIdx]);
         resultData[outIdx] = axisAcc[0]!;
+        inIdx += inStride;
+        outIdx += outStride;
+      }
+    }
+  } else if (isBigIntDType(dtype)) {
+    // Input is already BigInt — use BigInt arithmetic
+    const bigResultData = resultData as unknown as BigInt64Array | BigUint64Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let inIdx = inBase[outerIdx]!;
+      let outIdx = outBase[outerIdx]!;
+      let sum = 0n;
+      for (let k = 0; k < axisSize; k++) {
+        sum += data[inIdx] as bigint;
+        bigResultData[outIdx] = sum;
+        inIdx += inStride;
+        outIdx += outStride;
+      }
+    }
+  } else if (isBigIntDType(outDtype2)) {
+    // Non-bigint input promoted to int64/uint64 output — accumulate as Number
+    const bigResultData = resultData as unknown as BigInt64Array | BigUint64Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let inIdx = inBase[outerIdx]!;
+      let outIdx = outBase[outerIdx]!;
+      let sum = 0;
+      for (let k = 0; k < axisSize; k++) {
+        sum += data[inIdx] as number;
+        bigResultData[outIdx] = BigInt(sum);
         inIdx += inStride;
         outIdx += outStride;
       }
@@ -2568,7 +2712,44 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   if (axis === undefined) {
     // Flatten and cumprod
     const size = storage.size;
-    const result = ArrayStorage.empty([size], 'float64');
+    const accumDtype = reductionAccumDtype(dtype);
+    if (isBigIntDType(dtype)) {
+      // Input is already BigInt (int64/uint64) — must use BigInt arithmetic
+      const result = ArrayStorage.empty([size], accumDtype);
+      const resultData = result.data as BigInt64Array | BigUint64Array;
+      let prod = 1n;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          prod *= data[off + i] as bigint;
+          resultData[i] = prod;
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          prod *= storage.iget(i) as bigint;
+          resultData[i] = prod;
+        }
+      }
+      return result;
+    }
+    if (isBigIntDType(accumDtype)) {
+      // Non-bigint input promoted to int64/uint64 output — accumulate as Number (fast)
+      const result = ArrayStorage.empty([size], accumDtype);
+      const resultData = result.data as BigInt64Array | BigUint64Array;
+      let prod = 1;
+      if (contiguous) {
+        for (let i = 0; i < size; i++) {
+          prod *= data[off + i] as number;
+          resultData[i] = BigInt(prod);
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          prod *= Number(storage.iget(i));
+          resultData[i] = BigInt(prod);
+        }
+      }
+      return result;
+    }
+    const result = ArrayStorage.empty([size], accumDtype);
     const resultData = result.data as Float64Array;
     let prod = 1;
     if (contiguous) {
@@ -2595,8 +2776,9 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   }
 
   // Create result with same shape
-  const result = ArrayStorage.empty([...shape], 'float64');
-  const resultData = result.data as Float64Array;
+  const cumprodAccumDtype = reductionAccumDtype(dtype);
+  const result = ArrayStorage.empty([...shape], cumprodAccumDtype);
+  const resultData = result.data;
   const axisSize = shape[normalizedAxis]!;
 
   // Precompute offsets for outer iteration
@@ -2619,15 +2801,45 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   );
 
   // Perform cumprod along axis
-  for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
-    let inIdx = inBase[outerIdx]!;
-    let outIdx = outBase[outerIdx]!;
-    let prod = 1;
-    for (let k = 0; k < axisSize; k++) {
-      prod *= Number(data[inIdx]);
-      resultData[outIdx] = prod;
-      inIdx += inStride;
-      outIdx += outStride;
+  if (isBigIntDType(dtype)) {
+    // Input is already BigInt — use BigInt arithmetic
+    const bigResultData = resultData as unknown as BigInt64Array | BigUint64Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let inIdx = inBase[outerIdx]!;
+      let outIdx = outBase[outerIdx]!;
+      let prod = 1n;
+      for (let k = 0; k < axisSize; k++) {
+        prod *= data[inIdx] as bigint;
+        bigResultData[outIdx] = prod;
+        inIdx += inStride;
+        outIdx += outStride;
+      }
+    }
+  } else if (isBigIntDType(cumprodAccumDtype)) {
+    // Non-bigint input promoted to int64/uint64 output — accumulate as Number
+    const bigResultData = resultData as unknown as BigInt64Array | BigUint64Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let inIdx = inBase[outerIdx]!;
+      let outIdx = outBase[outerIdx]!;
+      let prod = 1;
+      for (let k = 0; k < axisSize; k++) {
+        prod *= data[inIdx] as number;
+        bigResultData[outIdx] = BigInt(prod);
+        inIdx += inStride;
+        outIdx += outStride;
+      }
+    }
+  } else {
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      let inIdx = inBase[outerIdx]!;
+      let outIdx = outBase[outerIdx]!;
+      let prod = 1;
+      for (let k = 0; k < axisSize; k++) {
+        prod *= Number(data[inIdx]);
+        resultData[outIdx] = prod;
+        inIdx += inStride;
+        outIdx += outStride;
+      }
     }
   }
 
@@ -2643,6 +2855,13 @@ export function ptp(
   keepdims: boolean = false
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
+
+  // NumPy rejects bool ptp: subtract is not defined for booleans
+  if (dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
 
   // Complex ptp: max - min using lexicographic ordering
   if (isComplexDType(dtype)) {
@@ -2720,13 +2939,155 @@ export function ptp(
 }
 
 /**
+ * Complex median helper: sorts complex values lexicographically (real first,
+ * then imaginary), takes the middle element(s) and averages if even count.
+ * TODO: move this to WASM
+ */
+function _complexMedian(
+  storage: ArrayStorage,
+  axis: number | undefined,
+  keepdims: boolean,
+  dropNaN: boolean
+): ArrayStorage | number | Complex {
+  const dtype = storage.dtype;
+  const shape = storage.shape;
+  const ndim = shape.length;
+
+  // Scalar reduction (no axis or 1D)
+  if (axis === undefined || ndim === 1) {
+    // Collect all complex values
+    const size = storage.size;
+    const pairs: [number, number][] = [];
+    if (storage.isCContiguous) {
+      const srcData = storage.data as Float64Array | Float32Array;
+      const off = storage.offset;
+      for (let i = 0; i < size; i++) {
+        const re = srcData[(off + i) * 2]!;
+        const im = srcData[(off + i) * 2 + 1]!;
+        if (dropNaN && (isNaN(re) || isNaN(im))) continue;
+        pairs.push([re, im]);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const val = storage.iget(i) as Complex;
+        if (dropNaN && (isNaN(val.re) || isNaN(val.im))) continue;
+        pairs.push([val.re, val.im]);
+      }
+    }
+
+    // Sort lexicographically (real first, then imaginary)
+    pairs.sort((a, b) => (a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]));
+
+    const n = pairs.length;
+    if (n === 0) return new Complex(NaN, NaN);
+
+    const mid = Math.floor(n / 2);
+    if (n % 2 === 1) {
+      return new Complex(pairs[mid]![0], pairs[mid]![1]);
+    }
+    // Average of two middle elements
+    return new Complex(
+      (pairs[mid - 1]![0] + pairs[mid]![0]) / 2,
+      (pairs[mid - 1]![1] + pairs[mid]![1]) / 2
+    );
+  }
+
+  // Axis reduction
+  let normalizedAxis = axis;
+  if (normalizedAxis < 0) normalizedAxis += ndim;
+  if (normalizedAxis < 0 || normalizedAxis >= ndim) {
+    throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
+  }
+
+  const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
+  if (outputShape.length === 0) {
+    // 1D input reduced to scalar — recurse with axis=undefined to use the flat path
+    const scalar = _complexMedian(storage, undefined, false, dropNaN);
+    if (!keepdims) return scalar;
+    return wrapScalarKeepdims(scalar as number, ndim, dtype);
+  }
+
+  const outerSize = outputShape.reduce((a, b) => a * b, 1);
+  const axisSize = shape[normalizedAxis]!;
+  const result = ArrayStorage.empty(outputShape, dtype);
+  const resultData = result.data as Float64Array | Float32Array;
+
+  // For each output position, gather the axis slice, sort, and take median
+  const innerStride = Array.from(shape)
+    .slice(normalizedAxis + 1)
+    .reduce((a, b) => a * b, 1);
+  const outerStride = axisSize * innerStride;
+
+  for (let outer = 0; outer < outerSize; outer++) {
+    const outerIdx = Math.floor(outer / innerStride);
+    const innerIdx = outer % innerStride;
+    const baseOffset = outerIdx * outerStride + innerIdx;
+
+    const pairs: [number, number][] = [];
+    for (let k = 0; k < axisSize; k++) {
+      const flatIdx = baseOffset + k * innerStride;
+      const val = storage.iget(flatIdx) as Complex;
+      if (dropNaN && (isNaN(val.re) || isNaN(val.im))) continue;
+      pairs.push([val.re, val.im]);
+    }
+
+    pairs.sort((a, b) => (a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]));
+
+    const n = pairs.length;
+    const mid = Math.floor(n / 2);
+    if (n === 0) {
+      resultData[outer * 2] = NaN;
+      resultData[outer * 2 + 1] = NaN;
+    } else if (n % 2 === 1) {
+      resultData[outer * 2] = pairs[mid]![0];
+      resultData[outer * 2 + 1] = pairs[mid]![1];
+    } else {
+      resultData[outer * 2] = (pairs[mid - 1]![0] + pairs[mid]![0]) / 2;
+      resultData[outer * 2 + 1] = (pairs[mid - 1]![1] + pairs[mid]![1]) / 2;
+    }
+  }
+
+  if (keepdims) {
+    const kdShape = Array.from(shape);
+    kdShape[normalizedAxis] = 1;
+    return ArrayStorage.fromData(result.data, kdShape, dtype);
+  }
+
+  return result;
+}
+
+/**
  * Compute the median along the specified axis
  */
 export function median(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
+): ArrayStorage | number | Complex {
+  // Bool median: promote to float64 first (NumPy median succeeds for bool,
+  // even though quantile rejects bool due to subtract)
+  if (storage.dtype === 'bool') {
+    const f64 = ArrayStorage.empty(Array.from(storage.shape), 'float64');
+    const srcData = storage.data;
+    const dstData = f64.data as Float64Array;
+    const off = storage.offset;
+    if (storage.isCContiguous) {
+      for (let i = 0; i < storage.size; i++) dstData[i] = Number(srcData[off + i]);
+    } else {
+      for (let i = 0; i < storage.size; i++) dstData[i] = Number(storage.iget(i));
+    }
+    try {
+      return quantile(f64, 0.5, axis, keepdims);
+    } finally {
+      f64.dispose();
+    }
+  }
+
+  // Complex median: sort lexicographically, take middle element(s)
+  if (isComplexDType(storage.dtype)) {
+    return _complexMedian(storage, axis, keepdims, false);
+  }
+
   return quantile(storage, 0.5, axis, keepdims);
 }
 
@@ -2752,6 +3113,12 @@ export function quantile(
   keepdims: boolean = false
 ): ArrayStorage | number {
   throwIfComplex(storage.dtype, 'quantile', 'Complex numbers are not orderable.');
+  // NumPy rejects bool quantile: linear interpolation requires subtract, unsupported for bool
+  if (storage.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
   if (q < 0 || q > 1) {
     throw new Error('Quantile must be between 0 and 1');
   }
@@ -4837,11 +5204,11 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     return result;
   }
 
-  // Non-complex path
+  // Non-complex path — preserve float dtype
   if (axis === undefined) {
     // Flatten and cumsum
     const size = storage.size;
-    const result = ArrayStorage.empty([size], 'float64');
+    const result = ArrayStorage.empty([size], dtype);
     const resultData = result.data as Float64Array;
     let sum = 0;
     const contiguous = storage.isCContiguous;
@@ -4874,8 +5241,8 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
   }
 
-  // Create result with same shape
-  const result = ArrayStorage.empty([...shape], 'float64');
+  // Create result with same shape — preserve float dtype
+  const result = ArrayStorage.empty([...shape], dtype);
   const resultData = result.data as Float64Array;
   const axisSize = shape[normalizedAxis]!;
 
@@ -5056,11 +5423,11 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     return result;
   }
 
-  // Non-complex path
+  // Non-complex path — preserve float dtype
   if (axis === undefined) {
     // Flatten and cumprod
     const size = storage.size;
-    const result = ArrayStorage.empty([size], 'float64');
+    const result = ArrayStorage.empty([size], dtype);
     const resultData = result.data as Float64Array;
     let prod = 1;
     const contiguous = storage.isCContiguous;
@@ -5093,8 +5460,8 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
   }
 
-  // Create result with same shape
-  const result = ArrayStorage.empty([...shape], 'float64');
+  // Create result with same shape — preserve float dtype
+  const result = ArrayStorage.empty([...shape], dtype);
   const resultData = result.data as Float64Array;
   const axisSize = shape[normalizedAxis]!;
 
@@ -5145,8 +5512,10 @@ export function nanmedian(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false
-): ArrayStorage | number {
-  throwIfComplex(storage.dtype, 'nanmedian', 'Complex numbers are not orderable.');
+): ArrayStorage | number | Complex {
+  if (isComplexDType(storage.dtype)) {
+    return _complexMedian(storage, axis, keepdims, true);
+  }
 
   // Integer types can't have NaN — delegate to regular median (which has WASM)
   if (!isFloatDType(storage.dtype)) {
@@ -5267,6 +5636,11 @@ export function nanquantile(
   keepdims: boolean = false
 ): ArrayStorage | number {
   throwIfComplex(storage.dtype, 'nanquantile', 'Complex numbers are not orderable.');
+  if (storage.dtype === 'bool') {
+    throw new TypeError(
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+    );
+  }
 
   // Integer types can't have NaN — delegate to regular quantile (which has WASM)
   if (!isFloatDType(storage.dtype)) {

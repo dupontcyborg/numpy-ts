@@ -119,7 +119,9 @@ export function getCategorySummaries(
 
   for (const [category, items] of groups) {
     const ratios = items.map((item) => item.ratio);
-    const geo_mean = Math.exp(ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length);
+    const geo_mean = Math.exp(
+      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+    );
 
     summaries.set(category, {
       geo_mean,
@@ -145,10 +147,7 @@ export function getDtypeSummaries(
     groups.set(dtype, existing);
   }
 
-  const summaries = new Map<
-    string,
-    { geo_mean: number; median_slowdown: number; count: number }
-  >();
+  const summaries = new Map<string, { geo_mean: number; median_slowdown: number; count: number }>();
   // Order dtypes consistently
   const dtypeOrder = [
     'float64',
@@ -170,7 +169,9 @@ export function getDtypeSummaries(
   for (const dtype of dtypeOrder) {
     const ratios = groups.get(dtype);
     if (!ratios) continue;
-    const geo = Math.exp(ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length);
+    const geo = Math.exp(
+      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+    );
     const sorted = [...ratios].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
@@ -334,7 +335,9 @@ export function calculateMultiRuntimeSummaries(
 
     if (ratios.length === 0) continue;
 
-    const geo_mean = Math.exp(ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length);
+    const geo_mean = Math.exp(
+      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+    );
     const sorted = [...ratios].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median_slowdown =

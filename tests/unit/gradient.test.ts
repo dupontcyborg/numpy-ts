@@ -330,13 +330,13 @@ describe('Gradient Operations', () => {
       const data = new BigInt64Array([1n, 4n, 9n, 16n]);
       const storage = ArrayStorage.fromData(data, [4], 'int64');
       const result = diffStorage(storage, 1, -1);
-      // Differences: 3, 5, 7 (converted to float64)
-      expect(result.dtype).toBe('float64');
+      // Differences: 3, 5, 7 (preserved as int64)
+      expect(result.dtype).toBe('int64');
       expect(result.shape).toEqual([3]);
-      const rd = result.data as Float64Array;
-      expect(rd[0]).toBeCloseTo(3);
-      expect(rd[1]).toBeCloseTo(5);
-      expect(rd[2]).toBeCloseTo(7);
+      const rd = result.data as BigInt64Array;
+      expect(rd[0]).toBe(3n);
+      expect(rd[1]).toBe(5n);
+      expect(rd[2]).toBe(7n);
     });
 
     it('computes diff on 2D complex128 along axis 0', () => {
@@ -406,11 +406,11 @@ describe('Gradient Operations', () => {
       const data = new BigInt64Array([10n, 13n, 19n]);
       const storage = ArrayStorage.fromData(data, [3], 'int64');
       const result = ediff1dStorage(storage);
-      expect(result.dtype).toBe('float64');
+      expect(result.dtype).toBe('int64');
       expect(result.shape).toEqual([2]);
-      const rd = result.data as Float64Array;
-      expect(rd[0]).toBeCloseTo(3);
-      expect(rd[1]).toBeCloseTo(6);
+      const rd = result.data as BigInt64Array;
+      expect(rd[0]).toBe(3n);
+      expect(rd[1]).toBe(6n);
     });
   });
 

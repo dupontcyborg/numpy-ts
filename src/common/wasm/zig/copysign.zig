@@ -107,42 +107,42 @@ export fn copysign_u32(x1: [*]const u32, x2: [*]const u32, out: [*]f64, N: u32) 
     }
 }
 
-/// Element-wise copysign for i16, output is f64.
-export fn copysign_i16(x1: [*]const i16, x2: [*]const i16, out: [*]f64, N: u32) void {
+/// Element-wise copysign for i16 → f32 output (matches NumPy: int16→float32).
+export fn copysign_i16(x1: [*]const i16, x2: [*]const i16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
-        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
+        const mag: f32 = @abs(@as(f32, @floatFromInt(x1[i])));
+        const sign: f32 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
         out[i] = sign * mag;
     }
 }
 
-/// Element-wise copysign for u16, output is f64.
-export fn copysign_u16(x1: [*]const u16, x2: [*]const u16, out: [*]f64, N: u32) void {
+/// Element-wise copysign for u16 → f32 output (matches NumPy: uint16→float32).
+export fn copysign_u16(x1: [*]const u16, x2: [*]const u16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
-        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        const mag: f32 = @as(f32, @floatFromInt(x1[i]));
+        const sign: f32 = if (x2[i] > 0) 1.0 else 0.0;
         out[i] = sign * mag;
     }
 }
 
-/// Element-wise copysign for i8, output is f64.
-export fn copysign_i8(x1: [*]const i8, x2: [*]const i8, out: [*]f64, N: u32) void {
+/// Element-wise copysign for i8 → f32 output (TS downcasts to f16; matches NumPy: int8→float16).
+export fn copysign_i8(x1: [*]const i8, x2: [*]const i8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        const mag: f64 = @abs(@as(f64, @floatFromInt(x1[i])));
-        const sign: f64 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
+        const mag: f32 = @abs(@as(f32, @floatFromInt(x1[i])));
+        const sign: f32 = if (x2[i] > 0) 1.0 else if (x2[i] < 0) -1.0 else 0.0;
         out[i] = sign * mag;
     }
 }
 
-/// Element-wise copysign for u8, output is f64.
-export fn copysign_u8(x1: [*]const u8, x2: [*]const u8, out: [*]f64, N: u32) void {
+/// Element-wise copysign for u8 → f32 output (TS downcasts to f16; matches NumPy: uint8→float16).
+export fn copysign_u8(x1: [*]const u8, x2: [*]const u8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        const mag: f64 = @as(f64, @floatFromInt(x1[i]));
-        const sign: f64 = if (x2[i] > 0) 1.0 else 0.0;
+        const mag: f32 = @as(f32, @floatFromInt(x1[i]));
+        const sign: f32 = if (x2[i] > 0) 1.0 else 0.0;
         out[i] = sign * mag;
     }
 }
@@ -213,39 +213,39 @@ export fn copysign_scalar_u32(x1: [*]const u32, out: [*]f64, N: u32, scalar: f64
     }
 }
 
-/// Element-wise copysign for i16 scalar, output is f64.
-export fn copysign_scalar_i16(x1: [*]const i16, out: [*]f64, N: u32, scalar: i16) void {
-    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+/// Element-wise copysign for i16 scalar → f32 output.
+export fn copysign_scalar_i16(x1: [*]const i16, out: [*]f32, N: u32, scalar: i16) void {
+    const sign: f32 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
+        out[i] = sign * @abs(@as(f32, @floatFromInt(x1[i])));
     }
 }
 
-/// Element-wise copysign for u16 scalar, output is f64.
-export fn copysign_scalar_u16(x1: [*]const u16, out: [*]f64, N: u32, scalar: f64) void {
-    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+/// Element-wise copysign for u16 scalar → f32 output.
+export fn copysign_scalar_u16(x1: [*]const u16, out: [*]f32, N: u32, scalar: f32) void {
+    const sign: f32 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = sign * @as(f64, @floatFromInt(x1[i]));
+        out[i] = sign * @as(f32, @floatFromInt(x1[i]));
     }
 }
 
-/// Element-wise copysign for i8 scalar, output is f64.
-export fn copysign_scalar_i8(x1: [*]const i8, out: [*]f64, N: u32, scalar: i8) void {
-    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+/// Element-wise copysign for i8 scalar → f32 output (TS downcasts to f16).
+export fn copysign_scalar_i8(x1: [*]const i8, out: [*]f32, N: u32, scalar: i8) void {
+    const sign: f32 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = sign * @abs(@as(f64, @floatFromInt(x1[i])));
+        out[i] = sign * @abs(@as(f32, @floatFromInt(x1[i])));
     }
 }
 
-/// Element-wise copysign for u8 scalar, output is f64.
-export fn copysign_scalar_u8(x1: [*]const u8, out: [*]f64, N: u32, scalar: f64) void {
-    const sign: f64 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
+/// Element-wise copysign for u8 scalar → f32 output (TS downcasts to f16).
+export fn copysign_scalar_u8(x1: [*]const u8, out: [*]f32, N: u32, scalar: f32) void {
+    const sign: f32 = if (scalar > 0) 1.0 else if (scalar < 0) -1.0 else 0.0;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        out[i] = sign * @as(f64, @floatFromInt(x1[i]));
+        out[i] = sign * @as(f32, @floatFromInt(x1[i]));
     }
 }
 
@@ -287,12 +287,12 @@ test "copysign_i32 basic" {
 test "copysign_scalar_i8 basic" {
     const testing = @import("std").testing;
     const x1 = [_]i8{ 5, -3, 0, 7 };
-    var out: [4]f64 = undefined;
+    var out: [4]f32 = undefined;
     copysign_scalar_i8(&x1, &out, 4, -1);
-    try testing.expectApproxEqAbs(out[0], -5.0, 1e-10);
-    try testing.expectApproxEqAbs(out[1], -3.0, 1e-10);
-    try testing.expectApproxEqAbs(out[2], 0.0, 1e-10);
-    try testing.expectApproxEqAbs(out[3], -7.0, 1e-10);
+    try testing.expectApproxEqAbs(out[0], -5.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], -3.0, 1e-5);
+    try testing.expectApproxEqAbs(out[2], 0.0, 1e-5);
+    try testing.expectApproxEqAbs(out[3], -7.0, 1e-5);
 }
 
 test "copysign_f64 SIMD boundary N=3" {
@@ -343,11 +343,11 @@ test "copysign_i16 basic" {
     const testing = @import("std").testing;
     const x1 = [_]i16{ 100, -200, 300 };
     const x2 = [_]i16{ -1, -1, 1 };
-    var out: [3]f64 = undefined;
+    var out: [3]f32 = undefined;
     copysign_i16(&x1, &x2, &out, 3);
-    try testing.expectApproxEqAbs(out[0], -100.0, 1e-10);
-    try testing.expectApproxEqAbs(out[1], -200.0, 1e-10);
-    try testing.expectApproxEqAbs(out[2], 300.0, 1e-10);
+    try testing.expectApproxEqAbs(out[0], -100.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], -200.0, 1e-5);
+    try testing.expectApproxEqAbs(out[2], 300.0, 1e-5);
 }
 
 test "copysign_f64 SIMD boundary N=3 remainder" {
@@ -434,24 +434,24 @@ test "copysign_i16 sign combinations" {
     const testing = @import("std").testing;
     const x1 = [_]i16{ 50, -60, 70, -80 };
     const x2 = [_]i16{ 1, -1, -1, 1 };
-    var out: [4]f64 = undefined;
+    var out: [4]f32 = undefined;
     copysign_i16(&x1, &x2, &out, 4);
-    try testing.expectApproxEqAbs(out[0], 50.0, 1e-10);
-    try testing.expectApproxEqAbs(out[1], -60.0, 1e-10);
-    try testing.expectApproxEqAbs(out[2], -70.0, 1e-10);
-    try testing.expectApproxEqAbs(out[3], 80.0, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 50.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], -60.0, 1e-5);
+    try testing.expectApproxEqAbs(out[2], -70.0, 1e-5);
+    try testing.expectApproxEqAbs(out[3], 80.0, 1e-5);
 }
 
 test "copysign_i8 sign combinations" {
     const testing = @import("std").testing;
     const x1 = [_]i8{ 5, -3, 7, -1 };
     const x2 = [_]i8{ -1, 1, -1, 1 };
-    var out: [4]f64 = undefined;
+    var out: [4]f32 = undefined;
     copysign_i8(&x1, &x2, &out, 4);
-    try testing.expectApproxEqAbs(out[0], -5.0, 1e-10);
-    try testing.expectApproxEqAbs(out[1], 3.0, 1e-10);
-    try testing.expectApproxEqAbs(out[2], -7.0, 1e-10);
-    try testing.expectApproxEqAbs(out[3], 1.0, 1e-10);
+    try testing.expectApproxEqAbs(out[0], -5.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], 3.0, 1e-5);
+    try testing.expectApproxEqAbs(out[2], -7.0, 1e-5);
+    try testing.expectApproxEqAbs(out[3], 1.0, 1e-5);
 }
 
 test "copysign_scalar_f64 with negative zero" {
@@ -492,11 +492,11 @@ test "copysign_scalar_i64 negative scalar" {
 test "copysign_scalar_i16 positive scalar" {
     const testing = @import("std").testing;
     const x1 = [_]i16{ -100, 200, -300 };
-    var out: [3]f64 = undefined;
+    var out: [3]f32 = undefined;
     copysign_scalar_i16(&x1, &out, 3, 1);
-    try testing.expectApproxEqAbs(out[0], 100.0, 1e-10);
-    try testing.expectApproxEqAbs(out[1], 200.0, 1e-10);
-    try testing.expectApproxEqAbs(out[2], 300.0, 1e-10);
+    try testing.expectApproxEqAbs(out[0], 100.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], 200.0, 1e-5);
+    try testing.expectApproxEqAbs(out[2], 300.0, 1e-5);
 }
 
 test "copysign_f16 basic" {
@@ -524,4 +524,73 @@ test "copysign_scalar_f16 basic" {
     copysign_scalar_f16(&a, &out, 2, 0);
     try testing.expectEqual(out[0], 0x4000); // 2.0
     try testing.expectEqual(out[1], 0x3C00); // 1.0
+}
+
+test "copysign_u64 basic" {
+    const testing = @import("std").testing;
+    // u64 values: mag=5, sign source 0 means sign=0
+    const x1 = [_]u64{5};
+    const x2 = [_]u64{3};
+    var out: [1]f64 = undefined;
+    copysign_u64(&x1, &x2, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
+}
+
+test "copysign_u32 basic" {
+    const testing = @import("std").testing;
+    const x1 = [_]u32{5};
+    const x2 = [_]u32{3};
+    var out: [1]f64 = undefined;
+    copysign_u32(&x1, &x2, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
+}
+
+test "copysign_u16 basic" {
+    const testing = @import("std").testing;
+    const x1 = [_]u16{5};
+    const x2 = [_]u16{3};
+    var out: [1]f32 = undefined;
+    copysign_u16(&x1, &x2, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
+}
+
+test "copysign_u8 basic" {
+    const testing = @import("std").testing;
+    const x1 = [_]u8{5};
+    const x2 = [_]u8{3};
+    var out: [1]f32 = undefined;
+    copysign_u8(&x1, &x2, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
+}
+
+test "copysign_scalar_u64 positive scalar" {
+    const testing = @import("std").testing;
+    const x1 = [_]u64{5};
+    var out: [1]f64 = undefined;
+    copysign_scalar_u64(&x1, &out, 1, 1.0);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
+}
+
+test "copysign_scalar_u32 positive scalar" {
+    const testing = @import("std").testing;
+    const x1 = [_]u32{5};
+    var out: [1]f64 = undefined;
+    copysign_scalar_u32(&x1, &out, 1, 1.0);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
+}
+
+test "copysign_scalar_u16 positive scalar" {
+    const testing = @import("std").testing;
+    const x1 = [_]u16{5};
+    var out: [1]f32 = undefined;
+    copysign_scalar_u16(&x1, &out, 1, 1.0);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
+}
+
+test "copysign_scalar_u8 positive scalar" {
+    const testing = @import("std").testing;
+    const x1 = [_]u8{5};
+    var out: [1]f32 = undefined;
+    copysign_scalar_u8(&x1, &out, 1, 1.0);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
 }

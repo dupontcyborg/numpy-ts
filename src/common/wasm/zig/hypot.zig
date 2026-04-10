@@ -84,45 +84,45 @@ export fn hypot_scalar_i32(a: [*]const i32, out: [*]f64, N: u32, scalar: i32) vo
     }
 }
 
-/// Element-wise hypotenuse for i16 → f64 output.
-export fn hypot_i16(a: [*]const i16, b: [*]const i16, out: [*]f64, N: u32) void {
+/// Element-wise hypotenuse for i16 → f32 output.
+export fn hypot_i16(a: [*]const i16, b: [*]const i16, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const bf = @as(f64, @floatFromInt(b[i]));
-        out[i] = @sqrt(af * af + bf * bf);
+        out[i] = @floatCast(@sqrt(af * af + bf * bf));
     }
 }
 
-/// Element-wise hypotenuse scalar for i16 → f64 output.
-export fn hypot_scalar_i16(a: [*]const i16, out: [*]f64, N: u32, scalar: i16) void {
+/// Element-wise hypotenuse scalar for i16 → f32 output.
+export fn hypot_scalar_i16(a: [*]const i16, out: [*]f32, N: u32, scalar: i16) void {
     const sf = @as(f64, @floatFromInt(scalar));
     const s2 = sf * sf;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
-        out[i] = @sqrt(af * af + s2);
+        out[i] = @floatCast(@sqrt(af * af + s2));
     }
 }
 
-/// Element-wise hypotenuse for i8 → f64 output.
-export fn hypot_i8(a: [*]const i8, b: [*]const i8, out: [*]f64, N: u32) void {
+/// Element-wise hypotenuse for i8 → f32 output.
+export fn hypot_i8(a: [*]const i8, b: [*]const i8, out: [*]f32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
         const bf = @as(f64, @floatFromInt(b[i]));
-        out[i] = @sqrt(af * af + bf * bf);
+        out[i] = @floatCast(@sqrt(af * af + bf * bf));
     }
 }
 
-/// Element-wise hypotenuse scalar for i8 → f64 output.
-export fn hypot_scalar_i8(a: [*]const i8, out: [*]f64, N: u32, scalar: i8) void {
+/// Element-wise hypotenuse scalar for i8 → f32 output.
+export fn hypot_scalar_i8(a: [*]const i8, out: [*]f32, N: u32, scalar: i8) void {
     const sf = @as(f64, @floatFromInt(scalar));
     const s2 = sf * sf;
     var i: u32 = 0;
     while (i < N) : (i += 1) {
         const af = @as(f64, @floatFromInt(a[i]));
-        out[i] = @sqrt(af * af + s2);
+        out[i] = @floatCast(@sqrt(af * af + s2));
     }
 }
 
@@ -195,4 +195,55 @@ test "hypot_scalar_i64 basic" {
     hypot_scalar_i64(&a, &out, 2, 4);
     try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
     try testing.expectApproxEqAbs(out[1], 4.0, 1e-10);
+}
+
+test "hypot_i32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i32{3};
+    const b = [_]i32{4};
+    var out: [1]f64 = undefined;
+    hypot_i32(&a, &b, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
+}
+
+test "hypot_scalar_i32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i32{3};
+    var out: [1]f64 = undefined;
+    hypot_scalar_i32(&a, &out, 1, 4);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-10);
+}
+
+test "hypot_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{3};
+    const b = [_]i16{4};
+    var out: [1]f32 = undefined;
+    hypot_i16(&a, &b, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
+}
+
+test "hypot_scalar_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{3};
+    var out: [1]f32 = undefined;
+    hypot_scalar_i16(&a, &out, 1, 4);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
+}
+
+test "hypot_i8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i8{3};
+    const b = [_]i8{4};
+    var out: [1]f32 = undefined;
+    hypot_i8(&a, &b, &out, 1);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
+}
+
+test "hypot_scalar_i8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i8{3};
+    var out: [1]f32 = undefined;
+    hypot_scalar_i8(&a, &out, 1, 4);
+    try testing.expectApproxEqAbs(out[0], 5.0, 1e-5);
 }

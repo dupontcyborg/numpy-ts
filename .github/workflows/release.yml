@@ -46,7 +46,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Verify package.json version matches tag
         run: |
@@ -101,7 +101,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install numpy
-          npm ci
+          npm install
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -129,7 +129,7 @@ jobs:
           version: "0.15.2"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build all bundles
         run: npm run build
@@ -158,50 +158,10 @@ jobs:
           path: dist/
           retention-days: 90
 
-  # Run benchmarks for release
-  benchmark:
-    name: Release Benchmarks
-    needs: [validate, test]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install dependencies
-        run: |
-          pip install numpy
-          npm ci
-
-      - name: Run benchmarks
-        run: npm run bench:quick
-
-      - name: Rename benchmark results
-        run: |
-          mv benchmarks/results/latest.json benchmarks/results/benchmarks-v${{ needs.validate.outputs.version }}.json
-
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmarks-${{ needs.validate.outputs.version }}
-          path: |
-            benchmarks/results/benchmarks-v${{ needs.validate.outputs.version }}.json
-            benchmarks/results/plots/
-          retention-days: 90
-
   # Publish to npm (requires manual approval via 'release' environment)
   publish:
     name: Publish to npm
-    needs: [validate, test, build, benchmark]
+    needs: [validate, test, build]
     runs-on: ubuntu-latest
     environment:
       name: release
@@ -229,7 +189,7 @@ jobs:
         run: npm --version
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build
         run: npm run build
@@ -269,12 +229,6 @@ jobs:
           name: dist-${{ needs.validate.outputs.version }}
           path: dist/
 
-      - name: Download benchmark results
-        uses: actions/download-artifact@v4
-        with:
-          name: benchmarks-${{ needs.validate.outputs.version }}
-          path: benchmarks/
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -285,7 +239,6 @@ jobs:
             dist/*.js
             dist/*.cjs
             dist/*.map
-            benchmarks/results/benchmarks-v${{ needs.validate.outputs.version }}.json
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post release summary

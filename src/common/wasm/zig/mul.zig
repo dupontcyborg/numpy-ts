@@ -454,3 +454,37 @@ test "mul_i64 basic" {
     try testing.expectEqual(out[1], -12);
     try testing.expectEqual(out[2], -20);
 }
+
+test "mul_scalar_c64 basic" {
+    const testing = @import("std").testing;
+    // c64 stored as pairs of f32: [re0, im0]
+    const a = [_]f32{ 3.0, 0.0 };
+    var out: [2]f32 = undefined;
+    mul_scalar_c64(&a, &out, 1, 2.0);
+    try testing.expectApproxEqAbs(out[0], 6.0, 1e-6);
+    try testing.expectApproxEqAbs(out[1], 0.0, 1e-6);
+}
+
+test "mul_scalar_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{3};
+    var out: [1]i64 = undefined;
+    mul_scalar_i64(&a, &out, 1, 2);
+    try testing.expectEqual(out[0], 6);
+}
+
+test "mul_scalar_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{3};
+    var out: [1]i16 = undefined;
+    mul_scalar_i16(&a, &out, 1, 2);
+    try testing.expectEqual(out[0], 6);
+}
+
+test "mul_scalar_i8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i8{3};
+    var out: [1]i8 = undefined;
+    mul_scalar_i8(&a, &out, 1, 2);
+    try testing.expectEqual(out[0], 6);
+}

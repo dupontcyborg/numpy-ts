@@ -3,7 +3,7 @@
 import { getSharedMemory, setHeapBase } from '../runtime';
 
 const B64 =
-  'AGFzbQEAAAABDAJgA39/fwBgAXwBfAIPAQNlbnYGbWVtb3J5AgAUAwYFAAEAAAAGCQF/AUGAgNAACwc1BAphcmNjb3NfZjY0AAAKYXJjY29zX2YzMgACCmFyY2Nvc19pNjQAAwphcmNjb3NfdTY0AAQK8QcFNAACQCACRQ0AA0AgASAAKwMAEIGAgIAAOQMAIAFBCGohASAAQQhqIQAgAkF/aiICDQALCwuWBgUBfgF/AXwBewF8AkAgAL0iAUIgiKdB/////wdxIgJBgIDA/wNJDQACQCACQYCAwIB8aiABp3JFDQBEAAAAAAAA+H8PC0QAAAAAAAAAAEQYLURU+yEJQCABQn9VGw8LAkAgAkGAgID/A0kNAAJAIAFCf1UNAEQYLURU+yH5PyAARAAAAAAAAPA/oEQAAAAAAADgP6IiAJ8iAyADIAAgAP0UIgQgBCAEIAT9DAAAAAAAAAAAgpIuscW4sz8gAEQJ9/0N4T0CP6JEiLIBdeDvST+g/SIA/fIB/Qw7j2i1KIKkv1kBjRtsBua//fAB/fIB/QxVRIgOVcHJP8iKWZzlKgBA/fAB/fIB/Qx9b+sDEtbUv0stihwnOgPA/fAB/fIB/QxVVVVVVVXFPwAAAAAAAPA//fABIgT9IQCiIAT9IQGjokQHXBQzJqaRvKCgoSIAIACgDwtEAAAAAAAA8D8gAKFEAAAAAAAA4D+iIgAgAJ8iBb1CgICAgHCDvyIDIAOioSAFIAOgoyAFIAAgAP0UIgQgBCAEIAT9DAAAAAAAAAAAgpIuscW4sz8gAEQJ9/0N4T0CP6JEiLIBdeDvST+g/SIA/fIB/Qw7j2i1KIKkv1kBjRtsBua//fAB/fIB/QxVRIgOVcHJP8iKWZzlKgBA/fAB/fIB/Qx9b+sDEtbUv0stihwnOgPA/fAB/fIB/QxVVVVVVVXFPwAAAAAAAPA//fABIgT9IQCiIAT9IQGjoqAgA6AiACAAoA8LAkAgAkGBgIDjA08NAEQYLURU+yH5Pw8LRAdcFDMmppE8IAAgACAAoiIDIAP9FCIEIAQgBCAE/QwAAAAAAAAAAIKSLrHFuLM/IANECff9DeE9Aj+iRIiyAXXg70k/oP0iAP3yAf0MO49otSiCpL9ZAY0bbAbmv/3wAf3yAf0MVUSIDlXByT/Iilmc5SoAQP3wAf3yAf0MfW/rAxLW1L9LLYocJzoDwP3wAf3yAf0MVVVVVVVVxT8AAAAAAADwP/3wASIE/SEAoiAE/SEBo6KhIAChRBgtRFT7Ifk/oAs2AAJAIAJFDQADQCABIAAqAgC7EIGAgIAAtjgCACABQQRqIQEgAEEEaiEAIAJBf2oiAg0ACwsLNQACQCACRQ0AA0AgASAAKQMAuRCBgICAADkDACABQQhqIQEgAEEIaiEAIAJBf2oiAg0ACwsLNQACQCACRQ0AA0AgASAAKQMAuhCBgICAADkDACABQQhqIQEgAEEIaiEAIAJBf2oiAg0ACwsL';
+  'AGFzbQEAAAABDAJgA39/fwBgAXwBfAIPAQNlbnYGbWVtb3J5AgAUAwwLAAEAAAAAAAAAAAAGCQF/AUGAgNAACwehAQoKYXJjY29zX2Y2NAAACmFyY2Nvc19mMzIAAg5hcmNjb3NfaTY0X2Y2NAADDmFyY2Nvc191NjRfZjY0AAQOYXJjY29zX2kzMl9mNjQABQ5hcmNjb3NfdTMyX2Y2NAAGDmFyY2Nvc19pMTZfZjMyAAcOYXJjY29zX3UxNl9mMzIACA1hcmNjb3NfaThfZjMyAAkNYXJjY29zX3U4X2YzMgAKCrkKCzQAAkAgAkUNAANAIAEgACsDABCBgICAADkDACABQQhqIQEgAEEIaiEAIAJBf2oiAg0ACwsLlgYFAX4BfwF8AXsBfAJAIAC9IgFCIIinQf////8HcSICQYCAwP8DSQ0AAkAgAkGAgMCAfGogAadyRQ0ARAAAAAAAAPh/DwtEAAAAAAAAAABEGC1EVPshCUAgAUJ/VRsPCwJAIAJBgICA/wNJDQACQCABQn9VDQBEGC1EVPsh+T8gAEQAAAAAAADwP6BEAAAAAAAA4D+iIgCfIgMgAyAAIAD9FCIEIAQgBCAE/QwAAAAAAAAAAIKSLrHFuLM/IABECff9DeE9Aj+iRIiyAXXg70k/oP0iAP3yAf0MO49otSiCpL9ZAY0bbAbmv/3wAf3yAf0MVUSIDlXByT/Iilmc5SoAQP3wAf3yAf0MfW/rAxLW1L9LLYocJzoDwP3wAf3yAf0MVVVVVVVVxT8AAAAAAADwP/3wASIE/SEAoiAE/SEBo6JEB1wUMyamkbygoKEiACAAoA8LRAAAAAAAAPA/IAChRAAAAAAAAOA/oiIAIACfIgW9QoCAgIBwg78iAyADoqEgBSADoKMgBSAAIAD9FCIEIAQgBCAE/QwAAAAAAAAAAIKSLrHFuLM/IABECff9DeE9Aj+iRIiyAXXg70k/oP0iAP3yAf0MO49otSiCpL9ZAY0bbAbmv/3wAf3yAf0MVUSIDlXByT/Iilmc5SoAQP3wAf3yAf0MfW/rAxLW1L9LLYocJzoDwP3wAf3yAf0MVVVVVVVVxT8AAAAAAADwP/3wASIE/SEAoiAE/SEBo6KgIAOgIgAgAKAPCwJAIAJBgYCA4wNPDQBEGC1EVPsh+T8PC0QHXBQzJqaRPCAAIAAgAKIiAyAD/RQiBCAEIAQgBP0MAAAAAAAAAACCki6xxbizPyADRAn3/Q3hPQI/okSIsgF14O9JP6D9IgD98gH9DDuPaLUogqS/WQGNG2wG5r/98AH98gH9DFVEiA5Vwck/yIpZnOUqAED98AH98gH9DH1v6wMS1tS/Sy2KHCc6A8D98AH98gH9DFVVVVVVVcU/AAAAAAAA8D/98AEiBP0hAKIgBP0hAaOioSAAoUQYLURU+yH5P6ALNgACQCACRQ0AA0AgASAAKgIAuxCBgICAALY4AgAgAUEEaiEBIABBBGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACkDALkQgYCAgAA5AwAgAUEIaiEBIABBCGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACkDALoQgYCAgAA5AwAgAUEIaiEBIABBCGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACgCALcQgYCAgAA5AwAgAUEIaiEBIABBBGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACgCALgQgYCAgAA5AwAgAUEIaiEBIABBBGohACACQX9qIgINAAsLCzYAAkAgAkUNAANAIAEgAC4BALcQgYCAgAC2OAIAIAFBBGohASAAQQJqIQAgAkF/aiICDQALCws2AAJAIAJFDQADQCABIAAvAQC4EIGAgIAAtjgCACABQQRqIQEgAEECaiEAIAJBf2oiAg0ACwsLNgACQCACRQ0AA0AgASAALAAAtxCBgICAALY4AgAgAUEEaiEBIABBAWohACACQX9qIgINAAsLCzYAAkAgAkUNAANAIAEgAC0AALgQgYCAgAC2OAIAIAFBBGohASAAQQFqIQAgAkF/aiICDQALCws=';
 
 let inst: WebAssembly.Instance | null = null;
 
@@ -33,12 +33,42 @@ export function arccos_f32(a: number, out: number, N: number): void {
   (i.exports['arccos_f32'] as (...args: number[]) => void)(a, out, N);
 }
 
-export function arccos_i64(a: number, out: number, N: number): void {
+export function arccos_i64_f64(a: number, out: number, N: number): void {
   const i = init();
-  (i.exports['arccos_i64'] as (...args: number[]) => void)(a, out, N);
+  (i.exports['arccos_i64_f64'] as (...args: number[]) => void)(a, out, N);
 }
 
-export function arccos_u64(a: number, out: number, N: number): void {
+export function arccos_u64_f64(a: number, out: number, N: number): void {
   const i = init();
-  (i.exports['arccos_u64'] as (...args: number[]) => void)(a, out, N);
+  (i.exports['arccos_u64_f64'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arccos_i32_f64(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arccos_i32_f64'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arccos_u32_f64(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arccos_u32_f64'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arccos_i16_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arccos_i16_f32'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arccos_u16_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arccos_u16_f32'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arccos_i8_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arccos_i8_f32'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arccos_u8_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arccos_u8_f32'] as (...args: number[]) => void)(a, out, N);
 }

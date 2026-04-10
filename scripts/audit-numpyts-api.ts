@@ -37,9 +37,7 @@ function getNumpyTsTopLevelFunctions(): Record<string, any> {
       };
     } else if (typeof obj === 'object' && obj !== null) {
       // Check if it's a namespace (like linalg, random)
-      const subFuncs = Object.keys(obj).filter(
-        (k) => typeof obj[k] === 'function'
-      );
+      const subFuncs = Object.keys(obj).filter((k) => typeof obj[k] === 'function');
       if (subFuncs.length > 0) {
         functions[name] = {
           type: 'namespace',
@@ -54,8 +52,14 @@ function getNumpyTsTopLevelFunctions(): Record<string, any> {
   // These include binary I/O (load, save, savez, savez_compressed)
   // and text I/O (loadtxt, savetxt, genfromtxt, fromregex)
   const nodeOnlyFunctions = [
-    'load', 'save', 'savez', 'savez_compressed',
-    'loadtxt', 'savetxt', 'genfromtxt', 'fromregex'
+    'load',
+    'save',
+    'savez',
+    'savez_compressed',
+    'loadtxt',
+    'savetxt',
+    'genfromtxt',
+    'fromregex',
   ];
   for (const name of nodeOnlyFunctions) {
     if (name in npNode && typeof (npNode as any)[name] === 'function') {
@@ -132,9 +136,7 @@ function flattenNamespaces(functions: Record<string, any>): Record<string, any> 
   return flattened;
 }
 
-function categorizeByType(
-  functions: Record<string, any>
-): Record<string, string[]> {
+function categorizeByType(functions: Record<string, any>): Record<string, string[]> {
   const categories: Record<string, string[]> = {
     'Top-level Functions': [],
     'Linear Algebra (linalg)': [],
@@ -192,9 +194,7 @@ function main() {
       total_exports: topLevelCount,
       total_functions: flattenedCount,
       total_ndarray_methods: methodsCount,
-      by_category: Object.fromEntries(
-        Object.entries(categorized).map(([k, v]) => [k, v.length])
-      ),
+      by_category: Object.fromEntries(Object.entries(categorized).map(([k, v]) => [k, v.length])),
     },
   };
 

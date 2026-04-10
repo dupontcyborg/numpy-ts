@@ -22,9 +22,10 @@ import {
   resetScratchAllocator,
   resolveInputPtr,
   f16InputToScratchF32,
+  f32OutputToF16Region,
 } from './runtime';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -123,6 +124,23 @@ export function wasmGradient1D(a: ArrayStorage, spacing: number): ArrayStorage |
   if (dtype === 'float16') {
     const aPtr = f16InputToScratchF32(a, size);
     kernel(aPtr, outRegion.ptr, size, spacing);
+    // Downcast f32 result to f16 if native Float16Array available
+    if (hasFloat16) {
+      const f16Region = f32OutputToF16Region(outRegion, size);
+      outRegion.release();
+      if (!f16Region) return null;
+      return ArrayStorage.fromWasmRegion(
+        [size],
+        'float16',
+        f16Region,
+        size,
+        Float16Array as unknown as new (
+          buffer: ArrayBuffer,
+          byteOffset: number,
+          length: number
+        ) => TypedArray
+      );
+    }
   } else {
     const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, aOff, size, inBpe);
     kernel(aPtr, outRegion.ptr, size, spacing);

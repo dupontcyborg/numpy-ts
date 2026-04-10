@@ -320,13 +320,15 @@ async function main() {
   // Kernels that get a second compilation with +relaxed_simd (FMA: relaxed_madd).
   // Only _float kernels benefit — integer kernels have no FMA equivalent.
   const RELAXED_KERNELS = new Set([
-    'matmul_float', 'dot_float', 'inner_float',
-    'vecdot_float', 'matvec_float', 'vecmat_float',
+    'matmul_float',
+    'dot_float',
+    'inner_float',
+    'vecdot_float',
+    'matvec_float',
+    'vecmat_float',
     'vector_norm',
   ]);
-  const zigFiles = readdirSync(ZIG_DIR).filter(
-    (f) => f.endsWith('.zig') && !SHARED_MODULES.has(f)
-  );
+  const zigFiles = readdirSync(ZIG_DIR).filter((f) => f.endsWith('.zig') && !SHARED_MODULES.has(f));
 
   // Assign each kernel a unique global-base offset to prevent data-segment
   // collisions when all WASM modules share the same linear memory.
@@ -430,9 +432,7 @@ async function main() {
   // This includes both baseline and relaxed variants.
   console.log('Compiling...\n');
   const buildPromises = [
-    ...zigFiles.map((file) =>
-      compileKernel(file, sharedSources, hashes, globalBaseMap.get(file))
-    ),
+    ...zigFiles.map((file) => compileKernel(file, sharedSources, hashes, globalBaseMap.get(file))),
     ...relaxedFiles.map((file) =>
       compileKernel(
         file,
@@ -477,9 +477,7 @@ async function main() {
   const oldCacheFile = join(ROOT, '.wasm-cache.json');
   if (existsSync(oldCacheFile)) rmSync(oldCacheFile);
 
-  console.log(
-    `\nWASM build complete: ${built} built, ${restored} from cache [${ZIG_OPT}]`
-  );
+  console.log(`\nWASM build complete: ${built} built, ${restored} from cache [${ZIG_OPT}]`);
 }
 
 main();

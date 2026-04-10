@@ -618,35 +618,35 @@ def run_operation(spec):
     # Logic operations
     elif operation == "logical_and":
         if "b" in arrays:
-            result = np.logical_and(arrays["a"], arrays["b"]).astype(np.uint8)
+            result = np.logical_and(arrays["a"], arrays["b"])
         else:
-            result = np.logical_and(arrays["a"], arrays["scalar"]).astype(np.uint8)
+            result = np.logical_and(arrays["a"], arrays["scalar"])
     elif operation == "logical_or":
         if "b" in arrays:
-            result = np.logical_or(arrays["a"], arrays["b"]).astype(np.uint8)
+            result = np.logical_or(arrays["a"], arrays["b"])
         else:
-            result = np.logical_or(arrays["a"], arrays["scalar"]).astype(np.uint8)
+            result = np.logical_or(arrays["a"], arrays["scalar"])
     elif operation == "logical_not":
-        result = np.logical_not(arrays["a"]).astype(np.uint8)
+        result = np.logical_not(arrays["a"])
     elif operation == "logical_xor":
         if "b" in arrays:
-            result = np.logical_xor(arrays["a"], arrays["b"]).astype(np.uint8)
+            result = np.logical_xor(arrays["a"], arrays["b"])
         else:
-            result = np.logical_xor(arrays["a"], arrays["scalar"]).astype(np.uint8)
+            result = np.logical_xor(arrays["a"], arrays["scalar"])
     elif operation == "isfinite":
-        result = np.isfinite(arrays["a"]).astype(np.uint8)
+        result = np.isfinite(arrays["a"])
     elif operation == "isinf":
-        result = np.isinf(arrays["a"]).astype(np.uint8)
+        result = np.isinf(arrays["a"])
     elif operation == "isnan":
-        result = np.isnan(arrays["a"]).astype(np.uint8)
+        result = np.isnan(arrays["a"])
     elif operation == "isneginf":
-        result = np.isneginf(arrays["a"]).astype(np.uint8)
+        result = np.isneginf(arrays["a"])
     elif operation == "isposinf":
-        result = np.isposinf(arrays["a"]).astype(np.uint8)
+        result = np.isposinf(arrays["a"])
     elif operation == "isreal":
-        result = np.isreal(arrays["a"]).astype(np.uint8)
+        result = np.isreal(arrays["a"])
     elif operation == "signbit":
-        result = np.signbit(arrays["a"]).astype(np.uint8)
+        result = np.signbit(arrays["a"])
     elif operation == "copysign":
         if "b" in arrays:
             result = np.copysign(arrays["a"], arrays["b"])
@@ -920,14 +920,15 @@ def run_operation(spec):
         # Handle list of arrays (e.g., from unstack)
         return [{"shape": list(arr.shape), "data": arr.tolist()} for arr in result]
     elif isinstance(result, np.ndarray):
+        dtype_str = str(result.dtype)
         # Handle complex arrays by converting to [re, im] pairs
         if np.iscomplexobj(result):
-            return {"shape": list(result.shape), "data": _complex_to_pairs(result.tolist())}
+            return {"shape": list(result.shape), "dtype": dtype_str, "data": _complex_to_pairs(result.tolist())}
         # Serialize int64/uint64 as __bigint__ strings to preserve full 64-bit precision
         # (JSON numbers are float64, which loses precision for values > 2^53)
         if result.dtype in (np.dtype('int64'), np.dtype('uint64')):
-            return {"shape": list(result.shape), "data": _int64_to_bigint(result.tolist())}
-        return {"shape": list(result.shape), "data": result.tolist()}
+            return {"shape": list(result.shape), "dtype": dtype_str, "data": _int64_to_bigint(result.tolist())}
+        return {"shape": list(result.shape), "dtype": dtype_str, "data": result.tolist()}
     elif isinstance(result, (np.integer, np.floating)):
         if isinstance(result, (np.int64, np.uint64)):
             return f"__bigint__{int(result)}"

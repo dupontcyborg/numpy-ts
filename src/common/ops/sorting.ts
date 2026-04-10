@@ -257,7 +257,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
 
   // Handle 0-d arrays
   if (ndim === 0) {
-    return ArrayStorage.zeros([0], 'int32');
+    return ArrayStorage.zeros([0], 'float64');
   }
 
   // Normalize axis
@@ -270,8 +270,8 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
   }
 
   // Create output storage with int32 dtype
-  const result = ArrayStorage.zeros(Array.from(shape), 'int32');
-  const resultData = result.data as Int32Array;
+  const result = ArrayStorage.zeros(Array.from(shape), 'float64');
+  const resultData = result.data as Float64Array;
 
   const axisSize = shape[normalizedAxis]!;
 
@@ -308,7 +308,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
     if (
       wasmArgsortSlices(
         data as import('../dtype').TypedArray,
-        resultData,
+        resultData as Float64Array,
         baseOffsets,
         outBaseOffsets,
         axisSize,
@@ -435,7 +435,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
  */
 export function lexsort(keys: ArrayStorage[]): ArrayStorage {
   if (keys.length === 0) {
-    return ArrayStorage.zeros([0], 'int32');
+    return ArrayStorage.zeros([0], 'float64');
   }
 
   // All keys must be 1D with the same length
@@ -518,8 +518,8 @@ export function lexsort(keys: ArrayStorage[]): ArrayStorage {
   });
 
   // Create result
-  const result = ArrayStorage.zeros([n], 'int32');
-  const resultData = result.data as Int32Array;
+  const result = ArrayStorage.zeros([n], 'float64');
+  const resultData = result.data as Float64Array;
   for (let i = 0; i < n; i++) {
     resultData[i] = indices[i]!;
   }
@@ -575,6 +575,51 @@ function quickselectNumbers(arr: number[], kth: number): void {
     } else {
       right = i - 1;
     }
+  }
+}
+
+/**
+ * Quickselect algorithm helper for complex arrays
+ * Partitions parallel re/im arrays so element at kth position is in sorted position
+ * Uses lexicographic comparison (real first, then imaginary)
+ * TODO: move to WASM
+ */
+function quickselectComplex(re: number[], im: number[], kth: number): void {
+  let left = 0;
+  let right = re.length - 1;
+
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2);
+    // Median-of-three pivot selection using complexCompare
+    const cmpLM = complexCompare(re[left]!, im[left]!, re[mid]!, im[mid]!);
+    const cmpLR = complexCompare(re[left]!, im[left]!, re[right]!, im[right]!);
+    const cmpMR = complexCompare(re[mid]!, im[mid]!, re[right]!, im[right]!);
+
+    let pivotIdx: number;
+    if ((cmpLM <= 0 && cmpMR <= 0) || (cmpMR >= 0 && cmpLM >= 0)) pivotIdx = mid;
+    else if ((cmpLM >= 0 && cmpLR <= 0) || (cmpLR >= 0 && cmpLM <= 0)) pivotIdx = left;
+    else pivotIdx = right;
+
+    const pivotRe = re[pivotIdx]!;
+    const pivotIm = im[pivotIdx]!;
+    // Move pivot to end
+    [re[pivotIdx], re[right]] = [re[right]!, re[pivotIdx]!];
+    [im[pivotIdx], im[right]] = [im[right]!, im[pivotIdx]!];
+
+    let i = left;
+    for (let j = left; j < right; j++) {
+      if (complexCompare(re[j]!, im[j]!, pivotRe, pivotIm) <= 0) {
+        [re[i], re[j]] = [re[j]!, re[i]!];
+        [im[i], im[j]] = [im[j]!, im[i]!];
+        i++;
+      }
+    }
+    [re[i], re[right]] = [re[right]!, re[i]!];
+    [im[i], im[right]] = [im[right]!, im[i]!];
+
+    if (i === kth) return;
+    else if (i < kth) left = i + 1;
+    else right = i - 1;
   }
 }
 
@@ -824,6 +869,30 @@ export function partition(storage: ArrayStorage, kth: number, axis: number = -1)
         outIdx += outAxisStride;
       }
     }
+  } else if (isComplexDType(dtype)) {
+    const typedData = resultData as Float64Array | Float32Array;
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      // Collect complex values along axis as [re, im] pairs
+      const reArr = new Array<number>(axisSize);
+      const imArr = new Array<number>(axisSize);
+      let outIdx = outBaseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        reArr[axisIdx] = typedData[outIdx * 2]!;
+        imArr[axisIdx] = typedData[outIdx * 2 + 1]!;
+        outIdx += outAxisStride;
+      }
+
+      // Partition using quickselect with complex comparison
+      quickselectComplex(reArr, imArr, normalizedKth);
+
+      // Write partitioned values back
+      outIdx = outBaseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        typedData[outIdx * 2] = reArr[axisIdx]!;
+        typedData[outIdx * 2 + 1] = imArr[axisIdx]!;
+        outIdx += outAxisStride;
+      }
+    }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis
@@ -866,7 +935,7 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
 
   // Handle 0-d arrays
   if (ndim === 0) {
-    return ArrayStorage.zeros([0], 'int32');
+    return ArrayStorage.zeros([0], 'float64');
   }
 
   // Normalize axis
@@ -896,8 +965,8 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
   }
 
   // Create output storage with int32 dtype
-  const result = ArrayStorage.zeros(Array.from(shape), 'int32');
-  const resultData = result.data as Int32Array;
+  const result = ArrayStorage.zeros(Array.from(shape), 'float64');
+  const resultData = result.data as Float64Array;
 
   // Compute outer iteration
   const outputShape = Array.from(shape).filter((_, i) => i !== normalizedAxis);
@@ -926,7 +995,7 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
     if (
       wasmArgpartitionSlices(
         data as import('../dtype').TypedArray,
-        resultData,
+        resultData as Float64Array,
         baseOffsets,
         outBaseOffsets,
         axisSize,
@@ -1017,9 +1086,9 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
     // Sort using lexicographic comparison
     values.sort((a, b) => complexCompare(a.re, a.im, b.re, b.im));
 
-    // Create result (1D sorted array with complex128 dtype)
-    const result = ArrayStorage.zeros([size], 'complex128');
-    const resultData = result.data as Float64Array;
+    // Create result preserving complex dtype
+    const result = ArrayStorage.zeros([size], dtype);
+    const resultData = result.data as Float64Array | Float32Array;
     for (let i = 0; i < size; i++) {
       resultData[i * 2] = values[i]!.re;
       resultData[i * 2 + 1] = values[i]!.im;
@@ -1047,9 +1116,11 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
       return a - b;
     });
 
-    // Create result as complex128 (NumPy always returns complex)
-    const result = ArrayStorage.zeros([size], 'complex128');
-    const resultData = result.data as Float64Array;
+    // NumPy sort_complex: small ints (≤16-bit) → complex64, everything else → complex128
+    const smallInts = new Set(['int8', 'uint8', 'int16', 'uint16']);
+    const cDtype = smallInts.has(dtype) ? ('complex64' as const) : ('complex128' as const);
+    const result = ArrayStorage.zeros([size], cDtype);
+    const resultData = result.data as Float64Array | Float32Array;
     for (let i = 0; i < size; i++) {
       resultData[i * 2] = values[i]!;
       resultData[i * 2 + 1] = 0;
@@ -1093,8 +1164,8 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
 
   // Fast path: contiguous non-complex — single pass with max-size buffers, then trim
   if (contiguous && !isComplex && ndim >= 1) {
-    const bufs: Int32Array[] = [];
-    for (let dim = 0; dim < ndim; dim++) bufs.push(new Int32Array(size));
+    const bufs: Float64Array[] = [];
+    for (let dim = 0; dim < ndim; dim++) bufs.push(new Float64Array(size));
 
     let idx = 0;
     for (let i = 0; i < size; i++) {
@@ -1110,8 +1181,8 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
 
     const resultArrays: ArrayStorage[] = [];
     for (let dim = 0; dim < ndim; dim++) {
-      const arr = ArrayStorage.zeros([idx], 'int32');
-      (arr.data as Int32Array).set(bufs[dim]!.subarray(0, idx));
+      const arr = ArrayStorage.zeros([idx], 'float64');
+      (arr.data as Float64Array).set(bufs[dim]!.subarray(0, idx));
       resultArrays.push(arr);
     }
     return resultArrays;
@@ -1152,8 +1223,8 @@ export function nonzero(storage: ArrayStorage): ArrayStorage[] {
   const result: ArrayStorage[] = [];
 
   for (let dim = 0; dim < ndim; dim++) {
-    const arr = ArrayStorage.zeros([numNonzero], 'int32');
-    const arrData = arr.data as Int32Array;
+    const arr = ArrayStorage.zeros([numNonzero], 'float64');
+    const arrData = arr.data as Float64Array;
     for (let i = 0; i < numNonzero; i++) {
       arrData[i] = nonzeroIndices[dim]![i]!;
     }
@@ -1206,8 +1277,8 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
   }
 
   // Allocate result: shape (numNonzero, ndim)
-  const result = ArrayStorage.zeros([numNonzero, outNdim], 'int32');
-  const resultData = result.data as Int32Array;
+  const result = ArrayStorage.zeros([numNonzero, outNdim], 'float64');
+  const resultData = result.data as Float64Array;
 
   // Pass 2: fill result directly — no intermediate arrays
   let row = 0;
@@ -1261,13 +1332,13 @@ export function flatnonzero(storage: ArrayStorage): ArrayStorage {
 
   // Fast path: contiguous non-complex — single pass, avoid isNonZero and Array.push
   if (contiguous && !isComplex) {
-    const buf = new Int32Array(size);
+    const buf = new Float64Array(size);
     let idx = 0;
     for (let i = 0; i < size; i++) {
       if (data[off + i]) buf[idx++] = i;
     }
-    const result = ArrayStorage.zeros([idx], 'int32');
-    (result.data as Int32Array).set(buf.subarray(0, idx));
+    const result = ArrayStorage.zeros([idx], 'float64');
+    (result.data as Float64Array).set(buf.subarray(0, idx));
     return result;
   }
 
@@ -1293,8 +1364,8 @@ export function flatnonzero(storage: ArrayStorage): ArrayStorage {
   }
 
   // Create result
-  const result = ArrayStorage.zeros([indices.length], 'int32');
-  const resultData = result.data as Int32Array;
+  const result = ArrayStorage.zeros([indices.length], 'float64');
+  const resultData = result.data as Float64Array;
   for (let i = 0; i < indices.length; i++) {
     resultData[i] = indices[i]!;
   }
@@ -1592,8 +1663,8 @@ export function searchsorted(
   }
 
   // Create result array
-  const result = ArrayStorage.zeros([numValues], 'int32');
-  const resultData = result.data as Int32Array;
+  const result = ArrayStorage.zeros([numValues], 'float64');
+  const resultData = result.data as Float64Array;
 
   if (isComplex) {
     if (storageContiguous && valuesContiguous) {
@@ -1910,8 +1981,8 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
   }
 
   // Create result storage
-  const result = ArrayStorage.zeros(outputShape, 'int32');
-  const resultData = result.data as Int32Array;
+  const result = ArrayStorage.zeros(outputShape, 'float64');
+  const resultData = result.data as Float64Array;
 
   const axisSize = shape[normalizedAxis]!;
   const outerSize = outputShape.reduce((a, b) => a * b, 1);

@@ -193,7 +193,7 @@ export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): vo
   } else {
     for (let i = 0; i < dstSize; i++) {
       const val = broadcastedSrc.iget(i);
-      dstStorage.iset(i, Number(val));
+      dstStorage.iset(i, val as number);
     }
   }
 }
@@ -202,10 +202,7 @@ export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): vo
 // Index Arrays
 // ============================================================
 
-export function indices(
-  dimensions: number[],
-  dtype: 'int32' | 'int64' | 'float64' = 'int32'
-): NDArrayCore {
+export function indices(dimensions: number[], dtype: string = 'float64'): NDArrayCore {
   return fromStorage(advancedOps.indices(dimensions, dtype));
 }
 
@@ -267,10 +264,10 @@ export function triu_indices_from(a: NDArrayCore, k: number = 0): NDArrayCore[] 
 
 export function mask_indices(
   n: number,
-  mask_func: (n: number, k: number) => NDArrayCore,
+  mask_func: (m: NDArrayCore, k: number) => NDArrayCore,
   k: number = 0
 ): NDArrayCore[] {
-  const wrappedMaskFunc = (nn: number, kk: number) => toStorage(mask_func(nn, kk));
+  const wrappedMaskFunc = (m: ArrayStorage, kk: number) => toStorage(mask_func(fromStorage(m), kk));
   return advancedOps.mask_indices(n, wrappedMaskFunc, k).map((s) => fromStorage(s));
 }
 

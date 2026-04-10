@@ -369,3 +369,83 @@ test "reduce_mean_u16 basic" {
     const a = [_]u16{ 4, 8 };
     try testing.expectApproxEqAbs(reduce_mean_u16(&a, 2), 6.0, 1e-10);
 }
+
+test "reduce_mean_strided_f64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f64{ 1.0, 5.0, 3.0 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_f64(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_f32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 1.0, 5.0, 3.0 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_f32(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_i64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_i64(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_u64 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_u64(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_i32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_i32(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_u32 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_u32(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_i16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_i16(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_u16 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_u16(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_i8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_i8(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}
+
+test "reduce_mean_strided_u8 basic" {
+    const testing = @import("std").testing;
+    var a = [_]u8{ 1, 5, 3 };
+    var out = [_]f64{0.0};
+    reduce_mean_strided_u8(&a, &out, 1, 3, 1);
+    try testing.expectApproxEqAbs(out[0], 3.0, 1e-10);
+}

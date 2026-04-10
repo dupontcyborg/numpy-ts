@@ -3,7 +3,7 @@
 import { getSharedMemory, setHeapBase } from '../runtime';
 
 const B64 =
-  'AGFzbQEAAAABDAJgA39/fwBgAXwBfAIPAQNlbnYGbWVtb3J5AgAXAwYFAAEAAAAGCQF/AUHAgNgACwc1BAphcmN0YW5fZjY0AAAKYXJjdGFuX2YzMgACCmFyY3Rhbl9pNjQAAwphcmN0YW5fdTY0AAQKmQYFNAACQCACRQ0AA0AgASAAKwMAEIGAgIAAOQMAIAFBCGohASAAQQhqIQAgAkF/aiICDQALCwu+BAQBfwF+An8DfCOAgICAAEEQayIBJICAgIAAAkACQCAAvSICQiCIp0H/////B3EiA0GAgMCgBEkNACAARBgtRFT7Ifk/IACmIAAgAGIbIQAMAQsCQAJAIANBgIDw/gNJDQAgAJkhAAJAIANBgIDM/wNPDQACQCADQYCAmP8DTw0AIAAgAKBEAAAAAAAA8L+gIABEAAAAAAAAAECgoyEAQQAhBAwDCyAARAAAAAAAAPC/oCAARAAAAAAAAPA/oKMhAEEBIQQMAgsCQCADQYCAjoAESQ0ARAAAAAAAAPC/IACjIQBBAyEEDAILIABEAAAAAAAA+L+gIABEAAAAAAAA+D+iRAAAAAAAAPA/oKMhAEECIQQMAQsCQCADQYCAgPIDSQ0ADAELIANB//8/Sw0BIAEgALY4AgwgAUEMaiEDDAELIAAgAKIiBSAFoiIGIAYgBiAGIAZEL2xqLES0or+iRJr93lIt3q2/oKJEbZp0r/Kws7+gokRxFiP+xnG8v6CiRMTrmJmZmcm/oKIhByAFIAYgBiAGIAYgBkQR2iLjOq2QP6JE6w12JEt7qT+gokRRPdCgZg2xP6CiRG4gTMXNRbc/oKJE/4MAkiRJwj+gokQNVVVVVVXVP6CiIQYCQCADQYCA8P4DSQ0AIARBA3QiA0GAgJiAAGorAwAgACAHIAagoiADQaCAmIAAaisDAKEgAKGhIgCaIAAgAkIAUxshAAwBCyAAIAAgByAGoKKhIQALIAFBEGokgICAgAAgAAs2AAJAIAJFDQADQCABIAAqAgC7EIGAgIAAtjgCACABQQRqIQEgAEEEaiEAIAJBf2oiAg0ACwsLNQACQCACRQ0AA0AgASAAKQMAuRCBgICAADkDACABQQhqIQEgAEEIaiEAIAJBf2oiAg0ACwsLNQACQCACRQ0AA0AgASAAKQMAuhCBgICAADkDACABQQhqIQEgAEEIaiEAIAJBf2oiAg0ACwsLC0gBAEGAgBgLQE+7YQVnrN0/GC1EVPsh6T+b9oHSC3PvPxgtRFT7Ifk/4mUvIn8rejwHXBQzJqaBPL3L8HqIB3A8B1wUMyamkTw=';
+  'AGFzbQEAAAABDAJgA39/fwBgAXwBfAIPAQNlbnYGbWVtb3J5AgAXAwwLAAEAAAAAAAAAAAAGCQF/AUHAgNgACwehAQoKYXJjdGFuX2Y2NAAACmFyY3Rhbl9mMzIAAg5hcmN0YW5faTY0X2Y2NAADDmFyY3Rhbl91NjRfZjY0AAQOYXJjdGFuX2kzMl9mNjQABQ5hcmN0YW5fdTMyX2Y2NAAGDmFyY3Rhbl9pMTZfZjMyAAcOYXJjdGFuX3UxNl9mMzIACA1hcmN0YW5faThfZjMyAAkNYXJjdGFuX3U4X2YzMgAKCuEICzQAAkAgAkUNAANAIAEgACsDABCBgICAADkDACABQQhqIQEgAEEIaiEAIAJBf2oiAg0ACwsLvgQEAX8BfgJ/A3wjgICAgABBEGsiASSAgICAAAJAAkAgAL0iAkIgiKdB/////wdxIgNBgIDAoARJDQAgAEQYLURU+yH5PyAApiAAIABiGyEADAELAkACQCADQYCA8P4DSQ0AIACZIQACQCADQYCAzP8DTw0AAkAgA0GAgJj/A08NACAAIACgRAAAAAAAAPC/oCAARAAAAAAAAABAoKMhAEEAIQQMAwsgAEQAAAAAAADwv6AgAEQAAAAAAADwP6CjIQBBASEEDAILAkAgA0GAgI6ABEkNAEQAAAAAAADwvyAAoyEAQQMhBAwCCyAARAAAAAAAAPi/oCAARAAAAAAAAPg/okQAAAAAAADwP6CjIQBBAiEEDAELAkAgA0GAgIDyA0kNAAwBCyADQf//P0sNASABIAC2OAIMIAFBDGohAwwBCyAAIACiIgUgBaIiBiAGIAYgBiAGRC9saixEtKK/okSa/d5SLd6tv6CiRG2adK/ysLO/oKJEcRYj/sZxvL+gokTE65iZmZnJv6CiIQcgBSAGIAYgBiAGIAZEEdoi4zqtkD+iROsNdiRLe6k/oKJEUT3QoGYNsT+gokRuIEzFzUW3P6CiRP+DAJIkScI/oKJEDVVVVVVV1T+goiEGAkAgA0GAgPD+A0kNACAEQQN0IgNBgICYgABqKwMAIAAgByAGoKIgA0GggJiAAGorAwChIAChoSIAmiAAIAJCAFMbIQAMAQsgACAAIAcgBqCioSEACyABQRBqJICAgIAAIAALNgACQCACRQ0AA0AgASAAKgIAuxCBgICAALY4AgAgAUEEaiEBIABBBGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACkDALkQgYCAgAA5AwAgAUEIaiEBIABBCGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACkDALoQgYCAgAA5AwAgAUEIaiEBIABBCGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACgCALcQgYCAgAA5AwAgAUEIaiEBIABBBGohACACQX9qIgINAAsLCzUAAkAgAkUNAANAIAEgACgCALgQgYCAgAA5AwAgAUEIaiEBIABBBGohACACQX9qIgINAAsLCzYAAkAgAkUNAANAIAEgAC4BALcQgYCAgAC2OAIAIAFBBGohASAAQQJqIQAgAkF/aiICDQALCws2AAJAIAJFDQADQCABIAAvAQC4EIGAgIAAtjgCACABQQRqIQEgAEECaiEAIAJBf2oiAg0ACwsLNgACQCACRQ0AA0AgASAALAAAtxCBgICAALY4AgAgAUEEaiEBIABBAWohACACQX9qIgINAAsLCzYAAkAgAkUNAANAIAEgAC0AALgQgYCAgAC2OAIAIAFBBGohASAAQQFqIQAgAkF/aiICDQALCwsLSAEAQYCAGAtAT7thBWes3T8YLURU+yHpP5v2gdILc+8/GC1EVPsh+T/iZS8ifyt6PAdcFDMmpoE8vcvweogHcDwHXBQzJqaRPA==';
 
 let inst: WebAssembly.Instance | null = null;
 
@@ -33,12 +33,42 @@ export function arctan_f32(a: number, out: number, N: number): void {
   (i.exports['arctan_f32'] as (...args: number[]) => void)(a, out, N);
 }
 
-export function arctan_i64(a: number, out: number, N: number): void {
+export function arctan_i64_f64(a: number, out: number, N: number): void {
   const i = init();
-  (i.exports['arctan_i64'] as (...args: number[]) => void)(a, out, N);
+  (i.exports['arctan_i64_f64'] as (...args: number[]) => void)(a, out, N);
 }
 
-export function arctan_u64(a: number, out: number, N: number): void {
+export function arctan_u64_f64(a: number, out: number, N: number): void {
   const i = init();
-  (i.exports['arctan_u64'] as (...args: number[]) => void)(a, out, N);
+  (i.exports['arctan_u64_f64'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arctan_i32_f64(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arctan_i32_f64'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arctan_u32_f64(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arctan_u32_f64'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arctan_i16_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arctan_i16_f32'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arctan_u16_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arctan_u16_f32'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arctan_i8_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arctan_i8_f32'] as (...args: number[]) => void)(a, out, N);
+}
+
+export function arctan_u8_f32(a: number, out: number, N: number): void {
+  const i = init();
+  (i.exports['arctan_u8_f32'] as (...args: number[]) => void)(a, out, N);
 }

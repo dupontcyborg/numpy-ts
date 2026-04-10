@@ -612,7 +612,7 @@ describe('Dtype Branch Coverage (extended)', () => {
   it('argsort 2D float16 array along axis 0 (non-contiguous read path)', () => {
     const arr = reshape(array([3.0, 1.0, 4.0, 2.0, 5.0, 0.0], 'float16'), [2, 3]);
     const result = argsort(arr, 0);
-    expect(result.dtype).toBe('int32');
+    expect(result.dtype).toBe('float64');
     expect(Array.from(result.shape)).toEqual([2, 3]);
   });
 

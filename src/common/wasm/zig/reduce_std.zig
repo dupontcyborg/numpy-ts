@@ -253,3 +253,18 @@ test "reduce_std_u32 constant" {
     const a = [_]u32{ 5, 5, 5, 5 };
     try testing.expectApproxEqAbs(reduce_std_u32(&a, 4), 0.0, 1e-10);
 }
+
+test "reduce_std_u64 basic" {
+    const testing = @import("std").testing;
+    // [2, 4] has mean 3, std=1
+    const a = [_]u64{ 2, 4 };
+    const result = reduce_std_u64(&a, 2);
+    try testing.expectApproxEqAbs(result, 1.0, 1e-10);
+}
+
+test "reduce_std_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 2, 4 };
+    const result = reduce_std_u16(&a, 2);
+    try testing.expectApproxEqAbs(result, 1.0, 1e-10);
+}
