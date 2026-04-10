@@ -132,7 +132,7 @@ result = _result_orig.astype(${ac})`;
       const in1d1 = dtype === 'bool' ? [1, 0] : [1, 2, 3];
       const in1d2 = dtype === 'bool' ? [1] : [2, 3, 4];
       snippets[`in1d_${dtype}`] =
-        `_result_orig = np.in1d(np.array(${JSON.stringify(in1d1)}, dtype=${npDtype(dtype)}), np.array(${JSON.stringify(in1d2)}, dtype=${npDtype(dtype)}))
+        `_result_orig = np.isin(np.array(${JSON.stringify(in1d1)}, dtype=${npDtype(dtype)}), np.array(${JSON.stringify(in1d2)}, dtype=${npDtype(dtype)}))
 result = _result_orig.astype(${ac})`;
 
       snippets[`isin_${dtype}`] =

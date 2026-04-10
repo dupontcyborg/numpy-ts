@@ -30,7 +30,10 @@ export function unique(
   return fromStorage(result as ArrayStorage);
 }
 
-/** Test if elements in ar1 are in ar2 (deprecated, use isin) */
+/**
+ * Test if elements in ar1 are in ar2.
+ * @deprecated Use {@link isin} instead. `in1d` follows NumPy's deprecation and will be removed in a future release.
+ */
 export function in1d(ar1: NDArrayCore, ar2: NDArrayCore): NDArrayCore {
   return fromStorage(setOps.in1d(toStorage(ar1), toStorage(ar2)));
 }

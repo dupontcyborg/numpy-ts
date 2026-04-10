@@ -153,6 +153,14 @@ describe('DType Sweep: Conversion (astype)', () => {
             // No native Float16Array: float16 arrays use float32 precision, skip value check
             if (!hasFloat16 && (src === 'float16' || dst === 'float16')) return;
 
+            // Negative float→unsigned-wide is C undefined behavior (Linux wraps, macOS saturates)
+            if (
+              label === 'mixed-sign' &&
+              (dst === 'uint32' || dst === 'uint64') &&
+              (src.startsWith('float') || src.startsWith('complex'))
+            )
+              return;
+
             const jsCompare = isComplex(dst) ? jsResult : jsResult.astype('float64');
             const jsArr = jsCompare.toArray();
             const npArr = pyEntry.value;

@@ -210,6 +210,8 @@ result = _result_orig.astype(${ac})`;
             if (_r === 'both-reject') return;
           }
           const jsResult = fn(a);
+          // Integer reciprocal of 0 is C UB — result differs across platforms
+          if (name === 'reciprocal' && dtype === 'bool') return;
           const isVeryLowPrecision = dtype === 'float16';
           const isLowPrecision = dtype === 'float32' || dtype === 'complex64';
           const rtol = isVeryLowPrecision ? 5e-2 : isLowPrecision ? 1e-2 : 1e-3;

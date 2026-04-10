@@ -551,7 +551,8 @@ function elementToKey(
 }
 
 /**
- * Test whether each element of a 1-D array is also present in a second array
+ * Test whether each element of a 1-D array is also present in a second array.
+ * @deprecated Use {@link isin} instead. `in1d` follows NumPy's deprecation and will be removed in a future release.
  */
 export function in1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   return isin(ar1, ar2);
