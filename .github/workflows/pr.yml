@@ -82,7 +82,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
+          pip install "numpy>=2"
           npm install
 
       - name: Build for testing

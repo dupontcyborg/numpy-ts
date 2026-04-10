@@ -34,7 +34,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
+          pip install "numpy>=2"
           npm install
 
       - name: Verify environment
@@ -128,7 +128,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
+          pip install "numpy>=2"
           npm install
 
       - name: Run tests under Bun
@@ -169,7 +169,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
+          pip install "numpy>=2"
           npm install
 
       - name: Run tests under Deno
@@ -202,7 +202,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
+          pip install "numpy>=2"
           npm install
 
       - name: Run tests with coverage
