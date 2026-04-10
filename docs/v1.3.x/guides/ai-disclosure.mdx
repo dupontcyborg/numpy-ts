@@ -1,0 +1,41 @@
+---
+title: "AI Disclosure"
+mode: "wide"
+---
+
+In 2026, I see two competing narratives around AI in software development:
+
+1. AI tools are pervasive and can significantly accelerate software development, provided they are used thoughtfully.
+2. The community is quickly growing disillusioned with "AI slop" and sloppily-built projects, causing a backlash against AI-generated code.
+
+To navigate this landscape, I believe in radical transparency about how AI is used across projects, including this one.
+
+`numpy-ts` was built with the assistance of AI tools (e.g., Claude Code). The contribution graph below tells the story clearly:
+
+<img src="/images/contributions-graph.png" alt="GitHub contribution graph showing dupontcyborg (393 commits, 1M+ lines) and claude (107 commits, 137K lines)" />
+
+**Claude was used primarily during the prototype and early implementation phase** (Nov 2025 - Jan 2026) to accelerate the initial buildout of numpy-ts's 450+ API functions. This included generating first-pass implementations of well-specified NumPy functions, test scaffolding, and documentation.
+
+**Architecture, optimization, and WASM acceleration work was done manually** (Jan 2026 onward). This work requires  systems expertise and cannot be meaningfully delegated to AI. The WASM microkernels, memory management strategy, and tree-shaking architecture were all designed, and mostly implemented, by hand.
+
+In my experience building numpy-ts, AI tools excelled at:
+
+- Boilerplate code generation
+- Implementing well-specified algorithms (e.g., `np.dot`, `np.sum`, etc.)
+- Writing test scaffolding and generating test cases
+- Building and maintaining benchmarks
+- Drafting documentation and usage examples
+
+On the other hand, it was pretty bad at:
+
+- Architecting complex systems (e.g., the WASM acceleration layer)
+- Performance optimization and low-level code decisions
+- Debugging and correctness assurance, especially for edge cases
+
+Trust is built on transparency. It's no different for open-source projects. So you should know that in this project:
+
+1. Every line of code is human-reviewed. AI-generated code was never merged without review by me ([@dupontcyborg](https://github.com/dupontcyborg)), a full-time software engineer with >10 YOE.
+2. AI was a productivity tool, not an author. The same way a project might use code generation, linters, or scaffolding tools, AI accelerated the tedious parts so more time could be spent on the hard problems.
+3. I make mistakes, and lots of them. Nothing more to add here :)
+
+I'm just as tired of the AI-slop as everyone else. But it's not binary: it's not "AI-generated = bad" and "human-generated = good". Nuance is hard but important. I hope this disclosure helps to make that nuance a little easier.

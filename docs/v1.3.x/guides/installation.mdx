@@ -1,0 +1,132 @@
+---
+title: "Installation"
+description: "Install numpy-ts and choose the right entry point for your project."
+---
+
+## Install the package
+
+<CodeGroup>
+```bash npm
+npm install numpy-ts
+```
+
+```bash yarn
+yarn add numpy-ts
+```
+
+```bash pnpm
+pnpm add numpy-ts
+```
+
+```bash bun
+bun add numpy-ts
+```
+</CodeGroup>
+
+## Requirements
+
+| Environment | Minimum Version |
+|---|---|
+| Node.js | >= 20.1.0 |
+| Bun | >= 1.0 |
+| Deno | >= 1.37 |
+| Browsers | ES2020+ (Chrome 80+, Firefox 78+, Safari 14+, Edge 80+) |
+| TypeScript | >= 5.0 (recommended) |
+
+<Note>
+numpy-ts has **zero runtime dependencies**. The installed size is the library itself.
+</Note>
+
+## CDN usage (browsers)
+
+You can load numpy-ts directly in the browser without a build step:
+
+<CodeGroup>
+```html esm.sh
+<script type="module">
+  import * as np from 'https://esm.sh/numpy-ts';
+
+  const a = np.array([[1, 2], [3, 4]]);
+  console.log(a);
+</script>
+```
+
+```html unpkg
+<script type="module">
+  import * as np from 'https://unpkg.com/numpy-ts?module';
+
+  const a = np.array([[1, 2], [3, 4]]);
+  console.log(a);
+</script>
+```
+
+```html jsdelivr
+<script type="module">
+  import * as np from "https://cdn.jsdelivr.net/npm/numpy-ts/+esm";
+
+  const a = np.array([[1, 2], [3, 4]]);
+  console.log(a);
+</script>
+```
+
+
+</CodeGroup>
+
+## Choose your entry point
+
+numpy-ts ships two entry points. Pick the one that fits your use case:
+
+| Entry Point | Import Path | Returns | Bundle Size | Use When |
+|---|---|---|---|---|
+| **Full** | `numpy-ts` | `NDArray` | ~200-300 KB | You want method chaining, the complete API, and file I/O on server runtimes |
+| **Core** | `numpy-ts/core` | `NDArrayCore` | ~10-40 KB | Bundle size matters; you only need specific functions |
+
+See the [Tree-Shaking guide](.//tree-shaking) for a detailed comparison.
+
+### Full library (`numpy-ts`)
+
+The default entry point. Functions return `NDArray`, which supports method chaining (`.add()`, `.reshape()`, `.T`, etc.). On server runtimes (Node.js, Bun, Deno), file I/O operations (`loadNpy`, `saveNpy`, `loadNpzFile`, `savez`, `loadtxt`, `savetxt`) are available directly. In browsers, calling file I/O functions throws a clear error.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3, 4]);
+const b = a.add(10).reshape([2, 2]).T;  // Method chaining
+
+// File I/O — works on Node.js, Bun, and Deno
+const arr = await np.loadNpy('data.npy');
+await np.saveNpy('output.npy', arr);
+```
+
+Best for applications, scripts, and projects where developer experience matters more than bundle size.
+
+### Tree-shakeable core (`numpy-ts/core`)
+
+Functions return `NDArrayCore` (no method chaining). Your bundler (webpack, Vite, esbuild, Rollup) will only include the functions you actually import.
+
+```typescript
+import { array, add, reshape, transpose } from 'numpy-ts/core';
+
+const a = array([1, 2, 3, 4]);
+const b = transpose(reshape(add(a, 10), [2, 2]));
+```
+
+Best for libraries, frontend apps where every kilobyte counts, and when you only need a handful of functions.
+
+<Tip>
+Importing just `array` and `add` from `numpy-ts/core` results in a bundle around **10 KB** minified. The full entry point is always ~200-300 KB regardless of what you use.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="bolt" href=".//quickstart">
+    Create arrays, run operations, and explore the API in 5 minutes.
+  </Card>
+  <Card title="NumPy Migration Guide" icon="code-compare" href=".//numpy-migration">
+    Coming from Python NumPy? See what is different in TypeScript.
+  </Card>
+  <Card title="Tree-Shaking" icon="leaf" href=".//tree-shaking">
+    Understand how the two entry points affect your bundle size.
+  </Card>
+</CardGroup>

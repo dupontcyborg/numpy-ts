@@ -1,0 +1,202 @@
+---
+title: "Hyperbolic"
+description: "Element-wise hyperbolic functions and their inverses."
+---
+
+All hyperbolic functions operate element-wise.
+
+### sinh
+
+Compute the hyperbolic sine, element-wise.
+
+```typescript
+function sinh(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `sinh(x) = (exp(x) - exp(-x)) / 2`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.sinh(np.array([0, 1, -1]));
+// array([0, 1.1752..., -1.1752...])
+```
+
+```typescript Core
+import { sinh, array } from 'numpy-ts/core';
+
+const a = sinh(array([0, 1, -1]));
+```
+</CodeGroup>
+
+---
+
+### cosh
+
+Compute the hyperbolic cosine, element-wise.
+
+```typescript
+function cosh(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `cosh(x) = (exp(x) + exp(-x)) / 2`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.cosh(np.array([0, 1, -1]));
+// array([1, 1.5431..., 1.5431...])
+```
+
+```typescript Core
+import { cosh, array } from 'numpy-ts/core';
+
+const a = cosh(array([0, 1, -1]));
+```
+</CodeGroup>
+
+---
+
+### tanh
+
+Compute the hyperbolic tangent, element-wise.
+
+```typescript
+function tanh(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `tanh(x) = sinh(x) / cosh(x)`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.tanh(np.array([0, 1, -1, 100]));
+// array([0, 0.7616..., -0.7616..., 1])
+```
+
+```typescript Core
+import { tanh, array } from 'numpy-ts/core';
+
+const a = tanh(array([0, 1, -1]));
+```
+</CodeGroup>
+
+---
+
+### arcsinh
+
+Compute the inverse hyperbolic sine, element-wise. Also available as the alias `asinh`.
+
+```typescript
+function arcsinh(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `arcsinh(x) = ln(x + sqrt(x**2 + 1))`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.arcsinh(np.array([0, 1, -1]));
+// array([0, 0.8814..., -0.8814...])
+
+// Alias
+const b = np.asinh(np.array([0, 1]));
+```
+
+```typescript Core
+import { arcsinh, array } from 'numpy-ts/core';
+// or: import { asinh } from 'numpy-ts/core';
+
+const a = arcsinh(array([0, 1, -1]));
+```
+</CodeGroup>
+
+---
+
+### arccosh
+
+Compute the inverse hyperbolic cosine, element-wise. Also available as the alias `acosh`.
+
+```typescript
+function arccosh(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. All values must be `>= 1`. |
+
+**Returns:** `NDArray` -- Element-wise `arccosh(x) = ln(x + sqrt(x**2 - 1))`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.arccosh(np.array([1, 2, 10]));
+// array([0, 1.3170..., 2.9932...])
+
+// Alias
+const b = np.acosh(np.array([1, 2]));
+```
+
+```typescript Core
+import { arccosh, array } from 'numpy-ts/core';
+// or: import { acosh } from 'numpy-ts/core';
+
+const a = arccosh(array([1, 2, 10]));
+```
+</CodeGroup>
+
+---
+
+### arctanh
+
+Compute the inverse hyperbolic tangent, element-wise. Also available as the alias `atanh`.
+
+```typescript
+function arctanh(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. All values must be in the range `(-1, 1)`. |
+
+**Returns:** `NDArray` -- Element-wise `arctanh(x) = 0.5 * ln((1+x) / (1-x))`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.arctanh(np.array([0, 0.5, -0.5]));
+// array([0, 0.5493..., -0.5493...])
+
+// Alias
+const b = np.atanh(np.array([0, 0.5]));
+```
+
+```typescript Core
+import { arctanh, array } from 'numpy-ts/core';
+// or: import { atanh } from 'numpy-ts/core';
+
+const a = arctanh(array([0, 0.5, -0.5]));
+```
+</CodeGroup>

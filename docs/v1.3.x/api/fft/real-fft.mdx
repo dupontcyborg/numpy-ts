@@ -1,0 +1,229 @@
+---
+title: "Real FFT"
+description: "FFT functions optimized for real-valued input, returning only the positive-frequency half of the spectrum."
+---
+
+The real FFT functions exploit the Hermitian symmetry of the spectrum of real-valued signals. Instead of returning the full `n`-point spectrum, `rfft` returns only the first `n//2 + 1` unique complex coefficients, cutting storage roughly in half.
+
+### rfft
+
+Compute the 1-D FFT of a real-valued array.
+
+```typescript
+function rfft(
+  a: ArrayLike,
+  n?: number,
+  axis?: number,
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Real-valued input array. |
+| `n` | `number` | `a.shape[axis]` | Number of points in the transform. |
+| `axis` | `number` | `-1` | Axis along which to compute the FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array of length `n//2 + 1` along the transformed axis.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const signal = np.array([0, 1, 0, 0]);
+const spectrum = np.fft.rfft(signal);
+// array([1+0j, 0-1j, -1+0j])  length = 4//2 + 1 = 3
+```
+
+---
+
+### irfft
+
+Compute the inverse of `rfft`. Reconstructs the full real-valued signal from its positive-frequency spectrum.
+
+```typescript
+function irfft(
+  a: ArrayLike,
+  n?: number,
+  axis?: number,
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array from `rfft` (complex, length `n//2 + 1`). |
+| `n` | `number` | `(a.shape[axis] - 1) * 2` | Length of the output along the transformed axis. |
+| `axis` | `number` | `-1` | Axis along which to compute the inverse FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Real-valued float64 array of length `n`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const signal = np.array([0, 1, 0, 0]);
+const spectrum = np.fft.rfft(signal);
+const recovered = np.fft.irfft(spectrum);
+// array([0, 1, 0, 0])
+```
+
+---
+
+### rfft2
+
+Compute the 2-D FFT of a real-valued array. Applies `fft` along the first axis and `rfft` along the last axis, so the last axis is truncated to `n//2 + 1`.
+
+```typescript
+function rfft2(
+  a: ArrayLike,
+  s?: [number, number],
+  axes?: [number, number],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Real-valued input array (at least 2-D). |
+| `s` | `[number, number]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
+| `axes` | `[number, number]` | `[-2, -1]` | Axes over which to compute the 2-D FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array. The last transform axis has length `s[1]//2 + 1`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3, 4], [5, 6, 7, 8]]);
+const F = np.fft.rfft2(a);
+// Last axis: length 4//2 + 1 = 3
+```
+
+---
+
+### irfft2
+
+Compute the inverse of `rfft2`.
+
+```typescript
+function irfft2(
+  a: ArrayLike,
+  s?: [number, number],
+  axes?: [number, number],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (complex, from `rfft2`). |
+| `s` | `[number, number]` | inferred | Shape of the real-valued output along the transform axes. |
+| `axes` | `[number, number]` | `[-2, -1]` | Axes over which to compute the inverse FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Real-valued float64 array.
+
+---
+
+### rfftn
+
+Compute the N-dimensional FFT of a real-valued array. Applies `fft` along all axes except the last, then `rfft` along the last axis.
+
+```typescript
+function rfftn(
+  a: ArrayLike,
+  s?: number[],
+  axes?: number[],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Real-valued input array. |
+| `s` | `number[]` | shape of `a` along `axes` | Shape of the output along the transform axes. |
+| `axes` | `number[]` | all axes | Axes over which to compute the FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array. The last transform axis has length `s[-1]//2 + 1`.
+
+---
+
+### irfftn
+
+Compute the inverse of `rfftn`.
+
+```typescript
+function irfftn(
+  a: ArrayLike,
+  s?: number[],
+  axes?: number[],
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array (complex, from `rfftn`). |
+| `s` | `number[]` | inferred | Shape of the real-valued output along the transform axes. |
+| `axes` | `number[]` | all axes | Axes over which to compute the inverse FFT. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Real-valued float64 array.
+
+---
+
+### hfft
+
+Compute the FFT of a signal with Hermitian symmetry (i.e., the spectrum is real-valued). This is the inverse of `ihfft`.
+
+```typescript
+function hfft(
+  a: ArrayLike,
+  n?: number,
+  axis?: number,
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array with Hermitian symmetry. |
+| `n` | `number` | `(a.shape[axis] - 1) * 2` | Length of the output. |
+| `axis` | `number` | `-1` | Axis along which to compute. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Real-valued float64 array of length `n`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Signal with Hermitian symmetry
+const a = np.array([1, 2, 3, 2]);
+const spectrum = np.fft.hfft(a);
+```
+
+---
+
+### ihfft
+
+Compute the inverse of `hfft`. Takes a real-valued signal and returns the Hermitian-symmetric spectrum.
+
+```typescript
+function ihfft(
+  a: ArrayLike,
+  n?: number,
+  axis?: number,
+  norm?: 'backward' | 'ortho' | 'forward'
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Real-valued input array. |
+| `n` | `number` | `a.shape[axis]` | Length of the input to use. |
+| `axis` | `number` | `-1` | Axis along which to compute. |
+| `norm` | `'backward' \| 'ortho' \| 'forward'` | `'backward'` | Normalization mode. |
+
+**Returns:** `NDArray` -- Complex128 array of length `n//2 + 1`.
