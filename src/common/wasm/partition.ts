@@ -160,12 +160,17 @@ export function wasmPartitionSlices(
 
   const mem = getSharedMemory();
   if (isF16) {
-    const f16Out = new Uint16Array(resultData.length);
     const f32View = new Float32Array(mem.buffer, ptr, resultData.length);
-    new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
-    new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-      new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
-    );
+    if (hasFloat16) {
+      const f16Out = new Uint16Array(resultData.length);
+      new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
+      new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
+        new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
+      );
+    } else {
+      // Polyfill: float16 arrays are backed by Float32Array, copy f32 values directly
+      (resultData as Float32Array).set(f32View);
+    }
   } else {
     new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
       new Uint8Array(mem.buffer, ptr, resultData.byteLength)

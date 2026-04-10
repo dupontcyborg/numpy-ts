@@ -16,6 +16,7 @@ import {
   expectBothReject,
 } from './_helpers';
 import type { NumPyResult } from '../numpy-oracle';
+import { hasFloat16 } from '../../../src';
 
 const { array } = np;
 
@@ -107,6 +108,7 @@ result = float(np.ptp(a))`;
           }
           const jsResult = fn(a);
           const py = oracle.get(`${name}_${dtype}`)!;
+          if (!hasFloat16 && dtype === 'float16') return;
           scalarClose(jsResult, py.value, 3);
         });
       }

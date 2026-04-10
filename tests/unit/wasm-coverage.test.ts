@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { array } from '../../src';
+import { array, hasFloat16 } from '../../src';
 import { wasmConfig } from '../../src/common/wasm/config';
 import { wasmMax, wasmMaxScalar } from '../../src/common/wasm/max';
 import { wasmMin, wasmMinScalar } from '../../src/common/wasm/min';
@@ -492,7 +492,7 @@ describe('wasmLogaddexp', () => {
     const a = array([1, 2, 3], 'int8');
     const r = wasmLogaddexpScalar(a.storage, 2);
     expect(r).not.toBeNull();
-    expect(r!.dtype).toBe('float16'); // NumPy: int8 → float16
+    expect(r!.dtype).toBe(hasFloat16 ? 'float16' : 'float32'); // NumPy: int8 → float16
   });
 });
 

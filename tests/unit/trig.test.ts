@@ -13,6 +13,7 @@ import {
   radians,
   deg2rad,
   rad2deg,
+  hasFloat16,
 } from '../../src';
 
 describe('Trigonometric Operations', () => {
@@ -546,7 +547,7 @@ describe('Trigonometric Operations', () => {
       const y = array([1, 0], 'uint8');
       const x = array([0, 1], 'uint8');
       const result = arctan2(y, x);
-      expect(result.dtype).toBe('float16'); // NumPy: uint8 → float16
+      expect(result.dtype).toBe(hasFloat16 ? 'float16' : 'float32'); // NumPy: uint8 → float16
     });
 
     it('hypot with uint16 inputs', () => {
@@ -560,7 +561,7 @@ describe('Trigonometric Operations', () => {
       const a = array([3, 4], 'int8');
       const b = array([4, 3], 'int8');
       const result = hypot(a, b);
-      expect(result.dtype).toBe('float16');
+      expect(result.dtype).toBe(hasFloat16 ? 'float16' : 'float32'); // NumPy: int8 → float16
     });
 
     it('arctan2 with float32 and float64 mixed', () => {

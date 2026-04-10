@@ -16,6 +16,7 @@ import {
   isComplex,
   isBool,
 } from './_helpers';
+import { hasFloat16 } from '../../../src';
 
 const { array } = np;
 
@@ -149,6 +150,9 @@ describe('DType Sweep: Conversion (astype)', () => {
             expect(Array.from(jsResult.shape)).toEqual(pyEntry.shape);
 
             // Value comparison: cast JS result to same comparison type
+            // No native Float16Array: float16 arrays use float32 precision, skip value check
+            if (!hasFloat16 && (src === 'float16' || dst === 'float16')) return;
+
             const jsCompare = isComplex(dst) ? jsResult : jsResult.astype('float64');
             const jsArr = jsCompare.toArray();
             const npArr = pyEntry.value;

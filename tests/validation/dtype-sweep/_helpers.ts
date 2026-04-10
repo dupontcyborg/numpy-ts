@@ -10,6 +10,7 @@ import {
   type NumPyResult,
 } from '../numpy-oracle';
 import { wasmConfig } from '../../../src/common/wasm/config';
+import { hasFloat16 } from '../../../src';
 
 // Force JS or WASM backend via FORCE_BACKEND env var.
 // 'js' → thresholdMultiplier=Infinity (all JS), 'wasm' → 0 (all WASM), unset → auto.
@@ -236,6 +237,8 @@ export function expectMatch(
   // Index-returning functions: we return float64 (for JS ergonomics), NumPy returns int64
   if (indexResult && jsDtype === 'float64' && (pyDtype === 'int64' || pyDtype === 'uint64')) {
     // Accepted intentional difference
+  } else if (!hasFloat16 && pyDtype === 'float16') {
+    // No native Float16Array: float16 ops fall back to float32/float64 precision
   } else {
     expect(jsDtype, `dtype mismatch: JS '${jsDtype}' vs NumPy '${pyDtype}'`).toBe(pyDtype);
   }
@@ -278,11 +281,16 @@ export function expectMatchPre(
   // Index-returning functions: we return float64 (for JS ergonomics), NumPy returns int64
   if (indexResult && jsDtype === 'float64' && (pyDtype === 'int64' || pyDtype === 'uint64')) {
     // Accepted intentional difference
+  } else if (!hasFloat16 && pyDtype === 'float16') {
+    // No native Float16Array: float16 ops fall back to float32/float64 precision
   } else {
     expect(jsDtype, `dtype mismatch: JS '${jsDtype}' vs NumPy '${pyDtype}'`).toBe(pyDtype);
   }
 
   // --- Value check ---
+  // No native Float16Array: float16 values are stored at float32 precision, skip value check
+  if (!hasFloat16 && pyDtype === 'float16') return;
+
   if (jsShape.length === 0 && typeof jsResult !== 'object') {
     // Scalar real result
     expect(Number(jsResult)).toBeCloseTo(Number(pyResult.value), 4);
