@@ -24,7 +24,7 @@ import {
 } from './bins/logical_xor.wasm';
 import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
 import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
+import { hasFloat16, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 64;
@@ -91,6 +91,7 @@ export function wasmLogicalXor(a: ArrayStorage, b: ArrayStorage): ArrayStorage |
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const dtype = a.dtype;
+  if (dtype === 'float16' && !hasFloat16) return null;
   if (b.dtype !== dtype) return null;
 
   const kernel = binaryKernels[dtype];
@@ -137,6 +138,7 @@ export function wasmLogicalXorScalar(a: ArrayStorage, scalar: number): ArrayStor
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const dtype = a.dtype;
+  if (dtype === 'float16' && !hasFloat16) return null;
 
   const kernel = scalarKernels[dtype];
   const InCtor = inputCtorMap[dtype];
