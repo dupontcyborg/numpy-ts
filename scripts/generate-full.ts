@@ -176,7 +176,8 @@ interface FunctionInfo {
   name: string;
   jsDoc: string;
   params: string;
-  paramNames: string[]; // Store parameter names separately for reliable function calls
+  paramNames: string[];
+  invokeParams: string; // Store the parameter names as they would be for a function invocation
   returnType: string;
   isExported: boolean;
 }
@@ -200,14 +201,32 @@ function extractFunctionInfo(func: FunctionDeclaration): FunctionInfo | null {
       const typeNode = p.getTypeNode();
       const type = typeNode ? typeNode.getText() : 'any';
       const isOptional = p.isOptional() || p.hasInitializer();
+      const isRest = p.isRestParameter();
       const initializer = p.getInitializer()?.getText();
 
-      if (initializer) {
+      if (isRest) {
+        return `...${pName}: ${type}`;
+      } else if (initializer) {
         return `${pName}: ${type} = ${initializer}`;
       } else if (isOptional) {
         return `${pName}?: ${type}`;
       } else {
         return `${pName}: ${type}`;
+      }
+    })
+    .join(', ');
+
+  const invokeParams = func
+    .getParameters()
+    .map((p) => {
+      const pName = p.getName();
+
+      const isRest = p.isRestParameter();
+
+      if (isRest) {
+        return `...${pName}`;
+      } else {
+        return `${pName}`;
       }
     })
     .join(', ');
@@ -220,6 +239,7 @@ function extractFunctionInfo(func: FunctionDeclaration): FunctionInfo | null {
     jsDoc,
     params,
     paramNames,
+    invokeParams,
     returnType,
     isExported: func.isExported(),
   };
@@ -262,8 +282,6 @@ export function ${info.name}(${info.params}): ${custom.returnType} {
 
   const transformedReturnType = transformReturnType(info.returnType);
 
-  // Use pre-extracted parameter names (reliable, handles complex types like [number[], number[]])
-  const paramNamesStr = info.paramNames.join(', ');
   const rt = info.returnType;
 
   // Map function name for core call (e.g., delete_ -> delete for reserved keywords)
@@ -288,25 +306,25 @@ export function ${info.name}(${info.params}): ${custom.returnType} {
 
   if (isTupleOfArrays) {
     // [NDArrayCore, NDArrayCore] → [up(r[0]), up(r[1])] as [NDArray, NDArray]
-    body = `const r = core.${coreFuncName}(${paramNamesStr}); return [up(r[0]), up(r[1])] as [NDArray, NDArray];`;
+    body = `const r = core.${coreFuncName}(${info.invokeParams}); return [up(r[0]), up(r[1])] as [NDArray, NDArray];`;
   } else if (isOptionalArray) {
     // NDArrayCore[] | undefined → result?.map(up)
-    body = `const r = core.${coreFuncName}(${paramNamesStr}); return r?.map(up);`;
+    body = `const r = core.${coreFuncName}(${info.invokeParams}); return r?.map(up);`;
   } else if (isArrayOfArrays) {
     // NDArrayCore[] → result.map(up)
-    body = `return core.${coreFuncName}(${paramNamesStr}).map(up);`;
+    body = `return core.${coreFuncName}(${info.invokeParams}).map(up);`;
   } else if (isUnionWithPrimitive) {
     // number | NDArrayCore | ... → conditional wrap
-    body = `const r = core.${coreFuncName}(${paramNamesStr}); return r instanceof NDArrayCore ? up(r) : r;`;
+    body = `const r = core.${coreFuncName}(${info.invokeParams}); return r instanceof NDArrayCore ? up(r) : r;`;
   } else if (isOptionalSingle) {
     // NDArrayCore | undefined → result ? up(result) : undefined
-    body = `const r = core.${coreFuncName}(${paramNamesStr}); return r ? up(r) : undefined;`;
+    body = `const r = core.${coreFuncName}(${info.invokeParams}); return r ? up(r) : undefined;`;
   } else if (isPureSingle) {
     // Pure NDArrayCore → up(result)
-    body = `return up(core.${coreFuncName}(${paramNamesStr}));`;
+    body = `return up(core.${coreFuncName}(${info.invokeParams}));`;
   } else {
     // Default: try simple wrap (will fail for complex cases)
-    body = `return up(core.${coreFuncName}(${paramNamesStr}));`;
+    body = `return up(core.${coreFuncName}(${info.invokeParams}));`;
   }
 
   return `${info.jsDoc}
@@ -378,6 +396,7 @@ const up = (x: NDArrayCore): NDArray => {
 
 // Re-export types
 export type { DType, TypedArray } from '../core/types';
+export type { NDIndex } from '../core/advanced';
 export { NDArray, meshgrid } from './ndarray';
 export { NDArrayCore } from '../common/ndarray-core';
 export { Complex } from '../common/complex';

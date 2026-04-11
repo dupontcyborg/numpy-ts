@@ -551,6 +551,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   size: 'skip', // returns size
   geterr: 'skip', // error handling state
   seterr: 'skip', // error handling state
+  vindex: 'supported',
 
   // Formatting functions (not array operations)
   array2string: 'skip', // string formatting

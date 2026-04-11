@@ -37,9 +37,16 @@ export function slice(storage: ArrayStorage, ...slices: (string | number)[]): Ar
   for (let i = 0; i < slices.length; i++) {
     const slice = slices[i]!;
     if (typeof slice === 'number') {
+      const start = slice;
+      // Like normalizeSize, need to handle negative / out of bounds indices.
+      const size = storage.shape[axis]!;
+      const normalizedStart = start < 0 ? size + start : start;
+      if (normalizedStart < 0 || normalizedStart >= size) {
+        throw new Error(`Index ${start} is out of bounds for size ${size}`);
+      }
       const stride = storage.strides[axis]!;
       axis++;
-      newOffset += slice * stride;
+      newOffset += normalizedStart * stride;
       continue;
     } else if (slice === 'newaxis') {
       newShape.push(1);

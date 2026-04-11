@@ -6,9 +6,18 @@
  */
 
 import { ArrayStorage, computeStrides } from '../storage';
-import { isBigIntDType, isComplexDType, type DType, type TypedArray } from '../dtype';
+import {
+  getTypedArrayConstructor,
+  isBigIntDType,
+  isComplexDType,
+  type DType,
+  type TypedArray,
+} from '../dtype';
 import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../broadcasting';
 import { Complex } from '../complex';
+import { parseSlice } from '../slicing';
+import { expandEllipsis } from '../internal/indexing';
+import { slice as storageSlice, transpose as storageTranspose } from './shape';
 import { wasmIndices } from '../wasm/indices';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
 import { wasmUnravelIndex } from '../wasm/unravel_index';
@@ -1749,4 +1758,189 @@ export function seterr(
   if (invalid !== undefined) _floatErrorState.invalid = invalid;
 
   return old;
+}
+
+// ============================================================
+// Vectorized Multi-dimensional Indexing (vindex)
+// ============================================================
+
+type StorageIndex = number | string | number[] | ArrayStorage;
+
+// Simple conversion utility
+function numberArrayToStorage(values: number[]): ArrayStorage {
+  return ArrayStorage.fromData(new Int32Array(values), [values.length], 'int32');
+}
+
+// Gets the buffer index assuming row-major order
+function multiIndexToLinear(indices: number[], shape: readonly number[]): number {
+  let linearIdx = 0;
+  let stride = 1;
+  for (let i = indices.length - 1; i >= 0; i--) {
+    linearIdx += indices[i]! * stride;
+    stride *= shape[i]!;
+  }
+  return linearIdx;
+}
+
+/**
+ * Vectorized multi-dimensional indexing.
+ *
+ * Integer-array subspace dimensions come first in the output, followed by
+ * slice dimensions in their original order.
+ *
+ * Supported index types:
+ *   number        — scalar, removes the dimension
+ *   string '1:4'  — range slice
+ *   string '...'  — ellipsis, expands to fill remaining dimensions
+ *   number[]      — cast to 1-d integer index array
+ *   ArrayStorage  — integer array indexing
+ */
+export function vindex(a: ArrayStorage, ...indices: StorageIndex[]): ArrayStorage {
+  // expand ellipsis and auto-pad missing trailing dims with ':'
+  const expanded = expandEllipsis(indices, a.ndim);
+
+  // Split indices into simple slicing operations, and integer array indexing
+  let isArrayIndex: string[] = [];
+  let lCount = 0;
+  let iCount = 0;
+  let sliceIndices: (string | number)[] = [];
+  let arrayIndices: (ArrayStorage | ':')[] = [];
+  for (const ind of expanded) {
+    if (typeof ind === 'number') {
+      isArrayIndex.push(' ');
+      sliceIndices.push(ind);
+    } else if (ind === 'newaxis') {
+      isArrayIndex.push(' ');
+      sliceIndices.push(ind);
+      arrayIndices.push(':');
+      if (iCount === 0) lCount++;
+    } else if (typeof ind === 'string') {
+      isArrayIndex.push(' ');
+      const slice = parseSlice(ind);
+      if (slice.isIndex) {
+        sliceIndices.push(ind);
+      } else {
+        sliceIndices.push(ind);
+        arrayIndices.push(':');
+        if (iCount === 0) lCount++;
+      }
+    } else if (Array.isArray(ind)) {
+      isArrayIndex.push('Y');
+      sliceIndices.push(':');
+      arrayIndices.push(numberArrayToStorage(ind));
+      iCount++;
+    } else {
+      isArrayIndex.push('Y');
+      sliceIndices.push(':');
+      arrayIndices.push(ind);
+      iCount++;
+    }
+  }
+
+  // Do the simple slicing first
+  a = storageSlice(a, ...sliceIndices);
+
+  // Now go on to do integer array indexing
+
+  // Transpose so dimensions we have array indices (I) then ":" indices (R)
+  // Order is otherwise preserved.
+  let arrayIndexesFiltered: ArrayStorage[] = [];
+  const transposeI: number[] = [];
+  const transposeR: number[] = [];
+  const shapeO: number[] = [];
+  const shapeR: number[] = [];
+  for (let i = 0; i < a.ndim; i++) {
+    const ind = arrayIndices[i];
+    if (ind instanceof ArrayStorage) {
+      arrayIndexesFiltered.push(ind);
+      transposeI.push(i);
+      shapeO.push(a.shape[i]!);
+    } else {
+      transposeR.push(i);
+      shapeR.push(a.shape[i]!);
+    }
+  }
+  a = storageTranspose(a, [...transposeI, ...transposeR]);
+
+  // Now we've simplified the problem to mapping from an array of shape [...shapeO, ...shapeR] to an array of shape [...shapeI, ...shapeR]
+  // This will be implemented by a double loop over i, r.
+
+  // Broadcast the array indices
+  arrayIndexesFiltered = broadcast_arrays(arrayIndexesFiltered);
+  const shapeI: number[] =
+    arrayIndexesFiltered.length > 0 ? Array.from(arrayIndexesFiltered[0]!.shape) : [];
+  const sizeI: number = shapeI.reduce((p, d) => p * d, 1);
+  const sizeR: number = shapeR.reduce((p, d) => p * d, 1);
+
+  // Allocate output
+  const outputShape = [...shapeI, ...shapeR];
+  const Constructor = getTypedArrayConstructor(a.dtype)!;
+  const outputSize = sizeI * sizeR;
+  const physicalSize = isComplexDType(a.dtype) ? outputSize * 2 : outputSize;
+  const outputData = new Constructor(physicalSize);
+  const outputStorage = ArrayStorage.fromData(outputData, outputShape, a.dtype);
+
+  // Skip copying if output is empty.
+  if (outputSize !== 0) {
+    for (let i = 0; i < sizeI; i++) {
+      const indexO = arrayIndexesFiltered.map((ind) => ind.iget(i) as number);
+
+      // Validate and handle negative integers
+      for (let j = 0; j < indexO.length; j++) {
+        let index = indexO[j]!;
+        if (index < 0) index = indexO[j] = shapeO[j]! + index;
+        if (index < 0 || index >= shapeO[j]!) {
+          throw new Error(`index ${index} is out of bounds for axis with size ${shapeO[j]!}`);
+        }
+      }
+
+      // Convert to linear index
+      const linearO = multiIndexToLinear(indexO, shapeO) * sizeR;
+      const linearI = i * sizeR;
+
+      // TODO: This could probably be more efficient if instead of relying on a.iget,
+      // we directly computed the buffer index.
+
+      // Copy a[...indexO, ...r] to outputStorage[...i, ...r]
+      // We know outputStorage is row-major, which simplifies things.
+      if (isComplexDType(a.dtype)) {
+        for (let r = 0; r < sizeR; r++) {
+          const value = a.iget(linearO + r) as Complex;
+          const bufferIndex = linearI + r;
+          const physicalIndex = bufferIndex * 2;
+          outputStorage.data[physicalIndex] = value.re;
+          outputStorage.data[physicalIndex + 1] = value.im;
+        }
+      } else {
+        for (let r = 0; r < sizeR; r++) {
+          outputStorage.data[linearI + r] = a.iget(linearO + r) as number | bigint;
+        }
+      }
+    }
+  }
+
+  // Final transpose to restore ideal order
+  // numpy behaviour varies depending on whether the array indices are contiguous
+  // https://numpy.org/doc/stable/user/basics.indexing.html#combining-advanced-and-basic-indexing
+  // NB: Dask's vindex implementation skips this step.
+  const areArrayIndicesContiguous: boolean = !isArrayIndex.join('').trim().includes(' ');
+
+  if (areArrayIndicesContiguous && shapeI.length > 0) {
+    const iCount = shapeI.length;
+    const rCount = shapeR.length;
+    const transpose: number[] = [];
+    for (let j = 0; j < lCount; j++) {
+      transpose.push(j + iCount);
+    }
+    for (let j = 0; j < iCount; j++) {
+      transpose.push(j);
+    }
+    for (let j = lCount; j < rCount; j++) {
+      transpose.push(j + iCount);
+    }
+
+    return storageTranspose(outputStorage, transpose);
+  } else {
+    return outputStorage;
+  }
 }
