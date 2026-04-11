@@ -64,7 +64,7 @@
     },
     {
       "source": "/performance",
-      "destination": "/v1.3.x/guides/performance"
+      "destination": "/v1.3.x/performance/overview"
     },
     {
       "source": "/roadmap",
@@ -115,7 +115,6 @@
                 "group": "Resources",
                 "pages": [
                   "changelog",
-                  "v1.3.x/guides/performance",
                   "v1.3.x/guides/api-coverage",
                   "v1.3.x/guides/roadmap",
                   "v1.3.x/guides/ai-disclosure"
@@ -267,6 +266,27 @@
                   "v1.3.x/api/utilities/type-checking",
                   "v1.3.x/api/utilities/formatting",
                   "v1.3.x/api/utilities/misc"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Performance",
+            "groups": [
+              {
+                "group": "Introduction",
+                "pages": [
+                  "v1.3.x/performance/overview",
+                  "v1.3.x/performance/methodology"
+                ]
+              },
+              {
+                "group": "Benchmarks",
+                "pages": [
+                  "v1.3.x/performance/vs-numpy",
+                  "v1.3.x/performance/vs-pyodide",
+                  "v1.3.x/performance/size-scaling",
+                  "v1.3.x/performance/deno-bun"
                 ]
               }
             ]

@@ -95,11 +95,15 @@ export async function spawnRuntimeBenchmark(
       const text = data.toString();
       stderr += text;
 
-      // First line of stderr contains runtime name + version
-      const versionMatch = text.match(/^(\w+)\s+(v?[\d.]+)/m);
-      if (versionMatch) {
-        version = versionMatch[2]!;
-        if (version.startsWith('v')) version = version.slice(1);
+      // First line of stderr contains runtime name + version (e.g. "node v24.12.0")
+      // Only match if we haven't detected a version yet to avoid overwriting
+      // with later lines like "Running 2394 benchmarks..."
+      if (version === 'unknown') {
+        const versionMatch = text.match(/^(node|deno|bun)\s+(v?[\d.]+)/m);
+        if (versionMatch) {
+          version = versionMatch[2]!;
+          if (version.startsWith('v')) version = version.slice(1);
+        }
       }
 
       // Forward progress to parent stderr

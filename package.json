@@ -78,7 +78,7 @@
     "bench:compare": "tsx benchmarks/scripts/compare.ts latest-full",
     "bench:regenerate": "tsx benchmarks/scripts/regenerate-charts.ts",
     "bench:view": "open benchmarks/results/plots/latest-full.html || xdg-open benchmarks/results/plots/latest-full.html",
-    "bench:docs": "python3 scripts/generate-bench-docs.py benchmarks/results/latest-full.json",
+    "bench:docs": "python3 scripts/generate-bench-docs.py",
     "wasm:size": "tsx scripts/wasm-size.ts"
   },
   "keywords": [
