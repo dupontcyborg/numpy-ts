@@ -465,6 +465,178 @@ def build_runtimes_data(input_path: Path, repo_root: Path) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Data splitting: inline (slim) vs external (detail benchmarks)
+# ---------------------------------------------------------------------------
+
+def _strip_benchmarks(data: dict[str, Any], builder: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Split full data into slim inline object and external detail object.
+
+    Returns (slim_data, detail_data).
+    """
+    if builder == "size_scaling":
+        # benchmarks are in data["benchmarks"] (cross-size categories with .benchmarks arrays)
+        detail = data.pop("benchmarks", [])
+        return data, {"benchmarks": detail}
+    elif builder == "runtimes":
+        # benchmarks are in each category's .benchmarks array
+        detail_categories = []
+        for cat in data.get("categories", []):
+            benchmarks = cat.pop("benchmarks", [])
+            detail_categories.append({"name": cat["name"], "benchmarks": benchmarks})
+        return data, {"categories": detail_categories}
+    else:
+        # BenchmarkReport: benchmarks are in each category's .benchmarks array
+        detail_categories = []
+        for cat in data.get("categories", []):
+            benchmarks = cat.pop("benchmarks", [])
+            detail_categories.append({"name": cat["name"], "benchmarks": benchmarks})
+        return data, {"categories": detail_categories}
+
+
+# ---------------------------------------------------------------------------
+# LLM-friendly markdown summary
+# ---------------------------------------------------------------------------
+
+def _build_llm_summary_benchmark(data: dict[str, Any], meta: dict[str, Any]) -> str:
+    """Build a hidden markdown summary for BenchmarkReport pages."""
+    summary = data.get("summary", {})
+    categories = data.get("categories", [])
+    dtype_stats = data.get("dtypeStats", [])
+
+    lines = [
+        "## Benchmark Summary",
+        "",
+        f"- **Average speedup**: {summary.get('avgSpeedup', 0):.2f}x vs NumPy",
+        f"- **Best case**: {summary.get('bestCase', 0):.2f}x",
+        f"- **Worst case**: {summary.get('worstCase', 0):.2f}x",
+        f"- **Total benchmarks**: {summary.get('totalBenchmarks', 0)}",
+        f"- **Machine**: {meta.get('machine', '-')}",
+        f"- **numpy-ts version**: {meta.get('numpyTsVersion', '-')}",
+        "",
+        "### Performance by Category",
+        "",
+        "| Category | Avg Speedup | Count | Faster | Slower |",
+        "|-|-|-|-|-|",
+    ]
+    for cat in categories:
+        lines.append(
+            f"| {cat['name']} | {cat.get('avgSpeedup', 0):.2f}x "
+            f"| {cat.get('count', 0)} "
+            f"| {cat.get('fasterCount', 0)} "
+            f"| {cat.get('slowerCount', 0)} |"
+        )
+
+    if dtype_stats:
+        lines += [
+            "",
+            "### Performance by DType",
+            "",
+            "| DType | Avg Speedup | Median Speedup | Count |",
+            "|-|-|-|-|",
+        ]
+        for d in dtype_stats:
+            lines.append(
+                f"| {d['dtype']} | {d.get('avgSpeedup', 0):.2f}x "
+                f"| {d.get('medianSpeedup', 0):.2f}x "
+                f"| {d.get('count', 0)} |"
+            )
+
+    return "\n".join(lines)
+
+
+def _build_llm_summary_size_scaling(data: dict[str, Any]) -> str:
+    """Build a hidden markdown summary for SizeScalingReport pages."""
+    sizes = data.get("sizes", [])
+    lines = [
+        "## Size Scaling Summary",
+        "",
+        "| Array Size | Avg Speedup | Best Case | Worst Case | Benchmarks |",
+        "|-|-|-|-|-|",
+    ]
+    for size in sizes:
+        s = size.get("summary", {})
+        lines.append(
+            f"| {size.get('label', '-')} | {s.get('avgSpeedup', 0):.2f}x "
+            f"| {s.get('bestCase', 0):.2f}x "
+            f"| {s.get('worstCase', 0):.2f}x "
+            f"| {s.get('totalBenchmarks', 0)} |"
+        )
+
+    # Per-category breakdown for each size
+    for size in sizes:
+        cats = size.get("categories", [])
+        if cats:
+            lines += [
+                "",
+                f"### {size.get('label', '-')} — by Category",
+                "",
+                "| Category | Avg Speedup | Count |",
+                "|-|-|-|",
+            ]
+            for cat in cats:
+                lines.append(
+                    f"| {cat['name']} | {cat.get('avgSpeedup', 0):.2f}x | {cat.get('count', 0)} |"
+                )
+
+    return "\n".join(lines)
+
+
+def _build_llm_summary_runtimes(data: dict[str, Any]) -> str:
+    """Build a hidden markdown summary for RuntimesReport pages."""
+    summaries = data.get("summaries", {})
+    runtimes = data.get("runtimes", [])
+    categories = data.get("categories", [])
+    meta = data.get("meta", {})
+
+    lines = [
+        "## Runtime Comparison Summary",
+        "",
+        f"Baseline: Node.js. Machine: {meta.get('machine', '-')}",
+        "",
+        "### Overall (vs Node.js)",
+        "",
+        "| Runtime | Avg Speedup | Best Case | Worst Case | Benchmarks |",
+        "|-|-|-|-|-|",
+    ]
+    for rt in runtimes:
+        s = summaries.get(rt, {})
+        lines.append(
+            f"| {rt} | {s.get('avgSpeedup', 0):.2f}x "
+            f"| {s.get('bestCase', 0):.2f}x "
+            f"| {s.get('worstCase', 0):.2f}x "
+            f"| {s.get('totalBenchmarks', 0)} |"
+        )
+
+    if categories:
+        lines += [
+            "",
+            "### By Category",
+            "",
+            "| Category | " + " | ".join(f"{rt} avg" for rt in runtimes) + " |",
+            "|-" * (1 + len(runtimes)) + "|",
+        ]
+        for cat in categories:
+            rt_cells = []
+            for rt in runtimes:
+                rt_data = cat.get("runtimes", {}).get(rt, {})
+                rt_cells.append(f"{rt_data.get('avgSpeedup', 0):.2f}x")
+            lines.append(f"| {cat['name']} | " + " | ".join(rt_cells) + " |")
+
+    return "\n".join(lines)
+
+
+def _build_llm_summary(data: dict[str, Any], builder: str) -> str:
+    """Dispatch to the right LLM summary builder."""
+    meta = data.get("meta", {})
+    if builder == "size_scaling":
+        return _build_llm_summary_size_scaling(data)
+    elif builder == "runtimes":
+        return _build_llm_summary_runtimes(data)
+    else:
+        return _build_llm_summary_benchmark(data, meta)
+
+
+# ---------------------------------------------------------------------------
 # MDX generation
 # ---------------------------------------------------------------------------
 
@@ -476,8 +648,15 @@ def build_frontmatter(fm: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def build_page(page: dict[str, Any], repo_root: Path) -> str:
-    """Generate a complete .mdx page from a page definition."""
+def build_page(
+    page: dict[str, Any],
+    repo_root: Path,
+    version: str,
+) -> tuple[str, list[tuple[Path, bytes]]]:
+    """Generate a complete .mdx page and any external data files.
+
+    Returns (mdx_content, [(path, bytes), ...]) for external files.
+    """
     fm = build_frontmatter(page["frontmatter"])
     builder = page.get("builder", "default")
 
@@ -492,13 +671,25 @@ def build_page(page: dict[str, Any], repo_root: Path) -> str:
         source_display = str(input_path.relative_to(repo_root))
         data = build_benchmark_data(report, source_display)
 
-    data_json = json.dumps(data, separators=(",", ":"))
+    # Build LLM summary before stripping benchmarks (needs category counts)
+    llm_summary = _build_llm_summary(data, builder)
 
-    return f"""{fm}
+    # Split into slim inline data + external detail data
+    slim_data, detail_data = _strip_benchmarks(data, builder)
+    slim_json = json.dumps(slim_data, separators=(",", ":"))
+
+    # External JSON file
+    detail_path = repo_root / "docs" / "assets" / version / f"{page['id']}-benchmarks.json"
+    detail_bytes = json.dumps(detail_data, separators=(",", ":")).encode("utf-8")
+
+    # URL path for the component to fetch (relative to docs root)
+    detail_url = f"/assets/{version}/{page['id']}-benchmarks.json"
+
+    mdx = f"""{fm}
 
 import {{ {page["component"]} }} from '/snippets/{page["component"]}.jsx'
 
-export const benchmarkData = {data_json};
+export const benchmarkData = {slim_json};
 
 {page["intro"]}
 
@@ -506,8 +697,15 @@ export const benchmarkData = {data_json};
 All benchmarks measure computation time from JS and Python, respectively. To learn more, check out [benchmark methodology](./methodology).
 </Tip>
 
-<{page["component"]} data={{benchmarkData}} />
+<{page["component"]} data={{benchmarkData}} detailUrl="{detail_url}" />
+
+<div style={{{{display: 'none'}}}} data-llm-summary="true">
+
+{llm_summary}
+
+</div>
 """
+    return mdx, [(detail_path, detail_bytes)]
 
 
 # ---------------------------------------------------------------------------
@@ -531,6 +729,21 @@ def detect_latest_docs_version(repo_root: Path) -> str:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+def _write_outputs(
+    mdx: str,
+    mdx_path: Path,
+    external_files: list[tuple[Path, bytes]],
+    repo_root: Path,
+) -> None:
+    """Write the MDX page and any external data files."""
+    mdx_path.parent.mkdir(parents=True, exist_ok=True)
+    mdx_path.write_text(mdx, encoding="utf-8")
+    for path, content in external_files:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        print(f"    + {path.relative_to(repo_root)}")
+
 
 def main() -> int:
     repo_root = Path(os.getcwd())
@@ -557,9 +770,8 @@ def main() -> int:
         page = dict(PAGES[0])
         page["inputs"] = [sys.argv[1]]
         page["output"] = str(output_path.relative_to(repo_root))
-        mdx = build_page(page, repo_root)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(mdx, encoding="utf-8")
+        mdx, external_files = build_page(page, repo_root, version)
+        _write_outputs(mdx, output_path, external_files, repo_root)
         print(f"  {output_path.relative_to(repo_root)}")
         return 0
 
@@ -577,9 +789,8 @@ def main() -> int:
             errors += 1
             continue
 
-        mdx = build_page(page, repo_root)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(mdx, encoding="utf-8")
+        mdx, external_files = build_page(page, repo_root, version)
+        _write_outputs(mdx, output_path, external_files, repo_root)
         print(f"  {output_rel}")
 
     if errors:

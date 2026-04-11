@@ -1,4 +1,4 @@
-export const RuntimesReport = ({ data }) => {
+export const RuntimesReport = ({ data, detailUrl }) => {
   const meta = data?.meta || {};
   const runtimes = Array.isArray(data?.runtimes) ? data.runtimes : [];
   const summaries = data?.summaries || {};
@@ -88,7 +88,26 @@ export const RuntimesReport = ({ data }) => {
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 900);
   const [metaOpen, setMetaOpen] = useState(false);
 
-  const toggleCategory = (name) => setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  // Lazy-loaded detail benchmarks
+  const [detailData, setDetailData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const detailFetched = useRef(false);
+
+  const fetchDetail = () => {
+    if (detailFetched.current || !detailUrl) return;
+    detailFetched.current = true;
+    setDetailLoading(true);
+    fetch(detailUrl)
+      .then((r) => r.json())
+      .then((d) => setDetailData(d))
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  };
+
+  const toggleCategory = (name) => {
+    fetchDetail();
+    setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -370,7 +389,8 @@ export const RuntimesReport = ({ data }) => {
       </p>
 
       {categories.map((category) => {
-        const benchmarks = Array.isArray(category.benchmarks) ? category.benchmarks : [];
+        const detailCat = detailData?.categories?.find((c) => c.name === category.name);
+        const benchmarks = Array.isArray(category.benchmarks) ? category.benchmarks : (detailCat?.benchmarks || []);
         const catName = String(category.name);
         const isOpen = !!openCategories[catName];
         const catRuntimes = category.runtimes || {};
@@ -397,6 +417,9 @@ export const RuntimesReport = ({ data }) => {
               <div style={{ padding: '0 14px 14px' }}>
                 <div style={{ fontSize: 13, color: colors.mutedText, marginBottom: 8 }}>{subtitle}</div>
                 <div style={{ overflowX: 'auto' }}>
+                  {benchmarks.length === 0 && detailLoading ? (
+                    <div style={{ padding: '20px 10px', color: colors.mutedText, fontSize: 13 }}>Loading benchmarks…</div>
+                  ) : (
                   <table style={{ minWidth: '100%', borderCollapse: 'collapse', margin: 0 }}>
                     <thead>
                       <tr>
@@ -438,6 +461,7 @@ export const RuntimesReport = ({ data }) => {
                       ))}
                     </tbody>
                   </table>
+                  )}
                 </div>
               </div>
             </div>

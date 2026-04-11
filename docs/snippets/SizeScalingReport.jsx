@@ -1,4 +1,4 @@
-export const SizeScalingReport = ({ data }) => {
+export const SizeScalingReport = ({ data, detailUrl }) => {
   const meta = data?.meta || {};
   const sizes = Array.isArray(data?.sizes) ? data.sizes : [];
 
@@ -81,7 +81,26 @@ export const SizeScalingReport = ({ data }) => {
   const [tooltip, setTooltip] = useState(null);
   const [metaOpen, setMetaOpen] = useState(false);
 
-  const toggleCategory = (name) => setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  // Lazy-loaded detail benchmarks
+  const [detailData, setDetailData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const detailFetched = useRef(false);
+
+  const fetchDetail = () => {
+    if (detailFetched.current || !detailUrl) return;
+    detailFetched.current = true;
+    setDetailLoading(true);
+    fetch(detailUrl)
+      .then((r) => r.json())
+      .then((d) => setDetailData(d))
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  };
+
+  const toggleCategory = (name) => {
+    fetchDetail();
+    setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -231,7 +250,9 @@ export const SizeScalingReport = ({ data }) => {
   const barGridCols = isMobile ? '80px 1fr 52px' : '160px 1fr 80px';
 
   // Cross-size benchmark data (normalized names, keyed by size)
-  const crossCategories = Array.isArray(data?.benchmarks) ? data.benchmarks : [];
+  // Inline data may have benchmarks stripped; use detailData if available
+  const crossCategories = Array.isArray(data?.benchmarks) ? data.benchmarks
+    : Array.isArray(detailData?.benchmarks) ? detailData.benchmarks : [];
   const SIZE_KEYS = ['small', 'medium', 'large'];
 
   return (
@@ -391,6 +412,9 @@ export const SizeScalingReport = ({ data }) => {
             <div style={{ maxHeight: isOpen ? 10000 : 0, overflow: 'hidden', transition: isOpen ? 'max-height 0.5s ease-in' : 'max-height 0.3s ease-out' }}>
               <div style={{ padding: '0 14px 14px' }}>
                 <div style={{ overflowX: 'auto' }}>
+                  {benchmarks.length === 0 && detailLoading ? (
+                    <div style={{ padding: '20px 10px', color: colors.mutedText, fontSize: 13 }}>Loading benchmarks…</div>
+                  ) : (
                   <table style={{ minWidth: '100%', borderCollapse: 'collapse', margin: 0 }}>
                     <thead>
                       <tr>
@@ -427,6 +451,7 @@ export const SizeScalingReport = ({ data }) => {
                       ))}
                     </tbody>
                   </table>
+                  )}
                 </div>
               </div>
             </div>

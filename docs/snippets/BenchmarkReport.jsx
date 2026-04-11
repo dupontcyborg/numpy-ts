@@ -1,4 +1,4 @@
-export const BenchmarkReport = ({ data }) => {
+export const BenchmarkReport = ({ data, detailUrl }) => {
   const summary = data?.summary || {};
   const meta = data?.meta || {};
   const categories = Array.isArray(data?.categories) ? data.categories : [];
@@ -82,7 +82,26 @@ export const BenchmarkReport = ({ data }) => {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 900);
 
-  const toggleCategory = (name) => setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  // Lazy-loaded detail benchmarks (fetched on first category expand)
+  const [detailData, setDetailData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const detailFetched = useRef(false);
+
+  const fetchDetail = () => {
+    if (detailFetched.current || !detailUrl) return;
+    detailFetched.current = true;
+    setDetailLoading(true);
+    fetch(detailUrl)
+      .then((r) => r.json())
+      .then((d) => setDetailData(d))
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  };
+
+  const toggleCategory = (name) => {
+    fetchDetail();
+    setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -227,6 +246,7 @@ export const BenchmarkReport = ({ data }) => {
                     href={`#cat-${String(category.name).replace(/\s+/g, '-').toLowerCase()}`}
                     onClick={(e) => {
                       e.preventDefault();
+                      fetchDetail();
                       const catName = String(category.name);
                       setOpenCategories((prev) => ({ ...prev, [catName]: true }));
                       setTimeout(() => {
@@ -312,7 +332,8 @@ export const BenchmarkReport = ({ data }) => {
       </p>
 
       {categories.map((category) => {
-        const benchmarks = Array.isArray(category.benchmarks) ? category.benchmarks : [];
+        const detailCat = detailData?.categories?.find((c) => c.name === category.name);
+        const benchmarks = Array.isArray(category.benchmarks) ? category.benchmarks : (detailCat?.benchmarks || []);
         const isOpen = !!openCategories[String(category.name)];
         return (
           <div key={String(category.name)} id={`cat-${String(category.name).replace(/\s+/g, '-').toLowerCase()}`} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.cardBg, overflow: 'hidden', scrollMarginTop: 80 }}>
@@ -329,6 +350,9 @@ export const BenchmarkReport = ({ data }) => {
                   Slower than NumPy: {category.slowerCount} | Faster than NumPy: {category.fasterCount}
                 </div>
                 <div style={{ overflowX: 'auto' }}>
+                  {benchmarks.length === 0 && detailLoading ? (
+                    <div style={{ padding: '20px 10px', color: colors.mutedText, fontSize: 13 }}>Loading benchmarks…</div>
+                  ) : (
                   <table style={{ minWidth: '100%', borderCollapse: 'collapse', margin: 0 }}>
                     <thead>
                       <tr>
@@ -353,6 +377,7 @@ export const BenchmarkReport = ({ data }) => {
                       ))}
                     </tbody>
                   </table>
+                  )}
                 </div>
               </div>
             </div>
