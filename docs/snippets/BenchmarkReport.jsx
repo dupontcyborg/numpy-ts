@@ -140,11 +140,11 @@ export const BenchmarkReport = ({ data }) => {
   const HoverBar = ({ tip, width, color, rounded }) => {
     const [show, setShow] = useState(false);
     return (
-      <div style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, position: 'relative', zIndex: 0, transition: 'filter 0.15s', cursor: 'default' }}
+      <div style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, position: 'relative', zIndex: show ? 10 : 'auto', transition: 'filter 0.15s', cursor: 'default' }}
         onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; setShow(true) }}
         onMouseLeave={(e) => { e.currentTarget.style.filter = ''; setShow(false) }}>
         {tip && (
-          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 4, padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#333' : '#1a1a1a', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 10, pointerEvents: 'none', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
+          <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
             {tip}
           </div>
         )}
@@ -185,7 +185,7 @@ export const BenchmarkReport = ({ data }) => {
   const SummaryCard = ({ label, value }) => (
     <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.cardBg }}>
       <div style={{ fontSize: 12, color: colors.mutedText, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: colors.text }}>{value}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: colors.text }}>{value}</div>
     </div>
   );
 

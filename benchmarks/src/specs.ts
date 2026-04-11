@@ -3621,46 +3621,6 @@ export function getBenchmarkSpecs(
       warmup,
     });
 
-    // ========================================
-    // Type Checking Benchmarks
-    // ========================================
-
-    specs.push({
-      name: `can_cast`,
-      category: 'utilities',
-      operation: 'can_cast',
-      setup: {},
-      iterations,
-      includeInQuick: true,
-      warmup,
-    });
-
-    specs.push({
-      name: `result_type`,
-      category: 'utilities',
-      operation: 'result_type',
-      setup: {},
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `min_scalar_type`,
-      category: 'utilities',
-      operation: 'min_scalar_type',
-      setup: {},
-      iterations,
-      warmup,
-    });
-
-    specs.push({
-      name: `issubdtype`,
-      category: 'utilities',
-      operation: 'issubdtype',
-      setup: {},
-      iterations,
-      warmup,
-    });
   }
 
   // ========================================

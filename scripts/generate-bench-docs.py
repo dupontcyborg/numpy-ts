@@ -17,7 +17,7 @@ CATEGORY_ORDER = [
     "creation", "arithmetic", "math", "trig", "gradient", "linalg",
     "reductions", "manipulation", "io", "indexing", "bitwise",
     "sorting", "logic", "statistics", "sets", "random", "polynomials",
-    "utilities", "fft",
+    "fft",
 ]
 
 DTYPE_ORDER = [
@@ -84,7 +84,7 @@ PAGES: list[dict[str, Any]] = [
         "component": "SizeScalingReport",
         "builder": "size_scaling",
         "intro": (
-            "How does numpy-ts performance scale with array size? This page shows the full picture."
+            "How does numpy-ts performance scale with array size compared to NumPy? This page shows the full picture."
         ),
     },
     {
@@ -99,8 +99,8 @@ PAGES: list[dict[str, Any]] = [
         "component": "RuntimesReport",
         "builder": "runtimes",
         "intro": (
-            "numpy-ts runs on Node.js, Deno, and Bun (and more). This page compares these three "
-            "runtimes head-to-head against native NumPy as baseline."
+            "numpy-ts runs on Node.js, Deno, and Bun (and more). This page compares "
+            "runtime performance head-to-head, with Node.js as the baseline."
         ),
     },
 ]
@@ -380,59 +380,69 @@ RUNTIME_ORDER = ["node", "deno", "bun"]
 
 
 def build_runtimes_data(input_path: Path, repo_root: Path) -> dict[str, Any]:
-    """Build the data object consumed by RuntimesReport."""
+    """Build the data object consumed by RuntimesReport.
+
+    Computes performance relative to Node.js (baseline), not NumPy.
+    Ratio > 1 means faster than Node.
+    """
     report = json.loads(input_path.read_text(encoding="utf-8"))
     env = report["environment"]
 
     meta = {
         "generatedAt": format_timestamp(report["timestamp"]),
         "machine": env.get("machine"),
-        "pythonVersion": env.get("python_version"),
-        "numpyVersion": env.get("numpy_version"),
         "numpyTsVersion": env["numpyjs_version"],
         "runtimes": env.get("runtimes", {}),
     }
 
-    # Build per-runtime summaries
-    summaries = {}
-    for rt in RUNTIME_ORDER:
-        s = report["summaries"].get(rt)
-        if s is None:
-            continue
-        geo_mean_slowdown = s.get("avg_slowdown") or s.get("geo_mean", 1)
-        summaries[rt] = {
-            "avgSpeedup": round(1.0 / geo_mean_slowdown, 4) if geo_mean_slowdown else 0,
-            "medianSpeedup": round(1.0 / s["median_slowdown"], 4) if s["median_slowdown"] else 0,
-            "bestCase": round(1.0 / s["best_case"], 4) if s["best_case"] else 0,
-            "worstCase": round(1.0 / s["worst_case"], 4) if s["worst_case"] else 0,
-            "totalBenchmarks": s["total_benchmarks"],
-        }
-
-    # Build per-category cross-runtime data
+    # Collect per-benchmark ops/s for each runtime
+    # Then compute ratios relative to Node.js
     cat_map: dict[str, dict[str, Any]] = {}
+    all_ratios: dict[str, list[float]] = {rt: [] for rt in RUNTIME_ORDER}
+
     for r in report["results"]:
         cat = r["category"]
         if cat not in cat_map:
             cat_map[cat] = {"name": cat, "runtimes": {rt: {"ratios": [], "count": 0} for rt in RUNTIME_ORDER}, "benchmarks": []}
+
+        # Get Node.js ops as baseline
+        node_data = r["runtimes"].get("node")
+        if node_data is None:
+            continue
+        node_ops = node_data["timing"]["ops_per_sec"]
+        if node_ops <= 0:
+            continue
 
         bench: dict[str, Any] = {"name": r["name"]}
         for rt in RUNTIME_ORDER:
             rt_data = r["runtimes"].get(rt)
             if rt_data is None:
                 continue
-            speedup = round(1.0 / rt_data["ratio"], 4) if rt_data["ratio"] > 0 else 0.0
-            ops = round(rt_data["timing"]["ops_per_sec"], 1)
-            bench[rt] = {"ratio": speedup, "ops": ops}
-            cat_map[cat]["runtimes"][rt]["ratios"].append(speedup)
+            ops = rt_data["timing"]["ops_per_sec"]
+            ratio = round(ops / node_ops, 4) if node_ops > 0 else 0.0
+            bench[rt] = {"ratio": ratio, "ops": round(ops, 1)}
+            cat_map[cat]["runtimes"][rt]["ratios"].append(ratio)
             cat_map[cat]["runtimes"][rt]["count"] += 1
+            all_ratios[rt].append(ratio)
 
         cat_map[cat]["benchmarks"].append(bench)
 
+    # Build per-runtime summaries (relative to Node)
+    summaries = {}
+    for rt in RUNTIME_ORDER:
+        ratios = all_ratios[rt]
+        if not ratios:
+            continue
+        summaries[rt] = {
+            "avgSpeedup": round(_geo_mean(ratios), 4),
+            "bestCase": round(max(ratios), 4),
+            "worstCase": round(min(ratios), 4),
+            "totalBenchmarks": len(ratios),
+        }
+
     categories = []
     for cat_data in cat_map.values():
-        # Sort benchmarks
         cat_data["benchmarks"] = sorted(cat_data["benchmarks"], key=lambda b: _benchmark_sort_key(b))
-        # Compute per-runtime avg for this category
         for rt in RUNTIME_ORDER:
             ratios = cat_data["runtimes"][rt]["ratios"]
             cat_data["runtimes"][rt] = {
@@ -447,6 +457,7 @@ def build_runtimes_data(input_path: Path, repo_root: Path) -> dict[str, Any]:
 
     return {
         "meta": meta,
+        "baseline": "node",
         "runtimes": [rt for rt in RUNTIME_ORDER if rt in summaries],
         "summaries": summaries,
         "categories": categories,

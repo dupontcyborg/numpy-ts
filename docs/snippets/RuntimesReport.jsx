@@ -122,19 +122,27 @@ export const RuntimesReport = ({ data }) => {
     return `${ratio.toFixed(2)}x`;
   };
 
-  const ratioTip = (ratio) => {
+  const ratioTip = (ratio, rt) => {
     if (!Number.isFinite(ratio)) return '';
-    return ratio >= 1 ? `${ratio.toFixed(2)}x faster than NumPy` : `${ratio.toFixed(2)}x slower than NumPy`;
+    const label = rt ? (RUNTIME_LABELS[rt] || rt) + ': ' : '';
+    return label + (ratio >= 1 ? `${ratio.toFixed(2)}x faster than Node.js` : `${ratio.toFixed(2)}x slower than Node.js`);
+  };
+
+  const formatOpsShort = (ops) => {
+    if (!Number.isFinite(ops) || ops <= 0) return '';
+    if (ops >= 1_000_000) return `${(ops / 1_000_000).toFixed(1)}M ops/s`;
+    if (ops >= 1_000) return `${(ops / 1_000).toFixed(1)}K ops/s`;
+    return `${ops.toFixed(0)} ops/s`;
   };
 
   const HoverBar = ({ tip, width, color, rounded }) => {
     const [show, setShow] = useState(false);
     return (
-      <div style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, position: 'relative', zIndex: 0, transition: 'filter 0.15s', cursor: 'default' }}
+      <div style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, position: 'relative', zIndex: show ? 10 : 'auto', transition: 'filter 0.15s', cursor: 'default' }}
         onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; setShow(true) }}
         onMouseLeave={(e) => { e.currentTarget.style.filter = ''; setShow(false) }}>
         {tip && (
-          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 4, padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#333' : '#1a1a1a', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 10, pointerEvents: 'none', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
+          <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
             {tip}
           </div>
         )}
@@ -147,7 +155,7 @@ export const RuntimesReport = ({ data }) => {
     return (
       <span>
         <span style={{ fontSize: 20, fontWeight: 700, color: colors.text }}>{ratio.toFixed(2)}x</span>
-        <span style={{ fontSize: 11, fontWeight: 400, color: colors.mutedText, marginLeft: 4 }}>{ratio >= 1 ? 'faster than NumPy' : 'slower than NumPy'}</span>
+        <span style={{ fontSize: 11, fontWeight: 400, color: colors.mutedText, marginLeft: 4 }}>{ratio >= 1 ? 'faster than Node.js' : 'slower than Node.js'}</span>
       </span>
     );
   };
@@ -225,25 +233,59 @@ export const RuntimesReport = ({ data }) => {
 
   return (
     <div style={{ color: colors.text }}>
-      {/* Summary cards - one per runtime */}
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isNarrow ? '1fr' : `repeat(${runtimes.length}, 1fr)`, marginBottom: 20 }}>
-        {runtimes.map((rt) => {
-          const s = summaries[rt] || {};
+      {/* Summary callout - generated comparison sentence */}
+      {(() => {
+        const describeRatio = (ratio) => {
+          if (ratio >= 1.2) return 'much faster';
+          if (ratio >= 1.05) return 'faster';
+          if (ratio >= 1.01) return 'slightly faster';
+          if (ratio >= 0.99) return 'on par';
+          if (ratio >= 0.95) return 'slightly slower';
+          if (ratio >= 0.8) return 'slower';
+          return 'much slower';
+        };
+        const pctDiff = (ratio) => {
+          const pct = Math.abs((ratio - 1) * 100).toFixed(0);
+          return `${pct}%`;
+        };
+        const others = runtimes.filter((rt) => rt !== 'node');
+        const maxSpread = Math.max(...others.map((rt) => Math.abs((summaries[rt]?.avgSpeedup || 1) - 1)));
+        const spreadPct = (maxSpread * 100).toFixed(0);
+
+        const nodeStyle = { color: RUNTIME_COLORS.node, fontWeight: 600 };
+        const parts = others.map((rt) => {
+          const ratio = summaries[rt]?.avgSpeedup || 1;
+          const label = RUNTIME_LABELS[rt] || rt;
+          const colorStyle = { color: RUNTIME_COLORS[rt], fontWeight: 600 };
+          const desc = describeRatio(ratio);
+          const isOnPar = ratio >= 0.99 && ratio < 1.01;
           return (
-            <SummaryCard
-              key={rt}
-              label={RUNTIME_LABELS[rt] || rt}
-              color={RUNTIME_COLORS[rt] || colors.text}
-              data={s}
-            />
+            <span key={rt}>
+              <span style={colorStyle}>{label}</span>{' is '}
+              {isOnPar ? (
+                <span>on par with <span style={nodeStyle}>Node.js</span></span>
+              ) : (
+                <span>{desc} than <span style={nodeStyle}>Node.js</span> ({ratio >= 1 ? '+' : '-'}{pctDiff(ratio)})</span>
+              )}
+            </span>
           );
-        })}
-      </div>
+        });
+
+        return (
+          <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.mutedCardBg, marginBottom: 20, fontSize: 14, lineHeight: 1.6 }}>
+            <span style={{ fontWeight: 600 }}>All runtimes perform within {spreadPct}% of each other on average. </span>
+            {parts.map((p, i) => (
+              <span key={i}>{i > 0 ? ', ' : ''}{p}</span>
+            ))}
+            {'. '}The category breakdown below shows where they diverge.
+          </div>
+        );
+      })()}
 
       {/* Category comparison chart */}
       <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, background: colors.cardBg, marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: colors.text }}>Average Performance vs. NumPy by Category</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: colors.text }}>Average Performance vs. Node.js by Category</div>
           <div style={{ display: 'flex', gap: 12 }}>
             {runtimes.map((rt) => (
               <div key={rt} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
@@ -284,7 +326,7 @@ export const RuntimesReport = ({ data }) => {
                       <div key={rt} style={{ display: 'grid', gridTemplateColumns: isMobile ? '40px 1fr 46px' : '50px 1fr 60px', gap: 8, alignItems: 'center' }}>
                         <div style={{ fontSize: 10, color: RUNTIME_COLORS[rt], fontWeight: 600 }}>{RUNTIME_LABELS[rt] || rt}</div>
                         <BarTrack >
-                          <HoverBar tip={`${RUNTIME_LABELS[rt] || rt}: ${ratioTip(ratio)}`} width={`${widthPct}%`} color={RUNTIME_COLORS[rt]} rounded />
+                          <HoverBar tip={rt === 'node' ? `${RUNTIME_LABELS[rt]}: baseline` : ratioTip(ratio, rt)} width={`${widthPct}%`} color={RUNTIME_COLORS[rt]} rounded />
                         </BarTrack>
                         <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: colors.text }}>{formatRatio(ratio)}</div>
                       </div>
@@ -310,8 +352,6 @@ export const RuntimesReport = ({ data }) => {
           <div style={{ padding: '0 14px 14px' }}>
             <div><strong>Generated:</strong> {meta.generatedAt || '-'}</div>
             {meta.machine ? <div><strong>Machine:</strong> <code>{meta.machine}</code></div> : null}
-            {meta.pythonVersion ? <div><strong>Python:</strong> <code>{meta.pythonVersion}</code></div> : null}
-            {meta.numpyVersion ? <div><strong>NumPy:</strong> <code>{meta.numpyVersion}</code></div> : null}
             <div><strong>numpy-ts:</strong> <code>{meta.numpyTsVersion || '-'}</code></div>
             {meta.runtimes && Object.entries(meta.runtimes).map(([rt, ver]) => (
               <div key={rt}>
@@ -326,7 +366,7 @@ export const RuntimesReport = ({ data }) => {
       {/* Detailed results */}
       <h2>Detailed Results</h2>
       <p style={{ color: colors.mutedText }}>
-        Higher is better. Over <code>1.00x</code> means <code>numpy-ts</code> was faster.
+        Performance relative to Node.js. Over <code>1.00x</code> means faster than Node.js.
       </p>
 
       {categories.map((category) => {

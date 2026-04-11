@@ -115,11 +115,11 @@ export const SizeScalingReport = ({ data }) => {
   const HoverBar = ({ tip, width, color, rounded, opacity }) => {
     const [show, setShow] = useState(false);
     return (
-      <div style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, opacity: opacity ?? 1, position: 'relative', zIndex: 0, transition: 'filter 0.15s', cursor: 'default' }}
+      <div style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, opacity: opacity ?? 1, position: 'relative', zIndex: show ? 10 : 'auto', transition: 'filter 0.15s', cursor: 'default' }}
         onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; setShow(true) }}
         onMouseLeave={(e) => { e.currentTarget.style.filter = ''; setShow(false) }}>
         {tip && (
-          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 4, padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#333' : '#1a1a1a', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 10, pointerEvents: 'none', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
+          <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
             {tip}
           </div>
         )}
@@ -236,32 +236,49 @@ export const SizeScalingReport = ({ data }) => {
 
   return (
     <div style={{ color: colors.text }}>
-      {/* Summary cards row - one per size */}
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isNarrow ? '1fr' : `repeat(${sizes.length}, 1fr)`, marginBottom: 20 }}>
-        {sizes.map((size, sIdx) => {
-          const s = size.summary || {};
-          return (
-            <div key={size.label} style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.cardBg}}>
+      {/* Summary callout */}
+      {(() => {
+        const describeRatio = (ratio) => {
+          if (ratio >= 1.2) return 'much faster';
+          if (ratio >= 1.05) return 'faster';
+          if (ratio >= 1.01) return 'slightly faster';
+          if (ratio >= 0.99) return 'on par';
+          if (ratio >= 0.95) return 'slightly slower';
+          if (ratio >= 0.8) return 'slower';
+          return 'much slower';
+        };
+        const allFaster = sizes.every((s) => (s.summary?.avgSpeedup || 0) >= 1);
+        const allSlower = sizes.every((s) => (s.summary?.avgSpeedup || 0) < 1);
+        const headline = allFaster
+          ? 'numpy-ts is faster than NumPy across all tested array sizes.'
+          : allSlower
+          ? 'NumPy is faster than numpy-ts across all tested array sizes.'
+          : 'Performance varies by array size.';
 
-              <div style={{ fontSize: 14, fontWeight: 700, color: SIZE_COLORS[sIdx]?.label || colors.text, marginBottom: 8 }}>{size.label}</div>
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: colors.mutedText }}>Average</div>
-                <RatioDisplay ratio={s.avgSpeedup} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: colors.mutedText }}>Best</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{formatRatio(s.bestCase)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: colors.mutedText }}>Worst</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{formatRatio(s.worstCase)}</div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+        return (
+          <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.mutedCardBg, marginBottom: 20, fontSize: 14, lineHeight: 1.6 }}>
+            <span style={{ fontWeight: 600 }}>{headline} </span>
+            {sizes.map((size, sIdx) => {
+              const ratio = size.summary?.avgSpeedup || 0;
+              const desc = describeRatio(ratio);
+              const pct = Math.abs((ratio - 1) * 100).toFixed(0);
+              const colorStyle = { color: SIZE_COLORS[sIdx]?.label || colors.text, fontWeight: 600 };
+              return (
+                <span key={size.label}>
+                  {sIdx > 0 ? ', ' : ''}
+                  <span style={colorStyle}>{size.label}</span>
+                  {': '}
+                  {ratio >= 0.99 && ratio < 1.01
+                    ? 'on par'
+                    : `${desc} (${ratio >= 1 ? '+' : '-'}${pct}%)`
+                  }
+                </span>
+              );
+            })}
+            .
+          </div>
+        );
+      })()}
 
       {/* Category comparison chart */}
       <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, background: colors.cardBg, marginBottom: 20 }}>
@@ -310,7 +327,6 @@ export const SizeScalingReport = ({ data }) => {
                       <div
                         key={size.label}
                         style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 44px' : '1fr 60px', gap: 8, alignItems: 'center' }}
-                        title={`${size.label}: ${ratioTip(ratio)}`}
                       >
                         <BarTrack >
                           <HoverBar tip={`${size.label}: ${ratioTip(ratio)}`} width={`${widthPct}%`} color={barColor} rounded opacity={ratio === 0 ? 0.2 : 1} />

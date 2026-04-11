@@ -67087,122 +67087,6 @@
       "wasmUsed": false
     },
     {
-      "name": "can_cast",
-      "category": "utilities",
-      "numpy": {
-        "name": "can_cast",
-        "mean_ms": 0.0027233545651645682,
-        "median_ms": 0.002721831910864493,
-        "min_ms": 0.002715341639450932,
-        "max_ms": 0.002732790883384783,
-        "std_ms": 0.0000066891647897852795,
-        "ops_per_sec": 367194.19967982447,
-        "total_ops": 182195,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "can_cast",
-        "mean_ms": 0.00013531416800012812,
-        "median_ms": 0.00013553459000075236,
-        "min_ms": 0.00013285750000039117,
-        "max_ms": 0.0001367041700007394,
-        "std_ms": 0.0000013079157716653098,
-        "ops_per_sec": 7390209.131678312,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.04968657762414836,
-      "wasmUsed": false
-    },
-    {
-      "name": "result_type",
-      "category": "utilities",
-      "numpy": {
-        "name": "result_type",
-        "mean_ms": 0.002776730779967502,
-        "median_ms": 0.0027688757467390222,
-        "min_ms": 0.0027462918597516185,
-        "max_ms": 0.002833176316230894,
-        "std_ms": 0.000029768443333870297,
-        "ops_per_sec": 360135.74208000954,
-        "total_ops": 179110,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "result_type",
-        "mean_ms": 0.0001659514180002734,
-        "median_ms": 0.00016599292000057177,
-        "min_ms": 0.00016332832999993115,
-        "max_ms": 0.00016828709000023083,
-        "std_ms": 0.0000018117047580589936,
-        "ops_per_sec": 6025859.929671421,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.059765037070758316,
-      "wasmUsed": false
-    },
-    {
-      "name": "min_scalar_type",
-      "category": "utilities",
-      "numpy": {
-        "name": "min_scalar_type",
-        "mean_ms": 0.0028828771457878924,
-        "median_ms": 0.002871718140890164,
-        "min_ms": 0.0028386883050316287,
-        "max_ms": 0.002961869257942621,
-        "std_ms": 0.00004160913507509431,
-        "ops_per_sec": 346875.69030164107,
-        "total_ops": 175460,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "min_scalar_type",
-        "mean_ms": 0.00011289891600003464,
-        "median_ms": 0.00011274166999850422,
-        "min_ms": 0.0001122945800004527,
-        "max_ms": 0.00011417582999914885,
-        "std_ms": 6.69334591674382e-7,
-        "ops_per_sec": 8857480.969965143,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.03916188942181901,
-      "wasmUsed": false
-    },
-    {
-      "name": "issubdtype",
-      "category": "utilities",
-      "numpy": {
-        "name": "issubdtype",
-        "mean_ms": 0.002638250704594469,
-        "median_ms": 0.0026375726493456804,
-        "min_ms": 0.0026253250975223235,
-        "max_ms": 0.002655163291837948,
-        "std_ms": 0.000009611771040942692,
-        "ops_per_sec": 379039.03456124046,
-        "total_ops": 188405,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "issubdtype",
-        "mean_ms": 0.0001280013319994323,
-        "median_ms": 0.0001287495799991302,
-        "min_ms": 0.0001241654199990444,
-        "max_ms": 0.00013188249999890103,
-        "std_ms": 0.0000027859102738240663,
-        "ops_per_sec": 7812418.702052532,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.048517501303617636,
-      "wasmUsed": false
-    },
-    {
       "name": "fft [10000]",
       "category": "fft",
       "numpy": {
@@ -69118,10 +69002,10 @@
     }
   ],
   "summary": {
-    "geo_mean": 0.5561460827242184,
-    "median_slowdown": 0.635610019783623,
+    "geo_mean": 0.5584273099522088,
+    "median_slowdown": 0.6382109634692829,
     "best_case": 0.0002446765075800586,
     "worst_case": 19.057492308841027,
-    "total_benchmarks": 2383
+    "total_benchmarks": 2379
   }
 }
