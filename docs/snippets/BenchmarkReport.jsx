@@ -278,7 +278,7 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
             <span style={{ fontSize: 10, display: 'inline-block', transform: isDtypeOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▶</span>
             Average Performance by DType
           </button>
-          <div style={{ maxHeight: isDtypeOpen ? 2000 : 0, overflow: 'hidden', transition: isDtypeOpen ? 'max-height 0.4s ease-in' : 'max-height 0.3s ease-out' }}>
+          <div style={{ maxHeight: isDtypeOpen ? 2000 : 0, overflow: isDtypeOpen ? 'visible' : 'hidden', transition: isDtypeOpen ? 'max-height 0.4s ease-in' : 'max-height 0.3s ease-out' }}>
             <div style={{ padding: '0 14px 14px', display: 'grid', gap: 10 }}>
               {dtypeStats.map(({ dtype, count, avgSpeedup }) => {
                 const widthPct = barScale(avgSpeedup, maxDtypeSpeedup);
@@ -292,7 +292,7 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
                       {!isMobile && <span style={{ fontSize: 11, color: colors.mutedText, whiteSpace: 'nowrap' }}>({count})</span>}
                     </div>
                     <BarTrack>
-                      <div style={{ height: '100%', width: `${widthPct}%`, background: chartColor(avgSpeedup), borderRadius: 7, position: 'relative', zIndex: 0 }} />
+                      <HoverBar tip={ratioTip(avgSpeedup)} width={`${widthPct}%`} color={chartColor(avgSpeedup)} rounded />
                     </BarTrack>
                     <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: colors.text }}>{formatRatio(avgSpeedup)}</div>
                   </div>

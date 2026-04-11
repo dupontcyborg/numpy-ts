@@ -474,9 +474,13 @@ def _strip_benchmarks(data: dict[str, Any], builder: str) -> tuple[dict[str, Any
     Returns (slim_data, detail_data).
     """
     if builder == "size_scaling":
-        # benchmarks are in data["benchmarks"] (cross-size categories with .benchmarks arrays)
-        detail = data.pop("benchmarks", [])
-        return data, {"benchmarks": detail}
+        # benchmarks are in data["benchmarks"][*].benchmarks arrays
+        # Keep the category shells inline, strip only the per-benchmark arrays
+        detail_categories = []
+        for cat in data.get("benchmarks", []):
+            benchmarks = cat.pop("benchmarks", [])
+            detail_categories.append({"name": cat["name"], "benchmarks": benchmarks})
+        return data, {"benchmarks": detail_categories}
     elif builder == "runtimes":
         # benchmarks are in each category's .benchmarks array
         detail_categories = []

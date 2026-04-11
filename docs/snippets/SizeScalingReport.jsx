@@ -394,7 +394,8 @@ export const SizeScalingReport = ({ data, detailUrl }) => {
       {crossCategories.map((crossCat) => {
         const catName = crossCat.name;
         const isOpen = !!openCategories[catName];
-        const benchmarks = Array.isArray(crossCat.benchmarks) ? crossCat.benchmarks : [];
+        const detailCat = detailData?.benchmarks?.find((c) => c.name === catName);
+        const benchmarks = Array.isArray(crossCat.benchmarks) ? crossCat.benchmarks : (detailCat?.benchmarks || []);
         const catSummaries = sizes.map((size, sIdx) => {
           const cat = (size.categories || []).find((c) => c.name === catName);
           return cat ? `${size.label}: ${formatRatio(cat.avgSpeedup)}` : null;
