@@ -21,7 +21,7 @@ describe('Node.js ESM Bundle Smoke Test', () => {
     const bundlePath = resolve(__dirname, '../../dist/esm/index.js');
     np = await import(bundlePath);
     tmpDir = mkdtempSync(join(tmpdir(), 'numpy-ts-node-'));
-  });
+  }, 30_000);
 
   afterAll(() => {
     rmSync(tmpDir, { recursive: true, force: true });

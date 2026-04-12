@@ -67,7 +67,7 @@ export default defineConfig({
           environment: 'node',
         },
       }),
-      // Browser IIFE bundle test (runs in real browser)
+      // Browser ESM bundle test (runs in real browser — all major engines)
       defineProject({
         test: {
           name: 'bundle-browser',
@@ -80,11 +80,15 @@ export default defineConfig({
                 headless: true,
               },
             }),
-            instances: [{ browser: 'chromium' }],
+            instances: [
+              { browser: 'chromium' },
+              { browser: 'firefox' },
+              { browser: 'webkit' },
+            ],
           },
         },
       }),
-      // Full unit test suite in the browser (Playwright + Chromium)
+      // Full unit test suite in the browser (Playwright — all major engines)
       // Validates that all array operations work in a real browser environment
       defineProject({
         test: {
@@ -100,7 +104,11 @@ export default defineConfig({
                 headless: true,
               },
             }),
-            instances: [{ browser: 'chromium' }],
+            instances: [
+              { browser: 'chromium' },
+              { browser: 'firefox' },
+              { browser: 'webkit' },
+            ],
           },
         },
       }),

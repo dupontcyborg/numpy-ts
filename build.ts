@@ -81,16 +81,15 @@ async function buildAll() {
   // Build WASM kernels (optional — skipped if Zig not installed or --skip-wasm)
   if (!skipWasm) buildWasm();
 
-  // Browser bundle (IIFE)
+  // Browser bundle (ESM — single file for CDN / <script type="module">)
   console.log('Building browser bundle...');
   await build({
     entryPoints: ['src/index.ts'],
     bundle: true,
     platform: 'browser',
-    format: 'iife',
-    globalName: 'np',
+    format: 'esm',
     outfile: 'dist/numpy-ts.browser.js',
-    sourcemap: false, // Browser bundles don't need source maps in npm package
+    sourcemap: false,
     minify: true,
     external: ['node:fs', 'node:fs/promises', 'node:module'],
     define: {
