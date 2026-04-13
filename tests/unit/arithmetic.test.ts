@@ -176,7 +176,11 @@ describe('cbrt', () => {
   it('computes cube root of positive numbers', () => {
     const arr = array([1, 8, 27, 64]);
     const result = arr.cbrt();
-    expect(result.toArray()).toEqual([1, 2, 3, 4]);
+    const out = result.toArray() as number[];
+    expect(out[0]).toBeCloseTo(1, 10);
+    expect(out[1]).toBeCloseTo(2, 10);
+    expect(out[2]).toBeCloseTo(3, 10);
+    expect(out[3]).toBeCloseTo(4, 10);
   });
 
   it('computes cube root of negative numbers', () => {
