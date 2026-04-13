@@ -19,13 +19,13 @@
 Complete NumPy implementation for TypeScript and JavaScript.
 
 - **📊 Extensive API** — **476 of 507 NumPy functions (93.9% coverage)**
-- **✅ NumPy-validated** — 10,000+ tests compared against Python NumPy
+- **🏃🏽‍♂️ Fast** — [1.22x faster than NumPy](https://numpyts.dev/performance) on average across 2,400 benchmarks, thanks to Zig-WASM SIMD kernels
+- **✅ NumPy-validated** — 20,000+ tests compared against Python NumPy
 - **🔒 Type-safe** — Full TypeScript type definitions
 - **🌳 Tree-shakeable** — Import only what you use (`np.add()` -> ~10kB bundle)
 - **🌐 Universal** — Works in Node.js, Deno, Bun and browsers
-- **🏃🏽‍♂️ Fast** - Competitive with Python NumPy ([and sometimes faster](https://numpyts.dev/performance)) thanks to Zig-WASM kernels
 
-[Docs](https://numpyts.dev) • [Examples](https://numpyts.dev/examples) • [Benchmarks](https://numpyts.dev/performance)
+[Docs](https://numpyts.dev) • [Playground](https://numpyts.dev/playground) • [Examples](https://numpyts.dev/examples) • [Coverage](https://numpyts.dev/coverage) • [Benchmarks](https://numpyts.dev/performance)
 
 ## Install
 
@@ -56,14 +56,6 @@ const colMeans = A.mean(0);  // [2.0, 3.0]
 const row = A.slice('0', ':');    // A[0, :]
 const submatrix = A.slice('0:2', '1:');  // A[0:2, 1:]
 ```
-
-## Resources
-
-- Docs: https://numpyts.dev
-- Playground: https://numpyts.dev/playground
-- Usage Examples: https://numpyts.dev/examples
-- API Coverage Report: https://numpyts.dev/coverage
-- Performance Benchmarks: https://numpyts.dev/performance
 
 ## Contributing
 

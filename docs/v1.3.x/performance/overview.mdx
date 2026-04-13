@@ -1,0 +1,91 @@
+---
+title: "Performance Overview"
+sidebarTitle: "Overview"
+mode: "wide"
+---
+
+numpy-ts is **1.22x faster** than NumPy on average across 2,390 benchmarks and runs natively in JavaScript + WASM with zero dependencies. It's faster in **12 of 18 categories**, with standout wins in gradient computation (3.5x), polynomial operations (3.2x), and boolean logic (2.3x).
+
+<Tip>
+All benchmarks compare computation time between JS (numpy-ts) and Python (NumPy with OpenBLAS), measured on each side respectively. See [methodology](./methodology) for details.
+</Tip>
+
+## Performance by Category
+
+numpy-ts outperforms NumPy in most categories. NumPy leads in trig, math, and indexing — all active areas of improvement.
+
+<Frame>
+<img
+  className="block dark:hidden"
+  src="/assets/v1.3.x/overview-categories-light.png"
+  alt="Performance by category: numpy-ts vs NumPy"
+/>
+<img
+  className="hidden dark:block"
+  src="/assets/v1.3.x/overview-categories-dark.png"
+  alt="Performance by category: numpy-ts vs NumPy"
+/>
+</Frame>
+
+<Info>
+See the full breakdown of category results on the [numpy-ts vs. NumPy page](./vs-numpy).
+</Info>
+
+## Performance by Data Type
+
+Smaller data types see the biggest gains — numpy-ts's SIMD kernels process more elements per instruction for `int8`, `uint8`, and `float16`. Even `float64` (NumPy's home turf) is on par.
+
+<Frame>
+<img
+  className="block dark:hidden"
+  src="/assets/v1.3.x/overview-dtypes-light.png"
+  alt="Performance by data type: numpy-ts vs NumPy"
+/>
+<img
+  className="hidden dark:block"
+  src="/assets/v1.3.x/overview-dtypes-dark.png"
+  alt="Performance by data type: numpy-ts vs NumPy"
+/>
+</Frame>
+
+<Info>
+See the full breakdown of dtype results on the [numpy-ts vs. NumPy page](./vs-numpy).
+</Info>
+
+## Performance by Array Size
+
+numpy-ts is faster than NumPy at every tested array scale — from small (100-element) arrays where low overhead matters, to large (10K-element) arrays where SIMD throughput dominates.
+
+<Frame>
+<img
+  className="block dark:hidden"
+  src="/assets/v1.3.x/overview-scaling-light.png"
+  alt="Performance by array size: numpy-ts vs NumPy"
+/>
+<img
+  className="hidden dark:block"
+  src="/assets/v1.3.x/overview-scaling-dark.png"
+  alt="Performance by array size: numpy-ts vs NumPy"
+/>
+</Frame>
+
+<Info>
+See the full breakdown of array size results on the [size scaling page](./size-scaling).
+</Info>
+
+## All Benchmarks
+
+<CardGroup cols={2}>
+  <Card title="vs. NumPy (Native)" icon="chart-bar" href="./vs-numpy">
+    How does numpy-ts compare to NumPy running natively in Python with OpenBLAS?
+  </Card>
+  <Card title="vs. NumPy (Pyodide)" icon="globe" href="./vs-pyodide">
+    How does numpy-ts compare to NumPy running in WebAssembly via Pyodide?
+  </Card>
+  <Card title="Performance Scaling by Size" icon="arrows-left-right" href="./size-scaling">
+    How does numpy-ts performance scale across small, medium, and large array sizes?
+  </Card>
+  <Card title="Node.js, Deno & Bun" icon="server" href="./deno-bun">
+    How does numpy-ts perform across different JavaScript runtimes?
+  </Card>
+</CardGroup>

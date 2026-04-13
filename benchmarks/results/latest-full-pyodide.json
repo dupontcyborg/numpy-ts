@@ -1,10 +1,10 @@
 {
   "timestamp": "2026-04-10T01:55:32.049Z",
   "environment": {
-    "node_version": "2394",
+    "node_version": "v24.12.0",
     "python_version": "3.13.2",
     "numpy_version": "2.2.5 (Pyodide/WASM)",
-    "numpyjs_version": "1.2.0",
+    "numpyjs_version": "1.3.0",
     "machine": "Apple M4 Max (16 cores, 128 GB, arm64)",
     "baseline": "pyodide"
   },
@@ -67406,122 +67406,6 @@
       "wasmUsed": false
     },
     {
-      "name": "can_cast",
-      "category": "utilities",
-      "numpy": {
-        "name": "can_cast",
-        "mean_ms": 0.0027360419182081257,
-        "median_ms": 0.0027260821432427587,
-        "min_ms": 0.0027077213837510485,
-        "max_ms": 0.002783097127552421,
-        "std_ms": 0.000027284589976612335,
-        "ops_per_sec": 365491.47633487824,
-        "total_ops": 184860,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "can_cast",
-        "mean_ms": 0.00013564449999993667,
-        "median_ms": 0.00013638583000050858,
-        "min_ms": 0.0001317699999990873,
-        "max_ms": 0.00013874166999943555,
-        "std_ms": 0.0000025615721173202057,
-        "ops_per_sec": 7372211.921607341,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.049576908561683244,
-      "wasmUsed": false
-    },
-    {
-      "name": "result_type",
-      "category": "utilities",
-      "numpy": {
-        "name": "result_type",
-        "mean_ms": 0.0027888433977765427,
-        "median_ms": 0.0027872784106439128,
-        "min_ms": 0.002764673120107968,
-        "max_ms": 0.0028164158771002558,
-        "std_ms": 0.000016559645217642723,
-        "ops_per_sec": 358571.585911661,
-        "total_ops": 182590,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "result_type",
-        "mean_ms": 0.0001753146640001796,
-        "median_ms": 0.00016999583000084384,
-        "min_ms": 0.00016529458000091835,
-        "max_ms": 0.00019021457999944687,
-        "std_ms": 0.000009865837156570695,
-        "ops_per_sec": 5704029.413072802,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.06286285710411438,
-      "wasmUsed": false
-    },
-    {
-      "name": "min_scalar_type",
-      "category": "utilities",
-      "numpy": {
-        "name": "min_scalar_type",
-        "mean_ms": 0.002785015911494711,
-        "median_ms": 0.0027750647780218855,
-        "min_ms": 0.002764166032984395,
-        "max_ms": 0.0028175640776444744,
-        "std_ms": 0.000020642575106440057,
-        "ops_per_sec": 359064.3758524534,
-        "total_ops": 174905,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "min_scalar_type",
-        "mean_ms": 0.00011613982999976725,
-        "median_ms": 0.00011645291999913752,
-        "min_ms": 0.00011301582999993116,
-        "max_ms": 0.000121164160000626,
-        "std_ms": 0.0000028886311053560027,
-        "ops_per_sec": 8610310.519672744,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.04170167557047647,
-      "wasmUsed": false
-    },
-    {
-      "name": "issubdtype",
-      "category": "utilities",
-      "numpy": {
-        "name": "issubdtype",
-        "mean_ms": 0.0026251699028078048,
-        "median_ms": 0.0026138251373327205,
-        "min_ms": 0.0025904563965739643,
-        "max_ms": 0.0026760302133935856,
-        "std_ms": 0.00003108566748211714,
-        "ops_per_sec": 380927.725451381,
-        "total_ops": 189320,
-        "total_samples": 5
-      },
-      "numpyjs": {
-        "name": "issubdtype",
-        "mean_ms": 0.00012586450000060722,
-        "median_ms": 0.00012532250000163914,
-        "min_ms": 0.00012310875000199302,
-        "max_ms": 0.00012821166000096128,
-        "std_ms": 0.0000018702006294367153,
-        "ops_per_sec": 7945052.020189772,
-        "total_ops": 500000,
-        "total_samples": 5,
-        "wasmUsed": false
-      },
-      "ratio": 0.04794527770030665,
-      "wasmUsed": false
-    },
-    {
       "name": "fft [1000]",
       "category": "fft",
       "numpy": {
@@ -69437,10 +69321,10 @@
     }
   ],
   "summary": {
-    "geo_mean": 0.44723965195848764,
-    "median_slowdown": 0.45688453638975624,
+    "geo_mean": 0.4488832850731924,
+    "median_slowdown": 0.45881400401378314,
     "best_case": 0.014386511397048133,
     "worst_case": 7.761080410161106,
-    "total_benchmarks": 2394
+    "total_benchmarks": 2390
   }
 }

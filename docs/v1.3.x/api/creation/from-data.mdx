@@ -1,0 +1,271 @@
+---
+title: "From Data"
+description: "Create arrays from buffers, iterables, strings, functions, and coordinate grids."
+---
+
+### frombuffer
+
+Interpret a buffer as a 1-D array.
+
+```typescript
+function frombuffer(
+  buffer: ArrayBuffer | TypedArray,
+  dtype?: DType,
+  count?: number,
+  offset?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `buffer` | `ArrayBuffer \| TypedArray` | - | An object that exposes the buffer interface. |
+| `dtype` | `DType` | `'float64'` | Data type of the returned array. |
+| `count` | `number` | `-1` | Number of items to read. `-1` means all data in the buffer. |
+| `offset` | `number` | `0` | Start reading the buffer from this offset (in bytes for `ArrayBuffer`, in elements for `TypedArray`). |
+
+**Returns:** `NDArray` -- 1-D array created from the buffer data.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const buf = new Float64Array([1.0, 2.0, 3.0, 4.0]).buffer;
+const a = np.frombuffer(buf);
+// array([1, 2, 3, 4])
+
+const b = np.frombuffer(buf, 'float64', 2);
+// array([1, 2])
+```
+
+```typescript Core
+import { frombuffer } from 'numpy-ts/core';
+
+const buf = new Float64Array([1.0, 2.0, 3.0]).buffer;
+const a = frombuffer(buf);
+```
+</CodeGroup>
+
+---
+
+### fromfile
+
+Create an array from data in a file. This function requires Node.js file system access.
+
+```typescript
+function fromfile(
+  _file: string,
+  _dtype?: DType,
+  _count?: number,
+  _sep?: string
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `_file` | `string` | - | File path to read from. |
+| `_dtype` | `DType` | `'float64'` | Data type of the returned array. |
+| `_count` | `number` | `-1` | Number of items to read. `-1` reads the entire file. |
+| `_sep` | `string` | `''` | Separator between items in a text file. Empty string means binary read. |
+
+**Returns:** `NDArray` -- 1-D array created from file data.
+
+<Warning>
+`fromfile` requires Node.js. It will throw an error in browser environments. Use `numpy-ts/node` for file I/O support.
+</Warning>
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts/node';
+
+const a = await np.loadNpy('data.npy');
+// Use loadNpy for .npy files instead of fromfile
+```
+
+```typescript Core
+// fromfile is only available in Node.js environments
+import { fromfile } from 'numpy-ts/core';
+// Throws: "fromfile requires Node.js file system access"
+```
+</CodeGroup>
+
+---
+
+### fromfunction
+
+Construct an array by executing a function over each coordinate.
+
+The function is called with N arguments (one per dimension) for each element, where each argument is the index along that dimension.
+
+```typescript
+function fromfunction(
+  func: (...args: number[]) => number,
+  shape: number[],
+  dtype?: DType
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `func` | `(...args: number[]) => number` | - | Function called with coordinate indices. Should return a single number. |
+| `shape` | `number[]` | - | Shape of the output array. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- Array of the given shape, with each element set to `func(i, j, ...)`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+// Sum of indices
+const a = np.fromfunction((i, j) => i + j, [3, 3]);
+// array([[0, 1, 2],
+//        [1, 2, 3],
+//        [2, 3, 4]])
+
+// Boolean-like: 1 where i == j
+const b = np.fromfunction((i, j) => i === j ? 1 : 0, [3, 3]);
+// array([[1, 0, 0],
+//        [0, 1, 0],
+//        [0, 0, 1]])
+```
+
+```typescript Core
+import { fromfunction } from 'numpy-ts/core';
+
+const a = fromfunction((i, j) => i * 10 + j, [3, 4]);
+```
+</CodeGroup>
+
+---
+
+### fromiter
+
+Create a 1-D array from an iterable.
+
+```typescript
+function fromiter(
+  iter: Iterable<number>,
+  dtype?: DType,
+  count?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `iter` | `Iterable<number>` | - | Any iterable yielding numbers (arrays, generators, sets, etc.). |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+| `count` | `number` | `-1` | Maximum number of items to read. `-1` reads all items. |
+
+**Returns:** `NDArray` -- 1-D array from the iterable values.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+function* fibonacci() {
+  let a = 0, b = 1;
+  while (true) { yield a; [a, b] = [b, a + b]; }
+}
+
+const a = np.fromiter(fibonacci(), 'float64', 8);
+// array([0, 1, 1, 2, 3, 5, 8, 13])
+
+const b = np.fromiter(new Set([10, 20, 30]));
+// array([10, 20, 30])
+```
+
+```typescript Core
+import { fromiter } from 'numpy-ts/core';
+
+const a = fromiter([1, 2, 3, 4, 5]);
+```
+</CodeGroup>
+
+---
+
+### fromstring
+
+Create a 1-D array from a string of numbers.
+
+```typescript
+function fromstring(
+  string: string,
+  dtype?: DType,
+  count?: number,
+  sep?: string
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `string` | `string` | - | A string containing the data. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+| `count` | `number` | `-1` | Number of items to read. `-1` reads all items. |
+| `sep` | `string` | whitespace | Separator between values. Defaults to whitespace splitting. |
+
+**Returns:** `NDArray` -- 1-D array parsed from the string.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.fromstring('1 2 3 4 5');
+// array([1, 2, 3, 4, 5])
+
+const b = np.fromstring('1.5,2.5,3.5', 'float64', -1, ',');
+// array([1.5, 2.5, 3.5])
+
+const c = np.fromstring('10 20 30 40 50', 'int32', 3);
+// array([10, 20, 30])
+```
+
+```typescript Core
+import { fromstring } from 'numpy-ts/core';
+
+const a = fromstring('1 2 3 4 5');
+const b = fromstring('1.5,2.5,3.5', 'float64', -1, ',');
+```
+</CodeGroup>
+
+---
+
+### meshgrid
+
+Return coordinate matrices from coordinate vectors. Given N 1-D arrays, `meshgrid` returns N N-D arrays for vectorized evaluations of N-D scalar fields.
+
+```typescript
+function meshgrid(...args: (ArrayLike | { indexing?: 'xy' | 'ij'; })[]): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `...args` | `(ArrayLike \| { indexing?: 'xy' \| 'ij' })[]` | - | 1-D arrays representing coordinates of a grid, optionally followed by options. |
+
+**Returns:** `NDArray[]` -- Array of N-D coordinate arrays, one per input.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const x = np.array([1, 2, 3]);
+const y = np.array([4, 5]);
+
+const [X, Y] = np.meshgrid(x, y);
+// X = array([[1, 2, 3],
+//            [1, 2, 3]])
+// Y = array([[4, 4, 4],
+//            [5, 5, 5]])
+
+// Evaluate x^2 + y^2 on the grid
+const Z = np.add(np.square(X), np.square(Y));
+```
+
+```typescript Core
+import { meshgrid, array, add, square } from 'numpy-ts/core';
+
+const x = array([1, 2, 3]);
+const y = array([4, 5]);
+const [X, Y] = meshgrid(x, y);
+const Z = add(square(X), square(Y));
+```
+</CodeGroup>

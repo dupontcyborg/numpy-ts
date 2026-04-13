@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate a versioned performance docs page from benchmarks/results/latest.json."""
+"""Generate versioned performance docs pages from benchmark result JSONs."""
 
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import sys
@@ -16,7 +17,7 @@ CATEGORY_ORDER = [
     "creation", "arithmetic", "math", "trig", "gradient", "linalg",
     "reductions", "manipulation", "io", "indexing", "bitwise",
     "sorting", "logic", "statistics", "sets", "random", "polynomials",
-    "utilities", "fft",
+    "fft",
 ]
 
 DTYPE_ORDER = [
@@ -30,6 +31,85 @@ _DTYPE_RE = re.compile(
 )
 
 
+# ---------------------------------------------------------------------------
+# Page definitions
+# ---------------------------------------------------------------------------
+
+PAGES: list[dict[str, Any]] = [
+    {
+        "id": "vs-numpy",
+        "inputs": ["benchmarks/results/latest-full.json"],
+        "output": "docs/{version}/performance/vs-numpy.mdx",
+        "frontmatter": {
+            "title": "numpy-ts vs. NumPy (Native)",
+            "sidebarTitle": "vs. NumPy (Native)",
+            "mode": "wide",
+        },
+        "component": "BenchmarkReport",
+        "intro": (
+            "Benchmark snapshot comparing numpy-ts against native Python NumPy "
+            "(OpenBLAS-backed). "
+            "Run your own via `npm run bench`."
+        ),
+    },
+    {
+        "id": "vs-pyodide",
+        "inputs": ["benchmarks/results/latest-full-pyodide.json"],
+        "output": "docs/{version}/performance/vs-pyodide.mdx",
+        "frontmatter": {
+            "title": "numpy-ts vs. NumPy (Pyodide)",
+            "sidebarTitle": "vs. NumPy (Pyodide)",
+            "mode": "wide",
+        },
+        "component": "BenchmarkReport",
+        "intro": (
+            "Benchmark snapshot comparing numpy-ts against "
+            "[Pyodide](https://github.com/pyodide/pyodide) NumPy "
+            "(WASM-compiled CPython + NumPy)."
+        ),
+    },
+    {
+        "id": "size-scaling",
+        "inputs": [
+            "benchmarks/results/latest-full-small.json",
+            "benchmarks/results/latest-full.json",
+            "benchmarks/results/latest-full-large.json",
+        ],
+        "output": "docs/{version}/performance/size-scaling.mdx",
+        "frontmatter": {
+            "title": "Performance by Array Size",
+            "sidebarTitle": "Size Scaling",
+            "mode": "wide",
+        },
+        "component": "SizeScalingReport",
+        "builder": "size_scaling",
+        "intro": (
+            "How does numpy-ts performance scale with array size compared to NumPy? This page shows the full picture."
+        ),
+    },
+    {
+        "id": "deno-bun",
+        "inputs": ["benchmarks/results/latest-full-runtimes.json"],
+        "output": "docs/{version}/performance/deno-bun.mdx",
+        "frontmatter": {
+            "title": "Node.js, Deno & Bun",
+            "sidebarTitle": "Deno & Bun",
+            "mode": "wide",
+        },
+        "component": "RuntimesReport",
+        "builder": "runtimes",
+        "intro": (
+            "numpy-ts runs on Node.js, Deno, and Bun (and more). This page compares "
+            "runtime performance head-to-head, with Node.js as the baseline."
+        ),
+    },
+]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _parse_name(name: str) -> tuple[str, str | None]:
     m = _DTYPE_RE.search(name)
     return (name[: m.start()], m.group(1)) if m else (name, None)
@@ -37,10 +117,17 @@ def _parse_name(name: str) -> tuple[str, str | None]:
 
 def _benchmark_sort_key(b: dict[str, Any]) -> tuple[str, int]:
     base, dtype = _parse_name(b["name"])
-    # Treat implicit (no suffix) as float64 so it sorts first in its group
     effective = dtype if dtype is not None else "float64"
     idx = DTYPE_ORDER.index(effective) if effective in DTYPE_ORDER else len(DTYPE_ORDER)
     return (base, idx)
+
+
+def _geo_mean(values: list[float]) -> float:
+    """Geometric mean — correct averaging method for ratios."""
+    if not values:
+        return 0.0
+    log_sum = sum(math.log(v) for v in values if v > 0)
+    return math.exp(log_sum / len(values))
 
 
 def _compute_dtype_stats(all_benchmarks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -56,8 +143,8 @@ def _compute_dtype_stats(all_benchmarks: list[dict[str, Any]]) -> list[dict[str,
         result.append({
             "dtype": dtype,
             "count": len(ratios),
-            "avgSlowdown": round(sum(ratios) / len(ratios), 4),
-            "medianSlowdown": round(calc_median(ratios), 4),
+            "avgSpeedup": round(_geo_mean(ratios), 4),
+            "medianSpeedup": round(calc_median(ratios), 4),
         })
     return result
 
@@ -71,7 +158,7 @@ def format_timestamp(ts: str) -> str:
 
 
 def normalize_report(report: dict[str, Any], runtime: str = "node") -> dict[str, Any]:
-    """Normalize multi-runtime format (summaries/runtimes) to single-runtime format (summary/ratio/numpyjs)."""
+    """Normalize multi-runtime format (summaries/runtimes) to single-runtime format."""
     if "summary" in report:
         return report
 
@@ -95,15 +182,21 @@ def normalize_report(report: dict[str, Any], runtime: str = "node") -> dict[str,
     return normalized
 
 
-def build_doc(report: dict[str, Any], source_path: str) -> str:
+# ---------------------------------------------------------------------------
+# Data builder (shared across page types)
+# ---------------------------------------------------------------------------
+
+def build_benchmark_data(report: dict[str, Any], source_path: str) -> dict[str, Any]:
+    """Build the data object consumed by BenchmarkReport."""
     report = normalize_report(report)
     sorted_results = sorted(report["results"], key=lambda r: r["ratio"], reverse=True)
 
     category_map: dict[str, list[dict[str, Any]]] = {}
     for r in sorted_results:
+        speedup = 1.0 / r["ratio"] if r["ratio"] > 0 else 0.0
         row = {
             "name": r["name"],
-            "ratio": round(r["ratio"], 4),
+            "ratio": round(speedup, 4),
             "numpyOps": round(r["numpy"]["ops_per_sec"], 1),
             "numpyTsOps": round(r["numpyjs"]["ops_per_sec"], 1),
         }
@@ -113,31 +206,31 @@ def build_doc(report: dict[str, Any], source_path: str) -> str:
     categories: list[dict[str, Any]] = []
     for name, benchmarks in category_map.items():
         benchmarks_sorted = sorted(benchmarks, key=_benchmark_sort_key)
-        avg_slowdown = round(sum(b["ratio"] for b in benchmarks_sorted) / len(benchmarks_sorted), 4)
-        slower_count = sum(1 for b in benchmarks_sorted if b["ratio"] >= 1)
-        categories.append(
-            {
-                "name": name,
-                "avgSlowdown": avg_slowdown,
-                "count": len(benchmarks_sorted),
-                "slowerCount": slower_count,
-                "fasterCount": len(benchmarks_sorted) - slower_count,
-                "benchmarks": benchmarks_sorted,
-            }
-        )
+        avg_speedup = round(_geo_mean([b["ratio"] for b in benchmarks_sorted]), 4)
+        faster_count = sum(1 for b in benchmarks_sorted if b["ratio"] >= 1)
+        categories.append({
+            "name": name,
+            "avgSpeedup": avg_speedup,
+            "count": len(benchmarks_sorted),
+            "fasterCount": faster_count,
+            "slowerCount": len(benchmarks_sorted) - faster_count,
+            "benchmarks": benchmarks_sorted,
+        })
         all_benchmarks.extend(benchmarks_sorted)
 
     categories.sort(key=lambda c: (
         CATEGORY_ORDER.index(c["name"]) if c["name"] in CATEGORY_ORDER else len(CATEGORY_ORDER)
     ))
 
-    data = {
+    summary = report["summary"]
+    geo_mean_slowdown = summary.get("avg_slowdown") or summary.get("geo_mean", 1)
+    return {
         "summary": {
-            "avgSlowdown": round(report["summary"]["avg_slowdown"], 4),
-            "medianSlowdown": round(report["summary"]["median_slowdown"], 4),
-            "bestCase": round(report["summary"]["best_case"], 4),
-            "worstCase": round(report["summary"]["worst_case"], 4),
-            "totalBenchmarks": report["summary"]["total_benchmarks"],
+            "avgSpeedup": round(1.0 / geo_mean_slowdown, 4) if geo_mean_slowdown else 0,
+            "medianSpeedup": round(1.0 / summary["median_slowdown"], 4) if summary["median_slowdown"] else 0,
+            "bestCase": round(1.0 / summary["best_case"], 4) if summary["best_case"] else 0,
+            "worstCase": round(1.0 / summary["worst_case"], 4) if summary["worst_case"] else 0,
+            "totalBenchmarks": summary["total_benchmarks"],
         },
         "meta": {
             "generatedAt": format_timestamp(report["timestamp"]),
@@ -155,33 +248,478 @@ def build_doc(report: dict[str, Any], source_path: str) -> str:
         "dtypeStats": _compute_dtype_stats(all_benchmarks),
     }
 
-    template = """---
-title: Performance Benchmarks
-sidebarTitle: Performance
-mode: "wide"
----
 
-import { BenchmarkReport } from '/snippets/BenchmarkReport.jsx'
+# ---------------------------------------------------------------------------
+# Size scaling data builder
+# ---------------------------------------------------------------------------
 
-export const benchmarkData = __DATA__;
+SIZE_LABELS = ["Small (100)", "Medium (1K)", "Large (10K)"]
+SIZE_KEYS = ["small", "medium", "large"]
 
-Latest benchmark snapshot comparing `numpy-ts` against Python NumPy. You can run your own via `npm run bench:full`. 
+def _normalize_bench_name(name: str) -> str:
+    """Replace size-related numbers in a benchmark name for cross-size matching.
+
+    Preserves dtype suffixes (float32, int64, etc.) and other non-size numbers.
+
+    'add [100x100] + scalar float32' -> 'add [#] + scalar float32'
+    'arange(1000)' -> 'arange(#)'
+    'linspace(0, 100, 1000)' -> 'linspace(#)'
+    'diag_indices n=100 int32' -> 'diag_indices n=# int32'
+    """
+    # First, extract and preserve the dtype suffix if present
+    dtype_suffix = ""
+    m = _DTYPE_RE.search(name)
+    if m:
+        dtype_suffix = m.group(0)  # includes leading space
+        name = name[:m.start()]
+
+    # Replace numbers inside brackets, preserving structure: [100x100] -> [#x#], [1000] -> [#]
+    name = re.sub(r"\[([^\]]*)\]", lambda m: "[" + re.sub(r"\d+", "#", m.group(1)) + "]", name)
+    # Replace parenthesized args: (1000), (0, 100, 1000)
+    name = re.sub(r"\([^)]*\d[^)]*\)", "(#)", name)
+    # Replace n=100 style params
+    name = re.sub(r"(\w+=)\d+", r"\1#", name)
+
+    return name + dtype_suffix
+
+
+def build_size_scaling_data(input_paths: list[Path], repo_root: Path) -> dict[str, Any]:
+    """Build the data object consumed by SizeScalingReport."""
+    sizes = []
+    shared_meta: dict[str, Any] | None = None
+
+    # First pass: collect per-size category summaries and per-benchmark data keyed by normalized name
+    all_size_benchmarks: list[dict[str, dict[str, Any]]] = []  # per-size: {norm_name -> {category, ratio}}
+
+    for i, path in enumerate(input_paths):
+        report = json.loads(path.read_text(encoding="utf-8"))
+        report = normalize_report(report)
+
+        if shared_meta is None:
+            shared_meta = {
+                "generatedAt": format_timestamp(report["timestamp"]),
+                "machine": report["environment"].get("machine"),
+                "pythonVersion": report["environment"].get("python_version"),
+                "numpyVersion": report["environment"].get("numpy_version"),
+                "numpyTsVersion": report["environment"]["numpyjs_version"],
+            }
+
+        # Build per-category summaries
+        category_map: dict[str, list[float]] = {}
+        bench_map: dict[str, dict[str, Any]] = {}
+        for r in report["results"]:
+            speedup = 1.0 / r["ratio"] if r["ratio"] > 0 else 0.0
+            ratio = round(speedup, 4)
+            category_map.setdefault(r["category"], []).append(ratio)
+            norm_name = _normalize_bench_name(r["name"])
+            bench_map[norm_name] = {"category": r["category"], "ratio": ratio}
+
+        all_size_benchmarks.append(bench_map)
+
+        categories = []
+        for name, ratios in category_map.items():
+            avg_speedup = round(_geo_mean(ratios), 4)
+            categories.append({
+                "name": name,
+                "avgSpeedup": avg_speedup,
+                "count": len(ratios),
+            })
+
+        categories.sort(key=lambda c: (
+            CATEGORY_ORDER.index(c["name"]) if c["name"] in CATEGORY_ORDER else len(CATEGORY_ORDER)
+        ))
+
+        summary = report["summary"]
+        geo_mean_slowdown = summary.get("avg_slowdown") or summary.get("geo_mean", 1)
+        sizes.append({
+            "label": SIZE_LABELS[i],
+            "summary": {
+                "avgSpeedup": round(1.0 / geo_mean_slowdown, 4) if geo_mean_slowdown else 0,
+                "medianSpeedup": round(1.0 / summary["median_slowdown"], 4) if summary["median_slowdown"] else 0,
+                "bestCase": round(1.0 / summary["best_case"], 4) if summary["best_case"] else 0,
+                "worstCase": round(1.0 / summary["worst_case"], 4) if summary["worst_case"] else 0,
+                "totalBenchmarks": summary["total_benchmarks"],
+            },
+            "categories": categories,
+        })
+
+    # Second pass: build cross-size benchmark list grouped by category
+    # Use medium (index 1) as the canonical set of benchmark names
+    cross_benchmarks: dict[str, list[dict[str, Any]]] = {}
+    canonical = all_size_benchmarks[1] if len(all_size_benchmarks) > 1 else all_size_benchmarks[0]
+    for norm_name, info in canonical.items():
+        cat = info["category"]
+        bench: dict[str, Any] = {"name": norm_name}
+        for si, key in enumerate(SIZE_KEYS):
+            bm = all_size_benchmarks[si].get(norm_name) if si < len(all_size_benchmarks) else None
+            bench[key] = round(bm["ratio"], 4) if bm else None
+        cross_benchmarks.setdefault(cat, []).append(bench)
+
+    # Sort benchmarks within each category
+    for cat_benchmarks in cross_benchmarks.values():
+        cat_benchmarks.sort(key=lambda b: _benchmark_sort_key(b))
+
+    # Attach cross-size benchmarks to the output
+    cross_categories = []
+    for cat_name in sorted(cross_benchmarks.keys(), key=lambda n: (
+        CATEGORY_ORDER.index(n) if n in CATEGORY_ORDER else len(CATEGORY_ORDER)
+    )):
+        cross_categories.append({
+            "name": cat_name,
+            "benchmarks": cross_benchmarks[cat_name],
+        })
+
+    return {"meta": shared_meta or {}, "sizes": sizes, "benchmarks": cross_categories}
+
+
+# ---------------------------------------------------------------------------
+# Runtimes data builder
+# ---------------------------------------------------------------------------
+
+RUNTIME_ORDER = ["node", "deno", "bun"]
+
+
+def build_runtimes_data(input_path: Path, repo_root: Path) -> dict[str, Any]:
+    """Build the data object consumed by RuntimesReport.
+
+    Computes performance relative to Node.js (baseline), not NumPy.
+    Ratio > 1 means faster than Node.
+    """
+    report = json.loads(input_path.read_text(encoding="utf-8"))
+    env = report["environment"]
+
+    meta = {
+        "generatedAt": format_timestamp(report["timestamp"]),
+        "machine": env.get("machine"),
+        "numpyTsVersion": env["numpyjs_version"],
+        "runtimes": env.get("runtimes", {}),
+    }
+
+    # Collect per-benchmark ops/s for each runtime
+    # Then compute ratios relative to Node.js
+    cat_map: dict[str, dict[str, Any]] = {}
+    all_ratios: dict[str, list[float]] = {rt: [] for rt in RUNTIME_ORDER}
+
+    for r in report["results"]:
+        cat = r["category"]
+        if cat not in cat_map:
+            cat_map[cat] = {"name": cat, "runtimes": {rt: {"ratios": [], "count": 0} for rt in RUNTIME_ORDER}, "benchmarks": []}
+
+        # Get Node.js ops as baseline
+        node_data = r["runtimes"].get("node")
+        if node_data is None:
+            continue
+        node_ops = node_data["timing"]["ops_per_sec"]
+        if node_ops <= 0:
+            continue
+
+        bench: dict[str, Any] = {"name": r["name"]}
+        for rt in RUNTIME_ORDER:
+            rt_data = r["runtimes"].get(rt)
+            if rt_data is None:
+                continue
+            ops = rt_data["timing"]["ops_per_sec"]
+            ratio = round(ops / node_ops, 4) if node_ops > 0 else 0.0
+            bench[rt] = {"ratio": ratio, "ops": round(ops, 1)}
+            cat_map[cat]["runtimes"][rt]["ratios"].append(ratio)
+            cat_map[cat]["runtimes"][rt]["count"] += 1
+            all_ratios[rt].append(ratio)
+
+        cat_map[cat]["benchmarks"].append(bench)
+
+    # Build per-runtime summaries (relative to Node)
+    summaries = {}
+    for rt in RUNTIME_ORDER:
+        ratios = all_ratios[rt]
+        if not ratios:
+            continue
+        summaries[rt] = {
+            "avgSpeedup": round(_geo_mean(ratios), 4),
+            "bestCase": round(max(ratios), 4),
+            "worstCase": round(min(ratios), 4),
+            "totalBenchmarks": len(ratios),
+        }
+
+    categories = []
+    for cat_data in cat_map.values():
+        cat_data["benchmarks"] = sorted(cat_data["benchmarks"], key=lambda b: _benchmark_sort_key(b))
+        for rt in RUNTIME_ORDER:
+            ratios = cat_data["runtimes"][rt]["ratios"]
+            cat_data["runtimes"][rt] = {
+                "avgSpeedup": round(_geo_mean(ratios), 4) if ratios else 0,
+                "count": len(ratios),
+            }
+        categories.append(cat_data)
+
+    categories.sort(key=lambda c: (
+        CATEGORY_ORDER.index(c["name"]) if c["name"] in CATEGORY_ORDER else len(CATEGORY_ORDER)
+    ))
+
+    return {
+        "meta": meta,
+        "baseline": "node",
+        "runtimes": [rt for rt in RUNTIME_ORDER if rt in summaries],
+        "summaries": summaries,
+        "categories": categories,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Data splitting: inline (slim) vs external (detail benchmarks)
+# ---------------------------------------------------------------------------
+
+def _strip_benchmarks(data: dict[str, Any], builder: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Split full data into slim inline object and external detail object.
+
+    Returns (slim_data, detail_data).
+    """
+    if builder == "size_scaling":
+        # benchmarks are in data["benchmarks"][*].benchmarks arrays
+        # Keep the category shells inline, strip only the per-benchmark arrays
+        detail_categories = []
+        for cat in data.get("benchmarks", []):
+            benchmarks = cat.pop("benchmarks", [])
+            detail_categories.append({"name": cat["name"], "benchmarks": benchmarks})
+        return data, {"benchmarks": detail_categories}
+    elif builder == "runtimes":
+        # benchmarks are in each category's .benchmarks array
+        detail_categories = []
+        for cat in data.get("categories", []):
+            benchmarks = cat.pop("benchmarks", [])
+            detail_categories.append({"name": cat["name"], "benchmarks": benchmarks})
+        return data, {"categories": detail_categories}
+    else:
+        # BenchmarkReport: benchmarks are in each category's .benchmarks array
+        detail_categories = []
+        for cat in data.get("categories", []):
+            benchmarks = cat.pop("benchmarks", [])
+            detail_categories.append({"name": cat["name"], "benchmarks": benchmarks})
+        return data, {"categories": detail_categories}
+
+
+# ---------------------------------------------------------------------------
+# LLM-friendly markdown summary
+# ---------------------------------------------------------------------------
+
+def _build_llm_summary_benchmark(data: dict[str, Any], meta: dict[str, Any]) -> str:
+    """Build a hidden markdown summary for BenchmarkReport pages."""
+    summary = data.get("summary", {})
+    categories = data.get("categories", [])
+    dtype_stats = data.get("dtypeStats", [])
+
+    lines = [
+        "## Benchmark Summary",
+        "",
+        f"- **Average speedup**: {summary.get('avgSpeedup', 0):.2f}x vs NumPy",
+        f"- **Best case**: {summary.get('bestCase', 0):.2f}x",
+        f"- **Worst case**: {summary.get('worstCase', 0):.2f}x",
+        f"- **Total benchmarks**: {summary.get('totalBenchmarks', 0)}",
+        f"- **Machine**: {meta.get('machine', '-')}",
+        f"- **numpy-ts version**: {meta.get('numpyTsVersion', '-')}",
+        "",
+        "### Performance by Category",
+        "",
+        "| Category | Avg Speedup | Count | Faster | Slower |",
+        "|-|-|-|-|-|",
+    ]
+    for cat in categories:
+        lines.append(
+            f"| {cat['name']} | {cat.get('avgSpeedup', 0):.2f}x "
+            f"| {cat.get('count', 0)} "
+            f"| {cat.get('fasterCount', 0)} "
+            f"| {cat.get('slowerCount', 0)} |"
+        )
+
+    if dtype_stats:
+        lines += [
+            "",
+            "### Performance by DType",
+            "",
+            "| DType | Avg Speedup | Median Speedup | Count |",
+            "|-|-|-|-|",
+        ]
+        for d in dtype_stats:
+            lines.append(
+                f"| {d['dtype']} | {d.get('avgSpeedup', 0):.2f}x "
+                f"| {d.get('medianSpeedup', 0):.2f}x "
+                f"| {d.get('count', 0)} |"
+            )
+
+    return "\n".join(lines)
+
+
+def _build_llm_summary_size_scaling(data: dict[str, Any]) -> str:
+    """Build a hidden markdown summary for SizeScalingReport pages."""
+    sizes = data.get("sizes", [])
+    lines = [
+        "## Size Scaling Summary",
+        "",
+        "| Array Size | Avg Speedup | Best Case | Worst Case | Benchmarks |",
+        "|-|-|-|-|-|",
+    ]
+    for size in sizes:
+        s = size.get("summary", {})
+        lines.append(
+            f"| {size.get('label', '-')} | {s.get('avgSpeedup', 0):.2f}x "
+            f"| {s.get('bestCase', 0):.2f}x "
+            f"| {s.get('worstCase', 0):.2f}x "
+            f"| {s.get('totalBenchmarks', 0)} |"
+        )
+
+    # Per-category breakdown for each size
+    for size in sizes:
+        cats = size.get("categories", [])
+        if cats:
+            lines += [
+                "",
+                f"### {size.get('label', '-')} — by Category",
+                "",
+                "| Category | Avg Speedup | Count |",
+                "|-|-|-|",
+            ]
+            for cat in cats:
+                lines.append(
+                    f"| {cat['name']} | {cat.get('avgSpeedup', 0):.2f}x | {cat.get('count', 0)} |"
+                )
+
+    return "\n".join(lines)
+
+
+def _build_llm_summary_runtimes(data: dict[str, Any]) -> str:
+    """Build a hidden markdown summary for RuntimesReport pages."""
+    summaries = data.get("summaries", {})
+    runtimes = data.get("runtimes", [])
+    categories = data.get("categories", [])
+    meta = data.get("meta", {})
+
+    lines = [
+        "## Runtime Comparison Summary",
+        "",
+        f"Baseline: Node.js. Machine: {meta.get('machine', '-')}",
+        "",
+        "### Overall (vs Node.js)",
+        "",
+        "| Runtime | Avg Speedup | Best Case | Worst Case | Benchmarks |",
+        "|-|-|-|-|-|",
+    ]
+    for rt in runtimes:
+        s = summaries.get(rt, {})
+        lines.append(
+            f"| {rt} | {s.get('avgSpeedup', 0):.2f}x "
+            f"| {s.get('bestCase', 0):.2f}x "
+            f"| {s.get('worstCase', 0):.2f}x "
+            f"| {s.get('totalBenchmarks', 0)} |"
+        )
+
+    if categories:
+        lines += [
+            "",
+            "### By Category",
+            "",
+            "| Category | " + " | ".join(f"{rt} avg" for rt in runtimes) + " |",
+            "|-" * (1 + len(runtimes)) + "|",
+        ]
+        for cat in categories:
+            rt_cells = []
+            for rt in runtimes:
+                rt_data = cat.get("runtimes", {}).get(rt, {})
+                rt_cells.append(f"{rt_data.get('avgSpeedup', 0):.2f}x")
+            lines.append(f"| {cat['name']} | " + " | ".join(rt_cells) + " |")
+
+    return "\n".join(lines)
+
+
+def _build_llm_summary(data: dict[str, Any], builder: str) -> str:
+    """Dispatch to the right LLM summary builder."""
+    meta = data.get("meta", {})
+    if builder == "size_scaling":
+        return _build_llm_summary_size_scaling(data)
+    elif builder == "runtimes":
+        return _build_llm_summary_runtimes(data)
+    else:
+        return _build_llm_summary_benchmark(data, meta)
+
+
+# ---------------------------------------------------------------------------
+# MDX generation
+# ---------------------------------------------------------------------------
+
+def build_frontmatter(fm: dict[str, str]) -> str:
+    lines = ["---"]
+    for k, v in fm.items():
+        lines.append(f'{k}: "{v}"')
+    lines.append("---")
+    return "\n".join(lines)
+
+
+def build_page(
+    page: dict[str, Any],
+    repo_root: Path,
+    version: str,
+) -> tuple[str, list[tuple[Path, bytes]]]:
+    """Generate a complete .mdx page and any external data files.
+
+    Returns (mdx_content, [(path, bytes), ...]) for external files.
+    """
+    fm = build_frontmatter(page["frontmatter"])
+    builder = page.get("builder", "default")
+
+    if builder == "size_scaling":
+        input_paths = [repo_root / p for p in page["inputs"]]
+        data = build_size_scaling_data(input_paths, repo_root)
+    elif builder == "runtimes":
+        data = build_runtimes_data(repo_root / page["inputs"][0], repo_root)
+    else:
+        input_path = repo_root / page["inputs"][0]
+        report = json.loads(input_path.read_text(encoding="utf-8"))
+        source_display = str(input_path.relative_to(repo_root))
+        data = build_benchmark_data(report, source_display)
+
+    # Build LLM summary before stripping benchmarks (needs category counts)
+    llm_summary = _build_llm_summary(data, builder)
+
+    # Split into slim inline data + external detail data
+    slim_data, detail_data = _strip_benchmarks(data, builder)
+    slim_json = json.dumps(slim_data, separators=(",", ":"))
+
+    # External JSON file
+    detail_path = repo_root / "docs" / "assets" / version / f"{page['id']}-benchmarks.json"
+    detail_bytes = json.dumps(detail_data, separators=(",", ":")).encode("utf-8")
+
+    # URL path for the component to fetch (relative to docs root)
+    detail_url = f"/assets/{version}/{page['id']}-benchmarks.json"
+
+    mdx = f"""{fm}
+
+import {{ {page["component"]} }} from '/snippets/{page["component"]}.jsx'
+
+export const benchmarkData = {slim_json};
+
+{page["intro"]}
 
 <Tip>
-All benchmarks measure computation time from JS\\<->numpy-ts and Python\\<->NumPy respectively. This gives an apples-to-apples comparison of the numerical computation itself without being skewed by JS\\<->Python interop overhead.
+All benchmarks measure computation time from JS and Python, respectively. To learn more, check out [benchmark methodology](./methodology).
 </Tip>
 
-<BenchmarkReport data={benchmarkData} />
+<{page["component"]} data={{benchmarkData}} detailUrl="{detail_url}" />
+
+<div style={{{{display: 'none'}}}} data-llm-summary="true">
+
+{llm_summary}
+
+</div>
 """
+    return mdx, [(detail_path, detail_bytes)]
 
-    return template.replace("__DATA__", json.dumps(data, indent=2))
 
+# ---------------------------------------------------------------------------
+# Version detection
+# ---------------------------------------------------------------------------
 
 def detect_latest_docs_version(repo_root: Path) -> str:
     docs_config = repo_root / "docs" / "docs.json"
     if not docs_config.exists():
         return "v1.0.x"
-
     try:
         data = json.loads(docs_config.read_text(encoding="utf-8"))
         versions = data.get("navigation", {}).get("versions", [])
@@ -189,33 +727,78 @@ def detect_latest_docs_version(repo_root: Path) -> str:
             return versions[0]["version"]
     except Exception:
         pass
-
     return "v1.0.x"
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def _write_outputs(
+    mdx: str,
+    mdx_path: Path,
+    external_files: list[tuple[Path, bytes]],
+    repo_root: Path,
+) -> None:
+    """Write the MDX page and any external data files."""
+    mdx_path.parent.mkdir(parents=True, exist_ok=True)
+    mdx_path.write_text(mdx, encoding="utf-8")
+    for path, content in external_files:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        print(f"    + {path.relative_to(repo_root)}")
 
 
 def main() -> int:
     repo_root = Path(os.getcwd())
-    input_path = (repo_root / (sys.argv[1] if len(sys.argv) > 1 else "benchmarks/results/latest.json")).resolve()
-    latest_version = detect_latest_docs_version(repo_root)
-    default_output = f"docs/{latest_version}/guides/performance.mdx"
-    output_path = (repo_root / (sys.argv[2] if len(sys.argv) > 2 else default_output)).resolve()
+    version = detect_latest_docs_version(repo_root)
 
-    if not input_path.exists():
-        print(f"Input file not found: {input_path}", file=sys.stderr)
-        return 1
+    # Single-file mode for backwards compatibility:
+    #   python3 scripts/generate-bench-docs.py benchmarks/results/latest-full.json [output.mdx]
+    if len(sys.argv) > 1:
+        input_path = (repo_root / sys.argv[1]).resolve()
+        default_output = f"docs/{version}/performance/vs-numpy.mdx"
+        output_path = (repo_root / (sys.argv[2] if len(sys.argv) > 2 else default_output)).resolve()
 
-    report = json.loads(input_path.read_text(encoding="utf-8"))
-    has_summary = "summary" in report or "summaries" in report
-    if not isinstance(report, dict) or "results" not in report or not has_summary or "environment" not in report:
-        print("Invalid benchmark report format.", file=sys.stderr)
-        return 1
+        if not input_path.exists():
+            print(f"Input file not found: {input_path}", file=sys.stderr)
+            return 1
 
-    source_display = str(input_path.relative_to(repo_root))
-    mdx = build_doc(report, source_display)
+        report = json.loads(input_path.read_text(encoding="utf-8"))
+        has_summary = "summary" in report or "summaries" in report
+        if not isinstance(report, dict) or "results" not in report or not has_summary:
+            print("Invalid benchmark report format.", file=sys.stderr)
+            return 1
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(mdx, encoding="utf-8")
-    print(f"Wrote {output_path.relative_to(repo_root)} from {source_display}")
+        # Use vs-numpy page config as template
+        page = dict(PAGES[0])
+        page["inputs"] = [sys.argv[1]]
+        page["output"] = str(output_path.relative_to(repo_root))
+        mdx, external_files = build_page(page, repo_root, version)
+        _write_outputs(mdx, output_path, external_files, repo_root)
+        print(f"  {output_path.relative_to(repo_root)}")
+        return 0
+
+    # Default: generate all performance pages
+    print(f"Generating performance docs for {version}...")
+    errors = 0
+    for page in PAGES:
+        output_rel = page["output"].format(version=version)
+        output_path = repo_root / output_rel
+
+        # Check all inputs exist
+        missing = [p for p in page["inputs"] if not (repo_root / p).exists()]
+        if missing:
+            print(f"  SKIP {output_rel} (missing: {', '.join(missing)})")
+            errors += 1
+            continue
+
+        mdx, external_files = build_page(page, repo_root, version)
+        _write_outputs(mdx, output_path, external_files, repo_root)
+        print(f"  {output_rel}")
+
+    if errors:
+        print(f"\n{errors} page(s) skipped due to missing inputs.")
     return 0
 
 

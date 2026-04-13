@@ -1,0 +1,362 @@
+---
+title: "Trigonometric"
+description: "Element-wise trigonometric functions and angle conversions."
+---
+
+All trigonometric functions operate element-wise. Angles are in radians unless otherwise noted.
+
+### sin
+
+Compute the sine, element-wise.
+
+```typescript
+function sin(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Angle in radians. |
+
+**Returns:** `NDArray` -- Sine of each element.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.sin(np.array([0, Math.PI / 2, Math.PI]));
+// array([0, 1, ~0])
+```
+
+```typescript Core
+import { sin, array } from 'numpy-ts/core';
+
+const a = sin(array([0, Math.PI / 2, Math.PI]));
+```
+</CodeGroup>
+
+---
+
+### cos
+
+Compute the cosine, element-wise.
+
+```typescript
+function cos(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Angle in radians. |
+
+**Returns:** `NDArray` -- Cosine of each element.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.cos(np.array([0, Math.PI / 2, Math.PI]));
+// array([1, ~0, -1])
+```
+
+```typescript Core
+import { cos, array } from 'numpy-ts/core';
+
+const a = cos(array([0, Math.PI / 2, Math.PI]));
+```
+</CodeGroup>
+
+---
+
+### tan
+
+Compute the tangent, element-wise.
+
+```typescript
+function tan(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Angle in radians. |
+
+**Returns:** `NDArray` -- Tangent of each element.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.tan(np.array([0, Math.PI / 4]));
+// array([0, 1])
+```
+
+```typescript Core
+import { tan, array } from 'numpy-ts/core';
+
+const a = tan(array([0, Math.PI / 4]));
+```
+</CodeGroup>
+
+---
+
+### arcsin
+
+Compute the inverse sine, element-wise. Also available as the alias `asin`.
+
+```typescript
+function arcsin(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Values in the range `[-1, 1]`. |
+
+**Returns:** `NDArray` -- Angle in radians, in the range `[-pi/2, pi/2]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.arcsin(np.array([0, 0.5, 1]));
+// array([0, 0.5236..., 1.5708...])  -- 0, pi/6, pi/2
+
+// Alias
+const b = np.asin(np.array([0, 1]));
+```
+
+```typescript Core
+import { arcsin, array } from 'numpy-ts/core';
+// or: import { asin } from 'numpy-ts/core';
+
+const a = arcsin(array([0, 0.5, 1]));
+```
+</CodeGroup>
+
+---
+
+### arccos
+
+Compute the inverse cosine, element-wise. Also available as the alias `acos`.
+
+```typescript
+function arccos(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Values in the range `[-1, 1]`. |
+
+**Returns:** `NDArray` -- Angle in radians, in the range `[0, pi]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.arccos(np.array([1, 0, -1]));
+// array([0, 1.5708..., 3.1416...])  -- 0, pi/2, pi
+
+// Alias
+const b = np.acos(np.array([1, 0]));
+```
+
+```typescript Core
+import { arccos, array } from 'numpy-ts/core';
+
+const a = arccos(array([1, 0, -1]));
+```
+</CodeGroup>
+
+---
+
+### arctan
+
+Compute the inverse tangent, element-wise. Also available as the alias `atan`.
+
+```typescript
+function arctan(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input values. |
+
+**Returns:** `NDArray` -- Angle in radians, in the range `[-pi/2, pi/2]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.arctan(np.array([0, 1, -1]));
+// array([0, 0.7854..., -0.7854...])  -- 0, pi/4, -pi/4
+
+// Alias
+const b = np.atan(np.array([0, 1]));
+```
+
+```typescript Core
+import { arctan, array } from 'numpy-ts/core';
+
+const a = arctan(array([0, 1, -1]));
+```
+</CodeGroup>
+
+---
+
+### arctan2
+
+Compute the two-argument inverse tangent, element-wise. Returns the angle of the point `(x2, x1)` with the positive x-axis. Also available as the alias `atan2`.
+
+```typescript
+function arctan2(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | y-coordinates. |
+| `x2` | `ArrayLike \| number` | - | x-coordinates. |
+
+**Returns:** `NDArray` -- Angle in radians, in the range `[-pi, pi]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+// Angle of (1, 1) is pi/4
+const a = np.arctan2(np.array([1, 0, -1]), np.array([1, 1, 0]));
+// array([0.7854..., 0, -1.5708...])
+
+// Alias
+const b = np.atan2(np.array([1]), np.array([1]));
+```
+
+```typescript Core
+import { arctan2, array } from 'numpy-ts/core';
+
+const a = arctan2(array([1, 0, -1]), array([1, 1, 0]));
+```
+</CodeGroup>
+
+---
+
+### hypot
+
+Compute the hypotenuse `sqrt(x1**2 + x2**2)`, element-wise. Avoids overflow for large values.
+
+```typescript
+function hypot(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First leg of the triangle. |
+| `x2` | `ArrayLike \| number` | - | Second leg of the triangle. |
+
+**Returns:** `NDArray` -- Element-wise hypotenuse.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.hypot(np.array([3, 5, 0]), np.array([4, 12, 1]));
+// array([5, 13, 1])
+```
+
+```typescript Core
+import { hypot, array } from 'numpy-ts/core';
+
+const a = hypot(array([3, 5]), array([4, 12]));
+```
+</CodeGroup>
+
+---
+
+### degrees
+
+Convert angles from radians to degrees. Equivalent to `rad2deg`.
+
+```typescript
+function degrees(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Angles in radians. |
+
+**Returns:** `NDArray` -- Angles in degrees.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.degrees(np.array([0, Math.PI / 2, Math.PI]));
+// array([0, 90, 180])
+```
+
+```typescript Core
+import { degrees, array } from 'numpy-ts/core';
+
+const a = degrees(array([0, Math.PI / 2, Math.PI]));
+```
+</CodeGroup>
+
+---
+
+### radians
+
+Convert angles from degrees to radians. Equivalent to `deg2rad`.
+
+```typescript
+function radians(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Angles in degrees. |
+
+**Returns:** `NDArray` -- Angles in radians.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.radians(np.array([0, 90, 180, 360]));
+// array([0, 1.5708..., 3.1416..., 6.2832...])
+```
+
+```typescript Core
+import { radians, array } from 'numpy-ts/core';
+
+const a = radians(array([0, 90, 180, 360]));
+```
+</CodeGroup>
+
+---
+
+### deg2rad
+
+Convert angles from degrees to radians. Equivalent to `radians`.
+
+```typescript
+function deg2rad(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Angles in degrees. |
+
+**Returns:** `NDArray` -- Angles in radians.
+
+---
+
+### rad2deg
+
+Convert angles from radians to degrees. Equivalent to `degrees`.
+
+```typescript
+function rad2deg(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Angles in radians. |
+
+**Returns:** `NDArray` -- Angles in degrees.

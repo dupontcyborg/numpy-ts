@@ -45,46 +45,46 @@ The most comprehensive NumPy implementation for TypeScript and JavaScript. Write
   <Card title="94% API Coverage" icon="chart-pie">
     476 of 507 NumPy functions implemented. From basic arithmetic to FFT, linear algebra, random distributions, and beyond.
   </Card>
+  <Card title="Faster than NumPy" icon="gauge-high">
+    1.22x faster than NumPy on average across 2,400 benchmarks. Faster in 12 of 18 categories, with peaks of 38x.
+  </Card>
+  <Card title="Zero Dependencies" icon="box">
+    No native modules, no third-party packages. Pure TypeScript + WASM that runs everywhere JavaScript runs.
+  </Card>
+  <Card title="NumPy-Validated" icon="flask-vial">
+    Over 20,000 tests compare outputs directly against NumPy. If NumPy produces a result, numpy-ts matches it.
+  </Card>
   <Card title="Type-Safe" icon="shield-check">
     Full TypeScript type definitions for every function, dtype, and array operation. Catch errors at compile time, not runtime.
   </Card>
   <Card title="Tree-Shakeable" icon="leaf">
     Import only what you need. Bundlers eliminate unused code automatically, keeping your production builds small.
   </Card>
-  <Card title="NumPy-Validated" icon="flask-vial">
-    Over 6,000 tests compare outputs directly against NumPy. If NumPy produces a result, numpy-ts matches it.
-  </Card>
-  <Card title="Zero Dependencies" icon="box">
-    No native modules, no WebAssembly, no heavy runtimes. Pure TypeScript that runs everywhere JavaScript runs.
-  </Card>
-  <Card title="Universal Runtime" icon="globe">
-    Works in Node.js, Bun, Deno, and all modern browsers. One library for server and client.
-  </Card>
 </CardGroup>
 
 ## Quick Example
 
 ```typescript
-import { array, zeros, dot, linalg, arange, reshape } from 'numpy-ts';
+import * as np from 'numpy-ts';
 
 // Create arrays -- just like NumPy
-const a = array([[1, 2], [3, 4]]);
-const b = zeros([2, 2]);
+const a = np.array([[1, 2], [3, 4]]);
+const b = np.zeros([2, 2]);
 
 // Broadcasting works as expected
 const c = a.add(1);        // [[2, 3], [4, 5]]
 const d = a.multiply(2);   // [[2, 4], [6, 8]]
 
 // Linear algebra
-const inv = linalg.inv(a);
-const det = linalg.det(a); // -2
+const inv = np.linalg.inv(a);
+const det = np.linalg.det(a); // -2
 
 // Dot products and matrix multiplication
-const e = dot(a, array([[5, 6], [7, 8]]));  // [[19, 22], [43, 50]]
+const e = np.dot(a, np.array([[5, 6], [7, 8]]));  // [[19, 22], [43, 50]]
 
 // Reshape, slice, and manipulate
-const r = arange(12);
-const grid = reshape(r, [3, 4]);
+const r = np.arange(12);
+const grid = np.reshape(r, [3, 4]);
 ```
 
 ## Get Started
@@ -99,8 +99,8 @@ const grid = reshape(r, [3, 4]);
   <Card title="Examples" icon="code" href="/examples">
     Real-world examples covering linear algebra, signal processing, statistics, and more.
   </Card>
-  <Card title="Playground" icon="terminal" href="/playground">
-    Write and run numpy-ts code directly in your browser with instant feedback.
+  <Card title="Benchmarks" icon="gauge-high" href="/performance">
+    Detailed performance comparisons against NumPy across 18 categories, multiple dtypes, and array sizes.
   </Card>
 </CardGroup>
 
@@ -122,13 +122,13 @@ numpy-ts mirrors the NumPy API as closely as possible. Most code translates dire
   </Tab>
   <Tab title="TypeScript (numpy-ts)">
     ```typescript
-    import { array, linalg, dot, sum } from 'numpy-ts';
+    import * as np from 'numpy-ts';
 
-    const a = array([[1, 2], [3, 4]]);
-    const b = linalg.inv(a);
-    const c = dot(a, b);          // identity matrix
-    const d = sum(a, { axis: 0 }); // [4, 6]
-    const e = a.get([0, ':']);     // [1, 2]
+    const a = np.array([[1, 2], [3, 4]]);
+    const b = np.linalg.inv(a);
+    const c = np.dot(a, b);          // identity matrix
+    const d = np.sum(a, { axis: 0 }); // [4, 6]
+    const e = a.get([0, ':']);        // [1, 2]
     ```
   </Tab>
 </Tabs>

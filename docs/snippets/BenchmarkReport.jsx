@@ -1,4 +1,4 @@
-export const BenchmarkReport = ({ data }) => {
+export const BenchmarkReport = ({ data, detailUrl }) => {
   const summary = data?.summary || {};
   const meta = data?.meta || {};
   const categories = Array.isArray(data?.categories) ? data.categories : [];
@@ -77,11 +77,75 @@ export const BenchmarkReport = ({ data }) => {
     document.documentElement.classList.contains('dark')
   );
   const [openCategories, setOpenCategories] = useState({});
+  const [isMetaOpen, setIsMetaOpen] = useState(false);
   const [isDtypeOpen, setIsDtypeOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 900);
 
-  const toggleCategory = (name) => setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  // Detail benchmarks: prefetched in the background after first paint so opening
+  // a drawer is instant. The worker fetches, parses, AND indexes the JSON into a
+  // { categoryName: benchmarks[] } map so the main thread does no prep work.
+  // Browser HTTP cache handles cross-page-load reuse.
+  const [detailMap, setDetailMap] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const detailFetched = useRef(false);
+
+  const fetchDetail = () => {
+    if (detailFetched.current || !detailUrl) return;
+    detailFetched.current = true;
+    setDetailLoading(true);
+    const absUrl = new URL(detailUrl, window.location.href).href;
+    const buildMap = (d) => {
+      const cats = (d && d.categories) || [];
+      const m = {};
+      for (const c of cats) m[c.name] = c.benchmarks || [];
+      return m;
+    };
+    const fallback = () => {
+      fetch(absUrl)
+        .then((r) => r.json())
+        .then((d) => setDetailMap(buildMap(d)))
+        .catch(() => { detailFetched.current = false; })
+        .finally(() => setDetailLoading(false));
+    };
+    try {
+      if (typeof Worker === 'undefined' || typeof Blob === 'undefined') return fallback();
+      const code = "self.onmessage=async e=>{try{const{url,key}=e.data;const r=await fetch(url);const d=await r.json();const cats=(d&&d[key])||[];const m={};for(const c of cats)m[c.name]=c.benchmarks||[];self.postMessage({ok:true,map:m});}catch(err){self.postMessage({ok:false});}}";
+      const blobUrl = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+      const worker = new Worker(blobUrl);
+      const cleanup = () => { worker.terminate(); URL.revokeObjectURL(blobUrl); };
+      worker.onmessage = (e) => {
+        if (e.data && e.data.ok) setDetailMap(e.data.map);
+        else detailFetched.current = false;
+        setDetailLoading(false);
+        cleanup();
+      };
+      worker.onerror = () => { detailFetched.current = false; setDetailLoading(false); cleanup(); };
+      worker.postMessage({ url: absUrl, key: 'categories' });
+    } catch { fallback(); }
+  };
+
+  useEffect(() => {
+    if (!detailUrl) return;
+    let ricId, timeoutId;
+    const schedule = () => {
+      const ric = window.requestIdleCallback;
+      if (ric) ricId = ric(() => fetchDetail(), { timeout: 2000 });
+      else timeoutId = setTimeout(fetchDetail, 200);
+    };
+    if (document.readyState === 'complete') schedule();
+    else window.addEventListener('load', schedule, { once: true });
+    return () => {
+      window.removeEventListener('load', schedule);
+      if (ricId && window.cancelIdleCallback) window.cancelIdleCallback(ricId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  const toggleCategory = (name) => {
+    fetchDetail();
+    setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -101,6 +165,54 @@ export const BenchmarkReport = ({ data }) => {
   }, []);
 
   const colors = THEME_COLORS[isDarkMode ? 'dark' : 'light'];
+
+  // HoverBar tooltip uses position: fixed with computed viewport coords so it
+  // escapes every ancestor stacking context (Mintlify's layout has parents
+  // with their own contexts that otherwise win over our z-index after a beat).
+  // The brightness `filter` lives on an inner bar div — applying it to the
+  // outer element would create a containing block for fixed descendants and
+  // re-trap the tooltip. useMemo with [] deps keeps the component identity
+  // stable across parent re-renders.
+  const HoverBar = useMemo(() => function HoverBar({ tip, width, color, rounded, opacity, isDarkMode }) {
+    const [show, setShow] = useState(false);
+    const [pos, setPos] = useState(null);
+    const ref = useRef(null);
+    const lastPointerType = useRef('mouse');
+    useEffect(() => {
+      if (!show) { setPos(null); return; }
+      const updatePos = () => {
+        if (!ref.current) return;
+        const r = ref.current.getBoundingClientRect();
+        setPos({ top: r.top, left: r.left + r.width / 2 });
+      };
+      updatePos();
+      const onDocPointerDown = (e) => {
+        if (ref.current && !ref.current.contains(e.target)) setShow(false);
+      };
+      document.addEventListener('pointerdown', onDocPointerDown);
+      window.addEventListener('scroll', updatePos, true);
+      window.addEventListener('resize', updatePos);
+      return () => {
+        document.removeEventListener('pointerdown', onDocPointerDown);
+        window.removeEventListener('scroll', updatePos, true);
+        window.removeEventListener('resize', updatePos);
+      };
+    }, [show]);
+    return (
+      <div ref={ref} style={{ height: '100%', width, position: 'relative', cursor: 'default' }}
+        onPointerEnter={(e) => { if (e.pointerType === 'mouse') setShow(true); }}
+        onPointerLeave={(e) => { if (e.pointerType === 'mouse') setShow(false); }}
+        onPointerDown={(e) => { lastPointerType.current = e.pointerType; }}
+        onClick={() => { if (lastPointerType.current !== 'mouse') setShow((s) => !s); }}>
+        <div style={{ height: '100%', width: '100%', background: color, borderRadius: rounded ? 7 : 0, opacity: opacity ?? 1, filter: show ? 'brightness(1.3)' : 'none', transition: 'filter 0.15s' }} />
+        {tip && show && pos && (
+          <div style={{ position: 'fixed', top: pos.top - 6, left: pos.left, transform: 'translate(-50%, -100%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 2147483647, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+            {tip}
+          </div>
+        )}
+      </div>
+    );
+  }, []);
 
   const BenchmarkName = ({ name }) => {
     const s = String(name);
@@ -131,62 +243,79 @@ export const BenchmarkReport = ({ data }) => {
     return `${ratio.toFixed(2)}x`;
   };
 
+  const ratioTip = (ratio) => {
+    if (!Number.isFinite(ratio)) return '';
+    return ratio >= 1 ? `${ratio.toFixed(2)}x faster than NumPy` : `${ratio.toFixed(2)}x slower than NumPy`;
+  };
+
+  const RatioDisplay = ({ ratio, size }) => {
+    if (!Number.isFinite(ratio)) return <span>-</span>;
+    const numSize = size === 'lg' ? 28 : 20;
+    const suffixSize = size === 'lg' ? 13 : 11;
+    return (
+      <span>
+        <span style={{ fontSize: numSize, fontWeight: 700, color: colors.text }}>{ratio.toFixed(2)}x</span>
+        <span style={{ fontSize: suffixSize, fontWeight: 400, color: colors.mutedText, marginLeft: 4 }}>{ratio >= 1 ? 'faster than NumPy' : 'slower than NumPy'}</span>
+      </span>
+    );
+  };
+
   const ratioColor = (ratio) => {
-    if (ratio < 2.5) return colors.ratioGoodText;
-    if (ratio <= 5) return colors.ratioOkText;
+    if (ratio >= 1) return colors.ratioGoodText;
+    if (ratio >= 0.75) return colors.ratioOkText;
     return colors.ratioBadText;
   };
 
   const ratioBg = (ratio) => {
-    if (ratio < 2.5) return colors.ratioGoodBg;
-    if (ratio <= 5) return colors.ratioOkBg;
+    if (ratio >= 1) return colors.ratioGoodBg;
+    if (ratio >= 0.75) return colors.ratioOkBg;
     return colors.ratioBadBg;
   };
 
   const chartColor = (ratio) => {
-    if (ratio < 2.5) return colors.chartGood;
-    if (ratio <= 5) return colors.chartOk;
+    if (ratio >= 1) return colors.chartGood;
+    if (ratio >= 0.75) return colors.chartOk;
     return colors.chartBad;
   };
 
-  const SummaryCard = ({ label, value }) => (
-    <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.cardBg }}>
+  const SummaryCard = ({ label, value, style }) => (
+    <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.cardBg, ...style }}>
       <div style={{ fontSize: 12, color: colors.mutedText, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: colors.text }}>{value}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: colors.text }}>{value}</div>
     </div>
   );
 
-  const maxCategorySlowdown = Math.max(...categories.map((c) => c.avgSlowdown || 0), 1);
-  const maxDtypeSlowdown = Math.max(...dtypeStats.map((d) => d.avgSlowdown || 0), 1);
-  const barGridCols = isMobile ? '90px 1fr 52px' : '180px 1fr 80px';
+  const BASELINE_PCT = 20;
+  const barScale = (value, max) => {
+    if (value <= 0) return 2;
+    if (value <= 1) return Math.max(2, BASELINE_PCT * value);
+    if (max <= 1) return BASELINE_PCT;
+    return Math.min(100, BASELINE_PCT + (Math.log(value) / Math.log(max)) * (100 - BASELINE_PCT));
+  };
+  const BarTrack = ({ children }) => (
+    <div style={{ background: colors.chartTrack, height: 14, borderRadius: 7, position: 'relative' }}>
+      <div style={{ position: 'absolute', left: `${BASELINE_PCT}%`, top: 0, bottom: 0, width: 1, borderLeft: `1px dashed ${colors.mutedText}`, opacity: 0.4, zIndex: 1 }} />
+      {children}
+    </div>
+  );
+  const maxCategorySpeedup = Math.max(...categories.map((c) => c.avgSpeedup || 0), 1);
+  const maxDtypeSpeedup = Math.max(...dtypeStats.map((d) => d.avgSpeedup || 0), 1);
+  const barGridCols = isMobile ? '90px 1fr 44px' : '140px 1fr 52px';
 
   return (
     <div style={{ color: colors.text }}>
-      <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.mutedCardBg, marginBottom: 20 }}>
-        <div><strong>Generated:</strong> {meta.generatedAt || '-'}</div>
-        <div><strong>Source:</strong> <code>{meta.sourceJson || '-'}</code></div>
-        {meta.runtimes && Object.entries(meta.runtimes).map(([rt, ver]) => (
-          <div key={rt}><strong>{rt.charAt(0).toUpperCase() + rt.slice(1)}:</strong> <code>{ver}</code></div>
-        ))}
-        {meta.pythonVersion ? <div><strong>Python:</strong> <code>{meta.pythonVersion}</code></div> : null}
-        {meta.numpyVersion ? <div><strong>NumPy:</strong> <code>{meta.numpyVersion}</code></div> : null}
-        <div><strong>numpy-ts:</strong> <code>{meta.numpyTsVersion || '-'}</code></div>
-        {meta.machine ? <div><strong>Machine:</strong> <code>{meta.machine}</code></div> : null}
-      </div>
-
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isNarrow ? '1fr 1fr' : 'repeat(4, 1fr)', marginBottom: 20 }}>
-        <SummaryCard label="Average slowdown" value={formatRatio(summary.avgSlowdown)} />
-        <SummaryCard label="Median slowdown" value={formatRatio(summary.medianSlowdown)} />
+      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isMobile ? '1fr 1fr' : (isNarrow ? '1fr' : '2fr 1fr 1fr'), marginBottom: 20 }}>
+        <SummaryCard label="Average" value={<RatioDisplay ratio={summary.avgSpeedup} size="lg" />} style={isMobile ? { gridColumn: '1 / -1' } : undefined} />
         <SummaryCard label="Best case" value={formatRatio(summary.bestCase)} />
         <SummaryCard label="Worst case" value={formatRatio(summary.worstCase)} />
       </div>
 
       <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, background: colors.cardBg, marginBottom: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: colors.text }}>Average Slowdown by Category</div>
+        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: colors.text }}>Average Performance vs. NumPy by Category</div>
         <div style={{ display: 'grid', gap: 10 }}>
-          {categories.map((category) => {
-            const ratio = Number(category.avgSlowdown) || 0;
-            const widthPct = Math.max(2, (ratio / maxCategorySlowdown) * 100);
+          {categories.map((category, catIdx) => {
+            const ratio = Number(category.avgSpeedup) || 0;
+            const widthPct = barScale(ratio, maxCategorySpeedup);
             return (
               <div key={String(category.name)} style={{ display: 'grid', gridTemplateColumns: barGridCols, gap: 10, alignItems: 'center' }}>
                 <div style={{ fontFamily: 'monospace', fontSize: 12, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -194,6 +323,7 @@ export const BenchmarkReport = ({ data }) => {
                     href={`#cat-${String(category.name).replace(/\s+/g, '-').toLowerCase()}`}
                     onClick={(e) => {
                       e.preventDefault();
+                      fetchDetail();
                       const catName = String(category.name);
                       setOpenCategories((prev) => ({ ...prev, [catName]: true }));
                       setTimeout(() => {
@@ -206,9 +336,9 @@ export const BenchmarkReport = ({ data }) => {
                     onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                   >{String(category.name)}</a>
                 </div>
-                <div style={{ background: colors.chartTrack, height: 14, borderRadius: 7, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${widthPct}%`, background: chartColor(ratio) }} />
-                </div>
+                <BarTrack >
+                  <HoverBar tip={ratioTip(ratio)} width={`${widthPct}%`} color={chartColor(ratio)} rounded isDarkMode={isDarkMode} />
+                </BarTrack>
                 <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: colors.text }}>{formatRatio(ratio)}</div>
               </div>
             );
@@ -220,15 +350,15 @@ export const BenchmarkReport = ({ data }) => {
         <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.cardBg, marginBottom: 20, overflow: 'hidden' }}>
           <button
             onClick={() => setIsDtypeOpen((v) => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: 16, background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 16, color: colors.text, textAlign: 'left' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: 14, background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14, color: colors.text, textAlign: 'left' }}
           >
             <span style={{ fontSize: 10, display: 'inline-block', transform: isDtypeOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▶</span>
-            Average Slowdown by DType
+            Average Performance by DType
           </button>
-          {isDtypeOpen && (
-            <div style={{ padding: '0 16px 16px', display: 'grid', gap: 10 }}>
-              {dtypeStats.map(({ dtype, count, avgSlowdown }) => {
-                const widthPct = Math.max(2, (avgSlowdown / maxDtypeSlowdown) * 100);
+          <div style={{ maxHeight: isDtypeOpen ? 2000 : 0, overflow: isDtypeOpen ? 'visible' : 'hidden', transition: isDtypeOpen ? 'max-height 0.4s ease-in' : 'max-height 0.3s ease-out' }}>
+            <div style={{ padding: '0 14px 14px', display: 'grid', gap: 10 }}>
+              {dtypeStats.map(({ dtype, count, avgSpeedup }) => {
+                const widthPct = barScale(avgSpeedup, maxDtypeSpeedup);
                 const dc = DTYPE_COLORS[dtype] || DTYPE_COLORS.float64;
                 return (
                   <div key={dtype} style={{ display: 'grid', gridTemplateColumns: barGridCols, gap: 10, alignItems: 'center' }}>
@@ -238,26 +368,51 @@ export const BenchmarkReport = ({ data }) => {
                       </span>
                       {!isMobile && <span style={{ fontSize: 11, color: colors.mutedText, whiteSpace: 'nowrap' }}>({count})</span>}
                     </div>
-                    <div style={{ background: colors.chartTrack, height: 14, borderRadius: 7, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${widthPct}%`, background: chartColor(avgSlowdown) }} />
-                    </div>
-                    <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: colors.text }}>{formatRatio(avgSlowdown)}</div>
+                    <BarTrack>
+                      <HoverBar tip={ratioTip(avgSpeedup)} width={`${widthPct}%`} color={chartColor(avgSpeedup)} rounded isDarkMode={isDarkMode} />
+                    </BarTrack>
+                    <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: colors.text }}>{formatRatio(avgSpeedup)}</div>
                   </div>
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
       )}
 
+      <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.mutedCardBg, marginBottom: 20, overflow: 'hidden' }}>
+        <button
+          onClick={() => setIsMetaOpen((v) => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: 14, background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14, color: colors.text, textAlign: 'left' }}
+        >
+          <span style={{ fontSize: 10, display: 'inline-block', transform: isMetaOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▶</span>
+          Benchmark Details
+        </button>
+        <div style={{ maxHeight: isMetaOpen ? 500 : 0, overflow: 'hidden', transition: isMetaOpen ? 'max-height 0.3s ease-in' : 'max-height 0.3s ease-out' }}>
+          <div style={{ padding: '0 14px 14px' }}>
+            <div><strong>Generated:</strong> {meta.generatedAt || '-'}</div>
+            <div><strong>Source:</strong> <code>{meta.sourceJson || '-'}</code></div>
+            {meta.runtimes && Object.entries(meta.runtimes).map(([rt, ver]) => (
+              <div key={rt}><strong>{rt.charAt(0).toUpperCase() + rt.slice(1)}:</strong> <code>{ver}</code></div>
+            ))}
+            {meta.pythonVersion ? <div><strong>Python:</strong> <code>{meta.pythonVersion}</code></div> : null}
+            {meta.numpyVersion ? <div><strong>NumPy:</strong> <code>{meta.numpyVersion}</code></div> : null}
+            <div><strong>numpy-ts:</strong> <code>{meta.numpyTsVersion || '-'}</code></div>
+            {meta.machine ? <div><strong>Machine:</strong> <code>{meta.machine}</code></div> : null}
+          </div>
+        </div>
+      </div>
+
       <h2>Detailed Results</h2>
       <p style={{ color: colors.mutedText }}>
-        Lower is better. A ratio under <code>1.00x</code> means <code>numpy-ts</code> was faster than NumPy for that benchmark.
+        Higher is better. A speedup over <code>1.00x</code> means <code>numpy-ts</code> was faster than NumPy for that benchmark.
       </p>
 
       {categories.map((category) => {
-        const benchmarks = Array.isArray(category.benchmarks) ? category.benchmarks : [];
         const isOpen = !!openCategories[String(category.name)];
+        const benchmarks = isOpen
+          ? (Array.isArray(category.benchmarks) ? category.benchmarks : (detailMap?.[category.name] || []))
+          : null;
         return (
           <div key={String(category.name)} id={`cat-${String(category.name).replace(/\s+/g, '-').toLowerCase()}`} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 10, background: colors.cardBg, overflow: 'hidden', scrollMarginTop: 80 }}>
             <button
@@ -265,7 +420,7 @@ export const BenchmarkReport = ({ data }) => {
               style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 'inherit', color: colors.text, textAlign: 'left' }}
             >
               <span style={{ fontSize: 10, display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▶</span>
-              {String(category.name)} ({category.count} benchmarks, avg {(Number(category.avgSlowdown) || 0).toFixed(2)}x)
+              {String(category.name)} ({category.count} benchmarks, speedup {(Number(category.avgSpeedup) || 0).toFixed(2)}x)
             </button>
             {isOpen && (
               <div style={{ padding: '0 14px 14px' }}>
@@ -273,11 +428,14 @@ export const BenchmarkReport = ({ data }) => {
                   Slower than NumPy: {category.slowerCount} | Faster than NumPy: {category.fasterCount}
                 </div>
                 <div style={{ overflowX: 'auto' }}>
+                  {benchmarks.length === 0 && detailLoading ? (
+                    <div style={{ padding: '20px 10px', color: colors.mutedText, fontSize: 13 }}>Loading benchmarks…</div>
+                  ) : (
                   <table style={{ minWidth: '100%', borderCollapse: 'collapse', margin: 0 }}>
                     <thead>
                       <tr>
                         <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>Benchmark</th>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>Slowdown</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>Speedup</th>
                         <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>NumPy ops/s</th>
                         <th style={{ textAlign: 'left', padding: '8px 10px', background: colors.tableHeadBg, color: colors.tableHeadText, borderBottom: `1px solid ${colors.tableRowBorder}` }}>numpy-ts ops/s</th>
                       </tr>
@@ -297,6 +455,7 @@ export const BenchmarkReport = ({ data }) => {
                       ))}
                     </tbody>
                   </table>
+                  )}
                 </div>
               </div>
             )}

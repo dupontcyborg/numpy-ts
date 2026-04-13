@@ -34,6 +34,12 @@ describe('Node.js ESM Bundle Smoke Test', () => {
     expect(np.arange).toBeDefined();
   });
 
+  test('should expose a real version (build-time injected, not "dev")', () => {
+    expect(typeof np.__version__).toBe('string');
+    expect(np.__version__).not.toBe('dev');
+    expect(np.__version__).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
   test('should create arrays', () => {
     const arr = np.array([1, 2, 3, 4]);
     expect(arr.shape).toEqual([4]);

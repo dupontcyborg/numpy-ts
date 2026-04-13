@@ -1,8 +1,5 @@
 export const Playground = ({
-  example = "quickstart",
-  examples = null,
-  defaultExample = null,
-  code: singleCode = null,
+  code: singleCode = "",
   label = "",
   height = null,
   startingHeight = null,
@@ -10,152 +7,10 @@ export const Playground = ({
   showCopyButton = false,
   showTiming = true
 }) => {
-  const NUMPY_TS_CDN_VERSION = "1.2.0";
-  const DEFAULT_EXAMPLES = {
-    quickstart: {
-      label: "Quickstart",
-      code: `// Create arrays
-const a = np.array([[1, 2, 3], [4, 5, 6]]);
-console.log("Array:\\n" + a);
-console.log("Shape:", a.shape);
-console.log("Dtype:", a.dtype, "\\n");
-
-// Basic arithmetic
-const b = np.multiply(a, 2);
-console.log("Multiply by 2:\\n" + b, "\\n");
-
-// Element-wise operations
-const c = np.add(a, np.array([[10, 20, 30], [40, 50, 60]]));
-console.log("Element-wise add:\\n" + c, "\\n");
-
-// Row slicing
-const row = a.row(0);
-console.log("First row:", row);`,
-    },
-    linalg: {
-      label: "Linear Algebra",
-      code: `// Matrix multiplication
-const A = np.array([[1, 2], [3, 4]]);
-const B = np.array([[5, 6], [7, 8]]);
-const C = np.matmul(A, B);
-console.log("A @ B =\\n" + C, "\\n");
-
-// Determinant
-const det = np.linalg.det(A);
-console.log("det(A) =", det, "\\n");
-
-// Inverse
-const inv = np.linalg.inv(A);
-console.log("inv(A) =\\n" + inv, "\\n");
-
-// Verify A @ inv(A) = I
-const I = np.matmul(A, inv);
-console.log("A @ inv(A) =\\n" + I, "\\n");
-
-// Eigenvalues
-const eig = np.linalg.eig(A);
-console.log("Eigenvalues:", eig.w);`,
-    },
-    broadcasting: {
-      label: "Broadcasting",
-      code: `// Broadcasting: different shapes work together
-const matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
-const row = np.array([10, 20, 30]);
-
-// Add row to each row of matrix
-const result = np.add(matrix, row);
-console.log("Matrix + row vector:");
-console.log(result, "\\n");
-
-// Column vector broadcasting
-const col = np.array([[100], [200], [300]]);
-const result2 = np.add(matrix, col);
-console.log("Matrix + column vector:");
-console.log(result2, "\\n");
-
-// Scalar broadcasting
-console.log("Matrix * 10:");
-console.log(np.multiply(matrix, 10), "\\n");`,
-    },
-    random: {
-      label: "Random",
-      code: `// Seeded random for reproducibility
-np.random.seed(42);
-
-// Random integers
-const dice = np.random.randint(1, 7, [3, 3]);
-console.log("Dice rolls (3x3):\\n" + dice, "\\n");
-
-// Normal distribution
-const normal = np.random.randn(5);
-console.log("Normal samples:", normal, "\\n");
-
-// Uniform distribution
-const uniform = np.random.rand(2, 3);
-console.log("Uniform [0,1):\\n" + uniform, "\\n");
-
-// Statistics of random data
-const data = np.random.randn(1000);
-console.log("1000 normal samples:");
-console.log("  Mean:", Number(np.mean(data)).toFixed(3));
-console.log("  Std:", Number(np.std(data)).toFixed(3));`,
-    },
-    reductions: {
-      label: "Reductions",
-      code: `const a = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
-console.log("Array:\\n" + a, "\\n");
-
-// Global reductions
-console.log("Sum:", Number(np.sum(a)));
-console.log("Mean:", Number(np.mean(a)));
-console.log("Std:", Number(np.std(a)).toFixed(4));
-console.log("Min:", Number(np.min(a)));
-console.log("Max:", Number(np.max(a)), "\\n");
-
-// Axis reductions
-console.log("Sum along axis 0 (columns):", np.sum(a, 0));
-console.log("Sum along axis 1 (rows):", np.sum(a, 1));
-console.log("Mean along axis 0:", np.mean(a, 0), "\\n");
-
-// Cumulative
-console.log("Cumsum:", np.cumsum(a));
-console.log("Cumprod axis 0:\\n" + np.cumprod(a, 0));`,
-    },
-    fft: {
-      label: "FFT",
-      code: `// Generate a signal: 5 Hz + 12 Hz components
-const N = 128;
-const dt = 1 / 128;
-const t = np.arange(0, N * dt, dt);
-
-// Create composite signal
-const signal = np.add(
-  np.sin(np.multiply(t, 2 * Math.PI * 5)),   // 5 Hz
-  np.multiply(np.sin(np.multiply(t, 2 * Math.PI * 12)), 0.5) // 12 Hz
-);
-console.log("Signal (first 8):\\n", signal.slice('0:8'), "\\n");
-
-// Compute FFT
-const spectrum = np.fft.fft(signal);
-const magnitudes = np.abs(spectrum);
-const freqs = np.fft.fftfreq(N, dt);
-
-// Find peak frequencies (first half only)
-const halfN = Math.floor(N / 2);
-const halfMag = magnitudes.slice('0:' + halfN);
-const halfFreqs = freqs.slice('0:' + halfN);
-
-// Top 2 peaks
-const sorted = np.argsort(np.multiply(halfMag, -1));
-const i0 = Number(sorted.get([0]));
-const i1 = Number(sorted.get([1]));
-console.log("Top frequencies:");
-console.log("  " + Number(halfFreqs.get([i0])) + " Hz (magnitude: " + Number(halfMag.get([i0])).toFixed(1) + ")");
-console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(halfMag.get([i1])).toFixed(1) + ")");`,
-    },
-  };
+  const NUMPY_TS_CDN_VERSION = "1.3.0";
 
   const CDN_URLS = {
+    // Browser bundle is now ESM (v1.3+) — loaded via dynamic import(), not <script>.
     numpyTs: `https://cdn.jsdelivr.net/npm/numpy-ts@${NUMPY_TS_CDN_VERSION}/dist/numpy-ts.browser.js`,
     prismCore: "https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js",
     prismTS: "https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js",
@@ -183,12 +38,6 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
       selectBorder: '#d1d5da',
       caretColor: '#000000',
       placeholderText: '#6a737d',
-      tabActiveBg: '#ffffff',
-      tabInactiveBg: '#f6f8fa',
-      tabHoverBg: '#e1e4e8',
-      tabBorder: '#d1d5da',
-      tabActiveText: '#24292e',
-      tabInactiveText: '#586069',
       resizeHandleBg: '#d1d5da',
       resizeHandleHoverBg: '#959da5',
     },
@@ -204,12 +53,6 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
       selectBorder: '#444444',
       caretColor: '#ffffff',
       placeholderText: '#666666',
-      tabActiveBg: '#1e1e1e',
-      tabInactiveBg: '#161616',
-      tabHoverBg: '#2a2a2a',
-      tabBorder: '#333333',
-      tabActiveText: '#d4d4d4',
-      tabInactiveText: '#888888',
       resizeHandleBg: '#333333',
       resizeHandleHoverBg: '#555555',
     }
@@ -270,30 +113,16 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     document.head.appendChild(l);
   }
 
-  const resolvedExamples = examples && typeof examples === "object" && Object.keys(examples).length > 0
-    ? examples
-    : (typeof singleCode === "string"
-      ? { custom: { label: label || "", code: singleCode } }
-      : DEFAULT_EXAMPLES);
-  const exampleKeys = Object.keys(resolvedExamples);
-  const fallbackKey = exampleKeys[0];
-  const initialExampleKey = (defaultExample && resolvedExamples[defaultExample])
-    ? defaultExample
-    : ((example && resolvedExamples[example]) ? example : fallbackKey);
-  const initialCode = resolvedExamples[initialExampleKey]?.code || "";
   const startHeightPx = parseHeightPx(startingHeight) ?? parseHeightPx(height);
   const initialEditorHeight = startHeightPx != null
     ? clampHeight(startHeightPx)
-    : (typeof singleCode === "string"
-      ? clampHeight(estimateSingleCodeHeight(singleCode, showImportHeader))
-      : 340);
+    : clampHeight(estimateSingleCodeHeight(singleCode, showImportHeader));
 
-  const [code, setCode] = useState(initialCode);
+  const [code, setCode] = useState(singleCode);
   const [output, setOutput] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [running, setRunning] = useState(false);
-  const [selectedExample, setSelectedExample] = useState(initialExampleKey);
   const [isDarkMode, setIsDarkMode] = useState(
     () => document.documentElement.classList.contains('dark')
   );
@@ -311,6 +140,7 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   const resizeStartY = useRef(null);
   const resizeStartHeight = useRef(null);
   const runSeqRef = useRef(0);
+  const npRef = useRef(null);
 
   const colors = THEME_COLORS[isDarkMode ? 'dark' : 'light'];
   const copyTimeoutRef = useRef(null);
@@ -320,7 +150,9 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     async function load() {
       try {
         loadCSS(isDarkMode ? CDN_URLS.prismCSSDark : CDN_URLS.prismCSSLight, "prism");
-        await loadScript(CDN_URLS.numpyTs);
+        // numpy-ts v1.3+ ships an ESM browser bundle — load via dynamic import.
+        const npModule = await import(/* webpackIgnore: true */ /* @vite-ignore */ CDN_URLS.numpyTs);
+        npRef.current = npModule.default ?? npModule;
         await loadScript(CDN_URLS.prismCore);
         await loadScript(CDN_URLS.prismTS);
         if (!cancelled) {
@@ -373,19 +205,6 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   const handleScroll = useCallback(() => {
     syncScroll();
   }, [syncScroll]);
-
-  const handleExampleChange = useCallback((key) => {
-    setSelectedExample(key);
-    setCode(resolvedExamples[key].code);
-    setOutput("");
-
-    // Reset scroll position
-    if (textareaRef.current) {
-      textareaRef.current.scrollTop = 0;
-      textareaRef.current.scrollLeft = 0;
-    }
-    requestAnimationFrame(syncScroll);
-  }, [resolvedExamples, syncScroll]);
 
   const handleKeyDown = useCallback((e) => {
     const ta = e.target;
@@ -550,15 +369,13 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   useEffect(() => {
     if (startHeightPx != null) {
       setEditorHeight(clampHeight(startHeightPx));
-      return;
-    }
-    if (typeof singleCode === "string") {
+    } else {
       setEditorHeight(clampHeight(estimateSingleCodeHeight(singleCode, showImportHeader)));
     }
-  }, [startHeightPx, singleCode, showImportHeader, minHeightPx]);
+  }, [startHeightPx, singleCode, showImportHeader]);
 
   const run = useCallback(async () => {
-    if (!loaded || !window.np) return;
+    if (!loaded || !npRef.current) return;
     const runId = runSeqRef.current + 1;
     runSeqRef.current = runId;
     setRunning(true);
@@ -586,10 +403,10 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
       let result;
       if (shouldRunAsync) {
         const executeAsync = new Function("np", `"use strict"; return (async () => {\n${code}\n})();`);
-        result = await executeAsync(window.np);
+        result = await executeAsync(npRef.current);
       } else {
         const executeSync = new Function("np", code);
-        result = executeSync(window.np);
+        result = executeSync(npRef.current);
       }
       if (result !== undefined) {
         logs.push(typeof result === "object" && typeof result?.toString === "function" && result.toString !== Object.prototype.toString ? result.toString() : String(result));
@@ -662,26 +479,10 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
     );
   }
 
-  const tabsContainer = { display: "flex", gap: "2px", marginBottom: "-1px", marginTop: "8px", overflowX: "auto", overflowY: "hidden" };
-  const tabStyle = (isActive) => ({
-    padding: "8px 16px",
-    background: isActive ? colors.tabActiveBg : colors.tabInactiveBg,
-    color: isActive ? colors.tabActiveText : colors.tabInactiveText,
-    border: `1px solid ${colors.tabBorder}`,
-    borderBottom: isActive ? "none" : `1px solid ${colors.tabBorder}`,
-    borderRadius: "8px 8px 0 0",
-    fontSize: "13px",
-    fontWeight: isActive ? 500 : 400,
-    cursor: "pointer",
-    outline: "none",
-    transition: "background 0.15s, color 0.15s",
-    whiteSpace: "nowrap",
-    marginBottom: isActive ? "1px" : "0"
-  });
-  const editorRadius = exampleKeys.length > 1 ? "0" : "8px 8px 0 0";
-  const editorContentRadius = exampleKeys.length > 1 ? "0" : "8px 8px 0 0";
+  const editorRadius = "8px 8px 0 0";
+  const editorContentRadius = "8px 8px 0 0";
   const editorWrap = { position: "relative", height: `${editorHeight}px`, overflow: "hidden" };
-  const editorBorderOverlay = { position: "absolute", inset: 0, borderRadius: editorRadius, border: `1px solid ${colors.editorBorder}`, borderBottom: "none", borderTop: exampleKeys.length > 1 ? "none" : `1px solid ${colors.editorBorder}`, pointerEvents: "none", zIndex: 4 };
+  const editorBorderOverlay = { position: "absolute", inset: 0, borderRadius: editorRadius, border: `1px solid ${colors.editorBorder}`, borderBottom: "none", pointerEvents: "none", zIndex: 4 };
   const copyWrapStyle = { position: "absolute", top: "8px", right: `${10 + scrollbarWidth}px`, zIndex: 3, display: "inline-flex", alignItems: "center", gap: "6px" };
   const copyTooltipVisible = copied || copyHover;
   const copyTooltipStyle = {
@@ -723,7 +524,6 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
   const badgeStyle = { marginLeft: "auto", fontSize: "11px", color: colors.placeholderText, display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" };
   const outputStyle = { margin: 0, padding: "16px", minHeight: "60px", maxHeight: "240px", overflow: "auto", ...SHARED_FONT, fontSize: "12.5px", background: colors.outputBg, color: colors.outputText, borderRadius: "0 0 8px 8px", border: `1px solid ${colors.editorBorder}`, borderTop: "none", whiteSpace: "pre-wrap", overflowWrap: "break-word" };
   const renderedCode = `${showImportHeader ? IMPORT_HEADER_TEXT : ""}${code}`;
-  const singleLabel = (resolvedExamples[exampleKeys[0]]?.label || "").trim();
   const runSpinnerStyle = { animation: "playgroundSpin 0.9s linear infinite", display: "inline-block" };
 
   return (
@@ -743,36 +543,11 @@ console.log("  " + Number(halfFreqs.get([i1])) + " Hz (magnitude: " + Number(hal
           overflow-wrap: normal !important;
         }
       `}</style>
-      {exampleKeys.length > 1 ? (
-        <div style={tabsContainer}>
-          {Object.entries(resolvedExamples).map(([key, val]) => (
-            <button
-              key={key}
-              onClick={() => handleExampleChange(key)}
-              style={tabStyle(key === selectedExample)}
-              onMouseEnter={(e) => {
-                if (key !== selectedExample) {
-                  e.target.style.background = colors.tabHoverBg;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (key !== selectedExample) {
-                  e.target.style.background = colors.tabInactiveBg;
-                }
-              }}
-              aria-label={`Select ${val.label} example`}
-            >
-              {val.label}
-            </button>
-          ))}
+      {label ? (
+        <div style={{ marginTop: "8px", marginBottom: "8px", fontSize: "14px", fontWeight: 500, color: colors.editorText }}>
+          {label}
         </div>
-      ) : (
-        singleLabel ? (
-          <div style={{ marginTop: "8px", marginBottom: "8px", fontSize: "14px", fontWeight: 500, color: colors.tabActiveText }}>
-            {singleLabel}
-          </div>
-        ) : null
-      )}
+      ) : null}
       <div style={editorWrap}>
         <div style={editorBorderOverlay} aria-hidden="true" />
         {showCopyButton ? (

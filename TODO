@@ -54,3 +54,4 @@
 - [ ] Add CodeCov to pipelines
 - [ ] Link specific API reference pages in Guides
 - [ ] Add Playground components to Guides and/or API Reference?
+- [ ] Add banner to old version docs pointing to new versions

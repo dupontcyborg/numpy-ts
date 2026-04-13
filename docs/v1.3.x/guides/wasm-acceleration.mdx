@@ -1,0 +1,113 @@
+---
+title: "WASM Acceleration"
+sidebarTitle: "WASM Acceleration"
+---
+
+Starting in `v1.1.0`, numpy-ts ships Zig-compiled WebAssembly microkernels that transparently accelerate compute- and memory-bound operations. The library remains lightweight and tree-shakeable. WASM acceleration is invisible to the end user, just faster.
+
+## How it works
+
+numpy-ts detects at runtime when a WASM kernel is available and beneficial for a given operation. If the input meets the dispatch criteria (sufficient size, supported dtype, contiguous memory layout), the operation runs through the WASM kernel. Otherwise, the pure TypeScript implementation is used. There is no API change: the same functions, the same signatures, the same results.
+
+Each WASM kernel is:
+- **Compiled from Zig** with `ReleaseFast` optimizations and WASM SIMD128 enabled
+- **Embedded as base64** in the JavaScript bundle. No extra network requests, no `.wasm` files to serve, works with any bundler
+- **Lazily initialized** on first use -- zero startup cost if a kernel is never called
+- **Sharing a single `WebAssembly.Memory`** instance across all kernels to minimize overhead
+
+## What's accelerated
+
+WASM kernels cover 97 operations across these modules:
+
+| Module | Speedup | vs NumPy (before) | vs NumPy (after) |
+|---|---|---|---|
+| **Arithmetic** | ~23x | 65x slower | 2.75x slower |
+| **Linear Algebra** | ~19x | 61x slower | 3.2x slower |
+| **Logic** | ~27x | 48x slower | 1.8x slower |
+| **Manipulation** | ~9x | 15x slower | 1.6x slower |
+| **Gradient** | ~60x | 30x slower | 2x *faster* |
+| **FFT** | ~3x | 22x slower | 8x slower |
+| **Random** (Zig rewrite) | ~6x | 11x slower | 1.9x slower |
+| **Indexing** | ~5.5x | 12x slower | 2.2x slower |
+
+<Tip>
+All benchmarks measure computation time from JS\<->numpy-ts and Python\<->NumPy respectively. This gives an apples-to-apples comparison of the numerical computation itself. For more info, see [performance benchmarks](./performance).
+</Tip>
+
+## Random module (Zig rewrite)
+
+In `v1.2.0`, the entire `np.random` module was rewritten as a Zig-compiled WASM kernel. Both the legacy **MT19937** and modern **PCG64/SeedSequence** implementations now run in WASM, replacing the previous pure-TypeScript versions.
+
+The rewrite achieves **bit-for-bit output matching with NumPy** for both the `np.random.seed()` (legacy) and `np.random.default_rng()` (modern) APIs. All distributions -- not just uniform and normal -- now produce identical sequences to NumPy given the same seed. This includes gamma, beta, chi-square, Poisson, binomial, multivariate normal, and every other distribution in the module.
+
+Performance improved by **~6x** compared to the previous TypeScript implementation, bringing numpy-ts random generation to within 1.9x of native NumPy speed.
+
+## Architecture
+
+### Zig kernels
+
+The WASM kernels are implemented in Zig, chosen for its:
+- First-class WASM target support with SIMD intrinsics
+- Zero-overhead abstractions and comptime generics
+- No runtime or GC; minimal binary size
+
+Each kernel module (e.g., `matmul`, `reduction`, `unary`, `binary`, `sort`, `linalg`, `fft`) is compiled to a standalone `.wasm` binary, then base64-encoded into a TypeScript wrapper.
+
+### Memory model
+
+All kernels share a single `WebAssembly.Memory` instance with a bump allocator. Before each kernel call:
+1. The allocator resets to `heapBase` (zero-cost reset)
+2. Input data is written into WASM memory
+3. The kernel operates in-place or writes output to a separate region
+4. Results are read back into JavaScript typed arrays
+
+This avoids repeated memory allocation/deallocation overhead and keeps the memory footprint predictable.
+
+### Dispatch logic
+
+Each accelerated function checks:
+- **Size threshold**: small arrays are faster in pure JS (no WASM call overhead)
+- **Dtype support**: the kernel must support the input dtype (e.g., float32, float64)
+- **Contiguity**: many kernels require C-contiguous input for optimal performance
+
+If any check fails, the function falls back to the pure TypeScript path silently.
+
+## Tree-shaking
+
+WASM kernels are individually tree-shakeable. If your application only uses `add` and `matmul`, only those kernel wrappers (and the shared memory instance) are included in your bundle. Unused kernels are eliminated by your bundler.
+
+```typescript
+// Only the add and matmul WASM kernels are bundled
+import { add, matmul } from 'numpy-ts';
+```
+
+## Running on a Web Worker
+
+For long-running operations that might block the main thread, you can run numpy-ts in a Web Worker:
+
+```typescript
+// worker.ts
+import * as np from 'numpy-ts';
+
+self.onmessage = (e) => {
+  const { data, shape } = e.data;
+  const arr = np.array(data).reshape(shape);
+  const result = np.linalg.svd(arr);
+  self.postMessage({
+    u: result.u.toArray(),
+    s: result.s.toArray(),
+    vt: result.vt.toArray(),
+  });
+};
+```
+
+```typescript
+// main.ts
+const worker = new Worker(new URL('./worker.ts', import.meta.url));
+worker.postMessage({ data: myData, shape: [1000, 500] });
+worker.onmessage = (e) => {
+  console.log('SVD complete:', e.data.s);
+};
+```
+
+This works out of the box -- WASM kernels initialize independently in each worker context.
