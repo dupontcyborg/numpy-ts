@@ -151,7 +151,11 @@ export const Playground = ({
       try {
         loadCSS(isDarkMode ? CDN_URLS.prismCSSDark : CDN_URLS.prismCSSLight, "prism");
         // numpy-ts v1.3+ ships an ESM browser bundle — load via dynamic import.
-        const npModule = await import(/* webpackIgnore: true */ /* @vite-ignore */ CDN_URLS.numpyTs);
+        // Wrapped in `new Function` so Mintlify's MDX compiler doesn't
+        // misparse the bare `import(...)` token as a static import statement
+        // (which isn't allowed inside a generated function body).
+        const dynamicImport = new Function("url", "return import(url)");
+        const npModule = await dynamicImport(CDN_URLS.numpyTs);
         npRef.current = npModule.default ?? npModule;
         await loadScript(CDN_URLS.prismCore);
         await loadScript(CDN_URLS.prismTS);
