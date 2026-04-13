@@ -53,7 +53,7 @@
     "test:dtypes:js": "FORCE_BACKEND=js vitest run --project=validation tests/validation/dtype-sweep/",
     "test:dtypes:wasm": "FORCE_BACKEND=wasm vitest run --project=validation tests/validation/dtype-sweep/",
     "test:tree-shaking": "vitest run --project=tree-shaking",
-    "test:browser": "vitest run --project=browser-unit --project=bundle-browser --project=bundle-esm",
+    "test:browser": "npm run build:clean && npm run generate && tsx build.ts --skip-wasm && npm run build:types && vitest run --project=browser-unit --project=bundle-browser --project=bundle-esm",
     "test:bun": "npm run build:test && bun vitest run --project=unit --project=validation --project=runtime-io",
     "test:deno": "npm run build:test && deno run -A node_modules/.bin/vitest run --project=unit --project=validation --project=runtime-io",
     "test:coverage": "vitest run --project=unit --project=validation --project=runtime-io --project=wasm-memory --coverage",
