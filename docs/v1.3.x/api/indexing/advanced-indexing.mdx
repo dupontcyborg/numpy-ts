@@ -3,6 +3,56 @@ title: "Advanced Indexing"
 description: "Take, put, compress, select, broadcast, and other advanced array indexing operations."
 ---
 
+### vindex
+
+```typescript
+function vindex(
+  a: NDArray,
+  ...indices: (string | number[] | NDArray)[]
+): NDArray
+```
+
+`vindex` closely corresponds to [NumPy's integer array indexing](https://numpy.org/doc/stable/user/basics.indexing.html#integer-array-indexing). It allows selection of arbitrary items in the array based on their N-dimensional index. Each integer array represents a number of indices into that dimension.
+
+Advanced indices always are broadcast and iterated as one:
+
+```typescript
+x.vindex(ind_1, ..., ind_m)
+// Equivalent to:
+// result[i_1, ..., i_M] == x[ind_1[i_1, ..., i_M], ind_2[i_1, ..., i_M],
+//                           ..., ind_N[i_1, ..., i_M]]
+
+// Example
+const m = np.array([
+  [1, 2, 3],
+  [4, 5, 6],
+  [7, 8, 9],
+]);
+m.vindex([0, 1, 2, 2], [0, 0, 1, 2]);
+// [1, 4, 8, 9]
+
+const ind = np.array([[0, 1], [1, 2]]);
+m.vindex(ind);
+// Equivalent to m.vindex(ind, ':')
+// [[[1, 2, 3],
+//   [4, 5, 6]],
+//  [[4, 5, 6],
+//   [7, 8, 9]]]
+
+m.vindex(ind, ind);
+// [[1, 5],
+//  [5, 9]]
+
+m.vindex('1:2', ind);
+// [[[4], [5]], [[5, 6]]]
+// shape (2, 2, 1)
+// note the first dimension is now the last; NumPy would give shape (1, 2, 2)
+```
+
+Normally `vindex` is called with `NDArray` or `number[]` objects, but you can also freely mix in any of the arguments `slice` accepts. The order of dimensions in the result matches [NumPy's behaviour](https://numpy.org/doc/stable/user/basics.indexing.html#combining-advanced-and-basic-indexing): if the advanced indices are contiguous, they replace in place; otherwise they are transposed to be the first dimensions.
+
+---
+
 ### take
 
 Take elements from an array along an axis.

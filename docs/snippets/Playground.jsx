@@ -7,9 +7,10 @@ export const Playground = ({
   showCopyButton = false,
   showTiming = true
 }) => {
-  const NUMPY_TS_CDN_VERSION = "1.2.0";
+  const NUMPY_TS_CDN_VERSION = "1.3.0";
 
   const CDN_URLS = {
+    // Browser bundle is now ESM (v1.3+) — loaded via dynamic import(), not <script>.
     numpyTs: `https://cdn.jsdelivr.net/npm/numpy-ts@${NUMPY_TS_CDN_VERSION}/dist/numpy-ts.browser.js`,
     prismCore: "https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js",
     prismTS: "https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js",
@@ -139,6 +140,7 @@ export const Playground = ({
   const resizeStartY = useRef(null);
   const resizeStartHeight = useRef(null);
   const runSeqRef = useRef(0);
+  const npRef = useRef(null);
 
   const colors = THEME_COLORS[isDarkMode ? 'dark' : 'light'];
   const copyTimeoutRef = useRef(null);
@@ -148,7 +150,9 @@ export const Playground = ({
     async function load() {
       try {
         loadCSS(isDarkMode ? CDN_URLS.prismCSSDark : CDN_URLS.prismCSSLight, "prism");
-        await loadScript(CDN_URLS.numpyTs);
+        // numpy-ts v1.3+ ships an ESM browser bundle — load via dynamic import.
+        const npModule = await import(/* webpackIgnore: true */ /* @vite-ignore */ CDN_URLS.numpyTs);
+        npRef.current = npModule.default ?? npModule;
         await loadScript(CDN_URLS.prismCore);
         await loadScript(CDN_URLS.prismTS);
         if (!cancelled) {
@@ -371,7 +375,7 @@ export const Playground = ({
   }, [startHeightPx, singleCode, showImportHeader]);
 
   const run = useCallback(async () => {
-    if (!loaded || !window.np) return;
+    if (!loaded || !npRef.current) return;
     const runId = runSeqRef.current + 1;
     runSeqRef.current = runId;
     setRunning(true);
@@ -399,10 +403,10 @@ export const Playground = ({
       let result;
       if (shouldRunAsync) {
         const executeAsync = new Function("np", `"use strict"; return (async () => {\n${code}\n})();`);
-        result = await executeAsync(window.np);
+        result = await executeAsync(npRef.current);
       } else {
         const executeSync = new Function("np", code);
-        result = executeSync(window.np);
+        result = executeSync(npRef.current);
       }
       if (result !== undefined) {
         logs.push(typeof result === "object" && typeof result?.toString === "function" && result.toString !== Object.prototype.toString ? result.toString() : String(result));

@@ -108,7 +108,8 @@
                   "v1.3.x/guides/tree-shaking",
                   "v1.3.x/guides/file-io",
                   "v1.3.x/guides/typescript-patterns",
-                  "v1.3.x/guides/wasm-acceleration"
+                  "v1.3.x/guides/wasm-acceleration",
+                  "v1.3.x/guides/memory-management"
                 ]
               },
               {

@@ -102,6 +102,46 @@ m.slice('0:2', '2:4').toArray();
 When you pass an integer as a string (e.g. `'1'`), that dimension is removed from the result, just like NumPy's integer indexing. A range like `'1:2'` keeps the dimension.
 </Note>
 
+## Ellipses
+
+The string `'...'` expands to the number of `':'` slices needed to index all dimensions. In most cases, this means the length of the expanded selection tuple equals `ndim`. There may only be a single ellipsis present.
+
+```typescript
+const m = np.array([[
+  [0, 1, 2, 3],
+  [4, 5, 6, 7],
+  [8, 9, 10, 11],
+]]);
+// shape [1, 3, 4]
+
+// Slice just the last dimension
+m.slice('...', '1:3').toArray();
+// shape [1, 3, 2]
+// [[[1, 2],
+//   [5, 6],
+//   [9, 10]]]
+```
+
+## newaxis
+
+The string `'newaxis'` expands the dimensions of the result by one unit-length dimension. The added dimension is the position of the `newaxis` token in the indices.
+
+```typescript
+const m = np.array([
+  [0, 1, 2, 3],
+  [4, 5, 6, 7],
+  [8, 9, 10, 11],
+]);
+// shape [3, 4]
+
+// Insert an axis
+m.slice(':', 'newaxis', ':').toArray();
+// shape [3, 1, 4]
+// [[[0, 1, 2, 3]],
+//  [[4, 5, 6, 7]],
+//  [[8, 9, 10, 11]]]
+```
+
 ## Negative indices
 
 Negative indices count from the end, just like Python:
@@ -282,7 +322,7 @@ Understanding when an operation returns a view (shared data) versus a copy (new 
 
 **Copies (new data):**
 - `flatten()` / `copy()`
-- `take()` / `iindex()` / `bindex()`
+- `take()` / `iindex()` / `bindex()` / `vindex()`
 - Arithmetic operations (`add`, `multiply`, etc.)
 - `sort()`, `argsort()`
 
@@ -314,6 +354,7 @@ Check `arr.base` to determine if an array is a view. If `base` is not `null`, th
 | Single row/column | `.row(i)`, `.col(j)` | View |
 | Row/column range | `.rows(a, b)`, `.cols(a, b)` | View |
 | Arbitrary integer positions | `.take(indices)` or `.iindex(indices)` | Copy |
+| Multi-axis vectorized indexing | `np.vindex(a, idx0, idx1, ...)` | Copy |
 | In-place by flat index | `.put(indices, values)` | Void (in-place) |
 | Boolean mask selection | `.bindex(mask)` | Copy |
 | Conditional pick from two arrays | `np.where(cond, x, y)` | Copy |

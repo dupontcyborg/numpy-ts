@@ -1,0 +1,126 @@
+---
+title: "Memory Management"
+sidebarTitle: "Memory Management"
+---
+
+Starting in `v1.3.0`, numpy-ts arrays are backed directly by WebAssembly linear memory. This eliminates the copy-in / copy-out overhead that previously dominated WASM kernel execution time and unlocks significant speedups for bandwidth-bound operations. For most users this is fully transparent — but a small set of new APIs (`.dispose()`, the `using` keyword, and `configureWasm()`) gives you precise control when you need it.
+
+## WASM-backed array storage
+
+All arrays created via `np.zeros()`, `np.ones()`, `np.array()`, `np.arange()`, etc. are now allocated from a shared WebAssembly memory pool (default: **256 MiB**). WASM kernels operate directly on these pointers — there is no copy when an operation runs.
+
+**What you get for free:**
+- Bandwidth-bound operations (add, multiply, bitwise) see up to **2.6x improvement**
+- Chained operations benefit most: intermediate results stay in WASM memory across kernel calls without round-tripping to JS
+- Compute-bound operations (matmul, SVD) see minimal change (~1-2%) — they were already dominated by the kernel itself, not the copy
+
+**When the pool is full:**
+- Allocations transparently fall back to regular JS `TypedArray`s
+- Operations on JS-backed arrays still work correctly (using the previous copy-in / copy-out path)
+- No exceptions, no surprises — the only observable effect is reduced throughput for very large workloads
+
+## `.dispose()` — eager cleanup
+
+`NDArray` (and the underlying `ArrayStorage`) now expose a `.dispose()` method that immediately frees the WASM memory backing an array.
+
+```ts
+// Default — let GC handle it
+const result = np.add(a, b);
+// ... use result ...
+// memory freed when GC collects `result`
+
+// Manual — free immediately
+const result = np.add(a, b);
+// ... use result ...
+result.dispose(); // WASM memory freed now
+```
+
+In normal usage you don't need to call this — a `FinalizationRegistry` frees WASM memory when arrays are garbage collected. But manual disposal is useful when:
+
+- **Tight loops** create many short-lived intermediate arrays — calling `.dispose()` keeps the pool from filling up faster than GC can drain it
+- **Benchmarks and performance-critical code** where you want deterministic memory behavior
+- **Long-running processes** where GC latency would otherwise let memory pressure accumulate
+
+You generally **don't** need it for:
+
+- Normal application code — GC handles cleanup automatically
+- Small scripts — the 256 MiB pool won't fill up
+- Arrays returned to callers — let the caller manage lifetime
+
+### `Symbol.dispose` and the `using` keyword
+
+On runtimes that support `Symbol.dispose` (Node 22+, Chrome 134+, Firefox 132+), arrays implement `[Symbol.dispose]`, enabling the `using` keyword for automatic scope-based cleanup:
+
+```ts
+{
+  using result = np.add(a, b);
+  // ... use result ...
+} // result.dispose() called automatically at end of block
+
+// Works in loops too — each iteration auto-disposes
+for (let i = 0; i < 1000; i++) {
+  using temp = np.multiply(arr, scalar);
+  arr = np.add(temp, bias);
+  // temp is disposed at end of each iteration
+}
+```
+
+<Note>
+**Safari compatibility:** Safari does not yet support `Symbol.dispose`. The `using` keyword is therefore unavailable on Safari, but `.dispose()` itself works identically across all runtimes. For cross-browser code, prefer calling `.dispose()` directly.
+</Note>
+
+## `configureWasm()` — pool sizing
+
+The WASM memory pool size can be configured at startup via `configureWasm()`. It must be called **before any array operations** — once WASM memory is initialized, it cannot be resized.
+
+```ts
+import { configureWasm } from 'numpy-ts';
+
+// Increase WASM memory to 512 MiB (default: 256 MiB)
+configureWasm({ maxMemory: 512 * 1024 * 1024 });
+
+// Now use numpy-ts as normal
+const a = np.zeros([1000, 1000]);
+```
+
+**Options:**
+
+| Option | Type | Default | Description |
+|-|-|-|-|
+| `maxMemory` | `number` | `256 * 1024 * 1024` (256 MiB) | Total WASM linear memory in bytes |
+| `scratchSize` | `number` | `maxMemory / 16`, capped at 32 MiB | Scratch region for temporary kernel buffers (e.g. dtype promotion) |
+
+**Constraints:**
+- Must be called before any array creation or operation (throws otherwise)
+- `maxMemory` and `scratchSize` must both be positive
+
+**When to use:**
+- **Memory-constrained environments** (embedded, serverless) — reduce from the 256 MiB default to lower the resident footprint
+- **Large-array workloads** — increase the pool to keep more arrays in WASM memory and avoid JS fallback
+
+## Scratch heap fallback
+
+Temporary input buffers for WASM kernels — e.g. integer→float conversion for `sin`, `cos`; `float16`→`float32` promotion — previously used a fixed scratch region. Large arrays (>500K elements with type conversion) could hit a hard out-of-memory error.
+
+In v1.3.0, when scratch space is exhausted, allocations transparently fall back to the persistent WASM heap, with the temporary buffers freed automatically on the next kernel call. **No user action is needed** — operations that previously failed now just work.
+
+## Putting it all together
+
+```ts
+import { configureWasm } from 'numpy-ts';
+import * as np from 'numpy-ts';
+
+// 1. (Optional) Configure pool size at startup
+configureWasm({ maxMemory: 1024 * 1024 * 1024 }); // 1 GiB
+
+// 2. Tight loop — manually dispose intermediates
+const data = np.random.randn(1000, 1000);
+let acc = np.zeros([1000, 1000]);
+for (let i = 0; i < 100; i++) {
+  using temp = np.multiply(data, i);  // auto-dispose at iteration end
+  acc = np.add(acc, temp);
+}
+
+// 3. Free the result when done
+acc.dispose();
+```

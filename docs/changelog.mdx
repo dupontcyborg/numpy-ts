@@ -4,6 +4,32 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.3.0" description="2026-04-13">
+
+## numpy-ts v1.3.0
+
+**This is the first release where numpy-ts is faster than native NumPy on average** — **1.22x** across 2,390 benchmarks, leading in 12 of 18 categories. See the [Performance Overview](./v1.3.x/performance/overview) for the full breakdown.
+
+v1.3.0 gets there by moving array storage into WebAssembly linear memory for true zero-copy WASM kernel execution, ships a new memory-management API, and brings a stack of NumPy compatibility fixes.
+
+* **WASM-backed array storage**: Arrays now live directly in a shared WebAssembly memory pool (default 256 MiB). WASM kernels operate on these pointers with **zero copy-in/copy-out overhead**.
+    * Bandwidth-bound operations (`add`, `multiply`, bitwise) see up to **2.6x improvement**
+    * Compute-bound operations (`matmul`, `svd`) see minimal change (already kernel-dominated)
+    * Graceful fallback to JS `TypedArray`s when the pool is full
+    * Comes with new `dispose()` and `configureWasm()` methods for manual memory management and pool configuration
+* **Browser bundle is ESM**. Load via `<script type="module">` or `import()`. See the [CDN section](./v1.3.x/guides/installation#cdn-usage-browsers).
+* Default dtype changes:
+    * `arange()` now defaults to `float64` (was `int32` for integer args), matching `zeros`/`ones`/`linspace`. Pass `dtype` explicitly to opt out.
+    * `full()` integer inference: out-of-range integers now infer to `int64` instead of `float64`. In-range integers still infer to `int32`.
+    * Index-returning APIs return `float64` instead of `int64` (`argsort`, `argmax`/`min`, `argwhere`, `nonzero`, `unravel_index`, `indices`, …) — deliberate NumPy divergence to avoid `BigInt` friction.
+* `array()` now accepts `TypedArray` inputs.
+* Various slice correctness fixes (thanks [@BorisTheBrave](https://github.com/BorisTheBrave)):
+    * Added `vindex: vectorized multi-dimensional indexing matching NumPy's integer array indexing semantics. See [Advanced Indexing](./v1.3.x/api/indexing/advanced-indexing#vindex). ([#94](https://github.com/dupontcyborg/numpy-ts/pull/94))
+    * Slice now supports `'...'` (ellipsis) and `'newaxis'` tokens for compact multi-dim slicing. See [Slicing & Indexing](./v1.3.x/guides/slicing-indexing#ellipses). ([#84](https://github.com/dupontcyborg/numpy-ts/pull/84))
+* `in1d` deprecated (matches NumPy 2.4) — use `isin`.
+
+</Update>
+
 <Update label="v1.2.0" description="2026-03-27">
 
 ## numpy-ts v1.2.0

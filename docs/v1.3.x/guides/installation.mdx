@@ -51,15 +51,6 @@ You can load numpy-ts directly in the browser without a build step:
 </script>
 ```
 
-```html unpkg
-<script type="module">
-  import * as np from 'https://unpkg.com/numpy-ts?module';
-
-  const a = np.array([[1, 2], [3, 4]]);
-  console.log(a);
-</script>
-```
-
 ```html jsdelivr
 <script type="module">
   import * as np from "https://cdn.jsdelivr.net/npm/numpy-ts/+esm";
@@ -69,7 +60,14 @@ You can load numpy-ts directly in the browser without a build step:
 </script>
 ```
 
+```html unpkg
+<script type="module">
+  import * as np from 'https://unpkg.com/numpy-ts/dist/numpy-ts.browser.js';
 
+  const a = np.array([[1, 2], [3, 4]]);
+  console.log(a);
+</script>
+```
 </CodeGroup>
 
 ## Choose your entry point

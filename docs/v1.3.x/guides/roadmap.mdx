@@ -58,7 +58,23 @@ This is a significant undertaking and may be scoped to a subset of NumPy's struc
 
 ## Graph-based chaining / fused kernels
 
-Keep data in WASM memory across chained operations to eliminate copy overhead. Currently each WASM kernel copies data in and out of WASM memory. Fused kernels would allow chaining operations (e.g. `a.add(b).multiply(c)`) to stay entirely in WASM memory, only copying the final result back to JavaScript.
+v1.3.0 introduced WASM-backed array storage so that data lives in WASM memory between kernel calls — eliminating per-kernel copy-in/copy-out for the common path. The next step is **kernel fusion**: collapsing chained operations like `a.add(b).multiply(c)` into a single kernel pass to eliminate intermediate writes to memory entirely.
+
+## Strided ops in WASM
+
+A handful of operations (notably non-contiguous strided variants) still fall back to TypeScript when the input layout precludes the fast WASM path. The plan is to extend the WASM kernels to handle strided inputs directly so we can drop the JS fallback entirely.
+
+## Complete fancy indexing
+
+`vindex` (added in v1.3.0) covers the bulk of NumPy's integer array indexing. Remaining work: full parity with NumPy's combined basic + advanced indexing semantics, including in-place assignment via `vindex` and broadcasting of mixed integer/slice/boolean indexers.
+
+## WASM `memory64` build
+
+Currently the WASM linear memory is 32-bit, capping the pool at 4 GiB (with a 256 MiB default). A `memory64` build option would lift this ceiling on supporting runtimes, enabling much larger arrays for scientific workloads. The 32-bit build will remain the default for portability.
+
+## Codebase modularization
+
+Split the monolithic core into smaller, independently versionable modules — including the `.zig` source. This will make the library easier to contribute to, easier to subset for ultra-light deployments, and lets us iterate on individual modules (e.g. `linalg`, `fft`) without rebuilding the world.
 
 <Note>
 This roadmap reflects current thinking, not commitments. Items may be reprioritized, combined, or dropped based on what the community actually needs. The best way to influence the roadmap is to [open an issue](https://github.com/dupontcyborg/numpy-ts/issues) with your use case.

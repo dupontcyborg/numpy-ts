@@ -212,14 +212,14 @@ Return an array representing the indices of a grid.
 ```typescript
 function indices(
   dimensions: number[],
-  dtype?: 'int32' | 'int64' | 'float64'
+  dtype?: DType
 ): NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `dimensions` | `number[]` | -- | Shape of the grid. |
-| `dtype` | `'int32' \| 'int64' \| 'float64'` | `'int32'` | Data type of the result. |
+| `dtype` | `DType` | `'float64'` | Data type of the result. As of v1.3.0, integer-index APIs default to `float64` to avoid `BigInt` interop friction (NumPy uses `int64`). |
 
 **Returns:** `NDArray` dense grid with shape `[N, ...dimensions]`.
 
