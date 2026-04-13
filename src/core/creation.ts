@@ -86,8 +86,8 @@ export function full(
     } else if (typeof fill_value === 'boolean') {
       actualDtype = 'bool';
     } else if (Number.isInteger(fill_value)) {
-      // Integers outside int32 range default to float64 (matches NumPy)
-      actualDtype = fill_value >= -2147483648 && fill_value <= 2147483647 ? 'int32' : 'float64';
+      // Integer fill: int32 if it fits, otherwise int64 for the wider range.
+      actualDtype = fill_value >= -2147483648 && fill_value <= 2147483647 ? 'int32' : 'int64';
     } else {
       actualDtype = DEFAULT_DTYPE;
     }
@@ -283,18 +283,9 @@ export function arange(start: number, stop?: number, step: number = 1, dtype?: D
 
   const length = Math.max(0, Math.ceil((actualStop - actualStart) / step));
 
-  // Infer dtype from arguments: all integers that fit in int32 → int32, else float64
-  const INT32_MAX = 2147483647;
-  const INT32_MIN = -2147483648;
-  const allInt =
-    Number.isInteger(actualStart) && Number.isInteger(actualStop) && Number.isInteger(step);
-  const lastVal = length > 0 ? actualStart + (length - 1) * step : actualStart;
-  const fitsInt32 =
-    actualStart >= INT32_MIN &&
-    actualStart <= INT32_MAX &&
-    lastVal >= INT32_MIN &&
-    lastVal <= INT32_MAX;
-  const actualDtype = dtype ?? (allInt && fitsInt32 ? 'int32' : DEFAULT_DTYPE);
+  // Default to float64 for consistency with zeros/ones/empty/linspace.
+  // Diverges from NumPy (which returns int64 for integer args) to avoid BigInt.
+  const actualDtype = dtype ?? DEFAULT_DTYPE;
 
   // bool arange only valid for length ≤ 2: [False] or [False, True]
   if (actualDtype === 'bool' && length > 2) {

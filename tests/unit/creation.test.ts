@@ -77,20 +77,24 @@ describe('Array Creation Functions', () => {
       expect(arr.toArray()).toEqual([]);
     });
 
-    it('infers int32 dtype for integer args', () => {
-      expect(arange(10).dtype).toBe('int32');
+    it('defaults to float64 dtype for integer args', () => {
+      expect(arange(10).dtype).toBe('float64');
     });
 
-    it('infers int32 dtype for all-integer start/stop/step', () => {
-      expect(arange(0, 10, 1).dtype).toBe('int32');
+    it('defaults to float64 dtype for all-integer start/stop/step', () => {
+      expect(arange(0, 10, 1).dtype).toBe('float64');
     });
 
-    it('infers float64 dtype for float step', () => {
+    it('defaults to float64 dtype for float step', () => {
       expect(arange(0, 10, 0.5).dtype).toBe('float64');
     });
 
-    it('infers float64 dtype when args overflow int32', () => {
+    it('defaults to float64 dtype when args overflow int32', () => {
       expect(arange(0, 3e9, 1e8).dtype).toBe('float64');
+    });
+
+    it('honors explicit dtype override', () => {
+      expect(arange(0, 10, 1, 'int32').dtype).toBe('int32');
     });
 
     it('respects explicit dtype over inference', () => {
@@ -348,16 +352,22 @@ describe('Array Creation Functions', () => {
       expect(arr.dtype).toBe('float64');
     });
 
-    it('infers float64 dtype for overflow fill value', () => {
-      expect(full([2], 3e9).dtype).toBe('float64');
+    it('infers int64 dtype for overflow fill value', () => {
+      expect(full([2], 3e9).dtype).toBe('int64');
     });
 
     it('infers int32 dtype for max int32 fill value', () => {
       expect(full([2], 2147483647).dtype).toBe('int32');
     });
 
-    it('infers float64 dtype for int32 overflow fill value', () => {
-      expect(full([2], 2147483648).dtype).toBe('float64');
+    it('infers int64 dtype for int32 overflow fill value', () => {
+      expect(full([2], 2147483648).dtype).toBe('int64');
+    });
+
+    it('stores correct value when inferring int64 from a JS number', () => {
+      const arr = full([2], 3e9);
+      expect(arr.get([0])).toBe(3000000000n);
+      expect(arr.get([1])).toBe(3000000000n);
     });
   });
 

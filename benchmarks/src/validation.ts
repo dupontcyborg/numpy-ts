@@ -1450,8 +1450,9 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                 'unravel_index',
                 'random_permutation',
               ]);
-              // Integer creation functions: we return int32, NumPy returns int64
-              const INT_CREATION_OPS = new Set(['arange', 'full', 'full_like']);
+              // Integer creation functions: full/full_like return int32 (we
+              // diverge from NumPy's int64 to avoid BigInt for in-range fills).
+              const INT_CREATION_OPS = new Set(['full', 'full_like']);
               const isIndexOp = INDEX_OPS.has(spec.operation);
               const isIntCreation = INT_CREATION_OPS.has(spec.operation);
               if (
@@ -1460,6 +1461,12 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                 (npDtype === 'int64' || npDtype === 'uint64')
               ) {
                 // Accepted: index ops return float64 for JS ergonomics
+              } else if (
+                spec.operation === 'arange' &&
+                tsDtype === 'float64' &&
+                npDtype === 'int64'
+              ) {
+                // Accepted: arange defaults to float64 (matches zeros/ones/linspace)
               } else if (isIntCreation && tsDtype === 'int32' && npDtype === 'int64') {
                 // Accepted: int32 is our int64 equivalent for non-BigInt JS numbers
               } else if (
