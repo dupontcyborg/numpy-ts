@@ -1,3 +1,33 @@
+// Defined at module scope so its component identity is stable across parent
+// re-renders. Defining it inside the parent would cause React to remount it
+// (and lose `show` state) every time the parent re-renders.
+const HoverBar = ({ tip, width, color, rounded, opacity, isDarkMode }) => {
+  const [show, setShow] = useState(false);
+  const ref = useRef(null);
+  const lastPointerType = useRef('mouse');
+  useEffect(() => {
+    if (!show) return;
+    const onDocPointerDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setShow(false);
+    };
+    document.addEventListener('pointerdown', onDocPointerDown);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown);
+  }, [show]);
+  return (
+    <div ref={ref} style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, opacity: opacity ?? 1, position: 'relative', zIndex: show ? 10 : 'auto', filter: show ? 'brightness(1.3)' : 'none', transition: 'filter 0.15s', cursor: 'default' }}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setShow(true); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setShow(false); }}
+      onPointerDown={(e) => { lastPointerType.current = e.pointerType; }}
+      onClick={() => { if (lastPointerType.current !== 'mouse') setShow((s) => !s); }}>
+      {tip && (
+        <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
+          {tip}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SizeScalingReport = ({ data, detailUrl }) => {
   const meta = data?.meta || {};
   const sizes = Array.isArray(data?.sizes) ? data.sizes : [];
@@ -175,33 +205,6 @@ export const SizeScalingReport = ({ data, detailUrl }) => {
   const ratioTip = (ratio) => {
     if (!Number.isFinite(ratio)) return '';
     return ratio >= 1 ? `${ratio.toFixed(2)}x faster than NumPy` : `${ratio.toFixed(2)}x slower than NumPy`;
-  };
-
-  const HoverBar = ({ tip, width, color, rounded, opacity }) => {
-    const [show, setShow] = useState(false);
-    const ref = useRef(null);
-    const lastPointerType = useRef('mouse');
-    useEffect(() => {
-      if (!show) return;
-      const onDocPointerDown = (e) => {
-        if (ref.current && !ref.current.contains(e.target)) setShow(false);
-      };
-      document.addEventListener('pointerdown', onDocPointerDown);
-      return () => document.removeEventListener('pointerdown', onDocPointerDown);
-    }, [show]);
-    return (
-      <div ref={ref} style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, opacity: opacity ?? 1, position: 'relative', zIndex: show ? 10 : 'auto', filter: show ? 'brightness(1.3)' : 'none', transition: 'filter 0.15s', cursor: 'default' }}
-        onPointerEnter={(e) => { if (e.pointerType === 'mouse') setShow(true); }}
-        onPointerLeave={(e) => { if (e.pointerType === 'mouse') setShow(false); }}
-        onPointerDown={(e) => { lastPointerType.current = e.pointerType; }}
-        onClick={() => { if (lastPointerType.current !== 'mouse') setShow((s) => !s); }}>
-        {tip && (
-          <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
-            {tip}
-          </div>
-        )}
-      </div>
-    );
   };
 
   const RatioDisplay = ({ ratio }) => {
@@ -409,7 +412,7 @@ export const SizeScalingReport = ({ data, detailUrl }) => {
                         style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 44px' : '1fr 60px', gap: 8, alignItems: 'center' }}
                       >
                         <BarTrack >
-                          <HoverBar tip={`${size.label}: ${ratioTip(ratio)}`} width={`${widthPct}%`} color={barColor} rounded opacity={ratio === 0 ? 0.2 : 1} />
+                          <HoverBar tip={`${size.label}: ${ratioTip(ratio)}`} width={`${widthPct}%`} color={barColor} rounded opacity={ratio === 0 ? 0.2 : 1} isDarkMode={isDarkMode} />
                         </BarTrack>
                         <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: ratio === 0 ? colors.mutedText : ratioColor(ratio) }}>
                           {ratio === 0 ? '-' : formatRatio(ratio)}

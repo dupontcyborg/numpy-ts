@@ -1,3 +1,33 @@
+// Defined at module scope so its component identity is stable across parent
+// re-renders. Defining it inside the parent would cause React to remount it
+// (and lose `show` state) every time the parent re-renders.
+const HoverBar = ({ tip, width, color, rounded, isDarkMode }) => {
+  const [show, setShow] = useState(false);
+  const ref = useRef(null);
+  const lastPointerType = useRef('mouse');
+  useEffect(() => {
+    if (!show) return;
+    const onDocPointerDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setShow(false);
+    };
+    document.addEventListener('pointerdown', onDocPointerDown);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown);
+  }, [show]);
+  return (
+    <div ref={ref} style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, position: 'relative', zIndex: show ? 10 : 'auto', filter: show ? 'brightness(1.3)' : 'none', transition: 'filter 0.15s', cursor: 'default' }}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setShow(true); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setShow(false); }}
+      onPointerDown={(e) => { lastPointerType.current = e.pointerType; }}
+      onClick={() => { if (lastPointerType.current !== 'mouse') setShow((s) => !s); }}>
+      {tip && (
+        <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
+          {tip}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const BenchmarkReport = ({ data, detailUrl }) => {
   const summary = data?.summary || {};
   const meta = data?.meta || {};
@@ -200,33 +230,6 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
     return ratio >= 1 ? `${ratio.toFixed(2)}x faster than NumPy` : `${ratio.toFixed(2)}x slower than NumPy`;
   };
 
-  const HoverBar = ({ tip, width, color, rounded }) => {
-    const [show, setShow] = useState(false);
-    const ref = useRef(null);
-    const lastPointerType = useRef('mouse');
-    useEffect(() => {
-      if (!show) return;
-      const onDocPointerDown = (e) => {
-        if (ref.current && !ref.current.contains(e.target)) setShow(false);
-      };
-      document.addEventListener('pointerdown', onDocPointerDown);
-      return () => document.removeEventListener('pointerdown', onDocPointerDown);
-    }, [show]);
-    return (
-      <div ref={ref} style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, position: 'relative', zIndex: show ? 10 : 'auto', filter: show ? 'brightness(1.3)' : 'none', transition: 'filter 0.15s', cursor: 'default' }}
-        onPointerEnter={(e) => { if (e.pointerType === 'mouse') setShow(true); }}
-        onPointerLeave={(e) => { if (e.pointerType === 'mouse') setShow(false); }}
-        onPointerDown={(e) => { lastPointerType.current = e.pointerType; }}
-        onClick={() => { if (lastPointerType.current !== 'mouse') setShow((s) => !s); }}>
-        {tip && (
-          <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
-            {tip}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const RatioDisplay = ({ ratio, size }) => {
     if (!Number.isFinite(ratio)) return <span>-</span>;
     const numSize = size === 'lg' ? 28 : 20;
@@ -257,8 +260,8 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
     return colors.chartBad;
   };
 
-  const SummaryCard = ({ label, value }) => (
-    <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.cardBg }}>
+  const SummaryCard = ({ label, value, style }) => (
+    <div style={{ border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, background: colors.cardBg, ...style }}>
       <div style={{ fontSize: 12, color: colors.mutedText, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 28, fontWeight: 700, color: colors.text }}>{value}</div>
     </div>
@@ -283,8 +286,8 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
 
   return (
     <div style={{ color: colors.text }}>
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isNarrow ? '1fr' : '2fr 1fr 1fr', marginBottom: 20 }}>
-        <SummaryCard label="Average" value={<RatioDisplay ratio={summary.avgSpeedup} size="lg" />} />
+      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isMobile ? '1fr 1fr' : (isNarrow ? '1fr' : '2fr 1fr 1fr'), marginBottom: 20 }}>
+        <SummaryCard label="Average" value={<RatioDisplay ratio={summary.avgSpeedup} size="lg" />} style={isMobile ? { gridColumn: '1 / -1' } : undefined} />
         <SummaryCard label="Best case" value={formatRatio(summary.bestCase)} />
         <SummaryCard label="Worst case" value={formatRatio(summary.worstCase)} />
       </div>
@@ -316,7 +319,7 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
                   >{String(category.name)}</a>
                 </div>
                 <BarTrack >
-                  <HoverBar tip={ratioTip(ratio)} width={`${widthPct}%`} color={chartColor(ratio)} rounded />
+                  <HoverBar tip={ratioTip(ratio)} width={`${widthPct}%`} color={chartColor(ratio)} rounded isDarkMode={isDarkMode} />
                 </BarTrack>
                 <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: colors.text }}>{formatRatio(ratio)}</div>
               </div>
@@ -348,7 +351,7 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
                       {!isMobile && <span style={{ fontSize: 11, color: colors.mutedText, whiteSpace: 'nowrap' }}>({count})</span>}
                     </div>
                     <BarTrack>
-                      <HoverBar tip={ratioTip(avgSpeedup)} width={`${widthPct}%`} color={chartColor(avgSpeedup)} rounded />
+                      <HoverBar tip={ratioTip(avgSpeedup)} width={`${widthPct}%`} color={chartColor(avgSpeedup)} rounded isDarkMode={isDarkMode} />
                     </BarTrack>
                     <div style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: colors.text }}>{formatRatio(avgSpeedup)}</div>
                   </div>
