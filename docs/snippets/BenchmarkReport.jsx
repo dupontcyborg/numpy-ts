@@ -95,19 +95,25 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
     fetch(detailUrl)
       .then((r) => r.json())
       .then((d) => setDetailData(d))
-      .catch(() => {})
+      .catch(() => { detailFetched.current = false; })
       .finally(() => setDetailLoading(false));
   };
 
   useEffect(() => {
     if (!detailUrl) return;
-    const ric = window.requestIdleCallback;
-    if (ric) {
-      const id = ric(() => fetchDetail(), { timeout: 2000 });
-      return () => window.cancelIdleCallback && window.cancelIdleCallback(id);
-    }
-    const id = setTimeout(fetchDetail, 200);
-    return () => clearTimeout(id);
+    let ricId, timeoutId;
+    const schedule = () => {
+      const ric = window.requestIdleCallback;
+      if (ric) ricId = ric(() => fetchDetail(), { timeout: 2000 });
+      else timeoutId = setTimeout(fetchDetail, 200);
+    };
+    if (document.readyState === 'complete') schedule();
+    else window.addEventListener('load', schedule, { once: true });
+    return () => {
+      window.removeEventListener('load', schedule);
+      if (ricId && window.cancelIdleCallback) window.cancelIdleCallback(ricId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const toggleCategory = (name) => {
@@ -171,6 +177,7 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
   const HoverBar = ({ tip, width, color, rounded }) => {
     const [show, setShow] = useState(false);
     const ref = useRef(null);
+    const lastPointerType = useRef('mouse');
     useEffect(() => {
       if (!show) return;
       const onDocPointerDown = (e) => {
@@ -183,7 +190,8 @@ export const BenchmarkReport = ({ data, detailUrl }) => {
       <div ref={ref} style={{ height: '100%', width, background: color, borderRadius: rounded ? 7 : 0, position: 'relative', zIndex: show ? 10 : 'auto', filter: show ? 'brightness(1.3)' : 'none', transition: 'filter 0.15s', cursor: 'default' }}
         onPointerEnter={(e) => { if (e.pointerType === 'mouse') setShow(true); }}
         onPointerLeave={(e) => { if (e.pointerType === 'mouse') setShow(false); }}
-        onPointerDown={(e) => { if (e.pointerType !== 'mouse') setShow((s) => !s); }}>
+        onPointerDown={(e) => { lastPointerType.current = e.pointerType; }}
+        onClick={() => { if (lastPointerType.current !== 'mouse') setShow((s) => !s); }}>
         {tip && (
           <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', padding: '4px 8px', borderRadius: 6, background: isDarkMode ? '#2a2a2a' : '#111', color: '#fff', fontSize: 11, whiteSpace: 'nowrap', zIndex: 100, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', opacity: show ? 1 : 0, transition: 'opacity 0.15s' }}>
             {tip}
