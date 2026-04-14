@@ -1,6 +1,9 @@
 /**
  * Shared benchmark utilities — setup arrays and execute operations.
  * Used by the benchmark runner and the WASM leak test suite.
+ *
+ * Operation dispatch uses a Record lookup instead of a long if/else chain,
+ * turning ~400 string comparisons into an O(1) property access.
  */
 
 import * as np from '../../src/core';
@@ -148,433 +151,414 @@ export function setupArrays(setup: BenchmarkSetup, operation?: string): Record<s
   return arrays;
 }
 
-export function executeOperation(operation: string, arrays: Record<string, any>): any {
+// ---------------------------------------------------------------------------
+// Operation dispatch table
+//
+// Each entry is `name -> fn(arrays) -> result`.  Using a Record turns dispatch
+// from ~400 string comparisons into an O(1) property access.
+// ---------------------------------------------------------------------------
+
+export type OpFn = (arrays: Record<string, any>) => any;
+
+const OPERATIONS: Record<string, OpFn> = {
   // Array creation
-  if (operation === 'zeros') return np.zeros(arrays['shape']);
-  if (operation === 'ones') return np.ones(arrays['shape']);
-  if (operation === 'empty') return np.empty(arrays['shape']);
-  if (operation === 'full') return np.full(arrays['shape'], arrays['fill_value']);
-  if (operation === 'arange') return np.arange(0, arrays['n'], 1);
-  if (operation === 'linspace') return np.linspace(0, 100, arrays['n']);
-  if (operation === 'logspace') return np.logspace(0, 3, arrays['n']);
-  if (operation === 'geomspace') return np.geomspace(1, 1000, arrays['n']);
-  if (operation === 'eye') return np.eye(arrays['n']);
-  if (operation === 'identity') return np.identity(arrays['n']);
-  if (operation === 'copy') return np.copy(arrays['a']);
-  if (operation === 'zeros_like') return np.zeros_like(arrays['a']);
-  if (operation === 'ones_like') return np.ones_like(arrays['a']);
-  if (operation === 'empty_like') return np.empty_like(arrays['a']);
-  if (operation === 'full_like') return np.full_like(arrays['a'], 7);
+  zeros: (a) => np.zeros(a['shape']),
+  ones: (a) => np.ones(a['shape']),
+  empty: (a) => np.empty(a['shape']),
+  full: (a) => np.full(a['shape'], a['fill_value']),
+  arange: (a) => np.arange(0, a['n'], 1),
+  linspace: (a) => np.linspace(0, 100, a['n']),
+  logspace: (a) => np.logspace(0, 3, a['n']),
+  geomspace: (a) => np.geomspace(1, 1000, a['n']),
+  eye: (a) => np.eye(a['n']),
+  identity: (a) => np.identity(a['n']),
+  copy: (a) => np.copy(a['a']),
+  zeros_like: (a) => np.zeros_like(a['a']),
+  ones_like: (a) => np.ones_like(a['a']),
+  empty_like: (a) => np.empty_like(a['a']),
+  full_like: (a) => np.full_like(a['a'], 7),
 
   // Arithmetic
-  if (operation === 'add') return np.add(arrays['a'], arrays['b']);
-  if (operation === 'subtract') return np.subtract(arrays['a'], arrays['b']);
-  if (operation === 'multiply') return np.multiply(arrays['a'], arrays['b']);
-  if (operation === 'divide') return np.divide(arrays['a'], arrays['b']);
-  if (operation === 'mod') return np.mod(arrays['a'], arrays['b']);
-  if (operation === 'floor_divide') return np.floor_divide(arrays['a'], arrays['b']);
-  if (operation === 'reciprocal') return np.reciprocal(arrays['a']);
-  if (operation === 'positive') return np.positive(arrays['a']);
-  if (operation === 'cbrt') return np.cbrt(arrays['a']);
-  if (operation === 'fabs') return np.fabs(arrays['a']);
-  if (operation === 'divmod') return np.divmod(arrays['a'], arrays['b']);
-  if (operation === 'gcd') {
-    const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
-    return np.gcd(arrays['a'], scalar);
-  }
-  if (operation === 'lcm') {
-    const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
-    return np.lcm(arrays['a'], scalar);
-  }
-  if (operation === 'float_power') {
-    const scalar = arrays['b'].size === 1 ? arrays['b'].get([0]) : arrays['b'];
-    return np.float_power(arrays['a'], scalar);
-  }
-  if (operation === 'square') return np.square(arrays['a']);
-  if (operation === 'remainder') return np.remainder(arrays['a'], arrays['b']);
-  if (operation === 'heaviside') return np.heaviside(arrays['a'], arrays['b']);
-  if (operation === 'fmod') return np.fmod(arrays['a'], arrays['b']);
-  if (operation === 'frexp') return np.frexp(arrays['a']);
-  if (operation === 'ldexp') return np.ldexp(arrays['a'], arrays['b']);
-  if (operation === 'modf') return np.modf(arrays['a']);
+  add: (a) => np.add(a['a'], a['b']),
+  subtract: (a) => np.subtract(a['a'], a['b']),
+  multiply: (a) => np.multiply(a['a'], a['b']),
+  divide: (a) => np.divide(a['a'], a['b']),
+  mod: (a) => np.mod(a['a'], a['b']),
+  floor_divide: (a) => np.floor_divide(a['a'], a['b']),
+  reciprocal: (a) => np.reciprocal(a['a']),
+  positive: (a) => np.positive(a['a']),
+  cbrt: (a) => np.cbrt(a['a']),
+  fabs: (a) => np.fabs(a['a']),
+  divmod: (a) => np.divmod(a['a'], a['b']),
+  gcd: (a) => {
+    const scalar = a['b'].size === 1 ? a['b'].get([0]) : a['b'];
+    return np.gcd(a['a'], scalar);
+  },
+  lcm: (a) => {
+    const scalar = a['b'].size === 1 ? a['b'].get([0]) : a['b'];
+    return np.lcm(a['a'], scalar);
+  },
+  float_power: (a) => {
+    const scalar = a['b'].size === 1 ? a['b'].get([0]) : a['b'];
+    return np.float_power(a['a'], scalar);
+  },
+  square: (a) => np.square(a['a']),
+  remainder: (a) => np.remainder(a['a'], a['b']),
+  heaviside: (a) => np.heaviside(a['a'], a['b']),
+  fmod: (a) => np.fmod(a['a'], a['b']),
+  frexp: (a) => np.frexp(a['a']),
+  ldexp: (a) => np.ldexp(a['a'], a['b']),
+  modf: (a) => np.modf(a['a']),
 
   // Math
-  if (operation === 'sqrt') return np.sqrt(arrays['a']);
-  if (operation === 'power') return np.power(arrays['a'], arrays['b']);
-  if (operation === 'absolute') return np.absolute(arrays['a']);
-  if (operation === 'negative') return np.negative(arrays['a']);
-  if (operation === 'sign') return np.sign(arrays['a']);
+  sqrt: (a) => np.sqrt(a['a']),
+  power: (a) => np.power(a['a'], a['b']),
+  absolute: (a) => np.absolute(a['a']),
+  negative: (a) => np.negative(a['a']),
+  sign: (a) => np.sign(a['a']),
 
   // Trig
-  if (operation === 'sin') return np.sin(arrays['a']);
-  if (operation === 'cos') return np.cos(arrays['a']);
-  if (operation === 'tan') return np.tan(arrays['a']);
-  if (operation === 'arcsin') return np.arcsin(arrays['a']);
-  if (operation === 'arccos') return np.arccos(arrays['a']);
-  if (operation === 'arctan') return np.arctan(arrays['a']);
-  if (operation === 'arctan2') return np.arctan2(arrays['a'], arrays['b']);
-  if (operation === 'hypot') return np.hypot(arrays['a'], arrays['b']);
+  sin: (a) => np.sin(a['a']),
+  cos: (a) => np.cos(a['a']),
+  tan: (a) => np.tan(a['a']),
+  arcsin: (a) => np.arcsin(a['a']),
+  arccos: (a) => np.arccos(a['a']),
+  arctan: (a) => np.arctan(a['a']),
+  arctan2: (a) => np.arctan2(a['a'], a['b']),
+  hypot: (a) => np.hypot(a['a'], a['b']),
 
   // Hyperbolic
-  if (operation === 'sinh') return np.sinh(arrays['a']);
-  if (operation === 'cosh') return np.cosh(arrays['a']);
-  if (operation === 'tanh') return np.tanh(arrays['a']);
-  if (operation === 'arcsinh') return np.arcsinh(arrays['a']);
-  if (operation === 'arccosh') return np.arccosh(arrays['a']);
-  if (operation === 'arctanh') return np.arctanh(arrays['a']);
+  sinh: (a) => np.sinh(a['a']),
+  cosh: (a) => np.cosh(a['a']),
+  tanh: (a) => np.tanh(a['a']),
+  arcsinh: (a) => np.arcsinh(a['a']),
+  arccosh: (a) => np.arccosh(a['a']),
+  arctanh: (a) => np.arctanh(a['a']),
 
   // Exponential
-  if (operation === 'exp') return np.exp(arrays['a']);
-  if (operation === 'exp2') return np.exp2(arrays['a']);
-  if (operation === 'expm1') return np.expm1(arrays['a']);
-  if (operation === 'log') return np.log(arrays['a']);
-  if (operation === 'log2') return np.log2(arrays['a']);
-  if (operation === 'log10') return np.log10(arrays['a']);
-  if (operation === 'log1p') return np.log1p(arrays['a']);
-  if (operation === 'logaddexp') return np.logaddexp(arrays['a'], arrays['b']);
-  if (operation === 'logaddexp2') return np.logaddexp2(arrays['a'], arrays['b']);
+  exp: (a) => np.exp(a['a']),
+  exp2: (a) => np.exp2(a['a']),
+  expm1: (a) => np.expm1(a['a']),
+  log: (a) => np.log(a['a']),
+  log2: (a) => np.log2(a['a']),
+  log10: (a) => np.log10(a['a']),
+  log1p: (a) => np.log1p(a['a']),
+  logaddexp: (a) => np.logaddexp(a['a'], a['b']),
+  logaddexp2: (a) => np.logaddexp2(a['a'], a['b']),
 
   // Gradient
-  if (operation === 'diff') return np.diff(arrays['a']);
-  if (operation === 'gradient') return np.gradient(arrays['a']);
-  if (operation === 'cross') return np.cross(arrays['a'], arrays['b']);
+  diff: (a) => np.diff(a['a']),
+  gradient: (a) => np.gradient(a['a']),
+  cross: (a) => np.cross(a['a'], a['b']),
 
   // Linear algebra
-  if (operation === 'dot') return np.dot(arrays['a'], arrays['b']);
-  if (operation === 'inner') return np.inner(arrays['a'], arrays['b']);
-  if (operation === 'outer') return np.outer(arrays['a'], arrays['b']);
-  if (operation === 'tensordot') return np.tensordot(arrays['a'], arrays['b'], arrays['axes'] ?? 2);
-  if (operation === 'matmul') return np.matmul(arrays['a'], arrays['b']);
-  if (operation === 'trace') return np.trace(arrays['a']);
-  if (operation === 'transpose') return np.transpose(arrays['a']);
-  if (operation === 'diagonal') return np.diagonal(arrays['a']);
-  if (operation === 'kron') return np.kron(arrays['a'], arrays['b']);
-  if (operation === 'einsum') return np.einsum(arrays['subscripts'], arrays['a'], arrays['b']);
-  if (operation === 'deg2rad') return np.deg2rad(arrays['a']);
-  if (operation === 'rad2deg') return np.rad2deg(arrays['a']);
+  dot: (a) => np.dot(a['a'], a['b']),
+  inner: (a) => np.inner(a['a'], a['b']),
+  outer: (a) => np.outer(a['a'], a['b']),
+  tensordot: (a) => np.tensordot(a['a'], a['b'], a['axes'] ?? 2),
+  matmul: (a) => np.matmul(a['a'], a['b']),
+  trace: (a) => np.trace(a['a']),
+  transpose: (a) => np.transpose(a['a']),
+  diagonal: (a) => np.diagonal(a['a']),
+  kron: (a) => np.kron(a['a'], a['b']),
+  einsum: (a) => np.einsum(a['subscripts'], a['a'], a['b']),
+  deg2rad: (a) => np.deg2rad(a['a']),
+  rad2deg: (a) => np.rad2deg(a['a']),
 
   // numpy.linalg
-  if (operation === 'linalg_det') return np.linalg.det(arrays['a']);
-  if (operation === 'linalg_inv') return np.linalg.inv(arrays['a']);
-  if (operation === 'linalg_solve') return np.linalg.solve(arrays['a'], arrays['b']);
-  if (operation === 'linalg_qr') return np.linalg.qr(arrays['a']);
-  if (operation === 'linalg_cholesky') return np.linalg.cholesky(arrays['_posdef']);
-  if (operation === 'linalg_svd') return np.linalg.svd(arrays['a']);
-  if (operation === 'linalg_eig') return np.linalg.eig(arrays['a']);
-  if (operation === 'linalg_eigh') {
-    const a = arrays['a'];
-    const aT = np.transpose(a);
-    const sum = np.add(a, aT);
+  linalg_det: (a) => np.linalg.det(a['a']),
+  linalg_inv: (a) => np.linalg.inv(a['a']),
+  linalg_solve: (a) => np.linalg.solve(a['a'], a['b']),
+  linalg_qr: (a) => np.linalg.qr(a['a']),
+  linalg_cholesky: (a) => np.linalg.cholesky(a['_posdef']),
+  linalg_svd: (a) => np.linalg.svd(a['a']),
+  linalg_eig: (a) => np.linalg.eig(a['a']),
+  linalg_eigh: (a) => {
+    const arr = a['a'];
+    const aT = np.transpose(arr);
+    const sum = np.add(arr, aT);
     const sym = np.multiply(sum, 0.5);
     const result = np.linalg.eigh(sym);
     sum.dispose();
     sym.dispose();
     return result;
-  }
-  if (operation === 'linalg_norm') return np.linalg.norm(arrays['a']);
-  if (operation === 'linalg_matrix_rank') return np.linalg.matrix_rank(arrays['a']);
-  if (operation === 'linalg_pinv') return np.linalg.pinv(arrays['a']);
-  if (operation === 'linalg_cond') return np.linalg.cond(arrays['a']);
-  if (operation === 'linalg_matrix_power') return np.linalg.matrix_power(arrays['a'], 3);
-  if (operation === 'linalg_lstsq') return np.linalg.lstsq(arrays['a'], arrays['b']);
-  if (operation === 'linalg_cross') return np.linalg.cross(arrays['a'], arrays['b']);
-  if (operation === 'linalg_slogdet') return np.linalg.slogdet(arrays['a']);
-  if (operation === 'linalg_svdvals') return np.linalg.svdvals(arrays['a']);
-  if (operation === 'linalg_multi_dot')
-    return np.linalg.multi_dot([arrays['a'], arrays['b'], arrays['c']]);
-  if (operation === 'vdot') return np.vdot(arrays['a'], arrays['b']);
-  if (operation === 'vecdot') return np.vecdot(arrays['a'], arrays['b']);
-  if (operation === 'matrix_transpose') return np.matrix_transpose(arrays['a']);
-  if (operation === 'matvec') return np.matvec(arrays['a'], arrays['b']);
-  if (operation === 'vecmat') return np.vecmat(arrays['a'], arrays['b']);
+  },
+  linalg_norm: (a) => np.linalg.norm(a['a']),
+  linalg_matrix_rank: (a) => np.linalg.matrix_rank(a['a']),
+  linalg_pinv: (a) => np.linalg.pinv(a['a']),
+  linalg_cond: (a) => np.linalg.cond(a['a']),
+  linalg_matrix_power: (a) => np.linalg.matrix_power(a['a'], 3),
+  linalg_lstsq: (a) => np.linalg.lstsq(a['a'], a['b']),
+  linalg_cross: (a) => np.linalg.cross(a['a'], a['b']),
+  linalg_slogdet: (a) => np.linalg.slogdet(a['a']),
+  linalg_svdvals: (a) => np.linalg.svdvals(a['a']),
+  linalg_multi_dot: (a) => np.linalg.multi_dot([a['a'], a['b'], a['c']]),
+  vdot: (a) => np.vdot(a['a'], a['b']),
+  vecdot: (a) => np.vecdot(a['a'], a['b']),
+  matrix_transpose: (a) => np.matrix_transpose(a['a']),
+  matvec: (a) => np.matvec(a['a'], a['b']),
+  vecmat: (a) => np.vecmat(a['a'], a['b']),
 
   // Bitwise
-  if (operation === 'bitwise_and') return np.bitwise_and(arrays['a'], arrays['b']);
-  if (operation === 'bitwise_or') return np.bitwise_or(arrays['a'], arrays['b']);
-  if (operation === 'bitwise_xor') return np.bitwise_xor(arrays['a'], arrays['b']);
-  if (operation === 'bitwise_not') return np.bitwise_not(arrays['a']);
-  if (operation === 'invert') return np.invert(arrays['a']);
-  if (operation === 'left_shift') return np.left_shift(arrays['a'], arrays['b']);
-  if (operation === 'right_shift') return np.right_shift(arrays['a'], arrays['b']);
-  if (operation === 'packbits') return np.packbits(arrays['a']);
-  if (operation === 'unpackbits') return np.unpackbits(arrays['a']);
-  if (operation === 'bitwise_count') return np.bitwise_count(arrays['a']);
+  bitwise_and: (a) => np.bitwise_and(a['a'], a['b']),
+  bitwise_or: (a) => np.bitwise_or(a['a'], a['b']),
+  bitwise_xor: (a) => np.bitwise_xor(a['a'], a['b']),
+  bitwise_not: (a) => np.bitwise_not(a['a']),
+  invert: (a) => np.invert(a['a']),
+  left_shift: (a) => np.left_shift(a['a'], a['b']),
+  right_shift: (a) => np.right_shift(a['a'], a['b']),
+  packbits: (a) => np.packbits(a['a']),
+  unpackbits: (a) => np.unpackbits(a['a']),
+  bitwise_count: (a) => np.bitwise_count(a['a']),
 
   // Reductions
-  if (operation === 'sum') return np.sum(arrays['a'], arrays['axis']);
-  if (operation === 'mean') return np.mean(arrays['a'], arrays['axis']);
-  if (operation === 'max') return np.max(arrays['a'], arrays['axis']);
-  if (operation === 'min') return np.min(arrays['a'], arrays['axis']);
-  if (operation === 'prod') return np.prod(arrays['a'], arrays['axis']);
-  if (operation === 'argmin') return np.argmin(arrays['a'], arrays['axis']);
-  if (operation === 'argmax') return np.argmax(arrays['a'], arrays['axis']);
-  if (operation === 'var') return np.var_(arrays['a'], arrays['axis']);
-  if (operation === 'std') return np.std(arrays['a'], arrays['axis']);
-  if (operation === 'all') return np.all(arrays['a'], arrays['axis']);
-  if (operation === 'any') return np.any(arrays['a'], arrays['axis']);
-  if (operation === 'cumsum') return np.cumsum(arrays['a']);
-  if (operation === 'cumprod') return np.cumprod(arrays['a']);
-  if (operation === 'ptp') return np.ptp(arrays['a']);
-  if (operation === 'median') return np.median(arrays['a']);
-  if (operation === 'percentile') return np.percentile(arrays['a'], 50);
-  if (operation === 'quantile') return np.quantile(arrays['a'], 0.5);
-  if (operation === 'average') return np.average(arrays['a']);
-  if (operation === 'nansum') return np.nansum(arrays['a']);
-  if (operation === 'nanmean') return np.nanmean(arrays['a']);
-  if (operation === 'nanmin') return np.nanmin(arrays['a']);
-  if (operation === 'nanmax') return np.nanmax(arrays['a']);
-  if (operation === 'nanquantile') return np.nanquantile(arrays['a'], 0.5);
-  if (operation === 'nanpercentile') return np.nanpercentile(arrays['a'], 50);
+  sum: (a) => np.sum(a['a'], a['axis']),
+  mean: (a) => np.mean(a['a'], a['axis']),
+  max: (a) => np.max(a['a'], a['axis']),
+  min: (a) => np.min(a['a'], a['axis']),
+  prod: (a) => np.prod(a['a'], a['axis']),
+  argmin: (a) => np.argmin(a['a'], a['axis']),
+  argmax: (a) => np.argmax(a['a'], a['axis']),
+  var: (a) => np.var_(a['a'], a['axis']),
+  std: (a) => np.std(a['a'], a['axis']),
+  all: (a) => np.all(a['a'], a['axis']),
+  any: (a) => np.any(a['a'], a['axis']),
+  cumsum: (a) => np.cumsum(a['a']),
+  cumprod: (a) => np.cumprod(a['a']),
+  ptp: (a) => np.ptp(a['a']),
+  median: (a) => np.median(a['a']),
+  percentile: (a) => np.percentile(a['a'], 50),
+  quantile: (a) => np.quantile(a['a'], 0.5),
+  average: (a) => np.average(a['a']),
+  nansum: (a) => np.nansum(a['a']),
+  nanmean: (a) => np.nanmean(a['a']),
+  nanmin: (a) => np.nanmin(a['a']),
+  nanmax: (a) => np.nanmax(a['a']),
+  nanquantile: (a) => np.nanquantile(a['a'], 0.5),
+  nanpercentile: (a) => np.nanpercentile(a['a'], 50),
 
   // Array creation - extra
-  if (operation === 'asarray_chkfinite') return np.asarray_chkfinite(arrays['a']);
-  if (operation === 'require') return np.require(arrays['a'], undefined, 'C');
+  asarray_chkfinite: (a) => np.asarray_chkfinite(a['a']),
+  require: (a) => np.require(a['a'], undefined, 'C'),
 
   // Reshape
-  if (operation === 'reshape') return np.reshape(arrays['a'], arrays['new_shape']);
-  if (operation === 'flatten') return np.flatten(arrays['a']);
-  if (operation === 'ravel') return np.ravel(arrays['a']);
-  if (operation === 'squeeze') return np.squeeze(arrays['a']);
+  reshape: (a) => np.reshape(a['a'], a['new_shape']),
+  flatten: (a) => np.flatten(a['a']),
+  ravel: (a) => np.ravel(a['a']),
+  squeeze: (a) => np.squeeze(a['a']),
 
   // Slicing
-  if (operation === 'slice') return arrays['a'].slice('0:100', '0:100');
+  slice: (a) => a['a'].slice('0:100', '0:100'),
 
-  // Array manipulation
-  if (operation === 'swapaxes') return np.swapaxes(arrays['a'], 0, 1);
-  if (operation === 'concatenate') return np.concatenate([arrays['a'], arrays['b']], 0);
-  if (operation === 'stack') return np.stack([arrays['a'], arrays['b']], 0);
-  if (operation === 'vstack') return np.vstack([arrays['a'], arrays['b']]);
-  if (operation === 'hstack') return np.hstack([arrays['a'], arrays['b']]);
-  if (operation === 'tile') return np.tile(arrays['a'], [2, 2]);
-  if (operation === 'repeat') return np.repeat(arrays['a'], 2);
-  if (operation === 'broadcast_to') return np.broadcast_to(arrays['a'], arrays['target_shape']);
-  if (operation === 'take') return np.take(arrays['a'], arrays['indices']);
-  if (operation === 'flip') return np.flip(arrays['a']);
-  if (operation === 'rot90') return np.rot90(arrays['a']);
-  if (operation === 'roll') return np.roll(arrays['a'], 10);
-  if (operation === 'pad') return np.pad(arrays['a'], 2);
-  if (operation === 'concat') return np.concat([arrays['a'], arrays['b']], 0);
-  if (operation === 'unstack') return np.unstack(arrays['a'], 0);
-  if (operation === 'block') return np.block([arrays['a'], arrays['b']]);
-  if (operation === 'item') return np.item(arrays['a'], 0);
-  if (operation === 'tolist') return np.tolist(arrays['a']);
+  // Manipulation
+  swapaxes: (a) => np.swapaxes(a['a'], 0, 1),
+  concatenate: (a) => np.concatenate([a['a'], a['b']], 0),
+  stack: (a) => np.stack([a['a'], a['b']], 0),
+  vstack: (a) => np.vstack([a['a'], a['b']]),
+  hstack: (a) => np.hstack([a['a'], a['b']]),
+  tile: (a) => np.tile(a['a'], [2, 2]),
+  repeat: (a) => np.repeat(a['a'], 2),
+  broadcast_to: (a) => np.broadcast_to(a['a'], a['target_shape']),
+  take: (a) => np.take(a['a'], a['indices']),
+  flip: (a) => np.flip(a['a']),
+  rot90: (a) => np.rot90(a['a']),
+  roll: (a) => np.roll(a['a'], 10),
+  pad: (a) => np.pad(a['a'], 2),
+  concat: (a) => np.concat([a['a'], a['b']], 0),
+  unstack: (a) => np.unstack(a['a'], 0),
+  block: (a) => np.block([a['a'], a['b']]),
+  item: (a) => np.item(a['a'], 0),
+  tolist: (a) => np.tolist(a['a']),
 
-  // Creation functions
-  if (operation === 'diag') return np.diag(arrays['a']);
-  if (operation === 'tri') return np.tri(arrays['shape'][0], arrays['shape'][1]);
-  if (operation === 'tril') return np.tril(arrays['a']);
-  if (operation === 'triu') return np.triu(arrays['a']);
+  // Creation - misc
+  diag: (a) => np.diag(a['a']),
+  tri: (a) => np.tri(a['shape'][0], a['shape'][1]),
+  tril: (a) => np.tril(a['a']),
+  triu: (a) => np.triu(a['a']),
 
   // Indexing
-  if (operation === 'take_along_axis') return np.take_along_axis(arrays['a'], arrays['b'], 0);
-  if (operation === 'compress') return np.compress(arrays['b'], arrays['a'], 0);
-  if (operation === 'diag_indices') return np.diag_indices(arrays['n']);
-  if (operation === 'tril_indices') return np.tril_indices(arrays['n']);
-  if (operation === 'triu_indices') return np.triu_indices(arrays['n']);
-  if (operation === 'indices') return np.indices(arrays['shape']);
-  if (operation === 'ravel_multi_index')
-    return np.ravel_multi_index([arrays['a'], arrays['b']], arrays['dims']);
-  if (operation === 'unravel_index') return np.unravel_index(arrays['a'], arrays['dims']);
+  take_along_axis: (a) => np.take_along_axis(a['a'], a['b'], 0),
+  compress: (a) => np.compress(a['b'], a['a'], 0),
+  diag_indices: (a) => np.diag_indices(a['n']),
+  tril_indices: (a) => np.tril_indices(a['n']),
+  triu_indices: (a) => np.triu_indices(a['n']),
+  indices: (a) => np.indices(a['shape']),
+  ravel_multi_index: (a) => np.ravel_multi_index([a['a'], a['b']], a['dims']),
+  unravel_index: (a) => np.unravel_index(a['a'], a['dims']),
 
   // IO
-  if (operation === 'serializeNpy') return serializeNpy(arrays['a']);
-  if (operation === 'parseNpy') return parseNpy(arrays['_npyBytes']);
-  if (operation === 'serializeNpzSync') return serializeNpzSync(arrays['_npzArrays']);
-  if (operation === 'parseNpzSync') return parseNpzSync(arrays['_npzBytes']);
+  serializeNpy: (a) => serializeNpy(a['a']),
+  parseNpy: (a) => parseNpy(a['_npyBytes']),
+  serializeNpzSync: (a) => serializeNpzSync(a['_npzArrays']),
+  parseNpzSync: (a) => parseNpzSync(a['_npzBytes']),
 
   // Sorting
-  if (operation === 'sort') return np.sort(arrays['a']);
-  if (operation === 'argsort') return np.argsort(arrays['a']);
-  if (operation === 'partition') return np.partition(arrays['a'], arrays['kth'] || 0);
-  if (operation === 'argpartition') return np.argpartition(arrays['a'], arrays['kth'] || 0);
-  if (operation === 'lexsort') return np.lexsort([arrays['a'], arrays['b']]);
-  if (operation === 'sort_complex') return np.sort_complex(arrays['a']);
+  sort: (a) => np.sort(a['a']),
+  argsort: (a) => np.argsort(a['a']),
+  partition: (a) => np.partition(a['a'], a['kth'] || 0),
+  argpartition: (a) => np.argpartition(a['a'], a['kth'] || 0),
+  lexsort: (a) => np.lexsort([a['a'], a['b']]),
+  sort_complex: (a) => np.sort_complex(a['a']),
 
   // Searching
-  if (operation === 'nonzero') return np.nonzero(arrays['a']);
-  if (operation === 'argwhere') return np.argwhere(arrays['a']);
-  if (operation === 'flatnonzero') return np.flatnonzero(arrays['a']);
-  if (operation === 'where') return np.where(arrays['a'], arrays['b'], arrays['c']);
-  if (operation === 'searchsorted') return np.searchsorted(arrays['a'], arrays['b']);
-  if (operation === 'extract') return np.extract(arrays['condition'], arrays['a']);
-  if (operation === 'count_nonzero') return np.count_nonzero(arrays['a']);
+  nonzero: (a) => np.nonzero(a['a']),
+  argwhere: (a) => np.argwhere(a['a']),
+  flatnonzero: (a) => np.flatnonzero(a['a']),
+  where: (a) => np.where(a['a'], a['b'], a['c']),
+  searchsorted: (a) => np.searchsorted(a['a'], a['b']),
+  extract: (a) => np.extract(a['condition'], a['a']),
+  count_nonzero: (a) => np.count_nonzero(a['a']),
 
   // Statistics
-  if (operation === 'bincount') return np.bincount(arrays['a']);
-  if (operation === 'digitize') return np.digitize(arrays['a'], arrays['b']);
-  if (operation === 'histogram') return np.histogram(arrays['a'], 10);
-  if (operation === 'histogram2d') return np.histogram2d(arrays['a'], arrays['b'], 10);
-  if (operation === 'correlate') return np.correlate(arrays['a'], arrays['b'], 'full');
-  if (operation === 'convolve') return np.convolve(arrays['a'], arrays['b'], 'full');
-  if (operation === 'cov') return np.cov(arrays['a']);
-  if (operation === 'corrcoef') return np.corrcoef(arrays['a']);
-  if (operation === 'histogram_bin_edges') return np.histogram_bin_edges(arrays['a'], 10);
-  if (operation === 'trapezoid') return np.trapezoid(arrays['a']);
+  bincount: (a) => np.bincount(a['a']),
+  digitize: (a) => np.digitize(a['a'], a['b']),
+  histogram: (a) => np.histogram(a['a'], 10),
+  histogram2d: (a) => np.histogram2d(a['a'], a['b'], 10),
+  correlate: (a) => np.correlate(a['a'], a['b'], 'full'),
+  convolve: (a) => np.convolve(a['a'], a['b'], 'full'),
+  cov: (a) => np.cov(a['a']),
+  corrcoef: (a) => np.corrcoef(a['a']),
+  histogram_bin_edges: (a) => np.histogram_bin_edges(a['a'], 10),
+  trapezoid: (a) => np.trapezoid(a['a']),
 
-  // Set operations
-  if (operation === 'trim_zeros') return np.trim_zeros(arrays['a']);
-  if (operation === 'unique_values') return np.unique_values(arrays['a']);
-  if (operation === 'unique_counts') return np.unique_counts(arrays['a']);
+  // Set
+  trim_zeros: (a) => np.trim_zeros(a['a']),
+  unique_values: (a) => np.unique_values(a['a']),
+  unique_counts: (a) => np.unique_counts(a['a']),
 
   // Logic
-  if (operation === 'logical_and')
-    return arrays['b']
-      ? np.logical_and(arrays['a'], arrays['b'])
-      : np.logical_and(arrays['a'], arrays['scalar']);
-  if (operation === 'logical_or')
-    return arrays['b']
-      ? np.logical_or(arrays['a'], arrays['b'])
-      : np.logical_or(arrays['a'], arrays['scalar']);
-  if (operation === 'logical_not') return np.logical_not(arrays['a']);
-  if (operation === 'logical_xor')
-    return arrays['b']
-      ? np.logical_xor(arrays['a'], arrays['b'])
-      : np.logical_xor(arrays['a'], arrays['scalar']);
-  if (operation === 'isfinite') return np.isfinite(arrays['a']);
-  if (operation === 'isinf') return np.isinf(arrays['a']);
-  if (operation === 'isnan') return np.isnan(arrays['a']);
-  if (operation === 'isneginf') return np.isneginf(arrays['a']);
-  if (operation === 'isposinf') return np.isposinf(arrays['a']);
-  if (operation === 'isreal') return np.isreal(arrays['a']);
-  if (operation === 'signbit') return np.signbit(arrays['a']);
-  if (operation === 'copysign')
-    return arrays['b']
-      ? np.copysign(arrays['a'], arrays['b'])
-      : np.copysign(arrays['a'], arrays['scalar']);
+  logical_and: (a) =>
+    a['b'] ? np.logical_and(a['a'], a['b']) : np.logical_and(a['a'], a['scalar']),
+  logical_or: (a) =>
+    a['b'] ? np.logical_or(a['a'], a['b']) : np.logical_or(a['a'], a['scalar']),
+  logical_not: (a) => np.logical_not(a['a']),
+  logical_xor: (a) =>
+    a['b'] ? np.logical_xor(a['a'], a['b']) : np.logical_xor(a['a'], a['scalar']),
+  isfinite: (a) => np.isfinite(a['a']),
+  isinf: (a) => np.isinf(a['a']),
+  isnan: (a) => np.isnan(a['a']),
+  isneginf: (a) => np.isneginf(a['a']),
+  isposinf: (a) => np.isposinf(a['a']),
+  isreal: (a) => np.isreal(a['a']),
+  signbit: (a) => np.signbit(a['a']),
+  copysign: (a) =>
+    a['b'] ? np.copysign(a['a'], a['b']) : np.copysign(a['a'], a['scalar']),
 
-  // Random
-  if (operation === 'random_random') return np.random.random(arrays['shape']);
-  if (operation === 'random_rand') return np.random.rand(...arrays['shape']);
-  if (operation === 'random_randn') return np.random.randn(...arrays['shape']);
-  if (operation === 'random_randint')
-    return np.random.randint(0, 100, arrays['shape'], arrays['dtype'] || 'int64');
-  if (operation === 'random_uniform') return np.random.uniform(0, 1, arrays['shape']);
-  if (operation === 'random_normal') return np.random.normal(0, 1, arrays['shape']);
-  if (operation === 'random_standard_normal') return np.random.standard_normal(arrays['shape']);
-  if (operation === 'random_exponential') return np.random.exponential(1, arrays['shape']);
-  if (operation === 'random_poisson') return np.random.poisson(5, arrays['shape']);
-  if (operation === 'random_binomial') return np.random.binomial(10, 0.5, arrays['shape']);
-  if (operation === 'random_choice') return np.random.choice(arrays['n'], 100);
-  if (operation === 'random_permutation') return np.random.permutation(arrays['n']);
-  if (operation === 'random_gamma') return np.random.gamma(2, 1, arrays['shape']);
-  if (operation === 'random_beta') return np.random.beta(2, 5, arrays['shape']);
-  if (operation === 'random_chisquare') return np.random.chisquare(5, arrays['shape']);
-  if (operation === 'random_laplace') return np.random.laplace(0, 1, arrays['shape']);
-  if (operation === 'random_geometric') return np.random.geometric(0.5, arrays['shape']);
-  if (operation === 'random_dirichlet') return np.random.dirichlet([1, 2, 3], arrays['shape'][0]);
-  if (operation === 'random_standard_exponential')
-    return np.random.standard_exponential(arrays['shape']);
-  if (operation === 'random_logistic') return np.random.logistic(0, 1, arrays['shape']);
-  if (operation === 'random_lognormal') return np.random.lognormal(0, 1, arrays['shape']);
-  if (operation === 'random_gumbel') return np.random.gumbel(0, 1, arrays['shape']);
-  if (operation === 'random_pareto') return np.random.pareto(3, arrays['shape']);
-  if (operation === 'random_power') return np.random.power(3, arrays['shape']);
-  if (operation === 'random_rayleigh') return np.random.rayleigh(1, arrays['shape']);
-  if (operation === 'random_weibull') return np.random.weibull(3, arrays['shape']);
-  if (operation === 'random_triangular') return np.random.triangular(0, 0.5, 1, arrays['shape']);
-  if (operation === 'random_standard_cauchy') return np.random.standard_cauchy(arrays['shape']);
-  if (operation === 'random_standard_t') return np.random.standard_t(5, arrays['shape']);
-  if (operation === 'random_wald') return np.random.wald(1, 1, arrays['shape']);
-  if (operation === 'random_vonmises') return np.random.vonmises(0, 1, arrays['shape']);
-  if (operation === 'random_zipf') return np.random.zipf(2, arrays['shape']);
+  // Random (legacy)
+  random_random: (a) => np.random.random(a['shape']),
+  random_rand: (a) => np.random.rand(...a['shape']),
+  random_randn: (a) => np.random.randn(...a['shape']),
+  random_randint: (a) => np.random.randint(0, 100, a['shape'], a['dtype'] || 'int64'),
+  random_uniform: (a) => np.random.uniform(0, 1, a['shape']),
+  random_normal: (a) => np.random.normal(0, 1, a['shape']),
+  random_standard_normal: (a) => np.random.standard_normal(a['shape']),
+  random_exponential: (a) => np.random.exponential(1, a['shape']),
+  random_poisson: (a) => np.random.poisson(5, a['shape']),
+  random_binomial: (a) => np.random.binomial(10, 0.5, a['shape']),
+  random_choice: (a) => np.random.choice(a['n'], 100),
+  random_permutation: (a) => np.random.permutation(a['n']),
+  random_gamma: (a) => np.random.gamma(2, 1, a['shape']),
+  random_beta: (a) => np.random.beta(2, 5, a['shape']),
+  random_chisquare: (a) => np.random.chisquare(5, a['shape']),
+  random_laplace: (a) => np.random.laplace(0, 1, a['shape']),
+  random_geometric: (a) => np.random.geometric(0.5, a['shape']),
+  random_dirichlet: (a) => np.random.dirichlet([1, 2, 3], a['shape'][0]),
+  random_standard_exponential: (a) => np.random.standard_exponential(a['shape']),
+  random_logistic: (a) => np.random.logistic(0, 1, a['shape']),
+  random_lognormal: (a) => np.random.lognormal(0, 1, a['shape']),
+  random_gumbel: (a) => np.random.gumbel(0, 1, a['shape']),
+  random_pareto: (a) => np.random.pareto(3, a['shape']),
+  random_power: (a) => np.random.power(3, a['shape']),
+  random_rayleigh: (a) => np.random.rayleigh(1, a['shape']),
+  random_weibull: (a) => np.random.weibull(3, a['shape']),
+  random_triangular: (a) => np.random.triangular(0, 0.5, 1, a['shape']),
+  random_standard_cauchy: (a) => np.random.standard_cauchy(a['shape']),
+  random_standard_t: (a) => np.random.standard_t(5, a['shape']),
+  random_wald: (a) => np.random.wald(1, 1, a['shape']),
+  random_vonmises: (a) => np.random.vonmises(0, 1, a['shape']),
+  random_zipf: (a) => np.random.zipf(2, a['shape']),
 
   // Generator (PCG64) random
-  if (operation === 'gen_random') {
-    const rng = np.random.default_rng(42);
-    return rng.random(arrays['shape']);
-  }
-  if (operation === 'gen_uniform') {
-    const rng = np.random.default_rng(42);
-    return rng.uniform(0, 1, arrays['shape']);
-  }
-  if (operation === 'gen_standard_normal') {
-    const rng = np.random.default_rng(42);
-    return rng.standard_normal(arrays['shape']);
-  }
-  if (operation === 'gen_normal') {
-    const rng = np.random.default_rng(42);
-    return rng.normal(0, 1, arrays['shape']);
-  }
-  if (operation === 'gen_exponential') {
-    const rng = np.random.default_rng(42);
-    return rng.exponential(1, arrays['shape']);
-  }
-  if (operation === 'gen_integers') {
-    const rng = np.random.default_rng(42);
-    return rng.integers(0, 100, arrays['shape']);
-  }
-  if (operation === 'gen_permutation') {
-    const rng = np.random.default_rng(42);
-    return rng.permutation(arrays['n']);
-  }
+  gen_random: (a) => np.random.default_rng(42).random(a['shape']),
+  gen_uniform: (a) => np.random.default_rng(42).uniform(0, 1, a['shape']),
+  gen_standard_normal: (a) => np.random.default_rng(42).standard_normal(a['shape']),
+  gen_normal: (a) => np.random.default_rng(42).normal(0, 1, a['shape']),
+  gen_exponential: (a) => np.random.default_rng(42).exponential(1, a['shape']),
+  gen_integers: (a) => np.random.default_rng(42).integers(0, 100, a['shape']),
+  gen_permutation: (a) => np.random.default_rng(42).permutation(a['n']),
 
   // Complex
-  if (operation === 'complex_zeros') return np.zeros(arrays['shape'], 'complex128');
-  if (operation === 'complex_ones') return np.ones(arrays['shape'], 'complex128');
-  if (operation === 'complex_add') return np.add(arrays['a'], arrays['b']);
-  if (operation === 'complex_multiply') return np.multiply(arrays['a'], arrays['b']);
-  if (operation === 'complex_divide') return np.divide(arrays['a'], arrays['b']);
-  if (operation === 'complex_real') return np.real(arrays['a']);
-  if (operation === 'complex_imag') return np.imag(arrays['a']);
-  if (operation === 'complex_conj') return np.conj(arrays['a']);
-  if (operation === 'complex_angle') return np.angle(arrays['a']);
-  if (operation === 'complex_abs') return np.abs(arrays['a']);
-  if (operation === 'complex_sqrt') return np.sqrt(arrays['a']);
-  if (operation === 'complex_sum') return np.sum(arrays['a']);
-  if (operation === 'complex_mean') return np.mean(arrays['a']);
-  if (operation === 'complex_prod') return np.prod(arrays['a']);
+  complex_zeros: (a) => np.zeros(a['shape'], 'complex128'),
+  complex_ones: (a) => np.ones(a['shape'], 'complex128'),
+  complex_add: (a) => np.add(a['a'], a['b']),
+  complex_multiply: (a) => np.multiply(a['a'], a['b']),
+  complex_divide: (a) => np.divide(a['a'], a['b']),
+  complex_real: (a) => np.real(a['a']),
+  complex_imag: (a) => np.imag(a['a']),
+  complex_conj: (a) => np.conj(a['a']),
+  complex_angle: (a) => np.angle(a['a']),
+  complex_abs: (a) => np.abs(a['a']),
+  complex_sqrt: (a) => np.sqrt(a['a']),
+  complex_sum: (a) => np.sum(a['a']),
+  complex_mean: (a) => np.mean(a['a']),
+  complex_prod: (a) => np.prod(a['a']),
 
-  // Other Math
-  if (operation === 'clip') return np.clip(arrays['a'], 10, 100);
-  if (operation === 'maximum') return np.maximum(arrays['a'], arrays['b']);
-  if (operation === 'minimum') return np.minimum(arrays['a'], arrays['b']);
-  if (operation === 'fmax') return np.fmax(arrays['a'], arrays['b']);
-  if (operation === 'fmin') return np.fmin(arrays['a'], arrays['b']);
-  if (operation === 'nan_to_num') return np.nan_to_num(arrays['a']);
-  if (operation === 'interp') return np.interp(arrays['x'], arrays['xp'], arrays['fp']);
-  if (operation === 'unwrap') return np.unwrap(arrays['a']);
-  if (operation === 'sinc') return np.sinc(arrays['a']);
-  if (operation === 'i0') return np.i0(arrays['a']);
+  // Other math
+  clip: (a) => np.clip(a['a'], 10, 100),
+  maximum: (a) => np.maximum(a['a'], a['b']),
+  minimum: (a) => np.minimum(a['a'], a['b']),
+  fmax: (a) => np.fmax(a['a'], a['b']),
+  fmin: (a) => np.fmin(a['a'], a['b']),
+  nan_to_num: (a) => np.nan_to_num(a['a']),
+  interp: (a) => np.interp(a['x'], a['xp'], a['fp']),
+  unwrap: (a) => np.unwrap(a['a']),
+  sinc: (a) => np.sinc(a['a']),
+  i0: (a) => np.i0(a['a']),
 
   // Polynomial
-  if (operation === 'poly') return np.poly(arrays['a']);
-  if (operation === 'polyadd') return np.polyadd(arrays['a'], arrays['b']);
-  if (operation === 'polyder') return np.polyder(arrays['a']);
-  if (operation === 'polydiv') return np.polydiv(arrays['a'], arrays['b']);
-  if (operation === 'polyfit') return np.polyfit(arrays['a'], arrays['b'], 2);
-  if (operation === 'polyint') return np.polyint(arrays['a']);
-  if (operation === 'polymul') return np.polymul(arrays['a'], arrays['b']);
-  if (operation === 'polysub') return np.polysub(arrays['a'], arrays['b']);
-  if (operation === 'polyval') return np.polyval(arrays['a'], arrays['b']);
-  if (operation === 'roots') return np.roots(arrays['a']);
+  poly: (a) => np.poly(a['a']),
+  polyadd: (a) => np.polyadd(a['a'], a['b']),
+  polyder: (a) => np.polyder(a['a']),
+  polydiv: (a) => np.polydiv(a['a'], a['b']),
+  polyfit: (a) => np.polyfit(a['a'], a['b'], 2),
+  polyint: (a) => np.polyint(a['a']),
+  polymul: (a) => np.polymul(a['a'], a['b']),
+  polysub: (a) => np.polysub(a['a'], a['b']),
+  polyval: (a) => np.polyval(a['a'], a['b']),
+  roots: (a) => np.roots(a['a']),
 
   // Type checking
-  if (operation === 'can_cast') return np.can_cast('int32', 'float64');
-  if (operation === 'result_type') return np.result_type('int32', 'float64');
-  if (operation === 'min_scalar_type') return np.min_scalar_type(1000);
-  if (operation === 'issubdtype') return np.issubdtype('int32', 'integer');
+  can_cast: () => np.can_cast('int32', 'float64'),
+  result_type: () => np.result_type('int32', 'float64'),
+  min_scalar_type: () => np.min_scalar_type(1000),
+  issubdtype: () => np.issubdtype('int32', 'integer'),
 
   // FFT
-  if (operation === 'fft') return np.fft.fft(arrays['a']);
-  if (operation === 'ifft') return np.fft.ifft(arrays['a']);
-  if (operation === 'fft2') return np.fft.fft2(arrays['a']);
-  if (operation === 'ifft2') return np.fft.ifft2(arrays['a']);
-  if (operation === 'fftn') return np.fft.fftn(arrays['a']);
-  if (operation === 'ifftn') return np.fft.ifftn(arrays['a']);
-  if (operation === 'rfft') return np.fft.rfft(arrays['a']);
-  if (operation === 'irfft') return np.fft.irfft(arrays['a']);
-  if (operation === 'rfft2') return np.fft.rfft2(arrays['a']);
-  if (operation === 'irfft2') return np.fft.irfft2(arrays['a']);
-  if (operation === 'rfftn') return np.fft.rfftn(arrays['a']);
-  if (operation === 'irfftn') return np.fft.irfftn(arrays['a']);
-  if (operation === 'hfft') return np.fft.hfft(arrays['a']);
-  if (operation === 'ihfft') return np.fft.ihfft(arrays['a']);
-  if (operation === 'fftfreq') return np.fft.fftfreq(arrays['n']);
-  if (operation === 'rfftfreq') return np.fft.rfftfreq(arrays['n']);
-  if (operation === 'fftshift') return np.fft.fftshift(arrays['a']);
-  if (operation === 'ifftshift') return np.fft.ifftshift(arrays['a']);
+  fft: (a) => np.fft.fft(a['a']),
+  ifft: (a) => np.fft.ifft(a['a']),
+  fft2: (a) => np.fft.fft2(a['a']),
+  ifft2: (a) => np.fft.ifft2(a['a']),
+  fftn: (a) => np.fft.fftn(a['a']),
+  ifftn: (a) => np.fft.ifftn(a['a']),
+  rfft: (a) => np.fft.rfft(a['a']),
+  irfft: (a) => np.fft.irfft(a['a']),
+  rfft2: (a) => np.fft.rfft2(a['a']),
+  irfft2: (a) => np.fft.irfft2(a['a']),
+  rfftn: (a) => np.fft.rfftn(a['a']),
+  irfftn: (a) => np.fft.irfftn(a['a']),
+  hfft: (a) => np.fft.hfft(a['a']),
+  ihfft: (a) => np.fft.ihfft(a['a']),
+  fftfreq: (a) => np.fft.fftfreq(a['n']),
+  rfftfreq: (a) => np.fft.rfftfreq(a['n']),
+  fftshift: (a) => np.fft.fftshift(a['a']),
+  ifftshift: (a) => np.fft.ifftshift(a['a']),
+};
 
-  throw new Error(`Unknown operation: ${operation}`);
+/** Execute a named operation via O(1) Record lookup. */
+export function executeOperation(operation: string, arrays: Record<string, any>): any {
+  const fn = OPERATIONS[operation];
+  if (!fn) throw new Error(`Unknown operation: ${operation}`);
+  return fn(arrays);
 }
 
 /**

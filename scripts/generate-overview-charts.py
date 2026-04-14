@@ -283,7 +283,7 @@ def chart_size_scaling(sizes: list[dict], theme: dict, out_path: Path) -> None:
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    leg = ax.legend(loc="upper right", frameon=True, fontsize=9,
+    leg = ax.legend(loc="upper left", frameon=True, fontsize=9,
                     facecolor=theme["bg"], edgecolor=theme["grid"])
     for text in leg.get_texts():
         text.set_color(theme["text"])

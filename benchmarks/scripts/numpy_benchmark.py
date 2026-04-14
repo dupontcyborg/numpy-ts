@@ -7,14 +7,17 @@ Improved benchmarking approach:
 - Runs operations in batches to reduce measurement overhead
 - Provides ops/sec for easier interpretation
 - Uses multiple samples for statistical robustness
+- Operation dispatch uses a dict lookup instead of a long if/elif chain,
+  turning ~400 comparisons into an O(1) access.
 """
 
 import gc
+import io
 import json
 import sys
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 import numpy as np
 
@@ -32,7 +35,6 @@ TARGET_SAMPLES = 5  # Number of samples to collect for statistics
 
 def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.ndarray]:
     """Create arrays based on setup specification"""
-    import io
     arrays = {}
 
     for key, spec in setup.items():
@@ -124,781 +126,538 @@ def setup_arrays(setup: Dict[str, Any], operation: str = None) -> Dict[str, np.n
     return arrays
 
 
-def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
-    """Execute the benchmark operation"""
+# ---------------------------------------------------------------------------
+# Operation dispatch table
+#
+# Each entry is `name -> fn(arrays_dict) -> result`.  Using a dict turns
+# dispatch from ~400 elif comparisons into an O(1) lookup.
+# ---------------------------------------------------------------------------
+
+def _divmod(a):
+    q, _ = np.divmod(a["a"], a["b"])
+    return q
+
+
+def _frexp(a):
+    m, _ = np.frexp(a["a"])
+    return m
+
+
+def _modf(a):
+    f, _ = np.modf(a["a"])
+    return f
+
+
+def _linalg_eigh(a):
+    arr = a["a"]
+    sym = (arr + arr.T) / 2
+    return np.linalg.eigh(sym)
+
+
+def _linalg_multi_dot(a):
+    matrices = [a["a"], a["b"]]
+    if "c" in a:
+        matrices.append(a["c"])
+    return np.linalg.multi_dot(matrices)
+
+
+def _vecdot(a):
+    if hasattr(np.linalg, 'vecdot'):
+        return np.linalg.vecdot(a["a"], a["b"])
+    return np.einsum('...i,...i->...', a["a"], a["b"])
+
+
+def _matrix_transpose(a):
+    arr = a["a"]
+    if hasattr(arr, 'mT'):
+        return arr.mT
+    return np.swapaxes(arr, -2, -1)
+
+
+def _matvec(a):
+    if hasattr(np.linalg, 'matvec'):
+        return np.linalg.matvec(a["a"], a["b"])
+    return np.matmul(a["a"], a["b"])
+
+
+def _vecmat(a):
+    if hasattr(np.linalg, 'vecmat'):
+        return np.linalg.vecmat(a["a"], a["b"])
+    return np.matmul(a["a"], a["b"])
+
+
+def _serialize_npy(a):
+    buffer = io.BytesIO()
+    np.save(buffer, a["a"])
+    return buffer.getvalue()
+
+
+def _parse_npy(a):
+    return np.load(io.BytesIO(a["_npyBytes"]))
+
+
+def _serialize_npz(a):
+    buffer = io.BytesIO()
+    np.savez(buffer, **a["_npzArrays"])
+    return buffer.getvalue()
+
+
+def _parse_npz(a):
+    return np.load(io.BytesIO(a["_npzBytes"]))
+
+
+def _unique_counts(a):
+    values, counts = np.unique(a["a"].flatten(), return_counts=True)
+    return (values, counts)
+
+
+def _logical_and(a):
+    return np.logical_and(a["a"], a["b"]) if "b" in a else np.logical_and(a["a"], a["scalar"])
+
+
+def _logical_or(a):
+    return np.logical_or(a["a"], a["b"]) if "b" in a else np.logical_or(a["a"], a["scalar"])
+
+
+def _logical_xor(a):
+    return np.logical_xor(a["a"], a["b"]) if "b" in a else np.logical_xor(a["a"], a["scalar"])
+
+
+def _copysign(a):
+    return np.copysign(a["a"], a["b"]) if "b" in a else np.copysign(a["a"], a["scalar"])
+
+
+def _random_dirichlet(a):
+    shape = a["shape"]
+    alpha = np.ones(10)
+    if isinstance(shape, (list, tuple)):
+        size = shape[0] if len(shape) == 1 else shape
+    else:
+        size = shape
+    return np.random.dirichlet(alpha, size)
+
+
+def _gen(method, *args):
+    """Build a Generator-method callable that lazily creates an rng each call."""
+    def fn(a):
+        rng = np.random.default_rng(42)
+        return getattr(rng, method)(*args, tuple(a["shape"]))
+    return fn
+
+
+def _gen_integers(a):
+    rng = np.random.default_rng(42)
+    return rng.integers(0, 100, tuple(a["shape"]))
+
+
+def _gen_permutation(a):
+    rng = np.random.default_rng(42)
+    return rng.permutation(a["n"])
+
+
+def _ravel_multi_index(a):
+    return np.ravel_multi_index(
+        (a["a"].astype(np.intp).ravel(), a["b"].astype(np.intp).ravel()),
+        tuple(a["dims"]),
+    )
+
+
+def _unravel_index(a):
+    return np.unravel_index(a["a"].astype(np.intp).ravel(), tuple(a["dims"]))
+
+
+def _histogram(a):
+    hist, _ = np.histogram(a["a"].flatten(), bins=10)
+    return hist
+
+
+def _histogram2d(a):
+    hist, _, _ = np.histogram2d(a["a"].flatten(), a["b"].flatten(), bins=10)
+    return hist
+
+
+OPERATIONS: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     # Array creation
-    if operation == "zeros":
-        return np.zeros(arrays["shape"])
-    elif operation == "ones":
-        return np.ones(arrays["shape"])
-    elif operation == "empty":
-        return np.empty(arrays["shape"])
-    elif operation == "full":
-        return np.full(arrays["shape"], arrays["fill_value"])
-    elif operation == "arange":
-        return np.arange(arrays["n"])
-    elif operation == "linspace":
-        return np.linspace(0, 100, arrays["n"])
-    elif operation == "logspace":
-        return np.logspace(0, 3, arrays["n"])
-    elif operation == "geomspace":
-        return np.geomspace(1, 1000, arrays["n"])
-    elif operation == "eye":
-        return np.eye(arrays["n"])
-    elif operation == "identity":
-        return np.identity(arrays["n"])
-    elif operation == "copy":
-        return np.copy(arrays["a"])
-    elif operation == "zeros_like":
-        return np.zeros_like(arrays["a"])
-    elif operation == "ones_like":
-        return np.ones_like(arrays["a"])
-    elif operation == "empty_like":
-        return np.empty_like(arrays["a"])
-    elif operation == "full_like":
-        return np.full_like(arrays["a"], 7)
+    "zeros": lambda a: np.zeros(a["shape"]),
+    "ones": lambda a: np.ones(a["shape"]),
+    "empty": lambda a: np.empty(a["shape"]),
+    "full": lambda a: np.full(a["shape"], a["fill_value"]),
+    "arange": lambda a: np.arange(a["n"]),
+    "linspace": lambda a: np.linspace(0, 100, a["n"]),
+    "logspace": lambda a: np.logspace(0, 3, a["n"]),
+    "geomspace": lambda a: np.geomspace(1, 1000, a["n"]),
+    "eye": lambda a: np.eye(a["n"]),
+    "identity": lambda a: np.identity(a["n"]),
+    "copy": lambda a: np.copy(a["a"]),
+    "zeros_like": lambda a: np.zeros_like(a["a"]),
+    "ones_like": lambda a: np.ones_like(a["a"]),
+    "empty_like": lambda a: np.empty_like(a["a"]),
+    "full_like": lambda a: np.full_like(a["a"], 7),
 
     # Arithmetic
-    elif operation == "add":
-        return arrays["a"] + arrays["b"]
-    elif operation == "subtract":
-        return arrays["a"] - arrays["b"]
-    elif operation == "multiply":
-        return arrays["a"] * arrays["b"]
-    elif operation == "divide":
-        return arrays["a"] / arrays["b"]
-    elif operation == "mod":
-        return np.mod(arrays["a"], arrays["b"])
-    elif operation == "floor_divide":
-        return np.floor_divide(arrays["a"], arrays["b"])
-    elif operation == "reciprocal":
-        return np.reciprocal(arrays["a"])
-    elif operation == "positive":
-        return np.positive(arrays["a"])
-    elif operation == "cbrt":
-        return np.cbrt(arrays["a"])
-    elif operation == "fabs":
-        return np.fabs(arrays["a"])
-    elif operation == "divmod":
-        q, r = np.divmod(arrays["a"], arrays["b"])
-        return q  # Just return quotient for benchmarking
-    elif operation == "gcd":
-        return np.gcd(arrays["a"], arrays["b"])
-    elif operation == "lcm":
-        return np.lcm(arrays["a"], arrays["b"])
-    elif operation == "float_power":
-        return np.float_power(arrays["a"], arrays["b"])
-    elif operation == "square":
-        return np.square(arrays["a"])
-    elif operation == "remainder":
-        return np.remainder(arrays["a"], arrays["b"])
-    elif operation == "heaviside":
-        return np.heaviside(arrays["a"], arrays["b"])
-    elif operation == "fmod":
-        return np.fmod(arrays["a"], arrays["b"])
-    elif operation == "frexp":
-        m, e = np.frexp(arrays["a"])
-        return m  # Just return mantissa for benchmarking
-    elif operation == "ldexp":
-        return np.ldexp(arrays["a"], np.asarray(arrays["b"], dtype=np.int32))
-    elif operation == "modf":
-        f, i = np.modf(arrays["a"])
-        return f  # Just return fractional part for benchmarking
+    "add": lambda a: a["a"] + a["b"],
+    "subtract": lambda a: a["a"] - a["b"],
+    "multiply": lambda a: a["a"] * a["b"],
+    "divide": lambda a: a["a"] / a["b"],
+    "mod": lambda a: np.mod(a["a"], a["b"]),
+    "floor_divide": lambda a: np.floor_divide(a["a"], a["b"]),
+    "reciprocal": lambda a: np.reciprocal(a["a"]),
+    "positive": lambda a: np.positive(a["a"]),
+    "cbrt": lambda a: np.cbrt(a["a"]),
+    "fabs": lambda a: np.fabs(a["a"]),
+    "divmod": _divmod,
+    "gcd": lambda a: np.gcd(a["a"], a["b"]),
+    "lcm": lambda a: np.lcm(a["a"], a["b"]),
+    "float_power": lambda a: np.float_power(a["a"], a["b"]),
+    "square": lambda a: np.square(a["a"]),
+    "remainder": lambda a: np.remainder(a["a"], a["b"]),
+    "heaviside": lambda a: np.heaviside(a["a"], a["b"]),
+    "fmod": lambda a: np.fmod(a["a"], a["b"]),
+    "frexp": _frexp,
+    "ldexp": lambda a: np.ldexp(a["a"], np.asarray(a["b"], dtype=np.int32)),
+    "modf": _modf,
 
-    # Mathematical operations
-    elif operation == "sqrt":
-        return np.sqrt(arrays["a"])
-    elif operation == "power":
-        return np.power(arrays["a"], arrays["b"])
-    elif operation == "absolute":
-        return np.absolute(arrays["a"])
-    elif operation == "negative":
-        return np.negative(arrays["a"])
-    elif operation == "sign":
-        return np.sign(arrays["a"])
+    # Math
+    "sqrt": lambda a: np.sqrt(a["a"]),
+    "power": lambda a: np.power(a["a"], a["b"]),
+    "absolute": lambda a: np.absolute(a["a"]),
+    "negative": lambda a: np.negative(a["a"]),
+    "sign": lambda a: np.sign(a["a"]),
 
-    # Trigonometric
-    elif operation == "sin":
-        return np.sin(arrays["a"])
-    elif operation == "cos":
-        return np.cos(arrays["a"])
-    elif operation == "tan":
-        return np.tan(arrays["a"])
-    elif operation == "arcsin":
-        return np.arcsin(arrays["a"])
-    elif operation == "arccos":
-        return np.arccos(arrays["a"])
-    elif operation == "arctan":
-        return np.arctan(arrays["a"])
-    elif operation == "arctan2":
-        return np.arctan2(arrays["a"], arrays["b"])
-    elif operation == "hypot":
-        return np.hypot(arrays["a"], arrays["b"])
+    # Trig
+    "sin": lambda a: np.sin(a["a"]),
+    "cos": lambda a: np.cos(a["a"]),
+    "tan": lambda a: np.tan(a["a"]),
+    "arcsin": lambda a: np.arcsin(a["a"]),
+    "arccos": lambda a: np.arccos(a["a"]),
+    "arctan": lambda a: np.arctan(a["a"]),
+    "arctan2": lambda a: np.arctan2(a["a"], a["b"]),
+    "hypot": lambda a: np.hypot(a["a"], a["b"]),
 
     # Hyperbolic
-    elif operation == "sinh":
-        return np.sinh(arrays["a"])
-    elif operation == "cosh":
-        return np.cosh(arrays["a"])
-    elif operation == "tanh":
-        return np.tanh(arrays["a"])
-    elif operation == "arcsinh":
-        return np.arcsinh(arrays["a"])
-    elif operation == "arccosh":
-        return np.arccosh(arrays["a"])
-    elif operation == "arctanh":
-        return np.arctanh(arrays["a"])
+    "sinh": lambda a: np.sinh(a["a"]),
+    "cosh": lambda a: np.cosh(a["a"]),
+    "tanh": lambda a: np.tanh(a["a"]),
+    "arcsinh": lambda a: np.arcsinh(a["a"]),
+    "arccosh": lambda a: np.arccosh(a["a"]),
+    "arctanh": lambda a: np.arctanh(a["a"]),
 
     # Exponential
-    elif operation == "exp":
-        return np.exp(arrays["a"])
-    elif operation == "exp2":
-        return np.exp2(arrays["a"])
-    elif operation == "expm1":
-        return np.expm1(arrays["a"])
-    elif operation == "log":
-        return np.log(arrays["a"])
-    elif operation == "log2":
-        return np.log2(arrays["a"])
-    elif operation == "log10":
-        return np.log10(arrays["a"])
-    elif operation == "log1p":
-        return np.log1p(arrays["a"])
-    elif operation == "logaddexp":
-        return np.logaddexp(arrays["a"], arrays["b"])
-    elif operation == "logaddexp2":
-        return np.logaddexp2(arrays["a"], arrays["b"])
+    "exp": lambda a: np.exp(a["a"]),
+    "exp2": lambda a: np.exp2(a["a"]),
+    "expm1": lambda a: np.expm1(a["a"]),
+    "log": lambda a: np.log(a["a"]),
+    "log2": lambda a: np.log2(a["a"]),
+    "log10": lambda a: np.log10(a["a"]),
+    "log1p": lambda a: np.log1p(a["a"]),
+    "logaddexp": lambda a: np.logaddexp(a["a"], a["b"]),
+    "logaddexp2": lambda a: np.logaddexp2(a["a"], a["b"]),
 
     # Gradient
-    elif operation == "diff":
-        return np.diff(arrays["a"])
-    elif operation == "ediff1d":
-        return np.ediff1d(arrays["a"])
-    elif operation == "gradient":
-        return np.gradient(arrays["a"])
-    elif operation == "cross":
-        return np.cross(arrays["a"], arrays["b"])
+    "diff": lambda a: np.diff(a["a"]),
+    "ediff1d": lambda a: np.ediff1d(a["a"]),
+    "gradient": lambda a: np.gradient(a["a"]),
+    "cross": lambda a: np.cross(a["a"], a["b"]),
 
     # Linear algebra
-    elif operation == "dot":
-        return np.dot(arrays["a"], arrays["b"])
-    elif operation == "inner":
-        return np.inner(arrays["a"], arrays["b"])
-    elif operation == "outer":
-        return np.outer(arrays["a"], arrays["b"])
-    elif operation == "tensordot":
-        axes = arrays.get("axes", 2)
-        return np.tensordot(arrays["a"], arrays["b"], axes=axes)
-    elif operation == "matmul":
-        return arrays["a"] @ arrays["b"]
-    elif operation == "trace":
-        return np.trace(arrays["a"])
-    elif operation == "transpose":
-        return arrays["a"].T
-    elif operation == "diagonal":
-        return np.diagonal(arrays["a"])
-    elif operation == "kron":
-        return np.kron(arrays["a"], arrays["b"])
-    elif operation == "einsum":
-        return np.einsum(arrays["subscripts"], arrays["a"], arrays["b"])
-    elif operation == "deg2rad":
-        return np.deg2rad(arrays["a"])
-    elif operation == "rad2deg":
-        return np.rad2deg(arrays["a"])
+    "dot": lambda a: np.dot(a["a"], a["b"]),
+    "inner": lambda a: np.inner(a["a"], a["b"]),
+    "outer": lambda a: np.outer(a["a"], a["b"]),
+    "tensordot": lambda a: np.tensordot(a["a"], a["b"], axes=a.get("axes", 2)),
+    "matmul": lambda a: a["a"] @ a["b"],
+    "trace": lambda a: np.trace(a["a"]),
+    "transpose": lambda a: a["a"].T,
+    "diagonal": lambda a: np.diagonal(a["a"]),
+    "kron": lambda a: np.kron(a["a"], a["b"]),
+    "einsum": lambda a: np.einsum(a["subscripts"], a["a"], a["b"]),
+    "deg2rad": lambda a: np.deg2rad(a["a"]),
+    "rad2deg": lambda a: np.rad2deg(a["a"]),
 
-    # numpy.linalg module operations
-    elif operation == "linalg_det":
-        return np.linalg.det(arrays["a"])
-    elif operation == "linalg_inv":
-        return np.linalg.inv(arrays["a"])
-    elif operation == "linalg_solve":
-        return np.linalg.solve(arrays["a"], arrays["b"])
-    elif operation == "linalg_qr":
-        return np.linalg.qr(arrays["a"])
-    elif operation == "linalg_cholesky":
-        return np.linalg.cholesky(arrays["_posdef"])
-    elif operation == "linalg_svd":
-        return np.linalg.svd(arrays["a"])
-    elif operation == "linalg_eig":
-        return np.linalg.eig(arrays["a"])
-    elif operation == "linalg_eigh":
-        # Create symmetric matrix: (A + A^T) / 2
-        a = arrays["a"]
-        sym = (a + a.T) / 2
-        return np.linalg.eigh(sym)
-    elif operation == "linalg_norm":
-        return np.linalg.norm(arrays["a"])
-    elif operation == "linalg_matrix_rank":
-        return np.linalg.matrix_rank(arrays["a"])
-    elif operation == "linalg_pinv":
-        return np.linalg.pinv(arrays["a"])
-    elif operation == "linalg_cond":
-        return np.linalg.cond(arrays["a"])
-    elif operation == "linalg_matrix_power":
-        return np.linalg.matrix_power(arrays["a"], 3)
-    elif operation == "linalg_lstsq":
-        return np.linalg.lstsq(arrays["a"], arrays["b"], rcond=None)
-    elif operation == "linalg_cross":
-        return np.cross(arrays["a"], arrays["b"])
-    elif operation == "linalg_slogdet":
-        return np.linalg.slogdet(arrays["a"])
-    elif operation == "linalg_svdvals":
-        return np.linalg.svdvals(arrays["a"])
-    elif operation == "linalg_multi_dot":
-        matrices = [arrays["a"], arrays["b"]]
-        if "c" in arrays:
-            matrices.append(arrays["c"])
-        return np.linalg.multi_dot(matrices)
-    elif operation == "vdot":
-        return np.vdot(arrays["a"], arrays["b"])
-    elif operation == "vecdot":
-        # vecdot computes dot product along the last axis
-        if hasattr(np.linalg, 'vecdot'):
-            return np.linalg.vecdot(arrays["a"], arrays["b"])
-        else:
-            return np.einsum('...i,...i->...', arrays["a"], arrays["b"])
-    elif operation == "matrix_transpose":
-        if hasattr(arrays["a"], 'mT'):
-            return arrays["a"].mT
-        else:
-            return np.swapaxes(arrays["a"], -2, -1)
-    elif operation == "matvec":
-        if hasattr(np.linalg, 'matvec'):
-            return np.linalg.matvec(arrays["a"], arrays["b"])
-        else:
-            return np.matmul(arrays["a"], arrays["b"])
-    elif operation == "vecmat":
-        if hasattr(np.linalg, 'vecmat'):
-            return np.linalg.vecmat(arrays["a"], arrays["b"])
-        else:
-            return np.matmul(arrays["a"], arrays["b"])
+    # numpy.linalg
+    "linalg_det": lambda a: np.linalg.det(a["a"]),
+    "linalg_inv": lambda a: np.linalg.inv(a["a"]),
+    "linalg_solve": lambda a: np.linalg.solve(a["a"], a["b"]),
+    "linalg_qr": lambda a: np.linalg.qr(a["a"]),
+    "linalg_cholesky": lambda a: np.linalg.cholesky(a["_posdef"]),
+    "linalg_svd": lambda a: np.linalg.svd(a["a"]),
+    "linalg_eig": lambda a: np.linalg.eig(a["a"]),
+    "linalg_eigh": _linalg_eigh,
+    "linalg_norm": lambda a: np.linalg.norm(a["a"]),
+    "linalg_matrix_rank": lambda a: np.linalg.matrix_rank(a["a"]),
+    "linalg_pinv": lambda a: np.linalg.pinv(a["a"]),
+    "linalg_cond": lambda a: np.linalg.cond(a["a"]),
+    "linalg_matrix_power": lambda a: np.linalg.matrix_power(a["a"], 3),
+    "linalg_lstsq": lambda a: np.linalg.lstsq(a["a"], a["b"], rcond=None),
+    "linalg_cross": lambda a: np.cross(a["a"], a["b"]),
+    "linalg_slogdet": lambda a: np.linalg.slogdet(a["a"]),
+    "linalg_svdvals": lambda a: np.linalg.svdvals(a["a"]),
+    "linalg_multi_dot": _linalg_multi_dot,
+    "vdot": lambda a: np.vdot(a["a"], a["b"]),
+    "vecdot": _vecdot,
+    "matrix_transpose": _matrix_transpose,
+    "matvec": _matvec,
+    "vecmat": _vecmat,
 
     # Reductions
-    elif operation == "sum":
-        axis = arrays.get("axis")
-        return arrays["a"].sum(axis=axis)
-    elif operation == "mean":
-        axis = arrays.get("axis")
-        return arrays["a"].mean(axis=axis)
-    elif operation == "max":
-        axis = arrays.get("axis")
-        return arrays["a"].max(axis=axis)
-    elif operation == "min":
-        axis = arrays.get("axis")
-        return arrays["a"].min(axis=axis)
-    elif operation == "prod":
-        axis = arrays.get("axis")
-        return arrays["a"].prod(axis=axis)
-    elif operation == "argmin":
-        axis = arrays.get("axis")
-        return arrays["a"].argmin(axis=axis)
-    elif operation == "argmax":
-        axis = arrays.get("axis")
-        return arrays["a"].argmax(axis=axis)
-    elif operation == "var":
-        axis = arrays.get("axis")
-        return arrays["a"].var(axis=axis)
-    elif operation == "std":
-        axis = arrays.get("axis")
-        return arrays["a"].std(axis=axis)
-    elif operation == "all":
-        axis = arrays.get("axis")
-        return arrays["a"].all(axis=axis)
-    elif operation == "any":
-        axis = arrays.get("axis")
-        return arrays["a"].any(axis=axis)
-
-    # New reduction functions
-    elif operation == "cumsum":
-        return arrays["a"].cumsum()
-    elif operation == "cumprod":
-        return arrays["a"].cumprod()
-    elif operation == "ptp":
-        return np.ptp(arrays["a"])
-    elif operation == "median":
-        return np.median(arrays["a"])
-    elif operation == "percentile":
-        return np.percentile(arrays["a"], 50)
-    elif operation == "quantile":
-        return np.quantile(arrays["a"], 0.5)
-    elif operation == "average":
-        return np.average(arrays["a"])
-    elif operation == "nansum":
-        return np.nansum(arrays["a"])
-    elif operation == "nanmean":
-        return np.nanmean(arrays["a"])
-    elif operation == "nanmin":
-        return np.nanmin(arrays["a"])
-    elif operation == "nanmax":
-        return np.nanmax(arrays["a"])
-    elif operation == "nanquantile":
-        return np.nanquantile(arrays["a"], 0.5)
-    elif operation == "nanpercentile":
-        return np.nanpercentile(arrays["a"], 50)
+    "sum": lambda a: a["a"].sum(axis=a.get("axis")),
+    "mean": lambda a: a["a"].mean(axis=a.get("axis")),
+    "max": lambda a: a["a"].max(axis=a.get("axis")),
+    "min": lambda a: a["a"].min(axis=a.get("axis")),
+    "prod": lambda a: a["a"].prod(axis=a.get("axis")),
+    "argmin": lambda a: a["a"].argmin(axis=a.get("axis")),
+    "argmax": lambda a: a["a"].argmax(axis=a.get("axis")),
+    "var": lambda a: a["a"].var(axis=a.get("axis")),
+    "std": lambda a: a["a"].std(axis=a.get("axis")),
+    "all": lambda a: a["a"].all(axis=a.get("axis")),
+    "any": lambda a: a["a"].any(axis=a.get("axis")),
+    "cumsum": lambda a: a["a"].cumsum(),
+    "cumprod": lambda a: a["a"].cumprod(),
+    "ptp": lambda a: np.ptp(a["a"]),
+    "median": lambda a: np.median(a["a"]),
+    "percentile": lambda a: np.percentile(a["a"], 50),
+    "quantile": lambda a: np.quantile(a["a"], 0.5),
+    "average": lambda a: np.average(a["a"]),
+    "nansum": lambda a: np.nansum(a["a"]),
+    "nanmean": lambda a: np.nanmean(a["a"]),
+    "nanmin": lambda a: np.nanmin(a["a"]),
+    "nanmax": lambda a: np.nanmax(a["a"]),
+    "nanquantile": lambda a: np.nanquantile(a["a"], 0.5),
+    "nanpercentile": lambda a: np.nanpercentile(a["a"], 50),
 
     # Array creation - extra
-    elif operation == "asarray_chkfinite":
-        return np.asarray_chkfinite(arrays["a"])
-    elif operation == "require":
-        return np.require(arrays["a"], requirements='C')
+    "asarray_chkfinite": lambda a: np.asarray_chkfinite(a["a"]),
+    "require": lambda a: np.require(a["a"], requirements='C'),
 
     # Reshape
-    elif operation == "reshape":
-        return arrays["a"].reshape(arrays["new_shape"])
-    elif operation == "flatten":
-        return arrays["a"].flatten()
-    elif operation == "ravel":
-        return arrays["a"].ravel()
-    elif operation == "squeeze":
-        return arrays["a"].squeeze()
+    "reshape": lambda a: a["a"].reshape(a["new_shape"]),
+    "flatten": lambda a: a["a"].flatten(),
+    "ravel": lambda a: a["a"].ravel(),
+    "squeeze": lambda a: a["a"].squeeze(),
 
     # Slicing
-    elif operation == "slice":
-        return arrays["a"][:100, :100]
+    "slice": lambda a: a["a"][:100, :100],
 
-    # Array manipulation
-    elif operation == "swapaxes":
-        return np.swapaxes(arrays["a"], 0, 1)
-    elif operation == "concatenate":
-        return np.concatenate([arrays["a"], arrays["b"]], axis=0)
-    elif operation == "stack":
-        return np.stack([arrays["a"], arrays["b"]], axis=0)
-    elif operation == "vstack":
-        return np.vstack([arrays["a"], arrays["b"]])
-    elif operation == "hstack":
-        return np.hstack([arrays["a"], arrays["b"]])
-    elif operation == "tile":
-        return np.tile(arrays["a"], [2, 2])
-    elif operation == "repeat":
-        return np.repeat(arrays["a"], 2)
-    elif operation == "concat":
-        return np.concatenate([arrays["a"], arrays["b"]], axis=0)
-    elif operation == "unstack":
-        return [arr for arr in arrays["a"]]
-    elif operation == "block":
-        return np.block([arrays["a"], arrays["b"]])
-    elif operation == "item":
-        return arrays["a"].item(0)
-    elif operation == "tolist":
-        return arrays["a"].tolist()
+    # Manipulation
+    "swapaxes": lambda a: np.swapaxes(a["a"], 0, 1),
+    "concatenate": lambda a: np.concatenate([a["a"], a["b"]], axis=0),
+    "stack": lambda a: np.stack([a["a"], a["b"]], axis=0),
+    "vstack": lambda a: np.vstack([a["a"], a["b"]]),
+    "hstack": lambda a: np.hstack([a["a"], a["b"]]),
+    "tile": lambda a: np.tile(a["a"], [2, 2]),
+    "repeat": lambda a: np.repeat(a["a"], 2),
+    "concat": lambda a: np.concatenate([a["a"], a["b"]], axis=0),
+    "unstack": lambda a: [arr for arr in a["a"]],
+    "block": lambda a: np.block([a["a"], a["b"]]),
+    "item": lambda a: a["a"].item(0),
+    "tolist": lambda a: a["a"].tolist(),
+    "broadcast_to": lambda a: np.broadcast_to(a["a"], a["target_shape"]),
+    "take": lambda a: np.take(a["a"], a["indices"]),
 
-    # Advanced
-    elif operation == "broadcast_to":
-        return np.broadcast_to(arrays["a"], arrays["target_shape"])
-    elif operation == "take":
-        return np.take(arrays["a"], arrays["indices"])
+    # Creation - misc
+    "diag": lambda a: np.diag(a["a"]),
+    "tri": lambda a: np.tri(a["shape"][0], a["shape"][1]),
+    "tril": lambda a: np.tril(a["a"]),
+    "triu": lambda a: np.triu(a["a"]),
 
-    # New creation functions
-    elif operation == "diag":
-        return np.diag(arrays["a"])
-    elif operation == "tri":
-        return np.tri(arrays["shape"][0], arrays["shape"][1])
-    elif operation == "tril":
-        return np.tril(arrays["a"])
-    elif operation == "triu":
-        return np.triu(arrays["a"])
+    # Manipulation - misc
+    "flip": lambda a: np.flip(a["a"]),
+    "rot90": lambda a: np.rot90(a["a"]),
+    "roll": lambda a: np.roll(a["a"], 10),
+    "pad": lambda a: np.pad(a["a"], 2),
 
-    # New manipulation functions
-    elif operation == "flip":
-        return np.flip(arrays["a"])
-    elif operation == "rot90":
-        return np.rot90(arrays["a"])
-    elif operation == "roll":
-        return np.roll(arrays["a"], 10)
-    elif operation == "pad":
-        return np.pad(arrays["a"], 2)
+    # Indexing
+    "take_along_axis": lambda a: np.take_along_axis(a["a"], a["b"].astype(np.intp), axis=0),
+    "compress": lambda a: np.compress(a["b"].astype(bool), a["a"], axis=0),
+    "diag_indices": lambda a: np.diag_indices(a["n"]),
+    "tril_indices": lambda a: np.tril_indices(a["n"]),
+    "triu_indices": lambda a: np.triu_indices(a["n"]),
+    "indices": lambda a: np.indices(tuple(a["shape"])),
+    "ravel_multi_index": _ravel_multi_index,
+    "unravel_index": _unravel_index,
 
-    # Indexing functions
-    elif operation == "take_along_axis":
-        return np.take_along_axis(arrays["a"], arrays["b"].astype(np.intp), axis=0)
-    elif operation == "compress":
-        return np.compress(arrays["b"].astype(bool), arrays["a"], axis=0)
-    elif operation == "diag_indices":
-        return np.diag_indices(arrays["n"])
-    elif operation == "tril_indices":
-        return np.tril_indices(arrays["n"])
-    elif operation == "triu_indices":
-        return np.triu_indices(arrays["n"])
-    elif operation == "indices":
-        return np.indices(tuple(arrays["shape"]))
-    elif operation == "ravel_multi_index":
-        return np.ravel_multi_index((arrays["a"].astype(np.intp).ravel(), arrays["b"].astype(np.intp).ravel()), tuple(arrays["dims"]))
-    elif operation == "unravel_index":
-        return np.unravel_index(arrays["a"].astype(np.intp).ravel(), tuple(arrays["dims"]))
+    # Bitwise
+    "bitwise_and": lambda a: np.bitwise_and(a["a"], a["b"]),
+    "bitwise_or": lambda a: np.bitwise_or(a["a"], a["b"]),
+    "bitwise_xor": lambda a: np.bitwise_xor(a["a"], a["b"]),
+    "bitwise_not": lambda a: np.bitwise_not(a["a"]),
+    "invert": lambda a: np.invert(a["a"]),
+    "left_shift": lambda a: np.left_shift(a["a"], a["b"]),
+    "right_shift": lambda a: np.right_shift(a["a"], a["b"]),
+    "packbits": lambda a: np.packbits(a["a"].astype(np.uint8)),
+    "unpackbits": lambda a: np.unpackbits(a["a"].astype(np.uint8)),
+    "bitwise_count": lambda a: np.bitwise_count(a["a"]),
 
-    # Bitwise operations
-    elif operation == "bitwise_and":
-        return np.bitwise_and(arrays["a"], arrays["b"])
-    elif operation == "bitwise_or":
-        return np.bitwise_or(arrays["a"], arrays["b"])
-    elif operation == "bitwise_xor":
-        return np.bitwise_xor(arrays["a"], arrays["b"])
-    elif operation == "bitwise_not":
-        return np.bitwise_not(arrays["a"])
-    elif operation == "invert":
-        return np.invert(arrays["a"])
-    elif operation == "left_shift":
-        return np.left_shift(arrays["a"], arrays["b"])
-    elif operation == "right_shift":
-        return np.right_shift(arrays["a"], arrays["b"])
-    elif operation == "packbits":
-        return np.packbits(arrays["a"].astype(np.uint8))
-    elif operation == "unpackbits":
-        return np.unpackbits(arrays["a"].astype(np.uint8))
-    elif operation == "bitwise_count":
-        return np.bitwise_count(arrays["a"])
+    # IO
+    "serializeNpy": _serialize_npy,
+    "parseNpy": _parse_npy,
+    "serializeNpzSync": _serialize_npz,
+    "parseNpzSync": _parse_npz,
 
-    # IO operations (NPY/NPZ)
-    elif operation == "serializeNpy":
-        import io
-        buffer = io.BytesIO()
-        np.save(buffer, arrays["a"])
-        return buffer.getvalue()
-    elif operation == "parseNpy":
-        import io
-        # arrays["_npyBytes"] should be pre-serialized
-        buffer = io.BytesIO(arrays["_npyBytes"])
-        return np.load(buffer)
-    elif operation == "serializeNpzSync":
-        import io
-        buffer = io.BytesIO()
-        np.savez(buffer, **arrays["_npzArrays"])
-        return buffer.getvalue()
-    elif operation == "parseNpzSync":
-        import io
-        # arrays["_npzBytes"] should be pre-serialized
-        buffer = io.BytesIO(arrays["_npzBytes"])
-        return np.load(buffer)
+    # Sorting
+    "sort": lambda a: np.sort(a["a"]),
+    "argsort": lambda a: np.argsort(a["a"]),
+    "partition": lambda a: np.partition(a["a"], a.get("kth", 0)),
+    "argpartition": lambda a: np.argpartition(a["a"], a.get("kth", 0)),
+    "lexsort": lambda a: np.lexsort((a["a"].ravel(), a["b"].ravel())),
+    "sort_complex": lambda a: np.sort_complex(a["a"]),
 
-    # Sorting operations
-    elif operation == "sort":
-        return np.sort(arrays["a"])
-    elif operation == "argsort":
-        return np.argsort(arrays["a"])
-    elif operation == "partition":
-        kth = arrays.get("kth", 0)
-        return np.partition(arrays["a"], kth)
-    elif operation == "argpartition":
-        kth = arrays.get("kth", 0)
-        return np.argpartition(arrays["a"], kth)
-    elif operation == "lexsort":
-        return np.lexsort((arrays["a"].ravel(), arrays["b"].ravel()))
-    elif operation == "sort_complex":
-        return np.sort_complex(arrays["a"])
+    # Searching
+    "nonzero": lambda a: np.nonzero(a["a"]),
+    "argwhere": lambda a: np.argwhere(a["a"]),
+    "flatnonzero": lambda a: np.flatnonzero(a["a"]),
+    "where": lambda a: np.where(a["a"], a["b"], a["c"]),
+    "searchsorted": lambda a: np.searchsorted(a["a"].ravel(), a["b"].ravel()),
+    "extract": lambda a: np.extract(a["condition"], a["a"]),
+    "count_nonzero": lambda a: np.count_nonzero(a["a"]),
 
-    # Searching operations
-    elif operation == "nonzero":
-        return np.nonzero(arrays["a"])
-    elif operation == "argwhere":
-        return np.argwhere(arrays["a"])
-    elif operation == "flatnonzero":
-        return np.flatnonzero(arrays["a"])
-    elif operation == "where":
-        return np.where(arrays["a"], arrays["b"], arrays["c"])
-    elif operation == "searchsorted":
-        return np.searchsorted(arrays["a"].ravel(), arrays["b"].ravel())
-    elif operation == "extract":
-        return np.extract(arrays["condition"], arrays["a"])
-    elif operation == "count_nonzero":
-        return np.count_nonzero(arrays["a"])
+    # Statistics
+    "bincount": lambda a: np.bincount(a["a"].flatten().astype(int)),
+    "digitize": lambda a: np.digitize(a["a"].flatten(), a["b"].flatten()),
+    "histogram": _histogram,
+    "histogram2d": _histogram2d,
+    "correlate": lambda a: np.correlate(a["a"].flatten(), a["b"].flatten(), mode="full"),
+    "convolve": lambda a: np.convolve(a["a"].flatten(), a["b"].flatten(), mode="full"),
+    "cov": lambda a: np.cov(a["a"]),
+    "corrcoef": lambda a: np.corrcoef(a["a"]),
+    "histogram_bin_edges": lambda a: np.histogram_bin_edges(a["a"].flatten(), bins=10),
+    "trapezoid": lambda a: np.trapezoid(a["a"].flatten()),
 
-    # Statistics operations
-    elif operation == "bincount":
-        return np.bincount(arrays["a"].flatten().astype(int))
-    elif operation == "digitize":
-        return np.digitize(arrays["a"].flatten(), arrays["b"].flatten())
-    elif operation == "histogram":
-        hist, _ = np.histogram(arrays["a"].flatten(), bins=10)
-        return hist
-    elif operation == "histogram2d":
-        hist, _, _ = np.histogram2d(arrays["a"].flatten(), arrays["b"].flatten(), bins=10)
-        return hist
-    elif operation == "correlate":
-        return np.correlate(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
-    elif operation == "convolve":
-        return np.convolve(arrays["a"].flatten(), arrays["b"].flatten(), mode="full")
-    elif operation == "cov":
-        return np.cov(arrays["a"])
-    elif operation == "corrcoef":
-        return np.corrcoef(arrays["a"])
-    elif operation == "histogram_bin_edges":
-        return np.histogram_bin_edges(arrays["a"].flatten(), bins=10)
-    elif operation == "trapezoid":
-        return np.trapezoid(arrays["a"].flatten())
+    # Set
+    "trim_zeros": lambda a: np.trim_zeros(a["a"].flatten()),
+    "unique_values": lambda a: np.unique(a["a"].flatten()),
+    "unique_counts": _unique_counts,
 
-    # Set operations
-    elif operation == "trim_zeros":
-        return np.trim_zeros(arrays["a"].flatten())
-    elif operation == "unique_values":
-        return np.unique(arrays["a"].flatten())
-    elif operation == "unique_counts":
-        values, counts = np.unique(arrays["a"].flatten(), return_counts=True)
-        return (values, counts)
+    # Logic
+    "logical_and": _logical_and,
+    "logical_or": _logical_or,
+    "logical_not": lambda a: np.logical_not(a["a"]),
+    "logical_xor": _logical_xor,
+    "isfinite": lambda a: np.isfinite(a["a"]),
+    "isinf": lambda a: np.isinf(a["a"]),
+    "isnan": lambda a: np.isnan(a["a"]),
+    "isneginf": lambda a: np.isneginf(a["a"]),
+    "isposinf": lambda a: np.isposinf(a["a"]),
+    "isreal": lambda a: np.isreal(a["a"]),
+    "signbit": lambda a: np.signbit(a["a"]),
+    "copysign": _copysign,
 
-    # Logic operations
-    elif operation == "logical_and":
-        if "b" in arrays:
-            return np.logical_and(arrays["a"], arrays["b"])
-        else:
-            return np.logical_and(arrays["a"], arrays["scalar"])
-    elif operation == "logical_or":
-        if "b" in arrays:
-            return np.logical_or(arrays["a"], arrays["b"])
-        else:
-            return np.logical_or(arrays["a"], arrays["scalar"])
-    elif operation == "logical_not":
-        return np.logical_not(arrays["a"])
-    elif operation == "logical_xor":
-        if "b" in arrays:
-            return np.logical_xor(arrays["a"], arrays["b"])
-        else:
-            return np.logical_xor(arrays["a"], arrays["scalar"])
-    elif operation == "isfinite":
-        return np.isfinite(arrays["a"])
-    elif operation == "isinf":
-        return np.isinf(arrays["a"])
-    elif operation == "isnan":
-        return np.isnan(arrays["a"])
-    elif operation == "isneginf":
-        return np.isneginf(arrays["a"])
-    elif operation == "isposinf":
-        return np.isposinf(arrays["a"])
-    elif operation == "isreal":
-        return np.isreal(arrays["a"])
-    elif operation == "signbit":
-        return np.signbit(arrays["a"])
-    elif operation == "copysign":
-        if "b" in arrays:
-            return np.copysign(arrays["a"], arrays["b"])
-        else:
-            return np.copysign(arrays["a"], arrays["scalar"])
-
-    # Random operations
-    elif operation == "random_random":
-        return np.random.random(arrays["shape"])
-    elif operation == "random_rand":
-        shape = arrays["shape"]
-        return np.random.rand(*shape)
-    elif operation == "random_randn":
-        shape = arrays["shape"]
-        return np.random.randn(*shape)
-    elif operation == "random_randint":
-        dtype = arrays.get("dtype", "int64")
-        return np.random.randint(0, 100, arrays["shape"], dtype=dtype)
-    elif operation == "random_uniform":
-        return np.random.uniform(0, 1, arrays["shape"])
-    elif operation == "random_normal":
-        return np.random.normal(0, 1, arrays["shape"])
-    elif operation == "random_standard_normal":
-        return np.random.standard_normal(arrays["shape"])
-    elif operation == "random_exponential":
-        return np.random.exponential(1, arrays["shape"])
-    elif operation == "random_poisson":
-        return np.random.poisson(5, arrays["shape"])
-    elif operation == "random_binomial":
-        return np.random.binomial(10, 0.5, arrays["shape"])
-    elif operation == "random_choice":
-        return np.random.choice(arrays["n"], 100)
-    elif operation == "random_permutation":
-        return np.random.permutation(arrays["n"])
-    elif operation == "random_gamma":
-        return np.random.gamma(2.0, 2.0, arrays["shape"])
-    elif operation == "random_beta":
-        return np.random.beta(2.0, 5.0, arrays["shape"])
-    elif operation == "random_chisquare":
-        return np.random.chisquare(2.0, arrays["shape"])
-    elif operation == "random_laplace":
-        return np.random.laplace(0.0, 1.0, arrays["shape"])
-    elif operation == "random_geometric":
-        return np.random.geometric(0.5, arrays["shape"])
-    elif operation == "random_dirichlet":
-        # For dirichlet, we generate samples with a fixed alpha vector
-        # The shape parameter determines the number of samples
-        shape = arrays["shape"]
-        # Use a fixed 10-dimensional alpha vector
-        alpha = np.ones(10)
-        # shape determines the number of samples (output will be shape + (len(alpha),))
-        if isinstance(shape, (list, tuple)):
-            size = shape[0] if len(shape) == 1 else shape
-        else:
-            size = shape
-        return np.random.dirichlet(alpha, size)
-    elif operation == "random_standard_exponential":
-        return np.random.standard_exponential(arrays["shape"])
-    elif operation == "random_logistic":
-        return np.random.logistic(0.0, 1.0, arrays["shape"])
-    elif operation == "random_lognormal":
-        return np.random.lognormal(0.0, 1.0, arrays["shape"])
-    elif operation == "random_gumbel":
-        return np.random.gumbel(0.0, 1.0, arrays["shape"])
-    elif operation == "random_pareto":
-        return np.random.pareto(3.0, arrays["shape"])
-    elif operation == "random_power":
-        return np.random.power(3.0, arrays["shape"])
-    elif operation == "random_rayleigh":
-        return np.random.rayleigh(1.0, arrays["shape"])
-    elif operation == "random_weibull":
-        return np.random.weibull(3.0, arrays["shape"])
-    elif operation == "random_triangular":
-        return np.random.triangular(0.0, 0.5, 1.0, arrays["shape"])
-    elif operation == "random_standard_cauchy":
-        return np.random.standard_cauchy(arrays["shape"])
-    elif operation == "random_standard_t":
-        return np.random.standard_t(5.0, arrays["shape"])
-    elif operation == "random_wald":
-        return np.random.wald(1.0, 1.0, arrays["shape"])
-    elif operation == "random_vonmises":
-        return np.random.vonmises(0.0, 1.0, arrays["shape"])
-    elif operation == "random_zipf":
-        return np.random.zipf(2.0, arrays["shape"])
+    # Random (legacy module)
+    "random_random": lambda a: np.random.random(a["shape"]),
+    "random_rand": lambda a: np.random.rand(*a["shape"]),
+    "random_randn": lambda a: np.random.randn(*a["shape"]),
+    "random_randint": lambda a: np.random.randint(0, 100, a["shape"], dtype=a.get("dtype", "int64")),
+    "random_uniform": lambda a: np.random.uniform(0, 1, a["shape"]),
+    "random_normal": lambda a: np.random.normal(0, 1, a["shape"]),
+    "random_standard_normal": lambda a: np.random.standard_normal(a["shape"]),
+    "random_exponential": lambda a: np.random.exponential(1, a["shape"]),
+    "random_poisson": lambda a: np.random.poisson(5, a["shape"]),
+    "random_binomial": lambda a: np.random.binomial(10, 0.5, a["shape"]),
+    "random_choice": lambda a: np.random.choice(a["n"], 100),
+    "random_permutation": lambda a: np.random.permutation(a["n"]),
+    "random_gamma": lambda a: np.random.gamma(2.0, 2.0, a["shape"]),
+    "random_beta": lambda a: np.random.beta(2.0, 5.0, a["shape"]),
+    "random_chisquare": lambda a: np.random.chisquare(2.0, a["shape"]),
+    "random_laplace": lambda a: np.random.laplace(0.0, 1.0, a["shape"]),
+    "random_geometric": lambda a: np.random.geometric(0.5, a["shape"]),
+    "random_dirichlet": _random_dirichlet,
+    "random_standard_exponential": lambda a: np.random.standard_exponential(a["shape"]),
+    "random_logistic": lambda a: np.random.logistic(0.0, 1.0, a["shape"]),
+    "random_lognormal": lambda a: np.random.lognormal(0.0, 1.0, a["shape"]),
+    "random_gumbel": lambda a: np.random.gumbel(0.0, 1.0, a["shape"]),
+    "random_pareto": lambda a: np.random.pareto(3.0, a["shape"]),
+    "random_power": lambda a: np.random.power(3.0, a["shape"]),
+    "random_rayleigh": lambda a: np.random.rayleigh(1.0, a["shape"]),
+    "random_weibull": lambda a: np.random.weibull(3.0, a["shape"]),
+    "random_triangular": lambda a: np.random.triangular(0.0, 0.5, 1.0, a["shape"]),
+    "random_standard_cauchy": lambda a: np.random.standard_cauchy(a["shape"]),
+    "random_standard_t": lambda a: np.random.standard_t(5.0, a["shape"]),
+    "random_wald": lambda a: np.random.wald(1.0, 1.0, a["shape"]),
+    "random_vonmises": lambda a: np.random.vonmises(0.0, 1.0, a["shape"]),
+    "random_zipf": lambda a: np.random.zipf(2.0, a["shape"]),
 
     # Generator (PCG64) random
-    elif operation == "gen_random":
-        rng = np.random.default_rng(42)
-        return rng.random(tuple(arrays["shape"]))
-    elif operation == "gen_uniform":
-        rng = np.random.default_rng(42)
-        return rng.uniform(0.0, 1.0, tuple(arrays["shape"]))
-    elif operation == "gen_standard_normal":
-        rng = np.random.default_rng(42)
-        return rng.standard_normal(tuple(arrays["shape"]))
-    elif operation == "gen_normal":
-        rng = np.random.default_rng(42)
-        return rng.normal(0.0, 1.0, tuple(arrays["shape"]))
-    elif operation == "gen_exponential":
-        rng = np.random.default_rng(42)
-        return rng.exponential(1.0, tuple(arrays["shape"]))
-    elif operation == "gen_integers":
-        rng = np.random.default_rng(42)
-        return rng.integers(0, 100, tuple(arrays["shape"]))
-    elif operation == "gen_permutation":
-        rng = np.random.default_rng(42)
-        return rng.permutation(arrays["n"])
+    "gen_random": _gen("random"),
+    "gen_uniform": _gen("uniform", 0.0, 1.0),
+    "gen_standard_normal": _gen("standard_normal"),
+    "gen_normal": _gen("normal", 0.0, 1.0),
+    "gen_exponential": _gen("exponential", 1.0),
+    "gen_integers": _gen_integers,
+    "gen_permutation": _gen_permutation,
 
-    # Complex operations
-    elif operation == "complex_zeros":
-        return np.zeros(arrays["shape"], dtype=np.complex128)
-    elif operation == "complex_ones":
-        return np.ones(arrays["shape"], dtype=np.complex128)
-    elif operation == "complex_add":
-        return arrays["a"] + arrays["b"]
-    elif operation == "complex_multiply":
-        return arrays["a"] * arrays["b"]
-    elif operation == "complex_divide":
-        return arrays["a"] / arrays["b"]
-    elif operation == "complex_real":
-        return np.real(arrays["a"])
-    elif operation == "complex_imag":
-        return np.imag(arrays["a"])
-    elif operation == "complex_conj":
-        return np.conj(arrays["a"])
-    elif operation == "complex_angle":
-        return np.angle(arrays["a"])
-    elif operation == "complex_abs":
-        return np.abs(arrays["a"])
-    elif operation == "complex_sqrt":
-        return np.sqrt(arrays["a"])
-    elif operation == "complex_sum":
-        return np.sum(arrays["a"])
-    elif operation == "complex_mean":
-        return np.mean(arrays["a"])
-    elif operation == "complex_prod":
-        return np.prod(arrays["a"])
+    # Complex
+    "complex_zeros": lambda a: np.zeros(a["shape"], dtype=np.complex128),
+    "complex_ones": lambda a: np.ones(a["shape"], dtype=np.complex128),
+    "complex_add": lambda a: a["a"] + a["b"],
+    "complex_multiply": lambda a: a["a"] * a["b"],
+    "complex_divide": lambda a: a["a"] / a["b"],
+    "complex_real": lambda a: np.real(a["a"]),
+    "complex_imag": lambda a: np.imag(a["a"]),
+    "complex_conj": lambda a: np.conj(a["a"]),
+    "complex_angle": lambda a: np.angle(a["a"]),
+    "complex_abs": lambda a: np.abs(a["a"]),
+    "complex_sqrt": lambda a: np.sqrt(a["a"]),
+    "complex_sum": lambda a: np.sum(a["a"]),
+    "complex_mean": lambda a: np.mean(a["a"]),
+    "complex_prod": lambda a: np.prod(a["a"]),
 
-    # Other Math operations
-    elif operation == "clip":
-        return np.clip(arrays["a"], 10, 100)
-    elif operation == "maximum":
-        return np.maximum(arrays["a"], arrays["b"])
-    elif operation == "minimum":
-        return np.minimum(arrays["a"], arrays["b"])
-    elif operation == "fmax":
-        return np.fmax(arrays["a"], arrays["b"])
-    elif operation == "fmin":
-        return np.fmin(arrays["a"], arrays["b"])
-    elif operation == "nan_to_num":
-        return np.nan_to_num(arrays["a"])
-    elif operation == "interp":
-        return np.interp(arrays["x"], arrays["xp"], arrays["fp"])
-    elif operation == "unwrap":
-        return np.unwrap(arrays["a"])
-    elif operation == "sinc":
-        return np.sinc(arrays["a"])
-    elif operation == "i0":
-        return np.i0(arrays["a"])
+    # Other math
+    "clip": lambda a: np.clip(a["a"], 10, 100),
+    "maximum": lambda a: np.maximum(a["a"], a["b"]),
+    "minimum": lambda a: np.minimum(a["a"], a["b"]),
+    "fmax": lambda a: np.fmax(a["a"], a["b"]),
+    "fmin": lambda a: np.fmin(a["a"], a["b"]),
+    "nan_to_num": lambda a: np.nan_to_num(a["a"]),
+    "interp": lambda a: np.interp(a["x"], a["xp"], a["fp"]),
+    "unwrap": lambda a: np.unwrap(a["a"]),
+    "sinc": lambda a: np.sinc(a["a"]),
+    "i0": lambda a: np.i0(a["a"]),
 
-    # Polynomial operations
-    elif operation == "poly":
-        return np.poly(arrays["a"])
-    elif operation == "polyadd":
-        return np.polyadd(arrays["a"], arrays["b"])
-    elif operation == "polyder":
-        return np.polyder(arrays["a"])
-    elif operation == "polydiv":
-        return np.polydiv(arrays["a"], arrays["b"])
-    elif operation == "polyfit":
-        return np.polyfit(arrays["a"], arrays["b"], 2)
-    elif operation == "polyint":
-        return np.polyint(arrays["a"])
-    elif operation == "polymul":
-        return np.polymul(arrays["a"], arrays["b"])
-    elif operation == "polysub":
-        return np.polysub(arrays["a"], arrays["b"])
-    elif operation == "polyval":
-        return np.polyval(arrays["a"], arrays["b"])
-    elif operation == "roots":
-        return np.roots(arrays["a"])
+    # Polynomial
+    "poly": lambda a: np.poly(a["a"]),
+    "polyadd": lambda a: np.polyadd(a["a"], a["b"]),
+    "polyder": lambda a: np.polyder(a["a"]),
+    "polydiv": lambda a: np.polydiv(a["a"], a["b"]),
+    "polyfit": lambda a: np.polyfit(a["a"], a["b"], 2),
+    "polyint": lambda a: np.polyint(a["a"]),
+    "polymul": lambda a: np.polymul(a["a"], a["b"]),
+    "polysub": lambda a: np.polysub(a["a"], a["b"]),
+    "polyval": lambda a: np.polyval(a["a"], a["b"]),
+    "roots": lambda a: np.roots(a["a"]),
 
-    # Type checking operations
-    elif operation == "can_cast":
-        return np.can_cast("int32", "float64")
-    elif operation == "result_type":
-        return np.result_type("int32", "float64")
-    elif operation == "min_scalar_type":
-        return np.min_scalar_type(1000)
-    elif operation == "issubdtype":
-        return np.issubdtype(np.int32, np.integer)
+    # Type checking
+    "can_cast": lambda a: np.can_cast("int32", "float64"),
+    "result_type": lambda a: np.result_type("int32", "float64"),
+    "min_scalar_type": lambda a: np.min_scalar_type(1000),
+    "issubdtype": lambda a: np.issubdtype(np.int32, np.integer),
 
-    # FFT operations
-    elif operation == "fft":
-        return np.fft.fft(arrays["a"])
-    elif operation == "ifft":
-        return np.fft.ifft(arrays["a"])
-    elif operation == "fft2":
-        return np.fft.fft2(arrays["a"])
-    elif operation == "ifft2":
-        return np.fft.ifft2(arrays["a"])
-    elif operation == "fftn":
-        return np.fft.fftn(arrays["a"])
-    elif operation == "ifftn":
-        return np.fft.ifftn(arrays["a"])
-    elif operation == "rfft":
-        return np.fft.rfft(arrays["a"])
-    elif operation == "irfft":
-        return np.fft.irfft(arrays["a"])
-    elif operation == "rfft2":
-        return np.fft.rfft2(arrays["a"])
-    elif operation == "irfft2":
-        return np.fft.irfft2(arrays["a"])
-    elif operation == "rfftn":
-        return np.fft.rfftn(arrays["a"])
-    elif operation == "irfftn":
-        return np.fft.irfftn(arrays["a"])
-    elif operation == "hfft":
-        return np.fft.hfft(arrays["a"])
-    elif operation == "ihfft":
-        return np.fft.ihfft(arrays["a"])
-    elif operation == "fftfreq":
-        return np.fft.fftfreq(arrays["n"])
-    elif operation == "rfftfreq":
-        return np.fft.rfftfreq(arrays["n"])
-    elif operation == "fftshift":
-        return np.fft.fftshift(arrays["a"])
-    elif operation == "ifftshift":
-        return np.fft.ifftshift(arrays["a"])
+    # FFT
+    "fft": lambda a: np.fft.fft(a["a"]),
+    "ifft": lambda a: np.fft.ifft(a["a"]),
+    "fft2": lambda a: np.fft.fft2(a["a"]),
+    "ifft2": lambda a: np.fft.ifft2(a["a"]),
+    "fftn": lambda a: np.fft.fftn(a["a"]),
+    "ifftn": lambda a: np.fft.ifftn(a["a"]),
+    "rfft": lambda a: np.fft.rfft(a["a"]),
+    "irfft": lambda a: np.fft.irfft(a["a"]),
+    "rfft2": lambda a: np.fft.rfft2(a["a"]),
+    "irfft2": lambda a: np.fft.irfft2(a["a"]),
+    "rfftn": lambda a: np.fft.rfftn(a["a"]),
+    "irfftn": lambda a: np.fft.irfftn(a["a"]),
+    "hfft": lambda a: np.fft.hfft(a["a"]),
+    "ihfft": lambda a: np.fft.ihfft(a["a"]),
+    "fftfreq": lambda a: np.fft.fftfreq(a["n"]),
+    "rfftfreq": lambda a: np.fft.rfftfreq(a["n"]),
+    "fftshift": lambda a: np.fft.fftshift(a["a"]),
+    "ifftshift": lambda a: np.fft.ifftshift(a["a"]),
+}
 
-    else:
+
+def execute_operation(operation: str, arrays: Dict[str, np.ndarray]) -> Any:
+    """Execute a named operation via O(1) dict lookup."""
+    fn = OPERATIONS.get(operation)
+    if fn is None:
         raise ValueError(f"Unknown operation: {operation}")
+    return fn(arrays)
 
 
 def calibrate_ops_per_sample(
@@ -908,7 +667,7 @@ def calibrate_ops_per_sample(
 ) -> int:
     """
     Auto-calibrate: Determine how many operations to run per sample
-    to achieve the target minimum sample time
+    to achieve the target minimum sample time.
     """
     ops_per_sample = 1
     calibration_runs = 0
@@ -916,32 +675,24 @@ def calibrate_ops_per_sample(
 
     while calibration_runs < max_calibration_runs:
         start = time.perf_counter()
-
-        # Run operations in batch
         for _ in range(ops_per_sample):
-            result = execute_operation(operation, arrays)
-            _ = result  # Prevent optimization
-
+            execute_operation(operation, arrays)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        # If we hit the target time, we're done
         if elapsed_ms >= target_time_ms:
             break
 
-        # If operation is very fast, increase ops exponentially
         if elapsed_ms < target_time_ms / 10:
             ops_per_sample *= 10
         elif elapsed_ms < target_time_ms / 2:
             ops_per_sample *= 2
         else:
-            # Close enough, calculate exact number needed
             target_ops = int(np.ceil((ops_per_sample * target_time_ms) / elapsed_ms))
             ops_per_sample = max(target_ops, ops_per_sample + 1)
             break
 
         calibration_runs += 1
 
-    # Cap at reasonable maximum to prevent too-long samples
     max_ops_per_sample = 100000
     return min(ops_per_sample, max_ops_per_sample)
 
@@ -956,7 +707,7 @@ def run_benchmark(spec: Dict[str, Any]) -> Dict[str, Any]:
     # Setup arrays (pass operation for IO benchmarks that need pre-serialized data)
     arrays = setup_arrays(setup, operation)
 
-    # Warmup phase - run several times to stabilize JIT/caching
+    # Warmup phase - run several times to stabilize caches
     for _ in range(warmup):
         execute_operation(operation, arrays)
 
@@ -969,12 +720,8 @@ def run_benchmark(spec: Dict[str, Any]) -> Dict[str, Any]:
 
     for _ in range(TARGET_SAMPLES):
         start = time.perf_counter()
-
-        # Run batch of operations
         for _ in range(ops_per_sample):
-            result = execute_operation(operation, arrays)
-            _ = result  # Prevent optimization
-
+            execute_operation(operation, arrays)
         elapsed_ms = (time.perf_counter() - start) * 1000
         time_per_op = elapsed_ms / ops_per_sample
         sample_times.append(time_per_op)
