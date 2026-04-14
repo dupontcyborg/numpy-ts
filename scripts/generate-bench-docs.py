@@ -38,7 +38,11 @@ _DTYPE_RE = re.compile(
 PAGES: list[dict[str, Any]] = [
     {
         "id": "vs-numpy",
-        "inputs": ["benchmarks/results/latest-full.json"],
+        "inputs": [
+            "benchmarks/results/latest-full-small.json",
+            "benchmarks/results/latest-full.json",
+            "benchmarks/results/latest-full-large.json",
+        ],
         "output": "docs/{version}/performance/vs-numpy.mdx",
         "frontmatter": {
             "title": "numpy-ts vs. NumPy (Native)",
@@ -46,9 +50,10 @@ PAGES: list[dict[str, Any]] = [
             "mode": "wide",
         },
         "component": "BenchmarkReport",
+        "builder": "combined",
         "intro": (
             "Benchmark snapshot comparing numpy-ts against native Python NumPy "
-            "(OpenBLAS-backed). "
+            "(OpenBLAS-backed) across small, medium, and large array sizes. "
             "Run your own via `npm run bench`."
         ),
     },
@@ -244,6 +249,104 @@ def build_benchmark_data(report: dict[str, Any], source_path: str) -> dict[str, 
             "numpyTsVersion": report["environment"]["numpyjs_version"],
             "machine": report["environment"].get("machine"),
         },
+        "categories": categories,
+        "dtypeStats": _compute_dtype_stats(all_benchmarks),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Combined (multi-size) builder for BenchmarkReport
+# ---------------------------------------------------------------------------
+
+def build_combined_data(input_paths: list[Path], repo_root: Path) -> dict[str, Any]:
+    """Merge small/medium/large reports into one BenchmarkReport data blob.
+
+    All results are included (keeping their original size tags like [100],
+    [1000], [10K]).  The summary geo-mean is computed across all results.
+    """
+    all_results: list[dict[str, Any]] = []
+    shared_meta: dict[str, Any] | None = None
+    all_ratios: list[float] = []
+    total_benchmarks = 0
+
+    for path in input_paths:
+        report = json.loads(path.read_text(encoding="utf-8"))
+        report = normalize_report(report)
+
+        if shared_meta is None:
+            shared_meta = {
+                "generatedAt": format_timestamp(report["timestamp"]),
+                "sourceJson": ", ".join(str(p.relative_to(repo_root)) for p in input_paths),
+                "runtimes": report["environment"].get("runtimes") or (
+                    {"node": report["environment"]["node_version"]}
+                    if "node_version" in report["environment"] else {}
+                ),
+                "pythonVersion": report["environment"].get("python_version"),
+                "numpyVersion": report["environment"].get("numpy_version"),
+                "numpyTsVersion": report["environment"]["numpyjs_version"],
+                "machine": report["environment"].get("machine"),
+            }
+
+        for r in report["results"]:
+            all_results.append(r)
+            if r["ratio"] > 0:
+                all_ratios.append(r["ratio"])
+        total_benchmarks += len(report["results"])
+
+    # Build categories from merged results
+    sorted_results = sorted(all_results, key=lambda r: r["ratio"], reverse=True)
+    category_map: dict[str, list[dict[str, Any]]] = {}
+    for r in sorted_results:
+        speedup = 1.0 / r["ratio"] if r["ratio"] > 0 else 0.0
+        row = {
+            "name": r["name"],
+            "ratio": round(speedup, 4),
+            "numpyOps": round(r["numpy"]["ops_per_sec"], 1),
+            "numpyTsOps": round(r["numpyjs"]["ops_per_sec"], 1),
+        }
+        category_map.setdefault(r["category"], []).append(row)
+
+    all_benchmarks: list[dict[str, Any]] = []
+    categories: list[dict[str, Any]] = []
+    for name, benchmarks in category_map.items():
+        benchmarks_sorted = sorted(benchmarks, key=_benchmark_sort_key)
+        avg_speedup = round(_geo_mean([b["ratio"] for b in benchmarks_sorted]), 4)
+        faster_count = sum(1 for b in benchmarks_sorted if b["ratio"] >= 1)
+        categories.append({
+            "name": name,
+            "avgSpeedup": avg_speedup,
+            "count": len(benchmarks_sorted),
+            "fasterCount": faster_count,
+            "slowerCount": len(benchmarks_sorted) - faster_count,
+            "benchmarks": benchmarks_sorted,
+        })
+        all_benchmarks.extend(benchmarks_sorted)
+
+    categories.sort(key=lambda c: (
+        CATEGORY_ORDER.index(c["name"]) if c["name"] in CATEGORY_ORDER else len(CATEGORY_ORDER)
+    ))
+
+    # Combined geo-mean across all sizes
+    geo_mean_slowdown = math.exp(
+        sum(math.log(max(r, 1e-6)) for r in all_ratios) / len(all_ratios)
+    ) if all_ratios else 1.0
+    positive_ratios = [r for r in all_ratios if r > 0]
+    sorted_ratios = sorted(all_ratios)
+    mid = len(sorted_ratios) // 2
+    median_slowdown = (
+        (sorted_ratios[mid - 1] + sorted_ratios[mid]) / 2
+        if len(sorted_ratios) % 2 == 0 else sorted_ratios[mid]
+    ) if sorted_ratios else 1.0
+
+    return {
+        "summary": {
+            "avgSpeedup": round(1.0 / geo_mean_slowdown, 4) if geo_mean_slowdown else 0,
+            "medianSpeedup": round(1.0 / median_slowdown, 4) if median_slowdown else 0,
+            "bestCase": round(1.0 / min(positive_ratios), 4) if positive_ratios else 0,
+            "worstCase": round(1.0 / max(all_ratios), 4) if all_ratios else 0,
+            "totalBenchmarks": total_benchmarks,
+        },
+        "meta": shared_meta or {},
         "categories": categories,
         "dtypeStats": _compute_dtype_stats(all_benchmarks),
     }
@@ -664,7 +767,10 @@ def build_page(
     fm = build_frontmatter(page["frontmatter"])
     builder = page.get("builder", "default")
 
-    if builder == "size_scaling":
+    if builder == "combined":
+        input_paths = [repo_root / p for p in page["inputs"]]
+        data = build_combined_data(input_paths, repo_root)
+    elif builder == "size_scaling":
         input_paths = [repo_root / p for p in page["inputs"]]
         data = build_size_scaling_data(input_paths, repo_root)
     elif builder == "runtimes":
