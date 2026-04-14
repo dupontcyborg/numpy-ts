@@ -429,8 +429,7 @@ const OPERATIONS: Record<string, OpFn> = {
   // Logic
   logical_and: (a) =>
     a['b'] ? np.logical_and(a['a'], a['b']) : np.logical_and(a['a'], a['scalar']),
-  logical_or: (a) =>
-    a['b'] ? np.logical_or(a['a'], a['b']) : np.logical_or(a['a'], a['scalar']),
+  logical_or: (a) => (a['b'] ? np.logical_or(a['a'], a['b']) : np.logical_or(a['a'], a['scalar'])),
   logical_not: (a) => np.logical_not(a['a']),
   logical_xor: (a) =>
     a['b'] ? np.logical_xor(a['a'], a['b']) : np.logical_xor(a['a'], a['scalar']),
@@ -441,8 +440,7 @@ const OPERATIONS: Record<string, OpFn> = {
   isposinf: (a) => np.isposinf(a['a']),
   isreal: (a) => np.isreal(a['a']),
   signbit: (a) => np.signbit(a['a']),
-  copysign: (a) =>
-    a['b'] ? np.copysign(a['a'], a['b']) : np.copysign(a['a'], a['scalar']),
+  copysign: (a) => (a['b'] ? np.copysign(a['a'], a['b']) : np.copysign(a['a'], a['scalar'])),
 
   // Random (legacy)
   random_random: (a) => np.random.random(a['shape']),

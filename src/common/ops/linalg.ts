@@ -1229,7 +1229,7 @@ export function trace(
     throw new Error(`trace requires at least 2D array, got ${a.ndim}D`);
   }
 
-  // For 2D arrays, return a scalar (original fast path)
+  // For 2D arrays, return a scalar (direct buffer access fast path)
   if (a.ndim === 2) {
     const ax1 = axis1 < 0 ? a.ndim + axis1 : axis1;
     const ax2 = axis2 < 0 ? a.ndim + axis2 : axis2;
@@ -1238,33 +1238,34 @@ export function trace(
     const diagLen = Math.min(rows, cols) - Math.max(0, offset);
     if (diagLen <= 0) return isComplexDType(a.dtype) ? new Complex(0, 0) : 0;
 
+    // Compute diagonal stride: step in buffer to advance one diagonal element
+    const diagStride = a.strides[ax1]! + a.strides[ax2]!;
+    const startBuf =
+      a.offset + Math.max(0, offset) * a.strides[ax2]! + Math.max(0, -offset) * a.strides[ax1]!;
+    const data = a.data;
+
     if (isComplexDType(a.dtype)) {
+      // Complex: interleaved re/im pairs, strides are in element (pair) units
       let sumRe = 0;
       let sumIm = 0;
+      let bufIdx = startBuf;
       for (let i = 0; i < diagLen; i++) {
-        const idx0 = offset >= 0 ? i : i - offset;
-        const idx1 = offset >= 0 ? i + offset : i;
-        const indices: number[] = [0, 0];
-        indices[ax1] = idx0;
-        indices[ax2] = idx1;
-        const val = a.get(...indices) as Complex;
-        sumRe += val.re;
-        sumIm += val.im;
+        sumRe += Number(data[bufIdx * 2]!);
+        sumIm += Number(data[bufIdx * 2 + 1]!);
+        bufIdx += diagStride;
       }
       return new Complex(sumRe, sumIm);
     }
+
+    let bufIdx = startBuf;
 
     // Float16/float32 accumulator for matching NumPy precision
     if (a.dtype === 'float16' && hasFloat16) {
       const f16 = new Float16Array(1);
       f16[0] = 0;
       for (let i = 0; i < diagLen; i++) {
-        const idx0 = offset >= 0 ? i : i - offset;
-        const idx1 = offset >= 0 ? i + offset : i;
-        const indices: number[] = [0, 0];
-        indices[ax1] = idx0;
-        indices[ax2] = idx1;
-        f16[0] += Number(a.get(...indices));
+        f16[0] += Number(data[bufIdx]!);
+        bufIdx += diagStride;
       }
       return Number(f16[0]!);
     }
@@ -1272,28 +1273,20 @@ export function trace(
       const f32 = new Float32Array(1);
       f32[0] = 0;
       for (let i = 0; i < diagLen; i++) {
-        const idx0 = offset >= 0 ? i : i - offset;
-        const idx1 = offset >= 0 ? i + offset : i;
-        const indices: number[] = [0, 0];
-        indices[ax1] = idx0;
-        indices[ax2] = idx1;
-        f32[0] += Number(a.get(...indices));
+        f32[0] += Number(data[bufIdx]!);
+        bufIdx += diagStride;
       }
       return f32[0]!;
     }
     let sum: number | bigint = 0;
     for (let i = 0; i < diagLen; i++) {
-      const idx0 = offset >= 0 ? i : i - offset;
-      const idx1 = offset >= 0 ? i + offset : i;
-      const indices: number[] = [0, 0];
-      indices[ax1] = idx0;
-      indices[ax2] = idx1;
-      const val = a.get(...indices);
+      const val = data[bufIdx]!;
       if (typeof val === 'bigint') {
         sum = (typeof sum === 'bigint' ? sum : BigInt(sum)) + val;
       } else {
         sum = (typeof sum === 'bigint' ? Number(sum) : sum) + (val as number);
       }
+      bufIdx += diagStride;
     }
     return sum;
   }

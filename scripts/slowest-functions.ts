@@ -9,7 +9,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const sizeArg = process.argv.find((a: string) => ['small', 'medium', 'large', 'pyodide'].includes(a));
+const sizeArg = process.argv.find((a: string) =>
+  ['small', 'medium', 'large', 'pyodide'].includes(a)
+);
 const fileMap: Record<string, string> = {
   small: 'latest-full-small.json',
   medium: 'latest-full.json',
