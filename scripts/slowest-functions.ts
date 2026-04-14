@@ -8,11 +8,20 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const sizeArg = process.argv.find((a: string) => ['small', 'medium', 'large', 'pyodide'].includes(a));
+const fileMap: Record<string, string> = {
+  small: 'latest-full-small.json',
+  medium: 'latest-full.json',
+  large: 'latest-full-large.json',
+  pyodide: 'latest-full-pyodide.json',
+};
+const resultFile = fileMap[sizeArg ?? 'medium'] ?? fileMap['medium']!;
 const data = JSON.parse(
-  readFileSync(join(__dirname, '../benchmarks/results/latest-full-large.json'), 'utf-8')
+  readFileSync(join(__dirname, '../benchmarks/results', resultFile), 'utf-8')
 );
 
-const N = parseInt(process.argv[2] ?? '50', 10);
+const N = parseInt(process.argv.find((a: string) => /^\d+$/.test(a)) ?? '50', 10);
 
 interface Result {
   name: string;
