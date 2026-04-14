@@ -31,7 +31,7 @@ function float(): typeof floatBase {
 }
 
 // Minimum total elements (M*K + N*K) for WASM to be worth the copy overhead.
-const BASE_THRESHOLD = 256;
+const BASE_THRESHOLD = 32;
 
 type WasmInnerFn = (
   aPtr: number,

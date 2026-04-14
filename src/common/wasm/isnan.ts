@@ -9,7 +9,7 @@ import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 256;
+const BASE_THRESHOLD = 32;
 
 type IsnanFn = (aPtr: number, outPtr: number, N: number) => void;
 

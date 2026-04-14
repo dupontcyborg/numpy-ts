@@ -45,7 +45,7 @@ import { ArrayStorage } from '../storage';
 import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type ArgsortFn = (aPtr: number, outPtr: number, N: number) => void;
 type SliceArgsortFn = (aPtr: number, outPtr: number, sliceSize: number, numSlices: number) => void;

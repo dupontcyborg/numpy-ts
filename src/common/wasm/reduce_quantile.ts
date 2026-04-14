@@ -49,7 +49,7 @@ import {
 } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type SortFn = (aPtr: number, N: number) => void;
 type SortWithScratchFn = (aPtr: number, N: number, scratchPtr: number) => void;

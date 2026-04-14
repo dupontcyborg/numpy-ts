@@ -16,7 +16,7 @@ function float(): typeof floatBase {
   return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
 }
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type NormFn = (aPtr: number, N: number) => number;
 

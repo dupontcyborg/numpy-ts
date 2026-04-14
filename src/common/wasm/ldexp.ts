@@ -17,7 +17,7 @@ import { ArrayStorage } from '../storage';
 import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type ScalarFn = (x1Ptr: number, outPtr: number, N: number, exp: number) => void;
 

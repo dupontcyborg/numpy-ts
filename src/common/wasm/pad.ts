@@ -18,7 +18,7 @@ import { ArrayStorage } from '../storage';
 import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type Pad2DFn = (aPtr: number, outPtr: number, rows: number, cols: number, padWidth: number) => void;
 

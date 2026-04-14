@@ -18,7 +18,7 @@ import { ArrayStorage } from '../storage';
 import { effectiveDType, hasFloat16, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 export function wasmFrexp(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null {
   if (!a.isCContiguous) return null;

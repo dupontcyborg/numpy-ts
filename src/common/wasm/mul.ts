@@ -29,7 +29,7 @@ import { ArrayStorage } from '../storage';
 import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type BinaryFn = (aPtr: number, bPtr: number, outPtr: number, N: number) => void;
 type ScalarFn = (aPtr: number, outPtr: number, N: number, scalar: number) => void;

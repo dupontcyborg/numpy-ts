@@ -20,7 +20,7 @@ import { ArrayStorage } from '../storage';
 import { isComplexDType, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 

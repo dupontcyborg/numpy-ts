@@ -22,7 +22,7 @@ import { ArrayStorage } from '../storage';
 import type { TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 /**
  * WASM-accelerated unravel_index for flat indices with C-order strides.

@@ -22,7 +22,7 @@ import { ArrayStorage } from '../storage';
 import { isComplexDType, type DType, type TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type DivmodScalarFn = (aPtr: number, outQ: number, outR: number, N: number, scalar: number) => void;
 

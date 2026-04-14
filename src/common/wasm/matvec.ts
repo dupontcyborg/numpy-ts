@@ -26,7 +26,7 @@ function float(): typeof floatBase {
   return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
 }
 
-const BASE_THRESHOLD = 128; // Minimum M*K for WASM
+const BASE_THRESHOLD = 32; // Minimum M*K for WASM
 
 type WasmMatvecFn = (A: number, x: number, y: number, M: number, K: number) => void;
 
