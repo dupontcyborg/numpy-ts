@@ -37,6 +37,7 @@ import { wasmArccos } from '../wasm/arccos';
 import { wasmArctan } from '../wasm/arctan';
 import { wasmArctan2 } from '../wasm/arctan2';
 import { wasmHypot, wasmHypotScalar } from '../wasm/hypot';
+import { wasmDeg2rad, wasmRad2deg } from '../wasm/deg2rad';
 
 /**
  * Sine of each element (element-wise)
@@ -708,6 +709,10 @@ function hypotScalar(storage: ArrayStorage, x2: number): ArrayStorage {
  */
 export function degrees(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'degrees', 'degrees is only defined for real numbers.');
+
+  const wasmResult = wasmRad2deg(a);
+  if (wasmResult) return wasmResult;
+
   const factor = 180 / Math.PI;
   return elementwiseUnaryOp(a, (x) => x * factor, false);
 }
@@ -721,6 +726,10 @@ export function degrees(a: ArrayStorage): ArrayStorage {
  */
 export function radians(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'radians', 'radians is only defined for real numbers.');
+
+  const wasmResult = wasmDeg2rad(a);
+  if (wasmResult) return wasmResult;
+
   const factor = Math.PI / 180;
   return elementwiseUnaryOp(a, (x) => x * factor, false);
 }

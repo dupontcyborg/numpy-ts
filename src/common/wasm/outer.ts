@@ -27,7 +27,7 @@ import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../d
 
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 128; // Minimum M+N for WASM
+const BASE_THRESHOLD = 32; // Minimum M+N for WASM
 
 type WasmOuterFn = (a: number, b: number, c: number, M: number, N: number) => void;
 

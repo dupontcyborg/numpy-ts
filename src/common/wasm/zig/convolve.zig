@@ -158,3 +158,68 @@ test "convolve_f64 different lengths" {
     try testing.expectApproxEqAbs(out[4], 9.0, 1e-10);
     try testing.expectApproxEqAbs(out[5], 5.0, 1e-10);
 }
+
+test "convolve_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 1, 2, 3 };
+    const v = [_]u32{ 1, 1 };
+    var out: [4]u32 = undefined;
+    convolve_u32(&a, 3, &v, 2, &out, 4);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 3);
+    try testing.expectEqual(out[2], 5);
+    try testing.expectEqual(out[3], 3);
+}
+
+test "convolve_i16 negatives" {
+    const testing = @import("std").testing;
+    // [1, -2, 3] * [1, 1] = [1, -1, 1, 3]
+    const a = [_]i16{ 1, -2, 3 };
+    const v = [_]i16{ 1, 1 };
+    var out: [4]i16 = undefined;
+    convolve_i16(&a, 3, &v, 2, &out, 4);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], -1);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 3);
+}
+
+test "convolve_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 10, 20, 30 };
+    const v = [_]u16{ 1, 2 };
+    var out: [4]u16 = undefined;
+    convolve_u16(&a, 3, &v, 2, &out, 4);
+    try testing.expectEqual(out[0], 10); // 10*1
+    try testing.expectEqual(out[1], 40); // 20*1 + 10*2
+    try testing.expectEqual(out[2], 70); // 30*1 + 20*2
+    try testing.expectEqual(out[3], 60); // 30*2
+}
+
+test "convolve_i8 wrapping arithmetic" {
+    const testing = @import("std").testing;
+    // Use values that wrap on overflow; verify two's complement +%/*% behavior
+    const a = [_]i8{ 100, 50, -100 };
+    const v = [_]i8{ 1, 1 };
+    var out: [4]i8 = undefined;
+    convolve_i8(&a, 3, &v, 2, &out, 4);
+    try testing.expectEqual(out[0], 100);
+    try testing.expectEqual(out[1], -106); // 100 + 50 = 150 → wraps to -106 in i8
+    try testing.expectEqual(out[2], -50); // 50 + -100 = -50
+    try testing.expectEqual(out[3], -100);
+}
+
+test "convolve_u8 basic" {
+    const testing = @import("std").testing;
+    // Stay within u8 range to avoid wrap noise
+    const a = [_]u8{ 1, 2, 3, 4 };
+    const v = [_]u8{ 1, 0, 1 };
+    var out: [6]u8 = undefined;
+    convolve_u8(&a, 4, &v, 3, &out, 6);
+    try testing.expectEqual(out[0], 1); // a[0]*v[0]
+    try testing.expectEqual(out[1], 2);
+    try testing.expectEqual(out[2], 4); // 1+3
+    try testing.expectEqual(out[3], 6); // 2+4
+    try testing.expectEqual(out[4], 3);
+    try testing.expectEqual(out[5], 4);
+}

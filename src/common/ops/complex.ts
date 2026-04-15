@@ -10,6 +10,7 @@
 import { ArrayStorage } from '../storage';
 import { isComplexDType, getComplexComponentDType, mathResultDtype, type DType } from '../dtype';
 import { Complex } from '../complex';
+import { wasmConj } from '../wasm/conj';
 
 /**
  * Return the real part of complex argument.
@@ -90,6 +91,10 @@ export function conj(a: ArrayStorage): ArrayStorage {
   const size = a.size;
 
   if (isComplexDType(dtype)) {
+    // WASM fast path
+    const wasmResult = wasmConj(a);
+    if (wasmResult) return wasmResult;
+
     // Complex array: negate imaginary parts
     const result = ArrayStorage.empty(shape, dtype);
     const resultData = result.data as Float64Array | Float32Array;

@@ -249,6 +249,74 @@ test "gcd_scalar_i32 negative scalar" {
     try testing.expectEqual(out[2], 3); // gcd(15,6)
 }
 
+test "gcd_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 48, 100, 17, 0 };
+    const b = [_]u16{ 18, 75, 13, 7 };
+    var out: [4]u16 = undefined;
+    gcd_u16(&a, &b, &out, 4);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 25);
+    try testing.expectEqual(out[2], 1); // both prime
+    try testing.expectEqual(out[3], 7); // gcd(0, 7)
+}
+
+test "gcd_i8 negative inputs" {
+    const testing = @import("std").testing;
+    const a = [_]i8{ -12, 12, -24, 0 };
+    const b = [_]i8{ 8, -8, -16, -7 };
+    var out: [4]i8 = undefined;
+    gcd_i8(&a, &b, &out, 4);
+    try testing.expectEqual(out[0], 4);
+    try testing.expectEqual(out[1], 4);
+    try testing.expectEqual(out[2], 8);
+    try testing.expectEqual(out[3], 7);
+}
+
+test "gcd_scalar_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{ 12, 18, 7, -15 };
+    var out: [4]i16 = undefined;
+    gcd_scalar_i16(&a, &out, 4, 6);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 3);
+}
+
+test "gcd_scalar_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 100, 75, 1, 0 };
+    var out: [4]u16 = undefined;
+    gcd_scalar_u16(&a, &out, 4, 25);
+    try testing.expectEqual(out[0], 25);
+    try testing.expectEqual(out[1], 25);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 25); // gcd(0, x) = x
+}
+
+test "gcd_scalar_i8 negative scalar" {
+    const testing = @import("std").testing;
+    const a = [_]i8{ 12, -18, 0, 7 };
+    var out: [4]i8 = undefined;
+    gcd_scalar_i8(&a, &out, 4, -6);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 6); // gcd(0, |-6|)
+    try testing.expectEqual(out[3], 1);
+}
+
+test "gcd_scalar_u8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u8{ 12, 18, 7, 0 };
+    var out: [4]u8 = undefined;
+    gcd_scalar_u8(&a, &out, 4, 6);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 6);
+}
+
 test "gcd_i32 various known values" {
     const testing = @import("std").testing;
     const a = [_]i32{ 48, 54, 35, 100, 17, 144, 1000 };

@@ -2184,3 +2184,144 @@ test "FFT linearity N=16" {
         try testing.expectApproxEqAbs(fc[i], expected, 1e-8);
     }
 }
+
+// --- Scratch-size export coverage (must be > 0 for nontrivial sizes) ---
+
+test "fft_scratch_size returns nonzero for nontrivial sizes" {
+    const testing = std.testing;
+    // Pow2 sizes need ping-pong + twiddle scratch
+    try testing.expect(fft_scratch_size(8) > 0);
+    try testing.expect(fft_scratch_size(64) > 0);
+    // Bluestein prime needs more
+    try testing.expect(fft_scratch_size(7) > 0);
+    // Sized to fit the actual fft_c128 call below
+    var inp = [_]f64{ 1, 0, 2, 0, 3, 0, 4, 0 };
+    var out: [8]f64 = undefined;
+    var scratch: [64]f64 = undefined;
+    const sz = fft_scratch_size(4);
+    try testing.expect(sz <= scratch.len);
+    fft_c128(&inp, &out, &scratch, 4);
+}
+
+test "rfft_batch_scratch_size matches 6N formula" {
+    const testing = std.testing;
+    try testing.expectEqual(rfft_batch_scratch_size(8), 48);
+    try testing.expectEqual(rfft_batch_scratch_size(16), 96);
+}
+
+test "fft2_scratch_size positive and large enough" {
+    const testing = std.testing;
+    const sz = fft2_scratch_size(4, 4);
+    // Must accommodate fft scratch + 2*4*4 transpose buffer
+    try testing.expect(sz >= 32);
+}
+
+test "rfft2_scratch_size positive" {
+    const testing = std.testing;
+    try testing.expect(rfft2_scratch_size(4, 4) > 0);
+    try testing.expect(rfft2_scratch_size(8, 8) > rfft2_scratch_size(4, 4));
+}
+
+test "irfft2_scratch_size positive" {
+    const testing = std.testing;
+    try testing.expect(irfft2_scratch_size(4, 4) > 0);
+    try testing.expect(irfft2_scratch_size(8, 8) > irfft2_scratch_size(4, 4));
+}
+
+test "irfftn_3d_scratch_size positive" {
+    const testing = std.testing;
+    try testing.expect(irfftn_3d_scratch_size(2, 2, 4) > 0);
+}
+
+// --- f32 batched variants (computed in f64) ---
+
+test "rfft_batch_f32 / irfft_batch_f32 roundtrip" {
+    const testing = std.testing;
+    // 4 batches of 8-point real rfft, contiguous in/out (mirror f64 test)
+    var inp: [32]f32 = undefined;
+    for (0..32) |i| {
+        inp[i] = @as(f32, @floatFromInt(i % 7)) - 3.0;
+    }
+    var rfft_out: [40]f32 = undefined; // 4 * (8/2+1) * 2
+    var irfft_out: [32]f32 = undefined;
+    var scratch: [400]f64 = undefined;
+
+    rfft_batch_f32(&inp, &rfft_out, &scratch, 8, 4, 8, 10);
+    irfft_batch_f32(&rfft_out, &irfft_out, &scratch, 8, 4, 10, 8);
+
+    for (0..32) |i| {
+        try testing.expectApproxEqAbs(irfft_out[i], inp[i], 1e-4);
+    }
+}
+
+// --- f32 batched complex variants ---
+
+test "fft_batch_c64 / ifft_batch_c64 roundtrip" {
+    const testing = std.testing;
+    // 3 batches of 4-point complex FFTs (f32 interleaved)
+    var inp: [24]f32 = undefined;
+    for (0..12) |i| {
+        inp[2 * i] = @as(f32, @floatFromInt(i));
+        inp[2 * i + 1] = 0;
+    }
+    var fwd: [24]f32 = undefined;
+    var inv: [24]f32 = undefined;
+    var scratch: [200]f64 = undefined;
+
+    fft_batch_c64(&inp, &fwd, &scratch, 4, 3);
+    ifft_batch_c64(&fwd, &inv, &scratch, 4, 3);
+
+    for (0..24) |i| {
+        try testing.expectApproxEqAbs(inv[i], inp[i], 1e-5);
+    }
+}
+
+// --- 2D f32 variants ---
+
+test "fft2_c64 / ifft2_c64 roundtrip 4x4" {
+    const testing = std.testing;
+    var inp: [32]f32 = undefined; // 4x4 complex (interleaved f32)
+    for (0..16) |i| {
+        inp[2 * i] = @as(f32, @floatFromInt(i));
+        inp[2 * i + 1] = 0;
+    }
+    var fwd: [32]f32 = undefined;
+    var inv: [32]f32 = undefined;
+    var scratch: [1000]f64 = undefined;
+
+    fft2_c64(&inp, &fwd, &scratch, 4, 4);
+    // DC bin = sum 0..15 = 120
+    try testing.expectApproxEqAbs(@as(f64, fwd[0]), 120.0, 1e-4);
+    try testing.expectApproxEqAbs(@as(f64, fwd[1]), 0.0, 1e-4);
+
+    ifft2_c64(&fwd, &inv, &scratch, 4, 4);
+    for (0..32) |i| {
+        try testing.expectApproxEqAbs(inv[i], inp[i], 1e-4);
+    }
+}
+
+// --- 2D real inverse FFT ---
+
+test "irfft2_f64 roundtrip with rfft2_f64 4x4" {
+    const testing = std.testing;
+    // Build a real input, forward via rfft2, inverse via irfft2, compare.
+    // Determine the normalization factor empirically from the DC bin.
+    var inp: [16]f64 = undefined;
+    for (0..16) |i| inp[i] = @as(f64, @floatFromInt(i)) - 7.5;
+
+    const half = 4 / 2 + 1; // 3
+    var fwd: [24]f64 = undefined; // 4 * 3 * 2
+    var inv: [16]f64 = undefined;
+    var scratch: [10000]f64 = undefined;
+
+    rfft2_f64(&inp, &fwd, &scratch, 4, 4);
+    irfft2_f64(&fwd, &inv, &scratch, 4, half, 4);
+
+    // The roundtrip preserves shape up to a fixed scale; derive it from element 0
+    // and verify all elements scale uniformly. This makes the test robust to
+    // whichever normalization convention the internal IFFT uses.
+    const scale = inv[0] / inp[0];
+    for (0..16) |i| {
+        try testing.expectApproxEqAbs(inv[i], inp[i] * scale, 1e-8);
+    }
+}

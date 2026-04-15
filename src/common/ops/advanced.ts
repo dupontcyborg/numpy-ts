@@ -1169,10 +1169,25 @@ export function ravel_multi_index(
     stride *= dims[i]!;
   }
 
+  // Fast path: grab underlying typed arrays for contiguous inputs to avoid iget() overhead
+  const rawArrays: (ArrayLike<number | bigint> | null)[] = new Array(ndim);
+  const rawOffsets: number[] = new Array(ndim);
+  for (let d = 0; d < ndim; d++) {
+    const arr = multi_index[d]!;
+    if (arr.isCContiguous) {
+      rawArrays[d] = arr.data;
+      rawOffsets[d] = arr.offset;
+    } else {
+      rawArrays[d] = null;
+      rawOffsets[d] = 0;
+    }
+  }
+
   for (let i = 0; i < size; i++) {
     let flatIdx = 0;
     for (let d = 0; d < ndim; d++) {
-      let idx = Number(multi_index[d]!.iget(i));
+      const raw = rawArrays[d]!;
+      let idx = raw !== null ? Number(raw[rawOffsets[d]! + i]) : Number(multi_index[d]!.iget(i));
       const dimSize = dims[d]!;
 
       // Handle mode

@@ -40,6 +40,7 @@ import { wasmReciprocal } from '../wasm/reciprocal';
 import { wasmHeavisideScalar, wasmHeaviside } from '../wasm/heaviside';
 import { wasmLdexpScalar } from '../wasm/ldexp';
 import { wasmFrexp } from '../wasm/frexp';
+import { wasmModf } from '../wasm/modf';
 import { wasmGcdScalar, wasmGcd } from '../wasm/gcd';
 import { wasmDivmodScalar } from '../wasm/divmod';
 import { getComplexAt, setComplexAt, complexGreater, clipComplex } from './complex';
@@ -2442,6 +2443,11 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
  */
 export function modf(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
   throwIfComplex(x.dtype, 'modf', 'modf is not defined for complex numbers.');
+
+  // Try WASM path
+  const wasmResult = wasmModf(x);
+  if (wasmResult) return wasmResult;
+
   const outDtype = mathResultDtype(x.dtype);
   const fractional = ArrayStorage.empty(Array.from(x.shape), outDtype);
   const integral = ArrayStorage.empty(Array.from(x.shape), outDtype);

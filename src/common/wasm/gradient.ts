@@ -28,7 +28,7 @@ import { ArrayStorage } from '../storage';
 import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type GradFn = (aPtr: number, outPtr: number, N: number, h: number) => void;
 

@@ -6,7 +6,7 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { svd_f64, svd_values_gk_f64 } from './bins/svd.wasm';
+import { svd_f32, svd_f64, svd_values_gk_f64 } from './bins/svd.wasm';
 import { wasmMalloc, resetScratchAllocator, getSharedMemory } from './runtime';
 import { ArrayStorage } from '../storage';
 import { isComplexDType, type TypedArray } from '../dtype';
@@ -36,20 +36,22 @@ export function wasmSvd(
     return null;
 
   const k = Math.min(m, n);
+  const useF32 = a.dtype === 'float32' || a.dtype === 'float16';
+  const bytesPerElem = useF32 ? 4 : 8;
 
   const uSize = m * m;
   const sSize = k;
   const vtSize = n * n;
 
   // Allocate persistent output for U, S, Vt
-  const uRegion = wasmMalloc(uSize * 8);
+  const uRegion = wasmMalloc(uSize * bytesPerElem);
   if (!uRegion) return null;
-  const sRegion = wasmMalloc(sSize * 8);
+  const sRegion = wasmMalloc(sSize * bytesPerElem);
   if (!sRegion) {
     uRegion.release();
     return null;
   }
-  const vtRegion = wasmMalloc(vtSize * 8);
+  const vtRegion = wasmMalloc(vtSize * bytesPerElem);
   if (!vtRegion) {
     uRegion.release();
     sRegion.release();
@@ -61,7 +63,7 @@ export function wasmSvd(
 
   // SVD modifies input during Householder bidiagonalization — allocate working copy on heap
   const aSize = m * n;
-  const aRegion = wasmMalloc(aSize * 8);
+  const aRegion = wasmMalloc(aSize * bytesPerElem);
   if (!aRegion) {
     uRegion.release();
     sRegion.release();
@@ -69,7 +71,22 @@ export function wasmSvd(
     return null;
   }
   const mem = getSharedMemory();
-  if (a.dtype === 'float64' && a.isCContiguous) {
+  if (useF32) {
+    const aView = new Float32Array(mem.buffer, aRegion.ptr, aSize);
+    if (a.dtype === 'float32' && a.isCContiguous) {
+      if (a.isWasmBacked) {
+        aView.set(new Float32Array(mem.buffer, a.wasmPtr + a.offset * 4, aSize));
+      } else {
+        aView.set((a.data as Float32Array).subarray(a.offset, a.offset + aSize));
+      }
+    } else {
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          aView[i * n + j] = Number(a.get(i, j));
+        }
+      }
+    }
+  } else if (a.dtype === 'float64' && a.isCContiguous) {
     const aView = new Float64Array(mem.buffer, aRegion.ptr, aSize);
     if (a.isWasmBacked) {
       aView.set(new Float64Array(mem.buffer, a.wasmPtr + a.offset * 8, aSize));
@@ -85,7 +102,7 @@ export function wasmSvd(
     }
   }
   const workSize = m * n + n * n;
-  const workRegion = wasmMalloc(workSize * 8);
+  const workRegion = wasmMalloc(workSize * bytesPerElem);
   if (!workRegion) {
     aRegion.release();
     uRegion.release();
@@ -94,19 +111,24 @@ export function wasmSvd(
     return null;
   }
 
-  svd_f64(aRegion.ptr, uRegion.ptr, sRegion.ptr, vtRegion.ptr, workRegion.ptr, m, n);
+  if (useF32) {
+    svd_f32(aRegion.ptr, uRegion.ptr, sRegion.ptr, vtRegion.ptr, workRegion.ptr, m, n);
+  } else {
+    svd_f64(aRegion.ptr, uRegion.ptr, sRegion.ptr, vtRegion.ptr, workRegion.ptr, m, n);
+  }
   aRegion.release();
   workRegion.release();
 
-  const F64Ctor = Float64Array as unknown as new (
+  const outDtype = useF32 ? 'float32' : 'float64';
+  const OutCtor = (useF32 ? Float32Array : Float64Array) as unknown as new (
     buffer: ArrayBuffer,
     byteOffset: number,
     length: number
   ) => TypedArray;
 
-  const uStorage = ArrayStorage.fromWasmRegion([m, m], 'float64', uRegion, uSize, F64Ctor);
-  const sStorage = ArrayStorage.fromWasmRegion([k], 'float64', sRegion, sSize, F64Ctor);
-  const vtStorage = ArrayStorage.fromWasmRegion([n, n], 'float64', vtRegion, vtSize, F64Ctor);
+  const uStorage = ArrayStorage.fromWasmRegion([m, m], outDtype, uRegion, uSize, OutCtor);
+  const sStorage = ArrayStorage.fromWasmRegion([k], outDtype, sRegion, sSize, OutCtor);
+  const vtStorage = ArrayStorage.fromWasmRegion([n, n], outDtype, vtRegion, vtSize, OutCtor);
 
   return { u: uStorage, s: sStorage, vt: vtStorage };
 }

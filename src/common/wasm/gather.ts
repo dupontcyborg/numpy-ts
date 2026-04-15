@@ -46,7 +46,7 @@ import { ArrayStorage } from '../storage';
 import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type ExtractFn = (condPtr: number, dataPtr: number, outPtr: number, N: number) => number;
 type TakeFn = (

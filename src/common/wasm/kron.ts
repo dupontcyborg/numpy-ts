@@ -27,7 +27,7 @@ import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../d
 
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64; // Minimum total output elements for WASM
+const BASE_THRESHOLD = 32; // Minimum total output elements for WASM
 
 type WasmKronFn = (
   a: number,

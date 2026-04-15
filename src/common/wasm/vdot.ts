@@ -14,7 +14,7 @@ import { Complex } from '../complex';
 
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64; // Minimum K for WASM
+const BASE_THRESHOLD = 32; // Minimum K for WASM
 
 type WasmVdotFn = (a: number, b: number, out: number, K: number) => void;
 

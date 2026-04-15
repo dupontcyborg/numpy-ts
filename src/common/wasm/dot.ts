@@ -21,7 +21,7 @@ function float(): typeof floatBase {
   return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
 }
 
-const BASE_THRESHOLD = 128; // Minimum K for WASM to be worth it
+const BASE_THRESHOLD = 32; // Minimum K for WASM to be worth it
 
 type WasmDotFn = (aPtr: number, bPtr: number, outPtr: number, K: number) => void;
 

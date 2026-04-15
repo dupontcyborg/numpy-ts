@@ -16,7 +16,7 @@ import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type IndicesKernel2D = (out: number, d0: number, d1: number) => void;
 type IndicesKernel3D = (out: number, d0: number, d1: number, d2: number) => void;

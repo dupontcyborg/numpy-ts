@@ -38,6 +38,7 @@ import {
   wasmReduceProdStridedComplex,
 } from '../wasm/reduce_prod';
 import { wasmReduceQuantile, wasmReduceQuantileStrided } from '../wasm/reduce_quantile';
+import { wasmNanquantile, wasmNanquantileStrided } from '../wasm/nanquantile';
 import { wasmReduceAny } from '../wasm/reduce_any';
 import { wasmReduceAll } from '../wasm/reduce_all';
 import { wasmReduceStd } from '../wasm/reduce_std';
@@ -5658,6 +5659,10 @@ export function nanquantile(
   const inputStrides = storage.strides;
 
   if (axis === undefined) {
+    // WASM fast path for full-array nanquantile
+    const wasmQ = wasmNanquantile(storage, q);
+    if (wasmQ !== null) return wasmQ;
+
     const values: number[] = [];
     const contiguous = storage.isCContiguous;
     if (contiguous) {
@@ -5710,6 +5715,40 @@ export function nanquantile(
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
   const axisSize = shape[normalizedAxis]!;
+
+  // WASM fast path for strided nanquantile
+  if (storage.isCContiguous) {
+    const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
+    const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+    const wasmResult = wasmNanquantileStrided(storage, wasmOuter, axisSize, innerSize, q);
+    if (wasmResult) {
+      if (keepdims) {
+        const keepdimsShape = [...shape];
+        keepdimsShape[normalizedAxis] = 1;
+        const shared = ArrayStorage.fromDataShared(
+          wasmResult.data,
+          keepdimsShape,
+          'float64',
+          computeStrides(keepdimsShape),
+          0,
+          wasmResult.wasmRegion
+        );
+        wasmResult.dispose();
+        return shared;
+      }
+      const reshaped = ArrayStorage.fromDataShared(
+        wasmResult.data,
+        outputShape,
+        'float64',
+        computeStrides(outputShape),
+        0,
+        wasmResult.wasmRegion
+      );
+      wasmResult.dispose();
+      return reshaped;
+    }
+  }
+
   const result = ArrayStorage.empty(outputShape, 'float64');
   const resultData = result.data as Float64Array;
 

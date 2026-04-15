@@ -39,7 +39,7 @@ import {
 } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type BinaryFn = (aPtr: number, bPtr: number, outPtr: number, N: number) => void;
 

@@ -98,34 +98,82 @@ export fn reduce_argmax_u32(a: [*]const u32, N: u32) u32 {
     return idx;
 }
 
-/// Returns the index of the maximum i16 element. Returns 0 if N=0.
+/// Returns the index of the maximum i16 element. Two-pass 8-wide SIMD.
 export fn reduce_argmax_i16(a: [*]const i16, N: u32) u32 {
     if (N == 0) return 0;
-    var best: i16 = a[0];
-    var idx: u32 = 0;
-    var i: u32 = 1;
-    while (i < N) : (i += 1) {
-        if (a[i] > best) {
-            best = a[i];
-            idx = i;
+    // Pass 1: find max value using 8-wide SIMD
+    const n8 = N & ~@as(u32, 7);
+    var max_val: i16 = a[0];
+    if (n8 >= 8) {
+        var acc = simd.load8_i16(a, 0);
+        var i: u32 = 8;
+        while (i < n8) : (i += 8) acc = @max(acc, simd.load8_i16(a, i));
+        max_val = acc[0];
+        inline for (1..8) |lane| {
+            if (acc[lane] > max_val) max_val = acc[lane];
         }
     }
-    return idx;
+    {
+        var i: u32 = n8;
+        while (i < N) : (i += 1) {
+            if (a[i] > max_val) max_val = a[i];
+        }
+    }
+    // Pass 2: find first index with that value
+    const target: simd.V8i16 = @splat(max_val);
+    {
+        var i: u32 = 0;
+        while (i < n8) : (i += 8) {
+            const eq = simd.load8_i16(a, i) == target;
+            inline for (0..8) |lane| {
+                if (eq[lane]) return i + @as(u32, lane);
+            }
+        }
+        var j: u32 = n8;
+        while (j < N) : (j += 1) {
+            if (a[j] == max_val) return j;
+        }
+    }
+    return 0;
 }
 
-/// Returns the index of the maximum u16 element. Returns 0 if N=0.
+/// Returns the index of the maximum u16 element. Two-pass 8-wide SIMD.
 export fn reduce_argmax_u16(a: [*]const u16, N: u32) u32 {
     if (N == 0) return 0;
-    var best: u16 = a[0];
-    var idx: u32 = 0;
-    var i: u32 = 1;
-    while (i < N) : (i += 1) {
-        if (a[i] > best) {
-            best = a[i];
-            idx = i;
+    // Pass 1: find max value using 8-wide SIMD
+    const n8 = N & ~@as(u32, 7);
+    var max_val: u16 = a[0];
+    if (n8 >= 8) {
+        var acc = simd.load8_u16(a, 0);
+        var i: u32 = 8;
+        while (i < n8) : (i += 8) acc = @max(acc, simd.load8_u16(a, i));
+        max_val = acc[0];
+        inline for (1..8) |lane| {
+            if (acc[lane] > max_val) max_val = acc[lane];
         }
     }
-    return idx;
+    {
+        var i: u32 = n8;
+        while (i < N) : (i += 1) {
+            if (a[i] > max_val) max_val = a[i];
+        }
+    }
+    // Pass 2: find first index with that value
+    const target: simd.V8u16 = @splat(max_val);
+    {
+        var i: u32 = 0;
+        while (i < n8) : (i += 8) {
+            const eq = simd.load8_u16(a, i) == target;
+            inline for (0..8) |lane| {
+                if (eq[lane]) return i + @as(u32, lane);
+            }
+        }
+        var j: u32 = n8;
+        while (j < N) : (j += 1) {
+            if (a[j] == max_val) return j;
+        }
+    }
+    return 0;
 }
 
 /// Returns the index of the maximum i8 element. Two-pass SIMD.

@@ -209,3 +209,34 @@ test "reciprocal_i16 basic" {
     try testing.expectEqual(out[1], 0);
     try testing.expectEqual(out[2], 0);
 }
+
+test "reciprocal_u64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 1, 2, 100, 0 };
+    var out: [4]u64 = undefined;
+    reciprocal_u64(&a, &out, 4);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 0); // 1/2 truncates to 0
+    try testing.expectEqual(out[2], 0); // 1/100 truncates to 0
+    try testing.expectEqual(out[3], 0); // div by zero → 0
+}
+
+test "reciprocal_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 1, 5, 0 };
+    var out: [3]u32 = undefined;
+    reciprocal_u32(&a, &out, 3);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 0);
+    try testing.expectEqual(out[2], 0); // div by zero → 0
+}
+
+test "reciprocal_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 1, 7, 0 };
+    var out: [3]u16 = undefined;
+    reciprocal_u16(&a, &out, 3);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 0);
+    try testing.expectEqual(out[2], 0); // div by zero → 0
+}

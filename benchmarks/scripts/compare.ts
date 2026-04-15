@@ -18,7 +18,14 @@ const root = resolve(import.meta.dirname, '../..');
 const args = process.argv.slice(2);
 const useMain = args.includes('--main');
 const positional = args.filter(a => !a.startsWith('--'));
-const variant = positional[0] === 'latest-full' ? 'latest-full' : 'latest';
+const sizeMap: Record<string, string> = {
+  small: 'latest-full-small',
+  medium: 'latest-full',
+  large: 'latest-full-large',
+  pyodide: 'latest-full-pyodide',
+};
+const sizeArg = positional.find(a => a in sizeMap);
+const variant = sizeArg ? sizeMap[sizeArg]! : positional[0] ?? 'latest-full';
 const relPath = `benchmarks/results/${variant}.json`;
 const localPath = resolve(root, relPath);
 

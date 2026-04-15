@@ -17,6 +17,7 @@ import { wasmArgpartition, wasmArgpartitionSlices } from '../wasm/argpartition';
 import { wasmSearchsorted } from '../wasm/searchsorted';
 import { wasmLexsort } from '../wasm/lexsort';
 import { wasmExtract, wasmWhere } from '../wasm/gather';
+import { wasmArgwhereFlat } from '../wasm/argwhere';
 
 /**
  * Check if a value at index i is non-zero (truthy)
@@ -1257,6 +1258,26 @@ export function argwhere(storage: ArrayStorage): ArrayStorage {
   for (let i = ndim - 1; i >= 0; i--) {
     logicalStrides.unshift(stride);
     stride *= shape[i]!;
+  }
+
+  // WASM fast path: scan flat indices in Zig, convert to multi-indices in JS
+  if (contiguous && !isComplex) {
+    const flatIndices = wasmArgwhereFlat(storage);
+    if (flatIndices !== null) {
+      const numNz = flatIndices.length;
+      const result = ArrayStorage.zeros([numNz, outNdim], 'float64');
+      const resultData = result.data as Float64Array;
+      for (let k = 0; k < numNz; k++) {
+        let remaining = flatIndices[k]!;
+        const base = k * outNdim;
+        for (let dim = 0; dim < ndim; dim++) {
+          const s = logicalStrides[dim]!;
+          resultData[base + dim] = (remaining / s) | 0;
+          remaining = remaining % s;
+        }
+      }
+      return result;
+    }
   }
 
   // Pass 1: count non-zero elements (no allocations)

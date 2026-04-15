@@ -10,6 +10,7 @@
 
 import { ArrayStorage } from '../storage';
 import { isBigIntDType, isIntegerDType, promoteDTypes, DType } from '../dtype';
+import { wasmPackbits, wasmUnpackbits } from '../wasm/packbits';
 
 function boolToInt8(a: ArrayStorage): ArrayStorage {
   const result = ArrayStorage.empty(Array.from(a.shape), 'int8');
@@ -831,11 +832,22 @@ export function packbits(
   const outShape = [...shape];
   outShape[axis] = packedAxisSize;
 
-  const result = ArrayStorage.empty(outShape, 'uint8');
-  const resultData = result.data as Uint8Array;
-
   const aOff = a.offset;
   const aContiguous = a.isCContiguous;
+
+  // WASM fast path (1D, big-endian, contiguous uint8/bool only) — before JS allocation
+  if (
+    ndim === 1 &&
+    bitorder === 'big' &&
+    aContiguous &&
+    (a.dtype === 'uint8' || a.dtype === 'bool')
+  ) {
+    const wasmResult = wasmPackbits(a);
+    if (wasmResult) return wasmResult;
+  }
+
+  const result = ArrayStorage.empty(outShape, 'uint8');
+  const resultData = result.data as Uint8Array;
 
   // For 1D arrays, simple case
   if (ndim === 1) {
@@ -990,11 +1002,17 @@ export function unpackbits(
   const outShape = [...shape];
   outShape[axis] = unpackedAxisSize;
 
-  const result = ArrayStorage.zeros(outShape, 'uint8');
-  const resultData = result.data as Uint8Array;
-
   const aOff = a.offset;
   const aContiguous = a.isCContiguous;
+
+  // WASM fast path (1D, big-endian, contiguous uint8 only) — before JS allocation
+  if (ndim === 1 && bitorder === 'big' && aContiguous) {
+    const wasmResult = wasmUnpackbits(a, unpackedAxisSize);
+    if (wasmResult) return wasmResult;
+  }
+
+  const result = ArrayStorage.zeros(outShape, 'uint8');
+  const resultData = result.data as Uint8Array;
 
   // For 1D arrays, simple case
   if (ndim === 1) {

@@ -3620,7 +3620,6 @@ export function getBenchmarkSpecs(
       iterations,
       warmup,
     });
-
   }
 
   // ========================================

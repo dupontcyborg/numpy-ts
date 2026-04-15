@@ -41,7 +41,7 @@ import { ArrayStorage } from '../storage';
 import { effectiveDType, type DType, TypedArray } from '../dtype';
 import { wasmConfig } from './config';
 
-const BASE_THRESHOLD = 64;
+const BASE_THRESHOLD = 32;
 
 type ArgpartitionFn = (aPtr: number, outPtr: number, N: number, kth: number) => void;
 type SliceArgpartitionFn = (
