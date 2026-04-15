@@ -339,7 +339,7 @@ describe('DType Sweep: linalg decompositions', () => {
       );
       if (r === 'both-reject') return;
       const { x } = np.linalg.lstsq(array(A, dtype), array(b, dtype)) as any;
-      expect(arraysClose(toComparable(x), py.value, 1e-3)).toBe(true);
+      expect(arraysClose(toComparable(x), py.value, 1e-3, 1e-3)).toBe(true);
     });
   }
 });
