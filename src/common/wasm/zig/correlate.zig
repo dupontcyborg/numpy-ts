@@ -188,6 +188,60 @@ test "correlate_i8 basic" {
     try testing.expectEqual(out[3], 3);
 }
 
+test "correlate_u32 basic" {
+    const testing = @import("std").testing;
+    // u32: same numbers as i32 basic test (all non-negative)
+    const a = [_]u32{ 1, 2, 3 };
+    const v = [_]u32{ 0, 1, 2 };
+    var out: [5]u32 = undefined;
+    correlate_u32(&a, 3, &v, 3, &out, 5);
+    try testing.expectEqual(out[0], 2);
+    try testing.expectEqual(out[1], 5);
+    try testing.expectEqual(out[2], 8);
+    try testing.expectEqual(out[3], 3);
+    try testing.expectEqual(out[4], 0);
+}
+
+test "correlate_i16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{ 1, 2, 3 };
+    const v = [_]i16{ 1, 1 };
+    var out: [4]i16 = undefined;
+    correlate_i16(&a, 3, &v, 2, &out, 4);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 3);
+    try testing.expectEqual(out[2], 5);
+    try testing.expectEqual(out[3], 3);
+}
+
+test "correlate_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u16{ 10, 20, 30 };
+    const v = [_]u16{ 1, 2 };
+    var out: [4]u16 = undefined;
+    // correlate reverses v: out[k] = sum a[j] * v[j + offset]
+    correlate_u16(&a, 3, &v, 2, &out, 4);
+    try testing.expectEqual(out[0], 20); // 10 * 2
+    try testing.expectEqual(out[1], 50); // 10*1 + 20*2
+    try testing.expectEqual(out[2], 80); // 20*1 + 30*2
+    try testing.expectEqual(out[3], 30); // 30 * 1
+}
+
+test "correlate_u8 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u8{ 1, 2, 3, 4 };
+    const v = [_]u8{ 1, 0, 1 };
+    var out: [6]u8 = undefined;
+    // v reversed = [1, 0, 1] (palindrome) → same as convolution
+    correlate_u8(&a, 4, &v, 3, &out, 6);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+    try testing.expectEqual(out[2], 4);
+    try testing.expectEqual(out[3], 6);
+    try testing.expectEqual(out[4], 3);
+    try testing.expectEqual(out[5], 4);
+}
+
 test "correlate_f64 different lengths" {
     const testing = @import("std").testing;
     const a = [_]f64{ 1, 2, 3, 4, 5 };

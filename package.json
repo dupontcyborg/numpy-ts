@@ -68,6 +68,7 @@
     "report:zig-coverage": "npx tsx scripts/zig-fn-coverage.ts",
     "report:zig-dead-code": "npx tsx scripts/zig-dead-code.ts",
     "report:slowest": "npx tsx scripts/slowest-functions.ts",
+    "report:wasm-size": "tsx scripts/wasm-size.ts",
     "bench:build": "esbuild benchmarks/src/index.ts --bundle --platform=node --format=cjs --external:pyodide --outfile=benchmarks/dist/bench.cjs && esbuild benchmarks/src/runtime-runner.ts --bundle --platform=neutral --format=esm --external:node:fs --external:node:fs/promises --outfile=benchmarks/dist/runtime-runner.mjs",
     "bench": "npm run bench:build && node benchmarks/dist/bench.cjs --full",
     "bench:node": "npm run bench:build && node benchmarks/dist/bench.cjs --full --runtime node",
@@ -78,8 +79,7 @@
     "bench:compare": "tsx benchmarks/scripts/compare.ts",
     "bench:regenerate": "tsx benchmarks/scripts/regenerate-charts.ts",
     "bench:view": "open benchmarks/results/plots/latest-full.html || xdg-open benchmarks/results/plots/latest-full.html",
-    "bench:docs": "python3 scripts/generate-bench-docs.py && python3 scripts/generate-overview-charts.py",
-    "wasm:size": "tsx scripts/wasm-size.ts"
+    "bench:docs": "python3 scripts/generate-bench-docs.py && python3 scripts/generate-overview-charts.py"
   },
   "keywords": [
     "numpy",

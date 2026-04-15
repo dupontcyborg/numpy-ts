@@ -1,21 +1,10 @@
 //! WASM argwhere kernels — find flat indices of non-zero elements.
 //!
-//! Two operations per type:
-//!   argwhere_count_<T>(a, N)      → count of non-zero elements
-//!   argwhere_fill_<T>(a, out, N)  → fills `out` with flat indices, returns count
+//! argwhere_fill_<T>(a, out, N) → fills `out` with flat indices, returns count.
 //!
-//! The TS wrapper uses count to allocate, then fill to populate.
+//! The TS wrapper allocates a worst-case (N u32) output buffer in scratch,
+//! then calls fill once and copies out the populated prefix.
 //! Scalar loops for all types — the win is avoiding JS overhead.
-
-/// Count non-zero f64 elements in `a[0..N]`.
-export fn argwhere_count_f64(a: [*]const f64, N: u32) u32 {
-    var count: u32 = 0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        if (a[i] != 0) count += 1;
-    }
-    return count;
-}
 
 /// Write flat indices of non-zero f64 elements into `out`. Returns count written.
 export fn argwhere_fill_f64(a: [*]const f64, out: [*]u32, N: u32) u32 {
@@ -26,16 +15,6 @@ export fn argwhere_fill_f64(a: [*]const f64, out: [*]u32, N: u32) u32 {
             out[count] = i;
             count += 1;
         }
-    }
-    return count;
-}
-
-/// Count non-zero f32 elements in `a[0..N]`.
-export fn argwhere_count_f32(a: [*]const f32, N: u32) u32 {
-    var count: u32 = 0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        if (a[i] != 0) count += 1;
     }
     return count;
 }
@@ -53,17 +32,8 @@ export fn argwhere_fill_f32(a: [*]const f32, out: [*]u32, N: u32) u32 {
     return count;
 }
 
-/// Count non-zero i64 elements in `a[0..N]`. Also handles u64 via reinterpret.
-export fn argwhere_count_i64(a: [*]const i64, N: u32) u32 {
-    var count: u32 = 0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        if (a[i] != 0) count += 1;
-    }
-    return count;
-}
-
 /// Write flat indices of non-zero i64 elements into `out`. Returns count written.
+/// Also handles u64 via reinterpret.
 export fn argwhere_fill_i64(a: [*]const i64, out: [*]u32, N: u32) u32 {
     var count: u32 = 0;
     var i: u32 = 0;
@@ -76,17 +46,8 @@ export fn argwhere_fill_i64(a: [*]const i64, out: [*]u32, N: u32) u32 {
     return count;
 }
 
-/// Count non-zero i32 elements in `a[0..N]`. Also handles u32 via reinterpret.
-export fn argwhere_count_i32(a: [*]const i32, N: u32) u32 {
-    var count: u32 = 0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        if (a[i] != 0) count += 1;
-    }
-    return count;
-}
-
 /// Write flat indices of non-zero i32 elements into `out`. Returns count written.
+/// Also handles u32 via reinterpret.
 export fn argwhere_fill_i32(a: [*]const i32, out: [*]u32, N: u32) u32 {
     var count: u32 = 0;
     var i: u32 = 0;
@@ -99,17 +60,8 @@ export fn argwhere_fill_i32(a: [*]const i32, out: [*]u32, N: u32) u32 {
     return count;
 }
 
-/// Count non-zero i16 elements in `a[0..N]`. Also handles u16 via reinterpret.
-export fn argwhere_count_i16(a: [*]const i16, N: u32) u32 {
-    var count: u32 = 0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        if (a[i] != 0) count += 1;
-    }
-    return count;
-}
-
 /// Write flat indices of non-zero i16 elements into `out`. Returns count written.
+/// Also handles u16 via reinterpret.
 export fn argwhere_fill_i16(a: [*]const i16, out: [*]u32, N: u32) u32 {
     var count: u32 = 0;
     var i: u32 = 0;
@@ -122,17 +74,8 @@ export fn argwhere_fill_i16(a: [*]const i16, out: [*]u32, N: u32) u32 {
     return count;
 }
 
-/// Count non-zero i8 elements in `a[0..N]`. Also handles u8 via reinterpret.
-export fn argwhere_count_i8(a: [*]const i8, N: u32) u32 {
-    var count: u32 = 0;
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        if (a[i] != 0) count += 1;
-    }
-    return count;
-}
-
 /// Write flat indices of non-zero i8 elements into `out`. Returns count written.
+/// Also handles u8 via reinterpret.
 export fn argwhere_fill_i8(a: [*]const i8, out: [*]u32, N: u32) u32 {
     var count: u32 = 0;
     var i: u32 = 0;
@@ -157,11 +100,6 @@ test "argwhere_fill_f64 basic" {
     try testing.expectEqual(out[0], 0);
     try testing.expectEqual(out[1], 2);
     try testing.expectEqual(out[2], 4);
-}
-
-test "argwhere_count_f64 basic" {
-    const a = [_]f64{ 1.0, 0.0, 3.0, 0.0, 5.0 };
-    try testing.expectEqual(argwhere_count_f64(&a, 5), 3);
 }
 
 test "argwhere_fill_f64 all zero" {
@@ -231,13 +169,4 @@ test "argwhere_fill_i8 basic" {
     try testing.expectEqual(count, 2);
     try testing.expectEqual(out[0], 0);
     try testing.expectEqual(out[1], 2);
-}
-
-test "argwhere_count_i8 matches fill count" {
-    const a = [_]i8{ 1, 0, -1, 0, 5, 0, 0, 3 };
-    const count = argwhere_count_i8(&a, 8);
-    var out: [8]u32 = undefined;
-    const fill_count = argwhere_fill_i8(&a, &out, 8);
-    try testing.expectEqual(count, fill_count);
-    try testing.expectEqual(count, 4);
 }

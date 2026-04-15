@@ -164,3 +164,27 @@ test "nanquantile_strided_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 2.0, 1e-10); // median of [1, 3]
     try testing.expectApproxEqAbs(out[1], 5.5, 1e-10); // median of [5, 6]
 }
+
+test "nanquantile_strided_f32 basic" {
+    const testing = @import("std").testing;
+    const nan = @as(f32, @bitCast(@as(u32, 0x7FC00000)));
+    // 2x3 array: [[1, nan, 3], [nan, 5, 6]], reduce along axis_size=3
+    const a = [_]f32{ 1.0, nan, 3.0, nan, 5.0, 6.0 };
+    var out: [2]f64 = undefined;
+    var work: [3]f32 = undefined;
+    nanquantile_strided_f32(&a, &out, 2, 3, 1, 0.5, &work);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-5); // median of [1, 3]
+    try testing.expectApproxEqAbs(out[1], 5.5, 1e-5); // median of [5, 6]
+}
+
+test "nanquantile_strided_f32 all NaN row outputs NaN" {
+    const testing = @import("std").testing;
+    const nan = @as(f32, @bitCast(@as(u32, 0x7FC00000)));
+    // 2x2: first row all NaN, second row valid → out[0] = NaN, out[1] = median
+    const a = [_]f32{ nan, nan, 4.0, 8.0 };
+    var out: [2]f64 = undefined;
+    var work: [2]f32 = undefined;
+    nanquantile_strided_f32(&a, &out, 2, 2, 1, 0.5, &work);
+    try testing.expect(out[0] != out[0]); // NaN
+    try testing.expectApproxEqAbs(out[1], 6.0, 1e-5);
+}
