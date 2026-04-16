@@ -2,7 +2,8 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm version](https://img.shields.io/npm/v/numpy-ts)](https://www.npmjs.com/package/numpy-ts)
-![bundle size](https://img.shields.io/bundlejs/size/numpy-ts)
+![npm package minimized gzipped size](https://img.shields.io/bundlejs/size/numpy-ts?label=size%20(full%20lib))
+![npm package minimized gzipped size](https://img.shields.io/bundlejs/size/numpy-ts?exports=wasmConfig&label=size%20(single%20function))
 ![numpy api coverage](https://img.shields.io/badge/numpy_api_coverage-94%20%25-brightgreen)
 
 <picture>
