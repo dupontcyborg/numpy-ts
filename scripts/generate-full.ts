@@ -440,6 +440,9 @@ export { Complex } from '../common/complex';
   output.push('// WASM configuration');
   output.push(`export { wasmConfig } from '../common/wasm/config';`);
   output.push(`export { configureWasm } from '../common/wasm/runtime';`);
+  output.push('');
+  output.push('// Runtime capabilities');
+  output.push(`export { hasFloat16 } from '../common/dtype';`);
 
   // Write output
   const outputContent = output.join('\n');

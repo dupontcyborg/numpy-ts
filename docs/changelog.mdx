@@ -4,6 +4,20 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.3.1" description="2026-04-16">
+
+## numpy-ts v1.3.1
+
+Patch release with new WASM kernels, performance improvements, and export fixes.
+
+* **New WASM kernels**: `conj`, `deg2rad`, `modf`, `packbits`, `nanquantile`, `argwhere`, and `float32` SVD
+* Optimized WASM SIMD for `argmin`/`argmax` int16/uint16 paths
+* Reduced WASM base threshold for earlier WASM dispatch on smaller arrays
+* **Export fixes**: `configureWasm`, `wasmConfig`, and `hasFloat16` now exported from `core` and `full` entrypoints
+* Benchmark runner refactored from if-else chain to dictionary lookup
+
+</Update>
+
 <Update label="v1.3.0" description="2026-04-13">
 
 ## numpy-ts v1.3.0

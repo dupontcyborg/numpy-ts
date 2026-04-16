@@ -464,6 +464,13 @@ export {
 export { parseTxt, genfromtxt, fromregex, type ParseTxtOptions } from '../io/txt/parser';
 export { serializeTxt, type SerializeTxtOptions } from '../io/txt/serializer';
 
+// WASM configuration
+export { wasmConfig } from '../common/wasm/config';
+export { configureWasm } from '../common/wasm/runtime';
+
+// Runtime capabilities
+export { hasFloat16 } from '../common/dtype';
+
 // Random Namespace (core.random)
 
 import * as randomOps from '../common/ops/random';
