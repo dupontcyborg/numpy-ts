@@ -21,7 +21,7 @@ import webpack from 'webpack';
 import { mkdir, readFile, stat } from 'fs/promises';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 import { NUMPY_TS_ESM, NUMPY_TS_CORE } from './shared';
 
@@ -35,7 +35,7 @@ const NUMPY_TS_BROWSER = resolve(__dirname, '../../dist/numpy-ts.browser.js');
 
 /** Run a bundled JS file with Node and return stdout. Throws on non-zero exit. */
 function execBundle(file: string): string {
-  return execSync(`node ${file}`, {
+  return execFileSync('node', [file], {
     encoding: 'utf-8',
     timeout: 15000,
     env: { ...process.env, NODE_NO_WARNINGS: '1' },
