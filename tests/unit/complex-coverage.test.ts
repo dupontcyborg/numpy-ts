@@ -491,6 +491,7 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   fft: 'skip', // namespace object
   wasmConfig: 'skip', // WASM runtime configuration object
   configureWasm: 'skip', // WASM runtime configuration function
+  wasmFreeBytes: 'skip', // WASM memory introspection function
   hasFloat16: 'skip', // Runtime feature detection flag (not a function)
 
   // IO functions

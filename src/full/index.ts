@@ -1941,7 +1941,7 @@ export {
 
 // WASM configuration
 export { wasmConfig } from '../common/wasm/config';
-export { configureWasm } from '../common/wasm/runtime';
+export { configureWasm, wasmFreeBytes } from '../common/wasm/runtime';
 
 // Runtime capabilities
 export { hasFloat16 } from '../common/dtype';
