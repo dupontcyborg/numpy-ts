@@ -67,3 +67,6 @@ tests/tree-shaking/.output/
 .wasm-tmp/
 .wasm-cache.json
 .wasm-cache/
+
+# Stargazers data
+stargazers*.tsv

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
+  "files": {
+    "includes": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "benchmarks/src/**/*.ts"]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always",
+      "arrowParentheses": "always"
+    },
+    "globals": [
+      "console", "process", "Buffer", "__dirname", "__filename",
+      "module", "require", "exports",
+      "TextEncoder", "TextDecoder", "CompressionStream", "DecompressionStream",
+      "WebAssembly", "atob"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noGlobalIsNan": "off",
+        "noGlobalIsFinite": "off",
+        "noSelfCompare": "off",
+        "noAssignInExpressions": "off",
+        "noImplicitAnyLet": "off",
+        "noApproximativeNumericConstant": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "noUnusedFunctionParameters": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useImportType": "off",
+        "useNodejsImportProtocol": "off",
+        "useTemplate": "off",
+        "useExponentiationOperator": "off",
+        "useConst": "off"
+      },
+      "complexity": {
+        "useLiteralKeys": "off",
+        "useArrowFunction": "off",
+        "useOptionalChain": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["tests/**/*.ts", "scripts/**/*.ts", "benchmarks/src/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noExplicitAny": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["tests/bundles/browser*.ts"],
+      "javascript": {
+        "globals": ["document", "window"]
+      }
+    },
+    {
+      "includes": ["src/node.ts"],
+      "linter": {
+        "rules": {
+          "style": { "noCommonJs": "off" }
+        }
+      }
+    }
+  ]
+}
