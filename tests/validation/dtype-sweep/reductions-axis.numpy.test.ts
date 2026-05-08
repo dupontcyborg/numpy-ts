@@ -3,21 +3,21 @@
  * Tests each function across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
-  isComplex,
-  pyScalarCast,
-  pyArrayCast,
-  scalarClose,
   expectBothReject,
   expectMatchPre,
+  isComplex,
+  npDtype,
+  pyArrayCast,
+  pyScalarCast,
+  runNumPyBatch,
+  scalarClose,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -116,7 +116,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'quantile uses subtract internally, not supported for bool',
           () => np.quantile(array(data, dtype), 0.5),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -126,7 +126,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'quantile is not supported for complex dtype',
           () => np.quantile(array(data, dtype), 0.5),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -142,7 +142,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'nanquantile uses subtract internally, not supported for bool',
           () => np.nanquantile(array(data, dtype), 0.5),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -152,7 +152,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'nanquantile is not supported for complex dtype',
           () => np.nanquantile(array(data, dtype), 0.5),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -168,7 +168,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'percentile uses subtract internally, not supported for bool',
           () => np.percentile(array(data, dtype), 50),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -178,7 +178,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'percentile is not supported for complex dtype',
           () => np.percentile(array(data, dtype), 50),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -194,7 +194,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'nanpercentile uses subtract internally, not supported for bool',
           () => np.nanpercentile(array(data, dtype), 50),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -204,7 +204,7 @@ describe('DType Sweep: Quantile/percentile', () => {
         const _r = expectBothReject(
           'nanpercentile is not supported for complex dtype',
           () => np.nanpercentile(array(data, dtype), 50),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -243,7 +243,7 @@ describe('DType Sweep: Cumulative & misc reductions', () => {
         const _r = expectBothReject(
           'ediff1d uses subtract internally, not supported for bool',
           () => np.ediff1d(array(data, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }

@@ -1,19 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   array,
   bitwise_and,
-  bitwise_or,
-  bitwise_xor,
-  bitwise_not,
-  invert,
-  left_shift,
-  right_shift,
-  packbits,
-  unpackbits,
   bitwise_count,
   bitwise_invert,
   bitwise_left_shift,
+  bitwise_not,
+  bitwise_or,
   bitwise_right_shift,
+  bitwise_xor,
+  invert,
+  left_shift,
+  packbits,
+  right_shift,
+  unpackbits,
 } from '../../src/index';
 
 describe('Bitwise Operations', () => {
@@ -54,7 +54,7 @@ describe('Bitwise Operations', () => {
           [0b1111, 0b1010],
           [0b0101, 0b1100],
         ],
-        'int32'
+        'int32',
       );
       const b = array([0b1100, 0b0011], 'int32');
       const result = bitwise_and(a, b);
@@ -111,7 +111,7 @@ describe('Bitwise Operations', () => {
           [0b1000, 0b0001],
           [0b0010, 0b0100],
         ],
-        'int32'
+        'int32',
       );
       const b = array([0b0001, 0b1000], 'int32');
       const result = bitwise_or(a, b);
@@ -158,7 +158,7 @@ describe('Bitwise Operations', () => {
           [0b1111, 0b0000],
           [0b1010, 0b0101],
         ],
-        'int32'
+        'int32',
       );
       const b = array([0b1010, 0b0101], 'int32');
       const result = bitwise_xor(a, b);
@@ -371,7 +371,7 @@ describe('Bitwise Operations', () => {
           [0b1111, 0b1010],
           [0b0101, 0b0000],
         ],
-        'int32'
+        'int32',
       );
       const result = bitwise_and(a, 0b1100);
       expect(result.toArray()).toEqual([
@@ -386,7 +386,7 @@ describe('Bitwise Operations', () => {
           [0b0000, 0b0000],
           [0b0000, 0b0000],
         ],
-        'int32'
+        'int32',
       );
       const b = array([0b1010, 0b0101], 'int32');
       const result = bitwise_or(a, b);
@@ -476,14 +476,14 @@ describe('Bitwise Operations', () => {
           [0b1111, 0b1010],
           [0b0101, 0b0000],
         ],
-        'int32'
+        'int32',
       );
       const b = array(
         [
           [0b1010, 0b1111],
           [0b1111, 0b1010],
         ],
-        'int32'
+        'int32',
       );
       const result = bitwise_and(a, b);
       expect(result.toArray()).toEqual([
@@ -499,7 +499,7 @@ describe('Bitwise Operations', () => {
           [1, 2],
           [4, 8],
         ],
-        'int32'
+        'int32',
       );
       const result = left_shift(a, 1);
       expect(result.toArray()).toEqual([
@@ -532,7 +532,7 @@ describe('Bitwise Operations', () => {
           [1, 3],
           [7, 15],
         ],
-        'uint8'
+        'uint8',
       );
       const result = bitwise_count(a);
       expect(result.toArray()).toEqual([
@@ -623,7 +623,7 @@ describe('Bitwise Operations', () => {
           [1, 0, 1, 0, 1, 0, 1, 0],
           [0, 1, 0, 1, 0, 1, 0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r = packbits(a, 1);
       expect(r.ndim).toBe(2);
@@ -890,7 +890,7 @@ describe('Bitwise Operations', () => {
           [0, 1],
           [0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r = packbits(a, 0);
       expect(r.shape).toEqual([1, 2]);
@@ -905,7 +905,7 @@ describe('Bitwise Operations', () => {
           [1, 0, 1, 0, 1, 0, 1, 0],
           [0, 1, 0, 1, 0, 1, 0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r = packbits(a, 1, 'little');
       expect(r.shape).toEqual([2, 1]);
@@ -921,7 +921,7 @@ describe('Bitwise Operations', () => {
           [1, 1, 0],
           [0, 1, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r = packbits(a, 1);
       expect(r.shape).toEqual([2, 1]);
@@ -938,7 +938,7 @@ describe('Bitwise Operations', () => {
           [1, 1],
           [0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r = packbits(a, 0);
       expect(r.shape).toEqual([1, 2]);
@@ -1258,7 +1258,7 @@ describe('Bitwise Operations', () => {
           [1, 0, 1, 0, 1, 0, 1, 0],
           [0, 1, 0, 1, 0, 1, 0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const packed = packbits(original, 1);
       const unpacked = unpackbits(packed, 1);
@@ -1276,7 +1276,7 @@ describe('Bitwise Operations', () => {
           [1, 2],
           [4, 8],
         ],
-        'int32'
+        'int32',
       );
       const b = array([1, 2], 'int32');
       const result = left_shift(a, b);
@@ -1294,7 +1294,7 @@ describe('Bitwise Operations', () => {
           [8, 16],
           [32, 64],
         ],
-        'int32'
+        'int32',
       );
       const b = array([1, 2], 'int32');
       const result = right_shift(a, b);
@@ -1314,7 +1314,7 @@ describe('Bitwise Operations', () => {
           [1n, 2n],
           [4n, 8n],
         ],
-        'int64'
+        'int64',
       );
       const b = array([1n, 2n], 'int64');
       const result = left_shift(a, b);
@@ -1330,7 +1330,7 @@ describe('Bitwise Operations', () => {
           [8n, 16n],
           [32n, 64n],
         ],
-        'int64'
+        'int64',
       );
       const b = array([1n, 2n], 'int64');
       const result = right_shift(a, b);

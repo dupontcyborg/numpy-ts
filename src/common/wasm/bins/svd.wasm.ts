@@ -30,7 +30,7 @@ export function svd_f64(
   vt: number,
   work: number,
   m_arg: number,
-  n_arg: number
+  n_arg: number,
 ): void {
   const i = init();
   (i.exports['svd_f64'] as (...args: number[]) => void)(a, u_out, s, vt, work, m_arg, n_arg);
@@ -43,7 +43,7 @@ export function svd_f32(
   vt: number,
   work: number,
   m_arg: number,
-  n_arg: number
+  n_arg: number,
 ): void {
   const i = init();
   (i.exports['svd_f32'] as (...args: number[]) => void)(a, u_out, s, vt, work, m_arg, n_arg);
@@ -54,7 +54,7 @@ export function svd_values_gk_f64(
   s: number,
   scratch: number,
   m_arg: number,
-  n_arg: number
+  n_arg: number,
 ): void {
   const i = init();
   (i.exports['svd_values_gk_f64'] as (...args: number[]) => void)(a_in, s, scratch, m_arg, n_arg);

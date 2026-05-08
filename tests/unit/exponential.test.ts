@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   array,
+  Complex,
   exp,
   exp2,
   expm1,
   log,
+  log1p,
   log2,
   log10,
-  log1p,
   logaddexp,
   logaddexp2,
   power,
-  Complex,
 } from '../../src';
 
 describe('Exponential Operations', () => {

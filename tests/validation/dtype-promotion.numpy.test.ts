@@ -3,10 +3,10 @@
  * Tests that our dtype promotion matches Python NumPy exactly
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { promoteDTypes } from '../../src/common/dtype';
+import { beforeAll, describe, expect, it } from 'vitest';
 import type { DType } from '../../src/common/dtype';
-import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
+import { promoteDTypes } from '../../src/common/dtype';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: DType Promotion', () => {
   beforeAll(() => {

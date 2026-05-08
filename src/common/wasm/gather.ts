@@ -2,49 +2,49 @@
  * WASM-accelerated extract and take_along_axis operations.
  */
 
+import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  extract_f64,
   extract_f32,
-  extract_i64,
-  extract_u64,
-  extract_i32,
-  extract_u32,
-  extract_i16,
-  extract_u16,
+  extract_f64,
   extract_i8,
+  extract_i16,
+  extract_i32,
+  extract_i64,
   extract_u8,
-  take_axis0_2d_f64,
+  extract_u16,
+  extract_u32,
+  extract_u64,
   take_axis0_2d_f32,
-  take_axis0_2d_i64,
-  take_axis0_2d_u64,
-  take_axis0_2d_i32,
-  take_axis0_2d_u32,
-  take_axis0_2d_i16,
-  take_axis0_2d_u16,
+  take_axis0_2d_f64,
   take_axis0_2d_i8,
+  take_axis0_2d_i16,
+  take_axis0_2d_i32,
+  take_axis0_2d_i64,
   take_axis0_2d_u8,
-  where_f64,
+  take_axis0_2d_u16,
+  take_axis0_2d_u32,
+  take_axis0_2d_u64,
   where_f32,
-  where_i64,
-  where_u64,
-  where_i32,
-  where_u32,
-  where_i16,
-  where_u16,
+  where_f64,
   where_i8,
+  where_i16,
+  where_i32,
+  where_i64,
   where_u8,
+  where_u16,
+  where_u32,
+  where_u64,
 } from './bins/gather.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
+  f16InputToScratchF32,
+  f32OutputToF16Region,
   resetScratchAllocator,
   resolveInputPtr,
   scratchCopyIn,
-  f16InputToScratchF32,
-  f32OutputToF16Region,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -54,7 +54,7 @@ type TakeFn = (
   indicesPtr: number,
   outPtr: number,
   rows: number,
-  cols: number
+  cols: number,
 ) => void;
 
 const extractKernels: Partial<Record<DType, ExtractFn>> = {
@@ -168,7 +168,7 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
       storage.wasmPtr,
       dataOff,
       size,
-      bpe
+      bpe,
     );
   }
 
@@ -183,7 +183,11 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
       dtype,
       f16Region,
       count,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -194,7 +198,11 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
     dtype,
     outRegion,
     count,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -205,7 +213,7 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
 export function wasmTakeAlongAxis2D(
   storage: ArrayStorage,
   indices: ArrayStorage,
-  axis: number
+  axis: number,
 ): ArrayStorage | null {
   if (axis !== 0) return null;
   if (storage.ndim !== 2 || indices.ndim !== 2) return null;
@@ -240,7 +248,7 @@ export function wasmTakeAlongAxis2D(
       storage.wasmPtr,
       storage.offset,
       totalSize,
-      bpe
+      bpe,
     );
   }
 
@@ -264,7 +272,11 @@ export function wasmTakeAlongAxis2D(
       dtype,
       f16Region,
       totalSize,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -273,7 +285,11 @@ export function wasmTakeAlongAxis2D(
     dtype,
     outRegion,
     totalSize,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -304,7 +320,7 @@ const whereKernels: Partial<Record<DType, WhereFn>> = {
 export function wasmWhere(
   condition: ArrayStorage,
   x: ArrayStorage,
-  y: ArrayStorage
+  y: ArrayStorage,
 ): ArrayStorage | null {
   if (!condition.isCContiguous || !x.isCContiguous || !y.isCContiguous) return null;
 
@@ -360,7 +376,11 @@ export function wasmWhere(
       dtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -369,6 +389,10 @@ export function wasmWhere(
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

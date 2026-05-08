@@ -2,26 +2,26 @@
  * Unit tests for comparison operations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  allclose,
   array,
   array_equal,
   array_equiv,
+  Complex,
+  equal,
   greater,
   greater_equal,
-  less,
-  less_equal,
-  equal,
-  not_equal,
   isclose,
-  allclose,
-  logical_and,
-  logical_or,
-  logical_not,
   isfinite,
   isinf,
   isnan,
-  Complex,
+  less,
+  less_equal,
+  logical_and,
+  logical_not,
+  logical_or,
+  not_equal,
 } from '../../src';
 
 describe('Comparison Operations', () => {

@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { NDArrayCore } from '../../src/common/ndarray-core';
+import { describe, expect, it } from 'vitest';
 import { Complex } from '../../src/common/complex';
-import { ArrayStorage } from '../../src/common/storage';
 import type { DType } from '../../src/common/dtype';
+import { NDArrayCore } from '../../src/common/ndarray-core';
 import { sliceKeepDim } from '../../src/common/ops/shape';
+import { ArrayStorage } from '../../src/common/storage';
 
 /**
  * Tests for src/common/ndarray-core.ts

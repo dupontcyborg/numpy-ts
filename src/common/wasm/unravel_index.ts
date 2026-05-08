@@ -4,23 +4,23 @@
  * with f64 kernel as fallback. All kernels output f64 directly.
  */
 
+import type { TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
+  unravel_index_f64,
   unravel_index_i32_f64,
   unravel_index_i64_f64,
-  unravel_index_f64,
 } from './bins/unravel_index.wasm';
+import { wasmConfig } from './config';
+import type { WasmRegion } from './runtime';
 import {
-  wasmMalloc,
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
   scratchAlloc,
   scratchCopyIn,
-  getSharedMemory,
+  wasmMalloc,
 } from './runtime';
-import type { WasmRegion } from './runtime';
-import { ArrayStorage } from '../storage';
-import type { TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -67,7 +67,7 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
       indices.wasmPtr,
       idxOff,
       N,
-      bpe64
+      bpe64,
     );
 
     const strides64 = new BigInt64Array(ndim);
@@ -90,7 +90,7 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
       indices.wasmPtr,
       idxOff,
       N,
-      bpe32
+      bpe32,
     );
 
     const strides = new Int32Array(ndim);
@@ -114,7 +114,7 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
         indices.wasmPtr,
         idxOff,
         N,
-        f64Bpe
+        f64Bpe,
       );
     } else {
       const f64 = new Float64Array(N);
@@ -152,8 +152,12 @@ export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayS
         'float64',
         outRegions[d]!,
         N,
-        Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
-      )
+        Float64Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
+      ),
     );
   }
 

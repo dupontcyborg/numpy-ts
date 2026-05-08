@@ -3,18 +3,18 @@
  * Tests each function across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
+  expectBothRejectPre,
+  expectMatchPre,
   npDtype,
   pyArrayCast,
-  expectMatchPre,
-  expectBothRejectPre,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -159,7 +159,7 @@ describe('DType Sweep: Matrix creation', () => {
         const r = expectBothRejectPre(
           `tri may not support ${dtype}`,
           () => np.tri(3, undefined, 0, dtype),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const jsResult = np.tri(3, undefined, 0, dtype);
@@ -221,7 +221,7 @@ describe('DType Sweep: Matrix creation', () => {
         const r = expectBothRejectPre(
           `meshgrid may not support ${dtype}`,
           () => np.meshgrid(a, a)[0],
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const jsResult = np.meshgrid(a, a)[0];
@@ -239,7 +239,7 @@ describe('DType Sweep: Matrix creation', () => {
         const r = expectBothRejectPre(
           `vander may not support ${dtype}`,
           () => np.vander(a, 3),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const jsResult = np.vander(a, 3);
@@ -282,7 +282,7 @@ describe('DType Sweep: fromfunction', () => {
       const r = expectBothRejectPre(
         `fromfunction may not support ${dtype}`,
         () => np.fromfunction((i: number) => i, [4], dtype),
-        pyResult
+        pyResult,
       );
       if (r === 'both-reject') return;
       const jsResult = np.fromfunction((i: number) => i, [4], dtype);

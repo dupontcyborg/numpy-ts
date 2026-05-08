@@ -8,11 +8,11 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../storage';
+import { type DType, isComplexDType } from '../dtype';
 import { elementwiseUnaryOp } from '../internal/compute';
-import { isComplexDType, type DType } from '../dtype';
-import { wasmSinh } from '../wasm/sinh';
+import { ArrayStorage } from '../storage';
 import { wasmCosh } from '../wasm/cosh';
+import { wasmSinh } from '../wasm/sinh';
 import { wasmTanh } from '../wasm/tanh';
 
 /**

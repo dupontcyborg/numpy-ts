@@ -3,18 +3,18 @@
  * Validates that arrays are created with correct dtype and shape, across ALL dtypes.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
   checkNumPyAvailable,
-  npDtype,
-  isComplex,
-  runNumPyBatch,
   expectBothReject,
   expectMatchPre,
+  isComplex,
+  npDtype,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -52,7 +52,7 @@ describe('DType Sweep: Creation', () => {
     it(`array ${dtype}`, () => {
       const a = array(
         isComplex(dtype) ? [1, 2, 3] : dtype === 'bool' ? [1, 0, 1] : [1, 2, 3],
-        dtype
+        dtype,
       );
       expect(a.dtype).toBe(dtype);
       expect(a.shape).toEqual([3]);
@@ -106,7 +106,7 @@ result = _result_orig.astype(np.float64)`;
         const _r = expectBothReject(
           'arange(bool) with length > 2 not supported by NumPy',
           () => np.arange(0, 5, 1, dtype),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }

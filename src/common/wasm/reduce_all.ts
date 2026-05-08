@@ -6,18 +6,18 @@
  * uint types route to signed kernels (non-zero check is sign-agnostic).
  */
 
-import {
-  reduce_all_f64,
-  reduce_all_f32,
-  reduce_all_i64,
-  reduce_all_i32,
-  reduce_all_i16,
-  reduce_all_i8,
-} from './bins/reduce_all.wasm';
-import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
+import { type DType, effectiveDType, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import {
+  reduce_all_f32,
+  reduce_all_f64,
+  reduce_all_i8,
+  reduce_all_i16,
+  reduce_all_i32,
+  reduce_all_i64,
+} from './bins/reduce_all.wasm';
 import { wasmConfig } from './config';
+import { f16InputToScratchF32, resetScratchAllocator, resolveInputPtr } from './runtime';
 
 const BASE_THRESHOLD = 32;
 

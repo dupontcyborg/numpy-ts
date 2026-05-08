@@ -10,36 +10,36 @@
  * For browser usage, use fetch or FileReader to get the bytes/text, then use these functions.
  */
 
-// NPY format
-export { parseNpy, parseNpyHeader, parseNpyData } from './npy/parser';
-export { serializeNpy } from './npy/serializer';
 export {
-  UnsupportedDTypeError,
-  InvalidNpyError,
-  SUPPORTED_DTYPES,
   DTYPE_TO_DESCR,
+  InvalidNpyError,
   type NpyHeader,
   type NpyMetadata,
   type NpyVersion,
+  SUPPORTED_DTYPES,
+  UnsupportedDTypeError,
 } from './npy/format';
+// NPY format
+export { parseNpy, parseNpyData, parseNpyHeader } from './npy/parser';
+export { serializeNpy } from './npy/serializer';
 
 // NPZ format
 export {
-  parseNpz,
-  parseNpzSync,
   loadNpz,
   loadNpzSync,
   type NpzParseOptions,
   type NpzParseResult,
+  parseNpz,
+  parseNpzSync,
 } from './npz/parser';
-export { serializeNpz, serializeNpzSync, type NpzSerializeOptions } from './npz/serializer';
+export { type NpzSerializeOptions, serializeNpz, serializeNpzSync } from './npz/serializer';
 
 // Text format (CSV, TSV, etc.)
 export {
-  parseTxt,
-  genfromtxt,
   fromregex,
-  serializeTxt,
+  genfromtxt,
   type ParseTxtOptions,
+  parseTxt,
   type SerializeTxtOptions,
+  serializeTxt,
 } from './txt';

@@ -6,37 +6,37 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  searchsorted_left_f64,
-  searchsorted_right_f64,
   searchsorted_left_f32,
-  searchsorted_right_f32,
-  searchsorted_left_i64,
-  searchsorted_right_i64,
-  searchsorted_left_u64,
-  searchsorted_right_u64,
-  searchsorted_left_i32,
-  searchsorted_right_i32,
-  searchsorted_left_u32,
-  searchsorted_right_u32,
-  searchsorted_left_i16,
-  searchsorted_right_i16,
-  searchsorted_left_u16,
-  searchsorted_right_u16,
+  searchsorted_left_f64,
   searchsorted_left_i8,
-  searchsorted_right_i8,
+  searchsorted_left_i16,
+  searchsorted_left_i32,
+  searchsorted_left_i64,
   searchsorted_left_u8,
+  searchsorted_left_u16,
+  searchsorted_left_u32,
+  searchsorted_left_u64,
+  searchsorted_right_f32,
+  searchsorted_right_f64,
+  searchsorted_right_i8,
+  searchsorted_right_i16,
+  searchsorted_right_i32,
+  searchsorted_right_i64,
   searchsorted_right_u8,
+  searchsorted_right_u16,
+  searchsorted_right_u32,
+  searchsorted_right_u64,
 } from './bins/searchsorted.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
+  f16InputToScratchF32,
   resetScratchAllocator,
   resolveInputPtr,
-  f16InputToScratchF32,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -45,7 +45,7 @@ type SearchFn = (
   N: number,
   valuesPtr: number,
   outPtr: number,
-  M: number
+  M: number,
 ) => void;
 
 const leftKernels: Partial<Record<DType, SearchFn>> = {
@@ -98,7 +98,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
 export function wasmSearchsorted(
   sorted: ArrayStorage,
   values: ArrayStorage,
-  side: 'left' | 'right'
+  side: 'left' | 'right',
 ): ArrayStorage | null {
   if (!sorted.isCContiguous || !values.isCContiguous) return null;
 
@@ -139,7 +139,7 @@ export function wasmSearchsorted(
       sorted.wasmPtr,
       sorted.offset,
       n,
-      bpe
+      bpe,
     );
     valuesPtr = resolveInputPtr(
       values.data,
@@ -147,7 +147,7 @@ export function wasmSearchsorted(
       values.wasmPtr,
       values.offset,
       m,
-      bpe
+      bpe,
     );
   }
 
@@ -161,7 +161,7 @@ export function wasmSearchsorted(
     Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

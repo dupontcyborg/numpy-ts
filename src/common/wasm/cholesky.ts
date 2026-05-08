@@ -5,12 +5,11 @@
  * Supports float64 and float32. Returns null if WASM can't handle this case.
  */
 
-import { cholesky_f64, cholesky_f32 } from './bins/cholesky.wasm';
-import { wasmMalloc, resetScratchAllocator, scratchCopyIn, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import { isComplexDType, type TypedArray } from '../dtype';
-
+import { ArrayStorage } from '../storage';
+import { cholesky_f32, cholesky_f64 } from './bins/cholesky.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, scratchCopyIn, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 4; // Minimum matrix dimension for WASM (Cholesky is O(n³), worth it even for small)
 
@@ -66,8 +65,8 @@ export function wasmCholesky(a: ArrayStorage): ArrayStorage | null {
     Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -122,7 +121,7 @@ export function wasmCholeskyF32(a: ArrayStorage): ArrayStorage | null {
     Float32Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

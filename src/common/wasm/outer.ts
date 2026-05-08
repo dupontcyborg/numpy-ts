@@ -5,27 +5,26 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  outer_f64,
-  outer_f32,
-  outer_c128,
   outer_c64,
-  outer_i64,
-  outer_i32,
-  outer_i16,
+  outer_c128,
+  outer_f32,
+  outer_f64,
   outer_i8,
+  outer_i16,
+  outer_i32,
+  outer_i64,
 } from './bins/outer.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
-
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32; // Minimum M+N for WASM
 
@@ -109,7 +108,11 @@ export function wasmOuter(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
       resultDtype,
       f16Region,
       totalElements,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -119,7 +122,7 @@ export function wasmOuter(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
     a.wasmPtr,
     a.offset * factor,
     M * factor,
-    bpe
+    bpe,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -127,7 +130,7 @@ export function wasmOuter(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
     b.wasmPtr,
     b.offset * factor,
     N * factor,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, bPtr, outRegion.ptr, M, N);
@@ -137,6 +140,10 @@ export function wasmOuter(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
     resultDtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

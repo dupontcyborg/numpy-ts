@@ -2,8 +2,8 @@
  * Unit tests for vindex — vectorized multi-dimensional indexing
  */
 
-import { describe, it, expect } from 'vitest';
-import { array, arange, vindex, Complex } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { arange, array, Complex, vindex } from '../../src';
 
 describe('vindex', () => {
   // ========================================

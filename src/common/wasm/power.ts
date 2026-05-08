@@ -7,36 +7,36 @@
  */
 
 import {
-  power_f64,
-  power_f32,
-  power_i64,
-  power_i32,
-  power_i16,
-  power_i8,
-  power_scalar_f64,
-  power_scalar_f32,
-  power_scalar_i64,
-  power_scalar_i32,
-  power_scalar_i16,
-  power_scalar_i8,
-} from './bins/power.wasm';
+  type DType,
+  effectiveDType,
+  isBigIntDType,
+  promoteDTypes,
+  type TypedArray,
+} from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  wasmMalloc,
+  power_f32,
+  power_f64,
+  power_i8,
+  power_i16,
+  power_i32,
+  power_i64,
+  power_scalar_f32,
+  power_scalar_f64,
+  power_scalar_i8,
+  power_scalar_i16,
+  power_scalar_i32,
+  power_scalar_i64,
+} from './bins/power.wasm';
+import { wasmConfig } from './config';
+import {
+  f16InputToScratchF32,
+  f32OutputToF16Region,
   resetScratchAllocator,
   resolveInputPtr,
   scratchCopyIn,
-  f16InputToScratchF32,
-  f32OutputToF16Region,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import {
-  effectiveDType,
-  promoteDTypes,
-  isBigIntDType,
-  type DType,
-  type TypedArray,
-} from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -137,7 +137,11 @@ export function wasmPower(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
       originalDtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -146,7 +150,11 @@ export function wasmPower(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -197,8 +205,8 @@ export function wasmPowerScalar(a: ArrayStorage, scalar: number): ArrayStorage |
       Float64Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -234,7 +242,11 @@ export function wasmPowerScalar(a: ArrayStorage, scalar: number): ArrayStorage |
       dtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -243,6 +255,10 @@ export function wasmPowerScalar(a: ArrayStorage, scalar: number): ArrayStorage |
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

@@ -8,17 +8,17 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../storage';
-import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
+import { Complex } from '../complex';
 import {
+  type DType,
   isBigIntDType,
   isComplexDType,
-  throwIfComplex,
   mathResultDtype,
   promoteDTypes,
-  type DType,
+  throwIfComplex,
 } from '../dtype';
-import { Complex } from '../complex';
+import { broadcastShapes, elementwiseBinaryOp, elementwiseUnaryOp } from '../internal/compute';
+import { ArrayStorage } from '../storage';
 import { wasmSqrt } from '../wasm/sqrt';
 
 /** Convert bool storage to int8 (NumPy promotes bool → int8 for arithmetic). */
@@ -58,10 +58,11 @@ function boolToMathFloat(a: ArrayStorage): ArrayStorage {
   for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
   return result;
 }
-import { wasmPower, wasmPowerScalar } from '../wasm/power';
+
 import { wasmExp } from '../wasm/exp';
 import { wasmExp2 } from '../wasm/exp2';
 import { wasmLogaddexp, wasmLogaddexpScalar } from '../wasm/logaddexp';
+import { wasmPower, wasmPowerScalar } from '../wasm/power';
 
 /**
  * Square root of each element
@@ -743,7 +744,7 @@ export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   if (x1.dtype === 'bool')
     return logaddexp(
       boolToMathFloat(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
@@ -841,7 +842,7 @@ export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArraySt
   if (x1.dtype === 'bool')
     return logaddexp2(
       boolToMathFloat(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp2(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');

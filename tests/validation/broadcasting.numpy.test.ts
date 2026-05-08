@@ -4,9 +4,9 @@
  * These tests validate that our broadcasting implementation matches Python NumPy exactly
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { array, broadcast_shapes } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Broadcasting', () => {
   beforeAll(() => {
@@ -18,7 +18,7 @@ describe('NumPy Validation: Broadcasting', () => {
           '   1. Using system Python: pip install numpy\n' +
           '   2. Using conda: conda install numpy\n' +
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
-          `   Current Python command: ${process.env.NUMPY_PYTHON || 'python3'}\n`
+          `   Current Python command: ${process.env.NUMPY_PYTHON || 'python3'}\n`,
       );
     }
   });

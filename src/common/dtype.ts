@@ -207,7 +207,7 @@ export function throwIfComplex(dtype: DType, functionName: string, reason?: stri
   if (isComplexDType(dtype)) {
     const reasonStr = reason ? ` ${reason}` : '';
     throw new TypeError(
-      `ufunc '${functionName}' not supported for complex dtype '${dtype}'.${reasonStr}`
+      `ufunc '${functionName}' not supported for complex dtype '${dtype}'.${reasonStr}`,
     );
   }
 }
@@ -243,7 +243,7 @@ export function throwIfComplexNotImplemented(dtype: DType, functionName: string)
   if (isComplexDType(dtype)) {
     throw new Error(
       `'${functionName}' does not yet support complex dtype '${dtype}'. ` +
-        `Complex support is planned but not yet implemented.`
+        `Complex support is planned but not yet implemented.`,
     );
   }
 }

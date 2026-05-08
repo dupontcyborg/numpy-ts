@@ -5,13 +5,13 @@
  * standalone function wrappers for tree-shaking support.
  */
 
+import { Complex } from '../common/complex';
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
-import { Complex } from '../common/complex';
 
 // Re-export types needed by functions
 export type { DType, TypedArray } from '../common/dtype';
-export { NDArrayCore, ArrayStorage, Complex };
+export { ArrayStorage, Complex, NDArrayCore };
 
 /**
  * Input type for functions that accept arrays
@@ -28,9 +28,9 @@ export function toStorage(a: NDArrayCore | ArrayStorage): ArrayStorage {
     return a.storage;
   }
   // Handle NDArray (full/ndarray.ts) which has storage property but doesn't extend NDArrayCore
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
   if (a && typeof a === 'object' && 'storage' in a && (a as any).storage instanceof ArrayStorage) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
     return (a as any).storage;
   }
   return a;
@@ -65,7 +65,7 @@ export function fromStorageArray(storages: ArrayStorage[]): NDArrayCore[] {
  */
 export function fromStorageViewArray(
   storages: ArrayStorage[],
-  original: NDArrayCore
+  original: NDArrayCore,
 ): NDArrayCore[] {
   return storages.map((s) => fromStorageView(s, original));
 }

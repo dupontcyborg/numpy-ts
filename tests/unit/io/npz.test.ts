@@ -1,20 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+// Also import from main index to test wrappers
 import {
+  arange,
+  array,
+  loadNpz as loadNpzIndex,
+  loadNpzSync as loadNpzSyncIndex,
+  parseNpz as parseNpzIndex,
+  parseNpzSync as parseNpzSyncIndex,
+  zeros,
+} from '../../../src';
+import {
+  loadNpz,
+  loadNpzSync,
   parseNpz,
   parseNpzSync,
   serializeNpz,
   serializeNpzSync,
-  loadNpz,
-  loadNpzSync,
 } from '../../../src/io/npz';
-import { array, zeros, arange } from '../../../src';
-// Also import from main index to test wrappers
-import {
-  parseNpz as parseNpzIndex,
-  parseNpzSync as parseNpzSyncIndex,
-  loadNpz as loadNpzIndex,
-  loadNpzSync as loadNpzSyncIndex,
-} from '../../../src';
 
 describe('NPZ Format', () => {
   describe('serializeNpzSync and parseNpzSync', () => {
@@ -220,7 +222,7 @@ describe('NPZ Format', () => {
   describe('error handling', () => {
     it('throws for empty array names', () => {
       expect(() => serializeNpzSync({ '': array([1, 2, 3]) })).toThrow(
-        'Array names must be non-empty strings'
+        'Array names must be non-empty strings',
       );
     });
 

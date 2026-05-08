@@ -29,7 +29,7 @@ export function tile_2d_f64(
   rows: number,
   cols: number,
   rep_rows: number,
-  rep_cols: number
+  rep_cols: number,
 ): void {
   const i = init();
   (i.exports['tile_2d_f64'] as (...args: number[]) => void)(a, out, rows, cols, rep_rows, rep_cols);
@@ -41,7 +41,7 @@ export function tile_2d_f32(
   rows: number,
   cols: number,
   rep_rows: number,
-  rep_cols: number
+  rep_cols: number,
 ): void {
   const i = init();
   (i.exports['tile_2d_f32'] as (...args: number[]) => void)(a, out, rows, cols, rep_rows, rep_cols);
@@ -53,7 +53,7 @@ export function tile_2d_i64(
   rows: number,
   cols: number,
   rep_rows: number,
-  rep_cols: number
+  rep_cols: number,
 ): void {
   const i = init();
   (i.exports['tile_2d_i64'] as (...args: number[]) => void)(a, out, rows, cols, rep_rows, rep_cols);
@@ -65,7 +65,7 @@ export function tile_2d_i32(
   rows: number,
   cols: number,
   rep_rows: number,
-  rep_cols: number
+  rep_cols: number,
 ): void {
   const i = init();
   (i.exports['tile_2d_i32'] as (...args: number[]) => void)(a, out, rows, cols, rep_rows, rep_cols);
@@ -77,7 +77,7 @@ export function tile_2d_i16(
   rows: number,
   cols: number,
   rep_rows: number,
-  rep_cols: number
+  rep_cols: number,
 ): void {
   const i = init();
   (i.exports['tile_2d_i16'] as (...args: number[]) => void)(a, out, rows, cols, rep_rows, rep_cols);
@@ -89,7 +89,7 @@ export function tile_2d_i8(
   rows: number,
   cols: number,
   rep_rows: number,
-  rep_cols: number
+  rep_cols: number,
 ): void {
   const i = init();
   (i.exports['tile_2d_i8'] as (...args: number[]) => void)(a, out, rows, cols, rep_rows, rep_cols);

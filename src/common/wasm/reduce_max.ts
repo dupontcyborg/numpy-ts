@@ -6,38 +6,38 @@
  * Unsigned types use SEPARATE kernels.
  */
 
+import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  reduce_max_f64,
   reduce_max_f32,
-  reduce_max_i64,
-  reduce_max_i32,
-  reduce_max_i16,
+  reduce_max_f64,
   reduce_max_i8,
-  reduce_max_u64,
-  reduce_max_u32,
-  reduce_max_u16,
-  reduce_max_u8,
-  reduce_max_strided_f64,
+  reduce_max_i16,
+  reduce_max_i32,
+  reduce_max_i64,
   reduce_max_strided_f32,
-  reduce_max_strided_i64,
-  reduce_max_strided_i32,
-  reduce_max_strided_i16,
+  reduce_max_strided_f64,
   reduce_max_strided_i8,
-  reduce_max_strided_u64,
-  reduce_max_strided_u32,
-  reduce_max_strided_u16,
+  reduce_max_strided_i16,
+  reduce_max_strided_i32,
+  reduce_max_strided_i64,
   reduce_max_strided_u8,
+  reduce_max_strided_u16,
+  reduce_max_strided_u32,
+  reduce_max_strided_u64,
+  reduce_max_u8,
+  reduce_max_u16,
+  reduce_max_u32,
+  reduce_max_u64,
 } from './bins/reduce_max.wasm';
+import { wasmConfig } from './config';
 import {
+  f16InputToScratchF32,
+  f32OutputToF16Region,
   resetScratchAllocator,
   resolveInputPtr,
-  f16InputToScratchF32,
   wasmMalloc,
-  f32OutputToF16Region,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -126,18 +126,18 @@ const outCtorMap: Partial<
   float32: Float32Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   float16: Float32Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   int64: BigInt64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
   uint64: BigUint64Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   int32: Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
   uint32: Uint32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
@@ -155,7 +155,7 @@ export function wasmReduceMaxStrided(
   a: ArrayStorage,
   outerSize: number,
   axisSize: number,
-  innerSize: number
+  innerSize: number,
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
 
@@ -194,7 +194,11 @@ export function wasmReduceMaxStrided(
       dtype,
       f16Region,
       outSize,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 

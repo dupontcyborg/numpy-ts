@@ -2,24 +2,24 @@
  * Python NumPy validation tests for trigonometric operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
-  sin,
-  cos,
-  tan,
-  arcsin,
   arccos,
+  arcsin,
   arctan,
   arctan2,
-  hypot,
-  degrees,
-  radians,
+  array,
+  cos,
   deg2rad,
+  degrees,
+  hypot,
   rad2deg,
+  radians,
+  sin,
+  tan,
   wasmConfig,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -40,7 +40,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -66,7 +66,7 @@ result = np.sin(np.array([0, math.pi/6, math.pi/4, math.pi/2, math.pi]))
           array([
             [0, Math.PI / 4],
             [Math.PI / 2, Math.PI],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 import math
@@ -105,7 +105,7 @@ result = np.cos(np.array([0, math.pi/3, math.pi/2, math.pi]))
           array([
             [0, Math.PI / 2],
             [Math.PI, 2 * Math.PI],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 import math
@@ -166,7 +166,7 @@ result = np.arcsin(np.array([0, 0.5, 1, -0.5, -1]))
           array([
             [0, 0.5],
             [-0.5, 1],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.arcsin(np.array([[0, 0.5], [-0.5, 1]]))
@@ -317,7 +317,7 @@ result = np.arctan2(np.array([1, 2, 3, 4]), 2)
           array([
             [0, 1],
             [1, 0],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.arctan2(np.array([[1, 0], [0, 1]]), np.array([[0, 1], [1, 0]]))
@@ -368,7 +368,7 @@ result = np.hypot(np.array([3, 6, 9]), 4)
           array([
             [4, 12],
             [15, 24],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.hypot(np.array([[3, 5], [8, 7]]), np.array([[4, 12], [15, 24]]))
@@ -406,7 +406,7 @@ result = np.degrees(np.array([0, math.pi/6, math.pi/4, math.pi/2, math.pi]))
           array([
             [0, Math.PI],
             [2 * Math.PI, Math.PI / 2],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 import math
@@ -444,7 +444,7 @@ result = np.radians(np.array([0, 30, 45, 90, 180]))
           array([
             [0, 90],
             [180, 360],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.radians(np.array([[0, 90], [180, 360]]))

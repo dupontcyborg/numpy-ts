@@ -2,11 +2,11 @@
  * Unit tests for slicing utilities
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  parseSlice,
-  normalizeSlice,
   computeSliceLength,
+  normalizeSlice,
+  parseSlice,
   parseSlices,
 } from '../../src/common/slicing';
 

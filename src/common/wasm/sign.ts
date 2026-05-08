@@ -6,19 +6,19 @@
  * Not defined for complex types.
  */
 
-import {
-  sign_f64,
-  sign_f32,
-  sign_f16,
-  sign_i64,
-  sign_i32,
-  sign_i16,
-  sign_i8,
-} from './bins/sign.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  sign_f16,
+  sign_f32,
+  sign_f64,
+  sign_i8,
+  sign_i16,
+  sign_i32,
+  sign_i64,
+} from './bins/sign.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -86,6 +86,10 @@ export function wasmSign(a: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

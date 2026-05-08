@@ -5,18 +5,18 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  repeat_f64,
-  repeat_f32,
-  repeat_i64,
-  repeat_i32,
-  repeat_i16,
-  repeat_i8,
-} from './bins/repeat.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, effectiveDType, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import {
+  repeat_f32,
+  repeat_f64,
+  repeat_i8,
+  repeat_i16,
+  repeat_i32,
+  repeat_i64,
+} from './bins/repeat.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -91,8 +91,8 @@ export function wasmRepeat(a: ArrayStorage, reps: number): ArrayStorage | null {
       Float16Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -104,6 +104,10 @@ export function wasmRepeat(a: ArrayStorage, reps: number): ArrayStorage | null {
     dtype,
     outRegion,
     outSize,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

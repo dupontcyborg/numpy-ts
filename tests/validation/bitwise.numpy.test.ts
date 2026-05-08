@@ -2,25 +2,25 @@
  * Python NumPy validation tests for bitwise operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   array,
   bitwise_and,
-  bitwise_or,
-  bitwise_xor,
-  bitwise_not,
-  invert,
-  left_shift,
-  right_shift,
-  packbits,
-  unpackbits,
   bitwise_count,
   bitwise_invert,
   bitwise_left_shift,
+  bitwise_not,
+  bitwise_or,
   bitwise_right_shift,
+  bitwise_xor,
+  invert,
+  left_shift,
+  packbits,
+  right_shift,
+  unpackbits,
   wasmConfig,
 } from '../../src/index';
-import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -53,7 +53,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -418,14 +418,14 @@ result = np.unpackbits(np.array([255], dtype=np.uint8))
             [0b1111, 0b1010],
             [0b0101, 0b0000],
           ],
-          'int32'
+          'int32',
         );
         const b = array(
           [
             [0b1010, 0b1111],
             [0b1111, 0b1010],
           ],
-          'int32'
+          'int32',
         );
         const jsResult = bitwise_and(a, b);
         const pyResult = runNumPy(`
@@ -442,7 +442,7 @@ result = np.bitwise_and(np.array([[0b1111, 0b1010], [0b0101, 0b0000]], dtype=np.
             [1, 2],
             [4, 8],
           ],
-          'int32'
+          'int32',
         );
         const jsResult = left_shift(a, 1);
         const pyResult = runNumPy(`

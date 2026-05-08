@@ -4,24 +4,24 @@
  * Parses NumPy .npy files (both v1 and v2/v3 formats) into NDArray objects.
  */
 
-import { NDArrayCore } from '../../common/ndarray-core';
-import { ArrayStorage } from '../../common/storage';
 import {
+  type DType,
   getTypedArrayConstructor,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
-  type DType,
   type TypedArray,
 } from '../../common/dtype';
 import { float16BytesToTypedArray } from '../../common/float16-conv';
-import { wasmMalloc, getSharedMemory } from '../../common/wasm/runtime';
+import { NDArrayCore } from '../../common/ndarray-core';
+import { ArrayStorage } from '../../common/storage';
+import { getSharedMemory, wasmMalloc } from '../../common/wasm/runtime';
 import {
-  NPY_MAGIC,
-  parseDescriptor,
   InvalidNpyError,
+  NPY_MAGIC,
   type NpyHeader,
   type NpyMetadata,
+  parseDescriptor,
 } from './format';
 
 /**
@@ -114,7 +114,7 @@ export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArrayC
 
   if (actualBytes < expectedBytes) {
     throw new InvalidNpyError(
-      `File truncated: expected ${expectedBytes} bytes of data, got ${actualBytes}`
+      `File truncated: expected ${expectedBytes} bytes of data, got ${actualBytes}`,
     );
   }
 
@@ -128,17 +128,21 @@ export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadata): NDArrayC
 
   if (canFastPath) {
     const Constructor = getTypedArrayConstructor(dtype) as
-      | (new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray)
+      | (new (
+          buffer: ArrayBuffer,
+          byteOffset: number,
+          length: number,
+        ) => TypedArray)
       | undefined;
     if (Constructor) {
       const region = wasmMalloc(expectedBytes);
       if (region) {
         const mem = getSharedMemory();
         new Uint8Array(mem.buffer, region.ptr, expectedBytes).set(
-          bytes.subarray(dataOffset, dataOffset + expectedBytes)
+          bytes.subarray(dataOffset, dataOffset + expectedBytes),
         );
         return new NDArrayCore(
-          ArrayStorage.fromWasmRegion([...shape], dtype, region, arrayLength, Constructor)
+          ArrayStorage.fromWasmRegion([...shape], dtype, region, arrayLength, Constructor),
         );
       }
     }
@@ -215,7 +219,7 @@ function createTypedArray(
   dtype: DType,
   numElements: number,
   needsByteSwap: boolean,
-  itemsize: number
+  itemsize: number,
 ):
   | Float64Array
   | Float32Array

@@ -5,27 +5,27 @@
  * execution paths that are normally gated behind a size threshold.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { array, hasFloat16 } from '../../src';
 import { wasmConfig } from '../../src/common/wasm/config';
+import { wasmDiv, wasmDivScalar } from '../../src/common/wasm/divide';
+import { wasmExp2 } from '../../src/common/wasm/exp2';
+import { wasmExtract, wasmTakeAlongAxis2D, wasmWhere } from '../../src/common/wasm/gather';
+import { wasmGcd, wasmGcdScalar } from '../../src/common/wasm/gcd';
+import { wasmHeaviside, wasmHeavisideScalar } from '../../src/common/wasm/heaviside';
+import { wasmIndices } from '../../src/common/wasm/indices';
+import { wasmLeftShift, wasmLeftShiftScalar } from '../../src/common/wasm/left_shift';
+import { wasmLogaddexp, wasmLogaddexpScalar } from '../../src/common/wasm/logaddexp';
 import { wasmMax, wasmMaxScalar } from '../../src/common/wasm/max';
 import { wasmMin, wasmMinScalar } from '../../src/common/wasm/min';
-import { wasmSquare } from '../../src/common/wasm/square';
-import { wasmRoll } from '../../src/common/wasm/roll';
-import { wasmRepeat } from '../../src/common/wasm/repeat';
-import { wasmTile2D } from '../../src/common/wasm/tile';
 import { wasmPad2D } from '../../src/common/wasm/pad';
-import { wasmHeavisideScalar, wasmHeaviside } from '../../src/common/wasm/heaviside';
-import { wasmGcd, wasmGcdScalar } from '../../src/common/wasm/gcd';
-import { wasmIndices } from '../../src/common/wasm/indices';
 import { wasmReduceCountNz } from '../../src/common/wasm/reduce_count_nz';
 import { wasmReduceQuantile } from '../../src/common/wasm/reduce_quantile';
-import { wasmExp2 } from '../../src/common/wasm/exp2';
-import { wasmLogaddexp, wasmLogaddexpScalar } from '../../src/common/wasm/logaddexp';
-import { wasmDiv, wasmDivScalar } from '../../src/common/wasm/divide';
-import { wasmLeftShift, wasmLeftShiftScalar } from '../../src/common/wasm/left_shift';
+import { wasmRepeat } from '../../src/common/wasm/repeat';
 import { wasmRightShift, wasmRightShiftScalar } from '../../src/common/wasm/right_shift';
-import { wasmExtract, wasmTakeAlongAxis2D, wasmWhere } from '../../src/common/wasm/gather';
+import { wasmRoll } from '../../src/common/wasm/roll';
+import { wasmSquare } from '../../src/common/wasm/square';
+import { wasmTile2D } from '../../src/common/wasm/tile';
 import { wasmVdotComplex } from '../../src/common/wasm/vdot';
 
 beforeEach(() => {
@@ -189,7 +189,7 @@ describe('wasmPad2D', () => {
         [1, 2],
         [3, 4],
       ],
-      'int32'
+      'int32',
     );
     const r = wasmPad2D(a.storage, 2);
     expect(r).not.toBeNull();
@@ -660,7 +660,7 @@ describe('wasmExtract / wasmTakeAlongAxis2D / wasmWhere', () => {
         [2, 1, 0],
         [3, 3, 3],
       ],
-      'int32'
+      'int32',
     );
     const r = wasmTakeAlongAxis2D(data.storage, indices.storage, 0);
     expect(r).not.toBeNull();
@@ -677,7 +677,7 @@ describe('wasmExtract / wasmTakeAlongAxis2D / wasmWhere', () => {
         [0, 1],
         [1, 0],
       ],
-      'int32'
+      'int32',
     );
     const r = wasmTakeAlongAxis2D(data.storage, indices.storage, 1);
     expect(r).toBeNull();

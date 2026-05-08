@@ -6,25 +6,26 @@
  * all tests in this file share the same constrained config.
  */
 
-import { wasmMemoryConfig, wasmConfig } from '../../src/common/wasm/config';
+import { wasmConfig, wasmMemoryConfig } from '../../src/common/wasm/config';
 
 // Constrain memory BEFORE any WASM initialization
 wasmMemoryConfig.maxMemoryBytes = 16 * 1024 * 1024; // 16 MiB total
 wasmMemoryConfig.scratchBytes = 1 * 1024 * 1024; // 1 MiB scratch
+
 // Heap: scratchBase(15 MiB) - heapBase(8 MiB) = 7 MiB usable
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  wasmMalloc,
-  wasmFreeBytes,
-  getSharedMemory,
-  scratchAlloc,
-  resetScratchAllocator,
-} from '../../src/common/wasm/runtime';
-import { heap_free } from '../../src/common/wasm/bins/alloc.wasm';
-import { ArrayStorage } from '../../src/common/storage';
-import { absolute as abs } from '../../src/full';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { array } from '../../src';
+import { ArrayStorage } from '../../src/common/storage';
+import { heap_free } from '../../src/common/wasm/bins/alloc.wasm';
+import {
+  getSharedMemory,
+  resetScratchAllocator,
+  scratchAlloc,
+  wasmFreeBytes,
+  wasmMalloc,
+} from '../../src/common/wasm/runtime';
+import { absolute as abs } from '../../src/full';
 
 beforeEach(() => {
   wasmConfig.thresholdMultiplier = 0; // force WASM

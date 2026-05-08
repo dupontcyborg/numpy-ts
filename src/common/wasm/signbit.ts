@@ -6,19 +6,19 @@
  * For unsigned types, signbit is always 0 — returns zeros directly.
  */
 
-import {
-  signbit_f64,
-  signbit_f32,
-  signbit_f16,
-  signbit_i64,
-  signbit_i32,
-  signbit_i16,
-  signbit_i8,
-} from './bins/signbit.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType, type TypedArray } from '../dtype';
+import {
+  signbit_f16,
+  signbit_f32,
+  signbit_f64,
+  signbit_i8,
+  signbit_i16,
+  signbit_i32,
+  signbit_i64,
+} from './bins/signbit.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -72,7 +72,7 @@ export function wasmSignbit(a: ArrayStorage): ArrayStorage | null {
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

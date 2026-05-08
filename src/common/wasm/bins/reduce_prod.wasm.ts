@@ -68,7 +68,7 @@ export function reduce_prod_strided_f64(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_f64'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -79,7 +79,7 @@ export function reduce_prod_strided_f32(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_f32'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -90,7 +90,7 @@ export function reduce_prod_strided_i64(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_i64'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -101,7 +101,7 @@ export function reduce_prod_strided_u64(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_u64'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -112,7 +112,7 @@ export function reduce_prod_strided_i32(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_i32'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -123,7 +123,7 @@ export function reduce_prod_strided_u32(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_u32'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -134,7 +134,7 @@ export function reduce_prod_strided_i16(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_i16'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -145,7 +145,7 @@ export function reduce_prod_strided_u16(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_u16'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -156,7 +156,7 @@ export function reduce_prod_strided_i8(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_i8'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -167,7 +167,7 @@ export function reduce_prod_strided_u8(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_u8'] as (...args: number[]) => void)(a, out, outer, axis, inner);
@@ -178,7 +178,7 @@ export function reduce_prod_strided_c128(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_c128'] as (...args: number[]) => void)(
@@ -186,7 +186,7 @@ export function reduce_prod_strided_c128(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -195,7 +195,7 @@ export function reduce_prod_strided_c64(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_prod_strided_c64'] as (...args: number[]) => void)(a, out, outer, axis, inner);

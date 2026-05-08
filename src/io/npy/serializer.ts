@@ -7,17 +7,17 @@
  * v3.0 is identical to v2.0 but allows UTF-8 in dtype descriptions.
  */
 
-import { NDArrayCore } from '../../common/ndarray-core';
+import { Complex } from '../../common/complex';
 import {
+  type DType,
   getDTypeSize,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
-  type DType,
 } from '../../common/dtype';
-import { Complex } from '../../common/complex';
 import { numberToFloat16Bits } from '../../common/float16-conv';
-import { NPY_MAGIC, DTYPE_TO_DESCR, isSystemLittleEndian } from './format';
+import { NDArrayCore } from '../../common/ndarray-core';
+import { DTYPE_TO_DESCR, isSystemLittleEndian, NPY_MAGIC } from './format';
 
 /**
  * Serialize an NDArray to NPY format (v3.0)

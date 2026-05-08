@@ -2,35 +2,35 @@
  * Unit tests for logic operations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   array,
   Complex,
-  zeros,
-  logical_and,
-  logical_or,
-  logical_not,
-  logical_xor,
+  copysign,
+  iscomplex,
+  iscomplexobj,
+  isdtype,
   isfinite,
+  isfortran,
   isinf,
   isnan,
   isnat,
-  iscomplex,
-  iscomplexobj,
-  isreal,
-  isrealobj,
   isneginf,
   isposinf,
-  isfortran,
-  real_if_close,
+  isreal,
+  isrealobj,
   isscalar,
   iterable,
-  isdtype,
-  promote_types,
-  copysign,
-  signbit,
+  logical_and,
+  logical_not,
+  logical_or,
+  logical_xor,
   nextafter,
+  promote_types,
+  real_if_close,
+  signbit,
   spacing,
+  zeros,
 } from '../../src';
 
 describe('Logic Operations', () => {
@@ -940,14 +940,14 @@ describe('Additional Logic Functions', () => {
           [1, 0],
           [1, 1],
         ],
-        'int32'
+        'int32',
       );
       const b = array(
         [
           [0, 1],
           [1, 0],
         ],
-        'int32'
+        'int32',
       );
       // Transpose to make non-contiguous
       const aT = a.T;
@@ -1118,7 +1118,7 @@ describe('Additional Logic Functions', () => {
           [1n, 0n],
           [1n, 1n],
         ],
-        'int64'
+        'int64',
       );
       const result = logical_and(a.T, 1);
       expect(result.shape).toEqual([2, 2]);

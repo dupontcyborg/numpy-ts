@@ -5,27 +5,26 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  kron_f64,
-  kron_f32,
-  kron_c128,
   kron_c64,
-  kron_i64,
-  kron_i32,
-  kron_i16,
+  kron_c128,
+  kron_f32,
+  kron_f64,
   kron_i8,
+  kron_i16,
+  kron_i32,
+  kron_i64,
 } from './bins/kron.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
-
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32; // Minimum total output elements for WASM
 
@@ -36,7 +35,7 @@ type WasmKronFn = (
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ) => void;
 
 const wasmKernels: Partial<Record<DType, WasmKronFn>> = {
@@ -123,7 +122,11 @@ export function wasmKron(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null 
       resultDtype,
       f16Region,
       totalElements,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -133,7 +136,7 @@ export function wasmKron(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null 
     a.wasmPtr,
     a.offset * factor,
     am * an * factor,
-    bpe
+    bpe,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -141,7 +144,7 @@ export function wasmKron(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null 
     b.wasmPtr,
     b.offset * factor,
     bm * bn * factor,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, bPtr, outRegion.ptr, am, an, bm, bn);
@@ -151,6 +154,10 @@ export function wasmKron(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null 
     resultDtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

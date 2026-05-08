@@ -12,4 +12,5 @@ const d = fft.rfft(a);
 const e = fft.fftfreq(8);
 
 console.log(b.shape, c.shape, d.shape, e.shape);
+
 export { b, c, d, e };

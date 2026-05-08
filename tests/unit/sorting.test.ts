@@ -2,26 +2,26 @@
  * Unit tests for sorting and searching operations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  array,
-  sort,
-  argsort,
-  lexsort,
-  partition,
   argpartition,
-  sort_complex,
-  nonzero,
+  argsort,
   argwhere,
-  flatnonzero,
-  where,
-  searchsorted,
-  extract,
-  count_nonzero,
-  zeros,
-  ones,
+  array,
   Complex,
+  count_nonzero,
+  extract,
+  flatnonzero,
+  lexsort,
+  nonzero,
+  ones,
+  partition,
   reshape,
+  searchsorted,
+  sort,
+  sort_complex,
+  where,
+  zeros,
 } from '../../src';
 
 describe('Sorting Functions', () => {
@@ -96,7 +96,7 @@ describe('Sorting Functions', () => {
           [3n, 1n, 2n],
           [6n, 4n, 5n],
         ],
-        'int64'
+        'int64',
       );
       const result = sort(arr, 1);
       expect(result.toArray()).toEqual([
@@ -513,7 +513,7 @@ describe('sort_complex() - additional coverage', () => {
         { re: 1, im: 1 },
         { re: 2, im: -1 },
       ],
-      'complex128'
+      'complex128',
     );
     const result = sort_complex(arr);
     expect(result.dtype).toBe('complex128');

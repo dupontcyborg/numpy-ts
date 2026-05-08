@@ -3,11 +3,11 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { isnan_f64, isnan_f32, isnan_u16 } from './bins/isnan.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { isnan_f32, isnan_f64, isnan_u16 } from './bins/isnan.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -52,7 +52,7 @@ export function wasmIsnan(a: ArrayStorage): ArrayStorage | null {
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

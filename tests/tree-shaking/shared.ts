@@ -3,15 +3,15 @@
  * Split into separate files per bundler for parallel execution.
  */
 
-import { build as esbuildBuild } from 'esbuild';
-import { rollup, InputOptions, OutputOptions } from 'rollup';
-import nodeResolve from '@rollup/plugin-node-resolve';
 import alias from '@rollup/plugin-alias';
+import nodeResolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
-import webpack from 'webpack';
-import { fileURLToPath } from 'url';
+import { build as esbuildBuild } from 'esbuild';
+import { readFile, stat } from 'fs/promises';
 import { dirname, resolve } from 'path';
-import { stat, readFile } from 'fs/promises';
+import { InputOptions, OutputOptions, rollup } from 'rollup';
+import { fileURLToPath } from 'url';
+import webpack from 'webpack';
 import { gzipSync } from 'zlib';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -109,7 +109,7 @@ export function logBundleSizes(bundler: string, results: Map<string, BundleResul
     const pct = ((r.minifiedSize / fullSize) * 100).toFixed(1);
     const gz = r.gzipSize !== undefined ? `  gzip: ${formatBytes(r.gzipSize).padStart(10)}` : '';
     console.log(
-      `  ${name.padEnd(20)} ${formatBytes(r.minifiedSize).padStart(10)}  (${pct.padStart(5)}%)${gz}`
+      `  ${name.padEnd(20)} ${formatBytes(r.minifiedSize).padStart(10)}  (${pct.padStart(5)}%)${gz}`,
     );
   }
 }
@@ -344,7 +344,7 @@ export async function buildWithWebpack(fixtureName: string): Promise<BundleResul
             const info = stats.toJson();
             reject(new Error(info.errors?.map((e) => e.message).join('\n') || 'Build failed'));
           } else resolvePromise(stats);
-        }
+        },
       );
     });
 
@@ -361,7 +361,7 @@ export async function buildWithWebpack(fixtureName: string): Promise<BundleResul
             const info = stats.toJson();
             reject(new Error(info.errors?.map((e) => e.message).join('\n') || 'Build failed'));
           } else resolvePromise(stats);
-        }
+        },
       );
     });
 

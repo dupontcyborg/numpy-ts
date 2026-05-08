@@ -43,4 +43,3 @@ testLoop();
 testExplicitKey();
 
 console.log('PASS: dispose protocol works');
-export {};

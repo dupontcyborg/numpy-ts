@@ -3,9 +3,9 @@
  * Tests that mixed-dtype comparisons match Python NumPy exactly
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { zeros } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Mixed DType Comparisons', () => {
   beforeAll(() => {

@@ -10,34 +10,34 @@
  */
 
 import {
-  arctan2_f64,
-  arctan2_f32,
-  arctan2_i64_f64,
-  arctan2_u64_f64,
-  arctan2_i32_f64,
-  arctan2_u32_f64,
-  arctan2_i16_f32,
-  arctan2_u16_f32,
-  arctan2_i8_f32,
-  arctan2_u8_f32,
-} from './bins/arctan2.wasm';
-import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
-  f16InputToScratchF32,
-  f32OutputToF16Region,
-} from './runtime';
-import { ArrayStorage } from '../storage';
-import {
-  effectiveDType,
-  promoteDTypes,
-  isComplexDType,
-  hasFloat16,
   type DType,
+  effectiveDType,
+  hasFloat16,
+  isComplexDType,
+  promoteDTypes,
   type TypedArray,
 } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  arctan2_f32,
+  arctan2_f64,
+  arctan2_i8_f32,
+  arctan2_i16_f32,
+  arctan2_i32_f64,
+  arctan2_i64_f64,
+  arctan2_u8_f32,
+  arctan2_u16_f32,
+  arctan2_u32_f64,
+  arctan2_u64_f64,
+} from './bins/arctan2.wasm';
 import { wasmConfig } from './config';
+import {
+  f16InputToScratchF32,
+  f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
+} from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -136,7 +136,11 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
         dtype,
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -145,7 +149,11 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Ctor as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -176,7 +184,11 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
         'float16',
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -186,7 +198,11 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
       'float32',
       outRegion,
       size,
-      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -209,6 +225,10 @@ export function wasmArctan2(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nu
     'float64',
     outRegion,
     size,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

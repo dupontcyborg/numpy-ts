@@ -9,18 +9,18 @@
  *   i32/u32/i64/u64 → f64
  */
 
-import {
-  sqrt_f64,
-  sqrt_f32,
-  sqrt_i64,
-  sqrt_i32,
-  sqrt_i16_f32,
-  sqrt_i8_f32,
-} from './bins/sqrt.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr, f32ToF16InPlace } from './runtime';
+import { type DType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, hasFloat16, type DType, type TypedArray } from '../dtype';
+import {
+  sqrt_f32,
+  sqrt_f64,
+  sqrt_i8_f32,
+  sqrt_i16_f32,
+  sqrt_i32,
+  sqrt_i64,
+} from './bins/sqrt.wasm';
 import { wasmConfig } from './config';
+import { f32ToF16InPlace, resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -97,7 +97,11 @@ export function wasmSqrt(a: ArrayStorage): ArrayStorage | null {
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -126,7 +130,11 @@ export function wasmSqrt(a: ArrayStorage): ArrayStorage | null {
         'float16',
         outRegion,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -139,8 +147,8 @@ export function wasmSqrt(a: ArrayStorage): ArrayStorage | null {
       Float32Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -169,8 +177,8 @@ export function wasmSqrt(a: ArrayStorage): ArrayStorage | null {
       Float64Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 

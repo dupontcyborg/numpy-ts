@@ -6,22 +6,22 @@
  * Unsigned types use SEPARATE kernels.
  */
 
-import {
-  reduce_std_f64,
-  reduce_std_f32,
-  reduce_std_i64,
-  reduce_std_i32,
-  reduce_std_i16,
-  reduce_std_i8,
-  reduce_std_u64,
-  reduce_std_u32,
-  reduce_std_u16,
-  reduce_std_u8,
-} from './bins/reduce_std.wasm';
-import { resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  reduce_std_f32,
+  reduce_std_f64,
+  reduce_std_i8,
+  reduce_std_i16,
+  reduce_std_i32,
+  reduce_std_i64,
+  reduce_std_u8,
+  reduce_std_u16,
+  reduce_std_u32,
+  reduce_std_u64,
+} from './bins/reduce_std.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr } from './runtime';
 
 const BASE_THRESHOLD = 32;
 

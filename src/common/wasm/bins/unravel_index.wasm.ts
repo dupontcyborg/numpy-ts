@@ -29,7 +29,7 @@ export function unravel_index_i32_f64(
   N: number,
   strides: number,
   shape: number,
-  ndim: number
+  ndim: number,
 ): void {
   const i = init();
   (i.exports['unravel_index_i32_f64'] as (...args: number[]) => void)(
@@ -38,7 +38,7 @@ export function unravel_index_i32_f64(
     N,
     strides,
     shape,
-    ndim
+    ndim,
   );
 }
 
@@ -48,7 +48,7 @@ export function unravel_index_i64_f64(
   N: number,
   strides: number,
   shape: number,
-  ndim: number
+  ndim: number,
 ): void {
   const i = init();
   (i.exports['unravel_index_i64_f64'] as (...args: number[]) => void)(
@@ -57,7 +57,7 @@ export function unravel_index_i64_f64(
     N,
     strides,
     shape,
-    ndim
+    ndim,
   );
 }
 
@@ -67,7 +67,7 @@ export function unravel_index_f64(
   N: number,
   strides: number,
   shape: number,
-  ndim: number
+  ndim: number,
 ): void {
   const i = init();
   (i.exports['unravel_index_f64'] as (...args: number[]) => void)(
@@ -76,6 +76,6 @@ export function unravel_index_f64(
     N,
     strides,
     shape,
-    ndim
+    ndim,
   );
 }

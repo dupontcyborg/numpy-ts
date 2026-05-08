@@ -46,7 +46,7 @@ export interface NpzSerializeOptions {
  */
 export async function serializeNpz(
   arrays: NpzArraysInput,
-  options: NpzSerializeOptions = {}
+  options: NpzSerializeOptions = {},
 ): Promise<Uint8Array> {
   const files = prepareNpzFiles(arrays);
   return writeZip(files, { compress: options.compress ?? false });

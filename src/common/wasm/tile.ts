@@ -5,18 +5,18 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  tile_2d_f64,
-  tile_2d_f32,
-  tile_2d_i64,
-  tile_2d_i32,
-  tile_2d_i16,
-  tile_2d_i8,
-} from './bins/tile.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, effectiveDType, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import {
+  tile_2d_f32,
+  tile_2d_f64,
+  tile_2d_i8,
+  tile_2d_i16,
+  tile_2d_i32,
+  tile_2d_i64,
+} from './bins/tile.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -26,7 +26,7 @@ type Tile2DFn = (
   rows: number,
   cols: number,
   repRows: number,
-  repCols: number
+  repCols: number,
 ) => void;
 
 const kernels: Partial<Record<DType, Tile2DFn>> = {
@@ -101,8 +101,8 @@ export function wasmTile2D(a: ArrayStorage, repRows: number, repCols: number): A
       Float16Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -114,6 +114,10 @@ export function wasmTile2D(a: ArrayStorage, repRows: number, repCols: number): A
     dtype,
     outRegion,
     outSize,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

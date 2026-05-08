@@ -5,43 +5,43 @@
  * @module ops/reduction
  */
 
-import { ArrayStorage } from '../storage';
+import { Complex } from '../complex';
 import {
+  type DType,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
   isFloatDType,
-  throwIfComplex,
   reductionAccumDtype,
-  type DType,
+  throwIfComplex,
 } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
-import { Complex } from '../complex';
-import {
-  wasmReduceSum,
-  wasmReduceSumStrided,
-  wasmReduceSumStridedComplex,
-  wasmReduceSumComplex,
-} from '../wasm/reduce_sum';
-import { wasmReduceMax, wasmReduceMaxStrided } from '../wasm/reduce_max';
-import { wasmReduceMin, wasmReduceMinStrided } from '../wasm/reduce_min';
+import { ArrayStorage } from '../storage';
+import { wasmNanquantile, wasmNanquantileStrided } from '../wasm/nanquantile';
+import { wasmReduceAll } from '../wasm/reduce_all';
+import { wasmReduceAny } from '../wasm/reduce_any';
 import { wasmReduceArgmax, wasmReduceArgmaxStrided } from '../wasm/reduce_argmax';
 import { wasmReduceArgmin, wasmReduceArgminStrided } from '../wasm/reduce_argmin';
+import { wasmReduceMax, wasmReduceMaxStrided } from '../wasm/reduce_max';
 import { wasmReduceMean, wasmReduceMeanStrided } from '../wasm/reduce_mean';
-import { wasmReduceVar } from '../wasm/reduce_var';
-import { wasmReduceNansum } from '../wasm/reduce_nansum';
-import { wasmReduceNanmin } from '../wasm/reduce_nanmin';
+import { wasmReduceMin, wasmReduceMinStrided } from '../wasm/reduce_min';
 import { wasmReduceNanmax } from '../wasm/reduce_nanmax';
+import { wasmReduceNanmin } from '../wasm/reduce_nanmin';
+import { wasmReduceNansum } from '../wasm/reduce_nansum';
 import {
   wasmReduceProd,
   wasmReduceProdStrided,
   wasmReduceProdStridedComplex,
 } from '../wasm/reduce_prod';
 import { wasmReduceQuantile, wasmReduceQuantileStrided } from '../wasm/reduce_quantile';
-import { wasmNanquantile, wasmNanquantileStrided } from '../wasm/nanquantile';
-import { wasmReduceAny } from '../wasm/reduce_any';
-import { wasmReduceAll } from '../wasm/reduce_all';
 import { wasmReduceStd } from '../wasm/reduce_std';
+import {
+  wasmReduceSum,
+  wasmReduceSumComplex,
+  wasmReduceSumStrided,
+  wasmReduceSumStridedComplex,
+} from '../wasm/reduce_sum';
+import { wasmReduceVar } from '../wasm/reduce_var';
 
 // Reusable Float32Array accumulators — writing to f32acc[0] implicitly rounds
 // to float32 precision (same as Math.fround) but V8 optimizes typed-array
@@ -124,7 +124,7 @@ function floatAccumulationDtype(dtype: DType): DType {
 function wrapScalarKeepdims(
   scalar: number | bigint | Complex,
   ndim: number,
-  dtype: DType
+  dtype: DType,
 ): ArrayStorage {
   const out = ArrayStorage.zeros(Array(ndim).fill(1) as number[], dtype);
   out.iset(0, scalar as number | bigint | Complex);
@@ -137,7 +137,7 @@ function wrapScalarKeepdims(
 export function sum(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
@@ -277,7 +277,7 @@ export function sum(
           outDtype,
           strides,
           0,
-          wasmResult.wasmRegion
+          wasmResult.wasmRegion,
         );
         wasmResult.dispose();
         return shared;
@@ -315,7 +315,7 @@ export function sum(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplexDType(dtype)) {
@@ -334,7 +334,7 @@ export function sum(
           dtype,
           computeStrides(outShape),
           0,
-          wasmResult.wasmRegion
+          wasmResult.wasmRegion,
         );
         wasmResult.dispose();
         result.dispose(); // free the pre-allocated JS fallback result
@@ -441,7 +441,7 @@ export function sum(
 export function mean(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
@@ -509,7 +509,7 @@ export function mean(
           'float64',
           strides,
           0,
-          wasmResult.wasmRegion
+          wasmResult.wasmRegion,
         );
         wasmResult.dispose();
         return shared;
@@ -568,7 +568,7 @@ export function mean(
   if (sumResult instanceof Complex) {
     return new Complex(
       sumResult.re / shape[normalizedAxis]!,
-      sumResult.im / shape[normalizedAxis]!
+      sumResult.im / shape[normalizedAxis]!,
     );
   }
 
@@ -618,7 +618,7 @@ export function mean(
 export function max(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
@@ -688,7 +688,7 @@ export function max(
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -802,7 +802,7 @@ export function max(
         dtype,
         strides,
         0,
-        wasmResult.wasmRegion
+        wasmResult.wasmRegion,
       );
       wasmResult.dispose();
       return shared;
@@ -818,7 +818,7 @@ export function max(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isBigIntDType(dtype)) {
@@ -870,7 +870,7 @@ export function max(
 export function prod(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
@@ -1003,7 +1003,7 @@ export function prod(
         outDtype,
         strides,
         0,
-        wasmResult.wasmRegion
+        wasmResult.wasmRegion,
       );
       wasmResult.dispose();
       return shared;
@@ -1019,7 +1019,7 @@ export function prod(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplexDType(dtype)) {
@@ -1038,7 +1038,7 @@ export function prod(
           dtype,
           computeStrides(outShape),
           0,
-          wasmResult.wasmRegion
+          wasmResult.wasmRegion,
         );
         wasmResult.dispose();
         result.dispose(); // free the pre-allocated JS fallback result
@@ -1149,7 +1149,7 @@ export function prod(
 export function min(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
@@ -1219,7 +1219,7 @@ export function min(
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -1333,7 +1333,7 @@ export function min(
         dtype,
         strides,
         0,
-        wasmResult.wasmRegion
+        wasmResult.wasmRegion,
       );
       wasmResult.dispose();
       return shared;
@@ -1349,7 +1349,7 @@ export function min(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isBigIntDType(dtype)) {
@@ -1534,7 +1534,7 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
         'int32',
         outStrides,
         0,
-        wasmResult.wasmRegion
+        wasmResult.wasmRegion,
       );
       wasmResult.dispose();
       return shared;
@@ -1552,7 +1552,7 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplex) {
@@ -1732,7 +1732,7 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
         'int32',
         outStrides,
         0,
-        wasmResult.wasmRegion
+        wasmResult.wasmRegion,
       );
       wasmResult.dispose();
       return shared;
@@ -1750,7 +1750,7 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplex) {
@@ -1827,7 +1827,7 @@ export function variance(
   storage: ArrayStorage,
   axis?: number,
   ddof: number = 0,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
@@ -1953,7 +1953,7 @@ export function variance(
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     if (isComplexDType(dtype)) {
@@ -2036,7 +2036,7 @@ export function std(
   storage: ArrayStorage,
   axis?: number,
   ddof: number = 0,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   // WASM fast path for full-array std (ddof=0 only — WASM kernel uses population std)
   if (axis === undefined && ddof === 0 && !keepdims) {
@@ -2073,7 +2073,7 @@ export function std(
 export function all(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | boolean {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -2157,7 +2157,7 @@ export function all(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplex) {
@@ -2207,7 +2207,7 @@ export function all(
 export function any(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | boolean {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -2291,7 +2291,7 @@ export function any(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplex) {
@@ -2400,7 +2400,7 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
     const outStrides = computeStrides(shape);
     const { baseOffsets: outBase, axisStride: outStride } = precomputeAxisOffsets(
@@ -2408,7 +2408,7 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       outStrides,
       0,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     // Perform cumsum along axis
@@ -2531,7 +2531,7 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
   const outStrides = computeStrides(shape);
   const { baseOffsets: outBase, axisStride: outStride } = precomputeAxisOffsets(
@@ -2539,7 +2539,7 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     outStrides,
     0,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   // Perform cumsum along axis
@@ -2675,7 +2675,7 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
     const outStrides = computeStrides(shape);
     const { baseOffsets: outBase, axisStride: outStride } = precomputeAxisOffsets(
@@ -2683,7 +2683,7 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
       outStrides,
       0,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     // Perform cumprod along axis
@@ -2790,7 +2790,7 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
   const outStrides = computeStrides(shape);
   const { baseOffsets: outBase, axisStride: outStride } = precomputeAxisOffsets(
@@ -2798,7 +2798,7 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     outStrides,
     0,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   // Perform cumprod along axis
@@ -2853,14 +2853,14 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
 export function ptp(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
 
   // NumPy rejects bool ptp: subtract is not defined for booleans
   if (dtype === 'bool') {
     throw new TypeError(
-      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
 
@@ -2948,7 +2948,7 @@ function _complexMedian(
   storage: ArrayStorage,
   axis: number | undefined,
   keepdims: boolean,
-  dropNaN: boolean
+  dropNaN: boolean,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
@@ -2989,7 +2989,7 @@ function _complexMedian(
     // Average of two middle elements
     return new Complex(
       (pairs[mid - 1]![0] + pairs[mid]![0]) / 2,
-      (pairs[mid - 1]![1] + pairs[mid]![1]) / 2
+      (pairs[mid - 1]![1] + pairs[mid]![1]) / 2,
     );
   }
 
@@ -3063,7 +3063,7 @@ function _complexMedian(
 export function median(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   // Bool median: promote to float64 first (NumPy median succeeds for bool,
   // even though quantile rejects bool due to subtract)
@@ -3099,7 +3099,7 @@ export function percentile(
   storage: ArrayStorage,
   q: number,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   return quantile(storage, q / 100, axis, keepdims);
 }
@@ -3111,13 +3111,13 @@ export function quantile(
   storage: ArrayStorage,
   q: number,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   throwIfComplex(storage.dtype, 'quantile', 'Complex numbers are not orderable.');
   // NumPy rejects bool quantile: linear interpolation requires subtract, unsupported for bool
   if (storage.dtype === 'bool') {
     throw new TypeError(
-      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
   if (q < 0 || q > 1) {
@@ -3199,7 +3199,7 @@ export function quantile(
           'float64',
           computeStrides(keepdimsShape),
           0,
-          wasmResult.wasmRegion
+          wasmResult.wasmRegion,
         );
         wasmResult.dispose();
         return shared;
@@ -3211,7 +3211,7 @@ export function quantile(
         'float64',
         computeStrides(outputShape),
         0,
-        wasmResult.wasmRegion
+        wasmResult.wasmRegion,
       );
       wasmResult.dispose();
       return reshaped;
@@ -3227,7 +3227,7 @@ export function quantile(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   // Reuse a single typed array for sorting — avoids per-column JS array allocation
@@ -3273,7 +3273,7 @@ export function average(
   storage: ArrayStorage,
   axis?: number,
   weights?: ArrayStorage,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
@@ -3352,7 +3352,7 @@ export function average(
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -3443,7 +3443,7 @@ export function average(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -3487,7 +3487,7 @@ function complexIsNaN(re: number, im: number): boolean {
 export function nansum(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
@@ -3601,7 +3601,7 @@ export function nansum(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplex) {
@@ -3665,7 +3665,7 @@ export function nansum(
 export function nanprod(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
@@ -3758,7 +3758,7 @@ export function nanprod(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplex) {
@@ -3824,7 +3824,7 @@ export function nanprod(
 export function nanmean(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
@@ -3944,7 +3944,7 @@ export function nanmean(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   if (isComplex) {
@@ -4018,7 +4018,7 @@ export function nanvar(
   storage: ArrayStorage,
   axis?: number,
   ddof: number = 0,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   const dtype = storage.dtype as DType;
 
@@ -4123,7 +4123,7 @@ export function nanvar(
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4248,7 +4248,7 @@ export function nanvar(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4302,7 +4302,7 @@ export function nanstd(
   storage: ArrayStorage,
   axis?: number,
   ddof: number = 0,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   // nanvar handles complex arrays and returns real values
   const varResult = nanvar(storage, axis, ddof, keepdims);
@@ -4324,7 +4324,7 @@ export function nanstd(
 export function nanmin(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
@@ -4415,7 +4415,7 @@ export function nanmin(
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4508,7 +4508,7 @@ export function nanmin(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4539,7 +4539,7 @@ export function nanmin(
 export function nanmax(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
@@ -4630,7 +4630,7 @@ export function nanmax(
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4723,7 +4723,7 @@ export function nanmax(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4823,7 +4823,7 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4896,7 +4896,7 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -4993,7 +4993,7 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
       inputStrides,
       off,
       normalizedAxis,
-      outerSize
+      outerSize,
     );
 
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -5066,7 +5066,7 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -5512,7 +5512,7 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
 export function nanmedian(
   storage: ArrayStorage,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
   if (isComplexDType(storage.dtype)) {
     return _complexMedian(storage, axis, keepdims, true);
@@ -5587,7 +5587,7 @@ export function nanmedian(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -5634,12 +5634,12 @@ export function nanquantile(
   storage: ArrayStorage,
   q: number,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   throwIfComplex(storage.dtype, 'nanquantile', 'Complex numbers are not orderable.');
   if (storage.dtype === 'bool') {
     throw new TypeError(
-      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
 
@@ -5731,7 +5731,7 @@ export function nanquantile(
           'float64',
           computeStrides(keepdimsShape),
           0,
-          wasmResult.wasmRegion
+          wasmResult.wasmRegion,
         );
         wasmResult.dispose();
         return shared;
@@ -5742,7 +5742,7 @@ export function nanquantile(
         'float64',
         computeStrides(outputShape),
         0,
-        wasmResult.wasmRegion
+        wasmResult.wasmRegion,
       );
       wasmResult.dispose();
       return reshaped;
@@ -5757,7 +5757,7 @@ export function nanquantile(
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
@@ -5806,7 +5806,7 @@ export function nanpercentile(
   storage: ArrayStorage,
   q: number,
   axis?: number,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   return nanquantile(storage, q / 100, axis, keepdims);
 }

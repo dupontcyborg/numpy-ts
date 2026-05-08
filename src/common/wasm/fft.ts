@@ -6,46 +6,46 @@
  * Returns null if WASM can't handle this case.
  */
 
+import type { TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  fft_c128,
-  ifft_c128,
-  fft_c64,
-  ifft_c64,
-  rfft_f64,
-  irfft_f64,
-  fft_scratch_size,
-  fft_batch_c128,
-  ifft_batch_c128,
   fft_batch_c64,
-  ifft_batch_c64,
-  fft2_c128,
-  ifft2_c128,
+  fft_batch_c128,
+  fft_c64,
+  fft_c128,
+  fft_scratch_size,
   fft2_c64,
-  ifft2_c64,
+  fft2_c128,
   fft2_scratch_size,
-  rfft2_f64,
-  rfft2_scratch_size,
+  ifft_batch_c64,
+  ifft_batch_c128,
+  ifft_c64,
+  ifft_c128,
+  ifft2_c64,
+  ifft2_c128,
+  irfft_batch_f32,
+  irfft_batch_f64,
+  irfft_f64,
   irfft2_f64,
   irfft2_scratch_size,
-  rfft_batch_f64,
-  rfft_batch_f32,
-  irfft_batch_f64,
-  irfft_batch_f32,
-  rfft_batch_scratch_size,
   irfftn_3d,
   irfftn_3d_scratch_size,
+  rfft_batch_f32,
+  rfft_batch_f64,
+  rfft_batch_scratch_size,
+  rfft_f64,
+  rfft2_f64,
+  rfft2_scratch_size,
 } from './bins/fft.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchAlloc,
   resolveTypedArrayPtr,
-  getSharedMemory,
+  scratchAlloc,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import type { TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -83,7 +83,11 @@ export function wasmFft(a: ArrayStorage): ArrayStorage | null {
       'complex128',
       outRegion,
       dataLen,
-      Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float64Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -109,7 +113,11 @@ export function wasmFft(a: ArrayStorage): ArrayStorage | null {
       'complex64',
       outRegion,
       dataLen,
-      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -148,7 +156,11 @@ export function wasmIfft(a: ArrayStorage): ArrayStorage | null {
       'complex128',
       outRegion,
       dataLen,
-      Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float64Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -174,7 +186,11 @@ export function wasmIfft(a: ArrayStorage): ArrayStorage | null {
       'complex64',
       outRegion,
       dataLen,
-      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -213,7 +229,11 @@ export function wasmRfft(a: ArrayStorage, n: number): ArrayStorage | null {
     'complex128',
     outRegion,
     halfN * 2,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
 
@@ -250,7 +270,11 @@ export function wasmIrfft(a: ArrayStorage, nOut: number): ArrayStorage | null {
     'float64',
     outRegion,
     nOut,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
 
@@ -267,7 +291,7 @@ export function wasmFft2(
   data: Float64Array | Float32Array,
   rows: number,
   cols: number,
-  inverse: boolean
+  inverse: boolean,
 ): Float64Array | Float32Array | null {
   const isF32 = data instanceof Float32Array;
   const bpe = isF32 ? 4 : 8;
@@ -307,7 +331,7 @@ export function wasmFftBatch(
   data: Float64Array | Float32Array,
   n: number,
   batch: number,
-  inverse: boolean
+  inverse: boolean,
 ): Float64Array | Float32Array | null {
   const isF32 = data instanceof Float32Array;
   const bpe = isF32 ? 4 : 8;
@@ -348,7 +372,7 @@ export function wasmRfftBatch(
   n: number,
   batch: number,
   inStride: number,
-  outStride: number
+  outStride: number,
 ): Float64Array | Float32Array | null {
   const isF32 = srcData instanceof Float32Array;
   const bpe = isF32 ? 4 : 8;
@@ -389,7 +413,7 @@ export function wasmIrfftBatch(
   nOut: number,
   batch: number,
   inStride: number,
-  outStride: number
+  outStride: number,
 ): Float64Array | Float32Array | null {
   const isF32 = srcData instanceof Float32Array;
   const bpe = isF32 ? 4 : 8;
@@ -403,7 +427,7 @@ export function wasmIrfftBatch(
   resetScratchAllocator();
 
   const inPtr = resolveTypedArrayPtr(
-    srcData.subarray(0, batch * nHalf * 2) as unknown as TypedArray
+    srcData.subarray(0, batch * nHalf * 2) as unknown as TypedArray,
   );
   const outPtr = scratchAlloc(outBytes);
   const scratchPtr = scratchAlloc(scratchBytes);
@@ -428,7 +452,7 @@ export function wasmIrfftBatch(
 export function wasmRfft2(
   inputData: Float64Array | TypedArray,
   rows: number,
-  cols: number
+  cols: number,
 ): Float64Array | null {
   const halfCols = Math.floor(cols / 2) + 1;
   const scratchN = rfft2_scratch_size(rows, cols);
@@ -448,7 +472,7 @@ export function wasmRfft2(
   const mem = getSharedMemory();
   const result = new Float64Array(outputLen);
   new Uint8Array(result.buffer, 0, outputBytes).set(
-    new Uint8Array(mem.buffer, outPtr, outputBytes)
+    new Uint8Array(mem.buffer, outPtr, outputBytes),
   );
   return result;
 }
@@ -461,7 +485,7 @@ export function wasmIrfft2(
   inputData: Float64Array | Float32Array,
   rows: number,
   colsHalf: number,
-  outCols: number
+  outCols: number,
 ): Float64Array | Float32Array | null {
   const isF32 = inputData instanceof Float32Array;
   const scratchN = irfft2_scratch_size(rows, outCols);
@@ -484,7 +508,7 @@ export function wasmIrfft2(
     const inF32 = new Float32Array(
       mem.buffer,
       resolveTypedArrayPtr(inputData.subarray(0, inLen) as unknown as TypedArray),
-      inLen
+      inLen,
     );
     const inF64View = new Float64Array(mem.buffer, inF64Ptr, inLen);
     for (let i = 0; i < inLen; i++) inF64View[i] = inF32[i]!;
@@ -507,7 +531,7 @@ export function wasmIrfft2(
   const mem = getSharedMemory();
   const result = new Float64Array(outputLen);
   new Uint8Array(result.buffer, 0, outputLen * 8).set(
-    new Uint8Array(mem.buffer, outPtr, outputLen * 8)
+    new Uint8Array(mem.buffer, outPtr, outputLen * 8),
   );
   return result;
 }
@@ -521,7 +545,7 @@ export function wasmIrfftn3d(
   d0: number,
   d1: number,
   d2Half: number,
-  d2Out: number
+  d2Out: number,
 ): Float64Array | null {
   const totalIn = d0 * d1 * d2Half * 2;
   const totalOut = d0 * d1 * d2Out;

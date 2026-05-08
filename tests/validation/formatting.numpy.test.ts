@@ -2,9 +2,9 @@
  * Python NumPy validation tests for Formatting functions
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { base_repr, binary_repr } from '../../src';
-import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Formatting Functions', () => {
   beforeAll(() => {
@@ -18,7 +18,7 @@ describe('NumPy Validation: Formatting Functions', () => {
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
           '   Current Python command: ' +
           (process.env.NUMPY_PYTHON || 'python3') +
-          '\n'
+          '\n',
       );
     }
   });

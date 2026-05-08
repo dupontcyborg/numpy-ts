@@ -5,22 +5,22 @@
  * Returns [quotient, remainder] or null if WASM can't handle.
  */
 
-import {
-  divmod_scalar_f64,
-  divmod_scalar_f32,
-  divmod_scalar_i64,
-  divmod_scalar_u64,
-  divmod_scalar_i32,
-  divmod_scalar_u32,
-  divmod_scalar_i16,
-  divmod_scalar_u16,
-  divmod_scalar_i8,
-  divmod_scalar_u8,
-} from './bins/divmod.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType, type TypedArray } from '../dtype';
+import {
+  divmod_scalar_f32,
+  divmod_scalar_f64,
+  divmod_scalar_i8,
+  divmod_scalar_i16,
+  divmod_scalar_i32,
+  divmod_scalar_i64,
+  divmod_scalar_u8,
+  divmod_scalar_u16,
+  divmod_scalar_u32,
+  divmod_scalar_u64,
+} from './bins/divmod.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -63,7 +63,7 @@ const bpeMap: Partial<Record<DType, number>> = {
  */
 export function wasmDivmodScalar(
   a: ArrayStorage,
-  scalar: number
+  scalar: number,
 ): [ArrayStorage, ArrayStorage] | null {
   if (!a.isCContiguous) return null;
   const size = a.size;
@@ -138,7 +138,7 @@ export function wasmDivmodScalar(
   const CtorT = IntCtor as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray;
   return [
     ArrayStorage.fromWasmRegion(shape, dtype, qRegion, size, CtorT),

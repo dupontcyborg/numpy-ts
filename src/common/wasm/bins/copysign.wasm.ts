@@ -99,7 +99,7 @@ export function copysign_scalar_i64(x1: number, out: number, N: number, scalar: 
     x1,
     out,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 

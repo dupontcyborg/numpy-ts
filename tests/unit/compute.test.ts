@@ -3,7 +3,7 @@
  * Tests element-wise operations with different dtypes
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { array, zeros } from '../../src';
 
 describe('Compute engine - element-wise operations', () => {
@@ -219,7 +219,7 @@ describe('Compute engine - element-wise operations', () => {
           [1, 2],
           [3, 4],
         ],
-        'int64'
+        'int64',
       );
       const b = array([10], 'int64');
       const result = a.add(b);
@@ -237,7 +237,7 @@ describe('Compute engine - element-wise operations', () => {
           [1, 2],
           [3, 4],
         ],
-        'int64'
+        'int64',
       );
       const b = array([10, 20], 'int32');
       const result = a.add(b);

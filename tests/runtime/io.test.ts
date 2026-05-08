@@ -6,32 +6,33 @@
  * the lazy fs resolution in src/io/filesystem.ts works on each runtime.
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'vitest';
+import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { mkdtempSync, rmSync } from 'fs';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
 import {
   array,
+  load,
   loadNpy,
   loadNpySync,
-  saveNpy,
-  saveNpySync,
-  loadtxt,
-  loadtxtSync,
-  savetxt,
-  savetxtSync,
   loadNpzFile,
   loadNpzFileSync,
+  loadSync,
+  loadtxt,
+  loadtxtSync,
+  save,
+  saveNpy,
+  saveNpySync,
   saveNpzFile,
   saveNpzFileSync,
+  saveSync,
+  savetxt,
+  savetxtSync,
   savez,
   savez_compressed,
-  load,
-  loadSync,
-  save,
-  saveSync,
 } from '../../src';
+
 describe('File IO roundtrips', () => {
   let dir: string;
 

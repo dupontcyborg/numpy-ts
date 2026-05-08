@@ -5,9 +5,9 @@
  * tests/unit/vindex.test.ts and validate against real NumPy output.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { arange, vindex, array } from '../../src';
-import { runNumPyBatch, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { arange, array, vindex } from '../../src';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPyBatch } from './numpy-oracle';
 
 describe('NumPy Validation: vindex (mixed advanced + slice)', () => {
   beforeAll(() => {
@@ -19,7 +19,7 @@ describe('NumPy Validation: vindex (mixed advanced + slice)', () => {
           '   1. Using system Python: pip install numpy\n' +
           '   2. Using conda: conda install numpy\n' +
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
-          `   Current Python command: ${process.env.NUMPY_PYTHON || 'python3'}\n`
+          `   Current Python command: ${process.env.NUMPY_PYTHON || 'python3'}\n`,
       );
     }
 

@@ -70,3 +70,4 @@ tests/tree-shaking/.output/
 
 # Stargazers data
 stargazers*.tsv
+fetch-stargazers.sh

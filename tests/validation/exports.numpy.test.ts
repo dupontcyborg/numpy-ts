@@ -7,9 +7,9 @@
  * - Validates TS exports don't add invalid functions
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../src/index';
-import { runNumPy, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 // Get NumPy exports once at module level
 let numpyExports: string[] = [];
@@ -26,7 +26,7 @@ beforeAll(() => {
         '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
         '   Current Python command: ' +
         (process.env.NUMPY_PYTHON || 'python3') +
-        '\n'
+        '\n',
     );
   }
 
@@ -541,7 +541,7 @@ describe('NumPy API Comparison', () => {
 
       console.log(`\n📈 Implementation Progress:`);
       console.log(
-        `   Module exports: ${tsImplemented.length}/${numpyExports.length} (${Math.round((tsImplemented.length / numpyExports.length) * 100)}%)`
+        `   Module exports: ${tsImplemented.length}/${numpyExports.length} (${Math.round((tsImplemented.length / numpyExports.length) * 100)}%)`,
       );
       console.log(`   Implemented: ${tsImplemented.join(', ')}\n`);
 
@@ -558,7 +558,7 @@ describe('NumPy API Comparison', () => {
       const tsAttrsImplemented = tsAttrs.filter((name) => ndarrayAttrs.includes(name));
 
       console.log(
-        `   NDArray attributes: ${tsAttrsImplemented.length}/${ndarrayAttrs.length} (${Math.round((tsAttrsImplemented.length / ndarrayAttrs.length) * 100)}%)`
+        `   NDArray attributes: ${tsAttrsImplemented.length}/${ndarrayAttrs.length} (${Math.round((tsAttrsImplemented.length / ndarrayAttrs.length) * 100)}%)`,
       );
       console.log(`   Implemented: ${tsAttrsImplemented.join(', ')}\n`);
 

@@ -77,7 +77,7 @@ export function partition_slices_f64(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_f64'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -87,7 +87,7 @@ export function partition_slices_f32(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_f32'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -97,7 +97,7 @@ export function partition_slices_i64(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_i64'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -107,7 +107,7 @@ export function partition_slices_u64(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_u64'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -117,7 +117,7 @@ export function partition_slices_i32(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_i32'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -127,7 +127,7 @@ export function partition_slices_u32(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_u32'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -137,7 +137,7 @@ export function partition_slices_i16(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_i16'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -147,7 +147,7 @@ export function partition_slices_u16(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_u16'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -157,7 +157,7 @@ export function partition_slices_i8(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_i8'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);
@@ -167,7 +167,7 @@ export function partition_slices_u8(
   a: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['partition_slices_u8'] as (...args: number[]) => void)(a, sliceSize, numSlices, kth);

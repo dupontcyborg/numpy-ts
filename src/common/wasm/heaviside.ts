@@ -6,22 +6,22 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  heaviside_scalar_f64,
-  heaviside_scalar_f32,
-  heaviside_f64,
   heaviside_f32,
+  heaviside_f64,
+  heaviside_scalar_f32,
+  heaviside_scalar_f64,
 } from './bins/heaviside.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, type TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -50,7 +50,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
 export function wasmHeavisideScalar(
   x1: ArrayStorage,
   x2: number,
-  resultDtype: 'float64' | 'float32' | 'float16'
+  resultDtype: 'float64' | 'float32' | 'float16',
 ): ArrayStorage | null {
   if (!x1.isCContiguous) return null;
   const dtype = effectiveDType(resultDtype) as 'float64' | 'float32' | 'float16';
@@ -81,7 +81,11 @@ export function wasmHeavisideScalar(
       resultDtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -93,14 +97,18 @@ export function wasmHeavisideScalar(
     resultDtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
 
 export function wasmHeaviside(
   x1: ArrayStorage,
   x2: ArrayStorage,
-  resultDtype: 'float64' | 'float32' | 'float16'
+  resultDtype: 'float64' | 'float32' | 'float16',
 ): ArrayStorage | null {
   if (!x1.isCContiguous || !x2.isCContiguous) return null;
   // WASM kernels expect same-dtype inputs — bail on mixed dtypes
@@ -134,7 +142,11 @@ export function wasmHeaviside(
       resultDtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -147,6 +159,10 @@ export function wasmHeaviside(
     resultDtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

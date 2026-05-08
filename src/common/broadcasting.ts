@@ -40,8 +40,6 @@ export function computeBroadcastShape(shapes: readonly number[][]): number[] | n
       const shapeDim = shapeIdx < 0 ? 1 : shape[shapeIdx]!;
 
       if (shapeDim === 1) {
-        // Can be broadcast
-        continue;
       } else if (dim === 1) {
         // First non-1 dimension
         dim = shapeDim;
@@ -81,7 +79,7 @@ export function areBroadcastable(shape1: readonly number[], shape2: readonly num
 function broadcastStrides(
   shape: readonly number[],
   strides: readonly number[],
-  targetShape: readonly number[]
+  targetShape: readonly number[],
 ): number[] {
   const ndim = shape.length;
   const targetNdim = targetShape.length;
@@ -123,7 +121,7 @@ export function broadcastTo(storage: ArrayStorage, targetShape: readonly number[
     Array.from(targetShape),
     storage.dtype,
     broadcastedStrides,
-    storage.offset
+    storage.offset,
   );
 }
 
@@ -152,7 +150,7 @@ export function broadcastArrays(storages: ArrayStorage[]): ArrayStorage[] {
 
   if (targetShape === null) {
     throw new Error(
-      `operands could not be broadcast together with shapes ${shapes.map((s) => JSON.stringify(s)).join(' ')}`
+      `operands could not be broadcast together with shapes ${shapes.map((s) => JSON.stringify(s)).join(' ')}`,
     );
   }
 
@@ -183,7 +181,7 @@ export function broadcastShapes(...shapes: readonly number[][]): number[] {
   if (result === null) {
     const shapeStrs = shapes.map((s) => `(${s.join(',')})`).join(' ');
     throw new Error(
-      `shape mismatch: objects cannot be broadcast to a single shape. Mismatch is between ${shapeStrs}`
+      `shape mismatch: objects cannot be broadcast to a single shape. Mismatch is between ${shapeStrs}`,
     );
   }
 

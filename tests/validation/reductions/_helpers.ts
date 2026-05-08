@@ -2,10 +2,10 @@
  * Shared helpers for reduction validation tests.
  */
 
-import { expect, beforeAll, afterEach } from 'vitest';
-import * as np from '../../../src/full/index';
+import { afterEach, beforeAll, expect } from 'vitest';
 import { wasmConfig } from '../../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from '../numpy-oracle';
+import * as np from '../../../src/full/index';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from '../numpy-oracle';
 
 /** NumPy dtype string for a given numpy-ts dtype */
 export const NP_DTYPE: Record<string, string> = {
@@ -52,7 +52,7 @@ export function compareReduction(
   dtype: string,
   axis: number | undefined,
   npOp: string = op,
-  tolerance?: number
+  tolerance?: number,
 ) {
   const a = np.array(data, dtype as any);
   const npDtype = NP_DTYPE[dtype]!;
@@ -118,4 +118,4 @@ export function setupWasmMode(mode: (typeof WASM_MODES)[number]) {
   });
 }
 
-export { np, runNumPy, arraysClose };
+export { arraysClose, np, runNumPy };

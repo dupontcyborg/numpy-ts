@@ -2,42 +2,42 @@
  * Python NumPy validation tests for array creation functions
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  zeros,
-  ones,
-  array,
   arange,
-  linspace,
-  logspace,
-  geomspace,
-  eye,
-  empty,
-  full,
-  identity,
+  array,
+  asanyarray,
   asarray,
+  asarray_chkfinite,
+  ascontiguousarray,
+  asfortranarray,
   copy,
-  zeros_like,
-  ones_like,
-  empty_like,
-  full_like,
   diag,
   diagflat,
+  empty,
+  empty_like,
+  eye,
+  fromfunction,
+  fromiter,
+  fromstring,
+  full,
+  full_like,
+  geomspace,
+  identity,
+  linspace,
+  logspace,
+  meshgrid,
+  ones,
+  ones_like,
+  require,
   tri,
   tril,
   triu,
   vander,
-  fromfunction,
-  meshgrid,
-  asanyarray,
-  ascontiguousarray,
-  asfortranarray,
-  fromstring,
-  fromiter,
-  asarray_chkfinite,
-  require,
+  zeros,
+  zeros_like,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Array Creation', () => {
   beforeAll(() => {
@@ -51,7 +51,7 @@ describe('NumPy Validation: Array Creation', () => {
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
           '   Current Python command: ' +
           (process.env.NUMPY_PYTHON || 'python3') +
-          '\n'
+          '\n',
       );
     }
   });
@@ -517,11 +517,11 @@ describe('NumPy Validation: Array Creation', () => {
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'float64'
+        'float64',
       );
       const jsResult = zeros_like(template);
       const pyResult = runNumPy(
-        'template = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64); result = np.zeros_like(template)'
+        'template = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64); result = np.zeros_like(template)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -542,7 +542,7 @@ describe('NumPy Validation: Array Creation', () => {
       const template = array([[1, 2]], 'int32');
       const jsResult = zeros_like(template, 'float64');
       const pyResult = runNumPy(
-        'template = np.array([[1, 2]], dtype=np.int32); result = np.zeros_like(template, dtype=np.float64)'
+        'template = np.array([[1, 2]], dtype=np.int32); result = np.zeros_like(template, dtype=np.float64)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -578,11 +578,11 @@ describe('NumPy Validation: Array Creation', () => {
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'float64'
+        'float64',
       );
       const jsResult = empty_like(template);
       const pyResult = runNumPy(
-        'template = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64); result = np.empty_like(template)'
+        'template = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64); result = np.empty_like(template)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -593,7 +593,7 @@ describe('NumPy Validation: Array Creation', () => {
       const template = zeros([2, 2], 'float64');
       const jsResult = empty_like(template, 'int32');
       const pyResult = runNumPy(
-        'template = np.zeros((2, 2), dtype=np.float64); result = np.empty_like(template, dtype=np.int32)'
+        'template = np.zeros((2, 2), dtype=np.float64); result = np.empty_like(template, dtype=np.int32)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -615,7 +615,7 @@ describe('NumPy Validation: Array Creation', () => {
       const template = ones([3, 2]);
       const jsResult = full_like(template, -7.5);
       const pyResult = runNumPy(
-        'template = np.ones((3, 2)); result = np.full_like(template, -7.5)'
+        'template = np.ones((3, 2)); result = np.full_like(template, -7.5)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -626,7 +626,7 @@ describe('NumPy Validation: Array Creation', () => {
       const template = zeros([2, 2], 'float64');
       const jsResult = full_like(template, 99, 'int32');
       const pyResult = runNumPy(
-        'template = np.zeros((2, 2), dtype=np.float64); result = np.full_like(template, 99, dtype=np.int32)'
+        'template = np.zeros((2, 2), dtype=np.float64); result = np.full_like(template, 99, dtype=np.int32)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -652,7 +652,7 @@ describe('NumPy Validation: Array Creation', () => {
           [1, 2, 3],
           [4, 5, 6],
           [7, 8, 9],
-        ])
+        ]),
       );
       const pyResult = runNumPy('result = np.diag([[1, 2, 3], [4, 5, 6], [7, 8, 9]])');
 
@@ -704,7 +704,7 @@ describe('NumPy Validation: Array Creation', () => {
         array([
           [1, 2],
           [3, 4],
-        ])
+        ]),
       );
       const pyResult = runNumPy('result = np.diagflat([[1, 2], [3, 4]])');
 
@@ -943,7 +943,7 @@ result = [x.tolist(), y.tolist(), z.tolist()]
       ]);
       const jsResult = ascontiguousarray(arr.transpose());
       const pyResult = runNumPy(
-        'result = np.ascontiguousarray(np.array([[1, 2, 3], [4, 5, 6]]).T)'
+        'result = np.ascontiguousarray(np.array([[1, 2, 3], [4, 5, 6]]).T)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -957,7 +957,7 @@ result = [x.tolist(), y.tolist(), z.tolist()]
         array([
           [1, 2, 3],
           [4, 5, 6],
-        ])
+        ]),
       );
       const pyResult = runNumPy('result = np.asfortranarray([[1, 2, 3], [4, 5, 6]])');
 
@@ -1054,7 +1054,7 @@ result = [x.tolist(), y.tolist(), z.tolist()]
       ]);
       const jsResult = require(arr, undefined, 'C');
       const pyResult = runNumPy(
-        "result = np.require(np.array([[1, 2, 3], [4, 5, 6]]), requirements='C')"
+        "result = np.require(np.array([[1, 2, 3], [4, 5, 6]]), requirements='C')",
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -1074,7 +1074,7 @@ result = [x.tolist(), y.tolist(), z.tolist()]
       const arr = array([1, 2, 3], 'int32');
       const jsResult = require(arr, 'float64');
       const pyResult = runNumPy(
-        'result = np.require(np.array([1, 2, 3], dtype=np.int32), dtype=np.float64)'
+        'result = np.require(np.array([1, 2, 3], dtype=np.int32), dtype=np.float64)',
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);
@@ -1089,7 +1089,7 @@ result = [x.tolist(), y.tolist(), z.tolist()]
       ]);
       const jsResult = require(arr, undefined, ['C', 'W']);
       const pyResult = runNumPy(
-        "result = np.require(np.array([[1, 2], [3, 4]]), requirements=['C', 'W'])"
+        "result = np.require(np.array([[1, 2], [3, 4]]), requirements=['C', 'W'])",
       );
 
       expect(jsResult.shape).toEqual(pyResult.shape);

@@ -15,24 +15,24 @@
  * @module ops/fft
  */
 
-import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
-import { isComplexDType, throwIfComplex, fftResultDtype, hasFloat16, type DType } from '../dtype';
-import { roll as shapeRoll } from './shape';
+import { type DType, fftResultDtype, hasFloat16, isComplexDType, throwIfComplex } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { wasmConfig } from '../wasm/config';
 import {
   wasmFft,
-  wasmIfft,
-  wasmRfft,
-  wasmIrfft,
   wasmFft2,
   wasmFftBatch,
-  wasmRfftBatch,
-  wasmIrfftBatch,
-  wasmRfft2,
+  wasmIfft,
+  wasmIrfft,
   wasmIrfft2,
+  wasmIrfftBatch,
   wasmIrfftn3d,
+  wasmRfft,
+  wasmRfft2,
+  wasmRfftBatch,
 } from '../wasm/fft';
-import { wasmConfig } from '../wasm/config';
+import { roll as shapeRoll } from './shape';
 
 /**
  * Cooley-Tukey FFT algorithm (radix-2)
@@ -270,7 +270,7 @@ export function fft(
   a: ArrayStorage,
   n?: number,
   axis: number = -1,
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   // WASM fast path: 1D FFT on last axis, no truncation/padding, backward norm
   if (
@@ -305,7 +305,7 @@ export function ifft(
   a: ArrayStorage,
   n?: number,
   axis: number = -1,
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   // WASM fast path: 1D IFFT on last axis, no truncation/padding, backward norm
   if (
@@ -340,7 +340,7 @@ export function fft2(
   a: ArrayStorage,
   s?: [number, number],
   axes: [number, number] = [-2, -1],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   return fftnd(a, s, axes, norm, false);
 }
@@ -358,7 +358,7 @@ export function ifft2(
   a: ArrayStorage,
   s?: [number, number],
   axes: [number, number] = [-2, -1],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   return fftnd(a, s, axes, norm, true);
 }
@@ -376,7 +376,7 @@ export function fftn(
   a: ArrayStorage,
   s?: number[],
   axes?: number[],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   return fftnd(a, s, axes, norm, false);
 }
@@ -394,7 +394,7 @@ export function ifftn(
   a: ArrayStorage,
   s?: number[],
   axes?: number[],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   return fftnd(a, s, axes, norm, true);
 }
@@ -407,7 +407,7 @@ function fftnd(
   s?: number[],
   axes?: number[],
   norm: 'backward' | 'ortho' | 'forward' = 'backward',
-  inverse: boolean = false
+  inverse: boolean = false,
 ): ArrayStorage {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
@@ -695,7 +695,7 @@ function wasmBatchRfft(a: ArrayStorage, n: number): ArrayStorage | null {
     for (let i = 0; i < a.size; i++) srcData[i] = Number(bigData[a.offset + i]!);
   } else {
     srcData = Float64Array.from(
-      a.data.subarray(a.offset, a.offset + a.size) as unknown as ArrayLike<number>
+      a.data.subarray(a.offset, a.offset + a.size) as unknown as ArrayLike<number>,
     );
   }
 
@@ -747,7 +747,7 @@ function fft1dAlongAxis(
   a: ArrayStorage,
   axis: number,
   inverse: boolean,
-  norm: 'backward' | 'ortho' | 'forward'
+  norm: 'backward' | 'ortho' | 'forward',
 ): ArrayStorage {
   const shape = Array.from(a.shape);
   const n = shape[axis]!;
@@ -910,7 +910,7 @@ export function rfft(
   a: ArrayStorage,
   n?: number,
   axis: number = -1,
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   throwIfComplex(a.dtype, 'rfft', 'rfft expects real input.');
   const shape = Array.from(a.shape);
@@ -969,7 +969,7 @@ export function irfft(
   a: ArrayStorage,
   n?: number,
   axis: number = -1,
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
@@ -1055,7 +1055,7 @@ export function rfft2(
   a: ArrayStorage,
   s?: [number, number],
   axes: [number, number] = [-2, -1],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   throwIfComplex(a.dtype, 'rfft2', 'rfft2 expects real input.');
   const shape = Array.from(a.shape);
@@ -1090,7 +1090,7 @@ export function rfft2(
         for (let i = 0; i < rows * cols; i++) inputData[i] = Number(bigData[a.offset + i]!);
       } else {
         inputData = Float64Array.from(
-          a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>
+          a.data.subarray(a.offset, a.offset + rows * cols) as ArrayLike<number>,
         );
       }
       const outData = wasmRfft2(inputData, rows, cols);
@@ -1117,7 +1117,7 @@ export function irfft2(
   a: ArrayStorage,
   s?: [number, number],
   axes: [number, number] = [-2, -1],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
@@ -1180,7 +1180,7 @@ export function rfftn(
   a: ArrayStorage,
   s?: number[],
   axes?: number[],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   throwIfComplex(a.dtype, 'rfftn', 'rfftn expects real input.');
   const shape = Array.from(a.shape);
@@ -1223,7 +1223,7 @@ export function irfftn(
   a: ArrayStorage,
   s?: number[],
   axes?: number[],
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
@@ -1308,7 +1308,7 @@ export function hfft(
   a: ArrayStorage,
   n?: number,
   axis: number = -1,
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   const shape = Array.from(a.shape);
   const ndim = shape.length;
@@ -1356,7 +1356,7 @@ export function ihfft(
   a: ArrayStorage,
   n?: number,
   axis: number = -1,
-  norm: 'backward' | 'ortho' | 'forward' = 'backward'
+  norm: 'backward' | 'ortho' | 'forward' = 'backward',
 ): ArrayStorage {
   throwIfComplex(a.dtype, 'ihfft', 'ihfft expects real input.');
   const shape = Array.from(a.shape);

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { random, array } from '../../src/index';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { array, random } from '../../src/index';
 
 describe('Random Module', () => {
   beforeEach(() => {

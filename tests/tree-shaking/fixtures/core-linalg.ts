@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: Linear algebra from standalone entry point
  * Expected: Small bundle with only linalg operations
  */
-import { array, dot, transpose, linalg } from 'numpy-ts/core';
+import { array, dot, linalg, transpose } from 'numpy-ts/core';
 
 const a = array([
   [1, 2],
@@ -22,4 +22,5 @@ const g = linalg.norm(a); // Returns number
 // c returns NDArrayCore | number - use type guard for safe access
 const cShape = typeof c === 'object' && 'shape' in c ? c.shape : null;
 console.log(cShape, d.shape, e.shape, f, g);
+
 export { c, d, e, f, g };

@@ -6,35 +6,35 @@
  * Unsigned types use SEPARATE kernels.
  */
 
+import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  reduce_argmin_f64,
   reduce_argmin_f32,
-  reduce_argmin_i64,
-  reduce_argmin_i32,
-  reduce_argmin_i16,
+  reduce_argmin_f64,
   reduce_argmin_i8,
-  reduce_argmin_u64,
-  reduce_argmin_u32,
-  reduce_argmin_u16,
-  reduce_argmin_u8,
-  reduce_argmin_strided_f64,
+  reduce_argmin_i16,
+  reduce_argmin_i32,
+  reduce_argmin_i64,
   reduce_argmin_strided_f32,
-  reduce_argmin_strided_i32,
-  reduce_argmin_strided_u32,
-  reduce_argmin_strided_i16,
-  reduce_argmin_strided_u16,
+  reduce_argmin_strided_f64,
   reduce_argmin_strided_i8,
+  reduce_argmin_strided_i16,
+  reduce_argmin_strided_i32,
   reduce_argmin_strided_u8,
+  reduce_argmin_strided_u16,
+  reduce_argmin_strided_u32,
+  reduce_argmin_u8,
+  reduce_argmin_u16,
+  reduce_argmin_u32,
+  reduce_argmin_u64,
 } from './bins/reduce_argmin.wasm';
+import { wasmConfig } from './config';
 import {
+  f16InputToScratchF32,
   resetScratchAllocator,
   resolveInputPtr,
-  f16InputToScratchF32,
   wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -122,7 +122,7 @@ export function wasmReduceArgminStrided(
   a: ArrayStorage,
   outerSize: number,
   axisSize: number,
-  innerSize: number
+  innerSize: number,
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
 
@@ -156,6 +156,10 @@ export function wasmReduceArgminStrided(
     'int32',
     outRegion,
     outSize,
-    Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Int32Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

@@ -9,18 +9,18 @@
  * Usage: npx tsx scripts/zig-dead-code.ts [--verbose] [--list]
  */
 
-import { readFileSync, readdirSync, existsSync } from 'fs';
-import { join, basename } from 'path';
+import { existsSync, readdirSync, readFileSync } from 'fs';
+import { basename, join } from 'path';
 
 // --- Config ---
 const ZIG_DIR = 'src/common/wasm/zig';
-const BINS_DIR = 'src/common/wasm/bins';
+const _BINS_DIR = 'src/common/wasm/bins';
 const WASM_DIR = 'src/common/wasm';
 const TS_ROOTS = ['src', 'tests', 'benchmarks'];
 // Utility .zig files that only export pub symbols for other .zig files
 const SKIP_FILES = new Set(['simd.zig', 'alloc.zig']);
 
-const verbose = process.argv.includes('--verbose');
+const _verbose = process.argv.includes('--verbose');
 const list = process.argv.includes('--list');
 
 // --- Helpers ---
@@ -236,7 +236,7 @@ for (const [mod] of exportFnsByModule) {
 
     // Find all exported function names from the wrapper
     const wrapperExportNames = [...wrapperSrc.matchAll(/^export function (\w+)/gm)].map(
-      (m) => m[1]
+      (m) => m[1],
     );
 
     for (const expFn of wrapperExportNames) {
@@ -315,7 +315,7 @@ console.log(
   bold('  Summary: ') +
     (totalDead === 0
       ? green('No dead code detected')
-      : red(`${totalDead} dead code issue${totalDead > 1 ? 's' : ''} found`))
+      : red(`${totalDead} dead code issue${totalDead > 1 ? 's' : ''} found`)),
 );
 
 if (list && totalDead > 0) {

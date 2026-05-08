@@ -4,9 +4,9 @@
  * Validates that our dtype implementation matches NumPy's behavior
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { zeros, ones, array, arange, linspace, eye } from '../../src';
-import { checkNumPyAvailable, runNumPy, arraysClose } from './numpy-oracle';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { arange, array, eye, linspace, ones, zeros } from '../../src';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: DType Support', () => {
   beforeAll(() => {
@@ -97,7 +97,7 @@ describe('NumPy Validation: DType Support', () => {
       const jsArr = array([1.5, 2.5, 3.5]);
       const jsConverted = jsArr.astype('float32');
       const pyResult = runNumPy(
-        "result = np.array([1.5, 2.5, 3.5], dtype='float64').astype('float32')"
+        "result = np.array([1.5, 2.5, 3.5], dtype='float64').astype('float32')",
       );
 
       expect(jsConverted.dtype).toBe('float32');

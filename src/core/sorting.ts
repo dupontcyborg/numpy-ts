@@ -6,7 +6,7 @@
  */
 
 import * as sortingOps from '../common/ops/sorting';
-import { NDArrayCore, toStorage, fromStorage, fromStorageArray, ArrayStorage } from './types';
+import { ArrayStorage, fromStorage, fromStorageArray, NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Sorting
@@ -65,12 +65,12 @@ export function flatnonzero(a: NDArrayCore): NDArrayCore {
 export function where(
   condition: NDArrayCore,
   x?: NDArrayCore,
-  y?: NDArrayCore
+  y?: NDArrayCore,
 ): NDArrayCore | NDArrayCore[] {
   const result = sortingOps.where(
     toStorage(condition),
     x ? toStorage(x) : undefined,
-    y ? toStorage(y) : undefined
+    y ? toStorage(y) : undefined,
   );
   if (Array.isArray(result)) {
     return fromStorageArray(result);
@@ -82,7 +82,7 @@ export function where(
 export function searchsorted(
   a: NDArrayCore,
   v: NDArrayCore,
-  side: 'left' | 'right' = 'left'
+  side: 'left' | 'right' = 'left',
 ): NDArrayCore {
   return fromStorage(sortingOps.searchsorted(toStorage(a), toStorage(v), side));
 }

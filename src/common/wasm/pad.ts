@@ -5,18 +5,18 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  pad_2d_f64,
-  pad_2d_f32,
-  pad_2d_i64,
-  pad_2d_i32,
-  pad_2d_i16,
-  pad_2d_i8,
-} from './bins/pad.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, effectiveDType, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import {
+  pad_2d_f32,
+  pad_2d_f64,
+  pad_2d_i8,
+  pad_2d_i16,
+  pad_2d_i32,
+  pad_2d_i64,
+} from './bins/pad.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -97,8 +97,8 @@ export function wasmPad2D(a: ArrayStorage, padWidth: number): ArrayStorage | nul
       Float16Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -110,6 +110,10 @@ export function wasmPad2D(a: ArrayStorage, padWidth: number): ArrayStorage | nul
     dtype,
     outRegion,
     outSize,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

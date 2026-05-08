@@ -42,7 +42,7 @@ export function array2string(
     edgeitems?: number;
     sign?: ' ' | '+' | '-';
     floatmode?: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal';
-  }
+  },
 ): string {
   return formattingOps.array2string(
     toStorage(a),
@@ -55,7 +55,7 @@ export function array2string(
     options?.threshold ?? null,
     options?.edgeitems ?? null,
     options?.floatmode ?? null,
-    options?.sign ?? null
+    options?.sign ?? null,
   );
 }
 
@@ -63,7 +63,7 @@ export function array_repr(
   a: NDArrayCore,
   max_line_width?: number,
   precision?: number,
-  suppress_small?: boolean
+  suppress_small?: boolean,
 ): string {
   return formattingOps.array_repr(toStorage(a), max_line_width, precision, suppress_small);
 }

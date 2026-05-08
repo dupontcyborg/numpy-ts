@@ -34,7 +34,7 @@ export function left_shift_scalar_i64(a: number, out: number, N: number, scalar:
     a,
     out,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 

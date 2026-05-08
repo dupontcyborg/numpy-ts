@@ -2,23 +2,23 @@
  * Unit tests for type checking functions
  */
 
-import { describe, it, expect } from 'vitest';
-import { array } from '../../src';
+import { describe, expect, it } from 'vitest';
 import {
+  array,
   can_cast,
   common_type,
-  result_type,
-  min_scalar_type,
-  issubdtype,
-  typename,
-  mintypecode,
-  isscalar,
-  iterable,
   isdtype,
-  promote_types,
+  isfortran,
   isneginf,
   isposinf,
-  isfortran,
+  isscalar,
+  issubdtype,
+  iterable,
+  min_scalar_type,
+  mintypecode,
+  promote_types,
+  result_type,
+  typename,
 } from '../../src';
 
 describe('Type Checking Functions', () => {

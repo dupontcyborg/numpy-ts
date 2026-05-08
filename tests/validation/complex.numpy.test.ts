@@ -2,113 +2,113 @@
  * Python NumPy validation tests for complex number support
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
-  zeros,
-  ones,
-  Complex,
-  real,
-  imag,
-  conj,
-  angle,
   abs,
-  sqrt,
-  power,
+  angle,
+  arccos,
+  arccosh,
+  arcsin,
+  arcsinh,
+  arctan,
+  arctanh,
+  argpartition,
+  argsort,
+  argwhere,
+  array,
+  average,
+  Complex,
+  cbrt,
+  conj,
+  convolve,
+  corrcoef,
+  correlate,
+  cos,
+  cosh,
+  count_nonzero,
+  cov,
+  cross,
+  cumprod,
+  cumsum,
+  diagonal,
+  diff,
+  dot,
+  ediff1d,
+  einsum,
   exp,
   exp2,
   expm1,
-  log,
-  log2,
-  log10,
-  log1p,
-  sin,
-  cos,
-  tan,
-  arcsin,
-  arccos,
-  arctan,
-  sinh,
-  cosh,
-  tanh,
-  arcsinh,
-  arccosh,
-  arctanh,
-  positive,
-  reciprocal,
-  square,
-  cumsum,
-  cumprod,
-  dot,
-  trace,
-  diagonal,
-  transpose,
+  extract,
+  flatnonzero,
+  float_power,
+  gradient,
+  imag,
+  in1d,
   inner,
-  outer,
-  kron,
+  intersect1d,
+  iscomplex,
+  iscomplexobj,
   isfinite,
+  isin,
   isinf,
   isnan,
-  iscomplex,
-  isreal,
-  iscomplexobj,
-  isrealobj,
-  isposinf,
   isneginf,
-  nonzero,
-  argwhere,
-  flatnonzero,
-  where,
-  extract,
-  count_nonzero,
-  logical_and,
-  logical_or,
-  logical_not,
-  logical_xor,
-  diff,
-  ediff1d,
-  gradient,
-  cross,
-  nancumsum,
-  nancumprod,
-  nanvar,
-  nanstd,
-  nanargmin,
-  nanargmax,
-  nansum,
-  nanprod,
-  nanmean,
-  average,
-  sort,
-  argsort,
-  partition,
-  argpartition,
+  isposinf,
+  isreal,
+  isrealobj,
+  kron,
   lexsort,
-  searchsorted,
-  sort_complex,
+  log,
+  log1p,
+  log2,
+  log10,
+  logical_and,
+  logical_not,
+  logical_or,
+  logical_xor,
   max,
   min,
-  nanmin,
+  nanargmax,
+  nanargmin,
+  nancumprod,
+  nancumsum,
   nanmax,
+  nanmean,
+  nanmin,
+  nanprod,
+  nanstd,
+  nansum,
+  nanvar,
+  nonzero,
+  ones,
+  outer,
+  partition,
+  positive,
+  power,
   ptp,
-  cbrt,
-  float_power,
-  unique,
-  intersect1d,
-  union1d,
-  in1d,
-  isin,
+  real,
+  real_if_close,
+  reciprocal,
+  searchsorted,
   setdiff1d,
   setxor1d,
-  correlate,
-  convolve,
-  real_if_close,
+  sin,
+  sinh,
+  sort,
+  sort_complex,
+  sqrt,
+  square,
+  tan,
+  tanh,
   tensordot,
-  einsum,
-  cov,
-  corrcoef,
+  trace,
+  transpose,
+  union1d,
+  unique,
+  where,
+  zeros,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 // Helper function for comparing arrays with strict equality (for boolean arrays)
 function arraysEqual(a: unknown[], b: unknown[]): boolean {
@@ -164,7 +164,7 @@ describe('NumPy Validation: Complex Numbers', () => {
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
           '   Current Python command: ' +
           (process.env.NUMPY_PYTHON || 'python3') +
-          '\n'
+          '\n',
       );
     }
   });
@@ -248,7 +248,7 @@ result = np.conj(np.array([1+2j, 3-4j]))
   describe('angle()', () => {
     it('computes phase angle matching NumPy', () => {
       const jsResult = angle(
-        array([new Complex(1, 0), new Complex(0, 1), new Complex(-1, 0), new Complex(0, -1)])
+        array([new Complex(1, 0), new Complex(0, 1), new Complex(-1, 0), new Complex(0, -1)]),
       );
       const pyResult = runNumPy(`
 result = np.angle(np.array([1+0j, 0+1j, -1+0j, 0-1j]))
@@ -716,7 +716,7 @@ result = np.log(np.exp(np.array([1+0.5j, 2-1j, 0.5+1j])))
   describe('sin()', () => {
     it('computes sin of real values matching NumPy', () => {
       const jsResult = sin(
-        array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)])
+        array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)]),
       );
       const pyResult = runNumPy(`
 import math
@@ -741,7 +741,7 @@ result = np.sin(np.array([0+1j, 1+1j, 0.5+2j]))
   describe('cos()', () => {
     it('computes cos of real values matching NumPy', () => {
       const jsResult = cos(
-        array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)])
+        array([new Complex(0, 0), new Complex(Math.PI / 2, 0), new Complex(Math.PI, 0)]),
       );
       const pyResult = runNumPy(`
 import math
@@ -766,7 +766,7 @@ result = np.cos(np.array([0+1j, 1+1j, 0.5+2j]))
   describe('tan()', () => {
     it('computes tan of real values matching NumPy', () => {
       const jsResult = tan(
-        array([new Complex(0, 0), new Complex(Math.PI / 4, 0), new Complex(1, 0)])
+        array([new Complex(0, 0), new Complex(Math.PI / 4, 0), new Complex(1, 0)]),
       );
       const pyResult = runNumPy(`
 import math
@@ -846,7 +846,7 @@ result = np.arctan(np.array([0+0j, 1+0j, 2+0j]))
 
     it('computes arctan of complex matching NumPy', () => {
       const jsResult = arctan(
-        array([new Complex(0.3, 0.2), new Complex(1, 0.5), new Complex(0, 0.5)])
+        array([new Complex(0.3, 0.2), new Complex(1, 0.5), new Complex(0, 0.5)]),
       );
       const pyResult = runNumPy(`
 result = np.arctan(np.array([0.3+0.2j, 1+0.5j, 0+0.5j]))
@@ -1035,7 +1035,7 @@ result = np.arcsinh(np.array([0+0j, 1+0j, 2+0j]))
 
     it('computes arcsinh of complex matching NumPy', () => {
       const jsResult = arcsinh(
-        array([new Complex(0.3, 0.4), new Complex(1, 1), new Complex(0, 1)])
+        array([new Complex(0.3, 0.4), new Complex(1, 1), new Complex(0, 1)]),
       );
       const pyResult = runNumPy(`
 result = np.arcsinh(np.array([0.3+0.4j, 1+1j, 0+1j]))
@@ -1059,7 +1059,7 @@ result = np.arccosh(np.array([1+0j, 2+0j, 3+0j]))
 
     it('computes arccosh of complex matching NumPy', () => {
       const jsResult = arccosh(
-        array([new Complex(0.5, 0.3), new Complex(2, 0.5), new Complex(0, 1)])
+        array([new Complex(0.5, 0.3), new Complex(2, 0.5), new Complex(0, 1)]),
       );
       const pyResult = runNumPy(`
 result = np.arccosh(np.array([0.5+0.3j, 2+0.5j, 0+1j]))
@@ -1072,7 +1072,7 @@ result = np.arccosh(np.array([0.5+0.3j, 2+0.5j, 0+1j]))
   describe('arctanh()', () => {
     it('computes arctanh of real values in (-1, 1) matching NumPy', () => {
       const jsResult = arctanh(
-        array([new Complex(0, 0), new Complex(0.5, 0), new Complex(-0.5, 0)])
+        array([new Complex(0, 0), new Complex(0.5, 0), new Complex(-0.5, 0)]),
       );
       const pyResult = runNumPy(`
 result = np.arctanh(np.array([0+0j, 0.5+0j, -0.5+0j]))
@@ -1085,7 +1085,7 @@ result = np.arctanh(np.array([0+0j, 0.5+0j, -0.5+0j]))
 
     it('computes arctanh of complex matching NumPy', () => {
       const jsResult = arctanh(
-        array([new Complex(0.3, 0.2), new Complex(0.5, 0.5), new Complex(0, 0.5)])
+        array([new Complex(0.3, 0.2), new Complex(0.5, 0.5), new Complex(0, 0.5)]),
       );
       const pyResult = runNumPy(`
 result = np.arctanh(np.array([0.3+0.2j, 0.5+0.5j, 0+0.5j]))
@@ -1689,7 +1689,7 @@ result = np.where(np.array([1, 0, 1]), np.array([10+10j, 20+20j, 30+30j]), np.ar
         `);
 
         expect(arraysClose((jsResult as ReturnType<typeof array>).toArray(), pyResult.value)).toBe(
-          true
+          true,
         );
       });
     });

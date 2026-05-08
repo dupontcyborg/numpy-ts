@@ -78,7 +78,7 @@ export function argpartition_slices_f64(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_f64'] as (...args: number[]) => void)(
@@ -86,7 +86,7 @@ export function argpartition_slices_f64(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -95,7 +95,7 @@ export function argpartition_slices_f32(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_f32'] as (...args: number[]) => void)(
@@ -103,7 +103,7 @@ export function argpartition_slices_f32(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -112,7 +112,7 @@ export function argpartition_slices_i64(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_i64'] as (...args: number[]) => void)(
@@ -120,7 +120,7 @@ export function argpartition_slices_i64(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -129,7 +129,7 @@ export function argpartition_slices_u64(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_u64'] as (...args: number[]) => void)(
@@ -137,7 +137,7 @@ export function argpartition_slices_u64(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -146,7 +146,7 @@ export function argpartition_slices_i32(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_i32'] as (...args: number[]) => void)(
@@ -154,7 +154,7 @@ export function argpartition_slices_i32(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -163,7 +163,7 @@ export function argpartition_slices_u32(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_u32'] as (...args: number[]) => void)(
@@ -171,7 +171,7 @@ export function argpartition_slices_u32(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -180,7 +180,7 @@ export function argpartition_slices_i16(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_i16'] as (...args: number[]) => void)(
@@ -188,7 +188,7 @@ export function argpartition_slices_i16(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -197,7 +197,7 @@ export function argpartition_slices_u16(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_u16'] as (...args: number[]) => void)(
@@ -205,7 +205,7 @@ export function argpartition_slices_u16(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -214,7 +214,7 @@ export function argpartition_slices_i8(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_i8'] as (...args: number[]) => void)(
@@ -222,7 +222,7 @@ export function argpartition_slices_i8(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }
 
@@ -231,7 +231,7 @@ export function argpartition_slices_u8(
   out: number,
   sliceSize: number,
   numSlices: number,
-  kth: number
+  kth: number,
 ): void {
   const i = init();
   (i.exports['argpartition_slices_u8'] as (...args: number[]) => void)(
@@ -239,6 +239,6 @@ export function argpartition_slices_u8(
     out,
     sliceSize,
     numSlices,
-    kth
+    kth,
   );
 }

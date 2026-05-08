@@ -8,42 +8,42 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
+import type { DType } from '../dtype';
 import {
+  boolArithmeticDtype,
+  getComplexComponentDType,
+  hasFloat16,
   isBigIntDType,
   isComplexDType,
-  isIntegerDType,
-  getComplexComponentDType,
-  promoteDTypes,
-  throwIfComplex,
-  throwIfBool,
   isFloatDType,
+  isIntegerDType,
   mathResultDtype,
-  boolArithmeticDtype,
-  hasFloat16,
+  promoteDTypes,
+  throwIfBool,
+  throwIfComplex,
 } from '../dtype';
-import type { DType } from '../dtype';
 import { elementwiseBinaryOp } from '../internal/compute';
-import { wasmAdd, wasmAddScalar } from '../wasm/add';
-import { wasmSub, wasmSubScalar } from '../wasm/sub';
-import { wasmMul, wasmMulScalar } from '../wasm/mul';
-import { wasmDiv, wasmDivScalar } from '../wasm/divide';
-import { wasmNeg } from '../wasm/neg';
+import { ArrayStorage } from '../storage';
 import { wasmAbs } from '../wasm/abs';
-import { wasmSign } from '../wasm/sign';
-import { wasmMin, wasmMinScalar } from '../wasm/min';
-import { wasmMax, wasmMaxScalar } from '../wasm/max';
+import { wasmAdd, wasmAddScalar } from '../wasm/add';
 import { wasmClip } from '../wasm/clip';
-import { wasmSquare } from '../wasm/square';
-import { wasmReciprocal } from '../wasm/reciprocal';
-import { wasmHeavisideScalar, wasmHeaviside } from '../wasm/heaviside';
-import { wasmLdexpScalar } from '../wasm/ldexp';
-import { wasmFrexp } from '../wasm/frexp';
-import { wasmModf } from '../wasm/modf';
-import { wasmGcdScalar, wasmGcd } from '../wasm/gcd';
+import { wasmDiv, wasmDivScalar } from '../wasm/divide';
 import { wasmDivmodScalar } from '../wasm/divmod';
-import { getComplexAt, setComplexAt, complexGreater, clipComplex } from './complex';
+import { wasmFrexp } from '../wasm/frexp';
+import { wasmGcd, wasmGcdScalar } from '../wasm/gcd';
+import { wasmHeaviside, wasmHeavisideScalar } from '../wasm/heaviside';
+import { wasmLdexpScalar } from '../wasm/ldexp';
+import { wasmMax, wasmMaxScalar } from '../wasm/max';
+import { wasmMin, wasmMinScalar } from '../wasm/min';
+import { wasmModf } from '../wasm/modf';
+import { wasmMul, wasmMulScalar } from '../wasm/mul';
+import { wasmNeg } from '../wasm/neg';
+import { wasmReciprocal } from '../wasm/reciprocal';
+import { wasmSign } from '../wasm/sign';
+import { wasmSquare } from '../wasm/square';
+import { wasmSub, wasmSubScalar } from '../wasm/sub';
+import { clipComplex, complexGreater, getComplexAt, setComplexAt } from './complex';
 
 /**
  * Helper: Check if two arrays can use the fast path
@@ -101,7 +101,7 @@ function complexMinMax(
   x1: ArrayStorage,
   x2: ArrayStorage | number,
   mode: 'max' | 'min',
-  ignoreNaN: boolean = false
+  ignoreNaN: boolean = false,
 ): ArrayStorage {
   const isMax = mode === 'max';
 
@@ -372,7 +372,7 @@ export function subtract(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
   if (a.dtype === 'bool' && (typeof b === 'number' ? false : b.dtype === 'bool')) {
     throw new TypeError(
       "ufunc 'subtract' not supported for boolean dtype. " +
-        'The `-` operator is not supported for booleans, use `bitwise_xor` instead.'
+        'The `-` operator is not supported for booleans, use `bitwise_xor` instead.',
     );
   }
   if (typeof b === 'number') {
@@ -715,7 +715,7 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
  */
 function convertToFloatDType(
   storage: ArrayStorage,
-  targetDtype: 'float32' | 'float64'
+  targetDtype: 'float32' | 'float64',
 ): ArrayStorage {
   const result = ArrayStorage.empty(Array.from(storage.shape), targetDtype);
   const size = storage.size;
@@ -1103,7 +1103,7 @@ export function negative(a: ArrayStorage): ArrayStorage {
   throwIfBool(
     a.dtype,
     'negative',
-    'The `-` operator is not supported for booleans, use `~` instead.'
+    'The `-` operator is not supported for booleans, use `~` instead.',
   );
 
   const wasmResult = wasmNeg(a);
@@ -1433,7 +1433,7 @@ export function positive(a: ArrayStorage): ArrayStorage {
   } else {
     if (contiguous) {
       // Use bulk copy — TypedArray.set() is much faster than element-by-element
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
       (resultData as any).set((data as any).subarray(off, off + size));
     } else {
       for (let i = 0; i < size; i++) {
@@ -1721,19 +1721,19 @@ export function heaviside(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   if (x1.dtype === 'bool')
     return heaviside(
       boolToMathFloat(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return heaviside(x1, boolToMathFloat(x2));
   throwIfComplex(
     x1.dtype,
     'heaviside',
-    'Heaviside step function is not defined for complex numbers.'
+    'Heaviside step function is not defined for complex numbers.',
   );
   if (typeof x2 !== 'number') {
     throwIfComplex(
       x2.dtype,
       'heaviside',
-      'Heaviside step function is not defined for complex numbers.'
+      'Heaviside step function is not defined for complex numbers.',
     );
   }
   const x2Dtype = typeof x2 === 'number' ? x1.dtype : x2.dtype;
@@ -2029,7 +2029,7 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   if (x1.dtype === 'bool')
     return fmod(
       boolToInt8(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToInt8(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToInt8(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return fmod(x1, boolToInt8(x2));
   if (typeof x2 === 'number') {
@@ -2118,13 +2118,13 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   throwIfComplex(x1.dtype, 'gcd', 'GCD is only defined for integers.');
   if (isFloatDType(x1.dtype))
     throw new TypeError(
-      `ufunc 'gcd' not supported for float dtype '${x1.dtype}'. GCD is only defined for integer dtypes.`
+      `ufunc 'gcd' not supported for float dtype '${x1.dtype}'. GCD is only defined for integer dtypes.`,
     );
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'gcd', 'GCD is only defined for integers.');
     if (isFloatDType(x2.dtype))
       throw new TypeError(
-        `ufunc 'gcd' not supported for float dtype '${x2.dtype}'. GCD is only defined for integer dtypes.`
+        `ufunc 'gcd' not supported for float dtype '${x2.dtype}'. GCD is only defined for integer dtypes.`,
       );
     // NumPy rejects gcd(bool, bool) but allows gcd(int, bool) by promoting bool→int
     if (x1.dtype === 'bool' && x2.dtype === 'bool')
@@ -2133,7 +2133,7 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   // Reject when promoted dtype is float (e.g., signed × uint64)
   if (typeof x2 !== 'number' && isFloatDType(promoteDTypes(x1.dtype, x2.dtype)))
     throw new TypeError(
-      `ufunc 'gcd' not supported for mixed types '${x1.dtype}' and '${x2.dtype}'.`
+      `ufunc 'gcd' not supported for mixed types '${x1.dtype}' and '${x2.dtype}'.`,
     );
   // For gcd(bool, bool), promote both to int8. For mixed bool+int, let promoteDTypes handle it.
   if (x1.dtype === 'bool' && (typeof x2 === 'number' || x2.dtype === 'bool'))
@@ -2233,14 +2233,14 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   throwIfComplex(x1.dtype, 'lcm', 'LCM is only defined for integers.');
   if (isFloatDType(x1.dtype))
     throw new TypeError(
-      `ufunc 'lcm' not supported for float dtype '${x1.dtype}'. LCM is only defined for integer dtypes.`
+      `ufunc 'lcm' not supported for float dtype '${x1.dtype}'. LCM is only defined for integer dtypes.`,
     );
   throwIfComplex(x1.dtype, 'lcm', 'LCM is only defined for integers.');
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'lcm', 'LCM is only defined for integers.');
     if (isFloatDType(x2.dtype))
       throw new TypeError(
-        `ufunc 'lcm' not supported for float dtype '${x2.dtype}'. LCM is only defined for integer dtypes.`
+        `ufunc 'lcm' not supported for float dtype '${x2.dtype}'. LCM is only defined for integer dtypes.`,
       );
     if (x1.dtype === 'bool' && x2.dtype === 'bool')
       throw new TypeError("ufunc 'lcm' not supported for boolean dtype.");
@@ -2249,7 +2249,7 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   // Must check BEFORE bool→int8 conversion to avoid false rejection on uint64×bool
   if (typeof x2 !== 'number' && isFloatDType(promoteDTypes(x1.dtype, x2.dtype)))
     throw new TypeError(
-      `ufunc 'lcm' not supported for mixed types '${x1.dtype}' and '${x2.dtype}'.`
+      `ufunc 'lcm' not supported for mixed types '${x1.dtype}' and '${x2.dtype}'.`,
     );
   // For lcm(bool, bool), promote both to int8. For mixed bool+int, let promoteDTypes handle it.
   if (x1.dtype === 'bool' && (typeof x2 === 'number' || x2.dtype === 'bool'))
@@ -2477,7 +2477,7 @@ export function modf(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
 export function clip(
   a: ArrayStorage,
   a_min: number | ArrayStorage | null,
-  a_max: number | ArrayStorage | null
+  a_max: number | ArrayStorage | null,
 ): ArrayStorage {
   // Complex clip: compare by real part, then imaginary as tiebreaker
   if (isComplexDType(a.dtype)) {
@@ -2666,7 +2666,7 @@ export function maximum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
     x1,
     x2,
     (a, b) => (isNaN(a) || isNaN(b) ? NaN : Math.max(a, b)),
-    'maximum'
+    'maximum',
   );
 }
 
@@ -2724,7 +2724,7 @@ export function minimum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
     x1,
     x2,
     (a, b) => (isNaN(a) || isNaN(b) ? NaN : Math.min(a, b)),
-    'minimum'
+    'minimum',
   );
 }
 
@@ -2792,7 +2792,7 @@ export function fmax(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
       if (isNaN(b)) return a;
       return Math.max(a, b);
     },
-    'fmax'
+    'fmax',
   );
 }
 
@@ -2860,7 +2860,7 @@ export function fmin(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
       if (isNaN(b)) return a;
       return Math.min(a, b);
     },
-    'fmin'
+    'fmin',
   );
 }
 
@@ -2877,7 +2877,7 @@ export function nan_to_num(
   x: ArrayStorage,
   nan: number = 0.0,
   posinf?: number,
-  neginf?: number
+  neginf?: number,
 ): ArrayStorage {
   const dtype = x.dtype;
   const shape = Array.from(x.shape);
@@ -2920,7 +2920,7 @@ export function nan_to_num(
 
   if (isIntegerDType(dtype)) {
     // Integer types can never contain NaN or Inf, just bulk copy
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
     (resultData as any).set((xData as any).subarray(x.offset, x.offset + size));
   } else {
     for (let i = 0; i < size; i++) {
@@ -2958,7 +2958,7 @@ export function interp(
   xp: ArrayStorage,
   fp: ArrayStorage,
   left?: number,
-  right?: number
+  right?: number,
 ): ArrayStorage {
   throwIfComplex(x.dtype, 'interp', 'interp is not supported for complex numbers.');
   throwIfComplex(xp.dtype, 'interp', 'interp is not supported for complex numbers.');
@@ -3030,7 +3030,7 @@ export function unwrap(
   p: ArrayStorage,
   discont: number = Math.PI,
   axis: number = -1,
-  period: number = 2 * Math.PI
+  period: number = 2 * Math.PI,
 ): ArrayStorage {
   throwIfComplex(p.dtype, 'unwrap', 'unwrap is not supported for complex numbers.');
 

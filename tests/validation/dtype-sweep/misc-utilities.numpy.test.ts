@@ -4,22 +4,22 @@
  * histogram, apply functions, in-place mutation, memory introspection,
  * and misc utilities across ALL dtypes, validated against NumPy.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
   checkNumPyAvailable,
-  npDtype,
+  expectBothRejectPre,
+  expectMatchPre,
   isComplex,
   isFloat,
-  runNumPyBatch,
-  expectMatchPre,
-  expectBothRejectPre,
+  npDtype,
   pyArrayCast,
   pyScalarCast,
+  runNumPyBatch,
   scalarClose,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -330,7 +330,7 @@ describe('DType Sweep: Apply functions', () => {
       const jsResult = np.apply_over_axes(
         (arr: any, ax: number): any => np.sum(arr, ax, true),
         array(d2d, dtype),
-        [0]
+        [0],
       );
       expectMatchPre(jsResult, oracle.get(`apply_over_axes_${dtype}`)!);
     });
@@ -434,7 +434,7 @@ describe('DType Sweep: Histograms', () => {
         const r = expectBothRejectPre(
           `histogram2d may not support ${dtype}`,
           () => np.histogram2d(x, y, 3),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const [H] = np.histogram2d(x, y, 3);
@@ -454,7 +454,7 @@ describe('DType Sweep: Histograms', () => {
         const r = expectBothRejectPre(
           `histogramdd may not support ${dtype}`,
           () => np.histogramdd(sample, 3),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const [H] = np.histogramdd(sample, 3);
@@ -483,7 +483,7 @@ describe('DType Sweep: Einsum', () => {
         const r = expectBothRejectPre(
           `einsum_path may not support ${dtype}`,
           () => np.einsum_path('ij,jk->ik', a, a),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const [path, info] = np.einsum_path('ij,jk->ik', a, a);

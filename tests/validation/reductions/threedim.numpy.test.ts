@@ -2,10 +2,10 @@
  * NumPy validation: 3D array reductions
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import * as np from '../../../src/full/index';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { wasmConfig } from '../../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from '../numpy-oracle';
+import * as np from '../../../src/full/index';
+import { arraysClose, checkNumPyAvailable, runNumPy } from '../numpy-oracle';
 import { WASM_MODES } from './_helpers';
 
 for (const mode of WASM_MODES) {

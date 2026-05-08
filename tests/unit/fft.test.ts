@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import { array, fft, arange, Complex } from '../../src/index';
+import { describe, expect, it } from 'vitest';
 // Import from core to get NDArrayCore instances
 import { array as arrayCoreLib } from '../../src/core/creation';
 import { fft as coreFft } from '../../src/core/index';
+import { arange, array, Complex, fft } from '../../src/index';
 
 // Helper to check if two complex values are close
 function complexClose(
   a: Complex | number,
   b: Complex | number,
   rtol: number = 1e-10,
-  atol: number = 1e-10
+  atol: number = 1e-10,
 ): boolean {
   const aRe = a instanceof Complex ? a.re : Number(a);
   const aIm = a instanceof Complex ? a.im : 0;

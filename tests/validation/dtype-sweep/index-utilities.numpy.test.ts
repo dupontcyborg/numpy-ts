@@ -3,20 +3,19 @@
  * Most return integer indices (no dtype iteration needed).
  * Functions taking array inputs are tested across ALL_DTYPES.
  */
-import { describe, it, beforeAll } from 'vitest';
-import { expect } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
-  checkNumPyAvailable,
-  npDtype,
-  expectMatchPre,
-  expectBothRejectPre,
   arraysClose,
+  checkNumPyAvailable,
+  expectBothRejectPre,
+  expectMatchPre,
+  npDtype,
+  runNumPyBatch,
   toComparable,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -265,7 +264,7 @@ describe('DType Sweep: indices (across dtypes)', () => {
         const r = expectBothRejectPre(
           `indices may not support ${dtype}`,
           () => np.indices([3, 3], dtype),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const jsResult = np.indices([3, 3], dtype);

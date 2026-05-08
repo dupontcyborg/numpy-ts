@@ -4,11 +4,11 @@
  * (above WASM threshold for float types).
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import * as np from '../../src/full/index';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { wasmConfig } from '../../src';
-import { checkNumPyAvailable, runNumPy, arraysClose } from './numpy-oracle';
 import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
+import * as np from '../../src/full/index';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 /** NumPy dtype string for a given numpy-ts dtype */
 const NP_DTYPE: Record<string, string> = {
@@ -71,14 +71,14 @@ for (const mode of WASM_MODES) {
               [1, 2],
               [3, 4],
             ],
-            dtype
+            dtype,
           );
           const b = np.array(
             [
               [5, 6],
               [7, 8],
             ],
-            dtype
+            dtype,
           );
           const r = np.matmul(a, b);
 
@@ -124,7 +124,7 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
               [1, 2, 3],
               [4, 5, 6],
             ],
-            dtype
+            dtype,
           );
           const b = np.array(
             [
@@ -132,7 +132,7 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
               [9, 10],
               [11, 12],
             ],
-            dtype
+            dtype,
           );
           const r = np.matmul(a, b);
 
@@ -165,7 +165,7 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
               [3, 4],
               [5, 6],
             ],
-            dtype
+            dtype,
           );
           const r = np.matmul(a, b);
 
@@ -185,7 +185,7 @@ result = (a @ b).tolist()
               [1, 2, 3],
               [4, 5, 6],
             ],
-            dtype
+            dtype,
           );
           const b = np.array([1, 2, 3], dtype);
           const r = np.matmul(a, b);
@@ -212,14 +212,14 @@ result = (a @ b).tolist()
             [10, 20],
             [30, 40],
           ],
-          'int8'
+          'int8',
         );
         const b = np.array(
           [
             [5, 6],
             [7, 8],
           ],
-          'int8'
+          'int8',
         );
         const r = np.matmul(a, b);
 
@@ -241,14 +241,14 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
             [10, 20],
             [30, 40],
           ],
-          'uint8'
+          'uint8',
         );
         const b = np.array(
           [
             [5, 6],
             [7, 8],
           ],
-          'uint8'
+          'uint8',
         );
         const r = np.matmul(a, b);
 
@@ -337,11 +337,11 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
           // Use small values to avoid overflow for narrow int types
           const a = np.remainder(
             np.arange(0, 100, 1, dtype).reshape([10, 10]),
-            np.array([5], dtype)
+            np.array([5], dtype),
           );
           const b = np.remainder(
             np.arange(0, 100, 1, dtype).reshape([10, 10]),
-            np.array([3], dtype)
+            np.array([3], dtype),
           );
 
           const r = np.matmul(a, b);
@@ -414,7 +414,7 @@ result = float((a @ a)[0, 0])
               [7, 8],
             ],
           ],
-          'int32'
+          'int32',
         );
         const b = np.array(
           [
@@ -427,7 +427,7 @@ result = float((a @ a)[0, 0])
               [1, 2],
             ],
           ],
-          'int32'
+          'int32',
         );
         const r = np.matmul(a, b);
 
@@ -455,7 +455,7 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
               [7, 8],
             ],
           ],
-          'int8'
+          'int8',
         );
         const b = np.array(
           [
@@ -468,7 +468,7 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
               [1, 2],
             ],
           ],
-          'int8'
+          'int8',
         );
         const r = np.matmul(a, b);
 
@@ -509,14 +509,14 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
               [1, 2],
               [3, 4],
             ],
-            dtype
+            dtype,
           );
           const b = np.array(
             [
               [1, 0],
               [0, 1],
             ],
-            dtype
+            dtype,
           );
           const r = np.matmul(a, b);
           expect(r.dtype).toBe(dtype);

@@ -10,102 +10,100 @@
  * - Native u128 for PCG64 (vs slow JS BigInt)
  */
 
-import { ArrayStorage } from '../storage';
-import { svd } from '../ops/linalg';
 import { type DType, isBigIntDType } from '../dtype';
+import { svd } from '../ops/linalg';
+import { ArrayStorage } from '../storage';
 import {
-  initMT19937,
-  mt19937Uint32,
-  mt19937Float64,
-  getMT19937State,
-  setMT19937State,
-  initPCG64FromSeed,
-  pcg64Float64,
-  pcg64SaveState,
-  pcg64RestoreState,
-  pcg64BoundedUint64,
-  standardNormalPCG,
-  standardExponentialPCG,
-  legacyGauss,
-  legacyGaussReset,
-  legacyStandardExponential,
-  fillUniformF64MT,
-  fillUniformF64PCG,
-  fillStandardNormalPCG,
-  fillStandardExponentialPCG,
+  directFill,
+  fillBeta,
+  fillBinomial,
+  fillBoundedUint64PCG,
+  fillF,
+  fillGeometric,
+  fillGumbel,
+  fillHypergeometric,
+  fillLaplace,
+  fillLegacyChisquare,
   fillLegacyGauss,
   fillLegacyStandardExponential,
-  fillRkInterval,
-  wasmLegacyStandardGamma,
   fillLegacyStandardGamma,
-  fillLegacyChisquare,
-  fillPareto,
-  fillPower,
-  fillWeibull,
   fillLogistic,
-  fillGumbel,
-  fillLaplace,
-  fillRayleigh,
-  fillTriangular,
-  fillStandardCauchy,
   fillLognormal,
-  fillWald,
-  fillStandardT,
-  fillBeta,
-  fillF,
+  fillLogseries,
+  fillNegativeBinomial,
   fillNoncentralChisquare,
   fillNoncentralF,
-  fillGeometric,
+  fillPareto,
+  fillPermutation,
+  fillPermutationPCG,
   fillPoisson,
-  fillBinomial,
-  fillNegativeBinomial,
-  fillHypergeometric,
-  fillLogseries,
-  fillZipf,
-  fillVonmises,
+  fillPower,
   fillRandintI64,
   fillRandintU8,
   fillRandintU16,
-  fillPermutation,
-  fillPermutationPCG,
-  fillBoundedUint64PCG,
-} from '../wasm/rng';
-import {
-  directFill,
-  rawFillUniformF64PCG,
-  rawFillStandardNormalPCG,
-  rawFillLegacyGauss,
-  rawFillStandardCauchy,
-  rawFillPermutation,
-  rawFillPermutationPCG,
-  rawFillLegacyStandardGamma,
-  rawFillLegacyChisquare,
-  rawFillPareto,
-  rawFillPower,
-  rawFillWeibull,
-  rawFillLogistic,
-  rawFillGumbel,
-  rawFillLaplace,
-  rawFillRayleigh,
-  rawFillTriangular,
-  rawFillLognormal,
-  rawFillWald,
-  rawFillStandardT,
+  fillRayleigh,
+  fillRkInterval,
+  fillStandardCauchy,
+  fillStandardExponentialPCG,
+  fillStandardNormalPCG,
+  fillStandardT,
+  fillTriangular,
+  fillUniformF64MT,
+  fillUniformF64PCG,
+  fillVonmises,
+  fillWald,
+  fillWeibull,
+  fillZipf,
+  getMT19937State,
+  initMT19937,
+  initPCG64FromSeed,
+  legacyGauss,
+  legacyGaussReset,
+  legacyStandardExponential,
+  mt19937Float64,
+  mt19937Uint32,
+  pcg64BoundedUint64,
+  pcg64Float64,
+  pcg64RestoreState,
+  pcg64SaveState,
   rawFillBeta,
+  rawFillBinomial,
+  rawFillBoundedUint64PCG,
   rawFillF,
+  rawFillGeometric,
+  rawFillGumbel,
+  rawFillHypergeometric,
+  rawFillLaplace,
+  rawFillLegacyChisquare,
+  rawFillLegacyGauss,
+  rawFillLegacyStandardGamma,
+  rawFillLogistic,
+  rawFillLognormal,
+  rawFillLogseries,
+  rawFillNegativeBinomial,
   rawFillNoncentralChisquare,
   rawFillNoncentralF,
-  rawFillVonmises,
-  rawFillGeometric,
+  rawFillPareto,
+  rawFillPermutation,
+  rawFillPermutationPCG,
   rawFillPoisson,
-  rawFillBinomial,
-  rawFillNegativeBinomial,
-  rawFillHypergeometric,
-  rawFillLogseries,
-  rawFillZipf,
+  rawFillPower,
   rawFillRandintI64,
+  rawFillRayleigh,
+  rawFillStandardCauchy,
+  rawFillStandardNormalPCG,
+  rawFillStandardT,
+  rawFillTriangular,
   rawFillUniformF64MT,
-  rawFillBoundedUint64PCG,
+  rawFillUniformF64PCG,
+  rawFillVonmises,
+  rawFillWald,
+  rawFillWeibull,
+  rawFillZipf,
+  setMT19937State,
+  standardExponentialPCG,
+  standardNormalPCG,
+  wasmLegacyStandardGamma,
 } from '../wasm/rng';
 
 // ============================================================================
@@ -228,7 +226,7 @@ export class Generator {
     a: number | ArrayStorage,
     size?: number | number[],
     replace: boolean = true,
-    p?: ArrayStorage | number[]
+    p?: ArrayStorage | number[],
   ): ArrayStorage | number {
     return this._withState(() => choiceImpl(a, size, replace, p, pcg64Float64, true));
   }
@@ -627,7 +625,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
   }
 
   // Main loop (gotos replaced with labeled loop + continue)
-  outer: while (true) {
+  while (true) {
     // Step10
     nrq = n * r * q;
     u = rng() * p4;
@@ -640,7 +638,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
       // Step20
       x = xl + (u - p1) / c;
       v = v * c + 1.0 - Math.abs(m - x + 0.5) / p1;
-      if (v > 1.0) continue outer;
+      if (v > 1.0) continue;
       y = Math.floor(x);
       // goto Step50
       k = Math.abs(y - m);
@@ -651,7 +649,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
         A = Math.log(v);
         if (A < t - rho) {
           /* accept */
-        } else if (A > t + rho) continue outer;
+        } else if (A > t + rho) continue;
         else {
           x1 = y + 1;
           f1 = m + 1;
@@ -671,7 +669,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
               (13680 - (462 - (132 - (99 - 140 / x2) / x2) / x2) / x2) / x1 / 166320 +
               (13680 - (462 - (132 - (99 - 140 / w2) / w2) / w2) / w2) / w / 166320
           ) {
-            continue outer;
+            continue;
           }
         }
       } else {
@@ -683,12 +681,12 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
         } else if (m > y) {
           for (let i = y + 1; i <= m; i++) F /= a / i - s;
         }
-        if (v > F) continue outer;
+        if (v > F) continue;
       }
     } else if (u <= p3) {
       // Step30
       y = Math.floor(xl + Math.log(v) / laml);
-      if (y < 0 || v === 0.0) continue outer;
+      if (y < 0 || v === 0.0) continue;
       v = v * (u - p2) * laml;
       // goto Step50
       k = Math.abs(y - m);
@@ -698,7 +696,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
         A = Math.log(v);
         if (A < t - rho) {
           /* accept */
-        } else if (A > t + rho) continue outer;
+        } else if (A > t + rho) continue;
         else {
           x1 = y + 1;
           f1 = m + 1;
@@ -718,7 +716,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
               (13680 - (462 - (132 - (99 - 140 / x2) / x2) / x2) / x2) / x1 / 166320 +
               (13680 - (462 - (132 - (99 - 140 / w2) / w2) / w2) / w2) / w / 166320
           ) {
-            continue outer;
+            continue;
           }
         }
       } else {
@@ -730,12 +728,12 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
         } else if (m > y) {
           for (let i = y + 1; i <= m; i++) F /= a / i - s;
         }
-        if (v > F) continue outer;
+        if (v > F) continue;
       }
     } else {
       // Step40
       y = Math.floor(xr - Math.log(v) / lamr);
-      if (y > n || v === 0.0) continue outer;
+      if (y > n || v === 0.0) continue;
       v = v * (u - p3) * lamr;
       // goto Step50
       k = Math.abs(y - m);
@@ -745,7 +743,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
         A = Math.log(v);
         if (A < t - rho) {
           /* accept */
-        } else if (A > t + rho) continue outer;
+        } else if (A > t + rho) continue;
         else {
           x1 = y + 1;
           f1 = m + 1;
@@ -765,7 +763,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
               (13680 - (462 - (132 - (99 - 140 / x2) / x2) / x2) / x2) / x1 / 166320 +
               (13680 - (462 - (132 - (99 - 140 / w2) / w2) / w2) / w2) / w / 166320
           ) {
-            continue outer;
+            continue;
           }
         }
       } else {
@@ -777,7 +775,7 @@ function binomialBtpe(n: number, p: number, rng: () => number, binomial: Binomia
         } else if (m > y) {
           for (let i = y + 1; i <= m; i++) F /= a / i - s;
         }
-        if (v > F) continue outer;
+        if (v > F) continue;
       }
     }
 
@@ -791,7 +789,7 @@ function binomialInversion(
   n: number,
   p: number,
   rng: () => number,
-  binomial: BinomialState
+  binomial: BinomialState,
 ): number {
   let q: number, qn: number, np: number, px: number, U: number;
   let X: number, bound: number;
@@ -917,7 +915,7 @@ export function randint(
   low: number,
   high?: number | null,
   size?: number | number[],
-  dtype: DType = 'int64'
+  dtype: DType = 'int64',
 ): ArrayStorage | number {
   if (high === undefined || high === null) {
     high = low;
@@ -979,7 +977,7 @@ export function randint(
 export function uniform(
   low: number = 0,
   high: number = 1,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (size === undefined) {
     return mt19937Float64() * (high - low) + low;
@@ -1005,7 +1003,7 @@ export function uniform(
 export function normal(
   loc: number = 0,
   scale: number = 1,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (size === undefined) {
     return legacyGauss() * scale + loc;
@@ -1110,7 +1108,7 @@ function choiceImpl(
   replace: boolean = true,
   p?: ArrayStorage | number[],
   rng: () => number = mt19937Float64,
-  usePCG: boolean = false
+  usePCG: boolean = false,
 ): ArrayStorage | number {
   // Fast path: integer a, replace=true, no p — use randint/integers (matches NumPy)
   const n = typeof a === 'number' ? a : a.size;
@@ -1316,7 +1314,7 @@ export function choice(
   a: number | ArrayStorage,
   size?: number | number[],
   replace: boolean = true,
-  p?: ArrayStorage | number[]
+  p?: ArrayStorage | number[],
 ): ArrayStorage | number {
   return choiceImpl(a, size, replace, p, mt19937Float64);
 }
@@ -1327,7 +1325,7 @@ export function choice(
 function permutationImpl(
   x: number | ArrayStorage,
   rng: () => number = mt19937Float64,
-  usePCG: boolean = false
+  usePCG: boolean = false,
 ): ArrayStorage {
   // Fast path: integer n — do entire shuffle in WASM
   if (typeof x === 'number') {
@@ -1389,7 +1387,7 @@ export function permutation(x: number | ArrayStorage): ArrayStorage {
 function shuffleImpl(
   x: ArrayStorage,
   rng: () => number = mt19937Float64,
-  usePCG: boolean = false
+  usePCG: boolean = false,
 ): void {
   const n = x.size;
   if (n <= 1) return;
@@ -1457,7 +1455,7 @@ export function sample(size?: number | number[]): ArrayStorage | number {
 export function random_integers(
   low: number,
   high?: number,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (high === undefined) {
     high = low;
@@ -1626,7 +1624,7 @@ export function standard_t(df: number, size?: number | number[]): ArrayStorage |
 export function gamma(
   shape: number,
   scale: number = 1,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (shape <= 0) {
     throw new Error('shape must be positive');
@@ -1717,7 +1715,7 @@ export function beta(a: number, b: number, size?: number | number[]): ArrayStora
 export function laplace(
   loc: number = 0,
   scale: number = 1,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (scale <= 0) {
     throw new Error('scale must be positive');
@@ -1759,7 +1757,7 @@ export function laplace(
 export function logistic(
   loc: number = 0,
   scale: number = 1,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (scale <= 0) {
     throw new Error('scale must be positive');
@@ -1798,7 +1796,7 @@ export function logistic(
 export function lognormal(
   mean: number = 0,
   sigma: number = 1,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (sigma <= 0) {
     throw new Error('sigma must be positive');
@@ -1828,7 +1826,7 @@ export function lognormal(
 export function gumbel(
   loc: number = 0,
   scale: number = 1,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (scale <= 0) {
     throw new Error('scale must be positive');
@@ -1951,7 +1949,7 @@ export function triangular(
   left: number,
   mode: number,
   right: number,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (left > mode || mode > right || left === right) {
     throw new Error('must have left <= mode <= right and left < right');
@@ -2096,7 +2094,7 @@ export function chisquare(df: number, size?: number | number[]): ArrayStorage | 
 export function noncentral_chisquare(
   df: number,
   nonc: number,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (df <= 0) {
     throw new Error('df must be positive');
@@ -2180,7 +2178,7 @@ export function noncentral_f(
   dfnum: number,
   dfden: number,
   nonc: number,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (dfnum <= 0) {
     throw new Error('dfnum must be positive');
@@ -2286,7 +2284,7 @@ export function hypergeometric(
   ngood: number,
   nbad: number,
   nsample: number,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (ngood < 0) throw new Error('ngood must be non-negative');
   if (nbad < 0) throw new Error('nbad must be non-negative');
@@ -2312,7 +2310,7 @@ export function hypergeometric(
   const result = ArrayStorage.empty(shapeArr, 'int64');
   if (result.isWasmBacked) {
     directFill(result.wasmPtr, totalSize, (p, n) =>
-      rawFillHypergeometric(p, n, ngood, nbad, nsample)
+      rawFillHypergeometric(p, n, ngood, nbad, nsample),
     );
   } else {
     (result.data as BigInt64Array).set(fillHypergeometric(totalSize, ngood, nbad, nsample));
@@ -2372,7 +2370,7 @@ export function logseries(p: number, size?: number | number[]): ArrayStorage | n
 export function negative_binomial(
   n: number,
   p: number,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (n <= 0) {
     throw new Error('n must be positive');
@@ -2457,7 +2455,7 @@ export function zipf(a: number, size?: number | number[]): ArrayStorage | number
 export function multinomial(
   n: number,
   pvals: number[] | ArrayStorage,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage {
   const probs = Array.isArray(pvals)
     ? pvals
@@ -2530,7 +2528,7 @@ export function multivariate_normal(
   cov: number[][] | ArrayStorage,
   size?: number | number[],
   check_valid: 'warn' | 'raise' | 'ignore' = 'warn',
-  tol: number = 1e-8
+  tol: number = 1e-8,
 ): ArrayStorage {
   const meanArr = Array.isArray(mean)
     ? mean
@@ -2683,7 +2681,7 @@ export function dirichlet(alpha: number[] | ArrayStorage, size?: number | number
 export function vonmises(
   mu: number,
   kappa: number,
-  size?: number | number[]
+  size?: number | number[],
 ): ArrayStorage | number {
   if (kappa < 0) {
     throw new Error('kappa must be non-negative');

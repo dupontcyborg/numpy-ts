@@ -81,7 +81,7 @@ export class Complex {
     }
     return new Complex(
       this.re * other.re - this.im * other.im,
-      this.re * other.im + this.im * other.re
+      this.re * other.im + this.im * other.re,
     );
   }
 
@@ -96,7 +96,7 @@ export class Complex {
     const denom = other.re * other.re + other.im * other.im;
     return new Complex(
       (this.re * other.re + this.im * other.im) / denom,
-      (this.im * other.re - this.re * other.im) / denom
+      (this.im * other.re - this.re * other.im) / denom,
     );
   }
 

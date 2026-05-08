@@ -9,28 +9,28 @@
  *   i32/u32/i64/u64 → f64
  */
 
+import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  tan_f64,
   tan_f32,
-  tan_i64_f64,
-  tan_u64_f64,
-  tan_i32_f64,
-  tan_u32_f64,
-  tan_i16_f32,
-  tan_u16_f32,
+  tan_f64,
   tan_i8_f32,
+  tan_i16_f32,
+  tan_i32_f64,
+  tan_i64_f64,
   tan_u8_f32,
+  tan_u16_f32,
+  tan_u32_f64,
+  tan_u64_f64,
 } from './bins/tan.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, isComplexDType, hasFloat16, type DType, type TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -104,7 +104,11 @@ export function wasmTan(a: ArrayStorage): ArrayStorage | null {
       dtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -131,7 +135,11 @@ export function wasmTan(a: ArrayStorage): ArrayStorage | null {
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -161,7 +169,11 @@ export function wasmTan(a: ArrayStorage): ArrayStorage | null {
         'float16',
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -174,8 +186,8 @@ export function wasmTan(a: ArrayStorage): ArrayStorage | null {
       Float32Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -201,7 +213,7 @@ export function wasmTan(a: ArrayStorage): ArrayStorage | null {
     Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

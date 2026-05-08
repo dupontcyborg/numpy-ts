@@ -2,23 +2,23 @@
  * Unit tests for broadcasting utilities
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  computeBroadcastShape,
+  array,
+  broadcast_arrays as ba,
+  broadcast_shapes,
+  broadcast_to,
+  ones,
+  zeros,
+} from '../../src';
+import {
   areBroadcastable,
   broadcastArrays,
   broadcastErrorMessage,
   broadcastShapes,
   broadcastTo,
+  computeBroadcastShape,
 } from '../../src/common/broadcasting';
-import {
-  array,
-  zeros,
-  ones,
-  broadcast_shapes,
-  broadcast_to,
-  broadcast_arrays as ba,
-} from '../../src';
 
 describe('Broadcasting utilities', () => {
   describe('computeBroadcastShape', () => {
@@ -40,7 +40,7 @@ describe('Broadcasting utilities', () => {
         computeBroadcastShape([
           [3, 4],
           [3, 4],
-        ])
+        ]),
       ).toEqual([3, 4]);
     });
 
@@ -54,19 +54,19 @@ describe('Broadcasting utilities', () => {
         computeBroadcastShape([
           [3, 1],
           [1, 4],
-        ])
+        ]),
       ).toEqual([3, 4]);
       expect(
         computeBroadcastShape([
           [1, 4],
           [3, 1],
-        ])
+        ]),
       ).toEqual([3, 4]);
       expect(
         computeBroadcastShape([
           [8, 1, 6, 1],
           [7, 1, 5],
-        ])
+        ]),
       ).toEqual([8, 7, 6, 5]);
     });
 
@@ -77,7 +77,7 @@ describe('Broadcasting utilities', () => {
         computeBroadcastShape([
           [15, 3, 5],
           [3, 5],
-        ])
+        ]),
       ).toEqual([15, 3, 5]);
     });
 
@@ -91,13 +91,13 @@ describe('Broadcasting utilities', () => {
         computeBroadcastShape([
           [3, 4],
           [3, 5],
-        ])
+        ]),
       ).toBeNull();
       expect(
         computeBroadcastShape([
           [2, 1],
           [8, 4, 3],
-        ])
+        ]),
       ).toBeNull();
     });
 
@@ -108,7 +108,7 @@ describe('Broadcasting utilities', () => {
         computeBroadcastShape([
           [8, 0, 1, 6, 1],
           [6, 5],
-        ])
+        ]),
       ).toEqual([8, 0, 1, 6, 5]);
     });
   });
@@ -183,7 +183,7 @@ describe('Broadcasting utilities', () => {
       const b = array([1, 2, 3, 4]);
 
       expect(() => broadcastArrays([a.storage, b.storage])).toThrow(
-        /operands could not be broadcast together/
+        /operands could not be broadcast together/,
       );
     });
 
@@ -195,7 +195,7 @@ describe('Broadcasting utilities', () => {
       const b = array([1, 2, 3]);
 
       expect(() => broadcastArrays([a.storage, b.storage])).toThrow(
-        /operands could not be broadcast together/
+        /operands could not be broadcast together/,
       );
     });
   });
@@ -219,7 +219,7 @@ describe('Broadcasting utilities', () => {
       const message = broadcastErrorMessage(shapes, 'add');
 
       expect(message).toBe(
-        'operands could not be broadcast together for add with shapes (3,4) (5,6)'
+        'operands could not be broadcast together for add with shapes (3,4) (5,6)',
       );
     });
 
@@ -235,7 +235,7 @@ describe('Broadcasting utilities', () => {
       const message = broadcastErrorMessage(shapes, 'multiply');
 
       expect(message).toBe(
-        'operands could not be broadcast together for multiply with shapes () (3,4)'
+        'operands could not be broadcast together for multiply with shapes () (3,4)',
       );
     });
 
@@ -244,7 +244,7 @@ describe('Broadcasting utilities', () => {
       const message = broadcastErrorMessage(shapes, 'subtract');
 
       expect(message).toBe(
-        'operands could not be broadcast together for subtract with shapes (3,4) (4) (5,1)'
+        'operands could not be broadcast together for subtract with shapes (3,4) (4) (5,1)',
       );
     });
   });
@@ -281,7 +281,7 @@ describe('Broadcasting utilities', () => {
 
     it('throws descriptive error message', () => {
       expect(() => broadcast_shapes([3, 4], [5, 6])).toThrow(
-        /Cannot broadcast shapes: dimensions \d+ and \d+ are incompatible/
+        /Cannot broadcast shapes: dimensions \d+ and \d+ are incompatible/,
       );
     });
 
@@ -610,7 +610,7 @@ describe('computeBroadcastShape additional', () => {
         [1, 1, 3],
         [2, 1, 1],
         [1, 4, 1],
-      ])
+      ]),
     ).toEqual([2, 4, 3]);
   });
 
@@ -620,7 +620,7 @@ describe('computeBroadcastShape additional', () => {
         [2, 3],
         [2, 3],
         [4, 5],
-      ])
+      ]),
     ).toBeNull();
   });
 });

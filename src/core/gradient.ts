@@ -6,7 +6,7 @@
  */
 
 import * as gradientOps from '../common/ops/gradient';
-import { NDArrayCore, toStorage, fromStorage, fromStorageArray } from './types';
+import { fromStorage, fromStorageArray, NDArrayCore, toStorage } from './types';
 
 /** Calculate n-th discrete difference */
 export function diff(a: NDArrayCore, n?: number, axis?: number): NDArrayCore {
@@ -17,7 +17,7 @@ export function diff(a: NDArrayCore, n?: number, axis?: number): NDArrayCore {
 export function ediff1d(
   a: NDArrayCore,
   to_end?: number[] | null,
-  to_begin?: number[] | null
+  to_begin?: number[] | null,
 ): NDArrayCore {
   return fromStorage(gradientOps.ediff1d(toStorage(a), to_end ?? null, to_begin ?? null));
 }
@@ -26,7 +26,7 @@ export function ediff1d(
 export function gradient(
   f: NDArrayCore,
   varargs?: number | number[],
-  axis?: number | number[] | null
+  axis?: number | number[] | null,
 ): NDArrayCore | NDArrayCore[] {
   const result = gradientOps.gradient(toStorage(f), varargs, axis);
   if (Array.isArray(result)) {

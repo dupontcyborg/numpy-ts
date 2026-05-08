@@ -6,7 +6,7 @@
  */
 
 import * as bitwiseOps from '../common/ops/bitwise';
-import { NDArrayCore, toStorage, fromStorage } from './types';
+import { fromStorage, NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Bitwise Operations
@@ -66,7 +66,7 @@ export function unpackbits(
   a: NDArrayCore,
   axis?: number,
   count?: number,
-  bitorder?: 'big' | 'little'
+  bitorder?: 'big' | 'little',
 ): NDArrayCore {
   return fromStorage(bitwiseOps.unpackbits(toStorage(a), axis, count, bitorder));
 }

@@ -15,18 +15,18 @@
  * ```
  */
 
-import * as core from '../core';
-import { NDArray } from './ndarray';
-import { NDArrayCore } from '../common/ndarray-core';
-import { ArrayStorage } from '../common/storage';
 import { Complex } from '../common/complex';
-import type { DType, TypedArray } from '../core/types';
 import {
   DEFAULT_DTYPE,
   getTypedArrayConstructor,
-  promoteDTypes,
   isComplexDType,
+  promoteDTypes,
 } from '../common/dtype';
+import { NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
+import * as core from '../core';
+import type { DType, TypedArray } from '../core/types';
+import { NDArray } from './ndarray';
 
 // Helper to upgrade NDArrayCore to NDArray (zero-copy via shared storage)
 // If already an NDArray, return as-is to preserve identity
@@ -37,12 +37,12 @@ const up = (x: NDArrayCore): NDArray => {
   return NDArray.fromStorage(x.storage, base);
 };
 
+export { Complex } from '../common/complex';
+export { NDArrayCore } from '../common/ndarray-core';
+export type { NDIndex } from '../core/advanced';
 // Re-export types
 export type { DType, TypedArray } from '../core/types';
-export type { NDIndex } from '../core/advanced';
-export { NDArray, meshgrid } from './ndarray';
-export { NDArrayCore } from '../common/ndarray-core';
-export { Complex } from '../common/complex';
+export { meshgrid, NDArray } from './ndarray';
 
 // ============================================================
 // Wrapped Functions (return NDArray)
@@ -77,7 +77,7 @@ export function compress(condition: NDArrayCore, a: NDArrayCore, axis?: number):
 export function iindex(
   a: NDArrayCore,
   indices: NDArrayCore | number[] | number[][],
-  axis: number = 0
+  axis: number = 0,
 ): NDArray {
   return up(core.iindex(a, indices, axis));
 }
@@ -94,7 +94,7 @@ export function bindex(a: NDArrayCore, mask: NDArrayCore, axis?: number): NDArra
 export function select(
   condlist: NDArrayCore[],
   choicelist: NDArrayCore[],
-  defaultVal: number = 0
+  defaultVal: number = 0,
 ): NDArray {
   return up(core.select(condlist, choicelist, defaultVal));
 }
@@ -106,7 +106,7 @@ export function indices(dimensions: number[], dtype: string = 'float64'): NDArra
 export function ravel_multi_index(
   multi_index: NDArrayCore[],
   dims: number[],
-  mode: 'raise' | 'wrap' | 'clip' = 'raise'
+  mode: 'raise' | 'wrap' | 'clip' = 'raise',
 ): NDArray {
   return up(core.ravel_multi_index(multi_index, dims, mode));
 }
@@ -142,7 +142,7 @@ export function triu_indices_from(a: NDArrayCore, k: number = 0): NDArray[] {
 export function mask_indices(
   n: number,
   mask_func: (m: NDArrayCore, k: number) => NDArrayCore,
-  k: number = 0
+  k: number = 0,
 ): NDArray[] {
   return core.mask_indices(n, mask_func, k).map(up);
 }
@@ -150,7 +150,7 @@ export function mask_indices(
 export function apply_along_axis(
   func1d: (arr: NDArrayCore) => NDArrayCore | number,
   axis: number,
-  arr: NDArrayCore
+  arr: NDArrayCore,
 ): NDArray {
   const wrappedFunc1d = (arr: NDArrayCore): NDArrayCore | number => {
     return func1d(up(arr));
@@ -161,7 +161,7 @@ export function apply_along_axis(
 export function apply_over_axes(
   func: (arr: NDArrayCore, axis: number) => NDArrayCore,
   a: NDArrayCore,
-  axes: number[]
+  axes: number[],
 ): NDArray {
   const wrappedFunc = (arr: NDArrayCore, axis: number): NDArrayCore => {
     return func(up(arr), axis);
@@ -364,7 +364,7 @@ export function modf(x: NDArrayCore): [NDArray, NDArray] {
 export function clip(
   a: NDArrayCore,
   a_min: NDArrayCore | number | null,
-  a_max: NDArrayCore | number | null
+  a_max: NDArrayCore | number | null,
 ): NDArray {
   return up(core.clip(a, a_min, a_max));
 }
@@ -394,7 +394,7 @@ export function nan_to_num(
   x: NDArrayCore,
   nan: number = 0.0,
   posinf?: number,
-  neginf?: number
+  neginf?: number,
 ): NDArray {
   return up(core.nan_to_num(x, nan, posinf, neginf));
 }
@@ -405,7 +405,7 @@ export function interp(
   xp: NDArrayCore,
   fp: NDArrayCore,
   left?: number,
-  right?: number
+  right?: number,
 ): NDArray {
   return up(core.interp(x, xp, fp, left, right));
 }
@@ -415,7 +415,7 @@ export function unwrap(
   p: NDArrayCore,
   discont: number = Math.PI,
   axis: number = -1,
-  period: number = 2 * Math.PI
+  period: number = 2 * Math.PI,
 ): NDArray {
   return up(core.unwrap(p, discont, axis, period));
 }
@@ -475,7 +475,7 @@ export function unpackbits(
   a: NDArrayCore,
   axis?: number,
   count?: number,
-  bitorder?: 'big' | 'little'
+  bitorder?: 'big' | 'little',
 ): NDArray {
   return up(core.unpackbits(a, axis, count, bitorder));
 }
@@ -547,7 +547,7 @@ export function empty(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArray {
 export function full(
   shape: number[],
   fill_value: number | bigint | boolean,
-  dtype?: DType
+  dtype?: DType,
 ): NDArray {
   return up(core.full(shape, fill_value, dtype));
 }
@@ -573,7 +573,7 @@ export function linspace(
   start: number,
   stop: number,
   num: number = 50,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArray {
   return up(core.linspace(start, stop, num, dtype));
 }
@@ -586,7 +586,7 @@ export function logspace(
   stop: number,
   num: number = 50,
   base: number = 10.0,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArray {
   return up(core.logspace(start, stop, num, base, dtype));
 }
@@ -598,7 +598,7 @@ export function geomspace(
   start: number,
   stop: number,
   num: number = 50,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArray {
   return up(core.geomspace(start, stop, num, dtype));
 }
@@ -651,7 +651,7 @@ export function empty_like(a: NDArrayCore, dtype?: DType): NDArray {
 export function full_like(
   a: NDArrayCore,
   fill_value: number | bigint | boolean,
-  dtype?: DType
+  dtype?: DType,
 ): NDArray {
   return up(core.full_like(a, fill_value, dtype));
 }
@@ -711,7 +711,7 @@ export function frombuffer(
   buffer: ArrayBuffer | TypedArray,
   dtype: DType = DEFAULT_DTYPE,
   count: number = -1,
-  offset: number = 0
+  offset: number = 0,
 ): NDArray {
   return up(core.frombuffer(buffer, dtype, count, offset));
 }
@@ -719,7 +719,7 @@ export function frombuffer(
 export function fromfunction(
   func: (...indices: number[]) => number,
   shape: number[],
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArray {
   return up(core.fromfunction(func, shape, dtype));
 }
@@ -727,7 +727,7 @@ export function fromfunction(
 export function fromiter(
   iter: Iterable<number>,
   dtype: DType = DEFAULT_DTYPE,
-  count: number = -1
+  count: number = -1,
 ): NDArray {
   return up(core.fromiter(iter, dtype, count));
 }
@@ -736,7 +736,7 @@ export function fromstring(
   string: string,
   dtype: DType = DEFAULT_DTYPE,
   count: number = -1,
-  sep?: string
+  sep?: string,
 ): NDArray {
   return up(core.fromstring(string, dtype, count, sep));
 }
@@ -745,7 +745,7 @@ export function fromfile(
   _file: string,
   _dtype: DType = DEFAULT_DTYPE,
   _count: number = -1,
-  _sep: string = ''
+  _sep: string = '',
 ): NDArray {
   return up(core.fromfile(_file, _dtype, _count, _sep));
 }
@@ -759,7 +759,7 @@ export function diff(a: NDArrayCore, n?: number, axis?: number): NDArray {
 export function ediff1d(
   a: NDArrayCore,
   to_end?: number[] | null,
-  to_begin?: number[] | null
+  to_begin?: number[] | null,
 ): NDArray {
   return up(core.ediff1d(a, to_end, to_begin));
 }
@@ -775,7 +775,7 @@ export function trace(
   a: NDArrayCore,
   offset: number = 0,
   axis1: number = 0,
-  axis2: number = 1
+  axis2: number = 1,
 ): NDArray | number | bigint | Complex {
   const r = core.trace(a, offset, axis1, axis2);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -786,7 +786,7 @@ export function diagonal(
   a: NDArrayCore,
   offset: number = 0,
   axis1: number = 0,
-  axis2: number = 1
+  axis2: number = 1,
 ): NDArray {
   return up(core.diagonal(a, offset, axis1, axis2));
 }
@@ -816,7 +816,7 @@ export function outer(a: NDArrayCore, b: NDArrayCore): NDArray {
 export function tensordot(
   a: NDArrayCore,
   b: NDArrayCore,
-  axes: number | [number[], number[]] = 2
+  axes: number | [number[], number[]] = 2,
 ): NDArray | number | bigint | Complex {
   const r = core.tensordot(a, b, axes);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -826,7 +826,7 @@ export function tensordot(
 export function vecdot(
   x1: NDArrayCore,
   x2: NDArrayCore,
-  axis: number = -1
+  axis: number = -1,
 ): NDArray | number | bigint | Complex {
   const r = core.vecdot(x1, x2, axis);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -860,7 +860,7 @@ export function cross(
   axisa: number = -1,
   axisb: number = -1,
   axisc: number = -1,
-  axis?: number
+  axis?: number,
 ): NDArray {
   const r = core.cross(a, b, axisa, axisb, axisc, axis);
   const dtype = promoteDTypes(a.dtype as DType, b.dtype as DType);
@@ -1014,7 +1014,7 @@ export function isclose(
   a: NDArrayCore,
   b: NDArrayCore | number,
   rtol: number = 1e-5,
-  atol: number = 1e-8
+  atol: number = 1e-8,
 ): NDArray {
   return up(core.isclose(a, b, rtol, atol));
 }
@@ -1061,7 +1061,7 @@ export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArray {
 export function polyint(
   p: NDArrayCore | number[],
   m: number = 1,
-  k: number | number[] = 0
+  k: number | number[] = 0,
 ): NDArray {
   return up(core.polyint(p, m, k));
 }
@@ -1085,7 +1085,7 @@ export function polysub(a1: NDArrayCore | number[], a2: NDArrayCore | number[]):
  */
 export function polyval(
   p: NDArrayCore | number[],
-  x: NDArrayCore | number | number[]
+  x: NDArrayCore | number | number[],
 ): NDArray | number {
   const r = core.polyval(p, x);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1105,7 +1105,7 @@ export function roots(p: NDArrayCore | number[]): NDArray {
 export function sum(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | bigint | Complex {
   const r = core.sum(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1115,7 +1115,7 @@ export function sum(
 export function mean(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.mean(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1125,7 +1125,7 @@ export function mean(
 export function prod(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | bigint | Complex {
   const r = core.prod(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1135,7 +1135,7 @@ export function prod(
 export function max(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.max(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1145,7 +1145,7 @@ export function max(
 export function min(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.min(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1174,7 +1174,7 @@ export function variance(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.variance(a, axis, ddof, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1185,7 +1185,7 @@ export function std(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.std(a, axis, ddof, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1195,7 +1195,7 @@ export function std(
 export function median(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.median(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1206,7 +1206,7 @@ export function percentile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.percentile(a, q, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1217,7 +1217,7 @@ export function quantile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.quantile(a, q, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1228,7 +1228,7 @@ export function average(
   a: NDArrayCore,
   axis?: number,
   weights?: NDArrayCore,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.average(a, axis, weights, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1238,7 +1238,7 @@ export function average(
 export function all(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | boolean {
   const r = core.all(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1248,7 +1248,7 @@ export function all(
 export function any(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | boolean {
   const r = core.any(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1268,7 +1268,7 @@ export function cumprod(a: NDArrayCore, axis?: number): NDArray {
 export function nansum(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.nansum(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1278,7 +1278,7 @@ export function nansum(
 export function nanprod(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.nanprod(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1288,7 +1288,7 @@ export function nanprod(
 export function nanmean(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.nanmean(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1299,7 +1299,7 @@ export function nanvar(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.nanvar(a, axis, ddof, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1310,7 +1310,7 @@ export function nanstd(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.nanstd(a, axis, ddof, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1320,7 +1320,7 @@ export function nanstd(
 export function nanmin(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.nanmin(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1330,7 +1330,7 @@ export function nanmin(
 export function nanmax(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number | Complex {
   const r = core.nanmax(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1369,7 +1369,7 @@ export function nanquantile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.nanquantile(a, q, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1380,7 +1380,7 @@ export function nanpercentile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArray | number {
   const r = core.nanpercentile(a, q, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1470,7 +1470,7 @@ export function unique_values(x: NDArrayCore): NDArray {
 export function append(
   arr: NDArrayCore,
   values: NDArrayCore | number | number[],
-  axis?: number
+  axis?: number,
 ): NDArray {
   return up(core.append(arr, values, axis));
 }
@@ -1489,7 +1489,7 @@ export function insert(
   arr: NDArrayCore,
   obj: number | number[],
   values: NDArrayCore | number | number[],
-  axis?: number
+  axis?: number,
 ): NDArray {
   return up(core.insert(arr, obj, values, axis));
 }
@@ -1512,7 +1512,7 @@ export function pad(
     | 'symmetric'
     | 'wrap'
     | 'empty' = 'constant',
-  constant_values: number = 0
+  constant_values: number = 0,
 ): NDArray {
   return up(core.pad(arr, pad_width, mode, constant_values));
 }
@@ -1551,7 +1551,7 @@ export function swapaxes(a: NDArrayCore, axis1: number, axis2: number): NDArray 
 export function moveaxis(
   a: NDArrayCore,
   source: number | number[],
-  destination: number | number[]
+  destination: number | number[],
 ): NDArray {
   return up(core.moveaxis(a, source, destination));
 }
@@ -1710,7 +1710,7 @@ export function digitize(x: NDArrayCore, bins: NDArrayCore, right?: boolean): ND
 export function correlate(
   a: NDArrayCore,
   v: NDArrayCore,
-  mode?: 'valid' | 'same' | 'full'
+  mode?: 'valid' | 'same' | 'full',
 ): NDArray {
   return up(core.correlate(a, v, mode));
 }
@@ -1719,7 +1719,7 @@ export function correlate(
 export function convolve(
   a: NDArrayCore,
   v: NDArrayCore,
-  mode?: 'valid' | 'same' | 'full'
+  mode?: 'valid' | 'same' | 'full',
 ): NDArray {
   return up(core.convolve(a, v, mode));
 }
@@ -1730,7 +1730,7 @@ export function cov(
   y?: NDArrayCore,
   rowvar?: boolean,
   bias?: boolean,
-  ddof?: number
+  ddof?: number,
 ): NDArray {
   return up(core.cov(m, y, rowvar, bias, ddof));
 }
@@ -1745,7 +1745,7 @@ export function trapezoid(
   y: NDArrayCore,
   x?: NDArrayCore,
   dx?: number,
-  axis?: number
+  axis?: number,
 ): NDArray | number | Complex {
   const r = core.trapezoid(y, x, dx, axis);
   return r instanceof NDArrayCore ? up(r) : r;
@@ -1845,103 +1845,102 @@ export function arctanh(x: NDArrayCore): NDArray {
 // Re-exported Functions (no wrapping needed)
 // ============================================================
 
-export {
-  broadcast_arrays,
-  broadcast_shapes,
-  put,
-  put_along_axis,
-  place,
-  putmask,
-  copyto,
-  ix_,
-  fill_diagonal,
-  array_equal,
-  array_equiv,
-  may_share_memory,
-  shares_memory,
-  geterr,
-  seterr,
-  pow,
-  abs,
-  true_divide,
-  conjugate,
-  array2string,
-  array_repr,
-  array_str,
-  set_printoptions,
-  get_printoptions,
-  printoptions,
-  format_float_positional,
-  format_float_scientific,
-  base_repr,
-  binary_repr,
-  gradient,
-  einsum,
-  einsum_path,
-  vdot,
-  linalg,
-  iscomplexobj,
-  isrealobj,
-  isfortran,
-  isscalar,
-  iterable,
-  isdtype,
-  promote_types,
-  allclose,
-  amax,
-  amin,
-  var_,
-  cumulative_sum,
-  cumulative_prod,
-  unique,
-  unique_all,
-  unique_counts,
-  unique_inverse,
-  split,
-  array_split,
-  vsplit,
-  hsplit,
-  dsplit,
-  atleast_1d,
-  atleast_2d,
-  atleast_3d,
-  row_stack,
-  where,
-  searchsorted,
-  count_nonzero,
-  histogram,
-  histogram2d,
-  histogramdd,
-  histogram_bin_edges,
-  asin,
-  acos,
-  atan,
-  atan2,
-  asinh,
-  acosh,
-  atanh,
-  can_cast,
-  common_type,
-  result_type,
-  min_scalar_type,
-  issubdtype,
-  typename,
-  mintypecode,
-  ndim,
-  shape,
-  size,
-  item,
-  tolist,
-  tobytes,
-  byteswap,
-  view,
-  tofile,
-  fill,
-} from '../core';
+// Runtime capabilities
+export { hasFloat16 } from '../common/dtype';
 
 // WASM configuration
 export { wasmConfig } from '../common/wasm/config';
 export { configureWasm, wasmFreeBytes } from '../common/wasm/runtime';
-
-// Runtime capabilities
-export { hasFloat16 } from '../common/dtype';
+export {
+  abs,
+  acos,
+  acosh,
+  allclose,
+  amax,
+  amin,
+  array_equal,
+  array_equiv,
+  array_repr,
+  array_split,
+  array_str,
+  array2string,
+  asin,
+  asinh,
+  atan,
+  atan2,
+  atanh,
+  atleast_1d,
+  atleast_2d,
+  atleast_3d,
+  base_repr,
+  binary_repr,
+  broadcast_arrays,
+  broadcast_shapes,
+  byteswap,
+  can_cast,
+  common_type,
+  conjugate,
+  copyto,
+  count_nonzero,
+  cumulative_prod,
+  cumulative_sum,
+  dsplit,
+  einsum,
+  einsum_path,
+  fill,
+  fill_diagonal,
+  format_float_positional,
+  format_float_scientific,
+  get_printoptions,
+  geterr,
+  gradient,
+  histogram,
+  histogram_bin_edges,
+  histogram2d,
+  histogramdd,
+  hsplit,
+  iscomplexobj,
+  isdtype,
+  isfortran,
+  isrealobj,
+  isscalar,
+  issubdtype,
+  item,
+  iterable,
+  ix_,
+  linalg,
+  may_share_memory,
+  min_scalar_type,
+  mintypecode,
+  ndim,
+  place,
+  pow,
+  printoptions,
+  promote_types,
+  put,
+  put_along_axis,
+  putmask,
+  result_type,
+  row_stack,
+  searchsorted,
+  set_printoptions,
+  seterr,
+  shape,
+  shares_memory,
+  size,
+  split,
+  tobytes,
+  tofile,
+  tolist,
+  true_divide,
+  typename,
+  unique,
+  unique_all,
+  unique_counts,
+  unique_inverse,
+  var_,
+  vdot,
+  view,
+  vsplit,
+  where,
+} from '../core';

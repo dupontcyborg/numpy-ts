@@ -4,14 +4,14 @@
  * Tree-shakeable standalone functions that wrap the underlying ops.
  */
 
+import { computeBroadcastShape } from '../common/broadcasting';
+import { type DType, isBigIntDType } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
-import { ArrayStorage } from '../common/storage';
 import * as advancedOps from '../common/ops/advanced';
 import * as comparisonOps from '../common/ops/comparison';
+import { ArrayStorage } from '../common/storage';
 import { array } from './creation';
-import { toStorage, fromStorage, fromStorageView } from './types';
-import { computeBroadcastShape } from '../common/broadcasting';
-import { isBigIntDType, type DType } from '../common/dtype';
+import { fromStorage, fromStorageView, toStorage } from './types';
 
 // ============================================================
 // Broadcasting
@@ -78,7 +78,7 @@ export function put_along_axis(
   arr: NDArrayCore,
   indices: NDArrayCore,
   values: NDArrayCore,
-  axis: number
+  axis: number,
 ): void {
   advancedOps.put_along_axis(toStorage(arr), toStorage(indices), toStorage(values), axis);
 }
@@ -100,7 +100,7 @@ export function compress(condition: NDArrayCore, a: NDArrayCore, axis?: number):
 export function iindex(
   a: NDArrayCore,
   indices: NDArrayCore | number[] | number[][],
-  axis: number = 0
+  axis: number = 0,
 ): NDArrayCore {
   // Convert NDArrayCore or nested array to flat number[]
   let indexArray: number[];
@@ -127,7 +127,7 @@ export function bindex(a: NDArrayCore, mask: NDArrayCore, axis?: number): NDArra
 export function select(
   condlist: NDArrayCore[],
   choicelist: NDArrayCore[],
-  defaultVal: number = 0
+  defaultVal: number = 0,
 ): NDArrayCore {
   const condStorages = condlist.map(toStorage);
   const choiceStorages = choicelist.map(toStorage);
@@ -161,7 +161,7 @@ export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): vo
   const broadcastShape = computeBroadcastShape([srcShape as number[], dstShape as number[]]);
   if (!broadcastShape) {
     throw new Error(
-      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`
+      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`,
     );
   }
 
@@ -171,7 +171,7 @@ export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): vo
     !broadcastShape.every((d, i) => d === dstShape[i])
   ) {
     throw new Error(
-      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`
+      `could not broadcast input array from shape (${srcShape.join(',')}) into shape (${dstShape.join(',')})`,
     );
   }
 
@@ -214,7 +214,7 @@ export function ix_(...args: NDArrayCore[]): NDArrayCore[] {
 export function ravel_multi_index(
   multi_index: NDArrayCore[],
   dims: number[],
-  mode: 'raise' | 'wrap' | 'clip' = 'raise'
+  mode: 'raise' | 'wrap' | 'clip' = 'raise',
 ): NDArrayCore {
   const indexStorages = multi_index.map(toStorage);
   return fromStorage(advancedOps.ravel_multi_index(indexStorages, dims, mode));
@@ -265,7 +265,7 @@ export function triu_indices_from(a: NDArrayCore, k: number = 0): NDArrayCore[] 
 export function mask_indices(
   n: number,
   mask_func: (m: NDArrayCore, k: number) => NDArrayCore,
-  k: number = 0
+  k: number = 0,
 ): NDArrayCore[] {
   const wrappedMaskFunc = (m: ArrayStorage, kk: number) => toStorage(mask_func(fromStorage(m), kk));
   return advancedOps.mask_indices(n, wrappedMaskFunc, k).map((s) => fromStorage(s));
@@ -290,7 +290,7 @@ export function array_equiv(a: NDArrayCore, b: NDArrayCore): boolean {
 export function apply_along_axis(
   func1d: (arr: NDArrayCore) => NDArrayCore | number,
   axis: number,
-  arr: NDArrayCore
+  arr: NDArrayCore,
 ): NDArrayCore {
   const wrappedFunc = (storage: ArrayStorage): ArrayStorage | number => {
     const result = func1d(fromStorage(storage));
@@ -302,7 +302,7 @@ export function apply_along_axis(
 export function apply_over_axes(
   func: (arr: NDArrayCore, axis: number) => NDArrayCore,
   a: NDArrayCore,
-  axes: number[]
+  axes: number[],
 ): NDArrayCore {
   const wrappedFunc = (storage: ArrayStorage, axis: number): ArrayStorage => {
     return toStorage(func(fromStorage(storage), axis));
@@ -346,7 +346,7 @@ export function vindex(
   ...indices: (number | string | number[] | NDArrayCore)[]
 ): NDArrayCore {
   const storageIndices = indices.map((idx) =>
-    idx instanceof NDArrayCore ? toStorage(idx) : idx
+    idx instanceof NDArrayCore ? toStorage(idx) : idx,
   ) as (number | string | number[] | ArrayStorage)[];
   return fromStorage(advancedOps.vindex(toStorage(a), ...storageIndices));
 }

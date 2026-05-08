@@ -4,10 +4,10 @@
  * Tree-shakeable standalone functions for polynomial operations.
  */
 
-import { NDArrayCore } from '../common/ndarray-core';
-import { ArrayStorage } from '../common/storage';
 import type { DType } from '../common/dtype';
 import { isBigIntDType } from '../common/dtype';
+import { NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
 import { array } from './creation';
 
 // Helper to convert to array
@@ -52,7 +52,7 @@ function throwIfBoolSubtract(dtype: DType): void {
   if (dtype === 'bool') {
     throw new TypeError(
       'numpy boolean subtract, the `-` operator, is not supported, ' +
-        'use the bitwise_xor, the `^` operator, or the logical_xor function instead.'
+        'use the bitwise_xor, the `^` operator, or the logical_xor function instead.',
     );
   }
 }
@@ -181,7 +181,7 @@ export function polyder(p: NDArrayCore | number[], m: number = 1): NDArrayCore {
  */
 export function polydiv(
   u: NDArrayCore | number[],
-  v: NDArrayCore | number[]
+  v: NDArrayCore | number[],
 ): [NDArrayCore, NDArrayCore] {
   const uArr = toArray(u);
   const vArr = toArray(v);
@@ -325,7 +325,7 @@ export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArrayCor
 export function polyint(
   p: NDArrayCore | number[],
   m: number = 1,
-  k: number | number[] = 0
+  k: number | number[] = 0,
 ): NDArrayCore {
   let poly = toArray(p);
   const outDtype = polyintDtype(poly.dtype as DType);
@@ -406,7 +406,7 @@ export function polysub(a1: NDArrayCore | number[], a2: NDArrayCore | number[]):
  */
 export function polyval(
   p: NDArrayCore | number[],
-  x: NDArrayCore | number | number[]
+  x: NDArrayCore | number | number[],
 ): NDArrayCore | number {
   const poly = toArray(p);
   const coeffArr = readCoeffs(poly);
@@ -544,7 +544,7 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
 function _makeComplexArray(
   realParts: number[],
   imagParts: number[],
-  dtype: DType = 'complex128'
+  dtype: DType = 'complex128',
 ): NDArrayCore {
   const n = realParts.length;
   const storage = ArrayStorage.empty([n], dtype);
@@ -638,8 +638,8 @@ function _hessenbergQR(H: number[][], n: number): { re: number; im: number }[] {
           H[nn - 2]![nn - 2]!,
           H[nn - 2]![nn - 1]!,
           H[nn - 1]![nn - 2]!,
-          H[nn - 1]![nn - 1]!
-        )
+          H[nn - 1]![nn - 1]!,
+        ),
       );
       nn -= 2;
       continue;

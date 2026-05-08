@@ -1,17 +1,24 @@
-import { describe, it, expect } from 'vitest';
-import {
-  parseNpy,
-  serializeNpy,
-  parseNpyHeader,
-  UnsupportedDTypeError,
-  InvalidNpyError,
-  DTYPE_TO_DESCR,
-} from '../../../src/io/npy';
-import { array, zeros, ones, arange, transpose } from '../../../src';
+import { describe, expect, it } from 'vitest';
 // Also import from main index to test wrapper
-import { parseNpy as parseNpyIndex, parseNpyData as parseNpyDataIndex } from '../../../src';
+import {
+  arange,
+  array,
+  ones,
+  parseNpyData as parseNpyDataIndex,
+  parseNpy as parseNpyIndex,
+  transpose,
+  zeros,
+} from '../../../src';
 import { Complex } from '../../../src/common/complex';
 import type { DType } from '../../../src/common/dtype';
+import {
+  DTYPE_TO_DESCR,
+  InvalidNpyError,
+  parseNpy,
+  parseNpyHeader,
+  serializeNpy,
+  UnsupportedDTypeError,
+} from '../../../src/io/npy';
 
 describe('NPY Format', () => {
   describe('serializeNpy', () => {
@@ -44,7 +51,7 @@ describe('NPY Format', () => {
           [1.0, 2.0, 3.0],
           [4.0, 5.0, 6.0],
         ],
-        'float32'
+        'float32',
       );
       const bytes = serializeNpy(arr);
       const parsed = parseNpy(bytes);
@@ -243,7 +250,7 @@ describe('NPY Format', () => {
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'int32'
+        'int32',
       );
       const transposed = transpose(original);
 
@@ -265,7 +272,7 @@ describe('NPY Format', () => {
           [10, 20],
           [30, 40],
         ],
-        'int16'
+        'int16',
       );
       const transposed = transpose(original);
 
@@ -285,7 +292,7 @@ describe('NPY Format', () => {
           [1, 2],
           [3, 4],
         ],
-        'int8'
+        'int8',
       );
       const transposed = transpose(original);
 
@@ -305,7 +312,7 @@ describe('NPY Format', () => {
           [100, 200],
           [300, 400],
         ],
-        'uint32'
+        'uint32',
       );
       const transposed = transpose(original);
 
@@ -321,7 +328,7 @@ describe('NPY Format', () => {
           [10, 20],
           [30, 40],
         ],
-        'uint16'
+        'uint16',
       );
       const transposed = transpose(original);
 
@@ -337,7 +344,7 @@ describe('NPY Format', () => {
           [1, 2],
           [3, 4],
         ],
-        'uint8'
+        'uint8',
       );
       const transposed = transpose(original);
 
@@ -353,7 +360,7 @@ describe('NPY Format', () => {
           [1.5, 2.5],
           [3.5, 4.5],
         ],
-        'float32'
+        'float32',
       );
       const transposed = transpose(original);
 
@@ -371,7 +378,7 @@ describe('NPY Format', () => {
           [1, 0],
           [0, 1],
         ],
-        'bool'
+        'bool',
       );
       const transposed = transpose(original);
 
@@ -391,7 +398,7 @@ describe('NPY Format', () => {
           [BigInt(1), BigInt(2)],
           [BigInt(3), BigInt(4)],
         ],
-        'int64'
+        'int64',
       );
       const transposed = transpose(original);
 
@@ -411,7 +418,7 @@ describe('NPY Format', () => {
           [BigInt(10), BigInt(20)],
           [BigInt(30), BigInt(40)],
         ],
-        'uint64'
+        'uint64',
       );
       const transposed = transpose(original);
 
@@ -427,7 +434,7 @@ describe('NPY Format', () => {
           [new Complex(1, 2), new Complex(3, 4)],
           [new Complex(5, 6), new Complex(7, 8)],
         ],
-        'complex128'
+        'complex128',
       );
       const transposed = transpose(original);
 
@@ -447,7 +454,7 @@ describe('NPY Format', () => {
           [new Complex(1, 2), new Complex(3, 4)],
           [new Complex(5, 6), new Complex(7, 8)],
         ],
-        'complex64'
+        'complex64',
       );
       const transposed = transpose(original);
 

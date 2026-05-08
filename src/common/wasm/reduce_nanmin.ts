@@ -6,11 +6,11 @@
  * Only float64 and float32.
  */
 
-import { reduce_nanmin_f64, reduce_nanmin_f32 } from './bins/reduce_nanmin.wasm';
-import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
+import { type DType, effectiveDType, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import { reduce_nanmin_f32, reduce_nanmin_f64 } from './bins/reduce_nanmin.wasm';
 import { wasmConfig } from './config';
+import { f16InputToScratchF32, resetScratchAllocator, resolveInputPtr } from './runtime';
 
 const BASE_THRESHOLD = 32;
 

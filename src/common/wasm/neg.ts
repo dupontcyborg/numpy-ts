@@ -5,21 +5,21 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  neg_f64,
-  neg_f32,
-  neg_i64,
-  neg_i32,
-  neg_i16,
-  neg_i8,
-  neg_f16,
-  neg_c128,
-  neg_c64,
-} from './bins/neg.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  neg_c64,
+  neg_c128,
+  neg_f16,
+  neg_f32,
+  neg_f64,
+  neg_i8,
+  neg_i16,
+  neg_i32,
+  neg_i64,
+} from './bins/neg.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -98,7 +98,7 @@ export function wasmNeg(a: ArrayStorage): ArrayStorage | null {
     a.wasmPtr,
     a.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, outRegion.ptr, size);
@@ -108,6 +108,10 @@ export function wasmNeg(a: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

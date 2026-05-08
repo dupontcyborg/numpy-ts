@@ -28,7 +28,7 @@ export function divmod_scalar_f64(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_f64'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);
@@ -39,7 +39,7 @@ export function divmod_scalar_f32(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_f32'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);
@@ -50,7 +50,7 @@ export function divmod_scalar_i64(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_i64'] as (...args: (number | bigint)[]) => void)(
@@ -58,7 +58,7 @@ export function divmod_scalar_i64(
     out_q,
     out_r,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 
@@ -67,7 +67,7 @@ export function divmod_scalar_u64(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_u64'] as (...args: (number | bigint)[]) => void)(
@@ -75,7 +75,7 @@ export function divmod_scalar_u64(
     out_q,
     out_r,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 
@@ -84,7 +84,7 @@ export function divmod_scalar_i32(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_i32'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);
@@ -95,7 +95,7 @@ export function divmod_scalar_u32(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_u32'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);
@@ -106,7 +106,7 @@ export function divmod_scalar_i16(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_i16'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);
@@ -117,7 +117,7 @@ export function divmod_scalar_u16(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_u16'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);
@@ -128,7 +128,7 @@ export function divmod_scalar_i8(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_i8'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);
@@ -139,7 +139,7 @@ export function divmod_scalar_u8(
   out_q: number,
   out_r: number,
   N: number,
-  scalar: number
+  scalar: number,
 ): void {
   const i = init();
   (i.exports['divmod_scalar_u8'] as (...args: number[]) => void)(a, out_q, out_r, N, scalar);

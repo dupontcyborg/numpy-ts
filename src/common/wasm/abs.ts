@@ -6,11 +6,11 @@
  * Complex types are not handled here (magnitude needs sqrt, handled in JS).
  */
 
-import { abs_f64, abs_f32, abs_f16, abs_i64, abs_i32, abs_i16, abs_i8 } from './bins/abs.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { abs_f16, abs_f32, abs_f64, abs_i8, abs_i16, abs_i32, abs_i64 } from './bins/abs.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -87,6 +87,10 @@ export function wasmAbs(a: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

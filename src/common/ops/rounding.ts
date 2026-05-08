@@ -8,9 +8,9 @@
  * All functions throw TypeError for complex dtypes.
  */
 
-import { ArrayStorage } from '../storage';
-import { throwIfComplex, isComplexDType, isIntegerDType, mathResultDtype } from '../dtype';
 import { Complex } from '../complex';
+import { isComplexDType, isIntegerDType, mathResultDtype, throwIfComplex } from '../dtype';
+import { ArrayStorage } from '../storage';
 
 /**
  * Apply a rounding function component-wise to a complex array.

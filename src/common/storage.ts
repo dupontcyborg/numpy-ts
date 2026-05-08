@@ -6,27 +6,27 @@
  * @internal - This is not part of the public API
  */
 
+import { Complex } from './complex';
 import {
-  type DType,
-  type TypedArray,
   DEFAULT_DTYPE,
+  type DType,
   getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
+  type TypedArray,
 } from './dtype';
-import { Complex } from './complex';
 import {
-  type WasmRegion,
-  wasmMalloc,
   getSharedMemory,
   registerForCleanup,
   unregisterCleanup,
+  type WasmRegion,
+  wasmMalloc,
 } from './wasm/runtime';
 
 // Polyfill Symbol.dispose for runtimes that don't define it natively (e.g. Safari).
 // Uses the same Symbol.for key that TypeScript, esbuild, Babel, and SWC emit in
 // their downlevel helpers, so `using` works correctly through any transpiler.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Symbol.dispose is readonly in TS lib
+// biome-ignore lint/suspicious/noExplicitAny: required for type coercion -- Symbol.dispose is readonly in TS lib
 (Symbol as any).dispose ??= Symbol.for('Symbol.dispose');
 
 /**
@@ -64,7 +64,7 @@ export class ArrayStorage {
     strides: readonly number[],
     offset: number,
     dtype: DType,
-    wasmRegion: WasmRegion | null = null
+    wasmRegion: WasmRegion | null = null,
   ) {
     this._data = data;
     this._shape = shape;
@@ -399,7 +399,7 @@ export class ArrayStorage {
       (newData as unknown as { set(src: ArrayLike<number>): void }).set(
         (
           this._data as unknown as { subarray(begin: number, end: number): ArrayLike<number> }
-        ).subarray(0, physicalSize)
+        ).subarray(0, physicalSize),
       );
     } else {
       // Slow path: respect strides
@@ -428,7 +428,7 @@ export class ArrayStorage {
       const mem = getSharedMemory();
       const wasmData = new Constructor(mem.buffer, region.ptr, physicalSize) as TypedArray;
       (wasmData as unknown as { set(src: ArrayLike<number>): void }).set(
-        newData as unknown as ArrayLike<number>
+        newData as unknown as ArrayLike<number>,
       );
       return new ArrayStorage(
         wasmData,
@@ -436,7 +436,7 @@ export class ArrayStorage {
         ArrayStorage._computeStrides(shape),
         0,
         dtype,
-        region
+        region,
       );
     }
     return new ArrayStorage(newData, shape, ArrayStorage._computeStrides(shape), 0, dtype);
@@ -451,11 +451,11 @@ export class ArrayStorage {
     shape: number[],
     dtype: DType,
     strides?: number[],
-    offset?: number
+    offset?: number,
   ): ArrayStorage {
     if (shape.length > MAX_NDIM) {
       throw new Error(
-        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`
+        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`,
       );
     }
     const finalStrides = strides ?? ArrayStorage._computeStrides(shape);
@@ -473,11 +473,11 @@ export class ArrayStorage {
       const Ctor = data.constructor as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
+        length: number,
       ) => TypedArray;
       const wasmData = new Ctor(mem.buffer, region.ptr, data.length);
       (wasmData as unknown as { set(src: ArrayLike<number>): void }).set(
-        data as unknown as ArrayLike<number>
+        data as unknown as ArrayLike<number>,
       );
       return new ArrayStorage(wasmData, shape, finalStrides, finalOffset, dtype, region);
     }
@@ -498,7 +498,7 @@ export class ArrayStorage {
     dtype: DType,
     strides: number[],
     offset: number,
-    wasmRegion: WasmRegion | null
+    wasmRegion: WasmRegion | null,
   ): ArrayStorage {
     if (wasmRegion) wasmRegion.retain();
     return new ArrayStorage(data, shape, strides, offset, dtype, wasmRegion);
@@ -514,7 +514,7 @@ export class ArrayStorage {
     dtype: DType,
     region: WasmRegion,
     elementCount: number,
-    Ctor: new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor: new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray,
   ): ArrayStorage {
     const mem = getSharedMemory();
     const data = new Ctor(mem.buffer, region.ptr, elementCount);
@@ -527,7 +527,7 @@ export class ArrayStorage {
   static zeros(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
     if (shape.length > MAX_NDIM) {
       throw new Error(
-        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`
+        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`,
       );
     }
     const size = shape.reduce((a, b) => a * b, 1);
@@ -632,7 +632,7 @@ export class ArrayStorage {
       ArrayStorage._computeStrides(shape),
       0,
       dtype,
-      region ?? null
+      region ?? null,
     );
   }
 

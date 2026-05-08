@@ -10,10 +10,10 @@
  */
 
 import { wasmConfig, wasmMemoryConfig } from '../../src/common/wasm/config';
-import { wasmFreeBytes, configureWasm, resetScratchAllocator } from '../../src/common/wasm/runtime';
 import { supportsRelaxedSimd, useRelaxedKernels } from '../../src/common/wasm/detect';
+import { configureWasm, resetScratchAllocator, wasmFreeBytes } from '../../src/common/wasm/runtime';
+import { executeOperation, setupArrays } from './bench-utils';
 import type { BenchmarkCase, BenchmarkTiming } from './types';
-import { setupArrays, executeOperation } from './bench-utils';
 
 // Set to true to log WASM heap usage after each benchmark spec
 const LOG_HEAP = !!process.env['LOG_HEAP'];
@@ -35,7 +35,7 @@ if (FORCE_BACKEND === 'js') {
 }
 
 console.error(
-  `Relaxed SIMD: supported=${supportsRelaxedSimd()}, config=${wasmConfig.useRelaxedSimd}, using=${useRelaxedKernels()}`
+  `Relaxed SIMD: supported=${supportsRelaxedSimd()}, config=${wasmConfig.useRelaxedSimd}, using=${useRelaxedKernels()}`,
 );
 
 // Benchmark configuration - set from stdin input
@@ -79,7 +79,7 @@ function releaseResult(result: unknown): void {
 function calibrateOpsPerSample(
   operation: string,
   arrays: Record<string, any>,
-  targetTimeMs: number = MIN_SAMPLE_TIME_MS
+  targetTimeMs: number = MIN_SAMPLE_TIME_MS,
 ): number {
   let opsPerSample = 1;
   let calibrationRuns = 0;
@@ -207,7 +207,7 @@ async function main() {
   console.error(`${runtimeName} ${runtimeVersion}`);
   console.error(`Running ${specs.length} benchmarks with auto-calibration...`);
   console.error(
-    `Target: ${MIN_SAMPLE_TIME_MS}ms per sample, ${TARGET_SAMPLES} samples per benchmark\n`
+    `Target: ${MIN_SAMPLE_TIME_MS}ms per sample, ${TARGET_SAMPLES} samples per benchmark\n`,
   );
 
   const results: BenchmarkTiming[] = [];
@@ -235,7 +235,7 @@ async function main() {
         }
       }
       console.error(
-        `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)} ${result.mean_ms.toFixed(3).padStart(8)}ms  ${Math.round(result.ops_per_sec).toLocaleString().padStart(12)} ops/sec${wasmWarn}`
+        `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)} ${result.mean_ms.toFixed(3).padStart(8)}ms  ${Math.round(result.ops_per_sec).toLocaleString().padStart(12)} ops/sec${wasmWarn}`,
       );
     } catch (err) {
       // Push a placeholder result so indices stay aligned with Python results
@@ -252,7 +252,7 @@ async function main() {
         wasmUsed: false,
       });
       console.error(
-        `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)}   FAILED: ${err instanceof Error ? err.message : err}`
+        `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)}   FAILED: ${err instanceof Error ? err.message : err}`,
       );
     }
   }

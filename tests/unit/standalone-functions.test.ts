@@ -6,25 +6,25 @@
  * in the method-based tests (arithmetic.test.ts, reduction.test.ts, etc.).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   // Basic arithmetic
   add,
-  subtract,
-  multiply,
-  divide,
-  // Reductions
-  sum,
-  mean,
-  prod,
-  std,
-  variance,
-  argmin,
-  argmax,
   all,
   any,
+  argmax,
+  argmin,
   // Array creation
   array,
+  divide,
+  mean,
+  multiply,
+  prod,
+  std,
+  subtract,
+  // Reductions
+  sum,
+  variance,
   zeros,
 } from '../../src';
 

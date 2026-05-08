@@ -16,19 +16,19 @@
  * (checked-in .wasm.ts files will be used as-is).
  */
 
-import { execSync, execFile } from 'child_process';
+import { execFile, execSync } from 'child_process';
+import { createHash } from 'crypto';
 import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
-  writeFileSync,
-  mkdirSync,
   rmSync,
-  existsSync,
-  copyFileSync,
+  writeFileSync,
 } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { createHash } from 'crypto';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
@@ -105,7 +105,7 @@ function computeHash(zigPath: string, sharedModuleSources: Map<string, string>):
 // --- Parse Zig exports ---
 
 function parseZigExports(
-  zigSource: string
+  zigSource: string,
 ): { name: string; params: string; returnType: string }[] {
   const exports: { name: string; params: string; returnType: string }[] = [];
   const regex = /^export fn (\w+)\(([^)]*)\)\s*(\w+)/gm;
@@ -146,7 +146,7 @@ function zigParamsToTs(params: string): { tsParams: string; bigintParams: Set<st
 function generateWasmTs(
   _kernelName: string,
   base64: string,
-  exports: { name: string; params: string; returnType: string }[]
+  exports: { name: string; params: string; returnType: string }[],
 ): string {
   const lines: string[] = [];
 
@@ -199,11 +199,11 @@ function generateWasmTs(
             .join(', ')
         : '';
       lines.push(
-        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: (number | bigint)[]) => ${ret})(${castArgs});`
+        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: (number | bigint)[]) => ${ret})(${castArgs});`,
       );
     } else {
       lines.push(
-        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: number[]) => ${ret})(${argNames});`
+        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: number[]) => ${ret})(${argNames});`,
       );
     }
     lines.push(`}`);
@@ -237,7 +237,7 @@ async function compileKernel(
   /** Override output name (e.g. 'matmul_float-relaxed' for relaxed variant) */
   outputName?: string,
   /** Override CPU features (e.g. 'generic+simd128+relaxed_simd') */
-  cpuFeatures: string = 'generic+simd128'
+  cpuFeatures: string = 'generic+simd128',
 ): Promise<{ name: string; skipped: boolean; error?: string }> {
   const name = outputName ?? file.replace('.zig', '');
   const zigPath = join(ZIG_DIR, file);
@@ -440,8 +440,8 @@ async function main() {
         hashes,
         relaxedGlobalBaseMap.get(file),
         `${file.replace('.zig', '')}-relaxed`,
-        relaxedCpu
-      )
+        relaxedCpu,
+      ),
     ),
   ];
   const buildResults = await Promise.all(buildPromises);

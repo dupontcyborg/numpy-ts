@@ -11,9 +11,9 @@
  * NumPy's float16 within the expected tolerance.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../src';
-import { array, zeros, ones, arange, full } from '../../src';
+import { arange, array, full, ones, zeros } from '../../src';
 import { hasFloat16 } from '../../src/common/dtype';
 import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
@@ -75,7 +75,7 @@ describe('Float16 NumPy Validation', () => {
       const values = [0.5, 1.5, 2.25, -3.75, 100, 0.001];
       const ts = array(values, 'float16');
       const py = runNumPy(
-        `result = np.array([0.5, 1.5, 2.25, -3.75, 100, 0.001], dtype=np.float16)`
+        `result = np.array([0.5, 1.5, 2.25, -3.75, 100, 0.001], dtype=np.float16)`,
       );
       for (let i = 0; i < values.length; i++) {
         expect(approxEqual(ts.get([i]) as number, py.value[i])).toBe(true);
@@ -390,7 +390,7 @@ result = a * b
     it('add overflow', () => {
       const ts = array([65000, 65000], 'float16').add(array([1000, 1000], 'float16'));
       const py = runNumPy(
-        `result = np.array([65000, 65000], dtype=np.float16) + np.array([1000, 1000], dtype=np.float16)`
+        `result = np.array([65000, 65000], dtype=np.float16) + np.array([1000, 1000], dtype=np.float16)`,
       );
       if (hasFloat16) {
         expect(ts.toArray()).toEqual(py.value);
@@ -439,7 +439,7 @@ result = a * b
     it('power overflow', () => {
       const ts = np.power(array([256, 100], 'float16'), array([2, 3], 'float16'));
       const py = runNumPy(
-        `result = np.power(np.array([256, 100], dtype=np.float16), np.array([2, 3], dtype=np.float16))`
+        `result = np.power(np.array([256, 100], dtype=np.float16), np.array([2, 3], dtype=np.float16))`,
       );
       if (hasFloat16) {
         for (let i = 0; i < 2; i++) {
@@ -509,7 +509,7 @@ result = a * b
     it('underflow to zero', () => {
       const ts = array([0.0001], 'float16').multiply(array([0.0001], 'float16'));
       const py = runNumPy(
-        `result = np.array([0.0001], dtype=np.float16) * np.array([0.0001], dtype=np.float16)`
+        `result = np.array([0.0001], dtype=np.float16) * np.array([0.0001], dtype=np.float16)`,
       );
       if (hasFloat16) {
         expect(ts.get([0])).toBe(py.value[0]);
@@ -635,14 +635,14 @@ result = np.array([0, 1, 100, 1000, -50], dtype=np.int32).astype(np.float16)
           [1, 2],
           [3, 4],
         ],
-        'float16'
+        'float16',
       );
       const b = array(
         [
           [5, 6],
           [7, 8],
         ],
-        'float16'
+        'float16',
       );
       const ts = np.matmul(a, b);
 
@@ -666,7 +666,7 @@ result = np.matmul(a, b)
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'float16'
+        'float16',
       );
       const ts = a.T;
 
@@ -684,7 +684,7 @@ result = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float16).T
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'float16'
+        'float16',
       );
       const ts0 = a.sum(0);
       const ts1 = a.sum(1);
@@ -883,14 +883,14 @@ result = h
           [1, 2],
           [3, 4],
         ],
-        'float16'
+        'float16',
       );
       const b = array(
         [
           [5, 6],
           [7, 8],
         ],
-        'float16'
+        'float16',
       );
       const ts = np.matmul(a, b);
 

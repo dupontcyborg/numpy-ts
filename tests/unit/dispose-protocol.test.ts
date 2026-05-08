@@ -8,9 +8,9 @@
  * emit in their downlevel `using` helpers.
  */
 
-import { describe, it, expect } from 'vitest';
-import { ArrayStorage } from '../../src/common/storage';
+import { describe, expect, it } from 'vitest';
 import { NDArrayCore } from '../../src/common/ndarray-core';
+import { ArrayStorage } from '../../src/common/storage';
 
 // After importing storage.ts, Symbol.dispose is guaranteed to be defined
 // (either natively or via the polyfill).

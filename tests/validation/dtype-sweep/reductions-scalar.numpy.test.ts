@@ -3,20 +3,20 @@
  * Tests each function across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import { hasFloat16 } from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
-  isComplex,
-  pyScalarCast,
-  scalarClose,
   expectBothReject,
+  isComplex,
+  npDtype,
+  pyScalarCast,
+  runNumPyBatch,
+  scalarClose,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
-import { hasFloat16 } from '../../../src';
 
 const { array } = np;
 
@@ -102,7 +102,7 @@ result = float(np.ptp(a))`;
             const _r = expectBothReject(
               'ptp uses subtract, not supported for bool',
               () => fn(a),
-              pyCode
+              pyCode,
             );
             if (_r === 'both-reject') return;
           }

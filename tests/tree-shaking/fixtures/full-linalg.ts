@@ -2,7 +2,7 @@
  * Tree-shaking test fixture: Linear algebra operations only
  * Expected: Should include linalg but not FFT, random, IO
  */
-import { array, linalg, dot, transpose } from 'numpy-ts';
+import { array, dot, linalg, transpose } from 'numpy-ts';
 
 const a = array([
   [1, 2],
@@ -22,4 +22,5 @@ const g = linalg.norm(a); // Returns number
 // c returns NDArray | number - use type guard for safe access
 const cShape = typeof c === 'object' && 'shape' in c ? c.shape : null;
 console.log(cShape, d.shape, e.shape, f, g);
+
 export { c, d, e, f, g };

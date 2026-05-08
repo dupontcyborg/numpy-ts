@@ -3,13 +3,13 @@
  * Returns null if WASM can't handle.
  */
 
+import { type DType, effectiveDType, isComplexDType } from '../dtype';
+import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/vector_norm.wasm';
 import * as floatRelaxed from './bins/vector_norm-relaxed.wasm';
-import { useRelaxedKernels } from './detect';
-import { resetScratchAllocator, resolveInputPtr, f16InputToScratchF32 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, isComplexDType, type DType } from '../dtype';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
+import { f16InputToScratchF32, resetScratchAllocator, resolveInputPtr } from './runtime';
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {

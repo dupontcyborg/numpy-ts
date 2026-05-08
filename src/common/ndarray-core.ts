@@ -8,19 +8,19 @@
  * For the full NDArray with all methods, use ndarray-full.ts
  */
 
-import * as shapeOps from './ops/shape';
+import { Complex } from './complex';
 import {
   type DType,
-  type TypedArray,
-  getTypedArrayConstructor,
   getDTypeSize,
+  getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
   isFloatDType,
+  type TypedArray,
 } from './dtype';
-import { Complex } from './complex';
-import { ArrayStorage } from './storage';
 import { array_str } from './ops/formatting';
+import * as shapeOps from './ops/shape';
+import { ArrayStorage } from './storage';
 
 /**
  * Minimal NDArray class - core functionality without operation methods
@@ -141,7 +141,7 @@ export class NDArrayCore {
             const flat = (value as unknown[]).flat(Infinity) as number[];
             if (flat.length !== n) {
               throw new Error(
-                `Cannot assign array of length ${flat.length} into slice of size ${n}`
+                `Cannot assign array of length ${flat.length} into slice of size ${n}`,
               );
             }
             for (let i = 0; i < n; i++) sliceView._storage.iset(i, flat[i]!);
@@ -158,6 +158,7 @@ export class NDArrayCore {
   constructor(storage: ArrayStorage, base?: NDArrayCore) {
     this._storage = storage;
     this._base = base;
+    // biome-ignore lint/correctness/noConstructorReturn: intentional Proxy wrapper for index access
     return new Proxy(this, NDArrayCore._proxyHandler);
   }
 
@@ -286,7 +287,7 @@ export class NDArrayCore {
   get(indices: number[]): number | bigint | Complex {
     if (indices.length !== this.ndim) {
       throw new Error(
-        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`
+        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
       );
     }
 
@@ -297,7 +298,7 @@ export class NDArrayCore {
       }
       if (normalized < 0 || normalized >= this.shape[dim]!) {
         throw new Error(
-          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`
+          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`,
         );
       }
       return normalized;
@@ -312,7 +313,7 @@ export class NDArrayCore {
   set(indices: number[], value: number | bigint | Complex | { re: number; im: number }): void {
     if (indices.length !== this.ndim) {
       throw new Error(
-        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`
+        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
       );
     }
 
@@ -323,7 +324,7 @@ export class NDArrayCore {
       }
       if (normalized < 0 || normalized >= this.shape[dim]!) {
         throw new Error(
-          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`
+          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`,
         );
       }
       return normalized;
@@ -463,7 +464,7 @@ export class NDArrayCore {
       } else {
         for (let i = 0; i < size; i++) {
           (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Number(
-            typedOldData[i]
+            typedOldData[i],
           );
         }
       }
@@ -490,7 +491,7 @@ export class NDArrayCore {
       } else {
         for (let i = 0; i < size; i++) {
           (newData as BigInt64Array | BigUint64Array)[i] = BigInt(
-            Math.round(Number(typedOldData[i]))
+            Math.round(Number(typedOldData[i])),
           );
         }
       }
@@ -512,7 +513,7 @@ export class NDArrayCore {
         for (let i = 0; i < size; i++) {
           (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = floatToInt(
             typedOldData[i]!,
-            dtype
+            dtype,
           );
         }
       } else {
@@ -597,7 +598,7 @@ export class NDArrayCore {
     const data = copy._storage.data;
     return data.buffer.slice(
       data.byteOffset,
-      data.byteOffset + this.size * data.BYTES_PER_ELEMENT
+      data.byteOffset + this.size * data.BYTES_PER_ELEMENT,
     ) as ArrayBuffer;
   }
 

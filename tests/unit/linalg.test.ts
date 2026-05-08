@@ -2,28 +2,28 @@
  * Unit tests for linear algebra operations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   array,
-  dot,
-  trace,
-  transpose,
-  inner,
-  outer,
-  tensordot,
-  diagonal,
   diag,
-  kron,
+  diagonal,
+  dot,
   einsum,
   einsum_path,
+  inner,
+  kron,
   linalg,
+  matrix_transpose,
+  matvec,
+  ones,
+  outer,
+  permute_dims,
+  tensordot,
+  trace,
+  transpose,
   vdot,
   vecdot,
-  matrix_transpose,
-  permute_dims,
-  matvec,
   vecmat,
-  ones,
 } from '../../src';
 import { Complex } from '../../src/common/complex';
 
@@ -279,7 +279,7 @@ describe('Linear Algebra Operations', () => {
           [1, 2],
           [3, 4],
         ],
-        'int64'
+        'int64',
       );
       const result = trace(a);
 
@@ -293,7 +293,7 @@ describe('Linear Algebra Operations', () => {
           [1.5, 2.3],
           [3.7, 4.9],
         ],
-        'float64'
+        'float64',
       );
       const result = trace(a);
 
@@ -1241,7 +1241,7 @@ describe('numpy.linalg Module', () => {
           [0, 0, 4, 2],
           [0, 0, 2, 5],
         ],
-        'float32'
+        'float32',
       );
       const L = linalg.cholesky(a);
       expect(L.shape).toEqual([4, 4]);
@@ -1463,7 +1463,7 @@ describe('numpy.linalg Module', () => {
         (Number(apa.get([0, 0])) - 1) ** 2 +
           (Number(apa.get([0, 1])) - 2) ** 2 +
           (Number(apa.get([1, 0])) - 3) ** 2 +
-          (Number(apa.get([1, 1])) - 4) ** 2
+          (Number(apa.get([1, 1])) - 4) ** 2,
       );
       // Relaxed tolerance due to SVD numerical differences
       expect(froNorm).toBeLessThan(1);
@@ -1533,14 +1533,14 @@ describe('numpy.linalg Module', () => {
           [1n, 2n],
           [3n, 4n],
         ],
-        'int64'
+        'int64',
       );
       const b = array(
         [
           [5n, 6n],
           [7n, 8n],
         ],
-        'int64'
+        'int64',
       );
       const result = linalg.matmul(a, b);
 
@@ -2143,7 +2143,7 @@ describe('einsum_path()', () => {
     const b = ones([4, 3]);
     // 'ij' has 2 indices but a has 3 dimensions
     expect(() => einsum_path('ij,jk->ik', a, b)).toThrow(
-      /operand 0 has 3 dimensions but subscript 'ij' has 2 indices/
+      /operand 0 has 3 dimensions but subscript 'ij' has 2 indices/,
     );
   });
 

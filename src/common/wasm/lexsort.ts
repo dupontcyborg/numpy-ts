@@ -7,22 +7,22 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  lexsort_f64,
-  lexsort_f32,
-  lexsort_i64,
-  lexsort_u64,
-  lexsort_i32,
-  lexsort_u32,
-  lexsort_i16,
-  lexsort_u16,
-  lexsort_i8,
-  lexsort_u8,
-} from './bins/lexsort.wasm';
-import { wasmMalloc, resetScratchAllocator, scratchAlloc, getSharedMemory } from './runtime';
+import { type DType, effectiveDType, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
+import {
+  lexsort_f32,
+  lexsort_f64,
+  lexsort_i8,
+  lexsort_i16,
+  lexsort_i32,
+  lexsort_i64,
+  lexsort_u8,
+  lexsort_u16,
+  lexsort_u32,
+  lexsort_u64,
+} from './bins/lexsort.wasm';
 import { wasmConfig } from './config';
+import { getSharedMemory, resetScratchAllocator, scratchAlloc, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -32,7 +32,7 @@ type LexsortRadixFn = (
   numKeys: number,
   N: number,
   outPtr: number,
-  scratchPtr: number
+  scratchPtr: number,
 ) => void;
 
 const kernels: Partial<Record<DType, LexsortFn>> = {
@@ -124,7 +124,7 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
       const kData = key.data.subarray(key.offset, key.offset + n) as TypedArray;
       const destOffset = flatBuf + k * n * bpe;
       new Uint8Array(mem.buffer, destOffset, n * bpe).set(
-        new Uint8Array(kData.buffer, kData.byteOffset, kData.byteLength)
+        new Uint8Array(kData.buffer, kData.byteOffset, kData.byteLength),
       );
     }
   }
@@ -144,7 +144,7 @@ export function wasmLexsort(keys: ArrayStorage[]): ArrayStorage | null {
     Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

@@ -8,49 +8,49 @@
  * discovers what NDims NumPy supports for each function.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
-  zeros,
-  matmul,
-  dot,
-  inner,
-  tensordot,
-  diagonal,
-  trace,
-  transpose,
-  sum,
-  mean,
-  std,
-  cumsum,
-  cumprod,
-  sort,
-  argsort,
-  reshape,
-  concatenate,
-  stack,
-  flip,
-  roll,
-  swapaxes,
-  moveaxis,
-  where,
-  clip,
-  sin,
-  cos,
-  exp,
-  sqrt,
   add,
-  multiply,
   all,
   any,
-  diff,
-  median,
+  argsort,
+  array,
   average,
-  linalg,
+  clip,
+  concatenate,
+  cos,
   cross,
+  cumprod,
+  cumsum,
+  diagonal,
+  diff,
+  dot,
+  exp,
   fft,
+  flip,
+  inner,
+  linalg,
+  matmul,
+  mean,
+  median,
+  moveaxis,
+  multiply,
+  reshape,
+  roll,
+  sin,
+  sort,
+  sqrt,
+  stack,
+  std,
+  sum,
+  swapaxes,
+  tensordot,
+  trace,
+  transpose,
+  where,
+  zeros,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 // Helper: create ascending float array of given shape
 function arange(shape: number[]): ReturnType<typeof array> {
@@ -64,7 +64,7 @@ describe('NumPy Validation: NDim Support', () => {
     if (!checkNumPyAvailable()) {
       throw new Error(
         '❌ Python NumPy not available!\n\n' +
-          '   Activate conda: source ~/.zshrc && conda activate py313\n'
+          '   Activate conda: source ~/.zshrc && conda activate py313\n',
       );
     }
   });

@@ -58,7 +58,7 @@ export function irfft_f64(
   out: number,
   scratch: number,
   n_half: number,
-  n_out: number
+  n_out: number,
 ): void {
   const i = init();
   (i.exports['irfft_f64'] as (...args: number[]) => void)(inp, out, scratch, n_half, n_out);
@@ -71,7 +71,7 @@ export function rfft_batch_f64(
   n: number,
   batch: number,
   in_stride: number,
-  out_stride: number
+  out_stride: number,
 ): void {
   const i = init();
   (i.exports['rfft_batch_f64'] as (...args: number[]) => void)(
@@ -81,7 +81,7 @@ export function rfft_batch_f64(
     n,
     batch,
     in_stride,
-    out_stride
+    out_stride,
   );
 }
 
@@ -92,7 +92,7 @@ export function irfft_batch_f64(
   n_out: number,
   batch: number,
   in_stride: number,
-  out_stride: number
+  out_stride: number,
 ): void {
   const i = init();
   (i.exports['irfft_batch_f64'] as (...args: number[]) => void)(
@@ -102,7 +102,7 @@ export function irfft_batch_f64(
     n_out,
     batch,
     in_stride,
-    out_stride
+    out_stride,
   );
 }
 
@@ -118,7 +118,7 @@ export function rfft_batch_f32(
   n: number,
   batch: number,
   in_stride: number,
-  out_stride: number
+  out_stride: number,
 ): void {
   const i = init();
   (i.exports['rfft_batch_f32'] as (...args: number[]) => void)(
@@ -128,7 +128,7 @@ export function rfft_batch_f32(
     n,
     batch,
     in_stride,
-    out_stride
+    out_stride,
   );
 }
 
@@ -139,7 +139,7 @@ export function irfft_batch_f32(
   n_out: number,
   batch: number,
   in_stride: number,
-  out_stride: number
+  out_stride: number,
 ): void {
   const i = init();
   (i.exports['irfft_batch_f32'] as (...args: number[]) => void)(
@@ -149,7 +149,7 @@ export function irfft_batch_f32(
     n_out,
     batch,
     in_stride,
-    out_stride
+    out_stride,
   );
 }
 
@@ -160,7 +160,7 @@ export function irfftn_3d(
   d0: number,
   d1: number,
   d2_half: number,
-  d2_out: number
+  d2_out: number,
 ): void {
   const i = init();
   (i.exports['irfftn_3d'] as (...args: number[]) => void)(
@@ -170,7 +170,7 @@ export function irfftn_3d(
     d0,
     d1,
     d2_half,
-    d2_out
+    d2_out,
   );
 }
 
@@ -184,7 +184,7 @@ export function fft_batch_c128(
   out: number,
   scratch: number,
   n: number,
-  batch: number
+  batch: number,
 ): void {
   const i = init();
   (i.exports['fft_batch_c128'] as (...args: number[]) => void)(inp, out, scratch, n, batch);
@@ -195,7 +195,7 @@ export function ifft_batch_c128(
   out: number,
   scratch: number,
   n: number,
-  batch: number
+  batch: number,
 ): void {
   const i = init();
   (i.exports['ifft_batch_c128'] as (...args: number[]) => void)(inp, out, scratch, n, batch);
@@ -206,7 +206,7 @@ export function fft_batch_c64(
   out: number,
   scratch: number,
   n: number,
-  batch: number
+  batch: number,
 ): void {
   const i = init();
   (i.exports['fft_batch_c64'] as (...args: number[]) => void)(inp, out, scratch, n, batch);
@@ -217,7 +217,7 @@ export function ifft_batch_c64(
   out: number,
   scratch: number,
   n: number,
-  batch: number
+  batch: number,
 ): void {
   const i = init();
   (i.exports['ifft_batch_c64'] as (...args: number[]) => void)(inp, out, scratch, n, batch);
@@ -228,7 +228,7 @@ export function fft2_c128(
   out: number,
   scratch: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['fft2_c128'] as (...args: number[]) => void)(inp, out, scratch, rows, cols);
@@ -239,7 +239,7 @@ export function ifft2_c128(
   out: number,
   scratch: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['ifft2_c128'] as (...args: number[]) => void)(inp, out, scratch, rows, cols);
@@ -250,7 +250,7 @@ export function fft2_c64(
   out: number,
   scratch: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['fft2_c64'] as (...args: number[]) => void)(inp, out, scratch, rows, cols);
@@ -261,7 +261,7 @@ export function ifft2_c64(
   out: number,
   scratch: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['ifft2_c64'] as (...args: number[]) => void)(inp, out, scratch, rows, cols);
@@ -277,7 +277,7 @@ export function rfft2_f64(
   out: number,
   scratch: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['rfft2_f64'] as (...args: number[]) => void)(inp, out, scratch, rows, cols);
@@ -294,7 +294,7 @@ export function irfft2_f64(
   scratch: number,
   rows: number,
   cols_half: number,
-  cols_out: number
+  cols_out: number,
 ): void {
   const i = init();
   (i.exports['irfft2_f64'] as (...args: number[]) => void)(
@@ -303,7 +303,7 @@ export function irfft2_f64(
     scratch,
     rows,
     cols_half,
-    cols_out
+    cols_out,
   );
 }
 

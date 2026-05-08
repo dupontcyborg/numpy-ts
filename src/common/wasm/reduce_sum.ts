@@ -6,41 +6,41 @@
  * uint types route to signed kernels (wrapping addition gives same bits).
  */
 
+import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  reduce_sum_f64,
+  reduce_sum_c64,
+  reduce_sum_c128,
   reduce_sum_f32,
-  reduce_sum_i64,
-  reduce_sum_i32,
+  reduce_sum_f64,
   reduce_sum_i8_to_i64,
   reduce_sum_i16_to_i64,
+  reduce_sum_i32,
+  reduce_sum_i64,
+  reduce_sum_strided_c64,
+  reduce_sum_strided_c128,
+  reduce_sum_strided_f32,
+  reduce_sum_strided_f64,
+  reduce_sum_strided_i8,
+  reduce_sum_strided_i16,
+  reduce_sum_strided_i32,
+  reduce_sum_strided_i64,
+  reduce_sum_strided_u8,
+  reduce_sum_strided_u16,
+  reduce_sum_strided_u32,
+  reduce_sum_strided_u64,
   reduce_sum_u8_to_u64,
   reduce_sum_u16_to_u64,
-  reduce_sum_strided_f64,
-  reduce_sum_strided_f32,
-  reduce_sum_strided_i64,
-  reduce_sum_strided_i32,
-  reduce_sum_strided_i16,
-  reduce_sum_strided_i8,
-  reduce_sum_strided_u64,
-  reduce_sum_strided_u32,
-  reduce_sum_strided_u16,
-  reduce_sum_strided_u8,
-  reduce_sum_c128,
-  reduce_sum_c64,
-  reduce_sum_strided_c128,
-  reduce_sum_strided_c64,
 } from './bins/reduce_sum.wasm';
+import { wasmConfig } from './config';
 import {
+  f16InputToScratchF32,
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
-  f16InputToScratchF32,
   scratchAlloc,
-  getSharedMemory,
   wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -165,7 +165,7 @@ export function wasmReduceSumStrided(
   a: ArrayStorage,
   outerSize: number,
   axisSize: number,
-  innerSize: number
+  innerSize: number,
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
 
@@ -199,7 +199,11 @@ export function wasmReduceSumStrided(
     'float64',
     outRegion,
     outSize,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
 
@@ -211,7 +215,7 @@ export function wasmReduceSumStridedComplex(
   a: ArrayStorage,
   outerSize: number,
   axisSize: number,
-  innerSize: number
+  innerSize: number,
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
   const dtype = effectiveDType(a.dtype);
@@ -238,7 +242,7 @@ export function wasmReduceSumStridedComplex(
     a.wasmPtr,
     a.offset,
     totalSize * 2,
-    floatBpe
+    floatBpe,
   );
 
   if (isC128) {
@@ -248,8 +252,16 @@ export function wasmReduceSumStridedComplex(
   }
 
   const Ctor = isC128
-    ? (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
-    : (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+    ? (Float64Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray)
+    : (Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray);
 
   return ArrayStorage.fromWasmRegion([outSize], dtype, outRegion, outFloats, Ctor);
 }

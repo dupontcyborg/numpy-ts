@@ -5,22 +5,22 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  reciprocal_f64,
-  reciprocal_f32,
-  reciprocal_i64,
-  reciprocal_u64,
-  reciprocal_i32,
-  reciprocal_u32,
-  reciprocal_i16,
-  reciprocal_u16,
-  reciprocal_i8,
-  reciprocal_u8,
-} from './bins/reciprocal.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  reciprocal_f32,
+  reciprocal_f64,
+  reciprocal_i8,
+  reciprocal_i16,
+  reciprocal_i32,
+  reciprocal_i64,
+  reciprocal_u8,
+  reciprocal_u16,
+  reciprocal_u32,
+  reciprocal_u64,
+} from './bins/reciprocal.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -88,7 +88,11 @@ export function wasmReciprocal(a: ArrayStorage): ArrayStorage | null {
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Ctor as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -115,6 +119,10 @@ export function wasmReciprocal(a: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     size,
-    InCtor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    InCtor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

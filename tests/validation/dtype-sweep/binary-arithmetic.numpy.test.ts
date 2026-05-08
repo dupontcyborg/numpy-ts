@@ -3,21 +3,21 @@
  * Tests each function across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   arraysClose,
   checkNumPyAvailable,
-  npDtype,
-  pyArrayCast,
-  toComparable,
   expectBothReject,
   expectBothRejectPre,
   expectMatchPre,
+  npDtype,
+  pyArrayCast,
+  runNumPyBatch,
+  toComparable,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -120,7 +120,7 @@ result = _result_orig.astype(${ac})`;
             const r = expectBothReject(
               `${name} is not defined for complex numbers`,
               () => fn(array(data1, dtype), array(data2, dtype)),
-              pyCode
+              pyCode,
             );
             if (r === 'both-reject') return;
           }
@@ -132,7 +132,7 @@ result = _result_orig.astype(${ac})`;
             const r = expectBothReject(
               `${name} is only defined for integer dtypes`,
               () => fn(array(data1, dtype), array(data2, dtype)),
-              pyCode
+              pyCode,
             );
             if (r === 'both-reject') return;
           }
@@ -141,7 +141,7 @@ result = _result_orig.astype(${ac})`;
             const r = expectBothReject(
               `NumPy disallows boolean ${name}`,
               () => fn(array(data1, dtype), array(data2, dtype)),
-              pyCode
+              pyCode,
             );
             if (r === 'both-reject') return;
           }
@@ -167,7 +167,7 @@ describe('DType Sweep: Binary arithmetic (scalar)', () => {
           const r = expectBothRejectPre(
             'copysign is not defined for complex numbers',
             () => np.copysign(array(data, dtype), -1),
-            py
+            py,
           );
           if (r === 'both-reject') return;
         }

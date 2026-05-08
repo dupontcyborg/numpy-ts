@@ -6,7 +6,7 @@
  */
 
 import * as setOps from '../common/ops/sets';
-import { NDArrayCore, toStorage, fromStorage, ArrayStorage } from './types';
+import { ArrayStorage, fromStorage, NDArrayCore, toStorage } from './types';
 
 /** Find unique elements */
 export function unique(
@@ -14,7 +14,7 @@ export function unique(
   returnIndex: boolean = false,
   returnInverse: boolean = false,
   returnCounts: boolean = false,
-  axis?: number
+  axis?: number,
 ):
   | NDArrayCore
   | { values: NDArrayCore; indices?: NDArrayCore; inverse?: NDArrayCore; counts?: NDArrayCore } {

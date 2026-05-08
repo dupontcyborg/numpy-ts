@@ -8,8 +8,8 @@
  * global-setup.ts clears both sentinel files before any tests run.
  */
 import { execSync } from 'child_process';
+import { closeSync, existsSync, openSync, rmSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import { existsSync, writeFileSync, openSync, closeSync, rmSync } from 'fs';
 import { beforeAll } from 'vitest';
 
 const root = resolve(__dirname, '../..');

@@ -6,7 +6,7 @@
  */
 
 import * as complexOps from '../common/ops/complex';
-import { NDArrayCore, toStorage, fromStorage } from './types';
+import { fromStorage, NDArrayCore, toStorage } from './types';
 
 // Re-export Complex class from core
 export { Complex } from '../common/complex';

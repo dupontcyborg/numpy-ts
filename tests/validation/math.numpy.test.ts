@@ -2,21 +2,21 @@
  * Python NumPy validation tests for mathematical operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
-  sqrt,
-  power,
   absolute,
-  negative,
-  sign,
-  mod,
+  array,
   floor_divide,
+  mod,
+  negative,
   positive,
+  power,
   reciprocal,
+  sign,
+  sqrt,
   wasmConfig,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -50,7 +50,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -75,7 +75,7 @@ result = np.sqrt(np.array([4, 9, 16, 25]))
           array([
             [1, 4, 9],
             [16, 25, 36],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.sqrt(np.array([[1, 4, 9], [16, 25, 36]]))
@@ -115,7 +115,7 @@ result = np.sqrt(np.array([1, 4, 9], dtype=np.float32))
 result = np.sqrt(np.array([1, 4, 9, 16], dtype=${NP_DTYPE[dtype]}))
 `);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined),
           ).toBe(true);
         });
       }
@@ -138,7 +138,7 @@ result = np.power(np.array([2, 3, 4]), 2)
             [2, 3],
             [4, 5],
           ]),
-          3
+          3,
         );
         const pyResult = runNumPy(`
 result = np.power(np.array([[2, 3], [4, 5]]), 3)
@@ -204,7 +204,7 @@ result = np.power(np.array([1, 2, 3, 0]), 0)
 result = np.power(np.array([1, 2, 3, 4], dtype=${NP_DTYPE[dtype]}), 2)
 `);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined),
           ).toBe(true);
         });
       }
@@ -226,7 +226,7 @@ result = np.absolute(np.array([-3, -1, 0, 1, 3]))
           array([
             [-1, 2, -3],
             [4, -5, 6],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.absolute(np.array([[-1, 2, -3], [4, -5, 6]]))
@@ -288,7 +288,7 @@ result = np.negative(np.array([1, -2, 3, -4, 0]))
           array([
             [1, -2],
             [-3, 4],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.negative(np.array([[1, -2], [-3, 4]]))
@@ -347,7 +347,7 @@ result = np.sign(np.array([-5, -0.5, 0, 0.5, 5]))
           array([
             [-1, 0, 1],
             [2, -2, 0],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.sign(np.array([[-1, 0, 1], [2, -2, 0]]))
@@ -416,7 +416,7 @@ result = np.mod(np.array([10, 11, 12, 13]), 3)
             [10, 11, 12],
             [13, 14, 15],
           ]),
-          4
+          4,
         );
         const pyResult = runNumPy(`
 result = np.mod(np.array([[10, 11, 12], [13, 14, 15]]), 4)
@@ -463,7 +463,7 @@ result = np.floor_divide(np.array([10, 11, 12, 13]), 3)
             [10, 15],
             [20, 25],
           ]),
-          4
+          4,
         );
         const pyResult = runNumPy(`
 result = np.floor_divide(np.array([[10, 15], [20, 25]]), 4)
@@ -509,7 +509,7 @@ result = np.positive(np.array([1, -2, 3, -4, 0]))
           array([
             [1, -2],
             [-3, 4],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.positive(np.array([[1, -2], [-3, 4]]))
@@ -546,7 +546,7 @@ result = np.reciprocal(np.array([2.0, 4.0, 8.0]))
           array([
             [1, 2],
             [4, 5],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.reciprocal(np.array([[1.0, 2.0], [4.0, 5.0]]))

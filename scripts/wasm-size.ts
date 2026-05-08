@@ -5,8 +5,8 @@
 
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { gzipSync } from 'zlib';
 import { fileURLToPath } from 'url';
+import { gzipSync } from 'zlib';
 
 const __filename = fileURLToPath(import.meta.url);
 const BINS_DIR = join(__filename, '..', '..', 'src/common/wasm/bins');
@@ -69,19 +69,19 @@ const expW = 8;
 
 console.log();
 console.log(
-  `${pad('Kernel', nameW)}  ${pad('Raw', rawW, true)}  ${pad('Gzipped', gzW, true)}  ${pad('Exports', expW, true)}`
+  `${pad('Kernel', nameW)}  ${pad('Raw', rawW, true)}  ${pad('Gzipped', gzW, true)}  ${pad('Exports', expW, true)}`,
 );
 console.log(`${'─'.repeat(nameW)}  ${'─'.repeat(rawW)}  ${'─'.repeat(gzW)}  ${'─'.repeat(expW)}`);
 
 for (const e of entries) {
   console.log(
-    `${pad(e.name, nameW)}  ${pad(fmt(e.raw), rawW, true)}  ${pad(fmt(e.gzip), gzW, true)}  ${pad(String(e.exports), expW, true)}`
+    `${pad(e.name, nameW)}  ${pad(fmt(e.raw), rawW, true)}  ${pad(fmt(e.gzip), gzW, true)}  ${pad(String(e.exports), expW, true)}`,
   );
 }
 
 console.log(`${'─'.repeat(nameW)}  ${'─'.repeat(rawW)}  ${'─'.repeat(gzW)}  ${'─'.repeat(expW)}`);
 console.log(
-  `${pad('TOTAL', nameW)}  ${pad(fmt(totalRaw), rawW, true)}  ${pad(fmt(totalGzip), gzW, true)}  ${pad(String(totalExports), expW, true)}`
+  `${pad('TOTAL', nameW)}  ${pad(fmt(totalRaw), rawW, true)}  ${pad(fmt(totalGzip), gzW, true)}  ${pad(String(totalExports), expW, true)}`,
 );
 console.log();
 console.log(`${entries.length} kernels, ${totalExports} exports`);

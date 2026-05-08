@@ -5,16 +5,15 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { Complex } from '../complex';
+import { type DType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/dot_float.wasm';
 import * as floatRelaxed from './bins/dot_float-relaxed.wasm';
-import { dot_i64, dot_i32, dot_i16, dot_i8 } from './bins/dot_int.wasm';
-import { useRelaxedKernels } from './detect';
-import { resetScratchAllocator, resolveInputPtr, scratchAlloc, getSharedMemory } from './runtime';
-import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
-import { Complex } from '../complex';
-
+import { dot_i8, dot_i16, dot_i32, dot_i64 } from './bins/dot_int.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
+import { getSharedMemory, resetScratchAllocator, resolveInputPtr, scratchAlloc } from './runtime';
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
@@ -94,7 +93,7 @@ export function wasmDot1D(a: ArrayStorage, b: ArrayStorage): number | Complex | 
     a.wasmPtr,
     a.offset * factor,
     K * factor,
-    bytesPerElement
+    bytesPerElement,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -102,7 +101,7 @@ export function wasmDot1D(a: ArrayStorage, b: ArrayStorage): number | Complex | 
     b.wasmPtr,
     b.offset * factor,
     K * factor,
-    bytesPerElement
+    bytesPerElement,
   );
   const outPtr = scratchAlloc(outBytes);
 
@@ -110,17 +109,19 @@ export function wasmDot1D(a: ArrayStorage, b: ArrayStorage): number | Complex | 
 
   // Read scalar result directly from WASM memory
   const mem = getSharedMemory();
-  const outView = new (Ctor as unknown as new (
-    buffer: ArrayBuffer,
-    byteOffset: number,
-    length: number
-  ) => TypedArray)(mem.buffer, outPtr, 1 * factor);
+  const outView = new (
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray
+  )(mem.buffer, outPtr, 1 * factor);
 
   // Complex scalar: read re + im from the 2-element output buffer
   if (factor === 2) {
     return new Complex(
       Number((outView as Float64Array | Float32Array)[0]!),
-      Number((outView as Float64Array | Float32Array)[1]!)
+      Number((outView as Float64Array | Float32Array)[1]!),
     );
   }
 

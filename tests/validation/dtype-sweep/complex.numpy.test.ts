@@ -3,10 +3,10 @@
  * Tests complex128 and complex64 across math/reduction/linalg, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
-import { checkNumPyAvailable, runNumPyBatch, expectMatchPre } from './_helpers';
 import type { NumPyResult } from '../numpy-oracle';
+import { checkNumPyAvailable, expectMatchPre, runNumPyBatch } from './_helpers';
 
 const { array, Complex } = np;
 const COMPLEX = ['complex128', 'complex64'] as const;
@@ -123,35 +123,35 @@ describe('DType Sweep: Complex', () => {
     describe(`unary ${dtype}`, () => {
       it(`absolute`, () => {
         const jsResult = np.absolute(
-          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype)
+          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype),
         );
         expectMatchPre(jsResult, oracle.get(`absolute_${dtype}`)!, { rtol: tol });
       });
 
       it(`conj`, () => {
         const jsResult = np.conj(
-          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype)
+          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype),
         );
         expectMatchPre(jsResult, oracle.get(`conj_${dtype}`)!, { rtol: tol });
       });
 
       it(`real`, () => {
         const jsResult = np.real(
-          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype)
+          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype),
         );
         expectMatchPre(jsResult, oracle.get(`real_${dtype}`)!, { rtol: tol });
       });
 
       it(`imag`, () => {
         const jsResult = np.imag(
-          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype)
+          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype),
         );
         expectMatchPre(jsResult, oracle.get(`imag_${dtype}`)!, { rtol: tol });
       });
 
       it(`angle`, () => {
         const jsResult = np.angle(
-          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype)
+          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype),
         );
         expectMatchPre(jsResult, oracle.get(`angle_${dtype}`)!, { rtol: tol });
       });
@@ -208,14 +208,14 @@ describe('DType Sweep: Complex', () => {
     describe(`reductions ${dtype}`, () => {
       it(`sum`, () => {
         const jsResult = np.sum(
-          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype)
+          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype),
         );
         expectComplexClose(jsResult, oracle.get(`sum_${dtype}`)!, tol);
       });
 
       it(`mean`, () => {
         const jsResult = np.mean(
-          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype)
+          array([new Complex(1, 2), new Complex(3, 4), new Complex(5, 6)], dtype),
         );
         expectComplexClose(jsResult, oracle.get(`mean_${dtype}`)!, tol);
       });
@@ -240,7 +240,7 @@ describe('DType Sweep: Complex', () => {
             [new Complex(1, 0), new Complex(0, 1)],
             [new Complex(1, 1), new Complex(1, -1)],
           ],
-          dtype
+          dtype,
         );
         const jsResult = np.matmul(a, a);
         expectMatchPre(jsResult, oracle.get(`matmul_${dtype}`)!, { rtol: tol });

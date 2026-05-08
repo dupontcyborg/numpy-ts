@@ -3,20 +3,20 @@
  * Tests alias functions across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
+  expectBothRejectPre,
+  expectMatchPre,
   npDtype,
   pyArrayCast,
   pyScalarCast,
-  expectBothRejectPre,
-  expectMatchPre,
+  runNumPyBatch,
   scalarClose,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -280,7 +280,7 @@ describe('DType Sweep: Unary aliases', () => {
           const r = expectBothRejectPre(
             `${name} may not be supported for ${dtype}`,
             () => fn(a),
-            py
+            py,
           );
           if (r === 'both-reject') return;
           const jsResult = fn(a);
@@ -309,7 +309,7 @@ describe('DType Sweep: Binary aliases', () => {
           const r = expectBothRejectPre(
             `${name} may not be supported for ${dtype}`,
             () => fn(array(data1, dtype), array(data2, dtype)),
-            py
+            py,
           );
           if (r === 'both-reject') return;
           const jsResult = fn(array(data1, dtype), array(data2, dtype));
@@ -330,7 +330,7 @@ describe('DType Sweep: Bitwise aliases', () => {
         const r = expectBothRejectPre(
           'bitwise_invert requires integer or bool dtype',
           () => np.bitwise_invert(array(data, dtype)),
-          py
+          py,
         );
         if (r === 'both-reject') return;
         const jsResult = np.bitwise_invert(array(data, dtype));
@@ -355,7 +355,7 @@ describe('DType Sweep: Bitwise aliases', () => {
           const r = expectBothRejectPre(
             `${name} requires integer dtype (no bool, float, or complex)`,
             () => fn(array(data1, dtype), array(data2, dtype)),
-            py
+            py,
           );
           if (r === 'both-reject') return;
           const jsResult = fn(array(data1, dtype), array(data2, dtype));
@@ -383,7 +383,7 @@ describe('DType Sweep: Reduction aliases', () => {
           const r = expectBothRejectPre(
             `${name} may not be supported for ${dtype}`,
             () => fn(array(data, dtype)),
-            py
+            py,
           );
           if (r === 'both-reject') return;
           const jsResult = fn(array(data, dtype));
@@ -412,7 +412,7 @@ describe('DType Sweep: Cumulative aliases', () => {
           const r = expectBothRejectPre(
             `${name} may not be supported for ${dtype}`,
             () => fn(array(data, dtype)),
-            py
+            py,
           );
           if (r === 'both-reject') return;
           const jsResult = fn(array(data, dtype));
@@ -434,7 +434,7 @@ describe('DType Sweep: Stacking/shape aliases', () => {
         const r = expectBothRejectPre(
           `row_stack may not be supported for ${dtype}`,
           () => np.row_stack([a, a]),
-          py
+          py,
         );
         if (r === 'both-reject') return;
         const jsResult = np.row_stack([a, a]);
@@ -453,7 +453,7 @@ describe('DType Sweep: Stacking/shape aliases', () => {
         const r = expectBothRejectPre(
           `concat may not be supported for ${dtype}`,
           () => np.concat([a, a]),
-          py
+          py,
         );
         if (r === 'both-reject') return;
         const jsResult = np.concat([a, a]);
@@ -472,7 +472,7 @@ describe('DType Sweep: Stacking/shape aliases', () => {
         const r = expectBothRejectPre(
           `delete may not be supported for ${dtype}`,
           () => np.delete_(a, 1),
-          py
+          py,
         );
         if (r === 'both-reject') return;
         const jsResult = np.delete_(a, 1);

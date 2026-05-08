@@ -6,12 +6,11 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { qr_f64 } from './bins/qr.wasm';
-import { wasmMalloc, resetScratchAllocator, scratchAlloc, getSharedMemory } from './runtime';
-import { ArrayStorage } from '../storage';
 import { isComplexDType, type TypedArray } from '../dtype';
-
+import { ArrayStorage } from '../storage';
+import { qr_f64 } from './bins/qr.wasm';
 import { wasmConfig } from './config';
+import { getSharedMemory, resetScratchAllocator, scratchAlloc, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 4; // Minimum matrix dimension for WASM (QR is O(n³), worth it even for small)
 
@@ -88,8 +87,8 @@ export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | 
     Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
   const rStorage = ArrayStorage.fromWasmRegion(
     [k, n],
@@ -99,8 +98,8 @@ export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | 
     Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 
   return { q: qStorage, r: rStorage };

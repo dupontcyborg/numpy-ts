@@ -7,22 +7,22 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  gcd_scalar_i32,
-  gcd_i32,
-  gcd_i16,
-  gcd_u16,
-  gcd_i8,
-  gcd_u8,
-  gcd_scalar_i16,
-  gcd_scalar_u16,
-  gcd_scalar_i8,
-  gcd_scalar_u8,
-} from './bins/gcd.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, getTypedArrayConstructor, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, getTypedArrayConstructor, type DType, type TypedArray } from '../dtype';
+import {
+  gcd_i8,
+  gcd_i16,
+  gcd_i32,
+  gcd_scalar_i8,
+  gcd_scalar_i16,
+  gcd_scalar_i32,
+  gcd_scalar_u8,
+  gcd_scalar_u16,
+  gcd_u8,
+  gcd_u16,
+} from './bins/gcd.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -78,7 +78,11 @@ export function wasmGcdScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
 
@@ -110,6 +114,10 @@ export function wasmGcd(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     outDtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

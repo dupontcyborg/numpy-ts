@@ -6,18 +6,17 @@
  * 2. NPY/NPZ files created by numpy-ts can be read correctly by Python
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'child_process';
-import { writeFileSync, readFileSync, unlinkSync, mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-
-import { parseNpy, serializeNpy } from '../../src/io/npy';
-import { parseNpz, serializeNpz, serializeNpzSync } from '../../src/io/npz';
-import { parseTxt, serializeTxt, genfromtxt, fromregex } from '../../src/io/txt';
-import { array, arange } from '../../src';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { arange, array } from '../../src';
 import { Complex } from '../../src/common/complex';
 import type { DType } from '../../src/common/dtype';
+import { parseNpy, serializeNpy } from '../../src/io/npy';
+import { parseNpz, serializeNpz, serializeNpzSync } from '../../src/io/npz';
+import { fromregex, genfromtxt, parseTxt, serializeTxt } from '../../src/io/txt';
 
 // Get Python command from environment or use default
 const PYTHON_CMD = process.env.NUMPY_PYTHON || 'python3';
@@ -363,7 +362,7 @@ print(json.dumps(result))
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'float64'
+        'float64',
       );
       const npyBytes = serializeNpy(arr);
       writeFileSync(npyPath, npyBytes);
@@ -457,7 +456,7 @@ print(json.dumps(result))
           [new Complex(1, 1), new Complex(2, 2)],
           [new Complex(3, 3), new Complex(4, 4)],
         ],
-        'complex128'
+        'complex128',
       );
       const npyBytes = serializeNpy(arr);
       writeFileSync(npyPath, npyBytes);
@@ -494,7 +493,7 @@ print(json.dumps(result))
           [4, 5],
           [6, 7],
         ],
-        'int32'
+        'int32',
       );
 
       const npzBytes = await serializeNpz({ a, b });

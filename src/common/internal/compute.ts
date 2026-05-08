@@ -7,9 +7,9 @@
  * @internal
  */
 
-import { ArrayStorage } from '../storage';
-import { promoteDTypes, isBigIntDType, mathResultDtype } from '../dtype';
 import { Complex } from '../complex';
+import { isBigIntDType, mathResultDtype, promoteDTypes } from '../dtype';
+import { ArrayStorage } from '../storage';
 
 /**
  * Compute the broadcast shape of two arrays
@@ -34,7 +34,7 @@ export function broadcastShapes(shapeA: readonly number[], shapeB: readonly numb
       result[i] = dimA;
     } else {
       throw new Error(
-        `operands could not be broadcast together with shapes ${JSON.stringify(Array.from(shapeA))} ${JSON.stringify(Array.from(shapeB))}`
+        `operands could not be broadcast together with shapes ${JSON.stringify(Array.from(shapeA))} ${JSON.stringify(Array.from(shapeB))}`,
       );
     }
   }
@@ -49,7 +49,7 @@ export function broadcastShapes(shapeA: readonly number[], shapeB: readonly numb
 function broadcastStrides(
   shape: readonly number[],
   strides: readonly number[],
-  targetShape: readonly number[]
+  targetShape: readonly number[],
 ): number[] {
   const ndim = shape.length;
   const targetNdim = targetShape.length;
@@ -87,7 +87,7 @@ function broadcastTo(storage: ArrayStorage, targetShape: readonly number[]): Arr
     Array.from(targetShape),
     storage.dtype,
     broadcastedStrides,
-    storage.offset
+    storage.offset,
   );
 }
 
@@ -107,7 +107,7 @@ export function elementwiseBinaryOp(
   a: ArrayStorage,
   b: ArrayStorage,
   op: (a: number, b: number) => number,
-  opName: string
+  opName: string,
 ): ArrayStorage {
   // Determine output dtype using NumPy promotion rules
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
@@ -213,7 +213,7 @@ export function elementwiseBinaryOp(
 export function elementwiseComparisonOp(
   a: ArrayStorage,
   b: ArrayStorage,
-  op: (a: number, b: number) => boolean
+  op: (a: number, b: number) => boolean,
 ): ArrayStorage {
   // Compute broadcast shape
   const outputShape = broadcastShapes(a.shape, b.shape);
@@ -256,7 +256,7 @@ export function elementwiseComparisonOp(
 export function elementwiseUnaryOp(
   a: ArrayStorage,
   op: (x: number) => number,
-  preserveDtype = true
+  preserveDtype = true,
 ): ArrayStorage {
   const dtype = a.dtype;
   const shape = Array.from(a.shape);

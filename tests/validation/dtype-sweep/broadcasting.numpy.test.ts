@@ -3,17 +3,17 @@
  * Tests binary ops with varied shapes to validate broadcasting rules.
  * Uses representative dtypes (float64, int32, complex128) — shape logic is dtype-independent.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
-  pyArrayCast,
   expectMatchPre,
   isComplex,
+  npDtype,
+  pyArrayCast,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 

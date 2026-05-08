@@ -9,11 +9,11 @@
  * unified matmul automatically uses WASM when appropriate.
  */
 
-import { describe, it, expect } from 'vitest';
-import { array, matmul, zeros, reshape } from '../../src';
-import { wasmMatmul } from '../../src/common/wasm/matmul';
+import { describe, expect, it } from 'vitest';
+import { array, matmul, reshape, zeros } from '../../src';
 import type { NDArrayCore } from '../../src/common/ndarray-core';
 import { ArrayStorage } from '../../src/common/storage';
+import { wasmMatmul } from '../../src/common/wasm/matmul';
 
 /** Helper: compare two NDArrayCore results element-wise */
 function expectClose(actual: NDArrayCore, expected: NDArrayCore, tolerance = 1e-10) {
@@ -54,7 +54,7 @@ describe('WASM matmul', () => {
         array([
           [19, 22],
           [43, 50],
-        ])
+        ]),
       );
     });
 
@@ -179,14 +179,14 @@ describe('WASM matmul', () => {
           [1, 2],
           [3, 4],
         ],
-        'float32'
+        'float32',
       );
       const b = array(
         [
           [5, 6],
           [7, 8],
         ],
-        'float32'
+        'float32',
       );
       const result = matmul(a, b);
       expect(result.dtype).toBe('float32');
@@ -245,14 +245,14 @@ describe('WASM matmul', () => {
           [1, 2],
           [3, 4],
         ],
-        'int32'
+        'int32',
       );
       const b = array(
         [
           [5, 6],
           [7, 8],
         ],
-        'int32'
+        'int32',
       );
       const result = matmul(a, b);
       expect(result.shape).toEqual([2, 2]);
@@ -264,14 +264,14 @@ describe('WASM matmul', () => {
           [1, 2],
           [3, 4],
         ],
-        'complex128'
+        'complex128',
       );
       const b = array(
         [
           [5, 6],
           [7, 8],
         ],
-        'complex128'
+        'complex128',
       );
       const result = matmul(a, b);
       expect(result.shape).toEqual([2, 2]);
@@ -284,14 +284,14 @@ describe('WASM matmul', () => {
           [1, 2],
           [3, 4],
         ],
-        'float64'
+        'float64',
       );
       const b = array(
         [
           [5, 6],
           [7, 8],
         ],
-        'float32'
+        'float32',
       );
       const result = matmul(a, b);
       expect(result.shape).toEqual([2, 2]);

@@ -4,7 +4,7 @@
  * Validates against actual NumPy behavior
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { array, ones } from '../../src';
 import { hasFloat16 } from '../../src/common/dtype';
 import { checkNumPyAvailable, runNumPy } from './numpy-oracle';

@@ -7,12 +7,12 @@
 
 import * as shapeOps from '../common/ops/shape';
 import {
+  fromStorage,
+  fromStorageArray,
+  fromStorageView,
+  fromStorageViewArray,
   NDArrayCore,
   toStorage,
-  fromStorage,
-  fromStorageView,
-  fromStorageArray,
-  fromStorageViewArray,
 } from './types';
 
 // ============================================================
@@ -57,7 +57,7 @@ export function swapaxes(a: NDArrayCore, axis1: number, axis2: number): NDArrayC
 export function moveaxis(
   a: NDArrayCore,
   source: number | number[],
-  destination: number | number[]
+  destination: number | number[],
 ): NDArrayCore {
   return fromStorageView(shapeOps.moveaxis(toStorage(a), source, destination), a);
 }
@@ -76,8 +76,8 @@ export function concatenate(arrays: NDArrayCore[], axis: number = 0): NDArrayCor
   return fromStorage(
     shapeOps.concatenate(
       arrays.map((a) => toStorage(a)),
-      axis
-    )
+      axis,
+    ),
   );
 }
 
@@ -86,8 +86,8 @@ export function stack(arrays: NDArrayCore[], axis: number = 0): NDArrayCore {
   return fromStorage(
     shapeOps.stack(
       arrays.map((a) => toStorage(a)),
-      axis
-    )
+      axis,
+    ),
   );
 }
 
@@ -111,8 +111,8 @@ export function concat(arrays: NDArrayCore[], axis: number = 0): NDArrayCore {
   return fromStorage(
     shapeOps.concat(
       arrays.map((a) => toStorage(a)),
-      axis
-    )
+      axis,
+    ),
   );
 }
 
@@ -137,7 +137,7 @@ export function block(arrays: NDArrayCore[]): NDArrayCore {
 export function split(
   a: NDArrayCore,
   indicesOrSections: number | number[],
-  axis: number = 0
+  axis: number = 0,
 ): NDArrayCore[] {
   return fromStorageViewArray(shapeOps.split(toStorage(a), indicesOrSections, axis), a);
 }
@@ -146,7 +146,7 @@ export function split(
 export function array_split(
   a: NDArrayCore,
   indicesOrSections: number | number[],
-  axis: number = 0
+  axis: number = 0,
 ): NDArrayCore[] {
   return fromStorageViewArray(shapeOps.arraySplit(toStorage(a), indicesOrSections, axis), a);
 }
@@ -214,7 +214,7 @@ export function rot90(m: NDArrayCore, k: number = 1, axes: [number, number] = [0
 export function roll(
   a: NDArrayCore,
   shift: number | number[],
-  axis?: number | number[]
+  axis?: number | number[],
 ): NDArrayCore {
   return fromStorage(shapeOps.roll(toStorage(a), shift, axis));
 }

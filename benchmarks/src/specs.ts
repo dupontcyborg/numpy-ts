@@ -8,7 +8,7 @@ import type { BenchmarkCase, BenchmarkMode, BenchmarkSetup, SizeScale } from './
 
 export function getBenchmarkSpecs(
   mode: BenchmarkMode = 'standard',
-  sizeScale: SizeScale = 'default'
+  sizeScale: SizeScale = 'default',
 ): BenchmarkCase[] {
   // Array sizes: 1D and 2D base sizes, plus special sizes for expensive ops.
   // sizeScale selects small/default/large arrays; mode only affects warmup/iterations.
@@ -4165,7 +4165,7 @@ export function getBenchmarkSpecs(
       // Only vary entries with no explicit dtype or dtype === 'float64'.
       // Entries with a pinned non-default dtype (e.g. index arrays at int32) are left alone.
       const variableEntries = dataEntries.filter(
-        ([, entry]) => !entry.dtype || entry.dtype === 'float64'
+        ([, entry]) => !entry.dtype || entry.dtype === 'float64',
       );
       if (variableEntries.length === 0) continue;
 
@@ -4255,7 +4255,7 @@ export function getBenchmarkSpecs(
     // Already has a dtype suffix from auto-generation? Skip.
     if (
       /\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/.test(
-        spec.name
+        spec.name,
       )
     )
       continue;

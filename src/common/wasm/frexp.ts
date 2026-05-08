@@ -6,17 +6,17 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { frexp_f64, frexp_f32 } from './bins/frexp.wasm';
+import { effectiveDType, hasFloat16, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { frexp_f32, frexp_f64 } from './bins/frexp.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, hasFloat16, type TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -60,14 +60,22 @@ export function wasmFrexp(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null 
         'float16',
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
       const exponent = ArrayStorage.fromWasmRegion(
         Array.from(a.shape),
         'int32',
         eRegion,
         size,
-        Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Int32Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
       return [mantissa, exponent];
     }
@@ -77,14 +85,22 @@ export function wasmFrexp(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null 
       'float32',
       mRegion,
       size,
-      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
     const exponent = ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
       'int32',
       eRegion,
       size,
-      Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Int32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
     return [mantissa, exponent];
   }
@@ -104,14 +120,22 @@ export function wasmFrexp(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null 
       'float32',
       mRegion,
       size,
-      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
     const exponent = ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
       'int32',
       eRegion,
       size,
-      Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Int32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
     return [mantissa, exponent];
   }
@@ -131,14 +155,22 @@ export function wasmFrexp(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null 
     'float64',
     mRegion,
     size,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
   const exponent = ArrayStorage.fromWasmRegion(
     Array.from(a.shape),
     'int32',
     eRegion,
     size,
-    Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Int32Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
   return [mantissa, exponent];
 }

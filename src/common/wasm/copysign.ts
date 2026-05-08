@@ -6,34 +6,34 @@
  * Output is always float64. Returns null if WASM can't handle.
  */
 
-import {
-  copysign_f64,
-  copysign_f32,
-  copysign_i64,
-  copysign_i32,
-  copysign_i16,
-  copysign_i8,
-  copysign_u64,
-  copysign_u32,
-  copysign_u16,
-  copysign_u8,
-  copysign_scalar_f64,
-  copysign_scalar_f32,
-  copysign_scalar_i64,
-  copysign_scalar_i32,
-  copysign_scalar_i16,
-  copysign_scalar_i8,
-  copysign_scalar_u64,
-  copysign_scalar_u32,
-  copysign_scalar_u16,
-  copysign_scalar_u8,
-  copysign_f16,
-  copysign_scalar_f16,
-} from './bins/copysign.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr, f32ToF16InPlace } from './runtime';
+import { type DType, effectiveDType, hasFloat16, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
+import {
+  copysign_f16,
+  copysign_f32,
+  copysign_f64,
+  copysign_i8,
+  copysign_i16,
+  copysign_i32,
+  copysign_i64,
+  copysign_scalar_f16,
+  copysign_scalar_f32,
+  copysign_scalar_f64,
+  copysign_scalar_i8,
+  copysign_scalar_i16,
+  copysign_scalar_i32,
+  copysign_scalar_i64,
+  copysign_scalar_u8,
+  copysign_scalar_u16,
+  copysign_scalar_u32,
+  copysign_scalar_u64,
+  copysign_u8,
+  copysign_u16,
+  copysign_u32,
+  copysign_u64,
+} from './bins/copysign.wasm';
 import { wasmConfig } from './config';
+import { f32ToF16InPlace, resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -106,17 +106,17 @@ const outCtorMap: Partial<
   float64: Float64Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   float32: Float32Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   float16: (typeof Float16Array !== 'undefined' ? Float16Array : Float32Array) as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   int64: Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
   uint64: Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
@@ -169,7 +169,11 @@ export function wasmCopysign(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage |
       'float16',
       outRegion,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -219,7 +223,11 @@ export function wasmCopysignScalar(x1: ArrayStorage, scalar: number): ArrayStora
       'float16',
       outRegion,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 

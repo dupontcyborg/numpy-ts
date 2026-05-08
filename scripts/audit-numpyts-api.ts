@@ -10,8 +10,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 // Import everything from numpy-ts (main entry point)
 import * as np from '../src/index.js';
@@ -144,7 +144,7 @@ function categorizeByType(functions: Record<string, any>): Record<string, string
     'FFT (fft)': [],
   };
 
-  for (const [name, obj] of Object.entries(functions)) {
+  for (const [name, _obj] of Object.entries(functions)) {
     if (name.startsWith('linalg.')) {
       categories['Linear Algebra (linalg)'].push(name);
     } else if (name.startsWith('random.')) {

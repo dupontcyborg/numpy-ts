@@ -54,7 +54,7 @@ export function hypot_scalar_i64(a: number, out: number, N: number, scalar: numb
     a,
     out,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 

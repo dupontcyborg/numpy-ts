@@ -7,4 +7,5 @@ import { zeros } from 'numpy-ts';
 // Use the function to prevent it from being eliminated
 const arr = zeros([2, 3]);
 console.log(arr.shape);
+
 export { arr };

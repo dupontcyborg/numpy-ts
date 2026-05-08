@@ -3,19 +3,19 @@
  * Tests each function across ALL dtypes, validated against NumPy.
  * Uses batched oracle -- all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
+  expectBothRejectPre,
+  expectMatchPre,
+  isComplex,
   npDtype,
   pyArrayCast,
-  isComplex,
-  expectMatchPre,
-  expectBothRejectPre,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -164,7 +164,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polyadd may not support ${dtype}`,
           () => np.polyadd(p1, p2),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         expectMatchPre(np.polyadd(p1, p2), pyResult, getTol(dtype));
@@ -186,7 +186,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polysub may not support ${dtype}`,
           () => np.polysub(p1, p2),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         expectMatchPre(np.polysub(p1, p2), pyResult, getTol(dtype));
@@ -208,7 +208,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polymul may not support ${dtype}`,
           () => np.polymul(p1, p2),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         expectMatchPre(np.polymul(p1, p2), pyResult, getTol(dtype));
@@ -230,7 +230,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polydiv may not support ${dtype}`,
           () => np.polydiv(p1, p2),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const [q] = np.polydiv(p1, p2);
@@ -251,7 +251,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polyder may not support ${dtype}`,
           () => np.polyder(p),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         expectMatchPre(np.polyder(p), pyResult, getTol(dtype));
@@ -271,7 +271,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polyint may not support ${dtype}`,
           () => np.polyint(p),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         expectMatchPre(np.polyint(p), pyResult, getTol(dtype));
@@ -293,7 +293,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polyval may not support ${dtype}`,
           () => np.polyval(p, x),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         const jsResult = np.polyval(p, x);
@@ -317,7 +317,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `polyfit may not support ${dtype}`,
           () => np.polyfit(x, y, 2),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         expectMatchPre(np.polyfit(x, y, 2), pyResult, { rtol: 1e-2, atol: 1e-2 });
@@ -337,7 +337,7 @@ describe('DType Sweep: Polynomial ops', () => {
         const r = expectBothRejectPre(
           `roots may not support ${dtype}`,
           () => np.roots(p),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
         // Sort by magnitude for stable comparison
@@ -370,7 +370,7 @@ describe('DType Sweep: Misc math', () => {
           const r = expectBothRejectPre(
             'modf is not defined for complex numbers',
             () => np.modf(a),
-            pyResult
+            pyResult,
           );
           if (r === 'both-reject') return;
         }
@@ -398,7 +398,7 @@ describe('DType Sweep: Misc math', () => {
           const r = expectBothRejectPre(
             'unwrap is not defined for complex numbers',
             () => np.unwrap(a),
-            pyResult
+            pyResult,
           );
           if (r === 'both-reject') return;
         }
@@ -406,7 +406,7 @@ describe('DType Sweep: Misc math', () => {
         const r = expectBothRejectPre(
           `unwrap may not support ${dtype}`,
           () => np.unwrap(a),
-          pyResult
+          pyResult,
         );
         if (r === 'both-reject') return;
 

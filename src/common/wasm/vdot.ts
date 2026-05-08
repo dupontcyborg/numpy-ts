@@ -6,13 +6,12 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { vdot_c128, vdot_c64 } from './bins/vdot.wasm';
-import { resetScratchAllocator, resolveInputPtr, scratchAlloc, getSharedMemory } from './runtime';
-import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
 import { Complex } from '../complex';
-
+import { type DType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { vdot_c64, vdot_c128 } from './bins/vdot.wasm';
 import { wasmConfig } from './config';
+import { getSharedMemory, resetScratchAllocator, resolveInputPtr, scratchAlloc } from './runtime';
 
 const BASE_THRESHOLD = 32; // Minimum K for WASM
 
@@ -58,7 +57,7 @@ export function wasmVdotComplex(a: ArrayStorage, b: ArrayStorage): Complex | nul
     a.wasmPtr,
     a.offset * 2,
     K * 2,
-    bytesPerElement
+    bytesPerElement,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -66,7 +65,7 @@ export function wasmVdotComplex(a: ArrayStorage, b: ArrayStorage): Complex | nul
     b.wasmPtr,
     b.offset * 2,
     K * 2,
-    bytesPerElement
+    bytesPerElement,
   );
   const outPtr = scratchAlloc(outBytes);
 
@@ -74,11 +73,13 @@ export function wasmVdotComplex(a: ArrayStorage, b: ArrayStorage): Complex | nul
 
   // Read scalar result directly from WASM memory
   const mem = getSharedMemory();
-  const outView = new (Ctor as unknown as new (
-    buffer: ArrayBuffer,
-    byteOffset: number,
-    length: number
-  ) => TypedArray)(mem.buffer, outPtr, 2);
+  const outView = new (
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray
+  )(mem.buffer, outPtr, 2);
 
   return new Complex(Number(outView[0]!), Number(outView[1]!));
 }

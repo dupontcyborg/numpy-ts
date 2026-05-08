@@ -6,30 +6,30 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  diff_f64,
-  diff_f32,
-  diff_i64,
-  diff_i32,
-  diff_i16,
-  diff_i8,
-  diff_2d_f64,
   diff_2d_f32,
-  diff_2d_i64,
-  diff_2d_i32,
-  diff_2d_i16,
+  diff_2d_f64,
   diff_2d_i8,
+  diff_2d_i16,
+  diff_2d_i32,
+  diff_2d_i64,
+  diff_f32,
+  diff_f64,
+  diff_i8,
+  diff_i16,
+  diff_i32,
+  diff_i64,
 } from './bins/diff.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -149,7 +149,11 @@ export function wasmDiff(a: ArrayStorage, axis: number): ArrayStorage | null {
       dtype,
       f16Region,
       outSize,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -176,6 +180,10 @@ export function wasmDiff(a: ArrayStorage, axis: number): ArrayStorage | null {
     dtype,
     outRegion,
     outSize,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

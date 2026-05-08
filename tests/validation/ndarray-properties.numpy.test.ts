@@ -3,9 +3,9 @@
  * Tests: .T, .itemsize, .nbytes, .fill(), iterator protocol, copyto()
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { zeros, array, arange, copyto } from '../../src';
-import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { arange, array, copyto, zeros } from '../../src';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: NDArray Properties', () => {
   beforeAll(() => {
@@ -19,7 +19,7 @@ describe('NumPy Validation: NDArray Properties', () => {
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
           '   Current Python command: ' +
           (process.env.NUMPY_PYTHON || 'python3') +
-          '\n'
+          '\n',
       );
     }
   });

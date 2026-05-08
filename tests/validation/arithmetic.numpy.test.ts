@@ -2,9 +2,9 @@
  * Python NumPy validation tests for arithmetic operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { array, float_power, fmod, frexp, gcd, lcm, ldexp, modf, wasmConfig } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -39,7 +39,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -77,7 +77,7 @@ result = np.array([1, 2, 3]) + np.array([4, 5, 6])
           array([
             [5, 6],
             [7, 8],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2], [3, 4]]) + np.array([[5, 6], [7, 8]])
@@ -97,7 +97,7 @@ result = np.add(np.array([1, 2, 3, 4, 5], dtype=${NP_DTYPE[dtype]}), ${NP_DTYPE[
 `);
           expect(jsResult.shape).toEqual(pyResult.shape);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined),
           ).toBe(true);
         });
       }
@@ -134,7 +134,7 @@ result = np.subtract(np.array([10, 8, 6, 4, 2], dtype=${NP_DTYPE[dtype]}), ${NP_
 `);
           expect(jsResult.shape).toEqual(pyResult.shape);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined),
           ).toBe(true);
         });
       }
@@ -169,7 +169,7 @@ result = np.array([1, 2, 3]) * np.array([4, 5, 6])
           array([
             [2, 3],
             [4, 5],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2], [3, 4]]) * np.array([[2, 3], [4, 5]])
@@ -189,7 +189,7 @@ result = np.multiply(np.array([1, 2, 3, 4, 5], dtype=${NP_DTYPE[dtype]}), ${NP_D
 `);
           expect(jsResult.shape).toEqual(pyResult.shape);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined),
           ).toBe(true);
         });
       }
@@ -226,7 +226,7 @@ result = np.divide(np.array([10, 20, 30], dtype=${NP_DTYPE[dtype]}), ${NP_DTYPE[
 `);
           expect(jsResult.shape).toEqual(pyResult.shape);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined),
           ).toBe(true);
         });
       }

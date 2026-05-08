@@ -5,27 +5,26 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  cross_f64,
-  cross_f32,
-  cross_c128,
   cross_c64,
-  cross_i64,
-  cross_i32,
-  cross_i16,
+  cross_c128,
+  cross_f32,
+  cross_f64,
   cross_i8,
+  cross_i16,
+  cross_i32,
+  cross_i64,
 } from './bins/cross.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
-
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 8; // Minimum batch size for WASM
 
@@ -78,7 +77,7 @@ const complexFactor: Partial<Record<DType, number>> = {
 export function wasmCross(
   a: ArrayStorage,
   b: ArrayStorage,
-  batchSize: number
+  batchSize: number,
 ): ArrayStorage | null {
   if (batchSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
   if (!a.isCContiguous || !b.isCContiguous) return null;
@@ -113,7 +112,11 @@ export function wasmCross(
       resultDtype,
       f16Region,
       totalElements,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -123,7 +126,7 @@ export function wasmCross(
     a.wasmPtr,
     a.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -131,7 +134,7 @@ export function wasmCross(
     b.wasmPtr,
     b.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, bPtr, outRegion.ptr, batchSize);
@@ -141,6 +144,10 @@ export function wasmCross(
     resultDtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

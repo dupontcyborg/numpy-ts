@@ -40,7 +40,7 @@ export function nanquantile_strided_f64(
   axis_size: number,
   inner: number,
   q: number,
-  work: number
+  work: number,
 ): void {
   const i = init();
   (i.exports['nanquantile_strided_f64'] as (...args: number[]) => void)(
@@ -50,7 +50,7 @@ export function nanquantile_strided_f64(
     axis_size,
     inner,
     q,
-    work
+    work,
   );
 }
 
@@ -61,7 +61,7 @@ export function nanquantile_strided_f32(
   axis_size: number,
   inner: number,
   q: number,
-  work: number
+  work: number,
 ): void {
   const i = init();
   (i.exports['nanquantile_strided_f32'] as (...args: number[]) => void)(
@@ -71,6 +71,6 @@ export function nanquantile_strided_f32(
     axis_size,
     inner,
     q,
-    work
+    work,
   );
 }

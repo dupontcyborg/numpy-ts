@@ -2,8 +2,8 @@
  * Set operations
  */
 
+import { type DType, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType, type TypedArray } from '../dtype';
 
 // Helper: compare complex numbers lexicographically
 function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
@@ -41,7 +41,7 @@ function uniqueCountingSort(
   range: number,
   returnIndex: boolean,
   returnInverse: boolean,
-  returnCounts: boolean
+  returnCounts: boolean,
 ):
   | ArrayStorage
   | {
@@ -123,7 +123,7 @@ export function unique(
   returnIndex: boolean = false,
   returnInverse: boolean = false,
   returnCounts: boolean = false,
-  axis?: number
+  axis?: number,
 ):
   | ArrayStorage
   | {
@@ -171,7 +171,7 @@ export function unique(
     const indexedKeys = sliceKeys.map((key, i) => ({ key, i }));
     indexedKeys.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     const uniqueIndices: number[] = [];
-    let lastKey: string | undefined = undefined;
+    let lastKey: string | undefined;
     for (const { key, i } of indexedKeys) {
       if (key !== lastKey) {
         uniqueIndices.push(i);
@@ -234,8 +234,8 @@ export function unique(
     const inverse: number[] = new Array(size);
     const counts: number[] = [];
 
-    let lastRe: number | undefined = undefined;
-    let lastIm: number | undefined = undefined;
+    let lastRe: number | undefined;
+    let lastIm: number | undefined;
     let currentCount = 0;
 
     for (let i = 0; i < values.length; i++) {
@@ -343,7 +343,7 @@ export function unique(
       256,
       returnIndex,
       returnInverse,
-      returnCounts
+      returnCounts,
     );
   }
 
@@ -367,7 +367,7 @@ export function unique(
         range,
         returnIndex,
         returnInverse,
-        returnCounts
+        returnCounts,
       );
     }
   }
@@ -540,7 +540,7 @@ function elementToKey(
   data: ArrayLike<number | bigint>,
   index: number,
   isComplex: boolean,
-  offset: number = 0
+  offset: number = 0,
 ): string {
   if (isComplex) {
     const re = Number((data as Float64Array)[(offset + index) * 2]);
@@ -868,7 +868,7 @@ export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): A
     const newSize = last - first + 1;
     const result = ArrayStorage.zeros([newSize], dtype);
     (result.data as Float64Array).set(
-      cdata.subarray((off + first) * 2, (off + first + newSize) * 2)
+      cdata.subarray((off + first) * 2, (off + first + newSize) * 2),
     );
     return result;
   }
@@ -902,7 +902,7 @@ export function trim_zeros(filt: ArrayStorage, trim: 'f' | 'b' | 'fb' = 'fb'): A
     (result.data as BigInt64Array).set(data.subarray(off + first, off + first + newSize));
   } else {
     (result.data as Float64Array).set(
-      (data as Float64Array).subarray(off + first, off + first + newSize)
+      (data as Float64Array).subarray(off + first, off + first + newSize),
     );
   }
   return result;

@@ -8,16 +8,11 @@
  * Run with: npx ts-node scripts/generate-full.ts
  */
 
-import { Project, FunctionDeclaration, SourceFile, SyntaxKind } from 'ts-morph';
 import * as fs from 'fs';
 import * as path from 'path';
+import { FunctionDeclaration, Project } from 'ts-morph';
 import { fileURLToPath } from 'url';
-import {
-  METHOD_DEFS,
-  MESHGRID_FUNCTION,
-  type MethodDef,
-  type MethodPattern,
-} from './ndarray-methods';
+import { MESHGRID_FUNCTION, METHOD_DEFS, type MethodDef } from './ndarray-methods';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -168,7 +163,7 @@ const CUSTOM_WRAPPERS: Record<string, { returnType: string; body: string }> = {
 };
 
 // Functions returning arrays (should be wrapped)
-const RETURNS_ARRAY_FUNCTIONS = new Set([
+const _RETURNS_ARRAY_FUNCTIONS = new Set([
   // Most core functions return arrays
 ]);
 
@@ -333,7 +328,7 @@ export function ${info.name}(${info.params}): ${transformedReturnType} {
 }`;
 }
 
-function generateReexport(info: FunctionInfo): string {
+function _generateReexport(info: FunctionInfo): string {
   return `export { ${info.name} } from '../core/${getModuleName(info.name)}';`;
 }
 
@@ -351,7 +346,7 @@ function generateIndexFile(
   wrappedFunctions: Set<string>,
   reexportedFunctions: Set<string>,
   coreImportPath: string = '../core',
-  outputFile: string = INDEX_OUTPUT_FILE
+  outputFile: string = INDEX_OUTPUT_FILE,
 ): void {
   const output: string[] = [];
 
@@ -528,7 +523,7 @@ function generateMethodCode(def: MethodDef): string {
 
 function generateNDArrayFile(
   coreImportPath: string = '../core',
-  outputFile: string = NDARRAY_OUTPUT_FILE
+  outputFile: string = NDARRAY_OUTPUT_FILE,
 ): void {
   const output: string[] = [];
 
@@ -721,7 +716,7 @@ async function main() {
     }
 
     console.log(
-      `  ${file}: ${functions.length} functions (${functions.filter((f) => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`
+      `  ${file}: ${functions.length} functions (${functions.filter((f) => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`,
     );
   }
 
@@ -731,7 +726,7 @@ async function main() {
     wrappedFunctions,
     reexportedFunctions,
     '../core',
-    INDEX_OUTPUT_FILE
+    INDEX_OUTPUT_FILE,
   );
   generateNDArrayFile('../core', NDARRAY_OUTPUT_FILE);
 }

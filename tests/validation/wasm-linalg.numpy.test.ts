@@ -6,23 +6,23 @@
  * (which tries WASM first, falls back to JS) matches NumPy.
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
   arange,
-  matmul,
+  array,
+  Complex,
   dot,
   inner,
-  reshape,
   linalg,
+  matmul,
   matvec,
-  vecmat,
+  reshape,
   vecdot,
+  vecmat,
   wasmConfig,
-  Complex,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 // Run all tests with default, forced-baseline, and forced-relaxed modes
 const WASM_MODES = [
@@ -40,7 +40,7 @@ for (const mode of WASM_MODES) {
         throw new Error(
           'Python NumPy not available!\n\n' +
             '   This test suite requires Python with NumPy installed.\n\n' +
-            '   Setup: source ~/.zshrc && conda activate py313\n'
+            '   Setup: source ~/.zshrc && conda activate py313\n',
         );
       }
       wasmConfig.thresholdMultiplier = mode.multiplier;
@@ -62,7 +62,7 @@ for (const mode of WASM_MODES) {
           array([
             [5, 6],
             [7, 8],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2], [3, 4]]) @ np.array([[5, 6], [7, 8]])
@@ -81,7 +81,7 @@ result = np.array([[1, 2], [3, 4]]) @ np.array([[5, 6], [7, 8]])
             [7, 8],
             [9, 10],
             [11, 12],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2, 3], [4, 5, 6]]) @ np.array([[7, 8], [9, 10], [11, 12]])
@@ -101,7 +101,7 @@ result = np.array([[1, 2, 3], [4, 5, 6]]) @ np.array([[7, 8], [9, 10], [11, 12]]
             [9, 8, 7],
             [6, 5, 4],
             [3, 2, 1],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]) @ np.array([[9, 8, 7], [6, 5, 4], [3, 2, 1]])
@@ -141,7 +141,7 @@ result = a @ b
             [1, 2],
             [3, 4],
             [5, 6],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([1, 2, 3]) @ np.array([[1, 2], [3, 4], [5, 6]])
@@ -156,7 +156,7 @@ result = np.array([1, 2, 3]) @ np.array([[1, 2], [3, 4], [5, 6]])
             [1, 2, 3],
             [4, 5, 6],
           ]),
-          array([1, 2, 3])
+          array([1, 2, 3]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2, 3], [4, 5, 6]]) @ np.array([1, 2, 3])
@@ -563,7 +563,7 @@ result = np.vecdot(a, b)
             [new Complex(1, 1), new Complex(2, 0)],
             [new Complex(0, 1), new Complex(1, -1)],
           ],
-          'complex128'
+          'complex128',
         );
         const x = array([new Complex(1, 0), new Complex(0, 1)], 'complex128');
         const jsResult = matvec(A, x);
@@ -582,7 +582,7 @@ result = np.matvec(A, x)
             [new Complex(1, 1), new Complex(2, 0)],
             [new Complex(0, 1), new Complex(1, -1)],
           ],
-          'complex64'
+          'complex64',
         );
         const x = array([new Complex(1, 0), new Complex(0, 1)], 'complex64');
         const jsResult = matvec(A, x);
@@ -609,7 +609,7 @@ result = np.matvec(A, x)
             [new Complex(1, 1), new Complex(2, 0)],
             [new Complex(0, 1), new Complex(1, -1)],
           ],
-          'complex128'
+          'complex128',
         );
         const jsResult = vecmat(x, A);
         const pyResult = runNumPy(`
@@ -629,7 +629,7 @@ result = np.vecmat(x, A)
             [new Complex(1, 1), new Complex(2, 0)],
             [new Complex(0, 1), new Complex(1, -1)],
           ],
-          'complex64'
+          'complex64',
         );
         const jsResult = vecmat(x, A);
         const pyResult = runNumPy(`
@@ -649,14 +649,14 @@ result = np.vecmat(x, A)
             [new Complex(1, 2), new Complex(3, 4)],
             [new Complex(5, 6), new Complex(7, 8)],
           ],
-          'complex64'
+          'complex64',
         );
         const b = array(
           [
             [new Complex(1, 0), new Complex(0, 1)],
             [new Complex(1, 1), new Complex(1, -1)],
           ],
-          'complex64'
+          'complex64',
         );
         const jsResult = vecdot(a, b);
         const pyResult = runNumPy(`
@@ -674,14 +674,14 @@ result = np.vecdot(a, b)
             [new Complex(1, 2), new Complex(3, 4)],
             [new Complex(5, 6), new Complex(7, 8)],
           ],
-          'complex128'
+          'complex128',
         );
         const b = array(
           [
             [new Complex(1, 0), new Complex(0, 1)],
             [new Complex(1, 1), new Complex(1, -1)],
           ],
-          'complex128'
+          'complex128',
         );
         const jsResult = vecdot(a, b);
         const pyResult = runNumPy(`
@@ -729,14 +729,14 @@ result = np.inner(a, b)
             [new Complex(1, 0), new Complex(0, 1)],
             [new Complex(1, 1), new Complex(1, -1)],
           ],
-          'complex128'
+          'complex128',
         );
         const b = array(
           [
             [new Complex(2, 0), new Complex(0, 2)],
             [new Complex(1, 1), new Complex(-1, 1)],
           ],
-          'complex128'
+          'complex128',
         );
         const jsResult = inner(a, b) as any;
         const pyResult = runNumPy(`
@@ -839,14 +839,14 @@ result = np.dot(a, b)
             [new Complex(1, 1), new Complex(2, 0)],
             [new Complex(0, 1), new Complex(1, -1)],
           ],
-          'complex64'
+          'complex64',
         );
         const b = array(
           [
             [new Complex(1, 0), new Complex(0, 1)],
             [new Complex(1, 1), new Complex(1, 0)],
           ],
-          'complex64'
+          'complex64',
         );
         const jsResult = matmul(a, b);
         const pyResult = runNumPy(`
@@ -864,14 +864,14 @@ result = a @ b
             [new Complex(1, 1), new Complex(2, 0)],
             [new Complex(0, 1), new Complex(1, -1)],
           ],
-          'complex128'
+          'complex128',
         );
         const b = array(
           [
             [new Complex(1, 0), new Complex(0, 1)],
             [new Complex(1, 1), new Complex(1, 0)],
           ],
-          'complex128'
+          'complex128',
         );
         const jsResult = matmul(a, b);
         const pyResult = runNumPy(`

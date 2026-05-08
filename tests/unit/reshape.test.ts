@@ -2,7 +2,7 @@
  * Unit tests for reshape operations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { array } from '../../src';
 
 describe('Reshape Operations', () => {

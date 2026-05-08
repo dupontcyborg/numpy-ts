@@ -50,10 +50,10 @@ function formatRatio(r: number): string {
 
 function load(): H2HEntry[] {
   const jsReport = JSON.parse(
-    fs.readFileSync(path.join(RESULTS_DIR, 'js-only-full.json'), 'utf-8')
+    fs.readFileSync(path.join(RESULTS_DIR, 'js-only-full.json'), 'utf-8'),
   ) as { results: BenchmarkComparison[] };
   const wasmReport = JSON.parse(
-    fs.readFileSync(path.join(RESULTS_DIR, 'latest-full.json'), 'utf-8')
+    fs.readFileSync(path.join(RESULTS_DIR, 'latest-full.json'), 'utf-8'),
   ) as { results: BenchmarkComparison[] };
 
   const jsMap = new Map(jsReport.results.map((r) => [r.name, r]));
@@ -214,7 +214,7 @@ async function generateSpeedupChart(entries: H2HEntry[]): Promise<void> {
   }
 
   const categories = Array.from(catMap.keys()).sort(
-    (a, b) => geoMean(catMap.get(b)!) - geoMean(catMap.get(a)!)
+    (a, b) => geoMean(catMap.get(b)!) - geoMean(catMap.get(a)!),
   );
   const speedups = categories.map((c) => geoMean(catMap.get(c)!));
   const overall = geoMean(entries.map((e) => e.speedup));
@@ -234,14 +234,14 @@ async function generateSpeedupChart(entries: H2HEntry[]): Promise<void> {
               ? 'rgba(46, 213, 115, 0.8)'
               : s >= 5
                 ? 'rgba(75, 192, 192, 0.8)'
-                : 'rgba(255, 195, 18, 0.8)'
+                : 'rgba(255, 195, 18, 0.8)',
           ),
           borderColor: speedups.map((s) =>
             s >= 20
               ? 'rgba(46, 213, 115, 1)'
               : s >= 5
                 ? 'rgba(75, 192, 192, 1)'
-                : 'rgba(255, 195, 18, 1)'
+                : 'rgba(255, 195, 18, 1)',
           ),
           borderWidth: 2,
         },
@@ -301,7 +301,7 @@ async function generateSpeedupChart(entries: H2HEntry[]): Promise<void> {
       {
         id: 'valueLabels',
         afterDatasetsDraw: (chart: any) => {
-          const { ctx, data } = chart;
+          const { ctx, data: _data } = chart;
           ctx.save();
           ctx.font = 'bold 13px sans-serif';
           ctx.textAlign = 'center';
@@ -498,7 +498,7 @@ function generateHTML(entries: H2HEntry[]): void {
       numpy: median(es.map((e) => e.numpy_ops)),
       js: median(es.map((e) => e.js_ops)),
       wasm: median(es.map((e) => e.wasm_ops)),
-    }))
+    })),
   )};
 
   new Chart(document.getElementById('h2hChart'), {

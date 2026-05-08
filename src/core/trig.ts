@@ -5,9 +5,9 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as trigOps from '../common/ops/trig';
 import * as hyperbolicOps from '../common/ops/hyperbolic';
-import { NDArrayCore, toStorage, fromStorage } from './types';
+import * as trigOps from '../common/ops/trig';
+import { fromStorage, NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Basic Trigonometric Functions

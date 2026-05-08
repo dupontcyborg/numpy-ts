@@ -15,8 +15,8 @@
  *   npx tsx scripts/dtype-coverage-report.ts --summary   # summary only
  */
 
-import { readFileSync, readdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { readdirSync, readFileSync } from 'fs';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { ALL_DTYPES } from '../tests/validation/dtype-sweep/_dtype-matrix';
 
@@ -279,7 +279,7 @@ type CoverageEntry = {
 
 function resolveLoopDtypes(
   line: string,
-  localVars: Map<string, readonly string[]>
+  localVars: Map<string, readonly string[]>,
 ): readonly string[] | null {
   const m = line.match(/for\s*\(\s*const\s+\w+\s+of\s+(.+?)\s*\)/);
   if (!m) return null;
@@ -347,7 +347,7 @@ function resolveLocalVars(lines: string[]): Map<string, readonly string[]> {
           const excludes = new Set(excludeMatches.map((m) => m[1]!));
           vars.set(
             name,
-            base.filter((d) => !excludes.has(d))
+            base.filter((d) => !excludes.has(d)),
           );
         } else {
           vars.set(name, [...base]);
@@ -880,10 +880,10 @@ const pct = totalExpected > 0 ? ((totalTested / totalExpected) * 100).toFixed(1)
 
 console.log(`\nDTYPE COVERAGE: ${totalTested}/${totalExpected} expected pairs (${pct}%)`);
 console.log(
-  `  Oracle-validated: ${totalOracle}  |  Structural: ${totalStructural}  |  Missing: ${totalMissing}`
+  `  Oracle-validated: ${totalOracle}  |  Structural: ${totalStructural}  |  Missing: ${totalMissing}`,
 );
 console.log(
-  `  Functions in core/index.ts: ${fns.length}  |  Covered in sweep: ${coverageMap.size}\n`
+  `  Functions in core/index.ts: ${fns.length}  |  Covered in sweep: ${coverageMap.size}\n`,
 );
 
 if (showSummary) {

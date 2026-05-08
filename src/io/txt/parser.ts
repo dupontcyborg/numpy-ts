@@ -5,9 +5,9 @@
  * These functions work with strings and are environment-agnostic.
  */
 
-import { array } from '../../core/creation';
-import { NDArrayCore } from '../../common/ndarray-core';
 import type { DType } from '../../common/dtype';
+import { NDArrayCore } from '../../common/ndarray-core';
+import { array } from '../../core/creation';
 
 /**
  * Options for parsing text data
@@ -129,7 +129,7 @@ export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArrayCo
   // Parse each line
   const data: number[][] = [];
   const missingSet = new Set(
-    missing_values ? (Array.isArray(missing_values) ? missing_values : [missing_values]) : []
+    missing_values ? (Array.isArray(missing_values) ? missing_values : [missing_values]) : [],
   );
 
   // Determine fill value
@@ -177,7 +177,7 @@ export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArrayCo
   for (let i = 1; i < data.length; i++) {
     if (data[i]!.length !== ncols) {
       throw new Error(
-        `Inconsistent number of columns: row 0 has ${ncols} columns, row ${i} has ${data[i]!.length} columns`
+        `Inconsistent number of columns: row 0 has ${ncols} columns, row ${i} has ${data[i]!.length} columns`,
       );
     }
   }
@@ -186,7 +186,7 @@ export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArrayCo
   if (ncols === 1) {
     return array(
       data.map((row) => row[0]),
-      dtype
+      dtype,
     );
   }
 
@@ -235,7 +235,7 @@ export function genfromtxt(text: string, options: ParseTxtOptions = {}): NDArray
 export function fromregex(
   text: string,
   regexp: RegExp | string,
-  dtype: DType = 'float64'
+  dtype: DType = 'float64',
 ): NDArrayCore {
   const re =
     typeof regexp === 'string' ? new RegExp(regexp, 'gm') : new RegExp(regexp.source, 'gm');
@@ -262,7 +262,7 @@ export function fromregex(
   if (data[0]!.length === 1) {
     return array(
       data.map((row) => row[0]),
-      dtype
+      dtype,
     );
   }
 

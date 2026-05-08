@@ -12,7 +12,7 @@
  */
 
 import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
+import { unlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -121,7 +121,7 @@ except Exception as e:
   // Write to temp file to avoid shell escaping issues
   const tmpFile = join(
     tmpdir(),
-    `numpy-test-${Date.now()}-${Math.random().toString(36).slice(2)}.py`
+    `numpy-test-${Date.now()}-${Math.random().toString(36).slice(2)}.py`,
   );
 
   try {
@@ -170,7 +170,7 @@ except Exception as e:
  * Entries that error are stored with a special `error` field.
  */
 export function runNumPyBatch(
-  snippets: Record<string, string>
+  snippets: Record<string, string>,
 ): Map<string, NumPyResult & { error?: string }> {
   const keys = Object.keys(snippets);
   if (keys.length === 0) return new Map();
@@ -241,7 +241,7 @@ export function runNumPyBatch(
 
   const tmpFile = join(
     tmpdir(),
-    `numpy-batch-${Date.now()}-${Math.random().toString(36).slice(2)}.py`
+    `numpy-batch-${Date.now()}-${Math.random().toString(36).slice(2)}.py`,
   );
 
   try {
@@ -292,7 +292,7 @@ export function closeEnough(
   a: number,
   b: number,
   rtol: number = 1e-5,
-  atol: number = 1e-8
+  atol: number = 1e-8,
 ): boolean {
   // Handle special values
   if (Number.isNaN(a) && Number.isNaN(b)) return true;
@@ -366,7 +366,7 @@ export function getPythonInfo(): { python: string; numpy: string; command: strin
   try {
     const info = execSync(
       `${PYTHON_CMD} -c "import sys; import numpy; print(f'{sys.version.split()[0]}|{numpy.__version__}')"`,
-      { encoding: 'utf-8' }
+      { encoding: 'utf-8' },
     ).trim();
     const [python, numpy] = info.split('|');
     return { python, numpy, command: PYTHON_CMD };

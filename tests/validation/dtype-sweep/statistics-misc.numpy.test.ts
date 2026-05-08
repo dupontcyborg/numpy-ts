@@ -3,22 +3,22 @@
  * All tested across ALL dtypes, value-producing tests validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
+  arraysClose,
   checkNumPyAvailable,
-  npDtype,
-  isComplex,
-  pyScalarCast,
-  pyArrayCast,
-  scalarClose,
   expectBothReject,
   expectMatchPre,
-  arraysClose,
+  isComplex,
+  npDtype,
+  pyArrayCast,
+  pyScalarCast,
+  runNumPyBatch,
+  scalarClose,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -172,7 +172,7 @@ result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'histogram requires real-valued input',
           () => np.histogram(array(data, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -240,7 +240,7 @@ result = _result_orig`;
         const _r = expectBothReject(
           'digitize requires real-valued input',
           () => np.digitize(array(data, dtype), array(bins, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -270,7 +270,7 @@ result = _result_orig`;
         const _r = expectBothReject(
           'trapezoid is not defined for complex numbers',
           () => np.trapezoid(array(data, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -294,7 +294,7 @@ result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'gradient uses subtract internally, not supported for bool',
           () => np.gradient(array(data, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -316,7 +316,7 @@ result = _result_orig`;
         const _r = expectBothReject(
           'interp is not defined for complex numbers',
           () => np.interp(array(x, dtype), array(xp, dtype), array(fp, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -339,7 +339,7 @@ result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'clip is not defined for complex numbers (requires ordering)',
           () => np.clip(array(data, dtype), lo, hi),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -357,7 +357,7 @@ result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'fmod is not defined for complex numbers',
           () => np.fmod(array(d1, dtype), array(d2, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -380,7 +380,7 @@ result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'ldexp is only defined for real floating-point types',
           () => np.ldexp(array(data, dtype), array([1, 2, 3], 'int32')),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }
@@ -399,7 +399,7 @@ result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'frexp is only defined for real floating-point types',
           () => np.frexp(array(data, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }

@@ -5,9 +5,9 @@
  * under each one, collecting results via stdout.
  */
 
-import { spawn, execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { resolve } from 'path';
-import type { BenchmarkCase, BenchmarkTiming, RuntimeName, RuntimeInfo } from './types';
+import type { BenchmarkCase, BenchmarkTiming, RuntimeInfo, RuntimeName } from './types';
 
 const RUNNER_PATH = resolve(__dirname, '../dist/runtime-runner.mjs');
 
@@ -74,7 +74,7 @@ export async function spawnRuntimeBenchmark(
   targetSamples: number,
   noWasm: boolean = false,
   expectedWasm: Record<string, boolean> = {},
-  sizeScale?: string
+  sizeScale?: string,
 ): Promise<{ results: BenchmarkTiming[]; version: string }> {
   const { cmd, args } = getRuntimeArgs(runtime);
 
@@ -122,8 +122,8 @@ export async function spawnRuntimeBenchmark(
       } catch (err) {
         reject(
           new Error(
-            `Failed to parse ${runtime} output: ${err}\nstdout: ${stdout.substring(0, 500)}`
-          )
+            `Failed to parse ${runtime} output: ${err}\nstdout: ${stdout.substring(0, 500)}`,
+          ),
         );
       }
     });
@@ -143,7 +143,7 @@ export async function spawnRuntimeBenchmark(
           expectedWasm,
           sizeScale,
         },
-      })
+      }),
     );
     child.stdin.end();
   });

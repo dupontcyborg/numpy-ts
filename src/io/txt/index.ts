@@ -8,5 +8,5 @@
  *   import { loadtxt, savetxt } from 'numpy-ts/node';
  */
 
-export { parseTxt, genfromtxt, fromregex, type ParseTxtOptions } from './parser';
-export { serializeTxt, type SerializeTxtOptions } from './serializer';
+export { fromregex, genfromtxt, type ParseTxtOptions, parseTxt } from './parser';
+export { type SerializeTxtOptions, serializeTxt } from './serializer';

@@ -5,24 +5,24 @@
  * The TS ops layer converts flat indices to multi-indices.
  */
 
+import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  argwhere_fill_f64,
   argwhere_fill_f32,
-  argwhere_fill_i64,
-  argwhere_fill_i32,
-  argwhere_fill_i16,
+  argwhere_fill_f64,
   argwhere_fill_i8,
+  argwhere_fill_i16,
+  argwhere_fill_i32,
+  argwhere_fill_i64,
 } from './bins/argwhere.wasm';
+import { wasmConfig } from './config';
 import {
+  f16InputToScratchF32,
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
   scratchAlloc,
-  getSharedMemory,
-  f16InputToScratchF32,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 

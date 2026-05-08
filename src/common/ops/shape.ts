@@ -5,20 +5,20 @@
  * @module ops/shape
  */
 
-import { ArrayStorage, computeStrides } from '../storage';
+import { Complex } from '../complex';
 import {
   getTypedArrayConstructor,
+  hasFloat16,
   isBigIntDType,
   isComplexDType,
-  hasFloat16,
   type TypedArray,
 } from '../dtype';
-import { Complex } from '../complex';
-import { wasmTile2D } from '../wasm/tile';
-import { wasmRoll } from '../wasm/roll';
-import { wasmRepeat } from '../wasm/repeat';
-import { parseSlice, normalizeSlice } from '../slicing';
 import { expandEllipsis } from '../internal/indexing';
+import { normalizeSlice, parseSlice } from '../slicing';
+import { ArrayStorage, computeStrides } from '../storage';
+import { wasmRepeat } from '../wasm/repeat';
+import { wasmRoll } from '../wasm/roll';
+import { wasmTile2D } from '../wasm/tile';
 
 /**
  * Slice an array along one or more dimensions
@@ -47,7 +47,6 @@ export function slice(storage: ArrayStorage, ...slices: (string | number)[]): Ar
       const stride = storage.strides[axis]!;
       axis++;
       newOffset += normalizedStart * stride;
-      continue;
     } else if (slice === 'newaxis') {
       newShape.push(1);
       newStrides.push(0);
@@ -72,7 +71,7 @@ export function slice(storage: ArrayStorage, ...slices: (string | number)[]): Ar
     storage.dtype,
     newStrides,
     newOffset,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 
@@ -124,7 +123,7 @@ export function sliceKeepDim(storage: ArrayStorage, ...slices: string[]): ArrayS
     storage.dtype,
     newStrides,
     newOffset,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 
@@ -147,7 +146,7 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
 
     if (!Number.isInteger(inferredDim)) {
       throw new Error(
-        `cannot reshape array of size ${size} into shape ${JSON.stringify(newShape)}`
+        `cannot reshape array of size ${size} into shape ${JSON.stringify(newShape)}`,
       );
     }
 
@@ -160,7 +159,7 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
   const newSize = finalShape.reduce((a, b) => a * b, 1);
   if (newSize !== size) {
     throw new Error(
-      `cannot reshape array of size ${size} into shape ${JSON.stringify(finalShape)}`
+      `cannot reshape array of size ${size} into shape ${JSON.stringify(finalShape)}`,
     );
   }
 
@@ -173,7 +172,7 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
       dtype,
       computeStrides(finalShape),
       0,
-      storage.wasmRegion
+      storage.wasmRegion,
     );
   }
 
@@ -195,7 +194,7 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
   } else {
     for (let i = 0; i < size; i++) {
       (resultData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = storage.iget(
-        i
+        i,
       ) as number;
     }
   }
@@ -225,7 +224,7 @@ export function flatten(storage: ArrayStorage): ArrayStorage {
     const physicalOffset = isComplex ? storage.offset * 2 : storage.offset;
     const result = ArrayStorage.empty([size], dtype);
     (result.data as unknown as { set(src: ArrayLike<number>, offset?: number): void }).set(
-      data.subarray(physicalOffset, physicalOffset + physicalSize) as unknown as ArrayLike<number>
+      data.subarray(physicalOffset, physicalOffset + physicalSize) as unknown as ArrayLike<number>,
     );
     return result;
   }
@@ -324,7 +323,7 @@ export function transpose(storage: ArrayStorage, axes?: number[]): ArrayStorage 
     dtype,
     newStrides,
     storage.offset,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 
@@ -357,7 +356,7 @@ export function squeeze(storage: ArrayStorage, axis?: number): ArrayStorage {
       dtype,
       newStrides,
       storage.offset,
-      storage.wasmRegion
+      storage.wasmRegion,
     );
   } else {
     // Normalize axis
@@ -370,7 +369,7 @@ export function squeeze(storage: ArrayStorage, axis?: number): ArrayStorage {
     // Check that the axis has size 1
     if (shape[normalizedAxis] !== 1) {
       throw new Error(
-        `cannot select an axis which has size not equal to one (axis ${axis} has size ${shape[normalizedAxis]})`
+        `cannot select an axis which has size not equal to one (axis ${axis} has size ${shape[normalizedAxis]})`,
       );
     }
 
@@ -391,7 +390,7 @@ export function squeeze(storage: ArrayStorage, axis?: number): ArrayStorage {
       dtype,
       newStrides,
       storage.offset,
-      storage.wasmRegion
+      storage.wasmRegion,
     );
   }
 }
@@ -435,7 +434,7 @@ export function expandDims(storage: ArrayStorage, axis: number): ArrayStorage {
     dtype,
     newStrides,
     storage.offset,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 
@@ -469,7 +468,7 @@ export function swapaxes(storage: ArrayStorage, axis1: number, axis2: number): A
       dtype,
       Array.from(strides),
       storage.offset,
-      storage.wasmRegion
+      storage.wasmRegion,
     );
   }
 
@@ -492,7 +491,7 @@ export function swapaxes(storage: ArrayStorage, axis1: number, axis2: number): A
     dtype,
     newStrides,
     storage.offset,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 
@@ -503,7 +502,7 @@ export function swapaxes(storage: ArrayStorage, axis1: number, axis2: number): A
 export function moveaxis(
   storage: ArrayStorage,
   source: number | number[],
-  destination: number | number[]
+  destination: number | number[],
 ): ArrayStorage {
   const ndim = storage.ndim;
 
@@ -589,7 +588,7 @@ export function concatenate(storages: ArrayStorage[], axis: number = 0): ArraySt
     for (let d = 0; d < ndim; d++) {
       if (d !== normalizedAxis && s.shape[d] !== first.shape[d]) {
         throw new Error(
-          `all the input array dimensions except for the concatenation axis must match exactly`
+          `all the input array dimensions except for the concatenation axis must match exactly`,
         );
       }
     }
@@ -629,7 +628,7 @@ function copyToOutput(
   outputStrides: number[],
   axis: number,
   axisOffset: number,
-  dtype: string
+  dtype: string,
 ): void {
   const sourceShape = source.shape;
   const ndim = sourceShape.length;
@@ -667,7 +666,7 @@ function copyToOutput(
       const outputRowStart = (row * outputCols + axisOffset) * elemScale;
       (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>).set(
         sourceData.subarray(sourceRowStart, sourceRowStart + cols * elemScale) as Float64Array,
-        outputRowStart
+        outputRowStart,
       );
     }
     return;
@@ -676,7 +675,7 @@ function copyToOutput(
   // Float16Array optimization: bulk-convert for faster per-element access
   if (dtype === 'float16' && hasFloat16 && source.isCContiguous) {
     const f32Src = new Float32Array(
-      (source.data as Float16Array).subarray(source.offset, source.offset + sourceSize)
+      (source.data as Float16Array).subarray(source.offset, source.offset + sourceSize),
     );
     const indices = new Array(ndim).fill(0);
     const baseOutputOffset = axisOffset * outputStrides[axis]!;
@@ -848,7 +847,7 @@ export function dstack(storages: ArrayStorage[]): ArrayStorage {
 export function split(
   storage: ArrayStorage,
   indicesOrSections: number | number[],
-  axis: number = 0
+  axis: number = 0,
 ): ArrayStorage[] {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -887,7 +886,7 @@ export function split(
 export function arraySplit(
   storage: ArrayStorage,
   indicesOrSections: number | number[],
-  axis: number = 0
+  axis: number = 0,
 ): ArrayStorage[] {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -954,8 +953,8 @@ function splitAtIndices(storage: ArrayStorage, indices: number[], axis: number):
         sliceShape,
         storage.dtype,
         Array.from(storage.strides),
-        newOffset
-      )
+        newOffset,
+      ),
     );
   }
 
@@ -967,7 +966,7 @@ function splitAtIndices(storage: ArrayStorage, indices: number[], axis: number):
  */
 export function vsplit(
   storage: ArrayStorage,
-  indicesOrSections: number | number[]
+  indicesOrSections: number | number[],
 ): ArrayStorage[] {
   if (storage.ndim < 2) {
     throw new Error('vsplit only works on arrays of 2 or more dimensions');
@@ -980,7 +979,7 @@ export function vsplit(
  */
 export function hsplit(
   storage: ArrayStorage,
-  indicesOrSections: number | number[]
+  indicesOrSections: number | number[],
 ): ArrayStorage[] {
   if (storage.ndim < 1) {
     throw new Error('hsplit only works on arrays of 1 or more dimensions');
@@ -1052,8 +1051,8 @@ export function tile(storage: ArrayStorage, reps: number | number[]): ArrayStora
     const f32Src = new Float32Array(
       (expandedStorage.data as Float16Array).subarray(
         expandedStorage.offset,
-        expandedStorage.offset + srcSize
-      )
+        expandedStorage.offset + srcSize,
+      ),
     );
     const f32Out = new Float32Array(outputSize);
     const outputIndices = new Array(maxDim).fill(0);
@@ -1123,7 +1122,7 @@ export function tile(storage: ArrayStorage, reps: number | number[]): ArrayStora
 export function repeat(
   storage: ArrayStorage,
   repeats: number | number[],
-  axis?: number
+  axis?: number,
 ): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -1143,7 +1142,7 @@ export function repeat(
 
     if (repeatsArr.length !== flatSize) {
       throw new Error(
-        `operands could not be broadcast together with shape (${flatSize},) (${repeatsArr.length},)`
+        `operands could not be broadcast together with shape (${flatSize},) (${repeatsArr.length},)`,
       );
     }
 
@@ -1154,7 +1153,7 @@ export function repeat(
     // Float16Array optimization: bulk-convert for faster per-element access
     if (dtype === 'float16' && hasFloat16 && storage.isCContiguous) {
       const f32Src = new Float32Array(
-        (storage.data as Float16Array).subarray(storage.offset, storage.offset + flatSize)
+        (storage.data as Float16Array).subarray(storage.offset, storage.offset + flatSize),
       );
       const f32Out = new Float32Array(outputSize);
       let outIdx = 0;
@@ -1197,7 +1196,7 @@ export function repeat(
 
   if (repeatsArr.length !== axisSize) {
     throw new Error(
-      `operands could not be broadcast together with shape (${axisSize},) (${repeatsArr.length},)`
+      `operands could not be broadcast together with shape (${axisSize},) (${repeatsArr.length},)`,
     );
   }
 
@@ -1223,7 +1222,7 @@ export function repeat(
   // Float16Array optimization: bulk-convert for faster per-element access
   if (dtype === 'float16' && hasFloat16 && storage.isCContiguous) {
     const f32Src = new Float32Array(
-      (storage.data as Float16Array).subarray(storage.offset, storage.offset + size)
+      (storage.data as Float16Array).subarray(storage.offset, storage.offset + size),
     );
     const f32Out = new Float32Array(outputSize);
 
@@ -1325,7 +1324,7 @@ export function flip(storage: ArrayStorage, axis?: number | number[]): ArrayStor
           throw new Error(`axis ${ax} is out of bounds for array of dimension ${ndim}`);
         }
         return normalized;
-      })
+      }),
     );
   }
 
@@ -1345,7 +1344,7 @@ export function flip(storage: ArrayStorage, axis?: number | number[]): ArrayStor
     dtype,
     strides,
     newOffset,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 
@@ -1355,7 +1354,7 @@ export function flip(storage: ArrayStorage, axis?: number | number[]): ArrayStor
 export function rot90(
   storage: ArrayStorage,
   k: number = 1,
-  axes: [number, number] = [0, 1]
+  axes: [number, number] = [0, 1],
 ): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -1433,7 +1432,7 @@ export function rot90(
     dtype,
     strides,
     newOffset,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 
@@ -1443,7 +1442,7 @@ export function rot90(
 export function roll(
   storage: ArrayStorage,
   shift: number | number[],
-  axis?: number | number[]
+  axis?: number | number[],
 ): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -1469,7 +1468,7 @@ export function roll(
     // Float16Array optimization: bulk-convert for faster per-element access
     if (dtype === 'float16' && hasFloat16 && flatStorage.isCContiguous) {
       const f32Src = new Float32Array(
-        (flatStorage.data as Float16Array).subarray(flatStorage.offset, flatStorage.offset + size)
+        (flatStorage.data as Float16Array).subarray(flatStorage.offset, flatStorage.offset + size),
       );
       const f32Out = new Float32Array(size);
       for (let i = 0; i < size; i++) {
@@ -1491,7 +1490,7 @@ export function roll(
         (outputData as BigInt64Array | BigUint64Array)[i] = flatStorage.iget(sourceIdx) as bigint;
       } else {
         (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = flatStorage.iget(
-          sourceIdx
+          sourceIdx,
         ) as number;
       }
     }
@@ -1528,7 +1527,7 @@ export function roll(
   // Float16Array optimization: bulk-convert for faster per-element access
   if (dtype === 'float16' && hasFloat16 && storage.isCContiguous) {
     const f32Src = new Float32Array(
-      (storage.data as Float16Array).subarray(storage.offset, storage.offset + size)
+      (storage.data as Float16Array).subarray(storage.offset, storage.offset + size),
     );
     const f32Out = new Float32Array(size);
     const srcStrides = storage.strides;
@@ -1634,7 +1633,7 @@ export function rollaxis(storage: ArrayStorage, axis: number, start: number = 0)
       Array.from(storage.shape),
       storage.dtype,
       Array.from(storage.strides),
-      storage.offset
+      storage.offset,
     );
   }
 
@@ -1646,7 +1645,7 @@ export function rollaxis(storage: ArrayStorage, axis: number, start: number = 0)
  */
 export function dsplit(
   storage: ArrayStorage,
-  indicesOrSections: number | number[]
+  indicesOrSections: number | number[],
 ): ArrayStorage[] {
   if (storage.ndim < 3) {
     throw new Error('dsplit only works on arrays of 3 or more dimensions');
@@ -1794,7 +1793,7 @@ export function unstack(storage: ArrayStorage, axis: number = 0): ArrayStorage[]
       outShape,
       dtype,
       outStrides,
-      baseOffset + i * axisStride
+      baseOffset + i * axisStride,
     );
   }
 

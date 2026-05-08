@@ -54,7 +54,7 @@ export function min_scalar_i64(a: number, out: number, N: number, scalar: number
     a,
     out,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 
@@ -69,7 +69,7 @@ export function min_scalar_u64(a: number, out: number, N: number, scalar: number
     a,
     out,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 

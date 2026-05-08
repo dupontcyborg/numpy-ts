@@ -8,17 +8,17 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../storage';
-import { elementwiseUnaryOp } from '../internal/compute';
+import { Complex } from '../complex';
 import {
+  type DType,
   isBigIntDType,
   isComplexDType,
-  throwIfComplex,
   mathResultDtype,
   promoteDTypes,
-  type DType,
+  throwIfComplex,
 } from '../dtype';
-import { Complex } from '../complex';
+import { elementwiseUnaryOp } from '../internal/compute';
+import { ArrayStorage } from '../storage';
 
 /** Convert bool to math float type for binary math ops. */
 function boolToMathFloat(a: ArrayStorage): ArrayStorage {
@@ -29,15 +29,16 @@ function boolToMathFloat(a: ArrayStorage): ArrayStorage {
   for (let i = 0; i < a.size; i++) result.data[i] = src[off + i]!;
   return result;
 }
-import { wasmSin } from '../wasm/sin';
-import { wasmCos } from '../wasm/cos';
-import { wasmTan } from '../wasm/tan';
-import { wasmArcsin } from '../wasm/arcsin';
+
 import { wasmArccos } from '../wasm/arccos';
+import { wasmArcsin } from '../wasm/arcsin';
 import { wasmArctan } from '../wasm/arctan';
 import { wasmArctan2 } from '../wasm/arctan2';
-import { wasmHypot, wasmHypotScalar } from '../wasm/hypot';
+import { wasmCos } from '../wasm/cos';
 import { wasmDeg2rad, wasmRad2deg } from '../wasm/deg2rad';
+import { wasmHypot, wasmHypotScalar } from '../wasm/hypot';
+import { wasmSin } from '../wasm/sin';
+import { wasmTan } from '../wasm/tan';
 
 /**
  * Sine of each element (element-wise)
@@ -479,7 +480,7 @@ export function arctan2(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
   if (x1.dtype === 'bool')
     return arctan2(
       boolToMathFloat(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return arctan2(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'arctan2', 'arctan2 is only defined for real numbers.');
@@ -594,7 +595,7 @@ export function hypot(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
   if (x1.dtype === 'bool')
     return hypot(
       boolToMathFloat(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return hypot(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'hypot', 'hypot is only defined for real numbers.');

@@ -2,17 +2,17 @@
  * DType Sweep: Bitwise operations + packbits/unpackbits, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
   checkNumPyAvailable,
-  npDtype,
-  runNumPyBatch,
   expectBothRejectPre,
   expectMatchPre,
+  npDtype,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -75,7 +75,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'bitwise_and requires integer or bool dtype',
           () => np.bitwise_and(array(data1, dtype), array(data2, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -89,7 +89,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'bitwise_or requires integer or bool dtype',
           () => np.bitwise_or(array(data1, dtype), array(data2, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -103,7 +103,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'bitwise_xor requires integer or bool dtype',
           () => np.bitwise_xor(array(data1, dtype), array(data2, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -117,7 +117,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'bitwise_not requires integer or bool dtype',
           () => np.bitwise_not(array(data1, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -131,7 +131,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'invert requires integer or bool dtype',
           () => np.invert(array(data1, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -147,7 +147,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'left_shift requires integer or bool dtype',
           () => np.left_shift(array(d1, dtype), array(d2, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -163,7 +163,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'right_shift requires integer or bool dtype',
           () => np.right_shift(array(d1, dtype), array(d2, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -178,7 +178,7 @@ describe('DType Sweep: Bitwise', () => {
         const _r = expectBothRejectPre(
           'bitwise_count requires integer or bool dtype',
           () => np.bitwise_count(array(data, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -197,7 +197,7 @@ describe('DType Sweep: Packbits/Unpackbits', () => {
         const _r = expectBothRejectPre(
           'packbits only accepts uint8 arrays',
           () => np.packbits(array(data, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }
@@ -212,7 +212,7 @@ describe('DType Sweep: Packbits/Unpackbits', () => {
         const _r = expectBothRejectPre(
           'unpackbits only accepts uint8 arrays',
           () => np.unpackbits(array(data, dtype)),
-          py
+          py,
         );
         if (_r === 'both-reject') return;
       }

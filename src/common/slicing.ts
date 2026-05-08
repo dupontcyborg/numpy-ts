@@ -111,7 +111,7 @@ export function parseSlice(sliceStr: string): SliceSpec {
  */
 export function normalizeSlice(
   spec: SliceSpec,
-  size: number
+  size: number,
 ): { start: number; stop: number; step: number; isIndex: boolean } {
   let { start, stop } = spec;
   const { step, isIndex } = spec;

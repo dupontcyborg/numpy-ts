@@ -77,7 +77,7 @@ export function argsort_slices_f64(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_f64'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -87,7 +87,7 @@ export function argsort_slices_f32(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_f32'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -97,7 +97,7 @@ export function argsort_slices_i64(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_i64'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -107,7 +107,7 @@ export function argsort_slices_u64(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_u64'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -117,7 +117,7 @@ export function argsort_slices_i32(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_i32'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -127,7 +127,7 @@ export function argsort_slices_u32(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_u32'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -137,7 +137,7 @@ export function argsort_slices_i16(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_i16'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -147,7 +147,7 @@ export function argsort_slices_u16(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_u16'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -157,7 +157,7 @@ export function argsort_slices_i8(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_i8'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -167,7 +167,7 @@ export function argsort_slices_u8(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_u8'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -187,7 +187,7 @@ export function argsort_slices_c128(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_c128'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);
@@ -197,7 +197,7 @@ export function argsort_slices_c64(
   a: number,
   out: number,
   sliceSize: number,
-  numSlices: number
+  numSlices: number,
 ): void {
   const i = init();
   (i.exports['argsort_slices_c64'] as (...args: number[]) => void)(a, out, sliceSize, numSlices);

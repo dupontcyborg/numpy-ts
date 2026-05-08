@@ -6,11 +6,11 @@
  */
 
 import {
-  ZIP_LOCAL_SIGNATURE,
-  ZIP_END_SIGNATURE,
-  ZIP_STORED,
-  ZIP_DEFLATED,
   type RawZipEntry,
+  ZIP_DEFLATED,
+  ZIP_END_SIGNATURE,
+  ZIP_LOCAL_SIGNATURE,
+  ZIP_STORED,
 } from './types';
 
 /**
@@ -46,7 +46,7 @@ export function readZipSync(buffer: ArrayBuffer | Uint8Array): Map<string, Uint8
     if (entry.compressionMethod !== ZIP_STORED) {
       throw new Error(
         `Cannot read compressed entry synchronously: ${entry.name}. ` +
-          `Use readZip() (async) for DEFLATE-compressed files.`
+          `Use readZip() (async) for DEFLATE-compressed files.`,
       );
     }
     result.set(entry.name, entry.compressedData);
@@ -183,7 +183,7 @@ async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
     throw new Error(
       'DecompressionStream is not available. ' +
         'This environment does not support the Compression Streams API. ' +
-        'Please use a modern browser or Node.js 18+.'
+        'Please use a modern browser or Node.js 18+.',
     );
   }
 

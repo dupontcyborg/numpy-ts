@@ -5,10 +5,10 @@
  * the safety of dispose/retain/release semantics, not OOM.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { ArrayStorage } from '../../src/common/storage';
 import { wasmConfig } from '../../src/common/wasm/config';
 import { wasmFreeBytes } from '../../src/common/wasm/runtime';
-import { ArrayStorage } from '../../src/common/storage';
 
 beforeEach(() => {
   wasmConfig.thresholdMultiplier = 0; // force WASM
@@ -71,7 +71,7 @@ describe('shared view refcount lifecycle', () => {
       'float64',
       [1],
       0,
-      parent.wasmRegion
+      parent.wasmRegion,
     );
     expect(region.refCount).toBe(2);
 
@@ -100,7 +100,7 @@ describe('shared view refcount lifecycle', () => {
       'float64',
       [1],
       0,
-      parent.wasmRegion
+      parent.wasmRegion,
     );
     expect(region.refCount).toBe(2);
 
@@ -123,7 +123,7 @@ describe('shared view refcount lifecycle', () => {
     const views: ArrayStorage[] = [];
     for (let i = 0; i < 5; i++) {
       views.push(
-        ArrayStorage.fromDataShared(parent.data, [200], 'float64', [1], i * 200, parent.wasmRegion)
+        ArrayStorage.fromDataShared(parent.data, [200], 'float64', [1], i * 200, parent.wasmRegion),
       );
     }
     expect(region.refCount).toBe(6); // parent + 5 views
@@ -152,7 +152,7 @@ describe('shared view refcount lifecycle', () => {
       'float64',
       [1],
       0,
-      parent.wasmRegion
+      parent.wasmRegion,
     );
     expect(region.refCount).toBe(2);
 

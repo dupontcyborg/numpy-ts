@@ -9,27 +9,26 @@
  * and return boolean arrays (dtype: 'bool').
  */
 
-import { ArrayStorage } from '../storage';
+import { Complex } from '../complex';
 import {
+  type DType,
+  hasFloat16,
   isBigIntDType,
   isComplexDType,
   isIntegerDType,
-  throwIfComplex,
-  hasFloat16,
   mathResultDtype,
   promoteDTypes,
-  type DType,
+  throwIfComplex,
 } from '../dtype';
-import { elementwiseComparisonOp } from '../internal/compute';
-import { broadcastShapes } from '../internal/compute';
-import { Complex } from '../complex';
+import { broadcastShapes, elementwiseComparisonOp } from '../internal/compute';
+import { ArrayStorage } from '../storage';
+import { wasmCopysign, wasmCopysignScalar } from '../wasm/copysign';
+import { wasmIsfinite } from '../wasm/isfinite';
+import { wasmIsnan } from '../wasm/isnan';
 import { wasmLogicalAnd, wasmLogicalAndScalar } from '../wasm/logical_and';
+import { wasmLogicalNot } from '../wasm/logical_not';
 import { wasmLogicalOr, wasmLogicalOrScalar } from '../wasm/logical_or';
 import { wasmLogicalXor, wasmLogicalXorScalar } from '../wasm/logical_xor';
-import { wasmIsnan } from '../wasm/isnan';
-import { wasmIsfinite } from '../wasm/isfinite';
-import { wasmCopysign, wasmCopysignScalar } from '../wasm/copysign';
-import { wasmLogicalNot } from '../wasm/logical_not';
 import { wasmSignbit } from '../wasm/signbit';
 
 /**
@@ -955,13 +954,13 @@ export function nextafter(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   throwIfComplex(
     x1.dtype,
     'nextafter',
-    'nextafter is only defined for real floating-point numbers.'
+    'nextafter is only defined for real floating-point numbers.',
   );
   if (typeof x2 !== 'number') {
     throwIfComplex(
       x2.dtype,
       'nextafter',
-      'nextafter is only defined for real floating-point numbers.'
+      'nextafter is only defined for real floating-point numbers.',
     );
   }
 
@@ -1295,7 +1294,7 @@ function broadcastToStorage(storage: ArrayStorage, targetShape: readonly number[
     Array.from(targetShape),
     storage.dtype,
     newStrides,
-    storage.offset
+    storage.offset,
   );
 }
 
@@ -1407,7 +1406,7 @@ export function isneginf(a: ArrayStorage): ArrayStorage {
   throwIfComplex(
     a.dtype,
     'isneginf',
-    'This operation is not supported for complex values because it would be ambiguous.'
+    'This operation is not supported for complex values because it would be ambiguous.',
   );
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
   const data = result.data as Uint8Array;
@@ -1443,7 +1442,7 @@ export function isposinf(a: ArrayStorage): ArrayStorage {
   throwIfComplex(
     a.dtype,
     'isposinf',
-    'This operation is not supported for complex values because it would be ambiguous.'
+    'This operation is not supported for complex values because it would be ambiguous.',
   );
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
   const data = result.data as Uint8Array;

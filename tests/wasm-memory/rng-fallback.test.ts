@@ -17,7 +17,7 @@ import { wasmMemoryConfig } from '../../src/common/wasm/config';
 wasmMemoryConfig.maxMemoryBytes = 8 * 1024 * 1024; // 8 MiB total
 wasmMemoryConfig.scratchBytes = 1 * 1024 * 1024; // 1 MiB scratch
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { random } from '../../src/index';
 
 // N large enough that the allocation exceeds our tiny WASM heap,

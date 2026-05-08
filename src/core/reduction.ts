@@ -7,7 +7,7 @@
 
 import * as reductionOps from '../common/ops/reduction';
 import * as shapeOps from '../common/ops/shape';
-import { NDArrayCore, toStorage, fromStorage, Complex, ArrayStorage } from './types';
+import { ArrayStorage, Complex, fromStorage, NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Multi-axis reduction helper
@@ -22,7 +22,7 @@ function reduceMultiAxis<T>(
   a: NDArrayCore,
   axes: number[],
   keepdims: boolean,
-  reduceFn: (storage: ArrayStorage, axis: number, keepdims: boolean) => ArrayStorage | T
+  reduceFn: (storage: ArrayStorage, axis: number, keepdims: boolean) => ArrayStorage | T,
 ): NDArrayCore | T {
   const ndim = toStorage(a).ndim;
   // Normalize negative axes
@@ -65,7 +65,7 @@ function reduceMultiAxis<T>(
 export function sum(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | bigint | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) => reductionOps.sum(s, ax, kd));
@@ -81,11 +81,11 @@ export function sum(
 export function mean(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.mean(s, ax, kd)
+      reductionOps.mean(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.mean(toStorage(a), axis, keepdims);
@@ -99,7 +99,7 @@ export function mean(
 export function prod(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | bigint | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) => reductionOps.prod(s, ax, kd));
@@ -115,11 +115,11 @@ export function prod(
 export function max(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.max(s, ax, kd)
+      reductionOps.max(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.max(toStorage(a), axis, keepdims);
@@ -136,11 +136,11 @@ export const amax = max;
 export function min(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.min(s, ax, kd)
+      reductionOps.min(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.min(toStorage(a), axis, keepdims);
@@ -157,7 +157,7 @@ export const amin = min;
 export function ptp(
   a: NDArrayCore,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   const result = reductionOps.ptp(toStorage(a), axis, keepdims);
   if (typeof result === 'number' || result instanceof Complex) {
@@ -193,11 +193,11 @@ export function variance(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.variance(s, ax, ddof, kd)
+      reductionOps.variance(s, ax, ddof, kd),
     ) as NDArrayCore | number;
   }
   const result = reductionOps.variance(toStorage(a), axis, ddof, keepdims);
@@ -213,11 +213,11 @@ export function std(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.std(s, ax, ddof, kd)
+      reductionOps.std(s, ax, ddof, kd),
     ) as NDArrayCore | number;
   }
   const result = reductionOps.std(toStorage(a), axis, ddof, keepdims);
@@ -229,11 +229,11 @@ export function std(
 export function median(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.median(s, ax, kd)
+      reductionOps.median(s, ax, kd),
     ) as NDArrayCore | number;
   }
   const result = reductionOps.median(toStorage(a), axis, keepdims);
@@ -248,7 +248,7 @@ export function percentile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   const result = reductionOps.percentile(toStorage(a), q, axis, keepdims);
   if (typeof result === 'number') return result;
@@ -260,7 +260,7 @@ export function quantile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   const result = reductionOps.quantile(toStorage(a), q, axis, keepdims);
   if (typeof result === 'number') return result;
@@ -272,7 +272,7 @@ export function average(
   a: NDArrayCore,
   axis?: number,
   weights?: NDArrayCore,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   const weightsStorage = weights ? toStorage(weights) : undefined;
   const result = reductionOps.average(toStorage(a), axis, weightsStorage, keepdims);
@@ -288,11 +288,11 @@ export function average(
 export function all(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | boolean {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.all(s, ax, kd)
+      reductionOps.all(s, ax, kd),
     ) as NDArrayCore | boolean;
   }
   const result = reductionOps.all(toStorage(a), axis, keepdims);
@@ -304,11 +304,11 @@ export function all(
 export function any(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | boolean {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.any(s, ax, kd)
+      reductionOps.any(s, ax, kd),
     ) as NDArrayCore | boolean;
   }
   const result = reductionOps.any(toStorage(a), axis, keepdims);
@@ -344,11 +344,11 @@ export const cumulative_prod = cumprod;
 export function nansum(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.nansum(s, ax, kd)
+      reductionOps.nansum(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.nansum(toStorage(a), axis, keepdims);
@@ -360,11 +360,11 @@ export function nansum(
 export function nanprod(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.nanprod(s, ax, kd)
+      reductionOps.nanprod(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.nanprod(toStorage(a), axis, keepdims);
@@ -376,11 +376,11 @@ export function nanprod(
 export function nanmean(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.nanmean(s, ax, kd)
+      reductionOps.nanmean(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.nanmean(toStorage(a), axis, keepdims);
@@ -393,11 +393,11 @@ export function nanvar(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.nanvar(s, ax, ddof, kd)
+      reductionOps.nanvar(s, ax, ddof, kd),
     ) as NDArrayCore | number;
   }
   const result = reductionOps.nanvar(toStorage(a), axis, ddof, keepdims);
@@ -410,11 +410,11 @@ export function nanstd(
   a: NDArrayCore,
   axis?: number | number[],
   ddof?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.nanstd(s, ax, ddof, kd)
+      reductionOps.nanstd(s, ax, ddof, kd),
     ) as NDArrayCore | number;
   }
   const result = reductionOps.nanstd(toStorage(a), axis, ddof, keepdims);
@@ -426,11 +426,11 @@ export function nanstd(
 export function nanmin(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.nanmin(s, ax, kd)
+      reductionOps.nanmin(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.nanmin(toStorage(a), axis, keepdims);
@@ -442,11 +442,11 @@ export function nanmin(
 export function nanmax(
   a: NDArrayCore,
   axis?: number | number[],
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number | Complex {
   if (Array.isArray(axis)) {
     return reduceMultiAxis(a, axis, keepdims ?? false, (s, ax, kd) =>
-      reductionOps.nanmax(s, ax, kd)
+      reductionOps.nanmax(s, ax, kd),
     ) as NDArrayCore | number | Complex;
   }
   const result = reductionOps.nanmax(toStorage(a), axis, keepdims);
@@ -492,7 +492,7 @@ export function nanquantile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   const result = reductionOps.nanquantile(toStorage(a), q, axis, keepdims);
   if (typeof result === 'number') return result;
@@ -504,7 +504,7 @@ export function nanpercentile(
   a: NDArrayCore,
   q: number,
   axis?: number,
-  keepdims?: boolean
+  keepdims?: boolean,
 ): NDArrayCore | number {
   const result = reductionOps.nanpercentile(toStorage(a), q, axis, keepdims);
   if (typeof result === 'number') return result;

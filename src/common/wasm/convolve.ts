@@ -7,27 +7,27 @@
  */
 
 import {
-  convolve_f64,
-  convolve_f32,
-  convolve_i32,
-  convolve_u32,
-  convolve_i16,
-  convolve_u16,
-  convolve_i8,
-  convolve_u8,
-} from './bins/convolve.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
-import {
-  effectiveDType,
-  isComplexDType,
-  isBigIntDType,
-  getTypedArrayConstructor,
-  promoteDTypes,
   type DType,
+  effectiveDType,
+  getTypedArrayConstructor,
+  isBigIntDType,
+  isComplexDType,
+  promoteDTypes,
   TypedArray,
 } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  convolve_f32,
+  convolve_f64,
+  convolve_i8,
+  convolve_i16,
+  convolve_i32,
+  convolve_u8,
+  convolve_u16,
+  convolve_u32,
+} from './bins/convolve.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -37,7 +37,7 @@ type ConvolveFn = (
   vPtr: number,
   vLen: number,
   outPtr: number,
-  outLen: number
+  outLen: number,
 ) => void;
 
 const kernels: Partial<Record<DType, ConvolveFn>> = {
@@ -109,6 +109,10 @@ export function wasmConvolve(a: ArrayStorage, v: ArrayStorage): ArrayStorage | n
     dtype,
     outRegion,
     outLen,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

@@ -15,7 +15,7 @@
  * over N iterations so allocator overhead washes out and leak-per-iteration
  * must be exactly zero.
  */
-import { zeros, ones, arange, wasmFreeBytes } from 'numpy-ts';
+import { arange, ones, wasmFreeBytes, zeros } from 'numpy-ts';
 
 const SIZE = 10_000;
 const ITERS = 10;
@@ -38,9 +38,9 @@ export function run(): DisposeTestResult {
     // Absorb fixed allocator fragmentation from interleaving different sizes
     /* eslint-disable @typescript-eslint/no-unused-vars -- using vars exist for dispose side-effect */
     {
-      using a = zeros([SIZE]);
-      using b = ones([SIZE]);
-      using c = arange(SIZE);
+      using _a = zeros([SIZE]);
+      using _b = ones([SIZE]);
+      using _c = arange(SIZE);
     }
     /* eslint-enable @typescript-eslint/no-unused-vars */
 
@@ -89,7 +89,7 @@ export function run(): DisposeTestResult {
       using outer = zeros([SIZE]);
       const afterOuter = wasmFreeBytes();
       {
-        using inner = ones([SIZE]); // eslint-disable-line @typescript-eslint/no-unused-vars -- dispose side-effect
+        using _inner = ones([SIZE]); // eslint-disable-line @typescript-eslint/no-unused-vars -- dispose side-effect
         if (wasmFreeBytes() >= afterOuter) {
           return { passed: false, leak: 0, error: 'nested: inner did not allocate' };
         }

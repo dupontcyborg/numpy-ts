@@ -6,28 +6,28 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  right_shift_i64,
-  right_shift_i32,
-  right_shift_i16,
-  right_shift_i8,
-  right_shift_u64,
-  right_shift_u32,
-  right_shift_u16,
-  right_shift_u8,
-  right_shift_scalar_i64,
-  right_shift_scalar_i32,
-  right_shift_scalar_i16,
-  right_shift_scalar_i8,
-  right_shift_scalar_u64,
-  right_shift_scalar_u32,
-  right_shift_scalar_u16,
-  right_shift_scalar_u8,
-} from './bins/right_shift.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import {
+  right_shift_i8,
+  right_shift_i16,
+  right_shift_i32,
+  right_shift_i64,
+  right_shift_scalar_i8,
+  right_shift_scalar_i16,
+  right_shift_scalar_i32,
+  right_shift_scalar_i64,
+  right_shift_scalar_u8,
+  right_shift_scalar_u16,
+  right_shift_scalar_u32,
+  right_shift_scalar_u64,
+  right_shift_u8,
+  right_shift_u16,
+  right_shift_u32,
+  right_shift_u64,
+} from './bins/right_shift.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -104,7 +104,11 @@ export function wasmRightShift(a: ArrayStorage, b: ArrayStorage): ArrayStorage |
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -137,6 +141,10 @@ export function wasmRightShiftScalar(a: ArrayStorage, scalar: number): ArrayStor
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

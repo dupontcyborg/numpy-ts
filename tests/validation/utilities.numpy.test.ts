@@ -3,22 +3,22 @@
  * (apply_along_axis, apply_over_axes, shares_memory, ndim, shape, size, geterr, seterr)
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
-  zeros,
   apply_along_axis,
   apply_over_axes,
-  may_share_memory,
-  shares_memory,
-  ndim,
-  shape,
-  size,
+  array,
   geterr,
-  seterr,
+  may_share_memory,
   NDArray,
+  ndim,
+  seterr,
+  shape,
+  shares_memory,
+  size,
+  zeros,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Utility Functions', () => {
   beforeAll(() => {
@@ -32,7 +32,7 @@ describe('NumPy Validation: Utility Functions', () => {
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
           '   Current Python command: ' +
           (process.env.NUMPY_PYTHON || 'python3') +
-          '\n'
+          '\n',
       );
     }
   });
@@ -151,7 +151,7 @@ result = np.ndim(np.array([1, 2, 3]))
         array([
           [1, 2],
           [3, 4],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.ndim(np.array([[1, 2], [3, 4]]))
@@ -171,7 +171,7 @@ result = np.ndim(np.array([[1, 2], [3, 4]]))
             [5, 6],
             [7, 8],
           ],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.ndim(np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]))
@@ -217,7 +217,7 @@ result = list(np.shape(np.array([1, 2, 3, 4, 5])))
         array([
           [1, 2, 3],
           [4, 5, 6],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = list(np.shape(np.array([[1, 2, 3], [4, 5, 6]])))
@@ -264,7 +264,7 @@ result = np.size(np.array([1, 2, 3, 4, 5]))
         array([
           [1, 2, 3],
           [4, 5, 6],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.size(np.array([[1, 2, 3], [4, 5, 6]]))
@@ -284,7 +284,7 @@ result = np.size(np.array([[1, 2, 3], [4, 5, 6]]))
             [5, 6],
             [7, 8],
           ],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.size(np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]))

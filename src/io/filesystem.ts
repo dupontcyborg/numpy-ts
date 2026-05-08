@@ -34,7 +34,7 @@ function isNodeLike(): boolean {
 
 function throwBrowserError(): never {
   throw new Error(
-    'File IO requires Node.js, Bun, or Deno. In the browser, use parseNpy(buffer) / parseTxt(text) with fetch() instead.'
+    'File IO requires Node.js, Bun, or Deno. In the browser, use parseNpy(buffer) / parseTxt(text) with fetch() instead.',
   );
 }
 
@@ -82,6 +82,6 @@ export function getFsSync(): FsSync {
   if (!isNodeLike()) throwBrowserError();
   throw new Error(
     'node:fs has not been resolved yet. Call any async IO function first ' +
-      '(e.g., await loadNpy(...)) or use the async variants directly.'
+      '(e.g., await loadNpy(...)) or use the async variants directly.',
   );
 }

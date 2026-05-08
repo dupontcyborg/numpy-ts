@@ -5,18 +5,18 @@
  *
  * Uses a single batched NumPy call to avoid per-test subprocess overhead.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import { hasFloat16 } from '../../../src';
 import {
   ALL_DTYPES,
-  runNumPy,
   checkNumPyAvailable,
-  npDtype,
-  isInt,
-  isComplex,
   isBool,
+  isComplex,
+  isInt,
+  npDtype,
+  runNumPy,
 } from './_helpers';
-import { hasFloat16 } from '../../../src';
 
 const { array } = np;
 
@@ -82,10 +82,10 @@ function buildOracleMap(): Record<string, any> {
         lines.push(`    _a = np.array(${pyValues}, dtype=${pySrc})`);
         lines.push(`    _orig = _a.astype(${pyDst})`);
         lines.push(
-          `    _cmp = _orig.astype(np.complex128) if np.issubdtype(_orig.dtype, np.complexfloating) else _orig.astype(np.float64)`
+          `    _cmp = _orig.astype(np.complex128) if np.issubdtype(_orig.dtype, np.complexfloating) else _orig.astype(np.float64)`,
         );
         lines.push(
-          `    results["${key}"] = {"value": serialize_value(_cmp), "dtype": str(_orig.dtype), "shape": list(_orig.shape)}`
+          `    results["${key}"] = {"value": serialize_value(_cmp), "dtype": str(_orig.dtype), "shape": list(_orig.shape)}`,
         );
         lines.push(`except Exception as e:`);
         lines.push(`    results["${key}"] = {"error": str(e)[:200]}`);
@@ -136,12 +136,12 @@ describe('DType Sweep: Conversion (astype)', () => {
             // Divergent error behavior
             if (jsError && !npError) {
               expect.unreachable(
-                `JS throws but NumPy succeeds.\nJS error: ${jsError.slice(0, 150)}`
+                `JS throws but NumPy succeeds.\nJS error: ${jsError.slice(0, 150)}`,
               );
             }
             if (npError && !jsError) {
               expect.unreachable(
-                `NumPy rejects but JS succeeds.\nNumPy error: ${npError.slice(0, 150)}`
+                `NumPy rejects but JS succeeds.\nNumPy error: ${npError.slice(0, 150)}`,
               );
             }
 
@@ -171,7 +171,7 @@ describe('DType Sweep: Conversion (astype)', () => {
               close,
               `value mismatch for ${src} → ${dst} (${label}): ` +
                 `JS=${JSON.stringify(jsArr.slice(0, 4))} vs ` +
-                `NumPy=${JSON.stringify(npArr?.slice?.(0, 4) ?? npArr)}`
+                `NumPy=${JSON.stringify(npArr?.slice?.(0, 4) ?? npArr)}`,
             ).toBe(true);
           });
         }

@@ -4,24 +4,24 @@
  * Provides lu_factor, lu_solve, and lu_inv for f64 and f32 square matrices.
  */
 
+import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  lu_factor_f64,
-  lu_inv_f64,
-  lu_solve_f64,
   lu_factor_f32,
+  lu_factor_f64,
   lu_inv_f32,
+  lu_inv_f64,
   lu_solve_f32,
+  lu_solve_f64,
 } from './bins/lu.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
   scratchAlloc,
-  getSharedMemory,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import type { DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 /**
  * WASM LU factorization. Returns { lu, piv, sign } or null.
@@ -30,7 +30,7 @@ import { wasmConfig } from './config';
  * sign: +1 or -1 (permutation sign for determinant).
  */
 export function wasmLuFactor(
-  a: ArrayStorage
+  a: ArrayStorage,
 ): { lu: ArrayStorage; piv: Int32Array; sign: number } | null {
   if (!a.isCContiguous) return null;
   if (a.ndim !== 2) return null;
@@ -63,7 +63,7 @@ export function wasmLuFactor(
   const mem = getSharedMemory();
   const inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size * size, bpe);
   new Uint8Array(mem.buffer, luRegion.ptr, matBytes).set(
-    new Uint8Array(mem.buffer, inPtr, matBytes)
+    new Uint8Array(mem.buffer, inPtr, matBytes),
   );
 
   // Factor in-place
@@ -72,8 +72,16 @@ export function wasmLuFactor(
     : lu_factor_f64(luRegion.ptr, pivRegion.ptr, size);
 
   const Ctor = isF32
-    ? (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
-    : (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+    ? (Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray)
+    : (Float64Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray);
 
   const lu = ArrayStorage.fromWasmRegion([size, size], dtype, luRegion, size * size, Ctor);
   const piv = new Int32Array(mem.buffer, pivRegion.ptr, size).slice(); // copy out
@@ -111,8 +119,16 @@ export function wasmLuInv(lu: ArrayStorage, piv: Int32Array, dtype: DType): Arra
   }
 
   const Ctor = isF32
-    ? (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
-    : (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+    ? (Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray)
+    : (Float64Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray);
 
   return ArrayStorage.fromWasmRegion([size, size], dtype, outRegion, size * size, Ctor);
 }
@@ -124,7 +140,7 @@ export function wasmLuSolve(
   lu: ArrayStorage,
   piv: Int32Array,
   b: ArrayStorage,
-  dtype: DType
+  dtype: DType,
 ): ArrayStorage | null {
   const size = lu.shape[0]!;
   const isF32 = dtype === 'float32';
@@ -150,8 +166,16 @@ export function wasmLuSolve(
   }
 
   const Ctor = isF32
-    ? (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
-    : (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+    ? (Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray)
+    : (Float64Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray);
 
   return ArrayStorage.fromWasmRegion([size], dtype, outRegion, size, Ctor);
 }

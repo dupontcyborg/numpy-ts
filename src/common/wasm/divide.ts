@@ -10,34 +10,34 @@
  *   i32/u32/i64/u64 → f64
  */
 
-import {
-  div_f64,
-  div_f32,
-  div_scalar_f64,
-  div_scalar_f32,
-  div_i64_f64,
-  div_scalar_i64_f64,
-  div_i32_f64,
-  div_scalar_i32_f64,
-  div_i16_f64,
-  div_scalar_i16_f64,
-  div_i8_f64,
-  div_scalar_i8_f64,
-  div_u64_f64,
-  div_scalar_u64_f64,
-  div_u32_f64,
-  div_scalar_u32_f64,
-  div_u16_f64,
-  div_scalar_u16_f64,
-  div_u8_f64,
-  div_scalar_u8_f64,
-  div_c128,
-  div_c64,
-} from './bins/divide.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType, type TypedArray } from '../dtype';
+import {
+  div_c64,
+  div_c128,
+  div_f32,
+  div_f64,
+  div_i8_f64,
+  div_i16_f64,
+  div_i32_f64,
+  div_i64_f64,
+  div_scalar_f32,
+  div_scalar_f64,
+  div_scalar_i8_f64,
+  div_scalar_i16_f64,
+  div_scalar_i32_f64,
+  div_scalar_i64_f64,
+  div_scalar_u8_f64,
+  div_scalar_u16_f64,
+  div_scalar_u32_f64,
+  div_scalar_u64_f64,
+  div_u8_f64,
+  div_u16_f64,
+  div_u32_f64,
+  div_u64_f64,
+} from './bins/divide.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -144,7 +144,7 @@ export function wasmDiv(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
       a.wasmPtr,
       a.offset * complexFactor,
       dataLen,
-      bpe
+      bpe,
     );
     const bPtr = resolveInputPtr(
       b.data,
@@ -152,7 +152,7 @@ export function wasmDiv(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
       b.wasmPtr,
       b.offset * complexFactor,
       dataLen,
-      bpe
+      bpe,
     );
 
     kernel(aPtr, bPtr, outRegion.ptr, size);
@@ -162,7 +162,11 @@ export function wasmDiv(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
       dtype,
       outRegion,
       dataLen,
-      Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Ctor as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -189,7 +193,11 @@ export function wasmDiv(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     'float64',
     outRegion,
     size,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
 
@@ -222,7 +230,11 @@ export function wasmDivScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Ctor as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -248,6 +260,10 @@ export function wasmDivScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     'float64',
     outRegion,
     size,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

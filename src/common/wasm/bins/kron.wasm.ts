@@ -30,7 +30,7 @@ export function kron_f64(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_f64'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);
@@ -43,7 +43,7 @@ export function kron_f32(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_f32'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);
@@ -56,7 +56,7 @@ export function kron_c128(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_c128'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);
@@ -69,7 +69,7 @@ export function kron_c64(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_c64'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);
@@ -82,7 +82,7 @@ export function kron_i64(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_i64'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);
@@ -95,7 +95,7 @@ export function kron_i32(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_i32'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);
@@ -108,7 +108,7 @@ export function kron_i16(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_i16'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);
@@ -121,7 +121,7 @@ export function kron_i8(
   am: number,
   an: number,
   bm: number,
-  bn: number
+  bn: number,
 ): void {
   const i = init();
   (i.exports['kron_i8'] as (...args: number[]) => void)(a, b, out, am, an, bm, bn);

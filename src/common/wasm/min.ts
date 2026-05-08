@@ -6,38 +6,38 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  min_f64,
   min_f32,
-  min_i64,
-  min_i32,
-  min_i16,
+  min_f64,
   min_i8,
-  min_scalar_f64,
+  min_i16,
+  min_i32,
+  min_i64,
   min_scalar_f32,
-  min_scalar_i64,
-  min_scalar_i32,
-  min_scalar_i16,
+  min_scalar_f64,
   min_scalar_i8,
-  min_u64,
-  min_u32,
-  min_u16,
-  min_u8,
-  min_scalar_u64,
-  min_scalar_u32,
-  min_scalar_u16,
+  min_scalar_i16,
+  min_scalar_i32,
+  min_scalar_i64,
   min_scalar_u8,
+  min_scalar_u16,
+  min_scalar_u32,
+  min_scalar_u64,
+  min_u8,
+  min_u16,
+  min_u32,
+  min_u64,
 } from './bins/min.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -134,7 +134,11 @@ export function wasmMin(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
       originalDtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -143,7 +147,11 @@ export function wasmMin(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
 
@@ -185,7 +193,11 @@ export function wasmMinScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
       dtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -194,6 +206,10 @@ export function wasmMinScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

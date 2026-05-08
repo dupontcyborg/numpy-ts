@@ -5,19 +5,19 @@
  * @module ops/sorting
  */
 
-import { ArrayStorage } from '../storage';
-import { isBigIntDType, isComplexDType, hasFloat16, type DType } from '../dtype';
 import { Complex } from '../complex';
+import { type DType, hasFloat16, isBigIntDType, isComplexDType } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
-import { wasmReduceCountNz } from '../wasm/reduce_count_nz';
-import { wasmSort, wasmSortSlices } from '../wasm/sort';
-import { wasmArgsort, wasmArgsortSlices } from '../wasm/argsort';
-import { wasmPartition, wasmPartitionSlices } from '../wasm/partition';
+import { ArrayStorage } from '../storage';
 import { wasmArgpartition, wasmArgpartitionSlices } from '../wasm/argpartition';
-import { wasmSearchsorted } from '../wasm/searchsorted';
-import { wasmLexsort } from '../wasm/lexsort';
-import { wasmExtract, wasmWhere } from '../wasm/gather';
+import { wasmArgsort, wasmArgsortSlices } from '../wasm/argsort';
 import { wasmArgwhereFlat } from '../wasm/argwhere';
+import { wasmExtract, wasmWhere } from '../wasm/gather';
+import { wasmLexsort } from '../wasm/lexsort';
+import { wasmPartition, wasmPartitionSlices } from '../wasm/partition';
+import { wasmReduceCountNz } from '../wasm/reduce_count_nz';
+import { wasmSearchsorted } from '../wasm/searchsorted';
+import { wasmSort, wasmSortSlices } from '../wasm/sort';
 
 /**
  * Check if a value at index i is non-zero (truthy)
@@ -98,7 +98,7 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
   // Precompute axis offsets for writing (always contiguous output)
   const outputStrides = computeStrides(shape);
@@ -107,7 +107,7 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
     outputStrides,
     0,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   // WASM fast path: 1D contiguous sort
@@ -124,7 +124,7 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
         outBaseOffsets,
         axisSize,
         outerSize,
-        dtype
+        dtype,
       )
     ) {
       return result;
@@ -286,7 +286,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
   // Precompute axis offsets for writing (always contiguous output)
   const outputStrides = computeStrides(shape);
@@ -295,7 +295,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
     outputStrides,
     0,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   // WASM fast path: 1D contiguous argsort
@@ -314,7 +314,7 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
         outBaseOffsets,
         axisSize,
         outerSize,
-        dtype
+        dtype,
       )
     ) {
       return result;
@@ -828,7 +828,7 @@ export function partition(storage: ArrayStorage, kth: number, axis: number = -1)
     outputStrides,
     0,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   // WASM fast path: multi-dim partition along contiguous axis (stride=1)
@@ -840,7 +840,7 @@ export function partition(storage: ArrayStorage, kth: number, axis: number = -1)
         axisSize,
         outerSize,
         normalizedKth,
-        dtype
+        dtype,
       )
     ) {
       return result;
@@ -979,7 +979,7 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
   // Precompute axis offsets for writing (always contiguous output)
   const outputStrides = computeStrides(shape);
@@ -988,7 +988,7 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
     outputStrides,
     0,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   // WASM fast path: multi-dim argpartition along contiguous axis (stride=1)
@@ -1002,7 +1002,7 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
         axisSize,
         outerSize,
         normalizedKth,
-        dtype
+        dtype,
       )
     ) {
       return result;
@@ -1404,7 +1404,7 @@ export function flatnonzero(storage: ArrayStorage): ArrayStorage {
 export function where(
   condition: ArrayStorage,
   x?: ArrayStorage,
-  y?: ArrayStorage
+  y?: ArrayStorage,
 ): ArrayStorage | ArrayStorage[] {
   // If only condition is given, return indices of true elements (like nonzero)
   if (x === undefined && y === undefined) {
@@ -1657,7 +1657,7 @@ export function where(
 export function searchsorted(
   storage: ArrayStorage,
   values: ArrayStorage,
-  side: 'left' | 'right' = 'left'
+  side: 'left' | 'right' = 'left',
 ): ArrayStorage {
   // Input array must be 1D
   if (storage.ndim !== 1) {
@@ -2014,7 +2014,7 @@ export function count_nonzero(storage: ArrayStorage, axis?: number): ArrayStorag
     inputStrides,
     off,
     normalizedAxis,
-    outerSize
+    outerSize,
   );
 
   for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {

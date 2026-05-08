@@ -78,7 +78,7 @@ export function take_axis0_2d_f64(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_f64'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -89,7 +89,7 @@ export function take_axis0_2d_f32(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_f32'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -100,7 +100,7 @@ export function take_axis0_2d_i64(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_i64'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -111,7 +111,7 @@ export function take_axis0_2d_u64(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_u64'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -122,7 +122,7 @@ export function take_axis0_2d_i32(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_i32'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -133,7 +133,7 @@ export function take_axis0_2d_u32(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_u32'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -144,7 +144,7 @@ export function take_axis0_2d_i16(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_i16'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -155,7 +155,7 @@ export function take_axis0_2d_u16(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_u16'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -166,7 +166,7 @@ export function take_axis0_2d_i8(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_i8'] as (...args: number[]) => void)(data, indices, out, rows, cols);
@@ -177,7 +177,7 @@ export function take_axis0_2d_u8(
   indices: number,
   out: number,
   rows: number,
-  cols: number
+  cols: number,
 ): void {
   const i = init();
   (i.exports['take_axis0_2d_u8'] as (...args: number[]) => void)(data, indices, out, rows, cols);

@@ -2,14 +2,14 @@
  * Float16 dtype support tests
  */
 
-import { describe, it, expect } from 'vitest';
-import { zeros, ones, array, arange, linspace, empty, full } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { arange, array, empty, full, linspace, ones, zeros } from '../../src';
 import {
-  promoteDTypes,
-  isFloatDType,
-  isValidDType,
   getDTypeSize,
   hasFloat16,
+  isFloatDType,
+  isValidDType,
+  promoteDTypes,
 } from '../../src/common/dtype';
 import { float16BitsToNumber, numberToFloat16Bits } from '../../src/common/float16-conv';
 
@@ -85,7 +85,7 @@ describe('Float16 Support', () => {
           [1, 2],
           [3, 4],
         ],
-        'float16'
+        'float16',
       );
       expect(a.dtype).toBe('float16');
       expect(a.shape).toEqual([2, 2]);
@@ -244,7 +244,7 @@ describe('Float16 Support', () => {
           [1, 2],
           [3, 4],
         ],
-        'float16'
+        'float16',
       );
       const b = a.T;
       expect(b.dtype).toBe('float16');

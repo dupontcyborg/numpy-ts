@@ -5,8 +5,8 @@
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { BenchmarkReport, MultiRuntimeReport } from './types';
 import { getCategorySummaries, groupMultiRuntimeByCategory } from './analysis';
+import type { BenchmarkReport, MultiRuntimeReport } from './types';
 
 /**
  * Format a ratio for display in titles. If <1.0, flip to "Nx faster".
@@ -338,7 +338,7 @@ export async function generateH2HChart(report: BenchmarkReport, outputPath: stri
 
 export async function generateComparisonPNG(
   report: BenchmarkReport,
-  outputPath: string
+  outputPath: string,
 ): Promise<void> {
   const { results } = report;
 
@@ -462,7 +462,7 @@ const RUNTIME_COLORS: Record<string, { bg: string; border: string }> = {
 
 export async function generateMultiRuntimePNGChart(
   report: MultiRuntimeReport,
-  outputPath: string
+  outputPath: string,
 ): Promise<void> {
   const { results, summaries, environment } = report;
   const groups = groupMultiRuntimeByCategory(results);

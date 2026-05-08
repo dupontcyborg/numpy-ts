@@ -5,9 +5,9 @@
  * and verify the results match exactly.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { array } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Slicing', () => {
   beforeAll(() => {
@@ -19,7 +19,7 @@ describe('NumPy Validation: Slicing', () => {
           '   1. Using system Python: pip install numpy\n' +
           '   2. Using conda: conda install numpy\n' +
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
-          `   Current Python command: ${process.env.NUMPY_PYTHON || 'python3'}\n`
+          `   Current Python command: ${process.env.NUMPY_PYTHON || 'python3'}\n`,
       );
     }
 

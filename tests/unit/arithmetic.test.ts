@@ -1,33 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  add,
+  all,
+  any,
+  argmax,
+  argmin,
+  argsort,
   array,
-  zeros,
+  Complex,
+  divide,
+  divmod,
   float_power,
   fmod,
   frexp,
   gcd,
   lcm,
   ldexp,
-  modf,
-  add,
-  subtract,
-  multiply,
-  divide,
-  sum,
   mean,
+  modf,
+  multiply,
   prod,
-  std,
-  argmin,
-  argmax,
-  all,
-  any,
   sort,
-  argsort,
+  std,
+  subtract,
+  sum,
   unique,
-  where,
-  Complex,
   unwrap,
-  divmod,
+  where,
+  zeros,
 } from '../../src';
 
 describe('Arithmetic Operations', () => {
@@ -615,7 +615,7 @@ describe('Dtype branch coverage (standalone functions)', () => {
         [1, 2],
         [3, 4],
       ],
-      'int32'
+      'int32',
     );
     const r = sum(a, 0);
     expect(r.dtype).toBe('int64');
@@ -628,7 +628,7 @@ describe('Dtype branch coverage (standalone functions)', () => {
         [1, 2],
         [3, 4],
       ],
-      'float32'
+      'float32',
     );
     const r = sum(a, 1, true);
     expect(r.shape).toEqual([2, 1]);
@@ -640,7 +640,7 @@ describe('Dtype branch coverage (standalone functions)', () => {
         [1, 2],
         [3, 4],
       ],
-      'int32'
+      'int32',
     );
     const r = mean(a, 0);
     expect(r.size).toBe(2);
@@ -658,7 +658,7 @@ describe('Dtype branch coverage (standalone functions)', () => {
         [1, 2],
         [3, 4],
       ],
-      'float32'
+      'float32',
     );
     expect(std(a, 1).size).toBe(2);
   });
