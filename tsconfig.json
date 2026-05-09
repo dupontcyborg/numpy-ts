@@ -15,23 +15,14 @@
     "sourceMap": true,
     "outDir": "./dist",
     "removeComments": false,
-    "noEmit": false,
 
     /* Interop Constraints */
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
 
     /* Type Checking */
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
@@ -42,11 +33,7 @@
 
     /* Completeness */
     "skipLibCheck": true,
-    "types": ["node"],
-
-    /* Experimental */
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": false
+    "types": ["node"]
   },
   "include": [
     "src/**/*"

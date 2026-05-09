@@ -36,7 +36,7 @@
   "scripts": {
     "build": "npm run build:clean && npm run generate && npm run build:wasm && tsx build.ts && npm run build:types",
     "build:clean": "rm -rf dist",
-    "build:types": "tsc --emitDeclarationOnly --outDir dist/types",
+    "build:types": "tsc --emitDeclarationOnly --rootDir src --outDir dist/types",
     "build:wasm": "tsx scripts/build-wasm.ts",
     "build:wasm:safe": "tsx scripts/build-wasm.ts --safe",
     "build:wasm:small": "tsx scripts/build-wasm.ts --small",
@@ -123,7 +123,7 @@
     "ts-loader": "^9.5.4",
     "ts-morph": "^28.0.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.0.3",
     "webpack": "^5.99.9"
   },

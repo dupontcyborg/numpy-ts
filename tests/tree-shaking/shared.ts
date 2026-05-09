@@ -201,7 +201,7 @@ export async function buildWithRollup(fixtureName: string): Promise<BundleResult
           extensions: ['.ts', '.js'],
         }),
         typescript({
-          tsconfig: resolve(__dirname, '../../tsconfig.json'),
+          tsconfig: resolve(__dirname, 'tsconfig.webpack.json'),
           compilerOptions: {
             declaration: false,
             declarationMap: false,
@@ -305,7 +305,7 @@ export async function buildWithWebpack(fixtureName: string): Promise<BundleResul
             use: {
               loader: 'ts-loader',
               options: {
-                configFile: resolve(__dirname, '../../tsconfig.json'),
+                configFile: resolve(__dirname, 'tsconfig.webpack.json'),
                 compilerOptions: {
                   declaration: false,
                   declarationMap: false,
