@@ -96,7 +96,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.15.2"
+          version: "0.16.0"
 
       - name: Install dependencies
         run: |
@@ -126,7 +126,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.15.2"
+          version: "0.16.0"
 
       - name: Install dependencies
         run: npm install
@@ -180,7 +180,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.15.2"
+          version: "0.16.0"
 
       - name: Upgrade npm (required for OIDC trusted publishing)
         run: npm i -g npm@^11.5.1
