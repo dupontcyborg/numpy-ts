@@ -8,9 +8,9 @@
  *   - plots/js-vs-wasm.html       — full HTML report with per-benchmark tables
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
-import * as fs from 'fs';
-import * as path from 'path';
 import type { BenchmarkComparison } from './types';
 
 const RESULTS_DIR = path.resolve(__dirname, '../results');
@@ -67,7 +67,8 @@ function load(): H2HEntry[] {
     const js_ops = jsEntry.numpyjs.ops_per_sec;
     const wasm_ops = wasmEntry.numpyjs.ops_per_sec;
     const numpy_ops = wasmEntry.numpy.ops_per_sec;
-    if (!isFinite(js_ops) || js_ops <= 0 || !isFinite(wasm_ops) || wasm_ops <= 0) continue;
+    if (!Number.isFinite(js_ops) || js_ops <= 0 || !Number.isFinite(wasm_ops) || wasm_ops <= 0)
+      continue;
 
     entries.push({
       name: wasmEntry.name,

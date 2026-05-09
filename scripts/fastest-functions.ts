@@ -4,9 +4,9 @@
  * Usage: tsx scripts/fastest-functions.ts [N=50]
  */
 
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const data = JSON.parse(
@@ -24,7 +24,7 @@ interface Result {
 }
 
 const sorted: Result[] = [...data.results]
-  .filter((r: Result) => r.ratio != null && isFinite(r.ratio))
+  .filter((r: Result) => r.ratio != null && Number.isFinite(r.ratio))
   .sort((a: Result, b: Result) => a.ratio - b.ratio);
 
 console.log(`Top ${N} fastest functions (JS/Python ratio, lower = better):\n`);

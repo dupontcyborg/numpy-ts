@@ -448,10 +448,10 @@ export { byteswap, fill, item, ndim, shape, size, tobytes, tofile, tolist, view 
 
 // Random Namespace (core.random)
 
-import { DType } from '../common/dtype';
+import type { DType } from '../common/dtype';
 import { NDArrayCore as NDArrayCoreClass } from '../common/ndarray-core';
 import * as randomOps from '../common/ops/random';
-import { ArrayStorage } from '../common/storage';
+import type { ArrayStorage } from '../common/storage';
 
 // Helper to wrap ArrayStorage results in NDArrayCore
 function wrapResult<T>(result: T): T | NDArrayCoreClass {

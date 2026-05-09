@@ -73,8 +73,8 @@ describe('Sorting Functions', () => {
       const result = sort(arr);
       const resultArr = result.toArray() as number[];
       expect(resultArr.slice(0, 3)).toEqual([1, 2, 3]);
-      expect(isNaN(resultArr[3]!)).toBe(true);
-      expect(isNaN(resultArr[4]!)).toBe(true);
+      expect(Number.isNaN(resultArr[3]!)).toBe(true);
+      expect(Number.isNaN(resultArr[4]!)).toBe(true);
     });
 
     it('uses method syntax', () => {
@@ -557,7 +557,7 @@ describe('sort_complex() - additional coverage', () => {
     const values = result.toArray() as Complex[];
     expect(values[0]!.re).toBe(1);
     expect(values[1]!.re).toBe(3);
-    expect(isNaN(values[2]!.re)).toBe(true);
+    expect(Number.isNaN(values[2]!.re)).toBe(true);
   });
 });
 

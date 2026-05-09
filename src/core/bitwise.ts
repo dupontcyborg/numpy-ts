@@ -6,7 +6,7 @@
  */
 
 import * as bitwiseOps from '../common/ops/bitwise';
-import { fromStorage, NDArrayCore, toStorage } from './types';
+import { fromStorage, type NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Bitwise Operations

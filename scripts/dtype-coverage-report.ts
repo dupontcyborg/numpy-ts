@@ -15,9 +15,9 @@
  *   npx tsx scripts/dtype-coverage-report.ts --summary   # summary only
  */
 
-import { readdirSync, readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ALL_DTYPES } from '../tests/validation/dtype-sweep/_dtype-matrix';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -188,8 +188,7 @@ function extractNamespaceFunctions(): string[] {
     if (!nsM) return;
     // Match lines like: `  methodName: (` or `  methodName: function`
     const methodRegex = /^\s{2}(\w+)\s*:\s*\(/gm;
-    let m;
-    while ((m = methodRegex.exec(nsM[1]!)) !== null) {
+    for (let m = methodRegex.exec(nsM[1]!); m !== null; m = methodRegex.exec(nsM[1]!)) {
       fns.push(`${nsName}.${m[1]}`);
     }
   }
@@ -283,7 +282,7 @@ function resolveLoopDtypes(
 ): readonly string[] | null {
   const m = line.match(/for\s*\(\s*const\s+\w+\s+of\s+(.+?)\s*\)/);
   if (!m) return null;
-  let expr = m[1]!
+  const expr = m[1]!
     .trim()
     .replace(/[{)]\s*$/, '')
     .trim();
@@ -457,7 +456,7 @@ function parseTestFile(filePath: string): CoverageEntry[] {
       const loop = forLoopStack.find((l) => l.varName === varName);
       if (loop) {
         // Variable is a dtype from a for-loop — resolve function name from describe stack
-        let fnName = resolveFnName();
+        const fnName = resolveFnName();
         if (fnName) {
           // Scan for oracle
           let hasOracle = false;

@@ -13,7 +13,7 @@ import {
   isBigIntDType,
   isComplexDType,
   promoteDTypes,
-  TypedArray,
+  type TypedArray,
 } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {

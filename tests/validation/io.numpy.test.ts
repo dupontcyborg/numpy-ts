@@ -6,10 +6,10 @@
  * 2. NPY/NPZ files created by numpy-ts can be read correctly by Python
  */
 
-import { execSync } from 'child_process';
-import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { execSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { arange, array } from '../../src';
 import { Complex } from '../../src/common/complex';

@@ -9,7 +9,7 @@
  * and return boolean arrays (dtype: 'bool').
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import {
   type DType,
   hasFloat16,

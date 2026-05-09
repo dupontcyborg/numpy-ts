@@ -223,7 +223,7 @@ export function arccosh(a: ArrayStorage): ArrayStorage {
 
       // log(...)
       const logMag = Math.sqrt(sumRe * sumRe + sumIm * sumIm);
-      let resultRe = Math.log(logMag);
+      const resultRe = Math.log(logMag);
       let resultIm = Math.atan2(sumIm, sumRe);
 
       // Branch cut adjustment: for purely real z < 1, we need to adjust

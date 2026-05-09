@@ -8,10 +8,10 @@
  * 3. Exports to JSON for comparison
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Import everything from numpy-ts (main entry point)
 import * as np from '../src/index.js';

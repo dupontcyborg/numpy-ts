@@ -8,7 +8,7 @@
  * All functions throw TypeError for complex dtypes.
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import { isComplexDType, isIntegerDType, mathResultDtype, throwIfComplex } from '../dtype';
 import { ArrayStorage } from '../storage';
 
@@ -45,7 +45,7 @@ function complexComponentwise(a: ArrayStorage, fn: (x: number) => number): Array
  * Round half to even (banker's rounding) - matches NumPy behavior
  */
 function roundHalfToEven(x: number): number {
-  if (!isFinite(x)) return x;
+  if (!Number.isFinite(x)) return x;
   const floor = Math.floor(x);
   const decimal = x - floor;
   // If exactly 0.5, round to nearest even
@@ -60,7 +60,7 @@ function roundHalfToEven(x: number): number {
  */
 export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
   if (isComplexDType(a.dtype)) {
-    const multiplier = Math.pow(10, decimals);
+    const multiplier = 10 ** decimals;
     return complexComponentwise(a, (x) => roundHalfToEven(x * multiplier) / multiplier);
   }
   if (isIntegerDType(a.dtype) && decimals >= 0) return a.copy();
@@ -81,7 +81,7 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
   const result = ArrayStorage.zeros(shape, resultDtype);
   const resultData = result.data;
 
-  const multiplier = Math.pow(10, decimals);
+  const multiplier = 10 ** decimals;
 
   if (a.isCContiguous) {
     const data = a.data;

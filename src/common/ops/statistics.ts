@@ -15,7 +15,7 @@ import {
   isComplexDType,
   isFloatDType,
   promoteDTypes,
-  TypedArray,
+  type TypedArray,
   throwIfComplex,
 } from '../dtype';
 import { ArrayStorage } from '../storage';
@@ -668,7 +668,7 @@ export function histogramdd(
     const binVolumes = new Float64Array(histSize);
     for (let i = 0; i < histSize; i++) {
       let volume = 1;
-      let idx = i;
+      const idx = i;
       for (let d = 0; d < D; d++) {
         const binIdx = Math.floor(idx / strides[d]!) % binCounts[d]!;
         const edges = allEdges[d]!;
@@ -1422,13 +1422,13 @@ export function histogram_bin_edges(
     maxVal = -Infinity;
     for (let i = 0; i < aSize; i++) {
       const val = Number(aData[i]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         if (val < minVal) minVal = val;
         if (val > maxVal) maxVal = val;
       }
     }
     // Handle edge cases
-    if (!isFinite(minVal) || !isFinite(maxVal)) {
+    if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) {
       minVal = 0;
       maxVal = 1;
     } else if (minVal === maxVal) {
@@ -1483,7 +1483,7 @@ function computeOptimalBins(
   let sum = 0;
   for (let i = 0; i < size; i++) {
     const val = Number(data[i]);
-    if (!isNaN(val)) {
+    if (!Number.isNaN(val)) {
       values.push(val);
       sum += val;
     }
@@ -1515,18 +1515,18 @@ function computeOptimalBins(
       return Math.ceil(Math.log2(n) + 1);
 
     case 'rice':
-      return Math.ceil(2 * Math.pow(n, 1 / 3));
+      return Math.ceil(2 * n ** (1 / 3));
 
     case 'scott': {
       if (std === 0) return 1;
-      const scottBinWidth = (3.5 * std) / Math.pow(n, 1 / 3);
+      const scottBinWidth = (3.5 * std) / n ** (1 / 3);
       return Math.ceil(range / scottBinWidth);
     }
 
     case 'fd': {
       // Freedman-Diaconis
       if (iqr === 0) return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
-      const fdBinWidth = (2 * iqr) / Math.pow(n, 1 / 3);
+      const fdBinWidth = (2 * iqr) / n ** (1 / 3);
       return Math.ceil(range / fdBinWidth);
     }
 
@@ -1543,7 +1543,7 @@ function computeOptimalBins(
     default: {
       // Use maximum of Sturges and FD
       const sturgeBins = Math.ceil(Math.log2(n) + 1);
-      const fdBins = iqr === 0 ? sturgeBins : Math.ceil(range / ((2 * iqr) / Math.pow(n, 1 / 3)));
+      const fdBins = iqr === 0 ? sturgeBins : Math.ceil(range / ((2 * iqr) / n ** (1 / 3)));
       return Math.max(sturgeBins, fdBins);
     }
   }
@@ -1557,7 +1557,7 @@ function computeSkewness(values: number[], mean: number, std: number): number {
   const n = values.length;
   let sum = 0;
   for (let i = 0; i < n; i++) {
-    sum += Math.pow((values[i]! - mean) / std, 3);
+    sum += ((values[i]! - mean) / std) ** 3;
   }
   return sum / n;
 }

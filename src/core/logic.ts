@@ -7,7 +7,7 @@
 
 import * as comparisonOps from '../common/ops/comparison';
 import * as logicOps from '../common/ops/logic';
-import { type DType, fromStorage, NDArrayCore, toStorage } from './types';
+import { type DType, fromStorage, type NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Logical Operations

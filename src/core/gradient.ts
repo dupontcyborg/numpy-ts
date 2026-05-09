@@ -6,7 +6,7 @@
  */
 
 import * as gradientOps from '../common/ops/gradient';
-import { fromStorage, fromStorageArray, NDArrayCore, toStorage } from './types';
+import { fromStorage, fromStorageArray, type NDArrayCore, toStorage } from './types';
 
 /** Calculate n-th discrete difference */
 export function diff(a: NDArrayCore, n?: number, axis?: number): NDArrayCore {

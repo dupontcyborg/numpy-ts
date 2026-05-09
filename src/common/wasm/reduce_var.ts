@@ -7,7 +7,7 @@
  */
 
 import type { DType, TypedArray } from '../dtype';
-import { ArrayStorage } from '../storage';
+import type { ArrayStorage } from '../storage';
 import {
   reduce_var_f32,
   reduce_var_f64,

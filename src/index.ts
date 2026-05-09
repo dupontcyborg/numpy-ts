@@ -710,9 +710,9 @@ export {
 // Random Namespace (np.random)
 // ============================================================
 
-import { DType } from './common/dtype';
+import type { DType } from './common/dtype';
 import * as randomOps from './common/ops/random';
-import { ArrayStorage } from './common/storage';
+import type { ArrayStorage } from './common/storage';
 import { NDArray as NDArrayClass } from './full';
 
 // Helper to wrap ArrayStorage results in NDArray

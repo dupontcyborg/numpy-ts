@@ -389,7 +389,7 @@ export function logspace(
   }
 
   if (num === 1) {
-    return array([Math.pow(base, start)], dtype);
+    return array([base ** start], dtype);
   }
 
   const storage = ArrayStorage.empty([num], dtype);
@@ -399,23 +399,23 @@ export function logspace(
   if (isBigIntDType(dtype)) {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(Math.pow(base, exponent)));
+      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(base ** exponent));
     }
   } else if (dtype === 'bool') {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as Uint8Array)[i] = Math.pow(base, exponent) !== 0 ? 1 : 0;
+      (data as Uint8Array)[i] = base ** exponent !== 0 ? 1 : 0;
     }
   } else if (isComplexDType(dtype)) {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as Float64Array | Float32Array)[i * 2] = Math.pow(base, exponent);
+      (data as Float64Array | Float32Array)[i * 2] = base ** exponent;
       (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Math.pow(base, exponent);
+      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = base ** exponent;
     }
   }
 
@@ -891,7 +891,7 @@ export function vander(x: NDArrayCore, N?: number, increasing: boolean = false):
     const val = Number(typeof data[i] === 'bigint' ? data[i] : data[isComplex ? i * 2 : i]);
     for (let j = 0; j < cols; j++) {
       const exp = increasing ? j : cols - 1 - j;
-      const v = Math.pow(val, exp);
+      const v = val ** exp;
       const idx = i * cols + j;
       if (isBigInt) {
         (resultData as unknown as BigInt64Array)[idx] = BigInt(Math.round(v));

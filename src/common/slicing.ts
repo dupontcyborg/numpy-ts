@@ -44,7 +44,7 @@ export function parseSlice(sliceStr: string): SliceSpec {
       throw new Error(`Invalid slice index: "${sliceStr}" (must be integer)`);
     }
     const index = parseInt(sliceStr, 10);
-    if (isNaN(index)) {
+    if (Number.isNaN(index)) {
       throw new Error(`Invalid slice index: "${sliceStr}"`);
     }
     return {
@@ -67,13 +67,13 @@ export function parseSlice(sliceStr: string): SliceSpec {
   const step = parts[2] === '' || parts[2] === undefined ? 1 : parseInt(parts[2], 10);
 
   // Validate parsed values
-  if (start !== null && isNaN(start)) {
+  if (start !== null && Number.isNaN(start)) {
     throw new Error(`Invalid start index in slice: "${sliceStr}"`);
   }
-  if (stop !== null && isNaN(stop)) {
+  if (stop !== null && Number.isNaN(stop)) {
     throw new Error(`Invalid stop index in slice: "${sliceStr}"`);
   }
-  if (isNaN(step)) {
+  if (Number.isNaN(step)) {
     throw new Error(`Invalid step in slice: "${sliceStr}"`);
   }
   if (step === 0) {

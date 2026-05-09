@@ -9,7 +9,7 @@ import { type DType, isBigIntDType } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
 import * as comparisonOps from '../common/ops/comparison';
-import { ArrayStorage } from '../common/storage';
+import type { ArrayStorage } from '../common/storage';
 import { array } from './creation';
 import { fromStorage, fromStorageView, toStorage } from './types';
 

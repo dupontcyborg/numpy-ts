@@ -34,7 +34,8 @@ import {
 // Safe: .wasm.ts modules use lazy init(), importing doesn't instantiate.
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 // Minimum total elements (M*K + K*N) for WASM to be worth the copy overhead.

@@ -11,7 +11,7 @@ import {
   Complex,
   fromStorage,
   fromStorageView,
-  NDArrayCore,
+  type NDArrayCore,
   toStorage,
 } from './types';
 

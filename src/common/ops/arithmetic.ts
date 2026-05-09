@@ -8,7 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import type { DType } from '../dtype';
 import {
   boolArithmeticDtype,
@@ -121,7 +121,7 @@ function complexMinMax(
     // Scalar second operand (real number → im = 0)
     const bRe = x2;
     const bIm = 0;
-    const bNaN = isNaN(bRe);
+    const bNaN = Number.isNaN(bRe);
     for (let i = 0; i < size; i++) {
       let aRe: number, aIm: number;
       if (x1IsComplex) {
@@ -130,7 +130,7 @@ function complexMinMax(
         aRe = Number(x1Data[x1Off + i]);
         aIm = 0;
       }
-      const aNaN = isNaN(aRe) || isNaN(aIm);
+      const aNaN = Number.isNaN(aRe) || Number.isNaN(aIm);
       let pickRe: number, pickIm: number;
       if (ignoreNaN) {
         if (aNaN && bNaN) {
@@ -192,8 +192,8 @@ function complexMinMax(
       bRe = Number(x2Data[x2Off + i]);
       bIm = 0;
     }
-    const aNaN = isNaN(aRe) || isNaN(aIm);
-    const bNaN = isNaN(bRe) || isNaN(bIm);
+    const aNaN = Number.isNaN(aRe) || Number.isNaN(aIm);
+    const bNaN = Number.isNaN(bRe) || Number.isNaN(bIm);
     let pickRe: number, pickIm: number;
     if (ignoreNaN) {
       if (aNaN && bNaN) {
@@ -1883,7 +1883,7 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
           // z^n = |z|^n * exp(i * n * arg(z))
           const mag = Math.hypot(re, im);
           const arg = Math.atan2(im, re);
-          const newMag = Math.pow(mag, x2);
+          const newMag = mag ** x2;
           const newArg = arg * x2;
 
           resultData[i * 2] = newMag * Math.cos(newArg);
@@ -1895,7 +1895,7 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
 
           const mag = Math.hypot(v.re, v.im);
           const arg = Math.atan2(v.im, v.re);
-          const newMag = Math.pow(mag, x2);
+          const newMag = mag ** x2;
           const newArg = arg * x2;
 
           resultData[i * 2] = newMag * Math.cos(newArg);
@@ -1982,11 +1982,11 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
       const x1Data = x1.data;
       const x1Off = x1.offset;
       for (let i = 0; i < size; i++) {
-        resultData[i] = Math.pow(Number(x1Data[x1Off + i]!), x2);
+        resultData[i] = Number(x1Data[x1Off + i]!) ** x2;
       }
     } else {
       for (let i = 0; i < size; i++) {
-        resultData[i] = Math.pow(Number(x1.iget(i)), x2);
+        resultData[i] = Number(x1.iget(i)) ** x2;
       }
     }
 
@@ -2004,11 +2004,11 @@ export function float_power(x1: ArrayStorage, x2: ArrayStorage | number): ArrayS
     const x2Data = x2.data;
     const x2Off = x2.offset;
     for (let i = 0; i < size; i++) {
-      resultData[i] = Math.pow(Number(x1Data[x1Off + i]!), Number(x2Data[x2Off + i]!));
+      resultData[i] = Number(x1Data[x1Off + i]!) ** Number(x2Data[x2Off + i]!);
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = Math.pow(Number(x1.iget(i)), Number(x2.iget(i)));
+      resultData[i] = Number(x1.iget(i)) ** Number(x2.iget(i));
     }
   }
   return result;
@@ -2082,24 +2082,24 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
     const off = x.offset;
     for (let i = 0; i < size; i++) {
       const val = Number(data[off + i]!);
-      if (val === 0 || !isFinite(val)) {
+      if (val === 0 || !Number.isFinite(val)) {
         mantissaData[i] = val;
         exponentData[i] = 0;
       } else {
         const exp = Math.floor(Math.log2(Math.abs(val))) + 1;
-        mantissaData[i] = val / Math.pow(2, exp);
+        mantissaData[i] = val / 2 ** exp;
         exponentData[i] = exp;
       }
     }
   } else {
     for (let i = 0; i < size; i++) {
       const val = Number(x.iget(i));
-      if (val === 0 || !isFinite(val)) {
+      if (val === 0 || !Number.isFinite(val)) {
         mantissaData[i] = val;
         exponentData[i] = 0;
       } else {
         const exp = Math.floor(Math.log2(Math.abs(val))) + 1;
-        mantissaData[i] = val / Math.pow(2, exp);
+        mantissaData[i] = val / 2 ** exp;
         exponentData[i] = exp;
       }
     }
@@ -2395,7 +2395,7 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
       const result = ArrayStorage.empty(Array.from(x1.shape), resultDtype);
       const resultData = result.data;
       const size = x1.size;
-      const multiplier = Math.pow(2, x2);
+      const multiplier = 2 ** x2;
 
       if (x1.isCContiguous) {
         const data = x1.data;
@@ -2426,11 +2426,11 @@ export function ldexp(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage
     const x2Data = x2.data;
     const x2Off = x2.offset;
     for (let i = 0; i < size; i++) {
-      resultData[i] = Number(x1Data[x1Off + i]!) * Math.pow(2, Number(x2Data[x2Off + i]!));
+      resultData[i] = Number(x1Data[x1Off + i]!) * 2 ** Number(x2Data[x2Off + i]!);
     }
   } else {
     for (let i = 0; i < size; i++) {
-      resultData[i] = Number(x1.iget(i)) * Math.pow(2, Number(x2.iget(i)));
+      resultData[i] = Number(x1.iget(i)) * 2 ** Number(x2.iget(i));
     }
   }
   return result;
@@ -2656,7 +2656,7 @@ export function maximum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
       for (let i = 0; i < size; i++) {
         const val = Number(x1Data[i]!);
         // NaN propagation: Math.max doesn't handle NaN correctly
-        resultData[i] = isNaN(val) || isNaN(x2) ? NaN : Math.max(val, x2);
+        resultData[i] = Number.isNaN(val) || Number.isNaN(x2) ? NaN : Math.max(val, x2);
       }
     }
     return result;
@@ -2665,7 +2665,7 @@ export function maximum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
   return elementwiseBinaryOp(
     x1,
     x2,
-    (a, b) => (isNaN(a) || isNaN(b) ? NaN : Math.max(a, b)),
+    (a, b) => (Number.isNaN(a) || Number.isNaN(b) ? NaN : Math.max(a, b)),
     'maximum',
   );
 }
@@ -2714,7 +2714,7 @@ export function minimum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
       for (let i = 0; i < size; i++) {
         const val = Number(x1Data[i]!);
         // NaN propagation
-        resultData[i] = isNaN(val) || isNaN(x2) ? NaN : Math.min(val, x2);
+        resultData[i] = Number.isNaN(val) || Number.isNaN(x2) ? NaN : Math.min(val, x2);
       }
     }
     return result;
@@ -2723,7 +2723,7 @@ export function minimum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
   return elementwiseBinaryOp(
     x1,
     x2,
-    (a, b) => (isNaN(a) || isNaN(b) ? NaN : Math.min(a, b)),
+    (a, b) => (Number.isNaN(a) || Number.isNaN(b) ? NaN : Math.min(a, b)),
     'minimum',
   );
 }
@@ -2772,9 +2772,9 @@ export function fmax(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
       for (let i = 0; i < size; i++) {
         const val = Number(x1Data[i]!);
         // Ignore NaN: return the non-NaN value, or NaN if both are NaN
-        if (isNaN(val)) {
+        if (Number.isNaN(val)) {
           resultData[i] = x2;
-        } else if (isNaN(x2)) {
+        } else if (Number.isNaN(x2)) {
           resultData[i] = val;
         } else {
           resultData[i] = Math.max(val, x2);
@@ -2788,8 +2788,8 @@ export function fmax(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
     x1,
     x2,
     (a, b) => {
-      if (isNaN(a)) return b;
-      if (isNaN(b)) return a;
+      if (Number.isNaN(a)) return b;
+      if (Number.isNaN(b)) return a;
       return Math.max(a, b);
     },
     'fmax',
@@ -2840,9 +2840,9 @@ export function fmin(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
       for (let i = 0; i < size; i++) {
         const val = Number(x1Data[i]!);
         // Ignore NaN: return the non-NaN value, or NaN if both are NaN
-        if (isNaN(val)) {
+        if (Number.isNaN(val)) {
           resultData[i] = x2;
-        } else if (isNaN(x2)) {
+        } else if (Number.isNaN(x2)) {
           resultData[i] = val;
         } else {
           resultData[i] = Math.min(val, x2);
@@ -2856,8 +2856,8 @@ export function fmin(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
     x1,
     x2,
     (a, b) => {
-      if (isNaN(a)) return b;
-      if (isNaN(b)) return a;
+      if (Number.isNaN(a)) return b;
+      if (Number.isNaN(b)) return a;
       return Math.min(a, b);
     },
     'fmin',
@@ -2892,7 +2892,7 @@ export function nan_to_num(
     const result = ArrayStorage.empty(shape, dtype);
     const dstData = result.data as Float64Array | Float32Array;
     const replaceComponent = (v: number): number => {
-      if (isNaN(v)) return nan;
+      if (Number.isNaN(v)) return nan;
       if (v === Infinity) return posinfVal;
       if (v === -Infinity) return neginfVal;
       return v;
@@ -2925,7 +2925,7 @@ export function nan_to_num(
   } else {
     for (let i = 0; i < size; i++) {
       const val = Number(xData[i]!);
-      if (isNaN(val)) {
+      if (Number.isNaN(val)) {
         resultData[i] = nan;
       } else if (val === Infinity) {
         resultData[i] = posinfVal;

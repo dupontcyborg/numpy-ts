@@ -7,7 +7,7 @@
 
 import * as hyperbolicOps from '../common/ops/hyperbolic';
 import * as trigOps from '../common/ops/trig';
-import { fromStorage, NDArrayCore, toStorage } from './types';
+import { fromStorage, type NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Basic Trigonometric Functions

@@ -8,7 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import {
   type DType,
   isBigIntDType,
@@ -277,7 +277,7 @@ function arcsinComplex(zRe: number, zIm: number): [number, number] {
   const logIm = Math.atan2(sumIm, sumRe);
 
   // -i * log = -i * (logRe + logIm*i) = logIm - logRe*i
-  let resultRe = logIm;
+  const resultRe = logIm;
   let resultIm = -logRe;
 
   // Branch cut adjustment: for purely real z > 1, the standard formula gives
@@ -373,7 +373,7 @@ function arccosComplex(zRe: number, zIm: number): [number, number] {
   const logIm = Math.atan2(sumIm, sumRe);
 
   // -i * log = -i * (logRe + logIm*i) = logIm - logRe*i
-  let resultRe = logIm;
+  const resultRe = logIm;
   let resultIm = -logRe;
 
   // Branch cut adjustment: for purely real z > 1, the standard formula gives

@@ -7,7 +7,7 @@
 
 import * as reductionOps from '../common/ops/reduction';
 import * as shapeOps from '../common/ops/shape';
-import { ArrayStorage, Complex, fromStorage, NDArrayCore, toStorage } from './types';
+import { ArrayStorage, Complex, fromStorage, type NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Multi-axis reduction helper

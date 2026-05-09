@@ -9,8 +9,8 @@
  * Usage: npx tsx scripts/zig-dead-code.ts [--verbose] [--list]
  */
 
-import { existsSync, readdirSync, readFileSync } from 'fs';
-import { basename, join } from 'path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 // --- Config ---
 const ZIG_DIR = 'src/common/wasm/zig';

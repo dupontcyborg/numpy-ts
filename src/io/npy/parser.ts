@@ -201,7 +201,7 @@ function parseHeaderDict(headerStr: string): NpyHeader {
       .filter((s) => s !== '')
       .map((s) => {
         const n = parseInt(s, 10);
-        if (isNaN(n)) {
+        if (Number.isNaN(n)) {
           throw new InvalidNpyError(`Invalid shape value: ${s}`);
         }
         return n;

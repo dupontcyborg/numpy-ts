@@ -6,7 +6,7 @@
  */
 
 import * as roundingOps from '../common/ops/rounding';
-import { fromStorage, NDArrayCore, toStorage } from './types';
+import { fromStorage, type NDArrayCore, toStorage } from './types';
 
 /** Round to given decimals */
 export function around(a: NDArrayCore, decimals: number = 0): NDArrayCore {

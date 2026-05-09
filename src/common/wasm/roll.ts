@@ -5,7 +5,7 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import { roll_f32, roll_f64, roll_i8, roll_i16, roll_i32, roll_i64 } from './bins/roll.wasm';
 import { wasmConfig } from './config';

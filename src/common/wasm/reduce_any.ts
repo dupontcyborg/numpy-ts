@@ -6,8 +6,8 @@
  * uint types route to signed kernels (non-zero check is sign-agnostic).
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
-import { ArrayStorage } from '../storage';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import type { ArrayStorage } from '../storage';
 import {
   reduce_any_f32,
   reduce_any_f64,

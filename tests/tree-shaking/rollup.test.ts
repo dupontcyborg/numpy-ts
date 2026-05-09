@@ -1,9 +1,9 @@
-import { mkdir } from 'fs/promises';
-import { resolve } from 'path';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   ALL_FIXTURES,
-  BundleResult,
+  type BundleResult,
   buildWithRollup,
   logBundleSizes,
   OUTPUT_DIR,

@@ -7,7 +7,7 @@
 
 import { Complex } from '../common/complex';
 import * as statisticsOps from '../common/ops/statistics';
-import { ArrayStorage, fromStorage, NDArrayCore, toStorage } from './types';
+import { type ArrayStorage, fromStorage, NDArrayCore, toStorage } from './types';
 
 type BinStrategyString = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
 

@@ -7,8 +7,8 @@ import { ArrayStorage } from '../storage';
 
 // Helper: compare complex numbers lexicographically
 function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
-  const aIsNaN = isNaN(aRe) || isNaN(aIm);
-  const bIsNaN = isNaN(bRe) || isNaN(bIm);
+  const aIsNaN = Number.isNaN(aRe) || Number.isNaN(aIm);
+  const bIsNaN = Number.isNaN(bRe) || Number.isNaN(bIm);
   if (aIsNaN && bIsNaN) return 0;
   if (aIsNaN) return 1;
   if (bIsNaN) return -1;
@@ -21,8 +21,8 @@ function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): num
 
 // Helper: check if two complex numbers are equal
 function complexEqual(aRe: number, aIm: number, bRe: number, bIm: number): boolean {
-  const aIsNaN = isNaN(aRe) || isNaN(aIm);
-  const bIsNaN = isNaN(bRe) || isNaN(bIm);
+  const aIsNaN = Number.isNaN(aRe) || Number.isNaN(aIm);
+  const bIsNaN = Number.isNaN(bRe) || Number.isNaN(bIm);
   if (aIsNaN && bIsNaN) return true; // Both NaN are considered equal for uniqueness
   if (aIsNaN || bIsNaN) return false;
   return aRe === bRe && aIm === bIm;
@@ -136,7 +136,7 @@ export function unique(
   if (axis !== undefined) {
     const shape = Array.from(a.shape);
     const ndim = shape.length;
-    let normalizedAxis = axis < 0 ? ndim + axis : axis;
+    const normalizedAxis = axis < 0 ? ndim + axis : axis;
     if (normalizedAxis < 0 || normalizedAxis >= ndim) {
       throw new Error(`unique: axis ${axis} out of bounds for array of dimension ${ndim}`);
     }
@@ -264,7 +264,7 @@ export function unique(
     let nanIdx = -1;
     for (let i = 0; i < uniqueValues.length; i++) {
       const { re, im } = uniqueValues[i]!;
-      if (isNaN(re) || isNaN(im)) {
+      if (Number.isNaN(re) || Number.isNaN(im)) {
         nanIdx = i;
       } else {
         valueToUniqueIdx.set(`${re},${im}`, i);
@@ -273,7 +273,7 @@ export function unique(
     for (let i = 0; i < size; i++) {
       const re = complexData[(off + i) * 2]!;
       const im = complexData[(off + i) * 2 + 1]!;
-      if (isNaN(re) || isNaN(im)) {
+      if (Number.isNaN(re) || Number.isNaN(im)) {
         inverse[i] = nanIdx;
       } else {
         inverse[i] = valueToUniqueIdx.get(`${re},${im}`)!;
@@ -739,9 +739,9 @@ export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   }
 
   xorValues.sort((a, b) => {
-    if (isNaN(a) && isNaN(b)) return 0;
-    if (isNaN(a)) return 1;
-    if (isNaN(b)) return -1;
+    if (Number.isNaN(a) && Number.isNaN(b)) return 0;
+    if (Number.isNaN(a)) return 1;
+    if (Number.isNaN(b)) return -1;
     return a - b;
   });
 
@@ -819,9 +819,9 @@ export function union1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   }
 
   realValues.sort((a, b) => {
-    if (isNaN(a) && isNaN(b)) return 0;
-    if (isNaN(a)) return 1;
-    if (isNaN(b)) return -1;
+    if (Number.isNaN(a) && Number.isNaN(b)) return 0;
+    if (Number.isNaN(a)) return 1;
+    if (Number.isNaN(b)) return -1;
     return a - b;
   });
 

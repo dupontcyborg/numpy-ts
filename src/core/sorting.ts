@@ -6,7 +6,13 @@
  */
 
 import * as sortingOps from '../common/ops/sorting';
-import { ArrayStorage, fromStorage, fromStorageArray, NDArrayCore, toStorage } from './types';
+import {
+  type ArrayStorage,
+  fromStorage,
+  fromStorageArray,
+  type NDArrayCore,
+  toStorage,
+} from './types';
 
 // ============================================================
 // Sorting

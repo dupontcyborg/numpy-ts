@@ -8,7 +8,7 @@
 
 import { Complex } from '../complex';
 import { type DType, promoteDTypes, type TypedArray } from '../dtype';
-import { ArrayStorage } from '../storage';
+import type { ArrayStorage } from '../storage';
 import { vdot_c64, vdot_c128 } from './bins/vdot.wasm';
 import { wasmConfig } from './config';
 import { getSharedMemory, resetScratchAllocator, resolveInputPtr, scratchAlloc } from './runtime';

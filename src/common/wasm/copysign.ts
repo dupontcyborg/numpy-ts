@@ -6,7 +6,7 @@
  * Output is always float64. Returns null if WASM can't handle.
  */
 
-import { type DType, effectiveDType, hasFloat16, TypedArray } from '../dtype';
+import { type DType, effectiveDType, hasFloat16, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
   copysign_f16,

@@ -254,7 +254,7 @@ export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArrayCor
   for (let i = 0; i < n; i++) {
     const row: number[] = [];
     for (let j = deg; j >= 0; j--) {
-      row.push(Math.pow(xf64[i]!, j));
+      row.push(xf64[i]! ** j);
     }
     A.push(row);
   }
@@ -487,8 +487,8 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
   }
 
   // Find roots of the reduced polynomial
-  let realParts: number[] = [];
-  let imagParts: number[] = [];
+  const realParts: number[] = [];
+  const imagParts: number[] = [];
 
   if (n === 1) {
     realParts.push(-coeffs[1]! / coeffs[0]!);

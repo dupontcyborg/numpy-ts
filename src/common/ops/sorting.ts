@@ -5,7 +5,7 @@
  * @module ops/sorting
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import { type DType, hasFloat16, isBigIntDType, isComplexDType } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { ArrayStorage } from '../storage';
@@ -38,8 +38,8 @@ function isNonZero(data: ArrayStorage['data'], index: number, isComplex: boolean
  * NaN values sort to the end
  */
 function complexCompare(aRe: number, aIm: number, bRe: number, bIm: number): number {
-  const aIsNaN = isNaN(aRe) || isNaN(aIm);
-  const bIsNaN = isNaN(bRe) || isNaN(bIm);
+  const aIsNaN = Number.isNaN(aRe) || Number.isNaN(aIm);
+  const bIsNaN = Number.isNaN(bRe) || Number.isNaN(bIm);
 
   // NaN values go to end
   if (aIsNaN && bIsNaN) return 0;
@@ -196,9 +196,9 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
 
       // Sort (NaN values go to end)
       f32Slice.sort((a, b) => {
-        if (isNaN(a) && isNaN(b)) return 0;
-        if (isNaN(a)) return 1;
-        if (isNaN(b)) return -1;
+        if (Number.isNaN(a) && Number.isNaN(b)) return 0;
+        if (Number.isNaN(a)) return 1;
+        if (Number.isNaN(b)) return -1;
         return a - b;
       });
 
@@ -224,9 +224,9 @@ export function sort(storage: ArrayStorage, axis: number = -1): ArrayStorage {
 
       // Sort (NaN values go to end)
       values.sort((a, b) => {
-        if (isNaN(a) && isNaN(b)) return 0;
-        if (isNaN(a)) return 1;
-        if (isNaN(b)) return -1;
+        if (Number.isNaN(a) && Number.isNaN(b)) return 0;
+        if (Number.isNaN(a)) return 1;
+        if (Number.isNaN(b)) return -1;
         return a - b;
       });
 
@@ -386,9 +386,9 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
       indices.sort((a, b) => {
         const va = f32Slice[a]!;
         const vb = f32Slice[b]!;
-        if (isNaN(va) && isNaN(vb)) return 0;
-        if (isNaN(va)) return 1;
-        if (isNaN(vb)) return -1;
+        if (Number.isNaN(va) && Number.isNaN(vb)) return 0;
+        if (Number.isNaN(va)) return 1;
+        if (Number.isNaN(vb)) return -1;
         return va - vb;
       });
 
@@ -411,9 +411,9 @@ export function argsort(storage: ArrayStorage, axis: number = -1): ArrayStorage 
 
       // Sort by value (NaN values go to end)
       values.sort((a, b) => {
-        if (isNaN(a.value) && isNaN(b.value)) return 0;
-        if (isNaN(a.value)) return 1;
-        if (isNaN(b.value)) return -1;
+        if (Number.isNaN(a.value) && Number.isNaN(b.value)) return 0;
+        if (Number.isNaN(a.value)) return 1;
+        if (Number.isNaN(b.value)) return -1;
         return a.value - b.value;
       });
 
@@ -506,9 +506,9 @@ export function lexsort(keys: ArrayStorage[]): ArrayStorage {
         }
 
         // Handle NaN (put at end)
-        if (isNaN(va) && isNaN(vb)) continue;
-        if (isNaN(va)) return 1;
-        if (isNaN(vb)) return -1;
+        if (Number.isNaN(va) && Number.isNaN(vb)) continue;
+        if (Number.isNaN(va)) return 1;
+        if (Number.isNaN(vb)) return -1;
 
         if (va < vb) return -1;
         if (va > vb) return 1;
@@ -558,8 +558,8 @@ function quickselectNumbers(arr: number[], kth: number): void {
     for (let j = left; j < right; j++) {
       const val = arr[j]!;
       // Handle NaN: NaN values go to the end
-      const valIsNaN = isNaN(val);
-      const pivotIsNaN = isNaN(pivot);
+      const valIsNaN = Number.isNaN(val);
+      const pivotIsNaN = Number.isNaN(pivot);
 
       if (!valIsNaN && (pivotIsNaN || val <= pivot)) {
         [arr[i], arr[j]] = [arr[j]!, arr[i]!];
@@ -700,8 +700,8 @@ function quickselectNumberIndices(arr: { value: number; idx: number }[], kth: nu
     for (let j = left; j < right; j++) {
       const val = arr[j]!.value;
       // Handle NaN: NaN values go to the end
-      const valIsNaN = isNaN(val);
-      const pivotIsNaN = isNaN(pivot);
+      const valIsNaN = Number.isNaN(val);
+      const pivotIsNaN = Number.isNaN(pivot);
 
       if (!valIsNaN && (pivotIsNaN || val <= pivot)) {
         [arr[i], arr[j]] = [arr[j]!, arr[i]!];
@@ -1111,9 +1111,9 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
 
     // Sort (NaN values go to end)
     values.sort((a, b) => {
-      if (isNaN(a) && isNaN(b)) return 0;
-      if (isNaN(a)) return 1;
-      if (isNaN(b)) return -1;
+      if (Number.isNaN(a) && Number.isNaN(b)) return 0;
+      if (Number.isNaN(a)) return 1;
+      if (Number.isNaN(b)) return -1;
       return a - b;
     });
 

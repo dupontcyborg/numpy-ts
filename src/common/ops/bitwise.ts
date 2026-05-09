@@ -8,7 +8,7 @@
  * These operations only work on integer types.
  */
 
-import { DType, isBigIntDType, isIntegerDType, promoteDTypes } from '../dtype';
+import { type DType, isBigIntDType, isIntegerDType, promoteDTypes } from '../dtype';
 import { ArrayStorage } from '../storage';
 import { wasmPackbits, wasmUnpackbits } from '../wasm/packbits';
 

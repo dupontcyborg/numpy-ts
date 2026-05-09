@@ -3,10 +3,10 @@
  * Usage: tsx scripts/wasm-size.ts
  */
 
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-import { gzipSync } from 'zlib';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 
 const __filename = fileURLToPath(import.meta.url);
 const BINS_DIR = join(__filename, '..', '..', 'src/common/wasm/bins');

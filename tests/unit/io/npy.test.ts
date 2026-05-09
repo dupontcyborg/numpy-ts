@@ -541,7 +541,7 @@ describe('NPY Format', () => {
 
     for (const dtype of dtypes) {
       it(`round-trips ${dtype} arrays`, () => {
-        let arr;
+        let arr: ReturnType<typeof array>;
         if (dtype === 'int64' || dtype === 'uint64') {
           arr = array([BigInt(1), BigInt(2), BigInt(3)], dtype);
         } else if (dtype === 'bool') {

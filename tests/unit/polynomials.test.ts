@@ -16,7 +16,7 @@ import {
   polyval,
   roots,
 } from '../../src';
-import { Complex } from '../../src/common/complex';
+import type { Complex } from '../../src/common/complex';
 
 /**
  * Extract real parts from a complex128 roots result.

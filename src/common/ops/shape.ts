@@ -5,7 +5,7 @@
  * @module ops/shape
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import {
   getTypedArrayConstructor,
   hasFloat16,
@@ -450,8 +450,8 @@ export function swapaxes(storage: ArrayStorage, axis1: number, axis2: number): A
   const dtype = storage.dtype;
 
   // Normalize axes
-  let normalizedAxis1 = axis1 < 0 ? ndim + axis1 : axis1;
-  let normalizedAxis2 = axis2 < 0 ? ndim + axis2 : axis2;
+  const normalizedAxis1 = axis1 < 0 ? ndim + axis1 : axis1;
+  const normalizedAxis2 = axis2 < 0 ? ndim + axis2 : axis2;
 
   if (normalizedAxis1 < 0 || normalizedAxis1 >= ndim) {
     throw new Error(`axis1 ${axis1} is out of bounds for array of dimension ${ndim}`);
@@ -1612,7 +1612,7 @@ export function rollaxis(storage: ArrayStorage, axis: number, start: number = 0)
   const ndim = storage.ndim;
 
   // Normalize axis
-  let normalizedAxis = axis < 0 ? ndim + axis : axis;
+  const normalizedAxis = axis < 0 ? ndim + axis : axis;
   if (normalizedAxis < 0 || normalizedAxis >= ndim) {
     throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
   }

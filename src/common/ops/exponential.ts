@@ -8,7 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import {
   type DType,
   isBigIntDType,
@@ -292,7 +292,7 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
         const mag = Math.sqrt(re * re + im * im);
         const arg = Math.atan2(im, re);
 
-        const newMag = Math.pow(mag, exponent);
+        const newMag = mag ** exponent;
         const newArg = arg * exponent;
 
         dstData[i * 2] = newMag * Math.cos(newArg);
@@ -307,7 +307,7 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
         const mag = Math.sqrt(re * re + im * im);
         const arg = Math.atan2(im, re);
 
-        const newMag = Math.pow(mag, exponent);
+        const newMag = mag ** exponent;
         const newArg = arg * exponent;
 
         dstData[i * 2] = newMag * Math.cos(newArg);
@@ -348,11 +348,11 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
       // BigInt ** negative or float promotes to float64
       if (contiguous) {
         for (let i = 0; i < size; i++) {
-          resultData[i] = Math.pow(Number(data[off + i]!), exponent);
+          resultData[i] = Number(data[off + i]!) ** exponent;
         }
       } else {
         for (let i = 0; i < size; i++) {
-          resultData[i] = Math.pow(Number(storage.iget(i)), exponent);
+          resultData[i] = Number(storage.iget(i)) ** exponent;
         }
       }
     }
@@ -360,11 +360,11 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
     // Regular numeric types
     if (contiguous) {
       for (let i = 0; i < size; i++) {
-        resultData[i] = Math.pow(Number(data[off + i]!), exponent);
+        resultData[i] = Number(data[off + i]!) ** exponent;
       }
     } else {
       for (let i = 0; i < size; i++) {
-        resultData[i] = Math.pow(Number(storage.iget(i)), exponent);
+        resultData[i] = Number(storage.iget(i)) ** exponent;
       }
     }
   }
@@ -474,7 +474,7 @@ export function exp2(a: ArrayStorage): ArrayStorage {
   const wasmResult = wasmExp2(a);
   if (wasmResult) return wasmResult;
 
-  return elementwiseUnaryOp(a, (x) => Math.pow(2, x), false);
+  return elementwiseUnaryOp(a, (x) => 2 ** x, false);
 }
 
 /**
@@ -881,7 +881,7 @@ function logaddexp2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
     const maxVal = Math.max(val1, val2);
     const minVal = Math.min(val1, val2);
     // log2(1 + x) = log(1 + x) * log2(e)
-    resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+    resultData[i] = maxVal + Math.log1p(2 ** (minVal - maxVal)) * LOG2_E;
   }
 
   return result;
@@ -911,7 +911,7 @@ function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
 
       const maxVal = Math.max(val1, x2);
       const minVal = Math.min(val1, x2);
-      resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+      resultData[i] = maxVal + Math.log1p(2 ** (minVal - maxVal)) * LOG2_E;
     }
   } else {
     for (let i = 0; i < size; i++) {
@@ -919,7 +919,7 @@ function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
 
       const maxVal = Math.max(val1, x2);
       const minVal = Math.min(val1, x2);
-      resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+      resultData[i] = maxVal + Math.log1p(2 ** (minVal - maxVal)) * LOG2_E;
     }
   }
 

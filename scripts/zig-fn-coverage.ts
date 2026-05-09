@@ -3,8 +3,8 @@
  * Usage: npx tsx scripts/zig-fn-coverage.ts [--verbose]
  */
 
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // --- Config ---
 const THRESHOLD = 95; // minimum % to pass

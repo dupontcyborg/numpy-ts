@@ -13,7 +13,7 @@
 
 import * as arithmeticOps from '../common/ops/arithmetic';
 import * as exponentialOps from '../common/ops/exponential';
-import { fromStorage, fromStorageTuple, NDArrayCore, toStorage } from './types';
+import { fromStorage, fromStorageTuple, type NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Basic Arithmetic Functions

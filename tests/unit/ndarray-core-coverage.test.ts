@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Complex } from '../../src/common/complex';
-import type { DType } from '../../src/common/dtype';
+import type { DType, TypedArray } from '../../src/common/dtype';
 import { NDArrayCore } from '../../src/common/ndarray-core';
 import { sliceKeepDim } from '../../src/common/ops/shape';
 import { ArrayStorage } from '../../src/common/storage';
@@ -18,7 +18,7 @@ import { ArrayStorage } from '../../src/common/storage';
 
 // Helper: create an NDArrayCore from a number array with the right typed array
 function core(data: number[], shape: number[], dtype: DType = 'float64'): NDArrayCore {
-  let ta;
+  let ta: TypedArray;
   switch (dtype) {
     case 'float64':
       ta = new Float64Array(data);

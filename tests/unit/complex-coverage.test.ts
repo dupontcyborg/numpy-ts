@@ -624,7 +624,7 @@ function testComplexBehavior(
 
   try {
     // Try to call the function with appropriate arguments
-    let result;
+    let result: unknown;
 
     // Binary operations need two arrays
     const binaryOps = [

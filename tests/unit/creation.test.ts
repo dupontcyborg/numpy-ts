@@ -1419,7 +1419,7 @@ describe('Array Creation Functions', () => {
       expect(result.shape).toEqual([2, 3]);
       // Missing values should become NaN
       const data = result.toArray() as number[][];
-      expect(isNaN(data[0]![2]!)).toBe(true);
+      expect(Number.isNaN(data[0]![2]!)).toBe(true);
     });
 
     it('handles skiprows', () => {

@@ -3,9 +3,9 @@
  * Usage: tsx scripts/slowest-functions.ts [N=50]
  */
 
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -34,7 +34,7 @@ interface Result {
 }
 
 const sorted: Result[] = [...data.results]
-  .filter((r: Result) => r.ratio != null && isFinite(r.ratio))
+  .filter((r: Result) => r.ratio != null && Number.isFinite(r.ratio))
   .sort((a: Result, b: Result) => b.ratio - a.ratio);
 
 console.log(`Top ${N} slowest functions (JS/Python ratio, higher = worse):\n`);

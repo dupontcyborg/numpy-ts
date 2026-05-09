@@ -7,7 +7,7 @@
 
 import { Complex } from '../complex';
 import type { DType } from '../dtype';
-import { ArrayStorage } from '../storage';
+import type { ArrayStorage } from '../storage';
 
 /**
  * Print options configuration
@@ -342,7 +342,7 @@ export function format_float_scientific(
   // Fix exponent format (ensure minimum digits)
   const eIndex = result.indexOf('e');
   const mantissa = result.slice(0, eIndex);
-  let expPart = result.slice(eIndex + 1);
+  const expPart = result.slice(eIndex + 1);
   const expSign = expPart[0] === '-' ? '-' : '+';
   let expNum = expPart.replace(/^[+-]/, '');
 
@@ -435,7 +435,7 @@ export function binary_repr(num: number, width: number | null = null): string {
 
   if (width !== null && num < 0) {
     // Two's complement representation
-    const maxVal = Math.pow(2, width);
+    const maxVal = 2 ** width;
     num = maxVal + num;
     if (num < 0) {
       throw new Error('width too small for negative number');

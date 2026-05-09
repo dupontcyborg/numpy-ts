@@ -10,7 +10,7 @@ import {
   array,
   geterr,
   may_share_memory,
-  NDArray,
+  type NDArray,
   ndim,
   seterr,
   shape,

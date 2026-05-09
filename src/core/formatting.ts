@@ -4,7 +4,7 @@
  * Tree-shakeable standalone functions that wrap the underlying ops.
  */
 
-import { NDArrayCore } from '../common/ndarray-core';
+import type { NDArrayCore } from '../common/ndarray-core';
 import * as formattingOps from '../common/ops/formatting';
 import { toStorage } from './types';
 

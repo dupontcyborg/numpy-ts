@@ -26,7 +26,8 @@ import {
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 // Minimum total elements (M*K + N*K) for WASM to be worth the copy overhead.

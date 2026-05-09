@@ -6,7 +6,7 @@
  */
 
 import type { DType } from '../../common/dtype';
-import { NDArrayCore } from '../../common/ndarray-core';
+import type { NDArrayCore } from '../../common/ndarray-core';
 import { array } from '../../core/creation';
 
 /**
@@ -166,7 +166,7 @@ export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArrayCo
         return fillValue;
       }
       const num = parseFloat(trimmed);
-      return isNaN(num) ? fillValue : num;
+      return Number.isNaN(num) ? fillValue : num;
     });
 
     data.push(row);
@@ -242,13 +242,12 @@ export function fromregex(
 
   const data: number[][] = [];
 
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
+  for (let match = re.exec(text); match !== null; match = re.exec(text)) {
     // Skip the full match (index 0), use only capture groups
     if (match.length > 1) {
       const row = match.slice(1).map((v) => {
         const num = parseFloat(v);
-        return isNaN(num) ? 0 : num;
+        return Number.isNaN(num) ? 0 : num;
       });
       data.push(row);
     }

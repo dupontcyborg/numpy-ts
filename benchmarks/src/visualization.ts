@@ -2,7 +2,7 @@
  * Benchmark visualization - HTML report generation
  */
 
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import {
   formatDuration,
   formatOpsPerSec,
@@ -58,7 +58,7 @@ export function generateHTMLReport(report: BenchmarkReport, outputPath: string):
   fs.writeFileSync(outputPath, html, 'utf-8');
 }
 
-function createHTML(report: BenchmarkReport, outputPath: string = ''): string {
+function createHTML(report: BenchmarkReport, _outputPath: string = ''): string {
   const { timestamp, environment, results, summary } = report;
   const groups = groupByCategory(results);
   const categorySummaries = getCategorySummaries(results);

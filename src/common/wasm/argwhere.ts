@@ -5,8 +5,8 @@
  * The TS ops layer converts flat indices to multi-indices.
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
-import { ArrayStorage } from '../storage';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import type { ArrayStorage } from '../storage';
 import {
   argwhere_fill_f32,
   argwhere_fill_f64,

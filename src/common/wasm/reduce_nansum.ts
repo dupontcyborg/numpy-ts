@@ -7,7 +7,7 @@
  */
 
 import type { DType, TypedArray } from '../dtype';
-import { ArrayStorage } from '../storage';
+import type { ArrayStorage } from '../storage';
 import { reduce_nansum_f32, reduce_nansum_f64 } from './bins/reduce_nansum.wasm';
 import { wasmConfig } from './config';
 import { resetScratchAllocator, resolveInputPtr } from './runtime';

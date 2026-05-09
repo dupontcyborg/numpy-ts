@@ -2,7 +2,7 @@
  * WASM-accelerated extract and take_along_axis operations.
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
   extract_f32,

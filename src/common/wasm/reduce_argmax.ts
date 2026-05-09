@@ -6,7 +6,7 @@
  * Unsigned types use SEPARATE kernels.
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
   reduce_argmax_f32,

@@ -294,7 +294,7 @@ describe('Float16 Support', () => {
 
     it('converts NaN', () => {
       expect(float16BitsToNumber(0x7e00)).toBeNaN();
-      expect(isNaN(float16BitsToNumber(numberToFloat16Bits(NaN)))).toBe(true);
+      expect(Number.isNaN(float16BitsToNumber(numberToFloat16Bits(NaN)))).toBe(true);
     });
 
     it('converts 0.5', () => {

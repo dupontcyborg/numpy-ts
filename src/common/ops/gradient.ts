@@ -8,7 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import { isBigIntDType, isComplexDType, promoteDTypes } from '../dtype';
 import { ArrayStorage } from '../storage';
 import { wasmDiff } from '../wasm/diff';

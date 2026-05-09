@@ -146,10 +146,10 @@ result = np.maximum(np.array([1, np.nan, 3]), np.array([2, 2, np.nan]))
       const jsArr = jsResult.toArray() as number[];
       const pyArr = pyResult.value as number[];
       expect(jsArr[0]).toBeCloseTo(pyArr[0]!);
-      expect(isNaN(jsArr[1]!)).toBe(true);
-      expect(isNaN(pyArr[1]!)).toBe(true);
-      expect(isNaN(jsArr[2]!)).toBe(true);
-      expect(isNaN(pyArr[2]!)).toBe(true);
+      expect(Number.isNaN(jsArr[1]!)).toBe(true);
+      expect(Number.isNaN(pyArr[1]!)).toBe(true);
+      expect(Number.isNaN(jsArr[2]!)).toBe(true);
+      expect(Number.isNaN(pyArr[2]!)).toBe(true);
     });
   });
 
@@ -273,8 +273,8 @@ result = np.nan_to_num(np.array([1, np.nan, 3, np.inf, -np.inf]))
       expect(jsArr[1]).toBeCloseTo(pyArr[1]!);
       expect(jsArr[2]).toBeCloseTo(pyArr[2]!);
       // Inf values are replaced with large finite numbers
-      expect(isFinite(jsArr[3]!)).toBe(true);
-      expect(isFinite(jsArr[4]!)).toBe(true);
+      expect(Number.isFinite(jsArr[3]!)).toBe(true);
+      expect(Number.isFinite(jsArr[4]!)).toBe(true);
     });
 
     it('matches NumPy with custom nan value', () => {

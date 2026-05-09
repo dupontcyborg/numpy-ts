@@ -2803,9 +2803,9 @@ export function vector_norm(
     } else {
       result = 0;
       for (let i = 0; i < n; i++) {
-        result += Math.pow(absValue(flat.get(i)), ord);
+        result += absValue(flat.get(i)) ** ord;
       }
-      result = Math.pow(result, 1 / ord);
+      result = result ** (1 / ord);
     }
 
     if (keepdims) {
@@ -2891,9 +2891,9 @@ export function vector_norm(
       normVal = 0;
       for (let i = 0; i < axisLen; i++) {
         inIndices[ax] = i;
-        normVal += Math.pow(Math.abs(Number(x.get(...inIndices))), ord);
+        normVal += Math.abs(Number(x.get(...inIndices))) ** ord;
       }
-      normVal = Math.pow(normVal, 1 / ord);
+      normVal = normVal ** (1 / ord);
     }
 
     result.set(outIndices, normVal);
@@ -4617,7 +4617,7 @@ export function lstsq(
 
     // x = (V @ S^+) @ (U^T @ b) via two WASM matmuls
     const utb = wasmMatmul(ut, b2D) ?? matmul2D(ut, b2D); // k × nrhs
-    let x: ArrayStorage = wasmMatmul(vsInv, utb) ?? matmul2D(vsInv, utb); // n × nrhs
+    const x: ArrayStorage = wasmMatmul(vsInv, utb) ?? matmul2D(vsInv, utb); // n × nrhs
     vsInv.dispose();
     ut.dispose();
     utb.dispose();

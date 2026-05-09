@@ -7,7 +7,7 @@
 
 import { Complex } from '../complex';
 import { type DType, promoteDTypes, type TypedArray } from '../dtype';
-import { ArrayStorage } from '../storage';
+import type { ArrayStorage } from '../storage';
 import * as floatBase from './bins/dot_float.wasm';
 import * as floatRelaxed from './bins/dot_float-relaxed.wasm';
 import { dot_i8, dot_i16, dot_i32, dot_i64 } from './bins/dot_int.wasm';
@@ -17,7 +17,8 @@ import { getSharedMemory, resetScratchAllocator, resolveInputPtr, scratchAlloc }
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 const BASE_THRESHOLD = 32; // Minimum K for WASM to be worth it

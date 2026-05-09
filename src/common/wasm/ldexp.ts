@@ -5,7 +5,7 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import { ldexp_scalar_f32, ldexp_scalar_f64 } from './bins/ldexp.wasm';
 import { wasmConfig } from './config';

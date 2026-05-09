@@ -6,7 +6,7 @@
  */
 
 import * as setOps from '../common/ops/sets';
-import { ArrayStorage, fromStorage, NDArrayCore, toStorage } from './types';
+import { type ArrayStorage, fromStorage, type NDArrayCore, toStorage } from './types';
 
 /** Find unique elements */
 export function unique(

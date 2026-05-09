@@ -3,10 +3,10 @@
  * Tests the actual distributed tree-shakeable ESM from dist/esm/
  */
 
-import { mkdtempSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { dirname, join, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
 const __filename = fileURLToPath(import.meta.url);

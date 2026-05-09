@@ -11,7 +11,7 @@ import {
   fromStorageArray,
   fromStorageView,
   fromStorageViewArray,
-  NDArrayCore,
+  type NDArrayCore,
   toStorage,
 } from './types';
 

@@ -3,8 +3,8 @@
  * Runs NumPy benchmarks inside Pyodide for a WASM-vs-WASM comparison
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { BenchmarkCase, BenchmarkTiming } from './types';
 
 export async function runPyodideBenchmarks(

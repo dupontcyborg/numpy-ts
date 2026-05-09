@@ -16,8 +16,8 @@
  * (checked-in .wasm.ts files will be used as-is).
  */
 
-import { execFile, execSync } from 'child_process';
-import { createHash } from 'crypto';
+import { execFile, execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   copyFileSync,
   existsSync,
@@ -26,10 +26,10 @@ import {
   readFileSync,
   rmSync,
   writeFileSync,
-} from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-import { promisify } from 'util';
+} from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
@@ -109,8 +109,7 @@ function parseZigExports(
 ): { name: string; params: string; returnType: string }[] {
   const exports: { name: string; params: string; returnType: string }[] = [];
   const regex = /^export fn (\w+)\(([^)]*)\)\s*(\w+)/gm;
-  let match;
-  while ((match = regex.exec(zigSource)) !== null) {
+  for (let match = regex.exec(zigSource); match !== null; match = regex.exec(zigSource)) {
     const zigRet = match[3]!;
     const returnType = zigRet === 'void' ? 'void' : 'number';
     exports.push({ name: match[1]!, params: match[2]!, returnType });

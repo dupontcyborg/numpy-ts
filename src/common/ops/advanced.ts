@@ -166,7 +166,7 @@ export function take(storage: ArrayStorage, indices: number[], axis?: number): A
   for (let i = 0; i < outputSize; i++) {
     // Compute source index
     const sourceIndices = [...outputIndices];
-    let targetIdx = outputIndices[normalizedAxis]!;
+    const targetIdx = outputIndices[normalizedAxis]!;
     let sourceAxisIdx = indices[targetIdx]!;
     if (sourceAxisIdx < 0) sourceAxisIdx = axisSize + sourceAxisIdx;
     sourceIndices[normalizedAxis] = sourceAxisIdx;
@@ -344,9 +344,16 @@ export function array_equal(a: ArrayStorage, b: ArrayStorage, equal_nan: boolean
       const bRe = bIsComplex ? (bVal as { re: number; im: number }).re : Number(bVal);
       const bIm = bIsComplex ? (bVal as { re: number; im: number }).im : 0;
 
-      if (equal_nan && isNaN(aRe) && isNaN(bRe) && isNaN(aIm) && isNaN(bIm)) continue;
-      if (equal_nan && aRe === bRe && isNaN(aIm) && isNaN(bIm)) continue;
-      if (equal_nan && isNaN(aRe) && isNaN(bRe) && aIm === bIm) continue;
+      if (
+        equal_nan &&
+        Number.isNaN(aRe) &&
+        Number.isNaN(bRe) &&
+        Number.isNaN(aIm) &&
+        Number.isNaN(bIm)
+      )
+        continue;
+      if (equal_nan && aRe === bRe && Number.isNaN(aIm) && Number.isNaN(bIm)) continue;
+      if (equal_nan && Number.isNaN(aRe) && Number.isNaN(bRe) && aIm === bIm) continue;
       if (aRe !== bRe || aIm !== bIm) return false;
       continue;
     }
@@ -1656,7 +1663,7 @@ export function apply_over_axes(
 
   for (const axis of axes) {
     // Normalize axis
-    let normalizedAxis = axis < 0 ? axis + ndim : axis;
+    const normalizedAxis = axis < 0 ? axis + ndim : axis;
     if (normalizedAxis < 0 || normalizedAxis >= ndim) {
       throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
     }
@@ -1716,7 +1723,7 @@ export function shares_memory(a: ArrayStorage, b: ArrayStorage): boolean {
 }
 
 // Global floating-point error state
-let _floatErrorState = {
+const _floatErrorState = {
   divide: 'warn' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
   over: 'warn' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
   under: 'ignore' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
@@ -1815,11 +1822,11 @@ export function vindex(a: ArrayStorage, ...indices: StorageIndex[]): ArrayStorag
   const expanded = expandEllipsis(indices, a.ndim);
 
   // Split indices into simple slicing operations, and integer array indexing
-  let isArrayIndex: string[] = [];
+  const isArrayIndex: string[] = [];
   let lCount = 0;
   let iCount = 0;
-  let sliceIndices: (string | number)[] = [];
-  let arrayIndices: (ArrayStorage | ':')[] = [];
+  const sliceIndices: (string | number)[] = [];
+  const arrayIndices: (ArrayStorage | ':')[] = [];
   for (const ind of expanded) {
     if (typeof ind === 'number') {
       isArrayIndex.push(' ');

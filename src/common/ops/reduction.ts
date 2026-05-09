@@ -645,7 +645,7 @@ export function max(
         const im = complexData[(off + i) * 2 + 1]!;
 
         // Check for NaN propagation
-        if (isNaN(re) || isNaN(im)) {
+        if (Number.isNaN(re) || Number.isNaN(im)) {
           return new Complex(NaN, NaN);
         }
 
@@ -656,7 +656,7 @@ export function max(
         }
       }
       // Check initial value for NaN
-      if (isNaN(maxRe) || isNaN(maxIm)) {
+      if (Number.isNaN(maxRe) || Number.isNaN(maxIm)) {
         return new Complex(NaN, NaN);
       }
       return new Complex(maxRe, maxIm);
@@ -702,7 +702,7 @@ export function max(
         const im = complexData[bufIdx * 2 + 1]!;
         bufIdx += axisStr;
 
-        if (isNaN(re) || isNaN(im)) {
+        if (Number.isNaN(re) || Number.isNaN(im)) {
           maxRe = NaN;
           maxIm = NaN;
           break;
@@ -1176,7 +1176,7 @@ export function min(
         const im = complexData[(off + i) * 2 + 1]!;
 
         // Check for NaN propagation
-        if (isNaN(re) || isNaN(im)) {
+        if (Number.isNaN(re) || Number.isNaN(im)) {
           return new Complex(NaN, NaN);
         }
 
@@ -1187,7 +1187,7 @@ export function min(
         }
       }
       // Check initial value for NaN
-      if (isNaN(minRe) || isNaN(minIm)) {
+      if (Number.isNaN(minRe) || Number.isNaN(minIm)) {
         return new Complex(NaN, NaN);
       }
       return new Complex(minRe, minIm);
@@ -1233,7 +1233,7 @@ export function min(
         const im = complexData[bufIdx * 2 + 1]!;
         bufIdx += axisStr;
 
-        if (isNaN(re) || isNaN(im)) {
+        if (Number.isNaN(re) || Number.isNaN(im)) {
           minRe = NaN;
           minIm = NaN;
           break;
@@ -2965,13 +2965,13 @@ function _complexMedian(
       for (let i = 0; i < size; i++) {
         const re = srcData[(off + i) * 2]!;
         const im = srcData[(off + i) * 2 + 1]!;
-        if (dropNaN && (isNaN(re) || isNaN(im))) continue;
+        if (dropNaN && (Number.isNaN(re) || Number.isNaN(im))) continue;
         pairs.push([re, im]);
       }
     } else {
       for (let i = 0; i < size; i++) {
         const val = storage.iget(i) as Complex;
-        if (dropNaN && (isNaN(val.re) || isNaN(val.im))) continue;
+        if (dropNaN && (Number.isNaN(val.re) || Number.isNaN(val.im))) continue;
         pairs.push([val.re, val.im]);
       }
     }
@@ -3028,7 +3028,7 @@ function _complexMedian(
     for (let k = 0; k < axisSize; k++) {
       const flatIdx = baseOffset + k * innerStride;
       const val = storage.iget(flatIdx) as Complex;
-      if (dropNaN && (isNaN(val.re) || isNaN(val.im))) continue;
+      if (dropNaN && (Number.isNaN(val.re) || Number.isNaN(val.im))) continue;
       pairs.push([val.re, val.im]);
     }
 
@@ -3481,7 +3481,7 @@ export function average(
  * Check if a complex number is NaN (either part is NaN)
  */
 function complexIsNaN(re: number, im: number): boolean {
-  return isNaN(re) || isNaN(im);
+  return Number.isNaN(re) || Number.isNaN(im);
 }
 
 export function nansum(
@@ -3542,14 +3542,14 @@ export function nansum(
       if (contiguous) {
         for (let i = 0; i < storage.size; i++) {
           const val = Number(data[off + i]);
-          if (!isNaN(val)) {
+          if (!Number.isNaN(val)) {
             acc[0] += val;
           }
         }
       } else {
         for (let i = 0; i < storage.size; i++) {
           const val = Number(storage.iget(i));
-          if (!isNaN(val)) {
+          if (!Number.isNaN(val)) {
             acc[0] += val;
           }
         }
@@ -3562,14 +3562,14 @@ export function nansum(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total += val;
         }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total += val;
         }
       }
@@ -3642,7 +3642,7 @@ export function nansum(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         total += val;
       }
       bufIdx += axisStr;
@@ -3719,14 +3719,14 @@ export function nanprod(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total *= val;
         }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total *= val;
         }
       }
@@ -3801,7 +3801,7 @@ export function nanprod(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         total *= val;
       }
       bufIdx += axisStr;
@@ -3881,7 +3881,7 @@ export function nanmean(
       if (contiguous) {
         for (let i = 0; i < storage.size; i++) {
           const val = Number(data[off + i]);
-          if (!isNaN(val)) {
+          if (!Number.isNaN(val)) {
             acc[0] += val;
             count++;
           }
@@ -3889,7 +3889,7 @@ export function nanmean(
       } else {
         for (let i = 0; i < storage.size; i++) {
           const val = Number(storage.iget(i));
-          if (!isNaN(val)) {
+          if (!Number.isNaN(val)) {
             acc[0] += val;
             count++;
           }
@@ -3903,7 +3903,7 @@ export function nanmean(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total += val;
           count++;
         }
@@ -3911,7 +3911,7 @@ export function nanmean(
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total += val;
           count++;
         }
@@ -3993,7 +3993,7 @@ export function nanmean(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         total += val;
         count++;
       }
@@ -4185,7 +4185,7 @@ export function nanvar(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total += val;
           count++;
         }
@@ -4193,7 +4193,7 @@ export function nanvar(
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           total += val;
           count++;
         }
@@ -4207,14 +4207,14 @@ export function nanvar(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           sumSq += (val - meanVal) ** 2;
         }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           sumSq += (val - meanVal) ** 2;
         }
       }
@@ -4258,7 +4258,7 @@ export function nanvar(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         total += val;
         count++;
       }
@@ -4277,7 +4277,7 @@ export function nanvar(
     bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         sumSq += (val - meanVal) ** 2;
       }
       bufIdx += axisStr;
@@ -4353,7 +4353,7 @@ export function nanmin(
           const re = complexData[(off + i) * 2]!;
           const im = complexData[(off + i) * 2 + 1]!;
 
-          if (isNaN(re) || isNaN(im)) {
+          if (Number.isNaN(re) || Number.isNaN(im)) {
             continue;
           }
 
@@ -4372,7 +4372,7 @@ export function nanmin(
           const re = (v as Complex).re;
           const im = (v as Complex).im;
 
-          if (isNaN(re) || isNaN(im)) {
+          if (Number.isNaN(re) || Number.isNaN(im)) {
             continue;
           }
 
@@ -4429,7 +4429,7 @@ export function nanmin(
         const im = complexData[bufIdx * 2 + 1]!;
         bufIdx += axisStr;
 
-        if (isNaN(re) || isNaN(im)) {
+        if (Number.isNaN(re) || Number.isNaN(im)) {
           continue;
         }
 
@@ -4465,14 +4465,14 @@ export function nanmin(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val) && val < minVal) {
+        if (!Number.isNaN(val) && val < minVal) {
           minVal = val;
         }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val) && val < minVal) {
+        if (!Number.isNaN(val) && val < minVal) {
           minVal = val;
         }
       }
@@ -4516,7 +4516,7 @@ export function nanmin(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val) && val < minVal) {
+      if (!Number.isNaN(val) && val < minVal) {
         minVal = val;
       }
       bufIdx += axisStr;
@@ -4568,7 +4568,7 @@ export function nanmax(
           const re = complexData[(off + i) * 2]!;
           const im = complexData[(off + i) * 2 + 1]!;
 
-          if (isNaN(re) || isNaN(im)) {
+          if (Number.isNaN(re) || Number.isNaN(im)) {
             continue;
           }
 
@@ -4587,7 +4587,7 @@ export function nanmax(
           const re = (v as Complex).re;
           const im = (v as Complex).im;
 
-          if (isNaN(re) || isNaN(im)) {
+          if (Number.isNaN(re) || Number.isNaN(im)) {
             continue;
           }
 
@@ -4644,7 +4644,7 @@ export function nanmax(
         const im = complexData[bufIdx * 2 + 1]!;
         bufIdx += axisStr;
 
-        if (isNaN(re) || isNaN(im)) {
+        if (Number.isNaN(re) || Number.isNaN(im)) {
           continue;
         }
 
@@ -4680,14 +4680,14 @@ export function nanmax(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val) && val > maxVal) {
+        if (!Number.isNaN(val) && val > maxVal) {
           maxVal = val;
         }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val) && val > maxVal) {
+        if (!Number.isNaN(val) && val > maxVal) {
           maxVal = val;
         }
       }
@@ -4731,7 +4731,7 @@ export function nanmax(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val) && val > maxVal) {
+      if (!Number.isNaN(val) && val > maxVal) {
         maxVal = val;
       }
       bufIdx += axisStr;
@@ -4855,7 +4855,7 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val) && val < minVal) {
+        if (!Number.isNaN(val) && val < minVal) {
           minVal = val;
           minIdx = i;
         }
@@ -4863,7 +4863,7 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val) && val < minVal) {
+        if (!Number.isNaN(val) && val < minVal) {
           minVal = val;
           minIdx = i;
         }
@@ -4905,7 +4905,7 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val) && val < minVal) {
+      if (!Number.isNaN(val) && val < minVal) {
         minVal = val;
         minIdx = axisIdx;
       }
@@ -5025,7 +5025,7 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val) && val > maxVal) {
+        if (!Number.isNaN(val) && val > maxVal) {
           maxVal = val;
           maxIdx = i;
         }
@@ -5033,7 +5033,7 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val) && val > maxVal) {
+        if (!Number.isNaN(val) && val > maxVal) {
           maxVal = val;
           maxIdx = i;
         }
@@ -5075,7 +5075,7 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val) && val > maxVal) {
+      if (!Number.isNaN(val) && val > maxVal) {
         maxVal = val;
         maxIdx = axisIdx;
       }
@@ -5216,7 +5216,7 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     if (contiguous) {
       for (let i = 0; i < size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           sum += val;
         }
         resultData[i] = sum;
@@ -5224,7 +5224,7 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
     } else {
       for (let i = 0; i < size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           sum += val;
         }
         resultData[i] = sum;
@@ -5266,9 +5266,9 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       const axisPos = Math.floor(i / axisStride) % axisSize;
 
       if (axisPos === 0) {
-        resultData[i] = isNaN(val) ? 0 : val;
+        resultData[i] = Number.isNaN(val) ? 0 : val;
       } else {
-        resultData[i] = resultData[i - axisStride]! + (isNaN(val) ? 0 : val);
+        resultData[i] = resultData[i - axisStride]! + (Number.isNaN(val) ? 0 : val);
       }
     }
   } else {
@@ -5277,9 +5277,9 @@ export function nancumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
       const axisPos = Math.floor(i / axisStride) % axisSize;
 
       if (axisPos === 0) {
-        resultData[i] = isNaN(val) ? 0 : val;
+        resultData[i] = Number.isNaN(val) ? 0 : val;
       } else {
-        resultData[i] = resultData[i - axisStride]! + (isNaN(val) ? 0 : val);
+        resultData[i] = resultData[i - axisStride]! + (Number.isNaN(val) ? 0 : val);
       }
     }
   }
@@ -5435,7 +5435,7 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     if (contiguous) {
       for (let i = 0; i < size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           prod *= val;
         }
         resultData[i] = prod;
@@ -5443,7 +5443,7 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     } else {
       for (let i = 0; i < size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           prod *= val;
         }
         resultData[i] = prod;
@@ -5485,9 +5485,9 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
       const axisPos = Math.floor(i / axisStride) % axisSize;
 
       if (axisPos === 0) {
-        resultData[i] = isNaN(val) ? 1 : val;
+        resultData[i] = Number.isNaN(val) ? 1 : val;
       } else {
-        resultData[i] = resultData[i - axisStride]! * (isNaN(val) ? 1 : val);
+        resultData[i] = resultData[i - axisStride]! * (Number.isNaN(val) ? 1 : val);
       }
     }
   } else {
@@ -5496,9 +5496,9 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
       const axisPos = Math.floor(i / axisStride) % axisSize;
 
       if (axisPos === 0) {
-        resultData[i] = isNaN(val) ? 1 : val;
+        resultData[i] = Number.isNaN(val) ? 1 : val;
       } else {
-        resultData[i] = resultData[i - axisStride]! * (isNaN(val) ? 1 : val);
+        resultData[i] = resultData[i - axisStride]! * (Number.isNaN(val) ? 1 : val);
       }
     }
   }
@@ -5536,14 +5536,14 @@ export function nanmedian(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           values.push(val);
         }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           values.push(val);
         }
       }
@@ -5596,7 +5596,7 @@ export function nanmedian(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         values.push(val);
       }
       bufIdx += axisStr;
@@ -5668,14 +5668,14 @@ export function nanquantile(
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(data[off + i]);
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           values.push(val);
         }
       }
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
-        if (!isNaN(val)) {
+        if (!Number.isNaN(val)) {
           values.push(val);
         }
       }
@@ -5765,7 +5765,7 @@ export function nanquantile(
     let bufIdx = baseOffsets[outerIdx]!;
     for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
       const val = Number(data[bufIdx]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         values.push(val);
       }
       bufIdx += axisStr;

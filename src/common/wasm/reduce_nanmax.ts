@@ -6,8 +6,8 @@
  * Only float64 and float32.
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
-import { ArrayStorage } from '../storage';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import type { ArrayStorage } from '../storage';
 import { reduce_nanmax_f32, reduce_nanmax_f64 } from './bins/reduce_nanmax.wasm';
 import { wasmConfig } from './config';
 import { f16InputToScratchF32, resetScratchAllocator, resolveInputPtr } from './runtime';

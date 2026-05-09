@@ -5,8 +5,8 @@
  * under each one, collecting results via stdout.
  */
 
-import { execFile, spawn } from 'child_process';
-import { resolve } from 'path';
+import { execFile, spawn } from 'node:child_process';
+import { resolve } from 'node:path';
 import type { BenchmarkCase, BenchmarkTiming, RuntimeInfo, RuntimeName } from './types';
 
 const RUNNER_PATH = resolve(__dirname, '../dist/runtime-runner.mjs');

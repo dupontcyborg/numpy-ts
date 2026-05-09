@@ -6,7 +6,7 @@
  */
 
 import type { DType } from '../common/dtype';
-import { NDArrayCore } from '../common/ndarray-core';
+import type { NDArrayCore } from '../common/ndarray-core';
 import { NDArray } from '../full/ndarray';
 import { getFs, getFsSync } from './filesystem';
 import { parseNpy as parseNpyCore } from './npy/parser';

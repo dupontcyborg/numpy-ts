@@ -12,14 +12,14 @@
  * [Symbol.dispose].
  */
 
+import { execFileSync } from 'node:child_process';
+import { mkdir, readFile, stat } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import alias from '@rollup/plugin-alias';
 import nodeResolve from '@rollup/plugin-node-resolve';
-import { execFileSync } from 'child_process';
 import { build as esbuildBuild } from 'esbuild';
-import { mkdir, readFile, stat } from 'fs/promises';
-import { dirname, resolve } from 'path';
 import { rollup } from 'rollup';
-import { fileURLToPath } from 'url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import webpack from 'webpack';
 

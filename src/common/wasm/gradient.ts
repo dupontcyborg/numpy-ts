@@ -5,7 +5,7 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { type DType, effectiveDType, hasFloat16, TypedArray } from '../dtype';
+import { type DType, effectiveDType, hasFloat16, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
   gradient_f32,

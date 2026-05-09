@@ -5,7 +5,7 @@
  */
 
 import { type DType, effectiveDType } from '../dtype';
-import { ArrayStorage } from '../storage';
+import type { ArrayStorage } from '../storage';
 import { all_finite_f32, all_finite_f64, all_finite_u16 } from './bins/all_finite.wasm';
 import { wasmConfig } from './config';
 import { resetScratchAllocator, resolveInputPtr } from './runtime';

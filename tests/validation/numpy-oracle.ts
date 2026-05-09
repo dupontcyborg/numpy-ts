@@ -11,10 +11,10 @@
  *     NUMPY_PYTHON='python' npm test
  */
 
-import { execSync } from 'child_process';
-import { unlinkSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { execSync } from 'node:child_process';
+import { unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Get Python command from environment or use default
 const PYTHON_CMD = process.env.NUMPY_PYTHON || 'python3';

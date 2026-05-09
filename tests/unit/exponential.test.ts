@@ -318,7 +318,7 @@ describe('Exponential Operations', () => {
       const resultArr = result.toArray() as number[];
       // log2(2^x1 + 2^0) = log2(2^x1 + 1)
       for (let i = 0; i < 2; i++) {
-        const expected = Math.log2(Math.pow(2, i + 1) + 1);
+        const expected = Math.log2(2 ** (i + 1) + 1);
         expect(Math.abs(resultArr[i]! - expected)).toBeLessThan(1e-10);
       }
     });

@@ -19,7 +19,7 @@ import {
   polyval,
   roots,
 } from '../../src';
-import { Complex } from '../../src/common/complex';
+import type { Complex } from '../../src/common/complex';
 import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 /**

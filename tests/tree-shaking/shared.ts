@@ -3,16 +3,16 @@
  * Split into separate files per bundler for parallel execution.
  */
 
+import { readFile, stat } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import alias from '@rollup/plugin-alias';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
 import { build as esbuildBuild } from 'esbuild';
-import { readFile, stat } from 'fs/promises';
-import { dirname, resolve } from 'path';
-import { InputOptions, OutputOptions, rollup } from 'rollup';
-import { fileURLToPath } from 'url';
+import { type InputOptions, type OutputOptions, rollup } from 'rollup';
 import webpack from 'webpack';
-import { gzipSync } from 'zlib';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

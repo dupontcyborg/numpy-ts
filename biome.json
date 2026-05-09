@@ -16,10 +16,20 @@
       "arrowParentheses": "always"
     },
     "globals": [
-      "console", "process", "Buffer", "__dirname", "__filename",
-      "module", "require", "exports",
-      "TextEncoder", "TextDecoder", "CompressionStream", "DecompressionStream",
-      "WebAssembly", "atob"
+      "console",
+      "process",
+      "Buffer",
+      "__dirname",
+      "__filename",
+      "module",
+      "require",
+      "exports",
+      "TextEncoder",
+      "TextDecoder",
+      "CompressionStream",
+      "DecompressionStream",
+      "WebAssembly",
+      "atob"
     ]
   },
   "linter": {
@@ -27,25 +37,13 @@
       "recommended": true,
       "suspicious": {
         "noExplicitAny": "error",
-        "noGlobalIsNan": "off",
-        "noGlobalIsFinite": "off",
         "noSelfCompare": "off",
-        "noAssignInExpressions": "off",
-        "noImplicitAnyLet": "off",
-        "noApproximativeNumericConstant": "off"
-      },
-      "correctness": {
-        "noUnusedVariables": "error",
-        "noUnusedImports": "error",
-        "noUnusedFunctionParameters": "off"
+        "noApproximativeNumericConstant": "off",
+        "noAssignInExpressions": "error"
       },
       "style": {
         "noNonNullAssertion": "off",
-        "useImportType": "off",
-        "useNodejsImportProtocol": "off",
-        "useTemplate": "off",
-        "useExponentiationOperator": "off",
-        "useConst": "off"
+        "useTemplate": "off"
       },
       "complexity": {
         "useLiteralKeys": "off",

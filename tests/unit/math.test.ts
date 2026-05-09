@@ -491,7 +491,7 @@ describe('Mathematical Operations', () => {
     it('replaces NaN and Inf with finite numbers', () => {
       const a = array([1, NaN, Infinity, -Infinity]);
       const r = nan_to_num(a);
-      expect(isFinite(r.iget(1) as number)).toBe(true);
+      expect(Number.isFinite(r.iget(1) as number)).toBe(true);
     });
   });
 

@@ -423,7 +423,7 @@ function legacyChisquare(df: number): number {
 
 function hypergeometricHyp(good: number, bad: number, sample: number): number {
   const d1 = bad + good - sample;
-  let d2 = Math.min(bad, good);
+  const d2 = Math.min(bad, good);
   let y = d2;
   let k = sample;
   while (y > 0.0) {
@@ -1669,8 +1669,8 @@ export function beta(a: number, b: number, size?: number | number[]): ArrayStora
       while (true) {
         const U = mt19937Float64();
         const V = mt19937Float64();
-        const X = Math.pow(U, 1.0 / a);
-        const Y = Math.pow(V, 1.0 / b);
+        const X = U ** (1.0 / a);
+        const Y = V ** (1.0 / b);
         if (X + Y <= 1.0) {
           if (X + Y > 0) {
             return X / (X + Y);
@@ -1895,7 +1895,7 @@ export function power(a: number, size?: number | number[]): ArrayStorage | numbe
 
   // NumPy legacy_power: pow(1 - exp(-legacy_standard_exponential()), 1/a)
   const generateSample = (): number => {
-    return Math.pow(1 - Math.exp(-legacyStandardExponential()), 1.0 / a);
+    return (1 - Math.exp(-legacyStandardExponential())) ** (1.0 / a);
   };
 
   if (size === undefined) {
@@ -2040,7 +2040,7 @@ export function weibull(a: number, size?: number | number[]): ArrayStorage | num
   // NumPy legacy_weibull: pow(legacy_standard_exponential(), 1/a)
   const generateSample = (): number => {
     if (a === 0.0) return 0.0;
-    return Math.pow(legacyStandardExponential(), 1.0 / a);
+    return legacyStandardExponential() ** (1.0 / a);
   };
 
   if (size === undefined) {
@@ -2412,16 +2412,16 @@ export function zipf(a: number, size?: number | number[]): ArrayStorage | number
 
   // NumPy legacy_random_zipf: exact match
   const am1 = a - 1.0;
-  const b = Math.pow(2.0, am1);
+  const b = 2.0 ** am1;
   const RAND_INT_MAX = 9007199254740991; // Number.MAX_SAFE_INTEGER
 
   const generateSample = (): number => {
     while (true) {
       const U = 1.0 - mt19937Float64();
       const V = mt19937Float64();
-      const X = Math.floor(Math.pow(U, -1.0 / am1));
+      const X = Math.floor(U ** (-1.0 / am1));
       if (X > RAND_INT_MAX || X < 1.0) continue;
-      const T = Math.pow(1.0 + 1.0 / X, am1);
+      const T = (1.0 + 1.0 / X) ** am1;
       if ((V * X * (T - 1.0)) / (b - 1.0) <= T / b) {
         return X;
       }

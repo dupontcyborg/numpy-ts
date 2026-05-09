@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { array, matmul, reshape, zeros } from '../../src';
 import type { NDArrayCore } from '../../src/common/ndarray-core';
-import { ArrayStorage } from '../../src/common/storage';
+import type { ArrayStorage } from '../../src/common/storage';
 import { wasmMatmul } from '../../src/common/wasm/matmul';
 
 /** Helper: compare two NDArrayCore results element-wise */

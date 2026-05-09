@@ -6,7 +6,7 @@
  * uint types route to signed kernels (wrapping multiplication gives same bits).
  */
 
-import { type DType, effectiveDType, TypedArray } from '../dtype';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
   reduce_prod_f32,

@@ -2,9 +2,9 @@
  * PNG chart generation using Chart.js
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
-import * as fs from 'fs';
-import * as path from 'path';
 import { getCategorySummaries, groupMultiRuntimeByCategory } from './analysis';
 import type { BenchmarkReport, MultiRuntimeReport } from './types';
 
@@ -12,7 +12,7 @@ import type { BenchmarkReport, MultiRuntimeReport } from './types';
  * Format a ratio for display in titles. If <1.0, flip to "Nx faster".
  */
 function formatTitleRatio(ratio: number): string {
-  if (ratio <= 0 || !isFinite(ratio)) return 'N/A';
+  if (ratio <= 0 || !Number.isFinite(ratio)) return 'N/A';
   if (ratio < 1.0) {
     return `${(1 / ratio).toFixed(1)}x faster`;
   }

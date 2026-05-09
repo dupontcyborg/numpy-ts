@@ -8,10 +8,10 @@
  * Run with: npx ts-node scripts/generate-full.ts
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { FunctionDeclaration, Project } from 'ts-morph';
-import { fileURLToPath } from 'url';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { type FunctionDeclaration, Project } from 'ts-morph';
 import { MESHGRID_FUNCTION, METHOD_DEFS, type MethodDef } from './ndarray-methods';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -265,7 +265,7 @@ function transformReturnType(returnType: string): string {
     .replace(/NDArrayCore/g, 'NDArray');
 }
 
-function generateWrapperFunction(info: FunctionInfo, moduleName: string): string {
+function generateWrapperFunction(info: FunctionInfo, _moduleName: string): string {
   // Check for custom wrapper override
   if (CUSTOM_WRAPPERS[info.name]) {
     const custom = CUSTOM_WRAPPERS[info.name];
@@ -332,7 +332,7 @@ function _generateReexport(info: FunctionInfo): string {
   return `export { ${info.name} } from '../core/${getModuleName(info.name)}';`;
 }
 
-function getModuleName(funcName: string): string {
+function getModuleName(_funcName: string): string {
   // This would need to be tracked properly, for now we'll use 'index'
   return 'index';
 }

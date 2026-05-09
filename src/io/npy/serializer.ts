@@ -7,7 +7,7 @@
  * v3.0 is identical to v2.0 but allows UTF-8 in dtype descriptions.
  */
 
-import { Complex } from '../../common/complex';
+import type { Complex } from '../../common/complex';
 import {
   type DType,
   getDTypeSize,
@@ -16,7 +16,7 @@ import {
   isComplexDType,
 } from '../../common/dtype';
 import { numberToFloat16Bits } from '../../common/float16-conv';
-import { NDArrayCore } from '../../common/ndarray-core';
+import type { NDArrayCore } from '../../common/ndarray-core';
 import { DTYPE_TO_DESCR, isSystemLittleEndian, NPY_MAGIC } from './format';
 
 /**
