@@ -387,7 +387,7 @@ export class NDArray extends NDArrayCore {
    * Convert to nested JavaScript array
    * @returns Nested JavaScript array representation
    */
-  // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
+  // biome-ignore lint/suspicious/noExplicitAny: required
   override toArray(): any {
     if (this.ndim === 0) {
       return this._storage.iget(0);
@@ -396,7 +396,7 @@ export class NDArray extends NDArrayCore {
     const shape = this.shape;
     const ndim = shape.length;
 
-    // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
+    // biome-ignore lint/suspicious/noExplicitAny: required
     const buildNestedArray = (indices: number[], dim: number): any => {
       if (dim === ndim) {
         return this._storage.get(...indices);
@@ -416,7 +416,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return the array as a nested list (same as toArray)
    */
-  // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
+  // biome-ignore lint/suspicious/noExplicitAny: required
   override tolist(): any {
     return this.toArray();
   }

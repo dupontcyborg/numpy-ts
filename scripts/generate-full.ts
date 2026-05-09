@@ -8,6 +8,7 @@
  * Run with: npx ts-node scripts/generate-full.ts
  */
 
+import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -442,6 +443,10 @@ export { Complex } from '../common/complex';
   // Write output
   const outputContent = output.join('\n');
   fs.writeFileSync(outputFile, outputContent);
+  execSync(`npx biome check --write "${path.relative(path.join(__dirname, '..'), outputFile)}"`, {
+    cwd: path.join(__dirname, '..'),
+    stdio: 'pipe',
+  });
 
   console.log(`\nGenerated ${outputFile}`);
   console.log(`  - ${wrappedFunctions.size} wrapped functions`);
@@ -653,6 +658,10 @@ export class NDArray extends NDArrayCore {`);
   // Write output
   const outputContent = output.join('\n');
   fs.writeFileSync(outputFile, outputContent);
+  execSync(`npx biome check --write "${path.relative(path.join(__dirname, '..'), outputFile)}"`, {
+    cwd: path.join(__dirname, '..'),
+    stdio: 'pipe',
+  });
 
   const totalMethods = METHOD_DEFS.length;
   const autoMethods = totalMethods - manualMethods.length;

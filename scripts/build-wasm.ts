@@ -296,9 +296,7 @@ async function compileKernel(
   // Generate .wasm.ts
   const tsContent = generateWasmTs(name, base64, exports);
 
-  // Write to bins/, format, then copy formatted version to cache
   writeFileSync(tsPath, tsContent);
-  execSync(`npx prettier --write "${tsPath}"`, { stdio: 'pipe' });
   copyFileSync(tsPath, cachePath);
 
   // Update hash
@@ -404,6 +402,7 @@ async function main() {
     }
     console.log(`All ${cached} kernel(s) cached — restored ${restored} to bins/ [${ZIG_OPT}]\n`);
     rmSync(TMP_DIR, { recursive: true, force: true });
+    execSync('npx biome format --write src/common/wasm/bins/', { cwd: ROOT, stdio: 'pipe' });
     return;
   }
 
@@ -476,6 +475,7 @@ async function main() {
   const oldCacheFile = join(ROOT, '.wasm-cache.json');
   if (existsSync(oldCacheFile)) rmSync(oldCacheFile);
 
+  execSync('npx biome format --write src/common/wasm/bins/', { cwd: ROOT, stdio: 'pipe' });
   console.log(`\nWASM build complete: ${built} built, ${restored} from cache [${ZIG_OPT}]`);
 }
 
