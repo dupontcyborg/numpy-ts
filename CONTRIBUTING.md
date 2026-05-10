@@ -24,8 +24,25 @@ Every new function requires:
 2. **Unit tests** in `tests/unit/` — `npm run test:unit`
 3. **Validation tests** in `tests/validation/` — `npm run test:validation` (requires conda)
 4. **Benchmarks** in `benchmarks/src/specs.ts`, `runner.ts`, and `scripts/numpy_benchmark.py`
-5. **Update docs** in `docs/` (Mintlify `.mdx` files) — update the relevant API reference page and [API coverage](https://numpyts.dev/v1.0.x/guides/api-coverage)
+5. **Update docs** in `docs/next/` — update the relevant API reference page and [API coverage](https://numpyts.dev/v1.0.x/guides/api-coverage) (see [Docs Workflow](#docs-workflow) below)
 6. **Checks** — `npm run lint && npm test`
+
+## Docs Workflow
+
+The documentation site at [numpyts.dev](https://numpyts.dev) **auto-publishes whenever changes are merged to `main`**. To avoid publishing docs for unreleased features, all contributor doc changes go into `docs/next/` — not into a versioned folder like `docs/v1.3.x/`.
+
+`docs/next/` is a full mirror of the current version. Edit the relevant pages there exactly as you would for the live docs. At release time, `docs/next/` gets renamed to the new version folder (e.g. `docs/v1.4.x/`) and published together with the release.
+
+**Where to make changes:**
+
+| Change type | Where |
+|-|-|
+| New function docs / API reference | `docs/next/api/` |
+| New or updated guide | `docs/next/guides/` |
+| New example | `docs/next/examples/` |
+| Bug fix in existing published docs | `docs/<version>/` (the live version) |
+
+Bug fixes to existing published docs can go directly into `docs/<version>/` — those changes are safe to publish immediately.
 
 ## Submitting
 

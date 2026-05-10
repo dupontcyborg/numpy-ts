@@ -1,0 +1,205 @@
+---
+title: "Searching"
+description: "Find elements, indices of non-zero values, insertion points, and count non-zero entries in arrays."
+---
+
+### where
+
+Return elements chosen from `x` or `y` depending on a condition. When called with only a condition, returns the indices of non-zero elements (equivalent to `nonzero`).
+
+```typescript
+function where(condition: ArrayLike, x?: ArrayLike, y?: ArrayLike): NDArray | NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `condition` | `ArrayLike` | -- | Boolean or numeric array. Where `true` (non-zero), yield `x`; otherwise yield `y`. |
+| `x` | `ArrayLike` | `undefined` | Values where condition is `true`. Required if `y` is provided. |
+| `y` | `ArrayLike` | `undefined` | Values where condition is `false`. Required if `x` is provided. |
+
+**Returns:** `NDArray` when `x` and `y` are given (array of chosen elements). `NDArray[]` when only `condition` is given (tuple of index arrays, one per dimension).
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Three-argument form: choose from x or y
+const a = np.array([1, 2, 3, 4, 5]);
+const result = np.where(np.greater(a, 3), a, np.zeros([5]));
+// array([0, 0, 0, 4, 5])
+
+// One-argument form: return indices of non-zero elements
+const indices = np.where(np.array([0, 1, 0, 1, 1]));
+// [array([1, 3, 4])]
+```
+
+---
+
+### nonzero
+
+Return the indices of non-zero elements. For an N-dimensional array, returns a tuple of N arrays, one for each dimension.
+
+```typescript
+function nonzero(a: ArrayLike): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray[]` -- Tuple of arrays, one per dimension, containing the indices of non-zero elements.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([0, 1, 0, 3, 0]);
+const [indices] = np.nonzero(a);
+// indices = array([1, 3])
+
+// 2D example
+const b = np.array([[1, 0], [0, 2]]);
+const [rows, cols] = np.nonzero(b);
+// rows = array([0, 1])
+// cols = array([0, 1])
+```
+
+---
+
+### argwhere
+
+Find the indices of non-zero elements, returned as a 2D array where each row is the index tuple of a non-zero element.
+
+```typescript
+function argwhere(a: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- 2D array of shape `(N, a.ndim)` where `N` is the number of non-zero elements. Each row is the multi-dimensional index of a non-zero element.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 0], [0, 2]]);
+const result = np.argwhere(a);
+// array([[0, 0],
+//        [1, 1]])
+```
+
+---
+
+### flatnonzero
+
+Return indices of non-zero elements in the flattened version of the array.
+
+```typescript
+function flatnonzero(a: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- 1D array of indices into the flattened array where elements are non-zero.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[0, 1], [2, 0]]);
+const result = np.flatnonzero(a);
+// array([1, 2])
+// (index 1 = element 1, index 2 = element 2 in flattened [0,1,2,0])
+```
+
+---
+
+### searchsorted
+
+Find indices where elements should be inserted to maintain sorted order. The input array `a` must be sorted in ascending order.
+
+```typescript
+function searchsorted(a: ArrayLike, v: ArrayLike, side?: 'left' | 'right'): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Sorted 1D input array. |
+| `v` | `ArrayLike` | -- | Values to insert. |
+| `side` | `'left' \| 'right'` | `'left'` | If `'left'`, the index of the first suitable location is returned. If `'right'`, the last suitable location is returned. |
+
+**Returns:** `NDArray` -- Indices of insertion points.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3, 4, 5]);
+
+np.searchsorted(a, 3);
+// 2 (insert before index 2 to keep sorted)
+
+np.searchsorted(a, 3, 'right');
+// 3 (insert after existing 3)
+
+np.searchsorted(a, [0, 3, 6]);
+// array([0, 2, 5])
+```
+
+---
+
+### extract
+
+Return elements of an array where a condition is `true`. Equivalent to `a[condition]` on the flattened array.
+
+```typescript
+function extract(condition: ArrayLike, a: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `condition` | `ArrayLike` | -- | Boolean array. Must be broadcastable to the shape of `a`. |
+| `a` | `ArrayLike` | -- | Input array. |
+
+**Returns:** `NDArray` -- 1D array of elements from `a` where `condition` is `true`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([10, 20, 30, 40, 50]);
+const condition = np.array([true, false, true, false, true]);
+
+const result = np.extract(condition, a);
+// array([10, 30, 50])
+```
+
+---
+
+### count_nonzero
+
+Count the number of non-zero elements in the array.
+
+```typescript
+function count_nonzero(a: ArrayLike, axis?: number): number | NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `undefined` | Axis along which to count. If `undefined`, counts over the entire array. |
+
+**Returns:** `number` when no axis is specified. `NDArray` when counting along specific axes.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[0, 1, 2], [3, 0, 0]]);
+
+np.count_nonzero(a);
+// 3
+
+np.count_nonzero(a, 0);
+// array([1, 1, 1])
+
+np.count_nonzero(a, 1);
+// array([2, 1])
+```

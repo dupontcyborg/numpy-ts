@@ -1,0 +1,132 @@
+---
+title: "Gradient & Differences"
+description: "Compute discrete differences, consecutive element differences, and numerical gradients."
+---
+
+### diff
+
+Calculate the n-th discrete difference along the given axis.
+
+The first difference is given by `out[i] = a[i+1] - a[i]` along the specified axis. Higher differences are computed by applying `diff` recursively.
+
+```typescript
+function diff(
+  a: ArrayLike,
+  n?: number,
+  axis?: number
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `n` | `number` | `1` | Number of times values are differenced. If zero, the input is returned as-is. |
+| `axis` | `number` | `-1` | Axis along which the difference is taken. Defaults to the last axis. |
+| `prepend` | `ArrayLike` | `undefined` | Values to prepend to `a` along `axis` before computing differences. Scalar or array broadcastable to `a` except along `axis`. |
+| `append` | `ArrayLike` | `undefined` | Values to append to `a` along `axis` before computing differences. |
+
+**Returns:** `NDArray` -- The n-th differences. The shape is the same as `a` except along `axis` where the dimension is reduced by `n` (adjusted by any prepend/append).
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 3, 6, 10, 15]);
+np.diff(a);
+// array([2, 3, 4, 5])
+
+np.diff(a, 2);
+// array([1, 1, 1])
+
+// 2D array, diff along axis 1
+const mat = np.array([[1, 3, 6], [10, 15, 21]]);
+np.diff(mat, 1, 1);
+// array([[2, 3],
+//        [5, 6]])
+
+// With prepend to preserve array length
+np.diff(np.array([1, 2, 4, 7]), 1, -1, [0]);
+// array([1, 1, 2, 3])
+```
+
+---
+
+### ediff1d
+
+Compute the differences between consecutive elements of a flattened array, with optional values prepended or appended.
+
+```typescript
+function ediff1d(
+  a: ArrayLike,
+  to_end?: number[] | null,
+  to_begin?: number[] | null
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. If multi-dimensional, it is flattened first. |
+| `to_end` | `number[] \| null` | `undefined` | Values to append at the end of the returned differences. |
+| `to_begin` | `number[] \| null` | `undefined` | Values to prepend at the beginning of the returned differences. |
+
+**Returns:** `NDArray` -- 1-D array of differences between consecutive elements, optionally with prepended/appended values.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 4, 7, 11]);
+np.ediff1d(a);
+// array([1, 2, 3, 4])
+
+np.ediff1d(a, [100], [0]);
+// array([0, 1, 2, 3, 4, 100])
+
+// Works with multi-dimensional arrays (flattened first)
+const mat = np.array([[1, 2], [5, 10]]);
+np.ediff1d(mat);
+// array([1, 3, 5])
+```
+
+---
+
+### gradient
+
+Return the gradient of an N-dimensional array. The gradient is computed using second-order central differences in the interior and first-order (forward/backward) differences at the boundaries.
+
+```typescript
+function gradient(
+  f: ArrayLike,
+  varargs?: number | number[],
+  axis?: number | number[] | null
+): NDArray | NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `f` | `ArrayLike` | -- | N-dimensional array containing samples of a scalar function. |
+| `varargs` | `number \| number[]` | `undefined` | Spacing between sample points. |
+| `axis` | `number \| number[] \| null` | `undefined` | Axis or axes along which to compute the gradient. |
+
+**Returns:** `NDArray` when `f` is 1-D (a single gradient array), `NDArray[]` when `f` is N-D with N > 1 (one gradient array per axis).
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 1-D gradient with unit spacing
+const a = np.array([1, 2, 4, 7, 11]);
+np.gradient(a);
+// array([1, 1.5, 2.5, 3.5, 4])
+
+// 1-D gradient with custom spacing
+np.gradient(a, 0.5);
+// array([2, 3, 5, 7, 8])
+
+// 2-D gradient returns [dy, dx]
+const mat = np.array([[1, 2, 4], [3, 6, 10]]);
+const [gy, gx] = np.gradient(mat) as NDArray[];
+// gy: array([[2, 4, 6], [2, 4, 6]])     -- gradient along axis 0
+// gx: array([[1, 1.5, 2], [3, 3.5, 4]]) -- gradient along axis 1
+
+// Non-uniform spacing via coordinate arrays
+np.gradient(np.array([1, 4, 9]), [0, 1, 3]);
+// Uses actual x-coordinates [0, 1, 3] for spacing
+```
