@@ -12,18 +12,14 @@ import {
   type ArrayLike,
   type ArrayStorage,
   fromStorage,
-  NDArrayCore,
+  type NDArrayCore,
   toStorage,
 } from './types';
 
 type BinStrategyString = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
 
 /** Count occurrences of values */
-export function bincount(
-  x: ArrayLike,
-  weights?: ArrayLike,
-  minlength?: number,
-): NDArrayCore {
+export function bincount(x: ArrayLike, weights?: ArrayLike, minlength?: number): NDArrayCore {
   const weightsStorage = weights !== undefined ? toStorage(asarray(weights)) : undefined;
   return fromStorage(statisticsOps.bincount(toStorage(asarray(x)), weightsStorage, minlength));
 }

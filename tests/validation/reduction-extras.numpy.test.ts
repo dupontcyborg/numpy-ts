@@ -4,8 +4,8 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { arange, argmax, argmin, array, average, ptp } from '../../src';
 import type { NDArray } from '../../src';
+import { arange, argmax, argmin, array, average, ptp } from '../../src';
 import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: reduction extras', () => {

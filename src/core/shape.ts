@@ -75,10 +75,7 @@ export function rollaxis(a: NDArrayCore, axis: number, start: number = 0): NDArr
  * Join arrays along an existing axis. Pass `axis=null` to flatten each input
  * and concatenate the result along axis 0 (matches `np.concatenate(..., axis=None)`).
  */
-export function concatenate(
-  arrays: NDArrayCore[],
-  axis: number | null = 0,
-): NDArrayCore {
+export function concatenate(arrays: NDArrayCore[], axis: number | null = 0): NDArrayCore {
   if (axis === null) {
     const flattened = arrays.map((a) => shapeOps.ravel(toStorage(a)));
     return fromStorage(shapeOps.concatenate(flattened, 0));

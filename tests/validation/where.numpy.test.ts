@@ -3,8 +3,8 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { arange, array, where } from '../../src';
 import type { NDArray } from '../../src';
+import { arange, array, where } from '../../src';
 import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: where', () => {

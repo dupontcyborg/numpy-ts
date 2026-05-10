@@ -6,8 +6,8 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { apply_along_axis, arange, array, concat, concatenate, diff } from '../../src';
 import type { NDArray } from '../../src';
+import { apply_along_axis, arange, array, concat, concatenate, diff } from '../../src';
 import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: final-batch kwargs', () => {
@@ -96,7 +96,9 @@ result = np.diff(a, axis=0, prepend=0)
       const a = arange(12).reshape(3, 4);
       // Custom: sum elements > threshold
       const sumGt = (row: NDArray, threshold: number) =>
-        ((row.toArray() as number[]).filter((x) => x > threshold).reduce((s, x) => s + x, 0) as number);
+        (row.toArray() as number[])
+          .filter((x) => x > threshold)
+          .reduce((s, x) => s + x, 0) as number;
       const result = apply_along_axis(sumGt as never, 1, a, 5) as NDArray;
       const np = runNumPy(`
 a = np.arange(12).reshape(3, 4)

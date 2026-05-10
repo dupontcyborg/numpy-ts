@@ -127,14 +127,14 @@ function combineWithInitial(
       return fromStorage(arithmeticOps.minimum(resStorage, k));
     case 'all':
       // result && Boolean(initial): if initial is falsy, result becomes all-false.
-      if (!Boolean(initial)) {
+      if (!initial) {
         const out = ArrayStorage.zeros(Array.from(resStorage.shape), resStorage.dtype);
         return fromStorage(out);
       }
       return fromStorage(resStorage);
     case 'any':
       // result || Boolean(initial): if initial is truthy, result becomes all-true.
-      if (Boolean(initial)) {
+      if (initial) {
         const out = ArrayStorage.empty(Array.from(resStorage.shape), resStorage.dtype);
         for (let i = 0; i < out.size; i++) out.iset(i, 1);
         return fromStorage(out);
@@ -342,7 +342,10 @@ export function ptp(
       throw new Error('multi-axis ptp not supported for complex');
     }
     return fromStorage(
-      arithmeticOps.subtract(toStorage(maxResult as NDArrayCore), toStorage(minResult as NDArrayCore)),
+      arithmeticOps.subtract(
+        toStorage(maxResult as NDArrayCore),
+        toStorage(minResult as NDArrayCore),
+      ),
     );
   }
   const result = reductionOps.ptp(toStorage(a), axis, keepdims);
@@ -378,11 +381,7 @@ function applyArgKeepdims(
 }
 
 /** Index of minimum value */
-export function argmin(
-  a: NDArrayCore,
-  axis?: number,
-  keepdims?: boolean,
-): NDArrayCore | number {
+export function argmin(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArrayCore | number {
   const result = reductionOps.argmin(toStorage(a), axis);
   if (keepdims) return applyArgKeepdims(result, a, axis);
   if (typeof result === 'number') return result;
@@ -390,11 +389,7 @@ export function argmin(
 }
 
 /** Index of maximum value */
-export function argmax(
-  a: NDArrayCore,
-  axis?: number,
-  keepdims?: boolean,
-): NDArrayCore | number {
+export function argmax(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArrayCore | number {
   const result = reductionOps.argmax(toStorage(a), axis);
   if (keepdims) return applyArgKeepdims(result, a, axis);
   if (typeof result === 'number') return result;

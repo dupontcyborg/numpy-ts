@@ -340,11 +340,7 @@ export function gradient(
  *
  * Boundaries fall back to first-order forward/backward differences.
  */
-function gradientAlongAxisCoords(
-  f: ArrayStorage,
-  axis: number,
-  coords: number[],
-): ArrayStorage {
+function gradientAlongAxisCoords(f: ArrayStorage, axis: number, coords: number[]): ArrayStorage {
   const shape = Array.from(f.shape);
   const ndim = shape.length;
   const axisSize = shape[axis]!;
@@ -408,8 +404,7 @@ function gradientAlongAxisCoords(
       const fm = readAt(i - 1);
       const fc = Number(f.data[currentBufIdx]!);
       const fp = readAt(i + 1);
-      value =
-        (-(hs * hs) * fm + (hs * hs - hd * hd) * fc + hd * hd * fp) / (hd * hs * (hd + hs));
+      value = (-(hs * hs) * fm + (hs * hs - hd * hd) * fc + hd * hd * fp) / (hd * hs * (hd + hs));
     }
 
     resultData[flatIdx] = value;

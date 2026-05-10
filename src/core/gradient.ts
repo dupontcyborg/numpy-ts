@@ -5,8 +5,8 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as gradientOps from '../common/ops/gradient';
 import { NDArrayCore } from '../common/ndarray-core';
+import * as gradientOps from '../common/ops/gradient';
 import * as shapeOps from '../common/ops/shape';
 import { asarray, full } from './creation';
 import { type ArrayLike, fromStorage, fromStorageArray, toStorage } from './types';
@@ -16,11 +16,7 @@ import { type ArrayLike, fromStorage, fromStorageArray, toStorage } from './type
  * with `a` for concatenation along `axis` (NumPy: scalar broadcasts to size 1
  * along axis with `a`'s shape on all other axes).
  */
-function expandDiffSide(
-  value: ArrayLike,
-  a: NDArrayCore,
-  axis: number,
-): NDArrayCore {
+function expandDiffSide(value: ArrayLike, a: NDArrayCore, axis: number): NDArrayCore {
   if (typeof value === 'number' || typeof value === 'bigint') {
     const targetShape = Array.from(a.shape);
     targetShape[axis] = 1;

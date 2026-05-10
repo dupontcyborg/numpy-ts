@@ -1042,7 +1042,7 @@ export interface MeshgridOptions {
 }
 
 export function meshgrid(...args: (NDArrayCore | MeshgridOptions)[]): NDArrayCore[] {
-  let arrays: NDArrayCore[] = [];
+  const arrays: NDArrayCore[] = [];
   let indexing: 'xy' | 'ij' = 'xy';
   let sparse = false;
   let copy = true;

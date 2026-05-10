@@ -241,11 +241,7 @@ export type PadValueArg = number | [number, number] | (number | [number, number]
  *  - `[[b0, a0], ..., [b_{ndim-1}, a_{ndim-1}]]` (length ndim) → per-axis pairs
  *  - mixed: `[n0, [b1, a1], ...]` — scalars expand to (n, n)
  */
-function normalizePerAxisPair(
-  v: PadWidthArg,
-  ndim: number,
-  paramName: string,
-): [number, number][] {
+function normalizePerAxisPair(v: PadWidthArg, ndim: number, paramName: string): [number, number][] {
   if (typeof v === 'number') {
     return Array.from({ length: ndim }, () => [v, v] as [number, number]);
   }

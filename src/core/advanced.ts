@@ -9,11 +9,11 @@ import { type DType, isBigIntDType } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
 import * as comparisonOps from '../common/ops/comparison';
-import type { ArrayStorage } from '../common/storage';
 import * as shapeOps from '../common/ops/shape';
+import type { ArrayStorage } from '../common/storage';
 import { array, asarray } from './creation';
-import { fromStorage, fromStorageView, toStorage } from './types';
 import type { ArrayLike } from './types';
+import { fromStorage, fromStorageView, toStorage } from './types';
 
 // ============================================================
 // Broadcasting

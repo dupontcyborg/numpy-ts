@@ -4,8 +4,8 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { all, any, arange, array, max, min, prod, sum } from '../../src';
 import type { NDArray } from '../../src';
+import { any, arange, array, max, min, prod, sum } from '../../src';
 import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: reduction kwargs', () => {
@@ -42,7 +42,9 @@ result = np.sum(a, axis=1, where=a > 3)
 
     it('prod with where=', () => {
       const a = array([1, 2, 3, 4, 5]);
-      const result = prod(a, undefined, undefined, { where: [true, false, true, false, true] }) as number;
+      const result = prod(a, undefined, undefined, {
+        where: [true, false, true, false, true],
+      }) as number;
       const np = runNumPy(`
 result = np.prod(np.array([1, 2, 3, 4, 5]), where=[True, False, True, False, True])
 `);
@@ -51,7 +53,9 @@ result = np.prod(np.array([1, 2, 3, 4, 5]), where=[True, False, True, False, Tru
 
     it('max with where=', () => {
       const a = array([1, 100, 3, 50, 5]);
-      const result = max(a, undefined, undefined, { where: [true, false, true, false, true] }) as number;
+      const result = max(a, undefined, undefined, {
+        where: [true, false, true, false, true],
+      }) as number;
       const np = runNumPy(`
 result = np.max(np.array([1, 100, 3, 50, 5]),
                 where=np.array([True, False, True, False, True]),

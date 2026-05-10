@@ -45,7 +45,7 @@ _, result = np.meshgrid(x, y, indexing='ij')
     expect(arraysClose(Y!.toArray() as number[], npY.value, 1e-10)).toBe(true);
   });
 
-  it("sparse=true matches NumPy", () => {
+  it('sparse=true matches NumPy', () => {
     const x = array([1, 2, 3]);
     const y = array([10, 20]);
     const [X, Y] = meshgrid(x, y, { sparse: true });
