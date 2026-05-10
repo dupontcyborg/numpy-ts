@@ -166,13 +166,17 @@ export function bindex(a: NDArrayCore, mask: NDArrayCore, axis?: number): NDArra
 }
 
 export function select(
-  condlist: NDArrayCore[],
-  choicelist: NDArrayCore[],
-  defaultVal: number = 0,
+  condlist: ArrayLike[],
+  choicelist: ArrayLike[],
+  defaultVal: ArrayLike = 0,
 ): NDArrayCore {
-  const condStorages = condlist.map(toStorage);
-  const choiceStorages = choicelist.map(toStorage);
-  return fromStorage(advancedOps.select(condStorages, choiceStorages, defaultVal));
+  const condStorages = condlist.map((c) => toStorage(asarray(c)));
+  const choiceStorages = choicelist.map((c) => toStorage(asarray(c)));
+  const defaultArg =
+    typeof defaultVal === 'number' || typeof defaultVal === 'bigint'
+      ? defaultVal
+      : toStorage(asarray(defaultVal));
+  return fromStorage(advancedOps.select(condStorages, choiceStorages, defaultArg));
 }
 
 export function place(a: NDArrayCore, mask: NDArrayCore, vals: NDArrayCore): void {

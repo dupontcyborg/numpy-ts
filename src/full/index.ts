@@ -94,9 +94,9 @@ export function bindex(a: NDArrayCore, mask: NDArrayCore, axis?: number): NDArra
 }
 
 export function select(
-  condlist: NDArrayCore[],
-  choicelist: NDArrayCore[],
-  defaultVal: number = 0,
+  condlist: ArrayLike[],
+  choicelist: ArrayLike[],
+  defaultVal: ArrayLike = 0,
 ): NDArray {
   return up(core.select(condlist, choicelist, defaultVal));
 }
