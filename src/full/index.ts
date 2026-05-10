@@ -401,15 +401,17 @@ export function nan_to_num(
   return up(core.nan_to_num(x, nan, posinf, neginf));
 }
 
-/** 1D linear interpolation */
+/** 1D linear interpolation. If `period` is given, x and xp are normalized into
+ *  `[0, period)` and the curve wraps at the boundary; `left`/`right` are ignored. */
 export function interp(
   x: NDArrayCore,
   xp: NDArrayCore,
   fp: NDArrayCore,
   left?: number,
   right?: number,
+  period?: number,
 ): NDArray {
-  return up(core.interp(x, xp, fp, left, right));
+  return up(core.interp(x, xp, fp, left, right, period));
 }
 
 /** Unwrap phase angles */

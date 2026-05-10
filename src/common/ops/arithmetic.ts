@@ -2959,6 +2959,7 @@ export function interp(
   fp: ArrayStorage,
   left?: number,
   right?: number,
+  period?: number,
 ): ArrayStorage {
   throwIfComplex(x.dtype, 'interp', 'interp is not supported for complex numbers.');
   throwIfComplex(xp.dtype, 'interp', 'interp is not supported for complex numbers.');
@@ -2972,6 +2973,51 @@ export function interp(
   const xpData = xp.data;
   const fpData = fp.data;
   const xpSize = xp.size;
+
+  // Periodic interpolation: x and xp are normalized into [0, period); xp is
+  // sorted; xp/fp are wrap-extended so any normalized x lies within range.
+  // left/right are ignored when period is provided.
+  if (period !== undefined) {
+    if (period === 0) {
+      throw new Error('period must be a non-zero value');
+    }
+    const P = Math.abs(period);
+    const pyMod = (a: number, b: number): number => ((a % b) + b) % b;
+
+    const xpNorm: number[] = new Array(xpSize);
+    const fpNorm: number[] = new Array(xpSize);
+    for (let i = 0; i < xpSize; i++) {
+      xpNorm[i] = pyMod(Number(xpData[i]!), P);
+      fpNorm[i] = Number(fpData[i]!);
+    }
+    const order = xpNorm.map((_, i) => i).sort((a, b) => xpNorm[a]! - xpNorm[b]!);
+    const sortedXp = order.map((i) => xpNorm[i]!);
+    const sortedFp = order.map((i) => fpNorm[i]!);
+    // Wrap-extend by one element on each side.
+    const extXp = [sortedXp[sortedXp.length - 1]! - P, ...sortedXp, sortedXp[0]! + P];
+    const extFp = [sortedFp[sortedFp.length - 1]!, ...sortedFp, sortedFp[0]!];
+    const extLen = extXp.length;
+
+    for (let i = 0; i < size; i++) {
+      const xi = pyMod(Number(xData[i]!), P);
+
+      // Binary search in extended xp.
+      let lo = 0;
+      let hi = extLen - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (extXp[mid]! <= xi) lo = mid;
+        else hi = mid;
+      }
+      const x0 = extXp[lo]!;
+      const x1 = extXp[hi]!;
+      const y0 = extFp[lo]!;
+      const y1 = extFp[hi]!;
+      resultData[i] = x0 === x1 ? y0 : y0 + ((xi - x0) / (x1 - x0)) * (y1 - y0);
+    }
+
+    return result;
+  }
 
   // Default left/right values
   const leftVal = left !== undefined ? left : Number(fpData[0]!);
