@@ -6,7 +6,8 @@
  */
 
 import * as gradientOps from '../common/ops/gradient';
-import { fromStorage, fromStorageArray, type NDArrayCore, toStorage } from './types';
+import { NDArrayCore } from '../common/ndarray-core';
+import { fromStorage, fromStorageArray, toStorage } from './types';
 
 /** Calculate n-th discrete difference */
 export function diff(a: NDArrayCore, n?: number, axis?: number): NDArrayCore {
@@ -22,13 +23,28 @@ export function ediff1d(
   return fromStorage(gradientOps.ediff1d(toStorage(a), to_end ?? null, to_begin ?? null));
 }
 
+/** Per-axis spacing: scalar (uniform) or 1-D coordinate array (non-uniform). */
+export type GradientSpacingArg = number | number[] | NDArrayCore;
+
 /** Return gradient of N-dimensional array */
 export function gradient(
   f: NDArrayCore,
-  varargs?: number | number[],
+  varargs?: number | GradientSpacingArg[],
   axis?: number | number[] | null,
 ): NDArrayCore | NDArrayCore[] {
-  const result = gradientOps.gradient(toStorage(f), varargs, axis);
+  let opVarargs: number | gradientOps.GradientSpacing[] | undefined;
+  if (varargs === undefined || typeof varargs === 'number') {
+    opVarargs = varargs;
+  } else {
+    opVarargs = varargs.map((v) => {
+      if (typeof v === 'number') return v;
+      if (v instanceof NDArrayCore) {
+        return Array.from(toStorage(v).data as ArrayLike<number>, (x) => Number(x));
+      }
+      return v;
+    });
+  }
+  const result = gradientOps.gradient(toStorage(f), opVarargs, axis);
   if (Array.isArray(result)) {
     return fromStorageArray(result);
   }

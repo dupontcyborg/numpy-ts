@@ -9,7 +9,7 @@
  */
 
 import type { Complex } from '../complex';
-import { isBigIntDType, isComplexDType, promoteDTypes } from '../dtype';
+import { isBigIntDType, isComplexDType, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import { wasmDiff } from '../wasm/diff';
 import { wasmGradient1D } from '../wasm/gradient';
@@ -250,9 +250,12 @@ export function ediff1d(
  * @param axis - Axis or axes along which to compute gradient (default: all axes)
  * @returns Array of gradients (one per axis) or single gradient if one axis
  */
+/** Per-axis spacing: either a scalar (uniform) or a 1-D coordinate array along that axis. */
+export type GradientSpacing = number | number[];
+
 export function gradient(
   f: ArrayStorage,
-  varargs: number | number[] = 1,
+  varargs: number | GradientSpacing[] = 1,
   axis: number | number[] | null = null,
 ): ArrayStorage | ArrayStorage[] {
   if (f.dtype === 'bool') {
@@ -283,8 +286,10 @@ export function gradient(
     });
   }
 
-  // Determine spacing for each axis
-  let spacings: number[];
+  // Per-axis spacing. A single scalar broadcasts across all axes; otherwise the
+  // length must match the number of axes. Each entry may be a scalar (uniform)
+  // or a 1-D coordinate array of length axisSize (non-uniform).
+  let spacings: GradientSpacing[];
   if (typeof varargs === 'number') {
     spacings = axes.map(() => varargs);
   } else {
@@ -294,28 +299,123 @@ export function gradient(
     spacings = varargs;
   }
 
-  // WASM fast path for 1D gradient with uniform spacing
+  // WASM fast path: 1-D, uniform scalar spacing, non-complex.
   if (
     axes.length === 1 &&
     f.shape.length === 1 &&
     !isComplexDType(f.dtype) &&
     typeof varargs === 'number'
   ) {
-    const wasm = wasmGradient1D(f, spacings[0]!);
+    const wasm = wasmGradient1D(f, varargs);
     if (wasm) return wasm;
   }
 
-  // Compute gradient for each axis
   const results: ArrayStorage[] = [];
   for (let i = 0; i < axes.length; i++) {
-    results.push(gradientAlongAxis(f, axes[i]!, spacings[i]!));
+    const sp = spacings[i]!;
+    const ax = axes[i]!;
+    if (typeof sp === 'number') {
+      results.push(gradientAlongAxis(f, ax, sp));
+    } else {
+      if (sp.length !== shape[ax]!) {
+        throw new Error(
+          `coordinate array for axis ${ax} has length ${sp.length}, expected ${shape[ax]!}`,
+        );
+      }
+      results.push(gradientAlongAxisCoords(f, ax, sp));
+    }
   }
 
-  // Return single result if single axis
   if (results.length === 1) {
     return results[0]!;
   }
   return results;
+}
+
+/**
+ * Non-uniform second-order central difference using explicit coordinates.
+ * For interior point i with hd = x[i] - x[i-1] and hs = x[i+1] - x[i]:
+ *
+ *   grad[i] = (-hs² · f[i-1] + (hs² - hd²) · f[i] + hd² · f[i+1]) / (hd · hs · (hd + hs))
+ *
+ * Boundaries fall back to first-order forward/backward differences.
+ */
+function gradientAlongAxisCoords(
+  f: ArrayStorage,
+  axis: number,
+  coords: number[],
+): ArrayStorage {
+  const shape = Array.from(f.shape);
+  const ndim = shape.length;
+  const axisSize = shape[axis]!;
+
+  if (axisSize < 2) {
+    throw new Error(`Shape of array along axis ${axis} must be at least 2, but got ${axisSize}`);
+  }
+
+  const dtype = f.dtype;
+  if (isComplexDType(dtype)) {
+    throw new Error('gradient with coordinate arrays is not yet supported for complex dtypes');
+  }
+
+  const resultDtype = isBigIntDType(dtype)
+    ? 'float64'
+    : dtype === 'float16' || dtype === 'float32'
+      ? dtype
+      : 'float64';
+
+  const result = ArrayStorage.zeros(shape, resultDtype);
+  const resultData = result.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+  const strides = f.strides;
+  const off = f.offset;
+  const totalSize = f.size;
+
+  for (let flatIdx = 0; flatIdx < totalSize; flatIdx++) {
+    let remaining = flatIdx;
+    const indices: number[] = new Array(ndim);
+    for (let d = ndim - 1; d >= 0; d--) {
+      indices[d] = remaining % shape[d]!;
+      remaining = Math.floor(remaining / shape[d]!);
+    }
+
+    let currentBufIdx = off;
+    for (let d = 0; d < ndim; d++) {
+      currentBufIdx += indices[d]! * strides[d]!;
+    }
+
+    const i = indices[axis]!;
+    let value: number;
+
+    const readAt = (axisIdx: number): number => {
+      let bufIdx = off;
+      for (let d = 0; d < ndim; d++) {
+        bufIdx += (d === axis ? axisIdx : indices[d]!) * strides[d]!;
+      }
+      return Number(f.data[bufIdx]!);
+    };
+
+    if (i === 0) {
+      const f0 = Number(f.data[currentBufIdx]!);
+      const f1 = readAt(1);
+      value = (f1 - f0) / (coords[1]! - coords[0]!);
+    } else if (i === axisSize - 1) {
+      const fN = Number(f.data[currentBufIdx]!);
+      const fNm1 = readAt(axisSize - 2);
+      value = (fN - fNm1) / (coords[axisSize - 1]! - coords[axisSize - 2]!);
+    } else {
+      const hd = coords[i]! - coords[i - 1]!;
+      const hs = coords[i + 1]! - coords[i]!;
+      const fm = readAt(i - 1);
+      const fc = Number(f.data[currentBufIdx]!);
+      const fp = readAt(i + 1);
+      value =
+        (-(hs * hs) * fm + (hs * hs - hd * hd) * fc + hd * hd * fp) / (hd * hs * (hd + hs));
+    }
+
+    resultData[flatIdx] = value;
+  }
+
+  return result;
 }
 
 /**
