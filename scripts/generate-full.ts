@@ -153,13 +153,14 @@ const CUSTOM_WRAPPERS: Record<string, { returnType: string; body: string }> = {
   };
   return up(core.apply_over_axes(wrappedFunc, a, axes));`,
   },
-  // apply_along_axis: callback receives NDArrayCore from core, but user expects NDArray
+  // apply_along_axis: callback receives NDArrayCore from core, but user expects NDArray.
+  // Forwards extra args (NumPy: apply_along_axis(func1d, axis, arr, *args)).
   apply_along_axis: {
     returnType: 'NDArray',
-    body: `const wrappedFunc1d = (arr: NDArrayCore): NDArrayCore | number => {
-    return func1d(up(arr));
+    body: `const wrappedFunc1d = (arr: NDArrayCore, ...passed: unknown[]): NDArrayCore | number => {
+    return func1d(up(arr), ...passed);
   };
-  return up(core.apply_along_axis(wrappedFunc1d, axis, arr));`,
+  return up(core.apply_along_axis(wrappedFunc1d, axis, arr, ...args));`,
   },
   // average can return either a single value or a tuple [avg, sum_of_weights]
   // when returned=true. Map the inner NDArrayCore values to NDArray.

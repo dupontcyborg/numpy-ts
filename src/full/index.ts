@@ -151,14 +151,15 @@ export function mask_indices(
 }
 
 export function apply_along_axis(
-  func1d: (arr: NDArrayCore) => NDArrayCore | number,
+  func1d: (arr: NDArrayCore, ...args: unknown[]) => NDArrayCore | number,
   axis: number,
   arr: NDArrayCore,
+  ...args: unknown[]
 ): NDArray {
-  const wrappedFunc1d = (arr: NDArrayCore): NDArrayCore | number => {
-    return func1d(up(arr));
+  const wrappedFunc1d = (arr: NDArrayCore, ...passed: unknown[]): NDArrayCore | number => {
+    return func1d(up(arr), ...passed);
   };
-  return up(core.apply_along_axis(wrappedFunc1d, axis, arr));
+  return up(core.apply_along_axis(wrappedFunc1d, axis, arr, ...args));
 }
 
 export function apply_over_axes(
@@ -756,8 +757,14 @@ export function fromfile(
 }
 
 /** Calculate n-th discrete difference */
-export function diff(a: NDArrayCore, n?: number, axis?: number): NDArray {
-  return up(core.diff(a, n, axis));
+export function diff(
+  a: NDArrayCore,
+  n?: number,
+  axis?: number,
+  prepend?: ArrayLike,
+  append?: ArrayLike,
+): NDArray {
+  return up(core.diff(a, n, axis, prepend, append));
 }
 
 /** Difference between consecutive elements in 1D array */
@@ -1586,8 +1593,11 @@ export function rollaxis(a: NDArrayCore, axis: number, start: number = 0): NDArr
   return up(core.rollaxis(a, axis, start));
 }
 
-/** Join arrays along an existing axis */
-export function concatenate(arrays: NDArrayCore[], axis: number = 0): NDArray {
+/**
+ * Join arrays along an existing axis. Pass `axis=null` to flatten each input
+ * and concatenate the result along axis 0 (matches `np.concatenate(..., axis=None)`).
+ */
+export function concatenate(arrays: NDArrayCore[], axis: number | null = 0): NDArray {
   return up(core.concatenate(arrays, axis));
 }
 
@@ -1612,7 +1622,7 @@ export function dstack(arrays: NDArrayCore[]): NDArray {
 }
 
 /** Concatenate (alias) */
-export function concat(arrays: NDArrayCore[], axis: number = 0): NDArray {
+export function concat(arrays: NDArrayCore[], axis: number | null = 0): NDArray {
   return up(core.concat(arrays, axis));
 }
 

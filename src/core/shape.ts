@@ -71,8 +71,18 @@ export function rollaxis(a: NDArrayCore, axis: number, start: number = 0): NDArr
 // Joining Arrays
 // ============================================================
 
-/** Join arrays along an existing axis */
-export function concatenate(arrays: NDArrayCore[], axis: number = 0): NDArrayCore {
+/**
+ * Join arrays along an existing axis. Pass `axis=null` to flatten each input
+ * and concatenate the result along axis 0 (matches `np.concatenate(..., axis=None)`).
+ */
+export function concatenate(
+  arrays: NDArrayCore[],
+  axis: number | null = 0,
+): NDArrayCore {
+  if (axis === null) {
+    const flattened = arrays.map((a) => shapeOps.ravel(toStorage(a)));
+    return fromStorage(shapeOps.concatenate(flattened, 0));
+  }
   return fromStorage(
     shapeOps.concatenate(
       arrays.map((a) => toStorage(a)),
@@ -107,7 +117,11 @@ export function dstack(arrays: NDArrayCore[]): NDArrayCore {
 }
 
 /** Concatenate (alias) */
-export function concat(arrays: NDArrayCore[], axis: number = 0): NDArrayCore {
+export function concat(arrays: NDArrayCore[], axis: number | null = 0): NDArrayCore {
+  if (axis === null) {
+    const flattened = arrays.map((a) => shapeOps.ravel(toStorage(a)));
+    return fromStorage(shapeOps.concat(flattened, 0));
+  }
   return fromStorage(
     shapeOps.concat(
       arrays.map((a) => toStorage(a)),

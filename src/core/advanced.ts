@@ -333,12 +333,13 @@ export function array_equiv(a: NDArrayCore, b: NDArrayCore): boolean {
 // ============================================================
 
 export function apply_along_axis(
-  func1d: (arr: NDArrayCore) => NDArrayCore | number,
+  func1d: (arr: NDArrayCore, ...args: unknown[]) => NDArrayCore | number,
   axis: number,
   arr: NDArrayCore,
+  ...args: unknown[]
 ): NDArrayCore {
   const wrappedFunc = (storage: ArrayStorage): ArrayStorage | number => {
-    const result = func1d(fromStorage(storage));
+    const result = func1d(fromStorage(storage), ...args);
     return typeof result === 'number' ? result : toStorage(result);
   };
   return fromStorage(advancedOps.apply_along_axis(toStorage(arr), axis, wrappedFunc));
