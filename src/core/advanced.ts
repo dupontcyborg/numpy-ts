@@ -9,8 +9,10 @@ import { type DType, isBigIntDType } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
 import * as comparisonOps from '../common/ops/comparison';
+import * as shapeOps from '../common/ops/shape';
 import type { ArrayStorage } from '../common/storage';
-import { array } from './creation';
+import { array, asarray } from './creation';
+import type { ArrayLike } from './types';
 import { fromStorage, fromStorageView, toStorage } from './types';
 
 // ============================================================
@@ -61,8 +63,47 @@ export function broadcast_shapes(...shapes: number[][]): number[] {
 // Indexing Operations
 // ============================================================
 
-export function take(a: NDArrayCore, indices: number[], axis?: number): NDArrayCore {
-  return fromStorage(advancedOps.take(toStorage(a), indices, axis));
+export function take(a: NDArrayCore, indices: ArrayLike, axis?: number): NDArrayCore {
+  // Fast path: a flat number[] of indices → no shape preservation needed,
+  // skip the asarray() wrap to avoid an extra WASM allocation per call.
+  if (Array.isArray(indices) && (indices.length === 0 || typeof indices[0] === 'number')) {
+    return fromStorage(advancedOps.take(toStorage(a), indices as number[], axis));
+  }
+
+  // Scalar index: NumPy reduces rank by one along the axis.
+  if (typeof indices === 'number' || typeof indices === 'bigint') {
+    const flatResult = advancedOps.take(toStorage(a), [Number(indices)], axis);
+    if (axis === undefined) {
+      // Drop the trailing length-1 dim → 0-D result
+      return fromStorage(shapeOps.reshape(flatResult, []));
+    }
+    const ndim = a.shape.length;
+    const k = axis < 0 ? ndim + axis : axis;
+    const outputShape = [...a.shape.slice(0, k), ...a.shape.slice(k + 1)];
+    return fromStorage(shapeOps.reshape(flatResult, outputShape));
+  }
+
+  // Multi-dim or NDArray indices: preserve indices' shape in the output.
+  const idxArr = asarray(indices);
+  const idxShape = Array.from(idxArr.shape);
+  const flatIndices: number[] = Array.from(
+    idxArr.data as { length: number; [n: number]: number | bigint },
+    (v) => Number(v),
+  );
+
+  const flatResult = advancedOps.take(toStorage(a), flatIndices, axis);
+
+  if (idxShape.length === 1) return fromStorage(flatResult);
+
+  let outputShape: number[];
+  if (axis === undefined) {
+    outputShape = idxShape;
+  } else {
+    const ndim = a.shape.length;
+    const k = axis < 0 ? ndim + axis : axis;
+    outputShape = [...a.shape.slice(0, k), ...idxShape, ...a.shape.slice(k + 1)];
+  }
+  return fromStorage(shapeOps.reshape(flatResult, outputShape));
 }
 
 export function put(a: NDArrayCore, indices: number[], values: NDArrayCore | number[]): void {
@@ -125,13 +166,17 @@ export function bindex(a: NDArrayCore, mask: NDArrayCore, axis?: number): NDArra
 }
 
 export function select(
-  condlist: NDArrayCore[],
-  choicelist: NDArrayCore[],
-  defaultVal: number = 0,
+  condlist: ArrayLike[],
+  choicelist: ArrayLike[],
+  defaultVal: ArrayLike = 0,
 ): NDArrayCore {
-  const condStorages = condlist.map(toStorage);
-  const choiceStorages = choicelist.map(toStorage);
-  return fromStorage(advancedOps.select(condStorages, choiceStorages, defaultVal));
+  const condStorages = condlist.map((c) => toStorage(asarray(c)));
+  const choiceStorages = choicelist.map((c) => toStorage(asarray(c)));
+  const defaultArg =
+    typeof defaultVal === 'number' || typeof defaultVal === 'bigint'
+      ? defaultVal
+      : toStorage(asarray(defaultVal));
+  return fromStorage(advancedOps.select(condStorages, choiceStorages, defaultArg));
 }
 
 export function place(a: NDArrayCore, mask: NDArrayCore, vals: NDArrayCore): void {
@@ -288,12 +333,13 @@ export function array_equiv(a: NDArrayCore, b: NDArrayCore): boolean {
 // ============================================================
 
 export function apply_along_axis(
-  func1d: (arr: NDArrayCore) => NDArrayCore | number,
+  func1d: (arr: NDArrayCore, ...args: unknown[]) => NDArrayCore | number,
   axis: number,
   arr: NDArrayCore,
+  ...args: unknown[]
 ): NDArrayCore {
   const wrappedFunc = (storage: ArrayStorage): ArrayStorage | number => {
-    const result = func1d(fromStorage(storage));
+    const result = func1d(fromStorage(storage), ...args);
     return typeof result === 'number' ? result : toStorage(result);
   };
   return fromStorage(advancedOps.apply_along_axis(toStorage(arr), axis, wrappedFunc));

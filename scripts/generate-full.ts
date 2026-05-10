@@ -153,13 +153,27 @@ const CUSTOM_WRAPPERS: Record<string, { returnType: string; body: string }> = {
   };
   return up(core.apply_over_axes(wrappedFunc, a, axes));`,
   },
-  // apply_along_axis: callback receives NDArrayCore from core, but user expects NDArray
+  // apply_along_axis: callback receives NDArrayCore from core, but user expects NDArray.
+  // Forwards extra args (NumPy: apply_along_axis(func1d, axis, arr, *args)).
   apply_along_axis: {
     returnType: 'NDArray',
-    body: `const wrappedFunc1d = (arr: NDArrayCore): NDArrayCore | number => {
-    return func1d(up(arr));
+    body: `const wrappedFunc1d = (arr: NDArrayCore, ...passed: unknown[]): NDArrayCore | number => {
+    return func1d(up(arr), ...passed);
   };
-  return up(core.apply_along_axis(wrappedFunc1d, axis, arr));`,
+  return up(core.apply_along_axis(wrappedFunc1d, axis, arr, ...args));`,
+  },
+  // average can return either a single value or a tuple [avg, sum_of_weights]
+  // when returned=true. Map the inner NDArrayCore values to NDArray.
+  average: {
+    returnType: 'NDArray | number | Complex | [NDArray | number | Complex, NDArray | number]',
+    body: `const r = core.average(a, axis, weights, keepdims, returned);
+  if (Array.isArray(r)) {
+    const [avg, sw] = r;
+    const upAvg = avg instanceof NDArrayCore ? up(avg) : avg;
+    const upSw = sw instanceof NDArrayCore ? up(sw) : sw;
+    return [upAvg, upSw];
+  }
+  return r instanceof NDArrayCore ? up(r) : r;`,
   },
 };
 
@@ -373,7 +387,10 @@ import { NDArray } from './ndarray';
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import { Complex } from '../common/complex';
-import type { DType, TypedArray } from '../core/types';
+import type { ArrayLike, DType, TypedArray } from '../core/types';
+import type { NestedNDArrays } from '../core/shape';
+import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
+import type { ReductionOpts } from '../core/reduction';
 import {
   DEFAULT_DTYPE,
   getTypedArrayConstructor,

@@ -471,7 +471,10 @@ isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDAr
 
 const AVERAGE_METHOD = `\
 average(weights?: NDArray, axis?: number): NDArray | number | Complex {
-    const r = core.average(this, axis, weights);
+    const r = core.average(this, axis, weights, false, false) as
+      | NDArrayCore
+      | number
+      | Complex;
     return r instanceof NDArrayCore ? up(r) : r;
   }`;
 
@@ -525,49 +528,57 @@ tofile(_file: string, _sep: string = '', _format: string = ''): void {
 // ============================================================
 
 export const MESHGRID_FUNCTION = `\
-export function meshgrid(...args: (NDArray | { indexing?: 'xy' | 'ij' })[]): NDArray[] {
+export interface MeshgridOptions {
+  /** 'xy' (default, NumPy-compatible) or 'ij' Cartesian/matrix indexing */
+  indexing?: 'xy' | 'ij';
+  /** If true, return open (non-broadcasted) grids — outputs have shape 1 except along their own axis */
+  sparse?: boolean;
+  /** If true (default), each output owns its data. If false, outputs are views (broadcast). */
+  copy?: boolean;
+}
+
+export function meshgrid(...args: (NDArray | MeshgridOptions)[]): NDArray[] {
   let arrays: NDArray[] = [];
   let indexing: 'xy' | 'ij' = 'xy';
+  let sparse = false;
+  let copy = true;
 
   for (const arg of args) {
     if (arg instanceof NDArray) {
       arrays.push(arg);
-    } else if (typeof arg === 'object' && 'indexing' in arg) {
-      indexing = arg.indexing || 'xy';
+    } else if (arg && typeof arg === 'object') {
+      if ('indexing' in arg && arg.indexing) indexing = arg.indexing;
+      if ('sparse' in arg && arg.sparse !== undefined) sparse = arg.sparse;
+      if ('copy' in arg && arg.copy !== undefined) copy = arg.copy;
     }
   }
 
-  if (arrays.length === 0) {
-    return [];
-  }
-
+  if (arrays.length === 0) return [];
   if (arrays.length === 1) {
-    return [arrays[0]!.copy()];
+    const a = arrays[0]!;
+    return [copy ? a.copy() : a];
   }
-
-  const sizes = arrays.map((a) => a.size);
 
   if (indexing === 'xy' && arrays.length >= 2) {
     arrays = [arrays[1]!, arrays[0]!, ...arrays.slice(2)];
-    [sizes[0], sizes[1]] = [sizes[1]!, sizes[0]!];
   }
 
-  const outputShape = sizes;
-  const ndim = outputShape.length;
+  const sizes = arrays.map((a) => a.size);
+  const ndim = sizes.length;
 
   const results: NDArray[] = [];
-
   for (let i = 0; i < arrays.length; i++) {
-    const inputArr = arrays[i]!;
-    const inputSize = inputArr.size;
-
     const broadcastShape: number[] = new Array(ndim).fill(1);
-    broadcastShape[i] = inputSize;
+    broadcastShape[i] = sizes[i]!;
 
-    const reshaped = inputArr.reshape(...broadcastShape);
-    const resultStorage = core.broadcast_to(reshaped, outputShape);
-    const result = NDArray.fromStorage(resultStorage.storage.copy());
-    results.push(result);
+    const reshaped = arrays[i]!.reshape(...broadcastShape);
+    if (sparse) {
+      results.push(copy ? reshaped.copy() : reshaped);
+      continue;
+    }
+    const broadcasted = core.broadcast_to(reshaped, sizes);
+    const out = NDArray.fromStorage(copy ? broadcasted.storage.copy() : broadcasted.storage);
+    results.push(out);
   }
 
   if (indexing === 'xy' && results.length >= 2) {

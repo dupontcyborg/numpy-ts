@@ -257,6 +257,57 @@ result = np.gradient(np.array([[1, 2, 4], [4, 8, 12]]), axis=1)
         expect(jsResult.shape).toEqual(pyResult.shape);
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
       });
+
+      it('accepts a 1-D coordinate array (non-uniform spacing)', () => {
+        const f = array([1, 2, 4, 7, 11, 16]);
+        const x = [0.0, 1.0, 1.5, 3.5, 4.0, 6.0];
+        const jsResult = gradient(f, [x]) as any;
+        const pyResult = runNumPy(`
+f = np.array([1, 2, 4, 7, 11, 16], dtype=float)
+x = np.array([0.0, 1.0, 1.5, 3.5, 4.0, 6.0])
+result = np.gradient(f, x)
+      `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-10)).toBe(true);
+      });
+
+      it('accepts mixed coord-array and scalar per axis', () => {
+        const f = array([
+          [1, 2, 6, 24],
+          [10, 20, 60, 240],
+          [100, 200, 600, 2400],
+        ]);
+        const ycoords = [0.0, 0.5, 1.0];
+        const [gy, gx] = gradient(f, [ycoords, 2]) as any;
+        const py0 = runNumPy(`
+f = np.array([[1, 2, 6, 24], [10, 20, 60, 240], [100, 200, 600, 2400]], dtype=float)
+y = np.array([0.0, 0.5, 1.0])
+gy, gx = np.gradient(f, y, 2)
+result = gy
+      `);
+        const py1 = runNumPy(`
+f = np.array([[1, 2, 6, 24], [10, 20, 60, 240], [100, 200, 600, 2400]], dtype=float)
+y = np.array([0.0, 0.5, 1.0])
+gy, gx = np.gradient(f, y, 2)
+result = gx
+      `);
+        expect(gy.shape).toEqual(py0.shape);
+        expect(arraysClose(gy.toArray(), py0.value, 1e-10)).toBe(true);
+        expect(arraysClose(gx.toArray(), py1.value, 1e-10)).toBe(true);
+      });
+
+      it('accepts NDArray as a coordinate spacing', () => {
+        const f = array([10, 20, 35, 80]);
+        const x = array([0.0, 1.0, 2.5, 5.0]);
+        const jsResult = gradient(f, [x]) as any;
+        const pyResult = runNumPy(`
+f = np.array([10, 20, 35, 80], dtype=float)
+x = np.array([0.0, 1.0, 2.5, 5.0])
+result = np.gradient(f, x)
+      `);
+        expect(jsResult.shape).toEqual(pyResult.shape);
+        expect(arraysClose(jsResult.toArray(), pyResult.value, 1e-10)).toBe(true);
+      });
     });
 
     describe('gradient (multi-dtype)', () => {

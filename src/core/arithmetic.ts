@@ -277,15 +277,19 @@ export function nan_to_num(
   return fromStorage(arithmeticOps.nan_to_num(toStorage(x), nan, posinf, neginf));
 }
 
-/** 1D linear interpolation */
+/** 1D linear interpolation. If `period` is given, x and xp are normalized into
+ *  `[0, period)` and the curve wraps at the boundary; `left`/`right` are ignored. */
 export function interp(
   x: NDArrayCore,
   xp: NDArrayCore,
   fp: NDArrayCore,
   left?: number,
   right?: number,
+  period?: number,
 ): NDArrayCore {
-  return fromStorage(arithmeticOps.interp(toStorage(x), toStorage(xp), toStorage(fp), left, right));
+  return fromStorage(
+    arithmeticOps.interp(toStorage(x), toStorage(xp), toStorage(fp), left, right, period),
+  );
 }
 
 /** Unwrap phase angles */

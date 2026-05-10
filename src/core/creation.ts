@@ -17,8 +17,11 @@ import {
   type TypedArray,
 } from '../common/dtype';
 import { type DType, NDArrayCore } from '../common/ndarray-core';
+import * as advancedOps from '../common/ops/advanced';
+import * as shapeOps from '../common/ops/shape';
 import { ArrayStorage } from '../common/storage';
 import { wasmAllFinite } from '../common/wasm/all_finite';
+import { toStorage } from './types';
 
 // Re-export types
 export type { DType, TypedArray } from '../common/dtype';
@@ -1029,37 +1032,64 @@ export function fromfile(
   throw new Error('fromfile requires Node.js file system access');
 }
 
-export function meshgrid(...arrays: NDArrayCore[]): NDArrayCore[] {
-  if (arrays.length === 0) return [];
-  if (arrays.length === 1) return [arrays[0]!.copy()];
+export interface MeshgridOptions {
+  /** 'xy' (default, NumPy-compatible) or 'ij' Cartesian/matrix indexing */
+  indexing?: 'xy' | 'ij';
+  /** If true, return open (non-broadcasted) grids — outputs have shape 1 except along their own axis */
+  sparse?: boolean;
+  /** If true (default), each output owns its data. If false, returns views (broadcast). */
+  copy?: boolean;
+}
 
-  const shapes = arrays.map((a) => a.size);
-  const outputShape = [...shapes];
+export function meshgrid(...args: (NDArrayCore | MeshgridOptions)[]): NDArrayCore[] {
+  const arrays: NDArrayCore[] = [];
+  let indexing: 'xy' | 'ij' = 'xy';
+  let sparse = false;
+  let copy = true;
+
+  for (const arg of args) {
+    if (arg instanceof NDArrayCore) {
+      arrays.push(arg);
+    } else if (arg && typeof arg === 'object') {
+      if ('indexing' in arg && arg.indexing) indexing = arg.indexing;
+      if ('sparse' in arg && arg.sparse !== undefined) sparse = arg.sparse;
+      if ('copy' in arg && arg.copy !== undefined) copy = arg.copy;
+    }
+  }
+
+  if (arrays.length === 0) return [];
+  if (arrays.length === 1) {
+    const a = arrays[0]!;
+    return [copy ? a.copy() : a];
+  }
+
+  // 'xy' swaps the first two axes relative to 'ij'.
+  const swap = indexing === 'xy' && arrays.length >= 2;
+  const orderedArrays = swap ? [arrays[1]!, arrays[0]!, ...arrays.slice(2)] : [...arrays];
+
+  const sizes = orderedArrays.map((a) => a.size);
+  const ndim = sizes.length;
+  const fullShape = sizes;
 
   const results: NDArrayCore[] = [];
+  for (let i = 0; i < orderedArrays.length; i++) {
+    const inputArr = orderedArrays[i]!;
+    const broadcastShape: number[] = new Array(ndim).fill(1);
+    broadcastShape[i] = sizes[i]!;
 
-  for (let dim = 0; dim < arrays.length; dim++) {
-    const arr = arrays[dim]!;
-    const data = arr.data;
-    const result = zeros(outputShape, arr.dtype as DType);
-    const resultData = result.data;
-
-    // Calculate strides for output
-    const strides: number[] = [];
-    let strideVal = 1;
-    for (let i = outputShape.length - 1; i >= 0; i--) {
-      strides.unshift(strideVal);
-      strideVal *= outputShape[i]!;
+    const reshaped = shapeOps.reshape(toStorage(inputArr), broadcastShape);
+    if (sparse) {
+      const sp = NDArrayCore.fromStorage(copy ? reshaped.copy() : reshaped);
+      results.push(sp);
+      continue;
     }
+    const broadcasted = advancedOps.broadcast_to(reshaped, fullShape);
+    const out = NDArrayCore.fromStorage(copy ? broadcasted.copy() : broadcasted);
+    results.push(out);
+  }
 
-    const totalSize = outputShape.reduce((a, b) => a * b, 1);
-    for (let flatIdx = 0; flatIdx < totalSize; flatIdx++) {
-      // Get the index along this dimension
-      const idx = Math.floor(flatIdx / strides[dim]!) % shapes[dim]!;
-      (resultData as Float64Array)[flatIdx] = data[idx] as number;
-    }
-
-    results.push(result);
+  if (swap) {
+    [results[0], results[1]] = [results[1]!, results[0]!];
   }
 
   return results;

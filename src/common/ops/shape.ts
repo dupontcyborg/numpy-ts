@@ -1800,18 +1800,37 @@ export function unstack(storage: ArrayStorage, axis: number = 0): ArrayStorage[]
   return results;
 }
 
-/**
- * Assemble an nd-array from nested lists of blocks
- * For a simple list [a, b] of nD arrays, concatenates along the last axis (like np.block)
- */
-export function block(storages: ArrayStorage[], _depth: number = 1): ArrayStorage {
-  if (storages.length === 0) {
+export type NestedBlock = ArrayStorage | NestedBlock[];
+
+function blockListDepth(x: NestedBlock): number {
+  if (!Array.isArray(x)) return 0;
+  let max = 0;
+  for (const child of x) {
+    const d = blockListDepth(child);
+    if (d > max) max = d;
+  }
+  return 1 + max;
+}
+
+function blockRecursive(x: NestedBlock, depthFromTop: number): ArrayStorage {
+  if (!Array.isArray(x)) return x;
+  if (x.length === 0) {
     throw new Error('need at least one array to block');
   }
-  if (storages.length === 1) {
-    return storages[0]!.copy();
+  const parts = x.map((child) => blockRecursive(child, depthFromTop - 1));
+  if (parts.length === 1) return parts[0]!.copy();
+  return concatenate(parts, -depthFromTop);
+}
+
+/**
+ * Assemble an nd-array from nested lists of blocks (np.block semantics).
+ * Each nesting level concatenates along a different axis: the innermost list
+ * along axis -1, the next along axis -2, and so on.
+ */
+export function block(arrays: NestedBlock): ArrayStorage {
+  const totalDepth = blockListDepth(arrays);
+  if (totalDepth === 0) {
+    return (arrays as ArrayStorage).copy();
   }
-  // np.block([a, b]) for nD arrays concatenates along the last axis (-1)
-  // This matches NumPy's behavior where a flat list of arrays is joined horizontally
-  return concatenate(storages, -1);
+  return blockRecursive(arrays, totalDepth);
 }

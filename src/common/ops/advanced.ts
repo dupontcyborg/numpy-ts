@@ -789,7 +789,7 @@ export function compress(
 export function select(
   condlist: ArrayStorage[],
   choicelist: ArrayStorage[],
-  defaultValue: number | bigint = 0,
+  defaultValue: ArrayStorage | number | bigint = 0,
 ): ArrayStorage {
   if (condlist.length !== choicelist.length) {
     throw new Error('condlist and choicelist must have same length');
@@ -799,11 +799,14 @@ export function select(
     throw new Error('condlist and choicelist cannot be empty');
   }
 
-  // Compute broadcast shape from all conditions and choices
+  // Compute broadcast shape across conds, choices, and (if array) the default
   const allShapes = [
     ...condlist.map((c) => Array.from(c.shape)),
     ...choicelist.map((c) => Array.from(c.shape)),
   ];
+  if (defaultValue instanceof ArrayStorage) {
+    allShapes.push(Array.from(defaultValue.shape));
+  }
   const outputShape = computeBroadcastShape(allShapes);
   if (outputShape === null) {
     throw new Error('condlist and choicelist arrays could not be broadcast together');
@@ -812,30 +815,43 @@ export function select(
   const dtype = choicelist[0]!.dtype;
   const outputSize = outputShape.reduce((a, b) => a * b, 1);
 
-  // Initialize with default value
-  const defaultVal: number | bigint = isBigIntDType(dtype)
-    ? typeof defaultValue === 'bigint'
-      ? defaultValue
-      : BigInt(defaultValue)
-    : typeof defaultValue === 'bigint'
-      ? Number(defaultValue)
-      : defaultValue;
-
   const selectResult = ArrayStorage.empty(outputShape, dtype);
   const outputData = selectResult.data;
-  for (let i = 0; i < outputSize; i++) {
-    if (isBigIntDType(dtype)) {
-      (outputData as BigInt64Array | BigUint64Array)[i] = defaultVal as bigint;
-    } else {
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = defaultVal as number;
+
+  // Initialize with default — scalar or broadcasted array
+  if (defaultValue instanceof ArrayStorage) {
+    const defaultBroadcast = broadcastTo(defaultValue, outputShape);
+    for (let i = 0; i < outputSize; i++) {
+      const v = defaultBroadcast.iget(i);
+      if (isBigIntDType(dtype)) {
+        (outputData as BigInt64Array | BigUint64Array)[i] = v as bigint;
+      } else {
+        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = v as number;
+      }
+    }
+  } else {
+    const defaultVal: number | bigint = isBigIntDType(dtype)
+      ? typeof defaultValue === 'bigint'
+        ? defaultValue
+        : BigInt(defaultValue)
+      : typeof defaultValue === 'bigint'
+        ? Number(defaultValue)
+        : defaultValue;
+    for (let i = 0; i < outputSize; i++) {
+      if (isBigIntDType(dtype)) {
+        (outputData as BigInt64Array | BigUint64Array)[i] = defaultVal as bigint;
+      } else {
+        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] =
+          defaultVal as number;
+      }
     }
   }
 
-  // Broadcast all arrays
+  // Broadcast conds/choices
   const broadcastedConds = condlist.map((c) => broadcastTo(c, outputShape));
   const broadcastedChoices = choicelist.map((c) => broadcastTo(c, outputShape));
 
-  // Process conditions in order (first match wins)
+  // First-match-wins
   for (let i = 0; i < outputSize; i++) {
     for (let j = 0; j < condlist.length; j++) {
       if (broadcastedConds[j]!.iget(i)) {

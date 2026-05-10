@@ -333,6 +333,7 @@ export {
   unique_inverse,
   unique_values,
 } from './sets';
+export type { NestedNDArrays } from './shape';
 // Shape manipulation
 export {
   array_split,
