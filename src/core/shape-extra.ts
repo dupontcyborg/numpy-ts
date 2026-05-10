@@ -226,12 +226,71 @@ export function insert(
   throw new Error('insert along axis not fully implemented in standalone');
 }
 
+export type PadWidthArg = number | [number, number] | (number | [number, number])[];
+export type PadValueArg = number | [number, number] | (number | [number, number])[];
+
+/**
+ * Normalize a pad_width / constant_values argument to per-axis [before, after] pairs.
+ *
+ * Accepts (matching NumPy):
+ *  - scalar `n` → `[[n, n], ...]` for every axis
+ *  - `[n]` (length 1) → `[[n, n], ...]` for every axis
+ *  - `[before, after]` (length 2) → broadcast to every axis
+ *  - `[n0, n1, ..., n_{ndim-1}]` (length ndim) → per-axis scalars (before=after=n_k)
+ *  - `[[b, a]]` (length 1) → broadcast pair to every axis
+ *  - `[[b0, a0], ..., [b_{ndim-1}, a_{ndim-1}]]` (length ndim) → per-axis pairs
+ *  - mixed: `[n0, [b1, a1], ...]` — scalars expand to (n, n)
+ */
+function normalizePerAxisPair(
+  v: PadWidthArg,
+  ndim: number,
+  paramName: string,
+): [number, number][] {
+  if (typeof v === 'number') {
+    return Array.from({ length: ndim }, () => [v, v] as [number, number]);
+  }
+  if (!Array.isArray(v) || v.length === 0) {
+    throw new Error(`${paramName} must be a number, pair, or non-empty list`);
+  }
+
+  // Distinguish "list of scalars" from "list of pairs (or mixed)"
+  const allNumbers = v.every((x) => typeof x === 'number');
+  if (allNumbers) {
+    const nums = v as number[];
+    if (nums.length === 1) {
+      const n = nums[0]!;
+      return Array.from({ length: ndim }, () => [n, n] as [number, number]);
+    }
+    if (nums.length === 2) {
+      const pair: [number, number] = [nums[0]!, nums[1]!];
+      return Array.from({ length: ndim }, () => [...pair] as [number, number]);
+    }
+    if (nums.length === ndim) {
+      return nums.map((n) => [n, n] as [number, number]);
+    }
+    throw new Error(`${paramName} length ${nums.length} does not match ndim ${ndim}`);
+  }
+
+  // List of pairs (or mixed scalars/pairs)
+  const toPair = (item: number | [number, number]): [number, number] =>
+    typeof item === 'number' ? [item, item] : ([item[0]!, item[1]!] as [number, number]);
+
+  if (v.length === 1) {
+    const pair = toPair(v[0]!);
+    return Array.from({ length: ndim }, () => [...pair] as [number, number]);
+  }
+  if (v.length !== ndim) {
+    throw new Error(`${paramName} length ${v.length} does not match ndim ${ndim}`);
+  }
+  return v.map(toPair);
+}
+
 /**
  * Pad an array
  */
 export function pad(
   arr: NDArrayCore,
-  pad_width: number | [number, number] | [number, number][],
+  pad_width: PadWidthArg,
   mode:
     | 'constant'
     | 'edge'
@@ -244,26 +303,32 @@ export function pad(
     | 'symmetric'
     | 'wrap'
     | 'empty' = 'constant',
-  constant_values: number = 0,
+  constant_values: PadValueArg = 0,
 ): NDArrayCore {
   const shape = [...arr.shape];
   const ndim = shape.length;
 
-  // Normalize pad_width to [[before, after], ...] for each dimension
-  let padWidths: [number, number][];
-  if (typeof pad_width === 'number') {
-    padWidths = Array(ndim).fill([pad_width, pad_width]) as [number, number][];
-  } else if (Array.isArray(pad_width) && typeof pad_width[0] === 'number') {
-    padWidths = Array(ndim).fill(pad_width as [number, number]) as [number, number][];
-  } else {
-    padWidths = pad_width as [number, number][];
-  }
+  const padWidths = normalizePerAxisPair(pad_width, ndim, 'pad_width');
+  const padValues = normalizePerAxisPair(constant_values, ndim, 'constant_values');
 
   // Calculate new shape
   const newShape = shape.map((s, i) => s + padWidths[i]![0] + padWidths[i]![1]);
 
+  // True if every axis uses (constantValue, constantValue) — enables the
+  // simple "pre-fill then copy source" fast paths below.
+  const uniformValue = padValues.every(
+    (p) => p[0] === padValues[0]![0] && p[1] === padValues[0]![0],
+  );
+  const scalarFillValue = uniformValue ? padValues[0]![0] : 0;
+
   // WASM fast path for 2D uniform zero-pad
-  if (mode === 'constant' && constant_values === 0 && ndim === 2 && typeof pad_width === 'number') {
+  if (
+    mode === 'constant' &&
+    uniformValue &&
+    scalarFillValue === 0 &&
+    ndim === 2 &&
+    typeof pad_width === 'number'
+  ) {
     const wasm = wasmPad2D(arr.storage, pad_width);
     if (wasm) {
       return new NDArrayCore(wasm);
@@ -274,35 +339,73 @@ export function pad(
     throw new Error(`pad mode '${mode}' not fully implemented in standalone`);
   }
 
-  // Create result array filled with constant value
   const result = zeros(newShape, arr.dtype as DType);
   const resultStorage = result.storage;
-  if (constant_values !== 0) {
-    for (let i = 0; i < result.size; i++) {
-      resultStorage.iset(i, constant_values);
-    }
-  }
-
-  // Copy original data into the padded position
   const srcStorage = arr.storage;
 
-  // Calculate strides for multi-index iteration (logical C-contiguous strides)
+  // Strides for multi-index iteration (logical C-contiguous)
   const strides: number[] = [];
   let stride = 1;
   for (let i = shape.length - 1; i >= 0; i--) {
     strides.unshift(stride);
     stride *= shape[i]!;
   }
-
   const newStrides: number[] = [];
   stride = 1;
   for (let i = newShape.length - 1; i >= 0; i--) {
     newStrides.unshift(stride);
     stride *= newShape[i]!;
   }
-
-  // Copy data
   const totalSize = shape.reduce((a, b) => a * b, 1);
+
+  // Per-axis value path: paint output cell-by-cell. NumPy applies pad axis-by-axis
+  // in order, so the *highest* axis whose pad covers a given cell wins.
+  if (!uniformValue) {
+    const newSize = result.size;
+    for (let outFlat = 0; outFlat < newSize; outFlat++) {
+      const idx: number[] = new Array(ndim);
+      let remaining = outFlat;
+      for (let k = 0; k < ndim; k++) {
+        idx[k] = Math.floor(remaining / newStrides[k]!);
+        remaining %= newStrides[k]!;
+      }
+
+      // Find highest axis whose pad covers this cell.
+      let fillValue: number | undefined;
+      for (let k = ndim - 1; k >= 0; k--) {
+        const i = idx[k]!;
+        const pb = padWidths[k]![0];
+        const sz = shape[k]!;
+        if (i < pb) {
+          fillValue = padValues[k]![0];
+          break;
+        }
+        if (i >= pb + sz) {
+          fillValue = padValues[k]![1];
+          break;
+        }
+      }
+
+      if (fillValue !== undefined) {
+        resultStorage.iset(outFlat, fillValue);
+      } else {
+        // In source region; copy from input.
+        let srcFlat = 0;
+        for (let k = 0; k < ndim; k++) {
+          srcFlat += (idx[k]! - padWidths[k]![0]) * strides[k]!;
+        }
+        resultStorage.iset(outFlat, srcStorage.iget(srcFlat));
+      }
+    }
+    return result;
+  }
+
+  // Uniform-value fast paths below (mirror previous behavior).
+  if (scalarFillValue !== 0) {
+    for (let i = 0; i < result.size; i++) {
+      resultStorage.iset(i, scalarFillValue);
+    }
+  }
 
   // Float16Array optimization: bulk-convert for faster per-element access
   if (
@@ -316,9 +419,8 @@ export function pad(
     );
     const resultSize = resultStorage.size;
     const f32Result = new Float32Array(resultSize);
-    // Pre-fill with constant value if non-zero
-    if (constant_values !== 0) {
-      f32Result.fill(constant_values);
+    if (scalarFillValue !== 0) {
+      f32Result.fill(scalarFillValue);
     }
 
     for (let flatIdx = 0; flatIdx < totalSize; flatIdx++) {
@@ -342,7 +444,6 @@ export function pad(
   }
 
   for (let flatIdx = 0; flatIdx < totalSize; flatIdx++) {
-    // Get multi-index in original array
     const multiIdx: number[] = [];
     let remaining = flatIdx;
     for (let i = 0; i < shape.length; i++) {
@@ -350,7 +451,6 @@ export function pad(
       remaining = remaining % strides[i]!;
     }
 
-    // Calculate new index with padding offset
     let newFlatIdx = 0;
     for (let i = 0; i < newShape.length; i++) {
       newFlatIdx += (multiIdx[i]! + padWidths[i]![0]) * newStrides[i]!;

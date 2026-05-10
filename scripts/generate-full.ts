@@ -375,6 +375,7 @@ import { ArrayStorage } from '../common/storage';
 import { Complex } from '../common/complex';
 import type { ArrayLike, DType, TypedArray } from '../core/types';
 import type { NestedNDArrays } from '../core/shape';
+import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
 import {
   DEFAULT_DTYPE,
   getTypedArrayConstructor,

@@ -26,6 +26,7 @@ import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
 import type { NestedNDArrays } from '../core/shape';
+import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
 import type { ArrayLike, DType, TypedArray } from '../core/types';
 import { NDArray } from './ndarray';
 
@@ -1500,7 +1501,7 @@ export function insert(
  */
 export function pad(
   arr: NDArrayCore,
-  pad_width: number | [number, number] | [number, number][],
+  pad_width: PadWidthArg,
   mode:
     | 'constant'
     | 'edge'
@@ -1513,7 +1514,7 @@ export function pad(
     | 'symmetric'
     | 'wrap'
     | 'empty' = 'constant',
-  constant_values: number = 0,
+  constant_values: PadValueArg = 0,
 ): NDArray {
   return up(core.pad(arr, pad_width, mode, constant_values));
 }
