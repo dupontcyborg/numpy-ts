@@ -25,6 +25,7 @@ import {
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
+import type { ReductionOpts } from '../core/reduction';
 import type { NestedNDArrays } from '../core/shape';
 import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
 import type { ArrayLike, DType, TypedArray } from '../core/types';
@@ -1110,8 +1111,9 @@ export function sum(
   a: NDArrayCore,
   axis?: number | number[],
   keepdims?: boolean,
+  opts?: ReductionOpts,
 ): NDArray | number | bigint | Complex {
-  const r = core.sum(a, axis, keepdims);
+  const r = core.sum(a, axis, keepdims, opts);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
@@ -1130,8 +1132,9 @@ export function prod(
   a: NDArrayCore,
   axis?: number | number[],
   keepdims?: boolean,
+  opts?: ReductionOpts,
 ): NDArray | number | bigint | Complex {
-  const r = core.prod(a, axis, keepdims);
+  const r = core.prod(a, axis, keepdims, opts);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
@@ -1140,8 +1143,9 @@ export function max(
   a: NDArrayCore,
   axis?: number | number[],
   keepdims?: boolean,
+  opts?: ReductionOpts,
 ): NDArray | number | Complex {
-  const r = core.max(a, axis, keepdims);
+  const r = core.max(a, axis, keepdims, opts);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
@@ -1150,26 +1154,31 @@ export function min(
   a: NDArrayCore,
   axis?: number | number[],
   keepdims?: boolean,
+  opts?: ReductionOpts,
 ): NDArray | number | Complex {
-  const r = core.min(a, axis, keepdims);
+  const r = core.min(a, axis, keepdims, opts);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
 /** Peak-to-peak (max - min) */
-export function ptp(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | number | Complex {
+export function ptp(
+  a: NDArrayCore,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray | number | Complex {
   const r = core.ptp(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
 /** Index of minimum value */
-export function argmin(a: NDArrayCore, axis?: number): NDArray | number {
-  const r = core.argmin(a, axis);
+export function argmin(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | number {
+  const r = core.argmin(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
 /** Index of maximum value */
-export function argmax(a: NDArrayCore, axis?: number): NDArray | number {
-  const r = core.argmax(a, axis);
+export function argmax(a: NDArrayCore, axis?: number, keepdims?: boolean): NDArray | number {
+  const r = core.argmax(a, axis, keepdims);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
@@ -1227,14 +1236,24 @@ export function quantile(
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
-/** Weighted average */
+/**
+ * Weighted average. When `returned` is true, returns `[avg, sum_of_weights]`
+ * (matching `np.average(..., returned=True)`); otherwise returns just `avg`.
+ */
 export function average(
   a: NDArrayCore,
   axis?: number,
   weights?: NDArrayCore,
   keepdims?: boolean,
-): NDArray | number | Complex {
-  const r = core.average(a, axis, weights, keepdims);
+  returned?: boolean,
+): NDArray | number | Complex | [NDArray | number | Complex, NDArray | number] {
+  const r = core.average(a, axis, weights, keepdims, returned);
+  if (Array.isArray(r)) {
+    const [avg, sw] = r;
+    const upAvg = avg instanceof NDArrayCore ? up(avg) : avg;
+    const upSw = sw instanceof NDArrayCore ? up(sw) : sw;
+    return [upAvg, upSw];
+  }
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
@@ -1243,8 +1262,9 @@ export function all(
   a: NDArrayCore,
   axis?: number | number[],
   keepdims?: boolean,
+  opts?: ReductionOpts,
 ): NDArray | boolean {
-  const r = core.all(a, axis, keepdims);
+  const r = core.all(a, axis, keepdims, opts);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
@@ -1253,8 +1273,9 @@ export function any(
   a: NDArrayCore,
   axis?: number | number[],
   keepdims?: boolean,
+  opts?: ReductionOpts,
 ): NDArray | boolean {
-  const r = core.any(a, axis, keepdims);
+  const r = core.any(a, axis, keepdims, opts);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 

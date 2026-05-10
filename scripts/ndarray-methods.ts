@@ -474,7 +474,10 @@ isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDAr
 
 const AVERAGE_METHOD = `\
 average(weights?: NDArray, axis?: number): NDArray | number | Complex {
-    const r = core.average(this, axis, weights);
+    const r = core.average(this, axis, weights, false, false) as
+      | NDArrayCore
+      | number
+      | Complex;
     return r instanceof NDArrayCore ? up(r) : r;
   }`;
 

@@ -606,7 +606,7 @@ export class NDArray extends NDArrayCore {
    * @returns Weighted average of array elements
    */
   average(weights?: NDArray, axis?: number): NDArray | number | Complex {
-    const r = core.average(this, axis, weights);
+    const r = core.average(this, axis, weights, false, false) as NDArrayCore | number | Complex;
     return r instanceof NDArrayCore ? up(r) : r;
   }
 

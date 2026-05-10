@@ -161,6 +161,19 @@ const CUSTOM_WRAPPERS: Record<string, { returnType: string; body: string }> = {
   };
   return up(core.apply_along_axis(wrappedFunc1d, axis, arr));`,
   },
+  // average can return either a single value or a tuple [avg, sum_of_weights]
+  // when returned=true. Map the inner NDArrayCore values to NDArray.
+  average: {
+    returnType: 'NDArray | number | Complex | [NDArray | number | Complex, NDArray | number]',
+    body: `const r = core.average(a, axis, weights, keepdims, returned);
+  if (Array.isArray(r)) {
+    const [avg, sw] = r;
+    const upAvg = avg instanceof NDArrayCore ? up(avg) : avg;
+    const upSw = sw instanceof NDArrayCore ? up(sw) : sw;
+    return [upAvg, upSw];
+  }
+  return r instanceof NDArrayCore ? up(r) : r;`,
+  },
 };
 
 // Functions returning arrays (should be wrapped)
@@ -376,6 +389,7 @@ import { Complex } from '../common/complex';
 import type { ArrayLike, DType, TypedArray } from '../core/types';
 import type { NestedNDArrays } from '../core/shape';
 import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
+import type { ReductionOpts } from '../core/reduction';
 import {
   DEFAULT_DTYPE,
   getTypedArrayConstructor,
