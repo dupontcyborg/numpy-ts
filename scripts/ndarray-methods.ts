@@ -253,7 +253,6 @@ override toString(): string {
   }`;
 
 const TOARRAY_METHOD = `\
-// biome-ignore lint/suspicious/noExplicitAny: required
   override toArray(): any {
     if (this.ndim === 0) {
       return this._storage.iget(0);
@@ -262,8 +261,7 @@ const TOARRAY_METHOD = `\
     const shape = this.shape;
     const ndim = shape.length;
 
-    // biome-ignore lint/suspicious/noExplicitAny: required
-    const buildNestedArray = (indices: number[], dim: number): any => {
+        const buildNestedArray = (indices: number[], dim: number): any => {
       if (dim === ndim) {
         return this._storage.get(...indices);
       }
@@ -280,7 +278,6 @@ const TOARRAY_METHOD = `\
   }`;
 
 const TOLIST_METHOD = `\
-// biome-ignore lint/suspicious/noExplicitAny: required
   override tolist(): any {
     return this.toArray();
   }`;
