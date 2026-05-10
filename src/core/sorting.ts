@@ -6,7 +6,9 @@
  */
 
 import * as sortingOps from '../common/ops/sorting';
+import { asarray } from './creation';
 import {
+  type ArrayLike,
   type ArrayStorage,
   fromStorage,
   fromStorageArray,
@@ -70,13 +72,13 @@ export function flatnonzero(a: NDArrayCore): NDArrayCore {
 /** Return elements from x or y based on condition */
 export function where(
   condition: NDArrayCore,
-  x?: NDArrayCore,
-  y?: NDArrayCore,
+  x?: ArrayLike,
+  y?: ArrayLike,
 ): NDArrayCore | NDArrayCore[] {
   const result = sortingOps.where(
     toStorage(condition),
-    x ? toStorage(x) : undefined,
-    y ? toStorage(y) : undefined,
+    x !== undefined ? toStorage(asarray(x)) : undefined,
+    y !== undefined ? toStorage(asarray(y)) : undefined,
   );
   if (Array.isArray(result)) {
     return fromStorageArray(result);
