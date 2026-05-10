@@ -3,10 +3,10 @@
  * Tests all 11×11 dtype combinations to ensure correct promotion behavior
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ones } from '../../src';
-import { promoteDTypes } from '../../src/common/dtype';
 import type { DType } from '../../src/common/dtype';
+import { promoteDTypes } from '../../src/common/dtype';
 
 describe('Complete DType Promotion Matrix', () => {
   // All supported dtypes (12 types)

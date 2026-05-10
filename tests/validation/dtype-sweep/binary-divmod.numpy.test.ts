@@ -3,17 +3,17 @@
  * Tests across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
   expectBothReject,
   expectMatchPre,
+  npDtype,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -56,7 +56,7 @@ result = _result_orig.astype(np.float64)`;
         const r = expectBothReject(
           'divmod is not defined for complex numbers',
           () => np.divmod(array(data1, dtype), array(data2, dtype)),
-          pyCode
+          pyCode,
         );
         if (r === 'both-reject') return;
       }

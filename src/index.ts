@@ -25,144 +25,141 @@
 // ============================================================
 
 export { Complex, type ComplexInput } from './common/complex';
-export { NDArray } from './full';
-export { NDArrayCore } from './common/ndarray-core';
 export { hasFloat16 } from './common/dtype';
+export { NDArrayCore } from './common/ndarray-core';
+export { NDArray } from './full';
 
 // ============================================================
 // Array Creation Functions
 // ============================================================
 
 export {
-  zeros,
-  ones,
-  empty,
-  full,
-  array,
   arange,
-  linspace,
-  logspace,
-  geomspace,
-  eye,
-  identity,
-  asarray,
-  zeros_like,
-  ones_like,
-  empty_like,
-  full_like,
-  copy,
+  array,
   asanyarray,
+  asarray,
   asarray_chkfinite,
   ascontiguousarray,
   asfortranarray,
-  require,
+  copy,
   diag,
   diagflat,
+  empty,
+  empty_like,
+  eye,
   frombuffer,
   fromfile,
   fromfunction,
   fromiter,
   fromstring,
+  full,
+  full_like,
+  geomspace,
+  identity,
+  linspace,
+  logspace,
   meshgrid,
+  ones,
+  ones_like,
+  require,
   tri,
   tril,
   triu,
   vander,
+  zeros,
+  zeros_like,
 } from './full';
 
 // ============================================================
 // Arithmetic and Mathematical Functions
 // ============================================================
 
+// Aliases
 export {
+  // Other arithmetic
+  absolute,
+  absolute as abs,
   // Basic arithmetic
   add,
-  subtract,
-  multiply,
+  cbrt,
+  clip,
   divide,
-  true_divide,
-  floor_divide,
-  mod,
-  // Exponential and logarithmic
-  sqrt,
-  power,
+  divmod,
   exp,
   exp2,
   expm1,
-  log,
-  log2,
-  log10,
-  log1p,
-  logaddexp,
-  logaddexp2,
-  // Other arithmetic
-  absolute,
-  negative,
-  sign,
-  positive,
-  reciprocal,
-  cbrt,
   fabs,
-  divmod,
-  square,
-  remainder,
-  heaviside,
   float_power,
+  floor_divide,
+  fmax,
+  fmin,
   fmod,
   frexp,
   gcd,
+  heaviside,
+  i0,
+  interp,
   lcm,
   ldexp,
-  modf,
-  clip,
+  log,
+  log1p,
+  log2,
+  log10,
+  logaddexp,
+  logaddexp2,
   maximum,
   minimum,
-  fmax,
-  fmin,
+  mod,
+  modf,
+  multiply,
   nan_to_num,
-  interp,
-  unwrap,
+  negative,
+  positive,
+  power,
+  power as pow,
+  reciprocal,
+  remainder,
+  sign,
   sinc,
-  i0,
+  // Exponential and logarithmic
+  sqrt,
+  square,
+  subtract,
+  true_divide,
+  unwrap,
 } from './full';
-
-// Aliases
-export { power as pow, absolute as abs } from './full';
 
 // ============================================================
 // Trigonometric and Hyperbolic Functions
 // ============================================================
 
-export {
-  sin,
-  cos,
-  tan,
-  arcsin,
-  arccos,
-  arctan,
-  arctan2,
-  hypot,
-  degrees,
-  radians,
-  deg2rad,
-  rad2deg,
-  sinh,
-  cosh,
-  tanh,
-  arcsinh,
-  arccosh,
-  arctanh,
-} from './full';
-
 // Aliases
 export {
-  arcsin as asin,
+  arccos,
   arccos as acos,
-  arctan as atan,
-  arctan2 as atan2,
-  arcsinh as asinh,
+  arccosh,
   arccosh as acosh,
+  arcsin,
+  arcsin as asin,
+  arcsinh,
+  arcsinh as asinh,
+  arctan,
+  arctan as atan,
+  arctan2,
+  arctan2 as atan2,
+  arctanh,
   arctanh as atanh,
+  cos,
+  cosh,
+  deg2rad,
+  degrees,
+  hypot,
+  rad2deg,
+  radians,
+  sin,
+  sinh,
+  tan,
+  tanh,
 } from './full';
 
 // ============================================================
@@ -170,121 +167,117 @@ export {
 // ============================================================
 
 export {
-  dot,
-  trace,
+  cross,
   diagonal,
-  kron,
-  transpose,
-  inner,
-  outer,
-  tensordot,
+  dot,
   einsum,
   einsum_path,
+  inner,
+  kron,
+  linalg,
+  matmul,
+  matrix_transpose,
+  matvec,
+  outer,
+  permute_dims,
+  tensordot,
+  trace,
+  transpose,
   vdot,
   vecdot,
-  matrix_transpose,
-  permute_dims,
-  matvec,
   vecmat,
-  cross,
-  matmul,
-  linalg,
 } from './full';
 
 // ============================================================
 // Shape Manipulation Functions
 // ============================================================
 
+// Alias
 export {
-  reshape,
-  flatten,
-  ravel,
-  squeeze,
-  expand_dims,
-  swapaxes,
-  moveaxis,
-  rollaxis,
-  concatenate,
-  stack,
-  vstack,
-  hstack,
-  dstack,
-  column_stack,
-  row_stack,
-  block,
-  split,
+  append,
   array_split,
-  vsplit,
-  hsplit,
-  dsplit,
-  unstack,
-  tile,
-  repeat,
-  flip,
-  fliplr,
-  flipud,
-  rot90,
-  roll,
-  resize,
   atleast_1d,
   atleast_2d,
   atleast_3d,
-  append,
+  block,
+  column_stack,
+  concatenate,
+  concatenate as concat,
   delete_,
   delete_ as delete,
+  dsplit,
+  dstack,
+  expand_dims,
+  flatten,
+  flip,
+  fliplr,
+  flipud,
+  hsplit,
+  hstack,
   insert,
+  moveaxis,
   pad,
+  ravel,
+  repeat,
+  reshape,
+  resize,
+  roll,
+  rollaxis,
+  rot90,
+  row_stack,
+  split,
+  squeeze,
+  stack,
+  swapaxes,
+  tile,
+  unstack,
+  vsplit,
+  vstack,
 } from './full';
-
-// Alias
-export { concatenate as concat } from './full';
 
 // ============================================================
 // Reduction Functions
 // ============================================================
 
-export {
-  sum,
-  mean,
-  prod,
-  amax,
-  amin,
-  ptp,
-  argmin,
-  argmax,
-  std,
-  variance,
-  var_ as var,
-  median,
-  percentile,
-  quantile,
-  average,
-  all,
-  any,
-  cumsum,
-  cumprod,
-  nansum,
-  nanprod,
-  nanmean,
-  nanvar,
-  nanstd,
-  nanmin,
-  nanmax,
-  nanargmin,
-  nanargmax,
-  nancumsum,
-  nancumprod,
-  nanmedian,
-  nanquantile,
-  nanpercentile,
-} from './full';
-
 // Aliases
 export {
+  all,
+  amax,
   amax as max,
+  amin,
   amin as min,
-  cumsum as cumulative_sum,
+  any,
+  argmax,
+  argmin,
+  average,
+  cumprod,
   cumprod as cumulative_prod,
+  cumsum,
+  cumsum as cumulative_sum,
+  mean,
+  median,
+  nanargmax,
+  nanargmin,
+  nancumprod,
+  nancumsum,
+  nanmax,
+  nanmean,
+  nanmedian,
+  nanmin,
+  nanpercentile,
+  nanprod,
+  nanquantile,
+  nanstd,
+  nansum,
+  nanvar,
+  percentile,
+  prod,
+  ptp,
+  quantile,
+  std,
+  sum,
+  var_ as var,
+  variance,
 } from './full';
 
 // ============================================================
@@ -292,38 +285,38 @@ export {
 // ============================================================
 
 export {
-  logical_and,
-  logical_or,
-  logical_not,
-  logical_xor,
+  allclose,
+  copysign,
+  equal,
+  greater,
+  greater_equal,
+  isclose,
+  iscomplex,
+  iscomplexobj,
+  isdtype,
   isfinite,
+  isfortran,
   isinf,
   isnan,
   isnat,
   isneginf,
   isposinf,
-  iscomplex,
-  iscomplexobj,
   isreal,
   isrealobj,
-  real_if_close,
-  isfortran,
   isscalar,
   iterable,
-  isdtype,
-  promote_types,
-  copysign,
-  signbit,
-  nextafter,
-  spacing,
-  greater,
-  greater_equal,
   less,
   less_equal,
-  equal,
+  logical_and,
+  logical_not,
+  logical_or,
+  logical_xor,
+  nextafter,
   not_equal,
-  isclose,
-  allclose,
+  promote_types,
+  real_if_close,
+  signbit,
+  spacing,
 } from './full';
 
 // ============================================================
@@ -331,67 +324,62 @@ export {
 // ============================================================
 
 export {
-  sort,
-  argsort,
-  lexsort,
-  partition,
   argpartition,
-  sort_complex,
-  nonzero,
+  argsort,
   argwhere,
-  flatnonzero,
-  where,
-  searchsorted,
-  extract,
   count_nonzero,
+  extract,
+  flatnonzero,
+  lexsort,
+  nonzero,
+  partition,
+  searchsorted,
+  sort,
+  sort_complex,
+  where,
 } from './full';
 
 // ============================================================
 // Bitwise Functions
 // ============================================================
 
-export {
-  bitwise_and,
-  bitwise_or,
-  bitwise_xor,
-  bitwise_not,
-  invert,
-  left_shift,
-  right_shift,
-  packbits,
-  unpackbits,
-  bitwise_count,
-} from './full';
-
 // Aliases
 export {
+  bitwise_and,
+  bitwise_count,
+  bitwise_not,
   bitwise_not as bitwise_invert,
+  bitwise_or,
+  bitwise_xor,
+  invert,
+  left_shift,
   left_shift as bitwise_left_shift,
+  packbits,
+  right_shift,
   right_shift as bitwise_right_shift,
+  unpackbits,
 } from './full';
 
 // ============================================================
 // Rounding Functions
 // ============================================================
 
-export { around, ceil, fix, floor, rint, trunc } from './full';
-
 // Alias
-export { around as round } from './full';
+export { around, around as round, ceil, fix, floor, rint, trunc } from './full';
 
 // ============================================================
 // Set Operations
 // ============================================================
 
 export {
-  unique,
   in1d,
   intersect1d,
   isin,
   setdiff1d,
   setxor1d,
-  union1d,
   trim_zeros,
+  union1d,
+  unique,
   unique_all,
   unique_counts,
   unique_inverse,
@@ -404,15 +392,15 @@ export {
 
 export {
   bincount,
+  convolve,
+  corrcoef,
+  correlate,
+  cov,
   digitize,
   histogram,
+  histogram_bin_edges,
   histogram2d,
   histogramdd,
-  correlate,
-  convolve,
-  cov,
-  corrcoef,
-  histogram_bin_edges,
   trapezoid,
 } from './full';
 
@@ -426,55 +414,53 @@ export { diff, ediff1d, gradient } from './full';
 // Complex Number Functions
 // ============================================================
 
-export { real, imag, conj, angle } from './full';
-
 // Alias
-export { conj as conjugate } from './full';
+export { angle, conj, conj as conjugate, imag, real } from './full';
 
 // ============================================================
 // Advanced Indexing and Data Manipulation
 // ============================================================
 
+export type { NDIndex } from './full';
 export {
-  broadcast_to,
-  broadcast_arrays,
-  broadcast_shapes,
-  take,
-  put,
-  iindex,
-  bindex,
-  vindex,
-  copyto,
-  choose,
   array_equal,
   array_equiv,
-  take_along_axis,
-  put_along_axis,
-  putmask,
+  bindex,
+  broadcast_arrays,
+  broadcast_shapes,
+  broadcast_to,
+  byteswap,
+  choose,
   compress,
-  select,
-  place,
-  fill_diagonal,
+  copyto,
   diag_indices,
   diag_indices_from,
+  fill,
+  fill_diagonal,
+  iindex,
+  indices,
+  item,
+  ix_,
+  mask_indices,
+  place,
+  put,
+  put_along_axis,
+  putmask,
+  ravel_multi_index,
+  select,
+  take,
+  take_along_axis,
+  tobytes,
+  tofile,
+  tolist,
   tril_indices,
   tril_indices_from,
   triu_indices,
   triu_indices_from,
-  mask_indices,
-  indices,
-  ix_,
-  ravel_multi_index,
   unravel_index,
-  fill,
-  item,
-  tolist,
-  tobytes,
-  byteswap,
   view,
-  tofile,
+  vindex,
 } from './full';
-export type { NDIndex } from './full';
 
 // ============================================================
 // Utility Functions
@@ -483,13 +469,13 @@ export type { NDIndex } from './full';
 export {
   apply_along_axis,
   apply_over_axes,
-  may_share_memory,
-  shares_memory,
-  ndim,
-  shape,
-  size,
   geterr,
+  may_share_memory,
+  ndim,
   seterr,
+  shape,
+  shares_memory,
+  size,
 } from './full';
 
 // ============================================================
@@ -497,16 +483,16 @@ export {
 // ============================================================
 
 export {
-  array2string,
   array_repr,
   array_str,
+  array2string,
   base_repr,
   binary_repr,
   format_float_positional,
   format_float_scientific,
   get_printoptions,
-  set_printoptions,
   printoptions,
+  set_printoptions,
 } from './full';
 
 // ============================================================
@@ -516,11 +502,11 @@ export {
 export {
   can_cast,
   common_type,
-  result_type,
-  min_scalar_type,
   issubdtype,
-  typename,
+  min_scalar_type,
   mintypecode,
+  result_type,
+  typename,
 } from './full';
 
 // ============================================================
@@ -544,51 +530,49 @@ export {
 // IO Functions
 // ============================================================
 
-// Types, errors, and constants - re-export directly (no wrapping needed)
-export {
-  UnsupportedDTypeError,
-  InvalidNpyError,
-  SUPPORTED_DTYPES,
-  DTYPE_TO_DESCR,
-  type NpyHeader,
-  type NpyMetadata,
-  type NpyVersion,
-} from './io/npy/format';
-export type { NpzParseOptions } from './io/npz/parser';
-export type { NpzSerializeOptions } from './io/npz/serializer';
-export type { ParseTxtOptions } from './io/txt/parser';
-export type { SerializeTxtOptions } from './io/txt/serializer';
-
 // WASM configuration (for testing — set thresholdMultiplier to 0 to force WASM, Infinity to disable)
 export { wasmConfig } from './common/wasm/config';
 export { configureWasm, wasmFreeBytes } from './common/wasm/runtime';
-
+// Types, errors, and constants - re-export directly (no wrapping needed)
+export {
+  DTYPE_TO_DESCR,
+  InvalidNpyError,
+  type NpyHeader,
+  type NpyMetadata,
+  type NpyVersion,
+  SUPPORTED_DTYPES,
+  UnsupportedDTypeError,
+} from './io/npy/format';
 // Serializers - re-export directly (they accept NDArrayCore, and NDArray extends NDArrayCore)
 export { serializeNpy } from './io/npy/serializer';
+export type { NpzParseOptions } from './io/npz/parser';
+export type { NpzSerializeOptions } from './io/npz/serializer';
 export { serializeNpz, serializeNpzSync } from './io/npz/serializer';
+export type { ParseTxtOptions } from './io/txt/parser';
+export type { SerializeTxtOptions } from './io/txt/serializer';
 export { serializeTxt } from './io/txt/serializer';
 
+import type { DType as DTypeIO } from './common/dtype';
+import type { NpyMetadata as NpyMetadataType } from './io/npy/format';
 // Parsers - wrap to return NDArray instead of NDArrayCore
 import {
   parseNpy as parseNpyCore,
-  parseNpyHeader as parseNpyHeaderCore,
   parseNpyData as parseNpyDataCore,
+  parseNpyHeader as parseNpyHeaderCore,
 } from './io/npy/parser';
+import type { NpzParseOptions as NpzParseOptionsType } from './io/npz/parser';
 import {
-  parseNpz as parseNpzCore,
-  parseNpzSync as parseNpzSyncCore,
   loadNpz as loadNpzCore,
   loadNpzSync as loadNpzSyncCore,
+  parseNpz as parseNpzCore,
+  parseNpzSync as parseNpzSyncCore,
 } from './io/npz/parser';
-import {
-  parseTxt as parseTxtCore,
-  genfromtxt as genfromtxtCore,
-  fromregex as fromregexCore,
-} from './io/txt/parser';
-import type { NpyMetadata as NpyMetadataType } from './io/npy/format';
-import type { NpzParseOptions as NpzParseOptionsType } from './io/npz/parser';
 import type { ParseTxtOptions as ParseTxtOptionsType } from './io/txt/parser';
-import type { DType as DTypeIO } from './common/dtype';
+import {
+  fromregex as fromregexCore,
+  genfromtxt as genfromtxtCore,
+  parseTxt as parseTxtCore,
+} from './io/txt/parser';
 
 // Re-export NpzArraysInput with NDArray types
 export type NpzArraysInput =
@@ -620,7 +604,7 @@ export function parseNpyData(bytes: Uint8Array, metadata: NpyMetadataType): NDAr
 // NPZ parsers
 export async function parseNpz(
   buffer: ArrayBuffer | Uint8Array,
-  options: NpzParseOptionsType = {}
+  options: NpzParseOptionsType = {},
 ): Promise<NpzParseResult> {
   const result = await parseNpzCore(buffer, options);
   const arrays = new Map<string, NDArrayClass>();
@@ -632,7 +616,7 @@ export async function parseNpz(
 
 export function parseNpzSync(
   buffer: ArrayBuffer | Uint8Array,
-  options: NpzParseOptionsType = {}
+  options: NpzParseOptionsType = {},
 ): NpzParseResult {
   const result = parseNpzSyncCore(buffer, options);
   const arrays = new Map<string, NDArrayClass>();
@@ -644,7 +628,7 @@ export function parseNpzSync(
 
 export async function loadNpz(
   buffer: ArrayBuffer | Uint8Array,
-  options: NpzParseOptionsType = {}
+  options: NpzParseOptionsType = {},
 ): Promise<Record<string, NDArrayClass>> {
   const result = await loadNpzCore(buffer, options);
   const upgraded: Record<string, NDArrayClass> = {};
@@ -656,7 +640,7 @@ export async function loadNpz(
 
 export function loadNpzSync(
   buffer: ArrayBuffer | Uint8Array,
-  options: NpzParseOptionsType = {}
+  options: NpzParseOptionsType = {},
 ): Record<string, NDArrayClass> {
   const result = loadNpzSyncCore(buffer, options);
   const upgraded: Record<string, NDArrayClass> = {};
@@ -678,7 +662,7 @@ export function genfromtxt(text: string, options: ParseTxtOptionsType = {}): NDA
 export function fromregex(
   text: string,
   regexp: RegExp | string,
-  dtype: DTypeIO = 'float64'
+  dtype: DTypeIO = 'float64',
 ): NDArrayClass {
   return upgradeToNDArray(fromregexCore(text, regexp, dtype));
 }
@@ -688,48 +672,48 @@ export function fromregex(
 // Note: genfromtxt/fromregex are excluded to avoid conflict with the buffer-based versions above.
 // Use the file-based versions via genfromtxtFile/fromregexFile, or use loadtxt for file-based text loading.
 export {
-  // Types
-  type LoadOptions,
-  type SaveNpzOptions,
-  type LoadTxtOptions,
-  type SaveTxtOptions,
-  // NPY
-  loadNpy,
-  loadNpySync,
-  saveNpy,
-  saveNpySync,
-  // NPZ
-  loadNpzFile,
-  loadNpzFileSync,
-  saveNpz as saveNpzFile,
-  saveNpzSync as saveNpzFileSync,
-  savez,
-  savez_compressed,
-  // Auto-detect
-  load,
-  loadSync,
-  save,
-  saveSync,
-  // Text
-  loadtxt,
-  loadtxtSync,
-  savetxt,
-  savetxtSync,
+  fromregex as fromregexFile,
+  fromregexSync as fromregexFileSync,
   // File-based text parsers (distinct from buffer-based genfromtxt/fromregex above)
   genfromtxt as genfromtxtFile,
   genfromtxtSync as genfromtxtFileSync,
-  fromregex as fromregexFile,
-  fromregexSync as fromregexFileSync,
+  // Types
+  type LoadOptions,
+  type LoadTxtOptions,
+  // Auto-detect
+  load,
+  // NPY
+  loadNpy,
+  loadNpySync,
+  // NPZ
+  loadNpzFile,
+  loadNpzFileSync,
+  loadSync,
+  // Text
+  loadtxt,
+  loadtxtSync,
+  type SaveNpzOptions,
+  type SaveTxtOptions,
+  save,
+  saveNpy,
+  saveNpySync,
+  saveNpz as saveNpzFile,
+  saveNpzSync as saveNpzFileSync,
+  saveSync,
+  savetxt,
+  savetxtSync,
+  savez,
+  savez_compressed,
 } from './io/file-ops';
 
 // ============================================================
 // Random Namespace (np.random)
 // ============================================================
 
+import type { DType } from './common/dtype';
 import * as randomOps from './common/ops/random';
-import { ArrayStorage } from './common/storage';
+import type { ArrayStorage } from './common/storage';
 import { NDArray as NDArrayClass } from './full';
-import { DType } from './common/dtype';
 
 // Helper to wrap ArrayStorage results in NDArray
 function wrapResult<T>(result: T): T | NDArrayClass {
@@ -768,7 +752,7 @@ export const random = {
         a: number | ArrayLike,
         size?: number | number[],
         replace?: boolean,
-        p?: ArrayLike | number[]
+        p?: ArrayLike | number[],
       ) =>
         wrapResult(
           gen.choice(
@@ -779,13 +763,13 @@ export const random = {
               ? p.storage
               : p instanceof NDArrayCore
                 ? p.storage
-                : (p as ArrayStorage | number[] | undefined)
-          )
+                : (p as ArrayStorage | number[] | undefined),
+          ),
         ),
       permutation: (x: number | ArrayLike) => wrapResult(gen.permutation(unwrap(x))),
       shuffle: (x: ArrayLike) =>
         gen.shuffle(
-          x instanceof NDArrayClass ? x.storage : x instanceof NDArrayCore ? x.storage : x
+          x instanceof NDArrayClass ? x.storage : x instanceof NDArrayCore ? x.storage : x,
         ),
       exponential: (scale?: number, size?: number | number[]) =>
         wrapResult(gen.exponential(scale, size)),
@@ -879,7 +863,7 @@ export const random = {
     cov: number[][] | ArrayStorage,
     size?: number | number[],
     check_valid?: 'warn' | 'raise' | 'ignore',
-    tol?: number
+    tol?: number,
   ) => wrapResult(randomOps.multivariate_normal(mean, cov, size, check_valid, tol)),
   dirichlet: (alpha: number[] | ArrayStorage, size?: number | number[]) =>
     wrapResult(randomOps.dirichlet(alpha, size)),
@@ -891,12 +875,12 @@ export const random = {
     a: number | ArrayStorage,
     size?: number | number[],
     replace?: boolean,
-    p?: ArrayStorage | number[]
+    p?: ArrayStorage | number[],
   ) => wrapResult(randomOps.choice(a, size, replace, p)),
   permutation: (x: number | ArrayStorage) => wrapResult(randomOps.permutation(x)),
   shuffle: (x: NDArrayClass | NDArrayCore | ArrayStorage) =>
     randomOps.shuffle(
-      x instanceof NDArrayClass ? x.storage : x instanceof NDArrayCore ? x.storage : x
+      x instanceof NDArrayClass ? x.storage : x instanceof NDArrayCore ? x.storage : x,
     ),
 };
 
@@ -904,8 +888,8 @@ export const random = {
 // FFT Namespace (np.fft)
 // ============================================================
 
-import * as fftOps from './common/ops/fft';
 import { NDArrayCore } from './common/ndarray-core';
+import * as fftOps from './common/ops/fft';
 
 // Type alias for array inputs - accepts NDArray, NDArrayCore, or ArrayStorage
 type ArrayInput = NDArrayClass | NDArrayCore | ArrayStorage;
@@ -928,7 +912,7 @@ export const fft = {
     a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
-    norm?: 'backward' | 'ortho' | 'forward'
+    norm?: 'backward' | 'ortho' | 'forward',
   ) => {
     return NDArrayClass.fromStorage(fftOps.fft2(getStorage(a), s, axes, norm));
   },
@@ -936,7 +920,7 @@ export const fft = {
     a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
-    norm?: 'backward' | 'ortho' | 'forward'
+    norm?: 'backward' | 'ortho' | 'forward',
   ) => {
     return NDArrayClass.fromStorage(fftOps.ifft2(getStorage(a), s, axes, norm));
   },
@@ -947,7 +931,7 @@ export const fft = {
     a: ArrayInput,
     s?: number[],
     axes?: number[],
-    norm?: 'backward' | 'ortho' | 'forward'
+    norm?: 'backward' | 'ortho' | 'forward',
   ) => {
     return NDArrayClass.fromStorage(fftOps.ifftn(getStorage(a), s, axes, norm));
   },
@@ -961,7 +945,7 @@ export const fft = {
     a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
-    norm?: 'backward' | 'ortho' | 'forward'
+    norm?: 'backward' | 'ortho' | 'forward',
   ) => {
     return NDArrayClass.fromStorage(fftOps.rfft2(getStorage(a), s, axes, norm));
   },
@@ -969,7 +953,7 @@ export const fft = {
     a: ArrayInput,
     s?: [number, number],
     axes?: [number, number],
-    norm?: 'backward' | 'ortho' | 'forward'
+    norm?: 'backward' | 'ortho' | 'forward',
   ) => {
     return NDArrayClass.fromStorage(fftOps.irfft2(getStorage(a), s, axes, norm));
   },
@@ -977,7 +961,7 @@ export const fft = {
     a: ArrayInput,
     s?: number[],
     axes?: number[],
-    norm?: 'backward' | 'ortho' | 'forward'
+    norm?: 'backward' | 'ortho' | 'forward',
   ) => {
     return NDArrayClass.fromStorage(fftOps.rfftn(getStorage(a), s, axes, norm));
   },
@@ -985,7 +969,7 @@ export const fft = {
     a: ArrayInput,
     s?: number[],
     axes?: number[],
-    norm?: 'backward' | 'ortho' | 'forward'
+    norm?: 'backward' | 'ortho' | 'forward',
   ) => {
     return NDArrayClass.fromStorage(fftOps.irfftn(getStorage(a), s, axes, norm));
   },

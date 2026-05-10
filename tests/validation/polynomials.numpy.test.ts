@@ -5,9 +5,9 @@
  * and verify the results match exactly.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { array } from '../../src';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  array,
   poly,
   polyadd,
   polyder,
@@ -19,8 +19,8 @@ import {
   polyval,
   roots,
 } from '../../src';
-import { Complex } from '../../src/common/complex';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import type { Complex } from '../../src/common/complex';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 /**
  * Extract sorted real parts from a complex128 roots result (for comparing real-only roots).

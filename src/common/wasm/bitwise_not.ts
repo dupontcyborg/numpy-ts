@@ -5,16 +5,16 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  bitwise_not_i64,
-  bitwise_not_i32,
-  bitwise_not_i16,
-  bitwise_not_i8,
-} from './bins/bitwise_not.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  bitwise_not_i8,
+  bitwise_not_i16,
+  bitwise_not_i32,
+  bitwise_not_i64,
+} from './bins/bitwise_not.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -72,6 +72,10 @@ export function wasmBitwiseNot(a: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

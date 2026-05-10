@@ -3,10 +3,10 @@
  * Validates that overflow wrapping matches NumPy exactly
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { array } from '../../src';
-import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 import type { DType } from '../../src/common/dtype';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Integer Overflow Behavior', () => {
   beforeAll(() => {

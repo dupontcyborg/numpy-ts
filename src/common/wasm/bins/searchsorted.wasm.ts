@@ -28,7 +28,7 @@ export function searchsorted_left_f64(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_f64'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -39,7 +39,7 @@ export function searchsorted_left_f32(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_f32'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -50,7 +50,7 @@ export function searchsorted_left_i64(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_i64'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -61,7 +61,7 @@ export function searchsorted_left_u64(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u64'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -72,7 +72,7 @@ export function searchsorted_left_i32(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_i32'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -83,7 +83,7 @@ export function searchsorted_left_u32(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u32'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -94,7 +94,7 @@ export function searchsorted_left_i16(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_i16'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -105,7 +105,7 @@ export function searchsorted_left_u16(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u16'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -116,7 +116,7 @@ export function searchsorted_left_i8(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_i8'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -127,7 +127,7 @@ export function searchsorted_left_u8(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_left_u8'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -138,7 +138,7 @@ export function searchsorted_right_f64(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_f64'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -149,7 +149,7 @@ export function searchsorted_right_f32(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_f32'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -160,7 +160,7 @@ export function searchsorted_right_i64(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_i64'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -171,7 +171,7 @@ export function searchsorted_right_u64(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_u64'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -182,7 +182,7 @@ export function searchsorted_right_i32(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_i32'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -193,7 +193,7 @@ export function searchsorted_right_u32(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_u32'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -204,7 +204,7 @@ export function searchsorted_right_i16(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_i16'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -215,7 +215,7 @@ export function searchsorted_right_u16(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_u16'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -226,7 +226,7 @@ export function searchsorted_right_i8(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_i8'] as (...args: number[]) => void)(sorted, N, values, out, M);
@@ -237,7 +237,7 @@ export function searchsorted_right_u8(
   N: number,
   values: number,
   out: number,
-  M: number
+  M: number,
 ): void {
   const i = init();
   (i.exports['searchsorted_right_u8'] as (...args: number[]) => void)(sorted, N, values, out, M);

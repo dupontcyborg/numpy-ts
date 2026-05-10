@@ -253,7 +253,6 @@ override toString(): string {
   }`;
 
 const TOARRAY_METHOD = `\
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
   override toArray(): any {
     if (this.ndim === 0) {
       return this._storage.iget(0);
@@ -262,8 +261,7 @@ const TOARRAY_METHOD = `\
     const shape = this.shape;
     const ndim = shape.length;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const buildNestedArray = (indices: number[], dim: number): any => {
+        const buildNestedArray = (indices: number[], dim: number): any => {
       if (dim === ndim) {
         return this._storage.get(...indices);
       }
@@ -280,7 +278,6 @@ const TOARRAY_METHOD = `\
   }`;
 
 const TOLIST_METHOD = `\
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
   override tolist(): any {
     return this.toArray();
   }`;

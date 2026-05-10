@@ -3,15 +3,15 @@
  * Spawns Python script and collects results
  */
 
-import { spawn } from 'child_process';
-import { resolve } from 'path';
+import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
 import type { BenchmarkCase, BenchmarkTiming } from './types';
 
 export async function runPythonBenchmarks(
   specs: BenchmarkCase[],
   minSampleTimeMs: number = 100,
   targetSamples: number = 5,
-  singleThread: boolean = false
+  singleThread: boolean = false,
 ): Promise<{ results: BenchmarkTiming[]; pythonVersion?: string; numpyVersion?: string }> {
   const scriptPath = resolve(__dirname, '../scripts/numpy_benchmark.py');
 
@@ -81,7 +81,7 @@ export async function runPythonBenchmarks(
           minSampleTimeMs,
           targetSamples,
         },
-      })
+      }),
     );
     python.stdin.end();
   });

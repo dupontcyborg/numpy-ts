@@ -2,32 +2,32 @@
  * Python NumPy validation tests for linear algebra operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
   arange,
-  ones,
-  dot,
-  trace,
-  transpose,
-  inner,
-  outer,
-  tensordot,
+  array,
   diagonal,
-  kron,
+  dot,
   einsum,
   einsum_path,
+  inner,
+  kron,
   linalg,
+  matrix_transpose,
+  matvec,
+  ones,
+  outer,
+  permute_dims,
+  tensordot,
+  trace,
+  transpose,
   vdot,
   vecdot,
-  matrix_transpose,
-  permute_dims,
-  matvec,
   vecmat,
   wasmConfig,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1, relaxed: 'auto' as const },
@@ -52,7 +52,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -435,7 +435,7 @@ result = np.trace([[1.5, 2.3], [3.7, 4.9]])
       it('matches NumPy for large matrix', () => {
         const size = 50;
         const data = Array.from({ length: size }, (_, i) =>
-          Array.from({ length: size }, (_, j) => i * size + j)
+          Array.from({ length: size }, (_, j) => i * size + j),
         );
         const a = array(data);
         const jsResult = trace(a);

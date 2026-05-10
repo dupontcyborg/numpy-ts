@@ -2,18 +2,18 @@
  * DType Sweep: Logical operations + isnan/isinf/isfinite, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
-  isComplex,
   expectBothReject,
   expectMatchPre,
+  isComplex,
+  npDtype,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -130,7 +130,7 @@ result = _result_orig.astype(np.float64)`;
           const _r = expectBothReject(
             'isneginf is not defined for complex numbers',
             () => np.isneginf(array(data, dtype)),
-            pyCode
+            pyCode,
           );
           if (_r === 'both-reject') return;
         }
@@ -149,7 +149,7 @@ result = _result_orig.astype(np.float64)`;
           const _r = expectBothReject(
             'isposinf is not defined for complex numbers',
             () => np.isposinf(array(data, dtype)),
-            pyCode
+            pyCode,
           );
           if (_r === 'both-reject') return;
         }

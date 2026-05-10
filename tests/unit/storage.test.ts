@@ -3,7 +3,7 @@
  * Tests the low-level storage abstraction directly
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ArrayStorage } from '../../src/common/storage';
 
 describe('ArrayStorage', () => {

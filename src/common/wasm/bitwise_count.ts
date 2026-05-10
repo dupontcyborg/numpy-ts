@@ -7,20 +7,20 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  bitwise_count_i64,
-  bitwise_count_u64,
-  bitwise_count_i32,
-  bitwise_count_u32,
-  bitwise_count_i16,
-  bitwise_count_u16,
-  bitwise_count_i8,
-  bitwise_count_u8,
-} from './bins/bitwise_count.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  bitwise_count_i8,
+  bitwise_count_i16,
+  bitwise_count_i32,
+  bitwise_count_i64,
+  bitwise_count_u8,
+  bitwise_count_u16,
+  bitwise_count_u32,
+  bitwise_count_u64,
+} from './bins/bitwise_count.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -81,7 +81,7 @@ export function wasmBitwiseCount(a: ArrayStorage): ArrayStorage | null {
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

@@ -3,8 +3,8 @@
  * Ensures that operations preserve dtypes correctly
  */
 
-import { describe, it, expect } from 'vitest';
-import { zeros, ones, array } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { array, ones, zeros } from '../../src';
 import type { DType } from '../../src/common/dtype';
 
 // Test all numeric dtypes (excluding bool for some operations)

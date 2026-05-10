@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { zeros, ones, array, Complex } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { array, Complex, ones, zeros } from '../../src';
 
 describe('NDArray Creation', () => {
   describe('zeros', () => {

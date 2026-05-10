@@ -16,20 +16,20 @@
  * (checked-in .wasm.ts files will be used as-is).
  */
 
-import { execSync, execFile } from 'child_process';
+import { execFile, execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
-  writeFileSync,
-  mkdirSync,
   rmSync,
-  existsSync,
-  copyFileSync,
-} from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-import { createHash } from 'crypto';
-import { promisify } from 'util';
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
@@ -105,12 +105,11 @@ function computeHash(zigPath: string, sharedModuleSources: Map<string, string>):
 // --- Parse Zig exports ---
 
 function parseZigExports(
-  zigSource: string
+  zigSource: string,
 ): { name: string; params: string; returnType: string }[] {
   const exports: { name: string; params: string; returnType: string }[] = [];
   const regex = /^export fn (\w+)\(([^)]*)\)\s*(\w+)/gm;
-  let match;
-  while ((match = regex.exec(zigSource)) !== null) {
+  for (let match = regex.exec(zigSource); match !== null; match = regex.exec(zigSource)) {
     const zigRet = match[3]!;
     const returnType = zigRet === 'void' ? 'void' : 'number';
     exports.push({ name: match[1]!, params: match[2]!, returnType });
@@ -146,7 +145,7 @@ function zigParamsToTs(params: string): { tsParams: string; bigintParams: Set<st
 function generateWasmTs(
   _kernelName: string,
   base64: string,
-  exports: { name: string; params: string; returnType: string }[]
+  exports: { name: string; params: string; returnType: string }[],
 ): string {
   const lines: string[] = [];
 
@@ -199,11 +198,11 @@ function generateWasmTs(
             .join(', ')
         : '';
       lines.push(
-        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: (number | bigint)[]) => ${ret})(${castArgs});`
+        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: (number | bigint)[]) => ${ret})(${castArgs});`,
       );
     } else {
       lines.push(
-        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: number[]) => ${ret})(${argNames});`
+        `  ${retPrefix}(i.exports['${exp.name}'] as (...args: number[]) => ${ret})(${argNames});`,
       );
     }
     lines.push(`}`);
@@ -237,7 +236,7 @@ async function compileKernel(
   /** Override output name (e.g. 'matmul_float-relaxed' for relaxed variant) */
   outputName?: string,
   /** Override CPU features (e.g. 'generic+simd128+relaxed_simd') */
-  cpuFeatures: string = 'generic+simd128'
+  cpuFeatures: string = 'generic+simd128',
 ): Promise<{ name: string; skipped: boolean; error?: string }> {
   const name = outputName ?? file.replace('.zig', '');
   const zigPath = join(ZIG_DIR, file);
@@ -297,9 +296,7 @@ async function compileKernel(
   // Generate .wasm.ts
   const tsContent = generateWasmTs(name, base64, exports);
 
-  // Write to bins/, format, then copy formatted version to cache
   writeFileSync(tsPath, tsContent);
-  execSync(`npx prettier --write "${tsPath}"`, { stdio: 'pipe' });
   copyFileSync(tsPath, cachePath);
 
   // Update hash
@@ -405,6 +402,7 @@ async function main() {
     }
     console.log(`All ${cached} kernel(s) cached — restored ${restored} to bins/ [${ZIG_OPT}]\n`);
     rmSync(TMP_DIR, { recursive: true, force: true });
+    execSync('npx biome format --write src/common/wasm/bins/', { cwd: ROOT, stdio: 'pipe' });
     return;
   }
 
@@ -440,8 +438,8 @@ async function main() {
         hashes,
         relaxedGlobalBaseMap.get(file),
         `${file.replace('.zig', '')}-relaxed`,
-        relaxedCpu
-      )
+        relaxedCpu,
+      ),
     ),
   ];
   const buildResults = await Promise.all(buildPromises);
@@ -477,6 +475,7 @@ async function main() {
   const oldCacheFile = join(ROOT, '.wasm-cache.json');
   if (existsSync(oldCacheFile)) rmSync(oldCacheFile);
 
+  execSync('npx biome format --write src/common/wasm/bins/', { cwd: ROOT, stdio: 'pipe' });
   console.log(`\nWASM build complete: ${built} built, ${restored} from cache [${ZIG_OPT}]`);
 }
 

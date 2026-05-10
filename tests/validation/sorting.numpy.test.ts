@@ -7,10 +7,10 @@
  * - Multiple axis combinations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import * as np from '../../src/full/index';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { wasmConfig } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import * as np from '../../src/full/index';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 /** NumPy dtype string for a given numpy-ts dtype */
 const NP_DTYPE: Record<string, string> = {

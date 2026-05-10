@@ -2,24 +2,23 @@
  * Benchmark visualization - HTML report generation
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type {
-  BenchmarkReport,
-  BenchmarkComparison,
-  MultiRuntimeReport,
-  RuntimeComparison,
-} from './types';
+import * as fs from 'node:fs';
 import {
-  groupByCategory,
+  formatDuration,
+  formatOpsPerSec,
+  formatRatio,
   getCategorySummaries,
   getDtypeSummaries,
   getMultiRuntimeDtypeSummaries,
-  formatDuration,
-  formatRatio,
-  formatOpsPerSec,
+  groupByCategory,
   groupMultiRuntimeByCategory,
 } from './analysis';
+import type {
+  BenchmarkComparison,
+  BenchmarkReport,
+  MultiRuntimeReport,
+  RuntimeComparison,
+} from './types';
 
 const DTYPE_COLORS: Record<string, { bg: string; text: string }> = {
   float64: { bg: '#dbeafe', text: '#1e40af' },
@@ -59,7 +58,7 @@ export function generateHTMLReport(report: BenchmarkReport, outputPath: string):
   fs.writeFileSync(outputPath, html, 'utf-8');
 }
 
-function createHTML(report: BenchmarkReport, outputPath: string = ''): string {
+function createHTML(report: BenchmarkReport, _outputPath: string = ''): string {
   const { timestamp, environment, results, summary } = report;
   const groups = groupByCategory(results);
   const categorySummaries = getCategorySummaries(results);
@@ -342,8 +341,8 @@ function createHTML(report: BenchmarkReport, outputPath: string = ''): string {
                 ? 'rgba(46, 213, 115, 0.8)'
                 : r < 5
                   ? 'rgba(255, 195, 18, 0.8)'
-                  : 'rgba(235, 77, 75, 0.8)'
-            )
+                  : 'rgba(235, 77, 75, 0.8)',
+            ),
           )},
           borderWidth: 1
         }]
@@ -378,7 +377,7 @@ function createHTML(report: BenchmarkReport, outputPath: string = ''): string {
 
 export function generateMultiRuntimeHTMLReport(
   report: MultiRuntimeReport,
-  outputPath: string
+  outputPath: string,
 ): void {
   const html = createMultiRuntimeHTML(report);
   fs.writeFileSync(outputPath, html, 'utf-8');
@@ -478,7 +477,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
           <div class="version">v${environment.runtimes[rt]}</div>
           ${summaries[rt] ? `<div class="version">Overall: ${formatRatio(summaries[rt]!.geo_mean)} | Median: ${formatRatio(summaries[rt]!.median_slowdown)}</div>` : ''}
         </div>
-      `
+      `,
         )
         .join('')}
     </div>
@@ -530,7 +529,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
             data: ds.data,
             backgroundColor: ds.backgroundColor,
             borderWidth: 1,
-          }))
+          })),
         )}
       },
       options: {
@@ -558,7 +557,7 @@ function createMultiRuntimeHTML(report: MultiRuntimeReport): string {
 
 function generateMultiRuntimeCategoryTables(
   groups: Map<string, RuntimeComparison[]>,
-  runtimeNames: string[]
+  runtimeNames: string[],
 ): string {
   let html = '';
 
@@ -619,7 +618,7 @@ function generateMultiRuntimeCategoryTables(
 }
 
 function generateDtypeBreakdown(
-  dtypeSummaries: Map<string, { geo_mean: number; median_slowdown: number; count: number }>
+  dtypeSummaries: Map<string, { geo_mean: number; median_slowdown: number; count: number }>,
 ): string {
   if (dtypeSummaries.size <= 1) return ''; // Only float64 — nothing interesting to show
 
@@ -666,7 +665,7 @@ function generateDtypeBreakdown(
 
 function generateDtypeBreakdownMultiRuntime(
   dtypeSummaries: Map<string, { geo_mean: number; median_slowdown: number; count: number }>,
-  runtimeName: string
+  runtimeName: string,
 ): string {
   if (dtypeSummaries.size <= 1) return '';
 
@@ -714,7 +713,7 @@ function generateDtypeBreakdownMultiRuntime(
 
 function generateDtypeChartScript(
   dtypeSummaries: Map<string, { geo_mean: number; median_slowdown: number; count: number }>,
-  canvasId: string = 'dtypeChart'
+  canvasId: string = 'dtypeChart',
 ): string {
   if (dtypeSummaries.size <= 1) return '';
 

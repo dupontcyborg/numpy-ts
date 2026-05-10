@@ -1,0 +1,79 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+  "files": {
+    "includes": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "benchmarks/src/**/*.ts"]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always",
+      "arrowParentheses": "always"
+    },
+    "globals": [
+      "console",
+      "process",
+      "Buffer",
+      "__dirname",
+      "__filename",
+      "module",
+      "require",
+      "exports",
+      "TextEncoder",
+      "TextDecoder",
+      "CompressionStream",
+      "DecompressionStream",
+      "WebAssembly",
+      "atob"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noSelfCompare": "off",
+        "noApproximativeNumericConstant": "off",
+        "noAssignInExpressions": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
+      },
+      "complexity": {
+        "useLiteralKeys": "off",
+        "useArrowFunction": "off",
+        "useOptionalChain": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["tests/**/*.ts", "scripts/**/*.ts", "benchmarks/src/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noExplicitAny": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["tests/bundles/browser*.ts"],
+      "javascript": {
+        "globals": ["document", "window"]
+      }
+    },
+    {
+      "includes": ["src/node.ts"],
+      "linter": {
+        "rules": {
+          "style": { "noCommonJs": "off" }
+        }
+      }
+    }
+  ]
+}

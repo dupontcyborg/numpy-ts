@@ -30,7 +30,7 @@ export function qr_f64(
   tau_out: number,
   scratch: number,
   m_arg: number,
-  n_arg: number
+  n_arg: number,
 ): void {
   const i = init();
   (i.exports['qr_f64'] as (...args: number[]) => void)(a, q, r, tau_out, scratch, m_arg, n_arg);

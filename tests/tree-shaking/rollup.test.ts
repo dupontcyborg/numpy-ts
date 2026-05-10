@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { mkdir } from 'fs/promises';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   ALL_FIXTURES,
+  type BundleResult,
+  buildWithRollup,
+  logBundleSizes,
   OUTPUT_DIR,
   THRESHOLDS,
-  BundleResult,
-  logBundleSizes,
-  buildWithRollup,
 } from './shared';
-import { resolve } from 'path';
 
 const results = new Map<string, BundleResult>();
 
@@ -23,7 +23,7 @@ describe('Rollup tree-shaking', () => {
         const result = await buildWithRollup(fixture.name);
         results.set(fixture.name, result);
         return result;
-      })
+      }),
     );
     const successCount = builds.filter((r) => r.success).length;
     if (successCount === 0) {
@@ -52,7 +52,7 @@ describe('Rollup tree-shaking', () => {
       if (!r?.success) continue;
       const pct = (r.minifiedSize / fullSize) * 100;
       expect(pct, `${name} is ${pct.toFixed(1)}% of full (threshold: ${threshold}%)`).toBeLessThan(
-        threshold
+        threshold,
       );
     }
   });

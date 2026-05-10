@@ -8,16 +8,12 @@
  * Run with: npx ts-node scripts/generate-full.ts
  */
 
-import { Project, FunctionDeclaration, SourceFile, SyntaxKind } from 'ts-morph';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import {
-  METHOD_DEFS,
-  MESHGRID_FUNCTION,
-  type MethodDef,
-  type MethodPattern,
-} from './ndarray-methods';
+import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { type FunctionDeclaration, Project } from 'ts-morph';
+import { MESHGRID_FUNCTION, METHOD_DEFS, type MethodDef } from './ndarray-methods';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -168,7 +164,7 @@ const CUSTOM_WRAPPERS: Record<string, { returnType: string; body: string }> = {
 };
 
 // Functions returning arrays (should be wrapped)
-const RETURNS_ARRAY_FUNCTIONS = new Set([
+const _RETURNS_ARRAY_FUNCTIONS = new Set([
   // Most core functions return arrays
 ]);
 
@@ -270,7 +266,7 @@ function transformReturnType(returnType: string): string {
     .replace(/NDArrayCore/g, 'NDArray');
 }
 
-function generateWrapperFunction(info: FunctionInfo, moduleName: string): string {
+function generateWrapperFunction(info: FunctionInfo, _moduleName: string): string {
   // Check for custom wrapper override
   if (CUSTOM_WRAPPERS[info.name]) {
     const custom = CUSTOM_WRAPPERS[info.name];
@@ -333,11 +329,11 @@ export function ${info.name}(${info.params}): ${transformedReturnType} {
 }`;
 }
 
-function generateReexport(info: FunctionInfo): string {
+function _generateReexport(info: FunctionInfo): string {
   return `export { ${info.name} } from '../core/${getModuleName(info.name)}';`;
 }
 
-function getModuleName(funcName: string): string {
+function getModuleName(_funcName: string): string {
   // This would need to be tracked properly, for now we'll use 'index'
   return 'index';
 }
@@ -351,7 +347,7 @@ function generateIndexFile(
   wrappedFunctions: Set<string>,
   reexportedFunctions: Set<string>,
   coreImportPath: string = '../core',
-  outputFile: string = INDEX_OUTPUT_FILE
+  outputFile: string = INDEX_OUTPUT_FILE,
 ): void {
   const output: string[] = [];
 
@@ -447,6 +443,10 @@ export { Complex } from '../common/complex';
   // Write output
   const outputContent = output.join('\n');
   fs.writeFileSync(outputFile, outputContent);
+  execSync(`npx biome check --write "${path.relative(path.join(__dirname, '..'), outputFile)}"`, {
+    cwd: path.join(__dirname, '..'),
+    stdio: 'pipe',
+  });
 
   console.log(`\nGenerated ${outputFile}`);
   console.log(`  - ${wrappedFunctions.size} wrapped functions`);
@@ -528,7 +528,7 @@ function generateMethodCode(def: MethodDef): string {
 
 function generateNDArrayFile(
   coreImportPath: string = '../core',
-  outputFile: string = NDARRAY_OUTPUT_FILE
+  outputFile: string = NDARRAY_OUTPUT_FILE,
 ): void {
   const output: string[] = [];
 
@@ -658,6 +658,10 @@ export class NDArray extends NDArrayCore {`);
   // Write output
   const outputContent = output.join('\n');
   fs.writeFileSync(outputFile, outputContent);
+  execSync(`npx biome check --write "${path.relative(path.join(__dirname, '..'), outputFile)}"`, {
+    cwd: path.join(__dirname, '..'),
+    stdio: 'pipe',
+  });
 
   const totalMethods = METHOD_DEFS.length;
   const autoMethods = totalMethods - manualMethods.length;
@@ -721,7 +725,7 @@ async function main() {
     }
 
     console.log(
-      `  ${file}: ${functions.length} functions (${functions.filter((f) => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`
+      `  ${file}: ${functions.length} functions (${functions.filter((f) => shouldWrapFunction(f)).length} wrapped), ${varStatements.length} const exports`,
     );
   }
 
@@ -731,7 +735,7 @@ async function main() {
     wrappedFunctions,
     reexportedFunctions,
     '../core',
-    INDEX_OUTPUT_FILE
+    INDEX_OUTPUT_FILE,
   );
   generateNDArrayFile('../core', NDARRAY_OUTPUT_FILE);
 }

@@ -40,7 +40,7 @@ export function clip_i64(a: number, out: number, N: number, lo: number, hi: numb
     out,
     N,
     BigInt(Math.round(lo)),
-    BigInt(Math.round(hi))
+    BigInt(Math.round(hi)),
   );
 }
 
@@ -51,7 +51,7 @@ export function clip_u64(a: number, out: number, N: number, lo: number, hi: numb
     out,
     N,
     BigInt(Math.round(lo)),
-    BigInt(Math.round(hi))
+    BigInt(Math.round(hi)),
   );
 }
 

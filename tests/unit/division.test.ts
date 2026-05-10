@@ -3,8 +3,8 @@
  * Tests division behavior including type promotion and division by zero
  */
 
-import { describe, it, expect } from 'vitest';
-import { ones, zeros, array } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { array, ones, zeros } from '../../src';
 import type { DType } from '../../src/common/dtype';
 
 describe('Division Operations', () => {
@@ -247,7 +247,7 @@ describe('Division Operations', () => {
           [1, 2],
           [3, 4],
         ],
-        'int32'
+        'int32',
       );
       const b = array([1, 0], 'int32');
       const result = a.divide(b);

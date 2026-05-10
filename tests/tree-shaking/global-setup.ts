@@ -3,8 +3,8 @@
  * Only responsibility: clear stale sentinel files from a previous run so the
  * per-worker setup (setup.ts) always performs a fresh build.
  */
-import { rmSync } from 'fs';
-import { resolve } from 'path';
+import { rmSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export function setup() {
   const root = resolve(__dirname, '../..');

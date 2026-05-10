@@ -4,31 +4,31 @@
  * Tests: broadcast_to, broadcast_arrays, take, put, choose, array_equal
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   array,
-  zeros,
-  broadcast_to,
-  broadcast_arrays,
-  take,
-  put,
-  choose,
   array_equal,
-  take_along_axis,
+  bindex,
+  broadcast_arrays,
+  broadcast_to,
+  choose,
   compress,
-  select,
-  fill_diagonal,
   diag_indices,
-  tril_indices,
-  triu_indices,
+  fill_diagonal,
+  iindex,
   indices,
   ix_,
+  put,
   ravel_multi_index,
+  select,
+  take,
+  take_along_axis,
+  tril_indices,
+  triu_indices,
   unravel_index,
-  iindex,
-  bindex,
+  zeros,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Advanced Functions', () => {
   beforeAll(() => {

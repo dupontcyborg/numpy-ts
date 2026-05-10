@@ -10,30 +10,30 @@
  *   i32/u32/i64/u64 → f64
  */
 
+import { type DType, effectiveDType, hasFloat16, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  hypot_f64,
   hypot_f32,
-  hypot_scalar_f64,
-  hypot_scalar_f32,
-  hypot_i64,
-  hypot_scalar_i64,
-  hypot_i32,
-  hypot_scalar_i32,
-  hypot_i16,
-  hypot_scalar_i16,
+  hypot_f64,
   hypot_i8,
+  hypot_i16,
+  hypot_i32,
+  hypot_i64,
+  hypot_scalar_f32,
+  hypot_scalar_f64,
   hypot_scalar_i8,
+  hypot_scalar_i16,
+  hypot_scalar_i32,
+  hypot_scalar_i64,
 } from './bins/hypot.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32ToF16InPlace,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, hasFloat16, promoteDTypes, type DType, type TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -148,7 +148,11 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
         dtype,
         outRegion,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -157,7 +161,11 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -184,7 +192,11 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
         'float16',
         outRegion,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -196,8 +208,8 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
       Float32Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -227,8 +239,8 @@ export function wasmHypot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null
       Float64Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -277,7 +289,11 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
         dtype,
         outRegion,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -286,7 +302,11 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -312,7 +332,11 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
         'float16',
         outRegion,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -324,8 +348,8 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
       Float32Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -354,8 +378,8 @@ export function wasmHypotScalar(a: ArrayStorage, scalar: number): ArrayStorage |
       Float64Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 

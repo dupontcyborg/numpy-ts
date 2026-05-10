@@ -5,28 +5,28 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, hasFloat16, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  gradient_f64,
   gradient_f32,
-  gradient_i64,
-  gradient_i32,
-  gradient_i16,
+  gradient_f64,
   gradient_i8,
-  gradient_u64,
-  gradient_u32,
-  gradient_u16,
+  gradient_i16,
+  gradient_i32,
+  gradient_i64,
   gradient_u8,
+  gradient_u16,
+  gradient_u32,
+  gradient_u64,
 } from './bins/gradient.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -137,8 +137,8 @@ export function wasmGradient1D(a: ArrayStorage, spacing: number): ArrayStorage |
         Float16Array as unknown as new (
           buffer: ArrayBuffer,
           byteOffset: number,
-          length: number
-        ) => TypedArray
+          length: number,
+        ) => TypedArray,
       );
     }
   } else {
@@ -154,7 +154,7 @@ export function wasmGradient1D(a: ArrayStorage, spacing: number): ArrayStorage |
     OutCtor as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

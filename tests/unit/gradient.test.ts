@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { array, diff, ediff1d, gradient, cross } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { array, cross, diff, ediff1d, gradient } from '../../src';
 import {
+  cross as crossStorage,
   diff as diffStorage,
   ediff1d as ediff1dStorage,
   gradient as gradientStorage,
-  cross as crossStorage,
 } from '../../src/common/ops/gradient';
 import { ArrayStorage } from '../../src/common/storage';
 
@@ -447,7 +447,7 @@ describe('Gradient Operations', () => {
         [4, 5, 6],
       ]);
       expect(() => gradient(arr, [1, 2, 3], [0, 1])).toThrow(
-        'Number of spacings must match number of axes'
+        'Number of spacings must match number of axes',
       );
     });
 
@@ -666,7 +666,7 @@ describe('Gradient Operations', () => {
       const b = ArrayStorage.fromData(
         new Float64Array([0, 1, 0, 0, 0, 1, 1, 0, 0]),
         [3, 3],
-        'float64'
+        'float64',
       );
       expect(() => crossStorage(a, b)).toThrow('Shape mismatch');
     });

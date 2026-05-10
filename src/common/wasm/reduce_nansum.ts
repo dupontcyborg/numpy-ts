@@ -6,11 +6,11 @@
  * Only float64 and float32 — TS routes int/uint to regular sum.
  */
 
-import { reduce_nansum_f64, reduce_nansum_f32 } from './bins/reduce_nansum.wasm';
-import { resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import type { ArrayStorage } from '../storage';
+import { reduce_nansum_f32, reduce_nansum_f64 } from './bins/reduce_nansum.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr } from './runtime';
 
 const BASE_THRESHOLD = 32;
 

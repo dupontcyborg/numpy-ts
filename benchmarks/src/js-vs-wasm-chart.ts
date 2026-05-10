@@ -8,9 +8,9 @@
  *   - plots/js-vs-wasm.html       — full HTML report with per-benchmark tables
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
-import * as fs from 'fs';
-import * as path from 'path';
 import type { BenchmarkComparison } from './types';
 
 const RESULTS_DIR = path.resolve(__dirname, '../results');
@@ -50,10 +50,10 @@ function formatRatio(r: number): string {
 
 function load(): H2HEntry[] {
   const jsReport = JSON.parse(
-    fs.readFileSync(path.join(RESULTS_DIR, 'js-only-full.json'), 'utf-8')
+    fs.readFileSync(path.join(RESULTS_DIR, 'js-only-full.json'), 'utf-8'),
   ) as { results: BenchmarkComparison[] };
   const wasmReport = JSON.parse(
-    fs.readFileSync(path.join(RESULTS_DIR, 'latest-full.json'), 'utf-8')
+    fs.readFileSync(path.join(RESULTS_DIR, 'latest-full.json'), 'utf-8'),
   ) as { results: BenchmarkComparison[] };
 
   const jsMap = new Map(jsReport.results.map((r) => [r.name, r]));
@@ -67,7 +67,8 @@ function load(): H2HEntry[] {
     const js_ops = jsEntry.numpyjs.ops_per_sec;
     const wasm_ops = wasmEntry.numpyjs.ops_per_sec;
     const numpy_ops = wasmEntry.numpy.ops_per_sec;
-    if (!isFinite(js_ops) || js_ops <= 0 || !isFinite(wasm_ops) || wasm_ops <= 0) continue;
+    if (!Number.isFinite(js_ops) || js_ops <= 0 || !Number.isFinite(wasm_ops) || wasm_ops <= 0)
+      continue;
 
     entries.push({
       name: wasmEntry.name,
@@ -214,7 +215,7 @@ async function generateSpeedupChart(entries: H2HEntry[]): Promise<void> {
   }
 
   const categories = Array.from(catMap.keys()).sort(
-    (a, b) => geoMean(catMap.get(b)!) - geoMean(catMap.get(a)!)
+    (a, b) => geoMean(catMap.get(b)!) - geoMean(catMap.get(a)!),
   );
   const speedups = categories.map((c) => geoMean(catMap.get(c)!));
   const overall = geoMean(entries.map((e) => e.speedup));
@@ -234,14 +235,14 @@ async function generateSpeedupChart(entries: H2HEntry[]): Promise<void> {
               ? 'rgba(46, 213, 115, 0.8)'
               : s >= 5
                 ? 'rgba(75, 192, 192, 0.8)'
-                : 'rgba(255, 195, 18, 0.8)'
+                : 'rgba(255, 195, 18, 0.8)',
           ),
           borderColor: speedups.map((s) =>
             s >= 20
               ? 'rgba(46, 213, 115, 1)'
               : s >= 5
                 ? 'rgba(75, 192, 192, 1)'
-                : 'rgba(255, 195, 18, 1)'
+                : 'rgba(255, 195, 18, 1)',
           ),
           borderWidth: 2,
         },
@@ -301,7 +302,7 @@ async function generateSpeedupChart(entries: H2HEntry[]): Promise<void> {
       {
         id: 'valueLabels',
         afterDatasetsDraw: (chart: any) => {
-          const { ctx, data } = chart;
+          const { ctx, data: _data } = chart;
           ctx.save();
           ctx.font = 'bold 13px sans-serif';
           ctx.textAlign = 'center';
@@ -498,7 +499,7 @@ function generateHTML(entries: H2HEntry[]): void {
       numpy: median(es.map((e) => e.numpy_ops)),
       js: median(es.map((e) => e.js_ops)),
       wasm: median(es.map((e) => e.wasm_ops)),
-    }))
+    })),
   )};
 
   new Chart(document.getElementById('h2hChart'), {

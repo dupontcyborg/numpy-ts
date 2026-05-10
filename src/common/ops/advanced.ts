@@ -5,22 +5,22 @@
  * @module ops/advanced
  */
 
-import { ArrayStorage, computeStrides } from '../storage';
+import { broadcastShapes, broadcastTo, computeBroadcastShape } from '../broadcasting';
+import { Complex } from '../complex';
 import {
+  type DType,
   getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
-  type DType,
   type TypedArray,
 } from '../dtype';
-import { computeBroadcastShape, broadcastTo, broadcastShapes } from '../broadcasting';
-import { Complex } from '../complex';
-import { parseSlice } from '../slicing';
 import { expandEllipsis } from '../internal/indexing';
-import { slice as storageSlice, transpose as storageTranspose } from './shape';
-import { wasmIndices } from '../wasm/indices';
+import { parseSlice } from '../slicing';
+import { ArrayStorage, computeStrides } from '../storage';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
+import { wasmIndices } from '../wasm/indices';
 import { wasmUnravelIndex } from '../wasm/unravel_index';
+import { slice as storageSlice, transpose as storageTranspose } from './shape';
 
 /**
  * Broadcast an array to a given shape
@@ -39,7 +39,7 @@ export function broadcast_to(storage: ArrayStorage, targetShape: number[]): Arra
   const broadcastedShape = computeBroadcastShape([Array.from(shape), targetShape]);
   if (broadcastedShape === null) {
     throw new Error(
-      `operands could not be broadcast together with shape (${shape.join(',')}) (${targetShape.join(',')})`
+      `operands could not be broadcast together with shape (${shape.join(',')}) (${targetShape.join(',')})`,
     );
   }
 
@@ -47,7 +47,7 @@ export function broadcast_to(storage: ArrayStorage, targetShape: number[]): Arra
   for (let i = 0; i < targetNdim; i++) {
     if (broadcastedShape[i] !== targetShape[i]) {
       throw new Error(
-        `operands could not be broadcast together with shape (${shape.join(',')}) (${targetShape.join(',')})`
+        `operands could not be broadcast together with shape (${shape.join(',')}) (${targetShape.join(',')})`,
       );
     }
   }
@@ -74,7 +74,7 @@ export function broadcast_arrays(storages: ArrayStorage[]): ArrayStorage[] {
 
   if (targetShape === null) {
     throw new Error(
-      `operands could not be broadcast together with shapes ${shapes.map((s) => `(${s.join(',')})`).join(' ')}`
+      `operands could not be broadcast together with shapes ${shapes.map((s) => `(${s.join(',')})`).join(' ')}`,
     );
   }
 
@@ -126,7 +126,7 @@ export function take(storage: ArrayStorage, indices: number[], axis?: number): A
         (outputData as BigInt64Array | BigUint64Array)[i] = storage.iget(idx) as bigint;
       } else {
         (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = storage.iget(
-          idx
+          idx,
         ) as number;
       }
     }
@@ -147,7 +147,7 @@ export function take(storage: ArrayStorage, indices: number[], axis?: number): A
     const normalizedIdx = idx < 0 ? axisSize + idx : idx;
     if (normalizedIdx < 0 || normalizedIdx >= axisSize) {
       throw new Error(
-        `index ${idx} is out of bounds for axis ${normalizedAxis} with size ${axisSize}`
+        `index ${idx} is out of bounds for axis ${normalizedAxis} with size ${axisSize}`,
       );
     }
   }
@@ -166,7 +166,7 @@ export function take(storage: ArrayStorage, indices: number[], axis?: number): A
   for (let i = 0; i < outputSize; i++) {
     // Compute source index
     const sourceIndices = [...outputIndices];
-    let targetIdx = outputIndices[normalizedAxis]!;
+    const targetIdx = outputIndices[normalizedAxis]!;
     let sourceAxisIdx = indices[targetIdx]!;
     if (sourceAxisIdx < 0) sourceAxisIdx = axisSize + sourceAxisIdx;
     sourceIndices[normalizedAxis] = sourceAxisIdx;
@@ -208,7 +208,7 @@ export function take(storage: ArrayStorage, indices: number[], axis?: number): A
 export function put(
   storage: ArrayStorage,
   indices: number[],
-  values: ArrayStorage | number | bigint
+  values: ArrayStorage | number | bigint,
 ): void {
   const flatSize = storage.size;
   const dtype = storage.dtype;
@@ -344,9 +344,16 @@ export function array_equal(a: ArrayStorage, b: ArrayStorage, equal_nan: boolean
       const bRe = bIsComplex ? (bVal as { re: number; im: number }).re : Number(bVal);
       const bIm = bIsComplex ? (bVal as { re: number; im: number }).im : 0;
 
-      if (equal_nan && isNaN(aRe) && isNaN(bRe) && isNaN(aIm) && isNaN(bIm)) continue;
-      if (equal_nan && aRe === bRe && isNaN(aIm) && isNaN(bIm)) continue;
-      if (equal_nan && isNaN(aRe) && isNaN(bRe) && aIm === bIm) continue;
+      if (
+        equal_nan &&
+        Number.isNaN(aRe) &&
+        Number.isNaN(bRe) &&
+        Number.isNaN(aIm) &&
+        Number.isNaN(bIm)
+      )
+        continue;
+      if (equal_nan && aRe === bRe && Number.isNaN(aIm) && Number.isNaN(bIm)) continue;
+      if (equal_nan && Number.isNaN(aRe) && Number.isNaN(bRe) && aIm === bIm) continue;
       if (aRe !== bRe || aIm !== bIm) return false;
       continue;
     }
@@ -374,7 +381,7 @@ export function array_equal(a: ArrayStorage, b: ArrayStorage, equal_nan: boolean
 export function take_along_axis(
   storage: ArrayStorage,
   indices: ArrayStorage,
-  axis: number
+  axis: number,
 ): ArrayStorage {
   // WASM fast path for 2D along axis 0
   const wasmResult = wasmTakeAlongAxis2D(storage, indices, axis);
@@ -394,7 +401,7 @@ export function take_along_axis(
   const indicesShape = indices.shape;
   if (indicesShape.length !== ndim) {
     throw new Error(
-      `indices and arr must have the same number of dimensions, got ${indicesShape.length} vs ${ndim}`
+      `indices and arr must have the same number of dimensions, got ${indicesShape.length} vs ${ndim}`,
     );
   }
 
@@ -403,7 +410,7 @@ export function take_along_axis(
     if (i !== normalizedAxis) {
       if (indicesShape[i] !== shape[i] && indicesShape[i] !== 1 && shape[i] !== 1) {
         throw new Error(
-          `index ${indicesShape[i]} is out of bounds for size ${shape[i]} in dimension ${i}`
+          `index ${indicesShape[i]} is out of bounds for size ${shape[i]} in dimension ${i}`,
         );
       }
     }
@@ -507,7 +514,7 @@ export function put_along_axis(
   storage: ArrayStorage,
   indices: ArrayStorage,
   values: ArrayStorage,
-  axis: number
+  axis: number,
 ): void {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -551,7 +558,7 @@ export function put_along_axis(
     if (indexValue < 0) indexValue = axisSize + indexValue;
     if (indexValue < 0 || indexValue >= axisSize) {
       throw new Error(
-        `index ${indexValue} is out of bounds for axis ${normalizedAxis} with size ${axisSize}`
+        `index ${indexValue} is out of bounds for axis ${normalizedAxis} with size ${axisSize}`,
       );
     }
 
@@ -592,7 +599,7 @@ export function put_along_axis(
 export function putmask(
   storage: ArrayStorage,
   mask: ArrayStorage,
-  values: ArrayStorage | number | bigint
+  values: ArrayStorage | number | bigint,
 ): void {
   const size = storage.size;
   const dtype = storage.dtype;
@@ -640,7 +647,7 @@ export function putmask(
 export function compress(
   condition: ArrayStorage,
   storage: ArrayStorage,
-  axis?: number
+  axis?: number,
 ): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -749,7 +756,7 @@ export function compress(
       const outerOff = inputOff + outer * axisSize * innerSize;
       for (let axisIdx = 0; axisIdx < trueCount; axisIdx++) {
         const srcStart = outerOff + axisMap[axisIdx]! * innerSize;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
         outputData.set(inputData.subarray(srcStart, srcStart + innerSize) as any, outIdx);
         outIdx += innerSize;
       }
@@ -762,7 +769,7 @@ export function compress(
           const flatIdx = outer * axisSize * innerSize + inputAxisIdx * innerSize + inner;
           if (isBigInt) {
             (outputData as BigInt64Array | BigUint64Array)[outIdx++] = storage.iget(
-              flatIdx
+              flatIdx,
             ) as bigint;
           } else {
             (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx++] =
@@ -782,7 +789,7 @@ export function compress(
 export function select(
   condlist: ArrayStorage[],
   choicelist: ArrayStorage[],
-  defaultValue: number | bigint = 0
+  defaultValue: number | bigint = 0,
 ): ArrayStorage {
   if (condlist.length !== choicelist.length) {
     throw new Error('condlist and choicelist must have same length');
@@ -1014,7 +1021,7 @@ export function triu_indices_from(storage: ArrayStorage, k: number = 0): ArraySt
 export function mask_indices(
   n: number,
   mask_func: (m: ArrayStorage, k: number) => ArrayStorage,
-  k: number = 0
+  k: number = 0,
 ): ArrayStorage[] {
   // Generate the mask by applying mask_func to an n×n ones matrix (matches NumPy)
   const ones = ArrayStorage.empty([n, n], 'float64');
@@ -1060,7 +1067,7 @@ export function indices(dimensions: number[], dtype: string = 'float64'): ArrayS
 
   if (dtype === 'bool' && gridSize > 2) {
     throw new TypeError(
-      'arange() is only supported for booleans when the result has at most length 2.'
+      'arange() is only supported for booleans when the result has at most length 2.',
     );
   }
 
@@ -1146,7 +1153,7 @@ export function ix_(...args: ArrayStorage[]): ArrayStorage[] {
 export function ravel_multi_index(
   multi_index: ArrayStorage[],
   dims: number[],
-  mode: 'raise' | 'wrap' | 'clip' = 'raise'
+  mode: 'raise' | 'wrap' | 'clip' = 'raise',
 ): ArrayStorage {
   if (multi_index.length !== dims.length) {
     throw new Error('multi_index length must equal dims length');
@@ -1213,7 +1220,7 @@ export function ravel_multi_index(
 export function unravel_index(
   indices: ArrayStorage | number,
   shape: number[],
-  order: 'C' | 'F' = 'C'
+  order: 'C' | 'F' = 'C',
 ): ArrayStorage[] {
   const ndim = shape.length;
 
@@ -1307,7 +1314,7 @@ export function unravel_index(
 export function fill_diagonal(
   a: ArrayStorage,
   val: ArrayStorage | number,
-  wrap: boolean = false
+  wrap: boolean = false,
 ): void {
   const shape = a.shape;
   const ndim = shape.length;
@@ -1416,7 +1423,7 @@ export function fill_diagonal(
 export function apply_along_axis(
   arr: ArrayStorage,
   axis: number,
-  func1d: (slice: ArrayStorage) => ArrayStorage | number
+  func1d: (slice: ArrayStorage) => ArrayStorage | number,
 ): ArrayStorage {
   const shape = Array.from(arr.shape);
   const ndim = shape.length;
@@ -1452,7 +1459,7 @@ export function apply_along_axis(
   /** Extract a 1D slice and call the function, collecting results */
   function extractSlice1D(
     size: number,
-    getFn: (idx: number) => number | bigint | { re: number; im: number }
+    getFn: (idx: number) => number | bigint | { re: number; im: number },
   ): ArrayStorage {
     const slice = ArrayStorage.empty([size], inputDtype);
     for (let i = 0; i < size; i++) {
@@ -1466,7 +1473,7 @@ export function apply_along_axis(
   function writeScalar(
     arr: ArrayStorage,
     idx: number,
-    val: number | bigint | { re: number; im: number } | ArrayStorage
+    val: number | bigint | { re: number; im: number } | ArrayStorage,
   ): void {
     if (typeof val === 'number' && isBigIntOut(arr.dtype as DType)) {
       arr.iset(idx, BigInt(Math.round(val)));
@@ -1649,14 +1656,14 @@ export function apply_along_axis(
 export function apply_over_axes(
   arr: ArrayStorage,
   func: (a: ArrayStorage, axis: number) => ArrayStorage,
-  axes: number[]
+  axes: number[],
 ): ArrayStorage {
   let result = arr;
   const ndim = arr.shape.length;
 
   for (const axis of axes) {
     // Normalize axis
-    let normalizedAxis = axis < 0 ? axis + ndim : axis;
+    const normalizedAxis = axis < 0 ? axis + ndim : axis;
     if (normalizedAxis < 0 || normalizedAxis >= ndim) {
       throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
     }
@@ -1716,7 +1723,7 @@ export function shares_memory(a: ArrayStorage, b: ArrayStorage): boolean {
 }
 
 // Global floating-point error state
-let _floatErrorState = {
+const _floatErrorState = {
   divide: 'warn' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
   over: 'warn' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
   under: 'ignore' as 'ignore' | 'warn' | 'raise' | 'call' | 'print' | 'log',
@@ -1756,7 +1763,7 @@ export function seterr(
   divide?: ErrorMode,
   over?: ErrorMode,
   under?: ErrorMode,
-  invalid?: ErrorMode
+  invalid?: ErrorMode,
 ): FloatErrorState {
   const old = geterr();
 
@@ -1815,11 +1822,11 @@ export function vindex(a: ArrayStorage, ...indices: StorageIndex[]): ArrayStorag
   const expanded = expandEllipsis(indices, a.ndim);
 
   // Split indices into simple slicing operations, and integer array indexing
-  let isArrayIndex: string[] = [];
+  const isArrayIndex: string[] = [];
   let lCount = 0;
   let iCount = 0;
-  let sliceIndices: (string | number)[] = [];
-  let arrayIndices: (ArrayStorage | ':')[] = [];
+  const sliceIndices: (string | number)[] = [];
+  const arrayIndices: (ArrayStorage | ':')[] = [];
   for (const ind of expanded) {
     if (typeof ind === 'number') {
       isArrayIndex.push(' ');

@@ -7,12 +7,12 @@
 
 import * as linalgOps from '../common/ops/linalg';
 import {
-  NDArrayCore,
-  toStorage,
+  ArrayStorage,
+  Complex,
   fromStorage,
   fromStorageView,
-  Complex,
-  ArrayStorage,
+  type NDArrayCore,
+  toStorage,
 } from './types';
 
 // ============================================================
@@ -33,7 +33,7 @@ export function trace(
   a: NDArrayCore,
   offset: number = 0,
   axis1: number = 0,
-  axis2: number = 1
+  axis2: number = 1,
 ): NDArrayCore | number | bigint | Complex {
   const result = linalgOps.trace(toStorage(a), offset, axis1, axis2);
   if (result instanceof ArrayStorage) return fromStorage(result);
@@ -45,7 +45,7 @@ export function diagonal(
   a: NDArrayCore,
   offset: number = 0,
   axis1: number = 0,
-  axis2: number = 1
+  axis2: number = 1,
 ): NDArrayCore {
   return fromStorage(linalgOps.diagonal(toStorage(a), offset, axis1, axis2));
 }
@@ -78,7 +78,7 @@ export function outer(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
 export function tensordot(
   a: NDArrayCore,
   b: NDArrayCore,
-  axes: number | [number[], number[]] = 2
+  axes: number | [number[], number[]] = 2,
 ): NDArrayCore | number | bigint | Complex {
   const result = linalgOps.tensordot(toStorage(a), toStorage(b), axes);
   if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
@@ -118,7 +118,7 @@ export function vdot(a: NDArrayCore, b: NDArrayCore): number | bigint | Complex 
 export function vecdot(
   x1: NDArrayCore,
   x2: NDArrayCore,
-  axis: number = -1
+  axis: number = -1,
 ): NDArrayCore | number | bigint | Complex {
   const result = linalgOps.vecdot(toStorage(x1), toStorage(x2), axis);
   if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
@@ -155,7 +155,7 @@ export function cross(
   axisa: number = -1,
   axisb: number = -1,
   axisc: number = -1,
-  axis?: number
+  axis?: number,
 ): NDArrayCore | number | bigint | Complex {
   const result = linalgOps.cross(toStorage(a), toStorage(b), axisa, axisb, axisc, axis);
   if (typeof result === 'number' || typeof result === 'bigint' || result instanceof Complex) {
@@ -205,7 +205,7 @@ export const linalg = {
   lstsq: (
     a: NDArrayCore,
     b: NDArrayCore,
-    rcond?: number | null
+    rcond?: number | null,
   ): { x: NDArrayCore; residuals: NDArrayCore; rank: number; s: NDArrayCore } => {
     const result = linalgOps.lstsq(toStorage(a), toStorage(b), rcond);
     return {
@@ -221,7 +221,7 @@ export const linalg = {
     x: NDArrayCore,
     ord?: number | 'fro' | 'nuc' | null,
     axis?: number | [number, number] | null,
-    keepdims?: boolean
+    keepdims?: boolean,
   ): NDArrayCore | number => {
     const result = linalgOps.norm(toStorage(x), ord, axis, keepdims);
     if (typeof result === 'number') return result;
@@ -251,7 +251,7 @@ export const linalg = {
   /** QR decomposition */
   qr: (
     a: NDArrayCore,
-    mode?: 'reduced' | 'complete' | 'r' | 'raw'
+    mode?: 'reduced' | 'complete' | 'r' | 'raw',
   ): { q: NDArrayCore; r: NDArrayCore } | NDArrayCore | { h: NDArrayCore; tau: NDArrayCore } => {
     const result = linalgOps.qr(toStorage(a), mode);
     if ('h' in result && 'tau' in result) {
@@ -272,7 +272,7 @@ export const linalg = {
   svd: (
     a: NDArrayCore,
     full_matrices?: boolean,
-    compute_uv?: boolean
+    compute_uv?: boolean,
   ): { u: NDArrayCore; s: NDArrayCore; vt: NDArrayCore } | NDArrayCore => {
     const result = linalgOps.svd(toStorage(a), full_matrices, compute_uv);
     if ('u' in result && 's' in result && 'vt' in result) {
@@ -337,7 +337,7 @@ export const linalg = {
     x: NDArrayCore,
     ord?: number | 'fro' | 'nuc',
     axis?: number | null,
-    keepdims?: boolean
+    keepdims?: boolean,
   ): NDArrayCore | number => {
     const result = linalgOps.vector_norm(toStorage(x), ord, axis, keepdims);
     if (typeof result === 'number') return result;
@@ -348,7 +348,7 @@ export const linalg = {
   matrix_norm: (
     x: NDArrayCore,
     ord?: number | 'fro' | 'nuc',
-    keepdims?: boolean
+    keepdims?: boolean,
   ): NDArrayCore | number => {
     const result = linalgOps.matrix_norm(toStorage(x), ord, keepdims);
     if (typeof result === 'number') return result;
@@ -362,7 +362,7 @@ export const linalg = {
     axisa?: number,
     axisb?: number,
     axisc?: number,
-    axis?: number
+    axis?: number,
   ): NDArrayCore | number | bigint | Complex => {
     return cross(a, b, axisa, axisb, axisc, axis);
   },
@@ -382,7 +382,7 @@ export const linalg = {
     a: NDArrayCore,
     offset?: number,
     axis1?: number,
-    axis2?: number
+    axis2?: number,
   ): NDArrayCore | number | bigint | Complex => {
     return trace(a, offset, axis1, axis2);
   },
@@ -406,7 +406,7 @@ export const linalg = {
   tensordot: (
     a: NDArrayCore,
     b: NDArrayCore,
-    axes?: number | [number[], number[]]
+    axes?: number | [number[], number[]],
   ): NDArrayCore | number | bigint | Complex => {
     return tensordot(a, b, axes);
   },
@@ -415,7 +415,7 @@ export const linalg = {
   vecdot: (
     a: NDArrayCore,
     b: NDArrayCore,
-    axis?: number
+    axis?: number,
   ): NDArrayCore | number | bigint | Complex => {
     return vecdot(a, b, axis);
   },

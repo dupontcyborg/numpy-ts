@@ -13,7 +13,7 @@
 
 import * as arithmeticOps from '../common/ops/arithmetic';
 import * as exponentialOps from '../common/ops/exponential';
-import { NDArrayCore, toStorage, fromStorage, fromStorageTuple } from './types';
+import { fromStorage, fromStorageTuple, type NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Basic Arithmetic Functions
@@ -236,7 +236,7 @@ export function modf(x: NDArrayCore): [NDArrayCore, NDArrayCore] {
 export function clip(
   a: NDArrayCore,
   a_min: NDArrayCore | number | null,
-  a_max: NDArrayCore | number | null
+  a_max: NDArrayCore | number | null,
 ): NDArrayCore {
   const minStorage = a_min === null ? null : typeof a_min === 'number' ? a_min : toStorage(a_min);
   const maxStorage = a_max === null ? null : typeof a_max === 'number' ? a_max : toStorage(a_max);
@@ -272,7 +272,7 @@ export function nan_to_num(
   x: NDArrayCore,
   nan: number = 0.0,
   posinf?: number,
-  neginf?: number
+  neginf?: number,
 ): NDArrayCore {
   return fromStorage(arithmeticOps.nan_to_num(toStorage(x), nan, posinf, neginf));
 }
@@ -283,7 +283,7 @@ export function interp(
   xp: NDArrayCore,
   fp: NDArrayCore,
   left?: number,
-  right?: number
+  right?: number,
 ): NDArrayCore {
   return fromStorage(arithmeticOps.interp(toStorage(x), toStorage(xp), toStorage(fp), left, right));
 }
@@ -293,7 +293,7 @@ export function unwrap(
   p: NDArrayCore,
   discont: number = Math.PI,
   axis: number = -1,
-  period: number = 2 * Math.PI
+  period: number = 2 * Math.PI,
 ): NDArrayCore {
   return fromStorage(arithmeticOps.unwrap(toStorage(p), discont, axis, period));
 }

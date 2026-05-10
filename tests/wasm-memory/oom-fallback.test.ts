@@ -9,18 +9,19 @@
  * worker thread, so this is safe.
  */
 
-import { wasmMemoryConfig, wasmConfig } from '../../src/common/wasm/config';
+import { wasmConfig, wasmMemoryConfig } from '../../src/common/wasm/config';
 
 // Constrain memory BEFORE any WASM initialization
 wasmMemoryConfig.maxMemoryBytes = 16 * 1024 * 1024; // 16 MiB total
 wasmMemoryConfig.scratchBytes = 1 * 1024 * 1024; // 1 MiB scratch
+
 // Heap: scratchBase(15 MiB) - heapBase(8 MiB) = 7 MiB usable
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { wasmMalloc, wasmFreeBytes } from '../../src/common/wasm/runtime';
-import { ArrayStorage } from '../../src/common/storage';
-import { add, multiply, maximum, absolute as abs } from '../../src/full';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { array } from '../../src';
+import { ArrayStorage } from '../../src/common/storage';
+import { wasmFreeBytes, wasmMalloc } from '../../src/common/wasm/runtime';
+import { absolute as abs, add, maximum, multiply } from '../../src/full';
 
 beforeEach(() => {
   wasmConfig.thresholdMultiplier = 0; // force WASM path

@@ -4,13 +4,13 @@
  * Tree-shakeable standalone functions for array manipulation.
  */
 
-import { NDArrayCore, type DType } from '../common/ndarray-core';
-import { ArrayStorage } from '../common/storage';
 import { Complex } from '../common/complex';
+import { hasFloat16, isComplexDType } from '../common/dtype';
+import { type DType, NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
+import { wasmPad2D } from '../common/wasm/pad';
 import { array, zeros } from './creation';
 import { concatenate, flatten } from './shape';
-import { wasmPad2D } from '../common/wasm/pad';
-import { hasFloat16, isComplexDType } from '../common/dtype';
 
 /**
  * Append values to the end of an array
@@ -18,7 +18,7 @@ import { hasFloat16, isComplexDType } from '../common/dtype';
 export function append(
   arr: NDArrayCore,
   values: NDArrayCore | number | number[],
-  axis?: number
+  axis?: number,
 ): NDArrayCore {
   const valuesArr =
     values instanceof NDArrayCore ? values : array(Array.isArray(values) ? values : [values]);
@@ -136,7 +136,7 @@ export function insert(
   arr: NDArrayCore,
   obj: number | number[],
   values: NDArrayCore | number | number[],
-  axis?: number
+  axis?: number,
 ): NDArrayCore {
   const indices = Array.isArray(obj) ? obj : [obj];
   const valuesArr =
@@ -244,7 +244,7 @@ export function pad(
     | 'symmetric'
     | 'wrap'
     | 'empty' = 'constant',
-  constant_values: number = 0
+  constant_values: number = 0,
 ): NDArrayCore {
   const shape = [...arr.shape];
   const ndim = shape.length;
@@ -312,7 +312,7 @@ export function pad(
     resultStorage.isCContiguous
   ) {
     const f32Src = new Float32Array(
-      (srcStorage.data as Float16Array).subarray(srcStorage.offset, srcStorage.offset + totalSize)
+      (srcStorage.data as Float16Array).subarray(srcStorage.offset, srcStorage.offset + totalSize),
     );
     const resultSize = resultStorage.size;
     const f32Result = new Float32Array(resultSize);

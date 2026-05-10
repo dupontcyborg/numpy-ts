@@ -3,39 +3,39 @@
  * Runs benchmarks for both Python NumPy and numpy-ts across multiple JS runtimes
  */
 
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { getBenchmarkSpecs, filterByCategory } from './specs';
-import { runPythonBenchmarks } from './python-runner';
-import { runPyodideBenchmarks } from './pyodide-runner';
-import { detectRuntimes, spawnRuntimeBenchmark } from './runtime-spawner';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-  compareResults,
-  calculateSummary,
-  printResults,
-  compareMultiRuntime,
   calculateMultiRuntimeSummaries,
+  calculateSummary,
+  compareMultiRuntime,
+  compareResults,
   printMultiRuntimeResults,
+  printResults,
 } from './analysis';
-import { generateHTMLReport, generateMultiRuntimeHTMLReport } from './visualization';
 import {
-  generatePNGChart,
   generateH2HChart,
   generateMultiRuntimePNGChart,
+  generatePNGChart,
 } from './chart-generator';
-import { validateBenchmarks } from './validation';
+import { runPyodideBenchmarks } from './pyodide-runner';
+import { runPythonBenchmarks } from './python-runner';
+import { detectRuntimes, spawnRuntimeBenchmark } from './runtime-spawner';
+import { filterByCategory, getBenchmarkSpecs } from './specs';
 import type {
   BenchmarkOptions,
   BenchmarkReport,
   BenchmarkTiming,
-  RuntimeName,
   MultiRuntimeReport,
+  RuntimeName,
 } from './types';
+import { validateBenchmarks } from './validation';
+import { generateHTMLReport, generateMultiRuntimeHTMLReport } from './visualization';
 
 // Read version from root package.json
 const packageJson = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf-8')
+  fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf-8'),
 );
 
 function getMachineInfo(): string {
@@ -61,7 +61,7 @@ interface CachedPython {
 function tryLoadCachedPython(
   specs: { name: string }[],
   modeSuffix: string,
-  resultsDir: string
+  resultsDir: string,
 ): CachedPython | null {
   const jsonPath = path.join(resultsDir, `latest${modeSuffix}.json`);
   if (!fs.existsSync(jsonPath)) return null;
@@ -93,7 +93,7 @@ function tryLoadCachedPython(
 
     const ageHours = Math.round((ageMs / (60 * 60 * 1000)) * 10) / 10;
     console.log(
-      `Using cached NumPy results (${ageHours}h old). Pass --fresh to re-run Python benchmarks.`
+      `Using cached NumPy results (${ageHours}h old). Pass --fresh to re-run Python benchmarks.`,
     );
 
     return {
@@ -277,12 +277,12 @@ async function main() {
       'linalg_matrix_power',
     ]);
     const validatableSpecs = specs.filter(
-      (spec) => spec.category !== 'io' && !nonValidatableOperations.has(spec.operation)
+      (spec) => spec.category !== 'io' && !nonValidatableOperations.has(spec.operation),
     );
     // Skip validation for non-default sizes — correctness doesn't change with array size
     if (options.sizeScale && options.sizeScale !== 'default') {
       console.log(
-        `Skipping validation for --size ${options.sizeScale} (correctness validated at default size)\n`
+        `Skipping validation for --size ${options.sizeScale} (correctness validated at default size)\n`,
       );
     } else {
       if (validatableSpecs.length > 0) {
@@ -351,7 +351,7 @@ async function main() {
           specs,
           minSampleTimeMs,
           targetSamples,
-          options.singleThread ?? false
+          options.singleThread ?? false,
         );
         numpyResults = pyResult.results;
         pythonVersion = pyResult.pythonVersion;
@@ -397,7 +397,7 @@ async function main() {
           targetSamples,
           options.noWasm ?? false,
           expectedWasm,
-          options.sizeScale
+          options.sizeScale,
         );
         runtimeResultsMap.set(runtime.name, results);
         runtimeVersions[runtime.name] = version;
@@ -454,7 +454,7 @@ async function main() {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         fs.writeFileSync(
           path.join(historyDir, `benchmark${modeSuffix}-${timestamp}.json`),
-          JSON.stringify(report, null, 2)
+          JSON.stringify(report, null, 2),
         );
 
         const htmlPath = path.join(plotsDir, `latest${modeSuffix}.html`);
@@ -502,7 +502,7 @@ async function main() {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         fs.writeFileSync(
           path.join(historyDir, `benchmark${modeSuffix}-${timestamp}.json`),
-          JSON.stringify(report, null, 2)
+          JSON.stringify(report, null, 2),
         );
 
         const htmlPath = path.join(plotsDir, `latest${modeSuffix}.html`);

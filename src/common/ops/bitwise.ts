@@ -8,8 +8,8 @@
  * These operations only work on integer types.
  */
 
+import { type DType, isBigIntDType, isIntegerDType, promoteDTypes } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { isBigIntDType, isIntegerDType, promoteDTypes, DType } from '../dtype';
 import { wasmPackbits, wasmUnpackbits } from '../wasm/packbits';
 
 function boolToInt8(a: ArrayStorage): ArrayStorage {
@@ -20,14 +20,15 @@ function boolToInt8(a: ArrayStorage): ArrayStorage {
   for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
   return result;
 }
+
 import { elementwiseBinaryOp } from '../internal/compute';
 import { wasmBitwiseAnd } from '../wasm/bitwise_and';
+import { wasmBitwiseCount } from '../wasm/bitwise_count';
+import { wasmBitwiseNot } from '../wasm/bitwise_not';
 import { wasmBitwiseOr } from '../wasm/bitwise_or';
 import { wasmBitwiseXor } from '../wasm/bitwise_xor';
-import { wasmBitwiseNot } from '../wasm/bitwise_not';
 import { wasmLeftShift, wasmLeftShiftScalar } from '../wasm/left_shift';
 import { wasmRightShift, wasmRightShiftScalar } from '../wasm/right_shift';
-import { wasmBitwiseCount } from '../wasm/bitwise_count';
 
 /**
  * Helper: Validate that dtype is an integer type for bitwise operations
@@ -35,7 +36,7 @@ import { wasmBitwiseCount } from '../wasm/bitwise_count';
 function validateIntegerDType(dtype: DType, opName: string): void {
   if (!isIntegerDType(dtype) && dtype !== 'bool') {
     throw new TypeError(
-      `ufunc '${opName}' not supported for the input types, and the inputs could not be safely coerced to any supported types`
+      `ufunc '${opName}' not supported for the input types, and the inputs could not be safely coerced to any supported types`,
     );
   }
 }
@@ -535,7 +536,7 @@ export function left_shift(a: ArrayStorage, b: ArrayStorage | number): ArrayStor
   if (a.dtype === 'bool') {
     return left_shift(
       boolToInt8(a),
-      typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b
+      typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b,
     );
   }
   if (typeof b !== 'number' && b.dtype === 'bool') return left_shift(a, boolToInt8(b));
@@ -669,7 +670,7 @@ export function right_shift(a: ArrayStorage, b: ArrayStorage | number): ArraySto
   if (a.dtype === 'bool') {
     return right_shift(
       boolToInt8(a),
-      typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b
+      typeof b === 'number' ? b : b.dtype === 'bool' ? boolToInt8(b) : b,
     );
   }
   if (typeof b !== 'number' && b.dtype === 'bool') return right_shift(a, boolToInt8(b));
@@ -806,12 +807,12 @@ function rightShiftScalar(storage: ArrayStorage, shift: number): ArrayStorage {
 export function packbits(
   a: ArrayStorage,
   axis: number = -1,
-  bitorder: 'big' | 'little' = 'big'
+  bitorder: 'big' | 'little' = 'big',
 ): ArrayStorage {
   // NumPy accepts integer + bool types, rejects float/complex
   if (a.dtype.startsWith('float') || a.dtype.startsWith('complex')) {
     throw new TypeError(
-      `Expected an input array of integer or boolean data type, got '${a.dtype}'`
+      `Expected an input array of integer or boolean data type, got '${a.dtype}'`,
     );
   }
   const shape = Array.from(a.shape);
@@ -972,7 +973,7 @@ export function unpackbits(
   a: ArrayStorage,
   axis: number = -1,
   count: number = -1,
-  bitorder: 'big' | 'little' = 'big'
+  bitorder: 'big' | 'little' = 'big',
 ): ArrayStorage {
   if (a.dtype !== 'uint8') {
     throw new TypeError('Expected an input array of unsigned byte data type');

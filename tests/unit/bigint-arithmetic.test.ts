@@ -3,8 +3,8 @@
  * Tests that int64/uint64 arithmetic doesn't lose precision
  */
 
-import { describe, it, expect } from 'vitest';
-import { zeros, ones } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { ones, zeros } from '../../src';
 
 describe('BigInt Arithmetic Correctness', () => {
   // Number.MAX_SAFE_INTEGER = 9007199254740991

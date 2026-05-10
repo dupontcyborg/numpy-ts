@@ -6,11 +6,11 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { modf_f64, modf_f32 } from './bins/modf.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { modf_f32, modf_f64 } from './bins/modf.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -42,14 +42,22 @@ export function wasmModf(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null {
       'float32',
       fracRegion,
       size,
-      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
     const integral = ArrayStorage.fromWasmRegion(
       Array.from(a.shape),
       'float32',
       intRegion,
       size,
-      Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
     return [fractional, integral];
   }
@@ -74,14 +82,22 @@ export function wasmModf(a: ArrayStorage): [ArrayStorage, ArrayStorage] | null {
     'float64',
     fracRegion,
     size,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
   const integral = ArrayStorage.fromWasmRegion(
     Array.from(a.shape),
     'float64',
     intRegion,
     size,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
   return [fractional, integral];
 }

@@ -8,10 +8,10 @@
  * 3. Exports to JSON for comparison
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Import everything from numpy-ts (main entry point)
 import * as np from '../src/index.js';
@@ -144,7 +144,7 @@ function categorizeByType(functions: Record<string, any>): Record<string, string
     'FFT (fft)': [],
   };
 
-  for (const [name, obj] of Object.entries(functions)) {
+  for (const [name, _obj] of Object.entries(functions)) {
     if (name.startsWith('linalg.')) {
       categories['Linear Algebra (linalg)'].push(name);
     } else if (name.startsWith('random.')) {

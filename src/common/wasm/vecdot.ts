@@ -6,25 +6,25 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/vecdot_float.wasm';
 import * as floatRelaxed from './bins/vecdot_float-relaxed.wasm';
-import { vecdot_i64, vecdot_i32, vecdot_i16, vecdot_i8 } from './bins/vecdot_int.wasm';
+import { vecdot_i8, vecdot_i16, vecdot_i32, vecdot_i64 } from './bins/vecdot_int.wasm';
+import { wasmConfig } from './config';
 import { useRelaxedKernels } from './detect';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
-
-import { wasmConfig } from './config';
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 const BASE_THRESHOLD = 32; // Minimum B*K for WASM
@@ -113,7 +113,11 @@ export function wasmVecdot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
       resultDtype,
       f16Region,
       totalElements,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -123,7 +127,7 @@ export function wasmVecdot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
     a.wasmPtr,
     a.offset * factor,
     B * K * factor,
-    bytesPerElement
+    bytesPerElement,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -131,7 +135,7 @@ export function wasmVecdot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
     b.wasmPtr,
     b.offset * factor,
     B * K * factor,
-    bytesPerElement
+    bytesPerElement,
   );
 
   kernel(aPtr, bPtr, outRegion.ptr, B, K);
@@ -141,6 +145,10 @@ export function wasmVecdot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
     resultDtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

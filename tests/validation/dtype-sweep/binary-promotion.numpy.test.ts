@@ -14,19 +14,19 @@
  * - float_power: always promotes to float64
  * - gcd: integer-only
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
   expectBothRejectPre,
   expectMatchPre,
   isComplex,
   isInt,
+  npDtype,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -132,7 +132,7 @@ describe('DType Sweep: Binary cross-promotion (ALL × ALL)', () => {
             const r = expectBothRejectPre(
               reason || pyResult.error || 'NumPy rejects this combo',
               () => fn(array(dataA, dtA), array(dataB, dtB)),
-              pyResult
+              pyResult,
             );
             if (r === 'both-reject') return;
           }

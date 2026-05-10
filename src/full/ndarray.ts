@@ -1,17 +1,17 @@
 // AUTO-GENERATED - DO NOT EDIT
 // Run `npm run generate` to regenerate this file from scripts/ndarray-methods.ts
 
+import { Complex } from '../common/complex';
 import {
   type DType,
-  type TypedArray,
-  getTypedArrayConstructor,
   getDTypeSize,
+  getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
+  type TypedArray,
 } from '../common/dtype';
-import { Complex } from '../common/complex';
-import { ArrayStorage } from '../common/storage';
 import { NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
 
 // Helper to upgrade NDArrayCore to NDArray (zero-copy via shared storage)
@@ -126,7 +126,7 @@ export class NDArray extends NDArrayCore {
   override get(indices: number[]): number | bigint | Complex {
     if (indices.length !== this.ndim) {
       throw new Error(
-        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`
+        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
       );
     }
 
@@ -137,7 +137,7 @@ export class NDArray extends NDArrayCore {
       }
       if (normalized < 0 || normalized >= this.shape[dim]!) {
         throw new Error(
-          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`
+          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`,
         );
       }
       return normalized;
@@ -153,11 +153,11 @@ export class NDArray extends NDArrayCore {
    */
   override set(
     indices: number[],
-    value: number | bigint | Complex | { re: number; im: number }
+    value: number | bigint | Complex | { re: number; im: number },
   ): void {
     if (indices.length !== this.ndim) {
       throw new Error(
-        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`
+        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
       );
     }
 
@@ -168,7 +168,7 @@ export class NDArray extends NDArrayCore {
       }
       if (normalized < 0 || normalized >= this.shape[dim]!) {
         throw new Error(
-          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`
+          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`,
         );
       }
       return normalized;
@@ -311,8 +311,8 @@ export class NDArray extends NDArrayCore {
             ArrayStorage.fromData(
               new Uint8Array(condition.map((b) => (b ? 1 : 0))),
               [condition.length],
-              'bool'
-            )
+              'bool',
+            ),
           );
     return up(core.compress(condStorage, this, axis));
   }
@@ -387,7 +387,7 @@ export class NDArray extends NDArrayCore {
    * Convert to nested JavaScript array
    * @returns Nested JavaScript array representation
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: required
   override toArray(): any {
     if (this.ndim === 0) {
       return this._storage.iget(0);
@@ -396,7 +396,7 @@ export class NDArray extends NDArrayCore {
     const shape = this.shape;
     const ndim = shape.length;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: required
     const buildNestedArray = (indices: number[], dim: number): any => {
       if (dim === ndim) {
         return this._storage.get(...indices);
@@ -416,7 +416,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Return the array as a nested list (same as toArray)
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: required
   override tolist(): any {
     return this.toArray();
   }
@@ -436,7 +436,7 @@ export class NDArray extends NDArrayCore {
     const data = copy._storage.data;
     return data.buffer.slice(
       data.byteOffset,
-      data.byteOffset + this.size * data.BYTES_PER_ELEMENT
+      data.byteOffset + this.size * data.BYTES_PER_ELEMENT,
     ) as ArrayBuffer;
   }
 
@@ -522,7 +522,7 @@ export class NDArray extends NDArrayCore {
     const newSize = getDTypeSize(dtype);
     if (oldSize !== newSize) {
       throw new Error(
-        'When changing to a larger dtype, its size must be a divisor of the total size in bytes of the last axis of the array.'
+        'When changing to a larger dtype, its size must be a divisor of the total size in bytes of the last axis of the array.',
       );
     }
     const Constructor = getTypedArrayConstructor(dtype);
@@ -535,7 +535,7 @@ export class NDArray extends NDArrayCore {
       [...this.shape],
       dtype,
       [...this._storage.strides],
-      0
+      0,
     );
     return NDArray.fromStorage(storage, this._base ?? this);
   }
@@ -545,7 +545,7 @@ export class NDArray extends NDArrayCore {
    */
   tofile(_file: string, _sep: string = '', _format: string = ''): void {
     throw new Error(
-      'tofile() requires file system access. Use the node module: import { save } from "numpy-ts/node"'
+      'tofile() requires file system access. Use the node module: import { save } from "numpy-ts/node"',
     );
   }
 
@@ -647,7 +647,7 @@ export class NDArray extends NDArrayCore {
    */
   tensordot(
     other: NDArray,
-    axes: number | [number[], number[]] = 2
+    axes: number | [number[], number[]] = 2,
   ): NDArray | number | bigint | Complex {
     const r = core.tensordot(this, other, axes);
     return r instanceof NDArrayCore ? up(r) : r;

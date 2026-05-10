@@ -2,10 +2,10 @@
  * Python NumPy validation tests for matrix operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { array, wasmConfig } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
 import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1, relaxed: 'auto' as const },
@@ -31,7 +31,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -50,7 +50,7 @@ for (const mode of WASM_MODES) {
           array([
             [5, 6],
             [7, 8],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2], [3, 4]]) @ np.array([[5, 6], [7, 8]])
@@ -69,7 +69,7 @@ result = np.array([[1, 2], [3, 4]]) @ np.array([[5, 6], [7, 8]])
             [7, 8],
             [9, 10],
             [11, 12],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2, 3], [4, 5, 6]]) @ np.array([[7, 8], [9, 10], [11, 12]])
@@ -89,7 +89,7 @@ result = np.array([[1, 2, 3], [4, 5, 6]]) @ np.array([[7, 8], [9, 10], [11, 12]]
             [9, 8, 7],
             [6, 5, 4],
             [3, 2, 1],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]) @ np.array([[9, 8, 7], [6, 5, 4], [3, 2, 1]])
@@ -128,7 +128,7 @@ result = A @ I
           array([
             [2, 3],
             [4, 5],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[1, 0], [0, 1]]) @ np.array([[2, 3], [4, 5]])
@@ -146,7 +146,7 @@ result = np.array([[1, 0], [0, 1]]) @ np.array([[2, 3], [4, 5]])
           array([
             [5, -6],
             [-7, 8],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.array([[-1, 2], [3, -4]]) @ np.array([[5, -6], [-7, 8]])

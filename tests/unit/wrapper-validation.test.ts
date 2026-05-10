@@ -10,11 +10,11 @@
  * 3. Both produce identical data, shape, and dtype
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { NDArrayCore } from '../../src/common/ndarray-core';
 import * as core from '../../src/core';
 import * as full from '../../src/full';
 import { NDArray } from '../../src/full';
-import { NDArrayCore } from '../../src/common/ndarray-core';
 
 // Helper: compare two array results for data equality
 function assertSameData(coreResult: NDArrayCore, fullResult: NDArray, funcName: string) {

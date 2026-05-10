@@ -7,8 +7,8 @@
  * washes out and leak-per-iteration must be exactly zero.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { zeros, ones, arange, wasmFreeBytes } from '../../src/core/index';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { arange, ones, wasmFreeBytes, zeros } from '../../src/core/index';
 
 const ITERS = 10;
 const SIZE = 10_000;
@@ -40,9 +40,9 @@ describe('using + wasmFreeBytes lifecycle', () => {
     // Run once to absorb any fixed fragmentation from interleaving 3 alloc sizes
     /* eslint-disable @typescript-eslint/no-unused-vars -- using vars exist for dispose side-effect */
     {
-      using a = zeros([SIZE]);
-      using b = ones([SIZE]);
-      using c = arange(SIZE);
+      using _a = zeros([SIZE]);
+      using _b = ones([SIZE]);
+      using _c = arange(SIZE);
     }
     /* eslint-enable @typescript-eslint/no-unused-vars */
 
@@ -66,8 +66,8 @@ describe('using + wasmFreeBytes lifecycle', () => {
     // Absorb fixed fragmentation from interleaving 2 alloc sizes
     /* eslint-disable @typescript-eslint/no-unused-vars -- using vars exist for dispose side-effect */
     {
-      using a = zeros([SIZE]);
-      using b = ones([SIZE]);
+      using _a = zeros([SIZE]);
+      using _b = ones([SIZE]);
     }
     /* eslint-enable @typescript-eslint/no-unused-vars */
 

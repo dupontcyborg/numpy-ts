@@ -5,26 +5,28 @@
  * They work in Node.js, Bun, and Deno, and throw clear errors in the browser.
  */
 
-import { getFs, getFsSync } from './filesystem';
+import type { DType } from '../common/dtype';
+import type { NDArrayCore } from '../common/ndarray-core';
 import { NDArray } from '../full/ndarray';
-import { NDArrayCore } from '../common/ndarray-core';
+import { getFs, getFsSync } from './filesystem';
 import { parseNpy as parseNpyCore } from './npy/parser';
 import { serializeNpy } from './npy/serializer';
-import { parseNpz as parseNpzCore, parseNpzSync as parseNpzSyncCore } from './npz/parser';
 import type { NpzParseOptions } from './npz/parser';
+import { parseNpz as parseNpzCore, parseNpzSync as parseNpzSyncCore } from './npz/parser';
 import {
+  type NpzArraysInput,
+  type NpzSerializeOptions,
   serializeNpz,
   serializeNpzSync,
-  type NpzSerializeOptions,
-  type NpzArraysInput,
 } from './npz/serializer';
 import {
-  parseTxt as parseTxtCore,
-  genfromtxt as genfromtxtCore,
   fromregex as fromregexCore,
+  genfromtxt as genfromtxtCore,
+  type ParseTxtOptions,
+  parseTxt as parseTxtCore,
+  type SerializeTxtOptions,
+  serializeTxt,
 } from './txt';
-import { serializeTxt, type ParseTxtOptions, type SerializeTxtOptions } from './txt';
-import type { DType } from '../common/dtype';
 
 // Helper to upgrade NDArrayCore to NDArray
 function upgradeToNDArray(core: NDArrayCore): NDArray {
@@ -133,7 +135,7 @@ export function saveNpySync(path: string, arr: NDArray): void {
  */
 export async function loadNpzFile(
   path: string,
-  options: NpzParseOptions = {}
+  options: NpzParseOptions = {},
 ): Promise<NpzParseResultNDArray> {
   const fs = await getFs();
   const buffer = await fs.readFile(path);
@@ -156,7 +158,7 @@ export async function loadNpzFile(
  */
 export function loadNpzFileSync(
   path: string,
-  options: NpzParseOptions = {}
+  options: NpzParseOptions = {},
 ): NpzParseResultNDArray {
   const fs = getFsSync();
   const buffer = fs.readFileSync(path);
@@ -181,7 +183,7 @@ export function loadNpzFileSync(
 export async function saveNpz(
   path: string,
   arrays: NpzArraysInput,
-  options: SaveNpzOptions = {}
+  options: SaveNpzOptions = {},
 ): Promise<void> {
   const fs = await getFs();
   const data = await serializeNpz(arrays, options);
@@ -215,7 +217,7 @@ export function saveNpzSync(path: string, arrays: NpzArraysInput): void {
  */
 export async function load(
   path: string,
-  options: LoadOptions = {}
+  options: LoadOptions = {},
 ): Promise<NDArray | NpzParseResultNDArray> {
   if (path.endsWith('.npy')) {
     if (options.allowNpy === false) {
@@ -272,7 +274,7 @@ export function saveSync(path: string, arr: NDArray): void {
   if (!path.endsWith('.npy')) {
     throw new Error(`saveSync() is for .npy files. Use saveNpzSync() for .npz files. Got: ${path}`);
   }
-  return saveNpySync(path, arr);
+  saveNpySync(path, arr);
 }
 
 /**
@@ -380,7 +382,7 @@ export function loadtxtSync(path: string, options: LoadTxtOptions = {}): NDArray
 export async function savetxt(
   path: string,
   arr: NDArray,
-  options: SaveTxtOptions = {}
+  options: SaveTxtOptions = {},
 ): Promise<void> {
   const fs = await getFs();
   const content = serializeTxt(arr, options);
@@ -459,7 +461,7 @@ export function genfromtxtSync(path: string, options: LoadTxtOptions = {}): NDAr
 export async function fromregex(
   path: string,
   regexp: RegExp | string,
-  dtype: DType = 'float64'
+  dtype: DType = 'float64',
 ): Promise<NDArray> {
   const fs = await getFs();
   const content = await fs.readFile(path, { encoding: 'utf-8' });
@@ -477,7 +479,7 @@ export async function fromregex(
 export function fromregexSync(
   path: string,
   regexp: RegExp | string,
-  dtype: DType = 'float64'
+  dtype: DType = 'float64',
 ): NDArray {
   const fs = getFsSync();
   const content = fs.readFileSync(path, { encoding: 'utf-8' });

@@ -2,18 +2,18 @@
  * NPY format reading and writing
  */
 
-export { parseNpy, parseNpyHeader, parseNpyData } from './parser';
-export { serializeNpy } from './serializer';
 export {
-  NPY_MAGIC,
   DTYPE_TO_DESCR,
-  SUPPORTED_DTYPES,
-  parseDescriptor,
-  isSystemLittleEndian,
-  UnsupportedDTypeError,
+  type DTypeParseResult,
   InvalidNpyError,
-  type NpyVersion,
+  isSystemLittleEndian,
+  NPY_MAGIC,
   type NpyHeader,
   type NpyMetadata,
-  type DTypeParseResult,
+  type NpyVersion,
+  parseDescriptor,
+  SUPPORTED_DTYPES,
+  UnsupportedDTypeError,
 } from './format';
+export { parseNpy, parseNpyData, parseNpyHeader } from './parser';
+export { serializeNpy } from './serializer';

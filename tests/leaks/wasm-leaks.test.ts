@@ -9,11 +9,11 @@
  * Run with suite:  npm test (included via 'leaks' project)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { executeOperation, setupArrays } from '../../benchmarks/src/bench-utils';
+import { getBenchmarkSpecs } from '../../benchmarks/src/specs';
 import { wasmConfig } from '../../src/common/wasm/config';
 import { wasmFreeBytes } from '../../src/common/wasm/runtime';
-import { getBenchmarkSpecs } from '../../benchmarks/src/specs';
-import { setupArrays, executeOperation } from '../../benchmarks/src/bench-utils';
 
 // --- Config ---
 // Use LEAK_SIZE_SCALE env var to override size scale (e.g. "large" for stress testing).
@@ -91,7 +91,7 @@ for (const category of categories) {
 
         expect(
           leakPerIter,
-          `Leaks ${leakPerIter.toFixed(0)} bytes/iter (${(totalLeak / 1024).toFixed(1)} KB total over ${ITERS} iters)`
+          `Leaks ${leakPerIter.toFixed(0)} bytes/iter (${(totalLeak / 1024).toFixed(1)} KB total over ${ITERS} iters)`,
         ).toBeLessThanOrEqual(MAX_LEAK_PER_ITER);
       });
     }

@@ -7,7 +7,7 @@
  */
 
 import * as np from '../../src/core';
-import { serializeNpy, parseNpy, serializeNpzSync, parseNpzSync } from '../../src/io';
+import { parseNpy, parseNpzSync, serializeNpy, serializeNpzSync } from '../../src/io';
 import type { BenchmarkSetup } from './types';
 
 export function setupArrays(setup: BenchmarkSetup, operation?: string): Record<string, any> {

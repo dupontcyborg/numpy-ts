@@ -5,11 +5,11 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { conj_c64, conj_c128 } from './bins/conj.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { conj_c64, conj_c128 } from './bins/conj.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -58,7 +58,7 @@ export function wasmConj(a: ArrayStorage): ArrayStorage | null {
     Ctor as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => InstanceType<typeof Float32Array | typeof Float64Array>
+      length: number,
+    ) => InstanceType<typeof Float32Array | typeof Float64Array>,
   );
 }

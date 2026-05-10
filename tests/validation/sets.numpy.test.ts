@@ -5,23 +5,23 @@
  * and verify the results match exactly.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   array,
-  unique,
   in1d,
   intersect1d,
   isin,
   setdiff1d,
   setxor1d,
-  union1d,
   trim_zeros,
+  union1d,
+  unique,
   unique_all,
   unique_counts,
   unique_inverse,
   unique_values,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Set Operations', () => {
   beforeAll(() => {

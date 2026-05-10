@@ -14,7 +14,7 @@
  * - 'skip': Function doesn't take array input or is not applicable (e.g., types, constants)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as np from '../../src';
 
 // ============================================================================
@@ -616,7 +616,7 @@ function createComplex2DArray() {
  */
 function testComplexBehavior(
   fn: (...args: unknown[]) => unknown,
-  fnName: string
+  fnName: string,
 ): ComplexBehavior | 'error' {
   const z1 = createComplexArray();
   const z2 = createComplexArray2();
@@ -624,7 +624,7 @@ function testComplexBehavior(
 
   try {
     // Try to call the function with appropriate arguments
-    let result;
+    let result: unknown;
 
     // Binary operations need two arrays
     const binaryOps = [
@@ -775,7 +775,7 @@ describe('Complex Number Coverage', () => {
       // Get all runtime exports (exclude type-only exports)
       // Note: We keep __version__ but exclude other underscore-prefixed internals
       const allExports = Object.keys(np).filter(
-        (key) => !TYPE_EXPORTS.includes(key) && (key === '__version__' || !key.startsWith('_'))
+        (key) => !TYPE_EXPORTS.includes(key) && (key === '__version__' || !key.startsWith('_')),
       );
       const mapped = Object.keys(COMPLEX_BEHAVIOR);
 
@@ -785,7 +785,7 @@ describe('Complex Number Coverage', () => {
         throw new Error(
           `The following exports are missing from COMPLEX_BEHAVIOR map:\n` +
             `  ${missing.join(', ')}\n\n` +
-            `Please add them to tests/unit/complex-coverage.test.ts with the appropriate behavior.`
+            `Please add them to tests/unit/complex-coverage.test.ts with the appropriate behavior.`,
         );
       }
     });
@@ -794,7 +794,7 @@ describe('Complex Number Coverage', () => {
       // Get all runtime exports (exclude type-only exports)
       // Note: We keep __version__ but exclude other underscore-prefixed internals
       const allExports = Object.keys(np).filter(
-        (key) => !TYPE_EXPORTS.includes(key) && (key === '__version__' || !key.startsWith('_'))
+        (key) => !TYPE_EXPORTS.includes(key) && (key === '__version__' || !key.startsWith('_')),
       );
       const mapped = Object.keys(COMPLEX_BEHAVIOR);
 
@@ -804,7 +804,7 @@ describe('Complex Number Coverage', () => {
         throw new Error(
           `The following entries in COMPLEX_BEHAVIOR are not exported:\n` +
             `  ${stale.join(', ')}\n\n` +
-            `Please remove them from tests/unit/complex-coverage.test.ts.`
+            `Please remove them from tests/unit/complex-coverage.test.ts.`,
         );
       }
     });

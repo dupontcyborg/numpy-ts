@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { random, array } from '../../src/index';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { array, random } from '../../src/index';
 
 describe('Random Module', () => {
   beforeEach(() => {
@@ -732,7 +732,7 @@ describe('Random Module', () => {
       // Just check we get numbers
       for (const val of result.toArray() as number[]) {
         expect(typeof val).toBe('number');
-        expect(isFinite(val)).toBe(true);
+        expect(Number.isFinite(val)).toBe(true);
       }
     });
   });
@@ -1293,7 +1293,7 @@ describe('Random Module', () => {
       random.seed(42);
       const result = random.standard_cauchy();
       expect(typeof result).toBe('number');
-      expect(isFinite(result as number)).toBe(true);
+      expect(Number.isFinite(result as number)).toBe(true);
     });
 
     it('standard_t returns single number when no size', () => {

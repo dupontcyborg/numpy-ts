@@ -3,45 +3,45 @@
  * Tests edge cases, BigInt dtypes, and special scenarios
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  array,
-  zeros,
-  sum,
-  mean,
-  prod,
-  std,
-  variance,
-  cumsum,
-  cumprod,
-  nansum,
-  nanprod,
-  nanmean,
-  ptp,
-  median,
-  average,
-  diff,
-  nanvar,
-  nanstd,
-  nanmin,
-  nanmax,
-  nanargmin,
-  nanargmax,
-  nancumsum,
-  nancumprod,
-  nanmedian,
-  nanquantile,
-  nanpercentile,
-  percentile,
-  quantile,
   all,
   any as anyFn,
-  cumulative_sum,
-  cumulative_prod,
-  min,
-  max,
-  reshape,
+  array,
+  average,
   Complex,
+  cumprod,
+  cumsum,
+  cumulative_prod,
+  cumulative_sum,
+  diff,
+  max,
+  mean,
+  median,
+  min,
+  nanargmax,
+  nanargmin,
+  nancumprod,
+  nancumsum,
+  nanmax,
+  nanmean,
+  nanmedian,
+  nanmin,
+  nanpercentile,
+  nanprod,
+  nanquantile,
+  nanstd,
+  nansum,
+  nanvar,
+  percentile,
+  prod,
+  ptp,
+  quantile,
+  reshape,
+  std,
+  sum,
+  variance,
+  zeros,
 } from '../../src';
 
 describe('Extended reduction tests', () => {
@@ -62,7 +62,7 @@ describe('Extended reduction tests', () => {
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.sum(0);
       expect((result as any).dtype).toBe('int64');
@@ -77,7 +77,7 @@ describe('Extended reduction tests', () => {
           [1, 2],
           [3, 4],
         ],
-        'uint64'
+        'uint64',
       );
       const result = arr.sum(1);
       expect((result as any).dtype).toBe('uint64');
@@ -116,7 +116,7 @@ describe('Extended reduction tests', () => {
           [1, 2],
           [3, 4],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.mean(0);
       expect((result as any).shape).toEqual([2]);
@@ -157,7 +157,7 @@ describe('Extended reduction tests', () => {
           [1, 5],
           [3, 2],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.max(0);
       expect((result as any).dtype).toBe('int64');
@@ -178,7 +178,7 @@ describe('Extended reduction tests', () => {
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'int32'
+        'int32',
       );
       const result0 = arr.max(0);
       expect((result0 as any).toArray()).toEqual([4, 5, 6]);
@@ -210,7 +210,7 @@ describe('Extended reduction tests', () => {
           [5, 1],
           [2, 3],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.min(0);
       expect((result as any).dtype).toBe('int64');
@@ -231,7 +231,7 @@ describe('Extended reduction tests', () => {
           [6, 5, 4],
           [3, 2, 1],
         ],
-        'int32'
+        'int32',
       );
       const result0 = arr.min(0);
       expect((result0 as any).toArray()).toEqual([3, 2, 1]);
@@ -263,7 +263,7 @@ describe('Extended reduction tests', () => {
           [2, 3],
           [4, 5],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.prod(0);
       expect((result as any).dtype).toBe('int64');
@@ -346,7 +346,7 @@ describe('Extended reduction tests', () => {
             [7, 8],
           ],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.sum(0);
       expect((result as any).shape).toEqual([2, 2]);
@@ -365,7 +365,7 @@ describe('Extended reduction tests', () => {
             [7, 8],
           ],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.sum(1);
       expect((result as any).shape).toEqual([2, 2]);
@@ -384,7 +384,7 @@ describe('Extended reduction tests', () => {
             [7, 8],
           ],
         ],
-        'int64'
+        'int64',
       );
       const result = arr.sum(2);
       expect((result as any).shape).toEqual([2, 2]);
@@ -399,7 +399,7 @@ describe('Extended reduction tests', () => {
             [3, 4],
           ],
         ],
-        'int32'
+        'int32',
       );
       const result = arr.sum(-1);
       expect((result as any).shape).toEqual([1, 2]);
@@ -2055,7 +2055,7 @@ describe('Extended reduction tests', () => {
           [2, 4],
           [6, 8],
         ],
-        'int64'
+        'int64',
       );
       const r = mean(a, 1);
       expect(r.dtype).toBe('float64');
@@ -2225,9 +2225,9 @@ describe('Extended reduction tests', () => {
     const big = reshape(
       array(
         Array.from({ length: 100 }, (_, i) => i),
-        'int32'
+        'int32',
       ),
-      [10, 10]
+      [10, 10],
     );
 
     it('sum with keepdims=true (WASM path)', () => {

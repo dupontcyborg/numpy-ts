@@ -2,8 +2,8 @@
  * Unit tests for reduction operations with axis support
  */
 
-import { describe, it, expect } from 'vitest';
-import { array, nanmedian, nancumsum, nancumprod, nanquantile, nanpercentile } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { array, nancumprod, nancumsum, nanmedian, nanpercentile, nanquantile } from '../../src';
 
 describe('Reductions with Axis Support', () => {
   describe('sum()', () => {

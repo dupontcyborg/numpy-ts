@@ -4,11 +4,11 @@
  * Returns null if WASM can't handle the case (non-contiguous, too small, wrong dtype).
  */
 
-import { packbits_u8, unpackbits_u8 } from './bins/packbits.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { packbits_u8, unpackbits_u8 } from './bins/packbits.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -42,8 +42,8 @@ export function wasmPackbits(a: ArrayStorage): ArrayStorage | null {
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -77,7 +77,7 @@ export function wasmUnpackbits(a: ArrayStorage, count: number): ArrayStorage | n
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

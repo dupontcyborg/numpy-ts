@@ -4,12 +4,12 @@
 
 import { describe, it } from 'vitest';
 import {
-  WASM_MODES,
+  compareReduction,
   FLOAT_DTYPES,
   INT_DTYPES,
   SMALL_DATA,
-  compareReduction,
   setupWasmMode,
+  WASM_MODES,
 } from './_helpers';
 
 for (const mode of WASM_MODES) {

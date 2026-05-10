@@ -3,7 +3,7 @@
  * Tests the actual distributed bundle from dist/ in a real browser
  */
 
-import { describe, test, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 
 let np: any;
 

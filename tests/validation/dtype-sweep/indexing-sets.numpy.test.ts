@@ -3,17 +3,17 @@
  * All tested across ALL dtypes, value-producing tests validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
+  expectMatchPre,
   npDtype,
   pyArrayCast,
-  expectMatchPre,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -205,8 +205,8 @@ describe('DType Sweep: Indexing', () => {
                 [1, 2],
                 [3, 4],
               ],
-          dtype
-        )
+          dtype,
+        ),
       );
       expectMatchPre(jsResult, oracle.get(`diag_${dtype}`)!);
     });
@@ -269,7 +269,7 @@ describe('DType Sweep: Set operations', () => {
     it(`union1d ${dtype}`, () => {
       const jsResult = np.union1d(
         array(dtype === 'bool' ? [1, 0] : [1, 2, 3], dtype),
-        array(dtype === 'bool' ? [0, 1] : [3, 4, 5], dtype)
+        array(dtype === 'bool' ? [0, 1] : [3, 4, 5], dtype),
       );
       expectMatchPre(jsResult, oracle.get(`union1d_${dtype}`)!);
     });
@@ -287,7 +287,7 @@ describe('DType Sweep: Set operations', () => {
     it(`in1d ${dtype}`, () => {
       const jsResult = np.in1d(
         array(dtype === 'bool' ? [1, 0] : [1, 2, 3], dtype),
-        array(dtype === 'bool' ? [1] : [2, 3, 4], dtype)
+        array(dtype === 'bool' ? [1] : [2, 3, 4], dtype),
       );
       expectMatchPre(jsResult, oracle.get(`in1d_${dtype}`)!);
     });
@@ -295,7 +295,7 @@ describe('DType Sweep: Set operations', () => {
     it(`isin ${dtype}`, () => {
       const jsResult = np.isin(
         array(dtype === 'bool' ? [1, 0] : [1, 2, 3], dtype),
-        array(dtype === 'bool' ? [1] : [2, 3, 4], dtype)
+        array(dtype === 'bool' ? [1] : [2, 3, 4], dtype),
       );
       expectMatchPre(jsResult, oracle.get(`isin_${dtype}`)!);
     });

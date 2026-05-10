@@ -2,15 +2,15 @@
  * Shared helpers for dtype-sweep tests.
  */
 import { expect } from 'vitest';
+import { hasFloat16 } from '../../../src';
+import { wasmConfig } from '../../../src/common/wasm/config';
 import {
-  runNumPy as _runNumPy,
-  runNumPyBatch as _runNumPyBatch,
   arraysClose as _arraysClose,
   checkNumPyAvailable as _checkNumPyAvailable,
+  runNumPy as _runNumPy,
+  runNumPyBatch as _runNumPyBatch,
   type NumPyResult,
 } from '../numpy-oracle';
-import { wasmConfig } from '../../../src/common/wasm/config';
-import { hasFloat16 } from '../../../src';
 
 // Force JS or WASM backend via FORCE_BACKEND env var.
 // 'js' → thresholdMultiplier=Infinity (all JS), 'wasm' → 0 (all WASM), unset → auto.
@@ -92,7 +92,7 @@ export const isBool = (d: string) => d === 'bool';
 export function expectBothReject(
   reason: string,
   jsFn: () => any,
-  pyCode: string
+  pyCode: string,
 ): 'both-reject' | 'both-succeed' {
   let jsErr: Error | null = null;
   let pyErr: Error | null = null;
@@ -121,7 +121,7 @@ export function expectBothReject(
     expect.unreachable(
       `JS throws but NumPy succeeds (bug: we reject valid input).\n` +
         `Reason: ${reason}\n` +
-        `JS error: ${jsErr.message?.slice(0, 150)}`
+        `JS error: ${jsErr.message?.slice(0, 150)}`,
     );
   }
 
@@ -129,7 +129,7 @@ export function expectBothReject(
   expect.unreachable(
     `NumPy rejects but JS succeeds (bug: we should also reject).\n` +
       `Reason: ${reason}\n` +
-      `NumPy error: ${pyErr!.message?.slice(0, 150)}`
+      `NumPy error: ${pyErr!.message?.slice(0, 150)}`,
   );
 
   return 'both-reject'; // unreachable, satisfies TS
@@ -142,7 +142,7 @@ export function expectBothReject(
 export function expectBothRejectPre(
   reason: string,
   jsFn: () => any,
-  pyResult: NumPyResult & { error?: string }
+  pyResult: NumPyResult & { error?: string },
 ): 'both-reject' | 'both-succeed' {
   let jsErr: Error | null = null;
 
@@ -166,14 +166,14 @@ export function expectBothRejectPre(
     expect.unreachable(
       `JS throws but NumPy succeeds (bug: we reject valid input).\n` +
         `Reason: ${reason}\n` +
-        `JS error: ${jsErr.message?.slice(0, 150)}`
+        `JS error: ${jsErr.message?.slice(0, 150)}`,
     );
   }
 
   expect.unreachable(
     `NumPy rejects but JS succeeds (bug: we should also reject).\n` +
       `Reason: ${reason}\n` +
-      `NumPy error: ${pyErr!.message?.slice(0, 150)}`
+      `NumPy error: ${pyErr!.message?.slice(0, 150)}`,
   );
 
   return 'both-reject'; // unreachable, satisfies TS
@@ -220,7 +220,7 @@ const NP_DTYPE_MAP: Record<string, string> = {
 export function expectMatch(
   jsResult: any,
   pyCode: string,
-  opts: { rtol?: number; atol?: number; indexResult?: boolean } = {}
+  opts: { rtol?: number; atol?: number; indexResult?: boolean } = {},
 ): void {
   const { rtol = 1e-5, atol = 1e-8, indexResult = false } = opts;
   const pyResult = _runNumPy(pyCode);
@@ -249,7 +249,7 @@ export function expectMatch(
     expect(Number(jsResult)).toBeCloseTo(Number(pyResult.value), 4);
   } else {
     expect(_arraysClose(jsResult.toArray(), pyResult.value, rtol, atol), 'value mismatch').toBe(
-      true
+      true,
     );
   }
 }
@@ -261,7 +261,7 @@ export function expectMatch(
 export function expectMatchPre(
   jsResult: any,
   pyResult: NumPyResult & { error?: string },
-  opts: { rtol?: number; atol?: number; indexResult?: boolean } = {}
+  opts: { rtol?: number; atol?: number; indexResult?: boolean } = {},
 ): void {
   const { rtol = 1e-5, atol = 1e-8, indexResult = false } = opts;
 
@@ -303,7 +303,7 @@ export function expectMatchPre(
     expect(jsResult.im).toBeCloseTo(pyIm, 4);
   } else {
     expect(_arraysClose(jsResult.toArray(), pyResult.value, rtol, atol), 'value mismatch').toBe(
-      true
+      true,
     );
   }
 }

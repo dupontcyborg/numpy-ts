@@ -3,17 +3,17 @@
  * Tests the low-level dtype module functions directly
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  inferDType,
-  promoteDTypes,
   castValue,
-  isValidDType,
   getDTypeSize,
   getTypedArrayConstructor,
-  isIntegerDType,
-  isFloatDType,
+  inferDType,
   isBigIntDType,
+  isFloatDType,
+  isIntegerDType,
+  isValidDType,
+  promoteDTypes,
   toStdlibDType,
 } from '../../src/common/dtype';
 

@@ -5,9 +5,9 @@
  * @module ops/statistics
  */
 
-import { ArrayStorage } from '../storage';
 import { Complex } from '../complex';
 import {
+  type DType,
   getComplexComponentDType,
   getTypedArrayConstructor,
   hasFloat16,
@@ -15,12 +15,12 @@ import {
   isComplexDType,
   isFloatDType,
   promoteDTypes,
+  type TypedArray,
   throwIfComplex,
-  TypedArray,
-  type DType,
 } from '../dtype';
-import { wasmCorrelate } from '../wasm/correlate';
+import { ArrayStorage } from '../storage';
 import { wasmConvolve } from '../wasm/convolve';
+import { wasmCorrelate } from '../wasm/correlate';
 import { wasmMatmul } from '../wasm/matmul';
 
 /**
@@ -52,7 +52,7 @@ function extractRealPart(a: ArrayStorage): ArrayStorage {
 export function bincount(
   x: ArrayStorage,
   weights?: ArrayStorage,
-  minlength: number = 0
+  minlength: number = 0,
 ): ArrayStorage {
   throwIfComplex(x.dtype, 'bincount', 'bincount requires integer input.');
   const xData = x.data;
@@ -112,7 +112,7 @@ export function bincount(
 export function digitize(
   x: ArrayStorage,
   bins: ArrayStorage,
-  right: boolean = false
+  right: boolean = false,
 ): ArrayStorage {
   throwIfComplex(x.dtype, 'digitize', 'digitize requires real numbers.');
   throwIfComplex(bins.dtype, 'digitize', 'digitize requires real numbers.');
@@ -215,7 +215,7 @@ export function histogram(
   bins: number | ArrayStorage = 10,
   range?: [number, number],
   density: boolean = false,
-  weights?: ArrayStorage
+  weights?: ArrayStorage,
 ): { hist: ArrayStorage; bin_edges: ArrayStorage } {
   // Complex input: use real part (matches NumPy behavior)
   if (isComplexDType(a.dtype)) {
@@ -356,7 +356,7 @@ export function histogram2d(
   bins: number | [number, number] | [ArrayStorage, ArrayStorage] = 10,
   range?: [[number, number], [number, number]],
   density: boolean = false,
-  weights?: ArrayStorage
+  weights?: ArrayStorage,
 ): { hist: ArrayStorage; x_edges: ArrayStorage; y_edges: ArrayStorage } {
   throwIfComplex(x.dtype, 'histogram2d', 'histogram2d requires real numbers.');
   throwIfComplex(y.dtype, 'histogram2d', 'histogram2d requires real numbers.');
@@ -551,7 +551,7 @@ export function histogramdd(
   bins: number | number[] = 10,
   range?: [number, number][],
   density: boolean = false,
-  weights?: ArrayStorage
+  weights?: ArrayStorage,
 ): { hist: ArrayStorage; edges: ArrayStorage[] } {
   throwIfComplex(sample.dtype, 'histogramdd', 'histogramdd requires real numbers.');
   const shape = sample.shape;
@@ -668,7 +668,7 @@ export function histogramdd(
     const binVolumes = new Float64Array(histSize);
     for (let i = 0; i < histSize; i++) {
       let volume = 1;
-      let idx = i;
+      const idx = i;
       for (let d = 0; d < D; d++) {
         const binIdx = Math.floor(idx / strides[d]!) % binCounts[d]!;
         const edges = allEdges[d]!;
@@ -684,7 +684,7 @@ export function histogramdd(
 
   // Convert edges to ArrayStorage
   const edgeStorages = allEdges.map((edges) =>
-    ArrayStorage.fromData(new Float64Array(edges), [edges.length], 'float64')
+    ArrayStorage.fromData(new Float64Array(edges), [edges.length], 'float64'),
   );
 
   return {
@@ -704,7 +704,7 @@ export function histogramdd(
 export function correlate(
   a: ArrayStorage,
   v: ArrayStorage,
-  mode: 'full' | 'same' | 'valid' = 'valid'
+  mode: 'full' | 'same' | 'valid' = 'valid',
 ): ArrayStorage {
   const aData = a.data;
   const vData = v.data;
@@ -875,7 +875,7 @@ export function correlate(
 export function convolve(
   a: ArrayStorage,
   v: ArrayStorage,
-  mode: 'full' | 'same' | 'valid' = 'full'
+  mode: 'full' | 'same' | 'valid' = 'full',
 ): ArrayStorage {
   const vLen = v.size;
   const aLen = a.size;
@@ -956,7 +956,7 @@ export function cov(
   y?: ArrayStorage,
   rowvar: boolean = true,
   bias: boolean = false,
-  ddof?: number
+  ddof?: number,
 ): ArrayStorage {
   const mShape = m.shape;
   // Bulk-convert float16 to float64 upfront to avoid per-element f16→f64 overhead
@@ -1406,7 +1406,7 @@ export function histogram_bin_edges(
   a: ArrayStorage,
   bins: number | 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt' = 10,
   range?: [number, number],
-  _weights?: ArrayStorage
+  _weights?: ArrayStorage,
 ): ArrayStorage {
   throwIfComplex(a.dtype, 'histogram_bin_edges', 'histogram_bin_edges requires real numbers.');
   const aData = a.data;
@@ -1422,13 +1422,13 @@ export function histogram_bin_edges(
     maxVal = -Infinity;
     for (let i = 0; i < aSize; i++) {
       const val = Number(aData[i]);
-      if (!isNaN(val)) {
+      if (!Number.isNaN(val)) {
         if (val < minVal) minVal = val;
         if (val > maxVal) maxVal = val;
       }
     }
     // Handle edge cases
-    if (!isFinite(minVal) || !isFinite(maxVal)) {
+    if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) {
       minVal = 0;
       maxVal = 1;
     } else if (minVal === maxVal) {
@@ -1471,7 +1471,7 @@ function computeOptimalBins(
   size: number,
   minVal: number,
   maxVal: number,
-  method: 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt'
+  method: 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt',
 ): number {
   if (size === 0) return 1;
 
@@ -1483,7 +1483,7 @@ function computeOptimalBins(
   let sum = 0;
   for (let i = 0; i < size; i++) {
     const val = Number(data[i]);
-    if (!isNaN(val)) {
+    if (!Number.isNaN(val)) {
       values.push(val);
       sum += val;
     }
@@ -1515,18 +1515,18 @@ function computeOptimalBins(
       return Math.ceil(Math.log2(n) + 1);
 
     case 'rice':
-      return Math.ceil(2 * Math.pow(n, 1 / 3));
+      return Math.ceil(2 * n ** (1 / 3));
 
     case 'scott': {
       if (std === 0) return 1;
-      const scottBinWidth = (3.5 * std) / Math.pow(n, 1 / 3);
+      const scottBinWidth = (3.5 * std) / n ** (1 / 3);
       return Math.ceil(range / scottBinWidth);
     }
 
     case 'fd': {
       // Freedman-Diaconis
       if (iqr === 0) return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
-      const fdBinWidth = (2 * iqr) / Math.pow(n, 1 / 3);
+      const fdBinWidth = (2 * iqr) / n ** (1 / 3);
       return Math.ceil(range / fdBinWidth);
     }
 
@@ -1540,12 +1540,10 @@ function computeOptimalBins(
     case 'stone':
       // Stone's rule is more complex; use Sturges as fallback
       return computeOptimalBins(data, size, minVal, maxVal, 'sturges');
-
-    case 'auto':
     default: {
       // Use maximum of Sturges and FD
       const sturgeBins = Math.ceil(Math.log2(n) + 1);
-      const fdBins = iqr === 0 ? sturgeBins : Math.ceil(range / ((2 * iqr) / Math.pow(n, 1 / 3)));
+      const fdBins = iqr === 0 ? sturgeBins : Math.ceil(range / ((2 * iqr) / n ** (1 / 3)));
       return Math.max(sturgeBins, fdBins);
     }
   }
@@ -1559,7 +1557,7 @@ function computeSkewness(values: number[], mean: number, std: number): number {
   const n = values.length;
   let sum = 0;
   for (let i = 0; i < n; i++) {
-    sum += Math.pow((values[i]! - mean) / std, 3);
+    sum += ((values[i]! - mean) / std) ** 3;
   }
   return sum / n;
 }
@@ -1572,7 +1570,7 @@ function trapezoidComplex(
   y: ArrayStorage,
   x: ArrayStorage | undefined,
   dx: number,
-  axis: number
+  axis: number,
 ): ArrayStorage | Complex {
   const yShape = Array.from(y.shape);
   const ndim = yShape.length;
@@ -1716,7 +1714,7 @@ export function trapezoid(
   y: ArrayStorage,
   x?: ArrayStorage,
   dx: number = 1.0,
-  axis: number = -1
+  axis: number = -1,
 ): ArrayStorage | number | Complex {
   // Complex y: integrate complex values using trapezoidal rule
   if (isComplexDType(y.dtype)) {

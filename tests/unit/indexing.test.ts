@@ -2,8 +2,8 @@
  * Unit tests for array indexing operations (get and set)
  */
 
-import { describe, it, expect } from 'vitest';
-import { array, zeros, iindex, bindex } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { array, bindex, iindex, zeros } from '../../src';
 
 describe('Array Indexing', () => {
   describe('get()', () => {
@@ -465,7 +465,7 @@ describe('Array Indexing', () => {
       it('throws when too many indices provided', () => {
         const arr = zeros([3], 'float64');
         expect(() => arr.set([0, 0], 1)).toThrow(
-          /Index has 2 dimensions, but array has 1 dimensions/
+          /Index has 2 dimensions, but array has 1 dimensions/,
         );
       });
 
@@ -623,7 +623,7 @@ describe('Array Indexing', () => {
             [true, false, true],
             [false, true, false],
           ],
-          'bool'
+          'bool',
         );
         const result = arr.bindex(mask);
         expect(result.shape).toEqual([3]);

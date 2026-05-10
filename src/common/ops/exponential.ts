@@ -8,17 +8,17 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../storage';
-import { elementwiseUnaryOp, elementwiseBinaryOp, broadcastShapes } from '../internal/compute';
+import type { Complex } from '../complex';
 import {
+  type DType,
   isBigIntDType,
   isComplexDType,
-  throwIfComplex,
   mathResultDtype,
   promoteDTypes,
-  type DType,
+  throwIfComplex,
 } from '../dtype';
-import { Complex } from '../complex';
+import { broadcastShapes, elementwiseBinaryOp, elementwiseUnaryOp } from '../internal/compute';
+import { ArrayStorage } from '../storage';
 import { wasmSqrt } from '../wasm/sqrt';
 
 /** Convert bool storage to int8 (NumPy promotes bool → int8 for arithmetic). */
@@ -58,10 +58,11 @@ function boolToMathFloat(a: ArrayStorage): ArrayStorage {
   for (let i = 0; i < a.size; i++) dst[i] = src[off + i]!;
   return result;
 }
-import { wasmPower, wasmPowerScalar } from '../wasm/power';
+
 import { wasmExp } from '../wasm/exp';
 import { wasmExp2 } from '../wasm/exp2';
 import { wasmLogaddexp, wasmLogaddexpScalar } from '../wasm/logaddexp';
+import { wasmPower, wasmPowerScalar } from '../wasm/power';
 
 /**
  * Square root of each element
@@ -291,7 +292,7 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
         const mag = Math.sqrt(re * re + im * im);
         const arg = Math.atan2(im, re);
 
-        const newMag = Math.pow(mag, exponent);
+        const newMag = mag ** exponent;
         const newArg = arg * exponent;
 
         dstData[i * 2] = newMag * Math.cos(newArg);
@@ -306,7 +307,7 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
         const mag = Math.sqrt(re * re + im * im);
         const arg = Math.atan2(im, re);
 
-        const newMag = Math.pow(mag, exponent);
+        const newMag = mag ** exponent;
         const newArg = arg * exponent;
 
         dstData[i * 2] = newMag * Math.cos(newArg);
@@ -347,11 +348,11 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
       // BigInt ** negative or float promotes to float64
       if (contiguous) {
         for (let i = 0; i < size; i++) {
-          resultData[i] = Math.pow(Number(data[off + i]!), exponent);
+          resultData[i] = Number(data[off + i]!) ** exponent;
         }
       } else {
         for (let i = 0; i < size; i++) {
-          resultData[i] = Math.pow(Number(storage.iget(i)), exponent);
+          resultData[i] = Number(storage.iget(i)) ** exponent;
         }
       }
     }
@@ -359,11 +360,11 @@ function powerScalar(storage: ArrayStorage, exponent: number): ArrayStorage {
     // Regular numeric types
     if (contiguous) {
       for (let i = 0; i < size; i++) {
-        resultData[i] = Math.pow(Number(data[off + i]!), exponent);
+        resultData[i] = Number(data[off + i]!) ** exponent;
       }
     } else {
       for (let i = 0; i < size; i++) {
-        resultData[i] = Math.pow(Number(storage.iget(i)), exponent);
+        resultData[i] = Number(storage.iget(i)) ** exponent;
       }
     }
   }
@@ -473,7 +474,7 @@ export function exp2(a: ArrayStorage): ArrayStorage {
   const wasmResult = wasmExp2(a);
   if (wasmResult) return wasmResult;
 
-  return elementwiseUnaryOp(a, (x) => Math.pow(2, x), false);
+  return elementwiseUnaryOp(a, (x) => 2 ** x, false);
 }
 
 /**
@@ -743,7 +744,7 @@ export function logaddexp(x1: ArrayStorage, x2: ArrayStorage | number): ArraySto
   if (x1.dtype === 'bool')
     return logaddexp(
       boolToMathFloat(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp', 'logaddexp is not supported for complex numbers.');
@@ -841,7 +842,7 @@ export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArraySt
   if (x1.dtype === 'bool')
     return logaddexp2(
       boolToMathFloat(x1),
-      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2
+      typeof x2 === 'number' ? x2 : x2.dtype === 'bool' ? boolToMathFloat(x2) : x2,
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return logaddexp2(x1, boolToMathFloat(x2));
   throwIfComplex(x1.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
@@ -880,7 +881,7 @@ function logaddexp2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
     const maxVal = Math.max(val1, val2);
     const minVal = Math.min(val1, val2);
     // log2(1 + x) = log(1 + x) * log2(e)
-    resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+    resultData[i] = maxVal + Math.log1p(2 ** (minVal - maxVal)) * LOG2_E;
   }
 
   return result;
@@ -910,7 +911,7 @@ function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
 
       const maxVal = Math.max(val1, x2);
       const minVal = Math.min(val1, x2);
-      resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+      resultData[i] = maxVal + Math.log1p(2 ** (minVal - maxVal)) * LOG2_E;
     }
   } else {
     for (let i = 0; i < size; i++) {
@@ -918,7 +919,7 @@ function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
 
       const maxVal = Math.max(val1, x2);
       const minVal = Math.min(val1, x2);
-      resultData[i] = maxVal + Math.log1p(Math.pow(2, minVal - maxVal)) * LOG2_E;
+      resultData[i] = maxVal + Math.log1p(2 ** (minVal - maxVal)) * LOG2_E;
     }
   }
 

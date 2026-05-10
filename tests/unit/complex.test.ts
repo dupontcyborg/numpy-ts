@@ -2,90 +2,90 @@
  * Unit tests for complex number support
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  abs,
+  amax,
+  amin,
+  angle,
+  arccos,
+  arccosh,
+  arcsin,
+  arcsinh,
+  arctan,
+  arctanh,
+  argsort,
+  argwhere,
   array,
-  zeros,
-  ones,
+  average,
   Complex,
-  real,
-  imag,
   conj,
   conjugate,
-  angle,
-  abs,
-  iscomplex,
-  iscomplexobj,
-  isreal,
-  isrealobj,
-  sqrt,
-  power,
+  cos,
+  cosh,
+  count_nonzero,
+  cross,
+  cumprod,
+  cumsum,
+  cumulative_prod,
+  cumulative_sum,
+  diagonal,
+  diff,
+  dot,
+  ediff1d,
   exp,
   exp2,
   expm1,
-  log,
-  log2,
-  log10,
-  log1p,
-  sin,
-  cos,
-  tan,
-  arcsin,
-  arccos,
-  arctan,
-  sinh,
-  cosh,
-  tanh,
-  arcsinh,
-  arccosh,
-  arctanh,
-  positive,
-  reciprocal,
-  square,
-  cumsum,
-  cumulative_sum,
-  cumprod,
-  cumulative_prod,
-  dot,
-  trace,
-  diagonal,
-  transpose,
+  extract,
+  flatnonzero,
+  gradient,
+  imag,
   inner,
-  outer,
-  kron,
+  iscomplex,
+  iscomplexobj,
   isfinite,
   isinf,
   isnan,
   isneginf,
   isposinf,
-  nonzero,
-  argwhere,
-  flatnonzero,
-  where,
-  extract,
-  count_nonzero,
+  isreal,
+  isrealobj,
+  kron,
+  log,
+  log1p,
+  log2,
+  log10,
   logical_and,
-  logical_or,
   logical_not,
+  logical_or,
   logical_xor,
-  diff,
-  ediff1d,
-  gradient,
-  cross,
-  nancumsum,
-  nancumprod,
-  average,
-  sort,
-  argsort,
   max,
-  amax,
   min,
-  amin,
-  nanmin,
+  nancumprod,
+  nancumsum,
   nanmax,
+  nanmin,
+  nonzero,
+  ones,
+  outer,
+  positive,
+  power,
   ptp,
-  sort_complex,
+  real,
   real_if_close,
+  reciprocal,
+  sin,
+  sinh,
+  sort,
+  sort_complex,
+  sqrt,
+  square,
+  tan,
+  tanh,
+  trace,
+  transpose,
+  where,
+  zeros,
 } from '../../src';
 import { complexAbs } from '../../src/common/ops/complex';
 
@@ -2973,8 +2973,8 @@ describe('Complex Number Support', () => {
         const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
         const result = a.nanmean();
 
-        expect(isNaN((result as Complex).re)).toBe(true);
-        expect(isNaN((result as Complex).im)).toBe(true);
+        expect(Number.isNaN((result as Complex).re)).toBe(true);
+        expect(Number.isNaN((result as Complex).im)).toBe(true);
       });
     });
 
@@ -3109,7 +3109,7 @@ describe('Complex Number Support', () => {
         const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
         const result = a.nanvar();
 
-        expect(isNaN(result as number)).toBe(true);
+        expect(Number.isNaN(result as number)).toBe(true);
       });
 
       it('computes variance with ddof', () => {
@@ -3143,7 +3143,7 @@ describe('Complex Number Support', () => {
         const a = array([new Complex(NaN, 1), new Complex(2, NaN)]);
         const result = a.nanstd();
 
-        expect(isNaN(result as number)).toBe(true);
+        expect(Number.isNaN(result as number)).toBe(true);
       });
     });
 
@@ -3521,7 +3521,7 @@ describe('Complex Number Support', () => {
         const values = result.toArray() as Complex[];
         expect(values[0]).toEqual(new Complex(1, 0));
         expect(values[1]).toEqual(new Complex(2, 0));
-        expect(isNaN(values[2].re)).toBe(true);
+        expect(Number.isNaN(values[2].re)).toBe(true);
       });
 
       it('preserves complex dtype', () => {
@@ -3594,8 +3594,8 @@ describe('Complex Number Support', () => {
         const a = array([new Complex(1, 0), new Complex(NaN, 2), new Complex(3, 0)]);
         const result = max(a) as Complex;
 
-        expect(isNaN(result.re)).toBe(true);
-        expect(isNaN(result.im)).toBe(true);
+        expect(Number.isNaN(result.re)).toBe(true);
+        expect(Number.isNaN(result.im)).toBe(true);
       });
 
       it('computes max along axis for 2D complex array', () => {
@@ -3642,7 +3642,7 @@ describe('Complex Number Support', () => {
         const result = max(a, 1);
 
         expect(result.shape).toEqual([2]);
-        expect(isNaN((result.get([0]) as Complex).re)).toBe(true);
+        expect(Number.isNaN((result.get([0]) as Complex).re)).toBe(true);
         expect(result.get([1])).toEqual(new Complex(4, 0));
       });
 
@@ -3682,8 +3682,8 @@ describe('Complex Number Support', () => {
         const a = array([new Complex(1, 0), new Complex(NaN, 2), new Complex(3, 0)]);
         const result = min(a) as Complex;
 
-        expect(isNaN(result.re)).toBe(true);
-        expect(isNaN(result.im)).toBe(true);
+        expect(Number.isNaN(result.re)).toBe(true);
+        expect(Number.isNaN(result.im)).toBe(true);
       });
     });
 
@@ -3747,8 +3747,8 @@ describe('Complex Number Support', () => {
         const a = array([new Complex(NaN, 0), new Complex(0, NaN)]);
         const result = nanmin(a) as Complex;
 
-        expect(isNaN(result.re)).toBe(true);
-        expect(isNaN(result.im)).toBe(true);
+        expect(Number.isNaN(result.re)).toBe(true);
+        expect(Number.isNaN(result.im)).toBe(true);
       });
     });
 
@@ -3770,8 +3770,8 @@ describe('Complex Number Support', () => {
         const a = array([new Complex(NaN, 0), new Complex(0, NaN)]);
         const result = nanmax(a) as Complex;
 
-        expect(isNaN(result.re)).toBe(true);
-        expect(isNaN(result.im)).toBe(true);
+        expect(Number.isNaN(result.re)).toBe(true);
+        expect(Number.isNaN(result.im)).toBe(true);
       });
     });
   });

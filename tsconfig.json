@@ -42,6 +42,7 @@
 
     /* Completeness */
     "skipLibCheck": true,
+    "types": ["node"],
 
     /* Experimental */
     "experimentalDecorators": true,

@@ -6,38 +6,38 @@
  * uint types route to signed kernels (wrapping multiplication gives same bits).
  */
 
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  reduce_prod_f64,
   reduce_prod_f32,
-  reduce_prod_i64,
-  reduce_prod_i32,
-  reduce_prod_i16,
+  reduce_prod_f64,
   reduce_prod_i8,
-  reduce_prod_u16,
-  reduce_prod_u8,
-  reduce_prod_strided_f64,
-  reduce_prod_strided_f32,
-  reduce_prod_strided_i64,
-  reduce_prod_strided_i32,
-  reduce_prod_strided_i16,
-  reduce_prod_strided_i8,
-  reduce_prod_strided_u64,
-  reduce_prod_strided_u32,
-  reduce_prod_strided_u16,
-  reduce_prod_strided_u8,
-  reduce_prod_strided_c128,
+  reduce_prod_i16,
+  reduce_prod_i32,
+  reduce_prod_i64,
   reduce_prod_strided_c64,
+  reduce_prod_strided_c128,
+  reduce_prod_strided_f32,
+  reduce_prod_strided_f64,
+  reduce_prod_strided_i8,
+  reduce_prod_strided_i16,
+  reduce_prod_strided_i32,
+  reduce_prod_strided_i64,
+  reduce_prod_strided_u8,
+  reduce_prod_strided_u16,
+  reduce_prod_strided_u32,
+  reduce_prod_strided_u64,
+  reduce_prod_u8,
+  reduce_prod_u16,
 } from './bins/reduce_prod.wasm';
+import { wasmConfig } from './config';
 import {
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
   wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -148,23 +148,23 @@ const stridedOutCtor: Partial<
   float64: Float64Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   float32: Float32Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   float16: Float32Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   int64: BigInt64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
   uint64: BigUint64Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   int32: Int32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
   uint32: Uint32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
@@ -172,13 +172,13 @@ const stridedOutCtor: Partial<
   uint16: BigUint64Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
   int8: BigInt64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
   uint8: BigUint64Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
 };
 
@@ -205,7 +205,7 @@ export function wasmReduceProdStrided(
   a: ArrayStorage,
   outerSize: number,
   axisSize: number,
-  innerSize: number
+  innerSize: number,
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
 
@@ -247,7 +247,11 @@ export function wasmReduceProdStrided(
       'float16',
       f16Region,
       outSize,
-      Uint16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Uint16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -261,7 +265,7 @@ export function wasmReduceProdStridedComplex(
   a: ArrayStorage,
   outerSize: number,
   axisSize: number,
-  innerSize: number
+  innerSize: number,
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
   const dtype = effectiveDType(a.dtype);
@@ -288,7 +292,7 @@ export function wasmReduceProdStridedComplex(
     a.wasmPtr,
     a.offset,
     totalSize * 2,
-    floatBpe
+    floatBpe,
   );
 
   if (isC128) {
@@ -298,8 +302,16 @@ export function wasmReduceProdStridedComplex(
   }
 
   const Ctor = isC128
-    ? (Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray)
-    : (Float32Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray);
+    ? (Float64Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray)
+    : (Float32Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray);
 
   return ArrayStorage.fromWasmRegion([outSize], dtype, outRegion, outFloats, Ctor);
 }

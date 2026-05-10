@@ -3,21 +3,21 @@
  * (clip, maximum, minimum, fmax, fmin, nan_to_num, interp, unwrap, sinc, i0)
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   array,
   clip,
-  maximum,
-  minimum,
   fmax,
   fmin,
-  nan_to_num,
-  interp,
-  unwrap,
-  sinc,
   i0,
+  interp,
+  maximum,
+  minimum,
+  nan_to_num,
+  sinc,
+  unwrap,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Other Math Operations', () => {
   beforeAll(() => {
@@ -31,7 +31,7 @@ describe('NumPy Validation: Other Math Operations', () => {
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
           '   Current Python command: ' +
           (process.env.NUMPY_PYTHON || 'python3') +
-          '\n'
+          '\n',
       );
     }
   });
@@ -54,7 +54,7 @@ result = np.clip(np.array([1, 5, 10, 15, 20]), 3, 12)
           [-5, 15, 20],
         ]),
         2,
-        8
+        8,
       );
       const pyResult = runNumPy(`
 result = np.clip(np.array([[0, 5, 10], [-5, 15, 20]]), 2, 8)
@@ -125,7 +125,7 @@ result = np.maximum(np.array([1, 5, 3, 8, 2]), 4)
         array([
           [2, 2],
           [5, 1],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.maximum(np.array([[1, 4], [3, 2]]), np.array([[2, 2], [5, 1]]))
@@ -146,10 +146,10 @@ result = np.maximum(np.array([1, np.nan, 3]), np.array([2, 2, np.nan]))
       const jsArr = jsResult.toArray() as number[];
       const pyArr = pyResult.value as number[];
       expect(jsArr[0]).toBeCloseTo(pyArr[0]!);
-      expect(isNaN(jsArr[1]!)).toBe(true);
-      expect(isNaN(pyArr[1]!)).toBe(true);
-      expect(isNaN(jsArr[2]!)).toBe(true);
-      expect(isNaN(pyArr[2]!)).toBe(true);
+      expect(Number.isNaN(jsArr[1]!)).toBe(true);
+      expect(Number.isNaN(pyArr[1]!)).toBe(true);
+      expect(Number.isNaN(jsArr[2]!)).toBe(true);
+      expect(Number.isNaN(pyArr[2]!)).toBe(true);
     });
   });
 
@@ -183,7 +183,7 @@ result = np.minimum(np.array([1, 5, 3, 8, 2]), 4)
         array([
           [2, 2],
           [5, 1],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.minimum(np.array([[1, 4], [3, 2]]), np.array([[2, 2], [5, 1]]))
@@ -273,8 +273,8 @@ result = np.nan_to_num(np.array([1, np.nan, 3, np.inf, -np.inf]))
       expect(jsArr[1]).toBeCloseTo(pyArr[1]!);
       expect(jsArr[2]).toBeCloseTo(pyArr[2]!);
       // Inf values are replaced with large finite numbers
-      expect(isFinite(jsArr[3]!)).toBe(true);
-      expect(isFinite(jsArr[4]!)).toBe(true);
+      expect(Number.isFinite(jsArr[3]!)).toBe(true);
+      expect(Number.isFinite(jsArr[4]!)).toBe(true);
     });
 
     it('matches NumPy with custom nan value', () => {
@@ -292,7 +292,7 @@ result = np.nan_to_num(np.array([np.nan, np.nan, 3]), nan=999)
         array([
           [1, NaN],
           [NaN, 4],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.nan_to_num(np.array([[1, np.nan], [np.nan, 4]]))
@@ -409,7 +409,7 @@ result = np.sinc(np.array([-1.5, -0.5, 0, 0.5, 1.5]))
         array([
           [-1, 0, 1],
           [0.5, 1.5, 2],
-        ])
+        ]),
       );
       const pyResult = runNumPy(`
 result = np.sinc(np.array([[-1, 0, 1], [0.5, 1.5, 2]]))

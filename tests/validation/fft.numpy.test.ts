@@ -5,9 +5,9 @@
  * (forced WASM, forced JS fallback) to ensure correctness of both code paths.
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { array, fft, Complex, wasmConfig } from '../../src/index';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { array, Complex, fft, wasmConfig } from '../../src/index';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'forced WASM (threshold=0)', multiplier: 0 },
@@ -63,7 +63,7 @@ result = np.fft.fft(np.array([1, 2, 3, 4, 5, 6, 7, 8], dtype=np.float16))
 
       it('matches NumPy for complex128', () => {
         const jsResult = fft.fft(
-          array([new Complex(1, 1), new Complex(2, -1), new Complex(3, 0), new Complex(4, 2)])
+          array([new Complex(1, 1), new Complex(2, -1), new Complex(3, 0), new Complex(4, 2)]),
         );
         const pyResult = runNumPy(`
 result = np.fft.fft(np.array([1+1j, 2-1j, 3+0j, 4+2j]))
@@ -206,7 +206,7 @@ result = np.fft.irfft(np.fft.rfft(np.sin(np.arange(1000) * 0.1)))
           array([
             [1, 2, 3, 4],
             [5, 6, 7, 8],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.fft.fft2(np.array([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=float))
@@ -220,7 +220,7 @@ result = np.fft.fft2(np.array([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=float))
           array([
             [1, 2, 3, 4],
             [5, 6, 7, 8],
-          ]).astype('float16')
+          ]).astype('float16'),
         );
         const pyResult = runNumPy(`
 result = np.fft.fft2(np.array([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=np.float16))
@@ -235,7 +235,7 @@ result = np.fft.fft2(np.array([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=np.float16))
             [1, 2, 3, 4, 5],
             [6, 7, 8, 9, 10],
             [11, 12, 13, 14, 15],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.fft.fft2(np.array([[1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15]], dtype=float))
@@ -269,7 +269,7 @@ result = np.fft.ifft2(np.fft.fft2(np.array([[1, 2, 3, 4], [5, 6, 7, 8]])))
           array([
             [1, 2, 3, 4],
             [5, 6, 7, 8],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.fft.rfft2(np.array([[1, 2, 3, 4], [5, 6, 7, 8]]))
@@ -309,7 +309,7 @@ result = np.fft.irfft2(np.fft.rfft2(np.array([[1, 2, 3, 4], [5, 6, 7, 8]])))
               [5, 6],
               [7, 8],
             ],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.fft.fftn(np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]))
@@ -356,7 +356,7 @@ result = np.fft.ifftn(np.fft.fftn(original))
               [5, 6],
               [7, 8],
             ],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.fft.rfftn(np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]))
@@ -376,7 +376,7 @@ result = np.fft.rfftn(np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]))
               [5, 6],
               [7, 8],
             ],
-          ]).astype('float16')
+          ]).astype('float16'),
         );
         const pyResult = runNumPy(`
 result = np.fft.rfftn(np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=np.float16))
@@ -433,7 +433,7 @@ result = np.fft.irfftn(np.fft.rfftn(original))
     describe('fft.hfft', () => {
       it('matches NumPy', () => {
         const jsResult = fft.hfft(
-          array([new Complex(1, 0), new Complex(2, -1), new Complex(3, 0)])
+          array([new Complex(1, 0), new Complex(2, -1), new Complex(3, 0)]),
         );
         const pyResult = runNumPy(`
 result = np.fft.hfft(np.array([1+0j, 2-1j, 3+0j]))
@@ -527,7 +527,7 @@ result = np.fft.fftshift(np.array([0, 1, 2, 3, 4, -4, -3, -2, -1]))
             [4, 5, 6, 7],
             [8, 9, 10, 11],
             [12, 13, 14, 15],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.fft.fftshift(np.array([[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15]]))
@@ -559,7 +559,7 @@ result = np.fft.ifftshift(np.fft.fftshift(np.array([0, 1, 2, 3, 4, 5, 6, 7])))
           fft.fft(original, undefined, undefined, 'ortho'),
           undefined,
           undefined,
-          'ortho'
+          'ortho',
         );
         const pyResult = runNumPy(`
 result = np.fft.ifft(np.fft.fft(np.array([1,2,3,4,5,6], dtype=float), norm='ortho'), norm='ortho')

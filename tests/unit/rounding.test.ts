@@ -2,8 +2,8 @@
  * Unit tests for rounding operations
  */
 
-import { describe, it, expect } from 'vitest';
-import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { around, array, ceil, fix, floor, rint, round, trunc } from '../../src';
 
 describe('Rounding Functions', () => {
   describe('around()', () => {

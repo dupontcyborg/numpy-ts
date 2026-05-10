@@ -3,8 +3,8 @@
  * Usage: npx tsx scripts/zig-fn-coverage.ts [--verbose]
  */
 
-import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // --- Config ---
 const THRESHOLD = 95; // minimum % to pass
@@ -79,7 +79,7 @@ console.log(
     dim('Covered'.padStart(numCol)) +
     dim('Missing'.padStart(numCol)) +
     '  ' +
-    dim('Coverage')
+    dim('Coverage'),
 );
 console.log(sep);
 
@@ -95,7 +95,7 @@ for (const f of filesToShow) {
       String(f.covered).padStart(numCol) +
       (missing > 0 ? red(String(missing).padStart(numCol)) : String(0).padStart(numCol)) +
       '  ' +
-      colorPct(p)
+      colorPct(p),
   );
 }
 
@@ -111,7 +111,7 @@ console.log(
     bold(String(coveredFns).padStart(numCol)) +
     bold(String(totalFns - coveredFns).padStart(numCol)) +
     '  ' +
-    colorPct(pct)
+    colorPct(pct),
 );
 console.log();
 

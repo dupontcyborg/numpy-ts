@@ -6,44 +6,44 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  argsort_f64,
-  argsort_f32,
-  argsort_i64,
-  argsort_u64,
-  argsort_i32,
-  argsort_u32,
-  argsort_i16,
-  argsort_u16,
-  argsort_i8,
-  argsort_u8,
-  argsort_slices_f64,
-  argsort_slices_f32,
-  argsort_slices_i64,
-  argsort_slices_u64,
-  argsort_slices_i32,
-  argsort_slices_u32,
-  argsort_slices_i16,
-  argsort_slices_u16,
-  argsort_slices_i8,
-  argsort_slices_u8,
-  argsort_c128,
   argsort_c64,
-  argsort_slices_c128,
+  argsort_c128,
+  argsort_f32,
+  argsort_f64,
+  argsort_i8,
+  argsort_i16,
+  argsort_i32,
+  argsort_i64,
   argsort_slices_c64,
+  argsort_slices_c128,
+  argsort_slices_f32,
+  argsort_slices_f64,
+  argsort_slices_i8,
+  argsort_slices_i16,
+  argsort_slices_i32,
+  argsort_slices_i64,
+  argsort_slices_u8,
+  argsort_slices_u16,
+  argsort_slices_u32,
+  argsort_slices_u64,
+  argsort_u8,
+  argsort_u16,
+  argsort_u32,
+  argsort_u64,
 } from './bins/argsort.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
+  f16InputToScratchF32,
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
-  scratchCopyIn,
   scratchAlloc,
-  getSharedMemory,
-  f16InputToScratchF32,
+  scratchCopyIn,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -113,7 +113,7 @@ export function wasmArgsortSlices(
   outputSliceOffsets: Int32Array | number[],
   axisSize: number,
   outerSize: number,
-  dtype: DType
+  dtype: DType,
 ): boolean {
   if (axisSize < 2) return false;
 
@@ -140,7 +140,7 @@ export function wasmArgsortSlices(
       dtype === 'float16'
         ? f16InputToScratchF32(
             { data: inputData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
-            inputData.length
+            inputData.length,
           )
         : scratchCopyIn(inputData as TypedArray);
     const outputPtr = scratchAlloc(outputBytes);
@@ -149,7 +149,7 @@ export function wasmArgsortSlices(
 
     const mem = getSharedMemory();
     new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-      new Uint8Array(mem.buffer, outputPtr, resultData.byteLength)
+      new Uint8Array(mem.buffer, outputPtr, resultData.byteLength),
     );
     return true;
   }
@@ -170,7 +170,7 @@ export function wasmArgsortSlices(
     dtype === 'float16'
       ? f16InputToScratchF32(
           { data: inputData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
-          inputData.length
+          inputData.length,
         )
       : scratchCopyIn(inputData as TypedArray);
   const outputPtr = scratchAlloc(outputBytes);
@@ -179,13 +179,13 @@ export function wasmArgsortSlices(
     kernel(
       inputPtr + inputSliceOffsets[i]! * bytesPerElem,
       outputPtr + outputSliceOffsets[i]! * 8, // f64 stride
-      axisSize
+      axisSize,
     );
   }
 
   const mem = getSharedMemory();
   new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-    new Uint8Array(mem.buffer, outputPtr, resultData.byteLength)
+    new Uint8Array(mem.buffer, outputPtr, resultData.byteLength),
   );
   return true;
 }
@@ -231,7 +231,7 @@ export function wasmArgsort(a: ArrayStorage): ArrayStorage | null {
     Float64Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

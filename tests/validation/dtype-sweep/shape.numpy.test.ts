@@ -3,18 +3,18 @@
  * Structural tests — validates shape/dtype preservation across ALL dtypes.
  * Oracle tests use batched oracle for roll, flip, rot90.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
-  isComplex,
-  pyArrayCast,
   expectMatchPre,
+  isComplex,
+  npDtype,
+  pyArrayCast,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -151,19 +151,19 @@ describe('DType Sweep: Shape manipulation', () => {
 
     it(`atleast_1d ${dtype}`, () => {
       expect(np.atleast_1d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(
-        1
+        1,
       );
     });
 
     it(`atleast_2d ${dtype}`, () => {
       expect(np.atleast_2d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(
-        2
+        2,
       );
     });
 
     it(`atleast_3d ${dtype}`, () => {
       expect(np.atleast_3d(array(dtype === 'bool' ? [1] : [1], dtype)).ndim).toBeGreaterThanOrEqual(
-        3
+        3,
       );
     });
 
@@ -200,7 +200,7 @@ describe('DType Sweep: Shape manipulation', () => {
               [1, 2],
               [3, 4],
             ],
-        dtype
+        dtype,
       );
       expect(np.vsplit(a, 2).length).toBe(2);
     });
@@ -208,7 +208,7 @@ describe('DType Sweep: Shape manipulation', () => {
     it(`dsplit ${dtype}`, () => {
       const a = np.reshape(
         array(dtype === 'bool' ? [1, 0, 1, 0, 1, 0, 1, 0] : [1, 2, 3, 4, 5, 6, 7, 8], dtype),
-        [2, 2, 2]
+        [2, 2, 2],
       );
       expect(np.dsplit(a, 2).length).toBe(2);
     });
@@ -242,7 +242,7 @@ describe('DType Sweep: Shape manipulation', () => {
     it(`insert ${dtype}`, () => {
       const a = array(
         dtype === 'bool' ? [1, 0, 1] : isComplex(dtype) ? [1, 2, 3] : [1, 2, 3],
-        dtype
+        dtype,
       );
       const jsResult = np.insert(a, 1, dtype === 'bool' ? 0 : 99);
       expect(jsResult.shape).toEqual([4]);
@@ -267,7 +267,7 @@ describe('DType Sweep: Shape manipulation', () => {
 
     it(`diagflat ${dtype}`, () => {
       const jsResult = np.diagflat(
-        array(dtype === 'bool' ? [1, 0] : isComplex(dtype) ? [1, 2] : [1, 2], dtype)
+        array(dtype === 'bool' ? [1, 0] : isComplex(dtype) ? [1, 2] : [1, 2], dtype),
       );
       expect(jsResult.shape).toEqual([2, 2]);
     });
@@ -291,7 +291,7 @@ describe('DType Sweep: Shape manipulation', () => {
     it(`compress ${dtype}`, () => {
       const a = array(
         dtype === 'bool' ? [1, 0, 1] : isComplex(dtype) ? [1, 2, 3] : [1, 2, 3],
-        dtype
+        dtype,
       );
       const cond = array([1, 0, 1], 'bool');
       expect(np.compress(cond, a).shape).toEqual([2]);
@@ -319,7 +319,7 @@ describe('DType Sweep: Shape manipulation', () => {
           [0, 1, 0],
           [0, 0, 1],
         ],
-        dtype
+        dtype,
       );
       np.fill_diagonal(a, dtype === 'bool' ? 1 : 9);
       expect(a.shape).toEqual([3, 3]);

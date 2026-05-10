@@ -3,19 +3,19 @@
  * Tests across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   checkNumPyAvailable,
-  npDtype,
-  isComplex,
-  pyArrayCast,
   expectBothReject,
   expectMatchPre,
+  isComplex,
+  npDtype,
+  pyArrayCast,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -96,7 +96,7 @@ result = _result_orig.astype(np.complex128)`;
           const _r = expectBothReject(
             'rfft expects real-valued input, not complex',
             () => np.fft.rfft(array(data, dtype)),
-            pyCode
+            pyCode,
           );
           if (_r === 'both-reject') return;
         }
@@ -115,7 +115,7 @@ result = _result_orig.astype(np.complex128)`;
               const r = np.fft.rfft(array(data, dtype));
               np.fft.irfft(r);
             },
-            pyCode
+            pyCode,
           );
           if (_r === 'both-reject') return;
         }
@@ -139,7 +139,7 @@ result = _result_orig.astype(np.complex128)`;
           const _r = expectBothReject(
             'ihfft expects real-valued input',
             () => np.fft.ihfft(array(data, dtype)),
-            pyCode
+            pyCode,
           );
           if (_r === 'both-reject') return;
         }

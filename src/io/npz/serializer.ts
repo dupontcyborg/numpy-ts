@@ -4,7 +4,7 @@
  * Serializes multiple NDArrays to NPZ format (ZIP archive of .npy files).
  */
 
-import { NDArrayCore } from '../../common/ndarray-core';
+import type { NDArrayCore } from '../../common/ndarray-core';
 import { serializeNpy } from '../npy/serializer';
 import { writeZip, writeZipSync } from '../zip/writer';
 
@@ -46,7 +46,7 @@ export interface NpzSerializeOptions {
  */
 export async function serializeNpz(
   arrays: NpzArraysInput,
-  options: NpzSerializeOptions = {}
+  options: NpzSerializeOptions = {},
 ): Promise<Uint8Array> {
   const files = prepareNpzFiles(arrays);
   return writeZip(files, { compress: options.compress ?? false });

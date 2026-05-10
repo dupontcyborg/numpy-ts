@@ -3,10 +3,10 @@
  * Validates that numpy-ts produces the same results as NumPy
  */
 
-import { spawn } from 'child_process';
-import { resolve } from 'path';
-import * as np from '../../src/index';
+import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
 import { hasFloat16 as npHasFloat16 } from '../../src/common/dtype';
+import * as np from '../../src/index';
 import type { BenchmarkCase } from './types';
 
 const FLOAT64_TOLERANCE = 1e-5;
@@ -134,7 +134,7 @@ function resultsMatch(
   numpytsResult: any,
   numpyResult: any,
   operation?: string,
-  tolerance: number = FLOAT64_TOLERANCE
+  tolerance: number = FLOAT64_TOLERANCE,
 ): boolean {
   // For random operations, just check shapes match (values will differ)
   if (operation && isRandomOperation(operation)) {
@@ -189,15 +189,16 @@ function resultsMatch(
   // Both scalars
   if (typeof numpytsResult === 'number' && typeof numpyResult === 'number') {
     // Handle NaN: both NaN is considered equal
-    if (isNaN(numpytsResult) && isNaN(numpyResult)) return true;
+    if (Number.isNaN(numpytsResult) && Number.isNaN(numpyResult)) return true;
     // Handle Infinity: both must be same infinity
-    if (!isFinite(numpytsResult) && !isFinite(numpyResult)) return numpytsResult === numpyResult;
+    if (!Number.isFinite(numpytsResult) && !Number.isFinite(numpyResult))
+      return numpytsResult === numpyResult;
     // Float32Array fallback only: allow inf-vs-large-finite mismatches since
     // overflow boundaries differ (float16 max ~65504, Float32Array ~3.4e38)
     if (
       tolerance >= FLOAT16_TOLERANCE &&
       !npHasFloat16 &&
-      (!isFinite(numpytsResult) || !isFinite(numpyResult))
+      (!Number.isFinite(numpytsResult) || !Number.isFinite(numpyResult))
     )
       return true;
     // Use both relative and absolute tolerance (like numpy.allclose)
@@ -231,7 +232,7 @@ function resultsMatch(
     }
     // Compare each array in the list
     return numpytsResult.every((tsArr: any, i: number) =>
-      resultsMatch(tsArr, numpyResult[i], operation, tolerance)
+      resultsMatch(tsArr, numpyResult[i], operation, tolerance),
     );
   }
 
@@ -280,7 +281,7 @@ function resultsMatch(
 
     // Recursively compare each value
     return tsKeys.every((k) =>
-      resultsMatch(numpytsResult[k], numpyResult[k], operation, tolerance)
+      resultsMatch(numpytsResult[k], numpyResult[k], operation, tolerance),
     );
   }
 
@@ -316,12 +317,12 @@ function checkPartitionProperty(data: any, kth: number, shape: number[]): boolea
     const kthValue = flatData[rowStart + kth];
 
     // Skip if kthValue is NaN
-    if (typeof kthValue === 'number' && isNaN(kthValue)) continue;
+    if (typeof kthValue === 'number' && Number.isNaN(kthValue)) continue;
 
     // Check all elements before kth are <= kthValue
     for (let j = 0; j < kth; j++) {
       const val = flatData[rowStart + j];
-      if (typeof val === 'number' && !isNaN(val)) {
+      if (typeof val === 'number' && !Number.isNaN(val)) {
         if (val > kthValue!) return false;
       }
     }
@@ -329,7 +330,7 @@ function checkPartitionProperty(data: any, kth: number, shape: number[]): boolea
     // Check all elements after kth are >= kthValue
     for (let j = kth + 1; j < lastAxisSize; j++) {
       const val = flatData[rowStart + j];
-      if (typeof val === 'number' && !isNaN(val)) {
+      if (typeof val === 'number' && !Number.isNaN(val)) {
         if (val < kthValue!) return false;
       }
     }
@@ -353,10 +354,10 @@ function arraysEqual(a: any, b: any, tolerance: number = FLOAT64_TOLERANCE): boo
       typeof a[1] === 'number' &&
       typeof b[0] === 'number' &&
       typeof b[1] === 'number' &&
-      isFinite(a[0]) &&
-      isFinite(a[1]) &&
-      isFinite(b[0]) &&
-      isFinite(b[1])
+      Number.isFinite(a[0]) &&
+      Number.isFinite(a[1]) &&
+      Number.isFinite(b[0]) &&
+      Number.isFinite(b[1])
     ) {
       const dre = a[0] - b[0];
       const dim = a[1] - b[1];
@@ -382,11 +383,11 @@ function arraysEqual(a: any, b: any, tolerance: number = FLOAT64_TOLERANCE): boo
 
   // Compare numbers with tolerance
   if (typeof a === 'number' && typeof b === 'number') {
-    if (isNaN(a) && isNaN(b)) return true;
-    if (!isFinite(a) && !isFinite(b)) return a === b; // Both inf or -inf
+    if (Number.isNaN(a) && Number.isNaN(b)) return true;
+    if (!Number.isFinite(a) && !Number.isFinite(b)) return a === b; // Both inf or -inf
     // For relaxed tolerance (float32), allow inf-vs-large-finite mismatches
     // since overflow boundaries differ between float32 and float64 computation
-    if (tolerance > FLOAT64_TOLERANCE && (!isFinite(a) || !isFinite(b))) return true;
+    if (tolerance > FLOAT64_TOLERANCE && (!Number.isFinite(a) || !Number.isFinite(b))) return true;
     // Use both relative and absolute tolerance (like numpy.allclose)
     const absErr = Math.abs(a - b);
     const maxAbs = Math.max(Math.abs(a), Math.abs(b));
@@ -1379,7 +1380,7 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
               // It's an NDArray - check if it has toArray method
               if (typeof numpytsResult.toArray !== 'function') {
                 throw new Error(
-                  `NDArray missing toArray method. Type: ${typeof numpytsResult}, keys: ${Object.keys(numpytsResult).join(', ')}`
+                  `NDArray missing toArray method. Type: ${typeof numpytsResult}, keys: ${Object.keys(numpytsResult).join(', ')}`,
                 );
               }
               // Convert array data, handling Complex objects
@@ -1400,7 +1401,7 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
               if (tsShape !== npShape) {
                 failed++;
                 console.error(
-                  `  ❌ ${spec.name}: Shape mismatch: TS ${tsShape} vs NumPy ${npShape}`
+                  `  ❌ ${spec.name}: Shape mismatch: TS ${tsShape} vs NumPy ${npShape}`,
                 );
                 numpytsResult?.dispose?.();
                 continue;
@@ -1481,7 +1482,7 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
               } else if (tsDtype !== npDtype) {
                 failed++;
                 console.error(
-                  `  ❌ ${spec.name}: Dtype mismatch: TS '${tsDtype}' vs NumPy '${npDtype}'`
+                  `  ❌ ${spec.name}: Dtype mismatch: TS '${tsDtype}' vs NumPy '${npDtype}'`,
                 );
                 numpytsResult?.dispose?.();
                 continue;
@@ -1530,7 +1531,7 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                   const rows: any[] = [];
                   for (let ri = 0; ri < shape[0]!; ri++) {
                     rows.push(
-                      reshapeFlat(flat.slice(ri * rowSize, (ri + 1) * rowSize), shape.slice(1))
+                      reshapeFlat(flat.slice(ri * rowSize, (ri + 1) * rowSize), shape.slice(1)),
                     );
                   }
                   return rows;
@@ -1562,7 +1563,7 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
               // Use looser tolerance for lower-precision dtypes
               const hasFloat16 = Object.values(spec.setup).some((s) => s.dtype === 'float16');
               const hasLowPrecision = Object.values(spec.setup).some(
-                (s) => s.dtype && s.dtype !== 'float64'
+                (s) => s.dtype && s.dtype !== 'float64',
               );
               const tol = hasFloat16
                 ? FLOAT16_TOLERANCE
@@ -1580,10 +1581,10 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
               const bigIntReplacer = (_k: string, v: unknown) =>
                 typeof v === 'bigint' ? Number(v) : v;
               console.error(
-                `     numpy-ts: ${JSON.stringify(tsValue, bigIntReplacer).substring(0, 100)}`
+                `     numpy-ts: ${JSON.stringify(tsValue, bigIntReplacer).substring(0, 100)}`,
               );
               console.error(
-                `     NumPy:    ${JSON.stringify(numpyResult, bigIntReplacer).substring(0, 100)}`
+                `     NumPy:    ${JSON.stringify(numpyResult, bigIntReplacer).substring(0, 100)}`,
               );
             }
           } catch (err) {
@@ -1597,8 +1598,8 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
         if (failed > 0) {
           reject(
             new Error(
-              `Validation failed: ${failed}/${specs.length} benchmarks produced incorrect results`
-            )
+              `Validation failed: ${failed}/${specs.length} benchmarks produced incorrect results`,
+            ),
           );
         } else {
           console.log(`  ✓ ${passed}/${specs.length} operations validated`);

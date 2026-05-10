@@ -6,37 +6,37 @@
  * Unsigned types use SEPARATE kernels (for correct floatFromInt).
  */
 
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  reduce_mean_f64,
   reduce_mean_f32,
-  reduce_mean_i64,
-  reduce_mean_i32,
-  reduce_mean_i16,
+  reduce_mean_f64,
   reduce_mean_i8,
-  reduce_mean_u64,
-  reduce_mean_u32,
-  reduce_mean_u16,
-  reduce_mean_u8,
-  reduce_mean_strided_f64,
+  reduce_mean_i16,
+  reduce_mean_i32,
+  reduce_mean_i64,
   reduce_mean_strided_f32,
-  reduce_mean_strided_i64,
-  reduce_mean_strided_i32,
-  reduce_mean_strided_i16,
+  reduce_mean_strided_f64,
   reduce_mean_strided_i8,
-  reduce_mean_strided_u64,
-  reduce_mean_strided_u32,
-  reduce_mean_strided_u16,
+  reduce_mean_strided_i16,
+  reduce_mean_strided_i32,
+  reduce_mean_strided_i64,
   reduce_mean_strided_u8,
+  reduce_mean_strided_u16,
+  reduce_mean_strided_u32,
+  reduce_mean_strided_u64,
+  reduce_mean_u8,
+  reduce_mean_u16,
+  reduce_mean_u32,
+  reduce_mean_u64,
 } from './bins/reduce_mean.wasm';
+import { wasmConfig } from './config';
 import {
+  f16InputToScratchF32,
   resetScratchAllocator,
   resolveInputPtr,
-  f16InputToScratchF32,
   wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -126,7 +126,7 @@ export function wasmReduceMeanStrided(
   a: ArrayStorage,
   outerSize: number,
   axisSize: number,
-  innerSize: number
+  innerSize: number,
 ): ArrayStorage | null {
   if (!a.isCContiguous) return null;
 
@@ -161,6 +161,10 @@ export function wasmReduceMeanStrided(
     'float64',
     outRegion,
     outSize,
-    Float64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Float64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

@@ -5,10 +5,9 @@
  * and verify the results match exactly.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { array } from '../../src';
-import { can_cast, common_type, result_type, min_scalar_type, issubdtype } from '../../src';
-import { runNumPy, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { array, can_cast, common_type, issubdtype, min_scalar_type, result_type } from '../../src';
+import { checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Type Checking Functions', () => {
   beforeAll(() => {

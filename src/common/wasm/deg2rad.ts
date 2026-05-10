@@ -7,11 +7,11 @@
  * Only supports float64 and float32 — the ops layer handles int→float promotion.
  */
 
-import { deg2rad_f64, deg2rad_f32, rad2deg_f64, rad2deg_f32 } from './bins/deg2rad.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { deg2rad_f32, deg2rad_f64, rad2deg_f32, rad2deg_f64 } from './bins/deg2rad.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -57,7 +57,11 @@ function runUnary(a: ArrayStorage, kernels: Partial<Record<DType, UnaryFn>>): Ar
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }
 

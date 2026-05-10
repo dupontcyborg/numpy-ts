@@ -34,17 +34,17 @@ function compareBenchmarkNames(a: string, b: string): number {
 }
 
 import type {
-  BenchmarkTiming,
+  BenchmarkCase,
   BenchmarkComparison,
   BenchmarkSummary,
-  BenchmarkCase,
+  BenchmarkTiming,
   RuntimeComparison,
 } from './types';
 
 export function compareResults(
   specs: BenchmarkCase[],
   numpyResults: BenchmarkTiming[],
-  numpyjsResults: BenchmarkTiming[]
+  numpyjsResults: BenchmarkTiming[],
 ): BenchmarkComparison[] {
   const comparisons: BenchmarkComparison[] = [];
 
@@ -71,7 +71,7 @@ export function calculateSummary(comparisons: BenchmarkComparison[]): BenchmarkS
 
   // Clamp ratios to a small epsilon to avoid log(0)=-Infinity poisoning the geo mean
   const geo_mean = Math.exp(
-    ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+    ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length,
   );
 
   const sorted = [...ratios].sort((a, b) => a - b);
@@ -94,7 +94,7 @@ export function calculateSummary(comparisons: BenchmarkComparison[]): BenchmarkS
 }
 
 export function groupByCategory(
-  comparisons: BenchmarkComparison[]
+  comparisons: BenchmarkComparison[],
 ): Map<string, BenchmarkComparison[]> {
   const groups = new Map<string, BenchmarkComparison[]>();
 
@@ -112,7 +112,7 @@ export function groupByCategory(
 }
 
 export function getCategorySummaries(
-  comparisons: BenchmarkComparison[]
+  comparisons: BenchmarkComparison[],
 ): Map<string, { geo_mean: number; count: number }> {
   const groups = groupByCategory(comparisons);
   const summaries = new Map<string, { geo_mean: number; count: number }>();
@@ -120,7 +120,7 @@ export function getCategorySummaries(
   for (const [category, items] of groups) {
     const ratios = items.map((item) => item.ratio);
     const geo_mean = Math.exp(
-      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length,
     );
 
     summaries.set(category, {
@@ -133,7 +133,7 @@ export function getCategorySummaries(
 }
 
 export function getDtypeSummaries(
-  comparisons: BenchmarkComparison[]
+  comparisons: BenchmarkComparison[],
 ): Map<string, { geo_mean: number; median_slowdown: number; count: number }> {
   const dtypeRe =
     /\s+(float64|float32|float16|complex128|complex64|int64|int32|int16|int8|uint64|uint32|uint16|uint8|bool)$/;
@@ -170,7 +170,7 @@ export function getDtypeSummaries(
     const ratios = groups.get(dtype);
     if (!ratios) continue;
     const geo = Math.exp(
-      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length,
     );
     const sorted = [...ratios].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
@@ -183,7 +183,7 @@ export function getDtypeSummaries(
 
 export function getMultiRuntimeDtypeSummaries(
   comparisons: RuntimeComparison[],
-  runtimeName: string
+  runtimeName: string,
 ): Map<string, { geo_mean: number; median_slowdown: number; count: number }> {
   // Convert RuntimeComparison to BenchmarkComparison for the given runtime
   const benchComparisons: BenchmarkComparison[] = [];
@@ -245,7 +245,7 @@ export function printResults(comparisons: BenchmarkComparison[], summary: Benchm
         `  ${name.padEnd(45)} ` +
           `NumPy: ${formatDuration(numpy.mean_ms).padStart(10)} | ` +
           `numpy-ts: ${formatDuration(numpyjs.mean_ms).padStart(10)} | ` +
-          `${color}${formatRatio(ratio).padStart(8)}${reset}`
+          `${color}${formatRatio(ratio).padStart(8)}${reset}`,
       );
     }
   }
@@ -273,7 +273,7 @@ export function printResults(comparisons: BenchmarkComparison[], summary: Benchm
     console.log('\nBy DType:');
     for (const [dtype, data] of dtypeSums) {
       console.log(
-        `  ${dtype.padEnd(12)} geo ${formatRatio(data.geo_mean).padStart(8)}  median ${formatRatio(data.median_slowdown).padStart(8)}  (${data.count} benchmarks)`
+        `  ${dtype.padEnd(12)} geo ${formatRatio(data.geo_mean).padStart(8)}  median ${formatRatio(data.median_slowdown).padStart(8)}  (${data.count} benchmarks)`,
       );
     }
   }
@@ -286,7 +286,7 @@ export function printResults(comparisons: BenchmarkComparison[], summary: Benchm
 export function compareMultiRuntime(
   specs: BenchmarkCase[],
   numpyResults: BenchmarkTiming[],
-  runtimeResults: Map<string, BenchmarkTiming[]>
+  runtimeResults: Map<string, BenchmarkTiming[]>,
 ): RuntimeComparison[] {
   const comparisons: RuntimeComparison[] = [];
 
@@ -316,7 +316,7 @@ export function compareMultiRuntime(
 }
 
 export function calculateMultiRuntimeSummaries(
-  comparisons: RuntimeComparison[]
+  comparisons: RuntimeComparison[],
 ): Record<string, BenchmarkSummary> {
   // Collect all runtime names
   const runtimeNames = new Set<string>();
@@ -336,7 +336,7 @@ export function calculateMultiRuntimeSummaries(
     if (ratios.length === 0) continue;
 
     const geo_mean = Math.exp(
-      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length
+      ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length,
     );
     const sorted = [...ratios].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
@@ -356,7 +356,7 @@ export function calculateMultiRuntimeSummaries(
 }
 
 export function groupMultiRuntimeByCategory(
-  comparisons: RuntimeComparison[]
+  comparisons: RuntimeComparison[],
 ): Map<string, RuntimeComparison[]> {
   const groups = new Map<string, RuntimeComparison[]>();
   for (const comparison of comparisons) {
@@ -372,7 +372,7 @@ export function groupMultiRuntimeByCategory(
 
 export function printMultiRuntimeResults(
   comparisons: RuntimeComparison[],
-  summaries: Record<string, BenchmarkSummary>
+  summaries: Record<string, BenchmarkSummary>,
 ): void {
   const groups = groupMultiRuntimeByCategory(comparisons);
   const runtimeNames = Object.keys(summaries);
@@ -395,7 +395,7 @@ export function printMultiRuntimeResults(
           const color = entry.ratio < 2 ? '\x1b[32m' : entry.ratio < 5 ? '\x1b[33m' : '\x1b[31m';
           const reset = '\x1b[0m';
           parts.push(
-            `${rt}: ${formatDuration(entry.timing.mean_ms).padStart(10)} (${color}${formatRatio(entry.ratio)}${reset})`
+            `${rt}: ${formatDuration(entry.timing.mean_ms).padStart(10)} (${color}${formatRatio(entry.ratio)}${reset})`,
           );
         }
       }

@@ -5,9 +5,9 @@
  * and verify the results match exactly.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { array } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Reshape Operations', () => {
   beforeAll(() => {

@@ -35,7 +35,7 @@ export function precomputeAxisOffsets(
   strides: readonly number[],
   offset: number,
   axis: number,
-  outerSize: number
+  outerSize: number,
 ): { baseOffsets: Int32Array; axisStride: number } {
   const ndim = shape.length;
   const axisStride = strides[axis]!;
@@ -101,7 +101,7 @@ export function expandEllipsis<T>(indices: (T | string)[], ndim: number): (T | s
   const replacements = ndim - otherCount;
   if (replacements < 0)
     throw new Error(
-      `Too many indices for array: array is ${ndim}-dimensional, but ${otherCount} were indexed`
+      `Too many indices for array: array is ${ndim}-dimensional, but ${otherCount} were indexed`,
     );
   if (replacements === 0 && ellipsisCount === 0) return indices;
 

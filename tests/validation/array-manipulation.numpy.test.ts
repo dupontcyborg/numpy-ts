@@ -5,54 +5,54 @@
  *        split, array_split, vsplit, hsplit, tile, repeat
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
+  append,
   arange,
-  zeros,
-  swapaxes,
-  moveaxis,
-  concatenate,
-  stack,
-  vstack,
-  hstack,
-  dstack,
-  split,
+  array,
   array_split,
-  vsplit,
-  hsplit,
-  tile,
-  repeat,
-  flip,
-  fliplr,
-  flipud,
-  rot90,
-  roll,
-  rollaxis,
   atleast_1d,
   atleast_2d,
   atleast_3d,
-  expand_dims,
-  squeeze,
-  ravel,
-  reshape,
-  append,
-  delete_,
-  insert,
-  resize,
-  pad,
-  column_stack,
-  row_stack,
-  dsplit,
-  concat,
-  unstack,
   block,
-  flatten,
+  column_stack,
+  concat,
+  concatenate,
+  delete_,
+  dsplit,
+  dstack,
+  expand_dims,
   fill,
+  flatten,
+  flip,
+  fliplr,
+  flipud,
+  hsplit,
+  hstack,
+  insert,
   item,
+  moveaxis,
+  pad,
+  ravel,
+  repeat,
+  reshape,
+  resize,
+  roll,
+  rollaxis,
+  rot90,
+  row_stack,
+  split,
+  squeeze,
+  stack,
+  swapaxes,
+  tile,
   tolist,
+  unstack,
+  vsplit,
+  vstack,
+  zeros,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Array Manipulation', () => {
   beforeAll(() => {
@@ -1157,7 +1157,7 @@ result = np.roll(arr, 1, axis=1)
       const result = pad(arr, 2, 'constant', 9);
 
       const npResult = runNumPy(
-        `result = np.pad([1, 2, 3], 2, mode='constant', constant_values=9)`
+        `result = np.pad([1, 2, 3], 2, mode='constant', constant_values=9)`,
       );
 
       expect(result.shape).toEqual(npResult.shape);

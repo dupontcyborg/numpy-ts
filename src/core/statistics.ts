@@ -5,9 +5,9 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as statisticsOps from '../common/ops/statistics';
 import { Complex } from '../common/complex';
-import { NDArrayCore, toStorage, fromStorage, ArrayStorage } from './types';
+import * as statisticsOps from '../common/ops/statistics';
+import { type ArrayStorage, fromStorage, NDArrayCore, toStorage } from './types';
 
 type BinStrategyString = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
 
@@ -28,7 +28,7 @@ export function histogram(
   bins?: number | NDArrayCore | BinStrategyString,
   range?: [number, number],
   density?: boolean,
-  weights?: NDArrayCore
+  weights?: NDArrayCore,
 ): [NDArrayCore, NDArrayCore] {
   const binsArg = bins instanceof NDArrayCore ? toStorage(bins) : bins;
   const weightsArg = weights ? toStorage(weights) : undefined;
@@ -37,7 +37,7 @@ export function histogram(
     binsArg as number | ArrayStorage | undefined,
     range,
     density,
-    weightsArg
+    weightsArg,
   );
   const hist = result.hist;
   return [fromStorage(hist), fromStorage(result.bin_edges)];
@@ -50,7 +50,7 @@ export function histogram2d(
   bins?: number | [number, number] | [NDArrayCore, NDArrayCore],
   range?: [[number, number], [number, number]],
   density?: boolean,
-  weights?: NDArrayCore
+  weights?: NDArrayCore,
 ): [NDArrayCore, NDArrayCore, NDArrayCore] {
   let binsArg: number | [number, number] | [ArrayStorage, ArrayStorage] | undefined;
   if (Array.isArray(bins) && bins.length === 2) {
@@ -69,7 +69,7 @@ export function histogram2d(
     binsArg,
     range,
     density,
-    weightsArg
+    weightsArg,
   );
   return [fromStorage(result.hist), fromStorage(result.x_edges), fromStorage(result.y_edges)];
 }
@@ -80,7 +80,7 @@ export function histogramdd(
   bins?: number | number[],
   range?: [number, number][],
   density?: boolean,
-  weights?: NDArrayCore
+  weights?: NDArrayCore,
 ): [NDArrayCore, NDArrayCore[]] {
   const weightsArg = weights ? toStorage(weights) : undefined;
   const result = statisticsOps.histogramdd(toStorage(sample), bins, range, density, weightsArg);
@@ -91,7 +91,7 @@ export function histogramdd(
 export function correlate(
   a: NDArrayCore,
   v: NDArrayCore,
-  mode?: 'valid' | 'same' | 'full'
+  mode?: 'valid' | 'same' | 'full',
 ): NDArrayCore {
   return fromStorage(statisticsOps.correlate(toStorage(a), toStorage(v), mode));
 }
@@ -100,7 +100,7 @@ export function correlate(
 export function convolve(
   a: NDArrayCore,
   v: NDArrayCore,
-  mode?: 'valid' | 'same' | 'full'
+  mode?: 'valid' | 'same' | 'full',
 ): NDArrayCore {
   return fromStorage(statisticsOps.convolve(toStorage(a), toStorage(v), mode));
 }
@@ -111,10 +111,10 @@ export function cov(
   y?: NDArrayCore,
   rowvar?: boolean,
   bias?: boolean,
-  ddof?: number
+  ddof?: number,
 ): NDArrayCore {
   return fromStorage(
-    statisticsOps.cov(toStorage(m), y ? toStorage(y) : undefined, rowvar, bias, ddof)
+    statisticsOps.cov(toStorage(m), y ? toStorage(y) : undefined, rowvar, bias, ddof),
   );
 }
 
@@ -128,15 +128,15 @@ export function histogram_bin_edges(
   a: NDArrayCore,
   bins?: number | BinStrategyString,
   range?: [number, number],
-  weights?: NDArrayCore
+  weights?: NDArrayCore,
 ): NDArrayCore {
   return fromStorage(
     statisticsOps.histogram_bin_edges(
       toStorage(a),
       bins,
       range,
-      weights ? toStorage(weights) : undefined
-    )
+      weights ? toStorage(weights) : undefined,
+    ),
   );
 }
 
@@ -145,7 +145,7 @@ export function trapezoid(
   y: NDArrayCore,
   x?: NDArrayCore,
   dx?: number,
-  axis?: number
+  axis?: number,
 ): NDArrayCore | number | Complex {
   const result = statisticsOps.trapezoid(toStorage(y), x ? toStorage(x) : undefined, dx, axis);
   if (typeof result === 'number') return result;

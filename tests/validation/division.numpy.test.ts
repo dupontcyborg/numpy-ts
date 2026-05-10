@@ -3,10 +3,10 @@
  * Validates division behavior including type promotion and division by zero
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { ones, zeros, array } from '../../src';
-import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { array, ones, zeros } from '../../src';
 import type { DType } from '../../src/common/dtype';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Division Operations', () => {
   beforeAll(() => {
@@ -215,7 +215,7 @@ result = a / b
           [4, 6],
           [8, 10],
         ],
-        'int32'
+        'int32',
       );
       const b = array([2, 3], 'int32');
       const result = a.divide(b);

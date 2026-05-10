@@ -11,142 +11,142 @@
  * Generated from scripts/ndim_axes_comprehensive.py
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  array,
-  zeros,
-  // Elementwise unary
-  sin,
-  arcsin,
-  exp,
-  sqrt,
   absolute as abs,
-  negative,
-  floor,
-  ceil,
-  isfinite,
-  isnan,
   // Binary
   add,
-  subtract,
-  multiply,
-  greater,
-  // Reductions
-  sum,
-  prod,
-  mean,
-  std,
+  all,
   amax,
   amin,
-  argmax,
-  argmin,
-  all,
   any,
-  cumsum,
-  cumprod,
-  // nan variants
-  nansum,
-  nanprod,
-  nanmean,
-  nanstd,
-  nanvar,
-  nanmin,
-  nanmax,
-  nanargmin,
-  nanargmax,
-  nanquantile,
-  nanpercentile,
-  nancumsum,
-  nancumprod,
-  // sort/search
-  sort,
-  argsort,
-  // Stats
-  diff,
-  median,
-  percentile,
-  quantile,
-  average,
-  // Shape ops
-  reshape,
-  flip,
-  roll,
-  concatenate,
-  stack,
-  squeeze,
-  expand_dims,
-  swapaxes,
-  moveaxis,
-  repeat,
-  tile,
-  transpose,
-  rot90,
-  broadcast_to,
-  take,
-  clip,
-  where,
-  // Split
-  split,
-  array_split,
-  // linalg
-  dot,
-  inner,
-  outer,
-  tensordot,
-  trace,
-  diagonal,
-  matmul,
-  cross,
-  einsum,
-  linalg,
-  // FFT
-  fft,
-  // Type
-  nanmedian,
-  // Additional reductions
-  ptp,
-  variance,
-  // Sorting
-  partition,
-  argpartition,
-  count_nonzero,
-  // Stats
-  gradient,
-  trapezoid,
-  unwrap,
-  // Bitwise
-  packbits,
-  unpackbits,
-  // Linalg extras
-  vecdot,
-  permute_dims,
-  // Shape
-  rollaxis,
-  unstack,
   append,
-  delete_,
-  insert,
-  // Indexing
-  take_along_axis,
-  put_along_axis,
-  putmask,
-  place,
-  compress,
-  iindex,
-  bindex,
   // Utils
   apply_along_axis,
   apply_over_axes,
-  unique,
-  // Math
-  copysign,
-  nextafter,
-  spacing,
-  signbit,
+  arcsin,
+  argmax,
+  argmin,
+  argpartition,
+  argsort,
+  array,
+  array_split,
+  average,
+  bindex,
   // Bitwise
   bitwise_count,
+  broadcast_to,
+  ceil,
+  clip,
+  compress,
+  concatenate,
+  // Math
+  copysign,
+  count_nonzero,
+  cross,
+  cumprod,
+  cumsum,
+  delete_,
+  diagonal,
+  // Stats
+  diff,
+  // linalg
+  dot,
+  einsum,
+  exp,
+  expand_dims,
+  // FFT
+  fft,
+  flip,
+  floor,
+  // Stats
+  gradient,
+  greater,
+  iindex,
+  inner,
+  insert,
+  isfinite,
+  isnan,
+  linalg,
+  matmul,
+  mean,
+  median,
+  moveaxis,
+  multiply,
+  nanargmax,
+  nanargmin,
+  nancumprod,
+  nancumsum,
+  nanmax,
+  nanmean,
+  // Type
+  nanmedian,
+  nanmin,
+  nanpercentile,
+  nanprod,
+  nanquantile,
+  nanstd,
+  // nan variants
+  nansum,
+  nanvar,
+  negative,
+  nextafter,
+  outer,
+  // Bitwise
+  packbits,
+  // Sorting
+  partition,
+  percentile,
+  permute_dims,
+  place,
+  prod,
+  // Additional reductions
+  ptp,
+  put_along_axis,
+  putmask,
+  quantile,
+  repeat,
+  // Shape ops
+  reshape,
+  roll,
+  // Shape
+  rollaxis,
+  rot90,
+  signbit,
+  // Elementwise unary
+  sin,
+  // sort/search
+  sort,
+  spacing,
+  // Split
+  split,
+  sqrt,
+  squeeze,
+  stack,
+  std,
+  subtract,
+  // Reductions
+  sum,
+  swapaxes,
+  take,
+  // Indexing
+  take_along_axis,
+  tensordot,
+  tile,
+  trace,
+  transpose,
+  trapezoid,
+  unique,
+  unpackbits,
+  unstack,
+  unwrap,
+  variance,
+  // Linalg extras
+  vecdot,
+  where,
+  zeros,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -167,7 +167,7 @@ describe('NumPy Validation: Comprehensive NDim + Axes', () => {
   beforeAll(() => {
     if (!checkNumPyAvailable()) {
       throw new Error(
-        '❌ Python NumPy not available!\n\n   source ~/.zshrc && conda activate py313\n'
+        '❌ Python NumPy not available!\n\n   source ~/.zshrc && conda activate py313\n',
       );
     }
   });
@@ -192,7 +192,7 @@ describe('NumPy Validation: Comprehensive NDim + Axes', () => {
         const expected = shape.length === 0 ? [] : shape;
         expect((r as any).shape ?? []).toEqual(expected);
         const py = runNumPy(
-          `result = np.sin(np.${shape.length === 0 ? 'array(0.5)' : `arange(1, ${shape.reduce((a, b) => a * b, 1) + 1}, dtype=float).reshape(${JSON.stringify(shape)}) * 0.05`})`
+          `result = np.sin(np.${shape.length === 0 ? 'array(0.5)' : `arange(1, ${shape.reduce((a, b) => a * b, 1) + 1}, dtype=float).reshape(${JSON.stringify(shape)}) * 0.05`})`,
         );
         const val = (r as any).toArray?.() ?? r;
         expect(arraysClose(val, py.value, 1e-10)).toBe(true);
@@ -280,7 +280,7 @@ describe('NumPy Validation: Comprehensive NDim + Axes', () => {
       const b = mk([3, 4]);
       const r = add(a, b);
       const py = runNumPy(
-        `result = np.add(np.array([1,2,3,4],dtype=float), np.arange(1,13,dtype=float).reshape(3,4))`
+        `result = np.add(np.array([1,2,3,4],dtype=float), np.arange(1,13,dtype=float).reshape(3,4))`,
       );
       expect((r as any).shape).toEqual([3, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -376,7 +376,7 @@ result = np.subtract(A, B)`);
         const A = mk([3, 4]);
         const r = sum(A, ax);
         const py = runNumPy(
-          `result = np.sum(np.arange(1,13,dtype=float).reshape(3,4), axis=${ax})`
+          `result = np.sum(np.arange(1,13,dtype=float).reshape(3,4), axis=${ax})`,
         );
         expect((r as any).shape).toEqual(expectedShape);
         expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -407,7 +407,7 @@ result = np.subtract(A, B)`);
         const A = mk([2, 3, 4]);
         const r = sum(A, ax);
         const py = runNumPy(
-          `result = np.sum(np.arange(1,25,dtype=float).reshape(2,3,4), axis=${ax})`
+          `result = np.sum(np.arange(1,25,dtype=float).reshape(2,3,4), axis=${ax})`,
         );
         expect((r as any).shape).toEqual(expectedShape);
         expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -430,7 +430,7 @@ result = np.subtract(A, B)`);
       const A = mk([2, 3, 4]);
       const r = (A as any).sum([0, 1]);
       const py = runNumPy(
-        `result = np.sum(np.arange(1,25,dtype=float).reshape(2,3,4), axis=(0,1))`
+        `result = np.sum(np.arange(1,25,dtype=float).reshape(2,3,4), axis=(0,1))`,
       );
       expect((r as any).shape).toEqual([4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -440,7 +440,7 @@ result = np.subtract(A, B)`);
       const A = mk([2, 3, 4]);
       const r = (A as any).sum([1, 2]);
       const py = runNumPy(
-        `result = np.sum(np.arange(1,25,dtype=float).reshape(2,3,4), axis=(1,2))`
+        `result = np.sum(np.arange(1,25,dtype=float).reshape(2,3,4), axis=(1,2))`,
       );
       expect((r as any).shape).toEqual([2]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -826,7 +826,7 @@ result = np.nansum(A, axis=0)`);
         const A = mk([2, 3, 4]);
         const r = fn(A, 1);
         const py = runNumPy(
-          `result = np.${fnName}(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1)`
+          `result = np.${fnName}(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1)`,
         );
         expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
       });
@@ -909,7 +909,7 @@ result = np.${fnName}(A, axis=0)`);
           expect((r as any).shape).toEqual(expectedShape);
           const n = shape.reduce((a, b) => a * b, 1);
           const py = runNumPy(
-            `result = np.diff(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), axis=${ax})`
+            `result = np.diff(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), axis=${ax})`,
           );
           expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
         });
@@ -1026,7 +1026,7 @@ result = np.${fnName}(A, axis=0)`);
         expect((r as any).shape).toEqual(shape);
         const n = shape.reduce((a, b) => a * b, 1);
         const py = runNumPy(
-          `result = np.flip(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}))`
+          `result = np.flip(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}))`,
         );
         if (shape.length <= 4) {
           expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -1068,7 +1068,7 @@ result = np.${fnName}(A, axis=0)`);
           expect((r as any).shape).toEqual(shape);
           const n = shape.reduce((a, b) => a * b, 1);
           const py = runNumPy(
-            `result = np.roll(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), 2, axis=${ax})`
+            `result = np.roll(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), 2, axis=${ax})`,
           );
           expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
         });
@@ -1230,7 +1230,7 @@ result = np.stack([A, A], axis=0)`);
           expect((r as any).shape).toEqual(expectedShape);
           const n = shape.reduce((a, b) => a * b, 1);
           const py = runNumPy(
-            `result = np.swapaxes(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), ${i}, ${j})`
+            `result = np.swapaxes(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), ${i}, ${j})`,
           );
           expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
         });
@@ -1255,7 +1255,7 @@ result = np.stack([A, A], axis=0)`);
         expect((r as any).shape).toEqual(expectedShape);
         const n = shape.reduce((a, b) => a * b, 1);
         const py = runNumPy(
-          `result = np.moveaxis(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), ${src}, ${dst})`
+          `result = np.moveaxis(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), ${src}, ${dst})`,
         );
         expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
       });
@@ -1454,7 +1454,7 @@ result = np.stack([A, A], axis=0)`);
         expect((r as any).shape).toEqual(expectedShape);
         const n = shape.reduce((a, b) => a * b, 1);
         const py = runNumPy(
-          `result = np.transpose(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), ${JSON.stringify(perm)})`
+          `result = np.transpose(np.arange(1,${n + 1},dtype=float).reshape(${JSON.stringify(shape)}), ${JSON.stringify(perm)})`,
         );
         expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
       });
@@ -1614,7 +1614,7 @@ result = np.where(cond, A, B)`);
       const r = matmul(array([1, 2, 3, 4]), array([1, 2, 3, 4]));
       const val = typeof r === 'number' ? r : (r as any).toArray?.();
       const py = runNumPy(
-        `result = np.matmul(np.array([1,2,3,4],dtype=float), np.array([1,2,3,4],dtype=float))`
+        `result = np.matmul(np.array([1,2,3,4],dtype=float), np.array([1,2,3,4],dtype=float))`,
       );
       expect(arraysClose(val, py.value)).toBe(true);
     });
@@ -1623,7 +1623,7 @@ result = np.where(cond, A, B)`);
       const r = matmul(mk([3, 4]), mk([4]));
       expect((r as any).shape).toEqual([3]);
       const py = runNumPy(
-        `result = np.matmul(np.arange(1,13,dtype=float).reshape(3,4), np.arange(1,5,dtype=float))`
+        `result = np.matmul(np.arange(1,13,dtype=float).reshape(3,4), np.arange(1,5,dtype=float))`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -1637,7 +1637,7 @@ result = np.where(cond, A, B)`);
       const r = matmul(mk([2, 3]), mk([3, 4]));
       expect((r as any).shape).toEqual([2, 4]);
       const py = runNumPy(
-        `result = np.matmul(np.arange(1,7,dtype=float).reshape(2,3), np.arange(1,13,dtype=float).reshape(3,4))`
+        `result = np.matmul(np.arange(1,7,dtype=float).reshape(2,3), np.arange(1,13,dtype=float).reshape(3,4))`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -1646,7 +1646,7 @@ result = np.where(cond, A, B)`);
       const r = matmul(mk([2, 3, 4]), mk([2, 4, 5]));
       expect((r as any).shape).toEqual([2, 3, 5]);
       const py = runNumPy(
-        `result = np.matmul(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,41,dtype=float).reshape(2,4,5))`
+        `result = np.matmul(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,41,dtype=float).reshape(2,4,5))`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -1665,7 +1665,7 @@ result = np.where(cond, A, B)`);
       const r = matmul(mk([2, 3, 4]), mk([4, 5]));
       expect((r as any).shape).toEqual([2, 3, 5]);
       const py = runNumPy(
-        `result = np.matmul(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,21,dtype=float).reshape(4,5))`
+        `result = np.matmul(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,21,dtype=float).reshape(4,5))`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -1707,7 +1707,7 @@ result = np.where(cond, A, B)`);
     it('3D · 2D -> 3D', () => {
       const r = dot(mk([2, 3, 4]), mk([4, 5])) as any;
       const py = runNumPy(
-        `result = np.dot(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,21,dtype=float).reshape(4,5))`
+        `result = np.dot(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,21,dtype=float).reshape(4,5))`,
       );
       expect(r.shape).toEqual([2, 3, 5]);
       expect(arraysClose(r.toArray(), py.value)).toBe(true);
@@ -1738,7 +1738,7 @@ result = np.where(cond, A, B)`);
     it('2D · 2D -> 2D', () => {
       const r = inner(mk([3, 4]), mk([2, 4])) as any;
       const py = runNumPy(
-        `result = np.inner(np.arange(1,13,dtype=float).reshape(3,4), np.arange(1,9,dtype=float).reshape(2,4))`
+        `result = np.inner(np.arange(1,13,dtype=float).reshape(3,4), np.arange(1,9,dtype=float).reshape(2,4))`,
       );
       expect(r.shape).toEqual([3, 2]);
       expect(arraysClose(r.toArray(), py.value)).toBe(true);
@@ -1787,7 +1787,7 @@ result = np.where(cond, A, B)`);
       const r = tensordot(mk([2, 3, 4]), mk([4, 5]), 1) as any;
       expect(r.shape).toEqual([2, 3, 5]);
       const py = runNumPy(
-        `result = np.tensordot(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,21,dtype=float).reshape(4,5), 1)`
+        `result = np.tensordot(np.arange(1,25,dtype=float).reshape(2,3,4), np.arange(1,21,dtype=float).reshape(4,5), 1)`,
       );
       expect(arraysClose(r.toArray(), py.value)).toBe(true);
     });
@@ -1805,8 +1805,8 @@ result = np.where(cond, A, B)`);
           mk([2, 3])
             .multiply(mk([2, 3]))
             .sum() as number,
-          1e-6
-        )
+          1e-6,
+        ),
       ).toBe(true);
     });
   });
@@ -1862,7 +1862,7 @@ result = np.where(cond, A, B)`);
       const A = mk([3, 2, 3]);
       const r = trace(A, 0, 0, 2);
       const py = runNumPy(
-        `result = np.trace(np.arange(1,19,dtype=float).reshape(3,2,3), axis1=0, axis2=2)`
+        `result = np.trace(np.arange(1,19,dtype=float).reshape(3,2,3), axis1=0, axis2=2)`,
       );
       expect((r as any).shape ?? []).toEqual(py.shape);
     });
@@ -1893,7 +1893,7 @@ result = np.where(cond, A, B)`);
       const A = mk([2, 3, 4]);
       const r = diagonal(A, 0, 0, 1);
       const py = runNumPy(
-        `result = np.diagonal(np.arange(1,25,dtype=float).reshape(2,3,4), 0, 0, 1)`
+        `result = np.diagonal(np.arange(1,25,dtype=float).reshape(2,3,4), 0, 0, 1)`,
       );
       expect((r as any).shape).toEqual(py.shape);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -1903,7 +1903,7 @@ result = np.where(cond, A, B)`);
       const A = mk([2, 3, 4]);
       const r = diagonal(A, 0, 1, 2);
       const py = runNumPy(
-        `result = np.diagonal(np.arange(1,25,dtype=float).reshape(2,3,4), 0, 1, 2)`
+        `result = np.diagonal(np.arange(1,25,dtype=float).reshape(2,3,4), 0, 1, 2)`,
       );
       expect((r as any).shape).toEqual(py.shape);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -1913,7 +1913,7 @@ result = np.where(cond, A, B)`);
       const A = mk([2, 3, 4, 4]);
       const r = diagonal(A, 0, 2, 3);
       const py = runNumPy(
-        `result = np.diagonal(np.arange(1,97,dtype=float).reshape(2,3,4,4), 0, 2, 3)`
+        `result = np.diagonal(np.arange(1,97,dtype=float).reshape(2,3,4,4), 0, 2, 3)`,
       );
       expect((r as any).shape).toEqual(py.shape);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -1933,7 +1933,7 @@ result = np.where(cond, A, B)`);
     it('1D-3 x 1D-3', () => {
       const r = cross(array([1, 2, 3]), array([4, 5, 6]));
       const py = runNumPy(
-        `result = np.cross(np.array([1,2,3],dtype=float), np.array([4,5,6],dtype=float))`
+        `result = np.cross(np.array([1,2,3],dtype=float), np.array([4,5,6],dtype=float))`,
       );
       expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
     });
@@ -2034,8 +2034,8 @@ result = np.where(cond, A, B)`);
         const batchSize = batchDims.reduce((a, b) => a * b, 1);
         const identity = Array.from({ length: batchSize }, () =>
           Array.from({ length: size }, (_, i) =>
-            Array.from({ length: size }, (_, j) => (i === j ? 2 : 0))
-          )
+            Array.from({ length: size }, (_, j) => (i === j ? 2 : 0)),
+          ),
         ).flat(2);
         const A = array(identity).reshape(shape);
         const r = linalg.inv(A);
@@ -2404,7 +2404,7 @@ result = np.where(cond, A, B)`);
       const r = amax(a2(), 1, true);
       expect((r as any).shape).toEqual([3, 1]);
       const py = runNumPy(
-        `result = np.amax(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+        `result = np.amax(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2421,7 +2421,7 @@ result = np.where(cond, A, B)`);
       const r = amin(a2(), 0, true);
       expect((r as any).shape).toEqual([1, 4]);
       const py = runNumPy(
-        `result = np.amin(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`
+        `result = np.amin(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2438,7 +2438,7 @@ result = np.where(cond, A, B)`);
       const r = prod(a2(), 1, true);
       expect((r as any).shape).toEqual([3, 1]);
       const py = runNumPy(
-        `result = np.prod(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+        `result = np.prod(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2463,7 +2463,7 @@ result = np.where(cond, A, B)`);
       const r = nansum(a2(), 0, true);
       expect((r as any).shape).toEqual([1, 4]);
       const py = runNumPy(
-        `result = np.nansum(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`
+        `result = np.nansum(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2488,7 +2488,7 @@ result = np.where(cond, A, B)`);
       const r = nanmean(a2(), 1, true);
       expect((r as any).shape).toEqual([3, 1]);
       const py = runNumPy(
-        `result = np.nanmean(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+        `result = np.nanmean(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2513,7 +2513,7 @@ result = np.where(cond, A, B)`);
       const r = nanmin(a2(), 1, true);
       expect((r as any).shape).toEqual([3, 1]);
       const py = runNumPy(
-        `result = np.nanmin(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`
+        `result = np.nanmin(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2530,7 +2530,7 @@ result = np.where(cond, A, B)`);
       const r = nanmax(a2(), 0, true);
       expect((r as any).shape).toEqual([1, 4]);
       const py = runNumPy(
-        `result = np.nanmax(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`
+        `result = np.nanmax(np.arange(1,13,dtype=float).reshape(3,4), axis=0, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2540,7 +2540,7 @@ result = np.where(cond, A, B)`);
       const r = nanmedian(a1(), 0, true);
       expect((r as any).shape).toEqual([1]);
       const py = runNumPy(
-        `result = np.nanmedian(np.arange(1,5,dtype=float), axis=0, keepdims=True)`
+        `result = np.nanmedian(np.arange(1,5,dtype=float), axis=0, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2550,7 +2550,7 @@ result = np.where(cond, A, B)`);
       const r = nanquantile(a1(), 0.5, 0, true);
       expect((r as any).shape).toEqual([1]);
       const py = runNumPy(
-        `result = np.nanquantile(np.arange(1,5,dtype=float), 0.5, axis=0, keepdims=True)`
+        `result = np.nanquantile(np.arange(1,5,dtype=float), 0.5, axis=0, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2559,7 +2559,7 @@ result = np.where(cond, A, B)`);
       const r = nanquantile(a2(), 0.75, 1, true);
       expect((r as any).shape).toEqual([3, 1]);
       const py = runNumPy(
-        `result = np.nanquantile(np.arange(1,13,dtype=float).reshape(3,4), 0.75, axis=1, keepdims=True)`
+        `result = np.nanquantile(np.arange(1,13,dtype=float).reshape(3,4), 0.75, axis=1, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2576,7 +2576,7 @@ result = np.where(cond, A, B)`);
       const r = quantile(a1(), 0.5, 0, true);
       expect((r as any).shape).toEqual([1]);
       const py = runNumPy(
-        `result = np.quantile(np.arange(1,5,dtype=float), 0.5, axis=0, keepdims=True)`
+        `result = np.quantile(np.arange(1,5,dtype=float), 0.5, axis=0, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2592,7 +2592,7 @@ result = np.where(cond, A, B)`);
       const r = percentile(a1(), 75, 0, true);
       expect((r as any).shape).toEqual([1]);
       const py = runNumPy(
-        `result = np.percentile(np.arange(1,5,dtype=float), 75, axis=0, keepdims=True)`
+        `result = np.percentile(np.arange(1,5,dtype=float), 75, axis=0, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2652,7 +2652,7 @@ result = np.where(cond, A, B)`);
       const r = nanquantile(a, 0.5, 0);
       expect((r as any).shape).toEqual([4]);
       const py = runNumPy(
-        `result = np.nanquantile(np.arange(1,13,dtype=float).reshape(3,4), 0.5, axis=0)`
+        `result = np.nanquantile(np.arange(1,13,dtype=float).reshape(3,4), 0.5, axis=0)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2679,7 +2679,7 @@ result = np.where(cond, A, B)`);
       const r = nanpercentile(mk([3, 4]), 75, 1, true);
       expect((r as any).shape).toEqual([3, 1]);
       const py = runNumPy(
-        `result = np.nanpercentile(np.arange(1,13,dtype=float).reshape(3,4), 75, axis=1, keepdims=True)`
+        `result = np.nanpercentile(np.arange(1,13,dtype=float).reshape(3,4), 75, axis=1, keepdims=True)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2715,7 +2715,7 @@ result = np.where(cond, A, B)`);
       const r = nancumsum(mk([3, 4]), 0);
       expect((r as any).shape).toEqual([3, 4]);
       const py = runNumPy(
-        `result = np.nancumsum(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`
+        `result = np.nancumsum(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2746,7 +2746,7 @@ result = np.where(cond, A, B)`);
       const r = percentile(mk([3, 4]), 75, -1);
       expect((r as any).shape).toEqual([3]);
       const py = runNumPy(
-        `result = np.percentile(np.arange(1,13,dtype=float).reshape(3,4), 75, axis=-1)`
+        `result = np.percentile(np.arange(1,13,dtype=float).reshape(3,4), 75, axis=-1)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2755,7 +2755,7 @@ result = np.where(cond, A, B)`);
       const r = quantile(mk([2, 3, 4]), 0.75, -1);
       expect((r as any).shape).toEqual([2, 3]);
       const py = runNumPy(
-        `result = np.quantile(np.arange(1,25,dtype=float).reshape(2,3,4), 0.75, axis=-1)`
+        `result = np.quantile(np.arange(1,25,dtype=float).reshape(2,3,4), 0.75, axis=-1)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2787,7 +2787,7 @@ result = np.where(cond, A, B)`);
       const r = nanargmin(mk([3, 4]), 0);
       expect((r as any).shape).toEqual([4]);
       const py = runNumPy(
-        `result = np.nanargmin(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`
+        `result = np.nanargmin(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2796,7 +2796,7 @@ result = np.where(cond, A, B)`);
       const r = nanargmin(mk([3, 4]), 1);
       expect((r as any).shape).toEqual([3]);
       const py = runNumPy(
-        `result = np.nanargmin(np.arange(1,13,dtype=float).reshape(3,4), axis=1)`
+        `result = np.nanargmin(np.arange(1,13,dtype=float).reshape(3,4), axis=1)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2813,7 +2813,7 @@ result = np.where(cond, A, B)`);
       const r = nanargmax(mk([3, 4]), 0);
       expect((r as any).shape).toEqual([4]);
       const py = runNumPy(
-        `result = np.nanargmax(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`
+        `result = np.nanargmax(np.arange(1,13,dtype=float).reshape(3,4), axis=0)`,
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -2945,7 +2945,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3]);
       const r = ptp(a, 0, true);
       const py = runNumPy(
-        'result = np.ptp(np.arange(1,7,dtype=float).reshape(2,3), axis=0, keepdims=True)'
+        'result = np.ptp(np.arange(1,7,dtype=float).reshape(2,3), axis=0, keepdims=True)',
       );
       expect((r as any).shape).toEqual([1, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -2955,7 +2955,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4]);
       const r = ptp(a, 1, true);
       const py = runNumPy(
-        'result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)'
+        'result = np.ptp(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 1, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -2965,7 +2965,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4, 5]);
       const r = ptp(a, -1, true);
       const py = runNumPy(
-        'result = np.ptp(np.arange(1,121,dtype=float).reshape(2,3,4,5), axis=-1, keepdims=True)'
+        'result = np.ptp(np.arange(1,121,dtype=float).reshape(2,3,4,5), axis=-1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 3, 4, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3016,7 +3016,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4]);
       const r = std(a, 1, undefined, true);
       const py = runNumPy(
-        'result = np.std(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)'
+        'result = np.std(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 1, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3042,7 +3042,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4]);
       const r = variance(a, 2, undefined, true);
       const py = runNumPy(
-        'result = np.var(np.arange(1,25,dtype=float).reshape(2,3,4), axis=2, keepdims=True)'
+        'result = np.var(np.arange(1,25,dtype=float).reshape(2,3,4), axis=2, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 3, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3077,7 +3077,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4, 5]);
       const r = mean(a, -1);
       const py = runNumPy(
-        'result = np.mean(np.arange(1,121,dtype=float).reshape(2,3,4,5), axis=-1)'
+        'result = np.mean(np.arange(1,121,dtype=float).reshape(2,3,4,5), axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 3, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3145,7 +3145,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4]);
       const r = average(a, -2);
       const py = runNumPy(
-        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)'
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)',
       );
       expect((r as any).shape).toEqual([2, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3155,7 +3155,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4]);
       const r = average(a, -1);
       const py = runNumPy(
-        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)'
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3181,7 +3181,7 @@ result = np.where(cond, A, B)`);
       ]);
       const r = nanstd(a, 0, undefined, true);
       const py = runNumPy(
-        'result = np.nanstd(np.array([[1.,np.nan,3.],[4.,5.,6.]]), axis=0, keepdims=True)'
+        'result = np.nanstd(np.array([[1.,np.nan,3.],[4.,5.,6.]]), axis=0, keepdims=True)',
       );
       expect((r as any).shape).toEqual([1, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3194,7 +3194,7 @@ result = np.where(cond, A, B)`);
       ]);
       const r = nanstd(a, 1, undefined, true);
       const py = runNumPy(
-        'result = np.nanstd(np.array([[1.,np.nan,3.],[4.,5.,6.]]), axis=1, keepdims=True)'
+        'result = np.nanstd(np.array([[1.,np.nan,3.],[4.,5.,6.]]), axis=1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3204,7 +3204,7 @@ result = np.where(cond, A, B)`);
       const a = mk([2, 3, 4]);
       const r = nanstd(a, -1, undefined, true);
       const py = runNumPy(
-        'result = np.nanstd(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1, keepdims=True)'
+        'result = np.nanstd(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 3, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3314,7 +3314,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       ]);
       const r = nanargmin(a, -1);
       const py = runNumPy(
-        'result = np.nanargmin(np.array([[3.,1.,np.nan,4.],[np.nan,2.,5.,1.],[7.,np.nan,2.,3.]]), axis=-1)'
+        'result = np.nanargmin(np.array([[3.,1.,np.nan,4.],[np.nan,2.,5.,1.],[7.,np.nan,2.,3.]]), axis=-1)',
       );
       expect((r as any).shape).toEqual([3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3328,7 +3328,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       ]);
       const r = nanargmax(a, -1);
       const py = runNumPy(
-        'result = np.nanargmax(np.array([[3.,1.,np.nan,4.],[np.nan,2.,5.,1.],[7.,np.nan,2.,3.]]), axis=-1)'
+        'result = np.nanargmax(np.array([[3.,1.,np.nan,4.],[np.nan,2.,5.,1.],[7.,np.nan,2.,3.]]), axis=-1)',
       );
       expect((r as any).shape).toEqual([3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3377,7 +3377,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([2, 3]);
       const r = diff(a, 1, -1);
       const py = runNumPy(
-        'result = np.diff(np.arange(1,7,dtype=float).reshape(2,3), n=1, axis=-1)'
+        'result = np.diff(np.arange(1,7,dtype=float).reshape(2,3), n=1, axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 2]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3387,7 +3387,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([2, 3, 4]);
       const r = diff(a, 1, -2);
       const py = runNumPy(
-        'result = np.diff(np.arange(1,25,dtype=float).reshape(2,3,4), n=1, axis=-2)'
+        'result = np.diff(np.arange(1,25,dtype=float).reshape(2,3,4), n=1, axis=-2)',
       );
       expect((r as any).shape).toEqual([2, 2, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3397,7 +3397,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([2, 3, 4]);
       const r = diff(a, 1, -1);
       const py = runNumPy(
-        'result = np.diff(np.arange(1,25,dtype=float).reshape(2,3,4), n=1, axis=-1)'
+        'result = np.diff(np.arange(1,25,dtype=float).reshape(2,3,4), n=1, axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 3, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3407,7 +3407,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = gradient(a, undefined, -1);
       const py = runNumPy(
-        'result = np.gradient(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)'
+        'result = np.gradient(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)',
       );
       expect((r as any).shape).toEqual([3, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3423,7 +3423,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = trapezoid(a, undefined, undefined, 0);
       const py = runNumPy(
-        'result = np.trapezoid(np.arange(1,13,dtype=float).reshape(3,4), axis=0)'
+        'result = np.trapezoid(np.arange(1,13,dtype=float).reshape(3,4), axis=0)',
       );
       expect((r as any).shape ?? []).toEqual(py.shape ?? [4]);
       expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
@@ -3433,7 +3433,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = trapezoid(a, undefined, undefined, -1);
       const py = runNumPy(
-        'result = np.trapezoid(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)'
+        'result = np.trapezoid(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)',
       );
       expect((r as any).shape ?? []).toEqual(py.shape ?? [3]);
       expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
@@ -3443,7 +3443,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([2, 3, 4]);
       const r = trapezoid(a, undefined, undefined, -2);
       const py = runNumPy(
-        'result = np.trapezoid(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)'
+        'result = np.trapezoid(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)',
       );
       expect((r as any).shape).toEqual([2, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3462,7 +3462,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       ]);
       const r = partition(a, 2, -1);
       const py = runNumPy(
-        'result = np.partition(np.array([[3.,1.,4.,2.],[9.,7.,2.,5.],[6.,8.,1.,3.]]), 2, axis=-1)'
+        'result = np.partition(np.array([[3.,1.,4.,2.],[9.,7.,2.,5.],[6.,8.,1.,3.]]), 2, axis=-1)',
       );
       expect((r as any).shape).toEqual([3, 4]);
       // Only the k-th element must match
@@ -3510,7 +3510,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       ]);
       const r = count_nonzero(a, -1);
       const py = runNumPy(
-        'result = np.count_nonzero(np.array([[1,0,3,0],[0,5,6,0],[7,8,0,10]]), axis=-1)'
+        'result = np.count_nonzero(np.array([[1,0,3,0],[0,5,6,0],[7,8,0,10]]), axis=-1)',
       );
       expect((r as any).shape ?? []).toEqual([3]);
       expect(arraysClose((r as any).toArray?.() ?? r, py.value)).toBe(true);
@@ -3544,7 +3544,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = linalg.vector_norm(a, undefined, 0);
       const py = runNumPy(
-        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=0)'
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=0)',
       );
       expect((r as any).shape).toEqual([4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3554,7 +3554,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = linalg.vector_norm(a, undefined, 1);
       const py = runNumPy(
-        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=1)'
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=1)',
       );
       expect((r as any).shape).toEqual([3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3564,7 +3564,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = linalg.vector_norm(a, undefined, -1);
       const py = runNumPy(
-        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)'
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=-1)',
       );
       expect((r as any).shape).toEqual([3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3580,7 +3580,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = linalg.vector_norm(a, undefined, 1, true);
       const py = runNumPy(
-        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)'
+        'result = np.linalg.vector_norm(np.arange(1,13,dtype=float).reshape(3,4), axis=1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([3, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3603,7 +3603,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = linalg.matrix_norm(a, 'fro');
       const py = runNumPy(
-        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='fro')"
+        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='fro')",
       );
       expect(r as number).toBeCloseTo(py.value as number, 8);
     });
@@ -3612,7 +3612,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = linalg.matrix_norm(a, 'nuc');
       const py = runNumPy(
-        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='nuc')"
+        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='nuc')",
       );
       expect(r as number).toBeCloseTo(py.value as number, 5);
     });
@@ -3621,7 +3621,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([3, 4]);
       const r = linalg.matrix_norm(a, 'fro', true);
       const py = runNumPy(
-        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='fro', keepdims=True)"
+        "result = np.linalg.matrix_norm(np.arange(1,13,dtype=float).reshape(3,4), ord='fro', keepdims=True)",
       );
       expect((r as any).shape).toEqual([1, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3650,7 +3650,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const b = array([5.0, 11.0]);
       const r = linalg.tensorsolve(a, b);
       const py = runNumPy(
-        'result = np.linalg.tensorsolve(np.array([[1.,2.],[3.,4.]]), np.array([5.,11.]))'
+        'result = np.linalg.tensorsolve(np.array([[1.,2.],[3.,4.]]), np.array([5.,11.]))',
       );
       expect((r as any).shape).toEqual([2]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3680,7 +3680,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([2, 3, 4]);
       const r = swapaxes(a, -1, -2);
       const py = runNumPy(
-        'result = np.swapaxes(np.arange(1,25,dtype=float).reshape(2,3,4), -1, -2)'
+        'result = np.swapaxes(np.arange(1,25,dtype=float).reshape(2,3,4), -1, -2)',
       );
       expect((r as any).shape).toEqual([2, 4, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3704,7 +3704,7 @@ result = np.nanpercentile(a, 50, axis=-1)`);
       const a = mk([2, 3, 4]);
       const r = rollaxis(a, -1, 0);
       const py = runNumPy(
-        'result = np.rollaxis(np.arange(1,25,dtype=float).reshape(2,3,4), -1, 0)'
+        'result = np.rollaxis(np.arange(1,25,dtype=float).reshape(2,3,4), -1, 0)',
       );
       expect((r as any).shape).toEqual([4, 2, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3764,7 +3764,7 @@ result = np.append(a, b, axis=-1)`);
       const a = mk([2, 3]);
       const r = delete_(a, 1, -1);
       const py = runNumPy(
-        'result = np.delete(np.arange(1,7,dtype=float).reshape(2,3), 1, axis=-1)'
+        'result = np.delete(np.arange(1,7,dtype=float).reshape(2,3), 1, axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 2]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3806,7 +3806,7 @@ result = np.vecdot(a, b, axis=-1)`);
       const a = mk([2, 3, 4]);
       const r = permute_dims(a, [-1, -2, -3]);
       const py = runNumPy(
-        'result = np.permute_dims(np.arange(1,25,dtype=float).reshape(2,3,4), [-1,-2,-3])'
+        'result = np.permute_dims(np.arange(1,25,dtype=float).reshape(2,3,4), [-1,-2,-3])',
       );
       expect((r as any).shape).toEqual([4, 3, 2]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3827,7 +3827,7 @@ result = np.vecdot(a, b, axis=-1)`);
       const a = mk([3, 4]);
       const r = take(a, [0, 2], 1);
       const py = runNumPy(
-        'result = np.take(np.arange(1,13,dtype=float).reshape(3,4), [0,2], axis=1)'
+        'result = np.take(np.arange(1,13,dtype=float).reshape(3,4), [0,2], axis=1)',
       );
       expect((r as any).shape).toEqual([3, 2]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -3988,7 +3988,7 @@ result = a`);
           [1, 0, 1, 0, 1, 0, 1, 0],
           [0, 1, 0, 1, 0, 1, 0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r = packbits(a, 0);
       const py = runNumPy(`
@@ -4003,7 +4003,7 @@ result = np.packbits(a, axis=0)`);
           [1, 0, 1, 0, 1, 0, 1, 0],
           [0, 1, 0, 1, 0, 1, 0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r = packbits(a, 1);
       const py = runNumPy(`
@@ -4018,7 +4018,7 @@ result = np.packbits(a, axis=1)`);
           [1, 0, 1, 0, 1, 0, 1, 0],
           [0, 1, 0, 1, 0, 1, 0, 1],
         ],
-        'uint8'
+        'uint8',
       );
       const r1 = packbits(a, 1);
       const r2 = packbits(a, -1);
@@ -4031,7 +4031,7 @@ result = np.packbits(a, axis=1)`);
           [0b10101010, 0b11110000],
           [0b00001111, 0b01010101],
         ],
-        'uint8'
+        'uint8',
       );
       const r = unpackbits(a, 0);
       const py = runNumPy(`
@@ -4046,7 +4046,7 @@ result = np.unpackbits(a, axis=0)`);
           [0b10101010, 0b11110000],
           [0b00001111, 0b01010101],
         ],
-        'uint8'
+        'uint8',
       );
       const r = unpackbits(a, 1);
       const py = runNumPy(`
@@ -4061,7 +4061,7 @@ result = np.unpackbits(a, axis=1)`);
           [0b10101010, 0b11110000],
           [0b00001111, 0b01010101],
         ],
-        'uint8'
+        'uint8',
       );
       const r1 = unpackbits(a, 1);
       const r2 = unpackbits(a, -1);
@@ -4175,7 +4175,7 @@ result = np.apply_along_axis(np.sum, -1, a)`);
       const a = mk([3, 4]);
       const r = take(a, [0, 2], -1);
       const py = runNumPy(
-        'result = np.take(np.arange(1,13,dtype=float).reshape(3,4), [0,2], axis=-1)'
+        'result = np.take(np.arange(1,13,dtype=float).reshape(3,4), [0,2], axis=-1)',
       );
       expect((r as any).shape).toEqual([3, 2]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4242,7 +4242,7 @@ result = np.apply_along_axis(np.sum, -1, a)`);
       const a = mk([2, 3, 4]);
       const r = argmax(a, -1);
       const py = runNumPy(
-        'result = np.argmax(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)'
+        'result = np.argmax(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4252,7 +4252,7 @@ result = np.apply_along_axis(np.sum, -1, a)`);
       const a = mk([2, 3, 4]);
       const r = argmin(a, -2);
       const py = runNumPy(
-        'result = np.argmin(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)'
+        'result = np.argmin(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-2)',
       );
       expect((r as any).shape).toEqual([2, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4267,7 +4267,7 @@ result = np.apply_along_axis(np.sum, -1, a)`);
       const a = mk([2, 3]);
       const r = average(a, 0, undefined, true);
       const py = runNumPy(
-        'result = np.average(np.arange(1,7,dtype=float).reshape(2,3), axis=0, keepdims=True)'
+        'result = np.average(np.arange(1,7,dtype=float).reshape(2,3), axis=0, keepdims=True)',
       );
       expect((r as any).shape).toEqual([1, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4277,7 +4277,7 @@ result = np.apply_along_axis(np.sum, -1, a)`);
       const a = mk([2, 3]);
       const r = average(a, 1, undefined, true);
       const py = runNumPy(
-        'result = np.average(np.arange(1,7,dtype=float).reshape(2,3), axis=1, keepdims=True)'
+        'result = np.average(np.arange(1,7,dtype=float).reshape(2,3), axis=1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4287,7 +4287,7 @@ result = np.apply_along_axis(np.sum, -1, a)`);
       const a = mk([2, 3, 4]);
       const r = average(a, 1, undefined, true);
       const py = runNumPy(
-        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)'
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 1, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4297,7 +4297,7 @@ result = np.apply_along_axis(np.sum, -1, a)`);
       const a = mk([2, 3, 4]);
       const r = average(a, -1, undefined, true);
       const py = runNumPy(
-        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1, keepdims=True)'
+        'result = np.average(np.arange(1,25,dtype=float).reshape(2,3,4), axis=-1, keepdims=True)',
       );
       expect((r as any).shape).toEqual([2, 3, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4351,7 +4351,7 @@ result = np.nancumprod(a, axis=1)`);
       const y = array([-1.0, 1.0, -1.0, 1.0]);
       const r = copysign(x, y);
       const py = runNumPy(
-        'result = np.copysign(np.array([1.,-2.,3.,-4.]), np.array([-1.,1.,-1.,1.]))'
+        'result = np.copysign(np.array([1.,-2.,3.,-4.]), np.array([-1.,1.,-1.,1.]))',
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -4406,7 +4406,7 @@ result = np.nancumprod(a, axis=1)`);
       const a = array([0, 1, 2, 3, 255, 127, 128, 64], 'uint8');
       const r = bitwise_count(a);
       const py = runNumPy(
-        'result = np.bitwise_count(np.array([0,1,2,3,255,127,128,64], dtype=np.uint8))'
+        'result = np.bitwise_count(np.array([0,1,2,3,255,127,128,64], dtype=np.uint8))',
       );
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
     });
@@ -4417,7 +4417,7 @@ result = np.nancumprod(a, axis=1)`);
           [1, 2, 3],
           [4, 5, 6],
         ],
-        'uint8'
+        'uint8',
       );
       const r = bitwise_count(a);
       const py = runNumPy('result = np.bitwise_count(np.array([[1,2,3],[4,5,6]], dtype=np.uint8))');
@@ -4434,7 +4434,7 @@ result = np.nancumprod(a, axis=1)`);
       const a = mk([2, 3]);
       const r = expand_dims(a, -1);
       const py = runNumPy(
-        'result = np.expand_dims(np.arange(1,7,dtype=float).reshape(2,3), axis=-1)'
+        'result = np.expand_dims(np.arange(1,7,dtype=float).reshape(2,3), axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 3, 1]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4444,7 +4444,7 @@ result = np.nancumprod(a, axis=1)`);
       const a = mk([2, 3]);
       const r = expand_dims(a, -2);
       const py = runNumPy(
-        'result = np.expand_dims(np.arange(1,7,dtype=float).reshape(2,3), axis=-2)'
+        'result = np.expand_dims(np.arange(1,7,dtype=float).reshape(2,3), axis=-2)',
       );
       expect((r as any).shape).toEqual([2, 1, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4461,7 +4461,7 @@ result = np.nancumprod(a, axis=1)`);
       const a = mk([2, 3, 4]);
       const r = moveaxis(a, -1, -2);
       const py = runNumPy(
-        'result = np.moveaxis(np.arange(1,25,dtype=float).reshape(2,3,4), -1, -2)'
+        'result = np.moveaxis(np.arange(1,25,dtype=float).reshape(2,3,4), -1, -2)',
       );
       expect((r as any).shape).toEqual([2, 4, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4487,7 +4487,7 @@ result = np.nancumprod(a, axis=1)`);
       const a = mk([2, 3, 4]);
       const r = rot90(a, 1, [-2, -1]);
       const py = runNumPy(
-        'result = np.rot90(np.arange(1,25,dtype=float).reshape(2,3,4), 1, (-2,-1))'
+        'result = np.rot90(np.arange(1,25,dtype=float).reshape(2,3,4), 1, (-2,-1))',
       );
       expect((r as any).shape).toEqual([2, 4, 3]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4504,7 +4504,7 @@ result = np.nancumprod(a, axis=1)`);
       const a = mk([2, 3, 4]);
       const r = roll(a, 2, -1);
       const py = runNumPy(
-        'result = np.roll(np.arange(1,25,dtype=float).reshape(2,3,4), 2, axis=-1)'
+        'result = np.roll(np.arange(1,25,dtype=float).reshape(2,3,4), 2, axis=-1)',
       );
       expect((r as any).shape).toEqual([2, 3, 4]);
       expect(arraysClose((r as any).toArray(), py.value)).toBe(true);
@@ -4548,8 +4548,8 @@ result = np.concatenate([a, b], axis=-1)`);
       const batchSize = batchDims.reduce((a, b) => a * b, 1);
       const data = Array.from({ length: batchSize }, (_, b) =>
         Array.from({ length: n }, (_, i) =>
-          Array.from({ length: n }, (_, j) => (i === j ? b + 2.0 : 0.0))
-        )
+          Array.from({ length: n }, (_, j) => (i === j ? b + 2.0 : 0.0)),
+        ),
       ).flat(2);
       return array(data).reshape(shape);
     };
@@ -4690,7 +4690,7 @@ result = np.concatenate([a, b], axis=-1)`);
       ]);
       const { sign, logabsdet } = linalg.slogdet(A);
       const py = runNumPy(
-        'sign, logabsdet = np.linalg.slogdet(np.array([[1.,2.,3.],[0.,4.,5.],[0.,0.,6.]]))\nresult = [float(sign), float(logabsdet)]'
+        'sign, logabsdet = np.linalg.slogdet(np.array([[1.,2.,3.],[0.,4.,5.],[0.,0.,6.]]))\nresult = [float(sign), float(logabsdet)]',
       );
       expect(sign).toBeCloseTo((py.value as number[])[0]!, 10);
       expect(logabsdet).toBeCloseTo((py.value as number[])[1]!, 8);
@@ -4701,7 +4701,7 @@ result = np.concatenate([a, b], axis=-1)`);
       const result = linalg.slogdet(A);
       // NumPy returns arrays for batched input; both sign and logabsdet should be arrays
       expect(Array.isArray((result as any).sign) || typeof (result as any).sign === 'object').toBe(
-        true
+        true,
       );
     });
   });
@@ -4749,7 +4749,7 @@ result = np.concatenate([a, b], axis=-1)`);
       const a = mk([4, 6]);
       const r = fft.ihfft(a, undefined, 0);
       const py = runNumPy(
-        'result = np.fft.ihfft(np.arange(1,25,dtype=float).reshape(4,6), axis=0)'
+        'result = np.fft.ihfft(np.arange(1,25,dtype=float).reshape(4,6), axis=0)',
       );
       expect((r as any).shape).toEqual(py.shape);
     });
@@ -4883,7 +4883,7 @@ result = np.concatenate([a, b], axis=-1)`);
 
     it('unique: 2D [3,4] axis=1 -> unique columns', () => {
       const py = runNumPy(
-        'a = np.array([[1,1,2,3],[4,4,5,6],[7,7,8,9]])\nresult = np.unique(a, axis=1)'
+        'a = np.array([[1,1,2,3],[4,4,5,6],[7,7,8,9]])\nresult = np.unique(a, axis=1)',
       );
       const a = array([
         [1, 1, 2, 3],

@@ -2,23 +2,23 @@
  * Unit tests for formatting functions
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  array,
   arange,
-  zeros,
-  array2string,
+  array,
   array_repr,
   array_str,
+  array2string,
   base_repr,
   binary_repr,
+  Complex,
   format_float_positional,
   format_float_scientific,
   get_printoptions,
-  set_printoptions,
   printoptions,
-  Complex,
   reshape,
+  set_printoptions,
+  zeros,
 } from '../../src';
 
 describe('Formatting Functions', () => {

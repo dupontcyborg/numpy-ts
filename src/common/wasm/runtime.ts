@@ -15,16 +15,18 @@
  */
 
 import type { TypedArray } from '../dtype';
-import { wasmMemoryConfig, type ConfigureWasmOptions } from './config';
+import { type ConfigureWasmOptions, wasmMemoryConfig } from './config';
 
 // FinalizationRegistry is available in all target environments (Node 14+,
 // modern browsers) but not in ES2020 lib typings.
+// biome-ignore lint/suspicious/noShadowRestrictedNames: polyfill declaration for environments lacking ES2021 typings
 declare class FinalizationRegistry<T> {
   constructor(callback: (heldValue: T) => void);
   register(target: object, heldValue: T, unregisterToken?: object): void;
   unregister(unregisterToken: object): void;
 }
-import { heap_init, heap_malloc, heap_free, heap_free_bytes } from './bins/alloc.wasm';
+
+import { heap_free, heap_free_bytes, heap_init, heap_malloc } from './bins/alloc.wasm';
 
 // ---------------------------------------------------------------------------
 // Shared memory — fixed-size, never grows
@@ -124,7 +126,7 @@ export function configureWasm(options: ConfigureWasmOptions): void {
   if (heapInitialized) {
     throw new Error(
       'configureWasm() must be called before any array operations. ' +
-        'WASM memory has already been initialized.'
+        'WASM memory has already been initialized.',
     );
   }
   if (options.maxMemory !== undefined) {
@@ -136,7 +138,7 @@ export function configureWasm(options: ConfigureWasmOptions): void {
     if (options.scratchSize === undefined) {
       wasmMemoryConfig.scratchBytes = Math.min(
         Math.floor(options.maxMemory / 16),
-        32 * 1024 * 1024
+        32 * 1024 * 1024,
       );
     }
   }
@@ -273,7 +275,7 @@ export function scratchAlloc(bytes: number): number {
     if (ptr === 0) {
       throw new Error(
         `WASM OOM: scratch full (${wasmMemoryConfig.scratchBytes} bytes) ` +
-          `and heap malloc failed for ${bytes} bytes`
+          `and heap malloc failed for ${bytes} bytes`,
       );
     }
     tempHeapPtrs.push(ptr);
@@ -290,7 +292,7 @@ export function scratchCopyIn(src: TypedArray): number {
   const ptr = scratchAlloc(src.byteLength);
   const mem = getSharedMemory();
   new Uint8Array(mem.buffer, ptr, src.byteLength).set(
-    new Uint8Array(src.buffer, src.byteOffset, src.byteLength)
+    new Uint8Array(src.buffer, src.byteOffset, src.byteLength),
   );
   return ptr;
 }
@@ -317,7 +319,7 @@ export function resolveInputPtr(
   wasmPtr: number,
   offset: number,
   elementCount: number,
-  bpe: number
+  bpe: number,
 ): number {
   if (isWasmBacked) {
     return wasmPtr + offset * bpe;
@@ -359,7 +361,7 @@ export function resolveTypedArrayPtr(data: TypedArray): number {
  */
 export function f16InputToScratchF32(
   a: { data: TypedArray; isWasmBacked: boolean; wasmPtr: number; offset: number },
-  size: number
+  size: number,
 ): number {
   const mem = getSharedMemory();
   const ptr = scratchAlloc(size * 4);

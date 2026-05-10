@@ -5,7 +5,7 @@
  * These functions work with strings and are environment-agnostic.
  */
 
-import { NDArrayCore } from '../../common/ndarray-core';
+import type { NDArrayCore } from '../../common/ndarray-core';
 
 /**
  * Options for serializing array to text

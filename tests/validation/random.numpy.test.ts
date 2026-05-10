@@ -6,9 +6,9 @@
  * rather than exact values.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { random, arange } from '../../src/index';
-import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { arange, random } from '../../src/index';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Random Operations', () => {
   beforeAll(() => {
@@ -22,7 +22,7 @@ describe('NumPy Validation: Random Operations', () => {
           '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
           '   Current Python command: ' +
           (process.env.NUMPY_PYTHON || 'python3') +
-          '\n'
+          '\n',
       );
     }
   });
@@ -413,7 +413,7 @@ result = np.random.binomial(10, 0.5, (2, 3))
   function expectExactMatch(
     jsValues: number[],
     pyResult: { value: any },
-    n: number = jsValues.length
+    n: number = jsValues.length,
   ) {
     for (let i = 0; i < n; i++) {
       expect(jsValues[i]).toBeCloseTo(pyResult.value[i], 14);
@@ -897,7 +897,7 @@ result = np.random.dirichlet([1, 2, 3], 5).flatten()
           [1, 0],
           [0, 1],
         ],
-        1000
+        1000,
       ) as any;
       const data = js.data as Float64Array;
       let sum0 = 0;
@@ -1435,7 +1435,7 @@ result = np.random.multivariate_normal([0, 0], [[1, 0], [0, 1]], 5)
           [1, 0],
           [0, 1],
         ],
-        1000
+        1000,
       ) as any;
       const data = jsSamples.data as Float64Array;
       let sum0 = 0,
@@ -1800,7 +1800,7 @@ result = arr
           [1, 0.5],
           [0.5, 1],
         ],
-        5000
+        5000,
       ) as any;
       expect(result.shape).toEqual([5000, 2]);
       const data = result.data as Float64Array;
@@ -1822,7 +1822,7 @@ result = arr
           [1, 0.8],
           [0.8, 1],
         ],
-        10000
+        10000,
       ) as any;
       const data = result.data as Float64Array;
       // Compute sample correlation
@@ -1850,9 +1850,9 @@ result = arr
               [1, 0.5],
               [0.5, 1],
             ],
-            3
+            3,
           ) as any
-        ).data as Float64Array
+        ).data as Float64Array,
       );
       random.seed(42);
       const r2 = Array.from(
@@ -1863,9 +1863,9 @@ result = arr
               [1, 0.5],
               [0.5, 1],
             ],
-            3
+            3,
           ) as any
-        ).data as Float64Array
+        ).data as Float64Array,
       );
       for (let i = 0; i < 6; i++) {
         expect(r1[i]).toBe(r2[i]);
@@ -1905,7 +1905,7 @@ result = rng.choice(20, 8, replace=False)
     it('choice(int, size, p=) matches NumPy (replace=True)', () => {
       random.seed(42);
       const js = Array.from(
-        (random.choice(5, 10, true, [0.1, 0.2, 0.3, 0.2, 0.2]) as any).data
+        (random.choice(5, 10, true, [0.1, 0.2, 0.3, 0.2, 0.2]) as any).data,
       ).map(Number);
       const py = runNumPy(`
 np.random.seed(42)

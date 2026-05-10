@@ -2,17 +2,17 @@
  * Unit tests for set operations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   array,
-  unique,
   in1d,
   intersect1d,
   isin,
   setdiff1d,
   setxor1d,
-  union1d,
   trim_zeros,
+  union1d,
+  unique,
   unique_all,
   unique_counts,
   unique_inverse,

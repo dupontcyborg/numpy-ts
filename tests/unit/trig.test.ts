@@ -1,19 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  array,
-  sin,
-  cos,
-  tan,
-  arcsin,
   arccos,
+  arcsin,
   arctan,
   arctan2,
-  hypot,
-  degrees,
-  radians,
+  array,
+  cos,
   deg2rad,
-  rad2deg,
+  degrees,
   hasFloat16,
+  hypot,
+  rad2deg,
+  radians,
+  sin,
+  tan,
 } from '../../src';
 
 describe('Trigonometric Operations', () => {

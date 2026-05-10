@@ -7,9 +7,9 @@
  * lock file builds; the other two wait for the done sentinel.
  * global-setup.ts clears both sentinel files before any tests run.
  */
-import { execSync } from 'child_process';
-import { resolve } from 'path';
-import { existsSync, writeFileSync, openSync, closeSync, rmSync } from 'fs';
+import { execSync } from 'node:child_process';
+import { closeSync, existsSync, openSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeAll } from 'vitest';
 
 const root = resolve(__dirname, '../..');

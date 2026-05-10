@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { array } from '../../src';
 import { Complex } from '../../src/common/complex';
 import {
+  byteswap,
+  fill,
+  item,
   ndim,
   shape,
   size,
-  item,
-  tolist,
   tobytes,
-  byteswap,
-  view,
   tofile,
-  fill,
+  tolist,
+  view,
 } from '../../src/core/utility';
 
 /**
@@ -45,7 +45,7 @@ describe('Utility Functions (src/core/utility.ts)', () => {
         ndim([
           [1, 2],
           [3, 4],
-        ])
+        ]),
       ).toBe(2);
       expect(ndim([[[1]]])).toBe(3);
     });
@@ -82,7 +82,7 @@ describe('Utility Functions (src/core/utility.ts)', () => {
         shape([
           [1, 2],
           [3, 4],
-        ])
+        ]),
       ).toEqual([2, 2]);
     });
 
@@ -118,7 +118,7 @@ describe('Utility Functions (src/core/utility.ts)', () => {
         size([
           [1, 2],
           [3, 4],
-        ])
+        ]),
       ).toBe(4);
     });
 

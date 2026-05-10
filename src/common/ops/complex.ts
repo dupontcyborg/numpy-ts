@@ -7,9 +7,9 @@
  * @module ops/complex
  */
 
-import { ArrayStorage } from '../storage';
-import { isComplexDType, getComplexComponentDType, mathResultDtype, type DType } from '../dtype';
 import { Complex } from '../complex';
+import { type DType, getComplexComponentDType, isComplexDType, mathResultDtype } from '../dtype';
+import { ArrayStorage } from '../storage';
 import { wasmConj } from '../wasm/conj';
 
 /**
@@ -36,7 +36,7 @@ export function real(a: ArrayStorage): ArrayStorage {
       resultDtype,
       strides,
       a.offset * 2,
-      a.wasmRegion
+      a.wasmRegion,
     );
   }
 
@@ -67,7 +67,7 @@ export function imag(a: ArrayStorage): ArrayStorage {
       resultDtype,
       strides,
       a.offset * 2 + 1,
-      a.wasmRegion
+      a.wasmRegion,
     );
   }
 
@@ -227,7 +227,7 @@ export function setComplexAt(
   data: Float64Array | Float32Array,
   i: number,
   re: number,
-  im: number
+  im: number,
 ): void {
   data[i * 2] = re;
   data[i * 2 + 1] = im;
@@ -249,7 +249,7 @@ export function complexGreater(aRe: number, aIm: number, bRe: number, bIm: numbe
 export function clipComplex(
   a: ArrayStorage,
   a_min: number | ArrayStorage | null,
-  a_max: number | ArrayStorage | null
+  a_max: number | ArrayStorage | null,
 ): ArrayStorage {
   const dtype = a.dtype;
   const size = a.size;
@@ -278,13 +278,13 @@ export function clipComplex(
     } else if (minIsComplex) {
       [loRe, loIm] = getComplexAt(
         (a_min as ArrayStorage).data as Float64Array | Float32Array,
-        (a_min as ArrayStorage).offset + (i % (a_min as ArrayStorage).size)
+        (a_min as ArrayStorage).offset + (i % (a_min as ArrayStorage).size),
       );
     } else {
       loRe = Number(
         (a_min as ArrayStorage).data[
           (a_min as ArrayStorage).offset + (i % (a_min as ArrayStorage).size)
-        ]
+        ],
       );
       loIm = 0;
     }
@@ -300,13 +300,13 @@ export function clipComplex(
     } else if (maxIsComplex) {
       [hiRe, hiIm] = getComplexAt(
         (a_max as ArrayStorage).data as Float64Array | Float32Array,
-        (a_max as ArrayStorage).offset + (i % (a_max as ArrayStorage).size)
+        (a_max as ArrayStorage).offset + (i % (a_max as ArrayStorage).size),
       );
     } else {
       hiRe = Number(
         (a_max as ArrayStorage).data[
           (a_max as ArrayStorage).offset + (i % (a_max as ArrayStorage).size)
-        ]
+        ],
       );
       hiIm = 0;
     }

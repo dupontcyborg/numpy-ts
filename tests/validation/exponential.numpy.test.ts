@@ -2,21 +2,21 @@
  * Python NumPy validation tests for exponential operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   array,
   exp,
   exp2,
   expm1,
   log,
+  log1p,
   log2,
   log10,
-  log1p,
   logaddexp,
   logaddexp2,
   wasmConfig,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -37,7 +37,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -62,7 +62,7 @@ result = np.exp(np.array([-2, -1, 0, 1, 2]))
           array([
             [-1, 0],
             [1, 2],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.exp(np.array([[-1, 0], [1, 2]]))

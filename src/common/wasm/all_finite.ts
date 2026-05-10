@@ -4,11 +4,11 @@
  * Early-exits on first non-finite value.
  */
 
-import { all_finite_f64, all_finite_f32, all_finite_u16 } from './bins/all_finite.wasm';
-import { resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType } from '../dtype';
+import { type DType, effectiveDType } from '../dtype';
+import type { ArrayStorage } from '../storage';
+import { all_finite_f32, all_finite_f64, all_finite_u16 } from './bins/all_finite.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr } from './runtime';
 
 type AllFiniteFn = (aPtr: number, N: number) => number;
 

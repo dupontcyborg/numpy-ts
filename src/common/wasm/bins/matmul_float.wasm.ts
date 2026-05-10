@@ -40,7 +40,7 @@ export function matmul_c64(
   M: number,
   N: number,
   K: number,
-  scratch: number
+  scratch: number,
 ): void {
   const i = init();
   (i.exports['matmul_c64'] as (...args: number[]) => void)(a, b, c, M, N, K, scratch);
@@ -53,7 +53,7 @@ export function matmul_c128(
   M: number,
   N: number,
   K: number,
-  scratch: number
+  scratch: number,
 ): void {
   const i = init();
   (i.exports['matmul_c128'] as (...args: number[]) => void)(a, b, c, M, N, K, scratch);

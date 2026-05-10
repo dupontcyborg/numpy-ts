@@ -1,32 +1,32 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  array,
-  sqrt,
-  power,
   absolute,
-  negative,
-  sign,
-  mod,
-  floor_divide,
-  positive,
-  reciprocal,
-  nan_to_num,
-  interp,
-  unwrap,
-  sinc,
-  i0,
-  fmod,
-  float_power,
-  frexp,
-  gcd,
-  lcm,
-  ldexp,
-  modf,
+  array,
   clip,
-  maximum,
-  minimum,
+  float_power,
+  floor_divide,
   fmax,
   fmin,
+  fmod,
+  frexp,
+  gcd,
+  i0,
+  interp,
+  lcm,
+  ldexp,
+  maximum,
+  minimum,
+  mod,
+  modf,
+  nan_to_num,
+  negative,
+  positive,
+  power,
+  reciprocal,
+  sign,
+  sinc,
+  sqrt,
+  unwrap,
 } from '../../src';
 
 describe('Mathematical Operations', () => {
@@ -491,7 +491,7 @@ describe('Mathematical Operations', () => {
     it('replaces NaN and Inf with finite numbers', () => {
       const a = array([1, NaN, Infinity, -Infinity]);
       const r = nan_to_num(a);
-      expect(isFinite(r.iget(1) as number)).toBe(true);
+      expect(Number.isFinite(r.iget(1) as number)).toBe(true);
     });
   });
 

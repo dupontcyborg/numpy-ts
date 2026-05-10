@@ -7,27 +7,27 @@
  */
 
 import {
-  correlate_f64,
-  correlate_f32,
-  correlate_i32,
-  correlate_u32,
-  correlate_i16,
-  correlate_u16,
-  correlate_i8,
-  correlate_u8,
-} from './bins/correlate.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+  type DType,
+  effectiveDType,
+  getTypedArrayConstructor,
+  isBigIntDType,
+  isComplexDType,
+  promoteDTypes,
+  type TypedArray,
+} from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
-  effectiveDType,
-  isComplexDType,
-  isBigIntDType,
-  getTypedArrayConstructor,
-  promoteDTypes,
-  type DType,
-  TypedArray,
-} from '../dtype';
+  correlate_f32,
+  correlate_f64,
+  correlate_i8,
+  correlate_i16,
+  correlate_i32,
+  correlate_u8,
+  correlate_u16,
+  correlate_u32,
+} from './bins/correlate.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -37,7 +37,7 @@ type CorrelateFn = (
   vPtr: number,
   vLen: number,
   outPtr: number,
-  outLen: number
+  outLen: number,
 ) => void;
 
 const kernels: Partial<Record<DType, CorrelateFn>> = {
@@ -110,6 +110,10 @@ export function wasmCorrelate(a: ArrayStorage, v: ArrayStorage): ArrayStorage | 
     dtype,
     outRegion,
     outLen,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

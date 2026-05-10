@@ -8,9 +8,9 @@
  * to keep the codebase modular and testable.
  */
 
-import { ArrayStorage } from '../storage';
-import { Complex } from '../complex';
+import type { Complex } from '../complex';
 import { isBigIntDType, isComplexDType, promoteDTypes } from '../dtype';
+import { ArrayStorage } from '../storage';
 import { wasmDiff } from '../wasm/diff';
 import { wasmGradient1D } from '../wasm/gradient';
 
@@ -45,7 +45,7 @@ export function diff(a: ArrayStorage, n: number = 1, axis: number = -1): ArraySt
   // Check if we can take n differences
   if (shape[normalizedAxis]! < n + 1) {
     throw new Error(
-      `diff requires at least ${n + 1} elements along axis ${axis}, but got ${shape[normalizedAxis]}`
+      `diff requires at least ${n + 1} elements along axis ${axis}, but got ${shape[normalizedAxis]}`,
     );
   }
 
@@ -158,11 +158,11 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
 export function ediff1d(
   ary: ArrayStorage,
   to_end: number[] | null = null,
-  to_begin: number[] | null = null
+  to_begin: number[] | null = null,
 ): ArrayStorage {
   if (ary.dtype === 'bool') {
     throw new TypeError(
-      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
   // Flatten the array
@@ -253,11 +253,11 @@ export function ediff1d(
 export function gradient(
   f: ArrayStorage,
   varargs: number | number[] = 1,
-  axis: number | number[] | null = null
+  axis: number | number[] | null = null,
 ): ArrayStorage | ArrayStorage[] {
   if (f.dtype === 'bool') {
     throw new TypeError(
-      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
   const shape = Array.from(f.shape);
@@ -523,11 +523,11 @@ export function cross(
   b: ArrayStorage,
   axisa: number = -1,
   axisb: number = -1,
-  _axisc: number = -1
+  _axisc: number = -1,
 ): ArrayStorage {
   if (a.dtype === 'bool' || b.dtype === 'bool') {
     throw new TypeError(
-      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
   const shapeA = Array.from(a.shape);
@@ -552,12 +552,12 @@ export function cross(
   // Validate vector sizes (must be 2 or 3)
   if (sizeA !== 2 && sizeA !== 3) {
     throw new Error(
-      `incompatible dimensions for cross product (dimension must be 2 or 3, got ${sizeA})`
+      `incompatible dimensions for cross product (dimension must be 2 or 3, got ${sizeA})`,
     );
   }
   if (sizeB !== 2 && sizeB !== 3) {
     throw new Error(
-      `incompatible dimensions for cross product (dimension must be 2 or 3, got ${sizeB})`
+      `incompatible dimensions for cross product (dimension must be 2 or 3, got ${sizeB})`,
     );
   }
 
@@ -851,6 +851,6 @@ export function cross(
   }
 
   throw new Error(
-    `cross product not implemented for arrays with shapes ${JSON.stringify(shapeA)} and ${JSON.stringify(shapeB)}`
+    `cross product not implemented for arrays with shapes ${JSON.stringify(shapeA)} and ${JSON.stringify(shapeB)}`,
   );
 }

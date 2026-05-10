@@ -3,11 +3,11 @@
  * Validates all 11×11 dtype combinations against actual NumPy behavior
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { promoteDTypes } from '../../src/common/dtype';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { ones } from '../../src';
 import type { DType } from '../../src/common/dtype';
-import { runNumPy, checkNumPyAvailable } from './numpy-oracle';
+import { promoteDTypes } from '../../src/common/dtype';
+import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Complete DType Promotion Matrix', () => {
   beforeAll(() => {

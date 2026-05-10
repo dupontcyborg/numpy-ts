@@ -6,11 +6,11 @@
  * isclose, allclose
  */
 
-import { ArrayStorage } from '../storage';
+import { broadcastTo, computeBroadcastShape } from '../broadcasting';
+import { Complex } from '../complex';
 import { isBigIntDType, isComplexDType } from '../dtype';
 import { elementwiseComparisonOp } from '../internal/compute';
-import { computeBroadcastShape, broadcastTo } from '../broadcasting';
-import { Complex } from '../complex';
+import { ArrayStorage } from '../storage';
 
 // Helper to get complex value at index
 function getComplexAt(data: Float64Array | Float32Array, i: number): [number, number] {
@@ -36,7 +36,7 @@ function getAsComplex(storage: ArrayStorage, i: number): [number, number] {
 function complexComparisonOp(
   a: ArrayStorage,
   b: ArrayStorage,
-  op: (aRe: number, aIm: number, bRe: number, bIm: number) => boolean
+  op: (aRe: number, aIm: number, bRe: number, bIm: number) => boolean,
 ): ArrayStorage {
   const outputShape = computeBroadcastShape([Array.from(a.shape), Array.from(b.shape)]);
   if (!outputShape) {
@@ -168,7 +168,7 @@ export function isclose(
   a: ArrayStorage,
   b: ArrayStorage | number,
   rtol: number = 1e-5,
-  atol: number = 1e-8
+  atol: number = 1e-8,
 ): ArrayStorage {
   if (typeof b === 'number') {
     return iscloseScalar(a, b, rtol, atol);
@@ -198,7 +198,7 @@ export function allclose(
   a: ArrayStorage,
   b: ArrayStorage | number,
   rtol: number = 1e-5,
-  atol: number = 1e-8
+  atol: number = 1e-8,
 ): boolean {
   const closeResult = isclose(a, b, rtol, atol);
   const data = closeResult.data as Uint8Array;
@@ -509,7 +509,7 @@ function iscloseScalar(
   storage: ArrayStorage,
   scalar: number,
   rtol: number,
-  atol: number
+  atol: number,
 ): ArrayStorage {
   const result = ArrayStorage.empty(Array.from(storage.shape), 'bool');
   const resultData = result.data as Uint8Array;

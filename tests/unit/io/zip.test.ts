@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { readZip, readZipSync, writeZip, writeZipSync, crc32 } from '../../../src/io/zip';
+import { describe, expect, it } from 'vitest';
+import { crc32, readZip, readZipSync, writeZip, writeZipSync } from '../../../src/io/zip';
 
 describe('ZIP Format', () => {
   describe('crc32', () => {
@@ -179,7 +179,7 @@ describe('ZIP Format', () => {
 
       // Sync read should fail for compressed entries
       expect(() => readZipSync(compressedZip)).toThrow(
-        'Cannot read compressed entry synchronously'
+        'Cannot read compressed entry synchronously',
       );
     });
   });

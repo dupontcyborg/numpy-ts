@@ -5,17 +5,17 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { ldexp_scalar_f64, ldexp_scalar_f32 } from './bins/ldexp.wasm';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { ldexp_scalar_f32, ldexp_scalar_f64 } from './bins/ldexp.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -64,7 +64,11 @@ export function wasmLdexpScalar(a: ArrayStorage, exp: number): ArrayStorage | nu
       dtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -76,6 +80,10 @@ export function wasmLdexpScalar(a: ArrayStorage, exp: number): ArrayStorage | nu
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

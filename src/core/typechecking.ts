@@ -4,8 +4,8 @@
  * Tree-shakeable standalone functions for dtype operations.
  */
 
-import { NDArrayCore, type DType } from '../common/ndarray-core';
 import { isComplexDType, isFloatDType, isIntegerDType } from '../common/dtype';
+import { type DType, NDArrayCore } from '../common/ndarray-core';
 
 // Dtype categories for type checking
 const SIGNED_INTEGER_DTYPES: DType[] = ['int8', 'int16', 'int32', 'int64'];
@@ -39,7 +39,7 @@ const TYPE_HIERARCHY: Record<DType, number> = {
 export function can_cast(
   from_: DType | NDArrayCore,
   to: DType,
-  casting: 'no' | 'equiv' | 'safe' | 'same_kind' | 'unsafe' = 'safe'
+  casting: 'no' | 'equiv' | 'safe' | 'same_kind' | 'unsafe' = 'safe',
 ): boolean {
   const fromDtype: DType = from_ instanceof NDArrayCore ? (from_.dtype as DType) : from_;
 
@@ -202,7 +202,7 @@ export function result_type(...arrays_and_dtypes: (NDArrayCore | DType)[]): DTyp
   }
 
   const dtypes: DType[] = arrays_and_dtypes.map((item) =>
-    item instanceof NDArrayCore ? (item.dtype as DType) : item
+    item instanceof NDArrayCore ? (item.dtype as DType) : item,
   );
 
   // Check for complex
@@ -215,7 +215,7 @@ export function result_type(...arrays_and_dtypes: (NDArrayCore | DType)[]): DTyp
     const hasFloat64 = dtypes.some((d) => d === 'float64');
     const hasComplex128 = dtypes.some((d) => d === 'complex128');
     const has64BitInt = dtypes.some(
-      (d) => d === 'int64' || d === 'uint64' || d === 'int32' || d === 'uint32'
+      (d) => d === 'int64' || d === 'uint64' || d === 'int32' || d === 'uint32',
     );
     if (hasComplex128 || hasFloat64 || has64BitInt) {
       return 'complex128';
@@ -230,7 +230,7 @@ export function result_type(...arrays_and_dtypes: (NDArrayCore | DType)[]): DTyp
     // Integer + float: promote based on integer size
     if (hasInteger) {
       const has32BitOrLarger = dtypes.some(
-        (d) => d === 'int32' || d === 'uint32' || d === 'int64' || d === 'uint64'
+        (d) => d === 'int32' || d === 'uint32' || d === 'int64' || d === 'uint64',
       );
       if (has32BitOrLarger || hasFloat64) {
         return 'float64';
@@ -390,7 +390,7 @@ export function typename(dtype: DType): string {
 export function mintypecode(
   typechars: string,
   typeset: string = 'GDFgdf',
-  default_: string = 'd'
+  default_: string = 'd',
 ): string {
   // Map type characters to dtypes
   const charToDtype: Record<string, DType | null> = {

@@ -5,9 +5,9 @@
  * accumulation behavior (overflow vs promotion).
  */
 
-import { describe, it, expect } from 'vitest';
-import { WASM_MODES, setupWasmMode, np, runNumPy } from './_helpers';
+import { describe, expect, it } from 'vitest';
 import { hasFloat16 } from '../../../src/common/dtype';
+import { np, runNumPy, setupWasmMode, WASM_MODES } from './_helpers';
 
 /** Data small enough to not overflow in f16 — tests basic correctness */
 const SMALL_DATA = [
@@ -217,6 +217,6 @@ result = np.quantile(a, 0.5)
           }
         });
       });
-    }
+    },
   );
 }

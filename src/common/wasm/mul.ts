@@ -6,28 +6,28 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  mul_f64,
-  mul_f32,
-  mul_i64,
-  mul_i32,
-  mul_i16,
-  mul_i8,
-  mul_c128,
-  mul_c64,
-  mul_scalar_f64,
-  mul_scalar_f32,
-  mul_scalar_i64,
-  mul_scalar_i32,
-  mul_scalar_i16,
-  mul_scalar_i8,
-  mul_scalar_c128,
-  mul_scalar_c64,
-} from './bins/mul.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import {
+  mul_c64,
+  mul_c128,
+  mul_f32,
+  mul_f64,
+  mul_i8,
+  mul_i16,
+  mul_i32,
+  mul_i64,
+  mul_scalar_c64,
+  mul_scalar_c128,
+  mul_scalar_f32,
+  mul_scalar_f64,
+  mul_scalar_i8,
+  mul_scalar_i16,
+  mul_scalar_i32,
+  mul_scalar_i64,
+} from './bins/mul.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -126,7 +126,7 @@ export function wasmMul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     a.wasmPtr,
     a.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -134,7 +134,7 @@ export function wasmMul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     b.wasmPtr,
     b.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, bPtr, outRegion.ptr, size);
@@ -144,7 +144,11 @@ export function wasmMul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -181,7 +185,7 @@ export function wasmMulScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     a.wasmPtr,
     a.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, outRegion.ptr, size, scalar);
@@ -191,6 +195,10 @@ export function wasmMulScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     dtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

@@ -3,7 +3,7 @@
  * Verifies that views correctly track their base array
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { array, ones, zeros } from '../../src';
 
 describe('View Tracking', () => {

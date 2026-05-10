@@ -1,42 +1,42 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   arange,
-  linspace,
-  logspace,
-  geomspace,
-  eye,
-  empty,
-  full,
-  identity,
-  asarray,
-  copy,
-  zeros,
-  ones,
-  zeros_like,
-  ones_like,
-  empty_like,
-  full_like,
   array,
   asanyarray,
+  asarray,
+  asarray_chkfinite,
   ascontiguousarray,
   asfortranarray,
-  asarray_chkfinite,
+  Complex,
+  copy,
   diag,
   diagflat,
+  empty,
+  empty_like,
+  eye,
   frombuffer,
   fromfile,
   fromfunction,
   fromiter,
+  fromregex,
   fromstring,
+  full,
+  full_like,
+  genfromtxt,
+  geomspace,
+  identity,
+  linspace,
+  logspace,
   meshgrid,
+  ones,
+  ones_like,
+  require,
   tri,
   tril,
   triu,
   vander,
-  require,
-  genfromtxt,
-  fromregex,
-  Complex,
+  zeros,
+  zeros_like,
 } from '../../src';
 
 describe('Array Creation Functions', () => {
@@ -234,7 +234,7 @@ describe('Array Creation Functions', () => {
 
     it('throws error for mixed signs', () => {
       expect(() => geomspace(-1, 100, 10)).toThrow(
-        'Geometric sequence cannot contain both positive and negative values'
+        'Geometric sequence cannot contain both positive and negative values',
       );
     });
   });
@@ -427,7 +427,7 @@ describe('Array Creation Functions', () => {
           [1, 2],
           [3, 4],
         ],
-        'int32'
+        'int32',
       );
       const converted = asarray(original, 'float64');
       expect(converted.dtype).toBe('float64');
@@ -931,7 +931,7 @@ describe('Array Creation Functions', () => {
     // These tests are skipped in browser/test environments
     it('throws in browser environment (requires Node.js)', () => {
       expect(() => fromfile([1, 2, 3, 4, 5], 'float64')).toThrow(
-        'fromfile requires Node.js file system access'
+        'fromfile requires Node.js file system access',
       );
     });
   });
@@ -1419,7 +1419,7 @@ describe('Array Creation Functions', () => {
       expect(result.shape).toEqual([2, 3]);
       // Missing values should become NaN
       const data = result.toArray() as number[][];
-      expect(isNaN(data[0]![2]!)).toBe(true);
+      expect(Number.isNaN(data[0]![2]!)).toBe(true);
     });
 
     it('handles skiprows', () => {

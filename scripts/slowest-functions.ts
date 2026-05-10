@@ -3,14 +3,14 @@
  * Usage: tsx scripts/slowest-functions.ts [N=50]
  */
 
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const sizeArg = process.argv.find((a: string) =>
-  ['small', 'medium', 'large', 'pyodide'].includes(a)
+  ['small', 'medium', 'large', 'pyodide'].includes(a),
 );
 const fileMap: Record<string, string> = {
   small: 'latest-full-small.json',
@@ -20,7 +20,7 @@ const fileMap: Record<string, string> = {
 };
 const resultFile = fileMap[sizeArg ?? 'medium'] ?? fileMap['medium']!;
 const data = JSON.parse(
-  readFileSync(join(__dirname, '../benchmarks/results', resultFile), 'utf-8')
+  readFileSync(join(__dirname, '../benchmarks/results', resultFile), 'utf-8'),
 );
 
 const N = parseInt(process.argv.find((a: string) => /^\d+$/.test(a)) ?? '50', 10);
@@ -34,7 +34,7 @@ interface Result {
 }
 
 const sorted: Result[] = [...data.results]
-  .filter((r: Result) => r.ratio != null && isFinite(r.ratio))
+  .filter((r: Result) => r.ratio != null && Number.isFinite(r.ratio))
   .sort((a: Result, b: Result) => b.ratio - a.ratio);
 
 console.log(`Top ${N} slowest functions (JS/Python ratio, higher = worse):\n`);
@@ -45,7 +45,7 @@ console.log(
     'Category'.padEnd(16) +
     'Ratio'.padStart(8) +
     '  Python(ms)'.padStart(12) +
-    '     JS(ms)'.padStart(12)
+    '     JS(ms)'.padStart(12),
 );
 console.log('-'.repeat(94));
 
@@ -58,6 +58,6 @@ for (let i = 0; i < Math.min(N, sorted.length); i++) {
       r.category.padEnd(16) +
       r.ratio.toFixed(1).padStart(8) +
       ('  ' + r.numpy.mean_ms.toFixed(4)).padStart(12) +
-      ('  ' + r.numpyjs.mean_ms.toFixed(4)).padStart(12)
+      ('  ' + r.numpyjs.mean_ms.toFixed(4)).padStart(12),
   );
 }

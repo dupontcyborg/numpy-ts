@@ -3,23 +3,23 @@
  * Runs NumPy benchmarks inside Pyodide for a WASM-vs-WASM comparison
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { BenchmarkCase, BenchmarkTiming } from './types';
 
 export async function runPyodideBenchmarks(
   specs: BenchmarkCase[],
   minSampleTimeMs: number = 100,
-  targetSamples: number = 5
+  targetSamples: number = 5,
 ): Promise<{ results: BenchmarkTiming[]; pythonVersion: string; numpyVersion: string }> {
   // Dynamic import — pyodide is optional
-  let loadPyodide: (typeof import('pyodide'))['loadPyodide'];
+  let loadPyodide: typeof import('pyodide')['loadPyodide'];
   try {
     const mod = await import('pyodide');
     loadPyodide = mod.loadPyodide;
   } catch {
     throw new Error(
-      'pyodide package not found. Install it with:\n  npm install --save-dev pyodide'
+      'pyodide package not found. Install it with:\n  npm install --save-dev pyodide',
     );
   }
 

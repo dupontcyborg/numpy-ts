@@ -4,8 +4,8 @@
  * Tree-shakeable standalone functions for array introspection.
  */
 
-import { NDArrayCore, type DType, type TypedArray } from '../common/ndarray-core';
 import { Complex } from '../common/complex';
+import { type DType, NDArrayCore, type TypedArray } from '../common/ndarray-core';
 
 // ============================================================
 // Array Properties
@@ -41,7 +41,7 @@ export function ndim(a: NDArrayCore | number | bigint | boolean | unknown[] | un
  * Works with NDArrayCore, scalars, and nested arrays.
  */
 export function shape(
-  a: NDArrayCore | number | bigint | boolean | unknown[] | unknown
+  a: NDArrayCore | number | bigint | boolean | unknown[] | unknown,
 ): readonly number[] | number[] {
   if (a instanceof NDArrayCore) {
     return a.shape;
@@ -252,10 +252,10 @@ export function tofile(
   _a: NDArrayCore,
   _file: string,
   _sep: string = '',
-  _format: string = ''
+  _format: string = '',
 ): void {
   throw new Error(
-    'tofile requires Node.js file system access. Use serializeNpy for portable serialization.'
+    'tofile requires Node.js file system access. Use serializeNpy for portable serialization.',
   );
 }
 
@@ -296,7 +296,7 @@ export function fill(a: NDArrayCore, value: number | bigint | boolean | Complex)
       (storage.data as Exclude<TypedArray, BigInt64Array | BigUint64Array>).fill(
         numValue,
         storage.offset,
-        storage.offset + sz
+        storage.offset + sz,
       );
     } else {
       for (let i = 0; i < sz; i++) {

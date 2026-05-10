@@ -21,7 +21,7 @@
  *   Webpack  × Chromium, Firefox, WebKit
  */
 
-import { describe, test, expect } from 'vitest';
+import { describe, expect, test } from 'vitest';
 
 const BUNDLERS = [
   { name: 'esbuild', path: '/tests/tree-shaking/.output/dispose/browser/esbuild.mjs' },

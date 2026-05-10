@@ -2,9 +2,9 @@
  * Python NumPy validation tests for gradient operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { array, diff, ediff1d, gradient, cross, wasmConfig } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { array, cross, diff, ediff1d, gradient, wasmConfig } from '../../src';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -25,7 +25,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -72,7 +72,7 @@ result = np.diff(np.array([1, 2, 4, 7, 0]), n=3)
             [4, 5, 6],
           ]),
           1,
-          0
+          0,
         );
         const pyResult = runNumPy(`
 result = np.diff(np.array([[1, 2, 3], [4, 5, 6]]), axis=0)
@@ -89,7 +89,7 @@ result = np.diff(np.array([[1, 2, 3], [4, 5, 6]]), axis=0)
             [4, 5, 6],
           ]),
           1,
-          1
+          1,
         );
         const pyResult = runNumPy(`
 result = np.diff(np.array([[1, 2, 3], [4, 5, 6]]), axis=1)
@@ -106,7 +106,7 @@ result = np.diff(np.array([[1, 2, 3], [4, 5, 6]]), axis=1)
             [4, 5, 6],
           ]),
           1,
-          -1
+          -1,
         );
         const pyResult = runNumPy(`
 result = np.diff(np.array([[1, 2, 3], [4, 5, 6]]), axis=-1)
@@ -133,7 +133,7 @@ result = np.diff(np.array([1, 3, 6, 10, 15], dtype=${NP_DTYPE[dtype]}))
 `);
           expect(jsResult.shape).toEqual(pyResult.shape);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-6 : undefined),
           ).toBe(true);
         });
       }
@@ -155,7 +155,7 @@ result = np.ediff1d(np.array([1, 2, 4, 7, 0]))
           array([
             [1, 2],
             [3, 4],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.ediff1d(np.array([[1, 2], [3, 4]]))
@@ -214,7 +214,7 @@ result = np.gradient(np.array([1, 2, 4, 7, 11]), 2)
             [4, 5, 6],
           ]),
           1,
-          0
+          0,
         ) as any;
         const pyResult = runNumPy(`
 result = np.gradient(np.array([[1, 2, 3], [4, 5, 6]]), axis=0)
@@ -231,7 +231,7 @@ result = np.gradient(np.array([[1, 2, 3], [4, 5, 6]]), axis=0)
             [4, 5, 6],
           ]),
           1,
-          1
+          1,
         ) as any;
         const pyResult = runNumPy(`
 result = np.gradient(np.array([[1, 2, 3], [4, 5, 6]]), axis=1)
@@ -248,7 +248,7 @@ result = np.gradient(np.array([[1, 2, 3], [4, 5, 6]]), axis=1)
             [4, 8, 12],
           ]),
           1,
-          1
+          1,
         ) as any;
         const pyResult = runNumPy(`
 result = np.gradient(np.array([[1, 2, 4], [4, 8, 12]]), axis=1)
@@ -275,7 +275,7 @@ result = np.gradient(np.array([1, 2, 4, 7, 11], dtype=${NP_DTYPE[dtype]}))
 `);
           expect(jsResult.shape).toEqual(pyResult.shape);
           expect(
-            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-5 : undefined)
+            arraysClose(jsResult.toArray(), pyResult.value, dtype === 'float32' ? 1e-5 : undefined),
           ).toBe(true);
         });
       }
@@ -331,7 +331,7 @@ result = np.cross(np.array([1, 2, 3]), np.array([1, 2, 3]))
           array([
             [0, 1, 0],
             [0, 0, 1],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.cross(np.array([[1, 0, 0], [0, 1, 0]]), np.array([[0, 1, 0], [0, 0, 1]]))

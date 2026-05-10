@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   array,
   bincount,
+  convolve,
+  corrcoef,
+  correlate,
+  cov,
   digitize,
   histogram,
+  histogram_bin_edges,
   histogram2d,
   histogramdd,
-  correlate,
-  convolve,
-  cov,
-  corrcoef,
-  histogram_bin_edges,
   trapezoid,
 } from '../../src';
 
@@ -536,7 +536,7 @@ describe('Statistics Operations', () => {
       const result1 = trapezoid(y, undefined, 1, -1);
       const result2 = trapezoid(y, undefined, 1, 1);
       expect((result1 as { toArray: () => number[] }).toArray()).toEqual(
-        (result2 as { toArray: () => number[] }).toArray()
+        (result2 as { toArray: () => number[] }).toArray(),
       );
     });
   });

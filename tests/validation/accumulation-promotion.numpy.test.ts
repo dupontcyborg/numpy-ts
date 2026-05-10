@@ -13,22 +13,22 @@
  * - mean always returns float64 regardless of input dtype
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   array,
-  sum,
-  mean,
-  prod,
-  cumsum,
+  average,
   cumprod,
-  nansum,
+  cumsum,
+  mean,
   nanmean,
   nanprod,
+  nansum,
+  prod,
   ptp,
-  average,
+  sum,
 } from '../../src';
-import { checkNumPyAvailable, runNumPy, arraysClose } from './numpy-oracle';
 import type { DType } from '../../src/common/dtype';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 // All integer dtypes to test
 const SIGNED_NARROW: DType[] = ['int8', 'int16'];
@@ -91,7 +91,7 @@ result = np.array([1, 2, 3], dtype=${npDtype[dtype]}).sum()
 
           // Log the mapping for analysis
           console.log(
-            `  sum(${dtype}): NumPy→${npResultDtype}(${np.value}), TS→${tsDtype}(${result})`
+            `  sum(${dtype}): NumPy→${npResultDtype}(${np.value}), TS→${tsDtype}(${result})`,
           );
         });
 
@@ -128,7 +128,7 @@ result = np.cumsum(np.array([1, 2, 3], dtype=${npDtype[dtype]}))
           const result = cumsum(arr);
 
           console.log(
-            `  cumsum(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray(), (_, v) => (typeof v === 'bigint' ? v.toString() : v))})`
+            `  cumsum(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray(), (_, v) => (typeof v === 'bigint' ? v.toString() : v))})`,
           );
         });
 
@@ -141,7 +141,7 @@ result = np.cumprod(np.array([1, 2, 3], dtype=${npDtype[dtype]}))
           const result = cumprod(arr);
 
           console.log(
-            `  cumprod(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray(), (_, v) => (typeof v === 'bigint' ? v.toString() : v))})`
+            `  cumprod(${dtype}): NumPy→${np.dtype}(${JSON.stringify(np.value)}), TS→${result.dtype}(${JSON.stringify(result.toArray(), (_, v) => (typeof v === 'bigint' ? v.toString() : v))})`,
           );
         });
       });
@@ -178,7 +178,7 @@ result = arr.sum()
         // NumPy promotes to int64 (result: 150), numpy-ts may wrap
         if (result !== npResult.value) {
           console.log(
-            `  MISMATCH sum(${dtype}): NumPy=${npResult.value} (dtype=${npResult.dtype}), TS=${result}`
+            `  MISMATCH sum(${dtype}): NumPy=${npResult.value} (dtype=${npResult.dtype}), TS=${result}`,
           );
         }
         expect(result).toBe(npResult.value);
@@ -215,7 +215,7 @@ result = arr.sum(axis=0)
         const tsValues = (result as any).toArray();
         if (!arraysClose(tsValues, npResult.value, 0, 0)) {
           console.log(
-            `  MISMATCH sum(${dtype}, axis=0): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${(result as any).dtype})`
+            `  MISMATCH sum(${dtype}, axis=0): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${(result as any).dtype})`,
           );
         }
         expect(arraysClose(tsValues, npResult.value, 0, 0)).toBe(true);
@@ -233,7 +233,7 @@ result = arr.sum(axis=1)
         const tsValues = (result as any).toArray();
         if (!arraysClose(tsValues, npResult.value, 0, 0)) {
           console.log(
-            `  MISMATCH sum(${dtype}, axis=1): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${(result as any).dtype})`
+            `  MISMATCH sum(${dtype}, axis=1): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${(result as any).dtype})`,
           );
         }
         expect(arraysClose(tsValues, npResult.value, 0, 0)).toBe(true);
@@ -255,7 +255,7 @@ result = arr.prod()
         // prod([1..5]) = 120, overflows int8 (max 127 for signed)
         if (result !== npResult.value) {
           console.log(
-            `  MISMATCH prod(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+            `  MISMATCH prod(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
           );
         }
         expect(result).toBe(npResult.value);
@@ -290,7 +290,7 @@ result = arr.mean()
         // mean uses float accumulation, but if sum overflows first...
         if (Math.abs(result - npResult.value) > 1e-10) {
           console.log(
-            `  MISMATCH mean(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+            `  MISMATCH mean(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
           );
         }
         expect(Math.abs(result - npResult.value)).toBeLessThan(1e-10);
@@ -327,7 +327,7 @@ result = np.cumsum(arr)
 
         if (!arraysClose(tsValues, npResult.value, 0, 0)) {
           console.log(
-            `  MISMATCH cumsum(${dtype}): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${result.dtype})`
+            `  MISMATCH cumsum(${dtype}): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${result.dtype})`,
           );
         }
         expect(arraysClose(tsValues, npResult.value, 0, 0)).toBe(true);
@@ -349,7 +349,7 @@ result = np.cumprod(arr)
 
         if (!arraysClose(tsValues, npResult.value, 0, 0)) {
           console.log(
-            `  MISMATCH cumprod(${dtype}): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${result.dtype})`
+            `  MISMATCH cumprod(${dtype}): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${JSON.stringify(tsValues)} (${result.dtype})`,
           );
         }
         expect(arraysClose(tsValues, npResult.value, 0, 0)).toBe(true);
@@ -370,7 +370,7 @@ result = np.nansum(arr)
 
         if (result !== npResult.value) {
           console.log(
-            `  MISMATCH nansum(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+            `  MISMATCH nansum(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
           );
         }
         expect(result).toBe(npResult.value);
@@ -410,7 +410,7 @@ result = np.nanprod(arr)
 
         if (result !== npResult.value) {
           console.log(
-            `  MISMATCH nanprod(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+            `  MISMATCH nanprod(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
           );
         }
         expect(result).toBe(npResult.value);
@@ -431,7 +431,7 @@ result = np.ptp(arr)
 
         if (result !== npResult.value) {
           console.log(
-            `  MISMATCH ptp(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+            `  MISMATCH ptp(${dtype}): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
           );
         }
         expect(result).toBe(npResult.value);
@@ -473,7 +473,7 @@ result = arr.sum()
       const result = Number(sum(arr));
 
       console.log(
-        `  int8 sum([50,50,50,50]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+        `  int8 sum([50,50,50,50]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
       );
       expect(result).toBe(npResult.value);
     });
@@ -492,7 +492,7 @@ result = np.cumsum(arr)
       const stringify = (v: unknown) =>
         JSON.stringify(v, (_, x) => (typeof x === 'bigint' ? Number(x) : x));
       console.log(
-        `  int8 cumsum([100,50,50]): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${stringify(tsValues)} (${result.dtype})`
+        `  int8 cumsum([100,50,50]): NumPy=${JSON.stringify(npResult.value)} (${npResult.dtype}), TS=${stringify(tsValues)} (${result.dtype})`,
       );
       // cumsum promotes int8→int64 (BigInt); compare as numbers
       const tsNumbers = tsValues.map(Number);
@@ -510,7 +510,7 @@ result = arr.prod()
       const result = Number(prod(arr));
 
       console.log(
-        `  int8 prod([10,15]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+        `  int8 prod([10,15]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
       );
       expect(result).toBe(npResult.value);
     });
@@ -528,7 +528,7 @@ result = arr.sum()
       const result = Number(sum(arr));
 
       console.log(
-        `  uint8 sum([100,100,100]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+        `  uint8 sum([100,100,100]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
       );
       expect(result).toBe(npResult.value);
     });
@@ -546,7 +546,7 @@ result = arr.sum()
       const result = Number(sum(arr));
 
       console.log(
-        `  int16 sum([10000x4]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+        `  int16 sum([10000x4]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
       );
       expect(result).toBe(npResult.value);
     });
@@ -564,7 +564,7 @@ result = arr.sum()
       const result = Number(sum(arr));
 
       console.log(
-        `  uint16 sum([20000,20000,15000,15000]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`
+        `  uint16 sum([20000,20000,15000,15000]): NumPy=${npResult.value} (${npResult.dtype}), TS=${result}`,
       );
       expect(result).toBe(npResult.value);
     });

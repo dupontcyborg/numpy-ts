@@ -3,21 +3,21 @@
  * Heavy ops: norm, det, inv, cholesky, qr, svd, eig, eigh, eigvals, eigvalsh, solve, lstsq.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   arraysClose,
   checkNumPyAvailable,
-  npDtype,
-  pyScalarCast,
-  pyArrayCast,
-  toComparable,
-  scalarClose,
   expectBothRejectPre,
+  npDtype,
+  pyArrayCast,
+  pyScalarCast,
+  runNumPyBatch,
+  scalarClose,
+  toComparable,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -158,7 +158,7 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.det(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       scalarClose(np.linalg.det(array(mat, dtype)), py.value);
@@ -169,11 +169,11 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.inv(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(arraysClose(toComparable(np.linalg.inv(array(mat, dtype))), py.value, 1e-4)).toBe(
-        true
+        true,
       );
     });
 
@@ -192,11 +192,11 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.cholesky(array(pdMat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(
-        arraysClose(toComparable(np.linalg.cholesky(array(pdMat, dtype))), py.value, 1e-4)
+        arraysClose(toComparable(np.linalg.cholesky(array(pdMat, dtype))), py.value, 1e-4),
       ).toBe(true);
     });
 
@@ -215,7 +215,7 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.svd(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       const { s } = np.linalg.svd(array(mat, dtype)) as any;
@@ -227,7 +227,7 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.eig(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       const { w } = np.linalg.eig(array(mat, dtype)) as any;
@@ -250,7 +250,7 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.eigh(array(symMat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       const { w } = np.linalg.eigh(array(symMat, dtype)) as any;
@@ -262,7 +262,7 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.eigvals(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       const jsResult = np.linalg.eigvals(array(mat, dtype));
@@ -285,11 +285,11 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.eigvalsh(array(symMat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(
-        arraysClose(toComparable(np.linalg.eigvalsh(array(symMat, dtype))), py.value, 1e-4)
+        arraysClose(toComparable(np.linalg.eigvalsh(array(symMat, dtype))), py.value, 1e-4),
       ).toBe(true);
     });
 
@@ -309,11 +309,15 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.solve(array(A, dtype), array(b, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(
-        arraysClose(toComparable(np.linalg.solve(array(A, dtype), array(b, dtype))), py.value, 1e-4)
+        arraysClose(
+          toComparable(np.linalg.solve(array(A, dtype), array(b, dtype))),
+          py.value,
+          1e-4,
+        ),
       ).toBe(true);
     });
 
@@ -335,7 +339,7 @@ describe('DType Sweep: linalg decompositions', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.lstsq(array(A, dtype), array(b, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       const { x } = np.linalg.lstsq(array(A, dtype), array(b, dtype)) as any;

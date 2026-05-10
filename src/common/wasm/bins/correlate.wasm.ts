@@ -29,7 +29,7 @@ export function correlate_f64(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_f64'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
@@ -41,7 +41,7 @@ export function correlate_f32(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_f32'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
@@ -53,7 +53,7 @@ export function correlate_i32(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_i32'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
@@ -65,7 +65,7 @@ export function correlate_u32(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_u32'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
@@ -77,7 +77,7 @@ export function correlate_i16(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_i16'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
@@ -89,7 +89,7 @@ export function correlate_u16(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_u16'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
@@ -101,7 +101,7 @@ export function correlate_i8(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_i8'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);
@@ -113,7 +113,7 @@ export function correlate_u8(
   b: number,
   nb: number,
   out: number,
-  outLen: number
+  outLen: number,
 ): void {
   const i = init();
   (i.exports['correlate_u8'] as (...args: number[]) => void)(a, na, b, nb, out, outLen);

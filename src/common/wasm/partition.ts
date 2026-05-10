@@ -6,38 +6,38 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, hasFloat16, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  partition_f64,
   partition_f32,
-  partition_i64,
-  partition_u64,
-  partition_i32,
-  partition_u32,
-  partition_i16,
-  partition_u16,
+  partition_f64,
   partition_i8,
-  partition_u8,
-  partition_slices_f64,
+  partition_i16,
+  partition_i32,
+  partition_i64,
   partition_slices_f32,
-  partition_slices_i64,
-  partition_slices_u64,
-  partition_slices_i32,
-  partition_slices_u32,
-  partition_slices_i16,
-  partition_slices_u16,
+  partition_slices_f64,
   partition_slices_i8,
+  partition_slices_i16,
+  partition_slices_i32,
+  partition_slices_i64,
   partition_slices_u8,
+  partition_slices_u16,
+  partition_slices_u32,
+  partition_slices_u64,
+  partition_u8,
+  partition_u16,
+  partition_u32,
+  partition_u64,
 } from './bins/partition.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
+  f16InputToScratchF32,
+  getSharedMemory,
   resetScratchAllocator,
   scratchCopyIn,
-  getSharedMemory,
-  f16InputToScratchF32,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, hasFloat16, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -99,7 +99,7 @@ export function wasmPartitionSlices(
   axisSize: number,
   outerSize: number,
   kth: number,
-  dtype: DType
+  dtype: DType,
 ): boolean {
   if (axisSize < 2) return true;
 
@@ -116,7 +116,7 @@ export function wasmPartitionSlices(
     const ptr = isF16
       ? f16InputToScratchF32(
           { data: resultData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
-          resultData.length
+          resultData.length,
         )
       : scratchCopyIn(resultData as TypedArray);
     sliceKernel(ptr, axisSize, outerSize, kth);
@@ -127,11 +127,11 @@ export function wasmPartitionSlices(
       const f32View = new Float32Array(mem.buffer, ptr, resultData.length);
       new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
       new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-        new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
+        new Uint8Array(f16Out.buffer, 0, f16Out.byteLength),
       );
     } else {
       new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-        new Uint8Array(mem.buffer, ptr, resultData.byteLength)
+        new Uint8Array(mem.buffer, ptr, resultData.byteLength),
       );
     }
     return true;
@@ -150,7 +150,7 @@ export function wasmPartitionSlices(
   const ptr = isF16
     ? f16InputToScratchF32(
         { data: resultData, isWasmBacked: false, wasmPtr: 0, offset: 0 },
-        resultData.length
+        resultData.length,
       )
     : scratchCopyIn(resultData as TypedArray);
 
@@ -165,7 +165,7 @@ export function wasmPartitionSlices(
       const f16Out = new Uint16Array(resultData.length);
       new Float16Array(f16Out.buffer, 0, resultData.length).set(f32View);
       new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-        new Uint8Array(f16Out.buffer, 0, f16Out.byteLength)
+        new Uint8Array(f16Out.buffer, 0, f16Out.byteLength),
       );
     } else {
       // Polyfill: float16 arrays are backed by Float32Array, copy f32 values directly
@@ -173,7 +173,7 @@ export function wasmPartitionSlices(
     }
   } else {
     new Uint8Array(resultData.buffer, resultData.byteOffset, resultData.byteLength).set(
-      new Uint8Array(mem.buffer, ptr, resultData.byteLength)
+      new Uint8Array(mem.buffer, ptr, resultData.byteLength),
     );
   }
 
@@ -227,12 +227,12 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
     // Copy f16 input into f16Region
     if (a.isWasmBacked) {
       new Uint8Array(mem.buffer, f16Region.ptr, f16Bytes).set(
-        new Uint8Array(mem.buffer, a.wasmPtr + aOff * 2, f16Bytes)
+        new Uint8Array(mem.buffer, a.wasmPtr + aOff * 2, f16Bytes),
       );
     } else {
       const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
       new Uint8Array(mem.buffer, f16Region.ptr, f16Bytes).set(
-        new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength)
+        new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength),
       );
     }
 
@@ -255,12 +255,12 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
       ? (Float16Array as unknown as new (
           buffer: ArrayBuffer,
           byteOffset: number,
-          length: number
+          length: number,
         ) => TypedArray)
       : (Uint16Array as unknown as new (
           buffer: ArrayBuffer,
           byteOffset: number,
-          length: number
+          length: number,
         ) => TypedArray);
     return ArrayStorage.fromWasmRegion(Array.from(a.shape), dtype, f16Region, size, F16Ctor);
   }
@@ -269,12 +269,12 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
   const mem = getSharedMemory();
   if (a.isWasmBacked) {
     new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
-      new Uint8Array(mem.buffer, a.wasmPtr + aOff * bpe, outBytes)
+      new Uint8Array(mem.buffer, a.wasmPtr + aOff * bpe, outBytes),
     );
   } else {
     const aData = a.data.subarray(aOff, aOff + size) as TypedArray;
     new Uint8Array(mem.buffer, outRegion.ptr, outBytes).set(
-      new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength)
+      new Uint8Array(aData.buffer, aData.byteOffset, aData.byteLength),
     );
   }
 
@@ -285,6 +285,10 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

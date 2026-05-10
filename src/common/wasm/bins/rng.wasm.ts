@@ -67,7 +67,7 @@ export function pcg64_bounded_uint64(off: number, rng: number): number {
   const i = init();
   return (i.exports['pcg64_bounded_uint64'] as (...args: (number | bigint)[]) => number)(
     BigInt(Math.round(off)),
-    BigInt(Math.round(rng))
+    BigInt(Math.round(rng)),
   );
 }
 
@@ -77,7 +77,7 @@ export function fill_bounded_uint64_pcg(out: number, n: number, off: number, rng
     out,
     n,
     BigInt(Math.round(off)),
-    BigInt(Math.round(rng))
+    BigInt(Math.round(rng)),
   );
 }
 
@@ -182,7 +182,7 @@ export function fill_randint_i64(out: number, n: number, max: number, low: numbe
     out,
     n,
     max,
-    BigInt(Math.round(low))
+    BigInt(Math.round(low)),
   );
 }
 
@@ -226,7 +226,7 @@ export function fill_triangular(
   n: number,
   left: number,
   mode: number,
-  right: number
+  right: number,
 ): void {
   const i = init();
   (i.exports['fill_triangular'] as (...args: number[]) => void)(out, n, left, mode, right);
@@ -272,7 +272,7 @@ export function fill_noncentral_f(
   n: number,
   dfnum: number,
   dfden: number,
-  nonc: number
+  nonc: number,
 ): void {
   const i = init();
   (i.exports['fill_noncentral_f'] as (...args: number[]) => void)(out, n, dfnum, dfden, nonc);
@@ -294,7 +294,7 @@ export function fill_binomial(out: number, n: number, trials: number, p: number)
     out,
     n,
     BigInt(Math.round(trials)),
-    p
+    p,
   );
 }
 
@@ -313,7 +313,7 @@ export function fill_hypergeometric(
   n: number,
   good: number,
   bad: number,
-  sample: number
+  sample: number,
 ): void {
   const i = init();
   (i.exports['fill_hypergeometric'] as (...args: (number | bigint)[]) => void)(
@@ -321,7 +321,7 @@ export function fill_hypergeometric(
     n,
     BigInt(Math.round(good)),
     BigInt(Math.round(bad)),
-    BigInt(Math.round(sample))
+    BigInt(Math.round(sample)),
   );
 }
 

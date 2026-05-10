@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { parseTxt, genfromtxt, fromregex, serializeTxt } from '../../../src/io/txt';
-import { array } from '../../../src';
+import { describe, expect, it } from 'vitest';
 // Also import from main index to test wrappers
 import {
-  parseTxt as parseTxtIndex,
-  genfromtxt as genfromtxtIndex,
+  array,
   fromregex as fromregexIndex,
+  genfromtxt as genfromtxtIndex,
+  parseTxt as parseTxtIndex,
 } from '../../../src';
+import { fromregex, genfromtxt, parseTxt, serializeTxt } from '../../../src/io/txt';
 
 describe('Text I/O', () => {
   describe('parseTxt', () => {

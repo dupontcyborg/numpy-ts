@@ -8,17 +8,17 @@
  * All functions return NDArrayCore for optimal tree-shaking.
  */
 
-import { ArrayStorage } from '../common/storage';
-import { NDArrayCore, type DType } from '../common/ndarray-core';
 import { Complex, isComplexLike } from '../common/complex';
-import { wasmAllFinite } from '../common/wasm/all_finite';
 import {
+  DEFAULT_DTYPE,
   getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
-  DEFAULT_DTYPE,
   type TypedArray,
 } from '../common/dtype';
+import { type DType, NDArrayCore } from '../common/ndarray-core';
+import { ArrayStorage } from '../common/storage';
+import { wasmAllFinite } from '../common/wasm/all_finite';
 
 // Re-export types
 export type { DType, TypedArray } from '../common/dtype';
@@ -77,7 +77,7 @@ export function empty(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArrayCor
 export function full(
   shape: number[],
   fill_value: number | bigint | boolean,
-  dtype?: DType
+  dtype?: DType,
 ): NDArrayCore {
   let actualDtype = dtype;
   if (!actualDtype) {
@@ -152,7 +152,9 @@ function flattenKeepBigInt(data: unknown): unknown[] {
   const result: unknown[] = [];
   function flatten(arr: unknown): void {
     if (Array.isArray(arr)) {
-      arr.forEach((item) => flatten(item));
+      arr.forEach((item) => {
+        flatten(item);
+      });
     } else if (ArrayBuffer.isView(arr) && 'length' in arr) {
       const view = arr as unknown as ArrayLike<unknown>;
       for (let i = 0; i < view.length; i++) {
@@ -290,7 +292,7 @@ export function arange(start: number, stop?: number, step: number = 1, dtype?: D
   // bool arange only valid for length ≤ 2: [False] or [False, True]
   if (actualDtype === 'bool' && length > 2) {
     throw new TypeError(
-      'arange() is only supported for booleans when the result has at most length 2.'
+      'arange() is only supported for booleans when the result has at most length 2.',
     );
   }
 
@@ -327,7 +329,7 @@ export function linspace(
   start: number,
   stop: number,
   num: number = 50,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArrayCore {
   if (num < 0) {
     throw new Error('num must be non-negative');
@@ -376,7 +378,7 @@ export function logspace(
   stop: number,
   num: number = 50,
   base: number = 10.0,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArrayCore {
   if (num < 0) {
     throw new Error('num must be non-negative');
@@ -387,7 +389,7 @@ export function logspace(
   }
 
   if (num === 1) {
-    return array([Math.pow(base, start)], dtype);
+    return array([base ** start], dtype);
   }
 
   const storage = ArrayStorage.empty([num], dtype);
@@ -397,23 +399,23 @@ export function logspace(
   if (isBigIntDType(dtype)) {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(Math.pow(base, exponent)));
+      (data as BigInt64Array | BigUint64Array)[i] = BigInt(Math.trunc(base ** exponent));
     }
   } else if (dtype === 'bool') {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as Uint8Array)[i] = Math.pow(base, exponent) !== 0 ? 1 : 0;
+      (data as Uint8Array)[i] = base ** exponent !== 0 ? 1 : 0;
     }
   } else if (isComplexDType(dtype)) {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as Float64Array | Float32Array)[i * 2] = Math.pow(base, exponent);
+      (data as Float64Array | Float32Array)[i * 2] = base ** exponent;
       (data as Float64Array | Float32Array)[i * 2 + 1] = 0;
     }
   } else {
     for (let i = 0; i < num; i++) {
       const exponent = start + i * step;
-      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Math.pow(base, exponent);
+      (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = base ** exponent;
     }
   }
 
@@ -427,7 +429,7 @@ export function geomspace(
   start: number,
   stop: number,
   num: number = 50,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArrayCore {
   if (num < 0) {
     throw new Error('num must be non-negative');
@@ -491,7 +493,7 @@ export function eye(
   n: number,
   m?: number,
   k: number = 0,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArrayCore {
   const cols = m ?? n;
   const result = zeros([n, cols], dtype);
@@ -565,7 +567,7 @@ export function empty_like(a: NDArrayCore, dtype?: DType): NDArrayCore {
 export function full_like(
   a: NDArrayCore,
   fill_value: number | bigint | boolean,
-  dtype?: DType
+  dtype?: DType,
 ): NDArrayCore {
   return full(Array.from(a.shape), fill_value, dtype ?? (a.dtype as DType));
 }
@@ -641,7 +643,7 @@ export function asarray_chkfinite(a: NDArrayCore | unknown, dtype?: DType): NDAr
 export function require(
   a: NDArrayCore,
   dtype?: DType,
-  _requirements?: string | string[]
+  _requirements?: string | string[],
 ): NDArrayCore {
   let result = a;
   if (dtype && dtype !== a.dtype) {
@@ -662,7 +664,7 @@ function flattenCore(a: NDArrayCore): NDArrayCore {
   const storage = ArrayStorage.empty([size], a.dtype as DType);
   const data = storage.data;
   (data as unknown as { set(src: ArrayLike<number | bigint>): void }).set(
-    srcData as unknown as ArrayLike<number | bigint>
+    srcData as unknown as ArrayLike<number | bigint>,
   );
   return fromStorage(storage);
 }
@@ -705,7 +707,7 @@ export function diag(v: NDArrayCore, k: number = 0): NDArrayCore {
     const cols = shape[1]!;
     const diagLen = Math.min(
       k >= 0 ? Math.min(rows, cols - k) : Math.min(rows + k, cols),
-      Math.max(0, k >= 0 ? cols - k : rows + k)
+      Math.max(0, k >= 0 ? cols - k : rows + k),
     );
 
     if (diagLen <= 0) {
@@ -752,7 +754,7 @@ export function tri(
   N: number,
   M?: number,
   k: number = 0,
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArrayCore {
   const cols = M ?? N;
   const result = zeros([N, cols], dtype);
@@ -889,7 +891,7 @@ export function vander(x: NDArrayCore, N?: number, increasing: boolean = false):
     const val = Number(typeof data[i] === 'bigint' ? data[i] : data[isComplex ? i * 2 : i]);
     for (let j = 0; j < cols; j++) {
       const exp = increasing ? j : cols - 1 - j;
-      const v = Math.pow(val, exp);
+      const v = val ** exp;
       const idx = i * cols + j;
       if (isBigInt) {
         (resultData as unknown as BigInt64Array)[idx] = BigInt(Math.round(v));
@@ -913,7 +915,7 @@ export function frombuffer(
   buffer: ArrayBuffer | TypedArray,
   dtype: DType = DEFAULT_DTYPE,
   count: number = -1,
-  offset: number = 0
+  offset: number = 0,
 ): NDArrayCore {
   const Constructor = getTypedArrayConstructor(dtype);
   if (!Constructor) {
@@ -945,12 +947,12 @@ export function frombuffer(
 export function fromfunction(
   func: (...indices: number[]) => number,
   shape: number[],
-  dtype: DType = DEFAULT_DTYPE
+  dtype: DType = DEFAULT_DTYPE,
 ): NDArrayCore {
   const size = shape.reduce((a, b) => a * b, 1);
   if (dtype === 'bool' && size > 2) {
     throw new TypeError(
-      'arange() is only supported for booleans when the result has at most length 2.'
+      'arange() is only supported for booleans when the result has at most length 2.',
     );
   }
   const storage = ArrayStorage.empty(shape, dtype);
@@ -990,7 +992,7 @@ export function fromfunction(
 export function fromiter(
   iter: Iterable<number>,
   dtype: DType = DEFAULT_DTYPE,
-  count: number = -1
+  count: number = -1,
 ): NDArrayCore {
   const values: number[] = [];
   let i = 0;
@@ -1006,7 +1008,7 @@ export function fromstring(
   string: string,
   dtype: DType = DEFAULT_DTYPE,
   count: number = -1,
-  sep?: string
+  sep?: string,
 ): NDArrayCore {
   // Default to whitespace splitting (NumPy uses sep='' for binary, but we default to whitespace for convenience)
   const separator = sep ?? /\s+/;
@@ -1022,7 +1024,7 @@ export function fromfile(
   _file: string,
   _dtype: DType = DEFAULT_DTYPE,
   _count: number = -1,
-  _sep: string = ''
+  _sep: string = '',
 ): NDArrayCore {
   throw new Error('fromfile requires Node.js file system access');
 }

@@ -2,9 +2,9 @@
  * Python NumPy validation tests for hyperbolic operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { array, sinh, cosh, tanh, arcsinh, arccosh, arctanh, wasmConfig } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { arccosh, arcsinh, arctanh, array, cosh, sinh, tanh, wasmConfig } from '../../src';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -25,7 +25,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -50,7 +50,7 @@ result = np.sinh(np.array([-2, -1, 0, 1, 2]))
           array([
             [-1, 0],
             [1, 2],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.sinh(np.array([[-1, 0], [1, 2]]))
@@ -97,7 +97,7 @@ result = np.cosh(np.array([-2, -1, 0, 1, 2]))
           array([
             [-1, 0],
             [1, 2],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.cosh(np.array([[-1, 0], [1, 2]]))
@@ -150,7 +150,7 @@ result = np.tanh(np.array([-2, -1, 0, 1, 2]))
           array([
             [-1, 0],
             [1, 2],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.tanh(np.array([[-1, 0], [1, 2]]))
@@ -196,7 +196,7 @@ result = np.arcsinh(np.array([-10, -1, 0, 1, 10]))
           array([
             [-1, 0],
             [1, 2],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.arcsinh(np.array([[-1, 0], [1, 2]]))
@@ -246,7 +246,7 @@ result = np.arccosh(np.array([1, 2, 5, 10]))
           array([
             [1, 2],
             [3, 4],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.arccosh(np.array([[1, 2], [3, 4]]))
@@ -297,7 +297,7 @@ result = np.arctanh(np.array([-0.9, -0.5, 0, 0.5, 0.9]))
           array([
             [-0.5, 0],
             [0.5, 0.9],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.arctanh(np.array([[-0.5, 0], [0.5, 0.9]]))

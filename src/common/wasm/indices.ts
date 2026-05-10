@@ -3,18 +3,18 @@
  * Supports int32, int64, and float64 output dtypes.
  */
 
-import {
-  indices_2d_i32,
-  indices_3d_i32,
-  indices_2d_i64,
-  indices_3d_i64,
-  indices_2d_f64,
-  indices_3d_f64,
-} from './bins/indices.wasm';
-import { wasmMalloc, resetScratchAllocator } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import {
+  indices_2d_f64,
+  indices_2d_i32,
+  indices_2d_i64,
+  indices_3d_f64,
+  indices_3d_i32,
+  indices_3d_i64,
+} from './bins/indices.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -47,7 +47,7 @@ const ctorMap: Partial<
   float64: Float64Array as unknown as new (
     buf: ArrayBuffer,
     off: number,
-    len: number
+    len: number,
   ) => TypedArray,
 };
 
@@ -86,6 +86,6 @@ export function wasmIndices(dimensions: number[], dtype: string): ArrayStorage |
     dtype as DType,
     outRegion,
     totalSize,
-    Ctor
+    Ctor,
   );
 }

@@ -6,28 +6,28 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  sub_f64,
-  sub_f32,
-  sub_i64,
-  sub_i32,
-  sub_i16,
-  sub_i8,
-  sub_c128,
-  sub_c64,
-  sub_scalar_f64,
-  sub_scalar_f32,
-  sub_scalar_i64,
-  sub_scalar_i32,
-  sub_scalar_i16,
-  sub_scalar_i8,
-  sub_scalar_c128,
-  sub_scalar_c64,
-} from './bins/sub.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
+import {
+  sub_c64,
+  sub_c128,
+  sub_f32,
+  sub_f64,
+  sub_i8,
+  sub_i16,
+  sub_i32,
+  sub_i64,
+  sub_scalar_c64,
+  sub_scalar_c128,
+  sub_scalar_f32,
+  sub_scalar_f64,
+  sub_scalar_i8,
+  sub_scalar_i16,
+  sub_scalar_i32,
+  sub_scalar_i64,
+} from './bins/sub.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -126,7 +126,7 @@ export function wasmSub(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     a.wasmPtr,
     a.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -134,7 +134,7 @@ export function wasmSub(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     b.wasmPtr,
     b.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, bPtr, outRegion.ptr, size);
@@ -144,7 +144,11 @@ export function wasmSub(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -181,7 +185,7 @@ export function wasmSubScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     a.wasmPtr,
     a.offset * factor,
     totalElements,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, outRegion.ptr, size, scalar);
@@ -191,6 +195,10 @@ export function wasmSubScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
     dtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

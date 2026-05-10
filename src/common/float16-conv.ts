@@ -110,7 +110,7 @@ export function float16BytesToTypedArray(
   buffer: ArrayBuffer,
   byteOffset: number,
   numElements: number,
-  needsByteSwap: boolean
+  needsByteSwap: boolean,
 ): Float32Array {
   const view = new DataView(buffer, byteOffset);
   const result = new Float32Array(numElements);

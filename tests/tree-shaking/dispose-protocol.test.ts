@@ -12,18 +12,18 @@
  * [Symbol.dispose].
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdir, readFile, stat } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import alias from '@rollup/plugin-alias';
+import nodeResolve from '@rollup/plugin-node-resolve';
 import { build as esbuildBuild } from 'esbuild';
 import { rollup } from 'rollup';
-import nodeResolve from '@rollup/plugin-node-resolve';
-import alias from '@rollup/plugin-alias';
+import { beforeAll, describe, expect, it } from 'vitest';
 import webpack from 'webpack';
-import { mkdir, readFile, stat } from 'fs/promises';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { execFileSync } from 'child_process';
 
-import { NUMPY_TS_ESM, NUMPY_TS_CORE } from './shared';
+import { NUMPY_TS_CORE, NUMPY_TS_ESM } from './shared';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -219,7 +219,7 @@ describe('Webpack dispose protocol', () => {
             const info = stats.toJson();
             reject(new Error(info.errors?.map((e) => e.message).join('\n') || 'Build failed'));
           } else resolveP();
-        }
+        },
       );
     });
 
@@ -412,7 +412,7 @@ describe('browser builds', () => {
               const info = stats.toJson();
               reject(new Error(info.errors?.map((e) => e.message).join('\n') || 'Build failed'));
             } else resolveP();
-          }
+          },
         );
       });
 

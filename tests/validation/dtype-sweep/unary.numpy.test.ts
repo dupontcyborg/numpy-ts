@@ -3,20 +3,20 @@
  * Tests each function across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, beforeAll } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
   checkNumPyAvailable,
-  npDtype,
-  isInt,
-  isComplex,
-  runNumPyBatch,
   expectBothReject,
   expectMatchPre,
+  isComplex,
+  isInt,
+  npDtype,
   pyArrayCast,
+  runNumPyBatch,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -176,7 +176,7 @@ result = _result_orig.astype(${ac})`;
             const _r = expectBothReject(
               `${name} is not supported for boolean dtype`,
               () => fn(a),
-              pyCode
+              pyCode,
             );
             if (_r === 'both-reject') return;
           }
@@ -205,7 +205,7 @@ result = _result_orig.astype(${ac})`;
             const _r = expectBothReject(
               `${name} is not supported for complex dtype`,
               () => fn(a),
-              pyCode
+              pyCode,
             );
             if (_r === 'both-reject') return;
           }
@@ -238,7 +238,7 @@ result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'nextafter is only defined for real floating-point numbers',
           () => np.nextafter(array(data1, dtype), array(data2, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }

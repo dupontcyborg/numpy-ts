@@ -5,28 +5,28 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  clip_f64,
   clip_f32,
-  clip_i64,
-  clip_i32,
-  clip_i16,
+  clip_f64,
   clip_i8,
-  clip_u64,
-  clip_u32,
-  clip_u16,
+  clip_i16,
+  clip_i32,
+  clip_i64,
   clip_u8,
+  clip_u16,
+  clip_u32,
+  clip_u64,
 } from './bins/clip.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -95,7 +95,11 @@ export function wasmClip(a: ArrayStorage, lo: number, hi: number): ArrayStorage 
       dtype,
       f16Region,
       size,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -107,6 +111,10 @@ export function wasmClip(a: ArrayStorage, lo: number, hi: number): ArrayStorage 
     dtype,
     outRegion,
     size,
-    Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }

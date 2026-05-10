@@ -5,20 +5,20 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  square_f64,
-  square_f32,
-  square_i64,
-  square_i32,
-  square_i16,
-  square_i8,
-  square_c128,
-  square_c64,
-} from './bins/square.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { isComplexDType, type DType, type TypedArray } from '../dtype';
+import {
+  square_c64,
+  square_c128,
+  square_f32,
+  square_f64,
+  square_i8,
+  square_i16,
+  square_i32,
+  square_i64,
+} from './bins/square.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -89,7 +89,7 @@ export function wasmSquare(a: ArrayStorage): ArrayStorage | null {
     a.wasmPtr,
     a.offset * complexFactor,
     totalElements,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, outRegion.ptr, size);
@@ -99,6 +99,10 @@ export function wasmSquare(a: ArrayStorage): ArrayStorage | null {
     dtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

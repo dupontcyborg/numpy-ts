@@ -4,36 +4,36 @@
  * Tests: broadcast_to, broadcast_arrays, take, put, choose, array_equal
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  apply_along_axis,
   array,
-  zeros,
-  broadcast_to,
+  array_equal,
   broadcast_arrays,
   broadcast_shapes,
-  take,
-  put,
+  broadcast_to,
   choose,
-  array_equal,
-  fill_diagonal,
   compress,
-  select,
-  take_along_axis,
+  copy,
+  copyto,
+  count_nonzero,
+  extract,
+  fill_diagonal,
+  flatnonzero,
+  may_share_memory,
+  nonzero,
+  partition,
+  place,
+  put,
   put_along_axis,
   putmask,
-  place,
-  copyto,
-  where,
-  extract,
-  count_nonzero,
-  nonzero,
-  flatnonzero,
   searchsorted,
-  apply_along_axis,
-  may_share_memory,
+  select,
   shares_memory,
-  copy,
-  partition,
+  take,
+  take_along_axis,
+  where,
+  zeros,
 } from '../../src';
 
 describe('Advanced Functions', () => {
@@ -484,7 +484,7 @@ describe('Advanced Functions', () => {
           return s;
         },
         1,
-        a
+        a,
       );
       expect(r.toArray()).toEqual([6, 15]);
     });
@@ -525,16 +525,16 @@ describe('Advanced Functions', () => {
 import {
   diag_indices,
   diag_indices_from,
+  indices,
+  ix_,
+  mask_indices,
+  ravel_multi_index,
+  tril,
   tril_indices,
   tril_indices_from,
   triu_indices,
   triu_indices_from,
-  mask_indices,
-  indices,
-  ix_,
-  ravel_multi_index,
   unravel_index,
-  tril,
 } from '../../src';
 
 describe('Indexing Functions', () => {

@@ -6,12 +6,11 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { svd_f32, svd_f64, svd_values_gk_f64 } from './bins/svd.wasm';
-import { wasmMalloc, resetScratchAllocator, getSharedMemory } from './runtime';
-import { ArrayStorage } from '../storage';
 import { isComplexDType, type TypedArray } from '../dtype';
-
+import { ArrayStorage } from '../storage';
+import { svd_f32, svd_f64, svd_values_gk_f64 } from './bins/svd.wasm';
 import { wasmConfig } from './config';
+import { getSharedMemory, resetScratchAllocator, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 4; // Minimum matrix dimension for WASM (SVD is O(n³), worth it even for small)
 
@@ -20,7 +19,7 @@ const BASE_THRESHOLD = 4; // Minimum matrix dimension for WASM (SVD is O(n³), w
  * Returns { u: ArrayStorage, s: ArrayStorage, vt: ArrayStorage } or null.
  */
 export function wasmSvd(
-  a: ArrayStorage
+  a: ArrayStorage,
 ): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } | null {
   if (a.ndim !== 2) return null;
 
@@ -123,7 +122,7 @@ export function wasmSvd(
   const OutCtor = (useF32 ? Float32Array : Float64Array) as unknown as new (
     buffer: ArrayBuffer,
     byteOffset: number,
-    length: number
+    length: number,
   ) => TypedArray;
 
   const uStorage = ArrayStorage.fromWasmRegion([m, m], outDtype, uRegion, uSize, OutCtor);
@@ -193,7 +192,7 @@ export function wasmSvdValues(a: ArrayStorage): ArrayStorage | null {
   const F64Ctor = Float64Array as unknown as new (
     buffer: ArrayBuffer,
     byteOffset: number,
-    length: number
+    length: number,
   ) => TypedArray;
 
   return ArrayStorage.fromWasmRegion([k], 'float64', sRegion, k, F64Ctor);

@@ -5,33 +5,32 @@
  * @module ops/linalg
  */
 
-import { ArrayStorage } from '../storage';
+import { Complex } from '../complex';
 import {
-  promoteDTypes,
-  isComplexDType,
-  isBigIntDType,
-  hasFloat16,
   type DType,
+  hasFloat16,
+  isBigIntDType,
+  isComplexDType,
+  promoteDTypes,
   type TypedArray,
 } from '../dtype';
-import { Complex } from '../complex';
-import { conj as conjStorage } from './complex';
-import { wasmMatmul } from '../wasm/matmul';
-import { wasmSvdValues } from '../wasm/svd';
-import { wasmVectorNorm2 } from '../wasm/vector_norm';
-import { wasmInner } from '../wasm/inner';
-import { wasmDot1D } from '../wasm/dot';
-import { wasmMatvec } from '../wasm/matvec';
-import { wasmVecmat } from '../wasm/vecmat';
-import { wasmLuFactor, wasmLuInv, wasmLuSolve } from '../wasm/lu';
-import { wasmOuter } from '../wasm/outer';
-import { wasmVecdot } from '../wasm/vecdot';
-import { wasmVdotComplex } from '../wasm/vdot';
-import { wasmKron } from '../wasm/kron';
-import { wasmCross } from '../wasm/cross';
-import { wasmQr } from '../wasm/qr';
+import { ArrayStorage } from '../storage';
 import { wasmCholesky, wasmCholeskyF32 } from '../wasm/cholesky';
-import { wasmSvd } from '../wasm/svd';
+import { wasmCross } from '../wasm/cross';
+import { wasmDot1D } from '../wasm/dot';
+import { wasmInner } from '../wasm/inner';
+import { wasmKron } from '../wasm/kron';
+import { wasmLuFactor, wasmLuInv, wasmLuSolve } from '../wasm/lu';
+import { wasmMatmul } from '../wasm/matmul';
+import { wasmMatvec } from '../wasm/matvec';
+import { wasmOuter } from '../wasm/outer';
+import { wasmQr } from '../wasm/qr';
+import { wasmSvd, wasmSvdValues } from '../wasm/svd';
+import { wasmVdotComplex } from '../wasm/vdot';
+import { wasmVecdot } from '../wasm/vecdot';
+import { wasmVecmat } from '../wasm/vecmat';
+import { wasmVectorNorm2 } from '../wasm/vector_norm';
+import { conj as conjStorage } from './complex';
 import * as shapeOps from './shape';
 
 /** Match NumPy: reject float16 for linalg decomposition/solve ops. */
@@ -96,7 +95,7 @@ function realPart(val: number | bigint | Complex): number {
  */
 function multiplyValues(
   a: number | bigint | Complex,
-  b: number | bigint | Complex
+  b: number | bigint | Complex,
 ): number | bigint | Complex {
   if (a instanceof Complex || b instanceof Complex) {
     const aComplex = a instanceof Complex ? a : new Complex(Number(a), 0);
@@ -123,7 +122,7 @@ function dotContiguousNumeric(
   bOuterSize: number,
   bLastDim: number,
   contractionDim: number,
-  resultData: TypedArray
+  resultData: TypedArray,
 ): void {
   for (let i = 0; i < aOuterSize; i++) {
     for (let j = 0; j < bOuterSize; j++) {
@@ -155,7 +154,7 @@ function innerContiguousNumeric(
   bOuterSize: number,
   bDim: number,
   contractionDim: number,
-  resultData: TypedArray
+  resultData: TypedArray,
 ): void {
   for (let i = 0; i < aOuterSize; i++) {
     for (let j = 0; j < bOuterSize; j++) {
@@ -198,7 +197,7 @@ function dgemm(
   B: Float64Array, // matrix B
   ldb: number, // leading dimension of B
   C: Float64Array, // matrix C (output)
-  ldc: number // leading dimension of C
+  ldc: number, // leading dimension of C
 ): void {
   // Zero out result matrix
   for (let i = 0; i < M * N; i++) {
@@ -691,7 +690,7 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
 
     if (lastDimA !== secondLastDimB) {
       throw new Error(
-        `dot: incompatible shapes ${JSON.stringify(a.shape)} and ${JSON.stringify(b.shape)}`
+        `dot: incompatible shapes ${JSON.stringify(a.shape)} and ${JSON.stringify(b.shape)}`,
       );
     }
 
@@ -762,7 +761,7 @@ export function dot(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number | b
           bOuterSize,
           bLastDim,
           contractionDim,
-          result.data
+          result.data,
         );
       } else {
         // General fallback: non-contiguous or bigint arrays
@@ -965,7 +964,7 @@ function broadcastBatchShapes(shapeA: number[], shapeB: number[]): number[] {
     const bi = shapeB[shapeB.length - ndim + i] ?? 1;
     if (ai !== bi && ai !== 1 && bi !== 1) {
       throw new Error(
-        `matmul: cannot broadcast batch shapes ${JSON.stringify(shapeA)} and ${JSON.stringify(shapeB)}`
+        `matmul: cannot broadcast batch shapes ${JSON.stringify(shapeA)} and ${JSON.stringify(shapeB)}`,
       );
     }
     result[i] = Math.max(ai, bi);
@@ -1022,7 +1021,7 @@ function extract2DSlice(
   a: ArrayStorage,
   batchIdx: number,
   rows: number,
-  cols: number
+  cols: number,
 ): ArrayStorage {
   const ndim = a.ndim;
   const sliceSize = rows * cols;
@@ -1126,7 +1125,7 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   // JS fallback
   if (a.ndim === 0 || b.ndim === 0) {
     throw new Error(
-      `matmul: Input operand does not have enough dimensions (has 0, gufunc core with signature (n?,k),(k,m?)->(n?,m?) requires at least 1-D)`
+      `matmul: Input operand does not have enough dimensions (has 0, gufunc core with signature (n?,k),(k,m?)->(n?,m?) requires at least 1-D)`,
     );
   }
 
@@ -1146,7 +1145,7 @@ export function matmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 
   if (K !== K2) {
     throw new Error(
-      `matmul: shape mismatch: (...,${M},${K}) @ (...,${K2},${N}): inner dimensions must match`
+      `matmul: shape mismatch: (...,${M},${K}) @ (...,${K2},${N}): inner dimensions must match`,
     );
   }
 
@@ -1223,7 +1222,7 @@ export function trace(
   a: ArrayStorage,
   offset: number = 0,
   axis1: number = 0,
-  axis2: number = 1
+  axis2: number = 1,
 ): ArrayStorage | number | bigint | Complex {
   if (a.ndim < 2) {
     throw new Error(`trace requires at least 2D array, got ${a.ndim}D`);
@@ -1405,7 +1404,7 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
 
   if (aLastDim !== bLastDim) {
     throw new Error(
-      `inner: incompatible shapes - last dimensions ${aLastDim} and ${bLastDim} don't match`
+      `inner: incompatible shapes - last dimensions ${aLastDim} and ${bLastDim} don't match`,
     );
   }
 
@@ -1520,7 +1519,7 @@ export function inner(a: ArrayStorage, b: ArrayStorage): ArrayStorage | number |
         bOuterSize,
         bDim,
         contractionDim,
-        result.data
+        result.data,
       );
     } else {
       // General fallback: non-contiguous or bigint arrays
@@ -1599,10 +1598,10 @@ export function outer(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   // Float16Array optimization: bulk-convert inputs to Float32Array for faster per-element access
   if (resultDtype === 'float16' && hasFloat16 && aFlat.isCContiguous && bFlat.isCContiguous) {
     const f32A = new Float32Array(
-      (aFlat.data as Float16Array).subarray(aFlat.offset, aFlat.offset + m)
+      (aFlat.data as Float16Array).subarray(aFlat.offset, aFlat.offset + m),
     );
     const f32B = new Float32Array(
-      (bFlat.data as Float16Array).subarray(bFlat.offset, bFlat.offset + n)
+      (bFlat.data as Float16Array).subarray(bFlat.offset, bFlat.offset + n),
     );
     const f32Out = new Float32Array(m * n);
     for (let i = 0; i < m; i++) {
@@ -1646,7 +1645,7 @@ export function outer(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 export function tensordot(
   a: ArrayStorage,
   b: ArrayStorage,
-  axes: number | [number[], number[]]
+  axes: number | [number[], number[]],
 ): ArrayStorage | number | bigint | Complex {
   let aAxes: number[];
   let bAxes: number[];
@@ -1681,7 +1680,7 @@ export function tensordot(
     }
     if (a.shape[aAxis] !== b.shape[bAxis]) {
       throw new Error(
-        `tensordot: shape mismatch on axes ${aAxis} and ${bAxis}: ${a.shape[aAxis]} != ${b.shape[bAxis]}`
+        `tensordot: shape mismatch on axes ${aAxis} and ${bAxis}: ${a.shape[aAxis]} != ${b.shape[bAxis]}`,
       );
     }
   }
@@ -1873,7 +1872,7 @@ export function diagonal(
   a: ArrayStorage,
   offset: number = 0,
   axis1: number = 0,
-  axis2: number = 1
+  axis2: number = 1,
 ): ArrayStorage {
   const shape = a.shape;
   const ndim = shape.length;
@@ -1925,7 +1924,7 @@ export function diagonal(
       a.dtype,
       [diagStride],
       startOffset,
-      a.wasmRegion
+      a.wasmRegion,
     );
   }
 
@@ -2005,7 +2004,7 @@ export function einsum(
 
   if (operandSubscripts.length !== operands.length) {
     throw new Error(
-      `einsum: expected ${operandSubscripts.length} operands, got ${operands.length}`
+      `einsum: expected ${operandSubscripts.length} operands, got ${operands.length}`,
     );
   }
 
@@ -2018,7 +2017,7 @@ export function einsum(
 
     if (sub.length !== op.ndim) {
       throw new Error(
-        `einsum: operand ${i} has ${op.ndim} dimensions but subscript '${sub}' has ${sub.length} indices`
+        `einsum: operand ${i} has ${op.ndim} dimensions but subscript '${sub}' has ${sub.length} indices`,
       );
     }
 
@@ -2029,7 +2028,7 @@ export function einsum(
       if (indexDims.has(idx)) {
         if (indexDims.get(idx) !== dim) {
           throw new Error(
-            `einsum: size mismatch for index '${idx}': ${indexDims.get(idx)} vs ${dim}`
+            `einsum: size mismatch for index '${idx}': ${indexDims.get(idx)} vs ${dim}`,
           );
         }
       } else {
@@ -2257,7 +2256,7 @@ function computeEinsumScalar(
   operands: ArrayStorage[],
   operandSubscripts: string[],
   sumIndices: string[],
-  indexDims: Map<string, number>
+  indexDims: Map<string, number>,
 ): number | Complex {
   // Check if any operand is complex
   let resultIsComplex = false;
@@ -2482,11 +2481,11 @@ export function cross(
   axisa: number = -1,
   axisb: number = -1,
   axisc: number = -1,
-  axis?: number
+  axis?: number,
 ): ArrayStorage | number | bigint | Complex {
   if (a.dtype === 'bool' || b.dtype === 'bool') {
     throw new TypeError(
-      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`
+      `ufunc 'subtract' not supported for boolean dtype. The '-' operator is not supported for booleans, use 'bitwise_xor' instead.`,
     );
   }
   // If axis is specified, use it for all
@@ -2607,7 +2606,7 @@ export function cross(
 
   if ((vectorDimA !== 2 && vectorDimA !== 3) || (vectorDimB !== 2 && vectorDimB !== 3)) {
     throw new Error(
-      `cross: incompatible dimensions for cross product: ${vectorDimA} and ${vectorDimB}`
+      `cross: incompatible dimensions for cross product: ${vectorDimA} and ${vectorDimB}`,
     );
   }
 
@@ -2751,7 +2750,7 @@ export function vector_norm(
   x: ArrayStorage,
   ord: number | 'fro' | 'nuc' = 2,
   axis?: number | null,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   // Handle numeric ord only for vector norm
   if (typeof ord !== 'number') {
@@ -2804,9 +2803,9 @@ export function vector_norm(
     } else {
       result = 0;
       for (let i = 0; i < n; i++) {
-        result += Math.pow(absValue(flat.get(i)), ord);
+        result += absValue(flat.get(i)) ** ord;
       }
-      result = Math.pow(result, 1 / ord);
+      result = result ** (1 / ord);
     }
 
     if (keepdims) {
@@ -2892,9 +2891,9 @@ export function vector_norm(
       normVal = 0;
       for (let i = 0; i < axisLen; i++) {
         inIndices[ax] = i;
-        normVal += Math.pow(Math.abs(Number(x.get(...inIndices))), ord);
+        normVal += Math.abs(Number(x.get(...inIndices))) ** ord;
       }
-      normVal = Math.pow(normVal, 1 / ord);
+      normVal = normVal ** (1 / ord);
     }
 
     result.set(outIndices, normVal);
@@ -2922,7 +2921,7 @@ export function vector_norm(
 export function matrix_norm(
   x: ArrayStorage,
   ord: number | 'fro' | 'nuc' = 'fro',
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   if (x.ndim < 2) {
     throw new Error(`matrix_norm: input must be at least 2D, got ${x.ndim}D`);
@@ -3041,7 +3040,7 @@ export function norm(
   x: ArrayStorage,
   ord: number | 'fro' | 'nuc' | null = null,
   axis: number | [number, number] | null = null,
-  keepdims: boolean = false
+  keepdims: boolean = false,
 ): ArrayStorage | number {
   // Determine default ord based on axis
   if (ord === null) {
@@ -3072,7 +3071,7 @@ export function norm(
     // ND batch: compute matrix norm along ax0/ax1 for each batch element
     const ndim = x.ndim;
     const batchAxes = Array.from({ length: ndim }, (_, i) => i).filter(
-      (i) => i !== ax0 && i !== ax1
+      (i) => i !== ax0 && i !== ax1,
     );
     const batchShape = batchAxes.map((i) => x.shape[i]!);
     const batchSize = batchShape.reduce((a, b) => a * b, 1) || 1;
@@ -3135,7 +3134,7 @@ export function norm(
  */
 export function qr(
   a: ArrayStorage,
-  mode: 'reduced' | 'complete' | 'r' | 'raw' = 'reduced'
+  mode: 'reduced' | 'complete' | 'r' | 'raw' = 'reduced',
 ): { q: ArrayStorage; r: ArrayStorage } | ArrayStorage | { h: ArrayStorage; tau: ArrayStorage } {
   throwIfFloat16(a.dtype);
   if (a.ndim > 2) {
@@ -3672,7 +3671,7 @@ function eigSymmetric(a: ArrayStorage): { values: number[]; vectors: number[][] 
 export function svd(
   a: ArrayStorage,
   full_matrices: boolean = true,
-  compute_uv: boolean = true
+  compute_uv: boolean = true,
 ): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } | ArrayStorage {
   throwIfFloat16(a.dtype);
   // Batch mode: iterate over leading dims
@@ -3992,7 +3991,7 @@ function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; si
 function luDecompositionComplex(
   a: ArrayStorage,
   size: number,
-  cols: number
+  cols: number,
 ): { lu: ArrayStorage; piv: number[]; sign: number } {
   // Use complex128 for the LU result
   const lu = ArrayStorage.zeros([size, cols], 'complex128');
@@ -4462,10 +4461,10 @@ export function solve(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
             ? b
             : ArrayStorage.fromData(
                 new (workDtype === 'float32' ? Float32Array : Float64Array)(
-                  Array.from({ length: size }, (_, i) => Number(b.iget(i)))
+                  Array.from({ length: size }, (_, i) => Number(b.iget(i))),
                 ),
                 [size],
-                workDtype
+                workDtype,
               );
         const result = wasmLuSolve(wasmLu, wasmPiv, bConverted, workDtype);
         wasmLu.dispose();
@@ -4477,7 +4476,7 @@ export function solve(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
         if (b.shape[0] !== size) {
           wasmLu.dispose();
           throw new Error(
-            `solve: incompatible shapes (${m},${n}) and (${b.shape[0]},${b.shape[1]})`
+            `solve: incompatible shapes (${m},${n}) and (${b.shape[0]},${b.shape[1]})`,
           );
         }
         const k = b.shape[1]!;
@@ -4559,7 +4558,7 @@ export function solve(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 export function lstsq(
   a: ArrayStorage,
   b: ArrayStorage,
-  rcond: number | null = null
+  rcond: number | null = null,
 ): { x: ArrayStorage; residuals: ArrayStorage; rank: number; s: ArrayStorage } {
   throwIfFloat16(a.dtype);
   if (a.ndim !== 2) {
@@ -4618,7 +4617,7 @@ export function lstsq(
 
     // x = (V @ S^+) @ (U^T @ b) via two WASM matmuls
     const utb = wasmMatmul(ut, b2D) ?? matmul2D(ut, b2D); // k × nrhs
-    let x: ArrayStorage = wasmMatmul(vsInv, utb) ?? matmul2D(vsInv, utb); // n × nrhs
+    const x: ArrayStorage = wasmMatmul(vsInv, utb) ?? matmul2D(vsInv, utb); // n × nrhs
     vsInv.dispose();
     ut.dispose();
     utb.dispose();
@@ -4983,11 +4982,11 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
 
   // Check if symmetric (or Hermitian for complex)
   let isSymmetric = true;
-  outer: for (let i = 0; i < size; i++) {
+  outerLoop: for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
       if (Math.abs(realPart(a.get(i, j)) - realPart(a.get(j, i))) > 1e-10) {
         isSymmetric = false;
-        break outer;
+        break outerLoop;
       }
     }
   }
@@ -5019,7 +5018,7 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
     console.warn(
       'numpy-ts: eig() detected complex eigenvalues which cannot be represented. ' +
         'Results are real approximations and may be inaccurate. ' +
-        'For symmetric matrices, use eigh() instead.'
+        'For symmetric matrices, use eigh() instead.',
     );
   }
 
@@ -5282,7 +5281,7 @@ function vdotImpl(
   aFlat: ArrayStorage,
   bFlat: ArrayStorage,
   aDtype: DType,
-  bDtype: DType
+  bDtype: DType,
 ): number | bigint | Complex {
   const aSize = aFlat.shape[0]!;
   const bSize = bFlat.shape[0]!;
@@ -5382,7 +5381,7 @@ function vdotImpl(
 export function vecdot(
   a: ArrayStorage,
   b: ArrayStorage,
-  axis: number = -1
+  axis: number = -1,
 ): ArrayStorage | number | bigint | Complex {
   const aDim = a.ndim;
   const bDim = b.ndim;
@@ -5633,7 +5632,7 @@ export function matvec(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
     const d2 = paddedX2[i]!;
     if (d1 !== 1 && d2 !== 1 && d1 !== d2) {
       throw new Error(
-        `matvec: batch dimensions not broadcastable: ${batchShapeX1} vs ${batchShapeX2}`
+        `matvec: batch dimensions not broadcastable: ${batchShapeX1} vs ${batchShapeX2}`,
       );
     }
     batchShape.push(Math.max(d1, d2));
@@ -5752,7 +5751,7 @@ export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
     const d2 = paddedX2[i]!;
     if (d1 !== 1 && d2 !== 1 && d1 !== d2) {
       throw new Error(
-        `vecmat: batch dimensions not broadcastable: ${batchShapeX1} vs ${batchShapeX2}`
+        `vecmat: batch dimensions not broadcastable: ${batchShapeX1} vs ${batchShapeX2}`,
       );
     }
     batchShape.push(Math.max(d1, d2));
@@ -6070,7 +6069,7 @@ export function tensorinv(a: ArrayStorage, ind: number = 2): ArrayStorage {
 
   if (prodA !== prodB) {
     throw new Error(
-      `tensorinv: product of first ${ind} dimensions (${prodA}) must equal product of remaining dimensions (${prodB})`
+      `tensorinv: product of first ${ind} dimensions (${prodA}) must equal product of remaining dimensions (${prodB})`,
     );
   }
 
@@ -6096,7 +6095,7 @@ export function tensorinv(a: ArrayStorage, ind: number = 2): ArrayStorage {
 export function tensorsolve(
   a: ArrayStorage,
   b: ArrayStorage,
-  axes?: number[] | null
+  axes?: number[] | null,
 ): ArrayStorage {
   throwIfFloat16(a.dtype);
   const aShape = a.shape;
@@ -6132,12 +6131,12 @@ export function tensorsolve(
   const bProd = bShape.reduce((acc, d) => acc * d, 1);
   if (sumProd !== bProd) {
     throw new Error(
-      `tensorsolve: dimensions don't match - sum dimensions product (${sumProd}) != b total elements (${bProd})`
+      `tensorsolve: dimensions don't match - sum dimensions product (${sumProd}) != b total elements (${bProd})`,
     );
   }
   if (otherProd !== sumProd) {
     throw new Error(
-      `tensorsolve: non-square problem - other dimensions product (${otherProd}) != sum dimensions product (${sumProd})`
+      `tensorsolve: non-square problem - other dimensions product (${otherProd}) != sum dimensions product (${sumProd})`,
     );
   }
 
@@ -6192,7 +6191,7 @@ export function einsum_path(
 
   if (operandSubscripts.length !== operands.length) {
     throw new Error(
-      `einsum_path: expected ${operandSubscripts.length} operands, got ${operands.length}`
+      `einsum_path: expected ${operandSubscripts.length} operands, got ${operands.length}`,
     );
   }
 
@@ -6212,7 +6211,7 @@ export function einsum_path(
 
     if (sub.length !== shape.length) {
       throw new Error(
-        `einsum_path: operand ${i} has ${shape.length} dimensions but subscript '${sub}' has ${sub.length} indices`
+        `einsum_path: operand ${i} has ${shape.length} dimensions but subscript '${sub}' has ${sub.length} indices`,
       );
     }
 
@@ -6221,7 +6220,7 @@ export function einsum_path(
       const dim = shape[j]!;
       if (indexDims.has(idx) && indexDims.get(idx) !== dim) {
         throw new Error(
-          `einsum_path: size mismatch for index '${idx}': ${indexDims.get(idx)} vs ${dim}`
+          `einsum_path: size mismatch for index '${idx}': ${indexDims.get(idx)} vs ${dim}`,
         );
       }
       indexDims.set(idx, dim);
@@ -6260,7 +6259,7 @@ export function einsum_path(
           currentShapes[i]!,
           currentShapes[j]!,
           outputSubscript,
-          indexDims
+          indexDims,
         );
 
         if (cost < bestCost) {
@@ -6281,7 +6280,7 @@ export function einsum_path(
       currentShapes[bestI]!,
       currentShapes[bestJ]!,
       outputSubscript,
-      indexDims
+      indexDims,
     );
 
     // Update arrays (remove j first since j > i)
@@ -6311,7 +6310,7 @@ function estimateContractionCost(
   _shape1: number[],
   _shape2: number[],
   _outputSubscript: string,
-  indexDims: Map<string, number>
+  indexDims: Map<string, number>,
 ): number {
   // Find indices that will be summed over (in both operands but not in output)
   const indices1 = new Set(sub1);
@@ -6342,7 +6341,7 @@ function computeContractionResult(
   _shape1: number[],
   _shape2: number[],
   outputSubscript: string,
-  indexDims: Map<string, number>
+  indexDims: Map<string, number>,
 ): [string, number[]] {
   // Find all indices in both operands
   const allIndices = new Set([...sub1, ...sub2]);
@@ -6384,7 +6383,7 @@ function buildPathInfo(
   subscripts: string,
   shapes: number[][],
   path: Array<[number, number] | number[]>,
-  _indexDims: Map<string, number>
+  _indexDims: Map<string, number>,
 ): string {
   const lines: string[] = [];
 

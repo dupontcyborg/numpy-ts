@@ -2,8 +2,8 @@
  * Unit tests for dtype support
  */
 
-import { describe, it, expect } from 'vitest';
-import { zeros, ones, array, arange, linspace, eye } from '../../src';
+import { describe, expect, it } from 'vitest';
+import { arange, array, eye, linspace, ones, zeros } from '../../src';
 
 describe('DType Support', () => {
   describe('Array creation with dtype', () => {

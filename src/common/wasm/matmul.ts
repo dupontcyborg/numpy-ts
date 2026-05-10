@@ -9,32 +9,33 @@
  * dispatching each 2D slice to WASM.
  */
 
-import * as floatBase from './bins/matmul_float.wasm';
-import * as floatRelaxed from './bins/matmul_float-relaxed.wasm';
-import { matmul_i64, matmul_i32, matmul_i16, matmul_i8 } from './bins/matmul_int.wasm';
-import { useRelaxedKernels } from './detect';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveTypedArrayPtr,
-  scratchAlloc,
-  f32OutputToF16Region,
-} from './runtime';
-import { ArrayStorage } from '../storage';
-import {
+  type DType,
   effectiveDType,
   isComplexDType,
   promoteDTypes,
-  type DType,
   type TypedArray,
 } from '../dtype';
+import { ArrayStorage } from '../storage';
+import * as floatBase from './bins/matmul_float.wasm';
+import * as floatRelaxed from './bins/matmul_float-relaxed.wasm';
+import { matmul_i8, matmul_i16, matmul_i32, matmul_i64 } from './bins/matmul_int.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
+import {
+  f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveTypedArrayPtr,
+  scratchAlloc,
+  wasmMalloc,
+} from './runtime';
 
 // Resolve float kernel module once — relaxed if supported, baseline otherwise.
 // Safe: .wasm.ts modules use lazy init(), importing doesn't instantiate.
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 // Minimum total elements (M*K + K*N) for WASM to be worth the copy overhead.
@@ -46,7 +47,7 @@ type WasmMatmulFn = (
   cPtr: number,
   M: number,
   N: number,
-  K: number
+  K: number,
 ) => void;
 
 type WasmComplexMatmulFn = (
@@ -56,7 +57,7 @@ type WasmComplexMatmulFn = (
   M: number,
   N: number,
   K: number,
-  scratchPtr: number
+  scratchPtr: number,
 ) => void;
 
 // Dtype -> WASM kernel function
@@ -121,7 +122,7 @@ function wasmMatmul2DInto(
   outPtr: number,
   M: number,
   K: number,
-  N: number
+  N: number,
 ): void {
   resetScratchAllocator();
   const aPtr = resolveTypedArrayPtr(aData);
@@ -141,7 +142,7 @@ function wasmMatmul2DComplexInto(
   outPtr: number,
   M: number,
   K: number,
-  N: number
+  N: number,
 ): void {
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const scratchElements = 2 * M * K + 2 * K * N + 3 * M * N;
@@ -249,7 +250,11 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
         workDtype,
         f16Region,
         outElements,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -264,7 +269,11 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
       workDtype,
       outRegion,
       outElements,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray,
     );
 
     // For scalar/1D results, reshape
@@ -322,7 +331,11 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
       workDtype,
       f16Region,
       totalOut,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
     if (aWas1D && bWas1D) return reshapeStorage(result, [...batchShape]);
     if (aWas1D) return reshapeStorage(result, [...batchShape, N]);
@@ -335,7 +348,11 @@ export function wasmMatmul(a: ArrayStorage, b: ArrayStorage): ArrayStorage | nul
     workDtype,
     outRegion,
     totalOut,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 
   if (aWas1D && bWas1D) return reshapeStorage(result, [...batchShape]);
@@ -384,7 +401,7 @@ function reshapeStorage(storage: ArrayStorage, newShape: number[]): ArrayStorage
     storage.dtype,
     strides,
     0,
-    storage.wasmRegion
+    storage.wasmRegion,
   );
 }
 

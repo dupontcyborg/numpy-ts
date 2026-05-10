@@ -3,7 +3,7 @@
  */
 
 import { describe, it } from 'vitest';
-import { WASM_MODES, ALL_DTYPES, compareReduction, setupWasmMode } from './_helpers';
+import { ALL_DTYPES, compareReduction, setupWasmMode, WASM_MODES } from './_helpers';
 
 for (const mode of WASM_MODES) {
   describe(`NumPy Validation: all/any [${mode.name}]`, () => {

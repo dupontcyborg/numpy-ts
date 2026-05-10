@@ -10,7 +10,7 @@
  * Note: For comprehensive NumPy API compatibility, see tests/validation/exports.numpy.test.ts
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as np from '../../src/index';
 
 describe('API Exports - TypeScript Contracts', () => {
@@ -56,7 +56,7 @@ describe('API Exports - TypeScript Contracts', () => {
         np.array([
           [1, 2],
           [3, 4],
-        ])
+        ]),
       ).not.toThrow();
       expect(() => np.array([1, 2, 3])).not.toThrow();
     });
@@ -217,7 +217,7 @@ describe('API Exports - TypeScript Contracts', () => {
             [1, 2],
             [3, 4],
           ])
-          .toArray()
+          .toArray(),
       ).not.toThrow();
       expect(() => np.array([[[1]]]).toArray()).not.toThrow();
     });

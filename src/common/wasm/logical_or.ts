@@ -6,26 +6,26 @@
  * Output is always bool (Uint8Array). Returns null if WASM can't handle.
  */
 
-import {
-  logical_or_f64,
-  logical_or_f32,
-  logical_or_i64,
-  logical_or_i32,
-  logical_or_i16,
-  logical_or_i8,
-  logical_or_scalar_f64,
-  logical_or_scalar_f32,
-  logical_or_scalar_i64,
-  logical_or_scalar_i32,
-  logical_or_scalar_i16,
-  logical_or_scalar_i8,
-  logical_or_f16,
-  logical_or_scalar_f16,
-} from './bins/logical_or.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, hasFloat16, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { hasFloat16, type DType, type TypedArray } from '../dtype';
+import {
+  logical_or_f16,
+  logical_or_f32,
+  logical_or_f64,
+  logical_or_i8,
+  logical_or_i16,
+  logical_or_i32,
+  logical_or_i64,
+  logical_or_scalar_f16,
+  logical_or_scalar_f32,
+  logical_or_scalar_f64,
+  logical_or_scalar_i8,
+  logical_or_scalar_i16,
+  logical_or_scalar_i32,
+  logical_or_scalar_i64,
+} from './bins/logical_or.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -122,8 +122,8 @@ export function wasmLogicalOr(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }
 
@@ -167,7 +167,7 @@ export function wasmLogicalOrScalar(a: ArrayStorage, scalar: number): ArrayStora
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

@@ -78,7 +78,7 @@ export function reduce_argmin_strided_f64(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_f64'] as (...args: number[]) => void)(
@@ -86,7 +86,7 @@ export function reduce_argmin_strided_f64(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -95,7 +95,7 @@ export function reduce_argmin_strided_f32(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_f32'] as (...args: number[]) => void)(
@@ -103,7 +103,7 @@ export function reduce_argmin_strided_f32(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -112,7 +112,7 @@ export function reduce_argmin_strided_i32(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_i32'] as (...args: number[]) => void)(
@@ -120,7 +120,7 @@ export function reduce_argmin_strided_i32(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -129,7 +129,7 @@ export function reduce_argmin_strided_u32(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_u32'] as (...args: number[]) => void)(
@@ -137,7 +137,7 @@ export function reduce_argmin_strided_u32(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -146,7 +146,7 @@ export function reduce_argmin_strided_i16(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_i16'] as (...args: number[]) => void)(
@@ -154,7 +154,7 @@ export function reduce_argmin_strided_i16(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -163,7 +163,7 @@ export function reduce_argmin_strided_u16(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_u16'] as (...args: number[]) => void)(
@@ -171,7 +171,7 @@ export function reduce_argmin_strided_u16(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -180,7 +180,7 @@ export function reduce_argmin_strided_i8(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_i8'] as (...args: number[]) => void)(
@@ -188,7 +188,7 @@ export function reduce_argmin_strided_i8(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }
 
@@ -197,7 +197,7 @@ export function reduce_argmin_strided_u8(
   out: number,
   outer: number,
   axis: number,
-  inner: number
+  inner: number,
 ): void {
   const i = init();
   (i.exports['reduce_argmin_strided_u8'] as (...args: number[]) => void)(
@@ -205,6 +205,6 @@ export function reduce_argmin_strided_u8(
     out,
     outer,
     axis,
-    inner
+    inner,
   );
 }

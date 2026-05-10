@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { mkdir } from 'fs/promises';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   ALL_FIXTURES,
+  type BundleResult,
+  buildWithWebpack,
+  logBundleSizes,
   OUTPUT_DIR,
   THRESHOLDS,
-  BundleResult,
-  logBundleSizes,
-  buildWithWebpack,
 } from './shared';
-import { resolve } from 'path';
 
 const results = new Map<string, BundleResult>();
 
@@ -23,7 +23,7 @@ describe('Webpack tree-shaking', () => {
         const result = await buildWithWebpack(fixture.name);
         results.set(fixture.name, result);
         return result;
-      })
+      }),
     );
     for (const result of builds) {
       expect(result.success, `${result.fixture} should build: ${result.error}`).toBe(true);
@@ -50,7 +50,7 @@ describe('Webpack tree-shaking', () => {
       if (!r?.success) continue;
       const pct = (r.minifiedSize / fullSize) * 100;
       expect(pct, `${name} is ${pct.toFixed(1)}% of full (threshold: ${threshold}%)`).toBeLessThan(
-        threshold
+        threshold,
       );
     }
   });

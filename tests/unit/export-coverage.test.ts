@@ -6,9 +6,9 @@
  * NDArray class and namespace objects).
  */
 
-import { describe, it, expect } from 'vitest';
-import * as main from '../../src/index';
+import { describe, expect, it } from 'vitest';
 import * as core from '../../src/core';
+import * as main from '../../src/index';
 
 describe('Export Coverage', () => {
   // Exports that are intentionally different between main and core
@@ -106,14 +106,16 @@ describe('Export Coverage', () => {
       console.log('None! Core has full coverage.');
     } else {
       console.log(`Missing ${missingInStandalone.length} exports:`);
-      missingInStandalone.sort().forEach((exp) => console.log(`  - ${exp}`));
+      missingInStandalone.sort().forEach((exp) => {
+        console.log(`  - ${exp}`);
+      });
     }
 
     // This is the actual test - core should export everything main does
     // (except intentional exclusions)
     expect(
       missingInStandalone,
-      `Core is missing these exports: ${missingInStandalone.join(', ')}`
+      `Core is missing these exports: ${missingInStandalone.join(', ')}`,
     ).toEqual([]);
   });
 
@@ -134,7 +136,9 @@ describe('Export Coverage', () => {
       console.log('None.');
     } else {
       console.log(`Extra ${extraInStandalone.length} exports:`);
-      extraInStandalone.sort().forEach((exp) => console.log(`  - ${exp}`));
+      extraInStandalone.sort().forEach((exp) => {
+        console.log(`  - ${exp}`);
+      });
     }
 
     // Extra exports in core are fine (they're aliases), just log them

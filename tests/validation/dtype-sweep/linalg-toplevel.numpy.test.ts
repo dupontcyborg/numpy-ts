@@ -3,21 +3,21 @@
  * Tests across ALL dtypes, validated against NumPy.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   arraysClose,
   checkNumPyAvailable,
-  npDtype,
-  pyScalarCast,
-  pyArrayCast,
-  toComparable,
-  scalarClose,
   expectBothReject,
+  npDtype,
+  pyArrayCast,
+  pyScalarCast,
+  runNumPyBatch,
+  scalarClose,
+  toComparable,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -160,7 +160,7 @@ result = np.cross(a, b).astype(np.float64)`;
         const _r = expectBothReject(
           'cross uses subtract internally, not supported for bool',
           () => np.cross(array(a, dtype), array(b, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }

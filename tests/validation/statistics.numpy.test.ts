@@ -2,23 +2,23 @@
  * Python NumPy validation tests for statistics operations
  */
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   array,
   bincount,
+  convolve,
+  corrcoef,
+  correlate,
+  cov,
   digitize,
   histogram,
+  histogram_bin_edges,
   histogram2d,
   histogramdd,
-  correlate,
-  convolve,
-  cov,
-  corrcoef,
-  histogram_bin_edges,
   trapezoid,
   wasmConfig,
 } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable } from './numpy-oracle';
+import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 const WASM_MODES = [
   { name: 'default thresholds', multiplier: 1 },
@@ -39,7 +39,7 @@ for (const mode of WASM_MODES) {
             '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
-            '\n'
+            '\n',
         );
       }
     });
@@ -172,7 +172,7 @@ result = hist
         const [jsHist] = histogram2d(
           array([0.5, 1.5, 2.5, 3.5, 4.5]),
           array([0.1, 0.2, 0.3, 0.4, 0.5]),
-          [5, 3]
+          [5, 3],
         );
         const pyResult = runNumPy(`
 hist, xedges, yedges = np.histogram2d(
@@ -207,7 +207,7 @@ result = hist.flatten()
             [1, 0],
             [1, 1],
           ]),
-          2
+          2,
         );
         const pyResult = runNumPy(`
 hist, edges = np.histogramdd(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), bins=2)
@@ -288,7 +288,7 @@ result = np.convolve(np.array([1, 2, 3, 4, 5]), np.array([1, 2, 3]), mode='valid
         const jsResult = correlate(
           array([1, 2, 3], 'float32'),
           array([0, 1, 0.5], 'float32'),
-          'full'
+          'full',
         );
         const pyResult = runNumPy(`
 result = np.correlate(np.array([1, 2, 3], dtype=np.float32), np.array([0, 1, 0.5], dtype=np.float32), mode='full')
@@ -301,7 +301,7 @@ result = np.correlate(np.array([1, 2, 3], dtype=np.float32), np.array([0, 1, 0.5
         const jsResult = correlate(
           array([1, 2, 3, 4, 5], 'float32'),
           array([1, 2, 3], 'float32'),
-          'valid'
+          'valid',
         );
         const pyResult = runNumPy(`
 result = np.correlate(np.array([1, 2, 3, 4, 5], dtype=np.float32), np.array([1, 2, 3], dtype=np.float32), mode='valid')
@@ -316,7 +316,7 @@ result = np.correlate(np.array([1, 2, 3, 4, 5], dtype=np.float32), np.array([1, 
         const jsResult = convolve(
           array([1, 2, 3], 'float32'),
           array([0, 1, 0.5], 'float32'),
-          'full'
+          'full',
         );
         const pyResult = runNumPy(`
 result = np.convolve(np.array([1, 2, 3], dtype=np.float32), np.array([0, 1, 0.5], dtype=np.float32), mode='full')
@@ -329,7 +329,7 @@ result = np.convolve(np.array([1, 2, 3], dtype=np.float32), np.array([0, 1, 0.5]
         const jsResult = convolve(
           array([1, 2, 3, 4, 5], 'float32'),
           array([1, 2, 3], 'float32'),
-          'valid'
+          'valid',
         );
         const pyResult = runNumPy(`
 result = np.convolve(np.array([1, 2, 3, 4, 5], dtype=np.float32), np.array([1, 2, 3], dtype=np.float32), mode='valid')
@@ -358,7 +358,7 @@ result = np.cov(np.array([1, 2, 3, 4, 5]))
           array([
             [0, 1, 2],
             [2, 1, 0],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.cov(np.array([[0, 1, 2], [2, 1, 0]]))
@@ -376,7 +376,7 @@ result = np.cov(np.array([[0, 1, 2], [2, 1, 0]]))
             [2, 0],
           ]),
           undefined,
-          false
+          false,
         );
         const pyResult = runNumPy(`
 result = np.cov(np.array([[0, 2], [1, 1], [2, 0]]), rowvar=False)
@@ -428,7 +428,7 @@ result = np.corrcoef(np.array([1, 2, 3, 4, 5]))
           array([
             [1, 2, 3],
             [3, 2, 1],
-          ])
+          ]),
         );
         const pyResult = runNumPy(`
 result = np.corrcoef(np.array([[1, 2, 3], [3, 2, 1]]))
@@ -456,7 +456,7 @@ result = np.corrcoef(np.array([1, 2, 3, 4, 5]), np.array([2, 4, 6, 8, 10]))
             [2, 0],
           ]),
           undefined,
-          false
+          false,
         );
         const pyResult = runNumPy(`
 result = np.corrcoef(np.array([[0, 2], [1, 1], [2, 0]]), rowvar=False)
@@ -539,14 +539,14 @@ result = np.trapezoid(np.array([0, 1, 4]), x=np.array([0, 1, 2]))
           ]),
           undefined,
           1,
-          1
+          1,
         );
         const pyResult = runNumPy(`
 result = np.trapezoid(np.array([[1, 2, 3, 4], [2, 4, 6, 8]]), axis=1)
         `);
 
         expect(
-          arraysClose((jsResult as { toArray: () => number[] }).toArray(), pyResult.value)
+          arraysClose((jsResult as { toArray: () => number[] }).toArray(), pyResult.value),
         ).toBe(true);
       });
 
@@ -558,14 +558,14 @@ result = np.trapezoid(np.array([[1, 2, 3, 4], [2, 4, 6, 8]]), axis=1)
           ]),
           undefined,
           1,
-          0
+          0,
         );
         const pyResult = runNumPy(`
 result = np.trapezoid(np.array([[1, 2, 3], [4, 5, 6]]), axis=0)
         `);
 
         expect(
-          arraysClose((jsResult as { toArray: () => number[] }).toArray(), pyResult.value)
+          arraysClose((jsResult as { toArray: () => number[] }).toArray(), pyResult.value),
         ).toBe(true);
       });
     });

@@ -16,7 +16,7 @@
  *   vanilla (no transpiler) × Chromium, Firefox
  */
 
-import { describe, test, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 
 let np: any;
 const ITERS = 10;
@@ -54,9 +54,9 @@ describe('vanilla dispose protocol (native using)', () => {
     // Absorb fixed allocator fragmentation from interleaving sizes
     /* eslint-disable @typescript-eslint/no-unused-vars -- using vars exist for dispose side-effect */
     {
-      using a = np.zeros([SIZE]);
-      using b = np.ones([SIZE]);
-      using c = np.arange(SIZE);
+      using _a = np.zeros([SIZE]);
+      using _b = np.ones([SIZE]);
+      using _c = np.arange(SIZE);
     }
     /* eslint-enable @typescript-eslint/no-unused-vars */
 
@@ -80,8 +80,8 @@ describe('vanilla dispose protocol (native using)', () => {
     // Absorb fixed allocator fragmentation
     /* eslint-disable @typescript-eslint/no-unused-vars -- using vars exist for dispose side-effect */
     {
-      using a = np.zeros([SIZE]);
-      using b = np.ones([SIZE]);
+      using _a = np.zeros([SIZE]);
+      using _b = np.ones([SIZE]);
     }
     /* eslint-enable @typescript-eslint/no-unused-vars */
 

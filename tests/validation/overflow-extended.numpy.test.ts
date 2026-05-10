@@ -4,9 +4,9 @@
  * matmul accumulation overflow, and bitwise overflow against NumPy.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import * as np from '../../src/full/index';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { hasFloat16 } from '../../src/common/dtype';
+import * as np from '../../src/full/index';
 import { checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
 /** Extract numeric value from a result that may be NDArray or scalar */
@@ -204,7 +204,7 @@ result = float(np.exp(np.float16(12)))
 
     it('power(2, 1024) overflows to inf in float64', () => {
       expect(np.power(np.array([2], 'float64'), np.array([1024], 'float64')).tolist()[0]).toBe(
-        Infinity
+        Infinity,
       );
     });
 
@@ -402,14 +402,14 @@ result = {'values': r.tolist(), 'dtype': str(r.dtype)}
           [10, 20],
           [30, 40],
         ],
-        'int8'
+        'int8',
       );
       const b = np.array(
         [
           [5, 6],
           [7, 8],
         ],
-        'int8'
+        'int8',
       );
       const r = np.matmul(a, b);
 
@@ -469,7 +469,7 @@ result = int(np.left_shift(np.uint8(128), np.uint8(1)))
 
     it('0 * inf = NaN', () => {
       expect(
-        np.multiply(np.array([0], 'float64'), np.array([Infinity], 'float64')).tolist()[0]
+        np.multiply(np.array([0], 'float64'), np.array([Infinity], 'float64')).tolist()[0],
       ).toBeNaN();
     });
 

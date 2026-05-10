@@ -10,38 +10,38 @@
  *   i32/u32/i64/u64 → f64
  */
 
+import { type DType, effectiveDType, hasFloat16, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
-  logaddexp_f64,
   logaddexp_f32,
-  logaddexp_scalar_f64,
-  logaddexp_scalar_f32,
-  logaddexp_i64,
-  logaddexp_scalar_i64,
-  logaddexp_i32,
-  logaddexp_scalar_i32,
-  logaddexp_i16,
-  logaddexp_scalar_i16,
+  logaddexp_f64,
   logaddexp_i8,
+  logaddexp_i16,
+  logaddexp_i32,
+  logaddexp_i64,
+  logaddexp_scalar_f32,
+  logaddexp_scalar_f64,
   logaddexp_scalar_i8,
-  logaddexp_u64,
-  logaddexp_scalar_u64,
-  logaddexp_u32,
-  logaddexp_scalar_u32,
-  logaddexp_u16,
-  logaddexp_scalar_u16,
-  logaddexp_u8,
+  logaddexp_scalar_i16,
+  logaddexp_scalar_i32,
+  logaddexp_scalar_i64,
   logaddexp_scalar_u8,
+  logaddexp_scalar_u16,
+  logaddexp_scalar_u32,
+  logaddexp_scalar_u64,
+  logaddexp_u8,
+  logaddexp_u16,
+  logaddexp_u32,
+  logaddexp_u64,
 } from './bins/logaddexp.wasm';
+import { wasmConfig } from './config';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, hasFloat16, promoteDTypes, type DType, type TypedArray } from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -158,7 +158,11 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
         dtype,
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -167,7 +171,11 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -196,7 +204,11 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
         'float16',
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -208,8 +220,8 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
       Float32Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -239,8 +251,8 @@ export function wasmLogaddexp(a: ArrayStorage, b: ArrayStorage): ArrayStorage | 
       Float64Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -291,7 +303,11 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
         dtype,
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -300,7 +316,11 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
       dtype,
       outRegion,
       size,
-      Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -328,7 +348,11 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
         'float16',
         f16Region,
         size,
-        Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+        Float16Array as unknown as new (
+          buf: ArrayBuffer,
+          off: number,
+          len: number,
+        ) => TypedArray,
       );
     }
 
@@ -340,8 +364,8 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
       Float32Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 
@@ -370,8 +394,8 @@ export function wasmLogaddexpScalar(a: ArrayStorage, scalar: number): ArrayStora
       Float64Array as unknown as new (
         buffer: ArrayBuffer,
         byteOffset: number,
-        length: number
-      ) => TypedArray
+        length: number,
+      ) => TypedArray,
     );
   }
 

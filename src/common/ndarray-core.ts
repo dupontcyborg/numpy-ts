@@ -8,19 +8,19 @@
  * For the full NDArray with all methods, use ndarray-full.ts
  */
 
-import * as shapeOps from './ops/shape';
+import { Complex } from './complex';
 import {
   type DType,
-  type TypedArray,
-  getTypedArrayConstructor,
   getDTypeSize,
+  getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
   isFloatDType,
+  type TypedArray,
 } from './dtype';
-import { Complex } from './complex';
-import { ArrayStorage } from './storage';
 import { array_str } from './ops/formatting';
+import * as shapeOps from './ops/shape';
+import { ArrayStorage } from './storage';
 
 /**
  * Minimal NDArray class - core functionality without operation methods
@@ -68,7 +68,7 @@ const INT_RANGE: Record<string, [number, number]> = {
 };
 
 function floatToInt(value: number, targetDtype: DType): number {
-  if (isNaN(value)) return 0;
+  if (Number.isNaN(value)) return 0;
 
   // Narrow types (8/16-bit): NumPy converts via int64 then bit-truncates
   if (targetDtype in INT64_MAX_AS) {
@@ -103,7 +103,7 @@ export class NDArrayCore {
     get(target, prop, receiver) {
       if (typeof prop === 'string') {
         const idx = parseInt(prop, 10);
-        if (!isNaN(idx) && String(idx) === prop) {
+        if (!Number.isNaN(idx) && String(idx) === prop) {
           const len = target._storage.ndim > 0 ? target._storage.shape[0]! : 1;
           const normalized = idx < 0 ? len + idx : idx;
           if (target._storage.ndim <= 1) {
@@ -118,7 +118,7 @@ export class NDArrayCore {
     set(target, prop, value, receiver) {
       if (typeof prop === 'string') {
         const idx = parseInt(prop, 10);
-        if (!isNaN(idx) && String(idx) === prop) {
+        if (!Number.isNaN(idx) && String(idx) === prop) {
           const len = target._storage.shape[0]!;
           const normalized = idx < 0 ? len + idx : idx;
           if (target._storage.ndim === 1) {
@@ -141,7 +141,7 @@ export class NDArrayCore {
             const flat = (value as unknown[]).flat(Infinity) as number[];
             if (flat.length !== n) {
               throw new Error(
-                `Cannot assign array of length ${flat.length} into slice of size ${n}`
+                `Cannot assign array of length ${flat.length} into slice of size ${n}`,
               );
             }
             for (let i = 0; i < n; i++) sliceView._storage.iset(i, flat[i]!);
@@ -158,6 +158,7 @@ export class NDArrayCore {
   constructor(storage: ArrayStorage, base?: NDArrayCore) {
     this._storage = storage;
     this._base = base;
+    // biome-ignore lint/correctness/noConstructorReturn: intentional Proxy wrapper for index access
     return new Proxy(this, NDArrayCore._proxyHandler);
   }
 
@@ -286,7 +287,7 @@ export class NDArrayCore {
   get(indices: number[]): number | bigint | Complex {
     if (indices.length !== this.ndim) {
       throw new Error(
-        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`
+        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
       );
     }
 
@@ -297,7 +298,7 @@ export class NDArrayCore {
       }
       if (normalized < 0 || normalized >= this.shape[dim]!) {
         throw new Error(
-          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`
+          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`,
         );
       }
       return normalized;
@@ -312,7 +313,7 @@ export class NDArrayCore {
   set(indices: number[], value: number | bigint | Complex | { re: number; im: number }): void {
     if (indices.length !== this.ndim) {
       throw new Error(
-        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`
+        `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
       );
     }
 
@@ -323,7 +324,7 @@ export class NDArrayCore {
       }
       if (normalized < 0 || normalized >= this.shape[dim]!) {
         throw new Error(
-          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`
+          `Index ${idx} is out of bounds for axis ${dim} with size ${this.shape[dim]}`,
         );
       }
       return normalized;
@@ -425,7 +426,7 @@ export class NDArrayCore {
         const isSigned = dtype === 'int64';
         for (let i = 0; i < size; i++) {
           const v = Math.trunc(oldData[i * 2]!);
-          if (isNaN(v) || (!isSigned && v < 0)) {
+          if (Number.isNaN(v) || (!isSigned && v < 0)) {
             (newData as BigInt64Array | BigUint64Array)[i] = 0n;
           } else {
             (newData as BigInt64Array | BigUint64Array)[i] = BigInt(v);
@@ -439,7 +440,7 @@ export class NDArrayCore {
         // Complex → uint32: NumPy clamps negatives/NaN to 0
         for (let i = 0; i < size; i++) {
           const v = oldData[i * 2]!;
-          (newData as Uint32Array)[i] = isNaN(v) || v < 0 ? 0 : v;
+          (newData as Uint32Array)[i] = Number.isNaN(v) || v < 0 ? 0 : v;
         }
       } else {
         for (let i = 0; i < size; i++) {
@@ -463,7 +464,7 @@ export class NDArrayCore {
       } else {
         for (let i = 0; i < size; i++) {
           (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Number(
-            typedOldData[i]
+            typedOldData[i],
           );
         }
       }
@@ -477,9 +478,9 @@ export class NDArrayCore {
         const minVal = isSigned ? BigInt('-9223372036854775808') : 0n;
         for (let i = 0; i < size; i++) {
           const v = Number(typedOldData[i]);
-          if (isNaN(v)) {
+          if (Number.isNaN(v)) {
             (newData as BigInt64Array | BigUint64Array)[i] = 0n;
-          } else if (!isFinite(v) || v >= Number(maxVal)) {
+          } else if (!Number.isFinite(v) || v >= Number(maxVal)) {
             (newData as BigInt64Array | BigUint64Array)[i] = v < 0 ? minVal : maxVal;
           } else if (v <= Number(minVal)) {
             (newData as BigInt64Array | BigUint64Array)[i] = minVal;
@@ -490,7 +491,7 @@ export class NDArrayCore {
       } else {
         for (let i = 0; i < size; i++) {
           (newData as BigInt64Array | BigUint64Array)[i] = BigInt(
-            Math.round(Number(typedOldData[i]))
+            Math.round(Number(typedOldData[i])),
           );
         }
       }
@@ -512,7 +513,7 @@ export class NDArrayCore {
         for (let i = 0; i < size; i++) {
           (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = floatToInt(
             typedOldData[i]!,
-            dtype
+            dtype,
           );
         }
       } else {
@@ -597,7 +598,7 @@ export class NDArrayCore {
     const data = copy._storage.data;
     return data.buffer.slice(
       data.byteOffset,
-      data.byteOffset + this.size * data.BYTES_PER_ELEMENT
+      data.byteOffset + this.size * data.BYTES_PER_ELEMENT,
     ) as ArrayBuffer;
   }
 

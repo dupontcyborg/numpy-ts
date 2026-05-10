@@ -6,12 +6,12 @@
  */
 
 import {
-  ZIP_LOCAL_SIGNATURE,
-  ZIP_CENTRAL_SIGNATURE,
-  ZIP_END_SIGNATURE,
-  ZIP_STORED,
-  ZIP_DEFLATED,
   crc32,
+  ZIP_CENTRAL_SIGNATURE,
+  ZIP_DEFLATED,
+  ZIP_END_SIGNATURE,
+  ZIP_LOCAL_SIGNATURE,
+  ZIP_STORED,
 } from './types';
 
 /**
@@ -31,7 +31,7 @@ export interface ZipWriteOptions {
  */
 export async function writeZip(
   files: Map<string, Uint8Array>,
-  options: ZipWriteOptions = {}
+  options: ZipWriteOptions = {},
 ): Promise<Uint8Array> {
   const compress = options.compress ?? false;
   const entries: {
@@ -203,7 +203,7 @@ function writeLocalHeader(
     crc: number;
     compressionMethod: number;
   },
-  nameBytes: Uint8Array
+  nameBytes: Uint8Array,
 ): number {
   // Signature
   view.setUint32(offset, ZIP_LOCAL_SIGNATURE, true);
@@ -275,7 +275,7 @@ function writeCentralHeader(
     compressionMethod: number;
     offset: number;
   },
-  nameBytes: Uint8Array
+  nameBytes: Uint8Array,
 ): number {
   // Signature
   view.setUint32(offset, ZIP_CENTRAL_SIGNATURE, true);
@@ -360,7 +360,7 @@ function writeEndOfCentralDirectory(
   offset: number,
   numEntries: number,
   centralDirSize: number,
-  centralDirOffset: number
+  centralDirOffset: number,
 ): void {
   // Signature
   view.setUint32(offset, ZIP_END_SIGNATURE, true);
@@ -403,7 +403,7 @@ async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
     throw new Error(
       'CompressionStream is not available. ' +
         'This environment does not support the Compression Streams API. ' +
-        'Please use a modern browser or Node.js 18+.'
+        'Please use a modern browser or Node.js 18+.',
     );
   }
 

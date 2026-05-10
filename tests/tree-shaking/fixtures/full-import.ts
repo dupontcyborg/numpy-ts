@@ -33,4 +33,5 @@ const m = np.matmul(c, c);
 const gShape = typeof g === 'object' && 'shape' in g ? g.shape : null;
 console.log(a.shape, b.shape, c.shape, d.shape, e.shape, f.shape, gShape, h.byteLength);
 console.log(i, j.shape, k, l, m);
+
 export { a, b, c, d, e, f, g, h, i, j, k, l, m };

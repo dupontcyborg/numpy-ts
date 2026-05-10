@@ -8,26 +8,26 @@
  * inner(A[M,K], B[N,K]) → C[M,N] where C[i,j] = sum_k A[i,k] * B[j,k]
  */
 
+import { Complex } from '../complex';
+import { type DType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/inner_float.wasm';
 import * as floatRelaxed from './bins/inner_float-relaxed.wasm';
-import { inner_i64, inner_i32, inner_i16, inner_i8 } from './bins/inner_int.wasm';
+import { inner_i8, inner_i16, inner_i32, inner_i64 } from './bins/inner_int.wasm';
+import { wasmConfig } from './config';
 import { useRelaxedKernels } from './detect';
 import {
-  wasmMalloc,
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
   scratchAlloc,
-  getSharedMemory,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { promoteDTypes, type DType, type TypedArray } from '../dtype';
-import { Complex } from '../complex';
-
-import { wasmConfig } from './config';
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 // Minimum total elements (M*K + N*K) for WASM to be worth the copy overhead.
@@ -39,7 +39,7 @@ type WasmInnerFn = (
   cPtr: number,
   M: number,
   N: number,
-  K: number
+  K: number,
 ) => void;
 
 type WasmComplexInnerFn = (
@@ -49,7 +49,7 @@ type WasmComplexInnerFn = (
   M: number,
   N: number,
   K: number,
-  scratchPtr: number
+  scratchPtr: number,
 ) => void;
 
 // Dtype -> WASM kernel function
@@ -107,7 +107,7 @@ const complexFactor: Partial<Record<DType, number>> = {
  */
 export function wasmInner(
   a: ArrayStorage,
-  b: ArrayStorage
+  b: ArrayStorage,
 ): ArrayStorage | number | Complex | null {
   // Only handle cases where both are at least 1D with matching last dim
   if (a.ndim === 0 || b.ndim === 0) return null;
@@ -149,7 +149,7 @@ export function wasmInner(
       a.wasmPtr,
       a.offset * factor,
       M * K * factor,
-      bpe
+      bpe,
     );
     const bPtr = resolveInputPtr(
       b.data,
@@ -157,7 +157,7 @@ export function wasmInner(
       b.wasmPtr,
       b.offset * factor,
       N * K * factor,
-      bpe
+      bpe,
     );
     const outPtr = scratchAlloc(outBytes);
 
@@ -171,16 +171,18 @@ export function wasmInner(
     }
 
     const mem = getSharedMemory();
-    const outView = new (Ctor as unknown as new (
-      buffer: ArrayBuffer,
-      byteOffset: number,
-      length: number
-    ) => TypedArray)(mem.buffer, outPtr, outElements);
+    const outView = new (
+      Ctor as unknown as new (
+        buffer: ArrayBuffer,
+        byteOffset: number,
+        length: number,
+      ) => TypedArray
+    )(mem.buffer, outPtr, outElements);
 
     if (factor === 2) {
       return new Complex(
         Number((outView as Float64Array | Float32Array)[0]!),
-        Number((outView as Float64Array | Float32Array)[1]!)
+        Number((outView as Float64Array | Float32Array)[1]!),
       );
     }
     return (outView as Float64Array | Float32Array)[0]!;
@@ -199,7 +201,7 @@ export function wasmInner(
     a.wasmPtr,
     a.offset * factor,
     M * K * factor,
-    bpe
+    bpe,
   );
   const bPtr = resolveInputPtr(
     b.data,
@@ -207,7 +209,7 @@ export function wasmInner(
     b.wasmPtr,
     b.offset * factor,
     N * K * factor,
-    bpe
+    bpe,
   );
 
   if (complexKernel) {
@@ -226,6 +228,10 @@ export function wasmInner(
     resultDtype,
     outRegion,
     outElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

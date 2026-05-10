@@ -52,7 +52,7 @@ export function logical_or_scalar_f16(
   a: number,
   out: number,
   N: number,
-  scalar_truthy: number
+  scalar_truthy: number,
 ): void {
   const i = init();
   (i.exports['logical_or_scalar_f16'] as (...args: number[]) => void)(a, out, N, scalar_truthy);
@@ -69,7 +69,7 @@ export function logical_or_scalar_i64(a: number, out: number, N: number, scalar:
     a,
     out,
     N,
-    BigInt(Math.round(scalar))
+    BigInt(Math.round(scalar)),
   );
 }
 

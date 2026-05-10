@@ -5,9 +5,9 @@
  * @module ops/formatting
  */
 
-import { ArrayStorage } from '../storage';
-import type { DType } from '../dtype';
 import { Complex } from '../complex';
+import type { DType } from '../dtype';
+import type { ArrayStorage } from '../storage';
 
 /**
  * Print options configuration
@@ -176,7 +176,7 @@ export function format_float_positional(
   sign: '-' | '+' | ' ' = '-',
   pad_left: number | null = null,
   pad_right: number | null = null,
-  min_digits: number | null = null
+  min_digits: number | null = null,
 ): string {
   const prec = precision ?? currentPrintOptions.precision;
 
@@ -290,7 +290,7 @@ export function format_float_scientific(
   sign: '-' | '+' | ' ' = '-',
   pad_left: number | null = null,
   exp_digits: number = 2,
-  min_digits: number | null = null
+  min_digits: number | null = null,
 ): string {
   const prec = precision ?? currentPrintOptions.precision;
 
@@ -342,7 +342,7 @@ export function format_float_scientific(
   // Fix exponent format (ensure minimum digits)
   const eIndex = result.indexOf('e');
   const mantissa = result.slice(0, eIndex);
-  let expPart = result.slice(eIndex + 1);
+  const expPart = result.slice(eIndex + 1);
   const expSign = expPart[0] === '-' ? '-' : '+';
   let expNum = expPart.replace(/^[+-]/, '');
 
@@ -435,7 +435,7 @@ export function binary_repr(num: number, width: number | null = null): string {
 
   if (width !== null && num < 0) {
     // Two's complement representation
-    const maxVal = Math.pow(2, width);
+    const maxVal = 2 ** width;
     num = maxVal + num;
     if (num < 0) {
       throw new Error('width too small for negative number');
@@ -469,7 +469,7 @@ export function binary_repr(num: number, width: number | null = null): string {
 function formatValue(
   value: number | bigint | boolean | Complex,
   dtype: DType,
-  opts: PrintOptions
+  opts: PrintOptions,
 ): string {
   if (value instanceof Complex) {
     const re = formatValue(value.re, 'float64', opts);
@@ -511,7 +511,7 @@ function formatValue(
  */
 function collectVisibleValues(
   storage: ArrayStorage,
-  opts: PrintOptions
+  opts: PrintOptions,
 ): (number | bigint | boolean | Complex)[] {
   const values: (number | bigint | boolean | Complex)[] = [];
   const shape = storage.shape;
@@ -650,7 +650,7 @@ function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) 
   if (useScientific) {
     // First pass: format each trimmed to find max mantissa fraction digits
     const trimmedStrings = processedValues.map((v) =>
-      format_float_scientific(v, opts.precision, false, '.', opts.sign)
+      format_float_scientific(v, opts.precision, false, '.', opts.sign),
     );
     let maxMantissaFrac = 0;
     for (const s of trimmedStrings) {
@@ -668,7 +668,7 @@ function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) 
     const formatPrec = Math.max(uniformPrec, 1);
     const formatTrim: 'k' | '.' = uniformPrec === 0 ? '.' : 'k';
     const strings = processedValues.map((v) =>
-      format_float_scientific(v, formatPrec, false, formatTrim, opts.sign)
+      format_float_scientific(v, formatPrec, false, formatTrim, opts.sign),
     );
     for (const v of values) {
       if (!Number.isFinite(v)) {
@@ -684,7 +684,7 @@ function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) 
       if (Number.isNaN(v)) return opts.nanstr.padStart(maxWidth);
       if (!Number.isFinite(v)) return ((v > 0 ? '' : '-') + opts.infstr).padStart(maxWidth);
       return format_float_scientific(v, formatPrec, false, formatTrim, opts.sign).padStart(
-        maxWidth
+        maxWidth,
       );
     };
   }
@@ -715,7 +715,7 @@ function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) 
 
   // Fixed notation with trimmed trailing zeros — decimal-point aligned
   const strings = processedValues.map((v) =>
-    format_float_positional(v, opts.precision, false, true, '.', opts.sign)
+    format_float_positional(v, opts.precision, false, true, '.', opts.sign),
   );
   for (const v of values) {
     if (!Number.isFinite(v)) {
@@ -734,7 +734,7 @@ function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) 
     return padDecimalAlign(
       format_float_positional(v, opts.precision, false, true, '.', opts.sign),
       maxLeft,
-      maxRight
+      maxRight,
     );
   };
 }
@@ -745,7 +745,7 @@ function buildFloatFormatter(values: number[], opts: PrintOptions): (v: number) 
  */
 function buildFormatter(
   storage: ArrayStorage,
-  opts: PrintOptions
+  opts: PrintOptions,
 ): (value: number | bigint | boolean | Complex) => string {
   const dtype = storage.dtype as DType;
   const values = collectVisibleValues(storage, opts);
@@ -801,7 +801,7 @@ function formatArrayRecursive(
   depth: number,
   opts: PrintOptions,
   formatter: (value: number | bigint | boolean | Complex) => string,
-  column: number
+  column: number,
 ): string {
   const shape = storage.shape;
   const ndim = shape.length;
@@ -919,7 +919,7 @@ export function array2string(
   threshold: number | null = null,
   edgeitems: number | null = null,
   floatmode: 'fixed' | 'unique' | 'maxprec' | 'maxprec_equal' | null = null,
-  sign: ' ' | '+' | '-' | null = null
+  sign: ' ' | '+' | '-' | null = null,
 ): string {
   const opts: PrintOptions = {
     ...currentPrintOptions,
@@ -952,7 +952,7 @@ export function array2string(
     0,
     opts,
     formatter,
-    startColumn
+    startColumn,
   );
 
   return opts.prefix + result + opts.suffix;
@@ -980,7 +980,7 @@ export function array_repr(
   a: ArrayStorage,
   max_line_width: number | null = null,
   precision: number | null = null,
-  suppress_small: boolean | null = null
+  suppress_small: boolean | null = null,
 ): string {
   const dataStr = array2string(a, max_line_width, precision, suppress_small, ', ');
 
@@ -1019,7 +1019,7 @@ export function array_str(
   a: ArrayStorage,
   max_line_width: number | null = null,
   precision: number | null = null,
-  suppress_small: boolean | null = null
+  suppress_small: boolean | null = null,
 ): string {
   return array2string(a, max_line_width, precision, suppress_small);
 }

@@ -6,17 +6,17 @@
  * instead of using `storage.iget(i)` or `data[offset + i]`.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  array,
-  add,
   abs,
-  dot,
+  add,
   argsort,
-  sort,
+  array,
   count_nonzero,
-  cumsum,
   cumprod,
+  cumsum,
+  dot,
+  sort,
   variance,
 } from '../../src';
 

@@ -7,16 +7,16 @@
  * Returns null if WASM can't handle this case.
  */
 
-import {
-  nanquantile_f64,
-  nanquantile_f32,
-  nanquantile_strided_f64,
-  nanquantile_strided_f32,
-} from './bins/nanquantile.wasm';
-import { resetScratchAllocator, resolveInputPtr, scratchAlloc, wasmMalloc } from './runtime';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { effectiveDType, type DType, type TypedArray } from '../dtype';
+import {
+  nanquantile_f32,
+  nanquantile_f64,
+  nanquantile_strided_f32,
+  nanquantile_strided_f64,
+} from './bins/nanquantile.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, scratchAlloc, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -28,7 +28,7 @@ type StridedKernel = (
   axisSize: number,
   inner: number,
   q: number,
-  workPtr: number
+  workPtr: number,
 ) => void;
 
 const flatKernels: Partial<Record<DType, FlatKernel>> = {
@@ -82,7 +82,7 @@ export function wasmNanquantileStrided(
   outer: number,
   axisSize: number,
   inner: number,
-  q: number
+  q: number,
 ): ArrayStorage | null {
   if (!storage.isCContiguous) return null;
 
@@ -109,7 +109,7 @@ export function wasmNanquantileStrided(
     storage.wasmPtr,
     storage.offset,
     totalSize,
-    bpe
+    bpe,
   );
 
   // Allocate work buffer (axis_size elements in native dtype)
@@ -125,7 +125,7 @@ export function wasmNanquantileStrided(
     Float64Array as unknown as new (
       buf: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

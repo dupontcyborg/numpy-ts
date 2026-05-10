@@ -5,9 +5,9 @@
  * imported independently for optimal tree-shaking.
  */
 
-import * as logicOps from '../common/ops/logic';
 import * as comparisonOps from '../common/ops/comparison';
-import { NDArrayCore, toStorage, fromStorage, type DType } from './types';
+import * as logicOps from '../common/ops/logic';
+import { type DType, fromStorage, type NDArrayCore, toStorage } from './types';
 
 // ============================================================
 // Logical Operations
@@ -165,42 +165,42 @@ export function spacing(x: NDArrayCore): NDArrayCore {
 /** Element-wise greater than comparison */
 export function greater(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
   return fromStorage(
-    comparisonOps.greater(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+    comparisonOps.greater(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2)),
   );
 }
 
 /** Element-wise greater than or equal comparison */
 export function greater_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
   return fromStorage(
-    comparisonOps.greaterEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+    comparisonOps.greaterEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2)),
   );
 }
 
 /** Element-wise less than comparison */
 export function less(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
   return fromStorage(
-    comparisonOps.less(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+    comparisonOps.less(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2)),
   );
 }
 
 /** Element-wise less than or equal comparison */
 export function less_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
   return fromStorage(
-    comparisonOps.lessEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+    comparisonOps.lessEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2)),
   );
 }
 
 /** Element-wise equality comparison */
 export function equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
   return fromStorage(
-    comparisonOps.equal(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+    comparisonOps.equal(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2)),
   );
 }
 
 /** Element-wise inequality comparison */
 export function not_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArrayCore {
   return fromStorage(
-    comparisonOps.notEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2))
+    comparisonOps.notEqual(toStorage(x1), typeof x2 === 'number' ? x2 : toStorage(x2)),
   );
 }
 
@@ -209,10 +209,10 @@ export function isclose(
   a: NDArrayCore,
   b: NDArrayCore | number,
   rtol: number = 1e-5,
-  atol: number = 1e-8
+  atol: number = 1e-8,
 ): NDArrayCore {
   return fromStorage(
-    comparisonOps.isclose(toStorage(a), typeof b === 'number' ? b : toStorage(b), rtol, atol)
+    comparisonOps.isclose(toStorage(a), typeof b === 'number' ? b : toStorage(b), rtol, atol),
   );
 }
 
@@ -221,7 +221,7 @@ export function allclose(
   a: NDArrayCore,
   b: NDArrayCore | number,
   rtol: number = 1e-5,
-  atol: number = 1e-8
+  atol: number = 1e-8,
 ): boolean {
   return comparisonOps.allclose(toStorage(a), typeof b === 'number' ? b : toStorage(b), rtol, atol);
 }

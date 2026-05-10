@@ -5,22 +5,22 @@
  * trace, diagonal, transpose, matrix_transpose, permute_dims.
  * Uses batched oracle — all Python computations run in a single subprocess.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as np from '../../../src';
+import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  runNumPyBatch,
   arraysClose,
   checkNumPyAvailable,
-  npDtype,
-  pyScalarCast,
-  pyArrayCast,
-  toComparable,
-  scalarClose,
   expectBothReject,
   expectBothRejectPre,
+  npDtype,
+  pyArrayCast,
+  pyScalarCast,
+  runNumPyBatch,
+  scalarClose,
+  toComparable,
 } from './_helpers';
-import type { NumPyResult } from '../numpy-oracle';
 
 const { array } = np;
 
@@ -155,7 +155,7 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.matrix_rank(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(Number(np.linalg.matrix_rank(array(mat, dtype)))).toBe(Number(py.value));
@@ -166,11 +166,11 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.matrix_power(array(mat, dtype), 2),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(
-        arraysClose(toComparable(np.linalg.matrix_power(array(mat, dtype), 2)), py.value, 1e-4)
+        arraysClose(toComparable(np.linalg.matrix_power(array(mat, dtype), 2)), py.value, 1e-4),
       ).toBe(true);
     });
 
@@ -179,11 +179,11 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.pinv(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(arraysClose(toComparable(np.linalg.pinv(array(mat, dtype))), py.value, 1e-4)).toBe(
-        true
+        true,
       );
     });
 
@@ -192,7 +192,7 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.cond(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       scalarClose(np.linalg.cond(array(mat, dtype)), py.value);
@@ -203,7 +203,7 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.slogdet(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       const { sign, logabsdet } = np.linalg.slogdet(array(mat, dtype)) as any;
@@ -216,11 +216,11 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.svdvals(array(mat, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(arraysClose(toComparable(np.linalg.svdvals(array(mat, dtype))), py.value, 1e-4)).toBe(
-        true
+        true,
       );
     });
 
@@ -252,11 +252,11 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.tensorinv(array(id, dtype), 1),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(
-        arraysClose(toComparable(np.linalg.tensorinv(array(id, dtype), 1)), py.value, 1e-4)
+        arraysClose(toComparable(np.linalg.tensorinv(array(id, dtype), 1)), py.value, 1e-4),
       ).toBe(true);
     });
 
@@ -270,15 +270,15 @@ describe('DType Sweep: linalg ops', () => {
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
         () => np.linalg.tensorsolve(array(id, dtype), array(b, dtype)),
-        py
+        py,
       );
       if (r === 'both-reject') return;
       expect(
         arraysClose(
           toComparable(np.linalg.tensorsolve(array(id, dtype), array(b, dtype))),
           py.value,
-          1e-4
-        )
+          1e-4,
+        ),
       ).toBe(true);
     });
 
@@ -293,7 +293,7 @@ result = np.cross(a, b)`;
         const _r = expectBothReject(
           'cross uses subtract internally, not supported for bool',
           () => np.linalg.cross(array(a, dtype), array(b, dtype)),
-          pyCode
+          pyCode,
         );
         if (_r === 'both-reject') return;
       }

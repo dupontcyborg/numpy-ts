@@ -5,9 +5,9 @@
  * and verify the results match exactly.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { array, around, ceil, fix, floor, rint, round, trunc } from '../../src';
-import { runNumPy, arraysClose, checkNumPyAvailable, getPythonInfo } from './numpy-oracle';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { around, array, ceil, fix, floor, rint, round, trunc } from '../../src';
+import { arraysClose, checkNumPyAvailable, getPythonInfo, runNumPy } from './numpy-oracle';
 
 describe('NumPy Validation: Rounding Functions', () => {
   beforeAll(() => {

@@ -58,7 +58,7 @@ export function lexsort_i16(
   num_keys: number,
   N: number,
   out: number,
-  scratch: number
+  scratch: number,
 ): void {
   const i = init();
   (i.exports['lexsort_i16'] as (...args: number[]) => void)(keys, num_keys, N, out, scratch);
@@ -69,7 +69,7 @@ export function lexsort_u16(
   num_keys: number,
   N: number,
   out: number,
-  scratch: number
+  scratch: number,
 ): void {
   const i = init();
   (i.exports['lexsort_u16'] as (...args: number[]) => void)(keys, num_keys, N, out, scratch);
@@ -80,7 +80,7 @@ export function lexsort_i8(
   num_keys: number,
   N: number,
   out: number,
-  scratch: number
+  scratch: number,
 ): void {
   const i = init();
   (i.exports['lexsort_i8'] as (...args: number[]) => void)(keys, num_keys, N, out, scratch);
@@ -91,7 +91,7 @@ export function lexsort_u8(
   num_keys: number,
   N: number,
   out: number,
-  scratch: number
+  scratch: number,
 ): void {
   const i = init();
   (i.exports['lexsort_u8'] as (...args: number[]) => void)(keys, num_keys, N, out, scratch);

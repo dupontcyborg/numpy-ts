@@ -178,7 +178,7 @@ export function parseDescriptor(descr: string): DTypeParseResult {
   if (typeChar && typeChar in UNSUPPORTED_DTYPE_PATTERNS) {
     throw new UnsupportedDTypeError(
       `Unsupported dtype: ${UNSUPPORTED_DTYPE_PATTERNS[typeChar]} (${descr}). ` +
-        `Use the 'force' parameter to skip arrays with unsupported dtypes.`
+        `Use the 'force' parameter to skip arrays with unsupported dtypes.`,
     );
   }
 
@@ -188,7 +188,7 @@ export function parseDescriptor(descr: string): DTypeParseResult {
     throw new UnsupportedDTypeError(
       `Unknown or unsupported dtype descriptor: ${descr}. ` +
         `Supported types: ${SUPPORTED_DTYPES.join(', ')}. ` +
-        `Use the 'force' parameter to skip arrays with unsupported dtypes.`
+        `Use the 'force' parameter to skip arrays with unsupported dtypes.`,
     );
   }
 

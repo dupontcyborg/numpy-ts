@@ -9,45 +9,45 @@
  */
 
 import {
-  sort_f64,
-  sort_f32,
-  sort_f16,
-  sort_i64,
-  sort_u64,
-  sort_i32,
-  sort_u32,
-  sort_i16,
-  sort_u16,
-  sort_i8,
-  sort_u8,
-  sort_slices_f64,
-  sort_slices_f32,
-  sort_slices_f16,
-  sort_slices_i64,
-  sort_slices_u64,
-  sort_slices_i32,
-  sort_slices_u32,
-  sort_slices_i16,
-  sort_slices_u16,
-  sort_slices_i8,
-  sort_slices_u8,
-} from './bins/sort.wasm';
+  type DType,
+  effectiveDType,
+  getDTypeSize,
+  isComplexDType,
+  type TypedArray,
+} from '../dtype';
+import { ArrayStorage } from '../storage';
 import {
+  sort_f16,
+  sort_f32,
+  sort_f64,
+  sort_i8,
+  sort_i16,
+  sort_i32,
+  sort_i64,
+  sort_slices_f16,
+  sort_slices_f32,
+  sort_slices_f64,
+  sort_slices_i8,
+  sort_slices_i16,
+  sort_slices_i32,
+  sort_slices_i64,
+  sort_slices_u8,
+  sort_slices_u16,
+  sort_slices_u32,
+  sort_slices_u64,
+  sort_u8,
+  sort_u16,
+  sort_u32,
+  sort_u64,
+} from './bins/sort.wasm';
+import { wasmConfig } from './config';
+import {
+  getSharedMemory,
   resetScratchAllocator,
   resolveInputPtr,
   scratchAlloc,
-  getSharedMemory,
   wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import {
-  effectiveDType,
-  isComplexDType,
-  getDTypeSize,
-  type DType,
-  type TypedArray,
-} from '../dtype';
-import { wasmConfig } from './config';
 
 const BASE_THRESHOLD = 32;
 
@@ -129,7 +129,7 @@ function interpolateQuantile(
   ptr: number,
   N: number,
   q: number,
-  dtype: DType
+  dtype: DType,
 ): number {
   const idx = q * (N - 1);
   const lower = Math.floor(idx);
@@ -175,7 +175,7 @@ export function wasmReduceQuantile(a: ArrayStorage, q: number): number | null {
     sortPtr = scratchAlloc(copyBytes);
     const mem = getSharedMemory();
     new Uint8Array(mem.buffer, sortPtr, copyBytes).set(
-      new Uint8Array(mem.buffer, inPtr, copyBytes)
+      new Uint8Array(mem.buffer, inPtr, copyBytes),
     );
   } else {
     // Already copied to scratch by resolveInputPtr
@@ -205,7 +205,7 @@ export function wasmReduceQuantileStrided(
   outer: number,
   axisSize: number,
   inner: number,
-  q: number
+  q: number,
 ): ArrayStorage | null {
   if (!storage.isCContiguous) return null;
   const dtype = effectiveDType(storage.dtype);
@@ -235,7 +235,7 @@ export function wasmReduceQuantileStrided(
     storage.wasmPtr,
     storage.offset,
     totalSize,
-    bpe
+    bpe,
   );
 
   let sortPtr: number;
@@ -244,7 +244,7 @@ export function wasmReduceQuantileStrided(
     sortPtr = scratchAlloc(copyBytes);
     const mem = getSharedMemory();
     new Uint8Array(mem.buffer, sortPtr, copyBytes).set(
-      new Uint8Array(mem.buffer, inPtr, copyBytes)
+      new Uint8Array(mem.buffer, inPtr, copyBytes),
     );
   } else {
     sortPtr = inPtr;
@@ -300,7 +300,7 @@ export function wasmReduceQuantileStrided(
     Float64Array as unknown as new (
       buf: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

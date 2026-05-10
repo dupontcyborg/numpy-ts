@@ -5,25 +5,25 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/matvec_float.wasm';
 import * as floatRelaxed from './bins/matvec_float-relaxed.wasm';
-import { matvec_i64, matvec_i32, matvec_i16, matvec_i8 } from './bins/matvec_int.wasm';
+import { matvec_i8, matvec_i16, matvec_i32, matvec_i64 } from './bins/matvec_int.wasm';
+import { wasmConfig } from './config';
 import { useRelaxedKernels } from './detect';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
-
-import { wasmConfig } from './config';
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 const BASE_THRESHOLD = 32; // Minimum M*K for WASM
@@ -110,7 +110,11 @@ export function wasmMatvec(A: ArrayStorage, x: ArrayStorage): ArrayStorage | nul
       resultDtype,
       f16Region,
       totalElements,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -120,7 +124,7 @@ export function wasmMatvec(A: ArrayStorage, x: ArrayStorage): ArrayStorage | nul
     A.wasmPtr,
     A.offset * factor,
     M * K * factor,
-    bpe
+    bpe,
   );
   const xPtr = resolveInputPtr(
     x.data,
@@ -128,7 +132,7 @@ export function wasmMatvec(A: ArrayStorage, x: ArrayStorage): ArrayStorage | nul
     x.wasmPtr,
     x.offset * factor,
     K * factor,
-    bpe
+    bpe,
   );
 
   kernel(aPtr, xPtr, outRegion.ptr, M, K);
@@ -138,6 +142,10 @@ export function wasmMatvec(A: ArrayStorage, x: ArrayStorage): ArrayStorage | nul
     resultDtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

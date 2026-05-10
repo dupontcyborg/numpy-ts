@@ -3,11 +3,11 @@
  * Returns null if WASM can't handle this case.
  */
 
-import { isfinite_f64, isfinite_f32, isfinite_u16 } from './bins/isfinite.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
-import { ArrayStorage } from '../storage';
 import type { DType, TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
+import { isfinite_f32, isfinite_f64, isfinite_u16 } from './bins/isfinite.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -52,7 +52,7 @@ export function wasmIsfinite(a: ArrayStorage): ArrayStorage | null {
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }

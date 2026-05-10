@@ -5,25 +5,25 @@
  * Returns null if WASM can't handle this case.
  */
 
+import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
+import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/vecmat_float.wasm';
 import * as floatRelaxed from './bins/vecmat_float-relaxed.wasm';
-import { vecmat_i64, vecmat_i32, vecmat_i16, vecmat_i8 } from './bins/vecmat_int.wasm';
+import { vecmat_i8, vecmat_i16, vecmat_i32, vecmat_i64 } from './bins/vecmat_int.wasm';
+import { wasmConfig } from './config';
 import { useRelaxedKernels } from './detect';
 import {
-  wasmMalloc,
-  resetScratchAllocator,
-  resolveInputPtr,
   f16InputToScratchF32,
   f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
 } from './runtime';
-import { ArrayStorage } from '../storage';
-import { effectiveDType, promoteDTypes, type DType, type TypedArray } from '../dtype';
-
-import { wasmConfig } from './config';
 
 let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  return (_float ??= useRelaxedKernels() ? floatRelaxed : floatBase);
+  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
+  return _float;
 }
 
 const BASE_THRESHOLD = 32; // Minimum K*N for WASM
@@ -110,7 +110,11 @@ export function wasmVecmat(x: ArrayStorage, A: ArrayStorage): ArrayStorage | nul
       resultDtype,
       f16Region,
       totalElements,
-      Float16Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray
+      Float16Array as unknown as new (
+        buf: ArrayBuffer,
+        off: number,
+        len: number,
+      ) => TypedArray,
     );
   }
 
@@ -120,7 +124,7 @@ export function wasmVecmat(x: ArrayStorage, A: ArrayStorage): ArrayStorage | nul
     x.wasmPtr,
     x.offset * factor,
     K * factor,
-    bpe
+    bpe,
   );
   const aPtr = resolveInputPtr(
     A.data,
@@ -128,7 +132,7 @@ export function wasmVecmat(x: ArrayStorage, A: ArrayStorage): ArrayStorage | nul
     A.wasmPtr,
     A.offset * factor,
     K * N * factor,
-    bpe
+    bpe,
   );
 
   kernel(xPtr, aPtr, outRegion.ptr, K, N);
@@ -138,6 +142,10 @@ export function wasmVecmat(x: ArrayStorage, A: ArrayStorage): ArrayStorage | nul
     resultDtype,
     outRegion,
     totalElements,
-    Ctor as unknown as new (buffer: ArrayBuffer, byteOffset: number, length: number) => TypedArray
+    Ctor as unknown as new (
+      buffer: ArrayBuffer,
+      byteOffset: number,
+      length: number,
+    ) => TypedArray,
   );
 }

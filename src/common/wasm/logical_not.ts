@@ -5,19 +5,19 @@
  * Output is always bool (Uint8Array). Returns null if WASM can't handle.
  */
 
-import {
-  logical_not_f64,
-  logical_not_f32,
-  logical_not_i64,
-  logical_not_i32,
-  logical_not_i16,
-  logical_not_i8,
-  logical_not_f16,
-} from './bins/logical_not.wasm';
-import { wasmMalloc, resetScratchAllocator, resolveInputPtr } from './runtime';
+import { type DType, hasFloat16, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { hasFloat16, type DType, type TypedArray } from '../dtype';
+import {
+  logical_not_f16,
+  logical_not_f32,
+  logical_not_f64,
+  logical_not_i8,
+  logical_not_i16,
+  logical_not_i32,
+  logical_not_i64,
+} from './bins/logical_not.wasm';
 import { wasmConfig } from './config';
+import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -92,7 +92,7 @@ export function wasmLogicalNot(a: ArrayStorage): ArrayStorage | null {
     Uint8Array as unknown as new (
       buffer: ArrayBuffer,
       byteOffset: number,
-      length: number
-    ) => TypedArray
+      length: number,
+    ) => TypedArray,
   );
 }
