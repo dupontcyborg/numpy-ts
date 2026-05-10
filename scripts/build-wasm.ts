@@ -55,6 +55,8 @@ const CACHE_HASHES_FILE = join(CACHE_DIR, 'hashes.json');
 
 // --- Check for Zig ---
 
+const REQUIRED_ZIG = '0.16.0';
+
 let zigVersion: string;
 try {
   zigVersion = execSync('zig version', { encoding: 'utf-8' }).trim();
@@ -63,6 +65,12 @@ try {
   console.warn('WARNING: Zig not found — skipping WASM build.');
   console.warn('Checked-in .wasm.ts files will be used. Install Zig to rebuild.');
   process.exit(0);
+}
+
+if (zigVersion !== REQUIRED_ZIG) {
+  console.error(`ERROR: Zig ${REQUIRED_ZIG} required, found ${zigVersion}.`);
+  console.error(`Install the correct version from https://ziglang.org/download/`);
+  process.exit(1);
 }
 
 // --- Cache ---
