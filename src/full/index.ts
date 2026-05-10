@@ -26,7 +26,7 @@ import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
 import type { NestedNDArrays } from '../core/shape';
-import type { DType, TypedArray } from '../core/types';
+import type { ArrayLike, DType, TypedArray } from '../core/types';
 import { NDArray } from './ndarray';
 
 // Helper to upgrade NDArrayCore to NDArray (zero-copy via shared storage)
@@ -54,7 +54,7 @@ export function broadcast_to(a: NDArrayCore, shape: number[]): NDArray {
   return up(core.broadcast_to(a, shape));
 }
 
-export function take(a: NDArrayCore, indices: number[], axis?: number): NDArray {
+export function take(a: NDArrayCore, indices: ArrayLike, axis?: number): NDArray {
   return up(core.take(a, indices, axis));
 }
 

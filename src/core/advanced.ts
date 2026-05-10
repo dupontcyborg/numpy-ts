@@ -10,8 +10,10 @@ import { NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
 import * as comparisonOps from '../common/ops/comparison';
 import type { ArrayStorage } from '../common/storage';
-import { array } from './creation';
+import * as shapeOps from '../common/ops/shape';
+import { array, asarray } from './creation';
 import { fromStorage, fromStorageView, toStorage } from './types';
+import type { ArrayLike } from './types';
 
 // ============================================================
 // Broadcasting
@@ -61,8 +63,47 @@ export function broadcast_shapes(...shapes: number[][]): number[] {
 // Indexing Operations
 // ============================================================
 
-export function take(a: NDArrayCore, indices: number[], axis?: number): NDArrayCore {
-  return fromStorage(advancedOps.take(toStorage(a), indices, axis));
+export function take(a: NDArrayCore, indices: ArrayLike, axis?: number): NDArrayCore {
+  // Fast path: a flat number[] of indices → no shape preservation needed,
+  // skip the asarray() wrap to avoid an extra WASM allocation per call.
+  if (Array.isArray(indices) && (indices.length === 0 || typeof indices[0] === 'number')) {
+    return fromStorage(advancedOps.take(toStorage(a), indices as number[], axis));
+  }
+
+  // Scalar index: NumPy reduces rank by one along the axis.
+  if (typeof indices === 'number' || typeof indices === 'bigint') {
+    const flatResult = advancedOps.take(toStorage(a), [Number(indices)], axis);
+    if (axis === undefined) {
+      // Drop the trailing length-1 dim → 0-D result
+      return fromStorage(shapeOps.reshape(flatResult, []));
+    }
+    const ndim = a.shape.length;
+    const k = axis < 0 ? ndim + axis : axis;
+    const outputShape = [...a.shape.slice(0, k), ...a.shape.slice(k + 1)];
+    return fromStorage(shapeOps.reshape(flatResult, outputShape));
+  }
+
+  // Multi-dim or NDArray indices: preserve indices' shape in the output.
+  const idxArr = asarray(indices);
+  const idxShape = Array.from(idxArr.shape);
+  const flatIndices: number[] = Array.from(
+    idxArr.data as { length: number; [n: number]: number | bigint },
+    (v) => Number(v),
+  );
+
+  const flatResult = advancedOps.take(toStorage(a), flatIndices, axis);
+
+  if (idxShape.length === 1) return fromStorage(flatResult);
+
+  let outputShape: number[];
+  if (axis === undefined) {
+    outputShape = idxShape;
+  } else {
+    const ndim = a.shape.length;
+    const k = axis < 0 ? ndim + axis : axis;
+    outputShape = [...a.shape.slice(0, k), ...idxShape, ...a.shape.slice(k + 1)];
+  }
+  return fromStorage(shapeOps.reshape(flatResult, outputShape));
 }
 
 export function put(a: NDArrayCore, indices: number[], values: NDArrayCore | number[]): void {
