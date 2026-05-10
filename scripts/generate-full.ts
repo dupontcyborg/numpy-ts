@@ -374,6 +374,7 @@ import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import { Complex } from '../common/complex';
 import type { DType, TypedArray } from '../core/types';
+import type { NestedNDArrays } from '../core/shape';
 import {
   DEFAULT_DTYPE,
   getTypedArrayConstructor,

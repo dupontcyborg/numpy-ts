@@ -124,9 +124,15 @@ export function column_stack(arrays: NDArrayCore[]): NDArrayCore {
 /** vstack alias */
 export const row_stack = vstack;
 
-/** Assemble arrays from nested sequences of blocks */
-export function block(arrays: NDArrayCore[]): NDArrayCore {
-  return fromStorage(shapeOps.block(arrays.map((a) => toStorage(a))));
+export type NestedNDArrays = NDArrayCore | NestedNDArrays[];
+
+function mapNestedToStorage(x: NestedNDArrays): shapeOps.NestedBlock {
+  return Array.isArray(x) ? x.map(mapNestedToStorage) : toStorage(x);
+}
+
+/** Assemble arrays from nested sequences of blocks (np.block semantics) */
+export function block(arrays: NestedNDArrays[]): NDArrayCore {
+  return fromStorage(shapeOps.block(mapNestedToStorage(arrays)));
 }
 
 // ============================================================

@@ -25,6 +25,7 @@ import {
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
+import type { NestedNDArrays } from '../core/shape';
 import type { DType, TypedArray } from '../core/types';
 import { NDArray } from './ndarray';
 
@@ -1596,8 +1597,8 @@ export function column_stack(arrays: NDArrayCore[]): NDArray {
   return up(core.column_stack(arrays));
 }
 
-/** Assemble arrays from nested sequences of blocks */
-export function block(arrays: NDArrayCore[]): NDArray {
+/** Assemble arrays from nested sequences of blocks (np.block semantics) */
+export function block(arrays: NestedNDArrays[]): NDArray {
   return up(core.block(arrays));
 }
 
