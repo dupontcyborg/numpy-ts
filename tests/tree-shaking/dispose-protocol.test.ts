@@ -188,7 +188,7 @@ describe('Webpack dispose protocol', () => {
                 use: {
                   loader: 'ts-loader',
                   options: {
-                    configFile: resolve(__dirname, '../../tsconfig.json'),
+                    configFile: resolve(__dirname, 'tsconfig.webpack.json'),
                     compilerOptions: {
                       declaration: false,
                       declarationMap: false,
@@ -381,7 +381,7 @@ describe('browser builds', () => {
                   use: {
                     loader: 'ts-loader',
                     options: {
-                      configFile: resolve(__dirname, '../../tsconfig.json'),
+                      configFile: resolve(__dirname, 'tsconfig.webpack.json'),
                       compilerOptions: {
                         declaration: false,
                         declarationMap: false,
