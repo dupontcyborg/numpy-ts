@@ -1701,12 +1701,12 @@ export function extract(condition: NDArrayCore, a: NDArrayCore): NDArray {
 }
 
 /** Count occurrences of values */
-export function bincount(x: NDArrayCore, weights?: NDArrayCore, minlength?: number): NDArray {
+export function bincount(x: ArrayLike, weights?: ArrayLike, minlength?: number): NDArray {
   return up(core.bincount(x, weights, minlength));
 }
 
 /** Digitize values into bins */
-export function digitize(x: NDArrayCore, bins: NDArrayCore, right?: boolean): NDArray {
+export function digitize(x: ArrayLike, bins: ArrayLike, right?: boolean): NDArray {
   return up(core.digitize(x, bins, right));
 }
 

@@ -7,33 +7,49 @@
 
 import { Complex } from '../common/complex';
 import * as statisticsOps from '../common/ops/statistics';
-import { type ArrayStorage, fromStorage, NDArrayCore, toStorage } from './types';
+import { asarray } from './creation';
+import {
+  type ArrayLike,
+  type ArrayStorage,
+  fromStorage,
+  NDArrayCore,
+  toStorage,
+} from './types';
 
 type BinStrategyString = 'auto' | 'fd' | 'doane' | 'scott' | 'stone' | 'rice' | 'sturges' | 'sqrt';
 
 /** Count occurrences of values */
-export function bincount(x: NDArrayCore, weights?: NDArrayCore, minlength?: number): NDArrayCore {
-  const weightsStorage = weights ? toStorage(weights) : undefined;
-  return fromStorage(statisticsOps.bincount(toStorage(x), weightsStorage, minlength));
+export function bincount(
+  x: ArrayLike,
+  weights?: ArrayLike,
+  minlength?: number,
+): NDArrayCore {
+  const weightsStorage = weights !== undefined ? toStorage(asarray(weights)) : undefined;
+  return fromStorage(statisticsOps.bincount(toStorage(asarray(x)), weightsStorage, minlength));
 }
 
 /** Digitize values into bins */
-export function digitize(x: NDArrayCore, bins: NDArrayCore, right?: boolean): NDArrayCore {
-  return fromStorage(statisticsOps.digitize(toStorage(x), toStorage(bins), right));
+export function digitize(x: ArrayLike, bins: ArrayLike, right?: boolean): NDArrayCore {
+  return fromStorage(
+    statisticsOps.digitize(toStorage(asarray(x)), toStorage(asarray(bins)), right),
+  );
 }
 
 /** Compute histogram */
 export function histogram(
-  a: NDArrayCore,
-  bins?: number | NDArrayCore | BinStrategyString,
+  a: ArrayLike,
+  bins?: number | ArrayLike | BinStrategyString,
   range?: [number, number],
   density?: boolean,
-  weights?: NDArrayCore,
+  weights?: ArrayLike,
 ): [NDArrayCore, NDArrayCore] {
-  const binsArg = bins instanceof NDArrayCore ? toStorage(bins) : bins;
-  const weightsArg = weights ? toStorage(weights) : undefined;
+  const binsArg =
+    typeof bins === 'number' || typeof bins === 'string' || bins === undefined
+      ? bins
+      : toStorage(asarray(bins));
+  const weightsArg = weights !== undefined ? toStorage(asarray(weights)) : undefined;
   const result = statisticsOps.histogram(
-    toStorage(a),
+    toStorage(asarray(a)),
     binsArg as number | ArrayStorage | undefined,
     range,
     density,
@@ -45,27 +61,29 @@ export function histogram(
 
 /** Compute 2D histogram */
 export function histogram2d(
-  x: NDArrayCore,
-  y: NDArrayCore,
-  bins?: number | [number, number] | [NDArrayCore, NDArrayCore],
+  x: ArrayLike,
+  y: ArrayLike,
+  bins?: number | [number, number] | [ArrayLike, ArrayLike],
   range?: [[number, number], [number, number]],
   density?: boolean,
-  weights?: NDArrayCore,
+  weights?: ArrayLike,
 ): [NDArrayCore, NDArrayCore, NDArrayCore] {
   let binsArg: number | [number, number] | [ArrayStorage, ArrayStorage] | undefined;
   if (Array.isArray(bins) && bins.length === 2) {
-    const b0 = bins[0] instanceof NDArrayCore ? toStorage(bins[0]) : bins[0];
-    const b1 = bins[1] instanceof NDArrayCore ? toStorage(bins[1]) : bins[1];
+    const b0raw = bins[0];
+    const b1raw = bins[1];
+    const b0 = typeof b0raw === 'number' ? b0raw : toStorage(asarray(b0raw));
+    const b1 = typeof b1raw === 'number' ? b1raw : toStorage(asarray(b1raw));
     binsArg = [b0 as number | ArrayStorage, b1 as number | ArrayStorage] as
       | [number, number]
       | [ArrayStorage, ArrayStorage];
   } else {
     binsArg = bins as number | undefined;
   }
-  const weightsArg = weights ? toStorage(weights) : undefined;
+  const weightsArg = weights !== undefined ? toStorage(asarray(weights)) : undefined;
   const result = statisticsOps.histogram2d(
-    toStorage(x),
-    toStorage(y),
+    toStorage(asarray(x)),
+    toStorage(asarray(y)),
     binsArg,
     range,
     density,
@@ -76,14 +94,20 @@ export function histogram2d(
 
 /** Compute N-dimensional histogram */
 export function histogramdd(
-  sample: NDArrayCore,
+  sample: ArrayLike,
   bins?: number | number[],
   range?: [number, number][],
   density?: boolean,
-  weights?: NDArrayCore,
+  weights?: ArrayLike,
 ): [NDArrayCore, NDArrayCore[]] {
-  const weightsArg = weights ? toStorage(weights) : undefined;
-  const result = statisticsOps.histogramdd(toStorage(sample), bins, range, density, weightsArg);
+  const weightsArg = weights !== undefined ? toStorage(asarray(weights)) : undefined;
+  const result = statisticsOps.histogramdd(
+    toStorage(asarray(sample)),
+    bins,
+    range,
+    density,
+    weightsArg,
+  );
   return [fromStorage(result.hist), result.edges.map((e) => fromStorage(e))];
 }
 
