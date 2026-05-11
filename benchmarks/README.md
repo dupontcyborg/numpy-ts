@@ -2,6 +2,35 @@
 
 Performance comparison suite for numpy-ts against Python NumPy.
 
+## <a id="methodology"></a>Methodology (canonical)
+
+This section pins the methodology behind the headline performance numbers
+linked from the project README. Anything else (blog posts, screenshots, slack
+threads) is either older or summarized — defer to this.
+
+- **Hardware**: latest published numbers are produced on the GitHub Actions
+  `ubuntu-latest` runner (x86_64, AVX2 available). Local runs on Apple Silicon
+  are kept in `.github/benchmark-history/` for trend continuity.
+- **Runtime**: Node.js (LTS — currently Node 24). numpy-ts uses its Zig-WASM
+  SIMD kernels via the standard `numpy-ts` import. Pyodide-based browser
+  numbers are not part of the headline; they live in their own report.
+- **NumPy version**: NumPy 2.x (`numpy>=2`, see `ci.yml`). Different NumPy
+  versions are not interchangeable — pinning matters here.
+- **Size regime**: "standard" mode (medium arrays — see *Benchmark Modes*
+  below). The headline ratio comes from this regime. "quick" and "full" exist
+  for CI feedback and stress testing respectively and are not used for the
+  published number.
+- **Aggregation**: the headline ratio is the **geometric mean** of per-benchmark
+  `ratio = numpy-ts mean / NumPy mean`. Geomean is the correct averaging
+  method for ratios (arithmetic mean would over-weight outlier slowdowns).
+- **Inversion for public display**: `bench:docs` publishes `speedup = 1 / ratio`
+  so the landing-page narrative reads "Xx faster" — the underlying ratios are
+  identical to what the local HTML report shows.
+
+If you reproduce these numbers in a different environment (Bun, Deno, ARM,
+older NumPy), expect different absolute values — the methodology above is what
+keeps headline numbers comparable across releases.
+
 ## Quick Start
 
 ```bash
@@ -71,9 +100,10 @@ npm run bench:category reshape
 
 ### Console Output
 
-Results are printed to console with color-coded slowdown ratios:
-- 🟢 **Green**: < 2x slower (good)
-- 🟡 **Yellow**: 2-5x slower (acceptable)
+Results are printed to console with color-coded time ratios (`numpy-ts / NumPy`).
+A ratio < 1 means numpy-ts is faster than NumPy; > 1 means slower:
+- 🟢 **Green**: < 2x (at parity or faster)
+- 🟡 **Yellow**: 2–5x slower
 - 🔴 **Red**: > 5x slower (needs optimization)
 
 Example:
@@ -189,20 +219,30 @@ Add operation support in:
 
 ## Interpreting Results
 
-### Slowdown Ratio
+### Time Ratio
 
-The ratio indicates how many times slower numpy-ts is compared to NumPy:
-- **1.0x**: Same speed as NumPy (ideal, unlikely)
-- **2.0x**: Twice as slow (excellent)
-- **5.0x**: Five times slower (acceptable for v1.0)
-- **10.0x**: Ten times slower (needs optimization)
+`ratio = numpy-ts mean time / NumPy mean time`. Lower is better:
+- **< 1.0x**: numpy-ts is faster than NumPy
+- **1.0x**: parity
+- **2.0–5.0x**: meaningfully slower; worth investigating
+- **> 5.0x**: priority optimization target
 
-### Expected Performance
+The published landing page (`bench:docs`) inverts this and reports
+`speedup = 1 / ratio` so that "higher = faster" — the underlying data is the
+same. The console output and HTML report keep the raw ratio form.
 
-Current expectations for v1.0 (Pure JS + @stdlib):
-- **Best case**: 2-5x slower (optimized BLAS operations)
-- **Average**: 5-20x slower (typical operations)
-- **Worst case**: 20-100x slower (non-optimized paths)
+### Current Performance (Zig-WASM SIMD backend)
+
+With the SIMD WASM kernels enabled, the headline numbers (see `bench:docs`
+output and the landing page) sit around:
+- **Overall**: ~1.13x faster than NumPy (geomean across ~7,200 benchmarks)
+- **Best case**: order-of-magnitude wins on vectorizable element-wise ops
+- **Worst case**: 5–20x slower on operations that haven't been ported off the
+  JS-fallback path yet
+
+These numbers move with each release. The benchmark history is checked into
+`.github/benchmark-history/` and the canonical "what does it look like today"
+view is the [performance page](https://numpyts.dev/performance).
 
 ### Optimization Priority
 

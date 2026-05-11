@@ -301,7 +301,7 @@ function createHTML(report: BenchmarkReport, _outputPath: string = ''): string {
       data: {
         labels: ${JSON.stringify(categories)},
         datasets: [{
-          label: 'Overall Slowdown (x times slower than NumPy)',
+          label: 'Time vs NumPy (geomean) — >1 means slower than NumPy, <1 means faster',
           data: ${JSON.stringify(categoryAvgSlowdowns)},
           backgroundColor: 'rgba(102, 126, 234, 0.8)',
           borderColor: 'rgba(102, 126, 234, 1)',
@@ -320,7 +320,7 @@ function createHTML(report: BenchmarkReport, _outputPath: string = ''): string {
             beginAtZero: true,
             title: {
               display: true,
-              text: 'Slowdown Ratio'
+              text: 'Time ratio (numpy-ts / NumPy)'
             }
           }
         }
@@ -333,7 +333,7 @@ function createHTML(report: BenchmarkReport, _outputPath: string = ''): string {
       data: {
         labels: ${JSON.stringify(benchmarkNames)},
         datasets: [{
-          label: 'Slowdown Ratio (x times slower)',
+          label: 'Time ratio vs NumPy (>1 = slower, <1 = faster)',
           data: ${JSON.stringify(benchmarkRatios)},
           backgroundColor: ${JSON.stringify(
             benchmarkRatios.map((r: number) =>
