@@ -28,9 +28,13 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Read Zig version
+        id: zig
+        run: echo "version=$(cat .zigversion)" >> "$GITHUB_OUTPUT"
+
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.16.0"
+          version: ${{ steps.zig.outputs.version }}
 
       - name: Install dependencies
         run: |
@@ -82,9 +86,13 @@ jobs:
           node-version: 24
           cache: 'npm'
 
+      - name: Read Zig version
+        id: zig
+        run: echo "version=$(cat .zigversion)" >> "$GITHUB_OUTPUT"
+
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.16.0"
+          version: ${{ steps.zig.outputs.version }}
 
       - name: Install dependencies
         run: npm install
@@ -122,9 +130,13 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Read Zig version
+        id: zig
+        run: echo "version=$(cat .zigversion)" >> "$GITHUB_OUTPUT"
+
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.16.0"
+          version: ${{ steps.zig.outputs.version }}
 
       - name: Install dependencies
         run: |
@@ -163,9 +175,13 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Read Zig version
+        id: zig
+        run: echo "version=$(cat .zigversion)" >> "$GITHUB_OUTPUT"
+
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.16.0"
+          version: ${{ steps.zig.outputs.version }}
 
       - name: Install dependencies
         run: |
@@ -252,9 +268,13 @@ jobs:
           node-version: 24
           cache: 'npm'
 
+      - name: Read Zig version
+        id: zig
+        run: echo "version=$(cat .zigversion)" >> "$GITHUB_OUTPUT"
+
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.16.0"
+          version: ${{ steps.zig.outputs.version }}
 
       - name: Install dependencies
         run: npm install
