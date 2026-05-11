@@ -993,5 +993,11 @@
         ]
       }
     ]
+  },
+  "integrations": {
+    "plausible": {
+      "domain": "numpyts.dev",
+      "server": "d1w0psmo3bkh8z.cloudfront.net"
+    }
   }
 }
