@@ -11,17 +11,19 @@
 
 import { wasmMemoryConfig } from '../../src/common/wasm/config';
 
-// Constrain memory BEFORE any WASM initialization — forces JS fallback
-// 8 MiB is the minimum for WASM binary statics (~6.4 MiB), leaving a
-// tiny heap that overflows for large array allocations.
-wasmMemoryConfig.maxMemoryBytes = 8 * 1024 * 1024; // 8 MiB total
+// Constrain memory BEFORE any WASM initialization — forces JS fallback.
+// Layout: 8 MiB statics floor + 1 MiB scratch + ~256 KiB heap = 9.25 MiB total.
+// Heap is small enough that any allocation >256 KiB overflows and falls back to
+// JS, exercising the bulkFill code path. The runtime asserts heapBase ≤
+// scratchBase, so heap may shrink to zero but not go negative.
+wasmMemoryConfig.maxMemoryBytes = 9 * 1024 * 1024 + 256 * 1024; // 9.25 MiB
 wasmMemoryConfig.scratchBytes = 1 * 1024 * 1024; // 1 MiB scratch
 
 import { describe, expect, it } from 'vitest';
 import { random } from '../../src/index';
 
-// N large enough that the allocation exceeds our tiny WASM heap,
-// forcing JS-backed storage and the bulkFill code path.
+// N large enough that the allocation (N * 8 bytes for f64) exceeds the
+// ~256 KiB heap, forcing JS-backed storage and the bulkFill code path.
 const N = 50000;
 
 describe('RNG JS-fallback fill paths', () => {
