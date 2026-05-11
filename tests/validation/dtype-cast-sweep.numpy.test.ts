@@ -151,10 +151,9 @@ interface OracleEntry {
  * `result` to a 1-element NumPy array; we extract `result[0]` and emit a
  * key=text line per entry so JSON precision never enters the picture.
  */
-function pythonCastBatch(snippets: Record<string, { src: DType; tgt: DType; py: string }>): Map<
-  string,
-  OracleEntry
-> {
+function pythonCastBatch(
+  snippets: Record<string, { src: DType; tgt: DType; py: string }>,
+): Map<string, OracleEntry> {
   const entries = Object.entries(snippets);
   if (entries.length === 0) return new Map();
 
