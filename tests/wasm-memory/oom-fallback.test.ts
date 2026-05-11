@@ -20,7 +20,7 @@ wasmMemoryConfig.scratchBytes = 1 * 1024 * 1024; // 1 MiB scratch
 import { beforeEach, describe, expect, it } from 'vitest';
 import { array } from '../../src';
 import { ArrayStorage } from '../../src/common/storage';
-import { wasmFreeBytes, wasmMalloc } from '../../src/common/wasm/runtime';
+import { scratchAlloc, wasmFreeBytes, wasmMalloc } from '../../src/common/wasm/runtime';
 import { absolute as abs, add, maximum, multiply } from '../../src/full';
 
 beforeEach(() => {
@@ -254,5 +254,35 @@ describe('mixed WASM + JS inputs', () => {
     const result = add(a, b);
     expect(result.tolist()).toEqual([5, 7, 9]);
     for (const r of regions) r.release();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Worst-case OOM: scratch overflow + heap also exhausted → throw
+// ---------------------------------------------------------------------------
+
+describe('total WASM OOM', () => {
+  it('scratchAlloc throws with a clear message when scratch overflows AND heap is full', () => {
+    // Drain the heap by allocating until wasmMalloc starts returning null.
+    const drained: { release(): void }[] = [];
+    for (let size = 24; size <= 4 * 1024 * 1024; size *= 2) {
+      for (let i = 0; i < 1000; i++) {
+        const r = wasmMalloc(size);
+        if (!r) break;
+        drained.push(r);
+      }
+    }
+    // After draining, free bytes should be small. wasmMalloc-of-any-large-size
+    // must now fail.
+    expect(wasmMalloc(8 * 1024 * 1024)).toBe(null);
+
+    // Now request a scratch allocation larger than the entire scratch region
+    // so scratchAlloc falls through to heap_malloc, which we just exhausted.
+    // The exact size needs to exceed maxMemoryBytes - scratchOffset; using a
+    // value larger than maxMemory guarantees the overflow path.
+    const oversized = 64 * 1024 * 1024; // 64 MiB > maxMemory (16 MiB)
+    expect(() => scratchAlloc(oversized)).toThrow(/WASM OOM: scratch full/);
+
+    for (const r of drained) r.release();
   });
 });
