@@ -81,29 +81,6 @@ override get nbytes(): number {
     return this.size * this.itemsize;
   }`;
 
-const FILL_METHOD = `\
-override fill(value: number | bigint): void {
-    const dtype = this._storage.dtype;
-    const size = this.size;
-
-    if (isBigIntDType(dtype)) {
-      const bigintValue = typeof value === 'bigint' ? value : BigInt(Math.round(Number(value)));
-      for (let i = 0; i < size; i++) {
-        this._storage.iset(i, bigintValue);
-      }
-    } else if (dtype === 'bool') {
-      const boolValue = value ? 1 : 0;
-      for (let i = 0; i < size; i++) {
-        this._storage.iset(i, boolValue);
-      }
-    } else {
-      const numValue = Number(value);
-      for (let i = 0; i < size; i++) {
-        this._storage.iset(i, numValue);
-      }
-    }
-  }`;
-
 const ITERATOR_METHOD = `\
 override *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
     if (this.ndim === 0) {
@@ -185,19 +162,6 @@ override set(
     }
   }`;
 
-const COPY_METHOD = `\
-override copy(): NDArray {
-    return new NDArray(this._storage.copy());
-  }`;
-
-const ASTYPE_METHOD = `\
-override astype(dtype: DType, copy: boolean = true): NDArray {
-    // Delegate to parent NDArrayCore.astype (which handles complex types correctly)
-    const core = super.astype(dtype, copy);
-    if (core instanceof NDArray) return core;
-    return new NDArray((core as unknown as { _storage: ArrayStorage })._storage);
-  }`;
-
 const RESHAPE_METHOD = `\
 reshape(...shape: number[]): NDArray {
     const newShape = shape.length === 1 && Array.isArray(shape[0]) ? shape[0] : shape;
@@ -250,36 +214,6 @@ cols(start: number, stop: number): NDArray {
 const TOSTRING_METHOD = `\
 override toString(): string {
     return core.array_str(this);
-  }`;
-
-const TOARRAY_METHOD = `\
-  override toArray(): any {
-    if (this.ndim === 0) {
-      return this._storage.iget(0);
-    }
-
-    const shape = this.shape;
-    const ndim = shape.length;
-
-        const buildNestedArray = (indices: number[], dim: number): any => {
-      if (dim === ndim) {
-        return this._storage.get(...indices);
-      }
-
-      const arr = [];
-      for (let i = 0; i < shape[dim]!; i++) {
-        indices[dim] = i;
-        arr.push(buildNestedArray(indices, dim + 1));
-      }
-      return arr;
-    };
-
-    return buildNestedArray(new Array(ndim), 0);
-  }`;
-
-const TOLIST_METHOD = `\
-  override tolist(): any {
-    return this.toArray();
   }`;
 
 const TOBYTES_METHOD = `\
@@ -642,13 +576,7 @@ export const METHOD_DEFS: MethodDef[] = [
     manualCode: NBYTES_GETTER,
     flags: { isGetter: true, isOverride: true },
   },
-  {
-    name: 'fill',
-    pattern: 'manual',
-    doc: 'Fill the array with a scalar value (in-place)\n@param value - Value to fill with',
-    manualCode: FILL_METHOD,
-    flags: { isOverride: true },
-  },
+  // fill: inherited from NDArrayCore (identical body, void return)
   {
     name: 'Symbol.iterator',
     pattern: 'manual',
@@ -670,20 +598,8 @@ export const METHOD_DEFS: MethodDef[] = [
     manualCode: SET_METHOD,
     flags: { isOverride: true },
   },
-  {
-    name: 'copy',
-    pattern: 'manual',
-    doc: 'Return a deep copy of the array',
-    manualCode: COPY_METHOD,
-    flags: { isOverride: true },
-  },
-  {
-    name: 'astype',
-    pattern: 'manual',
-    doc: 'Cast array to a different dtype\n@param dtype - Target dtype\n@param copy - If false and dtype matches, return self\n@returns Array with specified dtype',
-    manualCode: ASTYPE_METHOD,
-    flags: { isOverride: true },
-  },
+  // copy, astype: inherited from NDArrayCore — both return `this`-typed
+  // results via this._wrap(), so subclasses get the right concrete type.
 
   // ============================================================
   // Manual methods (slicing / indexing)
@@ -779,20 +695,7 @@ export const METHOD_DEFS: MethodDef[] = [
     manualCode: TOSTRING_METHOD,
     flags: { isOverride: true },
   },
-  {
-    name: 'toArray',
-    pattern: 'manual',
-    doc: 'Convert to nested JavaScript array\n@returns Nested JavaScript array representation',
-    manualCode: TOARRAY_METHOD,
-    flags: { isOverride: true },
-  },
-  {
-    name: 'tolist',
-    pattern: 'manual',
-    doc: 'Return the array as a nested list (same as toArray)',
-    manualCode: TOLIST_METHOD,
-    flags: { isOverride: true },
-  },
+  // toArray, tolist: inherited from NDArrayCore (identical bodies)
   {
     name: 'tobytes',
     pattern: 'manual',

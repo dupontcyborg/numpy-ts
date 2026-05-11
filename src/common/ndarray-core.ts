@@ -363,16 +363,26 @@ export class NDArrayCore {
   }
 
   /**
+   * Construct an instance of the most-derived class around new storage.
+   * Used by every method that returns a freshly-allocated result so that
+   * subclasses (e.g. NDArray) get instances of their own type without
+   * needing to override.
+   */
+  protected _wrap(storage: ArrayStorage): this {
+    return new (this.constructor as typeof NDArrayCore)(storage) as this;
+  }
+
+  /**
    * Return a deep copy of the array
    */
-  copy(): NDArrayCore {
-    return new NDArrayCore(this._storage.copy());
+  copy(): this {
+    return this._wrap(this._storage.copy());
   }
 
   /**
    * Cast array to a different dtype
    */
-  astype(dtype: DType, copy: boolean = true): NDArrayCore {
+  astype(dtype: DType, copy: boolean = true): this {
     const currentDtype = this.dtype as DType;
 
     if (currentDtype === dtype && !copy) {
@@ -403,7 +413,7 @@ export class NDArrayCore {
         typedNew[i] = oldData[i]!;
       }
       const storage = ArrayStorage.fromData(newData, shape, dtype);
-      return new NDArrayCore(storage);
+      return this._wrap(storage);
     }
 
     // Real/Int → Complex
@@ -415,7 +425,7 @@ export class NDArrayCore {
         typedNew[i * 2 + 1] = 0;
       }
       const storage = ArrayStorage.fromData(newData, shape, dtype);
-      return new NDArrayCore(storage);
+      return this._wrap(storage);
     }
 
     // Complex → Real/Int (take real parts)
@@ -448,7 +458,7 @@ export class NDArrayCore {
         }
       }
       const storage = ArrayStorage.fromData(newData, shape, dtype);
-      return new NDArrayCore(storage);
+      return this._wrap(storage);
     }
 
     // Non-complex conversions
@@ -529,7 +539,7 @@ export class NDArrayCore {
     }
 
     const storage = ArrayStorage.fromData(newData, shape, dtype);
-    return new NDArrayCore(storage);
+    return this._wrap(storage);
   }
 
   /**
