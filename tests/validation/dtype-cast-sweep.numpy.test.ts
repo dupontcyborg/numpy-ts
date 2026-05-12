@@ -38,6 +38,31 @@ const TARGET_DTYPES: DType[] = [
 
 const BIGINT_DTYPES = new Set<DType>(['int64', 'uint64']);
 const FLOAT_DTYPES = new Set<DType>(['float64', 'float32']);
+const INT_DTYPES = new Set<DType>([
+  'int8',
+  'int16',
+  'int32',
+  'int64',
+  'uint8',
+  'uint16',
+  'uint32',
+  'uint64',
+]);
+
+/**
+ * NaN / ±Inf → integer is documented in NumPy 2.x as platform-dependent: x86
+ * cvttsd2si returns the "indefinite integer" (INT_MIN); arm64 fcvtzs returns 0.
+ * Same NumPy version produces different oracle values on different CI runners,
+ * so this combination can't be sanity-checked here — skip it.
+ */
+const PATHOLOGICAL_FLOAT_LABELS = new Set<string>([
+  'f64 NaN',
+  'f64 +Inf',
+  'f64 -Inf',
+  'f32 NaN',
+  'f32 +Inf',
+  'f32 -Inf',
+]);
 
 interface Case {
   label: string;
@@ -234,11 +259,19 @@ describe('NumPy Validation: dtype cast edge-case sweep', () => {
           }
         };
 
+        const isPathologicalFloatToInt =
+          PATHOLOGICAL_FLOAT_LABELS.has(c.label) && INT_DTYPES.has(tgt);
+
         if (KNOWN_DIVERGENCES.has(key)) {
           // Surface the divergence in test output but don't fail the suite.
           // Re-evaluate periodically: when the cast path is fixed, remove the
           // entry from KNOWN_DIVERGENCES and this becomes a normal `it`.
           it.todo(`→ ${tgt} (known divergence — saturation/narrowing path)`);
+        } else if (isPathologicalFloatToInt) {
+          // NumPy 2.x is platform-dependent for NaN/±Inf → integer (see comment
+          // by PATHOLOGICAL_FLOAT_LABELS). Skip rather than pretend we have an
+          // oracle for it.
+          it.skip(`→ ${tgt} (platform-dependent in NumPy 2.x)`);
         } else {
           it(`→ ${tgt}`, fn);
         }

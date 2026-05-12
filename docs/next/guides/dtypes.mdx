@@ -222,6 +222,57 @@ const c = a.astype('float64');
 c === a;  // false -- new copy
 ```
 
+### Cast semantics: float → integer
+
+For in-range finite floats, `astype()` truncates toward zero (matching NumPy). For out-of-range floats, the behavior depends on the target width:
+
+| Source value | Target | Result | Rule |
+|-|-|-|-|
+| `1.7` | `int32` | `1` | truncate toward zero |
+| `-1.7` | `int32` | `-1` | truncate toward zero |
+| `2**31` (out of int32 range) | `int32` | `2147483647` | saturate at target bound |
+| `2**31` | `int16` | `-1` | saturate to int32 first, then bit-truncate |
+| `2**31` | `uint8` | `255` | saturate to int32 first, then bit-truncate |
+| `-2**31 - 1` | `uint16` | `0` | saturate to int32 first, then bit-truncate |
+
+The two-step rule for narrow targets (8/16-bit) matches NumPy 2.x: saturate to int32 range, then bit-truncate via the target's `ToIntN`. Earlier numpy-ts versions saturated against the final target width directly and could return `0` where NumPy returns `-1` / `255` / `65535`.
+
+### Cast semantics: int64 / uint64 → narrower integer
+
+Casting a 64-bit integer to a narrower width preserves the **low N bits** of the source, matching NumPy:
+
+```typescript
+const a = np.array([0n], { dtype: 'uint64' });
+a.set([0], 18446744073709551615n);     // u64 max = 2^64 - 1
+
+a.astype('int32').get([0]);   // -1 (low 32 bits)
+a.astype('int16').get([0]);   // -1 (low 16 bits)
+a.astype('uint8').get([0]);   // 255 (low 8 bits)
+```
+
+This requires care internally — naive `Number(bigint)` rounds 2^63-class values to a multiple of 2^11 before any truncation can happen. numpy-ts masks in BigInt-space (`v & 0xFFFFFFFFn`) before converting, so the low bits survive into the TypedArray store.
+
+### Caveat: `NaN` / `±Inf` → integer
+
+NumPy 2.x **explicitly documents** the float-to-integer conversion of `NaN`, `+Inf`, and `-Inf` as **platform-dependent**:
+
+- On x86, the `cvttsd2si` instruction returns the "indefinite integer" — `INT_MIN` for signed targets.
+- On arm64, the `fcvtzs` instruction returns `0`.
+
+Because NumPy itself produces different results on different CPUs *for the same input and same version*, no implementation can match both at once. numpy-ts picks the arm64 convention as a stable, predictable rule across all runtimes:
+
+| Source | Target | numpy-ts result |
+|-|-|-|
+| `NaN` | any integer | `0` |
+| `+Inf` | signed | target max (e.g. `127` for int8) |
+| `+Inf` | unsigned | target max (e.g. `255` for uint8) |
+| `-Inf` | signed | target min (e.g. `-128` for int8) |
+| `-Inf` | unsigned | `0` |
+
+<Tip>
+If you cast `NaN` / `±Inf` to an integer dtype in code that's compared against a NumPy reference, expect divergence on x86 NumPy. Filter or replace these values explicitly (e.g. `np.isnan` + masked assignment) before casting if cross-platform parity matters.
+</Tip>
+
 ## Special cases
 
 ### Comparisons always return `bool`
