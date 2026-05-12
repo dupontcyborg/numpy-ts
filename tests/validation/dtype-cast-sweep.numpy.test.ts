@@ -145,7 +145,7 @@ function pythonCastBatch(
     lines.push(`    result = np.array([${snip.py}], dtype='${snip.src}').astype('${snip.tgt}')`);
     lines.push(`    emit(${JSON.stringify(key)}, result[0])`);
     lines.push('except Exception as e:');
-    lines.push(`    print(f"${key.replace(/"/g, '\\"')}\\t__ERR__\\t{e}")`);
+    lines.push(`    print(f"${JSON.stringify(key)}\\t__ERR__\\t{e}")`);
   }
 
   const tmp = join(tmpdir(), `cast-sweep-${Date.now()}-${Math.random().toString(36).slice(2)}.py`);
