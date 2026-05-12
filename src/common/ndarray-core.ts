@@ -37,43 +37,34 @@ import { ArrayStorage } from './storage';
 /**
  * NumPy-compatible float-to-integer conversion.
  *
- * NumPy converts float→int by:
+ * NumPy 2.x converts float→int by:
  * - NaN → 0
- * - For 32/64-bit target types: clamp to target range (saturation)
- * - For 8/16-bit target types: clamp to int64 range, then bit-truncate
+ * - For 32-bit target types: saturate at target range
+ * - For 8/16-bit target types: saturate at int32 range, then bit-truncate
+ *   (the TypedArray store performs the ToIntN truncation).
  *
  * JS TypedArrays differ: they return 0 for inf/NaN and wrap (modular) for
  * out-of-range values on 32-bit types. This function pre-processes the value
  * so that the subsequent TypedArray assignment produces the NumPy result.
  */
-const TWO_63 = 2 ** 63; // 9223372036854775808
+const INT32_MAX = 2147483647;
+const INT32_MIN = -2147483648;
 
-// Precomputed: INT64_MAX/MIN bit-truncated to each narrow type
-const INT64_MAX_AS: Record<string, number> = {
-  int8: -1,
-  int16: -1,
-  uint8: 255,
-  uint16: 65535,
-};
-const INT64_MIN_AS: Record<string, number> = {
-  int8: 0,
-  int16: 0,
-  uint8: 0,
-  uint16: 0,
-};
+const NARROW_INT_TARGETS = new Set<string>(['int8', 'int16', 'uint8', 'uint16']);
 
 const INT_RANGE: Record<string, [number, number]> = {
-  int32: [-2147483648, 2147483647],
+  int32: [INT32_MIN, INT32_MAX],
   uint32: [0, 4294967295],
 };
 
 function floatToInt(value: number, targetDtype: DType): number {
   if (Number.isNaN(value)) return 0;
 
-  // Narrow types (8/16-bit): NumPy converts via int64 then bit-truncates
-  if (targetDtype in INT64_MAX_AS) {
-    if (value >= TWO_63 || value === Infinity) return INT64_MAX_AS[targetDtype]!;
-    if (value <= -TWO_63 || value === -Infinity) return INT64_MIN_AS[targetDtype]!;
+  // Narrow types (8/16-bit): NumPy 2.x saturates to int32 range, then the
+  // TypedArray store does the ToIntN bit-truncation.
+  if (NARROW_INT_TARGETS.has(targetDtype)) {
+    if (value >= INT32_MAX || value === Infinity) return INT32_MAX;
+    if (value <= INT32_MIN || value === -Infinity) return INT32_MIN;
     return Math.trunc(value);
   }
 
@@ -471,10 +462,23 @@ export class NDArrayCore {
         for (let i = 0; i < size; i++) {
           (newData as Uint8Array)[i] = typedOldData[i] !== BigInt(0) ? 1 : 0;
         }
-      } else {
+      } else if (isFloatDType(dtype)) {
+        // bigint → float: Number(bigint) is the right conversion.
         for (let i = 0; i < size; i++) {
           (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Number(
             typedOldData[i],
+          );
+        }
+      } else {
+        // bigint → narrow/wide int: NumPy keeps the low N bits of the source.
+        // Number(2^63-class bigint) rounds to a multiple of 2^11 before the
+        // TypedArray store can ToIntN it, losing the low bits. Mask in
+        // BigInt-space (low 32 bits) first; the TypedArray store performs the
+        // final ToInt{8,16,32}/ToUint{8,16,32} truncation correctly from there.
+        const MASK32 = 0xffffffffn;
+        for (let i = 0; i < size; i++) {
+          (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Number(
+            typedOldData[i]! & MASK32,
           );
         }
       }

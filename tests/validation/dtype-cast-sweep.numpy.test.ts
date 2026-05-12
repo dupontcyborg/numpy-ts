@@ -95,51 +95,17 @@ const CASES: Case[] = [
 ];
 
 /**
- * Known cast divergences from NumPy 2.x — surfaced by this sweep on first run.
- * Each entry is `${case.label}__${tgt}`. Tracked separately rather than
- * silently passing; failures bubble up via `it.todo` so they show in CI output
- * but don't fail the suite.
+ * Known cast divergences from NumPy 2.x — keep empty unless a new divergence
+ * surfaces. Each entry is `${case.label}__${tgt}`; matched entries become
+ * `it.todo` so they show in CI output without failing the suite.
  *
- * The two clusters covered here:
- *   1. Float-to-out-of-range integer narrowing: NumPy 2.x saturates via int64
- *      intermediate before truncation; we currently saturate per-target.
- *   2. uint64_max → narrower int: NumPy keeps low N bits; we go through
- *      Number() so the bit pattern is lost.
+ * Two earlier clusters (float→narrow-int saturation; bigint→narrow-int via
+ * Number()) were resolved in src/common/ndarray-core.ts: floatToInt now
+ * saturates to int32 range before bit-truncation (NumPy 2.x's actual path),
+ * and the bigint→non-bigint cast masks to 32 bits in BigInt-space before
+ * Number() so the TypedArray store can finish the truncation.
  */
-const KNOWN_DIVERGENCES = new Set<string>([
-  // Float-to-narrow-int with values past the int32 boundary
-  'f64 int32_max+1__int16',
-  'f64 int32_max+1__int8',
-  'f64 int32_max+1__uint16',
-  'f64 int32_max+1__uint8',
-  'f64 -int32_max-1__int16',
-  'f64 -int32_max-1__int8',
-  'f64 -int32_max-1__uint16',
-  'f64 -int32_max-1__uint8',
-  // u64_max → narrower int (bit pattern lost through Number())
-  'u64 max__int32',
-  'u64 max__int16',
-  'u64 max__int8',
-  'u64 max__uint32',
-  'u64 max__uint16',
-  'u64 max__uint8',
-  // i64 min / max → narrower int — same Number()-narrowing path
-  'i64 max__int32',
-  'i64 max__int16',
-  'i64 max__int8',
-  'i64 max__uint32',
-  'i64 max__uint16',
-  'i64 max__uint8',
-  'i64 min__int32',
-  'i64 min__int16',
-  'i64 min__int8',
-  'i64 min__uint32',
-  'i64 min__uint16',
-  'i64 min__uint8',
-  // u64 max → bigint targets: lossless in principle, but our cast path
-  // currently routes through Number() for the same-kind copy and loses bits.
-  'u64 max__int64',
-]);
+const KNOWN_DIVERGENCES = new Set<string>();
 
 interface OracleEntry {
   /** Raw text from Python — int literal, float repr, or one of the markers. */
