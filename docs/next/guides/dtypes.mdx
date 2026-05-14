@@ -252,25 +252,35 @@ a.astype('uint8').get([0]);   // 255 (low 8 bits)
 
 This requires care internally — naive `Number(bigint)` rounds 2^63-class values to a multiple of 2^11 before any truncation can happen. numpy-ts masks in BigInt-space (`v & 0xFFFFFFFFn`) before converting, so the low bits survive into the TypedArray store.
 
-### Caveat: `NaN` / `±Inf` → integer
+### Caveat: out-of-range float → integer is platform-dependent in NumPy
 
-NumPy 2.x **explicitly documents** the float-to-integer conversion of `NaN`, `+Inf`, and `-Inf` as **platform-dependent**:
+NumPy 2.x routes float-to-integer conversion through the CPU's native fp-to-int intrinsic, and **the two major intrinsics disagree**:
 
-- On x86, the `cvttsd2si` instruction returns the "indefinite integer" — `INT_MIN` for signed targets.
-- On arm64, the `fcvtzs` instruction returns `0`.
+- x86 `cvttsd2si` wraps modularly and returns `INT_MIN` for invalid (NaN, Inf, out-of-range).
+- arm64 `fcvtzs` saturates and returns `0` for NaN.
 
-Because NumPy itself produces different results on different CPUs *for the same input and same version*, no implementation can match both at once. numpy-ts picks the arm64 convention as a stable, predictable rule across all runtimes:
+The same NumPy version produces different results on different CPUs for the same input. This covers three pattern classes:
+
+1. `NaN` / `±Inf` → any integer.
+2. Negative float → unsigned integer (e.g. `-1.7` → `uint32`: arm64 gives `0`, x86 gives `4294967295`).
+3. Finite float whose truncated value falls outside the target's range (e.g. `2**31` → `int32`: arm64 saturates to `2147483647`, x86 wraps to `-2147483648`).
+
+numpy-ts picks the **arm64 convention** as a stable, predictable rule across all runtimes:
 
 | Source | Target | numpy-ts result |
 |-|-|-|
 | `NaN` | any integer | `0` |
 | `+Inf` | signed | target max (e.g. `127` for int8) |
 | `+Inf` | unsigned | target max (e.g. `255` for uint8) |
-| `-Inf` | signed | target min (e.g. `-128` for int8) |
+| `-Inf` | signed | target min |
 | `-Inf` | unsigned | `0` |
+| negative finite | unsigned | `0` |
+| out-of-range finite | signed | saturated to target min/max |
+
+In-range finite casts (`1.7 → int32`, etc.) match every platform.
 
 <Tip>
-If you cast `NaN` / `±Inf` to an integer dtype in code that's compared against a NumPy reference, expect divergence on x86 NumPy. Filter or replace these values explicitly (e.g. `np.isnan` + masked assignment) before casting if cross-platform parity matters.
+If you cast pathological float values to an integer dtype in code compared against NumPy, expect divergence on x86 NumPy. Filter, clamp, or replace these values explicitly before `astype()` if cross-platform parity matters.
 </Tip>
 
 ## Special cases

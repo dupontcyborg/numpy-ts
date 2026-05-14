@@ -50,10 +50,21 @@ const INT_DTYPES = new Set<DType>([
 ]);
 
 /**
- * NaN / ±Inf → integer is documented in NumPy 2.x as platform-dependent: x86
- * cvttsd2si returns the "indefinite integer" (INT_MIN); arm64 fcvtzs returns 0.
- * Same NumPy version produces different oracle values on different CI runners,
- * so this combination can't be sanity-checked here — skip it.
+ * NumPy 2.x routes float→int through the platform's native fp-to-int intrinsic.
+ * x86 `cvttsd2si` wraps / returns INT_MIN for invalid; arm64 `fcvtzs` saturates
+ * / returns 0. So the entire space of "float that doesn't fit losslessly into
+ * the target's integer range" is platform-dependent: the same NumPy version
+ * produces different oracle values across CI runners.
+ *
+ * Three kinds of float→int are platform-dependent:
+ *   1. NaN / ±Inf → any integer.
+ *   2. Negative float (truncated) → unsigned integer.
+ *   3. Float whose truncated value falls outside the target's signed range.
+ *
+ * For these cases we skip the comparison rather than pretend NumPy is an
+ * oracle. The library's own behavior (arm64-style saturation, NaN→0) is
+ * documented in docs/next/guides/dtypes.mdx; cross-platform parity is not
+ * achievable so long as NumPy itself differs.
  */
 const PATHOLOGICAL_FLOAT_LABELS = new Set<string>([
   'f64 NaN',
@@ -63,6 +74,31 @@ const PATHOLOGICAL_FLOAT_LABELS = new Set<string>([
   'f32 +Inf',
   'f32 -Inf',
 ]);
+
+const INT_RANGES: Record<string, { min: bigint; max: bigint }> = {
+  int8: { min: -128n, max: 127n },
+  int16: { min: -32768n, max: 32767n },
+  int32: { min: -2147483648n, max: 2147483647n },
+  int64: { min: -9223372036854775808n, max: 9223372036854775807n },
+  uint8: { min: 0n, max: 255n },
+  uint16: { min: 0n, max: 65535n },
+  uint32: { min: 0n, max: 4294967295n },
+  uint64: { min: 0n, max: 18446744073709551615n },
+};
+
+/**
+ * True if casting `c.value` to `tgt` is platform-dependent in NumPy 2.x:
+ * NaN/Inf, or a finite float whose truncated value falls outside `tgt`'s range.
+ */
+function isPlatformDependentFloatToInt(c: Case, tgt: DType): boolean {
+  if (!FLOAT_DTYPES.has(c.src) || !INT_DTYPES.has(tgt)) return false;
+  if (PATHOLOGICAL_FLOAT_LABELS.has(c.label)) return true;
+  const v = c.value as number;
+  if (!Number.isFinite(v)) return true;
+  const truncated = BigInt(Math.trunc(v));
+  const range = INT_RANGES[tgt]!;
+  return truncated < range.min || truncated > range.max;
+}
 
 interface Case {
   label: string;
@@ -259,18 +295,15 @@ describe('NumPy Validation: dtype cast edge-case sweep', () => {
           }
         };
 
-        const isPathologicalFloatToInt =
-          PATHOLOGICAL_FLOAT_LABELS.has(c.label) && INT_DTYPES.has(tgt);
-
         if (KNOWN_DIVERGENCES.has(key)) {
           // Surface the divergence in test output but don't fail the suite.
           // Re-evaluate periodically: when the cast path is fixed, remove the
           // entry from KNOWN_DIVERGENCES and this becomes a normal `it`.
           it.todo(`→ ${tgt} (known divergence — saturation/narrowing path)`);
-        } else if (isPathologicalFloatToInt) {
-          // NumPy 2.x is platform-dependent for NaN/±Inf → integer (see comment
-          // by PATHOLOGICAL_FLOAT_LABELS). Skip rather than pretend we have an
-          // oracle for it.
+        } else if (isPlatformDependentFloatToInt(c, tgt)) {
+          // NumPy 2.x diverges across x86 / arm64 here (see header comment by
+          // isPlatformDependentFloatToInt). Skip rather than pretend we have
+          // a stable oracle.
           it.skip(`→ ${tgt} (platform-dependent in NumPy 2.x)`);
         } else {
           it(`→ ${tgt}`, fn);
