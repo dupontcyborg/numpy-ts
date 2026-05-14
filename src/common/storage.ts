@@ -66,6 +66,11 @@ export class ArrayStorage {
     dtype: DType,
     wasmRegion: WasmRegion | null = null,
   ) {
+    if (shape.length > MAX_NDIM) {
+      throw new Error(
+        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`,
+      );
+    }
     this._data = data;
     this._shape = shape;
     this._strides = strides;
@@ -453,11 +458,7 @@ export class ArrayStorage {
     strides?: number[],
     offset?: number,
   ): ArrayStorage {
-    if (shape.length > MAX_NDIM) {
-      throw new Error(
-        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`,
-      );
-    }
+    // MAX_NDIM check happens in the ArrayStorage constructor below.
     const finalStrides = strides ?? ArrayStorage._computeStrides(shape);
     const finalOffset = offset ?? 0;
 
@@ -525,11 +526,7 @@ export class ArrayStorage {
    * Create storage with zeros
    */
   static zeros(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
-    if (shape.length > MAX_NDIM) {
-      throw new Error(
-        `maximum supported dimension for an ndarray is currently ${MAX_NDIM}, found ${shape.length}`,
-      );
-    }
+    // MAX_NDIM check happens in the ArrayStorage constructor below.
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
 

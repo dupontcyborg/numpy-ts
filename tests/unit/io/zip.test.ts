@@ -183,4 +183,37 @@ describe('ZIP Format', () => {
       );
     });
   });
+
+  describe('zip-slip / unsafe entry names', () => {
+    const payload = new TextEncoder().encode('x');
+
+    const unsafeNames: Array<[string, string]> = [
+      ['../etc/passwd', 'parent traversal'],
+      ['foo/../../etc/passwd', 'parent traversal'],
+      ['/etc/passwd', 'absolute path'],
+      ['\\windows\\system32', 'absolute path'],
+      ['C:/Windows/System32', 'drive letter'],
+      ['c:\\Windows', 'drive letter'],
+      ['foo\0bar', 'NUL byte'],
+    ];
+
+    for (const [name, kind] of unsafeNames) {
+      it(`rejects ${kind}: ${JSON.stringify(name)}`, () => {
+        const zip = writeZipSync(new Map([[name, payload]]));
+        expect(() => readZipSync(zip)).toThrow(/Unsafe ZIP entry name|Invalid ZIP entry/);
+      });
+    }
+
+    it('accepts normal nested paths', () => {
+      const zip = writeZipSync(new Map([['dir/sub/file.txt', payload]]));
+      const out = readZipSync(zip);
+      expect(out.get('dir/sub/file.txt')).toEqual(payload);
+    });
+
+    it('accepts names containing .. as a substring (not a path part)', () => {
+      const zip = writeZipSync(new Map([['weird..name.txt', payload]]));
+      const out = readZipSync(zip);
+      expect(out.get('weird..name.txt')).toEqual(payload);
+    });
+  });
 });

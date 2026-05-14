@@ -55,7 +55,7 @@ const CACHE_HASHES_FILE = join(CACHE_DIR, 'hashes.json');
 
 // --- Check for Zig ---
 
-const REQUIRED_ZIG = '0.16.0';
+const REQUIRED_ZIG = readFileSync(new URL('../.zigversion', import.meta.url), 'utf-8').trim();
 
 let zigVersion: string;
 try {

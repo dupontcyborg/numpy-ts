@@ -75,32 +75,6 @@ export class NDArray extends NDArrayCore {
   }
 
   /**
-   * Fill the array with a scalar value (in-place)
-   * @param value - Value to fill with
-   */
-  override fill(value: number | bigint): void {
-    const dtype = this._storage.dtype;
-    const size = this.size;
-
-    if (isBigIntDType(dtype)) {
-      const bigintValue = typeof value === 'bigint' ? value : BigInt(Math.round(Number(value)));
-      for (let i = 0; i < size; i++) {
-        this._storage.iset(i, bigintValue);
-      }
-    } else if (dtype === 'bool') {
-      const boolValue = value ? 1 : 0;
-      for (let i = 0; i < size; i++) {
-        this._storage.iset(i, boolValue);
-      }
-    } else {
-      const numValue = Number(value);
-      for (let i = 0; i < size; i++) {
-        this._storage.iset(i, numValue);
-      }
-    }
-  }
-
-  /**
    * Iterator protocol - iterate over the first axis
    * For 1D arrays, yields elements; for ND arrays, yields (N-1)D subarrays
    */
@@ -190,26 +164,6 @@ export class NDArray extends NDArrayCore {
       const convertedValue = value instanceof Complex ? value.re : Number(value);
       this._storage.set(normalizedIndices, convertedValue);
     }
-  }
-
-  /**
-   * Return a deep copy of the array
-   */
-  override copy(): NDArray {
-    return new NDArray(this._storage.copy());
-  }
-
-  /**
-   * Cast array to a different dtype
-   * @param dtype - Target dtype
-   * @param copy - If false and dtype matches, return self
-   * @returns Array with specified dtype
-   */
-  override astype(dtype: DType, copy: boolean = true): NDArray {
-    // Delegate to parent NDArrayCore.astype (which handles complex types correctly)
-    const core = super.astype(dtype, copy);
-    if (core instanceof NDArray) return core;
-    return new NDArray((core as unknown as { _storage: ArrayStorage })._storage);
   }
 
   /**
@@ -381,44 +335,6 @@ export class NDArray extends NDArrayCore {
    */
   override toString(): string {
     return core.array_str(this);
-  }
-
-  /**
-   * Convert to nested JavaScript array
-   * @returns Nested JavaScript array representation
-   */
-  // biome-ignore lint/suspicious/noExplicitAny: required
-  override toArray(): any {
-    if (this.ndim === 0) {
-      return this._storage.iget(0);
-    }
-
-    const shape = this.shape;
-    const ndim = shape.length;
-
-    // biome-ignore lint/suspicious/noExplicitAny: required
-    const buildNestedArray = (indices: number[], dim: number): any => {
-      if (dim === ndim) {
-        return this._storage.get(...indices);
-      }
-
-      const arr = [];
-      for (let i = 0; i < shape[dim]!; i++) {
-        indices[dim] = i;
-        arr.push(buildNestedArray(indices, dim + 1));
-      }
-      return arr;
-    };
-
-    return buildNestedArray(new Array(ndim), 0);
-  }
-
-  /**
-   * Return the array as a nested list (same as toArray)
-   */
-  // biome-ignore lint/suspicious/noExplicitAny: required
-  override tolist(): any {
-    return this.toArray();
   }
 
   /**

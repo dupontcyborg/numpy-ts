@@ -56,6 +56,33 @@ export function readZipSync(buffer: ArrayBuffer | Uint8Array): Map<string, Uint8
 }
 
 /**
+ * Reject entry names that could escape an extraction directory or otherwise
+ * trick filesystem consumers: parent-directory traversal, absolute paths
+ * (POSIX or Windows), drive letters, and embedded NUL bytes. Throws on any
+ * unsafe name so callers never receive one.
+ */
+function assertSafeZipEntryName(name: string): void {
+  if (name.length === 0) {
+    throw new Error('Invalid ZIP entry: empty name');
+  }
+  if (name.includes('\0')) {
+    throw new Error(`Invalid ZIP entry name (NUL byte): ${JSON.stringify(name)}`);
+  }
+  if (name.startsWith('/') || name.startsWith('\\')) {
+    throw new Error(`Unsafe ZIP entry name (absolute path): ${name}`);
+  }
+  if (/^[A-Za-z]:[\\/]/.test(name)) {
+    throw new Error(`Unsafe ZIP entry name (drive letter): ${name}`);
+  }
+  const parts = name.split(/[\\/]/);
+  for (const part of parts) {
+    if (part === '..') {
+      throw new Error(`Unsafe ZIP entry name (parent traversal): ${name}`);
+    }
+  }
+}
+
+/**
  * Central directory entry info
  */
 interface CentralDirEntry {
@@ -118,6 +145,8 @@ function parseZipEntries(buffer: ArrayBuffer | Uint8Array): RawZipEntry[] {
 
     const fileNameBytes = bytes.slice(cdOffset + 46, cdOffset + 46 + fileNameLength);
     const fileName = new TextDecoder('utf-8').decode(fileNameBytes);
+
+    assertSafeZipEntryName(fileName);
 
     centralEntries.push({
       name: fileName,

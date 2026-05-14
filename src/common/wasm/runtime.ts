@@ -61,6 +61,21 @@ export function getSharedMemory(): WebAssembly.Memory {
  * Set the heap base offset. Called by each WASM module on first init
  * (reads __heap_base from exports). The highest value wins.
  */
+// Static-region invariant: heapBase must sit strictly below scratchBase, or a
+// module's static data will overlap the scratch region and silently corrupt
+// kernel inputs. (Heap "size" of zero is permitted — wasmMalloc will return
+// null and callers will fall back to JS; that's a valid degraded mode.)
+function assertHeapLayout(base: number, scratchStart: number): void {
+  if (base > scratchStart) {
+    throw new Error(
+      `WASM memory layout invalid: heapBase=${base} > scratchBase=${scratchStart}. ` +
+        'Static data from one or more WASM modules has overflowed the reserved ' +
+        'region. Increase maxMemory, reduce scratchSize, or rebuild modules with ' +
+        'a larger --global-base stride.',
+    );
+  }
+}
+
 export function setHeapBase(base: number): void {
   if (base > heapBase) {
     heapBase = base;
@@ -69,6 +84,7 @@ export function setHeapBase(base: number): void {
     if (heapInitialized) {
       const maxBytes = wasmMemoryConfig.maxMemoryBytes;
       scratchBase = maxBytes - wasmMemoryConfig.scratchBytes;
+      assertHeapLayout(heapBase, scratchBase);
       const heapSize = scratchBase - heapBase;
       if (heapSize > 0) {
         heap_init(heapBase, heapSize);
@@ -99,6 +115,7 @@ function ensureHeapInitialized(): void {
   // Layout: [heapBase ... scratchBase ... maxBytes]
   const maxBytes = wasmMemoryConfig.maxMemoryBytes;
   scratchBase = maxBytes - wasmMemoryConfig.scratchBytes;
+  assertHeapLayout(heapBase, scratchBase);
   const heapSize = scratchBase - heapBase;
 
   if (heapSize > 0) {
@@ -171,7 +188,7 @@ export class WasmRegion {
   release(): void {
     if (this._refCount <= 0) return; // already freed — prevent double-free
     if (--this._refCount === 0) {
-      if (heapInitialized && this.ptr >= 64 && scratchBase > 0 && this.ptr < scratchBase) {
+      if (heapInitialized && this.ptr >= heapBase && this.ptr < scratchBase) {
         heap_free(this.ptr);
       }
     }
