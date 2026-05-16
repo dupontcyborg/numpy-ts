@@ -10,6 +10,8 @@ sidebarTitle: Changelog
 
 NumPy-compatibility release. A wide set of public functions gain the kwargs / overloads they were missing relative to NumPy, and several signatures accept `ArrayLike` so plain `number[]` no longer needs `np.array(...)` wrapping.
 
+Small (2-5%) performance regressions due to additional correctness checks which will be optimized in a later release.
+
 ### Breaking
 
 * `meshgrid` (`numpy-ts/core` only) - default `indexing` is now `'xy'` (NumPy-compatible). Previously `core/meshgrid` had no options and effectively produced `'ij'` shapes. If you import `meshgrid` from `numpy-ts/core` and relied on the old behavior, pass `{ indexing: 'ij' }` explicitly. Importers from `numpy-ts` (the full API) are unaffected - that wrapper already defaulted to `'xy'`.
