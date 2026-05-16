@@ -1,0 +1,298 @@
+---
+title: "Exponential & Logarithmic"
+description: "Element-wise exponential and logarithmic functions."
+---
+
+All functions in this section are element-wise unary operations unless noted otherwise.
+
+### exp
+
+Compute the exponential `e**x` for each element.
+
+```typescript
+function exp(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array (exponents). |
+
+**Returns:** `NDArray` -- Element-wise `e**x`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.exp(np.array([0, 1, 2]));
+// array([1, 2.71828..., 7.38906...])
+
+const b = np.exp(np.array([np.log(2)]));
+// array([2])
+```
+
+```typescript Core
+import { exp, array } from 'numpy-ts/core';
+
+const a = exp(array([0, 1, 2]));
+```
+</CodeGroup>
+
+---
+
+### exp2
+
+Compute `2**x` for each element.
+
+```typescript
+function exp2(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array (exponents). |
+
+**Returns:** `NDArray` -- Element-wise `2**x`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.exp2(np.array([0, 1, 2, 3, 8]));
+// array([1, 2, 4, 8, 256])
+```
+
+```typescript Core
+import { exp2, array } from 'numpy-ts/core';
+
+const a = exp2(array([0, 1, 2, 3, 8]));
+```
+</CodeGroup>
+
+---
+
+### expm1
+
+Compute `exp(x) - 1` for each element. More accurate than `exp(x) - 1` for small values of `x`.
+
+```typescript
+function expm1(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `e**x - 1`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+// More accurate than np.exp(x) - 1 for small x
+const a = np.expm1(np.array([1e-10, 0, 1]));
+// array([1e-10, 0, 1.71828...])
+```
+
+```typescript Core
+import { expm1, array } from 'numpy-ts/core';
+
+const a = expm1(array([1e-10, 0, 1]));
+```
+</CodeGroup>
+
+---
+
+### log
+
+Natural logarithm, element-wise. The natural log is the inverse of the exponential function: if `y = exp(x)`, then `x = log(y)`.
+
+```typescript
+function log(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. Values must be positive. |
+
+**Returns:** `NDArray` -- Element-wise natural logarithm (base e).
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.log(np.array([1, Math.E, Math.E ** 2]));
+// array([0, 1, 2])
+```
+
+```typescript Core
+import { log, array } from 'numpy-ts/core';
+
+const a = log(array([1, Math.E, Math.E ** 2]));
+```
+</CodeGroup>
+
+---
+
+### log2
+
+Base-2 logarithm, element-wise.
+
+```typescript
+function log2(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. Values must be positive. |
+
+**Returns:** `NDArray` -- Element-wise base-2 logarithm.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.log2(np.array([1, 2, 4, 8, 256]));
+// array([0, 1, 2, 3, 8])
+```
+
+```typescript Core
+import { log2, array } from 'numpy-ts/core';
+
+const a = log2(array([1, 2, 4, 8, 256]));
+```
+</CodeGroup>
+
+---
+
+### log10
+
+Base-10 logarithm, element-wise.
+
+```typescript
+function log10(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. Values must be positive. |
+
+**Returns:** `NDArray` -- Element-wise base-10 logarithm.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.log10(np.array([1, 10, 100, 1000]));
+// array([0, 1, 2, 3])
+```
+
+```typescript Core
+import { log10, array } from 'numpy-ts/core';
+
+const a = log10(array([1, 10, 100, 1000]));
+```
+</CodeGroup>
+
+---
+
+### log1p
+
+Natural logarithm of `1 + x`, element-wise. More accurate than `log(1 + x)` for small values of `x`.
+
+```typescript
+function log1p(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. Values must be greater than `-1`. |
+
+**Returns:** `NDArray` -- Element-wise `ln(1 + x)`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+// More accurate than np.log(1 + x) for small x
+const a = np.log1p(np.array([1e-10, 0, 1]));
+// array([1e-10, 0, 0.69315...])
+```
+
+```typescript Core
+import { log1p, array } from 'numpy-ts/core';
+
+const a = log1p(array([1e-10, 0, 1]));
+```
+</CodeGroup>
+
+---
+
+### logaddexp
+
+Logarithm of the sum of exponentiations: `log(exp(x1) + exp(x2))`. Useful for computing log-probabilities.
+
+This is a **binary** operation.
+
+```typescript
+function logaddexp(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise `log(exp(x1) + exp(x2))`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+// Adding log-probabilities
+const logp1 = np.array([-1, -2, -3]);
+const logp2 = np.array([-1, -3, -5]);
+const result = np.logaddexp(logp1, logp2);
+```
+
+```typescript Core
+import { logaddexp, array } from 'numpy-ts/core';
+
+const logp1 = array([-1, -2, -3]);
+const logp2 = array([-1, -3, -5]);
+const result = logaddexp(logp1, logp2);
+```
+</CodeGroup>
+
+---
+
+### logaddexp2
+
+Logarithm base 2 of the sum of exponentiations: `log2(2**x1 + 2**x2)`.
+
+This is a **binary** operation.
+
+```typescript
+function logaddexp2(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise `log2(2**x1 + 2**x2)`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.logaddexp2(np.array([1, 2, 3]), np.array([1, 2, 3]));
+// array([2, 3, 4])  -- log2(2^1 + 2^1) = log2(4) = 2, etc.
+```
+
+```typescript Core
+import { logaddexp2, array } from 'numpy-ts/core';
+
+const a = logaddexp2(array([1, 2, 3]), array([1, 2, 3]));
+```
+</CodeGroup>
