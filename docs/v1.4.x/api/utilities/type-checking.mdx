@@ -1,0 +1,192 @@
+---
+title: "Type Checking"
+description: "Functions for inspecting, comparing, and promoting data types: can_cast, common_type, result_type, min_scalar_type, issubdtype, typename, and mintypecode."
+---
+
+### can_cast
+
+Check whether a cast between data types is possible according to the given casting rule.
+
+```typescript
+function can_cast(
+  from_: ArrayLike | DType,
+  to: DType,
+  casting?: 'no' | 'equiv' | 'safe' | 'same_kind' | 'unsafe'
+): boolean
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `from_` | `ArrayLike \| DType` | -- | Source value or data type. |
+| `to` | `DType` | -- | Target data type. |
+| `casting` | `'no' \| 'equiv' \| 'safe' \| 'same_kind' \| 'unsafe'` | `'safe'` | Casting rule. `'no'` allows no casting, `'equiv'` allows byte-order changes, `'safe'` allows only casts that preserve values, `'same_kind'` allows safe casts and casts within a kind (e.g. float to float), `'unsafe'` allows all casts. |
+
+**Returns:** `boolean` -- `true` if the cast is allowed under the given rule.
+
+```typescript
+import { can_cast } from 'numpy-ts';
+
+can_cast('int32', 'float64');                // true  (safe)
+can_cast('float64', 'int32');                // false (not safe)
+can_cast('float64', 'int32', 'unsafe');      // true
+can_cast('float32', 'float64', 'same_kind'); // true
+can_cast('int32', 'int32', 'no');            // true
+```
+
+---
+
+### common_type
+
+Return the common data type that can represent all input arrays without loss of precision.
+
+```typescript
+function common_type(...arrays: ArrayLike[]): DType
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `...arrays` | `ArrayLike[]` | -- | One or more input arrays. |
+
+**Returns:** `DType` -- The common type that can hold values from all input arrays.
+
+```typescript
+import { array, common_type } from 'numpy-ts';
+
+const a = array([1, 2], 'float32');
+const b = array([3, 4], 'int32');
+
+common_type(a, b);    // 'float64'
+common_type(a);       // 'float32'
+```
+
+---
+
+### result_type
+
+Determine the result data type from a set of arrays and/or dtypes, applying NumPy's type promotion rules.
+
+```typescript
+function result_type(...arrays_and_dtypes: (ArrayLike | DType)[]): DType
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `...arrays_and_dtypes` | `(ArrayLike \| DType)[]` | -- | Arrays and/or dtype strings. |
+
+**Returns:** `DType` -- The dtype that would result from an operation on the given inputs.
+
+```typescript
+import { array, result_type } from 'numpy-ts';
+
+result_type('int32', 'float32');           // 'float64'
+result_type('float32', 'float32');         // 'float32'
+result_type(array([1, 2], 'int16'), 'int32'); // 'int32'
+```
+
+---
+
+### min_scalar_type
+
+Return the minimum-size dtype that can hold the given scalar value without overflow or loss of precision.
+
+```typescript
+function min_scalar_type(val: number | bigint | boolean): DType
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `val` | `number \| bigint \| boolean` | -- | A scalar value. |
+
+**Returns:** `DType` -- The smallest dtype capable of representing the value.
+
+```typescript
+import { min_scalar_type } from 'numpy-ts';
+
+min_scalar_type(0);       // 'uint8'
+min_scalar_type(255);     // 'uint8'
+min_scalar_type(256);     // 'uint16'
+min_scalar_type(-1);      // 'int8'
+min_scalar_type(3.14);    // 'float64'
+```
+
+---
+
+### issubdtype
+
+Check whether the first dtype is a subtype of the second. This follows NumPy's type hierarchy where, for example, all integer types are subtypes of `'integer'` and all floating types are subtypes of `'floating'`.
+
+```typescript
+function issubdtype(dtype1: ArrayLike | DType, dtype2: DType | string): boolean
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dtype1` | `ArrayLike \| DType` | -- | The dtype (or array-like value) to test. |
+| `dtype2` | `DType \| string` | -- | The dtype or abstract type category to test against (e.g. `'integer'`, `'floating'`, `'signedinteger'`, `'unsignedinteger'`, `'number'`). |
+
+**Returns:** `boolean` -- `true` if `arg1` is a subtype of `arg2`.
+
+```typescript
+import { issubdtype } from 'numpy-ts';
+
+issubdtype('int32', 'integer');           // true
+issubdtype('float64', 'floating');        // true
+issubdtype('int32', 'floating');          // false
+issubdtype('uint8', 'unsignedinteger');   // true
+issubdtype('float32', 'number');          // true
+issubdtype('bool', 'integer');            // true
+```
+
+---
+
+### typename
+
+Return a human-readable type name for a numeric type code.
+
+```typescript
+function typename(dtype: DType): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dtype` | `DType` | -- | Dtype code to resolve. |
+
+**Returns:** `string` -- A descriptive string for the type code.
+
+```typescript
+import { typename } from 'numpy-ts';
+
+typename(1);   // 'int8'
+typename(5);   // 'float32'
+typename(12);  // 'float64'
+```
+
+---
+
+### mintypecode
+
+Return the minimum-size type character from the given type characters that can hold all of them. Optionally restricted to a given set of types.
+
+```typescript
+function mintypecode(
+  typechars: string,
+  typeset?: string,
+  default_?: string
+): string
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `typechars` | `string` | -- | String of type character codes. |
+| `typeset` | `string` | `'GDFgdf'` | Set of allowed type characters. |
+| `default_` | `string` | `'d'` | Default type character returned when `typechars` is empty. |
+
+**Returns:** `string` -- The minimum type character that encompasses all inputs.
+
+```typescript
+import { mintypecode } from 'numpy-ts';
+
+mintypecode(['f', 'd']);    // 'd'  (float64 needed for float32 + float64)
+mintypecode(['i', 'f']);    // 'd'  (float64 covers int + float32)
+mintypecode([]);            // 'd'  (default)
+```

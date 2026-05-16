@@ -86,6 +86,10 @@ const submatrix = A.slice('0:2', '1:');  // A[0:2, 1:]
 
 Issues and PRs are welcome: https://github.com/dupontcyborg/numpy-ts
 
+## AI Disclosure
+
+See our [AI disclosure](https://numpyts.dev/ai-disclosure) for details on how AI was used in building numpy-ts.
+
 ## License
 
 MIT © Nicolas Dupont

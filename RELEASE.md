@@ -45,7 +45,25 @@ Sanity-check the results: compare headline numbers to the previous release (`npm
 
 ---
 
-## 4. Benchmark → Docs
+## 4. Docs
+
+### 4a. Promote `next/` to the new version
+
+Rename `docs/next/` to the new version folder:
+
+```bash
+mv docs/next docs/v1.x.x   # replace with actual version, e.g. v1.4.x
+```
+
+### 4b. Update `docs.json`
+
+In `docs/docs.json`:
+
+1. Add the new version to the `navigation.versions` array (copy the previous version's entry and update all page paths from `v1.3.x/...` to `v1.4.x/...`).
+2. Update the top-level `redirects` to point shorthand URLs (e.g. `/quickstart`, `/api`) to the new version.
+3. Keep the previous version in the versions list — don't remove it.
+
+### 4c. Benchmark → Docs
 
 Generate performance documentation from the benchmark results:
 
@@ -55,27 +73,7 @@ npm run bench:docs
 
 This runs `scripts/generate-bench-docs.py` and `scripts/generate-overview-charts.py`, updating the performance pages in `docs/next/performance/`. Review the generated MDX diffs before committing.
 
----
-
-## 5. Docs Release
-
-### 5a. Promote `next/` to the new version
-
-Rename `docs/next/` to the new version folder:
-
-```bash
-mv docs/next docs/v1.x.x   # replace with actual version, e.g. v1.4.x
-```
-
-### 5b. Update `docs.json`
-
-In `docs/docs.json`:
-
-1. Add the new version to the `navigation.versions` array (copy the previous version's entry and update all page paths from `v1.3.x/...` to `v1.4.x/...`).
-2. Update the top-level `redirects` to point shorthand URLs (e.g. `/quickstart`, `/api`) to the new version.
-3. Keep the previous version in the versions list — don't remove it.
-
-### 5c. Seed `docs/next/` for the next cycle
+### 4d. Seed `docs/next/` for the next cycle
 
 ```bash
 cp -r docs/v1.x.x docs/next   # copy from the version you just created
@@ -83,7 +81,7 @@ cp -r docs/v1.x.x docs/next   # copy from the version you just created
 
 This ensures `docs/next/` is always a ready-to-edit mirror of the latest version for future contributors.
 
-### 5d. Verify locally
+### 4e. Verify locally
 
 ```bash
 mintlify dev
@@ -94,7 +92,7 @@ Check the new version renders correctly and the redirects work before merging.
 
 ---
 
-## 6. Merge and Release
+## 5. Merge and Release
 
 Open a PR from the release branch into `main`. Once approved:
 

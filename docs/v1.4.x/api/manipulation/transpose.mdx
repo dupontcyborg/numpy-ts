@@ -1,0 +1,202 @@
+---
+title: "Transpose & Permutation"
+description: "Permute, swap, and move array axes."
+---
+
+### transpose
+
+Permute the dimensions of an array. When called without `axes`, reverses the dimension order. Returns a view (no data is copied).
+Also available as `np.linalg.transpose(...)`.
+
+```typescript
+function transpose(a: ArrayLike, axes?: number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axes` | `number[]` | `undefined` | Permutation of `[0, 1, ..., N-1]` where `N` is the number of dimensions. If omitted, the axes are reversed. |
+
+**Returns:** `NDArray` -- View of `a` with its axes permuted.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.shape);  // [2, 3]
+
+// Default: reverse all axes
+const b = np.transpose(a);
+console.log(b.shape);  // [3, 2]
+console.log(b.toArray());
+// [[1, 4],
+//  [2, 5],
+//  [3, 6]]
+
+// Shorthand via property
+const c = a.T;
+console.log(c.shape);  // [3, 2]
+
+// Custom permutation on a 3-D array
+const d = np.zeros([2, 3, 4]);
+const e = np.transpose(d, [1, 2, 0]);
+console.log(e.shape);  // [3, 4, 2]
+```
+
+---
+
+### swapaxes
+
+Interchange two axes of an array. Returns a view.
+
+```typescript
+function swapaxes(a: ArrayLike, axis1: number, axis2: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis1` | `number` | -- | First axis. |
+| `axis2` | `number` | -- | Second axis. |
+
+**Returns:** `NDArray` -- View of `a` with the two specified axes swapped.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.zeros([2, 3, 4]);
+console.log(a.shape);  // [2, 3, 4]
+
+const b = np.swapaxes(a, 0, 2);
+console.log(b.shape);  // [4, 3, 2]
+
+// Swapping the same axis returns an unchanged view
+const c = np.swapaxes(a, 1, 1);
+console.log(c.shape);  // [2, 3, 4]
+```
+
+---
+
+### moveaxis
+
+Move axes of an array to new positions. Other axes remain in their original order. Returns a view.
+
+```typescript
+function moveaxis(
+  a: ArrayLike,
+  source: number | number[],
+  destination: number | number[]
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `source` | `number \| number[]` | -- | Original position(s) of the axes to move. |
+| `destination` | `number \| number[]` | -- | Target position(s) for each axis. |
+
+**Returns:** `NDArray` -- View of `a` with the specified axes moved.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.zeros([3, 4, 5]);
+
+// Move axis 0 to position 2
+const b = np.moveaxis(a, 0, 2);
+console.log(b.shape);  // [4, 5, 3]
+
+// Move multiple axes
+const c = np.moveaxis(a, [0, 2], [2, 0]);
+console.log(c.shape);  // [5, 4, 3]
+```
+
+---
+
+### rollaxis
+
+Roll the specified axis backwards until it lies at the given position. Returns a view.
+
+```typescript
+function rollaxis(a: ArrayLike, axis: number, start?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | -- | The axis to roll. |
+| `start` | `number` | `0` | The axis is rolled until it lies before this position. |
+
+**Returns:** `NDArray` -- View of `a` with the axis rolled to the target position.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.zeros([3, 4, 5, 6]);
+
+// Roll axis 3 to position 1
+const b = np.rollaxis(a, 3, 1);
+console.log(b.shape);  // [3, 6, 4, 5]
+
+// Roll axis 2 to position 0
+const c = np.rollaxis(a, 2);
+console.log(c.shape);  // [5, 3, 4, 6]
+```
+
+---
+
+### permute_dims
+
+Permute the dimensions of an array. This is the Array API-compatible equivalent of `transpose`.
+Also available as `np.linalg.permute_dims(...)`.
+
+```typescript
+function permute_dims(a: ArrayLike, axes?: number[]): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axes` | `number[]` | -- | Permutation of dimensions. |
+
+**Returns:** `NDArray` -- View of `a` with its axes permuted.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.zeros([2, 3, 4]);
+
+const b = np.permute_dims(a, [2, 0, 1]);
+console.log(b.shape);  // [4, 2, 3]
+```
+
+---
+
+### matrix_transpose
+
+Transpose the last two dimensions of an array. The input must have at least 2 dimensions. Returns a view.
+Also available as `np.linalg.matrix_transpose(...)`.
+
+```typescript
+function matrix_transpose(a: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array with `ndim >= 2`. |
+
+**Returns:** `NDArray` -- View of `a` with the last two axes swapped.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 2-D case: same as transpose
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+const b = np.matrix_transpose(a);
+console.log(b.shape);  // [3, 2]
+
+// Batch of matrices (3-D): transposes each matrix in the batch
+const c = np.zeros([5, 3, 4]);
+const d = np.matrix_transpose(c);
+console.log(d.shape);  // [5, 4, 3]
+```
