@@ -63,7 +63,17 @@ In `docs/docs.json`:
 2. Update the top-level `redirects` to point shorthand URLs (e.g. `/quickstart`, `/api`) to the new version.
 3. Keep the previous version in the versions list — don't remove it.
 
-### 4c. Seed `docs/next/` for the next cycle
+### 4c. Benchmark → Docs
+
+Generate performance documentation from the benchmark results:
+
+```bash
+npm run bench:docs
+```
+
+This runs `scripts/generate-bench-docs.py` and `scripts/generate-overview-charts.py`, updating the performance pages in `docs/next/performance/`. Review the generated MDX diffs before committing.
+
+### 4d. Seed `docs/next/` for the next cycle
 
 ```bash
 cp -r docs/v1.x.x docs/next   # copy from the version you just created
@@ -71,7 +81,7 @@ cp -r docs/v1.x.x docs/next   # copy from the version you just created
 
 This ensures `docs/next/` is always a ready-to-edit mirror of the latest version for future contributors.
 
-### 4d. Verify locally
+### 4e. Verify locally
 
 ```bash
 mintlify dev
@@ -82,19 +92,7 @@ Check the new version renders correctly and the redirects work before merging.
 
 ---
 
-## 5. Benchmark → Docs
-
-Generate performance documentation from the benchmark results:
-
-```bash
-npm run bench:docs
-```
-
-This runs `scripts/generate-bench-docs.py` and `scripts/generate-overview-charts.py`, updating the performance pages in `docs/next/performance/`. Review the generated MDX diffs before committing.
-
----
-
-## 6. Merge and Release
+## 5. Merge and Release
 
 Open a PR from the release branch into `main`. Once approved:
 
