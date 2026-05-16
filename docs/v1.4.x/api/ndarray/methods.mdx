@@ -1030,9 +1030,9 @@ Find indices of non-zero elements, returned as a 2D array of shape `(N, ndim)`. 
 ### take
 
 ```typescript
-take(indices: number[], axis?: number): NDArray
+take(indices: ArrayLike, axis?: number): NDArray
 ```
-Take elements along an axis. See [take](..//indexing/advanced-indexing).
+Take elements along an axis. `indices` accepts NDArrays of any rank, nested `number[]`/`number[][]`/`number[][][]`, or a scalar; the output preserves the shape of `indices` (a scalar index reduces rank by one). See [take](..//indexing/advanced-indexing).
 
 ### put
 

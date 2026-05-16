@@ -55,19 +55,26 @@ Normally `vindex` is called with `NDArray` or `number[]` objects, but you can al
 
 ### take
 
-Take elements from an array along an axis.
+Take elements from an array along an axis. The output preserves the shape of `indices`: indexing with a 2-D index array produces an output whose indexed-axis is replaced by the index array's shape. A scalar index reduces rank by one along that axis (NumPy semantics). Legacy `number[]` callers are unchanged.
 
 ```typescript
-function take(a: ArrayLike, indices: number[], axis?: number): NDArray
+function take(
+  a: ArrayLike,
+  indices: ArrayLike,
+  axis?: number
+): NDArray
+
+type ArrayLike = NDArrayCore | number | bigint | number[] | number[][] | number[][][];
 ```
 
+|-|-|-|-|
 | Name | Type | Default | Description |
-|------|------|---------|-------------|
+|-|-|-|-|
 | `a` | `ArrayLike` | -- | Source array. |
-| `indices` | `ArrayLike` | -- | Indices of the values to extract. |
+| `indices` | `ArrayLike` | -- | Indices of the values to extract. Accepts NDArrays of any rank, nested `number[]`/`number[][]`/`number[][][]`, or a scalar. |
 | `axis` | `number` | `undefined` | Axis along which to select values. When `undefined`, the input array is flattened before indexing. |
 
-**Returns:** `NDArray` -- Array of values taken from `a` at the specified indices.
+**Returns:** `NDArray` -- Array of values taken from `a`. Its shape is `[...a.shape[:axis], ...indices.shape, ...a.shape[axis+1:]]`.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -80,6 +87,19 @@ const mat = np.array([[1, 2], [3, 4], [5, 6]]);
 np.take(mat, [0, 2], 0);
 // array([[1, 2],
 //        [5, 6]])
+
+// 2-D indices: output preserves the index shape along the indexed axis.
+const src = np.array([10, 20, 30, 40, 50]);
+const idx2D = np.array([[0, 2], [4, 1]]);
+np.take(src, idx2D);
+// array([[10, 30],
+//        [50, 20]])
+// shape [2, 2]
+
+// Scalar index: rank reduces by one along the axis.
+np.take(mat, 1, 0);
+// array([3, 4])
+// shape [2]
 ```
 
 ---
@@ -186,17 +206,20 @@ Return an array drawn from elements in `choicelist` depending on conditions.
 function select(
   condlist: ArrayLike[],
   choicelist: ArrayLike[],
-  defaultVal?: number
+  defaultVal?: ArrayLike
 ): NDArray
 ```
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
-| `condlist` | `ArrayLike[]` | -- | List of boolean arrays. The first condition that is true determines which choice is used. |
-| `choicelist` | `ArrayLike[]` | -- | List of arrays from which output elements are taken. Must be the same length as `condlist`. |
-| `defaultVal` | `number` | `0` | Value used when no condition is satisfied. |
+Each element of `condlist` and `choicelist` is run through `asarray`, so plain `number[]`, `boolean[]`, nested arrays, and NDArrays are all accepted. `defaultVal` is broadcast to the output shape, allowing per-element fall-through values. Existing scalar/NDArray calls behave identically.
 
-**Returns:** `NDArray` -- Array where element `i` is taken from `choicelist[j][i]` for the first `j` where `condlist[j][i]` is true, or `default_` if no condition is true.
+|-|-|-|-|
+| Name | Type | Default | Description |
+|-|-|-|-|
+| `condlist` | `ArrayLike[]` | -- | List of boolean array-likes. The first condition that is true determines which choice is used. |
+| `choicelist` | `ArrayLike[]` | -- | List of array-likes from which output elements are taken. Must be the same length as `condlist`. |
+| `defaultVal` | `ArrayLike` | `0` | Value used when no condition is satisfied. Broadcasts to the output shape. |
+
+**Returns:** `NDArray` -- Array where element `i` is taken from `choicelist[j][i]` for the first `j` where `condlist[j][i]` is true, or from `defaultVal` (broadcast) if no condition is true.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -208,6 +231,15 @@ const result = np.select(
   -1
 );
 // array([0, 1, -1, -1, 40, 50])
+
+// Plain number[] choice and an array defaultVal that broadcasts per-element.
+const fallback = np.array([100, 200, 300, 400, 500, 600]);
+np.select(
+  [np.less(x, 2)],
+  [[0, 10, 20, 30, 40, 50]],
+  fallback
+);
+// array([0, 10, 300, 400, 500, 600])
 ```
 
 ---

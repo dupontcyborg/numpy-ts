@@ -7,6 +7,10 @@ description: "Statistical functions: histogram, histogram2d, histogramdd, histog
 
 Functions for computing histograms, correlation, convolution, covariance, and numerical integration.
 
+<Note>
+`bincount`, `digitize`, `histogram`, `histogram2d`, and `histogramdd` accept any `ArrayLike` for data, weights, and bin edges -- plain `number[]` no longer needs `np.array(...)` wrapping. Behavior for `NDArray` inputs is unchanged.
+</Note>
+
 ---
 
 ### histogram

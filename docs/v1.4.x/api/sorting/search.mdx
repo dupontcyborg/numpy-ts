@@ -11,11 +11,11 @@ Return elements chosen from `x` or `y` depending on a condition. When called wit
 function where(condition: ArrayLike, x?: ArrayLike, y?: ArrayLike): NDArray | NDArray[]
 ```
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
-| `condition` | `ArrayLike` | -- | Boolean or numeric array. Where `true` (non-zero), yield `x`; otherwise yield `y`. |
-| `x` | `ArrayLike` | `undefined` | Values where condition is `true`. Required if `y` is provided. |
-| `y` | `ArrayLike` | `undefined` | Values where condition is `false`. Required if `x` is provided. |
+|Name|Type|Default|Description|
+|-|-|-|-|
+|`condition`|`ArrayLike`|--|Boolean or numeric array. Where `true` (non-zero), yield `x`; otherwise yield `y`.|
+|`x`|`ArrayLike`|`undefined`|Values where condition is `true`. Scalars and array-likes accepted. Required if `y` is provided.|
+|`y`|`ArrayLike`|`undefined`|Values where condition is `false`. Scalars and array-likes accepted. Required if `x` is provided.|
 
 **Returns:** `NDArray` when `x` and `y` are given (array of chosen elements). `NDArray[]` when only `condition` is given (tuple of index arrays, one per dimension).
 
@@ -25,6 +25,14 @@ import * as np from 'numpy-ts';
 // Three-argument form: choose from x or y
 const a = np.array([1, 2, 3, 4, 5]);
 const result = np.where(np.greater(a, 3), a, np.zeros([5]));
+// array([0, 0, 0, 4, 5])
+
+// Scalar branches — `x` and `y` accept plain numbers
+const mask = np.where(np.greater(a, 3), 1, 0);
+// array([0, 0, 0, 1, 1])
+
+// `x = 0` / `y = 0` are now honored (previously fell through to the indices form)
+const clipped = np.where(np.greater(a, 3), a, 0);
 // array([0, 0, 0, 4, 5])
 
 // One-argument form: return indices of non-zero elements

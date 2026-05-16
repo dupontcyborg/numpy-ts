@@ -10,13 +10,13 @@ Join a sequence of arrays along an existing axis. All arrays must have the same 
 `concat` is an alias for `concatenate`.
 
 ```typescript
-function concatenate(arrays: ArrayLike[], axis?: number): NDArray
+function concatenate(arrays: ArrayLike[], axis?: number | null): NDArray
 ```
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
+|Name|Type|Default|Description|
+|-|-|-|-|
 | `arrays` | `ArrayLike[]` | -- | Sequence of arrays to join. |
-| `axis` | `number` | `0` | Axis along which to concatenate. |
+| `axis` | `number \| null` | `0` | Axis along which to concatenate. If `null`, each input is raveled (flattened) and the results are concatenated along axis 0. |
 
 **Returns:** `NDArray` -- The concatenated array.
 
@@ -35,6 +35,10 @@ console.log(c.toArray());
 const d = np.concatenate([a, a], 1);
 console.log(d.toArray());
 // [[1, 2, 1, 2], [3, 4, 3, 4]]
+
+// axis=null: ravel inputs and concatenate along axis 0
+const f = np.concatenate([a, b], null);
+console.log(f.toArray());  // [1, 2, 3, 4, 5, 6]
 
 // Using the alias
 const e = np.concat([a, b], 0);
@@ -197,15 +201,17 @@ console.log(c.toArray());
 
 ### block
 
-Assemble an array from nested sequences of blocks. For a flat list of N-D arrays, concatenates along the last axis.
+Assemble an array from nested sequences of blocks. Each level of nesting concatenates along a different axis: the innermost list concatenates along axis `-1`, the next level along axis `-2`, and so on outward (matching NumPy's semantics).
 
 ```typescript
-function block(arrays: ArrayLike[]): NDArray
+function block(arrays: NestedNDArrays[]): NDArray
+
+type NestedNDArrays = NDArrayCore | NestedNDArrays[];
 ```
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
-| `arrays` | `NestedArray` | -- | Nested list of arrays or array-like objects. A flat list `[a, b]` concatenates along the last axis. |
+|Name|Type|Default|Description|
+|-|-|-|-|
+| `arrays` | `NestedNDArrays[]` | -- | Nested list of arrays. Innermost lists are concatenated along axis `-1`, the next level along axis `-2`, etc. A flat list `[a, b]` concatenates along the last axis. |
 
 **Returns:** `NDArray` -- The assembled array.
 
@@ -215,10 +221,21 @@ import * as np from 'numpy-ts';
 const a = np.array([[1, 2], [3, 4]]);
 const b = np.array([[5, 6], [7, 8]]);
 
+// Flat list: concatenate along the last axis
 const c = np.block([a, b]);
 console.log(c.toArray());
 // [[1, 2, 5, 6],
 //  [3, 4, 7, 8]]
+
+// Nested list: inner along axis -1, outer along axis -2
+const d = np.array([[ 9, 10], [11, 12]]);
+const e = np.array([[13, 14], [15, 16]]);
+const f = np.block([[a, b], [d, e]]);
+console.log(f.toArray());
+// [[ 1,  2,  5,  6],
+//  [ 3,  4,  7,  8],
+//  [ 9, 10, 13, 14],
+//  [11, 12, 15, 16]]
 ```
 
 ---

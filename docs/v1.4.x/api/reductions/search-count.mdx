@@ -16,16 +16,18 @@ Return the index of the minimum value along an axis.
 ```typescript
 function argmin(
   a: ArrayLike,
-  axis?: number
+  axis?: number,
+  keepdims?: boolean
 ): number | NDArray;
 ```
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
+|-|-|-|-|
 | `a` | `ArrayLike` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to search. When `undefined`, operates on the flattened array. |
+| `keepdims` | `boolean` | `false` | If `true`, the reduced axis is retained as size 1. With full reduction (no `axis`), returns a shape-of-all-1s `int64` array. With axis reduction, the reduced axis is re-inserted as size 1. |
 
-**Returns:** `number` when no axis is specified, `NDArray` of indices when an axis is given.
+**Returns:** `number` when no axis is specified and `keepdims=false`, `NDArray` of indices otherwise.
 
 ```typescript
 import { array, argmin } from 'numpy-ts';
@@ -46,16 +48,18 @@ Return the index of the maximum value along an axis.
 ```typescript
 function argmax(
   a: ArrayLike,
-  axis?: number
+  axis?: number,
+  keepdims?: boolean
 ): number | NDArray;
 ```
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
+|-|-|-|-|
 | `a` | `ArrayLike` | -- | Input array. |
 | `axis` | `number` | `undefined` | Axis along which to search. When `undefined`, operates on the flattened array. |
+| `keepdims` | `boolean` | `false` | If `true`, the reduced axis is retained as size 1. With full reduction (no `axis`), returns a shape-of-all-1s `int64` array. With axis reduction, the reduced axis is re-inserted as size 1. |
 
-**Returns:** `number` when no axis is specified, `NDArray` of indices when an axis is given.
+**Returns:** `number` when no axis is specified and `keepdims=false`, `NDArray` of indices otherwise.
 
 ```typescript
 import { array, argmax } from 'numpy-ts';

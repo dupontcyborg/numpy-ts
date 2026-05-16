@@ -231,15 +231,34 @@ const b = fromstring('1.5,2.5,3.5', 'float64', -1, ',');
 
 ### meshgrid
 
+<Warning>
+**Breaking change in v1.4.0 for `numpy-ts/core` consumers.** `core/meshgrid` previously had no options and effectively used `'ij'` indexing. The new default is `'xy'` (NumPy-compatible). If you relied on the old behavior, pass `{ indexing: 'ij' }` explicitly:
+
+```typescript
+meshgrid(x, y, { indexing: 'ij' })
+```
+
+Importers from `numpy-ts` (the full API) are unaffected — that wrapper already defaulted to `'xy'`.
+</Warning>
+
 Return coordinate matrices from coordinate vectors. Given N 1-D arrays, `meshgrid` returns N N-D arrays for vectorized evaluations of N-D scalar fields.
 
 ```typescript
-function meshgrid(...args: (ArrayLike | { indexing?: 'xy' | 'ij'; })[]): NDArray[]
+function meshgrid(...args: (ArrayLike | MeshgridOptions)[]): NDArray[]
+
+interface MeshgridOptions {
+  indexing?: 'xy' | 'ij'; // default 'xy'
+  sparse?: boolean;       // default false
+  copy?: boolean;         // default true
+}
 ```
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
-| `...args` | `(ArrayLike \| { indexing?: 'xy' \| 'ij' })[]` | - | 1-D arrays representing coordinates of a grid, optionally followed by options. |
+|Name|Type|Default|Description|
+|-|-|-|-|
+|`...args`|`(ArrayLike \| MeshgridOptions)[]`|--|1-D arrays representing coordinates of a grid, optionally including a `MeshgridOptions` bag in any positional slot.|
+|`indexing`|`'xy' \| 'ij'`|`'xy'`|Cartesian (`'xy'`) or matrix (`'ij'`) indexing of the output.|
+|`sparse`|`boolean`|`false`|If `true`, return open (sparse) grids — one axis populated, others size 1 — for memory-efficient broadcasting.|
+|`copy`|`boolean`|`true`|If `false`, return broadcast views instead of copying. Views are read-only-safe but share memory with the inputs.|
 
 **Returns:** `NDArray[]` -- Array of N-D coordinate arrays, one per input.
 
@@ -258,6 +277,17 @@ const [X, Y] = np.meshgrid(x, y);
 
 // Evaluate x^2 + y^2 on the grid
 const Z = np.add(np.square(X), np.square(Y));
+
+// Sparse (open) grids — broadcastable, much smaller in memory
+const [Xs, Ys] = np.meshgrid(x, y, { sparse: true });
+// Xs.shape = [1, 3], Ys.shape = [2, 1]
+
+// Broadcast views — no copy
+const [Xv, Yv] = np.meshgrid(x, y, { copy: false });
+
+// Matrix indexing
+const [Xi, Yi] = np.meshgrid(x, y, { indexing: 'ij' });
+// Xi.shape = [3, 2], Yi.shape = [3, 2]
 ```
 
 ```typescript Core
@@ -265,7 +295,12 @@ import { meshgrid, array, add, square } from 'numpy-ts/core';
 
 const x = array([1, 2, 3]);
 const y = array([4, 5]);
+
+// Default is now 'xy' (NumPy-compatible)
 const [X, Y] = meshgrid(x, y);
 const Z = add(square(X), square(Y));
+
+// Opt back into pre-v1.4.0 core behavior
+const [Xi, Yi] = meshgrid(x, y, { indexing: 'ij' });
 ```
 </CodeGroup>

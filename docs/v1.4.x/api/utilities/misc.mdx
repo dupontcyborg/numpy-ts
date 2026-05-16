@@ -5,21 +5,24 @@ description: "Utility functions for applying operations along axes, memory inspe
 
 ### apply_along_axis
 
-Apply a function to 1-D slices of an array along the given axis. The function is called once for each slice, and the results are assembled into an output array. Supports arrays of any dimensionality. For ND arrays, the function iterates over all combinations of indices on dimensions other than `axis`.
+Apply a function to 1-D slices of an array along the given axis. The function is called once for each slice, and the results are assembled into an output array. Supports arrays of any dimensionality. For ND arrays, the function iterates over all combinations of indices on dimensions other than `axis`. Any trailing arguments are forwarded to each invocation of `func1d`, matching NumPy's `np.apply_along_axis(func1d, axis, arr, *args)`. Existing 3-argument calls behave identically.
 
 ```typescript
 function apply_along_axis(
-  func1d: (arr: NDArray) => NDArray | number,
+  func1d: (arr: NDArray, ...args: any[]) => NDArray | number,
   axis: number,
-  arr: ArrayLike
+  arr: ArrayLike,
+  ...args: any[]
 ): NDArray
 ```
 
+|-|-|-|-|
 | Parameter | Type | Default | Description |
-|---|---|---|---|
-| `func1d` | `(arr: NDArray) => number \| NDArray` | -- | Function that operates on a 1-D array and returns a scalar or 1-D array. |
+|-|-|-|-|
+| `func1d` | `(arr: NDArray, ...args) => number \| NDArray` | -- | Function that operates on a 1-D array and returns a scalar or 1-D array. Receives any trailing `...args`. |
 | `axis` | `number` | -- | Axis along which to apply `func1d`. |
 | `arr` | `ArrayLike` | -- | Input array. |
+| `...args` | `any[]` | -- | Additional arguments forwarded to each call of `func1d`. |
 
 **Returns:** `NDArray` -- The result of applying `func1d` along the specified axis.
 
@@ -53,6 +56,16 @@ const result = apply_along_axis(
   b
 );
 console.log(result.shape);  // [2, 3]
+
+// Forward extra args to func1d (here: a scalar multiplier).
+const scaled = apply_along_axis(
+  (row, k) => row.multiply(k),
+  1,
+  a,
+  3
+);
+// array([[ 9,  3,  6],
+//        [18, 12, 15]])
 ```
 
 ---

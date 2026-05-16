@@ -223,19 +223,23 @@ function interp(
   xp: ArrayLike,
   fp: ArrayLike,
   left?: number,
-  right?: number
+  right?: number,
+  period?: number
 ): NDArray
 ```
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
-| `x` | `ArrayLike` | - | x-coordinates at which to evaluate the interpolation. |
-| `xp` | `ArrayLike` | - | x-coordinates of the data points (must be increasing). |
-| `fp` | `ArrayLike` | - | y-coordinates of the data points (same length as `xp`). |
-| `left` | `number` | `fp[0]` | Value to return for `x < xp[0]`. |
-| `right` | `number` | `fp[fp.length - 1]` | Value to return for `x > xp[-1]`. |
+|Name|Type|Default|Description|
+|-|-|-|-|
+|`x`|`ArrayLike`|-|x-coordinates at which to evaluate the interpolation.|
+|`xp`|`ArrayLike`|-|x-coordinates of the data points (must be increasing unless `period` is given).|
+|`fp`|`ArrayLike`|-|y-coordinates of the data points (same length as `xp`).|
+|`left`|`number`|`fp[0]`|Value to return for `x < xp[0]`. Ignored when `period` is given.|
+|`right`|`number`|`fp[fp.length - 1]`|Value to return for `x > xp[-1]`. Ignored when `period` is given.|
+|`period`|`number`|`undefined`|If given, treat `xp` as periodic with this period. `x` and `xp` are normalized into `[0, period)`, `xp` is sorted internally, and a wrap-around copy of the first/last sample is appended so any normalized `x` lies in range. `left`/`right` are ignored. Throws if `period === 0`.|
 
 **Returns:** `NDArray` -- Interpolated values at each point in `x`.
+
+Existing 5-argument callers are unaffected.
 
 <CodeGroup>
 ```typescript Full Library
@@ -247,6 +251,12 @@ const x = np.array([0.5, 1.5, 2.5]);
 
 const y = np.interp(x, xp, fp);
 // array([5, 15, 25])
+
+// Periodic interpolation on angle/phase data (period = 2*pi)
+const angles = np.array([0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]);
+const values = np.array([0, 1, 0, -1]);
+np.interp(np.array([-Math.PI / 4, (9 * Math.PI) / 4]), angles, values, undefined, undefined, 2 * Math.PI);
+// wraps inputs into [0, 2*pi) before interpolating
 ```
 
 ```typescript Core

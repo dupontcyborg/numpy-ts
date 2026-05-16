@@ -95,20 +95,35 @@ Pad an array with values along each dimension.
 ```typescript
 function pad(
   arr: ArrayLike,
-  pad_width: number | [number, number] | [number, number][],
+  pad_width: PadWidthArg,
   mode?: 'constant' | 'edge' | 'linear_ramp' | 'maximum' | 'mean' | 'median' | 'minimum' | 'reflect' | 'symmetric' | 'wrap' | 'empty',
-  constant_values?: number
+  constant_values?: PadValueArg
 ): NDArray
+
+type PadWidthArg = number | [number, number] | (number | [number, number])[];
+type PadValueArg = number | [number, number] | (number | [number, number])[];
 ```
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
+|Name|Type|Default|Description|
+|-|-|-|-|
 | `arr` | `ArrayLike` | -- | Input array. |
-| `pad_width` | `number \| [number, number] \| [number, number][]` | -- | Number of values padded to each edge. A single integer pads all axes equally on both sides. A `[before, after]` tuple applies the same padding to every axis. An array of tuples specifies `[before, after]` per axis. |
-| `mode` | `string` | `'constant'` | Padding mode. Currently supports `'constant'`. |
-| `constant_values` | `number` | `0` | Fill value when `mode` is `'constant'`. |
+| `pad_width` | `PadWidthArg` | -- | Number of values padded to each edge. Accepts the full NumPy broadcast forms (see below). |
+| `mode` | `string` | `'constant'` | Padding mode. Only `'constant'` is currently supported; other modes throw. |
+| `constant_values` | `PadValueArg` | `0` | Fill value(s) when `mode` is `'constant'`. Same broadcast forms as `pad_width`. |
 
 **Returns:** `NDArray` -- Padded array.
+
+Both `pad_width` and `constant_values` accept these broadcast forms:
+
+- scalar `n` -- `[n, n]` for every axis
+- `[n]` -- broadcast `[n, n]` to every axis
+- `[before, after]` -- same pair on every axis
+- `[n0, n1, …, n_{ndim-1}]` -- per-axis scalars (each becomes `[n_i, n_i]`)
+- `[[b, a]]` -- broadcast pair to every axis
+- `[[b0, a0], …, [b_{ndim-1}, a_{ndim-1}]]` -- per-axis pairs
+- mixed: `[n0, [b1, a1], …]` -- scalars expand to `[n, n]`
+
+When `constant_values` varies by axis, corner cells follow NumPy's "highest-axis-wins" rule: the value from the largest-indexed axis whose pad region covers the cell is used.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -134,4 +149,13 @@ console.log(d.toArray());
 //  [-1,  1,  2, -1],
 //  [-1,  3,  4, -1],
 //  [-1, -1, -1, -1]]
+
+// Per-axis fill values: axis 0 fills with 9, axis 1 with 7
+// (corner cells go to the highest-indexed axis -> 7)
+const e = np.pad(a, 1, 'constant', [9, 7]);
+console.log(e.toArray());
+// [[7, 9, 9, 7],
+//  [7, 1, 2, 7],
+//  [7, 3, 4, 7],
+//  [7, 9, 9, 7]]
 ```

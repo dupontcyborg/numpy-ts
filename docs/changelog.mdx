@@ -4,6 +4,42 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.4.0" description="2026-05-16">
+
+## numpy-ts v1.4.0
+
+NumPy-compatibility release. A wide set of public functions gain the kwargs / overloads they were missing relative to NumPy, and several signatures accept `ArrayLike` so plain `number[]` no longer needs `np.array(...)` wrapping.
+
+### Breaking
+
+* `meshgrid` (`numpy-ts/core` only) - default `indexing` is now `'xy'` (NumPy-compatible). Previously `core/meshgrid` had no options and effectively produced `'ij'` shapes. If you import `meshgrid` from `numpy-ts/core` and relied on the old behavior, pass `{ indexing: 'ij' }` explicitly. Importers from `numpy-ts` (the full API) are unaffected - that wrapper already defaulted to `'xy'`.
+
+### New kwargs / overloads
+
+* Reductions `where` / `initial` / `dtype` - `sum`, `prod`, `max`/`amax`, `min`/`amin`, `all`, `any` now accept a `ReductionOpts` bag as a 4th argument for masked reductions, seeded accumulation, and dtype-controlled accumulation.
+* `argmin` / `argmax` - accept `keepdims?: boolean` (NumPy 1.22+).
+* `ptp` - `axis` widened to `number | number[]`, consistent with the other reductions.
+* `average` - new `returned?: boolean`. When `true`, returns `[avg, sum_of_weights]` matching `np.average(..., returned=True)`.
+* `concatenate` / `concat` - `axis` widened to `number | null`. `axis=null` flattens each input and concatenates along axis 0.
+* `diff` - new `prepend?` and `append?` arguments (`ArrayLike`).
+* `interp` - new `period?: number` for circular/phase data; `xp` is normalized into `[0, period)` and wraps at the boundary.
+* `gradient` - per-axis spacing can now be a 1-D coordinate array (non-uniform second-order central-difference), not just a scalar.
+* `apply_along_axis` - accepts trailing `...args` forwarded to `func1d`, matching `np.apply_along_axis(func1d, axis, arr, *args)`.
+* `pad` - `pad_width` and `constant_values` accept the full NumPy broadcast forms (scalar, `[n]`, `[before, after]`, per-axis scalars, `[[b, a]]`, per-axis pairs, mixed). New exported types `PadWidthArg` and `PadValueArg`.
+* `meshgrid` - `MeshgridOptions { indexing?, sparse?, copy? }` bag. `sparse: true` returns open grids; `copy: false` returns broadcast views.
+* `block` - accepts nested sequences (`NestedNDArrays[]`) with NumPy's innermost-to-outer axis semantics. Flat-list calls behave identically.
+
+### `ArrayLike` widening
+
+These now accept plain `number[]`, nested arrays, and scalars in addition to `NDArrayCore`. Behavior for existing NDArray callers is unchanged.
+
+* `take` - `indices: ArrayLike` (scalar, 1-D, 2-D, or 3-D). Output preserves the shape of `indices`.
+* `where` - `x` and `y` are `ArrayLike`. Also fixes a falsy-zero bug: `where(cond, x, 0)` now honors the `0` branch instead of falling through to the indices form.
+* `select` - `condlist`, `choicelist`, and `defaultVal` widened to `ArrayLike` / `ArrayLike[]`.
+* `bincount`, `digitize`, `histogram`, `histogram2d`, `histogramdd` - data, weights, and bin arguments are `ArrayLike`.
+
+</Update>
+
 <Update label="v1.3.2" description="2026-04-17">
 
 ## numpy-ts v1.3.2
