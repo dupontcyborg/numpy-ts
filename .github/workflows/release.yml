@@ -207,7 +207,7 @@ jobs:
         run: npm run build
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist-${{ needs.validate.outputs.version }}
           path: dist/
@@ -236,7 +236,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist-${{ needs.validate.outputs.version }}
           path: dist/
