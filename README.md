@@ -92,4 +92,4 @@ See our [AI disclosure](https://numpyts.dev/ai-disclosure) for details on how AI
 
 ## License
 
-MIT © Nicolas Dupont
+MIT © [Nicolas Dupont](https://nico.codes)
