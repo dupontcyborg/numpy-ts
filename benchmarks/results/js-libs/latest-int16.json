@@ -1,0 +1,2936 @@
+{
+  "dtype": "int16",
+  "node": "v24.12.0",
+  "libs": [
+    {
+      "name": "numpy(pyodide)",
+      "pkg": "pyodide",
+      "version": "0.29.4",
+      "dtypes": [
+        "float64",
+        "float32",
+        "float16",
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+        "bool",
+        "complex64",
+        "complex128"
+      ]
+    },
+    {
+      "name": "numjs",
+      "pkg": "@d4c/numjs",
+      "version": "0.17.35",
+      "dtypes": [
+        "float32",
+        "float64",
+        "int8",
+        "int16",
+        "int32",
+        "uint8",
+        "uint16",
+        "uint32"
+      ]
+    },
+    {
+      "name": "stdlib",
+      "pkg": "@stdlib/ndarray",
+      "version": "0.4.1",
+      "dtypes": [
+        "float16",
+        "float32",
+        "float64",
+        "int8",
+        "int16",
+        "int32",
+        "uint8",
+        "uint16",
+        "uint32",
+        "bool"
+      ]
+    }
+  ],
+  "summary": {
+    "dtype": "int16",
+    "totalSpecs": 93,
+    "reference": {
+      "name": "numpy-ts",
+      "nativeDtypes": 14,
+      "geomeanOpsPerSec": 146228.62902214268
+    },
+    "libs": [
+      {
+        "name": "numpy(pyodide)",
+        "pkg": "pyodide",
+        "version": "0.29.4",
+        "nativeDtypes": 14,
+        "coverage": 90,
+        "geomeanOpsPerSec": 88197.15389352343,
+        "geomeanRatio": 1.6062962987987244
+      },
+      {
+        "name": "numjs",
+        "pkg": "@d4c/numjs",
+        "version": "0.17.35",
+        "nativeDtypes": 8,
+        "coverage": 37,
+        "geomeanOpsPerSec": 56227.50605571059,
+        "geomeanRatio": 2.3504025029287923
+      },
+      {
+        "name": "stdlib",
+        "pkg": "@stdlib/ndarray",
+        "version": "0.4.1",
+        "nativeDtypes": 10,
+        "coverage": 42,
+        "geomeanOpsPerSec": 12855.683143909537,
+        "geomeanRatio": 8.092604795503435
+      }
+    ]
+  },
+  "results": [
+    {
+      "name": "add [100x100] + scalar",
+      "category": "arithmetic",
+      "operation": "add",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0009150536279274917,
+          "median_ms": 0.000909657629917124,
+          "min_ms": 0.0009039488270209916,
+          "ops_per_sec": 1092832.1242383397,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004950520629707119,
+          "median_ms": 0.004950074282587071,
+          "min_ms": 0.004829883102664351,
+          "ops_per_sec": 201998.9562308241,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.00850006576564092,
+          "median_ms": 0.008683560819281904,
+          "min_ms": 0.007818918071623443,
+          "ops_per_sec": 117646.1485794867,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.08664743637228084,
+          "median_ms": 0.0862110641025779,
+          "min_ms": 0.086157467236485,
+          "ops_per_sec": 11541.02235296955,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.410087975848554,
+        "numjs": 9.289144926830955,
+        "stdlib": 94.69110195052605
+      }
+    },
+    {
+      "name": "add [100x100] + [100x100]",
+      "category": "arithmetic",
+      "operation": "add",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0010382334539453762,
+          "median_ms": 0.001046920415159509,
+          "min_ms": 0.0010105614740043858,
+          "ops_per_sec": 963174.5116668261,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004694567872362165,
+          "median_ms": 0.004707511537262755,
+          "min_ms": 0.004606729420018128,
+          "ops_per_sec": 213012.15089192652,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.010270005993387697,
+          "median_ms": 0.010182364308511986,
+          "min_ms": 0.009807224332045018,
+          "ops_per_sec": 97370.92662300743,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.07291784955394744,
+          "median_ms": 0.07285234184915579,
+          "min_ms": 0.0724690291970949,
+          "ops_per_sec": 13714.063238523806,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 4.5216881179492,
+        "numjs": 9.891808007496573,
+        "stdlib": 70.23261413591842
+      }
+    },
+    {
+      "name": "subtract [100x100] - scalar",
+      "category": "arithmetic",
+      "operation": "subtract",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0008373464581418439,
+          "median_ms": 0.0008369607942352916,
+          "min_ms": 0.0008366279515483263,
+          "ops_per_sec": 1194248.7966320424,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004917331130923943,
+          "median_ms": 0.0049304947460606565,
+          "min_ms": 0.004845701958283903,
+          "ops_per_sec": 203362.3470486326,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.008637766467713005,
+          "median_ms": 0.00862712405227369,
+          "min_ms": 0.008334059364416361,
+          "ops_per_sec": 115770.66869518723,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.08610998193057046,
+          "median_ms": 0.08610027389441113,
+          "min_ms": 0.08559831241082623,
+          "ops_per_sec": 11613.055508550555,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.8725167857472,
+        "numjs": 10.315642209654865,
+        "stdlib": 102.83674229859069
+      }
+    },
+    {
+      "name": "subtract [100x100] - [100x100]",
+      "category": "arithmetic",
+      "operation": "subtract",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0010011256520742228,
+          "median_ms": 0.0009921176064613152,
+          "min_ms": 0.0009728188618012431,
+          "ops_per_sec": 998875.6135936677,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004902407899049329,
+          "median_ms": 0.004940122091120185,
+          "min_ms": 0.0048196390527693546,
+          "ops_per_sec": 203981.39457019055,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.009982769197929077,
+          "median_ms": 0.009938357731023648,
+          "min_ms": 0.009877325526077799,
+          "ops_per_sec": 100172.60543371571,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.07283747787252232,
+          "median_ms": 0.072995788063335,
+          "min_ms": 0.0724898489646871,
+          "ops_per_sec": 13729.19586466415,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 4.896895698249342,
+        "numjs": 9.971544707945373,
+        "stdlib": 72.75558040253092
+      }
+    },
+    {
+      "name": "multiply [100x100] * scalar",
+      "category": "arithmetic",
+      "operation": "multiply",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0009234385249259337,
+          "median_ms": 0.0009195131141368273,
+          "min_ms": 0.0009075013843155653,
+          "ops_per_sec": 1082909.1195650594,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0047522434886501305,
+          "median_ms": 0.004778142891275689,
+          "min_ms": 0.004676324173635445,
+          "ops_per_sec": 210426.9283314961,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.008402072785029219,
+          "median_ms": 0.00819130225813428,
+          "min_ms": 0.00799584814584595,
+          "ops_per_sec": 119018.25008964409,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.08654054124456383,
+          "median_ms": 0.08656108393633735,
+          "min_ms": 0.08611613603469857,
+          "ops_per_sec": 11555.277857276129,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.1462478122528985,
+        "numjs": 9.098681242157538,
+        "stdlib": 93.71554132583432
+      }
+    },
+    {
+      "name": "multiply [100x100] * [100x100]",
+      "category": "arithmetic",
+      "operation": "multiply",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0010663577646942608,
+          "median_ms": 0.0010859154778078324,
+          "min_ms": 0.0010207028230683056,
+          "ops_per_sec": 937771.5745209709,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005085355347263687,
+          "median_ms": 0.005122585089001745,
+          "min_ms": 0.0050104265199059275,
+          "ops_per_sec": 196643.09211706847,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.010456296804443354,
+          "median_ms": 0.011086548962447852,
+          "min_ms": 0.008986330303557801,
+          "ops_per_sec": 95636.15290406205,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.07325563003662723,
+          "median_ms": 0.07328759584857619,
+          "min_ms": 0.07317251770447836,
+          "ops_per_sec": 13650.827922714036,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 4.768901691002107,
+        "numjs": 9.805617917961442,
+        "stdlib": 68.69704752197366
+      }
+    },
+    {
+      "name": "divide [100x100] / scalar",
+      "category": "arithmetic",
+      "operation": "divide",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.00354336269279866,
+          "median_ms": 0.0034790216861894305,
+          "min_ms": 0.0034582125130458346,
+          "ops_per_sec": 282217.7932934572,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.011652237763593228,
+          "median_ms": 0.01159417527568283,
+          "min_ms": 0.011407582124202495,
+          "ops_per_sec": 85820.42525122897,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.00950232221867982,
+          "median_ms": 0.009880457562225426,
+          "min_ms": 0.008720638002552765,
+          "ops_per_sec": 105237.43322807805,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.08821334227522505,
+          "median_ms": 0.0881944232488963,
+          "min_ms": 0.08798571833089791,
+          "ops_per_sec": 11336.153627191752,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 3.288468828571969,
+        "numjs": 2.681724407719207,
+        "stdlib": 24.89537479595445
+      }
+    },
+    {
+      "name": "divide [100x100] / [100x100]",
+      "category": "arithmetic",
+      "operation": "divide",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.004921487825898963,
+          "median_ms": 0.004924154330965734,
+          "min_ms": 0.004850220830638903,
+          "ops_per_sec": 203190.58694762475,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.011760518244017325,
+          "median_ms": 0.011777730330676446,
+          "min_ms": 0.011382229380460997,
+          "ops_per_sec": 85030.26646029892,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.009623512682107968,
+          "median_ms": 0.00973503256138035,
+          "min_ms": 0.008956475883684034,
+          "ops_per_sec": 103912.16108222102,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.07414043967282126,
+          "median_ms": 0.07421124662576883,
+          "min_ms": 0.07377903926381955,
+          "ops_per_sec": 13487.91569638593,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.3896266048101293,
+        "numjs": 1.9554071903754284,
+        "stdlib": 15.064639453675515
+      }
+    },
+    {
+      "name": "mod [100x100] % scalar",
+      "category": "arithmetic",
+      "operation": "mod",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.7359327642276421,
+          "median_ms": 0.7375249024388301,
+          "min_ms": 0.7310635243903096,
+          "ops_per_sec": 1358.8197843718715,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.011892812266561617,
+          "median_ms": 0.011871445056032067,
+          "min_ms": 0.01179747395321087,
+          "ops_per_sec": 84084.40136666803,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.0775128205128225,
+          "median_ms": 0.07744150641023552,
+          "min_ms": 0.0773498397436178,
+          "ops_per_sec": 12901.09163082997,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.016160188599624405,
+        "numjs": 0.10532595405528905
+      }
+    },
+    {
+      "name": "mod [100x100] % [100x100]",
+      "category": "arithmetic",
+      "operation": "mod",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.49487279040396165,
+          "median_ms": 0.49622475000003097,
+          "min_ms": 0.49067108333331294,
+          "ops_per_sec": 2020.7213235217603,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.01211903384301085,
+          "median_ms": 0.012031685219160078,
+          "min_ms": 0.011782628338426545,
+          "ops_per_sec": 82514.82857081949,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.011540358146731584,
+          "median_ms": 0.011271005648577487,
+          "min_ms": 0.011148939076057676,
+          "ops_per_sec": 86652.42337242507,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.024489190107053888,
+        "numjs": 0.023319847788178572
+      }
+    },
+    {
+      "name": "floor_divide [100x100] // scalar",
+      "category": "arithmetic",
+      "operation": "floor_divide",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.4325870311750899,
+          "median_ms": 0.431549762590058,
+          "min_ms": 0.43078476978422364,
+          "ops_per_sec": 2311.673554529769,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.01419490325602907,
+          "median_ms": 0.014099135394700082,
+          "min_ms": 0.014023629655658698,
+          "ops_per_sec": 70447.82073983246,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.03281398246607091
+      }
+    },
+    {
+      "name": "floor_divide [100x100] // [100x100]",
+      "category": "arithmetic",
+      "operation": "floor_divide",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.28077472897204414,
+          "median_ms": 0.28225448130843206,
+          "min_ms": 0.27378757943934545,
+          "ops_per_sec": 3561.574090592629,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.014208843497371643,
+          "median_ms": 0.014024723334123792,
+          "min_ms": 0.013976267482922572,
+          "ops_per_sec": 70378.70465565902,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.0506058488575244
+      }
+    },
+    {
+      "name": "remainder [100x100] % scalar",
+      "category": "arithmetic",
+      "operation": "remainder",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.7288736422764841,
+          "median_ms": 0.7304908536586104,
+          "min_ms": 0.7232439024395184,
+          "ops_per_sec": 1371.9799180509663,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.012219715069762873,
+          "median_ms": 0.012074555445354756,
+          "min_ms": 0.011952762348739314,
+          "ops_per_sec": 81834.96867897143,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.07790852368866112,
+          "median_ms": 0.07766899365485884,
+          "min_ms": 0.07601866497459342,
+          "ops_per_sec": 12835.566028644193,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.016765203680019426,
+        "numjs": 0.10688892994584105
+      }
+    },
+    {
+      "name": "remainder [100x100] % [100x100]",
+      "category": "arithmetic",
+      "operation": "remainder",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.48541282051278706,
+          "median_ms": 0.4890307692309412,
+          "min_ms": 0.472077561538362,
+          "ops_per_sec": 2060.102159938022,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.011667836165826848,
+          "median_ms": 0.011609268443414426,
+          "min_ms": 0.0114961857860148,
+          "ops_per_sec": 85705.69433678147,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.011449631101353332,
+          "median_ms": 0.011331174533474786,
+          "min_ms": 0.011050036663006026,
+          "ops_per_sec": 87339.05845069552,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.02403693448702286,
+        "numjs": 0.023587409762391553
+      }
+    },
+    {
+      "name": "absolute [100x100]",
+      "category": "arithmetic",
+      "operation": "absolute",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0007921355897008075,
+          "median_ms": 0.0007932718438539831,
+          "min_ms": 0.0007847401024363104,
+          "ops_per_sec": 1262410.1391249239,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005257426538147589,
+          "median_ms": 0.005255795383443471,
+          "min_ms": 0.005233131817031667,
+          "ops_per_sec": 190207.12752599712,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.008723280624458466,
+          "median_ms": 0.008902857049611334,
+          "min_ms": 0.008255439458226307,
+          "ops_per_sec": 114635.7709960843,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.055216955700131166,
+          "median_ms": 0.05498729832713851,
+          "min_ms": 0.05484711895914286,
+          "ops_per_sec": 18110.379091356255,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 6.6370285674619645,
+        "numjs": 11.012357906748365,
+        "stdlib": 69.70644472745734
+      }
+    },
+    {
+      "name": "negative [100x100]",
+      "category": "arithmetic",
+      "operation": "negative",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0007930925245188475,
+          "median_ms": 0.0007903023163113847,
+          "min_ms": 0.0007840120613551663,
+          "ops_per_sec": 1260886.9319587634,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.003391640380805659,
+          "median_ms": 0.003389734206470444,
+          "min_ms": 0.0033733101474815296,
+          "ops_per_sec": 294842.5799089163,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.009751217829032877,
+          "median_ms": 0.009652121911046056,
+          "min_ms": 0.009292109097559028,
+          "ops_per_sec": 102551.2933392423,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 4.2764750340615,
+        "numjs": 12.295183131310857
+      }
+    },
+    {
+      "name": "sign [100x100]",
+      "category": "arithmetic",
+      "operation": "sign",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0009466157833673388,
+          "median_ms": 0.0009389991941429065,
+          "min_ms": 0.0009372160211238218,
+          "ops_per_sec": 1056394.8093520696,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005196448833449216,
+          "median_ms": 0.005189799116422803,
+          "min_ms": 0.005129540540539832,
+          "ops_per_sec": 192439.11218043033,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.48950157471937
+      }
+    },
+    {
+      "name": "square [100x100]",
+      "category": "arithmetic",
+      "operation": "square",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0007820586452880795,
+          "median_ms": 0.0007812937520704358,
+          "min_ms": 0.0007800625057974067,
+          "ops_per_sec": 1278676.4854848443,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004636774243328896,
+          "median_ms": 0.004634809961168066,
+          "min_ms": 0.004586217517920486,
+          "ops_per_sec": 215667.17453167753,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.928934193446441
+      }
+    },
+    {
+      "name": "reciprocal [100x100]",
+      "category": "arithmetic",
+      "operation": "reciprocal",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.00311514376625037,
+          "median_ms": 0.003102047346316037,
+          "min_ms": 0.003089119783995062,
+          "ops_per_sec": 321012.47166633274,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.008802092348161166,
+          "median_ms": 0.008735611047346874,
+          "min_ms": 0.008696712051654218,
+          "ops_per_sec": 113609.35110035613,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.05175753670810491,
+          "median_ms": 0.051912115452938085,
+          "min_ms": 0.051439905861416606,
+          "ops_per_sec": 19320.857668317243,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.825581420518531,
+        "stdlib": 16.614814786029704
+      }
+    },
+    {
+      "name": "cbrt [100x100]",
+      "category": "math",
+      "operation": "cbrt",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0630270280373902,
+          "median_ms": 0.06247416926271776,
+          "min_ms": 0.06232853063343766,
+          "ops_per_sec": 15866.209008090294,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.030261722937306595,
+          "median_ms": 0.029818750000017057,
+          "min_ms": 0.029781745049507716,
+          "ops_per_sec": 33045.045124221986,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.13069191631796737,
+          "median_ms": 0.13178373430965168,
+          "min_ms": 0.12642233263592578,
+          "ops_per_sec": 7651.582654638305,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.4801388210682266,
+        "stdlib": 2.073585259968717
+      }
+    },
+    {
+      "name": "clip [100x100]",
+      "category": "arithmetic",
+      "operation": "clip",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0007826038277639788,
+          "median_ms": 0.0007832958943087415,
+          "min_ms": 0.0007811516221234012,
+          "ops_per_sec": 1277785.7257063973,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.009870708995566661,
+          "median_ms": 0.0098993066818051,
+          "min_ms": 0.009776185209211672,
+          "ops_per_sec": 101309.84516402427,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.00853408702842299,
+          "median_ms": 0.008827196279073192,
+          "min_ms": 0.007783578914723741,
+          "ops_per_sec": 117177.15048715522,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 12.61265105713681,
+        "numjs": 10.904734586855023
+      }
+    },
+    {
+      "name": "maximum [100x100] scalar",
+      "category": "arithmetic",
+      "operation": "maximum",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0008439653213531094,
+          "median_ms": 0.0008426155103845536,
+          "min_ms": 0.0008364192075417417,
+          "ops_per_sec": 1184882.8082138777,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005584428118038547,
+          "median_ms": 0.005622764625103983,
+          "min_ms": 0.005478718483934042,
+          "ops_per_sec": 179069.36553983905,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 6.616892870770053
+      }
+    },
+    {
+      "name": "maximum [100x100] [100x100]",
+      "category": "arithmetic",
+      "operation": "maximum",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.001002572162136059,
+          "median_ms": 0.0009966007734526128,
+          "min_ms": 0.0009957716871524963,
+          "ops_per_sec": 997434.4369081834,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005346561894509147,
+          "median_ms": 0.005380236365269986,
+          "min_ms": 0.005253304000714368,
+          "ops_per_sec": 187036.08407245553,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.332844952644481
+      }
+    },
+    {
+      "name": "minimum [100x100] scalar",
+      "category": "arithmetic",
+      "operation": "minimum",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0009388738348290838,
+          "median_ms": 0.0009550203222148244,
+          "min_ms": 0.0008964127385221929,
+          "ops_per_sec": 1065105.8352073939,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005676182143867884,
+          "median_ms": 0.005648875742434417,
+          "min_ms": 0.005631202696335499,
+          "ops_per_sec": 176174.75525874802,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 6.045734723133697
+      }
+    },
+    {
+      "name": "minimum [100x100] [100x100]",
+      "category": "arithmetic",
+      "operation": "minimum",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0010079816885703579,
+          "median_ms": 0.0010084187810398921,
+          "min_ms": 0.0010036361025707497,
+          "ops_per_sec": 992081.5143163181,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0054022988214010555,
+          "median_ms": 0.005378063189220101,
+          "min_ms": 0.005313269385611576,
+          "ops_per_sec": 185106.38397834048,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.35952079552482
+      }
+    },
+    {
+      "name": "sqrt [100x100]",
+      "category": "math",
+      "operation": "sqrt",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0017481139356912382,
+          "median_ms": 0.0017255255398682808,
+          "min_ms": 0.0017124256051258787,
+          "ops_per_sec": 572045.0936194732,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.009818342545930317,
+          "median_ms": 0.009746904243220602,
+          "min_ms": 0.00970458055600844,
+          "ops_per_sec": 101850.18452167347,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.010459580229565087,
+          "median_ms": 0.01083768148278557,
+          "min_ms": 0.008846619641605486,
+          "ops_per_sec": 95606.1312263179,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.05662635618152901,
+          "median_ms": 0.05675348169017286,
+          "min_ms": 0.056192645070387896,
+          "ops_per_sec": 17659.621198197292,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.616534680874764,
+        "numjs": 5.983351551641951,
+        "stdlib": 32.39282922319239
+      }
+    },
+    {
+      "name": "power [100x100] ** 2",
+      "category": "math",
+      "operation": "power",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.007402633708331753,
+          "median_ms": 0.007402270874998067,
+          "min_ms": 0.0073574999999982535,
+          "ops_per_sec": 135087.0567693344,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.009686065507526086,
+          "median_ms": 0.009522717658325306,
+          "min_ms": 0.009473779709677069,
+          "ops_per_sec": 103241.09404618404,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.01758337866014328,
+          "median_ms": 0.01760926026651985,
+          "min_ms": 0.017498436225189398,
+          "ops_per_sec": 56871.89130873505,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.10317972696245757,
+          "median_ms": 0.10426713651882122,
+          "min_ms": 0.10074246416377768,
+          "ops_per_sec": 9691.826383334535,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.3084620810866683,
+        "numjs": 2.3752868712594783,
+        "stdlib": 13.93824563362193
+      }
+    },
+    {
+      "name": "sin [100x100]",
+      "category": "trig",
+      "operation": "sin",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.07378879535076606,
+          "median_ms": 0.07298536737235484,
+          "min_ms": 0.07292133623909247,
+          "ops_per_sec": 13552.19305649795,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.04842432689211822,
+          "median_ms": 0.048360239130432824,
+          "min_ms": 0.04832273268921829,
+          "ops_per_sec": 20650.777495118156,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.07832649491094028,
+          "median_ms": 0.07824141221371557,
+          "min_ms": 0.07597137404581752,
+          "ops_per_sec": 12767.07199954539,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.15458398524303144,
+          "median_ms": 0.15374783072911669,
+          "min_ms": 0.1533310546874418,
+          "ops_per_sec": 6468.9754144184835,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.6562558266729516,
+        "numjs": 1.0614957804718668,
+        "stdlib": 2.094952011456392
+      }
+    },
+    {
+      "name": "cos [100x100]",
+      "category": "trig",
+      "operation": "cos",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.07285112364949206,
+          "median_ms": 0.07209028571434341,
+          "min_ms": 0.07182968187274183,
+          "ops_per_sec": 13726.624242767904,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.048440016411074614,
+          "median_ms": 0.04840382082323725,
+          "min_ms": 0.04831046489102329,
+          "ops_per_sec": 20644.088794556534,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.07883388346524724,
+          "median_ms": 0.07901918469657286,
+          "min_ms": 0.07830189182052923,
+          "ops_per_sec": 12684.90090864083,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.1555402336860399,
+          "median_ms": 0.1554822513227543,
+          "min_ms": 0.15493253968248302,
+          "ops_per_sec": 6429.2046906558835,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.664917903588332,
+        "numjs": 1.0821230959256027,
+        "stdlib": 2.13504234244058
+      }
+    },
+    {
+      "name": "tan [100x100]",
+      "category": "trig",
+      "operation": "tan",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.09151758058057229,
+          "median_ms": 0.09212475075072178,
+          "min_ms": 0.09025988438439013,
+          "ops_per_sec": 10926.862288711814,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.05113846417445916,
+          "median_ms": 0.05112627442648631,
+          "min_ms": 0.05107572217502163,
+          "ops_per_sec": 19554.752301291144,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.1014850429208171,
+          "median_ms": 0.1013577909698051,
+          "min_ms": 0.10120185284283913,
+          "ops_per_sec": 9853.668789205145,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.19083715318228714,
+          "median_ms": 0.19068325242716336,
+          "min_ms": 0.19028101294489072,
+          "ops_per_sec": 5240.069783711365,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.5587829556905379,
+        "numjs": 1.1089130883597762,
+        "stdlib": 2.085251292392653
+      }
+    },
+    {
+      "name": "arcsin [100x100]",
+      "category": "trig",
+      "operation": "arcsin",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.015497313776385649,
+          "median_ms": 0.015431323468324662,
+          "min_ms": 0.015430425752846713,
+          "ops_per_sec": 64527.31192187453,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.025182881002081395,
+          "median_ms": 0.025159551148227027,
+          "min_ms": 0.025094850104382855,
+          "ops_per_sec": 39709.515361540594,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.016906124999994065,
+          "median_ms": 0.015248208249991875,
+          "min_ms": 0.0152029582499963,
+          "ops_per_sec": 59150.160075141466,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.055262394761474265,
+          "median_ms": 0.05516959027126057,
+          "min_ms": 0.05498487652015678,
+          "ops_per_sec": 18095.487977244553,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.6249836175127543,
+        "numjs": 1.090906801264818,
+        "stdlib": 3.5659337843234145
+      }
+    },
+    {
+      "name": "arccos [100x100]",
+      "category": "trig",
+      "operation": "arccos",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.016011994098759537,
+          "median_ms": 0.01599242827389571,
+          "min_ms": 0.01575653033064745,
+          "ops_per_sec": 62453.183147092896,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.02426578201487518,
+          "median_ms": 0.02424516551724104,
+          "min_ms": 0.024205747261666077,
+          "ops_per_sec": 41210.29354780281,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.018209439524838462,
+          "median_ms": 0.01782031803456996,
+          "min_ms": 0.017061330183584782,
+          "ops_per_sec": 54916.57217872943,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.05187022817809015,
+          "median_ms": 0.05180349297011729,
+          "min_ms": 0.05165293673109648,
+          "ops_per_sec": 19278.88183885795,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.5154753283824325,
+        "numjs": 1.1372374616506487,
+        "stdlib": 3.239460860287763
+      }
+    },
+    {
+      "name": "arctan [100x100]",
+      "category": "trig",
+      "operation": "arctan",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.04292447265810845,
+          "median_ms": 0.0429271276747212,
+          "min_ms": 0.04275710271041509,
+          "ops_per_sec": 23296.733496645524,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.032998544395921765,
+          "median_ms": 0.03281814028385937,
+          "min_ms": 0.03279469159388417,
+          "ops_per_sec": 30304.367004854565,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.039953687323949806,
+          "median_ms": 0.039282306338025874,
+          "min_ms": 0.03921346830988703,
+          "ops_per_sec": 25028.978974878268,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.10696947995211985,
+          "median_ms": 0.10699244524229776,
+          "min_ms": 0.10673653500903267,
+          "ops_per_sec": 9348.460892280731,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.768758294569015,
+        "numjs": 0.9307904057943631,
+        "stdlib": 2.4920394667193024
+      }
+    },
+    {
+      "name": "arctan2 [100x100]",
+      "category": "trig",
+      "operation": "arctan2",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.056485817065686006,
+          "median_ms": 0.056455379373841603,
+          "min_ms": 0.05580098987109985,
+          "ops_per_sec": 17703.55908700274,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.042469347615582465,
+          "median_ms": 0.042276930283224476,
+          "min_ms": 0.042143458242564664,
+          "ops_per_sec": 23546.39419120931,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.7518586048989231
+      }
+    },
+    {
+      "name": "hypot [100x100]",
+      "category": "trig",
+      "operation": "hypot",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.007368626708332157,
+          "median_ms": 0.007350640625001688,
+          "min_ms": 0.007350473874997988,
+          "ops_per_sec": 135710.49797776277,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.04817400670017307,
+          "median_ms": 0.04829923953099326,
+          "min_ms": 0.04768551088778116,
+          "ops_per_sec": 20758.082387122835,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 6.537718438864568
+      }
+    },
+    {
+      "name": "sinh [100x100]",
+      "category": "trig",
+      "operation": "sinh",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.053327714075392364,
+          "median_ms": 0.05327970406362234,
+          "min_ms": 0.053261852473489094,
+          "ops_per_sec": 18751.975728534777,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.05169400765305893,
+          "median_ms": 0.05186940221088031,
+          "min_ms": 0.05116659608841034,
+          "ops_per_sec": 19344.60192584481,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.09162723979330922,
+          "median_ms": 0.09091615038761479,
+          "min_ms": 0.09073940620156612,
+          "ops_per_sec": 10913.78505186644,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.969364776820852,
+        "stdlib": 1.7181917766767705
+      }
+    },
+    {
+      "name": "cosh [100x100]",
+      "category": "trig",
+      "operation": "cosh",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.07295807739554802,
+          "median_ms": 0.07308235995081615,
+          "min_ms": 0.0724248574938395,
+          "ops_per_sec": 13706.501537566848,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.04056891524309667,
+          "median_ms": 0.04081939881734498,
+          "min_ms": 0.03998978909330091,
+          "ops_per_sec": 24649.414311617882,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.33133931007755596,
+          "median_ms": 0.3305770348836018,
+          "min_ms": 0.32991085465128406,
+          "ops_per_sec": 3018.0542108509007,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.5560578991569236,
+        "stdlib": 4.541502763034359
+      }
+    },
+    {
+      "name": "tanh [100x100]",
+      "category": "trig",
+      "operation": "tanh",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.03481152091666687,
+          "median_ms": 0.03516513549999217,
+          "min_ms": 0.03406329175000428,
+          "ops_per_sec": 28726.12209026539,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.02472194485194204,
+          "median_ms": 0.024574894458031776,
+          "min_ms": 0.024446991442529275,
+          "ops_per_sec": 40449.89202867851,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.020233689405528457,
+          "median_ms": 0.019503836647293146,
+          "min_ms": 0.019476024778212944,
+          "ops_per_sec": 49422.52398748246,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.05233877473624662,
+          "median_ms": 0.052033896492708516,
+          "min_ms": 0.051940048759625115,
+          "ops_per_sec": 19106.29366161798,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.710165606125695,
+        "numjs": 0.5812354321997198,
+        "stdlib": 1.503490033128318
+      }
+    },
+    {
+      "name": "arcsinh [100x100]",
+      "category": "trig",
+      "operation": "arcsinh",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.12786712337666276,
+          "median_ms": 0.127632396103909,
+          "min_ms": 0.1267703809524439,
+          "ops_per_sec": 7820.6185733471475,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.03990149141118075,
+          "median_ms": 0.03999942922373123,
+          "min_ms": 0.039455642530991375,
+          "ops_per_sec": 25061.719866435647,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.17633398435970057,
+          "median_ms": 0.17611278005864722,
+          "min_ms": 0.17424010263931394,
+          "ops_per_sec": 5671.056567066038,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.31205434483453187,
+        "stdlib": 1.3790408331957797
+      }
+    },
+    {
+      "name": "arccosh [100x100]",
+      "category": "trig",
+      "operation": "arccosh",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.08108627717392401,
+          "median_ms": 0.08075271739131573,
+          "min_ms": 0.08057478532606657,
+          "ops_per_sec": 12332.543000526151,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.037131862914863756,
+          "median_ms": 0.03716251824365614,
+          "min_ms": 0.03692272170689435,
+          "ops_per_sec": 26931.04847157301,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.05056499775912591,
+          "median_ms": 0.050375594957995797,
+          "min_ms": 0.05020787815129024,
+          "ops_per_sec": 19776.526140941463,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.4579302960871996,
+        "stdlib": 0.6235950091859287
+      }
+    },
+    {
+      "name": "arctanh [100x100]",
+      "category": "trig",
+      "operation": "arctanh",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.07474062752687143,
+          "median_ms": 0.07450795741939557,
+          "min_ms": 0.07405451612900041,
+          "ops_per_sec": 13379.604013098111,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.03772790811153367,
+          "median_ms": 0.037815140684430947,
+          "min_ms": 0.03749683143218232,
+          "ops_per_sec": 26505.577702419538,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.05223858742464651,
+          "median_ms": 0.05245872782084058,
+          "min_ms": 0.051582328165407254,
+          "ops_per_sec": 19142.937228968665,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.5047844707748727,
+        "stdlib": 0.6989316139453768
+      }
+    },
+    {
+      "name": "exp [100x100]",
+      "category": "math",
+      "operation": "exp",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.054507608904925516,
+          "median_ms": 0.05429666877257939,
+          "min_ms": 0.05355339891695214,
+          "ops_per_sec": 18346.062505589678,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.029886299795717674,
+          "median_ms": 0.029586610827383092,
+          "min_ms": 0.02943901072523939,
+          "ops_per_sec": 33460.14752027908,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.017627660109290857,
+          "median_ms": 0.017637351912569096,
+          "min_ms": 0.017558970765030657,
+          "ops_per_sec": 56729.02664335686,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.15814658487246355,
+          "median_ms": 0.15848362005280706,
+          "min_ms": 0.15673471767809194,
+          "ops_per_sec": 6323.247516261224,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.5482959241130284,
+        "numjs": 0.3233981541923398,
+        "stdlib": 2.901367131115759
+      }
+    },
+    {
+      "name": "exp2 [100x100]",
+      "category": "math",
+      "operation": "exp2",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.055095171376478284,
+          "median_ms": 0.0554299990883935,
+          "min_ms": 0.05402335916136866,
+          "ops_per_sec": 18150.410916535035,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.028688673292324014,
+          "median_ms": 0.02869316942734627,
+          "min_ms": 0.028327634169442877,
+          "ops_per_sec": 34856.96218192012,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.16271270473531776,
+          "median_ms": 0.16245252924791634,
+          "min_ms": 0.1620819415040392,
+          "ops_per_sec": 6145.801593223372,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.5207112089059048,
+        "stdlib": 2.953302452286853
+      }
+    },
+    {
+      "name": "log [100x100]",
+      "category": "math",
+      "operation": "log",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.08042298496562404,
+          "median_ms": 0.0816448131443713,
+          "min_ms": 0.07752711597937172,
+          "ops_per_sec": 12434.256207071143,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.022973660765850376,
+          "median_ms": 0.022718769491526514,
+          "min_ms": 0.022637366855003137,
+          "ops_per_sec": 43528.10856711476,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.024549645523748723,
+          "median_ms": 0.023844478434219586,
+          "min_ms": 0.02299774990940447,
+          "ops_per_sec": 40733.78570915106,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.06329973999291194,
+          "median_ms": 0.06350566737516362,
+          "min_ms": 0.06283222635490147,
+          "ops_per_sec": 15797.853199902182,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.28566038397692184,
+        "numjs": 0.30525658223506885,
+        "stdlib": 0.7870851849128548
+      }
+    },
+    {
+      "name": "log2 [100x100]",
+      "category": "math",
+      "operation": "log2",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.076973576666666,
+          "median_ms": 0.07739177124996786,
+          "min_ms": 0.07521484375,
+          "ops_per_sec": 12991.471142499964,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.022247059170107508,
+          "median_ms": 0.022246537043996036,
+          "min_ms": 0.02218172546069307,
+          "ops_per_sec": 44949.76133041712,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.0685593979591787,
+          "median_ms": 0.06856453174602688,
+          "min_ms": 0.06844146825396139,
+          "ops_per_sec": 14585.892376059297,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.2890220272139409,
+        "stdlib": 0.890687440133841
+      }
+    },
+    {
+      "name": "log10 [100x100]",
+      "category": "math",
+      "operation": "log10",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.07692283950616709,
+          "median_ms": 0.07744933086415799,
+          "min_ms": 0.07562165679014862,
+          "ops_per_sec": 13000.0401235816,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.02391644539761084,
+          "median_ms": 0.023867000408500684,
+          "min_ms": 0.023841452205898332,
+          "ops_per_sec": 41812.23352279165,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.06981812475858722,
+          "median_ms": 0.06958748551564742,
+          "min_ms": 0.06958651911934864,
+          "ops_per_sec": 14322.92837222051,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.3109147497823894,
+        "stdlib": 0.9076384232148598
+      }
+    },
+    {
+      "name": "dot 1D · 1D [1000]",
+      "category": "linalg",
+      "operation": "dot",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.00039971472333340594,
+          "median_ms": 0.0003991183400002774,
+          "min_ms": 0.0003971737500000745,
+          "ops_per_sec": 2501784.2516796417,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.002204075446692338,
+          "median_ms": 0.002218660489881423,
+          "min_ms": 0.0021612383031605668,
+          "ops_per_sec": 453704.9770690485,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.001796350507246423,
+          "median_ms": 0.001793812111801734,
+          "min_ms": 0.0017849404968936662,
+          "ops_per_sec": 556684.2305919867,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.0017318629902869026,
+          "median_ms": 0.0017250049847612984,
+          "min_ms": 0.0017182553906617667,
+          "ops_per_sec": 577412.8817397609,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.514121242048662,
+        "numjs": 4.494081409525837,
+        "stdlib": 4.332747555166585
+      }
+    },
+    {
+      "name": "dot 2D · 1D [100x100] · [100]",
+      "category": "linalg",
+      "operation": "dot",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.001118267718262788,
+          "median_ms": 0.0011218523260782412,
+          "min_ms": 0.0010932313095746709,
+          "ops_per_sec": 894240.2464711088,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005739053905390187,
+          "median_ms": 0.005785934276284298,
+          "min_ms": 0.005638279867989047,
+          "ops_per_sec": 174244.74773808767,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.008951169910967546,
+          "median_ms": 0.008961885770331642,
+          "min_ms": 0.008889850912927573,
+          "ops_per_sec": 111717.24031008908,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.01817253086419868,
+          "median_ms": 0.01804771585184736,
+          "min_ms": 0.017893271703704226,
+          "ops_per_sec": 55028.10849368697,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.1320929788671,
+        "numjs": 8.004496387388391,
+        "stdlib": 16.25060847900486
+      }
+    },
+    {
+      "name": "trace [100x100]",
+      "category": "linalg",
+      "operation": "trace",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.000274669166666572,
+          "median_ms": 0.0002742587499995716,
+          "min_ms": 0.00027036874999990685,
+          "ops_per_sec": 3640743.5611945693,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.003173595894911578,
+          "median_ms": 0.0031789887794218276,
+          "min_ms": 0.0031584473453763135,
+          "ops_per_sec": 315099.97905006167,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 11.554248820232845
+      }
+    },
+    {
+      "name": "inner 1D · 1D [1000]",
+      "category": "linalg",
+      "operation": "inner",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0004262011133334212,
+          "median_ms": 0.0004301758400001563,
+          "min_ms": 0.00041594249999965543,
+          "ops_per_sec": 2346310.154327754,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0023787036398548542,
+          "median_ms": 0.0023527667985743786,
+          "min_ms": 0.0023474382713636823,
+          "ops_per_sec": 420397.0529346896,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 5.581176504327833
+      }
+    },
+    {
+      "name": "inner 2D · 2D [100x100]",
+      "category": "linalg",
+      "operation": "inner",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.03718000061461462,
+          "median_ms": 0.03731074615856907,
+          "min_ms": 0.03669957467730483,
+          "ops_per_sec": 26896.18029771959,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.33269043159913375,
+          "median_ms": 0.3331288554910247,
+          "min_ms": 0.331590797687878,
+          "ops_per_sec": 3005.7972968844583,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 8.948101831616448
+      }
+    },
+    {
+      "name": "outer [100] x [100]",
+      "category": "linalg",
+      "operation": "outer",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0009717223347476567,
+          "median_ms": 0.0009765765657145191,
+          "min_ms": 0.0009589837159201649,
+          "ops_per_sec": 1029100.561180048,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.009450538144980772,
+          "median_ms": 0.009489969135799447,
+          "min_ms": 0.009317044001264645,
+          "ops_per_sec": 105814.08007237186,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 9.725554108453162
+      }
+    },
+    {
+      "name": "transpose [100x100]",
+      "category": "linalg",
+      "operation": "transpose",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.29956176602568935,
+          "median_ms": 0.30027403846151385,
+          "min_ms": 0.2954216778847555,
+          "ops_per_sec": 3338.2097230467107,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004989684690679161,
+          "median_ms": 0.0049525655935456925,
+          "min_ms": 0.004912649363610701,
+          "ops_per_sec": 200413.46537748602,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.0033839924323908373,
+          "median_ms": 0.003586815206929761,
+          "min_ms": 0.0029549481967928986,
+          "ops_per_sec": 295508.93507568695,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.023305823751572835,
+          "median_ms": 0.02337489509021967,
+          "min_ms": 0.02280817247167143,
+          "ops_per_sec": 42907.73030206723,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.016656613949362496,
+        "numjs": 0.011296476440523583,
+        "stdlib": 0.07779972745111341
+      }
+    },
+    {
+      "name": "sum [100x100]",
+      "category": "reductions",
+      "operation": "sum",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0027223258987868156,
+          "median_ms": 0.0026991317609339127,
+          "min_ms": 0.0026980382871549836,
+          "ops_per_sec": 367332.9488014799,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.009425439684733491,
+          "median_ms": 0.009365826040226738,
+          "min_ms": 0.00928807769077223,
+          "ops_per_sec": 106095.84628924135,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.0051606583925358765,
+          "median_ms": 0.005172890096719779,
+          "min_ms": 0.005118448429342465,
+          "ops_per_sec": 193773.72496624675,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 3.462274553143644,
+        "numjs": 1.8956798650873086
+      }
+    },
+    {
+      "name": "sum [100x100] axis=0",
+      "category": "reductions",
+      "operation": "sum",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.004775920340362669,
+          "median_ms": 0.004775345530581232,
+          "min_ms": 0.004695116048092723,
+          "ops_per_sec": 209383.7268491926,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.010786738371054828,
+          "median_ms": 0.01065694617715086,
+          "min_ms": 0.010639332026376245,
+          "ops_per_sec": 92706.42946930126,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.2585674806786487
+      }
+    },
+    {
+      "name": "mean [100x100]",
+      "category": "reductions",
+      "operation": "mean",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.005850110636999949,
+          "median_ms": 0.005770945545056208,
+          "min_ms": 0.005767508178399532,
+          "ops_per_sec": 170936.93812820257,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.00851666027292455,
+          "median_ms": 0.008528115803037827,
+          "min_ms": 0.0084705243343802,
+          "ops_per_sec": 117416.91789434363,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.005852336063025712,
+          "median_ms": 0.006171197367055303,
+          "min_ms": 0.005137210220797542,
+          "ops_per_sec": 170871.93715990923,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.10331949173788568,
+          "median_ms": 0.1029930905982231,
+          "min_ms": 0.10282001367523375,
+          "ops_per_sec": 9678.715827763943,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.4558118301318246,
+        "numjs": 1.0003804075108746,
+        "stdlib": 17.661117566636303
+      }
+    },
+    {
+      "name": "max [100x100]",
+      "category": "reductions",
+      "operation": "max",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0008589924026589964,
+          "median_ms": 0.0008596080526224919,
+          "min_ms": 0.0008453921428970225,
+          "ops_per_sec": 1164154.6501511736,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.006091405289928913,
+          "median_ms": 0.006112393997968454,
+          "min_ms": 0.005976445473044152,
+          "ops_per_sec": 164165.73063252374,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.005696424296104293,
+          "median_ms": 0.0057321928025388024,
+          "min_ms": 0.0055441334141301465,
+          "ops_per_sec": 175548.72109577342,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.03171975142314657,
+          "median_ms": 0.03835421608159492,
+          "min_ms": 0.017434090370018755,
+          "ops_per_sec": 31526.098255305966,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 7.091337794226202,
+        "numjs": 6.6315188335439395,
+        "stdlib": 36.926696120895386
+      }
+    },
+    {
+      "name": "min [100x100]",
+      "category": "reductions",
+      "operation": "min",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0008614644411990748,
+          "median_ms": 0.0008637022741497889,
+          "min_ms": 0.0008449393699149147,
+          "ops_per_sec": 1160814.0187517167,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.00610868973658384,
+          "median_ms": 0.006103249721744635,
+          "min_ms": 0.006025030355153998,
+          "ops_per_sec": 163701.22614202855,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.0055464718067721915,
+          "median_ms": 0.005472351211961591,
+          "min_ms": 0.0052019118102114405,
+          "ops_per_sec": 180294.79547322483,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.03174748398304877,
+          "median_ms": 0.03872644361059519,
+          "min_ms": 0.017681676047533394,
+          "ops_per_sec": 31498.559083735247,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 7.091052682431253,
+        "numjs": 6.438422227912323,
+        "stdlib": 36.8529244676186
+      }
+    },
+    {
+      "name": "prod [100x100]",
+      "category": "reductions",
+      "operation": "prod",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.01148809151813864,
+          "median_ms": 0.011495133485017463,
+          "min_ms": 0.011415616040952679,
+          "ops_per_sec": 87046.66031090473,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.013459324497814852,
+          "median_ms": 0.013529857725420787,
+          "min_ms": 0.013242089487998892,
+          "ops_per_sec": 74297.9337605206,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.1715892475755278
+      }
+    },
+    {
+      "name": "argmin [100x100]",
+      "category": "reductions",
+      "operation": "argmin",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0007527199666663365,
+          "median_ms": 0.0007519953124996391,
+          "min_ms": 0.0007504031249998661,
+          "ops_per_sec": 1328515.31018743,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0054764487054305075,
+          "median_ms": 0.005405326231691368,
+          "min_ms": 0.005356835330669267,
+          "ops_per_sec": 182600.0851625596,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 7.27554595062056
+      }
+    },
+    {
+      "name": "argmax [100x100]",
+      "category": "reductions",
+      "operation": "argmax",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.002101946556697895,
+          "median_ms": 0.0020663264294691975,
+          "min_ms": 0.002031697684739613,
+          "ops_per_sec": 475749.4888790011,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005516438965213239,
+          "median_ms": 0.00552260940769924,
+          "min_ms": 0.005414778819032211,
+          "ops_per_sec": 181276.36439123456,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.6244430181324043
+      }
+    },
+    {
+      "name": "var [100x100]",
+      "category": "reductions",
+      "operation": "var",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.017235993787621116,
+          "median_ms": 0.017189890215497862,
+          "min_ms": 0.017163317705306345,
+          "ops_per_sec": 58018.122559210926,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.025198658917957684,
+          "median_ms": 0.02517988086344064,
+          "min_ms": 0.024887470734759356,
+          "ops_per_sec": 39684.65160212774,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 1.765576855556315,
+          "median_ms": 1.763859733333811,
+          "min_ms": 1.7425278000009712,
+          "ops_per_sec": 566.3871254615593,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.4619788814298222,
+        "stdlib": 102.43545439337252
+      }
+    },
+    {
+      "name": "std [100x100]",
+      "category": "reductions",
+      "operation": "std",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.011912055239218988,
+          "median_ms": 0.011985306695467818,
+          "min_ms": 0.011636723542119028,
+          "ops_per_sec": 83948.56974030998,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.025864565455594225,
+          "median_ms": 0.025915621539802817,
+          "min_ms": 0.025752739619385536,
+          "ops_per_sec": 38662.93449688368,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.030941603476952805,
+          "median_ms": 0.032386488888899494,
+          "min_ms": 0.027948884807248303,
+          "ops_per_sec": 32318.94561459496,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 1.8030808080808551,
+          "median_ms": 1.805103515151352,
+          "min_ms": 1.7827159090913043,
+          "ops_per_sec": 554.6063135486256,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.171293276951764,
+        "numjs": 2.59750335736199,
+        "stdlib": 151.36605496459012
+      }
+    },
+    {
+      "name": "cumsum [100x100]",
+      "category": "reductions",
+      "operation": "cumsum",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.09346679947089537,
+          "median_ms": 0.09360476190479294,
+          "min_ms": 0.09317903492058302,
+          "ops_per_sec": 10698.986224636803,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.014869504921587479,
+          "median_ms": 0.01491420595595593,
+          "min_ms": 0.014753305305300553,
+          "ops_per_sec": 67251.73469280773,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.1590886283232336
+      }
+    },
+    {
+      "name": "cumprod [100x100]",
+      "category": "reductions",
+      "operation": "cumprod",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.09548108681674801,
+          "median_ms": 0.0958266334405687,
+          "min_ms": 0.09471382636657745,
+          "ops_per_sec": 10473.27835636443,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.019782318562455464,
+          "median_ms": 0.019782652826230734,
+          "min_ms": 0.01964597871597916,
+          "ops_per_sec": 50550.191922289814,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.20718572883887112
+      }
+    },
+    {
+      "name": "ptp [100x100]",
+      "category": "reductions",
+      "operation": "ptp",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0016196221950904475,
+          "median_ms": 0.0015991546145731385,
+          "min_ms": 0.0015989996670186257,
+          "ops_per_sec": 617427.9427827643,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.009956058142187049,
+          "median_ms": 0.009972062820945466,
+          "min_ms": 0.00973958695652196,
+          "ops_per_sec": 100441.35798712098,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 6.14714849695614
+      }
+    },
+    {
+      "name": "median [100x100]",
+      "category": "reductions",
+      "operation": "median",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.013642090136821224,
+          "median_ms": 0.013659111411812941,
+          "min_ms": 0.013559098331081057,
+          "ops_per_sec": 73302.55041351108,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.013856916588930963,
+          "median_ms": 0.01372784514925156,
+          "min_ms": 0.013620588386198614,
+          "ops_per_sec": 72166.12682786945,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.0157473268359298
+      }
+    },
+    {
+      "name": "mean [100x100] axis=0",
+      "category": "reductions",
+      "operation": "mean",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.003437968132349411,
+          "median_ms": 0.0034229325290197786,
+          "min_ms": 0.003386588198294113,
+          "ops_per_sec": 290869.47915268433,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.013561715725505142,
+          "median_ms": 0.013492468875050094,
+          "min_ms": 0.013456323254781433,
+          "ops_per_sec": 73736.98285972237,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 3.944689189494449
+      }
+    },
+    {
+      "name": "max [100x100] axis=0",
+      "category": "reductions",
+      "operation": "max",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0013353731199664948,
+          "median_ms": 0.0012857727365717803,
+          "min_ms": 0.0012838188348151037,
+          "ops_per_sec": 748854.3726453701,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.008059055502953933,
+          "median_ms": 0.008018542404979921,
+          "min_ms": 0.007985673339644554,
+          "ops_per_sec": 124084.01947765022,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 6.035058952778785
+      }
+    },
+    {
+      "name": "min [100x100] axis=0",
+      "category": "reductions",
+      "operation": "min",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.001288768473964869,
+          "median_ms": 0.0012961428295241875,
+          "min_ms": 0.0012697422667130415,
+          "ops_per_sec": 775934.5609405863,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.008121677738294563,
+          "median_ms": 0.008092576817937102,
+          "min_ms": 0.008032958583932453,
+          "ops_per_sec": 123127.2690474894,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 6.301890449964526
+      }
+    },
+    {
+      "name": "argmax [100x100] axis=0",
+      "category": "reductions",
+      "operation": "argmax",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.004181974339090448,
+          "median_ms": 0.004198645893545906,
+          "min_ms": 0.004132126119141433,
+          "ops_per_sec": 239121.5055177726,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.008777622820992542,
+          "median_ms": 0.00882423091409643,
+          "min_ms": 0.008630347964647976,
+          "ops_per_sec": 113926.06180438767,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.0989183838228946
+      }
+    },
+    {
+      "name": "argmin [100x100] axis=0",
+      "category": "reductions",
+      "operation": "argmin",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.004182414276005367,
+          "median_ms": 0.0041929123343496235,
+          "min_ms": 0.00415019899519584,
+          "ops_per_sec": 239096.3529693912,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.008514196769458054,
+          "median_ms": 0.008466806451614874,
+          "min_ms": 0.008457243853918064,
+          "ops_per_sec": 117450.89138498405,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.0357133960411935
+      }
+    },
+    {
+      "name": "var [100x100] axis=0",
+      "category": "reductions",
+      "operation": "var",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.01562781874515556,
+          "median_ms": 0.015713604957393372,
+          "min_ms": 0.015347017815650153,
+          "ops_per_sec": 63988.45650228623,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.034399857526877,
+          "median_ms": 0.03442098675115991,
+          "min_ms": 0.034322604262669705,
+          "ops_per_sec": 29069.887839468192,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.2011937870434126
+      }
+    },
+    {
+      "name": "std [100x100] axis=0",
+      "category": "reductions",
+      "operation": "std",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.01607573680345357,
+          "median_ms": 0.016117896998081336,
+          "min_ms": 0.015905455521884864,
+          "ops_per_sec": 62205.54691995012,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.03486191860464214,
+          "median_ms": 0.03475673430234459,
+          "min_ms": 0.034376259883703277,
+          "ops_per_sec": 28684.5945382605,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.1686047134805486
+      }
+    },
+    {
+      "name": "prod [100x100] axis=0",
+      "category": "reductions",
+      "operation": "prod",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0037269085658884426,
+          "median_ms": 0.003713770806259799,
+          "min_ms": 0.0036963987377011545,
+          "ops_per_sec": 268318.8981754947,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0107094437658075,
+          "median_ms": 0.01071110179529255,
+          "min_ms": 0.010690896909120461,
+          "ops_per_sec": 93375.5311543577,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.873546151313889
+      }
+    },
+    {
+      "name": "median [100x100] axis=0",
+      "category": "reductions",
+      "operation": "median",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.013749493225560981,
+          "median_ms": 0.013604474595845215,
+          "min_ms": 0.013544659353346363,
+          "ops_per_sec": 72729.953285911,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.013907574431769654,
+          "median_ms": 0.013881079823131767,
+          "min_ms": 0.013761897835696724,
+          "ops_per_sec": 71903.26428997268,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 1.0114972387429373
+      }
+    },
+    {
+      "name": "concatenate [100x100] + [100x100]",
+      "category": "manipulation",
+      "operation": "concatenate",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0011147130913881729,
+          "median_ms": 0.0010981240388071814,
+          "min_ms": 0.0010908012935676988,
+          "ops_per_sec": 897091.8236500493,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0029389255729196082,
+          "median_ms": 0.0029364124050518586,
+          "min_ms": 0.00293345914171023,
+          "ops_per_sec": 340260.4030583098,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.8196004611869516,
+          "median_ms": 0.810440643835647,
+          "min_ms": 0.8078926986295487,
+          "ops_per_sec": 1220.1066828974112,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.3320499171715728,
+          "median_ms": 0.33006893939366844,
+          "min_ms": 0.32886893939382084,
+          "ops_per_sec": 3011.5953905909037,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.636486101782217,
+        "numjs": 735.2568723906238,
+        "stdlib": 297.879265738294
+      }
+    },
+    {
+      "name": "stack [100x100] + [100x100]",
+      "category": "manipulation",
+      "operation": "stack",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0016077709249579103,
+          "median_ms": 0.0016211118642315454,
+          "min_ms": 0.0015747184250010217,
+          "ops_per_sec": 621979.1541672386,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004894323008242867,
+          "median_ms": 0.004901637745460912,
+          "min_ms": 0.004842833374414707,
+          "ops_per_sec": 204318.34971166204,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.04042331089062186,
+          "median_ms": 0.04033309709424124,
+          "min_ms": 0.039695192062374186,
+          "ops_per_sec": 24738.201249912916,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 3.0441668848881536,
+        "numjs": 25.14245671638831
+      }
+    },
+    {
+      "name": "vstack [100x100]",
+      "category": "manipulation",
+      "operation": "vstack",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0011545908626306417,
+          "median_ms": 0.0011490993770843776,
+          "min_ms": 0.001148103774130572,
+          "ops_per_sec": 866107.6684095534,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004159739229024563,
+          "median_ms": 0.004189886598638734,
+          "min_ms": 0.004095762448977729,
+          "ops_per_sec": 240399.68491834876,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 3.602782044842218
+      }
+    },
+    {
+      "name": "hstack [100x100]",
+      "category": "manipulation",
+      "operation": "hstack",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.007817634325420467,
+          "median_ms": 0.007825455618192827,
+          "min_ms": 0.007781882260388057,
+          "ops_per_sec": 127915.93445965069,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005440757356874719,
+          "median_ms": 0.005445388264667194,
+          "min_ms": 0.005369382022470332,
+          "ops_per_sec": 183797.94105988587,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.6959595614728489
+      }
+    },
+    {
+      "name": "tile [100x100] x [2,2]",
+      "category": "manipulation",
+      "operation": "tile",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0018384099416484006,
+          "median_ms": 0.0018483139385575681,
+          "min_ms": 0.0017682674349423554,
+          "ops_per_sec": 543948.3204183258,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.008789659302544474,
+          "median_ms": 0.008863656784492684,
+          "min_ms": 0.00861527223488683,
+          "ops_per_sec": 113770.05246500454,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 4.78112041466838
+      }
+    },
+    {
+      "name": "repeat [100x100] x 2",
+      "category": "manipulation",
+      "operation": "repeat",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.002224926536492964,
+          "median_ms": 0.0022272304282506634,
+          "min_ms": 0.0022008508260976285,
+          "ops_per_sec": 449453.0419760501,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.06929345333332045,
+          "median_ms": 0.06998211675675939,
+          "min_ms": 0.06617351351349891,
+          "ops_per_sec": 14431.37774054537,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 31.144153389686345
+      }
+    },
+    {
+      "name": "concat [100x100] + [100x100]",
+      "category": "manipulation",
+      "operation": "concat",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0010953940343135505,
+          "median_ms": 0.0010850641240125944,
+          "min_ms": 0.0010767171638069748,
+          "ops_per_sec": 912913.4984076018,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.002869178168782056,
+          "median_ms": 0.0028705304495502976,
+          "min_ms": 0.0028190971743954456,
+          "ops_per_sec": 348531.8586626819,
+          "samples": 3
+        },
+        "numjs": {
+          "mean_ms": 0.771741705627868,
+          "median_ms": 0.7735232727272533,
+          "min_ms": 0.7668842077928039,
+          "ops_per_sec": 1295.7703240703147,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.3264860344202463,
+          "median_ms": 0.3266272608693132,
+          "min_ms": 0.323465804347981,
+          "ops_per_sec": 3062.9181483236734,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.6193114796175436,
+        "numjs": 704.5334203517866,
+        "stdlib": 298.0535078638118
+      }
+    },
+    {
+      "name": "deg2rad [1000]",
+      "category": "trig",
+      "operation": "deg2rad",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.007618040720962546,
+          "median_ms": 0.007575734312417923,
+          "min_ms": 0.007444225634182138,
+          "ops_per_sec": 131267.3476853835,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004339943508069586,
+          "median_ms": 0.004331181831165021,
+          "min_ms": 0.004328685187828082,
+          "ops_per_sec": 230417.7457933782,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.005825730365650973,
+          "median_ms": 0.005845560544612584,
+          "min_ms": 0.005767461664736553,
+          "ops_per_sec": 171652.2971773787,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.5696928734086932,
+        "stdlib": 0.7647281734292025
+      }
+    },
+    {
+      "name": "rad2deg [1000]",
+      "category": "trig",
+      "operation": "rad2deg",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.007919605495881754,
+          "median_ms": 0.007932202018899485,
+          "min_ms": 0.00787509162676759,
+          "ops_per_sec": 126268.91585950923,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004331199274073286,
+          "median_ms": 0.004333434203972956,
+          "min_ms": 0.004268195644436885,
+          "ops_per_sec": 230882.93489196766,
+          "samples": 3
+        },
+        "stdlib": {
+          "mean_ms": 0.005861620567727162,
+          "median_ms": 0.005865350649354194,
+          "min_ms": 0.005790109348664487,
+          "ops_per_sec": 170601.28482314048,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 0.5468958367087271,
+        "stdlib": 0.7401404742667097
+      }
+    },
+    {
+      "name": "kron [10x10] ⊗ [10x10]",
+      "category": "linalg",
+      "operation": "kron",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.002519610804174461,
+          "median_ms": 0.0025213286037174313,
+          "min_ms": 0.002491836514314575,
+          "ops_per_sec": 396886.6931127664,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.026530976368706733,
+          "median_ms": 0.026396301188901926,
+          "min_ms": 0.026137109203003706,
+          "ops_per_sec": 37691.79038504965,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 10.529791476028967
+      }
+    },
+    {
+      "name": "logical_and [100x100] & scalar",
+      "category": "logic",
+      "operation": "logical_and",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.00247218344620018,
+          "median_ms": 0.0024604196593472336,
+          "min_ms": 0.0024579331418031107,
+          "ops_per_sec": 404500.7264881698,
+          "samples": 3
+        }
+      },
+      "ratios": {}
+    },
+    {
+      "name": "logical_and [100x100] & [100x100]",
+      "category": "logic",
+      "operation": "logical_and",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.002275097214776151,
+          "median_ms": 0.0022880510837092532,
+          "min_ms": 0.0022483198667398244,
+          "ops_per_sec": 439541.65716755576,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.005087436245523502,
+          "median_ms": 0.005120651869739656,
+          "min_ms": 0.0050052087115845375,
+          "ops_per_sec": 196562.6598033366,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.236140158091688
+      }
+    },
+    {
+      "name": "logical_or [100x100] | scalar",
+      "category": "logic",
+      "operation": "logical_or",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.002474053157171974,
+          "median_ms": 0.002468849070100727,
+          "min_ms": 0.0024480542792243627,
+          "ops_per_sec": 404195.0340077066,
+          "samples": 3
+        }
+      },
+      "ratios": {}
+    },
+    {
+      "name": "logical_not [100x100]",
+      "category": "logic",
+      "operation": "logical_not",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.001827857311485535,
+          "median_ms": 0.001836319368584139,
+          "min_ms": 0.0018025591201002893,
+          "ops_per_sec": 547088.6560544929,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.004276651015257933,
+          "median_ms": 0.00427178405223498,
+          "min_ms": 0.004263642911716839,
+          "ops_per_sec": 233827.82378834998,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 2.339707256351545
+      }
+    },
+    {
+      "name": "logical_xor [100x100] ^ scalar",
+      "category": "logic",
+      "operation": "logical_xor",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0030249413567834255,
+          "median_ms": 0.0030216834170863163,
+          "min_ms": 0.00296568256281328,
+          "ops_per_sec": 330584.9211778939,
+          "samples": 3
+        }
+      },
+      "ratios": {}
+    },
+    {
+      "name": "isfinite [100x100]",
+      "category": "logic",
+      "operation": "isfinite",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0006015236099999554,
+          "median_ms": 0.0006036854100000346,
+          "min_ms": 0.0005937404199998128,
+          "ops_per_sec": 1662445.136609142,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0042847864792988025,
+          "median_ms": 0.004303244827343162,
+          "min_ms": 0.004232169338322775,
+          "ops_per_sec": 233383.85817620676,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 7.123222443918902
+      }
+    },
+    {
+      "name": "isnan [100x100]",
+      "category": "logic",
+      "operation": "isnan",
+      "timings": {
+        "numpy-ts": {
+          "mean_ms": 0.0005427529166666015,
+          "median_ms": 0.0005425349999999162,
+          "min_ms": 0.0005359520799998427,
+          "ops_per_sec": 1842459.007206539,
+          "samples": 3
+        },
+        "numpy(pyodide)": {
+          "mean_ms": 0.0043853639614098855,
+          "median_ms": 0.0043736057478234855,
+          "min_ms": 0.004357566551977724,
+          "ops_per_sec": 228031.2441110366,
+          "samples": 3
+        }
+      },
+      "ratios": {
+        "numpy(pyodide)": 8.079853330578592
+      }
+    }
+  ]
+}
