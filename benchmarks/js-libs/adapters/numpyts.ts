@@ -20,24 +20,40 @@ function releaseResult(r: unknown): void {
   }
 }
 
+function prepareRecord(d: SpecData): Record<string, any> {
+  const record: Record<string, any> = { ...d.params };
+  for (const [key, a] of Object.entries(d.arrays)) {
+    const flat = np.array(a.data, a.dtype as any);
+    record[key] = a.shape.length > 1 ? np.reshape(flat, a.shape) : flat;
+  }
+  return record;
+}
+
+const disposePrepared = (record: unknown) => {
+  for (const v of Object.values(record as Record<string, any>)) (v as any)?.dispose?.();
+};
+
 /** Build a numpy-ts OpDef for one operation + its SpecData. */
 export function numpytsOpDef(operation: string, d: SpecData): OpDef {
+  // transpose is an O(1) view; materialize a contiguous copy so it's comparable
+  // to the competitors (which copy), and dispose the intermediate view.
+  if (operation === 'transpose') {
+    return {
+      prepare: () => prepareRecord(d),
+      run(record) {
+        const t = np.transpose((record as any).a);
+        const c = np.copy(t);
+        t.dispose();
+        return c;
+      },
+      disposeResult: releaseResult,
+      disposePrepared,
+    };
+  }
   return {
-    prepare() {
-      const record: Record<string, any> = { ...d.params };
-      for (const [key, a] of Object.entries(d.arrays)) {
-        const flat = np.array(a.data, a.dtype as any);
-        record[key] = a.shape.length > 1 ? np.reshape(flat, a.shape) : flat;
-      }
-      return record;
-    },
-    run(record) {
-      return executeOperation(operation, record as Record<string, any>);
-    },
-    // numpy-ts is eager — no materialize needed.
-    disposeResult: releaseResult,
-    disposePrepared(record) {
-      for (const v of Object.values(record as Record<string, any>)) (v as any)?.dispose?.();
-    },
+    prepare: () => prepareRecord(d),
+    run: (record) => executeOperation(operation, record as Record<string, any>),
+    disposeResult: releaseResult, // numpy-ts is eager — no materialize needed
+    disposePrepared,
   };
 }

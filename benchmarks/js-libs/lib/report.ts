@@ -1,6 +1,6 @@
 /** Console + JSON reporting for the JS-library comparison. */
 
-import type { JsLibAdapter, Regime, SpecResult } from './types';
+import type { Dtype, JsLibAdapter, SpecResult } from './types';
 
 export function geomean(values: number[]): number {
   const v = values.filter((x) => Number.isFinite(x) && x > 0);
@@ -37,20 +37,19 @@ export interface LibSummary {
 }
 
 export interface ReportSummary {
-  regime: Regime;
+  dtype: Dtype;
   totalSpecs: number;
   reference: { name: string; nativeDtypes: number; geomeanOpsPerSec: number };
   libs: LibSummary[];
 }
 
 export function buildSummary(
-  regime: Regime,
+  dtype: Dtype,
   results: SpecResult[],
   adapters: JsLibAdapter[],
   numpytsDtypes: number,
 ): ReportSummary {
   const libs: LibSummary[] = adapters
-    .filter((a) => a.regimes.includes(regime))
     .map((a) => {
       const ratios: number[] = [];
       for (const r of results) if (r.ratios[a.name] != null) ratios.push(r.ratios[a.name]!);
@@ -66,7 +65,7 @@ export function buildSummary(
     })
     .filter((l) => l.coverage > 0);
   return {
-    regime,
+    dtype,
     totalSpecs: results.length,
     reference: { name: 'numpy-ts', nativeDtypes: numpytsDtypes, geomeanOpsPerSec: geoOps(results, 'numpy-ts') },
     libs,
@@ -74,9 +73,9 @@ export function buildSummary(
 }
 
 export function printReport(summary: ReportSummary, results: SpecResult[]): void {
-  const { regime, totalSpecs, reference, libs } = summary;
+  const { dtype, totalSpecs, reference, libs } = summary;
   console.log(`\n${'='.repeat(76)}`);
-  console.log(`  numpy-ts vs JS numerical libraries — regime: ${regime}`);
+  console.log(`  numpy-ts vs JS numerical libraries — dtype: ${dtype}`);
   console.log(`  ${totalSpecs} benchmarked specs · headline = geomean ops/sec (higher is faster)`);
   console.log('='.repeat(76));
 

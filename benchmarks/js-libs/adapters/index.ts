@@ -6,10 +6,12 @@ import { mathjsAdapter } from './mathjs';
 import { mlmatrix } from './mlmatrix';
 import { numericAdapter } from './numeric';
 import { numjsAdapter } from './numjs';
+import { pyodideNumpy } from './pyodide';
 import { stdlib } from './stdlib';
 import { tfjs } from './tfjs';
 
 export const ADAPTERS: JsLibAdapter[] = [
+  pyodideNumpy,
   jaxjs,
   tfjs,
   mathjsAdapter,

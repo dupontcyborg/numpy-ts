@@ -8,8 +8,10 @@
 
 import type { LibTiming, OpDef } from './types';
 
-const MIN_SAMPLE_TIME_MS = 100;
-const TARGET_SAMPLES = 5;
+const DEBUG = !!process.env['JSLIBS_DEBUG'];
+// Defaults match the project's standard methodology; overridable for large sweeps.
+const MIN_SAMPLE_TIME_MS = Number(process.env['JSLIBS_SAMPLE_MS'] ?? 100);
+const TARGET_SAMPLES = Number(process.env['JSLIBS_SAMPLES'] ?? 5);
 const MAX_OPS_PER_SAMPLE = 100_000;
 
 const now = () => globalThis.performance.now();
@@ -51,7 +53,12 @@ async function calibrate(op: OpDef, prepared: unknown): Promise<number> {
 }
 
 /** Time one operation. Returns null if the op throws (unsupported param combo). */
-export async function timeOp(op: OpDef, prepared: unknown, warmup: number): Promise<LibTiming | null> {
+export async function timeOp(
+  op: OpDef,
+  prepared: unknown,
+  warmup: number,
+  label?: string,
+): Promise<LibTiming | null> {
   try {
     for (let i = 0; i < warmup; i++) await once(op, prepared);
     const opsPerSample = await calibrate(op, prepared);
@@ -69,7 +76,8 @@ export async function timeOp(op: OpDef, prepared: unknown, warmup: number): Prom
       ops_per_sec: 1000 / meanMs,
       samples: TARGET_SAMPLES,
     };
-  } catch {
+  } catch (e) {
+    if (DEBUG && label) console.error(`  [N/A] ${label}: ${(e as Error).message.slice(0, 70)}`);
     return null;
   }
 }

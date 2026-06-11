@@ -7,8 +7,23 @@
  * numpy-ts's spec list and reports per-library coverage (N / total).
  */
 
-/** dtype regime a benchmark run is executed in. */
-export type Regime = 'float64' | 'float32';
+/**
+ * The dtype a benchmark run targets. Every participant runs at this dtype, or is
+ * skipped if it doesn't natively support it (no silent coercion). int64/uint64/
+ * complex are effectively numpy-ts-only showcases.
+ */
+export type Dtype =
+  | 'float64' | 'float32' | 'float16'
+  | 'int8' | 'int16' | 'int32' | 'int64'
+  | 'uint8' | 'uint16' | 'uint32' | 'uint64'
+  | 'bool' | 'complex64' | 'complex128';
+
+export const ALL_DTYPES: Dtype[] = [
+  'float64', 'float32', 'float16',
+  'int8', 'int16', 'int32', 'int64',
+  'uint8', 'uint16', 'uint32', 'uint64',
+  'bool', 'complex64', 'complex128',
+];
 
 /** A single input array, extracted from numpy-ts into a library-neutral form. */
 export interface ArrayData {
@@ -52,10 +67,11 @@ export interface JsLibAdapter {
   pkg: string;
   /** Installed version (filled at runtime). */
   version?: string;
-  /** Which dtype regimes this library participates in. */
-  regimes: Regime[];
-  /** numpy-equivalent dtypes with native typed storage (for the capability table). */
-  dtypes: string[];
+  /**
+   * numpy-equivalent dtypes this library natively supports. Doubles as the
+   * participation gate: the library runs a dtype only if it's listed here.
+   */
+  dtypes: Dtype[];
   /** One-time async init (e.g. tfjs setBackend('wasm')). */
   init?: () => Promise<void>;
   /** operation-name -> implementation. Presence == supported. */
