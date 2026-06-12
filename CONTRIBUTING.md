@@ -7,8 +7,8 @@ Thanks for your interest in contributing! We welcome contributions of all kinds.
 ```bash
 git clone https://github.com/dupontcyborg/numpy-ts.git
 cd numpy-ts
-npm install
-npm test
+pnpm install
+pnpm test
 ```
 
 Validation tests and benchmarks require Python + NumPy:
@@ -21,11 +21,11 @@ source ~/.zshrc && conda activate py313
 Every new function requires:
 
 1. **Implementation** in `src/` + export in `src/index.ts`
-2. **Unit tests** in `tests/unit/` — `npm run test:unit`
-3. **Validation tests** in `tests/validation/` — `npm run test:validation` (requires conda)
+2. **Unit tests** in `tests/unit/` — `pnpm run test:unit`
+3. **Validation tests** in `tests/validation/` — `pnpm run test:validation` (requires conda)
 4. **Benchmarks** in `benchmarks/src/specs.ts`, `runner.ts`, and `scripts/numpy_benchmark.py`
 5. **Update docs** in `docs/next/` — update the relevant API reference page and [API coverage](https://numpyts.dev/v1.0.x/guides/api-coverage) (see [Docs Workflow](#docs-workflow) below)
-6. **Checks** — `npm run lint && npm test`
+6. **Checks** — `pnpm run lint && pnpm test`
 
 ## Docs Workflow
 

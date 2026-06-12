@@ -30,7 +30,7 @@ beforeAll(() => {
   if (isBuilder) {
     try {
       console.log('[tree-shaking] Running production build (ReleaseFast)...');
-      execSync('npm run build', { cwd: root, stdio: 'inherit' });
+      execSync('pnpm run build', { cwd: root, stdio: 'inherit' });
       console.log('[tree-shaking] Production build complete.');
       writeFileSync(doneFile, '');
     } catch (e) {

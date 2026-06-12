@@ -6,7 +6,7 @@ Complete NumPy 2.0+ API compatibility checklist.
 
 ## Progress Summary
 
-Based on `npm run compare-api`:
+Based on `pnpm run compare-api`:
 
 - **Overall Coverage**: 476/507 (93.9%)
 - **Top-level Functions**: 502/507 (93.7%)
