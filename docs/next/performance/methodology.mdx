@@ -67,20 +67,20 @@ A few design decisions to keep the comparison honest:
 
 ```bash
 # Standard run (~5-10 min)
-npm run bench
+pnpm run bench
 
 # Full run with more warmup (~30-60 min, used for published results)
-npm run bench:full
+pnpm run bench:full
 
 # Quick sanity check (~1-2 min)
-npm run bench:quick
+pnpm run bench:quick
 
 # Test different array sizes
-npm run bench -- --size small
-npm run bench -- --size large
+pnpm run bench -- --size small
+pnpm run bench -- --size large
 
 # Compare across runtimes (Node, Deno, Bun)
-npm run bench -- --runtimes
+pnpm run bench -- --runtimes
 ```
 
 Results are saved to `benchmarks/results/` as JSON files.
