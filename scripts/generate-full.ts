@@ -366,7 +366,7 @@ function generateIndexFile(
   const output: string[] = [];
 
   output.push(`// AUTO-GENERATED - DO NOT EDIT
-// Run \`npm run generate\` to regenerate this file from core/ modules
+// Run \`pnpm run generate\` to regenerate this file from core/ modules
 
 /**
  * Full Module - NDArray with method chaining
@@ -551,7 +551,7 @@ function generateNDArrayFile(
 
   // File header
   output.push(`// AUTO-GENERATED - DO NOT EDIT
-// Run \`npm run generate\` to regenerate this file from scripts/ndarray-methods.ts
+// Run \`pnpm run generate\` to regenerate this file from scripts/ndarray-methods.ts
 
 import {
   type DType,

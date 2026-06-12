@@ -54,7 +54,7 @@ PAGES: list[dict[str, Any]] = [
         "intro": (
             "Benchmark snapshot comparing numpy-ts against native Python NumPy "
             "(OpenBLAS-backed) across small, medium, and large array sizes. "
-            "Run your own via `npm run bench`."
+            "Run your own via `pnpm run bench`."
         ),
     },
     {
