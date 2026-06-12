@@ -5,8 +5,8 @@
  * Each spec runs N iterations with dispose() on results; heap usage
  * should remain stable (no net leak beyond allocator overhead).
  *
- * Run standalone: npm run test:leaks
- * Run with suite:  npm test (included via 'leaks' project)
+ * Run standalone: pnpm run test:leaks
+ * Run with suite:  pnpm test (included via 'leaks' project)
  */
 
 import { describe, expect, it } from 'vitest';
