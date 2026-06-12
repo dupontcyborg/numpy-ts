@@ -234,7 +234,7 @@ jobs:
           path: dist/
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: pnpm publish --access public
 
       - name: Create release summary
         run: |
