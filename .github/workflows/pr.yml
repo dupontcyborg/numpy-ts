@@ -36,10 +36,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Read Zig version
         id: zig
@@ -50,16 +55,16 @@ jobs:
           version: ${{ steps.zig.outputs.version }}
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Run ESLint + Zig fmt
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Type check
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Zig dead code check
-        run: npm run report:zig-dead-code
+        run: pnpm run report:zig-dead-code
 
   # Run full test suite with coverage
   test:
@@ -71,10 +76,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - uses: actions/setup-python@v6
         with:
@@ -91,22 +101,22 @@ jobs:
       - name: Install dependencies
         run: |
           pip install "numpy>=2"
-          npm install
+          pnpm install --frozen-lockfile
 
       - name: Build for testing
-        run: npm run build:test
+        run: pnpm run build:test
 
       - name: Run tests with coverage
-        run: npm run test:coverage
+        run: pnpm run test:coverage
 
       - name: Zig export fn test coverage (≥95%)
-        run: npm run report:zig-coverage
+        run: pnpm run report:zig-coverage
 
       - name: DType coverage report
         id: dtype-coverage
         if: always()
         run: |
-          npm run report:dtype-coverage -- --summary 2>&1 | tee dtype-coverage.txt || true
+          pnpm run report:dtype-coverage -- --summary 2>&1 | tee dtype-coverage.txt || true
 
       - name: Generate coverage summary
         id: coverage
