@@ -1,5 +1,5 @@
 // AUTO-GENERATED - DO NOT EDIT
-// Run `npm run generate` to regenerate this file from core/ modules
+// Run `pnpm run generate` to regenerate this file from core/ modules
 
 /**
  * Full Module - NDArray with method chaining
