@@ -12,14 +12,14 @@ These tests validate our TypeScript NumPy implementation against actual Python N
 
 ```bash
 pip install numpy
-npm test
+pnpm test
 ```
 
 ### Option 2: Conda Environment
 
 ```bash
 conda install numpy
-npm test
+pnpm test
 ```
 
 ### Option 3: Custom Python Command
@@ -28,16 +28,16 @@ You can specify a custom Python command using the `NUMPY_PYTHON` environment var
 
 ```bash
 # Using a specific conda environment
-NUMPY_PYTHON="conda run -n myenv python" npm test
+NUMPY_PYTHON="conda run -n myenv python" pnpm test
 
 # Using a specific Python version
-NUMPY_PYTHON="python3.11" npm test
+NUMPY_PYTHON="python3.11" pnpm test
 
 # Using pyenv
-NUMPY_PYTHON="pyenv exec python" npm test
+NUMPY_PYTHON="pyenv exec python" pnpm test
 
 # Using a virtual environment
-NUMPY_PYTHON="/path/to/venv/bin/python" npm test
+NUMPY_PYTHON="/path/to/venv/bin/python" pnpm test
 ```
 
 ## Test Structure
@@ -74,19 +74,19 @@ See `tests/unit/` for fast TypeScript-only tests.
 
 ```bash
 # All tests (requires Python with NumPy)
-npm test
+pnpm test
 
 # Only validation tests
-npm test tests/validation/
+pnpm test tests/validation/
 
 # Only unit tests (no Python required)
-npm test tests/unit/
+pnpm test tests/unit/
 
 # Specific validation test
-npm test tests/validation/arithmetic.numpy.test.ts
+pnpm test tests/validation/arithmetic.numpy.test.ts
 
 # With custom Python
-NUMPY_PYTHON="python3.12" npm test
+NUMPY_PYTHON="python3.12" pnpm test
 ```
 
 ## Test Oracle
@@ -137,7 +137,7 @@ result = np.array([1, 2, 3]) + 10
 Set `NUMPY_PYTHON` to specify the exact Python command:
 
 ```bash
-NUMPY_PYTHON="python3.11" npm test
+NUMPY_PYTHON="python3.11" pnpm test
 ```
 
 ### Tests pass in Python validation but fail in unit tests
