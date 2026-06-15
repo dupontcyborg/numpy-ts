@@ -52,6 +52,9 @@ export function sin(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
 
   if (isComplexDType(dtype)) {
+    const wasmComplex = wasmSin(a);
+    if (wasmComplex) return wasmComplex;
+
     const shape = Array.from(a.shape);
     const size = a.size;
     const contiguous = a.isCContiguous;
@@ -103,6 +106,9 @@ export function cos(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
 
   if (isComplexDType(dtype)) {
+    const wasmComplex = wasmCos(a);
+    if (wasmComplex) return wasmComplex;
+
     const shape = Array.from(a.shape);
     const size = a.size;
     const contiguous = a.isCContiguous;
