@@ -118,7 +118,7 @@
     "chartjs-node-canvas": "^5.0.0",
     "esbuild": "^0.28.0",
     "playwright": "^1.56.1",
-    "pyodide": "^0.29.3",
+    "pyodide": "^314.0.0",
     "rollup": "^4.40.0",
     "ts-loader": "^9.5.4",
     "ts-morph": "^28.0.0",
