@@ -320,7 +320,12 @@ async function main() {
   mkdirSync(BINS_DIR, { recursive: true });
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  const SHARED_MODULES = new Set(['simd.zig', 'sorting_common.zig', 'ziggurat_tables.zig']);
+  const SHARED_MODULES = new Set([
+    'simd.zig',
+    'sorting_common.zig',
+    'ziggurat_tables.zig',
+    'trig.zig',
+  ]);
 
   // Kernels that get a second compilation with +relaxed_simd (FMA: relaxed_madd).
   // Only _float kernels benefit — integer kernels have no FMA equivalent.
@@ -332,6 +337,12 @@ async function main() {
     'matvec_float',
     'vecmat_float',
     'vector_norm',
+    // Transcendentals: polynomial Horner chains lower to relaxed_madd.
+    'exp',
+    'exp2',
+    'sin',
+    'cos',
+    'log',
   ]);
   const zigFiles = readdirSync(ZIG_DIR).filter((f) => f.endsWith('.zig') && !SHARED_MODULES.has(f));
 
