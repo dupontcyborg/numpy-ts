@@ -343,6 +343,12 @@ async function main() {
     'sin',
     'cos',
     'log',
+    'sinh',
+    'cosh',
+    'tanh',
+    'tan',
+    'arctan',
+    'arctan2',
   ]);
   const zigFiles = readdirSync(ZIG_DIR).filter((f) => f.endsWith('.zig') && !SHARED_MODULES.has(f));
 
