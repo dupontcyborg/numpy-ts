@@ -11,19 +11,10 @@
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  sin_f32,
-  sin_f64,
-  sin_i8_f32,
-  sin_i16_f32,
-  sin_i32_f64,
-  sin_i64_f64,
-  sin_u8_f32,
-  sin_u16_f32,
-  sin_u32_f64,
-  sin_u64_f64,
-} from './bins/sin.wasm';
+import * as sinBase from './bins/sin.wasm';
+import * as sinRelaxed from './bins/sin-relaxed.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -36,25 +27,33 @@ const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
+// Pick baseline vs relaxed-SIMD (FMA) kernels once, lazily — the benchmark
+// runner sets wasmConfig.useRelaxedSimd before the first op.
+let _bins: typeof sinBase | null = null;
+function bins(): typeof sinBase {
+  _bins ??= useRelaxedKernels() ? sinRelaxed : sinBase;
+  return _bins;
+}
+
 const kernels: Partial<Record<DType, UnaryFn>> = {
-  float64: sin_f64,
-  float32: sin_f32,
+  float64: (...a) => bins().sin_f64(...a),
+  float32: (...a) => bins().sin_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: sin_i64_f64,
-  uint64: sin_u64_f64,
-  int32: sin_i32_f64,
-  uint32: sin_u32_f64,
+  int64: (...a) => bins().sin_i64_f64(...a),
+  uint64: (...a) => bins().sin_u64_f64(...a),
+  int32: (...a) => bins().sin_i32_f64(...a),
+  uint32: (...a) => bins().sin_u32_f64(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int16: sin_i16_f32,
-  uint16: sin_u16_f32,
-  int8: sin_i8_f32,
-  uint8: sin_u8_f32,
+  int16: (...a) => bins().sin_i16_f32(...a),
+  uint16: (...a) => bins().sin_u16_f32(...a),
+  int8: (...a) => bins().sin_i8_f32(...a),
+  uint8: (...a) => bins().sin_u8_f32(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -94,7 +93,7 @@ export function wasmSin(a: ArrayStorage): ArrayStorage | null {
     resetScratchAllocator();
     const aPtr = f16InputToScratchF32(a, size);
 
-    sin_f32(aPtr, outRegion.ptr, size);
+    bins().sin_f32(aPtr, outRegion.ptr, size);
 
     const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();

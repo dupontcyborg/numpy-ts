@@ -3,23 +3,39 @@
 //! Unary: out[i] = cos(a[i])
 //! Operates on contiguous 1D buffers of length N.
 //! Only float types — integer inputs are promoted to float64 in JS.
-//! WASM SIMD has no native cos instruction, so we use scalar loops.
+//!
+//! No cos opcode exists on any ISA; it's a software polynomial. The f64/f32 fast
+//! paths use the shared SIMD Cephes core in trig.zig (Cody-Waite reduction +
+//! quadrant select), processing a 2-wide f64 lane per step instead of a scalar
+//! libm call. f32 is computed through the f64 core then narrowed.
 
 const math = @import("std").math;
+const simd = @import("simd.zig");
+const trig = @import("trig.zig");
 
-/// Element-wise cos for f64: out[i] = cos(a[i]).
-/// No SIMD — WASM has no f64x2.cos instruction.
+/// Element-wise cos for f64 using 2-wide SIMD: out[i] = cos(a[i]).
 export fn cos_f64(a: [*]const f64, out: [*]f64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_f64(out, i, trig.cosv_f64(simd.load2_f64(a, i)));
+    }
     while (i < N) : (i += 1) {
-        out[i] = math.cos(a[i]);
+        const v: simd.V2f64 = .{ a[i], a[i] };
+        out[i] = trig.cosv_f64(v)[0];
     }
 }
 
-/// Element-wise cos for f32: out[i] = cos(a[i]).
-/// No SIMD — WASM has no f32x4.cos instruction.
+/// Element-wise cos for f32 via the 2-wide f64 core, then narrowed.
 export fn cos_f32(a: [*]const f32, out: [*]f32, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v: simd.V2f64 = .{ a[i], a[i + 1] };
+        const r = trig.cosv_f64(v);
+        out[i] = @floatCast(r[0]);
+        out[i + 1] = @floatCast(r[1]);
+    }
     while (i < N) : (i += 1) {
         out[i] = @floatCast(math.cos(@as(f64, a[i])));
     }
