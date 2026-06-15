@@ -1,82 +1,31 @@
-//! WASM element-wise exp kernels for float types.
+//! WASM element-wise exp kernels for float / int / complex types.
 //!
 //! Unary: out[i] = exp(a[i])
-//! Operates on contiguous 1D buffers of length N.
-//! Only float types — integer inputs handled via JS-side conversion.
-//!
-//! WASM SIMD has no native exp instruction, but exp is a software polynomial on
-//! every ISA. We range-reduce x = n·ln2 + r, evaluate exp(r) with a Cephes
-//! Taylor polynomial (≈1 ulp) using fused multiply-add, then scale by 2^n built
-//! from the exponent bits. Lanes are f64x2 / f32x4; on +relaxed_simd the FMAs
-//! lower to relaxed_madd (1 op). Matches std.math.exp to the unit-test tol.
+//! Float/int fast paths range-reduce x = n·ln2 + r and evaluate exp(r) with a
+//! Cephes Taylor polynomial (FMA, ≈1 ulp), then scale by 2^n. The f64 core is
+//! shared via transcend.zig; the f32 core is local (not shared). Complex uses
+//! exp(a+bi) = e^a·(cos b + i·sin b) composed from the shared cores.
 
 const math = @import("std").math;
 const simd = @import("simd.zig");
+const t = @import("transcend.zig");
 
-// --- Cephes exp(x), double precision (~1 ulp) ---
-const LOG2E_F64: f64 = 1.4426950408889634073599;
-const EXP_C1_F64: f64 = 6.93145751953125e-1; // ln2 high part
-const EXP_C2_F64: f64 = 1.42860682030941723212e-6; // ln2 low part
-const EXP_MAXLOG_F64: f64 = 7.09782712893383996843e2; // exp overflows above this
-const EXP_MINLOG_F64: f64 = -7.08396418532264106224e2; // exp underflows below this
-
-/// Vectorized exp for a 2-wide f64 lane.
-inline fn expv_f64(x_in: simd.V2f64) simd.V2f64 {
-    const maxv: simd.V2f64 = @splat(EXP_MAXLOG_F64);
-    const minv: simd.V2f64 = @splat(EXP_MINLOG_F64);
-    const x = simd.max_f64x2(simd.min_f64x2(x_in, maxv), minv);
-
-    // n = round(x / ln2); r = x - n·ln2  (two-part ln2 for accuracy)
-    const n = @floor(simd.mulAdd_f64x2(x, @as(simd.V2f64, @splat(LOG2E_F64)), @as(simd.V2f64, @splat(0.5))));
-    var r = simd.nmulAdd_f64x2(n, @splat(EXP_C1_F64), x); // x - n·C1
-    r = simd.nmulAdd_f64x2(n, @splat(EXP_C2_F64), r); // r - n·C2
-
-    // exp(r) on r ∈ [-ln2/2, ln2/2] via a degree-13 Taylor–Horner polynomial.
-    var expr: simd.V2f64 = @splat(1.6059043836821613e-10); // 1/13!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(2.08767569878681e-9)); // 1/12!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(2.5052108385441720e-8)); // 1/11!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(2.7557319223985893e-7)); // 1/10!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(2.7557319223985888e-6)); // 1/9!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(2.4801587301587302e-5)); // 1/8!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(1.9841269841269841e-4)); // 1/7!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(1.3888888888888889e-3)); // 1/6!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(8.3333333333333332e-3)); // 1/5!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(4.1666666666666664e-2)); // 1/4!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(1.6666666666666666e-1)); // 1/3!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(5.0e-1)); // 1/2!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(1.0)); // 1/1!
-    expr = simd.mulAdd_f64x2(expr, r, @splat(1.0)); // 1/0!
-
-    // Scale by 2^n: pow2n = bitcast((n + 1023) << 52).
-    const ni: simd.V2i64 = @intFromFloat(n);
-    const biased = (ni +% @as(simd.V2i64, @splat(1023))) << @as(simd.V2i64, @splat(52));
-    const pow2n: simd.V2f64 = @bitCast(biased);
-
-    var result = expr * pow2n;
-    // Restore exact saturation behaviour at the extremes.
-    result = @select(f64, x_in > maxv, @as(simd.V2f64, @splat(math.inf(f64))), result);
-    result = @select(f64, x_in < minv, @as(simd.V2f64, @splat(0.0)), result);
-    return result;
-}
-
-// --- Cephes exp(x), single precision (~1 ulp f32) ---
-const LOG2E_F32: f32 = 1.44269504088896341;
+// --- f32 core (local; complex routes through transcend's f64 core) ---
+const EXP_LOG2E_F32: f32 = 1.44269504088896341;
 const EXP_C1_F32: f32 = 0.693359375;
 const EXP_C2_F32: f32 = -2.12194440e-4;
 const EXP_MAXLOG_F32: f32 = 88.3762626647949;
 const EXP_MINLOG_F32: f32 = -87.3365447504019;
 
-/// Vectorized exp for a 4-wide f32 lane.
 inline fn expv_f32(x_in: simd.V4f32) simd.V4f32 {
     const maxv: simd.V4f32 = @splat(EXP_MAXLOG_F32);
     const minv: simd.V4f32 = @splat(EXP_MINLOG_F32);
     const x = simd.max_f32x4(simd.min_f32x4(x_in, maxv), minv);
 
-    const n = @floor(simd.mulAdd_f32x4(x, @as(simd.V4f32, @splat(LOG2E_F32)), @as(simd.V4f32, @splat(0.5))));
+    const n = @floor(simd.mulAdd_f32x4(x, @as(simd.V4f32, @splat(EXP_LOG2E_F32)), @as(simd.V4f32, @splat(0.5))));
     var r = simd.nmulAdd_f32x4(n, @splat(EXP_C1_F32), x);
     r = simd.nmulAdd_f32x4(n, @splat(EXP_C2_F32), r);
 
-    // Horner minimax poly for exp(r), degree 6.
     const rr = r * r;
     var p: simd.V4f32 = @splat(1.9875691500e-4);
     p = simd.mulAdd_f32x4(p, r, @splat(1.3981999507e-3));
@@ -84,10 +33,9 @@ inline fn expv_f32(x_in: simd.V4f32) simd.V4f32 {
     p = simd.mulAdd_f32x4(p, r, @splat(4.1665795894e-2));
     p = simd.mulAdd_f32x4(p, r, @splat(1.6666665459e-1));
     p = simd.mulAdd_f32x4(p, r, @splat(5.0000001201e-1));
-    var expr = simd.mulAdd_f32x4(p, rr, r); // p·r² + r
+    var expr = simd.mulAdd_f32x4(p, rr, r);
     expr = expr + @as(simd.V4f32, @splat(1.0));
 
-    // Scale by 2^n: pow2n = bitcast((n + 127) << 23). f32x4 <-> i32x4 is native SIMD.
     const ni: simd.V4i32 = @intFromFloat(n);
     const biased = (ni +% @as(simd.V4i32, @splat(127))) << @as(simd.V4i32, @splat(23));
     const pow2n: simd.V4f32 = @bitCast(biased);
@@ -98,19 +46,19 @@ inline fn expv_f32(x_in: simd.V4f32) simd.V4f32 {
     return result;
 }
 
-/// Element-wise exp for f64 using 2-wide SIMD: out[i] = exp(a[i]).
+/// Element-wise exp for f64 using 2-wide SIMD.
 export fn exp_f64(a: [*]const f64, out: [*]f64, N: u32) void {
     const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
     while (i < n_simd) : (i += 2) {
-        simd.store2_f64(out, i, expv_f64(simd.load2_f64(a, i)));
+        simd.store2_f64(out, i, t.expv_f64(simd.load2_f64(a, i)));
     }
     while (i < N) : (i += 1) {
         out[i] = math.exp(a[i]);
     }
 }
 
-/// Element-wise exp for f32 using 4-wide SIMD: out[i] = exp(a[i]).
+/// Element-wise exp for f32 using 4-wide SIMD.
 export fn exp_f32(a: [*]const f32, out: [*]f32, N: u32) void {
     const n_simd = N & ~@as(u32, 3);
     var i: u32 = 0;
@@ -122,56 +70,74 @@ export fn exp_f32(a: [*]const f32, out: [*]f32, N: u32) void {
     }
 }
 
-/// Element-wise exp for i64 → f64 output. Scalar (no i64 SIMD in WASM).
+// --- Integer inputs: widen to float in SIMD, then the same poly core. ---
+// i8/i16/i32/u8/u16/u32 widen with native SIMD converts; i64/u64 scalarize the
+// widen but still share the vectorized polynomial.
+
+/// i8/u8/i16/u16 → f32 output, 4-wide.
+inline fn expInt_f32(comptime I: type, a: [*]const I, out: [*]f32, N: u32) void {
+    const n_simd = N & ~@as(u32, 3);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 4) {
+        const vi = @as(*align(1) const @Vector(4, I), @ptrCast(a + i)).*;
+        simd.store4_f32(out, i, expv_f32(@floatFromInt(vi)));
+    }
+    while (i < N) : (i += 1) {
+        out[i] = @floatCast(math.exp(@as(f64, @floatFromInt(a[i]))));
+    }
+}
+
+/// i32/u32/i64/u64 → f64 output, 2-wide.
+inline fn expInt_f64(comptime I: type, a: [*]const I, out: [*]f64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const vi = @as(*align(1) const @Vector(2, I), @ptrCast(a + i)).*;
+        const xf: simd.V2f64 = @floatFromInt(vi);
+        simd.store2_f64(out, i, t.expv_f64(xf));
+    }
+    while (i < N) : (i += 1) {
+        out[i] = math.exp(@as(f64, @floatFromInt(a[i])));
+    }
+}
+
 export fn exp_i64_f64(a: [*]const i64, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = math.exp(@as(f64, @floatFromInt(a[i])));
-    }
+    expInt_f64(i64, a, out, N);
 }
-
-/// Element-wise exp for u64 → f64 output. Scalar (no u64 SIMD in WASM).
 export fn exp_u64_f64(a: [*]const u64, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = math.exp(@as(f64, @floatFromInt(a[i])));
-    }
+    expInt_f64(u64, a, out, N);
 }
-
-/// Element-wise exp for i32 → f64 output.
 export fn exp_i32_f64(a: [*]const i32, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = math.exp(@as(f64, @floatFromInt(a[i])));
+    expInt_f64(i32, a, out, N);
 }
-
-/// Element-wise exp for u32 → f64 output.
 export fn exp_u32_f64(a: [*]const u32, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = math.exp(@as(f64, @floatFromInt(a[i])));
+    expInt_f64(u32, a, out, N);
 }
-
-/// Element-wise exp for i16 → f32 output.
 export fn exp_i16_f32(a: [*]const i16, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = @floatCast(math.exp(@as(f64, @floatFromInt(a[i]))));
+    expInt_f32(i16, a, out, N);
 }
-
-/// Element-wise exp for u16 → f32 output.
 export fn exp_u16_f32(a: [*]const u16, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = @floatCast(math.exp(@as(f64, @floatFromInt(a[i]))));
+    expInt_f32(u16, a, out, N);
 }
-
-/// Element-wise exp for i8 → f32 output.
 export fn exp_i8_f32(a: [*]const i8, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = @floatCast(math.exp(@as(f64, @floatFromInt(a[i]))));
+    expInt_f32(i8, a, out, N);
+}
+export fn exp_u8_f32(a: [*]const u8, out: [*]f32, N: u32) void {
+    expInt_f32(u8, a, out, N);
 }
 
-/// Element-wise exp for u8 → f32 output.
-export fn exp_u8_f32(a: [*]const u8, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = @floatCast(math.exp(@as(f64, @floatFromInt(a[i]))));
+// --- Complex: exp(a+bi) = e^a·(cos b + i·sin b) ---
+inline fn opExp(re: simd.V2f64, im: simd.V2f64, out_re: *simd.V2f64, out_im: *simd.V2f64) void {
+    const e = t.expv_f64(re);
+    out_re.* = e * t.cosv_f64(im);
+    out_im.* = e * t.sinv_f64(im);
+}
+
+export fn exp_c128(a: [*]const f64, out: [*]f64, N: u32) void {
+    t.cdrive_c128(a, out, N, opExp);
+}
+export fn exp_c64(a: [*]const f32, out: [*]f32, N: u32) void {
+    t.cdrive_c64(a, out, N, opExp);
 }
 
 // --- Tests ---
@@ -194,66 +160,22 @@ test "exp_f32 basic" {
     try testing.expectApproxEqAbs(out[1], 2.7183, 1e-4);
 }
 
-test "exp_i64_f64 basic" {
-    const testing = @import("std").testing;
-    const a = [_]i64{0};
-    var out: [1]f64 = undefined;
-    exp_i64_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 1.0, 1e-10);
-}
-
-test "exp_u64_f64 basic" {
-    const testing = @import("std").testing;
-    const a = [_]u64{0};
-    var out: [1]f64 = undefined;
-    exp_u64_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 1.0, 1e-10);
-}
-
 test "exp_i32_f64 basic" {
     const testing = @import("std").testing;
-    const a = [_]i32{0};
-    var out: [1]f64 = undefined;
-    exp_i32_f64(&a, &out, 1);
+    const a = [_]i32{ 0, 1, 2 };
+    var out: [3]f64 = undefined;
+    exp_i32_f64(&a, &out, 3);
     try testing.expectApproxEqAbs(out[0], 1.0, 1e-10);
+    try testing.expectApproxEqRel(out[2], @exp(2.0), 1e-12);
 }
 
-test "exp_u32_f64 basic" {
+test "exp_c128 matches e^a(cos b, sin b)" {
     const testing = @import("std").testing;
-    const a = [_]u32{0};
-    var out: [1]f64 = undefined;
-    exp_u32_f64(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 1.0, 1e-10);
-}
-
-test "exp_i16_f32 basic" {
-    const testing = @import("std").testing;
-    const a = [_]i16{0};
-    var out: [1]f32 = undefined;
-    exp_i16_f32(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 1.0, 1e-5);
-}
-
-test "exp_u16_f32 basic" {
-    const testing = @import("std").testing;
-    const a = [_]u16{0};
-    var out: [1]f32 = undefined;
-    exp_u16_f32(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 1.0, 1e-5);
-}
-
-test "exp_i8_f32 basic" {
-    const testing = @import("std").testing;
-    const a = [_]i8{0};
-    var out: [1]f32 = undefined;
-    exp_i8_f32(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 1.0, 1e-5);
-}
-
-test "exp_u8_f32 basic" {
-    const testing = @import("std").testing;
-    const a = [_]u8{0};
-    var out: [1]f32 = undefined;
-    exp_u8_f32(&a, &out, 1);
-    try testing.expectApproxEqAbs(out[0], 1.0, 1e-5);
+    const a = [_]f64{ 1.0, 2.0, -0.5, 1.5 };
+    var out: [4]f64 = undefined;
+    exp_c128(&a, &out, 2);
+    try testing.expectApproxEqRel(out[0], @exp(1.0) * @cos(2.0), 1e-12);
+    try testing.expectApproxEqRel(out[1], @exp(1.0) * @sin(2.0), 1e-12);
+    try testing.expectApproxEqRel(out[2], @exp(-0.5) * @cos(1.5), 1e-12);
+    try testing.expectApproxEqRel(out[3], @exp(-0.5) * @sin(1.5), 1e-12);
 }

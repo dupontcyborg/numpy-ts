@@ -385,6 +385,9 @@ export function exp(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
 
   if (isComplexDType(dtype)) {
+    const wasmComplex = wasmExp(a);
+    if (wasmComplex) return wasmComplex;
+
     const shape = Array.from(a.shape);
     const size = a.size;
     const contiguous = a.isCContiguous;
@@ -436,6 +439,9 @@ export function exp2(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
 
   if (isComplexDType(dtype)) {
+    const wasmComplex = wasmExp2(a);
+    if (wasmComplex) return wasmComplex;
+
     const shape = Array.from(a.shape);
     const size = a.size;
     const contiguous = a.isCContiguous;
@@ -539,6 +545,9 @@ export function log(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
 
   if (isComplexDType(dtype)) {
+    const wasmComplex = wasmLog(a);
+    if (wasmComplex) return wasmComplex;
+
     const shape = Array.from(a.shape);
     const size = a.size;
     const contiguous = a.isCContiguous;
@@ -592,6 +601,9 @@ export function log2(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
 
   if (isComplexDType(dtype)) {
+    const wasmComplex = wasmLog2(a);
+    if (wasmComplex) return wasmComplex;
+
     const shape = Array.from(a.shape);
     const size = a.size;
     const contiguous = a.isCContiguous;
@@ -646,6 +658,9 @@ export function log10(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype as DType;
 
   if (isComplexDType(dtype)) {
+    const wasmComplex = wasmLog10(a);
+    if (wasmComplex) return wasmComplex;
+
     const shape = Array.from(a.shape);
     const size = a.size;
     const contiguous = a.isCContiguous;

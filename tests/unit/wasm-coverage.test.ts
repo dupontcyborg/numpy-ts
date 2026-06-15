@@ -421,10 +421,16 @@ describe('wasmExp2', () => {
     expect(r!.dtype).toBe('float32');
   });
 
-  it('returns null for complex', () => {
+  it('complex128 path: 2^(a+0i) = 2^a', () => {
     const a = array([1, 2, 3], 'complex128');
     const r = wasmExp2(a.storage);
-    expect(r).toBeNull();
+    expect(r).not.toBeNull();
+    expect(r!.dtype).toBe('complex128');
+    const data = Array.from(r!.data as Float64Array);
+    expect(data[0]).toBeCloseTo(2); // 2^1, real
+    expect(data[1]).toBeCloseTo(0); // imag
+    expect(data[2]).toBeCloseTo(4); // 2^2, real
+    expect(data[4]).toBeCloseTo(8); // 2^3, real
   });
 });
 

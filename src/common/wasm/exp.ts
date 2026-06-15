@@ -13,6 +13,7 @@ import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray
 import { ArrayStorage } from '../storage';
 import * as expBase from './bins/exp.wasm';
 import * as expRelaxed from './bins/exp-relaxed.wasm';
+import { complexUnaryWasm } from './complex-io';
 import { wasmConfig } from './config';
 import { useRelaxedKernels } from './detect';
 import {
@@ -78,7 +79,9 @@ export function wasmExp(a: ArrayStorage): ArrayStorage | null {
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const dtype = effectiveDType(a.dtype);
-  if (isComplexDType(dtype)) return null;
+  if (isComplexDType(dtype)) {
+    return complexUnaryWasm(a, 'exp', bins() as unknown as Record<string, UnaryFn>);
+  }
 
   // float16 path: convert to f32, run f32 kernel, convert back
   if (dtype === 'float16') {
