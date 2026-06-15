@@ -11,19 +11,10 @@
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  exp_f32,
-  exp_f64,
-  exp_i8_f32,
-  exp_i16_f32,
-  exp_i32_f64,
-  exp_i64_f64,
-  exp_u8_f32,
-  exp_u16_f32,
-  exp_u32_f64,
-  exp_u64_f64,
-} from './bins/exp.wasm';
+import * as expBase from './bins/exp.wasm';
+import * as expRelaxed from './bins/exp-relaxed.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -36,25 +27,33 @@ const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
+// Pick baseline vs relaxed-SIMD (FMA) kernels once, lazily — the benchmark
+// runner sets wasmConfig.useRelaxedSimd before the first op.
+let _bins: typeof expBase | null = null;
+function bins(): typeof expBase {
+  _bins ??= useRelaxedKernels() ? expRelaxed : expBase;
+  return _bins;
+}
+
 const kernels: Partial<Record<DType, UnaryFn>> = {
-  float64: exp_f64,
-  float32: exp_f32,
+  float64: (...a) => bins().exp_f64(...a),
+  float32: (...a) => bins().exp_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: exp_i64_f64,
-  uint64: exp_u64_f64,
-  int32: exp_i32_f64,
-  uint32: exp_u32_f64,
+  int64: (...a) => bins().exp_i64_f64(...a),
+  uint64: (...a) => bins().exp_u64_f64(...a),
+  int32: (...a) => bins().exp_i32_f64(...a),
+  uint32: (...a) => bins().exp_u32_f64(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int16: exp_i16_f32,
-  uint16: exp_u16_f32,
-  int8: exp_i8_f32,
-  uint8: exp_u8_f32,
+  int16: (...a) => bins().exp_i16_f32(...a),
+  uint16: (...a) => bins().exp_u16_f32(...a),
+  int8: (...a) => bins().exp_i8_f32(...a),
+  uint8: (...a) => bins().exp_u8_f32(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -94,7 +93,7 @@ export function wasmExp(a: ArrayStorage): ArrayStorage | null {
     resetScratchAllocator();
     const aPtr = f16InputToScratchF32(a, size);
 
-    exp_f32(aPtr, outRegion.ptr, size);
+    bins().exp_f32(aPtr, outRegion.ptr, size);
 
     const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();

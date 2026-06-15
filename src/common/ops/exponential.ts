@@ -61,6 +61,7 @@ function boolToMathFloat(a: ArrayStorage): ArrayStorage {
 
 import { wasmExp } from '../wasm/exp';
 import { wasmExp2 } from '../wasm/exp2';
+import { wasmLog, wasmLog2, wasmLog10 } from '../wasm/log';
 import { wasmLogaddexp, wasmLogaddexpScalar } from '../wasm/logaddexp';
 import { wasmPower, wasmPowerScalar } from '../wasm/power';
 
@@ -573,6 +574,9 @@ export function log(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmLog(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.log, false);
 }
 
@@ -624,6 +628,9 @@ export function log2(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmLog2(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.log2, false);
 }
 
@@ -674,6 +681,9 @@ export function log10(a: ArrayStorage): ArrayStorage {
 
     return result;
   }
+
+  const wasmResult = wasmLog10(a);
+  if (wasmResult) return wasmResult;
 
   return elementwiseUnaryOp(a, Math.log10, false);
 }
