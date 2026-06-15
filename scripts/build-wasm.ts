@@ -324,7 +324,7 @@ async function main() {
     'simd.zig',
     'sorting_common.zig',
     'ziggurat_tables.zig',
-    'trig.zig',
+    'transcend.zig',
   ]);
 
   // Kernels that get a second compilation with +relaxed_simd (FMA: relaxed_madd).
