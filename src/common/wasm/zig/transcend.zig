@@ -243,6 +243,40 @@ pub inline fn atan2v_f64(y: simd.V2f64, x: simd.V2f64) simd.V2f64 {
     return base;
 }
 
+// --- inverse hyperbolic (compose the log core; domain-guarded) ---
+
+/// asinh(x) = sign(x)·log(|x| + sqrt(x²+1)). Defined for all reals (compute on
+/// |x| to avoid cancellation for large negative x).
+pub inline fn asinhv_f64(x: simd.V2f64) simd.V2f64 {
+    const one: simd.V2f64 = @splat(1.0);
+    const ax = @abs(x);
+    var r = logv_f64(ax + @sqrt(ax * ax + one));
+    r = @select(f64, x < @as(simd.V2f64, @splat(0.0)), -r, r);
+    return @select(f64, x != x, x, r); // propagate NaN
+}
+
+/// acosh(x) = log(x + sqrt(x²−1)). x < 1 → NaN; x = 1 → 0.
+pub inline fn acoshv_f64(x: simd.V2f64) simd.V2f64 {
+    const one: simd.V2f64 = @splat(1.0);
+    const r = logv_f64(x + @sqrt(x * x - one));
+    // x<1 (incl. NaN, since NaN<1 is false → handle via the <1 guard returning
+    // NaN only for ordered <1; NaN input falls through r which is NaN-ish) →
+    // force NaN for x<1, and propagate NaN inputs explicitly.
+    var out = @select(f64, x < one, @as(simd.V2f64, @splat(math.nan(f64))), r);
+    out = @select(f64, x != x, x, out);
+    return out;
+}
+
+/// atanh(x) = ½·log((1+x)/(1−x)). |x|>1 → NaN, x=±1 → ±inf.
+pub inline fn atanhv_f64(x: simd.V2f64) simd.V2f64 {
+    const one: simd.V2f64 = @splat(1.0);
+    var r = logv_f64((one + x) / (one - x)) * @as(simd.V2f64, @splat(0.5));
+    r = @select(f64, @abs(x) > one, @as(simd.V2f64, @splat(math.nan(f64))), r);
+    r = @select(f64, x == one, @as(simd.V2f64, @splat(math.inf(f64))), r);
+    r = @select(f64, x == -one, @as(simd.V2f64, @splat(-math.inf(f64))), r);
+    return @select(f64, x != x, x, r); // propagate NaN
+}
+
 // ---------------------------------------------------------------------------
 // Complex drivers: map a per-element op over interleaved [re, im, ...] storage.
 // Two complex elements per step (deinterleave → op → reinterleave).

@@ -349,6 +349,9 @@ async function main() {
     'tan',
     'arctan',
     'arctan2',
+    'arcsinh',
+    'arccosh',
+    'arctanh',
   ]);
   const zigFiles = readdirSync(ZIG_DIR).filter((f) => f.endsWith('.zig') && !SHARED_MODULES.has(f));
 

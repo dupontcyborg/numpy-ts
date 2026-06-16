@@ -11,6 +11,9 @@
 import { type DType, isComplexDType } from '../dtype';
 import { elementwiseUnaryOp } from '../internal/compute';
 import { ArrayStorage } from '../storage';
+import { wasmArccosh } from '../wasm/arccosh';
+import { wasmArcsinh } from '../wasm/arcsinh';
+import { wasmArctanh } from '../wasm/arctanh';
 import { wasmCosh } from '../wasm/cosh';
 import { wasmSinh } from '../wasm/sinh';
 import { wasmTanh } from '../wasm/tanh';
@@ -177,6 +180,9 @@ export function arcsinh(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmArcsinh(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.asinh, false);
 }
 
@@ -239,6 +245,9 @@ export function arccosh(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmArccosh(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.acosh, false);
 }
 
@@ -291,6 +300,9 @@ export function arctanh(a: ArrayStorage): ArrayStorage {
 
     return result;
   }
+
+  const wasmResult = wasmArctanh(a);
+  if (wasmResult) return wasmResult;
 
   return elementwiseUnaryOp(a, Math.atanh, false);
 }
