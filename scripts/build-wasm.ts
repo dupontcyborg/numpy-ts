@@ -355,6 +355,7 @@ async function main() {
     'expm1',
     'log1p',
     'logaddexp2',
+    'logaddexp',
     'correlate',
   ]);
   const zigFiles = readdirSync(ZIG_DIR).filter((f) => f.endsWith('.zig') && !SHARED_MODULES.has(f));

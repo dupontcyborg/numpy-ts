@@ -295,6 +295,58 @@ pub inline fn log1pv_f64(x: simd.V2f64) simd.V2f64 {
     return @select(f64, x != x, x, r);
 }
 
+// softplus(d) = log(1 + e^d) for d ≤ 0, used by logaddexp as logaddexp(a,b) =
+// max + softplus(min − max). Identity: log(1+e^d) = d/2 + ln2 + logcosh(d/2),
+// and logcosh is even, so for |d| ≤ 2 it is a pure polynomial in u = (d/2)²
+// (degree-13 minimax of logcosh(√u) on u∈[0,1], ~4e-14 rel) — NO exp, NO log,
+// NO divide. Per-vector early-out: lanes spread past |d|>2 fall back to the
+// general log1p∘exp path (accurate everywhere). The common clustered case (and
+// logaddexp(x,x) → d=0) takes the transcendental-free branch.
+const SP_LN2: f64 = 0.6931471805599453;
+const SP_UMAX: f64 = 1.0; // (D/2)² with D = 2
+const LC1: f64 = 0.50000000000014;
+const LC2: f64 = -0.08333333333623849;
+const LC3: f64 = 0.022222222229196967;
+const LC4: f64 = -0.0067460313311044386;
+const LC5: f64 = 0.0021869428489678443;
+const LC6: f64 = -0.0007385615011211132;
+const LC7: f64 = 0.0002564045805104835;
+const LC8: f64 = -9.048920967545006e-05;
+const LC9: f64 = 3.1787275678495595e-05;
+const LC10: f64 = -1.0558913149522725e-05;
+const LC11: f64 = 2.9944680866524453e-06;
+const LC12: f64 = -6.103316525926454e-07;
+const LC13: f64 = 6.370339031094745e-08;
+
+pub inline fn softplusv_f64(d: simd.V2f64) simd.V2f64 {
+    const half: simd.V2f64 = @splat(0.5);
+    const w = d * half;
+    const u = w * w; // (d/2)² ≥ 0
+
+    // Spread lanes (|d| > 2) → general, accurate path for the whole vector.
+    if (@reduce(.Or, u > @as(simd.V2f64, @splat(SP_UMAX)))) {
+        return log1pv_f64(expv_f64(d));
+    }
+
+    // logcosh(d/2) = P(u) via Horner (LC0 ≡ 0, so the chain ends at u·(LC1+…)).
+    var p: simd.V2f64 = @splat(LC13);
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC12)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC11)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC10)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC9)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC8)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC7)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC6)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC5)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC4)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC3)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC2)));
+    p = simd.mulAdd_f64x2(p, u, @as(simd.V2f64, @splat(LC1)));
+    p = p * u; // ×u (LC0 = 0)
+
+    return w + @as(simd.V2f64, @splat(SP_LN2)) + p;
+}
+
 // --- inverse hyperbolic (compose the log core; domain-guarded) ---
 
 /// asinh(x) = sign(x)·log(|x| + sqrt(x²+1)). Defined for all reals (compute on
