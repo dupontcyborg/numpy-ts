@@ -362,8 +362,11 @@ async function main() {
 
   // Assign each kernel a unique global-base offset to prevent data-segment
   // collisions when all WASM modules share the same linear memory.
-  // Stride of 64 KiB per module is enough for even the largest (rng ≈ 16 KiB).
-  const MODULE_STRIDE = 65536; // 64 KiB per module
+  // 48 KiB per module: 3× the largest module's static data (rng ≈ 16 KiB), and
+  // keeps all modules' segments below runtime.ts's 8 MiB MIN_HEAP_BASE — at
+  // 64 KiB the ~144 base+relaxed modules crossed that ceiling. The
+  // "no overlapping data segments" wasm-memory test guards the chosen stride.
+  const MODULE_STRIDE = 49152; // 48 KiB per module
   const sortedFiles = [...zigFiles].sort();
   const globalBaseMap = new Map<string, number>();
   for (let i = 0; i < sortedFiles.length; i++) {

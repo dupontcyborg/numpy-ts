@@ -12,7 +12,13 @@ import * as lae2Base from './bins/logaddexp2.wasm';
 import * as lae2Relaxed from './bins/logaddexp2-relaxed.wasm';
 import { wasmConfig } from './config';
 import { useRelaxedKernels } from './detect';
-import { f16InputToScratchF32, f32OutputToF16Region, resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
+import {
+  f16InputToScratchF32,
+  f32OutputToF16Region,
+  resetScratchAllocator,
+  resolveInputPtr,
+  wasmMalloc,
+} from './runtime';
 
 const BASE_THRESHOLD = 32;
 
@@ -56,7 +62,9 @@ export function wasmLogaddexp2(a: ArrayStorage, b: ArrayStorage): ArrayStorage |
   if (!kernel) return null; // int/complex → JS fallback
 
   const isF16 = dtype === 'float16';
-  const bpe = isF16 ? 4 : (ctorMap[dtype] as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const bpe = isF16
+    ? 4
+    : (ctorMap[dtype] as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outRegion = wasmMalloc(size * bpe);
   if (!outRegion) return null;
 
@@ -77,9 +85,29 @@ export function wasmLogaddexp2(a: ArrayStorage, b: ArrayStorage): ArrayStorage |
     const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();
     if (!f16Region) return null;
-    return ArrayStorage.fromWasmRegion(Array.from(a.shape), dtype, f16Region, size, Float16Array as unknown as new (b: ArrayBuffer, o: number, l: number) => TypedArray);
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      dtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (
+        b: ArrayBuffer,
+        o: number,
+        l: number,
+      ) => TypedArray,
+    );
   }
-  return ArrayStorage.fromWasmRegion(Array.from(a.shape), dtype, outRegion, size, ctorMap[dtype]! as unknown as new (b: ArrayBuffer, o: number, l: number) => TypedArray);
+  return ArrayStorage.fromWasmRegion(
+    Array.from(a.shape),
+    dtype,
+    outRegion,
+    size,
+    ctorMap[dtype]! as unknown as new (
+      b: ArrayBuffer,
+      o: number,
+      l: number,
+    ) => TypedArray,
+  );
 }
 
 /** WASM logaddexp2 with a scalar second operand. */
@@ -93,7 +121,9 @@ export function wasmLogaddexp2Scalar(a: ArrayStorage, scalar: number): ArrayStor
   if (!kernel) return null;
 
   const isF16 = dtype === 'float16';
-  const bpe = isF16 ? 4 : (ctorMap[dtype] as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const bpe = isF16
+    ? 4
+    : (ctorMap[dtype] as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const outRegion = wasmMalloc(size * bpe);
   if (!outRegion) return null;
 
@@ -108,7 +138,27 @@ export function wasmLogaddexp2Scalar(a: ArrayStorage, scalar: number): ArrayStor
     const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();
     if (!f16Region) return null;
-    return ArrayStorage.fromWasmRegion(Array.from(a.shape), dtype, f16Region, size, Float16Array as unknown as new (b: ArrayBuffer, o: number, l: number) => TypedArray);
+    return ArrayStorage.fromWasmRegion(
+      Array.from(a.shape),
+      dtype,
+      f16Region,
+      size,
+      Float16Array as unknown as new (
+        b: ArrayBuffer,
+        o: number,
+        l: number,
+      ) => TypedArray,
+    );
   }
-  return ArrayStorage.fromWasmRegion(Array.from(a.shape), dtype, outRegion, size, ctorMap[dtype]! as unknown as new (b: ArrayBuffer, o: number, l: number) => TypedArray);
+  return ArrayStorage.fromWasmRegion(
+    Array.from(a.shape),
+    dtype,
+    outRegion,
+    size,
+    ctorMap[dtype]! as unknown as new (
+      b: ArrayBuffer,
+      o: number,
+      l: number,
+    ) => TypedArray,
+  );
 }
