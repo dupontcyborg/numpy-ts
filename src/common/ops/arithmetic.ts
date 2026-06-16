@@ -1563,6 +1563,7 @@ export function reciprocal(a: ArrayStorage): ArrayStorage {
 export function cbrt(a: ArrayStorage): ArrayStorage {
   const dtype = a.dtype;
   throwIfComplex(dtype, 'cbrt', 'cbrt is not supported for complex numbers.');
+
   const shape = Array.from(a.shape);
   const data = a.data;
   const size = a.size;
