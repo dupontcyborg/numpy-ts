@@ -243,6 +243,58 @@ pub inline fn atan2v_f64(y: simd.V2f64, x: simd.V2f64) simd.V2f64 {
     return base;
 }
 
+/// expm1(x) = exp(x) − 1, accurate near 0. Same range reduction as expv, but the
+/// polynomial computes expm1(r) = exp(r)−1 (Taylor without the leading 1) and the
+/// result is pow2n·expm1(r) + (pow2n−1) — the (pow2n−1) is exact for integer n and
+/// 0 near x=0, so no cancellation.
+pub inline fn expm1v_f64(x_in: simd.V2f64) simd.V2f64 {
+    const maxv: simd.V2f64 = @splat(EXP_MAXLOG);
+    const minv: simd.V2f64 = @splat(EXP_MINLOG);
+    const x = simd.max_f64x2(simd.min_f64x2(x_in, maxv), minv);
+    const n = @floor(simd.mulAdd_f64x2(x, @as(simd.V2f64, @splat(EXP_LOG2E)), @as(simd.V2f64, @splat(0.5))));
+    var r = simd.nmulAdd_f64x2(n, @splat(EXP_C1), x);
+    r = simd.nmulAdd_f64x2(n, @splat(EXP_C2), r);
+
+    var p: simd.V2f64 = @splat(1.6059043836821613e-10); // 1/13!
+    p = simd.mulAdd_f64x2(p, r, @splat(2.08767569878681e-9));
+    p = simd.mulAdd_f64x2(p, r, @splat(2.5052108385441720e-8));
+    p = simd.mulAdd_f64x2(p, r, @splat(2.7557319223985893e-7));
+    p = simd.mulAdd_f64x2(p, r, @splat(2.7557319223985888e-6));
+    p = simd.mulAdd_f64x2(p, r, @splat(2.4801587301587302e-5));
+    p = simd.mulAdd_f64x2(p, r, @splat(1.9841269841269841e-4));
+    p = simd.mulAdd_f64x2(p, r, @splat(1.3888888888888889e-3));
+    p = simd.mulAdd_f64x2(p, r, @splat(8.3333333333333332e-3));
+    p = simd.mulAdd_f64x2(p, r, @splat(4.1666666666666664e-2));
+    p = simd.mulAdd_f64x2(p, r, @splat(1.6666666666666666e-1));
+    p = simd.mulAdd_f64x2(p, r, @splat(5.0e-1));
+    p = simd.mulAdd_f64x2(p, r, @splat(1.0));
+    const expm1r = p * r; // exp(r) − 1
+
+    const ni: simd.V2i64 = @intFromFloat(n);
+    const biased = (ni +% @as(simd.V2i64, @splat(1023))) << @as(simd.V2i64, @splat(52));
+    const pow2n: simd.V2f64 = @bitCast(biased);
+    var result = simd.mulAdd_f64x2(pow2n, expm1r, pow2n - @as(simd.V2f64, @splat(1.0)));
+    result = @select(f64, x_in > maxv, @as(simd.V2f64, @splat(math.inf(f64))), result);
+    result = @select(f64, x_in < minv, @as(simd.V2f64, @splat(-1.0)), result);
+    return result;
+}
+
+/// log1p(x) = log(1+x), accurate near 0 via Kahan's correction:
+/// log1p(x) = log(u)·x/(u−1) with u = fl(1+x) (and = x when u rounds to 1).
+/// x<−1 → NaN, x=−1 → −inf.
+pub inline fn log1pv_f64(x: simd.V2f64) simd.V2f64 {
+    const one: simd.V2f64 = @splat(1.0);
+    const zero: simd.V2f64 = @splat(0.0);
+    const u = one + x;
+    const d = u - one;
+    const ratio = @select(f64, d == zero, one, x / d);
+    var r = logv_f64(u) * ratio;
+    r = @select(f64, d == zero, x, r); // u rounded to 1 → log1p ≈ x
+    r = @select(f64, x < -one, @as(simd.V2f64, @splat(math.nan(f64))), r);
+    r = @select(f64, x == -one, @as(simd.V2f64, @splat(-math.inf(f64))), r);
+    return @select(f64, x != x, x, r);
+}
+
 // --- inverse hyperbolic (compose the log core; domain-guarded) ---
 
 /// asinh(x) = sign(x)·log(|x| + sqrt(x²+1)). Defined for all reals (compute on

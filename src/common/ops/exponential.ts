@@ -61,8 +61,11 @@ function boolToMathFloat(a: ArrayStorage): ArrayStorage {
 
 import { wasmExp } from '../wasm/exp';
 import { wasmExp2 } from '../wasm/exp2';
+import { wasmExpm1 } from '../wasm/expm1';
 import { wasmLog, wasmLog2, wasmLog10 } from '../wasm/log';
+import { wasmLog1p } from '../wasm/log1p';
 import { wasmLogaddexp, wasmLogaddexpScalar } from '../wasm/logaddexp';
+import { wasmLogaddexp2, wasmLogaddexp2Scalar } from '../wasm/logaddexp2';
 import { wasmPower, wasmPowerScalar } from '../wasm/power';
 
 /**
@@ -530,6 +533,9 @@ export function expm1(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmExpm1(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.expm1, false);
 }
 
@@ -753,6 +759,9 @@ export function log1p(a: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  const wasmResult = wasmLog1p(a);
+  if (wasmResult) return wasmResult;
+
   return elementwiseUnaryOp(a, Math.log1p, false);
 }
 
@@ -885,6 +894,9 @@ export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArraySt
  * @private
  */
 function logaddexp2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
+  const wasmResult = wasmLogaddexp2(x1, x2);
+  if (wasmResult) return wasmResult;
+
   const outputShape = broadcastShapes(x1.shape, x2.shape);
   const size = outputShape.reduce((a, b) => a * b, 1);
   const dtype1 = x1.dtype;
@@ -917,6 +929,9 @@ function logaddexp2Array(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @private
  */
 function logaddexp2Scalar(storage: ArrayStorage, x2: number): ArrayStorage {
+  const wasmResult = wasmLogaddexp2Scalar(storage, x2);
+  if (wasmResult) return wasmResult;
+
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const size = storage.size;
