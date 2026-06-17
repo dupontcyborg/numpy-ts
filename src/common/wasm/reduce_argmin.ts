@@ -9,6 +9,16 @@
 import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
+  argmin_axis_f32,
+  argmin_axis_f64,
+  argmin_axis_i8,
+  argmin_axis_i16,
+  argmin_axis_i32,
+  argmin_axis_i64,
+  argmin_axis_u8,
+  argmin_axis_u16,
+  argmin_axis_u32,
+  argmin_axis_u64,
   reduce_argmin_f32,
   reduce_argmin_f64,
   reduce_argmin_i8,
@@ -161,5 +171,81 @@ export function wasmReduceArgminStrided(
       off: number,
       len: number,
     ) => TypedArray,
+  );
+}
+
+// --- Strided reduction along any single axis of a C-contiguous array. ---
+// Output is int64 (matching NumPy). before = ∏ dims[0..axis], axisSize =
+// dims[axis], inner = ∏ dims[axis+1..] (the axis stride).
+
+type AxisFn = (
+  aPtr: number,
+  before: number,
+  axisSize: number,
+  inner: number,
+  outPtr: number,
+) => void;
+
+const axisKernels: Partial<Record<DType, AxisFn>> = {
+  float64: argmin_axis_f64,
+  float32: argmin_axis_f32,
+  float16: argmin_axis_f32,
+  int64: argmin_axis_i64,
+  uint64: argmin_axis_u64,
+  int32: argmin_axis_i32,
+  uint32: argmin_axis_u32,
+  int16: argmin_axis_i16,
+  uint16: argmin_axis_u16,
+  int8: argmin_axis_i8,
+  uint8: argmin_axis_u8,
+};
+
+/**
+ * WASM-accelerated argmin along any single axis of a C-contiguous array.
+ * Output is int64 (matching NumPy). Returns null if WASM can't handle.
+ */
+export function wasmArgminAxis(a: ArrayStorage, axis: number): ArrayStorage | null {
+  if (!a.isCContiguous) return null;
+  const ndim = a.shape.length;
+  if (ndim === 0 || axis < 0 || axis >= ndim) return null;
+
+  const size = a.size;
+  if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const dtype = effectiveDType(a.dtype);
+  const kernel = axisKernels[dtype];
+  const InCtor = ctorMap[dtype];
+  if (!kernel || !InCtor) return null;
+
+  const shape = a.shape;
+  let before = 1;
+  for (let i = 0; i < axis; i++) before *= shape[i]!;
+  const axisSize = shape[axis]!;
+  let inner = 1;
+  for (let i = axis + 1; i < ndim; i++) inner *= shape[i]!;
+  const outLen = before * inner;
+  const outShape = [...shape.slice(0, axis), ...shape.slice(axis + 1)];
+
+  const inBpe = (InCtor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const outRegion = wasmMalloc(outLen * 8);
+  if (!outRegion) return null;
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+  let inPtr: number;
+  if (dtype === 'float16') {
+    inPtr = f16InputToScratchF32(a, size);
+  } else {
+    inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, inBpe);
+  }
+
+  kernel(inPtr, before, axisSize, inner, outRegion.ptr);
+
+  return ArrayStorage.fromWasmRegion(
+    outShape,
+    'int64',
+    outRegion,
+    outLen,
+    BigInt64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
   );
 }

@@ -60,12 +60,18 @@ function std(arr: number[]): number {
 
 function releaseResult(result: unknown): void {
   if (result == null) return;
-  if (typeof (result as any).dispose === 'function') {
-    (result as any).dispose();
+  const r = result as any;
+  if (typeof r.dispose === 'function') {
+    // Only WASM-backed results hold native linear memory that must be freed to
+    // avoid exhausting the heap across iterations. Views (transpose, reshape,
+    // real/imag, …) and JS-backed results carry no wasmRegion, so dispose() is a
+    // no-op — skip it so the timed loop isn't charged for cleanup that does
+    // nothing (and that NumPy's view path doesn't do either).
+    if (r.isWasmBacked === true) r.dispose();
   } else if (result instanceof Map) {
     for (const val of result.values()) releaseResult(val);
   } else if (Array.isArray(result)) {
-    for (const item of result) (item as any)?.dispose?.();
+    for (const item of result) releaseResult(item);
   } else if (
     typeof result === 'object' &&
     !(ArrayBuffer.isView(result) || result instanceof ArrayBuffer)

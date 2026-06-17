@@ -20,8 +20,8 @@ import { ArrayStorage } from '../storage';
 import { wasmNanquantile, wasmNanquantileStrided } from '../wasm/nanquantile';
 import { wasmReduceAll } from '../wasm/reduce_all';
 import { wasmReduceAny } from '../wasm/reduce_any';
-import { wasmReduceArgmax, wasmReduceArgmaxStrided } from '../wasm/reduce_argmax';
-import { wasmReduceArgmin, wasmReduceArgminStrided } from '../wasm/reduce_argmin';
+import { wasmArgmaxAxis, wasmReduceArgmax, wasmReduceArgmaxStrided } from '../wasm/reduce_argmax';
+import { wasmArgminAxis, wasmReduceArgmin, wasmReduceArgminStrided } from '../wasm/reduce_argmin';
 import { wasmReduceMax, wasmReduceMaxStrided } from '../wasm/reduce_max';
 import { wasmReduceMean, wasmReduceMeanStrided } from '../wasm/reduce_mean';
 import { wasmReduceMin, wasmReduceMinStrided } from '../wasm/reduce_min';
@@ -1517,6 +1517,13 @@ export function argmin(storage: ArrayStorage, axis?: number): ArrayStorage | num
   // Create result storage with int32 dtype (indices are always integers)
   const axisSize = shape[normalizedAxis]!;
 
+  // WASM fast path for reduction along any axis of a C-contiguous array
+  // (output is int64, matching NumPy).
+  if (contiguous && !isComplex) {
+    const w = wasmArgminAxis(storage, normalizedAxis);
+    if (w) return w;
+  }
+
   // WASM strided fast path for argmin (output is always int32)
   if (storage.isCContiguous && !isComplexDType(dtype)) {
     const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
@@ -1714,6 +1721,13 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
 
   // Create result storage with int32 dtype (indices are always integers)
   const axisSize = shape[normalizedAxis]!;
+
+  // WASM fast path for reduction along any axis of a C-contiguous array
+  // (output is int64, matching NumPy).
+  if (contiguous && !isComplex) {
+    const w = wasmArgmaxAxis(storage, normalizedAxis);
+    if (w) return w;
+  }
 
   // WASM strided fast path for argmax (output is always int32)
   if (storage.isCContiguous && !isComplexDType(dtype)) {
