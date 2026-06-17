@@ -42,6 +42,7 @@ import {
   wasmReduceSumStridedComplex,
 } from '../wasm/reduce_sum';
 import { wasmReduceVar } from '../wasm/reduce_var';
+import { wasmCumprod, wasmCumsum } from '../wasm/cumulative';
 
 // Reusable Float32Array accumulators — writing to f32acc[0] implicitly rounds
 // to float32 precision (same as Math.fround) but V8 optimizes typed-array
@@ -2433,6 +2434,8 @@ export function cumsum(storage: ArrayStorage, axis?: number): ArrayStorage {
   // Non-complex path
   if (axis === undefined) {
     // Flatten and cumsum
+    const w = wasmCumsum(storage);
+    if (w) return w;
     const size = storage.size;
     const acc = getFloatAcc(dtype);
     if (acc) {
@@ -2712,6 +2715,8 @@ export function cumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
   // Non-complex path
   if (axis === undefined) {
     // Flatten and cumprod
+    const w = wasmCumprod(storage);
+    if (w) return w;
     const size = storage.size;
     const accumDtype = reductionAccumDtype(dtype);
     if (isBigIntDType(dtype)) {
