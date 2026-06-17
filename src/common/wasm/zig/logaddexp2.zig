@@ -114,3 +114,18 @@ test "logaddexp2_scalar_f64 / f32" {
     try testing.expectApproxEqAbs(o32[0], 2.0, 1e-4); // logaddexp2(1,1)=2
     try testing.expectApproxEqAbs(o32[1], 3.0, 1e-4); // logaddexp2(2,2)=3
 }
+
+test "logaddexp2_scalar_f32 matches reference" {
+    const std = @import("std");
+    const testing = std.testing;
+    const a = [_]f32{ 0.0, 1.0, 2.0 };
+    var out: [3]f32 = undefined;
+    logaddexp2_scalar_f32(&a, &out, 3, 0.0);
+    try testing.expectApproxEqAbs(out[0], 1.0, 1e-4); // logaddexp2(0,0)=1
+    for (0..3) |i| {
+        const mx = @max(a[i], 0.0);
+        const mn = @min(a[i], 0.0);
+        const ref = mx + std.math.log1p(std.math.pow(f32, 2.0, mn - mx)) * @as(f32, @floatCast(LOG2E));
+        try testing.expectApproxEqAbs(out[i], ref, 1e-4);
+    }
+}

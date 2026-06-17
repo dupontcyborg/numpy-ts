@@ -216,3 +216,141 @@ test "modInt div by zero -> 0" {
     try t.expectEqual(o[0], 0);
     try t.expectEqual(o[1], 0);
 }
+
+test "floordiv_scalar_f32 / fmod_scalar_f32" {
+    const t = @import("std").testing;
+    const a = [_]f32{ 7, -7, 8, 9, 10 };
+    var o: [5]f32 = undefined;
+    floordiv_scalar_f32(&a, &o, 5, 3);
+    try t.expectApproxEqAbs(o[0], 2, 1e-5); // floor(7/3)
+    try t.expectApproxEqAbs(o[1], -3, 1e-5); // floor(-7/3)
+    fmod_scalar_f32(&a, &o, 5, 3);
+    try t.expectApproxEqAbs(o[0], 1, 1e-5); // fmod(7,3)
+    try t.expectApproxEqAbs(o[1], -1, 1e-5); // fmod(-7,3) sign of dividend
+}
+
+// --- Signed integer scalar variants ---
+// a=[7,-7], s=3: mod=[1,2], fmod=[1,-1], floordiv=[2,-3]
+
+test "mod/floordiv/fmod scalar i64" {
+    const t = @import("std").testing;
+    const a = [_]i64{ 7, -7 };
+    var o: [2]i64 = undefined;
+    mod_scalar_i64(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_i64(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], -1);
+    floordiv_scalar_i64(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], -3);
+}
+
+test "mod/floordiv/fmod scalar i32" {
+    const t = @import("std").testing;
+    const a = [_]i32{ 7, -7 };
+    var o: [2]i32 = undefined;
+    mod_scalar_i32(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_i32(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], -1);
+    floordiv_scalar_i32(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], -3);
+}
+
+test "mod/floordiv/fmod scalar i16" {
+    const t = @import("std").testing;
+    const a = [_]i16{ 7, -7 };
+    var o: [2]i16 = undefined;
+    mod_scalar_i16(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_i16(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], -1);
+    floordiv_scalar_i16(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], -3);
+}
+
+test "mod/floordiv/fmod scalar i8" {
+    const t = @import("std").testing;
+    const a = [_]i8{ 7, -7 };
+    var o: [2]i8 = undefined;
+    mod_scalar_i8(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_i8(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], -1);
+    floordiv_scalar_i8(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], -3);
+}
+
+// --- Unsigned integer scalar variants ---
+// a=[7,8], s=3: mod=[1,2], fmod=[1,2], floordiv=[2,2]
+
+test "mod/floordiv/fmod scalar u64" {
+    const t = @import("std").testing;
+    const a = [_]u64{ 7, 8 };
+    var o: [2]u64 = undefined;
+    mod_scalar_u64(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_u64(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    floordiv_scalar_u64(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], 2);
+}
+
+test "mod/floordiv/fmod scalar u32" {
+    const t = @import("std").testing;
+    const a = [_]u32{ 7, 8 };
+    var o: [2]u32 = undefined;
+    mod_scalar_u32(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_u32(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    floordiv_scalar_u32(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], 2);
+}
+
+test "mod/floordiv/fmod scalar u16" {
+    const t = @import("std").testing;
+    const a = [_]u16{ 7, 8 };
+    var o: [2]u16 = undefined;
+    mod_scalar_u16(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_u16(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    floordiv_scalar_u16(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], 2);
+}
+
+test "mod/floordiv/fmod scalar u8" {
+    const t = @import("std").testing;
+    const a = [_]u8{ 7, 8 };
+    var o: [2]u8 = undefined;
+    mod_scalar_u8(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    fmod_scalar_u8(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 1);
+    try t.expectEqual(o[1], 2);
+    floordiv_scalar_u8(&a, &o, 2, 3);
+    try t.expectEqual(o[0], 2);
+    try t.expectEqual(o[1], 2);
+}

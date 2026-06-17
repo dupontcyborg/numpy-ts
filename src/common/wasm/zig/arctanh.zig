@@ -122,3 +122,66 @@ test "arctanh_i32_f64 basic" {
     arctanh_i32_f64(&a, &out, 1);
     try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
 }
+
+test "arctanh_f32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 0.0, 0.5 };
+    var out: [2]f32 = undefined;
+    arctanh_f32(&a, &out, 2);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-6);
+    try testing.expectApproxEqAbs(out[1], 0.5493061443340549, 1e-6);
+}
+
+test "arctanh int variants at domain center" {
+    const testing = @import("std").testing;
+    // |x| < 1 means only integer 0 is valid for arctanh; arctanh(0) = 0.
+    {
+        const a = [_]i64{ 0, 0 };
+        var out: [2]f64 = undefined;
+        arctanh_i64_f64(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
+        try testing.expectApproxEqAbs(out[1], 0.0, 1e-12);
+    }
+    {
+        const a = [_]u64{ 0, 0 };
+        var out: [2]f64 = undefined;
+        arctanh_u64_f64(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
+        try testing.expectApproxEqAbs(out[1], 0.0, 1e-12);
+    }
+    {
+        const a = [_]u32{ 0, 0 };
+        var out: [2]f64 = undefined;
+        arctanh_u32_f64(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
+        try testing.expectApproxEqAbs(out[1], 0.0, 1e-12);
+    }
+    {
+        const a = [_]i16{ 0, 0 };
+        var out: [2]f32 = undefined;
+        arctanh_i16_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-6);
+        try testing.expectApproxEqAbs(out[1], 0.0, 1e-6);
+    }
+    {
+        const a = [_]u16{ 0, 0 };
+        var out: [2]f32 = undefined;
+        arctanh_u16_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-6);
+        try testing.expectApproxEqAbs(out[1], 0.0, 1e-6);
+    }
+    {
+        const a = [_]i8{ 0, 0 };
+        var out: [2]f32 = undefined;
+        arctanh_i8_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-6);
+        try testing.expectApproxEqAbs(out[1], 0.0, 1e-6);
+    }
+    {
+        const a = [_]u8{ 0, 0 };
+        var out: [2]f32 = undefined;
+        arctanh_u8_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-6);
+        try testing.expectApproxEqAbs(out[1], 0.0, 1e-6);
+    }
+}

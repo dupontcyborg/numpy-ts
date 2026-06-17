@@ -587,6 +587,78 @@ test "argmax_axis f64 NaN first wins" {
     try testing.expectEqual(out[1], 2);
 }
 
+test "argmax_axis_f32 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_f32(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmax_axis_i64 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_i64(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmax_axis_u64 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_u64(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmax_axis_u32 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_u32(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmax_axis_i16 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_i16(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmax_axis_u16 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_u16(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmax_axis_i8 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_i8(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmax_axis_u8 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u8{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmax_axis_u8(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
 test "reduce_argmax_f64 basic" {
     const testing = @import("std").testing;
     const a = [_]f64{ 3.0, 1.0, 4.0, 1.0, 5.0 };

@@ -131,3 +131,32 @@ test "expm1_i32_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
     try testing.expectApproxEqAbs(out[1], 6.38905609893065, 1e-12);
 }
+
+test "expm1 int variants" {
+    const testing = @import("std").testing;
+    const expected: f64 = 6.38905609893065; // e^2 - 1
+    const ai = [_]i64{ 0, 2 };
+    const au = [_]u64{ 0, 2 };
+    const au32 = [_]u32{ 0, 2 };
+    var o64: [2]f64 = undefined;
+    expm1_i64_f64(&ai, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], expected, 1e-12);
+    expm1_u64_f64(&au, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], expected, 1e-12);
+    expm1_u32_f64(&au32, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], expected, 1e-12);
+
+    const ai16 = [_]i16{ 0, 2 };
+    const au16 = [_]u16{ 0, 2 };
+    const ai8 = [_]i8{ 0, 2 };
+    const au8 = [_]u8{ 0, 2 };
+    var o32: [2]f32 = undefined;
+    expm1_i16_f32(&ai16, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(expected)), 1e-4);
+    expm1_u16_f32(&au16, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(expected)), 1e-4);
+    expm1_i8_f32(&ai8, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(expected)), 1e-4);
+    expm1_u8_f32(&au8, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(expected)), 1e-4);
+}

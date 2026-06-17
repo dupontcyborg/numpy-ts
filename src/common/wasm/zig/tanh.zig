@@ -183,3 +183,35 @@ test "tanh int variants" {
     tanh_u8_f32(&b, &o2, 3);
     try testing.expectApproxEqAbs(o2[2], @as(f32, @floatCast(math.tanh(@as(f64, 2.0)))), 1e-6);
 }
+
+test "tanh remaining int variants" {
+    const testing = @import("std").testing;
+
+    // f64-widening: i64, u64, u32
+    const i64s = [_]i64{ 0, 1, 2, -3 };
+    var o64: [4]f64 = undefined;
+    tanh_i64_f64(&i64s, &o64, 4);
+    for (i64s, 0..) |x, i| try testing.expectApproxEqAbs(o64[i], math.tanh(@as(f64, @floatFromInt(x))), 1e-13);
+
+    const u64s = [_]u64{ 0, 1, 2, 3 };
+    tanh_u64_f64(&u64s, &o64, 4);
+    for (u64s, 0..) |x, i| try testing.expectApproxEqAbs(o64[i], math.tanh(@as(f64, @floatFromInt(x))), 1e-13);
+
+    const u32s = [_]u32{ 0, 1, 2, 3 };
+    tanh_u32_f64(&u32s, &o64, 4);
+    for (u32s, 0..) |x, i| try testing.expectApproxEqAbs(o64[i], math.tanh(@as(f64, @floatFromInt(x))), 1e-13);
+
+    // f32-widening: i16, u16, i8
+    const i16s = [_]i16{ 0, 1, 2, -3 };
+    var o32: [4]f32 = undefined;
+    tanh_i16_f32(&i16s, &o32, 4);
+    for (i16s, 0..) |x, i| try testing.expectApproxEqAbs(o32[i], @as(f32, @floatCast(math.tanh(@as(f64, @floatFromInt(x))))), 1e-6);
+
+    const u16s = [_]u16{ 0, 1, 2, 3 };
+    tanh_u16_f32(&u16s, &o32, 4);
+    for (u16s, 0..) |x, i| try testing.expectApproxEqAbs(o32[i], @as(f32, @floatCast(math.tanh(@as(f64, @floatFromInt(x))))), 1e-6);
+
+    const i8s = [_]i8{ 0, 1, 2, -3 };
+    tanh_i8_f32(&i8s, &o32, 4);
+    for (i8s, 0..) |x, i| try testing.expectApproxEqAbs(o32[i], @as(f32, @floatCast(math.tanh(@as(f64, @floatFromInt(x))))), 1e-6);
+}

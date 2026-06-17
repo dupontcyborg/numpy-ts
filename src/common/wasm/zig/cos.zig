@@ -140,3 +140,51 @@ test "cos_c128 matches identity" {
     try testing.expectApproxEqRel(c[0], @cos(0.7) * std.math.cosh(b), 1e-12);
     try testing.expectApproxEqRel(c[1], -@sin(0.7) * std.math.sinh(b), 1e-12);
 }
+
+test "cos_f32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 0.0, 1.0, 2.0 };
+    var out: [3]f32 = undefined;
+    cos_f32(&a, &out, 3);
+    try testing.expectApproxEqAbs(out[0], 1.0, 1e-6);
+    try testing.expectApproxEqAbs(out[1], @cos(@as(f32, 1.0)), 1e-6);
+    try testing.expectApproxEqAbs(out[2], @cos(@as(f32, 2.0)), 1e-6);
+}
+
+test "cos int variants" {
+    const testing = @import("std").testing;
+    const ai = [_]i64{ 0, 1 };
+    const au = [_]u64{ 0, 1 };
+    const au32 = [_]u32{ 0, 1 };
+    var o64: [2]f64 = undefined;
+    cos_i64_f64(&ai, &o64, 2);
+    try testing.expectApproxEqRel(o64[1], @cos(1.0), 1e-12);
+    cos_u64_f64(&au, &o64, 2);
+    try testing.expectApproxEqRel(o64[1], @cos(1.0), 1e-12);
+    cos_u32_f64(&au32, &o64, 2);
+    try testing.expectApproxEqRel(o64[1], @cos(1.0), 1e-12);
+
+    const ai16 = [_]i16{ 0, 1 };
+    const au16 = [_]u16{ 0, 1 };
+    const ai8 = [_]i8{ 0, 1 };
+    const au8 = [_]u8{ 0, 1 };
+    var o32: [2]f32 = undefined;
+    cos_i16_f32(&ai16, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @cos(@as(f32, 1.0)), 1e-6);
+    cos_u16_f32(&au16, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @cos(@as(f32, 1.0)), 1e-6);
+    cos_i8_f32(&ai8, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @cos(@as(f32, 1.0)), 1e-6);
+    cos_u8_f32(&au8, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @cos(@as(f32, 1.0)), 1e-6);
+}
+
+test "cos_c64 matches identity" {
+    const std = @import("std");
+    const testing = std.testing;
+    const a = [_]f32{ 0.7, 1.2 };
+    var c: [2]f32 = undefined;
+    cos_c64(&a, &c, 1);
+    try testing.expectApproxEqAbs(c[0], @cos(@as(f32, 0.7)) * std.math.cosh(@as(f32, 1.2)), 1e-5);
+    try testing.expectApproxEqAbs(c[1], -@sin(@as(f32, 0.7)) * std.math.sinh(@as(f32, 1.2)), 1e-5);
+}

@@ -200,3 +200,52 @@ test "exp2_c128 matches 2^a(cos(b ln2), sin(b ln2))" {
     try testing.expectApproxEqRel(out[0], e * @cos(1.0 * math.ln2), 1e-12);
     try testing.expectApproxEqRel(out[1], e * @sin(1.0 * math.ln2), 1e-12);
 }
+
+test "exp2_f32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 0.0, 1.0, 3.0, 4.0 };
+    var out: [4]f32 = undefined;
+    exp2_f32(&a, &out, 4);
+    try testing.expectApproxEqAbs(out[0], 1.0, 1e-4);
+    try testing.expectApproxEqAbs(out[1], 2.0, 1e-4);
+    try testing.expectApproxEqAbs(out[2], 8.0, 1e-3);
+    try testing.expectApproxEqAbs(out[3], 16.0, 1e-3);
+}
+
+test "exp2 int variants" {
+    const testing = @import("std").testing;
+    const ai = [_]i64{ 0, 4 };
+    const au = [_]u64{ 0, 4 };
+    const au32 = [_]u32{ 0, 4 };
+    var o64: [2]f64 = undefined;
+    exp2_i64_f64(&ai, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], 16.0, 1e-10);
+    exp2_u64_f64(&au, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], 16.0, 1e-10);
+    exp2_u32_f64(&au32, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], 16.0, 1e-10);
+
+    const ai16 = [_]i16{ 0, 1, 4, 3 };
+    const au16 = [_]u16{ 0, 1, 4, 3 };
+    const ai8 = [_]i8{ 0, 1, 4, 3 };
+    const au8 = [_]u8{ 0, 1, 4, 3 };
+    var o32: [4]f32 = undefined;
+    exp2_i16_f32(&ai16, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], 16.0, 1e-3);
+    exp2_u16_f32(&au16, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], 16.0, 1e-3);
+    exp2_i8_f32(&ai8, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], 16.0, 1e-3);
+    exp2_u8_f32(&au8, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], 16.0, 1e-3);
+}
+
+test "exp2_c64 matches identity" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 3.0, 1.0 };
+    var out: [2]f32 = undefined;
+    exp2_c64(&a, &out, 1);
+    const e = @exp(@as(f32, 3.0) * @as(f32, math.ln2));
+    try testing.expectApproxEqAbs(out[0], e * @cos(@as(f32, 1.0) * @as(f32, math.ln2)), 1e-3);
+    try testing.expectApproxEqAbs(out[1], e * @sin(@as(f32, 1.0) * @as(f32, math.ln2)), 1e-3);
+}

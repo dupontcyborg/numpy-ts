@@ -121,3 +121,73 @@ test "arccosh_i32_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
     try testing.expectApproxEqAbs(out[1], 2.2924316695611777, 1e-12);
 }
+
+test "arccosh_f32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 1.0, 2.0 };
+    var out: [2]f32 = undefined;
+    arccosh_f32(&a, &out, 2);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
+    try testing.expectApproxEqAbs(out[1], 1.3169578969248166, 1e-5);
+}
+
+test "arccosh int variants f64 output" {
+    const std = @import("std");
+    const testing = std.testing;
+    const exp = std.math.acosh(@as(f64, 5.0));
+    {
+        const a = [_]i64{ 1, 5 };
+        var out: [2]f64 = undefined;
+        arccosh_i64_f64(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
+        try testing.expectApproxEqAbs(out[1], exp, 1e-12);
+    }
+    {
+        const a = [_]u64{ 1, 5 };
+        var out: [2]f64 = undefined;
+        arccosh_u64_f64(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
+        try testing.expectApproxEqAbs(out[1], exp, 1e-12);
+    }
+    {
+        const a = [_]u32{ 1, 5 };
+        var out: [2]f64 = undefined;
+        arccosh_u32_f64(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
+        try testing.expectApproxEqAbs(out[1], exp, 1e-12);
+    }
+}
+
+test "arccosh int variants f32 output" {
+    const std = @import("std");
+    const testing = std.testing;
+    const exp = std.math.acosh(@as(f64, 5.0));
+    {
+        const a = [_]i16{ 1, 5 };
+        var out: [2]f32 = undefined;
+        arccosh_i16_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
+        try testing.expectApproxEqAbs(out[1], @as(f32, @floatCast(exp)), 1e-5);
+    }
+    {
+        const a = [_]u16{ 1, 5 };
+        var out: [2]f32 = undefined;
+        arccosh_u16_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
+        try testing.expectApproxEqAbs(out[1], @as(f32, @floatCast(exp)), 1e-5);
+    }
+    {
+        const a = [_]i8{ 1, 5 };
+        var out: [2]f32 = undefined;
+        arccosh_i8_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
+        try testing.expectApproxEqAbs(out[1], @as(f32, @floatCast(exp)), 1e-5);
+    }
+    {
+        const a = [_]u8{ 1, 5 };
+        var out: [2]f32 = undefined;
+        arccosh_u8_f32(&a, &out, 2);
+        try testing.expectApproxEqAbs(out[0], 0.0, 1e-5);
+        try testing.expectApproxEqAbs(out[1], @as(f32, @floatCast(exp)), 1e-5);
+    }
+}

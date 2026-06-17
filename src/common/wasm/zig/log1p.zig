@@ -132,3 +132,42 @@ test "log1p_i32_f64 basic" {
     try testing.expectApproxEqAbs(out[0], 0.0, 1e-12);
     try testing.expectApproxEqAbs(out[1], 0.6931471805599453, 1e-12);
 }
+
+test "log1p_f32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 0.0, 1.0, 0.5 };
+    var out: [3]f32 = undefined;
+    log1p_f32(&a, &out, 3);
+    try testing.expectApproxEqAbs(out[0], 0.0, 1e-6);
+    try testing.expectApproxEqAbs(out[1], 0.6931472, 1e-6);
+    try testing.expectApproxEqAbs(out[2], 0.4054651, 1e-6);
+}
+
+test "log1p int variants" {
+    const testing = @import("std").testing;
+    const ln2: f64 = 0.6931471805599453;
+    const ai = [_]i64{ 0, 1 };
+    const au = [_]u64{ 0, 1 };
+    const au32 = [_]u32{ 0, 1 };
+    var o64: [2]f64 = undefined;
+    log1p_i64_f64(&ai, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], ln2, 1e-12);
+    log1p_u64_f64(&au, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], ln2, 1e-12);
+    log1p_u32_f64(&au32, &o64, 2);
+    try testing.expectApproxEqAbs(o64[1], ln2, 1e-12);
+
+    const ai16 = [_]i16{ 0, 1 };
+    const au16 = [_]u16{ 0, 1 };
+    const ai8 = [_]i8{ 0, 1 };
+    const au8 = [_]u8{ 0, 1 };
+    var o32: [2]f32 = undefined;
+    log1p_i16_f32(&ai16, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(ln2)), 1e-6);
+    log1p_u16_f32(&au16, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(ln2)), 1e-6);
+    log1p_i8_f32(&ai8, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(ln2)), 1e-6);
+    log1p_u8_f32(&au8, &o32, 2);
+    try testing.expectApproxEqAbs(o32[1], @as(f32, @floatCast(ln2)), 1e-6);
+}

@@ -179,3 +179,40 @@ test "exp_c128 matches e^a(cos b, sin b)" {
     try testing.expectApproxEqRel(out[2], @exp(-0.5) * @cos(1.5), 1e-12);
     try testing.expectApproxEqRel(out[3], @exp(-0.5) * @sin(1.5), 1e-12);
 }
+
+test "exp int variants" {
+    const testing = @import("std").testing;
+    const ai = [_]i64{ 0, 2 };
+    const au = [_]u64{ 0, 2 };
+    const au32 = [_]u32{ 0, 2 };
+    var o64: [2]f64 = undefined;
+    exp_i64_f64(&ai, &o64, 2);
+    try testing.expectApproxEqRel(o64[1], @exp(2.0), 1e-12);
+    exp_u64_f64(&au, &o64, 2);
+    try testing.expectApproxEqRel(o64[1], @exp(2.0), 1e-12);
+    exp_u32_f64(&au32, &o64, 2);
+    try testing.expectApproxEqRel(o64[1], @exp(2.0), 1e-12);
+
+    const ai16 = [_]i16{ 0, 1, 2, 3 };
+    const au16 = [_]u16{ 0, 1, 2, 3 };
+    const ai8 = [_]i8{ 0, 1, 2, 3 };
+    const au8 = [_]u8{ 0, 1, 2, 3 };
+    var o32: [4]f32 = undefined;
+    exp_i16_f32(&ai16, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], @exp(@as(f32, 2.0)), 1e-4);
+    exp_u16_f32(&au16, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], @exp(@as(f32, 2.0)), 1e-4);
+    exp_i8_f32(&ai8, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], @exp(@as(f32, 2.0)), 1e-4);
+    exp_u8_f32(&au8, &o32, 4);
+    try testing.expectApproxEqAbs(o32[2], @exp(@as(f32, 2.0)), 1e-4);
+}
+
+test "exp_c64 matches e^a(cos b, sin b)" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 1.0, 2.0 };
+    var out: [2]f32 = undefined;
+    exp_c64(&a, &out, 1);
+    try testing.expectApproxEqAbs(out[0], @exp(@as(f32, 1.0)) * @cos(@as(f32, 2.0)), 1e-4);
+    try testing.expectApproxEqAbs(out[1], @exp(@as(f32, 1.0)) * @sin(@as(f32, 2.0)), 1e-4);
+}

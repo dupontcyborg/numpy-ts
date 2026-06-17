@@ -114,3 +114,64 @@ test "sinc_i32 widens to f64" {
     try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
     try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
 }
+
+test "sinc int variants widen to f64" {
+    const t2 = @import("std").testing;
+    // sinc(0)=1, sinc(nonzero int)=sin(pi*n)/(pi*n)=0.
+    {
+        const a = [_]i64{ 0, 1, 2 };
+        var o: [3]f64 = undefined;
+        sinc_i64(&a, &o, 3);
+        try t2.expectApproxEqAbs(o[0], 1.0, 1e-12);
+        try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
+        try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
+    }
+    {
+        const a = [_]u64{ 0, 1, 2 };
+        var o: [3]f64 = undefined;
+        sinc_u64(&a, &o, 3);
+        try t2.expectApproxEqAbs(o[0], 1.0, 1e-12);
+        try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
+        try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
+    }
+    {
+        const a = [_]u32{ 0, 1, 2 };
+        var o: [3]f64 = undefined;
+        sinc_u32(&a, &o, 3);
+        try t2.expectApproxEqAbs(o[0], 1.0, 1e-12);
+        try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
+        try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
+    }
+    {
+        const a = [_]i16{ 0, 1, 2 };
+        var o: [3]f64 = undefined;
+        sinc_i16(&a, &o, 3);
+        try t2.expectApproxEqAbs(o[0], 1.0, 1e-12);
+        try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
+        try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
+    }
+    {
+        const a = [_]u16{ 0, 1, 2 };
+        var o: [3]f64 = undefined;
+        sinc_u16(&a, &o, 3);
+        try t2.expectApproxEqAbs(o[0], 1.0, 1e-12);
+        try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
+        try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
+    }
+    {
+        const a = [_]i8{ 0, 1, 2 };
+        var o: [3]f64 = undefined;
+        sinc_i8(&a, &o, 3);
+        try t2.expectApproxEqAbs(o[0], 1.0, 1e-12);
+        try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
+        try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
+    }
+    {
+        const a = [_]u8{ 0, 1, 2 };
+        var o: [3]f64 = undefined;
+        sinc_u8(&a, &o, 3);
+        try t2.expectApproxEqAbs(o[0], 1.0, 1e-12);
+        try t2.expectApproxEqAbs(o[1], 0.0, 1e-12);
+        try t2.expectApproxEqAbs(o[2], 0.0, 1e-12);
+    }
+}

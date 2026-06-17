@@ -149,3 +149,94 @@ test "cumprod_i32 widens to i64" {
     try t.expectEqual(@as(i64, 6), o[1]);
     try t.expectEqual(@as(i64, 24), o[2]);
 }
+
+test "cumsum_f32 basic" {
+    const t = @import("std").testing;
+    const a = [_]f32{ 1, 2, 3 };
+    var o: [3]f32 = undefined;
+    cumsum_f32(&a, &o, 3);
+    try t.expectApproxEqAbs(@as(f32, 1), o[0], 1e-5);
+    try t.expectApproxEqAbs(@as(f32, 3), o[1], 1e-5);
+    try t.expectApproxEqAbs(@as(f32, 6), o[2], 1e-5);
+}
+
+test "cumsum signed ints widen to i64" {
+    const t = @import("std").testing;
+    var o: [3]i64 = undefined;
+    const a16 = [_]i16{ 1, 2, 3 };
+    cumsum_i16(&a16, &o, 3);
+    try t.expectEqual(@as(i64, 1), o[0]);
+    try t.expectEqual(@as(i64, 3), o[1]);
+    try t.expectEqual(@as(i64, 6), o[2]);
+    const a32 = [_]i32{ 1, 2, 3 };
+    cumsum_i32(&a32, &o, 3);
+    try t.expectEqual(@as(i64, 6), o[2]);
+    const a64 = [_]i64{ 1, 2, 3 };
+    cumsum_i64(&a64, &o, 3);
+    try t.expectEqual(@as(i64, 6), o[2]);
+}
+
+test "cumsum unsigned ints widen to u64" {
+    const t = @import("std").testing;
+    var o: [3]u64 = undefined;
+    const a8 = [_]u8{ 1, 2, 3 };
+    cumsum_u8(&a8, &o, 3);
+    try t.expectEqual(@as(u64, 1), o[0]);
+    try t.expectEqual(@as(u64, 3), o[1]);
+    try t.expectEqual(@as(u64, 6), o[2]);
+    const a16 = [_]u16{ 1, 2, 3 };
+    cumsum_u16(&a16, &o, 3);
+    try t.expectEqual(@as(u64, 6), o[2]);
+    const a32 = [_]u32{ 1, 2, 3 };
+    cumsum_u32(&a32, &o, 3);
+    try t.expectEqual(@as(u64, 6), o[2]);
+    const a64 = [_]u64{ 1, 2, 3 };
+    cumsum_u64(&a64, &o, 3);
+    try t.expectEqual(@as(u64, 6), o[2]);
+}
+
+test "cumprod_f32 basic" {
+    const t = @import("std").testing;
+    const a = [_]f32{ 1, 2, 3, 4 };
+    var o: [4]f32 = undefined;
+    cumprod_f32(&a, &o, 4);
+    try t.expectApproxEqAbs(@as(f32, 1), o[0], 1e-5);
+    try t.expectApproxEqAbs(@as(f32, 2), o[1], 1e-5);
+    try t.expectApproxEqAbs(@as(f32, 6), o[2], 1e-5);
+    try t.expectApproxEqAbs(@as(f32, 24), o[3], 1e-5);
+}
+
+test "cumprod signed ints widen to i64" {
+    const t = @import("std").testing;
+    var o: [3]i64 = undefined;
+    const a8 = [_]i8{ 2, 3, 4 };
+    cumprod_i8(&a8, &o, 3);
+    try t.expectEqual(@as(i64, 2), o[0]);
+    try t.expectEqual(@as(i64, 6), o[1]);
+    try t.expectEqual(@as(i64, 24), o[2]);
+    const a16 = [_]i16{ 2, 3, 4 };
+    cumprod_i16(&a16, &o, 3);
+    try t.expectEqual(@as(i64, 24), o[2]);
+    const a64 = [_]i64{ 2, 3, 4 };
+    cumprod_i64(&a64, &o, 3);
+    try t.expectEqual(@as(i64, 24), o[2]);
+}
+
+test "cumprod unsigned ints widen to u64" {
+    const t = @import("std").testing;
+    var o: [3]u64 = undefined;
+    const a8 = [_]u8{ 2, 3, 4 };
+    cumprod_u8(&a8, &o, 3);
+    try t.expectEqual(@as(u64, 2), o[0]);
+    try t.expectEqual(@as(u64, 6), o[1]);
+    try t.expectEqual(@as(u64, 24), o[2]);
+    const a16 = [_]u16{ 2, 3, 4 };
+    cumprod_u16(&a16, &o, 3);
+    try t.expectEqual(@as(u64, 24), o[2]);
+    const a32 = [_]u32{ 2, 3, 4 };
+    cumprod_u32(&a32, &o, 3);
+    try t.expectEqual(@as(u64, 24), o[2]);
+    const a64 = [_]u64{ 2, 3, 4 };
+    cumprod_u64(&a64, &o, 3);
+    try t.expectEqual(@as(u64, 24), o[2]);
+}

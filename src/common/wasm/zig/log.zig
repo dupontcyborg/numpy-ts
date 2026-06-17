@@ -304,3 +304,128 @@ test "log_c128 matches (ln|z|, atan2)" {
     try testing.expectApproxEqRel(out[1], std.math.atan2(@as(f64, 4.0), @as(f64, 3.0)), 1e-12);
     try testing.expectApproxEqRel(out[3], std.math.atan2(@as(f64, 1.0), @as(f64, -1.0)), 1e-12);
 }
+
+test "log2_f64 / log10_f64 match reference" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 1.0, 2.0, 8.0, 10.0, 100.0, 0.5, 1234.5, 1e-8 };
+    var o2: [8]f64 = undefined;
+    var o10: [8]f64 = undefined;
+    log2_f64(&a, &o2, 8);
+    log10_f64(&a, &o10, 8);
+    for (a, 0..) |x, i| {
+        try testing.expectApproxEqRel(o2[i], @log2(x), 1e-12);
+        try testing.expectApproxEqRel(o10[i], @log10(x), 1e-12);
+    }
+}
+
+test "log_f32 / log2_f32 / log10_f32 match reference" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 1.0, 2.0, 8.0, 10.0, 100.0, 0.5, 1234.5, 7.0 };
+    var ol: [8]f32 = undefined;
+    var o2: [8]f32 = undefined;
+    var o10: [8]f32 = undefined;
+    log_f32(&a, &ol, 8);
+    log2_f32(&a, &o2, 8);
+    log10_f32(&a, &o10, 8);
+    for (a, 0..) |x, i| {
+        try testing.expectApproxEqAbs(ol[i], @log(x), 1e-5);
+        try testing.expectApproxEqAbs(o2[i], @log2(x), 1e-5);
+        try testing.expectApproxEqAbs(o10[i], @log10(x), 1e-5);
+    }
+}
+
+test "log integer inputs (f32-widening)" {
+    const testing = @import("std").testing;
+    const i8a = [_]i8{ 1, 2, 8, 100 };
+    const u8a = [_]u8{ 1, 2, 8, 200 };
+    const i16a = [_]i16{ 1, 2, 8, 1000 };
+    const u16a = [_]u16{ 1, 2, 8, 5000 };
+    var o: [4]f32 = undefined;
+
+    log_i8_f32(&i8a, &o, 4);
+    for (i8a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log(@as(f32, @floatFromInt(x))), 1e-5);
+    log2_i8_f32(&i8a, &o, 4);
+    for (i8a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log2(@as(f32, @floatFromInt(x))), 1e-5);
+    log10_i8_f32(&i8a, &o, 4);
+    for (i8a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log10(@as(f32, @floatFromInt(x))), 1e-5);
+
+    log_u8_f32(&u8a, &o, 4);
+    for (u8a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log(@as(f32, @floatFromInt(x))), 1e-5);
+    log2_u8_f32(&u8a, &o, 4);
+    for (u8a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log2(@as(f32, @floatFromInt(x))), 1e-5);
+    log10_u8_f32(&u8a, &o, 4);
+    for (u8a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log10(@as(f32, @floatFromInt(x))), 1e-5);
+
+    log_i16_f32(&i16a, &o, 4);
+    for (i16a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log(@as(f32, @floatFromInt(x))), 1e-4);
+    log2_i16_f32(&i16a, &o, 4);
+    for (i16a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log2(@as(f32, @floatFromInt(x))), 1e-4);
+    log10_i16_f32(&i16a, &o, 4);
+    for (i16a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log10(@as(f32, @floatFromInt(x))), 1e-4);
+
+    log_u16_f32(&u16a, &o, 4);
+    for (u16a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log(@as(f32, @floatFromInt(x))), 1e-3);
+    log2_u16_f32(&u16a, &o, 4);
+    for (u16a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log2(@as(f32, @floatFromInt(x))), 1e-3);
+    log10_u16_f32(&u16a, &o, 4);
+    for (u16a, 0..) |x, i| try testing.expectApproxEqAbs(o[i], @log10(@as(f32, @floatFromInt(x))), 1e-3);
+}
+
+test "log integer inputs (f64-widening)" {
+    const testing = @import("std").testing;
+    const i32a = [_]i32{ 1, 8, 100, 100000 };
+    const u32a = [_]u32{ 1, 8, 100, 100000 };
+    const i64a = [_]i64{ 1, 8, 100, 100000 };
+    const u64a = [_]u64{ 1, 8, 100, 100000 };
+    var o: [4]f64 = undefined;
+
+    log_i32_f64(&i32a, &o, 4);
+    for (i32a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log(@as(f64, @floatFromInt(x))), 1e-12);
+    log2_i32_f64(&i32a, &o, 4);
+    for (i32a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log2(@as(f64, @floatFromInt(x))), 1e-12);
+    log10_i32_f64(&i32a, &o, 4);
+    for (i32a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log10(@as(f64, @floatFromInt(x))), 1e-12);
+
+    log_u32_f64(&u32a, &o, 4);
+    for (u32a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log(@as(f64, @floatFromInt(x))), 1e-12);
+    log2_u32_f64(&u32a, &o, 4);
+    for (u32a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log2(@as(f64, @floatFromInt(x))), 1e-12);
+    log10_u32_f64(&u32a, &o, 4);
+    for (u32a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log10(@as(f64, @floatFromInt(x))), 1e-12);
+
+    log_u64_f64(&u64a, &o, 4);
+    for (u64a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log(@as(f64, @floatFromInt(x))), 1e-12);
+    log2_u64_f64(&u64a, &o, 4);
+    for (u64a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log2(@as(f64, @floatFromInt(x))), 1e-12);
+    log10_i64_f64(&i64a, &o, 4);
+    for (i64a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log10(@as(f64, @floatFromInt(x))), 1e-12);
+    log10_u64_f64(&u64a, &o, 4);
+    for (u64a, 0..) |x, i| try testing.expectApproxEqRel(o[i], @log10(@as(f64, @floatFromInt(x))), 1e-12);
+}
+
+test "complex log2/log10 (c128 & c64)" {
+    const std = @import("std");
+    const testing = std.testing;
+    // z0 = 3+4i (|z|=5), z1 = -1+1i
+    const a = [_]f64{ 3.0, 4.0, -1.0, 1.0 };
+    var o2: [4]f64 = undefined;
+    var o10: [4]f64 = undefined;
+    log2_c128(&a, &o2, 2);
+    log10_c128(&a, &o10, 2);
+    try testing.expectApproxEqRel(o2[0], @log2(5.0), 1e-12);
+    try testing.expectApproxEqRel(o2[1], std.math.atan2(@as(f64, 4.0), @as(f64, 3.0)) * LOG2E_F64, 1e-12);
+    try testing.expectApproxEqRel(o10[0], @log10(5.0), 1e-12);
+    try testing.expectApproxEqRel(o10[1], std.math.atan2(@as(f64, 4.0), @as(f64, 3.0)) * LOG10E_F64, 1e-12);
+
+    const a32 = [_]f32{ 3.0, 4.0, -1.0, 1.0 };
+    var c1: [4]f32 = undefined;
+    var c2: [4]f32 = undefined;
+    var c10: [4]f32 = undefined;
+    log_c64(&a32, &c1, 2);
+    log2_c64(&a32, &c2, 2);
+    log10_c64(&a32, &c10, 2);
+    try testing.expectApproxEqAbs(c1[0], @log(@as(f32, 5.0)), 1e-5);
+    try testing.expectApproxEqAbs(c1[1], std.math.atan2(@as(f32, 4.0), @as(f32, 3.0)), 1e-5);
+    try testing.expectApproxEqAbs(c2[0], @log2(@as(f32, 5.0)), 1e-5);
+    try testing.expectApproxEqAbs(c10[0], @log10(@as(f32, 5.0)), 1e-5);
+}
