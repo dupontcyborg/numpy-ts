@@ -12,9 +12,7 @@
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import * as tanhBase from './bins/tanh.wasm';
-import * as tanhRelaxed from './bins/tanh-relaxed.wasm';
 import { wasmConfig } from './config';
-import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32ToF16InPlace,
@@ -27,12 +25,8 @@ const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
-// Pick baseline vs relaxed-SIMD (FMA) kernels once, lazily — the benchmark
-// runner sets wasmConfig.useRelaxedSimd before the first op.
-let _bins: typeof tanhBase | null = null;
 function bins(): typeof tanhBase {
-  _bins ??= useRelaxedKernels() ? tanhRelaxed : tanhBase;
-  return _bins;
+  return tanhBase;
 }
 
 const kernels: Partial<Record<DType, UnaryFn>> = {

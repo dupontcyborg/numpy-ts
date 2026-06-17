@@ -332,11 +332,6 @@ async function main() {
   const RELAXED_KERNELS = new Set([
     'matmul_float',
     'dot_float',
-    'inner_float',
-    'vecdot_float',
-    'matvec_float',
-    'vecmat_float',
-    'vector_norm',
     // Transcendentals: polynomial Horner chains lower to relaxed_madd.
     'exp',
     'exp2',
@@ -345,7 +340,6 @@ async function main() {
     'log',
     'sinh',
     'cosh',
-    'tanh',
     'tan',
     'arctan',
     'arctan2',
