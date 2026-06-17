@@ -50,7 +50,7 @@ export default defineConfig({
           include: ['tests/validation/**'],
           exclude: ['**/node_modules/**', '**/*.md', '**/numpy-oracle.ts', '**/_helpers.ts', '**/_dtype-matrix.ts', '**/_*.ts'],
           environment: 'node',
-          setupFiles: ['tests/setup-version.ts'],
+          setupFiles: ['tests/setup-version.ts', 'tests/validation/_oracle-teardown.ts'],
         },
       }),
       // Runtime file IO tests (runs under Node, Bun, and Deno)
