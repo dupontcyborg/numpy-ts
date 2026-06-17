@@ -7,8 +7,8 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import * as np from '../../../src/index';
 import { wasmConfig } from '../../../src/common/wasm/config';
+import * as np from '../../../src/index';
 import { arraysClose, runNumPy } from './_helpers';
 
 const DTYPES = [

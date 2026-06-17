@@ -17,6 +17,7 @@ import {
 } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { ArrayStorage } from '../storage';
+import { wasmCumprod, wasmCumsum } from '../wasm/cumulative';
 import { wasmNanquantile, wasmNanquantileStrided } from '../wasm/nanquantile';
 import { wasmReduceAll } from '../wasm/reduce_all';
 import { wasmReduceAny } from '../wasm/reduce_any';
@@ -42,7 +43,6 @@ import {
   wasmReduceSumStridedComplex,
 } from '../wasm/reduce_sum';
 import { wasmReduceVar } from '../wasm/reduce_var';
-import { wasmCumprod, wasmCumsum } from '../wasm/cumulative';
 
 // Reusable Float32Array accumulators — writing to f32acc[0] implicitly rounds
 // to float32 precision (same as Math.fround) but V8 optimizes typed-array

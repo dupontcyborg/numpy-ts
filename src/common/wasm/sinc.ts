@@ -5,7 +5,7 @@
  * (NumPy promotes every integer dtype to float64 for sinc).
  */
 
-import { type DType, type TypedArray } from '../dtype';
+import type { DType, TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
   sinc_f32,
@@ -99,7 +99,11 @@ export function wasmSinc(x: ArrayStorage): ArrayStorage | null {
         'float16',
         f16Region,
         size,
-        Float16Array as unknown as new (b: ArrayBuffer, o: number, l: number) => TypedArray,
+        Float16Array as unknown as new (
+          b: ArrayBuffer,
+          o: number,
+          l: number,
+        ) => TypedArray,
       );
     }
     const Ctor = (dtype === 'float64' ? Float64Array : Float32Array) as unknown as new (
@@ -128,6 +132,10 @@ export function wasmSinc(x: ArrayStorage): ArrayStorage | null {
     'float64',
     outRegion,
     size,
-    Float64Array as unknown as new (b: ArrayBuffer, o: number, l: number) => TypedArray,
+    Float64Array as unknown as new (
+      b: ArrayBuffer,
+      o: number,
+      l: number,
+    ) => TypedArray,
   );
 }

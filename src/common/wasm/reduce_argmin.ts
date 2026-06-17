@@ -246,6 +246,10 @@ export function wasmArgminAxis(a: ArrayStorage, axis: number): ArrayStorage | nu
     'int64',
     outRegion,
     outLen,
-    BigInt64Array as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray,
+    BigInt64Array as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
   );
 }
