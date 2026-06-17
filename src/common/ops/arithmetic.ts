@@ -30,6 +30,8 @@ import { wasmAdd, wasmAddScalar } from '../wasm/add';
 import { wasmClip } from '../wasm/clip';
 import { wasmDiv, wasmDivScalar } from '../wasm/divide';
 import { wasmDivmodScalar } from '../wasm/divmod';
+import { wasmFloorDivScalar, wasmFmodScalar, wasmModScalar } from '../wasm/modulo';
+import { wasmSinc } from '../wasm/sinc';
 import { wasmFrexp } from '../wasm/frexp';
 import { wasmGcd, wasmGcdScalar } from '../wasm/gcd';
 import { wasmHeaviside, wasmHeavisideScalar } from '../wasm/heaviside';
@@ -1280,6 +1282,11 @@ export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   if (typeof b === 'number') {
     return modScalar(a, b);
   }
+  // Size-1 divisor broadcasts like a scalar — take the fast path when no
+  // dtype promotion is needed (matches power's scalar-broadcast handling).
+  if (b.size === 1 && a.dtype === b.dtype) {
+    return modScalar(a, Number(b.iget(0)));
+  }
   // NumPy uses floor modulo: ((x % y) + y) % y for proper sign handling
   return elementwiseBinaryOp(a, b, (x, y) => ((x % y) + y) % y, 'mod');
 }
@@ -1290,6 +1297,9 @@ export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
  * @private
  */
 function modScalar(storage: ArrayStorage, divisor: number): ArrayStorage {
+  const wasm = wasmModScalar(storage, divisor);
+  if (wasm) return wasm;
+
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const data = storage.data;
@@ -1351,6 +1361,9 @@ export function floorDivide(a: ArrayStorage, b: ArrayStorage | number): ArraySto
   if (typeof b === 'number') {
     return floorDivideScalar(a, b);
   }
+  if (b.size === 1 && a.dtype === b.dtype) {
+    return floorDivideScalar(a, Number(b.iget(0)));
+  }
   return elementwiseBinaryOp(a, b, (x, y) => Math.floor(x / y), 'floor_divide');
 }
 
@@ -1359,6 +1372,9 @@ export function floorDivide(a: ArrayStorage, b: ArrayStorage | number): ArraySto
  * @private
  */
 function floorDivideScalar(storage: ArrayStorage, divisor: number): ArrayStorage {
+  const wasm = wasmFloorDivScalar(storage, divisor);
+  if (wasm) return wasm;
+
   const dtype = storage.dtype;
   const shape = Array.from(storage.shape);
   const data = storage.data;
@@ -1635,9 +1651,13 @@ export function fabs(a: ArrayStorage): ArrayStorage {
  * @returns Tuple of [quotient, remainder] storages
  */
 export function divmod(a: ArrayStorage, b: ArrayStorage | number): [ArrayStorage, ArrayStorage] {
-  // Fused WASM path for scalar divisor (single pass over data)
+  // Fused WASM path for scalar divisor (single pass over data). A size-1 array
+  // divisor broadcasts like a scalar — route it to the same fused kernel.
   if (typeof b === 'number') {
     const wasm = wasmDivmodScalar(a, b);
+    if (wasm) return wasm;
+  } else if (b.size === 1 && a.dtype === b.dtype) {
+    const wasm = wasmDivmodScalar(a, Number(b.iget(0)));
     if (wasm) return wasm;
   }
   const quotient = floorDivide(a, b);
@@ -2034,19 +2054,38 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
     );
   if (typeof x2 !== 'number' && x2.dtype === 'bool') return fmod(x1, boolToInt8(x2));
   if (typeof x2 === 'number') {
-    const result = x1.copy();
-    const resultData = result.data;
-    const size = x1.size;
-
-    for (let i = 0; i < size; i++) {
-      const val = Number(resultData[i]!);
-      resultData[i] = val - Math.trunc(val / x2) * x2;
-    }
-
-    return result;
+    return fmodScalar(x1, x2);
+  }
+  if (x2.size === 1 && x1.dtype === x2.dtype) {
+    return fmodScalar(x1, Number(x2.iget(0)));
   }
 
   return elementwiseBinaryOp(x1, x2, (a, b) => a - Math.trunc(a / b) * b, 'fmod');
+}
+
+/**
+ * fmod with scalar divisor (truncated remainder, sign of dividend).
+ * @private
+ */
+function fmodScalar(x1: ArrayStorage, x2: number): ArrayStorage {
+  const wasm = wasmFmodScalar(x1, x2);
+  if (wasm) return wasm;
+
+  const result = x1.copy();
+  const resultData = result.data;
+  const size = x1.size;
+  if (isBigIntDType(x1.dtype)) {
+    const typed = resultData as BigInt64Array | BigUint64Array;
+    const divBig = BigInt(Math.trunc(x2));
+    for (let i = 0; i < size; i++) typed[i] = divBig === 0n ? 0n : typed[i]! % divBig;
+    return result;
+  }
+  for (let i = 0; i < size; i++) {
+    const val = Number(resultData[i]!);
+    resultData[i] = val - Math.trunc(val / x2) * x2;
+  }
+
+  return result;
 }
 
 /**
@@ -3253,6 +3292,9 @@ export function sinc(x: ArrayStorage): ArrayStorage {
     }
     return result;
   }
+
+  const wasmResult = wasmSinc(x);
+  if (wasmResult) return wasmResult;
 
   const shape = Array.from(x.shape);
   const size = x.size;
