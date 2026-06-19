@@ -1,8 +1,8 @@
 # Dependencies allowed to run install/build (postinstall) scripts.
-# pnpm blocks all others by default for supply-chain safety.
-onlyBuiltDependencies:
-  - canvas
-  - esbuild
+# pnpm blocks all others by default for supply-chain safety; strictDepBuilds
+allowBuilds:
+  canvas: true
+  esbuild: true
 
 # Version overrides (formerly the top-level npm "overrides" field).
 overrides:
