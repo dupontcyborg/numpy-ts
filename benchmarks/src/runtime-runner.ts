@@ -60,12 +60,13 @@ function std(arr: number[]): number {
 
 function releaseResult(result: unknown): void {
   if (result == null) return;
-  if (typeof (result as any).dispose === 'function') {
-    (result as any).dispose();
+  const r = result as any;
+  if (typeof r.dispose === 'function') {
+    r.dispose();
   } else if (result instanceof Map) {
     for (const val of result.values()) releaseResult(val);
   } else if (Array.isArray(result)) {
-    for (const item of result) (item as any)?.dispose?.();
+    for (const item of result) releaseResult(item);
   } else if (
     typeof result === 'object' &&
     !(ArrayBuffer.isView(result) || result instanceof ArrayBuffer)

@@ -12,29 +12,10 @@
 
 import { type DType, effectiveDType, hasFloat16, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  logaddexp_f32,
-  logaddexp_f64,
-  logaddexp_i8,
-  logaddexp_i16,
-  logaddexp_i32,
-  logaddexp_i64,
-  logaddexp_scalar_f32,
-  logaddexp_scalar_f64,
-  logaddexp_scalar_i8,
-  logaddexp_scalar_i16,
-  logaddexp_scalar_i32,
-  logaddexp_scalar_i64,
-  logaddexp_scalar_u8,
-  logaddexp_scalar_u16,
-  logaddexp_scalar_u32,
-  logaddexp_scalar_u64,
-  logaddexp_u8,
-  logaddexp_u16,
-  logaddexp_u32,
-  logaddexp_u64,
-} from './bins/logaddexp.wasm';
+import * as laeBase from './bins/logaddexp.wasm';
+import * as laeRelaxed from './bins/logaddexp-relaxed.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -45,49 +26,57 @@ import {
 
 const BASE_THRESHOLD = 32;
 
+// Relaxed-SIMD selection: the float cores (expv/log1pv) lower their Horner
+// chains to relaxed_madd in the -relaxed build. Selected once, lazily.
+let _bins: typeof laeBase | null = null;
+function bins(): typeof laeBase {
+  _bins ??= useRelaxedKernels() ? laeRelaxed : laeBase;
+  return _bins;
+}
+
 type BinaryFn = (aPtr: number, bPtr: number, outPtr: number, N: number) => void;
 type ScalarFn = (aPtr: number, outPtr: number, N: number, scalar: number) => void;
 
 const binaryKernels: Partial<Record<DType, BinaryFn>> = {
-  float64: logaddexp_f64,
-  float32: logaddexp_f32,
-  float16: logaddexp_f32,
+  float64: (...a) => bins().logaddexp_f64(...a),
+  float32: (...a) => bins().logaddexp_f32(...a),
+  float16: (...a) => bins().logaddexp_f32(...a),
 };
 
 const scalarKernels: Partial<Record<DType, ScalarFn>> = {
-  float64: logaddexp_scalar_f64,
-  float32: logaddexp_scalar_f32,
-  float16: logaddexp_scalar_f32,
+  float64: (...a) => bins().logaddexp_scalar_f64(...a),
+  float32: (...a) => bins().logaddexp_scalar_f32(...a),
+  float16: (...a) => bins().logaddexp_scalar_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntBinaryKernels: Partial<Record<DType, BinaryFn>> = {
-  int64: logaddexp_i64,
-  uint64: logaddexp_u64,
-  int32: logaddexp_i32,
-  uint32: logaddexp_u32,
+  int64: (...a) => bins().logaddexp_i64(...a),
+  uint64: (...a) => bins().logaddexp_u64(...a),
+  int32: (...a) => bins().logaddexp_i32(...a),
+  uint32: (...a) => bins().logaddexp_u32(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntBinaryKernels: Partial<Record<DType, BinaryFn>> = {
-  int16: logaddexp_i16,
-  uint16: logaddexp_u16,
-  int8: logaddexp_i8,
-  uint8: logaddexp_u8,
+  int16: (...a) => bins().logaddexp_i16(...a),
+  uint16: (...a) => bins().logaddexp_u16(...a),
+  int8: (...a) => bins().logaddexp_i8(...a),
+  uint8: (...a) => bins().logaddexp_u8(...a),
 };
 
 const largeIntScalarKernels: Partial<Record<DType, ScalarFn>> = {
-  int64: logaddexp_scalar_i64,
-  uint64: logaddexp_scalar_u64,
-  int32: logaddexp_scalar_i32,
-  uint32: logaddexp_scalar_u32,
+  int64: (...a) => bins().logaddexp_scalar_i64(...a),
+  uint64: (...a) => bins().logaddexp_scalar_u64(...a),
+  int32: (...a) => bins().logaddexp_scalar_i32(...a),
+  uint32: (...a) => bins().logaddexp_scalar_u32(...a),
 };
 
 const smallIntScalarKernels: Partial<Record<DType, ScalarFn>> = {
-  int16: logaddexp_scalar_i16,
-  uint16: logaddexp_scalar_u16,
-  int8: logaddexp_scalar_i8,
-  uint8: logaddexp_scalar_u8,
+  int16: (...a) => bins().logaddexp_scalar_i16(...a),
+  uint16: (...a) => bins().logaddexp_scalar_u16(...a),
+  int8: (...a) => bins().logaddexp_scalar_i8(...a),
+  uint8: (...a) => bins().logaddexp_scalar_u8(...a),
 };
 
 type AnyTypedArrayCtor = new (length: number) => TypedArray;

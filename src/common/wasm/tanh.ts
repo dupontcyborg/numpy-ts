@@ -11,18 +11,7 @@
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  tanh_f32,
-  tanh_f64,
-  tanh_i8_f32,
-  tanh_i16_f32,
-  tanh_i32_f64,
-  tanh_i64_f64,
-  tanh_u8_f32,
-  tanh_u16_f32,
-  tanh_u32_f64,
-  tanh_u64_f64,
-} from './bins/tanh.wasm';
+import * as tanhBase from './bins/tanh.wasm';
 import { wasmConfig } from './config';
 import {
   f16InputToScratchF32,
@@ -36,25 +25,29 @@ const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
+function bins(): typeof tanhBase {
+  return tanhBase;
+}
+
 const kernels: Partial<Record<DType, UnaryFn>> = {
-  float64: tanh_f64,
-  float32: tanh_f32,
+  float64: (...a) => bins().tanh_f64(...a),
+  float32: (...a) => bins().tanh_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: tanh_i64_f64,
-  uint64: tanh_u64_f64,
-  int32: tanh_i32_f64,
-  uint32: tanh_u32_f64,
+  int64: (...a) => bins().tanh_i64_f64(...a),
+  uint64: (...a) => bins().tanh_u64_f64(...a),
+  int32: (...a) => bins().tanh_i32_f64(...a),
+  uint32: (...a) => bins().tanh_u32_f64(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int16: tanh_i16_f32,
-  uint16: tanh_u16_f32,
-  int8: tanh_i8_f32,
-  uint8: tanh_u8_f32,
+  int16: (...a) => bins().tanh_i16_f32(...a),
+  uint16: (...a) => bins().tanh_u16_f32(...a),
+  int8: (...a) => bins().tanh_i8_f32(...a),
+  uint8: (...a) => bins().tanh_u8_f32(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -94,7 +87,7 @@ export function wasmTanh(a: ArrayStorage): ArrayStorage | null {
     resetScratchAllocator();
     const aPtr = f16InputToScratchF32(a, size);
 
-    tanh_f32(aPtr, outRegion.ptr, size);
+    bins().tanh_f32(aPtr, outRegion.ptr, size);
 
     f32ToF16InPlace(outRegion, size);
     return ArrayStorage.fromWasmRegion(

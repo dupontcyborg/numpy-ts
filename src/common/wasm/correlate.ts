@@ -16,17 +16,10 @@ import {
   type TypedArray,
 } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  correlate_f32,
-  correlate_f64,
-  correlate_i8,
-  correlate_i16,
-  correlate_i32,
-  correlate_u8,
-  correlate_u16,
-  correlate_u32,
-} from './bins/correlate.wasm';
+import * as correlateBase from './bins/correlate.wasm';
+import * as correlateRelaxed from './bins/correlate-relaxed.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
 const BASE_THRESHOLD = 32;
@@ -40,15 +33,21 @@ type CorrelateFn = (
   outLen: number,
 ) => void;
 
+let _bins: typeof correlateBase | null = null;
+function bins(): typeof correlateBase {
+  _bins ??= useRelaxedKernels() ? correlateRelaxed : correlateBase;
+  return _bins;
+}
+
 const kernels: Partial<Record<DType, CorrelateFn>> = {
-  float64: correlate_f64,
-  float32: correlate_f32,
-  int32: correlate_i32,
-  uint32: correlate_u32,
-  int16: correlate_i16,
-  uint16: correlate_u16,
-  int8: correlate_i8,
-  uint8: correlate_u8,
+  float64: (...a) => bins().correlate_f64(...a),
+  float32: (...a) => bins().correlate_f32(...a),
+  int32: (...a) => bins().correlate_i32(...a),
+  uint32: (...a) => bins().correlate_u32(...a),
+  int16: (...a) => bins().correlate_i16(...a),
+  uint16: (...a) => bins().correlate_u16(...a),
+  int8: (...a) => bins().correlate_i8(...a),
+  uint8: (...a) => bins().correlate_u8(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {

@@ -6,137 +6,138 @@
 //! Both operate on contiguous 1D buffers of length N.
 
 const simd = @import("simd.zig");
+const t = @import("transcend.zig");
 const math = @import("std").math;
+
+/// logaddexp of a 2-wide f64 lane: max(a,b) + softplus(min−max).
+/// `softplusv_f64` fuses the log1p∘exp into one polynomial for |min−max| ≤ 2
+/// (no exp/log/divide) and falls back to the general path for spread lanes.
+inline fn lae_f64(a: simd.V2f64, b: simd.V2f64) simd.V2f64 {
+    const mx = simd.max_f64x2(a, b);
+    const mn = simd.min_f64x2(a, b);
+    return mx + t.softplusv_f64(mn - mx);
+}
 
 /// Element-wise logaddexp for f64: out[i] = log(exp(a[i]) + exp(b[i])).
 export fn logaddexp_f64(a: [*]const f64, b: [*]const f64, out: [*]f64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_f64(out, i, lae_f64(simd.load2_f64(a, i), simd.load2_f64(b, i)));
+    }
     while (i < N) : (i += 1) {
-        const va = a[i];
-        const vb = b[i];
-        const mx = @max(va, vb);
-        const mn = @min(va, vb);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        const av: simd.V2f64 = .{ a[i], a[i] };
+        const bv: simd.V2f64 = .{ b[i], b[i] };
+        out[i] = lae_f64(av, bv)[0];
     }
 }
 
 /// Element-wise logaddexp for f32: out[i] = log(exp(a[i]) + exp(b[i])).
 /// Computes in f64 for numerical stability, casts back to f32.
 export fn logaddexp_f32(a: [*]const f32, b: [*]const f32, out: [*]f32, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const av: simd.V2f64 = .{ a[i], a[i + 1] };
+        const bv: simd.V2f64 = .{ b[i], b[i + 1] };
+        const r = lae_f64(av, bv);
+        out[i] = @floatCast(r[0]);
+        out[i + 1] = @floatCast(r[1]);
+    }
     while (i < N) : (i += 1) {
-        const va: f64 = @floatCast(a[i]);
-        const vb: f64 = @floatCast(b[i]);
-        const mx = @max(va, vb);
-        const mn = @min(va, vb);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
+        const av: simd.V2f64 = .{ a[i], a[i] };
+        const bv: simd.V2f64 = .{ b[i], b[i] };
+        out[i] = @floatCast(lae_f64(av, bv)[0]);
     }
 }
 
-/// Element-wise logaddexp for i64 → f64 output. Scalar (no i64 SIMD in WASM).
-export fn logaddexp_i64(a: [*]const i64, b: [*]const i64, out: [*]f64, N: u32) void {
+// Integer inputs are widened to f64 lanes and run through the same fused SIMD
+// core (`lae_f64` → `softplusv_f64`), so they get the transcendental-free fast
+// path too. i32/u32 vectorize the int→f64 convert; i64/u64 scalarize it (no
+// i64x2→f64x2 convert in WASM SIMD) but still vectorize the softplus math.
+inline fn laeIntToF64(comptime T: type, a: [*]const T, b: [*]const T, out: [*]f64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+    while (i < n_simd) : (i += 2) {
+        const av: simd.V2f64 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]) };
+        const bv: simd.V2f64 = .{ @floatFromInt(b[i]), @floatFromInt(b[i + 1]) };
+        simd.store2_f64(out, i, lae_f64(av, bv));
     }
+    while (i < N) : (i += 1) {
+        const av: simd.V2f64 = @splat(@floatFromInt(a[i]));
+        const bv: simd.V2f64 = @splat(@floatFromInt(b[i]));
+        out[i] = lae_f64(av, bv)[0];
+    }
+}
+
+inline fn laeIntToF32(comptime T: type, a: [*]const T, b: [*]const T, out: [*]f32, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const av: simd.V2f64 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]) };
+        const bv: simd.V2f64 = .{ @floatFromInt(b[i]), @floatFromInt(b[i + 1]) };
+        const r = lae_f64(av, bv);
+        out[i] = @floatCast(r[0]);
+        out[i + 1] = @floatCast(r[1]);
+    }
+    while (i < N) : (i += 1) {
+        const av: simd.V2f64 = @splat(@floatFromInt(a[i]));
+        const bv: simd.V2f64 = @splat(@floatFromInt(b[i]));
+        out[i] = @floatCast(lae_f64(av, bv)[0]);
+    }
+}
+
+/// Element-wise logaddexp for i64 → f64 output.
+export fn logaddexp_i64(a: [*]const i64, b: [*]const i64, out: [*]f64, N: u32) void {
+    laeIntToF64(i64, a, b, out, N);
 }
 
 /// Element-wise logaddexp for u64 → f64 output.
 export fn logaddexp_u64(a: [*]const u64, b: [*]const u64, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
-    }
+    laeIntToF64(u64, a, b, out, N);
 }
 
 /// Element-wise logaddexp for i32 → f64 output.
 export fn logaddexp_i32(a: [*]const i32, b: [*]const i32, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
-    }
+    laeIntToF64(i32, a, b, out, N);
 }
 
 /// Element-wise logaddexp for u32 → f64 output.
 export fn logaddexp_u32(a: [*]const u32, b: [*]const u32, out: [*]f64, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
-    }
+    laeIntToF64(u32, a, b, out, N);
 }
 
 /// Element-wise logaddexp for i16 → f32 output.
 export fn logaddexp_i16(a: [*]const i16, b: [*]const i16, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeIntToF32(i16, a, b, out, N);
 }
 
 /// Element-wise logaddexp for u16 → f32 output.
 export fn logaddexp_u16(a: [*]const u16, b: [*]const u16, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeIntToF32(u16, a, b, out, N);
 }
 
 /// Element-wise logaddexp for i8 → f32 output.
 export fn logaddexp_i8(a: [*]const i8, b: [*]const i8, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeIntToF32(i8, a, b, out, N);
 }
 
 /// Element-wise logaddexp for u8 → f32 output.
 export fn logaddexp_u8(a: [*]const u8, b: [*]const u8, out: [*]f32, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const bf = @as(f64, @floatFromInt(b[i]));
-        const mx = @max(af, bf);
-        const mn = @min(af, bf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeIntToF32(u8, a, b, out, N);
 }
 
 /// Element-wise logaddexp scalar for f64: out[i] = log(exp(a[i]) + exp(scalar)).
 export fn logaddexp_scalar_f64(a: [*]const f64, out: [*]f64, N: u32, scalar: f64) void {
+    const bv: simd.V2f64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_f64(out, i, lae_f64(simd.load2_f64(a, i), bv));
+    }
     while (i < N) : (i += 1) {
-        const va = a[i];
-        const mx = @max(va, scalar);
-        const mn = @min(va, scalar);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
+        const av: simd.V2f64 = .{ a[i], a[i] };
+        out[i] = lae_f64(av, bv)[0];
     }
 }
 
@@ -144,109 +145,89 @@ export fn logaddexp_scalar_f64(a: [*]const f64, out: [*]f64, N: u32, scalar: f64
 /// Computes in f64 for numerical stability, casts back to f32.
 export fn logaddexp_scalar_f32(a: [*]const f32, out: [*]f32, N: u32, scalar: f32) void {
     const s: f64 = @floatCast(scalar);
+    const bv: simd.V2f64 = @splat(s);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const av: simd.V2f64 = .{ a[i], a[i + 1] };
+        const r = lae_f64(av, bv);
+        out[i] = @floatCast(r[0]);
+        out[i + 1] = @floatCast(r[1]);
+    }
     while (i < N) : (i += 1) {
-        const va: f64 = @floatCast(a[i]);
-        const mx = @max(va, s);
-        const mn = @min(va, s);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
+        const av: simd.V2f64 = .{ a[i], a[i] };
+        out[i] = @floatCast(lae_f64(av, bv)[0]);
+    }
+}
+
+inline fn laeScalarIntToF64(comptime T: type, a: [*]const T, out: [*]f64, N: u32, scalar: T) void {
+    const bv: simd.V2f64 = @splat(@floatFromInt(scalar));
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const av: simd.V2f64 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]) };
+        simd.store2_f64(out, i, lae_f64(av, bv));
+    }
+    while (i < N) : (i += 1) {
+        const av: simd.V2f64 = @splat(@floatFromInt(a[i]));
+        out[i] = lae_f64(av, bv)[0];
+    }
+}
+
+inline fn laeScalarIntToF32(comptime T: type, a: [*]const T, out: [*]f32, N: u32, scalar: T) void {
+    const bv: simd.V2f64 = @splat(@floatFromInt(scalar));
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const av: simd.V2f64 = .{ @floatFromInt(a[i]), @floatFromInt(a[i + 1]) };
+        const r = lae_f64(av, bv);
+        out[i] = @floatCast(r[0]);
+        out[i + 1] = @floatCast(r[1]);
+    }
+    while (i < N) : (i += 1) {
+        const av: simd.V2f64 = @splat(@floatFromInt(a[i]));
+        out[i] = @floatCast(lae_f64(av, bv)[0]);
     }
 }
 
 /// Element-wise logaddexp scalar for i64 → f64 output.
 export fn logaddexp_scalar_i64(a: [*]const i64, out: [*]f64, N: u32, scalar: i64) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
-    }
+    laeScalarIntToF64(i64, a, out, N, scalar);
 }
 
 /// Element-wise logaddexp scalar for u64 → f64 output.
 export fn logaddexp_scalar_u64(a: [*]const u64, out: [*]f64, N: u32, scalar: u64) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
-    }
+    laeScalarIntToF64(u64, a, out, N, scalar);
 }
 
 /// Element-wise logaddexp scalar for i32 → f64 output.
 export fn logaddexp_scalar_i32(a: [*]const i32, out: [*]f64, N: u32, scalar: i32) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
-    }
+    laeScalarIntToF64(i32, a, out, N, scalar);
 }
 
 /// Element-wise logaddexp scalar for u32 → f64 output.
 export fn logaddexp_scalar_u32(a: [*]const u32, out: [*]f64, N: u32, scalar: u32) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = mx + math.log1p(math.exp(mn - mx));
-    }
+    laeScalarIntToF64(u32, a, out, N, scalar);
 }
 
 /// Element-wise logaddexp scalar for i16 → f32 output.
 export fn logaddexp_scalar_i16(a: [*]const i16, out: [*]f32, N: u32, scalar: i16) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeScalarIntToF32(i16, a, out, N, scalar);
 }
 
 /// Element-wise logaddexp scalar for u16 → f32 output.
 export fn logaddexp_scalar_u16(a: [*]const u16, out: [*]f32, N: u32, scalar: u16) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeScalarIntToF32(u16, a, out, N, scalar);
 }
 
 /// Element-wise logaddexp scalar for i8 → f32 output.
 export fn logaddexp_scalar_i8(a: [*]const i8, out: [*]f32, N: u32, scalar: i8) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeScalarIntToF32(i8, a, out, N, scalar);
 }
 
 /// Element-wise logaddexp scalar for u8 → f32 output.
 export fn logaddexp_scalar_u8(a: [*]const u8, out: [*]f32, N: u32, scalar: u8) void {
-    const sf = @as(f64, @floatFromInt(scalar));
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const af = @as(f64, @floatFromInt(a[i]));
-        const mx = @max(af, sf);
-        const mn = @min(af, sf);
-        out[i] = @floatCast(mx + math.log1p(math.exp(mn - mx)));
-    }
+    laeScalarIntToF32(u8, a, out, N, scalar);
 }
 
 // --- Tests ---

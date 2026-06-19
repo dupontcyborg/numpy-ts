@@ -21,7 +21,7 @@
     "lint": "cd rust && cargo clippy --target wasm32-unknown-unknown"
   },
   "devDependencies": {
-    "tsx": "^4.20.6",
+    "tsx": "^4.22.4",
     "typescript": "^5.3.3"
   }
 }

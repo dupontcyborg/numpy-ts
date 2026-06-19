@@ -189,6 +189,18 @@ for (const [mod, exportFns] of exportFnsByModule) {
   const combinedWrapperSrc = wrappers.map((wp) => wrapperSources.get(wp)!);
   const wrapperNames = wrappers.map((wp) => basename(wp));
 
+  // Some wrappers dispatch kernels by dynamically-built name rather than by
+  // literal reference, so the per-fn `\bfn\b` scan below can never see them:
+  //   - computed index with an interpolated template: `k[`${op}_${suffix}`]`
+  //   - the whole bins object handed to a dynamic-dispatch helper, e.g.
+  //     `complexUnaryWasm(a, op, bins())` (which builds `${op}_c64` itself)
+  // In both cases every dtype/suffix kernel is reachable by construction, so
+  // treat the module as fully used to avoid false positives.
+  const usesDynamicDispatch = combinedWrapperSrc.some(
+    (src) => /\[\s*`[^`]*\$\{[^`]*`\s*\]/.test(src) || /bins\(\)(?!\s*[.[])/.test(src),
+  );
+  if (usesDynamicDispatch) continue;
+
   for (const fn of exportFns) {
     // Check if fn is referenced in any wrapper body (outside import lines).
     // Handles named imports (direct use), namespace imports accessed via
