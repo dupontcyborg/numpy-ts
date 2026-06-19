@@ -55,7 +55,7 @@
     "test:tree-shaking": "vitest run --project=tree-shaking",
     "test:browser": "pnpm run build:clean && pnpm run generate && tsx build.ts --skip-wasm && pnpm run build:types && vitest run --project=browser-unit --project=bundle-browser --project=bundle-esm",
     "test:bun": "pnpm run build:test && bun vitest run --project=unit --project=validation --project=runtime-io",
-    "test:deno": "pnpm run build:test && deno run -A node_modules/.bin/vitest run --project=unit --project=validation --project=runtime-io",
+    "test:deno": "pnpm run build:test && deno run -A node_modules/vitest/vitest.mjs run --project=unit --project=validation --project=runtime-io",
     "test:coverage": "vitest run --project=unit --project=validation --project=runtime-io --project=wasm-memory --coverage",
     "test:ci": "pnpm run lint && pnpm run typecheck && pnpm run test",
     "lint": "biome check src tests scripts benchmarks/src && zig fmt --check src/common/wasm/zig",
@@ -129,7 +129,7 @@
   },
   "packageManager": "pnpm@11.8.0",
   "engines": {
-    "node": ">=20.1.0"
+    "node": ">=22"
   },
   "lint-staged": {
     "*.ts": [
