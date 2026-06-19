@@ -18,9 +18,7 @@ export async function runPyodideBenchmarks(
     const mod = await import('pyodide');
     loadPyodide = mod.loadPyodide;
   } catch {
-    throw new Error(
-      'pyodide package not found. Install it with:\n  pnpm add -D pyodide',
-    );
+    throw new Error('pyodide package not found. Install it with:\n  pnpm add -D pyodide');
   }
 
   console.log('Loading Pyodide runtime...');
