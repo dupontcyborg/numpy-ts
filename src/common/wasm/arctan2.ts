@@ -18,19 +18,10 @@ import {
   type TypedArray,
 } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  arctan2_f32,
-  arctan2_f64,
-  arctan2_i8_f32,
-  arctan2_i16_f32,
-  arctan2_i32_f64,
-  arctan2_i64_f64,
-  arctan2_u8_f32,
-  arctan2_u16_f32,
-  arctan2_u32_f64,
-  arctan2_u64_f64,
-} from './bins/arctan2.wasm';
+import * as arctan2Base from './bins/arctan2.wasm';
+import * as arctan2Relaxed from './bins/arctan2-relaxed.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -43,26 +34,34 @@ const BASE_THRESHOLD = 32;
 
 type BinaryFn = (aPtr: number, bPtr: number, outPtr: number, N: number) => void;
 
+// Pick baseline vs relaxed-SIMD (FMA) kernels once, lazily — the benchmark
+// runner sets wasmConfig.useRelaxedSimd before the first op.
+let _bins: typeof arctan2Base | null = null;
+function bins(): typeof arctan2Base {
+  _bins ??= useRelaxedKernels() ? arctan2Relaxed : arctan2Base;
+  return _bins;
+}
+
 const binaryKernels: Partial<Record<DType, BinaryFn>> = {
-  float64: arctan2_f64,
-  float32: arctan2_f32,
-  float16: arctan2_f32,
+  float64: (...a) => bins().arctan2_f64(...a),
+  float32: (...a) => bins().arctan2_f32(...a),
+  float16: (...a) => bins().arctan2_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, BinaryFn>> = {
-  int64: arctan2_i64_f64,
-  uint64: arctan2_u64_f64,
-  int32: arctan2_i32_f64,
-  uint32: arctan2_u32_f64,
+  int64: (...a) => bins().arctan2_i64_f64(...a),
+  uint64: (...a) => bins().arctan2_u64_f64(...a),
+  int32: (...a) => bins().arctan2_i32_f64(...a),
+  uint32: (...a) => bins().arctan2_u32_f64(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntKernels: Partial<Record<DType, BinaryFn>> = {
-  int16: arctan2_i16_f32,
-  uint16: arctan2_u16_f32,
-  int8: arctan2_i8_f32,
-  uint8: arctan2_u8_f32,
+  int16: (...a) => bins().arctan2_i16_f32(...a),
+  uint16: (...a) => bins().arctan2_u16_f32(...a),
+  int8: (...a) => bins().arctan2_i8_f32(...a),
+  uint8: (...a) => bins().arctan2_u8_f32(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {

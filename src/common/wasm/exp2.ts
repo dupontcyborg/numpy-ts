@@ -11,19 +11,11 @@
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  exp2_f32,
-  exp2_f64,
-  exp2_i8_f32,
-  exp2_i16_f32,
-  exp2_i32_f64,
-  exp2_i64_f64,
-  exp2_u8_f32,
-  exp2_u16_f32,
-  exp2_u32_f64,
-  exp2_u64_f64,
-} from './bins/exp2.wasm';
+import * as exp2Base from './bins/exp2.wasm';
+import * as exp2Relaxed from './bins/exp2-relaxed.wasm';
+import { complexUnaryWasm } from './complex-io';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -36,25 +28,33 @@ const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
+// Pick baseline vs relaxed-SIMD (FMA) kernels once, lazily — the benchmark
+// runner sets wasmConfig.useRelaxedSimd before the first op.
+let _bins: typeof exp2Base | null = null;
+function bins(): typeof exp2Base {
+  _bins ??= useRelaxedKernels() ? exp2Relaxed : exp2Base;
+  return _bins;
+}
+
 const kernels: Partial<Record<DType, UnaryFn>> = {
-  float64: exp2_f64,
-  float32: exp2_f32,
+  float64: (...a) => bins().exp2_f64(...a),
+  float32: (...a) => bins().exp2_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: exp2_i64_f64,
-  uint64: exp2_u64_f64,
-  int32: exp2_i32_f64,
-  uint32: exp2_u32_f64,
+  int64: (...a) => bins().exp2_i64_f64(...a),
+  uint64: (...a) => bins().exp2_u64_f64(...a),
+  int32: (...a) => bins().exp2_i32_f64(...a),
+  uint32: (...a) => bins().exp2_u32_f64(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int16: exp2_i16_f32,
-  uint16: exp2_u16_f32,
-  int8: exp2_i8_f32,
-  uint8: exp2_u8_f32,
+  int16: (...a) => bins().exp2_i16_f32(...a),
+  uint16: (...a) => bins().exp2_u16_f32(...a),
+  int8: (...a) => bins().exp2_i8_f32(...a),
+  uint8: (...a) => bins().exp2_u8_f32(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -79,7 +79,9 @@ export function wasmExp2(a: ArrayStorage): ArrayStorage | null {
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
   const dtype = effectiveDType(a.dtype);
-  if (isComplexDType(dtype)) return null;
+  if (isComplexDType(dtype)) {
+    return complexUnaryWasm(a, 'exp2', bins() as unknown as Record<string, UnaryFn>);
+  }
 
   // float16 path: convert to f32, run f32 kernel, convert back
   if (dtype === 'float16') {
@@ -94,7 +96,7 @@ export function wasmExp2(a: ArrayStorage): ArrayStorage | null {
     resetScratchAllocator();
     const aPtr = f16InputToScratchF32(a, size);
 
-    exp2_f32(aPtr, outRegion.ptr, size);
+    bins().exp2_f32(aPtr, outRegion.ptr, size);
 
     const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();

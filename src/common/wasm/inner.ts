@@ -12,10 +12,8 @@ import { Complex } from '../complex';
 import { type DType, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/inner_float.wasm';
-import * as floatRelaxed from './bins/inner_float-relaxed.wasm';
 import { inner_i8, inner_i16, inner_i32, inner_i64 } from './bins/inner_int.wasm';
 import { wasmConfig } from './config';
-import { useRelaxedKernels } from './detect';
 import {
   getSharedMemory,
   resetScratchAllocator,
@@ -24,10 +22,8 @@ import {
   wasmMalloc,
 } from './runtime';
 
-let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
-  return _float;
+  return floatBase;
 }
 
 // Minimum total elements (M*K + N*K) for WASM to be worth the copy overhead.

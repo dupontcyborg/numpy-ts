@@ -9,10 +9,8 @@
 import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import * as floatBase from './bins/vecdot_float.wasm';
-import * as floatRelaxed from './bins/vecdot_float-relaxed.wasm';
 import { vecdot_i8, vecdot_i16, vecdot_i32, vecdot_i64 } from './bins/vecdot_int.wasm';
 import { wasmConfig } from './config';
-import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -21,10 +19,8 @@ import {
   wasmMalloc,
 } from './runtime';
 
-let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
-  return _float;
+  return floatBase;
 }
 
 const BASE_THRESHOLD = 32; // Minimum B*K for WASM

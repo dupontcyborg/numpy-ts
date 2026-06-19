@@ -320,25 +320,47 @@ async function main() {
   mkdirSync(BINS_DIR, { recursive: true });
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  const SHARED_MODULES = new Set(['simd.zig', 'sorting_common.zig', 'ziggurat_tables.zig']);
+  const SHARED_MODULES = new Set([
+    'simd.zig',
+    'sorting_common.zig',
+    'ziggurat_tables.zig',
+    'transcend.zig',
+  ]);
 
   // Kernels that get a second compilation with +relaxed_simd (FMA: relaxed_madd).
   // Only _float kernels benefit — integer kernels have no FMA equivalent.
   const RELAXED_KERNELS = new Set([
     'matmul_float',
     'dot_float',
-    'inner_float',
-    'vecdot_float',
-    'matvec_float',
-    'vecmat_float',
-    'vector_norm',
+    // Transcendentals: polynomial Horner chains lower to relaxed_madd.
+    'exp',
+    'exp2',
+    'sin',
+    'cos',
+    'log',
+    'sinh',
+    'cosh',
+    'tan',
+    'arctan',
+    'arctan2',
+    'arcsinh',
+    'arccosh',
+    'arctanh',
+    'expm1',
+    'log1p',
+    'logaddexp2',
+    'logaddexp',
+    'correlate',
   ]);
   const zigFiles = readdirSync(ZIG_DIR).filter((f) => f.endsWith('.zig') && !SHARED_MODULES.has(f));
 
   // Assign each kernel a unique global-base offset to prevent data-segment
   // collisions when all WASM modules share the same linear memory.
-  // Stride of 64 KiB per module is enough for even the largest (rng ≈ 16 KiB).
-  const MODULE_STRIDE = 65536; // 64 KiB per module
+  // 48 KiB per module: 3× the largest module's static data (rng ≈ 16 KiB), and
+  // keeps all modules' segments below runtime.ts's 8 MiB MIN_HEAP_BASE — at
+  // 64 KiB the ~144 base+relaxed modules crossed that ceiling. The
+  // "no overlapping data segments" wasm-memory test guards the chosen stride.
+  const MODULE_STRIDE = 49152; // 48 KiB per module
   const sortedFiles = [...zigFiles].sort();
   const globalBaseMap = new Map<string, number>();
   for (let i = 0; i < sortedFiles.length; i++) {

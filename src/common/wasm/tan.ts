@@ -11,19 +11,10 @@
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  tan_f32,
-  tan_f64,
-  tan_i8_f32,
-  tan_i16_f32,
-  tan_i32_f64,
-  tan_i64_f64,
-  tan_u8_f32,
-  tan_u16_f32,
-  tan_u32_f64,
-  tan_u64_f64,
-} from './bins/tan.wasm';
+import * as tanBase from './bins/tan.wasm';
+import * as tanRelaxed from './bins/tan-relaxed.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -36,25 +27,33 @@ const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
+// Pick baseline vs relaxed-SIMD (FMA) kernels once, lazily — the benchmark
+// runner sets wasmConfig.useRelaxedSimd before the first op.
+let _bins: typeof tanBase | null = null;
+function bins(): typeof tanBase {
+  _bins ??= useRelaxedKernels() ? tanRelaxed : tanBase;
+  return _bins;
+}
+
 const kernels: Partial<Record<DType, UnaryFn>> = {
-  float64: tan_f64,
-  float32: tan_f32,
+  float64: (...a) => bins().tan_f64(...a),
+  float32: (...a) => bins().tan_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: tan_i64_f64,
-  uint64: tan_u64_f64,
-  int32: tan_i32_f64,
-  uint32: tan_u32_f64,
+  int64: (...a) => bins().tan_i64_f64(...a),
+  uint64: (...a) => bins().tan_u64_f64(...a),
+  int32: (...a) => bins().tan_i32_f64(...a),
+  uint32: (...a) => bins().tan_u32_f64(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int16: tan_i16_f32,
-  uint16: tan_u16_f32,
-  int8: tan_i8_f32,
-  uint8: tan_u8_f32,
+  int16: (...a) => bins().tan_i16_f32(...a),
+  uint16: (...a) => bins().tan_u16_f32(...a),
+  int8: (...a) => bins().tan_i8_f32(...a),
+  uint8: (...a) => bins().tan_u8_f32(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -94,7 +93,7 @@ export function wasmTan(a: ArrayStorage): ArrayStorage | null {
     resetScratchAllocator();
     const aPtr = f16InputToScratchF32(a, size);
 
-    tan_f32(aPtr, outRegion.ptr, size);
+    bins().tan_f32(aPtr, outRegion.ptr, size);
 
     const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();

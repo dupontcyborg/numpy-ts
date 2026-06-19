@@ -208,7 +208,9 @@ function evalOnWorker(code: string): Record<string, unknown> {
       if (ec === 'EAGAIN') {
         if (Date.now() > deadline) {
           _worker = null;
-          throw new Error(`numpy-oracle: worker timed out after ${WORKER_TIMEOUT_MS}ms on: ${code}`);
+          throw new Error(
+            `numpy-oracle: worker timed out after ${WORKER_TIMEOUT_MS}ms on: ${code}`,
+          );
         }
         continue; // no data yet — spin until the reply arrives
       }

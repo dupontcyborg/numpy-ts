@@ -448,7 +448,203 @@ export fn reduce_argmin_strided_u8(a: [*]const u8, out: [*]i32, outer: u32, axis
     }
 }
 
+// --- 2-D axis=0 reduction (C-contiguous, output i64 indices) ---
+//
+// For a [R,C] C-contiguous array, out[c] = arg-min over rows r=0..R-1 of a[r*C + c].
+// Tie-break: FIRST occurrence (strict `<`), matching NumPy.
+// Float variants: NaN wins (NumPy returns the index of the first NaN).
+
+// Generalized strided argmin along one axis of a C-contiguous array.
+// before = ∏ dims[0..axis], axis_size = dims[axis], inner = ∏ dims[axis+1..]
+// (= the axis stride). Output before*inner in C-order = shape with `axis`
+// removed. axis=0 → before=1, inner=C; last axis → inner=1.
+// Tie-break: FIRST occurrence (strict `<`). Floats: NaN-first (NumPy).
+inline fn argminStrided(
+    comptime T: type,
+    comptime nan_aware: bool,
+    a: [*]const T,
+    before: u32,
+    axis_size: u32,
+    inner: u32,
+    out: [*]i64,
+) void {
+    const A = @as(usize, axis_size);
+    const I = @as(usize, inner);
+    var ob: usize = 0;
+    while (ob < before) : (ob += 1) {
+        const block = ob * A * I;
+        const obase = ob * I;
+        var ii: usize = 0;
+        while (ii < I) : (ii += 1) {
+            const base = block + ii;
+            var best: T = a[base];
+            var idx: i64 = 0;
+            if (nan_aware and best != best) {
+                out[obase + ii] = 0;
+                continue;
+            }
+            var k: usize = 1;
+            while (k < A) : (k += 1) {
+                const val = a[base + k * I];
+                if (nan_aware and val != val) {
+                    idx = @intCast(k);
+                    break;
+                }
+                if (val < best) {
+                    best = val;
+                    idx = @intCast(k);
+                }
+            }
+            out[obase + ii] = idx;
+        }
+    }
+}
+
+export fn argmin_axis_f64(a: [*]const f64, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(f64, true, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_f32(a: [*]const f32, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(f32, true, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_i64(a: [*]const i64, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(i64, false, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_u64(a: [*]const u64, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(u64, false, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_i32(a: [*]const i32, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(i32, false, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_u32(a: [*]const u32, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(u32, false, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_i16(a: [*]const i16, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(i16, false, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_u16(a: [*]const u16, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(u16, false, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_i8(a: [*]const i8, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(i8, false, a, before, axis_size, inner, out);
+}
+export fn argmin_axis_u8(a: [*]const u8, before: u32, axis_size: u32, inner: u32, out: [*]i64) void {
+    argminStrided(u8, false, a, before, axis_size, inner, out);
+}
+
 // --- Tests ---
+
+test "argmin_axis 3x2 axis=0 (before=1,inner=2)" {
+    const testing = @import("std").testing;
+    // [[1,5],[4,2],[3,6]] -> col0 min at row0, col1 min at row1
+    var a = [_]f64{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_f64(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis 3x2 axis=1 (before=3,inner=1)" {
+    const testing = @import("std").testing;
+    // [[1,5],[4,2],[3,6]] -> per-row argmin = [0,1,0]
+    var a = [_]f64{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0, 0 };
+    argmin_axis_f64(&a, 3, 2, 1, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+    try testing.expectEqual(out[2], 0);
+}
+
+test "argmin_axis ties first occurrence" {
+    const testing = @import("std").testing;
+    var a = [_]i32{ 1, 5, 1, 5, 1, 5 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_i32(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 0);
+}
+
+test "argmin_axis f64 NaN first wins" {
+    const testing = @import("std").testing;
+    const nan = @import("std").math.nan(f64);
+    // [[1,5],[nan,2],[3,nan]] -> NumPy argmin axis=0 = [1,2]
+    var a = [_]f64{ 1, 5, nan, 2, 3, nan };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_f64(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 1);
+    try testing.expectEqual(out[1], 2);
+}
+
+test "argmin_axis_f32 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]f32{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_f32(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis_i64 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]i64{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_i64(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis_u64 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u64{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_u64(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis_u32 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u32{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_u32(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis_i16 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]i16{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_i16(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis_u16 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u16{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_u16(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis_i8 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]i8{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_i8(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
+
+test "argmin_axis_u8 3x2 axis=0" {
+    const testing = @import("std").testing;
+    var a = [_]u8{ 1, 5, 4, 2, 3, 6 };
+    var out = [_]i64{ 0, 0 };
+    argmin_axis_u8(&a, 1, 3, 2, &out);
+    try testing.expectEqual(out[0], 0);
+    try testing.expectEqual(out[1], 1);
+}
 
 test "reduce_argmin_f64 basic" {
     const testing = @import("std").testing;
