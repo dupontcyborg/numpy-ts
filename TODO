@@ -15,6 +15,7 @@
 - [ ] Add heterogeneous dtype promotion to binary WASM kernels
 - [ ] Add strided array handling to all WASM kernels
 - [ ] Consider removing TypeScript ops where we have WASM and have WASM run all cases
+- [ ] Add JS benchmarks to docs
 - [X] Add `float16` support (conditional upon `Float16Array` being available)
 - [X] Accelerate with WASM kernels
 - [X] WASM optimization & relaxed SIMD

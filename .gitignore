@@ -74,3 +74,6 @@ fetch-stargazers.sh
 
 # Internal docs (not published to Mintlify, kept local only)
 docs_internal/
+
+# WASM benchmarking sandbox (kept local only, history preserved)
+wasm-bench/
