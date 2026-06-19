@@ -35,16 +35,16 @@ keeps headline numbers comparable across releases.
 
 ```bash
 # Run standard benchmarks (recommended)
-npm run bench
+pnpm run bench
 
 # Run quick benchmarks (for CI or quick checks)
-npm run bench:quick
+pnpm run bench:quick
 
 # Run full benchmarks (comprehensive, takes longer)
-npm run bench:full
+pnpm run bench:full
 
 # View latest results in browser
-npm run bench:view
+pnpm run bench:view
 ```
 
 ## Benchmark Modes
@@ -73,19 +73,19 @@ Run benchmarks for a specific category:
 
 ```bash
 # Array creation only
-npm run bench:category creation
+pnpm run bench:category creation
 
 # Linear algebra only
-npm run bench:category linalg
+pnpm run bench:category linalg
 
 # Arithmetic operations only
-npm run bench:category arithmetic
+pnpm run bench:category arithmetic
 
 # Reductions only
-npm run bench:category reductions
+pnpm run bench:category reductions
 
 # Reshape operations only
-npm run bench:category reshape
+pnpm run bench:category reshape
 ```
 
 ## Available Categories
@@ -133,7 +133,7 @@ Results are saved to:
 Interactive HTML report with charts is generated at:
 - `benchmarks/results/plots/latest.html`
 
-View with: `npm run bench:view`
+View with: `pnpm run bench:view`
 
 Features:
 - Summary statistics cards
@@ -258,7 +258,7 @@ For continuous integration, use quick mode:
 ```yaml
 # .github/workflows/benchmark.yml
 - name: Run benchmarks
-  run: npm run bench:quick
+  run: pnpm run bench:quick
 
 - name: Upload results
   uses: actions/upload-artifact@v3
@@ -287,7 +287,7 @@ diff <(jq '.summary' benchmarks/results/latest.json) \
 which python3
 
 # Or set custom Python command
-PYTHON_CMD=python npm run bench
+PYTHON_CMD=python pnpm run bench
 ```
 
 ### NumPy not found
@@ -302,8 +302,8 @@ conda install numpy
 ### Out of memory
 Use quick mode or run category-specific benchmarks:
 ```bash
-npm run bench:quick
-npm run bench:category creation
+pnpm run bench:quick
+pnpm run bench:category creation
 ```
 
 ## Future Enhancements

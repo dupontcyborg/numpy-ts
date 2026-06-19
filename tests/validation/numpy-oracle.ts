@@ -6,9 +6,9 @@
  * Environment Variables:
  * - NUMPY_PYTHON: Python command to use (default: 'python3')
  *   Examples:
- *     NUMPY_PYTHON='python3' npm test
- *     NUMPY_PYTHON='conda run -n myenv python' npm test
- *     NUMPY_PYTHON='python' npm test
+ *     NUMPY_PYTHON='python3' pnpm test
+ *     NUMPY_PYTHON='conda run -n myenv python' pnpm test
+ *     NUMPY_PYTHON='python' pnpm test
  */
 
 import { type ChildProcess, execSync, spawn } from 'node:child_process';

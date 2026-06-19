@@ -35,4 +35,4 @@ build:
 dependencies:
   - changed-files:
     - any-glob-to-any-file: 'package.json'
-    - any-glob-to-any-file: 'package-lock.json'
+    - any-glob-to-any-file: 'pnpm-lock.yaml'

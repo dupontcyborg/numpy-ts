@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
   "files": {
     "includes": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "benchmarks/src/**/*.ts"]
   },
@@ -34,7 +34,7 @@
   },
   "linter": {
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "error",
         "noSelfCompare": "off",

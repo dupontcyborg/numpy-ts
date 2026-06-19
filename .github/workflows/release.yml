@@ -40,13 +40,16 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Release version: ${VERSION}"
 
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Verify package.json version matches tag
         run: |
@@ -85,10 +88,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - uses: actions/setup-python@v6
         with:
@@ -105,13 +111,13 @@ jobs:
       - name: Install dependencies
         run: |
           pip install "numpy>=2"
-          npm install
+          pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run full CI test suite
-        run: npm run test:ci
+        run: pnpm run test:ci
 
   # Build production bundles
   build:
@@ -123,10 +129,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: 'npm'
+          # No cache: release builds always install fresh (omitting `cache` disables it)
 
       - name: Read Zig version
         id: zig
@@ -137,10 +145,10 @@ jobs:
           version: ${{ steps.zig.outputs.version }}
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build all bundles
-        run: npm run build
+        run: pnpm run build
 
       - name: Verify build artifacts
         run: |
@@ -180,11 +188,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v6 # pnpm version comes from packageManager in package.json (v11+ for OIDC)
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+          # No cache: release builds always install fresh (omitting `cache` disables it)
 
       - name: Read Zig version
         id: zig
@@ -200,11 +210,14 @@ jobs:
       - name: Show npm version (debug)
         run: npm --version
 
+      - name: Show pnpm version (debug)
+        run: pnpm --version
+
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Download build artifacts
         uses: actions/download-artifact@v8
@@ -213,7 +226,9 @@ jobs:
           path: dist/
 
       - name: Publish to npm
-        run: npm publish --access public
+        # --no-git-checks: release runs on a tag (detached HEAD) with a dirty
+        # tree from the build, which pnpm's default git checks would reject.
+        run: pnpm publish --access public --no-git-checks
 
       - name: Create release summary
         run: |
