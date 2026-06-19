@@ -647,37 +647,37 @@ describe('Test sqrt', () => {
 
 ### All Tests
 ```bash
-npm test                    # Run all tests
-npm run test:quick          # Skip slow validation tests
+pnpm test                    # Run all tests
+pnpm run test:quick          # Skip slow validation tests
 ```
 
 ### Unit Tests Only
 ```bash
-npm run test:unit           # All unit tests
-npm run test:unit -- math   # Just math.test.ts
+pnpm run test:unit           # All unit tests
+pnpm run test:unit -- math   # Just math.test.ts
 ```
 
 ### Validation Tests Only
 ```bash
-npm run test:validation           # All validation tests
-npm run test:validation -- math   # Just math.numpy.test.ts
+pnpm run test:validation           # All validation tests
+pnpm run test:validation -- math   # Just math.numpy.test.ts
 ```
 
 ### Watch Mode
 ```bash
-npm run test:watch          # Re-run on file changes
+pnpm run test:watch          # Re-run on file changes
 ```
 
 ### Coverage
 ```bash
-npm run test:coverage       # Generate coverage report
+pnpm run test:coverage       # Generate coverage report
 ```
 
 ### Benchmarks
 ```bash
-npm run bench:quick         # Quick benchmarks
-npm run bench               # Standard benchmarks
-npm run bench:category math # Just math benchmarks
+pnpm run bench:quick         # Quick benchmarks
+pnpm run bench               # Standard benchmarks
+pnpm run bench:category math # Just math benchmarks
 ```
 
 ---
@@ -1000,13 +1000,13 @@ elif operation == 'log':
 
 ```bash
 # Run unit tests
-npm run test:unit -- math
+pnpm run test:unit -- math
 
 # Run validation tests
-npm run test:validation -- math
+pnpm run test:validation -- math
 
 # Run benchmarks
-npm run bench:category math
+pnpm run bench:category math
 ```
 
 ### Step 5: Update Documentation

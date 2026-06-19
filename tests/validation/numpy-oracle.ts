@@ -6,18 +6,335 @@
  * Environment Variables:
  * - NUMPY_PYTHON: Python command to use (default: 'python3')
  *   Examples:
- *     NUMPY_PYTHON='python3' npm test
- *     NUMPY_PYTHON='conda run -n myenv python' npm test
- *     NUMPY_PYTHON='python' npm test
+ *     NUMPY_PYTHON='python3' pnpm test
+ *     NUMPY_PYTHON='conda run -n myenv python' pnpm test
+ *     NUMPY_PYTHON='python' pnpm test
  */
 
-import { execSync } from 'node:child_process';
-import { unlinkSync, writeFileSync } from 'node:fs';
+import { type ChildProcess, execSync, spawn } from 'node:child_process';
+import { readSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 // Get Python command from environment or use default
 const PYTHON_CMD = process.env.NUMPY_PYTHON || 'python3';
+
+// ---------------------------------------------------------------------------
+// Persistent NumPy worker
+//
+// Spawning `python3` + `import numpy` per assertion costs ~80 ms; with thousands
+// of validation assertions that dominates the suite. Instead we keep ONE long-
+// lived Python process per Node (vitest) worker that imports NumPy once, then
+// services requests over stdin/stdout. Each `runNumPy` call is a synchronous
+// round-trip (~0.05 ms): write a JSON request line, block-read the JSON reply.
+//
+// Sync round-trip: tests call runNumPy synchronously, so we cannot use async
+// streams. We write to the child's stdin fd and busy-read its stdout fd with
+// fs.readSync (retrying on EAGAIN) until the newline-terminated reply arrives.
+// ---------------------------------------------------------------------------
+
+// Python server: imports numpy once, then loops over JSON request lines
+// {"code": "..."} where the code sets `result` (and optionally `_result_orig`).
+// Replies with one JSON line per request. The serialize_value logic mirrors the
+// previous per-call script exactly so output is byte-for-byte unchanged.
+const SERVER_PY = `import sys, json, math
+
+# Transport: Node/Bun expose usable raw fds for the child's stdin/stdout pipes,
+# so the default stdin/stdout path is used there. Deno's node-compat layer does
+# NOT (fs.writeSync on the pipe fd fails with EBADF), so under Deno we are passed
+# a pair of FIFO paths and talk over those instead. Opening the FIFOs BEFORE the
+# numpy import means the JS-side open() handshake always completes even if numpy
+# is missing/old -- the JS side then sees EOF (a clean error) rather than hanging.
+if len(sys.argv) > 2:
+    _in = open(sys.argv[1], 'r')
+    _out = open(sys.argv[2], 'w')
+else:
+    _in = sys.stdin
+    _out = sys.stdout
+
+import numpy as np
+
+if tuple(map(int, np.__version__.split('.')[:2])) < (2, 0):
+    sys.stderr.write("Error: NumPy 2.0+ is required. Found %s\\n" % np.__version__)
+    sys.exit(3)
+
+def serialize_value(val):
+    if isinstance(val, np.ndarray):
+        return serialize_value(val.tolist())
+    elif isinstance(val, list):
+        return [serialize_value(v) for v in val]
+    elif isinstance(val, (bool, np.bool_)):
+        return bool(val)
+    elif isinstance(val, (complex, np.complexfloating)):
+        return {"__complex__": True, "re": serialize_value(float(val.real)), "im": serialize_value(float(val.imag))}
+    elif isinstance(val, (float, np.floating)):
+        if math.isnan(val):
+            return "__NaN__"
+        elif math.isinf(val):
+            return "__Infinity__" if val > 0 else "__-Infinity__"
+        else:
+            return float(val)
+    elif isinstance(val, (int, np.integer)):
+        return int(val)
+    else:
+        return val
+
+def handle(code):
+    # Expose the same names the previous inline script made available to
+    # injected snippets (some snippets call serialize_value / use json, sys).
+    ns = {"np": np, "math": math, "json": json, "sys": sys, "serialize_value": serialize_value}
+    exec(code, ns)
+    result = ns["result"]
+    if isinstance(result, np.ndarray):
+        out = {"value": serialize_value(result), "dtype": str(result.dtype), "shape": list(result.shape)}
+    elif isinstance(result, (np.integer, np.floating, np.complexfloating)):
+        out = {"value": serialize_value(result), "dtype": str(type(result).__name__), "shape": []}
+    else:
+        out = {"value": serialize_value(result), "dtype": str(type(result).__name__), "shape": []}
+    if "_result_orig" in ns:
+        ro = ns["_result_orig"]
+        out["orig_dtype"] = str(ro.dtype) if hasattr(ro, "dtype") else out["dtype"]
+        out["orig_shape"] = list(ro.shape) if hasattr(ro, "shape") else out["shape"]
+    return out
+
+for line in _in:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        out = handle(json.loads(line)["code"])
+    except Exception as e:
+        out = {"error": str(e)}
+    _out.write(json.dumps(out) + "\\n")
+    _out.flush()
+`;
+
+// Pipe I/O on non-blocking fds can do partial writes / EAGAIN; the response can
+// arrive in several chunks. Both are bounded by a wall-clock deadline so a stuck
+// worker surfaces as a thrown error (a named test failure) instead of an
+// uninterruptible synchronous busy-spin that hangs the whole run.
+const WORKER_TIMEOUT_MS = 30_000;
+
+// --- Transport ------------------------------------------------------------
+// The persistent server is reached over a synchronous request/response channel.
+// Node/Bun expose usable raw fds on the child's stdin/stdout pipes and drive
+// them with fs.readSync/writeSync. Deno's node-compat layer does NOT — those
+// pipe fds either aren't discoverable or reject fs.writeSync with EBADF — so
+// under Deno we talk over a FIFO pair opened with Deno.openSync, whose handles
+// have real synchronous readSync/writeSync.
+interface Transport {
+  /** Write the whole request, looping over partial writes / EAGAIN. */
+  writeAll(data: Buffer, deadline: number): void;
+  /** Read up to buf.length bytes into buf; returns the count, or 0 at EOF. */
+  readInto(buf: Buffer, deadline: number): number;
+  /** Release handles / temp files held by this transport. */
+  close(): void;
+}
+
+interface Worker {
+  proc: ChildProcess;
+  io: Transport;
+}
+
+// Minimal structural view of the Deno globals we use (untyped in a Node build).
+type DenoFsFile = {
+  writeSync(p: Uint8Array): number;
+  readSync(p: Uint8Array): number | null;
+  close(): void;
+};
+type DenoNS = {
+  openSync(path: string, opts: { read?: boolean; write?: boolean }): DenoFsFile;
+};
+const DENO = (globalThis as { Deno?: DenoNS }).Deno;
+
+let _worker: Worker | null = null;
+let _serverPath: string | null = null;
+let _fifoSeq = 0;
+
+/** Node/Bun transport: raw pipe fds driven with fs.readSync/writeSync. */
+function nodeTransport(inFd: number, outFd: number): Transport {
+  return {
+    writeAll(data, deadline) {
+      let off = 0;
+      while (off < data.length) {
+        try {
+          off += writeSync(inFd, data, off, data.length - off, null);
+        } catch (e: unknown) {
+          if ((e as { code?: string }).code === 'EAGAIN') {
+            if (Date.now() > deadline) throw new Error('numpy-oracle: worker write timed out');
+            continue;
+          }
+          throw e;
+        }
+      }
+    },
+    readInto(buf, deadline) {
+      for (;;) {
+        try {
+          return readSync(outFd, buf, 0, buf.length, null);
+        } catch (e: unknown) {
+          const ec = (e as { code?: string }).code;
+          if (ec === 'EAGAIN') {
+            if (Date.now() > deadline) {
+              _worker = null;
+              throw new Error(`numpy-oracle: worker timed out after ${WORKER_TIMEOUT_MS}ms`);
+            }
+            continue; // no data yet — spin until the reply arrives
+          }
+          if (ec === 'EOF') return 0;
+          throw e;
+        }
+      }
+    },
+    close() {},
+  };
+}
+
+/** Deno transport: a FIFO pair opened with Deno.openSync. */
+function denoTransport(req: string, res: string, wf: DenoFsFile, rf: DenoFsFile): Transport {
+  return {
+    writeAll(data) {
+      let off = 0;
+      while (off < data.length) off += wf.writeSync(data.subarray(off));
+    },
+    readInto(buf) {
+      // Deno's FIFO handles block until data is available, so EAGAIN never
+      // surfaces; a dead worker closes the pipe and readSync returns null (EOF).
+      return rf.readSync(buf) ?? 0;
+    },
+    close() {
+      for (const fn of [
+        () => wf.close(),
+        () => rf.close(),
+        () => unlinkSync(req),
+        () => unlinkSync(res),
+      ]) {
+        try {
+          fn();
+        } catch {
+          // ignore
+        }
+      }
+    },
+  };
+}
+
+/** Reset `_worker` on child exit and kill the child when this process exits. */
+function registerWorkerExit(proc: ChildProcess): void {
+  proc.on('exit', () => {
+    if (_worker?.proc === proc) _worker = null;
+  });
+  process.once('exit', () => {
+    try {
+      proc.kill();
+    } catch {
+      // ignore
+    }
+  });
+}
+
+function spawnNodeWorker(cmd: string, pre: string[]): Worker {
+  const proc = spawn(cmd, [...pre, '-u', _serverPath!], { stdio: ['pipe', 'pipe', 'inherit'] });
+  proc.stdout!.pause();
+  // The worker blocks on stdin, so its live pipes would keep the vitest worker's
+  // event loop alive and hang teardown. unref the child and both pipes — we read
+  // via fs.readSync on the raw fds, which doesn't need the handles ref'd.
+  proc.unref();
+  (proc.stdin as unknown as { unref?: () => void }).unref?.();
+  (proc.stdout as unknown as { unref?: () => void }).unref?.();
+  registerWorkerExit(proc);
+
+  // Public `.fd` is set under plain Node but undefined inside vitest's pool;
+  // the libuv handle's fd is present in both. Fall back to it.
+  const fdOf = (s: unknown): number | undefined => {
+    const o = s as { fd?: number; _handle?: { fd?: number } };
+    return typeof o.fd === 'number' ? o.fd : o._handle?.fd;
+  };
+  const inFd = fdOf(proc.stdin);
+  const outFd = fdOf(proc.stdout);
+  if (typeof inFd !== 'number' || inFd < 0 || typeof outFd !== 'number' || outFd < 0) {
+    throw new Error('numpy-oracle: could not obtain worker pipe file descriptors');
+  }
+  _worker = { proc, io: nodeTransport(inFd, outFd) };
+  return _worker;
+}
+
+function spawnDenoWorker(cmd: string, pre: string[]): Worker {
+  const base = join(tmpdir(), `numpy-oracle-${process.pid}-${_fifoSeq++}`);
+  const req = `${base}.req`;
+  const res = `${base}.res`;
+  execSync(`mkfifo "${req}" "${res}"`);
+  // The server reads `req` and writes `res` (paths passed as argv).
+  const proc = spawn(cmd, [...pre, '-u', _serverPath!, req, res], {
+    stdio: ['ignore', 'ignore', 'inherit'],
+  });
+  proc.unref();
+  registerWorkerExit(proc);
+  // The server opens req(read) then res(write) before importing numpy; open the
+  // matching ends in the same order. open() on a FIFO blocks until the other end
+  // is opened, so these calls self-synchronize with the child (and complete even
+  // if its later numpy import fails — the first reply then arrives as EOF).
+  const wf = DENO!.openSync(req, { write: true });
+  const rf = DENO!.openSync(res, { read: true });
+  _worker = { proc, io: denoTransport(req, res, wf, rf) };
+  return _worker;
+}
+
+function getWorker(): Worker {
+  if (_worker && _worker.proc.exitCode === null && !_worker.proc.killed) return _worker;
+
+  if (!_serverPath) {
+    _serverPath = join(tmpdir(), `numpy-oracle-server-${process.pid}.py`);
+    writeFileSync(_serverPath, SERVER_PY, 'utf-8');
+  }
+
+  // Support multi-word commands like "conda run -n env python".
+  const parts = PYTHON_CMD.split(' ').filter(Boolean);
+  const cmd = parts[0]!;
+  const pre = parts.slice(1);
+  return DENO ? spawnDenoWorker(cmd, pre) : spawnNodeWorker(cmd, pre);
+}
+
+/**
+ * Terminate the persistent worker. Called from an `afterAll` teardown (see
+ * tests/validation/_oracle-teardown.ts) so no live child process keeps the
+ * vitest worker's event loop alive at pool shutdown. The worker respawns lazily
+ * on the next `runNumPy` call, so persistence is retained within each test file.
+ */
+export function killNumpyWorker(): void {
+  if (_worker) {
+    try {
+      _worker.proc.kill();
+    } catch {
+      // ignore
+    }
+    _worker.io.close();
+    _worker = null;
+  }
+}
+
+/** Synchronous request/response with the persistent worker. */
+function evalOnWorker(code: string): Record<string, unknown> {
+  const w = getWorker();
+  const deadline = Date.now() + WORKER_TIMEOUT_MS;
+  w.io.writeAll(Buffer.from(`${JSON.stringify({ code })}\n`, 'utf8'), deadline);
+
+  const buf = Buffer.alloc(65536);
+  let s = '';
+  while (!s.includes('\n')) {
+    const n = w.io.readInto(buf, deadline);
+    if (n > 0) s += buf.toString('utf8', 0, n);
+    else break;
+  }
+  if (!s.includes('\n')) {
+    _worker = null; // worker died (e.g. NumPy missing / <2.0) — force respawn next time
+    throw new Error(
+      'numpy-oracle: worker produced no response (NumPy 2.0+ required and importable). ' +
+        `Python command: ${PYTHON_CMD}`,
+    );
+  }
+  return JSON.parse(s.slice(0, s.indexOf('\n'))) as Record<string, unknown>;
+}
 
 export interface NumPyResult {
   value: any;
@@ -56,109 +373,12 @@ function deserializeValue(val: any): any {
  * Execute Python NumPy code and return the result
  */
 export function runNumPy(code: string): NumPyResult {
-  // Indent user code properly for try block
-  const indentedCode = code
-    .trim()
-    .split('\n')
-    .map((line) => `    ${line}`)
-    .join('\n');
-
-  const pythonCode = `import numpy as np
-import json
-import sys
-import math
-
-# Require NumPy 2.0+
-NUMPY_VERSION = tuple(map(int, np.__version__.split('.')[:2]))
-if NUMPY_VERSION < (2, 0):
-    print(f"Error: NumPy 2.0+ is required for validation tests. Found NumPy {np.__version__}", file=sys.stderr)
-    print("Please upgrade: pip install --upgrade 'numpy>=2.0'", file=sys.stderr)
-    sys.exit(1)
-
-def serialize_value(val):
-    """Convert NumPy arrays/values to JSON-serializable format, handling inf/nan/complex"""
-    if isinstance(val, np.ndarray):
-        # Convert array to nested lists, then recursively serialize
-        # tolist() handles multi-dimensional arrays correctly
-        return serialize_value(val.tolist())
-    elif isinstance(val, list):
-        return [serialize_value(v) for v in val]
-    # Check bool BEFORE int (Python bool is subclass of int)
-    elif isinstance(val, (bool, np.bool_)):
-        return bool(val)
-    elif isinstance(val, (complex, np.complexfloating)):
-        # Serialize complex numbers as object with re/im
-        return {"__complex__": True, "re": val.real, "im": val.imag}
-    elif isinstance(val, (float, np.floating)):
-        if math.isnan(val):
-            return "__NaN__"
-        elif math.isinf(val):
-            return "__Infinity__" if val > 0 else "__-Infinity__"
-        else:
-            return float(val)
-    elif isinstance(val, (int, np.integer)):
-        return int(val)
-    else:
-        return val
-
-try:
-${indentedCode}
-    if isinstance(result, np.ndarray):
-        output = {'value': serialize_value(result), 'dtype': str(result.dtype), 'shape': list(result.shape)}
-    elif isinstance(result, (np.integer, np.floating, np.complexfloating)):
-        output = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}
-    else:
-        output = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}
-    # If user code set _result_orig, include original dtype/shape before any cast
-    if '_result_orig' in dir():
-        output['orig_dtype'] = str(_result_orig.dtype) if hasattr(_result_orig, 'dtype') else output['dtype']
-        output['orig_shape'] = list(_result_orig.shape) if hasattr(_result_orig, 'shape') else output['shape']
-    print(json.dumps(output))
-except Exception as e:
-    print(json.dumps({'error': str(e)}), file=sys.stderr)
-    sys.exit(1)`;
-
-  // Write to temp file to avoid shell escaping issues
-  const tmpFile = join(
-    tmpdir(),
-    `numpy-test-${Date.now()}-${Math.random().toString(36).slice(2)}.py`,
-  );
-
-  try {
-    writeFileSync(tmpFile, pythonCode, 'utf-8');
-    const result = execSync(`${PYTHON_CMD} ${tmpFile}`, {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    const parsed = JSON.parse(result);
-    if ('error' in parsed) {
-      throw new Error(`NumPy error: ${parsed.error}`);
-    }
-    // Deserialize special float values
-    parsed.value = deserializeValue(parsed.value);
-    return parsed as NumPyResult;
-  } catch (error: unknown) {
-    const err = error as { stderr?: Buffer; message?: string };
-    if (err.stderr) {
-      const stderrStr = err.stderr.toString();
-      try {
-        const parsed = JSON.parse(stderrStr);
-        if ('error' in parsed) {
-          throw new Error(`NumPy error: ${parsed.error}`, { cause: error });
-        }
-      } catch {
-        // Not JSON, throw original error
-      }
-    }
-    throw new Error(`Failed to run Python: ${err.message || 'Unknown error'}`, { cause: error });
-  } finally {
-    try {
-      unlinkSync(tmpFile);
-    } catch {
-      // Ignore cleanup errors
-    }
+  const parsed = evalOnWorker(code);
+  if ('error' in parsed) {
+    throw new Error(`NumPy error: ${parsed.error as string}`);
   }
+  parsed.value = deserializeValue(parsed.value);
+  return parsed as unknown as NumPyResult;
 }
 
 /**
@@ -172,117 +392,24 @@ except Exception as e:
 export function runNumPyBatch(
   snippets: Record<string, string>,
 ): Map<string, NumPyResult & { error?: string }> {
-  const keys = Object.keys(snippets);
-  if (keys.length === 0) return new Map();
-
-  // Build a single Python script that runs all snippets
-  const snippetBlocks = keys
-    .map((key) => {
-      const indented = snippets[key]!.trim()
-        .split('\n')
-        .map((line) => '    ' + line)
-        .join('\n');
-      return [
-        'try:',
-        indented,
-        '    if isinstance(result, np.ndarray):',
-        "        _out = {'value': serialize_value(result), 'dtype': str(result.dtype), 'shape': list(result.shape)}",
-        '    elif isinstance(result, (np.integer, np.floating, np.complexfloating)):',
-        "        _out = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}",
-        '    else:',
-        "        _out = {'value': serialize_value(result), 'dtype': str(type(result).__name__), 'shape': []}",
-        "    if '_result_orig' in dir():",
-        "        _out['orig_dtype'] = str(_result_orig.dtype) if hasattr(_result_orig, 'dtype') else _out['dtype']",
-        "        _out['orig_shape'] = list(_result_orig.shape) if hasattr(_result_orig, 'shape') else _out['shape']",
-        '        del _result_orig',
-        `    _all_results[${JSON.stringify(key)}] = _out`,
-        'except Exception as _e:',
-        `    _all_results[${JSON.stringify(key)}] = {'error': str(_e)}`,
-      ].join('\n');
-    })
-    .join('\n');
-
-  const pythonCode = [
-    'import numpy as np',
-    'import json',
-    'import sys',
-    'import math',
-    '',
-    "NUMPY_VERSION = tuple(map(int, np.__version__.split('.')[:2]))",
-    'if NUMPY_VERSION < (2, 0):',
-    '    print(f"Error: NumPy 2.0+ required. Found {np.__version__}", file=sys.stderr)',
-    '    sys.exit(1)',
-    '',
-    'def serialize_value(val):',
-    '    if isinstance(val, np.ndarray):',
-    '        return serialize_value(val.tolist())',
-    '    elif isinstance(val, list):',
-    '        return [serialize_value(v) for v in val]',
-    '    elif isinstance(val, (bool, np.bool_)):',
-    '        return bool(val)',
-    '    elif isinstance(val, (complex, np.complexfloating)):',
-    '        return {"__complex__": True, "re": serialize_value(float(val.real)), "im": serialize_value(float(val.imag))}',
-    '    elif isinstance(val, (float, np.floating)):',
-    '        if math.isnan(val):',
-    '            return "__NaN__"',
-    '        elif math.isinf(val):',
-    '            return "__Infinity__" if val > 0 else "__-Infinity__"',
-    '        else:',
-    '            return float(val)',
-    '    elif isinstance(val, (int, np.integer)):',
-    '        return int(val)',
-    '    else:',
-    '        return val',
-    '',
-    '_all_results = {}',
-    snippetBlocks,
-    'print(json.dumps(_all_results))',
-  ].join('\n');
-
-  const tmpFile = join(
-    tmpdir(),
-    `numpy-batch-${Date.now()}-${Math.random().toString(36).slice(2)}.py`,
-  );
-
-  try {
-    writeFileSync(tmpFile, pythonCode, 'utf-8');
-    const output = execSync(`${PYTHON_CMD} ${tmpFile}`, {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 50 * 1024 * 1024, // 50MB for large batches
-    });
-
-    const parsed = JSON.parse(output);
-    const results = new Map<string, NumPyResult & { error?: string }>();
-    for (const key of keys) {
-      const entry = parsed[key];
-      if (entry && 'error' in entry && !('value' in entry)) {
-        results.set(key, entry);
-      } else if (entry) {
-        entry.value = deserializeValue(entry.value);
-        results.set(key, entry as NumPyResult);
-      } else {
-        results.set(key, {
-          error: 'Missing from batch output',
-          value: undefined,
-          dtype: '',
-          shape: [],
-        });
-      }
-    }
-    return results;
-  } catch (error: unknown) {
-    const err = error as { stderr?: Buffer; message?: string };
-    throw new Error(`Failed to run batched Python: ${err.message || 'Unknown error'}`, {
-      cause: error,
-    });
-  } finally {
-    try {
-      unlinkSync(tmpFile);
-    } catch {
-      // Ignore cleanup errors
+  const results = new Map<string, NumPyResult & { error?: string }>();
+  // Per-call round-trips to the persistent worker are ~0.05 ms, so the former
+  // single-script batching is no longer needed — just evaluate each snippet.
+  for (const key of Object.keys(snippets)) {
+    const parsed = evalOnWorker(snippets[key]!);
+    if ('error' in parsed) {
+      results.set(key, {
+        error: parsed.error as string,
+        value: undefined,
+        dtype: '',
+        shape: [],
+      });
+    } else {
+      parsed.value = deserializeValue(parsed.value);
+      results.set(key, parsed as unknown as NumPyResult);
     }
   }
+  return results;
 }
 
 /**

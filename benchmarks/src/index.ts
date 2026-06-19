@@ -527,7 +527,7 @@ function printHelp() {
 NumPy vs numpy-ts Benchmark Suite
 
 Usage:
-  npm run bench [options]
+  pnpm run bench [options]
 
 Options:
   --quick              Quick benchmarks (~50 representative ops, 1 sample, 50ms/sample)
@@ -571,16 +571,16 @@ Categories:
   utilities            Type utilities (can_cast, result_type, etc.)
 
 Examples:
-  npm run bench                           # Run standard benchmarks (all detected runtimes)
-  npm run bench:quick                     # Run quick benchmarks
-  npm run bench -- --runtime node         # Node.js only (legacy behavior)
-  npm run bench -- --runtime node,bun     # Node + Bun
-  npm run bench:node                      # Shorthand: Node only
-  npm run bench:deno                      # Shorthand: Deno only
-  npm run bench:bun                       # Shorthand: Bun only
-  npm run bench -- --category linalg      # Run only linalg benchmarks
-  npm run bench -- --spec gcd             # Run only benchmarks matching "gcd"
-  npm run bench -- --dtype float16,float32 # Run only float16 and float32 benchmarks
+  pnpm run bench                           # Run standard benchmarks (all detected runtimes)
+  pnpm run bench:quick                     # Run quick benchmarks
+  pnpm run bench -- --runtime node         # Node.js only (legacy behavior)
+  pnpm run bench -- --runtime node,bun     # Node + Bun
+  pnpm run bench:node                      # Shorthand: Node only
+  pnpm run bench:deno                      # Shorthand: Deno only
+  pnpm run bench:bun                       # Shorthand: Bun only
+  pnpm run bench -- --category linalg      # Run only linalg benchmarks
+  pnpm run bench -- --spec gcd             # Run only benchmarks matching "gcd"
+  pnpm run bench -- --dtype float16,float32 # Run only float16 and float32 benchmarks
 `);
 }
 

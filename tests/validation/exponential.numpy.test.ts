@@ -34,7 +34,7 @@ for (const mode of WASM_MODES) {
             '   Setup options:\n' +
             '   1. Using system Python: pip install numpy\n' +
             '   2. Using conda: conda install numpy\n' +
-            '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
+            '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" pnpm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
             '\n',
@@ -216,6 +216,20 @@ result = np.logaddexp(np.array([0, 1, 2]), np.array([3, 4, 5]))
         const jsResult = logaddexp(array([1000, 500]), array([1000, 600]));
         const pyResult = runNumPy(`
 result = np.logaddexp(np.array([1000, 500]), np.array([1000, 600]))
+      `);
+
+        expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);
+      });
+
+      // Exercises the fused softplus fast path (|min−max| ≤ 2 → polynomial,
+      // no exp/log) across its interior and right at the |d|=2 boundary, plus
+      // values just past it that must fall back to the general path.
+      it('matches NumPy across the softplus fast/slow boundary', () => {
+        const a = array([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        const b = array([0, -0.5, -1, -1.5, -1.9, -2, -2.1, -5, -50]);
+        const jsResult = logaddexp(a, b);
+        const pyResult = runNumPy(`
+result = np.logaddexp(np.array([0,0,0,0,0,0,0,0,0]), np.array([0,-0.5,-1,-1.5,-1.9,-2,-2.1,-5,-50]))
       `);
 
         expect(arraysClose(jsResult.toArray(), pyResult.value)).toBe(true);

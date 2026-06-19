@@ -1,5 +1,5 @@
 // AUTO-GENERATED - DO NOT EDIT
-// Run `npm run generate` to regenerate this file from scripts/ndarray-methods.ts
+// Run `pnpm run generate` to regenerate this file from scripts/ndarray-methods.ts
 
 import { Complex } from '../common/complex';
 import {

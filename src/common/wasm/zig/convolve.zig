@@ -19,11 +19,21 @@ export fn convolve_f64(a: [*]const f64, na: u32, b: [*]const f64, nb: u32, out: 
     const full_len = n_a + n_b - 1;
 
     for (0..full_len) |k| {
-        var sum: f64 = 0.0;
         const j_start = if (k >= n_b - 1) k - (n_b - 1) else 0;
         const j_end = if (k < n_a) k + 1 else n_a;
 
+        // SIMD inner product: a forward, b reversed (b[k-j] descends as j grows).
+        // Pair (j, j+1) reads b at {k-j, k-j-1}; load2 at (k-j-1) then swap lanes.
+        // Constrained to j+2<=j_end (full pair) and j+1<=k (lower b index ≥0).
+        var acc: simd.V2f64 = .{ 0, 0 };
         var j = j_start;
+        while (j + 2 <= j_end and j + 1 <= k) : (j += 2) {
+            const av = simd.load2_f64(a, j);
+            const bpair = simd.load2_f64(b, k - j - 1); // [b[k-j-1], b[k-j]]
+            const brev = @shuffle(f64, bpair, undefined, [2]i32{ 1, 0 });
+            acc = simd.mulAdd_f64x2(av, brev, acc);
+        }
+        var sum: f64 = acc[0] + acc[1];
         while (j < j_end) : (j += 1) {
             sum += a[j] * b[k - j];
         }
@@ -40,11 +50,20 @@ export fn convolve_f32(a: [*]const f32, na: u32, b: [*]const f32, nb: u32, out: 
     const full_len = n_a + n_b - 1;
 
     for (0..full_len) |k| {
-        var sum: f32 = 0.0;
         const j_start = if (k >= n_b - 1) k - (n_b - 1) else 0;
         const j_end = if (k < n_a) k + 1 else n_a;
 
+        // SIMD inner product (4-wide): pair-of-4 reads b at {k-j .. k-j-3};
+        // load4 at (k-j-3) then reverse lanes. Needs j+4<=j_end and j+3<=k.
+        var acc: simd.V4f32 = .{ 0, 0, 0, 0 };
         var j = j_start;
+        while (j + 4 <= j_end and j + 3 <= k) : (j += 4) {
+            const av = simd.load4_f32(a, j);
+            const bquad = simd.load4_f32(b, k - j - 3); // [b[k-j-3]..b[k-j]]
+            const brev = @shuffle(f32, bquad, undefined, [4]i32{ 3, 2, 1, 0 });
+            acc = simd.mulAdd_f32x4(av, brev, acc);
+        }
+        var sum: f32 = acc[0] + acc[1] + acc[2] + acc[3];
         while (j < j_end) : (j += 1) {
             sum += a[j] * b[k - j];
         }
