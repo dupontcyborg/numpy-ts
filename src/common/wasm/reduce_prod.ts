@@ -29,6 +29,7 @@ import {
   reduce_prod_strided_u64,
   reduce_prod_u8,
   reduce_prod_u16,
+  reduce_prod_u64,
 } from './bins/reduce_prod.wasm';
 import { wasmConfig } from './config';
 import {
@@ -48,7 +49,7 @@ const kernels: Partial<Record<DType, ReduceFn>> = {
   float32: reduce_prod_f32,
   float16: reduce_prod_f32,
   int64: reduce_prod_i64,
-  uint64: reduce_prod_i64,
+  uint64: reduce_prod_u64,
   int32: reduce_prod_i32,
   uint32: reduce_prod_i32,
   // int8/int16 → i64, uint8/uint16 → u64 (promoted to avoid overflow)
@@ -105,7 +106,14 @@ export function wasmReduceProd(a: ArrayStorage): number | null {
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
 
-  return Number(kernel(aPtr, size));
+  const raw = kernel(aPtr, size);
+  // The WASM i64 ABI returns the raw two's-complement bit pattern as a signed
+  // BigInt. For unsigned 64-bit dtypes, reinterpret as unsigned before casting
+  // to Number so values ≥ 2^63 are not misread as negative.
+  if (typeof raw === 'bigint' && (dtype === 'uint64' || dtype === 'uint16' || dtype === 'uint8')) {
+    return Number(BigInt.asUintN(64, raw));
+  }
+  return Number(raw);
 }
 
 // --- Strided axis reduction for prod ---

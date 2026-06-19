@@ -20,11 +20,11 @@ Run the complete test suite across all runtimes. All must pass before continuing
 
 ```bash
 # Core suite (lint + typecheck + all test projects)
-npm run test:ci
+pnpm run test:ci
 
 # Additional runtimes
-npm run test:bun
-npm run test:deno
+pnpm run test:bun
+pnpm run test:deno
 ```
 
 If any test fails, fix it before moving on. Do not skip.
@@ -36,12 +36,12 @@ If any test fails, fix it before moving on. Do not skip.
 Run the full benchmark suite across all configurations. This takes a while — plan accordingly.
 
 ```bash
-npm run bench:all
+pnpm run bench:all
 ```
 
 This runs Node.js (standard, small, large), Pyodide, and other runtime comparisons and writes results to `benchmarks/results/`.
 
-Sanity-check the results: compare headline numbers to the previous release (`npm run bench:compare`) and flag any unexpected regressions before publishing.
+Sanity-check the results: compare headline numbers to the previous release (`pnpm run bench:compare`) and flag any unexpected regressions before publishing.
 
 ---
 
@@ -68,7 +68,7 @@ In `docs/docs.json`:
 Generate performance documentation from the benchmark results:
 
 ```bash
-npm run bench:docs
+pnpm run bench:docs
 ```
 
 This runs `scripts/generate-bench-docs.py` and `scripts/generate-overview-charts.py`, updating the performance pages in `docs/next/performance/`. Review the generated MDX diffs before committing.
@@ -115,4 +115,4 @@ For patch releases (bug fixes only, no new API surface):
 - Skip the benchmarks step unless performance-sensitive code changed.
 - Doc changes go directly into the live version folder (`docs/v1.3.x/`) rather than `docs/next/`.
 - Update `docs/changelog.mdx` with a new `<Update>` block.
-- Run `npm run test:ci`
+- Run `pnpm run test:ci`

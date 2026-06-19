@@ -410,7 +410,7 @@ def update_api_reference(analysis):
     lines.append("")
     lines.append("## Progress Summary")
     lines.append("")
-    lines.append("Based on `npm run compare-api`:")
+    lines.append("Based on `pnpm run compare-api`:")
     lines.append("")
 
     # Stats
@@ -515,7 +515,7 @@ def update_docs_api_coverage_page(analysis):
     lines.append('mode: "wide"')
     lines.append('---')
     lines.append('')
-    lines.append('Generated via `npm run compare-api`.')
+    lines.append('Generated via `pnpm run compare-api`.')
     lines.append('')
     lines.append(f"Last updated: **{today}**")
     lines.append('')

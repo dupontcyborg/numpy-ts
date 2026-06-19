@@ -7,14 +7,29 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { array, hasFloat16 } from '../../src';
+import type { DType } from '../../src/common/dtype';
+import type { ArrayStorage } from '../../src/common/storage';
+import { wasmArccos } from '../../src/common/wasm/arccos';
+import { wasmArccosh } from '../../src/common/wasm/arccosh';
+import { wasmArcsin } from '../../src/common/wasm/arcsin';
+import { wasmArcsinh } from '../../src/common/wasm/arcsinh';
+import { wasmArctan } from '../../src/common/wasm/arctan';
+import { wasmArctanh } from '../../src/common/wasm/arctanh';
 import { wasmConfig } from '../../src/common/wasm/config';
+import { wasmCos } from '../../src/common/wasm/cos';
+import { wasmCosh } from '../../src/common/wasm/cosh';
+import { supportsRelaxedSimd, useRelaxedKernels } from '../../src/common/wasm/detect';
 import { wasmDiv, wasmDivScalar } from '../../src/common/wasm/divide';
+import { wasmExp } from '../../src/common/wasm/exp';
 import { wasmExp2 } from '../../src/common/wasm/exp2';
+import { wasmExpm1 } from '../../src/common/wasm/expm1';
 import { wasmExtract, wasmTakeAlongAxis2D, wasmWhere } from '../../src/common/wasm/gather';
 import { wasmGcd, wasmGcdScalar } from '../../src/common/wasm/gcd';
 import { wasmHeaviside, wasmHeavisideScalar } from '../../src/common/wasm/heaviside';
 import { wasmIndices } from '../../src/common/wasm/indices';
 import { wasmLeftShift, wasmLeftShiftScalar } from '../../src/common/wasm/left_shift';
+import { wasmLog } from '../../src/common/wasm/log';
+import { wasmLog1p } from '../../src/common/wasm/log1p';
 import { wasmLogaddexp, wasmLogaddexpScalar } from '../../src/common/wasm/logaddexp';
 import { wasmMax, wasmMaxScalar } from '../../src/common/wasm/max';
 import { wasmMin, wasmMinScalar } from '../../src/common/wasm/min';
@@ -24,7 +39,12 @@ import { wasmReduceQuantile } from '../../src/common/wasm/reduce_quantile';
 import { wasmRepeat } from '../../src/common/wasm/repeat';
 import { wasmRightShift, wasmRightShiftScalar } from '../../src/common/wasm/right_shift';
 import { wasmRoll } from '../../src/common/wasm/roll';
+import { wasmSin } from '../../src/common/wasm/sin';
+import { wasmSinc } from '../../src/common/wasm/sinc';
+import { wasmSinh } from '../../src/common/wasm/sinh';
 import { wasmSquare } from '../../src/common/wasm/square';
+import { wasmTan } from '../../src/common/wasm/tan';
+import { wasmTanh } from '../../src/common/wasm/tanh';
 import { wasmTile2D } from '../../src/common/wasm/tile';
 import { wasmVdotComplex } from '../../src/common/wasm/vdot';
 
@@ -421,10 +441,16 @@ describe('wasmExp2', () => {
     expect(r!.dtype).toBe('float32');
   });
 
-  it('returns null for complex', () => {
+  it('complex128 path: 2^(a+0i) = 2^a', () => {
     const a = array([1, 2, 3], 'complex128');
     const r = wasmExp2(a.storage);
-    expect(r).toBeNull();
+    expect(r).not.toBeNull();
+    expect(r!.dtype).toBe('complex128');
+    const data = Array.from(r!.data as Float64Array);
+    expect(data[0]).toBeCloseTo(2); // 2^1, real
+    expect(data[1]).toBeCloseTo(0); // imag
+    expect(data[2]).toBeCloseTo(4); // 2^2, real
+    expect(data[4]).toBeCloseTo(8); // 2^3, real
   });
 });
 
@@ -739,5 +765,192 @@ describe('wasmVdotComplex', () => {
     const b = array([1, 2, 3], 'complex128');
     const r = wasmVdotComplex(a.storage, b.storage);
     expect(r).toBeNull();
+  });
+});
+
+// ============================================================
+// Unary transcendentals (PR #135 WASM SIMD expansion)
+//
+// These kernels (sin/cos/tan/sinh/cosh/tanh/exp/log/expm1/log1p/
+// arc{sin,cos,tan,sinh,cosh,tanh}) all share one shape: native f64/f32
+// kernels, a float16 branch (f32 compute → f16 downcast, gated on
+// effectiveDType/hasFloat16), small ints (i8/u8/i16/u16 → f32, with
+// i8/u8 downcast to f16 when available) and large ints (i32/u32/i64/u64
+// → f64). Exercising every dtype here covers each per-dtype kernel
+// arrow-wrapper plus the float16 path.
+//
+// Relaxed vs baseline binary selection is governed by
+// wasmConfig.useRelaxedSimd, left at its 'auto' default — on runtimes
+// that support relaxed SIMD (CI), the relaxed kernels execute; the
+// per-kernel `_bins` cache means a single process loads only one
+// variant, so baseline/relaxed selection itself is covered by the
+// dedicated detect.ts block below rather than per kernel.
+// ============================================================
+
+type UnaryWasm = (s: ArrayStorage) => ArrayStorage | null;
+
+// Output dtype for the small/large-int + float paths shared by all 16 kernels.
+const SMALL_TO_F16 = hasFloat16 ? 'float16' : 'float32';
+const UNARY_DTYPE_CASES: Array<{
+  dtype: DType;
+  expected: DType;
+  input: () => ReturnType<typeof array>;
+}> = [
+  { dtype: 'float64', expected: 'float64', input: () => array([0.5, 0.5, 0.5]) },
+  { dtype: 'float32', expected: 'float32', input: () => array([0.5, 0.5, 0.5], 'float32') },
+  { dtype: 'int8', expected: SMALL_TO_F16, input: () => array([1, 2, 3], 'int8') },
+  { dtype: 'uint8', expected: SMALL_TO_F16, input: () => array([1, 2, 3], 'uint8') },
+  { dtype: 'int16', expected: 'float32', input: () => array([1, 2, 3], 'int16') },
+  { dtype: 'uint16', expected: 'float32', input: () => array([1, 2, 3], 'uint16') },
+  { dtype: 'int32', expected: 'float64', input: () => array([1, 2, 3], 'int32') },
+  { dtype: 'uint32', expected: 'float64', input: () => array([1, 2, 3], 'uint32') },
+  { dtype: 'int64', expected: 'float64', input: () => array([1n, 2n, 3n], 'int64') },
+  { dtype: 'uint64', expected: 'float64', input: () => array([1n, 2n, 3n], 'uint64') },
+];
+
+// fInput is in-domain for every kernel below (acosh needs ≥1, asin/acos
+// need |x|≤1, atanh needs |x|<1, log needs >0) — 0.5 fails acosh/log, so
+// the float reference is checked per-kernel with its own in-domain value.
+// noF64: wasmLog keeps float64 INPUT on the JS fallback (V8's Math.log beats a
+// 2-wide WASM kernel), so its float64 path returns null by design.
+const TRANSCENDENTALS: Array<{
+  name: string;
+  fn: UnaryWasm;
+  f: number;
+  ref: (x: number) => number;
+  noF64?: boolean;
+}> = [
+  { name: 'wasmSin', fn: wasmSin, f: 0.5, ref: Math.sin },
+  { name: 'wasmCos', fn: wasmCos, f: 0.5, ref: Math.cos },
+  { name: 'wasmTan', fn: wasmTan, f: 0.5, ref: Math.tan },
+  { name: 'wasmSinh', fn: wasmSinh, f: 0.5, ref: Math.sinh },
+  { name: 'wasmCosh', fn: wasmCosh, f: 0.5, ref: Math.cosh },
+  { name: 'wasmTanh', fn: wasmTanh, f: 0.5, ref: Math.tanh },
+  { name: 'wasmExp', fn: wasmExp, f: 0.5, ref: Math.exp },
+  { name: 'wasmExpm1', fn: wasmExpm1, f: 0.5, ref: Math.expm1 },
+  { name: 'wasmLog', fn: wasmLog, f: 2, ref: Math.log, noF64: true },
+  { name: 'wasmLog1p', fn: wasmLog1p, f: 0.5, ref: Math.log1p },
+  { name: 'wasmArcsin', fn: wasmArcsin, f: 0.5, ref: Math.asin },
+  { name: 'wasmArccos', fn: wasmArccos, f: 0.5, ref: Math.acos },
+  { name: 'wasmArctan', fn: wasmArctan, f: 0.5, ref: Math.atan },
+  { name: 'wasmArcsinh', fn: wasmArcsinh, f: 0.5, ref: Math.asinh },
+  { name: 'wasmArccosh', fn: wasmArccosh, f: 1.5, ref: Math.acosh },
+  { name: 'wasmArctanh', fn: wasmArctanh, f: 0.5, ref: Math.atanh },
+];
+
+for (const { name, fn, f, ref, noF64 } of TRANSCENDENTALS) {
+  describe(name, () => {
+    if (noF64) {
+      it('float64 input stays on JS fallback (returns null)', () => {
+        expect(fn(array([f, f, f]).storage)).toBeNull();
+      });
+    } else {
+      it('float64 path (value check)', () => {
+        const r = fn(array([f, f, f]).storage);
+        expect(r).not.toBeNull();
+        expect(r!.dtype).toBe('float64');
+        expect((r!.data as Float64Array)[0]).toBeCloseTo(ref(f), 4);
+      });
+    }
+
+    it('float32 path (value check)', () => {
+      const r = fn(array([f, f, f], 'float32').storage);
+      expect(r).not.toBeNull();
+      expect(r!.dtype).toBe('float32');
+      expect(Number((r!.data as Float32Array)[0])).toBeCloseTo(ref(f), 2);
+    });
+
+    if (hasFloat16) {
+      it('float16 path', () => {
+        const r = fn(array([f, f, f], 'float16').storage);
+        expect(r).not.toBeNull();
+        expect(r!.dtype).toBe('float16');
+        expect(r!.size).toBe(3);
+      });
+    }
+
+    for (const { dtype, expected, input } of UNARY_DTYPE_CASES) {
+      if (dtype === 'float64' || dtype === 'float32') continue; // covered above
+      it(`${dtype} path → ${expected}`, () => {
+        const r = fn(input().storage);
+        expect(r).not.toBeNull();
+        expect(r!.dtype).toBe(expected);
+        expect(r!.size).toBe(3);
+      });
+    }
+  });
+}
+
+// ============================================================
+// sinc — distinct shape: float64/float32/float16 preserved,
+// every integer dtype → float64.
+// ============================================================
+describe('wasmSinc', () => {
+  const sincRef = (x: number) => (x === 0 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x));
+
+  it('float64 path (value check)', () => {
+    const r = wasmSinc(array([0, 0.5, 1]).storage);
+    expect(r).not.toBeNull();
+    expect(r!.dtype).toBe('float64');
+    const data = r!.data as Float64Array;
+    expect(data[0]).toBeCloseTo(sincRef(0), 6);
+    expect(data[1]).toBeCloseTo(sincRef(0.5), 6);
+  });
+
+  it('float32 path', () => {
+    const r = wasmSinc(array([0, 0.5, 1], 'float32').storage);
+    expect(r).not.toBeNull();
+    expect(r!.dtype).toBe('float32');
+  });
+
+  if (hasFloat16) {
+    it('float16 path', () => {
+      const r = wasmSinc(array([0, 0.5, 1], 'float16').storage);
+      expect(r).not.toBeNull();
+      expect(r!.dtype).toBe('float16');
+      expect(r!.size).toBe(3);
+    });
+  }
+
+  for (const dtype of ['int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32'] as const) {
+    it(`${dtype} path → float64`, () => {
+      const r = wasmSinc(array([0, 1, 2], dtype).storage);
+      expect(r).not.toBeNull();
+      expect(r!.dtype).toBe('float64');
+    });
+  }
+
+  for (const dtype of ['int64', 'uint64'] as const) {
+    it(`${dtype} path → float64`, () => {
+      const r = wasmSinc(array([0n, 1n, 2n], dtype).storage);
+      expect(r).not.toBeNull();
+      expect(r!.dtype).toBe('float64');
+    });
+  }
+});
+
+// ============================================================
+// Relaxed SIMD kernel selection (detect.ts)
+// ============================================================
+describe('relaxed SIMD selection', () => {
+  afterEach(() => {
+    wasmConfig.useRelaxedSimd = 'auto';
+  });
+
+  it('useRelaxedKernels honours forced true/false and auto', () => {
+    wasmConfig.useRelaxedSimd = true;
+    expect(useRelaxedKernels()).toBe(true);
+
+    wasmConfig.useRelaxedSimd = false;
+    expect(useRelaxedKernels()).toBe(false);
+
+    wasmConfig.useRelaxedSimd = 'auto';
+    expect(useRelaxedKernels()).toBe(supportsRelaxedSimd());
+  });
+
+  it('supportsRelaxedSimd is a stable boolean', () => {
+    const first = supportsRelaxedSimd();
+    expect(typeof first).toBe('boolean');
+    expect(supportsRelaxedSimd()).toBe(first); // cached
   });
 });

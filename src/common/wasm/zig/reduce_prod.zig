@@ -52,6 +52,23 @@ export fn reduce_prod_i64(a: [*]const i64, N: u32) i64 {
     return total;
 }
 
+/// Returns the product of u64 elements. Uses 2-wide SIMD accumulation.
+/// Same bit pattern as reduce_prod_i64 but the u64 return keeps the value
+/// unsigned so JS `Number(bigint)` does not misinterpret values ≥ 2^63.
+export fn reduce_prod_u64(a: [*]const u64, N: u32) u64 {
+    var acc: simd.V2u64 = .{ 1, 1 };
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        acc *%= simd.load2_u64(a, i);
+    }
+    var total: u64 = acc[0] *% acc[1];
+    while (i < N) : (i += 1) {
+        total *%= a[i];
+    }
+    return total;
+}
+
 /// Returns the product of i32 elements. Uses 4-wide SIMD accumulation.
 /// Handles both signed (i32) and unsigned (u32) since wrapping multiplication gives same bits.
 export fn reduce_prod_i32(a: [*]const i32, N: u32) i32 {
@@ -404,6 +421,17 @@ test "reduce_prod_i64 negatives" {
     const testing = @import("std").testing;
     const a = [_]i64{ -2, -3 };
     try testing.expectEqual(reduce_prod_i64(&a, 2), 6);
+}
+
+test "reduce_prod_u64 basic and wide" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 2, 3, 4 };
+    try testing.expectEqual(reduce_prod_u64(&a, 3), 24);
+    // 2^63 fits in u64 (would be negative as i64)
+    var b: [64]u64 = undefined;
+    for (0..63) |i| b[i] = 2;
+    b[63] = 1;
+    try testing.expectEqual(reduce_prod_u64(&b, 64), @as(u64, 1) << 63);
 }
 
 test "reduce_prod_i16 promotion" {

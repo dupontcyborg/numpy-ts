@@ -22,7 +22,7 @@ for (const mode of WASM_MODES) {
             '   Setup options:\n' +
             '   1. Using system Python: pip install numpy\n' +
             '   2. Using conda: conda install numpy\n' +
-            '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" npm test\n\n' +
+            '   3. Set custom Python: NUMPY_PYTHON="conda run -n myenv python" pnpm test\n\n' +
             '   Current Python command: ' +
             (process.env.NUMPY_PYTHON || 'python3') +
             '\n',

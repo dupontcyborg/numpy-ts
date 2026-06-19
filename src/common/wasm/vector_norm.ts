@@ -6,15 +6,11 @@
 import { type DType, effectiveDType, isComplexDType } from '../dtype';
 import type { ArrayStorage } from '../storage';
 import * as floatBase from './bins/vector_norm.wasm';
-import * as floatRelaxed from './bins/vector_norm-relaxed.wasm';
 import { wasmConfig } from './config';
-import { useRelaxedKernels } from './detect';
 import { f16InputToScratchF32, resetScratchAllocator, resolveInputPtr } from './runtime';
 
-let _float: typeof floatBase | null = null;
 function float(): typeof floatBase {
-  _float ??= useRelaxedKernels() ? floatRelaxed : floatBase;
-  return _float;
+  return floatBase;
 }
 
 const BASE_THRESHOLD = 32;

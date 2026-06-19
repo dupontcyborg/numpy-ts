@@ -31,12 +31,12 @@ export fn correlate_f64(a: [*]const f64, na: u32, b: [*]const f64, nb: u32, out:
         // 4-wide: two V2f64 accumulators
         while (j + 4 <= j_end) : (j += 4) {
             const bi = j +% b_off;
-            acc0 += simd.load2_f64(a, j) * simd.load2_f64(b, bi);
-            acc1 += simd.load2_f64(a, j + 2) * simd.load2_f64(b, bi + 2);
+            acc0 = simd.mulAdd_f64x2(simd.load2_f64(a, j), simd.load2_f64(b, bi), acc0);
+            acc1 = simd.mulAdd_f64x2(simd.load2_f64(a, j + 2), simd.load2_f64(b, bi + 2), acc1);
         }
         // 2-wide remainder
         while (j + 2 <= j_end) : (j += 2) {
-            acc0 += simd.load2_f64(a, j) * simd.load2_f64(b, j +% b_off);
+            acc0 = simd.mulAdd_f64x2(simd.load2_f64(a, j), simd.load2_f64(b, j +% b_off), acc0);
         }
         acc0 += acc1;
         var sum: f64 = acc0[0] + acc0[1];
@@ -69,12 +69,12 @@ export fn correlate_f32(a: [*]const f32, na: u32, b: [*]const f32, nb: u32, out:
         // 8-wide: two V4f32 accumulators
         while (j + 8 <= j_end) : (j += 8) {
             const bi = j +% b_off;
-            acc0 += simd.load4_f32(a, j) * simd.load4_f32(b, bi);
-            acc1 += simd.load4_f32(a, j + 4) * simd.load4_f32(b, bi + 4);
+            acc0 = simd.mulAdd_f32x4(simd.load4_f32(a, j), simd.load4_f32(b, bi), acc0);
+            acc1 = simd.mulAdd_f32x4(simd.load4_f32(a, j + 4), simd.load4_f32(b, bi + 4), acc1);
         }
         // 4-wide remainder
         while (j + 4 <= j_end) : (j += 4) {
-            acc0 += simd.load4_f32(a, j) * simd.load4_f32(b, j +% b_off);
+            acc0 = simd.mulAdd_f32x4(simd.load4_f32(a, j), simd.load4_f32(b, j +% b_off), acc0);
         }
         acc0 += acc1;
         var sum: f32 = acc0[0] + acc0[1] + acc0[2] + acc0[3];

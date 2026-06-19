@@ -11,19 +11,10 @@
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import {
-  cosh_f32,
-  cosh_f64,
-  cosh_i8_f32,
-  cosh_i16_f32,
-  cosh_i32_f64,
-  cosh_i64_f64,
-  cosh_u8_f32,
-  cosh_u16_f32,
-  cosh_u32_f64,
-  cosh_u64_f64,
-} from './bins/cosh.wasm';
+import * as coshBase from './bins/cosh.wasm';
+import * as coshRelaxed from './bins/cosh-relaxed.wasm';
 import { wasmConfig } from './config';
+import { useRelaxedKernels } from './detect';
 import {
   f16InputToScratchF32,
   f32OutputToF16Region,
@@ -36,25 +27,33 @@ const BASE_THRESHOLD = 32;
 
 type UnaryFn = (aPtr: number, outPtr: number, N: number) => void;
 
+// Pick baseline vs relaxed-SIMD (FMA) kernels once, lazily — the benchmark
+// runner sets wasmConfig.useRelaxedSimd before the first op.
+let _bins: typeof coshBase | null = null;
+function bins(): typeof coshBase {
+  _bins ??= useRelaxedKernels() ? coshRelaxed : coshBase;
+  return _bins;
+}
+
 const kernels: Partial<Record<DType, UnaryFn>> = {
-  float64: cosh_f64,
-  float32: cosh_f32,
+  float64: (...a) => bins().cosh_f64(...a),
+  float32: (...a) => bins().cosh_f32(...a),
 };
 
 // Large int → f64 output (i32/u32/i64/u64 need f64 precision)
 const largeIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int64: cosh_i64_f64,
-  uint64: cosh_u64_f64,
-  int32: cosh_i32_f64,
-  uint32: cosh_u32_f64,
+  int64: (...a) => bins().cosh_i64_f64(...a),
+  uint64: (...a) => bins().cosh_u64_f64(...a),
+  int32: (...a) => bins().cosh_i32_f64(...a),
+  uint32: (...a) => bins().cosh_u32_f64(...a),
 };
 
 // Small int → f32 output (i8/u8/i16/u16 → f32, then optionally downcast to f16)
 const smallIntKernels: Partial<Record<DType, UnaryFn>> = {
-  int16: cosh_i16_f32,
-  uint16: cosh_u16_f32,
-  int8: cosh_i8_f32,
-  uint8: cosh_u8_f32,
+  int16: (...a) => bins().cosh_i16_f32(...a),
+  uint16: (...a) => bins().cosh_u16_f32(...a),
+  int8: (...a) => bins().cosh_i8_f32(...a),
+  uint8: (...a) => bins().cosh_u8_f32(...a),
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -94,7 +93,7 @@ export function wasmCosh(a: ArrayStorage): ArrayStorage | null {
     resetScratchAllocator();
     const aPtr = f16InputToScratchF32(a, size);
 
-    cosh_f32(aPtr, outRegion.ptr, size);
+    bins().cosh_f32(aPtr, outRegion.ptr, size);
 
     const f16Region = f32OutputToF16Region(outRegion, size);
     outRegion.release();

@@ -4,7 +4,7 @@
  * Each entry describes a method on the NDArray class.
  * The generator uses these to produce src/full/ndarray.ts.
  *
- * Run with: npm run generate
+ * Run with: pnpm run generate
  */
 
 // ============================================================
