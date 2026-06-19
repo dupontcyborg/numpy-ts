@@ -12,7 +12,7 @@
  */
 
 import { type ChildProcess, execSync, spawn } from 'node:child_process';
-import { readSync, writeFileSync, writeSync } from 'node:fs';
+import { readSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -38,6 +38,20 @@ const PYTHON_CMD = process.env.NUMPY_PYTHON || 'python3';
 // Replies with one JSON line per request. The serialize_value logic mirrors the
 // previous per-call script exactly so output is byte-for-byte unchanged.
 const SERVER_PY = `import sys, json, math
+
+# Transport: Node/Bun expose usable raw fds for the child's stdin/stdout pipes,
+# so the default stdin/stdout path is used there. Deno's node-compat layer does
+# NOT (fs.writeSync on the pipe fd fails with EBADF), so under Deno we are passed
+# a pair of FIFO paths and talk over those instead. Opening the FIFOs BEFORE the
+# numpy import means the JS-side open() handshake always completes even if numpy
+# is missing/old -- the JS side then sees EOF (a clean error) rather than hanging.
+if len(sys.argv) > 2:
+    _in = open(sys.argv[1], 'r')
+    _out = open(sys.argv[2], 'w')
+else:
+    _in = sys.stdin
+    _out = sys.stdout
+
 import numpy as np
 
 if tuple(map(int, np.__version__.split('.')[:2])) < (2, 0):
@@ -83,7 +97,7 @@ def handle(code):
         out["orig_shape"] = list(ro.shape) if hasattr(ro, "shape") else out["shape"]
     return out
 
-for line in sys.stdin:
+for line in _in:
     line = line.strip()
     if not line:
         continue
@@ -91,39 +105,122 @@ for line in sys.stdin:
         out = handle(json.loads(line)["code"])
     except Exception as e:
         out = {"error": str(e)}
-    sys.stdout.write(json.dumps(out) + "\\n")
-    sys.stdout.flush()
+    _out.write(json.dumps(out) + "\\n")
+    _out.flush()
 `;
+
+// Pipe I/O on non-blocking fds can do partial writes / EAGAIN; the response can
+// arrive in several chunks. Both are bounded by a wall-clock deadline so a stuck
+// worker surfaces as a thrown error (a named test failure) instead of an
+// uninterruptible synchronous busy-spin that hangs the whole run.
+const WORKER_TIMEOUT_MS = 30_000;
+
+// --- Transport ------------------------------------------------------------
+// The persistent server is reached over a synchronous request/response channel.
+// Node/Bun expose usable raw fds on the child's stdin/stdout pipes and drive
+// them with fs.readSync/writeSync. Deno's node-compat layer does NOT — those
+// pipe fds either aren't discoverable or reject fs.writeSync with EBADF — so
+// under Deno we talk over a FIFO pair opened with Deno.openSync, whose handles
+// have real synchronous readSync/writeSync.
+interface Transport {
+  /** Write the whole request, looping over partial writes / EAGAIN. */
+  writeAll(data: Buffer, deadline: number): void;
+  /** Read up to buf.length bytes into buf; returns the count, or 0 at EOF. */
+  readInto(buf: Buffer, deadline: number): number;
+  /** Release handles / temp files held by this transport. */
+  close(): void;
+}
 
 interface Worker {
   proc: ChildProcess;
-  inFd: number;
-  outFd: number;
+  io: Transport;
 }
+
+// Minimal structural view of the Deno globals we use (untyped in a Node build).
+type DenoFsFile = {
+  writeSync(p: Uint8Array): number;
+  readSync(p: Uint8Array): number | null;
+  close(): void;
+};
+type DenoNS = {
+  openSync(path: string, opts: { read?: boolean; write?: boolean }): DenoFsFile;
+};
+const DENO = (globalThis as { Deno?: DenoNS }).Deno;
 
 let _worker: Worker | null = null;
 let _serverPath: string | null = null;
+let _fifoSeq = 0;
 
-function getWorker(): Worker {
-  if (_worker && _worker.proc.exitCode === null && !_worker.proc.killed) return _worker;
+/** Node/Bun transport: raw pipe fds driven with fs.readSync/writeSync. */
+function nodeTransport(inFd: number, outFd: number): Transport {
+  return {
+    writeAll(data, deadline) {
+      let off = 0;
+      while (off < data.length) {
+        try {
+          off += writeSync(inFd, data, off, data.length - off, null);
+        } catch (e: unknown) {
+          if ((e as { code?: string }).code === 'EAGAIN') {
+            if (Date.now() > deadline) throw new Error('numpy-oracle: worker write timed out');
+            continue;
+          }
+          throw e;
+        }
+      }
+    },
+    readInto(buf, deadline) {
+      for (;;) {
+        try {
+          return readSync(outFd, buf, 0, buf.length, null);
+        } catch (e: unknown) {
+          const ec = (e as { code?: string }).code;
+          if (ec === 'EAGAIN') {
+            if (Date.now() > deadline) {
+              _worker = null;
+              throw new Error(`numpy-oracle: worker timed out after ${WORKER_TIMEOUT_MS}ms`);
+            }
+            continue; // no data yet — spin until the reply arrives
+          }
+          if (ec === 'EOF') return 0;
+          throw e;
+        }
+      }
+    },
+    close() {},
+  };
+}
 
-  if (!_serverPath) {
-    _serverPath = join(tmpdir(), `numpy-oracle-server-${process.pid}.py`);
-    writeFileSync(_serverPath, SERVER_PY, 'utf-8');
-  }
+/** Deno transport: a FIFO pair opened with Deno.openSync. */
+function denoTransport(req: string, res: string, wf: DenoFsFile, rf: DenoFsFile): Transport {
+  return {
+    writeAll(data) {
+      let off = 0;
+      while (off < data.length) off += wf.writeSync(data.subarray(off));
+    },
+    readInto(buf) {
+      // Deno's FIFO handles block until data is available, so EAGAIN never
+      // surfaces; a dead worker closes the pipe and readSync returns null (EOF).
+      return rf.readSync(buf) ?? 0;
+    },
+    close() {
+      for (const fn of [
+        () => wf.close(),
+        () => rf.close(),
+        () => unlinkSync(req),
+        () => unlinkSync(res),
+      ]) {
+        try {
+          fn();
+        } catch {
+          // ignore
+        }
+      }
+    },
+  };
+}
 
-  // Support multi-word commands like "conda run -n env python".
-  const parts = PYTHON_CMD.split(' ').filter(Boolean);
-  const cmd = parts[0]!;
-  const args = [...parts.slice(1), '-u', _serverPath];
-  const proc = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'inherit'] });
-  proc.stdout!.pause();
-  // The worker blocks on stdin, so its live pipes would keep the vitest worker's
-  // event loop alive and hang teardown. unref the child and both pipes — we read
-  // via fs.readSync on the raw fds, which doesn't need the handles ref'd.
-  proc.unref();
-  (proc.stdin as unknown as { unref?: () => void }).unref?.();
-  (proc.stdout as unknown as { unref?: () => void }).unref?.();
+/** Reset `_worker` on child exit and kill the child when this process exits. */
+function registerWorkerExit(proc: ChildProcess): void {
   proc.on('exit', () => {
     if (_worker?.proc === proc) _worker = null;
   });
@@ -134,6 +231,18 @@ function getWorker(): Worker {
       // ignore
     }
   });
+}
+
+function spawnNodeWorker(cmd: string, pre: string[]): Worker {
+  const proc = spawn(cmd, [...pre, '-u', _serverPath!], { stdio: ['pipe', 'pipe', 'inherit'] });
+  proc.stdout!.pause();
+  // The worker blocks on stdin, so its live pipes would keep the vitest worker's
+  // event loop alive and hang teardown. unref the child and both pipes — we read
+  // via fs.readSync on the raw fds, which doesn't need the handles ref'd.
+  proc.unref();
+  (proc.stdin as unknown as { unref?: () => void }).unref?.();
+  (proc.stdout as unknown as { unref?: () => void }).unref?.();
+  registerWorkerExit(proc);
 
   // Public `.fd` is set under plain Node but undefined inside vitest's pool;
   // the libuv handle's fd is present in both. Fall back to it.
@@ -146,8 +255,44 @@ function getWorker(): Worker {
   if (typeof inFd !== 'number' || inFd < 0 || typeof outFd !== 'number' || outFd < 0) {
     throw new Error('numpy-oracle: could not obtain worker pipe file descriptors');
   }
-  _worker = { proc, inFd, outFd };
+  _worker = { proc, io: nodeTransport(inFd, outFd) };
   return _worker;
+}
+
+function spawnDenoWorker(cmd: string, pre: string[]): Worker {
+  const base = join(tmpdir(), `numpy-oracle-${process.pid}-${_fifoSeq++}`);
+  const req = `${base}.req`;
+  const res = `${base}.res`;
+  execSync(`mkfifo "${req}" "${res}"`);
+  // The server reads `req` and writes `res` (paths passed as argv).
+  const proc = spawn(cmd, [...pre, '-u', _serverPath!, req, res], {
+    stdio: ['ignore', 'ignore', 'inherit'],
+  });
+  proc.unref();
+  registerWorkerExit(proc);
+  // The server opens req(read) then res(write) before importing numpy; open the
+  // matching ends in the same order. open() on a FIFO blocks until the other end
+  // is opened, so these calls self-synchronize with the child (and complete even
+  // if its later numpy import fails — the first reply then arrives as EOF).
+  const wf = DENO!.openSync(req, { write: true });
+  const rf = DENO!.openSync(res, { read: true });
+  _worker = { proc, io: denoTransport(req, res, wf, rf) };
+  return _worker;
+}
+
+function getWorker(): Worker {
+  if (_worker && _worker.proc.exitCode === null && !_worker.proc.killed) return _worker;
+
+  if (!_serverPath) {
+    _serverPath = join(tmpdir(), `numpy-oracle-server-${process.pid}.py`);
+    writeFileSync(_serverPath, SERVER_PY, 'utf-8');
+  }
+
+  // Support multi-word commands like "conda run -n env python".
+  const parts = PYTHON_CMD.split(' ').filter(Boolean);
+  const cmd = parts[0]!;
+  const pre = parts.slice(1);
+  return DENO ? spawnDenoWorker(cmd, pre) : spawnNodeWorker(cmd, pre);
 }
 
 /**
@@ -163,31 +308,8 @@ export function killNumpyWorker(): void {
     } catch {
       // ignore
     }
+    _worker.io.close();
     _worker = null;
-  }
-}
-
-// Pipe I/O on non-blocking fds can do partial writes / EAGAIN; the response can
-// arrive in several chunks. Both are bounded by a wall-clock deadline so a stuck
-// worker surfaces as a thrown error (a named test failure) instead of an
-// uninterruptible synchronous busy-spin that hangs the whole run.
-const WORKER_TIMEOUT_MS = 30_000;
-
-/** Write the full request, looping over partial writes / EAGAIN. */
-function writeAll(fd: number, data: Buffer, deadline: number): void {
-  let off = 0;
-  while (off < data.length) {
-    let n: number;
-    try {
-      n = writeSync(fd, data, off, data.length - off, null);
-    } catch (e: unknown) {
-      if ((e as { code?: string }).code === 'EAGAIN') {
-        if (Date.now() > deadline) throw new Error('numpy-oracle: worker write timed out');
-        continue;
-      }
-      throw e;
-    }
-    off += n;
   }
 }
 
@@ -195,28 +317,12 @@ function writeAll(fd: number, data: Buffer, deadline: number): void {
 function evalOnWorker(code: string): Record<string, unknown> {
   const w = getWorker();
   const deadline = Date.now() + WORKER_TIMEOUT_MS;
-  writeAll(w.inFd, Buffer.from(`${JSON.stringify({ code })}\n`, 'utf8'), deadline);
+  w.io.writeAll(Buffer.from(`${JSON.stringify({ code })}\n`, 'utf8'), deadline);
 
   const buf = Buffer.alloc(65536);
   let s = '';
   while (!s.includes('\n')) {
-    let n: number;
-    try {
-      n = readSync(w.outFd, buf, 0, buf.length, null);
-    } catch (e: unknown) {
-      const ec = (e as { code?: string }).code;
-      if (ec === 'EAGAIN') {
-        if (Date.now() > deadline) {
-          _worker = null;
-          throw new Error(
-            `numpy-oracle: worker timed out after ${WORKER_TIMEOUT_MS}ms on: ${code}`,
-          );
-        }
-        continue; // no data yet — spin until the reply arrives
-      }
-      if (ec === 'EOF') break;
-      throw e;
-    }
+    const n = w.io.readInto(buf, deadline);
     if (n > 0) s += buf.toString('utf8', 0, n);
     else break;
   }
