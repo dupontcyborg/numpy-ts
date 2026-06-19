@@ -1,0 +1,215 @@
+---
+title: "Splitting Arrays"
+description: "Split arrays into sub-arrays along one or more axes."
+---
+
+### split
+
+Split an array into multiple equal-length sub-arrays along an axis. When `indicesOrSections` is an integer, the array must be evenly divisible along that axis (use `array_split` for unequal splits). Returns views into the original array.
+
+```typescript
+function split(
+  a: ArrayLike,
+  indicesOrSections: number | number[],
+  axis?: number
+): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `indicesOrSections` | `number \| number[]` | -- | If an integer N, split into N equal parts. If an array of indices, split at those positions. |
+| `axis` | `number` | `0` | Axis along which to split. |
+
+**Returns:** `NDArray[]` -- List of sub-arrays as views.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.arange(12).reshape([3, 4]);
+
+// Split into 3 equal parts along axis 0
+const parts = np.split(a, 3, 0);
+console.log(parts.length);          // 3
+console.log(parts[0].toArray());    // [[0, 1, 2, 3]]
+console.log(parts[1].toArray());    // [[4, 5, 6, 7]]
+
+// Split at specific indices along axis 1
+const cols = np.split(a, [1, 3], 1);
+console.log(cols[0].shape);  // [3, 1]
+console.log(cols[1].shape);  // [3, 2]
+console.log(cols[2].shape);  // [3, 1]
+```
+
+---
+
+### array_split
+
+Split an array into multiple sub-arrays. Unlike `split`, `array_split` allows splitting into sections of unequal size when the axis length is not evenly divisible. Returns views.
+
+```typescript
+function array_split(
+  a: ArrayLike,
+  indicesOrSections: number | number[],
+  axis?: number
+): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `indicesOrSections` | `number \| number[]` | -- | If an integer N, split into N parts (first `size % N` sections get one extra element). If an array of indices, split at those positions. |
+| `axis` | `number` | `0` | Axis along which to split. |
+
+**Returns:** `NDArray[]` -- List of sub-arrays as views.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.arange(10);
+
+// Split 10 elements into 3 parts (sizes 4, 3, 3)
+const parts = np.array_split(a, 3);
+console.log(parts[0].toArray());  // [0, 1, 2, 3]
+console.log(parts[1].toArray());  // [4, 5, 6]
+console.log(parts[2].toArray());  // [7, 8, 9]
+```
+
+---
+
+### hsplit
+
+Split an array horizontally (column-wise). For 1-D arrays, splits along axis 0. For 2-D and higher, splits along axis 1. Returns views.
+
+```typescript
+function hsplit(
+  a: ArrayLike,
+  indicesOrSections: number | number[]
+): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array with at least 1 dimension. |
+| `indicesOrSections` | `number \| number[]` | -- | Number of equal splits or array of split indices. |
+
+**Returns:** `NDArray[]` -- List of sub-arrays.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.arange(12).reshape([3, 4]);
+
+// Split into 2 equal halves along columns
+const [left, right] = np.hsplit(a, 2);
+console.log(left.shape);   // [3, 2]
+console.log(right.shape);  // [3, 2]
+
+// Split at specific column indices
+const parts = np.hsplit(a, [1, 3]);
+console.log(parts[0].shape);  // [3, 1]
+console.log(parts[1].shape);  // [3, 2]
+console.log(parts[2].shape);  // [3, 1]
+```
+
+---
+
+### vsplit
+
+Split an array vertically (row-wise) along axis 0. The input must have at least 2 dimensions. Returns views.
+
+```typescript
+function vsplit(
+  a: ArrayLike,
+  indicesOrSections: number | number[]
+): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array with at least 2 dimensions. |
+| `indicesOrSections` | `number \| number[]` | -- | Number of equal splits or array of split indices. |
+
+**Returns:** `NDArray[]` -- List of sub-arrays.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.arange(12).reshape([4, 3]);
+
+// Split into 2 equal halves along rows
+const [top, bottom] = np.vsplit(a, 2);
+console.log(top.shape);    // [2, 3]
+console.log(bottom.shape); // [2, 3]
+
+// Split at specific row indices
+const parts = np.vsplit(a, [1, 3]);
+console.log(parts[0].shape);  // [1, 3]
+console.log(parts[1].shape);  // [2, 3]
+console.log(parts[2].shape);  // [1, 3]
+```
+
+---
+
+### dsplit
+
+Split an array depth-wise (along the third axis). The input must have at least 3 dimensions. Returns views.
+
+```typescript
+function dsplit(
+  ary: ArrayLike,
+  indices_or_sections: number | number[]
+): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `ary` | `ArrayLike` | -- | Input array with at least 3 dimensions. |
+| `indices_or_sections` | `number \| number[]` | -- | Number of equal splits or array of split indices. |
+
+**Returns:** `NDArray[]` -- List of sub-arrays.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.arange(24).reshape([2, 3, 4]);
+
+// Split into 2 equal parts along depth
+const [front, back] = np.dsplit(a, 2);
+console.log(front.shape);  // [2, 3, 2]
+console.log(back.shape);   // [2, 3, 2]
+```
+
+---
+
+### unstack
+
+Unstack an array along an axis, producing a list of arrays each with one fewer dimension. This is the inverse of `stack`.
+
+```typescript
+function unstack(a: ArrayLike, axis?: number): NDArray[]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. |
+| `axis` | `number` | `0` | Axis along which to unstack. |
+
+**Returns:** `NDArray[]` -- List of sub-arrays with the specified axis removed.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([[1, 2, 3], [4, 5, 6]]);
+
+// Unstack along axis 0 (default): yields rows
+const rows = np.unstack(a);
+console.log(rows.length);          // 2
+console.log(rows[0].toArray());    // [1, 2, 3]
+console.log(rows[1].toArray());    // [4, 5, 6]
+
+// Unstack along axis 1: yields columns
+const cols = np.unstack(a, 1);
+console.log(cols.length);          // 3
+console.log(cols[0].toArray());    // [1, 4]
+```

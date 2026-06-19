@@ -235,7 +235,7 @@ same. The console output and HTML report keep the raw ratio form.
 
 With the SIMD WASM kernels enabled, the headline numbers (see `bench:docs`
 output and the landing page) sit around:
-- **Overall**: ~1.13x faster than NumPy (geomean across ~7,200 benchmarks)
+- **Overall**: ~1.25x faster than NumPy (geomean across ~7,200 benchmarks)
 - **Best case**: order-of-magnitude wins on vectorizable element-wise ops
 - **Worst case**: 5–20x slower on operations that haven't been ported off the
   JS-fallback path yet
