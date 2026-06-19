@@ -1,9 +1,9 @@
 /**
  * Coverage-aware runner: numpy-ts vs third-party JS numerical libraries.
  *
- *   npm run bench:js-libs                       # float64, core ops
- *   npm run bench:js-libs -- --dtype float32,int32   # one run per dtype
- *   npm run bench:js-libs -- --size small --op add,multiply,matmul
+ *   pnpm run bench:js-libs                       # float64, core ops
+ *   pnpm run bench:js-libs -- --dtype float32,int32   # one run per dtype
+ *   pnpm run bench:js-libs -- --size small --op add,multiply,matmul
  *
  * Each run targets one dtype: every participant runs at that dtype, and a library
  * runs only if it natively supports it (no coercion) — int64/uint64/complex are

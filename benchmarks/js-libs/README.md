@@ -13,8 +13,8 @@ numerical libraries: [@jax-js/jax](https://github.com/ekzhang/jax-js),
 ## Run
 
 ```bash
-npm run bench:js-libs            # float64 regime (mathjs, numeric, ml-matrix, stdlib, numjs)
-npm run bench:js-libs:f32        # float32 regime (jax-js, tfjs, stdlib, numjs)
+pnpm run bench:js-libs            # float64 regime (mathjs, numeric, ml-matrix, stdlib, numjs)
+pnpm run bench:js-libs:f32        # float32 regime (jax-js, tfjs, stdlib, numjs)
 # options:
 tsx benchmarks/js-libs/run.ts --regime float32 --size small --op add,multiply,matmul
 ```
