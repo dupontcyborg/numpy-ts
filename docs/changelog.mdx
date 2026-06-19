@@ -12,6 +12,10 @@ Performance release. A large batch of element-wise and reduction operations move
 
 numpy-ts is now, on average [1.25x faster than native NumPy](/v1.5.x/performance/vs-numpy)!
 
+### Breaking
+
+* Dropped support for Node 20, which has reached [end-of-life](https://nodejs.org/en/about/previous-releases). numpy-ts now requires Node 22 or later.
+
 ### New WASM SIMD kernels
 
 The following operations now run through vectorized WASM kernels (previously JS fallbacks), with integer and complex dtype variants where applicable:
