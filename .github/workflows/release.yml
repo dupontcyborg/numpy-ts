@@ -41,8 +41,6 @@ jobs:
           echo "Release version: ${VERSION}"
 
       - uses: pnpm/action-setup@v6
-        with:
-          version: 11
 
       - uses: actions/setup-node@v6
         with:
@@ -91,8 +89,6 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v6
-        with:
-          version: 11
 
       - uses: actions/setup-node@v6
         with:
@@ -134,8 +130,6 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v6
-        with:
-          version: 11
 
       - uses: actions/setup-node@v6
         with:
@@ -194,9 +188,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11 # Use pnpm v11+ for native OIDC support
+      - uses: pnpm/action-setup@v6 # pnpm version comes from packageManager in package.json (v11+ for OIDC)
 
       - uses: actions/setup-node@v6
         with:
