@@ -1,0 +1,220 @@
+---
+title: "Statistics & Analysis"
+description: "Descriptive statistics, histograms, correlation matrices, Monte Carlo simulations, and weighted averages with numpy-ts."
+---
+
+import { Playground } from '/snippets/Playground.jsx'
+
+## Descriptive statistics on a dataset
+
+Compute standard summary statistics on a dataset in one pass using numpy-ts reduction functions.
+
+<Playground
+  code={String.raw`// Simulated temperature readings (100 measurements)
+np.random.seed(42);
+const base = np.random.normal(22, 3, [100]);    // mean=22C, std=3C
+const offset = np.random.random([100]).multiply(0.5);  // small random offset
+const temps = base.add(offset);
+
+// Central tendency
+const meanTemp = np.mean(temps);
+const medianTemp = np.median(temps);
+console.log('Mean:', meanTemp);
+console.log('Median:', medianTemp, '\n');
+
+// Dispersion
+const stdTemp = np.std(temps);
+const varTemp = np.variance(temps);
+const range = np.ptp(temps);  // max - min
+console.log('Std dev:', stdTemp);
+console.log('Variance:', varTemp);
+console.log('Range:', range, '\n');
+
+// Extremes
+console.log('Min:', np.amin(temps));
+console.log('Max:', np.amax(temps), '\n');
+
+// Percentiles and quantiles
+const p25 = np.percentile(temps, 25);
+const p50 = np.percentile(temps, 50);   // same as median
+const p75 = np.percentile(temps, 75);
+console.log('IQR: ', [p25, p75]);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## Building histograms
+
+Use `histogram` to bin data into intervals and compute counts. This is the basis for visualizing distributions.
+
+<Playground
+  code={String.raw`np.random.seed(42);
+const data = np.random.normal(0, 1, [1000]);
+
+// Automatic binning (10 bins by default)
+const [counts, binEdges] = np.histogram(data);
+console.log('Counts:', counts, '\n');
+console.log('Bin edges:', binEdges, '\n');
+console.log('Number of bins:', counts.shape[0], '\n');
+
+// Custom number of bins
+const [counts20] = np.histogram(data, 20);
+console.log('20 bins, counts shape:', counts20.shape, '\n');
+
+// Custom bin edges
+const customBins = np.array([-3, -2, -1, 0, 1, 2, 3]);
+const [customCounts] = np.histogram(data, customBins);
+console.log('Custom bins counts:', customCounts, '\n');
+
+// Compute bin edges without the counts
+const edges = np.histogram_bin_edges(data, 'auto');
+console.log('Auto bin edges:', edges.shape, '\n');`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## Correlation matrix with corrcoef
+
+Compute the Pearson correlation coefficient matrix to understand relationships between variables.
+
+<Playground
+  code={String.raw`np.random.seed(42);
+
+// Simulate 3 variables with known correlations
+const n = 200;
+const x = np.random.normal(0, 1, [n]);
+const y = np.add(np.multiply(x, 0.8), np.multiply(np.random.normal(0, 1, [n]), 0.6));
+// y is strongly correlated with x
+const z = np.add(np.multiply(x, -0.3), np.multiply(np.random.normal(0, 1, [n]), 0.95));
+// z is weakly negatively correlated with x
+
+// Stack into a matrix where each row is a variable
+const data = np.stack([x, y, z]);
+console.log('Data shape:', data.shape, '\n');
+
+// Compute correlation matrix
+const R = np.corrcoef(data);
+console.log('Correlation matrix:\n', R, '\n');
+
+// Covariance matrix
+const C = np.cov(data);
+console.log('Covariance matrix:\n', C);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## Monte Carlo simulation
+
+Use random sampling to estimate quantities that are difficult to compute analytically.
+
+<Playground
+  code={String.raw`// Estimate Pi using Monte Carlo
+// Throw random points in [0,1) x [0,1) and check if they fall
+// inside a quarter circle of radius 1
+
+np.random.seed(42);
+const nSamples = 100000;
+
+const x = np.random.random([nSamples]);
+const y = np.random.random([nSamples]);
+
+// Distance from origin
+const dist = np.sqrt(np.add(np.power(x, 2), np.power(y, 2)));
+
+// Count points inside the quarter circle (distance <= 1)
+const inside = np.less_equal(dist, 1);
+const countInside = np.sum(inside);
+
+// Pi estimate: area of quarter circle / area of square = Pi/4
+const piEstimate = countInside * 4 / nSamples;
+console.log('Pi estimate:', piEstimate, '\n');
+// Should be close to 3.14159...
+
+// Estimate the integral of sin(x) from 0 to pi using Monte Carlo
+const nSamples2 = 50000;
+const samples = np.multiply(np.random.random([nSamples2]), Math.PI);
+const sinValues = np.sin(samples);
+const integral = np.mean(sinValues) * Math.PI;
+console.log('Integral of sin(x) from 0 to pi:', integral, '\n');
+// Should be close to 2.0`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## Weighted average
+
+Compute a weighted mean when some observations carry more importance than others.
+
+<Playground
+  code={String.raw`// Student scores with different assignment weights
+const scores = np.array([85, 90, 78, 92, 88]);
+const weights = np.array([0.1, 0.2, 0.3, 0.2, 0.2]);
+
+// Weighted average
+const weighted = np.average(scores, undefined, weights);
+console.log('Weighted average:', weighted, '\n');
+
+// Compare with unweighted mean
+const unweighted = np.mean(scores);
+console.log('Unweighted mean:', unweighted, '\n');
+
+// Weighted average along an axis
+const multiStudent = np.array([
+  [85, 90, 78],  // Student A
+  [92, 88, 95],  // Student B
+  [70, 75, 80],  // Student C
+]);
+const assignmentWeights = np.array([0.3, 0.3, 0.4]);
+
+const finalGrades = np.average(multiStudent, 1, assignmentWeights);
+console.log('Final grades:', finalGrades, '\n');
+// Weighted average across columns for each student
+
+// When weights are counts (frequency weights)
+const values = np.array([1, 2, 3, 4, 5]);
+const counts = np.array([10, 20, 30, 20, 10]);
+
+const freqMean = np.average(values, undefined, counts);
+console.log('Frequency-weighted mean:', freqMean, '\n');
+// Should be close to 2.89 (weighted toward 3)`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## Working with NaN-safe reductions
+
+Real datasets often contain missing values. Use the `nan*` family of functions to ignore `NaN` entries.
+
+<Playground
+  code={String.raw`// Dataset with missing values (NaN)
+const data = np.array([1.0, 2.0, NaN, 4.0, 5.0, NaN, 7.0]);
+
+// Standard reductions propagate NaN
+console.log('mean:', np.mean(data));
+console.log('sum:', np.sum(data), '\n');
+
+// NaN-safe alternatives ignore missing values
+console.log('nanmean:', np.nanmean(data));
+console.log('nansum:', np.nansum(data));
+console.log('nanstd:', np.nanstd(data));
+console.log('nanmin:', np.nanmin(data));
+console.log('nanmax:', np.nanmax(data));
+console.log('nanmedian:', np.nanmedian(data), '\n');
+
+// Works along axes too
+const matrix = np.array([[1, NaN, 3], [4, 5, NaN]]);
+const colMeans = np.nanmean(matrix, 0);
+console.log('Column means (ignoring NaN):', colMeans);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>

@@ -1,0 +1,334 @@
+---
+title: "Special Matrices"
+description: "Create identity, diagonal, triangular, and Vandermonde matrices."
+---
+
+### eye
+
+Return a 2-D array with ones on the diagonal and zeros elsewhere.
+
+```typescript
+function eye(n: number, m?: number, k?: number, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | - | Number of rows. |
+| `m` | `number` | `n` | Number of columns. Defaults to `n` (square matrix). |
+| `k` | `number` | `0` | Index of the diagonal. `0` is the main diagonal, positive values are above, negative below. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- 2-D array of shape `[n, m]` with ones on the `k`-th diagonal.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.eye(3);
+// array([[1, 0, 0],
+//        [0, 1, 0],
+//        [0, 0, 1]])
+
+const b = np.eye(3, 4, 1);
+// array([[0, 1, 0, 0],
+//        [0, 0, 1, 0],
+//        [0, 0, 0, 1]])
+```
+
+```typescript Core
+import { eye } from 'numpy-ts/core';
+
+const a = eye(3);
+const b = eye(3, 4, 1);
+```
+</CodeGroup>
+
+---
+
+### identity
+
+Return the identity matrix (a square matrix with ones on the main diagonal).
+
+```typescript
+function identity(n: number, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `n` | `number` | - | Number of rows (and columns) in the output. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- `n x n` identity matrix.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const I = np.identity(4);
+// array([[1, 0, 0, 0],
+//        [0, 1, 0, 0],
+//        [0, 0, 1, 0],
+//        [0, 0, 0, 1]])
+```
+
+```typescript Core
+import { identity } from 'numpy-ts/core';
+
+const I = identity(4);
+```
+</CodeGroup>
+
+---
+
+### diag
+
+Extract a diagonal or construct a diagonal array.
+
+When given a 1-D array, returns a 2-D array with the input as its `k`-th diagonal. When given a 2-D array, extracts the `k`-th diagonal.
+
+```typescript
+function diag(v: ArrayLike, k?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `v` | `ArrayLike` | - | Input array. If 1-D, used as a diagonal to build a 2-D matrix. If 2-D, the `k`-th diagonal is extracted. |
+| `k` | `number` | `0` | Diagonal index. `0` is the main diagonal. Positive is above, negative is below. |
+
+**Returns:** `NDArray` -- Extracted diagonal (1-D) or constructed diagonal matrix (2-D).
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+// Construct from 1-D
+const a = np.diag(np.array([1, 2, 3]));
+// array([[1, 0, 0],
+//        [0, 2, 0],
+//        [0, 0, 3]])
+
+// Extract from 2-D
+const m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+const d = np.diag(m);
+// array([1, 5, 9])
+
+const d1 = np.diag(m, 1);
+// array([2, 6])
+```
+
+```typescript Core
+import { diag, array } from 'numpy-ts/core';
+
+const a = diag(array([1, 2, 3]));
+const m = array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+const d = diag(m);
+```
+</CodeGroup>
+
+---
+
+### diagflat
+
+Create a diagonal matrix from a flattened input.
+
+```typescript
+function diagflat(v: ArrayLike, k?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `v` | `ArrayLike` | - | Input array. It is flattened before being placed on the diagonal. |
+| `k` | `number` | `0` | Diagonal offset. |
+
+**Returns:** `NDArray` -- 2-D array with the flattened `v` on the `k`-th diagonal.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.diagflat(np.array([[1, 2], [3, 4]]));
+// array([[1, 0, 0, 0],
+//        [0, 2, 0, 0],
+//        [0, 0, 3, 0],
+//        [0, 0, 0, 4]])
+
+const b = np.diagflat(np.array([1, 2]), 1);
+// array([[0, 1, 0],
+//        [0, 0, 2],
+//        [0, 0, 0]])
+```
+
+```typescript Core
+import { diagflat, array } from 'numpy-ts/core';
+
+const a = diagflat(array([[1, 2], [3, 4]]));
+const b = diagflat(array([1, 2]), 1);
+```
+</CodeGroup>
+
+---
+
+### tri
+
+Return an array with ones at and below the given diagonal and zeros elsewhere.
+
+```typescript
+function tri(N: number, M?: number, k?: number, dtype?: DType): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `N` | `number` | - | Number of rows. |
+| `M` | `number` | `N` | Number of columns. |
+| `k` | `number` | `0` | Diagonal above which to fill with zeros. `k = 0` is the main diagonal. |
+| `dtype` | `DType` | `'float64'` | Data type of the output array. |
+
+**Returns:** `NDArray` -- Lower-triangular array of shape `[N, M]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.tri(3);
+// array([[1, 0, 0],
+//        [1, 1, 0],
+//        [1, 1, 1]])
+
+const b = np.tri(3, 4, 1);
+// array([[1, 1, 0, 0],
+//        [1, 1, 1, 0],
+//        [1, 1, 1, 1]])
+```
+
+```typescript Core
+import { tri } from 'numpy-ts/core';
+
+const a = tri(3);
+const b = tri(3, 4, 1);
+```
+</CodeGroup>
+
+---
+
+### tril
+
+Return the lower triangle of an array. Elements above the `k`-th diagonal are zeroed.
+
+```typescript
+function tril(m: ArrayLike, k?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `m` | `ArrayLike` | - | Input array (must be at least 2-D). |
+| `k` | `number` | `0` | Diagonal above which to zero elements. `0` keeps the main diagonal. |
+
+**Returns:** `NDArray` -- Copy of `m` with elements above the `k`-th diagonal zeroed.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+
+const a = np.tril(m);
+// array([[1, 0, 0],
+//        [4, 5, 0],
+//        [7, 8, 9]])
+
+const b = np.tril(m, 1);
+// array([[1, 2, 0],
+//        [4, 5, 6],
+//        [7, 8, 9]])
+```
+
+```typescript Core
+import { tril, array } from 'numpy-ts/core';
+
+const m = array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+const a = tril(m);
+```
+</CodeGroup>
+
+---
+
+### triu
+
+Return the upper triangle of an array. Elements below the `k`-th diagonal are zeroed.
+
+```typescript
+function triu(m: ArrayLike, k?: number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `m` | `ArrayLike` | - | Input array (must be at least 2-D). |
+| `k` | `number` | `0` | Diagonal below which to zero elements. |
+
+**Returns:** `NDArray` -- Copy of `m` with elements below the `k`-th diagonal zeroed.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+
+const a = np.triu(m);
+// array([[1, 2, 3],
+//        [0, 5, 6],
+//        [0, 0, 9]])
+
+const b = np.triu(m, -1);
+// array([[1, 2, 3],
+//        [4, 5, 6],
+//        [0, 8, 9]])
+```
+
+```typescript Core
+import { triu, array } from 'numpy-ts/core';
+
+const m = array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+const a = triu(m);
+```
+</CodeGroup>
+
+---
+
+### vander
+
+Generate a Vandermonde matrix. Column `j` of the output is `x**j` (when `increasing` is `true`) or `x**(N-1-j)` (the default).
+
+```typescript
+function vander(x: ArrayLike, N?: number, increasing?: boolean): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | 1-D input array. |
+| `N` | `number` | `x.length` | Number of columns in the output. |
+| `increasing` | `boolean` | `false` | If `true`, powers increase left to right. |
+
+**Returns:** `NDArray` -- Vandermonde matrix of shape `[x.length, N]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.vander(np.array([1, 2, 3]), 3);
+// array([[1, 1, 1],
+//        [4, 2, 1],
+//        [9, 3, 1]])
+
+const b = np.vander(np.array([1, 2, 3]), 3, true);
+// array([[1, 1, 1],
+//        [1, 2, 4],
+//        [1, 3, 9]])
+```
+
+```typescript Core
+import { vander, array } from 'numpy-ts/core';
+
+const a = vander(array([1, 2, 3]), 3);
+const b = vander(array([1, 2, 3]), 3, true);
+```
+</CodeGroup>

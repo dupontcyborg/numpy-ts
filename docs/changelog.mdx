@@ -4,6 +4,37 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.5.0" description="2026-06-19">
+
+## numpy-ts v1.5.0
+
+Performance release. A large batch of element-wise and reduction operations move from JavaScript into hand-written Zig/WASM SIMD kernels, and the project's tooling migrates from npm to pnpm. 
+
+numpy-ts is now, on average [1.25x faster than native NumPy](/v1.5.x/performance/vs-numpy)!
+
+### New WASM SIMD kernels
+
+The following operations now run through vectorized WASM kernels (previously JS fallbacks), with integer and complex dtype variants where applicable:
+
+* Trigonometric: `sin`, `cos`, `tan`
+* Hyperbolic: `sinh`, `cosh`, `tanh`
+* Inverse trig / hyperbolic: `arctan`, `arctan2`, `arcsinh`, `arccosh`, `arctanh`
+* Exp / log family: `exp`, `exp2`, `expm1`, `log`, `log1p`, `logaddexp`, `logaddexp2`
+* Other element-wise: `power`, `heaviside`, `modulo`, `sinc`
+* Signal: `convolve`, `correlate` (relaxed-FMA variants)
+* Strided reductions: `argmin`, `argmax`, `prod`
+* Cumulative: `cumsum`, `cumprod`
+
+These share new common SIMD utilities for transcendental functions and complex arithmetic, and redundant relaxed-FMA kernel variants were removed.
+
+### Tooling & CI
+
+* Migrated the toolchain from npm to pnpm (workspaces, CI, and `pnpm publish` via OIDC Trusted Publishing). Thanks [@cyfung1031](https://github.com/dupontcyborg/numpy-ts/pull/128)!
+* Validation tests moved from a per-test NumPy process to a per-worker NumPy "server" for faster oracle comparisons.
+* Dependency bumps across dev and bench tooling.
+
+</Update>
+
 <Update label="v1.4.0" description="2026-05-16">
 
 ## numpy-ts v1.4.0
