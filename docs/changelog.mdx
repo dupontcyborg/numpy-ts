@@ -30,6 +30,7 @@ These share new common SIMD utilities for transcendental functions and complex a
 ### Tooling & CI
 
 * Migrated the toolchain from npm to pnpm (workspaces, CI, and `pnpm publish` via OIDC Trusted Publishing). Thanks [@cyfung1031](https://github.com/dupontcyborg/numpy-ts/pull/128)!
+* Fixed missing `DType` type export from `numpy-ts` entrypoint, thanks to [@OSquiddy](https://github.com/dupontcyborg/numpy-ts/pull/133)!
 * Validation tests moved from a per-test NumPy process to a per-worker NumPy "server" for faster oracle comparisons.
 * Dependency bumps across dev and bench tooling.
 
