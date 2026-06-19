@@ -67,7 +67,7 @@
     "report:dtype-coverage": "npx tsx scripts/dtype-coverage-report.ts",
     "report:zig-coverage": "npx tsx scripts/zig-fn-coverage.ts",
     "report:zig-dead-code": "npx tsx scripts/zig-dead-code.ts",
-    "report:slowest": "npx tsx scripts/slowest-functions.ts",
+    "report:slowest": "tsx scripts/slowest-functions.ts",
     "report:wasm-size": "tsx scripts/wasm-size.ts",
     "bench:build": "esbuild benchmarks/src/index.ts --bundle --platform=node --format=cjs --external:pyodide --outfile=benchmarks/dist/bench.cjs && esbuild benchmarks/src/runtime-runner.ts --bundle --platform=neutral --format=esm --external:node:fs --external:node:fs/promises --outfile=benchmarks/dist/runtime-runner.mjs",
     "bench": "pnpm run bench:build && node benchmarks/dist/bench.cjs --full",
@@ -127,11 +127,9 @@
     "vitest": "^4.0.3",
     "webpack": "^5.99.9"
   },
+  "packageManager": "pnpm@11.8.0",
   "engines": {
     "node": ">=20.1.0"
-  },
-  "overrides": {
-    "js-yaml": ">=4.1.1"
   },
   "lint-staged": {
     "*.ts": [

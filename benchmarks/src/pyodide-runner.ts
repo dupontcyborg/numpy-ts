@@ -19,7 +19,7 @@ export async function runPyodideBenchmarks(
     loadPyodide = mod.loadPyodide;
   } catch {
     throw new Error(
-      'pyodide package not found. Install it with:\n  pnpm install --save-dev pyodide',
+      'pyodide package not found. Install it with:\n  pnpm add -D pyodide',
     );
   }
 

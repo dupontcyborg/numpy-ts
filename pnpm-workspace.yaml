@@ -1,0 +1,14 @@
+# Dependencies allowed to run install/build (postinstall) scripts.
+# pnpm blocks all others by default for supply-chain safety.
+onlyBuiltDependencies:
+  - canvas
+  - esbuild
+
+# Version overrides (formerly the top-level npm "overrides" field).
+overrides:
+  js-yaml: '>=4.1.1'
+
+# Supply-chain cooldown: refuse to install package versions published less
+# than this many minutes ago (1440 = 1 day), so a compromised fresh release
+# has time to be detected/yanked before it can be pulled in.
+minimumReleaseAge: 1440

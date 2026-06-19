@@ -32,7 +32,8 @@ Complete NumPy implementation for TypeScript and JavaScript.
 ## Install
 
 ```bash
-pnpm install numpy-ts
+npm install numpy-ts
+# or: pnpm add numpy-ts · yarn add numpy-ts · bun add numpy-ts · deno add npm:numpy-ts
 ```
 
 ## Quick Start

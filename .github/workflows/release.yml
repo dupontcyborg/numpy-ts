@@ -86,7 +86,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        node: [22, 24]
+        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v6
 
@@ -140,7 +140,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          package-manager-cache: false  # never use caching in release builds
+          # No cache: release builds always install fresh (omitting `cache` disables it)
 
       - name: Read Zig version
         id: zig
@@ -202,7 +202,7 @@ jobs:
         with:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false  # never use caching in release builds
+          # No cache: release builds always install fresh (omitting `cache` disables it)
 
       - name: Read Zig version
         id: zig
@@ -234,7 +234,9 @@ jobs:
           path: dist/
 
       - name: Publish to npm
-        run: pnpm publish --access public
+        # --no-git-checks: release runs on a tag (detached HEAD) with a dirty
+        # tree from the build, which pnpm's default git checks would reject.
+        run: pnpm publish --access public --no-git-checks
 
       - name: Create release summary
         run: |
