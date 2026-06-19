@@ -71,3 +71,6 @@ tests/tree-shaking/.output/
 # Stargazers data
 stargazers*.tsv
 fetch-stargazers.sh
+
+# Internal docs (not published to Mintlify, kept local only)
+docs_internal/
