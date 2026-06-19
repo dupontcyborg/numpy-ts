@@ -7,6 +7,8 @@ allowBuilds:
 # Version overrides (formerly the top-level npm "overrides" field).
 overrides:
   js-yaml: '>=4.1.1'
+  # Force patched vite (transitive via vitest); <=8.0.15 has GHSA-fx2h-pf6j-xcff
+  vite: '>=8.0.16'
 
 # Supply-chain cooldown: refuse to install package versions published less
 # than this many minutes ago (1440 = 1 day), so a compromised fresh release
