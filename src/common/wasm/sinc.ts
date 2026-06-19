@@ -5,7 +5,7 @@
  * (NumPy promotes every integer dtype to float64 for sinc).
  */
 
-import type { DType, TypedArray } from '../dtype';
+import { type DType, effectiveDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
   sinc_f32,
@@ -70,7 +70,10 @@ export function wasmSinc(x: ArrayStorage): ArrayStorage | null {
   const size = x.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  const dtype = x.dtype;
+  // Use effectiveDType: when native Float16Array is unavailable (Node 20/22),
+  // float16 storage is Float32Array-backed, so dispatch through the f32 path
+  // rather than the float16 branch (which constructs Float16Array views).
+  const dtype = effectiveDType(x.dtype);
   const bpe = inBpe[dtype];
   if (!bpe) return null;
 
