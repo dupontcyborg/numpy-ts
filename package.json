@@ -69,6 +69,7 @@
     "report:zig-dead-code": "npx tsx scripts/zig-dead-code.ts",
     "report:slowest": "tsx scripts/slowest-functions.ts",
     "report:wasm-size": "tsx scripts/wasm-size.ts",
+    "report:bundle-size": "tsx scripts/bundle-size-badge.ts",
     "bench:build": "esbuild benchmarks/src/index.ts --bundle --platform=node --format=cjs --external:pyodide --outfile=benchmarks/dist/bench.cjs && esbuild benchmarks/src/runtime-runner.ts --bundle --platform=neutral --format=esm --external:node:fs --external:node:fs/promises --outfile=benchmarks/dist/runtime-runner.mjs",
     "bench": "pnpm run bench:build && node benchmarks/dist/bench.cjs --full",
     "bench:node": "pnpm run bench:build && node benchmarks/dist/bench.cjs --full --runtime node",
