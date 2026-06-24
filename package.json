@@ -79,6 +79,10 @@
     "bench:bun": "pnpm run bench:build && node benchmarks/dist/bench.cjs --full --runtime bun",
     "bench:compare": "tsx benchmarks/scripts/compare.ts",
     "bench:regenerate": "tsx benchmarks/scripts/regenerate-charts.ts",
+    "bench:js-libs:install": "pnpm -C benchmarks/js-libs install",
+    "bench:js-libs:probe": "pnpm run bench:js-libs:install && pnpm -C benchmarks/js-libs run probe",
+    "bench:js-libs": "pnpm run bench:js-libs:install && tsx benchmarks/js-libs/run.ts",
+    "bench:js-libs:f32": "pnpm run bench:js-libs:install && tsx benchmarks/js-libs/run.ts --dtype float32",
     "bench:view": "open benchmarks/results/plots/latest-full.html || xdg-open benchmarks/results/plots/latest-full.html",
     "bench:docs": "python3 scripts/generate-bench-docs.py && python3 scripts/generate-overview-charts.py"
   },
