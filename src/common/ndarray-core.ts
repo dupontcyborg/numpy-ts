@@ -16,6 +16,7 @@ import {
   isBigIntDType,
   isComplexDType,
   isFloatDType,
+  type Scalar,
   type TypedArray,
 } from './dtype';
 import { array_str } from './ops/formatting';
@@ -79,7 +80,7 @@ function floatToInt(value: number, targetDtype: DType): number {
   return Math.trunc(value);
 }
 
-export class NDArrayCore {
+export class NDArrayCore<D extends DType = DType> {
   // Internal storage
   protected _storage: ArrayStorage;
   // Track if this array is a view of another array
@@ -150,7 +151,7 @@ export class NDArrayCore {
     this._storage = storage;
     this._base = base;
     // biome-ignore lint/correctness/noConstructorReturn: intentional Proxy wrapper for index access
-    return new Proxy(this, NDArrayCore._proxyHandler);
+    return new Proxy(this, NDArrayCore._proxyHandler as ProxyHandler<this>) as this;
   }
 
   /**
@@ -182,8 +183,8 @@ export class NDArrayCore {
     return this._storage.size;
   }
 
-  get dtype(): string {
-    return this._storage.dtype;
+  get dtype(): D {
+    return this._storage.dtype as D;
   }
 
   get data(): TypedArray {
@@ -258,12 +259,12 @@ export class NDArrayCore {
   /**
    * Iterator protocol - iterate over the first axis
    */
-  *[Symbol.iterator](): Iterator<NDArrayCore | number | bigint | Complex> {
+  *[Symbol.iterator](): Iterator<NDArrayCore<D> | Scalar<D>> {
     if (this.ndim === 0) {
-      yield this._storage.iget(0);
+      yield this._storage.iget(0) as Scalar<D>;
     } else if (this.ndim === 1) {
       for (let i = 0; i < this.shape[0]!; i++) {
-        yield this._storage.iget(i);
+        yield this._storage.iget(i) as Scalar<D>;
       }
     } else {
       for (let i = 0; i < this.shape[0]!; i++) {
@@ -275,7 +276,7 @@ export class NDArrayCore {
   /**
    * Get a single element from the array
    */
-  get(indices: number[]): number | bigint | Complex {
+  get(indices: number[]): Scalar<D> {
     if (indices.length !== this.ndim) {
       throw new Error(
         `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
@@ -295,7 +296,7 @@ export class NDArrayCore {
       return normalized;
     });
 
-    return this._storage.get(...normalizedIndices);
+    return this._storage.get(...normalizedIndices) as Scalar<D>;
   }
 
   /**
@@ -342,8 +343,8 @@ export class NDArrayCore {
   /**
    * Get element by flat index
    */
-  iget(flatIndex: number): number | bigint | Complex {
-    return this._storage.iget(flatIndex);
+  iget(flatIndex: number): Scalar<D> {
+    return this._storage.iget(flatIndex) as Scalar<D>;
   }
 
   /**
@@ -371,9 +372,21 @@ export class NDArrayCore {
   }
 
   /**
-   * Cast array to a different dtype
+   * Cast array to a different dtype.
+   *
+   * The result is typed `NDArrayCore<E>` so the target dtype is tracked at the
+   * type level (e.g. `arr.astype('int8')` is `NDArrayCore<'int8'>`). Subclasses
+   * override this to return their own type.
    */
-  astype(dtype: DType, copy: boolean = true): this {
+  astype<E extends DType>(dtype: E, copy: boolean = true): NDArrayCore<E> {
+    return this._astypeImpl(dtype, copy) as unknown as NDArrayCore<E>;
+  }
+
+  /**
+   * Implementation of {@link astype}. Returns the most-derived class around the
+   * converted storage (typed loosely; the public `astype` re-applies `E`).
+   */
+  protected _astypeImpl(dtype: DType, copy: boolean): NDArrayCore {
     const currentDtype = this.dtype as DType;
 
     if (currentDtype === dtype && !copy) {
@@ -640,19 +653,19 @@ export class NDArrayCore {
   /**
    * Copy an element of an array to a standard scalar and return it
    */
-  item(...args: number[]): number | bigint | Complex {
+  item(...args: number[]): Scalar<D> {
     if (args.length === 0) {
       if (this.size !== 1) {
         throw new Error('can only convert an array of size 1 to a Python scalar');
       }
-      return this._storage.iget(0);
+      return this._storage.iget(0) as Scalar<D>;
     }
     if (args.length === 1) {
       const flatIdx = args[0]!;
       if (flatIdx < 0 || flatIdx >= this.size) {
         throw new Error(`index ${flatIdx} is out of bounds for size ${this.size}`);
       }
-      return this._storage.iget(flatIdx);
+      return this._storage.iget(flatIdx) as Scalar<D>;
     }
     return this.get(args);
   }
@@ -662,4 +675,4 @@ export class NDArrayCore {
 }
 
 // Re-export types
-export type { DType, TypedArray };
+export type { DType, Scalar, TypedArray };

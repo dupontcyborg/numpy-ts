@@ -189,6 +189,7 @@ interface FunctionInfo {
   paramNames: string[];
   invokeParams: string; // Store the parameter names as they would be for a function invocation
   returnType: string;
+  typeParams: string; // e.g. "<D extends DType = 'float64'>" — empty if none
   isExported: boolean;
 }
 
@@ -244,6 +245,11 @@ function extractFunctionInfo(func: FunctionDeclaration): FunctionInfo | null {
   const returnTypeNode = func.getReturnTypeNode();
   const returnType = returnTypeNode ? returnTypeNode.getText() : 'any';
 
+  // Copy generic type parameters verbatim (e.g. creation functions parameterized
+  // by dtype: `<D extends DType = 'float64'>`). Empty string when there are none.
+  const tps = func.getTypeParameters().map((tp) => tp.getText());
+  const typeParams = tps.length ? `<${tps.join(', ')}>` : '';
+
   return {
     name,
     jsDoc,
@@ -251,6 +257,7 @@ function extractFunctionInfo(func: FunctionDeclaration): FunctionInfo | null {
     paramNames,
     invokeParams,
     returnType,
+    typeParams,
     isExported: func.isExported(),
   };
 }
@@ -280,6 +287,182 @@ function transformReturnType(returnType: string): string {
     .replace(/NDArrayCore/g, 'NDArray');
 }
 
+// Creation functions get a dtype type-parameter injected so the dtype literal
+// flows into the result type (e.g. `zeros([3], 'int32')` → `NDArray<'int32'>`).
+// The core functions stay untyped (NDArrayCore); genericity lives only here.
+// `dflt` is the type-param default used when `dtype` is omitted: 'float64' for
+// functions whose runtime default is DEFAULT_DTYPE, else DType (inferred).
+const CREATION_GENERICS: Record<string, { dflt: string }> = {
+  zeros: { dflt: "'float64'" },
+  ones: { dflt: "'float64'" },
+  empty: { dflt: "'float64'" },
+  eye: { dflt: "'float64'" },
+  identity: { dflt: "'float64'" },
+  linspace: { dflt: "'float64'" },
+  logspace: { dflt: "'float64'" },
+  geomspace: { dflt: "'float64'" },
+  tri: { dflt: "'float64'" },
+  fromfunction: { dflt: "'float64'" },
+  array: { dflt: 'DType' },
+  asarray: { dflt: 'DType' },
+  arange: { dflt: 'DType' },
+  full: { dflt: 'DType' },
+  frombuffer: { dflt: 'DType' },
+  fromiter: { dflt: 'DType' },
+  fromstring: { dflt: 'DType' },
+  zeros_like: { dflt: 'DType' },
+  ones_like: { dflt: 'DType' },
+  empty_like: { dflt: 'DType' },
+  full_like: { dflt: 'DType' },
+};
+
+// Free-function elementwise ops (np.add, np.sqrt, …) → dtype-tracked wrappers,
+// mirroring the NDArray method taxonomy. Keyed by core function name.
+const FUNCTION_RESULT_RULES: Record<
+  string,
+  keyof typeof UNARY_RESULT_TYPE | keyof typeof BINARY_RESULT | 'bool'
+> = {
+  // binary
+  add: 'promote',
+  subtract: 'promote',
+  multiply: 'promote',
+  bitwise_and: 'promote',
+  bitwise_or: 'promote',
+  bitwise_xor: 'promote',
+  left_shift: 'promote',
+  right_shift: 'promote',
+  matmul: 'promote',
+  outer: 'promote',
+  power: 'power',
+  mod: 'power',
+  floor_divide: 'power',
+  remainder: 'power',
+  divide: 'divide',
+  true_divide: 'divide',
+  arctan2: 'mathbinary',
+  hypot: 'mathbinary',
+  copysign: 'mathbinary',
+  nextafter: 'mathbinary',
+  heaviside: 'mathbinary',
+  logaddexp: 'mathbinary',
+  logaddexp2: 'mathbinary',
+  greater: 'bool',
+  greater_equal: 'bool',
+  less: 'bool',
+  less_equal: 'bool',
+  equal: 'bool',
+  not_equal: 'bool',
+  logical_and: 'bool',
+  logical_or: 'bool',
+  logical_xor: 'bool',
+  // unary
+  sqrt: 'math',
+  exp: 'math',
+  exp2: 'math',
+  expm1: 'math',
+  log: 'math',
+  log2: 'math',
+  log10: 'math',
+  log1p: 'math',
+  sin: 'math',
+  cos: 'math',
+  tan: 'math',
+  arcsin: 'math',
+  arccos: 'math',
+  arctan: 'math',
+  sinh: 'math',
+  cosh: 'math',
+  tanh: 'math',
+  arcsinh: 'math',
+  arccosh: 'math',
+  arctanh: 'math',
+  cbrt: 'math',
+  degrees: 'math',
+  radians: 'math',
+  ceil: 'math',
+  fix: 'math',
+  floor: 'math',
+  rint: 'math',
+  trunc: 'math',
+  fabs: 'math',
+  spacing: 'math',
+  absolute: 'abs',
+  square: 'boolarith',
+  negative: 'preserve',
+  sign: 'preserve',
+  positive: 'preserve',
+  reciprocal: 'preserve',
+  bitwise_not: 'preserve',
+  invert: 'preserve',
+  conj: 'preserve',
+  logical_not: 'bool',
+  isfinite: 'bool',
+  isinf: 'bool',
+  isnan: 'bool',
+  isnat: 'bool',
+  signbit: 'bool',
+};
+
+// Result type of the scalar-operand overload for each binary op kind (in terms of A).
+const BINARY_NUMBER_RESULT: Record<string, string> = {
+  promote: 'NDArray<A>',
+  power: 'NDArray<A>',
+  divide: 'NDArray<TrueDivide<A>>',
+  mathbinary: 'NDArray<MathResult<A>>',
+};
+
+/**
+ * Emit a dtype-tracked wrapper for an elementwise op. Returns null (→ fall back
+ * to the untyped wrapper) unless the core signature matches the expected shape:
+ * unary = one array param; binary = two array params (2nd optionally `| number`).
+ */
+function generateTypedOpWrapper(info: FunctionInfo, kind: string): string | null {
+  const core = `core.${CORE_NAME_MAP[info.name] || info.name}`;
+  const isBinaryKind = kind in BINARY_RESULT || kind === 'bool';
+
+  // Unary: exactly one param, typed NDArrayCore.
+  if (info.paramNames.length === 1 && /:\s*NDArrayCore\b/.test(info.params)) {
+    const rt = UNARY_RESULT_TYPE[kind];
+    if (!rt) return null;
+    const p = info.paramNames[0]!;
+    return `${info.jsDoc}
+export function ${info.name}<D extends DType>(${p}: NDArrayCore<D>): ${rt} {
+  return up(${core}(${p})) as ${rt};
+}`;
+  }
+
+  // Binary: exactly two params; both arrays, 2nd may also accept a number.
+  if (
+    isBinaryKind &&
+    info.paramNames.length === 2 &&
+    /^\s*\w+:\s*NDArrayCore\b/.test(info.params)
+  ) {
+    const [a, b] = info.paramNames as [string, string];
+    const acceptsNumber = /number/.test(info.params);
+    const alias = kind === 'bool' ? null : (BINARY_RESULT[kind]?.alias ?? null);
+    const arrRet = alias ? `NDArray<${alias}<A, B>>` : "NDArray<'bool'>";
+    const numRet = kind === 'bool' ? "NDArray<'bool'>" : BINARY_NUMBER_RESULT[kind];
+    // The array⊗array overload never accepts `number` — otherwise it would
+    // shadow the scalar overload (B couldn't be inferred from a number).
+    const overloads = [
+      `export function ${info.name}<A extends DType, B extends DType>(${a}: NDArrayCore<A>, ${b}: NDArrayCore<B>): ${arrRet};`,
+    ];
+    if (acceptsNumber) {
+      overloads.push(
+        `export function ${info.name}<A extends DType>(${a}: NDArrayCore<A>, ${b}: number): ${numRet};`,
+      );
+    }
+    const implCast = kind === 'bool' ? " as NDArray<'bool'>" : '';
+    return `${info.jsDoc}
+${overloads.join('\n')}
+export function ${info.name}(${info.params}): NDArray {
+  return up(${core}(${info.invokeParams}))${implCast};
+}`;
+  }
+
+  return null;
+}
+
 function generateWrapperFunction(info: FunctionInfo, _moduleName: string): string {
   // Check for custom wrapper override
   if (CUSTOM_WRAPPERS[info.name]) {
@@ -288,6 +471,31 @@ function generateWrapperFunction(info: FunctionInfo, _moduleName: string): strin
 export function ${info.name}(${info.params}): ${custom.returnType} {
   ${custom.body}
 }`;
+  }
+
+  // Creation functions: inject `<D extends DType = …>`, retype the `dtype`
+  // parameter to `dtype?: D`, and return `NDArray<D>`.
+  const gen = CREATION_GENERICS[info.name];
+  if (gen && info.returnType === 'NDArrayCore') {
+    // Retype the `dtype` parameter's DType → D while preserving optionality and
+    // any runtime default (keeping default value preserves function arity).
+    const params = info.params.replace(
+      /\bdtype(\?)?\s*:\s*DType(?:\s*=\s*([^,)]+))?/,
+      (_m, opt: string | undefined, def: string | undefined) =>
+        def ? `dtype: D = ${def.trim()} as D` : opt ? 'dtype?: D' : 'dtype: D',
+    );
+    return `${info.jsDoc}
+export function ${info.name}<D extends DType = ${gen.dflt}>(${params}): NDArray<D> {
+  return up(core.${CORE_NAME_MAP[info.name] || info.name}(${info.invokeParams})) as NDArray<D>;
+}`;
+  }
+
+  // Elementwise op → dtype-tracked wrapper (falls back to untyped if the core
+  // signature shape isn't the expected unary/binary elementwise form).
+  const opRule = FUNCTION_RESULT_RULES[info.name];
+  if (opRule) {
+    const typed = generateTypedOpWrapper(info, opRule);
+    if (typed) return typed;
   }
 
   const transformedReturnType = transformReturnType(info.returnType);
@@ -330,15 +538,17 @@ export function ${info.name}(${info.params}): ${custom.returnType} {
     // NDArrayCore | undefined → result ? up(result) : undefined
     body = `const r = core.${coreFuncName}(${info.invokeParams}); return r ? up(r) : undefined;`;
   } else if (isPureSingle) {
-    // Pure NDArrayCore → up(result)
-    body = `return up(core.${coreFuncName}(${info.invokeParams}));`;
+    // Pure NDArrayCore → up(result). When the function is generic (dtype-tracked
+    // creation fns), `up` widens to NDArray, so assert back to the tracked type.
+    const cast = info.typeParams ? ` as ${transformedReturnType}` : '';
+    body = `return up(core.${coreFuncName}(${info.invokeParams}))${cast};`;
   } else {
     // Default: try simple wrap (will fail for complex cases)
     body = `return up(core.${coreFuncName}(${info.invokeParams}));`;
   }
 
   return `${info.jsDoc}
-export function ${info.name}(${info.params}): ${transformedReturnType} {
+export function ${info.name}${info.typeParams}(${info.params}): ${transformedReturnType} {
   ${body}
 }`;
 }
@@ -388,6 +598,16 @@ import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import { Complex } from '../common/complex';
 import type { ArrayLike, DType, TypedArray } from '../core/types';
+import type {
+  Abs,
+  BoolArith,
+  Divide,
+  MathBinary,
+  MathResult,
+  Power,
+  Promote,
+  TrueDivide,
+} from '../common/dtype-promotion';
 import type { NestedNDArrays } from '../core/shape';
 import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
 import type { ReductionOpts } from '../core/reduction';
@@ -497,6 +717,30 @@ function extractParamNames(params: string): string {
     .join(', ');
 }
 
+// Unary/passthrough `result` kind → the `NDArray<…>` return type (in terms of `D`).
+// A kind absent from this map falls back to bare `NDArray` (dtype not tracked).
+const UNARY_RESULT_TYPE: Record<string, string> = {
+  math: 'NDArray<MathResult<D>>',
+  abs: 'NDArray<Abs<D>>',
+  boolarith: 'NDArray<BoolArith<D>>',
+  reduction: 'NDArray<ReductionAccum<D>>',
+  preserve: 'NDArray<D>',
+  bool: "NDArray<'bool'>",
+  index: "NDArray<'int64'>",
+  component: 'NDArray<ComplexComponent<D>>',
+  complexfft: 'NDArray<FftResult<D>>',
+  realfft: 'NDArray<FftReal<D>>',
+};
+
+// Binary `result` kind → { alias, number } where `alias<D,B>` types the
+// array⊗array overload and `number` types the scalar-operand overload.
+const BINARY_RESULT: Record<string, { alias: string; number: string }> = {
+  promote: { alias: 'Promote', number: 'NDArray<D>' },
+  power: { alias: 'Power', number: 'NDArray<D>' },
+  divide: { alias: 'Divide', number: 'NDArray<TrueDivide<D>>' },
+  mathbinary: { alias: 'MathBinary', number: 'NDArray<MathResult<D>>' },
+};
+
 function generateMethodCode(def: MethodDef): string {
   const doc = formatJSDoc(def.doc);
   const coreName = def.coreName || def.name;
@@ -505,31 +749,73 @@ function generateMethodCode(def: MethodDef): string {
     case 'manual':
       return `${doc}  ${def.manualCode!}`;
 
-    case 'unary':
+    case 'unary': {
+      const rt = def.result ? UNARY_RESULT_TYPE[def.result] : undefined;
+      if (rt) {
+        // Cast the untyped `up(...)` result to the dtype-tracked return type.
+        return `${doc}  ${def.name}(): ${rt} {\n    return up(core.${coreName}(this)) as ${rt};\n  }`;
+      }
       return `${doc}  ${def.name}(): NDArray {\n    return up(core.${coreName}(this));\n  }`;
+    }
 
     case 'binary': {
       const params = def.params || 'other: NDArray | number';
       const argName = def.coreArgs || extractParamNames(params);
-      return `${doc}  ${def.name}(${params}): NDArray {\n    return up(core.${coreName}(this, ${argName}));\n  }`;
+      // The operand name (first param) — used to build typed array⊗array overloads.
+      const operand = extractParamNames(params).split(',')[0]!.trim();
+      const impl = `${def.name}(${params}): NDArray {\n    return up(core.${coreName}(this, ${argName}));\n  }`;
+
+      // `result: 'bool'` — comparisons / logical ops always yield a bool array.
+      if (def.result === 'bool') {
+        return `${doc}  ${def.name}(${params}): NDArray<'bool'> {\n    return up(core.${coreName}(this, ${argName})) as NDArray<'bool'>;\n  }`;
+      }
+
+      // promote / power / divide / mathbinary — dtype-tracked binary result.
+      // Emits a generic array⊗array overload, plus a scalar overload when the
+      // signature accepts `number`, over a single untyped implementation.
+      const rule = def.result ? BINARY_RESULT[def.result] : undefined;
+      if (rule) {
+        const overloads = [
+          `${def.name}<B extends DType>(${operand}: NDArray<B>): NDArray<${rule.alias}<D, B>>;`,
+        ];
+        if (params.includes('number')) {
+          overloads.push(`  ${def.name}(${operand}: number): ${rule.number};`);
+        }
+        return `${doc}  ${overloads.join('\n')}\n  ${impl}`;
+      }
+
+      return `${doc}  ${impl}`;
     }
 
     case 'reduction': {
       const params = def.params || 'axis?: number, keepdims: boolean = false';
       const returnType = def.returnType || 'NDArray | number | Complex';
       const argNames = def.coreArgs || extractParamNames(params);
-      return `${doc}  ${def.name}(${params}): ${returnType} {\n    const r = core.${coreName}(this, ${argNames});\n    return r instanceof NDArrayCore ? up(r) : r;\n  }`;
+      // Cast when the return type is dtype-tracked (contains a type argument);
+      // the plain union case (no `<`) assigns directly as before.
+      const tail = returnType.includes('<')
+        ? `return (r instanceof NDArrayCore ? up(r) : r) as unknown as ${returnType};`
+        : `return r instanceof NDArrayCore ? up(r) : r;`;
+      return `${doc}  ${def.name}(${params}): ${returnType} {\n    const r = core.${coreName}(this, ${argNames});\n    ${tail}\n  }`;
     }
 
     case 'passthrough': {
       const params = def.params || '';
       const argNames = def.coreArgs || extractParamNames(params);
       const coreCall = argNames ? `core.${coreName}(this, ${argNames})` : `core.${coreName}(this)`;
+      const rt = def.result ? UNARY_RESULT_TYPE[def.result] : undefined;
+      if (rt) {
+        return `${doc}  ${def.name}(${params}): ${rt} {\n    return up(${coreCall}) as ${rt};\n  }`;
+      }
       return `${doc}  ${def.name}(${params}): NDArray {\n    return up(${coreCall});\n  }`;
     }
 
-    case 'array_return':
+    case 'array_return': {
+      if (def.result === 'index') {
+        return `${doc}  ${def.name}(): NDArray<'int64'>[] {\n    return core.${coreName}(this).map(up) as NDArray<'int64'>[];\n  }`;
+      }
       return `${doc}  ${def.name}(): NDArray[] {\n    return core.${coreName}(this).map(up);\n  }`;
+    }
 
     case 'tuple_return': {
       const params = def.params || '';
@@ -555,12 +841,25 @@ function generateNDArrayFile(
 
 import {
   type DType,
+  type Scalar,
   type TypedArray,
   getTypedArrayConstructor,
   getDTypeSize,
   isBigIntDType,
   isComplexDType,
 } from '../common/dtype';
+import type {
+  Abs,
+  BoolArith,
+  Divide,
+  MathBinary,
+  MathResult,
+  Power,
+  Promote,
+  ReductionAccum,
+  StdVar,
+  TrueDivide,
+} from '../common/dtype-promotion';
 import { Complex } from '../common/complex';
 import { ArrayStorage } from '../common/storage';
 import { NDArrayCore } from '../common/ndarray-core';
@@ -573,7 +872,7 @@ const up = (x: NDArrayCore): NDArray => {
   return NDArray.fromStorage(x.storage, base);
 };
 
-export class NDArray extends NDArrayCore {`);
+export class NDArray<D extends DType = DType> extends NDArrayCore<D> {`);
 
   // Group methods by pattern for organized output
   const manualMethods = METHOD_DEFS.filter((d) => d.pattern === 'manual');

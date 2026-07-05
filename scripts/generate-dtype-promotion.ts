@@ -1,10 +1,13 @@
 /**
- * Code Generator for compile-time dtype promotion types.
+ * Code Generator for compile-time dtype result-type tables.
  *
- * Single source of truth: the runtime `promoteDTypes` function in
- * src/common/dtype.ts (validated against NumPy). This script enumerates all
- * dtype pairs and emits a TYPES-ONLY module so the promotion rules are mirrored
- * at the type level without any runtime cost (nothing is emitted to JS).
+ * Single source of truth: the runtime result-dtype functions in
+ * src/common/dtype.ts (each validated against NumPy). This script enumerates
+ * dtypes and emits a TYPES-ONLY module (`src/common/dtype-promotion.ts`) so the
+ * rules are mirrored at the type level with zero runtime cost.
+ *
+ * Emits one binary table (`Promote`) plus a set of unary tables (MathResult,
+ * ReductionAccum, TrueDivide, …) and composed aliases (Power, Divide, MatMul).
  *
  * Run with: npx tsx scripts/generate-dtype-promotion.ts
  *
@@ -15,7 +18,22 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type DType, promoteDTypes } from '../src/common/dtype';
+import {
+  absResultDtype,
+  angleResultDtype,
+  boolArithmeticDtype,
+  type DType,
+  fftRealResultDtype,
+  fftResultDtype,
+  getComplexComponentDType,
+  hasFloat16,
+  isComplexDType,
+  mathResultDtype,
+  promoteDTypes,
+  reductionAccumDtype,
+  stdVarResultDtype,
+  trueDivideResultDtype,
+} from '../src/common/dtype';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,7 +58,71 @@ export const DTYPES: readonly DType[] = [
   'bool',
 ];
 
-/** Build the full promotion matrix by calling the runtime SSOT for every pair. */
+/** complex → real component float; every other dtype preserved. */
+function complexComponentDtype(dtype: DType): DType {
+  return isComplexDType(dtype) ? getComplexComponentDType(dtype) : dtype;
+}
+
+/**
+ * Registry of unary result-dtype rules. Each becomes a flat type table
+ * `interface <table> { [dtype]: result }` plus a `type <alias><D> = <table>[D]`.
+ * `fn` is the runtime SSOT — the table is built by calling it over every dtype,
+ * so the generated types can never drift from runtime behavior.
+ */
+export const UNARY_RULES: {
+  table: string;
+  alias: string;
+  fn: (d: DType) => DType;
+  doc: string;
+}[] = [
+  {
+    table: 'MathResultTable',
+    alias: 'MathResult',
+    fn: mathResultDtype,
+    doc: 'unary float math (sin, sqrt, exp, …)',
+  },
+  {
+    table: 'ReductionAccumTable',
+    alias: 'ReductionAccum',
+    fn: reductionAccumDtype,
+    doc: 'reduction accumulation (sum, prod, cumsum, …)',
+  },
+  {
+    table: 'TrueDivideTable',
+    alias: 'TrueDivide',
+    fn: trueDivideResultDtype,
+    doc: 'true division / mean / median',
+  },
+  {
+    table: 'StdVarTable',
+    alias: 'StdVar',
+    fn: stdVarResultDtype,
+    doc: 'std / var (spread statistics)',
+  },
+  { table: 'AbsTable', alias: 'Abs', fn: absResultDtype, doc: 'absolute value' },
+  { table: 'AngleTable', alias: 'Angle', fn: angleResultDtype, doc: 'angle (always real float)' },
+  {
+    table: 'BoolArithTable',
+    alias: 'BoolArith',
+    fn: boolArithmeticDtype,
+    doc: 'bool → int8 arithmetic promotion',
+  },
+  { table: 'FftResultTable', alias: 'FftResult', fn: fftResultDtype, doc: 'complex-output FFT' },
+  {
+    table: 'FftRealTable',
+    alias: 'FftReal',
+    fn: fftRealResultDtype,
+    doc: 'real-output FFT (hfft)',
+  },
+  {
+    table: 'ComplexComponentTable',
+    alias: 'ComplexComponent',
+    fn: complexComponentDtype,
+    doc: 'complex → real component (real, imag)',
+  },
+];
+
+/** Build the full binary promotion matrix by calling the runtime SSOT for every pair. */
 export function buildPromotionTable(): Record<DType, Record<DType, DType>> {
   const table = {} as Record<DType, Record<DType, DType>>;
   for (const a of DTYPES) {
@@ -52,20 +134,78 @@ export function buildPromotionTable(): Record<DType, Record<DType, DType>> {
   return table;
 }
 
-/** Render the types-only source module from the promotion matrix. */
-export function generatePromotionSource(): string {
-  const table = buildPromotionTable();
+/** Build a flat unary table by calling `fn` over every dtype. */
+export function buildUnaryTable(fn: (d: DType) => DType): Record<DType, DType> {
+  const table = {} as Record<DType, DType>;
+  for (const d of DTYPES) table[d] = fn(d);
+  return table;
+}
 
+function renderPromotion(): string {
+  const table = buildPromotionTable();
   const rows = DTYPES.map((a) => {
     const cols = DTYPES.map((b) => `    ${b}: '${table[a][b]}';`).join('\n');
     return `  ${a}: {\n${cols}\n  };`;
   }).join('\n');
+  return `/**
+ * Full dtype promotion matrix. \`PromotionTable[A][B]\` is the dtype NumPy
+ * promotes \`A\` and \`B\` to.
+ */
+export interface PromotionTable {
+${rows}
+}
+
+/**
+ * Result dtype of a binary op between arrays of dtype \`A\` and \`B\`.
+ * @example type T = Promote<'int32', 'float32'>; // 'float64'
+ */
+export type Promote<A extends DType, B extends DType> = PromotionTable[A][B];`;
+}
+
+function renderUnary(rule: (typeof UNARY_RULES)[number]): string {
+  const table = buildUnaryTable(rule.fn);
+  const rows = DTYPES.map((d) => `  ${d}: '${table[d]}';`).join('\n');
+  return `/** Result-dtype table for ${rule.doc}. */
+export interface ${rule.table} {
+${rows}
+}
+export type ${rule.alias}<D extends DType> = ${rule.table}[D];`;
+}
+
+/** Render the complete types-only source module. */
+export function generatePromotionSource(): string {
+  // The math/real-fft tables encode the canonical float16 rule; guard against
+  // baking the float32 fallback on an engine that lacks Float16Array.
+  if (!hasFloat16) {
+    throw new Error(
+      'generate-dtype-promotion: Float16Array is unavailable in this runtime; ' +
+        'regenerate on an engine with native float16 so math-result tables stay canonical.',
+    );
+  }
+
+  const composed = `/**
+ * Result dtype for power / mod / floor_divide / remainder: promote, then apply
+ * the bool → int8 arithmetic rule.
+ */
+export type Power<A extends DType, B extends DType> = BoolArith<Promote<A, B>>;
+
+/** Result dtype for true division of two arrays: promote, then true-divide. */
+export type Divide<A extends DType, B extends DType> = TrueDivide<Promote<A, B>>;
+
+/** Result dtype for matmul / dot / inner / outer: NumPy promotion. */
+export type MatMul<A extends DType, B extends DType> = Promote<A, B>;
+
+/**
+ * Result dtype for float-returning binary math (arctan2, hypot, copysign,
+ * logaddexp, …): promote, then apply the unary float-math rule.
+ */
+export type MathBinary<A extends DType, B extends DType> = MathResult<Promote<A, B>>;`;
 
   return `/**
  * AUTO-GENERATED — DO NOT EDIT BY HAND.
  *
- * Compile-time mirror of the runtime \`promoteDTypes\` function (src/common/dtype.ts),
- * which is the single source of truth. Regenerate with:
+ * Compile-time mirror of the runtime result-dtype functions (src/common/dtype.ts),
+ * which are the single source of truth. Regenerate with:
  *
  *   npx tsx scripts/generate-dtype-promotion.ts
  *
@@ -74,22 +214,11 @@ export function generatePromotionSource(): string {
 
 import type { DType } from './dtype';
 
-/**
- * Full dtype promotion matrix as a type. \`PromotionTable[A][B]\` is the dtype
- * that NumPy promotes \`A\` and \`B\` to.
- */
-export interface PromotionTable {
-${rows}
-}
+${renderPromotion()}
 
-/**
- * Result dtype of a binary operation between arrays of dtype \`A\` and \`B\`,
- * following NumPy's type-promotion rules.
- *
- * @example
- * type T = Promote<'int32', 'float32'>; // 'float64'
- */
-export type Promote<A extends DType, B extends DType> = PromotionTable[A][B];
+${UNARY_RULES.map(renderUnary).join('\n\n')}
+
+${composed}
 `;
 }
 

@@ -22,6 +22,16 @@ import {
   isComplexDType,
   promoteDTypes,
 } from '../common/dtype';
+import type {
+  Abs,
+  BoolArith,
+  Divide,
+  MathBinary,
+  MathResult,
+  Power,
+  Promote,
+  TrueDivide,
+} from '../common/dtype-promotion';
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
@@ -187,123 +197,168 @@ export function vindex(
 }
 
 /** Add arguments element-wise */
+export function add<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function add<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function add(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.add(x1, x2));
 }
 
 /** Subtract arguments element-wise */
+export function subtract<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function subtract<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function subtract(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.subtract(x1, x2));
 }
 
 /** Multiply arguments element-wise */
+export function multiply<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function multiply<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function multiply(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.multiply(x1, x2));
 }
 
 /** Square root of array elements */
-export function sqrt(x: NDArrayCore): NDArray {
-  return up(core.sqrt(x));
+export function sqrt<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.sqrt(x)) as NDArray<MathResult<D>>;
 }
 
 /** Element-wise power */
+export function power<A extends DType, B extends DType>(
+  x: NDArrayCore<A>,
+  exponent: NDArrayCore<B>,
+): NDArray<Power<A, B>>;
+export function power<A extends DType>(x: NDArrayCore<A>, exponent: number): NDArray<A>;
 export function power(x: NDArrayCore, exponent: NDArrayCore | number): NDArray {
   return up(core.power(x, exponent));
 }
 
 /** Exponential (e^x) */
-export function exp(x: NDArrayCore): NDArray {
-  return up(core.exp(x));
+export function exp<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.exp(x)) as NDArray<MathResult<D>>;
 }
 
 /** 2^x */
-export function exp2(x: NDArrayCore): NDArray {
-  return up(core.exp2(x));
+export function exp2<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.exp2(x)) as NDArray<MathResult<D>>;
 }
 
 /** exp(x) - 1 */
-export function expm1(x: NDArrayCore): NDArray {
-  return up(core.expm1(x));
+export function expm1<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.expm1(x)) as NDArray<MathResult<D>>;
 }
 
 /** Natural logarithm */
-export function log(x: NDArrayCore): NDArray {
-  return up(core.log(x));
+export function log<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.log(x)) as NDArray<MathResult<D>>;
 }
 
 /** Base-2 logarithm */
-export function log2(x: NDArrayCore): NDArray {
-  return up(core.log2(x));
+export function log2<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.log2(x)) as NDArray<MathResult<D>>;
 }
 
 /** Base-10 logarithm */
-export function log10(x: NDArrayCore): NDArray {
-  return up(core.log10(x));
+export function log10<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.log10(x)) as NDArray<MathResult<D>>;
 }
 
 /** log(1 + x) */
-export function log1p(x: NDArrayCore): NDArray {
-  return up(core.log1p(x));
+export function log1p<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.log1p(x)) as NDArray<MathResult<D>>;
 }
 
 /** log(exp(x1) + exp(x2)) */
+export function logaddexp<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<MathBinary<A, B>>;
+export function logaddexp<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<MathResult<A>>;
 export function logaddexp(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.logaddexp(x1, x2));
 }
 
 /** log2(2^x1 + 2^x2) */
+export function logaddexp2<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<MathBinary<A, B>>;
+export function logaddexp2<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<MathResult<A>>;
 export function logaddexp2(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.logaddexp2(x1, x2));
 }
 
 /** Absolute value */
-export function absolute(x: NDArrayCore): NDArray {
-  return up(core.absolute(x));
+export function absolute<D extends DType>(x: NDArrayCore<D>): NDArray<Abs<D>> {
+  return up(core.absolute(x)) as NDArray<Abs<D>>;
 }
 
 /** Numerical negative */
-export function negative(x: NDArrayCore): NDArray {
-  return up(core.negative(x));
+export function negative<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
+  return up(core.negative(x)) as NDArray<D>;
 }
 
 /** Element-wise sign */
-export function sign(x: NDArrayCore): NDArray {
-  return up(core.sign(x));
+export function sign<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
+  return up(core.sign(x)) as NDArray<D>;
 }
 
 /** Element-wise modulo */
+export function mod<A extends DType, B extends DType>(
+  x: NDArrayCore<A>,
+  divisor: NDArrayCore<B>,
+): NDArray<Power<A, B>>;
+export function mod<A extends DType>(x: NDArrayCore<A>, divisor: number): NDArray<A>;
 export function mod(x: NDArrayCore, divisor: NDArrayCore | number): NDArray {
   return up(core.mod(x, divisor));
 }
 
 /** Element-wise division */
+export function divide<A extends DType, B extends DType>(
+  x: NDArrayCore<A>,
+  divisor: NDArrayCore<B>,
+): NDArray<Divide<A, B>>;
+export function divide<A extends DType>(x: NDArrayCore<A>, divisor: number): NDArray<TrueDivide<A>>;
 export function divide(x: NDArrayCore, divisor: NDArrayCore | number): NDArray {
   return up(core.divide(x, divisor));
 }
 
 /** Element-wise floor division */
+export function floor_divide<A extends DType, B extends DType>(
+  x: NDArrayCore<A>,
+  divisor: NDArrayCore<B>,
+): NDArray<Power<A, B>>;
+export function floor_divide<A extends DType>(x: NDArrayCore<A>, divisor: number): NDArray<A>;
 export function floor_divide(x: NDArrayCore, divisor: NDArrayCore | number): NDArray {
   return up(core.floor_divide(x, divisor));
 }
 
 /** Numerical positive (returns copy) */
-export function positive(x: NDArrayCore): NDArray {
-  return up(core.positive(x));
+export function positive<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
+  return up(core.positive(x)) as NDArray<D>;
 }
 
 /** Reciprocal (1/x) */
-export function reciprocal(x: NDArrayCore): NDArray {
-  return up(core.reciprocal(x));
+export function reciprocal<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
+  return up(core.reciprocal(x)) as NDArray<D>;
 }
 
 /** Cube root */
-export function cbrt(x: NDArrayCore): NDArray {
-  return up(core.cbrt(x));
+export function cbrt<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.cbrt(x)) as NDArray<MathResult<D>>;
 }
 
 /** Absolute value (float) */
-export function fabs(x: NDArrayCore): NDArray {
-  return up(core.fabs(x));
+export function fabs<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.fabs(x)) as NDArray<MathResult<D>>;
 }
 
 /** Element-wise divmod (quotient and remainder) */
@@ -313,16 +368,26 @@ export function divmod(x: NDArrayCore, y: NDArrayCore | number): [NDArray, NDArr
 }
 
 /** Element-wise square */
-export function square(x: NDArrayCore): NDArray {
-  return up(core.square(x));
+export function square<D extends DType>(x: NDArrayCore<D>): NDArray<BoolArith<D>> {
+  return up(core.square(x)) as NDArray<BoolArith<D>>;
 }
 
 /** Element-wise remainder */
+export function remainder<A extends DType, B extends DType>(
+  x: NDArrayCore<A>,
+  y: NDArrayCore<B>,
+): NDArray<Power<A, B>>;
+export function remainder<A extends DType>(x: NDArrayCore<A>, y: number): NDArray<A>;
 export function remainder(x: NDArrayCore, y: NDArrayCore | number): NDArray {
   return up(core.remainder(x, y));
 }
 
 /** Heaviside step function */
+export function heaviside<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<MathBinary<A, B>>;
+export function heaviside<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<MathResult<A>>;
 export function heaviside(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.heaviside(x1, x2));
 }
@@ -437,36 +502,61 @@ export function i0(x: NDArrayCore): NDArray {
 }
 
 /** Bitwise AND */
+export function bitwise_and<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function bitwise_and<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function bitwise_and(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.bitwise_and(x1, x2));
 }
 
 /** Bitwise OR */
+export function bitwise_or<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function bitwise_or<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function bitwise_or(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.bitwise_or(x1, x2));
 }
 
 /** Bitwise XOR */
+export function bitwise_xor<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function bitwise_xor<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function bitwise_xor(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.bitwise_xor(x1, x2));
 }
 
 /** Bitwise NOT */
-export function bitwise_not(x: NDArrayCore): NDArray {
-  return up(core.bitwise_not(x));
+export function bitwise_not<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
+  return up(core.bitwise_not(x)) as NDArray<D>;
 }
 
 /** Bitwise inversion (alias for bitwise_not) */
-export function invert(x: NDArrayCore): NDArray {
-  return up(core.invert(x));
+export function invert<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
+  return up(core.invert(x)) as NDArray<D>;
 }
 
 /** Left shift */
+export function left_shift<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function left_shift<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function left_shift(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.left_shift(x1, x2));
 }
 
 /** Right shift */
+export function right_shift<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
+export function right_shift<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<A>;
 export function right_shift(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.right_shift(x1, x2));
 }
@@ -517,8 +607,8 @@ export function imag(x: NDArrayCore): NDArray {
 }
 
 /** Complex conjugate */
-export function conj(x: NDArrayCore): NDArray {
-  return up(core.conj(x));
+export function conj<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
+  return up(core.conj(x)) as NDArray<D>;
 }
 
 /** Phase angle */
@@ -529,137 +619,159 @@ export function angle(x: NDArrayCore, deg?: boolean): NDArray {
 /**
  * Create array of zeros
  */
-export function zeros(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArray {
-  return up(core.zeros(shape, dtype));
+export function zeros<D extends DType = 'float64'>(
+  shape: number[],
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.zeros(shape, dtype)) as NDArray<D>;
 }
 
 /**
  * Create array of ones
  */
-export function ones(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArray {
-  return up(core.ones(shape, dtype));
+export function ones<D extends DType = 'float64'>(
+  shape: number[],
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.ones(shape, dtype)) as NDArray<D>;
 }
 
 /**
  * Create an uninitialized array
  */
-export function empty(shape: number[], dtype: DType = DEFAULT_DTYPE): NDArray {
-  return up(core.empty(shape, dtype));
+export function empty<D extends DType = 'float64'>(
+  shape: number[],
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.empty(shape, dtype)) as NDArray<D>;
 }
 
 /**
  * Create array filled with a constant value
  */
-export function full(
+export function full<D extends DType = DType>(
   shape: number[],
   fill_value: number | bigint | boolean,
-  dtype?: DType,
-): NDArray {
-  return up(core.full(shape, fill_value, dtype));
+  dtype?: D,
+): NDArray<D> {
+  return up(core.full(shape, fill_value, dtype)) as NDArray<D>;
 }
 
 /**
  * Create array from nested JavaScript arrays
  */
-export function array(data: unknown, dtype?: DType): NDArray {
-  return up(core.array(data, dtype));
+export function array<D extends DType = DType>(data: unknown, dtype?: D): NDArray<D> {
+  return up(core.array(data, dtype)) as NDArray<D>;
 }
 
 /**
  * Create array with evenly spaced values within a given interval
  */
-export function arange(start: number, stop?: number, step: number = 1, dtype?: DType): NDArray {
-  return up(core.arange(start, stop, step, dtype));
+export function arange<D extends DType = DType>(
+  start: number,
+  stop?: number,
+  step: number = 1,
+  dtype?: D,
+): NDArray<D> {
+  return up(core.arange(start, stop, step, dtype)) as NDArray<D>;
 }
 
 /**
  * Create array with evenly spaced values over a specified interval
  */
-export function linspace(
+export function linspace<D extends DType = 'float64'>(
   start: number,
   stop: number,
   num: number = 50,
-  dtype: DType = DEFAULT_DTYPE,
-): NDArray {
-  return up(core.linspace(start, stop, num, dtype));
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.linspace(start, stop, num, dtype)) as NDArray<D>;
 }
 
 /**
  * Create array with logarithmically spaced values
  */
-export function logspace(
+export function logspace<D extends DType = 'float64'>(
   start: number,
   stop: number,
   num: number = 50,
   base: number = 10.0,
-  dtype: DType = DEFAULT_DTYPE,
-): NDArray {
-  return up(core.logspace(start, stop, num, base, dtype));
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.logspace(start, stop, num, base, dtype)) as NDArray<D>;
 }
 
 /**
  * Create array with geometrically spaced values
  */
-export function geomspace(
+export function geomspace<D extends DType = 'float64'>(
   start: number,
   stop: number,
   num: number = 50,
-  dtype: DType = DEFAULT_DTYPE,
-): NDArray {
-  return up(core.geomspace(start, stop, num, dtype));
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.geomspace(start, stop, num, dtype)) as NDArray<D>;
 }
 
 /**
  * Create identity matrix
  */
-export function eye(n: number, m?: number, k: number = 0, dtype: DType = DEFAULT_DTYPE): NDArray {
-  return up(core.eye(n, m, k, dtype));
+export function eye<D extends DType = 'float64'>(
+  n: number,
+  m?: number,
+  k: number = 0,
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.eye(n, m, k, dtype)) as NDArray<D>;
 }
 
 /**
  * Create a square identity matrix
  */
-export function identity(n: number, dtype: DType = DEFAULT_DTYPE): NDArray {
-  return up(core.identity(n, dtype));
+export function identity<D extends DType = 'float64'>(
+  n: number,
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.identity(n, dtype)) as NDArray<D>;
 }
 
 /**
  * Convert input to an ndarray
  */
-export function asarray(a: NDArrayCore | unknown, dtype?: DType): NDArray {
-  return up(core.asarray(a, dtype));
+export function asarray<D extends DType = DType>(a: NDArrayCore | unknown, dtype?: D): NDArray<D> {
+  return up(core.asarray(a, dtype)) as NDArray<D>;
 }
 
 /**
  * Return array of zeros with the same shape and dtype as input
  */
-export function zeros_like(a: NDArrayCore, dtype?: DType): NDArray {
-  return up(core.zeros_like(a, dtype));
+export function zeros_like<D extends DType = DType>(a: NDArrayCore, dtype?: D): NDArray<D> {
+  return up(core.zeros_like(a, dtype)) as NDArray<D>;
 }
 
 /**
  * Return array of ones with the same shape and dtype as input
  */
-export function ones_like(a: NDArrayCore, dtype?: DType): NDArray {
-  return up(core.ones_like(a, dtype));
+export function ones_like<D extends DType = DType>(a: NDArrayCore, dtype?: D): NDArray<D> {
+  return up(core.ones_like(a, dtype)) as NDArray<D>;
 }
 
 /**
  * Return empty array with the same shape and dtype as input
  */
-export function empty_like(a: NDArrayCore, dtype?: DType): NDArray {
-  return up(core.empty_like(a, dtype));
+export function empty_like<D extends DType = DType>(a: NDArrayCore, dtype?: D): NDArray<D> {
+  return up(core.empty_like(a, dtype)) as NDArray<D>;
 }
 
 /**
  * Return array filled with value, same shape and dtype as input
  */
-export function full_like(
+export function full_like<D extends DType = DType>(
   a: NDArrayCore,
   fill_value: number | bigint | boolean,
-  dtype?: DType,
-): NDArray {
-  return up(core.full_like(a, fill_value, dtype));
+  dtype?: D,
+): NDArray<D> {
+  return up(core.full_like(a, fill_value, dtype)) as NDArray<D>;
 }
 
 /**
@@ -697,8 +809,13 @@ export function diagflat(v: NDArrayCore, k: number = 0): NDArray {
   return up(core.diagflat(v, k));
 }
 
-export function tri(N: number, M?: number, k: number = 0, dtype: DType = DEFAULT_DTYPE): NDArray {
-  return up(core.tri(N, M, k, dtype));
+export function tri<D extends DType = 'float64'>(
+  N: number,
+  M?: number,
+  k: number = 0,
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.tri(N, M, k, dtype)) as NDArray<D>;
 }
 
 export function tril(m: NDArrayCore, k: number = 0): NDArray {
@@ -713,38 +830,38 @@ export function vander(x: NDArrayCore, N?: number, increasing: boolean = false):
   return up(core.vander(x, N, increasing));
 }
 
-export function frombuffer(
+export function frombuffer<D extends DType = DType>(
   buffer: ArrayBuffer | TypedArray,
-  dtype: DType = DEFAULT_DTYPE,
+  dtype: D = DEFAULT_DTYPE as D,
   count: number = -1,
   offset: number = 0,
-): NDArray {
-  return up(core.frombuffer(buffer, dtype, count, offset));
+): NDArray<D> {
+  return up(core.frombuffer(buffer, dtype, count, offset)) as NDArray<D>;
 }
 
-export function fromfunction(
+export function fromfunction<D extends DType = 'float64'>(
   func: (...indices: number[]) => number,
   shape: number[],
-  dtype: DType = DEFAULT_DTYPE,
-): NDArray {
-  return up(core.fromfunction(func, shape, dtype));
+  dtype: D = DEFAULT_DTYPE as D,
+): NDArray<D> {
+  return up(core.fromfunction(func, shape, dtype)) as NDArray<D>;
 }
 
-export function fromiter(
+export function fromiter<D extends DType = DType>(
   iter: Iterable<number>,
-  dtype: DType = DEFAULT_DTYPE,
+  dtype: D = DEFAULT_DTYPE as D,
   count: number = -1,
-): NDArray {
-  return up(core.fromiter(iter, dtype, count));
+): NDArray<D> {
+  return up(core.fromiter(iter, dtype, count)) as NDArray<D>;
 }
 
-export function fromstring(
+export function fromstring<D extends DType = DType>(
   string: string,
-  dtype: DType = DEFAULT_DTYPE,
+  dtype: D = DEFAULT_DTYPE as D,
   count: number = -1,
   sep?: string,
-): NDArray {
-  return up(core.fromstring(string, dtype, count, sep));
+): NDArray<D> {
+  return up(core.fromstring(string, dtype, count, sep)) as NDArray<D>;
 }
 
 export function fromfile(
@@ -820,6 +937,10 @@ export function inner(a: NDArrayCore, b: NDArrayCore): NDArray | number | bigint
 }
 
 /** Outer product of two arrays */
+export function outer<A extends DType, B extends DType>(
+  a: NDArrayCore<A>,
+  b: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
 export function outer(a: NDArrayCore, b: NDArrayCore): NDArray {
   return up(core.outer(a, b));
 }
@@ -902,48 +1023,67 @@ export function cross(
 }
 
 /** Matrix multiplication */
+export function matmul<A extends DType, B extends DType>(
+  a: NDArrayCore<A>,
+  b: NDArrayCore<B>,
+): NDArray<Promote<A, B>>;
 export function matmul(a: NDArrayCore, b: NDArrayCore): NDArray {
   return up(core.matmul(a, b));
 }
 
 /** Element-wise logical AND */
+export function logical_and<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function logical_and<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function logical_and(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.logical_and(x1, x2));
+  return up(core.logical_and(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise logical OR */
+export function logical_or<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function logical_or<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function logical_or(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.logical_or(x1, x2));
+  return up(core.logical_or(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise logical NOT */
-export function logical_not(x: NDArrayCore): NDArray {
-  return up(core.logical_not(x));
+export function logical_not<D extends DType>(x: NDArrayCore<D>): NDArray<'bool'> {
+  return up(core.logical_not(x)) as NDArray<'bool'>;
 }
 
 /** Element-wise logical XOR */
+export function logical_xor<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function logical_xor<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function logical_xor(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.logical_xor(x1, x2));
+  return up(core.logical_xor(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Test for finite values */
-export function isfinite(x: NDArrayCore): NDArray {
-  return up(core.isfinite(x));
+export function isfinite<D extends DType>(x: NDArrayCore<D>): NDArray<'bool'> {
+  return up(core.isfinite(x)) as NDArray<'bool'>;
 }
 
 /** Test for infinity */
-export function isinf(x: NDArrayCore): NDArray {
-  return up(core.isinf(x));
+export function isinf<D extends DType>(x: NDArrayCore<D>): NDArray<'bool'> {
+  return up(core.isinf(x)) as NDArray<'bool'>;
 }
 
 /** Test for NaN */
-export function isnan(x: NDArrayCore): NDArray {
-  return up(core.isnan(x));
+export function isnan<D extends DType>(x: NDArrayCore<D>): NDArray<'bool'> {
+  return up(core.isnan(x)) as NDArray<'bool'>;
 }
 
 /** Test for NaT (not a time) - returns all False for numeric arrays */
-export function isnat(x: NDArrayCore): NDArray {
-  return up(core.isnat(x));
+export function isnat<D extends DType>(x: NDArrayCore<D>): NDArray<'bool'> {
+  return up(core.isnat(x)) as NDArray<'bool'>;
 }
 
 /** Test for negative infinity */
@@ -972,53 +1112,93 @@ export function real_if_close(x: NDArrayCore, tol?: number): NDArray {
 }
 
 /** Return sign of x1 with magnitude of x2 */
+export function copysign<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<MathBinary<A, B>>;
+export function copysign<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<MathResult<A>>;
 export function copysign(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.copysign(x1, x2));
 }
 
 /** Test for negative sign bit */
-export function signbit(x: NDArrayCore): NDArray {
-  return up(core.signbit(x));
+export function signbit<D extends DType>(x: NDArrayCore<D>): NDArray<'bool'> {
+  return up(core.signbit(x)) as NDArray<'bool'>;
 }
 
 /** Next floating-point value toward x2 */
+export function nextafter<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<MathBinary<A, B>>;
+export function nextafter<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<MathResult<A>>;
 export function nextafter(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.nextafter(x1, x2));
 }
 
 /** Spacing between x and nearest adjacent number */
-export function spacing(x: NDArrayCore): NDArray {
-  return up(core.spacing(x));
+export function spacing<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.spacing(x)) as NDArray<MathResult<D>>;
 }
 
 /** Element-wise greater than comparison */
+export function greater<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function greater<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function greater(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.greater(x1, x2));
+  return up(core.greater(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise greater than or equal comparison */
+export function greater_equal<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function greater_equal<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function greater_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.greater_equal(x1, x2));
+  return up(core.greater_equal(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise less than comparison */
+export function less<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function less<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function less(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.less(x1, x2));
+  return up(core.less(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise less than or equal comparison */
+export function less_equal<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function less_equal<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function less_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.less_equal(x1, x2));
+  return up(core.less_equal(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise equality comparison */
+export function equal<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function equal<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.equal(x1, x2));
+  return up(core.equal(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise inequality comparison */
+export function not_equal<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<'bool'>;
+export function not_equal<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<'bool'>;
 export function not_equal(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
-  return up(core.not_equal(x1, x2));
+  return up(core.not_equal(x1, x2)) as NDArray<'bool'>;
 }
 
 /** Element-wise close comparison with tolerance */
@@ -1429,28 +1609,28 @@ export function round(a: NDArrayCore, decimals: number = 0): NDArray {
 }
 
 /** Ceiling */
-export function ceil(x: NDArrayCore): NDArray {
-  return up(core.ceil(x));
+export function ceil<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.ceil(x)) as NDArray<MathResult<D>>;
 }
 
 /** Round toward zero */
-export function fix(x: NDArrayCore): NDArray {
-  return up(core.fix(x));
+export function fix<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.fix(x)) as NDArray<MathResult<D>>;
 }
 
 /** Floor */
-export function floor(x: NDArrayCore): NDArray {
-  return up(core.floor(x));
+export function floor<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.floor(x)) as NDArray<MathResult<D>>;
 }
 
 /** Round to nearest integer */
-export function rint(x: NDArrayCore): NDArray {
-  return up(core.rint(x));
+export function rint<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.rint(x)) as NDArray<MathResult<D>>;
 }
 
 /** Truncate toward zero */
-export function trunc(x: NDArrayCore): NDArray {
-  return up(core.trunc(x));
+export function trunc<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.trunc(x)) as NDArray<MathResult<D>>;
 }
 
 /**
@@ -1787,53 +1967,63 @@ export function trapezoid(
 }
 
 /** Sine of array elements */
-export function sin(x: NDArrayCore): NDArray {
-  return up(core.sin(x));
+export function sin<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.sin(x)) as NDArray<MathResult<D>>;
 }
 
 /** Cosine of array elements */
-export function cos(x: NDArrayCore): NDArray {
-  return up(core.cos(x));
+export function cos<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.cos(x)) as NDArray<MathResult<D>>;
 }
 
 /** Tangent of array elements */
-export function tan(x: NDArrayCore): NDArray {
-  return up(core.tan(x));
+export function tan<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.tan(x)) as NDArray<MathResult<D>>;
 }
 
 /** Inverse sine */
-export function arcsin(x: NDArrayCore): NDArray {
-  return up(core.arcsin(x));
+export function arcsin<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.arcsin(x)) as NDArray<MathResult<D>>;
 }
 
 /** Inverse cosine */
-export function arccos(x: NDArrayCore): NDArray {
-  return up(core.arccos(x));
+export function arccos<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.arccos(x)) as NDArray<MathResult<D>>;
 }
 
 /** Inverse tangent */
-export function arctan(x: NDArrayCore): NDArray {
-  return up(core.arctan(x));
+export function arctan<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.arctan(x)) as NDArray<MathResult<D>>;
 }
 
 /** Two-argument inverse tangent */
+export function arctan2<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<MathBinary<A, B>>;
+export function arctan2<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<MathResult<A>>;
 export function arctan2(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.arctan2(x1, x2));
 }
 
 /** Hypotenuse (sqrt(x1^2 + x2^2)) */
+export function hypot<A extends DType, B extends DType>(
+  x1: NDArrayCore<A>,
+  x2: NDArrayCore<B>,
+): NDArray<MathBinary<A, B>>;
+export function hypot<A extends DType>(x1: NDArrayCore<A>, x2: number): NDArray<MathResult<A>>;
 export function hypot(x1: NDArrayCore, x2: NDArrayCore | number): NDArray {
   return up(core.hypot(x1, x2));
 }
 
 /** Convert radians to degrees */
-export function degrees(x: NDArrayCore): NDArray {
-  return up(core.degrees(x));
+export function degrees<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.degrees(x)) as NDArray<MathResult<D>>;
 }
 
 /** Convert degrees to radians */
-export function radians(x: NDArrayCore): NDArray {
-  return up(core.radians(x));
+export function radians<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.radians(x)) as NDArray<MathResult<D>>;
 }
 
 /** Convert degrees to radians (alias) */
@@ -1847,33 +2037,33 @@ export function rad2deg(x: NDArrayCore): NDArray {
 }
 
 /** Hyperbolic sine */
-export function sinh(x: NDArrayCore): NDArray {
-  return up(core.sinh(x));
+export function sinh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.sinh(x)) as NDArray<MathResult<D>>;
 }
 
 /** Hyperbolic cosine */
-export function cosh(x: NDArrayCore): NDArray {
-  return up(core.cosh(x));
+export function cosh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.cosh(x)) as NDArray<MathResult<D>>;
 }
 
 /** Hyperbolic tangent */
-export function tanh(x: NDArrayCore): NDArray {
-  return up(core.tanh(x));
+export function tanh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.tanh(x)) as NDArray<MathResult<D>>;
 }
 
 /** Inverse hyperbolic sine */
-export function arcsinh(x: NDArrayCore): NDArray {
-  return up(core.arcsinh(x));
+export function arcsinh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.arcsinh(x)) as NDArray<MathResult<D>>;
 }
 
 /** Inverse hyperbolic cosine */
-export function arccosh(x: NDArrayCore): NDArray {
-  return up(core.arccosh(x));
+export function arccosh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.arccosh(x)) as NDArray<MathResult<D>>;
 }
 
 /** Inverse hyperbolic tangent */
-export function arctanh(x: NDArrayCore): NDArray {
-  return up(core.arctanh(x));
+export function arctanh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
+  return up(core.arctanh(x)) as NDArray<MathResult<D>>;
 }
 
 // ============================================================

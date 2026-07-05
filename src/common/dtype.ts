@@ -9,6 +9,8 @@
  * - Boolean: bool
  */
 
+import type { Complex } from './complex';
+
 /**
  * All supported dtypes
  */
@@ -27,6 +29,32 @@ export type DType =
   | 'uint16'
   | 'uint8'
   | 'bool';
+
+/**
+ * Dtypes backed by BigInt typed arrays (element access yields `bigint`).
+ */
+export type BigIntDType = 'int64' | 'uint64';
+
+/**
+ * Complex dtypes (element access yields a `Complex`).
+ */
+export type ComplexDType = 'complex64' | 'complex128';
+
+/**
+ * The JavaScript scalar type produced by element access (`.get()`, `.item()`,
+ * `.iget()`) for a given dtype:
+ *   - int64/uint64    → bigint
+ *   - complex64/128   → Complex
+ *   - everything else → number
+ *
+ * When `D` is the full `DType` union (the default), this distributes to
+ * `number | bigint | Complex`, matching the historical untyped return.
+ */
+export type Scalar<D extends DType = DType> = D extends BigIntDType
+  ? bigint
+  : D extends ComplexDType
+    ? Complex
+    : number;
 
 /**
  * TypedArray types for each dtype
@@ -571,6 +599,56 @@ export function fftRealResultDtype(inputDtype: DType): DType {
   if (inputDtype === 'float16' || inputDtype === 'float32' || inputDtype === 'complex64')
     return 'float32';
   return 'float64';
+}
+
+// ─── Result-dtype rules used only for compile-time type tables ──────────────
+// The functions below are NOT on any kernel hot path — they exist so the
+// dtype-table codegen (scripts/generate-dtype-promotion.ts) and the NumPy-oracle
+// validation test share one source of truth. They are tree-shaken from the
+// runtime bundle (nothing in the shipped code paths imports them).
+
+/**
+ * Result dtype for true division (`/`, divide, mean, median).
+ * bool + all integers → float64; float/complex preserved.
+ */
+export function trueDivideResultDtype(inputDtype: DType): DType {
+  if (isComplexDType(inputDtype) || isFloatDType(inputDtype)) return inputDtype;
+  return 'float64';
+}
+
+/**
+ * Result dtype for std/var (spread statistics).
+ * Like {@link trueDivideResultDtype} but complex collapses to its real component
+ * (complex128 → float64, complex64 → float32).
+ */
+export function stdVarResultDtype(inputDtype: DType): DType {
+  if (inputDtype === 'complex128') return 'float64';
+  if (inputDtype === 'complex64') return 'float32';
+  if (isFloatDType(inputDtype)) return inputDtype;
+  return 'float64';
+}
+
+/**
+ * Result dtype for `absolute`. Complex magnitude is real (complex128 → float64,
+ * complex64 → float32); every other dtype is preserved.
+ */
+export function absResultDtype(inputDtype: DType): DType {
+  if (inputDtype === 'complex128') return 'float64';
+  if (inputDtype === 'complex64') return 'float32';
+  return inputDtype;
+}
+
+/**
+ * Result dtype for `angle` (always real float), matching NumPy:
+ *   - complex → its real component (complex64 → float32, complex128 → float64)
+ *   - real floats → preserved
+ *   - integers → the unary-math float promotion (int8/uint8 → float16, …)
+ *   - bool → float64 (NumPy quirk: unlike other unary math, bool does not map to float16)
+ */
+export function angleResultDtype(inputDtype: DType): DType {
+  if (isComplexDType(inputDtype)) return getComplexComponentDType(inputDtype);
+  if (inputDtype === 'bool') return 'float64';
+  return mathResultDtype(inputDtype);
 }
 
 /**

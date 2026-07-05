@@ -12,9 +12,11 @@ import * as fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   buildPromotionTable,
+  buildUnaryTable,
   DTYPES,
   generatePromotionSource,
   OUTPUT_FILE,
+  UNARY_RULES,
 } from '../../scripts/generate-dtype-promotion';
 import { type DType, promoteDTypes } from '../../src/common/dtype';
 
@@ -60,5 +62,16 @@ describe('dtype promotion codegen', () => {
     ['float16', 'int8', 'float16'],
   ])('promoteDTypes(%s, %s) === %s', (a, b, expected) => {
     expect(promoteDTypes(a, b)).toBe(expected);
+  });
+
+  // Each unary table is built from its runtime SSOT fn, so this guards that the
+  // registry is wired to real functions and covers every dtype. (Behavioral
+  // correctness vs NumPy is validated in tests/validation/dtype-result-rules.numpy.test.ts.)
+  describe.each(UNARY_RULES.map((r) => [r.alias, r] as const))('unary table %s', (_alias, rule) => {
+    it('covers all dtypes and matches its runtime fn', () => {
+      const table = buildUnaryTable(rule.fn);
+      expect(Object.keys(table).sort()).toEqual([...DTYPES].sort());
+      for (const d of DTYPES) expect(table[d]).toBe(rule.fn(d));
+    });
   });
 });
