@@ -1,0 +1,8 @@
+# Python dependencies for the test suite. NumPy is the validation oracle that
+# every *.numpy.test.ts case is compared against.
+#
+# Pinned <2.5: NumPy 2.5 removed np.row_stack and the 2D-vector form of np.cross
+# (both deprecated in NumPy 2.0), which numpy-ts still supports for compatibility,
+# so the oracle can no longer validate them. Once numpy-ts drops these (or the
+# tests handle their absence), bump this to the latest NumPy.
+numpy>=2.4,<2.5

@@ -41,7 +41,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install "numpy>=2"
+          pip install -r requirements.txt
           pnpm install --frozen-lockfile
 
       - name: Verify environment
@@ -149,7 +149,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install "numpy>=2"
+          pip install -r requirements.txt
           pnpm install --frozen-lockfile
 
       - name: Run tests under Bun
@@ -197,7 +197,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install "numpy>=2"
+          pip install -r requirements.txt
           pnpm install --frozen-lockfile
 
       - name: Run tests under Deno
@@ -233,7 +233,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install "numpy>=2"
+          pip install -r requirements.txt
           pnpm install --frozen-lockfile
 
       - name: Run tests with coverage
