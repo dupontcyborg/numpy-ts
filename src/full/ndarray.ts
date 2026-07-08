@@ -194,7 +194,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param i - Row index
    * @returns Row as 1D or (n-1)D array
    */
-  row(i: number): NDArray {
+  row(i: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('row() requires at least 2 dimensions');
     }
@@ -206,7 +206,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param j - Column index
    * @returns Column as 1D or (n-1)D array
    */
-  col(j: number): NDArray {
+  col(j: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('col() requires at least 2 dimensions');
     }
@@ -219,7 +219,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param stop - Stop row index (exclusive)
    * @returns Rows as array
    */
-  rows(start: number, stop: number): NDArray {
+  rows(start: number, stop: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('rows() requires at least 2 dimensions');
     }
@@ -232,7 +232,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param stop - Stop column index (exclusive)
    * @returns Columns as array
    */
-  cols(start: number, stop: number): NDArray {
+  cols(start: number, stop: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('cols() requires at least 2 dimensions');
     }
@@ -245,23 +245,23 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param shape - New shape (must be compatible with current size)
    * @returns Reshaped array
    */
-  reshape(...shape: number[]): NDArray {
+  reshape(...shape: number[]): NDArray<D> {
     const newShape = shape.length === 1 && Array.isArray(shape[0]) ? shape[0] : shape;
     const resultStorage = core.reshape(this, newShape).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
   }
 
   /**
    * Return a flattened array (view when possible, otherwise copy)
    * @returns 1D array containing all elements
    */
-  ravel(): NDArray {
+  ravel(): NDArray<D> {
     const resultStorage = core.ravel(this).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
   }
 
   /**
@@ -280,7 +280,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param axis - Axis along which to take slices
    * @returns Array with selected entries
    */
-  compress(condition: NDArray | boolean[], axis?: number): NDArray {
+  compress(condition: NDArray | boolean[], axis?: number): NDArray<D> {
     const condStorage =
       condition instanceof NDArray
         ? condition
@@ -291,7 +291,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
               'bool',
             ),
           );
-    return up(core.compress(condStorage, this, axis));
+    return up(core.compress(condStorage, this, axis)) as NDArray<D>;
   }
 
   /**
@@ -309,8 +309,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param a_max - Maximum value (null for no maximum)
    * @returns Array with values clipped to [a_min, a_max]
    */
-  clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray {
-    return up(core.clip(this, a_min, a_max));
+  clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray<D> {
+    return up(core.clip(this, a_min, a_max)) as NDArray<D>;
   }
 
   /**
@@ -321,7 +321,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param axis - Axis along which to index (default: 0)
    * @returns New array with selected elements
    */
-  iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray {
+  iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray<D> {
     let indexArray: number[];
     if (indices instanceof NDArray) {
       indexArray = [];
@@ -348,8 +348,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param axis - Axis along which to apply the mask
    * @returns New 1D array with selected elements
    */
-  bindex(mask: NDArray, axis?: number): NDArray {
-    return up(core.compress(mask, this, axis));
+  bindex(mask: NDArray, axis?: number): NDArray<D> {
+    return up(core.compress(mask, this, axis)) as NDArray<D>;
   }
 
   /**
@@ -402,7 +402,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Swap the bytes of the array elements
    */
-  byteswap(inplace: boolean = false): NDArray {
+  byteswap(inplace: boolean = false): NDArray<D> {
     const target = inplace ? this : this.copy();
     const data = target._storage.data;
     const bytesPerElement = data.BYTES_PER_ELEMENT;
@@ -453,9 +453,9 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Return a view of the array with a different dtype
    */
-  view(dtype?: DType): NDArray {
-    if (!dtype || dtype === this.dtype) {
-      return NDArray.fromStorage(this._storage, this._base ?? this);
+  view<E extends DType = D>(dtype?: E): NDArray<E> {
+    if (!dtype || dtype === (this.dtype as DType)) {
+      return NDArray.fromStorage(this._storage, this._base ?? this) as NDArray<E>;
     }
     const oldSize = getDTypeSize(this.dtype as DType);
     const newSize = getDTypeSize(dtype);
@@ -476,7 +476,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
       [...this._storage.strides],
       0,
     );
-    return NDArray.fromStorage(storage, this._base ?? this);
+    return NDArray.fromStorage(storage, this._base ?? this) as NDArray<E>;
   }
 
   /**
@@ -493,7 +493,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param decimals - Number of decimal places to round to (default: 0)
    * @returns New array with rounded values
    */
-  round(decimals: number = 0): NDArray {
+  round(decimals: number = 0): NDArray<D> {
     return this.around(decimals);
   }
 
@@ -501,7 +501,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * Return the complex conjugate, element-wise (alias for conj)
    * @returns Complex conjugate of the array
    */
-  conjugate(): NDArray {
+  conjugate(): NDArray<D> {
     return this.conj();
   }
 
@@ -510,8 +510,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param decimals - Number of decimal places to round to (default: 0)
    * @returns New array with rounded values
    */
-  around(decimals: number = 0): NDArray {
-    return up(core.around(this, decimals));
+  around(decimals: number = 0): NDArray<D> {
+    return up(core.around(this, decimals)) as NDArray<D>;
   }
 
   /**
@@ -534,8 +534,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param atol - Absolute tolerance (default: 1e-8)
    * @returns Boolean array
    */
-  isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray {
-    return up(core.isclose(this, other, rtol, atol));
+  isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray<'bool'> {
+    return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
   }
 
   /**
@@ -608,8 +608,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param side - "left" or "right" side to insert
    * @returns Indices where values should be inserted
    */
-  searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray {
-    return up(core.searchsorted(this, v, side));
+  searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'int64'> {
+    return up(core.searchsorted(this, v, side)) as NDArray<'int64'>;
   }
 
   // ========================================

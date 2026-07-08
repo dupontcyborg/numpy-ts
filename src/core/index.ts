@@ -9,8 +9,26 @@
  *   import { dot, inv } from 'numpy-ts/core/linalg';
  */
 
+export type { BigIntDType, ComplexDType, Scalar } from '../common/dtype';
 // Runtime capabilities
 export { hasFloat16 } from '../common/dtype';
+export type {
+  Abs,
+  Angle,
+  BoolArith,
+  ComplexComponent,
+  Divide,
+  FftReal,
+  FftResult,
+  MathBinary,
+  MathResult,
+  MatMul,
+  Power,
+  Promote,
+  ReductionAccum,
+  StdVar,
+  TrueDivide,
+} from '../common/dtype-promotion';
 // WASM configuration
 export { wasmConfig } from '../common/wasm/config';
 export { configureWasm, wasmFreeBytes } from '../common/wasm/runtime';

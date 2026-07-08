@@ -25,8 +25,26 @@
 // ============================================================
 
 export { Complex, type ComplexInput } from './common/complex';
-export type { DType } from './common/dtype';
+export type { BigIntDType, ComplexDType, DType, Scalar } from './common/dtype';
 export { hasFloat16 } from './common/dtype';
+// Compile-time dtype result-type helpers (types-only; generated from the runtime SSOT).
+export type {
+  Abs,
+  Angle,
+  BoolArith,
+  ComplexComponent,
+  Divide,
+  FftReal,
+  FftResult,
+  MathBinary,
+  MathResult,
+  MatMul,
+  Power,
+  Promote,
+  ReductionAccum,
+  StdVar,
+  TrueDivide,
+} from './common/dtype-promotion';
 export { NDArrayCore } from './common/ndarray-core';
 export { NDArray } from './full';
 

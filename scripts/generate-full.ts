@@ -395,6 +395,7 @@ const FUNCTION_RESULT_RULES: Record<
   bitwise_not: 'preserve',
   invert: 'preserve',
   conj: 'preserve',
+  conjugate: 'preserve',
   logical_not: 'bool',
   isfinite: 'bool',
   isinf: 'bool',
