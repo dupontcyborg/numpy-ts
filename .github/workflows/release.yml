@@ -110,7 +110,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install "numpy>=2"
+          pip install -r requirements.txt
           pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
