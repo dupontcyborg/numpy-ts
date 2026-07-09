@@ -455,3 +455,10 @@ export type MatMul<A extends DType, B extends DType> = Promote<A, B>;
  * logaddexp, …): promote, then apply the unary float-math rule.
  */
 export type MathBinary<A extends DType, B extends DType> = MathResult<Promote<A, B>>;
+
+/**
+ * Result dtype for float_power: promote, then bump to a minimum precision of
+ * float64 (integers/float16/float32 → float64; complex → complex128). Modelled
+ * as promotion against float64 (float64 preserves floats, upgrades ints/complex).
+ */
+export type FloatPower<A extends DType, B extends DType> = Promote<Promote<A, B>, 'float64'>;

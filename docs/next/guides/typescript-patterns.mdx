@@ -299,6 +299,33 @@ sqrt(zeros([3], 'int8'));                        // NDArray<'float16'>
 divide(zeros([3], 'int32'), zeros([3], 'int32')); // NDArray<'float64'>
 ```
 
+Every operation with a static result-dtype rule reports its dtype — shape ops,
+reductions, contractions, binary ufuncs, complex components, tuple-returning
+ufuncs, and index families:
+
+```typescript
+import {
+  reshape, cumsum, argsort, real, maximum, sum, mean,
+  dot, trace, frexp, divmod, nonzero, sinc, vander, corrcoef,
+} from 'numpy-ts';
+
+reshape(zeros([6], 'int32'), [2, 3]); // NDArray<'int32'>   — shape ops preserve dtype
+cumsum(zeros([3], 'int8'));           // NDArray<'int64'>   — accumulator widening
+argsort(zeros([3], 'float32'));       // NDArray<'int64'>   — index results
+real(zeros([3], 'complex64'));        // NDArray<'float32'> — complex component
+maximum(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> — promotion
+sum(zeros([3], 'int8'));   // NDArray<'int64'> | bigint     — reduction (array or scalar)
+mean(zeros([3], 'int32')); // NDArray<'float64'> | number
+dot(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> | number — contraction
+trace(zeros([2, 2], 'int32'));        // NDArray<'int64'> | bigint — sum of the diagonal
+frexp(zeros([3], 'int8'));            // [NDArray<'float16'>, NDArray<'int32'>] — tuple ufunc
+divmod(zeros([3], 'int8'), zeros([3], 'int16')); // [NDArray<'int16'>, NDArray<'int16'>]
+nonzero(zeros([3], 'float32'));       // NDArray<'int64'>[] — index family
+sinc(zeros([3], 'int8'));             // NDArray<'float64'>
+vander(zeros([3], 'float32'));        // NDArray<'float64'>
+corrcoef(zeros([2, 3], 'float32'));   // NDArray<'float64'>
+```
+
 ### The promotion type helpers
 
 The promotion rules are exposed as type-level helpers you can use directly, generated from the same single source of truth as the runtime rules:
@@ -314,4 +341,4 @@ type S = Scalar<'int64'>;             // bigint
 
 - **Scalar operands keep the array's dtype.** `intArr.add(2.5)` is typed `NDArray<'int32'>`, not float. TypeScript sees only the *type* `number`, never the value, so it cannot distinguish an integer literal from a float — modelling NumPy's weak-scalar promotion is not possible. Use an explicit `astype` when you need the widened result.
 - **Runtime-computed dtypes widen to `DType`.** When a dtype is chosen at runtime (`array(data)` without a literal, or a `DType`-typed variable), the result is `NDArray<DType>` — correct, just not narrowed.
-- **A few reduction/contraction methods** (`dot`, `trace`, `inner`, `tensordot`, `divmod`) still return an untyped `NDArray`; their result dtypes are not yet tracked.
+- **A few operations stay `NDArray<DType>` on purpose** — their result dtype can't be known from the types. This is honest widening, not a gap: multi-array joins (`concatenate`, `stack`, `hstack`, …) and `choose`/`select`, whose `NDArray[]` inputs have already erased the per-array dtype; data/file/callback sources (`array(data)`, `fromfile`, `apply_along_axis`); and a few data-dependent functions (`poly`, `roots`, whose output is real or complex depending on the values).

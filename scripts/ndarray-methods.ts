@@ -432,44 +432,61 @@ isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDAr
     return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
   }`;
 
+// average → true-division result (int → float64, float32 → float32). Typed for
+// the common case (no weights, or weights of equal/lower kind); weights that
+// promote to a wider dtype are a known limitation, like the weak-scalar caveat.
 const AVERAGE_METHOD = `\
-average(weights?: NDArray, axis?: number): NDArray | number | Complex {
+average(weights?: NDArray, axis?: number): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.average(this, axis, weights, false, false) as
       | NDArrayCore
       | number
       | Complex;
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }`;
 
+// dot / inner / tensordot → Promote<D, B> (contraction preserves NumPy promotion).
 const DOT_METHOD = `\
-dot(other: NDArray): NDArray | number | bigint | Complex {
+dot<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.dot(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }`;
 
+// trace → ReductionAccum<D> (sum of the diagonal widens ints, like sum/prod).
 const TRACE_METHOD = `\
-trace(): NDArray | number | bigint | Complex {
+trace(): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.trace(this);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }`;
 
 const INNER_METHOD = `\
-inner(other: NDArray): NDArray | number | bigint | Complex {
+inner<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.inner(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }`;
 
 const TENSORDOT_METHOD = `\
-tensordot(
-    other: NDArray,
+tensordot<B extends DType>(
+    other: NDArray<B>,
     axes: number | [number[], number[]] = 2
-  ): NDArray | number | bigint | Complex {
+  ): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.tensordot(this, other, axes);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }`;
 
 const DIVMOD_METHOD = `\
-divmod(divisor: NDArray | number): [NDArray, NDArray] {
+divmod<B extends DType>(divisor: NDArray<B>): [NDArray<Power<D, B>>, NDArray<Power<D, B>>];
+  divmod(divisor: number): [NDArray<D>, NDArray<D>];
+  divmod(divisor: NDArray | number): [NDArray, NDArray] {
     const r = core.divmod(this, divisor);
     return [up(r[0]), up(r[1])] as [NDArray, NDArray];
   }`;

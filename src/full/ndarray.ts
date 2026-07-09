@@ -544,9 +544,11 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param axis - Axis along which to compute average
    * @returns Weighted average of array elements
    */
-  average(weights?: NDArray, axis?: number): NDArray | number | Complex {
+  average(weights?: NDArray, axis?: number): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.average(this, axis, weights, false, false) as NDArrayCore | number | Complex;
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
@@ -554,18 +556,22 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param other - Array to dot with
    * @returns Result of dot product
    */
-  dot(other: NDArray): NDArray | number | bigint | Complex {
+  dot<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.dot(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }
 
   /**
    * Sum of diagonal elements (trace)
    * @returns Sum of diagonal elements
    */
-  trace(): NDArray | number | bigint | Complex {
+  trace(): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.trace(this);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }
 
   /**
@@ -573,9 +579,11 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param other - Array to compute inner product with
    * @returns Inner product result
    */
-  inner(other: NDArray): NDArray | number | bigint | Complex {
+  inner<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.inner(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }
 
   /**
@@ -584,12 +592,14 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param axes - Axes to contract
    * @returns Tensor dot product result
    */
-  tensordot(
-    other: NDArray,
+  tensordot<B extends DType>(
+    other: NDArray<B>,
     axes: number | [number[], number[]] = 2,
-  ): NDArray | number | bigint | Complex {
+  ): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.tensordot(this, other, axes);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }
 
   /**
@@ -597,6 +607,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param divisor - Array or scalar divisor
    * @returns Tuple of [quotient, remainder] arrays
    */
+  divmod<B extends DType>(divisor: NDArray<B>): [NDArray<Power<D, B>>, NDArray<Power<D, B>>];
+  divmod(divisor: number): [NDArray<D>, NDArray<D>];
   divmod(divisor: NDArray | number): [NDArray, NDArray] {
     const r = core.divmod(this, divisor);
     return [up(r[0]), up(r[1])] as [NDArray, NDArray];

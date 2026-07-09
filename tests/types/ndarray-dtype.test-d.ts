@@ -79,6 +79,15 @@ type _cumsumI8 = Expect<Equal<ReturnType<typeof i8.cumsum>, NDArray<'int64'>>>;
 type _meanI32 = Expect<Equal<ReturnType<typeof i32.mean>, NDArray<'float64'> | number>>;
 type _stdC128 = Expect<Equal<ReturnType<typeof c128.std>, NDArray<'float64'> | number>>;
 
+// ── P4/P5 methods: contractions, trace, average, divmod ─────────────────────
+type _dotM = Expect<Equal<ReturnType<typeof i32.dot<'float32'>>, NDArray<'float64'> | number>>;
+type _innerM = Expect<Equal<ReturnType<typeof i8.inner<'int16'>>, NDArray<'int16'> | number>>;
+type _traceM = Expect<Equal<ReturnType<typeof i32.trace>, NDArray<'int64'> | bigint>>;
+type _averageM = Expect<Equal<ReturnType<typeof i32.average>, NDArray<'float64'> | number>>;
+type _divmodM = Expect<
+  Equal<ReturnType<typeof i8.divmod<'int16'>>, [NDArray<'int16'>, NDArray<'int16'>]>
+>;
+
 export type _NDArrayAssertionsHold = [
   _getI32,
   _getI64,
@@ -111,4 +120,9 @@ export type _NDArrayAssertionsHold = [
   _cumsumI8,
   _meanI32,
   _stdC128,
+  _dotM,
+  _innerM,
+  _traceM,
+  _averageM,
+  _divmodM,
 ];
