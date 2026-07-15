@@ -20,17 +20,18 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   absResultDtype,
-  angleResultDtype,
+  angleResultDtypeCanonical,
   boolArithmeticDtype,
+  DTYPES,
   type DType,
   fftRealResultDtype,
   fftResultDtype,
   getComplexComponentDType,
-  hasFloat16,
   isComplexDType,
-  mathResultDtype,
+  mathResultDtypeCanonical,
   promoteDTypes,
   reductionAccumDtype,
+  roundResultDtypeCanonical,
   stdVarResultDtype,
   trueDivideResultDtype,
 } from '../src/common/dtype';
@@ -40,23 +41,10 @@ const __dirname = path.dirname(__filename);
 
 export const OUTPUT_FILE = path.join(__dirname, '../src/common/dtype-promotion.ts');
 
-/** All dtypes, in declaration order (matches the DType union in dtype.ts). */
-export const DTYPES: readonly DType[] = [
-  'float64',
-  'float32',
-  'float16',
-  'complex128',
-  'complex64',
-  'int64',
-  'int32',
-  'int16',
-  'int8',
-  'uint64',
-  'uint32',
-  'uint16',
-  'uint8',
-  'bool',
-];
+// Re-exported so the drift-guard test can import the canonical dtype list from
+// the generator module alongside the codegen helpers. The list itself lives in
+// src/common/dtype.ts (single source of truth).
+export { DTYPES };
 
 /** complex → real component float; every other dtype preserved. */
 function complexComponentDtype(dtype: DType): DType {
@@ -78,7 +66,7 @@ export const UNARY_RULES: {
   {
     table: 'MathResultTable',
     alias: 'MathResult',
-    fn: mathResultDtype,
+    fn: mathResultDtypeCanonical,
     doc: 'unary float math (sin, sqrt, exp, …)',
   },
   {
@@ -100,7 +88,18 @@ export const UNARY_RULES: {
     doc: 'std / var (spread statistics)',
   },
   { table: 'AbsTable', alias: 'Abs', fn: absResultDtype, doc: 'absolute value' },
-  { table: 'AngleTable', alias: 'Angle', fn: angleResultDtype, doc: 'angle (always real float)' },
+  {
+    table: 'RoundResultTable',
+    alias: 'RoundResult',
+    fn: roundResultDtypeCanonical,
+    doc: 'round / around (preserve, except bool → float16)',
+  },
+  {
+    table: 'AngleTable',
+    alias: 'Angle',
+    fn: angleResultDtypeCanonical,
+    doc: 'angle (always real float)',
+  },
   {
     table: 'BoolArithTable',
     alias: 'BoolArith',
@@ -174,15 +173,10 @@ export type ${rule.alias}<D extends DType> = ${rule.table}[D];`;
 
 /** Render the complete types-only source module. */
 export function generatePromotionSource(): string {
-  // The math/real-fft tables encode the canonical float16 rule; guard against
-  // baking the float32 fallback on an engine that lacks Float16Array.
-  if (!hasFloat16) {
-    throw new Error(
-      'generate-dtype-promotion: Float16Array is unavailable in this runtime; ' +
-        'regenerate on an engine with native float16 so math-result tables stay canonical.',
-    );
-  }
-
+  // The math/angle tables are built from the *canonical* helpers
+  // (mathResultDtypeCanonical / angleResultDtypeCanonical), so the generated
+  // types stay float16-canonical regardless of whether the engine running the
+  // generator has native Float16Array. No runtime float16 guard needed.
   const composed = `/**
  * Result dtype for power / mod / floor_divide / remainder: promote, then apply
  * the bool → int8 arithmetic rule.

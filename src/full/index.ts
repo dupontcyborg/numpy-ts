@@ -35,6 +35,7 @@ import type {
   Power,
   Promote,
   ReductionAccum,
+  RoundResult,
   StdVar,
   TrueDivide,
 } from '../common/dtype-promotion';
@@ -134,44 +135,47 @@ export function ravel_multi_index<D extends DType>(
   multi_index: NDArrayCore<D>[],
   dims: number[],
   mode: 'raise' | 'wrap' | 'clip' = 'raise',
-): NDArray<'int64'> {
-  return up(core.ravel_multi_index(multi_index, dims, mode)) as NDArray<'int64'>;
+): NDArray<'float64'> {
+  return up(core.ravel_multi_index(multi_index, dims, mode)) as NDArray<'float64'>;
 }
 
-export function unravel_index(indices: NDArrayCore | number, shape: number[]): NDArray<'int64'>[] {
-  return core.unravel_index(indices, shape).map(up) as NDArray<'int64'>[];
+export function unravel_index(
+  indices: NDArrayCore | number,
+  shape: number[],
+): NDArray<'float64'>[] {
+  return core.unravel_index(indices, shape).map(up) as NDArray<'float64'>[];
 }
 
-export function diag_indices(n: number, ndim: number = 2): NDArray<'int64'>[] {
-  return core.diag_indices(n, ndim).map(up) as NDArray<'int64'>[];
+export function diag_indices(n: number, ndim: number = 2): NDArray<'float64'>[] {
+  return core.diag_indices(n, ndim).map(up) as NDArray<'float64'>[];
 }
 
-export function diag_indices_from(a: NDArrayCore): NDArray<'int64'>[] {
-  return core.diag_indices_from(a).map(up) as NDArray<'int64'>[];
+export function diag_indices_from(a: NDArrayCore): NDArray<'float64'>[] {
+  return core.diag_indices_from(a).map(up) as NDArray<'float64'>[];
 }
 
-export function tril_indices(n: number, k: number = 0, m?: number): NDArray<'int64'>[] {
-  return core.tril_indices(n, k, m).map(up) as NDArray<'int64'>[];
+export function tril_indices(n: number, k: number = 0, m?: number): NDArray<'float64'>[] {
+  return core.tril_indices(n, k, m).map(up) as NDArray<'float64'>[];
 }
 
-export function tril_indices_from(a: NDArrayCore, k: number = 0): NDArray<'int64'>[] {
-  return core.tril_indices_from(a, k).map(up) as NDArray<'int64'>[];
+export function tril_indices_from(a: NDArrayCore, k: number = 0): NDArray<'float64'>[] {
+  return core.tril_indices_from(a, k).map(up) as NDArray<'float64'>[];
 }
 
-export function triu_indices(n: number, k: number = 0, m?: number): NDArray<'int64'>[] {
-  return core.triu_indices(n, k, m).map(up) as NDArray<'int64'>[];
+export function triu_indices(n: number, k: number = 0, m?: number): NDArray<'float64'>[] {
+  return core.triu_indices(n, k, m).map(up) as NDArray<'float64'>[];
 }
 
-export function triu_indices_from(a: NDArrayCore, k: number = 0): NDArray<'int64'>[] {
-  return core.triu_indices_from(a, k).map(up) as NDArray<'int64'>[];
+export function triu_indices_from(a: NDArrayCore, k: number = 0): NDArray<'float64'>[] {
+  return core.triu_indices_from(a, k).map(up) as NDArray<'float64'>[];
 }
 
 export function mask_indices(
   n: number,
   mask_func: (m: NDArrayCore, k: number) => NDArrayCore,
   k: number = 0,
-): NDArray<'int64'>[] {
-  return core.mask_indices(n, mask_func, k).map(up) as NDArray<'int64'>[];
+): NDArray<'float64'>[] {
+  return core.mask_indices(n, mask_func, k).map(up) as NDArray<'float64'>[];
 }
 
 export function apply_along_axis(
@@ -1495,9 +1499,9 @@ export function argmin<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number,
   keepdims?: boolean,
-): NDArray<'int64'> | number {
+): NDArray<'int32'> | number {
   const r = core.argmin(a, axis, keepdims);
-  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
 }
 
 /** Index of maximum value */
@@ -1505,9 +1509,9 @@ export function argmax<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number,
   keepdims?: boolean,
-): NDArray<'int64'> | number {
+): NDArray<'int32'> | number {
   const r = core.argmax(a, axis, keepdims);
-  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
 }
 
 /** Variance of array elements */
@@ -1730,18 +1734,18 @@ export function nanmax<D extends DType>(
 export function nanargmin<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number,
-): NDArray<'int64'> | number {
+): NDArray<'int32'> | number {
   const r = core.nanargmin(a, axis);
-  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
 }
 
 /** Index of maximum ignoring NaN */
 export function nanargmax<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number,
-): NDArray<'int64'> | number {
+): NDArray<'int32'> | number {
   const r = core.nanargmax(a, axis);
-  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+  return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
 }
 
 /** Cumulative sum ignoring NaN */
@@ -1799,13 +1803,19 @@ export function nanpercentile<D extends DType>(
 }
 
 /** Round to given decimals */
-export function around<D extends DType>(a: NDArrayCore<D>, decimals: number = 0): NDArray<D> {
-  return up(core.around(a, decimals)) as NDArray<D>;
+export function around<D extends DType>(
+  a: NDArrayCore<D>,
+  decimals: number = 0,
+): NDArray<RoundResult<D>> {
+  return up(core.around(a, decimals)) as NDArray<RoundResult<D>>;
 }
 
 /** Round (same as around) */
-export function round<D extends DType>(a: NDArrayCore<D>, decimals: number = 0): NDArray<D> {
-  return up(core.round(a, decimals)) as NDArray<D>;
+export function round<D extends DType>(
+  a: NDArrayCore<D>,
+  decimals: number = 0,
+): NDArray<RoundResult<D>> {
+  return up(core.round(a, decimals)) as NDArray<RoundResult<D>>;
 }
 
 /** Ceiling */
@@ -2110,13 +2120,13 @@ export function sort(a: NDArrayCore, axis: number = -1): NDArray {
 }
 
 /** Indices that would sort array */
-export function argsort<D extends DType>(a: NDArrayCore<D>, axis: number = -1): NDArray<'int64'> {
-  return up(core.argsort(a, axis)) as NDArray<'int64'>;
+export function argsort<D extends DType>(a: NDArrayCore<D>, axis: number = -1): NDArray<'float64'> {
+  return up(core.argsort(a, axis)) as NDArray<'float64'>;
 }
 
 /** Indirect stable sort on multiple keys */
-export function lexsort<D extends DType>(keys: NDArrayCore<D>[]): NDArray<'int64'> {
-  return up(core.lexsort(keys)) as NDArray<'int64'>;
+export function lexsort<D extends DType>(keys: NDArrayCore<D>[]): NDArray<'float64'> {
+  return up(core.lexsort(keys)) as NDArray<'float64'>;
 }
 
 /** Partially sort array */
@@ -2129,8 +2139,8 @@ export function argpartition<D extends DType>(
   a: NDArrayCore<D>,
   kth: number,
   axis: number = -1,
-): NDArray<'int64'> {
-  return up(core.argpartition(a, kth, axis)) as NDArray<'int64'>;
+): NDArray<'float64'> {
+  return up(core.argpartition(a, kth, axis)) as NDArray<'float64'>;
 }
 
 /** Sort complex array */
@@ -2139,18 +2149,18 @@ export function sort_complex(a: NDArrayCore): NDArray {
 }
 
 /** Indices of non-zero elements */
-export function nonzero(a: NDArrayCore): NDArray<'int64'>[] {
-  return core.nonzero(a).map(up) as NDArray<'int64'>[];
+export function nonzero(a: NDArrayCore): NDArray<'float64'>[] {
+  return core.nonzero(a).map(up) as NDArray<'float64'>[];
 }
 
 /** Indices where condition is True */
-export function argwhere<D extends DType>(a: NDArrayCore<D>): NDArray<'int64'> {
-  return up(core.argwhere(a)) as NDArray<'int64'>;
+export function argwhere<D extends DType>(a: NDArrayCore<D>): NDArray<'float64'> {
+  return up(core.argwhere(a)) as NDArray<'float64'>;
 }
 
 /** Indices of non-zero elements in flattened array */
-export function flatnonzero<D extends DType>(a: NDArrayCore<D>): NDArray<'int64'> {
-  return up(core.flatnonzero(a)) as NDArray<'int64'>;
+export function flatnonzero<D extends DType>(a: NDArrayCore<D>): NDArray<'float64'> {
+  return up(core.flatnonzero(a)) as NDArray<'float64'>;
 }
 
 /** Extract elements where condition is True */

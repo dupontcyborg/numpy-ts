@@ -20,6 +20,7 @@ import type {
   Power,
   Promote,
   ReductionAccum,
+  RoundResult,
   StdVar,
   TrueDivide,
 } from '../common/dtype-promotion';
@@ -493,7 +494,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param decimals - Number of decimal places to round to (default: 0)
    * @returns New array with rounded values
    */
-  round(decimals: number = 0): NDArray<D> {
+  round(decimals: number = 0): NDArray<RoundResult<D>> {
     return this.around(decimals);
   }
 
@@ -510,8 +511,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param decimals - Number of decimal places to round to (default: 0)
    * @returns New array with rounded values
    */
-  around(decimals: number = 0): NDArray<D> {
-    return up(core.around(this, decimals)) as NDArray<D>;
+  around(decimals: number = 0): NDArray<RoundResult<D>> {
+    return up(core.around(this, decimals)) as NDArray<RoundResult<D>>;
   }
 
   /**
@@ -620,8 +621,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param side - "left" or "right" side to insert
    * @returns Indices where values should be inserted
    */
-  searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'int64'> {
-    return up(core.searchsorted(this, v, side)) as NDArray<'int64'>;
+  searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'float64'> {
+    return up(core.searchsorted(this, v, side)) as NDArray<'float64'>;
   }
 
   // ========================================
@@ -979,8 +980,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * Find the indices of array elements that are non-zero, grouped by element
    * @returns 2D array of shape (N, ndim)
    */
-  argwhere(): NDArray<'int64'> {
-    return up(core.argwhere(this)) as NDArray<'int64'>;
+  argwhere(): NDArray<'float64'> {
+    return up(core.argwhere(this)) as NDArray<'float64'>;
   }
 
   // ========================================
@@ -1402,33 +1403,33 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   /**
    * Indices of the minimum values along an axis
    */
-  argmin(axis?: number): NDArray<'int64'> | number {
+  argmin(axis?: number): NDArray<'int32'> | number {
     const r = core.argmin(this, axis);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
    * Indices of the maximum values along an axis
    */
-  argmax(axis?: number): NDArray<'int64'> | number {
+  argmax(axis?: number): NDArray<'int32'> | number {
     const r = core.argmax(this, axis);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
    * Return the indices of the minimum values, ignoring NaNs
    */
-  nanargmin(axis?: number): NDArray<'int64'> | number {
+  nanargmin(axis?: number): NDArray<'int32'> | number {
     const r = core.nanargmin(this, axis);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
    * Return the indices of the maximum values, ignoring NaNs
    */
-  nanargmax(axis?: number): NDArray<'int64'> | number {
+  nanargmax(axis?: number): NDArray<'int32'> | number {
     const r = core.nanargmax(this, axis);
-    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int64'> | number;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
@@ -1645,8 +1646,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * Returns the indices that would sort this array
    * @param axis - Axis along which to sort. Default is -1 (last axis)
    */
-  argsort(axis: number = -1): NDArray<'int64'> {
-    return up(core.argsort(this, axis)) as NDArray<'int64'>;
+  argsort(axis: number = -1): NDArray<'float64'> {
+    return up(core.argsort(this, axis)) as NDArray<'float64'>;
   }
 
   /**
@@ -1663,8 +1664,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param kth - Element index to partition by
    * @param axis - Axis along which to sort. Default is -1 (last axis)
    */
-  argpartition(kth: number, axis: number = -1): NDArray<'int64'> {
-    return up(core.argpartition(this, kth, axis)) as NDArray<'int64'>;
+  argpartition(kth: number, axis: number = -1): NDArray<'float64'> {
+    return up(core.argpartition(this, kth, axis)) as NDArray<'float64'>;
   }
 
   /**
@@ -1768,8 +1769,8 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * Return the indices of non-zero elements
    * @returns Tuple of arrays, one for each dimension
    */
-  nonzero(): NDArray<'int64'>[] {
-    return core.nonzero(this).map(up) as NDArray<'int64'>[];
+  nonzero(): NDArray<'float64'>[] {
+    return core.nonzero(this).map(up) as NDArray<'float64'>[];
   }
 }
 

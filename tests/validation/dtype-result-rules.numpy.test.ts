@@ -9,35 +9,24 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { argmax, argmin, argsort, array, flatnonzero, nanargmax } from '../../src';
 import {
   absResultDtype,
   angleResultDtype,
   boolArithmeticDtype,
+  DTYPES,
   type DType,
   mathResultDtype,
   promoteDTypes,
   reductionAccumDtype,
+  roundResultDtype,
   stdVarResultDtype,
   trueDivideResultDtype,
 } from '../../src/common/dtype';
 import { runNumPy } from './numpy-oracle';
 
-const ALL_DTYPES: DType[] = [
-  'float64',
-  'float32',
-  'float16',
-  'complex128',
-  'complex64',
-  'int64',
-  'int32',
-  'int16',
-  'int8',
-  'uint64',
-  'uint32',
-  'uint16',
-  'uint8',
-  'bool',
-];
+// Canonical dtype list (single source of truth in src/common/dtype.ts).
+const ALL_DTYPES: readonly DType[] = DTYPES;
 
 const arr = (d: DType) => `np.ones(2, dtype='${d}')`;
 
@@ -61,6 +50,7 @@ const RULES: {
   },
   { name: 'stdVarResultDtype (std)', helper: stdVarResultDtype, op: (a) => `np.std(${a})` },
   { name: 'absResultDtype (abs)', helper: absResultDtype, op: (a) => `np.abs(${a})` },
+  { name: 'roundResultDtype (round)', helper: roundResultDtype, op: (a) => `np.round(${a})` },
   { name: 'reductionAccumDtype (sum)', helper: reductionAccumDtype, op: (a) => `np.sum(${a})` },
   {
     name: 'boolArithmeticDtype (power)',
@@ -331,5 +321,38 @@ describe('poly binary mappings match NumPy', () => {
       `import numpy as np\nq, r = np.polydiv(np.ones(3, dtype='${da}'), np.ones(2, dtype='${db}'))\nresult = q`,
     ).dtype;
     expect(trueDivideResultDtype(promoteDTypes(da, db))).toBe(out);
+  });
+});
+
+// ---- Index-family carveout: deliberate divergence from NumPy ----
+// NumPy returns int64 (`intp`) for index results. numpy-ts intentionally does
+// NOT match this: int64 is BigInt-backed, so int64 indices would make element
+// access a `bigint` and break `arr[idx]`. Instead argmin/argmax/nanarg* return
+// int32 and the sort/where family returns float64 — both `number`-yielding.
+// This test PINS both sides: it confirms NumPy really is int64 (so we'd notice
+// if that assumption changed) AND that numpy-ts holds its number-index convention.
+describe('index family diverges from NumPy by design (number-yielding, not int64)', () => {
+  const numpyIndexDtype = (expr: string) => runNumPy(`import numpy as np\nresult = ${expr}`).dtype;
+  const data = () => array([5, 3, 8, 1, 7], 'float32');
+
+  it('argmin/argmax/nanarg* → int32 here, int64 in NumPy', () => {
+    expect(numpyIndexDtype("np.argmin(np.array([5,3,8], dtype='float32'))")).toBe('int64');
+    // Reduce over an axis so the result is an array whose dtype we can read.
+    const a2 = array(
+      [
+        [5, 3],
+        [8, 1],
+      ],
+      'float32',
+    );
+    expect(argmin(a2, 0).dtype).toBe('int32');
+    expect(argmax(a2, 0).dtype).toBe('int32');
+    expect(nanargmax(a2, 0).dtype).toBe('int32');
+  });
+
+  it('argsort/flatnonzero → float64 here, int64 in NumPy', () => {
+    expect(numpyIndexDtype("np.argsort(np.array([5,3,8], dtype='float32'))")).toBe('int64');
+    expect(argsort(data()).dtype).toBe('float64');
+    expect(flatnonzero(data()).dtype).toBe('float64');
   });
 });

@@ -453,19 +453,17 @@ const FUNCTION_RESULT_RULES: Record<
   matrix_transpose: 'preserve',
   diag: 'preserve',
   diagflat: 'preserve',
-  around: 'preserve',
-  round: 'preserve',
+  around: 'round',
+  round: 'round',
   nan_to_num: 'preserve',
   unique_values: 'preserve',
-  // setdiff1d returns elements of ar1 only → preserves ar1's dtype (NOT promote,
-  // unlike union1d/intersect1d/setxor1d which compare across both operands).
   setdiff1d: 'preserve',
   // Accumulator → NDArray<ReductionAccum<D>>
   cumsum: 'reduction',
   cumprod: 'reduction',
   nancumsum: 'reduction',
   nancumprod: 'reduction',
-  // Index → NDArray<'int64'>
+  // Index → NDArray<'float64'> (numpy-ts index convention; see UNARY_RESULT_TYPE.index)
   argsort: 'index',
   argpartition: 'index',
   argwhere: 'index',
@@ -475,8 +473,6 @@ const FUNCTION_RESULT_RULES: Record<
   // Unary math → NDArray<MathResult<D>>
   deg2rad: 'math',
   rad2deg: 'math',
-  // NOTE: sinc, i0, unwrap, interp deferred — they return float64 for integer
-  // inputs (not MathResult's float16/float32), so they need a dedicated helper.
   // Complex component / angle
   real: 'component',
   imag: 'component',
@@ -672,7 +668,8 @@ const REDUCTION_RESULT: Record<string, string> = {
   truedivide: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
   stdvar: 'NDArray<StdVar<D>> | Scalar<StdVar<D>>',
   preserve: 'NDArray<D> | Scalar<D>',
-  index: "NDArray<'int64'> | number",
+  // argmin/argmax return int32 index arrays (number element access, not bigint).
+  index: "NDArray<'int32'> | number",
   bool: "NDArray<'bool'> | boolean",
 };
 
@@ -773,8 +770,10 @@ export function ${info.name}(${info.params}): [NDArray, NDArray] {
 }`;
 }
 
-// P5: index families that always return int64 index arrays, regardless of input
-// dtype → `NDArray<'int64'>[]` (fixed). `unstack` preserves element dtype instead.
+// P5: index families that return index arrays regardless of input dtype →
+// `NDArray<'float64'>[]` (fixed). numpy-ts uses float64 (not NumPy's int64) so
+// index element access stays a `number`, not a `bigint`. `unstack` preserves
+// element dtype instead.
 const INDEX_ARRAY_FAMILIES = new Set([
   'nonzero',
   'unravel_index',
@@ -790,8 +789,8 @@ const INDEX_ARRAY_FAMILIES = new Set([
 function generateIndexArrayWrapper(info: FunctionInfo): string {
   const core = `core.${CORE_NAME_MAP[info.name] || info.name}`;
   return `${info.jsDoc}
-export function ${info.name}(${info.params}): NDArray<'int64'>[] {
-  return ${core}(${info.invokeParams}).map(up) as NDArray<'int64'>[];
+export function ${info.name}(${info.params}): NDArray<'float64'>[] {
+  return ${core}(${info.invokeParams}).map(up) as NDArray<'float64'>[];
 }`;
 }
 
@@ -902,7 +901,7 @@ export function ${info.name}<D extends DType = ${gen.dflt}>(${params}): NDArray<
     console.warn(`⚠ poly rule didn't match ${info.name} — left untyped`);
   }
 
-  // Index families → NDArray<'int64'>[]; unstack preserves element dtype.
+  // Index families → NDArray<'float64'>[]; unstack preserves element dtype.
   if (INDEX_ARRAY_FAMILIES.has(info.name)) {
     return generateIndexArrayWrapper(info);
   }
@@ -1043,6 +1042,7 @@ import type {
   Power,
   Promote,
   ReductionAccum,
+  RoundResult,
   StdVar,
   TrueDivide,
 } from '../common/dtype-promotion';
@@ -1165,7 +1165,11 @@ const UNARY_RESULT_TYPE: Record<string, string> = {
   reduction: 'NDArray<ReductionAccum<D>>',
   preserve: 'NDArray<D>',
   bool: "NDArray<'bool'>",
-  index: "NDArray<'int64'>",
+  round: 'NDArray<RoundResult<D>>',
+  // Sort/where-style indices. numpy-ts returns float64 here (NumPy returns int64)
+  // to keep index element access a `number`, not a `bigint` — int64 is BigInt-
+  // backed. See the "index family" carveout in tests/unit/dtype-type-runtime-bridge.ts.
+  index: "NDArray<'float64'>",
   component: 'NDArray<ComplexComponent<D>>',
   angle: 'NDArray<Angle<D>>',
   // sinc/i0/unwrap: floats & complex preserved, ints/bool → float64 (= true-divide rule).
@@ -1259,7 +1263,7 @@ function generateMethodCode(def: MethodDef): string {
 
     case 'array_return': {
       if (def.result === 'index') {
-        return `${doc}  ${def.name}(): NDArray<'int64'>[] {\n    return core.${coreName}(this).map(up) as NDArray<'int64'>[];\n  }`;
+        return `${doc}  ${def.name}(): NDArray<'float64'>[] {\n    return core.${coreName}(this).map(up) as NDArray<'float64'>[];\n  }`;
       }
       return `${doc}  ${def.name}(): NDArray[] {\n    return core.${coreName}(this).map(up);\n  }`;
     }
@@ -1304,6 +1308,7 @@ import type {
   Power,
   Promote,
   ReductionAccum,
+  RoundResult,
   StdVar,
   TrueDivide,
 } from '../common/dtype-promotion';

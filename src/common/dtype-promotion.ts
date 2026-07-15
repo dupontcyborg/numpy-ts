@@ -343,6 +343,25 @@ export interface AbsTable {
 }
 export type Abs<D extends DType> = AbsTable[D];
 
+/** Result-dtype table for round / around (preserve, except bool → float16). */
+export interface RoundResultTable {
+  float64: 'float64';
+  float32: 'float32';
+  float16: 'float16';
+  complex128: 'complex128';
+  complex64: 'complex64';
+  int64: 'int64';
+  int32: 'int32';
+  int16: 'int16';
+  int8: 'int8';
+  uint64: 'uint64';
+  uint32: 'uint32';
+  uint16: 'uint16';
+  uint8: 'uint8';
+  bool: 'float16';
+}
+export type RoundResult<D extends DType> = RoundResultTable[D];
+
 /** Result-dtype table for angle (always real float). */
 export interface AngleTable {
   float64: 'float64';

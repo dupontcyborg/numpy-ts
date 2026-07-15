@@ -57,9 +57,9 @@ type _setdiff = Expect<Equal<ReturnType<typeof np.setdiff1d<'int16'>>, NDArray<'
 // accumulator → ReductionAccum<D>
 const cs = np.cumsum(i8);
 type _cumsum = Expect<Equal<typeof cs, NDArray<'int64'>>>;
-// index → NDArray<'int64'>
+// index (sort/where family) → NDArray<'float64'> (numpy-ts number-index convention)
 const as_ = np.argsort(f32);
-type _argsort = Expect<Equal<typeof as_, NDArray<'int64'>>>;
+type _argsort = Expect<Equal<typeof as_, NDArray<'float64'>>>;
 // unary math → MathResult<D>
 type _deg2rad = Expect<Equal<ReturnType<typeof np.deg2rad<'int8'>>, NDArray<'float16'>>>;
 // complex component / angle
@@ -80,7 +80,7 @@ type _sum = Expect<Equal<typeof sm, NDArray<'int64'> | bigint>>;
 const mn = np.mean(i32);
 type _mean = Expect<Equal<typeof mn, NDArray<'float64'> | number>>;
 const am = np.argmax(f32);
-type _argmax = Expect<Equal<typeof am, NDArray<'int64'> | number>>;
+type _argmax = Expect<Equal<typeof am, NDArray<'int32'> | number>>;
 const al = np.all(i32);
 type _all = Expect<Equal<typeof al, NDArray<'bool'> | boolean>>;
 
@@ -104,7 +104,7 @@ type _divmodF = Expect<
   Equal<ReturnType<typeof np.divmod<'int8', 'int16'>>, [NDArray<'int16'>, NDArray<'int16'>]>
 >;
 const nz = np.nonzero(i32);
-type _nonzero = Expect<Equal<typeof nz, NDArray<'int64'>[]>>;
+type _nonzero = Expect<Equal<typeof nz, NDArray<'float64'>[]>>;
 type _unstack = Expect<Equal<ReturnType<typeof np.unstack<'int16'>>, NDArray<'int16'>[]>>;
 
 // ── P6: previously-deferred rules ───────────────────────────────────────────

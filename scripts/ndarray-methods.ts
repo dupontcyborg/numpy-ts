@@ -408,7 +408,7 @@ clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray<D>
   }`;
 
 const ROUND_METHOD = `\
-round(decimals: number = 0): NDArray<D> {
+round(decimals: number = 0): NDArray<RoundResult<D>> {
     return this.around(decimals);
   }`;
 
@@ -418,8 +418,8 @@ conjugate(): NDArray<D> {
   }`;
 
 const AROUND_METHOD = `\
-around(decimals: number = 0): NDArray<D> {
-    return up(core.around(this, decimals)) as NDArray<D>;
+around(decimals: number = 0): NDArray<RoundResult<D>> {
+    return up(core.around(this, decimals)) as NDArray<RoundResult<D>>;
   }`;
 
 const ALLCLOSE_METHOD = `\
@@ -492,8 +492,8 @@ divmod<B extends DType>(divisor: NDArray<B>): [NDArray<Power<D, B>>, NDArray<Pow
   }`;
 
 const SEARCHSORTED_METHOD = `\
-searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'int64'> {
-    return up(core.searchsorted(this, v, side)) as NDArray<'int64'>;
+searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'float64'> {
+    return up(core.searchsorted(this, v, side)) as NDArray<'float64'>;
   }`;
 
 const TOFILE_METHOD = `\
@@ -1439,28 +1439,28 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'argmin',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: "NDArray<'int64'> | number",
+    returnType: "NDArray<'int32'> | number",
     doc: 'Indices of the minimum values along an axis',
   },
   {
     name: 'argmax',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: "NDArray<'int64'> | number",
+    returnType: "NDArray<'int32'> | number",
     doc: 'Indices of the maximum values along an axis',
   },
   {
     name: 'nanargmin',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: "NDArray<'int64'> | number",
+    returnType: "NDArray<'int32'> | number",
     doc: 'Return the indices of the minimum values, ignoring NaNs',
   },
   {
     name: 'nanargmax',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: "NDArray<'int64'> | number",
+    returnType: "NDArray<'int32'> | number",
     doc: 'Return the indices of the maximum values, ignoring NaNs',
   },
 

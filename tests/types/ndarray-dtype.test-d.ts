@@ -70,8 +70,8 @@ type _absI32 = Expect<Equal<ReturnType<typeof i32.absolute>, NDArray<'int32'>>>;
 // ── predicates → bool ───────────────────────────────────────────────────────
 type _isnanBool = Expect<Equal<ReturnType<typeof f32.isnan>, NDArray<'bool'>>>;
 
-// ── index-returning ops → int64 ─────────────────────────────────────────────
-type _argsortI64 = Expect<Equal<ReturnType<typeof f32.argsort>, NDArray<'int64'>>>;
+// ── index-returning ops → float64 (numpy-ts number-index convention, not int64) ──
+type _argsortF64 = Expect<Equal<ReturnType<typeof f32.argsort>, NDArray<'float64'>>>;
 
 // ── reductions: sum widens ints, full-reduction scalar reflects the dtype ────
 type _sumI32 = Expect<Equal<ReturnType<typeof i32.sum>, NDArray<'int64'> | bigint>>;
@@ -115,7 +115,7 @@ export type _NDArrayAssertionsHold = [
   _absC128,
   _absI32,
   _isnanBool,
-  _argsortI64,
+  _argsortF64,
   _sumI32,
   _cumsumI8,
   _meanI32,
