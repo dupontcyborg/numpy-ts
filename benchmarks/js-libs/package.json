@@ -1,0 +1,29 @@
+{
+  "name": "@numpy-ts/bench-js-libs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated dev-only deps: third-party JS numerical libraries benchmarked against numpy-ts.",
+  "scripts": {
+    "probe": "tsx probe.ts"
+  },
+  "devDependencies": {
+    "@d4c/numjs": "0.17.35",
+    "@jax-js/jax": "0.1.11",
+    "@stdlib/blas": "^0.4.1",
+    "@stdlib/blas-ext-base-dsum": "^0.3.1",
+    "@stdlib/math-base-ops": "^0.3.0",
+    "@stdlib/math-base-special": "^0.4.1",
+    "@stdlib/math-strided": "^0.3.1",
+    "@stdlib/ndarray": "0.4.1",
+    "@stdlib/ndarray-base-binary": "^0.1.1",
+    "@stdlib/ndarray-base-unary": "^0.3.1",
+    "@stdlib/random": "^0.4.1",
+    "@stdlib/stats-strided": "^0.1.1",
+    "@tensorflow/tfjs-backend-wasm": "4.22.0",
+    "@tensorflow/tfjs-core": "4.22.0",
+    "mathjs": "15.2.0",
+    "ml-matrix": "6.12.2",
+    "numeric": "1.2.6"
+  }
+}
