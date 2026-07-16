@@ -1,0 +1,145 @@
+---
+title: "Gradient & Differences"
+description: "Compute discrete differences, consecutive element differences, and numerical gradients."
+---
+
+### diff
+
+Calculate the n-th discrete difference along the given axis.
+
+The first difference is given by `out[i] = a[i+1] - a[i]` along the specified axis. Higher differences are computed by applying `diff` recursively.
+
+```typescript
+function diff(
+  a: ArrayLike,
+  n?: number,
+  axis?: number,
+  prepend?: ArrayLike,
+  append?: ArrayLike
+): NDArray
+```
+
+|Name|Type|Default|Description|
+|-|-|-|-|
+|`a`|`ArrayLike`|--|Input array.|
+|`n`|`number`|`1`|Number of times values are differenced. If zero, the input is returned as-is.|
+|`axis`|`number`|`-1`|Axis along which the difference is taken. Defaults to the last axis.|
+|`prepend`|`ArrayLike`|`undefined`|Values to prepend to `a` along `axis` before computing differences. A scalar broadcasts to size 1 along the diff axis with `a`'s shape on all other axes. An array must match `a`'s shape on every axis except `axis`.|
+|`append`|`ArrayLike`|`undefined`|Values to append to `a` along `axis` before computing differences. Same broadcasting rules as `prepend`.|
+
+**Returns:** `NDArray` -- The n-th differences. The shape is the same as `a` except along `axis` where the dimension is reduced by `n` (adjusted by any prepend/append).
+
+Existing 3-argument callers are unaffected.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 3, 6, 10, 15]);
+np.diff(a);
+// array([2, 3, 4, 5])
+
+np.diff(a, 2);
+// array([1, 1, 1])
+
+// 2D array, diff along axis 1
+const mat = np.array([[1, 3, 6], [10, 15, 21]]);
+np.diff(mat, 1, 1);
+// array([[2, 3],
+//        [5, 6]])
+
+// With prepend to preserve array length
+np.diff(np.array([1, 2, 4, 7]), 1, -1, [0]);
+// array([1, 1, 2, 3])
+```
+
+---
+
+### ediff1d
+
+Compute the differences between consecutive elements of a flattened array, with optional values prepended or appended.
+
+```typescript
+function ediff1d(
+  a: ArrayLike,
+  to_end?: number[] | null,
+  to_begin?: number[] | null
+): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `a` | `ArrayLike` | -- | Input array. If multi-dimensional, it is flattened first. |
+| `to_end` | `number[] \| null` | `undefined` | Values to append at the end of the returned differences. |
+| `to_begin` | `number[] \| null` | `undefined` | Values to prepend at the beginning of the returned differences. |
+
+**Returns:** `NDArray` -- 1-D array of differences between consecutive elements, optionally with prepended/appended values.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 4, 7, 11]);
+np.ediff1d(a);
+// array([1, 2, 3, 4])
+
+np.ediff1d(a, [100], [0]);
+// array([0, 1, 2, 3, 4, 100])
+
+// Works with multi-dimensional arrays (flattened first)
+const mat = np.array([[1, 2], [5, 10]]);
+np.ediff1d(mat);
+// array([1, 3, 5])
+```
+
+---
+
+### gradient
+
+Return the gradient of an N-dimensional array. The gradient is computed using second-order central differences in the interior and first-order (forward/backward) differences at the boundaries.
+
+```typescript
+type GradientSpacingArg = number | number[] | NDArrayCore;
+
+function gradient(
+  f: ArrayLike,
+  varargs?: number | GradientSpacingArg[],
+  axis?: number | number[] | null
+): NDArray | NDArray[]
+```
+
+|Name|Type|Default|Description|
+|-|-|-|-|
+|`f`|`ArrayLike`|--|N-dimensional array containing samples of a scalar function.|
+|`varargs`|`number \| GradientSpacingArg[]`|`1`|Spacing between sample points. A single scalar applies uniformly to every axis. A list provides one entry per axis (or per `axis` entry); each entry is either a scalar (uniform spacing) or a 1-D coordinate array of length `axisSize` (non-uniform). Mixable: `gradient(f, [coords, 2])`.|
+|`axis`|`number \| number[] \| null`|`undefined`|Axis or axes along which to compute the gradient.|
+
+**Returns:** `NDArray` when `f` is 1-D (a single gradient array), `NDArray[]` when `f` is N-D with N > 1 (one gradient array per axis).
+
+Coordinate arrays use NumPy's non-uniform second-order central-difference formula in the interior and first-order differences at the boundaries. Existing scalar callers are unaffected.
+
+Limitation: complex dtypes combined with coordinate arrays throws; pure-scalar spacing still works for complex inputs.
+
+```typescript
+import * as np from 'numpy-ts';
+
+// 1-D gradient with unit spacing
+const a = np.array([1, 2, 4, 7, 11]);
+np.gradient(a);
+// array([1, 1.5, 2.5, 3.5, 4])
+
+// 1-D gradient with custom spacing
+np.gradient(a, 0.5);
+// array([2, 3, 5, 7, 8])
+
+// 2-D gradient returns [dy, dx]
+const mat = np.array([[1, 2, 4], [3, 6, 10]]);
+const [gy, gx] = np.gradient(mat) as NDArray[];
+// gy: array([[2, 4, 6], [2, 4, 6]])     -- gradient along axis 0
+// gx: array([[1, 1.5, 2], [3, 3.5, 4]]) -- gradient along axis 1
+
+// Non-uniform spacing via a 1-D coordinate array
+np.gradient(np.array([1, 4, 9]), [[0, 1, 3]]);
+// Uses actual x-coordinates [0, 1, 3] for spacing
+
+// Mixable per-axis: coords along axis 0, scalar spacing along axis 1
+np.gradient(mat, [[0, 2], 0.5]);
+```

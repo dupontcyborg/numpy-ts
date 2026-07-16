@@ -1,0 +1,282 @@
+---
+title: "File I/O"
+description: "Save and load arrays in .npy, .npz, and text formats. File-based I/O works on Node.js, Bun, and Deno; buffer-based I/O works everywhere including browsers."
+---
+
+numpy-ts supports the same file formats as NumPy: `.npy` (single array), `.npz` (multiple arrays), and delimited text files. All functions are available from the main `numpy-ts` entry point.
+
+| Category | File-based (Node / Bun / Deno) | Buffer-based (all environments) |
+|-|-|-|
+| `.npy` | `loadNpy` / `loadNpySync` / `saveNpy` / `saveNpySync` | `serializeNpy` / `parseNpy` |
+| `.npz` | `loadNpzFile` / `loadNpzFileSync` / `saveNpzFile` / `saveNpzFileSync` / `savez` / `savez_compressed` | `serializeNpz` / `parseNpz` |
+| Auto-detect | `load` / `loadSync` / `save` / `saveSync` | -- |
+| Text (CSV, TSV) | `loadtxt` / `loadtxtSync` / `savetxt` / `savetxtSync` | `serializeTxt` / `parseTxt` |
+| Text (flexible) | `genfromtxtFile` / `genfromtxtFileSync` / `fromregexFile` / `fromregexFileSync` | `genfromtxt` / `fromregex` |
+
+<Note>
+File-based functions read and write files on disk and require a server runtime (Node.js, Bun, or Deno). In the browser, they throw: *"File IO requires Node.js, Bun, or Deno. In the browser, use parseNpy(buffer) / parseTxt(text) with fetch() instead."* Buffer-based functions work with `ArrayBuffer`, `Uint8Array`, and strings in all environments.
+</Note>
+
+<Tip>
+`numpy-ts/node` still works but is a **deprecated** alias for `numpy-ts`. Update your imports to `from 'numpy-ts'`.
+</Tip>
+
+## NPY files (single array)
+
+The `.npy` format stores a single array with its dtype and shape metadata.
+
+<Tabs>
+  <Tab title="File-based (Node / Bun / Deno)">
+```typescript
+import { array, save, load } from 'numpy-ts';
+
+const a = array([[1, 2, 3], [4, 5, 6]]);
+
+// Save to disk
+await save('matrix.npy', a);
+
+// Load from disk
+const loaded = await load('matrix.npy');
+console.log(loaded.shape); // [2, 3]
+```
+
+Synchronous variants are also available:
+
+```typescript
+import { array, saveSync, loadSync } from 'numpy-ts';
+
+const a = array([1, 2, 3]);
+saveSync('data.npy', a);
+const loaded = loadSync('data.npy');
+```
+  </Tab>
+  <Tab title="Buffer-based (all environments)">
+```typescript
+import { array, serializeNpy, parseNpy } from 'numpy-ts';
+
+const a = array([[1, 2, 3], [4, 5, 6]]);
+
+// Serialize to Uint8Array
+const bytes = serializeNpy(a);
+
+// Parse from ArrayBuffer (e.g., from fetch)
+const response = await fetch('https://example.com/matrix.npy');
+const buffer = await response.arrayBuffer();
+const loaded = parseNpy(buffer);
+console.log(loaded.shape); // [2, 3]
+```
+
+You can also use the core entry point for smaller bundles:
+
+```typescript
+import { array, serializeNpy, parseNpy } from 'numpy-ts/core';
+```
+  </Tab>
+</Tabs>
+
+## NPZ archives (multiple arrays)
+
+The `.npz` format stores multiple named arrays in a single ZIP archive. `savez_compressed` applies deflate compression.
+
+<Tabs>
+  <Tab title="File-based (Node / Bun / Deno)">
+```typescript
+import { array, zeros, savez, savez_compressed, load } from 'numpy-ts';
+
+const weights = array([[0.1, 0.2], [0.3, 0.4]]);
+const biases = zeros([2]);
+
+// Save multiple arrays (uncompressed)
+await savez('model.npz', { weights, biases });
+
+// Save with compression
+await savez_compressed('model_compressed.npz', { weights, biases });
+
+// Load returns an object with a Map of arrays
+const result = await load('model.npz');
+const w = result.arrays.get('weights');
+const b = result.arrays.get('biases');
+```
+  </Tab>
+  <Tab title="Buffer-based (all environments)">
+```typescript
+import { array, zeros, serializeNpz, parseNpz } from 'numpy-ts';
+
+const weights = array([[0.1, 0.2], [0.3, 0.4]]);
+const biases = zeros([2]);
+
+// Serialize to Uint8Array
+const bytes = await serializeNpz({ weights, biases });
+
+// Parse from ArrayBuffer (e.g., from fetch)
+const response = await fetch('https://example.com/model.npz');
+const buffer = await response.arrayBuffer();
+const result = await parseNpz(buffer);
+const w = result.arrays.get('weights');
+const b = result.arrays.get('biases');
+```
+  </Tab>
+</Tabs>
+
+## Text files
+
+Load and save delimited text files such as CSV and TSV.
+
+<Tabs>
+  <Tab title="File-based (Node / Bun / Deno)">
+```typescript
+import { array, loadtxt, savetxt } from 'numpy-ts';
+
+// Load a CSV file
+const data = await loadtxt('data.csv', { delimiter: ',' });
+
+// Load with options
+const filtered = await loadtxt('data.csv', {
+  delimiter: ',',
+  skiprows: 1,         // Skip header row
+  usecols: [0, 2],     // Only columns 0 and 2
+});
+
+// Save as CSV
+const a = array([[1.1, 2.2], [3.3, 4.4]]);
+await savetxt('output.csv', a, {
+  delimiter: ',',
+  header: 'x,y',
+  fmt: '%.2f',
+});
+```
+  </Tab>
+  <Tab title="Buffer-based (all environments)">
+```typescript
+import { array, parseTxt, serializeTxt } from 'numpy-ts';
+
+// Parse from a string (e.g., from fetch or FileReader)
+const csv = `1.0,2.0,3.0
+4.0,5.0,6.0`;
+const data = parseTxt(csv, { delimiter: ',' });
+console.log(data.shape); // [2, 3]
+
+// Serialize to a string
+const a = array([[1.1, 2.2], [3.3, 4.4]]);
+const text = serializeTxt(a, {
+  delimiter: ',',
+  header: 'x,y',
+  fmt: '%.2f',
+});
+console.log(text);
+// # x,y
+// 1.10,2.20
+// 3.30,4.40
+```
+  </Tab>
+</Tabs>
+
+## Flexible text loading
+
+### genfromtxt
+
+Like `loadtxt`, but handles missing values more gracefully.
+
+<Tabs>
+  <Tab title="File-based (Node / Bun / Deno)">
+```typescript
+import { genfromtxtFile } from 'numpy-ts';
+
+const data = await genfromtxtFile('messy_data.csv', {
+  delimiter: ',',
+  missing_values: ['NA', '', '-'],
+  filling_values: 0,
+});
+```
+  </Tab>
+  <Tab title="Buffer-based (all environments)">
+```typescript
+import { genfromtxt } from 'numpy-ts';
+
+const csv = `1.0,2.0,3.0
+4.0,NA,6.0
+7.0,8.0,`;
+
+const data = genfromtxt(csv, {
+  delimiter: ',',
+  missing_values: ['NA', ''],
+  filling_values: 0,
+});
+// [[1, 2, 3], [4, 0, 6], [7, 8, 0]]
+```
+  </Tab>
+</Tabs>
+
+### fromregex
+
+Extract numeric data from unstructured text using regular expressions.
+
+<Tabs>
+  <Tab title="File-based (Node / Bun / Deno)">
+```typescript
+import { fromregexFile } from 'numpy-ts';
+
+// File contents: "Point: x=1.5, y=2.3\nPoint: x=4.0, y=5.1"
+const points = await fromregexFile('points.txt', /x=([\d.]+), y=([\d.]+)/);
+console.log(points.shape); // [2, 2]
+console.log(points.toArray()); // [[1.5, 2.3], [4.0, 5.1]]
+```
+  </Tab>
+  <Tab title="Buffer-based (all environments)">
+```typescript
+import { fromregex } from 'numpy-ts';
+
+const text = `Point: x=1.5, y=2.3
+Point: x=4.0, y=5.1`;
+
+const points = fromregex(text, /x=([\d.]+), y=([\d.]+)/);
+console.log(points.toArray()); // [[1.5, 2.3], [4.0, 5.1]]
+```
+  </Tab>
+</Tabs>
+
+## Types
+
+File I/O functions accept typed options objects:
+
+```typescript
+import type {
+  LoadOptions,
+  SaveNpzOptions,
+  LoadTxtOptions,
+  SaveTxtOptions,
+} from 'numpy-ts';
+```
+
+## Sync I/O internals
+
+<Tip>
+Sync file I/O functions (`loadSync`, `saveSync`, `loadNpySync`, etc.) use an async self-warming cache that resolves `node:fs` at module load time. This is transparent in practice. In the extremely unlikely case that you call a sync function before the microtask queue has flushed, call any async I/O function first to ensure the cache is ready.
+</Tip>
+
+## NumPy compatibility
+
+Files saved by numpy-ts can be loaded by Python NumPy, and vice versa:
+
+```python
+# Python
+import numpy as np
+
+# Load a file saved by numpy-ts
+arr = np.load('matrix.npy')
+
+# Save a file for numpy-ts to load
+np.save('from_python.npy', np.array([[1, 2], [3, 4]]))
+```
+
+```typescript
+// TypeScript
+import { load } from 'numpy-ts';
+
+const arr = await load('from_python.npy');
+console.log(arr.toArray()); // [[1, 2], [3, 4]]
+```
+
+<Warning>
+numpy-ts does not support NumPy object arrays, structured arrays, or pickle-based `.npy` files. Only numeric dtypes (`float16`, `float64`, `float32`, `int32`, `int16`, `int8`, `uint32`, `uint16`, `uint8`, `bool`, `complex128`, `complex64`) are supported.
+</Warning>

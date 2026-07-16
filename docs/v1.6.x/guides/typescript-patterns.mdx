@@ -1,0 +1,347 @@
+---
+title: "TypeScript Patterns"
+description: "Type-safe patterns for using numpy-ts in TypeScript projects and libraries."
+---
+
+numpy-ts is written in TypeScript and exports types for arrays, dtypes, and all function signatures. This guide covers patterns for writing type-safe numerical code.
+
+## Importing types
+
+Use `import type` for type-only imports to ensure they are erased at compile time:
+
+```typescript
+import { array, zeros, sum } from 'numpy-ts';
+import type { NDArray, DType } from 'numpy-ts';
+```
+
+Or from the core entry point:
+
+```typescript
+import { array, add, reshape } from 'numpy-ts/core';
+import type { NDArrayCore, DType } from 'numpy-ts/core';
+```
+
+## The DType type
+
+`DType` is a string union representing all supported data types:
+
+```typescript
+type DType =
+  | 'float64' | 'float32'
+  | 'complex128' | 'complex64'
+  | 'int64' | 'int32' | 'int16' | 'int8'
+  | 'uint64' | 'uint32' | 'uint16' | 'uint8'
+  | 'bool';
+```
+
+Use it to type dtype parameters in your functions:
+
+```typescript
+import { zeros } from 'numpy-ts';
+import type { DType } from 'numpy-ts';
+
+function createBuffer(shape: number[], dtype: DType = 'float64') {
+  return zeros(shape, { dtype });
+}
+
+createBuffer([3, 3], 'float32');  // OK
+createBuffer([3, 3], 'int32');    // OK
+// createBuffer([3, 3], 'string');   // Type error
+```
+
+## NDArray vs NDArrayCore
+
+The two array types correspond to the two main entry points:
+
+| Type | Entry point | Has methods | Tree-shakeable |
+|---|---|---|---|
+| `NDArrayCore` | `numpy-ts/core` | No (properties only) | Yes |
+| `NDArray` | `numpy-ts` | Yes (`.add()`, `.reshape()`, `.T`, ...) | No |
+
+`NDArray` extends `NDArrayCore`, so every `NDArray` satisfies the `NDArrayCore` type. Both types expose the same properties: `shape`, `ndim`, `size`, `dtype`, `data`, `strides`, `flags`, `base`, `itemsize`, `nbytes`.
+
+```typescript
+import type { NDArray } from 'numpy-ts';
+import type { NDArrayCore } from 'numpy-ts/core';
+
+// NDArray is assignable to NDArrayCore
+function acceptsCore(arr: NDArrayCore): void { /* ... */ }
+declare const full: NDArray;
+acceptsCore(full); // OK
+
+// NDArrayCore is NOT assignable to NDArray (missing methods)
+function acceptsFull(arr: NDArray): void { /* ... */ }
+declare const core: NDArrayCore;
+// acceptsFull(core); // Type error
+```
+
+## Writing generic functions
+
+### Accept NDArrayCore for maximum compatibility
+
+If your function only uses standalone functions (not method chaining), accept `NDArrayCore`. This lets callers pass either type:
+
+```typescript
+import { add, sum, reshape } from 'numpy-ts/core';
+import type { NDArrayCore } from 'numpy-ts/core';
+
+function normalize(arr: NDArrayCore): NDArrayCore {
+  const total = sum(arr) as number;
+  return add(arr, -total);
+}
+```
+
+### Accept NDArray when you need methods
+
+If your function uses method chaining, require `NDArray`:
+
+```typescript
+import type { NDArray } from 'numpy-ts';
+
+function processMatrix(arr: NDArray): NDArray {
+  return arr.reshape([-1]).add(1);
+}
+```
+
+## Pattern for library authors
+
+If you are publishing a library that depends on numpy-ts, accept `NDArrayCore` in your public API and return `NDArrayCore`. This gives your users the choice of which entry point to use.
+
+```typescript
+// my-stats-lib/src/index.ts
+import { mean, subtract, sqrt, sum, multiply } from 'numpy-ts/core';
+import type { NDArrayCore } from 'numpy-ts/core';
+
+/**
+ * Compute the standard deviation of an array.
+ * Accepts both NDArray and NDArrayCore.
+ */
+export function standardDeviation(arr: NDArrayCore): number {
+  const avg = mean(arr) as number;
+  const diff = subtract(arr, avg);
+  const variance = sum(multiply(diff, diff)) as number / arr.size;
+  return Math.sqrt(variance);
+}
+```
+
+<Tip>
+By depending on `numpy-ts/core`, your library only pulls in the functions it uses. If a consumer imports your library alongside `numpy-ts`, there is no duplication -- the same underlying computation code is shared.
+</Tip>
+
+## Type narrowing with dtype
+
+The `dtype` property is typed as the array's dtype parameter `D` (which is `DType` for an unparameterized `NDArray`). When you branch on the dtype of an unparameterized array, `switch` narrows it directly:
+
+```typescript
+import type { NDArray, DType } from 'numpy-ts';
+
+function describeArray(arr: NDArray): string {
+  const dtype = arr.dtype as DType;
+
+  switch (dtype) {
+    case 'float64':
+    case 'float32':
+      return `Float array with ${arr.size} elements`;
+    case 'int32':
+    case 'int16':
+    case 'int8':
+      return `Integer array with ${arr.size} elements`;
+    case 'bool':
+      return `Boolean mask with ${arr.size} elements`;
+    case 'complex128':
+    case 'complex64':
+      return `Complex array with ${arr.size} elements`;
+    default:
+      return `Array (${dtype}) with ${arr.size} elements`;
+  }
+}
+```
+
+You can also use the utility functions `isIntegerDType`, `isFloatDType`, and `isComplexDType`:
+
+```typescript
+import { isIntegerDType, isFloatDType, isComplexDType } from 'numpy-ts';
+import type { DType } from 'numpy-ts';
+
+function requireFloat(dtype: DType): void {
+  if (!isFloatDType(dtype)) {
+    throw new Error(`Expected float dtype, got ${dtype}`);
+  }
+}
+```
+
+## Shape inference
+
+Array shapes are exposed as `readonly number[]`. You can use this to write shape-aware utilities:
+
+```typescript
+import { reshape, zeros } from 'numpy-ts/core';
+import type { NDArrayCore } from 'numpy-ts/core';
+
+function ensureMatrix(arr: NDArrayCore): NDArrayCore {
+  if (arr.ndim === 1) {
+    // Reshape 1D to column vector
+    return reshape(arr, [arr.shape[0], 1]);
+  }
+  if (arr.ndim !== 2) {
+    throw new Error(`Expected 1D or 2D array, got ${arr.ndim}D`);
+  }
+  return arr;
+}
+
+function outerProduct(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
+  if (a.ndim !== 1 || b.ndim !== 1) {
+    throw new Error('Both inputs must be 1D');
+  }
+  const col = reshape(a, [a.shape[0], 1]);  // Column vector
+  const row = reshape(b, [1, b.shape[0]]);  // Row vector
+  // Broadcasting handles the multiplication
+  const { multiply } = require('numpy-ts/core');
+  return multiply(col, row);
+}
+```
+
+## Combining with generics
+
+For functions that work with multiple array types, use TypeScript generics:
+
+```typescript
+import { copy } from 'numpy-ts/core';
+import type { NDArrayCore } from 'numpy-ts/core';
+
+function cloneAndFill<T extends NDArrayCore>(arr: T, value: number): T {
+  const result = copy(arr);
+  result.fill(value);
+  return result as T;
+}
+```
+
+<Note>
+Since `NDArray` extends `NDArrayCore`, a generic bounded by `NDArrayCore` accepts both types. The return type preserves the caller's type through the generic parameter.
+</Note>
+
+## Type-safe creation functions
+
+Creation functions take the dtype as a positional argument, and the dtype **literal flows into the return type** (see [Compile-time dtype tracking](#compile-time-dtype-tracking) below):
+
+```typescript
+import { zeros, ones, array, arange, linspace } from 'numpy-ts';
+
+const f64 = zeros([3, 3]);            // NDArray<'float64'> (default)
+const f32 = zeros([3, 3], 'float32'); // NDArray<'float32'>
+const i32 = ones([10], 'int32');      // NDArray<'int32'>
+const ints = arange(0, 10, 1, 'int32'); // NDArray<'int32'>
+const floats = linspace(0, 1, 100);   // NDArray<'float64'>
+```
+
+When creating arrays from data, the dtype is inferred at runtime from the values or set explicitly (an explicit literal is tracked in the type):
+
+```typescript
+import { array } from 'numpy-ts';
+
+const a = array([1, 2, 3]);            // NDArray<DType> (runtime-inferred float64)
+const b = array([1, 2, 3], 'int32');   // NDArray<'int32'>
+const c = array([true, false], 'bool'); // NDArray<'bool'>
+```
+
+## Compile-time dtype tracking
+
+`NDArray<D>` is parameterized by its dtype. When you create an array with a dtype literal, that literal is carried through the type system so operations report their exact result dtype — following the same NumPy promotion rules enforced at runtime.
+
+```typescript
+import { zeros } from 'numpy-ts';
+
+const a = zeros([3], 'int32');   // NDArray<'int32'>
+const b = zeros([3], 'float32'); // NDArray<'float32'>
+const c = a.add(b);              // NDArray<'float64'>  (int32 + float32 → float64)
+const d = a.astype('int8');      // NDArray<'int8'>
+```
+
+### Element access returns the right scalar type
+
+`get`, `iget`, and `item` return `bigint` for `int64`/`uint64`, a `Complex` for complex dtypes, and `number` otherwise.
+
+```typescript
+const ints = zeros([3], 'int64');
+const x = ints.get([0]);   // bigint
+const y: number = ints.get([0]); // ✗ compile error: bigint is not assignable to number
+
+const floats = zeros([3], 'float64');
+const z = floats.get([0]); // number
+```
+
+### Result dtypes are tracked per operation
+
+Each operation reports the dtype NumPy would produce:
+
+```typescript
+const i = zeros([3], 'int32');
+const f = zeros([3], 'float32');
+
+i.add(f);      // NDArray<'float64'>   — promotion
+i.multiply(i); // NDArray<'int32'>
+i.divide(i);   // NDArray<'float64'>   — true division always floats
+i.sqrt();      // NDArray<'float64'>   — unary math promotes ints
+i.sum();       // NDArray<'int64'> | bigint  — accumulator widening (int64 scalar → bigint)
+i.mean();      // NDArray<'float64'> | number
+i.greater(f);  // NDArray<'bool'>      — comparisons
+i.argmax();    // NDArray<'int32'> | number  — arg-reductions (see index caveat)
+i.argsort();   // NDArray<'float64'>   — sort/where indices (see index caveat)
+i.transpose(); // NDArray<'int32'>     — shape ops preserve dtype
+```
+
+The same rules apply to the free-function API, and dtype is inferred from the operands:
+
+```typescript
+import { add, sqrt, divide } from 'numpy-ts';
+
+add(zeros([3], 'int16'), zeros([3], 'int32')); // NDArray<'int32'>
+sqrt(zeros([3], 'int8'));                        // NDArray<'float16'>
+divide(zeros([3], 'int32'), zeros([3], 'int32')); // NDArray<'float64'>
+```
+
+Every operation with a static result-dtype rule reports its dtype — shape ops,
+reductions, contractions, binary ufuncs, complex components, tuple-returning
+ufuncs, and index families:
+
+```typescript
+import {
+  reshape, cumsum, argsort, real, maximum, sum, mean,
+  dot, trace, frexp, divmod, nonzero, sinc, vander, corrcoef,
+} from 'numpy-ts';
+
+reshape(zeros([6], 'int32'), [2, 3]); // NDArray<'int32'>   — shape ops preserve dtype
+cumsum(zeros([3], 'int8'));           // NDArray<'int64'>   — accumulator widening
+argsort(zeros([3], 'float32'));       // NDArray<'float64'> — sort indices (see index caveat)
+real(zeros([3], 'complex64'));        // NDArray<'float32'> — complex component
+maximum(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> — promotion
+sum(zeros([3], 'int8'));   // NDArray<'int64'> | bigint     — reduction (array or scalar)
+mean(zeros([3], 'int32')); // NDArray<'float64'> | number
+dot(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> | number — contraction
+trace(zeros([2, 2], 'int32'));        // NDArray<'int64'> | bigint — sum of the diagonal
+frexp(zeros([3], 'int8'));            // [NDArray<'float16'>, NDArray<'int32'>] — tuple ufunc
+divmod(zeros([3], 'int8'), zeros([3], 'int16')); // [NDArray<'int16'>, NDArray<'int16'>]
+nonzero(zeros([3], 'float32'));       // NDArray<'float64'>[] — index family (see index caveat)
+sinc(zeros([3], 'int8'));             // NDArray<'float64'>
+vander(zeros([3], 'float32'));        // NDArray<'float64'>
+corrcoef(zeros([2, 3], 'float32'));   // NDArray<'float64'>
+```
+
+### The promotion type helpers
+
+The promotion rules are exposed as type-level helpers you can use directly, generated from the same single source of truth as the runtime rules:
+
+```typescript
+import type { Promote, Scalar } from 'numpy-ts';
+
+type R = Promote<'int32', 'float32'>; // 'float64'
+type S = Scalar<'int64'>;             // bigint
+```
+
+### Caveats
+
+- **Scalar operands keep the array's dtype.** `intArr.add(2.5)` is typed `NDArray<'int32'>`, not float. TypeScript sees only the *type* `number`, never the value, so it cannot distinguish an integer literal from a float — modelling NumPy's weak-scalar promotion is not possible. Use an explicit `astype` when you need the widened result.
+- **Runtime-computed dtypes widen to `DType`.** When a dtype is chosen at runtime (`array(data)` without a literal, or a `DType`-typed variable), the result is `NDArray<DType>` — correct, just not narrowed.
+- **A few operations stay `NDArray<DType>` on purpose** — their result dtype can't be known from the types. This is honest widening, not a gap: multi-array joins (`concatenate`, `stack`, `hstack`, …) and `choose`/`select`, whose `NDArray[]` inputs have already erased the per-array dtype; data/file/callback sources (`array(data)`, `fromfile`, `apply_along_axis`); and a few data-dependent functions (`poly`, `roots`, whose output is real or complex depending on the values).
+- **Index results diverge from NumPy.** NumPy returns `int64`/`intp` for index-producing ops; numpy-ts returns `number`-yielding dtypes instead, so element access stays `number` rather than `bigint` (int64 is BigInt-backed here). Concretely: `argmin`/`argmax`/`nanargmin`/`nanargmax` → `int32`, and `argsort`/`argpartition`/`argwhere`/`flatnonzero`/`nonzero` → `float64`. Both the types and the runtime agree on this. **Caveat:** the `int32` arg-reductions overflow above ~2.1 billion (2³¹) elements along the reduced axis; the `float64` family is safe to 2⁵³. A unified 53-bit index dtype (`intp`) is planned to remove this split — see the roadmap.
+- **`float16` is float32-backed without native support.** The type↔runtime dtype match holds everywhere except `float16` on engines lacking a native `Float16Array` (older runtimes). There, a `float16` result is stored in a `Float32Array`, so its runtime `.dtype` reads `'float32'` while the compile-time type stays `'float16'`. Scalar/element types are unaffected.
