@@ -186,17 +186,8 @@ describe('Webpack dispose protocol', () => {
               {
                 test: /\.ts$/,
                 use: {
-                  loader: 'ts-loader',
-                  options: {
-                    configFile: resolve(__dirname, 'tsconfig.webpack.json'),
-                    compilerOptions: {
-                      declaration: false,
-                      declarationMap: false,
-                      sourceMap: false,
-                      target: 'ES2020',
-                    },
-                    transpileOnly: true,
-                  },
+                  loader: resolve(__dirname, 'esbuild-ts-loader.cjs'),
+                  options: { target: 'es2020' },
                 },
                 exclude: /node_modules/,
               },
@@ -379,17 +370,8 @@ describe('browser builds', () => {
                 {
                   test: /\.ts$/,
                   use: {
-                    loader: 'ts-loader',
-                    options: {
-                      configFile: resolve(__dirname, 'tsconfig.webpack.json'),
-                      compilerOptions: {
-                        declaration: false,
-                        declarationMap: false,
-                        sourceMap: false,
-                        target: 'ES2020',
-                      },
-                      transpileOnly: true,
-                    },
+                    loader: resolve(__dirname, 'esbuild-ts-loader.cjs'),
+                    options: { target: 'es2020' },
                   },
                   exclude: /node_modules/,
                 },

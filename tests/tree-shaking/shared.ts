@@ -9,8 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import alias from '@rollup/plugin-alias';
 import nodeResolve from '@rollup/plugin-node-resolve';
-import typescript from '@rollup/plugin-typescript';
-import { build as esbuildBuild } from 'esbuild';
+import { build as esbuildBuild, transform as esbuildTransform } from 'esbuild';
 import { type InputOptions, type OutputOptions, rollup } from 'rollup';
 import webpack from 'webpack';
 
@@ -188,6 +187,19 @@ export async function buildWithRollup(fixtureName: string): Promise<BundleResult
   const outfileMin = resolve(OUTPUT_DIR, 'rollup', `${fixtureName}.min.js`);
 
   try {
+    const esbuildRollupPlugin = {
+      name: 'esbuild-ts',
+      async transform(code: string, id: string) {
+        if (!id.endsWith('.ts')) return null;
+        const result = await esbuildTransform(code, {
+          loader: 'ts',
+          format: 'esm',
+          target: 'esnext',
+        });
+        return { code: result.code, map: result.map || null };
+      },
+    };
+
     const inputOptions: InputOptions = {
       input: entry,
       plugins: [
@@ -200,18 +212,7 @@ export async function buildWithRollup(fixtureName: string): Promise<BundleResult
         nodeResolve({
           extensions: ['.ts', '.js'],
         }),
-        typescript({
-          tsconfig: resolve(__dirname, 'tsconfig.webpack.json'),
-          compilerOptions: {
-            declaration: false,
-            declarationMap: false,
-            sourceMap: false,
-            module: 'ESNext',
-            moduleResolution: 'bundler',
-            outDir: resolve(OUTPUT_DIR, 'rollup'),
-          },
-          include: ['tests/tree-shaking/fixtures/**/*.ts'],
-        }),
+        esbuildRollupPlugin,
       ],
       treeshake: {
         moduleSideEffects: false,
@@ -302,18 +303,7 @@ export async function buildWithWebpack(fixtureName: string): Promise<BundleResul
         rules: [
           {
             test: /\.ts$/,
-            use: {
-              loader: 'ts-loader',
-              options: {
-                configFile: resolve(__dirname, 'tsconfig.webpack.json'),
-                compilerOptions: {
-                  declaration: false,
-                  declarationMap: false,
-                  sourceMap: false,
-                },
-                transpileOnly: true,
-              },
-            },
+            use: { loader: resolve(__dirname, 'esbuild-ts-loader.cjs') },
             exclude: /node_modules/,
           },
           {
