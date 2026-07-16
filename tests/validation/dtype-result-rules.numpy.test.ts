@@ -262,24 +262,19 @@ describe('ldexp mapping matches NumPy', () => {
 // Tuple ufuncs: frexp → [MathResult, int32], modf → [MathResult, MathResult],
 // divmod → [Power, Power], polydiv → [Divide, Divide].
 describe('tuple ufunc mappings match NumPy', () => {
-  it.each([
-    'float64',
-    'float32',
-    'float16',
-    'int32',
-    'int8',
-    'uint8',
-    'bool',
-  ] as DType[])('frexp %s', (d) => {
-    const r = runNumPy(
-      `import numpy as np\nm, e = np.frexp(np.ones(3, dtype='${d}'))\nresult = m`,
-    ).dtype;
-    const e = runNumPy(
-      `import numpy as np\nm, e = np.frexp(np.ones(3, dtype='${d}'))\nresult = e`,
-    ).dtype;
-    expect(mathResultDtype(d)).toBe(r);
-    expect(e).toBe('int32');
-  });
+  it.each(['float64', 'float32', 'float16', 'int32', 'int8', 'uint8', 'bool'] as DType[])(
+    'frexp %s',
+    (d) => {
+      const r = runNumPy(
+        `import numpy as np\nm, e = np.frexp(np.ones(3, dtype='${d}'))\nresult = m`,
+      ).dtype;
+      const e = runNumPy(
+        `import numpy as np\nm, e = np.frexp(np.ones(3, dtype='${d}'))\nresult = e`,
+      ).dtype;
+      expect(mathResultDtype(d)).toBe(r);
+      expect(e).toBe('int32');
+    },
+  );
   it.each(['float64', 'float32', 'float16', 'int32', 'int8'] as DType[])('modf %s', (d) => {
     const f = runNumPy(
       `import numpy as np\nf, i = np.modf(np.ones(3, dtype='${d}'))\nresult = f`,

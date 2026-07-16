@@ -1,0 +1,190 @@
+---
+title: "Views & Copies"
+description: "Understand when numpy-ts shares memory between arrays and when it allocates new data."
+---
+
+## What is a view?
+
+A **view** is an array that shares its underlying data buffer with another array. When you create a view, no data is copied -- the new array simply references the same memory with different shape, strides, or offset metadata. Modifying elements through a view changes the original array, and vice versa.
+
+A **copy** is an independent array with its own data buffer. Changes to a copy never affect the original.
+
+```typescript
+import { array, reshape } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4, 5, 6]);
+
+// reshape returns a view -- same data, different shape
+const b = reshape(a, [2, 3]);
+
+// Modifying the view changes the original
+b.set([0, 0], 99);
+console.log(a.toArray()); // [99, 2, 3, 4, 5, 6]
+```
+
+## Operations that return views
+
+These operations return arrays that share data with the input. No memory is allocated for array elements.
+
+| Operation | Description |
+|---|---|
+| `slice` / `.get()` | Basic slicing with start:stop:step |
+| `transpose` / `.T` | Reverses or permutes axes |
+| `swapaxes` | Swaps two axes |
+| `moveaxis` | Moves axes to new positions |
+| `squeeze` | Removes size-1 dimensions |
+| `expand_dims` | Adds a size-1 dimension |
+| `reshape` | New shape (if the array is C-contiguous) |
+| `ravel` | Flattens to 1D (if the array is C-contiguous) |
+| `broadcast_to` | Broadcasts to a larger shape |
+
+<Note>
+`reshape` and `ravel` return views **only** when the source array is C-contiguous. If the array is not contiguous in memory (for example, after a transpose), these operations must allocate a copy.
+</Note>
+
+## Operations that return copies
+
+These operations always allocate a new data buffer.
+
+| Operation | Description |
+|---|---|
+| `flatten` | Always copies, even if the array is contiguous |
+| `copy` | Explicit copy |
+| `astype` | Converts dtype (always copies) |
+| `concatenate`, `stack`, `hstack`, `vstack` | Joins arrays into a new buffer |
+| `repeat`, `tile` | Repeats data |
+| Arithmetic (`add`, `multiply`, ...) | Element-wise operations produce new arrays |
+| Reductions (`sum`, `mean`, ...) | Produce smaller arrays |
+
+## Detecting views: `base` and `flags`
+
+### The `base` property
+
+Every view has a `base` property pointing to the array that owns the data. Arrays that own their data return `null`.
+
+```typescript
+import { array, transpose } from 'numpy-ts';
+
+const a = array([[1, 2], [3, 4]]);
+const v = transpose(a);
+
+console.log(a.base);    // null -- a owns its data
+console.log(v.base);    // NDArray [[1, 2], [3, 4]] -- v is a view of a
+console.log(v.base === a); // true
+```
+
+### The `flags` property
+
+The `flags` object exposes three boolean flags:
+
+| Flag | Meaning |
+|---|---|
+| `OWNDATA` | `true` if the array owns its data buffer; `false` for views |
+| `C_CONTIGUOUS` | `true` if elements are laid out in row-major (C) order |
+| `F_CONTIGUOUS` | `true` if elements are laid out in column-major (Fortran) order |
+
+```typescript
+import { array, transpose } from 'numpy-ts';
+
+const a = array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.flags);
+// { C_CONTIGUOUS: true, F_CONTIGUOUS: false, OWNDATA: true }
+
+const v = transpose(a);
+console.log(v.flags);
+// { C_CONTIGUOUS: false, F_CONTIGUOUS: true, OWNDATA: false }
+```
+
+## View mutation affects the original
+
+This is the most important consequence of views. Changing a value through any view changes the underlying data for every array that references it.
+
+```typescript
+import { array } from 'numpy-ts';
+
+const a = array([[1, 2, 3],
+                 [4, 5, 6],
+                 [7, 8, 9]]);
+
+// Slice out the first row (view)
+const row = a.get([0, ':']);
+
+// Slice out the first column (view)
+const col = a.get([':', 0]);
+
+// Modify through the row view
+row.set([1], 20);
+
+// Both the original and the column view see the change
+console.log(a.get([0, 1]).item());   // 20
+console.log(a.toArray());
+// [[1, 20, 3], [4, 5, 6], [7, 8, 9]]
+```
+
+## Contiguity and reshape
+
+An array is **C-contiguous** when its elements are stored in row-major order with no gaps. Most freshly created arrays are C-contiguous. However, operations like `transpose` change the stride pattern without moving data, producing arrays that are no longer C-contiguous.
+
+This matters because `reshape` can only return a view when the data is already in the right memory order:
+
+```typescript
+import { array, reshape, transpose } from 'numpy-ts';
+
+const a = array([[1, 2, 3], [4, 5, 6]]);
+console.log(a.flags.C_CONTIGUOUS); // true
+
+// reshape on a contiguous array returns a view
+const b = reshape(a, [3, 2]);
+console.log(b.flags.OWNDATA); // false (view)
+
+// After transpose, the array is no longer C-contiguous
+const t = transpose(a);
+console.log(t.flags.C_CONTIGUOUS); // false
+
+// reshape must copy because the data layout does not match the new shape
+const c = reshape(t, [6]);
+console.log(c.flags.OWNDATA); // true (copy)
+```
+
+<Tip>
+If you need to ensure an array is contiguous before reshaping (to guarantee a view), use `ascontiguousarray` first.
+</Tip>
+
+## Explicit copies
+
+When you need an independent copy, use `copy`:
+
+```typescript
+import { array, copy } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4]);
+const b = copy(a);
+
+b.set([0], 99);
+console.log(a.toArray()); // [1, 2, 3, 4] -- unchanged
+console.log(b.toArray()); // [99, 2, 3, 4]
+```
+
+Or use the method form on `NDArray`:
+
+```typescript
+import { array } from 'numpy-ts';
+
+const a = array([1, 2, 3, 4]);
+const b = a.copy();
+```
+
+<Warning>
+If you pass an array to a function and want to prevent the function from modifying your data, pass `copy(arr)` instead. numpy-ts follows NumPy's convention: slicing returns views, not copies.
+</Warning>
+
+## Summary
+
+| Question | Answer |
+|---|---|
+| Does slicing copy data? | No, slices are views |
+| Does `reshape` copy data? | Only if the array is not C-contiguous |
+| Does `flatten` copy data? | Always |
+| Does `ravel` copy data? | Only if the array is not C-contiguous |
+| How do I check if an array is a view? | `arr.flags.OWNDATA === false` or `arr.base !== null` |
+| How do I force a copy? | `copy(arr)` or `arr.copy()` |
