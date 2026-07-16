@@ -302,7 +302,7 @@ result.toArray(); // [0, 0, 1]  (0 = false, 1 = true)
 
 At the type level, comparisons are `NDArray<'bool'>`.
 
-### `mean()` promotes integers to `float64`
+### Reductions follow NumPy's result dtype
 
 Just like NumPy, `mean()` converts integer arrays to `float64` to avoid truncation:
 
@@ -310,6 +310,19 @@ Just like NumPy, `mean()` converts integer arrays to `float64` to avoid truncati
 const a = np.array([1, 2, 3, 4], 'int32');
 const m = np.mean(a);  // 2.5 (float64, not truncated to 2)
 ```
+
+Floating-point reductions **preserve the input's float width** rather than always widening to `float64`. `mean`, `std`, `var`/`variance`, `median`, `percentile`, `quantile`, and the `nan*` family return `float32` for `float32` input and `float16` for `float16` input; `std`/`var` on `complex64` return `float32` (the real component):
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]], 'float32');
+np.mean(a, 0).dtype;   // 'float32'  (was 'float64' before v1.6.0)
+np.std(a, 0).dtype;    // 'float32'
+np.median(a, 0).dtype; // 'float32'
+```
+
+<Warning>
+  Changed in **v1.6.0**: these reductions previously always returned `float64`. They now match NumPy and preserve the narrower float. If you depended on `float64` output, add an explicit `.astype('float64')`.
+</Warning>
 
 These result-dtype rules — unary math promotion, reduction accumulator widening (`sum` of `int32` → `int64`), true division → float, and so on — are all mirrored in the return types. See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
 
