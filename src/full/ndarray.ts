@@ -8,8 +8,22 @@ import {
   getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
+  type Scalar,
   type TypedArray,
 } from '../common/dtype';
+import type {
+  Abs,
+  BoolArith,
+  Divide,
+  MathBinary,
+  MathResult,
+  Power,
+  Promote,
+  ReductionAccum,
+  RoundResult,
+  StdVar,
+  TrueDivide,
+} from '../common/dtype-promotion';
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
@@ -21,7 +35,7 @@ const up = (x: NDArrayCore): NDArray => {
   return NDArray.fromStorage(x.storage, base);
 };
 
-export class NDArray extends NDArrayCore {
+export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
   // ========================================
   // Manual methods
   // ========================================
@@ -78,12 +92,12 @@ export class NDArray extends NDArrayCore {
    * Iterator protocol - iterate over the first axis
    * For 1D arrays, yields elements; for ND arrays, yields (N-1)D subarrays
    */
-  override *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
+  override *[Symbol.iterator](): Iterator<NDArray<D> | Scalar<D>> {
     if (this.ndim === 0) {
-      yield this._storage.iget(0);
+      yield this._storage.iget(0) as Scalar<D>;
     } else if (this.ndim === 1) {
       for (let i = 0; i < this.shape[0]!; i++) {
-        yield this._storage.iget(i);
+        yield this._storage.iget(i) as Scalar<D>;
       }
     } else {
       for (let i = 0; i < this.shape[0]!; i++) {
@@ -97,7 +111,7 @@ export class NDArray extends NDArrayCore {
    * @param indices - Array of indices, one per dimension
    * @returns The element value
    */
-  override get(indices: number[]): number | bigint | Complex {
+  override get(indices: number[]): Scalar<D> {
     if (indices.length !== this.ndim) {
       throw new Error(
         `Index has ${indices.length} dimensions, but array has ${this.ndim} dimensions`,
@@ -117,7 +131,7 @@ export class NDArray extends NDArrayCore {
       return normalized;
     });
 
-    return this._storage.get(...normalizedIndices);
+    return this._storage.get(...normalizedIndices) as Scalar<D>;
   }
 
   /**
@@ -167,11 +181,21 @@ export class NDArray extends NDArrayCore {
   }
 
   /**
+   * Cast array to a different dtype
+   * @param dtype - Target dtype (tracked in the result type)
+   * @param copy - Whether to copy when the dtype is unchanged (default true)
+   * @returns A new NDArray with the target dtype
+   */
+  override astype<E extends DType>(dtype: E, copy: boolean = true): NDArray<E> {
+    return super.astype(dtype, copy) as NDArray<E>;
+  }
+
+  /**
    * Get a single row (convenience method)
    * @param i - Row index
    * @returns Row as 1D or (n-1)D array
    */
-  row(i: number): NDArray {
+  row(i: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('row() requires at least 2 dimensions');
     }
@@ -183,7 +207,7 @@ export class NDArray extends NDArrayCore {
    * @param j - Column index
    * @returns Column as 1D or (n-1)D array
    */
-  col(j: number): NDArray {
+  col(j: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('col() requires at least 2 dimensions');
     }
@@ -196,7 +220,7 @@ export class NDArray extends NDArrayCore {
    * @param stop - Stop row index (exclusive)
    * @returns Rows as array
    */
-  rows(start: number, stop: number): NDArray {
+  rows(start: number, stop: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('rows() requires at least 2 dimensions');
     }
@@ -209,7 +233,7 @@ export class NDArray extends NDArrayCore {
    * @param stop - Stop column index (exclusive)
    * @returns Columns as array
    */
-  cols(start: number, stop: number): NDArray {
+  cols(start: number, stop: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('cols() requires at least 2 dimensions');
     }
@@ -222,23 +246,23 @@ export class NDArray extends NDArrayCore {
    * @param shape - New shape (must be compatible with current size)
    * @returns Reshaped array
    */
-  reshape(...shape: number[]): NDArray {
+  reshape(...shape: number[]): NDArray<D> {
     const newShape = shape.length === 1 && Array.isArray(shape[0]) ? shape[0] : shape;
     const resultStorage = core.reshape(this, newShape).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
   }
 
   /**
    * Return a flattened array (view when possible, otherwise copy)
    * @returns 1D array containing all elements
    */
-  ravel(): NDArray {
+  ravel(): NDArray<D> {
     const resultStorage = core.ravel(this).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
   }
 
   /**
@@ -257,7 +281,7 @@ export class NDArray extends NDArrayCore {
    * @param axis - Axis along which to take slices
    * @returns Array with selected entries
    */
-  compress(condition: NDArray | boolean[], axis?: number): NDArray {
+  compress(condition: NDArray | boolean[], axis?: number): NDArray<D> {
     const condStorage =
       condition instanceof NDArray
         ? condition
@@ -268,7 +292,7 @@ export class NDArray extends NDArrayCore {
               'bool',
             ),
           );
-    return up(core.compress(condStorage, this, axis));
+    return up(core.compress(condStorage, this, axis)) as NDArray<D>;
   }
 
   /**
@@ -286,8 +310,8 @@ export class NDArray extends NDArrayCore {
    * @param a_max - Maximum value (null for no maximum)
    * @returns Array with values clipped to [a_min, a_max]
    */
-  clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray {
-    return up(core.clip(this, a_min, a_max));
+  clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray<D> {
+    return up(core.clip(this, a_min, a_max)) as NDArray<D>;
   }
 
   /**
@@ -298,7 +322,7 @@ export class NDArray extends NDArrayCore {
    * @param axis - Axis along which to index (default: 0)
    * @returns New array with selected elements
    */
-  iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray {
+  iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray<D> {
     let indexArray: number[];
     if (indices instanceof NDArray) {
       indexArray = [];
@@ -325,8 +349,8 @@ export class NDArray extends NDArrayCore {
    * @param axis - Axis along which to apply the mask
    * @returns New 1D array with selected elements
    */
-  bindex(mask: NDArray, axis?: number): NDArray {
-    return up(core.compress(mask, this, axis));
+  bindex(mask: NDArray, axis?: number): NDArray<D> {
+    return up(core.compress(mask, this, axis)) as NDArray<D>;
   }
 
   /**
@@ -359,19 +383,19 @@ export class NDArray extends NDArrayCore {
   /**
    * Copy an element of an array to a standard scalar and return it
    */
-  override item(...args: number[]): number | bigint | Complex {
+  override item(...args: number[]): Scalar<D> {
     if (args.length === 0) {
       if (this.size !== 1) {
         throw new Error('can only convert an array of size 1 to a Python scalar');
       }
-      return this._storage.iget(0);
+      return this._storage.iget(0) as Scalar<D>;
     }
     if (args.length === 1) {
       const flatIdx = args[0]!;
       if (flatIdx < 0 || flatIdx >= this.size) {
         throw new Error(`index ${flatIdx} is out of bounds for size ${this.size}`);
       }
-      return this._storage.iget(flatIdx);
+      return this._storage.iget(flatIdx) as Scalar<D>;
     }
     return this.get(args);
   }
@@ -379,7 +403,7 @@ export class NDArray extends NDArrayCore {
   /**
    * Swap the bytes of the array elements
    */
-  byteswap(inplace: boolean = false): NDArray {
+  byteswap(inplace: boolean = false): NDArray<D> {
     const target = inplace ? this : this.copy();
     const data = target._storage.data;
     const bytesPerElement = data.BYTES_PER_ELEMENT;
@@ -430,9 +454,9 @@ export class NDArray extends NDArrayCore {
   /**
    * Return a view of the array with a different dtype
    */
-  view(dtype?: DType): NDArray {
-    if (!dtype || dtype === this.dtype) {
-      return NDArray.fromStorage(this._storage, this._base ?? this);
+  view<E extends DType = D>(dtype?: E): NDArray<E> {
+    if (!dtype || dtype === (this.dtype as DType)) {
+      return NDArray.fromStorage(this._storage, this._base ?? this) as NDArray<E>;
     }
     const oldSize = getDTypeSize(this.dtype as DType);
     const newSize = getDTypeSize(dtype);
@@ -453,7 +477,7 @@ export class NDArray extends NDArrayCore {
       [...this._storage.strides],
       0,
     );
-    return NDArray.fromStorage(storage, this._base ?? this);
+    return NDArray.fromStorage(storage, this._base ?? this) as NDArray<E>;
   }
 
   /**
@@ -470,7 +494,7 @@ export class NDArray extends NDArrayCore {
    * @param decimals - Number of decimal places to round to (default: 0)
    * @returns New array with rounded values
    */
-  round(decimals: number = 0): NDArray {
+  round(decimals: number = 0): NDArray<RoundResult<D>> {
     return this.around(decimals);
   }
 
@@ -478,7 +502,7 @@ export class NDArray extends NDArrayCore {
    * Return the complex conjugate, element-wise (alias for conj)
    * @returns Complex conjugate of the array
    */
-  conjugate(): NDArray {
+  conjugate(): NDArray<D> {
     return this.conj();
   }
 
@@ -487,8 +511,8 @@ export class NDArray extends NDArrayCore {
    * @param decimals - Number of decimal places to round to (default: 0)
    * @returns New array with rounded values
    */
-  around(decimals: number = 0): NDArray {
-    return up(core.around(this, decimals));
+  around(decimals: number = 0): NDArray<RoundResult<D>> {
+    return up(core.around(this, decimals)) as NDArray<RoundResult<D>>;
   }
 
   /**
@@ -511,8 +535,8 @@ export class NDArray extends NDArrayCore {
    * @param atol - Absolute tolerance (default: 1e-8)
    * @returns Boolean array
    */
-  isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray {
-    return up(core.isclose(this, other, rtol, atol));
+  isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray<'bool'> {
+    return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
   }
 
   /**
@@ -521,9 +545,11 @@ export class NDArray extends NDArrayCore {
    * @param axis - Axis along which to compute average
    * @returns Weighted average of array elements
    */
-  average(weights?: NDArray, axis?: number): NDArray | number | Complex {
+  average(weights?: NDArray, axis?: number): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.average(this, axis, weights, false, false) as NDArrayCore | number | Complex;
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
@@ -531,18 +557,22 @@ export class NDArray extends NDArrayCore {
    * @param other - Array to dot with
    * @returns Result of dot product
    */
-  dot(other: NDArray): NDArray | number | bigint | Complex {
+  dot<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.dot(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }
 
   /**
    * Sum of diagonal elements (trace)
    * @returns Sum of diagonal elements
    */
-  trace(): NDArray | number | bigint | Complex {
+  trace(): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.trace(this);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }
 
   /**
@@ -550,9 +580,11 @@ export class NDArray extends NDArrayCore {
    * @param other - Array to compute inner product with
    * @returns Inner product result
    */
-  inner(other: NDArray): NDArray | number | bigint | Complex {
+  inner<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.inner(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }
 
   /**
@@ -561,12 +593,14 @@ export class NDArray extends NDArrayCore {
    * @param axes - Axes to contract
    * @returns Tensor dot product result
    */
-  tensordot(
-    other: NDArray,
+  tensordot<B extends DType>(
+    other: NDArray<B>,
     axes: number | [number[], number[]] = 2,
-  ): NDArray | number | bigint | Complex {
+  ): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.tensordot(this, other, axes);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }
 
   /**
@@ -574,6 +608,8 @@ export class NDArray extends NDArrayCore {
    * @param divisor - Array or scalar divisor
    * @returns Tuple of [quotient, remainder] arrays
    */
+  divmod<B extends DType>(divisor: NDArray<B>): [NDArray<Power<D, B>>, NDArray<Power<D, B>>];
+  divmod(divisor: number): [NDArray<D>, NDArray<D>];
   divmod(divisor: NDArray | number): [NDArray, NDArray] {
     const r = core.divmod(this, divisor);
     return [up(r[0]), up(r[1])] as [NDArray, NDArray];
@@ -585,8 +621,8 @@ export class NDArray extends NDArrayCore {
    * @param side - "left" or "right" side to insert
    * @returns Indices where values should be inserted
    */
-  searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray {
-    return up(core.searchsorted(this, v, side));
+  searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'float64'> {
+    return up(core.searchsorted(this, v, side)) as NDArray<'float64'>;
   }
 
   // ========================================
@@ -597,355 +633,355 @@ export class NDArray extends NDArrayCore {
    * Square root of each element
    * Promotes integer types to float64
    */
-  sqrt(): NDArray {
-    return up(core.sqrt(this));
+  sqrt(): NDArray<MathResult<D>> {
+    return up(core.sqrt(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Natural exponential (e^x) of each element
    * Promotes integer types to float64
    */
-  exp(): NDArray {
-    return up(core.exp(this));
+  exp(): NDArray<MathResult<D>> {
+    return up(core.exp(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Base-2 exponential (2^x) of each element
    * Promotes integer types to float64
    */
-  exp2(): NDArray {
-    return up(core.exp2(this));
+  exp2(): NDArray<MathResult<D>> {
+    return up(core.exp2(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Exponential minus one (e^x - 1) of each element
    * More accurate than exp(x) - 1 for small x
    */
-  expm1(): NDArray {
-    return up(core.expm1(this));
+  expm1(): NDArray<MathResult<D>> {
+    return up(core.expm1(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Natural logarithm (ln) of each element
    * Promotes integer types to float64
    */
-  log(): NDArray {
-    return up(core.log(this));
+  log(): NDArray<MathResult<D>> {
+    return up(core.log(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Base-2 logarithm of each element
    * Promotes integer types to float64
    */
-  log2(): NDArray {
-    return up(core.log2(this));
+  log2(): NDArray<MathResult<D>> {
+    return up(core.log2(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Base-10 logarithm of each element
    * Promotes integer types to float64
    */
-  log10(): NDArray {
-    return up(core.log10(this));
+  log10(): NDArray<MathResult<D>> {
+    return up(core.log10(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Natural logarithm of (1 + x) of each element
    * More accurate than log(1 + x) for small x
    */
-  log1p(): NDArray {
-    return up(core.log1p(this));
+  log1p(): NDArray<MathResult<D>> {
+    return up(core.log1p(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Absolute value of each element
    */
-  absolute(): NDArray {
-    return up(core.absolute(this));
+  absolute(): NDArray<Abs<D>> {
+    return up(core.absolute(this)) as NDArray<Abs<D>>;
   }
 
   /**
    * Numerical negative (element-wise negation)
    */
-  negative(): NDArray {
-    return up(core.negative(this));
+  negative(): NDArray<D> {
+    return up(core.negative(this)) as NDArray<D>;
   }
 
   /**
    * Sign of each element (-1, 0, or 1)
    */
-  sign(): NDArray {
-    return up(core.sign(this));
+  sign(): NDArray<D> {
+    return up(core.sign(this)) as NDArray<D>;
   }
 
   /**
    * Numerical positive (element-wise +x)
    * @returns Copy of the array
    */
-  positive(): NDArray {
-    return up(core.positive(this));
+  positive(): NDArray<D> {
+    return up(core.positive(this)) as NDArray<D>;
   }
 
   /**
    * Element-wise reciprocal (1/x)
    */
-  reciprocal(): NDArray {
-    return up(core.reciprocal(this));
+  reciprocal(): NDArray<D> {
+    return up(core.reciprocal(this)) as NDArray<D>;
   }
 
   /**
    * Return the ceiling of the input, element-wise
    */
-  ceil(): NDArray {
-    return up(core.ceil(this));
+  ceil(): NDArray<MathResult<D>> {
+    return up(core.ceil(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Round to nearest integer towards zero
    */
-  fix(): NDArray {
-    return up(core.fix(this));
+  fix(): NDArray<MathResult<D>> {
+    return up(core.fix(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Return the floor of the input, element-wise
    */
-  floor(): NDArray {
-    return up(core.floor(this));
+  floor(): NDArray<MathResult<D>> {
+    return up(core.floor(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Round elements to the nearest integer
    */
-  rint(): NDArray {
-    return up(core.rint(this));
+  rint(): NDArray<MathResult<D>> {
+    return up(core.rint(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Return the truncated value of the input, element-wise
    */
-  trunc(): NDArray {
-    return up(core.trunc(this));
+  trunc(): NDArray<MathResult<D>> {
+    return up(core.trunc(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Sine of each element (in radians)
    * Promotes integer types to float64
    */
-  sin(): NDArray {
-    return up(core.sin(this));
+  sin(): NDArray<MathResult<D>> {
+    return up(core.sin(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Cosine of each element (in radians)
    * Promotes integer types to float64
    */
-  cos(): NDArray {
-    return up(core.cos(this));
+  cos(): NDArray<MathResult<D>> {
+    return up(core.cos(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Tangent of each element (in radians)
    * Promotes integer types to float64
    */
-  tan(): NDArray {
-    return up(core.tan(this));
+  tan(): NDArray<MathResult<D>> {
+    return up(core.tan(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Inverse sine of each element
    * Promotes integer types to float64
    */
-  arcsin(): NDArray {
-    return up(core.arcsin(this));
+  arcsin(): NDArray<MathResult<D>> {
+    return up(core.arcsin(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Inverse cosine of each element
    * Promotes integer types to float64
    */
-  arccos(): NDArray {
-    return up(core.arccos(this));
+  arccos(): NDArray<MathResult<D>> {
+    return up(core.arccos(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Inverse tangent of each element
    * Promotes integer types to float64
    */
-  arctan(): NDArray {
-    return up(core.arctan(this));
+  arctan(): NDArray<MathResult<D>> {
+    return up(core.arctan(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Convert angles from radians to degrees
    */
-  degrees(): NDArray {
-    return up(core.degrees(this));
+  degrees(): NDArray<MathResult<D>> {
+    return up(core.degrees(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Convert angles from degrees to radians
    */
-  radians(): NDArray {
-    return up(core.radians(this));
+  radians(): NDArray<MathResult<D>> {
+    return up(core.radians(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Hyperbolic sine of each element
    * Promotes integer types to float64
    */
-  sinh(): NDArray {
-    return up(core.sinh(this));
+  sinh(): NDArray<MathResult<D>> {
+    return up(core.sinh(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Hyperbolic cosine of each element
    * Promotes integer types to float64
    */
-  cosh(): NDArray {
-    return up(core.cosh(this));
+  cosh(): NDArray<MathResult<D>> {
+    return up(core.cosh(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Hyperbolic tangent of each element
    * Promotes integer types to float64
    */
-  tanh(): NDArray {
-    return up(core.tanh(this));
+  tanh(): NDArray<MathResult<D>> {
+    return up(core.tanh(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Inverse hyperbolic sine of each element
    * Promotes integer types to float64
    */
-  arcsinh(): NDArray {
-    return up(core.arcsinh(this));
+  arcsinh(): NDArray<MathResult<D>> {
+    return up(core.arcsinh(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Inverse hyperbolic cosine of each element
    * Promotes integer types to float64
    */
-  arccosh(): NDArray {
-    return up(core.arccosh(this));
+  arccosh(): NDArray<MathResult<D>> {
+    return up(core.arccosh(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Inverse hyperbolic tangent of each element
    * Promotes integer types to float64
    */
-  arctanh(): NDArray {
-    return up(core.arctanh(this));
+  arctanh(): NDArray<MathResult<D>> {
+    return up(core.arctanh(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Bitwise NOT (inversion) element-wise
    */
-  bitwise_not(): NDArray {
-    return up(core.bitwise_not(this));
+  bitwise_not(): NDArray<D> {
+    return up(core.bitwise_not(this)) as NDArray<D>;
   }
 
   /**
    * Invert (bitwise NOT) element-wise - alias for bitwise_not
    */
-  invert(): NDArray {
-    return up(core.invert(this));
+  invert(): NDArray<D> {
+    return up(core.invert(this)) as NDArray<D>;
   }
 
   /**
    * Logical NOT element-wise
    * @returns Boolean array (1 = true, 0 = false)
    */
-  logical_not(): NDArray {
-    return up(core.logical_not(this));
+  logical_not(): NDArray<'bool'> {
+    return up(core.logical_not(this)) as NDArray<'bool'>;
   }
 
   /**
    * Test element-wise for finiteness (not infinity and not NaN)
    */
-  isfinite(): NDArray {
-    return up(core.isfinite(this));
+  isfinite(): NDArray<'bool'> {
+    return up(core.isfinite(this)) as NDArray<'bool'>;
   }
 
   /**
    * Test element-wise for positive or negative infinity
    */
-  isinf(): NDArray {
-    return up(core.isinf(this));
+  isinf(): NDArray<'bool'> {
+    return up(core.isinf(this)) as NDArray<'bool'>;
   }
 
   /**
    * Test element-wise for NaN (Not a Number)
    */
-  isnan(): NDArray {
-    return up(core.isnan(this));
+  isnan(): NDArray<'bool'> {
+    return up(core.isnan(this)) as NDArray<'bool'>;
   }
 
   /**
    * Test element-wise for NaT (Not a Time)
    * @returns Boolean array (always false without datetime support)
    */
-  isnat(): NDArray {
-    return up(core.isnat(this));
+  isnat(): NDArray<'bool'> {
+    return up(core.isnat(this)) as NDArray<'bool'>;
   }
 
   /**
    * Returns element-wise True where signbit is set (less than zero)
    */
-  signbit(): NDArray {
-    return up(core.signbit(this));
+  signbit(): NDArray<'bool'> {
+    return up(core.signbit(this)) as NDArray<'bool'>;
   }
 
   /**
    * Return the distance between x and the nearest adjacent number
    */
-  spacing(): NDArray {
-    return up(core.spacing(this));
+  spacing(): NDArray<MathResult<D>> {
+    return up(core.spacing(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Element-wise cube root
    * Promotes integer types to float64
    */
-  cbrt(): NDArray {
-    return up(core.cbrt(this));
+  cbrt(): NDArray<MathResult<D>> {
+    return up(core.cbrt(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Element-wise absolute value (always returns float)
    */
-  fabs(): NDArray {
-    return up(core.fabs(this));
+  fabs(): NDArray<MathResult<D>> {
+    return up(core.fabs(this)) as NDArray<MathResult<D>>;
   }
 
   /**
    * Element-wise square (x**2)
    */
-  square(): NDArray {
-    return up(core.square(this));
+  square(): NDArray<BoolArith<D>> {
+    return up(core.square(this)) as NDArray<BoolArith<D>>;
   }
 
   /**
    * Return the complex conjugate, element-wise
    */
-  conj(): NDArray {
-    return up(core.conj(this));
+  conj(): NDArray<D> {
+    return up(core.conj(this)) as NDArray<D>;
   }
 
   /**
    * Return a flattened copy of the array
    * @returns 1D array containing all elements
    */
-  flatten(): NDArray {
-    return up(core.flatten(this));
+  flatten(): NDArray<D> {
+    return up(core.flatten(this)) as NDArray<D>;
   }
 
   /**
    * Find the indices of array elements that are non-zero, grouped by element
    * @returns 2D array of shape (N, ndim)
    */
-  argwhere(): NDArray {
-    return up(core.argwhere(this));
+  argwhere(): NDArray<'float64'> {
+    return up(core.argwhere(this)) as NDArray<'float64'>;
   }
 
   // ========================================
@@ -956,6 +992,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise addition
    * @param other - Array or scalar to add
    */
+  add<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
+  add(other: number): NDArray<D>;
   add(other: NDArray | number): NDArray {
     return up(core.add(this, other));
   }
@@ -964,6 +1002,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise subtraction
    * @param other - Array or scalar to subtract
    */
+  subtract<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
+  subtract(other: number): NDArray<D>;
   subtract(other: NDArray | number): NDArray {
     return up(core.subtract(this, other));
   }
@@ -972,6 +1012,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise multiplication
    * @param other - Array or scalar to multiply
    */
+  multiply<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
+  multiply(other: number): NDArray<D>;
   multiply(other: NDArray | number): NDArray {
     return up(core.multiply(this, other));
   }
@@ -980,6 +1022,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise division
    * @param other - Array or scalar to divide by
    */
+  divide<B extends DType>(other: NDArray<B>): NDArray<Divide<D, B>>;
+  divide(other: number): NDArray<TrueDivide<D>>;
   divide(other: NDArray | number): NDArray {
     return up(core.divide(this, other));
   }
@@ -988,6 +1032,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise modulo operation
    * @param other - Array or scalar divisor
    */
+  mod<B extends DType>(other: NDArray<B>): NDArray<Power<D, B>>;
+  mod(other: number): NDArray<D>;
   mod(other: NDArray | number): NDArray {
     return up(core.mod(this, other));
   }
@@ -996,6 +1042,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise floor division
    * @param other - Array or scalar to divide by
    */
+  floor_divide<B extends DType>(other: NDArray<B>): NDArray<Power<D, B>>;
+  floor_divide(other: number): NDArray<D>;
   floor_divide(other: NDArray | number): NDArray {
     return up(core.floor_divide(this, other));
   }
@@ -1004,6 +1052,8 @@ export class NDArray extends NDArrayCore {
    * Raise elements to power
    * @param exponent - Power to raise to (array or scalar)
    */
+  power<B extends DType>(exponent: NDArray<B>): NDArray<Power<D, B>>;
+  power(exponent: number): NDArray<D>;
   power(exponent: NDArray | number): NDArray {
     return up(core.power(this, exponent));
   }
@@ -1012,6 +1062,8 @@ export class NDArray extends NDArrayCore {
    * Logarithm of the sum of exponentials: log(exp(x1) + exp(x2))
    * @param x2 - Second operand
    */
+  logaddexp<B extends DType>(x2: NDArray<B>): NDArray<MathBinary<D, B>>;
+  logaddexp(x2: number): NDArray<MathResult<D>>;
   logaddexp(x2: NDArray | number): NDArray {
     return up(core.logaddexp(this, x2));
   }
@@ -1020,6 +1072,8 @@ export class NDArray extends NDArrayCore {
    * Logarithm base 2 of the sum of exponentials: log2(2^x1 + 2^x2)
    * @param x2 - Second operand
    */
+  logaddexp2<B extends DType>(x2: NDArray<B>): NDArray<MathBinary<D, B>>;
+  logaddexp2(x2: number): NDArray<MathResult<D>>;
   logaddexp2(x2: NDArray | number): NDArray {
     return up(core.logaddexp2(this, x2));
   }
@@ -1028,6 +1082,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise arc tangent of this/other choosing the quadrant correctly
    * @param other - x-coordinates
    */
+  arctan2<B extends DType>(other: NDArray<B>): NDArray<MathBinary<D, B>>;
+  arctan2(other: number): NDArray<MathResult<D>>;
   arctan2(other: NDArray | number): NDArray {
     return up(core.arctan2(this, other));
   }
@@ -1036,6 +1092,8 @@ export class NDArray extends NDArrayCore {
    * Given the "legs" of a right triangle, return its hypotenuse
    * @param other - Second leg
    */
+  hypot<B extends DType>(other: NDArray<B>): NDArray<MathBinary<D, B>>;
+  hypot(other: number): NDArray<MathResult<D>>;
   hypot(other: NDArray | number): NDArray {
     return up(core.hypot(this, other));
   }
@@ -1044,54 +1102,56 @@ export class NDArray extends NDArrayCore {
    * Element-wise greater than comparison
    * @returns Boolean array
    */
-  greater(other: NDArray | number): NDArray {
-    return up(core.greater(this, other));
+  greater(other: NDArray | number): NDArray<'bool'> {
+    return up(core.greater(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Element-wise greater than or equal comparison
    * @returns Boolean array
    */
-  greater_equal(other: NDArray | number): NDArray {
-    return up(core.greater_equal(this, other));
+  greater_equal(other: NDArray | number): NDArray<'bool'> {
+    return up(core.greater_equal(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Element-wise less than comparison
    * @returns Boolean array
    */
-  less(other: NDArray | number): NDArray {
-    return up(core.less(this, other));
+  less(other: NDArray | number): NDArray<'bool'> {
+    return up(core.less(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Element-wise less than or equal comparison
    * @returns Boolean array
    */
-  less_equal(other: NDArray | number): NDArray {
-    return up(core.less_equal(this, other));
+  less_equal(other: NDArray | number): NDArray<'bool'> {
+    return up(core.less_equal(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Element-wise equality comparison
    * @returns Boolean array
    */
-  equal(other: NDArray | number): NDArray {
-    return up(core.equal(this, other));
+  equal(other: NDArray | number): NDArray<'bool'> {
+    return up(core.equal(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Element-wise not equal comparison
    * @returns Boolean array
    */
-  not_equal(other: NDArray | number): NDArray {
-    return up(core.not_equal(this, other));
+  not_equal(other: NDArray | number): NDArray<'bool'> {
+    return up(core.not_equal(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Bitwise AND element-wise
    * @param other - Array or scalar (must be integer type)
    */
+  bitwise_and<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
+  bitwise_and(other: number): NDArray<D>;
   bitwise_and(other: NDArray | number): NDArray {
     return up(core.bitwise_and(this, other));
   }
@@ -1100,6 +1160,8 @@ export class NDArray extends NDArrayCore {
    * Bitwise OR element-wise
    * @param other - Array or scalar (must be integer type)
    */
+  bitwise_or<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
+  bitwise_or(other: number): NDArray<D>;
   bitwise_or(other: NDArray | number): NDArray {
     return up(core.bitwise_or(this, other));
   }
@@ -1108,6 +1170,8 @@ export class NDArray extends NDArrayCore {
    * Bitwise XOR element-wise
    * @param other - Array or scalar (must be integer type)
    */
+  bitwise_xor<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
+  bitwise_xor(other: number): NDArray<D>;
   bitwise_xor(other: NDArray | number): NDArray {
     return up(core.bitwise_xor(this, other));
   }
@@ -1116,6 +1180,8 @@ export class NDArray extends NDArrayCore {
    * Left shift elements by positions
    * @param shift - Shift amount
    */
+  left_shift<B extends DType>(shift: NDArray<B>): NDArray<Promote<D, B>>;
+  left_shift(shift: number): NDArray<D>;
   left_shift(shift: NDArray | number): NDArray {
     return up(core.left_shift(this, shift));
   }
@@ -1124,6 +1190,8 @@ export class NDArray extends NDArrayCore {
    * Right shift elements by positions
    * @param shift - Shift amount
    */
+  right_shift<B extends DType>(shift: NDArray<B>): NDArray<Promote<D, B>>;
+  right_shift(shift: number): NDArray<D>;
   right_shift(shift: NDArray | number): NDArray {
     return up(core.right_shift(this, shift));
   }
@@ -1132,30 +1200,32 @@ export class NDArray extends NDArrayCore {
    * Logical AND element-wise
    * @returns Boolean array (1 = true, 0 = false)
    */
-  logical_and(other: NDArray | number): NDArray {
-    return up(core.logical_and(this, other));
+  logical_and(other: NDArray | number): NDArray<'bool'> {
+    return up(core.logical_and(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Logical OR element-wise
    * @returns Boolean array (1 = true, 0 = false)
    */
-  logical_or(other: NDArray | number): NDArray {
-    return up(core.logical_or(this, other));
+  logical_or(other: NDArray | number): NDArray<'bool'> {
+    return up(core.logical_or(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Logical XOR element-wise
    * @returns Boolean array (1 = true, 0 = false)
    */
-  logical_xor(other: NDArray | number): NDArray {
-    return up(core.logical_xor(this, other));
+  logical_xor(other: NDArray | number): NDArray<'bool'> {
+    return up(core.logical_xor(this, other)) as NDArray<'bool'>;
   }
 
   /**
    * Change the sign of x1 to that of x2, element-wise
    * @param x2 - Values whose sign is used
    */
+  copysign<B extends DType>(x2: NDArray<B>): NDArray<MathBinary<D, B>>;
+  copysign(x2: number): NDArray<MathResult<D>>;
   copysign(x2: NDArray | number): NDArray {
     return up(core.copysign(this, x2));
   }
@@ -1164,6 +1234,8 @@ export class NDArray extends NDArrayCore {
    * Return the next floating-point value after x1 towards x2, element-wise
    * @param x2 - Direction to look
    */
+  nextafter<B extends DType>(x2: NDArray<B>): NDArray<MathBinary<D, B>>;
+  nextafter(x2: number): NDArray<MathResult<D>>;
   nextafter(x2: NDArray | number): NDArray {
     return up(core.nextafter(this, x2));
   }
@@ -1172,6 +1244,8 @@ export class NDArray extends NDArrayCore {
    * Element-wise remainder (same as mod)
    * @param divisor - Array or scalar divisor
    */
+  remainder<B extends DType>(divisor: NDArray<B>): NDArray<Power<D, B>>;
+  remainder(divisor: number): NDArray<D>;
   remainder(divisor: NDArray | number): NDArray {
     return up(core.remainder(this, divisor));
   }
@@ -1180,6 +1254,8 @@ export class NDArray extends NDArrayCore {
    * Heaviside step function
    * @param x2 - Value to use when this array element is 0
    */
+  heaviside<B extends DType>(x2: NDArray<B>): NDArray<MathBinary<D, B>>;
+  heaviside(x2: number): NDArray<MathResult<D>>;
   heaviside(x2: NDArray | number): NDArray {
     return up(core.heaviside(this, x2));
   }
@@ -1188,6 +1264,7 @@ export class NDArray extends NDArrayCore {
    * Matrix multiplication
    * @param other - Array to multiply with
    */
+  matmul<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
   matmul(other: NDArray): NDArray {
     return up(core.matmul(this, other));
   }
@@ -1196,6 +1273,7 @@ export class NDArray extends NDArrayCore {
    * Outer product (flattens inputs then computes a[i]*b[j])
    * @param other - Array to compute outer product with
    */
+  outer<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>>;
   outer(other: NDArray): NDArray {
     return up(core.outer(this, other));
   }
@@ -1207,121 +1285,151 @@ export class NDArray extends NDArrayCore {
   /**
    * Sum array elements over a given axis
    */
-  sum(axis?: number | number[], keepdims: boolean = false): NDArray | number | bigint | Complex {
+  sum(
+    axis?: number | number[],
+    keepdims: boolean = false,
+  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.sum(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }
 
   /**
    * Compute the arithmetic mean along the specified axis
    */
-  mean(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  mean(
+    axis?: number | number[],
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.mean(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
    * Product of array elements over a given axis
    */
-  prod(axis?: number | number[], keepdims: boolean = false): NDArray | number | bigint | Complex {
+  prod(
+    axis?: number | number[],
+    keepdims: boolean = false,
+  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.prod(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }
 
   /**
    * Return the maximum along a given axis
    */
-  max(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  max(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.max(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
   }
 
   /**
    * Return the minimum along a given axis
    */
-  min(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  min(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.min(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
   }
 
   /**
    * Peak to peak (maximum - minimum) value along a given axis
    */
-  ptp(axis?: number, keepdims: boolean = false): NDArray | number | Complex {
+  ptp(axis?: number, keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.ptp(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
   }
 
   /**
    * Return the sum of array elements, treating NaNs as zero
    */
-  nansum(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  nansum(
+    axis?: number | number[],
+    keepdims: boolean = false,
+  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.nansum(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }
 
   /**
    * Return the product of array elements, treating NaNs as ones
    */
-  nanprod(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  nanprod(
+    axis?: number | number[],
+    keepdims: boolean = false,
+  ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.nanprod(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }
 
   /**
    * Compute the arithmetic mean, ignoring NaNs
    */
-  nanmean(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  nanmean(
+    axis?: number | number[],
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.nanmean(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
    * Return minimum of an array, ignoring NaNs
    */
-  nanmin(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  nanmin(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.nanmin(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
   }
 
   /**
    * Return maximum of an array, ignoring NaNs
    */
-  nanmax(axis?: number | number[], keepdims: boolean = false): NDArray | number | Complex {
+  nanmax(axis?: number | number[], keepdims: boolean = false): NDArray<D> | Scalar<D> {
     const r = core.nanmax(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<D> | Scalar<D>;
   }
 
   /**
    * Indices of the minimum values along an axis
    */
-  argmin(axis?: number): NDArray | number {
+  argmin(axis?: number): NDArray<'int32'> | number {
     const r = core.argmin(this, axis);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
    * Indices of the maximum values along an axis
    */
-  argmax(axis?: number): NDArray | number {
+  argmax(axis?: number): NDArray<'int32'> | number {
     const r = core.argmax(this, axis);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
    * Return the indices of the minimum values, ignoring NaNs
    */
-  nanargmin(axis?: number): NDArray | number {
+  nanargmin(axis?: number): NDArray<'int32'> | number {
     const r = core.nanargmin(this, axis);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
    * Return the indices of the maximum values, ignoring NaNs
    */
-  nanargmax(axis?: number): NDArray | number {
+  nanargmax(axis?: number): NDArray<'int32'> | number {
     const r = core.nanargmax(this, axis);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'int32'> | number;
   }
 
   /**
@@ -1330,9 +1438,15 @@ export class NDArray extends NDArrayCore {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
-  var(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
+  var(
+    axis?: number,
+    ddof: number = 0,
+    keepdims: boolean = false,
+  ): NDArray<StdVar<D>> | Scalar<StdVar<D>> {
     const r = core.variance(this, axis, ddof, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<StdVar<D>>
+      | Scalar<StdVar<D>>;
   }
 
   /**
@@ -1341,9 +1455,15 @@ export class NDArray extends NDArrayCore {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
-  std(axis?: number, ddof: number = 0, keepdims: boolean = false): NDArray | number {
+  std(
+    axis?: number,
+    ddof: number = 0,
+    keepdims: boolean = false,
+  ): NDArray<StdVar<D>> | Scalar<StdVar<D>> {
     const r = core.std(this, axis, ddof, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<StdVar<D>>
+      | Scalar<StdVar<D>>;
   }
 
   /**
@@ -1352,9 +1472,15 @@ export class NDArray extends NDArrayCore {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
-  nanvar(axis?: number | number[], ddof: number = 0, keepdims: boolean = false): NDArray | number {
+  nanvar(
+    axis?: number | number[],
+    ddof: number = 0,
+    keepdims: boolean = false,
+  ): NDArray<StdVar<D>> | Scalar<StdVar<D>> {
     const r = core.nanvar(this, axis, ddof, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<StdVar<D>>
+      | Scalar<StdVar<D>>;
   }
 
   /**
@@ -1363,77 +1489,117 @@ export class NDArray extends NDArrayCore {
    * @param ddof - Delta degrees of freedom (default: 0)
    * @param keepdims - If true, reduced axes are left as dimensions with size 1
    */
-  nanstd(axis?: number | number[], ddof: number = 0, keepdims: boolean = false): NDArray | number {
+  nanstd(
+    axis?: number | number[],
+    ddof: number = 0,
+    keepdims: boolean = false,
+  ): NDArray<StdVar<D>> | Scalar<StdVar<D>> {
     const r = core.nanstd(this, axis, ddof, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<StdVar<D>>
+      | Scalar<StdVar<D>>;
   }
 
   /**
    * Test whether all array elements along a given axis evaluate to True
    */
-  all(axis?: number | number[], keepdims: boolean = false): NDArray | boolean {
+  all(axis?: number | number[], keepdims: boolean = false): NDArray<'bool'> | boolean {
     const r = core.all(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'bool'> | boolean;
   }
 
   /**
    * Test whether any array elements along a given axis evaluate to True
    */
-  any(axis?: number | number[], keepdims: boolean = false): NDArray | boolean {
+  any(axis?: number | number[], keepdims: boolean = false): NDArray<'bool'> | boolean {
     const r = core.any(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as NDArray<'bool'> | boolean;
   }
 
   /**
    * Compute the median along the specified axis
    */
-  median(axis?: number | number[], keepdims: boolean = false): NDArray | number {
+  median(
+    axis?: number | number[],
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.median(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
    * Compute the median, ignoring NaNs
    */
-  nanmedian(axis?: number, keepdims: boolean = false): NDArray | number {
+  nanmedian(
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.nanmedian(this, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
    * Compute the q-th percentile of the data along the specified axis
    * @param q - Percentile to compute (0-100)
    */
-  percentile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
+  percentile(
+    q: number,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.percentile(this, q, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
    * Compute the q-th quantile of the data along the specified axis
    * @param q - Quantile to compute (0-1)
    */
-  quantile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
+  quantile(
+    q: number,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.quantile(this, q, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
    * Compute the q-th quantile, ignoring NaNs
    * @param q - Quantile to compute (0-1)
    */
-  nanquantile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
+  nanquantile(
+    q: number,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.nanquantile(this, q, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   /**
    * Compute the q-th percentile, ignoring NaNs
    * @param q - Percentile to compute (0-100)
    */
-  nanpercentile(q: number, axis?: number, keepdims: boolean = false): NDArray | number {
+  nanpercentile(
+    q: number,
+    axis?: number,
+    keepdims: boolean = false,
+  ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.nanpercentile(this, q, axis, keepdims);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }
 
   // ========================================
@@ -1443,45 +1609,45 @@ export class NDArray extends NDArrayCore {
   /**
    * Return the cumulative sum of elements along a given axis
    */
-  cumsum(axis?: number): NDArray {
-    return up(core.cumsum(this, axis));
+  cumsum(axis?: number): NDArray<ReductionAccum<D>> {
+    return up(core.cumsum(this, axis)) as NDArray<ReductionAccum<D>>;
   }
 
   /**
    * Return the cumulative product of elements along a given axis
    */
-  cumprod(axis?: number): NDArray {
-    return up(core.cumprod(this, axis));
+  cumprod(axis?: number): NDArray<ReductionAccum<D>> {
+    return up(core.cumprod(this, axis)) as NDArray<ReductionAccum<D>>;
   }
 
   /**
    * Return the cumulative sum of elements, treating NaNs as zero
    */
-  nancumsum(axis?: number): NDArray {
-    return up(core.nancumsum(this, axis));
+  nancumsum(axis?: number): NDArray<ReductionAccum<D>> {
+    return up(core.nancumsum(this, axis)) as NDArray<ReductionAccum<D>>;
   }
 
   /**
    * Return the cumulative product of elements, treating NaNs as one
    */
-  nancumprod(axis?: number): NDArray {
-    return up(core.nancumprod(this, axis));
+  nancumprod(axis?: number): NDArray<ReductionAccum<D>> {
+    return up(core.nancumprod(this, axis)) as NDArray<ReductionAccum<D>>;
   }
 
   /**
    * Return a sorted copy of the array
    * @param axis - Axis along which to sort. Default is -1 (last axis)
    */
-  sort(axis: number = -1): NDArray {
-    return up(core.sort(this, axis));
+  sort(axis: number = -1): NDArray<D> {
+    return up(core.sort(this, axis)) as NDArray<D>;
   }
 
   /**
    * Returns the indices that would sort this array
    * @param axis - Axis along which to sort. Default is -1 (last axis)
    */
-  argsort(axis: number = -1): NDArray {
-    return up(core.argsort(this, axis));
+  argsort(axis: number = -1): NDArray<'float64'> {
+    return up(core.argsort(this, axis)) as NDArray<'float64'>;
   }
 
   /**
@@ -1489,8 +1655,8 @@ export class NDArray extends NDArrayCore {
    * @param kth - Element index to partition by
    * @param axis - Axis along which to sort. Default is -1 (last axis)
    */
-  partition(kth: number, axis: number = -1): NDArray {
-    return up(core.partition(this, kth, axis));
+  partition(kth: number, axis: number = -1): NDArray<D> {
+    return up(core.partition(this, kth, axis)) as NDArray<D>;
   }
 
   /**
@@ -1498,8 +1664,8 @@ export class NDArray extends NDArrayCore {
    * @param kth - Element index to partition by
    * @param axis - Axis along which to sort. Default is -1 (last axis)
    */
-  argpartition(kth: number, axis: number = -1): NDArray {
-    return up(core.argpartition(this, kth, axis));
+  argpartition(kth: number, axis: number = -1): NDArray<'float64'> {
+    return up(core.argpartition(this, kth, axis)) as NDArray<'float64'>;
   }
 
   /**
@@ -1508,8 +1674,8 @@ export class NDArray extends NDArrayCore {
    * @param axis1 - First axis of the 2-D sub-arrays
    * @param axis2 - Second axis of the 2-D sub-arrays
    */
-  diagonal(offset: number = 0, axis1: number = 0, axis2: number = 1): NDArray {
-    return up(core.diagonal(this, offset, axis1, axis2));
+  diagonal(offset: number = 0, axis1: number = 0, axis2: number = 1): NDArray<D> {
+    return up(core.diagonal(this, offset, axis1, axis2)) as NDArray<D>;
   }
 
   /**
@@ -1517,8 +1683,8 @@ export class NDArray extends NDArrayCore {
    * If larger, filled with repeated copies of the original data
    * @param newShape - Shape of the resized array
    */
-  resize(newShape: number[]): NDArray {
-    return up(core.resize(this, newShape));
+  resize(newShape: number[]): NDArray<D> {
+    return up(core.resize(this, newShape)) as NDArray<D>;
   }
 
   /**
@@ -1526,8 +1692,8 @@ export class NDArray extends NDArrayCore {
    * @param n - Number of times values are differenced (default: 1)
    * @param axis - Axis along which to compute difference (default: -1)
    */
-  diff(n: number = 1, axis: number = -1): NDArray {
-    return up(core.diff(this, n, axis));
+  diff(n: number = 1, axis: number = -1): NDArray<D> {
+    return up(core.diff(this, n, axis)) as NDArray<D>;
   }
 
   /**
@@ -1535,8 +1701,8 @@ export class NDArray extends NDArrayCore {
    * @param indices - Indices of elements to take
    * @param axis - Axis along which to take
    */
-  take(indices: number[], axis?: number): NDArray {
-    return up(core.take(this, indices, axis));
+  take(indices: number[], axis?: number): NDArray<D> {
+    return up(core.take(this, indices, axis)) as NDArray<D>;
   }
 
   /**
@@ -1544,8 +1710,8 @@ export class NDArray extends NDArrayCore {
    * @param repeats - Number of repetitions for each element
    * @param axis - Axis along which to repeat
    */
-  repeat(repeats: number | number[], axis?: number): NDArray {
-    return up(core.repeat(this, repeats, axis));
+  repeat(repeats: number | number[], axis?: number): NDArray<D> {
+    return up(core.repeat(this, repeats, axis)) as NDArray<D>;
   }
 
   /**
@@ -1553,8 +1719,8 @@ export class NDArray extends NDArrayCore {
    * @param axes - Permutation of axes. If undefined, reverse the dimensions
    * @returns Transposed array (always a view)
    */
-  transpose(axes?: number[]): NDArray {
-    return up(core.transpose(this, axes));
+  transpose(axes?: number[]): NDArray<D> {
+    return up(core.transpose(this, axes)) as NDArray<D>;
   }
 
   /**
@@ -1562,8 +1728,8 @@ export class NDArray extends NDArrayCore {
    * @param axis - Axis to squeeze
    * @returns Array with specified dimensions removed (always a view)
    */
-  squeeze(axis?: number): NDArray {
-    return up(core.squeeze(this, axis));
+  squeeze(axis?: number): NDArray<D> {
+    return up(core.squeeze(this, axis)) as NDArray<D>;
   }
 
   /**
@@ -1571,8 +1737,8 @@ export class NDArray extends NDArrayCore {
    * @param axis - Position where new axis is placed
    * @returns Array with additional dimension (always a view)
    */
-  expand_dims(axis: number): NDArray {
-    return up(core.expand_dims(this, axis));
+  expand_dims(axis: number): NDArray<D> {
+    return up(core.expand_dims(this, axis)) as NDArray<D>;
   }
 
   /**
@@ -1581,8 +1747,8 @@ export class NDArray extends NDArrayCore {
    * @param axis2 - Second axis
    * @returns Array with swapped axes (always a view)
    */
-  swapaxes(axis1: number, axis2: number): NDArray {
-    return up(core.swapaxes(this, axis1, axis2));
+  swapaxes(axis1: number, axis2: number): NDArray<D> {
+    return up(core.swapaxes(this, axis1, axis2)) as NDArray<D>;
   }
 
   /**
@@ -1591,8 +1757,8 @@ export class NDArray extends NDArrayCore {
    * @param destination - New positions for axes
    * @returns Array with moved axes (always a view)
    */
-  moveaxis(source: number | number[], destination: number | number[]): NDArray {
-    return up(core.moveaxis(this, source, destination));
+  moveaxis(source: number | number[], destination: number | number[]): NDArray<D> {
+    return up(core.moveaxis(this, source, destination)) as NDArray<D>;
   }
 
   // ========================================
@@ -1603,8 +1769,8 @@ export class NDArray extends NDArrayCore {
    * Return the indices of non-zero elements
    * @returns Tuple of arrays, one for each dimension
    */
-  nonzero(): NDArray[] {
-    return core.nonzero(this).map(up);
+  nonzero(): NDArray<'float64'>[] {
+    return core.nonzero(this).map(up) as NDArray<'float64'>[];
   }
 }
 

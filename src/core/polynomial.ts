@@ -5,7 +5,7 @@
  */
 
 import type { DType } from '../common/dtype';
-import { isBigIntDType } from '../common/dtype';
+import { isBigIntDType, promoteDTypes } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import { array } from './creation';
@@ -146,7 +146,8 @@ export function polyadd(a1: NDArrayCore | number[], a2: NDArrayCore | number[]):
     start++;
   }
 
-  return array(result.slice(start), p1.dtype as DType);
+  // NumPy promotes the coefficient dtypes (not just the first operand's).
+  return array(result.slice(start), promoteDTypes(p1.dtype as DType, p2.dtype as DType));
 }
 
 /**
@@ -369,7 +370,7 @@ export function polymul(a1: NDArrayCore | number[], a2: NDArrayCore | number[]):
     }
   }
 
-  return array(result, p1.dtype as DType);
+  return array(result, promoteDTypes(p1.dtype as DType, p2.dtype as DType));
 }
 
 /**
@@ -398,7 +399,7 @@ export function polysub(a1: NDArrayCore | number[], a2: NDArrayCore | number[]):
     start++;
   }
 
-  return array(result.slice(start), p1.dtype as DType);
+  return array(result.slice(start), promoteDTypes(p1.dtype as DType, p2.dtype as DType));
 }
 
 /**

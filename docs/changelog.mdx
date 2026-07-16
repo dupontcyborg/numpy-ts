@@ -4,6 +4,22 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.6.0" description="2026-07-16">
+
+## numpy-ts v1.6.0
+
+Compile-time `dtype` typing across the public API. `NDArray<D>` now tracks its dtype through nearly every operation at zero runtime cost, so results report their exact dtype (`add(int32Arr, float32Arr)` → `NDArray<'float64'>`) and element access is typed per dtype (`bigint` for `int64`/`uint64`, `Complex` for complex, `number` otherwise). See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
+
+### Breaking
+
+* Floating-point reductions now preserve narrow floats instead of widening to `float64`, matching NumPy. `std`, `var`, `median`, `percentile`, `quantile`, and the `nan*` family return `float16`/`float32` for `float16`/`float32` input; `var`/`std` on `complex64` return `float32`; `round`/`around` upcast `bool → float16`. Add an explicit `.astype('float64')` if you relied on the old output.
+
+### Notes
+
+* Validation test suite pinned to NumPy 2.4 (`numpy>=2.4,<2.5`).
+
+</Update>
+
 <Update label="v1.5.0" description="2026-06-19">
 
 ## numpy-ts v1.5.0

@@ -39,14 +39,14 @@ a.dtype;  // 'float64'
 
 ## Creating arrays with specific dtypes
 
-Pass the `dtype` option to any creation function:
+Pass the dtype as a positional argument to any creation function. The dtype literal is also tracked in the return type — see [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking):
 
 ```typescript
-const a = np.array([1, 2, 3], { dtype: 'int32' });
-const b = np.zeros([3, 3], 'float32');
-const c = np.ones([2, 4], 'uint8');
-const d = np.arange(0, 10, 1, 'int16');
-const e = np.linspace(0, 1, 100, { dtype: 'float32' });
+const a = np.array([1, 2, 3], 'int32');   // NDArray<'int32'>
+const b = np.zeros([3, 3], 'float32');    // NDArray<'float32'>
+const c = np.ones([2, 4], 'uint8');       // NDArray<'uint8'>
+const d = np.arange(0, 10, 1, 'int16');   // NDArray<'int16'>
+const e = np.linspace(0, 1, 100, 'float32'); // NDArray<'float32'>
 ```
 
 ## BigInt for int64 and uint64
@@ -58,7 +58,7 @@ When working with `int64` or `uint64` arrays, `get()` returns `bigint` and `set(
 </Warning>
 
 ```typescript
-const a = np.array([1, 2, 3], { dtype: 'int64' });
+const a = np.array([1, 2, 3], 'int64');
 
 // Getting values returns bigint
 const val = a.get([0]);  // 1n (bigint)
@@ -85,7 +85,7 @@ numpy-ts provides a `Complex` class for complex number support, with two complex
 import { array, Complex } from 'numpy-ts';
 
 // Create a complex array
-const z = array([new Complex(1, 2), new Complex(3, 4)], { dtype: 'complex128' });
+const z = array([new Complex(1, 2), new Complex(3, 4)], 'complex128');
 z.dtype;  // 'complex128'
 
 // Access real and imaginary parts
@@ -124,7 +124,7 @@ numpy-ts includes a `float16` dtype with automatic fallback for broad runtime co
 import * as np from 'numpy-ts';
 import { hasFloat16 } from 'numpy-ts';
 
-const a = np.array([1.5, 2.0, 3.25], { dtype: 'float16' });
+const a = np.array([1.5, 2.0, 3.25], 'float16');
 a.dtype;       // 'float16'
 a.itemsize;    // 2
 
@@ -165,24 +165,26 @@ Some key promotion rules:
 | `complex64 + float64` | `complex128` | float64 requires complex128 precision |
 
 ```typescript
-const a = np.array([1, 2], { dtype: 'float32' });
-const b = np.array([3, 4], { dtype: 'int32' });
+const a = np.array([1, 2], 'float32');
+const b = np.array([3, 4], 'int32');
 
 const c = np.add(a, b);
 c.dtype;  // 'float64' -- promoted for precision safety
 ```
+
+These promotion rules are enforced at runtime **and** mirrored at the type level: `c` above is typed `NDArray<'float64'>`. The `Promote<A, B>` type helper exposes the rule directly. See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
 
 ## Integer overflow and wrapping
 
 Integer dtypes wrap on overflow, just like NumPy and C integer types. There is no error or automatic promotion:
 
 ```typescript
-const a = np.array([127], { dtype: 'int8' });
-const b = np.add(a, np.array([1], { dtype: 'int8' }));
+const a = np.array([127], 'int8');
+const b = np.add(a, np.array([1], 'int8'));
 b.toArray();  // [-128]  -- wraps around
 
-const c = np.array([255], { dtype: 'uint8' });
-const d = np.add(c, np.array([1], { dtype: 'uint8' }));
+const c = np.array([255], 'uint8');
+const d = np.add(c, np.array([1], 'uint8'));
 d.toArray();  // [0]  -- wraps around
 ```
 
@@ -195,14 +197,14 @@ If you need overflow protection, use a wider dtype (`int16` instead of `int8`) o
 Use `astype()` to create a new array with a different dtype:
 
 ```typescript
-const a = np.array([1.7, 2.3, 3.9], { dtype: 'float64' });
+const a = np.array([1.7, 2.3, 3.9], 'float64');
 
 // float -> int truncates (no rounding)
 const b = a.astype('int32');
 b.toArray();  // [1, 2, 3]
 
 // int -> float
-const c = np.array([1, 2, 3], { dtype: 'int32' });
+const c = np.array([1, 2, 3], 'int32');
 c.astype('float32').dtype;  // 'float32'
 
 // Anything -> bool (0 = false, nonzero = true)
@@ -213,7 +215,7 @@ d.astype('bool').toArray();  // [0, 1, 1, 0, 1]
 By default, `astype()` always returns a copy. Pass `copy: false` to return the same array when the dtype already matches:
 
 ```typescript
-const a = np.array([1, 2, 3], { dtype: 'float64' });
+const a = np.array([1, 2, 3], 'float64');
 
 const b = a.astype('float64', false);
 b === a;  // true  -- same object, no copy
@@ -242,7 +244,7 @@ The two-step rule for narrow targets (8/16-bit) matches NumPy 2.x: saturate to i
 Casting a 64-bit integer to a narrower width preserves the **low N bits** of the source, matching NumPy:
 
 ```typescript
-const a = np.array([0n], { dtype: 'uint64' });
+const a = np.array([0n], 'uint64');
 a.set([0], 18446744073709551615n);     // u64 max = 2^64 - 1
 
 a.astype('int32').get([0]);   // -1 (low 32 bits)
@@ -298,21 +300,38 @@ result.dtype;     // 'bool'
 result.toArray(); // [0, 0, 1]  (0 = false, 1 = true)
 ```
 
-### `mean()` promotes integers to `float64`
+At the type level, comparisons are `NDArray<'bool'>`.
+
+### Reductions follow NumPy's result dtype
 
 Just like NumPy, `mean()` converts integer arrays to `float64` to avoid truncation:
 
 ```typescript
-const a = np.array([1, 2, 3, 4], { dtype: 'int32' });
+const a = np.array([1, 2, 3, 4], 'int32');
 const m = np.mean(a);  // 2.5 (float64, not truncated to 2)
 ```
+
+Floating-point reductions **preserve the input's float width** rather than always widening to `float64`. `mean`, `std`, `var`/`variance`, `median`, `percentile`, `quantile`, and the `nan*` family return `float32` for `float32` input and `float16` for `float16` input; `std`/`var` on `complex64` return `float32` (the real component):
+
+```typescript
+const a = np.array([[1, 2, 3], [4, 5, 6]], 'float32');
+np.mean(a, 0).dtype;   // 'float32'  (was 'float64' before v1.6.0)
+np.std(a, 0).dtype;    // 'float32'
+np.median(a, 0).dtype; // 'float32'
+```
+
+<Warning>
+  Changed in **v1.6.0**: these reductions previously always returned `float64`. They now match NumPy and preserve the narrower float. If you depended on `float64` output, add an explicit `.astype('float64')`.
+</Warning>
+
+These result-dtype rules — unary math promotion, reduction accumulator widening (`sum` of `int32` → `int64`), true division → float, and so on — are all mirrored in the return types. See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
 
 ### Boolean arrays
 
 Boolean arrays store `0` (false) and `1` (true) as `uint8` values. They participate in arithmetic as integers:
 
 ```typescript
-const mask = np.array([true, false, true, false], { dtype: 'bool' });
+const mask = np.array([true, false, true, false], 'bool');
 mask.toArray();  // [1, 0, 1, 0]
 
 // Sum counts the number of true values

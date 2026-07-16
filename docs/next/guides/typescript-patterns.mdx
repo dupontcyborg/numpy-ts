@@ -130,7 +130,7 @@ By depending on `numpy-ts/core`, your library only pulls in the functions it use
 
 ## Type narrowing with dtype
 
-The `dtype` property is typed as `string` on the array class. When you need to branch on dtype, narrow it to `DType`:
+The `dtype` property is typed as the array's dtype parameter `D` (which is `DType` for an unparameterized `NDArray`). When you branch on the dtype of an unparameterized array, `switch` narrows it directly:
 
 ```typescript
 import type { NDArray, DType } from 'numpy-ts';
@@ -222,24 +222,126 @@ Since `NDArray` extends `NDArrayCore`, a generic bounded by `NDArrayCore` accept
 
 ## Type-safe creation functions
 
-All creation functions accept a `dtype` option:
+Creation functions take the dtype as a positional argument, and the dtype **literal flows into the return type** (see [Compile-time dtype tracking](#compile-time-dtype-tracking) below):
 
 ```typescript
 import { zeros, ones, array, arange, linspace } from 'numpy-ts';
 
-const f64 = zeros([3, 3]);                          // float64 (default)
-const f32 = zeros([3, 3], { dtype: 'float32' });    // float32
-const i32 = ones([10], { dtype: 'int32' });          // int32
-const ints = arange(0, 10, 1, 'int32');              // int32
-const floats = linspace(0, 1, 100);                  // float64
+const f64 = zeros([3, 3]);            // NDArray<'float64'> (default)
+const f32 = zeros([3, 3], 'float32'); // NDArray<'float32'>
+const i32 = ones([10], 'int32');      // NDArray<'int32'>
+const ints = arange(0, 10, 1, 'int32'); // NDArray<'int32'>
+const floats = linspace(0, 1, 100);   // NDArray<'float64'>
 ```
 
-When creating arrays from data, the dtype is inferred from the values or can be explicitly set:
+When creating arrays from data, the dtype is inferred at runtime from the values or set explicitly (an explicit literal is tracked in the type):
 
 ```typescript
 import { array } from 'numpy-ts';
 
-const a = array([1, 2, 3]);                       // float64 (default)
-const b = array([1, 2, 3], { dtype: 'int32' });   // int32
-const c = array([true, false, true], { dtype: 'bool' }); // bool
+const a = array([1, 2, 3]);            // NDArray<DType> (runtime-inferred float64)
+const b = array([1, 2, 3], 'int32');   // NDArray<'int32'>
+const c = array([true, false], 'bool'); // NDArray<'bool'>
 ```
+
+## Compile-time dtype tracking
+
+`NDArray<D>` is parameterized by its dtype. When you create an array with a dtype literal, that literal is carried through the type system so operations report their exact result dtype — following the same NumPy promotion rules enforced at runtime.
+
+```typescript
+import { zeros } from 'numpy-ts';
+
+const a = zeros([3], 'int32');   // NDArray<'int32'>
+const b = zeros([3], 'float32'); // NDArray<'float32'>
+const c = a.add(b);              // NDArray<'float64'>  (int32 + float32 → float64)
+const d = a.astype('int8');      // NDArray<'int8'>
+```
+
+### Element access returns the right scalar type
+
+`get`, `iget`, and `item` return `bigint` for `int64`/`uint64`, a `Complex` for complex dtypes, and `number` otherwise.
+
+```typescript
+const ints = zeros([3], 'int64');
+const x = ints.get([0]);   // bigint
+const y: number = ints.get([0]); // ✗ compile error: bigint is not assignable to number
+
+const floats = zeros([3], 'float64');
+const z = floats.get([0]); // number
+```
+
+### Result dtypes are tracked per operation
+
+Each operation reports the dtype NumPy would produce:
+
+```typescript
+const i = zeros([3], 'int32');
+const f = zeros([3], 'float32');
+
+i.add(f);      // NDArray<'float64'>   — promotion
+i.multiply(i); // NDArray<'int32'>
+i.divide(i);   // NDArray<'float64'>   — true division always floats
+i.sqrt();      // NDArray<'float64'>   — unary math promotes ints
+i.sum();       // NDArray<'int64'> | bigint  — accumulator widening (int64 scalar → bigint)
+i.mean();      // NDArray<'float64'> | number
+i.greater(f);  // NDArray<'bool'>      — comparisons
+i.argmax();    // NDArray<'int32'> | number  — arg-reductions (see index caveat)
+i.argsort();   // NDArray<'float64'>   — sort/where indices (see index caveat)
+i.transpose(); // NDArray<'int32'>     — shape ops preserve dtype
+```
+
+The same rules apply to the free-function API, and dtype is inferred from the operands:
+
+```typescript
+import { add, sqrt, divide } from 'numpy-ts';
+
+add(zeros([3], 'int16'), zeros([3], 'int32')); // NDArray<'int32'>
+sqrt(zeros([3], 'int8'));                        // NDArray<'float16'>
+divide(zeros([3], 'int32'), zeros([3], 'int32')); // NDArray<'float64'>
+```
+
+Every operation with a static result-dtype rule reports its dtype — shape ops,
+reductions, contractions, binary ufuncs, complex components, tuple-returning
+ufuncs, and index families:
+
+```typescript
+import {
+  reshape, cumsum, argsort, real, maximum, sum, mean,
+  dot, trace, frexp, divmod, nonzero, sinc, vander, corrcoef,
+} from 'numpy-ts';
+
+reshape(zeros([6], 'int32'), [2, 3]); // NDArray<'int32'>   — shape ops preserve dtype
+cumsum(zeros([3], 'int8'));           // NDArray<'int64'>   — accumulator widening
+argsort(zeros([3], 'float32'));       // NDArray<'float64'> — sort indices (see index caveat)
+real(zeros([3], 'complex64'));        // NDArray<'float32'> — complex component
+maximum(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> — promotion
+sum(zeros([3], 'int8'));   // NDArray<'int64'> | bigint     — reduction (array or scalar)
+mean(zeros([3], 'int32')); // NDArray<'float64'> | number
+dot(zeros([3], 'int32'), zeros([3], 'float32')); // NDArray<'float64'> | number — contraction
+trace(zeros([2, 2], 'int32'));        // NDArray<'int64'> | bigint — sum of the diagonal
+frexp(zeros([3], 'int8'));            // [NDArray<'float16'>, NDArray<'int32'>] — tuple ufunc
+divmod(zeros([3], 'int8'), zeros([3], 'int16')); // [NDArray<'int16'>, NDArray<'int16'>]
+nonzero(zeros([3], 'float32'));       // NDArray<'float64'>[] — index family (see index caveat)
+sinc(zeros([3], 'int8'));             // NDArray<'float64'>
+vander(zeros([3], 'float32'));        // NDArray<'float64'>
+corrcoef(zeros([2, 3], 'float32'));   // NDArray<'float64'>
+```
+
+### The promotion type helpers
+
+The promotion rules are exposed as type-level helpers you can use directly, generated from the same single source of truth as the runtime rules:
+
+```typescript
+import type { Promote, Scalar } from 'numpy-ts';
+
+type R = Promote<'int32', 'float32'>; // 'float64'
+type S = Scalar<'int64'>;             // bigint
+```
+
+### Caveats
+
+- **Scalar operands keep the array's dtype.** `intArr.add(2.5)` is typed `NDArray<'int32'>`, not float. TypeScript sees only the *type* `number`, never the value, so it cannot distinguish an integer literal from a float — modelling NumPy's weak-scalar promotion is not possible. Use an explicit `astype` when you need the widened result.
+- **Runtime-computed dtypes widen to `DType`.** When a dtype is chosen at runtime (`array(data)` without a literal, or a `DType`-typed variable), the result is `NDArray<DType>` — correct, just not narrowed.
+- **A few operations stay `NDArray<DType>` on purpose** — their result dtype can't be known from the types. This is honest widening, not a gap: multi-array joins (`concatenate`, `stack`, `hstack`, …) and `choose`/`select`, whose `NDArray[]` inputs have already erased the per-array dtype; data/file/callback sources (`array(data)`, `fromfile`, `apply_along_axis`); and a few data-dependent functions (`poly`, `roots`, whose output is real or complex depending on the values).
+- **Index results diverge from NumPy.** NumPy returns `int64`/`intp` for index-producing ops; numpy-ts returns `number`-yielding dtypes instead, so element access stays `number` rather than `bigint` (int64 is BigInt-backed here). Concretely: `argmin`/`argmax`/`nanargmin`/`nanargmax` → `int32`, and `argsort`/`argpartition`/`argwhere`/`flatnonzero`/`nonzero` → `float64`. Both the types and the runtime agree on this. **Caveat:** the `int32` arg-reductions overflow above ~2.1 billion (2³¹) elements along the reduced axis; the `float64` family is safe to 2⁵³. A unified 53-bit index dtype (`intp`) is planned to remove this split — see the roadmap.
+- **`float16` is float32-backed without native support.** The type↔runtime dtype match holds everywhere except `float16` on engines lacking a native `Float16Array` (older runtimes). There, a `float16` result is stored in a `Float32Array`, so its runtime `.dtype` reads `'float32'` while the compile-time type stays `'float16'`. Scalar/element types are unaffected.

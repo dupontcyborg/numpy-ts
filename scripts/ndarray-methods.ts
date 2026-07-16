@@ -31,6 +31,30 @@ export interface MethodDef {
   params?: string;
   /** Override return type */
   returnType?: string;
+  /**
+   * How the result dtype relates to the input(s), used to type the generated
+   * return. Omitted → the historical untyped `NDArray` return.
+   *
+   * Binary: 'promote' | 'power' | 'divide' | 'mathbinary' | 'bool'.
+   * Unary/passthrough: 'math' | 'abs' | 'boolarith' | 'reduction' | 'preserve'
+   *   | 'bool' | 'index' | 'component' | 'complexfft' | 'realfft'.
+   * array_return: 'index'.
+   */
+  result?:
+    | 'promote'
+    | 'power'
+    | 'divide'
+    | 'mathbinary'
+    | 'bool'
+    | 'math'
+    | 'abs'
+    | 'boolarith'
+    | 'reduction'
+    | 'preserve'
+    | 'index'
+    | 'component'
+    | 'complexfft'
+    | 'realfft';
   /** Extra args passed to core function after 'this' (for non-obvious mappings) */
   coreArgs?: string;
   /** For 'manual' pattern: verbatim method body */
@@ -82,12 +106,12 @@ override get nbytes(): number {
   }`;
 
 const ITERATOR_METHOD = `\
-override *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
+override *[Symbol.iterator](): Iterator<NDArray<D> | Scalar<D>> {
     if (this.ndim === 0) {
-      yield this._storage.iget(0);
+      yield this._storage.iget(0) as Scalar<D>;
     } else if (this.ndim === 1) {
       for (let i = 0; i < this.shape[0]!; i++) {
-        yield this._storage.iget(i);
+        yield this._storage.iget(i) as Scalar<D>;
       }
     } else {
       for (let i = 0; i < this.shape[0]!; i++) {
@@ -97,7 +121,7 @@ override *[Symbol.iterator](): Iterator<NDArray | number | bigint | Complex> {
   }`;
 
 const GET_METHOD = `\
-override get(indices: number[]): number | bigint | Complex {
+override get(indices: number[]): Scalar<D> {
     if (indices.length !== this.ndim) {
       throw new Error(
         \`Index has \${indices.length} dimensions, but array has \${this.ndim} dimensions\`
@@ -117,7 +141,12 @@ override get(indices: number[]): number | bigint | Complex {
       return normalized;
     });
 
-    return this._storage.get(...normalizedIndices);
+    return this._storage.get(...normalizedIndices) as Scalar<D>;
+  }`;
+
+const ASTYPE_METHOD = `\
+override astype<E extends DType>(dtype: E, copy: boolean = true): NDArray<E> {
+    return super.astype(dtype, copy) as NDArray<E>;
   }`;
 
 const SET_METHOD = `\
@@ -163,24 +192,24 @@ override set(
   }`;
 
 const RESHAPE_METHOD = `\
-reshape(...shape: number[]): NDArray {
+reshape(...shape: number[]): NDArray<D> {
     const newShape = shape.length === 1 && Array.isArray(shape[0]) ? shape[0] : shape;
     const resultStorage = core.reshape(this, newShape).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
   }`;
 
 const RAVEL_METHOD = `\
-ravel(): NDArray {
+ravel(): NDArray<D> {
     const resultStorage = core.ravel(this).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
-    return NDArray.fromStorage(resultStorage, base);
+    return NDArray.fromStorage(resultStorage, base) as NDArray<D>;
   }`;
 
 const ROW_METHOD = `\
-row(i: number): NDArray {
+row(i: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('row() requires at least 2 dimensions');
     }
@@ -188,7 +217,7 @@ row(i: number): NDArray {
   }`;
 
 const COL_METHOD = `\
-col(j: number): NDArray {
+col(j: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('col() requires at least 2 dimensions');
     }
@@ -196,7 +225,7 @@ col(j: number): NDArray {
   }`;
 
 const ROWS_METHOD = `\
-rows(start: number, stop: number): NDArray {
+rows(start: number, stop: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('rows() requires at least 2 dimensions');
     }
@@ -204,7 +233,7 @@ rows(start: number, stop: number): NDArray {
   }`;
 
 const COLS_METHOD = `\
-cols(start: number, stop: number): NDArray {
+cols(start: number, stop: number): NDArray<D> {
     if (this.ndim < 2) {
       throw new Error('cols() requires at least 2 dimensions');
     }
@@ -231,25 +260,25 @@ override tobytes(): ArrayBuffer {
   }`;
 
 const ITEM_METHOD = `\
-override item(...args: number[]): number | bigint | Complex {
+override item(...args: number[]): Scalar<D> {
     if (args.length === 0) {
       if (this.size !== 1) {
         throw new Error('can only convert an array of size 1 to a Python scalar');
       }
-      return this._storage.iget(0);
+      return this._storage.iget(0) as Scalar<D>;
     }
     if (args.length === 1) {
       const flatIdx = args[0]!;
       if (flatIdx < 0 || flatIdx >= this.size) {
         throw new Error(\`index \${flatIdx} is out of bounds for size \${this.size}\`);
       }
-      return this._storage.iget(flatIdx);
+      return this._storage.iget(flatIdx) as Scalar<D>;
     }
     return this.get(args);
   }`;
 
 const BYTESWAP_METHOD = `\
-byteswap(inplace: boolean = false): NDArray {
+byteswap(inplace: boolean = false): NDArray<D> {
     const target = inplace ? this : this.copy();
     const data = target._storage.data;
     const bytesPerElement = data.BYTES_PER_ELEMENT;
@@ -298,9 +327,9 @@ byteswap(inplace: boolean = false): NDArray {
   }`;
 
 const VIEW_METHOD = `\
-view(dtype?: DType): NDArray {
-    if (!dtype || dtype === this.dtype) {
-      return NDArray.fromStorage(this._storage, this._base ?? this);
+view<E extends DType = D>(dtype?: E): NDArray<E> {
+    if (!dtype || dtype === (this.dtype as DType)) {
+      return NDArray.fromStorage(this._storage, this._base ?? this) as NDArray<E>;
     }
     const oldSize = getDTypeSize(this.dtype as DType);
     const newSize = getDTypeSize(dtype);
@@ -321,11 +350,11 @@ view(dtype?: DType): NDArray {
       [...this._storage.strides],
       0
     );
-    return NDArray.fromStorage(storage, this._base ?? this);
+    return NDArray.fromStorage(storage, this._base ?? this) as NDArray<E>;
   }`;
 
 const IINDEX_METHOD = `\
-iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray {
+iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray<D> {
     let indexArray: number[];
     if (indices instanceof NDArray) {
       indexArray = [];
@@ -345,8 +374,8 @@ iindex(indices: NDArray | number[] | number[][], axis: number = 0): NDArray {
   }`;
 
 const BINDEX_METHOD = `\
-bindex(mask: NDArray, axis?: number): NDArray {
-    return up(core.compress(mask, this, axis));
+bindex(mask: NDArray, axis?: number): NDArray<D> {
+    return up(core.compress(mask, this, axis)) as NDArray<D>;
   }`;
 
 const PUT_METHOD = `\
@@ -356,7 +385,7 @@ put(indices: number[], values: NDArray | number | bigint): void {
   }`;
 
 const COMPRESS_METHOD = `\
-compress(condition: NDArray | boolean[], axis?: number): NDArray {
+compress(condition: NDArray | boolean[], axis?: number): NDArray<D> {
     const condStorage =
       condition instanceof NDArray
         ? condition
@@ -365,7 +394,7 @@ compress(condition: NDArray | boolean[], axis?: number): NDArray {
             [condition.length],
             'bool'
           ));
-    return up(core.compress(condStorage, this, axis));
+    return up(core.compress(condStorage, this, axis)) as NDArray<D>;
   }`;
 
 const CHOOSE_METHOD = `\
@@ -374,23 +403,23 @@ choose(choices: NDArray[]): NDArray {
   }`;
 
 const CLIP_METHOD = `\
-clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray {
-    return up(core.clip(this, a_min, a_max));
+clip(a_min: number | NDArray | null, a_max: number | NDArray | null): NDArray<D> {
+    return up(core.clip(this, a_min, a_max)) as NDArray<D>;
   }`;
 
 const ROUND_METHOD = `\
-round(decimals: number = 0): NDArray {
+round(decimals: number = 0): NDArray<RoundResult<D>> {
     return this.around(decimals);
   }`;
 
 const CONJUGATE_METHOD = `\
-conjugate(): NDArray {
+conjugate(): NDArray<D> {
     return this.conj();
   }`;
 
 const AROUND_METHOD = `\
-around(decimals: number = 0): NDArray {
-    return up(core.around(this, decimals));
+around(decimals: number = 0): NDArray<RoundResult<D>> {
+    return up(core.around(this, decimals)) as NDArray<RoundResult<D>>;
   }`;
 
 const ALLCLOSE_METHOD = `\
@@ -399,55 +428,72 @@ allclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): boo
   }`;
 
 const ISCLOSE_METHOD = `\
-isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray {
-    return up(core.isclose(this, other, rtol, atol));
+isclose(other: NDArray | number, rtol: number = 1e-5, atol: number = 1e-8): NDArray<'bool'> {
+    return up(core.isclose(this, other, rtol, atol)) as NDArray<'bool'>;
   }`;
 
+// average → true-division result (int → float64, float32 → float32). Typed for
+// the common case (no weights, or weights of equal/lower kind); weights that
+// promote to a wider dtype are a known limitation, like the weak-scalar caveat.
 const AVERAGE_METHOD = `\
-average(weights?: NDArray, axis?: number): NDArray | number | Complex {
+average(weights?: NDArray, axis?: number): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
     const r = core.average(this, axis, weights, false, false) as
       | NDArrayCore
       | number
       | Complex;
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<TrueDivide<D>>
+      | Scalar<TrueDivide<D>>;
   }`;
 
+// dot / inner / tensordot → Promote<D, B> (contraction preserves NumPy promotion).
 const DOT_METHOD = `\
-dot(other: NDArray): NDArray | number | bigint | Complex {
+dot<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.dot(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }`;
 
+// trace → ReductionAccum<D> (sum of the diagonal widens ints, like sum/prod).
 const TRACE_METHOD = `\
-trace(): NDArray | number | bigint | Complex {
+trace(): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
     const r = core.trace(this);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<ReductionAccum<D>>
+      | Scalar<ReductionAccum<D>>;
   }`;
 
 const INNER_METHOD = `\
-inner(other: NDArray): NDArray | number | bigint | Complex {
+inner<B extends DType>(other: NDArray<B>): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.inner(this, other);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }`;
 
 const TENSORDOT_METHOD = `\
-tensordot(
-    other: NDArray,
+tensordot<B extends DType>(
+    other: NDArray<B>,
     axes: number | [number[], number[]] = 2
-  ): NDArray | number | bigint | Complex {
+  ): NDArray<Promote<D, B>> | Scalar<Promote<D, B>> {
     const r = core.tensordot(this, other, axes);
-    return r instanceof NDArrayCore ? up(r) : r;
+    return (r instanceof NDArrayCore ? up(r) : r) as unknown as
+      | NDArray<Promote<D, B>>
+      | Scalar<Promote<D, B>>;
   }`;
 
 const DIVMOD_METHOD = `\
-divmod(divisor: NDArray | number): [NDArray, NDArray] {
+divmod<B extends DType>(divisor: NDArray<B>): [NDArray<Power<D, B>>, NDArray<Power<D, B>>];
+  divmod(divisor: number): [NDArray<D>, NDArray<D>];
+  divmod(divisor: NDArray | number): [NDArray, NDArray] {
     const r = core.divmod(this, divisor);
     return [up(r[0]), up(r[1])] as [NDArray, NDArray];
   }`;
 
 const SEARCHSORTED_METHOD = `\
-searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray {
-    return up(core.searchsorted(this, v, side));
+searchsorted(v: NDArray, side: 'left' | 'right' = 'left'): NDArray<'float64'> {
+    return up(core.searchsorted(this, v, side)) as NDArray<'float64'>;
   }`;
 
 const TOFILE_METHOD = `\
@@ -598,8 +644,15 @@ export const METHOD_DEFS: MethodDef[] = [
     manualCode: SET_METHOD,
     flags: { isOverride: true },
   },
-  // copy, astype: inherited from NDArrayCore — both return `this`-typed
-  // results via this._wrap(), so subclasses get the right concrete type.
+  {
+    name: 'astype',
+    pattern: 'manual',
+    doc: 'Cast array to a different dtype\n@param dtype - Target dtype (tracked in the result type)\n@param copy - Whether to copy when the dtype is unchanged (default true)\n@returns A new NDArray with the target dtype',
+    manualCode: ASTYPE_METHOD,
+    flags: { isOverride: true },
+  },
+  // copy: inherited from NDArrayCore — returns `this`-typed results via
+  // this._wrap(), so subclasses get the right concrete type (NDArray<D>).
 
   // ============================================================
   // Manual methods (slicing / indexing)
@@ -811,168 +864,258 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'sqrt',
     pattern: 'unary',
+    result: 'math',
     doc: 'Square root of each element\nPromotes integer types to float64',
   },
   {
     name: 'exp',
     pattern: 'unary',
+    result: 'math',
     doc: 'Natural exponential (e^x) of each element\nPromotes integer types to float64',
   },
   {
     name: 'exp2',
     pattern: 'unary',
+    result: 'math',
     doc: 'Base-2 exponential (2^x) of each element\nPromotes integer types to float64',
   },
   {
     name: 'expm1',
     pattern: 'unary',
+    result: 'math',
     doc: 'Exponential minus one (e^x - 1) of each element\nMore accurate than exp(x) - 1 for small x',
   },
   {
     name: 'log',
     pattern: 'unary',
+    result: 'math',
     doc: 'Natural logarithm (ln) of each element\nPromotes integer types to float64',
   },
   {
     name: 'log2',
     pattern: 'unary',
+    result: 'math',
     doc: 'Base-2 logarithm of each element\nPromotes integer types to float64',
   },
   {
     name: 'log10',
     pattern: 'unary',
+    result: 'math',
     doc: 'Base-10 logarithm of each element\nPromotes integer types to float64',
   },
   {
     name: 'log1p',
     pattern: 'unary',
+    result: 'math',
     doc: 'Natural logarithm of (1 + x) of each element\nMore accurate than log(1 + x) for small x',
   },
-  { name: 'absolute', pattern: 'unary', doc: 'Absolute value of each element' },
-  { name: 'negative', pattern: 'unary', doc: 'Numerical negative (element-wise negation)' },
-  { name: 'sign', pattern: 'unary', doc: 'Sign of each element (-1, 0, or 1)' },
+  { name: 'absolute', pattern: 'unary', result: 'abs', doc: 'Absolute value of each element' },
+  {
+    name: 'negative',
+    pattern: 'unary',
+    result: 'preserve',
+    doc: 'Numerical negative (element-wise negation)',
+  },
+  { name: 'sign', pattern: 'unary', result: 'preserve', doc: 'Sign of each element (-1, 0, or 1)' },
   {
     name: 'positive',
     pattern: 'unary',
+    result: 'preserve',
     doc: 'Numerical positive (element-wise +x)\n@returns Copy of the array',
   },
-  { name: 'reciprocal', pattern: 'unary', doc: 'Element-wise reciprocal (1/x)' },
-  { name: 'ceil', pattern: 'unary', doc: 'Return the ceiling of the input, element-wise' },
-  { name: 'fix', pattern: 'unary', doc: 'Round to nearest integer towards zero' },
-  { name: 'floor', pattern: 'unary', doc: 'Return the floor of the input, element-wise' },
-  { name: 'rint', pattern: 'unary', doc: 'Round elements to the nearest integer' },
-  { name: 'trunc', pattern: 'unary', doc: 'Return the truncated value of the input, element-wise' },
+  {
+    name: 'reciprocal',
+    pattern: 'unary',
+    result: 'preserve',
+    doc: 'Element-wise reciprocal (1/x)',
+  },
+  {
+    name: 'ceil',
+    pattern: 'unary',
+    result: 'math',
+    doc: 'Return the ceiling of the input, element-wise',
+  },
+  { name: 'fix', pattern: 'unary', result: 'math', doc: 'Round to nearest integer towards zero' },
+  {
+    name: 'floor',
+    pattern: 'unary',
+    result: 'math',
+    doc: 'Return the floor of the input, element-wise',
+  },
+  { name: 'rint', pattern: 'unary', result: 'math', doc: 'Round elements to the nearest integer' },
+  {
+    name: 'trunc',
+    pattern: 'unary',
+    result: 'math',
+    doc: 'Return the truncated value of the input, element-wise',
+  },
   {
     name: 'sin',
     pattern: 'unary',
+    result: 'math',
     doc: 'Sine of each element (in radians)\nPromotes integer types to float64',
   },
   {
     name: 'cos',
     pattern: 'unary',
+    result: 'math',
     doc: 'Cosine of each element (in radians)\nPromotes integer types to float64',
   },
   {
     name: 'tan',
     pattern: 'unary',
+    result: 'math',
     doc: 'Tangent of each element (in radians)\nPromotes integer types to float64',
   },
   {
     name: 'arcsin',
     pattern: 'unary',
+    result: 'math',
     doc: 'Inverse sine of each element\nPromotes integer types to float64',
   },
   {
     name: 'arccos',
     pattern: 'unary',
+    result: 'math',
     doc: 'Inverse cosine of each element\nPromotes integer types to float64',
   },
   {
     name: 'arctan',
     pattern: 'unary',
+    result: 'math',
     doc: 'Inverse tangent of each element\nPromotes integer types to float64',
   },
-  { name: 'degrees', pattern: 'unary', doc: 'Convert angles from radians to degrees' },
-  { name: 'radians', pattern: 'unary', doc: 'Convert angles from degrees to radians' },
+  {
+    name: 'degrees',
+    pattern: 'unary',
+    result: 'math',
+    doc: 'Convert angles from radians to degrees',
+  },
+  {
+    name: 'radians',
+    pattern: 'unary',
+    result: 'math',
+    doc: 'Convert angles from degrees to radians',
+  },
   {
     name: 'sinh',
     pattern: 'unary',
+    result: 'math',
     doc: 'Hyperbolic sine of each element\nPromotes integer types to float64',
   },
   {
     name: 'cosh',
     pattern: 'unary',
+    result: 'math',
     doc: 'Hyperbolic cosine of each element\nPromotes integer types to float64',
   },
   {
     name: 'tanh',
     pattern: 'unary',
+    result: 'math',
     doc: 'Hyperbolic tangent of each element\nPromotes integer types to float64',
   },
   {
     name: 'arcsinh',
     pattern: 'unary',
+    result: 'math',
     doc: 'Inverse hyperbolic sine of each element\nPromotes integer types to float64',
   },
   {
     name: 'arccosh',
     pattern: 'unary',
+    result: 'math',
     doc: 'Inverse hyperbolic cosine of each element\nPromotes integer types to float64',
   },
   {
     name: 'arctanh',
     pattern: 'unary',
+    result: 'math',
     doc: 'Inverse hyperbolic tangent of each element\nPromotes integer types to float64',
   },
-  { name: 'bitwise_not', pattern: 'unary', doc: 'Bitwise NOT (inversion) element-wise' },
+  {
+    name: 'bitwise_not',
+    pattern: 'unary',
+    result: 'preserve',
+    doc: 'Bitwise NOT (inversion) element-wise',
+  },
   {
     name: 'invert',
     pattern: 'unary',
+    result: 'preserve',
     doc: 'Invert (bitwise NOT) element-wise - alias for bitwise_not',
   },
   {
     name: 'logical_not',
     pattern: 'unary',
+    result: 'bool',
     doc: 'Logical NOT element-wise\n@returns Boolean array (1 = true, 0 = false)',
   },
   {
     name: 'isfinite',
     pattern: 'unary',
+    result: 'bool',
     doc: 'Test element-wise for finiteness (not infinity and not NaN)',
   },
-  { name: 'isinf', pattern: 'unary', doc: 'Test element-wise for positive or negative infinity' },
-  { name: 'isnan', pattern: 'unary', doc: 'Test element-wise for NaN (Not a Number)' },
+  {
+    name: 'isinf',
+    pattern: 'unary',
+    result: 'bool',
+    doc: 'Test element-wise for positive or negative infinity',
+  },
+  {
+    name: 'isnan',
+    pattern: 'unary',
+    result: 'bool',
+    doc: 'Test element-wise for NaN (Not a Number)',
+  },
   {
     name: 'isnat',
     pattern: 'unary',
+    result: 'bool',
     doc: 'Test element-wise for NaT (Not a Time)\n@returns Boolean array (always false without datetime support)',
   },
   {
     name: 'signbit',
     pattern: 'unary',
+    result: 'bool',
     doc: 'Returns element-wise True where signbit is set (less than zero)',
   },
   {
     name: 'spacing',
     pattern: 'unary',
+    result: 'math',
     doc: 'Return the distance between x and the nearest adjacent number',
   },
   {
     name: 'cbrt',
     pattern: 'unary',
+    result: 'math',
     doc: 'Element-wise cube root\nPromotes integer types to float64',
   },
-  { name: 'fabs', pattern: 'unary', doc: 'Element-wise absolute value (always returns float)' },
-  { name: 'square', pattern: 'unary', doc: 'Element-wise square (x**2)' },
-  { name: 'conj', pattern: 'unary', doc: 'Return the complex conjugate, element-wise' },
+  {
+    name: 'fabs',
+    pattern: 'unary',
+    result: 'math',
+    doc: 'Element-wise absolute value (always returns float)',
+  },
+  { name: 'square', pattern: 'unary', result: 'boolarith', doc: 'Element-wise square (x**2)' },
+  {
+    name: 'conj',
+    pattern: 'unary',
+    result: 'preserve',
+    doc: 'Return the complex conjugate, element-wise',
+  },
   {
     name: 'flatten',
     pattern: 'unary',
+    result: 'preserve',
     doc: 'Return a flattened copy of the array\n@returns 1D array containing all elements',
   },
   {
     name: 'argwhere',
     pattern: 'unary',
+    result: 'index',
     doc: 'Find the indices of array elements that are non-zero, grouped by element\n@returns 2D array of shape (N, ndim)',
   },
 
@@ -982,42 +1125,49 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'add',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray | number',
     doc: 'Element-wise addition\n@param other - Array or scalar to add',
   },
   {
     name: 'subtract',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray | number',
     doc: 'Element-wise subtraction\n@param other - Array or scalar to subtract',
   },
   {
     name: 'multiply',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray | number',
     doc: 'Element-wise multiplication\n@param other - Array or scalar to multiply',
   },
   {
     name: 'divide',
     pattern: 'binary',
+    result: 'divide',
     params: 'other: NDArray | number',
     doc: 'Element-wise division\n@param other - Array or scalar to divide by',
   },
   {
     name: 'mod',
     pattern: 'binary',
+    result: 'power',
     params: 'other: NDArray | number',
     doc: 'Element-wise modulo operation\n@param other - Array or scalar divisor',
   },
   {
     name: 'floor_divide',
     pattern: 'binary',
+    result: 'power',
     params: 'other: NDArray | number',
     doc: 'Element-wise floor division\n@param other - Array or scalar to divide by',
   },
   {
     name: 'power',
     pattern: 'binary',
+    result: 'power',
     params: 'exponent: NDArray | number',
     coreArgs: 'exponent',
     doc: 'Raise elements to power\n@param exponent - Power to raise to (array or scalar)',
@@ -1025,6 +1175,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'logaddexp',
     pattern: 'binary',
+    result: 'mathbinary',
     params: 'x2: NDArray | number',
     coreArgs: 'x2',
     doc: 'Logarithm of the sum of exponentials: log(exp(x1) + exp(x2))\n@param x2 - Second operand',
@@ -1032,6 +1183,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'logaddexp2',
     pattern: 'binary',
+    result: 'mathbinary',
     params: 'x2: NDArray | number',
     coreArgs: 'x2',
     doc: 'Logarithm base 2 of the sum of exponentials: log2(2^x1 + 2^x2)\n@param x2 - Second operand',
@@ -1039,72 +1191,84 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'arctan2',
     pattern: 'binary',
+    result: 'mathbinary',
     params: 'other: NDArray | number',
     doc: 'Element-wise arc tangent of this/other choosing the quadrant correctly\n@param other - x-coordinates',
   },
   {
     name: 'hypot',
     pattern: 'binary',
+    result: 'mathbinary',
     params: 'other: NDArray | number',
     doc: 'Given the "legs" of a right triangle, return its hypotenuse\n@param other - Second leg',
   },
   {
     name: 'greater',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Element-wise greater than comparison\n@returns Boolean array',
   },
   {
     name: 'greater_equal',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Element-wise greater than or equal comparison\n@returns Boolean array',
   },
   {
     name: 'less',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Element-wise less than comparison\n@returns Boolean array',
   },
   {
     name: 'less_equal',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Element-wise less than or equal comparison\n@returns Boolean array',
   },
   {
     name: 'equal',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Element-wise equality comparison\n@returns Boolean array',
   },
   {
     name: 'not_equal',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Element-wise not equal comparison\n@returns Boolean array',
   },
   {
     name: 'bitwise_and',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray | number',
     doc: 'Bitwise AND element-wise\n@param other - Array or scalar (must be integer type)',
   },
   {
     name: 'bitwise_or',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray | number',
     doc: 'Bitwise OR element-wise\n@param other - Array or scalar (must be integer type)',
   },
   {
     name: 'bitwise_xor',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray | number',
     doc: 'Bitwise XOR element-wise\n@param other - Array or scalar (must be integer type)',
   },
   {
     name: 'left_shift',
     pattern: 'binary',
+    result: 'promote',
     params: 'shift: NDArray | number',
     coreArgs: 'shift',
     doc: 'Left shift elements by positions\n@param shift - Shift amount',
@@ -1112,6 +1276,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'right_shift',
     pattern: 'binary',
+    result: 'promote',
     params: 'shift: NDArray | number',
     coreArgs: 'shift',
     doc: 'Right shift elements by positions\n@param shift - Shift amount',
@@ -1119,24 +1284,28 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'logical_and',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Logical AND element-wise\n@returns Boolean array (1 = true, 0 = false)',
   },
   {
     name: 'logical_or',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Logical OR element-wise\n@returns Boolean array (1 = true, 0 = false)',
   },
   {
     name: 'logical_xor',
     pattern: 'binary',
+    result: 'bool',
     params: 'other: NDArray | number',
     doc: 'Logical XOR element-wise\n@returns Boolean array (1 = true, 0 = false)',
   },
   {
     name: 'copysign',
     pattern: 'binary',
+    result: 'mathbinary',
     params: 'x2: NDArray | number',
     coreArgs: 'x2',
     doc: 'Change the sign of x1 to that of x2, element-wise\n@param x2 - Values whose sign is used',
@@ -1144,6 +1313,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'nextafter',
     pattern: 'binary',
+    result: 'mathbinary',
     params: 'x2: NDArray | number',
     coreArgs: 'x2',
     doc: 'Return the next floating-point value after x1 towards x2, element-wise\n@param x2 - Direction to look',
@@ -1151,6 +1321,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'remainder',
     pattern: 'binary',
+    result: 'power',
     params: 'divisor: NDArray | number',
     coreArgs: 'divisor',
     doc: 'Element-wise remainder (same as mod)\n@param divisor - Array or scalar divisor',
@@ -1158,6 +1329,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'heaviside',
     pattern: 'binary',
+    result: 'mathbinary',
     params: 'x2: NDArray | number',
     coreArgs: 'x2',
     doc: 'Heaviside step function\n@param x2 - Value to use when this array element is 0',
@@ -1165,6 +1337,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'matmul',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray',
     coreArgs: 'other',
     doc: 'Matrix multiplication\n@param other - Array to multiply with',
@@ -1172,6 +1345,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'outer',
     pattern: 'binary',
+    result: 'promote',
     params: 'other: NDArray',
     coreArgs: 'other',
     doc: 'Outer product (flattens inputs then computes a[i]*b[j])\n@param other - Array to compute outer product with',
@@ -1186,77 +1360,77 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'sum',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | bigint | Complex',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
     doc: 'Sum array elements over a given axis',
   },
   {
     name: 'mean',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the arithmetic mean along the specified axis',
   },
   {
     name: 'prod',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | bigint | Complex',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
     doc: 'Product of array elements over a given axis',
   },
   {
     name: 'max',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<D> | Scalar<D>',
     doc: 'Return the maximum along a given axis',
   },
   {
     name: 'min',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<D> | Scalar<D>',
     doc: 'Return the minimum along a given axis',
   },
   {
     name: 'ptp',
     pattern: 'reduction',
     params: 'axis?: number, keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<D> | Scalar<D>',
     doc: 'Peak to peak (maximum - minimum) value along a given axis',
   },
   {
     name: 'nansum',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
     doc: 'Return the sum of array elements, treating NaNs as zero',
   },
   {
     name: 'nanprod',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>',
     doc: 'Return the product of array elements, treating NaNs as ones',
   },
   {
     name: 'nanmean',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the arithmetic mean, ignoring NaNs',
   },
   {
     name: 'nanmin',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<D> | Scalar<D>',
     doc: 'Return minimum of an array, ignoring NaNs',
   },
   {
     name: 'nanmax',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number | Complex',
+    returnType: 'NDArray<D> | Scalar<D>',
     doc: 'Return maximum of an array, ignoring NaNs',
   },
 
@@ -1265,28 +1439,28 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'argmin',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: 'NDArray | number',
+    returnType: "NDArray<'int32'> | number",
     doc: 'Indices of the minimum values along an axis',
   },
   {
     name: 'argmax',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: 'NDArray | number',
+    returnType: "NDArray<'int32'> | number",
     doc: 'Indices of the maximum values along an axis',
   },
   {
     name: 'nanargmin',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: 'NDArray | number',
+    returnType: "NDArray<'int32'> | number",
     doc: 'Return the indices of the minimum values, ignoring NaNs',
   },
   {
     name: 'nanargmax',
     pattern: 'reduction',
     params: 'axis?: number',
-    returnType: 'NDArray | number',
+    returnType: "NDArray<'int32'> | number",
     doc: 'Return the indices of the maximum values, ignoring NaNs',
   },
 
@@ -1296,28 +1470,28 @@ export const METHOD_DEFS: MethodDef[] = [
     pattern: 'reduction',
     coreName: 'variance',
     params: 'axis?: number, ddof: number = 0, keepdims: boolean = false',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<StdVar<D>> | Scalar<StdVar<D>>',
     doc: 'Compute variance along the specified axis\n@param axis - Axis along which to compute variance\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1',
   },
   {
     name: 'std',
     pattern: 'reduction',
     params: 'axis?: number, ddof: number = 0, keepdims: boolean = false',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<StdVar<D>> | Scalar<StdVar<D>>',
     doc: 'Compute standard deviation along the specified axis\n@param axis - Axis along which to compute std\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1',
   },
   {
     name: 'nanvar',
     pattern: 'reduction',
     params: 'axis?: number | number[], ddof: number = 0, keepdims: boolean = false',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<StdVar<D>> | Scalar<StdVar<D>>',
     doc: 'Compute the variance, ignoring NaNs\n@param axis - Axis along which to compute variance\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1',
   },
   {
     name: 'nanstd',
     pattern: 'reduction',
     params: 'axis?: number | number[], ddof: number = 0, keepdims: boolean = false',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<StdVar<D>> | Scalar<StdVar<D>>',
     doc: 'Compute the standard deviation, ignoring NaNs\n@param axis - Axis along which to compute std\n@param ddof - Delta degrees of freedom (default: 0)\n@param keepdims - If true, reduced axes are left as dimensions with size 1',
   },
 
@@ -1326,14 +1500,14 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'all',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | boolean',
+    returnType: "NDArray<'bool'> | boolean",
     doc: 'Test whether all array elements along a given axis evaluate to True',
   },
   {
     name: 'any',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | boolean',
+    returnType: "NDArray<'bool'> | boolean",
     doc: 'Test whether any array elements along a given axis evaluate to True',
   },
 
@@ -1342,14 +1516,14 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'median',
     pattern: 'reduction',
     params: 'axis?: number | number[], keepdims: boolean = false',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the median along the specified axis',
   },
   {
     name: 'nanmedian',
     pattern: 'reduction',
     params: 'axis?: number, keepdims: boolean = false',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the median, ignoring NaNs',
   },
 
@@ -1359,7 +1533,7 @@ export const METHOD_DEFS: MethodDef[] = [
     pattern: 'reduction',
     params: 'q: number, axis?: number, keepdims: boolean = false',
     coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the q-th percentile of the data along the specified axis\n@param q - Percentile to compute (0-100)',
   },
   {
@@ -1367,7 +1541,7 @@ export const METHOD_DEFS: MethodDef[] = [
     pattern: 'reduction',
     params: 'q: number, axis?: number, keepdims: boolean = false',
     coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the q-th quantile of the data along the specified axis\n@param q - Quantile to compute (0-1)',
   },
   {
@@ -1375,7 +1549,7 @@ export const METHOD_DEFS: MethodDef[] = [
     pattern: 'reduction',
     params: 'q: number, axis?: number, keepdims: boolean = false',
     coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the q-th quantile, ignoring NaNs\n@param q - Quantile to compute (0-1)',
   },
   {
@@ -1383,7 +1557,7 @@ export const METHOD_DEFS: MethodDef[] = [
     pattern: 'reduction',
     params: 'q: number, axis?: number, keepdims: boolean = false',
     coreArgs: 'q, axis, keepdims',
-    returnType: 'NDArray | number',
+    returnType: 'NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>',
     doc: 'Compute the q-th percentile, ignoring NaNs\n@param q - Percentile to compute (0-100)',
   },
 
@@ -1393,60 +1567,70 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'cumsum',
     pattern: 'passthrough',
+    result: 'reduction',
     params: 'axis?: number',
     doc: 'Return the cumulative sum of elements along a given axis',
   },
   {
     name: 'cumprod',
     pattern: 'passthrough',
+    result: 'reduction',
     params: 'axis?: number',
     doc: 'Return the cumulative product of elements along a given axis',
   },
   {
     name: 'nancumsum',
     pattern: 'passthrough',
+    result: 'reduction',
     params: 'axis?: number',
     doc: 'Return the cumulative sum of elements, treating NaNs as zero',
   },
   {
     name: 'nancumprod',
     pattern: 'passthrough',
+    result: 'reduction',
     params: 'axis?: number',
     doc: 'Return the cumulative product of elements, treating NaNs as one',
   },
   {
     name: 'sort',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'axis: number = -1',
     doc: 'Return a sorted copy of the array\n@param axis - Axis along which to sort. Default is -1 (last axis)',
   },
   {
     name: 'argsort',
     pattern: 'passthrough',
+    result: 'index',
     params: 'axis: number = -1',
     doc: 'Returns the indices that would sort this array\n@param axis - Axis along which to sort. Default is -1 (last axis)',
   },
   {
     name: 'partition',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'kth: number, axis: number = -1',
     doc: 'Partially sort the array\n@param kth - Element index to partition by\n@param axis - Axis along which to sort. Default is -1 (last axis)',
   },
   {
     name: 'argpartition',
     pattern: 'passthrough',
+    result: 'index',
     params: 'kth: number, axis: number = -1',
     doc: 'Returns indices that would partition the array\n@param kth - Element index to partition by\n@param axis - Axis along which to sort. Default is -1 (last axis)',
   },
   {
     name: 'diagonal',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'offset: number = 0, axis1: number = 0, axis2: number = 1',
     doc: 'Return specified diagonals\n@param offset - Offset of the diagonal from the main diagonal\n@param axis1 - First axis of the 2-D sub-arrays\n@param axis2 - Second axis of the 2-D sub-arrays',
   },
   {
     name: 'resize',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'newShape: number[]',
     coreArgs: 'newShape',
     doc: 'Return a new array with the specified shape\nIf larger, filled with repeated copies of the original data\n@param newShape - Shape of the resized array',
@@ -1454,48 +1638,56 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'diff',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'n: number = 1, axis: number = -1',
     doc: 'Calculate the n-th discrete difference along the given axis\n@param n - Number of times values are differenced (default: 1)\n@param axis - Axis along which to compute difference (default: -1)',
   },
   {
     name: 'take',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'indices: number[], axis?: number',
     doc: 'Take elements from array along an axis\n@param indices - Indices of elements to take\n@param axis - Axis along which to take',
   },
   {
     name: 'repeat',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'repeats: number | number[], axis?: number',
     doc: 'Repeat elements of an array\n@param repeats - Number of repetitions for each element\n@param axis - Axis along which to repeat',
   },
   {
     name: 'transpose',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'axes?: number[]',
     doc: 'Transpose array (permute dimensions)\n@param axes - Permutation of axes. If undefined, reverse the dimensions\n@returns Transposed array (always a view)',
   },
   {
     name: 'squeeze',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'axis?: number',
     doc: 'Remove axes of length 1\n@param axis - Axis to squeeze\n@returns Array with specified dimensions removed (always a view)',
   },
   {
     name: 'expand_dims',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'axis: number',
     doc: 'Expand the shape by inserting a new axis of length 1\n@param axis - Position where new axis is placed\n@returns Array with additional dimension (always a view)',
   },
   {
     name: 'swapaxes',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'axis1: number, axis2: number',
     doc: 'Swap two axes of an array\n@param axis1 - First axis\n@param axis2 - Second axis\n@returns Array with swapped axes (always a view)',
   },
   {
     name: 'moveaxis',
     pattern: 'passthrough',
+    result: 'preserve',
     params: 'source: number | number[], destination: number | number[]',
     doc: 'Move axes to new positions\n@param source - Original positions of axes to move\n@param destination - New positions for axes\n@returns Array with moved axes (always a view)',
   },
@@ -1506,6 +1698,7 @@ export const METHOD_DEFS: MethodDef[] = [
   {
     name: 'nonzero',
     pattern: 'array_return',
+    result: 'index',
     doc: 'Return the indices of non-zero elements\n@returns Tuple of arrays, one for each dimension',
   },
 ];

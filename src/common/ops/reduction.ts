@@ -8,12 +8,15 @@
 import { Complex } from '../complex';
 import {
   type DType,
+  getComplexComponentDType,
   hasFloat16,
   isBigIntDType,
   isComplexDType,
   isFloatDType,
   reductionAccumDtype,
+  stdVarResultDtype,
   throwIfComplex,
+  trueDivideResultDtype,
 } from '../dtype';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { ArrayStorage } from '../storage';
@@ -1838,6 +1841,38 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
  * For complex arrays: Var(X) = E[|X - E[X]|²] where |z|² = re² + im²
  * Returns real values (float64) for both real and complex input
  */
+/**
+ * Narrow a reduction's raw float64 array result to its NumPy result dtype.
+ *
+ * Interpolating/accumulating reductions (quantile, nanmean, nanstd, …) do their
+ * math in float64 and allocate a float64 result buffer, but NumPy preserves a
+ * narrower input float — e.g. `np.median(float32)` → float32. This casts such a
+ * result down so the runtime dtype matches the compile-time type
+ * (src/common/dtype-promotion.ts, generated from the same result-dtype helpers).
+ *
+ * Only float16/float32 targets need work: every other result dtype (float64,
+ * int64/uint64, complex) is already produced correctly upstream. Scalars carry
+ * no dtype and pass through unchanged.
+ */
+function narrowFloatResult<T extends ArrayStorage | number | bigint | Complex>(
+  result: T,
+  targetDtype: DType,
+): T {
+  if (
+    result instanceof ArrayStorage &&
+    result.dtype !== targetDtype &&
+    (targetDtype === 'float16' || targetDtype === 'float32')
+  ) {
+    const narrowed = ArrayStorage.empty(Array.from(result.shape), targetDtype);
+    const src = result.data as Float64Array | Float32Array;
+    const dst = narrowed.data as Float32Array | Float16Array;
+    for (let i = 0; i < src.length; i++) dst[i] = src[i]!;
+    result.dispose();
+    return narrowed as unknown as T;
+  }
+  return result;
+}
+
 export function variance(
   storage: ArrayStorage,
   axis?: number,
@@ -1957,7 +1992,9 @@ export function variance(
       ? meanArray.shape
       : Array.from(shape).filter((_, i) => i !== normalizedAxis);
 
-    // Result is always float64 for variance (even for complex input)
+    // Real/complex128 variance accumulates in float64; complex64 collapses to
+    // its float32 component (matching NumPy: var(complex64) → float32). The
+    // float16/float32 real cases are handled in the `acc` branch below.
     const result = ArrayStorage.zeros(Array.from(outputShape), 'float64');
     const resultData = result.data;
 
@@ -1972,7 +2009,16 @@ export function variance(
     );
 
     if (isComplexDType(dtype)) {
-      // Complex variance along axis: Var(X) = E[|X - μ|²]
+      // Complex variance along axis: Var(X) = E[|X - μ|²]. The result dtype is
+      // the real component dtype (complex64 → float32, complex128 → float64).
+      const componentDtype = getComplexComponentDType(dtype);
+      let complexResult = result;
+      let outData = resultData;
+      if (componentDtype !== 'float64') {
+        result.dispose(); // won't use the float64 buffer
+        complexResult = ArrayStorage.empty(Array.from(outputShape), componentDtype);
+        outData = complexResult.data;
+      }
       const complexData = data as Float64Array | Float32Array;
       const meanComplex = meanData as Float64Array | Float32Array;
 
@@ -1992,8 +2038,10 @@ export function variance(
           bufIdx += axisStr;
         }
 
-        resultData[outerIdx] = sumSqDiff / (axisSize - ddof);
+        outData[outerIdx] = sumSqDiff / (axisSize - ddof);
       }
+
+      return complexResult;
     } else {
       const acc = getFloatAcc(dtype);
       if (acc) {
@@ -2066,9 +2114,10 @@ export function std(
     return Math.sqrt(varResult);
   }
 
-  // Apply sqrt element-wise
+  // Apply sqrt element-wise. std preserves variance's dtype (NumPy: std(x) has
+  // the same dtype as var(x) — float16/float32 preserved, complex64 → float32).
   try {
-    const result = ArrayStorage.zeros(Array.from(varResult.shape), 'float64');
+    const result = ArrayStorage.zeros(Array.from(varResult.shape), varResult.dtype);
     const varData = varResult.data;
     const resultData = result.data;
 
@@ -3124,9 +3173,23 @@ export function percentile(
 }
 
 /**
- * Compute the q-th quantile of data along specified axis
+ * Compute the q-th quantile of data along specified axis.
+ * Result dtype follows NumPy's true-divide rule (float16/float32 preserved,
+ * integers/bool → float64); see {@link narrowFloatResult}.
  */
 export function quantile(
+  storage: ArrayStorage,
+  q: number,
+  axis?: number,
+  keepdims: boolean = false,
+): ArrayStorage | number {
+  return narrowFloatResult(
+    quantileImpl(storage, q, axis, keepdims),
+    trueDivideResultDtype(storage.dtype),
+  );
+}
+
+function quantileImpl(
   storage: ArrayStorage,
   q: number,
   axis?: number,
@@ -3508,6 +3571,14 @@ export function nansum(
   axis?: number,
   keepdims: boolean = false,
 ): ArrayStorage | number | Complex {
+  return narrowFloatResult(nansumImpl(storage, axis, keepdims), reductionAccumDtype(storage.dtype));
+}
+
+function nansumImpl(
+  storage: ArrayStorage,
+  axis?: number,
+  keepdims: boolean = false,
+): ArrayStorage | number | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
@@ -3679,9 +3750,21 @@ export function nansum(
 }
 
 /**
- * Return product of elements, treating NaNs as one
+ * Return product of elements, treating NaNs as one.
+ * Result dtype follows NumPy's reduction-accumulation rule; see {@link narrowFloatResult}.
  */
 export function nanprod(
+  storage: ArrayStorage,
+  axis?: number,
+  keepdims: boolean = false,
+): ArrayStorage | number | Complex {
+  return narrowFloatResult(
+    nanprodImpl(storage, axis, keepdims),
+    reductionAccumDtype(storage.dtype),
+  );
+}
+
+function nanprodImpl(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
@@ -3838,9 +3921,21 @@ export function nanprod(
 }
 
 /**
- * Compute mean ignoring NaN values
+ * Compute mean ignoring NaN values.
+ * Result dtype follows NumPy's true-divide rule; see {@link narrowFloatResult}.
  */
 export function nanmean(
+  storage: ArrayStorage,
+  axis?: number,
+  keepdims: boolean = false,
+): ArrayStorage | number | Complex {
+  return narrowFloatResult(
+    nanmeanImpl(storage, axis, keepdims),
+    trueDivideResultDtype(storage.dtype),
+  );
+}
+
+function nanmeanImpl(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
@@ -4031,9 +4126,23 @@ export function nanmean(
 }
 
 /**
- * Compute variance ignoring NaN values
+ * Compute variance ignoring NaN values.
+ * Result dtype follows NumPy's std/var rule (float16/float32 preserved,
+ * complex → real component, integers/bool → float64); see {@link narrowFloatResult}.
  */
 export function nanvar(
+  storage: ArrayStorage,
+  axis?: number,
+  ddof: number = 0,
+  keepdims: boolean = false,
+): ArrayStorage | number {
+  return narrowFloatResult(
+    nanvarImpl(storage, axis, ddof, keepdims),
+    stdVarResultDtype(storage.dtype),
+  );
+}
+
+function nanvarImpl(
   storage: ArrayStorage,
   axis?: number,
   ddof: number = 0,
@@ -4318,6 +4427,18 @@ export function nanvar(
  * For complex arrays: returns sqrt of variance (always real values)
  */
 export function nanstd(
+  storage: ArrayStorage,
+  axis?: number,
+  ddof: number = 0,
+  keepdims: boolean = false,
+): ArrayStorage | number {
+  return narrowFloatResult(
+    nanstdImpl(storage, axis, ddof, keepdims),
+    stdVarResultDtype(storage.dtype),
+  );
+}
+
+function nanstdImpl(
   storage: ArrayStorage,
   axis?: number,
   ddof: number = 0,
@@ -5526,9 +5647,21 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
 }
 
 /**
- * Compute median ignoring NaN values
+ * Compute median ignoring NaN values.
+ * Result dtype follows NumPy's true-divide rule; see {@link narrowFloatResult}.
  */
 export function nanmedian(
+  storage: ArrayStorage,
+  axis?: number,
+  keepdims: boolean = false,
+): ArrayStorage | number | Complex {
+  return narrowFloatResult(
+    nanmedianImpl(storage, axis, keepdims),
+    trueDivideResultDtype(storage.dtype),
+  );
+}
+
+function nanmedianImpl(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
@@ -5647,9 +5780,22 @@ export function nanmedian(
 }
 
 /**
- * Compute the q-th quantile of data along specified axis, ignoring NaNs
+ * Compute the q-th quantile of data along specified axis, ignoring NaNs.
+ * Result dtype follows NumPy's true-divide rule; see {@link narrowFloatResult}.
  */
 export function nanquantile(
+  storage: ArrayStorage,
+  q: number,
+  axis?: number,
+  keepdims: boolean = false,
+): ArrayStorage | number {
+  return narrowFloatResult(
+    nanquantileImpl(storage, q, axis, keepdims),
+    trueDivideResultDtype(storage.dtype),
+  );
+}
+
+function nanquantileImpl(
   storage: ArrayStorage,
   q: number,
   axis?: number,

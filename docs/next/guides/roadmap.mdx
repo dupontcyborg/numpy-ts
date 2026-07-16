@@ -6,6 +6,12 @@ sidebarTitle: "Roadmap"
 
 The goal for `numpy-ts` is to be the best possible NumPy implementation for JavaScript and TypeScript. To get there, there's have a long list of features, optimizations, and API improvements to build. Here's a high-level roadmap of what's coming next:
 
+## Unified `intp` index dtype
+
+Index-producing operations currently split across two `number`-yielding dtypes: `argmin`/`argmax`/`nanarg*` return `int32`, while `argsort`/`argwhere`/`flatnonzero`/`nonzero` return `float64`. The `int32` path overflows above ~2.1 billion (2³¹) elements, and the split is internally inconsistent.
+
+We plan to introduce a single 53-bit `intp` dtype (backed by `Float64Array`, element access yields `number`) and route the whole index family through it — matching NumPy's `intp` semantics without the `bigint` ergonomics that a true `int64` index would force. This requires a new oracle-validated promotion rule and touches the index kernels, so it ships on its own rather than bundled with the dtype-typing work.
+
 ## Async / Worker offloading
 
 Heavy operations like `matmul`, `svd`, `fft`, and `convolve` can block the main thread for tens of milliseconds on large inputs. We're designing an opt-in `np.async.*` namespace that transparently offloads these to a Web Worker pool:

@@ -9,24 +9,94 @@
  * - Boolean: bool
  */
 
+import type { Complex } from './complex';
+
+/**
+ * All supported dtypes, in canonical declaration order.
+ *
+ * This array is the single source of truth for the dtype list: the {@link DType}
+ * union is derived from it, and codegen (`scripts/generate-dtype-promotion.ts`)
+ * plus the oracle sweeps import it so a new dtype only has to be added here.
+ */
+export const DTYPES = [
+  'float64',
+  'float32',
+  'float16',
+  'complex128',
+  'complex64',
+  'int64',
+  'int32',
+  'int16',
+  'int8',
+  'uint64',
+  'uint32',
+  'uint16',
+  'uint8',
+  'bool',
+] as const;
+
 /**
  * All supported dtypes
  */
-export type DType =
-  | 'float64'
-  | 'float32'
-  | 'float16'
-  | 'complex128'
-  | 'complex64'
-  | 'int64'
-  | 'int32'
-  | 'int16'
-  | 'int8'
-  | 'uint64'
-  | 'uint32'
-  | 'uint16'
-  | 'uint8'
-  | 'bool';
+export type DType = (typeof DTYPES)[number];
+
+/**
+ * Dtypes backed by BigInt typed arrays (element access yields `bigint`).
+ */
+export type BigIntDType = 'int64' | 'uint64';
+
+/**
+ * Complex dtypes (element access yields a `Complex`).
+ */
+export type ComplexDType = 'complex64' | 'complex128';
+
+/**
+ * The JavaScript scalar type produced by element access (`.get()`, `.item()`,
+ * `.iget()`) for a given dtype:
+ *   - int64/uint64    → bigint
+ *   - complex64/128   → Complex
+ *   - everything else → number
+ *
+ * When `D` is the full `DType` union (the default), this distributes to
+ * `number | bigint | Complex`, matching the historical untyped return.
+ */
+export type Scalar<D extends DType = DType> = D extends BigIntDType
+  ? bigint
+  : D extends ComplexDType
+    ? Complex
+    : number;
+
+/** Numeric kind of a dtype. */
+type DTypeKind = 'float' | 'complex' | 'int' | 'uint' | 'bool';
+
+/** Structural metadata (kind + bit width) for each dtype. */
+interface DTypeMeta {
+  kind: DTypeKind;
+  bits: number;
+}
+
+/**
+ * Per-dtype structural metadata. Keyed by the full `DType` union, so adding a
+ * dtype to {@link DTYPES} without describing it here is a compile-time error —
+ * this is what lets {@link promoteDTypes} classify integers by data instead of
+ * brittle string matching (`.startsWith('int')` / `.includes('64')`).
+ */
+const DTYPE_META: Record<DType, DTypeMeta> = {
+  float64: { kind: 'float', bits: 64 },
+  float32: { kind: 'float', bits: 32 },
+  float16: { kind: 'float', bits: 16 },
+  complex128: { kind: 'complex', bits: 128 },
+  complex64: { kind: 'complex', bits: 64 },
+  int64: { kind: 'int', bits: 64 },
+  int32: { kind: 'int', bits: 32 },
+  int16: { kind: 'int', bits: 16 },
+  int8: { kind: 'int', bits: 8 },
+  uint64: { kind: 'uint', bits: 64 },
+  uint32: { kind: 'uint', bits: 32 },
+  uint16: { kind: 'uint', bits: 16 },
+  uint8: { kind: 'uint', bits: 8 },
+  bool: { kind: 'bool', bits: 8 },
+};
 
 /**
  * TypedArray types for each dtype
@@ -405,23 +475,17 @@ export function promoteDTypes(dtype1: DType, dtype2: DType): DType {
     return 'float32';
   }
 
-  // Integer types - complex promotion rules
-  const isSigned1 = dtype1.startsWith('int');
-  const isSigned2 = dtype2.startsWith('int');
-  const isUnsigned1 = dtype1.startsWith('uint');
-  const isUnsigned2 = dtype2.startsWith('uint');
+  // Integer types - complex promotion rules. Classify by structural metadata
+  // rather than string matching so a new dtype can't silently mis-size.
+  const meta1 = DTYPE_META[dtype1];
+  const meta2 = DTYPE_META[dtype2];
+  const isSigned1 = meta1.kind === 'int';
+  const isSigned2 = meta2.kind === 'int';
+  const isUnsigned1 = meta1.kind === 'uint';
+  const isUnsigned2 = meta2.kind === 'uint';
 
-  // Get bit sizes
-  const getSize = (dtype: DType): number => {
-    if (dtype.includes('64')) return 64;
-    if (dtype.includes('32')) return 32;
-    if (dtype.includes('16')) return 16;
-    if (dtype.includes('8')) return 8;
-    return 0;
-  };
-
-  const size1 = getSize(dtype1);
-  const size2 = getSize(dtype2);
+  const size1 = meta1.bits;
+  const size2 = meta2.bits;
 
   // Special case: int64 + uint64 → float64 (no larger int type available)
   if ((dtype1 === 'int64' && dtype2 === 'uint64') || (dtype1 === 'uint64' && dtype2 === 'int64')) {
@@ -486,8 +550,9 @@ export function promoteDTypes(dtype1: DType, dtype2: DType): DType {
     return 'float64'; // uint64 with smaller signed → float64
   }
 
-  // Fallback (shouldn't reach here if logic above is complete)
-  return 'float64';
+  // Unreachable: every integer pair is handled above. Throw loudly if a new
+  // dtype slips through unhandled rather than silently coercing to float64.
+  throw new Error(`promoteDTypes: unhandled dtype pair '${dtype1}' + '${dtype2}'`);
 }
 
 // ─── Unary / reduction result-dtype rules (NumPy 2.x) ───────────────────────
@@ -502,11 +567,25 @@ export function promoteDTypes(dtype1: DType, dtype2: DType): DType {
  * float/complex    → same dtype (preserved)
  */
 export function mathResultDtype(inputDtype: DType): DType {
+  const canonical = mathResultDtypeCanonical(inputDtype);
+  // Runtime fallback: float16 storage is backed by Float32Array when the engine
+  // lacks native Float16Array, so the result dtype degrades to float32 there.
+  return canonical === 'float16' && !hasFloat16 ? 'float32' : canonical;
+}
+
+/**
+ * Canonical form of {@link mathResultDtype}, assuming native `Float16Array` is
+ * available (bool/int8/uint8 → float16). This is what the compile-time type
+ * tables are generated from, so the types stay canonical regardless of the
+ * engine the generator runs on. The runtime {@link mathResultDtype} applies the
+ * float32 fallback on top of this.
+ */
+export function mathResultDtypeCanonical(inputDtype: DType): DType {
   switch (inputDtype) {
     case 'bool':
     case 'int8':
     case 'uint8':
-      return hasFloat16 ? 'float16' : 'float32';
+      return 'float16';
     case 'int16':
     case 'uint16':
       return 'float32';
@@ -573,27 +652,84 @@ export function fftRealResultDtype(inputDtype: DType): DType {
   return 'float64';
 }
 
+// ─── Result-dtype rules: SSOT for the compile-time type tables ──────────────
+
+/**
+ * Result dtype for true division (`/`, divide, mean, median).
+ * bool + all integers → float64; float/complex preserved.
+ */
+export function trueDivideResultDtype(inputDtype: DType): DType {
+  if (isComplexDType(inputDtype) || isFloatDType(inputDtype)) return inputDtype;
+  return 'float64';
+}
+
+/**
+ * Result dtype for std/var (spread statistics).
+ * Like {@link trueDivideResultDtype} but complex collapses to its real component
+ * (complex128 → float64, complex64 → float32).
+ */
+export function stdVarResultDtype(inputDtype: DType): DType {
+  if (inputDtype === 'complex128') return 'float64';
+  if (inputDtype === 'complex64') return 'float32';
+  if (isFloatDType(inputDtype)) return inputDtype;
+  return 'float64';
+}
+
+/**
+ * Result dtype for `absolute`. Complex magnitude is real (complex128 → float64,
+ * complex64 → float32); every other dtype is preserved.
+ */
+export function absResultDtype(inputDtype: DType): DType {
+  if (inputDtype === 'complex128') return 'float64';
+  if (inputDtype === 'complex64') return 'float32';
+  return inputDtype;
+}
+
+/**
+ * Result dtype for `angle` (always real float), matching NumPy:
+ *   - complex → its real component (complex64 → float32, complex128 → float64)
+ *   - real floats → preserved
+ *   - integers → the unary-math float promotion (int8/uint8 → float16, …)
+ *   - bool → float64 (NumPy quirk: unlike other unary math, bool does not map to float16)
+ */
+export function angleResultDtype(inputDtype: DType): DType {
+  if (isComplexDType(inputDtype)) return getComplexComponentDType(inputDtype);
+  if (inputDtype === 'bool') return 'float64';
+  return mathResultDtype(inputDtype);
+}
+
+/**
+ * Canonical form of {@link angleResultDtype} (assumes native `Float16Array`).
+ * Used by the type-table codegen so the generated `Angle<D>` stays canonical.
+ */
+export function angleResultDtypeCanonical(inputDtype: DType): DType {
+  if (isComplexDType(inputDtype)) return getComplexComponentDType(inputDtype);
+  if (inputDtype === 'bool') return 'float64';
+  return mathResultDtypeCanonical(inputDtype);
+}
+
+/**
+ * Result dtype for `round`/`around`. Preserves the input dtype for everything
+ * except bool, which NumPy upcasts to float16 (rounding a boolean yields a
+ * float). Every other dtype — ints, floats, complex — is returned unchanged.
+ */
+export function roundResultDtype(inputDtype: DType): DType {
+  return inputDtype === 'bool' ? mathResultDtype('bool') : inputDtype;
+}
+
+/**
+ * Canonical form of {@link roundResultDtype} (bool → float16). Used by the
+ * type-table codegen so the generated `RoundResult<D>` stays float16-canonical.
+ */
+export function roundResultDtypeCanonical(inputDtype: DType): DType {
+  return inputDtype === 'bool' ? 'float16' : inputDtype;
+}
+
 /**
  * Validate dtype string
  */
 export function isValidDType(dtype: string): dtype is DType {
-  const validDTypes: DType[] = [
-    'float64',
-    'float32',
-    'float16',
-    'complex128',
-    'complex64',
-    'int64',
-    'int32',
-    'int16',
-    'int8',
-    'uint64',
-    'uint32',
-    'uint16',
-    'uint8',
-    'bool',
-  ];
-  return validDTypes.includes(dtype as DType);
+  return (DTYPES as readonly string[]).includes(dtype);
 }
 
 /**

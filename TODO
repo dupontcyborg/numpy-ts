@@ -12,6 +12,7 @@
     - [ ] `reduction.ts` -> `reductions/*.ts`
     - [ ] `arithmetic.ts` -> `arithmetic/*.ts`
     - [ ] `random.ts` -> `random/*.ts`
+- [ ] Add unified `intp` index dtype (53-bit, `Float64Array`-backed, `.item()` -> `number`); route the whole index family through it to replace the int32/float64 split (int32 overflows >2^31 elems). Needs a new oracle-validated promotion rule (intp vs bigint-backed int64 must not flip element access to bigint), every runtime `switch (dtype)`, and the WASM index kernels. Deferred from PR #142; see roadmap.
 - [ ] Add heterogeneous dtype promotion to binary WASM kernels
 - [ ] Add strided array handling to all WASM kernels
 - [ ] Consider removing TypeScript ops where we have WASM and have WASM run all cases
@@ -40,6 +41,7 @@
         2. Produce a per-kernel optimization map from the results
         3. Validate the map across runtimes (Node/Deno/Bun) to ensure consistency
         4. Update `build-wasm.ts` to accept per-kernel optimization overrides
+- [ ] Fix `ptp` int64/uint64: type advertises `NDArray<D> | Scalar<D>` (incl. bigint dtypes) but the runtime throws on int64/uint64 (no bigint ptp support). Either add bigint runtime support or narrow the type to exclude bigint dtypes.
 - [ ] Add comprehensive axis & ndim test coverage (like we did with dtype)
 - [ ] Implement async functions using Web Workers to avoid blocking main thread
 - [ ] Reach 100% function coverage via unit and validation tests
