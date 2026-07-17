@@ -12,15 +12,14 @@ import { describe, expect, it } from 'vitest';
 import { argmax, argmin, argsort, array, flatnonzero, nanargmax } from '../../src';
 import {
   absResultDtype,
-  angleResultDtype,
+  angleResultDtypeCanonical,
   boolArithmeticDtype,
   DTYPES,
   type DType,
-  mathResultDtype,
   mathResultDtypeCanonical,
   promoteDTypes,
   reductionAccumDtype,
-  roundResultDtype,
+  roundResultDtypeCanonical,
   stdVarResultDtype,
   trueDivideResultDtype,
 } from '../../src/common/dtype';
@@ -51,7 +50,11 @@ const RULES: {
   },
   { name: 'stdVarResultDtype (std)', helper: stdVarResultDtype, op: (a) => `np.std(${a})` },
   { name: 'absResultDtype (abs)', helper: absResultDtype, op: (a) => `np.abs(${a})` },
-  { name: 'roundResultDtype (round)', helper: roundResultDtype, op: (a) => `np.round(${a})` },
+  {
+    name: 'roundResultDtype (round)',
+    helper: roundResultDtypeCanonical,
+    op: (a) => `np.round(${a})`,
+  },
   { name: 'reductionAccumDtype (sum)', helper: reductionAccumDtype, op: (a) => `np.sum(${a})` },
   {
     name: 'boolArithmeticDtype (power)',
@@ -61,7 +64,7 @@ const RULES: {
   },
   {
     name: 'angleResultDtype (angle)',
-    helper: angleResultDtype,
+    helper: angleResultDtypeCanonical,
     op: (a) => `np.angle(${a})`,
   },
 ];
