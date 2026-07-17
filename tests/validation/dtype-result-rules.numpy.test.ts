@@ -17,6 +17,7 @@ import {
   DTYPES,
   type DType,
   mathResultDtype,
+  mathResultDtypeCanonical,
   promoteDTypes,
   reductionAccumDtype,
   roundResultDtype,
@@ -42,7 +43,7 @@ const RULES: {
   op: (a: string) => string;
   dtypes?: DType[]; // restrict when the op is undefined for some dtypes
 }[] = [
-  { name: 'mathResultDtype (sqrt)', helper: mathResultDtype, op: (a) => `np.sqrt(${a})` },
+  { name: 'mathResultDtype (sqrt)', helper: mathResultDtypeCanonical, op: (a) => `np.sqrt(${a})` },
   {
     name: 'trueDivideResultDtype (true_divide)',
     helper: trueDivideResultDtype,
@@ -271,7 +272,7 @@ describe('tuple ufunc mappings match NumPy', () => {
       const e = runNumPy(
         `import numpy as np\nm, e = np.frexp(np.ones(3, dtype='${d}'))\nresult = e`,
       ).dtype;
-      expect(mathResultDtype(d)).toBe(r);
+      expect(mathResultDtypeCanonical(d)).toBe(r);
       expect(e).toBe('int32');
     },
   );
@@ -279,7 +280,7 @@ describe('tuple ufunc mappings match NumPy', () => {
     const f = runNumPy(
       `import numpy as np\nf, i = np.modf(np.ones(3, dtype='${d}'))\nresult = f`,
     ).dtype;
-    expect(mathResultDtype(d)).toBe(f);
+    expect(mathResultDtypeCanonical(d)).toBe(f);
   });
   const divmodPairs: [DType, DType][] = [
     ['int32', 'float32'],

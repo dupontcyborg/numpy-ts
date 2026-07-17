@@ -23,6 +23,7 @@ import {
   angleResultDtype,
   DTYPES,
   type DType,
+  hasFloat16,
   promoteDTypes,
   reductionAccumDtype,
   roundResultDtype,
@@ -31,7 +32,9 @@ import {
 } from '../../src/common/dtype';
 
 const without = (...ex: DType[]): DType[] => DTYPES.filter((d) => !ex.includes(d));
-const ALL = [...DTYPES];
+// On engines without native Float16Array, float16 operations degrade (divide → float32,
+// std/var → float64). This is documented behavior; skip float16 here on those engines.
+const ALL = hasFloat16 ? [...DTYPES] : without('float16');
 const NO_COMPLEX = without('complex64', 'complex128');
 const ORDERABLE = without('complex64', 'complex128', 'bool'); // percentile/quantile reject bool + complex
 
