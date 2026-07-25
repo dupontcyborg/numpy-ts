@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Label PR
-        uses: actions/labeler@v6
+        uses: actions/labeler@v7
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           sync-labels: true
