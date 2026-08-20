@@ -150,17 +150,25 @@ export fn mul_scalar_c64(a: [*]const f32, out: [*]f32, N: u32, scalar: f32) void
     }
 }
 
-/// Element-wise multiply for i64, scalar loop (no i64x2.mul in WASM SIMD).
-/// Handles both signed (i64) and unsigned (u64).
+/// Element-wise multiply for i64 using 2-wide SIMD (i64x2.mul).
+/// Handles both signed (i64) and unsigned (u64) — wrapping multiply is
+/// bit-identical for both.
 export fn mul_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_i64(out, i, simd.load2_i64(a, i) *% simd.load2_i64(b, i));
+    }
     while (i < N) : (i += 1) {
         out[i] = a[i] *% b[i];
     }
 }
 
-/// Element-wise multiply scalar for i64, scalar loop (no i64x2.mul in WASM SIMD).
-/// Handles both signed (i64) and unsigned (u64).
+/// Element-wise multiply scalar for i64, scalar loop.
+/// i64x2.mul exists but has no single-instruction hardware backing (NEON and
+/// SSE both expand it), so it only pays off when the loop is memory-bound like
+/// the two-array mul_i64 above. With one input array this is compute-bound and
+/// the vector form measured ~10% slower, so keep it scalar.
 export fn mul_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {

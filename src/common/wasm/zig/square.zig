@@ -83,8 +83,11 @@ export fn square_c64(a: [*]const f32, out: [*]f32, N: u32) void {
     }
 }
 
-/// Element-wise square for i64, scalar loop (no i64x2.mul in WASM SIMD).
+/// Element-wise square for i64, scalar loop.
 /// Handles both signed (i64) and unsigned (u64).
+/// i64x2.mul is not a single hardware instruction on NEON or SSE, so with one
+/// input array this loop is compute-bound and the vector form measured ~10%
+/// slower. See mul.zig for the memory-bound two-array case where it does pay.
 export fn square_i64(a: [*]const i64, out: [*]i64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
