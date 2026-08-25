@@ -8,7 +8,7 @@
  */
 
 import { Complex } from '../complex';
-import { isBigIntDType, mathResultDtype, promoteDTypes } from '../dtype';
+import { isBigIntDType, isComplexDType, mathResultDtype, promoteDTypes } from '../dtype';
 import { ArrayStorage } from '../storage';
 
 /**
@@ -217,6 +217,42 @@ export function elementwiseComparisonOp(
 ): ArrayStorage {
   // Compute broadcast shape
   const outputShape = broadcastShapes(a.shape, b.shape);
+
+  // FAST PATH: same shape, both contiguous, non-BigInt — mirrors the arithmetic
+  // fast path above. Avoids building broadcast views and the per-element
+  // iget()/Number() work, which costs far more than the comparison itself:
+  // multi-dimensional index arithmetic per element made a [100x100] compare
+  // ~22x slower than a direct typed-array loop.
+  const aShape = a.shape;
+  const bShape = b.shape;
+  if (
+    aShape.length === bShape.length &&
+    aShape.every((dim, i) => dim === bShape[i]) &&
+    a.isCContiguous &&
+    b.isCContiguous &&
+    !isBigIntDType(a.dtype) &&
+    !isBigIntDType(b.dtype) &&
+    !isComplexDType(a.dtype) &&
+    !isComplexDType(b.dtype)
+  ) {
+    const fastResult = ArrayStorage.empty(Array.from(aShape), 'bool');
+    const fastData = fastResult.data as Uint8Array;
+    const n = a.size;
+    const aData = a.data;
+    const bData = b.data;
+    const aOff = a.offset;
+    const bOff = b.offset;
+    if (aOff === 0 && bOff === 0) {
+      for (let i = 0; i < n; i++) {
+        fastData[i] = op(aData[i] as number, bData[i] as number) ? 1 : 0;
+      }
+    } else {
+      for (let i = 0; i < n; i++) {
+        fastData[i] = op(aData[aOff + i] as number, bData[bOff + i] as number) ? 1 : 0;
+      }
+    }
+    return fastResult;
+  }
 
   // Create broadcast views
   const aBroadcast = broadcastTo(a, outputShape);
