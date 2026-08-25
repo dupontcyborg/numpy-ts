@@ -156,6 +156,83 @@ export fn divmod_scalar_u8(a: [*]const u8, out_q: [*]u8, out_r: [*]u8, N: u32, s
     }
 }
 
+// --- Array / array (same dtype, same shape) ---
+
+/// Fused divmod for f64 arrays: 2-wide SIMD.
+export fn divmod_f64(a: [*]const f64, b: [*]const f64, out_q: [*]f64, out_r: [*]f64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v = simd.load2_f64(a, i);
+        const s = simd.load2_f64(b, i);
+        const q = @floor(v / s);
+        simd.store2_f64(out_q, i, q);
+        simd.store2_f64(out_r, i, v - q * s);
+    }
+    while (i < N) : (i += 1) {
+        const q = @floor(a[i] / b[i]);
+        out_q[i] = q;
+        out_r[i] = a[i] - q * b[i];
+    }
+}
+
+/// Fused divmod for f32 arrays: 4-wide SIMD.
+export fn divmod_f32(a: [*]const f32, b: [*]const f32, out_q: [*]f32, out_r: [*]f32, N: u32) void {
+    const n_simd = N & ~@as(u32, 3);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += 4) {
+        const v = simd.load4_f32(a, i);
+        const s = simd.load4_f32(b, i);
+        const q = @floor(v / s);
+        simd.store4_f32(out_q, i, q);
+        simd.store4_f32(out_r, i, v - q * s);
+    }
+    while (i < N) : (i += 1) {
+        const q = @floor(a[i] / b[i]);
+        out_q[i] = q;
+        out_r[i] = a[i] - q * b[i];
+    }
+}
+
+/// Integer divmod for arrays. Division by zero writes 0/0, matching the
+/// scalar kernels and NumPy's integer behaviour.
+inline fn divmodIntArr(comptime T: type, a: [*]const T, b: [*]const T, out_q: [*]T, out_r: [*]T, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) {
+        if (b[i] != 0) {
+            out_q[i] = @divFloor(a[i], b[i]);
+            out_r[i] = @mod(a[i], b[i]);
+        } else {
+            out_q[i] = 0;
+            out_r[i] = 0;
+        }
+    }
+}
+export fn divmod_i64(a: [*]const i64, b: [*]const i64, out_q: [*]i64, out_r: [*]i64, N: u32) void {
+    divmodIntArr(i64, a, b, out_q, out_r, N);
+}
+export fn divmod_u64(a: [*]const u64, b: [*]const u64, out_q: [*]u64, out_r: [*]u64, N: u32) void {
+    divmodIntArr(u64, a, b, out_q, out_r, N);
+}
+export fn divmod_i32(a: [*]const i32, b: [*]const i32, out_q: [*]i32, out_r: [*]i32, N: u32) void {
+    divmodIntArr(i32, a, b, out_q, out_r, N);
+}
+export fn divmod_u32(a: [*]const u32, b: [*]const u32, out_q: [*]u32, out_r: [*]u32, N: u32) void {
+    divmodIntArr(u32, a, b, out_q, out_r, N);
+}
+export fn divmod_i16(a: [*]const i16, b: [*]const i16, out_q: [*]i16, out_r: [*]i16, N: u32) void {
+    divmodIntArr(i16, a, b, out_q, out_r, N);
+}
+export fn divmod_u16(a: [*]const u16, b: [*]const u16, out_q: [*]u16, out_r: [*]u16, N: u32) void {
+    divmodIntArr(u16, a, b, out_q, out_r, N);
+}
+export fn divmod_i8(a: [*]const i8, b: [*]const i8, out_q: [*]i8, out_r: [*]i8, N: u32) void {
+    divmodIntArr(i8, a, b, out_q, out_r, N);
+}
+export fn divmod_u8(a: [*]const u8, b: [*]const u8, out_q: [*]u8, out_r: [*]u8, N: u32) void {
+    divmodIntArr(u8, a, b, out_q, out_r, N);
+}
+
 // --- Tests ---
 
 test "divmod_scalar_f64 basic" {

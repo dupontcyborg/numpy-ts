@@ -29,7 +29,7 @@ import { wasmAbs } from '../wasm/abs';
 import { wasmAdd, wasmAddScalar } from '../wasm/add';
 import { wasmClip } from '../wasm/clip';
 import { wasmDiv, wasmDivScalar } from '../wasm/divide';
-import { wasmDivmodScalar } from '../wasm/divmod';
+import { wasmDivmod, wasmDivmodScalar } from '../wasm/divmod';
 import { wasmFrexp } from '../wasm/frexp';
 import { wasmGcd, wasmGcdScalar } from '../wasm/gcd';
 import { wasmHeaviside, wasmHeavisideScalar } from '../wasm/heaviside';
@@ -37,7 +37,14 @@ import { wasmLdexpScalar } from '../wasm/ldexp';
 import { wasmMax, wasmMaxScalar } from '../wasm/max';
 import { wasmMin, wasmMinScalar } from '../wasm/min';
 import { wasmModf } from '../wasm/modf';
-import { wasmFloorDivScalar, wasmFmodScalar, wasmModScalar } from '../wasm/modulo';
+import {
+  wasmFloorDiv,
+  wasmFloorDivScalar,
+  wasmFmod,
+  wasmFmodScalar,
+  wasmMod,
+  wasmModScalar,
+} from '../wasm/modulo';
 import { wasmMul, wasmMulScalar } from '../wasm/mul';
 import { wasmNeg } from '../wasm/neg';
 import { wasmReciprocal } from '../wasm/reciprocal';
@@ -1287,6 +1294,9 @@ export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   if (b.size === 1 && a.dtype === b.dtype) {
     return modScalar(a, Number(b.iget(0)));
   }
+  const wasmArr = wasmMod(a, b);
+  if (wasmArr) return wasmArr;
+
   // NumPy uses floor modulo: ((x % y) + y) % y for proper sign handling
   return elementwiseBinaryOp(a, b, (x, y) => ((x % y) + y) % y, 'mod');
 }
@@ -1364,6 +1374,9 @@ export function floorDivide(a: ArrayStorage, b: ArrayStorage | number): ArraySto
   if (b.size === 1 && a.dtype === b.dtype) {
     return floorDivideScalar(a, Number(b.iget(0)));
   }
+  const wasmArr = wasmFloorDiv(a, b);
+  if (wasmArr) return wasmArr;
+
   return elementwiseBinaryOp(a, b, (x, y) => Math.floor(x / y), 'floor_divide');
 }
 
@@ -1658,6 +1671,11 @@ export function divmod(a: ArrayStorage, b: ArrayStorage | number): [ArrayStorage
     if (wasm) return wasm;
   } else if (b.size === 1 && a.dtype === b.dtype) {
     const wasm = wasmDivmodScalar(a, Number(b.iget(0)));
+    if (wasm) return wasm;
+  } else {
+    // Matching dtype and shape: one fused pass instead of separate
+    // floorDivide + mod through the generic JS path.
+    const wasm = wasmDivmod(a, b);
     if (wasm) return wasm;
   }
   const quotient = floorDivide(a, b);
@@ -2059,6 +2077,9 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   if (x2.size === 1 && x1.dtype === x2.dtype) {
     return fmodScalar(x1, Number(x2.iget(0)));
   }
+
+  const wasmArr = wasmFmod(x1, x2);
+  if (wasmArr) return wasmArr;
 
   return elementwiseBinaryOp(x1, x2, (a, b) => a - Math.trunc(a / b) * b, 'fmod');
 }
