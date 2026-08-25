@@ -201,15 +201,20 @@ export function allclose(
   atol: number = 1e-8,
 ): boolean {
   const closeResult = isclose(a, b, rtol, atol);
-  const data = closeResult.data as Uint8Array;
+  try {
+    const data = closeResult.data as Uint8Array;
 
-  // Check if all values are 1 (true)
-  for (let i = 0; i < closeResult.size; i++) {
-    if (data[i] === 0) {
-      return false;
+    // Check if all values are 1 (true)
+    for (let i = 0; i < closeResult.size; i++) {
+      if (data[i] === 0) {
+        return false;
+      }
     }
+    return true;
+  } finally {
+    // Free the intermediate mask on both exits, including the early return.
+    closeResult.dispose();
   }
-  return true;
 }
 
 /**

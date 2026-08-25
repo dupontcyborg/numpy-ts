@@ -1065,6 +1065,10 @@ export function mask_indices(
   (rowResult.data as Float64Array).set(rows);
   const colResult = ArrayStorage.empty([cols.length], 'float64');
   (colResult.data as Float64Array).set(cols);
+  // Release the ones matrix and the mask it produced; only the index arrays
+  // escape. Guard the case where mask_func returns its own argument.
+  if (mask !== ones) mask.dispose();
+  ones.dispose();
   return [rowResult, colResult];
 }
 
@@ -1518,6 +1522,19 @@ export function apply_along_axis(
     return dt as DType;
   }
 
+  /**
+   * Free per-slice results once they have been copied into the output.
+   * Entries may be numbers or Complex objects as well as storages, so dispose
+   * only what actually owns memory.
+   */
+  const releaseResults = (rs: (ArrayStorage | number)[]): void => {
+    for (const r of rs) {
+      if (r && typeof r === 'object' && typeof (r as ArrayStorage).dispose === 'function') {
+        (r as ArrayStorage).dispose();
+      }
+    }
+  };
+
   if (ndim === 2) {
     const [rows, cols] = shape;
 
@@ -1525,7 +1542,12 @@ export function apply_along_axis(
       // Apply function to each column
       const results: (ArrayStorage | number)[] = [];
       for (let c = 0; c < cols!; c++) {
-        results.push(func1d(extractSlice1D(rows!, (r) => arr.get(r, c)!)));
+        // Free the temporary slice as soon as func1d has consumed it. Guard the
+        // identity case (func1d returning its own argument) before disposing.
+        const slice = extractSlice1D(rows!, (r) => arr.get(r, c)!);
+        const out = func1d(slice);
+        results.push(out);
+        if (out !== slice) slice.dispose();
       }
 
       const firstResult = results[0];
@@ -1538,6 +1560,7 @@ export function apply_along_axis(
         for (let c = 0; c < cols!; c++) {
           writeScalar(resultArr, c, results[c] as number);
         }
+        releaseResults(results);
         return resultArr;
       } else {
         const arrFirst = firstResult as ArrayStorage;
@@ -1549,13 +1572,19 @@ export function apply_along_axis(
             resultArr.iset(r * cols! + c, res.iget(r) as number);
           }
         }
+        releaseResults(results);
         return resultArr;
       }
     } else {
       // Apply function to each row
       const results: (ArrayStorage | number)[] = [];
       for (let r = 0; r < rows!; r++) {
-        results.push(func1d(extractSlice1D(cols!, (c) => arr.get(r, c)!)));
+        // Free the temporary slice as soon as func1d has consumed it. Guard the
+        // identity case (func1d returning its own argument) before disposing.
+        const slice = extractSlice1D(cols!, (c) => arr.get(r, c)!);
+        const out = func1d(slice);
+        results.push(out);
+        if (out !== slice) slice.dispose();
       }
 
       const firstResult = results[0];
@@ -1568,6 +1597,7 @@ export function apply_along_axis(
         for (let r = 0; r < rows!; r++) {
           writeScalar(resultArr, r, results[r] as number);
         }
+        releaseResults(results);
         return resultArr;
       } else {
         const arrFirst = firstResult as ArrayStorage;
@@ -1579,6 +1609,7 @@ export function apply_along_axis(
             resultArr.iset(r * res.size + c, res.iget(c) as number);
           }
         }
+        releaseResults(results);
         return resultArr;
       }
     }
@@ -1684,16 +1715,35 @@ export function apply_over_axes(
       throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
     }
 
-    // Apply function along axis and keep dimensions
+    // Apply function along axis and keep dimensions. The value handed to func
+    // is ours to release once func has produced its replacement (never `arr`,
+    // which the caller owns).
+    const consumed = result;
     result = func(result, normalizedAxis);
+    if (consumed !== arr && consumed !== result) consumed.dispose();
 
     // NumPy's apply_over_axes keeps dimensions if the result has fewer dimensions
-    // by inserting a new axis
+    // by inserting a new axis.
+    //
+    // Reshape by sharing the region rather than re-wrapping the raw buffer:
+    // `new ArrayStorage(result.data, ...)` would leave the old handle owning the
+    // region, so it leaks — and worse, its finalizer could release memory the
+    // reshaped handle still points into. fromDataShared retains, so releasing
+    // the old handle afterwards leaves a correct refcount.
     if (result.shape.length < ndim) {
       const newShape = Array.from(result.shape);
       newShape.splice(normalizedAxis, 0, 1);
       const newStrides = computeStrides(newShape);
-      result = new ArrayStorage(result.data, newShape, newStrides, 0, result.dtype);
+      const reshaped = ArrayStorage.fromDataShared(
+        result.data,
+        newShape,
+        result.dtype,
+        newStrides,
+        0,
+        result.wasmRegion,
+      );
+      if (result !== arr) result.dispose();
+      result = reshaped;
     }
   }
 

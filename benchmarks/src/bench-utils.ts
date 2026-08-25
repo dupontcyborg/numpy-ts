@@ -600,11 +600,7 @@ const OPERATIONS: Record<string, OpFn> = {
   isclose: (a) => np.isclose(a['a'], a['b']),
   iscomplex: (a) => np.iscomplex(a['a']),
   isin: (a) => np.isin(a['a'], a['b']),
-  ix_: (a) =>
-    (() => {
-      const r = np.ix_(a['a'], a['b']);
-      return np.concatenate([np.ravel(r[0]), np.ravel(r[1])]);
-    })(),
+  ix_: (a) => np.ix_(a['a'], a['b']),
   less: (a) => np.less(a['a'], a['b']),
   less_equal: (a) => np.less_equal(a['a'], a['b']),
   mask_indices: (a) => np.mask_indices(a['n'], (m, k) => np.triu(m, k)),

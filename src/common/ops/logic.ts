@@ -642,7 +642,9 @@ export function isinf(a: ArrayStorage): ArrayStorage {
         data[i] = reInf || imInf ? 1 : 0;
       }
     } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never infinite
+      // Integer and BigInt values are never infinite. ArrayStorage.empty may
+      // hand back a recycled buffer, so zero it explicitly.
+      data.fill(0, 0, size);
     } else {
       if (off === 0) {
         for (let i = 0; i < size; i++) {
@@ -665,7 +667,9 @@ export function isinf(a: ArrayStorage): ArrayStorage {
         data[i] = reInf || imInf ? 1 : 0;
       }
     } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never infinite
+      // Integer and BigInt values are never infinite. ArrayStorage.empty may
+      // hand back a recycled buffer, so zero it explicitly.
+      data.fill(0, 0, size);
     } else {
       for (let i = 0; i < size; i++) {
         const val = Number(a.iget(i));
@@ -706,7 +710,9 @@ export function isnan(a: ArrayStorage): ArrayStorage {
         data[i] = Number.isNaN(re) || Number.isNaN(im) ? 1 : 0;
       }
     } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never NaN — data is already zero-filled
+      // Integer and BigInt values are never NaN. ArrayStorage.empty may hand
+      // back a recycled buffer, so zero it explicitly rather than assuming.
+      data.fill(0, 0, size);
     } else {
       // v !== v is true only for NaN (IEEE 754: NaN != NaN)
       for (let i = 0; i < size; i++) {
@@ -721,7 +727,9 @@ export function isnan(a: ArrayStorage): ArrayStorage {
         data[i] = val.re !== val.re || val.im !== val.im ? 1 : 0;
       }
     } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never NaN — data is already zero-filled
+      // Integer and BigInt values are never NaN. ArrayStorage.empty may hand
+      // back a recycled buffer, so zero it explicitly rather than assuming.
+      data.fill(0, 0, size);
     } else {
       for (let i = 0; i < size; i++) {
         const v = Number(a.iget(i));
@@ -745,7 +753,9 @@ export function isnan(a: ArrayStorage): ArrayStorage {
 export function isnat(a: ArrayStorage): ArrayStorage {
   // Without datetime support, nothing is NaT
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
-  // All zeros (false) by default — Uint8Array is zero-initialized
+  // ArrayStorage.empty may hand back a recycled buffer, so zero it explicitly
+  // rather than relying on a fresh Uint8Array.
+  (result.data as Uint8Array).fill(0, 0, a.size);
   return result;
 }
 
@@ -1331,8 +1341,11 @@ export function iscomplex(a: ArrayStorage): ArrayStorage {
         data[i] = val.im !== 0 ? 1 : 0;
       }
     }
+  } else {
+    // Real arrays have no imaginary part, so every element is false.
+    // ArrayStorage.empty may hand back a recycled buffer — zero it explicitly.
+    data.fill(0, 0, size);
   }
-  // For real arrays, all elements are false (initialized to 0)
 
   return result;
 }

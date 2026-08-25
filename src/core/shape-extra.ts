@@ -24,14 +24,21 @@ export function append(
     values instanceof NDArrayCore ? values : array(Array.isArray(values) ? values : [values]);
 
   if (axis === undefined) {
-    // Flatten both and concatenate
+    // Flatten both and concatenate. flatten() always copies, so the
+    // intermediates own their buffers and must be released.
     const flatArr = flatten(arr);
     const flatValues = flatten(valuesArr);
-    return concatenate([flatArr, flatValues], 0);
+    const result = concatenate([flatArr, flatValues], 0);
+    flatArr.dispose();
+    flatValues.dispose();
+    if (valuesArr !== values) valuesArr.dispose();
+    return result;
   }
 
   // Concatenate along axis
-  return concatenate([arr, valuesArr], axis);
+  const result = concatenate([arr, valuesArr], axis);
+  if (valuesArr !== values) valuesArr.dispose();
+  return result;
 }
 
 /**
@@ -146,80 +153,87 @@ export function insert(
     // Flatten and insert
     const flat = flatten(arr);
     const flatValues = flatten(valuesArr);
-    const dtype = arr.dtype as DType;
-    const isComplex = isComplexDType(dtype);
+    try {
+      const dtype = arr.dtype as DType;
+      const isComplex = isComplexDType(dtype);
 
-    if (isComplex) {
-      // Complex path: work with Complex objects via iget/iset
-      const flatSize = flat.size;
-      const valSize = flatValues.size;
-      const items: Complex[] = [];
-      for (let i = 0; i < flatSize; i++) {
-        items.push(flat.storage.iget(i) as Complex);
+      if (isComplex) {
+        // Complex path: work with Complex objects via iget/iset
+        const flatSize = flat.size;
+        const valSize = flatValues.size;
+        const items: Complex[] = [];
+        for (let i = 0; i < flatSize; i++) {
+          items.push(flat.storage.iget(i) as Complex);
+        }
+
+        if (indices.length === 1) {
+          const rawIdx = indices[0]!;
+          const idx = rawIdx < 0 ? flatSize + rawIdx : rawIdx;
+          const vals: Complex[] = [];
+          for (let i = 0; i < valSize; i++) {
+            const v = flatValues.storage.iget(i);
+            vals.push(v instanceof Complex ? v : new Complex(Number(v), 0));
+          }
+          items.splice(idx, 0, ...vals);
+        } else {
+          const indexPairs = indices
+            .map((rawIdx, i) => ({
+              idx: rawIdx < 0 ? flatSize + rawIdx : rawIdx,
+              valIdx: i,
+            }))
+            .sort((a, b) => a.idx - b.idx);
+
+          for (let i = 0; i < indexPairs.length; i++) {
+            const { idx, valIdx } = indexPairs[i]!;
+            const v = flatValues.storage.iget(valIdx % valSize);
+            const val = v instanceof Complex ? v : new Complex(Number(v), 0);
+            items.splice(idx + i, 0, val);
+          }
+        }
+
+        const resultStorage = ArrayStorage.empty([items.length], dtype);
+        const resultData = resultStorage.data as Float64Array | Float32Array;
+        for (let i = 0; i < items.length; i++) {
+          resultData[i * 2] = items[i]!.re;
+          resultData[i * 2 + 1] = items[i]!.im;
+        }
+        return new NDArrayCore(resultStorage);
       }
 
+      const flatData = flat.data;
+      const valuesData = flatValues.data;
+      const result: number[] = Array.from(flatData as unknown as ArrayLike<number>);
+
       if (indices.length === 1) {
+        // Single index: insert all values at that position
         const rawIdx = indices[0]!;
-        const idx = rawIdx < 0 ? flatSize + rawIdx : rawIdx;
-        const vals: Complex[] = [];
-        for (let i = 0; i < valSize; i++) {
-          const v = flatValues.storage.iget(i);
-          vals.push(v instanceof Complex ? v : new Complex(Number(v), 0));
-        }
-        items.splice(idx, 0, ...vals);
+        const idx = rawIdx < 0 ? flat.size + rawIdx : rawIdx;
+        const vals: number[] = Array.from(valuesData as unknown as ArrayLike<number>);
+        result.splice(idx, 0, ...vals);
       } else {
+        // Multiple indices: insert one value per index (cycling through values)
+        // Sort indices ascending for correct offset tracking
         const indexPairs = indices
           .map((rawIdx, i) => ({
-            idx: rawIdx < 0 ? flatSize + rawIdx : rawIdx,
+            idx: rawIdx < 0 ? flat.size + rawIdx : rawIdx,
             valIdx: i,
           }))
           .sort((a, b) => a.idx - b.idx);
 
         for (let i = 0; i < indexPairs.length; i++) {
           const { idx, valIdx } = indexPairs[i]!;
-          const v = flatValues.storage.iget(valIdx % valSize);
-          const val = v instanceof Complex ? v : new Complex(Number(v), 0);
-          items.splice(idx + i, 0, val);
+          const val = valuesData[valIdx % valuesData.length] as number;
+          result.splice(idx + i, 0, val);
         }
       }
 
-      const resultStorage = ArrayStorage.empty([items.length], dtype);
-      const resultData = resultStorage.data as Float64Array | Float32Array;
-      for (let i = 0; i < items.length; i++) {
-        resultData[i * 2] = items[i]!.re;
-        resultData[i * 2 + 1] = items[i]!.im;
-      }
-      return new NDArrayCore(resultStorage);
+      return array(result, dtype);
+    } finally {
+      // flatten() copies, so both intermediates own their buffers.
+      flat.dispose();
+      flatValues.dispose();
+      if (valuesArr !== values) valuesArr.dispose();
     }
-
-    const flatData = flat.data;
-    const valuesData = flatValues.data;
-    const result: number[] = Array.from(flatData as unknown as ArrayLike<number>);
-
-    if (indices.length === 1) {
-      // Single index: insert all values at that position
-      const rawIdx = indices[0]!;
-      const idx = rawIdx < 0 ? flat.size + rawIdx : rawIdx;
-      const vals: number[] = Array.from(valuesData as unknown as ArrayLike<number>);
-      result.splice(idx, 0, ...vals);
-    } else {
-      // Multiple indices: insert one value per index (cycling through values)
-      // Sort indices ascending for correct offset tracking
-      const indexPairs = indices
-        .map((rawIdx, i) => ({
-          idx: rawIdx < 0 ? flat.size + rawIdx : rawIdx,
-          valIdx: i,
-        }))
-        .sort((a, b) => a.idx - b.idx);
-
-      for (let i = 0; i < indexPairs.length; i++) {
-        const { idx, valIdx } = indexPairs[i]!;
-        const val = valuesData[valIdx % valuesData.length] as number;
-        result.splice(idx + i, 0, val);
-      }
-    }
-
-    return array(result, dtype);
   }
 
   // Insert along axis - simplified implementation

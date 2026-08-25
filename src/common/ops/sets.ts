@@ -591,6 +591,8 @@ export function intersect1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage 
       resultData[i * 2] = unique1Data[idx * 2]!;
       resultData[i * 2 + 1] = unique1Data[idx * 2 + 1]!;
     }
+    unique1.dispose();
+    unique2.dispose();
     return result;
   }
 
@@ -599,6 +601,8 @@ export function intersect1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage 
   for (let i = 0; i < intersectionIndices.length; i++) {
     resultData[i] = unique1.data[intersectionIndices[i]!]!;
   }
+  unique1.dispose();
+  unique2.dispose();
   return result;
 }
 
@@ -657,6 +661,7 @@ export function setdiff1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
       resultData[i * 2] = unique1Data[idx * 2]!;
       resultData[i * 2 + 1] = unique1Data[idx * 2 + 1]!;
     }
+    unique1.dispose();
     return result;
   }
 
@@ -665,6 +670,7 @@ export function setdiff1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   for (let i = 0; i < diffIndices.length; i++) {
     resultData[i] = unique1.data[diffIndices[i]!]!;
   }
+  unique1.dispose();
   return result;
 }
 
@@ -726,6 +732,8 @@ export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
       resultData[i * 2] = xorValues[i]!.re;
       resultData[i * 2 + 1] = xorValues[i]!.im;
     }
+    unique1.dispose();
+    unique2.dispose();
     return result;
   }
 
@@ -750,6 +758,8 @@ export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   for (let i = 0; i < xorValues.length; i++) {
     resultData[i] = xorValues[i]!;
   }
+  unique1.dispose();
+  unique2.dispose();
   return result;
 }
 
@@ -797,6 +807,8 @@ export function union1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
       resultData[i * 2] = unionValues[i]!.re;
       resultData[i * 2 + 1] = unionValues[i]!.im;
     }
+    unique1.dispose();
+    unique2.dispose();
     return result;
   }
 
@@ -830,6 +842,8 @@ export function union1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
   for (let i = 0; i < realValues.length; i++) {
     resultData[i] = realValues[i]!;
   }
+  unique1.dispose();
+  unique2.dispose();
   return result;
 }
 
