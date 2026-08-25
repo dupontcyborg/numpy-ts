@@ -17,16 +17,22 @@
  * They are static — no NumPy, no timing, no WASM. Cheap enough for every run.
  */
 
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   CATEGORY_DTYPE_SUPPORT,
+  DATA_ARRAY_KEYS,
   FAMILY_VARIANTS,
   getBenchmarkSpecs,
+  INT_ONLY_OPERATIONS,
   PINNED_INDEX_DTYPE_OPERATIONS,
   SKIP_COMPLEX_OPERATIONS,
   SKIP_DTYPE_OPERATIONS,
   SKIP_FLOAT16_OPERATIONS,
   SKIP_INT_OPERATIONS,
+  SKIP_INT64_BROADCAST_OPERATIONS,
+  SKIP_INT64_OPERATIONS,
   SKIP_NARROW_INT_OPERATIONS,
   SKIP_UINT_OPERATIONS,
 } from '../../benchmarks/src/specs';
@@ -59,11 +65,31 @@ function dtypeOf(name: string): string {
 
 /** operation -> { dtypes swept, category } */
 const byOperation = (() => {
-  const m = new Map<string, { dtypes: Set<string>; category: string }>();
+  const m = new Map<
+    string,
+    {
+      dtypes: Set<string>;
+      category: string;
+      /** A `value:` fill blocks complex variants (np.full with complex is broken). */
+      hasValueFill: boolean;
+      /** Mixed operand shapes block complex variants (complex broadcasting is buggy). */
+      shapesDiffer: boolean;
+      /** A negative `value:` fill blocks uint variants (NumPy raises OverflowError). */
+      hasNegativeValue: boolean;
+    }
+  >();
   for (const spec of specs) {
     let entry = m.get(spec.operation);
     if (!entry) {
-      entry = { dtypes: new Set(), category: spec.category };
+      // The first spec seen for an operation is its base; variants follow it.
+      const data = Object.entries(spec.setup).filter(([k]) => DATA_ARRAY_KEYS.has(k));
+      entry = {
+        dtypes: new Set(),
+        category: spec.category,
+        hasValueFill: data.some(([, e]) => e.value !== undefined),
+        shapesDiffer: new Set(data.map(([, e]) => JSON.stringify(e.shape))).size > 1,
+        hasNegativeValue: data.some(([, e]) => typeof e.value === 'number' && e.value < 0),
+      };
       m.set(spec.operation, entry);
     }
     entry.dtypes.add(dtypeOf(spec.name));
@@ -78,6 +104,9 @@ const SKIP_LISTS: [string, ReadonlySet<string>][] = [
   ['SKIP_COMPLEX_OPERATIONS', SKIP_COMPLEX_OPERATIONS],
   ['SKIP_FLOAT16_OPERATIONS', SKIP_FLOAT16_OPERATIONS],
   ['SKIP_NARROW_INT_OPERATIONS', SKIP_NARROW_INT_OPERATIONS],
+  ['SKIP_INT64_OPERATIONS', SKIP_INT64_OPERATIONS],
+  ['SKIP_INT64_BROADCAST_OPERATIONS', SKIP_INT64_BROADCAST_OPERATIONS],
+  ['INT_ONLY_OPERATIONS', INT_ONLY_OPERATIONS],
   ['PINNED_INDEX_DTYPE_OPERATIONS', PINNED_INDEX_DTYPE_OPERATIONS],
 ];
 
@@ -147,6 +176,74 @@ describe('benchmark dtype coverage', () => {
       'Integer-only categories (e.g. bitwise) have no float64 base, so their ' +
         'int32/uint32 base dtype must remain sweepable. If these are short, the ' +
         'generator is treating a category default as a semantic dtype pin.\n',
+    ).toEqual([]);
+  });
+
+  it('every dtype absent from an operation is explained by a skip list', () => {
+    // Rather than re-deriving what the generator should emit (which would just
+    // duplicate its bugs), assert the weaker but sharper property: for each
+    // operation, any dtype its category supports but the suite does not run
+    // must be accounted for by a named skip list. A silently dropped dtype has
+    // no explanation and fails here.
+    const FAMILY_OF: Record<string, 'float' | 'int' | 'uint' | 'complex'> = {
+      float64: 'float',
+      float32: 'float',
+      float16: 'float',
+      int8: 'int',
+      int16: 'int',
+      int32: 'int',
+      int64: 'int',
+      uint8: 'uint',
+      uint16: 'uint',
+      uint32: 'uint',
+      uint64: 'uint',
+      complex128: 'complex',
+      complex64: 'complex',
+    };
+    const NARROW = new Set(['int8', 'int16', 'uint8', 'uint16']);
+    const WIDE64 = new Set(['int64', 'uint64']);
+
+    const unexplained: string[] = [];
+    for (const [operation, meta] of byOperation) {
+      const { dtypes, category } = meta;
+      const families = CATEGORY_DTYPE_SUPPORT[category];
+      if (!families) continue; // category never swept (random, utilities)
+      // Declared single-dtype operations are covered by their own test above.
+      if (SKIP_DTYPE_OPERATIONS.has(operation)) continue;
+      if (PINNED_INDEX_DTYPE_OPERATIONS.has(operation)) continue;
+      // Handwritten complex specs already target complex128 directly.
+      if (operation.startsWith('complex_')) continue;
+      // Integer-only ops (gcd/lcm) take no float or complex variants by design.
+      const intOnly = INT_ONLY_OPERATIONS.has(operation);
+      const complexBlockedBySetup = meta.hasValueFill || meta.shapesDiffer;
+
+      for (const family of families) {
+        for (const { dtype } of FAMILY_VARIANTS[family]) {
+          if (dtypes.has(dtype)) continue;
+          if (FAMILY_OF[dtype] !== family) continue;
+          if (intOnly && family !== 'int' && family !== 'uint') continue;
+          const excused =
+            (family === 'complex' &&
+              (SKIP_COMPLEX_OPERATIONS.has(operation) || complexBlockedBySetup)) ||
+            (family === 'uint' && meta.hasNegativeValue) ||
+            ((family === 'int' || family === 'uint') && SKIP_INT_OPERATIONS.has(operation)) ||
+            (family === 'uint' && SKIP_UINT_OPERATIONS.has(operation)) ||
+            (dtype === 'float16' && SKIP_FLOAT16_OPERATIONS.has(operation)) ||
+            (NARROW.has(dtype) && SKIP_NARROW_INT_OPERATIONS.has(operation)) ||
+            (WIDE64.has(dtype) && SKIP_INT64_OPERATIONS.has(operation)) ||
+            (WIDE64.has(dtype) &&
+              SKIP_INT64_BROADCAST_OPERATIONS.has(operation) &&
+              meta.shapesDiffer);
+          if (!excused) unexplained.push(`${operation} (${category}) is missing ${dtype}`);
+        }
+      }
+    }
+    expect(
+      unexplained,
+      'These operations skip a dtype their category supports, with nothing to ' +
+        'explain it. Either the spec pins a dtype that blocks the sweep, or the ' +
+        'dtype genuinely cannot work — in which case add the operation to the ' +
+        'matching SKIP_* list so the omission is on the record.\n',
     ).toEqual([]);
   });
 
@@ -297,106 +394,16 @@ const NOT_BENCHMARKABLE = new Set<string>([
 ]);
 
 /**
- * Ratchet: public functions that *should* have a benchmark but do not yet.
- * This list may only shrink. Adding a benchmark for one of these requires
- * removing it here, and a new uncovered function fails the test rather than
- * silently joining the backlog.
- *
- * Notable clusters: the comparison family (equal/less/greater/...), the
- * rounding family (ceil/floor/round/rint/trunc/fix), and the nan* reductions.
+ * Public functions that cannot be cross-validated against NumPy, so they get no
+ * benchmark. Distinct from NOT_BENCHMARKABLE: these *do* real work and would be
+ * worth measuring — the harness just cannot check them for correctness, and an
+ * unvalidated benchmark is worse than none.
  */
-const MISSING_BENCHMARK = new Set<string>([
-  'allclose',
-  'angle',
-  'append',
-  'apply_along_axis',
-  'apply_over_axes',
-  'array_equal',
-  'array_equiv',
-  'array_split',
-  'atleast_1d',
-  'atleast_2d',
-  'atleast_3d',
-  'broadcast_arrays',
-  'broadcast_shapes',
-  'ceil',
-  'choose',
-  'column_stack',
-  'diag_indices_from',
-  'diagflat',
-  'dsplit',
-  'dstack',
-  'ediff1d',
+const NOT_CROSS_VALIDATABLE = new Set<string>([
+  // numpy-ts returns [path, report]; NumPy returns (['einsum_path', ...], report).
+  // The path element is structurally different, so no projection of the result
+  // is comparable across the two.
   'einsum_path',
-  'empty_like',
-  'equal',
-  'expand_dims',
-  'expm1',
-  'fill_diagonal',
-  'fix',
-  'fliplr',
-  'flipud',
-  'floor',
-  'fromfunction',
-  'fromiter',
-  'full_like',
-  'greater',
-  'greater_equal',
-  'histogramdd',
-  'hsplit',
-  'imag',
-  'insert',
-  'intersect1d',
-  'isclose',
-  'iscomplex',
-  'isin',
-  'isinf',
-  'ix_',
-  'less',
-  'less_equal',
-  'log1p',
-  'logaddexp2',
-  'mask_indices',
-  'meshgrid',
-  'moveaxis',
-  'nanargmax',
-  'nanargmin',
-  'nancumprod',
-  'nancumsum',
-  'nanmedian',
-  'nanprod',
-  'nanstd',
-  'nanvar',
-  'nextafter',
-  'not_equal',
-  'ones_like',
-  'place',
-  'put',
-  'put_along_axis',
-  'putmask',
-  'real',
-  'real_if_close',
-  'resize',
-  'rint',
-  'rollaxis',
-  'round',
-  'select',
-  'setdiff1d',
-  'setxor1d',
-  'sort_complex',
-  'spacing',
-  'split',
-  'squeeze',
-  'tensordot',
-  'tril_indices_from',
-  'triu_indices_from',
-  'trunc',
-  'union1d',
-  'unique',
-  'unique_all',
-  'unique_inverse',
-  'vander',
-  'vsplit',
 ]);
 
 describe('benchmark function coverage', () => {
@@ -415,40 +422,107 @@ describe('benchmark function coverage', () => {
     expect(publicFunctions.length).toBeGreaterThan(300);
   });
 
-  it('every public function is benchmarked or explicitly excepted', () => {
+  it('every public function is benchmarked, or excepted with a reason', () => {
     const unaccounted = publicFunctions
       .filter((f) => !benchmarked.has(f))
-      .filter((f) => !NOT_BENCHMARKABLE.has(f) && !MISSING_BENCHMARK.has(f))
+      .filter((f) => !NOT_BENCHMARKABLE.has(f) && !NOT_CROSS_VALIDATABLE.has(f))
       .sort();
     expect(
       unaccounted,
-      'These public functions have no benchmark and are not declared. Add a ' +
-        'spec in benchmarks/src/specs.ts, or add them to NOT_BENCHMARKABLE ' +
-        '(with a reason) or MISSING_BENCHMARK (the shrink-only backlog).\n',
+      'These public functions have no benchmark. Add a spec in ' +
+        'benchmarks/src/specs.ts (plus the operation in bench-utils.ts, ' +
+        'numpy_benchmark.py, validation.ts and validation.py), or add them to ' +
+        'NOT_BENCHMARKABLE / NOT_CROSS_VALIDATABLE with a reason.\n',
     ).toEqual([]);
   });
 
-  it('the MISSING_BENCHMARK backlog has no stale entries', () => {
-    const nowCovered = [...MISSING_BENCHMARK].filter((f) => benchmarked.has(f)).sort();
+  it('no exception entry is stale (all still lack a benchmark)', () => {
+    const nowCovered = [...NOT_BENCHMARKABLE, ...NOT_CROSS_VALIDATABLE]
+      .filter((f) => benchmarked.has(f))
+      .sort();
     expect(
       nowCovered,
-      'These now have benchmarks — remove them from MISSING_BENCHMARK so the ' +
-        'backlog keeps shrinking and stays trustworthy.\n',
+      'These are listed as exceptions but now have benchmarks. Remove them so ' +
+        'the exception lists stay meaningful.\n',
     ).toEqual([]);
   });
 
   it('exception lists do not overlap and reference real exports', () => {
-    const both = [...MISSING_BENCHMARK].filter((f) => NOT_BENCHMARKABLE.has(f));
-    expect(both, 'listed as both permanently excluded and a todo').toEqual([]);
+    const both = [...NOT_CROSS_VALIDATABLE].filter((f) => NOT_BENCHMARKABLE.has(f));
+    expect(both, 'listed in both exception sets').toEqual([]);
 
     const known = new Set(Object.keys(np));
-    const unknown = [...NOT_BENCHMARKABLE, ...MISSING_BENCHMARK]
+    const unknown = [...NOT_BENCHMARKABLE, ...NOT_CROSS_VALIDATABLE]
       .filter((f) => !known.has(f))
       .sort();
     expect(
       unknown,
       'These exception entries are not exported by numpy-ts. They are stale ' +
         '(renamed or removed) and silently excuse nothing.\n',
+    ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coverage baseline
+// ---------------------------------------------------------------------------
+
+/**
+ * Committed snapshot of which dtypes each operation is benchmarked at.
+ *
+ * The assertions above compare the generated specs against the generator's own
+ * config, so they cannot catch a change to that config — dropping a dtype
+ * family from CATEGORY_DTYPE_SUPPORT lowers both the output and the
+ * expectation, and nothing fails. This baseline is the independent record:
+ * any change in coverage, from any cause, shows up as a diff that has to be
+ * reviewed and committed on purpose.
+ *
+ * Regenerate deliberately (never to "make the test pass"):
+ *   UPDATE_BENCH_COVERAGE=1 npx vitest run --project=unit tests/unit/benchmark-coverage.test.ts
+ */
+// Lives outside tests/unit/ because the unit project's include glob is
+// `tests/unit/**` — a data file there is picked up as a (test-less) test file.
+const BASELINE_PATH = join(__dirname, '../../benchmarks/dtype-coverage-baseline.json');
+
+describe('benchmark coverage baseline', () => {
+  const current: Record<string, string[]> = {};
+  for (const [operation, { dtypes }] of [...byOperation].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    current[operation] = [...dtypes].sort();
+  }
+
+  it('matches the committed dtype-coverage baseline', () => {
+    if (process.env.UPDATE_BENCH_COVERAGE) {
+      writeFileSync(BASELINE_PATH, `${JSON.stringify(current, null, 2)}\n`);
+      return;
+    }
+    const baseline: Record<string, string[]> = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+
+    const lost: string[] = [];
+    const gained: string[] = [];
+    for (const [operation, dtypes] of Object.entries(baseline)) {
+      const now = new Set(current[operation] ?? []);
+      const missing = dtypes.filter((d) => !now.has(d));
+      if (!current[operation]) lost.push(`${operation}: benchmark removed entirely`);
+      else if (missing.length) lost.push(`${operation}: lost ${missing.join(',')}`);
+    }
+    for (const [operation, dtypes] of Object.entries(current)) {
+      const was = new Set(baseline[operation] ?? []);
+      const added = dtypes.filter((d) => !was.has(d));
+      if (!baseline[operation])
+        gained.push(`${operation}: new benchmark (${dtypes.length} dtypes)`);
+      else if (added.length) gained.push(`${operation}: gained ${added.join(',')}`);
+    }
+
+    expect(
+      lost,
+      'Benchmark coverage went DOWN. If that is intended (a dtype genuinely ' +
+        'cannot work), add the operation to the matching SKIP_* list and ' +
+        'regenerate the baseline with UPDATE_BENCH_COVERAGE=1.\n',
+    ).toEqual([]);
+    expect(
+      gained,
+      'Benchmark coverage went UP — nice. Regenerate the baseline with ' +
+        'UPDATE_BENCH_COVERAGE=1 so it keeps protecting the new coverage.\n',
     ).toEqual([]);
   });
 });

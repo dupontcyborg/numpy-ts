@@ -68,26 +68,35 @@ export const MODE_RANK: Record<BenchmarkMode, number> = { quick: 0, standard: 1,
 // Setup keys that represent data arrays (get dtype changed)
 export const DATA_ARRAY_KEYS = new Set(['a', 'b', 'c', 'n', 'shape']);
 
+// Integer-only operations that live in a float-bearing category.
+//
+// `gcd`/`lcm` are defined only for integers, so their base specs pin int32.
+// Their category (arithmetic) does include float, so the int-only-category rule
+// below does not apply and the pin silently blocked the whole sweep — they ran
+// at int32 and nothing else. Declaring them here makes int32/uint32 a sweepable
+// base and restricts the sweep to the int and uint families.
+export const INT_ONLY_OPERATIONS = new Set(['gcd', 'lcm']);
+
 // Operations whose base dtype is a semantic pin rather than a category default:
 // index/count arrays that are meaningless at other dtypes. Declared separately
 // from SKIP_DTYPE_OPERATIONS (which is about numerical instability) so the
 // benchmark-coverage test can tell an intentional single-dtype op from a spec
 // that silently lost its sweep.
 export const PINNED_INDEX_DTYPE_OPERATIONS = new Set([
+  'ix_', // takes index arrays, not data
   'bincount', // bin counts are int32 by definition
   'ravel_multi_index', // multi-index input is int32
 ]);
 
 // Operations to skip for ALL auto dtype variants
 export const SKIP_DTYPE_OPERATIONS = new Set([
+  // No array input to vary (shape/count parameters only)
+  'broadcast_shapes',
+  'fromfunction',
+  'fromiter',
+  'mask_indices',
   // 'linalg_cholesky', // positive-definiteness lost in float32
   'linalg_eigh', // eigenvalue decomposition numerically sensitive
-  'mod', // int overflow issues with narrow types
-  'floor_divide', // int overflow issues
-  'divmod', // int overflow issues
-  'remainder', // same semantics as mod, int overflow issues
-  'gcd', // integer-only, already tests int semantics
-  'lcm', // integer-only, already tests int semantics
   'interp', // special setup, not dtype-variant-friendly
   'unravel_index', // index dtype pinned manually (int32, int64, float64)
   'packbits', // always uint8
@@ -96,6 +105,14 @@ export const SKIP_DTYPE_OPERATIONS = new Set([
 
 // Operations to skip for float16 dtype variants (precision too low for numerical algorithms)
 export const SKIP_FLOAT16_OPERATIONS = new Set([
+  // float16 accumulation overflows to NaN / loses bins where NumPy does not
+  'nanstd',
+  'nanvar',
+  'nancumsum',
+  'nancumprod',
+  'histogramdd',
+  // Accumulating contraction, like dot/einsum
+  'tensordot',
   'linalg_cholesky',
   'linalg_eigh',
   'linalg_svd',
@@ -127,6 +144,11 @@ export const SKIP_FLOAT16_OPERATIONS = new Set([
 
 // Operations to skip for ALL int dtype variants (blocks both int and uint families)
 export const SKIP_INT_OPERATIONS = new Set([
+  // Vandermonde powers overflow; NumPy promotes to int64, we do not
+  'vander',
+  // Real-float-only spacing/step semantics
+  'nextafter',
+  'spacing',
   // Real-float-only ops. These previously sat in SKIP_DTYPE_OPERATIONS, which
   // also suppressed their float32/float16 variants — they are float-family
   // ops, not un-sweepable ops.
@@ -163,10 +185,32 @@ export const SKIP_UINT_OPERATIONS = new Set([
   'sign', // np.sign raises TypeError for uint types
 ]);
 
+// Operations to skip for 64-bit int variants (int64/uint64) only.
+// numpy-ts throws on these paths today (BigInt conversion inside the set
+// helpers), so the benchmark cannot be validated against NumPy.
+// Operations whose 64-bit integer *broadcast* path throws, while their
+// same-shape path is fine. Mirrors the existing "complex broadcasting is buggy"
+// rule below: skip only the mixed-shape variants so the same-shape int64/uint64
+// coverage is kept.
+//
+//   np.gcd(int64[4], int64[4])  -> ok
+//   np.gcd(int64[4], int64[1])  -> TypeError: Cannot convert 1 to a BigInt
+//   np.gcd(int32[4], int32[1])  -> ok  (32-bit broadcast is fine)
+export const SKIP_INT64_BROADCAST_OPERATIONS = new Set(['gcd', 'lcm']);
+
+export const SKIP_INT64_OPERATIONS = new Set([
+  'union1d', // TypeError: Cannot convert 1 to a BigInt
+  'tensordot', // TypeError: Cannot convert <accumulator> to a BigInt
+]);
+
 // Operations to skip for NARROW int types (int8/int16) only.
 // Operations where int8/int16 variants produce different results than NumPy
 // due to overflow affecting ordering/convolution logic.
 export const SKIP_NARROW_INT_OPERATIONS = new Set([
+  // Products overflow differently at int8/int16
+  'nancumprod',
+  'nanprod',
+  'vander',
   'correlate',
   'convolve',
   'unwrap',
@@ -176,6 +220,28 @@ export const SKIP_NARROW_INT_OPERATIONS = new Set([
 
 // Operations to skip for COMPLEX dtype variants
 export const SKIP_COMPLEX_OPERATIONS = new Set([
+  // NumPy raises TypeError: ufunc not supported for complex inputs
+  'mod',
+  'floor_divide',
+  'divmod',
+  // complex running products diverge in the last bits
+  'nancumprod',
+  // Rounding, ordering and real-only predicates reject complex
+  'ceil',
+  'fix',
+  'floor',
+  'isinf',
+  'logaddexp2',
+  'nanargmax',
+  'nanargmin',
+  'nanmedian',
+  'nanstd',
+  'nanvar',
+  'nextafter',
+  'rint',
+  'round',
+  'spacing',
+  'trunc',
   'cbrt',
   'float_power',
   // Linalg: real-only decompositions/solvers
@@ -4160,6 +4226,916 @@ export function getBenchmarkSpecs(
   // Standard mode: float64 (base) + float32
   // Full mode:     float64 (base) + float32 + complex128 + int64 + int32 + int16 + int8
 
+  // ========================================
+  // Previously-unbenchmarked public operations
+  // ========================================
+  // Added so tests/unit/benchmark-coverage.test.ts can require that every
+  // benchmarkable public function has a spec.
+
+  specs.push({
+    name: `allclose [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'allclose',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `angle [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'angle',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `append [${scaledSizes.d1}] [${scaledSizes.d1}]`,
+    category: 'manipulation',
+    operation: 'append',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      b: { shape: [scaledSizes.d1], fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `apply_along_axis sum [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'apply_along_axis',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `apply_over_axes sum [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'apply_over_axes',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `array_equal [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'array_equal',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `array_equiv [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'array_equiv',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `array_split [${scaledSizes.d1}] into 3`,
+    category: 'manipulation',
+    operation: 'array_split',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `atleast_1d [${scaledSizes.d1}]`,
+    category: 'manipulation',
+    operation: 'atleast_1d',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `atleast_2d [${scaledSizes.d1}]`,
+    category: 'manipulation',
+    operation: 'atleast_2d',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `atleast_3d [${scaledSizes.d1}]`,
+    category: 'manipulation',
+    operation: 'atleast_3d',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `broadcast_arrays [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
+    category: 'manipulation',
+    operation: 'broadcast_arrays',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `broadcast_shapes`,
+    category: 'manipulation',
+    operation: 'broadcast_shapes',
+    setup: { shape: { shape: scaledSizes.d2 } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ceil [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'ceil',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `choose [${scaledSizes.d1}] from 3`,
+    category: 'indexing',
+    operation: 'choose',
+    setup: {
+      a: { shape: [scaledSizes.d1], dtype: 'int32', value: 1 },
+      b: { shape: [scaledSizes.d1], fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `column_stack [${scaledSizes.d1}] x2`,
+    category: 'manipulation',
+    operation: 'column_stack',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      b: { shape: [scaledSizes.d1], fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `diag_indices_from [${scaledSizes.linalg.join('x')}]`,
+    category: 'indexing',
+    operation: 'diag_indices_from',
+    setup: { a: { shape: scaledSizes.linalg, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `diagflat [64]`,
+    category: 'manipulation',
+    operation: 'diagflat',
+    setup: { a: { shape: [64], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `dsplit [16x16x4] into 2`,
+    category: 'manipulation',
+    operation: 'dsplit',
+    setup: { a: { shape: [16, 16, 4], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `dstack [${scaledSizes.d2.join('x')}] x2`,
+    category: 'manipulation',
+    operation: 'dstack',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ediff1d [${scaledSizes.d1}]`,
+    category: 'manipulation',
+    operation: 'ediff1d',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `empty_like [${scaledSizes.d2.join('x')}]`,
+    category: 'creation',
+    operation: 'empty_like',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `equal [${scaledSizes.d2.join('x')}] == [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'equal',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `expand_dims [${scaledSizes.d2.join('x')}]`,
+    category: 'manipulation',
+    operation: 'expand_dims',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `expm1 [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'expm1',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `fill_diagonal [${scaledSizes.linalg.join('x')}]`,
+    category: 'indexing',
+    operation: 'fill_diagonal',
+    setup: { a: { shape: scaledSizes.linalg, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `fix [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'fix',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `fliplr [${scaledSizes.d2.join('x')}]`,
+    category: 'manipulation',
+    operation: 'fliplr',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `flipud [${scaledSizes.d2.join('x')}]`,
+    category: 'manipulation',
+    operation: 'flipud',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `floor [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'floor',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `fromfunction [${scaledSizes.d2.join('x')}]`,
+    category: 'creation',
+    operation: 'fromfunction',
+    setup: { shape: { shape: scaledSizes.d2 } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `fromiter [${scaledSizes.d1}]`,
+    category: 'creation',
+    operation: 'fromiter',
+    setup: { n: { shape: [scaledSizes.d1] } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `full_like [${scaledSizes.d2.join('x')}]`,
+    category: 'creation',
+    operation: 'full_like',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `greater [${scaledSizes.d2.join('x')}] > [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'greater',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `greater_equal [${scaledSizes.d2.join('x')}] >= [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'greater_equal',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `histogramdd [${scaledSizes.d1}x2]`,
+    category: 'statistics',
+    operation: 'histogramdd',
+    setup: { a: { shape: [scaledSizes.d1, 2], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `hsplit [${scaledSizes.d2.join('x')}] into 2`,
+    category: 'manipulation',
+    operation: 'hsplit',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `imag [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'imag',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `insert [${scaledSizes.d1}]`,
+    category: 'manipulation',
+    operation: 'insert',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `intersect1d [${scaledSizes.d1}] [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'intersect1d',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'shuffled' },
+      b: { shape: [scaledSizes.d1], fill: 'shuffled' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `isclose [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'isclose',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `iscomplex [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'iscomplex',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `isin [${scaledSizes.d1}] [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'isin',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'shuffled' },
+      b: { shape: [scaledSizes.d1], fill: 'shuffled' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `isinf [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'isinf',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ix_ [64] [64]`,
+    category: 'indexing',
+    operation: 'ix_',
+    setup: {
+      a: { shape: [64], fill: 'arange', dtype: 'int32' },
+      b: { shape: [64], fill: 'arange', dtype: 'int32' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `less [${scaledSizes.d2.join('x')}] < [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'less',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `less_equal [${scaledSizes.d2.join('x')}] <= [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'less_equal',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `log1p [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'log1p',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `logaddexp2 [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'logaddexp2',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `mask_indices n=${scaledSizes.linalg[0]}`,
+    category: 'indexing',
+    operation: 'mask_indices',
+    setup: { n: { shape: [scaledSizes.linalg[0]] } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `meshgrid [256] x2`,
+    category: 'manipulation',
+    operation: 'meshgrid',
+    setup: { a: { shape: [256], fill: 'random' }, b: { shape: [256], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `moveaxis [${scaledSizes.d2.join('x')}]`,
+    category: 'manipulation',
+    operation: 'moveaxis',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nanargmax [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nanargmax',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nanargmin [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nanargmin',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nancumprod [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nancumprod',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nancumsum [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nancumsum',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nanmedian [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nanmedian',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nanprod [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nanprod',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nanstd [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nanstd',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nanvar [${scaledSizes.d2.join('x')}]`,
+    category: 'reductions',
+    operation: 'nanvar',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `nextafter [${scaledSizes.d2.join('x')}] [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'nextafter',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `not_equal [${scaledSizes.d2.join('x')}] != [${scaledSizes.d2.join('x')}]`,
+    category: 'logic',
+    operation: 'not_equal',
+    setup: {
+      a: { shape: scaledSizes.d2, fill: 'random' },
+      b: { shape: scaledSizes.d2, fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `ones_like [${scaledSizes.d2.join('x')}]`,
+    category: 'creation',
+    operation: 'ones_like',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `place [${scaledSizes.d1}]`,
+    category: 'indexing',
+    operation: 'place',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      b: { shape: [scaledSizes.d1], dtype: 'bool', fill: 'ones' },
+      c: { shape: [1], fill: 'zeros' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `put [${scaledSizes.d1}]`,
+    category: 'indexing',
+    operation: 'put',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      c: { shape: [3], value: 9 },
+      indices: { shape: [0, 2, 4] },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `put_along_axis [${scaledSizes.d1}]`,
+    category: 'indexing',
+    operation: 'put_along_axis',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      c: { shape: [3], value: 9 },
+      indices: { shape: [0, 2, 4] },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `putmask [${scaledSizes.d1}]`,
+    category: 'indexing',
+    operation: 'putmask',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      b: { shape: [scaledSizes.d1], dtype: 'bool', fill: 'ones' },
+      c: { shape: [1], fill: 'zeros' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `real [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'real',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `real_if_close [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'real_if_close',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `resize [${scaledSizes.d1}] -> [${scaledSizes.linalg.join('x')}]`,
+    category: 'manipulation',
+    operation: 'resize',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      new_shape: { shape: scaledSizes.linalg },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `rint [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'rint',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `rollaxis [${scaledSizes.d2.join('x')}]`,
+    category: 'manipulation',
+    operation: 'rollaxis',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `round [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'round',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `select [${scaledSizes.d1}]`,
+    category: 'indexing',
+    operation: 'select',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'random' },
+      b: { shape: [scaledSizes.d1], dtype: 'bool', fill: 'ones' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `setdiff1d [${scaledSizes.d1}] [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'setdiff1d',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'shuffled' },
+      b: { shape: [scaledSizes.d1], fill: 'shuffled' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `setxor1d [${scaledSizes.d1}] [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'setxor1d',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'shuffled' },
+      b: { shape: [scaledSizes.d1], fill: 'shuffled' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `sort_complex [${scaledSizes.d1}]`,
+    category: 'sorting',
+    operation: 'sort_complex',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `spacing [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'spacing',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `split [${scaledSizes.d1}] into 2`,
+    category: 'manipulation',
+    operation: 'split',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `squeeze [1x${scaledSizes.d1}x1]`,
+    category: 'manipulation',
+    operation: 'squeeze',
+    setup: { a: { shape: [1, scaledSizes.d1, 1], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `tensordot [8x32x32] [32x32x8]`,
+    category: 'linalg',
+    operation: 'tensordot',
+    setup: {
+      a: { shape: [8, 32, 32], fill: 'random' },
+      b: { shape: [32, 32, 8], fill: 'random' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `tril_indices_from [${scaledSizes.linalg.join('x')}]`,
+    category: 'indexing',
+    operation: 'tril_indices_from',
+    setup: { a: { shape: scaledSizes.linalg, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `triu_indices_from [${scaledSizes.linalg.join('x')}]`,
+    category: 'indexing',
+    operation: 'triu_indices_from',
+    setup: { a: { shape: scaledSizes.linalg, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `trunc [${scaledSizes.d2.join('x')}]`,
+    category: 'math',
+    operation: 'trunc',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `union1d [${scaledSizes.d1}] [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'union1d',
+    setup: {
+      a: { shape: [scaledSizes.d1], fill: 'shuffled' },
+      b: { shape: [scaledSizes.d1], fill: 'shuffled' },
+    },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `unique [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'unique',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'shuffled' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `unique_all [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'unique_all',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'shuffled' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `unique_inverse [${scaledSizes.d1}]`,
+    category: 'sets',
+    operation: 'unique_inverse',
+    setup: { a: { shape: [scaledSizes.d1], fill: 'shuffled' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `vander [32]`,
+    category: 'manipulation',
+    operation: 'vander',
+    setup: { a: { shape: [32], fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
+  specs.push({
+    name: `vsplit [${scaledSizes.d2.join('x')}] into 2`,
+    category: 'manipulation',
+    operation: 'vsplit',
+    setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
+    iterations,
+    warmup,
+  });
+
   if (mode !== 'quick') {
     const expanded: BenchmarkCase[] = [];
 
@@ -4190,15 +5166,19 @@ export function getBenchmarkSpecs(
       // them as semantic pins silently collapsed every bitwise op to a single
       // dtype, hiding e.g. bitwise_count's int8 path entirely.
       const intOnlyCategory = !families.includes('float') && !families.includes('complex');
+      const intOnlyOperation = INT_ONLY_OPERATIONS.has(spec.operation);
+      const intBaseSweepable = intOnlyCategory || intOnlyOperation;
       const isSweepableBase = (dtype: DType | undefined): boolean =>
         !dtype ||
         dtype === 'float64' ||
-        (intOnlyCategory && (dtype === 'int32' || dtype === 'uint32'));
+        (intBaseSweepable && (dtype === 'int32' || dtype === 'uint32'));
       const variableEntries = dataEntries.filter(([, entry]) => isSweepableBase(entry.dtype));
       if (variableEntries.length === 0) continue;
 
       // Collect all applicable variant dtypes
       for (const family of families) {
+        // Integer-only operations take no float or complex variants
+        if (intOnlyOperation && family !== 'int' && family !== 'uint') continue;
         // Skip int/uint variants for operations prone to overflow
         if ((family === 'int' || family === 'uint') && SKIP_INT_OPERATIONS.has(spec.operation))
           continue;
@@ -4230,6 +5210,22 @@ export function getBenchmarkSpecs(
               variant.dtype === 'uint8' ||
               variant.dtype === 'uint16') &&
             SKIP_NARROW_INT_OPERATIONS.has(spec.operation)
+          )
+            continue;
+
+          // Skip 64-bit int variants where numpy-ts currently throws
+          if (
+            (variant.dtype === 'int64' || variant.dtype === 'uint64') &&
+            SKIP_INT64_OPERATIONS.has(spec.operation)
+          )
+            continue;
+
+          // Same, but only for the broadcasting specs of ops whose 64-bit
+          // same-shape path works (see SKIP_INT64_BROADCAST_OPERATIONS)
+          if (
+            (variant.dtype === 'int64' || variant.dtype === 'uint64') &&
+            SKIP_INT64_BROADCAST_OPERATIONS.has(spec.operation) &&
+            new Set(dataEntries.map(([, e]) => JSON.stringify(e.shape))).size > 1
           )
             continue;
 
