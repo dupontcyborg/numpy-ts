@@ -898,6 +898,176 @@ def run_operation(spec):
     elif operation == "ifftshift":
         result = np.fft.ifftshift(arrays["a"])
 
+    # Previously-unbenchmarked public operations
+    elif operation == "allclose":
+        result = bool(np.allclose(arrays["a"], arrays["b"]))
+    elif operation == "angle":
+        result = np.angle(arrays["a"])
+    elif operation == "append":
+        result = np.append(arrays["a"], arrays["b"])
+    elif operation == "apply_along_axis":
+        result = np.apply_along_axis(np.sum, 0, arrays["a"])
+    elif operation == "apply_over_axes":
+        result = np.apply_over_axes(lambda x, ax: np.sum(x, axis=ax, keepdims=True), arrays["a"], [0])
+    elif operation == "array_equal":
+        result = bool(np.array_equal(arrays["a"], arrays["b"]))
+    elif operation == "array_equiv":
+        result = bool(np.array_equiv(arrays["a"], arrays["b"]))
+    elif operation == "array_split":
+        result = list(np.array_split(arrays["a"], 3))
+    elif operation == "atleast_1d":
+        result = np.atleast_1d(arrays["a"])
+    elif operation == "atleast_2d":
+        result = np.atleast_2d(arrays["a"])
+    elif operation == "atleast_3d":
+        result = np.atleast_3d(arrays["a"])
+    elif operation == "broadcast_arrays":
+        result = list(np.broadcast_arrays(arrays["a"], arrays["b"]))
+    elif operation == "broadcast_shapes":
+        result = np.array(np.broadcast_shapes(arrays["shape"], (1, arrays["shape"][1])), dtype=np.float64)
+    elif operation == "ceil":
+        result = np.ceil(arrays["a"])
+    elif operation == "choose":
+        result = np.choose(np.mod(arrays["a"], 3), [arrays["b"], arrays["b"], arrays["b"]])
+    elif operation == "column_stack":
+        result = np.column_stack([arrays["a"], arrays["b"]])
+    elif operation == "diag_indices_from":
+        result = np.stack(np.diag_indices_from(arrays["a"]), axis=0)
+    elif operation == "diagflat":
+        result = np.diagflat(arrays["a"])
+    elif operation == "dsplit":
+        result = list(np.dsplit(arrays["a"], 2))
+    elif operation == "dstack":
+        result = np.dstack([arrays["a"], arrays["b"]])
+    elif operation == "empty_like":
+        result = np.empty_like(arrays["a"])
+    elif operation == "equal":
+        result = np.equal(arrays["a"], arrays["b"])
+    elif operation == "expand_dims":
+        result = np.expand_dims(arrays["a"], 0)
+    elif operation == "fill_diagonal":
+        result = (np.fill_diagonal(arrays["a"], 0), arrays["a"])[1]
+    elif operation == "fix":
+        result = np.fix(arrays["a"])
+    elif operation == "fliplr":
+        result = np.fliplr(arrays["a"])
+    elif operation == "flipud":
+        result = np.flipud(arrays["a"])
+    elif operation == "floor":
+        result = np.floor(arrays["a"])
+    elif operation == "fromfunction":
+        result = np.fromfunction(lambda i, j: i + j, arrays["shape"])
+    elif operation == "fromiter":
+        result = np.fromiter(range(arrays["n"]), dtype=np.float64)
+    elif operation == "full_like":
+        result = np.full_like(arrays["a"], 3)
+    elif operation == "greater":
+        result = np.greater(arrays["a"], arrays["b"])
+    elif operation == "greater_equal":
+        result = np.greater_equal(arrays["a"], arrays["b"])
+    elif operation == "histogramdd":
+        result = np.histogramdd(arrays["a"])[0]
+    elif operation == "hsplit":
+        result = list(np.hsplit(arrays["a"], 2))
+    elif operation == "imag":
+        result = np.imag(arrays["a"])
+    elif operation == "insert":
+        result = np.insert(arrays["a"], 1, 99)
+    elif operation == "intersect1d":
+        result = np.intersect1d(arrays["a"], arrays["b"])
+    elif operation == "isclose":
+        result = np.isclose(arrays["a"], arrays["b"])
+    elif operation == "iscomplex":
+        result = np.iscomplex(arrays["a"])
+    elif operation == "isin":
+        result = np.isin(arrays["a"], arrays["b"])
+    elif operation == "ix_":
+        result = np.concatenate([np.ravel(x) for x in np.ix_(arrays["a"], arrays["b"])])
+    elif operation == "less":
+        result = np.less(arrays["a"], arrays["b"])
+    elif operation == "less_equal":
+        result = np.less_equal(arrays["a"], arrays["b"])
+    elif operation == "mask_indices":
+        result = np.stack(np.mask_indices(arrays["n"], np.triu), axis=0)
+    elif operation == "meshgrid":
+        result = list(np.meshgrid(arrays["a"], arrays["b"]))
+    elif operation == "moveaxis":
+        result = np.moveaxis(arrays["a"], 0, 1)
+    elif operation == "nanargmax":
+        result = np.nanargmax(arrays["a"])
+    elif operation == "nanargmin":
+        result = np.nanargmin(arrays["a"])
+    elif operation == "nancumprod":
+        result = np.nancumprod(arrays["a"])
+    elif operation == "nancumsum":
+        result = np.nancumsum(arrays["a"])
+    elif operation == "nanmedian":
+        result = np.nanmedian(arrays["a"])
+    elif operation == "nanprod":
+        result = np.nanprod(arrays["a"])
+    elif operation == "nanstd":
+        result = np.nanstd(arrays["a"])
+    elif operation == "nanvar":
+        result = np.nanvar(arrays["a"])
+    elif operation == "nextafter":
+        result = np.nextafter(arrays["a"], arrays["b"])
+    elif operation == "not_equal":
+        result = np.not_equal(arrays["a"], arrays["b"])
+    elif operation == "ones_like":
+        result = np.ones_like(arrays["a"])
+    elif operation == "place":
+        result = (np.place(arrays["a"], arrays["b"] > 0, np.zeros(1, dtype=arrays["a"].dtype)), arrays["a"])[1]
+    elif operation == "put":
+        result = (np.put(arrays["a"], arrays["indices"], arrays["c"]), arrays["a"])[1]
+    elif operation == "put_along_axis":
+        result = (np.put_along_axis(arrays["a"], arrays["c"].astype(np.intp), arrays["c"], 0), arrays["a"])[1]
+    elif operation == "putmask":
+        result = (np.putmask(arrays["a"], arrays["b"] > 0, np.zeros_like(arrays["a"])), arrays["a"])[1]
+    elif operation == "real":
+        result = np.real(arrays["a"])
+    elif operation == "real_if_close":
+        result = np.real_if_close(arrays["a"])
+    elif operation == "resize":
+        result = np.resize(arrays["a"], arrays["new_shape"])
+    elif operation == "rint":
+        result = np.rint(arrays["a"])
+    elif operation == "rollaxis":
+        result = np.rollaxis(arrays["a"], 1)
+    elif operation == "round":
+        result = np.round(arrays["a"])
+    elif operation == "select":
+        result = np.select([arrays["b"] > 0], [arrays["a"]])
+    elif operation == "setdiff1d":
+        result = np.setdiff1d(arrays["a"], arrays["b"])
+    elif operation == "setxor1d":
+        result = np.setxor1d(arrays["a"], arrays["b"])
+    elif operation == "spacing":
+        result = np.spacing(arrays["a"])
+    elif operation == "split":
+        result = list(np.split(arrays["a"], 2))
+    elif operation == "squeeze":
+        result = np.squeeze(arrays["a"])
+    elif operation == "tensordot":
+        result = np.tensordot(arrays["a"], arrays["b"])
+    elif operation == "tril_indices_from":
+        result = np.stack(np.tril_indices_from(arrays["a"]), axis=0)
+    elif operation == "triu_indices_from":
+        result = np.stack(np.triu_indices_from(arrays["a"]), axis=0)
+    elif operation == "trunc":
+        result = np.trunc(arrays["a"])
+    elif operation == "union1d":
+        result = np.union1d(arrays["a"], arrays["b"])
+    elif operation == "unique":
+        result = np.unique(arrays["a"])
+    elif operation == "unique_all":
+        result = np.unique_all(arrays["a"]).values
+    elif operation == "unique_inverse":
+        result = np.unique_inverse(arrays["a"]).values
+    elif operation == "vsplit":
+        result = list(np.vsplit(arrays["a"], 2))
+    elif operation == "vander":
+        result = np.vander(arrays["a"])
+
     else:
         raise ValueError(f"Unknown operation: {operation}")
 

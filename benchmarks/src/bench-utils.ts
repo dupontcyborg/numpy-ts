@@ -550,6 +550,114 @@ const OPERATIONS: Record<string, OpFn> = {
   rfftfreq: (a) => np.fft.rfftfreq(a['n']),
   fftshift: (a) => np.fft.fftshift(a['a']),
   ifftshift: (a) => np.fft.ifftshift(a['a']),
+
+  // Previously-unbenchmarked public operations
+  allclose: (a) => np.allclose(a['a'], a['b']),
+  angle: (a) => np.angle(a['a']),
+  append: (a) => np.append(a['a'], a['b']),
+  apply_along_axis: (a) => np.apply_along_axis((x) => np.sum(x), 0, a['a']),
+  apply_over_axes: (a) => np.apply_over_axes((x, ax) => np.sum(x, ax), a['a'], [0]),
+  array_equal: (a) => np.array_equal(a['a'], a['b']),
+  array_equiv: (a) => np.array_equiv(a['a'], a['b']),
+  array_split: (a) => np.array_split(a['a'], 3),
+  atleast_1d: (a) => np.atleast_1d(a['a']),
+  atleast_2d: (a) => np.atleast_2d(a['a']),
+  atleast_3d: (a) => np.atleast_3d(a['a']),
+  broadcast_arrays: (a) => np.broadcast_arrays(a['a'], a['b']),
+  broadcast_shapes: (a) => np.array(np.broadcast_shapes(a['shape'], [1, a['shape'][1]]), 'float64'),
+  ceil: (a) => np.ceil(a['a']),
+  choose: (a) => np.choose(a['a'], [a['b'], a['b'], a['b']]),
+  column_stack: (a) => np.column_stack([a['a'], a['b']]),
+  diag_indices_from: (a) => np.diag_indices_from(a['a']),
+  diagflat: (a) => np.diagflat(a['a']),
+  dsplit: (a) => np.dsplit(a['a'], 2),
+  dstack: (a) => np.dstack([a['a'], a['b']]),
+  ediff1d: (a) => np.ediff1d(a['a']),
+  equal: (a) => np.equal(a['a'], a['b']),
+  expand_dims: (a) => np.expand_dims(a['a'], 0),
+  fill_diagonal: (a) =>
+    (() => {
+      np.fill_diagonal(a['a'], 0);
+      return a['a'];
+    })(),
+  fix: (a) => np.fix(a['a']),
+  fliplr: (a) => np.fliplr(a['a']),
+  flipud: (a) => np.flipud(a['a']),
+  floor: (a) => np.floor(a['a']),
+  fromfunction: (a) => np.fromfunction((i, j) => i + j, a['shape']),
+  fromiter: (a) =>
+    np.fromiter(
+      Array.from({ length: a['n'] }, (_, i) => i),
+      'float64',
+    ),
+  greater: (a) => np.greater(a['a'], a['b']),
+  greater_equal: (a) => np.greater_equal(a['a'], a['b']),
+  histogramdd: (a) => np.histogramdd(a['a']),
+  hsplit: (a) => np.hsplit(a['a'], 2),
+  imag: (a) => np.imag(a['a']),
+  insert: (a) => np.insert(a['a'], 1, 99),
+  intersect1d: (a) => np.intersect1d(a['a'], a['b']),
+  isclose: (a) => np.isclose(a['a'], a['b']),
+  iscomplex: (a) => np.iscomplex(a['a']),
+  isin: (a) => np.isin(a['a'], a['b']),
+  ix_: (a) =>
+    (() => {
+      const r = np.ix_(a['a'], a['b']);
+      return np.concatenate([np.ravel(r[0]), np.ravel(r[1])]);
+    })(),
+  less: (a) => np.less(a['a'], a['b']),
+  less_equal: (a) => np.less_equal(a['a'], a['b']),
+  mask_indices: (a) => np.mask_indices(a['n'], (m, k) => np.triu(m, k)),
+  meshgrid: (a) => np.meshgrid(a['a'], a['b']),
+  moveaxis: (a) => np.moveaxis(a['a'], 0, 1),
+  nanargmax: (a) => np.nanargmax(a['a']),
+  nanargmin: (a) => np.nanargmin(a['a']),
+  nancumprod: (a) => np.nancumprod(a['a']),
+  nancumsum: (a) => np.nancumsum(a['a']),
+  nanmedian: (a) => np.nanmedian(a['a']),
+  nanprod: (a) => np.nanprod(a['a']),
+  nanstd: (a) => np.nanstd(a['a']),
+  nanvar: (a) => np.nanvar(a['a']),
+  nextafter: (a) => np.nextafter(a['a'], a['b']),
+  not_equal: (a) => np.not_equal(a['a'], a['b']),
+  place: (a) =>
+    (() => {
+      np.place(a['a'], a['b'], a['c']);
+      return a['a'];
+    })(),
+  put: (a) => {
+    np.put(a['a'], a['indices'], a['c']);
+    return a['a'];
+  },
+  put_along_axis: (a) => {
+    np.put_along_axis(a['a'], a['c'], a['c'], 0);
+    return a['a'];
+  },
+  putmask: (a) =>
+    (() => {
+      np.putmask(a['a'], a['b'], a['c']);
+      return a['a'];
+    })(),
+  real: (a) => np.real(a['a']),
+  real_if_close: (a) => np.real_if_close(a['a']),
+  resize: (a) => np.resize(a['a'], a['new_shape']),
+  rint: (a) => np.rint(a['a']),
+  rollaxis: (a) => np.rollaxis(a['a'], 1),
+  round: (a) => np.round(a['a']),
+  select: (a) => np.select([a['b']], [a['a']]),
+  setdiff1d: (a) => np.setdiff1d(a['a'], a['b']),
+  setxor1d: (a) => np.setxor1d(a['a'], a['b']),
+  spacing: (a) => np.spacing(a['a']),
+  split: (a) => np.split(a['a'], 2),
+  tril_indices_from: (a) => np.tril_indices_from(a['a']),
+  triu_indices_from: (a) => np.triu_indices_from(a['a']),
+  trunc: (a) => np.trunc(a['a']),
+  union1d: (a) => np.union1d(a['a'], a['b']),
+  unique: (a) => np.unique(a['a']),
+  unique_all: (a) => np.unique_all(a['a']),
+  unique_inverse: (a) => np.unique_inverse(a['a']),
+  vsplit: (a) => np.vsplit(a['a'], 2),
+  vander: (a) => np.vander(a['a']),
 };
 
 /** Execute a named operation via O(1) Record lookup. */

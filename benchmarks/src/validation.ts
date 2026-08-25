@@ -1287,6 +1287,188 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     case 'ifftshift':
       return np.fft.ifftshift(arrays.a);
 
+    // Previously-unbenchmarked public operations
+    case 'allclose':
+      return np.allclose(arrays.a, arrays.b);
+    case 'angle':
+      return np.angle(arrays.a);
+    case 'append':
+      return np.append(arrays.a, arrays.b);
+    case 'apply_along_axis':
+      return np.apply_along_axis((x) => np.sum(x), 0, arrays.a);
+    case 'apply_over_axes':
+      return np.apply_over_axes((x, ax) => np.sum(x, ax), arrays.a, [0]);
+    case 'array_equal':
+      return np.array_equal(arrays.a, arrays.b);
+    case 'array_equiv':
+      return np.array_equiv(arrays.a, arrays.b);
+    case 'array_split':
+      return np.array_split(arrays.a, 3);
+    case 'atleast_1d':
+      return np.atleast_1d(arrays.a);
+    case 'atleast_2d':
+      return np.atleast_2d(arrays.a);
+    case 'atleast_3d':
+      return np.atleast_3d(arrays.a);
+    case 'broadcast_arrays':
+      return np.broadcast_arrays(arrays.a, arrays.b);
+    case 'broadcast_shapes':
+      return np.array(np.broadcast_shapes(arrays.shape, [1, arrays.shape[1]]), 'float64');
+    case 'ceil':
+      return np.ceil(arrays.a);
+    case 'choose':
+      return np.choose(arrays.a, [arrays.b, arrays.b, arrays.b]);
+    case 'column_stack':
+      return np.column_stack([arrays.a, arrays.b]);
+    case 'diag_indices_from':
+      return np.stack(np.diag_indices_from(arrays.a), 0);
+    case 'diagflat':
+      return np.diagflat(arrays.a);
+    case 'dsplit':
+      return np.dsplit(arrays.a, 2);
+    case 'dstack':
+      return np.dstack([arrays.a, arrays.b]);
+    case 'empty_like':
+      return np.empty_like(arrays.a);
+    case 'equal':
+      return np.equal(arrays.a, arrays.b);
+    case 'expand_dims':
+      return np.expand_dims(arrays.a, 0);
+    case 'fill_diagonal':
+      np.fill_diagonal(arrays.a, 0);
+      return arrays.a;
+    case 'fix':
+      return np.fix(arrays.a);
+    case 'fliplr':
+      return np.fliplr(arrays.a);
+    case 'flipud':
+      return np.flipud(arrays.a);
+    case 'floor':
+      return np.floor(arrays.a);
+    case 'fromfunction':
+      return np.fromfunction((i, j) => i + j, arrays.shape);
+    case 'fromiter':
+      return np.fromiter(
+        Array.from({ length: arrays.n }, (_, i) => i),
+        'float64',
+      );
+    case 'full_like':
+      return np.full_like(arrays.a, 3);
+    case 'greater':
+      return np.greater(arrays.a, arrays.b);
+    case 'greater_equal':
+      return np.greater_equal(arrays.a, arrays.b);
+    case 'histogramdd':
+      return np.histogramdd(arrays.a)[0];
+    case 'hsplit':
+      return np.hsplit(arrays.a, 2);
+    case 'imag':
+      return np.imag(arrays.a);
+    case 'insert':
+      return np.insert(arrays.a, 1, 99);
+    case 'intersect1d':
+      return np.intersect1d(arrays.a, arrays.b);
+    case 'isclose':
+      return np.isclose(arrays.a, arrays.b);
+    case 'iscomplex':
+      return np.iscomplex(arrays.a);
+    case 'isin':
+      return np.isin(arrays.a, arrays.b);
+    case 'ix_':
+      return (() => {
+        const r = np.ix_(arrays.a, arrays.b);
+        return np.concatenate([np.ravel(r[0]), np.ravel(r[1])]);
+      })();
+    case 'less':
+      return np.less(arrays.a, arrays.b);
+    case 'less_equal':
+      return np.less_equal(arrays.a, arrays.b);
+    case 'mask_indices':
+      return np.stack(
+        np.mask_indices(arrays.n, (m, k) => np.triu(m, k)),
+        0,
+      );
+    case 'meshgrid':
+      return np.meshgrid(arrays.a, arrays.b);
+    case 'moveaxis':
+      return np.moveaxis(arrays.a, 0, 1);
+    case 'nanargmax':
+      return np.nanargmax(arrays.a);
+    case 'nanargmin':
+      return np.nanargmin(arrays.a);
+    case 'nancumprod':
+      return np.nancumprod(arrays.a);
+    case 'nancumsum':
+      return np.nancumsum(arrays.a);
+    case 'nanmedian':
+      return np.nanmedian(arrays.a);
+    case 'nanprod':
+      return np.nanprod(arrays.a);
+    case 'nanstd':
+      return np.nanstd(arrays.a);
+    case 'nanvar':
+      return np.nanvar(arrays.a);
+    case 'nextafter':
+      return np.nextafter(arrays.a, arrays.b);
+    case 'not_equal':
+      return np.not_equal(arrays.a, arrays.b);
+    case 'ones_like':
+      return np.ones_like(arrays.a);
+    case 'place':
+      np.place(arrays.a, arrays.b, arrays.c);
+      return arrays.a;
+    case 'put':
+      np.put(arrays.a, arrays.indices, arrays.c);
+      return arrays.a;
+    case 'put_along_axis':
+      np.put_along_axis(arrays.a, arrays.c, arrays.c, 0);
+      return arrays.a;
+    case 'putmask':
+      np.putmask(arrays.a, arrays.b, arrays.c);
+      return arrays.a;
+    case 'real':
+      return np.real(arrays.a);
+    case 'real_if_close':
+      return np.real_if_close(arrays.a);
+    case 'resize':
+      return np.resize(arrays.a, arrays.new_shape);
+    case 'rint':
+      return np.rint(arrays.a);
+    case 'rollaxis':
+      return np.rollaxis(arrays.a, 1);
+    case 'round':
+      return np.round(arrays.a);
+    case 'select':
+      return np.select([arrays.b], [arrays.a]);
+    case 'setdiff1d':
+      return np.setdiff1d(arrays.a, arrays.b);
+    case 'setxor1d':
+      return np.setxor1d(arrays.a, arrays.b);
+    case 'spacing':
+      return np.spacing(arrays.a);
+    case 'split':
+      return np.split(arrays.a, 2);
+    case 'squeeze':
+      return np.squeeze(arrays.a);
+    case 'tril_indices_from':
+      return np.stack(np.tril_indices_from(arrays.a), 0);
+    case 'triu_indices_from':
+      return np.stack(np.triu_indices_from(arrays.a), 0);
+    case 'trunc':
+      return np.trunc(arrays.a);
+    case 'union1d':
+      return np.union1d(arrays.a, arrays.b);
+    case 'unique':
+      return np.unique(arrays.a);
+    case 'unique_all':
+      return np.unique_all(arrays.a).values;
+    case 'unique_inverse':
+      return np.unique_inverse(arrays.a).values;
+    case 'vsplit':
+      return np.vsplit(arrays.a, 2);
+    case 'vander':
+      return np.vander(arrays.a);
+
     default:
       throw new Error(`Unknown operation: ${spec.operation}`);
   }
@@ -1450,6 +1632,10 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
                 'ravel_multi_index',
                 'unravel_index',
                 'random_permutation',
+                'diag_indices_from',
+                'tril_indices_from',
+                'triu_indices_from',
+                'mask_indices',
               ]);
               // Integer creation functions: full/full_like return int32 (we
               // diverge from NumPy's int64 to avoid BigInt for in-range fills).

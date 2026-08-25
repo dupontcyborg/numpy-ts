@@ -39,6 +39,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.9
         version: 4.1.10(@vitest/browser@4.1.10)(vitest@4.1.10)
+      canvas:
+        specifier: ^3.2.3
+        version: 3.2.3
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1

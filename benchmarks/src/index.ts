@@ -106,6 +106,30 @@ function tryLoadCachedPython(
   }
 }
 
+/**
+ * Render a chart, downgrading any failure to a warning.
+ *
+ * `canvas` is an optional native dependency; when it is missing or fails to
+ * build, chart rendering throws. That must not fail the benchmark run, whose
+ * real output (JSON + HTML) is already on disk by this point.
+ */
+async function renderChart(
+  label: string,
+  outPath: string,
+  render: (p: string) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await render(outPath);
+    console.log(`${label} saved to: ${outPath}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const hint = msg.includes("Cannot find module 'canvas'")
+      ? ' — install it with `pnpm add -D canvas` (already allow-listed in pnpm-workspace.yaml)'
+      : '';
+    console.warn(`WARNING: ${label} skipped: ${msg.split('\n')[0]}${hint}`);
+  }
+}
+
 async function main() {
   // Parse command line arguments
   const args = process.argv.slice(2);
@@ -461,13 +485,16 @@ async function main() {
         generateHTMLReport(report, htmlPath);
         console.log(`HTML report saved to: ${htmlPath}`);
 
-        const pngPath = path.join(plotsDir, `latest${modeSuffix}.png`);
-        await generatePNGChart(report, pngPath);
-        console.log(`PNG chart saved to: ${pngPath}`);
-
-        const h2hPath = path.join(plotsDir, `latest${modeSuffix}-h2h.png`);
-        await generateH2HChart(report, h2hPath);
-        console.log(`H2H chart saved to: ${h2hPath}`);
+        // PNG charts are a presentation extra and depend on `canvas`, a native
+        // module. A rendering failure must not discard a completed run: the
+        // JSON and HTML above are already written, and a non-zero exit also
+        // breaks chained invocations (e.g. `bench:node && bench:node --size large`).
+        await renderChart('PNG chart', path.join(plotsDir, `latest${modeSuffix}.png`), (p) =>
+          generatePNGChart(report, p),
+        );
+        await renderChart('H2H chart', path.join(plotsDir, `latest${modeSuffix}-h2h.png`), (p) =>
+          generateH2HChart(report, p),
+        );
 
         console.log(`\nView report: open ${htmlPath}`);
       } else {
