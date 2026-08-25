@@ -117,6 +117,7 @@
     "@vitest/browser": "^4.1.9",
     "@vitest/browser-playwright": "^4.1.9",
     "@vitest/coverage-v8": "^4.1.9",
+    "canvas": "^3.2.3",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",
     "esbuild": "^0.28.1",
