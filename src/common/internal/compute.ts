@@ -104,6 +104,115 @@ function broadcastTo(storage: ArrayStorage, targetShape: readonly number[]): Arr
  * @param opName - Name of operation (for special handling)
  * @returns Result storage
  */
+/**
+ * True when a size-1 array's element survives the trip through `Number`.
+ *
+ * Size-1 operands broadcast like scalars, and many ops exploit that with a
+ * dedicated scalar fast path reached via `Number(b.iget(0))`. For int64/uint64
+ * that silently truncates anything above 2^53 — `add` with a size-1 operand came
+ * back off by one, and `gcd`/`lcm` threw outright. Callers gate the shortcut on
+ * this and otherwise fall through to the exact broadcast path below.
+ */
+export function isExactScalar(x: ArrayStorage): boolean {
+  const v = x.iget(0);
+  return typeof v !== 'bigint' || (v >= -9007199254740991n && v <= 9007199254740991n);
+}
+
+/** Euclidean GCD on BigInt, used by both the gcd and lcm cases below. */
+function gcdBigInt(a: bigint, b: bigint): bigint {
+  let x = a < 0n ? -a : a;
+  let y = b < 0n ? -b : b;
+  while (y !== 0n) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x;
+}
+
+/**
+ * Exact BigInt implementation of the binary ops that reach the broadcast path.
+ *
+ * The generic fallback below routes an op it does not recognise through
+ * `BigInt(Math.round(op(Number(a), Number(b))))`. That round-trip truncates any
+ * int64/uint64 operand above 2^53, and for the bitwise ops it is far worse:
+ * JS `&`/`|`/`^` coerce through ToInt32, so `bitwise_and` on 64-bit values
+ * returned 0. Ops with no exact BigInt form return null and keep the old path.
+ *
+ * Divisor 0 yields 0 to match the integer kernels in zig/modulo.zig, which is
+ * also NumPy's integer behaviour (warn + 0) rather than a throw.
+ */
+function bigIntBinaryOp(opName: string, a: bigint, b: bigint): bigint | null {
+  switch (opName) {
+    case 'add':
+      return a + b;
+    case 'subtract':
+      return a - b;
+    case 'multiply':
+      return a * b;
+    case 'divide':
+      return a / b;
+    case 'mod': {
+      // Floor modulo: result takes the sign of the divisor (NumPy `%`).
+      if (b === 0n) return 0n;
+      const r = a % b;
+      return r !== 0n && r < 0n !== b < 0n ? r + b : r;
+    }
+    case 'floor_divide': {
+      // BigInt `/` truncates toward zero; NumPy floors.
+      if (b === 0n) return 0n;
+      const q = a / b;
+      return a % b !== 0n && a < 0n !== b < 0n ? q - 1n : q;
+    }
+    case 'fmod':
+      // Truncated remainder: sign of the dividend. BigInt `%` already does this.
+      return b === 0n ? 0n : a % b;
+    case 'maximum':
+    case 'fmax':
+      // Integers have no NaN, so fmax/fmin collapse onto maximum/minimum.
+      return a > b ? a : b;
+    case 'minimum':
+    case 'fmin':
+      return a < b ? a : b;
+    case 'bitwise_and':
+      return a & b;
+    case 'bitwise_or':
+      return a | b;
+    case 'bitwise_xor':
+      return a ^ b;
+    case 'gcd':
+      return gcdBigInt(a, b);
+    case 'lcm': {
+      const g = gcdBigInt(a, b);
+      if (g === 0n) return 0n;
+      // Divide before multiplying so the intermediate stays small; the typed
+      // array store then wraps exactly as NumPy's integer lcm does.
+      return ((a < 0n ? -a : a) / g) * (b < 0n ? -b : b);
+    }
+    case 'power': {
+      // Negative exponents promote to float64 upstream and never land here; if
+      // one does, fall through rather than let BigInt `**` misbehave.
+      if (b < 0n) return null;
+      // Exponentiate modulo 2^64 rather than with `**`. The result is stored into
+      // a 64-bit typed array, which wraps anyway, and two's-complement wrapping
+      // *is* arithmetic mod 2^64 — but unbounded `**` blows up first: a uint64
+      // exponent of 2^64-1 threw "Maximum BigInt size exceeded".
+      const M = 1n << 64n;
+      let base = ((a % M) + M) % M;
+      let e = b;
+      let acc = 1n;
+      while (e > 0n) {
+        if (e & 1n) acc = (acc * base) % M;
+        base = (base * base) % M;
+        e >>= 1n;
+      }
+      return acc;
+    }
+    default:
+      return null;
+  }
+}
+
 export function elementwiseBinaryOp(
   a: ArrayStorage,
   b: ArrayStorage,
@@ -174,18 +283,9 @@ export function elementwiseBinaryOp(
       const aVal = typeof aNum === 'bigint' ? aNum : BigInt(Math.round(aNum as number));
       const bVal = typeof bNum === 'bigint' ? bNum : BigInt(Math.round(bNum as number));
 
-      // Use BigInt operations
-      if (opName === 'add') {
-        resultTyped[i] = aVal + bVal;
-      } else if (opName === 'subtract') {
-        resultTyped[i] = aVal - bVal;
-      } else if (opName === 'multiply') {
-        resultTyped[i] = aVal * bVal;
-      } else if (opName === 'divide') {
-        resultTyped[i] = aVal / bVal;
-      } else {
-        resultTyped[i] = BigInt(Math.round(op(Number(aVal), Number(bVal))));
-      }
+      // Exact BigInt arithmetic where the op has one; float round-trip otherwise.
+      const exact = bigIntBinaryOp(opName, aVal, bVal);
+      resultTyped[i] = exact ?? BigInt(Math.round(op(Number(aVal), Number(bVal))));
     }
   } else {
     // Regular numeric types (including float dtypes)

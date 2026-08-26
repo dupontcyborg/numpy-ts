@@ -174,7 +174,7 @@ a = np.array([1000000000000000, 2000000000000000, 3000000000000000], dtype=np.in
 result = a.sum()
       `);
 
-      expect(jsResult).toBe(pyResult.value);
+      expect(Number(jsResult)).toBe(pyResult.value);
     });
 
     it('should match NumPy for int64 sum with axis', () => {
@@ -210,7 +210,7 @@ a = np.array([1000000000000000, 5000000000000000, 2000000000000000], dtype=np.in
 result = a.max()
       `);
 
-      expect(jsResult).toBe(pyResult.value);
+      expect(Number(jsResult)).toBe(pyResult.value);
     });
 
     it('should match NumPy for int64 min reduction', () => {
@@ -225,7 +225,7 @@ a = np.array([5000000000000000, 1000000000000000, 3000000000000000], dtype=np.in
 result = a.min()
       `);
 
-      expect(jsResult).toBe(pyResult.value);
+      expect(Number(jsResult)).toBe(pyResult.value);
     });
 
     it('should match NumPy for int64 mean reduction', () => {
@@ -240,7 +240,7 @@ a = np.array([9000000000000000, 9000000000000003, 9000000000000006], dtype=np.in
 result = a.mean()
       `);
 
-      expect(jsResult).toBe(pyResult.value);
+      expect(Number(jsResult)).toBe(pyResult.value);
     });
   });
 

@@ -157,7 +157,6 @@ export fn fmod_scalar_u8(a: [*]const u8, out: [*]u8, N: u32, s: u8) void {
     modInt(u8, .fmod_, a, out, N, s);
 }
 
-
 // --- Array / array (same dtype, same shape) ---
 
 inline fn modF64Arr(comptime op: Op, a: [*]const f64, b: [*]const f64, out: [*]f64, N: u32) void {

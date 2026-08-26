@@ -1759,6 +1759,43 @@ export function searchsorted(
         resultData[i] = lo;
       }
     }
+  } else if (storageData instanceof BigInt64Array || storageData instanceof BigUint64Array) {
+    // int64/uint64: compare the BigInts directly. Number() collapses keys above
+    // 2^53, so the binary search landed on the wrong side of a large key and
+    // returned an insertion point NumPy disagreed with.
+    const sData = storageData as BigInt64Array | BigUint64Array;
+    const keyAt = storageContiguous
+      ? (m: number): bigint => sData[storageOff + m]!
+      : (m: number): bigint => storage.iget(m) as bigint;
+    const vIsBig = valuesData instanceof BigInt64Array || valuesData instanceof BigUint64Array;
+
+    for (let i = 0; i < numValues; i++) {
+      const raw =
+        valuesContiguous && vIsBig
+          ? (valuesData as BigInt64Array | BigUint64Array)[valuesOff + i]!
+          : values.iget(i);
+      // A non-BigInt needle (mixed dtypes) truncates toward zero, which keeps the
+      // left/right insertion point correct for an integer key array.
+      const v = typeof raw === 'bigint' ? raw : BigInt(Math.trunc(Number(raw)));
+      let lo = 0;
+      let hi = n;
+
+      if (side === 'left') {
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1;
+          if (keyAt(mid) < v) lo = mid + 1;
+          else hi = mid;
+        }
+      } else {
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1;
+          if (keyAt(mid) <= v) lo = mid + 1;
+          else hi = mid;
+        }
+      }
+
+      resultData[i] = lo;
+    }
   } else {
     if (storageContiguous && valuesContiguous) {
       // Fast path: both arrays are contiguous

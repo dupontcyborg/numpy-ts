@@ -1443,7 +1443,7 @@ export function fill_diagonal(
 export function apply_along_axis(
   arr: ArrayStorage,
   axis: number,
-  func1d: (slice: ArrayStorage) => ArrayStorage | number,
+  func1d: (slice: ArrayStorage) => ArrayStorage | number | bigint,
 ): ArrayStorage {
   const shape = Array.from(arr.shape);
   const ndim = shape.length;
@@ -1465,9 +1465,9 @@ export function apply_along_axis(
   // If no iteration dimensions, just apply the function to the whole array
   if (iterShape.length === 0) {
     const result = func1d(arr);
-    if (typeof result === 'number') {
+    if (typeof result === 'number' || typeof result === 'bigint') {
       const resultArr = ArrayStorage.zeros([1], arr.dtype);
-      resultArr.data[0] = result;
+      resultArr.iset(0, result);
       return resultArr;
     }
     return result;
@@ -1505,13 +1505,15 @@ export function apply_along_axis(
   /** Determine output dtype: if callback returns ArrayStorage use its dtype,
    *  otherwise probe the first result to get the scalar dtype from the reduction */
   /** Check if a callback result is a scalar (number or Complex object) */
-  function isScalarResult(val: ArrayStorage | number | { re: number; im: number }): boolean {
-    if (typeof val === 'number') return true;
+  function isScalarResult(
+    val: ArrayStorage | number | bigint | { re: number; im: number },
+  ): boolean {
+    if (typeof val === 'number' || typeof val === 'bigint') return true;
     if (typeof val === 'object' && val !== null && 're' in val && !('size' in val)) return true;
     return false;
   }
 
-  function probeOutputDtype(firstResult: ArrayStorage | number): DType {
+  function probeOutputDtype(firstResult: ArrayStorage | number | bigint): DType {
     if (!isScalarResult(firstResult)) return (firstResult as ArrayStorage).dtype as DType;
     // For scalar returns, determine accumulation dtype:
     // NumPy promotes int→int64, uint→uint64, bool→int64 for reductions; float/complex preserved
@@ -1527,7 +1529,7 @@ export function apply_along_axis(
    * Entries may be numbers or Complex objects as well as storages, so dispose
    * only what actually owns memory.
    */
-  const releaseResults = (rs: (ArrayStorage | number)[]): void => {
+  const releaseResults = (rs: (ArrayStorage | number | bigint)[]): void => {
     for (const r of rs) {
       if (r && typeof r === 'object' && typeof (r as ArrayStorage).dispose === 'function') {
         (r as ArrayStorage).dispose();
@@ -1540,7 +1542,7 @@ export function apply_along_axis(
 
     if (axis === 0) {
       // Apply function to each column
-      const results: (ArrayStorage | number)[] = [];
+      const results: (ArrayStorage | number | bigint)[] = [];
       for (let c = 0; c < cols!; c++) {
         // Free the temporary slice as soon as func1d has consumed it. Guard the
         // identity case (func1d returning its own argument) before disposing.
@@ -1577,7 +1579,7 @@ export function apply_along_axis(
       }
     } else {
       // Apply function to each row
-      const results: (ArrayStorage | number)[] = [];
+      const results: (ArrayStorage | number | bigint)[] = [];
       for (let r = 0; r < rows!; r++) {
         // Free the temporary slice as soon as func1d has consumed it. Guard the
         // identity case (func1d returning its own argument) before disposing.
@@ -1618,9 +1620,9 @@ export function apply_along_axis(
   // For 1D arrays
   if (ndim === 1) {
     const result = func1d(arr);
-    if (typeof result === 'number') {
+    if (typeof result === 'number' || typeof result === 'bigint') {
       const resultArr = ArrayStorage.zeros([1], 'float64');
-      resultArr.data[0] = result;
+      resultArr.iset(0, result);
       return resultArr;
     }
     return result;
@@ -1652,7 +1654,7 @@ export function apply_along_axis(
   }
 
   // Collect results
-  const results: (ArrayStorage | number)[] = [];
+  const results: (ArrayStorage | number | bigint)[] = [];
   for (let fi = 0; fi < iterSize; fi++) {
     const iterIdx = flatToMultiIter(fi);
     const sliceArr = ArrayStorage.empty([axisSize], 'float64');

@@ -372,6 +372,74 @@ export function unique(
     }
   }
 
+  // int64/uint64: sort and compare the BigInts directly. Every path below funnels
+  // values through a Float64Array, which merges distinct 64-bit values above 2^53
+  // — unique([2^53, 2^53+1, 2^53+2, 2^53+3]) came back with three elements, and
+  // the wrong ones.
+  if (data instanceof BigInt64Array || data instanceof BigUint64Array) {
+    const src = data as BigInt64Array | BigUint64Array;
+    const at = (i: number): bigint => src[off + i]!;
+
+    const order = new Array<number>(size);
+    for (let i = 0; i < size; i++) order[i] = i;
+    // Tie-break on the original index so the first occurrence of each value wins,
+    // which is what return_index reports.
+    order.sort((x, y) => {
+      const av = at(x);
+      const bv = at(y);
+      return av < bv ? -1 : av > bv ? 1 : x - y;
+    });
+
+    const uniqVals: bigint[] = [];
+    const firstIdx: number[] = [];
+    const counts: number[] = [];
+    for (const idx of order) {
+      const v = at(idx);
+      if (uniqVals.length === 0 || v !== uniqVals[uniqVals.length - 1]) {
+        uniqVals.push(v);
+        firstIdx.push(idx);
+        counts.push(1);
+      } else {
+        counts[counts.length - 1]! += 1;
+      }
+    }
+
+    const values = ArrayStorage.zeros([uniqVals.length], dtype as DType);
+    const vd = values.data as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < uniqVals.length; i++) vd[i] = uniqVals[i]!;
+
+    if (!returnIndex && !returnInverse && !returnCounts) return values;
+
+    const out: {
+      values: ArrayStorage;
+      indices?: ArrayStorage;
+      inverse?: ArrayStorage;
+      counts?: ArrayStorage;
+    } = { values };
+
+    if (returnIndex) {
+      const ind = ArrayStorage.zeros([firstIdx.length], 'int32');
+      const id = ind.data as Int32Array;
+      for (let i = 0; i < firstIdx.length; i++) id[i] = firstIdx[i]!;
+      out.indices = ind;
+    }
+    if (returnInverse) {
+      const pos = new Map<bigint, number>();
+      for (let i = 0; i < uniqVals.length; i++) pos.set(uniqVals[i]!, i);
+      const inv = ArrayStorage.zeros([size], 'int32');
+      const ivd = inv.data as Int32Array;
+      for (let i = 0; i < size; i++) ivd[i] = pos.get(at(i))!;
+      out.inverse = inv;
+    }
+    if (returnCounts) {
+      const cnt = ArrayStorage.zeros([counts.length], 'int32');
+      const cd = cnt.data as Int32Array;
+      for (let i = 0; i < counts.length; i++) cd[i] = counts[i]!;
+      out.counts = cnt;
+    }
+    return out;
+  }
+
   const isBigInt = data instanceof BigInt64Array || data instanceof BigUint64Array;
   const isFloat = dtype === 'float64' || dtype === 'float32' || dtype === 'float16';
 
@@ -547,7 +615,11 @@ function elementToKey(
     const im = Number((data as Float64Array)[(offset + index) * 2 + 1]);
     return `${re},${im}`;
   }
-  return String(Number(data[offset + index]!));
+  const v = data[offset + index]!;
+  // int64/uint64 must key off the BigInt itself: String(Number(v)) collapses
+  // distinct values above 2^53 onto one key, which silently merged neighbouring
+  // elements in unique/intersect1d/isin and friends.
+  return typeof v === 'bigint' ? v.toString() : String(Number(v));
 }
 
 /**
@@ -737,6 +809,23 @@ export function setxor1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
     return result;
   }
 
+  // int64/uint64: collect and sort the BigInts. Number() would both merge
+  // distinct values above 2^53 and make the store throw on a BigInt array.
+  if (unique1.data instanceof BigInt64Array || unique1.data instanceof BigUint64Array) {
+    const u1 = unique1.data as BigInt64Array | BigUint64Array;
+    const u2 = unique2.data as BigInt64Array | BigUint64Array;
+    const vals: bigint[] = [];
+    for (const idx of xorIndices1) vals.push(u1[idx]!);
+    for (const idx of xorIndices2) vals.push(u2[idx]!);
+    vals.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const out = ArrayStorage.zeros([vals.length], dtype as DType);
+    const od = out.data as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < vals.length; i++) od[i] = vals[i]!;
+    unique1.dispose();
+    unique2.dispose();
+    return out;
+  }
+
   // Collect all values, then sort
   const xorValues: number[] = [];
   for (const idx of xorIndices1) {
@@ -810,6 +899,35 @@ export function union1d(ar1: ArrayStorage, ar2: ArrayStorage): ArrayStorage {
     unique1.dispose();
     unique2.dispose();
     return result;
+  }
+
+  // int64/uint64: dedupe on the BigInt itself, for the same reason as setxor1d.
+  if (unique1.data instanceof BigInt64Array || unique1.data instanceof BigUint64Array) {
+    const u1 = unique1.data as BigInt64Array | BigUint64Array;
+    const u2 = unique2.data as BigInt64Array | BigUint64Array;
+    const seen = new Set<bigint>();
+    const vals: bigint[] = [];
+    for (let i = 0; i < unique1.size; i++) {
+      const v = u1[i]!;
+      if (!seen.has(v)) {
+        seen.add(v);
+        vals.push(v);
+      }
+    }
+    for (let i = 0; i < unique2.size; i++) {
+      const v = u2[i]!;
+      if (!seen.has(v)) {
+        seen.add(v);
+        vals.push(v);
+      }
+    }
+    vals.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const out = ArrayStorage.zeros([vals.length], dtype as DType);
+    const od = out.data as BigInt64Array | BigUint64Array;
+    for (let i = 0; i < vals.length; i++) od[i] = vals[i]!;
+    unique1.dispose();
+    unique2.dispose();
+    return out;
   }
 
   const realValues: number[] = [];

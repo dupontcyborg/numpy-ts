@@ -48,12 +48,12 @@ describe('Extended reduction tests', () => {
   describe('sum() with BigInt dtypes', () => {
     it('sums int64 arrays', () => {
       const arr = array([1, 2, 3, 4, 5], 'int64');
-      expect(arr.sum()).toBe(15);
+      expect(arr.sum()).toBe(15n);
     });
 
     it('sums uint64 arrays', () => {
       const arr = array([10, 20, 30], 'uint64');
-      expect(arr.sum()).toBe(60);
+      expect(arr.sum()).toBe(60n);
     });
 
     it('sums int64 array along axis', () => {
@@ -143,12 +143,12 @@ describe('Extended reduction tests', () => {
 
     it('finds max of int64 array', () => {
       const arr = array([10, 50, 30, 90, 20], 'int64');
-      expect(arr.max()).toBe(90);
+      expect(arr.max()).toBe(90n);
     });
 
     it('finds max of uint64 array', () => {
       const arr = array([100, 500, 300], 'uint64');
-      expect(arr.max()).toBe(500);
+      expect(arr.max()).toBe(500n);
     });
 
     it('finds max along axis for int64', () => {
@@ -196,12 +196,12 @@ describe('Extended reduction tests', () => {
 
     it('finds min of int64 array', () => {
       const arr = array([50, 10, 90, 20, 70], 'int64');
-      expect(arr.min()).toBe(10);
+      expect(arr.min()).toBe(10n);
     });
 
     it('finds min of uint64 array', () => {
       const arr = array([500, 100, 300], 'uint64');
-      expect(arr.min()).toBe(100);
+      expect(arr.min()).toBe(100n);
     });
 
     it('finds min along axis for int64', () => {
@@ -249,12 +249,12 @@ describe('Extended reduction tests', () => {
 
     it('computes product of int64 array', () => {
       const arr = array([2, 3, 4], 'int64');
-      expect(arr.prod()).toBe(24);
+      expect(arr.prod()).toBe(24n);
     });
 
     it('computes product of uint64 array', () => {
       const arr = array([5, 6], 'uint64');
-      expect(arr.prod()).toBe(30);
+      expect(arr.prod()).toBe(30n);
     });
 
     it('computes product along axis for int64', () => {
@@ -309,9 +309,9 @@ describe('Extended reduction tests', () => {
 
     it('handles negative values in int64', () => {
       const arr = array([-5, -3, -1], 'int64');
-      expect(arr.sum()).toBe(-9);
-      expect(arr.max()).toBe(-1);
-      expect(arr.min()).toBe(-5);
+      expect(arr.sum()).toBe(-9n);
+      expect(arr.max()).toBe(-1n);
+      expect(arr.min()).toBe(-5n);
     });
 
     it('handles mixed positive and negative in int32', () => {

@@ -43,6 +43,7 @@ import {
   wasmReduceSum,
   wasmReduceSumComplex,
   wasmReduceSumStrided,
+  wasmReduceSumStrided64,
   wasmReduceSumStridedComplex,
 } from '../wasm/reduce_sum';
 import { wasmReduceVar } from '../wasm/reduce_var';
@@ -138,11 +139,22 @@ function wrapScalarKeepdims(
 /**
  * Sum array elements over a given axis
  */
+/**
+ * Wrap an exact BigInt accumulator into its dtype's 64-bit range.
+ *
+ * BigInt arithmetic is unbounded, but NumPy's integer reductions wrap on
+ * overflow. Returning the unbounded accumulator made `sum` disagree with NumPy
+ * in both magnitude and sign once a total passed int64 range.
+ */
+function wrap64(v: bigint, dtype: DType): bigint {
+  return dtype === 'uint64' ? BigInt.asUintN(64, v) : BigInt.asIntN(64, v);
+}
+
 export function sum(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -193,7 +205,7 @@ export function sum(
           total += storage.iget(i) as bigint;
         }
       }
-      return Number(total);
+      return wrap64(total, dtype);
     } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
       const acc = getFloatAcc(dtype)!;
       acc[0] = 0;
@@ -264,6 +276,23 @@ export function sum(
   if (contiguous && !isComplexDType(dtype)) {
     const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
     const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+
+    // int64/uint64 accumulate in the input type — an f64 accumulator cannot hold
+    // a 64-bit column total above 2^53.
+    if (isBigIntDType(outDtype)) {
+      const exact = wasmReduceSumStrided64(storage, wasmOuter, axisSize, innerSize);
+      if (exact) {
+        const outShape = keepdims
+          ? shape.map((sz, i) => (i === normalizedAxis ? 1 : sz))
+          : outputShape;
+        try {
+          return ArrayStorage.fromData(exact.data, outShape, outDtype);
+        } finally {
+          exact.dispose();
+        }
+      }
+    }
+
     const wasmResult = wasmReduceSumStrided(storage, wasmOuter, axisSize, innerSize);
     if (wasmResult) {
       const outShape = keepdims ? shape.map((s, i) => (i === normalizedAxis ? 1 : s)) : outputShape;
@@ -472,6 +501,25 @@ export function mean(
       return roundToDtype(total / storage.size, dtype);
     }
 
+    // int64/uint64: NumPy's mean promotes to float64 and accumulates there, so it
+    // does NOT wrap the way an integer sum() does. Reusing sum() here would hand
+    // back a wrapped int64 total and turn a large mean negative.
+    if (isBigIntDType(dtype)) {
+      let total = 0;
+      const off2 = storage.offset;
+      if (storage.isCContiguous) {
+        const typed = storage.data as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < storage.size; i++) {
+          total += Number(typed[off2 + i]!);
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          total += Number(storage.iget(i) as bigint);
+        }
+      }
+      return total / storage.size;
+    }
+
     const sumResult = sum(storage);
     if (sumResult instanceof Complex) {
       return new Complex(sumResult.re / storage.size, sumResult.im / storage.size);
@@ -569,6 +617,12 @@ export function mean(
   if (typeof sumResult === 'number') {
     return sumResult / shape[normalizedAxis]!;
   }
+  // A BigInt here means the reduction collapsed to a scalar (1-D input, no
+  // keepdims), so sum() already wrapped it in int64. Redo it through the global
+  // path, which accumulates in float64 the way NumPy's integer mean does.
+  if (typeof sumResult === 'bigint') {
+    return mean(storage);
+  }
   if (sumResult instanceof Complex) {
     return new Complex(
       sumResult.re / shape[normalizedAxis]!,
@@ -623,7 +677,7 @@ export function max(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -753,7 +807,7 @@ export function max(
           }
         }
       }
-      return Number(maxVal);
+      return typeof maxVal === 'bigint' ? maxVal : Number(maxVal);
     } else {
       let maxVal = storage.iget(0);
       for (let i = 1; i < size; i++) {
@@ -762,7 +816,7 @@ export function max(
           maxVal = val;
         }
       }
-      return Number(maxVal);
+      return typeof maxVal === 'bigint' ? maxVal : Number(maxVal);
     }
   }
 
@@ -875,7 +929,7 @@ export function prod(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -929,7 +983,7 @@ export function prod(
           product *= storage.iget(i) as bigint;
         }
       }
-      return Number(product);
+      return wrap64(product, dtype as DType);
     } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
       const acc = getFloatAcc(dtype)!;
       acc[0] = 1;
@@ -1154,7 +1208,7 @@ export function min(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -1284,7 +1338,7 @@ export function min(
           }
         }
       }
-      return Number(minVal);
+      return typeof minVal === 'bigint' ? minVal : Number(minVal);
     } else {
       let minVal = storage.iget(0);
       for (let i = 1; i < size; i++) {
@@ -1293,7 +1347,7 @@ export function min(
           minVal = val;
         }
       }
-      return Number(minVal);
+      return typeof minVal === 'bigint' ? minVal : Number(minVal);
     }
   }
 
@@ -2922,7 +2976,7 @@ export function ptp(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
 
   // NumPy rejects bool ptp: subtract is not defined for booleans
@@ -2965,6 +3019,11 @@ export function ptp(
   const maxResult = max(storage, axis, keepdims);
   const minResult = min(storage, axis, keepdims);
 
+  if (typeof maxResult === 'bigint' && typeof minResult === 'bigint') {
+    // NumPy wraps the subtraction in the input dtype; BigInt is unbounded.
+    return wrap64(maxResult - minResult, dtype as DType);
+  }
+
   if (typeof maxResult === 'number' && typeof minResult === 'number') {
     // For integer dtypes, wrap the subtraction in the input dtype (matching NumPy)
     const diff = maxResult - minResult;
@@ -2996,8 +3055,19 @@ export function ptp(
     const result = ArrayStorage.zeros([...maxStorage.shape], dtype);
     const resultData = result.data;
 
-    for (let i = 0; i < maxStorage.size; i++) {
-      resultData[i] = Number(maxData[i]) - Number(minData[i]);
+    if (isBigIntDType(dtype)) {
+      // A BigInt64Array store rejects a Number outright, and Number() would lose
+      // the difference anyway; subtract in BigInt and let the store wrap.
+      const out = resultData as BigInt64Array | BigUint64Array;
+      const hi = maxData as BigInt64Array | BigUint64Array;
+      const lo = minData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < maxStorage.size; i++) {
+        out[i] = hi[i]! - lo[i]!;
+      }
+    } else {
+      for (let i = 0; i < maxStorage.size; i++) {
+        resultData[i] = Number(maxData[i]) - Number(minData[i]);
+      }
     }
 
     return result;
@@ -3570,7 +3640,7 @@ export function nansum(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   return narrowFloatResult(nansumImpl(storage, axis, keepdims), reductionAccumDtype(storage.dtype));
 }
 
@@ -3578,7 +3648,7 @@ function nansumImpl(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
@@ -3680,7 +3750,7 @@ function nansumImpl(
   if (outputShape.length === 0) {
     const scalar = nansum(storage);
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -3757,7 +3827,7 @@ export function nanprod(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   return narrowFloatResult(
     nanprodImpl(storage, axis, keepdims),
     reductionAccumDtype(storage.dtype),
@@ -3768,7 +3838,7 @@ function nanprodImpl(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
 
@@ -3849,7 +3919,7 @@ function nanprodImpl(
   if (outputShape.length === 0) {
     const scalar = nanprod(storage);
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -4047,7 +4117,7 @@ function nanmeanImpl(
   if (outputShape.length === 0) {
     const scalar = nanmean(storage);
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -4465,7 +4535,7 @@ export function nanmin(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -4680,7 +4750,7 @@ export function nanmax(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;

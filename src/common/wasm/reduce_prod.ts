@@ -78,7 +78,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
  * WASM-accelerated reduction product (no axis, full array).
  * Returns null if WASM can't handle (complex types, non-contiguous, too small).
  */
-export function wasmReduceProd(a: ArrayStorage): number | null {
+export function wasmReduceProd(a: ArrayStorage): number | bigint | null {
   if (!a.isCContiguous) return null;
 
   const size = a.size;
@@ -110,7 +110,13 @@ export function wasmReduceProd(a: ArrayStorage): number | null {
   // The WASM i64 ABI returns the raw two's-complement bit pattern as a signed
   // BigInt. For unsigned 64-bit dtypes, reinterpret as unsigned before casting
   // to Number so values ≥ 2^63 are not misread as negative.
-  if (typeof raw === 'bigint' && (dtype === 'uint64' || dtype === 'uint16' || dtype === 'uint8')) {
+  // int64/uint64 keep the BigInt: routing it through Number() truncates anything
+  // above 2^53, which is what made this reduction disagree with NumPy on large
+  // 64-bit values. Narrower int dtypes accumulate into i64 but their exact
+  // result always fits a double.
+  if (dtype === 'int64') return BigInt.asIntN(64, raw as bigint);
+  if (dtype === 'uint64') return BigInt.asUintN(64, raw as bigint);
+  if (typeof raw === 'bigint' && (dtype === 'uint16' || dtype === 'uint8')) {
     return Number(BigInt.asUintN(64, raw));
   }
   return Number(raw);

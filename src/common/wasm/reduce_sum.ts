@@ -25,10 +25,12 @@ import {
   reduce_sum_strided_i16,
   reduce_sum_strided_i32,
   reduce_sum_strided_i64,
+  reduce_sum_strided_i64_exact,
   reduce_sum_strided_u8,
   reduce_sum_strided_u16,
   reduce_sum_strided_u32,
   reduce_sum_strided_u64,
+  reduce_sum_strided_u64_exact,
   reduce_sum_u8_to_u64,
   reduce_sum_u16_to_u64,
 } from './bins/reduce_sum.wasm';
@@ -79,7 +81,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
  * WASM-accelerated reduction sum (no axis, full array).
  * Returns null if WASM can't handle (complex types, non-contiguous, too small).
  */
-export function wasmReduceSum(a: ArrayStorage): number | null {
+export function wasmReduceSum(a: ArrayStorage): number | bigint | null {
   if (!a.isCContiguous) return null;
 
   const size = a.size;
@@ -101,7 +103,14 @@ export function wasmReduceSum(a: ArrayStorage): number | null {
 
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
-  return Number(kernel(aPtr, size));
+  const raw = kernel(aPtr, size);
+  // int64/uint64 keep the BigInt: routing it through Number() truncates anything
+  // above 2^53, which is what made this reduction disagree with NumPy on large
+  // 64-bit values. Narrower int dtypes accumulate into i64 but their exact
+  // result always fits a double.
+  if (dtype === 'int64') return BigInt.asIntN(64, raw as bigint);
+  if (dtype === 'uint64') return BigInt.asUintN(64, raw as bigint);
+  return Number(raw);
 }
 
 /**
@@ -136,6 +145,71 @@ export function wasmReduceSumComplex(a: ArrayStorage): [number, number] | null {
     const out = new Float32Array(mem.buffer, outPtr, 2);
     return [out[0]!, out[1]!];
   }
+}
+
+// --- Exact 64-bit strided axis reduction ---
+//
+// The f64-output kernels above cannot represent a 64-bit column total above
+// 2^53, so int64/uint64 axis sums need kernels that accumulate in the input
+// type. Output dtype matches input dtype and wraps like NumPy.
+
+type Strided64Fn = (
+  aPtr: number,
+  outPtr: number,
+  outer: number,
+  axis: number,
+  inner: number,
+) => void;
+
+const strided64Kernels: Partial<Record<DType, Strided64Fn>> = {
+  int64: reduce_sum_strided_i64_exact,
+  uint64: reduce_sum_strided_u64_exact,
+};
+
+/**
+ * WASM-accelerated strided sum along an axis for int64/uint64, accumulating in
+ * the input type so no precision is lost. Returns storage of the same dtype,
+ * or null when this isn't an exact-64-bit case WASM can handle.
+ */
+export function wasmReduceSumStrided64(
+  a: ArrayStorage,
+  outerSize: number,
+  axisSize: number,
+  innerSize: number,
+): ArrayStorage | null {
+  if (!a.isCContiguous) return null;
+
+  const totalSize = outerSize * axisSize * innerSize;
+  if (totalSize < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const dtype = effectiveDType(a.dtype);
+  const kernel = strided64Kernels[dtype];
+  const Ctor = ctorMap[dtype];
+  if (!kernel || !Ctor) return null;
+
+  const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
+  const outSize = outerSize * innerSize;
+
+  const outRegion = wasmMalloc(outSize * bpe);
+  if (!outRegion) return null;
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+  const inPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, totalSize, bpe);
+
+  kernel(inPtr, outRegion.ptr, outerSize, axisSize, innerSize);
+
+  return ArrayStorage.fromWasmRegion(
+    [outSize],
+    dtype,
+    outRegion,
+    outSize,
+    Ctor as unknown as new (
+      buf: ArrayBuffer,
+      off: number,
+      len: number,
+    ) => TypedArray,
+  );
 }
 
 // --- Strided axis reduction (all output f64 to avoid overflow and BigInt overhead) ---
