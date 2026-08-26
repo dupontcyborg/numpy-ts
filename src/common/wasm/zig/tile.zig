@@ -3,193 +3,74 @@
 //! tile_2d: Tile a [rows x cols] matrix by [rep_rows x rep_cols].
 //! Output shape is [rows*rep_rows, cols*rep_cols].
 //! Operates on contiguous row-major buffers.
+//!
+//! Pure block copying, no per-lane arithmetic, so this is one generic body
+//! rather than six per-dtype loops. See finding 1.2 in OPEN-FINDINGS.md.
 
-const simd = @import("simd.zig");
+const bulk_mem = @import("bulk_mem.zig");
+
+/// Build the top band of `rows` rows (each source row repeated `rep_cols`
+/// times), then replicate that band `rep_rows - 1` more times. The two phases
+/// have very different run lengths, so each picks its own copy strategy. All
+/// copies are between non-overlapping regions, so `@memcpy` is safe.
+inline fn tileT(
+    comptime T: type,
+    a: [*]const T,
+    out: [*]T,
+    rows: u32,
+    cols: u32,
+    rep_rows: u32,
+    rep_cols: u32,
+) void {
+    if (rows == 0 or cols == 0 or rep_rows == 0 or rep_cols == 0) return;
+    const out_cols = cols * rep_cols;
+
+    const row_bulk = bulk_mem.useBulk(T, cols);
+    for (0..rows) |r| {
+        const src_row = a + r * cols;
+        const tiled_row = out + r * out_cols;
+        for (0..rep_cols) |rc| {
+            const dst = tiled_row + rc * cols;
+            if (row_bulk) @memcpy(dst[0..cols], src_row[0..cols]) else bulk_mem.copySmall(T, dst, src_row, cols);
+        }
+    }
+
+    const block_size = rows * out_cols;
+    const block_bulk = bulk_mem.useBulk(T, block_size);
+    for (1..rep_rows) |rr| {
+        const dst = out + rr * block_size;
+        if (block_bulk) @memcpy(dst[0..block_size], out[0..block_size]) else bulk_mem.copySmall(T, dst, out, block_size);
+    }
+}
 
 /// 2D tile for f64: tile a [rows x cols] matrix by [rep_rows x rep_cols].
 export fn tile_2d_f64(a: [*]const f64, out: [*]f64, rows: u32, cols: u32, rep_rows: u32, rep_cols: u32) void {
-    const out_cols = cols * rep_cols;
-    // Build one tiled row (cols repeated rep_cols times)
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const tiled_row = out + r * out_cols;
-        for (0..rep_cols) |rc| {
-            const dst = tiled_row + rc * cols;
-            const n_simd = cols & ~@as(u32, 1);
-            var c: u32 = 0;
-            while (c < n_simd) : (c += 2) {
-                simd.store2_f64(dst, c, simd.load2_f64(src_row, c));
-            }
-            while (c < cols) : (c += 1) {
-                dst[c] = src_row[c];
-            }
-        }
-    }
-    // Replicate the first block of rows for remaining row reps
-    const block_size = rows * out_cols;
-    for (1..rep_rows) |rr| {
-        const dst = out + rr * block_size;
-        const n_simd = block_size & ~@as(u32, 1);
-        var i: u32 = 0;
-        while (i < n_simd) : (i += 2) {
-            simd.store2_f64(dst, i, simd.load2_f64(out, i));
-        }
-        while (i < block_size) : (i += 1) {
-            dst[i] = out[i];
-        }
-    }
+    tileT(f64, a, out, rows, cols, rep_rows, rep_cols);
 }
 
-/// 2D tile for f32: tile a [rows x cols] matrix by [rep_rows x rep_cols].
+/// 2D tile for f32.
 export fn tile_2d_f32(a: [*]const f32, out: [*]f32, rows: u32, cols: u32, rep_rows: u32, rep_cols: u32) void {
-    const out_cols = cols * rep_cols;
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const tiled_row = out + r * out_cols;
-        for (0..rep_cols) |rc| {
-            const dst = tiled_row + rc * cols;
-            const n_simd = cols & ~@as(u32, 3);
-            var c: u32 = 0;
-            while (c < n_simd) : (c += 4) {
-                simd.store4_f32(dst, c, simd.load4_f32(src_row, c));
-            }
-            while (c < cols) : (c += 1) {
-                dst[c] = src_row[c];
-            }
-        }
-    }
-    const block_size = rows * out_cols;
-    for (1..rep_rows) |rr| {
-        const dst = out + rr * block_size;
-        const n_simd = block_size & ~@as(u32, 3);
-        var i: u32 = 0;
-        while (i < n_simd) : (i += 4) {
-            simd.store4_f32(dst, i, simd.load4_f32(out, i));
-        }
-        while (i < block_size) : (i += 1) {
-            dst[i] = out[i];
-        }
-    }
+    tileT(f32, a, out, rows, cols, rep_rows, rep_cols);
 }
 
-/// 2D tile for i64, scalar loop (no i64x2 in WASM SIMD).
+/// 2D tile for i64.
 export fn tile_2d_i64(a: [*]const i64, out: [*]i64, rows: u32, cols: u32, rep_rows: u32, rep_cols: u32) void {
-    const out_cols = cols * rep_cols;
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const tiled_row = out + r * out_cols;
-        for (0..rep_cols) |rc| {
-            const dst = tiled_row + rc * cols;
-            var c: u32 = 0;
-            while (c < cols) : (c += 1) {
-                dst[c] = src_row[c];
-            }
-        }
-    }
-    const block_size = rows * out_cols;
-    for (1..rep_rows) |rr| {
-        const dst = out + rr * block_size;
-        var i: u32 = 0;
-        while (i < block_size) : (i += 1) {
-            dst[i] = out[i];
-        }
-    }
+    tileT(i64, a, out, rows, cols, rep_rows, rep_cols);
 }
 
-/// 2D tile for i32 using 4-wide SIMD.
+/// 2D tile for i32.
 export fn tile_2d_i32(a: [*]const i32, out: [*]i32, rows: u32, cols: u32, rep_rows: u32, rep_cols: u32) void {
-    const out_cols = cols * rep_cols;
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const tiled_row = out + r * out_cols;
-        for (0..rep_cols) |rc| {
-            const dst = tiled_row + rc * cols;
-            const n_simd = cols & ~@as(u32, 3);
-            var c: u32 = 0;
-            while (c < n_simd) : (c += 4) {
-                simd.store4_i32(dst, c, simd.load4_i32(src_row, c));
-            }
-            while (c < cols) : (c += 1) {
-                dst[c] = src_row[c];
-            }
-        }
-    }
-    const block_size = rows * out_cols;
-    for (1..rep_rows) |rr| {
-        const dst = out + rr * block_size;
-        const n_simd = block_size & ~@as(u32, 3);
-        var i: u32 = 0;
-        while (i < n_simd) : (i += 4) {
-            simd.store4_i32(dst, i, simd.load4_i32(out, i));
-        }
-        while (i < block_size) : (i += 1) {
-            dst[i] = out[i];
-        }
-    }
+    tileT(i32, a, out, rows, cols, rep_rows, rep_cols);
 }
 
-/// 2D tile for i16 using 8-wide SIMD.
+/// 2D tile for i16.
 export fn tile_2d_i16(a: [*]const i16, out: [*]i16, rows: u32, cols: u32, rep_rows: u32, rep_cols: u32) void {
-    const out_cols = cols * rep_cols;
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const tiled_row = out + r * out_cols;
-        for (0..rep_cols) |rc| {
-            const dst = tiled_row + rc * cols;
-            const n_simd = cols & ~@as(u32, 7);
-            var c: u32 = 0;
-            while (c < n_simd) : (c += 8) {
-                simd.store8_i16(dst, c, simd.load8_i16(src_row, c));
-            }
-            while (c < cols) : (c += 1) {
-                dst[c] = src_row[c];
-            }
-        }
-    }
-    const block_size = rows * out_cols;
-    for (1..rep_rows) |rr| {
-        const dst = out + rr * block_size;
-        const n_simd = block_size & ~@as(u32, 7);
-        var i: u32 = 0;
-        while (i < n_simd) : (i += 8) {
-            simd.store8_i16(dst, i, simd.load8_i16(out, i));
-        }
-        while (i < block_size) : (i += 1) {
-            dst[i] = out[i];
-        }
-    }
+    tileT(i16, a, out, rows, cols, rep_rows, rep_cols);
 }
 
-/// 2D tile for i8 using 16-wide SIMD.
+/// 2D tile for i8.
 export fn tile_2d_i8(a: [*]const i8, out: [*]i8, rows: u32, cols: u32, rep_rows: u32, rep_cols: u32) void {
-    const out_cols = cols * rep_cols;
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const tiled_row = out + r * out_cols;
-        for (0..rep_cols) |rc| {
-            const dst = tiled_row + rc * cols;
-            const n_simd = cols & ~@as(u32, 15);
-            var c: u32 = 0;
-            while (c < n_simd) : (c += 16) {
-                simd.store16_i8(dst, c, simd.load16_i8(src_row, c));
-            }
-            while (c < cols) : (c += 1) {
-                dst[c] = src_row[c];
-            }
-        }
-    }
-    const block_size = rows * out_cols;
-    for (1..rep_rows) |rr| {
-        const dst = out + rr * block_size;
-        const n_simd = block_size & ~@as(u32, 15);
-        var i: u32 = 0;
-        while (i < n_simd) : (i += 16) {
-            simd.store16_i8(dst, i, simd.load16_i8(out, i));
-        }
-        while (i < block_size) : (i += 1) {
-            dst[i] = out[i];
-        }
-    }
+    tileT(i8, a, out, rows, cols, rep_rows, rep_cols);
 }
 
 // --- Tests ---

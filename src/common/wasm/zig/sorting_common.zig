@@ -664,12 +664,10 @@ pub fn radixSort(comptime T: type, a: [*]T, N: u32, scratch: [*]T) void {
         dst = tmp;
     }
 
-    // After an odd number of effective passes the result sits in scratch — copy back
+    // After an odd number of effective passes the result sits in scratch — copy
+    // back. The guard proves src and a are distinct, so @memcpy is safe.
     if (src != a) {
-        var i: u32 = 0;
-        while (i < N) : (i += 1) {
-            a[i] = src[i];
-        }
+        @memcpy(a[0..N], src[0..N]);
     }
 }
 

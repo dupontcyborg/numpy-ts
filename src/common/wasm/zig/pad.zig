@@ -3,168 +3,82 @@
 //! pad_2d: Pad a [rows x cols] matrix with `pad_width` zeros on all sides.
 //! Output shape is [rows + 2*pad_width, cols + 2*pad_width].
 //! Operates on contiguous row-major buffers. Pad value is always 0.
+//!
+//! Pure fill + copy, no per-lane arithmetic, so this is one generic body rather
+//! than six per-dtype loops. Zeroing only the border (not the whole output) is
+//! what made it fast: the old code wrote every interior element twice. See
+//! finding 1.2 in OPEN-FINDINGS.md.
 
-const simd = @import("simd.zig");
+const bulk_mem = @import("bulk_mem.zig");
+
+/// Zero the border (top band, bottom band, then a `pw`-wide margin either side
+/// of each interior row), then drop each source row into place. Margins are 1-2
+/// elements wide, so they always use direct stores. `a` and `out` are distinct
+/// buffers, so the row copies never overlap.
+inline fn padT(comptime T: type, a: [*]const T, out: [*]T, rows: u32, cols: u32, pw: u32) void {
+    const out_cols = cols + 2 * pw;
+    const out_rows = rows + 2 * pw;
+    const out_size = out_rows * out_cols;
+    if (out_size == 0) return;
+
+    // No padding: the output is the input.
+    if (pw == 0) {
+        if (rows * cols != 0) bulk_mem.copyRun(T, out, a, out_size);
+        return;
+    }
+
+    // Nothing to copy in — the whole output is border.
+    if (rows == 0 or cols == 0) {
+        bulk_mem.fillZero(T, out, out_size);
+        return;
+    }
+
+    const band = pw * out_cols;
+    bulk_mem.fillZero(T, out, band);
+    bulk_mem.fillZero(T, out + (out_size - band), band);
+
+    const row_bulk = bulk_mem.useBulk(T, cols);
+    for (0..rows) |r| {
+        const dst_row = out + (r + pw) * out_cols;
+        var k: u32 = 0;
+        while (k < pw) : (k += 1) {
+            dst_row[k] = 0;
+            dst_row[pw + cols + k] = 0;
+        }
+        const src_row = a + r * cols;
+        const dst = dst_row + pw;
+        if (row_bulk) @memcpy(dst[0..cols], src_row[0..cols]) else bulk_mem.copySmall(T, dst, src_row, cols);
+    }
+}
 
 /// 2D zero-pad for f64: pad [rows x cols] with `pw` zeros on all sides.
 export fn pad_2d_f64(a: [*]const f64, out: [*]f64, rows: u32, cols: u32, pw: u32) void {
-    const out_cols = cols + 2 * pw;
-    const out_rows = rows + 2 * pw;
-    const out_size = out_rows * out_cols;
-    // Zero-fill entire output
-    var i: u32 = 0;
-    const z: simd.V2f64 = @splat(0.0);
-    const n_simd = out_size & ~@as(u32, 1);
-    while (i < n_simd) : (i += 2) {
-        simd.store2_f64(out, i, z);
-    }
-    while (i < out_size) : (i += 1) {
-        out[i] = 0.0;
-    }
-    // Copy source rows into padded position
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const dst_row = out + (r + pw) * out_cols + pw;
-        const cn_simd = cols & ~@as(u32, 1);
-        var c: u32 = 0;
-        while (c < cn_simd) : (c += 2) {
-            simd.store2_f64(dst_row, c, simd.load2_f64(src_row, c));
-        }
-        while (c < cols) : (c += 1) {
-            dst_row[c] = src_row[c];
-        }
-    }
+    padT(f64, a, out, rows, cols, pw);
 }
 
-/// 2D zero-pad for f32: pad [rows x cols] with `pw` zeros on all sides.
+/// 2D zero-pad for f32.
 export fn pad_2d_f32(a: [*]const f32, out: [*]f32, rows: u32, cols: u32, pw: u32) void {
-    const out_cols = cols + 2 * pw;
-    const out_rows = rows + 2 * pw;
-    const out_size = out_rows * out_cols;
-    var i: u32 = 0;
-    const z: simd.V4f32 = @splat(0.0);
-    const n_simd = out_size & ~@as(u32, 3);
-    while (i < n_simd) : (i += 4) {
-        simd.store4_f32(out, i, z);
-    }
-    while (i < out_size) : (i += 1) {
-        out[i] = 0.0;
-    }
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const dst_row = out + (r + pw) * out_cols + pw;
-        const cn_simd = cols & ~@as(u32, 3);
-        var c: u32 = 0;
-        while (c < cn_simd) : (c += 4) {
-            simd.store4_f32(dst_row, c, simd.load4_f32(src_row, c));
-        }
-        while (c < cols) : (c += 1) {
-            dst_row[c] = src_row[c];
-        }
-    }
+    padT(f32, a, out, rows, cols, pw);
 }
 
-/// 2D zero-pad for i64, scalar loop (no i64x2 in WASM SIMD).
+/// 2D zero-pad for i64.
 export fn pad_2d_i64(a: [*]const i64, out: [*]i64, rows: u32, cols: u32, pw: u32) void {
-    const out_cols = cols + 2 * pw;
-    const out_rows = rows + 2 * pw;
-    const out_size = out_rows * out_cols;
-    var i: u32 = 0;
-    while (i < out_size) : (i += 1) {
-        out[i] = 0;
-    }
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const dst_row = out + (r + pw) * out_cols + pw;
-        var c: u32 = 0;
-        while (c < cols) : (c += 1) {
-            dst_row[c] = src_row[c];
-        }
-    }
+    padT(i64, a, out, rows, cols, pw);
 }
 
-/// 2D zero-pad for i32 using 4-wide SIMD.
+/// 2D zero-pad for i32.
 export fn pad_2d_i32(a: [*]const i32, out: [*]i32, rows: u32, cols: u32, pw: u32) void {
-    const out_cols = cols + 2 * pw;
-    const out_rows = rows + 2 * pw;
-    const out_size = out_rows * out_cols;
-    var i: u32 = 0;
-    const z: simd.V4i32 = @splat(0);
-    const n_simd = out_size & ~@as(u32, 3);
-    while (i < n_simd) : (i += 4) {
-        simd.store4_i32(out, i, z);
-    }
-    while (i < out_size) : (i += 1) {
-        out[i] = 0;
-    }
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const dst_row = out + (r + pw) * out_cols + pw;
-        const cn_simd = cols & ~@as(u32, 3);
-        var c: u32 = 0;
-        while (c < cn_simd) : (c += 4) {
-            simd.store4_i32(dst_row, c, simd.load4_i32(src_row, c));
-        }
-        while (c < cols) : (c += 1) {
-            dst_row[c] = src_row[c];
-        }
-    }
+    padT(i32, a, out, rows, cols, pw);
 }
 
-/// 2D zero-pad for i16 using 8-wide SIMD.
+/// 2D zero-pad for i16.
 export fn pad_2d_i16(a: [*]const i16, out: [*]i16, rows: u32, cols: u32, pw: u32) void {
-    const out_cols = cols + 2 * pw;
-    const out_rows = rows + 2 * pw;
-    const out_size = out_rows * out_cols;
-    var i: u32 = 0;
-    const z: simd.V8i16 = @splat(0);
-    const n_simd = out_size & ~@as(u32, 7);
-    while (i < n_simd) : (i += 8) {
-        simd.store8_i16(out, i, z);
-    }
-    while (i < out_size) : (i += 1) {
-        out[i] = 0;
-    }
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const dst_row = out + (r + pw) * out_cols + pw;
-        const cn_simd = cols & ~@as(u32, 7);
-        var c: u32 = 0;
-        while (c < cn_simd) : (c += 8) {
-            simd.store8_i16(dst_row, c, simd.load8_i16(src_row, c));
-        }
-        while (c < cols) : (c += 1) {
-            dst_row[c] = src_row[c];
-        }
-    }
+    padT(i16, a, out, rows, cols, pw);
 }
 
-/// 2D zero-pad for i8 using 16-wide SIMD.
+/// 2D zero-pad for i8.
 export fn pad_2d_i8(a: [*]const i8, out: [*]i8, rows: u32, cols: u32, pw: u32) void {
-    const out_cols = cols + 2 * pw;
-    const out_rows = rows + 2 * pw;
-    const out_size = out_rows * out_cols;
-    var i: u32 = 0;
-    const z: simd.V16i8 = @splat(0);
-    const n_simd = out_size & ~@as(u32, 15);
-    while (i < n_simd) : (i += 16) {
-        simd.store16_i8(out, i, z);
-    }
-    while (i < out_size) : (i += 1) {
-        out[i] = 0;
-    }
-    for (0..rows) |r| {
-        const src_row = a + r * cols;
-        const dst_row = out + (r + pw) * out_cols + pw;
-        const cn_simd = cols & ~@as(u32, 15);
-        var c: u32 = 0;
-        while (c < cn_simd) : (c += 16) {
-            simd.store16_i8(dst_row, c, simd.load16_i8(src_row, c));
-        }
-        while (c < cols) : (c += 1) {
-            dst_row[c] = src_row[c];
-        }
-    }
+    padT(i8, a, out, rows, cols, pw);
 }
 
 // --- Tests ---
@@ -281,4 +195,52 @@ test "pad_2d_f64 pad_width=2" {
     // corners should be 0
     try testing.expectApproxEqAbs(out[0], 0.0, 1e-10);
     try testing.expectApproxEqAbs(out[24], 0.0, 1e-10);
+}
+
+test "pad_2d_f64 border-only fill leaves no gaps" {
+    const testing = @import("std").testing;
+    // The border is filled as three separate pieces (top band, bottom band, side
+    // margins), so this checks every output cell rather than a few samples.
+    const rows: u32 = 3;
+    const cols: u32 = 4;
+    const pw: u32 = 2;
+    const oc = cols + 2 * pw;
+    const orow = rows + 2 * pw;
+    var a: [rows * cols]f64 = undefined;
+    for (&a, 0..) |*p, i| p.* = @floatFromInt(i + 1);
+    var out = [_]f64{-1} ** (oc * orow);
+    pad_2d_f64(&a, &out, rows, cols, pw);
+    for (0..orow) |r| {
+        for (0..oc) |c| {
+            const v = out[r * oc + c];
+            const inside = r >= pw and r < pw + rows and c >= pw and c < pw + cols;
+            if (inside) {
+                try testing.expectEqual(a[(r - pw) * cols + (c - pw)], v);
+            } else {
+                try testing.expectEqual(@as(f64, 0), v);
+            }
+        }
+    }
+}
+
+test "pad_2d_i32 pw=0 is a straight copy" {
+    const testing = @import("std").testing;
+    const a = [_]i32{ 1, 2, 3, 4, 5, 6 };
+    var out = [_]i32{-1} ** 6;
+    pad_2d_i32(&a, &out, 2, 3, 0);
+    try testing.expectEqualSlices(i32, &a, &out);
+}
+
+test "pad_2d_i8 zero-sized input is all border" {
+    const testing = @import("std").testing;
+    const a = [_]i8{};
+    var out = [_]i8{-1} ** 9;
+    pad_2d_i8(&a, &out, 0, 0, 3);
+    // out_rows = out_cols = 6 would be 36; with rows=cols=0 and pw=3 the output
+    // is 6x6, so this only checks the first 9 cells are zeroed.
+    pad_2d_i8(&a, &out, 0, 3, 0);
+    for (out[0..0]) |v| try testing.expectEqual(@as(i8, 0), v);
+    var out2 = [_]i8{-1} ** 36;
+    pad_2d_i8(&a, &out2, 0, 0, 3);
+    for (out2) |v| try testing.expectEqual(@as(i8, 0), v);
 }

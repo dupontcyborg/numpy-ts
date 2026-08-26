@@ -321,6 +321,7 @@ async function main() {
   mkdirSync(CACHE_DIR, { recursive: true });
 
   const SHARED_MODULES = new Set([
+    'bulk_mem.zig',
     'simd.zig',
     'sorting_common.zig',
     'ziggurat_tables.zig',
