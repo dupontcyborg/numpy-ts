@@ -5,6 +5,19 @@
 
 const simd = @import("simd.zig");
 
+const V2 = @Vector(2, i64);
+const V2Z: V2 = @splat(0);
+
+/// Truthiness of two i64 lanes as a bool vector.
+/// `@intFromBool` then yields one byte per lane, matching the bool output.
+inline fn truthy2(p: [*]const i64, i: u32) @Vector(2, bool) {
+    return @as(*align(1) const V2, @ptrCast(p + i)).* != V2Z;
+}
+
+inline fn store2(out: [*]u8, i: u32, m: @Vector(2, bool)) void {
+    @as(*align(1) @Vector(2, u8), @ptrCast(out + i)).* = @intFromBool(m);
+}
+
 /// Element-wise logical NOT for f64: out[i] = (a[i] == 0) ? 1 : 0.
 export fn logical_not_f64(a: [*]const f64, out: [*]u8, N: u32) void {
     var i: u32 = 0;
@@ -27,12 +40,15 @@ export fn logical_not_f16(a: [*]const u16, out: [*]u8, N: u32) void {
     while (i < N) : (i += 1) out[i] = if (a[i] & 0x7FFF == 0) 1 else 0;
 }
 
-/// Element-wise logical NOT for i64, scalar loop (no i64x2 compare in WASM SIMD).
+/// Element-wise logical NOT for i64 — 2-wide.
 export fn logical_not_i64(a: [*]const i64, out: [*]u8, N: u32) void {
+    const n2 = N & ~@as(u32, 1);
     var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] == 0) 1 else 0;
+    while (i < n2) : (i += 2) {
+        const v = @as(*align(1) const V2, @ptrCast(a + i)).*;
+        store2(out, i, v == V2Z);
     }
+    while (i < N) : (i += 1) out[i] = @intFromBool(a[i] == 0);
 }
 
 /// Element-wise logical NOT for i32 using 4-wide SIMD: out[i] = (a[i] == 0) ? 1 : 0.
@@ -188,4 +204,14 @@ test "logical_not_f16 basic" {
     try testing.expectEqual(out[1], 1); // !0.0 = 1
     try testing.expectEqual(out[2], 1); // !(-0.0) = 1
     try testing.expectEqual(out[3], 0); // !(-1.0) = 0
+}
+
+test "logical_not_i64 odd length exercises the 2-wide body and the tail" {
+    const testing = @import("std").testing;
+    const MIN = @import("std").math.minInt(i64);
+    const MAX = @import("std").math.maxInt(i64);
+    const a = [_]i64{ 0, 1, MIN, MAX, 0, -1, 0 };
+    var out = [_]u8{9} ** 7;
+    logical_not_i64(&a, &out, 7);
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 0, 0, 0, 1, 0, 1 }, &out);
 }

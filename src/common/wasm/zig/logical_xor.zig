@@ -6,6 +6,19 @@
 
 const simd = @import("simd.zig");
 
+const V2 = @Vector(2, i64);
+const V2Z: V2 = @splat(0);
+
+/// Truthiness of two i64 lanes as a bool vector.
+/// `@intFromBool` then yields one byte per lane, matching the bool output.
+inline fn truthy2(p: [*]const i64, i: u32) @Vector(2, bool) {
+    return @as(*align(1) const V2, @ptrCast(p + i)).* != V2Z;
+}
+
+inline fn store2(out: [*]u8, i: u32, m: @Vector(2, bool)) void {
+    @as(*align(1) @Vector(2, u8), @ptrCast(out + i)).* = @intFromBool(m);
+}
+
 /// Element-wise logical XOR for f64: out[i] = (a[i] != 0) ^ (b[i] != 0).
 export fn logical_xor_f64(a: [*]const f64, b: [*]const f64, out: [*]u8, N: u32) void {
     var i: u32 = 0;
@@ -66,24 +79,22 @@ export fn logical_xor_scalar_f16(a: [*]const u16, out: [*]u8, N: u32, scalar_tru
     }
 }
 
-/// Element-wise logical XOR for i64, scalar loop (no i64x2 compare in WASM SIMD).
+/// Element-wise logical XOR for i64 — 2-wide.
 export fn logical_xor_i64(a: [*]const i64, b: [*]const i64, out: [*]u8, N: u32) void {
+    const n2 = N & ~@as(u32, 1);
     var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const ab: u8 = if (a[i] != 0) 1 else 0;
-        const bb: u8 = if (b[i] != 0) 1 else 0;
-        out[i] = ab ^ bb;
-    }
+    while (i < n2) : (i += 2) store2(out, i, truthy2(a, i) != truthy2(b, i));
+    while (i < N) : (i += 1) out[i] = @intFromBool((a[i] != 0) != (b[i] != 0));
 }
 
-/// Element-wise logical XOR scalar for i64, scalar loop (no i64x2 compare in WASM SIMD).
+/// Element-wise logical XOR against a scalar for i64 — 2-wide.
 export fn logical_xor_scalar_i64(a: [*]const i64, out: [*]u8, N: u32, scalar: i64) void {
-    const sb: u8 = if (scalar != 0) 1 else 0;
+    const sb = scalar != 0;
+    const sv: @Vector(2, bool) = @splat(sb);
+    const n2 = N & ~@as(u32, 1);
     var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const ab: u8 = if (a[i] != 0) 1 else 0;
-        out[i] = ab ^ sb;
-    }
+    while (i < n2) : (i += 2) store2(out, i, truthy2(a, i) != sv);
+    while (i < N) : (i += 1) out[i] = @intFromBool((a[i] != 0) != sb);
 }
 
 /// Element-wise logical XOR for i32 using 4-wide SIMD: out[i] = (a[i] != 0) ^ (b[i] != 0).
@@ -548,4 +559,21 @@ test "logical_xor_scalar_f16 basic" {
     try testing.expectEqual(out[1], 0); // F XOR F = 0
     try testing.expectEqual(out[2], 0); // F(-0) XOR F = 0
     try testing.expectEqual(out[3], 1); // T XOR F = 1
+}
+
+test "logical_xor_i64 odd length exercises the 2-wide body and the tail" {
+    const testing = @import("std").testing;
+    const MIN = @import("std").math.minInt(i64);
+    const MAX = @import("std").math.maxInt(i64);
+    const a = [_]i64{ 0, 1, MIN, MAX, 0, -1, 3 };
+    const b = [_]i64{ 1, 1, 0, MAX, 0, 0, 0 };
+    var out = [_]u8{9} ** 7;
+    logical_xor_i64(&a, &b, &out, 7);
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 0, 1, 0, 0, 1, 1 }, &out);
+
+    var o2 = [_]u8{9} ** 7;
+    logical_xor_scalar_i64(&a, &o2, 7, 5);
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 0, 0, 0, 1, 0, 0 }, &o2);
+    logical_xor_scalar_i64(&a, &o2, 7, 0);
+    try testing.expectEqualSlices(u8, &[_]u8{ 0, 1, 1, 1, 0, 1, 1 }, &o2);
 }
