@@ -8,7 +8,13 @@
  */
 
 import { Complex } from '../complex';
-import { isBigIntDType, isComplexDType, mathResultDtype, promoteDTypes } from '../dtype';
+import {
+  isBigIntDType,
+  isComplexDType,
+  mathResultDtype,
+  promoteDTypes,
+  type TypedArray,
+} from '../dtype';
 import { ArrayStorage } from '../storage';
 import { wasmCompare } from '../wasm/compare';
 
@@ -620,6 +626,266 @@ const CMP_LOOPS = new Map<
 // is a Float32Array and the entry above already covers it.
 if (typeof Float16Array !== 'undefined') {
   CMP_LOOPS.set(Float16Array, cmpF16 as never);
+}
+
+// --- All-elements-equal fast path for array_equal / array_equiv ---
+//
+// One loop per TypedArray type, duplicated for the same reason as CMP_LOOPS
+// above: a single generic loop reading `aData[i]` sees every TypedArray in the
+// program, V8 abandons the inline cache on that load, and every dtype pays.
+//
+// The generic paths these replace were worse than the comparison one was.
+// `array_equal` called `iget()` on both operands per element and re-tested
+// `typeof val === 'object' && 're' in val` for complex *inside* the loop;
+// `arrayEquiv` additionally decomposed the flat index into per-axis indices with
+// a divide and a modulo per dimension, then spread them through `get(...idx)`.
+
+type EqLoop = (
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+) => boolean;
+
+function eqF64(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+): boolean {
+  const a = aData as Float64Array;
+  const b = bData as Float64Array;
+  if (equalNan) {
+    for (let i = 0; i < size; i++) {
+      const x = a[aOff + i]!;
+      const y = b[bOff + i]!;
+      // x !== x is the NaN test; it is cheaper than Number.isNaN here.
+      if (x !== y && !(x !== x && y !== y)) return false;
+    }
+    return true;
+  }
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqF32(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+): boolean {
+  const a = aData as Float32Array;
+  const b = bData as Float32Array;
+  if (equalNan) {
+    for (let i = 0; i < size; i++) {
+      const x = a[aOff + i]!;
+      const y = b[bOff + i]!;
+      if (x !== y && !(x !== x && y !== y)) return false;
+    }
+    return true;
+  }
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqF16(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+): boolean {
+  const a = aData as Float16Array;
+  const b = bData as Float16Array;
+  if (equalNan) {
+    for (let i = 0; i < size; i++) {
+      const x = a[aOff + i]!;
+      const y = b[bOff + i]!;
+      if (x !== y && !(x !== x && y !== y)) return false;
+    }
+    return true;
+  }
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+// Integer and bool loops ignore `equalNan` — those dtypes have no NaN.
+
+function eqI32(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Int32Array;
+  const b = bData as Int32Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU32(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Uint32Array;
+  const b = bData as Uint32Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqI16(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Int16Array;
+  const b = bData as Int16Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU16(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Uint16Array;
+  const b = bData as Uint16Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqI8(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Int8Array;
+  const b = bData as Int8Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU8(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Uint8Array;
+  const b = bData as Uint8Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqI64(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as BigInt64Array;
+  const b = bData as BigInt64Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU64(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as BigUint64Array;
+  const b = bData as BigUint64Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+const EQ_LOOPS = new Map<unknown, EqLoop>([
+  [Float64Array, eqF64 as EqLoop],
+  [Float32Array, eqF32 as EqLoop],
+  [Int32Array, eqI32 as EqLoop],
+  [Uint32Array, eqU32 as EqLoop],
+  [Int16Array, eqI16 as EqLoop],
+  [Uint16Array, eqU16 as EqLoop],
+  [Int8Array, eqI8 as EqLoop],
+  [Uint8Array, eqU8 as EqLoop],
+  [BigInt64Array, eqI64 as EqLoop],
+  [BigUint64Array, eqU64 as EqLoop],
+]);
+
+// float16 only exists on engines that ship Float16Array; elsewhere the storage
+// is a Float32Array and the entry above already covers it.
+if (typeof Float16Array !== 'undefined') {
+  EQ_LOOPS.set(Float16Array, eqF16 as EqLoop);
+}
+
+/**
+ * True/false when every element of `a` equals every element of `b`, or null when
+ * this fast path does not apply and the caller must use its generic loop.
+ *
+ * Applies only when both operands are contiguous, identically shaped, share a
+ * dtype, and are not complex — which is the shape `array_equal` and
+ * `array_equiv` are called with in practice.
+ */
+export function allElementsEqual(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  equalNan: boolean,
+): boolean | null {
+  if (a.dtype !== b.dtype) return null;
+  if (isComplexDType(a.dtype)) return null;
+  if (!a.isCContiguous || !b.isCContiguous) return null;
+  if (a.size !== b.size) return null;
+
+  const aData = a.data;
+  const loop = EQ_LOOPS.get(aData.constructor);
+  if (!loop) return null;
+
+  return loop(aData, a.offset, b.data, b.offset, a.size, equalNan);
 }
 
 /** Exact BigInt comparison, avoiding the precision loss of Number(). */

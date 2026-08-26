@@ -105,7 +105,11 @@ export fn power_scalar_f32(a: [*]const f32, out: [*]f32, N: u32, scalar: f32) vo
 }
 
 /// Element-wise integer power for i64: out[i] = a[i] ^ b[i].
-/// Scalar loop (no i64x2.mul in WASM SIMD).
+///
+/// Scalar loop, and deliberately so. `i64x2.mul` but it has no single-instruction
+/// hardware backing on the targets that matter, so LLVM expands it into 32-bit
+/// partial products. Measured at 0.89x against this scalar loop, so the scalar
+/// version stays.
 export fn power_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
@@ -133,8 +137,9 @@ export fn power_i32(a: [*]const i32, b: [*]const i32, out: [*]i32, N: u32) void 
 /// exponent is shared by all lanes, so the squaring loop is lane-uniform and
 /// maps directly to W-wide vector multiplies. Wraps on overflow (`*%`), exactly
 /// matching the scalar `intPow_*` kernels and NumPy's modular integer power.
-/// Only used for widths with a native WASM SIMD integer multiply (i32x4,
-/// i16x8); i64 (no i64x2.mul) and i8 (emulated mul) keep the scalar path.
+/// Only used for widths whose integer multiply is a fast WASM SIMD op (i32x4,
+/// i16x8). i64x2.mul exists but expands to 32-bit partial products, and i8 has no
+/// i8x16.mul at all, so both keep the scalar path.
 inline fn powScalarIntVec(
     comptime T: type,
     comptime W: comptime_int,

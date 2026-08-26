@@ -9,7 +9,7 @@
 import { broadcastTo, computeBroadcastShape } from '../broadcasting';
 import { Complex } from '../complex';
 import { isBigIntDType, isComplexDType } from '../dtype';
-import { elementwiseComparisonOp } from '../internal/compute';
+import { allElementsEqual, elementwiseComparisonOp } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 
 // Helper to get complex value at index
@@ -238,6 +238,16 @@ export function arrayEquiv(a1: ArrayStorage, a2: ArrayStorage): boolean {
     return false;
   }
 
+  // Identical shapes, same dtype, contiguous: a dtype-specialised loop, instead
+  // of decomposing the flat index into per-axis indices for every element below.
+  // The shape test gates the loop rather than filtering its result — [1,6] vs
+  // [6,1] have equal sizes but must broadcast to [6,6], not compare pairwise.
+  // `array_equiv` has no equal_nan option, so NaN never compares equal here.
+  if (a1.ndim === a2.ndim && a1.shape.every((d, i) => d === a2.shape[i])) {
+    const fast = allElementsEqual(a1, a2, false);
+    if (fast !== null) return fast;
+  }
+
   // Broadcast both arrays to the common shape
   const b1 = broadcastTo(a1, broadcastShape);
   const b2 = broadcastTo(a2, broadcastShape);
@@ -269,6 +279,16 @@ export function arrayEquiv(a1: ArrayStorage, a2: ArrayStorage): boolean {
       const v1 = typeof val1 === 'bigint' ? val1 : BigInt(Number(val1));
       const v2 = typeof val2 === 'bigint' ? val2 : BigInt(Number(val2));
       if (v1 !== v2) {
+        return false;
+      }
+    } else if (val1 instanceof Complex || val2 instanceof Complex) {
+      // `val1 !== val2` on two Complex instances compares object identity, so
+      // this returned false for *any* complex input, however equal.
+      const re1 = val1 instanceof Complex ? val1.re : Number(val1);
+      const im1 = val1 instanceof Complex ? val1.im : 0;
+      const re2 = val2 instanceof Complex ? val2.re : Number(val2);
+      const im2 = val2 instanceof Complex ? val2.im : 0;
+      if (re1 !== re2 || im1 !== im2) {
         return false;
       }
     } else {

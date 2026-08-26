@@ -14,6 +14,7 @@ import {
   isComplexDType,
   type TypedArray,
 } from '../dtype';
+import { allElementsEqual } from '../internal/compute';
 import { expandEllipsis } from '../internal/indexing';
 import { parseSlice } from '../slicing';
 import { ArrayStorage, computeStrides } from '../storage';
@@ -328,6 +329,11 @@ export function array_equal(a: ArrayStorage, b: ArrayStorage, equal_nan: boolean
       return false;
     }
   }
+
+  // Contiguous, same dtype, non-complex: dtype-specialised loop instead of the
+  // per-element iget()/type-test path below.
+  const fast = allElementsEqual(a, b, equal_nan);
+  if (fast !== null) return fast;
 
   // Check all elements
   const size = a.size;

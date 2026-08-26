@@ -11,6 +11,7 @@
 import type { Complex } from '../complex';
 import { isComplexDType, isIntegerDType, mathResultDtype, throwIfComplex } from '../dtype';
 import { ArrayStorage } from '../storage';
+import { wasmAround, wasmCeil, wasmFloor, wasmRint, wasmTrunc } from '../wasm/rounding';
 
 /**
  * Apply a rounding function component-wise to a complex array.
@@ -42,17 +43,32 @@ function complexComponentwise(a: ArrayStorage, fn: (x: number) => number): Array
 }
 
 /**
- * Round half to even (banker's rounding) - matches NumPy behavior
+ * Round half to even (banker's rounding) — matches NumPy's `rint`.
+ *
+ * The tie test has to be exact. An earlier version treated anything within 1e-10
+ * of .5 as a tie, which disagreed with NumPy on near-ties: `np.rint(2.5000000000001)`
+ * is 3, not 2. It also disagreed with the WASM kernel that now handles arrays of
+ * 32 elements or more, so the same value could round differently depending on
+ * array size.
+ *
+ * `Math.floor` and the subtraction are both exact, so `frac === 0.5` identifies
+ * a genuine tie and nothing else. For |x| >= 2^52 the fraction is 0 and x falls
+ * out of the first branch unchanged.
  */
 function roundHalfToEven(x: number): number {
   if (!Number.isFinite(x)) return x;
-  const floor = Math.floor(x);
-  const decimal = x - floor;
-  // If exactly 0.5, round to nearest even
-  if (Math.abs(decimal - 0.5) < 1e-10) {
-    return floor % 2 === 0 ? floor : floor + 1;
-  }
-  return Math.round(x);
+  const lo = Math.floor(x);
+  const frac = x - lo;
+  let r: number;
+  if (frac < 0.5) r = lo;
+  else if (frac > 0.5) r = lo + 1;
+  // Exact tie: pick whichever neighbour is even. `lo % 2` is -0 for negative
+  // even values, and -0 === 0, so this holds for both signs.
+  else r = lo % 2 === 0 ? lo : lo + 1;
+  // NumPy keeps the sign of zero — rint(-0.5) is -0.0, not +0.0 — and so does
+  // the WASM kernel, which re-applies the input's sign bit. Without this the two
+  // paths disagreed on any negative input that rounds to zero.
+  return r === 0 && (x < 0 || Object.is(x, -0)) ? -0 : r;
 }
 
 /**
@@ -64,6 +80,9 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
     return complexComponentwise(a, (x) => roundHalfToEven(x * multiplier) / multiplier);
   }
   if (isIntegerDType(a.dtype) && decimals >= 0) return a.copy();
+  // decimals === 0 is plain rint; anything else needs the scaled kernel.
+  const wasmAroundResult = decimals === 0 ? wasmRint(a) : wasmAround(a, 10 ** decimals);
+  if (wasmAroundResult) return wasmAroundResult;
   if (a.dtype === 'bool') {
     const dt = mathResultDtype('bool');
     const r = ArrayStorage.empty(Array.from(a.shape), dt);
@@ -106,6 +125,8 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
 export function ceil(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'ceil', 'Rounding is not defined for complex numbers.');
   if (isIntegerDType(a.dtype)) return a.copy();
+  const wasmResult = wasmCeil(a);
+  if (wasmResult) return wasmResult;
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -136,6 +157,9 @@ export function ceil(a: ArrayStorage): ArrayStorage {
 export function fix(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'fix', 'Rounding is not defined for complex numbers.');
   if (isIntegerDType(a.dtype)) return a.copy();
+  // fix is trunc — same kernel.
+  const wasmResult = wasmTrunc(a);
+  if (wasmResult) return wasmResult;
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -166,6 +190,8 @@ export function fix(a: ArrayStorage): ArrayStorage {
 export function floor(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'floor', 'Rounding is not defined for complex numbers.');
   if (isIntegerDType(a.dtype)) return a.copy();
+  const wasmResult = wasmFloor(a);
+  if (wasmResult) return wasmResult;
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -204,6 +230,8 @@ export function rint(a: ArrayStorage): ArrayStorage {
     for (let i = 0; i < a.size; i++) r.data[i] = Number(src[off + i]!);
     return r;
   }
+  const wasmResult = wasmRint(a);
+  if (wasmResult) return wasmResult;
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
@@ -241,6 +269,8 @@ export function round(a: ArrayStorage, decimals: number = 0): ArrayStorage {
 export function trunc(a: ArrayStorage): ArrayStorage {
   throwIfComplex(a.dtype, 'trunc', 'Rounding is not defined for complex numbers.');
   if (isIntegerDType(a.dtype)) return a.copy();
+  const wasmResult = wasmTrunc(a);
+  if (wasmResult) return wasmResult;
   const dtype = a.dtype;
   const shape = Array.from(a.shape);
   const size = a.size;
