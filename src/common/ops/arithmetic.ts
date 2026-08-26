@@ -728,7 +728,7 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
  * Convert ArrayStorage to float dtype
  * @private
  */
-function convertToFloatDType(
+export function convertToFloatDType(
   storage: ArrayStorage,
   targetDtype: 'float32' | 'float64',
 ): ArrayStorage {

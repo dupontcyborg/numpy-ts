@@ -1924,6 +1924,17 @@ function narrowFloatResult<T extends ArrayStorage | number | bigint | Complex>(
     result.dispose();
     return narrowed as unknown as T;
   }
+  // Scalar results need the same narrowing. Without this, an array-valued
+  // reduction came back as float16 while the equivalent scalar reduction kept
+  // full f64 precision — `nanstd(float16[...])` returned 2.7386127875258306
+  // where NumPy gives np.float16(2.738). The library returns JS numbers rather
+  // than 0-d arrays, but the *value* should still be the one the dtype can hold.
+  if (typeof result === 'number' && (targetDtype === 'float16' || targetDtype === 'float32')) {
+    if (targetDtype === 'float32' || !hasFloat16) {
+      return Math.fround(result) as unknown as T;
+    }
+    return new Float16Array([result])[0] as unknown as T;
+  }
   return result;
 }
 
@@ -2158,14 +2169,16 @@ export function std(
   // WASM fast path for full-array std (ddof=0 only — WASM kernel uses population std)
   if (axis === undefined && ddof === 0 && !keepdims) {
     const wasmResult = wasmReduceStd(storage);
-    if (wasmResult !== null) return wasmResult;
+    // Narrow like nanstd already does — a float16 std must come back as the f16
+    // value, not full f64 precision.
+    if (wasmResult !== null) return narrowFloatResult(wasmResult, stdVarResultDtype(storage.dtype));
   }
 
   // variance() handles complex arrays - returns real values
   const varResult = variance(storage, axis, ddof, keepdims);
 
   if (typeof varResult === 'number') {
-    return Math.sqrt(varResult);
+    return narrowFloatResult(Math.sqrt(varResult), stdVarResultDtype(storage.dtype));
   }
 
   // Apply sqrt element-wise. std preserves variance's dtype (NumPy: std(x) has
@@ -4400,7 +4413,31 @@ function nanvarImpl(
     if (count - ddof <= 0) return NaN;
     const meanVal = total / count;
 
-    // Second pass: compute sum of squared deviations
+    // Second pass: compute sum of squared deviations.
+    //
+    // float16 has to accumulate at f16 precision, because NumPy does and the
+    // difference is visible: for [200,300,400,nan,500,600,700,800] the mean
+    // (500) fits f16 comfortably but the squared deviations total 280000, well
+    // past f16's 65504, so NumPy's nanvar overflows to inf. Accumulating in f64
+    // returned a finite 40000 instead. `variance()` already had this treatment;
+    // the nan-variants did not.
+    const narrowAcc = dtype === 'float16' || dtype === 'float32' ? getFloatAcc(dtype) : null;
+    if (narrowAcc) {
+      narrowAcc[0] = 0;
+      if (contiguous) {
+        for (let i = 0; i < storage.size; i++) {
+          const val = Number(data[off + i]);
+          if (!Number.isNaN(val)) narrowAcc[0] += (val - meanVal) ** 2;
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const val = Number(storage.iget(i));
+          if (!Number.isNaN(val)) narrowAcc[0] += (val - meanVal) ** 2;
+        }
+      }
+      return narrowAcc[0]! / (count - ddof);
+    }
+
     let sumSq = 0;
     if (contiguous) {
       for (let i = 0; i < storage.size; i++) {
@@ -5518,6 +5555,11 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     // Complex nancumprod - treat NaN values as 1+0i
     const complexData = data as Float64Array | Float32Array;
     const size = storage.size;
+    // complex64 carries f32 components, and NumPy rounds the running product to
+    // f32 at every step. Accumulating in f64 and rounding only on store gives a
+    // different answer a few steps in — [1.1, 2.3, 3.7, 0.13, ...] diverged at
+    // element 3 (1.2169300317764282 vs NumPy's 1.2169299125671387).
+    const step = dtype === 'complex64' ? Math.fround : (x: number): number => x;
 
     if (axis === undefined) {
       // Flatten and cumprod
@@ -5533,8 +5575,8 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
           if (!complexIsNaN(re, im)) {
             const newRe = prodRe * re - prodIm * im;
             const newIm = prodRe * im + prodIm * re;
-            prodRe = newRe;
-            prodIm = newIm;
+            prodRe = step(newRe);
+            prodIm = step(newIm);
           }
           resultData[i * 2] = prodRe;
           resultData[i * 2 + 1] = prodIm;
@@ -5547,8 +5589,8 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
           if (!complexIsNaN(re, im)) {
             const newRe = prodRe * re - prodIm * im;
             const newIm = prodRe * im + prodIm * re;
-            prodRe = newRe;
-            prodIm = newIm;
+            prodRe = step(newRe);
+            prodIm = step(newIm);
           }
           resultData[i * 2] = prodRe;
           resultData[i * 2 + 1] = prodIm;

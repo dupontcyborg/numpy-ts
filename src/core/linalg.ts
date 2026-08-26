@@ -104,7 +104,7 @@ export function einsum(
 export function einsum_path(
   subscripts: string,
   ...operands: NDArrayCore[]
-): [([number, number] | number[])[], string] {
+): [Array<string | number[]>, string] {
   const storageOperands = operands.map((op) => toStorage(op));
   return linalgOps.einsum_path(subscripts, ...storageOperands);
 }

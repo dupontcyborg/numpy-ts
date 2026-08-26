@@ -1991,8 +1991,8 @@ result = np.vecmat(x, A)
 a = np.ones((10, 5))
 b = np.ones((5, 8))
 path, info = np.einsum_path('ij,jk->ik', a, b)
-# path[0] is 'einsum_path', path[1:] are the actual contractions
-result = [list(p) for p in path[1:]]
+# Compare the whole path, marker included — numpy-ts now returns NumPy's shape
+result = [path[0]] + [list(p) for p in path[1:]]
       `);
 
         // Compare the contraction paths
@@ -2010,12 +2010,12 @@ a = np.ones((10, 5))
 b = np.ones((5, 8))
 c = np.ones((8, 4))
 path, info = np.einsum_path('ij,jk,kl->il', a, b, c)
-# path[0] is 'einsum_path', path[1:] are the actual contractions
-result = [list(p) for p in path[1:]]
+# Compare the whole path, marker included — numpy-ts now returns NumPy's shape
+result = [path[0]] + [list(p) for p in path[1:]]
       `);
 
-        // Both should have 2 contractions for 3 operands
-        expect(jsPath.length).toBe(pyResult.value.length);
+        // Now comparable element-for-element, not just by length.
+        expect(jsPath).toEqual(pyResult.value);
       });
 
       it('matches NumPy path for trace operation', () => {
@@ -2025,8 +2025,8 @@ result = [list(p) for p in path[1:]]
         const pyResult = runNumPy(`
 a = np.ones((5, 5))
 path, info = np.einsum_path('ii->', a)
-# path[0] is 'einsum_path', path[1:] are the actual contractions
-result = [list(p) for p in path[1:]]
+# Compare the whole path, marker included — numpy-ts now returns NumPy's shape
+result = [path[0]] + [list(p) for p in path[1:]]
       `);
 
         expect(jsPath).toEqual(pyResult.value);
@@ -2041,7 +2041,7 @@ result = [list(p) for p in path[1:]]
 a = np.ones(100)
 b = np.ones(100)
 path, info = np.einsum_path('i,i->', a, b)
-result = [list(p) for p in path[1:]]
+result = [path[0]] + [list(p) for p in path[1:]]
       `);
 
         expect(jsPath).toEqual(pyResult.value);
@@ -2056,7 +2056,7 @@ result = [list(p) for p in path[1:]]
 a = np.ones(10)
 b = np.ones(20)
 path, info = np.einsum_path('i,j->ij', a, b)
-result = [list(p) for p in path[1:]]
+result = [path[0]] + [list(p) for p in path[1:]]
       `);
 
         expect(jsPath).toEqual(pyResult.value);

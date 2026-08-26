@@ -1711,6 +1711,10 @@ export function tensordot(
   const isComplex = isComplexDType(resultDtype);
 
   // Helper to get real and imaginary parts
+  /** Wrap an exact BigInt total into its dtype's 64-bit range, as NumPy does. */
+  const wrapTo64 = (v: bigint, dt: DType): bigint =>
+    dt === 'uint64' ? BigInt.asUintN(64, v) : BigInt.asIntN(64, v);
+
   const getReIm = (val: number | bigint | Complex): { re: number; im: number } => {
     if (val instanceof Complex) {
       return { re: val.re, im: val.im };
@@ -1722,6 +1726,7 @@ export function tensordot(
   if (resultShape.length === 0) {
     let sumRe = 0;
     let sumIm = 0;
+    let sumBig = 0n;
     // Iterate over all combinations of contracted axes
     const contractSize = aAxes.map((ax) => a.shape[ax]!).reduce((acc, dim) => acc * dim, 1);
 
@@ -1756,7 +1761,9 @@ export function tensordot(
         sumRe += av.re * bv.re - av.im * bv.im;
         sumIm += av.re * bv.im + av.im * bv.re;
       } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sumRe += Number(aVal * bVal);
+        // Accumulate in BigInt, not through Number: the products of two int64
+        // operands routinely exceed 2^53.
+        sumBig += aVal * bVal;
       } else {
         sumRe += Number(aVal) * Number(bVal);
       }
@@ -1768,6 +1775,9 @@ export function tensordot(
     // Bool tensordot: clamp to 0/1 (NumPy uses logical AND for multiply, OR for add)
     if (resultDtype === 'bool') {
       return sumRe ? 1 : 0;
+    }
+    if (isBigIntDType(resultDtype)) {
+      return wrapTo64(sumBig, resultDtype);
     }
     return sumRe;
   }
@@ -1794,6 +1804,7 @@ export function tensordot(
 
     let sumRe = 0;
     let sumIm = 0;
+    let sumBig = 0n;
 
     // Sum over all contracted axes
     for (let c = 0; c < contractSize; c++) {
@@ -1834,7 +1845,7 @@ export function tensordot(
         sumRe += av.re * bv.re - av.im * bv.im;
         sumIm += av.re * bv.im + av.im * bv.re;
       } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sumRe += Number(aVal * bVal);
+        sumBig += aVal * bVal;
       } else {
         sumRe += Number(aVal) * Number(bVal);
       }
@@ -1844,6 +1855,10 @@ export function tensordot(
       result.set(resultIndices, new Complex(sumRe, sumIm));
     } else if (resultDtype === 'bool') {
       result.set(resultIndices, sumRe ? 1 : 0);
+    } else if (isBigIntDType(resultDtype)) {
+      // A Number here throws outright on a BigInt64Array store, which is what
+      // made tensordot unusable for int64/uint64.
+      result.set(resultIndices, wrapTo64(sumBig, resultDtype));
     } else {
       result.set(resultIndices, sumRe);
     }
@@ -6172,7 +6187,11 @@ export function tensorsolve(
 export function einsum_path(
   subscripts: string,
   ...operands: (ArrayStorage | number[])[]
-): [Array<[number, number] | number[]>, string] {
+): [Array<string | number[]>, string] {
+  // NumPy's path list is ['einsum_path', (0,1), (0,1), ...] — the marker string
+  // first, then the contraction tuples. Returning only the tuples made the shape
+  // structurally different from NumPy's, which is why this was the one public
+  // function that could not be cross-validated (finding 4.2).
   // Parse subscripts
   const arrowMatch = subscripts.indexOf('->');
 
@@ -6230,12 +6249,12 @@ export function einsum_path(
   // Simple path for 1 or 2 operands
   if (operands.length === 1) {
     const path: Array<[number, number] | number[]> = [[0]];
-    return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+    return [['einsum_path', ...path], buildPathInfo(subscripts, shapes, path, indexDims)];
   }
 
   if (operands.length === 2) {
     const path: Array<[number, number] | number[]> = [[0, 1]];
-    return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+    return [['einsum_path', ...path], buildPathInfo(subscripts, shapes, path, indexDims)];
   }
 
   // Greedy contraction path for 3+ operands
@@ -6243,7 +6262,6 @@ export function einsum_path(
   const path: Array<[number, number]> = [];
   const currentSubscripts = [...operandSubscripts];
   const currentShapes = [...shapes];
-  const currentIndices = operands.map((_, i) => i);
 
   while (currentSubscripts.length > 1) {
     let bestI = 0;
@@ -6270,8 +6288,12 @@ export function einsum_path(
       }
     }
 
-    // Record the contraction
-    path.push([currentIndices[bestI]!, currentIndices[bestJ]!]);
+    // Record the contraction as positions in the *current* operand list, which
+    // is what NumPy reports. Recording original operand indices (with -1 marking
+    // an intermediate) gave [[0,1],[2,-1]] where NumPy gives [(0,1),(0,1)] for a
+    // three-operand chain: after the first contraction the list has shrunk, so
+    // the second pair is addressed against the shorter list.
+    path.push(bestI < bestJ ? [bestI, bestJ] : [bestJ, bestI]);
 
     // Compute the result subscript and shape
     const [newSubscript, newShape] = computeContractionResult(
@@ -6288,16 +6310,13 @@ export function einsum_path(
     currentSubscripts.splice(bestI, 1);
     currentShapes.splice(bestJ, 1);
     currentShapes.splice(bestI, 1);
-    currentIndices.splice(bestJ, 1);
-    currentIndices.splice(bestI, 1);
 
     // Add the result
     currentSubscripts.push(newSubscript);
     currentShapes.push(newShape);
-    currentIndices.push(-1); // Intermediate result marker
   }
 
-  return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+  return [['einsum_path', ...path], buildPathInfo(subscripts, shapes, path, indexDims)];
 }
 
 /**

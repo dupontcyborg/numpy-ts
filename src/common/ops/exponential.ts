@@ -13,6 +13,7 @@ import {
   type DType,
   isBigIntDType,
   isComplexDType,
+  isIntegerDType,
   mathResultDtype,
   promoteDTypes,
   throwIfComplex,
@@ -20,6 +21,7 @@ import {
 import { broadcastShapes, elementwiseBinaryOp, elementwiseUnaryOp } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 import { wasmSqrt } from '../wasm/sqrt';
+import { convertToFloatDType } from './arithmetic';
 
 /** Convert bool storage to int8 (NumPy promotes bool → int8 for arithmetic). */
 function boolToInt8(a: ArrayStorage): ArrayStorage {
@@ -127,6 +129,27 @@ export function sqrt(a: ArrayStorage): ArrayStorage {
 }
 
 /**
+ * True if any element of an integer exponent array is negative.
+ *
+ * O(n), but power is O(n) anyway, and it only runs for integer-dtype exponents.
+ */
+function hasNegativeExponent(b: ArrayStorage): boolean {
+  const size = b.size;
+  if (b.isCContiguous) {
+    const data = b.data;
+    const off = b.offset;
+    for (let i = 0; i < size; i++) {
+      if ((data[off + i] as number) < 0) return true;
+    }
+    return false;
+  }
+  for (let i = 0; i < size; i++) {
+    if ((b.iget(i) as number) < 0) return true;
+  }
+  return false;
+}
+
+/**
  * Raise elements to power
  * NumPy behavior: Promotes to float64 for integer types with non-integer exponents
  * For complex: z^n = |z|^n * (cos(n*θ) + i*sin(n*θ)) where θ = atan2(im, re)
@@ -162,6 +185,16 @@ export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   // Scalar broadcast: if b is a single element and same dtype, use the faster scalar path
   if (b.size === 1 && a.dtype === b.dtype) {
     return powerScalar(a, Number(b.iget(0)));
+  }
+
+  // Integer base with a negative exponent. NumPy rejects this outright
+  // ("Integers to negative integer powers are not allowed"), but this library
+  // has always promoted to float64 instead — see powerScalar, and the tests that
+  // pin `power(int32[], -1)` to float64 [0.5, 0.25, 0.125]. The array-exponent
+  // path did neither: it handed the negative exponent to the integer kernel and
+  // got 0 back (1 for int64). Promote here so both paths agree.
+  if (isIntegerDType(a.dtype) && isIntegerDType(b.dtype) && hasNegativeExponent(b)) {
+    return power(convertToFloatDType(a, 'float64'), convertToFloatDType(b, 'float64'));
   }
 
   const wasmResult = wasmPower(a, b);

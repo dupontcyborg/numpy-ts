@@ -9,7 +9,13 @@
  */
 
 import type { Complex } from '../complex';
-import { isComplexDType, isIntegerDType, mathResultDtype, throwIfComplex } from '../dtype';
+import {
+  hasFloat16,
+  isComplexDType,
+  isIntegerDType,
+  mathResultDtype,
+  throwIfComplex,
+} from '../dtype';
 import { ArrayStorage } from '../storage';
 import { wasmAround, wasmCeil, wasmFloor, wasmRint, wasmTrunc } from '../wasm/rounding';
 
@@ -48,6 +54,9 @@ function complexComponentwise(a: ArrayStorage, fn: (x: number) => number): Array
  * little-endian, but the half-word read in `rint` is silently wrong if that ever
  * stops holding, so it is checked rather than assumed.
  */
+/** One-element scratch for rounding an intermediate back to float16. */
+const f16scratch: Float16Array | null = hasFloat16 ? new Float16Array(1) : null;
+
 const LITTLE_ENDIAN = (() => {
   const probe = new Uint32Array([1]);
   return new Uint8Array(probe.buffer)[0] === 1;
@@ -113,17 +122,32 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
 
   const multiplier = 10 ** decimals;
 
+  // NumPy scales at the array's *own* precision. For float32, f32(2.675) * 100
+  // is exactly 267.5f, so the tie rule gives 268 and the answer 2.68; widening
+  // to f64 first gives 267.4999952 and rounds down to 2.67. float16 narrows
+  // further still (1.35 * 10 lands on 13.5 in f16, giving 1.4 rather than 1.3).
+  // So the product has to be rounded back to the input dtype before rint.
+  const narrow =
+    dtype === 'float32'
+      ? Math.fround
+      : dtype === 'float16' && f16scratch
+        ? (x: number): number => {
+            f16scratch[0] = x;
+            return f16scratch[0]!;
+          }
+        : (x: number): number => x;
+
   if (a.isCContiguous) {
     const data = a.data;
     const off = a.offset;
     for (let i = 0; i < size; i++) {
       const val = Number(data[off + i]!);
-      resultData[i] = roundHalfToEven(val * multiplier) / multiplier;
+      resultData[i] = narrow(roundHalfToEven(narrow(val * multiplier)) / multiplier);
     }
   } else {
     for (let i = 0; i < size; i++) {
       const val = Number(a.iget(i));
-      resultData[i] = roundHalfToEven(val * multiplier) / multiplier;
+      resultData[i] = narrow(roundHalfToEven(narrow(val * multiplier)) / multiplier);
     }
   }
 

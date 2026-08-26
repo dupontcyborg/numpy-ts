@@ -179,12 +179,18 @@ export function select(
   return fromStorage(advancedOps.select(condStorages, choiceStorages, defaultArg));
 }
 
-export function place(a: NDArrayCore, mask: NDArrayCore, vals: NDArrayCore): void {
-  advancedOps.place(toStorage(a), toStorage(mask), toStorage(vals));
+export function place(a: NDArrayCore, mask: ArrayLike, vals: ArrayLike): void {
+  // NumPy takes array_like for both mask and vals, so a plain JS array or a bare
+  // scalar has to work. Without the asarray() coercion the ops layer read
+  // `vals.size` off a plain array, got undefined, and returned having written
+  // nothing — a silent no-op with no error. A plain `mask` threw instead.
+  advancedOps.place(toStorage(a), toStorage(asarray(mask)), toStorage(asarray(vals)));
 }
 
-export function putmask(a: NDArrayCore, mask: NDArrayCore, values: NDArrayCore): void {
-  advancedOps.putmask(toStorage(a), toStorage(mask), toStorage(values));
+export function putmask(a: NDArrayCore, mask: ArrayLike, values: ArrayLike): void {
+  // Same coercion as place(). putmask was worse than a no-op without it: a plain
+  // `values` array wrote `null` into every selected slot.
+  advancedOps.putmask(toStorage(a), toStorage(asarray(mask)), toStorage(asarray(values)));
 }
 
 export function copyto(dst: NDArrayCore, src: NDArrayCore | number | bigint): void {
