@@ -1,111 +1,78 @@
-//! WASM element-wise logical NOT kernels for all numeric types.
+//! WASM element-wise logical NOT kernels: out[i] = (a[i] == 0) ? 1 : 0.
 //!
-//! Unary: out[i] = (a[i] == 0) ? 1 : 0
-//! Output is always u8 (0 or 1). Operates on contiguous 1D buffers of length N.
+//! Truthiness is `v != 0` for every numeric type — NaN is truthy, -0.0 is not,
+//! which is what NumPy does. float16 arrives as raw u16 bits, so it masks the
+//! sign bit instead of comparing as a float.
+//!
+//! `@intFromBool` on a vector yields one byte per lane, which is already the bool
+//! output layout. That replaces the select / bitcast / shuffle / per-lane-extract
+//! chain the narrow dtypes used to do, and lets f64 and f32 vectorize at all —
+//! they were plain scalar loops.
 
-const simd = @import("simd.zig");
-
-const V2 = @Vector(2, i64);
-const V2Z: V2 = @splat(0);
-
-/// Truthiness of two i64 lanes as a bool vector.
-/// `@intFromBool` then yields one byte per lane, matching the bool output.
-inline fn truthy2(p: [*]const i64, i: u32) @Vector(2, bool) {
-    return @as(*align(1) const V2, @ptrCast(p + i)).* != V2Z;
+/// One v128 worth of lanes for T: 16 for i8 ... 2 for f64/i64.
+inline fn Lanes(comptime T: type) comptime_int {
+    return 16 / @sizeOf(T);
 }
 
-inline fn store2(out: [*]u8, i: u32, m: @Vector(2, bool)) void {
-    @as(*align(1) @Vector(2, u8), @ptrCast(out + i)).* = @intFromBool(m);
+/// Lane-wise truthiness of one v128 group.
+inline fn truthy(comptime T: type, p: [*]const T, i: u32) @Vector(Lanes(T), bool) {
+    const V = @Vector(Lanes(T), T);
+    const z: V = @splat(0);
+    return @as(*align(1) const V, @ptrCast(p + i)).* != z;
 }
 
-/// Element-wise logical NOT for f64: out[i] = (a[i] == 0) ? 1 : 0.
-export fn logical_not_f64(a: [*]const f64, out: [*]u8, N: u32) void {
+/// float16 truthiness from raw bits: mask the sign so -0.0 is false.
+inline fn truthyF16(p: [*]const u16, i: u32) @Vector(8, bool) {
+    const V = @Vector(8, u16);
+    const mask: V = @splat(0x7FFF);
+    const z: V = @splat(0);
+    return (@as(*align(1) const V, @ptrCast(p + i)).* & mask) != z;
+}
+
+/// One byte per lane, straight into the bool output.
+inline fn storeBool(comptime L: comptime_int, out: [*]u8, i: u32, m: @Vector(L, bool)) void {
+    @as(*align(1) @Vector(L, u8), @ptrCast(out + i)).* = @intFromBool(m);
+}
+
+/// Generic body.
+inline fn notT(comptime T: type, a: [*]const T, out: [*]u8, N: u32) void {
+    const L = Lanes(T);
+    const n = N & ~@as(u32, L - 1);
     var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] == 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical NOT for f32: out[i] = (a[i] == 0) ? 1 : 0.
-export fn logical_not_f32(a: [*]const f32, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] == 0) 1 else 0;
-    }
-}
-
-/// Float16 logical not: (u16 & 0x7FFF == 0) ? 1 : 0. Handles -0.
-export fn logical_not_f16(a: [*]const u16, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = if (a[i] & 0x7FFF == 0) 1 else 0;
-}
-
-/// Element-wise logical NOT for i64 — 2-wide.
-export fn logical_not_i64(a: [*]const i64, out: [*]u8, N: u32) void {
-    const n2 = N & ~@as(u32, 1);
-    var i: u32 = 0;
-    while (i < n2) : (i += 2) {
-        const v = @as(*align(1) const V2, @ptrCast(a + i)).*;
-        store2(out, i, v == V2Z);
-    }
+    while (i < n) : (i += L) storeBool(L, out, i, ~truthy(T, a, i));
     while (i < N) : (i += 1) out[i] = @intFromBool(a[i] == 0);
 }
 
-/// Element-wise logical NOT for i32 using 4-wide SIMD: out[i] = (a[i] == 0) ? 1 : 0.
+export fn logical_not_f64(a: [*]const f64, out: [*]u8, N: u32) void {
+    notT(f64, a, out, N);
+}
+
+export fn logical_not_f32(a: [*]const f32, out: [*]u8, N: u32) void {
+    notT(f32, a, out, N);
+}
+
+export fn logical_not_i64(a: [*]const i64, out: [*]u8, N: u32) void {
+    notT(i64, a, out, N);
+}
+
 export fn logical_not_i32(a: [*]const i32, out: [*]u8, N: u32) void {
-    const zero: simd.V4i32 = @splat(0);
-    const one: simd.V4u32 = @splat(1);
-    const zero_u32: simd.V4u32 = @splat(0);
-    const n_simd = N & ~@as(u32, 3);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 4) {
-        const v = simd.load4_i32(a, i);
-        const result: simd.V4u32 = @select(u32, v == zero, one, zero_u32);
-        // Pack 4 x u32 down to 4 bytes
-        out[i] = @truncate(result[0]);
-        out[i + 1] = @truncate(result[1]);
-        out[i + 2] = @truncate(result[2]);
-        out[i + 3] = @truncate(result[3]);
-    }
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] == 0) 1 else 0;
-    }
+    notT(i32, a, out, N);
 }
 
-/// Element-wise logical NOT for i16 using 8-wide SIMD: out[i] = (a[i] == 0) ? 1 : 0.
 export fn logical_not_i16(a: [*]const i16, out: [*]u8, N: u32) void {
-    const zero: simd.V8i16 = @splat(0);
-    const one: simd.V8u16 = @splat(1);
-    const zero_u16: simd.V8u16 = @splat(0);
-    const n_simd = N & ~@as(u32, 7);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 8) {
-        const v = simd.load8_i16(a, i);
-        const result: simd.V8u16 = @select(u16, v == zero, one, zero_u16);
-        // Pack 8 x u16 down to 8 bytes
-        inline for (0..8) |j| {
-            out[i + j] = @truncate(result[j]);
-        }
-    }
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] == 0) 1 else 0;
-    }
+    notT(i16, a, out, N);
 }
 
-/// Element-wise logical NOT for i8 using 16-wide SIMD: out[i] = (a[i] == 0) ? 1 : 0.
-/// Input and output are both byte-width, enabling natural 16-wide vectorization.
 export fn logical_not_i8(a: [*]const i8, out: [*]u8, N: u32) void {
-    const zero: simd.V16i8 = @splat(0);
-    const one: simd.V16u8 = @splat(1);
-    const zero_u8: simd.V16u8 = @splat(0);
-    const n_simd = N & ~@as(u32, 15);
+    notT(i8, a, out, N);
+}
+
+/// float16, taking raw u16 bit patterns.
+export fn logical_not_f16(a: [*]const u16, out: [*]u8, N: u32) void {
+    const n = N & ~@as(u32, 7);
     var i: u32 = 0;
-    while (i < n_simd) : (i += 16) {
-        simd.store16_u8(out, i, @select(u8, simd.load16_i8(a, i) == zero, one, zero_u8));
-    }
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] == 0) 1 else 0;
-    }
+    while (i < n) : (i += 8) storeBool(8, out, i, ~truthyF16(a, i));
+    while (i < N) : (i += 1) out[i] = @intFromBool(a[i] & 0x7FFF == 0);
 }
 
 // --- Tests ---
@@ -214,4 +181,20 @@ test "logical_not_i64 odd length exercises the 2-wide body and the tail" {
     var out = [_]u8{9} ** 7;
     logical_not_i64(&a, &out, 7);
     try testing.expectEqualSlices(u8, &[_]u8{ 1, 0, 0, 0, 1, 0, 1 }, &out);
+}
+
+test "logical_not float and f16 truthiness edges" {
+    const testing = @import("std").testing;
+    const nan = @import("std").math.nan(f64);
+    const inf = @import("std").math.inf(f64);
+    // -0.0 is falsy so NOT(-0.0) is true; NaN and inf are truthy so NOT is false.
+    const a = [_]f64{ 0.0, -0.0, nan, inf, 1.0, -1.0, 0.0 };
+    var out = [_]u8{9} ** 7;
+    logical_not_f64(&a, &out, 7);
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 1, 0, 0, 0, 0, 1 }, &out);
+
+    const h = [_]u16{ 0x0000, 0x8000, 0x3C00, 0x7E00, 0x7C00, 0xBC00, 0x0001, 0x8001, 0x0000 };
+    var o2 = [_]u8{9} ** 9;
+    logical_not_f16(&h, &o2, 9);
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 1, 0, 0, 0, 0, 0, 0, 1 }, &o2);
 }
