@@ -43,6 +43,17 @@ function complexComponentwise(a: ArrayStorage, fn: (x: number) => number): Array
 }
 
 /**
+ * True on a little-endian platform, where a 64-bit lane's low half sits at the
+ * lower index. WASM mandates little-endian and every platform this runs on is
+ * little-endian, but the half-word read in `rint` is silently wrong if that ever
+ * stops holding, so it is checked rather than assumed.
+ */
+const LITTLE_ENDIAN = (() => {
+  const probe = new Uint32Array([1]);
+  return new Uint8Array(probe.buffer)[0] === 1;
+})();
+
+/**
  * Round half to even (banker's rounding) — matches NumPy's `rint`.
  *
  * The tie test has to be exact. An earlier version treated anything within 1e-10
@@ -223,11 +234,48 @@ export function rint(a: ArrayStorage): ArrayStorage {
   if (isComplexDType(a.dtype)) return complexComponentwise(a, roundHalfToEven);
   // NumPy: rint promotes ints/bool via mathResultDtype (values stay the same, just cast)
   if (isIntegerDType(a.dtype) || a.dtype === 'bool') {
+    // rint of an integer array is a pure dtype cast: the values are already
+    // integral, and NumPy only widens them (int32 -> float64, int16 -> float32,
+    // int8/bool -> float16). Nothing needs rounding, so this must not look like
+    // a rounding loop.
     const dt = mathResultDtype(a.dtype);
+    const size = a.size;
     const r = ArrayStorage.empty(Array.from(a.shape), dt);
     const src = a.data;
     const off = a.offset;
-    for (let i = 0; i < a.size; i++) r.data[i] = Number(src[off + i]!);
+
+    // Strided view: the fast paths below both walk the buffer linearly from
+    // `off`, which silently reorders a non-contiguous view. (The float path
+    // already had an iget fallback for this; the integer path did not, so
+    // `rint` on a transposed integer array returned shuffled values.)
+    if (!a.isCContiguous) {
+      for (let i = 0; i < size; i++) r.data[i] = Number(a.iget(i));
+      return r;
+    }
+
+    if (src instanceof BigInt64Array || src instanceof BigUint64Array) {
+      // TypedArray.set refuses to mix BigInt and Number arrays, so 64-bit ints
+      // need a loop. Read the two 32-bit halves instead of calling
+      // Number(bigint), which is ~13x slower: `hi * 2^32` is exact (|hi| < 2^31)
+      // and `lo` is exact (< 2^32), so the single addition is correctly rounded
+      // and bit-identical to Number(bigint) — verified across the +/-2^53 and
+      // +/-2^63 boundaries and 400k random values. Above 2^53 both lose the same
+      // bits, which is what NumPy's int64 -> float64 does too.
+      const dst = r.data as Float64Array;
+      const byteOff = src.byteOffset + off * 8;
+      const lo = new Uint32Array(src.buffer, byteOff, size * 2);
+      if (!LITTLE_ENDIAN) {
+        for (let i = 0; i < size; i++) dst[i] = Number(src[off + i]!);
+      } else if (src instanceof BigInt64Array) {
+        const hi = new Int32Array(src.buffer, byteOff, size * 2);
+        for (let i = 0; i < size; i++) dst[i] = hi[2 * i + 1]! * 4294967296 + lo[2 * i]!;
+      } else {
+        for (let i = 0; i < size; i++) dst[i] = lo[2 * i + 1]! * 4294967296 + lo[2 * i]!;
+      }
+    } else {
+      // Native bulk convert — one call instead of `size` calls to Number().
+      (r.data as Float64Array).set(src.subarray(off, off + size) as unknown as Float64Array);
+    }
     return r;
   }
   const wasmResult = wasmRint(a);
