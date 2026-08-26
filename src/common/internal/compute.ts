@@ -10,6 +10,7 @@
 import { Complex } from '../complex';
 import { isBigIntDType, isComplexDType, mathResultDtype, promoteDTypes } from '../dtype';
 import { ArrayStorage } from '../storage';
+import { wasmCompare } from '../wasm/compare';
 
 /**
  * Compute the broadcast shape of two arrays
@@ -210,10 +211,350 @@ export function elementwiseBinaryOp(
  * Perform element-wise comparison with broadcasting
  * Returns boolean array (dtype: 'bool', stored as Uint8Array)
  */
+// --- Comparison fast-path loops, one function per TypedArray type ---
+//
+// The bodies are identical and the duplication is deliberate. A single generic
+// loop reading `aData[i]` sees every TypedArray type used anywhere in the
+// program; past a few types V8 abandons the inline cache on that load and
+// *every* dtype pays. Measured on a [100x100] compare: 9.9us for int8 alone,
+// 58.2us for the same int8 call once six other dtypes had run — and float64
+// degraded just as badly. One function per type keeps each load monomorphic
+// (58.2us -> 6.9us). The `k` switch is free: it compiles to a jump and the
+// comparison is inlined rather than reached through a closure.
+
+function cmpF64(
+  a: Float64Array,
+  b: Float64Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpF32(
+  a: Float32Array,
+  b: Float32Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpI32(
+  a: Int32Array,
+  b: Int32Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpU32(
+  a: Uint32Array,
+  b: Uint32Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpI16(
+  a: Int16Array,
+  b: Int16Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpU16(
+  a: Uint16Array,
+  b: Uint16Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpI8(
+  a: Int8Array,
+  b: Int8Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpU8(
+  a: Uint8Array,
+  b: Uint8Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpF16(
+  a: Float16Array,
+  b: Float16Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+/** Element-type constructor -> specialised loop. One lookup per call. */
+const CMP_LOOPS = new Map<
+  unknown,
+  (a: never, b: never, o: Uint8Array, ao: number, bo: number, n: number, k: ComparisonKind) => void
+>([
+  [Float64Array, cmpF64 as never],
+  [Float32Array, cmpF32 as never],
+  [Int32Array, cmpI32 as never],
+  [Uint32Array, cmpU32 as never],
+  [Int16Array, cmpI16 as never],
+  [Uint16Array, cmpU16 as never],
+  [Int8Array, cmpI8 as never],
+  [Uint8Array, cmpU8 as never],
+]);
+
+// float16 only exists on engines that ship Float16Array; elsewhere the storage
+// is a Float32Array and the entry above already covers it.
+if (typeof Float16Array !== 'undefined') {
+  CMP_LOOPS.set(Float16Array, cmpF16 as never);
+}
+
+/** Exact BigInt comparison, avoiding the precision loss of Number(). */
+function compareBigInt(a: bigint, b: bigint, k: ComparisonKind): boolean {
+  switch (k) {
+    case 'eq':
+      return a === b;
+    case 'ne':
+      return a !== b;
+    case 'lt':
+      return a < b;
+    case 'le':
+      return a <= b;
+    case 'gt':
+      return a > b;
+    case 'ge':
+      return a >= b;
+  }
+}
+
+/**
+ * Which comparison the caller wants, so the fast path can run a dedicated loop.
+ *
+ * Passing a closure instead makes the per-element call site megamorphic once
+ * more than one comparison operator is used in a process: measured 9us for the
+ * first operator and ~52us for every one after it, on the same data. Naming the
+ * operator lets each loop keep its own monomorphic site.
+ */
+export type ComparisonKind = 'eq' | 'ne' | 'lt' | 'le' | 'gt' | 'ge';
+
 export function elementwiseComparisonOp(
   a: ArrayStorage,
   b: ArrayStorage,
   op: (a: number, b: number) => boolean,
+  kind?: ComparisonKind,
 ): ArrayStorage {
   // Compute broadcast shape
   const outputShape = broadcastShapes(a.shape, b.shape);
@@ -225,6 +566,17 @@ export function elementwiseComparisonOp(
   // ~22x slower than a direct typed-array loop.
   const aShape = a.shape;
   const bShape = b.shape;
+
+  // WASM kernel first, and deliberately outside the guard below: it handles
+  // int64/uint64 natively, comparing true 64-bit values. Every JS path here
+  // funnels BigInt through Number(), which silently collapses values above
+  // 2^53 — equal(2^53, 2^53+1) returned true. The kernel is both faster and
+  // more correct, so it gets first refusal.
+  if (kind) {
+    const viaWasm = wasmCompare(kind, a, b);
+    if (viaWasm) return viaWasm;
+  }
+
   if (
     aShape.length === bShape.length &&
     aShape.every((dim, i) => dim === bShape[i]) &&
@@ -242,14 +594,30 @@ export function elementwiseComparisonOp(
     const bData = b.data;
     const aOff = a.offset;
     const bOff = b.offset;
-    if (aOff === 0 && bOff === 0) {
-      for (let i = 0; i < n; i++) {
-        fastData[i] = op(aData[i] as number, bData[i] as number) ? 1 : 0;
+
+    // Specialised path: identical element types plus a named comparison, so the
+    // loop has a monomorphic load site. Mixed dtypes and untagged callers fall
+    // through to the generic loop below.
+    if (kind && aData.constructor === bData.constructor) {
+      const loop = CMP_LOOPS.get(aData.constructor);
+      if (loop) {
+        (
+          loop as unknown as (
+            a: unknown,
+            b: unknown,
+            o: Uint8Array,
+            ao: number,
+            bo: number,
+            n: number,
+            k: ComparisonKind,
+          ) => void
+        )(aData, bData, fastData, aOff, bOff, n, kind);
+        return fastResult;
       }
-    } else {
-      for (let i = 0; i < n; i++) {
-        fastData[i] = op(aData[aOff + i] as number, bData[bOff + i] as number) ? 1 : 0;
-      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      fastData[i] = op(aData[aOff + i] as number, bData[bOff + i] as number) ? 1 : 0;
     }
     return fastResult;
   }
@@ -266,16 +634,22 @@ export function elementwiseComparisonOp(
   // Check if we need to convert BigInt to Number for comparison
   const needsConversion = isBigIntDType(a.dtype) || isBigIntDType(b.dtype);
 
-  // Perform element-wise comparison
+  // Perform element-wise comparison.
+  //
+  // When both sides are BigInt, compare them directly: routing through
+  // Number() loses precision above 2^53 and reports distinct int64 values as
+  // equal. Mixed BigInt/float still converts, matching NumPy's promotion to
+  // float64 for those combinations.
   for (let i = 0; i < size; i++) {
     const aRaw = aBroadcast.iget(i);
     const bRaw = bBroadcast.iget(i);
 
-    // Convert BigInt to Number if needed
-    const aVal = needsConversion && typeof aRaw === 'bigint' ? Number(aRaw) : Number(aRaw);
-    const bVal = needsConversion && typeof bRaw === 'bigint' ? Number(bRaw) : Number(bRaw);
+    if (needsConversion && kind && typeof aRaw === 'bigint' && typeof bRaw === 'bigint') {
+      resultData[i] = compareBigInt(aRaw, bRaw, kind) ? 1 : 0;
+      continue;
+    }
 
-    resultData[i] = op(aVal, bVal) ? 1 : 0;
+    resultData[i] = op(Number(aRaw), Number(bRaw)) ? 1 : 0;
   }
 
   return result;

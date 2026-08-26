@@ -74,7 +74,7 @@ export function greater(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage
       return aIm > bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x > y);
+  return elementwiseComparisonOp(a, b, (x, y) => x > y, 'gt');
 }
 
 /**
@@ -91,7 +91,7 @@ export function greaterEqual(a: ArrayStorage, b: ArrayStorage | number): ArraySt
       return aIm >= bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x >= y);
+  return elementwiseComparisonOp(a, b, (x, y) => x >= y, 'ge');
 }
 
 /**
@@ -108,7 +108,7 @@ export function less(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
       return aIm < bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x < y);
+  return elementwiseComparisonOp(a, b, (x, y) => x < y, 'lt');
 }
 
 /**
@@ -125,7 +125,7 @@ export function lessEqual(a: ArrayStorage, b: ArrayStorage | number): ArrayStora
       return aIm <= bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x <= y);
+  return elementwiseComparisonOp(a, b, (x, y) => x <= y, 'le');
 }
 
 /**
@@ -141,7 +141,7 @@ export function equal(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
       return aRe === bRe && aIm === bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x === y);
+  return elementwiseComparisonOp(a, b, (x, y) => x === y, 'eq');
 }
 
 /**
@@ -157,7 +157,7 @@ export function notEqual(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
       return aRe !== bRe || aIm !== bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x !== y);
+  return elementwiseComparisonOp(a, b, (x, y) => x !== y, 'ne');
 }
 
 /**
