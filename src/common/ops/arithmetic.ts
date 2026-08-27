@@ -2181,7 +2181,26 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
  * @param x2 - Second array or scalar
  * @returns GCD
  */
-export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): ArrayStorage {
+  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one,
+  // which is exactly how the benchmark harness extracts a scalar. It used to fall
+  // past every branch below and die reading `.kind` off an undefined dtype.
+  //
+  // Routed as a size-1 array rather than through Number(), so a value above 2^53
+  // stays exact for a 64-bit output.
+  if (typeof x2 === 'bigint') {
+    if (isBigIntDType(x1.dtype)) {
+      const scalarArr = ArrayStorage.empty([1], x1.dtype);
+      try {
+        scalarArr.iset(0, x2);
+        return gcd(x1, scalarArr);
+      } finally {
+        scalarArr.dispose();
+      }
+    }
+    return gcd(x1, Number(x2));
+  }
+
   throwIfComplex(x1.dtype, 'gcd', 'GCD is only defined for integers.');
   if (isFloatDType(x1.dtype))
     throw new TypeError(
@@ -2283,7 +2302,26 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  * @param x2 - Second array or scalar
  * @returns LCM
  */
-export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+export function lcm(x1: ArrayStorage, x2: ArrayStorage | number | bigint): ArrayStorage {
+  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one,
+  // which is exactly how the benchmark harness extracts a scalar. It used to fall
+  // past every branch below and die reading `.kind` off an undefined dtype.
+  //
+  // Routed as a size-1 array rather than through Number(), so a value above 2^53
+  // stays exact for a 64-bit output.
+  if (typeof x2 === 'bigint') {
+    if (isBigIntDType(x1.dtype)) {
+      const scalarArr = ArrayStorage.empty([1], x1.dtype);
+      try {
+        scalarArr.iset(0, x2);
+        return lcm(x1, scalarArr);
+      } finally {
+        scalarArr.dispose();
+      }
+    }
+    return lcm(x1, Number(x2));
+  }
+
   throwIfComplex(x1.dtype, 'lcm', 'LCM is only defined for integers.');
   if (isFloatDType(x1.dtype))
     throw new TypeError(

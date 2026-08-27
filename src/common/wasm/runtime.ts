@@ -234,12 +234,31 @@ export function unregisterCleanup(instance: object): void {
  * Allocate `bytes` from the persistent WASM heap.
  * Returns a WasmRegion, or null if out of memory (caller should fall back to JS).
  */
+/** One-shot latch for the heap-exhaustion warning; see wasmMalloc. */
+let heapExhaustionWarned = false;
+
 export function wasmMalloc(bytes: number): WasmRegion | null {
   if (bytes <= 0) return null;
   ensureHeapInitialized();
 
   const ptr = heap_malloc(bytes);
   if (ptr === 0) {
+    wasmMemoryConfig.heapExhaustedCount++;
+    // Warn once. This transition is worth surfacing because nothing else marks
+    // it: past this point every allocation is JS-backed, which is measurably
+    // slower (2.3-2.5x on an integer floor), and the heap does not recover. The
+    // usual cause is retaining intermediates instead of disposing them.
+    if (wasmMemoryConfig.warnOnHeapExhaustion && !heapExhaustionWarned) {
+      heapExhaustionWarned = true;
+      const free = heap_free_bytes();
+      console.warn(
+        `[numpy-ts] WASM heap exhausted: wanted ${bytes} bytes, ${free} free. ` +
+          'Results now fall back to JS-backed arrays — slower, and the heap will ' +
+          'not recover in this process. Call dispose() on intermediates you are ' +
+          'done with, or raise maxMemory via configureWasm(). ' +
+          '(Warned once; see wasmMemoryConfig.heapExhaustedCount for the total.)',
+      );
+    }
     if (typeof process !== 'undefined' && process.env?.['LOG_HEAP']) {
       const free = heap_free_bytes();
       console.error(`[wasm] malloc failed: requested ${bytes} bytes, ${free} bytes free`);

@@ -251,11 +251,26 @@ async function main() {
         total_ops: 0,
         total_samples: 0,
         wasmUsed: false,
+        failed: err instanceof Error ? err.message : String(err),
       });
       console.error(
         `  [${i + 1}/${specs.length}] ${spec.name.padEnd(40)}   FAILED: ${err instanceof Error ? err.message : err}`,
       );
     }
+  }
+
+  // A failed benchmark used to leave only a zeroed timing behind, which reads as
+  // ratio 0 — the best score in the suite. Repeat the list at the end so it is
+  // not lost in thousands of progress lines.
+  const failures = results.filter((r) => r.failed);
+  if (failures.length > 0) {
+    console.error('');
+    console.error(`  ${'!'.repeat(72)}`);
+    console.error(`  ${failures.length} benchmark(s) FAILED and produced no measurement:`);
+    for (const f of failures) console.error(`    ${f.name}: ${f.failed}`);
+    console.error(`  Their timings are placeholders, not results.`);
+    console.error(`  ${'!'.repeat(72)}`);
+    console.error('');
   }
 
   // Output results as JSON to stdout

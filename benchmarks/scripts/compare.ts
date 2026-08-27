@@ -94,7 +94,25 @@ interface BenchResult {
   ts_ms?: number;
   numpy_ms?: number;
   wasmUsed?: boolean;
+  numpyjs?: { failed?: string };
 }
+
+/**
+ * A benchmark that threw carries a placeholder timing, so its ratio is 0.
+ *
+ * Left in, a zero is not merely noise — it is actively inverted. It ranks as the
+ * fastest result in the suite, it makes a newly-broken benchmark look like a
+ * +100% improvement, and because the geometric mean takes log(ratio), a single
+ * zero drives the headline figure to exp(-Infinity) = 0. Four failures out of
+ * 3,514 turned a true geo mean of 1.19x into 0.00x.
+ *
+ * The `failed` marker only exists in runs recorded after it was added, so result
+ * files from before that carry a bare zero with nothing to identify it. Treat the
+ * shape as the signal too: a ratio of exactly 0 (or a non-finite one, from a run
+ * with no NumPy baseline) is never a measurement.
+ */
+const isFailed = (r?: BenchResult): boolean =>
+  r?.numpyjs?.failed != null || r == null || !Number.isFinite(r.ratio) || r.ratio === 0;
 
 const oldMap = new Map<string, BenchResult>();
 for (const r of git.results as BenchResult[]) oldMap.set(r.name, r);
@@ -125,12 +143,22 @@ interface Row {
 }
 
 const rows: Row[] = [];
+const nowFailing: string[] = [];
+const nowFixed: string[] = [];
+const stillFailing: string[] = [];
 for (const [name, newR] of newMap) {
   const oldR = oldMap.get(name);
-  if (oldR != null) {
-    const pct = (oldR.ratio - newR.ratio) / oldR.ratio * 100;
-    rows.push({ name, oldR: oldR.ratio, newR: newR.ratio, pct });
+  if (oldR == null) continue;
+  const oldBad = isFailed(oldR);
+  const newBad = isFailed(newR);
+  if (oldBad || newBad) {
+    if (newBad && !oldBad) nowFailing.push(name);
+    else if (oldBad && !newBad) nowFixed.push(name);
+    else stillFailing.push(name);
+    continue;
   }
+  const pct = (oldR.ratio - newR.ratio) / oldR.ratio * 100;
+  rows.push({ name, oldR: oldR.ratio, newR: newR.ratio, pct });
 }
 rows.sort((a, b) => b.pct - a.pct);
 
@@ -142,6 +170,30 @@ console.log(`\nComparing ${variant}.json: local vs ${source}`);
 console.log(`  ${source}: ${git.timestamp}`);
 console.log(`  local:  ${local.timestamp}`);
 console.log(`  ${rows.length} benchmarks in common\n`);
+
+// Benchmarks that stopped running. This goes first and unconditionally: a
+// benchmark that throws is a correctness regression wearing a performance
+// costume, and it is invisible in every ratio-based section below.
+if (nowFailing.length > 0) {
+  console.log(`${'!'.repeat(70)}`);
+  console.log(`NOW FAILING (${nowFailing.length}) — these ran before and now throw:`);
+  for (const name of nowFailing) {
+    console.log(`  ${name}: ${newMap.get(name)?.numpyjs?.failed ?? 'unknown error'}`);
+  }
+  console.log(`${'!'.repeat(70)}\n`);
+}
+if (nowFixed.length > 0) {
+  console.log(`NOW RUNNING (${nowFixed.length}) — failed before, measured now:`);
+  for (const name of nowFixed) {
+    console.log(`  ${pad(fmt(newMap.get(name)!.ratio), 8)}x  ${name}`);
+  }
+  console.log();
+}
+if (stillFailing.length > 0) {
+  console.log(`STILL FAILING (${stillFailing.length}) — no measurement in either run:`);
+  for (const name of stillFailing) console.log(`           ${name}`);
+  console.log();
+}
 
 // Improved
 const improved = rows.filter(r => r.pct > 10);
@@ -174,7 +226,7 @@ if (unchanged.length > 0) {
 }
 
 // Still slow (only overlapping benchmarks)
-const slow = [...newMap.entries()].filter(([name, r]) => r.ratio > 10 && oldMap.has(name)).sort((a, b) => b[1].ratio - a[1].ratio);
+const slow = [...newMap.entries()].filter(([name, r]) => !isFailed(r) && r.ratio > 10 && oldMap.has(name)).sort((a, b) => b[1].ratio - a[1].ratio);
 if (slow.length > 0) {
   console.log(`STILL >10x SLOWER (${slow.length}):`);
   for (const [name] of slow) {
@@ -185,7 +237,7 @@ if (slow.length > 0) {
 }
 
 // New benchmarks (in local but not in git)
-const added = [...newMap.keys()].filter(k => !oldMap.has(k));
+const added = [...newMap.keys()].filter(k => !oldMap.has(k) && !isFailed(newMap.get(k)));
 if (added.length > 0) {
   console.log(`NEW (${added.length}):`);
   for (const name of added) {
@@ -210,9 +262,9 @@ if (removed.length > 0) {
 }
 
 // Summary — use all local benchmarks for "new" side; overlapping only for "old" side
-const allNewRatios = [...newMap.values()].map(r => r.ratio);
+const allNewRatios = [...newMap.values()].filter(r => !isFailed(r) && Number.isFinite(r.ratio) && r.ratio > 0).map(r => r.ratio);
 const geoMean = (arr: number[]) => Math.exp(arr.reduce((s, r) => s + Math.log(r), 0) / arr.length);
-const geoOld = geoMean(rows.map(r => r.oldR));
+const geoOld = geoMean(rows.map(r => r.oldR).filter(v => Number.isFinite(v) && v > 0));
 const geoNew = geoMean(allNewRatios);
 const medOld = rows.map(r => r.oldR).sort((a, b) => a - b)[Math.floor(rows.length / 2)]!;
 const medNew = [...allNewRatios].sort((a, b) => a - b)[Math.floor(allNewRatios.length / 2)]!;
@@ -225,6 +277,11 @@ console.log(`  Geo mean:     ${fmt(geoOld)}x → ${fmt(geoNew)}x  (local: all ${
 console.log(`  Median ratio: ${fmt(medOld)}x → ${fmt(medNew)}x`);
 console.log(`  Improved:     ${improved.length}  |  Regressed: ${regressed.length}  |  Unchanged: ${unchanged.length}`);
 console.log(`  >10x slower:  ${slow.length}  (overlapping only)`);
+if (nowFailing.length + stillFailing.length + nowFixed.length > 0) {
+  console.log(
+    `  Failed:       ${nowFailing.length} newly failing  |  ${stillFailing.length} still failing  |  ${nowFixed.length} now running  (excluded from every figure above)`,
+  );
+}
 if (wasmBoth + wasmAdded + wasmRemoved > 0) {
   const parts = [];
   if (wasmBoth)    parts.push(`[WASM] = both (${wasmBoth})`);

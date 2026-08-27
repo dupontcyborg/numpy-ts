@@ -16,6 +16,22 @@ export const wasmMemoryConfig = {
   scratchBytes: 8 * 1024 * 1024,
   /** When true, fall back to JS-backed TypedArrays when WASM memory is full. */
   fallbackToJS: true,
+  /**
+   * Warn once, on stderr, the first time the WASM heap cannot satisfy an
+   * allocation.
+   *
+   * That moment silently changes the library's performance characteristics —
+   * every later result is JS-backed, measurably slower, and the heap does not
+   * recover within the process. Set false to silence it (the counter below still
+   * increments).
+   */
+  warnOnHeapExhaustion: true,
+  /**
+   * Number of allocations that fell back to JS because the WASM heap was full.
+   * Non-zero means the process crossed the cliff above; a test or benchmark can
+   * assert on it. Never reset automatically.
+   */
+  heapExhaustedCount: 0,
 };
 
 export interface ConfigureWasmOptions {

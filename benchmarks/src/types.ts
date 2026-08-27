@@ -42,6 +42,13 @@ export interface BenchmarkTiming {
   total_ops: number; // Total operations executed
   total_samples: number; // Number of timing samples taken
   wasmUsed?: boolean; // True if a WASM/SIMD kernel was used for this operation
+  /**
+   * Set when the benchmark threw instead of running. The zeroed timings that
+   * accompany it are placeholders to keep indices aligned with the Python
+   * results — they are NOT a measurement. Anything computing a ratio or ranking
+   * must skip these, or a broken op scores as the fastest in the suite.
+   */
+  failed?: string;
 }
 
 export interface BenchmarkComparison {
