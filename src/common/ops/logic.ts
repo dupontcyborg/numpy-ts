@@ -24,6 +24,7 @@ import { broadcastShapes, elementwiseComparisonOp, flatF64 } from '../internal/c
 import { ArrayStorage } from '../storage';
 import { wasmCopysign, wasmCopysignScalar } from '../wasm/copysign';
 import { wasmIsfinite } from '../wasm/isfinite';
+import { wasmIsinf } from '../wasm/isinf';
 import { wasmIsnan } from '../wasm/isnan';
 import { wasmLogicalAnd, wasmLogicalAndScalar } from '../wasm/logical_and';
 import { wasmLogicalNot } from '../wasm/logical_not';
@@ -624,6 +625,11 @@ export function isfinite(a: ArrayStorage): ArrayStorage {
  * @returns Boolean result storage
  */
 export function isinf(a: ArrayStorage): ArrayStorage {
+  // Float dtypes have a SIMD kernel; integers fall through to the fill below,
+  // since they can never be infinite.
+  const viaWasm = wasmIsinf(a);
+  if (viaWasm) return viaWasm;
+
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
   const data = result.data as Uint8Array;
   const size = a.size;
