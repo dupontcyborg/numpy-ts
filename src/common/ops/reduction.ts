@@ -18,6 +18,7 @@ import {
   throwIfComplex,
   trueDivideResultDtype,
 } from '../dtype';
+import { flatF64 } from '../internal/compute';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { ArrayStorage } from '../storage';
 import { wasmCumprod, wasmCumsum } from '../wasm/cumulative';
@@ -3902,8 +3903,12 @@ function nanprodImpl(
     let total = 1;
     const contiguous = storage.isCContiguous;
     if (contiguous) {
+      // Read through a Float64Array: the TypedArray union load site goes
+      // megamorphic once more than four dtypes reach it, and widening f32 to
+      // f64 is exactly what the Number() call this replaces already did.
+      const fv = flatF64(storage);
       for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
+        const val = fv[i]!;
         if (!Number.isNaN(val)) {
           total *= val;
         }
@@ -4394,8 +4399,12 @@ function nanvarImpl(
     let count = 0;
     const contiguous = storage.isCContiguous;
     if (contiguous) {
+      // Read through a Float64Array: the TypedArray union load site goes
+      // megamorphic once more than four dtypes reach it, and widening f32 to
+      // f64 is exactly what the Number() call this replaces already did.
+      const fv = flatF64(storage);
       for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
+        const val = fv[i]!;
         if (!Number.isNaN(val)) {
           total += val;
           count++;
@@ -4425,8 +4434,9 @@ function nanvarImpl(
     if (narrowAcc) {
       narrowAcc[0] = 0;
       if (contiguous) {
+        const fv2 = flatF64(storage);
         for (let i = 0; i < storage.size; i++) {
-          const val = Number(data[off + i]);
+          const val = fv2[i]!;
           if (!Number.isNaN(val)) narrowAcc[0] += (val - meanVal) ** 2;
         }
       } else {
@@ -4440,8 +4450,9 @@ function nanvarImpl(
 
     let sumSq = 0;
     if (contiguous) {
+      const fv3 = flatF64(storage);
       for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
+        const val = fv3[i]!;
         if (!Number.isNaN(val)) {
           sumSq += (val - meanVal) ** 2;
         }
@@ -5100,8 +5111,12 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let minIdx = -1;
     const contiguous = storage.isCContiguous;
     if (contiguous) {
+      // Read through a Float64Array: the TypedArray union load site goes
+      // megamorphic once more than four dtypes reach it, and widening f32 to
+      // f64 is exactly what the Number() call this replaces already did.
+      const fv = flatF64(storage);
       for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
+        const val = fv[i]!;
         if (!Number.isNaN(val) && val < minVal) {
           minVal = val;
           minIdx = i;
@@ -5270,8 +5285,12 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let maxIdx = -1;
     const contiguous = storage.isCContiguous;
     if (contiguous) {
+      // Read through a Float64Array: the TypedArray union load site goes
+      // megamorphic once more than four dtypes reach it, and widening f32 to
+      // f64 is exactly what the Number() call this replaces already did.
+      const fv = flatF64(storage);
       for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
+        const val = fv[i]!;
         if (!Number.isNaN(val) && val > maxVal) {
           maxVal = val;
           maxIdx = i;

@@ -1107,9 +1107,21 @@ export function elementwiseUnaryOp(
  * range exceeds f64's exact integers.
  */
 export function flatF64(s: ArrayStorage): Float64Array {
-  const c = s.isCContiguous && s.offset === 0 ? s : s.copy();
-  const view = (
-    c.data as unknown as { subarray(b: number, e: number): ArrayLike<number> }
-  ).subarray(c.offset, c.offset + c.size);
-  return new Float64Array(view);
+  type Sub = { subarray(b: number, e: number): ArrayLike<number> };
+
+  if (s.isCContiguous) {
+    const view = (s.data as unknown as Sub).subarray(s.offset, s.offset + s.size);
+    // Already the right type: hand back the view rather than duplicating it.
+    // Callers treat the result as read-only.
+    return view instanceof Float64Array ? view : new Float64Array(view);
+  }
+
+  // A strided source has to be materialised first. The temporary owns a WASM
+  // region, so release it once the values have been widened out of it.
+  const c = s.copy();
+  try {
+    return new Float64Array((c.data as unknown as Sub).subarray(c.offset, c.offset + c.size));
+  } finally {
+    c.dispose();
+  }
 }
