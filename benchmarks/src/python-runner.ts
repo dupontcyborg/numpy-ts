@@ -3,7 +3,65 @@
  * Spawns Python script and collects results
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+
+/**
+ * Python interpreter to run the NumPy side with.
+ *
+ * Mirrors `NUMPY_PYTHON` from the test oracle. Without this the harness spawned
+ * a bare `python3`, so a machine whose default python lacks NumPy saw the child
+ * die and the parent crash with an unhandled EPIPE while writing its stdin —
+ * which says nothing about the actual cause.
+ *
+ * Accepts a command with arguments, e.g. `NUMPY_PYTHON='conda run -n env python'`.
+ */
+export function resolvePython(): { cmd: string; prefixArgs: string[] } {
+  const raw = (process.env.NUMPY_PYTHON || 'python3').trim();
+  const parts = raw.split(/\s+/);
+  return { cmd: parts[0] as string, prefixArgs: parts.slice(1) };
+}
+
+/**
+ * Is there a usable NumPy on the resolved interpreter?
+ *
+ * Checked up front so a missing NumPy degrades to a JS-only run instead of
+ * aborting. Benchmarking numpy-ts against itself is still useful; only the
+ * comparison and the correctness validation need Python.
+ */
+export function checkNumpy(): { ok: true } | { ok: false; cmd: string; detail: string } {
+  const { cmd, prefixArgs } = resolvePython();
+  try {
+    const probe = spawnSync(cmd, [...prefixArgs, '-c', 'import numpy'], {
+      encoding: 'utf-8',
+      timeout: 30_000,
+    });
+    if (probe.error) return { ok: false, cmd, detail: probe.error.message };
+    if (probe.status !== 0) {
+      return {
+        ok: false,
+        cmd,
+        detail: (probe.stderr || '').trim().split('\n').pop() || 'import numpy failed',
+      };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, cmd, detail: String(err) };
+  }
+}
+
+/** Turn a dead-child EPIPE into a message that names the likely cause. */
+export function describeSpawnFailure(cmd: string, stderr: string): string {
+  const hint = /ModuleNotFoundError|No module named/i.test(stderr)
+    ? `'${cmd}' has no numpy installed`
+    : `'${cmd}' exited before reading its input`;
+  return (
+    `NumPy benchmark helper failed: ${hint}.\n` +
+    `Set NUMPY_PYTHON to an interpreter with NumPy, e.g.\n` +
+    `  NUMPY_PYTHON=/path/to/env/bin/python3 pnpm run bench:node\n` +
+    (stderr.trim() ? `\nPython stderr:\n${stderr.trim()}\n` : '')
+  );
+}
+
 import { resolve } from 'node:path';
 import type { BenchmarkCase, BenchmarkTiming } from './types';
 
@@ -25,7 +83,11 @@ export async function runPythonBenchmarks(
       env.VECLIB_MAXIMUM_THREADS = '1'; // Apple Accelerate
     }
 
-    const python = spawn('python3', [scriptPath], { env });
+    const { cmd, prefixArgs } = resolvePython();
+    const python = spawn(cmd, [...prefixArgs, scriptPath], { env });
+    // A child that exits before reading stdin makes the write below raise EPIPE
+    // on the socket, which is an unhandled 'error' event and kills the process.
+    python.stdin.on('error', () => {});
 
     let stdout = '';
     let stderr = '';
@@ -57,7 +119,7 @@ export async function runPythonBenchmarks(
 
     python.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`Python script exited with code ${code}\n${stderr}`));
+        reject(new Error(describeSpawnFailure(cmd, stderr)));
         return;
       }
 

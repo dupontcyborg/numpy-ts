@@ -931,6 +931,21 @@
     "uint64",
     "uint8"
   ],
+  "einsum_path": [
+    "complex128",
+    "complex64",
+    "float16",
+    "float32",
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
+  ],
   "empty": [
     "complex128",
     "complex64",
@@ -2398,6 +2413,7 @@
     "uint8"
   ],
   "nanstd": [
+    "float16",
     "float32",
     "float64",
     "int16",
@@ -2425,6 +2441,7 @@
     "uint8"
   ],
   "nanvar": [
+    "float16",
     "float32",
     "float64",
     "int16",
@@ -3455,9 +3472,11 @@
     "float64",
     "int16",
     "int32",
+    "int64",
     "int8",
     "uint16",
     "uint32",
+    "uint64",
     "uint8"
   ],
   "tile": [
@@ -3640,9 +3659,11 @@
     "float64",
     "int16",
     "int32",
+    "int64",
     "int8",
     "uint16",
     "uint32",
+    "uint64",
     "uint8"
   ],
   "unique": [

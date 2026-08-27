@@ -399,12 +399,10 @@ const NOT_BENCHMARKABLE = new Set<string>([
  * worth measuring — the harness just cannot check them for correctness, and an
  * unvalidated benchmark is worse than none.
  */
-const NOT_CROSS_VALIDATABLE = new Set<string>([
-  // numpy-ts returns [path, report]; NumPy returns (['einsum_path', ...], report).
-  // The path element is structurally different, so no projection of the result
-  // is comparable across the two.
-  'einsum_path',
-]);
+// Empty: `einsum_path` was the only entry, and its path now matches NumPy's
+// shape exactly (marker string first, contraction pairs addressed against the
+// shrinking operand list), so it is cross-validatable like everything else.
+const NOT_CROSS_VALIDATABLE = new Set<string>([]);
 
 describe('benchmark function coverage', () => {
   const publicFunctions = Object.entries(np)

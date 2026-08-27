@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { hasFloat16 as npHasFloat16 } from '../../src/common/dtype';
 import * as np from '../../src/index';
+import { describeSpawnFailure, resolvePython } from './python-runner';
 import type { BenchmarkCase } from './types';
 
 const FLOAT64_TOLERANCE = 1e-5;
@@ -797,6 +798,14 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
     // Additional linalg
     case 'einsum':
       return np.einsum(arrays.subscripts, arrays.a, arrays.b);
+    case 'einsum_path': {
+      // Compare the contraction path only. The second element is a
+      // human-readable report whose wording and FLOPS formatting differ from
+      // NumPy's by design, and path[0] is the literal marker string — so the
+      // comparable content is the contraction pairs, flattened to numbers.
+      const [path] = np.einsum_path(arrays.subscripts, arrays.a, arrays.b);
+      return np.array((path.slice(1) as number[][]).flat());
+    }
 
     // numpy.linalg module operations
     case 'linalg_det':
@@ -1481,7 +1490,11 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
   const scriptPath = resolve(__dirname, '../scripts/validation.py');
 
   return new Promise((resolve, reject) => {
-    const python = spawn('python3', [scriptPath]);
+    const { cmd, prefixArgs } = resolvePython();
+    const python = spawn(cmd, [...prefixArgs, scriptPath]);
+    // See python-runner.ts: without this the EPIPE from writing to a child that
+    // already exited surfaces as an unhandled 'error' event, not a useful message.
+    python.stdin.on('error', () => {});
 
     let stdout = '';
     let stderr = '';
@@ -1496,7 +1509,7 @@ export async function validateBenchmarks(specs: BenchmarkCase[]): Promise<void> 
 
     python.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`Validation script failed: ${stderr}`));
+        reject(new Error(describeSpawnFailure(cmd, stderr)));
         return;
       }
 

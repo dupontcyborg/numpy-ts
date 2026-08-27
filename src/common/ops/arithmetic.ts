@@ -2220,6 +2220,21 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   const outDtype = typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype);
 
   if (typeof x2 === 'number') {
+    // A 64-bit integer output cannot take the Number-storing loop below — a
+    // BigInt64Array store of a Number throws outright. The generic path already
+    // has an exact BigInt gcd, so wrap the scalar and broadcast through that.
+    // (Only *large* scalars used to reach the exact path, via isExactScalar
+    // below; a small one like gcd(int64[...], 6) still threw.)
+    if (isBigIntDType(outDtype)) {
+      const scalarArr = ArrayStorage.empty([1], outDtype);
+      try {
+        scalarArr.iset(0, BigInt(Math.abs(Math.trunc(x2))));
+        return elementwiseBinaryOp(x1, scalarArr, gcdSingle, 'gcd');
+      } finally {
+        scalarArr.dispose();
+      }
+    }
+
     // Try WASM scalar path
     const wasmResult = wasmGcdScalar(x1, x2);
     if (wasmResult) return wasmResult;
@@ -2315,6 +2330,17 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   const outDtype = typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype);
 
   if (typeof x2 === 'number') {
+    // See the note in gcd() — same BigInt store problem, same fix.
+    if (isBigIntDType(outDtype)) {
+      const scalarArr = ArrayStorage.empty([1], outDtype);
+      try {
+        scalarArr.iset(0, BigInt(Math.abs(Math.trunc(x2))));
+        return elementwiseBinaryOp(x1, scalarArr, lcmSingle, 'lcm');
+      } finally {
+        scalarArr.dispose();
+      }
+    }
+
     const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
     const resultData = result.data;
     const size = x1.size;

@@ -262,6 +262,7 @@ const OPERATIONS: Record<string, OpFn> = {
   diagonal: (a) => np.diagonal(a['a']),
   kron: (a) => np.kron(a['a'], a['b']),
   einsum: (a) => np.einsum(a['subscripts'], a['a'], a['b']),
+  einsum_path: (a) => np.einsum_path(a['subscripts'], a['a'], a['b']),
   deg2rad: (a) => np.deg2rad(a['a']),
   rad2deg: (a) => np.rad2deg(a['a']),
 

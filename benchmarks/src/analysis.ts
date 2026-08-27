@@ -212,6 +212,11 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatRatio(ratio: number): string {
+  // A run without a NumPy baseline has zero-filled reference times, so every
+  // ratio comes out Infinity (or NaN for 0/0). Printing "Infinityx" reads like a
+  // measurement; a dash reads like the absence it is. Applies to --skip-numpy
+  // too, which had the same output.
+  if (!Number.isFinite(ratio)) return '—';
   return `${ratio.toFixed(2)}x`;
 }
 

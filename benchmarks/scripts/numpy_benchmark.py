@@ -370,6 +370,7 @@ OPERATIONS: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "diagonal": lambda a: np.diagonal(a["a"]),
     "kron": lambda a: np.kron(a["a"], a["b"]),
     "einsum": lambda a: np.einsum(a["subscripts"], a["a"], a["b"]),
+    "einsum_path": lambda a: np.einsum_path(a["subscripts"], a["a"], a["b"]),
     "deg2rad": lambda a: np.deg2rad(a["a"]),
     "rad2deg": lambda a: np.rad2deg(a["a"]),
 

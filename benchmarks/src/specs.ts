@@ -105,9 +105,11 @@ export const SKIP_DTYPE_OPERATIONS = new Set([
 
 // Operations to skip for float16 dtype variants (precision too low for numerical algorithms)
 export const SKIP_FLOAT16_OPERATIONS = new Set([
-  // float16 accumulation overflows to NaN / loses bins where NumPy does not
-  'nanstd',
-  'nanvar',
+  // Still diverge at benchmark scale, though not on a handful of elements:
+  // NumPy accumulates in f16 while we accumulate wider, so the running total
+  // drifts once there are enough terms. At [100x100] nancumsum differs from
+  // element 66 onward (2212 vs 2210); histogramdd lands 2 of 100 bins
+  // differently; nancumprod complex diverges from element 39.
   'nancumsum',
   'nancumprod',
   'histogramdd',
@@ -144,7 +146,10 @@ export const SKIP_FLOAT16_OPERATIONS = new Set([
 
 // Operations to skip for ALL int dtype variants (blocks both int and uint families)
 export const SKIP_INT_OPERATIONS = new Set([
-  // Vandermonde powers overflow; NumPy promotes to int64, we do not
+  // Vandermonde powers: the dtype promotion to int64 is correct, but the values
+  // diverge once the powers overflow it — 319 of 1024 entries differ at the
+  // benchmark's N=32, where the largest column is 31^31. Small inputs agree,
+  // which is why this looked fixed.
   'vander',
   // Real-float-only spacing/step semantics
   'nextafter',
@@ -196,12 +201,15 @@ export const SKIP_UINT_OPERATIONS = new Set([
 //   np.gcd(int64[4], int64[4])  -> ok
 //   np.gcd(int64[4], int64[1])  -> TypeError: Cannot convert 1 to a BigInt
 //   np.gcd(int32[4], int32[1])  -> ok  (32-bit broadcast is fine)
-export const SKIP_INT64_BROADCAST_OPERATIONS = new Set(['gcd', 'lcm']);
+// Empty: gcd/lcm were the only entries. Their 64-bit scalar path built a
+// BigInt64Array and then stored a Number into it, so `gcd(int64[...], 6)` threw
+// while the same-shape path was fine (finding 4.1b). Kept as an empty set rather
+// than deleted — the mechanism is the right shape for the next op that needs it.
+export const SKIP_INT64_BROADCAST_OPERATIONS = new Set<string>([]);
 
-export const SKIP_INT64_OPERATIONS = new Set([
-  'union1d', // TypeError: Cannot convert 1 to a BigInt
-  'tensordot', // TypeError: Cannot convert <accumulator> to a BigInt
-]);
+// Empty: `union1d` was fixed with the 64-bit set-op work, and `tensordot`
+// accumulated its contraction in a JS number before storing to a BigInt array.
+export const SKIP_INT64_OPERATIONS = new Set<string>([]);
 
 // Operations to skip for NARROW int types (int8/int16) only.
 // Operations where int8/int16 variants produce different results than NumPy
@@ -224,7 +232,7 @@ export const SKIP_COMPLEX_OPERATIONS = new Set([
   'mod',
   'floor_divide',
   'divmod',
-  // complex running products diverge in the last bits
+  // complex running products still diverge at scale — see the float16 note above
   'nancumprod',
   // Rounding, ordering and real-only predicates reject complex
   'ceil',
@@ -2456,6 +2464,19 @@ export function getBenchmarkSpecs(
 
     // einsum - matrix multiplication
     const einsumSize = scaledSizes.einsum;
+    specs.push({
+      name: `einsum_path matmul [${einsumSize.join('x')}]`,
+      category: 'linalg',
+      operation: 'einsum_path',
+      setup: {
+        subscripts: { shape: [], value: 'ij,jk->ik' },
+        a: { shape: einsumSize, fill: 'arange' },
+        b: { shape: einsumSize, fill: 'ones' },
+      },
+      iterations,
+      warmup,
+    });
+
     specs.push({
       name: `einsum matmul [${einsumSize.join('x')}]`,
       category: 'linalg',

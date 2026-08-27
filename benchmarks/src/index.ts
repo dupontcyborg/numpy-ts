@@ -20,7 +20,23 @@ import {
   generatePNGChart,
 } from './chart-generator';
 import { runPyodideBenchmarks } from './pyodide-runner';
-import { runPythonBenchmarks } from './python-runner';
+import { checkNumpy, runPythonBenchmarks } from './python-runner';
+
+/**
+ * Repeat the no-NumPy caveat after the results.
+ *
+ * The warning at the start scrolls away behind thousands of benchmark lines, and
+ * a table of numbers with every NumPy column at zero is easy to misread as a
+ * result rather than an absence.
+ */
+function warnNumpyMissingAgain(): void {
+  console.warn('');
+  console.warn('  NOTE: NumPy was unavailable, so these are numpy-ts timings only —');
+  console.warn('  the NumPy columns and every ratio in this run are placeholders,');
+  console.warn('  and no correctness validation ran. Set NUMPY_PYTHON to compare.');
+  console.warn('');
+}
+
 import { detectRuntimes, spawnRuntimeBenchmark } from './runtime-spawner';
 import { filterByCategory, getBenchmarkSpecs } from './specs';
 import type {
@@ -303,8 +319,29 @@ async function main() {
     const validatableSpecs = specs.filter(
       (spec) => spec.category !== 'io' && !nonValidatableOperations.has(spec.operation),
     );
+    // A missing NumPy used to abort the whole run. The JS-side numbers are still
+    // worth having, so degrade to a JS-only run instead: skip validation and the
+    // Python baseline, and say so loudly enough that nobody mistakes the output
+    // for a comparison.
+    const numpyCheck = options.skipNumpy || options.pyodide ? { ok: true as const } : checkNumpy();
+    const numpyMissing = !numpyCheck.ok;
+    if (!numpyCheck.ok) {
+      console.warn('');
+      console.warn('  ' + '='.repeat(72));
+      console.warn(`  NumPy is not available on '${numpyCheck.cmd}' — running numpy-ts only.`);
+      console.warn(`    ${numpyCheck.detail}`);
+      console.warn('');
+      console.warn('  Correctness validation and the NumPy comparison are SKIPPED.');
+      console.warn('  Point NUMPY_PYTHON at an interpreter that has NumPy to get both:');
+      console.warn('    NUMPY_PYTHON=/path/to/env/bin/python3 pnpm run bench:node');
+      console.warn('  ' + '='.repeat(72));
+      console.warn('');
+    }
+
     // Skip validation for non-default sizes — correctness doesn't change with array size
-    if (options.sizeScale && options.sizeScale !== 'default') {
+    if (numpyMissing) {
+      // Nothing to validate against.
+    } else if (options.sizeScale && options.sizeScale !== 'default') {
       console.log(
         `Skipping validation for --size ${options.sizeScale} (correctness validated at default size)\n`,
       );
@@ -344,8 +381,8 @@ async function main() {
     let pythonVersion: string = 'unknown';
     let numpyVersion: string = 'unknown';
 
-    if (options.skipNumpy) {
-      console.log('Skipping NumPy benchmarks (--skip-numpy)\n');
+    if (options.skipNumpy || numpyMissing) {
+      if (options.skipNumpy) console.log('Skipping NumPy benchmarks (--skip-numpy)\n');
       numpyResults = specs.map((s) => ({
         name: s.name,
         mean_ms: 0,
@@ -497,6 +534,7 @@ async function main() {
         );
 
         console.log(`\nView report: open ${htmlPath}`);
+        if (numpyMissing) warnNumpyMissingAgain();
       } else {
         // Multiple runtimes: use MultiRuntimeReport format
         const comparisons = compareMultiRuntime(specs, numpyResults, runtimeResultsMap);

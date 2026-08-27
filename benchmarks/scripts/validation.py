@@ -282,6 +282,13 @@ def run_operation(spec):
         result = np.kron(arrays["a"], arrays["b"])
     elif operation == "einsum":
         result = np.einsum(arrays["subscripts"], arrays["a"], arrays["b"])
+    elif operation == "einsum_path":
+        # Path only — the report string is human-readable prose, and path[0] is
+        # the 'einsum_path' marker. Flatten the contraction pairs to numbers.
+        path, _report = np.einsum_path(arrays["subscripts"], arrays["a"], arrays["b"])
+        # float64 to match the JS side, which has no integer array type to build
+        # here — the values are small contraction indices either way.
+        result = np.array([i for pair in path[1:] for i in pair], dtype=np.float64)
     elif operation == "deg2rad":
         result = np.deg2rad(arrays["a"])
     elif operation == "rad2deg":
