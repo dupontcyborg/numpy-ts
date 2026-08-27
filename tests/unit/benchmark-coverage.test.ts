@@ -404,6 +404,22 @@ const NOT_BENCHMARKABLE = new Set<string>([
 // shrinking operand list), so it is cross-validatable like everything else.
 const NOT_CROSS_VALIDATABLE = new Set<string>([]);
 
+/**
+ * Public functions whose *timing* against NumPy is not a like-for-like
+ * measurement of this library, so a ratio would be misleading rather than
+ * informative. They still do real array work and are validated for correctness
+ * elsewhere — they just get no benchmark.
+ */
+const NOT_PERF_COMPARABLE = new Set<string>([
+  // NumPy calls the callback exactly once, with broadcast index arrays, and
+  // does the per-element work in C. Our signature is
+  // `(...indices: number[]) => number`, so the callback runs once per element
+  // by design. The benchmark therefore measures N JS callback invocations
+  // against one vectorised NumPy call — a language-semantics difference, not an
+  // engine one. Correctness is covered in tests/validation.
+  'fromfunction',
+]);
+
 describe('benchmark function coverage', () => {
   const publicFunctions = Object.entries(np)
     .filter(([, v]) => typeof v === 'function')
@@ -423,19 +439,23 @@ describe('benchmark function coverage', () => {
   it('every public function is benchmarked, or excepted with a reason', () => {
     const unaccounted = publicFunctions
       .filter((f) => !benchmarked.has(f))
-      .filter((f) => !NOT_BENCHMARKABLE.has(f) && !NOT_CROSS_VALIDATABLE.has(f))
+      .filter(
+        (f) =>
+          !NOT_BENCHMARKABLE.has(f) && !NOT_CROSS_VALIDATABLE.has(f) && !NOT_PERF_COMPARABLE.has(f),
+      )
       .sort();
     expect(
       unaccounted,
       'These public functions have no benchmark. Add a spec in ' +
         'benchmarks/src/specs.ts (plus the operation in bench-utils.ts, ' +
         'numpy_benchmark.py, validation.ts and validation.py), or add them to ' +
-        'NOT_BENCHMARKABLE / NOT_CROSS_VALIDATABLE with a reason.\n',
+        'NOT_BENCHMARKABLE / NOT_CROSS_VALIDATABLE / NOT_PERF_COMPARABLE with ' +
+        'a reason.\n',
     ).toEqual([]);
   });
 
   it('no exception entry is stale (all still lack a benchmark)', () => {
-    const nowCovered = [...NOT_BENCHMARKABLE, ...NOT_CROSS_VALIDATABLE]
+    const nowCovered = [...NOT_BENCHMARKABLE, ...NOT_CROSS_VALIDATABLE, ...NOT_PERF_COMPARABLE]
       .filter((f) => benchmarked.has(f))
       .sort();
     expect(
@@ -446,11 +466,13 @@ describe('benchmark function coverage', () => {
   });
 
   it('exception lists do not overlap and reference real exports', () => {
-    const both = [...NOT_CROSS_VALIDATABLE].filter((f) => NOT_BENCHMARKABLE.has(f));
+    const both = [...NOT_CROSS_VALIDATABLE, ...NOT_PERF_COMPARABLE].filter((f) =>
+      NOT_BENCHMARKABLE.has(f),
+    );
     expect(both, 'listed in both exception sets').toEqual([]);
 
     const known = new Set(Object.keys(np));
-    const unknown = [...NOT_BENCHMARKABLE, ...NOT_CROSS_VALIDATABLE]
+    const unknown = [...NOT_BENCHMARKABLE, ...NOT_CROSS_VALIDATABLE, ...NOT_PERF_COMPARABLE]
       .filter((f) => !known.has(f))
       .sort();
     expect(

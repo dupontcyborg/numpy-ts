@@ -92,7 +92,6 @@ export const PINNED_INDEX_DTYPE_OPERATIONS = new Set([
 export const SKIP_DTYPE_OPERATIONS = new Set([
   // No array input to vary (shape/count parameters only)
   'broadcast_shapes',
-  'fromfunction',
   'fromiter',
   'mask_indices',
   // 'linalg_cholesky', // positive-definiteness lost in float32
@@ -4546,15 +4545,6 @@ export function getBenchmarkSpecs(
     category: 'math',
     operation: 'floor',
     setup: { a: { shape: scaledSizes.d2, fill: 'random' } },
-    iterations,
-    warmup,
-  });
-
-  specs.push({
-    name: `fromfunction [${scaledSizes.d2.join('x')}]`,
-    category: 'creation',
-    operation: 'fromfunction',
-    setup: { shape: { shape: scaledSizes.d2 } },
     iterations,
     warmup,
   });
