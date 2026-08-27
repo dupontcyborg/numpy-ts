@@ -116,6 +116,28 @@ function uniqueCountingSort(
 }
 
 /**
+ * Whether every value in a 64-bit integer range is exactly representable as a
+ * double, so the generic Float64Array path below cannot merge distinct values.
+ *
+ * The exact BigInt path that this gates is correct for the whole 64-bit range
+ * but sorts an index array with a JS comparator that loads BigInts, which costs
+ * far more than the numeric sort. Real int64 data almost always fits in the safe
+ * range, so one linear scan buys the fast path for it and keeps the exact path
+ * for the values that genuinely need it.
+ *
+ * Deliberately conservative at the boundary: `|v| < 2^53` rather than `<= 2^53`,
+ * which at worst takes the exact path one value early.
+ */
+function allExactInF64(src: BigInt64Array | BigUint64Array, off: number, size: number): boolean {
+  const LIMIT = 9007199254740992n; // 2^53
+  for (let i = 0; i < size; i++) {
+    const v = src[off + i]!;
+    if (v >= LIMIT || v <= -LIMIT) return false;
+  }
+  return true;
+}
+
+/**
  * Find the unique elements of an array
  */
 export function unique(
@@ -376,7 +398,10 @@ export function unique(
   // values through a Float64Array, which merges distinct 64-bit values above 2^53
   // — unique([2^53, 2^53+1, 2^53+2, 2^53+3]) came back with three elements, and
   // the wrong ones.
-  if (data instanceof BigInt64Array || data instanceof BigUint64Array) {
+  if (
+    (data instanceof BigInt64Array || data instanceof BigUint64Array) &&
+    !allExactInF64(data as BigInt64Array | BigUint64Array, off, size)
+  ) {
     const src = data as BigInt64Array | BigUint64Array;
     const at = (i: number): bigint => src[off + i]!;
 
@@ -524,6 +549,12 @@ export function unique(
   let lastValue: number | undefined;
   let currentCount = 0;
 
+  // The dedup walk already visits every element in sorted order and knows which
+  // unique value it belongs to, so record the inverse here. Rebuilding it
+  // afterwards cost a Map<number, number> plus one float-keyed lookup per
+  // element — for no information the walk did not already have.
+  const inverseDirect = returnInverse ? new Int32Array(size) : null;
+
   for (let i = 0; i < size; i++) {
     const idx = sortedIdxs[i]!;
     const value = vals[idx]!;
@@ -544,6 +575,7 @@ export function unique(
     } else {
       currentCount++;
     }
+    if (inverseDirect) inverseDirect[idx] = uniqueValues.length - 1;
   }
   if (currentCount > 0) countsArr.push(currentCount);
 
@@ -576,20 +608,8 @@ export function unique(
   }
 
   if (returnInverse) {
-    // Build inverse mapping only when needed
-    const valueToUniqueIdx = new Map<number, number>();
-    let nanIdx = -1;
-    for (let i = 0; i < numUnique; i++) {
-      const v = uniqueValues[i]!;
-      if (v !== v) nanIdx = i;
-      else valueToUniqueIdx.set(v, i);
-    }
     const inverseResult = ArrayStorage.zeros([size], 'int32');
-    const inverseData = inverseResult.data as Int32Array;
-    for (let i = 0; i < size; i++) {
-      const val = vals[i]!;
-      inverseData[i] = val !== val ? nanIdx : valueToUniqueIdx.get(val)!;
-    }
+    (inverseResult.data as Int32Array).set(inverseDirect!);
     result.inverse = inverseResult;
   }
 

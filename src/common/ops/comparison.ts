@@ -183,11 +183,70 @@ export function isclose(
       return absDiff <= atol + rtol * absB;
     });
   }
+  const viaBigInt = iscloseBigInt(a, b, rtol, atol);
+  if (viaBigInt) return viaBigInt;
+
   return elementwiseComparisonOp(a, b, (x, y) => {
     const diff = Math.abs(x - y);
     const threshold = atol + rtol * Math.abs(y);
     return diff <= threshold;
   });
+}
+
+/**
+ * isclose for two same-shape, contiguous 64-bit integer arrays.
+ *
+ * `isclose` passes no comparison kind, so it misses both the WASM kernel and
+ * the monomorphic CMP_LOOPS path and lands in the generic loop — broadcast
+ * views plus `iget()` per element, which recomputes the multi-index for every
+ * value. This does the same arithmetic with direct typed-array loads.
+ *
+ * The difference stays in BigInt so it is exact above 2^53; only the comparison
+ * against the float threshold converts, which is what NumPy does too (`|x - y|`
+ * is computed in int64 and promoted only to meet `atol + rtol * |y|`).
+ *
+ * Returns null when the inputs are not that shape, and the caller falls through.
+ */
+function iscloseBigInt(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  rtol: number,
+  atol: number,
+): ArrayStorage | null {
+  if (!isBigIntDType(a.dtype) || !isBigIntDType(b.dtype)) return null;
+  if (!a.isCContiguous || !b.isCContiguous) return null;
+  if (a.data.constructor !== b.data.constructor) return null;
+  if (a.shape.length !== b.shape.length) return null;
+  if (!a.shape.every((dim, i) => dim === b.shape[i])) return null;
+
+  const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
+  const out = result.data as Uint8Array;
+  const n = a.size;
+  const aOff = a.offset;
+  const bOff = b.offset;
+
+  if (a.data instanceof BigInt64Array) {
+    const av = a.data;
+    const bv = b.data as BigInt64Array;
+    for (let i = 0; i < n; i++) {
+      const x = av[aOff + i]!;
+      const y = bv[bOff + i]!;
+      const diff = x > y ? x - y : y - x;
+      const absY = y < 0n ? -y : y;
+      out[i] = Number(diff) <= atol + rtol * Number(absY) ? 1 : 0;
+    }
+  } else {
+    const av = a.data as BigUint64Array;
+    const bv = b.data as BigUint64Array;
+    for (let i = 0; i < n; i++) {
+      const x = av[aOff + i]!;
+      const y = bv[bOff + i]!;
+      const diff = x > y ? x - y : y - x;
+      out[i] = Number(diff) <= atol + rtol * Number(y) ? 1 : 0;
+    }
+  }
+
+  return result;
 }
 
 /**
