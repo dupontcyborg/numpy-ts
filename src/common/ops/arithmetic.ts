@@ -33,6 +33,7 @@ import { wasmDivmod, wasmDivmodScalar } from '../wasm/divmod';
 import { wasmFrexp } from '../wasm/frexp';
 import { wasmGcd, wasmGcdScalar } from '../wasm/gcd';
 import { wasmHeaviside, wasmHeavisideScalar } from '../wasm/heaviside';
+import { wasmLcm, wasmLcmScalar } from '../wasm/lcm';
 import { wasmLdexpScalar } from '../wasm/ldexp';
 import { wasmMax, wasmMaxScalar } from '../wasm/max';
 import { wasmMin, wasmMinScalar } from '../wasm/min';
@@ -730,24 +731,32 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
  */
 export function convertToFloatDType(
   storage: ArrayStorage,
-  targetDtype: 'float32' | 'float64',
+  targetDtype: 'float16' | 'float32' | 'float64',
 ): ArrayStorage {
   const result = ArrayStorage.empty(Array.from(storage.shape), targetDtype);
   const size = storage.size;
-  const dstData = result.data;
+  const src = storage.isCContiguous ? storage : storage.copy();
 
-  if (storage.isCContiguous) {
-    const srcData = storage.data;
-    const off = storage.offset;
-    for (let i = 0; i < size; i++) {
-      dstData[i] = Number(srcData[off + i]!);
-    }
-  } else {
-    for (let i = 0; i < size; i++) {
-      dstData[i] = Number(storage.iget(i));
-    }
+  if (isBigIntDType(src.dtype)) {
+    // BigInt has no native conversion to a float TypedArray; this loop is
+    // monomorphic on both sides, which is the next best thing.
+    const s = src.data as BigInt64Array | BigUint64Array;
+    const d = result.data as Float64Array | Float32Array;
+    const off = src.offset;
+    for (let i = 0; i < size; i++) d[i] = Number(s[off + i]!);
+    return result;
   }
 
+  // One native TypedArray-to-TypedArray conversion. The previous loop stored
+  // through a TypedArray union, which goes megamorphic once more than four
+  // dtypes reach it, and then every dtype pays.
+  (result.data as unknown as { set(v: ArrayLike<number>, o: number): void }).set(
+    (src.data as unknown as { subarray(b: number, e: number): ArrayLike<number> }).subarray(
+      src.offset,
+      src.offset + size,
+    ),
+    0,
+  );
   return result;
 }
 
@@ -2244,6 +2253,14 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
     // has an exact BigInt gcd, so wrap the scalar and broadcast through that.
     // (Only *large* scalars used to reach the exact path, via isExactScalar
     // below; a small one like gcd(int64[...], 6) still threw.)
+    // Try WASM first, including for int64/uint64 — the kernels are exact at
+    // 64 bits, so the BigInt fallback below is only for scalars that a double
+    // cannot carry in the first place.
+    if (!isBigIntDType(outDtype) || Number.isSafeInteger(Math.abs(Math.trunc(x2)))) {
+      const wasmResult = wasmGcdScalar(x1, x2);
+      if (wasmResult) return wasmResult;
+    }
+
     if (isBigIntDType(outDtype)) {
       const scalarArr = ArrayStorage.empty([1], outDtype);
       try {
@@ -2253,10 +2270,6 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
         scalarArr.dispose();
       }
     }
-
-    // Try WASM scalar path
-    const wasmResult = wasmGcdScalar(x1, x2);
-    if (wasmResult) return wasmResult;
 
     const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
     const resultData = result.data;
@@ -2368,6 +2381,11 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
   const outDtype = typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype);
 
   if (typeof x2 === 'number') {
+    if (!isBigIntDType(outDtype) || Number.isSafeInteger(Math.abs(Math.trunc(x2)))) {
+      const wasmResult = wasmLcmScalar(x1, x2);
+      if (wasmResult) return wasmResult;
+    }
+
     // See the note in gcd() — same BigInt store problem, same fix.
     if (isBigIntDType(outDtype)) {
       const scalarArr = ArrayStorage.empty([1], outDtype);
@@ -2402,6 +2420,11 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
   // Extract scalar from size-1 array
   if (x2.size === 1 && isExactScalar(x2)) {
     return lcm(x1, Number(x2.iget(0)));
+  }
+
+  if (canUseFastPath(x1, x2)) {
+    const wasmResult = wasmLcm(x1, x2);
+    if (wasmResult) return wasmResult;
   }
 
   // Array case — see the note in gcd(); same broadcasting and precision fix.

@@ -1,8 +1,8 @@
 /**
- * WASM-accelerated element-wise GCD (greatest common divisor).
+ * WASM-accelerated element-wise LCM (least common multiple).
  *
- * Scalar: out[i] = gcd(a[i], scalar)
- * Binary: out[i] = gcd(a[i], b[i])
+ * Scalar: out[i] = lcm(a[i], scalar)
+ * Binary: out[i] = lcm(a[i], b[i])
  * Preserves the promoted integer dtype (NumPy behavior).
  * Returns null if WASM can't handle this case.
  */
@@ -10,23 +10,23 @@
 import { type DType, getTypedArrayConstructor, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
-  gcd_i8,
-  gcd_i16,
-  gcd_i32,
-  gcd_i64,
-  gcd_scalar_i8,
-  gcd_scalar_i16,
-  gcd_scalar_i32,
-  gcd_scalar_i64,
-  gcd_scalar_u8,
-  gcd_scalar_u16,
-  gcd_scalar_u32,
-  gcd_scalar_u64,
-  gcd_u8,
-  gcd_u16,
-  gcd_u32,
-  gcd_u64,
-} from './bins/gcd.wasm';
+  lcm_i8,
+  lcm_i16,
+  lcm_i32,
+  lcm_i64,
+  lcm_scalar_i8,
+  lcm_scalar_i16,
+  lcm_scalar_i32,
+  lcm_scalar_i64,
+  lcm_scalar_u8,
+  lcm_scalar_u16,
+  lcm_scalar_u32,
+  lcm_scalar_u64,
+  lcm_u8,
+  lcm_u16,
+  lcm_u32,
+  lcm_u64,
+} from './bins/lcm.wasm';
 import { wasmConfig } from './config';
 import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
 
@@ -36,25 +36,25 @@ type BinaryFn = (aPtr: number, bPtr: number, outPtr: number, N: number) => void;
 type ScalarFn = (aPtr: number, outPtr: number, N: number, scalar: number) => void;
 
 const binaryKernels: Partial<Record<DType, BinaryFn>> = {
-  int64: gcd_i64,
-  uint64: gcd_u64,
-  int32: gcd_i32,
-  uint32: gcd_u32,
-  int16: gcd_i16,
-  uint16: gcd_u16,
-  int8: gcd_i8,
-  uint8: gcd_u8,
+  int64: lcm_i64,
+  uint64: lcm_u64,
+  int32: lcm_i32,
+  uint32: lcm_u32,
+  int16: lcm_i16,
+  uint16: lcm_u16,
+  int8: lcm_i8,
+  uint8: lcm_u8,
 };
 
 const scalarKernels: Partial<Record<DType, ScalarFn>> = {
-  int64: gcd_scalar_i64,
-  uint64: gcd_scalar_u64,
-  int32: gcd_scalar_i32,
-  uint32: gcd_scalar_u32,
-  int16: gcd_scalar_i16,
-  uint16: gcd_scalar_u16,
-  int8: gcd_scalar_i8,
-  uint8: gcd_scalar_u8,
+  int64: lcm_scalar_i64,
+  uint64: lcm_scalar_u64,
+  int32: lcm_scalar_i32,
+  uint32: lcm_scalar_u32,
+  int16: lcm_scalar_i16,
+  uint16: lcm_scalar_u16,
+  int8: lcm_scalar_i8,
+  uint8: lcm_scalar_u8,
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
@@ -68,7 +68,7 @@ const bpeMap: Partial<Record<DType, number>> = {
   uint8: 1,
 };
 
-export function wasmGcdScalar(a: ArrayStorage, scalar: number): ArrayStorage | null {
+export function wasmLcmScalar(a: ArrayStorage, scalar: number): ArrayStorage | null {
   if (!a.isCContiguous) return null;
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
@@ -101,7 +101,7 @@ export function wasmGcdScalar(a: ArrayStorage, scalar: number): ArrayStorage | n
   );
 }
 
-export function wasmGcd(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
+export function wasmLcm(a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
   if (!a.isCContiguous || !b.isCContiguous) return null;
   // WASM kernels expect same-dtype inputs — bail on mixed dtypes
   if (a.dtype !== b.dtype) return null;

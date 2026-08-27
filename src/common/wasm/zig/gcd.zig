@@ -104,6 +104,42 @@ export fn gcd_scalar_u8(a: [*]const u8, out: [*]u8, N: u32, scalar: u8) void {
     while (i < N) : (i += 1) out[i] = gcdGeneric(u8, a[i], scalar);
 }
 
+/// Binary GCD for u32: out[i] = gcd(a[i], b[i]), preserving u32 dtype.
+export fn gcd_u32(a: [*]const u32, b: [*]const u32, out: [*]u32, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u32, a[i], b[i]);
+}
+
+/// Scalar GCD for u32: out[i] = gcd(a[i], scalar), preserving u32 dtype.
+export fn gcd_scalar_u32(a: [*]const u32, out: [*]u32, N: u32, scalar: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u32, a[i], scalar);
+}
+
+/// Binary GCD for i64: out[i] = gcd(a[i], b[i]), preserving i64 dtype.
+export fn gcd_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(i64, a[i], b[i]);
+}
+
+/// Scalar GCD for i64: out[i] = gcd(a[i], scalar), preserving i64 dtype.
+export fn gcd_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(i64, a[i], scalar);
+}
+
+/// Binary GCD for u64: out[i] = gcd(a[i], b[i]), preserving u64 dtype.
+export fn gcd_u64(a: [*]const u64, b: [*]const u64, out: [*]u64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u64, a[i], b[i]);
+}
+
+/// Scalar GCD for u64: out[i] = gcd(a[i], scalar), preserving u64 dtype.
+export fn gcd_scalar_u64(a: [*]const u64, out: [*]u64, N: u32, scalar: u64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u64, a[i], scalar);
+}
+
 // --- Tests ---
 
 test "gcd_scalar_i32 basic" {
@@ -330,4 +366,49 @@ test "gcd_i32 various known values" {
     try testing.expectEqual(out[4], 1); // gcd(17,13) both prime
     try testing.expectEqual(out[5], 1); // gcd(144,89) 89 is prime
     try testing.expectEqual(out[6], 200); // gcd(1000,600)
+}
+
+test "gcd_i64 large values beyond f64 exact range" {
+    const testing = @import("std").testing;
+    // Values above 2^53, where routing through f64 would lose the answer.
+    const a = [_]i64{ 9007199254740994, 123456789012345678, -48 };
+    const b = [_]i64{ 4503599627370497, 987654321098765432, 18 };
+    var out: [3]i64 = undefined;
+    gcd_i64(&a, &b, &out, 3);
+    try testing.expectEqual(out[0], 4503599627370497);
+    try testing.expectEqual(out[1], 2);
+    try testing.expectEqual(out[2], 6);
+}
+
+test "gcd_u64 near the top of the range" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 18446744073709551614, 0, 1000000007 };
+    const b = [_]u64{ 2, 7, 1000000007 };
+    var out: [3]u64 = undefined;
+    gcd_u64(&a, &b, &out, 3);
+    try testing.expectEqual(out[0], 2);
+    try testing.expectEqual(out[1], 7);
+    try testing.expectEqual(out[2], 1000000007);
+}
+
+test "gcd_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 48, 4294967294, 17 };
+    const b = [_]u32{ 18, 2, 13 };
+    var out: [3]u32 = undefined;
+    gcd_u32(&a, &b, &out, 3);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 2);
+    try testing.expectEqual(out[2], 1);
+}
+
+test "gcd_scalar_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{ 12, 18, 7, -15 };
+    var out: [4]i64 = undefined;
+    gcd_scalar_i64(&a, &out, 4, 6);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 3);
 }

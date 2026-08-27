@@ -916,6 +916,31 @@ export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArraySt
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
   }
+  // NumPy has no integer loop for logaddexp2 — integer inputs promote to the
+  // smallest float that holds them safely, which is exactly mathResultDtype.
+  // Doing that here instead of in the JS fallback lets the existing float
+  // kernel run: every integer dtype was previously stuck on a per-element JS
+  // path at 5.5-19.1x.
+  const target = mathResultDtype(
+    typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype),
+  );
+  if (target === 'float16' || target === 'float32' || target === 'float64') {
+    const needs1 = isIntegerDType(x1.dtype);
+    const needs2 = typeof x2 !== 'number' && isIntegerDType(x2.dtype);
+    if (needs1 || needs2) {
+      // The converted operands own WASM regions, so they have to be released
+      // once the kernel has run — the result is a separate allocation.
+      const a = needs1 ? convertToFloatDType(x1, target) : x1;
+      const b = needs2 ? convertToFloatDType(x2 as ArrayStorage, target) : x2;
+      try {
+        return logaddexp2(a, b);
+      } finally {
+        if (needs1) a.dispose();
+        if (needs2) (b as ArrayStorage).dispose();
+      }
+    }
+  }
+
   if (typeof x2 === 'number') {
     return logaddexp2Scalar(x1, x2);
   }
