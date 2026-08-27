@@ -40,8 +40,17 @@ export function real(a: ArrayStorage): ArrayStorage {
     );
   }
 
-  // Real array: return copy
-  return a.copy();
+  // Real array: NumPy returns the input itself, not a copy — `np.real(x) is x`
+  // for real x. Share the buffer rather than duplicating it; the result aliases
+  // the input exactly as NumPy's does.
+  return ArrayStorage.fromDataShared(
+    a.data,
+    Array.from(a.shape),
+    dtype,
+    Array.from(a.strides),
+    a.offset,
+    a.wasmRegion,
+  );
 }
 
 /**
