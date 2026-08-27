@@ -14,8 +14,9 @@ import {
   isComplexDType,
   type TypedArray,
 } from '../dtype';
-import { allElementsEqual } from '../internal/compute';
+import { allElementsEqual, flatF64 } from '../internal/compute';
 import { expandEllipsis } from '../internal/indexing';
+import { stepStore, stridedCopyInto } from '../internal/strided-copy';
 import { parseSlice } from '../slicing';
 import { ArrayStorage, computeStrides } from '../storage';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
@@ -801,48 +802,73 @@ export function select(
   const selectResult = ArrayStorage.empty(outputShape, dtype);
   const outputData = selectResult.data;
 
-  // Initialize with default — scalar or broadcasted array
-  if (defaultValue instanceof ArrayStorage) {
-    const defaultBroadcast = broadcastTo(defaultValue, outputShape);
+  // Hoisted: these were re-evaluated per element, alongside an `iget` walk and a
+  // store through a TypedArray union that goes megamorphic once more than four
+  // dtypes pass through it.
+  const isBig = isBigIntDType(dtype);
+  const isCplx = isComplexDType(dtype);
+
+  const broadcastedConds = condlist.map((c) => broadcastTo(c, outputShape));
+  const broadcastedChoices = choicelist.map((c) => broadcastTo(c, outputShape));
+  const nCond = condlist.length;
+
+  const defaultVal: number | bigint = isBig
+    ? typeof defaultValue === 'bigint'
+      ? defaultValue
+      : BigInt(defaultValue as number)
+    : typeof defaultValue === 'bigint'
+      ? Number(defaultValue)
+      : (defaultValue as number);
+
+  if (!isBig && !isCplx) {
+    // Resolve entirely in a monomorphic f64 buffer, then narrow in one native
+    // store. Conditions only need truthiness, which widening preserves.
+    const condF = broadcastedConds.map(flatF64);
+    const choiceF = broadcastedChoices.map(flatF64);
+    const out = new Float64Array(outputSize);
+
+    if (defaultValue instanceof ArrayStorage) {
+      out.set(flatF64(broadcastTo(defaultValue, outputShape)));
+    } else {
+      out.fill(defaultVal as number);
+    }
+
     for (let i = 0; i < outputSize; i++) {
-      const v = defaultBroadcast.iget(i);
-      if (isBigIntDType(dtype)) {
-        (outputData as BigInt64Array | BigUint64Array)[i] = v as bigint;
-      } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = v as number;
+      for (let j = 0; j < nCond; j++) {
+        if (condF[j]![i]!) {
+          out[i] = choiceF[j]![i]!;
+          break;
+        }
       }
     }
+
+    (outputData as unknown as { set(v: ArrayLike<number>, o: number): void }).set(out, 0);
+    return selectResult;
+  }
+
+  // BigInt and complex keep element-wise stores — f64 would lose int64 precision,
+  // and complex carries two reals per element — but the dtype tests are hoisted.
+  if (defaultValue instanceof ArrayStorage) {
+    const db = broadcastTo(defaultValue, outputShape);
+    stridedCopyInto(db.data, outputData, outputShape, db.strides, db.offset, isCplx);
+  } else if (isBig) {
+    (outputData as BigInt64Array | BigUint64Array).fill(defaultVal as bigint);
   } else {
-    const defaultVal: number | bigint = isBigIntDType(dtype)
-      ? typeof defaultValue === 'bigint'
-        ? defaultValue
-        : BigInt(defaultValue)
-      : typeof defaultValue === 'bigint'
-        ? Number(defaultValue)
-        : defaultValue;
     for (let i = 0; i < outputSize; i++) {
-      if (isBigIntDType(dtype)) {
-        (outputData as BigInt64Array | BigUint64Array)[i] = defaultVal as bigint;
-      } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] =
-          defaultVal as number;
-      }
+      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = defaultVal as number;
     }
   }
 
-  // Broadcast conds/choices
-  const broadcastedConds = condlist.map((c) => broadcastTo(c, outputShape));
-  const broadcastedChoices = choicelist.map((c) => broadcastTo(c, outputShape));
-
-  // First-match-wins
   for (let i = 0; i < outputSize; i++) {
-    for (let j = 0; j < condlist.length; j++) {
+    for (let j = 0; j < nCond; j++) {
       if (broadcastedConds[j]!.iget(i)) {
         const value = broadcastedChoices[j]!.iget(i);
-        if (isBigIntDType(dtype)) {
+        if (isBig) {
           (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
         } else {
-          (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
+          const c = value as Complex;
+          (outputData as Float64Array | Float32Array)[i * 2] = c.re;
+          (outputData as Float64Array | Float32Array)[i * 2 + 1] = c.im;
         }
         break;
       }
@@ -1652,23 +1678,9 @@ export function fill_diagonal(
 
   if (typeof val === 'number') {
     if (contiguous) {
-      const data = a.data;
-      const off = a.offset;
-      if (isBigIntDType(a.dtype)) {
-        const typedData = data as BigInt64Array | BigUint64Array;
-        const bigVal = BigInt(Math.round(val));
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          typedData[off + idx] = bigVal;
-        }
-      } else {
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[off + idx] = val;
-        }
-      }
+      const count = Math.min(diagLength, Math.ceil(size / step));
+      const v: number | bigint = isBigIntDType(a.dtype) ? BigInt(Math.round(val)) : val;
+      stepStore(a.data, a.offset, step, count, () => v);
     } else {
       for (let i = 0; i < diagLength && i * step < size; i++) {
         a.iset(i * step, val);
@@ -1681,23 +1693,9 @@ export function fill_diagonal(
       const off = a.offset;
       const valData = val.data;
       const valOff = val.offset;
-      if (isBigIntDType(a.dtype)) {
-        const typedData = data as BigInt64Array | BigUint64Array;
-        const valTyped = valData as BigInt64Array | BigUint64Array;
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          typedData[off + idx] = valTyped[valOff + (i % valSize)]!;
-        }
-      } else {
-        const typedD = data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        const valTyped = valData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          typedD[off + idx] = valTyped[valOff + (i % valSize)]!;
-        }
-      }
+      const count = Math.min(diagLength, Math.ceil(size / step));
+      const src = valData as unknown as Record<number, number | bigint>;
+      stepStore(data, off, step, count, (i) => src[valOff + (i % valSize)]!);
     } else {
       for (let i = 0; i < diagLength && i * step < size; i++) {
         a.iset(i * step, val.iget(i % valSize));

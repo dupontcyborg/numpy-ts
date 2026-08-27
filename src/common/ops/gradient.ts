@@ -215,9 +215,22 @@ export function ediff1d(
           bigData[off + i + 1]! - bigData[off + i]!;
       }
     } else {
+      // Widen once, subtract in a monomorphic f64 loop, narrow once. The old
+      // `iget` walk paid O(ndim^2) index math per element and stored through a
+      // megamorphic union site. Widening is exact here: f32/f16 subtraction is
+      // correctly rounded either way, and integer differences fit in f64 and
+      // wrap identically on the narrowing store.
+      const source = ary.isCContiguous && ary.offset === 0 ? ary : ary.copy();
+      const view = (
+        source.data as unknown as { subarray(b: number, e: number): ArrayLike<number> }
+      ).subarray(source.offset, source.offset + flatSize);
+      const f = new Float64Array(view);
+      const diff = new Float64Array(diffSize);
       for (let i = 0; i < diffSize; i++) {
-        resultData[idx++] = Number(ary.iget(i + 1)) - Number(ary.iget(i));
+        diff[i] = f[i + 1]! - f[i]!;
       }
+      (resultData as unknown as { set(v: ArrayLike<number>, o: number): void }).set(diff, idx);
+      idx += diffSize;
     }
   }
 

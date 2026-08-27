@@ -15,6 +15,7 @@ import {
   isComplexDType,
   type TypedArray,
 } from './dtype';
+import { stridedCopyInto } from './internal/strided-copy';
 import {
   getSharedMemory,
   registerForCleanup,
@@ -415,30 +416,10 @@ export class ArrayStorage {
         : new Constructor(physicalSize)
     ) as TypedArray;
 
-    if (this.isCContiguous && this._offset === 0) {
-      // Bulk copy — works for every type including BigInt.
-      (dest as unknown as { set(src: ArrayLike<number>): void }).set(
-        (
-          this._data as unknown as { subarray(begin: number, end: number): ArrayLike<number> }
-        ).subarray(0, physicalSize),
-      );
-    } else if (isBigIntDType(dtype)) {
-      const dst = dest as BigInt64Array | BigUint64Array;
-      for (let i = 0; i < size; i++) {
-        dst[i] = this.iget(i) as bigint;
-      }
-    } else if (isComplex) {
-      const dst = dest as Float64Array | Float32Array;
-      for (let i = 0; i < size; i++) {
-        const val = this.iget(i) as Complex;
-        dst[i * 2] = val.re;
-        dst[i * 2 + 1] = val.im;
-      }
-    } else {
-      for (let i = 0; i < size; i++) {
-        dest[i] = this.iget(i) as number;
-      }
-    }
+    // Strategy is picked from the stride pattern; see stridedCopyInto. The
+    // previous per-element `dest[i] = this.iget(i)` loop cost O(ndim^2) index
+    // math per element and stored through a megamorphic union site.
+    stridedCopyInto(this._data, dest, shape, this._strides, this._offset, isComplex);
 
     return region
       ? new ArrayStorage(dest, shape, ArrayStorage._computeStrides(shape), 0, dtype, region)

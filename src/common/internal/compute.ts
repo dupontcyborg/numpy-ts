@@ -1097,3 +1097,19 @@ export function elementwiseUnaryOp(
 
   return result;
 }
+
+/**
+ * A dense, logical-order Float64Array copy of a non-BigInt storage.
+ *
+ * Widening happens in one native TypedArray-to-TypedArray conversion, so
+ * callers get a monomorphic buffer to compute over instead of reading through
+ * a TypedArray union element by element. Not valid for int64/uint64, whose
+ * range exceeds f64's exact integers.
+ */
+export function flatF64(s: ArrayStorage): Float64Array {
+  const c = s.isCContiguous && s.offset === 0 ? s : s.copy();
+  const view = (
+    c.data as unknown as { subarray(b: number, e: number): ArrayLike<number> }
+  ).subarray(c.offset, c.offset + c.size);
+  return new Float64Array(view);
+}
