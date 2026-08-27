@@ -1097,25 +1097,34 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
 
     return result;
   } else {
-    // For real arrays, sort normally (1D flattened), then cast to complex128
-    const values: number[] = [];
-    if (contiguous) {
-      for (let i = 0; i < size; i++) {
-        values.push(Number(data[off + i]!));
-      }
-    } else {
-      for (let i = 0; i < size; i++) {
-        values.push(Number(storage.iget(i)));
-      }
-    }
+    // For real arrays, sort normally (1D flattened), then cast to complex.
+    //
+    // Widen into a Float64Array and use the native sort: TypedArray sort is
+    // numeric with NaN last, which is exactly what the hand-written comparator
+    // below used to spell out — but without boxing every element into a
+    // `number[]` first and calling back into JS per comparison. Widening loses
+    // nothing the previous `Number(...)` did not already lose.
+    const source = contiguous ? storage : storage.copy();
+    const sub = source.data as unknown as {
+      subarray(b: number, e: number): ArrayLike<number>;
+    };
+    const window = sub.subarray(source.offset, source.offset + size);
 
-    // Sort (NaN values go to end)
-    values.sort((a, b) => {
-      if (Number.isNaN(a) && Number.isNaN(b)) return 0;
-      if (Number.isNaN(a)) return 1;
-      if (Number.isNaN(b)) return -1;
-      return a - b;
-    });
+    let values: Float64Array;
+    if (window instanceof BigInt64Array || window instanceof BigUint64Array) {
+      // Sort at 64 bits first, then narrow. Narrowing first would reorder values
+      // above 2^53 that collapse onto the same double.
+      const sorted = (
+        window instanceof BigInt64Array ? new BigInt64Array(window) : new BigUint64Array(window)
+      ) as BigInt64Array | BigUint64Array;
+      sorted.sort();
+      values = new Float64Array(size);
+      for (let i = 0; i < size; i++) values[i] = Number(sorted[i]!);
+    } else {
+      values = new Float64Array(window);
+      values.sort();
+    }
+    if (source !== storage) source.dispose();
 
     // NumPy sort_complex: small ints (≤16-bit) → complex64, everything else → complex128
     const smallInts = new Set(['int8', 'uint8', 'int16', 'uint16']);

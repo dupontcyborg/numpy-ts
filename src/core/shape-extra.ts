@@ -5,7 +5,7 @@
  */
 
 import { Complex } from '../common/complex';
-import { hasFloat16, isComplexDType } from '../common/dtype';
+import { hasFloat16, isBigIntDType, isComplexDType, type TypedArray } from '../common/dtype';
 import { type DType, NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import { wasmPad2D } from '../common/wasm/pad';
@@ -200,34 +200,83 @@ export function insert(
         return new NDArrayCore(resultStorage);
       }
 
-      const flatData = flat.data;
-      const valuesData = flatValues.data;
-      const result: number[] = Array.from(flatData as unknown as ArrayLike<number>);
+      // Insertion is a segment-copy problem. This used to box the whole array
+      // into a `number[]` via Array.from, splice that, then walk it again in
+      // array() to build the typed array back — two boxed round-trips over
+      // every element to move data that never changes type. Copying the runs
+      // between insertion points with `.set()` keeps it all native, and keeps
+      // int64 in BigInt rather than routing it through `number`.
+      type Sub = {
+        subarray(b: number, e: number): ArrayLike<number>;
+        set(v: ArrayLike<number>, o: number): void;
+      };
+      const src = flat.data as unknown as Sub;
+      const n = flat.size;
+      const nVals = flatValues.size;
 
-      if (indices.length === 1) {
-        // Single index: insert all values at that position
-        const rawIdx = indices[0]!;
-        const idx = rawIdx < 0 ? flat.size + rawIdx : rawIdx;
-        const vals: number[] = Array.from(valuesData as unknown as ArrayLike<number>);
-        result.splice(idx, 0, ...vals);
-      } else {
-        // Multiple indices: insert one value per index (cycling through values)
-        // Sort indices ascending for correct offset tracking
-        const indexPairs = indices
-          .map((rawIdx, i) => ({
-            idx: rawIdx < 0 ? flat.size + rawIdx : rawIdx,
-            valIdx: i,
-          }))
-          .sort((a, b) => a.idx - b.idx);
-
-        for (let i = 0; i < indexPairs.length; i++) {
-          const { idx, valIdx } = indexPairs[i]!;
-          const val = valuesData[valIdx % valuesData.length] as number;
-          result.splice(idx + i, 0, val);
+      // `values` reaches us at whatever dtype the caller supplied — typically
+      // float64 even when the array is int64 — and `.set()` refuses to mix
+      // BigInt with anything else. Convert once, into the target dtype, so the
+      // segment copies below all stay same-type.
+      let valsStore: ArrayStorage | null = null;
+      if (flatValues.dtype !== dtype) {
+        valsStore = ArrayStorage.empty([nVals], dtype);
+        const vd = valsStore.data;
+        if (isBigIntDType(dtype)) {
+          const bd = vd as BigInt64Array | BigUint64Array;
+          for (let i = 0; i < nVals; i++) {
+            bd[i] = BigInt(Math.trunc(Number(flatValues.storage.iget(i))));
+          }
+        } else {
+          const nd = vd as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+          for (let i = 0; i < nVals; i++) {
+            nd[i] = Number(flatValues.storage.iget(i));
+          }
         }
       }
+      const vals = (valsStore ?? flatValues.storage).data as unknown as Sub;
 
-      return array(result, dtype);
+      if (indices.length === 1) {
+        // Single index: the whole values array lands contiguously at that spot.
+        const rawIdx = indices[0]!;
+        const idx = rawIdx < 0 ? n + rawIdx : rawIdx;
+        const out = ArrayStorage.empty([n + nVals], dtype);
+        const od = out.data as unknown as Sub;
+        od.set(src.subarray(0, idx), 0);
+        od.set(vals.subarray(0, nVals), idx);
+        od.set(src.subarray(idx, n), idx + nVals);
+        valsStore?.dispose();
+        return new NDArrayCore(out);
+      }
+
+      // Multiple indices: one value per index, cycling through values. Sorted
+      // ascending so the output is written strictly left to right.
+      const indexPairs = indices
+        .map((rawIdx, i) => ({
+          idx: rawIdx < 0 ? n + rawIdx : rawIdx,
+          valIdx: i,
+        }))
+        .sort((a, b) => a.idx - b.idx);
+
+      const out = ArrayStorage.empty([n + indexPairs.length], dtype);
+      const od = out.data as unknown as Sub;
+      let srcPos = 0;
+      let dstPos = 0;
+      for (const { idx, valIdx } of indexPairs) {
+        if (idx > srcPos) {
+          od.set(src.subarray(srcPos, idx), dstPos);
+          dstPos += idx - srcPos;
+          srcPos = idx;
+        }
+        const v = valIdx % nVals;
+        od.set(vals.subarray(v, v + 1), dstPos);
+        dstPos += 1;
+      }
+      if (srcPos < n) {
+        od.set(src.subarray(srcPos, n), dstPos);
+      }
+      valsStore?.dispose();
+      return new NDArrayCore(out);
     } finally {
       // flatten() copies, so both intermediates own their buffers.
       flat.dispose();

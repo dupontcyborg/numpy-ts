@@ -471,9 +471,95 @@ export function stridedScatterFrom(
     return;
   }
 
+  // Before falling back to per-element offsets, check whether the remaining
+  // dimensions are themselves regular — dimension d spans exactly dimension
+  // d+1's extent when strides[d] === shape[d+1] * strides[d+1]. When they all
+  // collapse, the destination is one arithmetic progression and needs no
+  // offset array at all. dstack lands here: width-1 inputs concatenated on the
+  // last axis write at a constant stride throughout.
+  if (runLen === 1) {
+    let count = shape[k]!;
+    let d = k - 1;
+    while (d >= 0 && strides[d] === shape[d + 1]! * strides[d + 1]!) {
+      count *= shape[d]!;
+      d--;
+    }
+    if (d < 0 && stepScatter(src, dst, offset, strides[k]!, count)) return;
+  }
+
   const loop = SCATTER_LOOPS.get((dst as { constructor: unknown }).constructor);
   if (!loop) {
     throw new Error('stridedScatterFrom: unsupported TypedArray');
   }
   loop(src, dst, buildOffsets(shape, strides, offset, size, nd));
+}
+
+/**
+ * Scatter a dense source into `dst` at `start`, `start + step`, ... — the case
+ * where the destination pattern collapses to a single arithmetic progression.
+ *
+ * This is what `dstack` produces: concatenating width-1 inputs along the last
+ * axis writes every element at a constant stride. Handling it here avoids
+ * materialising one Int32Array offset per element just to walk a progression
+ * that is fully described by two numbers. Constructor switch so each store is
+ * its own monomorphic call site.
+ */
+export function stepScatter(
+  src: TypedArray,
+  dst: TypedArray,
+  start: number,
+  step: number,
+  count: number,
+): boolean {
+  const ctor = (dst as { constructor: unknown }).constructor;
+  if ((src as { constructor: unknown }).constructor !== ctor) return false;
+
+  if (ctor === Float64Array) {
+    const a = src as Float64Array;
+    const b = dst as Float64Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === Float32Array) {
+    const a = src as Float32Array;
+    const b = dst as Float32Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === Int32Array) {
+    const a = src as Int32Array;
+    const b = dst as Int32Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === Uint32Array) {
+    const a = src as Uint32Array;
+    const b = dst as Uint32Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === Int16Array) {
+    const a = src as Int16Array;
+    const b = dst as Int16Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === Uint16Array) {
+    const a = src as Uint16Array;
+    const b = dst as Uint16Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === Int8Array) {
+    const a = src as Int8Array;
+    const b = dst as Int8Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === Uint8Array) {
+    const a = src as Uint8Array;
+    const b = dst as Uint8Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === BigInt64Array) {
+    const a = src as BigInt64Array;
+    const b = dst as BigInt64Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (ctor === BigUint64Array) {
+    const a = src as BigUint64Array;
+    const b = dst as BigUint64Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else if (typeof Float16Array !== 'undefined' && ctor === Float16Array) {
+    const a = src as Float16Array;
+    const b = dst as Float16Array;
+    for (let i = 0; i < count; i++) b[start + i * step] = a[i]!;
+  } else {
+    return false;
+  }
+  return true;
 }
