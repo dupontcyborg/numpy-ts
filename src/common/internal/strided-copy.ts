@@ -250,7 +250,7 @@ function fillWalk(
 }
 
 /** Source offsets in C order — one linear pass, no division. */
-function buildOffsets(
+export function buildOffsets(
   shape: readonly number[],
   strides: readonly number[],
   offset: number,

@@ -1267,9 +1267,6 @@
     "float32",
     "float64"
   ],
-  "fromfunction": [
-    "float64"
-  ],
   "fromiter": [
     "float64"
   ],

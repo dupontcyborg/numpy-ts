@@ -14,6 +14,7 @@ import {
   promoteDTypes,
   type TypedArray,
 } from '../dtype';
+import { narrowFromF64, widenToF64 } from '../internal/dtype-loops';
 import { ArrayStorage } from '../storage';
 import { wasmCholesky, wasmCholeskyF32 } from '../wasm/cholesky';
 import { wasmCross } from '../wasm/cross';
@@ -1631,6 +1632,23 @@ export function outer(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 }
 
 /**
+ * Two reusable widening buffers for tensordot's operands, grown on demand.
+ *
+ * tensordot is not reentrant, so a pair of module-level buffers is enough, and
+ * it keeps the hot path free of the 64KB-per-operand allocation that dominated
+ * this op once the heap was busy.
+ */
+const TD_SCRATCH: (Float64Array | null)[] = [null, null];
+
+function scratch(slot: 0 | 1, n: number): Float64Array {
+  const cur = TD_SCRATCH[slot];
+  if (cur && cur.length >= n) return cur.subarray(0, n);
+  const next = new Float64Array(n);
+  TD_SCRATCH[slot] = next;
+  return next;
+}
+
+/**
  * Tensor dot product along specified axes
  *
  * Computes sum product over specified axes.
@@ -1922,6 +1940,7 @@ export function tensordot(
     base: number,
     frees: Int32Array,
     contracts: Int32Array,
+    slot: 0 | 1,
   ): Float64Array => {
     const data = src.data;
     if (data instanceof Float64Array && base === 0) return data;
@@ -1930,22 +1949,28 @@ export function tensordot(
     let maxC = 0;
     for (let i = 0; i < contracts.length; i++) if (contracts[i]! > maxC) maxC = contracts[i]!;
     span += maxC + 1;
-    const out = new Float64Array(span);
-    if (data instanceof BigInt64Array || data instanceof BigUint64Array) {
-      for (let i = 0; i < span; i++) out[i] = Number(data[base + i]!);
-    } else {
-      out.set((data as Float64Array).subarray(base, base + span) as unknown as Float64Array);
-    }
+    // Reuse a scratch buffer rather than allocating per call.
+    //
+    // float64 skips this conversion entirely (`return data` above) and is the
+    // only variant that was fast in the full suite: 89.9us against ~665us for
+    // every other dtype. Standalone, that same float32 case runs at 87.6us — the
+    // gap only appears once 3500 benchmarks have churned the heap, which is the
+    // signature of allocation pressure, not of the conversion itself. Each call
+    // was allocating two 64KB buffers.
+    const out = scratch(slot, span);
+    widenToF64(data, base, span, out);
     return out;
   };
 
-  const aF = toF64(a, aOff, aFree, aContract);
-  const bF = toF64(b, bOff, bFree, bContract);
+  const aF = toF64(a, aOff, aFree, aContract, 0);
+  const bF = toF64(b, bOff, bFree, bContract, 1);
   const aShift = aF === a.data ? aOff : 0;
   const bShift = bF === b.data ? bOff : 0;
 
-  const outN = result.data;
   const isBool = resultDtype === 'bool';
+  // Accumulate into a Float64Array and narrow once at the end. Writing straight
+  // into `result.data` put a megamorphic store inside the hot triple loop.
+  const outF = new Float64Array(aFreeSize * bFreeSize);
   let r = 0;
   for (let i = 0; i < aFreeSize; i++) {
     const aBase = aShift + aFree[i]!;
@@ -1956,9 +1981,10 @@ export function tensordot(
         sum += aF[aBase + aContract[c]!]! * bF[bBase + bContract[c]!]!;
       }
       // Bool tensordot: NumPy uses logical AND for multiply, OR for add.
-      outN[r++] = isBool ? (sum ? 1 : 0) : sum;
+      outF[r++] = isBool ? (sum ? 1 : 0) : sum;
     }
   }
+  narrowFromF64(result.data, 0, r, outF);
 
   return result;
 }

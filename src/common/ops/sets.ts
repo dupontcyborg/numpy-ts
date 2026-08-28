@@ -3,6 +3,7 @@
  */
 
 import { type DType, isComplexDType, type TypedArray } from '../dtype';
+import { widenToF64 } from '../internal/dtype-loops';
 import { ArrayStorage } from '../storage';
 
 // Helper: compare complex numbers lexicographically
@@ -471,7 +472,7 @@ export function unique(
   // Fast path: when we don't need original indices, sort values directly
   if (!returnIndex && !returnInverse) {
     const vals = new Float64Array(size);
-    for (let i = 0; i < size; i++) vals[i] = Number(data[off + i]!);
+    widenToF64(data, off, size, vals);
     vals.sort(); // native optimized sort, NaN goes to end
 
     if (size === 0) {
@@ -520,10 +521,10 @@ export function unique(
   // Use parallel typed arrays instead of object array to avoid GC pressure
   const vals = new Float64Array(size);
   const sortedIdxs = new Int32Array(size);
-  for (let i = 0; i < size; i++) {
-    vals[i] = Number(data[off + i]!);
-    sortedIdxs[i] = i;
-  }
+  // Dispatched per dtype; `Number(data[off + i])` read through the TypedArray
+  // union, which goes megamorphic across a dtype sweep.
+  widenToF64(data, off, size, vals);
+  for (let i = 0; i < size; i++) sortedIdxs[i] = i;
 
   // Sort index array by value
   if (isFloat) {

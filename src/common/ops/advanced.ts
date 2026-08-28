@@ -14,9 +14,10 @@ import {
   isComplexDType,
   type TypedArray,
 } from '../dtype';
-import { allElementsEqual, flatF64 } from '../internal/compute';
+import { allElementsEqual } from '../internal/compute';
+import { widenGatherToF64, widenToF64 } from '../internal/dtype-loops';
 import { expandEllipsis } from '../internal/indexing';
-import { stepStore, stridedCopyInto } from '../internal/strided-copy';
+import { buildOffsets, stepStore, stridedCopyInto } from '../internal/strided-copy';
 import { parseSlice } from '../slicing';
 import { ArrayStorage, computeStrides } from '../storage';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
@@ -823,12 +824,33 @@ export function select(
   if (!isBig && !isCplx) {
     // Resolve entirely in a monomorphic f64 buffer, then narrow in one native
     // store. Conditions only need truthiness, which widening preserves.
-    const condF = broadcastedConds.map(flatF64);
-    const choiceF = broadcastedChoices.map(flatF64);
+    // Gather each operand straight into a plain Float64Array.
+    //
+    // `flatF64` materialised every operand with `.copy()` first, which allocates
+    // a WASM region apiece — six of them for a three-condition select, on every
+    // call. That allocation churn, not the arithmetic, is what made this op slow
+    // once the heap was busy; the same cause was measured in tensordot, where the
+    // one variant that allocates nothing ran 7x faster than all the others.
+    const gather = (s: ArrayStorage): Float64Array => {
+      const buf = new Float64Array(outputSize);
+      if (s.isCContiguous) {
+        widenToF64(s.data, s.offset, outputSize, buf);
+      } else {
+        widenGatherToF64(
+          s.data,
+          buildOffsets(s.shape, s.strides, s.offset, outputSize, s.shape.length),
+          buf,
+        );
+      }
+      return buf;
+    };
+
+    const condF = broadcastedConds.map(gather);
+    const choiceF = broadcastedChoices.map(gather);
     const out = new Float64Array(outputSize);
 
     if (defaultValue instanceof ArrayStorage) {
-      out.set(flatF64(broadcastTo(defaultValue, outputShape)));
+      out.set(gather(broadcastTo(defaultValue, outputShape)));
     } else {
       out.fill(defaultVal as number);
     }

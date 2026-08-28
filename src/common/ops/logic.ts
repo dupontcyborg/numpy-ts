@@ -1193,11 +1193,17 @@ export function spacing(a: ArrayStorage): ArrayStorage {
   if (a.dtype === 'float16' && hasFloat16) {
     const size = a.size;
     const result = ArrayStorage.zeros(Array.from(a.shape), 'float16');
-    const resultData = result.data;
-    const src = flatF64(a);
+    // Both sides typed concretely, and no intermediate buffer: the widening copy
+    // this replaces allocated a Float64Array per call for no benefit, and the
+    // store went through the TypedArray union.
+    const out16 = result.data as Float16Array;
+    const src = a.isCContiguous ? a : a.copy();
+    const in16 = src.data as Float16Array;
+    const off = src.offset;
     for (let i = 0; i < size; i++) {
-      resultData[i] = float16Spacing(src[i]!);
+      out16[i] = float16Spacing(in16[off + i]!);
     }
+    if (src !== a) src.dispose();
     return result;
   }
 
@@ -1265,24 +1271,26 @@ function float16Nextafter(x: number, y: number): number {
  */
 // Lazily created: Float16Array only exists on engines that ship it.
 let F16_SCRATCH: Float16Array | null = null;
-let F16_VIEW: DataView | null = null;
+// A Uint16Array over the same buffer reads the bit pattern directly; the
+// DataView this replaces cost two accessor calls per element.
+let F16_BITS: Uint16Array | null = null;
 
 function float16Spacing(val: number): number {
   if (F16_SCRATCH === null) {
     F16_SCRATCH = new Float16Array(2);
-    F16_VIEW = new DataView(F16_SCRATCH.buffer);
+    F16_BITS = new Uint16Array(F16_SCRATCH.buffer);
   }
   const f16 = F16_SCRATCH;
+  const bits16 = F16_BITS!;
   f16[0] = val;
-  const view = F16_VIEW!;
-  const bits = view.getUint16(0, true);
+  const bits = bits16[0]!;
   // For ±0, return smallest float16 subnormal
   if ((bits & 0x7fff) === 0) {
-    view.setUint16(2, 1, true);
+    bits16[1] = 1;
     return f16[1]!;
   }
   // Increment mantissa by 1 ULP
-  view.setUint16(2, bits + 1, true);
+  bits16[1] = bits + 1;
   return Math.abs(f16[1]! - f16[0]!);
 }
 

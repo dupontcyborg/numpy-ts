@@ -148,6 +148,62 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
 }
 
 /**
+ * `dst[dOff + i] = src[sOff + i + 1] - src[sOff + i]` for the whole range.
+ *
+ * Constructor switch so every load and store below is its own monomorphic call
+ * site. Source and destination always share a dtype, and the narrowing on store
+ * wraps exactly as NumPy's integer subtraction does.
+ */
+function diffInto(
+  src: TypedArray,
+  sOff: number,
+  dst: TypedArray,
+  dOff: number,
+  n: number,
+): void {
+  const ctor = (src as { constructor: unknown }).constructor;
+  if (ctor === Float64Array) {
+    const a = src as Float64Array;
+    const b = dst as Float64Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (ctor === Float32Array) {
+    const a = src as Float32Array;
+    const b = dst as Float32Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (ctor === Int32Array) {
+    const a = src as Int32Array;
+    const b = dst as Int32Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (ctor === Uint32Array) {
+    const a = src as Uint32Array;
+    const b = dst as Uint32Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (ctor === Int16Array) {
+    const a = src as Int16Array;
+    const b = dst as Int16Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (ctor === Uint16Array) {
+    const a = src as Uint16Array;
+    const b = dst as Uint16Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (ctor === Int8Array) {
+    const a = src as Int8Array;
+    const b = dst as Int8Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (ctor === Uint8Array) {
+    const a = src as Uint8Array;
+    const b = dst as Uint8Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else if (typeof Float16Array !== 'undefined' && ctor === Float16Array) {
+    const a = src as Float16Array;
+    const b = dst as Float16Array;
+    for (let i = 0; i < n; i++) b[dOff + i] = a[sOff + i + 1]! - a[sOff + i]!;
+  } else {
+    throw new Error('ediff1d: unsupported TypedArray');
+  }
+}
+
+/**
  * The differences between consecutive elements of a flattened array.
  *
  * @param ary - Input array storage
@@ -215,21 +271,16 @@ export function ediff1d(
           bigData[off + i + 1]! - bigData[off + i]!;
       }
     } else {
-      // Widen once, subtract in a monomorphic f64 loop, narrow once. The old
-      // `iget` walk paid O(ndim^2) index math per element and stored through a
-      // megamorphic union site. Widening is exact here: f32/f16 subtraction is
-      // correctly rounded either way, and integer differences fit in f64 and
-      // wrap identically on the narrowing store.
-      const source = ary.isCContiguous && ary.offset === 0 ? ary : ary.copy();
-      const view = (
-        source.data as unknown as { subarray(b: number, e: number): ArrayLike<number> }
-      ).subarray(source.offset, source.offset + flatSize);
-      const f = new Float64Array(view);
-      const diff = new Float64Array(diffSize);
-      for (let i = 0; i < diffSize; i++) {
-        diff[i] = f[i + 1]! - f[i]!;
-      }
-      (resultData as unknown as { set(v: ArrayLike<number>, o: number): void }).set(diff, idx);
+      // One literal loop per dtype, reading and writing the concrete arrays.
+      //
+      // This previously widened into a Float64Array first. That construction
+      // site sees every TypedArray type across a dtype sweep, goes megamorphic,
+      // and drops off V8's fast TypedArray-to-TypedArray conversion — it cost
+      // more than the loop it was meant to make monomorphic. Input and output
+      // dtypes are equal here, so no intermediate buffer is needed at all.
+      const source = ary.isCContiguous ? ary : ary.copy();
+      diffInto(source.data, source.offset, resultData, idx, diffSize);
+      if (source !== ary) source.dispose();
       idx += diffSize;
     }
   }

@@ -58,6 +58,7 @@ export class ArrayStorage {
   private _isCContiguous: number = -1;
   // WASM memory region (null for JS-fallback arrays)
   private _wasmRegion: WasmRegion | null;
+  private readonly _size: number;
 
   constructor(
     data: TypedArray,
@@ -74,6 +75,9 @@ export class ArrayStorage {
     }
     this._data = data;
     this._shape = shape;
+    let size = 1;
+    for (let i = 0; i < shape.length; i++) size *= shape[i]!;
+    this._size = size;
     this._strides = strides;
     this._offset = offset;
     this._dtype = dtype;
@@ -98,10 +102,16 @@ export class ArrayStorage {
   }
 
   /**
-   * Total number of elements
+   * Total number of elements.
+   *
+   * Computed once in the constructor. This used to be
+   * `this._shape.reduce((a, b) => a * b, 1)` — an array reduce that allocated a
+   * closure — and roughly a hundred loops across the library call it *in the
+   * loop condition*, so it ran once per element. `_shape` is only ever assigned
+   * in the constructor, so caching is safe.
    */
   get size(): number {
-    return this._shape.reduce((a, b) => a * b, 1);
+    return this._size;
   }
 
   /**
