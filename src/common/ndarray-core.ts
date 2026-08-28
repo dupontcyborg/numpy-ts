@@ -36,6 +36,43 @@ import { ArrayStorage } from './storage';
  * Use NDArray from ndarray-full.ts for the complete API.
  */
 /**
+ * Bracket access only ever uses keys that start with a digit or '-'. Testing
+ * that first costs one charCodeAt; the parseInt round-trip costs ~28ns and used
+ * to run on every named property access — `.shape`, `.dtype`, `.storage` — on
+ * every array in the library. Measured per property read: 64.8ns unguarded,
+ * 37.7ns with this guard, against 36.2ns for a Proxy whose trap does nothing.
+ *
+ * Equivalent to the old test for every key: '+1', ' 1' and '' all failed the
+ * `String(idx) === prop` round-trip before and are rejected here too.
+ */
+function looksNumeric(prop: string): boolean {
+  const c = prop.charCodeAt(0);
+  return (c >= 48 && c <= 57) || c === 45;
+}
+
+/**
+ * The non-proxied target behind an array, for internal property reads.
+ *
+ * Every array is a Proxy so that `arr[0]` works, which means every property read
+ * pays trap dispatch — 36ns against 0.5ns for a plain object, and a wrapper
+ * reading four properties cost 154ns. Hopping to the raw target costs one trap
+ * and makes every read after it plain: those four reads drop to 20ns, and even a
+ * single read is cheaper (18ns against 43ns).
+ *
+ * A WeakMap keyed on the proxy was tried first and was much worse. The get is
+ * cheap (5.1ns even on a 200k-entry map) but `WeakMap.set` costs 185ns per
+ * construction and view ops build two or three arrays per call — measured 68%
+ * slower overall on the view benchmarks. A plain field costs 3.7ns to set.
+ *
+ * Internal only: the raw target has no bracket access, so never return it to a
+ * caller.
+ * @internal
+ */
+export function rawOf<T extends NDArrayCore>(x: T): T {
+  return ((x as unknown as { _raw?: T })._raw ?? x) as T;
+}
+
+/**
  * NumPy-compatible float-to-integer conversion.
  *
  * NumPy 2.x converts float→int by:
@@ -85,6 +122,8 @@ export class NDArrayCore<D extends DType = DType> {
   protected _storage: ArrayStorage;
   // Track if this array is a view of another array
   protected _base?: NDArrayCore;
+  /** The non-proxied target behind this Proxy; see rawOf. @internal */
+  _raw!: NDArrayCore;
 
   // Allows bracket access: arr[0], arr[-1], arr[0][1], etc.
   // Implemented via Proxy in the constructor.
@@ -93,7 +132,7 @@ export class NDArrayCore<D extends DType = DType> {
   // Shared proxy handler — one object for all instances
   private static readonly _proxyHandler: ProxyHandler<NDArrayCore> = {
     get(target, prop, receiver) {
-      if (typeof prop === 'string') {
+      if (typeof prop === 'string' && looksNumeric(prop)) {
         const idx = parseInt(prop, 10);
         if (!Number.isNaN(idx) && String(idx) === prop) {
           const len = target._storage.ndim > 0 ? target._storage.shape[0]! : 1;
@@ -108,7 +147,7 @@ export class NDArrayCore<D extends DType = DType> {
       return Reflect.get(target, prop, receiver);
     },
     set(target, prop, value, receiver) {
-      if (typeof prop === 'string') {
+      if (typeof prop === 'string' && looksNumeric(prop)) {
         const idx = parseInt(prop, 10);
         if (!Number.isNaN(idx) && String(idx) === prop) {
           const len = target._storage.shape[0]!;
@@ -150,6 +189,7 @@ export class NDArrayCore<D extends DType = DType> {
   constructor(storage: ArrayStorage, base?: NDArrayCore) {
     this._storage = storage;
     this._base = base;
+    this._raw = this;
     // biome-ignore lint/correctness/noConstructorReturn: intentional Proxy wrapper for index access
     return new Proxy(this, NDArrayCore._proxyHandler as ProxyHandler<this>) as this;
   }

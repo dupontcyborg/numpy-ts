@@ -6,7 +6,7 @@
  */
 
 import { Complex } from '../common/complex';
-import { NDArrayCore } from '../common/ndarray-core';
+import { NDArrayCore, rawOf } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 
 // Re-export types needed by functions
@@ -25,7 +25,8 @@ export type ArrayLike = NDArrayCore | number[] | number[][] | number[][][] | num
  */
 export function toStorage(a: NDArrayCore | ArrayStorage): ArrayStorage {
   if (a instanceof NDArrayCore) {
-    return a.storage;
+    // Read through the raw target: `a.storage` is a Proxy trap dispatch.
+    return rawOf(a).storage;
   }
   // Handle NDArray (full/ndarray.ts) which has storage property but doesn't extend NDArrayCore
   // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
@@ -48,8 +49,9 @@ export function fromStorage(storage: ArrayStorage, base?: NDArrayCore): NDArrayC
  * Sets the base to track the view relationship
  */
 export function fromStorageView(storage: ArrayStorage, original: NDArrayCore): NDArrayCore {
-  // If original has a base, use that; otherwise use original as the base
-  const base = original.base ?? original;
+  // If original has a base, use that; otherwise use original as the base.
+  // `original.base` goes through the Proxy; the raw target does not.
+  const base = rawOf(original).base ?? original;
   return NDArrayCore.fromStorage(storage, base);
 }
 
