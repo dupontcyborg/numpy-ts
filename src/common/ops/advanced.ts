@@ -891,8 +891,51 @@ export function select(
     return selectResult;
   }
 
-  // BigInt and complex keep element-wise stores — f64 would lose int64 precision,
-  // and complex carries two reals per element — but the dtype tests are hoisted.
+  // BigInt: conditions only need truthiness, which f64 carries fine, but the
+  // chosen values must stay at 64 bits. So gather the conditions the fast way
+  // and copy the winning value straight across, concretely typed on both sides.
+  //
+  // Without this, int64/uint64 fell past the fast path above into the per-element
+  // `iget` walk at the bottom: 31.4x on a [10000] against ~16x for every other
+  // dtype.
+  if (isBig && !(defaultValue instanceof ArrayStorage)) {
+    const out64 = outputData as BigInt64Array | BigUint64Array;
+    out64.fill(defaultVal as bigint);
+
+    const condF = broadcastedConds.map((c, j) => {
+      const buf = selectScratch(1 + j, outputSize);
+      if (c.isCContiguous) {
+        widenToF64(c.data, c.offset, outputSize, buf);
+      } else {
+        widenGatherToF64(
+          c.data,
+          buildOffsets(c.shape, c.strides, c.offset, outputSize, c.shape.length),
+          buf,
+        );
+      }
+      return buf;
+    });
+
+    const choiceB = broadcastedChoices.map((c) => (c.isCContiguous ? c : c.copy()));
+
+    for (let i = 0; i < outputSize; i++) {
+      for (let j = 0; j < nCond; j++) {
+        if (condF[j]![i]!) {
+          const src = choiceB[j]!;
+          out64[i] = (src.data as BigInt64Array | BigUint64Array)[src.offset + i]!;
+          break;
+        }
+      }
+    }
+
+    for (let j = 0; j < nCond; j++) {
+      if (choiceB[j] !== broadcastedChoices[j]) choiceB[j]!.dispose();
+    }
+    return selectResult;
+  }
+
+  // Complex keeps element-wise stores — it carries two reals per element — but
+  // the dtype tests are hoisted.
   if (defaultValue instanceof ArrayStorage) {
     const db = broadcastTo(defaultValue, outputShape);
     stridedCopyInto(db.data, outputData, outputShape, db.strides, db.offset, isCplx);

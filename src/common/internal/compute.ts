@@ -16,6 +16,7 @@ import {
   type TypedArray,
 } from '../dtype';
 import { ArrayStorage } from '../storage';
+import { wasmAllEqual } from '../wasm/all_equal';
 import { wasmCompare } from '../wasm/compare';
 
 /**
@@ -880,6 +881,13 @@ export function allElementsEqual(
   if (isComplexDType(a.dtype)) return null;
   if (!a.isCContiguous || !b.isCContiguous) return null;
   if (a.size !== b.size) return null;
+
+  // SIMD first for large arrays. The loops below are already monomorphic, but
+  // they cost the same per element for every dtype while NumPy's cost scales
+  // with bytes — which is why the ratio was worst on int8, where NumPy is
+  // fastest, not where we are slowest.
+  const viaWasm = wasmAllEqual(a, b, equalNan);
+  if (viaWasm !== null) return viaWasm;
 
   const aData = a.data;
   const loop = EQ_LOOPS.get(aData.constructor);

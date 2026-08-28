@@ -18,6 +18,7 @@ import {
   isIntegerDType,
   mathResultDtype,
   promoteDTypes,
+  type TypedArray,
   throwIfComplex,
 } from '../dtype';
 import { broadcastShapes, elementwiseComparisonOp, flatF64 } from '../internal/compute';
@@ -1146,6 +1147,26 @@ function nextafterSingle(x: number, y: number): number {
 }
 
 /**
+ * `dst[i] = spacingSingle(src[off + i])` with both sides typed concretely.
+ *
+ * Only real float dtypes reach here — bool/int8/uint8 promote to float16 and
+ * int16/uint16 to float32 higher up, and BigInt has its own branch — so f64 and
+ * f32 sources cover it, with a generic tail for anything unexpected.
+ */
+function spacingInto(src: TypedArray, off: number, dst: TypedArray, n: number): void {
+  if (src instanceof Float64Array && dst instanceof Float64Array) {
+    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+  } else if (src instanceof Float32Array && dst instanceof Float32Array) {
+    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+  } else if (src instanceof Float32Array && dst instanceof Float64Array) {
+    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+  } else {
+    const d = dst as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+    for (let i = 0; i < n; i++) d[i] = spacingSingle(Number(src[off + i]));
+  }
+}
+
+/**
  * Return the distance between x and the nearest adjacent number
  *
  * This is the difference between x and the next representable floating-point value.
@@ -1222,9 +1243,11 @@ export function spacing(a: ArrayStorage): ArrayStorage {
         resultData[i] = spacingSingle(Number(typedData[off + i]));
       }
     } else {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = spacingSingle(thisData[off + i] as number);
-      }
+      // Concrete on both sides: this read and this store were both through
+      // TypedArray unions, two megamorphic accesses per element over a million
+      // of them. The float16 branch above already got this treatment and runs
+      // at 3.2x while this path measured 20.9x on the same op.
+      spacingInto(thisData, off, resultData, size);
     }
   } else {
     for (let i = 0; i < size; i++) {
@@ -1595,8 +1618,17 @@ export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage 
     return a.copy();
   }
 
-  // For non-complex arrays, just return a copy
-  return a.copy();
+  // For non-complex arrays NumPy hands the input straight back — it has nothing
+  // to do. Copying instead cost 99us on a [1000x1000] against NumPy's 0.14us.
+  // Share the buffer rather than duplicating it, as `real` already does.
+  return ArrayStorage.fromDataShared(
+    a.data,
+    Array.from(a.shape),
+    dtype,
+    Array.from(a.strides),
+    a.offset,
+    a.wasmRegion,
+  );
 }
 
 /**
