@@ -14,7 +14,6 @@ import {
   promoteDTypes,
   type TypedArray,
 } from '../dtype';
-import { narrowFromF64, widenToF64 } from '../internal/dtype-loops';
 import { ArrayStorage } from '../storage';
 import { wasmCholesky, wasmCholeskyF32 } from '../wasm/cholesky';
 import { wasmCross } from '../wasm/cross';
@@ -1632,23 +1631,6 @@ export function outer(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
 }
 
 /**
- * Two reusable widening buffers for tensordot's operands, grown on demand.
- *
- * tensordot is not reentrant, so a pair of module-level buffers is enough, and
- * it keeps the hot path free of the 64KB-per-operand allocation that dominated
- * this op once the heap was busy.
- */
-const TD_SCRATCH: (Float64Array | null)[] = [null, null];
-
-function scratch(slot: 0 | 1, n: number): Float64Array {
-  const cur = TD_SCRATCH[slot];
-  if (cur && cur.length >= n) return cur.subarray(0, n);
-  const next = new Float64Array(n);
-  TD_SCRATCH[slot] = next;
-  return next;
-}
-
-/**
  * Tensor dot product along specified axes
  *
  * Computes sum product over specified axes.
@@ -1800,193 +1782,56 @@ export function tensordot(
     return sumRe;
   }
 
-  // General case: with free axes
-  const result = ArrayStorage.zeros(resultShape, resultDtype);
-
+  // General case: contract by reshaping to 2-D and delegating to matmul.
+  //
+  // A tensor contraction *is* a matrix product, which is how NumPy implements
+  // this (transpose, reshape, dot) and why NumPy is fast here. matmul already
+  // has tuned SIMD kernels for every dtype plus a JS fallback, so this needs no
+  // kernel of its own. The hand-written triple loop this replaces did 1/15th
+  // the work of a [100x100] matmul and took 5x longer: 100us at 4.8x, against
+  // 20.7us at 0.1x for the matmul.
+  //
+  // For the `axes: number` form — the common one, and what NumPy's own default
+  // produces — the contracted axes are already trailing on `a` and leading on
+  // `b`, so both permutations are the identity and the reshapes are free views
+  // on contiguous input. Explicit axis lists may need a transpose first, which
+  // is the same cost NumPy pays.
   const contractSize = aAxes.map((ax) => a.shape[ax]!).reduce((acc, dim) => acc * dim, 1);
   const aFreeSize = aFreeAxes.reduce((acc, ax) => acc * a.shape[ax]!, 1);
   const bFreeSize = bFreeAxes.reduce((acc, ax) => acc * b.shape[ax]!, 1);
 
-  // Precompute flat buffer offsets once.
-  //
-  // The loop this replaces rebuilt a multi-dimensional index for every element
-  // of every contraction — a divide and a modulo per axis — and then read
-  // through `a.get(...idx)`, which decomposes the index all over again. That is
-  // the same shape of defect that made `array_equiv` 91x slower than NumPy
-  // before it was fixed. Offsets depend only on the axis layout, so they are
-  // computed once and the inner loop becomes a plain add and index.
-  const offsetsFor = (
-    axes: number[],
-    shape: readonly number[],
-    strides: readonly number[],
-    total: number,
-  ): Int32Array => {
-    const out = new Int32Array(total);
-    for (let flat = 0; flat < total; flat++) {
-      let rem = flat;
-      let off = 0;
-      for (let k = axes.length - 1; k >= 0; k--) {
-        const ax = axes[k]!;
-        const dim = shape[ax]!;
-        off += (rem % dim) * strides[ax]!;
-        rem = (rem / dim) | 0;
-      }
-      out[flat] = off;
-    }
-    return out;
-  };
-
-  // The contracted axes of a and b pair up positionally and share their extents,
-  // so both tables are walked by the same counter.
-  const aContract = offsetsFor(aAxes, a.shape, a.strides, contractSize);
-  const bContract = offsetsFor(bAxes, b.shape, b.strides, contractSize);
-  const aFree = offsetsFor(aFreeAxes, a.shape, a.strides, aFreeSize);
-  const bFree = offsetsFor(bFreeAxes, b.shape, b.strides, bFreeSize);
-
-  const aOff = a.offset;
-  const bOff = b.offset;
-
-  if (isComplex) {
-    const aC = a.data as Float64Array | Float32Array;
-    const bC = b.data as Float64Array | Float32Array;
-    const outC = result.data as Float64Array | Float32Array;
-    let r = 0;
-    for (let i = 0; i < aFreeSize; i++) {
-      const aBase = aOff + aFree[i]!;
-      for (let j = 0; j < bFreeSize; j++) {
-        const bBase = bOff + bFree[j]!;
-        let sumRe = 0;
-        let sumIm = 0;
-        for (let c = 0; c < contractSize; c++) {
-          const ai = (aBase + aContract[c]!) * 2;
-          const bi = (bBase + bContract[c]!) * 2;
-          const are = aC[ai]!;
-          const aim = aC[ai + 1]!;
-          const bre = bC[bi]!;
-          const bim = bC[bi + 1]!;
-          sumRe += are * bre - aim * bim;
-          sumIm += are * bim + aim * bre;
-        }
-        outC[r * 2] = sumRe;
-        outC[r * 2 + 1] = sumIm;
-        r++;
-      }
-    }
-    return result;
+  // An empty contraction sums nothing, and an empty free axis produces no
+  // elements; matmul has no meaningful shape to work with in either case.
+  if (contractSize === 0 || aFreeSize === 0 || bFreeSize === 0) {
+    return ArrayStorage.zeros(resultShape, resultDtype);
   }
 
-  if (isBigIntDType(resultDtype) && isBigIntDType(a.dtype) && isBigIntDType(b.dtype)) {
-    // Two concrete copies rather than one loop over a
-    // `BigInt64Array | BigUint64Array` union. The union makes the load site
-    // polymorphic, and whichever dtype the process touches second pays for it:
-    // measured across the sweep, uint64 ran 2.5x slower than int64 for identical
-    // work (492us vs 193us) purely from that. Same reasoning as CMP_LOOPS in
-    // internal/compute.ts; the duplication is the point.
-    const signed = a.data instanceof BigInt64Array;
-    const outB = result.data as BigInt64Array | BigUint64Array;
-    // Accumulate in BigInt: products of two 64-bit operands routinely exceed
-    // 2^53, and the store wraps to 64 bits exactly as NumPy does.
-    if (signed) {
-      const aB = a.data as BigInt64Array;
-      const bB = b.data as BigInt64Array;
-      let r = 0;
-      for (let i = 0; i < aFreeSize; i++) {
-        const aBase = aOff + aFree[i]!;
-        for (let j = 0; j < bFreeSize; j++) {
-          const bBase = bOff + bFree[j]!;
-          let sum = 0n;
-          for (let c = 0; c < contractSize; c++) {
-            sum += aB[aBase + aContract[c]!]! * bB[bBase + bContract[c]!]!;
-          }
-          outB[r++] = wrapTo64(sum, resultDtype);
-        }
-      }
-    } else {
-      const aB = a.data as BigUint64Array;
-      const bB = b.data as BigUint64Array;
-      let r = 0;
-      for (let i = 0; i < aFreeSize; i++) {
-        const aBase = aOff + aFree[i]!;
-        for (let j = 0; j < bFreeSize; j++) {
-          const bBase = bOff + bFree[j]!;
-          let sum = 0n;
-          for (let c = 0; c < contractSize; c++) {
-            sum += aB[aBase + aContract[c]!]! * bB[bBase + bContract[c]!]!;
-          }
-          outB[r++] = wrapTo64(sum, resultDtype);
-        }
-      }
-    }
-    return result;
-  }
+  const isIdentityPerm = (perm: number[]): boolean => perm.every((v, i) => v === i);
+  const aPerm = [...aFreeAxes, ...aAxes];
+  const bPerm = [...bAxes, ...bFreeAxes];
 
-  // Gather both operands into f64 before the triple loop.
-  //
-  // The accumulator is already a JS number, so this changes no semantics — the
-  // sum was being computed in f64 either way, and the store still wraps into the
-  // result dtype. What it buys is a *monomorphic* inner loop: reading through a
-  // `Float64Array | Float32Array | Int8Array | ...` union makes that load site
-  // megamorphic once a process has touched several dtypes, which is exactly what
-  // the benchmark does. Measured across the dtype sweep, the polymorphic version
-  // ran the later dtypes ~6.7x slower than the first ones (530us vs 80us for the
-  // same shape); in isolation the same code was only ~2x apart, which is the
-  // signature of an inline-cache problem rather than a data one.
-  //
-  // The conversion is O(a.size + b.size) against a triple loop of
-  // O(aFree * bFree * contract), so it is a small fraction of the work except
-  // when one operand has a single free element.
-  const toF64 = (
-    src: ArrayStorage,
-    base: number,
-    frees: Int32Array,
-    contracts: Int32Array,
-    slot: 0 | 1,
-  ): Float64Array => {
-    const data = src.data;
-    if (data instanceof Float64Array && base === 0) return data;
-    let span = 0;
-    for (let i = 0; i < frees.length; i++) if (frees[i]! > span) span = frees[i]!;
-    let maxC = 0;
-    for (let i = 0; i < contracts.length; i++) if (contracts[i]! > maxC) maxC = contracts[i]!;
-    span += maxC + 1;
-    // Reuse a scratch buffer rather than allocating per call.
-    //
-    // float64 skips this conversion entirely (`return data` above) and is the
-    // only variant that was fast in the full suite: 89.9us against ~665us for
-    // every other dtype. Standalone, that same float32 case runs at 87.6us — the
-    // gap only appears once 3500 benchmarks have churned the heap, which is the
-    // signature of allocation pressure, not of the conversion itself. Each call
-    // was allocating two 64KB buffers.
-    const out = scratch(slot, span);
-    widenToF64(data, base, span, out);
-    return out;
-  };
+  const aT = isIdentityPerm(aPerm) ? a : shapeOps.transpose(a, aPerm);
+  const bT = isIdentityPerm(bPerm) ? b : shapeOps.transpose(b, bPerm);
 
-  const aF = toF64(a, aOff, aFree, aContract, 0);
-  const bF = toF64(b, bOff, bFree, bContract, 1);
-  const aShift = aF === a.data ? aOff : 0;
-  const bShift = bF === b.data ? bOff : 0;
+  const aM = shapeOps.reshape(aT, [aFreeSize, contractSize]);
+  const bM = shapeOps.reshape(bT, [contractSize, bFreeSize]);
 
-  const isBool = resultDtype === 'bool';
-  // Accumulate into a Float64Array and narrow once at the end. Writing straight
-  // into `result.data` put a megamorphic store inside the hot triple loop.
-  const outF = new Float64Array(aFreeSize * bFreeSize);
-  let r = 0;
-  for (let i = 0; i < aFreeSize; i++) {
-    const aBase = aShift + aFree[i]!;
-    for (let j = 0; j < bFreeSize; j++) {
-      const bBase = bShift + bFree[j]!;
-      let sum = 0;
-      for (let c = 0; c < contractSize; c++) {
-        sum += aF[aBase + aContract[c]!]! * bF[bBase + bContract[c]!]!;
-      }
-      // Bool tensordot: NumPy uses logical AND for multiply, OR for add.
-      outF[r++] = isBool ? (sum ? 1 : 0) : sum;
-    }
-  }
-  narrowFromF64(result.data, 0, r, outF);
+  const product = matmul(aM, bM);
+  // product is [aFreeSize, bFreeSize], which only coincides with resultShape when
+  // each operand contributes exactly one free axis. Reshape is a free view here
+  // because matmul's output is contiguous.
+  const out = shapeOps.reshape(product, [...resultShape]);
 
-  return result;
+  // Every intermediate either owns a WASM region or retains a share of one, and
+  // the reshape above has already taken its own reference to the result's.
+  // Release them rather than waiting on the finalizer.
+  if (aM !== a) aM.dispose();
+  if (bM !== b) bM.dispose();
+  if (aT !== a) aT.dispose();
+  if (bT !== b) bT.dispose();
+  if (out !== product) product.dispose();
+
+  return out;
 }
 
 /**

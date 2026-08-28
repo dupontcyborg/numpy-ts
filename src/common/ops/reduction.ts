@@ -15,10 +15,10 @@ import {
   isFloatDType,
   reductionAccumDtype,
   stdVarResultDtype,
+  type TypedArray,
   throwIfComplex,
   trueDivideResultDtype,
 } from '../dtype';
-import { flatF64 } from '../internal/compute';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { ArrayStorage } from '../storage';
 import { wasmCumprod, wasmCumsum } from '../wasm/cumulative';
@@ -3833,6 +3833,201 @@ function nansumImpl(
   return result;
 }
 
+// --- Per-dtype loops for the float-only nan* full reductions ---
+//
+// Only float dtypes reach these paths: integers cannot hold NaN, so they
+// short-circuit to the plain kernel higher up. Three concrete branches cover it.
+//
+// These read through `data[off + i]` on the TypedArray union, which specialises
+// on whichever dtype arrives first in a sweep (float64) and leaves every later
+// one on the slow path. That was invisible while `storage.size` was recomputed
+// per iteration; once that was cached, float64 dropped to 0.41x while float32
+// went the other way, to 27.9x.
+
+const NAN_SUM_COUNT = new Float64Array(2);
+const NAN_SUMSQ = new Float64Array(1);
+
+function nanArgMaxF(data: TypedArray, off: number, n: number): number {
+  let best = Number.NEGATIVE_INFINITY;
+  let idx = -1;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  }
+  return idx;
+}
+
+function nanArgMinF(data: TypedArray, off: number, n: number): number {
+  let best = Number.POSITIVE_INFINITY;
+  let idx = -1;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  }
+  return idx;
+}
+
+function nanProdF(data: TypedArray, off: number, n: number): number {
+  let total = 1;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) total *= v;
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) total *= v;
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) total *= v;
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v)) total *= v;
+    }
+  }
+  return total;
+}
+
+/** Sum and count of the non-NaN elements. `out` receives [sum, count]. */
+function nanSumCountF(data: TypedArray, off: number, n: number, out: Float64Array): void {
+  let total = 0;
+  let count = 0;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  }
+  out[0] = total;
+  out[1] = count;
+}
+
+/**
+ * Sum of squared deviations from `mean`, accumulated into `acc[0]`.
+ *
+ * `acc` is the caller's accumulator so float16/float32 can keep NumPy's narrower
+ * accumulation width — see the note in nanvar.
+ */
+function nanSumSqF(
+  data: TypedArray,
+  off: number,
+  n: number,
+  mean: number,
+  acc: Float64Array | Float32Array | Float16Array,
+): void {
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  }
+}
+
 /**
  * Return product of elements, treating NaNs as one.
  * Result dtype follows NumPy's reduction-accumulation rule; see {@link narrowFloatResult}.
@@ -3902,17 +4097,14 @@ function nanprodImpl(
 
     let total = 1;
     const contiguous = storage.isCContiguous;
+    // One concrete loop per float dtype, reading the source directly.
+    //
+    // The widening copy this replaces allocated a Float64Array per call and
+    // converted through a megamorphic builtin. That was invisible while
+    // `storage.size` was recomputed per iteration; once that was cached,
+    // float64 dropped to 0.41x while float32 went the other way to 27.9x.
     if (contiguous) {
-      // Read through a Float64Array: the TypedArray union load site goes
-      // megamorphic once more than four dtypes reach it, and widening f32 to
-      // f64 is exactly what the Number() call this replaces already did.
-      const fv = flatF64(storage);
-      for (let i = 0; i < storage.size; i++) {
-        const val = fv[i]!;
-        if (!Number.isNaN(val)) {
-          total *= val;
-        }
-      }
+      total = nanProdF(data, off, storage.size);
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
@@ -4399,17 +4591,13 @@ function nanvarImpl(
     let count = 0;
     const contiguous = storage.isCContiguous;
     if (contiguous) {
-      // Read through a Float64Array: the TypedArray union load site goes
-      // megamorphic once more than four dtypes reach it, and widening f32 to
-      // f64 is exactly what the Number() call this replaces already did.
-      const fv = flatF64(storage);
-      for (let i = 0; i < storage.size; i++) {
-        const val = fv[i]!;
-        if (!Number.isNaN(val)) {
-          total += val;
-          count++;
-        }
-      }
+      // One concrete loop per float dtype, reading the source directly. The
+      // widening copy this replaces allocated a Float64Array per pass — three of
+      // them for a variance — and converted through a megamorphic builtin.
+      const sc = NAN_SUM_COUNT;
+      nanSumCountF(data, off, storage.size, sc);
+      total = sc[0]!;
+      count = sc[1]!;
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
@@ -4434,11 +4622,7 @@ function nanvarImpl(
     if (narrowAcc) {
       narrowAcc[0] = 0;
       if (contiguous) {
-        const fv2 = flatF64(storage);
-        for (let i = 0; i < storage.size; i++) {
-          const val = fv2[i]!;
-          if (!Number.isNaN(val)) narrowAcc[0] += (val - meanVal) ** 2;
-        }
+        nanSumSqF(data, off, storage.size, meanVal, narrowAcc);
       } else {
         for (let i = 0; i < storage.size; i++) {
           const val = Number(storage.iget(i));
@@ -4450,13 +4634,10 @@ function nanvarImpl(
 
     let sumSq = 0;
     if (contiguous) {
-      const fv3 = flatF64(storage);
-      for (let i = 0; i < storage.size; i++) {
-        const val = fv3[i]!;
-        if (!Number.isNaN(val)) {
-          sumSq += (val - meanVal) ** 2;
-        }
-      }
+      const acc = NAN_SUMSQ;
+      acc[0] = 0;
+      nanSumSqF(data, off, storage.size, meanVal, acc);
+      sumSq = acc[0]!;
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
@@ -5110,25 +5291,20 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let minVal = Infinity;
     let minIdx = -1;
     const contiguous = storage.isCContiguous;
+    // One concrete loop per float dtype, reading the source directly.
+    //
+    // The widening copy this replaces allocated a Float64Array per call and
+    // converted through a megamorphic builtin. That was invisible while
+    // `storage.size` was recomputed per iteration; once that was cached,
+    // float64 dropped to 0.41x while float32 went the other way to 27.9x.
     if (contiguous) {
-      // Read through a Float64Array: the TypedArray union load site goes
-      // megamorphic once more than four dtypes reach it, and widening f32 to
-      // f64 is exactly what the Number() call this replaces already did.
-      const fv = flatF64(storage);
-      for (let i = 0; i < storage.size; i++) {
-        const val = fv[i]!;
-        if (!Number.isNaN(val) && val < minVal) {
-          minVal = val;
-          minIdx = i;
-        }
-      }
-    } else {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(storage.iget(i));
-        if (!Number.isNaN(val) && val < minVal) {
-          minVal = val;
-          minIdx = i;
-        }
+      return nanArgMinF(data, off, storage.size);
+    }
+    for (let i = 0; i < storage.size; i++) {
+      const val = Number(storage.iget(i));
+      if (!Number.isNaN(val) && val < minVal) {
+        minVal = val;
+        minIdx = i;
       }
     }
     return minIdx;
@@ -5284,25 +5460,20 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let maxVal = -Infinity;
     let maxIdx = -1;
     const contiguous = storage.isCContiguous;
+    // One concrete loop per float dtype, reading the source directly.
+    //
+    // The widening copy this replaces allocated a Float64Array per call and
+    // converted through a megamorphic builtin. That was invisible while
+    // `storage.size` was recomputed per iteration; once that was cached,
+    // float64 dropped to 0.41x while float32 went the other way to 27.9x.
     if (contiguous) {
-      // Read through a Float64Array: the TypedArray union load site goes
-      // megamorphic once more than four dtypes reach it, and widening f32 to
-      // f64 is exactly what the Number() call this replaces already did.
-      const fv = flatF64(storage);
-      for (let i = 0; i < storage.size; i++) {
-        const val = fv[i]!;
-        if (!Number.isNaN(val) && val > maxVal) {
-          maxVal = val;
-          maxIdx = i;
-        }
-      }
-    } else {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(storage.iget(i));
-        if (!Number.isNaN(val) && val > maxVal) {
-          maxVal = val;
-          maxIdx = i;
-        }
+      return nanArgMaxF(data, off, storage.size);
+    }
+    for (let i = 0; i < storage.size; i++) {
+      const val = Number(storage.iget(i));
+      if (!Number.isNaN(val) && val > maxVal) {
+        maxVal = val;
+        maxIdx = i;
       }
     }
     return maxIdx;
