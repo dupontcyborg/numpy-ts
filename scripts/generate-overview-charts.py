@@ -314,7 +314,9 @@ def main() -> int:
         except Exception:
             pass
 
-    perf_dir = repo_root / "docs" / version / "performance"
+    # Pages live at the stable path; assets stay version-stamped so an archived
+    # snapshot keeps the charts it shipped with.
+    perf_dir = repo_root / "docs" / "latest" / "performance"
     out_dir = repo_root / "docs" / "assets" / version
 
     # Load data
