@@ -9,7 +9,7 @@
 import { broadcastTo, computeBroadcastShape } from '../broadcasting';
 import { Complex } from '../complex';
 import { isBigIntDType, isComplexDType } from '../dtype';
-import { elementwiseComparisonOp } from '../internal/compute';
+import { allElementsEqual, elementwiseComparisonOp } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 
 // Helper to get complex value at index
@@ -74,7 +74,7 @@ export function greater(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage
       return aIm > bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x > y);
+  return elementwiseComparisonOp(a, b, (x, y) => x > y, 'gt');
 }
 
 /**
@@ -91,7 +91,7 @@ export function greaterEqual(a: ArrayStorage, b: ArrayStorage | number): ArraySt
       return aIm >= bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x >= y);
+  return elementwiseComparisonOp(a, b, (x, y) => x >= y, 'ge');
 }
 
 /**
@@ -108,7 +108,7 @@ export function less(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
       return aIm < bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x < y);
+  return elementwiseComparisonOp(a, b, (x, y) => x < y, 'lt');
 }
 
 /**
@@ -125,7 +125,7 @@ export function lessEqual(a: ArrayStorage, b: ArrayStorage | number): ArrayStora
       return aIm <= bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x <= y);
+  return elementwiseComparisonOp(a, b, (x, y) => x <= y, 'le');
 }
 
 /**
@@ -141,7 +141,7 @@ export function equal(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
       return aRe === bRe && aIm === bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x === y);
+  return elementwiseComparisonOp(a, b, (x, y) => x === y, 'eq');
 }
 
 /**
@@ -157,7 +157,7 @@ export function notEqual(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
       return aRe !== bRe || aIm !== bIm;
     });
   }
-  return elementwiseComparisonOp(a, b, (x, y) => x !== y);
+  return elementwiseComparisonOp(a, b, (x, y) => x !== y, 'ne');
 }
 
 /**
@@ -183,11 +183,70 @@ export function isclose(
       return absDiff <= atol + rtol * absB;
     });
   }
+  const viaBigInt = iscloseBigInt(a, b, rtol, atol);
+  if (viaBigInt) return viaBigInt;
+
   return elementwiseComparisonOp(a, b, (x, y) => {
     const diff = Math.abs(x - y);
     const threshold = atol + rtol * Math.abs(y);
     return diff <= threshold;
   });
+}
+
+/**
+ * isclose for two same-shape, contiguous 64-bit integer arrays.
+ *
+ * `isclose` passes no comparison kind, so it misses both the WASM kernel and
+ * the monomorphic CMP_LOOPS path and lands in the generic loop — broadcast
+ * views plus `iget()` per element, which recomputes the multi-index for every
+ * value. This does the same arithmetic with direct typed-array loads.
+ *
+ * The difference stays in BigInt so it is exact above 2^53; only the comparison
+ * against the float threshold converts, which is what NumPy does too (`|x - y|`
+ * is computed in int64 and promoted only to meet `atol + rtol * |y|`).
+ *
+ * Returns null when the inputs are not that shape, and the caller falls through.
+ */
+function iscloseBigInt(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  rtol: number,
+  atol: number,
+): ArrayStorage | null {
+  if (!isBigIntDType(a.dtype) || !isBigIntDType(b.dtype)) return null;
+  if (!a.isCContiguous || !b.isCContiguous) return null;
+  if (a.data.constructor !== b.data.constructor) return null;
+  if (a.shape.length !== b.shape.length) return null;
+  if (!a.shape.every((dim, i) => dim === b.shape[i])) return null;
+
+  const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
+  const out = result.data as Uint8Array;
+  const n = a.size;
+  const aOff = a.offset;
+  const bOff = b.offset;
+
+  if (a.data instanceof BigInt64Array) {
+    const av = a.data;
+    const bv = b.data as BigInt64Array;
+    for (let i = 0; i < n; i++) {
+      const x = av[aOff + i]!;
+      const y = bv[bOff + i]!;
+      const diff = x > y ? x - y : y - x;
+      const absY = y < 0n ? -y : y;
+      out[i] = Number(diff) <= atol + rtol * Number(absY) ? 1 : 0;
+    }
+  } else {
+    const av = a.data as BigUint64Array;
+    const bv = b.data as BigUint64Array;
+    for (let i = 0; i < n; i++) {
+      const x = av[aOff + i]!;
+      const y = bv[bOff + i]!;
+      const diff = x > y ? x - y : y - x;
+      out[i] = Number(diff) <= atol + rtol * Number(y) ? 1 : 0;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -201,15 +260,20 @@ export function allclose(
   atol: number = 1e-8,
 ): boolean {
   const closeResult = isclose(a, b, rtol, atol);
-  const data = closeResult.data as Uint8Array;
+  try {
+    const data = closeResult.data as Uint8Array;
 
-  // Check if all values are 1 (true)
-  for (let i = 0; i < closeResult.size; i++) {
-    if (data[i] === 0) {
-      return false;
+    // Check if all values are 1 (true)
+    for (let i = 0; i < closeResult.size; i++) {
+      if (data[i] === 0) {
+        return false;
+      }
     }
+    return true;
+  } finally {
+    // Free the intermediate mask on both exits, including the early return.
+    closeResult.dispose();
   }
-  return true;
 }
 
 /**
@@ -231,6 +295,16 @@ export function arrayEquiv(a1: ArrayStorage, a2: ArrayStorage): boolean {
   if (broadcastShape === null) {
     // If shapes are incompatible for broadcasting, arrays are not equivalent
     return false;
+  }
+
+  // Identical shapes, same dtype, contiguous: a dtype-specialised loop, instead
+  // of decomposing the flat index into per-axis indices for every element below.
+  // The shape test gates the loop rather than filtering its result — [1,6] vs
+  // [6,1] have equal sizes but must broadcast to [6,6], not compare pairwise.
+  // `array_equiv` has no equal_nan option, so NaN never compares equal here.
+  if (a1.ndim === a2.ndim && a1.shape.every((d, i) => d === a2.shape[i])) {
+    const fast = allElementsEqual(a1, a2, false);
+    if (fast !== null) return fast;
   }
 
   // Broadcast both arrays to the common shape
@@ -264,6 +338,16 @@ export function arrayEquiv(a1: ArrayStorage, a2: ArrayStorage): boolean {
       const v1 = typeof val1 === 'bigint' ? val1 : BigInt(Number(val1));
       const v2 = typeof val2 === 'bigint' ? val2 : BigInt(Number(val2));
       if (v1 !== v2) {
+        return false;
+      }
+    } else if (val1 instanceof Complex || val2 instanceof Complex) {
+      // `val1 !== val2` on two Complex instances compares object identity, so
+      // this returned false for *any* complex input, however equal.
+      const re1 = val1 instanceof Complex ? val1.re : Number(val1);
+      const im1 = val1 instanceof Complex ? val1.im : 0;
+      const re2 = val2 instanceof Complex ? val2.re : Number(val2);
+      const im2 = val2 instanceof Complex ? val2.im : 0;
+      if (re1 !== re2 || im1 !== im2) {
         return false;
       }
     } else {

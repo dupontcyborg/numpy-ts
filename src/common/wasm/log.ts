@@ -1,13 +1,9 @@
 /**
  * WASM-accelerated element-wise logarithms (natural / base-2 / base-10).
- *
- * Unary: out[i] = log(a[i]) (or log2 / log10)
- * Float fast path: float64/float32 use native SIMD kernels, float16 routes
- * through the f32 kernel. Integers use type-appropriate output (NumPy promotion):
- *   i8/u8 → f32 (then downcast to f16 if available)
- *   i16/u16 → f32
- *   i32/u32/i64/u64 → f64
- * Complex inputs return null so the caller keeps the JS fallback.
+ * Integer inputs are promoted to match NumPy: int8/uint8 to float32 (then
+ * downcast to float16 when available), int16/uint16 to float32, and
+ * int32/uint32/int64/uint64 to float64. Complex inputs return null so the
+ * caller falls back to JS.
  */
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';
@@ -63,14 +59,13 @@ const f32IntSuffix: Partial<Record<DType, string>> = {
 };
 
 /**
- * Shared WASM log driver for one base. `op` is the kernel prefix ('log' /
- * 'log2' / 'log10'); kernels are looked up by `${op}_${suffix}`.
- *
- * `allowF64` gates ONLY the float64-input path: V8's `Math.log` beats a 2-wide
- * SIMD kernel + JS↔WASM boundary for natural log, so `wasmLog` keeps float64
- * INPUT on the JS fallback. Integer inputs always use WASM (NumPy promotes them
- * to float anyway, and the JS path pays a per-element Number() conversion —
- * expensive for int64/uint64 BigInts).
+ * Shared WASM log driver for one base op (log / log2 / log10); kernels are
+ * looked up by op_suffix. allowF64 gates only the float64-input path: V8's
+ * Math.log beats a SIMD kernel plus the JS-WASM boundary crossing for
+ * natural log, so wasmLog keeps float64 input on the JS fallback. Integer
+ * inputs always use WASM since NumPy promotes them to float anyway and the
+ * JS path pays a per-element Number() conversion, expensive for
+ * int64/uint64 BigInts.
  */
 function wasmLogImpl(a: ArrayStorage, op: string, allowF64: boolean): ArrayStorage | null {
   if (!a.isCContiguous) return null;

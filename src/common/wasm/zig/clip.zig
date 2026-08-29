@@ -37,9 +37,16 @@ export fn clip_f32(a: [*]const f32, out: [*]f32, N: u32, lo: f32, hi: f32) void 
     }
 }
 
-/// Element-wise clamp for i64, scalar loop (no i64x2 compare in WASM SIMD).
+/// Element-wise clamp for i64 using 2-wide SIMD (i64x2 signed compare).
 export fn clip_i64(a: [*]const i64, out: [*]i64, N: u32, lo: i64, hi: i64) void {
+    const vlo: simd.V2i64 = @splat(lo);
+    const vhi: simd.V2i64 = @splat(hi);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v = simd.load2_i64(a, i);
+        simd.store2_i64(out, i, simd.min_i64x2(simd.max_i64x2(v, vlo), vhi));
+    }
     while (i < N) : (i += 1) {
         var v = a[i];
         if (v < lo) v = lo;
@@ -48,9 +55,17 @@ export fn clip_i64(a: [*]const i64, out: [*]i64, N: u32, lo: i64, hi: i64) void 
     }
 }
 
-/// Element-wise clamp for u64, scalar loop (no u64x2 compare in WASM SIMD).
+/// Element-wise clamp for u64 using 2-wide SIMD.
+/// u64 has no i64x2 unsigned compare; simd.zig routes it through a sign-flip.
 export fn clip_u64(a: [*]const u64, out: [*]u64, N: u32, lo: u64, hi: u64) void {
+    const vlo: simd.V2u64 = @splat(lo);
+    const vhi: simd.V2u64 = @splat(hi);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v = simd.load2_u64(a, i);
+        simd.store2_u64(out, i, simd.min_u64x2(simd.max_u64x2(v, vlo), vhi));
+    }
     while (i < N) : (i += 1) {
         var v = a[i];
         if (v < lo) v = lo;

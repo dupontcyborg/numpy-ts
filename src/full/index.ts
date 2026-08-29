@@ -666,12 +666,12 @@ export function bitwise_right_shift(x1: NDArrayCore, x2: NDArrayCore | number): 
   return up(core.bitwise_right_shift(x1, x2));
 }
 
-/** Extract real part of array */
+/** Extract real part of array (a view of `x`, as in NumPy) */
 export function real<D extends DType>(x: NDArrayCore<D>): NDArray<ComplexComponent<D>> {
   return up(core.real(x)) as NDArray<ComplexComponent<D>>;
 }
 
-/** Extract imaginary part of array */
+/** Extract imaginary part of array (a view for complex `x`, zeros otherwise) */
 export function imag<D extends DType>(x: NDArrayCore<D>): NDArray<ComplexComponent<D>> {
   return up(core.imag(x)) as NDArray<ComplexComponent<D>>;
 }
@@ -1059,8 +1059,7 @@ export function vecdot<A extends DType, B extends DType>(
     | Scalar<Promote<A, B>>;
 }
 
-/** Matrix transpose (swap last two axes) */
-/** Matrix transpose - returns a view */
+/** Matrix transpose (swap last two axes) - returns a view */
 export function matrix_transpose<D extends DType>(a: NDArrayCore<D>): NDArray<D> {
   return up(core.matrix_transpose(a)) as NDArray<D>;
 }

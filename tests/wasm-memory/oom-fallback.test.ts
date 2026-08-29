@@ -66,6 +66,10 @@ function releaseAll(bag: { regions: { release(): void }[]; storages: ArrayStorag
 // Gap 1: OOM triggers JS-fallback
 // ---------------------------------------------------------------------------
 
+// These suites exhaust the WASM heap deliberately, so the once-per-process
+// heap-exhaustion warning is expected here — silence it to keep the output clean.
+wasmMemoryConfig.warnOnHeapExhaustion = false;
+
 describe('OOM triggers JS-fallback', () => {
   it('allocates WASM-backed arrays until heap is exhausted, then falls back to JS', () => {
     const arrays: ArrayStorage[] = [];

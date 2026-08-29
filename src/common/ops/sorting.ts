@@ -7,6 +7,7 @@
 
 import type { Complex } from '../complex';
 import { type DType, hasFloat16, isBigIntDType, isComplexDType } from '../dtype';
+import { sortedCopy, writeInterleaved } from '../internal/dtype-loops';
 import { computeStrides, precomputeAxisOffsets } from '../internal/indexing';
 import { ArrayStorage } from '../storage';
 import { wasmArgpartition, wasmArgpartitionSlices } from '../wasm/argpartition';
@@ -1097,35 +1098,26 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
 
     return result;
   } else {
-    // For real arrays, sort normally (1D flattened), then cast to complex128
-    const values: number[] = [];
-    if (contiguous) {
-      for (let i = 0; i < size; i++) {
-        values.push(Number(data[off + i]!));
-      }
-    } else {
-      for (let i = 0; i < size; i++) {
-        values.push(Number(storage.iget(i)));
-      }
-    }
-
-    // Sort (NaN values go to end)
-    values.sort((a, b) => {
-      if (Number.isNaN(a) && Number.isNaN(b)) return 0;
-      if (Number.isNaN(a)) return 1;
-      if (Number.isNaN(b)) return -1;
-      return a - b;
-    });
+    // For real arrays, sort normally (1D flattened), then cast to complex.
+    //
+    // Sorted at the input's own dtype and written straight into the interleaved
+    // output. `TypedArray.prototype.sort` is native and numeric with NaN last,
+    // so no custom comparator is needed. Sorting before any narrowing also
+    // keeps 64-bit integers exact: widening first lets values above 2^53
+    // collapse together and reorder.
+    //
+    // One allocation, not two: widening into a separate Float64Array on the
+    // way costs more in extra buffer traffic than the native sort saves over
+    // a boxed comparator sort.
+    const source = contiguous ? storage : storage.copy();
+    const sorted = sortedCopy(source.data, source.offset, size);
+    if (source !== storage) source.dispose();
 
     // NumPy sort_complex: small ints (≤16-bit) → complex64, everything else → complex128
     const smallInts = new Set(['int8', 'uint8', 'int16', 'uint16']);
     const cDtype = smallInts.has(dtype) ? ('complex64' as const) : ('complex128' as const);
     const result = ArrayStorage.zeros([size], cDtype);
-    const resultData = result.data as Float64Array | Float32Array;
-    for (let i = 0; i < size; i++) {
-      resultData[i * 2] = values[i]!;
-      resultData[i * 2 + 1] = 0;
-    }
+    writeInterleaved(sorted, result.data as Float64Array | Float32Array, size);
 
     return result;
   }
@@ -1758,6 +1750,43 @@ export function searchsorted(
 
         resultData[i] = lo;
       }
+    }
+  } else if (storageData instanceof BigInt64Array || storageData instanceof BigUint64Array) {
+    // int64/uint64: compare the BigInts directly. Number() collapses keys above
+    // 2^53, so the binary search landed on the wrong side of a large key and
+    // returned an insertion point NumPy disagreed with.
+    const sData = storageData as BigInt64Array | BigUint64Array;
+    const keyAt = storageContiguous
+      ? (m: number): bigint => sData[storageOff + m]!
+      : (m: number): bigint => storage.iget(m) as bigint;
+    const vIsBig = valuesData instanceof BigInt64Array || valuesData instanceof BigUint64Array;
+
+    for (let i = 0; i < numValues; i++) {
+      const raw =
+        valuesContiguous && vIsBig
+          ? (valuesData as BigInt64Array | BigUint64Array)[valuesOff + i]!
+          : values.iget(i);
+      // A non-BigInt needle (mixed dtypes) truncates toward zero, which keeps the
+      // left/right insertion point correct for an integer key array.
+      const v = typeof raw === 'bigint' ? raw : BigInt(Math.trunc(Number(raw)));
+      let lo = 0;
+      let hi = n;
+
+      if (side === 'left') {
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1;
+          if (keyAt(mid) < v) lo = mid + 1;
+          else hi = mid;
+        }
+      } else {
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1;
+          if (keyAt(mid) <= v) lo = mid + 1;
+          else hi = mid;
+        }
+      }
+
+      resultData[i] = lo;
     }
   } else {
     if (storageContiguous && valuesContiguous) {

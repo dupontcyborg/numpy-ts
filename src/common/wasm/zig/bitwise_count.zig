@@ -4,98 +4,95 @@
 //! For signed types, counts bits of abs(value) to match NumPy behavior.
 //! For unsigned types, counts bits of the raw value.
 //! Output is always u8.
+//!
+//! All widths vectorize through `@popCount` on a @Vector, which lowers to the
+//! native `i8x16.popcnt` instruction (plus a lane fold for widths > 8 bits).
+//! Signed inputs use `@abs`, which returns the same-width unsigned type, so
+//! abs(minInt) is representable (e.g. abs(i8 -128) = u8 128, one bit set).
 
-const simd = @import("simd.zig");
-
-/// Population count for a single u64 value.
-inline fn popcount_u64(x: u64) u8 {
-    // Parallel bit counting (Hamming weight)
-    var v = x;
-    v = v - ((v >> 1) & 0x5555555555555555);
-    v = (v & 0x3333333333333333) + ((v >> 2) & 0x3333333333333333);
-    v = (v + (v >> 4)) & 0x0F0F0F0F0F0F0F0F;
-    return @intCast((v *% 0x0101010101010101) >> 56);
+/// Vector popcount over `L` lanes of `T` (unsigned counterpart `U`), narrowing
+/// the per-lane count to u8. Handles the SIMD body; callers run the scalar tail.
+inline fn countVec(comptime T: type, comptime U: type, comptime L: comptime_int, a: [*]const T, out: [*]u8, N: u32) u32 {
+    const W = @sizeOf(U); // bytes per element
+    const VT = @Vector(L, T);
+    const VU = @Vector(L, U);
+    const VOut = @Vector(L, u8);
+    const VBytes = @Vector(L * W, u8);
+    const n_simd = N & ~@as(u32, L - 1);
+    var i: u32 = 0;
+    while (i < n_simd) : (i += L) {
+        const v = @as(*align(1) const VT, @ptrCast(a + i)).*;
+        const mag: VU = if (T == U) v else @abs(v);
+        // Count every byte at once (i8x16.popcnt), then fold each element's W
+        // byte-counts together with a shuffle/add ladder. Applying @popCount to
+        // the wide vector directly instead makes LLVM emit a per-lane
+        // extract/replace chain that is slower than the scalar SWAR loop.
+        // Max total is 64, so a u8 accumulator cannot overflow.
+        const counts: VBytes = @popCount(@as(VBytes, @bitCast(mag)));
+        var sum: VOut = @splat(0);
+        inline for (0..W) |k| {
+            const pick: @Vector(L, i32) = comptime blk: {
+                var idx: [L]i32 = undefined;
+                for (&idx, 0..) |*p, j| p.* = @intCast(j * W + k);
+                break :blk idx;
+            };
+            sum += @shuffle(u8, counts, undefined, pick);
+        }
+        @as(*align(1) VOut, @ptrCast(out + i)).* = sum;
+    }
+    return i;
 }
 
-/// Population count for a single u32 value.
-inline fn popcount_u32(x: u32) u8 {
-    var v = x;
-    v = v - ((v >> 1) & 0x55555555);
-    v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
-    v = (v + (v >> 4)) & 0x0F0F0F0F;
-    return @intCast((v *% 0x01010101) >> 24);
-}
-
-/// Bitwise count for signed i64 — counts bits of abs(value).
+/// Bitwise count for signed i64 — counts bits of abs(value). Scalar
+/// `@popCount` on a u64 is the native `i64.popcnt`, and at 8 bytes in per 1
+/// byte out this loop is store-bound, so the SIMD shuffle-fold used for the
+/// narrower widths buys nothing here and is skipped in favor of the plain
+/// scalar loop.
 export fn bitwise_count_i64(a: [*]const i64, out: [*]u8, N: u32) void {
     var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const v = a[i];
-        const abs_v: u64 = @bitCast(if (v < 0) -%v else v);
-        out[i] = popcount_u64(abs_v);
-    }
+    while (i < N) : (i += 1) out[i] = @popCount(@abs(a[i]));
 }
 
 /// Bitwise count for unsigned u64 — counts bits of raw value.
 export fn bitwise_count_u64(a: [*]const u64, out: [*]u8, N: u32) void {
     var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = popcount_u64(a[i]);
-    }
+    while (i < N) : (i += 1) out[i] = @popCount(a[i]);
 }
 
 /// Bitwise count for signed i32 — counts bits of abs(value).
 export fn bitwise_count_i32(a: [*]const i32, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const v = a[i];
-        const abs_v: u32 = @bitCast(if (v < 0) -%v else v);
-        out[i] = popcount_u32(abs_v);
-    }
+    var i = countVec(i32, u32, 4, a, out, N);
+    while (i < N) : (i += 1) out[i] = @popCount(@abs(a[i]));
 }
 
 /// Bitwise count for unsigned u32 — counts bits of raw value.
 export fn bitwise_count_u32(a: [*]const u32, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = popcount_u32(a[i]);
-    }
+    var i = countVec(u32, u32, 4, a, out, N);
+    while (i < N) : (i += 1) out[i] = @popCount(a[i]);
 }
 
 /// Bitwise count for signed i16 — counts bits of abs(value).
 export fn bitwise_count_i16(a: [*]const i16, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const v = a[i];
-        const abs_v: u16 = @bitCast(if (v < 0) -%v else v);
-        out[i] = @popCount(abs_v);
-    }
+    var i = countVec(i16, u16, 8, a, out, N);
+    while (i < N) : (i += 1) out[i] = @popCount(@abs(a[i]));
 }
 
 /// Bitwise count for unsigned u16 — counts bits of raw value.
 export fn bitwise_count_u16(a: [*]const u16, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @popCount(a[i]);
-    }
+    var i = countVec(u16, u16, 8, a, out, N);
+    while (i < N) : (i += 1) out[i] = @popCount(a[i]);
 }
 
 /// Bitwise count for signed i8 — counts bits of abs(value).
 export fn bitwise_count_i8(a: [*]const i8, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        const v = a[i];
-        const abs_v: u8 = @bitCast(if (v < 0) -%v else v);
-        out[i] = @popCount(abs_v);
-    }
+    var i = countVec(i8, u8, 16, a, out, N);
+    while (i < N) : (i += 1) out[i] = @popCount(@abs(a[i]));
 }
 
 /// Bitwise count for unsigned u8 — counts bits of raw value.
 export fn bitwise_count_u8(a: [*]const u8, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = @popCount(a[i]);
-    }
+    var i = countVec(u8, u8, 16, a, out, N);
+    while (i < N) : (i += 1) out[i] = @popCount(a[i]);
 }
 
 // --- Tests ---
@@ -180,4 +177,60 @@ test "bitwise_count_u16 basic" {
     var out: [1]u8 = undefined;
     bitwise_count_u16(&a, &out, 1);
     try testing.expectEqual(out[0], 8);
+}
+
+// SIMD-path coverage: lengths that exercise the vector body plus a ragged tail.
+
+test "bitwise_count_u8 simd body and tail" {
+    const testing = @import("std").testing;
+    var a: [37]u8 = undefined;
+    var out: [37]u8 = undefined;
+    for (&a, 0..) |*p, i| p.* = @intCast(i * 7 % 256);
+    bitwise_count_u8(&a, &out, 37);
+    for (0..37) |i| try testing.expectEqual(out[i], @popCount(a[i]));
+}
+
+test "bitwise_count_i8 simd body handles minInt" {
+    const testing = @import("std").testing;
+    var a: [35]i8 = undefined;
+    var out: [35]u8 = undefined;
+    for (&a, 0..) |*p, i| p.* = if (i % 5 == 0) -128 else @intCast(@as(i32, @intCast(i)) - 17);
+    bitwise_count_i8(&a, &out, 35);
+    for (0..35) |i| try testing.expectEqual(out[i], @popCount(@abs(a[i])));
+}
+
+test "bitwise_count_i16 simd body and tail" {
+    const testing = @import("std").testing;
+    var a: [19]i16 = undefined;
+    var out: [19]u8 = undefined;
+    for (&a, 0..) |*p, i| p.* = if (i % 4 == 0) -32768 else @intCast(@as(i32, @intCast(i)) * -301);
+    bitwise_count_i16(&a, &out, 19);
+    for (0..19) |i| try testing.expectEqual(out[i], @popCount(@abs(a[i])));
+}
+
+test "bitwise_count_i32 simd body and tail" {
+    const testing = @import("std").testing;
+    var a: [11]i32 = undefined;
+    var out: [11]u8 = undefined;
+    for (&a, 0..) |*p, i| p.* = if (i % 3 == 0) -2147483648 else @as(i32, @intCast(i)) * -70001;
+    bitwise_count_i32(&a, &out, 11);
+    for (0..11) |i| try testing.expectEqual(out[i], @popCount(@abs(a[i])));
+}
+
+test "bitwise_count_i64 simd body and tail" {
+    const testing = @import("std").testing;
+    var a: [7]i64 = undefined;
+    var out: [7]u8 = undefined;
+    for (&a, 0..) |*p, i| p.* = if (i % 3 == 0) -9223372036854775808 else @as(i64, @intCast(i)) * -1234567891;
+    bitwise_count_i64(&a, &out, 7);
+    for (0..7) |i| try testing.expectEqual(out[i], @popCount(@abs(a[i])));
+}
+
+test "bitwise_count_u64 simd body and tail" {
+    const testing = @import("std").testing;
+    var a: [7]u64 = undefined;
+    var out: [7]u8 = undefined;
+    for (&a, 0..) |*p, i| p.* = @as(u64, 0xFFFF_0000_1234_5678) >> @intCast(i);
+    bitwise_count_u64(&a, &out, 7);
+    for (0..7) |i| try testing.expectEqual(out[i], @popCount(a[i]));
 }

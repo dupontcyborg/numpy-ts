@@ -263,8 +263,9 @@ describe('BigInt Arithmetic Correctness', () => {
       arr.data[2] = 9007199254740993n; // MAX_SAFE_INTEGER + 2
 
       const sum = arr.sum();
-      // Sum: 27021597764222976
-      expect(sum).toBe(27021597764222976);
+      // Sum: 27021597764222976 — returned as bigint so nothing rounds through a
+      // double, matching the `sum(axis)` expectations below.
+      expect(sum).toBe(27021597764222976n);
     });
 
     it('preserves precision in int64 sum with axis', () => {
@@ -299,7 +300,7 @@ describe('BigInt Arithmetic Correctness', () => {
       arr.data[2] = 9007199254740992n;
 
       const maxVal = arr.max();
-      expect(maxVal).toBe(Number(9007199254740995n));
+      expect(maxVal).toBe(9007199254740995n);
     });
 
     it('preserves dtype in int64 max with axis', () => {
@@ -325,7 +326,7 @@ describe('BigInt Arithmetic Correctness', () => {
       arr.data[2] = 9007199254740992n;
 
       const minVal = arr.min();
-      expect(minVal).toBe(Number(9007199254740990n));
+      expect(minVal).toBe(9007199254740990n);
     });
 
     it('preserves dtype in int64 min with axis', () => {
@@ -393,11 +394,13 @@ describe('BigInt Arithmetic Correctness', () => {
       arr.data[1] = 18446744073709551611n;
       arr.data[2] = 18446744073709551612n;
 
+      // Number(18446744073709551612n) is 18446744073709551616 — these values are
+      // only expressible as bigint.
       const maxVal = arr.max();
-      expect(maxVal).toBe(Number(18446744073709551612n));
+      expect(maxVal).toBe(18446744073709551612n);
 
       const minVal = arr.min();
-      expect(minVal).toBe(Number(18446744073709551610n));
+      expect(minVal).toBe(18446744073709551610n);
     });
 
     it('handles negative int64 values in reductions', () => {
@@ -407,14 +410,13 @@ describe('BigInt Arithmetic Correctness', () => {
       arr.data[2] = -9007199254740995n;
 
       const sum = arr.sum();
-      // Expected sum: -27021597764222982
-      expect(sum).toBe(-27021597764222980 - 2);
+      expect(sum).toBe(-27021597764222982n);
 
       const maxVal = arr.max();
-      expect(maxVal).toBe(Number(-9007199254740993n));
+      expect(maxVal).toBe(-9007199254740993n);
 
       const minVal = arr.min();
-      expect(minVal).toBe(Number(-9007199254740995n));
+      expect(minVal).toBe(-9007199254740995n);
     });
   });
 });

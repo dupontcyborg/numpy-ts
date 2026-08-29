@@ -1,8 +1,7 @@
-//! WASM LU decomposition with partial pivoting.
-//!
-//! PA = LU factorization for f64 and f32 square matrices.
-//! L has unit diagonal (stored below diagonal), U above (stored on+above diagonal).
-//! Pivots stored as i32 permutation array.
+//! WASM LU decomposition with partial pivoting: PA = LU factorization for f64
+//! and f32 square matrices. L has unit diagonal (stored below diagonal), U
+//! above (stored on and above diagonal); pivots are stored as an i32
+//! permutation array.
 //!
 //! The inner row-update loop uses 2-wide f64 SIMD (multiply-subtract).
 
@@ -350,8 +349,7 @@ test "lu_inv_f64 2x2" {
 
 test "lu_solve_f64 basic" {
     const testing = @import("std").testing;
-    // [[2,1],[5,3]] @ x = [4,7] → x = [5,-6]... let me compute:
-    // 2x + y = 4, 5x + 3y = 7 → x=5, y=-6? No: 2(5)+(-6)=4 ✓, 5(5)+3(-6)=25-18=7 ✓
+    // [[2,1],[5,3]] @ x = [4,7] → x = [5,-6]: 2(5)+(-6)=4, 5(5)+3(-6)=7
     var a = [_]f64{ 2, 1, 5, 3 };
     var piv: [2]i32 = undefined;
     _ = lu_factor_f64(&a, &piv, 2);

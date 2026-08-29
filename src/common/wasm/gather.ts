@@ -101,13 +101,10 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
 };
 
 /**
- * WASM-accelerated extract (conditional gather).
- * condition must be flattened int32, data must be contiguous.
+ * WASM-accelerated extract (conditional gather). Condition must be flattened
+ * int32, data must be contiguous. Output size is unknown until the kernel
+ * runs, so we allocate worst-case and trim to the actual count once known.
  * Returns ArrayStorage or null.
- *
- * Note: extract output size is unknown until kernel runs, so we use
- * wasmMalloc for worst-case, then trim. For the actual result we need
- * to know the count, so we read from the persistent region.
  */
 export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): ArrayStorage | null {
   if (!condition.isCContiguous || !storage.isCContiguous) return null;
@@ -191,8 +188,8 @@ export function wasmExtract(condition: ArrayStorage, storage: ArrayStorage): Arr
     );
   }
 
-  // The output region may be larger than needed. We create a view of just the count elements.
-  // Since fromWasmRegion creates a view, the extra bytes are wasted but harmless.
+  // Output region may be larger than needed; fromWasmRegion views just the count
+  // elements, wasting but not touching the extra bytes.
   return ArrayStorage.fromWasmRegion(
     [count],
     dtype,

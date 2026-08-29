@@ -664,12 +664,10 @@ pub fn radixSort(comptime T: type, a: [*]T, N: u32, scratch: [*]T) void {
         dst = tmp;
     }
 
-    // After an odd number of effective passes the result sits in scratch — copy back
+    // After an odd number of effective passes the result sits in scratch — copy
+    // back. The guard proves src and a are distinct, so @memcpy is safe.
     if (src != a) {
-        var i: u32 = 0;
-        while (i < N) : (i += 1) {
-            a[i] = src[i];
-        }
+        @memcpy(a[0..N], src[0..N]);
     }
 }
 
@@ -678,11 +676,10 @@ pub fn radixSort(comptime T: type, a: [*]T, N: u32, scratch: [*]T) void {
 /// Sort numSlices contiguous slices of sliceSize elements each.
 /// Automatically selects radix sort for ≤32-bit types, introsort otherwise.
 pub fn sortSlices(comptime T: type, a: [*]T, sliceSize: u32, numSlices: u32) void {
-    // Radix sort wins for small integer types (1–4 byte keys, few passes).
-    // For 8-byte types (f64/i64/u64) the 8-pass overhead exceeds introsort at typical slice sizes.
-    // For floats, radix's toRadixKey overhead + 4-8 passes loses to introsort at small slice sizes.
-    // Radix sort: 1 pass for u8/i8 (counting sort) always wins.
-    // For 2-4 byte types, introsort wins at small slice sizes (<256).
+    // Radix sort wins for narrow integer types (few byte-passes). For 8-byte
+    // types and for floats (extra toRadixKey conversion cost), the pass
+    // overhead exceeds introsort at typical slice sizes, so those stay on
+    // introsort except at large slice sizes.
     const useRadix = ((T == u8 or T == i8) and sliceSize >= 16) or
         ((T == u16 or T == i16 or T == u32 or T == i32) and sliceSize >= 256);
 

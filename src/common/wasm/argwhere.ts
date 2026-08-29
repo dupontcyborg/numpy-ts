@@ -77,7 +77,7 @@ export function wasmArgwhereFlat(a: ArrayStorage): Uint32Array | null {
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  // Resolve input pointer
+  // float16 has no native kernel; widen into an f32 scratch buffer first.
   let aPtr: number;
   if (dtype === 'float16') {
     aPtr = f16InputToScratchF32(a, size);
@@ -85,14 +85,12 @@ export function wasmArgwhereFlat(a: ArrayStorage): Uint32Array | null {
     aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   }
 
-  // Allocate worst-case output (N u32 indices) in scratch
+  // Worst case every element is non-zero, so size the output for N indices.
   const outBytes = size * 4; // u32 = 4 bytes
   const outPtr = scratchAlloc(outBytes);
 
-  // Fill indices
   const count = kernel(aPtr, outPtr, size);
 
-  // Copy result out of WASM memory
   const mem = getSharedMemory();
   const wasmView = new Uint32Array(mem.buffer, outPtr, count);
   const result = new Uint32Array(count);

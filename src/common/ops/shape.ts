@@ -14,6 +14,7 @@ import {
   type TypedArray,
 } from '../dtype';
 import { expandEllipsis } from '../internal/indexing';
+import { stridedScatterFrom } from '../internal/strided-copy';
 import { normalizeSlice, parseSlice } from '../slicing';
 import { ArrayStorage, computeStrides } from '../storage';
 import { wasmRepeat } from '../wasm/repeat';
@@ -163,7 +164,13 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
     );
   }
 
-  // Fast path: if array is C-contiguous, create a view (no copy)
+  // Fast path: if array is C-contiguous, create a view (no copy).
+  //
+  // The offset must be carried over. `isCContiguous` is computed from the
+  // strides alone, so a *sliced* view — `a[1:]`, a row range — is C-contiguous
+  // with a non-zero offset. Hardcoding 0 here silently re-based the view on the
+  // start of the buffer and returned the wrong elements; `tensordot` reshapes
+  // its operands and hit this for any sliced input.
   if (storage.isCContiguous) {
     const data = storage.data;
     return ArrayStorage.fromDataShared(
@@ -171,7 +178,7 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
       finalShape,
       dtype,
       computeStrides(finalShape),
-      0,
+      storage.offset,
       storage.wasmRegion,
     );
   }
@@ -263,10 +270,19 @@ export function ravel(storage: ArrayStorage): ArrayStorage {
   const size = storage.size;
   const dtype = storage.dtype;
 
-  // Fast path: if array is C-contiguous, create a view (no copy needed)
+  // Fast path: if array is C-contiguous, create a view (no copy needed).
+  // The offset carries over for the same reason as in reshape() above: a sliced
+  // view is C-contiguous but does not start at the beginning of the buffer.
   if (storage.isCContiguous) {
     const data = storage.data;
-    return ArrayStorage.fromDataShared(data, [size], dtype, [1], 0, storage.wasmRegion);
+    return ArrayStorage.fromDataShared(
+      data,
+      [size],
+      dtype,
+      [1],
+      storage.offset,
+      storage.wasmRegion,
+    );
   }
 
   // Slow path: array is not contiguous, must copy like flatten()
@@ -630,108 +646,28 @@ function copyToOutput(
   axisOffset: number,
   dtype: string,
 ): void {
-  const sourceShape = source.shape;
-  const ndim = sourceShape.length;
-  const sourceSize = source.size;
-  const isBigInt = dtype === 'int64' || dtype === 'uint64';
   const isComplex = dtype === 'complex128' || dtype === 'complex64';
-  // Complex arrays: each logical element = 2 physical entries (re, im)
   const elemScale = isComplex ? 2 : 1;
 
-  // Fast path: if concatenating along axis 0 and both are C-contiguous,
-  // we can do bulk copy
-  if (axis === 0 && source.isCContiguous && ndim > 0) {
-    // Calculate the starting position in output array (physical)
-    const outputOffset = axisOffset * outputStrides[0]! * elemScale;
-    const sourceData = source.data;
-    const start = source.offset * elemScale;
-    const end = start + sourceSize * elemScale;
+  // The output region this input occupies is a strided slice of the result, so
+  // this is a dense-to-strided write. stridedScatterFrom picks a strategy from
+  // the stride pattern: a single bulk copy when the region is contiguous (axis
+  // 0), one native copy per row when rows are long (axis 1), and a monomorphic
+  // scatter otherwise (axis 2, and any short-row case such as column_stack's
+  // width-1 columns, avoiding one `.set()` call per element).
+  const contiguous = source.isCContiguous ? source : source.copy();
+  const srcView = (
+    contiguous.data as unknown as { subarray(b: number, e: number): TypedArray }
+  ).subarray(contiguous.offset * elemScale, (contiguous.offset + contiguous.size) * elemScale);
 
-    // Bulk copy the entire source array
-    // @ts-expect-error - TypedArray.set() works with any typed array subarray
-    outputData.set(sourceData.subarray(start, end), outputOffset);
-    return;
-  }
-
-  // Optimized path for axis=1 (common for hstack): copy row by row
-  if (axis === 1 && ndim === 2 && source.isCContiguous) {
-    const rows = sourceShape[0]!;
-    const cols = sourceShape[1]!;
-    const outputCols = _outputShape[1]!;
-    const sourceData = source.data;
-    const sourceStart = source.offset * elemScale;
-
-    for (let row = 0; row < rows; row++) {
-      const sourceRowStart = sourceStart + row * cols * elemScale;
-      const outputRowStart = (row * outputCols + axisOffset) * elemScale;
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>).set(
-        sourceData.subarray(sourceRowStart, sourceRowStart + cols * elemScale) as Float64Array,
-        outputRowStart,
-      );
-    }
-    return;
-  }
-
-  // Float16Array optimization: bulk-convert for faster per-element access
-  if (dtype === 'float16' && hasFloat16 && source.isCContiguous) {
-    const f32Src = new Float32Array(
-      (source.data as Float16Array).subarray(source.offset, source.offset + sourceSize),
-    );
-    const indices = new Array(ndim).fill(0);
-    const baseOutputOffset = axisOffset * outputStrides[axis]!;
-
-    for (let i = 0; i < sourceSize; i++) {
-      let outputIdx = baseOutputOffset;
-      for (let d = 0; d < ndim; d++) {
-        outputIdx += indices[d]! * outputStrides[d]!;
-      }
-      (outputData as Float16Array)[outputIdx] = f32Src[i]!;
-
-      for (let d = ndim - 1; d >= 0; d--) {
-        indices[d]++;
-        if (indices[d]! < sourceShape[d]!) break;
-        indices[d] = 0;
-      }
-    }
-    return;
-  }
-
-  // Slow path: element-by-element copy using flat indices (iget)
-  // Optimized to avoid array spread and pre-compute base offset
-  const indices = new Array(ndim).fill(0);
-  const baseOutputOffset = axisOffset * outputStrides[axis]!;
-
-  for (let i = 0; i < sourceSize; i++) {
-    // Get value from source using flat index
-    const value = source.iget(i);
-
-    // Compute output index more efficiently
-    let outputIdx = baseOutputOffset;
-    for (let d = 0; d < ndim; d++) {
-      outputIdx += indices[d]! * outputStrides[d]!;
-    }
-
-    // Write to output
-    if (isComplex) {
-      const c = value as { re: number; im: number };
-      (outputData as Float64Array)[outputIdx * 2] = c.re;
-      (outputData as Float64Array)[outputIdx * 2 + 1] = c.im;
-    } else if (isBigInt) {
-      (outputData as BigInt64Array | BigUint64Array)[outputIdx] = value as bigint;
-    } else {
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outputIdx] =
-        value as number;
-    }
-
-    // Increment indices
-    for (let d = ndim - 1; d >= 0; d--) {
-      indices[d]++;
-      if (indices[d]! < sourceShape[d]!) {
-        break;
-      }
-      indices[d] = 0;
-    }
-  }
+  stridedScatterFrom(
+    srcView,
+    outputData,
+    source.shape,
+    outputStrides,
+    axisOffset * outputStrides[axis]!,
+    isComplex,
+  );
 }
 
 /**
@@ -1689,19 +1625,34 @@ export function resize(storage: ArrayStorage, newShape: number[]): ArrayStorage 
   if (!Constructor) {
     throw new Error(`Cannot resize array with dtype ${dtype}`);
   }
+  // NumPy fills with zeros when there is nothing to cycle.
+  if (oldSize === 0) {
+    return ArrayStorage.zeros(newShape, dtype);
+  }
+
   const resizeResult = ArrayStorage.empty(newShape, dtype);
   const outputData = resizeResult.data;
-  const isBigInt = isBigIntDType(dtype);
 
-  // Fill output by cycling through source data
-  for (let i = 0; i < newSize; i++) {
-    const sourceIdx = i % oldSize;
-    const value = storage.iget(sourceIdx);
-    if (isBigInt) {
-      (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
-    } else {
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
-    }
+  // Cycling the source is a tiling problem, not an element-at-a-time one: lay
+  // down one contiguous period, then repeatedly double it with native copies.
+  // The old `iget` loop paid O(ndim^2) index math and a megamorphic store per
+  // element; this issues ceil(log2(newSize / oldSize)) + 1 bulk copies.
+  const per = isComplexDType(dtype) ? 2 : 1;
+  const source = storage.isCContiguous && storage.offset === 0 ? storage : storage.copy();
+  const src = source.data as unknown as { subarray(b: number, e: number): ArrayLike<number> };
+  const out = outputData as unknown as {
+    set(v: ArrayLike<number>, off: number): void;
+    subarray(b: number, e: number): ArrayLike<number>;
+  };
+
+  const period = Math.min(oldSize, newSize);
+  out.set(src.subarray(source.offset * per, (source.offset + period) * per), 0);
+
+  let filled = period;
+  while (filled < newSize) {
+    const chunk = Math.min(filled, newSize - filled);
+    out.set(out.subarray(0, chunk * per), filled * per);
+    filled += chunk;
   }
 
   return resizeResult;

@@ -8,8 +8,16 @@
  */
 
 import { Complex } from '../complex';
-import { isBigIntDType, mathResultDtype, promoteDTypes } from '../dtype';
+import {
+  isBigIntDType,
+  isComplexDType,
+  mathResultDtype,
+  promoteDTypes,
+  type TypedArray,
+} from '../dtype';
 import { ArrayStorage } from '../storage';
+import { wasmAllEqual } from '../wasm/all_equal';
+import { wasmCompare } from '../wasm/compare';
 
 /**
  * Compute the broadcast shape of two arrays
@@ -103,6 +111,115 @@ function broadcastTo(storage: ArrayStorage, targetShape: readonly number[]): Arr
  * @param opName - Name of operation (for special handling)
  * @returns Result storage
  */
+/**
+ * True when a size-1 array's element survives the trip through `Number`.
+ *
+ * Size-1 operands broadcast like scalars, and many ops exploit that with a
+ * dedicated scalar fast path reached via `Number(b.iget(0))`. For int64/uint64
+ * that silently truncates anything above 2^53 — `add` with a size-1 operand came
+ * back off by one, and `gcd`/`lcm` threw outright. Callers gate the shortcut on
+ * this and otherwise fall through to the exact broadcast path below.
+ */
+export function isExactScalar(x: ArrayStorage): boolean {
+  const v = x.iget(0);
+  return typeof v !== 'bigint' || (v >= -9007199254740991n && v <= 9007199254740991n);
+}
+
+/** Euclidean GCD on BigInt, used by both the gcd and lcm cases below. */
+function gcdBigInt(a: bigint, b: bigint): bigint {
+  let x = a < 0n ? -a : a;
+  let y = b < 0n ? -b : b;
+  while (y !== 0n) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x;
+}
+
+/**
+ * Exact BigInt implementation of the binary ops that reach the broadcast path.
+ *
+ * The generic fallback below routes an op it does not recognise through
+ * `BigInt(Math.round(op(Number(a), Number(b))))`. That round-trip truncates any
+ * int64/uint64 operand above 2^53, and for the bitwise ops it is far worse:
+ * JS `&`/`|`/`^` coerce through ToInt32, so `bitwise_and` on 64-bit values
+ * returned 0. Ops with no exact BigInt form return null and keep the old path.
+ *
+ * Divisor 0 yields 0 to match the integer kernels in zig/modulo.zig, which is
+ * also NumPy's integer behaviour (warn + 0) rather than a throw.
+ */
+function bigIntBinaryOp(opName: string, a: bigint, b: bigint): bigint | null {
+  switch (opName) {
+    case 'add':
+      return a + b;
+    case 'subtract':
+      return a - b;
+    case 'multiply':
+      return a * b;
+    case 'divide':
+      return a / b;
+    case 'mod': {
+      // Floor modulo: result takes the sign of the divisor (NumPy `%`).
+      if (b === 0n) return 0n;
+      const r = a % b;
+      return r !== 0n && r < 0n !== b < 0n ? r + b : r;
+    }
+    case 'floor_divide': {
+      // BigInt `/` truncates toward zero; NumPy floors.
+      if (b === 0n) return 0n;
+      const q = a / b;
+      return a % b !== 0n && a < 0n !== b < 0n ? q - 1n : q;
+    }
+    case 'fmod':
+      // Truncated remainder: sign of the dividend. BigInt `%` already does this.
+      return b === 0n ? 0n : a % b;
+    case 'maximum':
+    case 'fmax':
+      // Integers have no NaN, so fmax/fmin collapse onto maximum/minimum.
+      return a > b ? a : b;
+    case 'minimum':
+    case 'fmin':
+      return a < b ? a : b;
+    case 'bitwise_and':
+      return a & b;
+    case 'bitwise_or':
+      return a | b;
+    case 'bitwise_xor':
+      return a ^ b;
+    case 'gcd':
+      return gcdBigInt(a, b);
+    case 'lcm': {
+      const g = gcdBigInt(a, b);
+      if (g === 0n) return 0n;
+      // Divide before multiplying so the intermediate stays small; the typed
+      // array store then wraps exactly as NumPy's integer lcm does.
+      return ((a < 0n ? -a : a) / g) * (b < 0n ? -b : b);
+    }
+    case 'power': {
+      // Negative exponents promote to float64 upstream and never land here; if
+      // one does, fall through rather than let BigInt `**` misbehave.
+      if (b < 0n) return null;
+      // Exponentiate modulo 2^64 rather than with `**`. The result is stored into
+      // a 64-bit typed array, which wraps anyway, and two's-complement wrapping
+      // is exactly arithmetic mod 2^64 — but unbounded `**` blows up first: a
+      // uint64 exponent of 2^64-1 throws "Maximum BigInt size exceeded".
+      const M = 1n << 64n;
+      let base = ((a % M) + M) % M;
+      let e = b;
+      let acc = 1n;
+      while (e > 0n) {
+        if (e & 1n) acc = (acc * base) % M;
+        base = (base * base) % M;
+        e >>= 1n;
+      }
+      return acc;
+    }
+    default:
+      return null;
+  }
+}
+
 export function elementwiseBinaryOp(
   a: ArrayStorage,
   b: ArrayStorage,
@@ -173,18 +290,9 @@ export function elementwiseBinaryOp(
       const aVal = typeof aNum === 'bigint' ? aNum : BigInt(Math.round(aNum as number));
       const bVal = typeof bNum === 'bigint' ? bNum : BigInt(Math.round(bNum as number));
 
-      // Use BigInt operations
-      if (opName === 'add') {
-        resultTyped[i] = aVal + bVal;
-      } else if (opName === 'subtract') {
-        resultTyped[i] = aVal - bVal;
-      } else if (opName === 'multiply') {
-        resultTyped[i] = aVal * bVal;
-      } else if (opName === 'divide') {
-        resultTyped[i] = aVal / bVal;
-      } else {
-        resultTyped[i] = BigInt(Math.round(op(Number(aVal), Number(bVal))));
-      }
+      // Exact BigInt arithmetic where the op has one; float round-trip otherwise.
+      const exact = bigIntBinaryOp(opName, aVal, bVal);
+      resultTyped[i] = exact ?? BigInt(Math.round(op(Number(aVal), Number(bVal))));
     }
   } else {
     // Regular numeric types (including float dtypes)
@@ -210,13 +318,685 @@ export function elementwiseBinaryOp(
  * Perform element-wise comparison with broadcasting
  * Returns boolean array (dtype: 'bool', stored as Uint8Array)
  */
+// --- Comparison fast-path loops, one function per TypedArray type ---
+//
+// The bodies are identical and the duplication is deliberate. A single generic
+// loop reading `aData[i]` sees every TypedArray type used anywhere in the
+// program; past a few types V8 abandons the inline cache on that load and
+// every dtype pays, including ones that would otherwise stay monomorphic. One
+// function per type keeps each load monomorphic. The `k` switch is free: it
+// compiles to a jump and the comparison is inlined rather than reached
+// through a closure.
+
+function cmpF64(
+  a: Float64Array,
+  b: Float64Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpF32(
+  a: Float32Array,
+  b: Float32Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpI32(
+  a: Int32Array,
+  b: Int32Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpU32(
+  a: Uint32Array,
+  b: Uint32Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpI16(
+  a: Int16Array,
+  b: Int16Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpU16(
+  a: Uint16Array,
+  b: Uint16Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpI8(
+  a: Int8Array,
+  b: Int8Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpU8(
+  a: Uint8Array,
+  b: Uint8Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+function cmpF16(
+  a: Float16Array,
+  b: Float16Array,
+  o: Uint8Array,
+  ao: number,
+  bo: number,
+  n: number,
+  k: ComparisonKind,
+): void {
+  switch (k) {
+    case 'eq':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! === b[bo + i]! ? 1 : 0;
+      return;
+    case 'ne':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! !== b[bo + i]! ? 1 : 0;
+      return;
+    case 'lt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! < b[bo + i]! ? 1 : 0;
+      return;
+    case 'le':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! <= b[bo + i]! ? 1 : 0;
+      return;
+    case 'gt':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! > b[bo + i]! ? 1 : 0;
+      return;
+    case 'ge':
+      for (let i = 0; i < n; i++) o[i] = a[ao + i]! >= b[bo + i]! ? 1 : 0;
+      return;
+  }
+}
+
+/** Element-type constructor -> specialised loop. One lookup per call. */
+const CMP_LOOPS = new Map<
+  unknown,
+  (a: never, b: never, o: Uint8Array, ao: number, bo: number, n: number, k: ComparisonKind) => void
+>([
+  [Float64Array, cmpF64 as never],
+  [Float32Array, cmpF32 as never],
+  [Int32Array, cmpI32 as never],
+  [Uint32Array, cmpU32 as never],
+  [Int16Array, cmpI16 as never],
+  [Uint16Array, cmpU16 as never],
+  [Int8Array, cmpI8 as never],
+  [Uint8Array, cmpU8 as never],
+]);
+
+// float16 only exists on engines that ship Float16Array; elsewhere the storage
+// is a Float32Array and the entry above already covers it.
+if (typeof Float16Array !== 'undefined') {
+  CMP_LOOPS.set(Float16Array, cmpF16 as never);
+}
+
+// --- All-elements-equal fast path for array_equal / array_equiv ---
+//
+// One loop per TypedArray type, duplicated for the same reason as CMP_LOOPS
+// above: a single generic loop reading `aData[i]` sees every TypedArray in the
+// program, V8 abandons the inline cache on that load, and every dtype pays.
+//
+// The generic paths these replace were worse than the comparison one was.
+// `array_equal` called `iget()` on both operands per element and re-tested
+// `typeof val === 'object' && 're' in val` for complex *inside* the loop;
+// `arrayEquiv` additionally decomposed the flat index into per-axis indices with
+// a divide and a modulo per dimension, then spread them through `get(...idx)`.
+
+type EqLoop = (
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+) => boolean;
+
+function eqF64(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+): boolean {
+  const a = aData as Float64Array;
+  const b = bData as Float64Array;
+  if (equalNan) {
+    for (let i = 0; i < size; i++) {
+      const x = a[aOff + i]!;
+      const y = b[bOff + i]!;
+      // x !== x is the NaN test; it is cheaper than Number.isNaN here.
+      if (x !== y && !(x !== x && y !== y)) return false;
+    }
+    return true;
+  }
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqF32(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+): boolean {
+  const a = aData as Float32Array;
+  const b = bData as Float32Array;
+  if (equalNan) {
+    for (let i = 0; i < size; i++) {
+      const x = a[aOff + i]!;
+      const y = b[bOff + i]!;
+      if (x !== y && !(x !== x && y !== y)) return false;
+    }
+    return true;
+  }
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqF16(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+  equalNan: boolean,
+): boolean {
+  const a = aData as Float16Array;
+  const b = bData as Float16Array;
+  if (equalNan) {
+    for (let i = 0; i < size; i++) {
+      const x = a[aOff + i]!;
+      const y = b[bOff + i]!;
+      if (x !== y && !(x !== x && y !== y)) return false;
+    }
+    return true;
+  }
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+// Integer and bool loops ignore `equalNan` — those dtypes have no NaN.
+
+function eqI32(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Int32Array;
+  const b = bData as Int32Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU32(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Uint32Array;
+  const b = bData as Uint32Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqI16(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Int16Array;
+  const b = bData as Int16Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU16(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Uint16Array;
+  const b = bData as Uint16Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqI8(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Int8Array;
+  const b = bData as Int8Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU8(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as Uint8Array;
+  const b = bData as Uint8Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqI64(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as BigInt64Array;
+  const b = bData as BigInt64Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+function eqU64(
+  aData: TypedArray,
+  aOff: number,
+  bData: TypedArray,
+  bOff: number,
+  size: number,
+): boolean {
+  const a = aData as BigUint64Array;
+  const b = bData as BigUint64Array;
+  for (let i = 0; i < size; i++) {
+    if (a[aOff + i] !== b[bOff + i]) return false;
+  }
+  return true;
+}
+
+const EQ_LOOPS = new Map<unknown, EqLoop>([
+  [Float64Array, eqF64 as EqLoop],
+  [Float32Array, eqF32 as EqLoop],
+  [Int32Array, eqI32 as EqLoop],
+  [Uint32Array, eqU32 as EqLoop],
+  [Int16Array, eqI16 as EqLoop],
+  [Uint16Array, eqU16 as EqLoop],
+  [Int8Array, eqI8 as EqLoop],
+  [Uint8Array, eqU8 as EqLoop],
+  [BigInt64Array, eqI64 as EqLoop],
+  [BigUint64Array, eqU64 as EqLoop],
+]);
+
+// float16 only exists on engines that ship Float16Array; elsewhere the storage
+// is a Float32Array and the entry above already covers it.
+if (typeof Float16Array !== 'undefined') {
+  EQ_LOOPS.set(Float16Array, eqF16 as EqLoop);
+}
+
+/**
+ * True/false when every element of `a` equals every element of `b`, or null when
+ * this fast path does not apply and the caller must use its generic loop.
+ *
+ * Applies only when both operands are contiguous, identically shaped, share a
+ * dtype, and are not complex — which is the shape `array_equal` and
+ * `array_equiv` are called with in practice.
+ */
+export function allElementsEqual(
+  a: ArrayStorage,
+  b: ArrayStorage,
+  equalNan: boolean,
+): boolean | null {
+  if (a.dtype !== b.dtype) return null;
+  if (isComplexDType(a.dtype)) return null;
+  if (!a.isCContiguous || !b.isCContiguous) return null;
+  if (a.shape.length !== b.shape.length) return null;
+  for (let i = 0; i < a.shape.length; i++) {
+    if (a.shape[i] !== b.shape[i]) return null;
+  }
+  if (a.size !== b.size) return null;
+
+  // SIMD first for large arrays. The loops below are already monomorphic, but
+  // they cost the same per element for every dtype while NumPy's cost scales
+  // with bytes — which is why the ratio was worst on int8, where NumPy is
+  // fastest, not where we are slowest.
+  const viaWasm = wasmAllEqual(a, b, equalNan);
+  if (viaWasm !== null) return viaWasm;
+
+  const aData = a.data;
+  const loop = EQ_LOOPS.get(aData.constructor);
+  if (!loop) return null;
+
+  return loop(aData, a.offset, b.data, b.offset, a.size, equalNan);
+}
+
+/** Exact BigInt comparison, avoiding the precision loss of Number(). */
+function compareBigInt(a: bigint, b: bigint, k: ComparisonKind): boolean {
+  switch (k) {
+    case 'eq':
+      return a === b;
+    case 'ne':
+      return a !== b;
+    case 'lt':
+      return a < b;
+    case 'le':
+      return a <= b;
+    case 'gt':
+      return a > b;
+    case 'ge':
+      return a >= b;
+  }
+}
+
+/**
+ * Which comparison the caller wants, so the fast path can run a dedicated loop.
+ *
+ * Passing a closure instead makes the per-element call site megamorphic once
+ * more than one comparison operator is used in a process, slowing down every
+ * operator, not just the later ones. Naming the operator lets each loop keep
+ * its own monomorphic site.
+ */
+export type ComparisonKind = 'eq' | 'ne' | 'lt' | 'le' | 'gt' | 'ge';
+
 export function elementwiseComparisonOp(
   a: ArrayStorage,
   b: ArrayStorage,
   op: (a: number, b: number) => boolean,
+  kind?: ComparisonKind,
 ): ArrayStorage {
   // Compute broadcast shape
   const outputShape = broadcastShapes(a.shape, b.shape);
+
+  // FAST PATH: same shape, both contiguous, non-BigInt — mirrors the arithmetic
+  // fast path above. Avoids building broadcast views and the per-element
+  // iget()/Number() work: decomposing a flat index into per-axis indices and
+  // re-composing it through iget() costs far more than the comparison itself.
+  const aShape = a.shape;
+  const bShape = b.shape;
+
+  // WASM kernel first, and deliberately outside the guard below: it handles
+  // int64/uint64 natively, comparing true 64-bit values. Every JS path here
+  // funnels BigInt through Number(), which silently collapses values above
+  // 2^53 — equal(2^53, 2^53+1) returned true. The kernel is both faster and
+  // more correct, so it gets first refusal.
+  if (kind) {
+    const viaWasm = wasmCompare(kind, a, b);
+    if (viaWasm) return viaWasm;
+  }
+
+  if (
+    aShape.length === bShape.length &&
+    aShape.every((dim, i) => dim === bShape[i]) &&
+    a.isCContiguous &&
+    b.isCContiguous &&
+    !isBigIntDType(a.dtype) &&
+    !isBigIntDType(b.dtype) &&
+    !isComplexDType(a.dtype) &&
+    !isComplexDType(b.dtype)
+  ) {
+    const fastResult = ArrayStorage.empty(Array.from(aShape), 'bool');
+    const fastData = fastResult.data as Uint8Array;
+    const n = a.size;
+    const aData = a.data;
+    const bData = b.data;
+    const aOff = a.offset;
+    const bOff = b.offset;
+
+    // Specialised path: identical element types plus a named comparison, so the
+    // loop has a monomorphic load site. Mixed dtypes and untagged callers fall
+    // through to the generic loop below.
+    if (kind && aData.constructor === bData.constructor) {
+      const loop = CMP_LOOPS.get(aData.constructor);
+      if (loop) {
+        (
+          loop as unknown as (
+            a: unknown,
+            b: unknown,
+            o: Uint8Array,
+            ao: number,
+            bo: number,
+            n: number,
+            k: ComparisonKind,
+          ) => void
+        )(aData, bData, fastData, aOff, bOff, n, kind);
+        return fastResult;
+      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      fastData[i] = op(aData[aOff + i] as number, bData[bOff + i] as number) ? 1 : 0;
+    }
+    return fastResult;
+  }
 
   // Create broadcast views
   const aBroadcast = broadcastTo(a, outputShape);
@@ -230,16 +1010,22 @@ export function elementwiseComparisonOp(
   // Check if we need to convert BigInt to Number for comparison
   const needsConversion = isBigIntDType(a.dtype) || isBigIntDType(b.dtype);
 
-  // Perform element-wise comparison
+  // Perform element-wise comparison.
+  //
+  // When both sides are BigInt, compare them directly: routing through
+  // Number() loses precision above 2^53 and reports distinct int64 values as
+  // equal. Mixed BigInt/float still converts, matching NumPy's promotion to
+  // float64 for those combinations.
   for (let i = 0; i < size; i++) {
     const aRaw = aBroadcast.iget(i);
     const bRaw = bBroadcast.iget(i);
 
-    // Convert BigInt to Number if needed
-    const aVal = needsConversion && typeof aRaw === 'bigint' ? Number(aRaw) : Number(aRaw);
-    const bVal = needsConversion && typeof bRaw === 'bigint' ? Number(bRaw) : Number(bRaw);
+    if (needsConversion && kind && typeof aRaw === 'bigint' && typeof bRaw === 'bigint') {
+      resultData[i] = compareBigInt(aRaw, bRaw, kind) ? 1 : 0;
+      continue;
+    }
 
-    resultData[i] = op(aVal, bVal) ? 1 : 0;
+    resultData[i] = op(Number(aRaw), Number(bRaw)) ? 1 : 0;
   }
 
   return result;
@@ -320,4 +1106,42 @@ export function elementwiseUnaryOp(
   }
 
   return result;
+}
+
+/**
+ * A dense, logical-order Float64Array over a non-BigInt storage. Read-only.
+ *
+ * Widening happens in one native TypedArray-to-TypedArray conversion, so
+ * callers get a monomorphic buffer to compute over instead of reading through
+ * a TypedArray union element by element. Not valid for int64/uint64, whose
+ * range exceeds f64's exact integers.
+ */
+export function flatF64View(s: ArrayStorage): Float64Array {
+  type Sub = { subarray(b: number, e: number): ArrayLike<number> };
+
+  if (s.isCContiguous) {
+    const view = (s.data as unknown as Sub).subarray(s.offset, s.offset + s.size);
+    // Already the right type: hand back the view rather than duplicating it.
+    return view instanceof Float64Array ? view : new Float64Array(view);
+  }
+
+  // A strided source has to be materialised first. The temporary owns a WASM
+  // region, so release it once the values have been widened out of it.
+  const c = s.copy();
+  try {
+    return new Float64Array((c.data as unknown as Sub).subarray(c.offset, c.offset + c.size));
+  } finally {
+    c.dispose();
+  }
+}
+
+/**
+ * Like {@link flatF64View}, but always safe to write to.
+ *
+ * Only the contiguous-float64 case differs, and only there does this cost an
+ * allocation the view form avoids.
+ */
+export function flatF64Copy(s: ArrayStorage): Float64Array {
+  const v = flatF64View(s);
+  return s.dtype === 'float64' ? new Float64Array(v) : v;
 }

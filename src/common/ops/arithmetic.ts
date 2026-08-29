@@ -23,21 +23,29 @@ import {
   throwIfBool,
   throwIfComplex,
 } from '../dtype';
-import { elementwiseBinaryOp } from '../internal/compute';
+import { elementwiseBinaryOp, isExactScalar } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 import { wasmAbs } from '../wasm/abs';
 import { wasmAdd, wasmAddScalar } from '../wasm/add';
 import { wasmClip } from '../wasm/clip';
 import { wasmDiv, wasmDivScalar } from '../wasm/divide';
-import { wasmDivmodScalar } from '../wasm/divmod';
+import { wasmDivmod, wasmDivmodScalar } from '../wasm/divmod';
 import { wasmFrexp } from '../wasm/frexp';
 import { wasmGcd, wasmGcdScalar } from '../wasm/gcd';
 import { wasmHeaviside, wasmHeavisideScalar } from '../wasm/heaviside';
+import { wasmLcm, wasmLcmScalar } from '../wasm/lcm';
 import { wasmLdexpScalar } from '../wasm/ldexp';
 import { wasmMax, wasmMaxScalar } from '../wasm/max';
 import { wasmMin, wasmMinScalar } from '../wasm/min';
 import { wasmModf } from '../wasm/modf';
-import { wasmFloorDivScalar, wasmFmodScalar, wasmModScalar } from '../wasm/modulo';
+import {
+  wasmFloorDiv,
+  wasmFloorDivScalar,
+  wasmFmod,
+  wasmFmodScalar,
+  wasmMod,
+  wasmModScalar,
+} from '../wasm/modulo';
 import { wasmMul, wasmMulScalar } from '../wasm/mul';
 import { wasmNeg } from '../wasm/neg';
 import { wasmReciprocal } from '../wasm/reciprocal';
@@ -251,7 +259,7 @@ export function add(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
 
   // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
   // Skip BigInt dtypes — WASM scalar kernels can't accept i64 scalar params from JS
-  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
+  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype && isExactScalar(b)) {
     const scalarVal = Number(b.iget(0));
     return addScalar(a, scalarVal);
   }
@@ -382,7 +390,7 @@ export function subtract(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
   }
 
   // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
-  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
+  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype && isExactScalar(b)) {
     const scalarVal = Number(b.iget(0));
     return subtractScalar(a, scalarVal);
   }
@@ -499,7 +507,7 @@ export function multiply(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
   }
 
   // Optimize single-element non-complex arrays as scalars (only when same dtype to preserve promotion)
-  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype) {
+  if (b.size === 1 && !isComplexDType(b.dtype) && a.dtype === b.dtype && isExactScalar(b)) {
     const scalarVal = Number(b.iget(0));
     return multiplyScalar(a, scalarVal);
   }
@@ -626,7 +634,13 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
   }
 
   // Extract scalar from size-1 array for scalar WASM path (only when same dtype to preserve promotion)
-  if (b.size === 1 && !isComplexDType(b.dtype) && !isComplexDType(a.dtype) && a.dtype === b.dtype) {
+  if (
+    b.size === 1 &&
+    !isComplexDType(b.dtype) &&
+    !isComplexDType(a.dtype) &&
+    a.dtype === b.dtype &&
+    isExactScalar(b)
+  ) {
     const scalarVal = Number(b.iget(0));
     return divideScalar(a, scalarVal);
   }
@@ -715,26 +729,34 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
  * Convert ArrayStorage to float dtype
  * @private
  */
-function convertToFloatDType(
+export function convertToFloatDType(
   storage: ArrayStorage,
-  targetDtype: 'float32' | 'float64',
+  targetDtype: 'float16' | 'float32' | 'float64',
 ): ArrayStorage {
   const result = ArrayStorage.empty(Array.from(storage.shape), targetDtype);
   const size = storage.size;
-  const dstData = result.data;
+  const src = storage.isCContiguous ? storage : storage.copy();
 
-  if (storage.isCContiguous) {
-    const srcData = storage.data;
-    const off = storage.offset;
-    for (let i = 0; i < size; i++) {
-      dstData[i] = Number(srcData[off + i]!);
-    }
-  } else {
-    for (let i = 0; i < size; i++) {
-      dstData[i] = Number(storage.iget(i));
-    }
+  if (isBigIntDType(src.dtype)) {
+    // BigInt has no native conversion to a float TypedArray; this loop is
+    // monomorphic on both sides, which is the next best thing.
+    const s = src.data as BigInt64Array | BigUint64Array;
+    const d = result.data as Float64Array | Float32Array;
+    const off = src.offset;
+    for (let i = 0; i < size; i++) d[i] = Number(s[off + i]!);
+    return result;
   }
 
+  // One native TypedArray-to-TypedArray conversion. The previous loop stored
+  // through a TypedArray union, which goes megamorphic once more than four
+  // dtypes reach it, and then every dtype pays.
+  (result.data as unknown as { set(v: ArrayLike<number>, o: number): void }).set(
+    (src.data as unknown as { subarray(b: number, e: number): ArrayLike<number> }).subarray(
+      src.offset,
+      src.offset + size,
+    ),
+    0,
+  );
   return result;
 }
 
@@ -1284,9 +1306,12 @@ export function mod(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   }
   // Size-1 divisor broadcasts like a scalar — take the fast path when no
   // dtype promotion is needed (matches power's scalar-broadcast handling).
-  if (b.size === 1 && a.dtype === b.dtype) {
+  if (b.size === 1 && a.dtype === b.dtype && isExactScalar(b)) {
     return modScalar(a, Number(b.iget(0)));
   }
+  const wasmArr = wasmMod(a, b);
+  if (wasmArr) return wasmArr;
+
   // NumPy uses floor modulo: ((x % y) + y) % y for proper sign handling
   return elementwiseBinaryOp(a, b, (x, y) => ((x % y) + y) % y, 'mod');
 }
@@ -1361,9 +1386,12 @@ export function floorDivide(a: ArrayStorage, b: ArrayStorage | number): ArraySto
   if (typeof b === 'number') {
     return floorDivideScalar(a, b);
   }
-  if (b.size === 1 && a.dtype === b.dtype) {
+  if (b.size === 1 && a.dtype === b.dtype && isExactScalar(b)) {
     return floorDivideScalar(a, Number(b.iget(0)));
   }
+  const wasmArr = wasmFloorDiv(a, b);
+  if (wasmArr) return wasmArr;
+
   return elementwiseBinaryOp(a, b, (x, y) => Math.floor(x / y), 'floor_divide');
 }
 
@@ -1656,8 +1684,13 @@ export function divmod(a: ArrayStorage, b: ArrayStorage | number): [ArrayStorage
   if (typeof b === 'number') {
     const wasm = wasmDivmodScalar(a, b);
     if (wasm) return wasm;
-  } else if (b.size === 1 && a.dtype === b.dtype) {
+  } else if (b.size === 1 && a.dtype === b.dtype && isExactScalar(b)) {
     const wasm = wasmDivmodScalar(a, Number(b.iget(0)));
+    if (wasm) return wasm;
+  } else {
+    // Matching dtype and shape: one fused pass instead of separate
+    // floorDivide + mod through the generic JS path.
+    const wasm = wasmDivmod(a, b);
     if (wasm) return wasm;
   }
   const quotient = floorDivide(a, b);
@@ -2056,9 +2089,12 @@ export function fmod(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   if (typeof x2 === 'number') {
     return fmodScalar(x1, x2);
   }
-  if (x2.size === 1 && x1.dtype === x2.dtype) {
+  if (x2.size === 1 && x1.dtype === x2.dtype && isExactScalar(x2)) {
     return fmodScalar(x1, Number(x2.iget(0)));
   }
+
+  const wasmArr = wasmFmod(x1, x2);
+  if (wasmArr) return wasmArr;
 
   return elementwiseBinaryOp(x1, x2, (a, b) => a - Math.trunc(a / b) * b, 'fmod');
 }
@@ -2154,7 +2190,26 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
  * @param x2 - Second array or scalar
  * @returns GCD
  */
-export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): ArrayStorage {
+  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one.
+  // Without a dedicated branch it would fall past every case below and read
+  // `.kind` off an undefined dtype.
+  //
+  // Routed as a size-1 array rather than through Number(), so a value above 2^53
+  // stays exact for a 64-bit output.
+  if (typeof x2 === 'bigint') {
+    if (isBigIntDType(x1.dtype)) {
+      const scalarArr = ArrayStorage.empty([1], x1.dtype);
+      try {
+        scalarArr.iset(0, x2);
+        return gcd(x1, scalarArr);
+      } finally {
+        scalarArr.dispose();
+      }
+    }
+    return gcd(x1, Number(x2));
+  }
+
   throwIfComplex(x1.dtype, 'gcd', 'GCD is only defined for integers.');
   if (isFloatDType(x1.dtype))
     throw new TypeError(
@@ -2193,9 +2248,28 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   const outDtype = typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype);
 
   if (typeof x2 === 'number') {
-    // Try WASM scalar path
-    const wasmResult = wasmGcdScalar(x1, x2);
-    if (wasmResult) return wasmResult;
+    // A 64-bit integer output cannot take the Number-storing loop below — a
+    // BigInt64Array store of a Number throws outright. The generic path already
+    // has an exact BigInt gcd, so wrap the scalar and broadcast through that;
+    // this covers small scalars too, not only ones large enough to need
+    // isExactScalar below.
+    // Try WASM first, including for int64/uint64 — the kernels are exact at
+    // 64 bits, so the BigInt fallback below is only for scalars that a double
+    // cannot carry in the first place.
+    if (!isBigIntDType(outDtype) || Number.isSafeInteger(Math.abs(Math.trunc(x2)))) {
+      const wasmResult = wasmGcdScalar(x1, x2);
+      if (wasmResult) return wasmResult;
+    }
+
+    if (isBigIntDType(outDtype)) {
+      const scalarArr = ArrayStorage.empty([1], outDtype);
+      try {
+        scalarArr.iset(0, BigInt(Math.abs(Math.trunc(x2))));
+        return elementwiseBinaryOp(x1, scalarArr, gcdSingle, 'gcd');
+      } finally {
+        scalarArr.dispose();
+      }
+    }
 
     const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
     const resultData = result.data;
@@ -2218,7 +2292,7 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   }
 
   // Extract scalar from size-1 array
-  if (typeof x2 !== 'number' && x2.size === 1) {
+  if (typeof x2 !== 'number' && x2.size === 1 && isExactScalar(x2)) {
     return gcd(x1, Number(x2.iget(0)));
   }
 
@@ -2228,39 +2302,11 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
     if (wasmResult) return wasmResult;
   }
 
-  // Array case — compute gcd preserving promoted dtype
-  const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
-  const resultData = result.data;
-  const size = x1.size;
-
-  if (isBigIntDType(outDtype)) {
-    // Euclidean GCD for BigInt — can't reuse gcdSingle (Number-only, closure-scoped above)
-    const gcdBig = (a: bigint, b: bigint): bigint => {
-      a = a < 0n ? -a : a;
-      b = b < 0n ? -b : b;
-      while (b !== 0n) {
-        const t = b;
-        b = a % b;
-        a = t;
-      }
-      return a;
-    };
-    const x1IsBig = isBigIntDType(x1.dtype);
-    const x2IsBig = isBigIntDType((x2 as ArrayStorage).dtype);
-    for (let i = 0; i < size; i++) {
-      const aRaw = x1.iget(i);
-      const bRaw = (x2 as ArrayStorage).iget(i);
-      const aVal = x1IsBig ? (aRaw as bigint) : BigInt(Math.round(Number(aRaw)));
-      const bVal = x2IsBig ? (bRaw as bigint) : BigInt(Math.round(Number(bRaw)));
-      (resultData as BigInt64Array | BigUint64Array)[i] = gcdBig(aVal, bVal);
-    }
-  } else {
-    for (let i = 0; i < size; i++) {
-      resultData[i] = gcdSingle(Number(x1.iget(i)), Number((x2 as ArrayStorage).iget(i)));
-    }
-  }
-
-  return result;
+  // Array case — broadcasting, dtype promotion and exact BigInt gcd all come
+  // from the generic path, rather than a hand-rolled loop that would need to
+  // reimplement broadcasting and bounds-checking for a size-1 operand plus a
+  // BigInt branch duplicating lcm's.
+  return elementwiseBinaryOp(x1, x2, gcdSingle, 'gcd');
 }
 
 /**
@@ -2269,7 +2315,26 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
  * @param x2 - Second array or scalar
  * @returns LCM
  */
-export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
+export function lcm(x1: ArrayStorage, x2: ArrayStorage | number | bigint): ArrayStorage {
+  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one.
+  // Without a dedicated branch it would fall past every case below and read
+  // `.kind` off an undefined dtype.
+  //
+  // Routed as a size-1 array rather than through Number(), so a value above 2^53
+  // stays exact for a 64-bit output.
+  if (typeof x2 === 'bigint') {
+    if (isBigIntDType(x1.dtype)) {
+      const scalarArr = ArrayStorage.empty([1], x1.dtype);
+      try {
+        scalarArr.iset(0, x2);
+        return lcm(x1, scalarArr);
+      } finally {
+        scalarArr.dispose();
+      }
+    }
+    return lcm(x1, Number(x2));
+  }
+
   throwIfComplex(x1.dtype, 'lcm', 'LCM is only defined for integers.');
   if (isFloatDType(x1.dtype))
     throw new TypeError(
@@ -2316,6 +2381,23 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   const outDtype = typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype);
 
   if (typeof x2 === 'number') {
+    if (!isBigIntDType(outDtype) || Number.isSafeInteger(Math.abs(Math.trunc(x2)))) {
+      const wasmResult = wasmLcmScalar(x1, x2);
+      if (wasmResult) return wasmResult;
+    }
+
+    // A BigInt64Array store of a Number throws outright, so wrap the scalar as
+    // a size-1 array and go through the generic path's exact BigInt lcm instead.
+    if (isBigIntDType(outDtype)) {
+      const scalarArr = ArrayStorage.empty([1], outDtype);
+      try {
+        scalarArr.iset(0, BigInt(Math.abs(Math.trunc(x2))));
+        return elementwiseBinaryOp(x1, scalarArr, lcmSingle, 'lcm');
+      } finally {
+        scalarArr.dispose();
+      }
+    }
+
     const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
     const resultData = result.data;
     const size = x1.size;
@@ -2337,59 +2419,18 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage {
   }
 
   // Extract scalar from size-1 array
-  if (x2.size === 1) {
+  if (x2.size === 1 && isExactScalar(x2)) {
     return lcm(x1, Number(x2.iget(0)));
   }
 
-  // Array case — compute lcm preserving promoted dtype
-  const result = ArrayStorage.empty(Array.from(x1.shape), outDtype);
-  const resultData = result.data;
-  const size = x1.size;
-
-  if (isBigIntDType(outDtype)) {
-    // Duplicated from gcd() — both are closure-scoped to avoid Number/BigInt mixing
-    const gcdBig = (a: bigint, b: bigint): bigint => {
-      a = a < 0n ? -a : a;
-      b = b < 0n ? -b : b;
-      while (b !== 0n) {
-        const t = b;
-        b = a % b;
-        a = t;
-      }
-      return a;
-    };
-    const lcmBig = (a: bigint, b: bigint): bigint => {
-      a = a < 0n ? -a : a;
-      b = b < 0n ? -b : b;
-      if (a === 0n || b === 0n) return 0n;
-      return (a * b) / gcdBig(a, b);
-    };
-    const x1IsBig = isBigIntDType(x1.dtype);
-    const x2IsBig = isBigIntDType(x2.dtype);
-    for (let i = 0; i < size; i++) {
-      const aRaw = x1.iget(i);
-      const bRaw = x2.iget(i);
-      const aVal = x1IsBig ? (aRaw as bigint) : BigInt(Math.round(Number(aRaw)));
-      const bVal = x2IsBig ? (bRaw as bigint) : BigInt(Math.round(Number(bRaw)));
-      (resultData as BigInt64Array | BigUint64Array)[i] = lcmBig(aVal, bVal);
-    }
-  } else {
-    if (x1.isCContiguous && x2.isCContiguous) {
-      const x1Data = x1.data;
-      const x1Off = x1.offset;
-      const x2Data = x2.data;
-      const x2Off = x2.offset;
-      for (let i = 0; i < size; i++) {
-        resultData[i] = lcmSingle(Number(x1Data[x1Off + i]!), Number(x2Data[x2Off + i]!));
-      }
-    } else {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = lcmSingle(Number(x1.iget(i)), Number(x2.iget(i)));
-      }
-    }
+  if (canUseFastPath(x1, x2)) {
+    const wasmResult = wasmLcm(x1, x2);
+    if (wasmResult) return wasmResult;
   }
 
-  return result;
+  // Array case — broadcasting, dtype promotion and exact BigInt lcm all come
+  // from the generic path, rather than a hand-rolled loop reimplementing them.
+  return elementwiseBinaryOp(x1, x2, lcmSingle, 'lcm');
 }
 
 /**
@@ -2669,7 +2710,7 @@ export function maximum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
   if (typeof x2 === 'number') {
     const wasmResult = wasmMaxScalar(x1, x2);
     if (wasmResult) return wasmResult;
-  } else if (x2.size === 1) {
+  } else if (x2.size === 1 && isExactScalar(x2)) {
     const wasmResult = wasmMaxScalar(x1, Number(x2.iget(0)));
     if (wasmResult) return wasmResult;
   } else if (canUseFastPath(x1, x2)) {
@@ -2727,7 +2768,7 @@ export function minimum(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStora
   if (typeof x2 === 'number') {
     const wasmResult = wasmMinScalar(x1, x2);
     if (wasmResult) return wasmResult;
-  } else if (x2.size === 1) {
+  } else if (x2.size === 1 && isExactScalar(x2)) {
     const wasmResult = wasmMinScalar(x1, Number(x2.iget(0)));
     if (wasmResult) return wasmResult;
   } else if (canUseFastPath(x1, x2)) {
@@ -2785,7 +2826,7 @@ export function fmax(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   if (typeof x2 === 'number') {
     const wasmResult = wasmMaxScalar(x1, x2);
     if (wasmResult) return wasmResult;
-  } else if (x2.size === 1) {
+  } else if (x2.size === 1 && isExactScalar(x2)) {
     const wasmResult = wasmMaxScalar(x1, Number(x2.iget(0)));
     if (wasmResult) return wasmResult;
   } else if (canUseFastPath(x1, x2)) {
@@ -2853,7 +2894,7 @@ export function fmin(x1: ArrayStorage, x2: ArrayStorage | number): ArrayStorage 
   if (typeof x2 === 'number') {
     const wasmResult = wasmMinScalar(x1, x2);
     if (wasmResult) return wasmResult;
-  } else if (x2.size === 1) {
+  } else if (x2.size === 1 && isExactScalar(x2)) {
     const wasmResult = wasmMinScalar(x1, Number(x2.iget(0)));
     if (wasmResult) return wasmResult;
   } else if (canUseFastPath(x1, x2)) {

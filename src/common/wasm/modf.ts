@@ -1,9 +1,8 @@
 /**
- * WASM-accelerated element-wise modf (split into fractional + integral parts).
- *
- * Returns [fractional, integral] where integral = trunc(x), fractional = x - trunc(x).
- * Both outputs preserve input dtype (f64→f64, f32→f32).
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated element-wise modf (split into fractional + integral
+ * parts). Returns [fractional, integral] where integral = trunc(x) and
+ * fractional = x - trunc(x); both outputs preserve the input dtype
+ * (float64/float32 only).
  */
 
 import type { TypedArray } from '../dtype';

@@ -36,6 +36,36 @@ import { ArrayStorage } from './storage';
  * Use NDArray from ndarray-full.ts for the complete API.
  */
 /**
+ * Bracket access only ever uses keys that start with a digit or '-'. Testing
+ * that first with one charCodeAt skips the parseInt round-trip on every named
+ * property access — `.shape`, `.dtype`, `.storage` — for every array in the
+ * library, where that round-trip would otherwise run unconditionally.
+ *
+ * Matches `String(idx) === prop`: '+1', ' 1' and '' all fail that round-trip
+ * and are rejected here too.
+ */
+function looksNumeric(prop: string): boolean {
+  const c = prop.charCodeAt(0);
+  return (c >= 48 && c <= 57) || c === 45;
+}
+
+/**
+ * The non-proxied target behind an array, for internal property reads. Every
+ * array is a Proxy so that `arr[0]` works, so every property read through it
+ * pays trap dispatch; hopping to the raw target once and reading several
+ * plain properties off it is cheaper, which matters most for view operations
+ * that build multiple arrays per call. A plain field holding the raw target
+ * beats keying a WeakMap by the proxy, since populating the map on every
+ * construction costs more than a field write. The raw target has no bracket
+ * access, so never return it to a caller.
+ *
+ * @internal
+ */
+export function rawOf<T extends NDArrayCore>(x: T): T {
+  return ((x as unknown as { _raw?: T })._raw ?? x) as T;
+}
+
+/**
  * NumPy-compatible float-to-integer conversion.
  *
  * NumPy 2.x converts float→int by:
@@ -85,6 +115,8 @@ export class NDArrayCore<D extends DType = DType> {
   protected _storage: ArrayStorage;
   // Track if this array is a view of another array
   protected _base?: NDArrayCore;
+  /** The non-proxied target behind this Proxy; see rawOf. @internal */
+  _raw!: NDArrayCore;
 
   // Allows bracket access: arr[0], arr[-1], arr[0][1], etc.
   // Implemented via Proxy in the constructor.
@@ -93,7 +125,7 @@ export class NDArrayCore<D extends DType = DType> {
   // Shared proxy handler — one object for all instances
   private static readonly _proxyHandler: ProxyHandler<NDArrayCore> = {
     get(target, prop, receiver) {
-      if (typeof prop === 'string') {
+      if (typeof prop === 'string' && looksNumeric(prop)) {
         const idx = parseInt(prop, 10);
         if (!Number.isNaN(idx) && String(idx) === prop) {
           const len = target._storage.ndim > 0 ? target._storage.shape[0]! : 1;
@@ -108,7 +140,7 @@ export class NDArrayCore<D extends DType = DType> {
       return Reflect.get(target, prop, receiver);
     },
     set(target, prop, value, receiver) {
-      if (typeof prop === 'string') {
+      if (typeof prop === 'string' && looksNumeric(prop)) {
         const idx = parseInt(prop, 10);
         if (!Number.isNaN(idx) && String(idx) === prop) {
           const len = target._storage.shape[0]!;
@@ -150,6 +182,7 @@ export class NDArrayCore<D extends DType = DType> {
   constructor(storage: ArrayStorage, base?: NDArrayCore) {
     this._storage = storage;
     this._base = base;
+    this._raw = this;
     // biome-ignore lint/correctness/noConstructorReturn: intentional Proxy wrapper for index access
     return new Proxy(this, NDArrayCore._proxyHandler as ProxyHandler<this>) as this;
   }

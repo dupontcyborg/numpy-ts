@@ -5,7 +5,7 @@
  */
 
 import { Complex } from '../common/complex';
-import { hasFloat16, isComplexDType } from '../common/dtype';
+import { hasFloat16, isBigIntDType, isComplexDType, type TypedArray } from '../common/dtype';
 import { type DType, NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import { wasmPad2D } from '../common/wasm/pad';
@@ -24,14 +24,21 @@ export function append(
     values instanceof NDArrayCore ? values : array(Array.isArray(values) ? values : [values]);
 
   if (axis === undefined) {
-    // Flatten both and concatenate
+    // Flatten both and concatenate. flatten() always copies, so the
+    // intermediates own their buffers and must be released.
     const flatArr = flatten(arr);
     const flatValues = flatten(valuesArr);
-    return concatenate([flatArr, flatValues], 0);
+    const result = concatenate([flatArr, flatValues], 0);
+    flatArr.dispose();
+    flatValues.dispose();
+    if (valuesArr !== values) valuesArr.dispose();
+    return result;
   }
 
   // Concatenate along axis
-  return concatenate([arr, valuesArr], axis);
+  const result = concatenate([arr, valuesArr], axis);
+  if (valuesArr !== values) valuesArr.dispose();
+  return result;
 }
 
 /**
@@ -146,80 +153,133 @@ export function insert(
     // Flatten and insert
     const flat = flatten(arr);
     const flatValues = flatten(valuesArr);
-    const dtype = arr.dtype as DType;
-    const isComplex = isComplexDType(dtype);
+    try {
+      const dtype = arr.dtype as DType;
+      const isComplex = isComplexDType(dtype);
 
-    if (isComplex) {
-      // Complex path: work with Complex objects via iget/iset
-      const flatSize = flat.size;
-      const valSize = flatValues.size;
-      const items: Complex[] = [];
-      for (let i = 0; i < flatSize; i++) {
-        items.push(flat.storage.iget(i) as Complex);
+      if (isComplex) {
+        // Complex path: work with Complex objects via iget/iset
+        const flatSize = flat.size;
+        const valSize = flatValues.size;
+        const items: Complex[] = [];
+        for (let i = 0; i < flatSize; i++) {
+          items.push(flat.storage.iget(i) as Complex);
+        }
+
+        if (indices.length === 1) {
+          const rawIdx = indices[0]!;
+          const idx = rawIdx < 0 ? flatSize + rawIdx : rawIdx;
+          const vals: Complex[] = [];
+          for (let i = 0; i < valSize; i++) {
+            const v = flatValues.storage.iget(i);
+            vals.push(v instanceof Complex ? v : new Complex(Number(v), 0));
+          }
+          items.splice(idx, 0, ...vals);
+        } else {
+          const indexPairs = indices
+            .map((rawIdx, i) => ({
+              idx: rawIdx < 0 ? flatSize + rawIdx : rawIdx,
+              valIdx: i,
+            }))
+            .sort((a, b) => a.idx - b.idx);
+
+          for (let i = 0; i < indexPairs.length; i++) {
+            const { idx, valIdx } = indexPairs[i]!;
+            const v = flatValues.storage.iget(valIdx % valSize);
+            const val = v instanceof Complex ? v : new Complex(Number(v), 0);
+            items.splice(idx + i, 0, val);
+          }
+        }
+
+        const resultStorage = ArrayStorage.empty([items.length], dtype);
+        const resultData = resultStorage.data as Float64Array | Float32Array;
+        for (let i = 0; i < items.length; i++) {
+          resultData[i * 2] = items[i]!.re;
+          resultData[i * 2 + 1] = items[i]!.im;
+        }
+        return new NDArrayCore(resultStorage);
       }
+
+      // Insertion is a segment-copy problem: copy the runs between insertion
+      // points with `.set()` so everything stays in native typed arrays, and
+      // int64 stays in BigInt rather than routing through `number`.
+      type Sub = {
+        subarray(b: number, e: number): ArrayLike<number>;
+        set(v: ArrayLike<number>, o: number): void;
+      };
+      const src = flat.data as unknown as Sub;
+      const n = flat.size;
+      const nVals = flatValues.size;
+
+      // `values` reaches us at whatever dtype the caller supplied — typically
+      // float64 even when the array is int64 — and `.set()` refuses to mix
+      // BigInt with anything else. Convert once, into the target dtype, so the
+      // segment copies below all stay same-type.
+      let valsStore: ArrayStorage | null = null;
+      if (flatValues.dtype !== dtype) {
+        valsStore = ArrayStorage.empty([nVals], dtype);
+        const vd = valsStore.data;
+        if (isBigIntDType(dtype)) {
+          const bd = vd as BigInt64Array | BigUint64Array;
+          for (let i = 0; i < nVals; i++) {
+            bd[i] = BigInt(Math.trunc(Number(flatValues.storage.iget(i))));
+          }
+        } else {
+          const nd = vd as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+          for (let i = 0; i < nVals; i++) {
+            nd[i] = Number(flatValues.storage.iget(i));
+          }
+        }
+      }
+      const vals = (valsStore ?? flatValues.storage).data as unknown as Sub;
 
       if (indices.length === 1) {
+        // Single index: the whole values array lands contiguously at that spot.
         const rawIdx = indices[0]!;
-        const idx = rawIdx < 0 ? flatSize + rawIdx : rawIdx;
-        const vals: Complex[] = [];
-        for (let i = 0; i < valSize; i++) {
-          const v = flatValues.storage.iget(i);
-          vals.push(v instanceof Complex ? v : new Complex(Number(v), 0));
-        }
-        items.splice(idx, 0, ...vals);
-      } else {
-        const indexPairs = indices
-          .map((rawIdx, i) => ({
-            idx: rawIdx < 0 ? flatSize + rawIdx : rawIdx,
-            valIdx: i,
-          }))
-          .sort((a, b) => a.idx - b.idx);
-
-        for (let i = 0; i < indexPairs.length; i++) {
-          const { idx, valIdx } = indexPairs[i]!;
-          const v = flatValues.storage.iget(valIdx % valSize);
-          const val = v instanceof Complex ? v : new Complex(Number(v), 0);
-          items.splice(idx + i, 0, val);
-        }
+        const idx = rawIdx < 0 ? n + rawIdx : rawIdx;
+        const out = ArrayStorage.empty([n + nVals], dtype);
+        const od = out.data as unknown as Sub;
+        od.set(src.subarray(0, idx), 0);
+        od.set(vals.subarray(0, nVals), idx);
+        od.set(src.subarray(idx, n), idx + nVals);
+        valsStore?.dispose();
+        return new NDArrayCore(out);
       }
 
-      const resultStorage = ArrayStorage.empty([items.length], dtype);
-      const resultData = resultStorage.data as Float64Array | Float32Array;
-      for (let i = 0; i < items.length; i++) {
-        resultData[i * 2] = items[i]!.re;
-        resultData[i * 2 + 1] = items[i]!.im;
-      }
-      return new NDArrayCore(resultStorage);
-    }
-
-    const flatData = flat.data;
-    const valuesData = flatValues.data;
-    const result: number[] = Array.from(flatData as unknown as ArrayLike<number>);
-
-    if (indices.length === 1) {
-      // Single index: insert all values at that position
-      const rawIdx = indices[0]!;
-      const idx = rawIdx < 0 ? flat.size + rawIdx : rawIdx;
-      const vals: number[] = Array.from(valuesData as unknown as ArrayLike<number>);
-      result.splice(idx, 0, ...vals);
-    } else {
-      // Multiple indices: insert one value per index (cycling through values)
-      // Sort indices ascending for correct offset tracking
+      // Multiple indices: one value per index, cycling through values. Sorted
+      // ascending so the output is written strictly left to right.
       const indexPairs = indices
         .map((rawIdx, i) => ({
-          idx: rawIdx < 0 ? flat.size + rawIdx : rawIdx,
+          idx: rawIdx < 0 ? n + rawIdx : rawIdx,
           valIdx: i,
         }))
         .sort((a, b) => a.idx - b.idx);
 
-      for (let i = 0; i < indexPairs.length; i++) {
-        const { idx, valIdx } = indexPairs[i]!;
-        const val = valuesData[valIdx % valuesData.length] as number;
-        result.splice(idx + i, 0, val);
+      const out = ArrayStorage.empty([n + indexPairs.length], dtype);
+      const od = out.data as unknown as Sub;
+      let srcPos = 0;
+      let dstPos = 0;
+      for (const { idx, valIdx } of indexPairs) {
+        if (idx > srcPos) {
+          od.set(src.subarray(srcPos, idx), dstPos);
+          dstPos += idx - srcPos;
+          srcPos = idx;
+        }
+        const v = valIdx % nVals;
+        od.set(vals.subarray(v, v + 1), dstPos);
+        dstPos += 1;
       }
+      if (srcPos < n) {
+        od.set(src.subarray(srcPos, n), dstPos);
+      }
+      valsStore?.dispose();
+      return new NDArrayCore(out);
+    } finally {
+      // flatten() copies, so both intermediates own their buffers.
+      flat.dispose();
+      flatValues.dispose();
+      if (valuesArr !== values) valuesArr.dispose();
     }
-
-    return array(result, dtype);
   }
 
   // Insert along axis - simplified implementation
@@ -230,16 +290,11 @@ export type PadWidthArg = number | [number, number] | (number | [number, number]
 export type PadValueArg = number | [number, number] | (number | [number, number])[];
 
 /**
- * Normalize a pad_width / constant_values argument to per-axis [before, after] pairs.
- *
- * Accepts (matching NumPy):
- *  - scalar `n` → `[[n, n], ...]` for every axis
- *  - `[n]` (length 1) → `[[n, n], ...]` for every axis
- *  - `[before, after]` (length 2) → broadcast to every axis
- *  - `[n0, n1, ..., n_{ndim-1}]` (length ndim) → per-axis scalars (before=after=n_k)
- *  - `[[b, a]]` (length 1) → broadcast pair to every axis
- *  - `[[b0, a0], ..., [b_{ndim-1}, a_{ndim-1}]]` (length ndim) → per-axis pairs
- *  - mixed: `[n0, [b1, a1], ...]` — scalars expand to (n, n)
+ * Normalize a pad_width / constant_values argument to per-axis [before, after] pairs,
+ * matching NumPy's flexible input shapes: a scalar or single-element list broadcasts
+ * to every axis, a two-element list of scalars broadcasts as a shared [before, after]
+ * pair, a list of length ndim gives one scalar per axis, and lists of pairs (or a mix
+ * of scalars and pairs) apply the same rules per axis.
  */
 function normalizePerAxisPair(v: PadWidthArg, ndim: number, paramName: string): [number, number][] {
   if (typeof v === 'number') {
@@ -355,7 +410,7 @@ export function pad(
   const totalSize = shape.reduce((a, b) => a * b, 1);
 
   // Per-axis value path: paint output cell-by-cell. NumPy applies pad axis-by-axis
-  // in order, so the *highest* axis whose pad covers a given cell wins.
+  // in order, so the highest axis whose pad covers a given cell wins.
   if (!uniformValue) {
     const newSize = result.size;
     for (let outFlat = 0; outFlat < newSize; outFlat++) {
@@ -396,7 +451,7 @@ export function pad(
     return result;
   }
 
-  // Uniform-value fast paths below (mirror previous behavior).
+  // Uniform-value fast paths for the common case.
   if (scalarFillValue !== 0) {
     for (let i = 0; i < result.size; i++) {
       resultStorage.iset(i, scalarFillValue);

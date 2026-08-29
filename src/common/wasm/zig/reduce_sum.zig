@@ -101,172 +101,135 @@ export fn reduce_sum_u8_to_u64(a: [*]const u8, N: u32) u64 {
     return sum;
 }
 
-/// Strided sum for f64 input → f64 output.
-export fn reduce_sum_strided_f64(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
+/// Shared strided-sum body: out[o][i] = sum over `axis` of a[o][ax][i].
+///
+/// The inner run of length `inner` is contiguous in both source and destination,
+/// so the accumulate vectorizes 2-wide in f64 for every input dtype. Narrow
+/// inputs widen through a native lane-widening convert (f64x2.promote_low_f32x4
+/// for f32, f64x2.convert_low_i32x4_s for i32, and so on) rather than one
+/// scalar @floatFromInt per element.
+inline fn sumStrided(comptime T: type, a: [*]const T, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
     const O = @as(usize, outer);
     const A = @as(usize, axis);
     const I = @as(usize, inner);
     const S = A * I;
+    // u64 is the one dtype with no lane-widening convert to f64; LLVM's
+    // scalarization of it measured slower than a plain scalar loop, so skip
+    // the vector body there and let the tail loop handle everything.
+    const n_simd = if (simd.hasWiden2_f64(T)) I & ~@as(usize, 1) else 0;
     for (0..O) |o| {
         const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
+        const dst = out + o * I;
+        // Seed the accumulator with plane 0, then add the remaining planes.
+        for (0..A) |ax| {
             const src = a + base + ax * I;
-            const dst = out + ob;
-            const n = I & ~@as(usize, 1);
             var j: usize = 0;
-            while (j < n) : (j += 2) {
-                const simd_mod = @import("simd.zig");
-                simd_mod.store2_f64(dst, j, simd_mod.load2_f64(dst, j) + simd_mod.load2_f64(src, j));
+            while (j < n_simd) : (j += 2) {
+                const pair = @as(*align(1) const @Vector(2, T), @ptrCast(src + j)).*;
+                const w: simd.V2f64 = simd.widen2_f64(T, pair);
+                const acc = if (ax == 0) w else simd.load2_f64(dst, j) + w;
+                simd.store2_f64(dst, j, acc);
             }
-            while (j < I) : (j += 1) dst[j] += src[j];
+            while (j < I) : (j += 1) {
+                const v = simd.widen1_f64(T, src[j]);
+                dst[j] = if (ax == 0) v else dst[j] + v;
+            }
         }
     }
+}
+
+/// Shared strided-sum body for the 64-bit integer dtypes, accumulating in the
+/// input type instead of f64.
+///
+/// The f64-output variants below cannot represent a 64-bit total above 2^53, so
+/// `sum(axis=...)` on int64/uint64 disagreed with NumPy once a column total
+/// crossed that line. Accumulating in T keeps every bit, and wrapping addition
+/// (`+%`) reproduces NumPy's integer overflow rather than trapping on it.
+/// i64x2.add is a native SIMD instruction, so the 2-wide body costs nothing.
+inline fn sumStrided64(comptime T: type, a: [*]const T, out: [*]T, outer: u32, axis: u32, inner: u32) void {
+    const O = @as(usize, outer);
+    const A = @as(usize, axis);
+    const I = @as(usize, inner);
+    const S = A * I;
+    const V = @Vector(2, T);
+    const n_simd = I & ~@as(usize, 1);
+    for (0..O) |o| {
+        const base = o * S;
+        const dst = out + o * I;
+        // Seed the accumulator with plane 0, then add the remaining planes.
+        for (0..A) |ax| {
+            const src = a + base + ax * I;
+            var j: usize = 0;
+            while (j < n_simd) : (j += 2) {
+                const pair = @as(*align(1) const V, @ptrCast(src + j)).*;
+                const acc = if (ax == 0) pair else @as(*align(1) const V, @ptrCast(dst + j)).* +% pair;
+                @as(*align(1) V, @ptrCast(dst + j)).* = acc;
+            }
+            while (j < I) : (j += 1) {
+                dst[j] = if (ax == 0) src[j] else dst[j] +% src[j];
+            }
+        }
+    }
+}
+
+/// Strided sum for i64 input -> i64 output (exact; see sumStrided64).
+export fn reduce_sum_strided_i64_exact(a: [*]const i64, out: [*]i64, outer: u32, axis: u32, inner: u32) void {
+    sumStrided64(i64, a, out, outer, axis, inner);
+}
+
+/// Strided sum for u64 input -> u64 output (exact; see sumStrided64).
+export fn reduce_sum_strided_u64_exact(a: [*]const u64, out: [*]u64, outer: u32, axis: u32, inner: u32) void {
+    sumStrided64(u64, a, out, outer, axis, inner);
+}
+
+/// Strided sum for f64 input → f64 output.
+export fn reduce_sum_strided_f64(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
+    sumStrided(f64, a, out, outer, axis, inner);
 }
 
 /// Strided sum for f32 input → f64 output (promote to avoid precision loss).
 export fn reduce_sum_strided_f32(a: [*]const f32, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, a[base + i]);
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, a[base + ax * I + i]);
-        }
-    }
+    sumStrided(f32, a, out, outer, axis, inner);
 }
 
 /// Strided sum for i64 input → f64 output.
 export fn reduce_sum_strided_i64(a: [*]const i64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(i64, a, out, outer, axis, inner);
 }
 
 /// Strided sum for u64 input → f64 output.
 export fn reduce_sum_strided_u64(a: [*]const u64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(u64, a, out, outer, axis, inner);
 }
 
 /// Strided sum for i32 input → f64 output.
 export fn reduce_sum_strided_i32(a: [*]const i32, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(i32, a, out, outer, axis, inner);
 }
 
 /// Strided sum for u32 input → f64 output.
 export fn reduce_sum_strided_u32(a: [*]const u32, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(u32, a, out, outer, axis, inner);
 }
 
 /// Strided sum for i16 input → i64 output.
 export fn reduce_sum_strided_i16(a: [*]const i16, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(i16, a, out, outer, axis, inner);
 }
 
 /// Strided sum for u16 input → f64 output.
 export fn reduce_sum_strided_u16(a: [*]const u16, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(u16, a, out, outer, axis, inner);
 }
 
 /// Strided sum for i8 input → f64 output.
 export fn reduce_sum_strided_i8(a: [*]const i8, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(i8, a, out, outer, axis, inner);
 }
 
 /// Strided sum for u8 input → f64 output.
 export fn reduce_sum_strided_u8(a: [*]const u8, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-    }
+    sumStrided(u8, a, out, outer, axis, inner);
 }
 
 // --- Complex sum kernels ---
@@ -469,6 +432,27 @@ test "reduce_sum_strided_f32 basic" {
     reduce_sum_strided_f32(&a, &out, 1, 3, 2);
     try testing.expectApproxEqAbs(out[0], 9.0, 1e-10);
     try testing.expectApproxEqAbs(out[1], 12.0, 1e-10);
+}
+
+test "reduce_sum_strided_i64_exact keeps values above 2^53" {
+    const testing = @import("std").testing;
+    const B: i64 = 9007199254740992; // 2^53
+    const a = [_]i64{ B, B + 1, B + 2, B + 3, B + 4, B + 5 };
+    var out = [_]i64{ 0, 0 };
+    reduce_sum_strided_i64_exact(&a, &out, 1, 3, 2);
+    // Columns are {B, B+2, B+4} and {B+1, B+3, B+5}; both totals exceed 2^53.
+    try testing.expectEqual(@as(i64, B * 3 + 6), out[0]);
+    try testing.expectEqual(@as(i64, B * 3 + 9), out[1]);
+}
+
+test "reduce_sum_strided_u64_exact wraps like NumPy" {
+    const testing = @import("std").testing;
+    const M: u64 = @import("std").math.maxInt(u64);
+    const a = [_]u64{ M, 1, 2, 3 };
+    var out = [_]u64{ 0, 0 };
+    reduce_sum_strided_u64_exact(&a, &out, 1, 2, 2);
+    try testing.expectEqual(@as(u64, 1), out[0]); // M +% 2 wraps to 1
+    try testing.expectEqual(@as(u64, 4), out[1]);
 }
 
 test "reduce_sum_strided_i64 basic" {

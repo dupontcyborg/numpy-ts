@@ -5,8 +5,7 @@
 
 const simd = @import("simd.zig");
 
-/// Returns the maximum f64 element, scalar.
-/// Uses sing 2-wide SIMD (select-based to avoid LLVM scalarization).
+/// Returns the maximum f64 element, scalar. Uses 2-wide SIMD (select-based to avoid LLVM scalarization).
 export fn reduce_max_f64(a: [*]const f64, N: u32) f64 {
     if (N == 0) return 0;
     const n_simd = N & ~@as(u32, 1);
@@ -28,8 +27,7 @@ export fn reduce_max_f64(a: [*]const f64, N: u32) f64 {
     return result;
 }
 
-/// Returns the maximum i64 element, scalar.
-/// Max f32 array using 4-wide SIMD (select-based to avoid LLVM scalarization).
+/// Returns the maximum f32 element, scalar. Uses 4-wide SIMD (select-based to avoid LLVM scalarization).
 export fn reduce_max_f32(a: [*]const f32, N: u32) f32 {
     if (N == 0) return 0;
     const n_simd = N & ~@as(u32, 3);

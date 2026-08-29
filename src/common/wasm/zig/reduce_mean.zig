@@ -111,189 +111,87 @@ export fn reduce_mean_u8(a: [*]const u8, N: u32) f64 {
     return total / @as(f64, @floatFromInt(N));
 }
 
-/// Returns the mean of f64 elements with strided access (for multi-dimensional reduction).
-export fn reduce_mean_strided_f64(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
+/// Shared strided-mean body: out[o][i] = mean over `axis` of a[o][ax][i]. The
+/// inner axis run is contiguous, so accumulation vectorizes 2-wide in f64
+/// regardless of input dtype; a final pass scales each output by 1/axis.
+inline fn meanStrided(comptime T: type, a: [*]const T, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
     const O = @as(usize, outer);
     const A = @as(usize, axis);
     const I = @as(usize, inner);
     const S = A * I;
     const scale = 1.0 / @as(f64, @floatFromInt(A));
+    const vscale: simd.V2f64 = @splat(scale);
+    const n_simd = if (simd.hasWiden2_f64(T)) I & ~@as(usize, 1) else 0;
     for (0..O) |o| {
         const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = a[base + i];
-        for (1..A) |ax| {
+        const dst = out + o * I;
+        for (0..A) |ax| {
             const src = a + base + ax * I;
-            const dst = out + ob;
-            const n = I & ~@as(usize, 1);
             var j: usize = 0;
-            while (j < n) : (j += 2) simd.store2_f64(dst, j, simd.load2_f64(dst, j) + simd.load2_f64(src, j));
-            while (j < I) : (j += 1) dst[j] += src[j];
+            while (j < n_simd) : (j += 2) {
+                const pair = @as(*align(1) const @Vector(2, T), @ptrCast(src + j)).*;
+                const w = simd.widen2_f64(T, pair);
+                simd.store2_f64(dst, j, if (ax == 0) w else simd.load2_f64(dst, j) + w);
+            }
+            while (j < I) : (j += 1) {
+                const v = simd.widen1_f64(T, src[j]);
+                dst[j] = if (ax == 0) v else dst[j] + v;
+            }
         }
-        for (0..I) |i| out[ob + i] *= scale;
+        var j: usize = 0;
+        while (j < n_simd) : (j += 2) simd.store2_f64(dst, j, simd.load2_f64(dst, j) * vscale);
+        while (j < I) : (j += 1) dst[j] *= scale;
     }
+}
+
+/// Returns the mean of f64 elements with strided access (for multi-dimensional reduction).
+export fn reduce_mean_strided_f64(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
+    meanStrided(f64, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of f32 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_f32(a: [*]const f32, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, a[base + i]);
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, a[base + ax * I + i]);
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(f32, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of i64 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_i64(a: [*]const i64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(i64, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of u64 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_u64(a: [*]const u64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(u64, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of i32 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_i32(a: [*]const i32, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(i32, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of u32 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_u32(a: [*]const u32, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(u32, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of i16 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_i16(a: [*]const i16, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(i16, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of u16 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_u16(a: [*]const u16, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(u16, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of i8 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_i8(a: [*]const i8, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(i8, a, out, outer, axis, inner);
 }
 
 /// Returns the mean of u8 elements with strided access (upcast to f64 for accumulation).
 export fn reduce_mean_strided_u8(a: [*]const u8, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
-    const O = @as(usize, outer);
-    const A = @as(usize, axis);
-    const I = @as(usize, inner);
-    const S = A * I;
-    const scale = 1.0 / @as(f64, @floatFromInt(A));
-    for (0..O) |o| {
-        const base = o * S;
-        const ob = o * I;
-        for (0..I) |i| out[ob + i] = @as(f64, @floatFromInt(a[base + i]));
-        for (1..A) |ax| {
-            for (0..I) |i| out[ob + i] += @as(f64, @floatFromInt(a[base + ax * I + i]));
-        }
-        for (0..I) |i| out[ob + i] *= scale;
-    }
+    meanStrided(u8, a, out, outer, axis, inner);
 }
 
 // --- Tests ---

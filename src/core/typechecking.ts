@@ -138,10 +138,8 @@ export function can_cast(
 }
 
 /**
- * Return a scalar type common to input arrays
- *
- * This returns a floating-point type that can represent all input types.
- * Integers are promoted to floats that can hold their full range.
+ * Returns a scalar type common to the input arrays: a floating-point type that can
+ * represent all of them, with integers promoted to floats wide enough for their range.
  */
 export function common_type(...arrays: NDArrayCore[]): DType {
   if (arrays.length === 0) {
@@ -187,14 +185,10 @@ export function common_type(...arrays: NDArrayCore[]): DType {
 }
 
 /**
- * Return the type that results from applying promotion rules
- *
- * NumPy-compatible type promotion:
- * - Integers promote to larger integers that can hold both ranges
- * - int32 + uint32 -> int64 (needs signed type that fits both)
- * - Integer + float -> float64 if integer is 32+ bits
- * - float32 + complex64 -> complex64
- * - float64 + complex64 -> complex128
+ * Returns the NumPy-compatible type promotion result: integers promote to the
+ * smallest larger integer type that holds both ranges (e.g. int32+uint32 -> int64),
+ * integer+float promotes to float64 once the integer is 32 bits or wider, and
+ * float+complex promotes to the matching-width complex type.
  */
 export function result_type(...arrays_and_dtypes: (NDArrayCore | DType)[]): DType {
   if (arrays_and_dtypes.length === 0) {
@@ -373,19 +367,15 @@ export function issubdtype(dtype1: DType | NDArrayCore, dtype2: DType | string):
 }
 
 /**
- * Return a description for the given dtype
- *
- * Returns the dtype name directly (NumPy compatible).
+ * Returns the dtype name directly, matching NumPy's dtype description.
  */
 export function typename(dtype: DType): string {
   return dtype;
 }
 
 /**
- * Return the character code of the minimum-size type needed
- *
- * Returns the minimum type from typeset that can safely represent all input types.
- * Uses safe casting rules to ensure no precision loss.
+ * Returns the character code for the minimum-size type in typeset that can safely
+ * represent every input type, using safe-casting rules to avoid precision loss.
  */
 export function mintypecode(
   typechars: string,

@@ -20,7 +20,23 @@ import {
   generatePNGChart,
 } from './chart-generator';
 import { runPyodideBenchmarks } from './pyodide-runner';
-import { runPythonBenchmarks } from './python-runner';
+import { checkNumpy, runPythonBenchmarks } from './python-runner';
+
+/**
+ * Repeat the no-NumPy caveat after the results.
+ *
+ * The warning at the start scrolls away behind thousands of benchmark lines, and
+ * a table of numbers with every NumPy column at zero is easy to misread as a
+ * result rather than an absence.
+ */
+function warnNumpyMissingAgain(): void {
+  console.warn('');
+  console.warn('  NOTE: NumPy was unavailable, so these are numpy-ts timings only —');
+  console.warn('  the NumPy columns and every ratio in this run are placeholders,');
+  console.warn('  and no correctness validation ran. Set NUMPY_PYTHON to compare.');
+  console.warn('');
+}
+
 import { detectRuntimes, spawnRuntimeBenchmark } from './runtime-spawner';
 import { filterByCategory, getBenchmarkSpecs } from './specs';
 import type {
@@ -103,6 +119,30 @@ function tryLoadCachedPython(
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Render a chart, downgrading any failure to a warning.
+ *
+ * `canvas` is an optional native dependency; when it is missing or fails to
+ * build, chart rendering throws. That must not fail the benchmark run, whose
+ * real output (JSON + HTML) is already on disk by this point.
+ */
+async function renderChart(
+  label: string,
+  outPath: string,
+  render: (p: string) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await render(outPath);
+    console.log(`${label} saved to: ${outPath}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const hint = msg.includes("Cannot find module 'canvas'")
+      ? ' — install it with `pnpm add -D canvas` (already allow-listed in pnpm-workspace.yaml)'
+      : '';
+    console.warn(`WARNING: ${label} skipped: ${msg.split('\n')[0]}${hint}`);
   }
 }
 
@@ -279,8 +319,29 @@ async function main() {
     const validatableSpecs = specs.filter(
       (spec) => spec.category !== 'io' && !nonValidatableOperations.has(spec.operation),
     );
+    // A missing NumPy used to abort the whole run. The JS-side numbers are still
+    // worth having, so degrade to a JS-only run instead: skip validation and the
+    // Python baseline, and say so loudly enough that nobody mistakes the output
+    // for a comparison.
+    const numpyCheck = options.skipNumpy || options.pyodide ? { ok: true as const } : checkNumpy();
+    const numpyMissing = !numpyCheck.ok;
+    if (!numpyCheck.ok) {
+      console.warn('');
+      console.warn('  ' + '='.repeat(72));
+      console.warn(`  NumPy is not available on '${numpyCheck.cmd}' — running numpy-ts only.`);
+      console.warn(`    ${numpyCheck.detail}`);
+      console.warn('');
+      console.warn('  Correctness validation and the NumPy comparison are SKIPPED.');
+      console.warn('  Point NUMPY_PYTHON at an interpreter that has NumPy to get both:');
+      console.warn('    NUMPY_PYTHON=/path/to/env/bin/python3 pnpm run bench:node');
+      console.warn('  ' + '='.repeat(72));
+      console.warn('');
+    }
+
     // Skip validation for non-default sizes — correctness doesn't change with array size
-    if (options.sizeScale && options.sizeScale !== 'default') {
+    if (numpyMissing) {
+      // Nothing to validate against.
+    } else if (options.sizeScale && options.sizeScale !== 'default') {
       console.log(
         `Skipping validation for --size ${options.sizeScale} (correctness validated at default size)\n`,
       );
@@ -320,8 +381,8 @@ async function main() {
     let pythonVersion: string = 'unknown';
     let numpyVersion: string = 'unknown';
 
-    if (options.skipNumpy) {
-      console.log('Skipping NumPy benchmarks (--skip-numpy)\n');
+    if (options.skipNumpy || numpyMissing) {
+      if (options.skipNumpy) console.log('Skipping NumPy benchmarks (--skip-numpy)\n');
       numpyResults = specs.map((s) => ({
         name: s.name,
         mean_ms: 0,
@@ -461,15 +522,19 @@ async function main() {
         generateHTMLReport(report, htmlPath);
         console.log(`HTML report saved to: ${htmlPath}`);
 
-        const pngPath = path.join(plotsDir, `latest${modeSuffix}.png`);
-        await generatePNGChart(report, pngPath);
-        console.log(`PNG chart saved to: ${pngPath}`);
-
-        const h2hPath = path.join(plotsDir, `latest${modeSuffix}-h2h.png`);
-        await generateH2HChart(report, h2hPath);
-        console.log(`H2H chart saved to: ${h2hPath}`);
+        // PNG charts are a presentation extra and depend on `canvas`, a native
+        // module. A rendering failure must not discard a completed run: the
+        // JSON and HTML above are already written, and a non-zero exit also
+        // breaks chained invocations (e.g. `bench:node && bench:node --size large`).
+        await renderChart('PNG chart', path.join(plotsDir, `latest${modeSuffix}.png`), (p) =>
+          generatePNGChart(report, p),
+        );
+        await renderChart('H2H chart', path.join(plotsDir, `latest${modeSuffix}-h2h.png`), (p) =>
+          generateH2HChart(report, p),
+        );
 
         console.log(`\nView report: open ${htmlPath}`);
+        if (numpyMissing) warnNumpyMissingAgain();
       } else {
         // Multiple runtimes: use MultiRuntimeReport format
         const comparisons = compareMultiRuntime(specs, numpyResults, runtimeResultsMap);

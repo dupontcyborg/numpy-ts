@@ -1,12 +1,8 @@
 /**
- * WASM-accelerated element-wise log1p (log(1+x)).
- *
- * Unary: out[i] = log1p(a[i])
- * Returns null if WASM can't handle this case.
- * Float types use native kernels; integer types use type-appropriate output:
- *   i8/u8 → f32 (then downcast to f16 if available)
- *   i16/u16 → f32
- *   i32/u32/i64/u64 → f64
+ * WASM-accelerated element-wise log1p (log(1+x)). Integer inputs use
+ * type-appropriate output: int8/uint8 to float32 (then downcast to float16
+ * when available), int16/uint16 to float32, and int32/uint32/int64/uint64
+ * to float64.
  */
 
 import { type DType, effectiveDType, hasFloat16, isComplexDType, type TypedArray } from '../dtype';

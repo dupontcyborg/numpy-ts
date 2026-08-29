@@ -72,10 +72,8 @@ export interface ParseTxtOptions {
 }
 
 /**
- * Parse text data into an NDArray.
- *
- * This is the browser-compatible core function. For file operations in Node.js,
- * use `loadtxt` from 'numpy-ts/node'.
+ * Parse text data into an NDArray. This is the browser-compatible core
+ * function; for file operations in Node.js, use loadtxt from 'numpy-ts/node'.
  *
  * @param text - The text content to parse
  * @param options - Parsing options
@@ -194,10 +192,9 @@ export function parseTxt(text: string, options: ParseTxtOptions = {}): NDArrayCo
 }
 
 /**
- * Parse text data into an NDArray with more flexible handling.
- *
- * Similar to parseTxt but handles missing values more gracefully.
- * This is the browser-compatible version.
+ * Parse text data into an NDArray with more flexible handling. Similar to
+ * parseTxt but handles missing values more gracefully; this is the
+ * browser-compatible version.
  *
  * @param text - The text content to parse
  * @param options - Parsing options
@@ -216,9 +213,8 @@ export function genfromtxt(text: string, options: ParseTxtOptions = {}): NDArray
 }
 
 /**
- * Parse text data using a regular expression.
- *
- * Extract data from each line using regex groups.
+ * Parse text data using a regular expression, extracting values from each
+ * line via the regex capture groups.
  *
  * @param text - The text content to parse
  * @param regexp - Regular expression with groups to extract values

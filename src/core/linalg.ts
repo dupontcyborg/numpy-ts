@@ -104,7 +104,7 @@ export function einsum(
 export function einsum_path(
   subscripts: string,
   ...operands: NDArrayCore[]
-): [([number, number] | number[])[], string] {
+): [Array<string | number[]>, string] {
   const storageOperands = operands.map((op) => toStorage(op));
   return linalgOps.einsum_path(subscripts, ...storageOperands);
 }
@@ -127,8 +127,7 @@ export function vecdot(
   return fromStorage(result);
 }
 
-/** Matrix transpose (swap last two axes) */
-/** Matrix transpose - returns a view */
+/** Matrix transpose (swap last two axes) - returns a view */
 export function matrix_transpose(a: NDArrayCore): NDArrayCore {
   return fromStorageView(linalgOps.matrix_transpose(toStorage(a)), a);
 }

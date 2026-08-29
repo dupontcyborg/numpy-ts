@@ -409,7 +409,10 @@ describe('Rounding - Branch Coverage Improvement', () => {
     it('handles half-to-even for negative numbers', () => {
       const arr = array([-0.5, -1.5, -2.5, -3.5]);
       const result = rint(arr);
-      expect(result.toArray()).toEqual([0, -2, -2, -4]);
+      // -0.5 rounds to -0.0, not +0.0: NumPy keeps the sign of zero here
+      // (np.rint(-0.5) is -0.0). toEqual distinguishes the two, so this is
+      // written as -0 deliberately.
+      expect(result.toArray()).toEqual([-0, -2, -2, -4]);
     });
   });
 

@@ -1,8 +1,6 @@
 /**
- * WASM-accelerated element-wise logical NOT.
- *
- * Unary: out[i] = (a[i] == 0) ? 1 : 0
- * Output is always bool (Uint8Array). Returns null if WASM can't handle.
+ * WASM-accelerated element-wise logical NOT. Output is always bool
+ * (Uint8Array).
  */
 
 import { type DType, hasFloat16, type TypedArray } from '../dtype';

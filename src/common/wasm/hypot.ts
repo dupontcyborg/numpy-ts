@@ -1,13 +1,9 @@
 /**
- * WASM-accelerated element-wise hypot.
- *
- * Binary: out[i] = hypot(a[i], b[i])  (same-shape contiguous arrays)
- * Scalar: out[i] = hypot(a[i], scalar)
- * Returns null if WASM can't handle this case.
- * Float types use native kernels; integer types use type-appropriate output:
- *   i8/u8 → f32 (then downcast to f16 if available)
- *   i16/u16 → f32
- *   i32/u32/i64/u64 → f64
+ * WASM-accelerated element-wise hypot: out[i] = hypot(a[i], b[i]) (same-shape
+ * contiguous arrays) or hypot(a[i], scalar). Float types use native kernels;
+ * integer types widen to a float output since hypot is inherently
+ * floating-point - i8/u8 and i16/u16 to f32 (i8/u8 optionally downcast to f16
+ * after), i32/u32/i64/u64 to f64. Returns null if WASM can't handle this case.
  */
 
 import { type DType, effectiveDType, hasFloat16, promoteDTypes, type TypedArray } from '../dtype';

@@ -49,10 +49,17 @@ export fn abs_f16(a: [*]const u16, out: [*]u16, N: u32) void {
     while (i < N) : (i += 1) out[i] = a[i] & 0x7FFF;
 }
 
-/// Element-wise absolute value for i64, scalar loop.
-/// No i64x2 compare in WASM SIMD, so no vectorization.
+/// Element-wise absolute value for i64 using 2-wide SIMD.
+/// mask = v >> 63 (arithmetic), then (v ^ mask) - mask; LLVM folds the idiom
+/// into a single i64x2.abs. Wraps at minInt exactly like the scalar path.
 export fn abs_i64(a: [*]const i64, out: [*]i64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v = simd.load2_i64(a, i);
+        const mask = v >> @as(simd.V2i64, @splat(63));
+        simd.store2_i64(out, i, (v ^ mask) -% mask);
+    }
     while (i < N) : (i += 1) {
         const v = a[i];
         out[i] = if (v < 0) -%v else v;

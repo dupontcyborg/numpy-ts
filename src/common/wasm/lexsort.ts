@@ -1,10 +1,8 @@
 /**
- * WASM-accelerated lexsort (indirect stable sort on multiple keys).
- *
- * Output is float64 indices for JS ergonomics (no BigInt).
- * WASM sorts u32 internally and converts to f64 before returning.
- * All keys must be the same dtype and contiguous.
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated lexsort (indirect stable sort on multiple keys). Output is
+ * float64 indices for JS ergonomics (no BigInt) - WASM sorts u32 internally
+ * and converts to f64 before returning. All keys must be the same dtype and
+ * contiguous. Returns null if WASM can't handle this case.
  */
 
 import { type DType, effectiveDType, type TypedArray } from '../dtype';

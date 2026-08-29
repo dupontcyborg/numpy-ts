@@ -4,13 +4,25 @@
 //! Binary: out[i] = gcd(a[i], b[i])
 //! Uses Euclidean algorithm. Operates on contiguous 1D buffers.
 
+/// Absolute value that wraps rather than trapping on the most negative value.
+/// Plain `-v` on `minInt` panics under ReleaseSafe and is undefined under the
+/// ReleaseFast build this ships with; `-%` wraps instead, so `absWrap(i8, -128)`
+/// stays `-128`. The Euclidean loop below still works with a negative `x`:
+/// `@rem` keeps the sign of the dividend and the loop terminates on `y`, which
+/// reaches 0 either way, matching NumPy's result at that boundary.
+fn absWrap(comptime T: type, v: T) T {
+    if (@typeInfo(T).int.signedness == .signed) {
+        return if (v < 0) -%v else v;
+    }
+    return v;
+}
+
 /// Scalar GCD for i32: out[i] = gcd(abs(a[i]), abs(scalar)).
 export fn gcd_scalar_i32(a: [*]const i32, out: [*]i32, N: u32, scalar: i32) void {
-    const b = if (scalar < 0) -scalar else scalar;
+    const b = absWrap(i32, scalar);
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        var x = a[i];
-        if (x < 0) x = -x;
+        var x = absWrap(i32, a[i]);
         var y = b;
         while (y != 0) {
             const temp = y;
@@ -25,10 +37,8 @@ export fn gcd_scalar_i32(a: [*]const i32, out: [*]i32, N: u32, scalar: i32) void
 export fn gcd_i32(a: [*]const i32, b: [*]const i32, out: [*]i32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        var x = a[i];
-        if (x < 0) x = -x;
-        var y = b[i];
-        if (y < 0) y = -y;
+        var x = absWrap(i32, a[i]);
+        var y = absWrap(i32, b[i]);
         while (y != 0) {
             const temp = y;
             y = @rem(x, y);
@@ -41,13 +51,8 @@ export fn gcd_i32(a: [*]const i32, b: [*]const i32, out: [*]i32, N: u32) void {
 // --- Small-int native-dtype kernels ---
 
 fn gcdGeneric(comptime T: type, x_in: T, y_in: T) T {
-    var x = x_in;
-    var y = y_in;
-    // For signed types, take abs
-    if (@typeInfo(T).int.signedness == .signed) {
-        if (x < 0) x = -x;
-        if (y < 0) y = -y;
-    }
+    var x = absWrap(T, x_in);
+    var y = absWrap(T, y_in);
     while (y != 0) {
         const temp = y;
         y = @rem(x, y);
@@ -102,6 +107,42 @@ export fn gcd_scalar_i8(a: [*]const i8, out: [*]i8, N: u32, scalar: i8) void {
 export fn gcd_scalar_u8(a: [*]const u8, out: [*]u8, N: u32, scalar: u8) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = gcdGeneric(u8, a[i], scalar);
+}
+
+/// Binary GCD for u32: out[i] = gcd(a[i], b[i]), preserving u32 dtype.
+export fn gcd_u32(a: [*]const u32, b: [*]const u32, out: [*]u32, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u32, a[i], b[i]);
+}
+
+/// Scalar GCD for u32: out[i] = gcd(a[i], scalar), preserving u32 dtype.
+export fn gcd_scalar_u32(a: [*]const u32, out: [*]u32, N: u32, scalar: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u32, a[i], scalar);
+}
+
+/// Binary GCD for i64: out[i] = gcd(a[i], b[i]), preserving i64 dtype.
+export fn gcd_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(i64, a[i], b[i]);
+}
+
+/// Scalar GCD for i64: out[i] = gcd(a[i], scalar), preserving i64 dtype.
+export fn gcd_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(i64, a[i], scalar);
+}
+
+/// Binary GCD for u64: out[i] = gcd(a[i], b[i]), preserving u64 dtype.
+export fn gcd_u64(a: [*]const u64, b: [*]const u64, out: [*]u64, N: u32) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u64, a[i], b[i]);
+}
+
+/// Scalar GCD for u64: out[i] = gcd(a[i], scalar), preserving u64 dtype.
+export fn gcd_scalar_u64(a: [*]const u64, out: [*]u64, N: u32, scalar: u64) void {
+    var i: u32 = 0;
+    while (i < N) : (i += 1) out[i] = gcdGeneric(u64, a[i], scalar);
 }
 
 // --- Tests ---
@@ -330,4 +371,101 @@ test "gcd_i32 various known values" {
     try testing.expectEqual(out[4], 1); // gcd(17,13) both prime
     try testing.expectEqual(out[5], 1); // gcd(144,89) 89 is prime
     try testing.expectEqual(out[6], 200); // gcd(1000,600)
+}
+
+test "gcd_i64 large values beyond f64 exact range" {
+    const testing = @import("std").testing;
+    // Values above 2^53, where routing through f64 would lose the answer.
+    const a = [_]i64{ 9007199254740994, 123456789012345678, -48 };
+    const b = [_]i64{ 4503599627370497, 987654321098765432, 18 };
+    var out: [3]i64 = undefined;
+    gcd_i64(&a, &b, &out, 3);
+    try testing.expectEqual(out[0], 4503599627370497);
+    try testing.expectEqual(out[1], 2);
+    try testing.expectEqual(out[2], 6);
+}
+
+test "gcd_u64 near the top of the range" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 18446744073709551614, 0, 1000000007 };
+    const b = [_]u64{ 2, 7, 1000000007 };
+    var out: [3]u64 = undefined;
+    gcd_u64(&a, &b, &out, 3);
+    try testing.expectEqual(out[0], 2);
+    try testing.expectEqual(out[1], 7);
+    try testing.expectEqual(out[2], 1000000007);
+}
+
+test "gcd_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 48, 4294967294, 17 };
+    const b = [_]u32{ 18, 2, 13 };
+    var out: [3]u32 = undefined;
+    gcd_u32(&a, &b, &out, 3);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 2);
+    try testing.expectEqual(out[2], 1);
+}
+
+test "gcd_scalar_i64 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i64{ 12, 18, 7, -15 };
+    var out: [4]i64 = undefined;
+    gcd_scalar_i64(&a, &out, 4, 6);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 3);
+}
+
+test "gcd most negative input does not trap" {
+    const testing = @import("std").testing;
+    // |minInt| is not representable; absWrap leaves it negative rather than
+    // invoking illegal behaviour. NumPy agrees on the results below.
+    const a8 = [_]i8{ -128, -128 };
+    const b8 = [_]i8{ 2, 3 };
+    var o8: [2]i8 = undefined;
+    gcd_i8(&a8, &b8, &o8, 2);
+    try testing.expectEqual(o8[0], 2);
+    try testing.expectEqual(o8[1], 1);
+
+    const a32 = [_]i32{ -2147483648, -2147483648, -2147483648 };
+    const b32 = [_]i32{ 2, 3, 0 };
+    var o32: [3]i32 = undefined;
+    gcd_i32(&a32, &b32, &o32, 3);
+    try testing.expectEqual(o32[0], 2);
+    try testing.expectEqual(o32[1], 1);
+    // gcd(x, 0) short-circuits and hands back the wrapped |x|.
+    try testing.expectEqual(o32[2], -2147483648);
+
+    var os: [1]i32 = undefined;
+    gcd_scalar_i32(&[_]i32{-2147483648}, &os, 1, -2147483648);
+    try testing.expectEqual(os[0], -2147483648);
+
+    const a64 = [_]i64{-9223372036854775808};
+    const b64 = [_]i64{4};
+    var o64: [1]i64 = undefined;
+    gcd_i64(&a64, &b64, &o64, 1);
+    try testing.expectEqual(o64[0], 4);
+}
+
+test "gcd_scalar_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 12, 18, 7, 0 };
+    var out: [4]u32 = undefined;
+    gcd_scalar_u32(&a, &out, 4, 6);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 6); // gcd(0, x) == x
+}
+
+test "gcd_scalar_u64 near the top of the range" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 18446744073709551614, 12, 0 };
+    var out: [3]u64 = undefined;
+    gcd_scalar_u64(&a, &out, 3, 18);
+    try testing.expectEqual(out[0], 2);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 18);
 }

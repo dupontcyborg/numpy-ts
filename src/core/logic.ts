@@ -7,7 +7,13 @@
 
 import * as comparisonOps from '../common/ops/comparison';
 import * as logicOps from '../common/ops/logic';
-import { type DType, fromStorage, type NDArrayCore, toStorage } from './types';
+import {
+  type DType,
+  fromStorage,
+  fromStorageMaybeView,
+  type NDArrayCore,
+  toStorage,
+} from './types';
 
 // ============================================================
 // Logical Operations
@@ -96,7 +102,7 @@ export function isrealobj(x: NDArrayCore): boolean {
 
 /** Return real array if imaginary part is negligible */
 export function real_if_close(x: NDArrayCore, tol?: number): NDArrayCore {
-  return fromStorage(logicOps.real_if_close(toStorage(x), tol));
+  return fromStorageMaybeView(logicOps.real_if_close(toStorage(x), tol), x);
 }
 
 // ============================================================

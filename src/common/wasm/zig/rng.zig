@@ -45,18 +45,14 @@ export fn mt19937_random_f64() f64 {
 /// Copy the full 624-element MT19937 state into `out` and return the current
 /// position index. Used for state serialization / checkpointing.
 export fn mt19937_get_state(out: [*]u32) u32 {
-    for (0..MT_N) |i| {
-        out[i] = mt_key[i];
-    }
+    @memcpy(out[0..MT_N], mt_key[0..MT_N]);
     return mt_pos;
 }
 
 /// Restore MT19937 state from an external 624-element array and position index.
 /// Counterpart to `mt19937_get_state` for deserialization.
 export fn mt19937_set_state(state: [*]const u32, index: u32) void {
-    for (0..MT_N) |i| {
-        mt_key[i] = state[i];
-    }
+    @memcpy(mt_key[0..MT_N], state[0..MT_N]);
     mt_pos = index;
 }
 

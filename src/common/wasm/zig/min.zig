@@ -56,33 +56,53 @@ export fn min_scalar_f32(a: [*]const f32, out: [*]f32, N: u32, scalar: f32) void
     }
 }
 
-/// Element-wise minimum for i64, scalar (LLVM scalarizes i64x2 @select).
+/// Element-wise minimum for i64 using 2-wide SIMD.
+/// i64x2 has signed compare (i64x2.lt_s); u64 goes through a sign-flip in simd.zig.
 export fn min_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_i64(out, i, simd.min_i64x2(simd.load2_i64(a, i), simd.load2_i64(b, i)));
+    }
     while (i < N) : (i += 1) {
         out[i] = if (a[i] < b[i]) a[i] else b[i];
     }
 }
 
-/// Element-wise minimum with scalar for i64, scalar.
+/// Element-wise minimum with scalar for i64 using 2-wide SIMD.
 export fn min_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void {
+    const sv: simd.V2i64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_i64(out, i, simd.min_i64x2(simd.load2_i64(a, i), sv));
+    }
     while (i < N) : (i += 1) {
         out[i] = if (a[i] < scalar) a[i] else scalar;
     }
 }
 
-/// Element-wise minimum for u64, scalar (LLVM scalarizes i64x2 @select).
+/// Element-wise minimum for u64 using 2-wide SIMD.
+/// i64x2 has signed compare (i64x2.lt_s); u64 goes through a sign-flip in simd.zig.
 export fn min_u64(a: [*]const u64, b: [*]const u64, out: [*]u64, N: u32) void {
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_u64(out, i, simd.min_u64x2(simd.load2_u64(a, i), simd.load2_u64(b, i)));
+    }
     while (i < N) : (i += 1) {
         out[i] = if (a[i] < b[i]) a[i] else b[i];
     }
 }
 
-/// Element-wise minimum with scalar for u64, scalar.
+/// Element-wise minimum with scalar for u64 using 2-wide SIMD.
 export fn min_scalar_u64(a: [*]const u64, out: [*]u64, N: u32, scalar: u64) void {
+    const sv: simd.V2u64 = @splat(scalar);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_u64(out, i, simd.min_u64x2(simd.load2_u64(a, i), sv));
+    }
     while (i < N) : (i += 1) {
         out[i] = if (a[i] < scalar) a[i] else scalar;
     }

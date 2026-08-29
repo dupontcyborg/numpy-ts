@@ -1,188 +1,128 @@
-//! WASM element-wise logical AND kernels for all numeric types.
+//! WASM element-wise logical AND kernels.
+//! Two same-dtype arrays (or one array and a scalar) in, one u8 (bool) array out.
 //!
-//! Binary: out[i] = (a[i] != 0) & (b[i] != 0)
-//! Scalar: out[i] = (a[i] != 0) & (scalar != 0)
-//! Output is always u8 (0 or 1). Operates on contiguous 1D buffers of length N.
+//! Truthiness is `v != 0` for every numeric type — NaN is truthy, -0.0 is not,
+//! which is what NumPy does. float16 arrives as raw u16 bits, so it masks the
+//! sign bit instead of comparing as a float.
+//!
+//! `@intFromBool` on a vector yields one byte per lane, which is already the bool
+//! output layout. That replaces the select / bitcast / shuffle / per-lane-extract
+//! chain the narrow dtypes used to do, and lets f64 and f32 vectorize at all —
+//! they were plain scalar loops.
 
-const simd = @import("simd.zig");
+/// One v128 worth of lanes for T: 16 for i8 ... 2 for f64/i64.
+inline fn Lanes(comptime T: type) comptime_int {
+    return 16 / @sizeOf(T);
+}
 
-/// Element-wise logical AND for f64: out[i] = (a[i] != 0) & (b[i] != 0).
+/// Lane-wise truthiness of one v128 group.
+inline fn truthy(comptime T: type, p: [*]const T, i: u32) @Vector(Lanes(T), bool) {
+    const V = @Vector(Lanes(T), T);
+    const z: V = @splat(0);
+    return @as(*align(1) const V, @ptrCast(p + i)).* != z;
+}
+
+/// float16 truthiness from raw bits: mask the sign so -0.0 is false.
+inline fn truthyF16(p: [*]const u16, i: u32) @Vector(8, bool) {
+    const V = @Vector(8, u16);
+    const mask: V = @splat(0x7FFF);
+    const z: V = @splat(0);
+    return (@as(*align(1) const V, @ptrCast(p + i)).* & mask) != z;
+}
+
+/// One byte per lane, straight into the bool output.
+inline fn storeBool(comptime L: comptime_int, out: [*]u8, i: u32, m: @Vector(L, bool)) void {
+    @as(*align(1) [L]u8, @ptrCast(out + i)).* = @intFromBool(m);
+}
+
+/// Generic two-array body.
+inline fn binT(comptime T: type, a: [*]const T, b: [*]const T, out: [*]u8, N: u32) void {
+    const L = Lanes(T);
+    const n = N & ~@as(u32, L - 1);
+    var i: u32 = 0;
+    while (i < n) : (i += L) storeBool(L, out, i, truthy(T, a, i) & truthy(T, b, i));
+    while (i < N) : (i += 1) out[i] = @intFromBool(a[i] != 0 and b[i] != 0);
+}
+
+/// A falsy scalar makes the whole result false, so it short-circuits to a fill.
+inline fn binScalarT(comptime T: type, a: [*]const T, out: [*]u8, N: u32, scalar: T) void {
+    if (scalar == 0) {
+        @memset(out[0..N], 0);
+        return;
+    }
+    const L = Lanes(T);
+    const n = N & ~@as(u32, L - 1);
+    var i: u32 = 0;
+    while (i < n) : (i += L) storeBool(L, out, i, truthy(T, a, i));
+    while (i < N) : (i += 1) out[i] = @intFromBool(a[i] != 0);
+}
+
 export fn logical_and_f64(a: [*]const f64, b: [*]const f64, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
-    }
+    binT(f64, a, b, out, N);
 }
 
-/// Element-wise logical AND scalar for f64: out[i] = (a[i] != 0) & (scalar != 0).
 export fn logical_and_scalar_f64(a: [*]const f64, out: [*]u8, N: u32, scalar: f64) void {
-    if (scalar == 0) {
-        @memset(out[0..N], 0);
-        return;
-    }
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0) 1 else 0;
-    }
+    binScalarT(f64, a, out, N, scalar);
 }
 
-/// Element-wise logical AND for f32: out[i] = (a[i] != 0) & (b[i] != 0).
 export fn logical_and_f32(a: [*]const f32, b: [*]const f32, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
-    }
+    binT(f32, a, b, out, N);
 }
 
-/// Element-wise logical AND scalar for f32: out[i] = (a[i] != 0) & (scalar != 0).
 export fn logical_and_scalar_f32(a: [*]const f32, out: [*]u8, N: u32, scalar: f32) void {
-    if (scalar == 0) {
-        @memset(out[0..N], 0);
-        return;
-    }
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0) 1 else 0;
-    }
+    binScalarT(f32, a, out, N, scalar);
 }
 
-/// Float16 logical and (array): both nonzero?
+export fn logical_and_i64(a: [*]const i64, b: [*]const i64, out: [*]u8, N: u32) void {
+    binT(i64, a, b, out, N);
+}
+
+export fn logical_and_scalar_i64(a: [*]const i64, out: [*]u8, N: u32, scalar: i64) void {
+    binScalarT(i64, a, out, N, scalar);
+}
+
+export fn logical_and_i32(a: [*]const i32, b: [*]const i32, out: [*]u8, N: u32) void {
+    binT(i32, a, b, out, N);
+}
+
+export fn logical_and_scalar_i32(a: [*]const i32, out: [*]u8, N: u32, scalar: i32) void {
+    binScalarT(i32, a, out, N, scalar);
+}
+
+export fn logical_and_i16(a: [*]const i16, b: [*]const i16, out: [*]u8, N: u32) void {
+    binT(i16, a, b, out, N);
+}
+
+export fn logical_and_scalar_i16(a: [*]const i16, out: [*]u8, N: u32, scalar: i16) void {
+    binScalarT(i16, a, out, N, scalar);
+}
+
+export fn logical_and_i8(a: [*]const i8, b: [*]const i8, out: [*]u8, N: u32) void {
+    binT(i8, a, b, out, N);
+}
+
+export fn logical_and_scalar_i8(a: [*]const i8, out: [*]u8, N: u32, scalar: i8) void {
+    binScalarT(i8, a, out, N, scalar);
+}
+
+/// float16 pair, taking raw u16 bit patterns.
 export fn logical_and_f16(a: [*]const u16, b: [*]const u16, out: [*]u8, N: u32) void {
+    const n = N & ~@as(u32, 7);
     var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = if (a[i] & 0x7FFF != 0 and b[i] & 0x7FFF != 0) 1 else 0;
+    while (i < n) : (i += 8) storeBool(8, out, i, truthyF16(a, i) & truthyF16(b, i));
+    while (i < N) : (i += 1) out[i] = @intFromBool(a[i] & 0x7FFF != 0 and b[i] & 0x7FFF != 0);
 }
 
+/// float16 against a scalar whose truthiness the caller has already resolved.
 export fn logical_and_scalar_f16(a: [*]const u16, out: [*]u8, N: u32, scalar_truthy: u32) void {
     if (scalar_truthy == 0) {
         @memset(out[0..N], 0);
         return;
     }
+    const n = N & ~@as(u32, 7);
     var i: u32 = 0;
-    while (i < N) : (i += 1) out[i] = if (a[i] & 0x7FFF != 0) 1 else 0;
-}
-
-/// Element-wise logical AND for i64, scalar loop (no i64x2 compare in WASM SIMD).
-export fn logical_and_i64(a: [*]const i64, b: [*]const i64, out: [*]u8, N: u32) void {
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical AND scalar for i64, scalar loop (no i64x2 compare in WASM SIMD).
-export fn logical_and_scalar_i64(a: [*]const i64, out: [*]u8, N: u32, scalar: i64) void {
-    if (scalar == 0) {
-        @memset(out[0..N], 0);
-        return;
-    }
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical AND for i32 using 4-wide SIMD: out[i] = (a[i] != 0) & (b[i] != 0).
-export fn logical_and_i32(a: [*]const i32, b: [*]const i32, out: [*]u8, N: u32) void {
-    const zero_i32: simd.V4i32 = @splat(0);
-    const one_i32: simd.V4i32 = @splat(1);
-    const n_simd = N & ~@as(u32, 3);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 4) {
-        const va_bool = @select(i32, simd.load4_i32(a, i) != zero_i32, one_i32, zero_i32);
-        const vb_bool = @select(i32, simd.load4_i32(b, i) != zero_i32, one_i32, zero_i32);
-        const result = va_bool & vb_bool;
-        const result_bytes: @Vector(16, u8) = @bitCast(result);
-        out[i] = result_bytes[0];
-        out[i + 1] = result_bytes[4];
-        out[i + 2] = result_bytes[8];
-        out[i + 3] = result_bytes[12];
-    }
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical AND scalar for i32: out[i] = (a[i] != 0) & (scalar != 0).
-export fn logical_and_scalar_i32(a: [*]const i32, out: [*]u8, N: u32, scalar: i32) void {
-    if (scalar == 0) {
-        @memset(out[0..N], 0);
-        return;
-    }
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical AND for i16 using 8-wide SIMD: out[i] = (a[i] != 0) & (b[i] != 0).
-export fn logical_and_i16(a: [*]const i16, b: [*]const i16, out: [*]u8, N: u32) void {
-    const zero_i16: simd.V8i16 = @splat(0);
-    const one_i16: simd.V8i16 = @splat(1);
-    const narrow = @Vector(8, i32){ 0, 2, 4, 6, 8, 10, 12, 14 };
-    const n_simd = N & ~@as(u32, 7);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 8) {
-        const va_bool = @select(i16, simd.load8_i16(a, i) != zero_i16, one_i16, zero_i16);
-        const vb_bool = @select(i16, simd.load8_i16(b, i) != zero_i16, one_i16, zero_i16);
-        const result = va_bool & vb_bool;
-        const result_bytes: @Vector(16, u8) = @bitCast(result);
-        const narrowed: @Vector(8, u8) = @shuffle(u8, result_bytes, undefined, narrow);
-        inline for (0..8) |lane| {
-            out[i + lane] = narrowed[lane];
-        }
-    }
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical AND scalar for i16: out[i] = (a[i] != 0) & (scalar != 0).
-export fn logical_and_scalar_i16(a: [*]const i16, out: [*]u8, N: u32, scalar: i16) void {
-    if (scalar == 0) {
-        @memset(out[0..N], 0);
-        return;
-    }
-    var i: u32 = 0;
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical AND for i8 using 16-wide SIMD: out[i] = (a[i] != 0) & (b[i] != 0).
-/// Input and output are both byte-width, enabling natural 16-wide vectorization.
-export fn logical_and_i8(a: [*]const i8, b: [*]const i8, out: [*]u8, N: u32) void {
-    const zero: simd.V16i8 = @splat(0);
-    const one: simd.V16u8 = @splat(1);
-    const zero_u8: simd.V16u8 = @splat(0);
-    const n_simd = N & ~@as(u32, 15);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 16) {
-        const va_bool: simd.V16u8 = @select(u8, simd.load16_i8(a, i) != zero, one, zero_u8);
-        const vb_bool: simd.V16u8 = @select(u8, simd.load16_i8(b, i) != zero, one, zero_u8);
-        simd.store16_u8(out, i, va_bool & vb_bool);
-    }
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0 and b[i] != 0) 1 else 0;
-    }
-}
-
-/// Element-wise logical AND scalar for i8 using 16-wide SIMD: out[i] = (a[i] != 0) & (scalar != 0).
-export fn logical_and_scalar_i8(a: [*]const i8, out: [*]u8, N: u32, scalar: i8) void {
-    if (scalar == 0) {
-        @memset(out[0..N], 0);
-        return;
-    }
-    const zero: simd.V16i8 = @splat(0);
-    const one: simd.V16u8 = @splat(1);
-    const zero_u8: simd.V16u8 = @splat(0);
-    const n_simd = N & ~@as(u32, 15);
-    var i: u32 = 0;
-    while (i < n_simd) : (i += 16) {
-        simd.store16_u8(out, i, @select(u8, simd.load16_i8(a, i) != zero, one, zero_u8));
-    }
-    while (i < N) : (i += 1) {
-        out[i] = if (a[i] != 0) 1 else 0;
-    }
+    while (i < n) : (i += 8) storeBool(8, out, i, truthyF16(a, i));
+    while (i < N) : (i += 1) out[i] = @intFromBool(a[i] & 0x7FFF != 0);
 }
 
 // --- Tests ---
@@ -528,4 +468,57 @@ test "logical_and_scalar_f16 basic" {
     logical_and_scalar_f16(&a, &out, 4, 0);
     try testing.expectEqual(out[0], 0);
     try testing.expectEqual(out[1], 0);
+}
+
+test "logical_and_i64 odd length exercises the 2-wide body and the tail" {
+    const testing = @import("std").testing;
+    const MIN = @import("std").math.minInt(i64);
+    const MAX = @import("std").math.maxInt(i64);
+    // Odd N so the scalar tail runs; extremes to confirm the compare is against
+    // zero and not a truncated value.
+    const a = [_]i64{ 0, 1, MIN, MAX, 0, -1, 7 };
+    const b = [_]i64{ 1, 1, MAX, 0, 0, MIN, 0 };
+    var out = [_]u8{9} ** 7;
+    logical_and_i64(&a, &b, &out, 7);
+    try testing.expectEqualSlices(u8, &[_]u8{ 0, 1, 1, 0, 0, 1, 0 }, &out);
+
+    var o2 = [_]u8{9} ** 7;
+    logical_and_scalar_i64(&a, &o2, 7, MIN);
+    try testing.expectEqualSlices(u8, &[_]u8{ 0, 1, 1, 1, 0, 1, 1 }, &o2);
+    logical_and_scalar_i64(&a, &o2, 7, 0);
+    try testing.expectEqualSlices(u8, &[_]u8{ 0, 0, 0, 0, 0, 0, 0 }, &o2);
+}
+
+test "logical_and float truthiness: NaN truthy, -0.0 falsy" {
+    const testing = @import("std").testing;
+    // Reaches the new vector body for f64, which used to be a scalar loop. NaN
+    // and inf are truthy, -0.0 is falsy — matching NumPy. Odd length so the
+    // scalar tail runs too.
+    const nan = @import("std").math.nan(f64);
+    const inf = @import("std").math.inf(f64);
+    //                 nan   0.0   -0.0   inf   1.0  -0.0   2.0
+    const a = [_]f64{ nan, 0.0, -0.0, inf, 1.0, -0.0, 2.0 };
+    const b = [_]f64{ 1.0, 1.0, 5.0, 1.0, 0.0, -0.0, 3.0 };
+    // truthy(a) = T F F T T F T
+    // truthy(b) = T T T T F F T
+    var out = [_]u8{9} ** 7;
+    logical_and_f64(&a, &b, &out, 7);
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 0, 0, 1, 0, 0, 1 }, &out);
+}
+
+test "logical_and f16 masks the sign bit so -0.0 is falsy" {
+    const testing = @import("std").testing;
+    // f16 arrives as raw u16 bits: 0x8000 is -0.0 and must read false, while
+    // 0x7E00 (NaN) and 0x7C00 (inf) read true. 9 elements exercises the tail.
+    const a = [_]u16{ 0x0000, 0x8000, 0x3C00, 0x7E00, 0x7C00, 0xBC00, 0x0001, 0x8001, 0x0000 };
+    const b = [_]u16{ 0x3C00, 0x3C00, 0x0000, 0x3C00, 0x0000, 0x0000, 0x3C00, 0x0000, 0x0000 };
+    var out = [_]u8{9} ** 9;
+    logical_and_f16(&a, &b, &out, 9);
+    var expect = [_]u8{0} ** 9;
+    for (0..9) |i| {
+        const at = (a[i] & 0x7FFF) != 0;
+        const bt = (b[i] & 0x7FFF) != 0;
+        expect[i] = @intFromBool(at and bt);
+    }
+    try testing.expectEqualSlices(u8, &expect, &out);
 }

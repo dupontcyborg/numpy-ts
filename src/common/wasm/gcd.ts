@@ -1,10 +1,7 @@
 /**
- * WASM-accelerated element-wise GCD (greatest common divisor).
- *
- * Scalar: out[i] = gcd(a[i], scalar)
- * Binary: out[i] = gcd(a[i], b[i])
- * Preserves the promoted integer dtype (NumPy behavior).
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated element-wise GCD (greatest common divisor): out[i] =
+ * gcd(a[i], scalar) or gcd(a[i], b[i]). Preserves the promoted integer dtype
+ * (NumPy behavior). Returns null if WASM can't handle this case.
  */
 
 import { type DType, getTypedArrayConstructor, promoteDTypes, type TypedArray } from '../dtype';
@@ -13,13 +10,19 @@ import {
   gcd_i8,
   gcd_i16,
   gcd_i32,
+  gcd_i64,
   gcd_scalar_i8,
   gcd_scalar_i16,
   gcd_scalar_i32,
+  gcd_scalar_i64,
   gcd_scalar_u8,
   gcd_scalar_u16,
+  gcd_scalar_u32,
+  gcd_scalar_u64,
   gcd_u8,
   gcd_u16,
+  gcd_u32,
+  gcd_u64,
 } from './bins/gcd.wasm';
 import { wasmConfig } from './config';
 import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
@@ -30,7 +33,10 @@ type BinaryFn = (aPtr: number, bPtr: number, outPtr: number, N: number) => void;
 type ScalarFn = (aPtr: number, outPtr: number, N: number, scalar: number) => void;
 
 const binaryKernels: Partial<Record<DType, BinaryFn>> = {
+  int64: gcd_i64,
+  uint64: gcd_u64,
   int32: gcd_i32,
+  uint32: gcd_u32,
   int16: gcd_i16,
   uint16: gcd_u16,
   int8: gcd_i8,
@@ -38,7 +44,10 @@ const binaryKernels: Partial<Record<DType, BinaryFn>> = {
 };
 
 const scalarKernels: Partial<Record<DType, ScalarFn>> = {
+  int64: gcd_scalar_i64,
+  uint64: gcd_scalar_u64,
   int32: gcd_scalar_i32,
+  uint32: gcd_scalar_u32,
   int16: gcd_scalar_i16,
   uint16: gcd_scalar_u16,
   int8: gcd_scalar_i8,
@@ -46,7 +55,10 @@ const scalarKernels: Partial<Record<DType, ScalarFn>> = {
 };
 
 const bpeMap: Partial<Record<DType, number>> = {
+  int64: 8,
+  uint64: 8,
   int32: 4,
+  uint32: 4,
   int16: 2,
   uint16: 2,
   int8: 1,

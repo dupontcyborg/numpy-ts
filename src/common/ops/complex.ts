@@ -13,10 +13,10 @@ import { ArrayStorage } from '../storage';
 import { wasmConj } from '../wasm/conj';
 
 /**
- * Return the real part of complex argument.
- *
- * For complex arrays, returns the real components.
- * For real arrays, returns a copy of the input.
+ * Return the real part of complex argument. Both branches return a view, never
+ * a copy — writes to the result are visible through the input, matching NumPy.
+ * For complex arrays this is a stride-2 view into the interleaved buffer; for
+ * real arrays it aliases the input exactly (`np.real(x) is x` in NumPy).
  *
  * @param a - Input array storage
  * @returns Array with real parts (float64 or float32 for complex, same dtype for real)
@@ -40,8 +40,17 @@ export function real(a: ArrayStorage): ArrayStorage {
     );
   }
 
-  // Real array: return copy
-  return a.copy();
+  // Real array: NumPy returns the input itself, not a copy — `np.real(x) is x`
+  // for real x. Share the buffer rather than duplicating it; the result aliases
+  // the input exactly as NumPy's does.
+  return ArrayStorage.fromDataShared(
+    a.data,
+    Array.from(a.shape),
+    dtype,
+    Array.from(a.strides),
+    a.offset,
+    a.wasmRegion,
+  );
 }
 
 /**

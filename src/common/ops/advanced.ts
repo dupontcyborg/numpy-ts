@@ -14,7 +14,10 @@ import {
   isComplexDType,
   type TypedArray,
 } from '../dtype';
-import { expandEllipsis } from '../internal/indexing';
+import { allElementsEqual } from '../internal/compute';
+import { widenGatherToF64, widenToF64 } from '../internal/dtype-loops';
+import { expandEllipsis, precomputeAxisOffsets } from '../internal/indexing';
+import { buildOffsets, stepStore, stridedCopyInto } from '../internal/strided-copy';
 import { parseSlice } from '../slicing';
 import { ArrayStorage, computeStrides } from '../storage';
 import { wasmTakeAlongAxis2D } from '../wasm/gather';
@@ -329,6 +332,11 @@ export function array_equal(a: ArrayStorage, b: ArrayStorage, equal_nan: boolean
     }
   }
 
+  // Contiguous, same dtype, non-complex: dtype-specialised loop instead of the
+  // per-element iget()/type-test path below.
+  const fast = allElementsEqual(a, b, equal_nan);
+  if (fast !== null) return fast;
+
   // Check all elements
   const size = a.size;
   for (let i = 0; i < size; i++) {
@@ -601,9 +609,6 @@ export function putmask(
   mask: ArrayStorage,
   values: ArrayStorage | number | bigint,
 ): void {
-  const size = storage.size;
-  const dtype = storage.dtype;
-
   // Get values array
   let valueArray: (number | bigint)[];
   if (typeof values === 'number' || typeof values === 'bigint') {
@@ -618,27 +623,7 @@ export function putmask(
   }
 
   // Put values where mask is true
-  let valueIdx = 0;
-  for (let i = 0; i < size; i++) {
-    const maskVal = mask.iget(i);
-    if (maskVal) {
-      let value = valueArray[valueIdx % valueArray.length]!;
-
-      // Convert type if needed
-      if (isBigIntDType(dtype)) {
-        if (typeof value !== 'bigint') {
-          value = BigInt(Math.round(Number(value)));
-        }
-      } else {
-        if (typeof value === 'bigint') {
-          value = Number(value);
-        }
-      }
-
-      storage.iset(i, value);
-      valueIdx++;
-    }
-  }
+  maskedWrite(storage, mask, valueArray, true);
 }
 
 /**
@@ -784,6 +769,22 @@ export function compress(
 }
 
 /**
+ * Reusable widening buffers for select's operands, grown on demand.
+ *
+ * select is not reentrant, so a slot pool is enough. Slot 0 is the accumulator;
+ * conditions and choices take the slots above it.
+ */
+const SELECT_SCRATCH: Float64Array[] = [];
+
+function selectScratch(slot: number, n: number): Float64Array {
+  const cur = SELECT_SCRATCH[slot];
+  if (cur && cur.length >= n) return cur.subarray(0, n);
+  const next = new Float64Array(n);
+  SELECT_SCRATCH[slot] = next;
+  return next;
+}
+
+/**
  * Return array drawn from elements in choicelist, depending on conditions
  */
 export function select(
@@ -818,48 +819,134 @@ export function select(
   const selectResult = ArrayStorage.empty(outputShape, dtype);
   const outputData = selectResult.data;
 
-  // Initialize with default — scalar or broadcasted array
-  if (defaultValue instanceof ArrayStorage) {
-    const defaultBroadcast = broadcastTo(defaultValue, outputShape);
-    for (let i = 0; i < outputSize; i++) {
-      const v = defaultBroadcast.iget(i);
-      if (isBigIntDType(dtype)) {
-        (outputData as BigInt64Array | BigUint64Array)[i] = v as bigint;
+  // Hoisted: these were re-evaluated per element, alongside an `iget` walk and a
+  // store through a TypedArray union that goes megamorphic once more than four
+  // dtypes pass through it.
+  const isBig = isBigIntDType(dtype);
+  const isCplx = isComplexDType(dtype);
+
+  const broadcastedConds = condlist.map((c) => broadcastTo(c, outputShape));
+  const broadcastedChoices = choicelist.map((c) => broadcastTo(c, outputShape));
+  const nCond = condlist.length;
+
+  const defaultVal: number | bigint = isBig
+    ? typeof defaultValue === 'bigint'
+      ? defaultValue
+      : BigInt(defaultValue as number)
+    : typeof defaultValue === 'bigint'
+      ? Number(defaultValue)
+      : (defaultValue as number);
+
+  if (!isBig && !isCplx) {
+    // Resolve entirely in a monomorphic f64 buffer, then narrow in one native
+    // store. Conditions only need truthiness, which widening preserves.
+    //
+    // Each operand is gathered into a reused scratch buffer rather than
+    // materialised with `.copy()` first: copying allocates a WASM region per
+    // operand, and on a busy heap that allocation pressure costs far more than
+    // the arithmetic itself. Slot 0 is the accumulator, then one slot per
+    // condition and one per choice.
+    const gather = (s: ArrayStorage, slot: number): Float64Array => {
+      const buf = selectScratch(slot, outputSize);
+      if (s.isCContiguous) {
+        widenToF64(s.data, s.offset, outputSize, buf);
       } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = v as number;
+        widenGatherToF64(
+          s.data,
+          buildOffsets(s.shape, s.strides, s.offset, outputSize, s.shape.length),
+          buf,
+        );
+      }
+      return buf;
+    };
+
+    const condF = broadcastedConds.map((c, j) => gather(c, 1 + j));
+    const choiceF = broadcastedChoices.map((c, j) => gather(c, 1 + nCond + j));
+    const out = selectScratch(0, outputSize);
+
+    if (defaultValue instanceof ArrayStorage) {
+      out.set(gather(broadcastTo(defaultValue, outputShape), 1 + 2 * nCond));
+    } else {
+      out.fill(defaultVal as number);
+    }
+
+    for (let i = 0; i < outputSize; i++) {
+      for (let j = 0; j < nCond; j++) {
+        if (condF[j]![i]!) {
+          out[i] = choiceF[j]![i]!;
+          break;
+        }
       }
     }
-  } else {
-    const defaultVal: number | bigint = isBigIntDType(dtype)
-      ? typeof defaultValue === 'bigint'
-        ? defaultValue
-        : BigInt(defaultValue)
-      : typeof defaultValue === 'bigint'
-        ? Number(defaultValue)
-        : defaultValue;
-    for (let i = 0; i < outputSize; i++) {
-      if (isBigIntDType(dtype)) {
-        (outputData as BigInt64Array | BigUint64Array)[i] = defaultVal as bigint;
+
+    (outputData as unknown as { set(v: ArrayLike<number>, o: number): void }).set(out, 0);
+    return selectResult;
+  }
+
+  // BigInt: conditions only need truthiness, which f64 carries fine, but the
+  // chosen values must stay at 64 bits. So gather the conditions the fast way
+  // and copy the winning value straight across, concretely typed on both
+  // sides, rather than falling through to the generic per-element `iget` walk
+  // below — which is markedly slower for int64/uint64 than for other dtypes.
+  if (isBig && !(defaultValue instanceof ArrayStorage)) {
+    const out64 = outputData as BigInt64Array | BigUint64Array;
+    out64.fill(defaultVal as bigint);
+
+    const condF = broadcastedConds.map((c, j) => {
+      const buf = selectScratch(1 + j, outputSize);
+      if (c.isCContiguous) {
+        widenToF64(c.data, c.offset, outputSize, buf);
       } else {
-        (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] =
-          defaultVal as number;
+        widenGatherToF64(
+          c.data,
+          buildOffsets(c.shape, c.strides, c.offset, outputSize, c.shape.length),
+          buf,
+        );
       }
+      return buf;
+    });
+
+    const choiceB = broadcastedChoices.map((c) => (c.isCContiguous ? c : c.copy()));
+
+    for (let i = 0; i < outputSize; i++) {
+      for (let j = 0; j < nCond; j++) {
+        if (condF[j]![i]!) {
+          const src = choiceB[j]!;
+          out64[i] = (src.data as BigInt64Array | BigUint64Array)[src.offset + i]!;
+          break;
+        }
+      }
+    }
+
+    for (let j = 0; j < nCond; j++) {
+      if (choiceB[j] !== broadcastedChoices[j]) choiceB[j]!.dispose();
+    }
+    return selectResult;
+  }
+
+  // Complex keeps element-wise stores — it carries two reals per element — but
+  // the dtype tests are hoisted.
+  if (defaultValue instanceof ArrayStorage) {
+    const db = broadcastTo(defaultValue, outputShape);
+    stridedCopyInto(db.data, outputData, outputShape, db.strides, db.offset, isCplx);
+  } else if (isBig) {
+    (outputData as BigInt64Array | BigUint64Array).fill(defaultVal as bigint);
+  } else {
+    for (let i = 0; i < outputSize; i++) {
+      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = defaultVal as number;
     }
   }
 
-  // Broadcast conds/choices
-  const broadcastedConds = condlist.map((c) => broadcastTo(c, outputShape));
-  const broadcastedChoices = choicelist.map((c) => broadcastTo(c, outputShape));
-
-  // First-match-wins
   for (let i = 0; i < outputSize; i++) {
-    for (let j = 0; j < condlist.length; j++) {
+    for (let j = 0; j < nCond; j++) {
       if (broadcastedConds[j]!.iget(i)) {
         const value = broadcastedChoices[j]!.iget(i);
-        if (isBigIntDType(dtype)) {
+        if (isBig) {
           (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
         } else {
-          (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
+          const c = value as Complex;
+          (outputData as Float64Array | Float32Array)[i * 2] = c.re;
+          (outputData as Float64Array | Float32Array)[i * 2 + 1] = c.im;
         }
         break;
       }
@@ -872,10 +959,314 @@ export function select(
 /**
  * Change elements of array based on conditional and input values
  */
-export function place(storage: ArrayStorage, mask: ArrayStorage, vals: ArrayStorage): void {
+/**
+ * One masked-write loop per destination TypedArray type.
+ *
+ * Deliberately duplicated: a single loop storing through a
+ * `Float64Array | Int8Array | ...` union sees every dtype the process has
+ * touched, and V8 abandons the inline cache on that store once enough types
+ * pass through it, so every dtype pays rather than just the later ones.
+ */
+type MaskedWriteLoop = (
+  dst: TypedArray,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: (number | bigint)[],
+  nVals: number,
+  byFlatIndex: boolean,
+) => void;
+
+function mwF64(
+  dst: Float64Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwF32(
+  dst: Float32Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwI32(
+  dst: Int32Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwU32(
+  dst: Uint32Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwI16(
+  dst: Int16Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwU16(
+  dst: Uint16Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwI8(
+  dst: Int8Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwU8(
+  dst: Uint8Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwI64(
+  dst: BigInt64Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: bigint[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwU64(
+  dst: BigUint64Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: bigint[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+function mwF16(
+  dst: Float16Array,
+  dOff: number,
+  m: Uint8Array,
+  mOff: number,
+  size: number,
+  vals: number[],
+  nVals: number,
+  byFlatIndex: boolean,
+): void {
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (m[mOff + i]) {
+      dst[dOff + i] = vals[(byFlatIndex ? i : vi) % nVals]!;
+      vi++;
+    }
+  }
+}
+
+const MASKED_WRITE_LOOPS = new Map<unknown, MaskedWriteLoop>([
+  [Float64Array, mwF64 as unknown as MaskedWriteLoop],
+  [Float32Array, mwF32 as unknown as MaskedWriteLoop],
+  [Int32Array, mwI32 as unknown as MaskedWriteLoop],
+  [Uint32Array, mwU32 as unknown as MaskedWriteLoop],
+  [Int16Array, mwI16 as unknown as MaskedWriteLoop],
+  [Uint16Array, mwU16 as unknown as MaskedWriteLoop],
+  [Int8Array, mwI8 as unknown as MaskedWriteLoop],
+  [Uint8Array, mwU8 as unknown as MaskedWriteLoop],
+  [BigInt64Array, mwI64 as unknown as MaskedWriteLoop],
+  [BigUint64Array, mwU64 as unknown as MaskedWriteLoop],
+]);
+
+// float16 only exists on engines that ship Float16Array; elsewhere the storage is
+// a Float32Array and the entry above already covers it. Without this, float16
+// would be the one dtype still falling to the generic accessor path.
+if (typeof Float16Array !== 'undefined') {
+  MASKED_WRITE_LOOPS.set(Float16Array, mwF16 as unknown as MaskedWriteLoop);
+}
+
+/**
+ * Write `valueArray` into `storage` wherever `mask` is truthy, cycling the values.
+ *
+ * `byFlatIndex` selects which of NumPy's two cycling rules applies, and they are
+ * genuinely different: putmask(a, mask, v) indexes v by flat position
+ * (`v[i % v.length]`), while place(a, mask, v) consumes v sequentially per
+ * masked element. On `arange(9)` with `mask = i % 3 == 0` and `v = [7,8,9]`,
+ * NumPy gives `[7,1,2,7,4,5,7,7,8]` for putmask and `[7,1,2,8,4,5,9,7,8]` for
+ * place, so the two cannot share one cycling rule.
+ *
+ * The dtype conversion of `valueArray` is loop-invariant, so it happens once up
+ * front; when both operands are contiguous and non-complex the loop then
+ * indexes the buffers directly. Anything else falls back to the accessor path.
+ */
+function maskedWrite(
+  storage: ArrayStorage,
+  mask: ArrayStorage,
+  valueArray: (number | bigint)[],
+  byFlatIndex: boolean,
+): void {
   const size = storage.size;
   const dtype = storage.dtype;
+  const nVals = valueArray.length;
+  if (nVals === 0) return;
 
+  // Convert the value list to the destination dtype once, not per written element.
+  const wantBig = isBigIntDType(dtype);
+  const isBool = dtype === 'bool';
+  const vals: (number | bigint)[] = valueArray.map((v) => {
+    // A bool array holds only 0 or 1. `iset` does not enforce that — it stores
+    // whatever it is given — so without this, `place(boolArray, mask, 5)` would
+    // leave a 5 in the buffer where NumPy stores True. Normalising here is free:
+    // this runs once per call, not once per written element.
+    if (isBool) return v ? 1 : 0;
+    if (wantBig) return typeof v === 'bigint' ? v : BigInt(Math.round(Number(v)));
+    return typeof v === 'bigint' ? Number(v) : v;
+  });
+
+  // Fast path needs both operands contiguous, a non-complex destination, and a
+  // Uint8Array mask (which is how bool storage is represented).
+  if (storage.isCContiguous && mask.isCContiguous && !isComplexDType(dtype)) {
+    const maskData = mask.data;
+    const loop = MASKED_WRITE_LOOPS.get(storage.data.constructor);
+    if (loop && maskData instanceof Uint8Array) {
+      loop(storage.data, storage.offset, maskData, mask.offset, size, vals, nVals, byFlatIndex);
+      return;
+    }
+  }
+
+  // Strided or complex: the accessors handle the layout.
+  let vi = 0;
+  for (let i = 0; i < size; i++) {
+    if (mask.iget(i)) {
+      storage.iset(i, vals[(byFlatIndex ? i : vi) % nVals]!);
+      vi++;
+    }
+  }
+}
+
+export function place(storage: ArrayStorage, mask: ArrayStorage, vals: ArrayStorage): void {
   // Get values array
   const valueArray: (number | bigint)[] = [];
   for (let i = 0; i < vals.size; i++) {
@@ -889,27 +1280,7 @@ export function place(storage: ArrayStorage, mask: ArrayStorage, vals: ArrayStor
   }
 
   // Place values where mask is true
-  let valueIdx = 0;
-  for (let i = 0; i < size; i++) {
-    const maskVal = mask.iget(i);
-    if (maskVal) {
-      let value = valueArray[valueIdx % valueArray.length]!;
-
-      // Convert type if needed
-      if (isBigIntDType(dtype)) {
-        if (typeof value !== 'bigint') {
-          value = BigInt(Math.round(Number(value)));
-        }
-      } else {
-        if (typeof value === 'bigint') {
-          value = Number(value);
-        }
-      }
-
-      storage.iset(i, value);
-      valueIdx++;
-    }
-  }
+  maskedWrite(storage, mask, valueArray, false);
 }
 
 /**
@@ -1065,6 +1436,10 @@ export function mask_indices(
   (rowResult.data as Float64Array).set(rows);
   const colResult = ArrayStorage.empty([cols.length], 'float64');
   (colResult.data as Float64Array).set(cols);
+  // Release the ones matrix and the mask it produced; only the index arrays
+  // escape. Guard the case where mask_func returns its own argument.
+  if (mask !== ones) mask.dispose();
+  ones.dispose();
   return [rowResult, colResult];
 }
 
@@ -1370,23 +1745,9 @@ export function fill_diagonal(
 
   if (typeof val === 'number') {
     if (contiguous) {
-      const data = a.data;
-      const off = a.offset;
-      if (isBigIntDType(a.dtype)) {
-        const typedData = data as BigInt64Array | BigUint64Array;
-        const bigVal = BigInt(Math.round(val));
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          typedData[off + idx] = bigVal;
-        }
-      } else {
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[off + idx] = val;
-        }
-      }
+      const count = Math.min(diagLength, Math.ceil(size / step));
+      const v: number | bigint = isBigIntDType(a.dtype) ? BigInt(Math.round(val)) : val;
+      stepStore(a.data, a.offset, step, count, () => v);
     } else {
       for (let i = 0; i < diagLength && i * step < size; i++) {
         a.iset(i * step, val);
@@ -1399,23 +1760,9 @@ export function fill_diagonal(
       const off = a.offset;
       const valData = val.data;
       const valOff = val.offset;
-      if (isBigIntDType(a.dtype)) {
-        const typedData = data as BigInt64Array | BigUint64Array;
-        const valTyped = valData as BigInt64Array | BigUint64Array;
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          typedData[off + idx] = valTyped[valOff + (i % valSize)]!;
-        }
-      } else {
-        const typedD = data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        const valTyped = valData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
-        for (let i = 0; i < diagLength; i++) {
-          const idx = i * step;
-          if (idx >= size) break;
-          typedD[off + idx] = valTyped[valOff + (i % valSize)]!;
-        }
-      }
+      const count = Math.min(diagLength, Math.ceil(size / step));
+      const src = valData as unknown as Record<number, number | bigint>;
+      stepStore(data, off, step, count, (i) => src[valOff + (i % valSize)]!);
     } else {
       for (let i = 0; i < diagLength && i * step < size; i++) {
         a.iset(i * step, val.iget(i % valSize));
@@ -1439,7 +1786,7 @@ export function fill_diagonal(
 export function apply_along_axis(
   arr: ArrayStorage,
   axis: number,
-  func1d: (slice: ArrayStorage) => ArrayStorage | number,
+  func1d: (slice: ArrayStorage) => ArrayStorage | number | bigint,
 ): ArrayStorage {
   const shape = Array.from(arr.shape);
   const ndim = shape.length;
@@ -1461,9 +1808,9 @@ export function apply_along_axis(
   // If no iteration dimensions, just apply the function to the whole array
   if (iterShape.length === 0) {
     const result = func1d(arr);
-    if (typeof result === 'number') {
+    if (typeof result === 'number' || typeof result === 'bigint') {
       const resultArr = ArrayStorage.zeros([1], arr.dtype);
-      resultArr.data[0] = result;
+      resultArr.iset(0, result);
       return resultArr;
     }
     return result;
@@ -1473,16 +1820,21 @@ export function apply_along_axis(
   const inputDtype = arr.dtype;
 
   /** Extract a 1D slice and call the function, collecting results */
-  function extractSlice1D(
-    size: number,
-    getFn: (idx: number) => number | bigint | { re: number; im: number },
-  ): ArrayStorage {
-    const slice = ArrayStorage.empty([size], inputDtype);
-    for (let i = 0; i < size; i++) {
-      slice.iset(i, getFn(i) as number);
-    }
-    return slice;
-  }
+  /**
+   * A 1-D strided view along `axis`, starting at `offset`.
+   *
+   * NumPy hands `func1d` a view (`x.base is not None`, `OWNDATA` false) and
+   * mutations through it reach the input array, so a view is required here to
+   * match NumPy's semantics, not a copy.
+   *
+   * It is also faster: materialising each slice into its own buffer costs a
+   * closure call plus a get/iset per element and an allocation per slice, and
+   * that scaffolding dominates apply_along_axis's runtime far more than the
+   * callback itself does. Copying the strided column into a contiguous buffer
+   * first was tried too; the copy costs more than the strided reduction saves.
+   */
+  const sliceView = (length: number, stride: number, offset: number): ArrayStorage =>
+    ArrayStorage.fromDataShared(arr.data, [length], inputDtype, [stride], offset, arr.wasmRegion);
 
   const isBigIntOut = (dt: DType) => dt === 'int64' || dt === 'uint64';
   /** Write a scalar value to a result array, converting to BigInt if needed */
@@ -1501,13 +1853,15 @@ export function apply_along_axis(
   /** Determine output dtype: if callback returns ArrayStorage use its dtype,
    *  otherwise probe the first result to get the scalar dtype from the reduction */
   /** Check if a callback result is a scalar (number or Complex object) */
-  function isScalarResult(val: ArrayStorage | number | { re: number; im: number }): boolean {
-    if (typeof val === 'number') return true;
+  function isScalarResult(
+    val: ArrayStorage | number | bigint | { re: number; im: number },
+  ): boolean {
+    if (typeof val === 'number' || typeof val === 'bigint') return true;
     if (typeof val === 'object' && val !== null && 're' in val && !('size' in val)) return true;
     return false;
   }
 
-  function probeOutputDtype(firstResult: ArrayStorage | number): DType {
+  function probeOutputDtype(firstResult: ArrayStorage | number | bigint): DType {
     if (!isScalarResult(firstResult)) return (firstResult as ArrayStorage).dtype as DType;
     // For scalar returns, determine accumulation dtype:
     // NumPy promotes int→int64, uint→uint64, bool→int64 for reductions; float/complex preserved
@@ -1518,14 +1872,32 @@ export function apply_along_axis(
     return dt as DType;
   }
 
+  /**
+   * Free per-slice results once they have been copied into the output.
+   * Entries may be numbers or Complex objects as well as storages, so dispose
+   * only what actually owns memory.
+   */
+  const releaseResults = (rs: (ArrayStorage | number | bigint)[]): void => {
+    for (const r of rs) {
+      if (r && typeof r === 'object' && typeof (r as ArrayStorage).dispose === 'function') {
+        (r as ArrayStorage).dispose();
+      }
+    }
+  };
+
   if (ndim === 2) {
     const [rows, cols] = shape;
 
     if (axis === 0) {
       // Apply function to each column
-      const results: (ArrayStorage | number)[] = [];
+      const results: (ArrayStorage | number | bigint)[] = [];
       for (let c = 0; c < cols!; c++) {
-        results.push(func1d(extractSlice1D(rows!, (r) => arr.get(r, c)!)));
+        // Free the temporary slice as soon as func1d has consumed it. Guard the
+        // identity case (func1d returning its own argument) before disposing.
+        const slice = sliceView(rows!, arr.strides[0]!, arr.offset + c * arr.strides[1]!);
+        const out = func1d(slice);
+        results.push(out);
+        if (out !== slice) slice.dispose();
       }
 
       const firstResult = results[0];
@@ -1538,6 +1910,7 @@ export function apply_along_axis(
         for (let c = 0; c < cols!; c++) {
           writeScalar(resultArr, c, results[c] as number);
         }
+        releaseResults(results);
         return resultArr;
       } else {
         const arrFirst = firstResult as ArrayStorage;
@@ -1549,13 +1922,19 @@ export function apply_along_axis(
             resultArr.iset(r * cols! + c, res.iget(r) as number);
           }
         }
+        releaseResults(results);
         return resultArr;
       }
     } else {
       // Apply function to each row
-      const results: (ArrayStorage | number)[] = [];
+      const results: (ArrayStorage | number | bigint)[] = [];
       for (let r = 0; r < rows!; r++) {
-        results.push(func1d(extractSlice1D(cols!, (c) => arr.get(r, c)!)));
+        // Free the temporary slice as soon as func1d has consumed it. Guard the
+        // identity case (func1d returning its own argument) before disposing.
+        const slice = sliceView(cols!, arr.strides[1]!, arr.offset + r * arr.strides[0]!);
+        const out = func1d(slice);
+        results.push(out);
+        if (out !== slice) slice.dispose();
       }
 
       const firstResult = results[0];
@@ -1568,6 +1947,7 @@ export function apply_along_axis(
         for (let r = 0; r < rows!; r++) {
           writeScalar(resultArr, r, results[r] as number);
         }
+        releaseResults(results);
         return resultArr;
       } else {
         const arrFirst = firstResult as ArrayStorage;
@@ -1579,6 +1959,7 @@ export function apply_along_axis(
             resultArr.iset(r * res.size + c, res.iget(c) as number);
           }
         }
+        releaseResults(results);
         return resultArr;
       }
     }
@@ -1587,9 +1968,9 @@ export function apply_along_axis(
   // For 1D arrays
   if (ndim === 1) {
     const result = func1d(arr);
-    if (typeof result === 'number') {
+    if (typeof result === 'number' || typeof result === 'bigint') {
       const resultArr = ArrayStorage.zeros([1], 'float64');
-      resultArr.data[0] = result;
+      resultArr.iset(0, result);
       return resultArr;
     }
     return result;
@@ -1599,37 +1980,22 @@ export function apply_along_axis(
   const axisSize = shape[axis]!;
   const iterSize = iterShape.reduce((a, b) => a * b, 1);
 
-  // Convert a flat iteration index to a multi-index in iterShape
-  function flatToMultiIter(flat: number): number[] {
-    const idx = new Array<number>(iterShape.length);
-    let rem = flat;
-    for (let d = iterShape.length - 1; d >= 0; d--) {
-      idx[d] = rem % iterShape[d]!;
-      rem = Math.floor(rem / iterShape[d]!);
-    }
-    return idx;
-  }
-
-  // Get element from arr at multi-index (with axis inserted)
-  function getElem(iterIdx: number[], axisIdx: number): number {
-    const fullIdx: number[] = [];
-    let ii = 0;
-    for (let d = 0; d < ndim; d++) {
-      fullIdx.push(d === axis ? axisIdx : iterIdx[ii++]!);
-    }
-    return Number(arr.get(...fullIdx));
-  }
-
   // Collect results
-  const results: (ArrayStorage | number)[] = [];
+  // Same view-based slicing as the 2-D paths. This also drops the old float64
+  // coercion — the slice now carries the input's own dtype, as NumPy's does.
+  const { baseOffsets, axisStride } = precomputeAxisOffsets(
+    shape,
+    arr.strides,
+    arr.offset,
+    axis,
+    iterSize,
+  );
+  const results: (ArrayStorage | number | bigint)[] = [];
   for (let fi = 0; fi < iterSize; fi++) {
-    const iterIdx = flatToMultiIter(fi);
-    const sliceArr = ArrayStorage.empty([axisSize], 'float64');
-    const sliceData = sliceArr.data as Float64Array;
-    for (let ai = 0; ai < axisSize; ai++) {
-      sliceData[ai] = getElem(iterIdx, ai);
-    }
-    results.push(func1d(sliceArr));
+    const sliceArr = sliceView(axisSize, axisStride, baseOffsets[fi]!);
+    const out = func1d(sliceArr);
+    results.push(out);
+    if (out !== sliceArr) sliceArr.dispose();
   }
 
   // Build output array
@@ -1684,16 +2050,35 @@ export function apply_over_axes(
       throw new Error(`axis ${axis} is out of bounds for array of dimension ${ndim}`);
     }
 
-    // Apply function along axis and keep dimensions
+    // Apply function along axis and keep dimensions. The value handed to func
+    // is ours to release once func has produced its replacement (never `arr`,
+    // which the caller owns).
+    const consumed = result;
     result = func(result, normalizedAxis);
+    if (consumed !== arr && consumed !== result) consumed.dispose();
 
     // NumPy's apply_over_axes keeps dimensions if the result has fewer dimensions
-    // by inserting a new axis
+    // by inserting a new axis.
+    //
+    // Reshape by sharing the region rather than re-wrapping the raw buffer:
+    // `new ArrayStorage(result.data, ...)` would leave the old handle owning the
+    // region, so it leaks — and worse, its finalizer could release memory the
+    // reshaped handle still points into. fromDataShared retains, so releasing
+    // the old handle afterwards leaves a correct refcount.
     if (result.shape.length < ndim) {
       const newShape = Array.from(result.shape);
       newShape.splice(normalizedAxis, 0, 1);
       const newStrides = computeStrides(newShape);
-      result = new ArrayStorage(result.data, newShape, newStrides, 0, result.dtype);
+      const reshaped = ArrayStorage.fromDataShared(
+        result.data,
+        newShape,
+        result.dtype,
+        newStrides,
+        0,
+        result.wasmRegion,
+      );
+      if (result !== arr) result.dispose();
+      result = reshaped;
     }
   }
 

@@ -1711,6 +1711,10 @@ export function tensordot(
   const isComplex = isComplexDType(resultDtype);
 
   // Helper to get real and imaginary parts
+  /** Wrap an exact BigInt total into its dtype's 64-bit range, as NumPy does. */
+  const wrapTo64 = (v: bigint, dt: DType): bigint =>
+    dt === 'uint64' ? BigInt.asUintN(64, v) : BigInt.asIntN(64, v);
+
   const getReIm = (val: number | bigint | Complex): { re: number; im: number } => {
     if (val instanceof Complex) {
       return { re: val.re, im: val.im };
@@ -1722,6 +1726,7 @@ export function tensordot(
   if (resultShape.length === 0) {
     let sumRe = 0;
     let sumIm = 0;
+    let sumBig = 0n;
     // Iterate over all combinations of contracted axes
     const contractSize = aAxes.map((ax) => a.shape[ax]!).reduce((acc, dim) => acc * dim, 1);
 
@@ -1756,7 +1761,9 @@ export function tensordot(
         sumRe += av.re * bv.re - av.im * bv.im;
         sumIm += av.re * bv.im + av.im * bv.re;
       } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sumRe += Number(aVal * bVal);
+        // Accumulate in BigInt, not through Number: the products of two int64
+        // operands routinely exceed 2^53.
+        sumBig += aVal * bVal;
       } else {
         sumRe += Number(aVal) * Number(bVal);
       }
@@ -1769,87 +1776,62 @@ export function tensordot(
     if (resultDtype === 'bool') {
       return sumRe ? 1 : 0;
     }
+    if (isBigIntDType(resultDtype)) {
+      return wrapTo64(sumBig, resultDtype);
+    }
     return sumRe;
   }
 
-  // General case: with free axes
-  const result = ArrayStorage.zeros(resultShape, resultDtype);
-
-  const resultSize = resultShape.reduce((acc, dim) => acc * dim, 1);
+  // General case: contract by reshaping to 2-D and delegating to matmul.
+  //
+  // A tensor contraction is a matrix product, which is how NumPy implements
+  // this (transpose, reshape, dot) and why NumPy is fast here. matmul already
+  // has tuned SIMD kernels for every dtype plus a JS fallback, so this needs no
+  // kernel of its own — a hand-written triple loop here does far less
+  // arithmetic than an equivalent matmul yet runs slower, since it can't use
+  // matmul's tuned kernels.
+  //
+  // For the `axes: number` form — the common one, and what NumPy's own default
+  // produces — the contracted axes are already trailing on `a` and leading on
+  // `b`, so both permutations are the identity and the reshapes are free views
+  // on contiguous input. Explicit axis lists may need a transpose first, which
+  // is the same cost NumPy pays.
   const contractSize = aAxes.map((ax) => a.shape[ax]!).reduce((acc, dim) => acc * dim, 1);
+  const aFreeSize = aFreeAxes.reduce((acc, ax) => acc * a.shape[ax]!, 1);
+  const bFreeSize = bFreeAxes.reduce((acc, ax) => acc * b.shape[ax]!, 1);
 
-  // Iterate over all result positions
-  for (let resIdx = 0; resIdx < resultSize; resIdx++) {
-    // Convert flat result index to multi-dimensional
-    let temp = resIdx;
-    const resultIndices: number[] = [];
-    for (let i = resultShape.length - 1; i >= 0; i--) {
-      resultIndices[i] = temp % resultShape[i]!;
-      temp = Math.floor(temp / resultShape[i]!);
-    }
-
-    // Extract indices for a's free axes and b's free axes
-    const aFreeIndices = resultIndices.slice(0, aFreeAxes.length);
-    const bFreeIndices = resultIndices.slice(aFreeAxes.length);
-
-    let sumRe = 0;
-    let sumIm = 0;
-
-    // Sum over all contracted axes
-    for (let c = 0; c < contractSize; c++) {
-      // Convert flat contracted index to multi-dimensional
-      temp = c;
-      const contractedIndices: number[] = [];
-      for (let i = aAxes.length - 1; i >= 0; i--) {
-        const ax = aAxes[i]!;
-        contractedIndices[i] = temp % a.shape[ax]!;
-        temp = Math.floor(temp / a.shape[ax]!);
-      }
-
-      // Build full indices for a and b
-      const aFullIdx: number[] = new Array(a.ndim);
-      const bFullIdx: number[] = new Array(b.ndim);
-
-      // Fill in free axes
-      for (let i = 0; i < aFreeAxes.length; i++) {
-        aFullIdx[aFreeAxes[i]!] = aFreeIndices[i]!;
-      }
-      for (let i = 0; i < bFreeAxes.length; i++) {
-        bFullIdx[bFreeAxes[i]!] = bFreeIndices[i]!;
-      }
-
-      // Fill in contracted axes
-      for (let i = 0; i < aAxes.length; i++) {
-        aFullIdx[aAxes[i]!] = contractedIndices[i]!;
-        bFullIdx[bAxes[i]!] = contractedIndices[i]!;
-      }
-
-      const aVal = a.get(...aFullIdx);
-      const bVal = b.get(...bFullIdx);
-
-      if (isComplex) {
-        const av = getReIm(aVal);
-        const bv = getReIm(bVal);
-        // Complex multiplication
-        sumRe += av.re * bv.re - av.im * bv.im;
-        sumIm += av.re * bv.im + av.im * bv.re;
-      } else if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        sumRe += Number(aVal * bVal);
-      } else {
-        sumRe += Number(aVal) * Number(bVal);
-      }
-    }
-
-    if (isComplex) {
-      result.set(resultIndices, new Complex(sumRe, sumIm));
-    } else if (resultDtype === 'bool') {
-      result.set(resultIndices, sumRe ? 1 : 0);
-    } else {
-      result.set(resultIndices, sumRe);
-    }
+  // An empty contraction sums nothing, and an empty free axis produces no
+  // elements; matmul has no meaningful shape to work with in either case.
+  if (contractSize === 0 || aFreeSize === 0 || bFreeSize === 0) {
+    return ArrayStorage.zeros(resultShape, resultDtype);
   }
 
-  return result;
+  const isIdentityPerm = (perm: number[]): boolean => perm.every((v, i) => v === i);
+  const aPerm = [...aFreeAxes, ...aAxes];
+  const bPerm = [...bAxes, ...bFreeAxes];
+
+  const aT = isIdentityPerm(aPerm) ? a : shapeOps.transpose(a, aPerm);
+  const bT = isIdentityPerm(bPerm) ? b : shapeOps.transpose(b, bPerm);
+
+  const aM = shapeOps.reshape(aT, [aFreeSize, contractSize]);
+  const bM = shapeOps.reshape(bT, [contractSize, bFreeSize]);
+
+  const product = matmul(aM, bM);
+  // product is [aFreeSize, bFreeSize], which only coincides with resultShape when
+  // each operand contributes exactly one free axis. Reshape is a free view here
+  // because matmul's output is contiguous.
+  const out = shapeOps.reshape(product, [...resultShape]);
+
+  // Every intermediate either owns a WASM region or retains a share of one, and
+  // the reshape above has already taken its own reference to the result's.
+  // Release them rather than waiting on the finalizer.
+  if (aM !== a) aM.dispose();
+  if (bM !== b) bM.dispose();
+  if (aT !== a) aT.dispose();
+  if (bT !== b) bT.dispose();
+  if (out !== product) product.dispose();
+
+  return out;
 }
 
 /**
@@ -4926,15 +4908,11 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
 }
 
 /**
- * Compute eigenvalues and right eigenvectors of a square matrix.
- *
- * For general matrices, uses iterative methods.
- * For symmetric matrices, use eigh for better performance.
- *
- * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
- * this function returns only the real parts of eigenvalues. If your matrix has
- * complex eigenvalues (e.g., rotation matrices), results will be incorrect.
- * Use eigh() for symmetric matrices where eigenvalues are guaranteed to be real.
+ * Compute eigenvalues and right eigenvectors of a square matrix using
+ * iterative methods; symmetric matrices should use eigh instead for better
+ * performance. Complex eigenvalues are not supported — for non-symmetric
+ * matrices this returns only the real parts, which is wrong for matrices
+ * with genuinely complex eigenvalues (e.g. rotation matrices).
  *
  * @param a - Input square matrix
  * @returns { w, v } - Eigenvalues (real only) and eigenvector matrix
@@ -5217,11 +5195,10 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
 }
 
 /**
- * Compute eigenvalues of a general square matrix.
- *
- * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
- * this function returns only real approximations. Use eigvalsh() for symmetric
- * matrices where eigenvalues are guaranteed to be real.
+ * Compute eigenvalues of a general square matrix. Complex eigenvalues are not
+ * supported — for non-symmetric matrices this returns only real
+ * approximations; use eigvalsh for symmetric matrices, where eigenvalues are
+ * guaranteed to be real.
  *
  * @param a - Input square matrix
  * @returns Array of eigenvalues (real only)
@@ -6172,7 +6149,11 @@ export function tensorsolve(
 export function einsum_path(
   subscripts: string,
   ...operands: (ArrayStorage | number[])[]
-): [Array<[number, number] | number[]>, string] {
+): [Array<string | number[]>, string] {
+  // NumPy's path list is ['einsum_path', (0,1), (0,1), ...] — the marker string
+  // first, then the contraction tuples. Returning only the tuples made the shape
+  // structurally different from NumPy's, which is why this was the one public
+  // function that could not be cross-validated (finding 4.2).
   // Parse subscripts
   const arrowMatch = subscripts.indexOf('->');
 
@@ -6230,12 +6211,12 @@ export function einsum_path(
   // Simple path for 1 or 2 operands
   if (operands.length === 1) {
     const path: Array<[number, number] | number[]> = [[0]];
-    return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+    return [['einsum_path', ...path], buildPathInfo(subscripts, shapes, path, indexDims)];
   }
 
   if (operands.length === 2) {
     const path: Array<[number, number] | number[]> = [[0, 1]];
-    return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+    return [['einsum_path', ...path], buildPathInfo(subscripts, shapes, path, indexDims)];
   }
 
   // Greedy contraction path for 3+ operands
@@ -6243,7 +6224,6 @@ export function einsum_path(
   const path: Array<[number, number]> = [];
   const currentSubscripts = [...operandSubscripts];
   const currentShapes = [...shapes];
-  const currentIndices = operands.map((_, i) => i);
 
   while (currentSubscripts.length > 1) {
     let bestI = 0;
@@ -6270,8 +6250,12 @@ export function einsum_path(
       }
     }
 
-    // Record the contraction
-    path.push([currentIndices[bestI]!, currentIndices[bestJ]!]);
+    // Record the contraction as positions in the current operand list, which
+    // is what NumPy reports. Recording original operand indices (with -1 marking
+    // an intermediate) gave [[0,1],[2,-1]] where NumPy gives [(0,1),(0,1)] for a
+    // three-operand chain: after the first contraction the list has shrunk, so
+    // the second pair is addressed against the shorter list.
+    path.push(bestI < bestJ ? [bestI, bestJ] : [bestJ, bestI]);
 
     // Compute the result subscript and shape
     const [newSubscript, newShape] = computeContractionResult(
@@ -6288,16 +6272,13 @@ export function einsum_path(
     currentSubscripts.splice(bestI, 1);
     currentShapes.splice(bestJ, 1);
     currentShapes.splice(bestI, 1);
-    currentIndices.splice(bestJ, 1);
-    currentIndices.splice(bestI, 1);
 
     // Add the result
     currentSubscripts.push(newSubscript);
     currentShapes.push(newShape);
-    currentIndices.push(-1); // Intermediate result marker
   }
 
-  return [path, buildPathInfo(subscripts, shapes, path, indexDims)];
+  return [['einsum_path', ...path], buildPathInfo(subscripts, shapes, path, indexDims)];
 }
 
 /**

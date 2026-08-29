@@ -15,6 +15,7 @@ import {
   isFloatDType,
   reductionAccumDtype,
   stdVarResultDtype,
+  type TypedArray,
   throwIfComplex,
   trueDivideResultDtype,
 } from '../dtype';
@@ -43,6 +44,7 @@ import {
   wasmReduceSum,
   wasmReduceSumComplex,
   wasmReduceSumStrided,
+  wasmReduceSumStrided64,
   wasmReduceSumStridedComplex,
 } from '../wasm/reduce_sum';
 import { wasmReduceVar } from '../wasm/reduce_var';
@@ -138,11 +140,22 @@ function wrapScalarKeepdims(
 /**
  * Sum array elements over a given axis
  */
+/**
+ * Wrap an exact BigInt accumulator into its dtype's 64-bit range.
+ *
+ * BigInt arithmetic is unbounded, but NumPy's integer reductions wrap on
+ * overflow. Returning the unbounded accumulator made `sum` disagree with NumPy
+ * in both magnitude and sign once a total passed int64 range.
+ */
+function wrap64(v: bigint, dtype: DType): bigint {
+  return dtype === 'uint64' ? BigInt.asUintN(64, v) : BigInt.asIntN(64, v);
+}
+
 export function sum(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -193,7 +206,7 @@ export function sum(
           total += storage.iget(i) as bigint;
         }
       }
-      return Number(total);
+      return wrap64(total, dtype);
     } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
       const acc = getFloatAcc(dtype)!;
       acc[0] = 0;
@@ -264,6 +277,23 @@ export function sum(
   if (contiguous && !isComplexDType(dtype)) {
     const wasmOuter = shape.slice(0, normalizedAxis).reduce((a, b) => a * b, 1);
     const innerSize = shape.slice(normalizedAxis + 1).reduce((a, b) => a * b, 1);
+
+    // int64/uint64 accumulate in the input type — an f64 accumulator cannot hold
+    // a 64-bit column total above 2^53.
+    if (isBigIntDType(outDtype)) {
+      const exact = wasmReduceSumStrided64(storage, wasmOuter, axisSize, innerSize);
+      if (exact) {
+        const outShape = keepdims
+          ? shape.map((sz, i) => (i === normalizedAxis ? 1 : sz))
+          : outputShape;
+        try {
+          return ArrayStorage.fromData(exact.data, outShape, outDtype);
+        } finally {
+          exact.dispose();
+        }
+      }
+    }
+
     const wasmResult = wasmReduceSumStrided(storage, wasmOuter, axisSize, innerSize);
     if (wasmResult) {
       const outShape = keepdims ? shape.map((s, i) => (i === normalizedAxis ? 1 : s)) : outputShape;
@@ -472,6 +502,25 @@ export function mean(
       return roundToDtype(total / storage.size, dtype);
     }
 
+    // int64/uint64: NumPy's mean promotes to float64 and accumulates there, so it
+    // does NOT wrap the way an integer sum() does. Reusing sum() here would hand
+    // back a wrapped int64 total and turn a large mean negative.
+    if (isBigIntDType(dtype)) {
+      let total = 0;
+      const off2 = storage.offset;
+      if (storage.isCContiguous) {
+        const typed = storage.data as BigInt64Array | BigUint64Array;
+        for (let i = 0; i < storage.size; i++) {
+          total += Number(typed[off2 + i]!);
+        }
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          total += Number(storage.iget(i) as bigint);
+        }
+      }
+      return total / storage.size;
+    }
+
     const sumResult = sum(storage);
     if (sumResult instanceof Complex) {
       return new Complex(sumResult.re / storage.size, sumResult.im / storage.size);
@@ -569,6 +618,12 @@ export function mean(
   if (typeof sumResult === 'number') {
     return sumResult / shape[normalizedAxis]!;
   }
+  // A BigInt here means the reduction collapsed to a scalar (1-D input, no
+  // keepdims), so sum() already wrapped it in int64. Redo it through the global
+  // path, which accumulates in float64 the way NumPy's integer mean does.
+  if (typeof sumResult === 'bigint') {
+    return mean(storage);
+  }
   if (sumResult instanceof Complex) {
     return new Complex(
       sumResult.re / shape[normalizedAxis]!,
@@ -623,7 +678,7 @@ export function max(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -753,7 +808,7 @@ export function max(
           }
         }
       }
-      return Number(maxVal);
+      return typeof maxVal === 'bigint' ? maxVal : Number(maxVal);
     } else {
       let maxVal = storage.iget(0);
       for (let i = 1; i < size; i++) {
@@ -762,7 +817,7 @@ export function max(
           maxVal = val;
         }
       }
-      return Number(maxVal);
+      return typeof maxVal === 'bigint' ? maxVal : Number(maxVal);
     }
   }
 
@@ -875,7 +930,7 @@ export function prod(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype as DType;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -929,7 +984,7 @@ export function prod(
           product *= storage.iget(i) as bigint;
         }
       }
-      return Number(product);
+      return wrap64(product, dtype as DType);
     } else if (dtype === 'float32' || (dtype === 'float16' && f16acc)) {
       const acc = getFloatAcc(dtype)!;
       acc[0] = 1;
@@ -1154,7 +1209,7 @@ export function min(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -1284,7 +1339,7 @@ export function min(
           }
         }
       }
-      return Number(minVal);
+      return typeof minVal === 'bigint' ? minVal : Number(minVal);
     } else {
       let minVal = storage.iget(0);
       for (let i = 1; i < size; i++) {
@@ -1293,7 +1348,7 @@ export function min(
           minVal = val;
         }
       }
-      return Number(minVal);
+      return typeof minVal === 'bigint' ? minVal : Number(minVal);
     }
   }
 
@@ -1843,16 +1898,13 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
  */
 /**
  * Narrow a reduction's raw float64 array result to its NumPy result dtype.
- *
- * Interpolating/accumulating reductions (quantile, nanmean, nanstd, …) do their
- * math in float64 and allocate a float64 result buffer, but NumPy preserves a
- * narrower input float — e.g. `np.median(float32)` → float32. This casts such a
- * result down so the runtime dtype matches the compile-time type
- * (src/common/dtype-promotion.ts, generated from the same result-dtype helpers).
- *
- * Only float16/float32 targets need work: every other result dtype (float64,
- * int64/uint64, complex) is already produced correctly upstream. Scalars carry
- * no dtype and pass through unchanged.
+ * Interpolating and accumulating reductions (quantile, nanmean, nanstd, …) do
+ * their math in float64 and allocate a float64 result buffer, but NumPy
+ * preserves a narrower input float — e.g. `np.median(float32)` → float32 — so
+ * this casts the result down to match. Only float16/float32 targets need
+ * work: every other result dtype (float64, int64/uint64, complex) is already
+ * produced correctly upstream, and scalars carry no dtype and pass through
+ * unchanged.
  */
 function narrowFloatResult<T extends ArrayStorage | number | bigint | Complex>(
   result: T,
@@ -1869,6 +1921,17 @@ function narrowFloatResult<T extends ArrayStorage | number | bigint | Complex>(
     for (let i = 0; i < src.length; i++) dst[i] = src[i]!;
     result.dispose();
     return narrowed as unknown as T;
+  }
+  // Scalar results need the same narrowing. Without this, an array-valued
+  // reduction came back as float16 while the equivalent scalar reduction kept
+  // full f64 precision — `nanstd(float16[...])` returned 2.7386127875258306
+  // where NumPy gives np.float16(2.738). The library returns JS numbers rather
+  // than 0-d arrays, but the *value* should still be the one the dtype can hold.
+  if (typeof result === 'number' && (targetDtype === 'float16' || targetDtype === 'float32')) {
+    if (targetDtype === 'float32' || !hasFloat16) {
+      return Math.fround(result) as unknown as T;
+    }
+    return new Float16Array([result])[0] as unknown as T;
   }
   return result;
 }
@@ -2104,14 +2167,16 @@ export function std(
   // WASM fast path for full-array std (ddof=0 only — WASM kernel uses population std)
   if (axis === undefined && ddof === 0 && !keepdims) {
     const wasmResult = wasmReduceStd(storage);
-    if (wasmResult !== null) return wasmResult;
+    // Narrow like nanstd already does — a float16 std must come back as the f16
+    // value, not full f64 precision.
+    if (wasmResult !== null) return narrowFloatResult(wasmResult, stdVarResultDtype(storage.dtype));
   }
 
   // variance() handles complex arrays - returns real values
   const varResult = variance(storage, axis, ddof, keepdims);
 
   if (typeof varResult === 'number') {
-    return Math.sqrt(varResult);
+    return narrowFloatResult(Math.sqrt(varResult), stdVarResultDtype(storage.dtype));
   }
 
   // Apply sqrt element-wise. std preserves variance's dtype (NumPy: std(x) has
@@ -2922,7 +2987,7 @@ export function ptp(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
 
   // NumPy rejects bool ptp: subtract is not defined for booleans
@@ -2965,6 +3030,11 @@ export function ptp(
   const maxResult = max(storage, axis, keepdims);
   const minResult = min(storage, axis, keepdims);
 
+  if (typeof maxResult === 'bigint' && typeof minResult === 'bigint') {
+    // NumPy wraps the subtraction in the input dtype; BigInt is unbounded.
+    return wrap64(maxResult - minResult, dtype as DType);
+  }
+
   if (typeof maxResult === 'number' && typeof minResult === 'number') {
     // For integer dtypes, wrap the subtraction in the input dtype (matching NumPy)
     const diff = maxResult - minResult;
@@ -2996,8 +3066,19 @@ export function ptp(
     const result = ArrayStorage.zeros([...maxStorage.shape], dtype);
     const resultData = result.data;
 
-    for (let i = 0; i < maxStorage.size; i++) {
-      resultData[i] = Number(maxData[i]) - Number(minData[i]);
+    if (isBigIntDType(dtype)) {
+      // A BigInt64Array store rejects a Number outright, and Number() would lose
+      // the difference anyway; subtract in BigInt and let the store wrap.
+      const out = resultData as BigInt64Array | BigUint64Array;
+      const hi = maxData as BigInt64Array | BigUint64Array;
+      const lo = minData as BigInt64Array | BigUint64Array;
+      for (let i = 0; i < maxStorage.size; i++) {
+        out[i] = hi[i]! - lo[i]!;
+      }
+    } else {
+      for (let i = 0; i < maxStorage.size; i++) {
+        resultData[i] = Number(maxData[i]) - Number(minData[i]);
+      }
     }
 
     return result;
@@ -3570,7 +3651,7 @@ export function nansum(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   return narrowFloatResult(nansumImpl(storage, axis, keepdims), reductionAccumDtype(storage.dtype));
 }
 
@@ -3578,7 +3659,7 @@ function nansumImpl(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
   const shape = storage.shape;
@@ -3680,7 +3761,7 @@ function nansumImpl(
   if (outputShape.length === 0) {
     const scalar = nansum(storage);
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -3749,6 +3830,199 @@ function nansumImpl(
   return result;
 }
 
+// --- Per-dtype loops for the float-only nan* full reductions ---
+//
+// Only float dtypes reach these paths: integers cannot hold NaN, so they
+// short-circuit to the plain kernel higher up. Three concrete branches cover it.
+//
+// These read through `data[off + i]` on the TypedArray union, which specialises
+// on whichever dtype arrives first in a sweep (float64) and leaves every later
+// one on the slow path.
+
+const NAN_SUM_COUNT = new Float64Array(2);
+const NAN_SUMSQ = new Float64Array(1);
+
+function nanArgMaxF(data: TypedArray, off: number, n: number): number {
+  let best = Number.NEGATIVE_INFINITY;
+  let idx = -1;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v) && v > best) {
+        best = v;
+        idx = i;
+      }
+    }
+  }
+  return idx;
+}
+
+function nanArgMinF(data: TypedArray, off: number, n: number): number {
+  let best = Number.POSITIVE_INFINITY;
+  let idx = -1;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v) && v < best) {
+        best = v;
+        idx = i;
+      }
+    }
+  }
+  return idx;
+}
+
+function nanProdF(data: TypedArray, off: number, n: number): number {
+  let total = 1;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) total *= v;
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) total *= v;
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) total *= v;
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v)) total *= v;
+    }
+  }
+  return total;
+}
+
+/** Sum and count of the non-NaN elements. `out` receives [sum, count]. */
+function nanSumCountF(data: TypedArray, off: number, n: number, out: Float64Array): void {
+  let total = 0;
+  let count = 0;
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v)) {
+        total += v;
+        count++;
+      }
+    }
+  }
+  out[0] = total;
+  out[1] = count;
+}
+
+/**
+ * Sum of squared deviations from `mean`, accumulated into `acc[0]`.
+ *
+ * `acc` is the caller's accumulator so float16/float32 can keep NumPy's narrower
+ * accumulation width instead of widening to float64.
+ */
+function nanSumSqF(
+  data: TypedArray,
+  off: number,
+  n: number,
+  mean: number,
+  acc: Float64Array | Float32Array | Float16Array,
+): void {
+  if (data instanceof Float64Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  } else if (data instanceof Float32Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  } else if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+    for (let i = 0; i < n; i++) {
+      const v = data[off + i]!;
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const v = Number(data[off + i]);
+      if (!Number.isNaN(v)) acc[0] = acc[0]! + (v - mean) ** 2;
+    }
+  }
+}
+
 /**
  * Return product of elements, treating NaNs as one.
  * Result dtype follows NumPy's reduction-accumulation rule; see {@link narrowFloatResult}.
@@ -3757,7 +4031,7 @@ export function nanprod(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   return narrowFloatResult(
     nanprodImpl(storage, axis, keepdims),
     reductionAccumDtype(storage.dtype),
@@ -3768,7 +4042,7 @@ function nanprodImpl(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const isComplex = isComplexDType(dtype);
 
@@ -3818,13 +4092,11 @@ function nanprodImpl(
 
     let total = 1;
     const contiguous = storage.isCContiguous;
+    // One concrete loop per float dtype, reading the source directly instead
+    // of through a widening copy that would allocate a Float64Array per call
+    // and convert through a megamorphic builtin.
     if (contiguous) {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
-        if (!Number.isNaN(val)) {
-          total *= val;
-        }
-      }
+      total = nanProdF(data, off, storage.size);
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
@@ -3849,7 +4121,7 @@ function nanprodImpl(
   if (outputShape.length === 0) {
     const scalar = nanprod(storage);
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -4047,7 +4319,7 @@ function nanmeanImpl(
   if (outputShape.length === 0) {
     const scalar = nanmean(storage);
     if (!keepdims) return scalar;
-    return wrapScalarKeepdims(scalar as number | Complex, ndim, dtype as DType);
+    return wrapScalarKeepdims(scalar as number | bigint | Complex, ndim, dtype as DType);
   }
 
   const outerSize = outputShape.reduce((a, b) => a * b, 1);
@@ -4311,13 +4583,14 @@ function nanvarImpl(
     let count = 0;
     const contiguous = storage.isCContiguous;
     if (contiguous) {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
-        if (!Number.isNaN(val)) {
-          total += val;
-          count++;
-        }
-      }
+      // One concrete loop per float dtype, reading the source directly instead
+      // of through a widening copy, which would allocate a Float64Array per
+      // pass — three of them for a variance — and convert through a
+      // megamorphic builtin.
+      const sc = NAN_SUM_COUNT;
+      nanSumCountF(data, off, storage.size, sc);
+      total = sc[0]!;
+      count = sc[1]!;
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
@@ -4330,15 +4603,34 @@ function nanvarImpl(
     if (count - ddof <= 0) return NaN;
     const meanVal = total / count;
 
-    // Second pass: compute sum of squared deviations
-    let sumSq = 0;
-    if (contiguous) {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
-        if (!Number.isNaN(val)) {
-          sumSq += (val - meanVal) ** 2;
+    // Second pass: compute sum of squared deviations.
+    //
+    // float16 has to accumulate at f16 precision, because NumPy does and the
+    // difference is visible: for [200,300,400,nan,500,600,700,800] the mean
+    // (500) fits f16 comfortably but the squared deviations total 280000, well
+    // past f16's 65504, so NumPy's nanvar overflows to inf. Accumulating in f64
+    // returned a finite 40000 instead. `variance()` already had this treatment;
+    // the nan-variants did not.
+    const narrowAcc = dtype === 'float16' || dtype === 'float32' ? getFloatAcc(dtype) : null;
+    if (narrowAcc) {
+      narrowAcc[0] = 0;
+      if (contiguous) {
+        nanSumSqF(data, off, storage.size, meanVal, narrowAcc);
+      } else {
+        for (let i = 0; i < storage.size; i++) {
+          const val = Number(storage.iget(i));
+          if (!Number.isNaN(val)) narrowAcc[0] += (val - meanVal) ** 2;
         }
       }
+      return narrowAcc[0]! / (count - ddof);
+    }
+
+    let sumSq = 0;
+    if (contiguous) {
+      const acc = NAN_SUMSQ;
+      acc[0] = 0;
+      nanSumSqF(data, off, storage.size, meanVal, acc);
+      sumSq = acc[0]!;
     } else {
       for (let i = 0; i < storage.size; i++) {
         const val = Number(storage.iget(i));
@@ -4465,7 +4757,7 @@ export function nanmin(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -4680,7 +4972,7 @@ export function nanmax(
   storage: ArrayStorage,
   axis?: number,
   keepdims: boolean = false,
-): ArrayStorage | number | Complex {
+): ArrayStorage | number | bigint | Complex {
   const dtype = storage.dtype;
   const shape = storage.shape;
   const ndim = shape.length;
@@ -4992,21 +5284,17 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let minVal = Infinity;
     let minIdx = -1;
     const contiguous = storage.isCContiguous;
+    // One concrete loop per float dtype, reading the source directly instead
+    // of through a widening copy that would allocate a Float64Array per call
+    // and convert through a megamorphic builtin.
     if (contiguous) {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
-        if (!Number.isNaN(val) && val < minVal) {
-          minVal = val;
-          minIdx = i;
-        }
-      }
-    } else {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(storage.iget(i));
-        if (!Number.isNaN(val) && val < minVal) {
-          minVal = val;
-          minIdx = i;
-        }
+      return nanArgMinF(data, off, storage.size);
+    }
+    for (let i = 0; i < storage.size; i++) {
+      const val = Number(storage.iget(i));
+      if (!Number.isNaN(val) && val < minVal) {
+        minVal = val;
+        minIdx = i;
       }
     }
     return minIdx;
@@ -5162,21 +5450,17 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let maxVal = -Infinity;
     let maxIdx = -1;
     const contiguous = storage.isCContiguous;
+    // One concrete loop per float dtype, reading the source directly instead
+    // of through a widening copy that would allocate a Float64Array per call
+    // and convert through a megamorphic builtin.
     if (contiguous) {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(data[off + i]);
-        if (!Number.isNaN(val) && val > maxVal) {
-          maxVal = val;
-          maxIdx = i;
-        }
-      }
-    } else {
-      for (let i = 0; i < storage.size; i++) {
-        const val = Number(storage.iget(i));
-        if (!Number.isNaN(val) && val > maxVal) {
-          maxVal = val;
-          maxIdx = i;
-        }
+      return nanArgMaxF(data, off, storage.size);
+    }
+    for (let i = 0; i < storage.size; i++) {
+      const val = Number(storage.iget(i));
+      if (!Number.isNaN(val) && val > maxVal) {
+        maxVal = val;
+        maxIdx = i;
       }
     }
     return maxIdx;
@@ -5448,6 +5732,11 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
     // Complex nancumprod - treat NaN values as 1+0i
     const complexData = data as Float64Array | Float32Array;
     const size = storage.size;
+    // complex64 carries f32 components, and NumPy rounds the running product to
+    // f32 at every step. Accumulating in f64 and rounding only on store gives a
+    // different answer a few steps in — [1.1, 2.3, 3.7, 0.13, ...] diverged at
+    // element 3 (1.2169300317764282 vs NumPy's 1.2169299125671387).
+    const step = dtype === 'complex64' ? Math.fround : (x: number): number => x;
 
     if (axis === undefined) {
       // Flatten and cumprod
@@ -5463,8 +5752,8 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
           if (!complexIsNaN(re, im)) {
             const newRe = prodRe * re - prodIm * im;
             const newIm = prodRe * im + prodIm * re;
-            prodRe = newRe;
-            prodIm = newIm;
+            prodRe = step(newRe);
+            prodIm = step(newIm);
           }
           resultData[i * 2] = prodRe;
           resultData[i * 2 + 1] = prodIm;
@@ -5477,8 +5766,8 @@ export function nancumprod(storage: ArrayStorage, axis?: number): ArrayStorage {
           if (!complexIsNaN(re, im)) {
             const newRe = prodRe * re - prodIm * im;
             const newIm = prodRe * im + prodIm * re;
-            prodRe = newRe;
-            prodIm = newIm;
+            prodRe = step(newRe);
+            prodIm = step(newIm);
           }
           resultData[i * 2] = prodRe;
           resultData[i * 2 + 1] = prodIm;

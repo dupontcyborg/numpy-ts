@@ -16,10 +16,17 @@ export fn left_shift_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32) 
     }
 }
 
-/// Element-wise left shift scalar for i64: out[i] = a[i] << scalar.
+/// Element-wise left shift scalar for i64 using 2-wide SIMD.
+/// The shift amount is uniform across lanes, which is exactly what i64x2.shl
+/// supports (only per-lane variable shifts are missing from WASM SIMD).
 export fn left_shift_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void {
     const shift: u6 = @intCast(@as(u64, @bitCast(scalar)) & 63);
+    const sv: simd.V2i64 = @splat(shift);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_i64(out, i, simd.load2_i64(a, i) << @intCast(sv));
+    }
     while (i < N) : (i += 1) {
         out[i] = a[i] << shift;
     }

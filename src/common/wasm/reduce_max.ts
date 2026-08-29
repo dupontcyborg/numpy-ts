@@ -76,7 +76,7 @@ const ctorMap: Partial<Record<DType, AnyTypedArrayCtor>> = {
  * WASM-accelerated reduction max (no axis, full array).
  * Returns null if WASM can't handle (complex types, non-contiguous, too small).
  */
-export function wasmReduceMax(a: ArrayStorage): number | null {
+export function wasmReduceMax(a: ArrayStorage): number | bigint | null {
   if (!a.isCContiguous) return null;
 
   const size = a.size;
@@ -98,7 +98,13 @@ export function wasmReduceMax(a: ArrayStorage): number | null {
     aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   }
 
-  return Number(kernel(aPtr, size));
+  const raw = kernel(aPtr, size);
+  // int64/uint64 keep the BigInt: Number() truncates above 2^53, breaking parity with
+  // NumPy on large 64-bit values. Narrower int dtypes accumulate into i64 but their
+  // exact result always fits a double.
+  if (dtype === 'int64') return BigInt.asIntN(64, raw as bigint);
+  if (dtype === 'uint64') return BigInt.asUintN(64, raw as bigint);
+  return Number(raw);
 }
 
 // --- Strided axis reduction (output dtype matches input dtype) ---

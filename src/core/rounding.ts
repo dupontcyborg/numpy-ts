@@ -6,16 +6,16 @@
  */
 
 import * as roundingOps from '../common/ops/rounding';
-import { fromStorage, type NDArrayCore, toStorage } from './types';
+import { fromStorage, fromStorageMaybeView, type NDArrayCore, toStorage } from './types';
 
 /** Round to given decimals */
 export function around(a: NDArrayCore, decimals: number = 0): NDArrayCore {
-  return fromStorage(roundingOps.around(toStorage(a), decimals));
+  return fromStorageMaybeView(roundingOps.around(toStorage(a), decimals), a);
 }
 
 /** Round (same as around) */
 export function round(a: NDArrayCore, decimals: number = 0): NDArrayCore {
-  return fromStorage(roundingOps.round(toStorage(a), decimals));
+  return fromStorageMaybeView(roundingOps.round(toStorage(a), decimals), a);
 }
 
 /** Ceiling */

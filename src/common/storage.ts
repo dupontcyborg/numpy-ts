@@ -15,13 +15,8 @@ import {
   isComplexDType,
   type TypedArray,
 } from './dtype';
-import {
-  getSharedMemory,
-  registerForCleanup,
-  unregisterCleanup,
-  type WasmRegion,
-  wasmMalloc,
-} from './wasm/runtime';
+import { stridedCopyInto } from './internal/strided-copy';
+import { getSharedMemory, type WasmRegion, wasmMalloc } from './wasm/runtime';
 
 // Polyfill Symbol.dispose for runtimes that don't define it natively (e.g. Safari).
 // Uses the same Symbol.for key that TypeScript, esbuild, Babel, and SWC emit in
@@ -57,6 +52,7 @@ export class ArrayStorage {
   private _isCContiguous: number = -1;
   // WASM memory region (null for JS-fallback arrays)
   private _wasmRegion: WasmRegion | null;
+  private readonly _size: number;
 
   constructor(
     data: TypedArray,
@@ -73,13 +69,16 @@ export class ArrayStorage {
     }
     this._data = data;
     this._shape = shape;
+    let size = 1;
+    for (let i = 0; i < shape.length; i++) size *= shape[i]!;
+    this._size = size;
     this._strides = strides;
     this._offset = offset;
     this._dtype = dtype;
+    // No cleanup registration here: WasmRegion registers itself with the
+    // FinalizationRegistry at construction, so the region is freed when the last
+    // storage referencing it dies.
     this._wasmRegion = wasmRegion;
-    if (wasmRegion) {
-      registerForCleanup(this, wasmRegion);
-    }
   }
 
   /**
@@ -97,10 +96,13 @@ export class ArrayStorage {
   }
 
   /**
-   * Total number of elements
+   * Total number of elements, cached at construction. `_shape` is only ever
+   * assigned in the constructor, so the cached value can never go stale — and
+   * caching matters because loops across the library call this in the loop
+   * condition, once per element.
    */
   get size(): number {
-    return this._shape.reduce((a, b) => a * b, 1);
+    return this._size;
   }
 
   /**
@@ -152,7 +154,8 @@ export class ArrayStorage {
    */
   dispose(): void {
     if (this._wasmRegion) {
-      unregisterCleanup(this);
+      // release() unregisters the region from the FinalizationRegistry before
+      // freeing it, so there is nothing to unregister for this storage.
       this._wasmRegion.release();
       this._wasmRegion = null;
     }
@@ -397,54 +400,28 @@ export class ArrayStorage {
 
     // For complex types, physical size is 2x logical size
     const physicalSize = isComplex ? size * 2 : size;
-    const newData = new Constructor(physicalSize);
+    const bytesPerElement = (Constructor as unknown as { BYTES_PER_ELEMENT: number })
+      .BYTES_PER_ELEMENT;
 
-    if (this.isCContiguous && this._offset === 0) {
-      // Fast path: direct copy via TypedArray.set() (works for all types including BigInt)
-      (newData as unknown as { set(src: ArrayLike<number>): void }).set(
-        (
-          this._data as unknown as { subarray(begin: number, end: number): ArrayLike<number> }
-        ).subarray(0, physicalSize),
-      );
-    } else {
-      // Slow path: respect strides
-      if (isBigIntDType(dtype)) {
-        const dst = newData as BigInt64Array | BigUint64Array;
-        for (let i = 0; i < size; i++) {
-          dst[i] = this.iget(i) as bigint;
-        }
-      } else if (isComplex) {
-        // For complex, copy element by element
-        const dst = newData as Float64Array | Float32Array;
-        for (let i = 0; i < size; i++) {
-          const val = this.iget(i) as Complex;
-          dst[i * 2] = val.re;
-          dst[i * 2 + 1] = val.im;
-        }
-      } else {
-        for (let i = 0; i < size; i++) {
-          newData[i] = this.iget(i) as number;
-        }
-      }
-    }
+    // Allocate the destination once and fill it in place, since the WASM-backed
+    // result is what callers get whenever wasmMalloc succeeds — allocating a JS
+    // array first and copying into WASM after would double the allocations and
+    // the data movement. copy() is also what `floor`/`ceil`/`trunc`/`round`
+    // return for integer dtypes, so this path matters for those too.
+    const region = wasmMalloc(physicalSize * bytesPerElement);
+    const dest = (
+      region
+        ? new Constructor(getSharedMemory().buffer, region.ptr, physicalSize)
+        : new Constructor(physicalSize)
+    ) as TypedArray;
 
-    const region = wasmMalloc(newData.byteLength);
-    if (region) {
-      const mem = getSharedMemory();
-      const wasmData = new Constructor(mem.buffer, region.ptr, physicalSize) as TypedArray;
-      (wasmData as unknown as { set(src: ArrayLike<number>): void }).set(
-        newData as unknown as ArrayLike<number>,
-      );
-      return new ArrayStorage(
-        wasmData,
-        shape,
-        ArrayStorage._computeStrides(shape),
-        0,
-        dtype,
-        region,
-      );
-    }
-    return new ArrayStorage(newData, shape, ArrayStorage._computeStrides(shape), 0, dtype);
+    // Copy strategy is picked from the stride pattern to avoid O(ndim^2)
+    // per-element index math and a megamorphic union store.
+    stridedCopyInto(this._data, dest, shape, this._strides, this._offset, isComplex);
+
+    return region
+      ? new ArrayStorage(dest, shape, ArrayStorage._computeStrides(shape), 0, dtype, region)
+      : new ArrayStorage(dest, shape, ArrayStorage._computeStrides(shape), 0, dtype);
   }
 
   /**
@@ -557,8 +534,12 @@ export class ArrayStorage {
   }
 
   /**
-   * Allocate uninitialized storage for output buffers.
-   * Like zeros() but skips zero-fill — use only when the caller will fully overwrite the data.
+   * Allocate uninitialized storage for output buffers. Like zeros() but skips
+   * zero-fill — use only when the caller will fully overwrite the data. Except
+   * for `bool`, which is always zeroed: WASM-backed allocations hand back
+   * recycled heap memory, and boolean predicates (isnan, isinf, etc.) only
+   * write the `1`s, leaving stale bytes from the previous owner in the rest, so
+   * the zero-fill guarantee lives here rather than in each predicate.
    * @internal
    */
   static empty(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
@@ -575,8 +556,10 @@ export class ArrayStorage {
     if (region) {
       const mem = getSharedMemory();
       const data = new Constructor(mem.buffer, region.ptr, physicalSize);
+      if (dtype === 'bool') (data as Uint8Array).fill(0);
       return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype, region);
     }
+    // A fresh JS TypedArray is already zeroed; nothing to do for bool here.
     const data = new Constructor(physicalSize);
     return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype);
   }

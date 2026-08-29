@@ -85,9 +85,7 @@ export fn heap_init(base: u32, size: u32) void {
     bump_ptr = heap_start;
     total_free = 0;
     // Clear all bucket heads
-    for (0..NUM_BUCKETS) |i| {
-        buckets[i] = 0;
-    }
+    @memset(buckets[0..NUM_BUCKETS], 0);
 }
 
 /// Allocate `req_size` bytes. Returns pointer to usable region, or 0 on OOM.

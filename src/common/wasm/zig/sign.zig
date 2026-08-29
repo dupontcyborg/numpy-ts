@@ -62,9 +62,19 @@ export fn sign_f16(a: [*]const u16, out: [*]u16, N: u32) void {
     }
 }
 
-/// Element-wise sign for i64, scalar loop (no i64x2 compare in WASM SIMD).
+/// Element-wise sign for i64 using 2-wide SIMD: returns -1, 0, or 1.
+/// i64x2 signed compares (gt_s/lt_s) exist; only the unsigned ones are missing.
 export fn sign_i64(a: [*]const i64, out: [*]i64, N: u32) void {
+    const zero: simd.V2i64 = @splat(0);
+    const one: simd.V2i64 = @splat(1);
+    const neg_one: simd.V2i64 = @splat(-1);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        const v = simd.load2_i64(a, i);
+        const r = @select(i64, v > zero, one, @select(i64, v < zero, neg_one, zero));
+        simd.store2_i64(out, i, r);
+    }
     while (i < N) : (i += 1) {
         const v = a[i];
         out[i] = if (v > 0) 1 else if (v < 0) -1 else 0;

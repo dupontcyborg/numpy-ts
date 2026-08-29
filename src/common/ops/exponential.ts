@@ -13,6 +13,7 @@ import {
   type DType,
   isBigIntDType,
   isComplexDType,
+  isIntegerDType,
   mathResultDtype,
   promoteDTypes,
   throwIfComplex,
@@ -20,6 +21,7 @@ import {
 import { broadcastShapes, elementwiseBinaryOp, elementwiseUnaryOp } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 import { wasmSqrt } from '../wasm/sqrt';
+import { convertToFloatDType } from './arithmetic';
 
 /** Convert bool storage to int8 (NumPy promotes bool → int8 for arithmetic). */
 function boolToInt8(a: ArrayStorage): ArrayStorage {
@@ -127,6 +129,27 @@ export function sqrt(a: ArrayStorage): ArrayStorage {
 }
 
 /**
+ * True if any element of an integer exponent array is negative.
+ *
+ * O(n), but power is O(n) anyway, and it only runs for integer-dtype exponents.
+ */
+function hasNegativeExponent(b: ArrayStorage): boolean {
+  const size = b.size;
+  if (b.isCContiguous) {
+    const data = b.data;
+    const off = b.offset;
+    for (let i = 0; i < size; i++) {
+      if ((data[off + i] as number) < 0) return true;
+    }
+    return false;
+  }
+  for (let i = 0; i < size; i++) {
+    if ((b.iget(i) as number) < 0) return true;
+  }
+  return false;
+}
+
+/**
  * Raise elements to power
  * NumPy behavior: Promotes to float64 for integer types with non-integer exponents
  * For complex: z^n = |z|^n * (cos(n*θ) + i*sin(n*θ)) where θ = atan2(im, re)
@@ -162,6 +185,15 @@ export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   // Scalar broadcast: if b is a single element and same dtype, use the faster scalar path
   if (b.size === 1 && a.dtype === b.dtype) {
     return powerScalar(a, Number(b.iget(0)));
+  }
+
+  // Integer base with a negative exponent. NumPy rejects this outright
+  // ("Integers to negative integer powers are not allowed"), but this library
+  // promotes to float64 instead. The array-exponent path did neither: it
+  // handed the negative exponent to the integer kernel and got 0 back (1 for
+  // int64). Promote here so both paths agree.
+  if (isIntegerDType(a.dtype) && isIntegerDType(b.dtype) && hasNegativeExponent(b)) {
+    return power(convertToFloatDType(a, 'float64'), convertToFloatDType(b, 'float64'));
   }
 
   const wasmResult = wasmPower(a, b);
@@ -883,6 +915,31 @@ export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArraySt
   if (typeof x2 !== 'number') {
     throwIfComplex(x2.dtype, 'logaddexp2', 'logaddexp2 is not supported for complex numbers.');
   }
+  // NumPy has no integer loop for logaddexp2 — integer inputs promote to the
+  // smallest float that holds them safely, which is exactly mathResultDtype.
+  // Doing that here instead of in the JS fallback lets every integer dtype
+  // run through the existing float kernel instead of a slower per-element
+  // JS path.
+  const target = mathResultDtype(
+    typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype),
+  );
+  if (target === 'float16' || target === 'float32' || target === 'float64') {
+    const needs1 = isIntegerDType(x1.dtype);
+    const needs2 = typeof x2 !== 'number' && isIntegerDType(x2.dtype);
+    if (needs1 || needs2) {
+      // The converted operands own WASM regions, so they have to be released
+      // once the kernel has run — the result is a separate allocation.
+      const a = needs1 ? convertToFloatDType(x1, target) : x1;
+      const b = needs2 ? convertToFloatDType(x2 as ArrayStorage, target) : x2;
+      try {
+        return logaddexp2(a, b);
+      } finally {
+        if (needs1) a.dispose();
+        if (needs2) (b as ArrayStorage).dispose();
+      }
+    }
+  }
+
   if (typeof x2 === 'number') {
     return logaddexp2Scalar(x1, x2);
   }

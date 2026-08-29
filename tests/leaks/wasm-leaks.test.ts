@@ -32,7 +32,9 @@ function releaseResult(result: unknown): void {
   } else if (result instanceof Map) {
     for (const val of result.values()) releaseResult(val);
   } else if (Array.isArray(result)) {
-    for (const item of result) (item as any)?.dispose?.();
+    // Recurse: results like histogramdd's [hist, edges] nest arrays of arrays,
+    // and a shallow dispose would silently miss the inner ones.
+    for (const item of result) releaseResult(item);
   } else if (
     typeof result === 'object' &&
     !(ArrayBuffer.isView(result) || result instanceof ArrayBuffer)

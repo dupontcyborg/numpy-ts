@@ -41,6 +41,33 @@ pub inline fn store4_f32(ptr: [*]f32, i: usize, v: V4f32) void {
     @as(*align(1) V4f32, @ptrCast(ptr + i)).* = v;
 }
 
+// --- Lane widening to f64 ---
+
+/// Widen a 2-lane vector of `T` to f64 lanes.
+/// Lowers to a native widening convert where one exists
+/// (f64x2.promote_low_f32x4, f64x2.convert_low_i32x4_s/u, ...).
+pub inline fn widen2_f64(comptime T: type, v: @Vector(2, T)) V2f64 {
+    return switch (@typeInfo(T)) {
+        .float => if (T == f64) v else @floatCast(v),
+        else => @floatFromInt(v),
+    };
+}
+
+/// Widen a single `T` to f64. Scalar counterpart of `widen2_f64`.
+pub inline fn widen1_f64(comptime T: type, v: T) f64 {
+    return switch (@typeInfo(T)) {
+        .float => @floatCast(v),
+        else => @floatFromInt(v),
+    };
+}
+
+/// True when `T` has a native lane-widening convert to f64.
+/// u64 is the one integer width WASM SIMD cannot widen, and LLVM's
+/// scalarization of it measures slower than a plain scalar loop.
+pub inline fn hasWiden2_f64(comptime T: type) bool {
+    return T != u64;
+}
+
 // --- i64 (2-wide) ---
 
 /// Returns a V2i64 (2-wide i64) loaded from an unaligned memory address.
@@ -380,21 +407,21 @@ const SIGN_FLIP_64: V2i64 = @splat(@bitCast(@as(u64, 0x8000000000000000)));
 
 /// Element-wise max for V2u64 via sign-flip + signed compare.
 /// WASM has i64x2.gt_s but no unsigned variant.
+///
+/// Both the compare and the select stay in the flipped domain, then flip back.
+/// Selecting between the unflipped operands instead makes LLVM scalarize into
+/// an extract/replace chain, which is slower than the plain scalar loop.
 pub inline fn max_u64x2(a: V2u64, b: V2u64) V2u64 {
-    const sa: V2i64 = @bitCast(a);
-    const sb: V2i64 = @bitCast(b);
-    const fa = sa +% SIGN_FLIP_64;
-    const fb = sb +% SIGN_FLIP_64;
-    return @select(u64, fa > fb, a, b);
+    const fa: V2i64 = @as(V2i64, @bitCast(a)) ^ SIGN_FLIP_64;
+    const fb: V2i64 = @as(V2i64, @bitCast(b)) ^ SIGN_FLIP_64;
+    return @bitCast(@select(i64, fa > fb, fa, fb) ^ SIGN_FLIP_64);
 }
 
 /// Element-wise min for V2u64 via sign-flip + signed compare.
 pub inline fn min_u64x2(a: V2u64, b: V2u64) V2u64 {
-    const sa: V2i64 = @bitCast(a);
-    const sb: V2i64 = @bitCast(b);
-    const fa = sa +% SIGN_FLIP_64;
-    const fb = sb +% SIGN_FLIP_64;
-    return @select(u64, fa < fb, a, b);
+    const fa: V2i64 = @as(V2i64, @bitCast(a)) ^ SIGN_FLIP_64;
+    const fb: V2i64 = @as(V2i64, @bitCast(b)) ^ SIGN_FLIP_64;
+    return @bitCast(@select(i64, fa < fb, fa, fb) ^ SIGN_FLIP_64);
 }
 
 pub inline fn max_i32x4(a: V4i32, b: V4i32) V4i32 {

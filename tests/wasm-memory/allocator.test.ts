@@ -35,6 +35,10 @@ beforeEach(() => {
 // Gap 6: wasmMalloc(0) returns null
 // ---------------------------------------------------------------------------
 
+// These suites exhaust the WASM heap deliberately, so the once-per-process
+// heap-exhaustion warning is expected here — silence it to keep the output clean.
+wasmMemoryConfig.warnOnHeapExhaustion = false;
+
 describe('wasmMalloc edge cases', () => {
   it('wasmMalloc(0) returns null', () => {
     const region = wasmMalloc(0);

@@ -18,12 +18,14 @@ import {
   isIntegerDType,
   mathResultDtype,
   promoteDTypes,
+  type TypedArray,
   throwIfComplex,
 } from '../dtype';
-import { broadcastShapes, elementwiseComparisonOp } from '../internal/compute';
+import { broadcastShapes, elementwiseComparisonOp, flatF64View } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 import { wasmCopysign, wasmCopysignScalar } from '../wasm/copysign';
 import { wasmIsfinite } from '../wasm/isfinite';
+import { wasmIsinf } from '../wasm/isinf';
 import { wasmIsnan } from '../wasm/isnan';
 import { wasmLogicalAnd, wasmLogicalAndScalar } from '../wasm/logical_and';
 import { wasmLogicalNot } from '../wasm/logical_not';
@@ -624,9 +626,19 @@ export function isfinite(a: ArrayStorage): ArrayStorage {
  * @returns Boolean result storage
  */
 export function isinf(a: ArrayStorage): ArrayStorage {
+  // Float dtypes have a SIMD kernel; integers fall through to the fill below,
+  // since they can never be infinite.
+  const viaWasm = wasmIsinf(a);
+  if (viaWasm) return viaWasm;
+
   const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
   const data = result.data as Uint8Array;
   const size = a.size;
+
+  // Integer and BigInt values are never infinite, whatever the layout, and
+  // ArrayStorage.empty hands back a zeroed bool buffer — so the answer is
+  // already sitting in `result`.
+  if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) return result;
 
   if (a.isCContiguous) {
     const thisData = a.data;
@@ -641,8 +653,6 @@ export function isinf(a: ArrayStorage): ArrayStorage {
         const imInf = !Number.isFinite(im) && !Number.isNaN(im);
         data[i] = reInf || imInf ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never infinite
     } else {
       if (off === 0) {
         for (let i = 0; i < size; i++) {
@@ -664,8 +674,6 @@ export function isinf(a: ArrayStorage): ArrayStorage {
         const imInf = !Number.isFinite(val.im) && !Number.isNaN(val.im);
         data[i] = reInf || imInf ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never infinite
     } else {
       for (let i = 0; i < size; i++) {
         const val = Number(a.iget(i));
@@ -694,6 +702,11 @@ export function isnan(a: ArrayStorage): ArrayStorage {
   const data = result.data as Uint8Array;
   const size = a.size;
 
+  // Integer and BigInt values are never NaN, whatever the layout, and
+  // ArrayStorage.empty hands back a zeroed bool buffer — so the answer is
+  // already sitting in `result`.
+  if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) return result;
+
   if (a.isCContiguous) {
     const thisData = a.data;
     const off = a.offset;
@@ -705,8 +718,6 @@ export function isnan(a: ArrayStorage): ArrayStorage {
         const im = complexData[(off + i) * 2 + 1]!;
         data[i] = Number.isNaN(re) || Number.isNaN(im) ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never NaN — data is already zero-filled
     } else {
       // v !== v is true only for NaN (IEEE 754: NaN != NaN)
       for (let i = 0; i < size; i++) {
@@ -720,8 +731,6 @@ export function isnan(a: ArrayStorage): ArrayStorage {
         const val = a.iget(i) as Complex;
         data[i] = val.re !== val.re || val.im !== val.im ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never NaN — data is already zero-filled
     } else {
       for (let i = 0; i < size; i++) {
         const v = Number(a.iget(i));
@@ -743,10 +752,9 @@ export function isnan(a: ArrayStorage): ArrayStorage {
  * @returns Boolean result storage (all false)
  */
 export function isnat(a: ArrayStorage): ArrayStorage {
-  // Without datetime support, nothing is NaT
-  const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
-  // All zeros (false) by default — Uint8Array is zero-initialized
-  return result;
+  // Without datetime support nothing is NaT, and ArrayStorage.empty guarantees
+  // a zeroed bool buffer.
+  return ArrayStorage.empty(Array.from(a.shape), 'bool');
 }
 
 // ============================================================
@@ -1069,6 +1077,22 @@ function nextafterScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
  * Compute nextafter for a single pair of values
  * @private
  */
+// Bit-pattern scratch for nextafter/spacing, hoisted to module scope so the
+// per-element helpers stay allocation-free instead of building an ArrayBuffer
+// and two views per call. Stepping the pattern as two 32-bit halves avoids
+// BigInt arithmetic on the 64-bit pattern entirely (bit-exact, and far
+// cheaper).
+const NA_BUF = new ArrayBuffer(8);
+const NA_F64 = new Float64Array(NA_BUF);
+const NA_U32 = new Uint32Array(NA_BUF);
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+const NA_LO = LITTLE_ENDIAN ? 0 : 1;
+const NA_HI = LITTLE_ENDIAN ? 1 : 0;
+
+const F32_BUF = new ArrayBuffer(8);
+const F32_V = new Float32Array(F32_BUF);
+const F32_U = new Uint32Array(F32_BUF);
+
 function nextafterSingle(x: number, y: number): number {
   // Handle NaN
   if (Number.isNaN(x) || Number.isNaN(y)) {
@@ -1086,13 +1110,7 @@ function nextafterSingle(x: number, y: number): number {
     return y > 0 ? Number.MIN_VALUE : -Number.MIN_VALUE;
   }
 
-  // Get the bits of x
-  const buffer = new ArrayBuffer(8);
-  const float64View = new Float64Array(buffer);
-  const int64View = new BigInt64Array(buffer);
-
-  float64View[0] = x;
-  let bits = int64View[0]!;
+  NA_F64[0] = x;
 
   // Determine if we need to increment or decrement.
   // For positive x: increment bits → moves away from 0 (towards +inf).
@@ -1100,14 +1118,42 @@ function nextafterSingle(x: number, y: number): number {
   // So: move toward y means increment when (x>0 && y>x) OR (x<0 && y<x).
   const shouldIncrement = x > 0 ? y > x : y < x;
 
+  // Step the 64-bit pattern by one as a two's-complement pair of 32-bit halves.
   if (shouldIncrement) {
-    bits = bits + 1n;
+    const lo = (NA_U32[NA_LO]! + 1) >>> 0;
+    NA_U32[NA_LO] = lo;
+    if (lo === 0) NA_U32[NA_HI] = (NA_U32[NA_HI]! + 1) >>> 0;
   } else {
-    bits = bits - 1n;
+    const lo = NA_U32[NA_LO]!;
+    if (lo === 0) {
+      NA_U32[NA_HI] = (NA_U32[NA_HI]! - 1) >>> 0;
+      NA_U32[NA_LO] = 0xffffffff;
+    } else {
+      NA_U32[NA_LO] = lo - 1;
+    }
   }
 
-  int64View[0] = bits;
-  return float64View[0]!;
+  return NA_F64[0]!;
+}
+
+/**
+ * `dst[i] = spacingSingle(src[off + i])` with both sides typed concretely.
+ *
+ * Only real float dtypes reach here — bool/int8/uint8 promote to float16 and
+ * int16/uint16 to float32 higher up, and BigInt has its own branch — so f64 and
+ * f32 sources cover it, with a generic tail for anything unexpected.
+ */
+function spacingInto(src: TypedArray, off: number, dst: TypedArray, n: number): void {
+  if (src instanceof Float64Array && dst instanceof Float64Array) {
+    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+  } else if (src instanceof Float32Array && dst instanceof Float32Array) {
+    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+  } else if (src instanceof Float32Array && dst instanceof Float64Array) {
+    for (let i = 0; i < n; i++) dst[i] = spacingSingle(src[off + i]!);
+  } else {
+    const d = dst as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+    for (let i = 0; i < n; i++) d[i] = spacingSingle(Number(src[off + i]));
+  }
 }
 
 /**
@@ -1129,8 +1175,9 @@ export function spacing(a: ArrayStorage): ArrayStorage {
     const dt = mathResultDtype('bool'); // 'float16'
     const result = ArrayStorage.zeros(Array.from(a.shape), dt);
     const resultData = result.data;
+    const src = flatF64View(a);
     for (let i = 0; i < size; i++) {
-      resultData[i] = float16Spacing(Number(a.iget(i)));
+      resultData[i] = float16Spacing(src[i]!);
     }
     return result;
   }
@@ -1138,19 +1185,16 @@ export function spacing(a: ArrayStorage): ArrayStorage {
     const size = a.size;
     const result = ArrayStorage.zeros(Array.from(a.shape), 'float32');
     const resultData = result.data as Float32Array;
+    const src = flatF64View(a);
     for (let i = 0; i < size; i++) {
-      // Compute spacing in float32 precision
-      const f32 = new Float32Array([Number(a.iget(i))]);
-      const f32next = new Float32Array(1);
-      const view = new DataView(f32.buffer);
-      const bits = view.getUint32(0, true);
-      const viewNext = new DataView(f32next.buffer);
+      F32_V[0] = src[i]!;
+      const bits = F32_U[0]!;
       if ((bits & 0x7fffffff) === 0) {
-        viewNext.setUint32(0, 1, true);
-        resultData[i] = f32next[0]!;
+        F32_U[1] = 1;
+        resultData[i] = F32_V[1]!;
       } else {
-        viewNext.setUint32(0, bits + 1, true);
-        resultData[i] = Math.abs(f32next[0]! - f32[0]!);
+        F32_U[1] = (bits + 1) >>> 0;
+        resultData[i] = Math.abs(F32_V[1]! - F32_V[0]!);
       }
     }
     return result;
@@ -1160,10 +1204,17 @@ export function spacing(a: ArrayStorage): ArrayStorage {
   if (a.dtype === 'float16' && hasFloat16) {
     const size = a.size;
     const result = ArrayStorage.zeros(Array.from(a.shape), 'float16');
-    const resultData = result.data;
+    // Both sides typed concretely, and no intermediate buffer: widening to
+    // Float64Array first would allocate per call for no benefit, and the store
+    // would go through the TypedArray union.
+    const out16 = result.data as Float16Array;
+    const src = a.isCContiguous ? a : a.copy();
+    const in16 = src.data as Float16Array;
+    const off = src.offset;
     for (let i = 0; i < size; i++) {
-      resultData[i] = float16Spacing(Number(a.iget(i)));
+      out16[i] = float16Spacing(in16[off + i]!);
     }
+    if (src !== a) src.dispose();
     return result;
   }
 
@@ -1182,9 +1233,11 @@ export function spacing(a: ArrayStorage): ArrayStorage {
         resultData[i] = spacingSingle(Number(typedData[off + i]));
       }
     } else {
-      for (let i = 0; i < size; i++) {
-        resultData[i] = spacingSingle(thisData[off + i] as number);
-      }
+      // Concrete on both sides: this read and this store were both through
+      // TypedArray unions, two megamorphic accesses per element over a million
+      // of them. Making both concrete, as the float16 branch above already
+      // does, turns this monomorphic and considerably faster.
+      spacingInto(thisData, off, resultData, size);
     }
   } else {
     for (let i = 0; i < size; i++) {
@@ -1229,18 +1282,28 @@ function float16Nextafter(x: number, y: number): number {
  * Compute float16 ULP (spacing) for a value, matching NumPy's bool→float16 promotion.
  * @private
  */
+// Lazily created: Float16Array only exists on engines that ship it.
+let F16_SCRATCH: Float16Array | null = null;
+// A Uint16Array over the same buffer reads the bit pattern directly, cheaper
+// than a DataView's two accessor calls per element.
+let F16_BITS: Uint16Array | null = null;
+
 function float16Spacing(val: number): number {
-  const f16 = new Float16Array(2);
+  if (F16_SCRATCH === null) {
+    F16_SCRATCH = new Float16Array(2);
+    F16_BITS = new Uint16Array(F16_SCRATCH.buffer);
+  }
+  const f16 = F16_SCRATCH;
+  const bits16 = F16_BITS!;
   f16[0] = val;
-  const view = new DataView(f16.buffer);
-  const bits = view.getUint16(0, true);
+  const bits = bits16[0]!;
   // For ±0, return smallest float16 subnormal
   if ((bits & 0x7fff) === 0) {
-    view.setUint16(2, 1, true);
+    bits16[1] = 1;
     return f16[1]!;
   }
   // Increment mantissa by 1 ULP
-  view.setUint16(2, bits + 1, true);
+  bits16[1] = bits + 1;
   return Math.abs(f16[1]! - f16[0]!);
 }
 
@@ -1332,8 +1395,9 @@ export function iscomplex(a: ArrayStorage): ArrayStorage {
       }
     }
   }
-  // For real arrays, all elements are false (initialized to 0)
 
+  // A real array falls straight through: every element is false, which is what
+  // ArrayStorage.empty already guarantees for a bool buffer.
   return result;
 }
 
@@ -1476,11 +1540,14 @@ export function isfortran(a: ArrayStorage): boolean {
 }
 
 /**
- * Returns complex array with complex parts close to zero set to real
- * Since numpy-ts doesn't support complex numbers, returns copy
+ * Return the real part of a complex array when every imaginary part is
+ * negligible, otherwise the input unchanged. A real input comes back as a
+ * view, not a copy, matching NumPy; writes to the result reach the input.
+ * The complex branches still allocate.
+ *
  * @param a - Input array storage
- * @param _tol - Tolerance (unused, for API compatibility)
- * @returns Copy of input array
+ * @param tol - Tolerance in machine epsilons for "close to zero" (default 100)
+ * @returns Real-valued result, or a view of the input when it is already real
  */
 export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage {
   const dtype = a.dtype;
@@ -1542,8 +1609,16 @@ export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage 
     return a.copy();
   }
 
-  // For non-complex arrays, just return a copy
-  return a.copy();
+  // For non-complex arrays NumPy hands the input straight back — it has nothing
+  // to do. Share the buffer rather than duplicating it, as `real` already does.
+  return ArrayStorage.fromDataShared(
+    a.data,
+    Array.from(a.shape),
+    dtype,
+    Array.from(a.strides),
+    a.offset,
+    a.wasmRegion,
+  );
 }
 
 /**

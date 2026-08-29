@@ -26,6 +26,10 @@ import { random } from '../../src/index';
 // ~256 KiB heap, forcing JS-backed storage and the bulkFill code path.
 const N = 50000;
 
+// This suite drives the JS-fallback RNG paths by starving the WASM heap, so
+// the once-per-process heap-exhaustion warning is expected — silence the noise.
+wasmMemoryConfig.warnOnHeapExhaustion = false;
+
 describe('RNG JS-fallback fill paths', () => {
   it('random.random (fillUniformF64MT)', () => {
     random.seed(42);

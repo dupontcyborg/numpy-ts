@@ -146,7 +146,7 @@ export fn reduce_prod_u8(a: [*]const u8, N: u32) u64 {
     return total;
 }
 
-/// Returns the product of u64 elements in a strided layout.
+/// Returns the product of f64 elements in a strided layout.
 export fn reduce_prod_strided_f64(a: [*]const f64, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
     const O = @as(usize, outer);
     const A = @as(usize, axis);

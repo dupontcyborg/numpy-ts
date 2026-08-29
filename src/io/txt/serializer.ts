@@ -149,10 +149,8 @@ function formatValue(value: number | bigint, fmt: string): string {
 }
 
 /**
- * Serialize an NDArray to text format.
- *
- * This is the browser-compatible core function. For file operations in Node.js,
- * use `savetxt` from 'numpy-ts/node'.
+ * Serialize an NDArray to text format. This is the browser-compatible core
+ * function; for file operations in Node.js, use savetxt from 'numpy-ts/node'.
  *
  * @param arr - The array to serialize (must be 1D or 2D)
  * @param options - Serialization options

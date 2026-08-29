@@ -2103,9 +2103,12 @@ describe('einsum_path()', () => {
     const b = ones([5, 8]);
     const [path, info] = einsum_path('ij,jk->ik', a, b);
 
+    // NumPy's path is ['einsum_path', (0,1), ...] — marker first, then the
+    // contraction pairs addressed against the shrinking operand list.
     expect(Array.isArray(path)).toBe(true);
-    expect(path.length).toBe(1);
-    expect(path[0]).toEqual([0, 1]);
+    expect(path[0]).toBe('einsum_path');
+    expect(path.length).toBe(2);
+    expect(path[1]).toEqual([0, 1]);
     expect(info).toContain('Complete contraction');
   });
 
@@ -2116,7 +2119,16 @@ describe('einsum_path()', () => {
     const [path, info] = einsum_path('ij,jk,kl->il', a, b, c);
 
     expect(Array.isArray(path)).toBe(true);
-    expect(path.length).toBe(2);
+    expect(path[0]).toBe('einsum_path');
+    // Two contractions for three operands. Which pair goes first is chosen by
+    // cost, so the indices depend on the shapes — for (10,5),(5,8),(8,4) both
+    // NumPy and numpy-ts contract 1 with 2 first. Exact agreement with NumPy is
+    // asserted in linalg.numpy.test.ts; here just pin the structure.
+    expect(path.length).toBe(3);
+    for (const step of path.slice(1)) {
+      expect(Array.isArray(step)).toBe(true);
+      expect(step).toHaveLength(2);
+    }
     expect(info).toContain('Operand shapes');
   });
 

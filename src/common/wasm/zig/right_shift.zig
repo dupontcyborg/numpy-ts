@@ -16,10 +16,16 @@ export fn right_shift_i64(a: [*]const i64, b: [*]const i64, out: [*]i64, N: u32)
     }
 }
 
-/// Element-wise right shift scalar for i64: out[i] = a[i] >> scalar.
+/// Element-wise arithmetic right shift scalar for i64 using 2-wide SIMD.
+/// Uniform shift amount maps to i64x2.shr_s.
 export fn right_shift_scalar_i64(a: [*]const i64, out: [*]i64, N: u32, scalar: i64) void {
     const shift: u6 = @intCast(@as(u64, @bitCast(scalar)) & 63);
+    const sv: simd.V2i64 = @splat(shift);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_i64(out, i, simd.load2_i64(a, i) >> @intCast(sv));
+    }
     while (i < N) : (i += 1) {
         out[i] = a[i] >> shift;
     }
@@ -105,10 +111,16 @@ export fn right_shift_u64(a: [*]const u64, b: [*]const u64, out: [*]u64, N: u32)
     }
 }
 
-/// Element-wise logical right shift scalar for u64: out[i] = a[i] >>> scalar.
+/// Element-wise logical right shift scalar for u64 using 2-wide SIMD.
+/// Uniform shift amount maps to i64x2.shr_u.
 export fn right_shift_scalar_u64(a: [*]const u64, out: [*]u64, N: u32, scalar: u64) void {
     const shift: u6 = @intCast(scalar & 63);
+    const sv: simd.V2u64 = @splat(shift);
+    const n_simd = N & ~@as(u32, 1);
     var i: u32 = 0;
+    while (i < n_simd) : (i += 2) {
+        simd.store2_u64(out, i, simd.load2_u64(a, i) >> @intCast(sv));
+    }
     while (i < N) : (i += 1) {
         out[i] = a[i] >> shift;
     }

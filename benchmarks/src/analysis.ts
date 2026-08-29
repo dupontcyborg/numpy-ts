@@ -66,8 +66,22 @@ export function compareResults(
   return comparisons;
 }
 
+/**
+ * Ratios worth averaging.
+ *
+ * A benchmark that threw contributes a zeroed timing and therefore a ratio of 0.
+ * Left in, it drags every geometric mean toward zero and ranks as the best result
+ * in the suite — so drop it, and drop non-finite ratios from a run with no NumPy
+ * baseline for the same reason.
+ */
+function measuredRatios(comparisons: BenchmarkComparison[]): number[] {
+  return comparisons
+    .filter((c) => !c.numpyjs?.failed && Number.isFinite(c.ratio))
+    .map((c) => c.ratio);
+}
+
 export function calculateSummary(comparisons: BenchmarkComparison[]): BenchmarkSummary {
-  const ratios = comparisons.map((c) => c.ratio);
+  const ratios = measuredRatios(comparisons);
 
   // Clamp ratios to a small epsilon to avoid log(0)=-Infinity poisoning the geo mean
   const geo_mean = Math.exp(
@@ -118,7 +132,7 @@ export function getCategorySummaries(
   const summaries = new Map<string, { geo_mean: number; count: number }>();
 
   for (const [category, items] of groups) {
-    const ratios = items.map((item) => item.ratio);
+    const ratios = measuredRatios(items);
     const geo_mean = Math.exp(
       ratios.reduce((s, r) => s + Math.log(Math.max(r, 1e-6)), 0) / ratios.length,
     );
@@ -140,6 +154,7 @@ export function getDtypeSummaries(
   const groups = new Map<string, number[]>();
 
   for (const c of comparisons) {
+    if (c.numpyjs?.failed || !Number.isFinite(c.ratio)) continue;
     const m = c.name.match(dtypeRe);
     const dtype = m ? m[1]! : 'float64';
     const existing = groups.get(dtype) || [];
@@ -212,6 +227,11 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatRatio(ratio: number): string {
+  // A run without a NumPy baseline has zero-filled reference times, so every
+  // ratio comes out Infinity (or NaN for 0/0). Printing "Infinityx" reads like a
+  // measurement; a dash reads like the absence it is. Applies to --skip-numpy
+  // too, which had the same output.
+  if (!Number.isFinite(ratio)) return '—';
   return `${ratio.toFixed(2)}x`;
 }
 

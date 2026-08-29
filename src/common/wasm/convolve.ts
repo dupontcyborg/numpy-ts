@@ -17,8 +17,8 @@ import {
 } from '../dtype';
 import { ArrayStorage } from '../storage';
 // Plain (non-relaxed) SIMD: the reverse-load inner product is faster without
-// relaxed_madd — fusing the MAC consistently regresses the f64 path ~17%
-// (the shuffle dependency chain schedules worse), so convolve stays baseline.
+// relaxed_madd — fusing the MAC regresses the f64 path because the shuffle
+// dependency chain schedules worse, so convolve stays on the baseline kernels.
 import {
   convolve_f32,
   convolve_f64,

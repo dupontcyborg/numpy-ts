@@ -33,9 +33,23 @@ interface Result {
   numpyjs: { mean_ms: number };
 }
 
+// A benchmark that threw carries a zeroed timing, so its ratio is 0 — which
+// would rank it as the *fastest* op in the suite. Exclude and report separately.
+const failed: Result[] = (data.results as Result[]).filter(
+  (r) => (r as { numpyjs?: { failed?: string } }).numpyjs?.failed,
+);
 const sorted: Result[] = [...data.results]
+  .filter((r: Result) => !(r as { numpyjs?: { failed?: string } }).numpyjs?.failed)
   .filter((r: Result) => r.ratio != null && Number.isFinite(r.ratio))
   .sort((a: Result, b: Result) => b.ratio - a.ratio);
+
+if (failed.length > 0) {
+  console.log(`⚠  ${failed.length} benchmark(s) FAILED and are excluded (no measurement):`);
+  for (const f of failed) {
+    console.log(`     ${f.name}: ${(f as { numpyjs: { failed: string } }).numpyjs.failed}`);
+  }
+  console.log('');
+}
 
 console.log(`Top ${N} slowest functions (JS/Python ratio, higher = worse):\n`);
 console.log(

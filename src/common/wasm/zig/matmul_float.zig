@@ -1,10 +1,10 @@
-//! WASM matmul kernels for f32, f64, complex64, and complex128 types.
+//! WASM matmul kernels for f32, f64, complex64, and complex128 types: C = A @
+//! B where A is (M x K), B is (K x N), C is (M x N), all row-major
+//! (C-contiguous). Complex matrices are interleaved [re, im, re, im, ...]; M,
+//! N, K are element counts.
 //!
-//! Convention: C = A @ B where A is (M x K), B is (K x N), C is (M x N).
-//! All matrices are row-major (C-contiguous).
-//! Complex matrices are interleaved [re, im, re, im, ...]; M, N, K are element counts.
-//!
-//! Uses 4×N register-blocked micro-kernels with FMA (fused multiply-add) for real types.
+//! Uses 4×N register-blocked micro-kernels with FMA (fused multiply-add) for
+//! real types.
 
 const simd = @import("simd.zig");
 

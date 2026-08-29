@@ -750,7 +750,9 @@ export function diag(v: NDArrayCore, k: number = 0): NDArrayCore {
 export function diagflat(v: NDArrayCore, k: number = 0): NDArrayCore {
   // Flatten v first, then create diagonal matrix
   const flat = flattenCore(v);
-  return diag(flat, k);
+  const result = diag(flat, k);
+  flat.dispose();
+  return result;
 }
 
 export function tri(

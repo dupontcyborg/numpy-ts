@@ -60,7 +60,8 @@ export interface RawZipEntry {
 }
 
 /**
- * CRC-32 lookup tables (slice-by-8 for ~8x throughput over byte-at-a-time)
+ * CRC-32 lookup tables for the slice-by-8 algorithm: 8 tables let the
+ * checksum loop consume 8 bytes per iteration instead of 1.
  */
 const CRC32_TABLES = (() => {
   const tables: Uint32Array[] = [];

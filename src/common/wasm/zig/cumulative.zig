@@ -2,7 +2,7 @@
 //!
 //! Sequential prefix scan (no SIMD — the recurrence is serial). Floats
 //! accumulate in their own dtype to match NumPy. Integers accumulate in a
-//! widened i64/u64 with wrapping arithmetic (`+%`/`*%`), matching NumPy's
+//! widened i64/u64 with wrapping arithmetic (+%/*%), matching NumPy's
 //! modulo-wrap behavior for integer cumsum/cumprod.
 
 // --- cumsum ---

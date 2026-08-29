@@ -8,6 +8,12 @@
 import { type DType, isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
 import {
+  divmod_f32,
+  divmod_f64,
+  divmod_i8,
+  divmod_i16,
+  divmod_i32,
+  divmod_i64,
   divmod_scalar_f32,
   divmod_scalar_f64,
   divmod_scalar_i8,
@@ -18,6 +24,10 @@ import {
   divmod_scalar_u16,
   divmod_scalar_u32,
   divmod_scalar_u64,
+  divmod_u8,
+  divmod_u16,
+  divmod_u32,
+  divmod_u64,
 } from './bins/divmod.wasm';
 import { wasmConfig } from './config';
 import { resetScratchAllocator, resolveInputPtr, wasmMalloc } from './runtime';
@@ -140,6 +150,80 @@ export function wasmDivmodScalar(
     off: number,
     len: number,
   ) => TypedArray;
+  return [
+    ArrayStorage.fromWasmRegion(shape, dtype, qRegion, size, CtorT),
+    ArrayStorage.fromWasmRegion(shape, dtype, rRegion, size, CtorT),
+  ];
+}
+
+type DivmodArrayFn = (aPtr: number, bPtr: number, qPtr: number, rPtr: number, N: number) => void;
+
+const arrayKernels: Partial<Record<DType, DivmodArrayFn>> = {
+  float64: divmod_f64,
+  float32: divmod_f32,
+  int64: divmod_i64,
+  uint64: divmod_u64,
+  int32: divmod_i32,
+  uint32: divmod_u32,
+  int16: divmod_i16,
+  uint16: divmod_u16,
+  int8: divmod_i8,
+  uint8: divmod_u8,
+};
+
+const arrayCtorMap: Partial<Record<DType, new (length: number) => TypedArray>> = {
+  float64: Float64Array,
+  float32: Float32Array,
+  int64: BigInt64Array,
+  uint64: BigUint64Array,
+  int32: Int32Array,
+  uint32: Uint32Array,
+  int16: Int16Array,
+  uint16: Uint16Array,
+  int8: Int8Array,
+  uint8: Uint8Array,
+};
+
+/**
+ * Fused divmod with an array divisor. Requires matching dtype and shape;
+ * anything else falls back to JS. Returns [quotient, remainder] or null.
+ */
+export function wasmDivmod(a: ArrayStorage, b: ArrayStorage): [ArrayStorage, ArrayStorage] | null {
+  if (!a.isCContiguous || !b.isCContiguous) return null;
+  if (a.dtype !== b.dtype) return null;
+  if (a.size !== b.size) return null;
+  if (a.shape.length !== b.shape.length) return null;
+  for (let i = 0; i < a.shape.length; i++) if (a.shape[i] !== b.shape[i]) return null;
+
+  const size = a.size;
+  if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  const dtype = a.dtype;
+  if (isComplexDType(dtype)) return null;
+
+  const kernel = arrayKernels[dtype];
+  const bpe = bpeMap[dtype];
+  const Ctor = arrayCtorMap[dtype];
+  if (!kernel || !bpe || !Ctor) return null;
+
+  const outBytes = size * bpe;
+  const qRegion = wasmMalloc(outBytes);
+  if (!qRegion) return null;
+  const rRegion = wasmMalloc(outBytes);
+  if (!rRegion) {
+    qRegion.release();
+    return null;
+  }
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+  const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
+  const bPtr = resolveInputPtr(b.data, b.isWasmBacked, b.wasmPtr, b.offset, size, bpe);
+
+  kernel(aPtr, bPtr, qRegion.ptr, rRegion.ptr, size);
+
+  const shape = Array.from(a.shape);
+  const CtorT = Ctor as unknown as new (buf: ArrayBuffer, off: number, len: number) => TypedArray;
   return [
     ArrayStorage.fromWasmRegion(shape, dtype, qRegion, size, CtorT),
     ArrayStorage.fromWasmRegion(shape, dtype, rRegion, size, CtorT),

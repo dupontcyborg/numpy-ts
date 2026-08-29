@@ -1,7 +1,5 @@
 /**
- * WASM-accelerated Kronecker product.
- *
- * Computes C = A ⊗ B for A[am×an] and B[bm×bn].
+ * WASM-accelerated Kronecker product: C = A ⊗ B for A[am×an] and B[bm×bn].
  * Returns null if WASM can't handle this case.
  */
 
