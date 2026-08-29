@@ -238,3 +238,38 @@ test "around_f64 with m = 1 matches rint" {
     rint_f64(&a, &viaRint, 5);
     try testing.expectEqualSlices(f64, &viaRint, &viaAround);
 }
+
+test "floor/ceil/trunc f32 including the scalar tail" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 1.5, -1.5, 2.75, -2.75, 0.0, -0.5 }; // 6 = one 4-wide block plus a tail
+    var out = [_]f32{0} ** 6;
+    floor_f32(&a, &out, 6);
+    try testing.expectEqualSlices(f32, &[_]f32{ 1, -2, 2, -3, 0, -1 }, &out);
+    ceil_f32(&a, &out, 6);
+    try testing.expectEqualSlices(f32, &[_]f32{ 2, -1, 3, -2, 0, -0.0 }, &out);
+    trunc_f32(&a, &out, 6);
+    try testing.expectEqualSlices(f32, &[_]f32{ 1, -1, 2, -2, 0, -0.0 }, &out);
+}
+
+test "around_f32 with m = 1 matches rint_f32" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 0.5, 1.5, 2.5, -1.5, 7.25 };
+    var viaAround = [_]f32{0} ** 5;
+    var viaRint = [_]f32{0} ** 5;
+    around_f32(&a, &viaAround, 5, 1.0);
+    rint_f32(&a, &viaRint, 5);
+    try testing.expectEqualSlices(f32, &viaRint, &viaAround);
+}
+
+test "around_f32 scales, rounds half-to-even, unscales" {
+    const testing = @import("std").testing;
+    // Expected values taken from NumPy 2.3.1: np.around(a.astype(np.float32), 1).
+    const a = [_]f32{ 0.25, 0.35, -0.25, 1.25, 2.0 };
+    var out = [_]f32{0} ** 5;
+    around_f32(&a, &out, 5, 10.0); // decimals = 1
+    try testing.expectApproxEqAbs(@as(f32, 0.2), out[0], 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, 0.4), out[1], 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, -0.2), out[2], 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, 1.2), out[3], 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, 2.0), out[4], 1e-6);
+}

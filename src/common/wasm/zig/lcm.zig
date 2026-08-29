@@ -198,3 +198,68 @@ test "lcm_i8 most negative input does not trap" {
     lcm_i8(&a, &b, &out, 1);
     try testing.expectEqual(out[0], -128); // |−128| wraps to −128, lcm wraps with it
 }
+
+test "lcm_i16 and lcm_u16 basic" {
+    const testing = @import("std").testing;
+    const a = [_]i16{ 12, 4, 7, 0, -4 };
+    const b = [_]i16{ 18, 6, 5, 3, 6 };
+    var out: [5]i16 = undefined;
+    lcm_i16(&a, &b, &out, 5);
+    try testing.expectEqualSlices(i16, &[_]i16{ 36, 12, 35, 0, 12 }, &out);
+
+    const c = [_]u16{ 12, 4, 7, 0 };
+    const d = [_]u16{ 18, 6, 5, 3 };
+    var uout: [4]u16 = undefined;
+    lcm_u16(&c, &d, &uout, 4);
+    try testing.expectEqualSlices(u16, &[_]u16{ 36, 12, 35, 0 }, &uout);
+}
+
+test "lcm_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 12, 1000000, 0 };
+    const b = [_]u32{ 18, 3000000, 9 };
+    var out: [3]u32 = undefined;
+    lcm_u32(&a, &b, &out, 3);
+    try testing.expectEqualSlices(u32, &[_]u32{ 36, 3000000, 0 }, &out);
+}
+
+test "lcm_scalar over the narrow dtypes" {
+    const testing = @import("std").testing;
+    const si8 = [_]i8{ 12, 4, 0, -9 };
+    var oi8: [4]i8 = undefined;
+    lcm_scalar_i8(&si8, &oi8, 4, 6);
+    try testing.expectEqualSlices(i8, &[_]i8{ 12, 12, 0, 18 }, &oi8);
+
+    const su8 = [_]u8{ 12, 4, 0, 9 };
+    var ou8: [4]u8 = undefined;
+    lcm_scalar_u8(&su8, &ou8, 4, 6);
+    try testing.expectEqualSlices(u8, &[_]u8{ 12, 12, 0, 18 }, &ou8);
+
+    const si16 = [_]i16{ 12, 4, 0, -9 };
+    var oi16: [4]i16 = undefined;
+    lcm_scalar_i16(&si16, &oi16, 4, 6);
+    try testing.expectEqualSlices(i16, &[_]i16{ 12, 12, 0, 18 }, &oi16);
+
+    const su16 = [_]u16{ 12, 4, 0, 9 };
+    var ou16: [4]u16 = undefined;
+    lcm_scalar_u16(&su16, &ou16, 4, 6);
+    try testing.expectEqualSlices(u16, &[_]u16{ 12, 12, 0, 18 }, &ou16);
+
+    const su32 = [_]u32{ 12, 4, 0, 9 };
+    var ou32: [4]u32 = undefined;
+    lcm_scalar_u32(&su32, &ou32, 4, 6);
+    try testing.expectEqualSlices(u32, &[_]u32{ 12, 12, 0, 18 }, &ou32);
+}
+
+test "lcm_scalar_i64 and lcm_scalar_u64 beyond the f64 exact range" {
+    const testing = @import("std").testing;
+    const a = [_]i64{ 9007199254740993, 0, 7 };
+    var out: [3]i64 = undefined;
+    lcm_scalar_i64(&a, &out, 3, 2);
+    try testing.expectEqualSlices(i64, &[_]i64{ 18014398509481986, 0, 14 }, &out);
+
+    const b = [_]u64{ 12, 0, 7 };
+    var uout: [3]u64 = undefined;
+    lcm_scalar_u64(&b, &uout, 3, 18);
+    try testing.expectEqualSlices(u64, &[_]u64{ 36, 0, 126 }, &uout);
+}

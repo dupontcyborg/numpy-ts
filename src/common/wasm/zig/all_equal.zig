@@ -135,3 +135,51 @@ test "all_equal_u8 empty and single" {
     try testing.expectEqual(@as(u32, 1), all_equal_u8(&a, &b, 0));
     try testing.expectEqual(@as(u32, 1), all_equal_u8(&a, &b, 1));
 }
+
+test "all_equal_i16 and all_equal_u16 eight-wide" {
+    const testing = @import("std").testing;
+    const a = [_]i16{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    var b = a;
+    try testing.expectEqual(@as(u32, 1), all_equal_i16(&a, &b, 9));
+    b[8] = -1; // in the scalar tail, past the 8-wide block
+    try testing.expectEqual(@as(u32, 0), all_equal_i16(&a, &b, 9));
+
+    const c = [_]u16{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    var d = c;
+    try testing.expectEqual(@as(u32, 1), all_equal_u16(&c, &d, 9));
+    d[2] = 65535; // inside the vector block
+    try testing.expectEqual(@as(u32, 0), all_equal_u16(&c, &d, 9));
+}
+
+test "all_equal_i32 and all_equal_u32 four-wide" {
+    const testing = @import("std").testing;
+    const a = [_]i32{ 10, 20, 30, 40, 50 };
+    var b = a;
+    try testing.expectEqual(@as(u32, 1), all_equal_i32(&a, &b, 5));
+    b[4] = -50; // in the scalar tail
+    try testing.expectEqual(@as(u32, 0), all_equal_i32(&a, &b, 5));
+
+    const c = [_]u32{ 10, 20, 30, 40, 50 };
+    var d = c;
+    try testing.expectEqual(@as(u32, 1), all_equal_u32(&c, &d, 5));
+    d[1] = 4294967295; // inside the vector block
+    try testing.expectEqual(@as(u32, 0), all_equal_u32(&c, &d, 5));
+}
+
+test "all_equal_u64 two-wide" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 18446744073709551615, 2, 3 };
+    var b = a;
+    try testing.expectEqual(@as(u32, 1), all_equal_u64(&a, &b, 3));
+    b[0] = 18446744073709551614; // differs only in the lowest bit
+    try testing.expectEqual(@as(u32, 0), all_equal_u64(&a, &b, 3));
+}
+
+test "all_equal_f32 uses IEEE equality" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 1.0, -0.0, 3.0, 4.0, 5.0 };
+    const b = [_]f32{ 1.0, 0.0, 3.0, 4.0, 5.0 };
+    try testing.expectEqual(@as(u32, 1), all_equal_f32(&a, &b, 5)); // -0.0 == 0.0
+    const c = [_]f32{ 1.0, 0.0, 3.0, 4.0, 5.5 };
+    try testing.expectEqual(@as(u32, 0), all_equal_f32(&a, &c, 5));
+}

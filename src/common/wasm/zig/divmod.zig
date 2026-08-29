@@ -342,3 +342,109 @@ test "divmod_scalar_u8 basic" {
     try testing.expectEqual(q[0], 2);
     try testing.expectEqual(r[0], 1);
 }
+
+test "divmod_f64 array/array with a scalar tail" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 7, -7, 7.5, -7.5, 3.0 }; // odd length -> tail
+    const b = [_]f64{ 3, 3, 2, 2, 1 };
+    var q: [5]f64 = undefined;
+    var r: [5]f64 = undefined;
+    divmod_f64(&a, &b, &q, &r, 5);
+    try testing.expectEqualSlices(f64, &[_]f64{ 2, -3, 3, -4, 3 }, &q);
+    try testing.expectEqualSlices(f64, &[_]f64{ 1, 2, 1.5, 0.5, 0 }, &r);
+}
+
+test "divmod_f32 array/array with a scalar tail" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 7, -7, 7.5, -7.5, 3.0 };
+    const b = [_]f32{ 3, 3, 2, 2, 1 };
+    var q: [5]f32 = undefined;
+    var r: [5]f32 = undefined;
+    divmod_f32(&a, &b, &q, &r, 5);
+    try testing.expectEqualSlices(f32, &[_]f32{ 2, -3, 3, -4, 3 }, &q);
+    try testing.expectEqualSlices(f32, &[_]f32{ 1, 2, 1.5, 0.5, 0 }, &r);
+}
+
+test "divmod array/array over the signed integer dtypes" {
+    const testing = @import("std").testing;
+    // The quotient floors and the remainder takes the sign of the divisor.
+    const eq = testing.expectEqualSlices;
+    const a64 = [_]i64{ 7, -7, 8, -8, 5 };
+    const b64 = [_]i64{ 3, 3, -3, -3, 1 };
+    var q64: [5]i64 = undefined;
+    var r64: [5]i64 = undefined;
+    divmod_i64(&a64, &b64, &q64, &r64, 5);
+    try eq(i64, &[_]i64{ 2, -3, -3, 2, 5 }, &q64);
+    try eq(i64, &[_]i64{ 1, 2, -1, -2, 0 }, &r64);
+
+    const a32 = [_]i32{ 7, -7, 8, -8, 5 };
+    const b32 = [_]i32{ 3, 3, -3, -3, 1 };
+    var q32: [5]i32 = undefined;
+    var r32: [5]i32 = undefined;
+    divmod_i32(&a32, &b32, &q32, &r32, 5);
+    try eq(i32, &[_]i32{ 2, -3, -3, 2, 5 }, &q32);
+    try eq(i32, &[_]i32{ 1, 2, -1, -2, 0 }, &r32);
+
+    const a16 = [_]i16{ 7, -7, 8, -8, 5 };
+    const b16 = [_]i16{ 3, 3, -3, -3, 1 };
+    var q16: [5]i16 = undefined;
+    var r16: [5]i16 = undefined;
+    divmod_i16(&a16, &b16, &q16, &r16, 5);
+    try eq(i16, &[_]i16{ 2, -3, -3, 2, 5 }, &q16);
+    try eq(i16, &[_]i16{ 1, 2, -1, -2, 0 }, &r16);
+
+    const a8 = [_]i8{ 7, -7, 8, -8, 5 };
+    const b8 = [_]i8{ 3, 3, -3, -3, 1 };
+    var q8: [5]i8 = undefined;
+    var r8: [5]i8 = undefined;
+    divmod_i8(&a8, &b8, &q8, &r8, 5);
+    try eq(i8, &[_]i8{ 2, -3, -3, 2, 5 }, &q8);
+    try eq(i8, &[_]i8{ 1, 2, -1, -2, 0 }, &r8);
+}
+
+test "divmod array/array over the unsigned integer dtypes" {
+    const testing = @import("std").testing;
+    const eq = testing.expectEqualSlices;
+    const a64 = [_]u64{ 7, 8, 9, 10, 11 };
+    const b64 = [_]u64{ 3, 3, 4, 5, 4 };
+    var q64: [5]u64 = undefined;
+    var r64: [5]u64 = undefined;
+    divmod_u64(&a64, &b64, &q64, &r64, 5);
+    try eq(u64, &[_]u64{ 2, 2, 2, 2, 2 }, &q64);
+    try eq(u64, &[_]u64{ 1, 2, 1, 0, 3 }, &r64);
+
+    const a32 = [_]u32{ 7, 8, 9, 10, 11 };
+    const b32 = [_]u32{ 3, 3, 4, 5, 4 };
+    var q32: [5]u32 = undefined;
+    var r32: [5]u32 = undefined;
+    divmod_u32(&a32, &b32, &q32, &r32, 5);
+    try eq(u32, &[_]u32{ 2, 2, 2, 2, 2 }, &q32);
+    try eq(u32, &[_]u32{ 1, 2, 1, 0, 3 }, &r32);
+
+    const a16 = [_]u16{ 7, 8, 9, 10, 11 };
+    const b16 = [_]u16{ 3, 3, 4, 5, 4 };
+    var q16: [5]u16 = undefined;
+    var r16: [5]u16 = undefined;
+    divmod_u16(&a16, &b16, &q16, &r16, 5);
+    try eq(u16, &[_]u16{ 2, 2, 2, 2, 2 }, &q16);
+    try eq(u16, &[_]u16{ 1, 2, 1, 0, 3 }, &r16);
+
+    const a8 = [_]u8{ 7, 8, 9, 10, 11 };
+    const b8 = [_]u8{ 3, 3, 4, 5, 4 };
+    var q8: [5]u8 = undefined;
+    var r8: [5]u8 = undefined;
+    divmod_u8(&a8, &b8, &q8, &r8, 5);
+    try eq(u8, &[_]u8{ 2, 2, 2, 2, 2 }, &q8);
+    try eq(u8, &[_]u8{ 1, 2, 1, 0, 3 }, &r8);
+}
+
+test "divmod_i32 array/array division by zero writes 0/0" {
+    const testing = @import("std").testing;
+    const a = [_]i32{ 5, -9 };
+    const b = [_]i32{ 0, 0 };
+    var q: [2]i32 = undefined;
+    var r: [2]i32 = undefined;
+    divmod_i32(&a, &b, &q, &r, 2);
+    try testing.expectEqualSlices(i32, &[_]i32{ 0, 0 }, &q);
+    try testing.expectEqualSlices(i32, &[_]i32{ 0, 0 }, &r);
+}

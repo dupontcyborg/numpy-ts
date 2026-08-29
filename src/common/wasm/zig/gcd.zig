@@ -448,3 +448,24 @@ test "gcd most negative input does not trap" {
     gcd_i64(&a64, &b64, &o64, 1);
     try testing.expectEqual(o64[0], 4);
 }
+
+test "gcd_scalar_u32 basic" {
+    const testing = @import("std").testing;
+    const a = [_]u32{ 12, 18, 7, 0 };
+    var out: [4]u32 = undefined;
+    gcd_scalar_u32(&a, &out, 4, 6);
+    try testing.expectEqual(out[0], 6);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 1);
+    try testing.expectEqual(out[3], 6); // gcd(0, x) == x
+}
+
+test "gcd_scalar_u64 near the top of the range" {
+    const testing = @import("std").testing;
+    const a = [_]u64{ 18446744073709551614, 12, 0 };
+    var out: [3]u64 = undefined;
+    gcd_scalar_u64(&a, &out, 3, 18);
+    try testing.expectEqual(out[0], 2);
+    try testing.expectEqual(out[1], 6);
+    try testing.expectEqual(out[2], 18);
+}
