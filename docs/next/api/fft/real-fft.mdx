@@ -1,6 +1,7 @@
 ---
 title: "Real FFT"
 description: "FFT functions optimized for real-valued input, returning only the positive-frequency half of the spectrum."
+noindex: true
 ---
 
 The real FFT functions exploit the Hermitian symmetry of the spectrum of real-valued signals. Instead of returning the full `n`-point spectrum, `rfft` returns only the first `n//2 + 1` unique complex coefficients, cutting storage roughly in half.

@@ -8,7 +8,7 @@ sidebarTitle: Changelog
 
 ## numpy-ts v1.6.0
 
-Compile-time `dtype` typing across the public API. `NDArray<D>` now tracks its dtype through nearly every operation at zero runtime cost, so results report their exact dtype (`add(int32Arr, float32Arr)` → `NDArray<'float64'>`) and element access is typed per dtype (`bigint` for `int64`/`uint64`, `Complex` for complex, `number` otherwise). See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
+Compile-time `dtype` typing across the public API. `NDArray<D>` now tracks its dtype through nearly every operation at zero runtime cost, so results report their exact dtype (`add(int32Arr, float32Arr)` → `NDArray<'float64'>`) and element access is typed per dtype (`bigint` for `int64`/`uint64`, `Complex` for complex, `number` otherwise). See [Compile-time dtype tracking](/v1.6.x/guides/typescript-patterns#compile-time-dtype-tracking).
 
 ### Breaking
 

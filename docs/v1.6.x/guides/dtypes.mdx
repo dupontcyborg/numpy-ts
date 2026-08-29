@@ -1,6 +1,7 @@
 ---
 title: "Data Types (dtypes)"
 description: "All 14 supported dtypes, type promotion rules, BigInt handling, and complex numbers."
+canonical: https://numpyts.dev/latest/guides/dtypes
 ---
 
 ## Overview
@@ -39,7 +40,7 @@ a.dtype;  // 'float64'
 
 ## Creating arrays with specific dtypes
 
-Pass the dtype as a positional argument to any creation function. The dtype literal is also tracked in the return type — see [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking):
+Pass the dtype as a positional argument to any creation function. The dtype literal is also tracked in the return type — see [Compile-time dtype tracking](./typescript-patterns#compile-time-dtype-tracking):
 
 ```typescript
 const a = np.array([1, 2, 3], 'int32');   // NDArray<'int32'>
@@ -172,7 +173,7 @@ const c = np.add(a, b);
 c.dtype;  // 'float64' -- promoted for precision safety
 ```
 
-These promotion rules are enforced at runtime **and** mirrored at the type level: `c` above is typed `NDArray<'float64'>`. The `Promote<A, B>` type helper exposes the rule directly. See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
+These promotion rules are enforced at runtime **and** mirrored at the type level: `c` above is typed `NDArray<'float64'>`. The `Promote<A, B>` type helper exposes the rule directly. See [Compile-time dtype tracking](./typescript-patterns#compile-time-dtype-tracking).
 
 ## Integer overflow and wrapping
 
@@ -324,7 +325,7 @@ np.median(a, 0).dtype; // 'float32'
   Changed in **v1.6.0**: these reductions previously always returned `float64`. They now match NumPy and preserve the narrower float. If you depended on `float64` output, add an explicit `.astype('float64')`.
 </Warning>
 
-These result-dtype rules — unary math promotion, reduction accumulator widening (`sum` of `int32` → `int64`), true division → float, and so on — are all mirrored in the return types. See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
+These result-dtype rules — unary math promotion, reduction accumulator widening (`sum` of `int32` → `int64`), true division → float, and so on — are all mirrored in the return types. See [Compile-time dtype tracking](./typescript-patterns#compile-time-dtype-tracking).
 
 ### Boolean arrays
 

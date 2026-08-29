@@ -1,6 +1,7 @@
 ---
 title: "Memory Management"
 sidebarTitle: "Memory Management"
+canonical: https://numpyts.dev/latest/guides/memory-management
 ---
 
 Starting in `v1.3.0`, numpy-ts arrays are backed directly by WebAssembly linear memory. This eliminates the copy-in / copy-out overhead that previously dominated WASM kernel execution time and unlocks significant speedups for bandwidth-bound operations. For most users this is fully transparent — but a small set of new APIs (`.dispose()`, the `using` keyword, and `configureWasm()`) gives you precise control when you need it.
