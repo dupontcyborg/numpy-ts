@@ -18,6 +18,11 @@ function around(a: ArrayLike, decimals?: number): NDArray
 
 **Returns:** `NDArray` -- Array with each element rounded to the given number of decimals.
 
+<Note>
+Changed in v1.7.0: integer input with `decimals >= 0` has nothing to round, so it now comes back as a view of the input rather than a copy. This matches NumPy. Writes to the result reach the input array, so call `.copy()` if you need an independent buffer. `base` is set on exactly the results that alias.
+</Note>
+
+
 <CodeGroup>
 ```typescript Full Library
 import * as np from 'numpy-ts';
@@ -56,6 +61,11 @@ function round(a: ArrayLike, decimals?: number): NDArray
 | `decimals` | `number` | `0` | Number of decimal places. |
 
 **Returns:** `NDArray` -- Rounded array.
+
+<Note>
+Changed in v1.7.0: integer input with `decimals >= 0` has nothing to round, so it now comes back as a view of the input rather than a copy. This matches NumPy. Writes to the result reach the input array, so call `.copy()` if you need an independent buffer. `base` is set on exactly the results that alias.
+</Note>
+
 
 <CodeGroup>
 ```typescript Full Library

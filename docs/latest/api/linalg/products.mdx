@@ -365,7 +365,7 @@ const T = np.einsum('ij->ji', A);
 Evaluate the optimal contraction order for an `einsum` expression. Returns the path and a human-readable description of the optimization.
 
 ```typescript
-function einsum_path(subscripts: string, ...operands: ArrayLike[]): [([number, number] | number[])[], string]
+function einsum_path(subscripts: string, ...operands: ArrayLike[]): [Array<string | number[]>, string]
 ```
 
 | Name | Type | Default | Description |
@@ -373,7 +373,7 @@ function einsum_path(subscripts: string, ...operands: ArrayLike[]): [([number, n
 | `subscripts` | `string` | -- | Subscript string (same format as `einsum`). |
 | `...operands` | `ArrayLike[]` | -- | Input arrays. |
 
-**Returns:** `[string[], string]` -- A tuple of the contraction path (list of index pairs) and a printable description of the optimization.
+**Returns:** `[Array<string | number[]>, string]` -- A tuple of the contraction path and a printable description of the optimization. The first element of the path is always the marker string `'einsum_path'`; the remaining elements are the contraction pairs, each addressed against the operand list as it shrinks.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -386,3 +386,14 @@ const [path, info] = np.einsum_path('ij,jk,kl->il', A, B, C);
 console.log(path);  // e.g. ['einsum_path', [0, 1], [0, 1]]
 console.log(info);  // Optimization summary string
 ```
+
+<Warning>
+**Breaking in v1.7.0.** The return type changed from `[([number, number] | number[])[], string]` to `[Array<string | number[]>, string]`, because the path now carries NumPy's `'einsum_path'` marker as its first element. This makes the runtime output match `np.einsum_path` exactly, which it previously did not.
+
+TypeScript callers that index into the path need to skip element 0, which is the marker rather than a contraction pair:
+
+```typescript
+const [path] = np.einsum_path('ij,jk->ik', A, B);
+const contractions = path.slice(1) as number[][];
+```
+</Warning>

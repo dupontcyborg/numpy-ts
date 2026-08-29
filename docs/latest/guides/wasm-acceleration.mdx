@@ -34,6 +34,19 @@ WASM kernels cover 97 operations across these modules:
 All benchmarks measure computation time from JS\<->numpy-ts and Python\<->NumPy respectively. This gives an apples-to-apples comparison of the numerical computation itself. For more info, see [performance benchmarks](/performance).
 </Tip>
 
+### New in v1.7.0
+
+| Kernel | Covers |
+|-|-|
+| `all_equal` | Whole-array equality, every dtype except `float16`, with `equal_nan` variants |
+| `compare` | Element-wise comparisons |
+| `rounding` | `round`, `around`, `rint`, `ceil`, `floor`, `trunc` |
+| `isinf` | Infinity testing across dtypes |
+| `lcm` | Least common multiple |
+| `bulk_mem` | Shared `@memcpy` / `@memset` helpers used by `pad`, `tile` and `roll` |
+
+`gcd` gained `uint32`, `int64` and `uint64` variants, and `tensordot` no longer runs its own contraction loop -- it transposes and reshapes to 2-D and delegates to the existing `matmul` kernel, the same strategy NumPy uses.
+
 ## Random module (Zig rewrite)
 
 In `v1.2.0`, the entire `np.random` module was rewritten as a Zig-compiled WASM kernel. Both the legacy **MT19937** and modern **PCG64/SeedSequence** implementations now run in WASM, replacing the previous pure-TypeScript versions.
