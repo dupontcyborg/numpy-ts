@@ -104,10 +104,9 @@ export function wasmReduceSum(a: ArrayStorage): number | bigint | null {
   const bpe = (Ctor as unknown as { BYTES_PER_ELEMENT: number }).BYTES_PER_ELEMENT;
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
   const raw = kernel(aPtr, size);
-  // int64/uint64 keep the BigInt: routing it through Number() truncates anything
-  // above 2^53, which is what made this reduction disagree with NumPy on large
-  // 64-bit values. Narrower int dtypes accumulate into i64 but their exact
-  // result always fits a double.
+  // int64/uint64 keep the BigInt: Number() truncates above 2^53, breaking parity with
+  // NumPy on large 64-bit values. Narrower int dtypes accumulate into i64 but their
+  // exact result always fits a double.
   if (dtype === 'int64') return BigInt.asIntN(64, raw as bigint);
   if (dtype === 'uint64') return BigInt.asUintN(64, raw as bigint);
   return Number(raw);

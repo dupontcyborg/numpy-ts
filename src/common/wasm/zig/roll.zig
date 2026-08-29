@@ -6,7 +6,7 @@
 //! A roll is two disjoint block copies, so every dtype routes through `@memcpy`,
 //! which lowers to the `memory.copy` instruction. Engines back that with a
 //! tuned native memmove, which beats a hand-rolled v128 load/store loop (and
-//! the scalar tail such loops need) by 1.4-1.8x on 32MB buffers.
+//! the scalar tail such loops need).
 
 /// Shared implementation: copy the trailing `s` elements to the front of `out`,
 /// then the leading `N - s` elements after them. Source and destination are

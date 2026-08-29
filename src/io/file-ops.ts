@@ -148,9 +148,7 @@ export async function loadNpzFile(
 }
 
 /**
- * Synchronously load arrays from a .npz file
- *
- * Note: Only works if the NPZ file is not DEFLATE compressed.
+ * Synchronously load arrays from a .npz file. Only works if the file is not DEFLATE compressed.
  *
  * @param path - Path to the .npz file
  * @param options - Load options
@@ -174,10 +172,7 @@ export function loadNpzFileSync(
  * Save arrays to a .npz file
  *
  * @param path - Path to save the .npz file
- * @param arrays - Arrays to save:
- *   - Array of NDArrays (positional, named arr_0, arr_1, etc.)
- *   - Map of names to NDArrays
- *   - Object with names as keys
+ * @param arrays - Arrays to save: an array of NDArrays (named arr_0, arr_1, ... positionally), a Map of names to NDArrays, or an object with names as keys
  * @param options - Save options
  */
 export async function saveNpz(
@@ -207,9 +202,7 @@ export function saveNpzSync(path: string, arrays: NpzArraysInput): void {
 // =============================================================================
 
 /**
- * Load an array or arrays from a .npy or .npz file
- *
- * This is a convenience function that auto-detects the file format based on extension.
+ * Load an array or arrays from a .npy or .npz file, auto-detecting the format from the extension.
  *
  * @param path - Path to the file
  * @param options - Load options
@@ -317,9 +310,7 @@ export async function savez_compressed(path: string, arrays: NpzArraysInput): Pr
 // =============================================================================
 
 /**
- * Load data from a text file.
- *
- * Each row in the text file must have the same number of values.
+ * Load data from a text file; each row must have the same number of values.
  *
  * @param path - Path to the text file
  * @param options - Load options
@@ -403,9 +394,7 @@ export function savetxtSync(path: string, arr: NDArray, options: SaveTxtOptions 
 }
 
 /**
- * Load data from a text file with more flexible handling.
- *
- * Similar to loadtxt but handles missing values more gracefully.
+ * Load data from a text file with more flexible handling than loadtxt, tolerating missing values.
  *
  * @param path - Path to the text file
  * @param options - Load options

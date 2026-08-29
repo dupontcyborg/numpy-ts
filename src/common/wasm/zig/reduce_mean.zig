@@ -111,11 +111,9 @@ export fn reduce_mean_u8(a: [*]const u8, N: u32) f64 {
     return total / @as(f64, @floatFromInt(N));
 }
 
-/// Shared strided-mean body: out[o][i] = mean over `axis` of a[o][ax][i].
-///
-/// Same shape as reduce_sum's sumStrided (contiguous inner run, so the
-/// accumulate vectorizes 2-wide in f64 for every input dtype), with a final
-/// scale pass. See simd.widen2_f64 for the lane-widening convert.
+/// Shared strided-mean body: out[o][i] = mean over `axis` of a[o][ax][i]. The
+/// inner axis run is contiguous, so accumulation vectorizes 2-wide in f64
+/// regardless of input dtype; a final pass scales each output by 1/axis.
 inline fn meanStrided(comptime T: type, a: [*]const T, out: [*]f64, outer: u32, axis: u32, inner: u32) void {
     const O = @as(usize, outer);
     const A = @as(usize, axis);

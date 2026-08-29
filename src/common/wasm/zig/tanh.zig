@@ -6,10 +6,9 @@
 //!   |x| < 0.625 : rational  x + x·s·P(s)/Q(s),  s = x²   (no cancellation near 0)
 //!   |x| ≥ 0.625 : 1 − 2/(e^{2x}+1)  (sign-correct; expv saturates → ±1 for big x)
 //!   whole 2-lane group with |x| > 20 : store copysign(1,x), skip the exp entirely
-//! The 1−2/(e^{2x}+1) form needs no abs/sign, so the old signed/unsigned codegen
-//! split (int16 was ~3.4x slower than uint16) is gone. f32 and integer outputs
-//! run through the 2-wide f64 core then narrow. Measured 1.4–9.4x faster than the
-//! previous scalar kernels across all dtypes. See SIMD_VECTORIZATION_AUDIT.md.
+//! The 1−2/(e^{2x}+1) form needs no abs/sign, so signed and unsigned integer
+//! inputs share one codegen path. f32 and integer outputs run through the
+//! 2-wide f64 core then narrow.
 
 const math = @import("std").math;
 const simd = @import("simd.zig");

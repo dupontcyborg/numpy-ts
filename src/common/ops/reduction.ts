@@ -1898,16 +1898,13 @@ export function argmax(storage: ArrayStorage, axis?: number): ArrayStorage | num
  */
 /**
  * Narrow a reduction's raw float64 array result to its NumPy result dtype.
- *
- * Interpolating/accumulating reductions (quantile, nanmean, nanstd, …) do their
- * math in float64 and allocate a float64 result buffer, but NumPy preserves a
- * narrower input float — e.g. `np.median(float32)` → float32. This casts such a
- * result down so the runtime dtype matches the compile-time type
- * (src/common/dtype-promotion.ts, generated from the same result-dtype helpers).
- *
- * Only float16/float32 targets need work: every other result dtype (float64,
- * int64/uint64, complex) is already produced correctly upstream. Scalars carry
- * no dtype and pass through unchanged.
+ * Interpolating and accumulating reductions (quantile, nanmean, nanstd, …) do
+ * their math in float64 and allocate a float64 result buffer, but NumPy
+ * preserves a narrower input float — e.g. `np.median(float32)` → float32 — so
+ * this casts the result down to match. Only float16/float32 targets need
+ * work: every other result dtype (float64, int64/uint64, complex) is already
+ * produced correctly upstream, and scalars carry no dtype and pass through
+ * unchanged.
  */
 function narrowFloatResult<T extends ArrayStorage | number | bigint | Complex>(
   result: T,
@@ -3840,9 +3837,7 @@ function nansumImpl(
 //
 // These read through `data[off + i]` on the TypedArray union, which specialises
 // on whichever dtype arrives first in a sweep (float64) and leaves every later
-// one on the slow path. That was invisible while `storage.size` was recomputed
-// per iteration; once that was cached, float64 dropped to 0.41x while float32
-// went the other way, to 27.9x.
+// one on the slow path.
 
 const NAN_SUM_COUNT = new Float64Array(2);
 const NAN_SUMSQ = new Float64Array(1);
@@ -3996,7 +3991,7 @@ function nanSumCountF(data: TypedArray, off: number, n: number, out: Float64Arra
  * Sum of squared deviations from `mean`, accumulated into `acc[0]`.
  *
  * `acc` is the caller's accumulator so float16/float32 can keep NumPy's narrower
- * accumulation width — see the note in nanvar.
+ * accumulation width instead of widening to float64.
  */
 function nanSumSqF(
   data: TypedArray,
@@ -4097,12 +4092,9 @@ function nanprodImpl(
 
     let total = 1;
     const contiguous = storage.isCContiguous;
-    // One concrete loop per float dtype, reading the source directly.
-    //
-    // The widening copy this replaces allocated a Float64Array per call and
-    // converted through a megamorphic builtin. That was invisible while
-    // `storage.size` was recomputed per iteration; once that was cached,
-    // float64 dropped to 0.41x while float32 went the other way to 27.9x.
+    // One concrete loop per float dtype, reading the source directly instead
+    // of through a widening copy that would allocate a Float64Array per call
+    // and convert through a megamorphic builtin.
     if (contiguous) {
       total = nanProdF(data, off, storage.size);
     } else {
@@ -4591,9 +4583,10 @@ function nanvarImpl(
     let count = 0;
     const contiguous = storage.isCContiguous;
     if (contiguous) {
-      // One concrete loop per float dtype, reading the source directly. The
-      // widening copy this replaces allocated a Float64Array per pass — three of
-      // them for a variance — and converted through a megamorphic builtin.
+      // One concrete loop per float dtype, reading the source directly instead
+      // of through a widening copy, which would allocate a Float64Array per
+      // pass — three of them for a variance — and convert through a
+      // megamorphic builtin.
       const sc = NAN_SUM_COUNT;
       nanSumCountF(data, off, storage.size, sc);
       total = sc[0]!;
@@ -5291,12 +5284,9 @@ export function nanargmin(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let minVal = Infinity;
     let minIdx = -1;
     const contiguous = storage.isCContiguous;
-    // One concrete loop per float dtype, reading the source directly.
-    //
-    // The widening copy this replaces allocated a Float64Array per call and
-    // converted through a megamorphic builtin. That was invisible while
-    // `storage.size` was recomputed per iteration; once that was cached,
-    // float64 dropped to 0.41x while float32 went the other way to 27.9x.
+    // One concrete loop per float dtype, reading the source directly instead
+    // of through a widening copy that would allocate a Float64Array per call
+    // and convert through a megamorphic builtin.
     if (contiguous) {
       return nanArgMinF(data, off, storage.size);
     }
@@ -5460,12 +5450,9 @@ export function nanargmax(storage: ArrayStorage, axis?: number): ArrayStorage | 
     let maxVal = -Infinity;
     let maxIdx = -1;
     const contiguous = storage.isCContiguous;
-    // One concrete loop per float dtype, reading the source directly.
-    //
-    // The widening copy this replaces allocated a Float64Array per call and
-    // converted through a megamorphic builtin. That was invisible while
-    // `storage.size` was recomputed per iteration; once that was cached,
-    // float64 dropped to 0.41x while float32 went the other way to 27.9x.
+    // One concrete loop per float dtype, reading the source directly instead
+    // of through a widening copy that would allocate a Float64Array per call
+    // and convert through a megamorphic builtin.
     if (contiguous) {
       return nanArgMaxF(data, off, storage.size);
     }

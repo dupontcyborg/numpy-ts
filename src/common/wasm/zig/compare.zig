@@ -4,8 +4,7 @@
 //! Lane width drives the win, so the narrow dtypes gain most: i8/u8 compare 16
 //! elements per instruction while f64 manages 2. The JS fallback is penalised
 //! in the same direction (Int8Array reads sign-extend per element), so the gap
-//! compounds — measured ~35x for i8 against a monomorphic JS loop versus ~4x
-//! for f64.
+//! over JS widens further for the narrow types than for f64.
 //!
 //! `@intFromBool` on a vector yields one byte per lane, which is exactly the
 //! bool layout, so no extra packing step is needed.

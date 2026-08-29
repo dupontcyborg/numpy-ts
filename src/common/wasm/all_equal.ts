@@ -29,15 +29,15 @@ import { wasmConfig } from './config';
 import { resetScratchAllocator, resolveInputPtr } from './runtime';
 
 /**
- * Below this the kernel call costs more than the loop it replaces. At default
- * benchmark sizes the JS path is only 2-7x off NumPy on 7-10us of work, where
- * call overhead would eat the win; the gap opens up at scale.
+ * Below this the kernel call costs more than the loop it replaces: on small
+ * arrays the JS path is already close to NumPy and call overhead would eat
+ * the win, but the gap in favor of WASM opens up at scale.
  */
 const BASE_THRESHOLD = 4096;
 
 type EqFn = (aPtr: number, bPtr: number, N: number) => number;
 
-/** float16 is deliberately absent: we already run it at 0.7-0.8x, faster than NumPy. */
+/** float16 is deliberately absent: the JS path is already faster than NumPy for it. */
 const kernels: Partial<Record<DType, EqFn>> = {
   float64: all_equal_f64,
   float32: all_equal_f32,

@@ -1,8 +1,6 @@
-//! WASM element-wise LCM (least common multiple) kernels.
-//!
-//! Scalar: out[i] = lcm(a[i], scalar)
-//! Binary: out[i] = lcm(a[i], b[i])
-//! Operates on contiguous 1D buffers, preserving the promoted integer dtype.
+//! WASM element-wise LCM (least common multiple) kernels: out[i] = lcm(a[i],
+//! b[i]) (binary) or lcm(a[i], scalar) (scalar), on contiguous 1D buffers,
+//! preserving the promoted integer dtype.
 //!
 //! lcm(x, y) = |x| / gcd(x, y) * |y|, dividing first so the intermediate never
 //! overflows for inputs whose true lcm fits. Where it does not fit, the multiply

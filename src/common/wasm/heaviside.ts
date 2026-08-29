@@ -1,9 +1,7 @@
 /**
- * WASM-accelerated element-wise heaviside step function.
- *
- * Scalar: out[i] = x1[i] < 0 ? 0 : x1[i] == 0 ? x2 : 1
- * Binary: out[i] = x1[i] < 0 ? 0 : x1[i] == 0 ? x2[i] : 1
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated element-wise heaviside step function: out[i] = 0 when
+ * x1[i] < 0, x2 (or x2[i]) when x1[i] == 0, else 1. Returns null if WASM
+ * can't handle this case.
  */
 
 import { type DType, effectiveDType, type TypedArray } from '../dtype';

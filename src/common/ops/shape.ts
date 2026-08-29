@@ -654,7 +654,7 @@ function copyToOutput(
   // the stride pattern: a single bulk copy when the region is contiguous (axis
   // 0), one native copy per row when rows are long (axis 1), and a monomorphic
   // scatter otherwise (axis 2, and any short-row case such as column_stack's
-  // width-1 columns, which previously issued one `.set()` per element).
+  // width-1 columns, avoiding one `.set()` call per element).
   const contiguous = source.isCContiguous ? source : source.copy();
   const srcView = (
     contiguous.data as unknown as { subarray(b: number, e: number): TypedArray }

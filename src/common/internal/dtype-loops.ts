@@ -6,14 +6,13 @@
  * not: `storage.data` is a `Float64Array | Int8Array | ...` union, so that one
  * builtin call site sees every TypedArray type a process touches, goes
  * megamorphic, and drops off V8's fast TypedArray-to-TypedArray conversion onto a
- * generic per-element path. Measured across the full dtype sweep that cost more
- * than the loops it was meant to make monomorphic — `ediff1d` at 116.7x and
- * `tensordot` float32 at 110.1x were both this.
+ * generic per-element path — costing more than the loop it was meant to make
+ * monomorphic.
  *
  * The switch below dispatches once per call, not per element, and each branch
  * has narrowed the type so its loop compiles against a single map. That is the
- * same shape as CMP_LOOPS and stepStore, both of which held up under the full
- * suite.
+ * same shape as CMP_LOOPS and stepStore, both of which hold up under the full
+ * dtype sweep.
  */
 
 import type { TypedArray } from '../dtype';
@@ -105,10 +104,10 @@ export function narrowFromF64(dst: TypedArray, dstOff: number, n: number, src: F
 /**
  * A sorted copy of `n` elements of `src` from `off`, at the source's own dtype.
  *
- * `TypedArray.prototype.sort` is native and numeric (NaN last), which is what
- * the JS comparators this replaces spelled out by hand. Sorting at the source
- * type also keeps 64-bit integers exact: widening first would let values above
- * 2^53 collapse onto the same double and reorder.
+ * `TypedArray.prototype.sort` is native and numeric (NaN last), so it needs no
+ * hand-written comparator. Sorting at the source type also keeps 64-bit
+ * integers exact: widening first would let values above 2^53 collapse onto the
+ * same double and reorder.
  */
 export function sortedCopy(src: TypedArray, off: number, n: number): TypedArray {
   const ctor = (src as { constructor: unknown }).constructor;
@@ -215,9 +214,9 @@ export function widenGatherToF64(src: TypedArray, idx: Int32Array, out: Float64A
  * Write `n` real values from `src` into an interleaved complex buffer:
  * `dst[2i] = src[i]`, `dst[2i + 1] = 0`.
  *
- * Dispatched per source dtype so no widening buffer is needed in between. The
- * previous route — copy, widen to Float64Array, then write — allocated twice
- * per call, which measured 15% slower than the boxed version it replaced.
+ * Dispatched per source dtype so no widening buffer is needed in between:
+ * copying to a temporary and widening it separately would allocate twice per
+ * call.
  */
 export function writeInterleaved(
   src: TypedArray,

@@ -2,12 +2,11 @@
  * Gathering a strided/broadcast view into a dense, C-contiguous buffer.
  *
  * This is the hot path behind `ArrayStorage.copy()`, and therefore behind every
- * `.copy()` of a transposed, sliced, or broadcast view. It used to run
- * `dest[i] = this.iget(i)` per element, which per element re-checked the dtype,
- * recomputed the trailing-dimension products in an O(ndim^2) loop with a
- * `Math.floor` division per dimension, and then stored through a TypedArray
- * union — a store site that goes megamorphic once more than four dtypes pass
- * through it, so every dtype pays.
+ * `.copy()` of a transposed, sliced, or broadcast view. A naive `dest[i] =
+ * this.iget(i)` loop would re-check the dtype and recompute trailing-dimension
+ * products with a division per dimension on every element, and store through
+ * a TypedArray union — a store site that goes megamorphic once more than four
+ * dtypes pass through it, so every dtype pays.
  *
  * Instead, pick a strategy from the stride pattern and let the engine's native
  * bulk primitives do the work:

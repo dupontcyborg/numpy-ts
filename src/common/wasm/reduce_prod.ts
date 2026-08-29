@@ -107,13 +107,10 @@ export function wasmReduceProd(a: ArrayStorage): number | bigint | null {
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, size, bpe);
 
   const raw = kernel(aPtr, size);
-  // The WASM i64 ABI returns the raw two's-complement bit pattern as a signed
-  // BigInt. For unsigned 64-bit dtypes, reinterpret as unsigned before casting
-  // to Number so values ≥ 2^63 are not misread as negative.
-  // int64/uint64 keep the BigInt: routing it through Number() truncates anything
-  // above 2^53, which is what made this reduction disagree with NumPy on large
-  // 64-bit values. Narrower int dtypes accumulate into i64 but their exact
-  // result always fits a double.
+  // int64/uint64 keep the BigInt: the WASM i64 ABI returns raw two's-complement bits as a
+  // signed value, so uint64 must be reinterpreted with asUintN, and Number() would truncate
+  // above 2^53 anyway. Narrower int dtypes accumulate into i64 but their exact result always
+  // fits a double.
   if (dtype === 'int64') return BigInt.asIntN(64, raw as bigint);
   if (dtype === 'uint64') return BigInt.asUintN(64, raw as bigint);
   if (typeof raw === 'bigint' && (dtype === 'uint16' || dtype === 'uint8')) {

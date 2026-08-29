@@ -1,9 +1,9 @@
 //! WASM SIMD isinf kernels: out[i] = 1 if a[i] is +/-infinity, else 0.
 //!
-//! Mirrors isnan.zig. Infinity is the only value whose magnitude equals
-//! infinity, so `@abs(v) == inf` is the whole test — one absolute value and one
-//! compare per vector. `@intFromBool` on the vector yields one byte per lane,
-//! which is already the bool output layout, so nothing needs packing.
+//! Infinity is the only value whose magnitude equals infinity, so
+//! `@abs(v) == inf` is the whole test — one absolute value and one compare per
+//! vector. `@intFromBool` on the vector yields one byte per lane, which is
+//! already the bool output layout, so nothing needs packing.
 //!
 //! Integer dtypes never reach here: they cannot be infinite, so the caller
 //! fills zeros directly.

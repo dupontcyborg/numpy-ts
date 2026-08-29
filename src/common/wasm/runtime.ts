@@ -1,17 +1,14 @@
 /**
- * WASM Runtime — zero-copy memory management for all WASM kernels.
+ * WASM Runtime — zero-copy memory management for all WASM kernels. All array
+ * data lives in one fixed-size WebAssembly.Memory: a persistent free-list
+ * allocator manages long-lived ArrayStorage data, and a scratch bump allocator
+ * handles temporary copy-ins for JS-fallback arrays during kernel calls.
  *
- * All array data lives in a single fixed-size WebAssembly.Memory instance.
- * A persistent free-list allocator (alloc.zig) manages long-lived ArrayStorage
- * data. A scratch bump allocator handles temporary copy-ins for JS-fallback
- * arrays during kernel calls.
- *
- * Memory layout:
  *   [WASM statics][--- persistent heap (free-list) ---][--- scratch (bump) ---]
  *   0          heapBase                            scratchBase          maxBytes
  *
- * Because initial === maximum pages, memory.buffer is never detached by grow().
- * All TypedArray views into it remain valid for the program lifetime.
+ * initial === maximum pages, so memory.buffer is never detached by grow() and
+ * every TypedArray view into it stays valid for the program's lifetime.
  */
 
 import type { TypedArray } from '../dtype';
@@ -131,13 +128,7 @@ function ensureHeapInitialized(): void {
 
 /**
  * Configure WASM memory settings. Must be called before any array operations
- * (i.e. before the WASM memory is initialized on first use).
- *
- * @example
- * ```ts
- * import { configureWasm } from 'numpy-ts';
- * configureWasm({ maxMemory: 512 * 1024 * 1024 }); // 512 MiB
- * ```
+ * — i.e. before the WASM memory is initialized on first use.
  */
 export function configureWasm(options: ConfigureWasmOptions): void {
   if (heapInitialized) {
@@ -208,21 +199,15 @@ export class WasmRegion {
 // ---------------------------------------------------------------------------
 
 /**
- * Frees a region once nothing references it any more.
+ * Frees a region once nothing references it any more. Registration lives on
+ * the WasmRegion itself, not on each ArrayStorage that points at it: every
+ * storage, owner and view alike, holds a strong reference to the region, so it
+ * becomes unreachable exactly when the last one dies — the moment its memory
+ * is safe to free. Registering per storage instead would pay the registration
+ * cost on every construction rather than once per allocation.
  *
- * The registration is on the WasmRegion itself, not on each ArrayStorage that
- * points at it. Every storage — owner and view alike — holds a strong reference
- * to the region, so the region becomes unreachable exactly when the last of them
- * dies, which is the moment the memory is safe to free.
- *
- * Registering per storage instead cost a `FinalizationRegistry.register` on
- * every construction, measured at 172ns against 3ns to allocate the object.
- * Views pay nothing now, and an allocation registers once rather than once per
- * array that shares it. Removing this cost entirely measured 31% off the view
- * benchmarks.
- *
- * The held value is the raw pointer, never the region: holding the region would
- * keep it reachable and the callback would never run.
+ * The held value is the raw pointer, never the region: holding the region
+ * would keep it reachable and the callback would never run.
  */
 const regionRegistry = new FinalizationRegistry<number>((ptr) => {
   if (heapInitialized && ptr >= heapBase && ptr < scratchBase) {
@@ -238,7 +223,7 @@ const regionRegistry = new FinalizationRegistry<number>((ptr) => {
  * Allocate `bytes` from the persistent WASM heap.
  * Returns a WasmRegion, or null if out of memory (caller should fall back to JS).
  */
-/** One-shot latch for the heap-exhaustion warning; see wasmMalloc. */
+/** One-shot latch so the heap-exhaustion warning below fires only once per process. */
 let heapExhaustionWarned = false;
 
 export function wasmMalloc(bytes: number): WasmRegion | null {
@@ -249,9 +234,9 @@ export function wasmMalloc(bytes: number): WasmRegion | null {
   if (ptr === 0) {
     wasmMemoryConfig.heapExhaustedCount++;
     // Warn once. This transition is worth surfacing because nothing else marks
-    // it: past this point every allocation is JS-backed, which is measurably
-    // slower (2.3-2.5x on an integer floor), and the heap does not recover. The
-    // usual cause is retaining intermediates instead of disposing them.
+    // it: past this point every allocation is JS-backed, which is noticeably
+    // slower, and the heap does not recover. The usual cause is retaining
+    // intermediates instead of disposing them.
     if (wasmMemoryConfig.warnOnHeapExhaustion && !heapExhaustionWarned) {
       heapExhaustionWarned = true;
       const free = heap_free_bytes();
@@ -391,9 +376,9 @@ export function resolveTypedArrayPtr(data: TypedArray): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Convert f16 input to f32 in the scratch region using .set() — no JS allocation.
- * Creates Float32Array view on WASM scratch memory and uses .set(f16Data) which
- * converts f16→f32 in-place. 1.2x–3x faster than f16ToF32Input + scratchCopyIn.
+ * Convert f16 input to f32 into the scratch region. Creates a Float32Array
+ * view over WASM scratch memory and uses .set() on the f16 data, converting
+ * in place with no JS-side allocation or intermediate copy.
  *
  * @param a - The ArrayStorage with f16 data
  * @param size - Number of elements
@@ -415,10 +400,9 @@ export function f16InputToScratchF32(
 }
 
 /**
- * Convert f32 kernel output to f16 in a new WASM region using .set() — no JS round-trip.
- * Allocates a persistent f16 WasmRegion, creates Float16Array + Float32Array views
- * on WASM memory, and uses .set() to convert in-place.
- * Replaces: copyOut + f32ToF16Output + fromData (saves 2 copies).
+ * Convert f32 kernel output to f16 in a new WASM region. Allocates a
+ * persistent f16 WasmRegion, then uses .set() between Float16Array and
+ * Float32Array views over WASM memory to convert without a JS round-trip.
  *
  * @param outRegion - The WasmRegion containing f32 output from the kernel
  * @param size - Number of elements

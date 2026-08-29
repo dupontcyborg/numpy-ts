@@ -200,12 +200,9 @@ export function insert(
         return new NDArrayCore(resultStorage);
       }
 
-      // Insertion is a segment-copy problem. This used to box the whole array
-      // into a `number[]` via Array.from, splice that, then walk it again in
-      // array() to build the typed array back — two boxed round-trips over
-      // every element to move data that never changes type. Copying the runs
-      // between insertion points with `.set()` keeps it all native, and keeps
-      // int64 in BigInt rather than routing it through `number`.
+      // Insertion is a segment-copy problem: copy the runs between insertion
+      // points with `.set()` so everything stays in native typed arrays, and
+      // int64 stays in BigInt rather than routing through `number`.
       type Sub = {
         subarray(b: number, e: number): ArrayLike<number>;
         set(v: ArrayLike<number>, o: number): void;
@@ -293,16 +290,11 @@ export type PadWidthArg = number | [number, number] | (number | [number, number]
 export type PadValueArg = number | [number, number] | (number | [number, number])[];
 
 /**
- * Normalize a pad_width / constant_values argument to per-axis [before, after] pairs.
- *
- * Accepts (matching NumPy):
- *  - scalar `n` → `[[n, n], ...]` for every axis
- *  - `[n]` (length 1) → `[[n, n], ...]` for every axis
- *  - `[before, after]` (length 2) → broadcast to every axis
- *  - `[n0, n1, ..., n_{ndim-1}]` (length ndim) → per-axis scalars (before=after=n_k)
- *  - `[[b, a]]` (length 1) → broadcast pair to every axis
- *  - `[[b0, a0], ..., [b_{ndim-1}, a_{ndim-1}]]` (length ndim) → per-axis pairs
- *  - mixed: `[n0, [b1, a1], ...]` — scalars expand to (n, n)
+ * Normalize a pad_width / constant_values argument to per-axis [before, after] pairs,
+ * matching NumPy's flexible input shapes: a scalar or single-element list broadcasts
+ * to every axis, a two-element list of scalars broadcasts as a shared [before, after]
+ * pair, a list of length ndim gives one scalar per axis, and lists of pairs (or a mix
+ * of scalars and pairs) apply the same rules per axis.
  */
 function normalizePerAxisPair(v: PadWidthArg, ndim: number, paramName: string): [number, number][] {
   if (typeof v === 'number') {
@@ -418,7 +410,7 @@ export function pad(
   const totalSize = shape.reduce((a, b) => a * b, 1);
 
   // Per-axis value path: paint output cell-by-cell. NumPy applies pad axis-by-axis
-  // in order, so the *highest* axis whose pad covers a given cell wins.
+  // in order, so the highest axis whose pad covers a given cell wins.
   if (!uniformValue) {
     const newSize = result.size;
     for (let outFlat = 0; outFlat < newSize; outFlat++) {
@@ -459,7 +451,7 @@ export function pad(
     return result;
   }
 
-  // Uniform-value fast paths below (mirror previous behavior).
+  // Uniform-value fast paths for the common case.
   if (scalarFillValue !== 0) {
     for (let i = 0; i < result.size; i++) {
       resultStorage.iset(i, scalarFillValue);

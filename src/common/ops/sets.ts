@@ -119,15 +119,13 @@ function uniqueCountingSort(
 /**
  * Whether every value in a 64-bit integer range is exactly representable as a
  * double, so the generic Float64Array path below cannot merge distinct values.
- *
- * The exact BigInt path that this gates is correct for the whole 64-bit range
- * but sorts an index array with a JS comparator that loads BigInts, which costs
- * far more than the numeric sort. Real int64 data almost always fits in the safe
- * range, so one linear scan buys the fast path for it and keeps the exact path
- * for the values that genuinely need it.
- *
- * Deliberately conservative at the boundary: `|v| < 2^53` rather than `<= 2^53`,
- * which at worst takes the exact path one value early.
+ * The exact BigInt path this gates is correct for the whole 64-bit range but
+ * sorts via a JS comparator that loads BigInts, far costlier than a numeric
+ * sort; real int64 data almost always fits in the safe range, so this one
+ * linear scan buys the fast path most of the time while keeping the exact
+ * path for values that need it. The boundary check is deliberately
+ * conservative (`|v| < 2^53` rather than `<= 2^53`), which at worst takes the
+ * exact path one value early.
  */
 function allExactInF64(src: BigInt64Array | BigUint64Array, off: number, size: number): boolean {
   const LIMIT = 9007199254740992n; // 2^53
@@ -1140,9 +1138,8 @@ export function unique_inverse(x: ArrayStorage): {
 }
 
 /**
- * Find the unique elements of an array (values only).
- *
- * This is equivalent to unique(x) but with a clearer name for the Array API.
+ * Find the unique elements of an array (values only) — equivalent to
+ * unique(x), with a clearer name for the Array API.
  *
  * @param x - Input array (flattened for uniqueness)
  * @returns Array of unique values, sorted

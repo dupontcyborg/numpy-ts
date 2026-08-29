@@ -5,9 +5,8 @@
 //! Operates on contiguous row-major buffers. Pad value is always 0.
 //!
 //! Pure fill + copy, no per-lane arithmetic, so this is one generic body rather
-//! than six per-dtype loops. Zeroing only the border (not the whole output) is
-//! what made it fast: the old code wrote every interior element twice. See
-//! finding 1.2 in OPEN-FINDINGS.md.
+//! than six per-dtype loops. Only the border is zeroed, not the whole output —
+//! interior elements are written once, by the row copy.
 
 const bulk_mem = @import("bulk_mem.zig");
 

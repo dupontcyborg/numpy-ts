@@ -1,11 +1,9 @@
 /**
- * WASM-accelerated inner product kernel.
- *
- * Pure compute backend — takes ArrayStorage inputs, returns ArrayStorage or
- * null if WASM can't handle this case (unsupported dtype, non-contiguous,
- * below size threshold). The caller (linalg.ts) handles the JS fallback.
- *
- * inner(A[M,K], B[N,K]) → C[M,N] where C[i,j] = sum_k A[i,k] * B[j,k]
+ * WASM-accelerated inner product kernel: inner(A[M,K], B[N,K]) → C[M,N] where
+ * C[i,j] = sum_k A[i,k] * B[j,k]. Pure compute backend - takes ArrayStorage
+ * inputs, returns ArrayStorage or null if WASM can't handle this case
+ * (unsupported dtype, non-contiguous, below size threshold); the caller
+ * falls back to JS.
  */
 
 import { Complex } from '../complex';
@@ -95,11 +93,10 @@ const complexFactor: Partial<Record<DType, number>> = {
 };
 
 /**
- * WASM-accelerated inner product. Returns null if WASM can't handle this case.
- *
- * Handles the 2D general case: inner(A[M,K], B[N,K]) → C[M,N].
- * The 1D·1D case (scalar result) is also handled when both inputs are 1D.
- * The caller should fall back to JS when null is returned.
+ * WASM-accelerated inner product: handles the 2D general case
+ * inner(A[M,K], B[N,K]) → C[M,N], and the 1D·1D case (scalar result) when
+ * both inputs are 1D. Returns null if WASM can't handle this case; caller
+ * falls back to JS.
  */
 export function wasmInner(
   a: ArrayStorage,

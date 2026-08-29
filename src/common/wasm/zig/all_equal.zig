@@ -1,14 +1,9 @@
 //! WASM SIMD whole-array equality: does every element of `a` equal `b`?
 //!
-//! This backs `array_equal` and `array_equiv`. The JS loop it replaces was
-//! already monomorphic and ran at roughly 0.7ns per element — the problem is
-//! that it costs the same per *element* for every dtype, while NumPy's cost
-//! scales with *bytes*. On a [1000x1000] our time was flat at ~700-990us across
-//! all dtypes while NumPy went 21.8us (int8) to 210us (float64), which is why
-//! the ratio looked worst exactly where NumPy was fastest.
-//!
-//! Comparing a whole v128 at a time puts us on the same per-byte footing: 16
-//! lanes for i8 down to 2 for i64/f64.
+//! Backs `array_equal` and `array_equiv`. A per-element scalar loop costs the
+//! same regardless of dtype, but NumPy's cost scales with bytes moved;
+//! comparing a whole v128 at a time (16 lanes for i8 down to 2 for i64/f64)
+//! keeps this kernel on the same per-byte footing across dtypes.
 //!
 //! Returns 1 when every element matches, 0 otherwise, and bails on the first
 //! mismatching block.

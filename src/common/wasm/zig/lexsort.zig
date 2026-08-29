@@ -1,16 +1,13 @@
-//! WASM lexsort kernels for all numeric types.
+//! WASM lexsort kernels for all numeric types: lexicographic indirect sort
+//! over multiple keys (NumPy convention). keys is a flat buffer of num_keys *
+//! N elements where keys[k*N + i] is key k's i-th element; the LAST key is
+//! primary, ties broken by earlier keys. out receives the sorted indices
+//! [0..N) as f64 — indices are sorted as u32 in the lower half of that same
+//! buffer, then converted to f64 in-place via SIMD.
 //!
-//! Lexicographic indirect sort over multiple keys (NumPy convention).
-//! keys is a flat buffer of num_keys * N elements where keys[k*N + i] is key k's i-th element.
-//! The LAST key is the primary sort key; ties are broken by earlier keys.
-//! out receives the sorted indices [0..N) as f64.
-//!
-//! Output is f64 for JS ergonomics. Internally sorts u32 indices in the
-//! lower half of the f64 output buffer, then converts in-place via SIMD.
-//!
-//! Supported dtypes: f64, f32, i64, u64, i32, u32, i16, u16, i8, u8.
-//! Floating-point variants treat NaN as greater than all values.
-//! Algorithm: heap sort (in-place, O(N log N) worst-case, stable via index tiebreaker).
+//! Supported dtypes: f64, f32, i64, u64, i32, u32, i16, u16, i8, u8, with NaN
+//! treated as greater than all values. Uses heap sort: in-place, O(N log N)
+//! worst-case, stable via an index tiebreaker.
 
 const sc = @import("sorting_common.zig");
 

@@ -1,9 +1,6 @@
 /**
- * WASM-accelerated element-wise logical AND.
- *
- * Binary: out[i] = (a[i] != 0) & (b[i] != 0)
- * Scalar: out[i] = (a[i] != 0) & (scalar != 0)
- * Output is always bool (Uint8Array). Returns null if WASM can't handle.
+ * WASM-accelerated element-wise logical AND, binary or against a scalar.
+ * Output is always bool (Uint8Array).
  */
 
 import { type DType, hasFloat16, type TypedArray } from '../dtype';

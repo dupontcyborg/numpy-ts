@@ -1,8 +1,6 @@
 /**
- * WASM-accelerated 1D gradient using central differences.
- *
- * Only handles 1D arrays with uniform spacing.
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated 1D gradient using central differences. Only handles 1D
+ * arrays with uniform spacing; returns null if WASM can't handle this case.
  */
 
 import { type DType, effectiveDType, hasFloat16, type TypedArray } from '../dtype';

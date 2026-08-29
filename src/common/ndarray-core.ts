@@ -37,13 +37,12 @@ import { ArrayStorage } from './storage';
  */
 /**
  * Bracket access only ever uses keys that start with a digit or '-'. Testing
- * that first costs one charCodeAt; the parseInt round-trip costs ~28ns and used
- * to run on every named property access — `.shape`, `.dtype`, `.storage` — on
- * every array in the library. Measured per property read: 64.8ns unguarded,
- * 37.7ns with this guard, against 36.2ns for a Proxy whose trap does nothing.
+ * that first with one charCodeAt skips the parseInt round-trip on every named
+ * property access — `.shape`, `.dtype`, `.storage` — for every array in the
+ * library, where that round-trip would otherwise run unconditionally.
  *
- * Equivalent to the old test for every key: '+1', ' 1' and '' all failed the
- * `String(idx) === prop` round-trip before and are rejected here too.
+ * Matches `String(idx) === prop`: '+1', ' 1' and '' all fail that round-trip
+ * and are rejected here too.
  */
 function looksNumeric(prop: string): boolean {
   const c = prop.charCodeAt(0);
@@ -51,21 +50,15 @@ function looksNumeric(prop: string): boolean {
 }
 
 /**
- * The non-proxied target behind an array, for internal property reads.
+ * The non-proxied target behind an array, for internal property reads. Every
+ * array is a Proxy so that `arr[0]` works, so every property read through it
+ * pays trap dispatch; hopping to the raw target once and reading several
+ * plain properties off it is cheaper, which matters most for view operations
+ * that build multiple arrays per call. A plain field holding the raw target
+ * beats keying a WeakMap by the proxy, since populating the map on every
+ * construction costs more than a field write. The raw target has no bracket
+ * access, so never return it to a caller.
  *
- * Every array is a Proxy so that `arr[0]` works, which means every property read
- * pays trap dispatch — 36ns against 0.5ns for a plain object, and a wrapper
- * reading four properties cost 154ns. Hopping to the raw target costs one trap
- * and makes every read after it plain: those four reads drop to 20ns, and even a
- * single read is cheaper (18ns against 43ns).
- *
- * A WeakMap keyed on the proxy was tried first and was much worse. The get is
- * cheap (5.1ns even on a 200k-entry map) but `WeakMap.set` costs 185ns per
- * construction and view ops build two or three arrays per call — measured 68%
- * slower overall on the view benchmarks. A plain field costs 3.7ns to set.
- *
- * Internal only: the raw target has no bracket access, so never return it to a
- * caller.
  * @internal
  */
 export function rawOf<T extends NDArrayCore>(x: T): T {

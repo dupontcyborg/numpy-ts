@@ -409,8 +409,8 @@ const SIGN_FLIP_64: V2i64 = @splat(@bitCast(@as(u64, 0x8000000000000000)));
 /// WASM has i64x2.gt_s but no unsigned variant.
 ///
 /// Both the compare and the select stay in the flipped domain, then flip back.
-/// Selecting between the *unflipped* operands instead makes LLVM scalarize into
-/// an extract/replace chain, which measured slower than the plain scalar loop.
+/// Selecting between the unflipped operands instead makes LLVM scalarize into
+/// an extract/replace chain, which is slower than the plain scalar loop.
 pub inline fn max_u64x2(a: V2u64, b: V2u64) V2u64 {
     const fa: V2i64 = @as(V2i64, @bitCast(a)) ^ SIGN_FLIP_64;
     const fb: V2i64 = @as(V2i64, @bitCast(b)) ^ SIGN_FLIP_64;

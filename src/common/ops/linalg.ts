@@ -1784,12 +1784,12 @@ export function tensordot(
 
   // General case: contract by reshaping to 2-D and delegating to matmul.
   //
-  // A tensor contraction *is* a matrix product, which is how NumPy implements
+  // A tensor contraction is a matrix product, which is how NumPy implements
   // this (transpose, reshape, dot) and why NumPy is fast here. matmul already
   // has tuned SIMD kernels for every dtype plus a JS fallback, so this needs no
-  // kernel of its own. The hand-written triple loop this replaces did 1/15th
-  // the work of a [100x100] matmul and took 5x longer: 100us at 4.8x, against
-  // 20.7us at 0.1x for the matmul.
+  // kernel of its own — a hand-written triple loop here does far less
+  // arithmetic than an equivalent matmul yet runs slower, since it can't use
+  // matmul's tuned kernels.
   //
   // For the `axes: number` form — the common one, and what NumPy's own default
   // produces — the contracted axes are already trailing on `a` and leading on
@@ -4908,15 +4908,11 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
 }
 
 /**
- * Compute eigenvalues and right eigenvectors of a square matrix.
- *
- * For general matrices, uses iterative methods.
- * For symmetric matrices, use eigh for better performance.
- *
- * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
- * this function returns only the real parts of eigenvalues. If your matrix has
- * complex eigenvalues (e.g., rotation matrices), results will be incorrect.
- * Use eigh() for symmetric matrices where eigenvalues are guaranteed to be real.
+ * Compute eigenvalues and right eigenvectors of a square matrix using
+ * iterative methods; symmetric matrices should use eigh instead for better
+ * performance. Complex eigenvalues are not supported — for non-symmetric
+ * matrices this returns only the real parts, which is wrong for matrices
+ * with genuinely complex eigenvalues (e.g. rotation matrices).
  *
  * @param a - Input square matrix
  * @returns { w, v } - Eigenvalues (real only) and eigenvector matrix
@@ -5199,11 +5195,10 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
 }
 
 /**
- * Compute eigenvalues of a general square matrix.
- *
- * **Limitation**: Complex eigenvalues are not supported. For non-symmetric matrices,
- * this function returns only real approximations. Use eigvalsh() for symmetric
- * matrices where eigenvalues are guaranteed to be real.
+ * Compute eigenvalues of a general square matrix. Complex eigenvalues are not
+ * supported — for non-symmetric matrices this returns only real
+ * approximations; use eigvalsh for symmetric matrices, where eigenvalues are
+ * guaranteed to be real.
  *
  * @param a - Input square matrix
  * @returns Array of eigenvalues (real only)
@@ -6255,7 +6250,7 @@ export function einsum_path(
       }
     }
 
-    // Record the contraction as positions in the *current* operand list, which
+    // Record the contraction as positions in the current operand list, which
     // is what NumPy reports. Recording original operand indices (with -1 marking
     // an intermediate) gave [[0,1],[2,-1]] where NumPy gives [(0,1),(0,1)] for a
     // three-operand chain: after the first contraction the list has shrunk, so

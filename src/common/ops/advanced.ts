@@ -840,20 +840,12 @@ export function select(
   if (!isBig && !isCplx) {
     // Resolve entirely in a monomorphic f64 buffer, then narrow in one native
     // store. Conditions only need truthiness, which widening preserves.
-    // Gather each operand straight into a plain Float64Array.
     //
-    // `flatF64` materialised every operand with `.copy()` first, which allocates
-    // a WASM region apiece — six of them for a three-condition select, on every
-    // call. That allocation churn, not the arithmetic, is what made this op slow
-    // once the heap was busy; the same cause was measured in tensordot, where the
-    // one variant that allocates nothing ran 7x faster than all the others.
-    // Reused scratch, not fresh buffers.
-    //
-    // Standalone this op runs at 9.3us against NumPy's 5.5us; inside the full
-    // suite it measured 105us. The difference is allocation pressure on a busy
-    // heap, which is the same thing that made tensordot 110x there and 4.8x once
-    // its per-call buffers were reused. Slot 0 is the accumulator, then one slot
-    // per condition and one per choice.
+    // Each operand is gathered into a reused scratch buffer rather than
+    // materialised with `.copy()` first: copying allocates a WASM region per
+    // operand, and on a busy heap that allocation pressure costs far more than
+    // the arithmetic itself. Slot 0 is the accumulator, then one slot per
+    // condition and one per choice.
     const gather = (s: ArrayStorage, slot: number): Float64Array => {
       const buf = selectScratch(slot, outputSize);
       if (s.isCContiguous) {
@@ -893,11 +885,9 @@ export function select(
 
   // BigInt: conditions only need truthiness, which f64 carries fine, but the
   // chosen values must stay at 64 bits. So gather the conditions the fast way
-  // and copy the winning value straight across, concretely typed on both sides.
-  //
-  // Without this, int64/uint64 fell past the fast path above into the per-element
-  // `iget` walk at the bottom: 31.4x on a [10000] against ~16x for every other
-  // dtype.
+  // and copy the winning value straight across, concretely typed on both
+  // sides, rather than falling through to the generic per-element `iget` walk
+  // below — which is markedly slower for int64/uint64 than for other dtypes.
   if (isBig && !(defaultValue instanceof ArrayStorage)) {
     const out64 = outputData as BigInt64Array | BigUint64Array;
     out64.fill(defaultVal as bigint);
@@ -972,13 +962,10 @@ export function select(
 /**
  * One masked-write loop per destination TypedArray type.
  *
- * Deliberately duplicated, for the same reason as CMP_LOOPS in
- * internal/compute.ts: a single loop storing through a
+ * Deliberately duplicated: a single loop storing through a
  * `Float64Array | Int8Array | ...` union sees every dtype the process has
- * touched and V8 abandons the inline cache on that store. Measured across the
- * dtype sweep, the shared-loop version ran 7 of 11 dtypes at ~25us and the other
- * 4 at ~3us for identical work — the signature of an inline-cache problem, not a
- * data one.
+ * touched, and V8 abandons the inline cache on that store once enough types
+ * pass through it, so every dtype pays rather than just the later ones.
  */
 type MaskedWriteLoop = (
   dst: TypedArray,
@@ -1214,9 +1201,8 @@ const MASKED_WRITE_LOOPS = new Map<unknown, MaskedWriteLoop>([
 ]);
 
 // float16 only exists on engines that ship Float16Array; elsewhere the storage is
-// a Float32Array and the entry above already covers it. Without this, float16 was
-// the one dtype still falling to the generic accessor path — it went from 5.6x to
-// 15.5x while every other dtype improved.
+// a Float32Array and the entry above already covers it. Without this, float16
+// would be the one dtype still falling to the generic accessor path.
 if (typeof Float16Array !== 'undefined') {
   MASKED_WRITE_LOOPS.set(Float16Array, mwF16 as unknown as MaskedWriteLoop);
 }
@@ -1225,22 +1211,15 @@ if (typeof Float16Array !== 'undefined') {
  * Write `valueArray` into `storage` wherever `mask` is truthy, cycling the values.
  *
  * `byFlatIndex` selects which of NumPy's two cycling rules applies, and they are
- * genuinely different:
+ * genuinely different: putmask(a, mask, v) indexes v by flat position
+ * (`v[i % v.length]`), while place(a, mask, v) consumes v sequentially per
+ * masked element. On `arange(9)` with `mask = i % 3 == 0` and `v = [7,8,9]`,
+ * NumPy gives `[7,1,2,7,4,5,7,7,8]` for putmask and `[7,1,2,8,4,5,9,7,8]` for
+ * place, so the two cannot share one cycling rule.
  *
- *   putmask(a, mask, v) -> a[i] = v[i % v.length]        (indexed by flat position)
- *   place(a, mask, v)   -> consumes v sequentially per masked element
- *
- * On `arange(9)` with `mask = i % 3 == 0` and `v = [7,8,9]`, NumPy gives
- * `[7,1,2,7,4,5,7,7,8]` for putmask and `[7,1,2,8,4,5,9,7,8]` for place. The code
- * this replaces used place's rule for both, so putmask disagreed with NumPy for
- * any multi-element value list — a pre-existing bug, not covered by the suite. Both used to walk `mask.iget(i)` / `storage.iset(i, v)` per
- * element — each of which re-derives a multi-dimensional index from a flat one —
- * and re-tested the destination dtype inside the loop. At ~48ns/element that made
- * a 1,000-element putmask cost ~50us against NumPy's 0.5us.
- *
- * The dtype conversion is loop-invariant, so it happens once up front; when both
- * operands are contiguous and non-complex the loop then indexes the buffers
- * directly. Anything else falls back to the accessor path.
+ * The dtype conversion of `valueArray` is loop-invariant, so it happens once up
+ * front; when both operands are contiguous and non-complex the loop then
+ * indexes the buffers directly. Anything else falls back to the accessor path.
  */
 function maskedWrite(
   storage: ArrayStorage,
@@ -1258,9 +1237,9 @@ function maskedWrite(
   const isBool = dtype === 'bool';
   const vals: (number | bigint)[] = valueArray.map((v) => {
     // A bool array holds only 0 or 1. `iset` does not enforce that — it stores
-    // whatever it is given — so `place(boolArray, mask, 5)` used to leave a 5 in
-    // the buffer where NumPy stores True. Normalising here is free: this runs
-    // once per call, not once per written element.
+    // whatever it is given — so without this, `place(boolArray, mask, 5)` would
+    // leave a 5 in the buffer where NumPy stores True. Normalising here is free:
+    // this runs once per call, not once per written element.
     if (isBool) return v ? 1 : 0;
     if (wantBig) return typeof v === 'bigint' ? v : BigInt(Math.round(Number(v)));
     return typeof v === 'bigint' ? Number(v) : v;
@@ -1845,16 +1824,14 @@ export function apply_along_axis(
    * A 1-D strided view along `axis`, starting at `offset`.
    *
    * NumPy hands `func1d` a view (`x.base is not None`, `OWNDATA` false) and
-   * mutations through it reach the input array — so this matches NumPy, where
-   * the copy it replaces did not.
+   * mutations through it reach the input array, so a view is required here to
+   * match NumPy's semantics, not a copy.
    *
-   * It is also faster in both directions. Materialising each slice cost a
-   * closure call, an `arr.get(r, c)` and an `iset` per element, plus an
-   * allocation per slice: 96% of `apply_along_axis`'s runtime was that
-   * scaffolding rather than the callback (9813us against a 449us floor for the
-   * same 1000 sums). Copying the strided column into a contiguous buffer first
-   * was measured too, and is worse still at 4346us — the copy costs more than
-   * the strided reduction saves.
+   * It is also faster: materialising each slice into its own buffer costs a
+   * closure call plus a get/iset per element and an allocation per slice, and
+   * that scaffolding dominates apply_along_axis's runtime far more than the
+   * callback itself does. Copying the strided column into a contiguous buffer
+   * first was tried too; the copy costs more than the strided reduction saves.
    */
   const sliceView = (length: number, stride: number, offset: number): ArrayStorage =>
     ArrayStorage.fromDataShared(arr.data, [length], inputDtype, [stride], offset, arr.wasmRegion);

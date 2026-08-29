@@ -3,24 +3,16 @@
 //! `floor`, `ceil` and `trunc` map straight onto `f64x2.floor` / `.ceil` /
 //! `.trunc` (and the `f32x4` equivalents) — one instruction per lane group.
 //!
-//! `rint` is the interesting one. NumPy's `rint` and `round` are both
-//! round-half-to-**even**, and Zig 0.16 offers no way to ask for it: there is no
-//! `@rint` builtin, `std.math.rint` was removed, and `@round` is
-//! round-half-away-from-zero, so using it would be both wrong on exact ties and
-//! slower (it scalarizes into per-lane extraction).
-//!
-//! So `rint` is built from the add-magic/subtract-magic identity instead. Adding
-//! 2^52 to a non-negative double shifts its mantissa so that one ulp is exactly
-//! 1.0; the addition therefore rounds the value to an integer using IEEE's
-//! round-to-nearest-even, and subtracting 2^52 back leaves that integer exactly.
-//! WASM has no rounding-mode control — every float op is round-to-nearest-even —
-//! so this is guaranteed rather than merely usual. The whole thing is add / sub /
-//! abs / compare / select / bitwise-or, so it stays 2-wide with no scalar tail
-//! logic.
-//!
-//! Inputs at or above the magic constant are already integers and pass through
-//! untouched, which also handles the infinities. NaN compares false against the
-//! magic constant and arrives as NaN from the arithmetic, so it propagates.
+//! NumPy's `rint` and `round` are both round-half-to-even, which Zig 0.16 has
+//! no builtin for (`@round` is round-half-away-from-zero, wrong on exact ties).
+//! So `rint` uses the add-magic/subtract-magic identity instead: adding 2^52 to
+//! a non-negative double shifts its mantissa so one ulp is exactly 1.0, and
+//! WASM's fixed round-to-nearest-even float ops round the value to an integer
+//! in the process; subtracting 2^52 back leaves that integer exactly. The whole
+//! thing is add/sub/abs/compare/select/bitwise-or, so it stays 2-wide with no
+//! scalar tail logic. Inputs at or above the magic constant pass through
+//! untouched (this also covers the infinities), and NaN propagates because it
+//! compares false against the magic constant.
 
 const simd = @import("simd.zig");
 
@@ -176,8 +168,7 @@ test "rint_f64 breaks exact ties toward even" {
 
 test "rint_f64 does not treat near-ties as ties" {
     const testing = @import("std").testing;
-    // The JS path this replaces used a 1e-10 tolerance around .5 and rounded
-    // these to 2 and -2; NumPy rounds them away from the tie.
+    // These are not exact ties, so NumPy rounds them away from 2 rather than to it.
     const a = [_]f64{ 2.5000000000001, -2.5000000000001, 2.4999999999999, 3 };
     var out = [_]f64{0} ** 4;
     rint_f64(&a, &out, 4);

@@ -1392,9 +1392,8 @@ export function corrcoef(x: ArrayStorage, y?: ArrayStorage, rowvar: boolean = tr
 }
 
 /**
- * Compute the edges of the bins for histogram.
- *
- * This function computes the bin edges without computing the histogram itself.
+ * Compute the edges of the bins for a histogram, without computing the
+ * histogram itself.
  *
  * @param a - Input data (flattened if not 1D)
  * @param bins - Number of bins (default: 10) or a string specifying the bin algorithm

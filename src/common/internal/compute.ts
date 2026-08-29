@@ -202,8 +202,8 @@ function bigIntBinaryOp(opName: string, a: bigint, b: bigint): bigint | null {
       if (b < 0n) return null;
       // Exponentiate modulo 2^64 rather than with `**`. The result is stored into
       // a 64-bit typed array, which wraps anyway, and two's-complement wrapping
-      // *is* arithmetic mod 2^64 — but unbounded `**` blows up first: a uint64
-      // exponent of 2^64-1 threw "Maximum BigInt size exceeded".
+      // is exactly arithmetic mod 2^64 — but unbounded `**` blows up first: a
+      // uint64 exponent of 2^64-1 throws "Maximum BigInt size exceeded".
       const M = 1n << 64n;
       let base = ((a % M) + M) % M;
       let e = b;
@@ -323,11 +323,10 @@ export function elementwiseBinaryOp(
 // The bodies are identical and the duplication is deliberate. A single generic
 // loop reading `aData[i]` sees every TypedArray type used anywhere in the
 // program; past a few types V8 abandons the inline cache on that load and
-// *every* dtype pays. Measured on a [100x100] compare: 9.9us for int8 alone,
-// 58.2us for the same int8 call once six other dtypes had run — and float64
-// degraded just as badly. One function per type keeps each load monomorphic
-// (58.2us -> 6.9us). The `k` switch is free: it compiles to a jump and the
-// comparison is inlined rather than reached through a closure.
+// every dtype pays, including ones that would otherwise stay monomorphic. One
+// function per type keeps each load monomorphic. The `k` switch is free: it
+// compiles to a jump and the comparison is inlined rather than reached
+// through a closure.
 
 function cmpF64(
   a: Float64Array,
@@ -922,9 +921,9 @@ function compareBigInt(a: bigint, b: bigint, k: ComparisonKind): boolean {
  * Which comparison the caller wants, so the fast path can run a dedicated loop.
  *
  * Passing a closure instead makes the per-element call site megamorphic once
- * more than one comparison operator is used in a process: measured 9us for the
- * first operator and ~52us for every one after it, on the same data. Naming the
- * operator lets each loop keep its own monomorphic site.
+ * more than one comparison operator is used in a process, slowing down every
+ * operator, not just the later ones. Naming the operator lets each loop keep
+ * its own monomorphic site.
  */
 export type ComparisonKind = 'eq' | 'ne' | 'lt' | 'le' | 'gt' | 'ge';
 
@@ -939,9 +938,8 @@ export function elementwiseComparisonOp(
 
   // FAST PATH: same shape, both contiguous, non-BigInt — mirrors the arithmetic
   // fast path above. Avoids building broadcast views and the per-element
-  // iget()/Number() work, which costs far more than the comparison itself:
-  // multi-dimensional index arithmetic per element made a [100x100] compare
-  // ~22x slower than a direct typed-array loop.
+  // iget()/Number() work: decomposing a flat index into per-axis indices and
+  // re-composing it through iget() costs far more than the comparison itself.
   const aShape = a.shape;
   const bShape = b.shape;
 
@@ -1111,7 +1109,7 @@ export function elementwiseUnaryOp(
 }
 
 /**
- * A dense, logical-order Float64Array over a non-BigInt storage — **read-only**.
+ * A dense, logical-order Float64Array over a non-BigInt storage. Read-only.
  *
  * Widening happens in one native TypedArray-to-TypedArray conversion, so
  * callers get a monomorphic buffer to compute over instead of reading through

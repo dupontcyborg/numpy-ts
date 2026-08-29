@@ -2191,9 +2191,9 @@ export function frexp(x: ArrayStorage): [ArrayStorage, ArrayStorage] {
  * @returns GCD
  */
 export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): ArrayStorage {
-  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one,
-  // which is exactly how the benchmark harness extracts a scalar. It used to fall
-  // past every branch below and die reading `.kind` off an undefined dtype.
+  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one.
+  // Without a dedicated branch it would fall past every case below and read
+  // `.kind` off an undefined dtype.
   //
   // Routed as a size-1 array rather than through Number(), so a value above 2^53
   // stays exact for a 64-bit output.
@@ -2250,9 +2250,9 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
   if (typeof x2 === 'number') {
     // A 64-bit integer output cannot take the Number-storing loop below — a
     // BigInt64Array store of a Number throws outright. The generic path already
-    // has an exact BigInt gcd, so wrap the scalar and broadcast through that.
-    // (Only *large* scalars used to reach the exact path, via isExactScalar
-    // below; a small one like gcd(int64[...], 6) still threw.)
+    // has an exact BigInt gcd, so wrap the scalar and broadcast through that;
+    // this covers small scalars too, not only ones large enough to need
+    // isExactScalar below.
     // Try WASM first, including for int64/uint64 — the kernels are exact at
     // 64 bits, so the BigInt fallback below is only for scalars that a double
     // cannot carry in the first place.
@@ -2303,9 +2303,9 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
   }
 
   // Array case — broadcasting, dtype promotion and exact BigInt gcd all come
-  // from the generic path. The hand-rolled loop this replaces indexed x2 with
-  // x1's flat index, so it neither broadcast nor stayed in bounds for a size-1
-  // operand (it threw on int64), and its BigInt branch was a copy of lcm's.
+  // from the generic path, rather than a hand-rolled loop that would need to
+  // reimplement broadcasting and bounds-checking for a size-1 operand plus a
+  // BigInt branch duplicating lcm's.
   return elementwiseBinaryOp(x1, x2, gcdSingle, 'gcd');
 }
 
@@ -2316,9 +2316,9 @@ export function gcd(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
  * @returns LCM
  */
 export function lcm(x1: ArrayStorage, x2: ArrayStorage | number | bigint): ArrayStorage {
-  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one,
-  // which is exactly how the benchmark harness extracts a scalar. It used to fall
-  // past every branch below and die reading `.kind` off an undefined dtype.
+  // A bigint scalar is a real caller shape: `int64Array.get([0])` returns one.
+  // Without a dedicated branch it would fall past every case below and read
+  // `.kind` off an undefined dtype.
   //
   // Routed as a size-1 array rather than through Number(), so a value above 2^53
   // stays exact for a 64-bit output.
@@ -2386,7 +2386,8 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
       if (wasmResult) return wasmResult;
     }
 
-    // See the note in gcd() — same BigInt store problem, same fix.
+    // A BigInt64Array store of a Number throws outright, so wrap the scalar as
+    // a size-1 array and go through the generic path's exact BigInt lcm instead.
     if (isBigIntDType(outDtype)) {
       const scalarArr = ArrayStorage.empty([1], outDtype);
       try {
@@ -2427,7 +2428,8 @@ export function lcm(x1: ArrayStorage, x2: ArrayStorage | number | bigint): Array
     if (wasmResult) return wasmResult;
   }
 
-  // Array case — see the note in gcd(); same broadcasting and precision fix.
+  // Array case — broadcasting, dtype promotion and exact BigInt lcm all come
+  // from the generic path, rather than a hand-rolled loop reimplementing them.
   return elementwiseBinaryOp(x1, x2, lcmSingle, 'lcm');
 }
 

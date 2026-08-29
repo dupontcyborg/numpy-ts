@@ -1,10 +1,7 @@
 /**
- * WASM-accelerated element-wise GCD (greatest common divisor).
- *
- * Scalar: out[i] = gcd(a[i], scalar)
- * Binary: out[i] = gcd(a[i], b[i])
- * Preserves the promoted integer dtype (NumPy behavior).
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated element-wise GCD (greatest common divisor): out[i] =
+ * gcd(a[i], scalar) or gcd(a[i], b[i]). Preserves the promoted integer dtype
+ * (NumPy behavior). Returns null if WASM can't handle this case.
  */
 
 import { type DType, getTypedArrayConstructor, promoteDTypes, type TypedArray } from '../dtype';

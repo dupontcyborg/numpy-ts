@@ -1,10 +1,4 @@
-/**
- * WASM-accelerated element-wise minimum.
- *
- * Binary: out[i] = min(a[i], b[i])
- * Scalar: out[i] = min(a[i], scalar)
- * Returns null if WASM can't handle this case.
- */
+/** WASM-accelerated element-wise minimum, binary or against a scalar. */
 
 import { type DType, effectiveDType, promoteDTypes, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';

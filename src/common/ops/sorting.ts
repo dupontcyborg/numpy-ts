@@ -1102,13 +1102,13 @@ export function sort_complex(storage: ArrayStorage): ArrayStorage {
     //
     // Sorted at the input's own dtype and written straight into the interleaved
     // output. `TypedArray.prototype.sort` is native and numeric with NaN last,
-    // which is what the JS comparator here used to spell out. Sorting before any
-    // narrowing also keeps 64-bit integers exact: widening first lets values
-    // above 2^53 collapse together and reorder.
+    // so no custom comparator is needed. Sorting before any narrowing also
+    // keeps 64-bit integers exact: widening first lets values above 2^53
+    // collapse together and reorder.
     //
-    // One allocation, not two. Widening into a separate Float64Array on the way
-    // measured 15% slower than the boxed version it was meant to beat — the
-    // extra buffer cost more than the native sort saved.
+    // One allocation, not two: widening into a separate Float64Array on the
+    // way costs more in extra buffer traffic than the native sort saves over
+    // a boxed comparator sort.
     const source = contiguous ? storage : storage.copy();
     const sorted = sortedCopy(source.data, source.offset, size);
     if (source !== storage) source.dispose();

@@ -98,7 +98,6 @@ export function wasmCorrelate(a: ArrayStorage, v: ArrayStorage): ArrayStorage | 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
-  // Resolve or convert input pointers
   const aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, aLen, bpe);
   const vPtr = resolveInputPtr(v.data, v.isWasmBacked, v.wasmPtr, v.offset, vLen, bpe);
 

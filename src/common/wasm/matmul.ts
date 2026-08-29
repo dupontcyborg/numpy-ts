@@ -79,7 +79,8 @@ const wasmKernels: Partial<Record<DType, WasmMatmulFn>> = {
 };
 
 // Complex types: deinterleave → 3 real matmuls (Gauss trick) → combine + reinterleave.
-// Takes an extra scratch pointer. ~30-40% faster than the old interleaved kernels.
+// Takes an extra scratch pointer; trading one multiply for extra adds beats
+// computing directly on interleaved complex data.
 const complexKernels: Partial<Record<DType, WasmComplexMatmulFn>> = {
   complex64: (...a) => float().matmul_c64(...a),
   complex128: (...a) => float().matmul_c128(...a),

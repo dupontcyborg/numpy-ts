@@ -6,9 +6,9 @@
 //! NaN iff (bits & 0x7FFF) > inf_bits.
 
 /// NaN is the only value not equal to itself, so `v != v` is the whole test: one
-/// `f64x2.ne` / `f32x4.ne` instead of the mask-and-compare bit trick documented
-/// above. `@intFromBool` on the vector yields one byte per lane, which is already
-/// the bool output layout, so nothing needs packing.
+/// `f64x2.ne` / `f32x4.ne` per vector, no bit-masking needed. `@intFromBool` on
+/// the vector yields one byte per lane, which is already the bool output layout,
+/// so nothing needs packing.
 inline fn isnanFloat(comptime T: type, comptime L: comptime_int, a: [*]const T, out: [*]u8, N: u32) void {
     const V = @Vector(L, T);
     const n_simd = N & ~@as(u32, L - 1);

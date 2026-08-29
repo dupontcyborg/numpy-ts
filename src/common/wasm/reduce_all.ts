@@ -1,7 +1,7 @@
 /**
  * WASM-accelerated reduction all (logical AND).
  *
- * Reduction: result = 1 if 0 if any a[i] == 0, else 1.
+ * Reduction: result = 0 if any a[i] == 0, else 1.
  * Returns null if WASM can't handle this case.
  * uint types route to signed kernels (non-zero check is sign-agnostic).
  */

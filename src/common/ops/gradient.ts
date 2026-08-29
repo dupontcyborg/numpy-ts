@@ -266,12 +266,11 @@ export function ediff1d(
       }
     } else {
       // One literal loop per dtype, reading and writing the concrete arrays.
-      //
-      // This previously widened into a Float64Array first. That construction
-      // site sees every TypedArray type across a dtype sweep, goes megamorphic,
-      // and drops off V8's fast TypedArray-to-TypedArray conversion — it cost
-      // more than the loop it was meant to make monomorphic. Input and output
-      // dtypes are equal here, so no intermediate buffer is needed at all.
+      // Widening into a Float64Array first would see every TypedArray type
+      // across a dtype sweep, go megamorphic, and drop off V8's fast
+      // TypedArray-to-TypedArray conversion — costing more than the loop it's
+      // meant to make monomorphic. Input and output dtypes are equal here, so
+      // no intermediate buffer is needed at all.
       const source = ary.isCContiguous ? ary : ary.copy();
       diffInto(source.data, source.offset, resultData, idx, diffSize);
       if (source !== ary) source.dispose();

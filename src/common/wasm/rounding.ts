@@ -1,14 +1,9 @@
 /**
  * WASM-accelerated element-wise rounding: floor, ceil, trunc, rint, around.
- *
- * Unary: out[i] = round(a[i]) for the relevant rounding mode. Integer dtypes
- * never reach here — `ops/rounding.ts` returns a copy for those, since an
- * integer is already rounded.
- *
- * Native float16 is deliberately left to JS: rounding needs f32 arithmetic, and
- * the convert-up/convert-back round-trip measured slower than the JS loop it
- * would replace (14.4us vs 8.5us for ceil at [100x100]), on a dtype that was
- * already several times faster than NumPy.
+ * Integer dtypes never reach here since an integer is already rounded. Native
+ * float16 is deliberately left to JS: rounding needs f32 arithmetic, and the
+ * convert-up/convert-back round trip costs more than the JS loop it would
+ * replace, on a dtype that is already several times faster than NumPy.
  *
  * Returns null if WASM can't handle the case (complex, non-contiguous, too small).
  */
@@ -75,24 +70,20 @@ function runRounding(
   const dtype = effectiveDType(a.dtype);
   if (dtype !== 'float64' && dtype !== 'float32') return null;
 
-  // Native float16 stays in JS. Rounding needs f32 arithmetic, so the kernel
-  // would have to convert up and back, and measured at [100x100] that round-trip
-  // costs more than the JS loop it replaces: 14.4us against 8.5us for ceil. The
-  // JS path was already ~6x faster than NumPy here, so there is nothing to win.
+  // Native float16 stays in JS: rounding needs f32 arithmetic, so the kernel
+  // would have to convert up and back, and that round trip costs more than the
+  // JS loop it replaces, on a dtype that is already much faster than NumPy.
 
   const scaled = multiplier !== undefined;
   if (scaled && kind !== 'rint') return null; // only `around` scales
-  // Scaled rounding is float64-only on purpose. NumPy performs the multiply and
-  // divide at the array's own precision: for float32, 2.675f * 100 is exactly
-  // 267.5f and the tie rule yields 2.68, while widening to f64 gives
-  // 267.4999952 and 2.67. float16 narrows further still (1.35 * 10 rounds to
-  // 13.5 in f16, giving 1.4 rather than 1.3). This kernel computes f16 inputs in
-  // f32, so it cannot reproduce either narrowing, and the JS fallback widens to
-  // f64 — they would disagree either side of the 32-element threshold. f64 has
-  // no narrowing to reproduce, so the two agree exactly there.
+  // Scaled rounding is float64-only on purpose: NumPy multiplies and divides at
+  // the array's own precision, so float32 and float16 round differently than a
+  // widened f64 computation would. This kernel can't reproduce that narrowing,
+  // and the JS fallback widens to f64, so the two would disagree. float64 has
+  // no narrowing to reproduce, so they always agree.
   //
-  // `decimals === 0` does no scaling at all and is unaffected: callers route it
-  // to the plain rint kernels, which are exact for every float dtype.
+  // decimals === 0 needs no scaling and is unaffected: callers route it to the
+  // plain rint kernels, which are exact for every float dtype.
   if (scaled && dtype !== 'float64') return null;
 
   const isF64 = dtype === 'float64';

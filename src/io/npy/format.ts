@@ -2,7 +2,6 @@
  * NPY file format constants and type definitions
  *
  * NPY is NumPy's native binary format for storing arrays.
- * Spec: https://numpy.org/doc/stable/reference/generated/numpy.lib.format.html
  */
 
 import type { DType } from '../../common/dtype';
@@ -13,12 +12,9 @@ import type { DType } from '../../common/dtype';
 export const NPY_MAGIC = new Uint8Array([0x93, 0x4e, 0x55, 0x4d, 0x50, 0x59]);
 
 /**
- * Supported NPY format versions
- * - v1.0: 2-byte header length (max 65535 bytes)
- * - v2.0: 4-byte header length (max 4GB)
- * - v3.0: allows UTF-8 in description (same as v2 otherwise)
- *
- * We read v1, v2, and v3; we write v2 only
+ * Supported NPY format versions: v1.0 uses a 2-byte header length (max 65535 bytes),
+ * v2.0 a 4-byte length (max 4GB), and v3.0 allows UTF-8 in the description and is
+ * otherwise identical to v2. Parsing accepts all three; writing always produces v2.
  */
 export interface NpyVersion {
   major: number;
@@ -88,12 +84,10 @@ export function isSystemLittleEndian(): boolean {
 }
 
 /**
- * NPY descriptor to DType mapping
- *
- * NumPy descriptors follow the format: <endian><type><size>
- * - Endian: '<' little, '>' big, '=' native, '|' not applicable (1-byte types)
- * - Type: 'f' float, 'i' signed int, 'u' unsigned int, 'b' bool, 'c' complex, etc.
- * - Size: byte size (1, 2, 4, 8)
+ * NPY descriptor to DType mapping. Descriptors follow <endian><type><size>: endian is
+ * '<' (little), '>' (big), '=' (native), or '|' (not applicable for 1-byte types);
+ * type is 'f' float, 'i' signed int, 'u' unsigned int, 'b' bool, 'c' complex, etc.;
+ * size is the byte width (1, 2, 4, or 8).
  */
 const DESCR_TO_DTYPE: Record<string, DType> = {
   // Float types
@@ -197,10 +191,7 @@ export function parseDescriptor(descr: string): DTypeParseResult {
   const dataIsLittleEndian = endian === '<' || endian === '|' || (endian === '=' && isLittleEndian);
   const dataIsBigEndian = endian === '>' || (endian === '=' && !isLittleEndian);
 
-  // We need to byte swap if:
-  // - Data is big-endian and system is little-endian
-  // - Data is little-endian and system is big-endian
-  // But only for multi-byte types
+  // Byte swap only when data endianness disagrees with the system's, and only for multi-byte types.
   const itemsize = parseInt(typeAndSize.slice(1), 10);
   const needsByteSwap =
     itemsize > 1 &&

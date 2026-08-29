@@ -77,7 +77,7 @@ export class ArrayStorage {
     this._dtype = dtype;
     // No cleanup registration here: WasmRegion registers itself with the
     // FinalizationRegistry at construction, so the region is freed when the last
-    // storage referencing it dies. See regionRegistry in wasm/runtime.ts.
+    // storage referencing it dies.
     this._wasmRegion = wasmRegion;
   }
 
@@ -96,13 +96,10 @@ export class ArrayStorage {
   }
 
   /**
-   * Total number of elements.
-   *
-   * Computed once in the constructor. This used to be
-   * `this._shape.reduce((a, b) => a * b, 1)` — an array reduce that allocated a
-   * closure — and roughly a hundred loops across the library call it *in the
-   * loop condition*, so it ran once per element. `_shape` is only ever assigned
-   * in the constructor, so caching is safe.
+   * Total number of elements, cached at construction. `_shape` is only ever
+   * assigned in the constructor, so the cached value can never go stale — and
+   * caching matters because loops across the library call this in the loop
+   * condition, once per element.
    */
   get size(): number {
     return this._size;
@@ -406,14 +403,11 @@ export class ArrayStorage {
     const bytesPerElement = (Constructor as unknown as { BYTES_PER_ELEMENT: number })
       .BYTES_PER_ELEMENT;
 
-    // Allocate the destination once and fill it in place.
-    //
-    // This used to allocate a JS TypedArray, fill it, then allocate a WASM region
-    // and copy a *second* time into it — two allocations and twice the data
-    // movement for every copy. Since the WASM-backed result is what callers get
-    // whenever wasmMalloc succeeds, the intermediate was pure overhead: measured
-    // 8.98us -> 1.33us for an int64 [100x100], and copy() is what `floor`/`ceil`/
-    // `trunc`/`round` return for integer dtypes, so it dominated those.
+    // Allocate the destination once and fill it in place, since the WASM-backed
+    // result is what callers get whenever wasmMalloc succeeds — allocating a JS
+    // array first and copying into WASM after would double the allocations and
+    // the data movement. copy() is also what `floor`/`ceil`/`trunc`/`round`
+    // return for integer dtypes, so this path matters for those too.
     const region = wasmMalloc(physicalSize * bytesPerElement);
     const dest = (
       region
@@ -421,9 +415,8 @@ export class ArrayStorage {
         : new Constructor(physicalSize)
     ) as TypedArray;
 
-    // Strategy is picked from the stride pattern; see stridedCopyInto. The
-    // previous per-element `dest[i] = this.iget(i)` loop cost O(ndim^2) index
-    // math per element and stored through a megamorphic union site.
+    // Copy strategy is picked from the stride pattern to avoid O(ndim^2)
+    // per-element index math and a megamorphic union store.
     stridedCopyInto(this._data, dest, shape, this._strides, this._offset, isComplex);
 
     return region
@@ -541,22 +534,12 @@ export class ArrayStorage {
   }
 
   /**
-   * Allocate uninitialized storage for output buffers.
-   * Like zeros() but skips zero-fill — use only when the caller will fully overwrite the data.
-   *
-   * **Except for `bool`, which is always zeroed.** WASM-backed allocations hand
-   * back recycled heap memory, so "uninitialized" means whatever the previous
-   * owner left there. Every other dtype is produced by a loop or kernel that
-   * writes each element, but boolean results come from predicates that only
-   * write the `1`s and leave the rest — `isnan`, `isinf`, `isnat`, `iscomplex`
-   * and friends all had this bug, each returning stale `1`s from a recycled
-   * buffer. Fixing it per-predicate meant every future predicate had to
-   * remember; the guarantee belongs here instead.
-   *
-   * The cost is a memset on a one-byte-per-element buffer, against a
-   * per-element JS loop that follows it. Kernels that genuinely fill every
-   * element build their output with fromWasmRegion() and never come through
-   * here.
+   * Allocate uninitialized storage for output buffers. Like zeros() but skips
+   * zero-fill — use only when the caller will fully overwrite the data. Except
+   * for `bool`, which is always zeroed: WASM-backed allocations hand back
+   * recycled heap memory, and boolean predicates (isnan, isinf, etc.) only
+   * write the `1`s, leaving stale bytes from the previous owner in the rest, so
+   * the zero-fill guarantee lives here rather than in each predicate.
    * @internal
    */
   static empty(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {

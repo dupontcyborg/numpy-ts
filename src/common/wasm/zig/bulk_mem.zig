@@ -2,15 +2,12 @@
 //! copy-shaped kernels: pad, tile.
 //!
 //! WASM's `memory.copy`/`memory.fill` (Zig's `@memcpy`/`@memset`) carry a fixed
-//! per-call cost, so they only pay off on long runs. The measured crossover is
-//! the same *byte* length for every dtype, not the same element count:
-//! 128 B -> 0.4-0.7x, 512 B -> level, 1024 B -> ~1.5x against a v128 loop.
+//! per-call cost, so they only pay off on long runs, and the crossover is the
+//! same byte length for every dtype, not the same element count.
 //!
-//! Below the threshold the fallback must stay a *vector* loop: a scalar one
-//! measured 0.2-0.6x against the hand-written SIMD these helpers replaced.
-//! Being generic over T is free, since the lane count is comptime.
-//!
-//! See finding 1.2 in OPEN-FINDINGS.md.
+//! Below the threshold the fallback must stay a vector loop rather than a
+//! scalar one, or it loses to the SIMD kernels these helpers replace. Being
+//! generic over T is free, since the lane count is comptime.
 
 /// Run length in bytes at which the bulk-memory instructions win.
 pub const MIN_BYTES: usize = 512;

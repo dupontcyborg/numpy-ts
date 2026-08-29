@@ -1,9 +1,7 @@
 /**
- * WASM-accelerated element-wise left shift.
- *
- * Binary: out[i] = a[i] << b[i]  (same-shape contiguous arrays)
- * Scalar: out[i] = a[i] << scalar
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated element-wise left shift: out[i] = a[i] << b[i] (same-shape
+ * contiguous arrays) or a[i] << scalar. Returns null if WASM can't handle
+ * this case.
  */
 
 import { type DType, promoteDTypes, type TypedArray } from '../dtype';

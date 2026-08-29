@@ -1,7 +1,7 @@
 /**
  * WASM-accelerated 2D constant zero-padding.
  *
- * Pads a [rows x cols] matrix with `pad_width` zeros on all sides.
+ * Pads a [rows x cols] matrix with pad_width zeros on all sides.
  * Returns null if WASM can't handle this case.
  */
 

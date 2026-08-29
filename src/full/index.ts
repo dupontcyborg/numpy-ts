@@ -1059,8 +1059,7 @@ export function vecdot<A extends DType, B extends DType>(
     | Scalar<Promote<A, B>>;
 }
 
-/** Matrix transpose (swap last two axes) */
-/** Matrix transpose - returns a view */
+/** Matrix transpose (swap last two axes) - returns a view */
 export function matrix_transpose<D extends DType>(a: NDArrayCore<D>): NDArray<D> {
   return up(core.matrix_transpose(a)) as NDArray<D>;
 }

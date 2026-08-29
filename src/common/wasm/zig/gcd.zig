@@ -5,15 +5,11 @@
 //! Uses Euclidean algorithm. Operates on contiguous 1D buffers.
 
 /// Absolute value that wraps rather than trapping on the most negative value.
-///
-/// Plain `-v` on `minInt` is illegal behaviour in Zig — a panic under
-/// ReleaseSafe and undefined under the `-O ReleaseFast` this ships with, which
-/// leaves LLVM free to assume it never happens. `-%` wraps instead, so
-/// `absWrap(i8, -128)` is `-128`. The Euclidean loop below is correct with a
-/// negative `x`: `@rem` keeps the sign of the dividend and the loop terminates
-/// on `y`, which reaches 0 either way, and NumPy wraps at the same place.
-///
-/// Mirrors the helper of the same name in lcm.zig.
+/// Plain `-v` on `minInt` panics under ReleaseSafe and is undefined under the
+/// ReleaseFast build this ships with; `-%` wraps instead, so `absWrap(i8, -128)`
+/// stays `-128`. The Euclidean loop below still works with a negative `x`:
+/// `@rem` keeps the sign of the dividend and the loop terminates on `y`, which
+/// reaches 0 either way, matching NumPy's result at that boundary.
 fn absWrap(comptime T: type, v: T) T {
     if (@typeInfo(T).int.signedness == .signed) {
         return if (v < 0) -%v else v;

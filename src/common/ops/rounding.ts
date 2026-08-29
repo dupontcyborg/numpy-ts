@@ -65,10 +65,10 @@ const LITTLE_ENDIAN = (() => {
 /**
  * Round half to even (banker's rounding) — matches NumPy's `rint`.
  *
- * The tie test has to be exact. An earlier version treated anything within 1e-10
- * of .5 as a tie, which disagreed with NumPy on near-ties: `np.rint(2.5000000000001)`
- * is 3, not 2. It also disagreed with the WASM kernel that now handles arrays of
- * 32 elements or more, so the same value could round differently depending on
+ * The tie test has to be exact. Treating anything within 1e-10 of .5 as a tie
+ * would disagree with NumPy on near-ties — `np.rint(2.5000000000001)` is 3, not
+ * 2 — and would disagree with the WASM kernel that handles arrays of 32
+ * elements or more, so the same value could round differently depending on
  * array size.
  *
  * `Math.floor` and the subtraction are both exact, so `frac === 0.5` identifies
@@ -100,8 +100,8 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
     return complexComponentwise(a, (x) => roundHalfToEven(x * multiplier) / multiplier);
   }
   // Integers are already rounded, and for decimals >= 0 NumPy hands the input
-  // straight back — `np.round(a) is a` is True and the two share memory. Copying
-  // instead cost 97.6us on a [1000x1000] int64 against NumPy's 0.31us.
+  // straight back — `np.round(a) is a` is True and the two share memory.
+  // Copying instead would be pure overhead.
   //
   // Only `around`/`round` behaves this way. floor/ceil/trunc/fix all return a
   // genuinely new array for integer input, so their copies below are correct and
@@ -138,7 +138,7 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
 
   const multiplier = 10 ** decimals;
 
-  // NumPy scales at the array's *own* precision. For float32, f32(2.675) * 100
+  // NumPy scales at the array's own precision. For float32, f32(2.675) * 100
   // is exactly 267.5f, so the tie rule gives 268 and the answer 2.68; widening
   // to f64 first gives 267.4999952 and rounds down to 2.67. float16 narrows
   // further still (1.35 * 10 lands on 13.5 in f16, giving 1.4 rather than 1.3).
@@ -296,7 +296,7 @@ export function rint(a: ArrayStorage): ArrayStorage {
     if (src instanceof BigInt64Array || src instanceof BigUint64Array) {
       // TypedArray.set refuses to mix BigInt and Number arrays, so 64-bit ints
       // need a loop. Read the two 32-bit halves instead of calling
-      // Number(bigint), which is ~13x slower: `hi * 2^32` is exact (|hi| < 2^31)
+      // Number(bigint), which is slower: `hi * 2^32` is exact (|hi| < 2^31)
       // and `lo` is exact (< 2^32), so the single addition is correctly rounded
       // and bit-identical to Number(bigint) — verified across the +/-2^53 and
       // +/-2^63 boundaries and 400k random values. Above 2^53 both lose the same

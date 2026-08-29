@@ -1077,12 +1077,11 @@ function nextafterScalar(storage: ArrayStorage, scalar: number): ArrayStorage {
  * Compute nextafter for a single pair of values
  * @private
  */
-// Bit-pattern scratch for nextafter/spacing.
-//
-// These used to be allocated inside the per-element helpers — an ArrayBuffer and
-// two views per call, plus BigInt arithmetic on the 64-bit pattern. Hoisting them
-// to module scope makes the helpers allocation-free, and stepping the pattern as
-// two 32-bit halves avoids BigInt entirely (bit-exact, and far cheaper).
+// Bit-pattern scratch for nextafter/spacing, hoisted to module scope so the
+// per-element helpers stay allocation-free instead of building an ArrayBuffer
+// and two views per call. Stepping the pattern as two 32-bit halves avoids
+// BigInt arithmetic on the 64-bit pattern entirely (bit-exact, and far
+// cheaper).
 const NA_BUF = new ArrayBuffer(8);
 const NA_F64 = new Float64Array(NA_BUF);
 const NA_U32 = new Uint32Array(NA_BUF);
@@ -1205,9 +1204,9 @@ export function spacing(a: ArrayStorage): ArrayStorage {
   if (a.dtype === 'float16' && hasFloat16) {
     const size = a.size;
     const result = ArrayStorage.zeros(Array.from(a.shape), 'float16');
-    // Both sides typed concretely, and no intermediate buffer: the widening copy
-    // this replaces allocated a Float64Array per call for no benefit, and the
-    // store went through the TypedArray union.
+    // Both sides typed concretely, and no intermediate buffer: widening to
+    // Float64Array first would allocate per call for no benefit, and the store
+    // would go through the TypedArray union.
     const out16 = result.data as Float16Array;
     const src = a.isCContiguous ? a : a.copy();
     const in16 = src.data as Float16Array;
@@ -1236,8 +1235,8 @@ export function spacing(a: ArrayStorage): ArrayStorage {
     } else {
       // Concrete on both sides: this read and this store were both through
       // TypedArray unions, two megamorphic accesses per element over a million
-      // of them. The float16 branch above already got this treatment and runs
-      // at 3.2x while this path measured 20.9x on the same op.
+      // of them. Making both concrete, as the float16 branch above already
+      // does, turns this monomorphic and considerably faster.
       spacingInto(thisData, off, resultData, size);
     }
   } else {
@@ -1285,8 +1284,8 @@ function float16Nextafter(x: number, y: number): number {
  */
 // Lazily created: Float16Array only exists on engines that ship it.
 let F16_SCRATCH: Float16Array | null = null;
-// A Uint16Array over the same buffer reads the bit pattern directly; the
-// DataView this replaces cost two accessor calls per element.
+// A Uint16Array over the same buffer reads the bit pattern directly, cheaper
+// than a DataView's two accessor calls per element.
 let F16_BITS: Uint16Array | null = null;
 
 function float16Spacing(val: number): number {
@@ -1542,14 +1541,9 @@ export function isfortran(a: ArrayStorage): boolean {
 
 /**
  * Return the real part of a complex array when every imaginary part is
- * negligible, otherwise the input unchanged.
- *
- * A real input is handed straight back as a **view**, not a copy — there is
- * nothing to do, and this is what NumPy does. Writes to the result reach the
- * input. The complex branches still allocate.
- *
- * (The old doc here claimed complex was unsupported and that this always
- * copied; neither has been true for a while.)
+ * negligible, otherwise the input unchanged. A real input comes back as a
+ * view, not a copy, matching NumPy; writes to the result reach the input.
+ * The complex branches still allocate.
  *
  * @param a - Input array storage
  * @param tol - Tolerance in machine epsilons for "close to zero" (default 100)
@@ -1616,8 +1610,7 @@ export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage 
   }
 
   // For non-complex arrays NumPy hands the input straight back — it has nothing
-  // to do. Copying instead cost 99us on a [1000x1000] against NumPy's 0.14us.
-  // Share the buffer rather than duplicating it, as `real` already does.
+  // to do. Share the buffer rather than duplicating it, as `real` already does.
   return ArrayStorage.fromDataShared(
     a.data,
     Array.from(a.shape),

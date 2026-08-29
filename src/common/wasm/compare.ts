@@ -172,12 +172,9 @@ const table: Record<string, Partial<Record<DType, CmpFn>>> = {
 };
 
 /**
- * Element-wise comparison of two arrays.
- *
- * float16 is not handled here — see the note at the early return below.
- *
- * When the engine lacks Float16Array, effectiveDType already reports float32
- * and the storage is a Float32Array, so the plain f32 path runs.
+ * Element-wise comparison of two arrays, returning a bool array. float16 inputs always
+ * take the JS per-element loop; when the engine lacks Float16Array, effectiveDType has
+ * already turned the dtype into float32, so the plain f32 kernel path handles it instead.
  */
 export function wasmCompare(kind: string, a: ArrayStorage, b: ArrayStorage): ArrayStorage | null {
   if (!a.isCContiguous || !b.isCContiguous) return null;
@@ -190,10 +187,8 @@ export function wasmCompare(kind: string, a: ArrayStorage, b: ArrayStorage): Arr
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
 
-  // float16 deliberately falls back to the JS per-type loop. Widening both
-  // inputs to f32 scratch is exact, but the two extra passes cost more than
-  // f16's 4 lanes/vector save: measured 20.1us via the kernel against 9.6us in
-  // JS, where JS also beats NumPy (0.85-0.97x).
+  // float16 falls back to the JS loop: widening both inputs to f32 scratch first
+  // would be exact, but the extra passes cost more than the wider SIMD lanes save.
   if (a.dtype === 'float16') return null;
 
   const dtype = effectiveDType(a.dtype);

@@ -1,10 +1,7 @@
 /**
- * WASM-accelerated element-wise LCM (least common multiple).
- *
- * Scalar: out[i] = lcm(a[i], scalar)
- * Binary: out[i] = lcm(a[i], b[i])
- * Preserves the promoted integer dtype (NumPy behavior).
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated element-wise LCM (least common multiple): out[i] =
+ * lcm(a[i], scalar) or lcm(a[i], b[i]). Preserves the promoted integer dtype
+ * (NumPy behavior). Returns null if WASM can't handle this case.
  */
 
 import { type DType, getTypedArrayConstructor, promoteDTypes, type TypedArray } from '../dtype';

@@ -189,10 +189,9 @@ export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
 
   // Integer base with a negative exponent. NumPy rejects this outright
   // ("Integers to negative integer powers are not allowed"), but this library
-  // has always promoted to float64 instead — see powerScalar, and the tests that
-  // pin `power(int32[], -1)` to float64 [0.5, 0.25, 0.125]. The array-exponent
-  // path did neither: it handed the negative exponent to the integer kernel and
-  // got 0 back (1 for int64). Promote here so both paths agree.
+  // promotes to float64 instead. The array-exponent path did neither: it
+  // handed the negative exponent to the integer kernel and got 0 back (1 for
+  // int64). Promote here so both paths agree.
   if (isIntegerDType(a.dtype) && isIntegerDType(b.dtype) && hasNegativeExponent(b)) {
     return power(convertToFloatDType(a, 'float64'), convertToFloatDType(b, 'float64'));
   }
@@ -918,9 +917,9 @@ export function logaddexp2(x1: ArrayStorage, x2: ArrayStorage | number): ArraySt
   }
   // NumPy has no integer loop for logaddexp2 — integer inputs promote to the
   // smallest float that holds them safely, which is exactly mathResultDtype.
-  // Doing that here instead of in the JS fallback lets the existing float
-  // kernel run: every integer dtype was previously stuck on a per-element JS
-  // path at 5.5-19.1x.
+  // Doing that here instead of in the JS fallback lets every integer dtype
+  // run through the existing float kernel instead of a slower per-element
+  // JS path.
   const target = mathResultDtype(
     typeof x2 === 'number' ? x1.dtype : promoteDTypes(x1.dtype, x2.dtype),
   );

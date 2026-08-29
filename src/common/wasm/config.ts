@@ -17,13 +17,10 @@ export const wasmMemoryConfig = {
   /** When true, fall back to JS-backed TypedArrays when WASM memory is full. */
   fallbackToJS: true,
   /**
-   * Warn once, on stderr, the first time the WASM heap cannot satisfy an
-   * allocation.
-   *
-   * That moment silently changes the library's performance characteristics —
-   * every later result is JS-backed, measurably slower, and the heap does not
-   * recover within the process. Set false to silence it (the counter below still
-   * increments).
+   * Warn once, on stderr, the first time the WASM heap cannot satisfy an allocation.
+   * That moment silently changes the library's performance characteristics: every
+   * later result is JS-backed and slower, and the heap does not recover within the
+   * process. Set false to silence the warning; the counter below still increments.
    */
   warnOnHeapExhaustion: true,
   /**
@@ -43,24 +40,23 @@ export interface ConfigureWasmOptions {
 
 export const wasmConfig = {
   /**
-   * Multiplier applied to all WASM size thresholds.
-   * - 1 (default): normal behavior, WASM used above optimal thresholds
-   * - 0: always use WASM when structurally possible (for testing)
-   * - Infinity: disable WASM entirely, always fall back to JS
+   * Multiplier applied to all WASM size thresholds. 1 (default) applies normal
+   * thresholds; 0 forces WASM whenever structurally possible (for testing);
+   * Infinity disables WASM entirely, always falling back to JS.
    */
   thresholdMultiplier: 1,
 
   /**
    * Incremented each time a WASM kernel successfully executes.
-   * Reset to 0 by callers (e.g. benchmark runner) to detect per-operation WASM usage.
+   * Reset to 0 by callers to detect per-operation WASM usage.
    */
   wasmCallCount: 0,
 
   /**
    * Controls relaxed SIMD kernel usage (FMA: f32x4.relaxed_madd / f64x2.relaxed_madd).
-   * - 'auto' (default): detect via WebAssembly.validate probe, use if supported
-   * - true: force relaxed kernels (will fail on unsupported runtimes)
-   * - false: force baseline kernels even if relaxed is available
+   * 'auto' (default) detects support via a WebAssembly.validate probe and uses it
+   * when available; true forces relaxed kernels even on runtimes that don't support
+   * them, which fails; false forces the baseline kernels regardless of support.
    */
   useRelaxedSimd: 'auto' as 'auto' | boolean,
 };

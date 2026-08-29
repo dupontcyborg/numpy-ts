@@ -5,7 +5,7 @@
 //! Operates on contiguous row-major buffers.
 //!
 //! Pure block copying, no per-lane arithmetic, so this is one generic body
-//! rather than six per-dtype loops. See finding 1.2 in OPEN-FINDINGS.md.
+//! rather than six per-dtype loops.
 
 const bulk_mem = @import("bulk_mem.zig");
 

@@ -208,14 +208,9 @@ export function wasmPartition(a: ArrayStorage, kth: number): ArrayStorage | null
 
   const aOff = a.offset;
   if (isF16) {
-    // Float16 partition: use the "sort floats as integers" trick.
-    // Partition only rearranges elements — it doesn't modify values — so we can
-    // transform f16 bit patterns into a form where i16 comparison gives the
-    // correct f16 order, run partition_i16, and undo the transform.
-    //
-    // Transform: if sign bit is set (negative), XOR with 0x7FFF (flip exp+mantissa).
-    // This makes signed i16 comparison match f16 ordering.
-    // The transform is self-inverse: applying it again undoes it.
+    // No f16 WASM kernel exists, so reuse partition_i16: XOR negative values'
+    // bits with 0x7FFF makes signed i16 order match f16 order. The transform
+    // is self-inverse, so it's undone the same way after partitioning.
     const f16Bytes = size * 2;
     const f16Region = wasmMalloc(f16Bytes);
     if (!f16Region) {

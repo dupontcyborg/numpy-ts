@@ -444,21 +444,13 @@ export fn reduce_argmax_strided_u8(a: [*]const u8, out: [*]i32, outer: u32, axis
     }
 }
 
-// --- 2-D axis=0 reduction (C-contiguous, output i64 indices) ---
-//
-// For a [R,C] C-contiguous array, out[c] = arg-max over rows r=0..R-1 of a[r*C + c].
-// Tie-break: FIRST occurrence (strict `>`), matching NumPy.
-// Float variants: NaN wins (NumPy returns the index of the first NaN), so once a NaN
-// is seen in a column, that index is fixed for the rest of the column.
-
-// Generalized strided argmax along one axis of a C-contiguous array.
-// JS computes: before = ∏ dims[0..axis], axis_size = dims[axis],
-// inner = ∏ dims[axis+1..] (= the axis stride). Output has before*inner
-// elements in C-order = input shape with `axis` removed.
-//   axis=0 → before=1, inner=C (identical access to the old 2-D column scan);
-//   last axis → inner=1 (fully contiguous scan).
-// Tie-break: FIRST occurrence (strict `>`). Floats: NaN-first (NumPy returns the
-// index of the first NaN), so once a NaN is seen the index is fixed.
+// Generalized strided argmax along one axis of a C-contiguous array: before =
+// ∏ dims[0..axis], axis_size = dims[axis], inner = ∏ dims[axis+1..] (the axis
+// stride). Output has before*inner elements in C-order, matching the input
+// shape with `axis` removed (axis=0 gives before=1, inner=C; the last axis
+// gives inner=1, a fully contiguous scan). Ties break to the FIRST occurrence
+// (strict `>`); for floats a NaN counts as the winning value, so once one is
+// seen in a slot that slot's index is fixed for the rest of the scan.
 inline fn argmaxStrided(
     comptime T: type,
     comptime nan_aware: bool,

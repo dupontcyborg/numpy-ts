@@ -448,17 +448,12 @@ export fn reduce_argmin_strided_u8(a: [*]const u8, out: [*]i32, outer: u32, axis
     }
 }
 
-// --- 2-D axis=0 reduction (C-contiguous, output i64 indices) ---
-//
-// For a [R,C] C-contiguous array, out[c] = arg-min over rows r=0..R-1 of a[r*C + c].
-// Tie-break: FIRST occurrence (strict `<`), matching NumPy.
-// Float variants: NaN wins (NumPy returns the index of the first NaN).
-
-// Generalized strided argmin along one axis of a C-contiguous array.
-// before = ∏ dims[0..axis], axis_size = dims[axis], inner = ∏ dims[axis+1..]
-// (= the axis stride). Output before*inner in C-order = shape with `axis`
-// removed. axis=0 → before=1, inner=C; last axis → inner=1.
-// Tie-break: FIRST occurrence (strict `<`). Floats: NaN-first (NumPy).
+// Generalized strided argmin along one axis of a C-contiguous array: before =
+// ∏ dims[0..axis], axis_size = dims[axis], inner = ∏ dims[axis+1..] (the axis
+// stride). Output has before*inner elements in C-order, matching the input
+// shape with `axis` removed (axis=0 gives before=1, inner=C; the last axis
+// gives inner=1). Ties break to the FIRST occurrence (strict `<`); for floats
+// a NaN counts as the winning value, matching NumPy.
 inline fn argminStrided(
     comptime T: type,
     comptime nan_aware: bool,

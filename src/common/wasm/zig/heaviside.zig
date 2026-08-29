@@ -4,8 +4,8 @@
 //! Binary: out[i] = x1[i] < 0 ? 0 : x1[i] == 0 ? x2[i] : 1
 //!
 //! Branchless SIMD: start at 1 (x1 > 0), then @select x1==0 → x2 and x1<0 → 0.
-//! f64 runs 2-wide, f32 4-wide. NaN falls through to 1 (matching the prior scalar
-//! kernels exactly — both comparisons are false for NaN).
+//! f64 runs 2-wide, f32 4-wide. NaN falls through to 1 since both comparisons
+//! are false for NaN.
 
 const simd = @import("simd.zig");
 

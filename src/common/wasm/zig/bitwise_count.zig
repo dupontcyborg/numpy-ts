@@ -43,10 +43,11 @@ inline fn countVec(comptime T: type, comptime U: type, comptime L: comptime_int,
     return i;
 }
 
-/// Bitwise count for signed i64 — counts bits of abs(value).
-/// Scalar: `@popCount` on a u64 is the native `i64.popcnt`, and at 8 bytes in
-/// per 1 byte out this loop is store-bound, so the shuffle ladder only adds
-/// cost. Measured on par with the SIMD fold's best case and 2.4x ahead of it.
+/// Bitwise count for signed i64 — counts bits of abs(value). Scalar
+/// `@popCount` on a u64 is the native `i64.popcnt`, and at 8 bytes in per 1
+/// byte out this loop is store-bound, so the SIMD shuffle-fold used for the
+/// narrower widths buys nothing here and is skipped in favor of the plain
+/// scalar loop.
 export fn bitwise_count_i64(a: [*]const i64, out: [*]u8, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) out[i] = @popCount(@abs(a[i]));

@@ -1,10 +1,9 @@
 /**
  * NPY file serializer
  *
- * Serializes NDArray objects to NumPy .npy format (v3.0).
- * Always writes in little-endian, C-contiguous order.
- *
- * v3.0 is identical to v2.0 but allows UTF-8 in dtype descriptions.
+ * Serializes NDArray objects to NumPy .npy format (v3.0), always in
+ * little-endian, C-contiguous order. v3.0 differs from v2.0 only in
+ * allowing UTF-8 in dtype descriptions.
  */
 
 import type { Complex } from '../../common/complex';

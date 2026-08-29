@@ -1,8 +1,6 @@
 /**
- * WASM-accelerated element-wise ldexp (x1 * 2^x2).
- *
- * Scalar variant only (x2 is a single integer).
- * Returns null if WASM can't handle this case.
+ * WASM-accelerated element-wise ldexp (x1 * 2^x2), scalar variant only (x2 is
+ * a single integer). Returns null if WASM can't handle this case.
  */
 
 import { type DType, effectiveDType, type TypedArray } from '../dtype';
