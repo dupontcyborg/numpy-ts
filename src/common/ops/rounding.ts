@@ -99,7 +99,23 @@ export function around(a: ArrayStorage, decimals: number = 0): ArrayStorage {
     const multiplier = 10 ** decimals;
     return complexComponentwise(a, (x) => roundHalfToEven(x * multiplier) / multiplier);
   }
-  if (isIntegerDType(a.dtype) && decimals >= 0) return a.copy();
+  // Integers are already rounded, and for decimals >= 0 NumPy hands the input
+  // straight back — `np.round(a) is a` is True and the two share memory. Copying
+  // instead cost 97.6us on a [1000x1000] int64 against NumPy's 0.31us.
+  //
+  // Only `around`/`round` behaves this way. floor/ceil/trunc/fix all return a
+  // genuinely new array for integer input, so their copies below are correct and
+  // stay as they are.
+  if (isIntegerDType(a.dtype) && decimals >= 0) {
+    return ArrayStorage.fromDataShared(
+      a.data,
+      Array.from(a.shape),
+      a.dtype,
+      Array.from(a.strides),
+      a.offset,
+      a.wasmRegion,
+    );
+  }
   // decimals === 0 is plain rint; anything else needs the scaled kernel.
   const wasmAroundResult = decimals === 0 ? wasmRint(a) : wasmAround(a, 10 ** decimals);
   if (wasmAroundResult) return wasmAroundResult;
