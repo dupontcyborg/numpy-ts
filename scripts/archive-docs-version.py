@@ -232,6 +232,21 @@ def cmd_check() -> int:
                 continue
             flag(page, f"absolute link pins a version or staging folder: {link}")
 
+    # Asset-folder consistency. generate-overview-charts.py writes PNGs to a new
+    # version folder but does not rewrite the src attributes that point at them, so
+    # a page can quietly keep serving a previous release's charts.
+    live_assets = set()
+    for page in pages_in(LATEST):
+        for asset in ASSET_LINK.findall(page.read_text(encoding="utf-8")):
+            parts = asset.strip("/").split("/")
+            if len(parts) > 1 and VERSION_DIR.match(parts[1]):
+                live_assets.add(parts[1])
+    if len(live_assets) > 1:
+        problems.append(
+            f"docs/{LATEST} mixes asset versions {sorted(live_assets)}; "
+            "every page should serve the same release's benchmark assets"
+        )
+
     # Navigation integrity.
     config = json.loads(DOCS_JSON.read_text(encoding="utf-8"))
     versions = config["navigation"]["versions"]
