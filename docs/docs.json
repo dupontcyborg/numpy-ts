@@ -41,45 +41,46 @@
   "redirects": [
     {
       "source": "/quickstart",
-      "destination": "/v1.7.x/guides/quickstart"
+      "destination": "/latest/guides/quickstart"
     },
     {
       "source": "/api",
-      "destination": "/v1.7.x/api/overview"
+      "destination": "/latest/api/overview"
     },
     {
       "source": "/migration",
-      "destination": "/v1.7.x/guides/numpy-migration"
+      "destination": "/latest/guides/numpy-migration"
     },
     {
       "source": "/examples",
-      "destination": "/v1.7.x/examples/overview"
+      "destination": "/latest/examples/overview"
     },
     {
       "source": "/playground",
-      "destination": "/v1.7.x/playground"
+      "destination": "/latest/playground"
     },
     {
       "source": "/coverage",
-      "destination": "/v1.7.x/guides/api-coverage"
+      "destination": "/latest/guides/api-coverage"
     },
     {
       "source": "/performance",
-      "destination": "/v1.7.x/performance/overview"
+      "destination": "/latest/performance/overview"
     },
     {
       "source": "/roadmap",
-      "destination": "/v1.7.x/guides/roadmap"
+      "destination": "/latest/guides/roadmap"
     },
     {
       "source": "/ai-disclosure",
-      "destination": "/v1.7.x/guides/ai-disclosure"
+      "destination": "/latest/guides/ai-disclosure"
     }
   ],
   "navigation": {
     "versions": [
       {
         "version": "v1.7.x",
+        "tag": "Latest",
         "tabs": [
           {
             "tab": "Guides",
@@ -88,38 +89,38 @@
                 "group": "numpy-ts",
                 "pages": [
                   "index",
-                  "v1.7.x/guides/installation"
+                  "latest/guides/installation"
                 ]
               },
               {
                 "group": "Getting Started",
                 "pages": [
-                  "v1.7.x/guides/quickstart",
-                  "v1.7.x/guides/numpy-migration"
+                  "latest/guides/quickstart",
+                  "latest/guides/numpy-migration"
                 ]
               },
               {
                 "group": "Guides",
                 "pages": [
-                  "v1.7.x/guides/array-basics",
-                  "v1.7.x/guides/dtypes",
-                  "v1.7.x/guides/broadcasting",
-                  "v1.7.x/guides/slicing-indexing",
-                  "v1.7.x/guides/views-copies",
-                  "v1.7.x/guides/tree-shaking",
-                  "v1.7.x/guides/file-io",
-                  "v1.7.x/guides/typescript-patterns",
-                  "v1.7.x/guides/wasm-acceleration",
-                  "v1.7.x/guides/memory-management"
+                  "latest/guides/array-basics",
+                  "latest/guides/dtypes",
+                  "latest/guides/broadcasting",
+                  "latest/guides/slicing-indexing",
+                  "latest/guides/views-copies",
+                  "latest/guides/tree-shaking",
+                  "latest/guides/file-io",
+                  "latest/guides/typescript-patterns",
+                  "latest/guides/wasm-acceleration",
+                  "latest/guides/memory-management"
                 ]
               },
               {
                 "group": "Resources",
                 "pages": [
                   "changelog",
-                  "v1.7.x/guides/api-coverage",
-                  "v1.7.x/guides/roadmap",
-                  "v1.7.x/guides/ai-disclosure"
+                  "latest/guides/api-coverage",
+                  "latest/guides/roadmap",
+                  "latest/guides/ai-disclosure"
                 ]
               }
             ]
@@ -130,144 +131,144 @@
               {
                 "group": "Overview",
                 "pages": [
-                  "v1.7.x/api/overview"
+                  "latest/api/overview"
                 ]
               },
               {
                 "group": "NDArray",
                 "pages": [
-                  "v1.7.x/api/ndarray/class",
-                  "v1.7.x/api/ndarray/methods"
+                  "latest/api/ndarray/class",
+                  "latest/api/ndarray/methods"
                 ]
               },
               {
                 "group": "Array Creation",
                 "pages": [
-                  "v1.7.x/api/creation/basic",
-                  "v1.7.x/api/creation/ranges",
-                  "v1.7.x/api/creation/matrices",
-                  "v1.7.x/api/creation/from-data"
+                  "latest/api/creation/basic",
+                  "latest/api/creation/ranges",
+                  "latest/api/creation/matrices",
+                  "latest/api/creation/from-data"
                 ]
               },
               {
                 "group": "Math",
                 "pages": [
-                  "v1.7.x/api/math/arithmetic",
-                  "v1.7.x/api/math/exponential",
-                  "v1.7.x/api/math/trigonometric",
-                  "v1.7.x/api/math/hyperbolic",
-                  "v1.7.x/api/math/rounding",
-                  "v1.7.x/api/math/other-math"
+                  "latest/api/math/arithmetic",
+                  "latest/api/math/exponential",
+                  "latest/api/math/trigonometric",
+                  "latest/api/math/hyperbolic",
+                  "latest/api/math/rounding",
+                  "latest/api/math/other-math"
                 ]
               },
               {
                 "group": "Array Manipulation",
                 "pages": [
-                  "v1.7.x/api/manipulation/shape",
-                  "v1.7.x/api/manipulation/transpose",
-                  "v1.7.x/api/manipulation/joining",
-                  "v1.7.x/api/manipulation/splitting",
-                  "v1.7.x/api/manipulation/tiling",
-                  "v1.7.x/api/manipulation/rearranging"
+                  "latest/api/manipulation/shape",
+                  "latest/api/manipulation/transpose",
+                  "latest/api/manipulation/joining",
+                  "latest/api/manipulation/splitting",
+                  "latest/api/manipulation/tiling",
+                  "latest/api/manipulation/rearranging"
                 ]
               },
               {
                 "group": "Reductions & Statistics",
                 "pages": [
-                  "v1.7.x/api/reductions/basic",
-                  "v1.7.x/api/reductions/cumulative",
-                  "v1.7.x/api/reductions/nan-safe",
-                  "v1.7.x/api/reductions/search-count",
-                  "v1.7.x/api/reductions/statistics"
+                  "latest/api/reductions/basic",
+                  "latest/api/reductions/cumulative",
+                  "latest/api/reductions/nan-safe",
+                  "latest/api/reductions/search-count",
+                  "latest/api/reductions/statistics"
                 ]
               },
               {
                 "group": "Linear Algebra",
                 "pages": [
-                  "v1.7.x/api/linalg/products",
-                  "v1.7.x/api/linalg/decompositions",
-                  "v1.7.x/api/linalg/solvers",
-                  "v1.7.x/api/linalg/norms"
+                  "latest/api/linalg/products",
+                  "latest/api/linalg/decompositions",
+                  "latest/api/linalg/solvers",
+                  "latest/api/linalg/norms"
                 ]
               },
               {
                 "group": "Logic & Comparison",
                 "pages": [
-                  "v1.7.x/api/logic/comparison",
-                  "v1.7.x/api/logic/logical-ops",
-                  "v1.7.x/api/logic/type-testing",
-                  "v1.7.x/api/logic/floating-point"
+                  "latest/api/logic/comparison",
+                  "latest/api/logic/logical-ops",
+                  "latest/api/logic/type-testing",
+                  "latest/api/logic/floating-point"
                 ]
               },
               {
                 "group": "Sorting & Searching",
                 "pages": [
-                  "v1.7.x/api/sorting/sort",
-                  "v1.7.x/api/sorting/search"
+                  "latest/api/sorting/sort",
+                  "latest/api/sorting/search"
                 ]
               },
               {
                 "group": "Set Operations",
                 "pages": [
-                  "v1.7.x/api/sets/set-ops"
+                  "latest/api/sets/set-ops"
                 ]
               },
               {
                 "group": "Bitwise",
                 "pages": [
-                  "v1.7.x/api/bitwise/bitwise-ops"
+                  "latest/api/bitwise/bitwise-ops"
                 ]
               },
               {
                 "group": "Indexing",
                 "pages": [
-                  "v1.7.x/api/indexing/advanced-indexing",
-                  "v1.7.x/api/indexing/diagonal-indices",
-                  "v1.7.x/api/indexing/index-utils"
+                  "latest/api/indexing/advanced-indexing",
+                  "latest/api/indexing/diagonal-indices",
+                  "latest/api/indexing/index-utils"
                 ]
               },
               {
                 "group": "Gradient & Differences",
                 "pages": [
-                  "v1.7.x/api/gradient/gradient-ops"
+                  "latest/api/gradient/gradient-ops"
                 ]
               },
               {
                 "group": "Polynomials",
                 "pages": [
-                  "v1.7.x/api/polynomials/polynomial-ops"
+                  "latest/api/polynomials/polynomial-ops"
                 ]
               },
               {
                 "group": "Random (np.random)",
                 "pages": [
-                  "v1.7.x/api/random/overview",
-                  "v1.7.x/api/random/basic",
-                  "v1.7.x/api/random/distributions",
-                  "v1.7.x/api/random/generator"
+                  "latest/api/random/overview",
+                  "latest/api/random/basic",
+                  "latest/api/random/distributions",
+                  "latest/api/random/generator"
                 ]
               },
               {
                 "group": "FFT (np.fft)",
                 "pages": [
-                  "v1.7.x/api/fft/transforms",
-                  "v1.7.x/api/fft/real-fft",
-                  "v1.7.x/api/fft/utilities"
+                  "latest/api/fft/transforms",
+                  "latest/api/fft/real-fft",
+                  "latest/api/fft/utilities"
                 ]
               },
               {
                 "group": "I/O",
                 "pages": [
-                  "v1.7.x/api/io/npy-npz",
-                  "v1.7.x/api/io/text-io"
+                  "latest/api/io/npy-npz",
+                  "latest/api/io/text-io"
                 ]
               },
               {
                 "group": "Utilities",
                 "pages": [
-                  "v1.7.x/api/utilities/type-checking",
-                  "v1.7.x/api/utilities/formatting",
-                  "v1.7.x/api/utilities/misc"
+                  "latest/api/utilities/type-checking",
+                  "latest/api/utilities/formatting",
+                  "latest/api/utilities/misc"
                 ]
               }
             ]
@@ -278,17 +279,17 @@
               {
                 "group": "Introduction",
                 "pages": [
-                  "v1.7.x/performance/overview",
-                  "v1.7.x/performance/methodology"
+                  "latest/performance/overview",
+                  "latest/performance/methodology"
                 ]
               },
               {
                 "group": "Benchmarks",
                 "pages": [
-                  "v1.7.x/performance/vs-numpy",
-                  "v1.7.x/performance/vs-pyodide",
-                  "v1.7.x/performance/size-scaling",
-                  "v1.7.x/performance/deno-bun"
+                  "latest/performance/vs-numpy",
+                  "latest/performance/vs-pyodide",
+                  "latest/performance/size-scaling",
+                  "latest/performance/deno-bun"
                 ]
               }
             ]
@@ -299,13 +300,13 @@
               {
                 "group": "Examples",
                 "pages": [
-                  "v1.7.x/examples/overview",
-                  "v1.7.x/examples/linear-algebra",
-                  "v1.7.x/examples/signal-processing",
-                  "v1.7.x/examples/statistics-analysis",
-                  "v1.7.x/examples/image-processing",
-                  "v1.7.x/examples/data-loading",
-                  "v1.7.x/examples/performance-tips"
+                  "latest/examples/overview",
+                  "latest/examples/linear-algebra",
+                  "latest/examples/signal-processing",
+                  "latest/examples/statistics-analysis",
+                  "latest/examples/image-processing",
+                  "latest/examples/data-loading",
+                  "latest/examples/performance-tips"
                 ]
               }
             ]
@@ -316,7 +317,7 @@
               {
                 "group": "Playground",
                 "pages": [
-                  "v1.7.x/playground"
+                  "latest/playground"
                 ]
               }
             ]
@@ -1978,6 +1979,11 @@
     "plausible": {
       "domain": "numpyts.dev",
       "server": "d1w0psmo3bkh8z.cloudfront.net"
+    }
+  },
+  "seo": {
+    "metatags": {
+      "canonical": "https://numpyts.dev"
     }
   }
 }
