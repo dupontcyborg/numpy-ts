@@ -16,7 +16,7 @@ inline fn isinfFloat(comptime T: type, comptime L: comptime_int, a: [*]const T, 
     while (i < n_simd) : (i += L) {
         const v = @as(*align(1) const V, @ptrCast(a + i)).*;
         const m: @Vector(L, u8) = @intFromBool(@abs(v) == inf);
-        @as(*align(1) @Vector(L, u8), @ptrCast(out + i)).* = m;
+        @as(*align(1) [L]u8, @ptrCast(out + i)).* = m;
     }
     const scalar_inf = @as(T, 1.0) / @as(T, 0.0);
     while (i < N) : (i += 1) out[i] = @intFromBool(@abs(a[i]) == scalar_inf);
@@ -46,7 +46,7 @@ export fn isinf_u16(a: [*]const u16, out: [*]u8, N: u32) void {
     while (i < n_simd) : (i += L) {
         const v = @as(*align(1) const V, @ptrCast(a + i)).*;
         const m: @Vector(L, u8) = @intFromBool((v & mask) == inf_bits);
-        @as(*align(1) @Vector(L, u8), @ptrCast(out + i)).* = m;
+        @as(*align(1) [L]u8, @ptrCast(out + i)).* = m;
     }
     while (i < N) : (i += 1) out[i] = @intFromBool((a[i] & 0x7FFF) == 0x7C00);
 }

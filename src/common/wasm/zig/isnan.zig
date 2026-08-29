@@ -16,7 +16,7 @@ inline fn isnanFloat(comptime T: type, comptime L: comptime_int, a: [*]const T, 
     while (i < n_simd) : (i += L) {
         const v = @as(*align(1) const V, @ptrCast(a + i)).*;
         const m: @Vector(L, u8) = @intFromBool(v != v);
-        @as(*align(1) @Vector(L, u8), @ptrCast(out + i)).* = m;
+        @as(*align(1) [L]u8, @ptrCast(out + i)).* = m;
     }
     while (i < N) : (i += 1) out[i] = @intFromBool(a[i] != a[i]);
 }
@@ -47,7 +47,7 @@ export fn isnan_u16(a: [*]const u16, out: [*]u8, N: u32) void {
     while (i < n8) : (i += 8) {
         const bits = @as(*align(1) const V, @ptrCast(a_i16 + i)).*;
         const m: @Vector(8, u8) = @intFromBool((bits & abs_v) > inf_v);
-        @as(*align(1) @Vector(8, u8), @ptrCast(out + i)).* = m;
+        @as(*align(1) [8]u8, @ptrCast(out + i)).* = m;
     }
     while (i < N) : (i += 1) {
         out[i] = @intFromBool((a_i16[i] & 0x7FFF) > 0x7C00);

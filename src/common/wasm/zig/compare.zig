@@ -32,7 +32,7 @@ inline fn cmp(comptime T: type, comptime L: comptime_int, comptime op: Op, a: [*
         const va = @as(*align(1) const V, @ptrCast(a + i)).*;
         const vb = @as(*align(1) const V, @ptrCast(b + i)).*;
         const m: @Vector(L, u8) = @intFromBool(apply(op, va, vb));
-        @as(*align(1) @Vector(L, u8), @ptrCast(out + i)).* = m;
+        @as(*align(1) [L]u8, @ptrCast(out + i)).* = m;
     }
     while (i < N) : (i += 1) {
         const r = switch (op) {

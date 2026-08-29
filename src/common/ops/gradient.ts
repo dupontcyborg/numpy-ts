@@ -154,13 +154,7 @@ function diffOnce(a: ArrayStorage, axis: number): ArrayStorage {
  * site. Source and destination always share a dtype, and the narrowing on store
  * wraps exactly as NumPy's integer subtraction does.
  */
-function diffInto(
-  src: TypedArray,
-  sOff: number,
-  dst: TypedArray,
-  dOff: number,
-  n: number,
-): void {
+function diffInto(src: TypedArray, sOff: number, dst: TypedArray, dOff: number, n: number): void {
   const ctor = (src as { constructor: unknown }).constructor;
   if (ctor === Float64Array) {
     const a = src as Float64Array;

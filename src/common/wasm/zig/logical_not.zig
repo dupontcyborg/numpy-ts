@@ -31,7 +31,7 @@ inline fn truthyF16(p: [*]const u16, i: u32) @Vector(8, bool) {
 
 /// One byte per lane, straight into the bool output.
 inline fn storeBool(comptime L: comptime_int, out: [*]u8, i: u32, m: @Vector(L, bool)) void {
-    @as(*align(1) @Vector(L, u8), @ptrCast(out + i)).* = @intFromBool(m);
+    @as(*align(1) [L]u8, @ptrCast(out + i)).* = @intFromBool(m);
 }
 
 /// Generic body.
