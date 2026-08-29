@@ -1,0 +1,98 @@
+---
+title: "Performance by Array Size"
+sidebarTitle: "Size Scaling"
+mode: "wide"
+---
+
+import { SizeScalingReport } from '/snippets/SizeScalingReport.jsx'
+
+export const benchmarkData = {"meta":{"generatedAt":"2026-06-18 17:19:14 UTC","machine":"Apple M4 Max (16 cores, 128 GB, arm64)","pythonVersion":"3.13.5","numpyVersion":"2.3.1","numpyTsVersion":"1.5.0"},"sizes":[{"label":"Small (100)","summary":{"avgSpeedup":1.2889,"medianSpeedup":1.1739,"bestCase":39.1504,"worstCase":0.1527,"totalBenchmarks":2390},"categories":[{"name":"creation","avgSpeedup":1.4458,"count":213},{"name":"arithmetic","avgSpeedup":0.8147,"count":295},{"name":"math","avgSpeedup":1.3377,"count":125},{"name":"trig","avgSpeedup":1.0223,"count":216},{"name":"gradient","avgSpeedup":3.8626,"count":22},{"name":"linalg","avgSpeedup":1.4822,"count":269},{"name":"reductions","avgSpeedup":1.9903,"count":413},{"name":"manipulation","avgSpeedup":1.0175,"count":231},{"name":"io","avgSpeedup":3.2324,"count":66},{"name":"indexing","avgSpeedup":0.906,"count":115},{"name":"bitwise","avgSpeedup":0.5514,"count":10},{"name":"sorting","avgSpeedup":0.6732,"count":75},{"name":"logic","avgSpeedup":0.972,"count":142},{"name":"statistics","avgSpeedup":3.1768,"count":26},{"name":"sets","avgSpeedup":2.8796,"count":33},{"name":"random","avgSpeedup":1.0254,"count":46},{"name":"polynomials","avgSpeedup":2.1148,"count":27},{"name":"fft","avgSpeedup":1.1763,"count":66}]},{"label":"Medium (1K)","summary":{"avgSpeedup":1.0992,"medianSpeedup":1.025,"bestCase":41.5965,"worstCase":0.1175,"totalBenchmarks":2390},"categories":[{"name":"creation","avgSpeedup":1.1412,"count":213},{"name":"arithmetic","avgSpeedup":1.0465,"count":295},{"name":"math","avgSpeedup":1.416,"count":125},{"name":"trig","avgSpeedup":1.0112,"count":216},{"name":"gradient","avgSpeedup":3.3903,"count":22},{"name":"linalg","avgSpeedup":1.5412,"count":269},{"name":"reductions","avgSpeedup":0.9885,"count":413},{"name":"manipulation","avgSpeedup":0.9354,"count":231},{"name":"io","avgSpeedup":2.0381,"count":66},{"name":"indexing","avgSpeedup":0.5643,"count":115},{"name":"bitwise","avgSpeedup":0.5245,"count":10},{"name":"sorting","avgSpeedup":0.7776,"count":75},{"name":"logic","avgSpeedup":1.3239,"count":142},{"name":"statistics","avgSpeedup":1.3739,"count":26},{"name":"sets","avgSpeedup":2.3181,"count":33},{"name":"random","avgSpeedup":0.828,"count":46},{"name":"polynomials","avgSpeedup":2.0461,"count":27},{"name":"fft","avgSpeedup":0.6676,"count":66}]},{"label":"Large (10K)","summary":{"avgSpeedup":1.3721,"medianSpeedup":1.2842,"bestCase":2363.8772,"worstCase":0.0368,"totalBenchmarks":2379},"categories":[{"name":"creation","avgSpeedup":3.1391,"count":213},{"name":"arithmetic","avgSpeedup":1.9324,"count":295},{"name":"math","avgSpeedup":1.6279,"count":125},{"name":"trig","avgSpeedup":1.223,"count":216},{"name":"gradient","avgSpeedup":5.9557,"count":22},{"name":"linalg","avgSpeedup":1.4309,"count":269},{"name":"reductions","avgSpeedup":0.6297,"count":413},{"name":"manipulation","avgSpeedup":1.2343,"count":231},{"name":"io","avgSpeedup":2.4992,"count":55},{"name":"indexing","avgSpeedup":0.5536,"count":115},{"name":"bitwise","avgSpeedup":1.012,"count":10},{"name":"sorting","avgSpeedup":0.9663,"count":75},{"name":"logic","avgSpeedup":3.666,"count":142},{"name":"statistics","avgSpeedup":0.9417,"count":26},{"name":"sets","avgSpeedup":5.0998,"count":33},{"name":"random","avgSpeedup":0.8353,"count":46},{"name":"polynomials","avgSpeedup":1.9868,"count":27},{"name":"fft","avgSpeedup":0.888,"count":66}]}],"benchmarks":[{"name":"creation"},{"name":"arithmetic"},{"name":"math"},{"name":"trig"},{"name":"gradient"},{"name":"linalg"},{"name":"reductions"},{"name":"manipulation"},{"name":"io"},{"name":"indexing"},{"name":"bitwise"},{"name":"sorting"},{"name":"logic"},{"name":"statistics"},{"name":"sets"},{"name":"random"},{"name":"polynomials"},{"name":"fft"}]};
+
+How does numpy-ts performance scale with array size compared to NumPy? This page shows the full picture.
+
+<Tip>
+All benchmarks measure computation time from JS and Python, respectively. To learn more, check out [benchmark methodology](./methodology).
+</Tip>
+
+<SizeScalingReport data={benchmarkData} detailUrl="/assets/v1.5.x/size-scaling-benchmarks.json" />
+
+<div style={{display: 'none'}} data-llm-summary="true">
+
+## Size Scaling Summary
+
+| Array Size | Avg Speedup | Best Case | Worst Case | Benchmarks |
+|-|-|-|-|-|
+| Small (100) | 1.29x | 39.15x | 0.15x | 2390 |
+| Medium (1K) | 1.10x | 41.60x | 0.12x | 2390 |
+| Large (10K) | 1.37x | 2363.88x | 0.04x | 2379 |
+
+### Small (100) — by Category
+
+| Category | Avg Speedup | Count |
+|-|-|-|
+| creation | 1.45x | 213 |
+| arithmetic | 0.81x | 295 |
+| math | 1.34x | 125 |
+| trig | 1.02x | 216 |
+| gradient | 3.86x | 22 |
+| linalg | 1.48x | 269 |
+| reductions | 1.99x | 413 |
+| manipulation | 1.02x | 231 |
+| io | 3.23x | 66 |
+| indexing | 0.91x | 115 |
+| bitwise | 0.55x | 10 |
+| sorting | 0.67x | 75 |
+| logic | 0.97x | 142 |
+| statistics | 3.18x | 26 |
+| sets | 2.88x | 33 |
+| random | 1.03x | 46 |
+| polynomials | 2.11x | 27 |
+| fft | 1.18x | 66 |
+
+### Medium (1K) — by Category
+
+| Category | Avg Speedup | Count |
+|-|-|-|
+| creation | 1.14x | 213 |
+| arithmetic | 1.05x | 295 |
+| math | 1.42x | 125 |
+| trig | 1.01x | 216 |
+| gradient | 3.39x | 22 |
+| linalg | 1.54x | 269 |
+| reductions | 0.99x | 413 |
+| manipulation | 0.94x | 231 |
+| io | 2.04x | 66 |
+| indexing | 0.56x | 115 |
+| bitwise | 0.52x | 10 |
+| sorting | 0.78x | 75 |
+| logic | 1.32x | 142 |
+| statistics | 1.37x | 26 |
+| sets | 2.32x | 33 |
+| random | 0.83x | 46 |
+| polynomials | 2.05x | 27 |
+| fft | 0.67x | 66 |
+
+### Large (10K) — by Category
+
+| Category | Avg Speedup | Count |
+|-|-|-|
+| creation | 3.14x | 213 |
+| arithmetic | 1.93x | 295 |
+| math | 1.63x | 125 |
+| trig | 1.22x | 216 |
+| gradient | 5.96x | 22 |
+| linalg | 1.43x | 269 |
+| reductions | 0.63x | 413 |
+| manipulation | 1.23x | 231 |
+| io | 2.50x | 55 |
+| indexing | 0.55x | 115 |
+| bitwise | 1.01x | 10 |
+| sorting | 0.97x | 75 |
+| logic | 3.67x | 142 |
+| statistics | 0.94x | 26 |
+| sets | 5.10x | 33 |
+| random | 0.84x | 46 |
+| polynomials | 1.99x | 27 |
+| fft | 0.89x | 66 |
+
+</div>
