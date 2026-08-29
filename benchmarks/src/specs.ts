@@ -6,6 +6,320 @@
 import type { DType } from '../../src/common/dtype';
 import type { BenchmarkCase, BenchmarkMode, BenchmarkSetup, SizeScale } from './types';
 
+// ========================================
+// Dtype sweep configuration
+// ========================================
+// Exported so tests/unit/benchmark-coverage.test.ts can assert that every
+// benchmarked op either gets its category's full dtype sweep or appears in
+// exactly one skip list below. At module scope, a dropped sweep becomes a
+// test failure instead of a silent loss of coverage.
+
+export type DtypeFamily = 'float' | 'int' | 'uint' | 'complex';
+
+// Which dtype families each category supports
+export const CATEGORY_DTYPE_SUPPORT: Record<string, DtypeFamily[]> = {
+  creation: ['float', 'int', 'uint', 'complex'],
+  arithmetic: ['float', 'int', 'uint', 'complex'],
+  math: ['float', 'int', 'uint', 'complex'],
+  linalg: ['float', 'int', 'uint', 'complex'],
+  reductions: ['float', 'int', 'uint', 'complex'],
+  statistics: ['float'],
+  manipulation: ['float', 'int', 'uint'],
+  sorting: ['float', 'int', 'uint', 'complex'],
+  sets: ['float', 'int', 'uint'],
+  logic: ['float', 'int', 'uint'],
+  gradient: ['float', 'int', 'uint'],
+  trig: ['float', 'int', 'uint', 'complex'],
+  indexing: ['float', 'int', 'uint'],
+  polynomials: ['float'],
+  bitwise: ['int', 'uint'],
+  fft: ['float', 'complex'],
+  io: ['float', 'int', 'uint'],
+  // Skipped entirely (no variants): random, utilities
+};
+
+// Variant dtypes for each family, keyed by minimum mode required
+export const FAMILY_VARIANTS: Record<DtypeFamily, { dtype: string; minMode: BenchmarkMode }[]> = {
+  float: [
+    { dtype: 'float32', minMode: 'standard' },
+    { dtype: 'float16', minMode: 'full' },
+  ],
+  int: [
+    { dtype: 'int64', minMode: 'full' },
+    { dtype: 'int32', minMode: 'full' },
+    { dtype: 'int16', minMode: 'full' },
+    { dtype: 'int8', minMode: 'full' },
+  ],
+  uint: [
+    { dtype: 'uint64', minMode: 'full' },
+    { dtype: 'uint32', minMode: 'full' },
+    { dtype: 'uint16', minMode: 'full' },
+    { dtype: 'uint8', minMode: 'full' },
+  ],
+  complex: [
+    { dtype: 'complex128', minMode: 'full' },
+    { dtype: 'complex64', minMode: 'full' },
+  ],
+};
+
+// Mode ordering for comparison
+export const MODE_RANK: Record<BenchmarkMode, number> = { quick: 0, standard: 1, full: 2 };
+
+// Setup keys that represent data arrays (get dtype changed)
+export const DATA_ARRAY_KEYS = new Set(['a', 'b', 'c', 'n', 'shape']);
+
+// Operations whose base dtype is a semantic pin rather than a category default:
+// index/count arrays that are meaningless at other dtypes. Declared separately
+// from SKIP_DTYPE_OPERATIONS (which is about numerical instability) so the
+// benchmark-coverage test can tell an intentional single-dtype op from a spec
+// that silently lost its sweep.
+export const PINNED_INDEX_DTYPE_OPERATIONS = new Set([
+  'bincount', // bin counts are int32 by definition
+  'ravel_multi_index', // multi-index input is int32
+]);
+
+// Operations to skip for ALL auto dtype variants
+export const SKIP_DTYPE_OPERATIONS = new Set([
+  // 'linalg_cholesky', // positive-definiteness lost in float32
+  'linalg_eigh', // eigenvalue decomposition numerically sensitive
+  'mod', // int overflow issues with narrow types
+  'floor_divide', // int overflow issues
+  'divmod', // int overflow issues
+  'remainder', // same semantics as mod, int overflow issues
+  'gcd', // integer-only, already tests int semantics
+  'lcm', // integer-only, already tests int semantics
+  'interp', // special setup, not dtype-variant-friendly
+  'unravel_index', // index dtype pinned manually (int32, int64, float64)
+  'packbits', // always uint8
+  'unpackbits', // always uint8
+]);
+
+// Operations to skip for float16 dtype variants (precision too low for numerical algorithms)
+export const SKIP_FLOAT16_OPERATIONS = new Set([
+  'linalg_cholesky',
+  'linalg_eigh',
+  'linalg_svd',
+  'linalg_svdvals',
+  'linalg_pinv',
+  'linalg_lstsq',
+  'linalg_qr',
+  'linalg_cond',
+  'linalg_matrix_rank',
+  'linalg_norm',
+  'linalg_det',
+  'linalg_slogdet',
+  'linalg_inv',
+  'linalg_solve',
+  'linalg_matrix_power',
+  'linalg_multi_dot',
+  'einsum',
+  'correlate',
+  'convolve',
+  // NumPy's linalg explicitly rejects float16 for polynomial ops (uses eigvals/lstsq internally)
+  'polyfit',
+  'polyval',
+  'roots',
+  // dot/inner/vdot: NumPy accumulates in f16 (overflows to inf), our WASM uses f32 (finite)
+  'dot',
+  'inner',
+  'vdot',
+]);
+
+// Operations to skip for ALL int dtype variants (blocks both int and uint families)
+export const SKIP_INT_OPERATIONS = new Set([
+  // Real-float-only ops. These previously sat in SKIP_DTYPE_OPERATIONS, which
+  // also suppressed their float32/float16 variants — they are float-family
+  // ops, not un-sweepable ops.
+  'fabs',
+  'cbrt',
+  'float_power',
+  'heaviside',
+  'fmod',
+  'frexp',
+  'ldexp',
+  'modf',
+  // Float-only linalg decompositions/solvers — numerically require float
+  'linalg_det',
+  'linalg_slogdet',
+  'linalg_inv',
+  'linalg_solve',
+  'linalg_cholesky',
+  'linalg_eigh',
+  'linalg_svd',
+  'linalg_svdvals',
+  'linalg_pinv',
+  'linalg_lstsq',
+  'linalg_qr',
+  'linalg_cond',
+  'linalg_matrix_rank',
+  'linalg_norm',
+  // Truly incompatible with BigInt (int64) — would throw at runtime
+  'asarray_chkfinite', // NaN/Inf check doesn't work with BigInt
+]);
+
+// Operations to skip for uint dtype variants specifically.
+// NumPy raises TypeError for these on unsigned integer arrays.
+export const SKIP_UINT_OPERATIONS = new Set([
+  'sign', // np.sign raises TypeError for uint types
+]);
+
+// Operations to skip for NARROW int types (int8/int16) only.
+// Operations where int8/int16 variants produce different results than NumPy
+// due to overflow affecting ordering/convolution logic.
+export const SKIP_NARROW_INT_OPERATIONS = new Set([
+  'correlate',
+  'convolve',
+  'unwrap',
+  'searchsorted', // overflow affects sort order
+  'argpartition', // overflow affects element ordering
+]);
+
+// Operations to skip for COMPLEX dtype variants
+export const SKIP_COMPLEX_OPERATIONS = new Set([
+  'cbrt',
+  'float_power',
+  // Linalg: real-only decompositions/solvers
+  'linalg_det',
+  'linalg_slogdet',
+  'linalg_inv',
+  'linalg_solve',
+  'linalg_cholesky',
+  'linalg_eigh',
+  'linalg_svd',
+  'linalg_svdvals',
+  'linalg_pinv',
+  'linalg_lstsq',
+  'linalg_qr',
+  'linalg_cond',
+  'linalg_matrix_rank',
+  'linalg_norm',
+  'linalg_matrix_power',
+  'linalg_multi_dot',
+  'einsum',
+  'trace',
+  'transpose',
+  'matrix_transpose',
+  'diagonal',
+  // Comparison/ordering: complex numbers are not orderable
+  'max',
+  'min',
+  'argmax',
+  'argmin',
+  'maximum',
+  'minimum',
+  'fmax',
+  'fmin',
+  'clip',
+  'median',
+  'percentile',
+  'quantile',
+  'nanmax',
+  'nanmin',
+  'nanpercentile',
+  'nanquantile',
+  'ptp',
+  'partition',
+  'argpartition',
+  'searchsorted',
+  'lexsort',
+  // Real-only math
+  'sign',
+  'signbit',
+  'copysign',
+  'reciprocal',
+  'logaddexp',
+  'hypot',
+  'heaviside',
+  'fmod',
+  'frexp',
+  'ldexp',
+  'modf',
+  'fabs',
+  'cbrt',
+  'remainder',
+  'square', // overflow risk with complex_small fill
+  // Boolean-result reductions
+  'all',
+  'any',
+  'count_nonzero',
+  'isfinite',
+  'isnan',
+  'isneginf',
+  'isposinf',
+  'isreal',
+  // Creation ops with incompatible fill patterns
+  'arange',
+  'linspace',
+  'logspace',
+  'geomspace',
+  'eye',
+  'identity',
+  // Manipulation that's trivial for complex (no compute difference)
+  'copy',
+  'flatten',
+  'ravel',
+  'reshape',
+  'broadcast_to',
+  'concatenate',
+  'concat',
+  'stack',
+  'hstack',
+  'vstack',
+  'block',
+  'unstack',
+  'swapaxes',
+  'flip',
+  'rot90',
+  'roll',
+  'tile',
+  'repeat',
+  'pad',
+  'take',
+  'extract',
+  'compress',
+  'where',
+  'require',
+  'item',
+  'tolist',
+  'indices',
+  'diag',
+  'tri',
+  'tril',
+  'triu',
+  'trim_zeros',
+  'nan_to_num',
+  'flatnonzero',
+  'nonzero',
+  'argwhere',
+  // Overflow-guaranteed (cumulative product of complex overflows float64 after ~50 elements)
+  'cumprod',
+  // Real-only functions
+  'arctan2', // atan2 not defined for complex
+  'i0', // Bessel function, real-only
+  'sinc', // real-only
+  'unwrap', // phase unwrapping, real-only
+  'asarray_chkfinite', // NaN/Inf check, real-only
+  // Misc incompatible
+  'diff',
+  'gradient',
+  'cross',
+  'unique_values',
+  'unique_counts',
+  // FFT: real-input ops and utilities (complex variants don't make sense)
+  'rfft',
+  'irfft',
+  'rfft2',
+  'irfft2',
+  'rfftn',
+  'irfftn',
+  'hfft',
+  'ihfft',
+  'fftfreq',
+  'rfftfreq',
+  'fftshift',
+  'ifftshift',
+]);
+
 export function getBenchmarkSpecs(
   mode: BenchmarkMode = 'standard',
   sizeScale: SizeScale = 'default',
@@ -3846,301 +4160,6 @@ export function getBenchmarkSpecs(
   // Standard mode: float64 (base) + float32
   // Full mode:     float64 (base) + float32 + complex128 + int64 + int32 + int16 + int8
 
-  type DtypeFamily = 'float' | 'int' | 'uint' | 'complex';
-
-  // Which dtype families each category supports
-  const CATEGORY_DTYPE_SUPPORT: Record<string, DtypeFamily[]> = {
-    creation: ['float', 'int', 'uint', 'complex'],
-    arithmetic: ['float', 'int', 'uint', 'complex'],
-    math: ['float', 'int', 'uint', 'complex'],
-    linalg: ['float', 'int', 'uint', 'complex'],
-    reductions: ['float', 'int', 'uint', 'complex'],
-    statistics: ['float'],
-    manipulation: ['float', 'int', 'uint'],
-    sorting: ['float', 'int', 'uint', 'complex'],
-    sets: ['float', 'int', 'uint'],
-    logic: ['float', 'int', 'uint'],
-    gradient: ['float', 'int', 'uint'],
-    trig: ['float', 'int', 'uint', 'complex'],
-    indexing: ['float', 'int', 'uint'],
-    polynomials: ['float'],
-    bitwise: ['int', 'uint'],
-    fft: ['float', 'complex'],
-    io: ['float', 'int', 'uint'],
-    // Skipped entirely (no variants): random, utilities
-  };
-
-  // Variant dtypes for each family, keyed by minimum mode required
-  const FAMILY_VARIANTS: Record<DtypeFamily, { dtype: string; minMode: BenchmarkMode }[]> = {
-    float: [
-      { dtype: 'float32', minMode: 'standard' },
-      { dtype: 'float16', minMode: 'full' },
-    ],
-    int: [
-      { dtype: 'int64', minMode: 'full' },
-      { dtype: 'int32', minMode: 'full' },
-      { dtype: 'int16', minMode: 'full' },
-      { dtype: 'int8', minMode: 'full' },
-    ],
-    uint: [
-      { dtype: 'uint64', minMode: 'full' },
-      { dtype: 'uint32', minMode: 'full' },
-      { dtype: 'uint16', minMode: 'full' },
-      { dtype: 'uint8', minMode: 'full' },
-    ],
-    complex: [
-      { dtype: 'complex128', minMode: 'full' },
-      { dtype: 'complex64', minMode: 'full' },
-    ],
-  };
-
-  // Mode ordering for comparison
-  const MODE_RANK: Record<BenchmarkMode, number> = { quick: 0, standard: 1, full: 2 };
-
-  // Setup keys that represent data arrays (get dtype changed)
-  const DATA_ARRAY_KEYS = new Set(['a', 'b', 'c', 'n', 'shape']);
-
-  // Operations to skip for ALL auto dtype variants
-  const SKIP_DTYPE_OPERATIONS = new Set([
-    // 'linalg_cholesky', // positive-definiteness lost in float32
-    'linalg_eigh', // eigenvalue decomposition numerically sensitive
-    'linalg_eigvalsh', // eigenvalue computation numerically sensitive
-    'mod', // int overflow issues with narrow types
-    'floor_divide', // int overflow issues
-    'divmod', // int overflow issues
-    'remainder', // same semantics as mod, int overflow issues
-    'gcd', // integer-only, already tests int semantics
-    'lcm', // integer-only, already tests int semantics
-    'fabs', // only for real float types
-    'cbrt', // only for real float types
-    'float_power', // only for float types
-    'heaviside', // real-only step function
-    'fmod', // real-only C-style remainder
-    'frexp', // real float decomposition
-    'ldexp', // real float composition
-    'modf', // real float decomposition
-    'interp', // special setup, not dtype-variant-friendly
-    'unravel_index', // index dtype pinned manually (int32, int64, float64)
-    'packbits', // always uint8
-    'unpackbits', // always uint8
-  ]);
-
-  // Operations to skip for float16 dtype variants (precision too low for numerical algorithms)
-  const SKIP_FLOAT16_OPERATIONS = new Set([
-    'linalg_cholesky',
-    'linalg_eigh',
-    'linalg_eigvalsh',
-    'linalg_svd',
-    'linalg_svdvals',
-    'linalg_pinv',
-    'linalg_lstsq',
-    'linalg_qr',
-    'linalg_cond',
-    'linalg_matrix_rank',
-    'linalg_norm',
-    'linalg_det',
-    'linalg_slogdet',
-    'linalg_inv',
-    'linalg_solve',
-    'linalg_matrix_power',
-    'linalg_multi_dot',
-    'einsum',
-    'correlate',
-    'convolve',
-    // NumPy's linalg explicitly rejects float16 for polynomial ops (uses eigvals/lstsq internally)
-    'polyfit',
-    'polyval',
-    'roots',
-    // dot/inner/vdot: NumPy accumulates in f16 (overflows to inf), our WASM uses f32 (finite)
-    'dot',
-    'inner',
-    'vdot',
-  ]);
-
-  // Operations to skip for ALL int dtype variants (blocks both int and uint families)
-  const SKIP_INT_OPERATIONS = new Set([
-    // Float-only linalg decompositions/solvers — numerically require float
-    'linalg_det',
-    'linalg_slogdet',
-    'linalg_inv',
-    'linalg_solve',
-    'linalg_cholesky',
-    'linalg_eigh',
-    'linalg_eigvalsh',
-    'linalg_svd',
-    'linalg_svdvals',
-    'linalg_pinv',
-    'linalg_lstsq',
-    'linalg_qr',
-    'linalg_cond',
-    'linalg_matrix_rank',
-    'linalg_norm',
-    // Truly incompatible with BigInt (int64) — would throw at runtime
-    'asarray_chkfinite', // NaN/Inf check doesn't work with BigInt
-  ]);
-
-  // Operations to skip for uint dtype variants specifically.
-  // NumPy raises TypeError for these on unsigned integer arrays.
-  const SKIP_UINT_OPERATIONS = new Set([
-    'sign', // np.sign raises TypeError for uint types
-  ]);
-
-  // Operations to skip for NARROW int types (int8/int16) only.
-  // Operations where int8/int16 variants produce different results than NumPy
-  // due to overflow affecting ordering/convolution logic.
-  const SKIP_NARROW_INT_OPERATIONS = new Set([
-    'correlate',
-    'convolve',
-    'unwrap',
-    'searchsorted', // overflow affects sort order
-    'argpartition', // overflow affects element ordering
-  ]);
-
-  // Operations to skip for COMPLEX dtype variants
-  const SKIP_COMPLEX_OPERATIONS = new Set([
-    // Linalg: real-only decompositions/solvers
-    'linalg_det',
-    'linalg_slogdet',
-    'linalg_inv',
-    'linalg_solve',
-    'linalg_cholesky',
-    'linalg_eigh',
-    'linalg_eigvalsh',
-    'linalg_svd',
-    'linalg_svdvals',
-    'linalg_pinv',
-    'linalg_lstsq',
-    'linalg_qr',
-    'linalg_cond',
-    'linalg_matrix_rank',
-    'linalg_norm',
-    'linalg_matrix_power',
-    'linalg_multi_dot',
-    'einsum',
-    'trace',
-    'transpose',
-    'matrix_transpose',
-    'diagonal',
-    // Comparison/ordering: complex numbers are not orderable
-    'max',
-    'min',
-    'argmax',
-    'argmin',
-    'maximum',
-    'minimum',
-    'fmax',
-    'fmin',
-    'clip',
-    'median',
-    'percentile',
-    'quantile',
-    'nanmax',
-    'nanmin',
-    'nanpercentile',
-    'nanquantile',
-    'ptp',
-    'partition',
-    'argpartition',
-    'searchsorted',
-    'lexsort',
-    // Real-only math
-    'sign',
-    'signbit',
-    'copysign',
-    'reciprocal',
-    'logaddexp',
-    'hypot',
-    'heaviside',
-    'fmod',
-    'frexp',
-    'ldexp',
-    'modf',
-    'fabs',
-    'cbrt',
-    'remainder',
-    'square', // overflow risk with complex_small fill
-    // Boolean-result reductions
-    'all',
-    'any',
-    'count_nonzero',
-    'isfinite',
-    'isnan',
-    'isneginf',
-    'isposinf',
-    'isreal',
-    // Creation ops with incompatible fill patterns
-    'arange',
-    'linspace',
-    'logspace',
-    'geomspace',
-    'eye',
-    'identity',
-    // Manipulation that's trivial for complex (no compute difference)
-    'copy',
-    'flatten',
-    'ravel',
-    'reshape',
-    'broadcast_to',
-    'concatenate',
-    'concat',
-    'stack',
-    'hstack',
-    'vstack',
-    'block',
-    'unstack',
-    'swapaxes',
-    'flip',
-    'rot90',
-    'roll',
-    'tile',
-    'repeat',
-    'pad',
-    'take',
-    'extract',
-    'compress',
-    'where',
-    'require',
-    'item',
-    'tolist',
-    'indices',
-    'diag',
-    'tri',
-    'tril',
-    'triu',
-    'trim_zeros',
-    'nan_to_num',
-    'flatnonzero',
-    'nonzero',
-    'argwhere',
-    // Overflow-guaranteed (cumulative product of complex overflows float64 after ~50 elements)
-    'cumprod',
-    // Real-only functions
-    'arctan2', // atan2 not defined for complex
-    'i0', // Bessel function, real-only
-    'sinc', // real-only
-    'unwrap', // phase unwrapping, real-only
-    'asarray_chkfinite', // NaN/Inf check, real-only
-    // Misc incompatible
-    'diff',
-    'gradient',
-    'cross',
-    'unique_values',
-    'unique_counts',
-    // FFT: real-input ops and utilities (complex variants don't make sense)
-    'rfft',
-    'irfft',
-    'rfft2',
-    'irfft2',
-    'rfftn',
-    'irfftn',
-    'hfft',
-    'ihfft',
-    'fftfreq',
-    'rfftfreq',
-    'fftshift',
-    'ifftshift',
-  ]);
-
   if (mode !== 'quick') {
     const expanded: BenchmarkCase[] = [];
 
@@ -4153,20 +4172,29 @@ export function getBenchmarkSpecs(
       // Skip handwritten complex specs — they already target complex128
       if (spec.operation.startsWith('complex_')) continue;
 
-      // Skip specs that already have an explicit non-default dtype
       const dataEntries = Object.entries(spec.setup).filter(([key]) => DATA_ARRAY_KEYS.has(key));
       if (dataEntries.length === 0) continue;
 
-      // For categories that include float, the default base dtype is float64.
-      // For integer-only categories (e.g. bitwise), we still want to sweep all int/uint dtypes.
+      // Category not listed = skip entirely (random, utilities, etc.)
       const families = CATEGORY_DTYPE_SUPPORT[spec.category];
-      if (!families) continue; // Category not listed = skip (random, utilities, etc.)
+      if (!families) continue;
 
-      // Only vary entries with no explicit dtype or dtype === 'float64'.
-      // Entries with a pinned non-default dtype (e.g. index arrays at int32) are left alone.
-      const variableEntries = dataEntries.filter(
-        ([, entry]) => !entry.dtype || entry.dtype === 'float64',
-      );
+      // Only vary entries whose dtype is the category's natural base.
+      //
+      // For float-bearing categories that is float64 (or unset); a pinned
+      // non-default dtype there is a semantic pin (e.g. index arrays at int32)
+      // and is left alone.
+      //
+      // Integer-only categories (bitwise) have no float64 base at all — their
+      // natural base IS int32/uint32, so those must stay sweepable. Treating
+      // them as semantic pins silently collapsed every bitwise op to a single
+      // dtype, hiding e.g. bitwise_count's int8 path entirely.
+      const intOnlyCategory = !families.includes('float') && !families.includes('complex');
+      const isSweepableBase = (dtype: DType | undefined): boolean =>
+        !dtype ||
+        dtype === 'float64' ||
+        (intOnlyCategory && (dtype === 'int32' || dtype === 'uint32'));
+      const variableEntries = dataEntries.filter(([, entry]) => isSweepableBase(entry.dtype));
       if (variableEntries.length === 0) continue;
 
       // Collect all applicable variant dtypes
