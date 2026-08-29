@@ -4,13 +4,29 @@
 //! Binary: out[i] = gcd(a[i], b[i])
 //! Uses Euclidean algorithm. Operates on contiguous 1D buffers.
 
+/// Absolute value that wraps rather than trapping on the most negative value.
+///
+/// Plain `-v` on `minInt` is illegal behaviour in Zig — a panic under
+/// ReleaseSafe and undefined under the `-O ReleaseFast` this ships with, which
+/// leaves LLVM free to assume it never happens. `-%` wraps instead, so
+/// `absWrap(i8, -128)` is `-128`. The Euclidean loop below is correct with a
+/// negative `x`: `@rem` keeps the sign of the dividend and the loop terminates
+/// on `y`, which reaches 0 either way, and NumPy wraps at the same place.
+///
+/// Mirrors the helper of the same name in lcm.zig.
+fn absWrap(comptime T: type, v: T) T {
+    if (@typeInfo(T).int.signedness == .signed) {
+        return if (v < 0) -%v else v;
+    }
+    return v;
+}
+
 /// Scalar GCD for i32: out[i] = gcd(abs(a[i]), abs(scalar)).
 export fn gcd_scalar_i32(a: [*]const i32, out: [*]i32, N: u32, scalar: i32) void {
-    const b = if (scalar < 0) -scalar else scalar;
+    const b = absWrap(i32, scalar);
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        var x = a[i];
-        if (x < 0) x = -x;
+        var x = absWrap(i32, a[i]);
         var y = b;
         while (y != 0) {
             const temp = y;
@@ -25,10 +41,8 @@ export fn gcd_scalar_i32(a: [*]const i32, out: [*]i32, N: u32, scalar: i32) void
 export fn gcd_i32(a: [*]const i32, b: [*]const i32, out: [*]i32, N: u32) void {
     var i: u32 = 0;
     while (i < N) : (i += 1) {
-        var x = a[i];
-        if (x < 0) x = -x;
-        var y = b[i];
-        if (y < 0) y = -y;
+        var x = absWrap(i32, a[i]);
+        var y = absWrap(i32, b[i]);
         while (y != 0) {
             const temp = y;
             y = @rem(x, y);
@@ -41,13 +55,8 @@ export fn gcd_i32(a: [*]const i32, b: [*]const i32, out: [*]i32, N: u32) void {
 // --- Small-int native-dtype kernels ---
 
 fn gcdGeneric(comptime T: type, x_in: T, y_in: T) T {
-    var x = x_in;
-    var y = y_in;
-    // For signed types, take abs
-    if (@typeInfo(T).int.signedness == .signed) {
-        if (x < 0) x = -x;
-        if (y < 0) y = -y;
-    }
+    var x = absWrap(T, x_in);
+    var y = absWrap(T, y_in);
     while (y != 0) {
         const temp = y;
         y = @rem(x, y);
@@ -411,4 +420,35 @@ test "gcd_scalar_i64 basic" {
     try testing.expectEqual(out[1], 6);
     try testing.expectEqual(out[2], 1);
     try testing.expectEqual(out[3], 3);
+}
+
+test "gcd most negative input does not trap" {
+    const testing = @import("std").testing;
+    // |minInt| is not representable; absWrap leaves it negative rather than
+    // invoking illegal behaviour. NumPy agrees on the results below.
+    const a8 = [_]i8{ -128, -128 };
+    const b8 = [_]i8{ 2, 3 };
+    var o8: [2]i8 = undefined;
+    gcd_i8(&a8, &b8, &o8, 2);
+    try testing.expectEqual(o8[0], 2);
+    try testing.expectEqual(o8[1], 1);
+
+    const a32 = [_]i32{ -2147483648, -2147483648, -2147483648 };
+    const b32 = [_]i32{ 2, 3, 0 };
+    var o32: [3]i32 = undefined;
+    gcd_i32(&a32, &b32, &o32, 3);
+    try testing.expectEqual(o32[0], 2);
+    try testing.expectEqual(o32[1], 1);
+    // gcd(x, 0) short-circuits and hands back the wrapped |x|.
+    try testing.expectEqual(o32[2], -2147483648);
+
+    var os: [1]i32 = undefined;
+    gcd_scalar_i32(&[_]i32{-2147483648}, &os, 1, -2147483648);
+    try testing.expectEqual(os[0], -2147483648);
+
+    const a64 = [_]i64{-9223372036854775808};
+    const b64 = [_]i64{4};
+    var o64: [1]i64 = undefined;
+    gcd_i64(&a64, &b64, &o64, 1);
+    try testing.expectEqual(o64[0], 4);
 }

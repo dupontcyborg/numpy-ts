@@ -880,6 +880,10 @@ export function allElementsEqual(
   if (a.dtype !== b.dtype) return null;
   if (isComplexDType(a.dtype)) return null;
   if (!a.isCContiguous || !b.isCContiguous) return null;
+  if (a.shape.length !== b.shape.length) return null;
+  for (let i = 0; i < a.shape.length; i++) {
+    if (a.shape[i] !== b.shape[i]) return null;
+  }
   if (a.size !== b.size) return null;
 
   // SIMD first for large arrays. The loops below are already monomorphic, but
@@ -1107,20 +1111,19 @@ export function elementwiseUnaryOp(
 }
 
 /**
- * A dense, logical-order Float64Array copy of a non-BigInt storage.
+ * A dense, logical-order Float64Array over a non-BigInt storage — **read-only**.
  *
  * Widening happens in one native TypedArray-to-TypedArray conversion, so
  * callers get a monomorphic buffer to compute over instead of reading through
  * a TypedArray union element by element. Not valid for int64/uint64, whose
  * range exceeds f64's exact integers.
  */
-export function flatF64(s: ArrayStorage): Float64Array {
+export function flatF64View(s: ArrayStorage): Float64Array {
   type Sub = { subarray(b: number, e: number): ArrayLike<number> };
 
   if (s.isCContiguous) {
     const view = (s.data as unknown as Sub).subarray(s.offset, s.offset + s.size);
     // Already the right type: hand back the view rather than duplicating it.
-    // Callers treat the result as read-only.
     return view instanceof Float64Array ? view : new Float64Array(view);
   }
 
@@ -1132,4 +1135,15 @@ export function flatF64(s: ArrayStorage): Float64Array {
   } finally {
     c.dispose();
   }
+}
+
+/**
+ * Like {@link flatF64View}, but always safe to write to.
+ *
+ * Only the contiguous-float64 case differs, and only there does this cost an
+ * allocation the view form avoids.
+ */
+export function flatF64Copy(s: ArrayStorage): Float64Array {
+  const v = flatF64View(s);
+  return s.dtype === 'float64' ? new Float64Array(v) : v;
 }

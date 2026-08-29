@@ -16,13 +16,7 @@ import {
   type TypedArray,
 } from './dtype';
 import { stridedCopyInto } from './internal/strided-copy';
-import {
-  getSharedMemory,
-  registerForCleanup,
-  unregisterCleanup,
-  type WasmRegion,
-  wasmMalloc,
-} from './wasm/runtime';
+import { getSharedMemory, type WasmRegion, wasmMalloc } from './wasm/runtime';
 
 // Polyfill Symbol.dispose for runtimes that don't define it natively (e.g. Safari).
 // Uses the same Symbol.for key that TypeScript, esbuild, Babel, and SWC emit in
@@ -81,10 +75,10 @@ export class ArrayStorage {
     this._strides = strides;
     this._offset = offset;
     this._dtype = dtype;
+    // No cleanup registration here: WasmRegion registers itself with the
+    // FinalizationRegistry at construction, so the region is freed when the last
+    // storage referencing it dies. See regionRegistry in wasm/runtime.ts.
     this._wasmRegion = wasmRegion;
-    if (wasmRegion) {
-      registerForCleanup(this, wasmRegion);
-    }
   }
 
   /**
@@ -163,7 +157,8 @@ export class ArrayStorage {
    */
   dispose(): void {
     if (this._wasmRegion) {
-      unregisterCleanup(this);
+      // release() unregisters the region from the FinalizationRegistry before
+      // freeing it, so there is nothing to unregister for this storage.
       this._wasmRegion.release();
       this._wasmRegion = null;
     }
@@ -548,6 +543,20 @@ export class ArrayStorage {
   /**
    * Allocate uninitialized storage for output buffers.
    * Like zeros() but skips zero-fill — use only when the caller will fully overwrite the data.
+   *
+   * **Except for `bool`, which is always zeroed.** WASM-backed allocations hand
+   * back recycled heap memory, so "uninitialized" means whatever the previous
+   * owner left there. Every other dtype is produced by a loop or kernel that
+   * writes each element, but boolean results come from predicates that only
+   * write the `1`s and leave the rest — `isnan`, `isinf`, `isnat`, `iscomplex`
+   * and friends all had this bug, each returning stale `1`s from a recycled
+   * buffer. Fixing it per-predicate meant every future predicate had to
+   * remember; the guarantee belongs here instead.
+   *
+   * The cost is a memset on a one-byte-per-element buffer, against a
+   * per-element JS loop that follows it. Kernels that genuinely fill every
+   * element build their output with fromWasmRegion() and never come through
+   * here.
    * @internal
    */
   static empty(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
@@ -564,8 +573,10 @@ export class ArrayStorage {
     if (region) {
       const mem = getSharedMemory();
       const data = new Constructor(mem.buffer, region.ptr, physicalSize);
+      if (dtype === 'bool') (data as Uint8Array).fill(0);
       return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype, region);
     }
+    // A fresh JS TypedArray is already zeroed; nothing to do for bool here.
     const data = new Constructor(physicalSize);
     return new ArrayStorage(data, shape, ArrayStorage._computeStrides(shape), 0, dtype);
   }

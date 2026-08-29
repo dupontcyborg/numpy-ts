@@ -709,11 +709,16 @@ describe('Additional Logic Functions', () => {
   });
 
   describe('real_if_close()', () => {
-    it('returns copy of real array', () => {
+    it('returns a view of a real array, as NumPy does', () => {
       const arr = array([1, 2, 3]);
       const result = real_if_close(arr);
       expect(result.toArray()).toEqual([1, 2, 3]);
-      expect(result.base).toBe(null);
+      // NumPy hands a real input straight back — there is nothing to do — so the
+      // result aliases, and `base` says so. It used to report no base while
+      // still sharing the buffer, which claimed an ownership it did not have.
+      expect(result.base).toBe(arr);
+      result.set([0], 99);
+      expect(arr.toArray()).toEqual([99, 2, 3]);
     });
 
     it('handles 2D arrays', () => {

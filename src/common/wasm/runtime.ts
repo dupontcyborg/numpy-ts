@@ -230,27 +230,6 @@ const regionRegistry = new FinalizationRegistry<number>((ptr) => {
   }
 });
 
-/**
- * Register an object (typically ArrayStorage) so that when it is garbage
- * collected, the associated WasmRegion's refcount is decremented.
- * The instance itself is used as the unregister token, allowing
- * eager cleanup via unregisterCleanup() to prevent double-free.
- */
-export function registerForCleanup(_instance: object, _region: WasmRegion): void {
-  // No-op: regions register themselves at construction. Kept so existing call
-  // sites stay valid; see the note on regionRegistry above.
-}
-
-/**
- * Unregister an object from the FinalizationRegistry.
- * Must be called when eagerly releasing WASM memory to prevent
- * the GC callback from double-freeing the region.
- */
-export function unregisterCleanup(_instance: object): void {
-  // No-op: storages are no longer individually registered. WasmRegion.release()
-  // unregisters the region itself before freeing.
-}
-
 // ---------------------------------------------------------------------------
 // Persistent allocator — for ArrayStorage backing data
 // ---------------------------------------------------------------------------

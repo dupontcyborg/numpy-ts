@@ -164,7 +164,13 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
     );
   }
 
-  // Fast path: if array is C-contiguous, create a view (no copy)
+  // Fast path: if array is C-contiguous, create a view (no copy).
+  //
+  // The offset must be carried over. `isCContiguous` is computed from the
+  // strides alone, so a *sliced* view — `a[1:]`, a row range — is C-contiguous
+  // with a non-zero offset. Hardcoding 0 here silently re-based the view on the
+  // start of the buffer and returned the wrong elements; `tensordot` reshapes
+  // its operands and hit this for any sliced input.
   if (storage.isCContiguous) {
     const data = storage.data;
     return ArrayStorage.fromDataShared(
@@ -172,7 +178,7 @@ export function reshape(storage: ArrayStorage, newShape: number[]): ArrayStorage
       finalShape,
       dtype,
       computeStrides(finalShape),
-      0,
+      storage.offset,
       storage.wasmRegion,
     );
   }
@@ -264,10 +270,19 @@ export function ravel(storage: ArrayStorage): ArrayStorage {
   const size = storage.size;
   const dtype = storage.dtype;
 
-  // Fast path: if array is C-contiguous, create a view (no copy needed)
+  // Fast path: if array is C-contiguous, create a view (no copy needed).
+  // The offset carries over for the same reason as in reshape() above: a sliced
+  // view is C-contiguous but does not start at the beginning of the buffer.
   if (storage.isCContiguous) {
     const data = storage.data;
-    return ArrayStorage.fromDataShared(data, [size], dtype, [1], 0, storage.wasmRegion);
+    return ArrayStorage.fromDataShared(
+      data,
+      [size],
+      dtype,
+      [1],
+      storage.offset,
+      storage.wasmRegion,
+    );
   }
 
   // Slow path: array is not contiguous, must copy like flatten()

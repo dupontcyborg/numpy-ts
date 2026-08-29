@@ -21,7 +21,7 @@ import {
   type TypedArray,
   throwIfComplex,
 } from '../dtype';
-import { broadcastShapes, elementwiseComparisonOp, flatF64 } from '../internal/compute';
+import { broadcastShapes, elementwiseComparisonOp, flatF64View } from '../internal/compute';
 import { ArrayStorage } from '../storage';
 import { wasmCopysign, wasmCopysignScalar } from '../wasm/copysign';
 import { wasmIsfinite } from '../wasm/isfinite';
@@ -635,6 +635,11 @@ export function isinf(a: ArrayStorage): ArrayStorage {
   const data = result.data as Uint8Array;
   const size = a.size;
 
+  // Integer and BigInt values are never infinite, whatever the layout, and
+  // ArrayStorage.empty hands back a zeroed bool buffer — so the answer is
+  // already sitting in `result`.
+  if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) return result;
+
   if (a.isCContiguous) {
     const thisData = a.data;
     const off = a.offset;
@@ -648,10 +653,6 @@ export function isinf(a: ArrayStorage): ArrayStorage {
         const imInf = !Number.isFinite(im) && !Number.isNaN(im);
         data[i] = reInf || imInf ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never infinite. ArrayStorage.empty may
-      // hand back a recycled buffer, so zero it explicitly.
-      data.fill(0, 0, size);
     } else {
       if (off === 0) {
         for (let i = 0; i < size; i++) {
@@ -673,10 +674,6 @@ export function isinf(a: ArrayStorage): ArrayStorage {
         const imInf = !Number.isFinite(val.im) && !Number.isNaN(val.im);
         data[i] = reInf || imInf ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never infinite. ArrayStorage.empty may
-      // hand back a recycled buffer, so zero it explicitly.
-      data.fill(0, 0, size);
     } else {
       for (let i = 0; i < size; i++) {
         const val = Number(a.iget(i));
@@ -705,6 +702,11 @@ export function isnan(a: ArrayStorage): ArrayStorage {
   const data = result.data as Uint8Array;
   const size = a.size;
 
+  // Integer and BigInt values are never NaN, whatever the layout, and
+  // ArrayStorage.empty hands back a zeroed bool buffer — so the answer is
+  // already sitting in `result`.
+  if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) return result;
+
   if (a.isCContiguous) {
     const thisData = a.data;
     const off = a.offset;
@@ -716,10 +718,6 @@ export function isnan(a: ArrayStorage): ArrayStorage {
         const im = complexData[(off + i) * 2 + 1]!;
         data[i] = Number.isNaN(re) || Number.isNaN(im) ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never NaN. ArrayStorage.empty may hand
-      // back a recycled buffer, so zero it explicitly rather than assuming.
-      data.fill(0, 0, size);
     } else {
       // v !== v is true only for NaN (IEEE 754: NaN != NaN)
       for (let i = 0; i < size; i++) {
@@ -733,10 +731,6 @@ export function isnan(a: ArrayStorage): ArrayStorage {
         const val = a.iget(i) as Complex;
         data[i] = val.re !== val.re || val.im !== val.im ? 1 : 0;
       }
-    } else if (isBigIntDType(a.dtype) || isIntegerDType(a.dtype)) {
-      // Integer and BigInt values are never NaN. ArrayStorage.empty may hand
-      // back a recycled buffer, so zero it explicitly rather than assuming.
-      data.fill(0, 0, size);
     } else {
       for (let i = 0; i < size; i++) {
         const v = Number(a.iget(i));
@@ -758,12 +752,9 @@ export function isnan(a: ArrayStorage): ArrayStorage {
  * @returns Boolean result storage (all false)
  */
 export function isnat(a: ArrayStorage): ArrayStorage {
-  // Without datetime support, nothing is NaT
-  const result = ArrayStorage.empty(Array.from(a.shape), 'bool');
-  // ArrayStorage.empty may hand back a recycled buffer, so zero it explicitly
-  // rather than relying on a fresh Uint8Array.
-  (result.data as Uint8Array).fill(0, 0, a.size);
-  return result;
+  // Without datetime support nothing is NaT, and ArrayStorage.empty guarantees
+  // a zeroed bool buffer.
+  return ArrayStorage.empty(Array.from(a.shape), 'bool');
 }
 
 // ============================================================
@@ -1185,7 +1176,7 @@ export function spacing(a: ArrayStorage): ArrayStorage {
     const dt = mathResultDtype('bool'); // 'float16'
     const result = ArrayStorage.zeros(Array.from(a.shape), dt);
     const resultData = result.data;
-    const src = flatF64(a);
+    const src = flatF64View(a);
     for (let i = 0; i < size; i++) {
       resultData[i] = float16Spacing(src[i]!);
     }
@@ -1195,7 +1186,7 @@ export function spacing(a: ArrayStorage): ArrayStorage {
     const size = a.size;
     const result = ArrayStorage.zeros(Array.from(a.shape), 'float32');
     const resultData = result.data as Float32Array;
-    const src = flatF64(a);
+    const src = flatF64View(a);
     for (let i = 0; i < size; i++) {
       F32_V[0] = src[i]!;
       const bits = F32_U[0]!;
@@ -1404,12 +1395,10 @@ export function iscomplex(a: ArrayStorage): ArrayStorage {
         data[i] = val.im !== 0 ? 1 : 0;
       }
     }
-  } else {
-    // Real arrays have no imaginary part, so every element is false.
-    // ArrayStorage.empty may hand back a recycled buffer — zero it explicitly.
-    data.fill(0, 0, size);
   }
 
+  // A real array falls straight through: every element is false, which is what
+  // ArrayStorage.empty already guarantees for a bool buffer.
   return result;
 }
 
@@ -1552,11 +1541,19 @@ export function isfortran(a: ArrayStorage): boolean {
 }
 
 /**
- * Returns complex array with complex parts close to zero set to real
- * Since numpy-ts doesn't support complex numbers, returns copy
+ * Return the real part of a complex array when every imaginary part is
+ * negligible, otherwise the input unchanged.
+ *
+ * A real input is handed straight back as a **view**, not a copy — there is
+ * nothing to do, and this is what NumPy does. Writes to the result reach the
+ * input. The complex branches still allocate.
+ *
+ * (The old doc here claimed complex was unsupported and that this always
+ * copied; neither has been true for a while.)
+ *
  * @param a - Input array storage
- * @param _tol - Tolerance (unused, for API compatibility)
- * @returns Copy of input array
+ * @param tol - Tolerance in machine epsilons for "close to zero" (default 100)
+ * @returns Real-valued result, or a view of the input when it is already real
  */
 export function real_if_close(a: ArrayStorage, tol: number = 100): ArrayStorage {
   const dtype = a.dtype;

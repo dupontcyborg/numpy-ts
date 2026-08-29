@@ -6,19 +6,19 @@
  */
 
 import * as complexOps from '../common/ops/complex';
-import { fromStorage, type NDArrayCore, toStorage } from './types';
+import { fromStorage, fromStorageMaybeView, type NDArrayCore, toStorage } from './types';
 
 // Re-export Complex class from core
 export { Complex } from '../common/complex';
 
-/** Extract real part of array */
+/** Extract real part of array (a view of `x`, as in NumPy) */
 export function real(x: NDArrayCore): NDArrayCore {
-  return fromStorage(complexOps.real(toStorage(x)));
+  return fromStorageMaybeView(complexOps.real(toStorage(x)), x);
 }
 
-/** Extract imaginary part of array */
+/** Extract imaginary part of array (a view for complex `x`, zeros otherwise) */
 export function imag(x: NDArrayCore): NDArrayCore {
-  return fromStorage(complexOps.imag(toStorage(x)));
+  return fromStorageMaybeView(complexOps.imag(toStorage(x)), x);
 }
 
 /** Complex conjugate */

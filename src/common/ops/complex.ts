@@ -15,8 +15,13 @@ import { wasmConj } from '../wasm/conj';
 /**
  * Return the real part of complex argument.
  *
- * For complex arrays, returns the real components.
- * For real arrays, returns a copy of the input.
+ * Both branches return a **view**, never a copy — writes to the result are
+ * visible through the input, as they are in NumPy.
+ *
+ * For complex arrays, returns the real components as a stride-2 view into the
+ * interleaved buffer.
+ * For real arrays, returns a view aliasing the input exactly (`np.real(x) is x`
+ * in NumPy).
  *
  * @param a - Input array storage
  * @returns Array with real parts (float64 or float32 for complex, same dtype for real)
