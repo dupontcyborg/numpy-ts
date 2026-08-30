@@ -364,6 +364,11 @@ function real_if_close(x: ArrayLike, tol?: number): NDArray
 
 **Returns:** `NDArray` -- Real-valued array if the imaginary part is negligible, otherwise the original array.
 
+<Note>
+Changed in v1.7.0: input that is already real is handed straight back as a view rather than a copy; the complex branches still allocate. This matches NumPy. Writes to the result reach the input array, so call `.copy()` if you need an independent buffer. `base` is set on exactly the results that alias.
+</Note>
+
+
 ```typescript
 import * as np from 'numpy-ts';
 
