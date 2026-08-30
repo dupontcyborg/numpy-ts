@@ -269,13 +269,16 @@ jobs:
             " >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Dependency vulnerability scan (advisory — non-blocking)
+  # Vulnerability scan of what actually ships. The package has no runtime
+  # dependencies, so this passes trivially today and exists to fail loudly the
+  # day one is added with a known advisory. Dev dependencies are deliberately
+  # out of scope: they never reach a consumer, and Dependabot already opens PRs
+  # for them.
   audit:
     name: pnpm audit
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -290,8 +293,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run pnpm audit (high severity)
-        run: pnpm audit --audit-level high
+      - name: Run pnpm audit (production deps, high severity)
+        run: pnpm audit --prod --audit-level high
 
   # Build and validate distribution
   build:

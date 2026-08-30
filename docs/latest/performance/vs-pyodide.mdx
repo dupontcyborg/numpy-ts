@@ -1,0 +1,72 @@
+---
+title: "numpy-ts vs. NumPy (Pyodide)"
+sidebarTitle: "vs. NumPy (Pyodide)"
+mode: "wide"
+---
+
+import { BenchmarkReport } from '/snippets/BenchmarkReport.jsx'
+
+export const benchmarkData = {"summary":{"avgSpeedup":2.4138,"medianSpeedup":2.1881,"bestCase":972.7446,"worstCase":0.037,"totalBenchmarks":3513},"meta":{"generatedAt":"2026-08-29 11:35:09 UTC","sourceJson":"benchmarks/results/latest-full-pyodide.json","runtimes":{"node":"24.12.0"},"pythonVersion":"3.14.2","numpyVersion":"2.4.6 (Pyodide/WASM)","numpyTsVersion":"1.7.0","machine":"Apple M4 Max (16 cores, 128 GB, arm64)"},"categories":[{"name":"creation","avgSpeedup":3.1445,"count":253,"fasterCount":234,"slowerCount":19},{"name":"arithmetic","avgSpeedup":2.7908,"count":421,"fasterCount":367,"slowerCount":54},{"name":"math","avgSpeedup":1.9071,"count":292,"fasterCount":241,"slowerCount":51},{"name":"trig","avgSpeedup":2.0887,"count":216,"fasterCount":191,"slowerCount":25},{"name":"gradient","avgSpeedup":8.1373,"count":22,"fasterCount":22,"slowerCount":0},{"name":"linalg","avgSpeedup":3.8394,"count":292,"fasterCount":266,"slowerCount":26},{"name":"reductions","avgSpeedup":1.965,"count":521,"fasterCount":422,"slowerCount":99},{"name":"manipulation","avgSpeedup":2.7847,"count":488,"fasterCount":438,"slowerCount":50},{"name":"io","avgSpeedup":3.0555,"count":66,"fasterCount":52,"slowerCount":14},{"name":"indexing","avgSpeedup":1.6894,"count":226,"fasterCount":146,"slowerCount":80},{"name":"bitwise","avgSpeedup":4.2546,"count":66,"fasterCount":66,"slowerCount":0},{"name":"sorting","avgSpeedup":1.2391,"count":88,"fasterCount":48,"slowerCount":40},{"name":"logic","avgSpeedup":2.9842,"count":274,"fasterCount":242,"slowerCount":32},{"name":"statistics","avgSpeedup":4.3075,"count":28,"fasterCount":25,"slowerCount":3},{"name":"sets","avgSpeedup":1.0742,"count":121,"fasterCount":47,"slowerCount":74},{"name":"random","avgSpeedup":1.5975,"count":46,"fasterCount":42,"slowerCount":4},{"name":"polynomials","avgSpeedup":4.8118,"count":27,"fasterCount":21,"slowerCount":6},{"name":"fft","avgSpeedup":1.2682,"count":66,"fasterCount":33,"slowerCount":33}],"dtypeStats":[{"dtype":"float64","count":373,"avgSpeedup":2.2849,"medianSpeedup":1.9166},{"dtype":"float32","count":344,"avgSpeedup":2.6877,"medianSpeedup":2.3947},{"dtype":"float16","count":313,"avgSpeedup":2.3945,"medianSpeedup":2.3298},{"dtype":"int64","count":298,"avgSpeedup":1.8094,"medianSpeedup":1.5605},{"dtype":"uint64","count":290,"avgSpeedup":1.7711,"medianSpeedup":1.5027},{"dtype":"int32","count":296,"avgSpeedup":2.3518,"medianSpeedup":2.1904},{"dtype":"uint32","count":290,"avgSpeedup":2.3582,"medianSpeedup":2.1904},{"dtype":"int16","count":285,"avgSpeedup":2.7909,"medianSpeedup":3.0074},{"dtype":"uint16","count":284,"avgSpeedup":2.6601,"medianSpeedup":2.8727},{"dtype":"int8","count":285,"avgSpeedup":3.1494,"medianSpeedup":3.1239},{"dtype":"uint8","count":286,"avgSpeedup":3.0308,"medianSpeedup":3.1127},{"dtype":"complex128","count":83,"avgSpeedup":2.0786,"medianSpeedup":1.63},{"dtype":"complex64","count":83,"avgSpeedup":1.8955,"medianSpeedup":1.5865},{"dtype":"bool","count":3,"avgSpeedup":1.5616,"medianSpeedup":1.2293}]};
+
+Benchmark snapshot comparing numpy-ts against [Pyodide](https://github.com/pyodide/pyodide) NumPy (WASM-compiled CPython + NumPy).
+
+<Tip>
+All benchmarks measure computation time from JS and Python, respectively. To learn more, check out [benchmark methodology](./methodology).
+</Tip>
+
+<BenchmarkReport data={benchmarkData} detailUrl="/assets/v1.7.x/vs-pyodide-benchmarks.json" />
+
+<div style={{display: 'none'}} data-llm-summary="true">
+
+## Benchmark Summary
+
+- **Average speedup**: 2.41x vs NumPy
+- **Best case**: 972.74x
+- **Worst case**: 0.04x
+- **Total benchmarks**: 3513
+- **Machine**: Apple M4 Max (16 cores, 128 GB, arm64)
+- **numpy-ts version**: 1.7.0
+
+### Performance by Category
+
+| Category | Avg Speedup | Count | Faster | Slower |
+|-|-|-|-|-|
+| creation | 3.14x | 253 | 234 | 19 |
+| arithmetic | 2.79x | 421 | 367 | 54 |
+| math | 1.91x | 292 | 241 | 51 |
+| trig | 2.09x | 216 | 191 | 25 |
+| gradient | 8.14x | 22 | 22 | 0 |
+| linalg | 3.84x | 292 | 266 | 26 |
+| reductions | 1.97x | 521 | 422 | 99 |
+| manipulation | 2.78x | 488 | 438 | 50 |
+| io | 3.06x | 66 | 52 | 14 |
+| indexing | 1.69x | 226 | 146 | 80 |
+| bitwise | 4.25x | 66 | 66 | 0 |
+| sorting | 1.24x | 88 | 48 | 40 |
+| logic | 2.98x | 274 | 242 | 32 |
+| statistics | 4.31x | 28 | 25 | 3 |
+| sets | 1.07x | 121 | 47 | 74 |
+| random | 1.60x | 46 | 42 | 4 |
+| polynomials | 4.81x | 27 | 21 | 6 |
+| fft | 1.27x | 66 | 33 | 33 |
+
+### Performance by DType
+
+| DType | Avg Speedup | Median Speedup | Count |
+|-|-|-|-|
+| float64 | 2.28x | 1.92x | 373 |
+| float32 | 2.69x | 2.39x | 344 |
+| float16 | 2.39x | 2.33x | 313 |
+| int64 | 1.81x | 1.56x | 298 |
+| uint64 | 1.77x | 1.50x | 290 |
+| int32 | 2.35x | 2.19x | 296 |
+| uint32 | 2.36x | 2.19x | 290 |
+| int16 | 2.79x | 3.01x | 285 |
+| uint16 | 2.66x | 2.87x | 284 |
+| int8 | 3.15x | 3.12x | 285 |
+| uint8 | 3.03x | 3.11x | 286 |
+| complex128 | 2.08x | 1.63x | 83 |
+| complex64 | 1.90x | 1.59x | 83 |
+| bool | 1.56x | 1.23x | 3 |
+
+</div>

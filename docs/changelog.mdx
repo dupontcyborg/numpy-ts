@@ -4,11 +4,43 @@ sidebarTitle: Changelog
 
 ---
 
+<Update label="v1.7.0" description="2026-08-29">
+
+## numpy-ts v1.7.0
+
+Performance release: new WASM SIMD kernels, lower per-call overhead, and the NumPy-compatibility fixes found along the way.
+
+Measured like-for-like across the 2,388 benchmarks common to both sides, the geometric mean against NumPy improves from 0.87x to 0.77x. numpy-ts is now roughly **1.3x faster than NumPy** over the suite. Benchmarks slower than 5x NumPy fell from 48 to 25, and none remain above 10x on the standard suite (the large-array sweep still has 15). Coverage grew from 2,390 to 3,513 cases, sweeping every operation across all applicable dtypes.
+
+### Breaking
+
+* **`einsum_path` returns `[Array<string | number[]>, string]`.** The path now carries NumPy's `'einsum_path'` marker as its first element, so the runtime output matches `np.einsum_path` exactly. Callers indexing into the path must skip element 0; `path.slice(1) as number[][]`.
+* **`real`, `real_if_close`, `round`/`around` (integer input, `decimals >= 0`) and `apply_along_axis` now return views**, matching NumPy. Writes to a result or to an `apply_along_axis` callback argument. Call `.copy()` if you relied on the old copying behavior. `base` is set on exactly the results that alias, so it is a reliable test rather than a dtype guess. See [views and copies](/latest/guides/views-copies).
+
+### New WASM SIMD kernels
+
+`all_equal` (every dtype but `float16`, with `equal_nan` variants), `compare`, `rounding`, `isinf`, `lcm` and `bulk_mem`; `gcd` extended to `uint32`/`int64`/`uint64`; `bitwise_count` now uses `i8x16.popcnt`, and `roll`/`pad`/`tile` use bulk memory operations. `tensordot` reshapes to 2-D and delegates to `matmul` instead of running its own contraction loop.
+
+### Fixed
+
+* **64-bit integer precision** in 20+ operations that routed `int64`/`uint64` through a double, collapsing values above 2^53, including `bitwise_and`/`or`/`xor` returning 0 on broadcast and `add`/`subtract`/`multiply` off by one with a size-1 operand. `union1d`, `setxor1d`, `tensordot` and `gcd`/`lcm` no longer throw on 64-bit input.
+* **`reshape`/`ravel` on a sliced view** dropped the source offset and returned row-shifted results with no error raised.
+* **Stale WASM buffers:** `iscomplex`, `isnan`, `isinf` and `isnat` could return all-true from a recycled buffer the fast path never wrote to.
+* Wrong results from `array_equiv` on complex input, integer `power` with a negative array exponent, `rint` on a non-contiguous integer view, `place`/`putmask` with a plain mask or scalar values, and `searchsorted` on its JS fallback path.
+* Narrow-dtype accumulation now matches NumPy for `nancumprod` on `complex64`, `nanstd`/`nanvar` on `float16`, and `around`/`round` scaling on `float32`/`float16`.
+* Several WASM memory leaks and a latent use-after-free in `apply_over_axes`. Heap exhaustion now warns once instead of silently degrading to JS-backed arrays.
+
+### Internals
+
+`ArrayStorage.size` is computed once in the constructor rather than on every access; WASM regions register with the `FinalizationRegistry` once per allocation instead of once per sharing `ArrayStorage`; and `ArrayStorage.empty` zeroes `bool` buffers so predicates can no longer read stale heap.
+
+</Update>
+
 <Update label="v1.6.0" description="2026-07-16">
 
 ## numpy-ts v1.6.0
 
-Compile-time `dtype` typing across the public API. `NDArray<D>` now tracks its dtype through nearly every operation at zero runtime cost, so results report their exact dtype (`add(int32Arr, float32Arr)` → `NDArray<'float64'>`) and element access is typed per dtype (`bigint` for `int64`/`uint64`, `Complex` for complex, `number` otherwise). See [Compile-time dtype tracking](/next/guides/typescript-patterns#compile-time-dtype-tracking).
+Compile-time `dtype` typing across the public API. `NDArray<D>` now tracks its dtype through nearly every operation at zero runtime cost, so results report their exact dtype (`add(int32Arr, float32Arr)` → `NDArray<'float64'>`) and element access is typed per dtype (`bigint` for `int64`/`uint64`, `Complex` for complex, `number` otherwise). See [Compile-time dtype tracking](/v1.6.x/guides/typescript-patterns#compile-time-dtype-tracking).
 
 ### Breaking
 

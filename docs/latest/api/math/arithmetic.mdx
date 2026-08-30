@@ -1,0 +1,805 @@
+---
+title: "Arithmetic"
+description: "Element-wise arithmetic operations: add, subtract, multiply, divide, power, absolute value, and more."
+---
+
+All arithmetic functions operate element-wise. Binary functions accept an `NDArray` or a scalar as the second argument and broadcast as needed.
+
+### add
+
+Add arguments element-wise.
+
+```typescript
+function add(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise sum of the inputs.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.array([1, 2, 3]);
+const b = np.add(a, np.array([10, 20, 30]));
+// array([11, 22, 33])
+
+const c = np.add(a, 100);
+// array([101, 102, 103])
+```
+
+```typescript Core
+import { add, array } from 'numpy-ts/core';
+
+const a = array([1, 2, 3]);
+const b = add(a, 100);
+```
+</CodeGroup>
+
+---
+
+### subtract
+
+Subtract arguments element-wise.
+
+```typescript
+function subtract(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise difference `x1 - x2`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.subtract(np.array([10, 20, 30]), np.array([1, 2, 3]));
+// array([9, 18, 27])
+```
+
+```typescript Core
+import { subtract, array } from 'numpy-ts/core';
+
+const a = subtract(array([10, 20, 30]), 5);
+// array([5, 15, 25])
+```
+</CodeGroup>
+
+---
+
+### multiply
+
+Multiply arguments element-wise.
+
+```typescript
+function multiply(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise product.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.multiply(np.array([1, 2, 3]), np.array([4, 5, 6]));
+// array([4, 10, 18])
+```
+
+```typescript Core
+import { multiply, array } from 'numpy-ts/core';
+
+const a = multiply(array([2, 4, 6]), 0.5);
+// array([1, 2, 3])
+```
+</CodeGroup>
+
+---
+
+### divide
+
+Divide arguments element-wise (true division).
+
+```typescript
+function divide(x: ArrayLike, divisor: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Dividend array. |
+| `divisor` | `ArrayLike \| number` | - | Divisor array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise quotient `x / divisor`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.divide(np.array([10, 20, 30]), 10);
+// array([1, 2, 3])
+```
+
+```typescript Core
+import { divide, array } from 'numpy-ts/core';
+
+const a = divide(array([10, 20, 30]), 10);
+```
+</CodeGroup>
+
+---
+
+### true_divide
+
+Alias for [`divide`](#divide). Returns true (floating-point) division.
+
+```typescript
+function true_divide(x: ArrayLike, divisor: ArrayLike | number): NDArray
+```
+
+---
+
+### floor_divide
+
+Element-wise floor division. Returns the largest integer less than or equal to the division.
+
+```typescript
+function floor_divide(x: ArrayLike, divisor: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Dividend array. |
+| `divisor` | `ArrayLike \| number` | - | Divisor array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise floor of `x / divisor`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.floor_divide(np.array([7, 8, 9]), 3);
+// array([2, 2, 3])
+```
+
+```typescript Core
+import { floor_divide, array } from 'numpy-ts/core';
+
+const a = floor_divide(array([7, 8, 9]), 3);
+```
+</CodeGroup>
+
+---
+
+### mod
+
+Element-wise modulo (remainder of floor division). Equivalent to `remainder`.
+
+```typescript
+function mod(x: ArrayLike, divisor: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Dividend array. |
+| `divisor` | `ArrayLike \| number` | - | Divisor array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise remainder.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.mod(np.array([7, 8, 9]), 3);
+// array([1, 2, 0])
+```
+
+```typescript Core
+import { mod, array } from 'numpy-ts/core';
+
+const a = mod(array([7, 8, 9]), 3);
+```
+</CodeGroup>
+
+---
+
+### remainder
+
+Element-wise remainder of division. Equivalent to `mod`.
+
+```typescript
+function remainder(x: ArrayLike, y: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Dividend array. |
+| `y` | `ArrayLike \| number` | - | Divisor. |
+
+**Returns:** `NDArray` -- Element-wise remainder of `x1 / x2`.
+
+---
+
+### fmod
+
+Element-wise remainder using C-library `fmod`. The result has the same sign as the dividend.
+
+```typescript
+function fmod(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | Dividend. |
+| `x2` | `ArrayLike \| number` | - | Divisor. |
+
+**Returns:** `NDArray` -- Element-wise C-style remainder.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.fmod(np.array([-3, -2, -1, 1, 2, 3]), 2);
+// array([-1, 0, -1, 1, 0, 1])
+```
+
+```typescript Core
+import { fmod, array } from 'numpy-ts/core';
+
+const a = fmod(array([-3, -2, -1, 1, 2, 3]), 2);
+```
+</CodeGroup>
+
+---
+
+### divmod
+
+Return element-wise quotient and remainder simultaneously.
+
+```typescript
+function divmod(x: ArrayLike, y: ArrayLike | number): [NDArray, NDArray]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Dividend. |
+| `y` | `ArrayLike \| number` | - | Divisor. |
+
+**Returns:** `[NDArray, NDArray]` -- Tuple of `[quotient, remainder]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const [q, r] = np.divmod(np.array([7, 8, 9]), 3);
+// q = array([2, 2, 3])
+// r = array([1, 2, 0])
+```
+
+```typescript Core
+import { divmod, array } from 'numpy-ts/core';
+
+const [q, r] = divmod(array([7, 8, 9]), 3);
+```
+</CodeGroup>
+
+---
+
+### power
+
+Element-wise exponentiation.
+
+```typescript
+function power(x: ArrayLike, exponent: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Base array. |
+| `exponent` | `ArrayLike \| number` | - | Exponent array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise `x1 ** x2`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.power(np.array([2, 3, 4]), 2);
+// array([4, 9, 16])
+```
+
+```typescript Core
+import { power, array } from 'numpy-ts/core';
+
+const a = power(array([2, 3, 4]), 2);
+```
+</CodeGroup>
+
+---
+
+### pow
+
+Alias for [`power`](#power).
+
+```typescript
+function pow(x: ArrayLike, exponent: ArrayLike | number): NDArray
+```
+
+---
+
+### float_power
+
+Element-wise power, always returning float64 results.
+
+```typescript
+function float_power(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | Base array. |
+| `x2` | `ArrayLike \| number` | - | Exponent. |
+
+**Returns:** `NDArray` -- Element-wise `x1 ** x2` as float64.
+
+---
+
+### sqrt
+
+Return the non-negative square root of each element.
+
+```typescript
+function sqrt(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise square root.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.sqrt(np.array([1, 4, 9, 16]));
+// array([1, 2, 3, 4])
+```
+
+```typescript Core
+import { sqrt, array } from 'numpy-ts/core';
+
+const a = sqrt(array([1, 4, 9, 16]));
+```
+</CodeGroup>
+
+---
+
+### square
+
+Return the element-wise square.
+
+```typescript
+function square(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `x * x`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.square(np.array([1, 2, 3, 4]));
+// array([1, 4, 9, 16])
+```
+
+```typescript Core
+import { square, array } from 'numpy-ts/core';
+
+const a = square(array([1, 2, 3]));
+```
+</CodeGroup>
+
+---
+
+### cbrt
+
+Return the cube root of each element.
+
+```typescript
+function cbrt(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise cube root.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.cbrt(np.array([1, 8, 27]));
+// array([1, 2, 3])
+```
+
+```typescript Core
+import { cbrt, array } from 'numpy-ts/core';
+
+const a = cbrt(array([1, 8, 27]));
+```
+</CodeGroup>
+
+---
+
+### absolute
+
+Compute the absolute value element-wise.
+
+```typescript
+function absolute(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise absolute value.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.absolute(np.array([-1, -2, 3, -4]));
+// array([1, 2, 3, 4])
+```
+
+```typescript Core
+import { absolute, array } from 'numpy-ts/core';
+
+const a = absolute(array([-1, -2, 3]));
+```
+</CodeGroup>
+
+---
+
+### abs
+
+Alias for [`absolute`](#absolute).
+
+```typescript
+function abs(x: ArrayLike): NDArray
+```
+
+---
+
+### fabs
+
+Compute the absolute value element-wise (float version). Identical to `absolute` for real-valued arrays.
+
+```typescript
+function fabs(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise absolute value as float.
+
+---
+
+### sign
+
+Return the element-wise sign: `-1` for negative, `0` for zero, `1` for positive.
+
+```typescript
+function sign(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise sign indication.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.sign(np.array([-5, 0, 3]));
+// array([-1, 0, 1])
+```
+
+```typescript Core
+import { sign, array } from 'numpy-ts/core';
+
+const a = sign(array([-5, 0, 3]));
+```
+</CodeGroup>
+
+---
+
+### negative
+
+Numerical negative, element-wise.
+
+```typescript
+function negative(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `-x`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.negative(np.array([1, -2, 3]));
+// array([-1, 2, -3])
+```
+
+```typescript Core
+import { negative, array } from 'numpy-ts/core';
+
+const a = negative(array([1, -2, 3]));
+```
+</CodeGroup>
+
+---
+
+### positive
+
+Numerical positive, element-wise. Returns a copy.
+
+```typescript
+function positive(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Copy of the input array.
+
+---
+
+### reciprocal
+
+Return the reciprocal (1/x) of each element.
+
+```typescript
+function reciprocal(x: ArrayLike): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `NDArray` -- Element-wise `1 / x`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.reciprocal(np.array([1, 2, 4, 10]));
+// array([1, 0.5, 0.25, 0.1])
+```
+
+```typescript Core
+import { reciprocal, array } from 'numpy-ts/core';
+
+const a = reciprocal(array([1, 2, 4]));
+```
+</CodeGroup>
+
+---
+
+### heaviside
+
+Compute the Heaviside step function. Returns `0` where `x1 < 0`, `x2` where `x1 == 0`, and `1` where `x1 > 0`.
+
+```typescript
+function heaviside(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | Input values. |
+| `x2` | `ArrayLike \| number` | - | Value to use where `x1 == 0`. |
+
+**Returns:** `NDArray` -- Element-wise Heaviside step function.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.heaviside(np.array([-1, 0, 1]), 0.5);
+// array([0, 0.5, 1])
+```
+
+```typescript Core
+import { heaviside, array } from 'numpy-ts/core';
+
+const a = heaviside(array([-1, 0, 1]), 0.5);
+```
+</CodeGroup>
+
+---
+
+### gcd
+
+Return the greatest common divisor of `|x1|` and `|x2|`, element-wise.
+
+```typescript
+function gcd(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise GCD.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.gcd(np.array([12, 18, 24]), 6);
+// array([6, 6, 6])
+```
+
+```typescript Core
+import { gcd, array } from 'numpy-ts/core';
+
+const a = gcd(array([12, 18, 24]), 6);
+```
+</CodeGroup>
+
+---
+
+### lcm
+
+Return the least common multiple of `|x1|` and `|x2|`, element-wise.
+
+```typescript
+function lcm(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | First input array. |
+| `x2` | `ArrayLike \| number` | - | Second input array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise LCM.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.lcm(np.array([4, 6]), np.array([6, 8]));
+// array([12, 24])
+```
+
+```typescript Core
+import { lcm, array } from 'numpy-ts/core';
+
+const a = lcm(array([4, 6]), array([6, 8]));
+```
+</CodeGroup>
+
+---
+
+### frexp
+
+Decompose each element into mantissa and exponent, such that `x = mantissa * 2**exponent`.
+
+```typescript
+function frexp(x: ArrayLike): [NDArray, NDArray]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `[NDArray, NDArray]` -- Tuple of `[mantissa, exponent]` arrays.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const [m, e] = np.frexp(np.array([1, 2, 4, 8]));
+// m = array([0.5, 0.5, 0.5, 0.5])
+// e = array([1, 2, 3, 4])
+```
+
+```typescript Core
+import { frexp, array } from 'numpy-ts/core';
+
+const [m, e] = frexp(array([1, 2, 4, 8]));
+```
+</CodeGroup>
+
+---
+
+### ldexp
+
+Compute `x1 * 2**x2`, element-wise. The inverse of `frexp`.
+
+```typescript
+function ldexp(x1: ArrayLike, x2: ArrayLike | number): NDArray
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x1` | `ArrayLike` | - | Mantissa array. |
+| `x2` | `ArrayLike \| number` | - | Exponent array or scalar. |
+
+**Returns:** `NDArray` -- Element-wise `x1 * 2**x2`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const a = np.ldexp(np.array([0.5, 0.5, 0.5]), np.array([1, 2, 3]));
+// array([1, 2, 4])
+```
+
+```typescript Core
+import { ldexp, array } from 'numpy-ts/core';
+
+const a = ldexp(array([0.5, 0.5, 0.5]), array([1, 2, 3]));
+```
+</CodeGroup>
+
+---
+
+### modf
+
+Return the fractional and integer parts of each element.
+
+```typescript
+function modf(x: ArrayLike): [NDArray, NDArray]
+```
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `ArrayLike` | - | Input array. |
+
+**Returns:** `[NDArray, NDArray]` -- Tuple of `[fractional_part, integer_part]`.
+
+<CodeGroup>
+```typescript Full Library
+import * as np from 'numpy-ts';
+
+const [frac, intg] = np.modf(np.array([1.5, 2.7, -3.2]));
+// frac = array([0.5, 0.7, -0.2])
+// intg = array([1, 2, -3])
+```
+
+```typescript Core
+import { modf, array } from 'numpy-ts/core';
+
+const [frac, intg] = modf(array([1.5, 2.7, -3.2]));
+```
+</CodeGroup>

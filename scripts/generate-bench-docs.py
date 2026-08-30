@@ -822,6 +822,12 @@ All benchmarks measure computation time from JS and Python, respectively. To lea
 # Version detection
 # ---------------------------------------------------------------------------
 
+# The live docs are served from docs/latest/ so their URLs survive a version bump,
+# while the benchmark assets stay under the version label. An archived snapshot then
+# keeps pointing at the numbers it shipped with instead of the current run's.
+LIVE_DOCS_DIR = "latest"
+
+
 def detect_latest_docs_version(repo_root: Path) -> str:
     docs_config = repo_root / "docs" / "docs.json"
     if not docs_config.exists():
@@ -863,7 +869,7 @@ def main() -> int:
     #   python3 scripts/generate-bench-docs.py benchmarks/results/latest-full.json [output.mdx]
     if len(sys.argv) > 1:
         input_path = (repo_root / sys.argv[1]).resolve()
-        default_output = f"docs/{version}/performance/vs-numpy.mdx"
+        default_output = f"docs/{LIVE_DOCS_DIR}/performance/vs-numpy.mdx"
         output_path = (repo_root / (sys.argv[2] if len(sys.argv) > 2 else default_output)).resolve()
 
         if not input_path.exists():
@@ -886,10 +892,10 @@ def main() -> int:
         return 0
 
     # Default: generate all performance pages
-    print(f"Generating performance docs for {version}...")
+    print(f"Generating performance docs for {version} into docs/{LIVE_DOCS_DIR}/...")
     errors = 0
     for page in PAGES:
-        output_rel = page["output"].format(version=version)
+        output_rel = page["output"].format(version=LIVE_DOCS_DIR)
         output_path = repo_root / output_rel
 
         # Check all inputs exist

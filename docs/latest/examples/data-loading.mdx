@@ -1,0 +1,151 @@
+---
+title: "Data Loading & I/O"
+description: "Load and save arrays in .npy, .npz, and text formats across Node.js and browser environments."
+---
+
+import { Playground } from '/snippets/Playground.jsx'
+
+numpy-ts supports the same binary and text file formats as NumPy. The API is split across two entry points: `numpy-ts/node` for filesystem access, and `numpy-ts` (or `numpy-ts/core`) for in-memory serialization suitable for browsers.
+
+## Loading .npy files
+
+The `.npy` format stores a single array with its dtype, shape, and byte order metadata.
+
+<Playground
+  code={String.raw`// Serialize to bytes
+const data = np.array([[1, 2, 3], [4, 5, 6]]);
+const bytes = np.serializeNpy(data);
+console.log('Stored to', bytes.length, 'bytes\n');
+// bytes is a Uint8Array that can be sent over the network or stored
+
+// Load a npy file
+const parsed = np.parseNpy(bytes);
+console.log('Parsed array:\n' + parsed);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+<Tip>
+In Node.js, you can use `load` and `save` from `numpy-ts/node` for convenient file I/O without manual serialization.
+</Tip>
+
+---
+
+## Working with NPZ archives (multiple arrays)
+
+The `.npz` format bundles multiple named arrays into a single ZIP archive.
+
+<Playground
+  code={String.raw`const weights = np.array([[0.1, 0.2], [0.3, 0.4]]);
+const biases = np.zeros([2]);
+
+// Serialize to a Uint8Array (ZIP format)
+const bytes = await np.serializeNpz({ weights, biases });
+console.log('Serialized NPZ size:', bytes.length, 'bytes\n');
+
+// Option A: Full result with metadata
+const result = await np.parseNpz(bytes);
+console.log('Parsed weights:\n' + result.arrays.get('weights'));
+console.log('Skipped arrays:', result.skipped);
+console.log('Errors:', result.errors, '\n');
+
+// Option B: Simplified loader returning a plain object
+const arrays = await np.loadNpz(bytes);
+console.log('Parsed biases:\n' + arrays.biases);`}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## CSV loading with parseTxt
+
+Load delimited text files (CSV, TSV, etc.) into arrays.
+
+<Playground
+  code={[
+    "// Parse from a string (from fetch, FileReader, or inline)",
+    "const csvText =",
+    " `1.0,2.0,3.0",
+    "  4.0,5.0,6.0",
+    "  7.0,8.0,9.0`;",
+    "",
+    "const data = np.parseTxt(csvText, { delimiter: ',' });",
+    "console.log('Parsed data:\\n' + data);",
+    "console.log('Parsed data dtype: ' + data.dtype + '\\n');",
+    "",
+    "// With options",
+    "const withOptions = np.parseTxt(csvText, {",
+    "  delimiter: ',',",
+    "  usecols: [0, 2],     // only first and last columns",
+    "});",
+    "console.log('Parsed data with options:\\n' + withOptions + '\\n');",
+    "",
+    "// Serialize to a CSV string",
+    "const results = np.array([[1.1, 2.2], [3.3, 4.4]]);",
+    "const text = np.serializeTxt(results, {",
+    "  delimiter: ',',",
+    "  header: 'x,y',",
+    "  fmt: '%.2f',",
+    "});",
+    "console.log('Serialized CSV:\\n' + text);",
+  ].join("\n")}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## Flexible text loading with genfromtxt
+
+`genfromtxt` is like `parseTxt` but handles missing and irregular data more gracefully.
+
+<Playground
+  code={[
+    "// Start with messy csv data",
+    "const messy =",
+    " `1.0,2.0,3.0",
+    "  4.0,NA,6.0",
+    "  7.0,8.0,",
+    "  ,10.0,11.0`;",
+    "",
+    "const data = np.genfromtxt(messy, {",
+    "  delimiter: ',',",
+    "  missing_values: ['NA', ''],",
+    "  filling_values: 0,",
+    "});",
+    "console.log(data);",
+  ].join("\n")}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+
+---
+
+## Extracting data with fromregex
+
+Pull numeric data from unstructured text using regular expressions.
+
+<Playground
+  code={[
+    "const log = `",
+    "  [2024-01-01] Point: x=1.5, y=2.3",
+    "  [2024-01-02] Point: x=4.0, y=5.1",
+    "  [2024-01-03] Point: x=7.2, y=8.9",
+    "`;",
+    "",
+    "const points = np.fromregex(log, /x=([\\d.]+), y=([\\d.]+)/);",
+    "console.log(points);",
+  ].join("\n")}
+  showImportHeader={true}
+  showCopyButton={true}
+/>
+---
+
+## NumPy interoperability
+
+Files saved by numpy-ts can be loaded by Python NumPy, and vice versa. This makes it easy to share data between TypeScript and Python workflows.
+
+<Warning>
+numpy-ts only supports numeric dtypes. Object arrays, structured arrays, string arrays, and pickle-based `.npy` files from Python cannot be loaded.
+</Warning>
