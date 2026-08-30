@@ -4,7 +4,7 @@ sidebarTitle: "Overview"
 mode: "wide"
 ---
 
-numpy-ts is **1.25x faster** than NumPy on average across 7,159 benchmarks (small, medium, and large arrays) and runs natively in JavaScript + WASM with zero dependencies.
+numpy-ts is **1.36x faster** than NumPy on average across 10,528 benchmarks (small, medium, and large arrays) and runs natively in JavaScript + WASM with zero dependencies.
 
 <Tip>
 All benchmarks compare computation time between JS (numpy-ts) and Python (NumPy with OpenBLAS), measured on each side respectively. See [methodology](./methodology) for details.
@@ -12,7 +12,7 @@ All benchmarks compare computation time between JS (numpy-ts) and Python (NumPy 
 
 ## Performance by Category
 
-numpy-ts outperforms NumPy in most categories. NumPy leads in bitwise, trig, and math — all active areas of improvement.
+numpy-ts outperforms NumPy in most categories, led by gradient (4.63x), io (2.69x), and polynomials (2.35x). NumPy leads in bitwise, indexing, sorting, and random — all active areas of improvement.
 
 <Frame>
 <img
@@ -33,7 +33,7 @@ See the full breakdown of category results on the [numpy-ts vs. NumPy page](./vs
 
 ## Performance by Data Type
 
-Smaller data types see the biggest gains — numpy-ts's SIMD kernels process more elements per instruction for `int8`, `uint8`, and `float16`. Even `float64` (NumPy's home turf) is on par.
+Smaller data types see the biggest gains — numpy-ts's SIMD kernels process more elements per instruction, and `float16` leads at 1.59x. Even `float64` (NumPy's home turf) is 1.37x faster. Complex and boolean types are the exception, where NumPy still leads.
 
 <Frame>
 <img
@@ -54,7 +54,7 @@ See the full breakdown of dtype results on the [numpy-ts vs. NumPy page](./vs-nu
 
 ## Performance by Array Size
 
-numpy-ts is as fast or faster than NumPy at every tested array scale — from small (100-element) arrays where low overhead matters, to large (10K-element) arrays where SIMD throughput dominates.
+numpy-ts is faster than NumPy at every tested array scale — from small (100-element) arrays where low overhead matters (1.45x), to large (10K-element) arrays where SIMD throughput dominates (1.42x).
 
 <Frame>
 <img

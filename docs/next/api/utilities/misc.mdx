@@ -27,6 +27,14 @@ function apply_along_axis(
 
 **Returns:** `NDArray` -- The result of applying `func1d` along the specified axis.
 
+<Warning>
+Changed in v1.7.0: `func1d` now receives a **view** of each slice rather than a copy, matching NumPy. A callback that mutates its argument in place will write through to `arr`. If your callback modifies the slice it is handed, copy it first:
+
+```typescript
+apply_along_axis((s) => { const t = s.copy(); t.set(0, 0); return t; }, 0, a);
+```
+</Warning>
+
 ```typescript
 import { array, apply_along_axis, sort } from 'numpy-ts';
 

@@ -38,10 +38,29 @@ These operations return arrays that share data with the input. No memory is allo
 | `reshape` | New shape (if the array is C-contiguous) |
 | `ravel` | Flattens to 1D (if the array is C-contiguous) |
 | `broadcast_to` | Broadcasts to a larger shape |
+| `real` | Real part of an array that is already real |
+| `real_if_close` | Input that is already real |
+| `round` / `around` | Integer input with `decimals >= 0` |
+| `apply_along_axis` | The callback receives a view of each slice |
 
 <Note>
 `reshape` and `ravel` return views **only** when the source array is C-contiguous. If the array is not contiguous in memory (for example, after a transpose), these operations must allocate a copy.
 </Note>
+
+<Warning>
+The last four entries changed in v1.7.0 — they previously returned copies. Each one now matches NumPy, which returns a view in exactly these cases, but code that writes to the result (or to an `apply_along_axis` callback argument) will now see that write reach the input array. Call `.copy()` on the result if you relied on the old behavior.
+</Warning>
+
+Each of these falls back to allocating when it has real work to do: `real` and `real_if_close` on complex input, and `round` on floats or with `decimals < 0`. Rather than guessing from the dtype, check `base` — it is set on exactly the results that share the input's buffer:
+
+```typescript
+const r = real(x);
+if (r.base !== null) {
+  // r aliases x; writing to r writes to x
+}
+```
+
+`imag(x)` for real `x` is the exception worth remembering: it allocates a fresh zero-filled array and reports no base, so it is never aliased even though `real(x)` on the same input is.
 
 ## Operations that return copies
 

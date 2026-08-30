@@ -377,7 +377,7 @@ const unwrapped = unwrap(phase);
 
 ### real
 
-Return the real part of each element. For real-valued arrays, returns a copy.
+Return the real part of each element. For real-valued arrays there is nothing to extract, so the input is handed back as a view.
 
 ```typescript
 function real(x: ArrayLike): NDArray
@@ -388,6 +388,10 @@ function real(x: ArrayLike): NDArray
 | `x` | `ArrayLike` | - | Input array (real or complex). |
 
 **Returns:** `NDArray` -- The real part of each element.
+
+<Note>
+Changed in v1.7.0: a real-valued input now comes back as a view rather than a copy, matching NumPy. Writes to the result reach the input array. Complex input still allocates. Check `base` to tell the two apart -- it is set only when the result aliases.
+</Note>
 
 <CodeGroup>
 ```typescript Full Library
@@ -423,6 +427,10 @@ function imag(x: ArrayLike): NDArray
 | `x` | `ArrayLike` | - | Input array (real or complex). |
 
 **Returns:** `NDArray` -- The imaginary part of each element.
+
+<Note>
+Unlike `real`, this always allocates for real-valued input -- the zeros it returns are a fresh buffer with no `base`, so writing to the result never touches the input.
+</Note>
 
 <CodeGroup>
 ```typescript Full Library
