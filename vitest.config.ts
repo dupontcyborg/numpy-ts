@@ -104,7 +104,9 @@ export default defineConfig({
           include: ['tests/unit/**'],
           // Exclude dispose-wasm-lifecycle — it uses `using` syntax which WebKit can't parse.
           // That file is covered by browser-dispose-vanilla (Chromium+Firefox only).
-          exclude: ['**/node_modules/**', '**/__screenshots__/**', '**/dispose-wasm-lifecycle*', '**/dtype-promotion.test.ts'],
+          // benchmark-coverage reads the benchmark sources off disk with node:fs,
+          // which Vite externalizes in the browser.
+          exclude: ['**/node_modules/**', '**/__screenshots__/**', '**/dispose-wasm-lifecycle*', '**/dtype-promotion.test.ts', '**/benchmark-coverage.test.ts'],
           setupFiles: ['tests/setup-version.ts'],
           browser: {
             enabled: true,
