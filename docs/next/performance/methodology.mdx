@@ -8,9 +8,9 @@ numpy-ts ships with a comprehensive benchmark suite that measures performance ag
 
 ## What's tested
 
-The suite contains **308 benchmark specifications** across **18 categories**: creation, arithmetic, math, trig, gradient, linalg, reductions, manipulation, io, indexing, bitwise, sorting, logic, statistics, sets, random, polynomials, and fft.
+The suite contains **408 benchmark specifications** across **18 categories**: creation, arithmetic, math, trig, gradient, linalg, reductions, manipulation, io, indexing, bitwise, sorting, logic, statistics, sets, random, polynomials, and fft.
 
-Each specification is tested across multiple dtypes (`float64`, `float32`, `float16`, `int8`-`int64`, `uint8`-`uint64`, `complex64`, `complex128`, `bool`) where applicable, producing **~2,400 individual benchmarks** in a full run.
+Each specification is tested across multiple dtypes (`float64`, `float32`, `float16`, `int8`-`int64`, `uint8`-`uint64`, `complex64`, `complex128`, `bool`) where applicable, producing **~3,500 individual benchmarks** in a single run. The figures published on this site combine three runs -- small, medium and large -- for **10,528 benchmarks** in total.
 
 Array sizes are configurable:
 
@@ -61,27 +61,29 @@ A few design decisions to keep the comparison honest:
 
 - **Same operations, same data.** Both sides run the same algorithm on the same array shapes and dtypes. The Python runner ([`numpy_benchmark.py`](https://github.com/dupontcyborg/numpy-js/blob/main/benchmarks/scripts/numpy_benchmark.py)) mirrors the JS specifications exactly.
 - **Computation only.** Timing happens on each side of the boundary. numpy-ts is timed from JS; NumPy is timed from Python. Neither side pays for cross-language overhead.
-- **No cherry-picking.** Every benchmark in the spec file runs. Categories where NumPy is faster (trig, math, indexing) are reported alongside categories where numpy-ts wins.
+- **No cherry-picking.** Every benchmark in the spec file runs. Categories where NumPy is faster (bitwise, indexing, sorting, random) are reported alongside categories where numpy-ts wins.
 - **Geometric mean for ratios.** Category and overall averages use the geometric mean, which is the [correct method for averaging ratios](https://en.wikipedia.org/wiki/Geometric_mean#Applications).
 
 ## Running benchmarks yourself
 
 ```bash
-# Standard run (~5-10 min)
+# Full run (~30-60 min) -- this is what the published results use
 pnpm run bench
 
-# Full run with more warmup (~30-60 min, used for published results)
-pnpm run bench:full
-
-# Quick sanity check (~1-2 min)
-pnpm run bench:quick
+# Fewer warmup iterations and samples, for a faster pass
+pnpm run bench -- --standard   # ~5-10 min
+pnpm run bench -- --quick      # ~1-2 min
 
 # Test different array sizes
 pnpm run bench -- --size small
 pnpm run bench -- --size large
 
-# Compare across runtimes (Node, Deno, Bun)
-pnpm run bench -- --runtimes
+# Other runtimes
+pnpm run bench:deno
+pnpm run bench:bun
+
+# Everything the published pages are built from
+pnpm run bench:all
 ```
 
 Results are saved to `benchmarks/results/` as JSON files.
