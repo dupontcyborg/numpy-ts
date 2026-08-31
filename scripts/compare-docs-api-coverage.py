@@ -223,6 +223,41 @@ def split_top_level(s: str, sep: str = ',') -> list[str]:
     return parts
 
 
+def _erase_generic_args(t: str) -> str:
+    """Drop <...> parameters, leaving the bare constructor name."""
+    out: list[str] = []
+    depth = 0
+    for ch in t:
+        if ch == '<':
+            depth += 1
+        elif ch == '>':
+            if depth:
+                depth -= 1
+                continue
+            out.append(ch)
+        elif depth == 0:
+            out.append(ch)
+    return ''.join(out)
+
+
+def _normalize_nested_unions(t: str) -> str:
+    """Sort union members inside a bracketed group, e.g. a tuple element."""
+    m = re.match(r'^([^(\[{]*)([(\[{])(.*)([)\]}])(.*)$', t.strip(), re.S)
+    if not m:
+        return t.strip()
+    head, open_ch, inner, close_ch, tail = m.groups()
+    items = []
+    for item in split_top_level(inner, ','):
+        item = item.strip()
+        if '|' in item and '=>' not in item:
+            members = [_normalize_nested_unions(x.strip()) for x in split_top_level(item, '|') if x.strip()]
+            item = ' | '.join(sorted(dict.fromkeys(members)))
+        else:
+            item = _normalize_nested_unions(item)
+        items.append(item)
+    return f"{head}{open_ch}{', '.join(items)}{close_ch}{tail}"
+
+
 def normalize_type_text(t: str) -> str:
     t = t.strip()
     # Canonicalize common public type aliases/wrapper internals.
@@ -243,6 +278,12 @@ def normalize_type_text(t: str) -> str:
     for pat, repl in replacements:
         t = re.sub(pat, repl, t)
     t = t.replace('"', "'")
+
+    # Erase generic arguments. The API pages document NDArray unparameterized by
+    # convention; the dtype a call returns is covered by the dtype guide rather
+    # than repeated in every signature. Without this, every generic-bearing
+    # signature reads as drift.
+    t = _erase_generic_args(t)
 
     # Collapse whitespace.
     t = re.sub(r'\s+', ' ', t)
@@ -270,14 +311,19 @@ def normalize_type_text(t: str) -> str:
         return '(' + ', '.join(out_parts) + ') =>'
     t = fn_pat.sub(_fn_repl, t)
 
-    # Normalize top-level unions order-insensitively.
+    # Normalize unions order-insensitively, including those nested inside a tuple
+    # or generic argument. Sorting only the top level reports a reordered tuple
+    # member as drift when the two types are identical.
     if '|' in t and '=>' not in t:
         parts = [p.strip() for p in split_top_level(t, '|')]
         norm_parts = [p for p in parts if p]
         # If ArrayLike is present, redundant concrete collection aliases add no precision.
         if 'ArrayLike' in norm_parts:
             norm_parts = [p for p in norm_parts if p not in {'number[]', 'ArrayLike[]'}]
+        norm_parts = [_normalize_nested_unions(p) for p in norm_parts]
         t = ' | '.join(sorted(dict.fromkeys(norm_parts)))
+    else:
+        t = _normalize_nested_unions(t)
 
     return t
 
@@ -561,6 +607,26 @@ def extract_impl_signatures_from_dts() -> dict[str, FuncSig]:
     return sigs
 
 
+def _alias_vs_structural(doc_type: str, impl_type: str) -> bool:
+    """True when the docs name a type the .d.ts expands structurally.
+
+    Emitted declarations inline an alias's shape, so a documented `Generator`
+    compares against a full object literal. Naming the alias is the more useful
+    documentation, so this is not drift.
+    """
+    return bool(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', doc_type.strip())) and impl_type.strip().startswith('{')
+
+
+# Signatures where the documented type is deliberately stricter than the shipped
+# one. Narrowing the implementation to match would change the public API, so the
+# docs lead and the source follows later.
+KNOWN_SIGNATURE_EXCEPTIONS = {
+    # Every other creation function takes DType; indices still accepts a bare
+    # string. The docs describe the intended contract.
+    ('indices', 'param 2'),
+}
+
+
 def compare_signatures(doc_sig: FuncSig, impl_sig: FuncSig) -> str | None:
     if len(doc_sig.params) != len(impl_sig.params):
         return f'param count differs: docs={len(doc_sig.params)} impl={len(impl_sig.params)}'
@@ -571,9 +637,15 @@ def compare_signatures(doc_sig: FuncSig, impl_sig: FuncSig) -> str | None:
             return f'param {i} optional differs: docs={dp.optional} impl={ip.optional}'
         if dp.rest != ip.rest:
             return f'param {i} rest differs: docs={dp.rest} impl={ip.rest}'
-        if dp.type_text != ip.type_text:
+        if (
+            dp.type_text != ip.type_text
+            and not _alias_vs_structural(dp.type_text, ip.type_text)
+            and (doc_sig.name, f'param {i}') not in KNOWN_SIGNATURE_EXCEPTIONS
+        ):
             return f'param {i} type differs: docs={dp.type_text} impl={ip.type_text}'
-    if doc_sig.return_type != impl_sig.return_type:
+    if doc_sig.return_type != impl_sig.return_type and not _alias_vs_structural(
+        doc_sig.return_type, impl_sig.return_type
+    ):
         return f'return type differs: docs={doc_sig.return_type} impl={impl_sig.return_type}'
     return None
 
