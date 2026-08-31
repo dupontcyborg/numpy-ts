@@ -10,10 +10,10 @@ Apply a function to 1-D slices of an array along the given axis. The function is
 
 ```typescript
 function apply_along_axis(
-  func1d: (arr: NDArray, ...args: any[]) => NDArray | number,
+  func1d: (arr: NDArray, ...args: unknown[]) => NDArray | number,
   axis: number,
   arr: ArrayLike,
-  ...args: any[]
+  ...args: unknown[]
 ): NDArray
 ```
 
@@ -368,4 +368,54 @@ Fill an array in place with a scalar value.
 
 ```typescript
 function fill(a: NDArray, value: number | bigint | boolean | Complex): void
+```
+
+---
+
+### configureWasm
+
+Set the size of the WASM linear memory before it is allocated. Raise `maxMemory` when a workload exhausts the heap, or lower it in memory-constrained environments such as a serverless runtime.
+
+```typescript
+function configureWasm(options: ConfigureWasmOptions): void
+```
+
+| Name | Type | Default | Description |
+|-|-|-|-|
+| `options.maxMemory` | `number` | `268435456` (256 MiB) | Total WASM linear memory, in bytes. Must be positive. |
+| `options.scratchSize` | `number` | `maxMemory / 16` | Scratch region for temporary kernel buffers, in bytes. |
+
+**Returns:** `void`
+
+<Warning>
+This must be called before any array operation. WASM memory is allocated lazily on first use, and once allocated it cannot be resized -- calling `configureWasm` afterwards throws.
+</Warning>
+
+```typescript
+import * as np from 'numpy-ts';
+
+// Before touching any array API
+np.configureWasm({ maxMemory: 1024 * 1024 * 1024 }); // 1 GiB
+
+const a = np.zeros([10000, 10000]);
+```
+
+---
+
+### wasmFreeBytes
+
+Report how many bytes remain available in the WASM heap. Useful for spotting a leak in a long-running process, or for sizing a batch before allocating it.
+
+```typescript
+function wasmFreeBytes(): number
+```
+
+**Returns:** `number` -- Free bytes in the WASM heap. Initializes the heap if it has not been allocated yet, so calling this counts as first use for the purposes of `configureWasm`.
+
+```typescript
+import * as np from 'numpy-ts';
+
+const before = np.wasmFreeBytes();
+const a = np.zeros([1000, 1000]);
+console.log(before - np.wasmFreeBytes()); // bytes consumed by `a`
 ```

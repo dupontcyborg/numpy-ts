@@ -10,7 +10,7 @@ sidebarTitle: Changelog
 
 Performance release: new WASM SIMD kernels, lower per-call overhead, and the NumPy-compatibility fixes found along the way.
 
-Measured like-for-like across the 2,388 benchmarks common to both sides, the geometric mean against NumPy improves from 0.87x to 0.77x. numpy-ts is now roughly **1.3x faster than NumPy** over the suite. Benchmarks slower than 5x NumPy fell from 48 to 25, and none remain above 10x on the standard suite (the large-array sweep still has 15). Coverage grew from 2,390 to 3,513 cases, sweeping every operation across all applicable dtypes.
+numpy-ts is now roughly **1.3x faster than NumPy** over the suite (see [benchmarks](/performance) for more details). Coverage grew from 2,390 to 3,513 cases, sweeping every operation across all applicable dtypes.
 
 ### Breaking
 

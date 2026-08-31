@@ -182,7 +182,7 @@ Return the indices to access an (n, n) array given a masking function.
 ```typescript
 function mask_indices(
   n: number,
-  mask_func: (n: number, k?: number) => NDArray,
+  mask_func: (m: NDArray, k: number) => NDArray,
   k?: number
 ): NDArray[]
 ```
@@ -190,7 +190,7 @@ function mask_indices(
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `n` | `number` | -- | Size of the square array. |
-| `mask_func` | `(n: number, k?: number) => NDArray` | -- | A function that accepts `(n, k)` and returns a 2-D boolean or integer array (like `triu` or `tril`). |
+| `mask_func` | `(m: NDArray, k: number) => NDArray` | -- | A function that accepts `(m, k)` -- an `n`x`n` array and a diagonal offset -- and returns a 2-D boolean or integer array (like `triu` or `tril`). |
 | `k` | `number` | `0` | Optional diagonal offset passed to `mask_func`. |
 
 **Returns:** `[NDArray, NDArray]` -- Row and column index arrays where `mask_func` returns non-zero values.

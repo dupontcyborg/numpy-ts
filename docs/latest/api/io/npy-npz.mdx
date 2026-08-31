@@ -313,7 +313,7 @@ function saveNpy(path: string, arr: NDArray): Promise<void>
 Load a `.npz` file from disk and return parsed arrays.
 
 ```typescript
-function loadNpzFile(path: string, options?: LoadOptions): Promise<NpzParseResult>
+function loadNpzFile(path: string, options?: NpzParseOptions): Promise<NpzParseResult>
 ```
 
 | Name | Type | Default | Description |
@@ -396,7 +396,27 @@ await np.savez_compressed('data.npz', { weights: w, biases: b });
 </Tab>
 <Tab title="Sync">
 
-Synchronous versions are also available:
+Every function above has a synchronous counterpart taking the same arguments and returning the value directly rather than a `Promise`. They are Node-only -- they read and write through `node:fs` -- so use the async forms in the browser.
+
+```typescript
+function loadSync(path: string, options?: LoadOptions): NDArray | NpzParseResultNDArray
+
+function loadNpySync(path: string): NDArray
+
+function loadNpzFileSync(path: string, options?: NpzParseOptions): NpzParseResultNDArray
+
+function saveSync(path: string, arr: NDArray): void
+
+function saveNpySync(path: string, arr: NDArray): void
+
+function saveNpzFileSync(path: string, arrays: NpzArraysInput): void
+```
+
+<Note>
+`saveNpzFileSync` takes no options argument. Compression is only available through async `saveNpzFile`, for the reason given below.
+</Note>
+
+Usage:
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -411,7 +431,6 @@ np.saveNpySync('output.npy', weights);
 
 // Save
 np.saveSync('output.npy', arr);
-np.saveNpzSync('output.npz', { x: xArr });
 np.saveNpzFileSync('output.npz', { x: xArr });
 ```
 
