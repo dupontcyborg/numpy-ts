@@ -1,0 +1,22 @@
+# Self-contained pnpm config for the isolated JS-libs benchmark deps.
+# This file makes benchmarks/js-libs its own workspace root so it does NOT
+# inherit the repo root's pnpm-workspace.yaml — the README's "zero coupling"
+# promise: nothing here is a dependency of the published numpy-ts package.
+
+# Dependencies allowed to run install/build (postinstall) scripts.
+# pnpm blocks all others by default for supply-chain safety.
+# @stdlib/stats-strided-distances-dcosine-similarity ships a native-addon build
+# script. The benchmarks don't use cosine similarity, and stdlib's index.js
+# does tryRequire('./native.js') → falls back to the pure-JS impl when the
+# addon isn't built, so we don't run it (matches the repo root's posture).
+allowBuilds:
+  '@stdlib/stats-strided-distances-dcosine-similarity': false
+
+# Supply-chain cooldown: refuse to install package versions published less
+# than this many minutes ago (1440 = 1 day), mirroring the repo root policy.
+minimumReleaseAge: 1440
+
+# @stdlib/stats-strided pulls a git-resolved subdependency
+# (@stdlib/stats-strided-meankbn2). pnpm 11 blocks exotic (git) subdeps by
+# default; allow them only within this isolated benchmark workspace.
+blockExoticSubdeps: false
