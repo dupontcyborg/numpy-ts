@@ -88,7 +88,11 @@ function getNDArrayMethods(): Record<string, any> {
   // copy, fill, tolist, shape, dtype and others; reading only the subclass's own
   // properties reports every member it does not override as unimplemented.
   const chain: object[] = [];
-  for (let proto = NDArray.prototype; proto && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) {
+  for (
+    let proto = NDArray.prototype;
+    proto && proto !== Object.prototype;
+    proto = Object.getPrototypeOf(proto)
+  ) {
     chain.push(proto);
   }
 
