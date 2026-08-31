@@ -117,9 +117,9 @@ Integer inputs are automatically converted to `float64` for the result, matching
 ```typescript
 function mean(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |
@@ -149,7 +149,7 @@ Compute the standard deviation along the specified axis.
 ```typescript
 function std(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -186,7 +186,7 @@ Compute the variance along the specified axis.
 ```typescript
 function variance(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -227,7 +227,7 @@ function amin(
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |
@@ -265,7 +265,7 @@ function amax(
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |
@@ -332,7 +332,7 @@ function average(
   weights?: ArrayLike,
   keepdims?: boolean,
   returned?: boolean
-): number | NDArray | Complex | [number | NDArray | Complex, number | NDArray];
+): number | NDArray | Complex | bigint | [number | NDArray | Complex, number | NDArray];
 ```
 
 | Parameter | Type | Default | Description |
@@ -369,7 +369,7 @@ function ptp(
   a: ArrayLike,
   axis?: number | number[],
   keepdims?: boolean
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |

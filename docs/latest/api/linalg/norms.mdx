@@ -152,7 +152,7 @@ console.log(np.linalg.cond(B));  // 1e10
 Compute the determinant of a square matrix.
 
 ```typescript
-function linalg.det(a: ArrayLike): number
+function linalg.det(a: ArrayLike): number | NDArray | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -236,7 +236,12 @@ Return the sum along diagonals of the array. For a 2-D array, this returns the s
 Also available as `np.linalg.trace(...)`.
 
 ```typescript
-function trace(a: ArrayLike): number | bigint | Complex
+function trace(
+  a: ArrayLike,
+  offset?: number,
+  axis1?: number,
+  axis2?: number
+): number | NDArray | bigint | Complex
 ```
 
 | Name | Type | Default | Description |
@@ -246,7 +251,7 @@ function trace(a: ArrayLike): number | bigint | Complex
 | `axis1` | `number` | `0` | First axis of the 2-D sub-arrays from which the diagonals are taken. |
 | `axis2` | `number` | `1` | Second axis of the 2-D sub-arrays from which the diagonals are taken. |
 
-**Returns:** `number | NDArray` -- Scalar for 2-D input, `NDArray` for higher-dimensional input.
+**Returns:** `number | bigint | Complex | NDArray` -- Scalar for 2-D input, `NDArray` for higher-dimensional input. Integer arrays with a 64-bit accumulator return `bigint`.
 
 ```typescript
 import * as np from 'numpy-ts';
@@ -308,7 +313,7 @@ function cross(
   axisb?: number,
   axisc?: number,
   axis?: number
-): NDArray
+): number | NDArray | Complex | bigint
 ```
 
 | Name | Type | Default | Description |

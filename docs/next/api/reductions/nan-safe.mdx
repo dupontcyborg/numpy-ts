@@ -17,9 +17,9 @@ Return the sum of array elements, treating NaN as zero.
 ```typescript
 function nansum(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |
@@ -46,9 +46,9 @@ Return the product of array elements, treating NaN as one.
 ```typescript
 function nanprod(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |
@@ -75,9 +75,9 @@ Compute the arithmetic mean, ignoring NaN values.
 ```typescript
 function nanmean(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   keepdims?: boolean
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |
@@ -104,7 +104,7 @@ Compute the standard deviation, ignoring NaN values.
 ```typescript
 function nanstd(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -135,7 +135,7 @@ Compute the variance, ignoring NaN values.
 ```typescript
 function nanvar(
   a: ArrayLike,
-  axis?: number,
+  axis?: number | number[],
   ddof?: number,
   keepdims?: boolean
 ): number | NDArray;
@@ -168,7 +168,7 @@ function nanmin(
   a: ArrayLike,
   axis?: number | number[],
   keepdims?: boolean
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |
@@ -197,7 +197,7 @@ function nanmax(
   a: ArrayLike,
   axis?: number | number[],
   keepdims?: boolean
-): number | NDArray | Complex;
+): number | NDArray | Complex | bigint;
 ```
 
 | Parameter | Type | Default | Description |

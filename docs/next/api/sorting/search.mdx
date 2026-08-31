@@ -188,13 +188,13 @@ const result = np.extract(condition, a);
 Count the number of non-zero elements in the array.
 
 ```typescript
-function count_nonzero(a: ArrayLike, axis?: number): number | NDArray
+function count_nonzero(a: ArrayLike, axis?: number | number[]): number | NDArray
 ```
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `a` | `ArrayLike` | -- | Input array. |
-| `axis` | `number` | `undefined` | Axis along which to count. If `undefined`, counts over the entire array. |
+| `axis` | `number \| number[]` | `undefined` | Axis along which to count. If `undefined`, counts over the entire array. |
 
 **Returns:** `number` when no axis is specified. `NDArray` when counting along specific axes.
 

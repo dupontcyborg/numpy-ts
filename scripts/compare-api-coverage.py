@@ -15,6 +15,7 @@ Usage:
 import argparse
 import json
 import re
+import os
 import subprocess
 import sys
 from datetime import date
@@ -27,10 +28,13 @@ def run_audits():
 
     print("Running audits to generate fresh data...\n")
 
-    # Run NumPy audit
-    print("1. Auditing NumPy API...")
+    # Run NumPy audit. The interpreter running this script is not necessarily the
+    # one with NumPy installed, so honour NUMPY_PYTHON the same way the validation
+    # suite does.
+    numpy_python = os.environ.get('NUMPY_PYTHON', sys.executable)
+    print(f"1. Auditing NumPy API (via {numpy_python})...")
     result = subprocess.run(
-        [sys.executable, scripts_dir / 'audit-numpy-api.py'],
+        [numpy_python, scripts_dir / 'audit-numpy-api.py'],
         cwd=scripts_dir.parent,
         capture_output=True,
         text=True,
@@ -38,6 +42,13 @@ def run_audits():
     )
     if result.returncode != 0:
         print(f"Error running NumPy audit:\n{result.stderr}")
+        if 'No module named' in result.stderr and 'numpy' in result.stderr:
+            print(
+                f"{numpy_python} has no NumPy installed. Point NUMPY_PYTHON at an "
+                "interpreter that does, e.g.\n"
+                "  NUMPY_PYTHON=$(conda run -n numpy-blas-313 which python3) "
+                "pnpm run report:api-coverage"
+            )
         sys.exit(1)
 
     # Run numpy-ts audit
@@ -129,31 +140,36 @@ def analyze_coverage(verbose=False):
         print("=" * 70)
         sys.exit(1)
 
-    # Get ALL NumPy top-level functions (from categorized)
-    numpy_toplevel = set()
-    for funcs in numpy_audit['categorized'].values():
-        numpy_toplevel.update(funcs)
+    # NumPy's top-level functions. Deriving this from `categorized` folds the
+    # ndarray methods in too, which made this denominator the combined total.
+    numpy_toplevel = set(numpy_audit['numpy_functions'].keys())
 
     # Get ALL numpy-ts top-level functions
     numpyts_toplevel = set(numpyts_audit['all_functions'].keys())
 
-    # Get methods (excluding those in Unplanned category)
-    unplanned = set(numpy_audit['categorized'].get('Unplanned', []))
-    numpy_methods = set(numpy_audit['ndarray_methods'].keys()) - unplanned
+    # Methods that are not also top-level functions. The two buckets have to be
+    # disjoint for their totals to add up to the combined figure; 39 NumPy names
+    # are both a function and a method and would otherwise be counted twice.
+    # Unplanned members stay in the denominator, as they do for functions --
+    # removing them made this row read 100% by construction.
+    numpy_methods = set(numpy_audit['ndarray_methods'].keys()) - numpy_toplevel
     numpyts_methods = set(numpyts_audit['ndarray_methods'].keys())
 
     print("=" * 70)
     print("ACCURATE API COVERAGE ANALYSIS")
     print("=" * 70)
 
-    # Top-level comparison (ignoring if also methods)
-    toplevel_implemented = numpy_toplevel & numpyts_toplevel
+    # A NumPy name counts as implemented if numpy-ts provides it anywhere, as a
+    # function or a method: np.astype exists only as NDArray.astype here. The
+    # buckets partition NumPy's surface; they do not constrain where we expose it.
+    numpyts_surface = numpyts_toplevel | numpyts_methods
+    toplevel_implemented = numpy_toplevel & numpyts_surface
     toplevel_coverage = (
         100 * len(toplevel_implemented) / len(numpy_toplevel)
         if numpy_toplevel else 0
     )
 
-    print("\nTOP-LEVEL FUNCTIONS (ignoring if also methods):")
+    print("\nTOP-LEVEL FUNCTIONS:")
     print(f"  NumPy functions:         {len(numpy_toplevel)}")
     print(f"  numpy-ts functions:      {len(numpyts_toplevel)}")
     print(f"  Implemented:             {len(toplevel_implemented)}")
@@ -161,14 +177,13 @@ def analyze_coverage(verbose=False):
           f"{len(toplevel_implemented)}/{len(numpy_toplevel)} "
           f"({toplevel_coverage:.1f}%)")
 
-    # Methods comparison (ignoring if also functions)
-    methods_implemented = numpy_methods & numpyts_methods
+    methods_implemented = numpy_methods & numpyts_surface
     methods_coverage = (
         100 * len(methods_implemented) / len(numpy_methods)
         if numpy_methods else 0
     )
 
-    print("\nNDARRAY METHODS (ignoring if also functions):")
+    print("\nNDARRAY METHODS (excluding those also exposed as functions):")
     print(f"  NumPy methods:           {len(numpy_methods)}")
     print(f"  numpy-ts methods:        {len(numpyts_methods)}")
     print(f"  Implemented:             {len(methods_implemented)}")
@@ -186,6 +201,16 @@ def analyze_coverage(verbose=False):
     numpy_total = len(numpy_all)
     numpyts_implemented = len(implemented_apis)
     overall_coverage = 100 * numpyts_implemented / numpy_total if numpy_total else 0
+
+    # The two buckets partition NumPy's surface, so their totals must reconcile
+    # with the combined figure. A mismatch means they have started to overlap.
+    assert len(numpy_toplevel) + len(numpy_methods) == numpy_total, (
+        f'denominators do not add up: {len(numpy_toplevel)} + {len(numpy_methods)} != {numpy_total}'
+    )
+    assert len(toplevel_implemented) + len(methods_implemented) == numpyts_implemented, (
+        f'numerators do not add up: {len(toplevel_implemented)} + '
+        f'{len(methods_implemented)} != {numpyts_implemented}'
+    )
 
     print("\nCOMBINED UNIQUE (functions ∪ methods):")
     print(f"  NumPy total:             {numpy_total}")
@@ -237,6 +262,7 @@ def analyze_coverage(verbose=False):
     return {
         'numpy_toplevel': len(numpy_toplevel),
         'numpyts_toplevel': len(numpyts_toplevel),
+        'toplevel_implemented': len(toplevel_implemented),
         'toplevel_coverage': toplevel_coverage,
         'numpy_methods': len(numpy_methods),
         'numpyts_methods': len(numpyts_methods),
@@ -419,7 +445,7 @@ def update_api_reference(analysis):
     coverage = analysis['overall_coverage']
 
     lines.append(f"- **Overall Coverage**: {total_impl}/{total_numpy} ({coverage:.1f}%)")
-    lines.append(f"- **Top-level Functions**: {analysis['numpyts_toplevel']}/{analysis['numpy_toplevel']} ({analysis['toplevel_coverage']:.1f}%)")
+    lines.append(f"- **Top-level Functions**: {analysis['toplevel_implemented']}/{analysis['numpy_toplevel']} ({analysis['toplevel_coverage']:.1f}%)")
     lines.append(f"- **NDArray Methods**: {analysis['methods_implemented']}/{analysis['numpy_methods']} ({analysis['methods_coverage']:.1f}%)")
     lines.append("")
 
@@ -485,6 +511,9 @@ def update_api_reference(analysis):
     # Combine with notes section
     full_content = "\n".join(lines) + notes_section
 
+    # docs_internal/ is gitignored, so it is absent on a fresh clone. This script
+    # is the only writer of the file, so create the directory rather than fail.
+    api_ref_path.parent.mkdir(parents=True, exist_ok=True)
     with open(api_ref_path, 'w', encoding='utf-8') as f:
         f.write(full_content)
 
@@ -492,11 +521,17 @@ def update_api_reference(analysis):
 
 
 def update_docs_api_coverage_page(analysis):
-    """Generate docs/v1.0.x/guides/api-coverage.mdx with coverage details."""
+    """Generate the live guides/api-coverage.mdx with coverage details.
+
+    Writes to docs/latest, not a version folder. The archived folders are frozen
+    snapshots of what each release shipped, so regenerating one there would both
+    overwrite its canonical frontmatter and back-date current coverage numbers
+    into a page that is meant to record an older release.
+    """
     page_path = (
         Path(__file__).parent.parent
         / 'docs'
-        / 'v1.0.x'
+        / 'latest'
         / 'guides'
         / 'api-coverage.mdx'
     )
@@ -519,15 +554,7 @@ def update_docs_api_coverage_page(analysis):
     lines.append('')
     lines.append(f"Last updated: **{today}**")
     lines.append('')
-    lines.append('## Summary')
-    lines.append('')
-    lines.append(f"- Overall coverage: **{total_impl}/{total_numpy} ({coverage:.1f}%)**")
-    lines.append(
-        f"- Top-level functions: **{analysis['numpyts_toplevel']}/{analysis['numpy_toplevel']} ({analysis['toplevel_coverage']:.1f}%)**"
-    )
-    lines.append(
-        f"- NDArray methods: **{analysis['methods_implemented']}/{analysis['numpy_methods']} ({analysis['methods_coverage']:.1f}%)**"
-    )
+    lines.append(f"Overall coverage: **{total_impl}/{total_numpy} ({coverage:.1f}%)**")
     lines.append('')
     lines.append('## Category Breakdown')
     lines.append('')

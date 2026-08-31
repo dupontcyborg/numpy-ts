@@ -84,9 +84,19 @@ function getNDArrayMethods(): Record<string, any> {
     return methods;
   }
 
-  // Get prototype methods
-  const prototype = NDArray.prototype;
-  const propertyNames = Object.getOwnPropertyNames(prototype);
+  // Walk the whole prototype chain. NDArray extends a base class that defines
+  // copy, fill, tolist, shape, dtype and others; reading only the subclass's own
+  // properties reports every member it does not override as unimplemented.
+  const chain: object[] = [];
+  for (
+    let proto = NDArray.prototype;
+    proto && proto !== Object.prototype;
+    proto = Object.getPrototypeOf(proto)
+  ) {
+    chain.push(proto);
+  }
+
+  const propertyNames = [...new Set(chain.flatMap((proto) => Object.getOwnPropertyNames(proto)))];
 
   for (const name of propertyNames) {
     // Skip constructor and private methods
@@ -94,7 +104,9 @@ function getNDArrayMethods(): Record<string, any> {
       continue;
     }
 
-    const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+    // The nearest definition wins, matching what a caller actually invokes.
+    const owner = chain.find((proto) => Object.getOwnPropertyDescriptor(proto, name));
+    const descriptor = owner ? Object.getOwnPropertyDescriptor(owner, name) : undefined;
 
     if (descriptor) {
       if (typeof descriptor.value === 'function') {

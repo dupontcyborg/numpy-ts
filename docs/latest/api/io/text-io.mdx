@@ -72,13 +72,13 @@ const csv = serializeTxt(arr, { delimiter: ',', fmt: '%d' });
 Parse a text string with flexible handling of missing values. Replaces missing values with a fill value instead of throwing. This is a **buffer-based** function that works with strings in any environment.
 
 ```typescript
-function genfromtxt(text: string, options?: LoadTxtOptions): NDArray
+function genfromtxt(text: string, options?: ParseTxtOptions): NDArray
 ```
 
 | Name | Type | Default | Description |
 |-|-|-|-|
 | `text` | `string` | -- | The text content to parse. |
-| `options` | `LoadTxtOptions` | `{}` | Parsing options. Use `missing_values` and `filling_values` to handle gaps. |
+| `options` | `ParseTxtOptions` | `{}` | Parsing options. Use `missing_values` and `filling_values` to handle gaps. |
 
 **Returns:** `NDArray` -- Parsed array with missing values filled in.
 
@@ -293,7 +293,19 @@ const arr = await np.fromregexFile('points.log', /x=([\d.]+), y=([\d.]+)/);
 </Tab>
 <Tab title="Sync">
 
-Synchronous versions of all file I/O functions:
+Every file function above has a synchronous counterpart taking the same arguments and returning the array directly rather than a `Promise`. They are Node-only -- they read and write through `node:fs` -- so use the async forms in the browser.
+
+```typescript
+function loadtxtSync(path: string, options?: LoadTxtOptions): NDArray
+
+function savetxtSync(path: string, arr: NDArray, options?: SaveTxtOptions): void
+
+function genfromtxtFileSync(path: string, options?: LoadTxtOptions): NDArray
+
+function fromregexFileSync(path: string, regexp: RegExp | string, dtype?: DType): NDArray
+```
+
+Usage:
 
 ```typescript
 import * as np from 'numpy-ts';
