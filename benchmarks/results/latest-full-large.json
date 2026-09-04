@@ -56879,10 +56879,10 @@
       "wasmUsed": true
     },
     {
-      "name": "take_along_axis [1000x1000] int32",
+      "name": "take_along_axis [1000x1000]",
       "category": "indexing",
       "numpy": {
-        "name": "take_along_axis [1000x1000] int32",
+        "name": "take_along_axis [1000x1000]",
         "mean_ms": 3.625142864309185,
         "median_ms": 3.641989571146301,
         "min_ms": 3.5241622146194067,
@@ -56893,7 +56893,7 @@
         "total_samples": 5
       },
       "numpyjs": {
-        "name": "take_along_axis [1000x1000] int32",
+        "name": "take_along_axis [1000x1000]",
         "mean_ms": 1.1406702777774385,
         "median_ms": 1.1352786999997786,
         "min_ms": 1.120741211110726,
@@ -57198,10 +57198,10 @@
       "wasmUsed": true
     },
     {
-      "name": "compress [1000x1000] int32",
+      "name": "compress [1000x1000]",
       "category": "indexing",
       "numpy": {
-        "name": "compress [1000x1000] int32",
+        "name": "compress [1000x1000]",
         "mean_ms": 0.4039617984996906,
         "median_ms": 0.39821036331345105,
         "min_ms": 0.3890332397228728,
@@ -57212,7 +57212,7 @@
         "total_samples": 5
       },
       "numpyjs": {
-        "name": "compress [1000x1000] int32",
+        "name": "compress [1000x1000]",
         "mean_ms": 0.1742678067494733,
         "median_ms": 0.1741260373001326,
         "min_ms": 0.17296181172281372,
@@ -63781,10 +63781,10 @@
       "wasmUsed": false
     },
     {
-      "name": "where [1000x1000] with x,y int32",
+      "name": "where [1000x1000] with x,y",
       "category": "logic",
       "numpy": {
-        "name": "where [1000x1000] with x,y int32",
+        "name": "where [1000x1000] with x,y",
         "mean_ms": 0.6457709421068246,
         "median_ms": 0.6450572960411113,
         "min_ms": 0.6224501052393431,
@@ -63795,7 +63795,7 @@
         "total_samples": 5
       },
       "numpyjs": {
-        "name": "where [1000x1000] with x,y int32",
+        "name": "where [1000x1000] with x,y",
         "mean_ms": 0.9913124065208452,
         "median_ms": 0.9900330543472513,
         "min_ms": 0.9808025326068595,
@@ -79180,10 +79180,10 @@
       "wasmUsed": false
     },
     {
-      "name": "choose [10000] from 3 int32",
+      "name": "choose [10000] from 3",
       "category": "indexing",
       "numpy": {
-        "name": "choose [10000] from 3 int32",
+        "name": "choose [10000] from 3",
         "mean_ms": 0.09265568197796321,
         "median_ms": 0.09236952110449556,
         "min_ms": 0.08809841720348786,
@@ -79194,7 +79194,7 @@
         "total_samples": 5
       },
       "numpyjs": {
-        "name": "choose [10000] from 3 int32",
+        "name": "choose [10000] from 3",
         "mean_ms": 0.3020362668639027,
         "median_ms": 0.30312943786999885,
         "min_ms": 0.29584467455678615,
@@ -93274,10 +93274,10 @@
       "wasmUsed": false
     },
     {
-      "name": "place [10000] bool",
+      "name": "place [10000]",
       "category": "indexing",
       "numpy": {
-        "name": "place [10000] bool",
+        "name": "place [10000]",
         "mean_ms": 0.010218922924679578,
         "median_ms": 0.010216555098178638,
         "min_ms": 0.010205908857051468,
@@ -93288,7 +93288,7 @@
         "total_samples": 5
       },
       "numpyjs": {
-        "name": "place [10000] bool",
+        "name": "place [10000]",
         "mean_ms": 0.02315609888379183,
         "median_ms": 0.025405959411416032,
         "min_ms": 0.019322330035497957,
@@ -94231,10 +94231,10 @@
       "wasmUsed": false
     },
     {
-      "name": "putmask [10000] bool",
+      "name": "putmask [10000]",
       "category": "indexing",
       "numpy": {
-        "name": "putmask [10000] bool",
+        "name": "putmask [10000]",
         "mean_ms": 0.0028638182165187888,
         "median_ms": 0.002855318087094962,
         "min_ms": 0.002841030164439365,
@@ -94245,7 +94245,7 @@
         "total_samples": 5
       },
       "numpyjs": {
-        "name": "putmask [10000] bool",
+        "name": "putmask [10000]",
         "mean_ms": 0.022122825223968794,
         "median_ms": 0.022071253388410646,
         "min_ms": 0.02181763542377874,
@@ -96580,10 +96580,10 @@
       "wasmUsed": false
     },
     {
-      "name": "select [10000] bool",
+      "name": "select [10000]",
       "category": "indexing",
       "numpy": {
-        "name": "select [10000] bool",
+        "name": "select [10000]",
         "mean_ms": 0.011410927272467276,
         "median_ms": 0.011392899338393006,
         "min_ms": 0.011272582143430965,
@@ -96594,7 +96594,7 @@
         "total_samples": 5
       },
       "numpyjs": {
-        "name": "select [10000] bool",
+        "name": "select [10000]",
         "mean_ms": 0.039638981854828496,
         "median_ms": 0.038893615725758154,
         "min_ms": 0.038271455241990604,

@@ -124250,10 +124250,10 @@
       "wasmUsed": true
     },
     {
-      "name": "take_along_axis [100x100] int32",
+      "name": "take_along_axis [100x100]",
       "category": "indexing",
       "numpy": {
-        "name": "take_along_axis [100x100] int32",
+        "name": "take_along_axis [100x100]",
         "mean_ms": 0.034896734626013975,
         "median_ms": 0.03594527455748831,
         "min_ms": 0.030509743742395345,
@@ -124266,7 +124266,7 @@
       "runtimes": {
         "node": {
           "timing": {
-            "name": "take_along_axis [100x100] int32",
+            "name": "take_along_axis [100x100]",
             "mean_ms": 0.013709127619313916,
             "median_ms": 0.013491827873468391,
             "min_ms": 0.013388531911897004,
@@ -124281,7 +124281,7 @@
         },
         "deno": {
           "timing": {
-            "name": "take_along_axis [100x100] int32",
+            "name": "take_along_axis [100x100]",
             "mean_ms": 0.0144503933022577,
             "median_ms": 0.014065599830461102,
             "min_ms": 0.013948754133115488,
@@ -124296,7 +124296,7 @@
         },
         "bun": {
           "timing": {
-            "name": "take_along_axis [100x100] int32",
+            "name": "take_along_axis [100x100]",
             "mean_ms": 0.011205825988705474,
             "median_ms": 0.011022943765618324,
             "min_ms": 0.010531314281958927,
@@ -124943,10 +124943,10 @@
       "wasmUsed": true
     },
     {
-      "name": "compress [100x100] int32",
+      "name": "compress [100x100]",
       "category": "indexing",
       "numpy": {
-        "name": "compress [100x100] int32",
+        "name": "compress [100x100]",
         "mean_ms": 0.0017612201938534172,
         "median_ms": 0.0017578908259245237,
         "min_ms": 0.0017460049444070057,
@@ -124959,7 +124959,7 @@
       "runtimes": {
         "node": {
           "timing": {
-            "name": "compress [100x100] int32",
+            "name": "compress [100x100]",
             "mean_ms": 0.004577086179826233,
             "median_ms": 0.0045825517115458195,
             "min_ms": 0.004543087220445126,
@@ -124974,7 +124974,7 @@
         },
         "deno": {
           "timing": {
-            "name": "compress [100x100] int32",
+            "name": "compress [100x100]",
             "mean_ms": 0.004378835203948765,
             "median_ms": 0.004387746674300593,
             "min_ms": 0.004359327768482355,
@@ -124989,7 +124989,7 @@
         },
         "bun": {
           "timing": {
-            "name": "compress [100x100] int32",
+            "name": "compress [100x100]",
             "mean_ms": 0.006084761745840043,
             "median_ms": 0.006109504389512423,
             "min_ms": 0.0059689958283961715,
@@ -139244,10 +139244,10 @@
       "wasmUsed": false
     },
     {
-      "name": "where [100x100] with x,y int32",
+      "name": "where [100x100] with x,y",
       "category": "logic",
       "numpy": {
-        "name": "where [100x100] with x,y int32",
+        "name": "where [100x100] with x,y",
         "mean_ms": 0.0040261898130236045,
         "median_ms": 0.004053206895348596,
         "min_ms": 0.003954345118326787,
@@ -139260,7 +139260,7 @@
       "runtimes": {
         "node": {
           "timing": {
-            "name": "where [100x100] with x,y int32",
+            "name": "where [100x100] with x,y",
             "mean_ms": 0.011906048226380214,
             "median_ms": 0.011904366547087143,
             "min_ms": 0.011828423143357436,
@@ -139275,7 +139275,7 @@
         },
         "deno": {
           "timing": {
-            "name": "where [100x100] with x,y int32",
+            "name": "where [100x100] with x,y",
             "mean_ms": 0.013717822509734339,
             "median_ms": 0.013405838341666743,
             "min_ms": 0.01335002782414618,
@@ -139290,7 +139290,7 @@
         },
         "bun": {
           "timing": {
-            "name": "where [100x100] with x,y int32",
+            "name": "where [100x100] with x,y",
             "mean_ms": 0.009149037717847279,
             "median_ms": 0.0091015926394773,
             "min_ms": 0.008924009346694883,
@@ -172697,10 +172697,10 @@
       "wasmUsed": false
     },
     {
-      "name": "choose [1000] from 3 int32",
+      "name": "choose [1000] from 3",
       "category": "indexing",
       "numpy": {
-        "name": "choose [1000] from 3 int32",
+        "name": "choose [1000] from 3",
         "mean_ms": 0.006232275235327847,
         "median_ms": 0.006190533706743246,
         "min_ms": 0.006093818210541626,
@@ -172713,7 +172713,7 @@
       "runtimes": {
         "node": {
           "timing": {
-            "name": "choose [1000] from 3 int32",
+            "name": "choose [1000] from 3",
             "mean_ms": 0.029797712080532945,
             "median_ms": 0.029831668090338343,
             "min_ms": 0.029432123245871977,
@@ -172728,7 +172728,7 @@
         },
         "deno": {
           "timing": {
-            "name": "choose [1000] from 3 int32",
+            "name": "choose [1000] from 3",
             "mean_ms": 0.029244898500439064,
             "median_ms": 0.029258428697434048,
             "min_ms": 0.028993690385182257,
@@ -172743,7 +172743,7 @@
         },
         "bun": {
           "timing": {
-            "name": "choose [1000] from 3 int32",
+            "name": "choose [1000] from 3",
             "mean_ms": 0.023740591397850765,
             "median_ms": 0.023716076437587223,
             "min_ms": 0.02343690579709418,
@@ -203315,10 +203315,10 @@
       "wasmUsed": false
     },
     {
-      "name": "place [1000] bool",
+      "name": "place [1000]",
       "category": "indexing",
       "numpy": {
-        "name": "place [1000] bool",
+        "name": "place [1000]",
         "mean_ms": 0.0012252603564785723,
         "median_ms": 0.00122905125933749,
         "min_ms": 0.0011887181844823756,
@@ -203331,7 +203331,7 @@
       "runtimes": {
         "node": {
           "timing": {
-            "name": "place [1000] bool",
+            "name": "place [1000]",
             "mean_ms": 0.0022786552292140875,
             "median_ms": 0.00223836625596631,
             "min_ms": 0.0021828180930136523,
@@ -203346,7 +203346,7 @@
         },
         "deno": {
           "timing": {
-            "name": "place [1000] bool",
+            "name": "place [1000]",
             "mean_ms": 0.0022251825061774476,
             "median_ms": 0.0022253185435370695,
             "min_ms": 0.002174697326956172,
@@ -203361,7 +203361,7 @@
         },
         "bun": {
           "timing": {
-            "name": "place [1000] bool",
+            "name": "place [1000]",
             "mean_ms": 0.0016706221683248136,
             "median_ms": 0.0016536875078750016,
             "min_ms": 0.0015747291167956974,
@@ -205394,10 +205394,10 @@
       "wasmUsed": false
     },
     {
-      "name": "putmask [1000] bool",
+      "name": "putmask [1000]",
       "category": "indexing",
       "numpy": {
-        "name": "putmask [1000] bool",
+        "name": "putmask [1000]",
         "mean_ms": 0.000494831830059411,
         "median_ms": 0.0004945079200842883,
         "min_ms": 0.0004903670800558757,
@@ -205410,7 +205410,7 @@
       "runtimes": {
         "node": {
           "timing": {
-            "name": "putmask [1000] bool",
+            "name": "putmask [1000]",
             "mean_ms": 0.0025309911250371775,
             "median_ms": 0.0024821450257467383,
             "min_ms": 0.0024381537452661064,
@@ -205425,7 +205425,7 @@
         },
         "deno": {
           "timing": {
-            "name": "putmask [1000] bool",
+            "name": "putmask [1000]",
             "mean_ms": 0.0024746829359124723,
             "median_ms": 0.0024707035445764363,
             "min_ms": 0.0024560389067941656,
@@ -205440,7 +205440,7 @@
         },
         "bun": {
           "timing": {
-            "name": "putmask [1000] bool",
+            "name": "putmask [1000]",
             "mean_ms": 0.0017571824435612085,
             "median_ms": 0.0017381390756700489,
             "min_ms": 0.0017365880244167079,
@@ -210497,10 +210497,10 @@
       "wasmUsed": false
     },
     {
-      "name": "select [1000] bool",
+      "name": "select [1000]",
       "category": "indexing",
       "numpy": {
-        "name": "select [1000] bool",
+        "name": "select [1000]",
         "mean_ms": 0.005628486909572228,
         "median_ms": 0.0056402220983326045,
         "min_ms": 0.005567251380223491,
@@ -210513,7 +210513,7 @@
       "runtimes": {
         "node": {
           "timing": {
-            "name": "select [1000] bool",
+            "name": "select [1000]",
             "mean_ms": 0.0046909994564301675,
             "median_ms": 0.004607746317332565,
             "min_ms": 0.004495150948514566,
@@ -210528,7 +210528,7 @@
         },
         "deno": {
           "timing": {
-            "name": "select [1000] bool",
+            "name": "select [1000]",
             "mean_ms": 0.004198577515003781,
             "median_ms": 0.004184691256822733,
             "min_ms": 0.004102283570727994,
@@ -210543,7 +210543,7 @@
         },
         "bun": {
           "timing": {
-            "name": "select [1000] bool",
+            "name": "select [1000]",
             "mean_ms": 0.00449125165776987,
             "median_ms": 0.00452578998609065,
             "min_ms": 0.004396329624479747,

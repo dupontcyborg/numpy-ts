@@ -34,7 +34,7 @@ See the full breakdown of category results on the [numpy-ts vs. NumPy page](./vs
 
 ## Performance by Data Type
 
-Smaller data types see the biggest gains — numpy-ts's SIMD kernels process more elements per instruction, and `float16` leads at 1.59x. Even `float64` (NumPy's home turf) is 1.37x faster. Complex and boolean types are the exception, where NumPy still leads.
+Smaller data types see the biggest gains — numpy-ts's SIMD kernels process more elements per instruction, and `float16` leads at 1.59x. Even `float64` (NumPy's home turf) is 1.35x faster. Complex types are the exception, where NumPy still leads.
 
 <Frame>
 <img

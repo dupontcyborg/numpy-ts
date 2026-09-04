@@ -5286,6 +5286,12 @@ export function getBenchmarkSpecs(
 
   // Append dtype suffix to specs with explicit non-default dtype so the
   // visualization layer shows the correct badge instead of defaulting to float64.
+  //
+  // An unset dtype means float64, so it counts towards the set like any other.
+  // Dropping the unset entries instead would let a single pinned auxiliary array
+  // name the whole spec: a bool mask beside float64 operands labelled place,
+  // putmask and select as the only bool benchmarks in the suite, and the docs
+  // then reported bool as the slowest dtype off those three.
   for (const spec of specs) {
     // Already has a dtype suffix from auto-generation? Skip.
     if (
@@ -5296,7 +5302,7 @@ export function getBenchmarkSpecs(
       continue;
     const dataEntries = Object.entries(spec.setup).filter(([key]) => DATA_ARRAY_KEYS.has(key));
     if (dataEntries.length === 0) continue;
-    const dtypes = new Set(dataEntries.map(([, e]) => e.dtype).filter(Boolean));
+    const dtypes = new Set(dataEntries.map(([, e]) => e.dtype ?? 'float64'));
     if (dtypes.size === 1) {
       const dtype = Array.from(dtypes)[0]!;
       if (dtype !== 'float64') {
