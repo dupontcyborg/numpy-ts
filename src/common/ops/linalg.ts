@@ -4908,14 +4908,15 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
 }
 
 /**
- * Compute eigenvalues and right eigenvectors of a square matrix using
- * iterative methods; symmetric matrices should use eigh instead for better
- * performance. Complex eigenvalues are not supported — for non-symmetric
- * matrices this returns only the real parts, which is wrong for matrices
- * with genuinely complex eigenvalues (e.g. rotation matrices).
+ * Compute eigenvalues and right eigenvectors of a square matrix. Symmetric
+ * input takes a Jacobi path; everything else goes through a real Schur
+ * decomposition. The result is float64 when every eigenvalue is real and
+ * complex128 when any is not, matching how NumPy picks the output dtype; for a
+ * batch that choice is made once across every slice. Complex input has its
+ * imaginary part dropped before the decomposition.
  *
  * @param a - Input square matrix
- * @returns { w, v } - Eigenvalues (real only) and eigenvector matrix
+ * @returns { w, v } - Eigenvalues and a matrix whose columns are eigenvectors
  */
 export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
   throwIfFloat16(a.dtype);
@@ -4929,21 +4930,38 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
     const m2 = a.shape[a.ndim - 2]!;
     if (m2 !== n) throw new Error(`eig: last 2 dimensions must be square, got ${m2}x${n}`);
     const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
-    const wResult = ArrayStorage.empty([...batchShape, n], 'float64');
-    const vResult = ArrayStorage.empty([...batchShape, n, n], 'float64');
-    const wData = wResult.data as Float64Array;
-    const vData = vResult.data as Float64Array;
+
+    // NumPy gives the whole batch one dtype, so every slice is decomposed
+    // before any output is allocated: one complex spectrum anywhere makes the
+    // entire result complex.
+    const parts: { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors }[] = [];
+    let complex = false;
     for (let bi = 0; bi < batchSize; bi++) {
       const bIdx = flatToBatchMultiIndex(bi, batchShape);
       const slice = ArrayStorage.zeros([n, n], 'float64');
       for (let i = 0; i < n; i++)
         for (let j = 0; j < n; j++) slice.set([i, j], realPart(a.get(...bIdx, i, j)));
-      const { w, v } = eig(slice);
-      wData.set(toContiguousFloat64(w), bi * n);
-      vData.set(toContiguousFloat64(v), bi * n * n);
+      const part = eigOne(slice, n);
+      complex = complex || part.hasComplexEigenvalues;
+      parts.push(part);
       slice.dispose();
-      w.dispose();
-      v.dispose();
+    }
+
+    const dtype: DType = complex ? 'complex128' : 'float64';
+    const wResult = ArrayStorage.zeros([...batchShape, n], dtype);
+    const vResult = ArrayStorage.zeros([...batchShape, n, n], dtype);
+    for (let bi = 0; bi < batchSize; bi++) {
+      const bIdx = flatToBatchMultiIndex(bi, batchShape);
+      const { valuesRe, valuesIm, vectors } = parts[bi]!;
+      for (let i = 0; i < n; i++) {
+        wResult.set([...bIdx, i], complex ? new Complex(valuesRe[i]!, valuesIm[i]!) : valuesRe[i]!);
+        for (let j = 0; j < n; j++) {
+          vResult.set(
+            [...bIdx, j, i],
+            complex ? new Complex(vectors.re[j]![i]!, vectors.im[j]![i]!) : vectors.re[j]![i]!,
+          );
+        }
+      }
     }
     return {
       w: wResult,
@@ -4958,7 +4976,28 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
 
   const size = m!;
 
-  // Check if symmetric (or Hermitian for complex)
+  const { valuesRe, valuesIm, vectors, hasComplexEigenvalues } = eigOne(a, size);
+  return packEig(valuesRe, valuesIm, vectors, size, hasComplexEigenvalues);
+}
+
+/** Eigenvectors as real and imaginary parts, one eigenvector per column. */
+type EigVectors = { re: number[][]; im: number[][] };
+
+/**
+ * Decompose one square matrix, routing symmetric input to the Jacobi path and
+ * everything else through the real Schur form. Kept separate from the array
+ * packing so a batch can decompose every slice before it has to commit to a
+ * dtype for the whole result.
+ *
+ * @param a - Square matrix, real parts taken for complex input
+ * @param size - Matrix dimension
+ * @returns Eigenvalues split into real and imaginary parts, the matching
+ *   eigenvectors, and whether any eigenvalue is complex
+ */
+function eigOne(
+  a: ArrayStorage,
+  size: number,
+): { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors; hasComplexEigenvalues: boolean } {
   let isSymmetric = true;
   outerLoop: for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
@@ -4970,43 +5009,61 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
   }
 
   if (isSymmetric) {
-    // Use symmetric eigendecomposition (Jacobi method)
-    // Symmetric matrices always have real eigenvalues, so this is exact
+    // Jacobi is both faster here and exact: a symmetric matrix always has real
+    // eigenvalues, so no Schur form is needed to find them.
     const { values, vectors } = eigSymmetric(a);
-
-    const w = ArrayStorage.zeros([size], 'float64');
-    const v = ArrayStorage.zeros([size, size], 'float64');
-
-    for (let i = 0; i < size; i++) {
-      w.set([i], values[i]!);
-      for (let j = 0; j < size; j++) {
-        v.set([j, i], vectors[j]![i]!);
-      }
-    }
-
-    return { w, v };
+    return {
+      valuesRe: values,
+      valuesIm: new Array<number>(size).fill(0),
+      vectors: { re: vectors, im: vectors.map(() => new Array<number>(size).fill(0)) },
+      hasComplexEigenvalues: false,
+    };
   }
 
-  // For non-symmetric matrices, use QR iteration (simplified)
-  // This is a basic implementation that may not converge for all matrices
-  const { values, vectors, hasComplexEigenvalues } = qrEigendecomposition(a);
+  const { valuesRe, valuesIm, vectors, hasComplexEigenvalues, converged } = qrEigendecomposition(a);
 
-  // Only warn when complex eigenvalues are detected (real results would be inaccurate)
-  if (hasComplexEigenvalues) {
+  // Reading eigenvalues off a Schur form that never converged is how this
+  // function used to return wrong answers silently; say so instead.
+  if (!converged) {
     console.warn(
-      'numpy-ts: eig() detected complex eigenvalues which cannot be represented. ' +
-        'Results are real approximations and may be inaccurate. ' +
-        'For symmetric matrices, use eigh() instead.',
+      'numpy-ts: eig() did not converge; the eigenvalues and eigenvectors ' +
+        'below are the last iterate and should not be trusted.',
     );
   }
 
-  const w = ArrayStorage.zeros([size], 'float64');
-  const v = ArrayStorage.zeros([size, size], 'float64');
+  return { valuesRe, valuesIm, vectors, hasComplexEigenvalues };
+}
+
+/**
+ * Pack an eigendecomposition into output arrays, choosing the dtype the way
+ * NumPy does: real input keeps a real result unless some eigenvalue is complex,
+ * in which case both outputs become complex128.
+ *
+ * @param valuesRe - Real parts of the eigenvalues
+ * @param valuesIm - Imaginary parts of the eigenvalues
+ * @param vectors - Eigenvectors as real and imaginary parts, one per column
+ * @param size - Matrix dimension
+ * @param complex - Whether any eigenvalue has a nonzero imaginary part
+ * @returns { w, v } - Eigenvalues and the matrix whose columns are eigenvectors
+ */
+function packEig(
+  valuesRe: number[],
+  valuesIm: number[],
+  vectors: { re: number[][]; im: number[][] },
+  size: number,
+  complex: boolean,
+): { w: ArrayStorage; v: ArrayStorage } {
+  const dtype: DType = complex ? 'complex128' : 'float64';
+  const w = ArrayStorage.zeros([size], dtype);
+  const v = ArrayStorage.zeros([size, size], dtype);
 
   for (let i = 0; i < size; i++) {
-    w.set([i], values[i]!);
+    w.set([i], complex ? new Complex(valuesRe[i]!, valuesIm[i]!) : valuesRe[i]!);
     for (let j = 0; j < size; j++) {
-      v.set([j, i], vectors[j]![i]!);
+      v.set(
+        [j, i],
+        complex ? new Complex(vectors.re[j]![i]!, vectors.im[j]![i]!) : vectors.re[j]![i]!,
+      );
     }
   }
 
@@ -5014,90 +5071,469 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
 }
 
 /**
- * QR algorithm for eigendecomposition.
- * Simplified version for real matrices.
+ * Build a unit Householder vector mapping x onto a multiple of e1, or null when
+ * x already points that way and no reflection is needed.
  *
- * @param a - Input matrix
- * @returns { values, vectors }
+ * @param x - Vector to reflect
+ * @returns Unit reflection vector, or null when x needs no reflection
  */
-function qrEigendecomposition(a: ArrayStorage): {
-  values: number[];
-  vectors: number[][];
-  hasComplexEigenvalues: boolean;
-} {
-  const n = a.shape[0]!;
-  const maxIter = 1000;
-  const tol = 1e-10;
+function makeReflector(x: number[]): number[] | null {
+  let normX = 0;
+  for (let i = 0; i < x.length; i++) normX += x[i]! * x[i]!;
+  normX = Math.sqrt(normX);
+  if (normX === 0) return null;
 
-  // Copy matrix (extract real parts for complex input)
-  let A = ArrayStorage.zeros([n, n], 'float64');
+  // Reflect away from x[0] so that v[0] never suffers cancellation.
+  const alpha = x[0]! >= 0 ? -normX : normX;
+  const v = x.slice();
+  v[0] = x[0]! - alpha;
+  let normV = 0;
+  for (let i = 0; i < v.length; i++) normV += v[i]! * v[i]!;
+  if (normV === 0) return null;
+  normV = Math.sqrt(normV);
+  for (let i = 0; i < v.length; i++) v[i] = v[i]! / normV;
+  return v;
+}
+
+/**
+ * Apply the similarity (I - 2vv^T) H (I - 2vv^T) with v embedded at offset off,
+ * accumulating the same reflection into Z.
+ *
+ * Rows and columns are updated over their full extent rather than the active
+ * window: Z has to remain an exact similarity transform of the original matrix,
+ * and the entries outside the window are what would be lost.
+ *
+ * @param H - Working matrix, updated in place
+ * @param Z - Accumulated transform, updated in place
+ * @param n - Matrix dimension
+ * @param off - Index where v starts
+ * @param v - Unit reflection vector
+ */
+function applyReflector(H: number[][], Z: number[][], n: number, off: number, v: number[]): void {
+  const len = v.length;
+  for (let j = 0; j < n; j++) {
+    let dot = 0;
+    for (let i = 0; i < len; i++) dot += v[i]! * H[off + i]![j]!;
+    dot *= 2;
+    for (let i = 0; i < len; i++) H[off + i]![j] = H[off + i]![j]! - dot * v[i]!;
+  }
   for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      A.set([i, j], realPart(a.get(i, j)));
+    let dot = 0;
+    for (let j = 0; j < len; j++) dot += v[j]! * H[i]![off + j]!;
+    dot *= 2;
+    for (let j = 0; j < len; j++) H[i]![off + j] = H[i]![off + j]! - dot * v[j]!;
+  }
+  for (let i = 0; i < n; i++) {
+    let dot = 0;
+    for (let j = 0; j < len; j++) dot += v[j]! * Z[i]![off + j]!;
+    dot *= 2;
+    for (let j = 0; j < len; j++) Z[i]![off + j] = Z[i]![off + j]! - dot * v[j]!;
+  }
+}
+
+/**
+ * Reduce a square matrix to upper Hessenberg form by Householder similarity,
+ * returning H and the accumulated orthogonal Z with A = Z H Z^T. QR iteration
+ * costs O(n^2) per sweep on a Hessenberg matrix against O(n^3) on a dense one,
+ * so the reduction pays for itself immediately.
+ *
+ * @param a - Row-major square matrix, read but not modified
+ * @param n - Matrix dimension
+ * @returns { H, Z } - Hessenberg form and the accumulated similarity transform
+ */
+function hessenbergReduce(a: number[][], n: number): { H: number[][]; Z: number[][] } {
+  const H = a.map((row) => row.slice());
+  const Z: number[][] = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)),
+  );
+
+  for (let k = 0; k < n - 2; k++) {
+    const x = new Array<number>(n - k - 1);
+    for (let i = 0; i < x.length; i++) x[i] = H[k + 1 + i]![k]!;
+    const v = makeReflector(x);
+    if (v !== null) applyReflector(H, Z, n, k + 1, v);
+  }
+
+  return { H, Z };
+}
+
+/**
+ * Split a 2x2 block whose eigenvalues are real into upper triangular form, so
+ * only genuinely complex pairs survive as 2x2 blocks in the Schur form.
+ * Eigenvector back substitution relies on that invariant.
+ *
+ * @param H - Working matrix, updated in place
+ * @param Z - Accumulated transform, updated in place
+ * @param n - Matrix dimension
+ * @param p - Index of the block's first row and column
+ * @returns True when the block was real and has been triangularized
+ */
+function split2x2(H: number[][], Z: number[][], n: number, p: number): boolean {
+  const a = H[p]![p]!;
+  const b = H[p]![p + 1]!;
+  const c = H[p + 1]![p]!;
+  const d = H[p + 1]![p + 1]!;
+  const tr = a + d;
+  const disc = tr * tr - 4 * (a * d - b * c);
+  if (disc < 0) return false;
+
+  const sq = Math.sqrt(disc);
+  const lambda = tr >= 0 ? (tr + sq) / 2 : (tr - sq) / 2;
+
+  // Reflecting the block's eigenvector for lambda onto e1 puts lambda at (p, p)
+  // and a zero below it. Both expressions are eigenvectors; the larger one is
+  // the better conditioned choice.
+  let vx = lambda - d;
+  let vy = c;
+  if (Math.abs(b) + Math.abs(lambda - a) > Math.abs(vx) + Math.abs(vy)) {
+    vx = b;
+    vy = lambda - a;
+  }
+  const v = makeReflector([vx, vy]);
+  if (v !== null) applyReflector(H, Z, n, p, v);
+  H[p + 1]![p] = 0;
+  return true;
+}
+
+/**
+ * Real Schur decomposition by Francis double-shift QR with deflation.
+ * Overwrites H with the quasi-triangular T and accumulates Z so that
+ * A = Z T Z^T.
+ *
+ * The shift comes from the trailing 2x2 block's characteristic polynomial and
+ * is applied implicitly, so a complex conjugate pair converges without complex
+ * arithmetic. A single real shift cannot do that: it stalls forever on a
+ * trailing block whose eigenvalues are complex, and converges only at rate
+ * |lambda_i+1 / lambda_i| on clustered real ones.
+ *
+ * @param H - Upper Hessenberg matrix, overwritten with the Schur form
+ * @param Z - Accumulated transform, updated in place
+ * @param n - Matrix dimension
+ * @returns { is2x2, converged } - True at the start index of each complex block
+ */
+function realSchur(
+  H: number[][],
+  Z: number[][],
+  n: number,
+): { is2x2: boolean[]; converged: boolean } {
+  const eps = Number.EPSILON;
+  const is2x2 = new Array<boolean>(n).fill(false);
+  const maxIter = 30 * n + 100;
+
+  let nn = n;
+  let iter = 0;
+  let sinceDeflation = 0;
+
+  while (nn > 1 && iter < maxIter) {
+    iter++;
+
+    // Scan up from the bottom for a negligible subdiagonal entry; everything
+    // below it has already converged.
+    let l = nn - 1;
+    while (l > 0) {
+      const scale = Math.abs(H[l - 1]![l - 1]!) + Math.abs(H[l]![l]!);
+      if (Math.abs(H[l]![l - 1]!) <= eps * (scale === 0 ? 1 : scale)) {
+        H[l]![l - 1] = 0;
+        break;
+      }
+      l--;
     }
+
+    if (l === nn - 1) {
+      nn--;
+      sinceDeflation = 0;
+      continue;
+    }
+    if (l === nn - 2) {
+      if (!split2x2(H, Z, n, nn - 2)) is2x2[nn - 2] = true;
+      nn -= 2;
+      sinceDeflation = 0;
+      continue;
+    }
+    sinceDeflation++;
+
+    // Shift by the trailing 2x2 block's trace and determinant, or an
+    // exceptional shift built from the local subdiagonal when the window has
+    // gone too long without deflating.
+    let tr: number;
+    let det: number;
+    if (sinceDeflation > 0 && sinceDeflation % 10 === 0) {
+      const s = Math.abs(H[nn - 1]![nn - 2]!) + Math.abs(H[nn - 2]![nn - 3]!);
+      const h11 = 0.75 * s + H[nn - 1]![nn - 1]!;
+      tr = 2 * h11;
+      det = h11 * h11 + 0.4375 * s * s;
+    } else {
+      const a = H[nn - 2]![nn - 2]!;
+      const b = H[nn - 2]![nn - 1]!;
+      const c = H[nn - 1]![nn - 2]!;
+      const d = H[nn - 1]![nn - 1]!;
+      tr = a + d;
+      det = a * d - b * c;
+    }
+
+    // First column of (H^2 - tr H + det I) over the active window. Reflecting
+    // it onto e1 and chasing the resulting bulge back down to Hessenberg form
+    // performs the double shift without ever forming H^2.
+    const h00 = H[l]![l]!;
+    let x = h00 * h00 + H[l]![l + 1]! * H[l + 1]![l]! - tr * h00 + det;
+    let y = H[l + 1]![l]! * (h00 + H[l + 1]![l + 1]! - tr);
+    let z = H[l + 2]![l + 1]! * H[l + 1]![l]!;
+
+    for (let k = l; k <= nn - 3; k++) {
+      const v = makeReflector([x, y, z]);
+      if (v !== null) applyReflector(H, Z, n, k, v);
+      x = H[k + 1]![k]!;
+      y = H[k + 2]![k]!;
+      z = k + 3 <= nn - 1 ? H[k + 3]![k]! : 0;
+    }
+    const vLast = makeReflector([x, y]);
+    if (vLast !== null) applyReflector(H, Z, n, nn - 2, vLast);
   }
 
-  // Initialize eigenvector accumulator as identity
-  let V = ArrayStorage.zeros([n, n], 'float64');
+  // Zero the entries the bulge chase leaves just below the subdiagonal; they
+  // are at rounding level and would otherwise read as structure.
+  for (let i = 2; i < n; i++) {
+    for (let j = 0; j < i - 1; j++) H[i]![j] = 0;
+  }
+
+  return { is2x2, converged: nn <= 1 };
+}
+
+/**
+ * Right eigenvectors of a real Schur form, back-transformed to the original
+ * basis. For each eigenvalue this solves (T - lambda I) y = 0 by back
+ * substitution and returns Z y normalized, which is LAPACK's dtrevc. A complex
+ * conjugate pair shares one eigenvector, so the two columns come out conjugate.
+ *
+ * @param T - Quasi-triangular Schur form
+ * @param Z - Schur vectors with A = Z T Z^T
+ * @param n - Matrix dimension
+ * @param is2x2 - True at the start index of each complex 2x2 block
+ * @returns { re, im } - Real and imaginary parts, one eigenvector per column
+ */
+function schurEigenvectors(
+  T: number[][],
+  Z: number[][],
+  n: number,
+  is2x2: boolean[],
+): { re: number[][]; im: number[][] } {
+  let tNorm = 0;
   for (let i = 0; i < n; i++) {
-    V.set([i, i], 1);
+    for (let j = 0; j < n; j++) tNorm += Math.abs(T[i]![j]!);
   }
+  // A defective matrix makes T[j][j] - lambda exactly zero; perturbing to this
+  // floor yields the finite eigenvector LAPACK reports rather than infinities.
+  const tiny = Number.EPSILON * (tNorm === 0 ? 1 : tNorm);
 
-  // QR iteration
-  for (let iter = 0; iter < maxIter; iter++) {
-    // Check for convergence (off-diagonal elements small)
-    let offDiagNorm = 0;
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (i !== j) {
-          offDiagNorm += Number(A.get(i, j)) ** 2;
+  const vecRe: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+  const vecIm: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+
+  // Back substitution runs over complex lambda for a conjugate pair and real
+  // lambda otherwise; carrying an imaginary part that is always zero in the
+  // real case keeps one code path instead of two.
+  const solve = (
+    lr: number,
+    li: number,
+    top: number,
+    hi: number,
+    yr: number[],
+    yi: number[],
+  ): void => {
+    for (let j = top - 1; j >= 0; ) {
+      if (j > 0 && is2x2[j - 1]) {
+        let s0r = 0;
+        let s0i = 0;
+        let s1r = 0;
+        let s1i = 0;
+        for (let m = j + 1; m <= hi; m++) {
+          s0r += T[j - 1]![m]! * yr[m]!;
+          s0i += T[j - 1]![m]! * yi[m]!;
+          s1r += T[j]![m]! * yr[m]!;
+          s1i += T[j]![m]! * yi[m]!;
         }
+        const a11r = T[j - 1]![j - 1]! - lr;
+        const a11i = -li;
+        const a12 = T[j - 1]![j]!;
+        const a21 = T[j]![j - 1]!;
+        const a22r = T[j]![j]! - lr;
+        const a22i = -li;
+        let detR = a11r * a22r - a11i * a22i - a12 * a21;
+        let detI = a11r * a22i + a11i * a22r;
+        if (Math.hypot(detR, detI) < tiny) {
+          detR = tiny;
+          detI = 0;
+        }
+        const n0r = -s0r * a22r + s0i * a22i + a12 * s1r;
+        const n0i = -s0r * a22i - s0i * a22r + a12 * s1i;
+        const n1r = -s1r * a11r + s1i * a11i + a21 * s0r;
+        const n1i = -s1r * a11i - s1i * a11r + a21 * s0i;
+        const d2 = detR * detR + detI * detI;
+        yr[j - 1] = (n0r * detR + n0i * detI) / d2;
+        yi[j - 1] = (n0i * detR - n0r * detI) / d2;
+        yr[j] = (n1r * detR + n1i * detI) / d2;
+        yi[j] = (n1i * detR - n1r * detI) / d2;
+        j -= 2;
+      } else {
+        let sr = 0;
+        let si = 0;
+        for (let m = j + 1; m <= hi; m++) {
+          sr += T[j]![m]! * yr[m]!;
+          si += T[j]![m]! * yi[m]!;
+        }
+        let dr = T[j]![j]! - lr;
+        let di = -li;
+        if (Math.hypot(dr, di) < tiny) {
+          dr = dr < 0 ? -tiny : tiny;
+          di = 0;
+        }
+        const d2 = dr * dr + di * di;
+        yr[j] = (-sr * dr - si * di) / d2;
+        yi[j] = (-si * dr + sr * di) / d2;
+        j -= 1;
       }
     }
-    if (Math.sqrt(offDiagNorm) < tol * n) break;
+  };
 
-    // QR decomposition
-    const qrResult = qr(A, 'reduced') as { q: ArrayStorage; r: ArrayStorage };
-    const Q = qrResult.q;
-    const R = qrResult.r;
+  // Z y, normalized to unit length. When the eigenvalue is a conjugate pair the
+  // second column takes the conjugate vector, which is its partner's
+  // eigenvector. NumPy also returns unit-norm eigenvectors.
+  const backTransform = (yr: number[], yi: number[], col: number, conjCol: number): void => {
+    const xr = new Array<number>(n).fill(0);
+    const xi = new Array<number>(n).fill(0);
+    let nrm = 0;
+    for (let i = 0; i < n; i++) {
+      let accR = 0;
+      let accI = 0;
+      for (let k = 0; k < n; k++) {
+        accR += Z[i]![k]! * yr[k]!;
+        accI += Z[i]![k]! * yi[k]!;
+      }
+      xr[i] = accR;
+      xi[i] = accI;
+      nrm += accR * accR + accI * accI;
+    }
+    nrm = Math.sqrt(nrm);
+    if (nrm > 0) {
+      for (let i = 0; i < n; i++) {
+        xr[i] = xr[i]! / nrm;
+        xi[i] = xi[i]! / nrm;
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      vecRe[i]![col] = xr[i]!;
+      vecIm[i]![col] = xi[i]!;
+      if (conjCol >= 0) {
+        vecRe[i]![conjCol] = xr[i]!;
+        vecIm[i]![conjCol] = -xi[i]!;
+      }
+    }
+  };
 
-    // A = R @ Q
-    A = matmul(R, Q);
+  const rescale = (yr: number[], yi: number[], top: number): void => {
+    let peak = 0;
+    for (let i = 0; i <= top && i < n; i++)
+      peak = Math.max(peak, Math.abs(yr[i]!), Math.abs(yi[i]!));
+    if (peak > 1) {
+      for (let i = 0; i <= top && i < n; i++) {
+        yr[i] = yr[i]! / peak;
+        yi[i] = yi[i]! / peak;
+      }
+    }
+  };
 
-    // V = V @ Q
-    V = matmul(V, Q);
+  for (let k = 0; k < n; k++) {
+    const yr = new Array<number>(n).fill(0);
+    const yi = new Array<number>(n).fill(0);
+
+    if (is2x2[k]) {
+      const a = T[k]![k]!;
+      const b = T[k]![k + 1]!;
+      const c = T[k + 1]![k]!;
+      const d = T[k + 1]![k + 1]!;
+      const lr = (a + d) / 2;
+      const li = Math.sqrt(Math.max(0, -((a + d) * (a + d) - 4 * (a * d - b * c)))) / 2;
+
+      // Eigenvector of the block for lr + i li. Either column of
+      // (block - lambda I) adjugate works; take the better conditioned one.
+      if (Math.abs(b) >= Math.abs(c)) {
+        yr[k] = b;
+        yi[k] = 0;
+        yr[k + 1] = lr - a;
+        yi[k + 1] = li;
+      } else {
+        yr[k] = lr - d;
+        yi[k] = li;
+        yr[k + 1] = c;
+        yi[k + 1] = 0;
+      }
+
+      solve(lr, li, k, k + 1, yr, yi);
+      rescale(yr, yi, k + 1);
+      backTransform(yr, yi, k, k + 1);
+      k++;
+      continue;
+    }
+
+    yr[k] = 1;
+    solve(T[k]![k]!, 0, k, k, yr, yi);
+    rescale(yr, yi, k);
+    backTransform(yr, yi, k, -1);
   }
 
-  // Detect complex eigenvalues: check for significant off-diagonal elements
-  // in 2x2 blocks along the diagonal (indicates complex conjugate pairs)
+  return { re: vecRe, im: vecIm };
+}
+
+/**
+ * Eigenvalues and right eigenvectors of a general real matrix, following the
+ * same path as LAPACK's dgeev: Hessenberg reduction, shifted QR to a real Schur
+ * form, then back substitution for the eigenvectors. Complex results come back
+ * split into real and imaginary parts, both zero-filled when the spectrum is
+ * entirely real.
+ *
+ * @param a - Input matrix, real parts taken for complex input
+ * @returns Eigenvalues and eigenvectors as real and imaginary parts, whether
+ *   any eigenvalue is complex, and whether the iteration converged
+ */
+function qrEigendecomposition(a: ArrayStorage): {
+  valuesRe: number[];
+  valuesIm: number[];
+  vectors: { re: number[][]; im: number[][] };
+  hasComplexEigenvalues: boolean;
+  converged: boolean;
+} {
+  const n = a.shape[0]!;
+  const A: number[][] = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) => realPart(a.get(i, j))),
+  );
+
+  const { H, Z } = hessenbergReduce(A, n);
+  const { is2x2, converged } = realSchur(H, Z, n);
+
+  const valuesRe: number[] = [];
+  const valuesIm: number[] = [];
   let hasComplexEigenvalues = false;
-  for (let i = 0; i < n - 1; i++) {
-    const subdiag = Math.abs(Number(A.get(i + 1, i)));
-    const diag0 = Math.abs(Number(A.get(i, i)));
-    const diag1 = Math.abs(Number(A.get(i + 1, i + 1)));
-    const scale = Math.max(diag0, diag1, 1e-10);
-    if (subdiag / scale > 1e-6) {
+  for (let i = 0; i < n; i++) {
+    if (is2x2[i]) {
       hasComplexEigenvalues = true;
-      break;
+      const a11 = H[i]![i]!;
+      const a12 = H[i]![i + 1]!;
+      const a21 = H[i + 1]![i]!;
+      const a22 = H[i + 1]![i + 1]!;
+      const tr = a11 + a22;
+      const re = tr / 2;
+      const im = Math.sqrt(Math.max(0, 4 * (a11 * a22 - a12 * a21) - tr * tr)) / 2;
+      valuesRe.push(re, re);
+      valuesIm.push(im, -im);
+      i++;
+    } else {
+      valuesRe.push(H[i]![i]!);
+      valuesIm.push(0);
     }
   }
 
-  // Extract eigenvalues from diagonal
-  const values: number[] = [];
-  for (let i = 0; i < n; i++) {
-    values.push(Number(A.get(i, i)));
-  }
+  const vectors = schurEigenvectors(H, Z, n, is2x2);
 
-  // Convert V to 2D array
-  const vectors: number[][] = [];
-  for (let i = 0; i < n; i++) {
-    vectors.push([]);
-    for (let j = 0; j < n; j++) {
-      vectors[i]!.push(Number(V.get(i, j)));
-    }
-  }
-
-  return { values, vectors, hasComplexEigenvalues };
+  return { valuesRe, valuesIm, vectors, hasComplexEigenvalues, converged };
 }
 
 /**
@@ -5195,13 +5631,12 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
 }
 
 /**
- * Compute eigenvalues of a general square matrix. Complex eigenvalues are not
- * supported — for non-symmetric matrices this returns only real
- * approximations; use eigvalsh for symmetric matrices, where eigenvalues are
- * guaranteed to be real.
+ * Compute eigenvalues of a general square matrix. The result is float64 when
+ * every eigenvalue is real and complex128 when any is not; use eigvalsh for
+ * symmetric matrices, where eigenvalues are guaranteed to be real.
  *
  * @param a - Input square matrix
- * @returns Array of eigenvalues (real only)
+ * @returns Array of eigenvalues
  */
 export function eigvals(a: ArrayStorage): ArrayStorage {
   throwIfFloat16(a.dtype);

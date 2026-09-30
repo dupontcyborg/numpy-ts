@@ -1300,6 +1300,280 @@ describe('numpy.linalg Module', () => {
       expect(eigenvals[0]).toBeCloseTo(6, 5);
       expect(eigenvals[1]).toBeCloseTo(2, 5);
     });
+
+    // Columns of v used to be the Schur vectors rather than the eigenvectors,
+    // so only the first column ever satisfied A v = lambda v.
+    const eigResidual = (m: number[][]): number => {
+      const n = m.length;
+      const { w, v } = linalg.eig(array(m));
+      let worst = 0;
+      for (let j = 0; j < n; j++) {
+        const col = Array.from({ length: n }, (_, i) => Number(v.get([i, j])));
+        const lambda = Number(w.get([j]));
+        for (let i = 0; i < n; i++) {
+          const av = m[i]!.reduce((acc, x, k) => acc + x * col[k]!, 0);
+          worst = Math.max(worst, Math.abs(av - lambda * col[i]!));
+        }
+      }
+      return worst;
+    };
+
+    it('returns eigenvectors, not Schur vectors, for a non-symmetric matrix', () => {
+      const a = array([
+        [0, 1, -2],
+        [3, 2, 2],
+        [1, 1, 4],
+      ]);
+      const { w, v } = linalg.eig(a);
+
+      expect(
+        [...(w.toArray() as number[])].sort((x, y) => x - y).map((x) => Math.round(x)),
+      ).toEqual([-1, 3, 4]);
+
+      // Every column satisfies A v = lambda v, not just the first.
+      expect(
+        eigResidual([
+          [0, 1, -2],
+          [3, 2, 2],
+          [1, 1, 4],
+        ]),
+      ).toBeLessThan(1e-10);
+
+      // Eigenvectors of a non-symmetric matrix are not orthogonal; an
+      // orthonormal v is the signature of the Schur-vector bug.
+      const c0 = [0, 1, 2].map((i) => Number(v.get([i, 0])));
+      const c1 = [0, 1, 2].map((i) => Number(v.get([i, 1])));
+      const c2 = [0, 1, 2].map((i) => Number(v.get([i, 2])));
+      const dots = [
+        Math.abs(c0.reduce((s, x, i) => s + x * c1[i]!, 0)),
+        Math.abs(c0.reduce((s, x, i) => s + x * c2[i]!, 0)),
+        Math.abs(c1.reduce((s, x, i) => s + x * c2[i]!, 0)),
+      ];
+      expect(Math.max(...dots)).toBeGreaterThan(1e-6);
+    });
+
+    it('satisfies A v = lambda v for assorted non-symmetric matrices', () => {
+      expect(
+        eigResidual([
+          [1, 2],
+          [0, 3],
+        ]),
+      ).toBeLessThan(1e-10);
+      expect(
+        eigResidual([
+          [1, 2, 3],
+          [0, 4, 5],
+          [0, 0, 6],
+        ]),
+      ).toBeLessThan(1e-10);
+      // Companion matrix for (x-1)(x-2)(x-3).
+      expect(
+        eigResidual([
+          [0, 0, 6],
+          [1, 0, -11],
+          [0, 1, 6],
+        ]),
+      ).toBeLessThan(1e-10);
+      // Defective: one eigenvector for the repeated eigenvalue.
+      expect(
+        eigResidual([
+          [2, 1, 0],
+          [0, 2, 1],
+          [0, 0, 2],
+        ]),
+      ).toBeLessThan(1e-10);
+    });
+
+    it('returns unit-norm eigenvectors', () => {
+      const { v } = linalg.eig(
+        array([
+          [0, 1, -2],
+          [3, 2, 2],
+          [1, 1, 4],
+        ]),
+      );
+      for (let j = 0; j < 3; j++) {
+        const norm = Math.hypot(...[0, 1, 2].map((i) => Number(v.get([i, j]))));
+        expect(norm).toBeCloseTo(1, 10);
+      }
+    });
+
+    it('converges when two eigenvalues share a magnitude', () => {
+      // Unshifted QR converges at rate |lambda_i+1 / lambda_i|, so a spectrum
+      // containing both 1 and -1 never converges without a shift.
+      const a = array([
+        [0, 0, -2],
+        [1, 0, 1],
+        [0, 1, 2],
+      ]);
+      const w = [...(linalg.eig(a).w.toArray() as number[])].sort((x, y) => x - y);
+      expect(w[0]).toBeCloseTo(-1, 8);
+      expect(w[1]).toBeCloseTo(1, 8);
+      expect(w[2]).toBeCloseTo(2, 8);
+    });
+
+    it('converges on clustered eigenvalues', () => {
+      const a = array([
+        [1, 1, 1],
+        [0, 1.001, 1],
+        [0, 0, 2],
+      ]);
+      const w = [...(linalg.eig(a).w.toArray() as number[])].sort((x, y) => x - y);
+      expect(w[0]).toBeCloseTo(1, 8);
+      expect(w[1]).toBeCloseTo(1.001, 8);
+      expect(w[2]).toBeCloseTo(2, 8);
+    });
+
+    it('returns complex128 for a complex spectrum and float64 otherwise', () => {
+      // NumPy picks the output dtype from the spectrum, not the input.
+      expect(
+        linalg.eig(
+          array([
+            [0, 1, -2],
+            [3, 2, 2],
+            [1, 1, 4],
+          ]),
+        ).w.dtype,
+      ).toBe('float64');
+      expect(
+        linalg.eig(
+          array([
+            [1, 1],
+            [0, 1],
+          ]),
+        ).w.dtype,
+      ).toBe('float64');
+
+      const rot = linalg.eig(
+        array([
+          [0, -1],
+          [1, 0],
+        ]),
+      );
+      expect(rot.w.dtype).toBe('complex128');
+      expect(rot.v.dtype).toBe('complex128');
+    });
+
+    it('returns a conjugate pair for complex eigenvalues', () => {
+      // Rotation by 90 degrees has eigenvalues +/- i.
+      const { w, v } = linalg.eig(
+        array([
+          [0, -1],
+          [1, 0],
+        ]),
+      );
+
+      const w0 = w.get([0]) as Complex;
+      const w1 = w.get([1]) as Complex;
+      expect(w0.re).toBeCloseTo(0, 12);
+      expect(w1.re).toBeCloseTo(0, 12);
+      expect(Math.abs(w0.im)).toBeCloseTo(1, 12);
+      expect(w0.im).toBeCloseTo(-w1.im, 12);
+
+      // The two eigenvectors are conjugates of each other.
+      for (let i = 0; i < 2; i++) {
+        const a = v.get([i, 0]) as Complex;
+        const b = v.get([i, 1]) as Complex;
+        expect(a.re).toBeCloseTo(b.re, 12);
+        expect(a.im).toBeCloseTo(-b.im, 12);
+      }
+    });
+
+    it('satisfies A v = lambda v over the complex numbers', () => {
+      const cases: number[][][] = [
+        [
+          [0, -1],
+          [1, 0],
+        ],
+        // Companion matrix with one real root and one complex pair.
+        [
+          [0, 0, -6],
+          [1, 0, 11],
+          [0, 1, -6],
+        ],
+        // A complex pair sitting above a real eigenvalue in the Schur form
+        // exercises the complex back substitution, not just the 2x2 block.
+        [
+          [5, 1, 1],
+          [0, 0, -1],
+          [0, 1, 0],
+        ],
+        [
+          [0, -1, 1],
+          [1, 0, 1],
+          [0, 0, 5],
+        ],
+        // Two independent complex pairs.
+        [
+          [0, -1, 0, 0],
+          [1, 0, 0, 0],
+          [0, 0, 0, -2],
+          [0, 0, 2, 0],
+        ],
+      ];
+
+      for (const m of cases) {
+        const n = m.length;
+        const { w, v } = linalg.eig(array(m));
+        expect(w.dtype).toBe('complex128');
+
+        for (let j = 0; j < n; j++) {
+          const lambda = w.get([j]) as Complex;
+          const col = Array.from({ length: n }, (_, i) => v.get([i, j]) as Complex);
+
+          // Unit norm, as NumPy returns.
+          expect(Math.hypot(...col.map((c) => Math.hypot(c.re, c.im)))).toBeCloseTo(1, 10);
+
+          for (let i = 0; i < n; i++) {
+            const av = col.reduce(
+              (acc, c, k) => ({ re: acc.re + m[i]![k]! * c.re, im: acc.im + m[i]![k]! * c.im }),
+              { re: 0, im: 0 },
+            );
+            const lv = {
+              re: lambda.re * col[i]!.re - lambda.im * col[i]!.im,
+              im: lambda.re * col[i]!.im + lambda.im * col[i]!.re,
+            };
+            expect(Math.hypot(av.re - lv.re, av.im - lv.im)).toBeLessThan(1e-10);
+          }
+        }
+      }
+    });
+
+    it('gives a whole batch one dtype, as NumPy does', () => {
+      const allReal = linalg.eig(
+        array([
+          [
+            [1, 2],
+            [0, 3],
+          ],
+          [
+            [4, 1],
+            [0, 5],
+          ],
+        ]),
+      );
+      expect(allReal.w.dtype).toBe('float64');
+
+      // One complex slice makes the entire batch complex.
+      const mixed = linalg.eig(
+        array([
+          [
+            [1, 2],
+            [0, 3],
+          ],
+          [
+            [0, -1],
+            [1, 0],
+          ],
+        ]),
+      );
+      expect(mixed.w.dtype).toBe('complex128');
+      expect(mixed.v.dtype).toBe('complex128');
+      expect(mixed.w.shape).toEqual([2, 2]);
+      expect((mixed.w.get([0, 0]) as Complex).re).toBeCloseTo(1, 10);
+      expect((mixed.w.get([0, 0]) as Complex).im).toBeCloseTo(0, 10);
+      expect(Math.abs((mixed.w.get([1, 0]) as Complex).im)).toBeCloseTo(1, 10);
+    });
   });
 
   describe('linalg.eigh()', () => {

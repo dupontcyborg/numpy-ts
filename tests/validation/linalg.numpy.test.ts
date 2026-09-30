@@ -26,6 +26,7 @@ import {
   vecmat,
   wasmConfig,
 } from '../../src';
+import type { Complex } from '../../src/common/complex';
 import { supportsRelaxedSimd } from '../../src/common/wasm/detect';
 import { arraysClose, checkNumPyAvailable, runNumPy } from './numpy-oracle';
 
@@ -1381,6 +1382,161 @@ result = np.sort(w)
         expect(jsEigVals[0]).toBeCloseTo(pyResult.value[0], 5);
         expect(jsEigVals[1]).toBeCloseTo(pyResult.value[1], 5);
       });
+
+      // Matrices with a real spectrum, so NumPy's complex result carries no
+      // imaginary part and the real comparison below is exact.
+      const REAL_SPECTRUM: number[][][] = [
+        [
+          [0, 1, -2],
+          [3, 2, 2],
+          [1, 1, 4],
+        ],
+        [
+          [1, 2],
+          [0, 3],
+        ],
+        [
+          [1, 2, 3],
+          [0, 4, 5],
+          [0, 0, 6],
+        ],
+        [
+          [0, 0, 6],
+          [1, 0, -11],
+          [0, 1, 6],
+        ],
+        [
+          [0, 0, -2],
+          [1, 0, 1],
+          [0, 1, 2],
+        ],
+        [
+          [1, 1, 1],
+          [0, 1.001, 1],
+          [0, 0, 2],
+        ],
+        [
+          [4, -1, 2, 0],
+          [0, 3, 1, 5],
+          [0, 0, -2, 1],
+          [0, 0, 0, 7],
+        ],
+      ];
+
+      for (const mat of REAL_SPECTRUM) {
+        it(`matches NumPy eigenvalues for non-symmetric ${JSON.stringify(mat)}`, () => {
+          const { w } = linalg.eig(array(mat));
+
+          const pyResult = runNumPy(`
+w, v = np.linalg.eig(np.array(${JSON.stringify(mat)}, dtype=float))
+result = np.sort(w.real)
+      `);
+
+          const js = [...(w.toArray() as number[])].sort((a, b) => a - b);
+          expect(arraysClose(js, pyResult.value, 1e-8)).toBe(true);
+        });
+
+        it(`satisfies A v = lambda v for non-symmetric ${JSON.stringify(mat)}`, () => {
+          const n = mat.length;
+          const { w, v } = linalg.eig(array(mat));
+
+          // NumPy's own eigenvectors are only defined up to scale and sign, so
+          // compare against the defining identity rather than against NumPy's
+          // choice of vector.
+          let worst = 0;
+          for (let j = 0; j < n; j++) {
+            const col = Array.from({ length: n }, (_, i) => Number(v.get([i, j])));
+            const lambda = Number(w.get([j]));
+            for (let i = 0; i < n; i++) {
+              const av = mat[i]!.reduce((acc, x, k) => acc + x * col[k]!, 0);
+              worst = Math.max(worst, Math.abs(av - lambda * col[i]!));
+            }
+            expect(Math.hypot(...col)).toBeCloseTo(1, 8);
+          }
+          expect(worst).toBeLessThan(1e-9);
+        });
+      }
+
+      const COMPLEX_SPECTRUM: number[][][] = [
+        [
+          [0, -1],
+          [1, 0],
+        ],
+        [
+          [0, 0, -6],
+          [1, 0, 11],
+          [0, 1, -6],
+        ],
+        [
+          [5, 1, 1],
+          [0, 0, -1],
+          [0, 1, 0],
+        ],
+        [
+          [0, -1, 0, 0],
+          [1, 0, 0, 0],
+          [0, 0, 0, -2],
+          [0, 0, 2, 0],
+        ],
+      ];
+
+      it('matches the dtype NumPy picks from the spectrum', () => {
+        for (const mat of [...REAL_SPECTRUM, ...COMPLEX_SPECTRUM]) {
+          const { w, v } = linalg.eig(array(mat));
+          const py = runNumPy(`
+w, v = np.linalg.eig(np.array(${JSON.stringify(mat)}, dtype=float))
+result = str(w.dtype)
+      `);
+          expect(w.dtype).toBe(py.value);
+          expect(v.dtype).toBe(py.value);
+        }
+      });
+
+      for (const mat of COMPLEX_SPECTRUM) {
+        it(`matches NumPy complex eigenvalues for ${JSON.stringify(mat)}`, () => {
+          const { w } = linalg.eig(array(mat));
+          expect(w.dtype).toBe('complex128');
+
+          // Sort both sides the same way: eigenvalue order is not part of the
+          // NumPy contract, but the multiset is.
+          const py = runNumPy(`
+w, v = np.linalg.eig(np.array(${JSON.stringify(mat)}, dtype=float))
+order = np.lexsort((w.imag, w.real))
+result = np.stack([w.real[order], w.imag[order]], axis=1)
+      `);
+
+          const js = (w.toArray() as Complex[])
+            .map((c) => [c.re, c.im])
+            .sort((a, b) => a[0]! - b[0]! || a[1]! - b[1]!);
+          expect(arraysClose(js, py.value, 1e-8)).toBe(true);
+        });
+
+        it(`satisfies A v = lambda v over the complex numbers for ${JSON.stringify(mat)}`, () => {
+          const n = mat.length;
+          const { w, v } = linalg.eig(array(mat));
+
+          for (let j = 0; j < n; j++) {
+            const lambda = w.get([j]) as Complex;
+            const col = Array.from({ length: n }, (_, i) => v.get([i, j]) as Complex);
+            expect(Math.hypot(...col.map((c) => Math.hypot(c.re, c.im)))).toBeCloseTo(1, 8);
+
+            for (let i = 0; i < n; i++) {
+              const av = col.reduce(
+                (acc, c, k) => ({
+                  re: acc.re + mat[i]![k]! * c.re,
+                  im: acc.im + mat[i]![k]! * c.im,
+                }),
+                { re: 0, im: 0 },
+              );
+              const lv = {
+                re: lambda.re * col[i]!.re - lambda.im * col[i]!.im,
+                im: lambda.re * col[i]!.im + lambda.im * col[i]!.re,
+              };
+              expect(Math.hypot(av.re - lv.re, av.im - lv.im)).toBeLessThan(1e-9);
+            }
+          }
+        });
+      }
     });
 
     describe('linalg.eigh()', () => {
@@ -1416,6 +1572,80 @@ result = np.sort(np.linalg.eigvals([[1, 0], [0, 2]]))
         expect(jsEigVals[0]).toBeCloseTo(pyResult.value[0], 5);
         expect(jsEigVals[1]).toBeCloseTo(pyResult.value[1], 5);
       });
+
+      // Matrices with a real spectrum, so NumPy's complex result carries no
+      // imaginary part and the real comparison below is exact.
+      const REAL_SPECTRUM: number[][][] = [
+        [
+          [0, 1, -2],
+          [3, 2, 2],
+          [1, 1, 4],
+        ],
+        [
+          [1, 2],
+          [0, 3],
+        ],
+        [
+          [1, 2, 3],
+          [0, 4, 5],
+          [0, 0, 6],
+        ],
+        [
+          [0, 0, 6],
+          [1, 0, -11],
+          [0, 1, 6],
+        ],
+        [
+          [0, 0, -2],
+          [1, 0, 1],
+          [0, 1, 2],
+        ],
+        [
+          [1, 1, 1],
+          [0, 1.001, 1],
+          [0, 0, 2],
+        ],
+        [
+          [4, -1, 2, 0],
+          [0, 3, 1, 5],
+          [0, 0, -2, 1],
+          [0, 0, 0, 7],
+        ],
+      ];
+
+      for (const mat of REAL_SPECTRUM) {
+        it(`matches NumPy eigenvalues for non-symmetric ${JSON.stringify(mat)}`, () => {
+          const { w } = linalg.eig(array(mat));
+
+          const pyResult = runNumPy(`
+w, v = np.linalg.eig(np.array(${JSON.stringify(mat)}, dtype=float))
+result = np.sort(w.real)
+      `);
+
+          const js = [...(w.toArray() as number[])].sort((a, b) => a - b);
+          expect(arraysClose(js, pyResult.value, 1e-8)).toBe(true);
+        });
+
+        it(`satisfies A v = lambda v for non-symmetric ${JSON.stringify(mat)}`, () => {
+          const n = mat.length;
+          const { w, v } = linalg.eig(array(mat));
+
+          // NumPy's own eigenvectors are only defined up to scale and sign, so
+          // compare against the defining identity rather than against NumPy's
+          // choice of vector.
+          let worst = 0;
+          for (let j = 0; j < n; j++) {
+            const col = Array.from({ length: n }, (_, i) => Number(v.get([i, j])));
+            const lambda = Number(w.get([j]));
+            for (let i = 0; i < n; i++) {
+              const av = mat[i]!.reduce((acc, x, k) => acc + x * col[k]!, 0);
+              worst = Math.max(worst, Math.abs(av - lambda * col[i]!));
+            }
+            expect(Math.hypot(...col)).toBeCloseTo(1, 8);
+          }
+          expect(worst).toBeLessThan(1e-9);
+        });
+      }
     });
 
     describe('linalg.eigvalsh()', () => {
