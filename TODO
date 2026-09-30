@@ -4,10 +4,25 @@
 
 ## P1
 
+- [ ] Fix silent loss of imaginary components across the decomposition family, including batched inputs. Audited against NumPy: `qr`, `svd`, `svdvals`, `cholesky`, `eigh`, `eigvalsh`, `pinv`, `cond` and `lstsq` all compute from the real parts and return `float64` where NumPy returns `complex128`. `det`, `inv`, `solve`, `norm`, `matrix_power` and `trace` are already correct (they have dedicated complex paths).
+    - `eigSymmetric` is the shared root: it backs `eigh`/`eigvalsh` and `svd`, and `svd` backs `pinv`/`cond`/`svdvals`/`lstsq`. One complex Hermitian Jacobi fixes seven entry points
+    - Suggested split: (a) complex Cholesky + complex Householder QR + complex Hermitian Jacobi — mechanically straightforward, most of the user-visible win; (b) complex non-Hermitian `eig` — the only piece with real algorithmic risk. Do not let (b) block (a)
+    - Decide before starting (a): whether `svd` keeps the `A^H A` approach. Keeping it makes complex SVD a cheap extension of the complex Jacobi; replacing it is a separate job that also changes accuracy for real input, since `A^H A` squares the condition number
+    - Complex non-Hermitian `eig` gets simpler in complex arithmetic than the real path: a complex Wilkinson shift gives a genuinely triangular Schur form, so the Francis double shift and all the 2x2 block handling disappear
+    - Interim, and cheap: make the six broken entry points throw or warn on complex input instead of returning quietly wrong numbers. Same silent-wrongness class as the `eig` bug in #161. Technically breaking, but only for callers already getting wrong answers
+- [ ] Teach the coverage guards to see namespaced functions. `np.linalg`, `np.fft` and `np.random` are objects, not functions, so both guards skip them entirely and every namespaced op is structurally invisible. This is why `linalg.eig` had neither a benchmark nor complex coverage while being badly broken.
+    - [ ] `tests/unit/benchmark-coverage.test.ts:424` filters `typeof v === 'function'`, enumerating only the 413 top-level exports. Recurse one level into object exports and emit `ns.member`, matching against both `member` and `ns_member` slugs. `NOT_BENCHMARKABLE` needs namespaced keys too, since it validates entries against `Object.keys(np)`. Surfaces 30 gaps
+    - [ ] `tests/unit/complex-coverage.test.ts:489` maps `linalg: 'skip'` with the comment "namespace object, not a function", so no `np.linalg.*` function is checked at all. Unskip it once the above lands. Its `testComplexBehavior` also only checks throws-vs-not, never values
+    - [ ] The dtype sweep tags fixtures complex without making them complex: every linalg sweep builds from plain number literals and sets `dtype=np.complex128`, so imaginary parts are always zero and dropping them is a no-op. Substitute a genuinely complex matrix when `isComplex(dtype)`, using the mechanism that already special-cases `bool`
+    - [ ] Route `linalg-decomp`, `linalg-ops` and `linalg-toplevel` through `expectMatch`/`expectMatchPre`. All three use them zero times while most sweep files use them 2-19 times; they hand-roll `arraysClose` instead, which promotes a real number to `Complex(x, 0)` so a real-only answer compares equal. The dtype assertion alone catches all the complex-input bugs above on the existing real-valued fixtures
+    - [ ] Strengthen the assertions those sweeps make: `eig`/`eigvals` compare only `np.sort(np.absolute(w))`, discarding sign and phase (this is why #161 survived); `qr` asserts only `matmul(q, r) ~= A` and never checks Q or R; `svd` checks only the always-real singular values
+- [ ] Run `pnpm run typecheck:types` in PR and main CI, not only the release workflow's `test:ci`, so public dtype/type inference regressions are caught before release.
+- [ ] Make a red `main` visible. `ci.yml` does run the full suite on push to main, but its failures went unnoticed for four weeks (red since `7a7619c`, 2026-09-04) because the runs surfacing in the repo's default view were CodeQL and Dependabot, which were green. Add a CI status badge to the README, or a notification on `ci.yml` failure, so a broken main cannot sit unnoticed between PRs.
 - [ ] Implement `unfunc` support
 - [ ] Implement masked array support
 - [ ] Implement fancy indexing support
 - [ ] Modularize codebase
+    - Split large operation modules along algorithm boundaries to make numerical review and maintenance easier
     - [ ] `linalg.ts` -> `linalg/*.ts`
     - [ ] `reduction.ts` -> `reductions/*.ts`
     - [ ] `arithmetic.ts` -> `arithmetic/*.ts`
@@ -17,6 +32,14 @@
 - [ ] Add strided array handling to all WASM kernels
 - [ ] Consider removing TypeScript ops where we have WASM and have WASM run all cases
 - [ ] Add JS benchmarks to docs
+- [ ] Add JS-vs-WASM differential tests: for each op, run both backends (`wasmConfig.thresholdMultiplier` = `Infinity` vs `0`) on the same random input and compare bitwise or within an ulp tolerance. In-process, no Python, fast.
+    - Sweep sizes 0..70 so lengths land on and around every SIMD lane width (catches scalar tail-loop bugs)
+    - Include offset / misaligned views, not just fresh contiguous arrays
+    - Today only `tests/validation/dtype-sweep/` runs under `FORCE_BACKEND`; most unit tests use small arrays and never reach WASM
+- [ ] Add property-based / metamorphic tests with `fast-check` (not a dependency yet)
+    - Invariants: `transpose(transpose(a)) == a`, reshape round-trip, sum over each axis == total sum, `fft(ifft(x)) ≈ x`, sort idempotent, broadcasting symmetric in operand order, dtype promotion symmetric
+    - Generate random shapes, strides, and offset/non-contiguous views to hit layout bugs hand-picked cases miss
+    - Follow-up: feed the same generators into `runNumPyBatch()` for randomized NumPy differential testing (pinned seed + small case count in CI, larger nightly run)
 - [X] Add `float16` support (conditional upon `Float16Array` being available)
 - [X] Accelerate with WASM kernels
 - [X] WASM optimization & relaxed SIMD
@@ -43,12 +66,40 @@
         4. Update `build-wasm.ts` to accept per-kernel optimization overrides
 - [ ] Fix `ptp` int64/uint64: type advertises `NDArray<D> | Scalar<D>` (incl. bigint dtypes) but the runtime throws on int64/uint64 (no bigint ptp support). Either add bigint runtime support or narrow the type to exclude bigint dtypes.
 - [ ] Add comprehensive axis & ndim test coverage (like we did with dtype)
+- [ ] Fill the benchmark gaps the namespace fix surfaces: 8 in linalg (`eig`, `eigvals`, `eigvalsh`, `matrix_norm`, `vector_norm`, `tensorinv`, `tensorsolve`, `permute_dims`) and 9 real ones in random (`f`, `hypergeometric`, `logseries`, `multinomial`, `multivariate_normal`, `negative_binomial`, `noncentral_chisquare`, `noncentral_f`, `standard_gamma`). fft is fully covered.
+    - The remaining random entries are RNG plumbing (`Generator`, `default_rng`, `seed`, `get_state`, `set_state`, `bytes`, `shuffle`) and aliases (`random_sample`, `ranf`, `sample`, `random_integers`) — put those in `NOT_BENCHMARKABLE` rather than benchmarking them
+    - The whole eigen family is unbenchmarked while `eigh` is there by hand, so a decomposition regression only shows up if someone happens to look
+- [ ] Speed up `linalg.eig`. It is pure TypeScript on `number[][]` after the dgeev rewrite and runs roughly 6-30x slower than NumPy depending on size and how fast the iteration converges, which is well outside the rest of the suite.
+    - Add the benchmark first (above), otherwise there is nothing to measure against
+    - Then try flattening the working matrices from `number[][]` to a single `Float64Array`. The hot loop is `applyReflector`, which makes O(n) passes over rows and columns; this is contained and needs no WASM boundary
+    - A Zig kernel is the last resort, not the first. It is a bigger lift than the other decompositions because the Schur form carries 2x2 blocks and the eigenvector back substitution goes complex, and it collides with the complex-input work — sequence it after, or scope it to the real path
+- [ ] `scripts/report:dtype-coverage` parses test *names* statically, so a test called `linalg.qr complex128` counts as covered no matter what it asserts. The report reads green while the assertions are hollow. Either derive coverage from what the assertions actually compare, or stop treating the report as a coverage signal.
 - [ ] Implement async functions using Web Workers to avoid blocking main thread
 - [ ] Reach 100% function coverage via unit and validation tests
 - [ ] Reach >95% branch coverage via unit and validation tests
 - [ ] Reach >95% statement coverage via unit and validation tests
 - [ ] Simplify docs Quickstart
+    - Add a sustained-loop example covering intermediate disposal (`.dispose()` / `using`), the default 256 MiB WASM pool, and the throughput impact of JS fallback when the pool fills
 - [ ] Fix PR benchmark regression testing CI
+    - Measure changed code against the base revision in the same environment; comparing committed result files alone misses regressions when results are unchanged
+- [ ] Qualify the README's "Complete NumPy implementation" claim: distinguish function-count coverage from semantic compatibility and document unsupported dtype/mode combinations, including complex decompositions.
+- [ ] Make `CONTRIBUTING.md` setup reproducible: replace the personal Conda environment instructions with Python/NumPy installation steps, document the Zig version from `.zigversion`, and verify the instructions cover the test build prerequisites.
+- [ ] Add a safety net for manual `WasmRegion` lifetimes. Invariant: every `ArrayStorage` sharing an existing region is built through `ArrayStorage.fromDataShared` (which calls `region.retain()`), and every direct `new ArrayStorage(..., region)` passes a region it just allocated; both are confined to `storage.ts`. Nothing enforces it — one stray `new ArrayStorage(data, ..., other.wasmRegion)` or a `fromWasmRegion` handed a region someone else holds under-counts the refcount, and the first `dispose()` frees memory another storage is still reading. Failure mode is silently wrong numbers from recycled heap, surfacing as an unrelated flaky test. Options, cheapest first:
+    - [ ] Lint rule banning `new ArrayStorage` with a 6th argument outside `src/common/storage.ts` (Biome restricted-syntax rule). Worth doing regardless.
+    - [ ] Debug-mode assertions: behind a flag, `WasmRegion.release()` throws when refcount is already 0, and `dispose()` asserts it releases the region it was constructed with. Enable for the `leaks` and `wasm-memory` projects. Do before the next round of manual-lifetime optimization.
+    - [ ] Refcount audit in the leak suite: after each test, assert live regions match live storages that claim one. Strongest check, most work.
+- [ ] Get `benchmarks/results` out of git. Regenerated JSON and Plotly HTML don't delta, so every benchmark run adds roughly its full size to history permanently (~36 MB tracked; PR #155 alone churned ~325k/169k lines).
+    - Keep `benchmarks/dtype-coverage-baseline.json` in-tree — it's a real fixture for `tests/unit/benchmark-coverage.test.ts` and small
+    - Move `benchmarks/results/**` (raw JSON, `plots/*.html`, `plots/*.png`) to a release asset, `gh-pages` branch, or artifact bucket; `bench:view` / `bench:compare` fetch or take a local path
+    - Commit a small `benchmarks/results/summary.json` (geomean, counts, headline table) so PRs still show the delta
+    - History rewrite (`git filter-repo`) is a separate decision — stopping growth doesn't need it, and it would break outstanding forks and PRs
+- [ ] Mutation testing pilot with StrykerJS (Vitest runner + TypeScript checker) on one well-tested module (linalg or reductions)
+    - `coverageAnalysis: "perTest"` + `incremental`, scoped with `--mutate <file>`; nightly or changed-files-only, never in `pnpm test`
+    - Cache NumPy oracle responses keyed by script hash — the oracle result doesn't depend on the mutant, and Python startup per mutant dominates otherwise
+    - Exclude generated files (`src/full/index.ts`, `src/common/dtype-promotion.ts`) and perf-only guards (size thresholds, contiguity fast paths, WASM-eligibility checks) — mutating those is equivalent and just noise
+    - Run under both `FORCE_BACKEND=js` and `FORCE_BACKEND=wasm`, otherwise WASM-wrapper mutants survive trivially (or JS-fallback ones do)
+    - Expect ~1-ulp float mutants to survive `rtol` comparisons; the real signal is tests that check shape/dtype but not values
+- [ ] Fuzz the `.npy` / `.npz` parsers (truncated headers, malformed shape strings, oversized dims) for crashes, hangs, and huge allocations — these load untrusted files
 - [X] Make all seeded `random` functions match NumPy's output byte-for-byte
 
 ## P3
@@ -58,3 +109,6 @@
 - [ ] Link specific API reference pages in Guides
 - [ ] Add Playground components to Guides and/or API Reference?
 - [ ] Add banner to old version docs pointing to new versions
+- [ ] Generate the monomorphized per-dtype loops in `src/common/internal/compute.ts` and `src/common/internal/strided-copy.ts` (~1,500 lines: `cmpF64`…`cmpU8`/`cmpF16`, `eqF64`…`eqU64`, `gF64`…`gU64`, `sF64`…`sU64`, `stepStore`/`stepScatter` switches). The duplication is deliberate — a generic loop over the `TypedArray` union goes megamorphic past four dtypes and every dtype pays — so keep the per-dtype loops, but emit them from one template per family + one dtype table, like `scripts/generate-full.ts` does. Only worth it when a dtype is next added or a sixth family appears.
+- [ ] Zig kernel mutation testing: no mature tool exists, so a small script that applies mutations (`<`→`<=`, `+%`→`-%`, change vector width, drop the scalar tail loop), rebuilds WASM, and runs the matching `*.numpy.test.ts` under `FORCE_BACKEND=wasm`. Slow; per-kernel, on demand.
+- [ ] Add `std.testing.fuzz` to the inline Zig kernel tests (`zig build test --fuzz`, if our Zig version supports it) for OOB reads and overflow

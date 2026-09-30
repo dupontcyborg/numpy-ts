@@ -5206,8 +5206,12 @@ export function getBenchmarkSpecs(
         for (const variant of FAMILY_VARIANTS[family]!) {
           if (MODE_RANK[mode]! < MODE_RANK[variant.minMode]!) continue;
 
-          // Skip variant if it matches the base spec's dtype (would be a duplicate)
-          const baseDtype = dataEntries[0]?.[1]?.dtype;
+          // Skip variant if it matches the dtype the sweep would replace, which
+          // would just re-emit the base spec. Read that off the entries the
+          // sweep actually varies: the first data entry can be a pinned
+          // auxiliary array — an index or condition operand — whose dtype has
+          // nothing to do with the operand being swept.
+          const baseDtype = variableEntries[0]?.[1]?.dtype;
           if (baseDtype && variant.dtype === baseDtype) continue;
 
           // Skip float16 for numerically sensitive operations

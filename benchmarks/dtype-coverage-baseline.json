@@ -517,6 +517,7 @@
   "choose": [
     "float16",
     "float32",
+    "float64",
     "int16",
     "int32",
     "int64",
@@ -579,6 +580,7 @@
   "compress": [
     "float16",
     "float32",
+    "float64",
     "int16",
     "int32",
     "int64",
@@ -3425,6 +3427,7 @@
   "take_along_axis": [
     "float16",
     "float32",
+    "float64",
     "int16",
     "int32",
     "int64",
@@ -3850,6 +3853,7 @@
   "where": [
     "float16",
     "float32",
+    "float64",
     "int16",
     "int32",
     "int64",
