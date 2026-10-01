@@ -3329,7 +3329,9 @@ export function qr(
   }
 
   // Copy input to working array (float64)
-  const R = ArrayStorage.zeros([m!, n!], 'float64');
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+  const R = ArrayStorage.zeros([m!, n!], realDtype);
   for (let i = 0; i < m!; i++) {
     for (let j = 0; j < n!; j++) {
       R.set([i, j], realPart(a.get(i, j)));
@@ -3391,14 +3393,14 @@ export function qr(
 
   if (mode === 'raw') {
     // Return raw Householder representation
-    const h = ArrayStorage.zeros([m!, n!], 'float64');
+    const h = ArrayStorage.zeros([m!, n!], realDtype);
     for (let i = 0; i < m!; i++) {
       for (let j = 0; j < n!; j++) {
         h.set([i, j], Number(R.get(i, j)));
       }
     }
     R.dispose();
-    const tauArr = ArrayStorage.zeros([k], 'float64');
+    const tauArr = ArrayStorage.zeros([k], realDtype);
     for (let i = 0; i < k; i++) {
       tauArr.set([i], tau[i]!);
     }
@@ -3407,7 +3409,7 @@ export function qr(
 
   if (mode === 'r') {
     // Return only R (upper triangular)
-    const rResult = ArrayStorage.zeros([k, n!], 'float64');
+    const rResult = ArrayStorage.zeros([k, n!], realDtype);
     for (let i = 0; i < k; i++) {
       for (let j = i; j < n!; j++) {
         rResult.set([i, j], Number(R.get(i, j)));
@@ -3419,7 +3421,7 @@ export function qr(
 
   // Reconstruct Q from Householder vectors
   const qRows = mode === 'complete' ? m! : k;
-  const Q = ArrayStorage.zeros([m!, qRows], 'float64');
+  const Q = ArrayStorage.zeros([m!, qRows], realDtype);
 
   // Initialize Q as identity
   for (let i = 0; i < Math.min(m!, qRows); i++) {
@@ -3446,7 +3448,7 @@ export function qr(
   }
 
   // Extract final Q and R
-  const qResult = ArrayStorage.zeros([m!, qRows], 'float64');
+  const qResult = ArrayStorage.zeros([m!, qRows], realDtype);
   for (let i = 0; i < m!; i++) {
     for (let j = 0; j < qRows; j++) {
       qResult.set([i, j], Number(Q.get(i, j)));
@@ -3455,7 +3457,7 @@ export function qr(
   Q.dispose();
 
   const rRows = mode === 'complete' ? m! : k;
-  const rResult = ArrayStorage.zeros([rRows, n!], 'float64');
+  const rResult = ArrayStorage.zeros([rRows, n!], realDtype);
   for (let i = 0; i < rRows; i++) {
     for (let j = 0; j < n!; j++) {
       if (j >= i) {
@@ -3616,7 +3618,9 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
   }
 
   const size = m!;
-  const L = ArrayStorage.zeros([size, size], 'float64');
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+  const L = ArrayStorage.zeros([size, size], realDtype);
 
   for (let i = 0; i < size; i++) {
     for (let j = 0; j <= i; j++) {
@@ -3648,7 +3652,7 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
 
   if (upper) {
     // Return L^T (upper triangular)
-    const U = ArrayStorage.zeros([size, size], 'float64');
+    const U = ArrayStorage.zeros([size, size], realDtype);
     for (let i = 0; i < size; i++) {
       for (let j = i; j < size; j++) {
         U.set([i, j], Number(L.get(j, i)));
@@ -3916,15 +3920,18 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   const indices = Array.from({ length: n! }, (_, i) => i);
   indices.sort((i, j) => eigVals[j]! - eigVals[i]!);
 
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+
   // Singular values are sqrt of eigenvalues
-  const s = ArrayStorage.zeros([smaller], 'float64');
+  const s = ArrayStorage.zeros([smaller], realDtype);
   for (let i = 0; i < smaller; i++) {
     const eigVal = eigVals[indices[i]!]!;
     s.set([i], Math.sqrt(Math.max(0, eigVal)));
   }
 
   // V^T (sorted) - real eigenvectors
-  const vt = ArrayStorage.zeros([n!, n!], 'float64');
+  const vt = ArrayStorage.zeros([n!, n!], realDtype);
   for (let i = 0; i < n!; i++) {
     for (let j = 0; j < n!; j++) {
       vt.set([i, j], V[j]![indices[i]!]!);
@@ -3932,7 +3939,7 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   }
 
   // Compute U = A @ V @ S^-1
-  const u = ArrayStorage.zeros([m!, m!], 'float64');
+  const u = ArrayStorage.zeros([m!, m!], realDtype);
   for (let i = 0; i < m!; i++) {
     for (let j = 0; j < smaller; j++) {
       const sigma = Number(s.get(j));
@@ -5178,7 +5185,9 @@ export function lstsq(
 
     // Compute x = V @ S^+ @ U^T @ b using WASM matmul
     // Build (V @ S^+) as n×k matrix, U^T as k×m, then matmul chains
-    const vsInv = ArrayStorage.zeros([n!, k], 'float64');
+    // NumPy narrows with the input: float32 in, float32 out.
+    const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+    const vsInv = ArrayStorage.zeros([n!, k], realDtype);
     const vsInvData = vsInv.data as Float64Array;
     for (let l = 0; l < k; l++) {
       const sigma = sData[l]!;
@@ -5191,7 +5200,7 @@ export function lstsq(
     }
 
     // U^T truncated: k × m
-    const ut = ArrayStorage.empty([k, m!], 'float64');
+    const ut = ArrayStorage.empty([k, m!], realDtype);
     const utData = ut.data as Float64Array;
     for (let l = 0; l < k; l++) {
       for (let j = 0; j < m!; j++) {
@@ -5355,17 +5364,17 @@ export function matrix_power(a: ArrayStorage, n: number): ArrayStorage {
     throw new Error('matrix_power: exponent must be an integer');
   }
 
-  // Preserve complex/bigint/float32 dtypes; all other integer types upcast to float64
-  const isComplex = isComplexDType(a.dtype);
-  const isBigInt = isBigIntDType(a.dtype);
-  const outDtype = isComplex
-    ? a.dtype
-    : a.dtype === 'float32'
-      ? 'float32'
-      : isBigInt
-        ? a.dtype
-        : 'float64';
-  const one: number | bigint | Complex = isComplex ? new Complex(1, 0) : isBigInt ? 1n : 1;
+  // A non-negative power preserves the input dtype exactly, including bool and
+  // the narrow integers. A negative one runs through inv() first, which
+  // promotes the way inversion does: integers and bool to float64, float32 and
+  // the complex types to themselves.
+  const outDtype: DType =
+    n >= 0 ? a.dtype : isComplexDType(a.dtype) || a.dtype === 'float32' ? a.dtype : 'float64';
+  const one: number | bigint | Complex = isComplexDType(outDtype)
+    ? new Complex(1, 0)
+    : isBigIntDType(outDtype)
+      ? 1n
+      : 1;
 
   // Handle n = 0: return identity
   if (n === 0) {
@@ -5473,7 +5482,9 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
     // Compute pinv = V^T^T @ S^+ @ U^T = (V^T transposed with S^+ scaling) @ U^T
     // Step 1: Build S^+ @ V^T → each row l of vt scaled by 1/s[l] (or 0)
     // Result is k × n, but we want V @ S^+ which is n × k (= vt^T with scaling)
-    const vsInv = ArrayStorage.zeros([n!, k], 'float64');
+    // NumPy narrows with the input: float32 in, float32 out.
+    const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+    const vsInv = ArrayStorage.zeros([n!, k], realDtype);
     const vsInvData = vsInv.data as Float64Array;
     for (let l = 0; l < k; l++) {
       const sigma = sData[l]!;
@@ -5488,7 +5499,7 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
     }
 
     // Step 2: Build U^T (k × m) — take first k rows of u^T (= first k columns of u, transposed)
-    const ut = ArrayStorage.empty([k, m!], 'float64');
+    const ut = ArrayStorage.empty([k, m!], realDtype);
     const utData = ut.data as Float64Array;
     const uData = u.data as Float64Array;
     for (let l = 0; l < k; l++) {
@@ -6238,8 +6249,10 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
   const indices = Array.from({ length: size }, (_, i) => i);
   indices.sort((i, j) => values[i]! - values[j]!);
 
-  const w = ArrayStorage.zeros([size], 'float64');
-  const v = ArrayStorage.zeros([size, size], 'float64');
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+  const w = ArrayStorage.zeros([size], realDtype);
+  const v = ArrayStorage.zeros([size, size], realDtype);
 
   for (let i = 0; i < size; i++) {
     w.set([i], values[indices[i]!]!);
