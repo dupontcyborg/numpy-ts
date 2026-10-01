@@ -15,7 +15,7 @@ import {
   type TypedArray,
 } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { wasmCholesky, wasmCholeskyF32 } from '../wasm/cholesky';
+import { wasmCholesky, wasmCholeskyComplex, wasmCholeskyF32 } from '../wasm/cholesky';
 import { wasmCross } from '../wasm/cross';
 import { wasmDot1D } from '../wasm/dot';
 import { wasmInner } from '../wasm/inner';
@@ -3411,6 +3411,22 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
   }
 
   if (isComplexDType(a.dtype)) {
+    const wasmComplex = wasmCholeskyComplex(a);
+    if (wasmComplex) {
+      if (!upper) return wasmComplex;
+      // The kernel returns L; `upper` wants its conjugate transpose.
+      const size = m!;
+      const U = ArrayStorage.zeros([size, size], wasmComplex.dtype);
+      for (let i = 0; i < size; i++) {
+        for (let j = i; j < size; j++) {
+          const v = wasmComplex.get(j, i);
+          const c = v instanceof Complex ? v : new Complex(Number(v), 0);
+          U.set([i, j], new Complex(c.re, -c.im));
+        }
+      }
+      wasmComplex.dispose();
+      return U;
+    }
     return choleskyComplex(a, m!, upper);
   }
 
