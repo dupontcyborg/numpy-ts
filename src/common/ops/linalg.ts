@@ -3311,6 +3311,73 @@ export function qr(
  * @param upper - If true, return upper triangular U such that A = U^T @ U
  * @returns Lower (or upper) triangular Cholesky factor
  */
+/**
+ * Cholesky factorisation of a Hermitian positive-definite complex matrix,
+ * reading the lower triangle as NumPy does. The diagonal of L stays real
+ * because A[j][j] is real for a Hermitian matrix, and the off-diagonal sum
+ * conjugates its second factor — dropping that conjugation is what makes a
+ * real-valued implementation silently wrong on complex input.
+ *
+ * @param a - Hermitian positive-definite matrix
+ * @param size - Matrix dimension
+ * @param upper - Return the conjugate transpose instead of L
+ * @returns Lower triangular L with A = L L^H, or its conjugate transpose
+ */
+function choleskyComplex(a: ArrayStorage, size: number, upper: boolean): ArrayStorage {
+  const outDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+  const L = ArrayStorage.zeros([size, size], outDtype);
+  const at = (i: number, j: number): Complex => {
+    const v = a.get(i, j);
+    return v instanceof Complex ? v : new Complex(Number(v), 0);
+  };
+  const lt = (i: number, j: number): Complex => {
+    const v = L.get(i, j);
+    return v instanceof Complex ? v : new Complex(Number(v), 0);
+  };
+
+  for (let j = 0; j < size; j++) {
+    let diagSum = 0;
+    for (let k = 0; k < j; k++) {
+      const l = lt(j, k);
+      diagSum += l.re * l.re + l.im * l.im;
+    }
+    const val = at(j, j).re - diagSum;
+    if (val <= 0) {
+      throw new Error('cholesky: matrix is not positive definite');
+    }
+    const ljj = Math.sqrt(val);
+    L.set([j, j], new Complex(ljj, 0));
+
+    for (let i = j + 1; i < size; i++) {
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let k = 0; k < j; k++) {
+        const lik = lt(i, k);
+        const ljk = lt(j, k);
+        // lik * conj(ljk)
+        sumRe += lik.re * ljk.re + lik.im * ljk.im;
+        sumIm += lik.im * ljk.re - lik.re * ljk.im;
+      }
+      const aij = at(i, j);
+      L.set([i, j], new Complex((aij.re - sumRe) / ljj, (aij.im - sumIm) / ljj));
+    }
+  }
+
+  if (upper) {
+    const U = ArrayStorage.zeros([size, size], outDtype);
+    for (let i = 0; i < size; i++) {
+      for (let j = i; j < size; j++) {
+        const v = lt(j, i);
+        U.set([i, j], new Complex(v.re, -v.im));
+      }
+    }
+    L.dispose();
+    return U;
+  }
+
+  return L;
+}
+
 export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage {
   throwIfFloat16(a.dtype);
   if (a.ndim < 2) {
@@ -3341,6 +3408,10 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
   const [m, n] = a.shape;
   if (m !== n) {
     throw new Error(`cholesky: matrix must be square, got ${m}x${n}`);
+  }
+
+  if (isComplexDType(a.dtype)) {
+    return choleskyComplex(a, m!, upper);
   }
 
   // WASM fast path
