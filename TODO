@@ -58,6 +58,7 @@
 
 ## P2
 
+- [ ] Comment/docs cleanup
 - [ ] Remove JS functions and make WASM handle all cases (no minimum threshold; non-contiguous support)
 - [ ] Add JS-side measurement mode for benchmarks to show the "real" cost if you were to use NumPy from JS
 - [ ] Per-kernel WASM optimization levels (ReleaseSmall vs ReleaseFast)

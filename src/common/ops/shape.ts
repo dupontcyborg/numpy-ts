@@ -1443,6 +1443,7 @@ export function roll(
         f32Out[i] = f32Src[sourceIdx]!;
       }
       (outputData as Float16Array).set(f32Out);
+      flatStorage.dispose();
       return rollResult;
     }
 
@@ -1461,6 +1462,11 @@ export function roll(
         ) as number;
       }
     }
+
+    // flatten always allocates, so the temporary has to be released or every
+    // call leaks it. Only the complex and float16 paths reach here: a real
+    // contiguous roll returns from the WASM fast path above.
+    flatStorage.dispose();
 
     // Reshape back to original shape
     return rollResult;

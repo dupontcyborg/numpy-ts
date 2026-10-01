@@ -903,15 +903,30 @@ export function vander(x: NDArrayCore, N?: number, increasing: boolean = false):
 
   for (let i = 0; i < n; i++) {
     const val = Number(typeof data[i] === 'bigint' ? data[i] : data[isComplex ? i * 2 : i]);
+    const valIm = isComplex ? Number((data as Float64Array)[i * 2 + 1]) : 0;
     for (let j = 0; j < cols; j++) {
       const exp = increasing ? j : cols - 1 - j;
       const v = val ** exp;
       const idx = i * cols + j;
       if (isBigInt) {
-        (resultData as unknown as BigInt64Array)[idx] = BigInt(Math.round(v));
+        // Raising in doubles first loses every bit above 2^53 and lands on 0
+        // for the larger powers; NumPy wraps the 64-bit result instead.
+        let acc = 1n;
+        const base = BigInt(Math.round(val));
+        for (let k = 0; k < exp; k++) acc = BigInt.asIntN(64, acc * base);
+        (resultData as unknown as BigInt64Array)[idx] = acc;
       } else if (isComplex) {
-        (resultData as Float64Array)[idx * 2] = v;
-        (resultData as Float64Array)[idx * 2 + 1] = 0;
+        // The power has to be taken over the complex numbers; using the real
+        // part alone drops the imaginary half of every entry.
+        let re = 1;
+        let im = 0;
+        for (let k = 0; k < exp; k++) {
+          const nextRe = re * val - im * valIm;
+          im = re * valIm + im * val;
+          re = nextRe;
+        }
+        (resultData as Float64Array)[idx * 2] = re;
+        (resultData as Float64Array)[idx * 2 + 1] = im;
       } else {
         (resultData as Float64Array)[idx] = v;
       }
