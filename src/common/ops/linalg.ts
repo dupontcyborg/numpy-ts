@@ -3157,10 +3157,26 @@ function qrComplex(
     const len = m - j;
     const vRe = new Float64Array(len);
     const vIm = new Float64Array(len);
+
+    // Scale the column by its largest component first. H = I - 2vv^H/(v^H v)
+    // does not depend on the scale of v, but v^H v does: for entries near 1e-162
+    // the squares fall subnormal, 2/(v^H v) overflows to infinity, and the
+    // reflector comes out as NaN.
+    let maxAbs = 0;
+    for (let i = 0; i < len; i++) {
+      const mag = Math.max(Math.abs(rRe[(j + i) * n + j]!), Math.abs(rIm[(j + i) * n + j]!));
+      if (mag > maxAbs) maxAbs = mag;
+    }
+    if (maxAbs === 0) {
+      reflectors.push(null);
+      continue;
+    }
+    const invMax = 1 / maxAbs;
+
     let normX = 0;
     for (let i = 0; i < len; i++) {
-      const re = rRe[(j + i) * n + j]!;
-      const im = rIm[(j + i) * n + j]!;
+      const re = rRe[(j + i) * n + j]! * invMax;
+      const im = rIm[(j + i) * n + j]! * invMax;
       vRe[i] = re;
       vIm[i] = im;
       normX += re * re + im * im;

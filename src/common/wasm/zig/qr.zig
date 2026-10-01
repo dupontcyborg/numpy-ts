@@ -280,6 +280,29 @@ export fn qr_c128(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]
     for (0..K * N * 2) |i| r[i] = 0;
 
     for (0..K) |j| {
+        // Scale the column by its largest component before forming the
+        // reflector. H = I - 2vv^H/(v^H v) does not depend on the scale of v,
+        // but v^H v does: for entries near 1e-162 the squares fall subnormal,
+        // 2/(v^H v) overflows to infinity and the reflector becomes NaN.
+        var max_abs: f64 = 0;
+        for (j..M) |ri| {
+            const re = @abs(a[(ri * N + j) * 2]);
+            const im = @abs(a[(ri * N + j) * 2 + 1]);
+            if (re > max_abs) max_abs = re;
+            if (im > max_abs) max_abs = im;
+        }
+        if (max_abs == 0) {
+            tau_out[j] = 0;
+            scratch[j * 2] = 0;
+            scratch[j * 2 + 1] = 0;
+            continue;
+        }
+        const inv_max = 1.0 / max_abs;
+        for (j..M) |ri| {
+            a[(ri * N + j) * 2] *= inv_max;
+            a[(ri * N + j) * 2 + 1] *= inv_max;
+        }
+
         var norm_sq: f64 = 0;
         for (j..M) |ri| {
             const re = a[(ri * N + j) * 2];
@@ -300,9 +323,10 @@ export fn qr_c128(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]
         const pr = if (aabs == 0) 1.0 else ajr / aabs;
         const pi = if (aabs == 0) 0.0 else aji / aabs;
 
-        // alpha = -(a[j,j]/|a[j,j]|)·‖x‖ lands on R's diagonal; v = x - alpha·e1.
-        r[(j * N + j) * 2] = -pr * nrm;
-        r[(j * N + j) * 2 + 1] = -pi * nrm;
+        // alpha = -(a[j,j]/|a[j,j]|)·‖x‖ lands on R's diagonal, at the original
+        // scale; v = x - alpha·e1 stays scaled, which the reflector allows.
+        r[(j * N + j) * 2] = -pr * nrm * max_abs;
+        r[(j * N + j) * 2 + 1] = -pi * nrm * max_abs;
         a[(j * N + j) * 2] = ajr + pr * nrm;
         a[(j * N + j) * 2 + 1] = aji + pi * nrm;
         scratch[j * 2] = a[(j * N + j) * 2];
@@ -435,4 +459,38 @@ test "qr_c128 3x2 reconstructs A and gives a unitary Q" {
     // R lower triangle is zero
     try testing.expectApproxEqAbs(r[(1 * N + 0) * 2], 0.0, 1e-12);
     try testing.expectApproxEqAbs(r[(1 * N + 0) * 2 + 1], 0.0, 1e-12);
+}
+
+test "qr_c128 stays unitary when the leading entry is tiny" {
+    const testing = @import("std").testing;
+    const M = 2;
+    const N = 2;
+    const K = 2;
+    // Entries small enough that squaring them underflows to zero.
+    const t = 1e-170;
+    const src = [_]f64{ t, t * 0.5, 1, 0.3, t * 0.25, t, 0.2, 1 };
+    var a = src;
+    var q: [M * K * 2]f64 = undefined;
+    var r: [K * N * 2]f64 = undefined;
+    var tau: [K]f64 = undefined;
+    var scratch: [K * 2]f64 = undefined;
+    qr_c128(&a, &q, &r, &tau, &scratch, M, N);
+
+    for (0..K) |c1| {
+        for (0..K) |c2| {
+            var re: f64 = 0;
+            var im: f64 = 0;
+            for (0..M) |i| {
+                const ar = q[(i * K + c1) * 2];
+                const ai = q[(i * K + c1) * 2 + 1];
+                const br = q[(i * K + c2) * 2];
+                const bi = q[(i * K + c2) * 2 + 1];
+                re += ar * br + ai * bi;
+                im += ar * bi - ai * br;
+            }
+            const want: f64 = if (c1 == c2) 1.0 else 0.0;
+            try testing.expectApproxEqAbs(re, want, 1e-12);
+            try testing.expectApproxEqAbs(im, 0.0, 1e-12);
+        }
+    }
 }
