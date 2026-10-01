@@ -2,7 +2,7 @@
  * Shared helpers for dtype-sweep tests.
  */
 import { expect } from 'vitest';
-import { hasFloat16 } from '../../../src';
+import { Complex, hasFloat16 } from '../../../src';
 import { wasmConfig } from '../../../src/common/wasm/config';
 import {
   arraysClose as _arraysClose,
@@ -29,6 +29,58 @@ export const runNumPy = _runNumPy;
 export const runNumPyBatch = _runNumPyBatch;
 export const arraysClose = _arraysClose;
 export const checkNumPyAvailable = _checkNumPyAvailable;
+
+/** A fixture rendered for both sides: JS values, and the Python literal that builds the same array. */
+export type DtypeFixture = { js: never; py: string };
+
+/**
+ * Build fixture data for a dtype, giving complex dtypes an actual imaginary
+ * part. Real numbers under a complex label leave the imaginary half of every
+ * operation untested while reporting full coverage for it, and an imaginary
+ * part equal to its real part would hide a swapped component — so these are
+ * negative, which no real fixture value here is, and vary by position.
+ *
+ * @param data - Real fixture values, nested to any depth
+ * @param dtype - Target dtype; non-complex dtypes pass through unchanged
+ * @returns The JS values and the Python literal that reproduces them
+ */
+export function asDtypeData(data: unknown, dtype: string): DtypeFixture {
+  if (!isComplex(dtype)) return { js: data as never, py: JSON.stringify(data) };
+
+  // Both walks must assign the same imaginary part to the same element, so each
+  // starts its own counter rather than sharing one across the two traversals.
+  const walk = <T>(
+    v: unknown,
+    leaf: (re: number, k: number) => T,
+    counter: { k: number },
+  ): unknown =>
+    Array.isArray(v) ? v.map((x) => walk(x, leaf, counter)) : leaf(Number(v), counter.k++);
+
+  const imagFor = (k: number) => -(((k % 9) + 1) * 0.4) - 0.1;
+
+  const js = walk(data, (re, k) => new Complex(re, imagFor(k)), { k: 0 }) as never;
+  const py = walk(data, (re, k) => `complex(${re}, ${imagFor(k)})`, { k: 0 });
+  const render = (v: unknown): string =>
+    Array.isArray(v) ? `[${v.map(render).join(', ')}]` : String(v);
+
+  return { js, py: render(py) };
+}
+
+/**
+ * Assert a complex fixture carries an imaginary part. A zero imaginary part
+ * exercises only the real half of an operation while the suite counts the
+ * dtype as covered, which is the failure this helper exists to prevent.
+ *
+ * @param arr - The array built from the fixture
+ * @param dtype - The dtype it was built for
+ * @param label - Test identifier used in the failure message
+ */
+export function expectComplexFixture(arr: unknown, dtype: string, label: string): void {
+  if (!isComplex(dtype)) return;
+  const a = arr as { ndim: number; get(i: number[]): unknown };
+  const first = a.get(new Array(a.ndim).fill(0)) as { im?: number };
+  expect(first?.im, `${label}: complex fixture has no imaginary part`).not.toBe(0);
+}
 
 export function npDtype(d: string) {
   return d === 'int64' ? 'np.int64' : d === 'uint64' ? 'np.uint64' : `np.${d}`;

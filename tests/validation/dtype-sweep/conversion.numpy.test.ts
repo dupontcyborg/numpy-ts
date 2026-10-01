@@ -10,7 +10,9 @@ import * as np from '../../../src';
 import { hasFloat16 } from '../../../src';
 import {
   ALL_DTYPES,
+  asDtypeData,
   checkNumPyAvailable,
+  expectComplexFixture,
   isBool,
   isComplex,
   isInt,
@@ -56,6 +58,15 @@ function clampForDtype(values: number[], dtype: string): number[] {
   return out.map((v) => Math.max(range.min, Math.min(range.max, v)));
 }
 
+/**
+ * The one definition of the source array for a (dtype, state) pair, shared by the
+ * oracle script and the test bodies. Two independent copies would let the two sides
+ * drift apart and compare different inputs.
+ */
+function srcFixture(values: number[], dtype: string) {
+  return asDtypeData(clampForDtype(values, dtype), dtype);
+}
+
 /** Key for the oracle lookup map. */
 function oracleKey(src: string, dst: string, label: string): string {
   return `${src}|${dst}|${label}`;
@@ -71,8 +82,7 @@ function buildOracleMap(): Record<string, any> {
 
   for (const src of ALL_DTYPES) {
     for (const { label, values } of RAW_STATES) {
-      const srcValues = clampForDtype(values, src);
-      const pyValues = `[${srcValues.join(', ')}]`;
+      const pyValues = srcFixture(values, src).py;
       const pySrc = npDtype(src);
 
       for (const dst of ALL_DTYPES) {
@@ -115,17 +125,22 @@ describe('DType Sweep: Conversion (astype)', () => {
       for (const dst of ALL_DTYPES) {
         for (const { label, values } of RAW_STATES) {
           it(`${src} → ${dst} (${label})`, () => {
-            const srcValues = clampForDtype(values, src);
+            const srcData = srcFixture(values, src);
             const key = oracleKey(src, dst, label);
             const pyEntry = oracle[key];
 
             // Check if NumPy errored on this conversion
             const npError = pyEntry?.error;
 
+            // Built outside the try: only the astype is under test here, so a
+            // failure to build the source array must not read as a cast rejection.
+            const a = array(srcData.js as never, src);
+            expectComplexFixture(a, src, `${src} → ${dst} (${label})`);
+
             let jsError: string | null = null;
             let jsResult: any;
             try {
-              jsResult = array(srcValues, src).astype(dst);
+              jsResult = a.astype(dst);
             } catch (e: any) {
               jsError = e.message;
             }

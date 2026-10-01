@@ -8,8 +8,10 @@ import * as np from '../../../src';
 import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
+  asDtypeData,
   checkNumPyAvailable,
   expectBothReject,
+  expectComplexFixture,
   expectMatchPre,
   isComplex,
   isInt,
@@ -90,9 +92,9 @@ beforeAll(() => {
   for (const name of allUnaryOps) {
     for (const dtype of ALL_DTYPES) {
       const ac = pyArrayCast(dtype);
-      const data = getData(name, dtype);
+      const data = asDtypeData(getData(name, dtype), dtype);
       snippets[`${name}_${dtype}`] = `
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+a = np.array(${data.py}, dtype=${npDtype(dtype)})
 _result_orig = np.${name}(a)
 result = _result_orig.astype(${ac})`;
     }
@@ -101,11 +103,11 @@ result = _result_orig.astype(${ac})`;
   // nextafter snippets
   for (const dtype of ALL_DTYPES) {
     const ac = pyArrayCast(dtype);
-    const data1 = dtype === 'bool' ? [1, 0] : [1, 2];
-    const data2 = dtype === 'bool' ? [0, 1] : [2, 3];
+    const data1 = asDtypeData(dtype === 'bool' ? [1, 0] : [1, 2], dtype);
+    const data2 = asDtypeData(dtype === 'bool' ? [0, 1] : [2, 3], dtype);
     snippets[`nextafter_${dtype}`] = `
-a = np.array(${JSON.stringify(data1)}, dtype=${npDtype(dtype)})
-b = np.array(${JSON.stringify(data2)}, dtype=${npDtype(dtype)})
+a = np.array(${data1.py}, dtype=${npDtype(dtype)})
+b = np.array(${data2.py}, dtype=${npDtype(dtype)})
 _result_orig = np.nextafter(a, b)
 result = _result_orig.astype(${ac})`;
   }
@@ -164,13 +166,14 @@ describe('DType Sweep: Unary math', () => {
     describe(name, () => {
       for (const dtype of ALL_DTYPES) {
         it(`${dtype}`, () => {
-          const data = getData(name, dtype);
-          const a = array(data, dtype);
+          const data = asDtypeData(getData(name, dtype), dtype);
+          const a = array(data.js as never, dtype);
+          expectComplexFixture(a, dtype, `${name} ${dtype}`);
           const BOOL_REJECTED = ['negative', 'positive', 'sign'];
           if (dtype === 'bool' && BOOL_REJECTED.includes(name)) {
             const ac = pyArrayCast(dtype);
             const pyCode = `
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+a = np.array(${data.py}, dtype=${npDtype(dtype)})
 _result_orig = np.${name}(a)
 result = _result_orig.astype(${ac})`;
             const _r = expectBothReject(
@@ -199,7 +202,7 @@ result = _result_orig.astype(${ac})`;
           if (isComplex(dtype) && COMPLEX_REJECTED.includes(name)) {
             const ac = pyArrayCast(dtype);
             const pyCode = `
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+a = np.array(${data.py}, dtype=${npDtype(dtype)})
 _result_orig = np.${name}(a)
 result = _result_orig.astype(${ac})`;
             const _r = expectBothReject(
@@ -226,23 +229,26 @@ result = _result_orig.astype(${ac})`;
 describe('DType Sweep: Binary-like unary', () => {
   for (const dtype of ALL_DTYPES) {
     it(`nextafter ${dtype}`, () => {
-      const data1 = dtype === 'bool' ? [1, 0] : [1, 2];
-      const data2 = dtype === 'bool' ? [0, 1] : [2, 3];
+      const data1 = asDtypeData(dtype === 'bool' ? [1, 0] : [1, 2], dtype);
+      const data2 = asDtypeData(dtype === 'bool' ? [0, 1] : [2, 3], dtype);
       if (dtype.startsWith('complex')) {
         const ac = pyArrayCast(dtype);
         const pyCode = `
-a = np.array(${JSON.stringify(data1)}, dtype=${npDtype(dtype)})
-b = np.array(${JSON.stringify(data2)}, dtype=${npDtype(dtype)})
+a = np.array(${data1.py}, dtype=${npDtype(dtype)})
+b = np.array(${data2.py}, dtype=${npDtype(dtype)})
 _result_orig = np.nextafter(a, b)
 result = _result_orig.astype(${ac})`;
         const _r = expectBothReject(
           'nextafter is only defined for real floating-point numbers',
-          () => np.nextafter(array(data1, dtype), array(data2, dtype)),
+          () => np.nextafter(array(data1.js as never, dtype), array(data2.js as never, dtype)),
           pyCode,
         );
         if (_r === 'both-reject') return;
       }
-      const jsResult = np.nextafter(array(data1, dtype), array(data2, dtype));
+      const jsResult = np.nextafter(
+        array(data1.js as never, dtype),
+        array(data2.js as never, dtype),
+      );
       expectMatchPre(jsResult, oracle.get(`nextafter_${dtype}`)!, { rtol: 1e-3 });
     });
   }

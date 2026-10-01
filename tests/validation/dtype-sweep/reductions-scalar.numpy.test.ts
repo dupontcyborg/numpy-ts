@@ -9,9 +9,10 @@ import { hasFloat16 } from '../../../src';
 import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
+  asDtypeData,
   checkNumPyAvailable,
   expectBothReject,
-  isComplex,
+  expectComplexFixture,
   npDtype,
   pyScalarCast,
   runNumPyBatch,
@@ -21,6 +22,13 @@ import {
 const { array } = np;
 
 const SMALL_DATA = [1, 2, 3, 4, 5, 6];
+
+// One definition per fixture, shared by the oracle snippets and the test bodies —
+// two copies would let the JS and Python sides drift apart silently.
+const opData = (dtype: string) =>
+  asDtypeData(dtype === 'bool' ? [1, 0, 1, 1, 0, 1] : SMALL_DATA, dtype);
+const nanOpData = (dtype: string) =>
+  asDtypeData(dtype === 'bool' ? [1, 0, 1, 1] : SMALL_DATA, dtype);
 
 // Pre-computed oracle results — filled in beforeAll
 let oracle: Map<string, NumPyResult & { error?: string }>;
@@ -62,19 +70,18 @@ beforeAll(() => {
 
   for (const dtype of ALL_DTYPES) {
     const sc = pyScalarCast(dtype);
-    const data =
-      dtype === 'bool' ? [1, 0, 1, 1, 0, 1] : isComplex(dtype) ? [1, 2, 3, 4, 5, 6] : SMALL_DATA;
+    const data = opData(dtype);
 
     for (const { name, npFn } of ops) {
       snippets[`${name}_${dtype}`] = `
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+a = np.array(${data.py}, dtype=${npDtype(dtype)})
 result = ${sc}(np.${npFn || name}(a))`;
     }
 
-    const nanData = dtype === 'bool' ? [1, 0, 1, 1] : SMALL_DATA;
+    const nanData = nanOpData(dtype);
     for (const { name } of nanOps) {
       snippets[`${name}_${dtype}`] = `
-a = np.array(${JSON.stringify(nanData)}, dtype=${npDtype(dtype)})
+a = np.array(${nanData.py}, dtype=${npDtype(dtype)})
 result = ${sc}(np.${name}(a))`;
     }
   }
@@ -87,17 +94,13 @@ describe('DType Sweep: Reductions (scalar)', () => {
     describe(name, () => {
       for (const dtype of ALL_DTYPES) {
         it(`${dtype}`, () => {
-          const data =
-            dtype === 'bool'
-              ? [1, 0, 1, 1, 0, 1]
-              : isComplex(dtype)
-                ? [1, 2, 3, 4, 5, 6]
-                : SMALL_DATA;
-          const a = array(data, dtype);
+          const data = opData(dtype);
+          const a = array(data.js as never, dtype);
+          expectComplexFixture(a, dtype, `${name} ${dtype}`);
           // ptp uses subtract internally — NumPy rejects bool subtract
           if (name === 'ptp' && dtype === 'bool') {
             const pyCode = `
-a = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)})
+a = np.array(${data.py}, dtype=${npDtype(dtype)})
 result = float(np.ptp(a))`;
             const _r = expectBothReject(
               'ptp uses subtract, not supported for bool',
@@ -121,8 +124,8 @@ describe('DType Sweep: Nan-aware reductions', () => {
     describe(name, () => {
       for (const dtype of ALL_DTYPES) {
         it(`${dtype}`, () => {
-          const data = dtype === 'bool' ? [1, 0, 1, 1] : SMALL_DATA;
-          const a = array(data, dtype);
+          const a = array(nanOpData(dtype).js as never, dtype);
+          expectComplexFixture(a, dtype, `${name} ${dtype}`);
           const jsResult = fn(a);
           const py = oracle.get(`${name}_${dtype}`)!;
           scalarClose(jsResult, py.value, dtype === 'float16' ? 2 : 3);

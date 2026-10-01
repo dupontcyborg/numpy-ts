@@ -7,7 +7,9 @@ import { beforeAll, describe, it } from 'vitest';
 import * as np from '../../../src';
 import type { NumPyResult } from '../numpy-oracle';
 import {
+  asDtypeData,
   checkNumPyAvailable,
+  expectComplexFixture,
   expectMatchPre,
   isComplex,
   npDtype,
@@ -106,17 +108,28 @@ const COMPARISON_OPS: { name: string; fn: (a: any, b: any) => any }[] = [
   { name: 'equal', fn: np.equal },
 ];
 
-/** Representative dtypes — one float, one int.
- * Complex128 excluded: complex broadcasting has a known bug in elementwiseBinaryOp
- * (broadcast path uses Number() on Complex objects → NaN). Same-shape complex works. */
-const REPR_DTYPES = ['float64', 'int32'];
+/** Representative dtypes — one float, one int, one complex. Complex carries a
+ * real imaginary part here, so a broadcast that reads only the real component
+ * of a stretched operand shows up as a value mismatch. */
+const REPR_DTYPES = ['float64', 'int32', 'complex128'];
+/** Comparisons stay real: NumPy orders complex lexicographically, which is a
+ * semantics question rather than a broadcasting one. */
+const CMP_DTYPES = ['float64', 'int32'];
+
+const MIXED_PAIRS: [string, string][] = [
+  ['int8', 'float64'],
+  ['uint8', 'int32'],
+  ['bool', 'float64'],
+  ['float16', 'float32'],
+  ['complex128', 'float64'],
+];
 
 function makeArray(data: number[], shape: number[], dtype: string) {
-  return array(data, dtype).reshape(shape);
+  return array(asDtypeData(data, dtype).js, dtype).reshape(shape);
 }
 
 function pyMakeArray(varName: string, data: number[], shape: number[], dtype: string): string {
-  return `${varName} = np.array(${JSON.stringify(data)}, dtype=${npDtype(dtype)}).reshape(${JSON.stringify(shape)})`;
+  return `${varName} = np.array(${asDtypeData(data, dtype).py}, dtype=${npDtype(dtype)}).reshape(${JSON.stringify(shape)})`;
 }
 
 let oracle: Map<string, NumPyResult & { error?: string }>;
@@ -143,7 +156,7 @@ result = _result_orig.astype(${ac})`;
 
   // Comparison broadcasting
   for (const { name } of COMPARISON_OPS) {
-    for (const dtype of REPR_DTYPES) {
+    for (const dtype of CMP_DTYPES) {
       for (const combo of SHAPE_COMBOS) {
         const key = `cmp_${name}_${dtype}_${combo.label}`;
         snippets[key] = `
@@ -156,12 +169,6 @@ result = _result_orig.astype(np.float64)`;
   }
 
   // Mixed-dtype broadcasting (promotion + shape)
-  const MIXED_PAIRS: [string, string][] = [
-    ['int8', 'float64'],
-    ['uint8', 'int32'],
-    ['bool', 'float64'],
-    ['float16', 'float32'],
-  ];
   for (const [dtA, dtB] of MIXED_PAIRS) {
     for (const combo of SHAPE_COMBOS) {
       const promotedComplex = isComplex(dtA) || isComplex(dtB);
@@ -187,6 +194,8 @@ describe('DType Sweep: Broadcasting — arithmetic', () => {
             it(combo.label, () => {
               const a = makeArray(combo.dataA, combo.shapeA, dtype);
               const b = makeArray(combo.dataB, combo.shapeB, dtype);
+              expectComplexFixture(a, dtype, `${name} ${dtype} ${combo.label} a`);
+              expectComplexFixture(b, dtype, `${name} ${dtype} ${combo.label} b`);
               const jsResult = fn(a, b);
               const key = `${name}_${dtype}_${combo.label}`;
               expectMatchPre(jsResult, oracle.get(key)!, { rtol: 1e-5 });
@@ -201,7 +210,7 @@ describe('DType Sweep: Broadcasting — arithmetic', () => {
 describe('DType Sweep: Broadcasting — comparisons', () => {
   for (const { name, fn } of COMPARISON_OPS) {
     describe(name, () => {
-      for (const dtype of REPR_DTYPES) {
+      for (const dtype of CMP_DTYPES) {
         describe(dtype, () => {
           for (const combo of SHAPE_COMBOS) {
             it(combo.label, () => {
@@ -219,19 +228,14 @@ describe('DType Sweep: Broadcasting — comparisons', () => {
 });
 
 describe('DType Sweep: Broadcasting — mixed dtype + shape', () => {
-  const MIXED_PAIRS: [string, string][] = [
-    ['int8', 'float64'],
-    ['uint8', 'int32'],
-    ['bool', 'float64'],
-    ['float16', 'float32'],
-  ];
-
   for (const [dtA, dtB] of MIXED_PAIRS) {
     describe(`add(${dtA}, ${dtB})`, () => {
       for (const combo of SHAPE_COMBOS) {
         it(combo.label, () => {
           const a = makeArray(combo.dataA, combo.shapeA, dtA);
           const b = makeArray(combo.dataB, combo.shapeB, dtB);
+          expectComplexFixture(a, dtA, `add(${dtA}, ${dtB}) ${combo.label} a`);
+          expectComplexFixture(b, dtB, `add(${dtA}, ${dtB}) ${combo.label} b`);
           const jsResult = np.add(a, b);
           const key = `mixed_add_${dtA}_${dtB}_${combo.label}`;
           expectMatchPre(jsResult, oracle.get(key)!, { rtol: 1e-5 });
