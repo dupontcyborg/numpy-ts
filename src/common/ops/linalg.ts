@@ -5167,6 +5167,50 @@ export function lstsq(
     throw new Error(`lstsq: incompatible shapes (${m},${n}) and (${b.shape.join(',')})`);
   }
 
+  if (isComplexDType(a.dtype)) {
+    // x = A+ b, taken from the complex pseudo-inverse rather than reassembling
+    // V S^-1 U^H here, so the conjugations live in one place.
+    const sv = svdFull(a);
+    const threshold = rcond ?? Math.max(m!, n!) * Number.EPSILON;
+    const maxSigma = Number(sv.s.get(0));
+    const cutoff = maxSigma * threshold;
+    let rank = 0;
+    for (let i2 = 0; i2 < k; i2++) if (Number(sv.s.get(i2)) > cutoff) rank++;
+    sv.u.dispose();
+    sv.vt.dispose();
+
+    const p = pinv(a, threshold);
+    const x = matmul(p, b2D);
+    p.dispose();
+
+    let residuals: ArrayStorage;
+    if (m! > n! && rank === n!) {
+      residuals = ArrayStorage.zeros([nrhs], a.dtype === 'complex64' ? 'float32' : 'float64');
+      const ax = matmul(a, x);
+      for (let j = 0; j < nrhs; j++) {
+        let acc = 0;
+        for (let i2 = 0; i2 < m!; i2++) {
+          const av = ax.get(i2, j);
+          const bv = b2D.get(i2, j);
+          const ac = av instanceof Complex ? av : new Complex(Number(av), 0);
+          const bc = bv instanceof Complex ? bv : new Complex(Number(bv), 0);
+          const dr = ac.re - bc.re;
+          const di = ac.im - bc.im;
+          acc += dr * dr + di * di; // |.|^2, so residuals stay real
+        }
+        residuals.set([j], acc);
+      }
+      ax.dispose();
+    } else {
+      residuals = ArrayStorage.zeros([0], a.dtype === 'complex64' ? 'float32' : 'float64');
+    }
+
+    const xOut = b.ndim === 1 ? shapeOps.reshape(x, [n!]) : x;
+    if (xOut !== x) x.dispose();
+    if (b2D !== b) b2D.dispose();
+    return { x: xOut, residuals, rank, s: sv.s };
+  }
+
   // SVD for singular values, rank, and x computation
   const { u, s, vt } = svdFull(a);
   try {
@@ -5470,6 +5514,51 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
   }
 
   const [m, n] = a.shape;
+
+  if (isComplexDType(a.dtype)) {
+    // A = U S V^H, so A+ = V S^-1 U^H. vt holds V^H, so V[i][l] is
+    // conj(vt[l][i]); U^H[l][j] is conj(u[j][l]). Both conjugations matter —
+    // a plain transpose gives the pseudo-inverse of a different matrix.
+    const { u: uC, s: sC, vt: vtC } = svdFull(a);
+    try {
+      const k = Math.min(m!, n!);
+      const sigma: number[] = [];
+      for (let l = 0; l < k; l++) sigma.push(Number(sC.get(l)));
+      const cutoff = (sigma[0] ?? 0) * rcond;
+
+      const outDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+      const out = ArrayStorage.zeros([n!, m!], outDtype);
+      const cAt = (x: ArrayStorage, r: number, c: number): Complex => {
+        const v = x.get(r, c);
+        return v instanceof Complex ? v : new Complex(Number(v), 0);
+      };
+
+      for (let i = 0; i < n!; i++) {
+        for (let j = 0; j < m!; j++) {
+          let re = 0;
+          let im = 0;
+          for (let l = 0; l < k; l++) {
+            if (sigma[l]! <= cutoff) continue;
+            const inv = 1 / sigma[l]!;
+            const vl = cAt(vtC, l, i); // conj gives V[i][l]
+            const ul = cAt(uC, j, l); // conj gives U^H[l][j]
+            // conj(vl) * conj(ul) = conj(vl * ul)
+            const pr = vl.re * ul.re - vl.im * ul.im;
+            const pi = vl.re * ul.im + vl.im * ul.re;
+            re += pr * inv;
+            im -= pi * inv;
+          }
+          out.set([i, j], new Complex(re, im));
+        }
+      }
+      return out;
+    } finally {
+      uC.dispose();
+      sC.dispose();
+      vtC.dispose();
+    }
+  }
+
   const { u, s, vt } = svdFull(a);
   try {
     const k = Math.min(m!, n!);
@@ -6886,7 +6975,7 @@ export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @returns { sign, logabsdet }
  */
 export function slogdet(a: ArrayStorage): {
-  sign: number | ArrayStorage;
+  sign: number | Complex | ArrayStorage;
   logabsdet: number | ArrayStorage;
 } {
   throwIfFloat16(a.dtype);
@@ -6900,6 +6989,37 @@ export function slogdet(a: ArrayStorage): {
     const m2 = a.shape[a.ndim - 2]!;
     if (m2 !== n) throw new Error(`slogdet: last 2 dimensions must be square, got ${m2}x${n}`);
     const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+
+    if (isComplexDType(a.dtype)) {
+      // The sign of a complex determinant is a point on the unit circle, so it
+      // needs the input dtype; logabsdet stays real.
+      const signResult = ArrayStorage.zeros(batchShape, a.dtype);
+      const logResult = ArrayStorage.empty(batchShape, 'float64');
+      const logData = logResult.data as Float64Array;
+      for (let bi = 0; bi < batchSize; bi++) {
+        const batchIdx: number[] = [];
+        let rem = bi;
+        for (let d = batchShape.length - 1; d >= 0; d--) {
+          batchIdx[d] = rem % batchShape[d]!;
+          rem = Math.floor(rem / batchShape[d]!);
+        }
+        const slice = ArrayStorage.zeros([n, n], a.dtype);
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) {
+            slice.set([i, j], a.get(...batchIdx, i, j));
+          }
+        }
+        try {
+          const { sign, logabsdet } = slogdet(slice) as { sign: Complex; logabsdet: number };
+          signResult.iset(bi, sign);
+          logData[bi] = logabsdet;
+        } finally {
+          slice.dispose();
+        }
+      }
+      return { sign: signResult, logabsdet: logResult };
+    }
+
     const signResult = ArrayStorage.empty(batchShape, 'float64');
     const logResult = ArrayStorage.empty(batchShape, 'float64');
     const signData = signResult.data as Float64Array;
@@ -6964,21 +7084,20 @@ export function slogdet(a: ArrayStorage): {
     let sign = pivotSign;
 
     if (isComplex) {
-      // For complex LU, diagonal entries are complex.
-      // sign = product of (diag[i] / |diag[i]|), logabsdet = sum of log(|diag[i]|)
-      // We track sign as a complex number on the unit circle.
+      // The determinant of a complex matrix has no sign, so NumPy factors it as
+      // det = sign * exp(logabsdet) with sign on the unit circle: the product of
+      // diag[i] / |diag[i]| over the LU diagonal, times the pivot parity.
       let signRe = pivotSign as number;
       let signIm = 0;
       for (let i = 0; i < size; i++) {
         const idx = (i * size + i) * 2;
         const dRe = luData[idx]!;
         const dIm = luData[idx + 1]!;
-        const mag = Math.sqrt(dRe * dRe + dIm * dIm);
+        const mag = Math.hypot(dRe, dIm);
         if (mag === 0) {
-          return { sign: 0, logabsdet: -Infinity };
+          return { sign: new Complex(0, 0), logabsdet: -Infinity };
         }
         logAbsDet += Math.log(mag);
-        // multiply sign by diag[i] / |diag[i]|
         const uRe = dRe / mag;
         const uIm = dIm / mag;
         const newRe = signRe * uRe - signIm * uIm;
@@ -6986,15 +7105,7 @@ export function slogdet(a: ArrayStorage): {
         signRe = newRe;
         signIm = newIm;
       }
-      // For real-valued determinants (Hermitian matrices), sign should be +1 or -1
-      // For general complex, sign is on the unit circle
-      // Round to nearest integer if very close
-      if (Math.abs(signIm) < 1e-10) {
-        sign = Math.round(signRe);
-      } else {
-        // Return sign as-is (real part) - for complex det, sign concept is limited
-        sign = signRe;
-      }
+      return { sign: new Complex(signRe, signIm), logabsdet: logAbsDet };
     } else {
       for (let i = 0; i < size; i++) {
         const diagVal = luData[i * size + i]!;
