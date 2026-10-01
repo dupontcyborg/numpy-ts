@@ -83,7 +83,8 @@ export const INT_ONLY_OPERATIONS = new Set(['gcd', 'lcm']);
 // benchmark-coverage test can tell an intentional single-dtype op from a spec
 // that silently lost its sweep.
 export const PINNED_INDEX_DTYPE_OPERATIONS = new Set([
-  'ix_', // takes index arrays, not data
+  // Index-generating ops: dtype is fixed by the role, not by what NumPy accepts.
+  'ix_',
   'bincount', // bin counts are int32 by definition
   'ravel_multi_index', // multi-index input is int32
 ]);
@@ -104,16 +105,10 @@ export const SKIP_DTYPE_OPERATIONS = new Set([
 
 // Operations to skip for float16 dtype variants (precision too low for numerical algorithms)
 export const SKIP_FLOAT16_OPERATIONS = new Set([
-  // Still diverge at benchmark scale, though not on a handful of elements:
-  // NumPy accumulates in f16 while we accumulate wider, so the running total
-  // drifts once there are enough terms. At [100x100] nancumsum differs from
-  // element 66 onward (2212 vs 2210); histogramdd lands 2 of 100 bins
   // differently; nancumprod complex diverges from element 39.
   'nancumsum',
-  'nancumprod',
   'histogramdd',
   // Accumulating contraction, like dot/einsum
-  'tensordot',
   'linalg_cholesky',
   'linalg_eigh',
   'linalg_svd',
@@ -131,63 +126,28 @@ export const SKIP_FLOAT16_OPERATIONS = new Set([
   'linalg_matrix_power',
   'linalg_multi_dot',
   'einsum',
-  'correlate',
-  'convolve',
   // NumPy's linalg explicitly rejects float16 for polynomial ops (uses eigvals/lstsq internally)
   'polyfit',
-  'polyval',
   'roots',
-  // dot/inner/vdot: NumPy accumulates in f16 (overflows to inf), our WASM uses f32 (finite)
-  'dot',
-  'inner',
-  'vdot',
 ]);
 
 // Operations to skip for ALL int dtype variants (blocks both int and uint families)
 export const SKIP_INT_OPERATIONS = new Set([
-  // Vandermonde powers: the dtype promotion to int64 is correct, but the values
-  // diverge once the powers overflow it — 319 of 1024 entries differ at the
-  // benchmark's N=32, where the largest column is 31^31. Small inputs agree,
-  // which is why this looked fixed.
-  'vander',
-  // Real-float-only spacing/step semantics
-  'nextafter',
-  'spacing',
-  // Real-float-only ops. These previously sat in SKIP_DTYPE_OPERATIONS, which
-  // also suppressed their float32/float16 variants — they are float-family
   // ops, not un-sweepable ops.
-  'fabs',
-  'cbrt',
   'float_power',
   'heaviside',
-  'fmod',
-  'frexp',
-  'ldexp',
-  'modf',
   // Float-only linalg decompositions/solvers — numerically require float
-  'linalg_det',
   'linalg_slogdet',
-  'linalg_inv',
-  'linalg_solve',
   'linalg_cholesky',
   'linalg_eigh',
-  'linalg_svd',
-  'linalg_svdvals',
-  'linalg_pinv',
   'linalg_lstsq',
   'linalg_qr',
   'linalg_cond',
-  'linalg_matrix_rank',
-  'linalg_norm',
-  // Truly incompatible with BigInt (int64) — would throw at runtime
-  'asarray_chkfinite', // NaN/Inf check doesn't work with BigInt
 ]);
 
 // Operations to skip for uint dtype variants specifically.
 // NumPy raises TypeError for these on unsigned integer arrays.
-export const SKIP_UINT_OPERATIONS = new Set([
-  'sign', // np.sign raises TypeError for uint types
-]);
+export const SKIP_UINT_OPERATIONS = new Set([]);
 
 // Operations to skip for 64-bit int variants (int64/uint64) only.
 // numpy-ts throws on these paths today (BigInt conversion inside the set
@@ -214,12 +174,13 @@ export const SKIP_INT64_OPERATIONS = new Set<string>([]);
 // Operations where int8/int16 variants produce different results than NumPy
 // due to overflow affecting ordering/convolution logic.
 export const SKIP_NARROW_INT_OPERATIONS = new Set([
+  // The 'invertible' fixture needs a diagonal boost of n*n (2500 at 50x50) to
+  // stay non-singular, which does not fit int8 or uint8 — NumPy raises
+  // OverflowError building it. No narrow-int matrix this size can be
+  // diagonally dominant, so there is nothing to compare.
+  'linalg_inv',
+  'linalg_solve',
   // Products overflow differently at int8/int16
-  'nancumprod',
-  'nanprod',
-  'vander',
-  'correlate',
-  'convolve',
   'unwrap',
   'searchsorted', // overflow affects sort order
   'argpartition', // overflow affects element ordering
@@ -237,69 +198,37 @@ export const SKIP_COMPLEX_OPERATIONS = new Set([
   'ceil',
   'fix',
   'floor',
-  'isinf',
   'logaddexp2',
-  'nanargmax',
-  'nanargmin',
-  'nanmedian',
-  'nanstd',
-  'nanvar',
   'nextafter',
-  'rint',
-  'round',
   'spacing',
   'trunc',
   'cbrt',
   'float_power',
   // Linalg: real-only decompositions/solvers
-  'linalg_det',
   'linalg_slogdet',
-  'linalg_inv',
-  'linalg_solve',
   'linalg_cholesky',
   'linalg_eigh',
-  'linalg_svd',
-  'linalg_svdvals',
   'linalg_pinv',
   'linalg_lstsq',
   'linalg_qr',
   'linalg_cond',
   'linalg_matrix_rank',
-  'linalg_norm',
-  'linalg_matrix_power',
-  'linalg_multi_dot',
-  'einsum',
-  'trace',
-  'transpose',
-  'matrix_transpose',
-  'diagonal',
   // Comparison/ordering: complex numbers are not orderable
-  'max',
-  'min',
-  'argmax',
-  'argmin',
   'maximum',
   'minimum',
   'fmax',
   'fmin',
-  'clip',
-  'median',
   'percentile',
   'quantile',
-  'nanmax',
-  'nanmin',
   'nanpercentile',
   'nanquantile',
-  'ptp',
   'partition',
   'argpartition',
   'searchsorted',
   'lexsort',
   // Real-only math
-  'sign',
   'signbit',
   'copysign',
-  'reciprocal',
   'logaddexp',
   'hypot',
   'heaviside',
@@ -310,57 +239,15 @@ export const SKIP_COMPLEX_OPERATIONS = new Set([
   'fabs',
   'cbrt',
   'remainder',
-  'square', // overflow risk with complex_small fill
   // Boolean-result reductions
-  'all',
-  'any',
-  'count_nonzero',
-  'isfinite',
-  'isnan',
   'isneginf',
   'isposinf',
-  'isreal',
   // Creation ops with incompatible fill patterns
   'arange',
-  'linspace',
-  'logspace',
-  'geomspace',
-  'eye',
-  'identity',
   // Manipulation that's trivial for complex (no compute difference)
-  'copy',
-  'flatten',
-  'ravel',
-  'reshape',
-  'broadcast_to',
-  'concatenate',
-  'concat',
-  'stack',
-  'hstack',
-  'vstack',
-  'block',
   'unstack',
-  'swapaxes',
-  'flip',
-  'rot90',
-  'roll',
-  'tile',
   'repeat',
-  'pad',
-  'take',
-  'extract',
-  'compress',
-  'where',
-  'require',
-  'item',
-  'tolist',
   'indices',
-  'diag',
-  'tri',
-  'tril',
-  'triu',
-  'trim_zeros',
-  'nan_to_num',
   'flatnonzero',
   'nonzero',
   'argwhere',
@@ -369,28 +256,13 @@ export const SKIP_COMPLEX_OPERATIONS = new Set([
   // Real-only functions
   'arctan2', // atan2 not defined for complex
   'i0', // Bessel function, real-only
-  'sinc', // real-only
   'unwrap', // phase unwrapping, real-only
-  'asarray_chkfinite', // NaN/Inf check, real-only
-  // Misc incompatible
-  'diff',
-  'gradient',
-  'cross',
-  'unique_values',
-  'unique_counts',
   // FFT: real-input ops and utilities (complex variants don't make sense)
   'rfft',
-  'irfft',
   'rfft2',
-  'irfft2',
   'rfftn',
   'irfftn',
-  'hfft',
   'ihfft',
-  'fftfreq',
-  'rfftfreq',
-  'fftshift',
-  'ifftshift',
 ]);
 
 export function getBenchmarkSpecs(
@@ -5259,7 +5131,10 @@ export function getBenchmarkSpecs(
                   skipVariant = true;
                   break;
                 }
-                cloned.fill = 'complex_small';
+                // Preserve a structural fill: 'invertible' is what keeps inv and
+                // solve non-singular, and overwriting it produced a rank-deficient
+                // matrix that failed for the fixture's sake rather than the code's.
+                cloned.fill = entry.fill === 'invertible' ? 'complex_invertible' : 'complex_small';
               }
               if (family === 'uint' && typeof entry.value === 'number' && entry.value < 0) {
                 // NumPy 2.0 raises OverflowError for np.full(shape, negative, dtype=uint*).

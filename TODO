@@ -4,6 +4,8 @@
 
 ## P1
 
+- [ ] Fix batched `linalg.qr` for modes `'r'` and `'raw'`: the batch path assumes `{ q, r }` and dereferences `res.q`, but these modes return an array or `{ h, tau }`. Handle each return structure and validate nonempty batched inputs against NumPy.
+- [ ] Validate the exact production package before publishing. The main numerical test build uses Zig `ReleaseSafe`, while the release artifact uses `ReleaseFast`; run numerical regression tests against the final packaged output, without rebuilding it, and gate publishing on those results.
 - [ ] Fix silent loss of imaginary components across the decomposition family, including batched inputs. Audited against NumPy: `qr`, `svd`, `svdvals`, `cholesky`, `eigh`, `eigvalsh`, `pinv`, `cond` and `lstsq` all compute from the real parts and return `float64` where NumPy returns `complex128`. `det`, `inv`, `solve`, `norm`, `matrix_power` and `trace` are already correct (they have dedicated complex paths).
     - `eigSymmetric` is the shared root: it backs `eigh`/`eigvalsh` and `svd`, and `svd` backs `pinv`/`cond`/`svdvals`/`lstsq`. One complex Hermitian Jacobi fixes seven entry points
     - Suggested split: (a) complex Cholesky + complex Householder QR + complex Hermitian Jacobi — mechanically straightforward, most of the user-visible win; (b) complex non-Hermitian `eig` — the only piece with real algorithmic risk. Do not let (b) block (a)
@@ -66,6 +68,7 @@
         4. Update `build-wasm.ts` to accept per-kernel optimization overrides
 - [ ] Fix `ptp` int64/uint64: type advertises `NDArray<D> | Scalar<D>` (incl. bigint dtypes) but the runtime throws on int64/uint64 (no bigint ptp support). Either add bigint runtime support or narrow the type to exclude bigint dtypes.
 - [ ] Add comprehensive axis & ndim test coverage (like we did with dtype)
+    - Cover intersections of dtype, dimensions, and operation modes, including all QR modes on batched matrices; testing each feature independently misses incompatible combinations
 - [ ] Fill the benchmark gaps the namespace fix surfaces: 8 in linalg (`eig`, `eigvals`, `eigvalsh`, `matrix_norm`, `vector_norm`, `tensorinv`, `tensorsolve`, `permute_dims`) and 9 real ones in random (`f`, `hypergeometric`, `logseries`, `multinomial`, `multivariate_normal`, `negative_binomial`, `noncentral_chisquare`, `noncentral_f`, `standard_gamma`). fft is fully covered.
     - The remaining random entries are RNG plumbing (`Generator`, `default_rng`, `seed`, `get_state`, `set_state`, `bytes`, `shuffle`) and aliases (`random_sample`, `ranf`, `sample`, `random_integers`) — put those in `NOT_BENCHMARKABLE` rather than benchmarking them
     - The whole eigen family is unbenchmarked while `eigh` is there by hand, so a decomposition regression only shows up if someone happens to look
@@ -74,6 +77,7 @@
     - Then try flattening the working matrices from `number[][]` to a single `Float64Array`. The hot loop is `applyReflector`, which makes O(n) passes over rows and columns; this is contained and needs no WASM boundary
     - A Zig kernel is the last resort, not the first. It is a bigger lift than the other decompositions because the Schur form carries 2x2 blocks and the eigenvector back substitution goes complex, and it collides with the complex-input work — sequence it after, or scope it to the real path
 - [ ] `scripts/report:dtype-coverage` parses test *names* statically, so a test called `linalg.qr complex128` counts as covered no matter what it asserts. The report reads green while the assertions are hollow. Either derive coverage from what the assertions actually compare, or stop treating the report as a coverage signal.
+    - Make partial validation explicit: `expectMatchPre` skips dtype enforcement and numerical-value checks for float16 results without native `Float16Array`, so these sweep cases can pass on shape alone. Report them as partially validated and distinguish them from full value/dtype checks; retain the separate float16 fallback tests
 - [ ] Implement async functions using Web Workers to avoid blocking main thread
 - [ ] Reach 100% function coverage via unit and validation tests
 - [ ] Reach >95% branch coverage via unit and validation tests

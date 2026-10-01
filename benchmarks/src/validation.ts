@@ -483,6 +483,22 @@ function runNumpyTsOperation(spec: BenchmarkCase): any {
       const reshaped = flat.reshape(...shape);
       // Cast to complex64 if requested
       arrays[key] = dtype === 'complex64' ? np.asarray(reshaped, 'complex64') : reshaped;
+    } else if (fill === 'complex_invertible') {
+      // Diagonally dominant complex matrix. The real and imaginary parts use
+      // different periods so no row repeats another: a pattern whose period
+      // divides the row length makes the matrix rank-deficient, which is how
+      // the complex variants of inv and solve ended up singular.
+      const n = shape[0];
+      const size = shape.reduce((a: number, b: number) => a * b, 1);
+      const vals = [];
+      for (let i = 0; i < size; i++) {
+        // Diagonal boost is applied here rather than by adding an identity: a
+        // fixture must not be built out of the library it is used to test.
+        const onDiagonal = Math.floor(i / n) === i % n;
+        vals.push(new np.Complex((i % 13) + 1 + (onDiagonal ? n * n : 0), (i % 7) + 1));
+      }
+      const dominant = np.array(vals).reshape(...shape);
+      arrays[key] = dtype === 'complex64' ? np.asarray(dominant, 'complex64') : dominant;
     } else if (fill === 'invertible') {
       // Create an invertible matrix: arange + n*I (diagonally dominant)
       const n = shape[0];

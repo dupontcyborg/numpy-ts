@@ -30,6 +30,8 @@
     "uint8"
   ],
   "all": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -71,6 +73,8 @@
     "uint8"
   ],
   "any": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -241,6 +245,8 @@
     "uint8"
   ],
   "argmax": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -254,6 +260,8 @@
     "uint8"
   ],
   "argmin": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -343,9 +351,19 @@
     "uint8"
   ],
   "asarray_chkfinite": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "atleast_1d": [
     "float16",
@@ -499,7 +517,15 @@
   "cbrt": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "ceil": [
     "float16",
@@ -528,6 +554,8 @@
     "uint8"
   ],
   "clip": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -617,10 +645,13 @@
     "uint8"
   ],
   "convolve": [
+    "float16",
     "float32",
     "float64"
   ],
   "copy": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -652,6 +683,7 @@
     "float64"
   ],
   "correlate": [
+    "float16",
     "float32",
     "float64"
   ],
@@ -686,6 +718,8 @@
     "uint8"
   ],
   "count_nonzero": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -704,6 +738,8 @@
     "float64"
   ],
   "cross": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -758,6 +794,8 @@
     "uint8"
   ],
   "diag": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -810,6 +848,8 @@
     "uint8"
   ],
   "diagonal": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -871,6 +911,7 @@
   "dot": [
     "complex128",
     "complex64",
+    "float16",
     "float32",
     "float64",
     "int16",
@@ -922,6 +963,8 @@
     "uint8"
   ],
   "einsum": [
+    "complex128",
+    "complex64",
     "float32",
     "float64",
     "int16",
@@ -1063,6 +1106,8 @@
     "uint8"
   ],
   "eye": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -1078,7 +1123,11 @@
   "fabs": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8"
   ],
   "fft": [
     "complex128",
@@ -1095,6 +1144,8 @@
     "float64"
   ],
   "fftfreq": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64"
@@ -1107,6 +1158,8 @@
     "float64"
   ],
   "fftshift": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64"
@@ -1262,12 +1315,28 @@
   "fmod": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "frexp": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "fromiter": [
     "float64"
@@ -1334,6 +1403,8 @@
     "float64"
   ],
   "geomspace": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -1391,6 +1462,8 @@
     "float64"
   ],
   "hfft": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64"
@@ -1467,6 +1540,8 @@
     "uint8"
   ],
   "identity": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -1501,6 +1576,8 @@
     "float64"
   ],
   "ifftshift": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64"
@@ -1541,6 +1618,7 @@
   "inner": [
     "complex128",
     "complex64",
+    "float16",
     "float32",
     "float64",
     "int16",
@@ -1592,11 +1670,15 @@
     "uint8"
   ],
   "irfft": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64"
   ],
   "irfft2": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64"
@@ -1767,7 +1849,15 @@
   "ldexp": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "left_shift": [
     "int16",
@@ -1842,21 +1932,43 @@
     "uint8"
   ],
   "linalg_det": [
+    "complex128",
+    "complex64",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linalg_eigh": [
     "float64"
   ],
   "linalg_inv": [
+    "complex128",
+    "complex64",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linalg_lstsq": [
     "float32",
     "float64"
   ],
   "linalg_matrix_power": [
+    "complex128",
+    "complex64",
     "float32",
     "float64",
     "int16",
@@ -1870,9 +1982,19 @@
   ],
   "linalg_matrix_rank": [
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linalg_multi_dot": [
+    "complex128",
+    "complex64",
     "float32",
     "float64",
     "int16",
@@ -1885,12 +2007,30 @@
     "uint8"
   ],
   "linalg_norm": [
+    "complex128",
+    "complex64",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linalg_pinv": [
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linalg_qr": [
     "float32",
@@ -1902,17 +2042,47 @@
   ],
   "linalg_solve": [
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linalg_svd": [
+    "complex128",
+    "complex64",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linalg_svdvals": [
+    "complex128",
+    "complex64",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "linspace": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2064,6 +2234,8 @@
     "uint8"
   ],
   "logspace": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2095,6 +2267,8 @@
     "uint8"
   ],
   "matrix_transpose": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2121,6 +2295,8 @@
     "uint8"
   ],
   "max": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2162,6 +2338,8 @@
     "uint8"
   ],
   "median": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2188,6 +2366,8 @@
     "uint8"
   ],
   "min": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2229,7 +2409,15 @@
   "modf": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "moveaxis": [
     "float16",
@@ -2260,6 +2448,8 @@
     "uint8"
   ],
   "nan_to_num": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2273,6 +2463,8 @@
     "uint8"
   ],
   "nanargmax": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2286,6 +2478,8 @@
     "uint8"
   ],
   "nanargmin": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2299,12 +2493,17 @@
     "uint8"
   ],
   "nancumprod": [
+    "float16",
     "float32",
     "float64",
+    "int16",
     "int32",
     "int64",
+    "int8",
+    "uint16",
     "uint32",
-    "uint64"
+    "uint64",
+    "uint8"
   ],
   "nancumsum": [
     "complex128",
@@ -2321,6 +2520,8 @@
     "uint8"
   ],
   "nanmax": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2349,6 +2550,8 @@
     "uint8"
   ],
   "nanmedian": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2362,6 +2565,8 @@
     "uint8"
   ],
   "nanmin": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2393,10 +2598,14 @@
     "float16",
     "float32",
     "float64",
+    "int16",
     "int32",
     "int64",
+    "int8",
+    "uint16",
     "uint32",
-    "uint64"
+    "uint64",
+    "uint8"
   ],
   "nanquantile": [
     "float16",
@@ -2412,6 +2621,8 @@
     "uint8"
   ],
   "nanstd": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2440,6 +2651,8 @@
     "uint8"
   ],
   "nanvar": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2470,7 +2683,15 @@
   "nextafter": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "nonzero": [
     "float16",
@@ -2664,6 +2885,7 @@
     "float64"
   ],
   "polyval": [
+    "float16",
     "float32",
     "float64"
   ],
@@ -2711,6 +2933,8 @@
     "uint8"
   ],
   "ptp": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2938,6 +3162,8 @@
     "uint8"
   ],
   "reciprocal": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -2977,6 +3203,8 @@
     "uint8"
   ],
   "require": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3026,6 +3254,8 @@
     "float64"
   ],
   "rfftfreq": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64"
@@ -3046,6 +3276,8 @@
     "uint8"
   ],
   "rint": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3102,6 +3334,8 @@
     "uint8"
   ],
   "round": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3189,13 +3423,19 @@
     "uint8"
   ],
   "sign": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
     "int16",
     "int32",
     "int64",
-    "int8"
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "signbit": [
     "float16",
@@ -3226,6 +3466,8 @@
     "uint8"
   ],
   "sinc": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3286,7 +3528,15 @@
   "spacing": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "split": [
     "float16",
@@ -3315,6 +3565,8 @@
     "uint8"
   ],
   "square": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3468,6 +3720,7 @@
     "uint8"
   ],
   "tensordot": [
+    "float16",
     "float32",
     "float64",
     "int16",
@@ -3506,6 +3759,8 @@
     "uint8"
   ],
   "trace": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3519,6 +3774,8 @@
     "uint8"
   ],
   "transpose": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3537,6 +3794,8 @@
     "float64"
   ],
   "tri": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3550,6 +3809,8 @@
     "uint8"
   ],
   "tril": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3602,6 +3863,8 @@
     "uint8"
   ],
   "triu": [
+    "complex128",
+    "complex64",
     "float16",
     "float32",
     "float64",
@@ -3765,7 +4028,15 @@
   "vander": [
     "float16",
     "float32",
-    "float64"
+    "float64",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8"
   ],
   "var": [
     "complex128",
@@ -3785,6 +4056,7 @@
   "vdot": [
     "complex128",
     "complex64",
+    "float16",
     "float32",
     "float64",
     "int16",

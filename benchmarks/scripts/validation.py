@@ -82,6 +82,12 @@ def setup_arrays(setup_config):
                 arrays[key] = np.array([complex((i % 10) + 1, (i % 10) + 1) for i in range(size)], dtype=cdtype).reshape(shape)
             else:
                 arrays[key] = np.array([complex(i+1, i+1) for i in range(size)], dtype=cdtype).reshape(shape)
+        elif fill == "complex_invertible":
+            n = shape[0]
+            size = np.prod(shape)
+            cdtype = np.complex64 if dtype == "complex64" else np.complex128
+            vals = [complex((i % 13) + 1 + (n * n if i // n == i % n else 0), (i % 7) + 1) for i in range(size)]
+            arrays[key] = np.array(vals, dtype=cdtype).reshape(shape)
         elif fill == "invertible":
             # Create an invertible matrix: arange + n*I (diagonally dominant)
             n = shape[0]
