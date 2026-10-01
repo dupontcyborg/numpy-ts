@@ -25,7 +25,7 @@ import { wasmMatmul } from '../wasm/matmul';
 import { wasmMatvec } from '../wasm/matvec';
 import { wasmOuter } from '../wasm/outer';
 import { wasmQr, wasmQrComplex } from '../wasm/qr';
-import { wasmSvd, wasmSvdValues } from '../wasm/svd';
+import { wasmSvd, wasmSvdComplex, wasmSvdValues } from '../wasm/svd';
 import { wasmVdotComplex } from '../wasm/vdot';
 import { wasmVecdot } from '../wasm/vecdot';
 import { wasmVecmat } from '../wasm/vecmat';
@@ -3645,6 +3645,196 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
 }
 
 /**
+ * Singular value decomposition of a complex matrix by one-sided Jacobi,
+ * returning A = U diag(s) V^H. Mirrors the real kernel's algorithm: rotations
+ * act directly on the columns of A, so A^H A is never formed and the condition
+ * number is never squared.
+ *
+ * The rotation is the real Rutishauser one, reached in two steps — scale column
+ * q by the conjugate phase of w_p^H w_q to make that inner product real, then
+ * rotate. A real rotation alone cannot orthogonalise a pair of complex columns.
+ *
+ * @param a - Input matrix
+ * @param m - Row count
+ * @param n - Column count
+ * @returns { u, s, vt } with A = U diag(s) V^H
+ */
+function svdComplex(
+  a: ArrayStorage,
+  m: number,
+  n: number,
+): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } {
+  const isC64 = a.dtype === 'complex64';
+  const cDtype: DType = isC64 ? 'complex64' : 'complex128';
+  const rDtype: DType = isC64 ? 'float32' : 'float64';
+  const smaller = Math.min(m, n);
+
+  // Column-major-ish flat buffers: index (i, j) at i * n + j.
+  const wRe = new Float64Array(m * n);
+  const wIm = new Float64Array(m * n);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      const v = a.get(i, j);
+      const c = v instanceof Complex ? v : new Complex(Number(v), 0);
+      wRe[i * n + j] = c.re;
+      wIm[i * n + j] = c.im;
+    }
+  }
+  const vRe = new Float64Array(n * n);
+  const vIm = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) vRe[i * n + i] = 1;
+
+  const maxSweeps = 60;
+  const tol = 1e-14;
+  for (let sweep = 0; sweep < maxSweeps; sweep++) {
+    let converged = true;
+    for (let p = 0; p < n; p++) {
+      for (let q = p + 1; q < n; q++) {
+        let alpha = 0;
+        let beta = 0;
+        let gRe = 0;
+        let gIm = 0;
+        for (let i = 0; i < m; i++) {
+          const pr = wRe[i * n + p]!;
+          const pi = wIm[i * n + p]!;
+          const qr = wRe[i * n + q]!;
+          const qi = wIm[i * n + q]!;
+          alpha += pr * pr + pi * pi;
+          beta += qr * qr + qi * qi;
+          // conj(w_p) · w_q
+          gRe += pr * qr + pi * qi;
+          gIm += pr * qi - pi * qr;
+        }
+        const gAbs = Math.hypot(gRe, gIm);
+        // A zero column makes the relative test sqrt(alpha*beta) zero, which no
+        // non-negative gAbs is below — so guard it directly. m < n always
+        // produces such columns, and dividing by gAbs there yields NaN.
+        if (gAbs === 0 || alpha === 0 || beta === 0) continue;
+        if (gAbs < tol * Math.sqrt(alpha * beta)) continue;
+        converged = false;
+
+        // Scale column q by the conjugate phase so the inner product is real.
+        const phRe = gRe / gAbs;
+        const phIm = gIm / gAbs;
+        for (let i = 0; i < m; i++) {
+          const re = wRe[i * n + q]!;
+          const im = wIm[i * n + q]!;
+          wRe[i * n + q] = re * phRe + im * phIm;
+          wIm[i * n + q] = im * phRe - re * phIm;
+        }
+        for (let i = 0; i < n; i++) {
+          const re = vRe[i * n + q]!;
+          const im = vIm[i * n + q]!;
+          vRe[i * n + q] = re * phRe + im * phIm;
+          vIm[i * n + q] = im * phRe - re * phIm;
+        }
+
+        const zeta = (beta - alpha) / (2 * gAbs);
+        const t = (zeta >= 0 ? 1 : -1) / (Math.abs(zeta) + Math.sqrt(1 + zeta * zeta));
+        const c = 1 / Math.sqrt(1 + t * t);
+        const sn = t * c;
+
+        for (let i = 0; i < m; i++) {
+          const pr = wRe[i * n + p]!;
+          const pi = wIm[i * n + p]!;
+          const qr = wRe[i * n + q]!;
+          const qi = wIm[i * n + q]!;
+          wRe[i * n + p] = c * pr - sn * qr;
+          wIm[i * n + p] = c * pi - sn * qi;
+          wRe[i * n + q] = sn * pr + c * qr;
+          wIm[i * n + q] = sn * pi + c * qi;
+        }
+        for (let i = 0; i < n; i++) {
+          const pr = vRe[i * n + p]!;
+          const pi = vIm[i * n + p]!;
+          const qr = vRe[i * n + q]!;
+          const qi = vIm[i * n + q]!;
+          vRe[i * n + p] = c * pr - sn * qr;
+          vIm[i * n + p] = c * pi - sn * qi;
+          vRe[i * n + q] = sn * pr + c * qr;
+          vIm[i * n + q] = sn * pi + c * qi;
+        }
+      }
+    }
+    if (converged) break;
+  }
+
+  // sigma_j = ||W[:,j]||; U[:,j] = W[:,j] / sigma_j.
+  const norms: number[] = [];
+  for (let j = 0; j < n; j++) {
+    let acc = 0;
+    for (let i = 0; i < m; i++) {
+      acc += wRe[i * n + j]! * wRe[i * n + j]! + wIm[i * n + j]! * wIm[i * n + j]!;
+    }
+    norms.push(Math.sqrt(acc));
+  }
+  const order = Array.from({ length: n }, (_, i) => i);
+  order.sort((i, j) => norms[j]! - norms[i]!);
+
+  const s = ArrayStorage.zeros([smaller], rDtype);
+  for (let i = 0; i < smaller; i++) s.set([i], norms[order[i]!]!);
+
+  const vt = ArrayStorage.zeros([n, n], cDtype);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      vt.set([i, j], new Complex(vRe[j * n + order[i]!]!, -vIm[j * n + order[i]!]!));
+    }
+  }
+
+  const uRe: number[][] = [];
+  const uIm: number[][] = [];
+  for (let i = 0; i < m; i++) {
+    uRe.push(new Array<number>(m).fill(0));
+    uIm.push(new Array<number>(m).fill(0));
+  }
+  for (let j = 0; j < smaller; j++) {
+    const sv = norms[order[j]!]!;
+    if (sv <= 1e-12) continue;
+    for (let i = 0; i < m; i++) {
+      uRe[i]![j] = wRe[i * n + order[j]!]! / sv;
+      uIm[i]![j] = wIm[i * n + order[j]!]! / sv;
+    }
+  }
+
+  // Complete U with Gram-Schmidt over the complex inner product.
+  for (let j = smaller; j < m; j++) {
+    const cr = new Array<number>(m).fill(0);
+    const ci = new Array<number>(m).fill(0);
+    cr[j] = 1;
+    for (let k = 0; k < j; k++) {
+      let dr = 0;
+      let di = 0;
+      for (let i = 0; i < m; i++) {
+        dr += uRe[i]![k]! * cr[i]! + uIm[i]![k]! * ci[i]!;
+        di += uRe[i]![k]! * ci[i]! - uIm[i]![k]! * cr[i]!;
+      }
+      for (let i = 0; i < m; i++) {
+        cr[i] = cr[i]! - (uRe[i]![k]! * dr - uIm[i]![k]! * di);
+        ci[i] = ci[i]! - (uRe[i]![k]! * di + uIm[i]![k]! * dr);
+      }
+    }
+    let nrm = 0;
+    for (let i = 0; i < m; i++) nrm += cr[i]! * cr[i]! + ci[i]! * ci[i]!;
+    nrm = Math.sqrt(nrm);
+    if (nrm > 1e-12) {
+      for (let i = 0; i < m; i++) {
+        uRe[i]![j] = cr[i]! / nrm;
+        uIm[i]![j] = ci[i]! / nrm;
+      }
+    }
+  }
+
+  const u = ArrayStorage.zeros([m, m], cDtype);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < m; j++) {
+      u.set([i, j], new Complex(uRe[i]![j]!, uIm[i]![j]!));
+    }
+  }
+
+  return { u, s, vt };
+}
+
+/**
  * Singular Value Decomposition (full).
  * Internal helper that returns all components.
  *
@@ -3662,6 +3852,12 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
 
   const [m, n] = a.shape;
   const smaller = Math.min(m!, n!);
+
+  if (isComplexDType(a.dtype)) {
+    const wasmComplex = wasmSvdComplex(a);
+    if (wasmComplex) return wasmComplex;
+    return svdComplex(a, m!, n!);
+  }
 
   // For complex, compute A^H @ A (Hermitian product).
   // The result is a real symmetric matrix (Hermitian with real diagonal).
@@ -3775,6 +3971,158 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   }
 
   return { u, s, vt };
+}
+
+/**
+ * Jacobi eigendecomposition of a Hermitian matrix, returning real eigenvalues
+ * and unitary eigenvectors with A = V diag(w) V^H.
+ *
+ * The rotation carries the phase of the element it annihilates: with
+ * apq = |apq|e^(i phi), J is [[c, -s·e^(-i phi)], [s·e^(i phi), c]] and the
+ * update is J^H A J. A real rotation cannot zero a complex off-diagonal, which
+ * is why feeding the real parts to the real Jacobi gives the wrong spectrum
+ * rather than an approximate one.
+ *
+ * @param a - Hermitian matrix; only the triangle named by uplo is read
+ * @param uplo - Which triangle holds the data, 'L' or 'U'
+ * @returns { values, re, im } - Real eigenvalues and the eigenvector columns
+ */
+function eigHermitian(
+  a: ArrayStorage,
+  uplo: 'L' | 'U' = 'L',
+): { values: number[]; re: number[][]; im: number[][] } {
+  const n = a.shape[0]!;
+  const maxIter = 100 * n * n;
+  const tol = 1e-12;
+
+  const at = (i: number, j: number): Complex => {
+    const v = a.get(i, j);
+    return v instanceof Complex ? v : new Complex(Number(v), 0);
+  };
+
+  // Mirror the requested triangle into a full Hermitian working copy, so the
+  // other triangle's contents cannot influence the result.
+  const aRe: number[][] = [];
+  const aIm: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    aRe.push(new Array<number>(n).fill(0));
+    aIm.push(new Array<number>(n).fill(0));
+  }
+  for (let i = 0; i < n; i++) {
+    aRe[i]![i] = at(i, i).re; // a Hermitian diagonal is real
+    for (let j = i + 1; j < n; j++) {
+      const src = uplo === 'L' ? at(j, i) : at(i, j);
+      // src is the lower entry A[j][i]; the upper is its conjugate.
+      const lowRe = uplo === 'L' ? src.re : src.re;
+      const lowIm = uplo === 'L' ? src.im : -src.im;
+      aRe[j]![i] = lowRe;
+      aIm[j]![i] = lowIm;
+      aRe[i]![j] = lowRe;
+      aIm[i]![j] = -lowIm;
+    }
+  }
+
+  const vRe: number[][] = [];
+  const vIm: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    vRe.push(new Array<number>(n).fill(0));
+    vIm.push(new Array<number>(n).fill(0));
+    vRe[i]![i] = 1;
+  }
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    let maxVal = 0;
+    let p = 0;
+    let q = 1;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const mag = Math.hypot(aRe[i]![j]!, aIm[i]![j]!);
+        if (mag > maxVal) {
+          maxVal = mag;
+          p = i;
+          q = j;
+        }
+      }
+    }
+    if (maxVal < tol) break;
+
+    const apqRe = aRe[p]![q]!;
+    const apqIm = aIm[p]![q]!;
+    const absApq = Math.hypot(apqRe, apqIm);
+
+    // Step 1: rotate the phase out. With D = diag(1, e^(-i phi)) placed at q,
+    // D^H A D leaves the diagonal alone and turns A[p][q] into |A[p][q]|, so
+    // the ordinary real rotation below is then exactly the right tool.
+    const phRe = apqRe / absApq;
+    const phIm = apqIm / absApq;
+    for (let i = 0; i < n; i++) {
+      const re = aRe[i]![q]!;
+      const im = aIm[i]![q]!;
+      aRe[i]![q] = re * phRe + im * phIm;
+      aIm[i]![q] = im * phRe - re * phIm;
+    }
+    for (let j = 0; j < n; j++) {
+      const re = aRe[q]![j]!;
+      const im = aIm[q]![j]!;
+      aRe[q]![j] = re * phRe - im * phIm;
+      aIm[q]![j] = im * phRe + re * phIm;
+    }
+    for (let i = 0; i < n; i++) {
+      const re = vRe[i]![q]!;
+      const im = vIm[i]![q]!;
+      vRe[i]![q] = re * phRe + im * phIm;
+      vIm[i]![q] = im * phRe - re * phIm;
+    }
+
+    // Step 2: the real Jacobi rotation, now that A[p][q] is real.
+    const app = aRe[p]![p]!;
+    const aqq = aRe[q]![q]!;
+    const theta =
+      Math.abs(app - aqq) < 1e-300 ? Math.PI / 4 : 0.5 * Math.atan2(2 * absApq, aqq - app);
+    const c = Math.cos(theta);
+    const sn = Math.sin(theta);
+
+    for (let i = 0; i < n; i++) {
+      const ipRe = aRe[i]![p]!;
+      const ipIm = aIm[i]![p]!;
+      const iqRe = aRe[i]![q]!;
+      const iqIm = aIm[i]![q]!;
+      aRe[i]![p] = c * ipRe - sn * iqRe;
+      aIm[i]![p] = c * ipIm - sn * iqIm;
+      aRe[i]![q] = sn * ipRe + c * iqRe;
+      aIm[i]![q] = sn * ipIm + c * iqIm;
+    }
+    for (let j = 0; j < n; j++) {
+      const pjRe = aRe[p]![j]!;
+      const pjIm = aIm[p]![j]!;
+      const qjRe = aRe[q]![j]!;
+      const qjIm = aIm[q]![j]!;
+      aRe[p]![j] = c * pjRe - sn * qjRe;
+      aIm[p]![j] = c * pjIm - sn * qjIm;
+      aRe[q]![j] = sn * pjRe + c * qjRe;
+      aIm[q]![j] = sn * pjIm + c * qjIm;
+    }
+
+    aRe[p]![q] = 0;
+    aIm[p]![q] = 0;
+    aRe[q]![p] = 0;
+    aIm[q]![p] = 0;
+
+    for (let i = 0; i < n; i++) {
+      const ipRe = vRe[i]![p]!;
+      const ipIm = vIm[i]![p]!;
+      const iqRe = vRe[i]![q]!;
+      const iqIm = vIm[i]![q]!;
+      vRe[i]![p] = c * ipRe - sn * iqRe;
+      vIm[i]![p] = c * ipIm - sn * iqIm;
+      vRe[i]![q] = sn * ipRe + c * iqRe;
+      vIm[i]![q] = sn * ipIm + c * iqIm;
+    }
+  }
+
+  const values: number[] = [];
+  for (let i = 0; i < n; i++) values.push(aRe[i]![i]!);
+  return { values, re: vRe, im: vIm };
 }
 
 /**
@@ -5826,8 +6174,27 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
 
   const size = m!;
 
+  if (isComplexDType(a.dtype)) {
+    // Eigenvalues of a Hermitian matrix are real, so w stays float64 — and
+    // float32 narrows to float32 — while the eigenvectors are complex.
+    const { values, re, im } = eigHermitian(a, UPLO);
+    const order = Array.from({ length: size }, (_, i) => i);
+    order.sort((i, j) => values[i]! - values[j]!);
+
+    const wDtype: DType = a.dtype === 'complex64' ? 'float32' : 'float64';
+    const vDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+    const wOut = ArrayStorage.zeros([size], wDtype);
+    const vOut = ArrayStorage.zeros([size, size], vDtype);
+    for (let i = 0; i < size; i++) {
+      wOut.set([i], values[order[i]!]!);
+      for (let j = 0; j < size; j++) {
+        vOut.set([j, i], new Complex(re[j]![order[i]!]!, im[j]![order[i]!]!));
+      }
+    }
+    return { w: wOut, v: vOut };
+  }
+
   // Symmetrize the matrix using specified triangle
-  // TODO: complex Hermitian eigendecomp (Lanczos/complex Jacobi); currently extracts real parts only
   const sym = ArrayStorage.zeros([size, size], 'float64');
   for (let i = 0; i < size; i++) {
     for (let j = 0; j < size; j++) {
