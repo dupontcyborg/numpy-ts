@@ -217,7 +217,7 @@ export function put(
   const dtype = storage.dtype;
 
   // Get values to put
-  let valueArray: (number | bigint)[];
+  let valueArray: (number | bigint | Complex)[];
   if (typeof values === 'number' || typeof values === 'bigint') {
     valueArray = new Array(indices.length).fill(values);
   } else {
@@ -225,8 +225,11 @@ export function put(
     valueArray = [];
     for (let i = 0; i < values.size; i++) {
       const val = values.iget(i);
-      // Convert Complex to its real part for non-complex operations
-      valueArray.push(val instanceof Complex ? val.re : (val as number | bigint));
+      // iset writes a Complex correctly, so only flatten to the real part when
+      // the destination cannot hold the imaginary one.
+      valueArray.push(
+        val instanceof Complex && !isComplexDType(dtype) ? val.re : (val as number | bigint),
+      );
     }
     // Broadcast values if needed
     if (valueArray.length === 1) {
@@ -309,6 +312,13 @@ export function choose(indexStorage: ArrayStorage, choices: ArrayStorage[]): Arr
 
     if (isBigIntDType(dtype)) {
       (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
+    } else if (isComplexDType(dtype)) {
+      // iget returns a Complex and an element spans two slots, so a single
+      // slot write would store NaN and leave the rest of the buffer at zero.
+      const outC = outputData as Float64Array | Float32Array;
+      const c = value as Complex;
+      outC[i * 2] = c.re;
+      outC[i * 2 + 1] = c.im;
     } else {
       (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
     }
@@ -610,15 +620,20 @@ export function putmask(
   values: ArrayStorage | number | bigint,
 ): void {
   // Get values array
-  let valueArray: (number | bigint)[];
+  let valueArray: (number | bigint | Complex)[];
   if (typeof values === 'number' || typeof values === 'bigint') {
     valueArray = [values];
   } else {
     valueArray = [];
     for (let i = 0; i < values.size; i++) {
       const val = values.iget(i);
-      // Convert Complex to its real part for non-complex operations
-      valueArray.push(val instanceof Complex ? val.re : (val as number | bigint));
+      // iset writes a Complex correctly, so only flatten to the real part when
+      // the destination cannot hold the imaginary one.
+      valueArray.push(
+        val instanceof Complex && !isComplexDType(storage.dtype)
+          ? val.re
+          : (val as number | bigint),
+      );
     }
   }
 
@@ -673,6 +688,18 @@ export function compress(
         const inTyped = inputData as BigInt64Array | BigUint64Array;
         for (let i = 0; i < maxLen; i++) {
           if (condData[condOff + i]) outTyped[outIdx++] = inTyped[inputOff + i]!;
+        }
+      } else if (isComplexDType(dtype)) {
+        // Both offsets count elements, but a complex element is two slots wide,
+        // so an unscaled copy moves half of one element and half of the next.
+        const outC = outputData as Float64Array | Float32Array;
+        const inC = inputData as Float64Array | Float32Array;
+        for (let i = 0; i < maxLen; i++) {
+          if (condData[condOff + i]) {
+            outC[outIdx * 2] = inC[(inputOff + i) * 2]!;
+            outC[outIdx * 2 + 1] = inC[(inputOff + i) * 2 + 1]!;
+            outIdx++;
+          }
         }
       } else {
         const outTyped = outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
@@ -1224,7 +1251,7 @@ if (typeof Float16Array !== 'undefined') {
 function maskedWrite(
   storage: ArrayStorage,
   mask: ArrayStorage,
-  valueArray: (number | bigint)[],
+  valueArray: (number | bigint | Complex)[],
   byFlatIndex: boolean,
 ): void {
   const size = storage.size;
@@ -1235,7 +1262,7 @@ function maskedWrite(
   // Convert the value list to the destination dtype once, not per written element.
   const wantBig = isBigIntDType(dtype);
   const isBool = dtype === 'bool';
-  const vals: (number | bigint)[] = valueArray.map((v) => {
+  const vals: (number | bigint | Complex)[] = valueArray.map((v) => {
     // A bool array holds only 0 or 1. `iset` does not enforce that — it stores
     // whatever it is given — so without this, `place(boolArray, mask, 5)` would
     // leave a 5 in the buffer where NumPy stores True. Normalising here is free:
@@ -1251,7 +1278,17 @@ function maskedWrite(
     const maskData = mask.data;
     const loop = MASKED_WRITE_LOOPS.get(storage.data.constructor);
     if (loop && maskData instanceof Uint8Array) {
-      loop(storage.data, storage.offset, maskData, mask.offset, size, vals, nVals, byFlatIndex);
+      // Guarded by !isComplexDType above, so no Complex survives in vals here.
+      loop(
+        storage.data,
+        storage.offset,
+        maskData,
+        mask.offset,
+        size,
+        vals as (number | bigint)[],
+        nVals,
+        byFlatIndex,
+      );
       return;
     }
   }
@@ -1268,11 +1305,14 @@ function maskedWrite(
 
 export function place(storage: ArrayStorage, mask: ArrayStorage, vals: ArrayStorage): void {
   // Get values array
-  const valueArray: (number | bigint)[] = [];
+  const valueArray: (number | bigint | Complex)[] = [];
   for (let i = 0; i < vals.size; i++) {
     const val = vals.iget(i);
-    // Convert Complex to its real part for non-complex operations
-    valueArray.push(val instanceof Complex ? val.re : (val as number | bigint));
+    // iset writes a Complex correctly, so only flatten to the real part when
+    // the destination cannot hold the imaginary one.
+    valueArray.push(
+      val instanceof Complex && !isComplexDType(storage.dtype) ? val.re : (val as number | bigint),
+    );
   }
 
   if (valueArray.length === 0) {

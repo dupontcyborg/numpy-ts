@@ -8,6 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
+import { broadcastShapes, broadcastTo } from '../broadcasting';
 import type { Complex } from '../complex';
 import type { DType } from '../dtype';
 import {
@@ -274,7 +275,13 @@ export function add(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
   }
 
   // Slow path: broadcasting or non-contiguous
-  return elementwiseBinaryOp(a, b, (x, y) => x + y, 'add');
+  return elementwiseBinaryOp(
+    a,
+    b,
+    (x, y) => x + y,
+    'add',
+    (aRe, aIm, bRe, bIm) => [aRe + bRe, aIm + bIm],
+  );
 }
 
 /**
@@ -404,7 +411,13 @@ export function subtract(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
   }
 
   // Slow path: broadcasting or non-contiguous
-  return elementwiseBinaryOp(a, b, (x, y) => x - y, 'subtract');
+  return elementwiseBinaryOp(
+    a,
+    b,
+    (x, y) => x - y,
+    'subtract',
+    (aRe, aIm, bRe, bIm) => [aRe - bRe, aIm - bIm],
+  );
 }
 
 /**
@@ -521,7 +534,13 @@ export function multiply(a: ArrayStorage, b: ArrayStorage | number): ArrayStorag
   }
 
   // Slow path: broadcasting or non-contiguous
-  return elementwiseBinaryOp(a, b, (x, y) => x * y, 'multiply');
+  return elementwiseBinaryOp(
+    a,
+    b,
+    (x, y) => x * y,
+    'multiply',
+    (aRe, aIm, bRe, bIm) => [aRe * bRe - aIm * bIm, aRe * bIm + aIm * bRe],
+  );
 }
 
 /**
@@ -658,25 +677,54 @@ export function divide(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage 
       if (wasmResult) return wasmResult;
     }
 
-    const result = ArrayStorage.empty(Array.from(a.shape), dtype);
+    // The raw loop below indexes both operands with the same counter, which is
+    // only valid when they already share a shape. Anything else has to go
+    // through broadcast views, or the result silently keeps a's shape.
+    const aShape = a.shape;
+    const bShape = b.shape;
+    const sameShape =
+      aShape.length === bShape.length && aShape.every((dim, i) => dim === bShape[i]);
+
+    if (sameShape) {
+      const result = ArrayStorage.empty(Array.from(aShape), dtype);
+      const resultData = result.data as Float64Array | Float32Array;
+      const size = a.size;
+      const aData = a.data;
+      const bData = b.data;
+      const aOff = a.offset;
+      const bOff = b.offset;
+
+      for (let i = 0; i < size; i++) {
+        const [aRe, aIm] = aIsComplex
+          ? getComplexAt(aData as Float64Array | Float32Array, aOff + i)
+          : [Number(aData[aOff + i]), 0];
+        const [bRe, bIm] = bIsComplex
+          ? getComplexAt(bData as Float64Array | Float32Array, bOff + i)
+          : [Number(bData[bOff + i]), 0];
+        const denom = bRe * bRe + bIm * bIm;
+        const re = (aRe * bRe + aIm * bIm) / denom;
+        const im = (aIm * bRe - aRe * bIm) / denom;
+        setComplexAt(resultData, i, re, im);
+      }
+      return result;
+    }
+
+    const outputShape = broadcastShapes(Array.from(aShape), Array.from(bShape));
+    const aB = broadcastTo(a, outputShape);
+    const bB = broadcastTo(b, outputShape);
+    const result = ArrayStorage.empty(outputShape, dtype);
     const resultData = result.data as Float64Array | Float32Array;
-    const size = a.size;
-    const aData = a.data;
-    const bData = b.data;
-    const aOff = a.offset;
-    const bOff = b.offset;
+    const size = result.size;
 
     for (let i = 0; i < size; i++) {
-      const [aRe, aIm] = aIsComplex
-        ? getComplexAt(aData as Float64Array | Float32Array, aOff + i)
-        : [Number(aData[aOff + i]), 0];
-      const [bRe, bIm] = bIsComplex
-        ? getComplexAt(bData as Float64Array | Float32Array, bOff + i)
-        : [Number(bData[bOff + i]), 0];
+      const av = aB.iget(i);
+      const bv = bB.iget(i);
+      const aRe = typeof av === 'object' ? (av as Complex).re : Number(av);
+      const aIm = typeof av === 'object' ? (av as Complex).im : 0;
+      const bRe = typeof bv === 'object' ? (bv as Complex).re : Number(bv);
+      const bIm = typeof bv === 'object' ? (bv as Complex).im : 0;
       const denom = bRe * bRe + bIm * bIm;
-      const re = (aRe * bRe + aIm * bIm) / denom;
-      const im = (aIm * bRe - aRe * bIm) / denom;
-      setComplexAt(resultData, i, re, im);
+      setComplexAt(resultData, i, (aRe * bRe + aIm * bIm) / denom, (aIm * bRe - aRe * bIm) / denom);
     }
     return result;
   }

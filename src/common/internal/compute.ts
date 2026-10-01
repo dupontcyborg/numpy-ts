@@ -225,6 +225,7 @@ export function elementwiseBinaryOp(
   b: ArrayStorage,
   op: (a: number, b: number) => number,
   opName: string,
+  complexOp?: (aRe: number, aIm: number, bRe: number, bIm: number) => [number, number],
 ): ArrayStorage {
   // Determine output dtype using NumPy promotion rules
   const resultDtype = promoteDTypes(a.dtype, b.dtype);
@@ -241,7 +242,10 @@ export function elementwiseBinaryOp(
     b.isCContiguous &&
     !isBigIntDType(a.dtype) &&
     !isBigIntDType(b.dtype) &&
-    !isBigIntDType(resultDtype)
+    !isBigIntDType(resultDtype) &&
+    // This loop reads and writes one slot per element, which is half of a
+    // complex one. Complex goes to the slow path, which handles both halves.
+    !isComplexDType(resultDtype)
   ) {
     const size = a.size;
     const result = ArrayStorage.empty(Array.from(aShape), resultDtype);
@@ -293,6 +297,25 @@ export function elementwiseBinaryOp(
       // Exact BigInt arithmetic where the op has one; float round-trip otherwise.
       const exact = bigIntBinaryOp(opName, aVal, bVal);
       resultTyped[i] = exact ?? BigInt(Math.round(op(Number(aVal), Number(bVal))));
+    }
+  } else if (isComplexDType(resultDtype)) {
+    // Number() on a Complex is NaN, so without this branch the loop below
+    // would fill the first half of the buffer with NaN and leave the second
+    // half at zero. An op with no complex form fails loudly instead.
+    if (!complexOp) {
+      throw new Error(`${opName}: complex input is not supported`);
+    }
+    const resultTyped = resultData as Float64Array | Float32Array;
+    for (let i = 0; i < size; i++) {
+      const aRaw = aBroadcast.iget(i);
+      const bRaw = bBroadcast.iget(i);
+      const aRe = aRaw instanceof Complex ? aRaw.re : Number(aRaw);
+      const aIm = aRaw instanceof Complex ? aRaw.im : 0;
+      const bRe = bRaw instanceof Complex ? bRaw.re : Number(bRaw);
+      const bIm = bRaw instanceof Complex ? bRaw.im : 0;
+      const [re, im] = complexOp(aRe, aIm, bRe, bIm);
+      resultTyped[i * 2] = re;
+      resultTyped[i * 2 + 1] = im;
     }
   } else {
     // Regular numeric types (including float dtypes)

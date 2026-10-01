@@ -1953,14 +1953,10 @@
     "complex64",
     "float32",
     "float64",
-    "int16",
     "int32",
     "int64",
-    "int8",
-    "uint16",
     "uint32",
-    "uint64",
-    "uint8"
+    "uint64"
   ],
   "linalg_lstsq": [
     "float32",
@@ -2043,14 +2039,10 @@
   "linalg_solve": [
     "float32",
     "float64",
-    "int16",
     "int32",
     "int64",
-    "int8",
-    "uint16",
     "uint32",
-    "uint64",
-    "uint8"
+    "uint64"
   ],
   "linalg_svd": [
     "complex128",

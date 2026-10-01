@@ -106,11 +106,16 @@ export function full(
   } else if (actualDtype === 'bool') {
     (data as Uint8Array).fill(fill_value ? 1 : 0);
   } else if (isComplexDType(actualDtype)) {
-    // Complex storage is interleaved [re, im, re, im, ...]; fill imaginary part with 0
-    const v = Number(fill_value);
-    for (let i = 0; i < data.length; i += 2) {
-      (data as Float64Array)[i] = v;
-      (data as Float64Array)[i + 1] = 0;
+    // Complex storage is interleaved [re, im, re, im, ...]. The fill value
+    // carries its own imaginary part when it is a Complex; coercing it with
+    // Number() would store NaN and silently drop that half.
+    const c = fill_value as { re?: number; im?: number };
+    const re = typeof c?.re === 'number' ? c.re : Number(fill_value);
+    const im = typeof c?.im === 'number' ? c.im : 0;
+    const buf = data as Float64Array | Float32Array;
+    for (let i = 0; i < buf.length; i += 2) {
+      buf[i] = re;
+      buf[i + 1] = im;
     }
   } else {
     (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>).fill(Number(fill_value));
@@ -512,10 +517,14 @@ export function eye(
     }
   } else {
     const typedData = data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+    // A complex element occupies two slots, so the diagonal index has to be
+    // doubled; writing it unscaled puts the ones in the imaginary half of the
+    // wrong cell and leaves the lower rows empty.
+    const stride = isComplexDType(dtype) ? 2 : 1;
     for (let i = 0; i < n; i++) {
       const j = i + k;
       if (j >= 0 && j < cols) {
-        typedData[i * cols + j] = 1;
+        typedData[(i * cols + j) * stride] = 1;
       }
     }
   }

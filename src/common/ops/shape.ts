@@ -253,6 +253,13 @@ export function flatten(storage: ArrayStorage): ArrayStorage {
       const value = storage.iget(i);
       if (isBigInt) {
         (newData as BigInt64Array | BigUint64Array)[i] = value as bigint;
+      } else if (isComplexDType(dtype)) {
+        // A complex element spans two slots and iget returns a Complex
+        // object; writing it into a single slot stores NaN.
+        const outC = newData as Float64Array | Float32Array;
+        const c = value as Complex;
+        outC[i * 2] = c.re;
+        outC[i * 2 + 1] = c.im;
       } else {
         (newData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
       }
@@ -1034,6 +1041,14 @@ export function tile(storage: ArrayStorage, reps: number | number[]): ArrayStora
 
     if (isBigInt) {
       (outputData as BigInt64Array | BigUint64Array)[outputIdx] = value as bigint;
+    } else if (isComplexDType(dtype)) {
+      // Both indices above count elements, but a complex element occupies two
+      // slots, so the raw read above picked up half of one element and half of
+      // the next. Re-read and write both components.
+      const srcC = expandedStorage.data as Float64Array | Float32Array;
+      const outC = outputData as Float64Array | Float32Array;
+      outC[outputIdx * 2] = srcC[sourceFlatIdx * 2]!;
+      outC[outputIdx * 2 + 1] = srcC[sourceFlatIdx * 2 + 1]!;
     } else {
       (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outputIdx] =
         value as number;
@@ -1111,6 +1126,15 @@ export function repeat(
       for (let r = 0; r < rep; r++) {
         if (dtype === 'int64' || dtype === 'uint64') {
           (outputData as BigInt64Array | BigUint64Array)[outIdx++] = value as bigint;
+        } else if (isComplexDType(dtype)) {
+          // A complex element is two slots wide, and iget hands back a Complex
+          // object: writing it into one slot stores NaN and leaves the rest of
+          // the buffer untouched.
+          const out = outputData as Float64Array | Float32Array;
+          const c = value as Complex;
+          out[outIdx * 2] = c.re;
+          out[outIdx * 2 + 1] = c.im;
+          outIdx++;
         } else {
           (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx++] =
             value as number;
@@ -1213,6 +1237,13 @@ export function repeat(
 
       if (isBigInt) {
         (outputData as BigInt64Array | BigUint64Array)[outIdx] = value as bigint;
+      } else if (isComplexDType(dtype)) {
+        // A complex element spans two slots and iget returns a Complex
+        // object; writing it into a single slot stores NaN.
+        const outC = outputData as Float64Array | Float32Array;
+        const c = value as Complex;
+        outC[outIdx * 2] = c.re;
+        outC[outIdx * 2 + 1] = c.im;
       } else {
         (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] =
           value as number;

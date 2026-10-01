@@ -1033,6 +1033,31 @@ export function argpartition(storage: ArrayStorage, kth: number, axis: number = 
         outIdx += outAxisStride;
       }
     }
+  } else if (isComplexDType(dtype)) {
+    // sort, argsort and partition each have a complex branch; without one here
+    // the generic path below reads Number(data[bufIdx]) straight off the
+    // interleaved [re, im] buffer and partitions half-elements.
+    const buf = data as Float64Array | Float32Array;
+
+    for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
+      const values: { re: number; im: number; idx: number }[] = [];
+      let bufIdx = baseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        values.push({ re: buf[bufIdx * 2]!, im: buf[bufIdx * 2 + 1]!, idx: axisIdx });
+        bufIdx += axisStride;
+      }
+
+      // A full sort satisfies the kth invariant that partition promises. It
+      // costs O(n log n) against quickselect's O(n); worth revisiting if
+      // complex argpartition ever lands in a hot path.
+      values.sort((x, y) => complexCompare(x.re, x.im, y.re, y.im));
+
+      let outIdx = outBaseOffsets[outerIdx]!;
+      for (let axisIdx = 0; axisIdx < axisSize; axisIdx++) {
+        resultData[outIdx] = values[axisIdx]!.idx;
+        outIdx += outAxisStride;
+      }
+    }
   } else {
     for (let outerIdx = 0; outerIdx < outerSize; outerIdx++) {
       // Collect values along axis with their indices

@@ -175,9 +175,11 @@ export const SKIP_INT64_OPERATIONS = new Set<string>([]);
 // due to overflow affecting ordering/convolution logic.
 export const SKIP_NARROW_INT_OPERATIONS = new Set([
   // The 'invertible' fixture needs a diagonal boost of n*n (2500 at 50x50) to
-  // stay non-singular, which does not fit int8 or uint8 — NumPy raises
-  // OverflowError building it. No narrow-int matrix this size can be
-  // diagonally dominant, so there is nothing to compare.
+  // stay non-singular. It does not fit int8 or uint8 — NumPy raises
+  // OverflowError building it, and no matrix this size can be diagonally
+  // dominant in those widths. 2500 does fit int16 and uint16, so those two are
+  // collateral: this list has no finer granularity. Making the fixture scale
+  // its boost to the dtype would win them back.
   'linalg_inv',
   'linalg_solve',
   // Products overflow differently at int8/int16
