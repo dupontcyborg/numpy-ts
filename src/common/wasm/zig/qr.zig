@@ -1,6 +1,13 @@
 //! WASM Householder QR decomposition.
 //!
-//! qr_f64: A[m×n] → Q[m×k], R[k×n] where k = min(m,n)
+//! qr_f64:  A[m×n] → Q[m×k], R[k×n] where k = min(m,n)
+//! qr_c128: the same over the complex numbers, on interleaved [re, im] buffers
+//!
+//! The complex reflector differs in two places. alpha carries the phase of
+//! a[j,j] rather than just its sign, so v = x - alpha·e1 keeps its magnitude;
+//! and every inner product conjugates its first factor. Dropping either leaves
+//! a Q that is not unitary, which a reconstruction check of Q·R against A will
+//! not catch on its own.
 
 /// Householder QR decomposition for f64 matrices.
 /// `a` is modified in place (stores R on upper triangle, Householder vectors below).
@@ -259,4 +266,173 @@ test "qr_f64 2x3 wide" {
             try testing.expectApproxEqAbs(val, orig[i * 3 + j], 1e-10);
         }
     }
+}
+
+/// Householder QR for complex128 matrices on interleaved [re, im] buffers.
+/// `a` is modified in place and holds the Householder vectors below the
+/// diagonal. `q` receives Q[m×k], `r` receives R[k×n], `tau_out` receives the
+/// real scalars 2/(v^H v), and `scratch` holds each reflector's leading entry.
+export fn qr_c128(a: [*]f64, q: [*]f64, r: [*]f64, tau_out: [*]f64, scratch: [*]f64, m_arg: u32, n_arg: u32) void {
+    const M = @as(usize, m_arg);
+    const N = @as(usize, n_arg);
+    const K = if (M < N) M else N;
+
+    for (0..K * N * 2) |i| r[i] = 0;
+
+    for (0..K) |j| {
+        var norm_sq: f64 = 0;
+        for (j..M) |ri| {
+            const re = a[(ri * N + j) * 2];
+            const im = a[(ri * N + j) * 2 + 1];
+            norm_sq += re * re + im * im;
+        }
+        const nrm = @sqrt(norm_sq);
+        if (nrm == 0) {
+            tau_out[j] = 0;
+            scratch[j * 2] = 0;
+            scratch[j * 2 + 1] = 0;
+            continue;
+        }
+
+        const ajr = a[(j * N + j) * 2];
+        const aji = a[(j * N + j) * 2 + 1];
+        const aabs = @sqrt(ajr * ajr + aji * aji);
+        const pr = if (aabs == 0) 1.0 else ajr / aabs;
+        const pi = if (aabs == 0) 0.0 else aji / aabs;
+
+        // alpha = -(a[j,j]/|a[j,j]|)·‖x‖ lands on R's diagonal; v = x - alpha·e1.
+        r[(j * N + j) * 2] = -pr * nrm;
+        r[(j * N + j) * 2 + 1] = -pi * nrm;
+        a[(j * N + j) * 2] = ajr + pr * nrm;
+        a[(j * N + j) * 2 + 1] = aji + pi * nrm;
+        scratch[j * 2] = a[(j * N + j) * 2];
+        scratch[j * 2 + 1] = a[(j * N + j) * 2 + 1];
+
+        var vtv: f64 = 0;
+        for (j..M) |ri| {
+            const re = a[(ri * N + j) * 2];
+            const im = a[(ri * N + j) * 2 + 1];
+            vtv += re * re + im * im;
+        }
+        if (vtv == 0) {
+            tau_out[j] = 0;
+            continue;
+        }
+        tau_out[j] = 2.0 / vtv;
+
+        for (j + 1..N) |col| {
+            var dr: f64 = 0;
+            var di: f64 = 0;
+            for (j..M) |ri| {
+                const vr = a[(ri * N + j) * 2];
+                const vi = a[(ri * N + j) * 2 + 1];
+                const cr = a[(ri * N + col) * 2];
+                const ci = a[(ri * N + col) * 2 + 1];
+                dr += vr * cr + vi * ci;
+                di += vr * ci - vi * cr;
+            }
+            const fr = tau_out[j] * dr;
+            const fi = tau_out[j] * di;
+            for (j..M) |ri| {
+                const vr = a[(ri * N + j) * 2];
+                const vi = a[(ri * N + j) * 2 + 1];
+                a[(ri * N + col) * 2] -= vr * fr - vi * fi;
+                a[(ri * N + col) * 2 + 1] -= vr * fi + vi * fr;
+            }
+        }
+    }
+
+    // R above the diagonal, straight from the reduced a.
+    for (0..K) |i| {
+        for (i + 1..N) |col| {
+            r[(i * N + col) * 2] = a[(i * N + col) * 2];
+            r[(i * N + col) * 2 + 1] = a[(i * N + col) * 2 + 1];
+        }
+    }
+
+    // Q = H_0 H_1 ... H_{K-1} applied to the identity, in reverse.
+    for (0..M * K * 2) |i| q[i] = 0;
+    const diag = if (M < K) M else K;
+    for (0..diag) |i| q[(i * K + i) * 2] = 1;
+
+    var jj: usize = K;
+    while (jj > 0) {
+        jj -= 1;
+        if (tau_out[jj] == 0) continue;
+        for (0..K) |col| {
+            var dr: f64 = 0;
+            var di: f64 = 0;
+            for (jj..M) |ri| {
+                const vr = if (ri == jj) scratch[jj * 2] else a[(ri * N + jj) * 2];
+                const vi = if (ri == jj) scratch[jj * 2 + 1] else a[(ri * N + jj) * 2 + 1];
+                const qr_ = q[(ri * K + col) * 2];
+                const qi = q[(ri * K + col) * 2 + 1];
+                dr += vr * qr_ + vi * qi;
+                di += vr * qi - vi * qr_;
+            }
+            const fr = tau_out[jj] * dr;
+            const fi = tau_out[jj] * di;
+            for (jj..M) |ri| {
+                const vr = if (ri == jj) scratch[jj * 2] else a[(ri * N + jj) * 2];
+                const vi = if (ri == jj) scratch[jj * 2 + 1] else a[(ri * N + jj) * 2 + 1];
+                q[(ri * K + col) * 2] -= vr * fr - vi * fi;
+                q[(ri * K + col) * 2 + 1] -= vr * fi + vi * fr;
+            }
+        }
+    }
+}
+
+test "qr_c128 3x2 reconstructs A and gives a unitary Q" {
+    const testing = @import("std").testing;
+    const M = 3;
+    const N = 2;
+    const K = 2;
+    const src = [_]f64{ 1, -0.5, 2, -0.9, 3, -1.3, 4, -1.7, 5, -2.1, 6, -2.5 };
+    var a = src;
+    var q: [M * K * 2]f64 = undefined;
+    var r: [K * N * 2]f64 = undefined;
+    var tau: [K]f64 = undefined;
+    var scratch: [K * 2]f64 = undefined;
+    qr_c128(&a, &q, &r, &tau, &scratch, M, N);
+
+    // Q·R == A
+    for (0..M) |i| {
+        for (0..N) |j| {
+            var re: f64 = 0;
+            var im: f64 = 0;
+            for (0..K) |k| {
+                const qr_ = q[(i * K + k) * 2];
+                const qi = q[(i * K + k) * 2 + 1];
+                const rr = r[(k * N + j) * 2];
+                const ri = r[(k * N + j) * 2 + 1];
+                re += qr_ * rr - qi * ri;
+                im += qr_ * ri + qi * rr;
+            }
+            try testing.expectApproxEqAbs(re, src[(i * N + j) * 2], 1e-12);
+            try testing.expectApproxEqAbs(im, src[(i * N + j) * 2 + 1], 1e-12);
+        }
+    }
+
+    // Q^H·Q == I
+    for (0..K) |c1| {
+        for (0..K) |c2| {
+            var re: f64 = 0;
+            var im: f64 = 0;
+            for (0..M) |i| {
+                const ar = q[(i * K + c1) * 2];
+                const ai = q[(i * K + c1) * 2 + 1];
+                const br = q[(i * K + c2) * 2];
+                const bi = q[(i * K + c2) * 2 + 1];
+                re += ar * br + ai * bi;
+                im += ar * bi - ai * br;
+            }
+            const want: f64 = if (c1 == c2) 1.0 else 0.0;
+            try testing.expectApproxEqAbs(re, want, 1e-12);
+            try testing.expectApproxEqAbs(im, 0.0, 1e-12);
+        }
+    }
+
+    // R lower triangle is zero
+    try testing.expectApproxEqAbs(r[(1 * N + 0) * 2], 0.0, 1e-12);
+    try testing.expectApproxEqAbs(r[(1 * N + 0) * 2 + 1], 0.0, 1e-12);
 }

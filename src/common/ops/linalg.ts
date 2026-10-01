@@ -24,7 +24,7 @@ import { wasmLuFactor, wasmLuInv, wasmLuSolve } from '../wasm/lu';
 import { wasmMatmul } from '../wasm/matmul';
 import { wasmMatvec } from '../wasm/matvec';
 import { wasmOuter } from '../wasm/outer';
-import { wasmQr } from '../wasm/qr';
+import { wasmQr, wasmQrComplex } from '../wasm/qr';
 import { wasmSvd, wasmSvdValues } from '../wasm/svd';
 import { wasmVdotComplex } from '../wasm/vdot';
 import { wasmVecdot } from '../wasm/vecdot';
@@ -3114,6 +3114,147 @@ export function norm(
  * @param mode - 'reduced' (default), 'complete', 'r', or 'raw'
  * @returns { q, r } where A = Q @ R
  */
+/**
+ * Householder QR for a complex matrix, returning Q unitary and R upper
+ * triangular with A = Q R. Works on flat interleaved buffers rather than the
+ * storage accessors, which cost a property lookup and a dtype dispatch per
+ * element.
+ *
+ * The reflector differs from the real case in two places: alpha carries the
+ * phase of x[0] rather than just its sign, so that v = x - alpha e1 keeps its
+ * magnitude, and every inner product conjugates its first factor. Dropping
+ * either one yields a Q that is not unitary.
+ *
+ * @param a - Input matrix
+ * @param m - Row count
+ * @param n - Column count
+ * @param mode - 'reduced', 'complete' or 'r'
+ * @returns { q, r } with A = Q R, or R alone for mode 'r'
+ */
+function qrComplex(
+  a: ArrayStorage,
+  m: number,
+  n: number,
+  mode: 'reduced' | 'complete' | 'r',
+): { q: ArrayStorage; r: ArrayStorage } | ArrayStorage {
+  const outDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+  const k = Math.min(m, n);
+
+  const rRe = new Float64Array(m * n);
+  const rIm = new Float64Array(m * n);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      const v = a.get(i, j);
+      const c = v instanceof Complex ? v : new Complex(Number(v), 0);
+      rRe[i * n + j] = c.re;
+      rIm[i * n + j] = c.im;
+    }
+  }
+
+  const reflectors: ({ vRe: Float64Array; vIm: Float64Array; vNorm2: number } | null)[] = [];
+
+  for (let j = 0; j < k; j++) {
+    const len = m - j;
+    const vRe = new Float64Array(len);
+    const vIm = new Float64Array(len);
+    let normX = 0;
+    for (let i = 0; i < len; i++) {
+      const re = rRe[(j + i) * n + j]!;
+      const im = rIm[(j + i) * n + j]!;
+      vRe[i] = re;
+      vIm[i] = im;
+      normX += re * re + im * im;
+    }
+    normX = Math.sqrt(normX);
+    if (normX === 0) {
+      reflectors.push(null);
+      continue;
+    }
+
+    // alpha = -(x0 / |x0|) * ||x||. Pointing alpha away from x0 keeps
+    // v = x - alpha e1 large, which is what avoids cancellation.
+    const x0Abs = Math.hypot(vRe[0]!, vIm[0]!);
+    const phaseRe = x0Abs === 0 ? 1 : vRe[0]! / x0Abs;
+    const phaseIm = x0Abs === 0 ? 0 : vIm[0]! / x0Abs;
+    vRe[0] = vRe[0]! + phaseRe * normX;
+    vIm[0] = vIm[0]! + phaseIm * normX;
+
+    let vNorm2 = 0;
+    for (let i = 0; i < len; i++) vNorm2 += vRe[i]! * vRe[i]! + vIm[i]! * vIm[i]!;
+    if (vNorm2 === 0) {
+      reflectors.push(null);
+      continue;
+    }
+
+    // R[j:, j:] -= (2 / vNorm2) v (v^H R[j:, j:])
+    const scale = 2 / vNorm2;
+    for (let c = j; c < n; c++) {
+      let wRe = 0;
+      let wIm = 0;
+      for (let i = 0; i < len; i++) {
+        const rr = rRe[(j + i) * n + c]!;
+        const ri = rIm[(j + i) * n + c]!;
+        wRe += vRe[i]! * rr + vIm[i]! * ri;
+        wIm += vRe[i]! * ri - vIm[i]! * rr;
+      }
+      wRe *= scale;
+      wIm *= scale;
+      for (let i = 0; i < len; i++) {
+        rRe[(j + i) * n + c] = rRe[(j + i) * n + c]! - (vRe[i]! * wRe - vIm[i]! * wIm);
+        rIm[(j + i) * n + c] = rIm[(j + i) * n + c]! - (vRe[i]! * wIm + vIm[i]! * wRe);
+      }
+    }
+    reflectors.push({ vRe, vIm, vNorm2 });
+  }
+
+  const rRows = mode === 'complete' ? m : k;
+  const R = ArrayStorage.zeros([rRows, n], outDtype);
+  for (let i = 0; i < rRows; i++) {
+    for (let j = i; j < n; j++) {
+      R.set([i, j], new Complex(rRe[i * n + j]!, rIm[i * n + j]!));
+    }
+  }
+  if (mode === 'r') return R;
+
+  // Q = H_0 H_1 ... H_{k-1} applied to the identity, in reverse.
+  const qCols = mode === 'complete' ? m : k;
+  const qRe = new Float64Array(m * qCols);
+  const qIm = new Float64Array(m * qCols);
+  for (let i = 0; i < Math.min(m, qCols); i++) qRe[i * qCols + i] = 1;
+
+  for (let j = k - 1; j >= 0; j--) {
+    const h = reflectors[j];
+    if (!h) continue;
+    const len = m - j;
+    const scale = 2 / h.vNorm2;
+    for (let c = 0; c < qCols; c++) {
+      let wRe = 0;
+      let wIm = 0;
+      for (let i = 0; i < len; i++) {
+        const qr = qRe[(j + i) * qCols + c]!;
+        const qi = qIm[(j + i) * qCols + c]!;
+        wRe += h.vRe[i]! * qr + h.vIm[i]! * qi;
+        wIm += h.vRe[i]! * qi - h.vIm[i]! * qr;
+      }
+      wRe *= scale;
+      wIm *= scale;
+      for (let i = 0; i < len; i++) {
+        qRe[(j + i) * qCols + c] = qRe[(j + i) * qCols + c]! - (h.vRe[i]! * wRe - h.vIm[i]! * wIm);
+        qIm[(j + i) * qCols + c] = qIm[(j + i) * qCols + c]! - (h.vRe[i]! * wIm + h.vIm[i]! * wRe);
+      }
+    }
+  }
+
+  const Q = ArrayStorage.zeros([m, qCols], outDtype);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < qCols; j++) {
+      Q.set([i, j], new Complex(qRe[i * qCols + j]!, qIm[i * qCols + j]!));
+    }
+  }
+
+  return { q: Q, r: R };
+}
+
 export function qr(
   a: ArrayStorage,
   mode: 'reduced' | 'complete' | 'r' | 'raw' = 'reduced',
@@ -3160,8 +3301,18 @@ export function qr(
   const [m, n] = a.shape;
   const k = Math.min(m!, n!);
 
+  if (isComplexDType(a.dtype)) {
+    if (mode === 'raw') {
+      throw new Error("qr: mode 'raw' is not supported for complex input");
+    }
+    if (mode === 'reduced') {
+      const wasmComplex = wasmQrComplex(a);
+      if (wasmComplex) return wasmComplex;
+    }
+    return qrComplex(a, m!, n!, mode);
+  }
+
   // Copy input to working array (float64)
-  // TODO: implement complex Householder QR; currently extracts real parts only
   const R = ArrayStorage.zeros([m!, n!], 'float64');
   for (let i = 0; i < m!; i++) {
     for (let j = 0; j < n!; j++) {

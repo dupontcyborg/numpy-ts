@@ -109,10 +109,22 @@ export function conj(a: ArrayStorage): ArrayStorage {
     const resultData = result.data as Float64Array | Float32Array;
     const srcData = a.data as Float64Array | Float32Array;
 
-    // Data is interleaved [re, im, re, im, ...]
-    for (let i = 0; i < size; i++) {
-      resultData[i * 2] = srcData[i * 2]!; // real stays same
-      resultData[i * 2 + 1] = -srcData[i * 2 + 1]!; // negate imag
+    // Data is interleaved [re, im, re, im, ...]. Walking it linearly only holds
+    // for a contiguous array starting at zero; a view — conj(a.T) being the
+    // common one — needs its offset and strides honoured, or the result is the
+    // conjugate of whatever happens to sit at those buffer positions.
+    if (a.isCContiguous) {
+      const off = a.offset;
+      for (let i = 0; i < size; i++) {
+        resultData[i * 2] = srcData[(off + i) * 2]!;
+        resultData[i * 2 + 1] = -srcData[(off + i) * 2 + 1]!;
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const c = a.iget(i) as Complex;
+        resultData[i * 2] = c.re;
+        resultData[i * 2 + 1] = -c.im;
+      }
     }
 
     return result;
