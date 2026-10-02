@@ -1229,3 +1229,336 @@ test "svd_c128 wide 3x4" {
         }
     }
 }
+
+/// Magnitude of a complex number in single precision, scaled so neither
+/// squaring step can overflow or underflow.
+///
+/// The scaling matters more here than in f64. One-sided Jacobi on a wide matrix
+/// drives the surplus columns towards zero, and the f32 exponent range runs out
+/// far sooner: entries near 1e-20 already square into the subnormal range and
+/// lose every significant bit. The quotient g/|g| then stops having unit
+/// modulus, the phase rescaling stops being unitary, and V drifts off the
+/// unitary manifold.
+fn hypot2_f32(x: f32, y: f32) f32 {
+    const ax = @abs(x);
+    const ay = @abs(y);
+    const hi = @max(ax, ay);
+    const lo = @min(ax, ay);
+    if (hi == 0) return 0;
+    const r = lo / hi;
+    return hi * @sqrt(1.0 + r * r);
+}
+
+/// One-sided Jacobi SVD for complex64 matrices on interleaved [re, im] buffers.
+/// Same algorithm as svd_c128 in single precision throughout: rotations are
+/// applied to the columns of A, so the condition number is never squared.
+/// `a` is read-only; `u_out` receives U[m×m], `s` the singular values[k] in
+/// descending order, `vt` receives V^H[n×n]. `work` needs at least
+/// 2*(m*n + n*n) + n f32s; the tail holds the column norms.
+///
+/// Any shape is accepted; wide input leaves the surplus columns at zero norm.
+/// N is capped at 256 by the index array.
+export fn svd_c64(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [*]f32, m_arg: u32, n_arg: u32) void {
+    const M = @as(usize, m_arg);
+    const N = @as(usize, n_arg);
+    const K = if (M < N) M else N;
+
+    const w = work; // 2*M*N
+    const v = work + M * N * 2; // 2*N*N
+
+    for (0..M * N * 2) |i| w[i] = a[i];
+    for (0..N * N * 2) |i| v[i] = 0;
+    for (0..N) |i| v[(i * N + i) * 2] = 1;
+
+    const max_sweeps: usize = 60;
+    // Relative orthogonality cutoff, a few f32 epsilons. Tightening it towards
+    // epsilon itself only lets rounding noise keep the sweep from converging.
+    const tol: f32 = 1e-6;
+    // Below this a column counts as numerically zero and is not normalised.
+    const zero_sigma: f32 = 1e-6;
+
+    for (0..max_sweeps) |_| {
+        var converged = true;
+        for (0..N) |p| {
+            for (p + 1..N) |q| {
+                var alpha: f32 = 0;
+                var beta: f32 = 0;
+                var g_re: f32 = 0;
+                var g_im: f32 = 0;
+                for (0..M) |i| {
+                    const pr = w[(i * N + p) * 2];
+                    const pi = w[(i * N + p) * 2 + 1];
+                    const qr = w[(i * N + q) * 2];
+                    const qi = w[(i * N + q) * 2 + 1];
+                    alpha += pr * pr + pi * pi;
+                    beta += qr * qr + qi * qi;
+                    g_re += pr * qr + pi * qi;
+                    g_im += pr * qi - pi * qr;
+                }
+                const g_abs = hypot2_f32(g_re, g_im);
+                // A zero column leaves sqrt(alpha*beta) at zero, which no
+                // non-negative g_abs is below; m < n always makes such columns.
+                if (g_abs == 0 or alpha == 0 or beta == 0) continue;
+                if (g_abs < tol * @sqrt(alpha * beta)) continue;
+                converged = false;
+
+                const ph_re = g_re / g_abs;
+                const ph_im = g_im / g_abs;
+                for (0..M) |i| {
+                    const re = w[(i * N + q) * 2];
+                    const im = w[(i * N + q) * 2 + 1];
+                    w[(i * N + q) * 2] = re * ph_re + im * ph_im;
+                    w[(i * N + q) * 2 + 1] = im * ph_re - re * ph_im;
+                }
+                for (0..N) |i| {
+                    const re = v[(i * N + q) * 2];
+                    const im = v[(i * N + q) * 2 + 1];
+                    v[(i * N + q) * 2] = re * ph_re + im * ph_im;
+                    v[(i * N + q) * 2 + 1] = im * ph_re - re * ph_im;
+                }
+
+                const zeta = (beta - alpha) / (2.0 * g_abs);
+                const abs_zeta = @abs(zeta);
+                const t = (if (zeta >= 0) @as(f32, 1.0) else @as(f32, -1.0)) / (abs_zeta + @sqrt(1.0 + zeta * zeta));
+                const c = 1.0 / @sqrt(1.0 + t * t);
+                const sn = t * c;
+
+                for (0..M) |i| {
+                    const pr = w[(i * N + p) * 2];
+                    const pi = w[(i * N + p) * 2 + 1];
+                    const qr = w[(i * N + q) * 2];
+                    const qi = w[(i * N + q) * 2 + 1];
+                    w[(i * N + p) * 2] = c * pr - sn * qr;
+                    w[(i * N + p) * 2 + 1] = c * pi - sn * qi;
+                    w[(i * N + q) * 2] = sn * pr + c * qr;
+                    w[(i * N + q) * 2 + 1] = sn * pi + c * qi;
+                }
+                for (0..N) |i| {
+                    const pr = v[(i * N + p) * 2];
+                    const pi = v[(i * N + p) * 2 + 1];
+                    const qr = v[(i * N + q) * 2];
+                    const qi = v[(i * N + q) * 2 + 1];
+                    v[(i * N + p) * 2] = c * pr - sn * qr;
+                    v[(i * N + p) * 2 + 1] = c * pi - sn * qi;
+                    v[(i * N + q) * 2] = sn * pr + c * qr;
+                    v[(i * N + q) * 2 + 1] = sn * pi + c * qi;
+                }
+            }
+        }
+        if (converged) break;
+    }
+
+    const norms = work + (M * N + N * N) * 2;
+    var indices: [256]usize = undefined;
+    for (0..N) |j| {
+        var acc: f32 = 0;
+        for (0..M) |i| {
+            const re = w[(i * N + j) * 2];
+            const im = w[(i * N + j) * 2 + 1];
+            acc += re * re + im * im;
+        }
+        norms[j] = @sqrt(acc);
+        indices[j] = j;
+    }
+    for (0..N) |i| {
+        var max_idx = i;
+        var max_val = norms[indices[i]];
+        for (i + 1..N) |j| {
+            if (norms[indices[j]] > max_val) {
+                max_val = norms[indices[j]];
+                max_idx = j;
+            }
+        }
+        if (max_idx != i) {
+            const tmp = indices[i];
+            indices[i] = indices[max_idx];
+            indices[max_idx] = tmp;
+        }
+    }
+
+    // vt = V^H, so vt[i][j] = conj(V[j][sorted_i]).
+    for (0..N) |i| {
+        for (0..N) |j| {
+            vt[(i * N + j) * 2] = v[(j * N + indices[i]) * 2];
+            vt[(i * N + j) * 2 + 1] = -v[(j * N + indices[i]) * 2 + 1];
+        }
+    }
+
+    for (0..M * M * 2) |i| u_out[i] = 0;
+    for (0..K) |j| {
+        const col = indices[j];
+        const sigma = norms[col];
+        if (sigma > zero_sigma) {
+            for (0..M) |i| {
+                u_out[(i * M + j) * 2] = w[(i * N + col) * 2] / sigma;
+                u_out[(i * M + j) * 2 + 1] = w[(i * N + col) * 2 + 1] / sigma;
+            }
+        }
+    }
+    for (0..K) |i| s[i] = norms[indices[i]];
+
+    // Complete U over the complex inner product when m > k.
+    if (M > K) {
+        for (K..M) |j| {
+            for (0..M) |i| {
+                u_out[(i * M + j) * 2] = 0;
+                u_out[(i * M + j) * 2 + 1] = 0;
+            }
+            u_out[(j * M + j) * 2] = 1;
+
+            for (0..j) |prev| {
+                var dr: f32 = 0;
+                var di: f32 = 0;
+                for (0..M) |i| {
+                    const ur = u_out[(i * M + prev) * 2];
+                    const ui = u_out[(i * M + prev) * 2 + 1];
+                    const cr = u_out[(i * M + j) * 2];
+                    const ci = u_out[(i * M + j) * 2 + 1];
+                    dr += ur * cr + ui * ci;
+                    di += ur * ci - ui * cr;
+                }
+                for (0..M) |i| {
+                    const ur = u_out[(i * M + prev) * 2];
+                    const ui = u_out[(i * M + prev) * 2 + 1];
+                    u_out[(i * M + j) * 2] -= ur * dr - ui * di;
+                    u_out[(i * M + j) * 2 + 1] -= ur * di + ui * dr;
+                }
+            }
+
+            var norm: f32 = 0;
+            for (0..M) |i| {
+                const re = u_out[(i * M + j) * 2];
+                const im = u_out[(i * M + j) * 2 + 1];
+                norm += re * re + im * im;
+            }
+            norm = @sqrt(norm);
+            if (norm > zero_sigma) {
+                for (0..M) |i| {
+                    u_out[(i * M + j) * 2] /= norm;
+                    u_out[(i * M + j) * 2 + 1] /= norm;
+                }
+            }
+        }
+    }
+}
+
+test "svd_c64 3x3 reconstructs A" {
+    const testing = @import("std").testing;
+    const M = 3;
+    const N = 3;
+    const K = 3;
+    const a = [_]f32{
+        2,   1,   1,   -2, 0.5, 0.3,
+        0.5, 0.5, 3,   -1, 1,   0.2,
+        1,   0.7, 0.2, 2,  4,   -0.4,
+    };
+    var u: [M * M * 2]f32 = undefined;
+    var s: [K]f32 = undefined;
+    var vt: [N * N * 2]f32 = undefined;
+    var work: [2 * (M * N + N * N) + N]f32 = undefined;
+    svd_c64(&a, &u, &s, &vt, &work, M, N);
+
+    // Singular values are non-negative and descending.
+    try testing.expect(s[0] >= s[1] and s[1] >= s[2] and s[2] >= 0);
+
+    // U·diag(s)·V^H == A
+    for (0..M) |i| {
+        for (0..N) |j| {
+            var re: f32 = 0;
+            var im: f32 = 0;
+            for (0..K) |t| {
+                const ur = u[(i * M + t) * 2];
+                const ui = u[(i * M + t) * 2 + 1];
+                const vr = vt[(t * N + j) * 2];
+                const vi = vt[(t * N + j) * 2 + 1];
+                re += s[t] * (ur * vr - ui * vi);
+                im += s[t] * (ur * vi + ui * vr);
+            }
+            try testing.expectApproxEqAbs(re, a[(i * N + j) * 2], 1e-4);
+            try testing.expectApproxEqAbs(im, a[(i * N + j) * 2 + 1], 1e-4);
+        }
+    }
+
+    // U^H·U == I
+    for (0..M) |c1| {
+        for (0..M) |c2| {
+            var re: f32 = 0;
+            var im: f32 = 0;
+            for (0..M) |i| {
+                const ar = u[(i * M + c1) * 2];
+                const ai = u[(i * M + c1) * 2 + 1];
+                const br = u[(i * M + c2) * 2];
+                const bi = u[(i * M + c2) * 2 + 1];
+                re += ar * br + ai * bi;
+                im += ar * bi - ai * br;
+            }
+            const want: f32 = if (c1 == c2) 1.0 else 0.0;
+            try testing.expectApproxEqAbs(re, want, 1e-4);
+            try testing.expectApproxEqAbs(im, 0.0, 1e-4);
+        }
+    }
+}
+
+test "svd_c64 wide 2x3" {
+    const testing = @import("std").testing;
+    const M = 2;
+    const N = 3;
+    const K = 2;
+    const a = [_]f32{ 1, 0.5, 2, -0.3, 0.4, 1.1, -1, 0.2, 0.7, 1.5, 2, -0.6 };
+    var u: [M * M * 2]f32 = undefined;
+    var s: [K]f32 = undefined;
+    var vt: [N * N * 2]f32 = undefined;
+    var work: [2 * (M * N + N * N) + N]f32 = undefined;
+    svd_c64(&a, &u, &s, &vt, &work, M, N);
+
+    for (0..M) |i| {
+        for (0..N) |j| {
+            var re: f32 = 0;
+            var im: f32 = 0;
+            for (0..K) |t| {
+                const ur = u[(i * M + t) * 2];
+                const ui = u[(i * M + t) * 2 + 1];
+                const vr = vt[(t * N + j) * 2];
+                const vi = vt[(t * N + j) * 2 + 1];
+                re += s[t] * (ur * vr - ui * vi);
+                im += s[t] * (ur * vi + ui * vr);
+            }
+            try testing.expectApproxEqAbs(re, a[(i * N + j) * 2], 1e-4);
+            try testing.expectApproxEqAbs(im, a[(i * N + j) * 2 + 1], 1e-4);
+        }
+    }
+}
+
+test "svd_c64 wide 3x4" {
+    const testing = @import("std").testing;
+    const M = 3;
+    const N = 4;
+    const K = 3;
+    const a = [_]f32{
+        1,   0.5,  2,    -0.3, 0.4,  1.1, -1,  0.2,
+        0.7, 1.5,  2,    -0.6, 0.3,  0.9, 1.2, -1.4,
+        2.1, -0.8, 0.25, 1.3,  -0.5, 0.6, 1.7, 0.45,
+    };
+    var u: [M * M * 2]f32 = undefined;
+    var s: [K]f32 = undefined;
+    var vt: [N * N * 2]f32 = undefined;
+    var work: [2 * (M * N + N * N) + N]f32 = undefined;
+    svd_c64(&a, &u, &s, &vt, &work, M, N);
+
+    for (0..M) |i| {
+        for (0..N) |j| {
+            var re: f32 = 0;
+            var im: f32 = 0;
+            for (0..K) |t| {
+                const ur = u[(i * M + t) * 2];
+                const ui = u[(i * M + t) * 2 + 1];
+                const vr = vt[(t * N + j) * 2];
+                const vi = vt[(t * N + j) * 2 + 1];
+                re += s[t] * (ur * vr - ui * vi);
+                im += s[t] * (ur * vi + ui * vr);
+            }
+            try testing.expectApproxEqAbs(re, a[(i * N + j) * 2], 1e-4);
+            try testing.expectApproxEqAbs(im, a[(i * N + j) * 2 + 1], 1e-4);
+        }
+    }
+}

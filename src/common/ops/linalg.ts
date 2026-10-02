@@ -4831,16 +4831,17 @@ export function inv(a: ArrayStorage): ArrayStorage {
  * TODO: move this to WASM
  */
 function invComplex(a: ArrayStorage, size: number): ArrayStorage {
-  // The kernel returns complex128, so complex64 keeps the JS path rather than
-  // widening its result.
-  if (a.dtype === 'complex128') {
-    const factored = wasmLuFactorComplex(a);
+  if (a.dtype === 'complex128' || a.dtype === 'complex64') {
+    const factored = wasmLuFactorComplex(a, a.dtype);
     if (factored) {
       try {
         const d = factored.lu.data as Float64Array;
+        // The f32 kernel cannot resolve a pivot below its own epsilon, so the
+        // singularity cutoff follows the precision the factors are held in.
+        const tiny = factored.lu.dtype === 'complex64' ? 1e-14 : 1e-30;
         for (let i = 0; i < size; i++) {
           const idx = (i * size + i) * 2;
-          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < 1e-30) {
+          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < tiny) {
             throw new Error('inv: singular matrix');
           }
         }
@@ -4982,20 +4983,25 @@ function solveVector(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  * Complex vector solve: A @ x = b using LU decomposition.
  */
 function solveVectorComplex(a: ArrayStorage, b: ArrayStorage, size: number): ArrayStorage {
-  // The kernel returns complex128, so anything narrower keeps the JS path.
-  if (a.dtype === 'complex128') {
-    const factored = wasmLuFactorComplex(a);
+  // solve narrows with a: a complex64 matrix gives a complex64 solution, so the
+  // factors are held at the same width the result needs.
+  if (a.dtype === 'complex128' || a.dtype === 'complex64') {
+    const factored = wasmLuFactorComplex(a, a.dtype);
     if (factored) {
       try {
         const d = factored.lu.data as Float64Array;
+        const tiny = factored.lu.dtype === 'complex64' ? 1e-14 : 1e-30;
         for (let i = 0; i < size; i++) {
           const idx = (i * size + i) * 2;
-          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < 1e-30) {
+          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < tiny) {
             throw new Error('solve: singular matrix');
           }
         }
         // The kernel applies the pivot permutation itself, so b goes in as-is.
-        const rhs = new Float64Array(size * 2);
+        const rhs =
+          factored.lu.dtype === 'complex64'
+            ? new Float32Array(size * 2)
+            : new Float64Array(size * 2);
         for (let i = 0; i < size; i++) {
           const val = b.get(i);
           if (val instanceof Complex) {

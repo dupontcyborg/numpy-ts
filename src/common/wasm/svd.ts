@@ -8,7 +8,7 @@
 
 import { isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { svd_c128, svd_f32, svd_f64, svd_values_gk_f64 } from './bins/svd.wasm';
+import { svd_c64, svd_c128, svd_f32, svd_f64, svd_values_gk_f64 } from './bins/svd.wasm';
 import { wasmConfig } from './config';
 import { getSharedMemory, resetScratchAllocator, wasmMalloc } from './runtime';
 
@@ -199,10 +199,10 @@ export function wasmSvdValues(a: ArrayStorage): ArrayStorage | null {
 }
 
 /**
- * WASM-accelerated one-sided Jacobi SVD for 2D complex128 matrices.
- *
- * complex64 stays on the TypeScript path: the kernel works in f64 and would
- * return wider than NumPy does. n is capped at 256 by the kernel's index array.
+ * WASM-accelerated one-sided Jacobi SVD for 2D complex matrices. Runs in the
+ * precision of the input, so complex64 stays single throughout and comes back
+ * complex64 with float32 singular values. n is capped at 256 by the kernel's
+ * index array.
  *
  * @param a - Complex matrix
  * @returns { u, s, vt } with A = U diag(s) V^H, or null when WASM cannot take it
@@ -211,7 +211,8 @@ export function wasmSvdComplex(
   a: ArrayStorage,
 ): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } | null {
   if (a.ndim !== 2) return null;
-  if (a.dtype !== 'complex128') return null;
+  const isC64 = a.dtype === 'complex64';
+  if (a.dtype !== 'complex128' && !isC64) return null;
 
   const m = a.shape[0]!;
   const n = a.shape[1]!;
@@ -222,6 +223,8 @@ export function wasmSvdComplex(
   )
     return null;
 
+  const bpe = isC64 ? 4 : 8;
+  const Arr = isC64 ? Float32Array : Float64Array;
   const k = Math.min(m, n);
   const uSlots = m * m * 2;
   const vtSlots = n * n * 2;
@@ -229,44 +232,26 @@ export function wasmSvdComplex(
   // Tail holds the n column norms; see the kernel's note on stack size.
   const workSlots = (m * n + n * n) * 2 + n;
 
-  const uRegion = wasmMalloc(uSlots * 8);
-  if (!uRegion) return null;
-  const sRegion = wasmMalloc(k * 8);
-  if (!sRegion) {
-    uRegion.release();
-    return null;
+  const regions = [];
+  for (const slots of [uSlots, k, vtSlots, aSlots, workSlots]) {
+    const region = wasmMalloc(slots * bpe);
+    if (!region) {
+      for (const r of regions) r.release();
+      return null;
+    }
+    regions.push(region);
   }
-  const vtRegion = wasmMalloc(vtSlots * 8);
-  if (!vtRegion) {
-    uRegion.release();
-    sRegion.release();
-    return null;
-  }
-  const aRegion = wasmMalloc(aSlots * 8);
-  if (!aRegion) {
-    uRegion.release();
-    sRegion.release();
-    vtRegion.release();
-    return null;
-  }
-  const workRegion = wasmMalloc(workSlots * 8);
-  if (!workRegion) {
-    uRegion.release();
-    sRegion.release();
-    vtRegion.release();
-    aRegion.release();
-    return null;
-  }
+  const [uRegion, sRegion, vtRegion, aRegion, workRegion] = regions;
 
   wasmConfig.wasmCallCount++;
   resetScratchAllocator();
 
   const mem = getSharedMemory();
-  const aView = new Float64Array(mem.buffer, aRegion.ptr, aSlots);
+  const aView = new Arr(mem.buffer, aRegion!.ptr, aSlots);
   if (a.isCContiguous && !a.isWasmBacked) {
-    aView.set((a.data as Float64Array).subarray(a.offset * 2, a.offset * 2 + aSlots));
+    aView.set((a.data as typeof aView).subarray(a.offset * 2, a.offset * 2 + aSlots));
   } else if (a.isCContiguous) {
-    aView.set(new Float64Array(mem.buffer, a.wasmPtr + a.offset * 16, aSlots));
+    aView.set(new Arr(mem.buffer, a.wasmPtr + a.offset * 2 * bpe, aSlots));
   } else {
     for (let i = 0; i < m; i++) {
       for (let j = 0; j < n; j++) {
@@ -278,19 +263,25 @@ export function wasmSvdComplex(
     }
   }
 
-  svd_c128(aRegion.ptr, uRegion.ptr, sRegion.ptr, vtRegion.ptr, workRegion.ptr, m, n);
-  workRegion.release();
-  aRegion.release();
+  if (isC64) {
+    svd_c64(aRegion!.ptr, uRegion!.ptr, sRegion!.ptr, vtRegion!.ptr, workRegion!.ptr, m, n);
+  } else {
+    svd_c128(aRegion!.ptr, uRegion!.ptr, sRegion!.ptr, vtRegion!.ptr, workRegion!.ptr, m, n);
+  }
+  workRegion!.release();
+  aRegion!.release();
 
-  const ctor = Float64Array as unknown as new (
+  const ctor = Arr as unknown as new (
     buffer: ArrayBuffer,
     byteOffset: number,
     length: number,
   ) => TypedArray;
+  const cplx = isC64 ? 'complex64' : 'complex128';
+  const real = isC64 ? 'float32' : 'float64';
 
   return {
-    u: ArrayStorage.fromWasmRegion([m, m], 'complex128', uRegion, uSlots, ctor),
-    s: ArrayStorage.fromWasmRegion([k], 'float64', sRegion, k, ctor),
-    vt: ArrayStorage.fromWasmRegion([n, n], 'complex128', vtRegion, vtSlots, ctor),
+    u: ArrayStorage.fromWasmRegion([m, m], cplx, uRegion!, uSlots, ctor),
+    s: ArrayStorage.fromWasmRegion([k], real, sRegion!, k, ctor),
+    vt: ArrayStorage.fromWasmRegion([n, n], cplx, vtRegion!, vtSlots, ctor),
   };
 }
