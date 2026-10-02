@@ -2752,7 +2752,6 @@ export function vector_norm(
     const n = flat.size;
 
     let result: number;
-    const isComplex = isComplexDType(flat.dtype);
     if (ord === Infinity) {
       result = 0;
       for (let i = 0; i < n; i++) {
@@ -2776,8 +2775,8 @@ export function vector_norm(
         result += absValue(flat.get(i));
       }
     } else if (ord === 2) {
-      // WASM fast path for L2 norm (real dtypes only)
-      const wasmNorm = isComplex ? null : wasmVectorNorm2(flat);
+      // WASM fast path for L2 norm, complex included.
+      const wasmNorm = wasmVectorNorm2(flat);
       if (wasmNorm !== null) {
         if (flat !== x) flat.dispose();
         result = wasmNorm;

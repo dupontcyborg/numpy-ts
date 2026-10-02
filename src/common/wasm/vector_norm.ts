@@ -24,14 +24,30 @@ const kernels: Partial<Record<DType, { fn: NormFn; bpe: number }>> = {
 
 /**
  * WASM-accelerated L2 norm (Euclidean norm).
- * Returns sqrt(sum(x^2)) as a number, or null if WASM can't handle.
+ *
+ * Complex input runs on the real kernels over twice as many slots, which is not
+ * an approximation: sum of |z|^2 is sum of (re^2 + im^2), and that is exactly
+ * the squared norm of the interleaved [re, im] buffer read as reals. A separate
+ * complex kernel would compute the same sum from the same bytes.
+ *
+ * @param a - Input array
+ * @returns sqrt(sum(|x|^2)), or null if WASM can't handle it
  */
 export function wasmVectorNorm2(a: ArrayStorage): number | null {
   if (!a.isCContiguous) return null;
-  if (isComplexDType(a.dtype)) return null;
 
   const size = a.size;
   if (size < BASE_THRESHOLD * wasmConfig.thresholdMultiplier) return null;
+
+  if (isComplexDType(a.dtype)) {
+    const isC64 = a.dtype === 'complex64';
+    const bpe = isC64 ? 4 : 8;
+    const slots = size * 2;
+    wasmConfig.wasmCallCount++;
+    resetScratchAllocator();
+    const ptr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset * 2, slots, bpe);
+    return isC64 ? float().vector_norm2_f32(ptr, slots) : float().vector_norm2_f64(ptr, slots);
+  }
 
   const dtype = effectiveDType(a.dtype);
 
