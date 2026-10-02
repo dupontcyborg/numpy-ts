@@ -5713,19 +5713,27 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
     // before any output is allocated: one complex spectrum anywhere makes the
     // entire result complex.
     const parts: { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors }[] = [];
+    const sliceDtype: DType = isComplexDType(a.dtype) ? a.dtype : 'float64';
     let complex = false;
     for (let bi = 0; bi < batchSize; bi++) {
       const bIdx = flatToBatchMultiIndex(bi, batchShape);
-      const slice = ArrayStorage.zeros([n, n], 'float64');
+      const slice = ArrayStorage.zeros([n, n], sliceDtype);
       for (let i = 0; i < n; i++)
-        for (let j = 0; j < n; j++) slice.set([i, j], realPart(a.get(...bIdx, i, j)));
+        for (let j = 0; j < n; j++) {
+          const val = a.get(...bIdx, i, j);
+          slice.set([i, j], isComplexDType(sliceDtype) ? val : realPart(val));
+        }
       const part = eigOne(slice, n);
       complex = complex || part.hasComplexEigenvalues;
       parts.push(part);
       slice.dispose();
     }
 
-    const dtype: DType = complex ? 'complex128' : 'float64';
+    const dtype: DType = complex
+      ? sliceDtype === 'complex64'
+        ? 'complex64'
+        : 'complex128'
+      : 'float64';
     const wResult = ArrayStorage.zeros([...batchShape, n], dtype);
     const vResult = ArrayStorage.zeros([...batchShape, n, n], dtype);
     for (let bi = 0; bi < batchSize; bi++) {
@@ -5755,7 +5763,7 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
   const size = m!;
 
   const { valuesRe, valuesIm, vectors, hasComplexEigenvalues } = eigOne(a, size);
-  return packEig(valuesRe, valuesIm, vectors, size, hasComplexEigenvalues);
+  return packEig(valuesRe, valuesIm, vectors, size, hasComplexEigenvalues, a.dtype);
 }
 
 /** Eigenvectors as real and imaginary parts, one eigenvector per column. */
@@ -5776,6 +5784,19 @@ function eigOne(
   a: ArrayStorage,
   size: number,
 ): { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors; hasComplexEigenvalues: boolean } {
+  if (isComplexDType(a.dtype)) {
+    const { valuesRe, valuesIm, vectors, converged } = eigComplex(a, size);
+    if (!converged) {
+      console.warn(
+        'numpy-ts: eig() did not converge; the eigenvalues and eigenvectors ' +
+          'below are the last iterate and should not be trusted.',
+      );
+    }
+    // A complex input always gives a complex result, whatever the spectrum
+    // turns out to be, so this is not the data-dependent choice real input makes.
+    return { valuesRe, valuesIm, vectors, hasComplexEigenvalues: true };
+  }
+
   let isSymmetric = true;
   outerLoop: for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
@@ -5830,8 +5851,9 @@ function packEig(
   vectors: { re: number[][]; im: number[][] },
   size: number,
   complex: boolean,
+  inDtype: DType = 'float64',
 ): { w: ArrayStorage; v: ArrayStorage } {
-  const dtype: DType = complex ? 'complex128' : 'float64';
+  const dtype: DType = complex ? (inDtype === 'complex64' ? 'complex64' : 'complex128') : 'float64';
   const w = ArrayStorage.zeros([size], dtype);
   const v = ArrayStorage.zeros([size, size], dtype);
 
@@ -5846,6 +5868,480 @@ function packEig(
   }
 
   return { w, v };
+}
+
+/**
+ * Principal complex square root, used for the quadratic that gives the shift.
+ *
+ * @param re - Real part
+ * @param im - Imaginary part
+ * @returns The root with non-negative real part, as [re, im]
+ */
+function csqrt(re: number, im: number): [number, number] {
+  if (re === 0 && im === 0) return [0, 0];
+  const mag = Math.hypot(re, im);
+  const r = Math.sqrt((mag + re) / 2);
+  const i = Math.sqrt((mag - re) / 2);
+  return [r, im < 0 ? -i : i];
+}
+
+/**
+ * Reduce a complex matrix to upper Hessenberg form by Householder reflectors,
+ * accumulating the unitary transform into Z.
+ *
+ * Each column is scaled by its largest component before the reflector is built:
+ * H = I - 2vv^H/(v^H v) does not depend on the scale of v but v^H v does, and
+ * for entries near the exponent limits the squares fall subnormal and the
+ * reflector comes out as NaN.
+ *
+ * @param hRe - Real parts of the matrix, overwritten with the Hessenberg form
+ * @param hIm - Imaginary parts, overwritten
+ * @param zRe - Real parts of the accumulator, overwritten
+ * @param zIm - Imaginary parts of the accumulator, overwritten
+ * @param n - Matrix dimension
+ */
+function hessenbergComplex(
+  hRe: Float64Array,
+  hIm: Float64Array,
+  zRe: Float64Array,
+  zIm: Float64Array,
+  n: number,
+): void {
+  const vRe = new Float64Array(n);
+  const vIm = new Float64Array(n);
+
+  for (let k = 0; k < n - 2; k++) {
+    const len = n - k - 1;
+    let maxAbs = 0;
+    for (let i = 0; i < len; i++) {
+      const idx = (k + 1 + i) * n + k;
+      maxAbs = Math.max(maxAbs, Math.abs(hRe[idx]!), Math.abs(hIm[idx]!));
+    }
+    if (maxAbs === 0) continue;
+
+    const invMax = 1 / maxAbs;
+    let norm2 = 0;
+    for (let i = 0; i < len; i++) {
+      const idx = (k + 1 + i) * n + k;
+      const xr = hRe[idx]! * invMax;
+      const xi = hIm[idx]! * invMax;
+      vRe[i] = xr;
+      vIm[i] = xi;
+      norm2 += xr * xr + xi * xi;
+    }
+    const norm = Math.sqrt(norm2);
+    const head = Math.hypot(vRe[0]!, vIm[0]!);
+    // alpha carries the phase of the leading entry, not just its sign: for a
+    // complex head the reflection has to land on a ray, not on the real axis.
+    const alphaRe = head === 0 ? -norm : -(vRe[0]! / head) * norm;
+    const alphaIm = head === 0 ? 0 : -(vIm[0]! / head) * norm;
+    vRe[0] = vRe[0]! - alphaRe;
+    vIm[0] = vIm[0]! - alphaIm;
+
+    let vtv = 0;
+    for (let i = 0; i < len; i++) vtv += vRe[i]! * vRe[i]! + vIm[i]! * vIm[i]!;
+    if (vtv === 0) continue;
+    const tau = 2 / vtv;
+
+    applyReflectorLeft(hRe, hIm, vRe, vIm, n, k + 1, len, tau, 0, n);
+    applyReflectorRight(hRe, hIm, vRe, vIm, n, k + 1, len, tau, 0, n);
+    applyReflectorRight(zRe, zIm, vRe, vIm, n, k + 1, len, tau, 0, n);
+  }
+}
+
+/**
+ * Apply I - tau·v·v^H from the left to rows [off, off+len) of a matrix.
+ *
+ * @param mRe - Real parts, modified in place
+ * @param mIm - Imaginary parts, modified in place
+ * @param vRe - Real parts of the reflector vector
+ * @param vIm - Imaginary parts of the reflector vector
+ * @param n - Matrix dimension
+ * @param off - First row the reflector touches
+ * @param len - Number of rows it spans
+ * @param tau - 2/(v^H v)
+ * @param colStart - First column to update
+ * @param colEnd - One past the last column to update
+ */
+function applyReflectorLeft(
+  mRe: Float64Array,
+  mIm: Float64Array,
+  vRe: Float64Array,
+  vIm: Float64Array,
+  n: number,
+  off: number,
+  len: number,
+  tau: number,
+  colStart: number,
+  colEnd: number,
+): void {
+  for (let j = colStart; j < colEnd; j++) {
+    let wRe = 0;
+    let wIm = 0;
+    for (let i = 0; i < len; i++) {
+      const idx = (off + i) * n + j;
+      // conj(v_i) * m[off+i][j]
+      wRe += vRe[i]! * mRe[idx]! + vIm[i]! * mIm[idx]!;
+      wIm += vRe[i]! * mIm[idx]! - vIm[i]! * mRe[idx]!;
+    }
+    wRe *= tau;
+    wIm *= tau;
+    for (let i = 0; i < len; i++) {
+      const idx = (off + i) * n + j;
+      mRe[idx] = mRe[idx]! - (vRe[i]! * wRe - vIm[i]! * wIm);
+      mIm[idx] = mIm[idx]! - (vRe[i]! * wIm + vIm[i]! * wRe);
+    }
+  }
+}
+
+/**
+ * Apply I - tau·v·v^H from the right to columns [off, off+len) of a matrix.
+ *
+ * @param mRe - Real parts, modified in place
+ * @param mIm - Imaginary parts, modified in place
+ * @param vRe - Real parts of the reflector vector
+ * @param vIm - Imaginary parts of the reflector vector
+ * @param n - Matrix dimension
+ * @param off - First column the reflector touches
+ * @param len - Number of columns it spans
+ * @param tau - 2/(v^H v)
+ * @param rowStart - First row to update
+ * @param rowEnd - One past the last row to update
+ */
+function applyReflectorRight(
+  mRe: Float64Array,
+  mIm: Float64Array,
+  vRe: Float64Array,
+  vIm: Float64Array,
+  n: number,
+  off: number,
+  len: number,
+  tau: number,
+  rowStart: number,
+  rowEnd: number,
+): void {
+  for (let i = rowStart; i < rowEnd; i++) {
+    let wRe = 0;
+    let wIm = 0;
+    for (let j = 0; j < len; j++) {
+      const idx = i * n + off + j;
+      wRe += mRe[idx]! * vRe[j]! - mIm[idx]! * vIm[j]!;
+      wIm += mRe[idx]! * vIm[j]! + mIm[idx]! * vRe[j]!;
+    }
+    wRe *= tau;
+    wIm *= tau;
+    for (let j = 0; j < len; j++) {
+      const idx = i * n + off + j;
+      // w * conj(v_j)
+      mRe[idx] = mRe[idx]! - (wRe * vRe[j]! + wIm * vIm[j]!);
+      mIm[idx] = mIm[idx]! - (wIm * vRe[j]! - wRe * vIm[j]!);
+    }
+  }
+}
+
+/**
+ * Eigendecomposition of a complex matrix through the complex Schur form.
+ *
+ * The complex Schur form is fully triangular, so unlike the real case there are
+ * no 2x2 blocks to split: every eigenvalue is read straight off the diagonal
+ * and a single shift per step suffices where the real algorithm needs a double
+ * shift to stay in real arithmetic.
+ *
+ * @param a - Square complex matrix
+ * @param n - Matrix dimension
+ * @returns Eigenvalues split into parts, the eigenvectors, and whether the
+ *   iteration reached a triangular form
+ */
+function eigComplex(
+  a: ArrayStorage,
+  n: number,
+): { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors; converged: boolean } {
+  const hRe = new Float64Array(n * n);
+  const hIm = new Float64Array(n * n);
+  const zRe = new Float64Array(n * n);
+  const zIm = new Float64Array(n * n);
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const val = a.get(i, j);
+      if (val instanceof Complex) {
+        hRe[i * n + j] = val.re;
+        hIm[i * n + j] = val.im;
+      } else {
+        hRe[i * n + j] = Number(val);
+      }
+    }
+    zRe[i * n + i] = 1;
+  }
+
+  hessenbergComplex(hRe, hIm, zRe, zIm, n);
+
+  const EPS = 2.220446049250313e-16;
+  const maxIter = 30 * Math.max(n, 10);
+  let converged = true;
+  let p = n - 1;
+  let iter = 0;
+
+  while (p > 0) {
+    // Deflate: find the start of the active block by scanning for a subdiagonal
+    // entry small against its neighbouring diagonal entries.
+    let l = p;
+    while (l > 0) {
+      const sub = Math.hypot(hRe[l * n + l - 1]!, hIm[l * n + l - 1]!);
+      const scale =
+        Math.hypot(hRe[(l - 1) * n + l - 1]!, hIm[(l - 1) * n + l - 1]!) +
+        Math.hypot(hRe[l * n + l]!, hIm[l * n + l]!);
+      if (sub <= EPS * (scale === 0 ? 1 : scale)) {
+        hRe[l * n + l - 1] = 0;
+        hIm[l * n + l - 1] = 0;
+        break;
+      }
+      l--;
+    }
+
+    if (l === p) {
+      p--;
+      iter = 0;
+      continue;
+    }
+
+    if (++iter > maxIter) {
+      converged = false;
+      break;
+    }
+
+    // Wilkinson shift: the root of the trailing 2x2 closer to its corner entry.
+    const aRe = hRe[(p - 1) * n + p - 1]!;
+    const aIm = hIm[(p - 1) * n + p - 1]!;
+    const bRe = hRe[(p - 1) * n + p]!;
+    const bIm = hIm[(p - 1) * n + p]!;
+    const cRe = hRe[p * n + p - 1]!;
+    const cIm = hIm[p * n + p - 1]!;
+    const dRe = hRe[p * n + p]!;
+    const dIm = hIm[p * n + p]!;
+
+    let muRe: number;
+    let muIm: number;
+    if (iter % 11 === 10) {
+      // Exceptional shift: a cycling block never deflates on its own, so break
+      // the symmetry rather than spending the whole iteration budget on it.
+      muRe = dRe + Math.hypot(cRe, cIm);
+      muIm = dIm;
+    } else {
+      const trRe = aRe + dRe;
+      const trIm = aIm + dIm;
+      const adRe = aRe * dRe - aIm * dIm;
+      const adIm = aRe * dIm + aIm * dRe;
+      const bcRe = bRe * cRe - bIm * cIm;
+      const bcIm = bRe * cIm + bIm * cRe;
+      const detRe = adRe - bcRe;
+      const detIm = adIm - bcIm;
+      const discRe = trRe * trRe - trIm * trIm - 4 * detRe;
+      const discIm = 2 * trRe * trIm - 4 * detIm;
+      const [sRe, sIm] = csqrt(discRe, discIm);
+      const r1Re = (trRe + sRe) / 2;
+      const r1Im = (trIm + sIm) / 2;
+      const r2Re = (trRe - sRe) / 2;
+      const r2Im = (trIm - sIm) / 2;
+      if (Math.hypot(r1Re - dRe, r1Im - dIm) <= Math.hypot(r2Re - dRe, r2Im - dIm)) {
+        muRe = r1Re;
+        muIm = r1Im;
+      } else {
+        muRe = r2Re;
+        muIm = r2Im;
+      }
+    }
+
+    for (let i = l; i <= p; i++) {
+      hRe[i * n + i] = hRe[i * n + i]! - muRe;
+      hIm[i * n + i] = hIm[i * n + i]! - muIm;
+    }
+
+    // One QR sweep, as n-1 Givens rotations applied from the left and then
+    // their conjugate transposes from the right.
+    const gc = new Float64Array(p);
+    const gsRe = new Float64Array(p);
+    const gsIm = new Float64Array(p);
+    for (let k = l; k < p; k++) {
+      const fRe = hRe[k * n + k]!;
+      const fIm = hIm[k * n + k]!;
+      const gRe = hRe[(k + 1) * n + k]!;
+      const gIm = hIm[(k + 1) * n + k]!;
+      const fAbs = Math.hypot(fRe, fIm);
+      const gAbs = Math.hypot(gRe, gIm);
+      let c: number;
+      let sRe: number;
+      let sIm: number;
+      if (gAbs === 0) {
+        c = 1;
+        sRe = 0;
+        sIm = 0;
+      } else if (fAbs === 0) {
+        c = 0;
+        sRe = gRe / gAbs;
+        sIm = -gIm / gAbs;
+      } else {
+        const r = Math.hypot(fAbs, gAbs);
+        c = fAbs / r;
+        // s = (f/|f|)·conj(g)/r
+        const pRe = fRe / fAbs;
+        const pIm = fIm / fAbs;
+        sRe = (pRe * gRe + pIm * gIm) / r;
+        sIm = (pIm * gRe - pRe * gIm) / r;
+      }
+      gc[k] = c;
+      gsRe[k] = sRe;
+      gsIm[k] = sIm;
+
+      for (let j = k; j < n; j++) {
+        const i0 = k * n + j;
+        const i1 = (k + 1) * n + j;
+        const x0Re = hRe[i0]!;
+        const x0Im = hIm[i0]!;
+        const x1Re = hRe[i1]!;
+        const x1Im = hIm[i1]!;
+        hRe[i0] = c * x0Re + (sRe * x1Re - sIm * x1Im);
+        hIm[i0] = c * x0Im + (sRe * x1Im + sIm * x1Re);
+        // -conj(s)·x0 + c·x1
+        hRe[i1] = -(sRe * x0Re + sIm * x0Im) + c * x1Re;
+        hIm[i1] = -(sRe * x0Im - sIm * x0Re) + c * x1Im;
+      }
+    }
+
+    for (let k = l; k < p; k++) {
+      const c = gc[k]!;
+      const sRe = gsRe[k]!;
+      const sIm = gsIm[k]!;
+      const rowEnd = Math.min(k + 2, p);
+      for (let i = 0; i <= rowEnd; i++) {
+        const i0 = i * n + k;
+        const i1 = i * n + k + 1;
+        const x0Re = hRe[i0]!;
+        const x0Im = hIm[i0]!;
+        const x1Re = hRe[i1]!;
+        const x1Im = hIm[i1]!;
+        // col k: x0·c + x1·conj(s); col k+1: -x0·s + x1·c
+        hRe[i0] = c * x0Re + (x1Re * sRe + x1Im * sIm);
+        hIm[i0] = c * x0Im + (x1Im * sRe - x1Re * sIm);
+        hRe[i1] = -(x0Re * sRe - x0Im * sIm) + c * x1Re;
+        hIm[i1] = -(x0Re * sIm + x0Im * sRe) + c * x1Im;
+      }
+      for (let i = 0; i < n; i++) {
+        const i0 = i * n + k;
+        const i1 = i * n + k + 1;
+        const x0Re = zRe[i0]!;
+        const x0Im = zIm[i0]!;
+        const x1Re = zRe[i1]!;
+        const x1Im = zIm[i1]!;
+        zRe[i0] = c * x0Re + (x1Re * sRe + x1Im * sIm);
+        zIm[i0] = c * x0Im + (x1Im * sRe - x1Re * sIm);
+        zRe[i1] = -(x0Re * sRe - x0Im * sIm) + c * x1Re;
+        zIm[i1] = -(x0Re * sIm + x0Im * sRe) + c * x1Im;
+      }
+    }
+
+    for (let i = l; i <= p; i++) {
+      hRe[i * n + i] = hRe[i * n + i]! + muRe;
+      hIm[i * n + i] = hIm[i * n + i]! + muIm;
+    }
+  }
+
+  const valuesRe: number[] = [];
+  const valuesIm: number[] = [];
+  for (let i = 0; i < n; i++) {
+    valuesRe.push(hRe[i * n + i]!);
+    valuesIm.push(hIm[i * n + i]!);
+  }
+
+  const vectors = schurEigenvectorsComplex(hRe, hIm, zRe, zIm, n);
+  return { valuesRe, valuesIm, vectors, converged };
+}
+
+/**
+ * Eigenvectors of a complex upper triangular Schur form, mapped back through
+ * the accumulated unitary transform and normalised to unit length.
+ *
+ * A diagonal entry equal to the eigenvalue being solved for makes the back
+ * substitution singular, which happens exactly when an eigenvalue repeats; the
+ * denominator is nudged to a small multiple of the matrix norm there, giving
+ * the vector LAPACK's perturbed solution rather than an infinity.
+ *
+ * @param tRe - Real parts of the triangular factor
+ * @param tIm - Imaginary parts of the triangular factor
+ * @param zRe - Real parts of the unitary accumulator
+ * @param zIm - Imaginary parts of the unitary accumulator
+ * @param n - Matrix dimension
+ * @returns Eigenvectors as real and imaginary parts, one per column
+ */
+function schurEigenvectorsComplex(
+  tRe: Float64Array,
+  tIm: Float64Array,
+  zRe: Float64Array,
+  zIm: Float64Array,
+  n: number,
+): EigVectors {
+  const re: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+  const im: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+
+  let norm = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i; j < n; j++) norm += Math.hypot(tRe[i * n + j]!, tIm[i * n + j]!);
+  }
+  const tiny = 2.220446049250313e-16 * (norm === 0 ? 1 : norm);
+
+  const yRe = new Float64Array(n);
+  const yIm = new Float64Array(n);
+
+  for (let k = 0; k < n; k++) {
+    yRe.fill(0);
+    yIm.fill(0);
+    yRe[k] = 1;
+    const lRe = tRe[k * n + k]!;
+    const lIm = tIm[k * n + k]!;
+
+    for (let j = k - 1; j >= 0; j--) {
+      let sRe = 0;
+      let sIm = 0;
+      for (let m = j + 1; m <= k; m++) {
+        const idx = j * n + m;
+        sRe -= tRe[idx]! * yRe[m]! - tIm[idx]! * yIm[m]!;
+        sIm -= tRe[idx]! * yIm[m]! + tIm[idx]! * yRe[m]!;
+      }
+      let dRe = tRe[j * n + j]! - lRe;
+      let dIm = tIm[j * n + j]! - lIm;
+      if (Math.hypot(dRe, dIm) < tiny) {
+        dRe = tiny;
+        dIm = 0;
+      }
+      const dMag2 = dRe * dRe + dIm * dIm;
+      yRe[j] = (sRe * dRe + sIm * dIm) / dMag2;
+      yIm[j] = (sIm * dRe - sRe * dIm) / dMag2;
+    }
+
+    // Back to the original basis, then scale to unit length.
+    let scale = 0;
+    const colRe = new Float64Array(n);
+    const colIm = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let accRe = 0;
+      let accIm = 0;
+      for (let m = 0; m <= k; m++) {
+        const idx = i * n + m;
+        accRe += zRe[idx]! * yRe[m]! - zIm[idx]! * yIm[m]!;
+        accIm += zRe[idx]! * yIm[m]! + zIm[idx]! * yRe[m]!;
+      }
+      colRe[i] = accRe;
+      colIm[i] = accIm;
+      scale += accRe * accRe + accIm * accIm;
+    }
+    scale = scale > 0 ? 1 / Math.sqrt(scale) : 1;
+    for (let i = 0; i < n; i++) {
+      re[i]![k] = colRe[i]! * scale;
+      im[i]![k] = colIm[i]! * scale;
+    }
+  }
+
+  return { re, im };
 }
 
 /**

@@ -8,6 +8,7 @@ import { Complex } from '../common/complex';
 import type { DType } from '../common/dtype';
 import { isBigIntDType, promoteDTypes } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
+import { eigvals } from '../common/ops/linalg';
 import { ArrayStorage } from '../common/storage';
 import { array } from './creation';
 
@@ -666,6 +667,82 @@ export function polyval(
 }
 
 /**
+ * Roots of a polynomial with complex coefficients, as the eigenvalues of its
+ * companion matrix. That is how NumPy defines the result, so going through the
+ * same construction keeps the two in step rather than introducing a second
+ * root-finder that would disagree on hard polynomials.
+ *
+ * @param c - Coefficients, highest power first, split into parts
+ * @param outDtype - Complex dtype for the result
+ * @returns The roots, sorted by descending magnitude
+ */
+function rootsComplex(c: Coeffs, outDtype: DType): NDArrayCore {
+  const re = [...c.re];
+  const im = [...c.im];
+
+  while (re.length > 1 && re[0] === 0 && im[0] === 0) {
+    re.shift();
+    im.shift();
+  }
+  let zeroRoots = 0;
+  while (re.length > 1 && re[re.length - 1] === 0 && im[im.length - 1] === 0) {
+    re.pop();
+    im.pop();
+    zeroRoots++;
+  }
+
+  const n = re.length - 1;
+  if (n + zeroRoots === 0) return _makeComplexArray([], [], outDtype);
+
+  const rootsRe: number[] = [];
+  const rootsIm: number[] = [];
+
+  if (n >= 1) {
+    // Normalise by the leading coefficient so the companion matrix is monic.
+    const lRe = re[0]!;
+    const lIm = im[0]!;
+    const lMag2 = lRe * lRe + lIm * lIm;
+    const monicRe: number[] = [];
+    const monicIm: number[] = [];
+    for (let i = 1; i <= n; i++) {
+      monicRe.push((re[i]! * lRe + im[i]! * lIm) / lMag2);
+      monicIm.push((im[i]! * lRe - re[i]! * lIm) / lMag2);
+    }
+
+    const companion = ArrayStorage.zeros([n, n], 'complex128');
+    for (let j = 0; j < n; j++) {
+      companion.set([0, j], new Complex(-monicRe[j]!, -monicIm[j]!));
+    }
+    for (let i = 1; i < n; i++) companion.set([i, i - 1], new Complex(1, 0));
+
+    const w = eigvals(companion);
+    try {
+      for (let i = 0; i < n; i++) {
+        const v = w.get(i) as Complex;
+        rootsRe.push(v.re);
+        rootsIm.push(v.im);
+      }
+    } finally {
+      w.dispose();
+      companion.dispose();
+    }
+  }
+
+  for (let i = 0; i < zeroRoots; i++) {
+    rootsRe.push(0);
+    rootsIm.push(0);
+  }
+
+  const order = rootsRe.map((_, i) => i);
+  order.sort((x, y) => Math.hypot(rootsRe[y]!, rootsIm[y]!) - Math.hypot(rootsRe[x]!, rootsIm[x]!));
+  return _makeComplexArray(
+    order.map((i) => rootsRe[i]!),
+    order.map((i) => rootsIm[i]!),
+    outDtype,
+  );
+}
+
+/**
  * Find the roots of a polynomial.
  *
  * Uses the companion matrix eigenvalue method (same as NumPy).
@@ -678,6 +755,11 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
   }
   const outDtype: DType =
     poly.dtype === 'float32' || poly.dtype === 'complex64' ? 'complex64' : 'complex128';
+
+  if (isComplex(poly.dtype as DType)) {
+    return rootsComplex(readParts(poly), outDtype);
+  }
+
   const coeffs = readParts(poly).re;
 
   // Remove leading zeros
