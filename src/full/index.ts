@@ -1408,7 +1408,7 @@ export function polysub<A extends DType = 'float64', B extends DType = 'float64'
 export function polyval(
   p: NDArrayCore | number[],
   x: NDArrayCore | number | number[],
-): NDArray | number {
+): NDArray | number | Complex {
   const r = core.polyval(p, x);
   return r instanceof NDArrayCore ? up(r) : r;
 }

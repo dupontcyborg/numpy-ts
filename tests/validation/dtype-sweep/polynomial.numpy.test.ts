@@ -111,12 +111,14 @@ x = np.array(${polyvalX.py}, dtype=${nd})
 _result_orig = np.polyval(p, x)
 result = _result_orig.astype(${ac})`;
 
-    // polyfit — may fail for bool/integer/complex
+    // polyfit — may fail for bool/integer. polyfit returns complex128 for
+    // complex input, so casting the oracle to float64 there would throw away
+    // NumPy's own imaginary parts and compare against half an answer.
     snippets[`polyfit_${dtype}`] = `
 x = np.array(${polyfitX.py}, dtype=${nd})
 y = np.array(${polyfitY.py}, dtype=${nd})
 _result_orig = np.polyfit(x, y, 2)
-result = _result_orig.astype(np.float64)`;
+result = _result_orig.astype(${isComplex(dtype) ? 'np.complex128' : 'np.float64'})`;
 
     // roots — sort by magnitude for stable comparison, cast to float64
     snippets[`roots_${dtype}`] = `
