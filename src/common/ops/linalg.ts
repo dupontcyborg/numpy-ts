@@ -6941,10 +6941,15 @@ export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
     throw new Error(`vecmat: last axis of x1 (${m1}) must match second-to-last axis of x2 (${m2})`);
   }
 
-  // For simple 1D @ 2D case, use existing dot (conjugate x1 for complex types)
+  // For the simple 1D @ 2D case, reuse dot. dot does not conjugate and neither
+  // does the kernel behind it, so the conjugation vecmat needs happens here.
   if (x1.ndim === 1 && x2.ndim === 2) {
     const x1Conj = isComplexDType(x1.dtype) ? conjStorage(x1) : x1;
-    return dot(x1Conj, x2) as ArrayStorage;
+    try {
+      return dot(x1Conj, x2) as ArrayStorage;
+    } finally {
+      if (x1Conj !== x1) x1Conj.dispose();
+    }
   }
 
   // General case: batch vector-matrix multiplication

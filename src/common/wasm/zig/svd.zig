@@ -106,22 +106,26 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
     // Singular values = column norms of W
     // Sort indices by singular value descending
     var indices: [256]usize = undefined;
+    // The norms go in a local rather than in s: there are N of them and s only
+    // has room for K, so a wide matrix would write past the end of the caller's
+    // buffer. 256 is the same cap indices carries, and the wrapper enforces it.
+    var norms: [256]f64 = undefined;
     for (0..N) |i| {
         var norm: f64 = 0;
         for (0..M) |r| {
             const val = w[r * N + i];
             norm += val * val;
         }
-        s[i] = @sqrt(norm); // temporarily store all N norms in s (s has room for K)
+        norms[i] = @sqrt(norm);
         indices[i] = i;
     }
 
     // Selection sort by singular value descending
     for (0..N) |i| {
         var max_idx = i;
-        var max_val = s[indices[i]];
+        var max_val = norms[indices[i]];
         for (i + 1..N) |j| {
-            const val = s[indices[j]];
+            const val = norms[indices[j]];
             if (val > max_val) {
                 max_val = val;
                 max_idx = j;
@@ -146,7 +150,7 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
 
     for (0..K) |j| {
         const col = indices[j];
-        const sigma = s[col];
+        const sigma = norms[col];
         if (sigma > 1e-14) {
             for (0..M) |i| {
                 u_out[i * M + j] = w[i * N + col] / sigma;
@@ -154,10 +158,7 @@ export fn svd_f64(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: [
         }
     }
 
-    // Rewrite s with sorted singular values (only K values)
-    // Use w as temp storage since we're done with it
-    for (0..K) |i| w[i] = s[indices[i]];
-    for (0..K) |i| s[i] = w[i];
+    for (0..K) |i| s[i] = norms[indices[i]];
 
     // Complete U for remaining columns (m > n case) via Gram-Schmidt
     if (M > K) {
@@ -274,22 +275,26 @@ export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
     // Singular values = column norms of W
     // Sort indices by singular value descending
     var indices: [256]usize = undefined;
+    // The norms go in a local rather than in s: there are N of them and s only
+    // has room for K, so a wide matrix would write past the end of the caller's
+    // buffer. 256 is the same cap indices carries, and the wrapper enforces it.
+    var norms: [256]f32 = undefined;
     for (0..N) |i| {
         var norm: f32 = 0;
         for (0..M) |r| {
             const val = w[r * N + i];
             norm += val * val;
         }
-        s[i] = @sqrt(norm); // temporarily store all N norms in s (s has room for K)
+        norms[i] = @sqrt(norm);
         indices[i] = i;
     }
 
     // Selection sort by singular value descending
     for (0..N) |i| {
         var max_idx = i;
-        var max_val = s[indices[i]];
+        var max_val = norms[indices[i]];
         for (i + 1..N) |j| {
-            const val = s[indices[j]];
+            const val = norms[indices[j]];
             if (val > max_val) {
                 max_val = val;
                 max_idx = j;
@@ -314,7 +319,7 @@ export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
 
     for (0..K) |j| {
         const col = indices[j];
-        const sigma = s[col];
+        const sigma = norms[col];
         if (sigma > 1e-6) {
             for (0..M) |i| {
                 u_out[i * M + j] = w[i * N + col] / sigma;
@@ -322,10 +327,7 @@ export fn svd_f32(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
         }
     }
 
-    // Rewrite s with sorted singular values (only K values)
-    // Use w as temp storage since we're done with it
-    for (0..K) |i| w[i] = s[indices[i]];
-    for (0..K) |i| s[i] = w[i];
+    for (0..K) |i| s[i] = norms[indices[i]];
 
     // Complete U for remaining columns (m > n case) via Gram-Schmidt
     if (M > K) {
@@ -1561,4 +1563,35 @@ test "svd_c64 wide 3x4" {
             try testing.expectApproxEqAbs(im, a[(i * N + j) * 2 + 1], 1e-4);
         }
     }
+}
+
+test "svd_f64 wide input stays inside s" {
+    const testing = @import("std").testing;
+    const M = 3;
+    const N = 5;
+    const K = M;
+    const a = [_]f64{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    var u: [M * M]f64 = undefined;
+    // s gets exactly K slots, which is what the wrapper allocates. The slots
+    // after it stand in for the next allocation in WASM memory: writing the N
+    // column norms here instead of into a local would reach them.
+    var s_guarded = [_]f64{-12345} ** N;
+    var vt: [N * N]f64 = undefined;
+    var work: [M * N + N * N]f64 = undefined;
+    svd_f64(&a, &u, &s_guarded, &vt, &work, M, N);
+    for (K..N) |i| try testing.expectEqual(@as(f64, -12345), s_guarded[i]);
+}
+
+test "svd_f32 wide input stays inside s" {
+    const testing = @import("std").testing;
+    const M = 3;
+    const N = 5;
+    const K = M;
+    const a = [_]f32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    var u: [M * M]f32 = undefined;
+    var s_guarded = [_]f32{-12345} ** N;
+    var vt: [N * N]f32 = undefined;
+    var work: [M * N + N * N]f32 = undefined;
+    svd_f32(&a, &u, &s_guarded, &vt, &work, M, N);
+    for (K..N) |i| try testing.expectEqual(@as(f32, -12345), s_guarded[i]);
 }

@@ -28,6 +28,8 @@ export function wasmSvd(
 
   const m = a.shape[0]!;
   const n = a.shape[1]!;
+  // n is capped by the kernel's fixed-size index and norm arrays.
+  if (n > 256) return null;
   if (
     m < BASE_THRESHOLD * wasmConfig.thresholdMultiplier ||
     n < BASE_THRESHOLD * wasmConfig.thresholdMultiplier
@@ -229,7 +231,7 @@ export function wasmSvdComplex(
   const uSlots = m * m * 2;
   const vtSlots = n * n * 2;
   const aSlots = m * n * 2;
-  // Tail holds the n column norms; see the kernel's note on stack size.
+  // Tail holds the n column norms the kernel sorts the singular values by.
   const workSlots = (m * n + n * n) * 2 + n;
 
   const regions = [];
