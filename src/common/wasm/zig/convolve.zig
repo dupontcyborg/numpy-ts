@@ -13,10 +13,12 @@ const simd = @import("simd.zig");
 /// Full 1D convolution for f64.
 /// out must have length na + nb - 1.
 export fn convolve_f64(a: [*]const f64, na: u32, b: [*]const f64, nb: u32, out: [*]f64, outLen: u32) void {
-    _ = outLen;
     const n_a = @as(usize, na);
     const n_b = @as(usize, nb);
-    const full_len = n_a + n_b - 1;
+    // Never write past what the caller allocated. The length is also derived
+    // here, so the two agree today; honouring the parameter keeps a caller that
+    // asks for a shorter output from running off the end of its buffer.
+    const full_len = @min(n_a + n_b - 1, @as(usize, outLen));
 
     for (0..full_len) |k| {
         const j_start = if (k >= n_b - 1) k - (n_b - 1) else 0;
@@ -44,10 +46,12 @@ export fn convolve_f64(a: [*]const f64, na: u32, b: [*]const f64, nb: u32, out: 
 /// Full 1D convolution for f32.
 /// out must have length na + nb - 1.
 export fn convolve_f32(a: [*]const f32, na: u32, b: [*]const f32, nb: u32, out: [*]f32, outLen: u32) void {
-    _ = outLen;
     const n_a = @as(usize, na);
     const n_b = @as(usize, nb);
-    const full_len = n_a + n_b - 1;
+    // Never write past what the caller allocated. The length is also derived
+    // here, so the two agree today; honouring the parameter keeps a caller that
+    // asks for a shorter output from running off the end of its buffer.
+    const full_len = @min(n_a + n_b - 1, @as(usize, outLen));
 
     for (0..full_len) |k| {
         const j_start = if (k >= n_b - 1) k - (n_b - 1) else 0;
@@ -74,10 +78,12 @@ export fn convolve_f32(a: [*]const f32, na: u32, b: [*]const f32, nb: u32, out: 
 // --- Integer convolve kernels (scalar loop, same-type output) ---
 
 fn convolveInt(comptime T: type, a: [*]const T, na: u32, b: [*]const T, nb: u32, out: [*]T, outLen: u32) void {
-    _ = outLen;
     const n_a = @as(usize, na);
     const n_b = @as(usize, nb);
-    const full_len = n_a + n_b - 1;
+    // Never write past what the caller allocated. The length is also derived
+    // here, so the two agree today; honouring the parameter keeps a caller that
+    // asks for a shorter output from running off the end of its buffer.
+    const full_len = @min(n_a + n_b - 1, @as(usize, outLen));
 
     for (0..full_len) |k| {
         var sum: T = 0;
@@ -241,4 +247,16 @@ test "convolve_u8 basic" {
     try testing.expectEqual(out[3], 6); // 2+4
     try testing.expectEqual(out[4], 3);
     try testing.expectEqual(out[5], 4);
+}
+
+test "convolve_f64 writes no more than outLen" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ 1, 2, 3 };
+    const b = [_]f64{ 4, 5 };
+    // Full length is 4; ask for 2 and guard the rest.
+    var out = [_]f64{-999} ** 4;
+    convolve_f64(&a, 3, &b, 2, &out, 2);
+    try testing.expectApproxEqAbs(out[0], 4.0, 1e-12);
+    try testing.expectEqual(@as(f64, -999), out[2]);
+    try testing.expectEqual(@as(f64, -999), out[3]);
 }
