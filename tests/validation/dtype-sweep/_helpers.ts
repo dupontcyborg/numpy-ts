@@ -67,9 +67,54 @@ export function asDtypeData(data: unknown, dtype: string): DtypeFixture {
 }
 
 /**
- * Assert a complex fixture carries an imaginary part. A zero imaginary part
- * exercises only the real half of an operation while the suite counts the
- * dtype as covered, which is the failure this helper exists to prevent.
+ * Build a Hermitian fixture: a real diagonal and a lower triangle that is the
+ * conjugate of the upper one.
+ *
+ * `asDtypeData` gives every element its own imaginary part, which leaves a
+ * matrix that is symmetric over the reals no longer Hermitian once it is
+ * complex. `cholesky`, `eigh` and `eigvalsh` all assume the Hermitian property
+ * and read one triangle, so they return an answer either way and the
+ * comparison against NumPy still passes while testing nothing about the half
+ * that was ignored.
+ *
+ * @param data - Square matrix of real values
+ * @param dtype - Target dtype
+ * @returns Fixture whose complex form is genuinely Hermitian
+ */
+export function asHermitianData(data: number[][], dtype: string): DtypeFixture {
+  if (!isComplex(dtype)) return asDtypeData(data, dtype);
+
+  const n = data.length;
+  const imagFor = (i: number, j: number) => -((((i * n + j) % 9) + 1) * 0.4 + 0.1);
+  const js: Complex[][] = [];
+  const py: string[][] = [];
+  for (let i = 0; i < n; i++) {
+    const rowJs: Complex[] = [];
+    const rowPy: string[] = [];
+    for (let j = 0; j < n; j++) {
+      const re = Number(data[i]![j]);
+      const im = i === j ? 0 : i < j ? imagFor(i, j) : -imagFor(j, i);
+      rowJs.push(new Complex(re, im));
+      rowPy.push(`complex(${re}, ${im})`);
+    }
+    js.push(rowJs);
+    py.push(rowPy);
+  }
+  return {
+    js: js as never,
+    py: `[${py.map((r) => `[${r.join(', ')}]`).join(', ')}]`,
+  };
+}
+
+/**
+ * Assert a complex fixture carries an imaginary part somewhere. A fixture that
+ * is real throughout exercises only the real half of an operation while the
+ * suite counts the dtype as covered, which is the failure this helper exists to
+ * prevent.
+ *
+ * It scans the whole array rather than the first element, because a Hermitian
+ * fixture has a real diagonal by construction and the first element alone says
+ * nothing about the rest.
  *
  * @param arr - The array built from the fixture
  * @param dtype - The dtype it was built for
@@ -77,9 +122,14 @@ export function asDtypeData(data: unknown, dtype: string): DtypeFixture {
  */
 export function expectComplexFixture(arr: unknown, dtype: string, label: string): void {
   if (!isComplex(dtype)) return;
-  const a = arr as { ndim: number; get(i: number[]): unknown };
-  const first = a.get(new Array(a.ndim).fill(0)) as { im?: number };
-  expect(first?.im, `${label}: complex fixture has no imaginary part`).not.toBe(0);
+  const walk = (v: unknown): boolean =>
+    Array.isArray(v)
+      ? v.some(walk)
+      : typeof v === 'object' && v !== null && 'im' in v
+        ? Number((v as { im: number }).im) !== 0
+        : false;
+  const values = (arr as { toArray(): unknown }).toArray();
+  expect(walk(values), `${label}: complex fixture has no imaginary part anywhere`).toBe(true);
 }
 
 export function npDtype(d: string) {

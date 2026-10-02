@@ -78,6 +78,20 @@ export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | 
   qr_f64(aRegion.ptr, qRegion.ptr, rRegion.ptr, tauPtr, scratchPtr, m, n);
   aRegion.release();
 
+  // There is no f32 kernel, so float32 input is computed in f64 and narrowed on
+  // the way out. NumPy narrows with the input here, and the JS path does too, so
+  // handing back float64 would make the result dtype depend on which backend ran.
+  if (a.dtype === 'float32') {
+    const mem32 = getSharedMemory();
+    const q32 = ArrayStorage.zeros([m, k], 'float32');
+    const r32 = ArrayStorage.zeros([k, n], 'float32');
+    (q32.data as Float32Array).set(new Float64Array(mem32.buffer, qRegion.ptr, qSize));
+    (r32.data as Float32Array).set(new Float64Array(mem32.buffer, rRegion.ptr, rSize));
+    qRegion.release();
+    rRegion.release();
+    return { q: q32, r: r32 };
+  }
+
   const qStorage = ArrayStorage.fromWasmRegion(
     [m, k],
     'float64',

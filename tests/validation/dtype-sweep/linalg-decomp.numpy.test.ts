@@ -10,17 +10,32 @@ import {
   ALL_DTYPES,
   arraysClose,
   asDtypeData,
+  asHermitianData,
   checkNumPyAvailable,
   expectBothRejectPre,
   expectComplexFixture,
   expectMatchPre,
+  isComplex,
   npDtype,
   pyArrayCast,
   pyScalarCast,
   runNumPyBatch,
   scalarClose,
-  toComparable,
 } from './_helpers';
+import {
+  conjT,
+  expectDType,
+  expectEigenpairs,
+  expectReconstructs,
+  expectUnitaryColumns,
+  expectUpperTriangular,
+  linalgDType,
+  linalgRealDType,
+  mat,
+  matmulC,
+  tolFor,
+  vec,
+} from './_invariants';
 
 const { array } = np;
 
@@ -47,7 +62,7 @@ function fixtures(dtype: string) {
       dtype,
     ),
     vec: asDtypeData(b ? [1, 0] : [3, 4], dtype),
-    pdMat: asDtypeData(
+    pdMat: asHermitianData(
       b
         ? id
         : [
@@ -56,7 +71,7 @@ function fixtures(dtype: string) {
           ],
       dtype,
     ),
-    symMat: asDtypeData(
+    symMat: asHermitianData(
       b
         ? id
         : [
@@ -198,7 +213,13 @@ describe('DType Sweep: linalg decompositions', () => {
         py,
       );
       if (r === 'both-reject') return;
-      expectMatchPre(np.linalg.cholesky(a), py, { rtol: 1e-4, atol: 1e-6 });
+      const l = np.linalg.cholesky(a) as any;
+      expectMatchPre(l, py, { rtol: 1e-4, atol: 1e-6 });
+      const tol = tolFor(dtype);
+      expectDType(l, linalgDType(dtype), `cholesky ${dtype}`);
+      const lm = mat(l.toArray());
+      expectUpperTriangular(conjT(lm), `cholesky ${dtype} L transposed`, tol);
+      expectReconstructs(matmulC(lm, conjT(lm)), mat(a.toArray()), `cholesky ${dtype}`, tol);
     });
 
     it(`linalg.qr ${dtype}`, () => {
@@ -208,11 +229,17 @@ describe('DType Sweep: linalg decompositions', () => {
         expect(() => np.linalg.qr(a)).toThrow('float16 is unsupported in linalg');
         return;
       }
-      // Column signs of q (and the matching rows of r) are arbitrary, so only
-      // the reconstruction is well defined.
+      // Column signs of q (and the matching rows of r) are arbitrary, so the
+      // factors are pinned by their algebra rather than compared elementwise.
       const { q, r } = np.linalg.qr(a) as any;
-      const py = oracle.get(`linalg_qr_${dtype}`)!;
-      expect(arraysClose(toComparable(np.matmul(q, r)), py.value, 1e-4)).toBe(true);
+      const tol = tolFor(dtype);
+      const qm = mat(q.toArray());
+      const rm = mat(r.toArray());
+      expectDType(q, linalgDType(dtype), `qr ${dtype} q`);
+      expectDType(r, linalgDType(dtype), `qr ${dtype} r`);
+      expectReconstructs(matmulC(qm, rm), mat(a.toArray()), `qr ${dtype}`, tol);
+      expectUnitaryColumns(qm, `qr ${dtype} q`, tol);
+      expectUpperTriangular(rm, `qr ${dtype} r`, tol);
     });
 
     it(`linalg.svd ${dtype}`, () => {
@@ -221,8 +248,30 @@ describe('DType Sweep: linalg decompositions', () => {
       const py = oracle.get(`linalg_svd_${dtype}`)!;
       const r = expectBothRejectPre('float16 unsupported in linalg', () => np.linalg.svd(a), py);
       if (r === 'both-reject') return;
-      const { s } = np.linalg.svd(a) as any;
+      const { u, s, vt } = np.linalg.svd(a) as any;
       expectMatchPre(s, py, { rtol: 1e-4 });
+      const tol = tolFor(dtype);
+      expectDType(u, linalgDType(dtype), `svd ${dtype} u`);
+      expectDType(vt, linalgDType(dtype), `svd ${dtype} vt`);
+      expectDType(s, linalgRealDType(dtype), `svd ${dtype} s`);
+      const um = mat(u.toArray());
+      const vtm = mat(vt.toArray());
+      const sv = s.toArray().map(Number);
+      // U diag(s) V^H, taking the first k columns of U and rows of V^H.
+      const scaled = um.map((row) =>
+        row.slice(0, sv.length).map((c, j) => ({
+          re: c.re * sv[j]!,
+          im: c.im * sv[j]!,
+        })),
+      );
+      expectReconstructs(
+        matmulC(scaled, vtm.slice(0, sv.length)),
+        mat(a.toArray()),
+        `svd ${dtype}`,
+        tol,
+      );
+      expectUnitaryColumns(um, `svd ${dtype} u`, tol);
+      expectUnitaryColumns(vtm, `svd ${dtype} vt`, tol);
     });
 
     it(`linalg.eig ${dtype}`, { timeout: 30000 }, () => {
@@ -231,11 +280,22 @@ describe('DType Sweep: linalg decompositions', () => {
       const py = oracle.get(`linalg_eig_${dtype}`)!;
       const r = expectBothRejectPre('float16 unsupported in linalg', () => np.linalg.eig(a), py);
       if (r === 'both-reject') return;
-      // Eigenvector scale and eigenvalue order are arbitrary, so compare the
-      // sorted magnitudes of the eigenvalues.
-      const { w } = np.linalg.eig(a) as any;
+      // Eigenvector scale and eigenvalue order are arbitrary, so the values are
+      // compared as sorted magnitudes and the vectors are pinned by A v = lambda v.
+      // Issue #161 was exactly a case the magnitude comparison alone let through.
+      const { w, v } = np.linalg.eig(a) as any;
       const jsAbs = np.sort(np.absolute(w)).toArray();
       expect(arraysClose(jsAbs, py.value, 1e-3)).toBe(true);
+      const eigDType = isComplex(dtype) ? linalgDType(dtype) : 'float64';
+      expectDType(w, eigDType, `eig ${dtype} w`);
+      expectDType(v, eigDType, `eig ${dtype} v`);
+      expectEigenpairs(
+        mat(a.toArray()),
+        vec(w.toArray()),
+        mat(v.toArray()),
+        `eig ${dtype}`,
+        tolFor(dtype),
+      );
     });
 
     it(`linalg.eigh ${dtype}`, { timeout: 30000 }, () => {
@@ -244,8 +304,15 @@ describe('DType Sweep: linalg decompositions', () => {
       const py = oracle.get(`linalg_eigh_${dtype}`)!;
       const r = expectBothRejectPre('float16 unsupported in linalg', () => np.linalg.eigh(a), py);
       if (r === 'both-reject') return;
-      const { w } = np.linalg.eigh(a) as any;
+      const { w, v } = np.linalg.eigh(a) as any;
       expectMatchPre(w, py, { rtol: 1e-4 });
+      const tol = tolFor(dtype);
+      // A Hermitian matrix has real eigenvalues, so w narrows even for complex input.
+      expectDType(w, linalgRealDType(dtype), `eigh ${dtype} w`);
+      expectDType(v, linalgDType(dtype), `eigh ${dtype} v`);
+      const vm = mat(v.toArray());
+      expectUnitaryColumns(vm, `eigh ${dtype} v`, tol);
+      expectEigenpairs(mat(a.toArray()), vec(w.toArray()), vm, `eigh ${dtype}`, tol);
     });
 
     it(`linalg.eigvals ${dtype}`, { timeout: 30000 }, () => {
@@ -258,8 +325,10 @@ describe('DType Sweep: linalg decompositions', () => {
         py,
       );
       if (r === 'both-reject') return;
-      const jsAbs = np.sort(np.absolute(np.linalg.eigvals(a))).toArray();
+      const w = np.linalg.eigvals(a);
+      const jsAbs = np.sort(np.absolute(w)).toArray();
       expect(arraysClose(jsAbs, py.value, 1e-3)).toBe(true);
+      expectDType(w, isComplex(dtype) ? linalgDType(dtype) : 'float64', `eigvals ${dtype}`);
     });
 
     it(`linalg.eigvalsh ${dtype}`, { timeout: 30000 }, () => {
@@ -272,7 +341,9 @@ describe('DType Sweep: linalg decompositions', () => {
         py,
       );
       if (r === 'both-reject') return;
-      expectMatchPre(np.linalg.eigvalsh(a), py, { rtol: 1e-4 });
+      const w = np.linalg.eigvalsh(a);
+      expectMatchPre(w, py, { rtol: 1e-4 });
+      expectDType(w, linalgRealDType(dtype), `eigvalsh ${dtype}`);
     });
 
     it(`linalg.solve ${dtype}`, () => {
