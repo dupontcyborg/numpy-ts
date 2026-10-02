@@ -20,7 +20,14 @@ import { wasmCross } from '../wasm/cross';
 import { wasmDot1D } from '../wasm/dot';
 import { wasmInner } from '../wasm/inner';
 import { wasmKron } from '../wasm/kron';
-import { wasmLuFactor, wasmLuInv, wasmLuSolve } from '../wasm/lu';
+import {
+  wasmLuFactor,
+  wasmLuFactorComplex,
+  wasmLuInv,
+  wasmLuInvComplex,
+  wasmLuSolve,
+  wasmLuSolveComplex,
+} from '../wasm/lu';
 import { wasmMatmul } from '../wasm/matmul';
 import { wasmMatvec } from '../wasm/matvec';
 import { wasmOuter } from '../wasm/outer';
@@ -4575,15 +4582,26 @@ function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; si
 }
 
 /**
- * Complex LU decomposition with partial pivoting.
- * Works with interleaved re/im data in the underlying Float64Array.
- * TODO: move this to WASM
+ * Complex LU decomposition with partial pivoting, working on the interleaved
+ * re/im data directly. The result is complex128 whatever the input width, so
+ * routing complex64 through the c128 kernel does not change the dtype anyone
+ * downstream sees.
+ *
+ * @param a - Input matrix
+ * @param size - Row count
+ * @param cols - Column count
+ * @returns Packed LU factors, the pivot permutation, and the permutation sign
  */
 function luDecompositionComplex(
   a: ArrayStorage,
   size: number,
   cols: number,
 ): { lu: ArrayStorage; piv: number[]; sign: number } {
+  const factored = wasmLuFactorComplex(a);
+  if (factored) {
+    return { lu: factored.lu, piv: Array.from(factored.piv), sign: factored.sign };
+  }
+
   // Use complex128 for the LU result
   const lu = ArrayStorage.zeros([size, cols], 'complex128');
   const luData = lu.data as Float64Array; // interleaved [re, im, re, im, ...]
@@ -4813,6 +4831,27 @@ export function inv(a: ArrayStorage): ArrayStorage {
  * TODO: move this to WASM
  */
 function invComplex(a: ArrayStorage, size: number): ArrayStorage {
+  // The kernel returns complex128, so complex64 keeps the JS path rather than
+  // widening its result.
+  if (a.dtype === 'complex128') {
+    const factored = wasmLuFactorComplex(a);
+    if (factored) {
+      try {
+        const d = factored.lu.data as Float64Array;
+        for (let i = 0; i < size; i++) {
+          const idx = (i * size + i) * 2;
+          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < 1e-30) {
+            throw new Error('inv: singular matrix');
+          }
+        }
+        const result = wasmLuInvComplex(factored.lu, factored.piv);
+        if (result) return result;
+      } finally {
+        factored.lu.dispose();
+      }
+    }
+  }
+
   const { lu, piv } = luDecomposition(a);
   const luData = lu.data as Float64Array; // interleaved [re, im, ...]
 
@@ -4943,6 +4982,37 @@ function solveVector(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  * Complex vector solve: A @ x = b using LU decomposition.
  */
 function solveVectorComplex(a: ArrayStorage, b: ArrayStorage, size: number): ArrayStorage {
+  // The kernel returns complex128, so anything narrower keeps the JS path.
+  if (a.dtype === 'complex128') {
+    const factored = wasmLuFactorComplex(a);
+    if (factored) {
+      try {
+        const d = factored.lu.data as Float64Array;
+        for (let i = 0; i < size; i++) {
+          const idx = (i * size + i) * 2;
+          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < 1e-30) {
+            throw new Error('solve: singular matrix');
+          }
+        }
+        // The kernel applies the pivot permutation itself, so b goes in as-is.
+        const rhs = new Float64Array(size * 2);
+        for (let i = 0; i < size; i++) {
+          const val = b.get(i);
+          if (val instanceof Complex) {
+            rhs[i * 2] = val.re;
+            rhs[i * 2 + 1] = val.im;
+          } else {
+            rhs[i * 2] = Number(val);
+          }
+        }
+        const result = wasmLuSolveComplex(factored.lu, factored.piv, rhs);
+        if (result) return result;
+      } finally {
+        factored.lu.dispose();
+      }
+    }
+  }
+
   const { lu, piv } = luDecomposition(a);
   try {
     const luData = lu.data as Float64Array;
