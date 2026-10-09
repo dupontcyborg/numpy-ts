@@ -35,28 +35,45 @@ interface Coeffs {
 }
 
 /**
- * Read coefficients as parallel real and imaginary parts. A real input gets an
- * all-zero imaginary half, so each op runs one arithmetic path instead of
- * branching on the dtype, and the zero multiplies fall out of the real results.
+ * Read coefficients in logical order as parallel real and imaginary parts. A
+ * real input gets an all-zero imaginary half, so each op runs one arithmetic
+ * path instead of branching on the dtype. Views are read through their offset
+ * and strides, so a slice or a reversed array yields its own elements.
  *
  * @param arr - Coefficient array, real or complex
  * @returns Parallel re and im arrays, both of length arr.size
  */
 function readParts(arr: NDArrayCore): Coeffs {
-  const data = arr.data;
+  const storage = arr.storage;
   const n = arr.size;
   const re: number[] = [];
   const im: number[] = [];
-  if (isComplex(arr.dtype as DType)) {
-    // Complex: interleaved [re0, im0, re1, im1, ...], size = n, data.length = 2*n
+  const complex = isComplex(arr.dtype as DType);
+  if (!storage.isCContiguous) {
     for (let i = 0; i < n; i++) {
-      re.push(Number(data[2 * i]));
-      im.push(Number(data[2 * i + 1]));
+      const v = storage.iget(i);
+      if (v instanceof Complex) {
+        re.push(v.re);
+        im.push(v.im);
+      } else {
+        re.push(Number(v));
+        im.push(0);
+      }
+    }
+    return { re, im };
+  }
+  const data = storage.data;
+  const off = storage.offset;
+  if (complex) {
+    // Interleaved re/im pairs; the offset counts elements, not buffer slots.
+    for (let i = 0; i < n; i++) {
+      re.push(Number(data[2 * (off + i)]));
+      im.push(Number(data[2 * (off + i) + 1]));
     }
     return { re, im };
   }
   for (let i = 0; i < n; i++) {
-    re.push(readNum(data, i));
+    re.push(readNum(data, off + i));
     im.push(0);
   }
   return { re, im };
@@ -117,7 +134,8 @@ function polyintDtype(dt: DType): DType {
 }
 
 /**
- * Output dtype for polydiv: float → same, int/bool → float64, complex → same
+ * Dtype an operand takes in polydiv once NumPy adds 0.0 to it: float and
+ * complex keep their width, int and bool become float64.
  */
 function polydivDtype(dt: DType): DType {
   if (dt === 'complex128' || dt === 'complex64') return dt;
@@ -127,13 +145,26 @@ function polydivDtype(dt: DType): DType {
 }
 
 /**
+ * True when the roots, as a multiset, equal their own conjugates. Mirrors
+ * NumPy's test of sort(roots) == sort(conj(roots)) under its lexicographic
+ * complex ordering, so a pair that is conjugate only up to rounding stays
+ * complex exactly as it does there.
+ */
+function closedUnderConjugation(r: Coeffs): boolean {
+  const byReIm = (a: [number, number], b: [number, number]) => a[0] - b[0] || a[1] - b[1];
+  const roots = r.re.map((re, i) => [re, r.im[i]!] as [number, number]).sort(byReIm);
+  const conj = r.re.map((re, i) => [re, -r.im[i]!] as [number, number]).sort(byReIm);
+  return roots.every((v, i) => v[0] === conj[i]![0] && v[1] === conj[i]![1]);
+}
+
+/**
  * Find the coefficients of a polynomial with given roots
  */
 export function poly(seq_of_zeros: NDArrayCore | number[]): NDArrayCore {
   const roots = toArray(seq_of_zeros);
   const n = roots.size;
   // Complex roots keep their own width; real roots widen to float32/float64.
-  const outDtype: DType = isComplex(roots.dtype as DType)
+  let outDtype: DType = isComplex(roots.dtype as DType)
     ? (roots.dtype as DType)
     : roots.dtype === 'float32'
       ? 'float32'
@@ -166,6 +197,10 @@ export function poly(seq_of_zeros: NDArrayCore | number[]): NDArrayCore {
     im = nextIm;
   }
 
+  // Conjugate pairs give real coefficients, which NumPy returns as a real array.
+  if (isComplex(outDtype) && closedUnderConjugation(r)) {
+    outDtype = outDtype === 'complex64' ? 'float32' : 'float64';
+  }
   return fromParts(re, im, outDtype);
 }
 
@@ -245,7 +280,10 @@ export function polydiv(
   const vArr = toArray(v);
   const dividend = readParts(uArr);
   const divisor = readParts(vArr);
-  const outDtype = polydivDtype(uArr.dtype as DType);
+  const outDtype = promoteDTypes(
+    polydivDtype(uArr.dtype as DType),
+    polydivDtype(vArr.dtype as DType),
+  );
 
   if (divisor.re.length === 0 || (divisor.re.length === 1 && isZeroAt(divisor, 0))) {
     throw new Error('Division by zero polynomial');
@@ -617,7 +655,6 @@ export function polyval(
   const poly = toArray(p);
   const c = readParts(poly);
   const deg = c.re.length;
-  const complexOut = isComplex(poly.dtype as DType);
 
   if (typeof x === 'number') {
     // Horner's method for a single value. A complex polynomial evaluated at a
@@ -629,14 +666,16 @@ export function polyval(
       re = re * x + c.re[i]!;
       im = im * x + c.im[i]!;
     }
-    return complexOut ? new Complex(re, im) : re;
+    return isComplex(poly.dtype as DType) ? new Complex(re, im) : re;
   }
 
   const xArr = x instanceof NDArrayCore ? x : array(x);
   const xs = readParts(xArr);
   const n = xArr.size;
-  // Preserve input dtype — NumPy polyval preserves the dtype
-  const outDtype = poly.dtype as DType;
+  // NumPy accumulates into zeros_like(x) and adds each coefficient, so the
+  // result takes the promotion of both dtypes.
+  const outDtype = promoteDTypes(poly.dtype as DType, xArr.dtype as DType);
+  const complexOut = isComplex(outDtype);
   const resultStorage = ArrayStorage.empty(Array.from(xArr.shape), outDtype);
   const resultData = resultStorage.data;
   const bigIntOut = isBigIntDType(outDtype as DType);
@@ -667,32 +706,41 @@ export function polyval(
 }
 
 /**
+ * Strip zero coefficients in place: leading ones do not change the roots, and
+ * each trailing one is a root at zero that is factored out before the
+ * eigenvalue solve.
+ *
+ * @param c - Coefficients, highest power first, modified in place
+ * @returns The number of roots at zero that were factored out
+ */
+function stripZeroCoeffs(c: Coeffs): number {
+  while (c.re.length > 1 && isZeroAt(c, 0)) {
+    c.re.shift();
+    c.im.shift();
+  }
+  let zeroRoots = 0;
+  while (c.re.length > 1 && isZeroAt(c, c.re.length - 1)) {
+    c.re.pop();
+    c.im.pop();
+    zeroRoots++;
+  }
+  return zeroRoots;
+}
+
+/**
  * Roots of a polynomial with complex coefficients, as the eigenvalues of its
  * companion matrix. That is how NumPy defines the result, so going through the
  * same construction keeps the two in step rather than introducing a second
  * root-finder that would disagree on hard polynomials.
  *
- * @param c - Coefficients, highest power first, split into parts
+ * @param c - Coefficients, highest power first, with zeros already stripped
+ * @param zeroRoots - Number of roots at zero factored out by the strip
  * @param outDtype - Complex dtype for the result
  * @returns The roots, sorted by descending magnitude
  */
-function rootsComplex(c: Coeffs, outDtype: DType): NDArrayCore {
-  const re = [...c.re];
-  const im = [...c.im];
-
-  while (re.length > 1 && re[0] === 0 && im[0] === 0) {
-    re.shift();
-    im.shift();
-  }
-  let zeroRoots = 0;
-  while (re.length > 1 && re[re.length - 1] === 0 && im[im.length - 1] === 0) {
-    re.pop();
-    im.pop();
-    zeroRoots++;
-  }
-
+function rootsComplex(c: Coeffs, zeroRoots: number, outDtype: DType): NDArrayCore {
+  const { re, im } = c;
   const n = re.length - 1;
-  if (n + zeroRoots === 0) return _makeComplexArray([], [], outDtype);
 
   const rootsRe: number[] = [];
   const rootsIm: number[] = [];
@@ -735,7 +783,7 @@ function rootsComplex(c: Coeffs, outDtype: DType): NDArrayCore {
 
   const order = rootsRe.map((_, i) => i);
   order.sort((x, y) => Math.hypot(rootsRe[y]!, rootsIm[y]!) - Math.hypot(rootsRe[x]!, rootsIm[x]!));
-  return _makeComplexArray(
+  return fromParts(
     order.map((i) => rootsRe[i]!),
     order.map((i) => rootsIm[i]!),
     outDtype,
@@ -743,10 +791,12 @@ function rootsComplex(c: Coeffs, outDtype: DType): NDArrayCore {
 }
 
 /**
- * Find the roots of a polynomial.
+ * Find the roots of a polynomial as the eigenvalues of its companion matrix,
+ * the same method NumPy uses. The result is complex64 for float32 or complex64
+ * coefficients and complex128 otherwise, even when every root is real.
  *
- * Uses the companion matrix eigenvalue method (same as NumPy).
- * Always returns a complex128 NDArrayCore.
+ * @param p - Coefficients, highest power first
+ * @returns The roots, sorted by descending magnitude
  */
 export function roots(p: NDArrayCore | number[]): NDArrayCore {
   const poly = toArray(p);
@@ -756,30 +806,19 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
   const outDtype: DType =
     poly.dtype === 'float32' || poly.dtype === 'complex64' ? 'complex64' : 'complex128';
 
+  const c = readParts(poly);
+  const numZeroRoots = stripZeroCoeffs(c);
+  const n = c.re.length - 1; // degree of reduced polynomial
+
+  if (n + numZeroRoots === 0) {
+    return fromParts([], [], outDtype);
+  }
+
   if (isComplex(poly.dtype as DType)) {
-    return rootsComplex(readParts(poly), outDtype);
+    return rootsComplex(c, numZeroRoots, outDtype);
   }
 
-  const coeffs = readParts(poly).re;
-
-  // Remove leading zeros
-  while (coeffs.length > 1 && coeffs[0] === 0) {
-    coeffs.shift();
-  }
-
-  // Count and remove trailing zeros (these are zero roots)
-  let numZeroRoots = 0;
-  while (coeffs.length > 1 && coeffs[coeffs.length - 1] === 0) {
-    coeffs.pop();
-    numZeroRoots++;
-  }
-
-  const n = coeffs.length - 1; // degree of reduced polynomial
-  const totalRoots = n + numZeroRoots;
-
-  if (totalRoots === 0) {
-    return _makeComplexArray([], [], outDtype);
-  }
+  const coeffs = c.re;
 
   // Find roots of the reduced polynomial
   const realParts: number[] = [];
@@ -830,25 +869,7 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
   const sortedReal = indices.map((i) => realParts[i]!);
   const sortedImag = indices.map((i) => imagParts[i]!);
 
-  return _makeComplexArray(sortedReal, sortedImag, outDtype);
-}
-
-/**
- * Create a complex NDArrayCore from parallel real/imag arrays.
- */
-function _makeComplexArray(
-  realParts: number[],
-  imagParts: number[],
-  dtype: DType = 'complex128',
-): NDArrayCore {
-  const n = realParts.length;
-  const storage = ArrayStorage.empty([n], dtype);
-  const data = storage.data;
-  for (let i = 0; i < n; i++) {
-    (data as Float64Array)[2 * i] = realParts[i]!;
-    (data as Float64Array)[2 * i + 1] = imagParts[i]!;
-  }
-  return new NDArrayCore(storage);
+  return fromParts(sortedReal, sortedImag, outDtype);
 }
 
 /**

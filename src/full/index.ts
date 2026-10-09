@@ -1414,10 +1414,12 @@ export function polyval(
 }
 
 /**
- * Find the roots of a polynomial.
+ * Find the roots of a polynomial as the eigenvalues of its companion matrix,
+ * the same method NumPy uses. The result is complex64 for float32 or complex64
+ * coefficients and complex128 otherwise, even when every root is real.
  *
- * Uses the companion matrix eigenvalue method (same as NumPy).
- * Always returns a complex128 NDArrayCore.
+ * @param p - Coefficients, highest power first
+ * @returns The roots, sorted by descending magnitude
  */
 export function roots(p: NDArrayCore | number[]): NDArray {
   return up(core.roots(p));
