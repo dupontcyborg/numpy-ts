@@ -107,8 +107,38 @@ export function conjT(a: C[][]): C[][] {
   return out;
 }
 
-/** Largest elementwise distance between two matrices of the same shape. */
-function maxDiff(a: C[][], b: C[][]): number {
+/**
+ * Assert that a residual is below tolerance. A NaN residual fails explicitly
+ * rather than relying on the comparison, since every comparison against NaN is
+ * false and a check phrased the other way round would let it through. Math.max
+ * propagates NaN, so one NaN element anywhere reaches here.
+ *
+ * @param worst - Largest residual found
+ * @param tol - Absolute tolerance
+ * @param message - Failure message
+ */
+function expectBelow(worst: number, tol: number, message: string): void {
+  expect(Number.isNaN(worst), `${message} (residual is NaN)`).toBe(false);
+  expect(worst, message).toBeLessThan(tol);
+}
+
+/** Row lengths of a matrix, which pin its shape even when it has no columns. */
+function shapeOf(a: C[][]): number[] {
+  return [a.length, ...a.map((row) => row.length)];
+}
+
+/**
+ * Largest elementwise distance between two matrices. Shapes are asserted equal
+ * first, because the loop only visits a's elements and a degenerate operand,
+ * such as an m by 0 factor, would otherwise compare nothing and report zero.
+ *
+ * @param a - First matrix
+ * @param b - Second matrix
+ * @param label - Test identifier used in the failure message
+ * @returns The largest distance, NaN when any element is NaN
+ */
+function maxDiff(a: C[][], b: C[][], label: string): number {
+  expect(shapeOf(a), `${label}: shape mismatch`).toEqual(shapeOf(b));
   let worst = 0;
   for (let i = 0; i < a.length; i++) {
     for (let j = 0; j < a[i]!.length; j++) {
@@ -144,8 +174,10 @@ export function expectReconstructs(
   label: string,
   tol: number,
 ): void {
-  expect(maxDiff(product, original), `${label}: factors do not reconstruct the input`).toBeLessThan(
+  expectBelow(
+    maxDiff(product, original, label),
     tol,
+    `${label}: factors do not reconstruct the input`,
   );
 }
 
@@ -162,7 +194,7 @@ export function expectUnitaryColumns(q: C[][], label: string, tol: number): void
   const id: C[][] = Array.from({ length: k }, (_, i) =>
     Array.from({ length: k }, (_, j) => ({ re: i === j ? 1 : 0, im: 0 })),
   );
-  expect(maxDiff(g, id), `${label}: columns are not orthonormal (Q^H Q != I)`).toBeLessThan(tol);
+  expectBelow(maxDiff(g, id, label), tol, `${label}: columns are not orthonormal (Q^H Q != I)`);
 }
 
 /**
@@ -175,20 +207,21 @@ export function expectUnitaryColumns(q: C[][], label: string, tol: number): void
 export function expectUpperTriangular(r: C[][], label: string, tol: number): void {
   let worst = 0;
   for (let i = 0; i < r.length; i++) {
-    for (let j = 0; j < Math.min(i, r[i]!.length); j++) {
-      worst = Math.max(worst, Math.hypot(r[i]![j]!.re, r[i]![j]!.im));
+    for (let j = 0; j < r[i]!.length; j++) {
+      // A NaN on or above the diagonal is not a triangularity failure, but it
+      // must not pass either, so it is folded in through Math.max like the rest.
+      const mag = Math.hypot(r[i]![j]!.re, r[i]![j]!.im);
+      worst = Math.max(worst, j < i ? mag : mag * 0);
     }
   }
-  expect(worst, `${label}: entries below the diagonal are not zero`).toBeLessThan(tol);
+  expectBelow(worst, tol, `${label}: entries below the diagonal are not zero`);
 }
 
 /**
- * Assert that each column of v is an eigenvector for the matching entry of w,
- * by checking A v = lambda v directly.
- *
- * This is the check that issue #161 needed: comparing only the eigenvalues, or
- * only their magnitudes, passes just as happily when the eigenvectors have been
- * paired with the wrong eigenvalues.
+ * Assert that each column of v is a unit-norm eigenvector for the matching
+ * entry of w, by checking A v = lambda v directly. Comparing only eigenvalues
+ * passes when the vectors are paired with the wrong values, and the residual
+ * alone passes for a zero vector, so the norm is pinned to one as NumPy's are.
  *
  * @param a - The matrix that was decomposed
  * @param w - Eigenvalues
@@ -198,6 +231,16 @@ export function expectUpperTriangular(r: C[][], label: string, tol: number): voi
  */
 export function expectEigenpairs(a: C[][], w: C[], v: C[][], label: string, tol: number): void {
   const n = a.length;
+  expect(shapeOf(a), `${label}: A is not square`).toEqual([n, ...Array(n).fill(n)]);
+  expect(w.length, `${label}: wrong number of eigenvalues`).toBe(n);
+  expect(shapeOf(v), `${label}: eigenvector matrix has the wrong shape`).toEqual(shapeOf(a));
+  let worstNorm = 0;
+  for (let k = 0; k < n; k++) {
+    let norm2 = 0;
+    for (let i = 0; i < n; i++) norm2 += v[i]![k]!.re ** 2 + v[i]![k]!.im ** 2;
+    worstNorm = Math.max(worstNorm, Math.abs(Math.sqrt(norm2) - 1));
+  }
+  expectBelow(worstNorm, tol, `${label}: eigenvectors are not unit norm`);
   let worst = 0;
   for (let k = 0; k < w.length; k++) {
     for (let i = 0; i < n; i++) {
@@ -214,10 +257,7 @@ export function expectEigenpairs(a: C[][], w: C[], v: C[][], label: string, tol:
       worst = Math.max(worst, Math.hypot(re - (lr * vr - li * vi), im - (lr * vi + li * vr)));
     }
   }
-  expect(
-    worst,
-    `${label}: A v != lambda v, eigenvectors do not match their eigenvalues`,
-  ).toBeLessThan(tol);
+  expectBelow(worst, tol, `${label}: A v != lambda v, eigenvectors do not match their eigenvalues`);
 }
 
 /**

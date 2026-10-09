@@ -129,6 +129,70 @@ describe('decomposition invariant helpers', () => {
     expect(rejects(() => expectUpperTriangular(r, 'has lower part', 1e-9))).toBe(true);
   });
 
+  it('expectUpperTriangular accepts a triangular matrix and rejects NaN', () => {
+    const r: C[][] = [
+      [
+        { re: 1, im: 2 },
+        { re: 2, im: 0 },
+      ],
+      [
+        { re: 0, im: 0 },
+        { re: 3, im: -1 },
+      ],
+    ];
+    expect(rejects(() => expectUpperTriangular(r, 'triangular', 1e-9))).toBe(false);
+    const nanBelow = r.map((row) => row.slice());
+    nanBelow[1]![0] = { re: Number.NaN, im: 0 };
+    expect(rejects(() => expectUpperTriangular(nanBelow, 'NaN below', 1e-9))).toBe(true);
+    const nanAbove = r.map((row) => row.slice());
+    nanAbove[0]![1] = { re: Number.NaN, im: 0 };
+    expect(rejects(() => expectUpperTriangular(nanAbove, 'NaN above', 1e-9))).toBe(true);
+  });
+
+  it('expectEigenpairs rejects all-zero eigenvectors', () => {
+    // A 0 = lambda 0 for every lambda, so the residual alone cannot see this.
+    const zero = V.map((row) => row.map(() => ({ re: 0, im: 0 })));
+    expect(rejects(() => expectEigenpairs(A, W, zero, 'zero vectors', 1e-6))).toBe(true);
+  });
+
+  it('expectEigenpairs rejects NaN and mismatched shapes', () => {
+    const nanV = V.map((row) => row.slice());
+    nanV[0]![0] = { re: Number.NaN, im: 0 };
+    expect(rejects(() => expectEigenpairs(A, W, nanV, 'NaN vector', 1e-6))).toBe(true);
+    const nanW = [{ re: Number.NaN, im: 0 }, W[1]!];
+    expect(rejects(() => expectEigenpairs(A, nanW, V, 'NaN value', 1e-6))).toBe(true);
+    const oneColumn = V.map((row) => [row[0]!]);
+    expect(rejects(() => expectEigenpairs(A, [W[0]!], oneColumn, 'one pair', 1e-6))).toBe(true);
+  });
+
+  it('expectReconstructs rejects mismatched and empty shapes', () => {
+    const a = mat([
+      [1, 2],
+      [3, 4],
+    ]);
+    // An m by 0 Q times a 0 by n R multiplies to m rows of nothing, which a
+    // comparison that only walks the first operand would call a perfect match.
+    const emptyQ: C[][] = [[], []];
+    const emptyR: C[][] = [];
+    expect(rejects(() => expectReconstructs(matmulC(emptyQ, emptyR), a, 'empty', 1e-9))).toBe(true);
+    expect(rejects(() => expectReconstructs([a[0]!], a, 'missing row', 1e-9))).toBe(true);
+    expect(rejects(() => expectReconstructs(a, [a[0]!], 'extra row', 1e-9))).toBe(true);
+  });
+
+  it('expectReconstructs and expectUnitaryColumns reject NaN', () => {
+    const nanM = mat([
+      [Number.NaN, 0],
+      [0, 1],
+    ]);
+    const id = mat([
+      [1, 0],
+      [0, 1],
+    ]);
+    expect(rejects(() => expectReconstructs(nanM, id, 'NaN product', 1e-9))).toBe(true);
+    expect(rejects(() => expectReconstructs(id, nanM, 'NaN original', 1e-9))).toBe(true);
+    expect(rejects(() => expectUnitaryColumns(nanM, 'NaN Q', 1e-9))).toBe(true);
+  });
+
   it('expectReconstructs tells a conjugate transpose from a plain one', () => {
     const L = mat([
       [

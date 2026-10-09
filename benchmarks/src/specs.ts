@@ -105,7 +105,8 @@ export const SKIP_DTYPE_OPERATIONS = new Set([
 
 // Operations to skip for float16 dtype variants (precision too low for numerical algorithms)
 export const SKIP_FLOAT16_OPERATIONS = new Set([
-  // differently; nancumprod complex diverges from element 39.
+  // NumPy accumulates these in float16 while we accumulate wider, so the
+  // running total drifts once there are enough terms.
   'nancumsum',
   'histogramdd',
   // Accumulating contraction, like dot/einsum
@@ -133,7 +134,7 @@ export const SKIP_FLOAT16_OPERATIONS = new Set([
 
 // Operations to skip for ALL int dtype variants (blocks both int and uint families)
 export const SKIP_INT_OPERATIONS = new Set([
-  // ops, not un-sweepable ops.
+  // Real-float-only ops
   'float_power',
   'heaviside',
   // Float-only linalg decompositions/solvers — numerically require float
@@ -147,7 +148,7 @@ export const SKIP_INT_OPERATIONS = new Set([
 
 // Operations to skip for uint dtype variants specifically.
 // NumPy raises TypeError for these on unsigned integer arrays.
-export const SKIP_UINT_OPERATIONS = new Set([]);
+export const SKIP_UINT_OPERATIONS = new Set<string>([]);
 
 // Operations to skip for 64-bit int variants (int64/uint64) only.
 // numpy-ts throws on these paths today (BigInt conversion inside the set
