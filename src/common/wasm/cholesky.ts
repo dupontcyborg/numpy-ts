@@ -100,7 +100,7 @@ export function wasmCholeskyComplex(a: ArrayStorage): ArrayStorage | null {
 
   let aPtr: number;
   if (a.isCContiguous) {
-    aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset, slots, bytesPerSlot);
+    aPtr = resolveInputPtr(a.data, a.isWasmBacked, a.wasmPtr, a.offset * 2, slots, bytesPerSlot);
   } else {
     const aData = isC64 ? new Float32Array(slots) : new Float64Array(slots);
     for (let i = 0; i < n; i++) {

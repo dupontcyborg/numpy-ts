@@ -906,22 +906,84 @@ test "svd_values_gk_f64 matches jacobi" {
     }
 }
 
-/// Magnitude of a complex number, scaled so neither squaring step can overflow
-/// or underflow.
-///
-/// A plain sqrt(x*x + y*y) is not enough here: one-sided Jacobi on a wide matrix
-/// drives the surplus columns towards zero, and once their entries reach about
-/// 1e-160 the squares fall into the subnormal range and lose every significant
-/// bit. The quotient g/|g| then stops having unit modulus, the phase rescaling
-/// stops being unitary, and V drifts off the unitary manifold.
-fn hypot2(x: f64, y: f64) f64 {
-    const ax = @abs(x);
-    const ay = @abs(y);
-    const hi = @max(ax, ay);
-    const lo = @min(ax, ay);
+/// Write the unit phase g/|g| to ph and return |g|, or 0 when g is zero. Both
+/// components are divided by the larger before squaring, so the phase keeps
+/// unit modulus even when g is subnormal, where one-sided Jacobi on a wide
+/// matrix drives the surplus columns; a phase off modulus 1 there compounds into
+/// a non-unitary V. The returned magnitude can still be imprecise, but it only
+/// picks a rotation angle, and the rotation stays orthogonal.
+fn unitPhase(comptime T: type, g_re: T, g_im: T, ph_re: *T, ph_im: *T) T {
+    const hi = @max(@abs(g_re), @abs(g_im));
     if (hi == 0) return 0;
-    const r = lo / hi;
-    return hi * @sqrt(1.0 + r * r);
+    const xr = g_re / hi;
+    const xi = g_im / hi;
+    const r = @sqrt(xr * xr + xi * xi);
+    ph_re.* = xr / r;
+    ph_im.* = xi / r;
+    return hi * r;
+}
+
+/// Fill columns filled..M-1 of the M×M interleaved U with unit vectors
+/// orthogonal to every column before them. Each starts from the standard basis
+/// vector with the largest component outside the span so far, which is at least
+/// sqrt((M - j) / M) for column j, so the normalisation never divides by a
+/// vanishing norm and U is unitary even when singular values vanish.
+fn completeUnitary(comptime T: type, u: [*]T, M: usize, filled: usize) void {
+    for (filled..M) |j| {
+        var best: usize = 0;
+        var best_inside: T = @import("std").math.inf(T);
+        for (0..M) |t| {
+            var inside: T = 0;
+            for (0..j) |c| {
+                const re = u[(t * M + c) * 2];
+                const im = u[(t * M + c) * 2 + 1];
+                inside += re * re + im * im;
+            }
+            if (inside < best_inside) {
+                best_inside = inside;
+                best = t;
+            }
+        }
+        for (0..M) |i| {
+            u[(i * M + j) * 2] = 0;
+            u[(i * M + j) * 2 + 1] = 0;
+        }
+        u[(best * M + j) * 2] = 1;
+
+        // A second Gram-Schmidt pass removes what rounding left of the first.
+        for (0..2) |_| {
+            for (0..j) |c| {
+                var dr: T = 0;
+                var di: T = 0;
+                for (0..M) |i| {
+                    const ur = u[(i * M + c) * 2];
+                    const ui = u[(i * M + c) * 2 + 1];
+                    const cr = u[(i * M + j) * 2];
+                    const ci = u[(i * M + j) * 2 + 1];
+                    dr += ur * cr + ui * ci;
+                    di += ur * ci - ui * cr;
+                }
+                for (0..M) |i| {
+                    const ur = u[(i * M + c) * 2];
+                    const ui = u[(i * M + c) * 2 + 1];
+                    u[(i * M + j) * 2] -= ur * dr - ui * di;
+                    u[(i * M + j) * 2 + 1] -= ur * di + ui * dr;
+                }
+            }
+        }
+
+        var norm: T = 0;
+        for (0..M) |i| {
+            const re = u[(i * M + j) * 2];
+            const im = u[(i * M + j) * 2 + 1];
+            norm += re * re + im * im;
+        }
+        norm = @sqrt(norm);
+        for (0..M) |i| {
+            u[(i * M + j) * 2] /= norm;
+            u[(i * M + j) * 2 + 1] /= norm;
+        }
+    }
 }
 
 /// One-sided Jacobi SVD for complex128 matrices on interleaved [re, im] buffers.
@@ -964,15 +1026,15 @@ export fn svd_c128(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: 
                     g_re += pr * qr + pi * qi;
                     g_im += pr * qi - pi * qr;
                 }
-                const g_abs = hypot2(g_re, g_im);
+                var ph_re: f64 = undefined;
+                var ph_im: f64 = undefined;
+                const g_abs = unitPhase(f64, g_re, g_im, &ph_re, &ph_im);
                 // A zero column leaves sqrt(alpha*beta) at zero, which no
                 // non-negative g_abs is below; m < n always makes such columns.
                 if (g_abs == 0 or alpha == 0 or beta == 0) continue;
                 if (g_abs < tol * @sqrt(alpha * beta)) continue;
                 converged = false;
 
-                const ph_re = g_re / g_abs;
-                const ph_im = g_im / g_abs;
                 for (0..M) |i| {
                     const re = w[(i * N + q) * 2];
                     const im = w[(i * N + q) * 2 + 1];
@@ -1053,62 +1115,19 @@ export fn svd_c128(a: [*]const f64, u_out: [*]f64, s: [*]f64, vt: [*]f64, work: 
         }
     }
 
-    for (0..M * M * 2) |i| u_out[i] = 0;
-    for (0..K) |j| {
-        const col = indices[j];
+    // Singular values come out sorted, so the columns with a usable sigma form
+    // a prefix and everything after it is left for completeUnitary.
+    var rank: usize = 0;
+    while (rank < K and norms[indices[rank]] > 1e-14) : (rank += 1) {
+        const col = indices[rank];
         const sigma = norms[col];
-        if (sigma > 1e-14) {
-            for (0..M) |i| {
-                u_out[(i * M + j) * 2] = w[(i * N + col) * 2] / sigma;
-                u_out[(i * M + j) * 2 + 1] = w[(i * N + col) * 2 + 1] / sigma;
-            }
+        for (0..M) |i| {
+            u_out[(i * M + rank) * 2] = w[(i * N + col) * 2] / sigma;
+            u_out[(i * M + rank) * 2 + 1] = w[(i * N + col) * 2 + 1] / sigma;
         }
     }
     for (0..K) |i| s[i] = norms[indices[i]];
-
-    // Complete U over the complex inner product when m > k.
-    if (M > K) {
-        for (K..M) |j| {
-            for (0..M) |i| {
-                u_out[(i * M + j) * 2] = 0;
-                u_out[(i * M + j) * 2 + 1] = 0;
-            }
-            u_out[(j * M + j) * 2] = 1;
-
-            for (0..j) |prev| {
-                var dr: f64 = 0;
-                var di: f64 = 0;
-                for (0..M) |i| {
-                    const ur = u_out[(i * M + prev) * 2];
-                    const ui = u_out[(i * M + prev) * 2 + 1];
-                    const cr = u_out[(i * M + j) * 2];
-                    const ci = u_out[(i * M + j) * 2 + 1];
-                    dr += ur * cr + ui * ci;
-                    di += ur * ci - ui * cr;
-                }
-                for (0..M) |i| {
-                    const ur = u_out[(i * M + prev) * 2];
-                    const ui = u_out[(i * M + prev) * 2 + 1];
-                    u_out[(i * M + j) * 2] -= ur * dr - ui * di;
-                    u_out[(i * M + j) * 2 + 1] -= ur * di + ui * dr;
-                }
-            }
-
-            var norm: f64 = 0;
-            for (0..M) |i| {
-                const re = u_out[(i * M + j) * 2];
-                const im = u_out[(i * M + j) * 2 + 1];
-                norm += re * re + im * im;
-            }
-            norm = @sqrt(norm);
-            if (norm > 1e-14) {
-                for (0..M) |i| {
-                    u_out[(i * M + j) * 2] /= norm;
-                    u_out[(i * M + j) * 2 + 1] /= norm;
-                }
-            }
-        }
-    }
+    completeUnitary(f64, u_out, M, rank);
 }
 
 test "svd_c128 3x3 reconstructs A" {
@@ -1232,25 +1251,6 @@ test "svd_c128 wide 3x4" {
     }
 }
 
-/// Magnitude of a complex number in single precision, scaled so neither
-/// squaring step can overflow or underflow.
-///
-/// The scaling matters more here than in f64. One-sided Jacobi on a wide matrix
-/// drives the surplus columns towards zero, and the f32 exponent range runs out
-/// far sooner: entries near 1e-20 already square into the subnormal range and
-/// lose every significant bit. The quotient g/|g| then stops having unit
-/// modulus, the phase rescaling stops being unitary, and V drifts off the
-/// unitary manifold.
-fn hypot2_f32(x: f32, y: f32) f32 {
-    const ax = @abs(x);
-    const ay = @abs(y);
-    const hi = @max(ax, ay);
-    const lo = @min(ax, ay);
-    if (hi == 0) return 0;
-    const r = lo / hi;
-    return hi * @sqrt(1.0 + r * r);
-}
-
 /// One-sided Jacobi SVD for complex64 matrices on interleaved [re, im] buffers.
 /// Same algorithm as svd_c128 in single precision throughout: rotations are
 /// applied to the columns of A, so the condition number is never squared.
@@ -1297,15 +1297,15 @@ export fn svd_c64(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
                     g_re += pr * qr + pi * qi;
                     g_im += pr * qi - pi * qr;
                 }
-                const g_abs = hypot2_f32(g_re, g_im);
+                var ph_re: f32 = undefined;
+                var ph_im: f32 = undefined;
+                const g_abs = unitPhase(f32, g_re, g_im, &ph_re, &ph_im);
                 // A zero column leaves sqrt(alpha*beta) at zero, which no
                 // non-negative g_abs is below; m < n always makes such columns.
                 if (g_abs == 0 or alpha == 0 or beta == 0) continue;
                 if (g_abs < tol * @sqrt(alpha * beta)) continue;
                 converged = false;
 
-                const ph_re = g_re / g_abs;
-                const ph_im = g_im / g_abs;
                 for (0..M) |i| {
                     const re = w[(i * N + q) * 2];
                     const im = w[(i * N + q) * 2 + 1];
@@ -1386,62 +1386,19 @@ export fn svd_c64(a: [*]const f32, u_out: [*]f32, s: [*]f32, vt: [*]f32, work: [
         }
     }
 
-    for (0..M * M * 2) |i| u_out[i] = 0;
-    for (0..K) |j| {
-        const col = indices[j];
+    // Singular values come out sorted, so the columns with a usable sigma form
+    // a prefix and everything after it is left for completeUnitary.
+    var rank: usize = 0;
+    while (rank < K and norms[indices[rank]] > zero_sigma) : (rank += 1) {
+        const col = indices[rank];
         const sigma = norms[col];
-        if (sigma > zero_sigma) {
-            for (0..M) |i| {
-                u_out[(i * M + j) * 2] = w[(i * N + col) * 2] / sigma;
-                u_out[(i * M + j) * 2 + 1] = w[(i * N + col) * 2 + 1] / sigma;
-            }
+        for (0..M) |i| {
+            u_out[(i * M + rank) * 2] = w[(i * N + col) * 2] / sigma;
+            u_out[(i * M + rank) * 2 + 1] = w[(i * N + col) * 2 + 1] / sigma;
         }
     }
     for (0..K) |i| s[i] = norms[indices[i]];
-
-    // Complete U over the complex inner product when m > k.
-    if (M > K) {
-        for (K..M) |j| {
-            for (0..M) |i| {
-                u_out[(i * M + j) * 2] = 0;
-                u_out[(i * M + j) * 2 + 1] = 0;
-            }
-            u_out[(j * M + j) * 2] = 1;
-
-            for (0..j) |prev| {
-                var dr: f32 = 0;
-                var di: f32 = 0;
-                for (0..M) |i| {
-                    const ur = u_out[(i * M + prev) * 2];
-                    const ui = u_out[(i * M + prev) * 2 + 1];
-                    const cr = u_out[(i * M + j) * 2];
-                    const ci = u_out[(i * M + j) * 2 + 1];
-                    dr += ur * cr + ui * ci;
-                    di += ur * ci - ui * cr;
-                }
-                for (0..M) |i| {
-                    const ur = u_out[(i * M + prev) * 2];
-                    const ui = u_out[(i * M + prev) * 2 + 1];
-                    u_out[(i * M + j) * 2] -= ur * dr - ui * di;
-                    u_out[(i * M + j) * 2 + 1] -= ur * di + ui * dr;
-                }
-            }
-
-            var norm: f32 = 0;
-            for (0..M) |i| {
-                const re = u_out[(i * M + j) * 2];
-                const im = u_out[(i * M + j) * 2 + 1];
-                norm += re * re + im * im;
-            }
-            norm = @sqrt(norm);
-            if (norm > zero_sigma) {
-                for (0..M) |i| {
-                    u_out[(i * M + j) * 2] /= norm;
-                    u_out[(i * M + j) * 2 + 1] /= norm;
-                }
-            }
-        }
-    }
+    completeUnitary(f32, u_out, M, rank);
 }
 
 test "svd_c64 3x3 reconstructs A" {
@@ -1563,6 +1520,156 @@ test "svd_c64 wide 3x4" {
             try testing.expectApproxEqAbs(im, a[(i * N + j) * 2 + 1], 1e-4);
         }
     }
+}
+
+fn expectWideComplexSvdUnitary(comptime T: type, comptime M: usize, comptime N: usize, tol: T) !void {
+    const testing = @import("std").testing;
+    const K = M;
+    var a: [M * N * 2]T = undefined;
+    var state: u32 = 12345;
+    for (&a) |*x| {
+        state = state *% 1103515245 +% 12345;
+        x.* = @as(T, @floatFromInt(state >> 8)) / @as(T, 1 << 24) - 0.5;
+    }
+    var u: [M * M * 2]T = undefined;
+    var s: [K]T = undefined;
+    var vt: [N * N * 2]T = undefined;
+    var work: [2 * (M * N + N * N) + N]T = undefined;
+    if (T == f64) svd_c128(&a, &u, &s, &vt, &work, M, N) else svd_c64(&a, &u, &s, &vt, &work, M, N);
+
+    // Rows of V^H are orthonormal, including the n - m spanning the null space.
+    for (0..N) |r1| {
+        for (0..N) |r2| {
+            var re: T = 0;
+            var im: T = 0;
+            for (0..N) |j| {
+                const ar = vt[(r1 * N + j) * 2];
+                const ai = vt[(r1 * N + j) * 2 + 1];
+                const br = vt[(r2 * N + j) * 2];
+                const bi = vt[(r2 * N + j) * 2 + 1];
+                re += ar * br + ai * bi;
+                im += ai * br - ar * bi;
+            }
+            const want: T = if (r1 == r2) 1 else 0;
+            try testing.expectApproxEqAbs(want, re, tol);
+            try testing.expectApproxEqAbs(@as(T, 0), im, tol);
+        }
+    }
+
+    for (0..M) |i| {
+        for (0..N) |j| {
+            var re: T = 0;
+            var im: T = 0;
+            for (0..K) |t| {
+                const ur = u[(i * M + t) * 2];
+                const ui = u[(i * M + t) * 2 + 1];
+                const vr = vt[(t * N + j) * 2];
+                const vi = vt[(t * N + j) * 2 + 1];
+                re += s[t] * (ur * vr - ui * vi);
+                im += s[t] * (ur * vi + ui * vr);
+            }
+            try testing.expectApproxEqAbs(a[(i * N + j) * 2], re, tol);
+            try testing.expectApproxEqAbs(a[(i * N + j) * 2 + 1], im, tol);
+        }
+    }
+}
+
+test "svd_c128 wide V^H stays unitary" {
+    try expectWideComplexSvdUnitary(f64, 4, 7, 1e-11);
+    try expectWideComplexSvdUnitary(f64, 4, 9, 1e-11);
+    try expectWideComplexSvdUnitary(f64, 6, 20, 1e-11);
+}
+
+test "svd_c64 wide V^H stays unitary" {
+    try expectWideComplexSvdUnitary(f32, 4, 7, 1e-4);
+    try expectWideComplexSvdUnitary(f32, 4, 9, 1e-4);
+    try expectWideComplexSvdUnitary(f32, 6, 20, 1e-4);
+}
+
+fn expectRankDeficientComplexSvdUnitary(comptime T: type, comptime M: usize, comptime R: usize, tol: T) !void {
+    const testing = @import("std").testing;
+    // A = X·Y with X M×R and Y R×M, so rank R < M.
+    var x: [M * R * 2]T = undefined;
+    var y: [R * M * 2]T = undefined;
+    var state: u32 = 777;
+    for (&x) |*e| {
+        state = state *% 1103515245 +% 12345;
+        e.* = @as(T, @floatFromInt(state >> 8)) / @as(T, 1 << 24) - 0.5;
+    }
+    for (&y) |*e| {
+        state = state *% 1103515245 +% 12345;
+        e.* = @as(T, @floatFromInt(state >> 8)) / @as(T, 1 << 24) - 0.5;
+    }
+    var a: [M * M * 2]T = undefined;
+    for (0..M) |i| {
+        for (0..M) |j| {
+            var re: T = 0;
+            var im: T = 0;
+            for (0..R) |t| {
+                const xr = x[(i * R + t) * 2];
+                const xi = x[(i * R + t) * 2 + 1];
+                const yr = y[(t * M + j) * 2];
+                const yi = y[(t * M + j) * 2 + 1];
+                re += xr * yr - xi * yi;
+                im += xr * yi + xi * yr;
+            }
+            a[(i * M + j) * 2] = re;
+            a[(i * M + j) * 2 + 1] = im;
+        }
+    }
+    var u: [M * M * 2]T = undefined;
+    var s: [M]T = undefined;
+    var vt: [M * M * 2]T = undefined;
+    var work: [2 * (M * M + M * M) + M]T = undefined;
+    if (T == f64) svd_c128(&a, &u, &s, &vt, &work, M, M) else svd_c64(&a, &u, &s, &vt, &work, M, M);
+
+    for (R..M) |i| try testing.expectApproxEqAbs(@as(T, 0), s[i], tol);
+
+    // U^H·U == I, including the columns under vanishing singular values.
+    for (0..M) |c1| {
+        for (0..M) |c2| {
+            var re: T = 0;
+            var im: T = 0;
+            for (0..M) |i| {
+                const ar = u[(i * M + c1) * 2];
+                const ai = u[(i * M + c1) * 2 + 1];
+                const br = u[(i * M + c2) * 2];
+                const bi = u[(i * M + c2) * 2 + 1];
+                re += ar * br + ai * bi;
+                im += ar * bi - ai * br;
+            }
+            const want: T = if (c1 == c2) 1 else 0;
+            try testing.expectApproxEqAbs(want, re, tol);
+            try testing.expectApproxEqAbs(@as(T, 0), im, tol);
+        }
+    }
+
+    for (0..M) |i| {
+        for (0..M) |j| {
+            var re: T = 0;
+            var im: T = 0;
+            for (0..M) |t| {
+                const ur = u[(i * M + t) * 2];
+                const ui = u[(i * M + t) * 2 + 1];
+                const vr = vt[(t * M + j) * 2];
+                const vi = vt[(t * M + j) * 2 + 1];
+                re += s[t] * (ur * vr - ui * vi);
+                im += s[t] * (ur * vi + ui * vr);
+            }
+            try testing.expectApproxEqAbs(a[(i * M + j) * 2], re, tol);
+            try testing.expectApproxEqAbs(a[(i * M + j) * 2 + 1], im, tol);
+        }
+    }
+}
+
+test "svd_c128 rank-deficient U stays unitary" {
+    try expectRankDeficientComplexSvdUnitary(f64, 3, 1, 1e-11);
+    try expectRankDeficientComplexSvdUnitary(f64, 4, 2, 1e-11);
+}
+
+test "svd_c64 rank-deficient U stays unitary" {
+    try expectRankDeficientComplexSvdUnitary(f32, 3, 1, 1e-4);
+    try expectRankDeficientComplexSvdUnitary(f32, 4, 2, 1e-4);
 }
 
 test "svd_f64 wide input stays inside s" {

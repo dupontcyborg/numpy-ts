@@ -938,14 +938,34 @@ test "lu_inv_c128 2x2" {
     }
 }
 
-test "lu_factor_c128 survives a tiny pivot" {
-    const testing = @import("std").testing;
-    // The direct conjugate division squares the pivot into the subnormals here;
-    // Smith's algorithm keeps the factor finite.
-    var a = [_]f64{ 1e-170, 1e-170, 1, 0, 1, 0, 1, 0 };
+// approxEqRel accepts an infinite result against a finite target, so check
+// finiteness separately.
+fn expectCplxRel(comptime T: type, want_re: T, want_im: T, got_re: T, got_im: T, tol: T) !void {
+    const std = @import("std");
+    try std.testing.expect(std.math.isFinite(got_re) and std.math.isFinite(got_im));
+    try std.testing.expectApproxEqRel(want_re, got_re, tol);
+    try std.testing.expectApproxEqRel(want_im, got_im, tol);
+}
+
+test "cdiv divides by tiny and huge divisors" {
+    // The direct conjugate formula squares these divisors to 0 and to infinity.
+    const t = cdiv(1, 0, 1e-170, 1e-170);
+    try expectCplxRel(f64, 5e169, -5e169, t[0], t[1], 1e-14);
+    const h = cdiv(1, 0, 1e170, 1e170);
+    try expectCplxRel(f64, 5e-171, -5e-171, h[0], h[1], 1e-14);
+}
+
+test "lu_solve_c128 back-substitutes through a tiny pivot" {
+    // Every pivot is below the factorization cutoff, so no row swap or
+    // elimination happens and back substitution divides by the tiny diagonal.
+    var a = [_]f64{ 1e-170, 1e-170, 0, 0, 0, 0, 2e-170, -2e-170 };
     var piv: [2]i32 = undefined;
     _ = lu_factor_c128(&a, &piv, 2);
-    for (a) |v| try testing.expect(!@import("std").math.isNan(v) and !@import("std").math.isInf(v));
+    const b = [_]f64{ 1, 0, 1, 0 };
+    var x: [4]f64 = undefined;
+    lu_solve_c128(&a, &piv, &b, &x, 2);
+    try expectCplxRel(f64, 5e169, -5e169, x[0], x[1], 1e-14);
+    try expectCplxRel(f64, 2.5e169, 2.5e169, x[2], x[3], 1e-14);
 }
 
 test "lu_factor_c64 identity" {
@@ -1034,19 +1054,34 @@ test "lu_inv_c64 3x3" {
     }
 }
 
-test "lu_factor_c64 survives pivots at the exponent limits" {
+test "lu_factor_c64 survives a huge pivot" {
     const testing = @import("std").testing;
     const math = @import("std").math;
-    // The direct conjugate division overflows re*re + im*im to infinity on the
-    // first matrix and flushes it to zero on the second; Smith's algorithm
-    // keeps both factors finite. f32 reaches both limits at far milder
-    // magnitudes than f64 does.
+    // Row 0 keeps the pivot, so the elimination divides 1e25 by it. The direct
+    // conjugate formula overflows re*re + im*im to infinity in f32 there.
     var big = [_]f32{ 1e25, 1e25, 1, 0, 1e25, 0, 1, 0 };
     var piv: [2]i32 = undefined;
     _ = lu_factor_c64(&big, &piv, 2);
     for (big) |v| try testing.expect(!math.isNan(v) and !math.isInf(v));
+}
 
-    var tiny = [_]f32{ 1e-38, 1e-38, 1, 0, 1, 0, 1, 0 };
-    _ = lu_factor_c64(&tiny, &piv, 2);
-    for (tiny) |v| try testing.expect(!math.isNan(v) and !math.isInf(v));
+test "cdiv32 divides by tiny and huge divisors" {
+    // The direct conjugate formula squares these divisors to 0 and to infinity.
+    const t = cdiv32(1, 0, 1e-30, 1e-30);
+    try expectCplxRel(f32, 5e29, -5e29, t[0], t[1], 1e-6);
+    const h = cdiv32(1, 0, 1e25, 1e25);
+    try expectCplxRel(f32, 5e-26, -5e-26, h[0], h[1], 1e-6);
+}
+
+test "lu_solve_c64 back-substitutes through a tiny pivot" {
+    // Every pivot is below the factorization cutoff, so no row swap or
+    // elimination happens and back substitution divides by the tiny diagonal.
+    var a = [_]f32{ 1e-30, 1e-30, 0, 0, 0, 0, 2e-30, -2e-30 };
+    var piv: [2]i32 = undefined;
+    _ = lu_factor_c64(&a, &piv, 2);
+    const b = [_]f32{ 1, 0, 1, 0 };
+    var x: [4]f32 = undefined;
+    lu_solve_c64(&a, &piv, &b, &x, 2);
+    try expectCplxRel(f32, 5e29, -5e29, x[0], x[1], 1e-6);
+    try expectCplxRel(f32, 2.5e29, 2.5e29, x[2], x[3], 1e-6);
 }
