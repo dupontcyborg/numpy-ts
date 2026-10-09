@@ -14,9 +14,6 @@ const simd = @import("simd.zig");
 export fn correlate_f64(a: [*]const f64, na: u32, b: [*]const f64, nb: u32, out: [*]f64, outLen: u32) void {
     const n_a = @as(usize, na);
     const n_b = @as(usize, nb);
-    // Never write past what the caller allocated. The length is also derived
-    // here, so the two agree today; honouring the parameter keeps a caller that
-    // asks for a shorter output from running off the end of its buffer.
     const full_len = @min(n_a + n_b - 1, @as(usize, outLen));
 
     for (0..full_len) |k| {
@@ -55,9 +52,6 @@ export fn correlate_f64(a: [*]const f64, na: u32, b: [*]const f64, nb: u32, out:
 export fn correlate_f32(a: [*]const f32, na: u32, b: [*]const f32, nb: u32, out: [*]f32, outLen: u32) void {
     const n_a = @as(usize, na);
     const n_b = @as(usize, nb);
-    // Never write past what the caller allocated. The length is also derived
-    // here, so the two agree today; honouring the parameter keeps a caller that
-    // asks for a shorter output from running off the end of its buffer.
     const full_len = @min(n_a + n_b - 1, @as(usize, outLen));
 
     for (0..full_len) |k| {
@@ -95,9 +89,6 @@ export fn correlate_f32(a: [*]const f32, na: u32, b: [*]const f32, nb: u32, out:
 fn correlateInt(comptime T: type, a: [*]const T, na: u32, b: [*]const T, nb: u32, out: [*]T, outLen: u32) void {
     const n_a = @as(usize, na);
     const n_b = @as(usize, nb);
-    // Never write past what the caller allocated. The length is also derived
-    // here, so the two agree today; honouring the parameter keeps a caller that
-    // asks for a shorter output from running off the end of its buffer.
     const full_len = @min(n_a + n_b - 1, @as(usize, outLen));
 
     for (0..full_len) |k| {

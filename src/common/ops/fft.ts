@@ -1042,11 +1042,6 @@ export function irfft(
 
   complexA.dispose();
 
-  // toComplex always allocates, so the promoted copy has to be released like
-  // the other temporaries here. complex128 input never reaches it because the
-  // WASM fast path returns first, which is why only complex64 showed a leak.
-  complexA.dispose();
-
   // Inverse FFT
   const result = ifft(full, outLen, axis, norm);
   full.dispose();
