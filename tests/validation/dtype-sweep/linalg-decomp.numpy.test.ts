@@ -15,7 +15,6 @@ import {
   expectBothRejectPre,
   expectComplexFixture,
   expectMatchPre,
-  isComplex,
   npDtype,
   pyArrayCast,
   pyScalarCast,
@@ -286,7 +285,9 @@ describe('DType Sweep: linalg decompositions', () => {
       const { w, v } = np.linalg.eig(a) as any;
       const jsAbs = np.sort(np.absolute(w)).toArray();
       expect(arraysClose(jsAbs, py.value, 1e-3)).toBe(true);
-      const eigDType = isComplex(dtype) ? linalgDType(dtype) : 'float64';
+      // The fixture has a real spectrum, so real input keeps a real result at
+      // the input's precision.
+      const eigDType = linalgDType(dtype);
       expectDType(w, eigDType, `eig ${dtype} w`);
       expectDType(v, eigDType, `eig ${dtype} v`);
       expectEigenpairs(
@@ -328,7 +329,7 @@ describe('DType Sweep: linalg decompositions', () => {
       const w = np.linalg.eigvals(a);
       const jsAbs = np.sort(np.absolute(w)).toArray();
       expect(arraysClose(jsAbs, py.value, 1e-3)).toBe(true);
-      expectDType(w, isComplex(dtype) ? linalgDType(dtype) : 'float64', `eigvals ${dtype}`);
+      expectDType(w, linalgDType(dtype), `eigvals ${dtype}`);
     });
 
     it(`linalg.eigvalsh ${dtype}`, { timeout: 30000 }, () => {
