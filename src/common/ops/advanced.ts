@@ -12,6 +12,7 @@ import {
   getTypedArrayConstructor,
   isBigIntDType,
   isComplexDType,
+  promoteDTypes,
   type TypedArray,
 } from '../dtype';
 import { allElementsEqual } from '../internal/compute';
@@ -280,7 +281,9 @@ export function choose(indexStorage: ArrayStorage, choices: ArrayStorage[]): Arr
 
   const indexShape = indexStorage.shape;
   const numChoices = choices.length;
-  const dtype = choices[0]!.dtype;
+  let dtype = choices[0]!.dtype;
+  for (let c = 1; c < numChoices; c++) dtype = promoteDTypes(dtype, choices[c]!.dtype);
+  const bigOut = isBigIntDType(dtype);
 
   // Validate that all choices have compatible shapes
   const shapes = choices.map((c) => Array.from(c.shape));
@@ -308,19 +311,25 @@ export function choose(indexStorage: ArrayStorage, choices: ArrayStorage[]): Arr
       throw new Error(`index ${choiceIdx} is out of bounds for axis 0 with size ${numChoices}`);
     }
 
+    // Choices may differ in dtype from the promoted output, so each value is
+    // converted to the output's representation rather than stored as read.
     const value = broadcastedChoices[choiceIdx]!.iget(i);
 
-    if (isBigIntDType(dtype)) {
-      (outputData as BigInt64Array | BigUint64Array)[i] = value as bigint;
+    if (bigOut) {
+      (outputData as BigInt64Array | BigUint64Array)[i] =
+        typeof value === 'bigint' ? value : BigInt(Math.round(Number(value)));
     } else if (isComplexDType(dtype)) {
-      // iget returns a Complex and an element spans two slots, so a single
-      // slot write would store NaN and leave the rest of the buffer at zero.
+      // An element spans two slots, so a single slot write would store NaN.
       const outC = outputData as Float64Array | Float32Array;
-      const c = value as Complex;
-      outC[i * 2] = c.re;
-      outC[i * 2 + 1] = c.im;
+      if (value instanceof Complex) {
+        outC[i * 2] = value.re;
+        outC[i * 2 + 1] = value.im;
+      } else {
+        outC[i * 2] = Number(value);
+        outC[i * 2 + 1] = 0;
+      }
     } else {
-      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = value as number;
+      (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[i] = Number(value);
     }
   }
 
@@ -654,6 +663,7 @@ export function compress(
   const dtype = storage.dtype;
 
   const isBigInt = isBigIntDType(dtype);
+  const isCplx = isComplexDType(dtype);
 
   if (axis === undefined) {
     // Flatten and select - optimized path
@@ -689,7 +699,7 @@ export function compress(
         for (let i = 0; i < maxLen; i++) {
           if (condData[condOff + i]) outTyped[outIdx++] = inTyped[inputOff + i]!;
         }
-      } else if (isComplexDType(dtype)) {
+      } else if (isCplx) {
         // Both offsets count elements, but a complex element is two slots wide,
         // so an unscaled copy moves half of one element and half of the next.
         const outC = outputData as Float64Array | Float32Array;
@@ -714,6 +724,8 @@ export function compress(
         if (condContiguous ? condData[condOff + i] : condition.iget(i)) {
           if (isBigInt) {
             (outputData as BigInt64Array | BigUint64Array)[outIdx] = storage.iget(i) as bigint;
+          } else if (isCplx) {
+            compressResult.iset(outIdx, storage.iget(i));
           } else {
             (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx] =
               storage.iget(i) as number;
@@ -763,13 +775,18 @@ export function compress(
   if (inputContiguous) {
     const inputData = storage.data;
     const inputOff = storage.offset;
+    // Offsets and sizes count elements; a complex element is two buffer slots.
+    const w = isCplx ? 2 : 1;
     // Bulk copy: each selected axis slice is innerSize contiguous elements
     for (let outer = 0; outer < outerSize; outer++) {
       const outerOff = inputOff + outer * axisSize * innerSize;
       for (let axisIdx = 0; axisIdx < trueCount; axisIdx++) {
         const srcStart = outerOff + axisMap[axisIdx]! * innerSize;
-        // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
-        outputData.set(inputData.subarray(srcStart, srcStart + innerSize) as any, outIdx);
+        outputData.set(
+          // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
+          inputData.subarray(srcStart * w, (srcStart + innerSize) * w) as any,
+          outIdx * w,
+        );
         outIdx += innerSize;
       }
     }
@@ -783,6 +800,8 @@ export function compress(
             (outputData as BigInt64Array | BigUint64Array)[outIdx++] = storage.iget(
               flatIdx,
             ) as bigint;
+          } else if (isCplx) {
+            compressAxisResult.iset(outIdx++, storage.iget(flatIdx));
           } else {
             (outputData as Exclude<TypedArray, BigInt64Array | BigUint64Array>)[outIdx++] =
               storage.iget(flatIdx) as number;

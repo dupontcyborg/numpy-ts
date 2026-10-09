@@ -11,13 +11,14 @@ import {
   asDtypeData,
   checkNumPyAvailable,
   expectComplexFixture,
+  expectMatch,
   expectMatchPre,
   npDtype,
   pyArrayCast,
   runNumPyBatch,
 } from './_helpers';
 
-const { array } = np;
+const { array, Complex } = np;
 
 // One definition per fixture, shared by the oracle snippet and the test body:
 // the two sides must build the same input, and a separate declaration on each
@@ -311,4 +312,71 @@ describe('DType Sweep: Set operations', () => {
       expectMatchPre(jsResult, oracle.get(`isin_${dtype}`)!);
     });
   }
+});
+
+// Complex elements span two buffer slots, so every copy path in compress and
+// choose has to move both. Each case here reaches a different path: axis,
+// offset view, transposed view, and choices of mixed dtype.
+describe('Indexing: complex compress and choose paths', () => {
+  const A = () =>
+    array([
+      [new Complex(1, 1), new Complex(2, 2)],
+      [new Complex(3, 0), new Complex(4, 4)],
+      [new Complex(5, -1), new Complex(6, 0)],
+    ]);
+  const pyA = `A = np.array([[1+1j, 2+2j], [3, 4+4j], [5-1j, 6]])`;
+
+  it('compress along an axis of a contiguous complex array', () => {
+    expectMatch(
+      np.compress(array([true, false]), A(), 1),
+      `${pyA}
+_result_orig = result = np.compress([True, False], A, axis=1)`,
+    );
+    expectMatch(
+      np.compress(array([false, true, true]), A(), 0),
+      `${pyA}
+_result_orig = result = np.compress([False, True, True], A, axis=0)`,
+    );
+  });
+
+  it('compress along an axis of an offset complex view', () => {
+    expectMatch(
+      np.compress(array([false, true]), A().slice('1:'), 1),
+      `${pyA}
+_result_orig = result = np.compress([False, True], A[1:], axis=1)`,
+    );
+  });
+
+  it('compress a transposed complex view, flat and along an axis', () => {
+    expectMatch(
+      np.compress(array([true, false, true, true]), A().T),
+      `${pyA}
+_result_orig = result = np.compress([True, False, True, True], A.T)`,
+    );
+    expectMatch(
+      np.compress(array([true, false, true]), A().T, 1),
+      `${pyA}
+_result_orig = result = np.compress([True, False, True], A.T, axis=1)`,
+    );
+  });
+
+  it('choose promotes across all choices, not just the first', () => {
+    const c = array([new Complex(1, 0), new Complex(2, 3)]);
+    expectMatch(
+      np.choose(array([0, 1], 'int32'), [c, array([5, 6])]),
+      `_result_orig = result = np.choose([0, 1], [np.array([1, 2+3j]), np.array([5.0, 6.0])])`,
+    );
+    expectMatch(
+      np.choose(array([0, 1], 'int32'), [array([5, 6]), c]),
+      `_result_orig = result = np.choose([0, 1], [np.array([5.0, 6.0]), np.array([1, 2+3j])])`,
+    );
+    expectMatch(
+      np.choose(array([1, 0], 'int32'), [array([1, 2], 'int32'), array([5.5, 6.5])]),
+      `_result_orig = result = np.choose([1, 0], [np.array([1, 2], dtype=np.int32), np.array([5.5, 6.5])])`,
+    );
+    expectMatch(
+      np.choose(array([1, 0], 'int32'), [array([1, 2], 'int32'), array([7, 8], 'int64')]),
+      `_result_orig = result = np.choose([1, 0], [np.array([1, 2], dtype=np.int32), np.array([7, 8], dtype=np.int64)])`,
+    );
+  });
 });
