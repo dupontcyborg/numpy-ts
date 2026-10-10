@@ -15,17 +15,24 @@ import {
   type TypedArray,
 } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { wasmCholesky, wasmCholeskyF32 } from '../wasm/cholesky';
+import { wasmCholesky, wasmCholeskyComplex, wasmCholeskyF32 } from '../wasm/cholesky';
 import { wasmCross } from '../wasm/cross';
 import { wasmDot1D } from '../wasm/dot';
 import { wasmInner } from '../wasm/inner';
 import { wasmKron } from '../wasm/kron';
-import { wasmLuFactor, wasmLuInv, wasmLuSolve } from '../wasm/lu';
+import {
+  wasmLuFactor,
+  wasmLuFactorComplex,
+  wasmLuInv,
+  wasmLuInvComplex,
+  wasmLuSolve,
+  wasmLuSolveComplex,
+} from '../wasm/lu';
 import { wasmMatmul } from '../wasm/matmul';
 import { wasmMatvec } from '../wasm/matvec';
 import { wasmOuter } from '../wasm/outer';
-import { wasmQr } from '../wasm/qr';
-import { wasmSvd, wasmSvdValues } from '../wasm/svd';
+import { wasmQr, wasmQrComplex } from '../wasm/qr';
+import { wasmSvd, wasmSvdComplex, wasmSvdValues } from '../wasm/svd';
 import { wasmVdotComplex } from '../wasm/vdot';
 import { wasmVecdot } from '../wasm/vecdot';
 import { wasmVecmat } from '../wasm/vecmat';
@@ -1075,6 +1082,65 @@ function extract2DSlice(
   }
 
   return result;
+}
+
+/**
+ * Apply a per-matrix routine to every trailing 2D slice of a stacked input and
+ * stack its outputs. Each output takes the dtype of the first slice's result,
+ * so a batch keeps the same width and complexity as the unbatched path. An
+ * empty batch still needs output dtypes and shapes, so it probes the routine
+ * once with a rectangular identity, which every caller accepts.
+ *
+ * @param a - Input with ndim > 2
+ * @param fn - Routine for one 2D slice, returning freshly allocated outputs
+ * @returns One stacked array per output of fn, each shaped [...batch, ...out]
+ */
+function mapMatrices(a: ArrayStorage, fn: (slice: ArrayStorage) => ArrayStorage[]): ArrayStorage[] {
+  const batchShape = a.shape.slice(0, -2);
+  const m = a.shape[a.ndim - 2]!;
+  const n = a.shape[a.ndim - 1]!;
+  const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
+
+  if (batchSize === 0) {
+    const probe = ArrayStorage.zeros([m, n], a.dtype);
+    for (let i = 0; i < Math.min(m, n); i++) probe.set([i, i], 1);
+    const parts = fn(probe);
+    probe.dispose();
+    return parts.map((p) => {
+      const out = ArrayStorage.zeros([...batchShape, ...p.shape], p.dtype);
+      p.dispose();
+      return out;
+    });
+  }
+
+  let outs: ArrayStorage[] | null = null;
+  for (let bi = 0; bi < batchSize; bi++) {
+    const slice = extract2DSlice(a, bi, m, n);
+    let parts: ArrayStorage[];
+    try {
+      parts = fn(slice);
+    } finally {
+      slice.dispose();
+    }
+    if (!outs) outs = parts.map((p) => ArrayStorage.empty([...batchShape, ...p.shape], p.dtype));
+    for (let k = 0; k < parts.length; k++) {
+      const out = outs[k]!;
+      const part = parts[k]!;
+      const sz = part.size;
+      if (part.dtype === out.dtype && part.isCContiguous) {
+        const f = isComplexDType(part.dtype) ? 2 : 1;
+        const src = part.data as Float64Array;
+        (out.data as Float64Array).set(
+          src.subarray(part.offset * f, (part.offset + sz) * f),
+          bi * sz * f,
+        );
+      } else {
+        for (let i = 0; i < sz; i++) out.iset(bi * sz + i, part.iget(i));
+      }
+      part.dispose();
+    }
+  }
+  return outs!;
 }
 
 /**
@@ -2745,7 +2811,6 @@ export function vector_norm(
     const n = flat.size;
 
     let result: number;
-    const isComplex = isComplexDType(flat.dtype);
     if (ord === Infinity) {
       result = 0;
       for (let i = 0; i < n; i++) {
@@ -2769,8 +2834,8 @@ export function vector_norm(
         result += absValue(flat.get(i));
       }
     } else if (ord === 2) {
-      // WASM fast path for L2 norm (real dtypes only)
-      const wasmNorm = isComplex ? null : wasmVectorNorm2(flat);
+      // WASM fast path for L2 norm, complex included.
+      const wasmNorm = wasmVectorNorm2(flat);
       if (wasmNorm !== null) {
         if (flat !== x) flat.dispose();
         result = wasmNorm;
@@ -3108,11 +3173,165 @@ export function norm(
 }
 
 /**
- * QR decomposition using Householder reflections.
+ * Householder QR for a complex matrix, returning Q unitary and R upper
+ * triangular with A = Q R. The reflector differs from the real case in two
+ * places: alpha carries the phase of x[0] rather than just its sign, so that
+ * v = x - alpha e1 keeps its magnitude, and every inner product conjugates its
+ * first factor. Dropping either one yields a Q that is not unitary.
  *
- * @param a - Input matrix (m x n)
+ * @param a - Input matrix
+ * @param m - Row count
+ * @param n - Column count
+ * @param mode - 'reduced', 'complete' or 'r'
+ * @returns { q, r } with A = Q R, or R alone for mode 'r'
+ */
+function qrComplex(
+  a: ArrayStorage,
+  m: number,
+  n: number,
+  mode: 'reduced' | 'complete' | 'r',
+): { q: ArrayStorage; r: ArrayStorage } | ArrayStorage {
+  const outDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+  const k = Math.min(m, n);
+
+  const rRe = new Float64Array(m * n);
+  const rIm = new Float64Array(m * n);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      const v = a.get(i, j);
+      const c = v instanceof Complex ? v : new Complex(Number(v), 0);
+      rRe[i * n + j] = c.re;
+      rIm[i * n + j] = c.im;
+    }
+  }
+
+  const reflectors: ({ vRe: Float64Array; vIm: Float64Array; vNorm2: number } | null)[] = [];
+
+  for (let j = 0; j < k; j++) {
+    const len = m - j;
+    const vRe = new Float64Array(len);
+    const vIm = new Float64Array(len);
+
+    // Scale the column by its largest component first. H = I - 2vv^H/(v^H v)
+    // does not depend on the scale of v, but v^H v does: for entries near 1e-162
+    // the squares fall subnormal, 2/(v^H v) overflows to infinity, and the
+    // reflector comes out as NaN.
+    let maxAbs = 0;
+    for (let i = 0; i < len; i++) {
+      const mag = Math.max(Math.abs(rRe[(j + i) * n + j]!), Math.abs(rIm[(j + i) * n + j]!));
+      if (mag > maxAbs) maxAbs = mag;
+    }
+    if (maxAbs === 0) {
+      reflectors.push(null);
+      continue;
+    }
+    const invMax = 1 / maxAbs;
+
+    let normX = 0;
+    for (let i = 0; i < len; i++) {
+      const re = rRe[(j + i) * n + j]! * invMax;
+      const im = rIm[(j + i) * n + j]! * invMax;
+      vRe[i] = re;
+      vIm[i] = im;
+      normX += re * re + im * im;
+    }
+    normX = Math.sqrt(normX);
+    if (normX === 0) {
+      reflectors.push(null);
+      continue;
+    }
+
+    // alpha = -(x0 / |x0|) * ||x||. Pointing alpha away from x0 keeps
+    // v = x - alpha e1 large, which is what avoids cancellation.
+    const x0Abs = Math.hypot(vRe[0]!, vIm[0]!);
+    const phaseRe = x0Abs === 0 ? 1 : vRe[0]! / x0Abs;
+    const phaseIm = x0Abs === 0 ? 0 : vIm[0]! / x0Abs;
+    vRe[0] = vRe[0]! + phaseRe * normX;
+    vIm[0] = vIm[0]! + phaseIm * normX;
+
+    let vNorm2 = 0;
+    for (let i = 0; i < len; i++) vNorm2 += vRe[i]! * vRe[i]! + vIm[i]! * vIm[i]!;
+    if (vNorm2 === 0) {
+      reflectors.push(null);
+      continue;
+    }
+
+    // R[j:, j:] -= (2 / vNorm2) v (v^H R[j:, j:])
+    const scale = 2 / vNorm2;
+    for (let c = j; c < n; c++) {
+      let wRe = 0;
+      let wIm = 0;
+      for (let i = 0; i < len; i++) {
+        const rr = rRe[(j + i) * n + c]!;
+        const ri = rIm[(j + i) * n + c]!;
+        wRe += vRe[i]! * rr + vIm[i]! * ri;
+        wIm += vRe[i]! * ri - vIm[i]! * rr;
+      }
+      wRe *= scale;
+      wIm *= scale;
+      for (let i = 0; i < len; i++) {
+        rRe[(j + i) * n + c] = rRe[(j + i) * n + c]! - (vRe[i]! * wRe - vIm[i]! * wIm);
+        rIm[(j + i) * n + c] = rIm[(j + i) * n + c]! - (vRe[i]! * wIm + vIm[i]! * wRe);
+      }
+    }
+    reflectors.push({ vRe, vIm, vNorm2 });
+  }
+
+  const rRows = mode === 'complete' ? m : k;
+  const R = ArrayStorage.zeros([rRows, n], outDtype);
+  for (let i = 0; i < rRows; i++) {
+    for (let j = i; j < n; j++) {
+      R.set([i, j], new Complex(rRe[i * n + j]!, rIm[i * n + j]!));
+    }
+  }
+  if (mode === 'r') return R;
+
+  // Q = H_0 H_1 ... H_{k-1} applied to the identity, in reverse.
+  const qCols = mode === 'complete' ? m : k;
+  const qRe = new Float64Array(m * qCols);
+  const qIm = new Float64Array(m * qCols);
+  for (let i = 0; i < Math.min(m, qCols); i++) qRe[i * qCols + i] = 1;
+
+  for (let j = k - 1; j >= 0; j--) {
+    const h = reflectors[j];
+    if (!h) continue;
+    const len = m - j;
+    const scale = 2 / h.vNorm2;
+    for (let c = 0; c < qCols; c++) {
+      let wRe = 0;
+      let wIm = 0;
+      for (let i = 0; i < len; i++) {
+        const qr = qRe[(j + i) * qCols + c]!;
+        const qi = qIm[(j + i) * qCols + c]!;
+        wRe += h.vRe[i]! * qr + h.vIm[i]! * qi;
+        wIm += h.vRe[i]! * qi - h.vIm[i]! * qr;
+      }
+      wRe *= scale;
+      wIm *= scale;
+      for (let i = 0; i < len; i++) {
+        qRe[(j + i) * qCols + c] = qRe[(j + i) * qCols + c]! - (h.vRe[i]! * wRe - h.vIm[i]! * wIm);
+        qIm[(j + i) * qCols + c] = qIm[(j + i) * qCols + c]! - (h.vRe[i]! * wIm + h.vIm[i]! * wRe);
+      }
+    }
+  }
+
+  const Q = ArrayStorage.zeros([m, qCols], outDtype);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < qCols; j++) {
+      Q.set([i, j], new Complex(qRe[i * qCols + j]!, qIm[i * qCols + j]!));
+    }
+  }
+
+  return { q: Q, r: R };
+}
+
+/**
+ * QR decomposition using Householder reflections, with Q unitary for complex
+ * input. Stacked input is decomposed slice by slice.
+ *
+ * @param a - Input matrix (m x n), or a stack of them
  * @param mode - 'reduced' (default), 'complete', 'r', or 'raw'
- * @returns { q, r } where A = Q @ R
+ * @returns { q, r } where A = Q @ R, R alone for 'r', or { h, tau } for 'raw'
  */
 export function qr(
   a: ArrayStorage,
@@ -3120,31 +3339,19 @@ export function qr(
 ): { q: ArrayStorage; r: ArrayStorage } | ArrayStorage | { h: ArrayStorage; tau: ArrayStorage } {
   throwIfFloat16(a.dtype);
   if (a.ndim > 2) {
-    // Batch mode: iterate over leading dims
-    const batchShape = a.shape.slice(0, -2);
-    const [m, n] = [a.shape[a.ndim - 2]!, a.shape[a.ndim - 1]!];
-    const k = Math.min(m, n);
-    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
-    const qCols = mode === 'complete' ? m : k;
-
-    const qOut = ArrayStorage.zeros([...batchShape, m, qCols], 'float64');
-    const rOut = ArrayStorage.zeros([...batchShape, qCols, n], 'float64');
-
-    for (let b = 0; b < batchSize; b++) {
-      const bIdx = flatToBatchMultiIndex(b, batchShape);
-      const slice = ArrayStorage.zeros([m, n], 'float64');
-      for (let i = 0; i < m; i++)
-        for (let j = 0; j < n; j++) slice.set([i, j], realPart(a.get(...bIdx, i, j)));
-      const res = qr(slice, mode) as { q: ArrayStorage; r: ArrayStorage };
-      for (let i = 0; i < m; i++)
-        for (let j = 0; j < qCols; j++) qOut.set([...bIdx, i, j], Number(res.q.get(i, j)));
-      for (let i = 0; i < qCols; i++)
-        for (let j = 0; j < n; j++) rOut.set([...bIdx, i, j], Number(res.r.get(i, j)));
-      slice.dispose();
-      res.q.dispose();
-      res.r.dispose();
+    if (mode === 'r') return mapMatrices(a, (s) => [qr(s, mode) as ArrayStorage])[0]!;
+    if (mode === 'raw') {
+      const [h, tau] = mapMatrices(a, (s) => {
+        const res = qr(s, mode) as { h: ArrayStorage; tau: ArrayStorage };
+        return [res.h, res.tau];
+      });
+      return { h: h!, tau: tau! };
     }
-    return { q: qOut, r: rOut };
+    const [q, r] = mapMatrices(a, (s) => {
+      const res = qr(s, mode) as { q: ArrayStorage; r: ArrayStorage };
+      return [res.q, res.r];
+    });
+    return { q: q!, r: r! };
   }
 
   if (a.ndim !== 2) {
@@ -3160,9 +3367,21 @@ export function qr(
   const [m, n] = a.shape;
   const k = Math.min(m!, n!);
 
+  if (isComplexDType(a.dtype)) {
+    if (mode === 'raw') {
+      throw new Error("qr: mode 'raw' is not supported for complex input");
+    }
+    if (mode === 'reduced') {
+      const wasmComplex = wasmQrComplex(a);
+      if (wasmComplex) return wasmComplex;
+    }
+    return qrComplex(a, m!, n!, mode);
+  }
+
   // Copy input to working array (float64)
-  // TODO: implement complex Householder QR; currently extracts real parts only
-  const R = ArrayStorage.zeros([m!, n!], 'float64');
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+  const R = ArrayStorage.zeros([m!, n!], realDtype);
   for (let i = 0; i < m!; i++) {
     for (let j = 0; j < n!; j++) {
       R.set([i, j], realPart(a.get(i, j)));
@@ -3224,14 +3443,14 @@ export function qr(
 
   if (mode === 'raw') {
     // Return raw Householder representation
-    const h = ArrayStorage.zeros([m!, n!], 'float64');
+    const h = ArrayStorage.zeros([m!, n!], realDtype);
     for (let i = 0; i < m!; i++) {
       for (let j = 0; j < n!; j++) {
         h.set([i, j], Number(R.get(i, j)));
       }
     }
     R.dispose();
-    const tauArr = ArrayStorage.zeros([k], 'float64');
+    const tauArr = ArrayStorage.zeros([k], realDtype);
     for (let i = 0; i < k; i++) {
       tauArr.set([i], tau[i]!);
     }
@@ -3240,7 +3459,7 @@ export function qr(
 
   if (mode === 'r') {
     // Return only R (upper triangular)
-    const rResult = ArrayStorage.zeros([k, n!], 'float64');
+    const rResult = ArrayStorage.zeros([k, n!], realDtype);
     for (let i = 0; i < k; i++) {
       for (let j = i; j < n!; j++) {
         rResult.set([i, j], Number(R.get(i, j)));
@@ -3252,7 +3471,7 @@ export function qr(
 
   // Reconstruct Q from Householder vectors
   const qRows = mode === 'complete' ? m! : k;
-  const Q = ArrayStorage.zeros([m!, qRows], 'float64');
+  const Q = ArrayStorage.zeros([m!, qRows], realDtype);
 
   // Initialize Q as identity
   for (let i = 0; i < Math.min(m!, qRows); i++) {
@@ -3279,7 +3498,7 @@ export function qr(
   }
 
   // Extract final Q and R
-  const qResult = ArrayStorage.zeros([m!, qRows], 'float64');
+  const qResult = ArrayStorage.zeros([m!, qRows], realDtype);
   for (let i = 0; i < m!; i++) {
     for (let j = 0; j < qRows; j++) {
       qResult.set([i, j], Number(Q.get(i, j)));
@@ -3288,7 +3507,7 @@ export function qr(
   Q.dispose();
 
   const rRows = mode === 'complete' ? m! : k;
-  const rResult = ArrayStorage.zeros([rRows, n!], 'float64');
+  const rResult = ArrayStorage.zeros([rRows, n!], realDtype);
   for (let i = 0; i < rRows; i++) {
     for (let j = 0; j < n!; j++) {
       if (j >= i) {
@@ -3302,13 +3521,79 @@ export function qr(
 }
 
 /**
- * Cholesky decomposition.
+ * Cholesky factorisation of a Hermitian positive-definite complex matrix,
+ * reading the lower triangle as NumPy does. The diagonal of L stays real
+ * because A[j][j] is real for a Hermitian matrix, and the off-diagonal sum
+ * conjugates its second factor — dropping that conjugation is what makes a
+ * real-valued implementation silently wrong on complex input.
  *
- * Returns the lower triangular matrix L such that A = L @ L^T
- * for a symmetric positive-definite matrix A.
+ * @param a - Hermitian positive-definite matrix
+ * @param size - Matrix dimension
+ * @param upper - Return the conjugate transpose instead of L
+ * @returns Lower triangular L with A = L L^H, or its conjugate transpose
+ */
+function choleskyComplex(a: ArrayStorage, size: number, upper: boolean): ArrayStorage {
+  const outDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+  const L = ArrayStorage.zeros([size, size], outDtype);
+  const at = (i: number, j: number): Complex => {
+    const v = a.get(i, j);
+    return v instanceof Complex ? v : new Complex(Number(v), 0);
+  };
+  const lt = (i: number, j: number): Complex => {
+    const v = L.get(i, j);
+    return v instanceof Complex ? v : new Complex(Number(v), 0);
+  };
+
+  for (let j = 0; j < size; j++) {
+    let diagSum = 0;
+    for (let k = 0; k < j; k++) {
+      const l = lt(j, k);
+      diagSum += l.re * l.re + l.im * l.im;
+    }
+    const val = at(j, j).re - diagSum;
+    if (val <= 0) {
+      throw new Error('cholesky: matrix is not positive definite');
+    }
+    const ljj = Math.sqrt(val);
+    L.set([j, j], new Complex(ljj, 0));
+
+    for (let i = j + 1; i < size; i++) {
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let k = 0; k < j; k++) {
+        const lik = lt(i, k);
+        const ljk = lt(j, k);
+        // lik * conj(ljk)
+        sumRe += lik.re * ljk.re + lik.im * ljk.im;
+        sumIm += lik.im * ljk.re - lik.re * ljk.im;
+      }
+      const aij = at(i, j);
+      L.set([i, j], new Complex((aij.re - sumRe) / ljj, (aij.im - sumIm) / ljj));
+    }
+  }
+
+  if (upper) {
+    const U = ArrayStorage.zeros([size, size], outDtype);
+    for (let i = 0; i < size; i++) {
+      for (let j = i; j < size; j++) {
+        const v = lt(j, i);
+        U.set([i, j], new Complex(v.re, -v.im));
+      }
+    }
+    L.dispose();
+    return U;
+  }
+
+  return L;
+}
+
+/**
+ * Cholesky decomposition, returning the lower triangular L with A = L L^H for a
+ * Hermitian (or real symmetric) positive-definite A. Stacked input is factored
+ * slice by slice.
  *
- * @param a - Symmetric positive-definite matrix
- * @param upper - If true, return upper triangular U such that A = U^T @ U
+ * @param a - Hermitian positive-definite matrix, or a stack of them
+ * @param upper - If true, return the upper triangular U = L^H with A = U^H U
  * @returns Lower (or upper) triangular Cholesky factor
  */
 export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage {
@@ -3318,29 +3603,35 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
   }
 
   if (a.ndim > 2) {
-    const batchShape = Array.from(a.shape).slice(0, -2);
     const n = a.shape[a.ndim - 1]!;
     const m2 = a.shape[a.ndim - 2]!;
     if (m2 !== n) throw new Error(`cholesky: last 2 dimensions must be square, got ${m2}x${n}`);
-    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
-    const result = ArrayStorage.empty([...batchShape, n, n], 'float64');
-    const resultData = result.data as Float64Array;
-    for (let bi = 0; bi < batchSize; bi++) {
-      const bIdx = flatToBatchMultiIndex(bi, batchShape);
-      const slice = ArrayStorage.zeros([n, n], 'float64');
-      for (let i = 0; i < n; i++)
-        for (let j = 0; j < n; j++) slice.set([i, j], realPart(a.get(...bIdx, i, j)));
-      const r = cholesky(slice, upper);
-      resultData.set(toContiguousFloat64(r), bi * n * n);
-      slice.dispose();
-      r.dispose();
-    }
-    return result;
+    return mapMatrices(a, (s) => [cholesky(s, upper)])[0]!;
   }
 
   const [m, n] = a.shape;
   if (m !== n) {
     throw new Error(`cholesky: matrix must be square, got ${m}x${n}`);
+  }
+
+  if (isComplexDType(a.dtype)) {
+    const wasmComplex = wasmCholeskyComplex(a);
+    if (wasmComplex) {
+      if (!upper) return wasmComplex;
+      // The kernel returns L; `upper` wants its conjugate transpose.
+      const size = m!;
+      const U = ArrayStorage.zeros([size, size], wasmComplex.dtype);
+      for (let i = 0; i < size; i++) {
+        for (let j = i; j < size; j++) {
+          const v = wasmComplex.get(j, i);
+          const c = v instanceof Complex ? v : new Complex(Number(v), 0);
+          U.set([i, j], new Complex(c.re, -c.im));
+        }
+      }
+      wasmComplex.dispose();
+      return U;
+    }
+    return choleskyComplex(a, m!, upper);
   }
 
   // WASM fast path
@@ -3362,7 +3653,9 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
   }
 
   const size = m!;
-  const L = ArrayStorage.zeros([size, size], 'float64');
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+  const L = ArrayStorage.zeros([size, size], realDtype);
 
   for (let i = 0; i < size; i++) {
     for (let j = 0; j <= i; j++) {
@@ -3394,7 +3687,7 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
 
   if (upper) {
     // Return L^T (upper triangular)
-    const U = ArrayStorage.zeros([size, size], 'float64');
+    const U = ArrayStorage.zeros([size, size], realDtype);
     for (let i = 0; i < size; i++) {
       for (let j = i; j < size; j++) {
         U.set([i, j], Number(L.get(j, i)));
@@ -3404,6 +3697,219 @@ export function cholesky(a: ArrayStorage, upper: boolean = false): ArrayStorage 
   }
 
   return L;
+}
+
+/**
+ * Singular value decomposition of a complex matrix by one-sided Jacobi,
+ * returning A = U diag(s) V^H. Rotations act directly on the columns of A, so
+ * A^H A is never formed and the condition number is never squared. Each step
+ * scales column q by the conjugate phase of w_p^H w_q to make that inner
+ * product real, then applies the real Rutishauser rotation; a real rotation
+ * alone cannot orthogonalise a pair of complex columns.
+ *
+ * @param a - Input matrix
+ * @param m - Row count
+ * @param n - Column count
+ * @returns { u, s, vt } with A = U diag(s) V^H
+ */
+function svdComplex(
+  a: ArrayStorage,
+  m: number,
+  n: number,
+): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } {
+  const isC64 = a.dtype === 'complex64';
+  const cDtype: DType = isC64 ? 'complex64' : 'complex128';
+  const rDtype: DType = isC64 ? 'float32' : 'float64';
+  const smaller = Math.min(m, n);
+
+  // Column-major-ish flat buffers: index (i, j) at i * n + j.
+  const wRe = new Float64Array(m * n);
+  const wIm = new Float64Array(m * n);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      const v = a.get(i, j);
+      const c = v instanceof Complex ? v : new Complex(Number(v), 0);
+      wRe[i * n + j] = c.re;
+      wIm[i * n + j] = c.im;
+    }
+  }
+  const vRe = new Float64Array(n * n);
+  const vIm = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) vRe[i * n + i] = 1;
+
+  const maxSweeps = 60;
+  const tol = 1e-14;
+  for (let sweep = 0; sweep < maxSweeps; sweep++) {
+    let converged = true;
+    for (let p = 0; p < n; p++) {
+      for (let q = p + 1; q < n; q++) {
+        let alpha = 0;
+        let beta = 0;
+        let gRe = 0;
+        let gIm = 0;
+        for (let i = 0; i < m; i++) {
+          const pr = wRe[i * n + p]!;
+          const pi = wIm[i * n + p]!;
+          const qr = wRe[i * n + q]!;
+          const qi = wIm[i * n + q]!;
+          alpha += pr * pr + pi * pi;
+          beta += qr * qr + qi * qi;
+          // conj(w_p) · w_q
+          gRe += pr * qr + pi * qi;
+          gIm += pr * qi - pi * qr;
+        }
+        const gAbs = Math.hypot(gRe, gIm);
+        // A zero column makes the relative test sqrt(alpha*beta) zero, which no
+        // non-negative gAbs is below — so guard it directly. m < n always
+        // produces such columns, and dividing by gAbs there yields NaN.
+        if (gAbs === 0 || alpha === 0 || beta === 0) continue;
+        if (gAbs < tol * Math.sqrt(alpha * beta)) continue;
+        converged = false;
+
+        // Scale column q by the conjugate phase so the inner product is real.
+        // Near-null columns leave g subnormal, where g / |g| is off modulus 1 by
+        // the lost precision; rescaling g first keeps the phase, and so V, unitary.
+        const gScale = Math.max(Math.abs(gRe), Math.abs(gIm));
+        const gnRe = gRe / gScale;
+        const gnIm = gIm / gScale;
+        const gnAbs = Math.hypot(gnRe, gnIm);
+        const phRe = gnRe / gnAbs;
+        const phIm = gnIm / gnAbs;
+        for (let i = 0; i < m; i++) {
+          const re = wRe[i * n + q]!;
+          const im = wIm[i * n + q]!;
+          wRe[i * n + q] = re * phRe + im * phIm;
+          wIm[i * n + q] = im * phRe - re * phIm;
+        }
+        for (let i = 0; i < n; i++) {
+          const re = vRe[i * n + q]!;
+          const im = vIm[i * n + q]!;
+          vRe[i * n + q] = re * phRe + im * phIm;
+          vIm[i * n + q] = im * phRe - re * phIm;
+        }
+
+        const zeta = (beta - alpha) / (2 * gAbs);
+        const t = (zeta >= 0 ? 1 : -1) / (Math.abs(zeta) + Math.sqrt(1 + zeta * zeta));
+        const c = 1 / Math.sqrt(1 + t * t);
+        const sn = t * c;
+
+        for (let i = 0; i < m; i++) {
+          const pr = wRe[i * n + p]!;
+          const pi = wIm[i * n + p]!;
+          const qr = wRe[i * n + q]!;
+          const qi = wIm[i * n + q]!;
+          wRe[i * n + p] = c * pr - sn * qr;
+          wIm[i * n + p] = c * pi - sn * qi;
+          wRe[i * n + q] = sn * pr + c * qr;
+          wIm[i * n + q] = sn * pi + c * qi;
+        }
+        for (let i = 0; i < n; i++) {
+          const pr = vRe[i * n + p]!;
+          const pi = vIm[i * n + p]!;
+          const qr = vRe[i * n + q]!;
+          const qi = vIm[i * n + q]!;
+          vRe[i * n + p] = c * pr - sn * qr;
+          vIm[i * n + p] = c * pi - sn * qi;
+          vRe[i * n + q] = sn * pr + c * qr;
+          vIm[i * n + q] = sn * pi + c * qi;
+        }
+      }
+    }
+    if (converged) break;
+  }
+
+  // sigma_j = ||W[:,j]||; U[:,j] = W[:,j] / sigma_j.
+  const norms: number[] = [];
+  for (let j = 0; j < n; j++) {
+    let acc = 0;
+    for (let i = 0; i < m; i++) {
+      acc += wRe[i * n + j]! * wRe[i * n + j]! + wIm[i * n + j]! * wIm[i * n + j]!;
+    }
+    norms.push(Math.sqrt(acc));
+  }
+  const order = Array.from({ length: n }, (_, i) => i);
+  order.sort((i, j) => norms[j]! - norms[i]!);
+
+  const s = ArrayStorage.zeros([smaller], rDtype);
+  for (let i = 0; i < smaller; i++) s.set([i], norms[order[i]!]!);
+
+  const vt = ArrayStorage.zeros([n, n], cDtype);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      vt.set([i, j], new Complex(vRe[j * n + order[i]!]!, -vIm[j * n + order[i]!]!));
+    }
+  }
+
+  const uRe: number[][] = [];
+  const uIm: number[][] = [];
+  for (let i = 0; i < m; i++) {
+    uRe.push(new Array<number>(m).fill(0));
+    uIm.push(new Array<number>(m).fill(0));
+  }
+  const filled: number[] = [];
+  const empty: number[] = [];
+  for (let j = 0; j < smaller; j++) {
+    const sv = norms[order[j]!]!;
+    if (sv <= 1e-12) {
+      empty.push(j);
+      continue;
+    }
+    for (let i = 0; i < m; i++) {
+      uRe[i]![j] = wRe[i * n + order[j]!]! / sv;
+      uIm[i]![j] = wIm[i * n + order[j]!]! / sv;
+    }
+    filled.push(j);
+  }
+  for (let j = smaller; j < m; j++) empty.push(j);
+
+  // Complete U over the complex inner product. Every column left empty, either
+  // past min(m, n) or under a vanishing singular value, takes the standard basis
+  // vector with the largest component outside the span built so far, so a
+  // rank-deficient input still yields a unitary U.
+  const residual = (t: number): { cr: number[]; ci: number[]; nrm: number } => {
+    const cr = new Array<number>(m).fill(0);
+    const ci = new Array<number>(m).fill(0);
+    cr[t] = 1;
+    // Two passes of modified Gram-Schmidt hold orthogonality to working precision.
+    for (let pass = 0; pass < 2; pass++) {
+      for (const k of filled) {
+        let dr = 0;
+        let di = 0;
+        for (let i = 0; i < m; i++) {
+          dr += uRe[i]![k]! * cr[i]! + uIm[i]![k]! * ci[i]!;
+          di += uRe[i]![k]! * ci[i]! - uIm[i]![k]! * cr[i]!;
+        }
+        for (let i = 0; i < m; i++) {
+          cr[i] = cr[i]! - (uRe[i]![k]! * dr - uIm[i]![k]! * di);
+          ci[i] = ci[i]! - (uRe[i]![k]! * di + uIm[i]![k]! * dr);
+        }
+      }
+    }
+    let nrm = 0;
+    for (let i = 0; i < m; i++) nrm += cr[i]! * cr[i]! + ci[i]! * ci[i]!;
+    return { cr, ci, nrm: Math.sqrt(nrm) };
+  };
+  for (const j of empty) {
+    let best = residual(0);
+    for (let t = 1; t < m && best.nrm < 0.5; t++) {
+      const cand = residual(t);
+      if (cand.nrm > best.nrm) best = cand;
+    }
+    for (let i = 0; i < m; i++) {
+      uRe[i]![j] = best.cr[i]! / best.nrm;
+      uIm[i]![j] = best.ci[i]! / best.nrm;
+    }
+    filled.push(j);
+  }
+
+  const u = ArrayStorage.zeros([m, m], cDtype);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < m; j++) {
+      u.set([i, j], new Complex(uRe[i]![j]!, uIm[i]![j]!));
+    }
+  }
+
+  return { u, s, vt };
 }
 
 /**
@@ -3425,36 +3931,20 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   const [m, n] = a.shape;
   const smaller = Math.min(m!, n!);
 
-  // For complex, compute A^H @ A (Hermitian product).
-  // The result is a real symmetric matrix (Hermitian with real diagonal).
-  // For SVD, A^H @ A has eigenvalues sigma^2.
-  // V are eigenvectors of A^H @ A, U = A @ V @ S^-1.
-  const isComplex = isComplexDType(a.dtype);
+  if (isComplexDType(a.dtype)) {
+    const wasmComplex = wasmSvdComplex(a);
+    if (wasmComplex) return wasmComplex;
+    return svdComplex(a, m!, n!);
+  }
 
-  // Compute A^H @ A (or A^T @ A for real)
-  // Result is always real symmetric for Hermitian product
+  // Real input: V are the eigenvectors of A^T A, whose eigenvalues are sigma^2,
+  // and U = A V S^-1.
   const ATA = ArrayStorage.zeros([n!, n!], 'float64');
   for (let i = 0; i < n!; i++) {
     for (let j = 0; j < n!; j++) {
-      let sumRe = 0;
-      for (let k = 0; k < m!; k++) {
-        const aki = a.get(k, i);
-        const akj = a.get(k, j);
-        if (isComplex) {
-          // conj(A[k,i]) * A[k,j] — only real part needed (Hermitian product is real-symmetric)
-          const aiC = aki instanceof Complex ? aki : new Complex(Number(aki), 0);
-          const ajC = akj instanceof Complex ? akj : new Complex(Number(akj), 0);
-          sumRe += aiC.re * ajC.re + aiC.im * ajC.im;
-        } else {
-          sumRe += Number(aki) * Number(akj);
-        }
-      }
-      // For Hermitian A^H @ A, the result should be Hermitian.
-      // The diagonal is always real. Off-diagonal: ATA[i,j] = conj(ATA[j,i]).
-      // We store only real part since eigSymmetric works on real symmetric matrices.
-      // This is valid because for A^H @ A, the imaginary parts are antisymmetric
-      // and cancel when we symmetrize.
-      ATA.set([i, j], sumRe);
+      let sum = 0;
+      for (let k = 0; k < m!; k++) sum += Number(a.get(k, i)) * Number(a.get(k, j));
+      ATA.set([i, j], sum);
     }
   }
 
@@ -3466,15 +3956,18 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   const indices = Array.from({ length: n! }, (_, i) => i);
   indices.sort((i, j) => eigVals[j]! - eigVals[i]!);
 
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+
   // Singular values are sqrt of eigenvalues
-  const s = ArrayStorage.zeros([smaller], 'float64');
+  const s = ArrayStorage.zeros([smaller], realDtype);
   for (let i = 0; i < smaller; i++) {
     const eigVal = eigVals[indices[i]!]!;
     s.set([i], Math.sqrt(Math.max(0, eigVal)));
   }
 
   // V^T (sorted) - real eigenvectors
-  const vt = ArrayStorage.zeros([n!, n!], 'float64');
+  const vt = ArrayStorage.zeros([n!, n!], realDtype);
   for (let i = 0; i < n!; i++) {
     for (let j = 0; j < n!; j++) {
       vt.set([i, j], V[j]![indices[i]!]!);
@@ -3482,23 +3975,14 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   }
 
   // Compute U = A @ V @ S^-1
-  const u = ArrayStorage.zeros([m!, m!], 'float64');
+  const u = ArrayStorage.zeros([m!, m!], realDtype);
   for (let i = 0; i < m!; i++) {
     for (let j = 0; j < smaller; j++) {
       const sigma = Number(s.get(j));
       if (sigma > 1e-10) {
-        let sumRe = 0;
-        for (let k = 0; k < n!; k++) {
-          const aik = a.get(i, k);
-          const vjk = Number(vt.get(j, k));
-          if (isComplex) {
-            const c = aik instanceof Complex ? aik : new Complex(Number(aik), 0);
-            sumRe += c.re * vjk; // For real V, only real part contributes to U
-          } else {
-            sumRe += Number(aik) * vjk;
-          }
-        }
-        u.set([i, j], sumRe / sigma);
+        let sum = 0;
+        for (let k = 0; k < n!; k++) sum += Number(a.get(i, k)) * Number(vt.get(j, k));
+        u.set([i, j], sum / sigma);
       }
     }
   }
@@ -3537,6 +4021,155 @@ function svdFull(a: ArrayStorage): { u: ArrayStorage; s: ArrayStorage; vt: Array
   }
 
   return { u, s, vt };
+}
+
+/**
+ * Jacobi eigendecomposition of a Hermitian matrix, returning real eigenvalues
+ * and unitary eigenvectors with A = V diag(w) V^H. The rotation carries the
+ * phase of the element it annihilates: with apq = |apq|e^(i phi), J is
+ * [[c, -s·e^(-i phi)], [s·e^(i phi), c]] and the update is J^H A J, since a
+ * real rotation cannot zero a complex off-diagonal.
+ *
+ * @param a - Hermitian matrix; only the triangle named by uplo is read
+ * @param uplo - Which triangle holds the data, 'L' or 'U'
+ * @returns { values, re, im } - Real eigenvalues and the eigenvector columns
+ */
+function eigHermitian(
+  a: ArrayStorage,
+  uplo: 'L' | 'U' = 'L',
+): { values: number[]; re: number[][]; im: number[][] } {
+  const n = a.shape[0]!;
+  const maxIter = 100 * n * n;
+  const tol = 1e-12;
+
+  const at = (i: number, j: number): Complex => {
+    const v = a.get(i, j);
+    return v instanceof Complex ? v : new Complex(Number(v), 0);
+  };
+
+  // Mirror the requested triangle into a full Hermitian working copy, so the
+  // other triangle's contents cannot influence the result.
+  const aRe: number[][] = [];
+  const aIm: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    aRe.push(new Array<number>(n).fill(0));
+    aIm.push(new Array<number>(n).fill(0));
+  }
+  for (let i = 0; i < n; i++) {
+    aRe[i]![i] = at(i, i).re; // a Hermitian diagonal is real
+    for (let j = i + 1; j < n; j++) {
+      const src = uplo === 'L' ? at(j, i) : at(i, j);
+      // The lower entry A[j][i] is src itself for 'L' and its conjugate for 'U'.
+      const lowRe = src.re;
+      const lowIm = uplo === 'L' ? src.im : -src.im;
+      aRe[j]![i] = lowRe;
+      aIm[j]![i] = lowIm;
+      aRe[i]![j] = lowRe;
+      aIm[i]![j] = -lowIm;
+    }
+  }
+
+  const vRe: number[][] = [];
+  const vIm: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    vRe.push(new Array<number>(n).fill(0));
+    vIm.push(new Array<number>(n).fill(0));
+    vRe[i]![i] = 1;
+  }
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    let maxVal = 0;
+    let p = 0;
+    let q = 1;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const mag = Math.hypot(aRe[i]![j]!, aIm[i]![j]!);
+        if (mag > maxVal) {
+          maxVal = mag;
+          p = i;
+          q = j;
+        }
+      }
+    }
+    if (maxVal < tol) break;
+
+    const apqRe = aRe[p]![q]!;
+    const apqIm = aIm[p]![q]!;
+    const absApq = Math.hypot(apqRe, apqIm);
+
+    // Step 1: rotate the phase out. With D = diag(1, e^(-i phi)) placed at q,
+    // D^H A D leaves the diagonal alone and turns A[p][q] into |A[p][q]|, so
+    // the ordinary real rotation below is then exactly the right tool.
+    const phRe = apqRe / absApq;
+    const phIm = apqIm / absApq;
+    for (let i = 0; i < n; i++) {
+      const re = aRe[i]![q]!;
+      const im = aIm[i]![q]!;
+      aRe[i]![q] = re * phRe + im * phIm;
+      aIm[i]![q] = im * phRe - re * phIm;
+    }
+    for (let j = 0; j < n; j++) {
+      const re = aRe[q]![j]!;
+      const im = aIm[q]![j]!;
+      aRe[q]![j] = re * phRe - im * phIm;
+      aIm[q]![j] = im * phRe + re * phIm;
+    }
+    for (let i = 0; i < n; i++) {
+      const re = vRe[i]![q]!;
+      const im = vIm[i]![q]!;
+      vRe[i]![q] = re * phRe + im * phIm;
+      vIm[i]![q] = im * phRe - re * phIm;
+    }
+
+    // Step 2: the real Jacobi rotation, now that A[p][q] is real.
+    const app = aRe[p]![p]!;
+    const aqq = aRe[q]![q]!;
+    const theta =
+      Math.abs(app - aqq) < 1e-300 ? Math.PI / 4 : 0.5 * Math.atan2(2 * absApq, aqq - app);
+    const c = Math.cos(theta);
+    const sn = Math.sin(theta);
+
+    for (let i = 0; i < n; i++) {
+      const ipRe = aRe[i]![p]!;
+      const ipIm = aIm[i]![p]!;
+      const iqRe = aRe[i]![q]!;
+      const iqIm = aIm[i]![q]!;
+      aRe[i]![p] = c * ipRe - sn * iqRe;
+      aIm[i]![p] = c * ipIm - sn * iqIm;
+      aRe[i]![q] = sn * ipRe + c * iqRe;
+      aIm[i]![q] = sn * ipIm + c * iqIm;
+    }
+    for (let j = 0; j < n; j++) {
+      const pjRe = aRe[p]![j]!;
+      const pjIm = aIm[p]![j]!;
+      const qjRe = aRe[q]![j]!;
+      const qjIm = aIm[q]![j]!;
+      aRe[p]![j] = c * pjRe - sn * qjRe;
+      aIm[p]![j] = c * pjIm - sn * qjIm;
+      aRe[q]![j] = sn * pjRe + c * qjRe;
+      aIm[q]![j] = sn * pjIm + c * qjIm;
+    }
+
+    aRe[p]![q] = 0;
+    aIm[p]![q] = 0;
+    aRe[q]![p] = 0;
+    aIm[q]![p] = 0;
+
+    for (let i = 0; i < n; i++) {
+      const ipRe = vRe[i]![p]!;
+      const ipIm = vIm[i]![p]!;
+      const iqRe = vRe[i]![q]!;
+      const iqIm = vIm[i]![q]!;
+      vRe[i]![p] = c * ipRe - sn * iqRe;
+      vIm[i]![p] = c * ipIm - sn * iqIm;
+      vRe[i]![q] = sn * ipRe + c * iqRe;
+      vIm[i]![q] = sn * ipIm + c * iqIm;
+    }
+  }
+
+  const values: number[] = [];
+  for (let i = 0; i < n; i++) values.push(aRe[i]![i]!);
+  return { values, re: vRe, im: vIm };
 }
 
 /**
@@ -3643,6 +4276,32 @@ function eigSymmetric(a: ArrayStorage): { values: number[]; vectors: number[][] 
 }
 
 /**
+ * Copy the top-left rows x cols block of a matrix, keeping its dtype so
+ * complex and float32 factors stay what the decomposition produced.
+ *
+ * @param src - Freshly computed factor
+ * @param rows - Rows to keep
+ * @param cols - Columns to keep
+ * @returns New rows x cols array
+ */
+function leadingBlock(src: ArrayStorage, rows: number, cols: number): ArrayStorage {
+  const out = ArrayStorage.empty([rows, cols], src.dtype);
+  if (!src.isCContiguous) {
+    for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) out.set([i, j], src.get(i, j));
+    return out;
+  }
+  const f = isComplexDType(src.dtype) ? 2 : 1;
+  const srcCols = src.shape[1]!;
+  const sd = src.data as Float64Array;
+  const od = out.data as Float64Array;
+  for (let i = 0; i < rows; i++) {
+    const from = (src.offset + i * srcCols) * f;
+    od.set(sd.subarray(from, from + cols * f), i * cols * f);
+  }
+  return out;
+}
+
+/**
  * Singular Value Decomposition.
  *
  * @param a - Input matrix (m x n)
@@ -3656,57 +4315,18 @@ export function svd(
   compute_uv: boolean = true,
 ): { u: ArrayStorage; s: ArrayStorage; vt: ArrayStorage } | ArrayStorage {
   throwIfFloat16(a.dtype);
-  // Batch mode: iterate over leading dims
   if (a.ndim > 2) {
-    const batchShape = a.shape.slice(0, -2);
-    const [m, n] = [a.shape[a.ndim - 2]!, a.shape[a.ndim - 1]!];
-    const k = Math.min(m, n);
-    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
-
-    if (!compute_uv) {
-      const sOut = ArrayStorage.zeros([...batchShape, k], 'float64');
-      for (let b = 0; b < batchSize; b++) {
-        const bIdx = flatToBatchMultiIndex(b, batchShape);
-        const slice = ArrayStorage.zeros([m, n], a.dtype);
-        for (let i = 0; i < m; i++)
-          for (let j = 0; j < n; j++) slice.set([i, j], a.get(...bIdx, i, j));
-        const { u, s, vt } = svdFull(slice);
-        for (let i = 0; i < k; i++) sOut.set([...bIdx, i], Number(s.get(i)));
-        slice.dispose();
-        u.dispose();
-        s.dispose();
-        vt.dispose();
-      }
-      return sOut;
-    }
-
-    const uCols = full_matrices ? m : k;
-    const vtRows = full_matrices ? n : k;
-    const uOut = ArrayStorage.zeros([...batchShape, m, uCols], 'float64');
-    const sOut = ArrayStorage.zeros([...batchShape, k], 'float64');
-    const vtOut = ArrayStorage.zeros([...batchShape, vtRows, n], 'float64');
-
-    for (let b = 0; b < batchSize; b++) {
-      const bIdx = flatToBatchMultiIndex(b, batchShape);
-      const slice = ArrayStorage.zeros([m, n], a.dtype);
-      for (let i = 0; i < m; i++)
-        for (let j = 0; j < n; j++) slice.set([i, j], a.get(...bIdx, i, j));
-      const res = svd(slice, full_matrices, true) as {
+    if (!compute_uv)
+      return mapMatrices(a, (sl) => [svd(sl, full_matrices, false) as ArrayStorage])[0]!;
+    const [u, s, vt] = mapMatrices(a, (sl) => {
+      const res = svd(sl, full_matrices, true) as {
         u: ArrayStorage;
         s: ArrayStorage;
         vt: ArrayStorage;
       };
-      for (let i = 0; i < m; i++)
-        for (let j = 0; j < uCols; j++) uOut.set([...bIdx, i, j], Number(res.u.get(i, j)));
-      for (let i = 0; i < k; i++) sOut.set([...bIdx, i], Number(res.s.get(i)));
-      for (let i = 0; i < vtRows; i++)
-        for (let j = 0; j < n; j++) vtOut.set([...bIdx, i, j], Number(res.vt.get(i, j)));
-      slice.dispose();
-      res.u.dispose();
-      res.s.dispose();
-      res.vt.dispose();
-    }
-    return { u: uOut, s: sOut, vt: vtOut };
+      return [res.u, res.s, res.vt];
+    });
+    return { u: u!, s: s!, vt: vt! };
   }
 
   const result = svdFull(a);
@@ -3720,26 +4340,11 @@ export function svd(
   if (!full_matrices) {
     const [m, n] = a.shape;
     const k = Math.min(m!, n!);
-
-    // Reduced U: m x k
-    const uReduced = ArrayStorage.zeros([m!, k], 'float64');
-    for (let i = 0; i < m!; i++) {
-      for (let j = 0; j < k; j++) {
-        uReduced.set([i, j], Number(result.u.get(i, j)));
-      }
-    }
+    const u = leadingBlock(result.u, m!, k);
+    const vt = leadingBlock(result.vt, k, n!);
     result.u.dispose();
-
-    // Reduced V^T: k x n
-    const vtReduced = ArrayStorage.zeros([k, n!], 'float64');
-    for (let i = 0; i < k; i++) {
-      for (let j = 0; j < n!; j++) {
-        vtReduced.set([i, j], Number(result.vt.get(i, j)));
-      }
-    }
     result.vt.dispose();
-
-    return { u: uReduced, s: result.s, vt: vtReduced };
+    return { u, s: result.s, vt };
   }
 
   return result;
@@ -3966,15 +4571,26 @@ function luDecomposition(a: ArrayStorage): { lu: ArrayStorage; piv: number[]; si
 }
 
 /**
- * Complex LU decomposition with partial pivoting.
- * Works with interleaved re/im data in the underlying Float64Array.
- * TODO: move this to WASM
+ * Complex LU decomposition with partial pivoting, working on the interleaved
+ * re/im data directly. The result is complex128 whatever the input width, so
+ * routing complex64 through the c128 kernel does not change the dtype anyone
+ * downstream sees.
+ *
+ * @param a - Input matrix
+ * @param size - Row count
+ * @param cols - Column count
+ * @returns Packed LU factors, the pivot permutation, and the permutation sign
  */
 function luDecompositionComplex(
   a: ArrayStorage,
   size: number,
   cols: number,
 ): { lu: ArrayStorage; piv: number[]; sign: number } {
+  const factored = wasmLuFactorComplex(a);
+  if (factored) {
+    return { lu: factored.lu, piv: Array.from(factored.piv), sign: factored.sign };
+  }
+
   // Use complex128 for the LU result
   const lu = ArrayStorage.zeros([size, cols], 'complex128');
   const luData = lu.data as Float64Array; // interleaved [re, im, re, im, ...]
@@ -4199,11 +4815,33 @@ export function inv(a: ArrayStorage): ArrayStorage {
 }
 
 /**
- * Complex matrix inverse via LU decomposition.
- * Forward/back substitution using interleaved complex data.
- * TODO: move this to WASM
+ * Complex matrix inverse via LU decomposition, using the WASM factor and solve
+ * kernels when available and forward/back substitution on interleaved data
+ * otherwise.
  */
 function invComplex(a: ArrayStorage, size: number): ArrayStorage {
+  if (a.dtype === 'complex128' || a.dtype === 'complex64') {
+    const factored = wasmLuFactorComplex(a, a.dtype);
+    if (factored) {
+      try {
+        const d = factored.lu.data as Float64Array;
+        // The f32 kernel cannot resolve a pivot below its own epsilon, so the
+        // singularity cutoff follows the precision the factors are held in.
+        const tiny = factored.lu.dtype === 'complex64' ? 1e-14 : 1e-30;
+        for (let i = 0; i < size; i++) {
+          const idx = (i * size + i) * 2;
+          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < tiny) {
+            throw new Error('inv: singular matrix');
+          }
+        }
+        const result = wasmLuInvComplex(factored.lu, factored.piv);
+        if (result) return result;
+      } finally {
+        factored.lu.dispose();
+      }
+    }
+  }
+
   const { lu, piv } = luDecomposition(a);
   const luData = lu.data as Float64Array; // interleaved [re, im, ...]
 
@@ -4334,6 +4972,42 @@ function solveVector(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
  * Complex vector solve: A @ x = b using LU decomposition.
  */
 function solveVectorComplex(a: ArrayStorage, b: ArrayStorage, size: number): ArrayStorage {
+  // solve narrows with a: a complex64 matrix gives a complex64 solution, so the
+  // factors are held at the same width the result needs.
+  if (a.dtype === 'complex128' || a.dtype === 'complex64') {
+    const factored = wasmLuFactorComplex(a, a.dtype);
+    if (factored) {
+      try {
+        const d = factored.lu.data as Float64Array;
+        const tiny = factored.lu.dtype === 'complex64' ? 1e-14 : 1e-30;
+        for (let i = 0; i < size; i++) {
+          const idx = (i * size + i) * 2;
+          if (d[idx]! * d[idx]! + d[idx + 1]! * d[idx + 1]! < tiny) {
+            throw new Error('solve: singular matrix');
+          }
+        }
+        // The kernel applies the pivot permutation itself, so b goes in as-is.
+        const rhs =
+          factored.lu.dtype === 'complex64'
+            ? new Float32Array(size * 2)
+            : new Float64Array(size * 2);
+        for (let i = 0; i < size; i++) {
+          const val = b.get(i);
+          if (val instanceof Complex) {
+            rhs[i * 2] = val.re;
+            rhs[i * 2 + 1] = val.im;
+          } else {
+            rhs[i * 2] = Number(val);
+          }
+        }
+        const result = wasmLuSolveComplex(factored.lu, factored.piv, rhs);
+        if (result) return result;
+      } finally {
+        factored.lu.dispose();
+      }
+    }
+  }
+
   const { lu, piv } = luDecomposition(a);
   try {
     const luData = lu.data as Float64Array;
@@ -4407,6 +5081,34 @@ function solveVectorComplex(a: ArrayStorage, b: ArrayStorage, size: number): Arr
 }
 
 /**
+ * The complex dtype np.linalg computes in when any operand is complex: single
+ * precision only when every operand is float32 or complex64, since integer and
+ * bool inputs are taken as double.
+ *
+ * @param dtypes - Operand dtypes
+ * @returns 'complex64' or 'complex128'
+ */
+function linalgComplexDType(...dtypes: DType[]): DType {
+  return dtypes.every((d) => d === 'float32' || d === 'complex64') ? 'complex64' : 'complex128';
+}
+
+/**
+ * Copy an array into a complex dtype, real values gaining a zero imaginary part.
+ *
+ * @param a - Input array
+ * @param dtype - Target complex dtype
+ * @returns New contiguous array of the target dtype
+ */
+function castComplex(a: ArrayStorage, dtype: DType): ArrayStorage {
+  const out = ArrayStorage.empty(Array.from(a.shape), dtype);
+  for (let i = 0; i < a.size; i++) {
+    const v = a.iget(i);
+    out.iset(i, v instanceof Complex ? v : new Complex(Number(v), 0));
+  }
+  return out;
+}
+
+/**
  * Solve a linear system A @ x = b.
  *
  * @param a - Coefficient matrix (n x n)
@@ -4415,6 +5117,19 @@ function solveVectorComplex(a: ArrayStorage, b: ArrayStorage, size: number): Arr
  */
 export function solve(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
   throwIfFloat16(a.dtype);
+  // A complex operand on either side makes the system complex. The factored
+  // matrix carries the result dtype, so it is promoted before anything runs.
+  if (isComplexDType(a.dtype) || isComplexDType(b.dtype)) {
+    const common = linalgComplexDType(a.dtype, b.dtype);
+    if (a.dtype !== common) {
+      const aC = castComplex(a, common);
+      try {
+        return solve(aC, b);
+      } finally {
+        aC.dispose();
+      }
+    }
+  }
   if (a.ndim !== 2) {
     throw new Error(`solve: coefficient matrix must be 2D, got ${a.ndim}D`);
   }
@@ -4558,6 +5273,54 @@ export function lstsq(
     throw new Error(`lstsq: incompatible shapes (${m},${n}) and (${b.shape.join(',')})`);
   }
 
+  if (isComplexDType(a.dtype) || isComplexDType(b.dtype)) {
+    // x = A+ b, taken from the complex pseudo-inverse rather than reassembling
+    // V S^-1 U^H here, so the conjugations live in one place. A real A with a
+    // complex b is promoted first, so s and the residuals take the result width.
+    const common = linalgComplexDType(a.dtype, b.dtype);
+    const aC = a.dtype === common ? a : castComplex(a, common);
+    const realDtype: DType = common === 'complex64' ? 'float32' : 'float64';
+    const sv = svdFull(aC);
+    const threshold = rcond ?? Math.max(m!, n!) * Number.EPSILON;
+    const maxSigma = k > 0 ? Number(sv.s.get(0)) : 0;
+    const cutoff = maxSigma * threshold;
+    let rank = 0;
+    for (let i2 = 0; i2 < k; i2++) if (Number(sv.s.get(i2)) > cutoff) rank++;
+    const p = pinvComplexFromSvd(sv.u, sv.s, sv.vt, m!, n!, cutoff, common);
+    sv.u.dispose();
+    sv.vt.dispose();
+    const x = matmul(p, b2D);
+    p.dispose();
+
+    let residuals: ArrayStorage;
+    if (m! > n! && rank === n!) {
+      residuals = ArrayStorage.zeros([nrhs], realDtype);
+      const ax = matmul(aC, x);
+      for (let j = 0; j < nrhs; j++) {
+        let acc = 0;
+        for (let i2 = 0; i2 < m!; i2++) {
+          const av = ax.get(i2, j);
+          const bv = b2D.get(i2, j);
+          const ac = av instanceof Complex ? av : new Complex(Number(av), 0);
+          const bc = bv instanceof Complex ? bv : new Complex(Number(bv), 0);
+          const dr = ac.re - bc.re;
+          const di = ac.im - bc.im;
+          acc += dr * dr + di * di; // |.|^2, so residuals stay real
+        }
+        residuals.set([j], acc);
+      }
+      ax.dispose();
+    } else {
+      residuals = ArrayStorage.zeros([0], realDtype);
+    }
+
+    const xOut = b.ndim === 1 ? shapeOps.reshape(x, [n!]) : x;
+    if (xOut !== x) x.dispose();
+    if (b2D !== b) b2D.dispose();
+    if (aC !== a) aC.dispose();
+    return { x: xOut, residuals, rank, s: sv.s };
+  }
+
   // SVD for singular values, rank, and x computation
   const { u, s, vt } = svdFull(a);
   try {
@@ -4576,7 +5339,9 @@ export function lstsq(
 
     // Compute x = V @ S^+ @ U^T @ b using WASM matmul
     // Build (V @ S^+) as n×k matrix, U^T as k×m, then matmul chains
-    const vsInv = ArrayStorage.zeros([n!, k], 'float64');
+    // NumPy narrows with the input: float32 in, float32 out.
+    const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+    const vsInv = ArrayStorage.zeros([n!, k], realDtype);
     const vsInvData = vsInv.data as Float64Array;
     for (let l = 0; l < k; l++) {
       const sigma = sData[l]!;
@@ -4589,7 +5354,7 @@ export function lstsq(
     }
 
     // U^T truncated: k × m
-    const ut = ArrayStorage.empty([k, m!], 'float64');
+    const ut = ArrayStorage.empty([k, m!], realDtype);
     const utData = ut.data as Float64Array;
     for (let l = 0; l < k; l++) {
       for (let j = 0; j < m!; j++) {
@@ -4753,17 +5518,17 @@ export function matrix_power(a: ArrayStorage, n: number): ArrayStorage {
     throw new Error('matrix_power: exponent must be an integer');
   }
 
-  // Preserve complex/bigint/float32 dtypes; all other integer types upcast to float64
-  const isComplex = isComplexDType(a.dtype);
-  const isBigInt = isBigIntDType(a.dtype);
-  const outDtype = isComplex
-    ? a.dtype
-    : a.dtype === 'float32'
-      ? 'float32'
-      : isBigInt
-        ? a.dtype
-        : 'float64';
-  const one: number | bigint | Complex = isComplex ? new Complex(1, 0) : isBigInt ? 1n : 1;
+  // A non-negative power preserves the input dtype exactly, including bool and
+  // the narrow integers. A negative one runs through inv() first, which
+  // promotes the way inversion does: integers and bool to float64, float32 and
+  // the complex types to themselves.
+  const outDtype: DType =
+    n >= 0 ? a.dtype : isComplexDType(a.dtype) || a.dtype === 'float32' ? a.dtype : 'float64';
+  const one: number | bigint | Complex = isComplexDType(outDtype)
+    ? new Complex(1, 0)
+    : isBigIntDType(outDtype)
+      ? 1n
+      : 1;
 
   // Handle n = 0: return identity
   if (n === 0) {
@@ -4824,6 +5589,60 @@ export function matrix_power(a: ArrayStorage, n: number): ArrayStorage {
 }
 
 /**
+ * Assemble the complex pseudo-inverse A+ = V S^-1 U^H from an SVD, dropping
+ * singular values at or below the cutoff. vt holds V^H, so V[i][l] is
+ * conj(vt[l][i]) and U^H[l][j] is conj(u[j][l]); a plain transpose in place of
+ * either conjugation gives the pseudo-inverse of a different matrix.
+ *
+ * @param u - Left singular vectors (m x m)
+ * @param s - Singular values, descending
+ * @param vt - V^H (n x n)
+ * @param m - Row count of A
+ * @param n - Column count of A
+ * @param cutoff - Absolute threshold below which a singular value is dropped
+ * @param outDtype - Complex dtype of the result
+ * @returns The n x m pseudo-inverse
+ */
+function pinvComplexFromSvd(
+  u: ArrayStorage,
+  s: ArrayStorage,
+  vt: ArrayStorage,
+  m: number,
+  n: number,
+  cutoff: number,
+  outDtype: DType,
+): ArrayStorage {
+  const k = Math.min(m, n);
+  const sigma: number[] = [];
+  for (let l = 0; l < k; l++) sigma.push(Number(s.get(l)));
+  const out = ArrayStorage.zeros([n, m], outDtype);
+  const cAt = (x: ArrayStorage, r: number, c: number): Complex => {
+    const v = x.get(r, c);
+    return v instanceof Complex ? v : new Complex(Number(v), 0);
+  };
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < m; j++) {
+      let re = 0;
+      let im = 0;
+      for (let l = 0; l < k; l++) {
+        if (sigma[l]! <= cutoff) continue;
+        const inv = 1 / sigma[l]!;
+        const vl = cAt(vt, l, i); // conj gives V[i][l]
+        const ul = cAt(u, j, l); // conj gives U^H[l][j]
+        // conj(vl) * conj(ul) = conj(vl * ul)
+        const pr = vl.re * ul.re - vl.im * ul.im;
+        const pi = vl.re * ul.im + vl.im * ul.re;
+        re += pr * inv;
+        im -= pi * inv;
+      }
+      out.set([i, j], new Complex(re, im));
+    }
+  }
+  return out;
+}
+
+/**
  * Compute the Moore-Penrose pseudo-inverse using SVD.
  *
  * @param a - Input matrix
@@ -4836,29 +5655,23 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
     throw new Error(`pinv: input must be at least 2D, got ${a.ndim}D`);
   }
 
-  if (a.ndim > 2) {
-    const batchShape = Array.from(a.shape).slice(0, -2);
-    const m2 = a.shape[a.ndim - 2]!;
-    const n2 = a.shape[a.ndim - 1]!;
-    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
-    const result = ArrayStorage.empty([...batchShape, n2, m2], 'float64');
-    const resultData = result.data as Float64Array;
-    const aData = toContiguousFloat64(a);
-    for (let bi = 0; bi < batchSize; bi++) {
-      const off = bi * m2 * n2;
-      const slice = ArrayStorage.fromData(aData.slice(off, off + m2 * n2), [m2, n2], 'float64');
-      const r = pinv(slice, rcond);
-      try {
-        resultData.set(toContiguousFloat64(r), bi * n2 * m2);
-      } finally {
-        slice.dispose();
-        r.dispose();
-      }
-    }
-    return result;
-  }
+  if (a.ndim > 2) return mapMatrices(a, (s) => [pinv(s, rcond)])[0]!;
 
   const [m, n] = a.shape;
+
+  if (isComplexDType(a.dtype)) {
+    const { u: uC, s: sC, vt: vtC } = svdFull(a);
+    try {
+      const cutoff = (m! > 0 && n! > 0 ? Number(sC.get(0)) : 0) * rcond;
+      const outDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+      return pinvComplexFromSvd(uC, sC, vtC, m!, n!, cutoff, outDtype);
+    } finally {
+      uC.dispose();
+      sC.dispose();
+      vtC.dispose();
+    }
+  }
+
   const { u, s, vt } = svdFull(a);
   try {
     const k = Math.min(m!, n!);
@@ -4871,7 +5684,9 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
     // Compute pinv = V^T^T @ S^+ @ U^T = (V^T transposed with S^+ scaling) @ U^T
     // Step 1: Build S^+ @ V^T → each row l of vt scaled by 1/s[l] (or 0)
     // Result is k × n, but we want V @ S^+ which is n × k (= vt^T with scaling)
-    const vsInv = ArrayStorage.zeros([n!, k], 'float64');
+    // NumPy narrows with the input: float32 in, float32 out.
+    const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+    const vsInv = ArrayStorage.zeros([n!, k], realDtype);
     const vsInvData = vsInv.data as Float64Array;
     for (let l = 0; l < k; l++) {
       const sigma = sData[l]!;
@@ -4886,7 +5701,7 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
     }
 
     // Step 2: Build U^T (k × m) — take first k rows of u^T (= first k columns of u, transposed)
-    const ut = ArrayStorage.empty([k, m!], 'float64');
+    const ut = ArrayStorage.empty([k, m!], realDtype);
     const utData = ut.data as Float64Array;
     const uData = u.data as Float64Array;
     for (let l = 0; l < k; l++) {
@@ -4908,12 +5723,12 @@ export function pinv(a: ArrayStorage, rcond: number = 1e-15): ArrayStorage {
 }
 
 /**
- * Compute eigenvalues and right eigenvectors of a square matrix. Symmetric
- * input takes a Jacobi path; everything else goes through a real Schur
- * decomposition. The result is float64 when every eigenvalue is real and
- * complex128 when any is not, matching how NumPy picks the output dtype; for a
- * batch that choice is made once across every slice. Complex input has its
- * imaginary part dropped before the decomposition.
+ * Compute eigenvalues and right eigenvectors of a square matrix. Real symmetric
+ * input takes a Jacobi path, other real input a real Schur decomposition, and
+ * complex input a complex Schur decomposition. Real input gives a real result
+ * when every eigenvalue is real and a complex one when any is not, at the
+ * input's precision, matching NumPy; for a batch that choice is made once
+ * across every slice. Input containing NaN or infinity is rejected, as in NumPy.
  *
  * @param a - Input square matrix
  * @returns { w, v } - Eigenvalues and a matrix whose columns are eigenvectors
@@ -4922,6 +5737,9 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
   throwIfFloat16(a.dtype);
   if (a.ndim < 2) {
     throw new Error(`eig: input must be at least 2D, got ${a.ndim}D`);
+  }
+  if (!allFinite(a)) {
+    throw new Error('eig: array must not contain infs or NaNs');
   }
 
   if (a.ndim > 2) {
@@ -4935,19 +5753,23 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
     // before any output is allocated: one complex spectrum anywhere makes the
     // entire result complex.
     const parts: { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors }[] = [];
+    const sliceDtype: DType = isComplexDType(a.dtype) ? a.dtype : 'float64';
     let complex = false;
     for (let bi = 0; bi < batchSize; bi++) {
       const bIdx = flatToBatchMultiIndex(bi, batchShape);
-      const slice = ArrayStorage.zeros([n, n], 'float64');
+      const slice = ArrayStorage.zeros([n, n], sliceDtype);
       for (let i = 0; i < n; i++)
-        for (let j = 0; j < n; j++) slice.set([i, j], realPart(a.get(...bIdx, i, j)));
+        for (let j = 0; j < n; j++) {
+          const val = a.get(...bIdx, i, j);
+          slice.set([i, j], isComplexDType(sliceDtype) ? val : realPart(val));
+        }
       const part = eigOne(slice, n);
       complex = complex || part.hasComplexEigenvalues;
       parts.push(part);
       slice.dispose();
     }
 
-    const dtype: DType = complex ? 'complex128' : 'float64';
+    const dtype = eigDType(a.dtype, complex);
     const wResult = ArrayStorage.zeros([...batchShape, n], dtype);
     const vResult = ArrayStorage.zeros([...batchShape, n, n], dtype);
     for (let bi = 0; bi < batchSize; bi++) {
@@ -4977,19 +5799,19 @@ export function eig(a: ArrayStorage): { w: ArrayStorage; v: ArrayStorage } {
   const size = m!;
 
   const { valuesRe, valuesIm, vectors, hasComplexEigenvalues } = eigOne(a, size);
-  return packEig(valuesRe, valuesIm, vectors, size, hasComplexEigenvalues);
+  return packEig(valuesRe, valuesIm, vectors, size, hasComplexEigenvalues, a.dtype);
 }
 
 /** Eigenvectors as real and imaginary parts, one eigenvector per column. */
 type EigVectors = { re: number[][]; im: number[][] };
 
 /**
- * Decompose one square matrix, routing symmetric input to the Jacobi path and
- * everything else through the real Schur form. Kept separate from the array
- * packing so a batch can decompose every slice before it has to commit to a
- * dtype for the whole result.
+ * Decompose one square matrix, routing complex input to the complex Schur
+ * form, real symmetric input to the Jacobi path and other real input to the
+ * real Schur form. Kept separate from the array packing so a batch can
+ * decompose every slice before it has to commit to a dtype for the whole result.
  *
- * @param a - Square matrix, real parts taken for complex input
+ * @param a - Square matrix
  * @param size - Matrix dimension
  * @returns Eigenvalues split into real and imaginary parts, the matching
  *   eigenvectors, and whether any eigenvalue is complex
@@ -4998,6 +5820,19 @@ function eigOne(
   a: ArrayStorage,
   size: number,
 ): { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors; hasComplexEigenvalues: boolean } {
+  if (isComplexDType(a.dtype)) {
+    const { valuesRe, valuesIm, vectors, converged } = eigComplex(a, size);
+    if (!converged) {
+      console.warn(
+        'numpy-ts: eig() did not converge; the eigenvalues and eigenvectors ' +
+          'below are the last iterate and should not be trusted.',
+      );
+    }
+    // A complex input always gives a complex result, whatever the spectrum
+    // turns out to be, so this is not the data-dependent choice real input makes.
+    return { valuesRe, valuesIm, vectors, hasComplexEigenvalues: true };
+  }
+
   let isSymmetric = true;
   outerLoop: for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
@@ -5035,9 +5870,43 @@ function eigOne(
 }
 
 /**
+ * The dtype NumPy gives an eigendecomposition: complex when the input is
+ * complex or any eigenvalue is, real otherwise, single precision only for
+ * float32 or complex64 input.
+ *
+ * @param inDtype - Input dtype
+ * @param complex - Whether the result must be complex
+ * @returns Output dtype for both eigenvalues and eigenvectors
+ */
+function eigDType(inDtype: DType, complex: boolean): DType {
+  const single = inDtype === 'float32' || inDtype === 'complex64';
+  if (complex) return single ? 'complex64' : 'complex128';
+  return single ? 'float32' : 'float64';
+}
+
+/**
+ * Whether every element is finite. Integer and bool arrays always are.
+ *
+ * @param a - Input array
+ * @returns False if any element, or either part of a complex element, is NaN or infinite
+ */
+function allFinite(a: ArrayStorage): boolean {
+  if (isBigIntDType(a.dtype) || a.dtype === 'bool') return true;
+  for (let i = 0; i < a.size; i++) {
+    const v = a.iget(i);
+    if (v instanceof Complex) {
+      if (!Number.isFinite(v.re) || !Number.isFinite(v.im)) return false;
+    } else if (!Number.isFinite(Number(v))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Pack an eigendecomposition into output arrays, choosing the dtype the way
  * NumPy does: real input keeps a real result unless some eigenvalue is complex,
- * in which case both outputs become complex128.
+ * in which case both outputs become complex at the input's precision.
  *
  * @param valuesRe - Real parts of the eigenvalues
  * @param valuesIm - Imaginary parts of the eigenvalues
@@ -5052,8 +5921,9 @@ function packEig(
   vectors: { re: number[][]; im: number[][] },
   size: number,
   complex: boolean,
+  inDtype: DType = 'float64',
 ): { w: ArrayStorage; v: ArrayStorage } {
-  const dtype: DType = complex ? 'complex128' : 'float64';
+  const dtype = eigDType(inDtype, complex);
   const w = ArrayStorage.zeros([size], dtype);
   const v = ArrayStorage.zeros([size, size], dtype);
 
@@ -5068,6 +5938,474 @@ function packEig(
   }
 
   return { w, v };
+}
+
+/**
+ * Principal complex square root, used for the quadratic that gives the shift.
+ *
+ * @param re - Real part
+ * @param im - Imaginary part
+ * @returns The root with non-negative real part, as [re, im]
+ */
+function csqrt(re: number, im: number): [number, number] {
+  if (re === 0 && im === 0) return [0, 0];
+  const mag = Math.hypot(re, im);
+  const r = Math.sqrt((mag + re) / 2);
+  const i = Math.sqrt((mag - re) / 2);
+  return [r, im < 0 ? -i : i];
+}
+
+/**
+ * Reduce a complex matrix to upper Hessenberg form by Householder reflectors,
+ * accumulating the unitary transform into Z. Each column is scaled by its
+ * largest component before the reflector is built: H = I - 2vv^H/(v^H v) does
+ * not depend on the scale of v but v^H v does, and for entries near the
+ * exponent limits the squares fall subnormal and the reflector comes out NaN.
+ *
+ * @param hRe - Real parts of the matrix, overwritten with the Hessenberg form
+ * @param hIm - Imaginary parts, overwritten
+ * @param zRe - Real parts of the accumulator, overwritten
+ * @param zIm - Imaginary parts of the accumulator, overwritten
+ * @param n - Matrix dimension
+ */
+function hessenbergComplex(
+  hRe: Float64Array,
+  hIm: Float64Array,
+  zRe: Float64Array,
+  zIm: Float64Array,
+  n: number,
+): void {
+  const vRe = new Float64Array(n);
+  const vIm = new Float64Array(n);
+
+  for (let k = 0; k < n - 2; k++) {
+    const len = n - k - 1;
+    let maxAbs = 0;
+    for (let i = 0; i < len; i++) {
+      const idx = (k + 1 + i) * n + k;
+      maxAbs = Math.max(maxAbs, Math.abs(hRe[idx]!), Math.abs(hIm[idx]!));
+    }
+    if (maxAbs === 0) continue;
+
+    const invMax = 1 / maxAbs;
+    let norm2 = 0;
+    for (let i = 0; i < len; i++) {
+      const idx = (k + 1 + i) * n + k;
+      const xr = hRe[idx]! * invMax;
+      const xi = hIm[idx]! * invMax;
+      vRe[i] = xr;
+      vIm[i] = xi;
+      norm2 += xr * xr + xi * xi;
+    }
+    const norm = Math.sqrt(norm2);
+    const head = Math.hypot(vRe[0]!, vIm[0]!);
+    // alpha carries the phase of the leading entry, not just its sign: for a
+    // complex head the reflection has to land on a ray, not on the real axis.
+    const alphaRe = head === 0 ? -norm : -(vRe[0]! / head) * norm;
+    const alphaIm = head === 0 ? 0 : -(vIm[0]! / head) * norm;
+    vRe[0] = vRe[0]! - alphaRe;
+    vIm[0] = vIm[0]! - alphaIm;
+
+    let vtv = 0;
+    for (let i = 0; i < len; i++) vtv += vRe[i]! * vRe[i]! + vIm[i]! * vIm[i]!;
+    if (vtv === 0) continue;
+    const tau = 2 / vtv;
+
+    applyReflectorLeft(hRe, hIm, vRe, vIm, n, k + 1, len, tau, 0, n);
+    applyReflectorRight(hRe, hIm, vRe, vIm, n, k + 1, len, tau, 0, n);
+    applyReflectorRight(zRe, zIm, vRe, vIm, n, k + 1, len, tau, 0, n);
+  }
+}
+
+/**
+ * Apply I - tau·v·v^H from the left to rows [off, off+len) of a matrix.
+ *
+ * @param mRe - Real parts, modified in place
+ * @param mIm - Imaginary parts, modified in place
+ * @param vRe - Real parts of the reflector vector
+ * @param vIm - Imaginary parts of the reflector vector
+ * @param n - Matrix dimension
+ * @param off - First row the reflector touches
+ * @param len - Number of rows it spans
+ * @param tau - 2/(v^H v)
+ * @param colStart - First column to update
+ * @param colEnd - One past the last column to update
+ */
+function applyReflectorLeft(
+  mRe: Float64Array,
+  mIm: Float64Array,
+  vRe: Float64Array,
+  vIm: Float64Array,
+  n: number,
+  off: number,
+  len: number,
+  tau: number,
+  colStart: number,
+  colEnd: number,
+): void {
+  for (let j = colStart; j < colEnd; j++) {
+    let wRe = 0;
+    let wIm = 0;
+    for (let i = 0; i < len; i++) {
+      const idx = (off + i) * n + j;
+      // conj(v_i) * m[off+i][j]
+      wRe += vRe[i]! * mRe[idx]! + vIm[i]! * mIm[idx]!;
+      wIm += vRe[i]! * mIm[idx]! - vIm[i]! * mRe[idx]!;
+    }
+    wRe *= tau;
+    wIm *= tau;
+    for (let i = 0; i < len; i++) {
+      const idx = (off + i) * n + j;
+      mRe[idx] = mRe[idx]! - (vRe[i]! * wRe - vIm[i]! * wIm);
+      mIm[idx] = mIm[idx]! - (vRe[i]! * wIm + vIm[i]! * wRe);
+    }
+  }
+}
+
+/**
+ * Apply I - tau·v·v^H from the right to columns [off, off+len) of a matrix.
+ *
+ * @param mRe - Real parts, modified in place
+ * @param mIm - Imaginary parts, modified in place
+ * @param vRe - Real parts of the reflector vector
+ * @param vIm - Imaginary parts of the reflector vector
+ * @param n - Matrix dimension
+ * @param off - First column the reflector touches
+ * @param len - Number of columns it spans
+ * @param tau - 2/(v^H v)
+ * @param rowStart - First row to update
+ * @param rowEnd - One past the last row to update
+ */
+function applyReflectorRight(
+  mRe: Float64Array,
+  mIm: Float64Array,
+  vRe: Float64Array,
+  vIm: Float64Array,
+  n: number,
+  off: number,
+  len: number,
+  tau: number,
+  rowStart: number,
+  rowEnd: number,
+): void {
+  for (let i = rowStart; i < rowEnd; i++) {
+    let wRe = 0;
+    let wIm = 0;
+    for (let j = 0; j < len; j++) {
+      const idx = i * n + off + j;
+      wRe += mRe[idx]! * vRe[j]! - mIm[idx]! * vIm[j]!;
+      wIm += mRe[idx]! * vIm[j]! + mIm[idx]! * vRe[j]!;
+    }
+    wRe *= tau;
+    wIm *= tau;
+    for (let j = 0; j < len; j++) {
+      const idx = i * n + off + j;
+      // w * conj(v_j)
+      mRe[idx] = mRe[idx]! - (wRe * vRe[j]! + wIm * vIm[j]!);
+      mIm[idx] = mIm[idx]! - (wIm * vRe[j]! - wRe * vIm[j]!);
+    }
+  }
+}
+
+/**
+ * Eigendecomposition of a complex matrix through the complex Schur form. That
+ * form is fully triangular, so unlike the real case there are no 2x2 blocks to
+ * split: every eigenvalue is read straight off the diagonal, and a single shift
+ * per step suffices where the real algorithm needs a double shift.
+ *
+ * @param a - Square complex matrix
+ * @param n - Matrix dimension
+ * @returns Eigenvalues split into parts, the eigenvectors, and whether the
+ *   iteration reached a triangular form
+ */
+function eigComplex(
+  a: ArrayStorage,
+  n: number,
+): { valuesRe: number[]; valuesIm: number[]; vectors: EigVectors; converged: boolean } {
+  const hRe = new Float64Array(n * n);
+  const hIm = new Float64Array(n * n);
+  const zRe = new Float64Array(n * n);
+  const zIm = new Float64Array(n * n);
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const val = a.get(i, j);
+      if (val instanceof Complex) {
+        hRe[i * n + j] = val.re;
+        hIm[i * n + j] = val.im;
+      } else {
+        hRe[i * n + j] = Number(val);
+      }
+    }
+    zRe[i * n + i] = 1;
+  }
+
+  hessenbergComplex(hRe, hIm, zRe, zIm, n);
+
+  const EPS = 2.220446049250313e-16;
+  const maxIter = 30 * Math.max(n, 10);
+  let converged = true;
+  let p = n - 1;
+  let iter = 0;
+
+  while (p > 0) {
+    // Deflate: find the start of the active block by scanning for a subdiagonal
+    // entry small against its neighbouring diagonal entries.
+    let l = p;
+    while (l > 0) {
+      const sub = Math.hypot(hRe[l * n + l - 1]!, hIm[l * n + l - 1]!);
+      const scale =
+        Math.hypot(hRe[(l - 1) * n + l - 1]!, hIm[(l - 1) * n + l - 1]!) +
+        Math.hypot(hRe[l * n + l]!, hIm[l * n + l]!);
+      if (sub <= EPS * (scale === 0 ? 1 : scale)) {
+        hRe[l * n + l - 1] = 0;
+        hIm[l * n + l - 1] = 0;
+        break;
+      }
+      l--;
+    }
+
+    if (l === p) {
+      p--;
+      iter = 0;
+      continue;
+    }
+
+    if (++iter > maxIter) {
+      converged = false;
+      break;
+    }
+
+    // Wilkinson shift: the root of the trailing 2x2 closer to its corner entry.
+    const aRe = hRe[(p - 1) * n + p - 1]!;
+    const aIm = hIm[(p - 1) * n + p - 1]!;
+    const bRe = hRe[(p - 1) * n + p]!;
+    const bIm = hIm[(p - 1) * n + p]!;
+    const cRe = hRe[p * n + p - 1]!;
+    const cIm = hIm[p * n + p - 1]!;
+    const dRe = hRe[p * n + p]!;
+    const dIm = hIm[p * n + p]!;
+
+    let muRe: number;
+    let muIm: number;
+    if (iter % 11 === 10) {
+      // Exceptional shift: a cycling block never deflates on its own, so break
+      // the symmetry rather than spending the whole iteration budget on it.
+      muRe = dRe + Math.hypot(cRe, cIm);
+      muIm = dIm;
+    } else {
+      const trRe = aRe + dRe;
+      const trIm = aIm + dIm;
+      const adRe = aRe * dRe - aIm * dIm;
+      const adIm = aRe * dIm + aIm * dRe;
+      const bcRe = bRe * cRe - bIm * cIm;
+      const bcIm = bRe * cIm + bIm * cRe;
+      const detRe = adRe - bcRe;
+      const detIm = adIm - bcIm;
+      const discRe = trRe * trRe - trIm * trIm - 4 * detRe;
+      const discIm = 2 * trRe * trIm - 4 * detIm;
+      const [sRe, sIm] = csqrt(discRe, discIm);
+      const r1Re = (trRe + sRe) / 2;
+      const r1Im = (trIm + sIm) / 2;
+      const r2Re = (trRe - sRe) / 2;
+      const r2Im = (trIm - sIm) / 2;
+      if (Math.hypot(r1Re - dRe, r1Im - dIm) <= Math.hypot(r2Re - dRe, r2Im - dIm)) {
+        muRe = r1Re;
+        muIm = r1Im;
+      } else {
+        muRe = r2Re;
+        muIm = r2Im;
+      }
+    }
+
+    for (let i = l; i <= p; i++) {
+      hRe[i * n + i] = hRe[i * n + i]! - muRe;
+      hIm[i * n + i] = hIm[i * n + i]! - muIm;
+    }
+
+    // One QR sweep, as n-1 Givens rotations applied from the left and then
+    // their conjugate transposes from the right.
+    const gc = new Float64Array(p);
+    const gsRe = new Float64Array(p);
+    const gsIm = new Float64Array(p);
+    for (let k = l; k < p; k++) {
+      const fRe = hRe[k * n + k]!;
+      const fIm = hIm[k * n + k]!;
+      const gRe = hRe[(k + 1) * n + k]!;
+      const gIm = hIm[(k + 1) * n + k]!;
+      const fAbs = Math.hypot(fRe, fIm);
+      const gAbs = Math.hypot(gRe, gIm);
+      let c: number;
+      let sRe: number;
+      let sIm: number;
+      if (gAbs === 0) {
+        c = 1;
+        sRe = 0;
+        sIm = 0;
+      } else if (fAbs === 0) {
+        c = 0;
+        sRe = gRe / gAbs;
+        sIm = -gIm / gAbs;
+      } else {
+        const r = Math.hypot(fAbs, gAbs);
+        c = fAbs / r;
+        // s = (f/|f|)·conj(g)/r
+        const pRe = fRe / fAbs;
+        const pIm = fIm / fAbs;
+        sRe = (pRe * gRe + pIm * gIm) / r;
+        sIm = (pIm * gRe - pRe * gIm) / r;
+      }
+      gc[k] = c;
+      gsRe[k] = sRe;
+      gsIm[k] = sIm;
+
+      for (let j = k; j < n; j++) {
+        const i0 = k * n + j;
+        const i1 = (k + 1) * n + j;
+        const x0Re = hRe[i0]!;
+        const x0Im = hIm[i0]!;
+        const x1Re = hRe[i1]!;
+        const x1Im = hIm[i1]!;
+        hRe[i0] = c * x0Re + (sRe * x1Re - sIm * x1Im);
+        hIm[i0] = c * x0Im + (sRe * x1Im + sIm * x1Re);
+        // -conj(s)·x0 + c·x1
+        hRe[i1] = -(sRe * x0Re + sIm * x0Im) + c * x1Re;
+        hIm[i1] = -(sRe * x0Im - sIm * x0Re) + c * x1Im;
+      }
+    }
+
+    for (let k = l; k < p; k++) {
+      const c = gc[k]!;
+      const sRe = gsRe[k]!;
+      const sIm = gsIm[k]!;
+      const rowEnd = Math.min(k + 2, p);
+      for (let i = 0; i <= rowEnd; i++) {
+        const i0 = i * n + k;
+        const i1 = i * n + k + 1;
+        const x0Re = hRe[i0]!;
+        const x0Im = hIm[i0]!;
+        const x1Re = hRe[i1]!;
+        const x1Im = hIm[i1]!;
+        // col k: x0·c + x1·conj(s); col k+1: -x0·s + x1·c
+        hRe[i0] = c * x0Re + (x1Re * sRe + x1Im * sIm);
+        hIm[i0] = c * x0Im + (x1Im * sRe - x1Re * sIm);
+        hRe[i1] = -(x0Re * sRe - x0Im * sIm) + c * x1Re;
+        hIm[i1] = -(x0Re * sIm + x0Im * sRe) + c * x1Im;
+      }
+      for (let i = 0; i < n; i++) {
+        const i0 = i * n + k;
+        const i1 = i * n + k + 1;
+        const x0Re = zRe[i0]!;
+        const x0Im = zIm[i0]!;
+        const x1Re = zRe[i1]!;
+        const x1Im = zIm[i1]!;
+        zRe[i0] = c * x0Re + (x1Re * sRe + x1Im * sIm);
+        zIm[i0] = c * x0Im + (x1Im * sRe - x1Re * sIm);
+        zRe[i1] = -(x0Re * sRe - x0Im * sIm) + c * x1Re;
+        zIm[i1] = -(x0Re * sIm + x0Im * sRe) + c * x1Im;
+      }
+    }
+
+    for (let i = l; i <= p; i++) {
+      hRe[i * n + i] = hRe[i * n + i]! + muRe;
+      hIm[i * n + i] = hIm[i * n + i]! + muIm;
+    }
+  }
+
+  const valuesRe: number[] = [];
+  const valuesIm: number[] = [];
+  for (let i = 0; i < n; i++) {
+    valuesRe.push(hRe[i * n + i]!);
+    valuesIm.push(hIm[i * n + i]!);
+  }
+
+  const vectors = schurEigenvectorsComplex(hRe, hIm, zRe, zIm, n);
+  return { valuesRe, valuesIm, vectors, converged };
+}
+
+/**
+ * Eigenvectors of a complex upper triangular Schur form, mapped back through
+ * the accumulated unitary transform and normalised to unit length. A repeated
+ * eigenvalue makes the back substitution singular; the denominator is nudged
+ * to a small multiple of the matrix norm there, giving LAPACK's perturbed
+ * solution rather than an infinity.
+ *
+ * @param tRe - Real parts of the triangular factor
+ * @param tIm - Imaginary parts of the triangular factor
+ * @param zRe - Real parts of the unitary accumulator
+ * @param zIm - Imaginary parts of the unitary accumulator
+ * @param n - Matrix dimension
+ * @returns Eigenvectors as real and imaginary parts, one per column
+ */
+function schurEigenvectorsComplex(
+  tRe: Float64Array,
+  tIm: Float64Array,
+  zRe: Float64Array,
+  zIm: Float64Array,
+  n: number,
+): EigVectors {
+  const re: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+  const im: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+
+  let norm = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i; j < n; j++) norm += Math.hypot(tRe[i * n + j]!, tIm[i * n + j]!);
+  }
+  const tiny = 2.220446049250313e-16 * (norm === 0 ? 1 : norm);
+
+  const yRe = new Float64Array(n);
+  const yIm = new Float64Array(n);
+
+  for (let k = 0; k < n; k++) {
+    yRe.fill(0);
+    yIm.fill(0);
+    yRe[k] = 1;
+    const lRe = tRe[k * n + k]!;
+    const lIm = tIm[k * n + k]!;
+
+    for (let j = k - 1; j >= 0; j--) {
+      let sRe = 0;
+      let sIm = 0;
+      for (let m = j + 1; m <= k; m++) {
+        const idx = j * n + m;
+        sRe -= tRe[idx]! * yRe[m]! - tIm[idx]! * yIm[m]!;
+        sIm -= tRe[idx]! * yIm[m]! + tIm[idx]! * yRe[m]!;
+      }
+      let dRe = tRe[j * n + j]! - lRe;
+      let dIm = tIm[j * n + j]! - lIm;
+      if (Math.hypot(dRe, dIm) < tiny) {
+        dRe = tiny;
+        dIm = 0;
+      }
+      const dMag2 = dRe * dRe + dIm * dIm;
+      yRe[j] = (sRe * dRe + sIm * dIm) / dMag2;
+      yIm[j] = (sIm * dRe - sRe * dIm) / dMag2;
+    }
+
+    // Back to the original basis, then scale to unit length.
+    let scale = 0;
+    const colRe = new Float64Array(n);
+    const colIm = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let accRe = 0;
+      let accIm = 0;
+      for (let m = 0; m <= k; m++) {
+        const idx = i * n + m;
+        accRe += zRe[idx]! * yRe[m]! - zIm[idx]! * yIm[m]!;
+        accIm += zRe[idx]! * yIm[m]! + zIm[idx]! * yRe[m]!;
+      }
+      colRe[i] = accRe;
+      colIm[i] = accIm;
+      scale += accRe * accRe + accIm * accIm;
+    }
+    scale = scale > 0 ? 1 / Math.sqrt(scale) : 1;
+    for (let i = 0; i < n; i++) {
+      re[i]![k] = colRe[i]! * scale;
+      im[i]![k] = colIm[i]! * scale;
+    }
+  }
+
+  return { re, im };
 }
 
 /**
@@ -5537,13 +6875,12 @@ function qrEigendecomposition(a: ArrayStorage): {
 }
 
 /**
- * Compute eigenvalues and eigenvectors of a real symmetric matrix.
+ * Compute eigenvalues and eigenvectors of a real symmetric or complex
+ * Hermitian matrix, reading only the triangle named by UPLO. The eigenvalues
+ * are always real, so w is float64 (float32 for single-precision input) while
+ * v is complex for complex input.
  *
- * Note: Named "Hermitian" for NumPy compatibility, but only real symmetric
- * matrices are supported (complex Hermitian matrices require complex dtype support).
- * Symmetric matrices always have real eigenvalues, so results are exact.
- *
- * @param a - Real symmetric matrix
+ * @param a - Symmetric or Hermitian matrix, or a stack of them
  * @param UPLO - 'L' or 'U' to use lower or upper triangle (default: 'L')
  * @returns { w, v } - Eigenvalues (sorted ascending) and eigenvector matrix
  */
@@ -5554,31 +6891,14 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
   }
 
   if (a.ndim > 2) {
-    const batchShape = Array.from(a.shape).slice(0, -2);
     const n = a.shape[a.ndim - 1]!;
     const m2 = a.shape[a.ndim - 2]!;
     if (m2 !== n) throw new Error(`eigh: last 2 dimensions must be square, got ${m2}x${n}`);
-    const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
-    const wResult = ArrayStorage.empty([...batchShape, n], 'float64');
-    const vResult = ArrayStorage.empty([...batchShape, n, n], 'float64');
-    const wData = wResult.data as Float64Array;
-    const vData = vResult.data as Float64Array;
-    for (let bi = 0; bi < batchSize; bi++) {
-      const bIdx = flatToBatchMultiIndex(bi, batchShape);
-      const slice = ArrayStorage.zeros([n, n], 'float64');
-      for (let i = 0; i < n; i++)
-        for (let j = 0; j < n; j++) slice.set([i, j], realPart(a.get(...bIdx, i, j)));
-      const { w, v } = eigh(slice, UPLO);
-      wData.set(toContiguousFloat64(w), bi * n);
-      vData.set(toContiguousFloat64(v), bi * n * n);
-      slice.dispose();
-      w.dispose();
-      v.dispose();
-    }
-    return {
-      w: wResult,
-      v: vResult,
-    };
+    const [w, v] = mapMatrices(a, (s) => {
+      const res = eigh(s, UPLO);
+      return [res.w, res.v];
+    });
+    return { w: w!, v: v! };
   }
 
   const [m, n] = a.shape;
@@ -5588,8 +6908,27 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
 
   const size = m!;
 
+  if (isComplexDType(a.dtype)) {
+    // Eigenvalues of a Hermitian matrix are real, so w stays float64 — and
+    // float32 narrows to float32 — while the eigenvectors are complex.
+    const { values, re, im } = eigHermitian(a, UPLO);
+    const order = Array.from({ length: size }, (_, i) => i);
+    order.sort((i, j) => values[i]! - values[j]!);
+
+    const wDtype: DType = a.dtype === 'complex64' ? 'float32' : 'float64';
+    const vDtype: DType = a.dtype === 'complex64' ? 'complex64' : 'complex128';
+    const wOut = ArrayStorage.zeros([size], wDtype);
+    const vOut = ArrayStorage.zeros([size, size], vDtype);
+    for (let i = 0; i < size; i++) {
+      wOut.set([i], values[order[i]!]!);
+      for (let j = 0; j < size; j++) {
+        vOut.set([j, i], new Complex(re[j]![order[i]!]!, im[j]![order[i]!]!));
+      }
+    }
+    return { w: wOut, v: vOut };
+  }
+
   // Symmetrize the matrix using specified triangle
-  // TODO: complex Hermitian eigendecomp (Lanczos/complex Jacobi); currently extracts real parts only
   const sym = ArrayStorage.zeros([size, size], 'float64');
   for (let i = 0; i < size; i++) {
     for (let j = 0; j < size; j++) {
@@ -5617,8 +6956,10 @@ export function eigh(a: ArrayStorage, UPLO: 'L' | 'U' = 'L'): { w: ArrayStorage;
   const indices = Array.from({ length: size }, (_, i) => i);
   indices.sort((i, j) => values[i]! - values[j]!);
 
-  const w = ArrayStorage.zeros([size], 'float64');
-  const v = ArrayStorage.zeros([size, size], 'float64');
+  // NumPy narrows with the input: float32 in, float32 out.
+  const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+  const w = ArrayStorage.zeros([size], realDtype);
+  const v = ArrayStorage.zeros([size, size], realDtype);
 
   for (let i = 0; i < size; i++) {
     w.set([i], values[indices[i]!]!);
@@ -5645,13 +6986,10 @@ export function eigvals(a: ArrayStorage): ArrayStorage {
 }
 
 /**
- * Compute eigenvalues of a real symmetric matrix.
+ * Compute eigenvalues of a real symmetric or complex Hermitian matrix. They are
+ * always real, so the result is float64, or float32 for single-precision input.
  *
- * Note: Named "Hermitian" for NumPy compatibility, but only real symmetric
- * matrices are supported (complex Hermitian matrices require complex dtype support).
- * Symmetric matrices always have real eigenvalues, so results are exact.
- *
- * @param a - Real symmetric matrix
+ * @param a - Symmetric or Hermitian matrix
  * @param UPLO - 'L' or 'U' to use lower or upper triangle
  * @returns Array of eigenvalues (sorted ascending)
  */
@@ -6142,10 +7480,15 @@ export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
     throw new Error(`vecmat: last axis of x1 (${m1}) must match second-to-last axis of x2 (${m2})`);
   }
 
-  // For simple 1D @ 2D case, use existing dot (conjugate x1 for complex types)
+  // For the simple 1D @ 2D case, reuse dot. dot does not conjugate and neither
+  // does the kernel behind it, so the conjugation vecmat needs happens here.
   if (x1.ndim === 1 && x2.ndim === 2) {
     const x1Conj = isComplexDType(x1.dtype) ? conjStorage(x1) : x1;
-    return dot(x1Conj, x2) as ArrayStorage;
+    try {
+      return dot(x1Conj, x2) as ArrayStorage;
+    } finally {
+      if (x1Conj !== x1) x1Conj.dispose();
+    }
   }
 
   // General case: batch vector-matrix multiplication
@@ -6252,7 +7595,7 @@ export function vecmat(x1: ArrayStorage, x2: ArrayStorage): ArrayStorage {
  * @returns { sign, logabsdet }
  */
 export function slogdet(a: ArrayStorage): {
-  sign: number | ArrayStorage;
+  sign: number | Complex | ArrayStorage;
   logabsdet: number | ArrayStorage;
 } {
   throwIfFloat16(a.dtype);
@@ -6266,10 +7609,45 @@ export function slogdet(a: ArrayStorage): {
     const m2 = a.shape[a.ndim - 2]!;
     if (m2 !== n) throw new Error(`slogdet: last 2 dimensions must be square, got ${m2}x${n}`);
     const batchSize = batchShape.reduce((acc, d) => acc * d, 1);
-    const signResult = ArrayStorage.empty(batchShape, 'float64');
-    const logResult = ArrayStorage.empty(batchShape, 'float64');
-    const signData = signResult.data as Float64Array;
-    const logData = logResult.data as Float64Array;
+
+    if (isComplexDType(a.dtype)) {
+      // The sign of a complex determinant is a point on the unit circle, so it
+      // needs the input dtype; logabsdet stays real.
+      const signResult = ArrayStorage.zeros(batchShape, a.dtype);
+      const logResult = ArrayStorage.empty(
+        batchShape,
+        a.dtype === 'complex64' ? 'float32' : 'float64',
+      );
+      const logData = logResult.data as Float64Array | Float32Array;
+      for (let bi = 0; bi < batchSize; bi++) {
+        const batchIdx: number[] = [];
+        let rem = bi;
+        for (let d = batchShape.length - 1; d >= 0; d--) {
+          batchIdx[d] = rem % batchShape[d]!;
+          rem = Math.floor(rem / batchShape[d]!);
+        }
+        const slice = ArrayStorage.zeros([n, n], a.dtype);
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) {
+            slice.set([i, j], a.get(...batchIdx, i, j));
+          }
+        }
+        try {
+          const { sign, logabsdet } = slogdet(slice) as { sign: Complex; logabsdet: number };
+          signResult.iset(bi, sign);
+          logData[bi] = logabsdet;
+        } finally {
+          slice.dispose();
+        }
+      }
+      return { sign: signResult, logabsdet: logResult };
+    }
+
+    const realDtype: DType = a.dtype === 'float32' ? 'float32' : 'float64';
+    const signResult = ArrayStorage.empty(batchShape, realDtype);
+    const logResult = ArrayStorage.empty(batchShape, realDtype);
+    const signData = signResult.data as Float64Array | Float32Array;
+    const logData = logResult.data as Float64Array | Float32Array;
     const aData = toContiguousFloat64(a);
     for (let bi = 0; bi < batchSize; bi++) {
       const off = bi * n * n;
@@ -6296,7 +7674,8 @@ export function slogdet(a: ArrayStorage): {
   const size = m!;
 
   if (size === 0) {
-    return { sign: 1, logabsdet: 0 }; // Empty matrix has determinant 1
+    // An empty matrix has determinant 1, whose sign is complex for complex input.
+    return { sign: isComplexDType(a.dtype) ? new Complex(1, 0) : 1, logabsdet: 0 };
   }
 
   // WASM fast path for f64/f32
@@ -6330,21 +7709,20 @@ export function slogdet(a: ArrayStorage): {
     let sign = pivotSign;
 
     if (isComplex) {
-      // For complex LU, diagonal entries are complex.
-      // sign = product of (diag[i] / |diag[i]|), logabsdet = sum of log(|diag[i]|)
-      // We track sign as a complex number on the unit circle.
+      // The determinant of a complex matrix has no sign, so NumPy factors it as
+      // det = sign * exp(logabsdet) with sign on the unit circle: the product of
+      // diag[i] / |diag[i]| over the LU diagonal, times the pivot parity.
       let signRe = pivotSign as number;
       let signIm = 0;
       for (let i = 0; i < size; i++) {
         const idx = (i * size + i) * 2;
         const dRe = luData[idx]!;
         const dIm = luData[idx + 1]!;
-        const mag = Math.sqrt(dRe * dRe + dIm * dIm);
+        const mag = Math.hypot(dRe, dIm);
         if (mag === 0) {
-          return { sign: 0, logabsdet: -Infinity };
+          return { sign: new Complex(0, 0), logabsdet: -Infinity };
         }
         logAbsDet += Math.log(mag);
-        // multiply sign by diag[i] / |diag[i]|
         const uRe = dRe / mag;
         const uIm = dIm / mag;
         const newRe = signRe * uRe - signIm * uIm;
@@ -6352,15 +7730,7 @@ export function slogdet(a: ArrayStorage): {
         signRe = newRe;
         signIm = newIm;
       }
-      // For real-valued determinants (Hermitian matrices), sign should be +1 or -1
-      // For general complex, sign is on the unit circle
-      // Round to nearest integer if very close
-      if (Math.abs(signIm) < 1e-10) {
-        sign = Math.round(signRe);
-      } else {
-        // Return sign as-is (real part) - for complex det, sign concept is limited
-        sign = signRe;
-      }
+      return { sign: new Complex(signRe, signIm), logabsdet: logAbsDet };
     } else {
       for (let i = 0; i < size; i++) {
         const diagVal = luData[i * size + i]!;

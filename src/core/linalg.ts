@@ -303,7 +303,9 @@ export const linalg = {
   },
 
   /** Sign and log of determinant */
-  slogdet: (a: NDArrayCore): { sign: number | NDArrayCore; logabsdet: number | NDArrayCore } => {
+  slogdet: (
+    a: NDArrayCore,
+  ): { sign: number | Complex | NDArrayCore; logabsdet: number | NDArrayCore } => {
     const result = linalgOps.slogdet(toStorage(a));
     const sign = result.sign instanceof ArrayStorage ? fromStorage(result.sign) : result.sign;
     const logabsdet =

@@ -888,11 +888,14 @@ export function convolve(
       const fullLen = aLen + vLen - 1;
       if (mode === 'full') return wasmFull;
       const wasmData = wasmFull.data;
+      // 'full' hands wasmFull straight back; the other two modes copy a window
+      // out of it and must release it, or every call leaks the whole buffer.
       if (mode === 'same') {
         const start = Math.floor((fullLen - aLen) / 2);
         const sameResult = ArrayStorage.empty([aLen], wasmFull.dtype);
         const result = sameResult.data as Float64Array;
         for (let i = 0; i < aLen; i++) result[i] = wasmData[start + i] as number;
+        wasmFull.dispose();
         return sameResult;
       } else {
         const validLen = Math.max(aLen, vLen) - Math.min(aLen, vLen) + 1;
@@ -900,6 +903,7 @@ export function convolve(
         const validResult = ArrayStorage.empty([validLen], wasmFull.dtype);
         const result = validResult.data as Float64Array;
         for (let i = 0; i < validLen; i++) result[i] = wasmData[start + i] as number;
+        wasmFull.dispose();
         return validResult;
       }
     }
@@ -938,7 +942,11 @@ export function convolve(
     }
   }
 
-  return correlate(a, vReversedStorage, mode);
+  // correlate builds its own output, so the reversed copy is a temporary and
+  // leaks on every call that reaches this path if it is not released.
+  const convolved = correlate(a, vReversedStorage, mode);
+  vReversedStorage.dispose();
+  return convolved;
 }
 
 /**

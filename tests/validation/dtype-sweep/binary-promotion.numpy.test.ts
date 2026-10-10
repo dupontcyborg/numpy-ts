@@ -19,8 +19,10 @@ import * as np from '../../../src';
 import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
+  asDtypeData,
   checkNumPyAvailable,
   expectBothRejectPre,
+  expectComplexFixture,
   expectMatchPre,
   isComplex,
   isInt,
@@ -72,12 +74,12 @@ const INTEGER_ONLY = new Set(['gcd']);
 // NumPy rejects boolean subtract
 const NO_BOOL = new Set(['subtract']);
 
-function dataForDtype(dtype: string): number[] {
-  return dtype === 'bool' ? [1, 1, 1, 1] : [6, 7, 8, 9];
+function dataForDtype(dtype: string) {
+  return asDtypeData(dtype === 'bool' ? [1, 1, 1, 1] : [6, 7, 8, 9], dtype);
 }
 
-function dataForDtype2(dtype: string): number[] {
-  return dtype === 'bool' ? [1, 1, 1, 1] : [1, 2, 3, 4];
+function dataForDtype2(dtype: string) {
+  return asDtypeData(dtype === 'bool' ? [1, 1, 1, 1] : [1, 2, 3, 4], dtype);
 }
 
 function shouldReject(name: string, dtA: string, dtB: string): { reject: boolean; reason: string } {
@@ -107,8 +109,8 @@ beforeAll(() => {
       const promotedComplex = isComplex(dtA) || isComplex(dtB);
       const ac = promotedComplex ? 'np.complex128' : 'np.float64';
       snippets[`${name}_${dtA}_${dtB}`] = `
-a = np.array(${JSON.stringify(dataA)}, dtype=${npDtype(dtA)})
-b = np.array(${JSON.stringify(dataB)}, dtype=${npDtype(dtB)})
+a = np.array(${dataA.py}, dtype=${npDtype(dtA)})
+b = np.array(${dataB.py}, dtype=${npDtype(dtB)})
 _result_orig = np.${name}(a, b)
 result = _result_orig.astype(${ac})`;
     }
@@ -131,14 +133,16 @@ describe('DType Sweep: Binary cross-promotion (ALL × ALL)', () => {
           if (reject || pyResult.error) {
             const r = expectBothRejectPre(
               reason || pyResult.error || 'NumPy rejects this combo',
-              () => fn(array(dataA, dtA), array(dataB, dtB)),
+              () => fn(array(dataA.js, dtA), array(dataB.js, dtB)),
               pyResult,
             );
             if (r === 'both-reject') return;
           }
 
-          const a = array(dataA, dtA);
-          const b = array(dataB, dtB);
+          const a = array(dataA.js, dtA);
+          const b = array(dataB.js, dtB);
+          expectComplexFixture(a, dtA, `${name} ${dtA} × ${dtB} lhs`);
+          expectComplexFixture(b, dtB, `${name} ${dtA} × ${dtB} rhs`);
           const jsResult = fn(a, b);
           expectMatchPre(jsResult, pyResult, { rtol: 1e-3 });
         });

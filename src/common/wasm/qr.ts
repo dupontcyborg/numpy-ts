@@ -8,7 +8,7 @@
 
 import { isComplexDType, type TypedArray } from '../dtype';
 import { ArrayStorage } from '../storage';
-import { qr_f64 } from './bins/qr.wasm';
+import { qr_c64, qr_c128, qr_f64 } from './bins/qr.wasm';
 import { wasmConfig } from './config';
 import { getSharedMemory, resetScratchAllocator, scratchAlloc, wasmMalloc } from './runtime';
 
@@ -21,7 +21,6 @@ const BASE_THRESHOLD = 4; // Minimum matrix dimension for WASM (QR is O(n³), wo
 export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | null {
   if (a.ndim !== 2) return null;
 
-  // TODO: Add complex128/complex64 support to WASM
   if (isComplexDType(a.dtype)) return null;
 
   const m = a.shape[0]!;
@@ -79,6 +78,20 @@ export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | 
   qr_f64(aRegion.ptr, qRegion.ptr, rRegion.ptr, tauPtr, scratchPtr, m, n);
   aRegion.release();
 
+  // There is no f32 kernel, so float32 input is computed in f64 and narrowed on
+  // the way out. NumPy narrows with the input here, and the JS path does too, so
+  // handing back float64 would make the result dtype depend on which backend ran.
+  if (a.dtype === 'float32') {
+    const mem32 = getSharedMemory();
+    const q32 = ArrayStorage.zeros([m, k], 'float32');
+    const r32 = ArrayStorage.zeros([k, n], 'float32');
+    (q32.data as Float32Array).set(new Float64Array(mem32.buffer, qRegion.ptr, qSize));
+    (r32.data as Float32Array).set(new Float64Array(mem32.buffer, rRegion.ptr, rSize));
+    qRegion.release();
+    rRegion.release();
+    return { q: q32, r: r32 };
+  }
+
   const qStorage = ArrayStorage.fromWasmRegion(
     [m, k],
     'float64',
@@ -103,4 +116,93 @@ export function wasmQr(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | 
   );
 
   return { q: qStorage, r: rStorage };
+}
+
+/**
+ * WASM-accelerated complex QR decomposition for 2D matrices. Runs in the
+ * precision of the input, so a complex64 matrix stays single throughout and
+ * comes back complex64, as the JS path does.
+ *
+ * @param a - Complex matrix
+ * @returns { q, r } with A = Q·R, or null when WASM cannot take it
+ */
+export function wasmQrComplex(a: ArrayStorage): { q: ArrayStorage; r: ArrayStorage } | null {
+  if (a.ndim !== 2) return null;
+  const isC64 = a.dtype === 'complex64';
+  if (a.dtype !== 'complex128' && !isC64) return null;
+
+  const m = a.shape[0]!;
+  const n = a.shape[1]!;
+  if (
+    m < BASE_THRESHOLD * wasmConfig.thresholdMultiplier ||
+    n < BASE_THRESHOLD * wasmConfig.thresholdMultiplier
+  )
+    return null;
+
+  const bpe = isC64 ? 4 : 8;
+  const Arr = isC64 ? Float32Array : Float64Array;
+  const k = Math.min(m, n);
+  const qSlots = m * k * 2;
+  const rSlots = k * n * 2;
+
+  const qRegion = wasmMalloc(qSlots * bpe);
+  if (!qRegion) return null;
+  const rRegion = wasmMalloc(rSlots * bpe);
+  if (!rRegion) {
+    qRegion.release();
+    return null;
+  }
+
+  wasmConfig.wasmCallCount++;
+  resetScratchAllocator();
+
+  // The kernel reduces its input in place, so it gets a working copy.
+  const aSlots = m * n * 2;
+  const aRegion = wasmMalloc(aSlots * bpe);
+  if (!aRegion) {
+    qRegion.release();
+    rRegion.release();
+    return null;
+  }
+  const mem = getSharedMemory();
+  const aView = new Arr(mem.buffer, aRegion.ptr, aSlots);
+  if (a.isCContiguous) {
+    if (a.isWasmBacked) {
+      aView.set(new Arr(mem.buffer, a.wasmPtr + a.offset * 2 * bpe, aSlots));
+    } else {
+      aView.set((a.data as typeof aView).subarray(a.offset * 2, a.offset * 2 + aSlots));
+    }
+  } else {
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        const v = a.get(i, j);
+        const c = v as { re?: number; im?: number };
+        aView[(i * n + j) * 2] = typeof c?.re === 'number' ? c.re : Number(v);
+        aView[(i * n + j) * 2 + 1] = typeof c?.im === 'number' ? c.im : 0;
+      }
+    }
+  }
+
+  // tau holds one real scalar per reflector; scratch holds the complex diagonal.
+  const tauPtr = scratchAlloc(k * bpe);
+  const scratchPtr = scratchAlloc(k * 2 * bpe);
+
+  if (isC64) {
+    qr_c64(aRegion.ptr, qRegion.ptr, rRegion.ptr, tauPtr, scratchPtr, m, n);
+  } else {
+    qr_c128(aRegion.ptr, qRegion.ptr, rRegion.ptr, tauPtr, scratchPtr, m, n);
+  }
+  aRegion.release();
+
+  const ctor = Arr as unknown as new (
+    buffer: ArrayBuffer,
+    byteOffset: number,
+    length: number,
+  ) => TypedArray;
+  const dtype = isC64 ? 'complex64' : 'complex128';
+
+  return {
+    q: ArrayStorage.fromWasmRegion([m, k], dtype, qRegion, qSlots, ctor),
+    r: ArrayStorage.fromWasmRegion([k, n], dtype, rRegion, rSlots, ctor),
+  };
 }

@@ -48,46 +48,48 @@ export fn vecmat_f32(x: [*]const f32, A: [*]const f32, y: [*]f32, K: u32, N: u32
     }
 }
 
-/// Computes the vector-matrix product of a K-length complex128 vector and a KxN complex128 matrix.
+/// Computes the vector-matrix product of a K-length complex128 vector and a KxN
+/// complex128 matrix, without conjugating x.
 /// x and A are interleaved [re0, im0, re1, im1, ...]
 /// y is also interleaved [re0, im0, re1, im1, ...]
 export fn vecmat_c128(x: [*]const f64, A: [*]const f64, y: [*]f64, K: u32, N: u32) void {
     // Zero output (2 f64s per complex element)
     @memset(y[0 .. @as(usize, N) * 2], 0);
-    // vecmat computes conj(x) @ A, matching NumPy's convention
+    // The plain product x @ A, with no conjugation: this kernel backs dot and
+    // matmul, which do not conjugate. vecmat's conj(x) @ A is built by
+    // conjugating x before the call.
     for (0..K) |k| {
         const x_re = x[k * 2];
-        const x_im = -x[k * 2 + 1]; // conjugate
+        const x_im = x[k * 2 + 1];
         const a_row = k * N * 2; // 2 f64s per complex element
-        // Scalar loop: conj(x) * A multiply-accumulate
         for (0..N) |j| {
             const idx = j * 2;
             const a_re = A[a_row + idx];
             const a_im = A[a_row + idx + 1];
-            // (x_re - x_im*i) * (a_re + a_im*i)
             y[idx] += x_re * a_re - x_im * a_im;
             y[idx + 1] += x_re * a_im + x_im * a_re;
         }
     }
 }
 
-/// Computes the vector-matrix product of a K-length complex64 vector and a KxN complex64 matrix.
+/// Computes the vector-matrix product of a K-length complex64 vector and a KxN
+/// complex64 matrix, without conjugating x.
 /// x and A are interleaved [re0, im0, re1, im1, ...]
 /// y is also interleaved [re0, im0, re1, im1, ...]
 export fn vecmat_c64(x: [*]const f32, A: [*]const f32, y: [*]f32, K: u32, N: u32) void {
     // Zero output (2 f32s per complex element)
     @memset(y[0 .. @as(usize, N) * 2], 0);
-    // vecmat computes conj(x) @ A, matching NumPy's convention
+    // The plain product x @ A, with no conjugation: this kernel backs dot and
+    // matmul, which do not conjugate. vecmat's conj(x) @ A is built by
+    // conjugating x before the call.
     for (0..K) |k| {
         const x_re = x[k * 2];
-        const x_im = -x[k * 2 + 1]; // conjugate
+        const x_im = x[k * 2 + 1];
         const a_row = k * N * 2; // 2 f32s per complex element
-        // Scalar loop: conj(x) * A multiply-accumulate
         for (0..N) |j| {
             const idx = j * 2;
             const a_re = A[a_row + idx];
             const a_im = A[a_row + idx + 1];
-            // (x_re - x_im*i) * (a_re + a_im*i)
             y[idx] += x_re * a_re - x_im * a_im;
             y[idx + 1] += x_re * a_im + x_im * a_re;
         }
@@ -119,31 +121,46 @@ test "vecmat_f32 basic" {
     try testing.expectApproxEqAbs(y[2], 0.0, 1e-5);
 }
 
-test "vecmat_c128 basic" {
+test "vecmat_c128 does not conjugate x" {
     const testing = @import("std").testing;
     // x = [(1+2i)], A = [[(3+4i), (5+6i)]], K=1, N=2
-    // conj(x) = [(1-2i)]
-    // y[0] = (1-2i)*(3+4i) = 3+4i-6i+8 = 11-2i
-    // y[1] = (1-2i)*(5+6i) = 5+6i-10i+12 = 17-4i
+    // y[0] = (1+2i)*(3+4i) = 3+4i+6i-8 = -5+10i
+    // y[1] = (1+2i)*(5+6i) = 5+6i+10i-12 = -7+16i
+    // Conjugating x instead would give 11-2i and 17-4i, so this pins the
+    // convention rather than just the arithmetic.
     const x = [_]f64{ 1, 2 };
     const A = [_]f64{ 3, 4, 5, 6 };
     var y: [4]f64 = undefined;
     vecmat_c128(&x, &A, &y, 1, 2);
-    try testing.expectApproxEqAbs(y[0], 11.0, 1e-10);
-    try testing.expectApproxEqAbs(y[1], -2.0, 1e-10);
-    try testing.expectApproxEqAbs(y[2], 17.0, 1e-10);
+    try testing.expectApproxEqAbs(y[0], -5.0, 1e-10);
+    try testing.expectApproxEqAbs(y[1], 10.0, 1e-10);
+    try testing.expectApproxEqAbs(y[2], -7.0, 1e-10);
+    try testing.expectApproxEqAbs(y[3], 16.0, 1e-10);
+}
+
+test "vecmat_c128 two-term accumulation" {
+    const testing = @import("std").testing;
+    // x = [(1+2i), (-3+1i)], A = [[(2+1i), (0-1i)], [(1+1i), (3+2i)]]
+    // y[0] = (1+2i)(2+1i) + (-3+1i)(1+1i) = (0+5i) + (-4-2i) = -4+3i
+    // y[1] = (1+2i)(0-1i) + (-3+1i)(3+2i) = (2-1i) + (-11-3i) = -9-4i
+    const x = [_]f64{ 1, 2, -3, 1 };
+    const A = [_]f64{ 2, 1, 0, -1, 1, 1, 3, 2 };
+    var y: [4]f64 = undefined;
+    vecmat_c128(&x, &A, &y, 2, 2);
+    try testing.expectApproxEqAbs(y[0], -4.0, 1e-10);
+    try testing.expectApproxEqAbs(y[1], 3.0, 1e-10);
+    try testing.expectApproxEqAbs(y[2], -9.0, 1e-10);
     try testing.expectApproxEqAbs(y[3], -4.0, 1e-10);
 }
 
-test "vecmat_c64 basic" {
+test "vecmat_c64 does not conjugate x" {
     const testing = @import("std").testing;
-    // Same as c128 but f32 — conj(x) @ A
     const x = [_]f32{ 1, 2 };
     const A = [_]f32{ 3, 4, 5, 6 };
     var y: [4]f32 = undefined;
     vecmat_c64(&x, &A, &y, 1, 2);
-    try testing.expectApproxEqAbs(y[0], 11.0, 1e-5);
-    try testing.expectApproxEqAbs(y[1], -2.0, 1e-5);
-    try testing.expectApproxEqAbs(y[2], 17.0, 1e-5);
-    try testing.expectApproxEqAbs(y[3], -4.0, 1e-5);
+    try testing.expectApproxEqAbs(y[0], -5.0, 1e-5);
+    try testing.expectApproxEqAbs(y[1], 10.0, 1e-5);
+    try testing.expectApproxEqAbs(y[2], -7.0, 1e-5);
+    try testing.expectApproxEqAbs(y[3], 16.0, 1e-5);
 }

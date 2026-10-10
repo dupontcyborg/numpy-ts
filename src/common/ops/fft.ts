@@ -736,6 +736,10 @@ function wasmBatchIrfft(a: ArrayStorage, nOut: number): ArrayStorage | null {
   }
 
   const outData = wasmIrfftBatch(srcData, nHalf, nOut, batch, inStride, outStride);
+  // toComplex allocates unconditionally. srcData may alias its buffer, so the
+  // release has to wait until the kernel above has read it, but it must happen
+  // on the null path too or every rejected call leaks the promoted copy.
+  cplx.dispose();
   if (!outData) return null;
 
   const outShape = [...shape];

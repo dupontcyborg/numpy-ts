@@ -8,6 +8,7 @@
  * to keep the codebase modular and testable.
  */
 
+import { broadcastTo } from '../broadcasting';
 import type { Complex } from '../complex';
 import {
   type DType,
@@ -206,14 +207,23 @@ export function power(a: ArrayStorage, b: ArrayStorage | number): ArrayStorage {
  * Complex power with array exponent
  * @private
  */
-function complexPowerArray(a: ArrayStorage, b: ArrayStorage): ArrayStorage {
-  const aIsComplex = isComplexDType(a.dtype);
-  const bIsComplex = isComplexDType(b.dtype);
+function complexPowerArray(aIn: ArrayStorage, bIn: ArrayStorage): ArrayStorage {
+  const aIsComplex = isComplexDType(aIn.dtype);
+  const bIsComplex = isComplexDType(bIn.dtype);
 
   // Use standard promotion rules for complex result dtype
-  const resultDtype: DType = promoteDTypes(a.dtype, b.dtype);
+  const resultDtype: DType = promoteDTypes(aIn.dtype, bIn.dtype);
 
-  const shape = Array.from(a.shape);
+  // The loop below walks both operands with a single counter, so they have to
+  // share a shape already. Without this the result silently keeps a's shape.
+  const aShape = aIn.shape;
+  const bShape = bIn.shape;
+  const sameShape = aShape.length === bShape.length && aShape.every((dim, i) => dim === bShape[i]);
+  const outShape = sameShape ? Array.from(aShape) : broadcastShapes(aShape, bShape);
+  const a = sameShape ? aIn : broadcastTo(aIn, outShape);
+  const b = sameShape ? bIn : broadcastTo(bIn, outShape);
+
+  const shape = outShape;
   const size = a.size;
   const result = ArrayStorage.empty(shape, resultDtype);
   const dstData = result.data as Float64Array | Float32Array;

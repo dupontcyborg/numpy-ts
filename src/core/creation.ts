@@ -106,11 +106,16 @@ export function full(
   } else if (actualDtype === 'bool') {
     (data as Uint8Array).fill(fill_value ? 1 : 0);
   } else if (isComplexDType(actualDtype)) {
-    // Complex storage is interleaved [re, im, re, im, ...]; fill imaginary part with 0
-    const v = Number(fill_value);
-    for (let i = 0; i < data.length; i += 2) {
-      (data as Float64Array)[i] = v;
-      (data as Float64Array)[i + 1] = 0;
+    // Complex storage is interleaved [re, im, re, im, ...]. The fill value
+    // carries its own imaginary part when it is a Complex; coercing it with
+    // Number() would store NaN and silently drop that half.
+    const c = fill_value as { re?: number; im?: number };
+    const re = typeof c?.re === 'number' ? c.re : Number(fill_value);
+    const im = typeof c?.im === 'number' ? c.im : 0;
+    const buf = data as Float64Array | Float32Array;
+    for (let i = 0; i < buf.length; i += 2) {
+      buf[i] = re;
+      buf[i + 1] = im;
     }
   } else {
     (data as Exclude<TypedArray, BigInt64Array | BigUint64Array>).fill(Number(fill_value));
@@ -512,10 +517,14 @@ export function eye(
     }
   } else {
     const typedData = data as Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+    // A complex element occupies two slots, so the diagonal index has to be
+    // doubled; writing it unscaled puts the ones in the imaginary half of the
+    // wrong cell and leaves the lower rows empty.
+    const stride = isComplexDType(dtype) ? 2 : 1;
     for (let i = 0; i < n; i++) {
       const j = i + k;
       if (j >= 0 && j < cols) {
-        typedData[i * cols + j] = 1;
+        typedData[(i * cols + j) * stride] = 1;
       }
     }
   }
@@ -894,15 +903,30 @@ export function vander(x: NDArrayCore, N?: number, increasing: boolean = false):
 
   for (let i = 0; i < n; i++) {
     const val = Number(typeof data[i] === 'bigint' ? data[i] : data[isComplex ? i * 2 : i]);
+    const valIm = isComplex ? Number((data as Float64Array)[i * 2 + 1]) : 0;
     for (let j = 0; j < cols; j++) {
       const exp = increasing ? j : cols - 1 - j;
       const v = val ** exp;
       const idx = i * cols + j;
       if (isBigInt) {
-        (resultData as unknown as BigInt64Array)[idx] = BigInt(Math.round(v));
+        // Raising in doubles first loses every bit above 2^53 and lands on 0
+        // for the larger powers; NumPy wraps the 64-bit result instead.
+        let acc = 1n;
+        const base = BigInt(Math.round(val));
+        for (let k = 0; k < exp; k++) acc = BigInt.asIntN(64, acc * base);
+        (resultData as unknown as BigInt64Array)[idx] = acc;
       } else if (isComplex) {
-        (resultData as Float64Array)[idx * 2] = v;
-        (resultData as Float64Array)[idx * 2 + 1] = 0;
+        // The power has to be taken over the complex numbers; using the real
+        // part alone drops the imaginary half of every entry.
+        let re = 1;
+        let im = 0;
+        for (let k = 0; k < exp; k++) {
+          const nextRe = re * val - im * valIm;
+          im = re * valIm + im * val;
+          re = nextRe;
+        }
+        (resultData as Float64Array)[idx * 2] = re;
+        (resultData as Float64Array)[idx * 2 + 1] = im;
       } else {
         (resultData as Float64Array)[idx] = v;
       }

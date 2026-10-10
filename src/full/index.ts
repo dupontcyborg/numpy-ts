@@ -1408,16 +1408,18 @@ export function polysub<A extends DType = 'float64', B extends DType = 'float64'
 export function polyval(
   p: NDArrayCore | number[],
   x: NDArrayCore | number | number[],
-): NDArray | number {
+): NDArray | number | Complex {
   const r = core.polyval(p, x);
   return r instanceof NDArrayCore ? up(r) : r;
 }
 
 /**
- * Find the roots of a polynomial.
+ * Find the roots of a polynomial as the eigenvalues of its companion matrix,
+ * the same method NumPy uses. The result is complex64 for float32 or complex64
+ * coefficients and complex128 otherwise, even when every root is real.
  *
- * Uses the companion matrix eigenvalue method (same as NumPy).
- * Always returns a complex128 NDArrayCore.
+ * @param p - Coefficients, highest power first
+ * @returns The roots, sorted by descending magnitude
  */
 export function roots(p: NDArrayCore | number[]): NDArray {
   return up(core.roots(p));

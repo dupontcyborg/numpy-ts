@@ -10,19 +10,57 @@ import * as np from '../../../src';
 import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
-  arraysClose,
+  asDtypeData,
   checkNumPyAvailable,
   expectBothReject,
   expectBothRejectPre,
+  expectComplexFixture,
+  expectMatchPre,
   npDtype,
   pyArrayCast,
   pyScalarCast,
   runNumPyBatch,
   scalarClose,
-  toComparable,
 } from './_helpers';
 
 const { array } = np;
+
+/**
+ * Single definition of every fixture, read by both the oracle snippets and the
+ * test bodies. Declaring the same logical input twice lets the two sides drift
+ * apart and compare different arrays. Complex dtypes carry a real imaginary
+ * part here, so the imaginary half of each op is actually exercised.
+ */
+function fixtures(dtype: string) {
+  const b = dtype === 'bool';
+  return {
+    mat: asDtypeData(
+      b
+        ? [
+            [1, 0],
+            [0, 1],
+          ]
+        : [
+            [1, 2],
+            [3, 4],
+          ],
+      dtype,
+    ),
+    vec: asDtypeData(b ? [1, 0] : [3, 4], dtype),
+    id: asDtypeData(
+      [
+        [1, 0],
+        [0, 1],
+      ],
+      dtype,
+    ),
+    tsB: asDtypeData(b ? [1, 0] : [1, 2], dtype),
+    crossA: asDtypeData(b ? [1, 0, 1] : [1, 2, 3], dtype),
+    crossB: asDtypeData(b ? [0, 1, 0] : [4, 5, 6], dtype),
+    dotA: asDtypeData(b ? [1, 0] : [1, 2], dtype),
+    dotB: asDtypeData(b ? [0, 1] : [3, 4], dtype),
+  };
+}
 
 // Pre-computed oracle results — filled in beforeAll
 let oracle: Map<string, NumPyResult & { error?: string }>;
@@ -33,104 +71,99 @@ beforeAll(() => {
   const snippets: Record<string, string> = {};
 
   for (const dtype of ALL_DTYPES) {
-    const mat =
-      dtype === 'bool'
-        ? [
-            [1, 0],
-            [0, 1],
-          ]
-        : [
-            [1, 2],
-            [3, 4],
-          ];
-    const vec = dtype === 'bool' ? [1, 0] : [3, 4];
+    const f = fixtures(dtype);
     const sc = pyScalarCast(dtype);
     const ac = pyArrayCast(dtype);
+    const dt = npDtype(dtype);
 
     snippets[`linalg_matrix_rank_${dtype}`] =
-      `result = int(np.linalg.matrix_rank(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})))`;
+      `result = int(np.linalg.matrix_rank(np.array(${f.mat.py}, dtype=${dt})))`;
 
     snippets[`linalg_matrix_power_${dtype}`] = `
-a = np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})
-result = np.linalg.matrix_power(a, 2).astype(${ac})`;
+a = np.array(${f.mat.py}, dtype=${dt})
+_result_orig = np.linalg.matrix_power(a, 2)
+result = _result_orig.astype(${ac})`;
 
     snippets[`linalg_pinv_${dtype}`] = `
-result = np.linalg.pinv(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})).astype(${ac})`;
+_result_orig = np.linalg.pinv(np.array(${f.mat.py}, dtype=${dt}))
+result = _result_orig.astype(${ac})`;
 
     snippets[`linalg_cond_${dtype}`] =
-      `result = ${sc}(np.linalg.cond(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})))`;
+      `result = ${sc}(np.linalg.cond(np.array(${f.mat.py}, dtype=${dt})))`;
 
     snippets[`linalg_slogdet_${dtype}`] = `
-sign, logabsdet = np.linalg.slogdet(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)}))
+sign, logabsdet = np.linalg.slogdet(np.array(${f.mat.py}, dtype=${dt}))
 result = np.array([${sc}(sign), ${sc}(logabsdet)])`;
 
     snippets[`linalg_svdvals_${dtype}`] = `
-result = np.linalg.svdvals(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})).astype(${ac})`;
+_result_orig = np.linalg.svdvals(np.array(${f.mat.py}, dtype=${dt}))
+result = _result_orig.astype(${ac})`;
 
     snippets[`linalg_multi_dot_${dtype}`] = `
-a = np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})
-result = np.linalg.multi_dot([a, a]).astype(${ac})`;
+a = np.array(${f.mat.py}, dtype=${dt})
+_result_orig = np.linalg.multi_dot([a, a])
+result = _result_orig.astype(${ac})`;
 
     snippets[`linalg_vector_norm_${dtype}`] =
-      `result = ${sc}(np.linalg.vector_norm(np.array(${JSON.stringify(vec)}, dtype=${npDtype(dtype)})))`;
+      `result = ${sc}(np.linalg.vector_norm(np.array(${f.vec.py}, dtype=${dt})))`;
 
     snippets[`linalg_matrix_norm_${dtype}`] =
-      `result = ${sc}(np.linalg.matrix_norm(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})))`;
+      `result = ${sc}(np.linalg.matrix_norm(np.array(${f.mat.py}, dtype=${dt})))`;
 
-    const id = [
-      [1, 0],
-      [0, 1],
-    ];
     snippets[`linalg_tensorinv_${dtype}`] = `
-result = np.linalg.tensorinv(np.array(${JSON.stringify(id)}, dtype=${npDtype(dtype)}), ind=1).astype(${ac})`;
+_result_orig = np.linalg.tensorinv(np.array(${f.id.py}, dtype=${dt}), ind=1)
+result = _result_orig.astype(${ac})`;
 
-    const tsB = dtype === 'bool' ? [1, 0] : [1, 2];
     snippets[`linalg_tensorsolve_${dtype}`] = `
-result = np.linalg.tensorsolve(np.array(${JSON.stringify(id)}, dtype=${npDtype(dtype)}), np.array(${JSON.stringify(tsB)}, dtype=${npDtype(dtype)})).astype(${ac})`;
+_result_orig = np.linalg.tensorsolve(np.array(${f.id.py}, dtype=${dt}), np.array(${f.tsB.py}, dtype=${dt}))
+result = _result_orig.astype(${ac})`;
 
-    const crossA = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
-    const crossB = dtype === 'bool' ? [0, 1, 0] : [4, 5, 6];
     snippets[`linalg_cross_${dtype}`] = `
-a = np.array(${JSON.stringify(crossA)}, dtype=${npDtype(dtype)})
-b = np.array(${JSON.stringify(crossB)}, dtype=${npDtype(dtype)})
-result = np.cross(a, b).astype(${ac})`;
+a = np.array(${f.crossA.py}, dtype=${dt})
+b = np.array(${f.crossB.py}, dtype=${dt})
+_result_orig = np.cross(a, b)
+result = _result_orig.astype(${ac})`;
 
-    snippets[`linalg_vecdot_${dtype}`] = `
-result = ${sc}(np.vecdot(np.array(${JSON.stringify(crossA)}, dtype=${npDtype(dtype)}), np.array(${JSON.stringify(crossB)}, dtype=${npDtype(dtype)})))`;
+    snippets[`linalg_vecdot_${dtype}`] =
+      `result = ${sc}(np.vecdot(np.array(${f.crossA.py}, dtype=${dt}), np.array(${f.crossB.py}, dtype=${dt})))`;
 
-    const dotA = dtype === 'bool' ? [1, 0] : [1, 2];
-    const dotB = dtype === 'bool' ? [0, 1] : [3, 4];
-    snippets[`linalg_dot_${dtype}`] = `
-result = ${sc}(np.dot(np.array(${JSON.stringify(dotA)}, dtype=${npDtype(dtype)}), np.array(${JSON.stringify(dotB)}, dtype=${npDtype(dtype)})))`;
+    snippets[`linalg_dot_${dtype}`] =
+      `result = ${sc}(np.dot(np.array(${f.dotA.py}, dtype=${dt}), np.array(${f.dotB.py}, dtype=${dt})))`;
 
-    snippets[`linalg_inner_${dtype}`] = `
-result = ${sc}(np.inner(np.array(${JSON.stringify(dotA)}, dtype=${npDtype(dtype)}), np.array(${JSON.stringify(dotB)}, dtype=${npDtype(dtype)})))`;
+    snippets[`linalg_inner_${dtype}`] =
+      `result = ${sc}(np.inner(np.array(${f.dotA.py}, dtype=${dt}), np.array(${f.dotB.py}, dtype=${dt})))`;
 
     snippets[`linalg_outer_${dtype}`] = `
-result = np.outer(np.array(${JSON.stringify(dotA)}, dtype=${npDtype(dtype)}), np.array(${JSON.stringify(dotB)}, dtype=${npDtype(dtype)})).astype(${ac})`;
+_result_orig = np.outer(np.array(${f.dotA.py}, dtype=${dt}), np.array(${f.dotB.py}, dtype=${dt}))
+result = _result_orig.astype(${ac})`;
 
     snippets[`linalg_matmul_${dtype}`] = `
-a = np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})
-result = np.matmul(a, a).astype(${ac})`;
+a = np.array(${f.mat.py}, dtype=${dt})
+_result_orig = np.matmul(a, a)
+result = _result_orig.astype(${ac})`;
 
     snippets[`linalg_tensordot_${dtype}`] = `
-a = np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})
+a = np.array(${f.mat.py}, dtype=${dt})
 result = ${sc}(np.tensordot(a, a))`;
 
     snippets[`linalg_trace_${dtype}`] =
-      `result = ${sc}(np.trace(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})))`;
+      `result = ${sc}(np.trace(np.array(${f.mat.py}, dtype=${dt})))`;
 
-    snippets[`linalg_diagonal_${dtype}`] =
-      `result = np.diagonal(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})).astype(${ac})`;
+    snippets[`linalg_diagonal_${dtype}`] = `
+_result_orig = np.diagonal(np.array(${f.mat.py}, dtype=${dt}))
+result = _result_orig.astype(${ac})`;
 
-    snippets[`linalg_transpose_${dtype}`] =
-      `result = np.transpose(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)})).astype(${ac})`;
+    snippets[`linalg_transpose_${dtype}`] = `
+_result_orig = np.transpose(np.array(${f.mat.py}, dtype=${dt}))
+result = _result_orig.astype(${ac})`;
 
-    snippets[`linalg_matrix_transpose_${dtype}`] =
-      `result = np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)}).T.astype(${ac})`;
+    snippets[`linalg_matrix_transpose_${dtype}`] = `
+_result_orig = np.array(${f.mat.py}, dtype=${dt}).T
+result = _result_orig.astype(${ac})`;
 
-    snippets[`linalg_permute_dims_${dtype}`] =
-      `result = np.transpose(np.array(${JSON.stringify(mat)}, dtype=${npDtype(dtype)}), [1, 0]).astype(${ac})`;
+    snippets[`linalg_permute_dims_${dtype}`] = `
+_result_orig = np.transpose(np.array(${f.mat.py}, dtype=${dt}), [1, 0])
+result = _result_orig.astype(${ac})`;
   }
 
   oracle = runNumPyBatch(snippets);
@@ -138,242 +171,223 @@ result = ${sc}(np.tensordot(a, a))`;
 
 describe('DType Sweep: linalg ops', () => {
   for (const dtype of ALL_DTYPES) {
-    const mat =
-      dtype === 'bool'
-        ? [
-            [1, 0],
-            [0, 1],
-          ]
-        : [
-            [1, 2],
-            [3, 4],
-          ];
-    const vec = dtype === 'bool' ? [1, 0] : [3, 4];
+    const f = fixtures(dtype);
 
     it(`linalg.matrix_rank ${dtype}`, () => {
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `matrix_rank ${dtype}`);
       const py = oracle.get(`linalg_matrix_rank_${dtype}`)!;
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
-        () => np.linalg.matrix_rank(array(mat, dtype)),
+        () => np.linalg.matrix_rank(a),
         py,
       );
       if (r === 'both-reject') return;
-      expect(Number(np.linalg.matrix_rank(array(mat, dtype)))).toBe(Number(py.value));
+      expect(Number(np.linalg.matrix_rank(a))).toBe(Number(py.value));
     });
 
     it(`linalg.matrix_power ${dtype}`, () => {
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `matrix_power ${dtype}`);
       const py = oracle.get(`linalg_matrix_power_${dtype}`)!;
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
-        () => np.linalg.matrix_power(array(mat, dtype), 2),
+        () => np.linalg.matrix_power(a, 2),
         py,
       );
       if (r === 'both-reject') return;
-      expect(
-        arraysClose(toComparable(np.linalg.matrix_power(array(mat, dtype), 2)), py.value, 1e-4),
-      ).toBe(true);
+      expectMatchPre(np.linalg.matrix_power(a, 2), py, { rtol: 1e-4 });
     });
 
     it(`linalg.pinv ${dtype}`, () => {
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `pinv ${dtype}`);
       const py = oracle.get(`linalg_pinv_${dtype}`)!;
-      const r = expectBothRejectPre(
-        'float16 unsupported in linalg',
-        () => np.linalg.pinv(array(mat, dtype)),
-        py,
-      );
+      const r = expectBothRejectPre('float16 unsupported in linalg', () => np.linalg.pinv(a), py);
       if (r === 'both-reject') return;
-      expect(arraysClose(toComparable(np.linalg.pinv(array(mat, dtype))), py.value, 1e-4)).toBe(
-        true,
-      );
+      expectMatchPre(np.linalg.pinv(a), py, { rtol: 1e-4, atol: 1e-6 });
     });
 
     it(`linalg.cond ${dtype}`, () => {
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `cond ${dtype}`);
       const py = oracle.get(`linalg_cond_${dtype}`)!;
-      const r = expectBothRejectPre(
-        'float16 unsupported in linalg',
-        () => np.linalg.cond(array(mat, dtype)),
-        py,
-      );
+      const r = expectBothRejectPre('float16 unsupported in linalg', () => np.linalg.cond(a), py);
       if (r === 'both-reject') return;
-      scalarClose(np.linalg.cond(array(mat, dtype)), py.value);
+      scalarClose(np.linalg.cond(a), py.value);
     });
 
     it(`linalg.slogdet ${dtype}`, () => {
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `slogdet ${dtype}`);
       const py = oracle.get(`linalg_slogdet_${dtype}`)!;
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
-        () => np.linalg.slogdet(array(mat, dtype)),
+        () => np.linalg.slogdet(a),
         py,
       );
       if (r === 'both-reject') return;
-      const { sign, logabsdet } = np.linalg.slogdet(array(mat, dtype)) as any;
+      const { sign, logabsdet } = np.linalg.slogdet(a) as any;
       scalarClose(sign, py.value[0]);
       scalarClose(logabsdet, py.value[1]);
     });
 
     it(`linalg.svdvals ${dtype}`, () => {
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `svdvals ${dtype}`);
       const py = oracle.get(`linalg_svdvals_${dtype}`)!;
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
-        () => np.linalg.svdvals(array(mat, dtype)),
+        () => np.linalg.svdvals(a),
         py,
       );
       if (r === 'both-reject') return;
-      expect(arraysClose(toComparable(np.linalg.svdvals(array(mat, dtype))), py.value, 1e-4)).toBe(
-        true,
-      );
+      expectMatchPre(np.linalg.svdvals(a), py, { rtol: 1e-4 });
     });
 
     it(`linalg.multi_dot ${dtype}`, () => {
-      const a = array(mat, dtype);
-      const jsResult = np.linalg.multi_dot([a, a]);
-      const py = oracle.get(`linalg_multi_dot_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value, 1e-4)).toBe(true);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `multi_dot ${dtype}`);
+      expectMatchPre(np.linalg.multi_dot([a, a]), oracle.get(`linalg_multi_dot_${dtype}`)!, {
+        rtol: 1e-4,
+      });
     });
 
     it(`linalg.vector_norm ${dtype}`, () => {
-      const jsResult = np.linalg.vector_norm(array(vec, dtype));
-      const py = oracle.get(`linalg_vector_norm_${dtype}`)!;
-      scalarClose(jsResult, py.value);
+      const a = array(f.vec.js, dtype);
+      expectComplexFixture(a, dtype, `vector_norm ${dtype}`);
+      scalarClose(np.linalg.vector_norm(a), oracle.get(`linalg_vector_norm_${dtype}`)!.value);
     });
 
     it(`linalg.matrix_norm ${dtype}`, () => {
-      const jsResult = np.linalg.matrix_norm(array(mat, dtype));
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `matrix_norm ${dtype}`);
       const py = oracle.get(`linalg_matrix_norm_${dtype}`)!;
-      scalarClose(jsResult, py.value, dtype === 'float16' ? 2 : 4);
+      scalarClose(np.linalg.matrix_norm(a), py.value, dtype === 'float16' ? 2 : 4);
     });
 
     it(`linalg.tensorinv ${dtype}`, () => {
-      const id = [
-        [1, 0],
-        [0, 1],
-      ];
+      const a = array(f.id.js, dtype);
+      expectComplexFixture(a, dtype, `tensorinv ${dtype}`);
       const py = oracle.get(`linalg_tensorinv_${dtype}`)!;
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
-        () => np.linalg.tensorinv(array(id, dtype), 1),
+        () => np.linalg.tensorinv(a, 1),
         py,
       );
       if (r === 'both-reject') return;
-      expect(
-        arraysClose(toComparable(np.linalg.tensorinv(array(id, dtype), 1)), py.value, 1e-4),
-      ).toBe(true);
+      expectMatchPre(np.linalg.tensorinv(a, 1), py, { rtol: 1e-4 });
     });
 
     it(`linalg.tensorsolve ${dtype}`, () => {
-      const id = [
-        [1, 0],
-        [0, 1],
-      ];
-      const b = dtype === 'bool' ? [1, 0] : [1, 2];
+      const a = array(f.id.js, dtype);
+      const b = array(f.tsB.js, dtype);
+      expectComplexFixture(a, dtype, `tensorsolve ${dtype}`);
       const py = oracle.get(`linalg_tensorsolve_${dtype}`)!;
       const r = expectBothRejectPre(
         'float16 unsupported in linalg',
-        () => np.linalg.tensorsolve(array(id, dtype), array(b, dtype)),
+        () => np.linalg.tensorsolve(a, b),
         py,
       );
       if (r === 'both-reject') return;
-      expect(
-        arraysClose(
-          toComparable(np.linalg.tensorsolve(array(id, dtype), array(b, dtype))),
-          py.value,
-          1e-4,
-        ),
-      ).toBe(true);
+      expectMatchPre(np.linalg.tensorsolve(a, b), py, { rtol: 1e-4 });
     });
 
     it(`linalg.cross ${dtype}`, () => {
-      const a = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
-      const b = dtype === 'bool' ? [0, 1, 0] : [4, 5, 6];
+      const a = array(f.crossA.js, dtype);
+      const b = array(f.crossB.js, dtype);
+      expectComplexFixture(a, dtype, `cross ${dtype}`);
       if (dtype === 'bool') {
         const pyCode = `
-a = np.array(${JSON.stringify(a)}, dtype=${npDtype(dtype)})
-b = np.array(${JSON.stringify(b)}, dtype=${npDtype(dtype)})
+a = np.array(${f.crossA.py}, dtype=${npDtype(dtype)})
+b = np.array(${f.crossB.py}, dtype=${npDtype(dtype)})
 result = np.cross(a, b)`;
         const _r = expectBothReject(
           'cross uses subtract internally, not supported for bool',
-          () => np.linalg.cross(array(a, dtype), array(b, dtype)),
+          () => np.linalg.cross(a, b),
           pyCode,
         );
         if (_r === 'both-reject') return;
       }
-      const jsResult = np.linalg.cross(array(a, dtype), array(b, dtype));
-      const py = oracle.get(`linalg_cross_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value, 1e-4)).toBe(true);
+      expectMatchPre(np.linalg.cross(a, b), oracle.get(`linalg_cross_${dtype}`)!, { rtol: 1e-4 });
     });
 
     it(`linalg.vecdot ${dtype}`, () => {
-      const a = dtype === 'bool' ? [1, 0, 1] : [1, 2, 3];
-      const b = dtype === 'bool' ? [0, 1, 0] : [4, 5, 6];
-      const jsResult = np.linalg.vecdot(array(a, dtype), array(b, dtype));
-      const py = oracle.get(`linalg_vecdot_${dtype}`)!;
-      scalarClose(jsResult, py.value);
+      const a = array(f.crossA.js, dtype);
+      const b = array(f.crossB.js, dtype);
+      expectComplexFixture(a, dtype, `vecdot ${dtype}`);
+      scalarClose(np.linalg.vecdot(a, b), oracle.get(`linalg_vecdot_${dtype}`)!.value);
     });
 
     it(`linalg.dot ${dtype}`, () => {
-      const a = dtype === 'bool' ? [1, 0] : [1, 2];
-      const b = dtype === 'bool' ? [0, 1] : [3, 4];
-      const jsResult = np.linalg.dot(array(a, dtype), array(b, dtype));
-      const py = oracle.get(`linalg_dot_${dtype}`)!;
-      scalarClose(jsResult, py.value);
+      const a = array(f.dotA.js, dtype);
+      const b = array(f.dotB.js, dtype);
+      expectComplexFixture(a, dtype, `dot ${dtype}`);
+      scalarClose(np.linalg.dot(a, b), oracle.get(`linalg_dot_${dtype}`)!.value);
     });
 
     it(`linalg.inner ${dtype}`, () => {
-      const a = dtype === 'bool' ? [1, 0] : [1, 2];
-      const b = dtype === 'bool' ? [0, 1] : [3, 4];
-      const jsResult = np.linalg.inner(array(a, dtype), array(b, dtype));
-      const py = oracle.get(`linalg_inner_${dtype}`)!;
-      scalarClose(jsResult, py.value);
+      const a = array(f.dotA.js, dtype);
+      const b = array(f.dotB.js, dtype);
+      expectComplexFixture(a, dtype, `inner ${dtype}`);
+      scalarClose(np.linalg.inner(a, b), oracle.get(`linalg_inner_${dtype}`)!.value);
     });
 
     it(`linalg.outer ${dtype}`, () => {
-      const a = dtype === 'bool' ? [1, 0] : [1, 2];
-      const b = dtype === 'bool' ? [0, 1] : [3, 4];
-      const jsResult = np.linalg.outer(array(a, dtype), array(b, dtype));
-      const py = oracle.get(`linalg_outer_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value, 1e-4)).toBe(true);
+      const a = array(f.dotA.js, dtype);
+      const b = array(f.dotB.js, dtype);
+      expectComplexFixture(a, dtype, `outer ${dtype}`);
+      expectMatchPre(np.linalg.outer(a, b), oracle.get(`linalg_outer_${dtype}`)!, { rtol: 1e-4 });
     });
 
     it(`linalg.matmul ${dtype}`, () => {
-      const jsResult = np.linalg.matmul(array(mat, dtype), array(mat, dtype));
-      const py = oracle.get(`linalg_matmul_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value, 1e-4)).toBe(true);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `matmul ${dtype}`);
+      expectMatchPre(np.linalg.matmul(a, a), oracle.get(`linalg_matmul_${dtype}`)!, {
+        rtol: 1e-4,
+      });
     });
 
     it(`linalg.tensordot ${dtype}`, () => {
-      const jsResult = np.linalg.tensordot(array(mat, dtype), array(mat, dtype));
-      const py = oracle.get(`linalg_tensordot_${dtype}`)!;
-      scalarClose(jsResult, py.value);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `tensordot ${dtype}`);
+      scalarClose(np.linalg.tensordot(a, a), oracle.get(`linalg_tensordot_${dtype}`)!.value);
     });
 
     it(`linalg.trace ${dtype}`, () => {
-      const jsResult = np.linalg.trace(array(mat, dtype));
-      const py = oracle.get(`linalg_trace_${dtype}`)!;
-      scalarClose(jsResult, py.value);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `trace ${dtype}`);
+      scalarClose(np.linalg.trace(a), oracle.get(`linalg_trace_${dtype}`)!.value);
     });
 
     it(`linalg.diagonal ${dtype}`, () => {
-      const jsResult = np.linalg.diagonal(array(mat, dtype));
-      const py = oracle.get(`linalg_diagonal_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value)).toBe(true);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `diagonal ${dtype}`);
+      expectMatchPre(np.linalg.diagonal(a), oracle.get(`linalg_diagonal_${dtype}`)!);
     });
 
     it(`linalg.transpose ${dtype}`, () => {
-      const jsResult = np.linalg.transpose(array(mat, dtype));
-      const py = oracle.get(`linalg_transpose_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value)).toBe(true);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `transpose ${dtype}`);
+      expectMatchPre(np.linalg.transpose(a), oracle.get(`linalg_transpose_${dtype}`)!);
     });
 
     it(`linalg.matrix_transpose ${dtype}`, () => {
-      const jsResult = np.linalg.matrix_transpose(array(mat, dtype));
-      const py = oracle.get(`linalg_matrix_transpose_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value)).toBe(true);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `matrix_transpose ${dtype}`);
+      expectMatchPre(
+        np.linalg.matrix_transpose(a),
+        oracle.get(`linalg_matrix_transpose_${dtype}`)!,
+      );
     });
 
     it(`linalg.permute_dims ${dtype}`, () => {
-      const jsResult = np.linalg.permute_dims(array(mat, dtype), [1, 0]);
-      const py = oracle.get(`linalg_permute_dims_${dtype}`)!;
-      expect(arraysClose(toComparable(jsResult), py.value)).toBe(true);
+      const a = array(f.mat.js, dtype);
+      expectComplexFixture(a, dtype, `permute_dims ${dtype}`);
+      expectMatchPre(
+        np.linalg.permute_dims(a, [1, 0]),
+        oracle.get(`linalg_permute_dims_${dtype}`)!,
+      );
     });
   }
 });

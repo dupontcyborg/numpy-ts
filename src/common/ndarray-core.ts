@@ -481,7 +481,9 @@ export class NDArrayCore<D extends DType = DType> {
         }
       } else if (dtype === 'bool') {
         for (let i = 0; i < size; i++) {
-          (newData as Uint8Array)[i] = oldData[i * 2]! !== 0 ? 1 : 0;
+          // A complex number is truthy when either component is nonzero, so
+          // 0-0.5j is true. Testing only the real part makes it false.
+          (newData as Uint8Array)[i] = oldData[i * 2]! !== 0 || oldData[i * 2 + 1]! !== 0 ? 1 : 0;
         }
       } else if (dtype === 'uint32') {
         // Complex → uint32: NumPy clamps negatives/NaN to 0

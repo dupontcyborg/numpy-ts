@@ -4,9 +4,11 @@
  * Tree-shakeable standalone functions for polynomial operations.
  */
 
+import { Complex } from '../common/complex';
 import type { DType } from '../common/dtype';
 import { isBigIntDType, promoteDTypes } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
+import { eigvals } from '../common/ops/linalg';
 import { ArrayStorage } from '../common/storage';
 import { array } from './creation';
 
@@ -26,25 +28,80 @@ function isComplex(dtype: DType): boolean {
   return dtype === 'complex128' || dtype === 'complex64';
 }
 
-/** Read complex array as real-only numbers (every other element) for poly ops.
- * NumPy poly functions work with complex coefficients, but our implementation
- * only supports real arithmetic. Extract real parts for now. */
-function readCoeffs(arr: NDArrayCore): number[] {
-  const data = arr.data;
+/** Coefficients split into parallel real and imaginary parts. */
+interface Coeffs {
+  re: number[];
+  im: number[];
+}
+
+/**
+ * Read coefficients in logical order as parallel real and imaginary parts. A
+ * real input gets an all-zero imaginary half, so each op runs one arithmetic
+ * path instead of branching on the dtype. Views are read through their offset
+ * and strides, so a slice or a reversed array yields its own elements.
+ *
+ * @param arr - Coefficient array, real or complex
+ * @returns Parallel re and im arrays, both of length arr.size
+ */
+function readParts(arr: NDArrayCore): Coeffs {
+  const storage = arr.storage;
   const n = arr.size;
-  if (isComplex(arr.dtype as DType)) {
-    // Complex: interleaved [re0, im0, re1, im1, ...], size = n, data.length = 2*n
-    const result: number[] = [];
+  const re: number[] = [];
+  const im: number[] = [];
+  const complex = isComplex(arr.dtype as DType);
+  if (!storage.isCContiguous) {
     for (let i = 0; i < n; i++) {
-      result.push(Number(data[2 * i]));
+      const v = storage.iget(i);
+      if (v instanceof Complex) {
+        re.push(v.re);
+        im.push(v.im);
+      } else {
+        re.push(Number(v));
+        im.push(0);
+      }
     }
-    return result;
+    return { re, im };
   }
-  const result: number[] = [];
+  const data = storage.data;
+  const off = storage.offset;
+  if (complex) {
+    // Interleaved re/im pairs; the offset counts elements, not buffer slots.
+    for (let i = 0; i < n; i++) {
+      re.push(Number(data[2 * (off + i)]));
+      im.push(Number(data[2 * (off + i) + 1]));
+    }
+    return { re, im };
+  }
   for (let i = 0; i < n; i++) {
-    result.push(readNum(data, i));
+    re.push(readNum(data, off + i));
+    im.push(0);
   }
-  return result;
+  return { re, im };
+}
+
+/**
+ * Build a 1D result from parallel parts, writing the interleaved buffer for a
+ * complex dtype and dropping the imaginary half for a real one.
+ *
+ * @param re - Real parts
+ * @param im - Imaginary parts, ignored when dtype is real
+ * @param dtype - Output dtype
+ * @returns The assembled array
+ */
+function fromParts(re: number[], im: number[], dtype: DType): NDArrayCore {
+  if (!isComplex(dtype)) return array(re, dtype);
+  const storage = ArrayStorage.empty([re.length], dtype);
+  const data = storage.data as Float64Array;
+  for (let i = 0; i < re.length; i++) {
+    data[2 * i] = re[i]!;
+    data[2 * i + 1] = im[i]!;
+  }
+  return new NDArrayCore(storage);
+}
+
+/** True when the coefficient at i is zero in both parts. */
+function isZeroAt(c: Coeffs, i: number): boolean {
+  return c.re[i] === 0 && c.im[i] === 0;
 }
 
 /** Reject bool subtract — NumPy raises TypeError for boolean `-` operator */
@@ -77,7 +134,8 @@ function polyintDtype(dt: DType): DType {
 }
 
 /**
- * Output dtype for polydiv: float → same, int/bool → float64, complex → same
+ * Dtype an operand takes in polydiv once NumPy adds 0.0 to it: float and
+ * complex keep their width, int and bool become float64.
  */
 function polydivDtype(dt: DType): DType {
   if (dt === 'complex128' || dt === 'complex64') return dt;
@@ -87,38 +145,63 @@ function polydivDtype(dt: DType): DType {
 }
 
 /**
+ * True when the roots, as a multiset, equal their own conjugates. Mirrors
+ * NumPy's test of sort(roots) == sort(conj(roots)) under its lexicographic
+ * complex ordering, so a pair that is conjugate only up to rounding stays
+ * complex exactly as it does there.
+ */
+function closedUnderConjugation(r: Coeffs): boolean {
+  const byReIm = (a: [number, number], b: [number, number]) => a[0] - b[0] || a[1] - b[1];
+  const roots = r.re.map((re, i) => [re, r.im[i]!] as [number, number]).sort(byReIm);
+  const conj = r.re.map((re, i) => [re, -r.im[i]!] as [number, number]).sort(byReIm);
+  return roots.every((v, i) => v[0] === conj[i]![0] && v[1] === conj[i]![1]);
+}
+
+/**
  * Find the coefficients of a polynomial with given roots
  */
 export function poly(seq_of_zeros: NDArrayCore | number[]): NDArrayCore {
   const roots = toArray(seq_of_zeros);
   const n = roots.size;
-  // NumPy: poly returns float64 for most dtypes, float32 for float32/complex64
-  const outDtype: DType =
-    roots.dtype === 'float32' || roots.dtype === 'complex64' ? 'float32' : 'float64';
+  // Complex roots keep their own width; real roots widen to float32/float64.
+  let outDtype: DType = isComplex(roots.dtype as DType)
+    ? (roots.dtype as DType)
+    : roots.dtype === 'float32'
+      ? 'float32'
+      : 'float64';
 
   if (n === 0) {
-    return array([1], outDtype);
+    return fromParts([1], [0], outDtype);
   }
 
-  const rootVals = readCoeffs(roots);
+  const r = readParts(roots);
 
-  // Start with [1]
-  let coeffs = [1];
+  let re = [1];
+  let im = [0];
 
   // Multiply by (x - root) for each root
   for (let i = 0; i < n; i++) {
-    const root = rootVals[i]!;
-    const newCoeffs = new Array(coeffs.length + 1).fill(0);
+    const rootRe = r.re[i]!;
+    const rootIm = r.im[i]!;
+    const nextRe = new Array(re.length + 1).fill(0);
+    const nextIm = new Array(re.length + 1).fill(0);
 
-    for (let j = 0; j < coeffs.length; j++) {
-      (newCoeffs[j] as number) += coeffs[j]!;
-      (newCoeffs[j + 1] as number) -= coeffs[j]! * root;
+    for (let j = 0; j < re.length; j++) {
+      nextRe[j] += re[j]!;
+      nextIm[j] += im[j]!;
+      nextRe[j + 1] -= re[j]! * rootRe - im[j]! * rootIm;
+      nextIm[j + 1] -= re[j]! * rootIm + im[j]! * rootRe;
     }
 
-    coeffs = newCoeffs;
+    re = nextRe;
+    im = nextIm;
   }
 
-  return array(coeffs, outDtype);
+  // Conjugate pairs give real coefficients, which NumPy returns as a real array.
+  if (isComplex(outDtype) && closedUnderConjugation(r)) {
+    outDtype = outDtype === 'complex64' ? 'float32' : 'float64';
+  }
+  return fromParts(re, im, outDtype);
 }
 
 /**
@@ -127,27 +210,34 @@ export function poly(seq_of_zeros: NDArrayCore | number[]): NDArrayCore {
 export function polyadd(a1: NDArrayCore | number[], a2: NDArrayCore | number[]): NDArrayCore {
   const p1 = toArray(a1);
   const p2 = toArray(a2);
-  const c1 = readCoeffs(p1);
-  const c2 = readCoeffs(p2);
+  const c1 = readParts(p1);
+  const c2 = readParts(p2);
 
-  const maxLen = Math.max(c1.length, c2.length);
-  const result = new Array(maxLen).fill(0);
+  const maxLen = Math.max(c1.re.length, c2.re.length);
+  const re = new Array(maxLen).fill(0);
+  const im = new Array(maxLen).fill(0);
 
-  for (let i = 0; i < c1.length; i++) {
-    result[maxLen - c1.length + i] += c1[i]!;
+  for (let i = 0; i < c1.re.length; i++) {
+    re[maxLen - c1.re.length + i] += c1.re[i]!;
+    im[maxLen - c1.re.length + i] += c1.im[i]!;
   }
-  for (let i = 0; i < c2.length; i++) {
-    result[maxLen - c2.length + i] += c2[i]!;
+  for (let i = 0; i < c2.re.length; i++) {
+    re[maxLen - c2.re.length + i] += c2.re[i]!;
+    im[maxLen - c2.re.length + i] += c2.im[i]!;
   }
 
   // Remove leading zeros
   let start = 0;
-  while (start < result.length - 1 && result[start] === 0) {
+  while (start < re.length - 1 && re[start] === 0 && im[start] === 0) {
     start++;
   }
 
   // NumPy promotes the coefficient dtypes (not just the first operand's).
-  return array(result.slice(start), promoteDTypes(p1.dtype as DType, p2.dtype as DType));
+  return fromParts(
+    re.slice(start),
+    im.slice(start),
+    promoteDTypes(p1.dtype as DType, p2.dtype as DType),
+  );
 }
 
 /**
@@ -158,20 +248,22 @@ export function polyder(p: NDArrayCore | number[], m: number = 1): NDArrayCore {
   const outDtype = polyderDtype(poly.dtype as DType);
 
   for (let k = 0; k < m; k++) {
-    const coeffs = readCoeffs(poly);
-    const n = coeffs.length;
+    const c = readParts(poly);
+    const n = c.re.length;
 
     if (n <= 1) {
-      return array([0], outDtype);
+      return fromParts([0], [0], outDtype);
     }
 
-    const result: number[] = [];
+    const re: number[] = [];
+    const im: number[] = [];
     for (let i = 0; i < n - 1; i++) {
       const power = n - 1 - i;
-      result.push(coeffs[i]! * power);
+      re.push(c.re[i]! * power);
+      im.push(c.im[i]! * power);
     }
 
-    poly = array(result, outDtype);
+    poly = fromParts(re, im, outDtype);
   }
 
   return poly;
@@ -186,44 +278,65 @@ export function polydiv(
 ): [NDArrayCore, NDArrayCore] {
   const uArr = toArray(u);
   const vArr = toArray(v);
-  const dividend = readCoeffs(uArr);
-  const divisor = readCoeffs(vArr);
-  const outDtype = polydivDtype(uArr.dtype as DType);
+  const dividend = readParts(uArr);
+  const divisor = readParts(vArr);
+  const outDtype = promoteDTypes(
+    polydivDtype(uArr.dtype as DType),
+    polydivDtype(vArr.dtype as DType),
+  );
 
-  if (divisor.length === 0 || (divisor.length === 1 && divisor[0] === 0)) {
+  if (divisor.re.length === 0 || (divisor.re.length === 1 && isZeroAt(divisor, 0))) {
     throw new Error('Division by zero polynomial');
   }
 
   // Remove leading zeros
-  while (dividend.length > 1 && dividend[0] === 0) dividend.shift();
-  while (divisor.length > 1 && divisor[0] === 0) divisor.shift();
-
-  if (dividend.length < divisor.length) {
-    return [array([0], outDtype), array(dividend, outDtype)];
+  while (dividend.re.length > 1 && isZeroAt(dividend, 0)) {
+    dividend.re.shift();
+    dividend.im.shift();
+  }
+  while (divisor.re.length > 1 && isZeroAt(divisor, 0)) {
+    divisor.re.shift();
+    divisor.im.shift();
   }
 
-  const quotient: number[] = [];
-  const remainder = [...dividend];
+  if (dividend.re.length < divisor.re.length) {
+    return [fromParts([0], [0], outDtype), fromParts(dividend.re, dividend.im, outDtype)];
+  }
 
-  while (remainder.length >= divisor.length) {
-    const coeff = remainder[0]! / divisor[0]!;
-    quotient.push(coeff);
+  const quotRe: number[] = [];
+  const quotIm: number[] = [];
+  const remRe = [...dividend.re];
+  const remIm = [...dividend.im];
 
-    for (let i = 0; i < divisor.length; i++) {
-      (remainder[i] as number) -= coeff * divisor[i]!;
+  const dRe = divisor.re[0]!;
+  const dIm = divisor.im[0]!;
+  const dMag2 = dRe * dRe + dIm * dIm;
+
+  while (remRe.length >= divisor.re.length) {
+    // coeff = rem[0] / divisor[0], as a complex quotient
+    const cRe = (remRe[0]! * dRe + remIm[0]! * dIm) / dMag2;
+    const cIm = (remIm[0]! * dRe - remRe[0]! * dIm) / dMag2;
+    quotRe.push(cRe);
+    quotIm.push(cIm);
+
+    for (let i = 0; i < divisor.re.length; i++) {
+      remRe[i]! -= cRe * divisor.re[i]! - cIm * divisor.im[i]!;
+      remIm[i]! -= cRe * divisor.im[i]! + cIm * divisor.re[i]!;
     }
 
-    remainder.shift();
+    remRe.shift();
+    remIm.shift();
   }
 
   // Remove leading zeros from remainder
-  while (remainder.length > 1 && Math.abs(remainder[0]!) < 1e-15) {
-    remainder.shift();
+  while (remRe.length > 1 && Math.hypot(remRe[0]!, remIm[0]!) < 1e-15) {
+    remRe.shift();
+    remIm.shift();
   }
 
   return [
-    array(quotient.length > 0 ? quotient : [0], outDtype),
-    array(remainder.length > 0 ? remainder : [0], outDtype),
+    fromParts(quotRe.length > 0 ? quotRe : [0], quotIm.length > 0 ? quotIm : [0], outDtype),
+    fromParts(remRe.length > 0 ? remRe : [0], remIm.length > 0 ? remIm : [0], outDtype),
   ];
 }
 
@@ -240,9 +353,13 @@ export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArrayCor
     throw new Error('polyfit: degree must be less than number of points');
   }
 
+  if (isComplex(x.dtype as DType) || isComplex(y.dtype as DType)) {
+    return polyfitComplex(readParts(x), readParts(y), n, deg);
+  }
+
   // Convert input data to float64 for numerical stability (matches NumPy behavior)
-  const xCoeffs = readCoeffs(x);
-  const yCoeffs = readCoeffs(y);
+  const xCoeffs = readParts(x).re;
+  const yCoeffs = readParts(y).re;
   const xf64 = new Float64Array(n);
   const yf64 = new Float64Array(n);
   for (let i = 0; i < n; i++) {
@@ -321,6 +438,120 @@ export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArrayCor
 }
 
 /**
+ * Least squares fit over the complex numbers, by the normal equations
+ * A^H A c = A^H y. The conjugate transpose is what makes this a least squares
+ * problem for complex data; a plain transpose minimises the wrong quantity.
+ *
+ * @param xs - Sample points, split into real and imaginary parts
+ * @param ys - Sample values, split into real and imaginary parts
+ * @param n - Number of samples
+ * @param deg - Polynomial degree
+ * @returns Coefficients, highest power first, as complex128
+ */
+function polyfitComplex(xs: Coeffs, ys: Coeffs, n: number, deg: number): NDArrayCore {
+  const m = deg + 1;
+
+  // Vandermonde rows, highest power first, built by repeated multiplication so
+  // a complex power never goes through polar form.
+  const aRe: number[][] = [];
+  const aIm: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const rowRe = new Array(m).fill(0);
+    const rowIm = new Array(m).fill(0);
+    let pRe = 1;
+    let pIm = 0;
+    for (let j = m - 1; j >= 0; j--) {
+      rowRe[j] = pRe;
+      rowIm[j] = pIm;
+      const nextRe = pRe * xs.re[i]! - pIm * xs.im[i]!;
+      pIm = pRe * xs.im[i]! + pIm * xs.re[i]!;
+      pRe = nextRe;
+    }
+    aRe.push(rowRe);
+    aIm.push(rowIm);
+  }
+
+  // Augmented [A^H A | A^H y], solved in place.
+  const augRe: number[][] = [];
+  const augIm: number[][] = [];
+  for (let i = 0; i < m; i++) {
+    const rowRe = new Array(m + 1).fill(0);
+    const rowIm = new Array(m + 1).fill(0);
+    for (let j = 0; j < m; j++) {
+      let sumRe = 0;
+      let sumIm = 0;
+      for (let k = 0; k < n; k++) {
+        // conj(A[k][i]) * A[k][j]
+        sumRe += aRe[k]![i]! * aRe[k]![j]! + aIm[k]![i]! * aIm[k]![j]!;
+        sumIm += aRe[k]![i]! * aIm[k]![j]! - aIm[k]![i]! * aRe[k]![j]!;
+      }
+      rowRe[j] = sumRe;
+      rowIm[j] = sumIm;
+    }
+    let rhsRe = 0;
+    let rhsIm = 0;
+    for (let k = 0; k < n; k++) {
+      rhsRe += aRe[k]![i]! * ys.re[k]! + aIm[k]![i]! * ys.im[k]!;
+      rhsIm += aRe[k]![i]! * ys.im[k]! - aIm[k]![i]! * ys.re[k]!;
+    }
+    rowRe[m] = rhsRe;
+    rowIm[m] = rhsIm;
+    augRe.push(rowRe);
+    augIm.push(rowIm);
+  }
+
+  // Gaussian elimination with partial pivoting on magnitude
+  for (let i = 0; i < m; i++) {
+    let maxRow = i;
+    let maxMag = Math.hypot(augRe[i]![i]!, augIm[i]![i]!);
+    for (let k = i + 1; k < m; k++) {
+      const mag = Math.hypot(augRe[k]![i]!, augIm[k]![i]!);
+      if (mag > maxMag) {
+        maxMag = mag;
+        maxRow = k;
+      }
+    }
+    if (maxRow !== i) {
+      [augRe[i], augRe[maxRow]] = [augRe[maxRow]!, augRe[i]!];
+      [augIm[i], augIm[maxRow]] = [augIm[maxRow]!, augIm[i]!];
+    }
+
+    const pRe = augRe[i]![i]!;
+    const pIm = augIm[i]![i]!;
+    const pMag2 = pRe * pRe + pIm * pIm;
+    if (pMag2 === 0) continue;
+
+    for (let k = i + 1; k < m; k++) {
+      const fRe = (augRe[k]![i]! * pRe + augIm[k]![i]! * pIm) / pMag2;
+      const fIm = (augIm[k]![i]! * pRe - augRe[k]![i]! * pIm) / pMag2;
+      for (let j = i; j <= m; j++) {
+        augRe[k]![j]! -= fRe * augRe[i]![j]! - fIm * augIm[i]![j]!;
+        augIm[k]![j]! -= fRe * augIm[i]![j]! + fIm * augRe[i]![j]!;
+      }
+    }
+  }
+
+  const cRe = new Array(m).fill(0);
+  const cIm = new Array(m).fill(0);
+  for (let i = m - 1; i >= 0; i--) {
+    let sRe = augRe[i]![m]!;
+    let sIm = augIm[i]![m]!;
+    for (let j = i + 1; j < m; j++) {
+      sRe -= augRe[i]![j]! * cRe[j]! - augIm[i]![j]! * cIm[j]!;
+      sIm -= augRe[i]![j]! * cIm[j]! + augIm[i]![j]! * cRe[j]!;
+    }
+    const dRe = augRe[i]![i]!;
+    const dIm = augIm[i]![i]!;
+    const dMag2 = dRe * dRe + dIm * dIm;
+    cRe[i] = (sRe * dRe + sIm * dIm) / dMag2;
+    cIm[i] = (sIm * dRe - sRe * dIm) / dMag2;
+  }
+
+  // NumPy widens complex64 input to complex128 here.
+  return fromParts(cRe, cIm, 'complex128');
+}
+
+/**
  * Integrate a polynomial
  */
 export function polyint(
@@ -333,20 +564,23 @@ export function polyint(
   const constants = Array.isArray(k) ? k : [k];
 
   for (let i = 0; i < m; i++) {
-    const coeffs = readCoeffs(poly);
-    const n = coeffs.length;
+    const c = readParts(poly);
+    const n = c.re.length;
 
-    const result: number[] = [];
+    const re: number[] = [];
+    const im: number[] = [];
     for (let j = 0; j < n; j++) {
       const power = n - j;
-      result.push(coeffs[j]! / power);
+      re.push(c.re[j]! / power);
+      im.push(c.im[j]! / power);
     }
 
     // Add integration constant
-    const c = i < constants.length ? constants[i]! : 0;
-    result.push(c);
+    const konst = i < constants.length ? constants[i]! : 0;
+    re.push(konst);
+    im.push(0);
 
-    poly = array(result, outDtype);
+    poly = fromParts(re, im, outDtype);
   }
 
   return poly;
@@ -358,19 +592,21 @@ export function polyint(
 export function polymul(a1: NDArrayCore | number[], a2: NDArrayCore | number[]): NDArrayCore {
   const p1 = toArray(a1);
   const p2 = toArray(a2);
-  const c1 = readCoeffs(p1);
-  const c2 = readCoeffs(p2);
+  const c1 = readParts(p1);
+  const c2 = readParts(p2);
 
-  const resultLen = c1.length + c2.length - 1;
-  const result = new Array(resultLen).fill(0);
+  const resultLen = c1.re.length + c2.re.length - 1;
+  const re = new Array(resultLen).fill(0);
+  const im = new Array(resultLen).fill(0);
 
-  for (let i = 0; i < c1.length; i++) {
-    for (let j = 0; j < c2.length; j++) {
-      result[i + j] += c1[i]! * c2[j]!;
+  for (let i = 0; i < c1.re.length; i++) {
+    for (let j = 0; j < c2.re.length; j++) {
+      re[i + j] += c1.re[i]! * c2.re[j]! - c1.im[i]! * c2.im[j]!;
+      im[i + j] += c1.re[i]! * c2.im[j]! + c1.im[i]! * c2.re[j]!;
     }
   }
 
-  return array(result, promoteDTypes(p1.dtype as DType, p2.dtype as DType));
+  return fromParts(re, im, promoteDTypes(p1.dtype as DType, p2.dtype as DType));
 }
 
 /**
@@ -380,26 +616,33 @@ export function polysub(a1: NDArrayCore | number[], a2: NDArrayCore | number[]):
   const p1 = toArray(a1);
   const p2 = toArray(a2);
   throwIfBoolSubtract(p1.dtype as DType);
-  const c1 = readCoeffs(p1);
-  const c2 = readCoeffs(p2);
+  const c1 = readParts(p1);
+  const c2 = readParts(p2);
 
-  const maxLen = Math.max(c1.length, c2.length);
-  const result = new Array(maxLen).fill(0);
+  const maxLen = Math.max(c1.re.length, c2.re.length);
+  const re = new Array(maxLen).fill(0);
+  const im = new Array(maxLen).fill(0);
 
-  for (let i = 0; i < c1.length; i++) {
-    result[maxLen - c1.length + i] += c1[i]!;
+  for (let i = 0; i < c1.re.length; i++) {
+    re[maxLen - c1.re.length + i] += c1.re[i]!;
+    im[maxLen - c1.re.length + i] += c1.im[i]!;
   }
-  for (let i = 0; i < c2.length; i++) {
-    result[maxLen - c2.length + i] -= c2[i]!;
+  for (let i = 0; i < c2.re.length; i++) {
+    re[maxLen - c2.re.length + i] -= c2.re[i]!;
+    im[maxLen - c2.re.length + i] -= c2.im[i]!;
   }
 
   // Remove leading zeros
   let start = 0;
-  while (start < result.length - 1 && result[start] === 0) {
+  while (start < re.length - 1 && re[start] === 0 && im[start] === 0) {
     start++;
   }
 
-  return array(result.slice(start), promoteDTypes(p1.dtype as DType, p2.dtype as DType));
+  return fromParts(
+    re.slice(start),
+    im.slice(start),
+    promoteDTypes(p1.dtype as DType, p2.dtype as DType),
+  );
 }
 
 /**
@@ -408,45 +651,54 @@ export function polysub(a1: NDArrayCore | number[], a2: NDArrayCore | number[]):
 export function polyval(
   p: NDArrayCore | number[],
   x: NDArrayCore | number | number[],
-): NDArrayCore | number {
+): NDArrayCore | number | Complex {
   const poly = toArray(p);
-  const coeffArr = readCoeffs(poly);
+  const c = readParts(poly);
+  const deg = c.re.length;
 
   if (typeof x === 'number') {
-    // Horner's method for single value
-    let result = coeffArr[0]!;
-    for (let i = 1; i < coeffArr.length; i++) {
-      result = result * x + coeffArr[i]!;
+    // Horner's method for a single value. A complex polynomial evaluated at a
+    // real point still has a complex value, so this returns Complex rather than
+    // dropping the imaginary half.
+    let re = c.re[0]!;
+    let im = c.im[0]!;
+    for (let i = 1; i < deg; i++) {
+      re = re * x + c.re[i]!;
+      im = im * x + c.im[i]!;
     }
-    return result;
+    return isComplex(poly.dtype as DType) ? new Complex(re, im) : re;
   }
 
   const xArr = x instanceof NDArrayCore ? x : array(x);
-  const xVals = readCoeffs(xArr);
+  const xs = readParts(xArr);
   const n = xArr.size;
-  const deg = coeffArr.length;
-  // Preserve input dtype — NumPy polyval preserves the dtype
-  const outDtype = poly.dtype as DType;
+  // NumPy accumulates into zeros_like(x) and adds each coefficient, so the
+  // result takes the promotion of both dtypes.
+  const outDtype = promoteDTypes(poly.dtype as DType, xArr.dtype as DType);
+  const complexOut = isComplex(outDtype);
   const resultStorage = ArrayStorage.empty(Array.from(xArr.shape), outDtype);
   const resultData = resultStorage.data;
-  const complexOut = isComplex(outDtype as DType);
   const bigIntOut = isBigIntDType(outDtype as DType);
 
   for (let j = 0; j < n; j++) {
-    const xVal = xVals[j]!;
-    let result = coeffArr[0]!;
+    const xRe = xs.re[j]!;
+    const xIm = xs.im[j]!;
+    let re = c.re[0]!;
+    let im = c.im[0]!;
     for (let i = 1; i < deg; i++) {
-      result = result * xVal + coeffArr[i]!;
+      const nextRe = re * xRe - im * xIm + c.re[i]!;
+      im = re * xIm + im * xRe + c.im[i]!;
+      re = nextRe;
     }
     // Bool: clamp to 0/1 (NumPy bool arithmetic wraps: True+True=True)
-    if (outDtype === 'bool') result = result ? 1 : 0;
+    if (outDtype === 'bool') re = re ? 1 : 0;
     if (complexOut) {
-      (resultData as Float64Array)[2 * j] = result;
-      (resultData as Float64Array)[2 * j + 1] = 0;
+      (resultData as Float64Array)[2 * j] = re;
+      (resultData as Float64Array)[2 * j + 1] = im;
     } else if (bigIntOut) {
-      (resultData as unknown as BigInt64Array)[j] = BigInt(Math.round(result));
+      (resultData as unknown as BigInt64Array)[j] = BigInt(Math.round(re));
     } else {
-      (resultData as Float64Array)[j] = result;
+      (resultData as Float64Array)[j] = re;
     }
   }
 
@@ -454,10 +706,97 @@ export function polyval(
 }
 
 /**
- * Find the roots of a polynomial.
+ * Strip zero coefficients in place: leading ones do not change the roots, and
+ * each trailing one is a root at zero that is factored out before the
+ * eigenvalue solve.
  *
- * Uses the companion matrix eigenvalue method (same as NumPy).
- * Always returns a complex128 NDArrayCore.
+ * @param c - Coefficients, highest power first, modified in place
+ * @returns The number of roots at zero that were factored out
+ */
+function stripZeroCoeffs(c: Coeffs): number {
+  while (c.re.length > 1 && isZeroAt(c, 0)) {
+    c.re.shift();
+    c.im.shift();
+  }
+  let zeroRoots = 0;
+  while (c.re.length > 1 && isZeroAt(c, c.re.length - 1)) {
+    c.re.pop();
+    c.im.pop();
+    zeroRoots++;
+  }
+  return zeroRoots;
+}
+
+/**
+ * Roots of a polynomial with complex coefficients, as the eigenvalues of its
+ * companion matrix. That is how NumPy defines the result, so going through the
+ * same construction keeps the two in step rather than introducing a second
+ * root-finder that would disagree on hard polynomials.
+ *
+ * @param c - Coefficients, highest power first, with zeros already stripped
+ * @param zeroRoots - Number of roots at zero factored out by the strip
+ * @param outDtype - Complex dtype for the result
+ * @returns The roots, sorted by descending magnitude
+ */
+function rootsComplex(c: Coeffs, zeroRoots: number, outDtype: DType): NDArrayCore {
+  const { re, im } = c;
+  const n = re.length - 1;
+
+  const rootsRe: number[] = [];
+  const rootsIm: number[] = [];
+
+  if (n >= 1) {
+    // Normalise by the leading coefficient so the companion matrix is monic.
+    const lRe = re[0]!;
+    const lIm = im[0]!;
+    const lMag2 = lRe * lRe + lIm * lIm;
+    const monicRe: number[] = [];
+    const monicIm: number[] = [];
+    for (let i = 1; i <= n; i++) {
+      monicRe.push((re[i]! * lRe + im[i]! * lIm) / lMag2);
+      monicIm.push((im[i]! * lRe - re[i]! * lIm) / lMag2);
+    }
+
+    const companion = ArrayStorage.zeros([n, n], 'complex128');
+    for (let j = 0; j < n; j++) {
+      companion.set([0, j], new Complex(-monicRe[j]!, -monicIm[j]!));
+    }
+    for (let i = 1; i < n; i++) companion.set([i, i - 1], new Complex(1, 0));
+
+    const w = eigvals(companion);
+    try {
+      for (let i = 0; i < n; i++) {
+        const v = w.get(i) as Complex;
+        rootsRe.push(v.re);
+        rootsIm.push(v.im);
+      }
+    } finally {
+      w.dispose();
+      companion.dispose();
+    }
+  }
+
+  for (let i = 0; i < zeroRoots; i++) {
+    rootsRe.push(0);
+    rootsIm.push(0);
+  }
+
+  const order = rootsRe.map((_, i) => i);
+  order.sort((x, y) => Math.hypot(rootsRe[y]!, rootsIm[y]!) - Math.hypot(rootsRe[x]!, rootsIm[x]!));
+  return fromParts(
+    order.map((i) => rootsRe[i]!),
+    order.map((i) => rootsIm[i]!),
+    outDtype,
+  );
+}
+
+/**
+ * Find the roots of a polynomial as the eigenvalues of its companion matrix,
+ * the same method NumPy uses. The result is complex64 for float32 or complex64
+ * coefficients and complex128 otherwise, even when every root is real.
+ *
+ * @param p - Coefficients, highest power first
+ * @returns The roots, sorted by descending magnitude
  */
 export function roots(p: NDArrayCore | number[]): NDArrayCore {
   const poly = toArray(p);
@@ -466,26 +805,20 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
   }
   const outDtype: DType =
     poly.dtype === 'float32' || poly.dtype === 'complex64' ? 'complex64' : 'complex128';
-  const coeffs = readCoeffs(poly);
 
-  // Remove leading zeros
-  while (coeffs.length > 1 && coeffs[0] === 0) {
-    coeffs.shift();
+  const c = readParts(poly);
+  const numZeroRoots = stripZeroCoeffs(c);
+  const n = c.re.length - 1; // degree of reduced polynomial
+
+  if (n + numZeroRoots === 0) {
+    return fromParts([], [], outDtype);
   }
 
-  // Count and remove trailing zeros (these are zero roots)
-  let numZeroRoots = 0;
-  while (coeffs.length > 1 && coeffs[coeffs.length - 1] === 0) {
-    coeffs.pop();
-    numZeroRoots++;
+  if (isComplex(poly.dtype as DType)) {
+    return rootsComplex(c, numZeroRoots, outDtype);
   }
 
-  const n = coeffs.length - 1; // degree of reduced polynomial
-  const totalRoots = n + numZeroRoots;
-
-  if (totalRoots === 0) {
-    return _makeComplexArray([], [], outDtype);
-  }
+  const coeffs = c.re;
 
   // Find roots of the reduced polynomial
   const realParts: number[] = [];
@@ -536,25 +869,7 @@ export function roots(p: NDArrayCore | number[]): NDArrayCore {
   const sortedReal = indices.map((i) => realParts[i]!);
   const sortedImag = indices.map((i) => imagParts[i]!);
 
-  return _makeComplexArray(sortedReal, sortedImag, outDtype);
-}
-
-/**
- * Create a complex NDArrayCore from parallel real/imag arrays.
- */
-function _makeComplexArray(
-  realParts: number[],
-  imagParts: number[],
-  dtype: DType = 'complex128',
-): NDArrayCore {
-  const n = realParts.length;
-  const storage = ArrayStorage.empty([n], dtype);
-  const data = storage.data;
-  for (let i = 0; i < n; i++) {
-    (data as Float64Array)[2 * i] = realParts[i]!;
-    (data as Float64Array)[2 * i + 1] = imagParts[i]!;
-  }
-  return new NDArrayCore(storage);
+  return fromParts(sortedReal, sortedImag, outDtype);
 }
 
 /**

@@ -8,15 +8,21 @@ import * as np from '../../../src';
 import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
+  asDtypeData,
   checkNumPyAvailable,
   expectBothReject,
+  expectComplexFixture,
   expectMatchPre,
-  isComplex,
   npDtype,
+  pyArrayCast,
   runNumPyBatch,
 } from './_helpers';
 
 const { array } = np;
+
+// One definition per fixture, shared by the oracle snippets and the test bodies.
+const data3 = (dtype: string) => asDtypeData(dtype === 'bool' ? [1, 0, 1] : [1, 2, 3], dtype);
+const data2 = (dtype: string) => asDtypeData(dtype === 'bool' ? [1, 0] : [1, 2], dtype);
 
 // Pre-computed oracle results — filled in beforeAll
 let oracle: Map<string, NumPyResult & { error?: string }>;
@@ -27,6 +33,8 @@ beforeAll(() => {
   const snippets: Record<string, string> = {};
 
   for (const dtype of ALL_DTYPES) {
+    const ac = pyArrayCast(dtype);
+
     snippets[`arange_${dtype}`] = `
 _result_orig = np.arange(0, 5, 1, dtype=${npDtype(dtype)})
 result = _result_orig.astype(np.float64)`;
@@ -42,6 +50,18 @@ result = _result_orig.astype(np.float64)`;
     snippets[`geomspace_${dtype}`] = `
 _result_orig = np.geomspace(1, 100, 5, dtype=${npDtype(dtype)})
 result = _result_orig.astype(np.float64)`;
+
+    snippets[`eye_${dtype}`] = `
+_result_orig = np.eye(3, dtype=${npDtype(dtype)})
+result = _result_orig.astype(${ac})`;
+
+    snippets[`identity_${dtype}`] = `
+_result_orig = np.identity(3, dtype=${npDtype(dtype)})
+result = _result_orig.astype(${ac})`;
+
+    snippets[`array_${dtype}`] = `
+_result_orig = np.array(${data3(dtype).py}, dtype=${npDtype(dtype)})
+result = _result_orig.astype(${ac})`;
   }
 
   oracle = runNumPyBatch(snippets);
@@ -50,12 +70,11 @@ result = _result_orig.astype(np.float64)`;
 describe('DType Sweep: Creation', () => {
   for (const dtype of ALL_DTYPES) {
     it(`array ${dtype}`, () => {
-      const a = array(
-        isComplex(dtype) ? [1, 2, 3] : dtype === 'bool' ? [1, 0, 1] : [1, 2, 3],
-        dtype,
-      );
+      const a = array(data3(dtype).js, dtype);
+      expectComplexFixture(a, dtype, `array ${dtype}`);
       expect(a.dtype).toBe(dtype);
       expect(a.shape).toEqual([3]);
+      expectMatchPre(a, oracle.get(`array_${dtype}`)!);
     });
 
     it(`zeros ${dtype}`, () => {
@@ -75,26 +94,39 @@ describe('DType Sweep: Creation', () => {
     });
 
     it(`eye ${dtype}`, () => {
-      expect(np.eye(3, undefined, undefined, dtype).dtype).toBe(dtype);
+      const jsResult = np.eye(3, undefined, undefined, dtype);
+      expect(jsResult.dtype).toBe(dtype);
+      expectMatchPre(jsResult, oracle.get(`eye_${dtype}`)!);
     });
 
     it(`identity ${dtype}`, () => {
-      expect(np.identity(3, dtype).dtype).toBe(dtype);
+      const jsResult = np.identity(3, dtype);
+      expect(jsResult.dtype).toBe(dtype);
+      expectMatchPre(jsResult, oracle.get(`identity_${dtype}`)!);
     });
 
     it(`asarray ${dtype}`, () => {
-      const a = array(dtype === 'bool' ? [1, 0] : isComplex(dtype) ? [1, 2] : [1, 2], dtype);
-      expect(np.asarray(a).dtype).toBe(dtype);
+      const a = array(data2(dtype).js, dtype);
+      expectComplexFixture(a, dtype, `asarray ${dtype}`);
+      const r = np.asarray(a);
+      expect(r.dtype).toBe(dtype);
+      expectComplexFixture(r, dtype, `asarray ${dtype} result`);
     });
 
     it(`ascontiguousarray ${dtype}`, () => {
-      const a = array(dtype === 'bool' ? [1, 0] : isComplex(dtype) ? [1, 2] : [1, 2], dtype);
-      expect(np.ascontiguousarray(a).dtype).toBe(dtype);
+      const a = array(data2(dtype).js, dtype);
+      expectComplexFixture(a, dtype, `ascontiguousarray ${dtype}`);
+      const r = np.ascontiguousarray(a);
+      expect(r.dtype).toBe(dtype);
+      expectComplexFixture(r, dtype, `ascontiguousarray ${dtype} result`);
     });
 
     it(`asfortranarray ${dtype}`, () => {
-      const a = array(dtype === 'bool' ? [1, 0] : isComplex(dtype) ? [1, 2] : [1, 2], dtype);
-      expect(np.asfortranarray(a).dtype).toBe(dtype);
+      const a = array(data2(dtype).js, dtype);
+      expectComplexFixture(a, dtype, `asfortranarray ${dtype}`);
+      const r = np.asfortranarray(a);
+      expect(r.dtype).toBe(dtype);
+      expectComplexFixture(r, dtype, `asfortranarray ${dtype} result`);
     });
 
     it(`arange ${dtype}`, () => {

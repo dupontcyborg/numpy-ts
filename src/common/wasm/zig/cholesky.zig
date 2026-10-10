@@ -1,10 +1,17 @@
-//! WASM Cholesky decomposition for real matrices.
+//! WASM Cholesky decomposition.
 //!
-//! cholesky_f64: A[n×n] → L[n×n] (lower triangular, A = L·L^T)
-//! cholesky_f32: A[n×n] → L[n×n] (lower triangular, A = L·L^T)
+//! cholesky_f64:  A[n×n] → L[n×n] (lower triangular, A = L·L^T)
+//! cholesky_f32:  A[n×n] → L[n×n] (lower triangular, A = L·L^T)
+//! cholesky_c128: A[n×n] → L[n×n] (lower triangular, A = L·L^H), interleaved [re, im]
+//! cholesky_c64:  A[n×n] → L[n×n] (lower triangular, A = L·L^H), interleaved [re, im]
 //!
 //! Input A is read-only. Output L is written to a separate buffer.
 //! Returns 0 on success, 1 if not positive-definite.
+//!
+//! The complex forms read the lower triangle, as NumPy does. L keeps a real
+//! diagonal because A[j,j] is real for a Hermitian matrix, and the off-diagonal
+//! sum conjugates its second factor — without that conjugation the result is
+//! the factorisation of a different matrix.
 
 const simd = @import("simd.zig");
 
@@ -100,6 +107,94 @@ export fn cholesky_f32(a: [*]const f32, out: [*]f32, n_arg: u32) u32 {
                 sum += out[row_i + k] * out[row_j + k];
             }
             out[i * N + j] = (a[i * N + j] - sum) * inv_ljj;
+        }
+    }
+
+    return 0;
+}
+
+/// Cholesky decomposition for complex128 Hermitian positive-definite matrices.
+/// `a` and `out` are interleaved [re, im] buffers of 2·n·n f64 values.
+/// Returns 0 on success, 1 if the matrix is not positive-definite.
+export fn cholesky_c128(a: [*]const f64, out: [*]f64, n_arg: u32) u32 {
+    const N = @as(usize, n_arg);
+    for (0..N * N * 2) |i| out[i] = 0;
+
+    for (0..N) |j| {
+        // 1. Diagonal: L[j,j] = sqrt(A[j,j].re - sum(|L[j,k]|^2, k<j))
+        //    One 2-wide f64 load spans one complex element, so v*v is
+        //    (re^2, im^2) and the horizontal add is |z|^2 directly.
+        const row_j = j * N;
+        var dacc: simd.V2f64 = @splat(0);
+        for (0..j) |k| {
+            const v = simd.load2_f64(out, (row_j + k) * 2);
+            dacc += v * v;
+        }
+        const diag_val = a[(j * N + j) * 2] - (dacc[0] + dacc[1]);
+        if (diag_val <= 0) return 1;
+        const ljj = @sqrt(diag_val);
+        out[(j * N + j) * 2] = ljj;
+        out[(j * N + j) * 2 + 1] = 0;
+        const inv_ljj = 1.0 / ljj;
+
+        // 2. Off-diagonal: L[i,j] = (A[i,j] - sum(L[i,k]·conj(L[j,k]), k<j)) / L[j,j]
+        for (j + 1..N) |i| {
+            const row_i = i * N;
+            var sum_re: f64 = 0;
+            var sum_im: f64 = 0;
+            for (0..j) |k| {
+                const lik_re = out[(row_i + k) * 2];
+                const lik_im = out[(row_i + k) * 2 + 1];
+                const ljk_re = out[(row_j + k) * 2];
+                const ljk_im = out[(row_j + k) * 2 + 1];
+                // (lik_re + lik_im·i) · (ljk_re − ljk_im·i)
+                sum_re += lik_re * ljk_re + lik_im * ljk_im;
+                sum_im += lik_im * ljk_re - lik_re * ljk_im;
+            }
+            out[(i * N + j) * 2] = (a[(i * N + j) * 2] - sum_re) * inv_ljj;
+            out[(i * N + j) * 2 + 1] = (a[(i * N + j) * 2 + 1] - sum_im) * inv_ljj;
+        }
+    }
+
+    return 0;
+}
+
+/// Cholesky decomposition for complex64 Hermitian positive-definite matrices.
+/// `a` and `out` are interleaved [re, im] buffers of 2·n·n f32 values.
+/// Returns 0 on success, 1 if the matrix is not positive-definite.
+export fn cholesky_c64(a: [*]const f32, out: [*]f32, n_arg: u32) u32 {
+    const N = @as(usize, n_arg);
+    for (0..N * N * 2) |i| out[i] = 0;
+
+    for (0..N) |j| {
+        const row_j = j * N;
+        var dsum: f32 = 0;
+        for (0..j) |k| {
+            const re = out[(row_j + k) * 2];
+            const im = out[(row_j + k) * 2 + 1];
+            dsum += re * re + im * im;
+        }
+        const diag_val = a[(j * N + j) * 2] - dsum;
+        if (diag_val <= 0) return 1;
+        const ljj = @sqrt(diag_val);
+        out[(j * N + j) * 2] = ljj;
+        out[(j * N + j) * 2 + 1] = 0;
+        const inv_ljj = 1.0 / ljj;
+
+        for (j + 1..N) |i| {
+            const row_i = i * N;
+            var sum_re: f32 = 0;
+            var sum_im: f32 = 0;
+            for (0..j) |k| {
+                const lik_re = out[(row_i + k) * 2];
+                const lik_im = out[(row_i + k) * 2 + 1];
+                const ljk_re = out[(row_j + k) * 2];
+                const ljk_im = out[(row_j + k) * 2 + 1];
+                sum_re += lik_re * ljk_re + lik_im * ljk_im;
+                sum_im += lik_im * ljk_re - lik_re * ljk_im;
+            }
+            out[(i * N + j) * 2] = (a[(i * N + j) * 2] - sum_re) * inv_ljj;
+            out[(i * N + j) * 2 + 1] = (a[(i * N + j) * 2 + 1] - sum_im) * inv_ljj;
         }
     }
 
@@ -274,4 +369,38 @@ test "cholesky_f32 1x1" {
     const rc = cholesky_f32(&a, &out, 1);
     try testing.expectEqual(rc, 0);
     try testing.expectApproxEqAbs(out[0], 4.0, 1e-5);
+}
+
+test "cholesky_c128 2x2 Hermitian" {
+    const testing = @import("std").testing;
+    // A = [[4, 1+1i], [1-1i, 3]]  →  L = [[2, 0], [0.5-0.5i, sqrt(2.5)]]
+    const a = [_]f64{ 4, 0, 1, 1, 1, -1, 3, 0 };
+    var out: [8]f64 = undefined;
+    const rc = cholesky_c128(&a, &out, 2);
+    try testing.expectEqual(rc, 0);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-12); // L[0,0].re
+    try testing.expectApproxEqAbs(out[1], 0.0, 1e-12); // L[0,0].im
+    try testing.expectApproxEqAbs(out[4], 0.5, 1e-12); // L[1,0].re
+    try testing.expectApproxEqAbs(out[5], -0.5, 1e-12); // L[1,0].im
+    try testing.expectApproxEqAbs(out[6], @sqrt(2.5), 1e-12); // L[1,1].re
+    try testing.expectApproxEqAbs(out[7], 0.0, 1e-12); // L[1,1].im — stays real
+}
+
+test "cholesky_c128 rejects a non-positive-definite matrix" {
+    const testing = @import("std").testing;
+    const a = [_]f64{ -1, 0, 0, 0, 0, 0, 1, 0 };
+    var out: [8]f64 = undefined;
+    try testing.expectEqual(cholesky_c128(&a, &out, 2), 1);
+}
+
+test "cholesky_c64 2x2 Hermitian" {
+    const testing = @import("std").testing;
+    const a = [_]f32{ 4, 0, 1, 1, 1, -1, 3, 0 };
+    var out: [8]f32 = undefined;
+    const rc = cholesky_c64(&a, &out, 2);
+    try testing.expectEqual(rc, 0);
+    try testing.expectApproxEqAbs(out[0], 2.0, 1e-5);
+    try testing.expectApproxEqAbs(out[4], 0.5, 1e-5);
+    try testing.expectApproxEqAbs(out[5], -0.5, 1e-5);
+    try testing.expectApproxEqAbs(out[7], 0.0, 1e-5);
 }

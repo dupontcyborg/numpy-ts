@@ -8,8 +8,10 @@ import * as np from '../../../src';
 import type { NumPyResult } from '../numpy-oracle';
 import {
   ALL_DTYPES,
+  asDtypeData,
   checkNumPyAvailable,
   expectBothReject,
+  expectComplexFixture,
   expectMatchPre,
   isComplex,
   npDtype,
@@ -17,6 +19,26 @@ import {
 } from './_helpers';
 
 const { array } = np;
+
+/**
+ * The one definition of the input for a dtype, shared by the oracle snippets and
+ * the test bodies. Two independent copies would let the two sides drift apart and
+ * compare different inputs.
+ */
+function fftData2d(dtype: string) {
+  return asDtypeData(
+    dtype === 'bool'
+      ? [
+          [1, 0, 1, 0],
+          [0, 1, 0, 1],
+        ]
+      : [
+          [1, 2, 3, 4],
+          [5, 6, 7, 8],
+        ],
+    dtype,
+  );
+}
 
 // Pre-computed oracle results — filled in beforeAll
 let oracle: Map<string, NumPyResult & { error?: string }>;
@@ -27,47 +49,38 @@ beforeAll(() => {
   const snippets: Record<string, string> = {};
 
   for (const dtype of ALL_DTYPES) {
-    const data2d =
-      dtype === 'bool'
-        ? [
-            [1, 0, 1, 0],
-            [0, 1, 0, 1],
-          ]
-        : [
-            [1, 2, 3, 4],
-            [5, 6, 7, 8],
-          ];
+    const data2d = fftData2d(dtype);
 
     // FFT results are complex → always cast to np.complex128 for value comparison
     snippets[`fft2_${dtype}`] = `
-_result_orig = np.fft.fft2(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)}))
+_result_orig = np.fft.fft2(np.array(${data2d.py}, dtype=${npDtype(dtype)}))
 result = _result_orig.astype(np.complex128)`;
 
     snippets[`ifft2_${dtype}`] = `
-_result_orig = np.fft.ifft2(np.fft.fft2(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})))
+_result_orig = np.fft.ifft2(np.fft.fft2(np.array(${data2d.py}, dtype=${npDtype(dtype)})))
 result = _result_orig.astype(np.complex128)`;
 
     snippets[`rfft2_${dtype}`] = `
-_result_orig = np.fft.rfft2(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)}))
+_result_orig = np.fft.rfft2(np.array(${data2d.py}, dtype=${npDtype(dtype)}))
 result = _result_orig.astype(np.complex128)`;
 
     snippets[`irfft2_${dtype}`] =
-      `result = np.fft.irfft2(np.fft.rfft2(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})))`;
+      `result = np.fft.irfft2(np.fft.rfft2(np.array(${data2d.py}, dtype=${npDtype(dtype)})))`;
 
     snippets[`fftn_${dtype}`] = `
-_result_orig = np.fft.fftn(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)}))
+_result_orig = np.fft.fftn(np.array(${data2d.py}, dtype=${npDtype(dtype)}))
 result = _result_orig.astype(np.complex128)`;
 
     snippets[`ifftn_${dtype}`] = `
-_result_orig = np.fft.ifftn(np.fft.fftn(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})))
+_result_orig = np.fft.ifftn(np.fft.fftn(np.array(${data2d.py}, dtype=${npDtype(dtype)})))
 result = _result_orig.astype(np.complex128)`;
 
     snippets[`rfftn_${dtype}`] = `
-_result_orig = np.fft.rfftn(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)}))
+_result_orig = np.fft.rfftn(np.array(${data2d.py}, dtype=${npDtype(dtype)}))
 result = _result_orig.astype(np.complex128)`;
 
     snippets[`irfftn_${dtype}`] =
-      `result = np.fft.irfftn(np.fft.rfftn(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})))`;
+      `result = np.fft.irfftn(np.fft.rfftn(np.array(${data2d.py}, dtype=${npDtype(dtype)})))`;
   }
 
   oracle = runNumPyBatch(snippets);
@@ -75,55 +88,66 @@ result = _result_orig.astype(np.complex128)`;
 
 describe('DType Sweep: FFT 2D/nD', () => {
   for (const dtype of ALL_DTYPES) {
-    const data2d =
-      dtype === 'bool'
-        ? [
-            [1, 0, 1, 0],
-            [0, 1, 0, 1],
-          ]
-        : [
-            [1, 2, 3, 4],
-            [5, 6, 7, 8],
-          ];
+    const data2d = fftData2d(dtype);
     const tol = dtype === 'float32' || dtype === 'complex64' ? 1e-2 : 1e-4;
+    // Complex input makes the cancelling bins land on float32 rounding noise rather
+    // than exact zero, which no relative tolerance can cover.
+    const atol = dtype === 'float32' || dtype === 'complex64' ? 1e-5 : 1e-8;
+
+    const makeInput = (label: string) => {
+      const a = array(data2d.js as never, dtype);
+      expectComplexFixture(a, dtype, label);
+      return a;
+    };
 
     it(`fft.fft2 ${dtype}`, () => {
-      const jsResult = np.fft.fft2(array(data2d, dtype));
-      expectMatchPre(jsResult, oracle.get(`fft2_${dtype}`)!, { rtol: tol });
+      const jsResult = np.fft.fft2(makeInput(`fft2 ${dtype}`));
+      expectMatchPre(jsResult, oracle.get(`fft2_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
 
     it(`fft.ifft2 ${dtype}`, () => {
-      const fft2Result = np.fft.fft2(array(data2d, dtype));
+      const fft2Result = np.fft.fft2(makeInput(`ifft2 ${dtype}`));
       const jsResult = np.fft.ifft2(fft2Result);
-      expectMatchPre(jsResult, oracle.get(`ifft2_${dtype}`)!, { rtol: tol });
+      expectMatchPre(jsResult, oracle.get(`ifft2_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
 
     it(`fft.rfft2 ${dtype}`, () => {
+      const a = makeInput(`rfft2 ${dtype}`);
       const pyCode = `
-_result_orig = np.fft.rfft2(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)}))
+_result_orig = np.fft.rfft2(np.array(${data2d.py}, dtype=${npDtype(dtype)}))
 result = _result_orig.astype(np.complex128)`;
       if (isComplex(dtype)) {
         {
           const _r = expectBothReject(
             'rfft2 expects real-valued input',
-            () => np.fft.rfft2(array(data2d, dtype)),
+            () => np.fft.rfft2(a),
             pyCode,
           );
           if (_r === 'both-reject') return;
         }
       }
-      const jsResult = np.fft.rfft2(array(data2d, dtype));
-      expectMatchPre(jsResult, oracle.get(`rfft2_${dtype}`)!, { rtol: tol });
+      const jsResult = np.fft.rfft2(a);
+      expectMatchPre(jsResult, oracle.get(`rfft2_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
 
     it(`fft.irfft2 ${dtype}`, () => {
-      const pyCode = `result = np.fft.irfft2(np.fft.rfft2(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})))`;
+      const a = makeInput(`irfft2 ${dtype}`);
+      const pyCode = `result = np.fft.irfft2(np.fft.rfft2(np.array(${data2d.py}, dtype=${npDtype(dtype)})))`;
       if (isComplex(dtype)) {
         {
           const _r = expectBothReject(
             'rfft2(complex) not supported',
             () => {
-              const r = np.fft.rfft2(array(data2d, dtype));
+              const r = np.fft.rfft2(a);
               np.fft.irfft2(r);
             },
             pyCode,
@@ -131,48 +155,62 @@ result = _result_orig.astype(np.complex128)`;
           if (_r === 'both-reject') return;
         }
       }
-      const rfft2Result = np.fft.rfft2(array(data2d, dtype));
+      const rfft2Result = np.fft.rfft2(a);
       const jsResult = np.fft.irfft2(rfft2Result);
-      expectMatchPre(jsResult, oracle.get(`irfft2_${dtype}`)!, { rtol: tol });
+      expectMatchPre(jsResult, oracle.get(`irfft2_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
 
     it(`fft.fftn ${dtype}`, () => {
-      const jsResult = np.fft.fftn(array(data2d, dtype));
-      expectMatchPre(jsResult, oracle.get(`fftn_${dtype}`)!, { rtol: tol });
+      const jsResult = np.fft.fftn(makeInput(`fftn ${dtype}`));
+      expectMatchPre(jsResult, oracle.get(`fftn_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
 
     it(`fft.ifftn ${dtype}`, () => {
-      const fftnResult = np.fft.fftn(array(data2d, dtype));
+      const fftnResult = np.fft.fftn(makeInput(`ifftn ${dtype}`));
       const jsResult = np.fft.ifftn(fftnResult);
-      expectMatchPre(jsResult, oracle.get(`ifftn_${dtype}`)!, { rtol: tol });
+      expectMatchPre(jsResult, oracle.get(`ifftn_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
 
     it(`fft.rfftn ${dtype}`, () => {
+      const a = makeInput(`rfftn ${dtype}`);
       const pyCode = `
-_result_orig = np.fft.rfftn(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)}))
+_result_orig = np.fft.rfftn(np.array(${data2d.py}, dtype=${npDtype(dtype)}))
 result = _result_orig.astype(np.complex128)`;
       if (isComplex(dtype)) {
         {
           const _r = expectBothReject(
             'rfftn expects real-valued input',
-            () => np.fft.rfftn(array(data2d, dtype)),
+            () => np.fft.rfftn(a),
             pyCode,
           );
           if (_r === 'both-reject') return;
         }
       }
-      const jsResult = np.fft.rfftn(array(data2d, dtype));
-      expectMatchPre(jsResult, oracle.get(`rfftn_${dtype}`)!, { rtol: tol });
+      const jsResult = np.fft.rfftn(a);
+      expectMatchPre(jsResult, oracle.get(`rfftn_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
 
     it(`fft.irfftn ${dtype}`, () => {
-      const pyCode = `result = np.fft.irfftn(np.fft.rfftn(np.array(${JSON.stringify(data2d)}, dtype=${npDtype(dtype)})))`;
+      const a = makeInput(`irfftn ${dtype}`);
+      const pyCode = `result = np.fft.irfftn(np.fft.rfftn(np.array(${data2d.py}, dtype=${npDtype(dtype)})))`;
       if (isComplex(dtype)) {
         {
           const _r = expectBothReject(
             'rfftn(complex) not supported',
             () => {
-              const r = np.fft.rfftn(array(data2d, dtype));
+              const r = np.fft.rfftn(a);
               np.fft.irfftn(r);
             },
             pyCode,
@@ -180,9 +218,12 @@ result = _result_orig.astype(np.complex128)`;
           if (_r === 'both-reject') return;
         }
       }
-      const rfftnResult = np.fft.rfftn(array(data2d, dtype));
+      const rfftnResult = np.fft.rfftn(a);
       const jsResult = np.fft.irfftn(rfftnResult);
-      expectMatchPre(jsResult, oracle.get(`irfftn_${dtype}`)!, { rtol: tol });
+      expectMatchPre(jsResult, oracle.get(`irfftn_${dtype}`)!, {
+        rtol: tol,
+        atol,
+      });
     });
   }
 });
