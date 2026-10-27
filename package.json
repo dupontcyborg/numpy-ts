@@ -59,6 +59,7 @@
     "test:deno": "pnpm run build:test && deno run -A node_modules/vitest/vitest.mjs run --project=unit --project=validation --project=runtime-io",
     "test:coverage": "vitest run --project=unit --project=validation --project=runtime-io --project=wasm-memory --coverage",
     "docs:check": "python3 scripts/archive-docs-version.py check",
+    "docs:typecheck": "tsx scripts/typecheck-docs.ts",
     "test:ci": "pnpm run lint && pnpm run typecheck && pnpm run typecheck:types && pnpm run docs:check && pnpm run test",
     "lint": "biome check src tests scripts benchmarks/src && zig fmt --check src/common/wasm/zig",
     "lint:fix": "biome check --write src tests scripts benchmarks/src && zig fmt src/common/wasm/zig",
