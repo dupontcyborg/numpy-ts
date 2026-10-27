@@ -393,6 +393,8 @@ console.log(info);  // Optimization summary string
 
 TypeScript callers that index into the path need to skip element 0, which is the marker rather than a contraction pair:
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const A: NDArray; declare const B: NDArray; */}
+
 ```typescript
 const [path] = np.einsum_path('ij,jk->ik', A, B);
 const contractions = path.slice(1) as number[][];

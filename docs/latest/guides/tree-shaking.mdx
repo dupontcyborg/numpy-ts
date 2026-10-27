@@ -44,6 +44,8 @@ import { array, add, reshape, sum } from 'numpy-ts/core';
 
 The core entry point returns `NDArrayCore` objects — a minimal array class with properties (`shape`, `dtype`, `ndim`, `data`, `T`, etc.) but **no operation methods**. Instead, you use standalone functions for everything:
 
+{/* typecheck-setup: import { add, array, reshape, sum } from 'numpy-ts'; */}
+
 ```typescript
 const a = array([1, 2, 3, 4, 5, 6]);
 const b = reshape(a, [2, 3]);

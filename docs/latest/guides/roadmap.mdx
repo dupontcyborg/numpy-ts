@@ -16,6 +16,8 @@ We plan to introduce a single 53-bit `intp` dtype (backed by `Float64Array`, ele
 
 Heavy operations like `matmul`, `svd`, `fft`, and `convolve` can block the main thread for tens of milliseconds on large inputs. We're designing an opt-in `np.async.*` namespace that transparently offloads these to a Web Worker pool:
 
+{/* typecheck: skip */}
+
 ```typescript
 // Proposed API
 const result = await np.async.matmul(A, B);
@@ -34,6 +36,8 @@ Extend the WASM acceleration layer to use multiple threads via `WebAssembly.Memo
 
 A generalized ufunc (universal function) system that would allow users to define custom element-wise and reduction operations that automatically get broadcasting, dtype promotion, and axis handling:
 
+{/* typecheck: skip */}
+
 ```typescript
 // Proposed API
 const clampedAdd = np.ufunc((a, b) => Math.min(a + b, 255), 2);
@@ -44,6 +48,8 @@ clampedAdd(imageA, imageB); // broadcasts, handles dtypes, etc.
 
 Support for arrays with a boolean mask that marks invalid or missing entries. Operations would automatically skip masked elements, similar to NumPy's `numpy.ma` module:
 
+{/* typecheck: skip */}
+
 ```typescript
 // Proposed API
 const a = np.ma.array([1, 2, 3, 4], { mask: [false, false, true, false] });
@@ -53,6 +59,8 @@ np.mean(a); // 2.333... (skips index 2)
 ## Structured arrays / record arrays
 
 Arrays with named, heterogeneous fields -- useful for tabular data without pulling in a full DataFrame library:
+
+{/* typecheck: skip */}
 
 ```typescript
 // Proposed API

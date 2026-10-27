@@ -17,12 +17,16 @@ function vindex(
 
 Advanced indices always are broadcast and iterated as one:
 
+{/* typecheck: skip */}
+
 ```typescript
 x.vindex(ind_1, ..., ind_m)
 // Equivalent to:
 // result[i_1, ..., i_M] == x[ind_1[i_1, ..., i_M], ind_2[i_1, ..., i_M],
 //                           ..., ind_N[i_1, ..., i_M]]
+```
 
+```typescript
 // Example
 const m = np.array([
   [1, 2, 3],

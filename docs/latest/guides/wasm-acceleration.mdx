@@ -114,6 +114,8 @@ self.onmessage = (e) => {
 };
 ```
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const myData: NDArray; */}
+
 ```typescript
 // main.ts
 const worker = new Worker(new URL('./worker.ts', import.meta.url));

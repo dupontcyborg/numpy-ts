@@ -83,6 +83,8 @@ const mt = m.T;
 
 Because `T` returns a view, modifying the transpose also modifies the original:
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const m: NDArray; declare const mt: NDArray; */}
+
 ```typescript
 mt.set([0, 1], 99);
 m.get([1, 0]);  // 99 -- same underlying data
@@ -137,6 +139,8 @@ console.log(np.array2string(a));
 
 ### `array_repr()` and `array_str()`
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; */}
+
 ```typescript
 np.array_repr(a);  // "array([[1, 2, 3],\n       [4, 5, 6]])"
 np.array_str(a);   // "[[1, 2, 3],\n [4, 5, 6]]"
@@ -161,6 +165,8 @@ b.toArray();
 ### `tolist()`
 
 Alias for `toArray()`. Provided for NumPy API compatibility:
+
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; */}
 
 ```typescript
 a.tolist();  // [[1, 2], [3, 4]]
