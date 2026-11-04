@@ -290,6 +290,9 @@ const NOT_BENCHMARKABLE = new Set<string>([
   'mintypecode',
   'common_type',
   'typename',
+  'isIntegerDType',
+  'isFloatDType',
+  'isComplexDType',
   // Array introspection — O(1) metadata
   'ndim',
   'shape',

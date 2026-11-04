@@ -338,6 +338,10 @@ describe('NumPy API Comparison', () => {
         'wasmFreeBytes',
         // Runtime feature detection
         'hasFloat16',
+        // dtype name predicates
+        'isIntegerDType',
+        'isFloatDType',
+        'isComplexDType',
         // Deprecated in NumPy 1.24+, removed in NumPy 2.0 (use isin instead)
         'in1d',
       ];

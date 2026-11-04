@@ -12,7 +12,7 @@ import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type FunctionDeclaration, Project } from 'ts-morph';
+import { type FunctionDeclaration, Project, SyntaxKind } from 'ts-morph';
 import { MESHGRID_FUNCTION, METHOD_DEFS, type MethodDef } from './ndarray-methods';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,7 +74,6 @@ const NO_WRAP_FUNCTIONS = new Set([
   'array_equiv', // return boolean
   'allclose', // returns boolean
   // Functions returning complex objects with NDArrayCore fields
-  'unique',
   'unique_all',
   'unique_counts',
   'unique_inverse',
@@ -84,9 +83,6 @@ const NO_WRAP_FUNCTIONS = new Set([
   'histogram_bin_edges',
   // Functions returning union of single and array (NDArrayCore | NDArrayCore[])
   'gradient',
-  'atleast_1d',
-  'atleast_2d',
-  'atleast_3d',
   'searchsorted',
   // Functions returning NDArrayCore[] with overloads
   'split',
@@ -100,7 +96,6 @@ const NO_WRAP_FUNCTIONS = new Set([
   'einsum',
   // Functions with rest parameters or union returns needing special handling
   'ix_',
-  'where',
   // meshgrid is re-exported from ./ndarray (needs NDArray-aware implementation)
   'meshgrid',
 ]);
@@ -119,7 +114,14 @@ const CORE_NAME_MAP: Record<string, string> = {
 // first two (so the return type can be expressed in terms of the operand dtypes).
 const CUSTOM_WRAPPERS: Record<
   string,
-  { returnType: string; body: string; generic?: 'unary' | 'binary' }
+  {
+    returnType: string;
+    body: string;
+    generic?: 'unary' | 'binary';
+    // Rewrites the core parameter text, for callbacks that receive an NDArray here.
+    paramReplace?: [from: string, to: string][];
+    typeParams?: string;
+  }
 > = {
   // cross returns NDArrayCore | number | Complex from core, but full/ should
   // always return NDArray by wrapping scalar results into 0-d arrays (NumPy behavior)
@@ -156,6 +158,7 @@ const CUSTOM_WRAPPERS: Record<
   },
   // apply_over_axes: callback receives NDArrayCore from core, but user expects NDArray
   apply_over_axes: {
+    paramReplace: [['func: (arr: NDArrayCore,', 'func: (arr: NDArray,']],
     returnType: 'NDArray',
     body: `const wrappedFunc = (arr: NDArrayCore, axis: number): NDArrayCore => {
     return func(up(arr), axis);
@@ -165,9 +168,15 @@ const CUSTOM_WRAPPERS: Record<
   // apply_along_axis: callback receives NDArrayCore from core, but user expects NDArray.
   // Forwards extra args (NumPy: apply_along_axis(func1d, axis, arr, *args)).
   apply_along_axis: {
+    // The extra args are typed together with the callback's own rest parameters.
+    typeParams: '<A extends unknown[] = unknown[]>',
+    paramReplace: [
+      ['func1d: (arr: NDArrayCore, ...args: unknown[])', 'func1d: (arr: NDArray, ...args: A)'],
+      ['...args: unknown[]', '...args: A'],
+    ],
     returnType: 'NDArray',
     body: `const wrappedFunc1d = (arr: NDArrayCore, ...passed: unknown[]): NDArrayCore | number => {
-    return func1d(up(arr), ...passed);
+    return func1d(up(arr), ...(passed as A));
   };
   return up(core.apply_along_axis(wrappedFunc1d, axis, arr, ...args));`,
   },
@@ -195,6 +204,57 @@ const CUSTOM_WRAPPERS: Record<
   },
 };
 
+// Wrappers whose public signature is a set of overloads, emitted verbatim in place of the
+// generic wrapper. The core signatures are overloaded the same way; these add the NDArray
+// return types over an implementation that wraps with up().
+const OVERLOAD_WRAPPERS: Record<string, (jsDoc: string) => string> = {
+  unique: (jsDoc) => `${jsDoc}
+export function unique<
+  I extends boolean = false,
+  V extends boolean = false,
+  C extends boolean = false,
+>(
+  ar: NDArrayCore,
+  returnIndex?: I,
+  returnInverse?: V,
+  returnCounts?: C,
+  axis?: number,
+): UniqueResult<NDArray, I, V, C> {
+  const r = core.unique(ar, returnIndex as boolean, returnInverse as boolean, returnCounts as boolean, axis);
+  if (r instanceof NDArrayCore) return up(r) as UniqueResult<NDArray, I, V, C>;
+  return {
+    values: up(r.values),
+    indices: r.indices ? up(r.indices) : undefined,
+    inverse: r.inverse ? up(r.inverse) : undefined,
+    counts: r.counts ? up(r.counts) : undefined,
+  } as UniqueResult<NDArray, I, V, C>;
+}`,
+  where: (jsDoc) => `${jsDoc}
+export function where(condition: NDArrayCore): NDArray[];
+export function where(condition: NDArrayCore, x: ArrayLike, y: ArrayLike): NDArray;
+export function where(condition: NDArrayCore, x?: ArrayLike, y?: ArrayLike): NDArray | NDArray[];
+export function where(
+  condition: NDArrayCore,
+  x?: ArrayLike,
+  y?: ArrayLike,
+): NDArray | NDArray[] {
+  const r = core.where(condition, x as ArrayLike, y as ArrayLike);
+  return Array.isArray(r) ? r.map(up) : up(r);
+}`,
+  ...Object.fromEntries(
+    ['atleast_1d', 'atleast_2d', 'atleast_3d'].map((name) => [
+      name,
+      (jsDoc: string) => `${jsDoc}
+export function ${name}(a: NDArrayCore): NDArray;
+export function ${name}(...arrays: NDArrayCore[]): NDArray[];
+export function ${name}(...arrays: NDArrayCore[]): NDArray | NDArray[] {
+  const r = core.${name}(...arrays);
+  return Array.isArray(r) ? r.map(up) : up(r);
+}`,
+    ]),
+  ),
+};
+
 // Functions returning arrays (should be wrapped)
 const _RETURNS_ARRAY_FUNCTIONS = new Set([
   // Most core functions return arrays
@@ -215,7 +275,8 @@ function extractFunctionInfo(func: FunctionDeclaration): FunctionInfo | null {
   const name = func.getName();
   if (!name) return null;
 
-  const jsDocNodes = func.getJsDocs();
+  // With overloads, the doc users see is on the first signature.
+  const jsDocNodes = (func.getOverloads()[0] ?? func).getJsDocs();
   const jsDoc = jsDocNodes.map((doc) => doc.getFullText()).join('\n');
 
   // Extract parameter names directly using ts-morph (reliable, handles complex types)
@@ -603,6 +664,19 @@ function toOverloadParam(seg: string): string {
   return name.endsWith('?') ? `${name}: ${type}` : `${name}?: ${type}`;
 }
 
+// Convert a param segment to a required param, for overloads where a later param is
+// required. The axis stays a concrete value; others still accept undefined
+// (`ddof?: number` → `ddof: number | undefined`).
+function toRequiredParam(seg: string): string {
+  const optional = toOverloadParam(seg);
+  const colon = optional.indexOf(':');
+  const name = optional.slice(0, colon).trim();
+  const type = optional.slice(colon + 1).trim();
+  if (!name.endsWith('?')) return optional;
+  const bare = name.slice(0, -1);
+  return bare === 'axis' ? `${bare}: ${type}` : `${bare}: ${type} | undefined`;
+}
+
 /**
  * Emit a dtype-tracked wrapper for an elementwise op. The leading param(s) are
  * the array operand(s); any trailing params pass through verbatim. Returns null
@@ -680,11 +754,35 @@ function generateReductionWrapper(info: FunctionInfo, kind: string): string | nu
   if (segs.length === 0 || !/:\s*NDArrayCore\b/.test(segs[0]!)) return null;
   const core = `core.${CORE_NAME_MAP[info.name] || info.name}`;
   const retyped = [retypeArrayParam(segs[0]!, 'D'), ...segs.slice(1)].join(', ');
-  return `${info.jsDoc}
-export function ${info.name}<D extends DType>(${retyped}): ${rt} {
+  const impl = `export function ${info.name}<D extends DType>(${retyped}): ${rt} {
   const r = ${core}(${info.invokeParams});
   return (r instanceof NDArrayCore ? up(r) : r) as unknown as ${rt};
 }`;
+
+  // An explicit axis with keepdims true always yields an array, so that call gets its
+  // own overload. Without an axis the result collapses to a scalar even with keepdims,
+  // so every other call shape keeps the full union.
+  const kdIdx = segs.findIndex((seg) => paramName(seg) === 'keepdims');
+  const arrayRt = rt.split(' | ')[0]!;
+  const hasAxis = segs.some((seg) => paramName(seg) === 'axis');
+  if (kdIdx > 0 && hasAxis && arrayRt.startsWith('NDArray<')) {
+    const kdParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      ...segs.slice(1, kdIdx).map(toRequiredParam),
+      'keepdims: true',
+      ...segs.slice(kdIdx + 1).map(toOverloadParam),
+    ].join(', ');
+    const generalParams = [
+      retypeArrayParam(segs[0]!, 'D'),
+      ...segs.slice(1).map(toOverloadParam),
+    ].join(', ');
+    return `${info.jsDoc}
+export function ${info.name}<D extends DType>(${kdParams}): ${arrayRt};
+export function ${info.name}<D extends DType>(${generalParams}): ${rt};
+${impl}`;
+  }
+  return `${info.jsDoc}
+${impl}`;
 }
 
 // P4: binary contraction (dot/inner/tensordot/vecdot) → `Promote<A,B>` over both
@@ -841,11 +939,18 @@ export function ${info.name}<A extends DType = 'float64', B extends DType = 'flo
 }
 
 function generateWrapperFunction(info: FunctionInfo, _moduleName: string): string {
+  const overloaded = OVERLOAD_WRAPPERS[info.name];
+  if (overloaded) return overloaded(info.jsDoc);
+
   // Check for custom wrapper override
   if (CUSTOM_WRAPPERS[info.name]) {
     const custom = CUSTOM_WRAPPERS[info.name];
-    let tp = '';
+    let tp = custom.typeParams ?? '';
     let params = info.params;
+    for (const [from, to] of custom.paramReplace ?? []) {
+      if (!params.includes(from)) throw new Error(`paramReplace did not match ${info.name}`);
+      params = params.replace(from, to);
+    }
     if (custom.generic === 'unary') {
       tp = '<D extends DType>';
       params = info.params.replace(/NDArrayCore\b(?!<)/, 'NDArrayCore<D>');
@@ -995,6 +1100,75 @@ function getModuleName(_funcName: string): string {
 }
 
 // ============================================================
+// linalg namespace
+// ============================================================
+
+// Members of core.linalg whose call signatures are overloaded; the full version restates
+// them over NDArray using the interface types exported from core/linalg.
+const LINALG_OVERLOADED: Record<string, { type: string; params: string; invoke: string }> = {
+  qr: {
+    type: 'QrFunction<NDArray>',
+    params: "a: NDArrayCore, mode?: 'reduced' | 'complete' | 'r' | 'raw'",
+    invoke: 'a, mode',
+  },
+  svd: {
+    type: 'SvdFunction<NDArray>',
+    params: 'a: NDArrayCore, full_matrices?: boolean, compute_uv?: boolean',
+    invoke: 'a, full_matrices, compute_uv',
+  },
+};
+
+// Emit the full np.linalg: the same members as core.linalg, with every NDArrayCore in a result
+// (directly, in an array, or in an object) upgraded to NDArray. Written as an object literal of
+// arrow functions so unused members can still be tree-shaken.
+function generateLinalgNamespace(project: Project): string {
+  const sourceFile = project.getSourceFileOrThrow(path.join(CORE_DIR, 'linalg.ts'));
+  const decl = sourceFile.getVariableDeclarationOrThrow('linalg');
+  const obj = decl.getInitializerIfKindOrThrow(SyntaxKind.ObjectLiteralExpression);
+  const members: string[] = [];
+
+  for (const prop of obj.getProperties()) {
+    if (!prop.isKind(SyntaxKind.PropertyAssignment)) {
+      throw new Error(`linalg member ${prop.getText()} is not a plain property`);
+    }
+    const name = prop.getName();
+    const init = prop.getInitializer();
+    const doc = prop
+      .getLeadingCommentRanges()
+      .map((c) => c.getText())
+      .filter((t) => t.startsWith('/**'))
+      .map((t) => `  ${t}\n`)
+      .join('');
+    const overloaded = LINALG_OVERLOADED[name];
+    if (overloaded) {
+      members.push(
+        `${doc}  ${name}: ((${overloaded.params}) => upDeep(core.linalg.${name}(${overloaded.invoke}))) as ${overloaded.type},`,
+      );
+      continue;
+    }
+    if (!init?.isKind(SyntaxKind.ArrowFunction)) {
+      throw new Error(`linalg member ${name} needs an explicit arrow function or an override`);
+    }
+    const params = init.getParameters();
+    const paramText = params
+      .map(
+        (p) => `${p.getName()}${p.isOptional() ? '?' : ''}: ${p.getTypeNode()?.getText() ?? 'any'}`,
+      )
+      .join(', ');
+    const invoke = params.map((p) => p.getName()).join(', ');
+    const rt = transformReturnType(init.getReturnTypeNode()?.getText() ?? 'any');
+    members.push(
+      `${doc}  ${name}: (${paramText}): ${rt} => upDeep(core.linalg.${name}(${invoke})) as ${rt},`,
+    );
+  }
+
+  return `/** Linear algebra namespace (numpy.linalg); results are NDArray */
+export const linalg = {
+${members.join('\n')}
+};`;
+}
+
+// ============================================================
 // Index file generation (existing logic)
 // ============================================================
 
@@ -1002,6 +1176,7 @@ function generateIndexFile(
   allFunctions: Map<string, FunctionInfo>,
   wrappedFunctions: Set<string>,
   reexportedFunctions: Set<string>,
+  linalgCode: string,
   coreImportPath: string = '../core',
   outputFile: string = INDEX_OUTPUT_FILE,
 ): void {
@@ -1049,6 +1224,8 @@ import type {
 import type { NestedNDArrays } from '../core/shape';
 import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
 import type { ReductionOpts } from '../core/reduction';
+import type { QrFunction, SvdFunction } from '../core/linalg';
+import type { UniqueResult } from '../core/sets';
 import {
   type Scalar,
   DEFAULT_DTYPE,
@@ -1064,6 +1241,16 @@ const up = (x: NDArrayCore): NDArray => {
   if (x instanceof NDArray) return x;
   const base = x.base ? up(x.base) : undefined;
   return NDArray.fromStorage(x.storage, base);
+};
+
+// Upgrade every NDArrayCore inside a result (directly, in an array, or in a plain object)
+const upDeep = (r: unknown): unknown => {
+  if (r instanceof NDArrayCore) return up(r);
+  if (Array.isArray(r)) return r.map(upDeep);
+  if (r !== null && typeof r === 'object' && Object.getPrototypeOf(r) === Object.prototype) {
+    return Object.fromEntries(Object.entries(r).map(([k, v]) => [k, upDeep(v)]));
+  }
+  return r;
 };
 
 // Re-export types
@@ -1086,13 +1273,16 @@ export { Complex } from '../common/complex';
     }
   }
 
+  output.push(linalgCode);
+  output.push('');
+
   // Re-export non-wrapped functions
   output.push('\n// ============================================================');
   output.push('// Re-exported Functions (no wrapping needed)');
   output.push('// ============================================================\n');
 
   // Names already exported in the header (from ./ndarray or elsewhere)
-  const HEADER_EXPORTS = new Set(['NDArray', 'NDArrayCore', 'Complex', 'meshgrid']);
+  const HEADER_EXPORTS = new Set(['NDArray', 'NDArrayCore', 'Complex', 'meshgrid', 'linalg']);
 
   const reexports: string[] = [];
   for (const name of reexportedFunctions) {
@@ -1502,6 +1692,7 @@ async function main() {
     allFunctions,
     wrappedFunctions,
     reexportedFunctions,
+    generateLinalgNamespace(project),
     '../core',
     INDEX_OUTPUT_FILE,
   );

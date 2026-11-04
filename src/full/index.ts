@@ -42,7 +42,9 @@ import type {
 import { NDArrayCore } from '../common/ndarray-core';
 import { ArrayStorage } from '../common/storage';
 import * as core from '../core';
+import type { QrFunction, SvdFunction } from '../core/linalg';
 import type { ReductionOpts } from '../core/reduction';
+import type { UniqueResult } from '../core/sets';
 import type { NestedNDArrays } from '../core/shape';
 import type { PadValueArg, PadWidthArg } from '../core/shape-extra';
 import type { ArrayLike, DType, TypedArray } from '../core/types';
@@ -57,6 +59,16 @@ const up = (x: NDArrayCore): NDArray => {
   return NDArray.fromStorage(x.storage, base);
 };
 
+// Upgrade every NDArrayCore inside a result (directly, in an array, or in a plain object)
+const upDeep = (r: unknown): unknown => {
+  if (r instanceof NDArrayCore) return up(r);
+  if (Array.isArray(r)) return r.map(upDeep);
+  if (r !== null && typeof r === 'object' && Object.getPrototypeOf(r) === Object.prototype) {
+    return Object.fromEntries(Object.entries(r).map(([k, v]) => [k, upDeep(v)]));
+  }
+  return r;
+};
+
 export { Complex } from '../common/complex';
 export { NDArrayCore } from '../common/ndarray-core';
 export type { NDIndex } from '../core/advanced';
@@ -69,7 +81,10 @@ export { meshgrid, NDArray } from './ndarray';
 // ============================================================
 
 /** Broadcast array to a new shape - returns a view */
-export function broadcast_to<D extends DType>(a: NDArrayCore<D>, shape: number[]): NDArray<D> {
+export function broadcast_to<D extends DType>(
+  a: NDArrayCore<D>,
+  shape: readonly number[],
+): NDArray<D> {
   return up(core.broadcast_to(a, shape)) as NDArray<D>;
 }
 
@@ -127,13 +142,13 @@ export function select(
   return up(core.select(condlist, choicelist, defaultVal));
 }
 
-export function indices(dimensions: number[], dtype: string = 'float64'): NDArray {
+export function indices(dimensions: readonly number[], dtype: string = 'float64'): NDArray {
   return up(core.indices(dimensions, dtype));
 }
 
 export function ravel_multi_index<D extends DType>(
   multi_index: NDArrayCore<D>[],
-  dims: number[],
+  dims: readonly number[],
   mode: 'raise' | 'wrap' | 'clip' = 'raise',
 ): NDArray<'float64'> {
   return up(core.ravel_multi_index(multi_index, dims, mode)) as NDArray<'float64'>;
@@ -141,7 +156,7 @@ export function ravel_multi_index<D extends DType>(
 
 export function unravel_index(
   indices: NDArrayCore | number,
-  shape: number[],
+  shape: readonly number[],
 ): NDArray<'float64'>[] {
   return core.unravel_index(indices, shape).map(up) as NDArray<'float64'>[];
 }
@@ -178,20 +193,20 @@ export function mask_indices(
   return core.mask_indices(n, mask_func, k).map(up) as NDArray<'float64'>[];
 }
 
-export function apply_along_axis(
-  func1d: (arr: NDArrayCore, ...args: unknown[]) => NDArrayCore | number,
+export function apply_along_axis<A extends unknown[] = unknown[]>(
+  func1d: (arr: NDArray, ...args: A) => NDArrayCore | number,
   axis: number,
   arr: NDArrayCore,
-  ...args: unknown[]
+  ...args: A
 ): NDArray {
   const wrappedFunc1d = (arr: NDArrayCore, ...passed: unknown[]): NDArrayCore | number => {
-    return func1d(up(arr), ...passed);
+    return func1d(up(arr), ...(passed as A));
   };
   return up(core.apply_along_axis(wrappedFunc1d, axis, arr, ...args));
 }
 
 export function apply_over_axes(
-  func: (arr: NDArrayCore, axis: number) => NDArrayCore,
+  func: (arr: NDArray, axis: number) => NDArrayCore,
   a: NDArrayCore,
   axes: number[],
 ): NDArray {
@@ -690,7 +705,7 @@ export function angle<D extends DType>(x: NDArrayCore<D>, deg?: boolean): NDArra
  * Create array of zeros
  */
 export function zeros<D extends DType = 'float64'>(
-  shape: number[],
+  shape: readonly number[],
   dtype: D = DEFAULT_DTYPE as D,
 ): NDArray<D> {
   return up(core.zeros(shape, dtype)) as NDArray<D>;
@@ -700,7 +715,7 @@ export function zeros<D extends DType = 'float64'>(
  * Create array of ones
  */
 export function ones<D extends DType = 'float64'>(
-  shape: number[],
+  shape: readonly number[],
   dtype: D = DEFAULT_DTYPE as D,
 ): NDArray<D> {
   return up(core.ones(shape, dtype)) as NDArray<D>;
@@ -710,7 +725,7 @@ export function ones<D extends DType = 'float64'>(
  * Create an uninitialized array
  */
 export function empty<D extends DType = 'float64'>(
-  shape: number[],
+  shape: readonly number[],
   dtype: D = DEFAULT_DTYPE as D,
 ): NDArray<D> {
   return up(core.empty(shape, dtype)) as NDArray<D>;
@@ -720,7 +735,7 @@ export function empty<D extends DType = 'float64'>(
  * Create array filled with a constant value
  */
 export function full<D extends DType = DType>(
-  shape: number[],
+  shape: readonly number[],
   fill_value: number | bigint | boolean,
   dtype?: D,
 ): NDArray<D> {
@@ -915,7 +930,7 @@ export function frombuffer<D extends DType = DType>(
 
 export function fromfunction<D extends DType = 'float64'>(
   func: (...indices: number[]) => number,
-  shape: number[],
+  shape: readonly number[],
   dtype: D = DEFAULT_DTYPE as D,
 ): NDArray<D> {
   return up(core.fromfunction(func, shape, dtype)) as NDArray<D>;
@@ -1428,6 +1443,18 @@ export function roots(p: NDArrayCore | number[]): NDArray {
 /** Sum of array elements */
 export function sum<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+  opts?: ReductionOpts,
+): NDArray<ReductionAccum<D>>;
+export function sum<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+  opts?: ReductionOpts,
+): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
+export function sum<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts,
@@ -1441,6 +1468,16 @@ export function sum<D extends DType>(
 /** Mean of array elements */
 export function mean<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function mean<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+export function mean<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -1451,6 +1488,18 @@ export function mean<D extends DType>(
 }
 
 /** Product of array elements */
+export function prod<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+  opts?: ReductionOpts,
+): NDArray<ReductionAccum<D>>;
+export function prod<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+  opts?: ReductionOpts,
+): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
 export function prod<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1466,6 +1515,18 @@ export function prod<D extends DType>(
 /** Maximum of array elements */
 export function max<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+  opts?: ReductionOpts,
+): NDArray<D>;
+export function max<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+  opts?: ReductionOpts,
+): NDArray<D> | Scalar<D>;
+export function max<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts,
@@ -1475,6 +1536,18 @@ export function max<D extends DType>(
 }
 
 /** Minimum of array elements */
+export function min<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+  opts?: ReductionOpts,
+): NDArray<D>;
+export function min<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+  opts?: ReductionOpts,
+): NDArray<D> | Scalar<D>;
 export function min<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1488,6 +1561,16 @@ export function min<D extends DType>(
 /** Peak-to-peak (max - min) */
 export function ptp<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<D>;
+export function ptp<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<D> | Scalar<D>;
+export function ptp<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
 ): NDArray<D> | Scalar<D> {
@@ -1496,6 +1579,16 @@ export function ptp<D extends DType>(
 }
 
 /** Index of minimum value */
+export function argmin<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number,
+  keepdims: true,
+): NDArray<'int32'>;
+export function argmin<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<'int32'> | number;
 export function argmin<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number,
@@ -1508,6 +1601,16 @@ export function argmin<D extends DType>(
 /** Index of maximum value */
 export function argmax<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number,
+  keepdims: true,
+): NDArray<'int32'>;
+export function argmax<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<'int32'> | number;
+export function argmax<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<'int32'> | number {
@@ -1516,6 +1619,18 @@ export function argmax<D extends DType>(
 }
 
 /** Variance of array elements */
+export function variance<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  ddof: number | undefined,
+  keepdims: true,
+): NDArray<StdVar<D>>;
+export function variance<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean,
+): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
 export function variance<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1531,6 +1646,18 @@ export function variance<D extends DType>(
 /** Standard deviation of array elements */
 export function std<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  ddof: number | undefined,
+  keepdims: true,
+): NDArray<StdVar<D>>;
+export function std<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean,
+): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
+export function std<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   ddof?: number,
   keepdims?: boolean,
@@ -1542,6 +1669,16 @@ export function std<D extends DType>(
 }
 
 /** Median of array elements */
+export function median<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function median<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
 export function median<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1557,6 +1694,18 @@ export function median<D extends DType>(
 export function percentile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
+  axis: number,
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function percentile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+export function percentile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -1567,6 +1716,18 @@ export function percentile<D extends DType>(
 }
 
 /** Quantile of array elements */
+export function quantile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
+  axis: number,
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function quantile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
 export function quantile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
@@ -1614,6 +1775,18 @@ export function average<D extends DType>(
 /** Test if all elements are true */
 export function all<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+  opts?: ReductionOpts,
+): NDArray<'bool'>;
+export function all<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+  opts?: ReductionOpts,
+): NDArray<'bool'> | boolean;
+export function all<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
   opts?: ReductionOpts,
@@ -1623,6 +1796,18 @@ export function all<D extends DType>(
 }
 
 /** Test if any element is true */
+export function any<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+  opts?: ReductionOpts,
+): NDArray<'bool'>;
+export function any<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+  opts?: ReductionOpts,
+): NDArray<'bool'> | boolean;
 export function any<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1652,6 +1837,16 @@ export function cumprod<D extends DType>(
 /** Sum ignoring NaN */
 export function nansum<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<ReductionAccum<D>>;
+export function nansum<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
+export function nansum<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
 ): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>> {
@@ -1662,6 +1857,16 @@ export function nansum<D extends DType>(
 }
 
 /** Product ignoring NaN */
+export function nanprod<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<ReductionAccum<D>>;
+export function nanprod<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<ReductionAccum<D>> | Scalar<ReductionAccum<D>>;
 export function nanprod<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1676,6 +1881,16 @@ export function nanprod<D extends DType>(
 /** Mean ignoring NaN */
 export function nanmean<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function nanmean<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+export function nanmean<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -1686,6 +1901,18 @@ export function nanmean<D extends DType>(
 }
 
 /** Variance ignoring NaN */
+export function nanvar<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  ddof: number | undefined,
+  keepdims: true,
+): NDArray<StdVar<D>>;
+export function nanvar<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean,
+): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
 export function nanvar<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1701,6 +1928,18 @@ export function nanvar<D extends DType>(
 /** Standard deviation ignoring NaN */
 export function nanstd<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  ddof: number | undefined,
+  keepdims: true,
+): NDArray<StdVar<D>>;
+export function nanstd<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  ddof?: number,
+  keepdims?: boolean,
+): NDArray<StdVar<D>> | Scalar<StdVar<D>>;
+export function nanstd<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   ddof?: number,
   keepdims?: boolean,
@@ -1714,6 +1953,16 @@ export function nanstd<D extends DType>(
 /** Minimum ignoring NaN */
 export function nanmin<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<D>;
+export function nanmin<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<D> | Scalar<D>;
+export function nanmin<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number | number[],
   keepdims?: boolean,
 ): NDArray<D> | Scalar<D> {
@@ -1722,6 +1971,16 @@ export function nanmin<D extends DType>(
 }
 
 /** Maximum ignoring NaN */
+export function nanmax<D extends DType>(
+  a: NDArrayCore<D>,
+  axis: number | number[],
+  keepdims: true,
+): NDArray<D>;
+export function nanmax<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number | number[],
+  keepdims?: boolean,
+): NDArray<D> | Scalar<D>;
 export function nanmax<D extends DType>(
   a: NDArrayCore<D>,
   axis?: number | number[],
@@ -1768,6 +2027,16 @@ export function nancumprod<D extends DType>(
 /** Median ignoring NaN */
 export function nanmedian<D extends DType>(
   a: NDArrayCore<D>,
+  axis: number,
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function nanmedian<D extends DType>(
+  a: NDArrayCore<D>,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+export function nanmedian<D extends DType>(
+  a: NDArrayCore<D>,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -1781,6 +2050,18 @@ export function nanmedian<D extends DType>(
 export function nanquantile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
+  axis: number,
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function nanquantile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
+export function nanquantile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
   axis?: number,
   keepdims?: boolean,
 ): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>> {
@@ -1791,6 +2072,18 @@ export function nanquantile<D extends DType>(
 }
 
 /** Percentile ignoring NaN */
+export function nanpercentile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
+  axis: number,
+  keepdims: true,
+): NDArray<TrueDivide<D>>;
+export function nanpercentile<D extends DType>(
+  a: NDArrayCore<D>,
+  q: number,
+  axis?: number,
+  keepdims?: boolean,
+): NDArray<TrueDivide<D>> | Scalar<TrueDivide<D>>;
 export function nanpercentile<D extends DType>(
   a: NDArrayCore<D>,
   q: number,
@@ -1842,6 +2135,44 @@ export function rint<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>>
 /** Truncate toward zero */
 export function trunc<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<D>> {
   return up(core.trunc(x)) as NDArray<MathResult<D>>;
+}
+
+/**
+ * Find unique elements. With no flags the result is the sorted unique array; with any flag set it
+ * is an object holding values plus the requested indices, inverse and counts.
+ *
+ * @param ar - Input array
+ * @param returnIndex - Also return the first-occurrence indices
+ * @param returnInverse - Also return the indices that rebuild the input
+ * @param returnCounts - Also return the count of each unique value
+ * @param axis - Axis to operate along, or undefined to flatten
+ * @returns Unique values, or an object when any flag is set
+ */
+export function unique<
+  I extends boolean = false,
+  V extends boolean = false,
+  C extends boolean = false,
+>(
+  ar: NDArrayCore,
+  returnIndex?: I,
+  returnInverse?: V,
+  returnCounts?: C,
+  axis?: number,
+): UniqueResult<NDArray, I, V, C> {
+  const r = core.unique(
+    ar,
+    returnIndex as boolean,
+    returnInverse as boolean,
+    returnCounts as boolean,
+    axis,
+  );
+  if (r instanceof NDArrayCore) return up(r) as UniqueResult<NDArray, I, V, C>;
+  return {
+    values: up(r.values),
+    indices: r.indices ? up(r.indices) : undefined,
+    inverse: r.inverse ? up(r.inverse) : undefined,
+    counts: r.counts ? up(r.counts) : undefined,
+  } as UniqueResult<NDArray, I, V, C>;
 }
 
 /**
@@ -1913,11 +2244,7 @@ export function unique_values<D extends DType>(x: NDArrayCore<D>): NDArray<D> {
 /**
  * Append values to the end of an array
  */
-export function append(
-  arr: NDArrayCore,
-  values: NDArrayCore | number | number[],
-  axis?: number,
-): NDArray {
+export function append(arr: NDArrayCore, values: NDArrayCore | ArrayLike, axis?: number): NDArray {
   return up(core.append(arr, values, axis));
 }
 
@@ -1964,7 +2291,10 @@ export function pad<D extends DType>(
 }
 
 /** Reshape array without changing data */
-export function reshape<D extends DType>(a: NDArrayCore<D>, newShape: number[]): NDArray<D> {
+export function reshape<D extends DType>(
+  a: NDArrayCore<D>,
+  newShape: readonly number[],
+): NDArray<D> {
   return up(core.reshape(a, newShape)) as NDArray<D>;
 }
 
@@ -2111,8 +2441,35 @@ export function roll<D extends DType>(
 }
 
 /** Resize array to new shape */
-export function resize<D extends DType>(a: NDArrayCore<D>, new_shape: number[]): NDArray<D> {
+export function resize<D extends DType>(
+  a: NDArrayCore<D>,
+  new_shape: readonly number[],
+): NDArray<D> {
   return up(core.resize(a, new_shape)) as NDArray<D>;
+}
+
+/** Ensure array has at least 1 dimension; one argument returns an array, several return a list */
+export function atleast_1d(a: NDArrayCore): NDArray;
+export function atleast_1d(...arrays: NDArrayCore[]): NDArray[];
+export function atleast_1d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
+  const r = core.atleast_1d(...arrays);
+  return Array.isArray(r) ? r.map(up) : up(r);
+}
+
+/** Ensure array has at least 2 dimensions; one argument returns an array, several return a list */
+export function atleast_2d(a: NDArrayCore): NDArray;
+export function atleast_2d(...arrays: NDArrayCore[]): NDArray[];
+export function atleast_2d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
+  const r = core.atleast_2d(...arrays);
+  return Array.isArray(r) ? r.map(up) : up(r);
+}
+
+/** Ensure array has at least 3 dimensions; one argument returns an array, several return a list */
+export function atleast_3d(a: NDArrayCore): NDArray;
+export function atleast_3d(...arrays: NDArrayCore[]): NDArray[];
+export function atleast_3d(...arrays: NDArrayCore[]): NDArray | NDArray[] {
+  const r = core.atleast_3d(...arrays);
+  return Array.isArray(r) ? r.map(up) : up(r);
 }
 
 /** Sort array along axis */
@@ -2162,6 +2519,15 @@ export function argwhere<D extends DType>(a: NDArrayCore<D>): NDArray<'float64'>
 /** Indices of non-zero elements in flattened array */
 export function flatnonzero<D extends DType>(a: NDArrayCore<D>): NDArray<'float64'> {
   return up(core.flatnonzero(a)) as NDArray<'float64'>;
+}
+
+/** Return elements from x or y based on condition, or the indices where condition is true when x and y are omitted */
+export function where(condition: NDArrayCore): NDArray[];
+export function where(condition: NDArrayCore, x: ArrayLike, y: ArrayLike): NDArray;
+export function where(condition: NDArrayCore, x?: ArrayLike, y?: ArrayLike): NDArray | NDArray[];
+export function where(condition: NDArrayCore, x?: ArrayLike, y?: ArrayLike): NDArray | NDArray[] {
+  const r = core.where(condition, x as ArrayLike, y as ArrayLike);
+  return Array.isArray(r) ? r.map(up) : up(r);
 }
 
 /** Extract elements where condition is True */
@@ -2338,6 +2704,150 @@ export function arctanh<D extends DType>(x: NDArrayCore<D>): NDArray<MathResult<
   return up(core.arctanh(x)) as NDArray<MathResult<D>>;
 }
 
+/** Linear algebra namespace (numpy.linalg); results are NDArray */
+export const linalg = {
+  /** Matrix multiplication */
+  matmul: (a: NDArrayCore, b: NDArrayCore): NDArray => upDeep(core.linalg.matmul(a, b)) as NDArray,
+  /** Dot product */
+  dot: (a: NDArrayCore, b: NDArrayCore): NDArray | number | bigint | Complex =>
+    upDeep(core.linalg.dot(a, b)) as NDArray | number | bigint | Complex,
+  /** Matrix determinant (supports batched ND input) */
+  det: (a: NDArrayCore): number | Complex | NDArray =>
+    upDeep(core.linalg.det(a)) as number | Complex | NDArray,
+  /** Matrix inverse */
+  inv: (a: NDArrayCore): NDArray => upDeep(core.linalg.inv(a)) as NDArray,
+  /** Solve linear system Ax = b */
+  solve: (a: NDArrayCore, b: NDArrayCore): NDArray => upDeep(core.linalg.solve(a, b)) as NDArray,
+  /** Least-squares solution */
+  lstsq: (
+    a: NDArrayCore,
+    b: NDArrayCore,
+    rcond?: number | null,
+  ): { x: NDArray; residuals: NDArray; rank: number; s: NDArray } =>
+    upDeep(core.linalg.lstsq(a, b, rcond)) as {
+      x: NDArray;
+      residuals: NDArray;
+      rank: number;
+      s: NDArray;
+    },
+  /** Matrix or vector norm */
+  norm: (
+    x: NDArrayCore,
+    ord?: number | 'fro' | 'nuc' | null,
+    axis?: number | [number, number] | null,
+    keepdims?: boolean,
+  ): NDArray | number => upDeep(core.linalg.norm(x, ord, axis, keepdims)) as NDArray | number,
+  /** Condition number */
+  cond: (a: NDArrayCore, p?: number | 'fro' | 'nuc'): number =>
+    upDeep(core.linalg.cond(a, p)) as number,
+  /** Matrix rank */
+  matrix_rank: (a: NDArrayCore, tol?: number): number =>
+    upDeep(core.linalg.matrix_rank(a, tol)) as number,
+  /** Raise matrix to a power */
+  matrix_power: (a: NDArrayCore, n: number): NDArray =>
+    upDeep(core.linalg.matrix_power(a, n)) as NDArray,
+  /** Pseudo-inverse */
+  pinv: (a: NDArrayCore, rcond?: number): NDArray => upDeep(core.linalg.pinv(a, rcond)) as NDArray,
+  /** QR decomposition */
+  qr: ((a: NDArrayCore, mode?: 'reduced' | 'complete' | 'r' | 'raw') =>
+    upDeep(core.linalg.qr(a, mode))) as QrFunction<NDArray>,
+  /** Cholesky decomposition */
+  cholesky: (a: NDArrayCore, upper?: boolean): NDArray =>
+    upDeep(core.linalg.cholesky(a, upper)) as NDArray,
+  /** Singular value decomposition */
+  svd: ((a: NDArrayCore, full_matrices?: boolean, compute_uv?: boolean) =>
+    upDeep(core.linalg.svd(a, full_matrices, compute_uv))) as SvdFunction<NDArray>,
+  /** Eigenvalues and eigenvectors */
+  eig: (a: NDArrayCore): { w: NDArray; v: NDArray } =>
+    upDeep(core.linalg.eig(a)) as { w: NDArray; v: NDArray },
+  /** Eigenvalues and eigenvectors of Hermitian matrix */
+  eigh: (a: NDArrayCore, UPLO?: 'L' | 'U'): { w: NDArray; v: NDArray } =>
+    upDeep(core.linalg.eigh(a, UPLO)) as { w: NDArray; v: NDArray },
+  /** Eigenvalues */
+  eigvals: (a: NDArrayCore): NDArray => upDeep(core.linalg.eigvals(a)) as NDArray,
+  /** Eigenvalues of Hermitian matrix */
+  eigvalsh: (a: NDArrayCore, UPLO?: 'L' | 'U'): NDArray =>
+    upDeep(core.linalg.eigvalsh(a, UPLO)) as NDArray,
+  /** Sign and log of determinant */
+  slogdet: (a: NDArrayCore): { sign: number | Complex | NDArray; logabsdet: number | NDArray } =>
+    upDeep(core.linalg.slogdet(a)) as {
+      sign: number | Complex | NDArray;
+      logabsdet: number | NDArray;
+    },
+  /** Singular values */
+  svdvals: (a: NDArrayCore): NDArray => upDeep(core.linalg.svdvals(a)) as NDArray,
+  /** Chained dot product */
+  multi_dot: (arrays: NDArrayCore[]): NDArray => upDeep(core.linalg.multi_dot(arrays)) as NDArray,
+  /** Inverse of tensorization */
+  tensorinv: (a: NDArrayCore, ind?: number): NDArray =>
+    upDeep(core.linalg.tensorinv(a, ind)) as NDArray,
+  /** Tensor equation solution */
+  tensorsolve: (a: NDArrayCore, b: NDArrayCore, axes?: number[]): NDArray =>
+    upDeep(core.linalg.tensorsolve(a, b, axes)) as NDArray,
+  /** Vector norm */
+  vector_norm: (
+    x: NDArrayCore,
+    ord?: number | 'fro' | 'nuc',
+    axis?: number | null,
+    keepdims?: boolean,
+  ): NDArray | number =>
+    upDeep(core.linalg.vector_norm(x, ord, axis, keepdims)) as NDArray | number,
+  /** Matrix norm */
+  matrix_norm: (
+    x: NDArrayCore,
+    ord?: number | 'fro' | 'nuc',
+    keepdims?: boolean,
+  ): NDArray | number => upDeep(core.linalg.matrix_norm(x, ord, keepdims)) as NDArray | number,
+  /** Cross product */
+  cross: (
+    a: NDArrayCore,
+    b: NDArrayCore,
+    axisa?: number,
+    axisb?: number,
+    axisc?: number,
+    axis?: number,
+  ): NDArray | number | bigint | Complex =>
+    upDeep(core.linalg.cross(a, b, axisa, axisb, axisc, axis)) as
+      | NDArray
+      | number
+      | bigint
+      | Complex,
+  /** Matrix transpose (transposes last two axes) - returns a view */
+  matrix_transpose: (a: NDArrayCore): NDArray => upDeep(core.linalg.matrix_transpose(a)) as NDArray,
+  /** Permute array dimensions - returns a view */
+  permute_dims: (a: NDArrayCore, axes?: number[]): NDArray =>
+    upDeep(core.linalg.permute_dims(a, axes)) as NDArray,
+  /** Matrix trace (sum of diagonal elements, supports ND batch) */
+  trace: (
+    a: NDArrayCore,
+    offset?: number,
+    axis1?: number,
+    axis2?: number,
+  ): NDArray | number | bigint | Complex =>
+    upDeep(core.linalg.trace(a, offset, axis1, axis2)) as NDArray | number | bigint | Complex,
+  /** Extract diagonal */
+  diagonal: (a: NDArrayCore, offset?: number, axis1?: number, axis2?: number): NDArray =>
+    upDeep(core.linalg.diagonal(a, offset, axis1, axis2)) as NDArray,
+  /** Outer product */
+  outer: (a: NDArrayCore, b: NDArrayCore): NDArray => upDeep(core.linalg.outer(a, b)) as NDArray,
+  /** Inner product */
+  inner: (a: NDArrayCore, b: NDArrayCore): NDArray | number | bigint | Complex =>
+    upDeep(core.linalg.inner(a, b)) as NDArray | number | bigint | Complex,
+  /** Tensor dot product */
+  tensordot: (
+    a: NDArrayCore,
+    b: NDArrayCore,
+    axes?: number | [number[], number[]],
+  ): NDArray | number | bigint | Complex =>
+    upDeep(core.linalg.tensordot(a, b, axes)) as NDArray | number | bigint | Complex,
+  /** Vector dot product */
+  vecdot: (a: NDArrayCore, b: NDArrayCore, axis?: number): NDArray | number | bigint | Complex =>
+    upDeep(core.linalg.vecdot(a, b, axis)) as NDArray | number | bigint | Complex,
+  /** Transpose array - returns a view */
+  transpose: (a: NDArrayCore, axes?: number[]): NDArray =>
+    upDeep(core.linalg.transpose(a, axes)) as NDArray,
+};
+
 // ============================================================
 // Re-exported Functions (no wrapping needed)
 // ============================================================
@@ -2366,9 +2876,6 @@ export {
   atan,
   atan2,
   atanh,
-  atleast_1d,
-  atleast_2d,
-  atleast_3d,
   base_repr,
   binary_repr,
   broadcast_arrays,
@@ -2405,7 +2912,6 @@ export {
   item,
   iterable,
   ix_,
-  linalg,
   may_share_memory,
   min_scalar_type,
   mintypecode,
@@ -2431,7 +2937,6 @@ export {
   tolist,
   true_divide,
   typename,
-  unique,
   unique_all,
   unique_counts,
   unique_inverse,
@@ -2439,5 +2944,4 @@ export {
   vdot,
   view,
   vsplit,
-  where,
 } from '../core';

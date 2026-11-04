@@ -24,7 +24,7 @@ import { DTYPE_TO_DESCR, isSystemLittleEndian, NPY_MAGIC } from './format';
  * @param arr - The NDArray to serialize
  * @returns A Uint8Array containing the NPY file data
  */
-export function serializeNpy(arr: NDArrayCore): Uint8Array {
+export function serializeNpy(arr: NDArrayCore): Uint8Array<ArrayBuffer> {
   const shape = arr.shape;
   const dtype = arr.dtype as DType;
 

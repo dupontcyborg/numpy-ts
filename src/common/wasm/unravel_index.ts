@@ -28,7 +28,10 @@ const BASE_THRESHOLD = 32;
  * WASM-accelerated unravel_index for flat indices with C-order strides.
  * Returns ndim ArrayStorage arrays (float64), or null if WASM can't handle this case.
  */
-export function wasmUnravelIndex(indices: ArrayStorage, shape: number[]): ArrayStorage[] | null {
+export function wasmUnravelIndex(
+  indices: ArrayStorage,
+  shape: readonly number[],
+): ArrayStorage[] | null {
   if (!indices.isCContiguous) return null;
 
   const N = indices.size;
