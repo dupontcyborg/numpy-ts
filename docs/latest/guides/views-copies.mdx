@@ -52,6 +52,8 @@ The last four entries changed in v1.7.0 — they previously returned copies. Eac
 
 Each of these falls back to allocating when it has real work to do: `real` and `real_if_close` on complex input, and `round` on floats or with `decimals < 0`. Rather than guessing from the dtype, check `base` — it is set on exactly the results that share the input's buffer:
 
+{/* typecheck-setup: import { real } from 'numpy-ts'; import type { NDArray } from 'numpy-ts'; declare const x: NDArray; */}
+
 ```typescript
 const r = real(x);
 if (r.base !== null) {

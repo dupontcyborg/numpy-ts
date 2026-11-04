@@ -603,6 +603,8 @@ console.log(scalar.item()); // 42
 
 All NDArray instances support bracket indexing via a transparent Proxy, providing natural JavaScript syntax for element access and slicing.
 
+{/* typecheck: skip */}
+
 ```typescript
 arr[i]        // 1D: scalar at index i. ND: view of slice along axis 0.
 arr[-1]       // Negative indices supported (same as NumPy).

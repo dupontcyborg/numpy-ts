@@ -364,6 +364,8 @@ function savez(path: string, arrays: NpzArraysInput): Promise<void>
 
 **Returns:** `Promise<void>`
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const xArr: NDArray; declare const yArr: NDArray; */}
+
 ```typescript
 import * as np from 'numpy-ts';
 
@@ -387,9 +389,9 @@ function savez_compressed(path: string, arrays: NpzArraysInput): Promise<void>
 
 **Returns:** `Promise<void>`
 
-```typescript
-import * as np from 'numpy-ts';
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const b: NDArray; declare const w: NDArray; */}
 
+```typescript
 await np.savez_compressed('data.npz', { weights: w, biases: b });
 ```
 

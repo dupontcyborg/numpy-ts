@@ -58,6 +58,8 @@ f = np.sqrt(a)
 g = np.dot(a, b)
 ```
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; declare const b: NDArray; */}
+
 ```typescript TypeScript
 const c = np.add(a, b);       // or a.add(b)
 const d = np.multiply(a, b);  // or a.multiply(b)
@@ -122,6 +124,8 @@ e = a.flatten()
 f = np.squeeze(a)
 ```
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; */}
+
 ```typescript TypeScript
 const b = a.reshape([3, 4]);    // Array arg (only option)
 const c = a.reshape([3, 4]);    // Same
@@ -144,6 +148,8 @@ np.min(a)
 np.max(a)
 np.argmax(a, axis=0)
 ```
+
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; */}
 
 ```typescript TypeScript
 np.sum(a);
@@ -172,6 +178,8 @@ np.linalg.cholesky(A)
 np.linalg.lstsq(A, b)
 np.linalg.matrix_rank(A)
 ```
+
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const A: NDArray; declare const b: NDArray; declare const v: NDArray; */}
 
 ```typescript TypeScript
 np.linalg.inv(A);
@@ -203,6 +211,8 @@ np.random.choice(arr, size=5, replace=False)
 np.random.shuffle(arr)
 ```
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const arr: NDArray; */}
+
 ```typescript TypeScript
 np.random.seed(42);
 np.random.random([3, 3]);
@@ -226,6 +236,8 @@ freqs = np.fft.fftfreq(n, d=1/256)
 shifted = np.fft.fftshift(spectrum)
 ```
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const n: number; declare const signal: NDArray; */}
+
 ```typescript TypeScript
 const spectrum = np.fft.fft(signal);
 const freqs = np.fft.fftfreq(n, 1/256);
@@ -245,9 +257,9 @@ table = np.loadtxt('data.csv', delimiter=',')
 np.savetxt('out.csv', arr, delimiter=',')
 ```
 
-```typescript TypeScript
-import * as np from 'numpy-ts';
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const arr1: NDArray; declare const arr2: NDArray; */}
 
+```typescript TypeScript
 const arr = await np.loadNpy('data.npy');
 await np.saveNpy('output.npy', arr);
 const data = await np.loadNpzFile('data.npz');

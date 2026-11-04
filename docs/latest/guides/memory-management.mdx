@@ -23,12 +23,18 @@ All arrays created via `np.zeros()`, `np.ones()`, `np.array()`, `np.arange()`, e
 
 `NDArray` (and the underlying `ArrayStorage`) now expose a `.dispose()` method that immediately frees the WASM memory backing an array.
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; declare const b: NDArray; */}
+
 ```ts
 // Default — let GC handle it
 const result = np.add(a, b);
 // ... use result ...
 // memory freed when GC collects `result`
+```
 
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; declare const b: NDArray; */}
+
+```ts
 // Manual — free immediately
 const result = np.add(a, b);
 // ... use result ...
@@ -50,6 +56,8 @@ You generally **don't** need it for:
 ### `Symbol.dispose` and the `using` keyword
 
 All arrays implement `[Symbol.dispose]`, enabling the `using` keyword for automatic scope-based cleanup:
+
+{/* typecheck-setup: import type { NDArray } from 'numpy-ts'; declare const a: NDArray; declare let arr: NDArray; declare const b: NDArray; declare const bias: NDArray; declare const scalar: NDArray; */}
 
 ```ts
 {

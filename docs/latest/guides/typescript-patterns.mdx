@@ -261,6 +261,8 @@ const d = a.astype('int8');      // NDArray<'int8'>
 
 `get`, `iget`, and `item` return `bigint` for `int64`/`uint64`, a `Complex` for complex dtypes, and `number` otherwise.
 
+{/* typecheck-setup: import { zeros } from 'numpy-ts'; */}
+
 ```typescript
 const ints = zeros([3], 'int64');
 const x = ints.get([0]);   // bigint
@@ -273,6 +275,8 @@ const z = floats.get([0]); // number
 ### Result dtypes are tracked per operation
 
 Each operation reports the dtype NumPy would produce:
+
+{/* typecheck-setup: import { zeros } from 'numpy-ts'; */}
 
 ```typescript
 const i = zeros([3], 'int32');
@@ -293,7 +297,7 @@ i.transpose(); // NDArray<'int32'>     — shape ops preserve dtype
 The same rules apply to the free-function API, and dtype is inferred from the operands:
 
 ```typescript
-import { add, sqrt, divide } from 'numpy-ts';
+import { add, sqrt, divide, zeros } from 'numpy-ts';
 
 add(zeros([3], 'int16'), zeros([3], 'int32')); // NDArray<'int32'>
 sqrt(zeros([3], 'int8'));                        // NDArray<'float16'>
@@ -307,7 +311,7 @@ ufuncs, and index families:
 ```typescript
 import {
   reshape, cumsum, argsort, real, maximum, sum, mean,
-  dot, trace, frexp, divmod, nonzero, sinc, vander, corrcoef,
+  dot, trace, frexp, divmod, nonzero, sinc, vander, corrcoef, zeros,
 } from 'numpy-ts';
 
 reshape(zeros([6], 'int32'), [2, 3]); // NDArray<'int32'>   — shape ops preserve dtype
