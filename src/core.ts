@@ -27,4 +27,5 @@
  * @module numpy-ts/core
  */
 
+export { isComplexDType, isFloatDType, isIntegerDType } from './common/dtype';
 export * from './core/index';

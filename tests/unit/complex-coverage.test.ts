@@ -493,6 +493,9 @@ const COMPLEX_BEHAVIOR: Record<string, ComplexBehavior> = {
   configureWasm: 'skip', // WASM runtime configuration function
   wasmFreeBytes: 'skip', // WASM memory introspection function
   hasFloat16: 'skip', // Runtime feature detection flag (not a function)
+  isIntegerDType: 'skip', // dtype name predicate, takes no array
+  isFloatDType: 'skip', // dtype name predicate, takes no array
+  isComplexDType: 'skip', // dtype name predicate, takes no array
 
   // IO functions
   parseNpy: 'skip',

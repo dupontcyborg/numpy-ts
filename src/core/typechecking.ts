@@ -378,7 +378,7 @@ export function typename(dtype: DType): string {
  * represent every input type, using safe-casting rules to avoid precision loss.
  */
 export function mintypecode(
-  typechars: string,
+  typechars: string | readonly string[],
   typeset: string = 'GDFgdf',
   default_: string = 'd',
 ): string {

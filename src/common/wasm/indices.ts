@@ -55,7 +55,7 @@ const ctorMap: Partial<
  * WASM-accelerated indices for 2D/3D grids.
  * Returns null if WASM can't handle this case.
  */
-export function wasmIndices(dimensions: number[], dtype: string): ArrayStorage | null {
+export function wasmIndices(dimensions: readonly number[], dtype: string): ArrayStorage | null {
   const k2d = kernels2D[dtype as DType];
   const k3d = kernels3D[dtype as DType];
   const bpe = bpeMap[dtype as DType];
