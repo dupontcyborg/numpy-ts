@@ -246,8 +246,11 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * @param shape - New shape (must be compatible with current size)
    * @returns Reshaped array
    */
-  reshape(...shape: number[]): NDArray<D> {
-    const newShape = shape.length === 1 && Array.isArray(shape[0]) ? shape[0] : shape;
+  reshape(shape: readonly number[]): NDArray<D>;
+  reshape(...shape: number[]): NDArray<D>;
+  reshape(...args: [readonly number[]] | number[]): NDArray<D> {
+    const first = args[0];
+    const newShape = (args.length === 1 && Array.isArray(first) ? first : args) as number[];
     const resultStorage = core.reshape(this, newShape).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
@@ -1683,7 +1686,7 @@ export class NDArray<D extends DType = DType> extends NDArrayCore<D> {
    * If larger, filled with repeated copies of the original data
    * @param newShape - Shape of the resized array
    */
-  resize(newShape: number[]): NDArray<D> {
+  resize(newShape: readonly number[]): NDArray<D> {
     return up(core.resize(this, newShape)) as NDArray<D>;
   }
 

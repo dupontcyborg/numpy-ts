@@ -20,7 +20,7 @@ import {
 // ============================================================
 
 /** Reshape array without changing data */
-export function reshape(a: NDArrayCore, newShape: number[]): NDArrayCore {
+export function reshape(a: NDArrayCore, newShape: readonly number[]): NDArrayCore {
   return fromStorage(shapeOps.reshape(toStorage(a), newShape));
 }
 
@@ -241,7 +241,7 @@ export function roll(
 // ============================================================
 
 /** Resize array to new shape */
-export function resize(a: NDArrayCore, new_shape: number[]): NDArrayCore {
+export function resize(a: NDArrayCore, new_shape: readonly number[]): NDArrayCore {
   return fromStorage(shapeOps.resize(toStorage(a), new_shape));
 }
 
@@ -249,7 +249,9 @@ export function resize(a: NDArrayCore, new_shape: number[]): NDArrayCore {
 // Dimension Guarantees
 // ============================================================
 
-/** Ensure array has at least 1 dimension */
+/** Ensure array has at least 1 dimension; one argument returns an array, several return a list */
+export function atleast_1d(a: NDArrayCore): NDArrayCore;
+export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore[];
 export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
   const result = shapeOps.atleast1d(arrays.map((a) => toStorage(a)));
   if (result.length === 1) {
@@ -258,7 +260,9 @@ export function atleast_1d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[
   return fromStorageArray(result);
 }
 
-/** Ensure array has at least 2 dimensions */
+/** Ensure array has at least 2 dimensions; one argument returns an array, several return a list */
+export function atleast_2d(a: NDArrayCore): NDArrayCore;
+export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore[];
 export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
   const result = shapeOps.atleast2d(arrays.map((a) => toStorage(a)));
   if (result.length === 1) {
@@ -267,7 +271,9 @@ export function atleast_2d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[
   return fromStorageArray(result);
 }
 
-/** Ensure array has at least 3 dimensions */
+/** Ensure array has at least 3 dimensions; one argument returns an array, several return a list */
+export function atleast_3d(a: NDArrayCore): NDArrayCore;
+export function atleast_3d(...arrays: NDArrayCore[]): NDArrayCore[];
 export function atleast_3d(...arrays: NDArrayCore[]): NDArrayCore | NDArrayCore[] {
   const result = shapeOps.atleast3d(arrays.map((a) => toStorage(a)));
   if (result.length === 1) {

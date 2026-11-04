@@ -30,7 +30,7 @@ import { slice as storageSlice, transpose as storageTranspose } from './shape';
  * Broadcast an array to a given shape
  * Returns a read-only view on the original array
  */
-export function broadcast_to(storage: ArrayStorage, targetShape: number[]): ArrayStorage {
+export function broadcast_to(storage: ArrayStorage, targetShape: readonly number[]): ArrayStorage {
   const shape = storage.shape;
   const ndim = shape.length;
   const targetNdim = targetShape.length;
@@ -40,7 +40,7 @@ export function broadcast_to(storage: ArrayStorage, targetShape: number[]): Arra
   }
 
   // Validate that broadcasting is possible
-  const broadcastedShape = computeBroadcastShape([Array.from(shape), targetShape]);
+  const broadcastedShape = computeBroadcastShape([Array.from(shape), Array.from(targetShape)]);
   if (broadcastedShape === null) {
     throw new Error(
       `operands could not be broadcast together with shape (${shape.join(',')}) (${targetShape.join(',')})`,
@@ -1505,7 +1505,7 @@ export function mask_indices(
 /**
  * Return array representing indices of a grid
  */
-export function indices(dimensions: number[], dtype: string = 'float64'): ArrayStorage {
+export function indices(dimensions: readonly number[], dtype: string = 'float64'): ArrayStorage {
   // WASM fast path for 2D/3D int32 grids
   if (dtype === 'int32' || dtype === 'int64' || dtype === 'float64') {
     const wasmResult = wasmIndices(dimensions, dtype);
@@ -1602,7 +1602,7 @@ export function ix_(...args: ArrayStorage[]): ArrayStorage[] {
  */
 export function ravel_multi_index(
   multi_index: ArrayStorage[],
-  dims: number[],
+  dims: readonly number[],
   mode: 'raise' | 'wrap' | 'clip' = 'raise',
 ): ArrayStorage {
   if (multi_index.length !== dims.length) {
@@ -1669,7 +1669,7 @@ export function ravel_multi_index(
  */
 export function unravel_index(
   indices: ArrayStorage | number,
-  shape: number[],
+  shape: readonly number[],
   order: 'C' | 'F' = 'C',
 ): ArrayStorage[] {
   const ndim = shape.length;

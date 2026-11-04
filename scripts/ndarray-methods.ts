@@ -192,8 +192,11 @@ override set(
   }`;
 
 const RESHAPE_METHOD = `\
-reshape(...shape: number[]): NDArray<D> {
-    const newShape = shape.length === 1 && Array.isArray(shape[0]) ? shape[0] : shape;
+reshape(shape: readonly number[]): NDArray<D>;
+  reshape(...shape: number[]): NDArray<D>;
+  reshape(...args: [readonly number[]] | number[]): NDArray<D> {
+    const first = args[0];
+    const newShape = (args.length === 1 && Array.isArray(first) ? first : args) as number[];
     const resultStorage = core.reshape(this, newShape).storage;
     const isView = resultStorage.data === this.data;
     const base = isView ? (this._base ?? this) : undefined;
@@ -1631,7 +1634,7 @@ export const METHOD_DEFS: MethodDef[] = [
     name: 'resize',
     pattern: 'passthrough',
     result: 'preserve',
-    params: 'newShape: number[]',
+    params: 'newShape: readonly number[]',
     coreArgs: 'newShape',
     doc: 'Return a new array with the specified shape\nIf larger, filled with repeated copies of the original data\n@param newShape - Shape of the resized array',
   },

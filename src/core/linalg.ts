@@ -168,6 +168,71 @@ export function matmul(a: NDArrayCore, b: NDArrayCore): NDArrayCore {
   return fromStorage(linalgOps.matmul(toStorage(a), toStorage(b)));
 }
 
+/** Call signatures of linalg.qr for an array type T, so wrappers can restate them with another array class. */
+export interface QrFunction<T> {
+  (a: NDArrayCore, mode?: 'reduced' | 'complete'): { q: T; r: T };
+  (a: NDArrayCore, mode: 'r'): T;
+  (a: NDArrayCore, mode: 'raw'): { h: T; tau: T };
+  (
+    a: NDArrayCore,
+    mode?: 'reduced' | 'complete' | 'r' | 'raw',
+  ): { q: T; r: T } | T | { h: T; tau: T };
+}
+
+/** Call signatures of linalg.svd for an array type T. */
+export interface SvdFunction<T> {
+  (a: NDArrayCore, full_matrices?: boolean, compute_uv?: true): { u: T; s: T; vt: T };
+  (a: NDArrayCore, full_matrices: boolean, compute_uv: false): T;
+  (a: NDArrayCore, full_matrices?: boolean, compute_uv?: boolean): { u: T; s: T; vt: T } | T;
+}
+
+function qrDecomposition(
+  a: NDArrayCore,
+  mode?: 'reduced' | 'complete',
+): { q: NDArrayCore; r: NDArrayCore };
+function qrDecomposition(a: NDArrayCore, mode: 'r'): NDArrayCore;
+function qrDecomposition(a: NDArrayCore, mode: 'raw'): { h: NDArrayCore; tau: NDArrayCore };
+function qrDecomposition(
+  a: NDArrayCore,
+  mode?: 'reduced' | 'complete' | 'r' | 'raw',
+): { q: NDArrayCore; r: NDArrayCore } | NDArrayCore | { h: NDArrayCore; tau: NDArrayCore };
+function qrDecomposition(
+  a: NDArrayCore,
+  mode?: 'reduced' | 'complete' | 'r' | 'raw',
+): { q: NDArrayCore; r: NDArrayCore } | NDArrayCore | { h: NDArrayCore; tau: NDArrayCore } {
+  const result = linalgOps.qr(toStorage(a), mode);
+  if ('h' in result && 'tau' in result) {
+    return { h: fromStorage(result.h), tau: fromStorage(result.tau) };
+  }
+  if ('q' in result && 'r' in result) {
+    return { q: fromStorage(result.q), r: fromStorage(result.r) };
+  }
+  return fromStorage(result as ArrayStorage);
+}
+
+function svdDecomposition(
+  a: NDArrayCore,
+  full_matrices?: boolean,
+  compute_uv?: true,
+): { u: NDArrayCore; s: NDArrayCore; vt: NDArrayCore };
+function svdDecomposition(a: NDArrayCore, full_matrices: boolean, compute_uv: false): NDArrayCore;
+function svdDecomposition(
+  a: NDArrayCore,
+  full_matrices?: boolean,
+  compute_uv?: boolean,
+): { u: NDArrayCore; s: NDArrayCore; vt: NDArrayCore } | NDArrayCore;
+function svdDecomposition(
+  a: NDArrayCore,
+  full_matrices?: boolean,
+  compute_uv?: boolean,
+): { u: NDArrayCore; s: NDArrayCore; vt: NDArrayCore } | NDArrayCore {
+  const result = linalgOps.svd(toStorage(a), full_matrices, compute_uv);
+  if ('u' in result && 's' in result && 'vt' in result) {
+    return { u: fromStorage(result.u), s: fromStorage(result.s), vt: fromStorage(result.vt) };
+  }
+  return fromStorage(result as ArrayStorage);
+}
+
 // ============================================================
 // Linear Algebra Namespace (numpy.linalg)
 // ============================================================
@@ -248,19 +313,7 @@ export const linalg = {
   },
 
   /** QR decomposition */
-  qr: (
-    a: NDArrayCore,
-    mode?: 'reduced' | 'complete' | 'r' | 'raw',
-  ): { q: NDArrayCore; r: NDArrayCore } | NDArrayCore | { h: NDArrayCore; tau: NDArrayCore } => {
-    const result = linalgOps.qr(toStorage(a), mode);
-    if ('h' in result && 'tau' in result) {
-      return { h: fromStorage(result.h), tau: fromStorage(result.tau) };
-    }
-    if ('q' in result && 'r' in result) {
-      return { q: fromStorage(result.q), r: fromStorage(result.r) };
-    }
-    return fromStorage(result as ArrayStorage);
-  },
+  qr: qrDecomposition satisfies QrFunction<NDArrayCore>,
 
   /** Cholesky decomposition */
   cholesky: (a: NDArrayCore, upper?: boolean): NDArrayCore => {
@@ -268,17 +321,7 @@ export const linalg = {
   },
 
   /** Singular value decomposition */
-  svd: (
-    a: NDArrayCore,
-    full_matrices?: boolean,
-    compute_uv?: boolean,
-  ): { u: NDArrayCore; s: NDArrayCore; vt: NDArrayCore } | NDArrayCore => {
-    const result = linalgOps.svd(toStorage(a), full_matrices, compute_uv);
-    if ('u' in result && 's' in result && 'vt' in result) {
-      return { u: fromStorage(result.u), s: fromStorage(result.s), vt: fromStorage(result.vt) };
-    }
-    return fromStorage(result as ArrayStorage);
-  },
+  svd: svdDecomposition satisfies SvdFunction<NDArrayCore>,
 
   /** Eigenvalues and eigenvectors */
   eig: (a: NDArrayCore): { w: NDArrayCore; v: NDArrayCore } => {

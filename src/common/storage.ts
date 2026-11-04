@@ -502,7 +502,7 @@ export class ArrayStorage {
   /**
    * Create storage with zeros
    */
-  static zeros(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
+  static zeros(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
     // MAX_NDIM check happens in the ArrayStorage constructor below.
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
@@ -542,7 +542,7 @@ export class ArrayStorage {
    * the zero-fill guarantee lives here rather than in each predicate.
    * @internal
    */
-  static empty(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
+  static empty(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
     const Constructor = getTypedArrayConstructor(dtype);
@@ -567,7 +567,7 @@ export class ArrayStorage {
   /**
    * Create storage with ones
    */
-  static ones(shape: number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
+  static ones(shape: readonly number[], dtype: DType = DEFAULT_DTYPE): ArrayStorage {
     const size = shape.reduce((a, b) => a * b, 1);
     const isComplex = isComplexDType(dtype);
 
