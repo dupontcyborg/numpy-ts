@@ -11,7 +11,7 @@ import { ArrayStorage } from '../common/storage';
 import { wasmPad2D } from '../common/wasm/pad';
 import { array, zeros } from './creation';
 import { concatenate, flatten } from './shape';
-import type { ArrayLike } from './types';
+import { type ArrayLike, assertNDArray } from './types';
 
 /**
  * Append values to the end of an array
@@ -46,6 +46,7 @@ export function append(
  * Delete elements from an array
  */
 export function delete_(arr: NDArrayCore, obj: number | number[], axis?: number): NDArrayCore {
+  assertNDArray(arr);
   const indices = Array.isArray(obj) ? obj : [obj];
   const shape = [...arr.shape];
   const srcStorage = arr.storage;
@@ -358,6 +359,7 @@ export function pad(
     | 'empty' = 'constant',
   constant_values: PadValueArg = 0,
 ): NDArrayCore {
+  assertNDArray(arr);
   const shape = [...arr.shape];
   const ndim = shape.length;
 

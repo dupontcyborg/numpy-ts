@@ -732,6 +732,7 @@ export {
 import type { DType } from './common/dtype';
 import * as randomOps from './common/ops/random';
 import type { ArrayStorage } from './common/storage';
+import { toStorage } from './core/types';
 import { NDArray as NDArrayClass } from './full';
 
 type SizeArg = number | readonly number[];
@@ -797,6 +798,11 @@ function toRandomStorage<T>(x: NDArrayCore | T): ArrayStorage | T {
   return x instanceof NDArrayCore ? x.storage : (x as T);
 }
 
+// Populations are an integer or an array to draw from; anything else must not reach the sampler.
+function toPopulation(a: number | RngArray): number | ArrayStorage {
+  return typeof a === 'number' ? a : toStorage(a);
+}
+
 function choiceFn(
   pick: (
     a: number | ArrayStorage,
@@ -813,7 +819,7 @@ function choiceFn(
   ) =>
     wrapResult(
       pick(
-        toRandomStorage(a) as number | ArrayStorage,
+        toPopulation(a),
         size as number | number[] | undefined,
         replace,
         toRandomStorage(p) as ArrayStorage | number[] | undefined,
@@ -842,8 +848,8 @@ export const random = {
       ),
       choice: choiceFn(gen.choice.bind(gen)),
       permutation: (x: number | RngArray): NDArrayClass =>
-        NDArrayClass.fromStorage(gen.permutation(toRandomStorage(x) as number | ArrayStorage)),
-      shuffle: (x: RngArray) => gen.shuffle(toRandomStorage(x) as ArrayStorage),
+        NDArrayClass.fromStorage(gen.permutation(toPopulation(x))),
+      shuffle: (x: RngArray) => gen.shuffle(toStorage(x)),
       exponential: sampler<[], [scale: number | undefined]>(gen.exponential.bind(gen)),
       poisson: sampler<[], [lam: number | undefined], 'int64'>(gen.poisson.bind(gen)),
       binomial: sampler<[n: number, p: number], [], 'int64'>(gen.binomial.bind(gen)),
@@ -951,8 +957,8 @@ export const random = {
   // Sequence operations
   choice: choiceFn(randomOps.choice),
   permutation: (x: number | RngArray): NDArrayClass =>
-    NDArrayClass.fromStorage(randomOps.permutation(toRandomStorage(x) as number | ArrayStorage)),
-  shuffle: (x: RngArray) => randomOps.shuffle(toRandomStorage(x) as ArrayStorage),
+    NDArrayClass.fromStorage(randomOps.permutation(toPopulation(x))),
+  shuffle: (x: RngArray) => randomOps.shuffle(toStorage(x)),
 };
 
 // ============================================================

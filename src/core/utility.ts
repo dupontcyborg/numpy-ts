@@ -6,6 +6,7 @@
 
 import { Complex } from '../common/complex';
 import { type DType, NDArrayCore, type TypedArray } from '../common/ndarray-core';
+import { assertNDArray } from './types';
 
 // ============================================================
 // Array Properties
@@ -88,6 +89,7 @@ export function size(a: NDArrayCore | number | bigint | boolean | unknown[] | un
 // ============================================================
 
 export function item(a: NDArrayCore, ...args: number[]): number | bigint | boolean | Complex {
+  assertNDArray(a);
   const storage = a.storage;
   const shapeArr = a.shape;
 
@@ -118,6 +120,7 @@ export function item(a: NDArrayCore, ...args: number[]): number | bigint | boole
 }
 
 export function tolist(a: NDArrayCore): unknown {
+  assertNDArray(a);
   const shapeArr = a.shape;
   const storage = a.storage;
   const ndimVal = shapeArr.length;
@@ -194,6 +197,7 @@ export function tolist(a: NDArrayCore): unknown {
 }
 
 export function tobytes(a: NDArrayCore, order: 'C' | 'F' = 'C'): Uint8Array {
+  assertNDArray(a);
   const storage = a.storage;
 
   if (order === 'F') {
@@ -217,6 +221,7 @@ export function tobytes(a: NDArrayCore, order: 'C' | 'F' = 'C'): Uint8Array {
 }
 
 export function byteswap(a: NDArrayCore, inplace: boolean = false): NDArrayCore {
+  assertNDArray(a);
   const data = a.data;
   const bytesPerElement = (data as TypedArray).BYTES_PER_ELEMENT;
 
@@ -242,6 +247,7 @@ export function byteswap(a: NDArrayCore, inplace: boolean = false): NDArrayCore 
 }
 
 export function view(a: NDArrayCore, dtype?: DType): NDArrayCore {
+  assertNDArray(a);
   if (!dtype || dtype === a.dtype) {
     return a.copy();
   }
@@ -260,6 +266,7 @@ export function tofile(
 }
 
 export function fill(a: NDArrayCore, value: number | bigint | boolean | Complex): void {
+  assertNDArray(a);
   const storage = a.storage;
   const dtype = a.dtype;
   const sz = a.size;

@@ -7,7 +7,7 @@
 
 import { Complex } from '../common/complex';
 import { NDArrayCore, rawOf } from '../common/ndarray-core';
-import { ArrayStorage } from '../common/storage';
+import { ArrayStorage, notAnNDArray } from '../common/storage';
 
 // Re-export types needed by functions
 export type { DType, TypedArray } from '../common/dtype';
@@ -34,7 +34,20 @@ export function toStorage(a: NDArrayCore | ArrayStorage): ArrayStorage {
     // biome-ignore lint/suspicious/noExplicitAny: required for type coercion
     return (a as any).storage;
   }
-  return a;
+  if (a instanceof ArrayStorage) {
+    return a;
+  }
+  throw notAnNDArray(a);
+}
+
+/**
+ * Throw the standard TypeError unless the value is an NDArray. For functions that call NDArray
+ * members directly instead of going through toStorage.
+ */
+export function assertNDArray(a: unknown): asserts a is NDArrayCore {
+  if (!(a instanceof NDArrayCore)) {
+    throw notAnNDArray(a);
+  }
 }
 
 /**
