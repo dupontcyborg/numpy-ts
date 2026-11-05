@@ -158,6 +158,8 @@ const rch = main.random.choice(f64, 3);
 type _choice = Expect<Equal<typeof rch, NDArray>>;
 const rch0 = main.random.choice(5);
 type _choice0 = Expect<Equal<typeof rch0, number>>;
+// @ts-expect-error a plain array population must be wrapped with np.array
+main.random.choice([1, 2, 3], 2);
 const rng = main.random.default_rng(1);
 const g1 = rng.random([2]);
 type _rngRandom = Expect<Equal<typeof g1, NDArray<'float64'>>>;

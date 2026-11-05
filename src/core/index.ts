@@ -480,6 +480,11 @@ function wrapResult<T>(result: T): T | NDArrayCoreClass {
   return result;
 }
 
+// Core random accepts an NDArrayCore wherever the ops take an ArrayStorage.
+function unwrapStorage<T>(x: NDArrayCoreClass | T): T | ArrayStorage {
+  return x instanceof NDArrayCoreClass ? x.storage : x;
+}
+
 export const random = {
   // State management
   seed: randomOps.seed,
@@ -490,8 +495,7 @@ export const random = {
   default_rng: (seedValue?: number) => {
     type ArrayLike = NDArrayCoreClass | ArrayStorage;
     const gen = randomOps.default_rng(seedValue);
-    const unwrap = (x: number | ArrayLike): number | ArrayStorage =>
-      x instanceof NDArrayCoreClass ? x.storage : (x as number | ArrayStorage);
+    const unwrap = (x: number | ArrayLike): number | ArrayStorage => unwrapStorage(x);
     return {
       random: (size?: number | number[]) => wrapResult(gen.random(size)),
       integers: (low: number, high?: number, size?: number | number[]) =>
@@ -618,14 +622,23 @@ export const random = {
 
   // Sequence operations
   choice: (
-    a: number | ArrayStorage,
+    a: number | NDArrayCoreClass | ArrayStorage,
     size?: number | number[],
     replace?: boolean,
-    p?: ArrayStorage | number[],
-  ) => wrapResult(randomOps.choice(a, size, replace, p)),
-  permutation: (x: number | ArrayStorage) => wrapResult(randomOps.permutation(x)),
+    p?: NDArrayCoreClass | ArrayStorage | number[],
+  ) =>
+    wrapResult(
+      randomOps.choice(
+        unwrapStorage(a) as number | ArrayStorage,
+        size,
+        replace,
+        unwrapStorage(p) as ArrayStorage | number[] | undefined,
+      ),
+    ),
+  permutation: (x: number | NDArrayCoreClass | ArrayStorage) =>
+    wrapResult(randomOps.permutation(unwrapStorage(x) as number | ArrayStorage)),
   shuffle: (x: NDArrayCoreClass | ArrayStorage) =>
-    randomOps.shuffle(x instanceof NDArrayCoreClass ? x.storage : x),
+    randomOps.shuffle(unwrapStorage(x) as ArrayStorage),
 };
 
 // FFT Namespace (core.fft)

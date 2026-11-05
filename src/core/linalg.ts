@@ -103,9 +103,9 @@ export function einsum(
 /** Compute the optimal contraction path for einsum */
 export function einsum_path(
   subscripts: string,
-  ...operands: NDArrayCore[]
+  ...operands: (NDArrayCore | number[])[]
 ): [Array<string | number[]>, string] {
-  const storageOperands = operands.map((op) => toStorage(op));
+  const storageOperands = operands.map((op) => (Array.isArray(op) ? op : toStorage(op)));
   return linalgOps.einsum_path(subscripts, ...storageOperands);
 }
 

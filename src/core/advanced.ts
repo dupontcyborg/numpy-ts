@@ -5,6 +5,7 @@
  */
 
 import { computeBroadcastShape } from '../common/broadcasting';
+import { Complex } from '../common/complex';
 import { type DType, isBigIntDType } from '../common/dtype';
 import { NDArrayCore } from '../common/ndarray-core';
 import * as advancedOps from '../common/ops/advanced';
@@ -106,8 +107,15 @@ export function take(a: NDArrayCore, indices: ArrayLike, axis?: number): NDArray
   return fromStorage(shapeOps.reshape(flatResult, outputShape));
 }
 
-export function put(a: NDArrayCore, indices: number[], values: NDArrayCore | number[]): void {
-  const valuesStorage = Array.isArray(values) ? toStorage(array(values)) : toStorage(values);
+export function put(
+  a: NDArrayCore,
+  indices: number[],
+  values: NDArrayCore | number[] | number | bigint,
+): void {
+  const valuesStorage =
+    typeof values === 'number' || typeof values === 'bigint'
+      ? values
+      : toStorage(Array.isArray(values) ? array(values) : values);
   advancedOps.put(toStorage(a), indices, valuesStorage);
 }
 
@@ -351,9 +359,16 @@ export function apply_along_axis(
   arr: NDArrayCore,
   ...args: unknown[]
 ): NDArrayCore {
-  const wrappedFunc = (storage: ArrayStorage): ArrayStorage | number => {
-    const result = func1d(fromStorage(storage), ...args);
-    return typeof result === 'number' ? result : toStorage(result);
+  const wrappedFunc = (storage: ArrayStorage): ArrayStorage | number | bigint => {
+    const result: unknown = func1d(fromStorage(storage), ...args);
+    if (typeof result === 'number' || typeof result === 'bigint') {
+      return result;
+    }
+    // The op accepts Complex scalars at runtime, but its callback type does not list them.
+    if (result instanceof Complex) {
+      return result as unknown as number;
+    }
+    return toStorage(result as NDArrayCore);
   };
   return fromStorage(advancedOps.apply_along_axis(toStorage(arr), axis, wrappedFunc));
 }

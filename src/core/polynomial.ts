@@ -11,6 +11,7 @@ import { NDArrayCore } from '../common/ndarray-core';
 import { eigvals } from '../common/ops/linalg';
 import { ArrayStorage } from '../common/storage';
 import { array } from './creation';
+import { assertNDArray } from './types';
 
 // Helper to convert to array
 function toArray(a: NDArrayCore | number[]): NDArrayCore {
@@ -344,6 +345,8 @@ export function polydiv(
  * Least squares polynomial fit
  */
 export function polyfit(x: NDArrayCore, y: NDArrayCore, deg: number): NDArrayCore {
+  assertNDArray(x);
+  assertNDArray(y);
   if (x.dtype === 'float16') {
     throw new TypeError('array type float16 is unsupported in linalg');
   }
