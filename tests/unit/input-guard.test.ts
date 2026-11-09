@@ -32,6 +32,7 @@ import {
   isin,
   item,
   ix_,
+  fft as npFft,
   ones,
   ones_like,
   pad,
@@ -349,5 +350,135 @@ describe('guard through the core entry point', () => {
     expect(c.random.default_rng(1).permutation(nd).size).toBe(4);
     expect(() => c.random.shuffle(nd)).not.toThrow();
     expect(() => c.random.default_rng(1).shuffle(nd)).not.toThrow();
+  });
+});
+
+describe('fft guard', () => {
+  const arrayFns = [
+    'fft',
+    'ifft',
+    'fft2',
+    'ifft2',
+    'fftn',
+    'ifftn',
+    'rfft',
+    'irfft',
+    'rfft2',
+    'irfft2',
+    'rfftn',
+    'irfftn',
+    'hfft',
+    'ihfft',
+    'fftshift',
+    'ifftshift',
+  ] as const;
+  const entries = [
+    ['numpy-ts', npFft as any],
+    ['numpy-ts/core', core.fft as any],
+  ] as const;
+
+  for (const [label, ns] of entries) {
+    describe(label, () => {
+      it.each(arrayFns)('%s rejects a plain array', (name) => {
+        expect(() => ns[name]([1, 2, 3, 4])).toThrow(TypeError);
+        expect(() => ns[name]([1, 2, 3, 4])).toThrow(/np\.array/);
+        expect(() =>
+          ns[name]([
+            [1, 2],
+            [3, 4],
+          ]),
+        ).toThrow(/np\.array/);
+        expect(() => ns[name](3)).toThrow(/np\.array/);
+      });
+
+      it('still transforms an NDArray', () => {
+        const x = array([1, 2, 3, 4]);
+        expect(ns.fft(x).shape).toEqual([4]);
+        expect(ns.ifft(ns.fft(x)).shape).toEqual([4]);
+        expect(ns.rfft(x).shape).toEqual([3]);
+        expect(
+          ns.fft2(
+            array([
+              [1, 2],
+              [3, 4],
+            ]),
+          ).shape,
+        ).toEqual([2, 2]);
+        expect(ns.fftshift(x).toArray()).toEqual([3, 4, 1, 2]);
+        expect(ns.ifftshift(array([1, 2, 3, 4, 5])).toArray()).toEqual([3, 4, 5, 1, 2]);
+      });
+
+      it('takes plain numbers in the frequency helpers', () => {
+        expect(ns.fftfreq(4).shape).toEqual([4]);
+        expect(ns.rfftfreq(4).shape).toEqual([3]);
+      });
+    });
+  }
+
+  it('still accepts a raw ArrayStorage at runtime', () => {
+    const st = ArrayStorage.zeros([4], 'float64');
+    expect((core.fft as any).fft(st).size).toBe(4);
+    expect((npFft as any).fft(st).size).toBe(4);
+  });
+});
+
+describe('random inputs given as arrays', () => {
+  const c = core as any;
+
+  it('core multinomial, dirichlet and multivariate_normal unwrap an NDArrayCore', () => {
+    expect(c.random.multinomial(10, c.array([0.5, 0.5]), 3).shape).toEqual([3, 2]);
+    expect(c.random.multinomial(10, c.array([0, 1])).toArray()).toEqual([0n, 10n]);
+    expect(c.random.dirichlet(c.array([1, 2, 3]), 4).shape).toEqual([4, 3]);
+    const mvn = c.random.multivariate_normal(
+      c.array([0, 0]),
+      c.array([
+        [1, 0],
+        [0, 1],
+      ]),
+      5,
+    );
+    expect(mvn.shape).toEqual([5, 2]);
+  });
+
+  it('core accepts plain number arrays and a raw ArrayStorage for the same parameters', () => {
+    expect(c.random.multinomial(10, [0, 1]).toArray()).toEqual([0n, 10n]);
+    expect(c.random.dirichlet([1, 2], 2).shape).toEqual([2, 2]);
+    expect(
+      c.random.multivariate_normal(
+        [0, 0],
+        [
+          [1, 0],
+          [0, 1],
+        ],
+        3,
+      ).shape,
+    ).toEqual([3, 2]);
+    const pvals = ArrayStorage.fromData(new Float64Array([0, 1]), [2], 'float64');
+    expect(c.random.multinomial(10, pvals).toArray()).toEqual([0n, 10n]);
+    const alpha = ArrayStorage.fromData(new Float64Array([1, 2]), [2], 'float64');
+    expect(c.random.dirichlet(alpha, 2).shape).toEqual([2, 2]);
+  });
+
+  it('core returns an NDArrayCore for a sized sample and a number otherwise', () => {
+    expect(c.random.random([2]).shape).toEqual([2]);
+    expect(typeof c.random.random()).toBe('number');
+    expect(c.random.rand(2, 3).shape).toEqual([2, 3]);
+    expect(typeof c.random.randn()).toBe('number');
+    expect(c.random.default_rng(1).integers(0, 5, [3]).shape).toEqual([3]);
+  });
+
+  it('main multinomial, dirichlet and multivariate_normal take an NDArray', () => {
+    expect(random.multinomial(10, array([0, 1])).toArray()).toEqual([0n, 10n]);
+    expect(random.dirichlet(array([1, 2]), 2).shape).toEqual([2, 2]);
+    expect(
+      random.multivariate_normal(
+        array([0, 0]),
+        array([
+          [1, 0],
+          [0, 1],
+        ]),
+        3,
+      ).shape,
+    ).toEqual([3, 2]);
   });
 });
